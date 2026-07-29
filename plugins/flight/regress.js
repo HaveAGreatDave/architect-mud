@@ -11,7 +11,7 @@ import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.
 import { sellAircraft, cancelRental, flushAirborne } from './hangars.js';
 import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
   shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
-  isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, nearestAirfield, salvoOf,
+  isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, nearestAirfield, listRegions, worldTerrainMap, salvoOf,
   vtolOnlyField, acquirableTypes, hangarRampFor, HANGAR_REACH } from './state.js';
 import { isFreightLicensed, ensureFreightDrops } from './contracts.js';
 import { isPilotLicensed, _test as checkrideTest } from './checkride.js';
@@ -662,6 +662,77 @@ export default async function regress({ run, check, getPlayer }) {
             forHeli?.id === pad.id, `${forHeli?.id}`);
         }
         delete cLive.crew; delete cLive.navDest; cLive.row.airborne = 0;
+      }
+      // Crew arrival shuts her down. Load-bearing for the CABIN: engine_on going false is the edge
+      // pushHud turns into a spool-down, so without it the aeroplane just goes quiet on landing and
+      // a passenger never hears the engines wind off.
+      {
+        const lf2 = listAirfields({ needsRunway: true })[0];
+        cLive.row.airborne = 1; cLive.row.engine_on = 1; delete cLive.crew;
+        await _test.crewLand(cLive, lf2.id, lf2.name);
+        check('the crew shut the engines down once she is on the blocks',
+          !cLive.row.engine_on && !cLive.row.airborne && !cLive.crew,
+          `eng=${cLive.row.engine_on} air=${cLive.row.airborne}`);
+      }
+      // DEADHEAD "Depart": charting from ABOARD only sets navDest (the map tap dispatches when
+      // you're remote, but merely charts when you're in her cabin), so without a go button the
+      // obvious flow — tap a field, look for the launch — dead-ended with the aeroplane still parked.
+      {
+        const df = listAirfields({ needsRunway: true }).find(f => f.id !== cLive.row.parked_zone_id) || listAirfields({ needsRunway: true })[0];
+        cLive.row.airborne = 0; delete cLive.crew; delete cLive.navDest;
+        cLive.row.fuel = cLive.type?.fuel_capacity || 1760;
+        p.seat = 'passenger'; cLive.pilotId = null;
+        await run(`tabletaction deadhead chart ${df.id}`);
+        check('DEADHEAD chart from aboard sets a course WITHOUT launching her',
+          cLive.navDest?.destZone === df.id && cLive.row.airborne === 0 && !cLive.crew,
+          `dest=${cLive.navDest?.destZone} air=${cLive.row.airborne}`);
+        const dep = await run('tabletaction deadhead depart');
+        check('DEADHEAD Depart launches the crew on the charted course',
+          cLive.row.airborne === 1 && cLive.crew?.destZone === df.id,
+          `air=${cLive.row.airborne} crew=${JSON.stringify(cLive.crew)} notice=${dep?.notice}`);
+        // Depart with nothing charted must say so rather than silently launching somewhere.
+        cLive.row.airborne = 0; delete cLive.crew; delete cLive.navDest;
+        const bare = await run('tabletaction deadhead depart');
+        check('DEADHEAD Depart with no course charted refuses and explains',
+          cLive.row.airborne === 0 && !cLive.crew && /chart a course/i.test(bare?.notice || ''), bare?.notice);
+        delete cLive.navDest; delete cLive.crew; cLive.row.airborne = 0;
+      }
+      // Region rectangles for the DEADHEAD zoomed-out overlay. A region carries no stored bounds —
+      // they're swept out of per-tile flags.region_id — so this is derived geometry with nothing
+      // else checking it, and a silently empty list would just render a blank map.
+      {
+        const regs = listRegions();
+        check('regions derive at least one rectangle from tile membership', regs.length > 0, `n=${regs.length}`);
+        check('every region rectangle is well-formed (max >= min, centre inside it)',
+          regs.every(r => r.maxX >= r.minX && r.maxY >= r.minY
+            && r.cx >= r.minX && r.cx <= r.maxX && r.cy >= r.minY && r.cy <= r.maxY),
+          JSON.stringify(regs[0]));
+        check('every region resolves a display name (never a bare id)', regs.every(r => r.name && r.name !== r.id) || regs.every(r => !!r.name),
+          regs.map(r => r.name).join(','));
+        check('the region sweep is memoised (same array identity on a second call)', listRegions() === regs);
+        // Coarse whole-world terrain. It ships on a 2s poll, so both its SIZE and its content matter:
+        // a downsampler that quietly returned an all-'.' grid would render a black rectangle and
+        // nothing would fail.
+        const wm = worldTerrainMap();
+        check('the world map downsamples to a bounded grid', wm.w > 0 && wm.h > 0 && wm.w <= 84 && wm.h <= 84 && wm.cell >= 1,
+          `${wm.w}x${wm.h} cell=${wm.cell}`);
+        check('the world map has one row string per grid row, each the full width',
+          wm.rows.length === wm.h && wm.rows.every(r => r.length === wm.w), `rows=${wm.rows.length}/${wm.h}`);
+        const chars = new Set(wm.rows.join(''));
+        check('the world map is not blank (real terrain got classified, not all void)',
+          [...chars].some(c => c !== '.') && chars.size >= 3, [...chars].join(''));
+        check('airfields survive the downsample (priority beats majority vote)', chars.has('A'), [...chars].join(''));
+        check('the world map is memoised too', worldTerrainMap() === wm);
+        // Payload size guard: this rides a 2s poll, so a regression to object-per-cell must be loud.
+        const bytes = JSON.stringify(wm).length;
+        check('the world map payload stays small enough to poll', bytes < 12000, `${bytes} bytes`);
+        // The DEADHEAD payload must actually carry them, or the toggle has nothing to draw.
+        const dhr = await run('tabletnav deadhead');
+        check('DEADHEAD ships the region rectangles to the client', (dhr?.deadhead?.regions?.length || 0) === regs.length,
+          `payload=${dhr?.deadhead?.regions?.length} derived=${regs.length}`);
+        check('DEADHEAD ships a live heading + fractional position for the aircraft marker',
+          typeof dhr?.deadhead?.hdg === 'number' && typeof dhr?.deadhead?.fx === 'number',
+          `hdg=${dhr?.deadhead?.hdg} fx=${dhr?.deadhead?.fx}`);
       }
       // DEADHEAD tablet app — the portable NAV/crew console reads the live base state.
       if (navField) cLive.navDest = { destZone: navField.id, destName: navField.name, tx: navField.gx, ty: navField.gy };

@@ -13869,8 +13869,36 @@ body.intro-cine-open { overflow: hidden; }
 	letter-spacing: 0.04em;
 	color: rgba(235,245,244,0.42);
 }
+/* The optional sound toggle, above Begin. Deliberately quieter than the Begin
+   button — it's an offer, not a step, and the one thing on this card that must
+   read as primary is the button that starts the film. */
+.intro-cine-gate-sound {
+	display: block;
+	margin: 26px auto 0;
+	font-family: inherit;
+	font-size: 11px;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: rgba(235,245,244,0.42);
+	background: transparent;
+	border: 1px solid rgba(235,245,244,0.16);
+	border-radius: 4px;
+	padding: 9px 18px;
+	cursor: pointer;
+	transition: color 260ms ease, border-color 260ms ease, background 260ms ease;
+}
+.intro-cine-gate-sound:hover {
+	color: rgba(235,245,244,0.78);
+	border-color: rgba(235,245,244,0.34);
+}
+.intro-cine-gate-sound.on {
+	color: color-mix(in srgb, var(--accent, #35e0c8) 78%, #fff);
+	border-color: color-mix(in srgb, var(--accent, #35e0c8) 34%, transparent);
+	background: color-mix(in srgb, var(--accent, #35e0c8) 6%, transparent);
+}
 .intro-cine-gate-btn {
-	margin-top: 30px;
+	display: block;
+	margin: 18px auto 0;
 	font-family: inherit;
 	font-size: 13px;
 	letter-spacing: 0.34em;

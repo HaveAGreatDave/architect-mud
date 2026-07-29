@@ -148,6 +148,27 @@ function escAttr(s) {
 	return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
+// Cluster order for the plain Furniture list. Things you sit on and things you
+// use lead; scenery and lights (which carry their own (on)/(off) tag and so read
+// as a group anyway) trail. The type is never shown to the player — this is only
+// a sort key, so an unknown object_type falls through to the tail rank.
+const FURNITURE_SORT_ORDER = [
+	"furniture",
+	"container",
+	"appliance",
+	"terminal",
+	"fixture",
+	"sink",
+	"shower",
+	"toilet",
+	"decoration",
+	"light",
+];
+function furnitureSortRank(f) {
+	const i = FURNITURE_SORT_ORDER.indexOf(f.object_type || "furniture");
+	return i === -1 ? FURNITURE_SORT_ORDER.length : i;
+}
+
 // Furniture flagged `flags.woven` is folded into the room prose (the PD-camera
 // pattern generalized) instead of the plain Furniture list: its description's
 // first sentence, kept clickable so examine/sit/etc. still work and the smart
@@ -549,12 +570,28 @@ export async function describeZone(zone, player, out = {}) {
 	const pairedSubBoxes = subBoxIds(visibleFurniture);
 	// The plain list excludes cameras (their own aside), woven pieces (prose), and
 	// the smaller half of a mutually-paired appliance (a fridge's freezer box).
-	const plainFurniture = visibleFurniture.filter(
-		(f) =>
-			f.object_type !== "security_device" &&
-			!f.flags?.woven &&
-			!pairedSubBoxes.has(f.id),
-	);
+	// Clustered by object_type, then alphabetical inside each cluster. The type
+	// itself is never printed — this only stops the line reading as a random
+	// jumble (furniture rows come out of the world cache in DB insertion order,
+	// which isn't even stable across a content rewrite). Unlisted types sort
+	// after the known ones, alphabetically by type, so a new object_type slots in
+	// somewhere sane without touching this table.
+	const plainFurniture = visibleFurniture
+		.filter(
+			(f) =>
+				f.object_type !== "security_device" &&
+				!f.flags?.woven &&
+				!pairedSubBoxes.has(f.id),
+		)
+		.sort((a, b) => {
+			const ra = furnitureSortRank(a);
+			const rb = furnitureSortRank(b);
+			if (ra !== rb) return ra - rb;
+			const ta = a.object_type || "furniture";
+			const tb = b.object_type || "furniture";
+			if (ta !== tb) return ta.localeCompare(tb);
+			return (a.name || "").localeCompare(b.name || "");
+		});
 	const furnitureAside = weaveFurniture(wovenPieces);
 
 	// Header line: name and the danger tag sit together so the [SAFE]/[LETHAL]

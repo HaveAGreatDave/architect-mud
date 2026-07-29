@@ -112,11 +112,18 @@ npm run shapes:bake
 ```
 
 It runs in plain node: windshield loads under [scripts/shapes/dom-stub.mjs](../../scripts/shapes/dom-stub.mjs),
-so there is no browser step and no dev-panel button. The baked file holds the ~5 most defining
-segments per model as uniform wireframe boxes, in **rank order**, with the **tallest always kept and
-flagged `tall`** — a spire has almost no bulk and would otherwise be trimmed first, which once
-reported Halcyon's roof as `1.0×` its storey stack instead of `2.9×` and would have flown the cold
-open's camera straight through it.
+so there is no browser step and no dev-panel button. The baked file holds the **~9 most defining
+segments** per model (`MAX_SEGS`), in **rank order**, with the **tallest always kept and flagged
+`tall`** — a spire has almost no bulk and would otherwise be trimmed first, which once reported
+Halcyon's roof as `1.0×` its storey stack instead of `2.9×` and would have flown the cold open's
+camera straight through it. It was 5, which buys the mass, one setback and the spire — enough for a
+silhouette and not enough for a building.
+
+Every segment carries a **bounding box** (`cx cy hx hy z0 z1 yaw?`), and a segment that is not a box
+also carries its **`kind`**: `drum` adds `{ rb, rt, n }` (a faceted, possibly tapered cylinder) and
+`arch` marks a barrel roof. A consumer may draw the real contour or just the cage — the cage is
+always present, so this is a detail upgrade and never a dependency. It exists because boxing all 39
+drums turned every tank, silo and round shaft in Coldwater into the same slab as the shop next door.
 
 The prologue manifest ([plugins/prologue/index.js](../../plugins/prologue/index.js)) ships `n`
 (building name) and `e` (entrance) alongside `{x,y,t,f}`. Both are load-bearing: the name resolves a

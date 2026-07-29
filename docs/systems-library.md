@@ -177,6 +177,13 @@ lives in the `Speech` IIFE in `client/shared/audio-engine.js`.
   - The **spelling guesser is still there** as the fallback for proper nouns and
     world coinages: a function-word list, suffix rules (`-ation`/`-ity`/`-ic`
     pull stress a fixed count back from the end) and weak prefixes.
+  - **Weak forms are per-vowel, not "everything becomes schwa".** English weakens
+    each vowel to a specific target, and the high vowels do *not* travel all the way
+    to the centre: `/uː/` → `/ʊ/`, `/iː/` → `/ɪ/`, everything else → schwa. Mapping
+    the lot to `AX` turned *you are* into "yuh er" — further than even fast speech
+    goes, and it reads as a mumble rather than as connected speech. `IY` and `UW` are
+    out of `CENTRALISES` for the same reason: they keep their colour when unstressed
+    (*happy*, *into*), so flattening them gives "happuh".
   - **Function words are deaccented at the phrase level** — no dictionary can do
     this, since CMUdict lists words in citation form and gives *you* a primary
     stress. This is most of what makes *of the* sound spoken rather than spelled.

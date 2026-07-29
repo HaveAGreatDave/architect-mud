@@ -108,7 +108,12 @@
 					var custom = (s.customThemes || []).find(function (t) {
 						return t.id === s.theme;
 					});
-					root.setAttribute("data-theme", custom ? "dark" : s.theme || "dark");
+					// "iron" is the default theme (DEFAULT_SETTINGS in
+					// client/shared/settings.js) — keep the two in step, or a player
+					// with no saved theme gets one colour on first paint and another
+					// the moment the modules load. "dark" here is only ever the BASE
+					// a custom theme is painted over, which is a different question.
+					root.setAttribute("data-theme", custom ? "dark" : s.theme || "iron");
 					if (custom && custom.colors) {
 						Object.keys(custom.colors).forEach(function (v) {
 							root.style.setProperty(v, custom.colors[v]);
@@ -116,7 +121,7 @@
 					}
 				} catch (e) {
 					root.setAttribute("data-sidebar", "left");
-					root.setAttribute("data-theme", "dark");
+					root.setAttribute("data-theme", "iron");
 				}
 			})();
 		</script>

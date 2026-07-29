@@ -29,7 +29,7 @@ import {
   initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
   ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg, groundTheme, vtolOnlyField,
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
-  RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, listAirfields, craftIsVtol, runwayFor, airfieldForRunway, yachtFieldNear, isGroundRolling,
+  RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, listAirfields, listRegions, worldTerrainMap, craftIsVtol, runwayFor, airfieldForRunway, yachtFieldNear, isGroundRolling,
   isWalkableCabin, isCabinZone, boardCabin, lookPayload, pushWindowTo, closeHud,
 } from './state.js';
 import { describeExterior, rampColorWord, conspicuousnessMult, normalizeLivery } from './livery.js';
@@ -533,6 +533,11 @@ async function crewLand(live, destZone, destName) {
   const z = getZone(destZone);
   if (z) { live.row.grid_x = z.grid_x; live.row.grid_y = z.grid_y; live.fx = z.grid_x; live.fy = z.grid_y; const rw = runwayFor(z); if (rw) live.row.heading = String(rw.hdg); }
   live.row.airborne = 0; live.row.altitude_band = 'ground'; live.row.parked_zone_id = destZone; live.row.throttle = 0; live.cont = null;
+  // The crew SHUT HER DOWN once she's on the blocks. Beyond being what a crew does, this is what
+  // makes the arrival audible from the cabin: engine_on going false is the edge pushHud turns into
+  // the spool-down arc, so you hear the engines wind off after the wheels touch instead of the
+  // aeroplane simply going quiet. It also leaves her cold, which is the state the visor opens in.
+  live.row.engine_on = 0;
   delete live.crew;
   await persist(live);
   pushHud(live);
@@ -1815,7 +1820,16 @@ function buildDeadhead(player) {
   } else if (live.row.airborne) status = { state: 'flying', text: (aboard && pilotOf(live) === player.id) ? 'You have the controls.' : 'In the air.' };
   else status = { state: 'parked', text: `Parked${getZone(live.row.parked_zone_id)?.name ? ' at ' + getZone(live.row.parked_zone_id).name : ''}.` };
   return { view: 'deadhead', deadhead: {
+    // fx/fy are the FRACTIONAL position the crew autopilot advances each tick; gx/gy are that
+    // rounded to a tile. The marker reads the fractional pair so she creeps across the map between
+    // tiles instead of teleporting a whole tile at a time, and `hdg` lets it point where she's going.
     aboard, remote: !aboard, name: live.type.name, gx, gy, fields, status,
+    fx: live.fx ?? gx, fy: live.fy ?? gy, hdg: toDeg(live.row.heading), moving: !!live.row.airborne,
+    // Region rectangles for the map's zoomed-out mode. Sent every push (they're memoised server-side
+    // and tiny) so the toggle is instant and client-side — no round trip to change view.
+    regions: listRegions().map(r => ({ id: r.id, name: r.name, terrain: r.terrain,
+      minX: r.minX, maxX: r.maxX, minY: r.minY, maxY: r.maxY, cx: r.cx, cy: r.cy })),
+    world: worldTerrainMap(),   // coarse whole-world terrain the map paints under everything else
     charted: live.navDest ? (live.navDest.loiter
       ? { loiter: true, tx: live.navDest.tx, ty: live.navDest.ty, name: live.navDest.name }
       : { id: live.navDest.destZone, name: live.navDest.destName }) : null,
@@ -1836,6 +1850,19 @@ registerTabletApp({
       if (actionId === 'chart' && params) await cmdNav([params], `nav ${params}`, player);
       else if (actionId === 'loiter' && params) { const [gx, gy] = params.split(/\s+/); await cmdNav(['loiter', gx, gy], `nav loiter ${gx} ${gy}`, player); }
       else if (actionId === 'circlehere') { const r = await cmdCircle([], 'circle', player); return { ...buildDeadhead(player), notice: _stripTags(r?.message) }; }
+      // DEPART — launch the crew to the charted course from a PARKED base. Without this, charting
+      // from aboard set a destination and then nothing could act on it: the map tap dispatches when
+      // you're remote but only charts when you're in her cabin, so the obvious flow (tap a field,
+      // then look for the go button) dead-ended. Routed through the ordinary verbs so the fuel /
+      // helipad / you-have-the-controls gates all apply exactly as if you'd typed it.
+      else if (actionId === 'depart') {
+        const nd = live?.navDest;
+        let r;
+        if (!nd) r = { message: 'Chart a course first — tap a field, or anywhere to hold.' };
+        else if (nd.loiter) r = await cmdCircle([String(nd.tx), String(nd.ty)], `circle ${nd.tx} ${nd.ty}`, player);
+        else r = await cmdLandAt([nd.destZone], `landat ${nd.destZone}`, player);
+        return { ...buildDeadhead(player), notice: _stripTags(r?.message) };
+      }
       else if (actionId === 'clear') await cmdNav(['clear'], 'nav clear', player);
       else if (actionId === 'take') { const r = await cmdTakeControls([], 'takecontrols', player); if (r?.type === 'noop') return { type: 'tablet_close' }; return { ...buildDeadhead(player), notice: _stripTags(r?.message) }; }
       else if (actionId === 'hand') { const r = await cmdHandoff([], 'handoff', player); return { ...buildDeadhead(player), notice: _stripTags(r?.message) }; }
@@ -1916,6 +1943,6 @@ export const routeHandler = async (path, method, body, auth) => {
   return null;
 };
 
-export const _test = { surfaceAt, takeoffDifficulty, landDifficulty, DIRS, liveAircraft, noiseReach, isContinuous, bandFromAltitude, crewStep, crewDivertFuel, groundStop, GROUND_STOP_SEVERITY };
+export const _test = { surfaceAt, takeoffDifficulty, landDifficulty, DIRS, liveAircraft, noiseReach, isContinuous, bandFromAltitude, crewStep, crewLand, crewDivertFuel, groundStop, GROUND_STOP_SEVERITY };
 
 console.log('[flight] Plugin loaded.');

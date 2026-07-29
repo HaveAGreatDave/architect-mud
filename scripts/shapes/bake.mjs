@@ -25,7 +25,12 @@ const OUT = new URL('../../client/shared/building-shapes.js', import.meta.url).p
 // The N most defining pieces, in rank order, with the TALLEST always included (a spire has almost
 // no bulk but is most of a skyline). The cold open draws fewer than this on distant buildings — it
 // strokes cages, and every edge is its own path — so this is a ceiling, not a per-frame cost.
-const MAX_SEGS = 5;
+// Was 5, which is a silhouette; 9 is a BUILDING. Five pieces buys the mass, the main setback and
+// the spire, and everything a tower is actually recognised by — the second setback, the podium, the
+// portico, the rooftop plant — fell off the end, so most of the city arrived as a slab with a stick
+// on it. The cold open picks how many of these it strokes by distance, so the extra pieces cost
+// nothing on a far building and are the whole difference on a near one.
+const MAX_SEGS = 9;
 const R = 5;          // decimals kept — a wireframe does not need micrometres
 
 export function bakeShapes(ws) {
@@ -38,6 +43,9 @@ export function bakeShapes(ws) {
       const rec = { cx: round(s.cx), cy: round(s.cy), hx: round(s.hx), hy: round(s.hy), z0: round(s.z0), z1: round(s.z1) };
       if (s.yaw) rec.yaw = +s.yaw.toFixed(4);
       if (s.front) rec.front = 1;
+      // The real contour, where a piece has one. Absent means "a box", which is 90% of them.
+      if (s.kind === 'drum') { rec.kind = 'drum'; rec.rb = round(s.rb); rec.rt = round(s.rt); rec.n = s.n; }
+      else if (s.kind) rec.kind = s.kind;
       // The tallest piece — a spire, a crown, a water tower. Flagged because it has almost no bulk
       // and so sorts LAST, which means any consumer trimming the list by rank would drop exactly the
       // thing that gives a skyline its shape.
@@ -58,7 +66,10 @@ export function renderModule(shapes) {
 // building looks like without importing it. The cold open is the reason it exists; collision and the
 // ground shadow read the same geometry live, from the renderer itself.
 //
-// A segment is one wireframe box: { cx, cy, hx, hy, z0, z1, yaw?, front? }. Every number is an
+// A segment is one wireframe piece: { cx, cy, hx, hy, z0, z1, yaw?, front?, kind? }, where cx…z1 are
+// always its bounding box. \`kind\` is absent for a plain box; "drum" adds { rb, rt, n } (a faceted,
+// possibly tapered cylinder) and "arch" marks a barrel roof. A consumer may draw the real contour or
+// just the box — the box is always there. Every number is an
 // affine triple [a, b, c] meaning \`a * footprintHalfWidth + b * storeyStackHeight + c\` — so a
 // consumer picks its own scale, which is what lets the cold open use storeys six times taller than
 // the sim's without the shapes drifting. \`front\` marks mass on the entrance face (a door or a

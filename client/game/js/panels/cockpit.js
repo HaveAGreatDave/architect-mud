@@ -240,6 +240,15 @@ export function cabinAudio(s) {
   // Forced to the 'cabin' perspective: whoever is listening is back in a room, not at the controls,
   // so the engines arrive muffled through the structure. Set here rather than trusted from the
   // server payload, because this entry point is BY DEFINITION the walking-the-cabin one.
+  // The start-up / shut-down arc is a ONE-SHOT on an edge, so it's fired here and not left to the
+  // steady-state loop — you hear the engines spin up from the cabin the way the pilot does, just
+  // through a bulkhead.
+  const sp = s?.spool;
+  if (sp === 'up') { try { spoolUp(s.class); } catch {} }
+  else if (sp === 'down') { try { spoolDown(s.class); } catch {} }
+  // Wheels leaving / wheels arriving. The touchdown chirp is the single most legible cue that the
+  // flight is over when you can't see out — you feel the aeroplane arrive before anyone announces it.
+  if (s?.thump) { try { groundFx(s.thump); } catch {} }
   updateEngineAudio({ ...(s || {}), perspective: 'cabin' });
 }
 

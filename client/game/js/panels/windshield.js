@@ -7981,14 +7981,19 @@ export function shapeAdornCost(m, tier = ADORN_RICH, night = 0.9, camF = 4) {
   }
 }
 
-// A model reduced to a uniform list of WIREFRAME BOXES, ordered most-important first, for consumers
-// that want a silhouette rather than a render — the cold open above all, which strokes cages and has
-// no use for the difference between a drum and a box.
+// A model reduced to a list of WIREFRAME pieces, ordered most-important first, for consumers that
+// want a silhouette rather than a render — the cold open above all, which strokes cages.
 //
-// Every kind collapses to {cx, cy, hx, hy, z0, z1, yaw}: a drum becomes a box of its radius, a
-// barrel roof a slab of its span, a sawtooth deck a slab of its deck. Values stay in the affine
-// [a·fh + b·h + c] form so the consumer can pick its own scale — the cold open's storeys are much
-// taller than the sim's, and this is what lets one bake serve both.
+// Every piece carries a BOUNDING BOX {cx, cy, hx, hy, z0, z1, yaw} so a consumer that only wants a
+// cage can ignore everything else. On top of that it carries its KIND, because a cage is not what a
+// round tower looks like: the first pass boxed all 39 drums in the city, which turned every tank,
+// silo and cylindrical shaft in Coldwater into the same slab as the shop next door. So a drum now
+// ships its radii and facet count, and a barrel is flagged as an arch — a consumer can draw the real
+// contour or fall back to the box, and the box is right there either way. (The single sawtooth deck
+// stays a box: one roof, and its teeth are smaller than a wireframe line is wide at that distance.)
+//
+// Values stay in the affine [a·fh + b·h + c] form so the consumer can pick its own scale — the cold
+// open's storeys are much taller than the sim's, and this is what lets one bake serve both.
 //
 // Ordering is the LOD ranking, so `max` gives you the N most defining pieces of a building, with
 // repeated groups (a colonnade) already kept together.
@@ -8016,7 +8021,13 @@ export function shapeWireList(m, max = 6) {
     else if (s.kind === 'drum') { hx = hy = (Math.abs(s.rb[0]) + Math.abs(s.rb[1]) >= Math.abs(s.rt[0]) + Math.abs(s.rt[1])) ? s.rb : s.rt; }
     else if (s.kind === 'barrel') { cx = add(s.cx, s.cxL); hx = s.hl; hy = s.hw; }
     else { hx = s.hx; hy = s.hy; }
-    return { cx, cy: s.cy, hx, hy, z0: s.z0, z1: s.z1, yaw: s.yaw || 0, front: s.frontOnly ? 1 : 0, tall: s === tallest.s ? 1 : 0 };
+    const out = { cx, cy: s.cy, hx, hy, z0: s.z0, z1: s.z1, yaw: s.yaw || 0, front: s.frontOnly ? 1 : 0, tall: s === tallest.s ? 1 : 0 };
+    // The real contour, for a consumer that can draw it. A drum tapers (rb→rt) and is faceted; a
+    // barrel is an arch over its span. Both are carried alongside the bounding box, never instead
+    // of it.
+    if (s.kind === 'drum') { out.kind = 'drum'; out.rb = s.rb; out.rt = s.rt; out.n = s.n; }
+    else if (s.kind === 'barrel') { out.kind = 'arch'; }
+    return out;
   });
 }
 

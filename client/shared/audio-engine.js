@@ -1528,14 +1528,23 @@
 
     // Monophthongs that centralise when they lose their stress. Diphthongs are
     // absent on purpose: the glide IS the vowel's identity and survives reduction.
-    const CENTRALISES = new Set(['IY','IH','EH','AE','AA','AO','UH','UW','AH']);
+    // IY and UW are absent too, and for the same reason — they keep their colour in
+    // an unstressed syllable ("happy", "into"), so flattening them gives "happuh".
+    const CENTRALISES = new Set(['IH','EH','AE','AA','AO','UH','AH']);
+
+    // WEAK FORMS. A function word doesn't simply become schwa — English weakens each
+    // vowel to a specific target, and the high vowels do NOT go all the way to the
+    // centre: /uː/ weakens to /ʊ/ and /iː/ to /ɪ/. Mapping everything to schwa turned
+    // "you are" into "yuh er", which is further than even fast speech goes and reads
+    // as a mumble rather than as connected speech.
+    const WEAK = { IY:'IH', UW:'UH', IH:'AX', EH:'AX', AE:'AX', AA:'AX', AO:'AX', AH:'AX', UH:'AX' };
 
     // Function words lose their accent at the PHRASE level, which no dictionary can
     // tell you — CMUdict gives "you" a primary stress because it lists words in
     // citation form, one at a time. Running them full-strength is most of what
     // makes a synth sound like it is reading a list of words rather than a sentence.
     function deaccent(ph){
-      return ph.filter(p => !isMark(p)).map(p => CENTRALISES.has(p) ? 'AX' : p);
+      return ph.filter(p => !isMark(p)).map(p => WEAK[p] || p);
     }
 
     function guessStress(ph, word){

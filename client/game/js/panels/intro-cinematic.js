@@ -34,7 +34,7 @@
 //     canvas animation to static frames and keeps the text.
 //   • the whole thing is idempotent and self-cleaning: one overlay, one RAF, one
 //     AudioContext, all torn down on skip or end.
-import { loadSettings } from '../../../shared/settings.js';
+import { loadSettings, saveSettings } from '../../../shared/settings.js';
 // The SAME height/footprint numbers the flight sim extrudes Coldwater with, so
 // the skyline you fly through here is the skyline you fly over later.
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
@@ -74,9 +74,13 @@ const BEATS = [
 ];
 // The wordmark. Not a beat — it's a DOM layer (see the `.intro-cine-logo` block
 // below) so the type stays crisp and the A-mark can draw itself on.
-const LOGO_AT = 71500;
+// Pulled 2s in from 71500: the flythrough had said what it had to say by then, and
+// a shot that has finished being about something is just footage. Everything the
+// audio does on the last act is expressed in terms of these two constants, so the
+// pads, the picardy third and the final bell move with it.
+const LOGO_AT = 69500;
 // LOGO_AT + ~5.5s of assembly + a beat to just LOOK at it + the 1.5s dissolve.
-const RUN_MS  = 80900;
+const RUN_MS  = 78900;
 
 // Canvas phase schedule. `from` is ms; the last one runs to the end. Each phase's
 // own progress is measured from its `from` (the old code measured from hardcoded
@@ -110,7 +114,12 @@ export function hasSeenIntro() { return localStorage.getItem(SEEN_KEY) === '1'; 
 function startAudio() {
   let s;
   try { s = loadSettings(); } catch { s = null; }
-  if (s && (s.enabled === false || s.music === false)) return null;
+  // The player's OWN audio settings, which live under `audio` — an earlier pass read
+  // `s.enabled` and `s.masterVolume` off the top level, where they have never been,
+  // so "obeys the player's saved settings, including off" was a comment rather than
+  // a behaviour: someone who had muted the game got a cinematic at full volume.
+  const a = (s && s.audio) || null;
+  if (a && (a.enabled === false || a.music === false)) return null;
   const Ctx = window.AudioContext || window.webkitAudioContext;
   if (!Ctx) return null;
 
@@ -121,7 +130,7 @@ function startAudio() {
   ctx.resume?.().catch(() => {});
 
   const master = ctx.createGain();
-  const vol = Math.max(0, Math.min(1, (s?.masterVolume ?? 0.4) * (s?.musicVolume ?? 0.4)));
+  const vol = Math.max(0, Math.min(1, (a?.masterVolume ?? 0.4) * (a?.musicVolume ?? 0.4)));
   master.gain.value = 0;
   master.connect(ctx.destination);
 
@@ -458,23 +467,42 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
 
   const A = parseAccent(getComputedStyle(document.documentElement).getPropertyValue('--accent'));
   const acc = (a) => `rgba(${A.r},${A.g},${A.b},${a})`;
+  // The same light, overdriven. Everything in this sequence is made of the accent —
+  // so a highlight is the accent BLOWN OUT toward white, never a separate colour.
+  // Hardcoded near-whites here used to fight a red or amber theme: on a cyan
+  // default nobody noticed, on any other one the static and the dying tube were
+  // visibly a different piece of hardware from the city.
+  const H = { r: lerp(A.r, 255, 0.72), g: lerp(A.g, 255, 0.72), b: lerp(A.b, 255, 0.72) };
+  const hot = (a) => `rgba(${Math.round(H.r)},${Math.round(H.g)},${Math.round(H.b)},${a})`;
 
   // ── Camera ──
-  // A pinhole at the world origin looking down +z, with a little pitch. Nothing
-  // else: no matrices, no near/far planes. `proj` is the only place perspective
-  // happens, so every phase gets the same depth for free.
-  const cam = { x: 0, y: 0, z: 0, pitch: 0 };
+  // A pinhole at the world origin looking down +z, with a little pitch and a YAW.
+  // Nothing else: no matrices, no near/far planes. `proj` is the only place
+  // perspective happens, so every phase gets the same depth for free.
+  //
+  // The yaw is what makes the flythrough a TRACKING SHOT rather than a corridor
+  // run: the camera travels down one axis and looks across it, so the city sweeps
+  // through the frame instead of sitting off in one corner of it. Positive yaw
+  // looks to the right (+x). Everything that used to treat `z − cam.z` as depth
+  // has to go through `depthOf` once this is non-zero, or the whole city sits in
+  // the part of the world the near-plane cull throws away.
+  const cam = { x: 0, y: 0, z: 0, pitch: 0, yaw: 0 };
   const proj = (x0, y, z) => {
     const f = Math.min(w, h) * 0.95;
-    const x = x0 - cam.x;
-    const dy = y - cam.y, dz = z - cam.z;
+    const dx = x0 - cam.x, dy = y - cam.y, dz = z - cam.z;
+    const cw = Math.cos(cam.yaw), sw = Math.sin(cam.yaw);
+    const x = dx * cw - dz * sw;          // camera-space lateral
+    const fz = dz * cw + dx * sw;         // camera-space forward
     const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
-    const ry = dy * cp - dz * sp;
-    let rz = dz * cp + dy * sp;
+    const ry = dy * cp - fz * sp;
+    let rz = fz * cp + dy * sp;
     if (rz < 0.14) rz = 0.14;             // never divide through the lens
     const s = f / rz;
     return { x: w / 2 + x * s, y: h / 2 + ry * s, s, z: rz };
   };
+  // How far in FRONT of the lens a world point is, yaw included. The one thing
+  // every cull and every line-width falloff must measure with.
+  const depthOf = (x, z) => (z - cam.z) * Math.cos(cam.yaw) + (x - cam.x) * Math.sin(cam.yaw);
   // Orbit the FIELD rather than the camera — spinning a camera that sits outside
   // the volume just swings the volume off-frame.
   const ZC = 3.15;
@@ -555,7 +583,7 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
   // here — instead the DRAW picks how many to stroke by distance, because a far tower is a few
   // pixels of cage and every edge is its own beginPath. That keeps the frame near its old cost:
   // most of the ~240 buildings are far, and they stay one box exactly as before.
-  const segCountFor = (dist) => (dist < 9 ? 5 : dist < 20 ? 3 : 1);
+  const segCountFor = (dist) => (dist < 7 ? 9 : dist < 14 ? 6 : dist < 24 ? 3 : 1);
   const ENT_VEC = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
   // A building's captured segments, resolved and pre-transformed into SCENE offsets around its own
   // position. Done once at build time, never per frame.
@@ -565,24 +593,53 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
   // the building's entrance rotation are two different frames, and adding them in the wrong order
   // gives a tower that stands in the right place with its footprint turned the wrong way — right
   // enough to ship unnoticed. Rotating the four corners sidesteps the question entirely.
+  const DRUM_MAX_FACETS = 12;   // a wireframe barrel at 30 tiles does not need 24 posts
+  const ARCH_RIBS = 7;
   const segsFor = (b, half, h) => {
     const list = shapeFor(b.n, b.t);
     if (!list || !list.length) return null;
     const E = ENT_VEC[b.e] || ENT_VEC.south;
     const px = E[1], py = -E[0];                 // model-local +x = right of the door
     const V = (p) => shapeVal(p, half, h);
+    // Model-local → scene, the one place the entrance rotation and the city rotation compose. Every
+    // corner of every contour goes through here individually rather than by adding angles — see the
+    // note above on why.
+    const P2S = (lx, ly) => {
+      const tx = lx * px + ly * E[0], ty = lx * py + ly * E[1];   // → tile offset (facePt)
+      return [-ty * SPACING, -tx * SPACING];                      // → scene, same axis flip as T2X/T2Z
+    };
     const out = [];
     for (const s of list) {
       const cx = V(s.cx), cy = V(s.cy), hx = V(s.hx), hy = V(s.hy);
       if (!(hx > 0.0005) || !(hy > 0.0005)) continue;
       const cw = Math.cos(s.yaw || 0), sw = Math.sin(s.yaw || 0);
-      const pts = [[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]].map(([ax, ay]) => {
-        const lx = cx + ax * cw - ay * sw, ly = cy + ax * sw + ay * cw;   // local, yaw applied
-        const tx = lx * px + ly * E[0], ty = lx * py + ly * E[1];         // → tile offset (facePt)
-        return [-ty * SPACING, -tx * SPACING];                            // → scene, same axis flip as T2X/T2Z
-      });
+      const local = (ax, ay) => P2S(cx + ax * cw - ay * sw, cy + ax * sw + ay * cw);   // yaw applied
+      const pts = [[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]].map(([ax, ay]) => local(ax, ay));
       // Scene y is DOWN, ground at GY — so a taller world-z is a smaller y.
-      out.push({ pts, yTop: GY - V(s.z1), yBot: GY - V(s.z0), tall: !!s.tall });
+      const seg = { pts, yTop: GY - V(s.z1), yBot: GY - V(s.z0), tall: !!s.tall };
+      if (s.kind === 'drum') {
+        // A ROUND thing, drawn round. Tanks, silos, the Layover's water tower, half the industrial
+        // plant in the Yards — boxing these was the single most visible lie in the flythrough.
+        // Two rings, because a drum can taper (a cone is rt≈0).
+        const n = Math.max(5, Math.min(DRUM_MAX_FACETS, s.n || 8));
+        const ring = (r) => Array.from({ length: n }, (_, k) => {
+          const a = ((k + 0.5) / n) * Math.PI * 2;
+          return local(Math.cos(a) * r, Math.sin(a) * r);
+        });
+        seg.kind = 'drum';
+        seg.pts = ring(V(s.rb));
+        seg.top = ring(V(s.rt));
+      } else if (s.kind === 'arch') {
+        // A barrel roof: an arch over the span (local y), extruded along the length (local x). Held
+        // as rib stations with a height FRACTION so the extrusion animation below can raise the
+        // whole vault on the same clock as everything else.
+        seg.kind = 'arch';
+        seg.rib = Array.from({ length: ARCH_RIBS + 1 }, (_, k) => {
+          const th = (k / ARCH_RIBS) * Math.PI;
+          return { a: local(-hx, Math.cos(th) * hy), b: local(hx, Math.cos(th) * hy), zf: Math.sin(th) };
+        });
+      }
+      out.push(seg);
     }
     return out.length ? out : null;
   };
@@ -621,7 +678,8 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
         ox: (seed - 0.5) * 46, oy: -14 - seed * 22, oz: sz + (seed - 0.5) * 30,
       };
     });
-    out.sort((a, b) => b.sz - a.sz);   // far → near, a plain painter's pass
+    // NOT sorted here — the painter's order depends on which way the lens ends up
+    // facing, and that is decided below (it needs this list to decide it).
     return out;
   })();
 
@@ -637,13 +695,86 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
   // cruise and nothing else. No clamp, no lookahead, no correction. You lose the
   // canyon-diving read and you gain a move that never argues with itself, which is
   // the trade the "it should be smooth" brief is asking for.
-  const CRUISE_CLEAR = 1.35;               // headroom over the tallest roof
-  const maxRoof = city.length ? Math.max(...city.map(b => b.hMax || b.h)) : 3.6;
-  const CRUISE_Y = -(maxRoof + CRUISE_CLEAR);
+  //
+  // But it is NOT decided by the tallest thing in Coldwater. Clearing everything
+  // put the lens ~15 units up once the captured shapes landed (a model can stand
+  // 3.3× its storey stack) — above the haze cutoff, with the city squeezed into
+  // the bottom edge of the frame or out of it entirely. And a camera that clears
+  // everything is a camera with nothing above it, which is the one thing a city
+  // flythrough is for.
+  //
+  // So the altitude is set just over the MEDIAN roof — above the ordinary blocks,
+  // well under the towers, which is the height a skyline actually reads from. The
+  // towers are not dodged at all any more: the run is offshore (see the lane
+  // below), so there is nothing beside the camera to dodge.
+  // The median, not the 62nd percentile, and less headroom: the shot is close and
+  // side-on now, and the point of it is that the towers DON'T fit. A skyline you
+  // can see the top of from a boat is a town.
+  const CRUISE_CLEAR = 0.55;               // headroom over the roofs it does clear
+  const roofs = city.map((b) => b.hMax || b.h).sort((a, b) => a - b);
+  const medRoof = roofs.length ? roofs[Math.floor(roofs.length * 0.5)] : 2.6;
+  const CRUISE_Y = -(medRoof + CRUISE_CLEAR);
   const APPROACH_Y = CRUISE_Y - 5.4;       // up is -y, so this is HIGHER
-  // Where the run starts and ends in z. Hoisted because the reform lattice below
-  // has to be positioned relative to the camera's opening station.
-  const FLY_Z0 = -34, FLY_Z1 = 18;
+  // Where the run starts and ends in z — the CITY's own extent plus a margin at
+  // each end, rather than two hardcoded numbers that had no idea where Coldwater
+  // was. A pan should start just off one end of the subject and finish just off the
+  // other; anything else is either a wait or a truncation. Hoisted because the
+  // reform lattice below has to be positioned relative to the opening station.
+  //
+  // The window is deliberately NOT symmetric. Screen-right is +z (west), so moving
+  // the camera west slides the city LEFT through the frame — starting a touch
+  // inside the east edge means the picture opens with the city already across it
+  // rather than with the subject stacked over on the right waiting to be reached,
+  // and the long tail past the west edge is what lets the run clear the far side of
+  // town before the wordmark lands instead of stopping in the middle of it.
+  const zs = city.map((b) => b.sz);
+  const FLY_Z0 = (zs.length ? Math.min(...zs) : -20) - 1.5;
+  const FLY_Z1 = (zs.length ? Math.max(...zs) : 12) + 11;
+
+  // ── The lane, and where the lens points ──
+  // The run is a STRAIGHT LINE, and the only decisions are which line and which way
+  // it faces. Both are made here, once, and neither changes for the length of the
+  // shot — a camera that steers around a tower is a camera reacting to the
+  // geography, which is exactly what the altitude stopped doing a paragraph above.
+  //
+  // The line is OUT OVER THE WATER, off the city's seaward edge, and the lens looks
+  // back across it at the skyline. That buys three things at once:
+  //   • clearance is structural rather than searched — nothing is built on water,
+  //     so there is nothing to dodge and no solver to go wrong;
+  //   • the city fills the frame. Threading a lane between the blocks meant flying
+  //     up the map's edge with the whole of Coldwater bunched into one side of the
+  //     picture; from offshore, looking in, the skyline lies ACROSS the frame;
+  //   • the travel reads as a slide. Facing along the direction of motion makes a
+  //     corridor; facing across it makes a tracking shot, and a tracking shot is
+  //     what shows a place off.
+  // Which side the water is on is read from the coastline, not assumed — the shore
+  // runs where the land stops, so the water is whichever side of the city the coast
+  // sits toward.
+  const cityMinX = Math.min(...city.map((b) => b.sx - b.half));
+  const cityMaxX = Math.max(...city.map((b) => b.sx + b.half));
+  const SEA_SIDE = (() => {
+    const cx = (cityMinX + cityMaxX) / 2;
+    const s = Array.isArray(shore) ? shore : [];
+    if (!s.length) return 1;
+    const mean = s.reduce((a, [, y]) => a + T2X(y - 0.5, CY), 0) / s.length;
+    return mean >= cx ? 1 : -1;
+  })();
+  const SEA_OFF = 2.6;                     // how far offshore, in tiles — close in
+  const LANE_X = (SEA_SIDE > 0 ? cityMaxX : cityMinX) + SEA_SIDE * SEA_OFF;
+  // …and turned SQUARE to the shore. A PAN, not a diagonal: the lens looks straight
+  // across at the city and the city slides through the frame, which is the shot
+  // that shows a place off. The 50° version read as neither one thing nor the other
+  // — the skyline arrived at an angle and receded at an angle, and everything sat
+  // in perspective instead of standing up. Square-on, the towers are vertical, the
+  // frame is a section through the city, and the tall ones simply leave the top of
+  // it, which is what makes them tall.
+  const LANE_YAW = -SEA_SIDE * Math.PI / 2;
+
+  // Far → near along the LOOK direction, a plain painter's pass. Sorting down the
+  // map instead would paint the far shore over the near blocks now that the lens is
+  // turned across it. It's a wireframe, so this only decides which faint line wins
+  // an overlap — but it's one dot product and the alternative is a muddier skyline.
+  city.sort((a, b) => (b.sz - a.sz) * Math.cos(LANE_YAW) + (b.sx - a.sx) * Math.sin(LANE_YAW));
 
   // ── The reform lattice ──
   // The lattice does not simply reappear as a memory — it comes back, in front of
@@ -656,7 +787,22 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
   // arm's length, at the camera's own eye height, and it's scaled up because at
   // its native size it's a trinket rather than the structure of the world.
   const LAT_S = 2.3;
-  const LAT_X = 0, LAT_Y = APPROACH_Y, LAT_Z = FLY_Z0 + 5.2;
+  // The camera's opening station — hoisted, because the lattice has to be placed
+  // relative to where the lens actually is AND to where it is looking.
+  const APPROACH_PITCH = 0.30;
+  const LAT_AHEAD = 5.2;
+  // Placed along the camera's own LOOK direction, not down the map's z axis — the
+  // lens is yawed, so "in front of the camera" and "further along the run" stopped
+  // being the same place the moment the shot turned to face the shore.
+  const LAT_X = LANE_X + Math.sin(LANE_YAW) * LAT_AHEAD;
+  const LAT_Z = FLY_Z0 + Math.cos(LANE_YAW) * LAT_AHEAD;
+  // Dropped below eye height by exactly the pitch, so the lattice's centre lands
+  // on the OPTICAL centre of the frame rather than above it. That point is the
+  // whole back half of the sequence — the static collapses into it, the ember
+  // holds on it through the silence, the new lattice blooms out of it — and a
+  // tube switching off in the top third of the screen reads as a glitch instead
+  // of as the picture going out. Match this to the pitch or the CRT-off moves.
+  const LAT_Y = APPROACH_Y + LAT_AHEAD * Math.tan(APPROACH_PITCH);
   // Lattice-local → scene. `k` is how far the node has travelled from the lattice
   // CENTRE out to its cubic seat — so at k=0 the entire field is one point, which
   // is exactly the point the static collapsed to and the ember has been sitting on
@@ -698,9 +844,10 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
   // is the whole trick: the cut isn't a cut, it's a continuous point of light.
   function latCenterScreen() {
     const sx = cam.x, sy = cam.y, sz = cam.z, sp = cam.pitch;
-    cam.x = 0; cam.y = APPROACH_Y; cam.z = FLY_Z0; cam.pitch = 0.30;
+    const sw = cam.yaw;
+    cam.x = LANE_X; cam.y = APPROACH_Y; cam.z = FLY_Z0; cam.pitch = APPROACH_PITCH; cam.yaw = LANE_YAW;
     const p = proj(LAT_X, LAT_Y, LAT_Z);
-    cam.x = sx; cam.y = sy; cam.z = sz; cam.pitch = sp;
+    cam.x = sx; cam.y = sy; cam.z = sz; cam.pitch = sp; cam.yaw = sw;
     return p;
   }
   const COLLAPSE_MS = 620;    // how long the picture takes to squeeze to a line
@@ -717,7 +864,7 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
     const a = 0.35 + 0.65 * k;
     ctx.fillStyle = acc(a * 0.45);
     ctx.fillRect(cp.x - bw / 2, cp.y - bh * 1.9, bw, bh * 3.8);
-    ctx.fillStyle = `rgba(226,250,255,${a})`;
+    ctx.fillStyle = hot(a);
     ctx.fillRect(cp.x - bw / 2, cp.y - bh / 2, bw, bh);
   }
   // What's left of it. Burns down over EMBER_MS to EMBER_FLOOR and then just sits
@@ -728,7 +875,7 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
     const r = Math.max(0.9, 3.6 * k);
     ctx.fillStyle = acc(0.34 * k);
     ctx.beginPath(); ctx.arc(cp.x, cp.y, r * 5.5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = `rgba(226,250,255,${0.92 * k})`;
+    ctx.fillStyle = hot(0.92 * k);
     ctx.beginPath(); ctx.arc(cp.x, cp.y, r, 0, Math.PI * 2); ctx.fill();
   }
   const emberAt = (t) => lerp(1, EMBER_FLOOR, easeOut(clamp01((t - P_VOID) / EMBER_MS)));
@@ -743,7 +890,7 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
 
   // ── Lattice / tighten / shatter ──
   function drawLattice(t, phase, pulse) {
-    cam.x = 0; cam.z = 0; cam.y = 0; cam.pitch = 0;
+    cam.x = 0; cam.z = 0; cam.y = 0; cam.pitch = 0; cam.yaw = 0;
     const tighten = smooth(clamp01((t - P_TIGHTEN) / 9200));
     const shatter = phase === 'shatter' ? easeOut(clamp01((t - P_SHATTER) / 2100)) : 0;
     // A full orbit would take ~2 minutes. It should read as "is that moving?"
@@ -798,35 +945,38 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
         // for the whole first act, which is most of what made the opening read as
         // too dark to see.
         const depth = 0.34 + 0.66 * clamp01((6.2 - (a.z + b.z) / 2) / 3.4);
-        const al = (1 - d / reach) * (0.34 + 0.40 * tighten) * (1 - shatter) * (0.80 + 0.34 * pulse) * depth;
+        const al = (1 - d / reach) * (0.56 + 0.44 * tighten) * (1 - shatter) * (0.80 + 0.34 * pulse) * depth;
         if (al <= 0.012) continue;
         ctx.strokeStyle = acc(al);
-        ctx.lineWidth = Math.max(0.45, (0.5 + 0.75 * tighten) * (2.6 / ((a.z + b.z) / 2)));
+        ctx.lineWidth = Math.max(0.6, (0.7 + 0.85 * tighten) * (2.6 / ((a.z + b.z) / 2)));
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
       }
     }
 
     for (const p of pts) {
       const depth = 0.40 + 0.60 * clamp01((6.4 - p.z) / 3.6);
-      const al = (0.66 + 0.30 * tighten) * (1 - shatter * 0.8) * depth;
+      const al = (0.86 + 0.14 * tighten) * (1 - shatter * 0.8) * depth;
       if (al <= 0.02) continue;
-      const r = Math.max(0.75, (1.25 + 1.10 * tighten) * (2.8 / p.z));
-      ctx.fillStyle = acc(al * 0.22);
+      const r = Math.max(0.9, (1.5 + 1.25 * tighten) * (2.8 / p.z));
+      // Halo in the accent, core overdriven toward white — a node should look like a LAMP in the
+      // accent's colour, which is a brighter thing than a bigger blob of flat accent.
+      ctx.fillStyle = acc(al * 0.30);
       ctx.beginPath(); ctx.arc(p.x, p.y, r * 3.4, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = acc(al);
+      ctx.fillStyle = hot(al);
       ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
     }
 
     // The exchange: scanline static torn across the frame. In the LATTICE's own
     // colour, not white — this is the network tearing itself apart, and it should
     // be made of the same light as everything that came before it. A couple of
-    // near-white lines survive as blown highlights so it still reads as static
-    // rather than as a wash.
+    // blown-out lines survive as highlights so it still reads as static rather
+    // than as a wash — and those are the accent overdriven (`hot`), not a fixed
+    // near-white, so the tearing is the theme's colour on every theme.
     if (shatter && !reduced) {
       for (let i = 0; i < 44 * shatter; i++) {
         const y = Math.random() * h;
         const a = Math.random() * 0.40 * shatter;
-        ctx.fillStyle = Math.random() < 0.12 ? `rgba(212,246,255,${a})` : acc(a);
+        ctx.fillStyle = Math.random() < 0.12 ? hot(a) : acc(a);
         ctx.fillRect(0, y, w, Math.random() * 2.5);
       }
     }
@@ -860,7 +1010,7 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
     // Either end past the lens drops the whole edge rather than clipping it — the
     // only time it matters is a tower sliding out of the frame corner, where two
     // missing edges for half a second cost nothing and a smear costs everything.
-    if (behind(a[2]) || behind(b[2])) return;
+    if (behind(a[0], a[2]) || behind(b[0], b[2])) return;
     const pa = proj(a[0], a[1], a[2]), pb = proj(b[0], b[1], b[2]);
     ctx.strokeStyle = tint ? `rgba(${tint},${al})` : acc(al);
     ctx.lineWidth = lw;
@@ -873,7 +1023,7 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
   // invisible while the camera was parked, and constant once it started flying
   // through the city. So anything level with or behind the lens is dropped here,
   // at the frame edge where the vignette is already black.
-  const behind = (z) => z - cam.z < 0.6;
+  const behind = (x, z) => depthOf(x, z) < 0.6;
 
   // The lattice, one last time: the cloud pulling back into its cubic frame in
   // front of the camera, holding for a beat, and dissolving as the buildings it
@@ -904,19 +1054,19 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
         const a = pts[i], b = pts[j];
         const d = Math.hypot(a.lx - b.lx, a.ly - b.ly, a.lz - b.lz);
         if (d > reach) continue;
-        const al = (1 - d / reach) * 0.62 * fade;
+        const al = (1 - d / reach) * 0.82 * fade;
         if (al <= 0.012) continue;
         ctx.strokeStyle = acc(al);
-        ctx.lineWidth = Math.max(0.5, 2.4 / ((a.z + b.z) / 2));
+        ctx.lineWidth = Math.max(0.65, 2.9 / ((a.z + b.z) / 2));
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
       }
     }
     for (const p of pts) {
-      const al = 0.90 * fade;
-      const r = Math.max(0.8, 5.4 / p.z);
-      ctx.fillStyle = acc(al * 0.20);
+      const al = 0.98 * fade;
+      const r = Math.max(0.95, 6.2 / p.z);
+      ctx.fillStyle = acc(al * 0.28);
       ctx.beginPath(); ctx.arc(p.x, p.y, r * 3.6, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = acc(al);
+      ctx.fillStyle = hot(al);
       ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
     }
   }
@@ -936,19 +1086,28 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
     // enough to read a skyline off, and it never comes to rest — the run is
     // still going when the wordmark lands on top of it.
     const fly = smooth(clamp01((ct - REFORM_MS - 4600) / 21000));
-    cam.x = reduced ? 0 : Math.sin(ct / 7600) * 1.7;       // a lazy weave down the street
-    // Starts out over open water east of the Basin and flies WEST along the
-    // waterfront (see the ORIENTATION note above; the coast is off to starboard).
+    // Tracks WEST along the waterfront, from just off one end of the city to just
+    // off the other (see the ORIENTATION note above). With the lens square to the
+    // shore this is a dolly, not a flight: the travel is entirely across the frame.
     cam.z = lerp(FLY_Z0, FLY_Z1, fly);
+    // The chosen lane, held for the whole run. Dead straight, on purpose: a sway
+    // that a tower happens to pass through reads as a dodge even when the clock
+    // driving it has nothing to do with the tower, and there is no amount of "it's
+    // only breathing" that survives someone seeing it swerve once.
+    cam.x = LANE_X;
+    // …and held facing the shore for the same reason. The lens does not turn ONCE
+    // in this shot: it slides along the waterfront looking in, which is what makes
+    // the city read as a place being surveyed rather than a corridor being flown.
+    cam.yaw = LANE_YAW;
     // The vertical axis, in one line: a single eased descent from the approach
-    // altitude to the cruise, which was chosen up front to clear the tallest roof
-    // on the run. Nothing else touches cam.y — no roofline lookahead, no clamp, no
+    // altitude to the cruise, which was chosen up front to sit just over the
+    // ordinary rooflines. Nothing else touches cam.y — no roofline lookahead, no clamp, no
     // recovery. Whatever the skyline does underneath, the lens never reacts to it,
     // and that is what makes the move read as smooth.
     cam.y = lerp(APPROACH_Y, CRUISE_Y, fly);
     // Pitch rides the same single curve: nose down out of the approach, levelling
     // off as it settles onto the cruise.
-    cam.pitch = lerp(0.30, 0.05, fly);
+    cam.pitch = lerp(APPROACH_PITCH, 0.05, fly);
 
     // Sky: cold above, sodium at street level. The Basin's lights are the only
     // warm colour anywhere in the sequence.
@@ -971,8 +1130,13 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
     if (latFade > 0.012) drawReform(t, clamp01(ct / (REFORM_MS - 400)), latFade);
 
     // A bank, applied to the whole frame. Two degrees of roll is the difference
-    // between a camera move and a FLIGHT.
-    const bank = reduced ? 0 : Math.sin(ct / 6200) * 0.035 * fly;
+    // between a camera move and a FLIGHT. It went back to a slow sine when the run
+    // became a straight line: there are no turns left to lean into, and rolling on
+    // the geometry was the same tell as steering on it.
+    // Halved along with the sway: at a fixed lateral offset the roll is the only
+    // thing moving the frame, so it has to stay under the threshold where a tower
+    // sliding past the edge looks like the lens leaning away from it.
+    const bank = reduced ? 0 : Math.sin(ct / 6200) * 0.015 * fly;
     if (bank) { ctx.save(); ctx.translate(w / 2, h / 2); ctx.rotate(bank); ctx.translate(-w / 2, -h / 2); }
 
     // ── The coast ──
@@ -1004,14 +1168,16 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
       // The node: from somewhere out there to exactly this rooftop.
       const nx = lerp(b.ox, b.sx, land), ny = lerp(b.oy, top, land), nz = lerp(b.oz, b.sz, land);
       const np = proj(nx, ny, nz);
-      const nhz = behind(nz) ? 0 : haze(np.z);
+      const nhz = behind(nx, nz) ? 0 : haze(np.z);
       if (nhz > 0.02) {
         // Bright while travelling, settling to a rooftop beacon once it's home.
-        const na = (0.85 - 0.45 * land) * nhz + 0.25 * land * nhz;
-        const nr = Math.max(0.8, (2.4 - 1.2 * land) * (9 / np.z));
-        ctx.fillStyle = acc(na * 0.18);
+        const na = (1.00 - 0.45 * land) * nhz + 0.38 * land * nhz;
+        const nr = Math.max(1.0, (2.8 - 1.3 * land) * (9 / np.z));
+        ctx.fillStyle = acc(na * 0.26);
         ctx.beginPath(); ctx.arc(np.x, np.y, nr * 3.6, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = acc(na);
+        // The node's own core burns hotter than its halo — still the accent, just overdriven, so a
+        // rooftop beacon reads as a POINT OF LIGHT rather than a coloured dot.
+        ctx.fillStyle = hot(Math.min(1, na * 1.15));
         ctx.beginPath(); ctx.arc(np.x, np.y, nr, 0, Math.PI * 2); ctx.fill();
       }
       if (grow <= 0.002) continue;
@@ -1019,17 +1185,23 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
       const bot = lerp(top, GY, grow);      // hangs down from the roof
       const x0 = b.sx - b.half, x1 = b.sx + b.half;
       const z0 = b.sz - b.half, z1 = b.sz + b.half;
-      if (behind(z1)) continue;             // fully past the lens
+      // Fully past the lens. Measured on the building's CENTRE with a slack of its
+      // own footprint, because with a yawed camera "behind" is a diagonal and a
+      // corner test culls towers that are still half in frame.
+      if (depthOf(b.sx, b.sz) < -b.half * 2) continue;
       const hz = haze(proj(b.sx, top, b.sz).z);
       if (hz <= 0.02) continue;
-      const al = 0.42 * hz, lw = Math.max(0.5, 1.15 * clamp01(9 / Math.max(0.6, b.sz - cam.z)));
+      // Brighter than the first pass, and a heavier line. A wireframe city at 0.42 alpha reads as a
+      // smudge on anything but an OLED in a dark room — the whole shot is one colour on black, so
+      // there is nothing for it to blow out against.
+      const al = 0.72 * hz, lw = Math.max(0.6, 1.45 * clamp01(9 / Math.max(0.6, depthOf(b.sx, b.sz))));
 
       if (b.segs) {
         // The building's REAL form: stepped setbacks, a spire, a portico, a rooftop water tower —
         // the same geometry the flight sim extrudes, so this IS the city you'll fly over later
         // rather than a stand-in for it. Each piece extrudes down from its own top on the shared
         // clock, so a tower still assembles roof-first instead of arriving whole.
-        const nSeg = segCountFor(b.sz - cam.z);
+        const nSeg = segCountFor(depthOf(b.sx, b.sz));
         for (let si = 0; si < b.segs.length; si++) {
           const sg = b.segs[si];
           // The spire always draws, however far away. It sorts last (almost no bulk) but it is the
@@ -1037,12 +1209,30 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
           // would turn Halcyon and Solenne back into the plain slabs this work exists to replace.
           if (si >= nSeg && !sg.tall) continue;
           const sTop = sg.yTop, sBot = lerp(sTop, sg.yBot, grow);
-          const P = sg.pts;
-          for (let k = 0; k < 4; k++) {
-            const n = (k + 1) % 4;
+          if (sg.kind === 'arch') {
+            // A vault, unrolling downward: the ridge is already at the top, and the eave drops away
+            // from it on the shared clock.
+            const eave = sBot, rise = eave - sTop;
+            for (let k = 0; k <= ARCH_RIBS; k++) {
+              const r = sg.rib[k], y = eave - rise * r.zf;
+              const A0 = [b.sx + r.a[0], y, b.sz + r.a[1]], B0 = [b.sx + r.b[0], y, b.sz + r.b[1]];
+              stroke3(A0, B0, al * (k === Math.round(ARCH_RIBS / 2) ? 1.5 : 0.8), lw);   // the ridge is the bright one
+              if (k < ARCH_RIBS) {
+                const q = sg.rib[k + 1], y2 = eave - rise * q.zf;
+                stroke3(A0, [b.sx + q.a[0], y2, b.sz + q.a[1]], al, lw);   // the two end ribs
+                stroke3(B0, [b.sx + q.b[0], y2, b.sz + q.b[1]], al, lw);
+              }
+            }
+            continue;
+          }
+          // A drum has its own bottom ring (it can taper); a box reuses its top ring for both.
+          const P = sg.pts, T = sg.top || sg.pts, N = P.length;
+          for (let k = 0; k < N; k++) {
+            const n = (k + 1) % N;
+            const tx = b.sx + T[k][0], tz = b.sz + T[k][1], tnx = b.sx + T[n][0], tnz = b.sz + T[n][1];
             const ax = b.sx + P[k][0], az = b.sz + P[k][1], bx = b.sx + P[n][0], bz = b.sz + P[n][1];
-            stroke3([ax, sTop, az], [bx, sTop, bz], al * 1.5, lw);        // roof ring, brightest
-            stroke3([ax, sTop, az], [ax, sBot, az], al, lw);              // corner post, growing down
+            stroke3([tx, sTop, tz], [tnx, sTop, tnz], al * 1.5, lw);      // roof ring, brightest
+            stroke3([tx, sTop, tz], [ax, sBot, az], al, lw);              // corner post, growing down
             if (grow > 0.97) stroke3([ax, sg.yBot, az], [bx, sg.yBot, bz], al * 0.85, lw);   // base ring, once landed
           }
         }
@@ -1092,7 +1282,7 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
             const u = (c + 0.5) / 3;
             const px = wall ? wx : lerp(x0, x1, u);
             const pz = wall ? lerp(z0, z1, u) : wz;
-            if (behind(pz)) continue;
+            if (behind(px, pz)) continue;
             const q = proj(px, fy, pz);
             const qh = haze(q.z);
             if (qh <= 0.03) continue;
@@ -1234,6 +1424,12 @@ export function playIntroCinematic(onDone, skyline, shore) {
         <div class="intro-cine-gate-eyebrow">Architect</div>
         <div class="intro-cine-gate-title">Before we begin</div>
         <div class="intro-cine-gate-sub">This opens with sound. Turn it up, or don't — it plays either way.</div>
+        <!-- The sound toggle is deliberately NOT a gate. It reflects the player's
+             saved audio setting and writes it back, so someone who wants sound can
+             have it in one tap without hunting through Settings, and someone who
+             wants silence can say so before the first note rather than after it.
+             Either way the button below is the only thing that starts anything. -->
+        <button type="button" class="intro-cine-gate-sound" id="intro-cine-sound" aria-pressed="false"></button>
         <button type="button" class="intro-cine-gate-btn" id="intro-cine-begin">Begin <span>›</span></button>
         <div class="intro-cine-gate-fine">About ninety seconds. You can skip at any point.</div>
       </div>
@@ -1269,6 +1465,35 @@ export function playIntroCinematic(onDone, skyline, shore) {
     setTimeout(() => gateEl.remove(), 520);
     runSequence();
   };
+  // ── The sound toggle ───────────────────────────────────────────────────────
+  // Writes the player's real audio settings (the same `audio` block the rest of
+  // the client reads), so a choice made here is the choice they keep. Every
+  // handler stops propagation, because a click anywhere else on the card begins
+  // the sequence — turning the sound ON and having the film start under your
+  // finger is exactly the accident this button exists to avoid.
+  const soundEl = _ov.querySelector('#intro-cine-sound');
+  const soundOn = () => { try { return loadSettings().audio?.enabled !== false; } catch { return true; } };
+  const paintSound = () => {
+    const on = soundOn();
+    soundEl.textContent = on ? '🔊  Sound on' : '🔇  Sound off — tap to turn on';
+    soundEl.classList.toggle('on', on);
+    soundEl.setAttribute('aria-pressed', on ? 'true' : 'false');
+  };
+  soundEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    try {
+      const s = loadSettings();
+      const on = !soundOn();
+      s.audio = { ...(s.audio || {}), enabled: on, music: on ? true : s.audio?.music };
+      // A player who muted by dragging the volume to zero would otherwise turn
+      // "sound" on and still hear nothing, and conclude the button is broken.
+      if (on && !(s.audio.masterVolume > 0.05)) s.audio.masterVolume = 0.4;
+      saveSettings(s);
+    } catch {}
+    paintSound();
+  });
+  paintSound();
+
   _ov.querySelector('#intro-cine-begin').addEventListener('click', (e) => { e.stopPropagation(); begin(); });
   gateEl.addEventListener('click', begin);        // anywhere on the card works
   _timers.push(setTimeout(begin, AUTO_BEGIN_MS));

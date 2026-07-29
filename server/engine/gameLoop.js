@@ -612,7 +612,6 @@ export async function handlePlayerDeath(player, killer, cause = null) {
     "You die in a way that will be described differently by everyone who witnessed it.",
   ];
   const msg = msgs[Math.floor(Math.random() * msgs.length)];
-  const killerMsg = killer ? ` Killed by: ${killer.name}.` : '';
   // OUT OF THE DREAM FIRST, before anything reads current_zone.
   //
   // Killed instantly in your sleep, `current_zone` is a transient dream room —
@@ -643,6 +642,15 @@ export async function handlePlayerDeath(player, killer, cause = null) {
     || (killer
       ? { type: killer.id ? 'pvp' : 'combat', label: `Killed by ${killer.name || killer.handle}` }
       : { type: 'unknown', label: 'Unknown causes' });
+
+  // Tell the player HOW they died, not just THAT they did. Every non-combat caller
+  // already hands us a written label ('Overdose', 'Bailed out without a parachute')
+  // for the deaths catalogue — the death message just never showed it, so drowning,
+  // an OD and a lightning strike all read as the same bare "You die." A named killer
+  // still wins the line; only the genuinely unattributed death stays silent.
+  const killerMsg = killer
+    ? ` Killed by: ${killer.name}.`
+    : (resolvedCause.type !== 'unknown' && resolvedCause.label ? ` Cause of death: ${resolvedCause.label}.` : '');
 
   // No corpse when a plugin took custody of the body (the cops bagged your gear).
   const { corpseId, corpseName } = respawnOverride

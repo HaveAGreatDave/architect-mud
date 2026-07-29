@@ -243,6 +243,76 @@ export function surfaceAt(x, y) {
 }
 export function bounds() { if (!_bounds) buildCoordIndex(); return _bounds; }
 
+// ── Coarse whole-world terrain (the DEADHEAD map) ─────────────────────────────
+// The world grid downsampled to a fixed cell budget: one character per output cell, packed into
+// row strings. A char, not an object — the whole point is that this ships on a 2s poll, and at
+// ~80×N cells an object-per-cell payload would be tens of KB of JSON for a picture.
+//
+// Each output cell takes the DOMINANT feature of the tiles under it, by priority rather than by
+// count: a runway or a river one tile wide is the thing you navigate by, and a majority vote would
+// erase exactly those. Priority runs man-made → water → ground, so a road never disappears under
+// the grass it crosses.
+const WORLD_MAP_CELLS = 84;   // longest axis; the client scales to fit
+const _TERRAIN_CH = { water: 'w', urban: 'u', industrial: 'i', residential: 'r', wasteland: 'x',
+  forest: 'f', grass: 'g', sand: 's', rock: 'k', snow: 'n', airport: 'a' };
+let _worldMap = null, _worldMapFor = null;
+export function worldTerrainMap() {
+  if (!_coordIndex) buildCoordIndex();
+  if (_worldMap && _worldMapFor === _coordIndex) return _worldMap;
+  const b = bounds();
+  const w = b.maxx - b.minx + 1, h = b.maxy - b.miny + 1;
+  const cell = Math.max(1, Math.ceil(Math.max(w, h) / WORLD_MAP_CELLS));
+  const cw = Math.ceil(w / cell), ch = Math.ceil(h / cell);
+  // rank: higher wins the cell. '.' (nothing mapped) is the floor.
+  const rank = (c) => c === '.' ? 0 : c === 'A' ? 9 : c === 'R' ? 8 : c === 'B' ? 7 : c === 'w' ? 6 : 4;
+  const grid = Array.from({ length: ch }, () => new Array(cw).fill('.'));
+  for (const [key, z] of _coordIndex) {
+    const ci = key.indexOf(','), gx = +key.slice(0, ci), gy = +key.slice(ci + 1);
+    const cx = Math.min(cw - 1, Math.floor((gx - b.minx) / cell));
+    const cy = Math.min(ch - 1, Math.floor((gy - b.miny) / cell));
+    const f = z.flags || {};
+    let chr;
+    if (f.airfield_id) chr = 'A';                                   // fields are the whole point of this map
+    else if (isRoadCell(z)) chr = 'R';                              // arteries: one tile wide and never to be averaged away
+    else if (f.building_type || f.is_building) chr = 'B';
+    else chr = _TERRAIN_CH[biomeOf(z)] || 'g';
+    if (rank(chr) > rank(grid[cy][cx])) grid[cy][cx] = chr;
+  }
+  _worldMap = { x0: b.minx, y0: b.miny, cell, w: cw, h: ch, rows: grid.map(r => r.join('')) };
+  _worldMapFor = _coordIndex;
+  return _worldMap;
+}
+
+// ── Region rectangles (the DEADHEAD region overlay) ───────────────────────────
+// A region has NO stored bounds — the `regions` row is just id/name/terrain, and membership lives
+// the other way round, on each tile's `flags.region_id`. So the rectangle has to be derived by
+// sweeping the tiles once. That sweep is O(mapped zones), which is far too much to redo on a 2s
+// poll, so it's memoised against the coord index OBJECT ITSELF: a dev-panel edit calls /world/reload,
+// which rebuilds `_coordIndex` into a new Map, and the identity check below misses and recomputes.
+// No manual cache-busting to forget.
+let _regionCache = null, _regionCacheFor = null;
+export function listRegions() {
+  if (!_coordIndex) buildCoordIndex();
+  if (_regionCache && _regionCacheFor === _coordIndex) return _regionCache;
+  const acc = new Map();
+  for (const [key, cell] of _coordIndex) {
+    const rid = cell.flags?.region_id; if (!rid) continue;
+    const c = key.indexOf(','), gx = +key.slice(0, c), gy = +key.slice(c + 1);
+    const r = acc.get(rid);
+    if (!r) acc.set(rid, { id: rid, minX: gx, maxX: gx, minY: gy, maxY: gy, tiles: 1 });
+    else { r.minX = Math.min(r.minX, gx); r.maxX = Math.max(r.maxX, gx); r.minY = Math.min(r.minY, gy); r.maxY = Math.max(r.maxY, gy); r.tiles++; }
+  }
+  const out = [];
+  for (const r of acc.values()) {
+    const row = getRegion(r.id);
+    out.push({ ...r, name: row?.name || r.id, terrain: row?.base_terrain || null,
+      cx: (r.minX + r.maxX) / 2, cy: (r.minY + r.maxY) / 2 });
+  }
+  out.sort((a, b) => b.tiles - a.tiles);   // biggest first, so a small region drawn later sits ON TOP of the one containing it
+  _regionCache = out; _regionCacheFor = _coordIndex;
+  return out;
+}
+
 // Nearest airfield tile to a grid point (Chebyshev distance) — used to tow a craft
 // home after an off-strip landing. Returns { id, name, dist } or null if the world
 // somehow has no airfields.
@@ -922,6 +992,27 @@ function weatherFieldForClient() {
 export function pushHud(live) {
   const payload = gaugePayload(live);
   const walkable = isWalkableCabin(live);
+  // Cabin-audio extras, computed ONCE per push rather than per occupant. `spool` is an edge, so it
+  // has to be latched here — read it inside the occupant loop and the second passenger would miss it.
+  const engOn = !!live.row.engine_on;
+  const spool = (live._audEngPrev === undefined || live._audEngPrev === engOn) ? null : (engOn ? 'up' : 'down');
+  live._audEngPrev = engOn;
+  const rpmNow = engOn ? Math.max(0.16, (live.row.throttle || 0) / 100) : 0;   // idle floor: a running engine is never at zero
+  // Airborne edges → the one-shots a passenger actually notices: wheels leaving, and wheels ARRIVING.
+  // Both also open a ROLL WINDOW, because the crew autopilot flips airborne in a single tick with no
+  // rollout of its own — without a window there is no ground-roll phase at all for it to voice, and
+  // the take-off/landing would be silent apart from the thump.
+  const air = !!live.row.airborne;
+  let thump = null;
+  if (live._audAirPrev !== undefined && live._audAirPrev !== air) {
+    thump = air ? 'liftoff' : 'touchdown';
+    live._audRollUntil = Date.now() + (air ? 3200 : 5200);   // she rolls a little longer on arrival than departure
+  }
+  live._audAirPrev = air;
+  // Ground-roll intensity: real while the window is open (decaying, so she slows down instead of
+  // stopping dead), otherwise just a taxi proxy off the throttle.
+  const rollLeft = Math.max(0, (live._audRollUntil || 0) - Date.now());
+  const rollSpd = rollLeft > 0 ? Math.round(12 + 48 * (rollLeft / 5200)) : Math.round((live.row.throttle || 0) * 0.4);
   for (const pid of live.occupants) {
     const p = getLivePlayer(pid);
     if (!p) continue;
@@ -937,6 +1028,18 @@ export function pushHud(live) {
       sendToPlayer(pid, { type: 'cabin_audio', audio: {
         airborne: payload.airborne, engineOn: payload.engineOn, class: payload.class,
         throttle: payload.throttle, spd: payload.spd, engines: payload.engines, bandIndex: payload.bandIndex,
+        // `continuous` is load-bearing, not decoration: without it the client falls through to the
+        // static crossfaded LOOP path (the deck-craft one) instead of the parametric FlightEngine —
+        // so the cabin got a generic drone with none of the per-class voicing, none of the
+        // rpm/load response, and none of the cabin muffling, which lives in the synth path only.
+        // onGround stays honest (it drives the wind model), but the roll window keeps the tyre
+        // rumble alive across the moment of rotation/touchdown so the gear noise doesn't cut dead
+        // on the exact tick the wheels leave or meet the tarmac.
+        continuous: isContinuous(live), rpm: rpmNow,
+        onGround: !live.row.airborne || rollLeft > 0, groundSpeed: rollSpd, thump,
+        // Engine start/stop is a one-shot the cabin never used to get, so a crew spinning her up
+        // simply faded in. `spool` fires the same start-up/shut-down arc the pilot hears.
+        spool,
       } });
       continue;
     }

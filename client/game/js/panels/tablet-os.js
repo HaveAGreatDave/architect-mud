@@ -374,6 +374,9 @@ function ensureStyles() {
     #tablet-os-overlay .tos-void-badge.searching .tos-void-badge-dot { background:var(--tos-fg-dim); box-shadow:none;
       animation:tos-void-badge-pulse 1s ease-in-out infinite; }
     @keyframes tos-void-badge-pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+    /* DEADHEAD live-aircraft marker: a slow radar ping under the aeroplane while she's actually
+       moving, so a glance tells you airborne from parked without reading the status line. */
+    @keyframes tos-dh-ping { 0%{transform:scale(.6);opacity:.85} 100%{transform:scale(1.7);opacity:0} }
     [data-motion="off"] #tablet-os-overlay .tos-void-badge-dot { animation:none; }
 
     /* ── Void firmware boot: the one-shot cold start on the first tablet open of a
@@ -2756,6 +2759,20 @@ function pollSurveillance() {
   if (screen != null) parts.push(screenToken(screen));
   if (_data.focusId) parts.push(_data.focusId);
   sendCmdSilent(parts.join(' '));
+}
+
+// DEADHEAD live tracking: while she's actually moving, re-pull the app so the aeroplane marker
+// walks the map instead of freezing wherever it was when you opened it. Same silent re-nav as
+// pollSurveillance. 2s is deliberately slower than the crew tick (2.5s) is fast — the CSS transition
+// on the marker covers the gap between pushes, so this buys smooth motion without a chatty poll.
+// Self-cancelling: the moment the view changes or she stops moving, the timer tears itself down.
+let _dhTimer = null;
+function pollDeadhead() {
+  if (!_overlay || !_data || _data.view !== 'deadhead' || !_data.deadhead?.moving) {
+    if (_dhTimer) { clearInterval(_dhTimer); _dhTimer = null; }
+    return;
+  }
+  sendCmdSilent('tabletnav deadhead');
 }
 
 // Live-refresh the Quests app when the server signals a quest changed state
@@ -6380,12 +6397,47 @@ function renderActions(appId, actions, params) {
 // itself (id tos-dh-map) is wired to fire a 'loiter' action at the tapped tile — see the binding
 // in the render-events pass. _dhBox stashes the last bounding box so that click can invert to a tile.
 let _dhBox = null;
+let _dhRegions = false;   // DEADHEAD map: is the labelled region overlay drawn over the terrain?
+// Terrain palette for the DEADHEAD world map, keyed by the one-char codes worldTerrainMap() packs.
+// Muted and low-contrast on purpose: this is the GROUND the markers sit on, and the moment it
+// competes with the airfield pips or the aircraft it stops being a map and becomes wallpaper.
+const TOS_DH_TERRAIN = {
+  '.': [10, 15, 20, 255],     // unmapped — the void beyond the grid
+  w: [26, 52, 78, 255],       // water
+  g: [46, 66, 44, 255],       // grass
+  f: [32, 54, 36, 255],       // forest
+  s: [82, 74, 52, 255],       // sand
+  k: [62, 60, 58, 255],       // rock
+  n: [110, 118, 126, 255],    // snow
+  x: [58, 50, 42, 255],       // wasteland
+  u: [64, 64, 72, 255],       // urban
+  i: [70, 58, 48, 255],       // industrial
+  r: [58, 60, 66, 255],       // residential
+  a: [58, 56, 60, 255],       // airport apron
+  B: [92, 92, 102, 255],      // buildings — the city reads as a lighter mass
+  R: [120, 112, 96, 255],     // roads/runways — brightest, so the arteries are the shape you read
+  A: [242, 176, 30, 255],     // airfields, in the app's own accent
+};
 function renderDeadhead(d) {
   const dh = d.deadhead || {};
   if (dh.none) return `<div style="padding:26px 16px;text-align:center;color:var(--tos-dim,#8aa)">Board a <b>Leviathan</b> to run its crew from here.</div>`;
   const fields = (dh.fields || []).slice().sort((a, b) => a.dist - b.dist);
   const loiter = dh.charted?.loiter ? { gx: dh.charted.tx, gy: dh.charted.ty } : null;
-  const pts = [{ gx: dh.gx, gy: dh.gy }, ...fields, ...(loiter ? [loiter] : [])];
+  const acX = dh.fx ?? dh.gx, acY = dh.fy ?? dh.gy;   // fractional live position (see buildDeadhead)
+  // REGION mode zooms out from "airfields I can reach" to "places there are". It's a client-side
+  // toggle — the region rectangles ride every push — so switching is instant and costs no round trip.
+  const regions = dh.regions || [];
+  const regionMode = _dhRegions && regions.length > 0;
+  const world = dh.world || null;
+  // ONE frame for everything. With a real terrain map underneath, the extent has to be the WORLD —
+  // terrain, regions, airfields and the ship all have to agree on the same coordinate box or the
+  // painted ground slides out from under the markers on it. (Before the terrain existed the box was
+  // fitted to whatever was being shown, which is why the two modes used to normalise differently.)
+  const pts = world
+    ? [{ gx: world.x0, gy: world.y0 }, { gx: world.x0 + world.w * world.cell - 1, gy: world.y0 + world.h * world.cell - 1 }]
+    : regionMode
+      ? [{ gx: acX, gy: acY }, ...regions.flatMap(r => [{ gx: r.minX, gy: r.minY }, { gx: r.maxX, gy: r.maxY }])]
+      : [{ gx: acX, gy: acY }, ...fields, ...(loiter ? [loiter] : [])];
   let minX = Math.min(...pts.map(p => p.gx)), maxX = Math.max(...pts.map(p => p.gx));
   let minY = Math.min(...pts.map(p => p.gy)), maxY = Math.max(...pts.map(p => p.gy));
   if (maxX === minX) { minX -= 1; maxX += 1; }
@@ -6393,6 +6445,24 @@ function renderDeadhead(d) {
   _dhBox = { minX, maxX, minY, maxY };
   const P = 0.1, nx = (g) => (P + (1 - 2 * P) * (g - minX) / (maxX - minX)) * 100, ny = (g) => (P + (1 - 2 * P) * (g - minY) / (maxY - minY)) * 100;
   const acc = 'var(--tos-accent,#f2b01e)';
+  // Region rectangles: a translucent box per region with its name in the corner. Deliberately plain —
+  // this is the "where in the world am I" view, not a second tactical map, so no terrain art, no
+  // per-tile detail. Tapping one holds over its centre, reusing the same loiter dispatch a bare-tile
+  // tap already uses, so the zoomed-out view is dispatchable rather than decorative.
+  const REG_HUE = ['#5ad1ff', '#7dffb0', '#ffb43a', '#ff8ad1', '#b48aff', '#59e0d0'];
+  const boxes = !regionMode ? '' : regions.map((r, i) => {
+    const col = REG_HUE[i % REG_HUE.length];
+    const x0 = Math.min(nx(r.minX), nx(r.maxX)), x1 = Math.max(nx(r.minX), nx(r.maxX));
+    const y0 = Math.min(ny(r.minY), ny(r.maxY)), y1 = Math.max(ny(r.minY), ny(r.maxY));
+    return `<button type="button" title="${esc(r.name)} — hold over it"
+      data-act-id="loiter" data-act-app="deadhead" data-act-params="${Math.round(r.cx)} ${Math.round(r.cy)}"
+      style="position:absolute;left:${x0.toFixed(1)}%;top:${y0.toFixed(1)}%;width:${Math.max(1.5, x1 - x0).toFixed(1)}%;height:${Math.max(1.5, y1 - y0).toFixed(1)}%;
+        background:${col}14;border:1px solid ${col}66;border-radius:4px;cursor:pointer;padding:0;font-family:inherit;text-align:left">
+      <span style="position:absolute;left:4px;top:2px;font-size:8.5px;letter-spacing:.4px;color:${col};text-shadow:0 1px 2px #000;white-space:nowrap;max-width:96%;overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</span>
+    </button>`;
+  }).join('');
+  // Airfield pips stay visible in BOTH modes — the request was to combine the two maps, not to swap
+  // between them, and a region overlay you can't see your destinations through is half a map.
   const dots = fields.map(f => {
     const charted = !dh.charted?.loiter && dh.charted?.id === f.id;
     return `<button type="button" style="position:absolute;left:${nx(f.gx).toFixed(1)}%;top:${ny(f.gy).toFixed(1)}%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:1px;background:none;border:none;cursor:pointer;padding:2px;font-family:inherit"
@@ -6402,7 +6472,16 @@ function renderDeadhead(d) {
     </button>`;
   }).join('');
   const loiterMk = loiter ? `<div style="position:absolute;left:${nx(loiter.gx).toFixed(1)}%;top:${ny(loiter.gy).toFixed(1)}%;transform:translate(-50%,-50%);color:#7dffb0;font-size:15px;line-height:1;text-shadow:0 0 7px #2f8;pointer-events:none" title="hold point">◎</div>` : '';
-  const here = `<div style="position:absolute;left:${nx(dh.gx).toFixed(1)}%;top:${ny(dh.gy).toFixed(1)}%;transform:translate(-50%,-50%);color:#ff5a6a;font-size:15px;line-height:1;text-shadow:0 0 6px #ff5a6a;pointer-events:none" title="the Leviathan is here">◆</div>`;
+  // THE SHIP HERSELF — an aeroplane, nose pointed down her heading, sitting on the live fractional
+  // position. The glyph ✈ is drawn pointing north-EAST, so the rotation carries a −45° correction;
+  // without it every heading reads 45° off, which is just close enough to look right and be wrong.
+  // A CSS transition on the transform smooths the step between server pushes so she glides rather
+  // than jumping, and a soft ring underneath keeps her findable against the airfield dots.
+  const hdg = ((dh.hdg || 0) % 360 + 360) % 360;
+  const here = `<div style="position:absolute;left:${nx(acX).toFixed(2)}%;top:${ny(acY).toFixed(2)}%;transform:translate(-50%,-50%);pointer-events:none;transition:left .9s linear,top .9s linear" title="${esc(dh.name || 'your aircraft')} — heading ${Math.round(hdg)}°">
+    <div style="position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;border:1px solid rgba(255,90,106,.45);box-shadow:0 0 8px rgba(255,90,106,.35)${dh.moving ? ';animation:tos-dh-ping 2s ease-out infinite' : ''}"></div>
+    <div style="transform:rotate(${(hdg - 45).toFixed(1)}deg);transition:transform .9s linear;color:#ff5a6a;font-size:17px;line-height:1;text-shadow:0 0 7px #ff5a6a">✈</div>
+  </div>`;
   const st = dh.status || {};
   const stateColor = st.state === 'crew' ? '#5ad1ff' : st.state === 'parked' ? 'var(--tos-dim,#9ab)' : acc;
   const fuel = typeof dh.fuel === 'number' ? `<span style="font-size:11px;color:${dh.fuel < 25 ? '#ff7a86' : 'var(--tos-dim,#9ab)'}">⛽ ${dh.fuel}%</span>` : '';
@@ -6414,11 +6493,16 @@ function renderDeadhead(d) {
   const charted = dh.charted
     ? (dh.charted.loiter
       ? `<div style="margin-top:8px;font-size:12px">Holding over <b style="color:#7dffb0">${esc(dh.charted.name)}</b> until bingo fuel, then divert to land ${clearBtn}</div>`
-      : `<div style="margin-top:8px;font-size:12px">${dh.remote ? 'Bound for' : 'Course set:'} <b style="color:#7dffb0">${esc(dh.charted.name)}</b> ${dh.remote ? '' : clearBtn}</div>`)
+      : `<div style="margin-top:8px;font-size:12px">${dh.remote ? 'Bound for' : 'Course set:'} <b style="color:#7dffb0">${esc(dh.charted.name)}</b>${(!dh.remote && !dh.airborne && !dh.crew && dh.seat !== 'pilot') ? ' <span style="color:var(--tos-dim,#8aa)">— hit <b>Depart</b> and the crew take her up.</span>' : ''} ${dh.remote ? '' : clearBtn}</div>`)
     : `<div style="margin-top:8px;font-size:12px;color:var(--tos-dim,#8aa)">${hint}</div>`;
   const btns = [];
   if (dh.remote) btns.push(`<button type="button" class="tos-btn" data-act-id="circlehere" data-act-app="deadhead" data-act-params="" title="send the crew to hold a lazy orbit over her current spot">Circle here</button>`);
   else if (dh.crew || (dh.seat === 'pilot' && dh.airborne)) btns.push(`<button type="button" class="tos-btn" data-act-id="circlehere" data-act-app="deadhead" data-act-params="" title="hold a gentle orbit over her current position">Circle here</button>`);
+  // DEPART — the go button. Aboard, parked, not at the controls, with a course charted: this is the
+  // step that was missing, and without it charting from the cabin set a destination nothing acted on.
+  if (!dh.remote && !dh.airborne && !dh.crew && dh.seat !== 'pilot' && dh.charted) {
+    btns.push(`<button type="button" class="tos-btn" data-act-id="depart" data-act-app="deadhead" data-act-params="" style="border-color:#7dffb0;color:#7dffb0" title="the crew spin her up and fly the charted course">▶ Depart</button>`);
+  }
   if (!dh.remote && dh.seat === 'pilot') btns.push(`<button type="button" class="tos-btn" data-act-id="hand" data-act-app="deadhead" data-act-params="">Hand off to the crew</button>`);
   else if (!dh.remote && dh.atDeck && !dh.airborne && !dh.crew) btns.push(`<button type="button" class="tos-btn" data-act-id="take" data-act-app="deadhead" data-act-params="">Take the controls</button>`);
   const controls = btns.length ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">${btns.join('')}</div>` : '';
@@ -6428,7 +6512,13 @@ function renderDeadhead(d) {
       <span style="display:flex;gap:10px;align-items:baseline"><span style="font-size:12px;color:${stateColor}">${esc(st.text || '')}</span>${fuel}</span>
     </div>
     ${notice}
-    <div id="tos-dh-map" style="position:relative;height:210px;margin:10px 0;border:1px solid var(--border,#2a3a44);border-radius:9px;cursor:crosshair;background:repeating-linear-gradient(0deg,transparent,transparent 23px,rgba(255,255,255,.03) 24px),repeating-linear-gradient(90deg,transparent,transparent 23px,rgba(255,255,255,.03) 24px),radial-gradient(circle at 50% 50%,rgba(90,120,150,.10),transparent 70%);overflow:hidden">${dots}${loiterMk}${here}</div>
+    ${regions.length ? `<div style="display:flex;gap:6px;margin:10px 0 -4px;align-items:center">
+      <button type="button" class="tos-btn" data-dh-view="${regionMode ? 'fields' : 'regions'}" style="padding:1px 9px;font-size:11px;${regionMode ? `border-color:${acc};color:${acc}` : ''}" title="overlay the named regions on the map">▦ REGIONS</button>
+      <span style="font-size:10px;color:var(--tos-dim,#8aa)">${regionMode ? 'tap a region to hold over it' : 'tap a field to chart · anywhere to hold'}</span>
+    </div>` : ''}
+    <div id="tos-dh-map" style="position:relative;height:210px;margin:10px 0;border:1px solid var(--border,#2a3a44);border-radius:9px;cursor:crosshair;background:${world ? '#0a0f14' : 'repeating-linear-gradient(0deg,transparent,transparent 23px,rgba(255,255,255,.03) 24px),repeating-linear-gradient(90deg,transparent,transparent 23px,rgba(255,255,255,.03) 24px),radial-gradient(circle at 50% 50%,rgba(90,120,150,.10),transparent 70%)'};overflow:hidden">
+      ${world ? `<canvas id="tos-dh-canvas" style="position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;opacity:.92"></canvas>` : ''}
+      ${boxes}${dots}${loiterMk}${here}</div>
     ${charted}
     ${controls}
   </div>`;
@@ -7050,6 +7140,32 @@ function wireBody() {
       openNewsStory(_newsStories[+el.getAttribute('data-news-idx')]);
     });
   });
+  // DEADHEAD terrain: paint the coarse world grid into the canvas underlay. Drawn at ONE PIXEL PER
+  // CELL and stretched by CSS (image-rendering:pixelated) — the browser's own scaler does the work,
+  // so this stays a few thousand putImageData bytes instead of a few thousand fillRect calls on a
+  // 2s poll. The 10% padding matches nx()/ny() so the painted ground lines up with the markers.
+  const dhCv = _overlay.querySelector('#tos-dh-canvas');
+  if (dhCv && _data?.deadhead?.world) {
+    const W = _data.deadhead.world, P = 0.1;
+    // Pad the buffer so the map occupies the same inset box the markers are positioned into.
+    const pad = (n) => Math.max(1, Math.round(n * P / (1 - 2 * P)));
+    const px = pad(W.w), py = pad(W.h);
+    dhCv.width = W.w + px * 2; dhCv.height = W.h + py * 2;
+    const g = dhCv.getContext('2d');
+    const img = g.createImageData(dhCv.width, dhCv.height);
+    const put = (x, y, [r, gg, b, a]) => { const i = (y * dhCv.width + x) * 4; img.data[i] = r; img.data[i + 1] = gg; img.data[i + 2] = b; img.data[i + 3] = a; };
+    for (let y = 0; y < W.h; y++) {
+      const row = W.rows[y] || '';
+      for (let x = 0; x < W.w; x++) put(x + px, y + py, TOS_DH_TERRAIN[row[x]] || TOS_DH_TERRAIN['.']);
+    }
+    g.putImageData(img, 0, 0);
+  }
+  // DEADHEAD FIELDS/REGIONS toggle — purely local: the region rectangles are already in the payload,
+  // so this flips a flag and re-renders rather than round-tripping to the server for a view change.
+  _overlay.querySelectorAll('[data-dh-view]').forEach(el => el.addEventListener('click', () => {
+    _dhRegions = el.getAttribute('data-dh-view') === 'regions';
+    sfx(TOS_SELECT_DEF); render();
+  }));
   // DEADHEAD map — tapping empty space sets a hold point (airfield pips fire their own 'chart'
   // action and are skipped here). Invert the click position back to a world tile via _dhBox.
   const dhMap = _overlay.querySelector('#tos-dh-map');
@@ -8407,6 +8523,7 @@ function render() {
   const scroll = _overlay.querySelector('#tos-scroll');
   if (!scroll) return;
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+  if (_dhTimer) { clearInterval(_dhTimer); _dhTimer = null; }   // DEADHEAD live tracking must never outlive the overlay
   if (_fakeTimer) { clearInterval(_fakeTimer); _fakeTimer = null; } // fakeplay remounts its own ticker
   if (_reelTimer) { clearInterval(_reelTimer); _reelTimer = null; _reelPlaying = false; } // leaving/re-rendering stops reel playback
 
@@ -8474,6 +8591,8 @@ function render() {
   }
 
   if (survLive) _pollTimer = setInterval(pollSurveillance, 5000);
+  if (_dhTimer) { clearInterval(_dhTimer); _dhTimer = null; }
+  if (_data?.view === 'deadhead' && _data.deadhead?.moving) _dhTimer = setInterval(pollDeadhead, 2000);
 
   applyVoidMode(); // cosmetic off-grid theming, re-applied on every render
 }
@@ -8494,6 +8613,7 @@ function close() {
   if (_voidIntro) { _voidIntro.cancel(); _voidIntro = null; } // torn down mid-firmware-boot — don't let its timers outlive the overlay
   if (_voidHunt) { _voidHunt.cancel(); } // drag-to-lock listeners are document-level; never leave them behind
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+  if (_dhTimer) { clearInterval(_dhTimer); _dhTimer = null; }   // DEADHEAD live tracking must never outlive the overlay
   if (_fakeTimer) { clearInterval(_fakeTimer); _fakeTimer = null; }
   if (_reelTimer) { clearInterval(_reelTimer); _reelTimer = null; _reelPlaying = false; }
   if (_chatUnsub) { _chatUnsub(); _chatUnsub = null; }
