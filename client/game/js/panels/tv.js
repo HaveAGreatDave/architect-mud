@@ -187,6 +187,21 @@ export function createTvView(root, opts = {}) {
   // so an old delivery is shown regardless. Generous, because normal operation never
   // reaches it: a line finishes in seconds, not tens of them.
   const DELIVER_MAX_WAIT_MS = 20000;
+  // A CARD IS NOT A LINE. A title card starts no utterance, so it pushed _busyUntil
+  // nowhere — and the drain below, having nothing to wait for, rendered the card and
+  // the message after it in the same pass. The logo appeared and was cleared in the
+  // same frame (see _clearAfterTitleCard), which is what made every commercial's
+  // title card flash and vanish. A picture therefore holds the queue on its own
+  // account, for its own duration, exactly as a spoken line does.
+  let _cardUntil = 0;          // performance.now() until which a card owns the screen
+  const CARD_MIN_MS = 2600;    // floor; mirrors CARD_MIN_HOLD_MS in plugins/broadcast
+  const CARD_MAX_MS = 9000;    // a long credits crawl must not stall the whole queue
+  const CARD_STYLES = new Set(['svg', 'ascii_art', 'credits']);
+  const _cardHoldMs = (style, duration) => {
+    if (!CARD_STYLES.has(style)) return 0;
+    const authored = duration != null ? duration * 1000 : CARD_MIN_MS;
+    return Math.min(CARD_MAX_MS, Math.max(CARD_MIN_MS, authored));
+  };
 
   // A line longer than 273 characters CANNOT fit its hold, whatever the voice
   // does — nodeHoldMs caps at 30s while speech keeps growing. That is the only
@@ -220,6 +235,11 @@ export function createTvView(root, opts = {}) {
     _speechQ = [];
     _flushDeliveries();
     _busyUntil = 0;
+    // A purge (channel change, power off): nothing owns the screen, and anything the
+    // flush put back behind a card goes with it rather than landing on the next channel.
+    _deliverQ = [];
+    if (_deliverTimer) { clearTimeout(_deliverTimer); _deliverTimer = null; }
+    _cardUntil = 0;
     if (_pumpTimer) { clearTimeout(_pumpTimer); _pumpTimer = null; }
   }
 
@@ -249,12 +269,17 @@ export function createTvView(root, opts = {}) {
     if (!_deliverQ.length) return;
     const now = performance.now();
     const waited = now - _deliverQ[0].at;
-    if ((_speechQ.length || now < _busyUntil) && waited < DELIVER_MAX_WAIT_MS) {
-      _deliverTimer = setTimeout(_pumpDeliver, Math.max(30, _busyUntil - now));
+    const busyUntil = Math.max(_busyUntil, _cardUntil);
+    if ((_speechQ.length || now < busyUntil) && waited < DELIVER_MAX_WAIT_MS) {
+      _deliverTimer = setTimeout(_pumpDeliver, Math.max(30, busyUntil - now));
       return;
     }
     const m = _deliverQ.shift();
     _renderMessage(m.text, m.style, m.duration, m.hasGameday);
+    // The picture that just went up owns the screen for its own hold — the next
+    // message waits for it the way it waits for a voice.
+    const cardMs = _cardHoldMs(m.style, m.duration);
+    if (cardMs) _cardUntil = now + cardMs;
     // A card or ticker that queued only to keep its place in the order has nothing
     // to say. And while Gameday is open it owns Chip's voice and starts it with the
     // caption, so firing here as well would speak the line twice.
@@ -265,7 +290,19 @@ export function createTvView(root, opts = {}) {
   function _flushDeliveries() {
     const pending = _deliverQ; _deliverQ = [];
     if (_deliverTimer) { clearTimeout(_deliverTimer); _deliverTimer = null; }
-    for (const m of pending) _renderMessage(m.text, m.style, m.duration, m.hasGameday);
+    for (let i = 0; i < pending.length; i++) {
+      const m = pending[i];
+      _renderMessage(m.text, m.style, m.duration, m.hasGameday);
+      const cardMs = _cardHoldMs(m.style, m.duration);
+      if (!cardMs) continue;
+      // A card even in a dump keeps its hold — emptying the rest of the queue on top
+      // of it would wipe it in the same frame, which is the bug this pacing exists to
+      // stop. Whatever follows the card goes back in the queue and waits for it.
+      _cardUntil = performance.now() + cardMs;
+      _deliverQ = pending.slice(i + 1);
+      _pumpDeliver();
+      return;
+    }
   }
 
   // How long the oldest unspoken line has been waiting — i.e. how far the voice
@@ -1387,14 +1424,18 @@ export function createTvView(root, opts = {}) {
       && (_speechQ.length || performance.now() < _busyUntil);
     // ORDER FIRST. Anything already waiting means this message must wait too, even a
     // title card that has nothing to say — otherwise the picture overtakes the line
-    // it belongs to and a card appears before the dialogue that sets it up.
-    if (holdForVoice || _deliverQ.length) {
+    // it belongs to and a card appears before the dialogue that sets it up. A card
+    // still on its own hold counts as something to wait for, whatever the voice is
+    // doing: it isn't finished being looked at yet.
+    if (holdForVoice || performance.now() < _cardUntil || _deliverQ.length) {
       _deliverQ.push({ text, style, duration, hasGameday, spoken, catchUp, at: performance.now() });
       _deferredLast = spoken && !catchUp;
       _pumpDeliver();
       return;
     }
     _renderMessage(text, style, duration, hasGameday);
+    const cardMs = _cardHoldMs(style, duration);
+    if (cardMs) _cardUntil = performance.now() + cardMs;
   }
 
   function _renderMessage(text, style, duration, hasGameday) {

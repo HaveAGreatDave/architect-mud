@@ -1199,6 +1199,45 @@ export default async function regress({ check, run, getPlayer }) {
     check('film: an empty commercial pool gives dead air, never a film repeat',
       _test.fillCommercialTail(0, []) === null, 'no ads → null');
 
+    // ── A commercial is a BROADCAST, not a list of lines ──────────────────────
+    // The pool used to be loaded as flat `messages` only, so an ad's title card —
+    // the logo, the jingle riding it — never aired at all, and every line got a
+    // flat 5s. These pin the pacing that replaced it.
+    check('ad: a title card holds long enough to be read',
+      _test.nodeHoldMs({ type: 'title_card', data: {} }) === 10000, String(_test.nodeHoldMs({ type: 'title_card', data: {} })));
+    check('ad: a zero-duration card is floored, never flashed and gone',
+      _test.nodeHoldMs({ type: 'title_card', data: { duration: 0 } }) === _test.CARD_MIN_HOLD_MS,
+      String(_test.nodeHoldMs({ type: 'title_card', data: { duration: 0 } })));
+    check('ad: a credits card is floored the same way',
+      _test.nodeHoldMs({ type: 'credits', data: { duration: 0 } }) === _test.CARD_MIN_HOLD_MS,
+      String(_test.nodeHoldMs({ type: 'credits', data: { duration: 0 } })));
+
+    // A graph ad's runtime is measured off its own nodes — the card's hold included —
+    // so the pool rotation starts the next ad when this one actually finishes.
+    const adGraph = _test.normalizeBroadcastGraph({
+      _start: 'n0',
+      nodes: {
+        n0: { type: 'start', next: 'n1' },
+        n1: { type: 'title_card', graphic_id: 'logo', next: 'n2' },
+        n2: { type: 'say', text: 'Drink Acid Cola.', holdMs: 4000 },
+      },
+    });
+    check('ad: a graph ad measures its own runtime, card included',
+      _test.graphDurationSec(adGraph) === 14, String(_test.graphDurationSec(adGraph)));
+    const graphAd = { id: 'ad_g', messages: [], message_interval: 5, graph: adGraph, durationSec: 14 };
+    check('ad: a graph ad paces the pool off that runtime, not off its line count',
+      _test.adDurationSec(graphAd) === 14, String(_test.adDurationSec(graphAd)));
+    check('ad: a flat ad still paces off lines × interval',
+      _test.adDurationSec(ads[0]) === 10, String(_test.adDurationSec(ads[0])));
+    // Rotation is positional and deterministic — every TV is on the same ad at the
+    // same second, which the old per-channel round-robin counters could not promise.
+    const pool = [graphAd, ads[0]];
+    check('ad: the pool walks in order', _test.adAt(pool, 0)?.ad.id === 'ad_g', JSON.stringify(_test.adAt(pool, 0)?.ad.id));
+    check('ad: an offset lands mid-ad, so a late tuner seeks in',
+      _test.adAt(pool, 6)?.offset === 6, JSON.stringify(_test.adAt(pool, 6)));
+    check('ad: the next ad starts when the previous one really ends',
+      _test.adAt(pool, 14)?.ad.id === 'ad1' && _test.adAt(pool, 14)?.offset === 0, JSON.stringify(_test.adAt(pool, 14)));
+
     // A weekly film: the reels that cross midnight belong to the NEXT weekday, or the
     // back half of a Saturday-night picture airs on Saturday morning instead.
     const SAT = 6, SUN = 7;

@@ -572,15 +572,38 @@ async function loadChannelRuntimes() {
       list.push({ id: cam.id, direction: cam.direction || 'all', label: _cameraLabel(cam.id, list.length) });
       zoneCameras.set(cam.zone_id, list);
     }
+    // An ad is a BROADCAST, not a list of lines: its graph is what carries the title
+    // card, the jingle riding that card, and each line's own hold. Loading only
+    // `messages` (as this did) threw all of that away the moment the ad aired in a
+    // break — the logo card never came up at all, and every line got a flat 5s.
     const { rows: allCommercials } = await query(
-      `SELECT id, messages, message_interval FROM media_broadcasts WHERE category = 'advertisement'`
+      `SELECT id, messages, message_interval, broadcast_graph, override_duration
+         FROM media_broadcasts WHERE category = 'advertisement'`
     );
     const commercialMap = new Map();
     for (const ad of allCommercials) {
+      const messages = Array.isArray(ad.messages) ? ad.messages : (ad.messages ? JSON.parse(ad.messages) : []);
+      const interval = ad.message_interval || 5;
+      let graph = ad.broadcast_graph;
+      if (typeof graph === 'string') { try { graph = JSON.parse(graph); } catch { graph = null; } }
+      graph = (graph && typeof graph === 'object') ? _normalizeBroadcastGraph(graph) : null;
+      if (graph && !graph.nodes?.[graph._start]) graph = null;
+      if (graph) {
+        // _normalizeBroadcastGraph strips _broadcastId, so stamp it after. An ad is
+        // pre-recorded film: _adBreak keeps it out of the live-acted path, so a break
+        // on a live channel never demands a host on the studio floor to run it.
+        graph._broadcastId = `commercial:${ad.id}`;
+        graph._adBreak = true;
+      }
+      // Runtime the rotation paces off — the ad's real on-air length, title-card holds
+      // included, so the next ad starts when this one actually finishes.
+      const graphSec = graph ? (ad.override_duration || _graphDurationSec(graph)) : 0;
       commercialMap.set(ad.id, {
         id: ad.id,
-        messages: Array.isArray(ad.messages) ? ad.messages : (ad.messages ? JSON.parse(ad.messages) : []),
-        message_interval: ad.message_interval || 5,
+        messages,
+        message_interval: interval,
+        graph,
+        durationSec: graphSec > 0 ? graphSec : messages.length * interval,
       });
     }
 
@@ -697,8 +720,6 @@ async function loadChannelRuntimes() {
         offlineGraphicId: ch.offline_graphic_id || null,
         commercialPool,
         commercialBroadcasts: commercialPool.map(id => commercialMap.get(id)).filter(Boolean),
-        commercialIndex: 0,
-        _commercialCycleCount: 0,
         loopOriginMs: Date.now(),
         lastMsgKey: '',
         wasActive: false,
@@ -860,26 +881,71 @@ function buildCameraSnapshot(zoneId) {
   return parts.join(' ');
 }
 
-// Round-robin through commercial pool for break slots
+// On-air length of one pass of a NORMALIZED graph, in seconds — measured with the
+// walker's own nodeHoldMs, so a title card's hold is counted as the airtime it really
+// takes. Ads are linear chains; a branch is followed down its 'next' port only.
+function _graphDurationSec(graph) {
+  if (!graph?._start || !graph.nodes) return 0;
+  const edges = graph.edges || [];
+  let id = graph._start, total = 0;
+  const seen = new Set();
+  while (id && !seen.has(id)) {
+    seen.add(id);
+    const node = graph.nodes[id];
+    if (!node) break;
+    if (node.type !== 'start') total += nodeHoldMs(node);
+    id = _resolveEdge(edges, id, 'next');
+  }
+  return total / 1000;
+}
+
+// One ad's runtime — its graph's measured length, or (no graph) lines × interval.
+function _adDurationSec(ad) {
+  if (ad?.durationSec > 0) return ad.durationSec;
+  return (ad?.messages?.length || 0) * (ad?.message_interval || 5);
+}
+
+// Which ad in the pool is on at `posSec` into the pool, and how far into that ad we
+// are. Deterministic, so every TV in the world is watching the same ad at the same
+// second — the old round-robin counters drifted per channel.
+function _adAt(ads, posSec) {
+  let t = 0;
+  for (let i = 0; i < ads.length * 4; i++) {
+    const ad = ads[i % ads.length];
+    const dur = _adDurationSec(ad);
+    if (dur <= 0) continue;
+    if (posSec < t + dur) return { ad, offset: posSec - t };
+    t += dur;
+  }
+  return null;
+}
+
+// Air one beat of `ad` at `offset` seconds into it. A graph ad plays as authored —
+// title card, jingle, per-line holds — by ticking its own graph, seeking to `offset`
+// so a viewer who tunes in mid-ad lands where the ad actually is. `pass` distinguishes
+// one airing from the next so the blackboard resets and the ad restarts from its card.
+function _airAd(ad, offset, pass, state, nowMs) {
+  if (ad.graph && state?.channelId) {
+    const graph = ad.graph;
+    const id = `commercial:${ad.id}:${pass}`;
+    if (graph._broadcastId !== id) graph._broadcastId = id;
+    return tickBroadcastGraph(state.channelId, graph, state, nowMs, offset);
+  }
+  if (!ad.messages?.length) return null;
+  const result = getScriptedMessage(ad.messages, ad.message_interval || 5, offset);
+  return result ? { text: result.text, key: `commercial:${ad.id}:${result.idx}` } : null;
+}
+
+// A commercial break: walk the pool on the wall clock.
 function _playCommercial(state, nowMs) {
   const ads = state.commercialBroadcasts || [];
   if (!ads.length) return null;
-  const adIdx = (state.commercialIndex || 0) % ads.length;
-  const ad = ads[adIdx];
-  if (!ad?.messages?.length) {
-    state.commercialIndex = adIdx + 1;
-    return null;
-  }
-  const elapsed = (nowMs / 1000) % (ad.messages.length * (ad.message_interval || 5));
-  const result = getScriptedMessage(ad.messages, ad.message_interval || 5, elapsed);
-  // Advance to next commercial once we've completed a cycle
-  const cycleDone = Math.floor((nowMs / 1000) / (ad.messages.length * (ad.message_interval || 5)));
-  if (cycleDone > (state._commercialCycleCount || 0)) {
-    state._commercialCycleCount = cycleDone;
-    state.commercialIndex = adIdx + 1;
-  }
-  if (result) return { text: result.text, key: `commercial:${ad.id}:${result.idx}` };
-  return null;
+  const poolSec = ads.reduce((s, ad) => s + _adDurationSec(ad), 0);
+  if (poolSec <= 0) return null;
+  const nowSec = nowMs / 1000;
+  const at = _adAt(ads, nowSec % poolSec);
+  if (!at) return null;
+  return _airAd(at.ad, at.offset, Math.floor(nowSec / poolSec), state, nowMs);
 }
 
 // Walk a commercial pool back-to-back starting `tail` seconds into the pool,
@@ -887,20 +953,13 @@ function _playCommercial(state, nowMs) {
 // paths below — the caller is responsible for only invoking this while still
 // inside the slot's own window, so an ad is simply cut off (never restarted)
 // the moment the slot ends and the outer scheduler moves to what's next.
-function _fillCommercialTail(tail, ads) {
+// `state`/`nowMs` are optional: without them a graph ad falls back to its flat
+// lines rather than airing nothing.
+function _fillCommercialTail(tail, ads, state = null, nowMs = 0) {
   if (!ads.length) return null;
-  let t = 0;
-  for (let i = 0; i < ads.length * 4; i++) {
-    const ad = ads[i % ads.length];
-    const adDur = ad.messages.length * (ad.message_interval || 5);
-    if (adDur <= 0) continue;
-    if (tail < t + adDur) {
-      const result = getScriptedMessage(ad.messages, ad.message_interval || 5, tail - t);
-      return result ? { text: result.text, key: `commercial:${ad.id}:${result.idx}` } : null;
-    }
-    t += adDur;
-  }
-  return null;
+  const at = _adAt(ads, tail);
+  if (!at) return null;
+  return _airAd(at.ad, at.offset, 0, state, nowMs);
 }
 
 // Shared item.loop=1 gate: once a full pass of `graph` (one-pass length `passDur`)
@@ -919,7 +978,9 @@ function _loopFillOrNull(state, item, graph, segElapsed, passDur) {
     bb.waitUntil = null;
     bb.activeBroadcastId = null;
   }
-  return _fillCommercialTail(segElapsed - showWindow, state.commercialBroadcasts || []);
+  // The show's graph is parked, so its blackboard is free for the ad's own graph to
+  // use — the tail plays real commercials, cards and all.
+  return _fillCommercialTail(segElapsed - showWindow, state.commercialBroadcasts || [], state, nowMs);
 }
 
 // item.loop=1 flat-message slot: repeat the show to fill its slot, but only
@@ -4833,6 +4894,10 @@ function _themeDurationMs(name) {
 // single source of truth for how long each node type stays up, shared by the live walker
 // (tickBroadcastGraph sets bb.waitUntil = nowMs + nodeHoldMs(node)) and the late-tune
 // seeker (_seekGraph) — so a viewer tuning in mid-program lands where playback actually is.
+// Nothing that puts a PICTURE on screen (title card, credits card, tech-diff slate)
+// may hold for less than this. Matches the client's own card floor in tv.js.
+const CARD_MIN_HOLD_MS = 2600;
+
 function nodeHoldMs(node) {
   const d = node.data || {};
   switch (node.type) {
@@ -4844,13 +4909,15 @@ function nodeHoldMs(node) {
     case 'title_card':
       // A title card carrying a theme holds for the theme's full length, so its intro
       // song plays out before the first spoken line drops (title-card / theme sync).
-      if (d.theme) { const t = _themeDurationMs(d.theme); if (t > 0) return t; }
-      return (d.duration ?? 10) * 1000;
+      if (d.theme) { const t = _themeDurationMs(d.theme); if (t > 0) return Math.max(CARD_MIN_HOLD_MS, t); }
+      // Floored: a card is a picture that has to be READ. An authored duration of 0 (or a
+      // fraction of a second) put the logo on screen and took it away in the same breath.
+      return Math.max(CARD_MIN_HOLD_MS, (d.duration ?? 10) * 1000);
     case 'wait':
       return (d.seconds ?? 5) * 1000;
     case 'credits':
     case 'tech_difficulties':
-      return (d.duration ?? 10) * 1000;
+      return Math.max(CARD_MIN_HOLD_MS, (d.duration ?? 10) * 1000);
     case 'show_overlay':
     case 'overlay': {
       const overlayType = d.overlayType || d.overlay_type
@@ -5013,7 +5080,9 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
   // present host (weather forecasts set graph._requireHost). Such broadcasts are
   // presence-gated — the host NPC must be in the studio or the channel falls to
   // camera-idle → technical difficulties — and their lines are spoken in the studio.
-  const liveActed = state.channelType === 'live' || !!graph._requireHost;
+  // An ad break is never performed: a commercial is film that rolls whatever the studio
+  // floor is doing, so it must not be presence-gated or staged as spoken lines in-studio.
+  const liveActed = !graph._adBreak && (state.channelType === 'live' || !!graph._requireHost);
   // Scripted daily-schedule content plays through with no host gating — unless the
   // graph explicitly requires a present host (weather), which is gated everywhere.
   const skipPresence = state.scheduleMode === 'daily' && !graph._requireHost;
@@ -7141,6 +7210,8 @@ export const _test = {
   pickDailySlot: _pickDailySlot, filmDayMask,
   assembleSermonGraph, getSermonGraph,
   fillCommercialTail: _fillCommercialTail,
+  adDurationSec: _adDurationSec, adAt: _adAt, graphDurationSec: _graphDurationSec,
+  normalizeBroadcastGraph: _normalizeBroadcastGraph, CARD_MIN_HOLD_MS,
   pickDailySlot: _pickDailySlot, dayMask: _dayMask, dayLabel: _dayLabel, slotAirsOn: _slotAirsOn,
 };
 
