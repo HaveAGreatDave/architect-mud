@@ -51,18 +51,22 @@ async function buildHome(player) {
 function buildWidget(player) {
   const cash = Number(player.credits) || 0;
   const banked = Number(player.bank_credits) || 0;
+  const total = cash + banked;
   const exposed = cash >= 500;
+  // DRAWN, not listed. The bar makes the point the two figures never did: how much
+  // of your money is walking around with you. A wide red band is a warning you read
+  // before you've read a number — which is the whole reason to draw it.
   return {
     id: 'pocket',
     title: 'Pocket',
-    kind: 'lines',
-    lines: [
-      { text: `₵${cash.toLocaleString()} on hand`, sub: exposed ? 'at risk' : '' },
-      { text: `₵${banked.toLocaleString()} banked`, sub: 'safe' },
-      exposed
-        ? { text: 'Anything you are carrying is lost if you are robbed, booked or killed.', sub: '' }
-        : { text: 'An ATM will bank it for you. Banked credits survive anything.', sub: '' },
+    kind: 'bar',
+    segments: [
+      { pct: total ? (cash / total) * 100 : 0, tone: exposed ? 'bad' : 'warn', label: `₵${cash.toLocaleString()} on you` },
+      { pct: total ? (banked / total) * 100 : 100, tone: 'good', label: `₵${banked.toLocaleString()} banked` },
     ],
+    note: total === 0 ? 'Broke. The job board pays.'
+      : exposed ? 'Carried credits are lost if you are robbed, booked or killed.'
+      : 'Banked credits survive anything. An ATM does it in one command.',
   };
 }
 

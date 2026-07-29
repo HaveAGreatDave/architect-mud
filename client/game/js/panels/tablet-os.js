@@ -551,21 +551,43 @@ function ensureStyles() {
     /* A box is a grid ITEM spanning exactly the cells its members occupied. A 2×2
        selection stays a 2×2 square with tiles beside it; a row of four is a row of
        four. The old full-width band is what flattened every shape into a line. */
-    #tablet-os-overlay .tos-appgroup { position:relative; padding:3px 4px 4px; border-radius:8px; min-width:0;
+    /* The wrapper itself draws NOTHING — no border, no fill. It only reserves the
+       cells and positions the label. The region's look lives on the member TILES
+       (below), which is what lets the outline conform to the apps: a group of five
+       in a 2-wide box fills 5 of 6 cells and the sixth is simply a space, instead of
+       an empty cell fenced inside a rectangle. A single element is always a
+       rectangle; a set of tiles can be an L. */
+    #tablet-os-overlay .tos-appgroup { position:relative; padding:0; min-width:0;
       grid-column:span var(--grp-cols, 4); grid-row:span var(--grp-rows, 1);
-      display:flex; flex-direction:column;
-      border:1px solid color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 50%, transparent);
-      background:color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 8%, transparent);
-      box-shadow:inset 0 0 18px color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 10%, transparent); }
+      display:flex; flex-direction:column; background:none; border:none; box-shadow:none; }
     /* Label: a thin strip INSIDE the box's own footprint, so grouping never asks the
        grid for extra height. The member tiles give up those few pixels, not the page. */
     #tablet-os-overlay .tos-appgroup-tab { flex:0 0 auto; display:flex; align-items:center; gap:5px; cursor:grab;
       padding:1px 3px 3px; font-size:8px; letter-spacing:1.1px; text-transform:uppercase; min-width:0; }
     #tablet-os-overlay .tos-appgroup-tab:active { cursor:grabbing; }
-    /* Inner grid: as many columns as the box is wide, filling the rest of the box. */
+    /* Inner grid: as many columns as the box is wide, filling the rest of the box.
+       Members sit flush (gap:0) so the tint reads as ONE region rather than five
+       separately-boxed tiles — the exterior-edge classes below draw the outline. */
     #tablet-os-overlay .tos-grp-inner { flex:1; min-height:0;
-      grid-template-columns:repeat(var(--grp-cols, 4), minmax(0, 1fr)); gap:4px; }
-    #tablet-os-overlay .tos-grp-inner .tos-tile { padding:4px 3px; border-radius:6px; }
+      grid-template-columns:repeat(var(--grp-cols, 4), minmax(0, 1fr)); gap:0; }
+    #tablet-os-overlay .tos-grp-inner .tos-tile { padding:4px 3px; border-radius:0;
+      background:color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 11%, var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 20%, transparent);
+      box-shadow:none; }
+    #tablet-os-overlay .tos-grp-inner .tos-tile:hover {
+      background:color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 20%, var(--tos-surface-hi)); filter:none; }
+    /* Exterior edges — computed per member at render time (renderHomeApps knows each
+       one's row/col and whether a neighbour exists), so the outline traces the actual
+       occupied cells including the notch left by a short last row. */
+    #tablet-os-overlay .tos-grp-inner .ge-t { border-top-color:color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 62%, transparent); }
+    #tablet-os-overlay .tos-grp-inner .ge-r { border-right-color:color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 62%, transparent); }
+    #tablet-os-overlay .tos-grp-inner .ge-b { border-bottom-color:color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 62%, transparent); }
+    #tablet-os-overlay .tos-grp-inner .ge-l { border-left-color:color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 62%, transparent); }
+    /* Rounded only where two exterior edges actually meet — the region's real corners. */
+    #tablet-os-overlay .tos-grp-inner .ge-t.ge-l { border-top-left-radius:7px; }
+    #tablet-os-overlay .tos-grp-inner .ge-t.ge-r { border-top-right-radius:7px; }
+    #tablet-os-overlay .tos-grp-inner .ge-b.ge-l { border-bottom-left-radius:7px; }
+    #tablet-os-overlay .tos-grp-inner .ge-b.ge-r { border-bottom-right-radius:7px; }
     #tablet-os-overlay .tos-grp-inner .tos-tile .tos-icon { font-size:17px; margin-bottom:2px; }
     #tablet-os-overlay .tos-grp-inner .tos-tile .tos-icon svg { width:18px; height:18px; }
     #tablet-os-overlay .tos-grp-inner .tos-tile .tos-name { font-size:8.5px; letter-spacing:.2px;
@@ -578,10 +600,15 @@ function ensureStyles() {
     /* Lifted for a whole-group drag: the box left behind dims, same grammar as a
        single lifted tile (.tos-tile-ghost). */
     #tablet-os-overlay .tos-appgroup-ghost { opacity:.32; }
-    /* DROP INDICATOR. Nothing rearranges while you drag — the grid holds still and a
-       bar shows where the thing will land, applied once on release. Live reflow meant
-       every tile you dragged past jumped out of the way, so the layout you were aiming
-       at kept changing under the pointer. */
+    /* DROP INDICATOR. Nothing rearranges while you drag — the grid holds still and the
+       target is marked, applied once on release. Live reflow meant every tile you
+       dragged past jumped out of the way, so the layout you were aiming at kept
+       changing under the pointer.
+       A TILE swap outlines the tile it will trade places with; a whole GROUP box still
+       inserts (swapping a 2x3 box with one tile has no sensible meaning), so it keeps
+       the before/after bar. */
+    #tablet-os-overlay .tos-drop-swap { outline:2px dashed var(--mg-accent); outline-offset:-3px;
+      box-shadow:0 0 14px color-mix(in srgb, var(--mg-accent) 45%, transparent) !important; }
     #tablet-os-overlay .tos-drop-before, #tablet-os-overlay .tos-drop-after { position:relative; }
     #tablet-os-overlay .tos-drop-before::after, #tablet-os-overlay .tos-drop-after::after {
       content:''; position:absolute; top:-2px; bottom:-2px; width:3px; border-radius:2px; z-index:5;
@@ -642,9 +669,31 @@ function ensureStyles() {
     #tablet-os-overlay .tos-wg-mfill.band-warn { background:var(--yellow, #d8c23f); }
     #tablet-os-overlay .tos-wg-mfill.band-bad  { background:var(--orange, #e08a3a); }
     #tablet-os-overlay .tos-wg-mfill.band-crit { background:var(--red, #e0413a); }
+    /* Glyph-led lines: a big mark carries the meaning, the words confirm it. */
+    #tablet-os-overlay .tos-wg-glyphed { display:flex; align-items:center; gap:9px; min-width:0; }
+    #tablet-os-overlay .tos-wg-glyph { flex:0 0 auto; font-size:24px; line-height:1; opacity:.9;
+      filter:drop-shadow(0 0 6px color-mix(in srgb, var(--mg-accent) 45%, transparent)); }
+    #tablet-os-overlay .tos-wg-lstack { flex:1; min-width:0; }
+    #tablet-os-overlay .tos-wg-line.lead { font-size:12.5px; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-wg-line.lead + .tos-wg-line { font-size:9.5px; color:var(--tos-fg-dim); }
+    /* bar: a stacked proportion + a keyed legend. */
+    #tablet-os-overlay .tos-wg-track { display:flex; height:9px; border-radius:5px; overflow:hidden; gap:1px;
+      background:rgba(0,0,0,.45); box-shadow:inset 0 1px 2px rgba(0,0,0,.6); }
+    #tablet-os-overlay .tos-wg-seg { display:block; min-width:2px; transition:flex .4s ease; }
+    #tablet-os-overlay .tos-wg-seg.tone-good { background:var(--mg-accent); }
+    #tablet-os-overlay .tos-wg-seg.tone-warn { background:var(--yellow, #d8c23f); }
+    #tablet-os-overlay .tos-wg-seg.tone-bad  { background:var(--red, #e0413a); }
+    #tablet-os-overlay .tos-wg-legend { display:flex; flex-wrap:wrap; gap:3px 10px; margin-top:7px; }
+    #tablet-os-overlay .tos-wg-key { display:inline-flex; align-items:center; gap:4px; font-size:9px;
+      letter-spacing:.3px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-wg-swatch { width:7px; height:7px; border-radius:2px; flex:0 0 auto; }
+    #tablet-os-overlay .tos-wg-swatch.tone-good { background:var(--mg-accent); }
+    #tablet-os-overlay .tos-wg-swatch.tone-warn { background:var(--yellow, #d8c23f); }
+    #tablet-os-overlay .tos-wg-swatch.tone-bad  { background:var(--red, #e0413a); }
     /* stat */
     #tablet-os-overlay .tos-wg-stat { display:flex; align-items:baseline; gap:7px; min-width:0; }
-    #tablet-os-overlay .tos-wg-icon { font-size:15px; line-height:1; }
+    #tablet-os-overlay .tos-wg-icon { font-size:22px; line-height:1;
+      filter:drop-shadow(0 0 6px color-mix(in srgb, var(--mg-accent) 40%, transparent)); }
     #tablet-os-overlay .tos-wg-big { font-size:19px; font-weight:bold; color:var(--tos-fg); letter-spacing:.5px; }
     #tablet-os-overlay .tos-wg-sub { flex:1; min-width:0; font-size:9.5px; color:var(--tos-fg-dim);
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-transform:capitalize; }
@@ -858,9 +907,24 @@ function ensureStyles() {
     #tablet-os-overlay .tos-cal-cell.tos-cal-today { color:var(--tos-fg); border-color:var(--mg-accent);
       box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--mg-accent) 55%, transparent); }
     #tablet-os-overlay .tos-cal-num { line-height:1; }
-    #tablet-os-overlay .tos-cal-dots { position:absolute; bottom:4px; left:0; right:0; display:flex; gap:2px; justify-content:center; }
-    #tablet-os-overlay .tos-cal-dot { width:4px; height:4px; border-radius:50%; background:var(--mg-accent); }
-    #tablet-os-overlay .tos-cal-dot-rent { background:var(--tos-fg-dim); }
+    /* Event text in the cell. The day number stays top-centre; this sits under it,
+       centred, clipped to the cell. Two lines max — a month cell is barely two words
+       wide, so shortEventText() does the heavy lifting server-side of the ellipsis. */
+    #tablet-os-overlay .tos-cal-ev { position:absolute; left:2px; right:2px; top:52%;
+      font-size:7.5px; line-height:1.15; letter-spacing:.1px; text-align:center; color:var(--tos-fg-dim);
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    #tablet-os-overlay .tos-cal-has .tos-cal-ev { color:var(--tos-fg); }
+    #tablet-os-overlay .tos-cal-more { color:var(--mg-accent); margin-left:2px; font-weight:bold; }
+    /* Dots move to the TOP-RIGHT corner so the text below has the cell to itself, and
+       they are twice the size with a glow — a 4px dot on a dark cell was invisible at
+       a glance, which is the one thing a calendar marker has to be. */
+    #tablet-os-overlay .tos-cal-dots { position:absolute; top:3px; right:3px; left:auto; display:flex; gap:2px; justify-content:flex-end; }
+    #tablet-os-overlay .tos-cal-dot { width:7px; height:7px; border-radius:50%; background:var(--mg-accent);
+      box-shadow:0 0 6px color-mix(in srgb, var(--mg-accent) 85%, transparent), 0 0 0 1px rgba(0,0,0,.45); }
+    #tablet-os-overlay .tos-cal-dot-rent { background:var(--yellow, #d8c23f);
+      box-shadow:0 0 6px color-mix(in srgb, var(--yellow, #d8c23f) 85%, transparent), 0 0 0 1px rgba(0,0,0,.45); }
+    /* A day with something on it earns a tinted cell, not just a marker. */
+    #tablet-os-overlay .tos-cal-cell.tos-cal-has { background:color-mix(in srgb, var(--mg-accent) 9%, var(--tos-surface-lo)); }
     /* Per-quest action log (client-only), foot of a quest's detail screen. */
     #tablet-os-overlay .tos-qlog { margin-top:14px; padding-top:10px; border-top:1px solid var(--tos-border); }
     #tablet-os-overlay .tos-qlog-hdr { font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-bottom:6px; }
@@ -3541,7 +3605,7 @@ function applyAppOrder(apps) {
 // One home-screen tile. `stashed` is only ever true in search results — an app you
 // removed still turns up when you look for it by name, dimmed, and tapping it puts
 // it back rather than pretending it isn't there.
-function homeTile(a, stashed) {
+function homeTile(a, stashed, extra) {
   const svg = TOS_APP_ICONS[a.id];
   const icon = svg ? svg : esc(a.icon || '▫');
   // A positive `notify` count (e.g. SPECTER reels waiting to be clipped) lights a
@@ -3550,7 +3614,7 @@ function homeTile(a, stashed) {
   const badge = n > 0 ? `<span class="tos-tile-badge">${n > 9 ? '9+' : n}</span>` : '';
   const glow = (a.id === 'frontier' && isOnCrossing()) ? ' tos-tile-glow' : '';
   const attr = stashed ? `data-search-restore="${esc(a.id)}"` : `data-nav-app="${esc(a.id)}"`;
-  return `<div class="tos-tile${glow}${stashed ? ' tos-tile-stashed' : ''}" ${attr}`
+  return `<div class="tos-tile${glow}${stashed ? ' tos-tile-stashed' : ''}${extra ? ' ' + extra : ''}" ${attr}`
     + `${stashed ? ' title="Stashed — tap to put it back"' : ''}>`
     + `${badge}<span class="tos-icon">${icon}</span><span class="tos-name">${esc(a.name)}</span></div>`;
 }
@@ -3610,12 +3674,28 @@ function renderHomeApps(apps) {
     const { g, members } = b;
     const color = /^#[0-9a-f]{3,8}$/i.test(g.color || '') ? g.color : TOS_GROUP_COLORS[0];
     const cols = groupCols(g);
-    const rows = Math.ceil(members.length / cols);
+    const n = members.length;
+    const rows = Math.ceil(n / cols);
+    // Which of each member's four sides is on the OUTSIDE of the region. A cell's
+    // right edge is exterior if it's in the last column OR nothing follows it; its
+    // bottom edge is exterior if it's in the last row OR the cell below is past the
+    // end. That second clause is what traces the notch of a short final row, so the
+    // outline hugs the apps and the leftover cell reads as a space.
+    const inner = members.map((a, i) => {
+      const col = i % cols, row = Math.floor(i / cols);
+      const edges = [
+        row === 0 ? 'ge-t' : '',
+        (col === cols - 1 || i === n - 1) ? 'ge-r' : '',
+        (row === rows - 1 || i + cols >= n) ? 'ge-b' : '',
+        col === 0 ? 'ge-l' : '',
+      ].filter(Boolean).join(' ');
+      return homeTile(a, false, edges);
+    }).join('');
     return `<div class="tos-appgroup" data-group-id="${esc(g.id)}"`
       + ` style="--tos-grp:${esc(color)};--grp-cols:${cols};--grp-rows:${rows}">`
       + `<div class="tos-appgroup-tab" data-group-menu="${esc(g.id)}" title="Hold to move the group · tap to edit it">`
       + `<span class="tos-appgroup-swatch"></span><span class="tos-appgroup-nm">${esc(g.name || 'Group')}</span></div>`
-      + `<div class="tos-grid tos-appgrid tos-grp-inner" data-group-grid="${esc(g.id)}">${members.map(tile).join('')}</div></div>`;
+      + `<div class="tos-grid tos-appgrid tos-grp-inner" data-group-grid="${esc(g.id)}">${inner}</div></div>`;
   }).join('');
   // Selection mode: tiles toggle instead of opening, dragging anywhere lassoes, and
   // a bar along the bottom holds the count and the commit.
@@ -3771,7 +3851,26 @@ function renderHomeWidgets(widgets) {
         <span class="tos-wg-sub">${esc(w.sub || '')}</span>
       </div>${w.note ? `<div class="tos-wg-note">${esc(w.note)}</div>` : ''}`;
     } else if (w.kind === 'lines') {
-      body = (w.lines || []).map(l => `<div class="tos-wg-line"><span>${esc(l.text)}</span>${l.sub ? `<span class="tos-wg-lsub">${esc(l.sub)}</span>` : ''}</div>`).join('');
+      // A card should be readable at a GLANCE, so an optional glyph carries the
+      // meaning and the text just confirms it. The first line is promoted to a
+      // headline; the rest are quiet supporting detail.
+      const ls = w.lines || [];
+      const rows = ls.map((l, i) => `<div class="tos-wg-line${i === 0 ? ' lead' : ''}">`
+        + `<span>${esc(l.text)}</span>${l.sub ? `<span class="tos-wg-lsub">${esc(l.sub)}</span>` : ''}</div>`).join('');
+      body = w.icon
+        ? `<div class="tos-wg-glyphed"><span class="tos-wg-glyph">${esc(w.icon)}</span><div class="tos-wg-lstack">${rows}</div></div>`
+        : rows;
+    } else if (w.kind === 'bar') {
+      // A proportion, drawn. One stacked bar plus a small keyed legend — the shape
+      // of the split lands before you've read a single number, which is the whole
+      // reason to draw it instead of printing two figures.
+      const segs = (w.segments || []).filter(s => Number(s.pct) > 0);
+      const legend = (w.segments || []).map(s => `<span class="tos-wg-key">`
+        + `<i class="tos-wg-swatch tone-${esc(s.tone || 'good')}"></i>${esc(s.label || '')}</span>`).join('');
+      body = `<div class="tos-wg-track">${segs.map(s =>
+        `<span class="tos-wg-seg tone-${esc(s.tone || 'good')}" style="flex:${Math.max(0.001, Number(s.pct) || 0)}"></span>`).join('')}</div>`
+        + `<div class="tos-wg-legend">${legend}</div>`
+        + (w.note ? `<div class="tos-wg-note">${esc(w.note)}</div>` : '');
     } else {
       return '';   // unknown kind — say nothing rather than something wrong
     }
@@ -3837,8 +3936,8 @@ function wireAppGridDrag(container) {
   // changing under the pointer — and each insert re-flowed the grid, which flipped
   // which neighbour was "nearest" and made the placeholder flicker between slots.
   const clearDropMark = () => {
-    container.querySelectorAll('.tos-drop-before, .tos-drop-after')
-      .forEach(n => n.classList.remove('tos-drop-before', 'tos-drop-after'));
+    container.querySelectorAll('.tos-drop-before, .tos-drop-after, .tos-drop-swap')
+      .forEach(n => n.classList.remove('tos-drop-before', 'tos-drop-after', 'tos-drop-swap'));
   };
   const aim = (px, py) => {
     // The sweep spans EVERY app grid on the home screen (the outer one plus one per
@@ -3853,12 +3952,11 @@ function wireAppGridDrag(container) {
     }
     clearDropMark();
     drag.dropTarget = target || null;
-    if (!target) { drag.dropAfter = false; return; }
-    // Left half → land before it, right half → after. Reading the pointer's side of
-    // the target is what makes the indicator match where it actually goes.
-    const b = target.getBoundingClientRect();
-    drag.dropAfter = px > b.left + b.width / 2;
-    target.classList.add(drag.dropAfter ? 'tos-drop-after' : 'tos-drop-before');
+    // A SWAP, not an insert — so there's no "which side" to read. The tile you drop
+    // on takes the slot you dragged from, and nothing else on the screen moves.
+    // Inserting shuffled every tile after the drop point along by one, which is why
+    // a small correction rearranged half the grid.
+    if (target) target.classList.add('tos-drop-swap');
   };
 
   const begin = () => {
@@ -3936,13 +4034,19 @@ function wireAppGridDrag(container) {
         moveAppToPage(container, appId, Number(dot.getAttribute('data-home-page')) || 0);
         return;
       }
-      // THE ONE AND ONLY MOVE. Everything up to here was aiming; this is where the
-      // tile actually changes place, so the grid you were dragging over never
-      // shifted under you.
+      // THE ONE AND ONLY MOVE, and it's a straight SWAP: the two tiles trade places
+      // and nothing else on the screen budges. Done with a marker so it's safe when
+      // the two are already neighbours (the naive two-insert version collapses in
+      // that case). Swapping rather than inserting is what stops a one-slot
+      // correction from shunting every tile after it along by one.
       const target = drag.dropTarget;
       clearDropMark();
       if (target && target !== drag.tile) {
-        target.parentElement.insertBefore(drag.tile, drag.dropAfter ? target.nextSibling : target);
+        const marker = document.createElement('span');
+        drag.tile.parentElement.insertBefore(marker, drag.tile);
+        target.parentElement.insertBefore(drag.tile, target);
+        marker.parentElement.insertBefore(target, marker);
+        marker.remove();
       }
       const movedBox = drag.tile.parentElement !== drag.fromGrid;
       drag = null;
@@ -3991,8 +4095,8 @@ function wireGroupDrag(container) {
   };
 
   const clearDropMark = () => {
-    container.querySelectorAll('.tos-drop-before, .tos-drop-after')
-      .forEach(n => n.classList.remove('tos-drop-before', 'tos-drop-after'));
+    container.querySelectorAll('.tos-drop-before, .tos-drop-after, .tos-drop-swap')
+      .forEach(n => n.classList.remove('tos-drop-before', 'tos-drop-after', 'tos-drop-swap'));
   };
   const aim = (px, py) => {
     let target = null, best = Infinity;
@@ -4424,6 +4528,20 @@ function renderList(items) {
 // weeks from the server's monthGrid — with a marker dot on any day that carries an
 // event and a native multi-line tooltip listing them. The prev/next arrows re-nav
 // the app with screenId 'month' + a 'YYYY-MM' token (wired in wireBody).
+// Squeeze an event title into a calendar cell. A month cell is barely wider than
+// two words, so this drops the noise words a scheduled thing always carries ("rent
+// due at…", "shift starts"), keeps the part that identifies it, and hard-truncates
+// what's left. The untouched text is still in the cell's hover title.
+function shortEventText(s) {
+  let t = String(s || '').trim()
+    .replace(/^(rent|payment)\s+(due|owed)\s*(at|for|on)?\s*/i, '')   // "Rent due at The Kettle" → "The Kettle"
+    .replace(/\s+(starts|begins|opens|due|scheduled)\b.*$/i, '')      // trailing verb clauses
+    .replace(/^the\s+/i, '')
+    .replace(/\s+/g, ' ');
+  if (!t) t = String(s || '').trim();
+  return t.length > 13 ? t.slice(0, 12).trimEnd() + '…' : t;
+}
+
 function renderCalendar(d) {
   const dow = (d.weekdays || []).map(w => `<div class="tos-cal-dow">${esc(w)}</div>`).join('');
   const cells = (d.weeks || []).map(week => week.map(cell => {
@@ -4435,10 +4553,17 @@ function renderCalendar(d) {
     const tip = evs.map(e => `${e.kind === 'rent' ? '🏠 ' : '• '}${esc(e.text)}${e.detail ? ` (${esc(e.detail)})` : ''}`).join('&#10;');
     const kinds = [...new Set(evs.map(e => e.kind))];
     const dots = has ? `<div class="tos-cal-dots">${kinds.map(k => `<span class="tos-cal-dot tos-cal-dot-${esc(k)}"></span>`).join('')}</div>` : '';
+    // A dot alone only ever said "something happens" — you had to hover to find out
+    // what, which a touch screen can't do at all. So the first event's text rides in
+    // the cell, shortened to fit, with a +N when the day holds more. The full list
+    // stays in the hover title.
+    const label = has
+      ? `<span class="tos-cal-ev">${esc(shortEventText(evs[0].text))}${evs.length > 1 ? `<span class="tos-cal-more">+${evs.length - 1}</span>` : ''}</span>`
+      : '';
     const cls = ['tos-cal-cell'];
     if (cell.isToday) cls.push('tos-cal-today');
     if (has) cls.push('tos-cal-has');
-    return `<div class="${cls.join(' ')}"${has ? ` title="${tip}"` : ''}><span class="tos-cal-num">${cell.day}</span>${dots}</div>`;
+    return `<div class="${cls.join(' ')}"${has ? ` title="${tip}"` : ''}><span class="tos-cal-num">${cell.day}</span>${label}${dots}</div>`;
   }).join('')).join('');
   return `<div class="tos-cal">
     <div class="tos-cal-head">

@@ -40,10 +40,18 @@
 // (CPU is a separate budget from round trips: the Sports card simulates exactly one
 // game slot, which is bounded and local. A widget that sims a WINDOW isn't.)
 //
+// PREFER A PICTURE. A home card is glanced at, not read — so reach for a shape that
+// carries the meaning before the words do (a drawn proportion, a big glyph, a bar)
+// and let the text confirm it. A card that is three sentences long is a screen, and
+// belongs on the app's own screen.
+//
 // Widget shape: { id, title, kind, nav?, ...kindFields } where kind is one of
 //   'meters' — rows: [{ label, pct, band }]        (band: good|warn|bad)
-//   'stat'   — icon, big, sub, note
-//   'lines'  — lines: [{ text, sub }]
+//   'stat'   — icon, big, sub, note                (icon renders large)
+//   'bar'    — segments: [{ pct, tone, label }], note — one stacked proportion with
+//              a keyed legend; tone is good|warn|bad
+//   'lines'  — lines: [{ text, sub }], icon?       (icon renders as a large glyph
+//              beside the lines; the first line is promoted to a headline)
 // The client renders those three kinds (renderHomeWidgets in tablet-os.js); adding
 // a fourth means adding a renderer there too. `nav` is an appId — tapping the card
 // opens that app.

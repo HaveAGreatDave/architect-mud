@@ -92,7 +92,9 @@ const HELP_TIPS = [
 function buildWidget() {
   const twentyMinBlocks = Math.floor(Date.now() / (20 * 60 * 1000));
   const [text, sub] = HELP_TIPS[twentyMinBlocks % HELP_TIPS.length];
-  return { id: 'tip', title: 'Did you know', kind: 'lines', lines: [{ text }, { text: sub }] };
+  // This one is unavoidably words — it's a sentence you haven't read yet. The glyph
+  // is there so the card is identifiable at a glance without being read at all.
+  return { id: 'tip', title: 'Did you know', kind: 'lines', icon: '❔', lines: [{ text }, { text: sub }] };
 }
 
 registerTabletApp({

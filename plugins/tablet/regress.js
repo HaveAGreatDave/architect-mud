@@ -44,7 +44,7 @@ export default async function regress({ run, check, getPlayer }) {
   // toggle is display-only) — see the contract note in plugins/tablet/index.js.
   check('home screen carries a widgets array', Array.isArray(r?.widgets), JSON.stringify(r?.widgets));
   check('every widget declares a kind the client can draw',
-    (r.widgets || []).every(w => ['meters', 'stat', 'lines'].includes(w.kind)),
+    (r.widgets || []).every(w => ['meters', 'stat', 'bar', 'lines'].includes(w.kind)),
     JSON.stringify((r.widgets || []).map(w => `${w.id}:${w.kind}`)));
   check('every widget names the app it opens',
     (r.widgets || []).every(w => typeof w.nav === 'string' && r.apps.some(a => a.id === w.nav)),
@@ -59,12 +59,29 @@ export default async function regress({ run, check, getPlayer }) {
     // not know. All three must be free of DB reads, which the buildWidget contract
     // enforces by convention rather than by an assertion here — this just checks
     // they exist and are drawable.
-    for (const id of ['place', 'pocket', 'tip']) {
+    for (const id of ['place', 'tip']) {
       const w = (r.widgets || []).find(x => x.id === id);
       check(`the ${id} widget rides along with drawable lines`,
         !!w && w.kind === 'lines' && Array.isArray(w.lines) && w.lines.length > 0
           && w.lines.every(l => typeof l.text === 'string'),
         JSON.stringify(w));
+      // Glyph-led: the card has to be identifiable without being read.
+      check(`the ${id} widget leads with a glyph`, !!w?.icon, JSON.stringify(w?.icon));
+    }
+    {
+      // Pocket is DRAWN — a stacked proportion, not two printed figures.
+      const w = (r.widgets || []).find(x => x.id === 'pocket');
+      check('the pocket widget is a drawn proportion',
+        !!w && w.kind === 'bar' && Array.isArray(w.segments) && w.segments.length === 2,
+        JSON.stringify(w));
+      check('its segments are drawable percentages with a tone and a label',
+        (w?.segments || []).every(s => typeof s.pct === 'number' && s.pct >= 0 && s.pct <= 100
+          && ['good', 'warn', 'bad'].includes(s.tone) && typeof s.label === 'string'),
+        JSON.stringify(w?.segments));
+      // A broke player has 0 of both — the bar must still render something rather
+      // than dividing by zero into NaN.
+      check('...and never NaN, even at zero credits',
+        (w?.segments || []).every(s => Number.isFinite(s.pct)), JSON.stringify(w?.segments));
     }
     // Clean by default — the heat card is an alarm, so its absence is the feature.
     check('no wanted widget while the player is clean',

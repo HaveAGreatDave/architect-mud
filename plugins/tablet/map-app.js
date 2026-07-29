@@ -26,10 +26,14 @@ function buildWidget(player) {
   // Terrain is the ground-surface SSOT (docs/systems-terrain.md); underfoot is
   // worth a beginner knowing, because it's what the pacing and the map read from.
   const where = [region, inside ? 'indoors' : f.terrain || 'outdoors'].filter(Boolean).join(' · ');
+  // The glyph does the talking: a roof if you're under one, otherwise whatever the
+  // sky is currently doing to you. Reads before the words do.
+  const icon = inside ? '⌂' : (hud.currentWeatherIcon || hud.weatherIcon || '☼');
   return {
     id: 'place',
     title: 'Where you are',
     kind: 'lines',
+    icon,
     lines: [
       { text: z.name || player.current_zone, sub: hud.time || '' },
       { text: where || '—', sub: inside ? 'sheltered' : `${hud.currentWeatherType || ''}`.trim() },
