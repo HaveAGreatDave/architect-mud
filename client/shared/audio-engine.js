@@ -1546,6 +1546,12 @@
       tiltEmph:    8200,   // … and emphatic (shouting is BRIGHT — the folds slam)
       emphasis:    1.0,    // scales how far emphasis moves pitch/length/gain over plain stress
       creak:       1.0,    // phrase-final vocal fry; 0 disables
+      // WORD-FINAL NOISE. Frication and aspiration at the end of a word have nothing
+      // voiced left to sit under, so whatever level and decay reads as "correct"
+      // mid-word reads as an abrasive breathy tail there — the classic synth sigh
+      // after every word. Scales the level AND the release of word/phrase-final
+      // noise only; 1.0 restores the untapered behaviour.
+      finalTaper:  0.6,
       undershoot:  0.2,    // EXPLICIT coarticulation only — see the note in the loop
       lineGapMs:   180,    // breath between chained lines (tv.js reads this)
     };
@@ -1805,7 +1811,9 @@
       let asp = (p.asp || 0)/1000/ctx.speed;
       if (ctx.prevCode === 'S') asp *= 0.15;                      // unaspirated after /s/
       else if (ctx.nxt && ctx.nxt.t === 'L') asp *= 0.5;          // fricated into a liquid
-      else if (!ctx.nxt || ctx.nxt.t === 'P') asp *= 0.4;         // phrase-final: soft release
+      // Word/phrase-final: soft release. Tapered further, because this puff has no
+      // following vowel to run into and is the other half of the breathy word-end.
+      else if (!ctx.nxt || ctx.nxt.t === 'P') asp *= 0.4 * TUNING.finalTaper;
       return { unreleased, asp };
     }
 
@@ -2368,11 +2376,24 @@
           } else {
             setNoiseBand(p.nf, p.nq||3, t, 0.01);
           }
-          const fam = p.t==='H' ? 0.11*TUNING.aspiration : (p.ng ?? 0.3) * (p.sib ? TUNING.sibilance : TUNING.friction);
+          let fam = p.t==='H' ? 0.11*TUNING.aspiration : (p.ng ?? 0.3) * (p.sib ? TUNING.sibilance : TUNING.friction);
+          // A FINAL FRICATIVE IS QUIETER AND STOPS SOONER. Mid-word, the next vowel
+          // masks the tail of the noise; at a word or phrase edge there is nothing
+          // over it, so the same level hangs in the open as a hiss. English does damp
+          // its own finals too — the "s" of "cats" is weaker than the "s" of "sat" —
+          // so this is a correction, not just a mix decision.
+          const finalF = !nxt || nxt.t === 'P';
+          if (finalF) fam *= TUNING.finalTaper;
           noiseG.gain.setTargetAtTime(fam, t, 0.008);
           voiced.gain.setTargetAtTime(p.vd?0.35:0, t, 0.008);
           micro = p.vd ? 0.985 : 1.015;   // voiced obstruent drags F0 down, voiceless lifts it
-          t += dur; noiseG.gain.setTargetAtTime(0, t, 0.02);
+          t += dur;
+          // The release matters as much as the level: setTargetAtTime is exponential,
+          // so a 20ms constant is still plainly audible ~80ms after the phoneme is
+          // nominally over. That overhang IS the breathy tail. Cut it at an edge.
+          // Squared so the knob moves level and overhang together but the tail moves
+          // further — at 1.0 both are exactly the old behaviour.
+          noiseG.gain.setTargetAtTime(0, t, 0.02 * (finalF ? TUNING.finalTaper ** 2 : 1));
         } else if (p.t==='S') {
           // CLOSURE — silence, but the formants are already travelling to the locus,
           // so the vowel BEFORE the stop bends the right way. A voiced stop keeps a
@@ -2458,7 +2479,10 @@
           // "this year", "did you" — so a juncture leaves prevP/prevCode alone. A real
           // phrase break does reset them, because there the articulators genuinely rest.
           voiced.gain.setTargetAtTime(junctureOnly ? 0.45 : 0, t, junctureOnly ? 0.012 : 0.02);
-          noiseG.gain.setTargetAtTime(0, t, 0.02);
+          // Breath keeps running through a juncture (see the continuous-noise note),
+          // and at 20ms it bleeds across the word boundary as a sigh. Same taper as a
+          // final fricative gets — this is the same artifact from the other source.
+          noiseG.gain.setTargetAtTime(0, t, 0.02 * TUNING.finalTaper ** 2);
           nzero.gain.setTargetAtTime(0, t, 0.02);
           // `dur` is ALREADY speed-adjusted above. This divided by speed a second
           // time, so pause length scaled as 1/speed² — harmless when speed sat near
@@ -2475,7 +2499,9 @@
       }
       const end = t + 0.08;
       voiced.gain.setTargetAtTime(0, end, 0.02);
-      noiseG.gain.setTargetAtTime(0, end, 0.02);
+      // The last thing a line leaves behind. The voice is allowed to fade; the noise
+      // is not, because with no voice under it the fade is a whisper of its own.
+      noiseG.gain.setTargetAtTime(0, end, 0.02 * TUNING.finalTaper ** 2);
       // The terminal contour. Set as a target from wherever the lilt left the pitch —
       // the old code re-anchored F0 at t0 and ramped, which erased every contour
       // scheduled above it. A question turns the fall into a rise.

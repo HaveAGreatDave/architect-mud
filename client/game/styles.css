@@ -5048,7 +5048,9 @@ body.fsim-external #look-resize-handle { display: none; }
 	/* Lifted off the floor of the screen. At 4vh the box sat on the bottom edge and
 	   the option list ran right into the smartbar; this puts a clear band under it
 	   without going back to a dead-centre OS-dialog read. */
-	padding-bottom: 13vh;
+	/* Clamped, not raw vh: on a short window 13vh is fine, but the band must not
+	   grow so far on a tall one that the box loses more room than it needs. */
+	padding-bottom: clamp(48px, 13vh, 120px);
 	box-sizing: border-box;
 }
 #dialogue-panel.active {
@@ -5081,9 +5083,11 @@ body.fsim-external #look-resize-handle { display: none; }
 	/* FIXED height, not min-height. A box that grew with the line length moved the
 	   option list every single beat, so you re-aimed the mouse on every reply. The
 	   speech area absorbs the variation instead (it scrolls), and the options stay
-	   nailed to the same place for the whole conversation. */
+	   nailed to the same place for the whole conversation. The height is capped
+	   against the viewport as well, so a short window gets a shorter box rather
+	   than one whose contents spill out past its own border. */
 	height: 460px;
-	max-height: 78vh;
+	max-height: calc(100vh - clamp(48px, 13vh, 120px) - 16px);
 	border-radius: 2px;
 	display: flex;
 	flex-direction: column;
@@ -5104,7 +5108,7 @@ body.fsim-external #look-resize-handle { display: none; }
 #dialogue-npc-name {
 	color: var(--accent);
 	font-weight: bold;
-	font-size: 21px;
+	font-size: clamp(15px, 1.8vh, 21px);
 	text-transform: uppercase;
 	letter-spacing: 2px;
 	/* The box's own background, so the name punches a gap in the recess border. */
@@ -5136,12 +5140,14 @@ body.fsim-external #look-resize-handle { display: none; }
 #dialogue-text {
 	color: var(--text-bright);
 	margin-bottom: 14px;
-	font-size: 22px;
+	font-size: clamp(15px, 1.9vh, 20px);
 	line-height: 1.5;
 	white-space: pre-wrap;
 	overflow-y: auto;
-	flex: 1;
-	min-height: 160px;
+	/* The well is the part that gives: it can shrink to its floor (and scroll) so a
+	   long option list still fits inside the box instead of pushing out of it. */
+	flex: 1 1 auto;
+	min-height: 84px;
 	background: var(--bg);
 	border: 1px solid var(--border);
 	border-radius: 3px;
@@ -5177,7 +5183,7 @@ body.fsim-external #look-resize-handle { display: none; }
 	display: none;
 	font-style: italic;
 	color: var(--text-dim);
-	font-size: 16px;
+	font-size: clamp(12px, 1.4vh, 16px);
 	line-height: 1.4;
 	margin-bottom: 10px;
 	flex-shrink: 0;
@@ -5207,7 +5213,16 @@ body.fsim-external #look-resize-handle { display: none; }
 	display: flex;
 	flex-direction: column;
 	gap: 7px;
-	flex-shrink: 0;
+	/* An NPC with six replies plus a shop line and a Leave used to run straight out
+	   the bottom of the box, because the column refused to shrink. It keeps its
+	   priority over the speech well (that shrinks first), but past the point where
+	   even a squeezed well can't pay for it, the column scrolls. */
+	flex: 0 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+	/* Room for the scrollbar when it appears, so options never reflow sideways. */
+	scrollbar-gutter: stable;
 }
 /* Veiled = built but not yet offered: the options (and the stage line) hold their
    space while the speaker is still talking, so nothing reflows when they land. */
@@ -5257,8 +5272,9 @@ body.fsim-external #look-resize-handle { display: none; }
 	transition: all 0.1s;
 }
 #dialogue-box:not(.shop-mode) .dialogue-opt {
-	font-size: 18px;
-	padding: 10px 14px;
+	font-size: clamp(13px, 1.55vh, 17px);
+	padding: clamp(6px, 0.9vh, 10px) 14px;
+	flex-shrink: 0;
 }
 .dialogue-opt:hover {
 	border-color: var(--accent);
