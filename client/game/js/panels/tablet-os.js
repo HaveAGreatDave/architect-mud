@@ -252,7 +252,11 @@ function ensureStyles() {
        as a physical device sitting over the game instead of blending into a
        dark backdrop: a raised bevel edge, an embossed inset/outset shadow
        stack, and a diagonal gloss sweep + fine grain texture via ::after/::before. */
-    #tablet-os-overlay .tos-panel { width:min(760px,96vw); height:680px; max-height:90vh; display:flex; flex-direction:column;
+    /* 820, not 680: four rows of tiles + the toolbar + a couple of widget cards has
+       to fit without the home screen scrolling, which is the whole promise of a
+       fixed-shape grid. max-height keeps it inside a short viewport, and the mobile
+       block near the bottom of this sheet takes over on a compact layout. */
+    #tablet-os-overlay .tos-panel { width:min(760px,96vw); height:820px; max-height:94vh; display:flex; flex-direction:column;
       position:relative; overflow:hidden; color:var(--mg-accent); transform-origin:center center;
       background:
         linear-gradient(160deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.02) 14%, transparent 30%),
@@ -540,15 +544,32 @@ function ensureStyles() {
        inline per box, so every edge/fill/glow below derives from the single
        swatch the player picked. */
     #tablet-os-overlay .tos-home-apps { position:relative; padding-bottom:34px; }
-    #tablet-os-overlay .tos-appgroup { position:relative; margin:6px 0; padding:7px 8px 8px; border-radius:8px;
+    /* The home grid packs DENSE so a small tile backfills any hole a wide box
+       leaves — which is what stops a group from pushing the rest of the screen
+       around instead of just sitting in it. */
+    #tablet-os-overlay .tos-homegrid { grid-auto-flow:row dense; grid-auto-rows:1fr; }
+    /* A box is a grid ITEM spanning exactly the cells its members occupied. A 2×2
+       selection stays a 2×2 square with tiles beside it; a row of four is a row of
+       four. The old full-width band is what flattened every shape into a line. */
+    #tablet-os-overlay .tos-appgroup { position:relative; padding:3px 4px 4px; border-radius:8px; min-width:0;
+      grid-column:span var(--grp-cols, 4); grid-row:span var(--grp-rows, 1);
+      display:flex; flex-direction:column;
       border:1px solid color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 50%, transparent);
       background:color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 8%, transparent);
       box-shadow:inset 0 0 18px color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 10%, transparent); }
-    #tablet-os-overlay .tos-appgroup:first-child { margin-top:0; }
-    #tablet-os-overlay .tos-appgroup-tab { display:flex; align-items:center; gap:6px; cursor:grab;
-      padding:0 2px 6px; margin-bottom:6px; border-bottom:1px solid color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 28%, transparent);
-      font-size:9px; letter-spacing:1.1px; text-transform:uppercase; }
+    /* Label: a thin strip INSIDE the box's own footprint, so grouping never asks the
+       grid for extra height. The member tiles give up those few pixels, not the page. */
+    #tablet-os-overlay .tos-appgroup-tab { flex:0 0 auto; display:flex; align-items:center; gap:5px; cursor:grab;
+      padding:1px 3px 3px; font-size:8px; letter-spacing:1.1px; text-transform:uppercase; min-width:0; }
     #tablet-os-overlay .tos-appgroup-tab:active { cursor:grabbing; }
+    /* Inner grid: as many columns as the box is wide, filling the rest of the box. */
+    #tablet-os-overlay .tos-grp-inner { flex:1; min-height:0;
+      grid-template-columns:repeat(var(--grp-cols, 4), minmax(0, 1fr)); gap:4px; }
+    #tablet-os-overlay .tos-grp-inner .tos-tile { padding:4px 3px; border-radius:6px; }
+    #tablet-os-overlay .tos-grp-inner .tos-tile .tos-icon { font-size:17px; margin-bottom:2px; }
+    #tablet-os-overlay .tos-grp-inner .tos-tile .tos-icon svg { width:18px; height:18px; }
+    #tablet-os-overlay .tos-grp-inner .tos-tile .tos-name { font-size:8.5px; letter-spacing:.2px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
     #tablet-os-overlay .tos-appgroup-swatch { width:6px; height:6px; border-radius:50%; flex:0 0 auto;
       background:var(--tos-grp, var(--mg-accent)); box-shadow:0 0 4px color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 70%, transparent); }
     #tablet-os-overlay .tos-appgroup-nm { flex:1; min-width:0; color:var(--tos-fg-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -557,6 +578,16 @@ function ensureStyles() {
     /* Lifted for a whole-group drag: the box left behind dims, same grammar as a
        single lifted tile (.tos-tile-ghost). */
     #tablet-os-overlay .tos-appgroup-ghost { opacity:.32; }
+    /* DROP INDICATOR. Nothing rearranges while you drag — the grid holds still and a
+       bar shows where the thing will land, applied once on release. Live reflow meant
+       every tile you dragged past jumped out of the way, so the layout you were aiming
+       at kept changing under the pointer. */
+    #tablet-os-overlay .tos-drop-before, #tablet-os-overlay .tos-drop-after { position:relative; }
+    #tablet-os-overlay .tos-drop-before::after, #tablet-os-overlay .tos-drop-after::after {
+      content:''; position:absolute; top:-2px; bottom:-2px; width:3px; border-radius:2px; z-index:5;
+      background:var(--mg-accent); box-shadow:0 0 8px color-mix(in srgb, var(--mg-accent) 75%, transparent); }
+    #tablet-os-overlay .tos-drop-before::after { left:-6px; }
+    #tablet-os-overlay .tos-drop-after::after { right:-6px; }
     /* The floating clone under the finger while a whole group is being dragged —
        a compact chip rather than a scaled copy of the box, since dragging a full
        grid of tiles under the pointer would be both heavy and illegible. Same
@@ -656,6 +687,52 @@ function ensureStyles() {
     /* A stashed app turning up in a search result: dimmed, dashed, tap to restore. */
     #tablet-os-overlay .tos-tile-stashed { opacity:.5; border-style:dashed; box-shadow:none; }
     #tablet-os-overlay .tos-tile-stashed:hover { opacity:.85; }
+
+    /* ── Mobile / short-viewport safety ────────────────────────────────────────
+       The tablet is the half of the game you cannot reach by typing, so it has to
+       work on a phone. Two independent triggers, because they are different
+       problems: data-density="compact" is the client's own mobile layout (set by
+       main.js and used by the rest of this sheet), while the max-height query
+       catches a laptop in a short window, where a fixed 820px chassis would push
+       the toolbar off the bottom.
+
+       Everything here only SHRINKS — same four columns, same shapes, same code
+       paths. A phone must not get a different grid geometry, or a group's saved
+       cols (a 2×2 stays 2×2) would mean something different on each device. */
+    html[data-density="compact"] #tablet-os-overlay .tos-panel {
+      width:min(760px,100vw); height:100dvh; max-height:100dvh; border-width:1px; border-radius:0; }
+    html[data-density="compact"] #tablet-os-overlay .tos-anchor { left:0; top:0; transform:none; width:100vw; }
+    /* Tighter tiles: the icon carries the recognition, the label just confirms it. */
+    html[data-density="compact"] #tablet-os-overlay .tos-grid { gap:6px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-tile { padding:7px 3px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-tile .tos-icon { font-size:18px; margin-bottom:3px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-tile .tos-icon svg { width:19px; height:19px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-tile .tos-name { font-size:9px; letter-spacing:.2px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
+    html[data-density="compact"] #tablet-os-overlay .tos-grp-inner { gap:3px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-grp-inner .tos-tile { padding:3px 2px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-grp-inner .tos-tile .tos-icon { font-size:15px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-grp-inner .tos-tile .tos-icon svg { width:16px; height:16px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-grp-inner .tos-tile .tos-name { font-size:7.5px; }
+    /* Toolbar keeps its labels (they are what make the icons legible to a newcomer)
+       but gives up padding; the widget cards go single-file so nothing is squeezed
+       to an unreadable width. */
+    html[data-density="compact"] #tablet-os-overlay .tos-hbar-btn { padding:4px 2px 3px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-hbar-lb { font-size:7px; letter-spacing:.4px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-widgets { grid-template-columns:1fr; gap:6px; }
+    /* Touch targets: the page dots are 6px of paint, so they keep their generous
+       invisible padding and gain a little more room to be thumbed. */
+    html[data-density="compact"] #tablet-os-overlay .tos-page-dot { padding:8px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-page-arrow { padding:4px 10px; font-size:17px; }
+    /* A short window (not a phone) — just don't let the chassis exceed the viewport. */
+    @media (max-height:860px) {
+      #tablet-os-overlay .tos-panel { height:94vh; }
+    }
+    @media (max-height:620px) {
+      #tablet-os-overlay .tos-tile { padding:6px 3px; }
+      #tablet-os-overlay .tos-tile .tos-icon { font-size:18px; margin-bottom:2px; }
+      #tablet-os-overlay .tos-tile .tos-name { font-size:9.5px; }
+    }
 
     /* Page dots — only rendered past one page, so a small home screen looks exactly
        as it did before paging existed. Dots are drop targets as well as buttons
@@ -3403,17 +3480,50 @@ function saveAppGroups(groups) {
 }
 // Put `ids` in a group, taking them out of whatever group they were in before —
 // an app belongs to exactly one box. Pass a null groupId to create a new one.
-function assignAppsToGroup(ids, name, color, groupId) {
+//
+// `cols` is THE SHAPE YOU SELECTED, and it is the whole point. Lasso a 2×2 square
+// of apps and the box is 2 wide and 2 tall, sitting in those four cells; lasso a row
+// of four and it's 4×1. The box was previously always full-width, which flattened
+// every selection into a line — a 2×2 pick came back as 1×4, shoved the row above it
+// into a ragged half-row, and pushed apps off the page. A box now spans exactly the
+// cells its members occupied.
+function assignAppsToGroup(ids, name, color, groupId, cols) {
   const set = new Set(ids);
   const groups = loadAppGroups().map(g => ({ ...g, apps: g.apps.filter(x => !set.has(x)) }));
   const existing = groupId ? groups.find(g => g.id === groupId) : null;
   if (existing) {
     existing.name = name; existing.color = color;
     existing.apps = [...existing.apps, ...ids];
+    if (cols) existing.cols = cols;
   } else {
-    groups.push({ id: 'g' + Date.now().toString(36), name, color, apps: [...ids] });
+    groups.push({ id: 'g' + Date.now().toString(36), name, color, apps: [...ids], cols: cols || Math.min(HOME_COLS, ids.length) });
   }
   saveAppGroups(groups);
+}
+
+// How many columns a box should be, clamped to what the grid actually has.
+//
+// A group saved before shapes existed has no `cols`, and the fallback is SQUARE-ISH
+// (ceil√n) rather than full-width: four apps become 2×2, six become 3×2, nine 3×3.
+// Full-width would faithfully reproduce the old look, but the old look is the bug
+// being fixed — a legacy group would keep rendering as a line until the player
+// deleted and re-made it, which is a fix nobody can find. A deliberately-picked row
+// of four still records cols:4 at creation and stays a row.
+function groupCols(g) {
+  const n = (g.apps || []).length || 1;
+  const want = Number(g.cols) || Math.ceil(Math.sqrt(n));
+  return Math.max(1, Math.min(HOME_COLS, want));
+}
+
+// The column count a SELECTION occupied on screen, read off the tiles' own geometry
+// (distinct x-centres, snapped to tolerate sub-pixel grid maths). This is what makes
+// the box remember the shape you drew rather than a shape we chose for you.
+function selectionCols(tiles) {
+  const xs = new Set(tiles.map(t => {
+    const b = t.getBoundingClientRect();
+    return Math.round((b.left + b.width / 2) / 8);   // 8px buckets — a column is far wider
+  }));
+  return Math.max(1, Math.min(HOME_COLS, xs.size));
 }
 
 // Reorder apps to the cached arrangement: saved-order apps first (in saved order),
@@ -3488,20 +3598,24 @@ function renderHomeApps(apps) {
   const pages = paginateHome(blocks);
   if (_homePage >= pages.length) _homePage = pages.length - 1;   // pages shrank under us
   if (_homePage < 0) _homePage = 0;
-  const page = pages[_homePage] || { blocks: [], utilities: true };
+  const page = pages[_homePage] || { blocks: [] };
 
-  // Rendered in the SAME sequence as page.blocks — a group box and a run of loose
-  // tiles are both direct children of .tos-home-apps in reading order, which is
-  // what lets a group sit between two runs of tiles instead of always leading them.
+  // ONE grid holds everything. A group box is a grid ITEM that spans the cells its
+  // members occupied (cols × rows), sitting inline among the tiles — not a
+  // full-width band between them. That's what keeps a 2×2 selection a 2×2 square
+  // with two loose tiles beside it, instead of flattening it into a line and
+  // reflowing the whole screen around the break.
   const body = page.blocks.map(b => {
-    if (b.kind === 'tiles') return `<div class="tos-grid tos-appgrid tos-looserun" data-group-grid="">${b.apps.map(tile).join('')}</div>`;
+    if (b.kind === 'tile') return tile(b.app);
     const { g, members } = b;
     const color = /^#[0-9a-f]{3,8}$/i.test(g.color || '') ? g.color : TOS_GROUP_COLORS[0];
-    return `<div class="tos-appgroup" data-group-id="${esc(g.id)}" style="--tos-grp:${esc(color)}">`
+    const cols = groupCols(g);
+    const rows = Math.ceil(members.length / cols);
+    return `<div class="tos-appgroup" data-group-id="${esc(g.id)}"`
+      + ` style="--tos-grp:${esc(color)};--grp-cols:${cols};--grp-rows:${rows}">`
       + `<div class="tos-appgroup-tab" data-group-menu="${esc(g.id)}" title="Hold to move the group · tap to edit it">`
-      + `<span class="tos-appgroup-swatch"></span><span class="tos-appgroup-nm">${esc(g.name || 'Group')}</span>`
-      + `<span class="tos-appgroup-n">${members.length}</span></div>`
-      + `<div class="tos-grid tos-appgrid" data-group-grid="${esc(g.id)}">${members.map(tile).join('')}</div></div>`;
+      + `<span class="tos-appgroup-swatch"></span><span class="tos-appgroup-nm">${esc(g.name || 'Group')}</span></div>`
+      + `<div class="tos-grid tos-appgrid tos-grp-inner" data-group-grid="${esc(g.id)}">${members.map(tile).join('')}</div></div>`;
   }).join('');
   // Selection mode: tiles toggle instead of opening, dragging anywhere lassoes, and
   // a bar along the bottom holds the count and the commit.
@@ -3510,7 +3624,8 @@ function renderHomeApps(apps) {
       <button type="button" class="tos-grp-btn" data-sel-cancel>Cancel</button>
       <button type="button" class="tos-grp-btn" data-sel-group>Group</button>
     </div>` : '';
-  return `<div class="tos-home-apps${_tosSelectMode ? ' tos-selecting' : ''}" data-home-page-now="${_homePage}">${body}`
+  return `<div class="tos-home-apps${_tosSelectMode ? ' tos-selecting' : ''}" data-home-page-now="${_homePage}">`
+    + `<div class="tos-grid tos-appgrid tos-homegrid" data-group-grid="">${body}</div>`
     + renderHomePager(pages.length)
     + renderHomeToolbar(false)
     + `${bar}</div>`;
@@ -3570,53 +3685,28 @@ function renderHomeToolbar(searching) {
 const HOME_COLS = 4;
 const HOME_ROWS = 4;
 const HOME_SLOTS = HOME_COLS * HOME_ROWS;   // 16
-// A group box's label strip, measured in tile-rows. It's a thin inline row (~15px
-// against a ~62px tile row), and costing it honestly is what keeps a page's height
-// truthful — the first version ignored it AND ignored the part-row a group's line
-// break wastes, so a single group could pack SIX rows of content onto a four-row
-// page. Everything below the box then shunted down, which is what "grouping moved
-// everything into a line" actually looked like on screen.
-const HOME_LABEL_ROWS = 0.4;
 let _homePage = 0;   // which page is showing; survives re-renders, reset on close
 
-// Accounting is in ROWS (fractional), not slots, because the two things that broke
-// the old slot maths are both sub-row: a group's label, and the ragged remainder a
-// group's line break leaves in the row above it.
+// Accounting is in CELLS, and can be again now that a group box is an inline grid
+// item rather than a full-width band: a tile costs 1, a box costs the block of cells
+// it spans (cols × rows). The earlier fractional-row maths existed only to pay for a
+// band's forced line break and its label row — neither of which happens any more, so
+// the honest simple count is back. The grid packs `dense`, so a small tile backfills
+// any hole a wide box leaves, which keeps the visual and this count in step.
 function paginateHome(blocks) {
   const pages = [];
-  let cur = { blocks: [], rowsLeft: HOME_ROWS };
-  const push = () => { pages.push(cur); cur = { blocks: [], rowsLeft: HOME_ROWS }; };
+  let cur = { blocks: [], left: HOME_SLOTS };
+  const push = () => { pages.push(cur); cur = { blocks: [], left: HOME_SLOTS }; };
 
-  let i = 0;
-  while (i < blocks.length) {
-    const b = blocks[i];
-    if (b.kind === 'group') {
-      // A box is a BLOCK: it starts on a fresh row, so whatever part-row the
-      // preceding tiles left is dead space. Charge it by flooring.
-      cur.rowsLeft = Math.floor(cur.rowsLeft);
-      const tileRows = Math.ceil(b.members.length / HOME_COLS);
-      // Fit test is on the box's TILE rows only, so a group whose tiles fit stays on
-      // this page and only its thin label strip can spill. Testing the label too
-      // would bump the box to the next page over ~25px and leave a near-empty row
-      // behind — worse than the spill, and it would move the group away from the
-      // spot its first app occupies, which is the thing this is all protecting.
-      if (tileRows > cur.rowsLeft && cur.blocks.length) push();
-      cur.blocks.push(b);
-      cur.rowsLeft = Math.max(0, cur.rowsLeft - (tileRows + HOME_LABEL_ROWS));
-      i++;
-      continue;
-    }
-    // A run of consecutive loose tiles: take as many WHOLE ROWS as are left, and
-    // split the run across a page break wherever it lands.
-    const capacity = Math.floor(cur.rowsLeft) * HOME_COLS;
-    if (capacity < 1) { push(); continue; }
-    const run = [];
-    while (i < blocks.length && blocks[i].kind === 'tile' && run.length < capacity) {
-      run.push(blocks[i].app);
-      i++;
-    }
-    cur.blocks.push({ kind: 'tiles', apps: run });
-    cur.rowsLeft -= run.length / HOME_COLS;
+  for (const b of blocks) {
+    const cost = b.kind === 'group'
+      ? groupCols(b.g) * Math.ceil(b.members.length / groupCols(b.g))
+      : 1;
+    // A box too big for a page of its own still gets one and is allowed to run over —
+    // clamping it would silently hide apps, which is worse than an odd-looking page.
+    if (cost > cur.left && cur.blocks.length) push();
+    cur.blocks.push(b);
+    cur.left = Math.max(0, cur.left - cost);
   }
   pages.push(cur);   // the trailing page (empty when there are no apps at all)
   return pages;
@@ -3741,25 +3831,34 @@ function wireAppGridDrag(container) {
   let press = null; // { tile, x, y, timer }
   let drag = null;  // { tile, clone, offX, offY }
 
-  const reflow = (px, py) => {
-    // Pick the single closest tile to the pointer — INCLUDING the dragged tile's
-    // own placeholder. When the finger is over that placeholder it wins, so we
-    // don't move; this hysteresis is what stops the tile snapping back and forth
-    // between two neighbouring slots (each insert reflowed the grid and flipped
-    // which neighbour was "nearest"). Swap past whichever real tile is closest,
-    // on the side it sits relative to the drag tile in DOM order.
-    // The sweep spans EVERY app grid on the home screen (the loose one plus one
-    // per group box), which is what lets a tile be dragged into or out of a group.
+  // AIM, don't rearrange. This only marks where the tile WOULD land; the actual
+  // insert happens once, on release (see `end`). Live reflow made every tile you
+  // dragged past leap out of the way, so the arrangement you were aiming at kept
+  // changing under the pointer — and each insert re-flowed the grid, which flipped
+  // which neighbour was "nearest" and made the placeholder flicker between slots.
+  const clearDropMark = () => {
+    container.querySelectorAll('.tos-drop-before, .tos-drop-after')
+      .forEach(n => n.classList.remove('tos-drop-before', 'tos-drop-after'));
+  };
+  const aim = (px, py) => {
+    // The sweep spans EVERY app grid on the home screen (the outer one plus one per
+    // group box), which is what lets a tile be aimed into or out of a group.
     const tiles = [...container.querySelectorAll('.tos-appgrid .tos-tile:not(.tos-tile-add)')];
     let target = null, best = Infinity;
     for (const t of tiles) {
+      if (t === drag.tile) continue;
       const b = t.getBoundingClientRect();
       const d = Math.hypot(px - (b.left + b.width / 2), py - (b.top + b.height / 2));
       if (d < best) { best = d; target = t; }
     }
-    if (!target || target === drag.tile) return;
-    const targetAfterDrag = drag.tile.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING;
-    target.parentElement.insertBefore(drag.tile, targetAfterDrag ? target.nextSibling : target);
+    clearDropMark();
+    drag.dropTarget = target || null;
+    if (!target) { drag.dropAfter = false; return; }
+    // Left half → land before it, right half → after. Reading the pointer's side of
+    // the target is what makes the indicator match where it actually goes.
+    const b = target.getBoundingClientRect();
+    drag.dropAfter = px > b.left + b.width / 2;
+    target.classList.add(drag.dropAfter ? 'tos-drop-after' : 'tos-drop-before');
   };
 
   const begin = () => {
@@ -3799,7 +3898,7 @@ function wireAppGridDrag(container) {
       drag.lastX = e.clientX; drag.lastY = e.clientY;
       const off = offTablet(e.clientX, e.clientY);
       drag.clone.classList.toggle('tos-tile-removing', off);
-      if (!off) reflow(e.clientX, e.clientY); // only reshuffle while still over the grid
+      if (off) { clearDropMark(); drag.dropTarget = null; } else aim(e.clientX, e.clientY);
       return;
     }
     if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > CANCEL_MOVE) {
@@ -3837,11 +3936,19 @@ function wireAppGridDrag(container) {
         moveAppToPage(container, appId, Number(dot.getAttribute('data-home-page')) || 0);
         return;
       }
+      // THE ONE AND ONLY MOVE. Everything up to here was aiming; this is where the
+      // tile actually changes place, so the grid you were dragging over never
+      // shifted under you.
+      const target = drag.dropTarget;
+      clearDropMark();
+      if (target && target !== drag.tile) {
+        target.parentElement.insertBefore(drag.tile, drag.dropAfter ? target.nextSibling : target);
+      }
       const movedBox = drag.tile.parentElement !== drag.fromGrid;
       drag = null;
       persistHomeArrangement(container);
-      // Crossing between a group box and the loose grid changes a tab's count (and
-      // can empty a box out of existence), so that drop needs a real rebuild.
+      // Crossing between a group box and the outer grid changes a box's membership
+      // (and can empty one out of existence), so that drop needs a real rebuild.
       if (movedBox) render();
     }
   };
@@ -3863,33 +3970,43 @@ function wireAppGridDrag(container) {
 // per-tile drag (wireAppGridDrag, above); this is a second, independent gesture
 // bound to a different element, so the two can never compete for the same press.
 //
-// Precision is BLOCK-level, not tile-level: you're moving a whole chunk, so the
-// drop snaps to the nearest other block's position rather than a slot inside it —
-// dropping "into" another group would mean picking a merge behaviour nobody asked
-// for. Reuses persistHomeArrangement to save, because once the box has been moved
-// among its DOM siblings that function's document-order read already sees it there.
+// Precision is ITEM-level: the box lands beside another item in the home grid — a
+// loose tile or another box — never inside one, because dropping "into" another
+// group would mean picking a merge behaviour nobody asked for. Like the tile drag,
+// nothing moves until you let go. Reuses persistHomeArrangement to save, because
+// once the box has been moved among its DOM siblings that function's document-order
+// read already sees it there.
 function wireGroupDrag(container) {
   const LIFT_MS = 300;
   const CANCEL_MOVE = 10;
   let press = null;   // { box, x, y, timer }
-  let drag = null;    // { box, clone, offX, offY, lastX, lastY }
+  let drag = null;    // { box, clone, offX, offY, lastX, lastY, dropTarget, dropAfter }
 
-  // Every OTHER top-level block on this page: other groups' boxes, and loose-tile
-  // runs. Direct children of the container only — never a tile buried inside
-  // another group, which is what keeps this "move the box", not "merge into it".
-  const otherBlocks = () => [...container.children].filter(el =>
-    el !== drag.box && (el.classList.contains('tos-appgroup') || el.classList.contains('tos-looserun')));
+  // Candidate neighbours: the home grid's own children — top-level tiles and other
+  // boxes. Scoped to that one grid, so a tile living INSIDE another group is never a
+  // target (that would be a merge, not a move).
+  const siblings = () => {
+    const grid = container.querySelector('.tos-homegrid');
+    return grid ? [...grid.children].filter(el => el !== drag.box) : [];
+  };
 
-  const reflow = (px, py) => {
+  const clearDropMark = () => {
+    container.querySelectorAll('.tos-drop-before, .tos-drop-after')
+      .forEach(n => n.classList.remove('tos-drop-before', 'tos-drop-after'));
+  };
+  const aim = (px, py) => {
     let target = null, best = Infinity;
-    for (const el of otherBlocks()) {
+    for (const el of siblings()) {
       const b = el.getBoundingClientRect();
       const d = Math.hypot(px - (b.left + b.width / 2), py - (b.top + b.height / 2));
       if (d < best) { best = d; target = el; }
     }
-    if (!target) return;
-    const after = drag.box.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING;
-    target.parentElement.insertBefore(drag.box, after ? target.nextSibling : target);
+    clearDropMark();
+    drag.dropTarget = target || null;
+    if (!target) { drag.dropAfter = false; return; }
+    const b = target.getBoundingClientRect();
+    drag.dropAfter = px > b.left + b.width / 2;
+    target.classList.add(drag.dropAfter ? 'tos-drop-after' : 'tos-drop-before');
   };
 
   const begin = () => {
@@ -3928,7 +4045,7 @@ function wireGroupDrag(container) {
       drag.lastX = e.clientX; drag.lastY = e.clientY;
       const off = offTablet(e.clientX, e.clientY);
       drag.clone.classList.toggle('tos-tile-removing', off);
-      if (!off) reflow(e.clientX, e.clientY);
+      if (off) { clearDropMark(); drag.dropTarget = null; } else aim(e.clientX, e.clientY);
       return;
     }
     if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > CANCEL_MOVE) {
@@ -3965,6 +4082,12 @@ function wireGroupDrag(container) {
         moveGroupToPage(container, group.apps, Number(dot.getAttribute('data-home-page')) || 0);
         return;
       }
+      // The single move, on release — same contract as the tile drag.
+      const target = drag.dropTarget;
+      clearDropMark();
+      if (target && target !== drag.box) {
+        target.parentElement.insertBefore(drag.box, drag.dropAfter ? target.nextSibling : target);
+      }
       drag = null;
       persistHomeArrangement(container);   // the box's new sibling position IS the new order
     }
@@ -3986,10 +4109,26 @@ function wireGroupDrag(container) {
 // across every grid, plus each box's membership. Called after any drop, so the
 // arrangement the player sees is exactly the one that survives a re-render.
 function persistHomeArrangement(container) {
-  const idsOf = (grid) => [...grid.querySelectorAll('.tos-tile')]
+  // Direct children only, so a box's members are read from the box (below) and not
+  // counted twice by the outer grid's sweep.
+  const idsOf = (grid) => [...grid.children]
+    .filter(el => el.classList.contains('tos-tile'))
     .map(t => t.getAttribute('data-nav-app')).filter(Boolean);
   const grids = [...container.querySelectorAll('.tos-appgrid')];
-  const visible = grids.flatMap(idsOf);
+  // Reading order across the whole page: walk the home grid's children in order, and
+  // where a child is a box, splice its members in at that point. That's what makes a
+  // group's saved position "wherever it sits", which is what the renderer reads back.
+  const home = container.querySelector('.tos-homegrid');
+  const visible = [];
+  for (const el of (home ? [...home.children] : [])) {
+    if (el.classList.contains('tos-tile')) {
+      const id = el.getAttribute('data-nav-app');
+      if (id) visible.push(id);
+    } else if (el.classList.contains('tos-appgroup')) {
+      const inner = el.querySelector('.tos-grp-inner');
+      if (inner) visible.push(...idsOf(inner));
+    }
+  }
 
   // ONLY THE CURRENT PAGE IS IN THE DOM. Saving the visible ids as the whole order
   // would erase every app on every other page, so splice them back into the saved
@@ -4125,7 +4264,7 @@ function wireAppMarquee(container) {
 // The group sheet — name + colour for a new box (`{ ids }`) or an existing one
 // (`{ groupId }`, which also offers Ungroup). Same scrim/card chrome as the ⊕
 // add-apps sheet, and like it, purely client-side.
-function openGroupSheet({ ids = null, groupId = null }) {
+function openGroupSheet({ ids = null, groupId = null, cols = 0 }) {
   if (!_overlay) return;
   const screen = _overlay.querySelector('#tos-screen-inner');
   if (!screen) return;
@@ -4161,7 +4300,7 @@ function openGroupSheet({ ids = null, groupId = null }) {
   input?.focus();
   const save = () => {
     const name = (input?.value || '').trim() || 'Group';
-    assignAppsToGroup(existing ? [] : ids, name, color, existing ? existing.id : null);
+    assignAppsToGroup(existing ? [] : ids, name, color, existing ? existing.id : null, cols);
     close();
     _tosSelectMode = false;   // the pick is spent; the rebuild below drops the bar
     render();
@@ -8009,9 +8148,12 @@ function wireBody() {
   });
   _overlay.querySelector('[data-sel-cancel]')?.addEventListener('click', () => exitAppSelectMode());
   _overlay.querySelector('[data-sel-group]')?.addEventListener('click', () => {
-    const ids = selectedAppTiles(appHome).map(t => t.getAttribute('data-nav-app')).filter(Boolean);
+    const picked = selectedAppTiles(appHome);
+    const ids = picked.map(t => t.getAttribute('data-nav-app')).filter(Boolean);
     if (!ids.length) return;   // nothing picked yet — the bar stays up
-    openGroupSheet({ ids });
+    // Read the SHAPE off the tiles while they're still on screen — a 2×2 selection
+    // has to come back as a 2×2 box, and after the re-render the geometry is gone.
+    openGroupSheet({ ids, cols: selectionCols(picked) });
   });
   // Page dots + arrows. Also the drop target that moves an app between pages (see
   // the drag `end` handler), which is why they're live in selection mode too.
