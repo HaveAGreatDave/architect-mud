@@ -52,13 +52,38 @@ outranks anything terrain-derived — refining below a region means refining the
 
 ### District — the "sense of place" (land-use identity)
 A **district** is the coarse land-use *feel* of a zone — **North City**, **the Docks**, **the
-Redline**, **the Slaglands**. SSOT is [`server/engine/districts.js`](../../server/engine/districts.js):
-`districtFor(zone)` returns a `DISTRICTS` entry, keyed off the **zone-id prefix** (`zone_<prefix>_…`
-via `DISTRICT_PREFIX`), with a `flags.district` string as an explicit override. It's a *derived*
-identity — there is no district table and no per-tile district id. Drives ambient sensory beats
-(`plugins/district-ambience`), the minimap colour/legend (`FUNC_LEGEND`), boundary-crossing narration,
-and skyline landmarks. **Rendering/flavour only — never gates gameplay.** See
+Redline**, **the Slaglands**.
+
+**SSOT is the `districts` content table** — one file per district under `content/districts/`,
+shipped by the ordinary CODEX deploy and edited in the **Studio's district view**. It was a
+hardcoded `DISTRICTS` literal in [`server/engine/districts.js`](../../server/engine/districts.js)
+until 2026-07-28; that module is now the *registry* (it loads the rows at boot and exposes
+`districtFor`), not the data. Each row carries name, colour, mood blurb, landmark + skyline
+phrase, and the outdoor sensory pool.
+
+`districtFor(zone)` resolves in this order and **always returns an entry**:
+
+1. `flags.district` — painted in the Studio, and the only rung that means anything on the
+   modern grid
+2. the district's `prefixes` list, matched against `zone_<prefix>_…` — **legacy**, and only
+   154 zones still resolve this way. Every grid tile is `zone_district_<x>_<y>`, which matches
+   nothing
+3. `hazard` if the tile's danger is lethal, else `residential`
+
+So a tile with no `flags.district` is not undecided — it reads as the Residential Blocks.
+**1,150 tiles are in that state**, mostly interiors.
+
+Drives ambient sensory beats (`plugins/district-ambience`), the room's district tag,
+boundary-crossing narration, skyline landmarks, and the **regional-map** tint/legend — *not*
+the tile fill at normal zoom, which is terrain's. The client's `FUNC_LEGEND` is filled from
+`/api/districts` at boot; it used to be a hand-kept copy and had gone four districts stale.
+**Rendering/flavour only — never gates gameplay.** See
 [systems-world.md § Districts (sense of place)](../systems-world.md#districts-sense-of-place).
+
+> **The name was reused.** Before 2026-07-19 "district" meant what is now a **region**, and
+> that old `districts` table still sits in databases created back then. `SCHEMA_SQL` renames
+> it to `districts_legacy` on sight (guarded on a column only the old shape has) so the new
+> table can be created; drop it by hand once you've looked at it.
 
 ### Terrain — the per-tile ground surface
 **`flags.terrain`** is the physical surface of one tile: `road`, `water`, `grass`, `park`, `asphalt`,

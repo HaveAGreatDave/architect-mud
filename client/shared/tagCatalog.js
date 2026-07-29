@@ -545,6 +545,29 @@
       help: 'Row on the map grid.' },
     'zone:grid_z': { label: 'Grid Z (floor)', shape: 'number', scope: 'zone_column', group: 'Zone: Geometry', order: 5,
       help: 'Floor level. 0 is ground; the knock and stairs checks compare this.' },
+
+    // ── Districts (scope 'district_column') ──────────────────────────────────
+    // The land-use neighbourhood a tile reads as. Catalogued for the same reason
+    // zone columns are: these were a hardcoded object in engine code, validated by
+    // nothing, mirrored by hand in the client — and the mirror had gone four
+    // districts stale. Keys are `district:<column>`, so they cannot collide with a
+    // flag or a zone column.
+    'district:name': { label: 'Name', shape: 'text', scope: 'district_column', group: 'District: Identity', order: 1,
+      help: 'Player-facing neighbourhood name, shown with the room and when crossing in. Written the way it reads in a sentence — "the Redline", not "Redline".' },
+    'district:color': { label: 'Colour', shape: 'text', scope: 'district_column', group: 'District: Identity', order: 2,
+      help: 'CSS colour. Tints the tile on the tablet\'s regional map, fills the legend swatch, and blends the street lines at that zoom. Not the tile fill at normal zoom — terrain owns that.' },
+    'district:sort': { label: 'Sort Order', shape: 'number', scope: 'district_column', group: 'District: Identity', order: 3,
+      help: 'Display order in authoring tools. Not player-facing.' },
+    'district:blurb': { label: 'Mood (first entry)', shape: 'text', scope: 'district_column', group: 'District: Prose', order: 1,
+      help: 'One line, shown once — the first time a player ever sets foot in this district.' },
+    'district:signature': { label: 'Sensory Lines', shape: 'list', scope: 'district_column', group: 'District: Prose', order: 2,
+      help: 'The smell/sound/air pool the district-ambience plugin draws from, OUTDOORS only. An empty list means this district has no sensory layer at all.' },
+    'district:landmark': { label: 'Landmark Zone', shape: 'ref', refTable: 'zones', scope: 'district_column', group: 'District: Prose', order: 3,
+      help: 'The orienting feature seen from across the district. Pairs with Skyline: both must be set, and the zone must exist, or no skyline line is shown at all.' },
+    'district:skyline': { label: 'Skyline Phrase', shape: 'text', scope: 'district_column', group: 'District: Prose', order: 4,
+      help: 'How the landmark reads from afar, completing "To the north, ___." — e.g. "the Dread Furnace glows red beyond the fence".' },
+    'district:prefixes': { label: 'Legacy Id Prefixes', shape: 'list', scope: 'district_column', group: 'District: Legacy', order: 1,
+      help: 'Zone-id prefixes that resolve to this district (zone_<prefix>_…), for the 154 old zones that still classify themselves that way. Every tile on the modern grid is zone_district_<x>_<y> and matches nothing here — those are assigned by painting.' },
   };
 
   global.TAG_CATALOG = TAG_CATALOG;

@@ -601,13 +601,17 @@ async function apiResetPassword(body) {
 }
 
 async function apiGetZones() { return {status:200,body:getAllZones()}; }
-// Serves the canonical district table (server/engine/districts.js) so the dev
-// panel can group zones by neighborhood without a hand-copied mirror. Only the
-// fields the list UI needs (name + color) plus the id-prefix map for the
-// client-side classifier that mirrors districtFor().
+// Serves the district registry (loaded from the districts content table) so no
+// client has to keep a copy. Two of them used to: the dev panel's zone grouping,
+// and the game's own FUNC_LEGEND — which was hand-maintained and had gone four
+// districts stale, the Wilds among them, so 3,471 tiles drew no colour at all.
+// `label` is what a legend row reads; the dev panel wants `name`; both come off
+// the same row so they cannot disagree.
 async function apiGetDistricts() {
   const districts = Object.fromEntries(
-    Object.entries(DISTRICTS).map(([k, d]) => [k, { name: d.name, color: d.color }]));
+    Object.entries(DISTRICTS).map(([k, d]) => [k, {
+      name: d.name, label: d.name, color: d.color, sort: d.sort ?? 0,
+    }]));
   return { status: 200, body: { districts, prefix: DISTRICT_PREFIX } };
 }
 async function apiGetZone(id) {

@@ -117,8 +117,13 @@ export const REGISTRY = [
     runtimeInserts: 'environment.js power-room interiors; broadcast studio builder (dev-gated)' },
   // Spatial region metadata (dev-panel World Editor). Member zones link via
   // flags.region_id; bounds derived from members, not stored. Dev-panel-read
-  // only — no runtime hot-path reader. Distinct from engine/districts.js land-use.
+  // only — no runtime hot-path reader. Distinct from `districts` land-use, below.
   { table: 'regions', class: 'content', pk: ['id'], readTier: 'cold' },
+  // Land-use districts — the neighbourhood a tile reads as, and the mood, colour
+  // and sensory pool that come with it. Member zones link via flags.district.
+  // 'boot' because districtFor() is called per move, per describe and per ambience
+  // beat: the registry is loaded once into memory and read synchronously from there.
+  { table: 'districts', class: 'content', pk: ['id'], readTier: 'boot' },
   // Authored connections (spec §1.4) — the things grid geometry cannot say: a link
   // the grid does not imply, a link that runs one way, a WALL between two tiles
   // that touch. Contiguous walkable ground authors nothing, which is why 21,203

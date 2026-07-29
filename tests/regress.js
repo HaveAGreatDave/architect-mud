@@ -1283,6 +1283,15 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   check('the Studio draws the layers the spec declares, deciding neither',
     /spec\.feature/.test(client) && /spec\.label/.test(client)
     && !/\.marker\b/.test(client.slice(client.indexOf('function draw('), client.indexOf('// ── Input'))));
+  // ONE LAYER PER TILE, and a switch between them. 61 world tiles carry a footprint
+  // SVG AND a code, and the Studio used to stamp the letters over the middle of the
+  // rooftop — a combination no screen in the game renders, because the graphic and
+  // the code are two ways of saying the same tile. The overlay mode is the game's
+  // own (minimap.js `avenueOverlay`), so the feature draw has to be gated on it.
+  const drawFn = client.slice(client.indexOf('function draw('), client.indexOf('// ── Input'));
+  check('the Studio shows a tile\'s art or its lettering, never both',
+    /state\.overlay/.test(client) && /lettersWin/.test(drawFn)
+    && /if \(spec\.feature && !lettersWin\)/.test(drawFn));
   // And the feature is THE GAME'S OWN ASSET, rasterised. An earlier pass hand-drew the
   // road lanes to match the SVGs by eye: correct that day, drift the day someone edits
   // road_ns.svg. No piece name may appear in this file — the build supplies it.
@@ -1311,6 +1320,63 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // No database in the process at all — that is the whole claim of §10.
   check('no database can be reached from the Studio',
     !/models\/db\.js|from 'pg'|require\('pg'\)/.test(serve + client));
+
+  // DISTRICTS ARE PAINTED, NOT TYPED. The tile inspector used to render
+  // flags.district as a free-text box holding a key that had to match a district
+  // exactly, with nothing checking it did — so a typo read as "unclassified" and
+  // looked identical to a blank tile. The district view assigns it from a list of
+  // the districts that exist; the tile still SAYS which one it is in.
+  check('the Studio paints a tile\'s district rather than typing it',
+    /'\/api\/assign'/.test(serve) && /assignDistrict/.test(serve)
+    && /key === 'district'\) continue/.test(client) && /districtLine/.test(client));
+  // And the district form comes from the catalog, exactly as the tile form does.
+  check('the Studio builds its district form from the field catalog',
+    /districtColumnCatalog/.test(serve) && /districtCatalog/.test(client));
+}
+
+// LAW: DISTRICT DEFINITIONS ARE CONTENT, NOT CODE (and there is only one copy).
+// They were a 240-line literal in server/engine/districts.js — names, colours and
+// pools of prose that could only be changed by editing engine source — and the
+// client kept a hand-maintained mirror of the colours that had gone four districts
+// stale, so the 3,471-tile Wilds drew nothing on the regional map.
+{
+  const districts = await readFile(join(__dirname, '..', 'server', 'engine', 'districts.js'), 'utf8');
+  const minimap = await readFile(join(__dirname, '..', 'client', 'game', 'js', 'panels', 'minimap.js'), 'utf8');
+
+  check('the district registry holds no authored prose of its own',
+    /export const DISTRICTS = \{\}/.test(districts) && /loadDistricts/.test(districts));
+  // The one thing a boot-loaded registry must not do: reach for the DB on a path
+  // that runs per move. districtFor() is sync by contract.
+  check('districtFor stays sync and query-free',
+    !/await|query\(/.test(districts) && /export function districtFor/.test(districts));
+  check('the client legend is served, not written into the client',
+    /export const FUNC_LEGEND = \{\}/.test(minimap) && /setDistrictLegend/.test(minimap));
+
+  // Every district a tile claims must exist, or the tile silently reads as the
+  // engine default while looking assigned in every tool.
+  const { rows: dRows } = await query('SELECT id FROM districts').catch(() => ({ rows: [] }));
+  const known = new Set(dRows.map(r => r.id));
+  check(`districts load from the content table (${known.size})`, known.size > 0);
+  const claimed = new Map();
+  for (const z of world.zones.values()) {
+    const d = z.flags?.district;
+    if (d) claimed.set(d, (claimed.get(d) || 0) + 1);
+  }
+  const orphan = [...claimed.keys()].filter(d => !known.has(d));
+  check('every district a tile claims exists', orphan.length === 0,
+    orphan.map(d => `${d} (${claimed.get(d)} tiles)`).join(', '));
+  // The prefix rung has to stay unambiguous: two districts claiming one prefix
+  // would resolve by whichever loaded last.
+  const seen = new Map();
+  const dupes = [];
+  const { rows: pRows } = await query('SELECT id, prefixes FROM districts').catch(() => ({ rows: [] }));
+  for (const r of pRows) {
+    for (const p of Array.isArray(r.prefixes) ? r.prefixes : []) {
+      if (seen.has(p)) dupes.push(`${p}: ${seen.get(p)} and ${r.id}`);
+      seen.set(p, r.id);
+    }
+  }
+  check('no zone-id prefix is claimed by two districts', dupes.length === 0, dupes.join('; '));
 }
 
 // LAW: ONE FIXTURE PER CONNECTION (spec §6.3, §11 step 7). A door is a fixture on

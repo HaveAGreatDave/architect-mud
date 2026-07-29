@@ -1,0 +1,20 @@
+{
+  "blurb": "Every wall here is listening, and most of them file a report.",
+  "color": "#b56fbf",
+  "created_by": "districts-to-content",
+  "id": "government",
+  "landmark": "gov_assembly",
+  "name": "the Government District",
+  "prefixes": [
+    "gov"
+  ],
+  "signature": [
+    "The hum of climate control is a little too even, a little too watchful.",
+    "A distant PA chimes a bulletin no one is close enough to hear.",
+    "Polished stone underfoot carries every footstep further than it should.",
+    "The air tastes of toner and old marble."
+  ],
+  "skyline": "the floodlit dome of the Assembly",
+  "sort": 20,
+  "updated_at": "1785196800"
+}

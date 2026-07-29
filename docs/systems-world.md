@@ -317,15 +317,29 @@ region layer's concern, not the planner's.)
 ## Districts (sense of place)
 
 [districts.js](../server/engine/districts.js) is the **district registry** — the substrate that
-gives every zone a felt neighborhood identity. A district is the coarse land-use category **derived
-from the zone id prefix** (`zone_<prefix>_<name>`) via `DISTRICT_PREFIX`; `districtFor(zone)` returns
-the matching `DISTRICTS` entry (precedence: a `flags.district` override → the prefix table → a
-lethal-zone `hazard` fallback → the `residential` default, never null). Each entry carries
-`key` / `name` / `color` (the client `FUNC_LEGEND` in
-[minimap.js](../client/game/js/panels/minimap.js) is a separate-runtime mirror — keep its keys/colors
-in sync; `scripts/landuse-zone-colors.js` now imports `districtFor` directly), plus `blurb`,
-`landmark` (a zone id) + `skyline` phrase, and a `signature` sensory pool. `mapFunc` in [movement.js](../server/engine/commands/movement.js) is now a thin
-wrapper over `districtFor(z).key`.
+gives every zone a felt neighborhood identity. **The definitions are content** (`content/districts/`
+→ the `districts` table, `readTier: boot`), edited in the Studio's district view and shipped by the
+ordinary deploy; this module loads them at boot and owns the *resolution*, not the data.
+
+`districtFor(zone)` returns an entry — **never null, and sync/query-free by contract**, since it runs
+per move, per look and per ambience beat. Precedence: `flags.district` (painted) → the district's own
+`prefixes` list against `zone_<prefix>_<name>` → a lethal-zone `hazard` fallback → the `residential`
+default. The prefix rung is **legacy**: it classifies 154 old zones, and nothing on the modern grid,
+whose ids are all `zone_district_<x>_<y>`. A tile with neither reads as Residential — 1,150 do.
+
+Each row carries `id` (aliased `key`) / `name` / `color`, plus `blurb`, `landmark` (a zone id) +
+`skyline` phrase, and a `signature` sensory pool. The client's `FUNC_LEGEND` in
+[minimap.js](../client/game/js/panels/minimap.js) is **no longer a mirror** — it is filled from
+`/api/districts` at boot. It used to be hand-copied and had drifted four districts behind, so
+`wilds`, `sewer`, `yards` and `longwatch` drew no regional-map tint, legend row or tooltip at all.
+`mapFunc` in [movement.js](../server/engine/commands/movement.js) is a thin wrapper over
+`districtFor(z).key`.
+
+> **Skyline lines are dark.** All 14 districts naming a `landmark` name it **without the `zone_`
+> prefix** (`nc_spindle`, `drum_shop`), and [describe.js](../server/engine/commands/describe.js)
+> looks the value up verbatim — so `getZone()` misses and no "To the north, …" line is ever
+> composed. `content:lint` warns per district. Fixing them is authoring work: pick a live landmark
+> zone in the Studio.
 
 Four surfaces consume it:
 

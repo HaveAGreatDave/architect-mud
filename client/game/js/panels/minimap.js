@@ -796,24 +796,29 @@ export function renderMinimap(nodes, direction) {
 
 // Land-use / function colour key for the default map view. Keys + colours match
 // server mapFunc() (movement.js) and scripts/landuse-zone-colors.js — keep synced.
-export const FUNC_LEGEND = {
-  northcity:   { label: 'North City / Uptown',   color: '#d9a83a' },
-  government:  { label: 'Government',             color: '#b56fbf' },
-  civic:       { label: 'Civic / institutional', color: '#4bb36a' },
-  residential: { label: 'Residential',           color: '#c9a884' },
-  commercial:  { label: 'Commercial / shops',    color: '#e08a4a' },
-  nightlife:   { label: 'Nightlife — Marquee',   color: '#e85aa0' },
-  media:       { label: 'Media / studio',        color: '#8e6fd0' },
-  docks:       { label: 'Docks / waterfront',    color: '#1fb5aa' },
-  water:       { label: 'Water — Coldwater Bay',  color: '#2f86cc' },
-  industrial:  { label: 'Industrial',            color: '#9a8a4f' },
-  slaglands:   { label: 'Slagworks',             color: '#e5822a' },
-  wasteland:   { label: 'Wasteland / ruins',     color: '#7c6a4a' },
-  ashway:      { label: 'The Ashway',            color: '#8b9097' },
-  slum:        { label: 'Slum / Undermarket',    color: '#cf6a2e' },
-  redline:     { label: 'Redline / Slaughterworks', color: '#c0392b' },
-  hazard:      { label: 'Hazard / lethal',       color: '#e05555' },
-};
+// The district legend — SERVED, never written here. This was a hand-kept copy of
+// the server's district registry, and it did exactly what a hand-kept copy does:
+// four districts added over the past months were never copied across — wilds,
+// sewer, yards and longwatch — so the regional map gave them no tint, no legend
+// row and no tooltip. The Wilds alone is 3,471 tiles, the largest district in the
+// game, rendering as a hole in the legend nobody could see the cause of.
+//
+// It is filled from /api/districts at boot (main.js), off the same rows the engine
+// resolves districtFor() against, so a district authored in the Studio appears here
+// with no code change at all. Empty until that lands: every read site already
+// guards with `?.` or a default, because a tile can carry a func the legend has
+// never heard of — which is precisely how the drift stayed invisible.
+export const FUNC_LEGEND = {};
+
+/** Fill the legend from the server's registry. Mutates in place — importers hold
+ *  the binding, and reassigning would leave every one of them on the empty object. */
+export function setDistrictLegend(districts) {
+  for (const k of Object.keys(FUNC_LEGEND)) delete FUNC_LEGEND[k];
+  for (const [key, d] of Object.entries(districts || {})) {
+    FUNC_LEGEND[key] = { label: d.label || d.name || key, color: d.color };
+  }
+  return Object.keys(FUNC_LEGEND).length;
+}
 
 // Street tint: a connector inherits meaning from the tiles it joins. In zone/interior
 // view it takes the *higher* danger of its two endpoints (so any street touching a
@@ -830,10 +835,15 @@ function hexToRgb(hex) {
   const h = (hex || '').replace('#', '');
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
+// A street with nothing to inherit from: the legend has not arrived yet, or both
+// its ends carry a district this build has never heard of. Neutral steel, the same
+// grey the safe-danger street already uses — not a district colour, because
+// pretending to be one would be a colour no author chose.
+const STREET_UNKNOWN = '#788ca5';
 function streetColor(a, b, regional) {
   if (regional) {
-    const [r1, g1, b1] = hexToRgb(FUNC_LEGEND[a.func]?.color || FUNC_LEGEND.residential.color);
-    const [r2, g2, b2] = hexToRgb(FUNC_LEGEND[b.func]?.color || FUNC_LEGEND.residential.color);
+    const [r1, g1, b1] = hexToRgb(FUNC_LEGEND[a.func]?.color || FUNC_LEGEND.residential?.color || STREET_UNKNOWN);
+    const [r2, g2, b2] = hexToRgb(FUNC_LEGEND[b.func]?.color || FUNC_LEGEND.residential?.color || STREET_UNKNOWN);
     return `rgba(${(r1 + r2) >> 1},${(g1 + g2) >> 1},${(b1 + b2) >> 1},0.5)`;
   }
   return DANGER_STREET[Math.max(DANGER_RANK[a.danger] ?? 0, DANGER_RANK[b.danger] ?? 0)];

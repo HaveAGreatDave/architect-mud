@@ -76,7 +76,7 @@ nothing, silently; wire a reader first.
 | `claimable` | corps | territory override: force claimable (absent = derived from inferred danger) |
 | `claimable_asset` | corps | this building is a claimable corporate income asset (Corporate Assets Phase A); `corps/ventures.js` reads it for `corp asset claim` |
 | `danger` | danger | manual danger override (`safe/low/medium/high/lethal`) — normally inferred from spawns + radiation (`engine/danger.js`) |
-| `district` | districts | override the id-prefix-derived district key (`engine/districts.js`) |
+| `district` | districts | the land-use district this tile belongs to (`districts` table). Painted in the Studio's district view, never typed — the legacy id-prefix rung still classifies 154 old zones |
 | `elevator` | movement | elevator car zone |
 | `facade` | movement | OPT-IN non-standable building tile: auto-forwards into the interior map's entry zone; OUT lands on `world_exit_zone` (needs a maps row with `parent_zone_id` = this zone) |
 | `elevator_floors` | movement | floor list for the elevator (Floor 1 / lobby is implicit — synthesized from the car's `out` exit) |

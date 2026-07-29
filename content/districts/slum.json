@@ -1,0 +1,22 @@
+{
+  "blurb": "The city’s underside, folded in on itself and still breathing.",
+  "color": "#cf6a2e",
+  "created_by": "districts-to-content",
+  "id": "slum",
+  "landmark": "slums",
+  "name": "the Sprawl",
+  "prefixes": [
+    "deep",
+    "slums",
+    "tunnels"
+  ],
+  "signature": [
+    "Close air, warm and thick, breathed too many times already.",
+    "Frying oil, wet cardboard, and the sweet-sour reek of the gutter.",
+    "A hundred bartered voices braid into one low, ceaseless murmur.",
+    "Something drips steadily out of the dark overhead, and you decide not to wonder what."
+  ],
+  "skyline": "the Sprawl's tangled aerials bristle overhead",
+  "sort": 140,
+  "updated_at": "1785196800"
+}

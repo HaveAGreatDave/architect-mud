@@ -1,0 +1,18 @@
+{
+  "blurb": "Somebody still stands the watch out here. Nobody has told them what for.",
+  "color": "#7d8a5c",
+  "created_by": "districts-to-content",
+  "id": "longwatch",
+  "landmark": null,
+  "name": "Longwatch",
+  "prefixes": [],
+  "signature": [
+    "Scuffed floor and old coffee — a room that is never quite empty.",
+    "A radio hisses on a channel that has not carried a voice in a long time.",
+    "The lamps run low and steady, rationed by someone who counts.",
+    "Cold works its way in at the seams, the way it always has."
+  ],
+  "skyline": null,
+  "sort": 190,
+  "updated_at": "1785196800"
+}

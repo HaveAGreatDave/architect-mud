@@ -144,8 +144,32 @@ export function zoneColumnCatalog() {
 // omitWhenNull). Returns { ok, badShape } with the same shape as validateTags so
 // callers can treat the two halves alike.
 export function validateZoneColumns(row) {
+  return validateColumns(row, zoneColumnCatalog());
+}
+
+// ── District columns (scope 'district_column') ───────────────────────────────
+// Districts became content (the `districts` table) rather than a hardcoded engine
+// registry, so their fields need the same shape gate a tile's columns get — and the
+// Studio builds its district form from this, exactly as it builds the tile form
+// from zoneColumnCatalog(). Keys are `district:<column>`.
+export const DISTRICT_COLUMN_PREFIX = 'district:';
+
+export function districtColumnCatalog() {
+  const out = {};
+  for (const [key, def] of Object.entries(TAG_CATALOG)) {
+    if (def?.scope === 'district_column' && key.startsWith(DISTRICT_COLUMN_PREFIX)) {
+      out[key.slice(DISTRICT_COLUMN_PREFIX.length)] = def;
+    }
+  }
+  return out;
+}
+
+export function validateDistrictColumns(row) {
+  return validateColumns(row, districtColumnCatalog());
+}
+
+function validateColumns(row, cols) {
   const badShape = [];
-  const cols = zoneColumnCatalog();
   for (const [col, def] of Object.entries(cols)) {
     const value = row?.[col];
     // Absent, null, and the empty string a form submits for "leave it blank" all

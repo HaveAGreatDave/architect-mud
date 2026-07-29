@@ -91,10 +91,10 @@ export const SCHEMA_SQL = `
   -- flags.region_id = regions.id; bounds are derived from those members'
   -- bbox at read time (never stored), so moving a region — which rewrites its
   -- zones' grid_x/grid_y — can never desync stored bounds.
-  -- NOTE: distinct from server/engine/districts.js, which is the land-use
-  -- *district* registry inferred from zone-id prefix (sense of place). A region is
-  -- the larger world-map place (Coldwater Basin, The Reach); a district is the
-  -- land-use character within it. Different concept.
+  -- NOTE: distinct from the districts table below, which is the land-use
+  -- *district* registry (sense of place). A region is the larger world-map place
+  -- (Coldwater Basin, The Reach); a district is the land-use character within it.
+  -- Different concept — see docs/reference/land-taxonomy.md.
   CREATE TABLE IF NOT EXISTS regions (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -106,6 +106,61 @@ export const SCHEMA_SQL = `
   -- Static per-region climate lean read by the weather field sampler:
   -- { temp: <°C offset>, dryness: <0..1 precip/cloud multiplier> }. NULL = baseline.
   ALTER TABLE regions ADD COLUMN IF NOT EXISTS climate_bias JSONB;
+
+  -- Districts are the LAND-USE identity of a tile — the neighbourhood it reads as
+  -- (North City, the Redline, the Wilds). Authored content, not code: this table
+  -- replaced a hardcoded registry in server/engine/districts.js, which had already
+  -- drifted from its hand-kept client copy (four districts, including the 3,471-tile
+  -- Wilds, existed only on the server and so drew no colour on the regional map).
+  --
+  -- A tile's membership is flags.district. prefixes is the LEGACY fallback: zone
+  -- ids of the form zone_<prefix>_… used to classify themselves, and 154 zones still
+  -- rely on it. Every tile on the modern grid is zone_district_<x>_<y>, which matches
+  -- nothing, so for those flags.district is the only thing that assigns identity.
+  --
+  -- signature is the outdoor sensory pool (smell/sound/air lines); blurb is the
+  -- one-off mood shown on a player's first-ever entry; landmark/skyline are the
+  -- orienting feature seen from afar. Read at boot into the districts registry;
+  -- districtFor() is sync and query-free by contract (it runs per move).
+  -- THE NAME WAS USED BEFORE. Until 2026-07-19 "district" meant the spatial place
+  -- that is now regions, and the rename moved the rows and files across but left
+  -- the old TABLE sitting in every database it had ever been created in — absent
+  -- from this file, absent from the content registry, read by nothing. A plain
+  -- create-if-not-exists therefore no-ops against that corpse and hands the new
+  -- registry a table with none of its columns. (Spelled out in full, that DDL would
+  -- also invent a table: regress reads this file's table names by pattern, comments
+  -- included, and duly reported an unclassified table called "would".)
+  --
+  -- Renamed rather than dropped: the rows are superseded by regions (dev held one,
+  -- district_coldwater, against region_coldwater) but a schema pass that runs on
+  -- every deploy has no business deleting data unattended. Guarded on base_terrain,
+  -- a column only the legacy shape has, so this fires once and is inert forever
+  -- after. Drop districts_legacy by hand once you've looked at it.
+  DO $$
+  BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_schema = 'public' AND table_name = 'districts'
+                 AND column_name = 'base_terrain')
+       AND NOT EXISTS (SELECT 1 FROM information_schema.tables
+                       WHERE table_schema = 'public' AND table_name = 'districts_legacy')
+    THEN
+      ALTER TABLE districts RENAME TO districts_legacy;
+    END IF;
+  END $$;
+
+  CREATE TABLE IF NOT EXISTS districts (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    color TEXT,
+    blurb TEXT,
+    landmark TEXT,
+    skyline TEXT,
+    signature JSONB,
+    prefixes JSONB,
+    sort INTEGER DEFAULT 0,
+    created_by TEXT,
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
 
   -- GENERATED presentation, one row per zone. TRUNCATEd and rebuilt by the derive
   -- pass of content:import (docs/proposals/map-pipeline-spec.md §2.1) — never

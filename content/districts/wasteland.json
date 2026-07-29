@@ -1,0 +1,23 @@
+{
+  "blurb": "The city gave up out here, and the wind took the rest.",
+  "color": "#7c6a4a",
+  "created_by": "districts-to-content",
+  "id": "wasteland",
+  "landmark": "waste_gantry",
+  "name": "the Wastes",
+  "prefixes": [
+    "badland",
+    "outskirts",
+    "ruins",
+    "waste"
+  ],
+  "signature": [
+    "Wind hauls grit across open ground with nothing left to stop it.",
+    "Dust, rust, and dry rot — the smell of a place that stopped.",
+    "A loose sheet of tin bangs somewhere, over and over, keeping no time.",
+    "The silence out here has a weight to it, and it leans on you."
+  ],
+  "skyline": "a skeletal gantry leans on the horizon",
+  "sort": 120,
+  "updated_at": "1785196800"
+}

@@ -41,7 +41,7 @@ import { applyAnchor, expectedAnchor } from '../../scripts/content/map-anchor.mj
 import { lintContentTree } from '../../scripts/content/lint.mjs';
 // tags.js pulls in client/shared/tagCatalog.js for its side effect, so the
 // catalog the game validates against is the catalog this tool builds forms from.
-import { validateTags, validateZoneColumns, zoneColumnCatalog, TAG_CATALOG } from '../../server/engine/tags.js';
+import { validateTags, validateZoneColumns, zoneColumnCatalog, districtColumnCatalog, validateDistrictColumns, TAG_CATALOG } from '../../server/engine/tags.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.argv[2]) || 5180;
@@ -59,7 +59,7 @@ const readBody = (req) => new Promise((resolve, reject) => {
 // Read once, kept current by every write going through saveZone(). A file the
 // Studio did not write (a git pull, a hand edit) needs a restart, which is the
 // honest tradeoff for never serving a tile that disagrees with disk.
-const TABLES = ['zones', 'maps', 'regions', 'connections', 'doors'];
+const TABLES = ['zones', 'maps', 'regions', 'connections', 'doors', 'districts'];
 const tree = {};
 let palette = null;
 let derived = null;   // { render, edges } — invalidated on every write
@@ -367,6 +367,138 @@ async function saveMap(row) {
   return { ok: true, pushed, failed };
 }
 
+// ── Districts: the neighbourhood a tile reads as ─────────────────────────────
+// A district is not a shape on the map — it is a property every tile claims, and
+// until now the only way to claim it was to type a key into a text box on one tile
+// at a time, with nothing checking the key was real. So the districts get a VIEW:
+// the same canvas, tinted by membership, with the list on the left and a brush.
+//
+// Resolution mirrors the engine's districtFor(), minus one rung. The engine falls
+// back to `hazard` for a tile with lethal danger, and danger is computed from live
+// world state the Studio has no access to (and no business simulating). So a tile
+// with no district resolves here as UNASSIGNED rather than guessing — which is the
+// honest answer for an editor anyway: "nothing says what this is" is the thing you
+// want to see on the map, not a fallback painted over it.
+const DISTRICT_COLS = schemaColumnsOf('districts');
+const FALLBACK_DISTRICT = 'residential';
+
+function prefixIndex() {
+  const idx = new Map();
+  for (const d of tree.districts.values()) {
+    for (const p of Array.isArray(d.prefixes) ? d.prefixes : []) idx.set(p, d.id);
+  }
+  return idx;
+}
+
+// → { id, source } — 'authored' (flags.district), 'prefix' (legacy id rung), or
+// null/'none'. The source is half the point: it says whether a tile is where it is
+// because somebody put it there, or because its id happens to start with 'slag'.
+function districtOfZone(zone, prefixes) {
+  const authored = zone?.flags?.district;
+  if (authored && tree.districts.has(authored)) return { id: authored, source: 'authored' };
+  // An authored key naming no district is a defect, not an assignment — surfaced
+  // rather than silently falling through to the prefix rung.
+  if (authored) return { id: authored, source: 'unknown' };
+  const p = (zone?.id || '').match(/^zone_([a-z0-9]+)/)?.[1] || '';
+  const byPrefix = prefixes.get(p);
+  if (byPrefix) return { id: byPrefix, source: 'prefix' };
+  return { id: null, source: 'none' };
+}
+
+function districtsView() {
+  const prefixes = prefixIndex();
+  const counts = new Map();
+  let unassigned = 0;
+  const unknown = new Map();
+  for (const z of tree.zones.values()) {
+    const d = districtOfZone(z, prefixes);
+    if (d.source === 'none') { unassigned++; continue; }
+    if (d.source === 'unknown') { unknown.set(d.id, (unknown.get(d.id) || 0) + 1); continue; }
+    const c = counts.get(d.id) || { authored: 0, prefix: 0 };
+    c[d.source]++;
+    counts.set(d.id, c);
+  }
+  const rows = [...tree.districts.values()]
+    .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || String(a.id).localeCompare(String(b.id)))
+    .map(d => ({
+      ...d,
+      tiles: (counts.get(d.id)?.authored || 0) + (counts.get(d.id)?.prefix || 0),
+      authoredTiles: counts.get(d.id)?.authored || 0,
+      prefixTiles: counts.get(d.id)?.prefix || 0,
+      // The engine's last rung before hazard. Worth stating on the one district
+      // that silently absorbs every tile nobody classified.
+      isFallback: d.id === FALLBACK_DISTRICT,
+    }));
+  return {
+    districts: rows,
+    unassigned,
+    unknown: [...unknown].map(([id, n]) => ({ id, tiles: n })),
+  };
+}
+
+function validateDistrict(row) {
+  const errors = [];
+  if (!row?.id) errors.push('no id');
+  for (const k of Object.keys(row || {})) {
+    if (DISTRICT_COLS.size && !DISTRICT_COLS.has(k)) errors.push(`"${k}" is not a column of districts`);
+  }
+  const cols = validateDistrictColumns(row);
+  errors.push(...cols.badShape.map(s => `column shape — ${s}`));
+  // NOT NULL in the schema, and player-facing: an unnamed district would render as
+  // a blank neighbourhood in the room header.
+  if (!String(row?.name ?? '').trim()) errors.push('name is required — it is what a player reads');
+  // A landmark naming a dead zone is SHOWN, not refused. 11 of the 14 districts
+  // that have one point at zones the legacy-world purge deleted, so refusing here
+  // would mean this tool declining to save prose the deploy gate accepts — the one
+  // thing §10 says it must never do. The ref control renders it red and says NOT IN
+  // zones, and content:lint warns; fixing them is authoring work, not a save error.
+  // Two halves of one sentence ("To the north, <skyline>."). One without the other
+  // is a line that can never be built, which is not an error the game reports.
+  if (row.landmark && !String(row.skyline ?? '').trim()) errors.push('landmark is set but skyline is empty — no line can be composed from half of it');
+  if (row.skyline && !row.landmark) errors.push('skyline is set but no landmark zone — nothing to point at');
+  for (const p of Array.isArray(row.prefixes) ? row.prefixes : []) {
+    if (!/^[a-z0-9]+$/.test(p)) errors.push(`prefix "${p}" is not a zone-id prefix (lowercase letters and digits, no underscore)`);
+    for (const other of tree.districts.values()) {
+      if (other.id === row.id) continue;
+      if ((other.prefixes || []).includes(p)) errors.push(`prefix "${p}" is already claimed by ${other.id}`);
+    }
+  }
+  return errors;
+}
+
+async function saveDistrict(row) {
+  const errors = validateDistrict(row);
+  if (errors.length) return { ok: false, errors };
+  const clean = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (k === 'signature' || k === 'prefixes') { clean[k] = Array.isArray(v) ? v : []; continue; }
+    clean[k] = v;
+  }
+  await writeFile(join(CONTENT_DIR, 'districts', `${row.id}.json`), canonicalJson(clean), 'utf8');
+  tree.districts.set(row.id, clean);
+  return { ok: true };
+}
+
+// Assignment is a paint stroke over flags.district. `district: null` clears the
+// flag, which is how a tile is handed back to the legacy prefix rung (or to
+// nothing) rather than being stuck in whatever it was last painted.
+async function assignDistrict(ids, district) {
+  const errors = [];
+  const changed = {};
+  if (district && !tree.districts.has(district)) return { errors: [`"${district}" is not a district`], changed };
+  for (const id of ids) {
+    const z = tree.zones.get(id);
+    if (!z) { errors.push(`${id}: no such tile`); continue; }
+    const flags = { ...(z.flags || {}) };
+    if (district) flags.district = district; else delete flags.district;
+    const next = { ...z, flags };
+    const r = await saveZone(next);
+    if (!r.ok) { errors.push(`${id}: ${r.errors.join('; ')}`); continue; }
+    changed[id] = district || null;
+  }
+  return { errors, changed };
+}
+
 // ── Server ───────────────────────────────────────────────────────────────────
 loadTree();
 
@@ -422,11 +554,16 @@ const server = createServer(async (req, res) => {
       const counts = new Map();
       for (const z of tree.zones.values()) counts.set(z.map_id, (counts.get(z.map_id) || 0) + 1);
       const mapNames = new Map(maps.map(m => [m.id, m.name]));
+      const prefixes = prefixIndex();
       const zones = mapId
         ? [...tree.zones.values()].filter(z => z.map_id === mapId).map(z => ({
             id: z.id, name: z.name, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z,
             spec: render.get(z.id)?.spec ?? {}, marker: render.get(z.id)?.marker ?? null,
             prov: provOf(z),
+            // Which district this tile reads as, and WHY — the district view tints
+            // from this, and the tile inspector states it. Shipped with the tile
+            // rather than fetched per district so switching views is instant.
+            district: districtOfZone(z, prefixes),
           }))
         : [];
       return json(res, 200, {
@@ -435,6 +572,38 @@ const server = createServer(async (req, res) => {
         portals: mapId ? portalsOnMap(mapId, mapNames) : {},
         terrains: Object.entries(palette?.terrains || {}).map(([key, t]) => ({ key, label: t.label || key, fill: t.fill })),
       });
+    }
+
+    // Every district, with how many tiles claim it and how. Also the two things a
+    // list of districts cannot show by itself: tiles claiming a district that does
+    // not exist, and tiles claiming nothing at all.
+    if (req.method === 'GET' && path === '/api/districts') {
+      return json(res, 200, { ...districtsView(), catalog: districtColumnCatalog() });
+    }
+
+    // One district's authored row. PUT writes content/districts/<id>.json.
+    const dm = path.match(/^\/api\/district\/(.+)$/);
+    if (dm) {
+      const id = decodeURIComponent(dm[1]);
+      const row = tree.districts.get(id);
+      if (!row) return json(res, 404, { error: 'no such district' });
+      if (req.method === 'GET') return json(res, 200, { district: row });
+      if (req.method === 'PUT') {
+        let body; try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { errors: ['body is not JSON'] }); }
+        if (body.id !== id) return json(res, 400, { errors: ['id in body does not match the URL'] });
+        const r = await saveDistrict(body);
+        if (!r.ok) return json(res, 422, r);
+        return json(res, 200, { district: tree.districts.get(id), ...districtsView() });
+      }
+    }
+
+    // Assignment: paint flags.district across a stroke of tiles. Same shape as
+    // /api/paint, and deliberately the same gesture — a district is a region of
+    // the map, so it is painted like one.
+    if (req.method === 'POST' && path === '/api/assign') {
+      let body; try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { errors: ['body is not JSON'] }); }
+      const r = await assignDistrict(Array.isArray(body.ids) ? body.ids : [], body.district || null);
+      return json(res, 200, { ...r, ...districtsView() });
     }
 
     // A map's own properties. PUT writes content/maps/<id>.json and pushes the

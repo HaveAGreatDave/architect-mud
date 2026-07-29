@@ -43,6 +43,7 @@ import { initWeatherFx, setWeatherFxEnabled } from "./panels/weather-fx.js";
 import { initAtmPanel } from "./panels/atm.js";
 import { initInsurancePanel } from "./panels/insurance.js";
 import { initWantedHud } from "./panels/wanted.js";
+import { setDistrictLegend } from "./panels/minimap.js";
 import { initTvPanel } from "./panels/tv.js";
 import { initMediaDeckPanel } from "./panels/mediadeck.js";
 import { initAudio } from "./panels/audio.js";
@@ -94,6 +95,17 @@ window.addEventListener("resize", applyMobileScale);
 fetch("/api/audio/interface-sfx")
 	.then((r) => (r.ok ? r.json() : []))
 	.then((rows) => window.SFXCatalog?.applyOverrides(Array.isArray(rows) ? rows : []))
+	.catch(() => {});
+
+// The district legend (regional-map tint, legend swatches, tile tooltip) comes off
+// the server's own district rows. It used to be a hardcoded table in minimap.js
+// that someone had to remember to extend, and four districts were missed — the
+// Wilds among them, 3,471 tiles with no colour on the map. Same fire-and-forget
+// shape as the SFX catalog above: the map renders without it (tiles fall back to
+// terrain, which is what colours most of them anyway) and re-renders once it lands.
+fetch("/api/districts")
+	.then((r) => (r.ok ? r.json() : null))
+	.then((d) => d?.districts && setDistrictLegend(d.districts))
 	.catch(() => {});
 
 // Mobile area-pane: always starts collapsed. The resize-handle bar is always

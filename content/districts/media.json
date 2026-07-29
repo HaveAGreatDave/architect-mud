@@ -1,0 +1,24 @@
+{
+  "blurb": "The city films itself here and sells the footage back to you.",
+  "color": "#8e6fd0",
+  "created_by": "districts-to-content",
+  "id": "media",
+  "landmark": "studio_1782953094650",
+  "name": "the Media District",
+  "prefixes": [
+    "ext",
+    "media",
+    "prod",
+    "studio",
+    "util"
+  ],
+  "signature": [
+    "A jingle you half-remember leaks from a soundstage and burrows in.",
+    "The ozone tang of hot studio lights hangs in the air.",
+    "A director’s voice barks \"again, from the top\" through a cracked door.",
+    "Cable runs snake underfoot, gaffer-taped and humming."
+  ],
+  "skyline": "the KSAB transmission mast blinks red on the skyline",
+  "sort": 70,
+  "updated_at": "1785196800"
+}

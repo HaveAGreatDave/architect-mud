@@ -312,6 +312,41 @@ export function lintContentTree(baseDir) {
     }
   }
 
+  // ── Districts (the land-use neighbourhood a tile reads as) ─────────────────
+  // Same two questions the terrain palette gets asked: does every tile's claim name
+  // something real, and does every entry get used.
+  {
+    const districtFiles = entries.find(e => e.entry.table === 'districts')?.files || [];
+    const zoneFilesD = entries.find(e => e.entry.table === 'zones')?.files || [];
+    if (districtFiles.length) {
+      const known = new Map(districtFiles.map(f => [f.data.id, f.data]));
+      const claimed = new Map();
+      for (const f of zoneFilesD) {
+        const d = f.data.flags?.district;
+        if (d) claimed.set(d, (claimed.get(d) || 0) + 1);
+      }
+      // A tile naming no district at all is FINE — it falls back to the engine
+      // default. A tile naming one that doesn't exist is not: it looks assigned in
+      // every tool and resolves to the default anyway.
+      for (const [d, n] of claimed) {
+        if (!known.has(d)) errors.push(`no district "${d}", claimed by ${n} tile(s) — those tiles silently read as the default neighbourhood`);
+      }
+      // Warnings, because each of these ships today and is authoring work, not a
+      // broken build. The landmark one is real: 11 of the 14 districts that name a
+      // landmark point at zones the legacy-world purge deleted, and describe.js
+      // simply shows no skyline line when getZone() comes back empty.
+      const zoneIds = new Set(zoneFilesD.map(f => f.data.id));
+      for (const d of known.values()) {
+        if (d.landmark && !zoneIds.has(d.landmark)) {
+          warnings.push(`districts/${d.id}: landmark "${d.landmark}" is not a zone — this district shows no skyline line at all`);
+        }
+        if (!Array.isArray(d.signature) || !d.signature.length) {
+          warnings.push(`districts/${d.id}: no sensory lines — outdoor tiles here get no district ambience`);
+        }
+      }
+    }
+  }
+
   // ── Building map codes (spec §7.4) ─────────────────────────────────────────
   // The build assigns a unique code to every building that didn't author one, so a
   // DERIVED collision is impossible by construction. An AUTHORED one is a human

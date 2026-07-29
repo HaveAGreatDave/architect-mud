@@ -98,6 +98,18 @@ hand-frozen road pieces are already in that state; `npm run test:regress` prints
 list. Runways are deliberately exempt — they auto-tile but draw a different piece set,
 so they are a different choice, not a stale road.
 
+**Art or Labels, never both.** 61 world tiles carry a rooftop SVG *and* a navigable
+code, and this drew the letters over the middle of the rooftop — a combination no
+screen in the game renders, because the graphic and the code are two ways of saying
+the same tile. **Art** (the default) shows the footprint; **Labels** swaps it for the
+code. It is the game's own switch under the game's own rule (`avenueOverlay` in
+[minimap.js](../../client/game/js/panels/minimap.js)), with one deliberate departure:
+a tile with a code and *no* art keeps its code in both modes. Most interiors are
+exactly that — Chrome Court is 12 room designations and not one SVG — and the game can
+afford to leave those bare because a player is standing in the room reading its name.
+An editor cannot; the toggle exists to stop two layers fighting over one tile, and
+there is nothing to fight with there.
+
 **The overlay toggle cannot reach a road.** Not because anything checks — because a
 road tile has no `label` key, so there is nothing there to toggle. `kind` says what the
 game's Labels/Icons switch may do: `building` and `room` codes follow it, `art` (the
@@ -107,6 +119,16 @@ sewer corridors' connectivity pieces) is the tile's own drawing and survives eve
 945 blue squares. The grid returns as a hairline once you are zoomed past ~14px per
 tile — far enough in to be editing rather than looking, which is the only time
 counting tiles is what you are doing.
+
+**Where a tile is, is not a field.** The corner pill states `x,y,floor` and the canvas
+is already showing you the tile in place, so the three coordinate columns are not
+rendered as number boxes — the same fact typed twice, and *typed* was the problem: a
+spinner invites a nudge, and a nudge moves a tile with none of what moving a tile needs
+(the neighbours it auto-tiles with, the cell it might land on top of, the seams
+pointing at it). That is a structural operation this tool doesn't do yet, and it should
+not be reachable with an arrow key. The Geometry group says so where the fields were.
+This is the only place the inspector suppresses a catalogued column; the values still
+round-trip untouched, so a save is still a byte-for-byte no-op.
 
 **The form is the catalog.** The inspector is generated from
 [`client/shared/tagCatalog.js`](../../client/shared/tagCatalog.js) — label, shape,
@@ -171,6 +193,50 @@ had already drifted apart — The Cherry Pit's interior was still filed under
 facade is named for a room rather than for the building. Nothing player-facing
 reads `maps.name` — it is an authoring label in this list, the dev panel's, and
 the audit — which is what makes deriving it safe.
+
+**The map list fans down.** 71 entries held open is most of a 190px column spent on a
+list you use once a session; folded, its summary still carries the one thing the open
+list was telling you — which map you are on, and how many tiles it has. Following a
+seam changes that summary too, because it is read from the open map rather than from
+the click.
+
+## The district view
+
+**Tiles / Districts** at the top of the sidebar switches what you are asking about the
+map in front of you. Nothing else changes — same canvas, same camera, same floor, same
+open map — because a district is not a different place, it is a different question
+about this one: *whose is this?*
+
+A district is the land-use neighbourhood a tile reads as: its name with the room, the
+line when you cross in, the smells outdoors, the colour on the tablet's regional map.
+It is spread across thousands of tiles, which is exactly why it could not go on staying
+a text box on one tile at a time — that box held a key that had to match a district
+exactly, with nothing checking it did, so a typo read as "unclassified" and looked
+identical to a blank. **The tile inspector no longer offers it.** It says which district
+the tile is in, and how it got there, with a button through to it.
+
+| on the canvas | means |
+|---|---|
+| coloured wash | the district's own authored colour — the selected one at full strength, everything else at half |
+| pale outline | assigned by the **legacy id prefix**, not painted: it reads as that district only until the zone is renamed |
+| dim centre dot | claims **no** district — 1,150 tiles, which in game means the engine's default neighbourhood, not silence |
+| red outline | claims a district that does not exist, so it resolves to the default while looking assigned |
+
+The ground keeps its own colour underneath, because assigning neighbourhoods to a map
+you can no longer read is not editing. **Paint** assigns, **Pick** lifts the district
+under the cursor, and **Erase** — the first entry in the list, carrying the count of
+unclassified tiles — clears `flags.district` rather than painting a district of "none".
+
+Selecting a district loads it as the brush *and* opens its fields, which is one action
+because they are one thing: change a colour and the map you are painting redraws in it.
+The form is generated from the field catalog like every other form here, so the prose
+that used to be a 240-line literal in engine source — mood blurb, skyline phrase,
+sensory pool — is now ordinary authored content in `content/districts/`.
+
+Two things it shows rather than fixes: a **landmark naming no zone** (all 14 do, so no
+district composes its "To the north, …" line today) renders red as any dead ref does
+and `content:lint` warns — but the save is not refused, because it ships today and this
+tool must not be stricter than the gate it stands in for.
 
 ## Following a door
 

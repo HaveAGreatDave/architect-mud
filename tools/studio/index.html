@@ -32,6 +32,39 @@
   button.on { background: var(--accent); color: #0e0f12; border-color: var(--accent); }
   .maplist button { display: block; width: 100%; text-align: left; margin-bottom: 2px; }
   .maplist .n { color: var(--dim); float: right; }
+  /* The map list fans down. 71 entries open at all times is most of a 190px column
+     spent on a list you use once a session — the summary keeps the answer it was
+     giving (which map is open) and gives the space back to the tools. */
+  details.fan > summary { list-style: none; cursor: pointer; background: var(--panel2);
+    border: 1px solid var(--line); border-radius: 3px; padding: 4px 8px;
+    display: flex; gap: 6px; align-items: center; }
+  details.fan > summary::-webkit-details-marker { display: none; }
+  details.fan > summary:hover { border-color: var(--accent); }
+  details.fan > summary .caret { color: var(--dim); flex: none; }
+  details.fan[open] > summary .caret { color: var(--accent); }
+  details.fan > summary .who { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  details.fan > summary .n { color: var(--dim); flex: none; }
+  details.fan > .maplist { max-height: 40vh; overflow-y: auto; margin-top: 4px;
+    border: 1px solid var(--line); border-radius: 3px; padding: 3px; }
+  /* The view switch: two halves of one control, because they are two ways of
+     looking at the same map rather than two screens. */
+  .viewsw { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-bottom: 10px; }
+  .viewsw button { border-radius: 0; }
+  .viewsw button:first-child { border-radius: 3px 0 0 3px; }
+  .viewsw button:last-child { border-radius: 0 3px 3px 0; border-left: 0; }
+  /* A district in the list: its own colour, its name, how many tiles claim it. */
+  .dlist button { display: flex; width: 100%; text-align: left; margin-bottom: 2px;
+                  gap: 6px; align-items: center; }
+  .dlist .sw { width: 11px; height: 11px; border-radius: 2px; flex: none;
+               border: 1px solid rgba(255,255,255,0.25); }
+  .dlist .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dlist .n { color: var(--dim); flex: none; }
+  .dlist button.on .n { color: inherit; }
+  /* Tiles claiming nothing, and tiles claiming a district that isn't there. Both
+     are states of the map, so they sit in the same list as the districts. */
+  .dlist button.none .sw { background: repeating-linear-gradient(45deg,
+    var(--dim) 0 2px, transparent 2px 4px); }
+  .dlist button.bad { border-color: var(--bad); }
   .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }
   .sw { height: 26px; border: 1px solid var(--line); border-radius: 3px; cursor: pointer; position: relative; }
   .sw.on { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -80,8 +113,15 @@
 </head>
 <body>
 <aside>
+  <div class="viewsw">
+    <button id="v-tiles" class="on">Tiles</button><button id="v-districts">Districts</button>
+  </div>
+
   <h2>Map</h2>
-  <div class="maplist" id="maps"></div>
+  <details class="fan" id="mapfan">
+    <summary><span class="caret">▸</span><span class="who" id="mapwho">…</span><span class="n" id="mapn"></span></summary>
+    <div class="maplist" id="maps"></div>
+  </details>
   <button id="m-props" style="width:100%;margin-top:5px">Map properties…</button>
   <button id="back" style="width:100%;margin-top:3px" disabled>← Back</button>
 
@@ -92,12 +132,26 @@
     <button id="t-pick">Pick</button>
   </div>
 
-  <h2>Terrain</h2>
-  <div class="swatches" id="terrains"></div>
-  <button id="t-clear" style="width:100%;margin-top:5px">Clear terrain</button>
+  <div id="pane-terrain">
+    <h2>Terrain</h2>
+    <div class="swatches" id="terrains"></div>
+    <button id="t-clear" style="width:100%;margin-top:5px">Clear terrain</button>
+  </div>
+
+  <div id="pane-districts" style="display:none">
+    <h2>Districts</h2>
+    <div class="dlist" id="districts"></div>
+    <div class="help" style="margin-top:6px">Pick one, then paint. A district is the
+      neighbourhood a tile reads as — its name with the room, the line when you cross
+      in, the smells outdoors. <b>Erase</b> hands a tile back to nothing.</div>
+  </div>
 
   <h2>View</h2>
   <div class="row"><button id="zoom-out">−</button><button id="zoom-in">+</button><button id="fit">Fit</button></div>
+  <div class="row" style="margin-top:4px"><button id="o-art" class="on">Art</button><button id="o-labels">Labels</button></div>
+  <div class="help">The game's own Icons/Labels switch, and the same rule: Labels
+    swaps a building's art for its code, and connectivity art (the sewer pieces)
+    survives both. Never both at once on one tile.</div>
   <div class="row" id="floors" style="margin-top:4px;flex-wrap:wrap;display:none"></div>
   <div class="help" style="margin-top:8px">Drag with the right mouse button to pan.<br>Paint drags across tiles.</div>
 

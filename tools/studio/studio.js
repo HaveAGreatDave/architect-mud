@@ -20,6 +20,10 @@ const state = {
   terrains: [], terrain: null, tool: 'select',
   selected: null, catalog: null,
   cell: 14, ox: 0, oy: 0,
+  overlay: 'icons',  // 'icons' | 'labels' — the game's own switch, same two names
+                     // (client/game/js/panels/minimap.js `avenueOverlay`). It picks
+                     // BETWEEN the two layers a tile can stand on; drawing both was
+                     // a mode the game never renders.
   maps: new Map(),   // id → { name, parent_zone_id } — the tile inspector needs to
                      // know whether a tile's map has an anchor at all
   mapView: null,     // the selected map's own properties, when the inspector is on it
@@ -30,6 +34,17 @@ const state = {
                      // more than one tile, so a stacked draw is tiles hidden under
                      // tiles — and a click could only ever reach the z=0 occupant.
   history: [],       // where a jump came from, so following a seam is not one-way
+  // ── The district view ──────────────────────────────────────────────────────
+  // A SECOND VIEW OF THE SAME MAP, not a second screen: the canvas, the camera,
+  // the floor and the open map all survive the switch, and only three things
+  // change — what the tiles are coloured by, what the sidebar lists, and what the
+  // brush paints. A district is a property spread across thousands of tiles, so
+  // the only honest way to edit it is on the map it covers.
+  view: 'tiles',      // 'tiles' | 'districts'
+  districts: [],      // the list, with tile counts, from /api/districts
+  districtById: new Map(),
+  district: null,     // the selected district id, or '' for the eraser
+  districtStats: null,
 };
 
 const canvas = $('#c');
@@ -42,6 +57,7 @@ async function loadMaps({ keep = false } = {}) {
   $('#maps').innerHTML = body.maps.map(m =>
     `<button data-map="${m.id}">${m.name || m.id}<span class="n">${m.tiles}</span></button>`).join('');
   $('#maps').onclick = (e) => { const b = e.target.closest('button'); if (b) selectMap(b.dataset.map); };
+  showOpenMap();
   state.terrains = body.terrains;
   $('#terrains').innerHTML = state.terrains.map(t =>
     `<div class="sw" data-t="${t.key}" style="background:${t.fill}" title="${t.label}"><span>${t.key.slice(0, 4)}</span></div>`).join('');
@@ -60,6 +76,18 @@ async function loadMaps({ keep = false } = {}) {
 const paintSwatches = () => document.querySelectorAll('.sw')
   .forEach(s => s.classList.toggle('on', s.dataset.t === state.terrain));
 
+// The list fans down and folds back up, and its summary carries the one thing the
+// open list was telling you all the time it was open: which map you are on. Picking
+// one folds it — the answer is now in the summary, and 71 entries is most of the
+// column otherwise. Following a seam changes the map without touching the list, so
+// the summary is refreshed from state rather than from the click.
+function showOpenMap() {
+  const m = state.maps.get(state.mapId);
+  $('#mapwho').textContent = m ? (m.name || m.id) : 'pick a map';
+  $('#mapn').textContent = m ? m.tiles : '';
+  $('#mapfan').title = m ? `${m.id} — ${state.maps.size} maps` : '';
+}
+
 // `focus` lands on one tile (following a seam); `restore` puts a remembered view
 // back (stepping back out of one). Neither is given when a map is picked from the
 // list, and then it fits and shows the map's own properties as it always has.
@@ -68,6 +96,8 @@ async function selectMap(id, { focus = null, restore = null } = {}) {
   state.mapId = id;
   state.selected = null;
   document.querySelectorAll('.maplist button').forEach(b => b.classList.toggle('on', b.dataset.map === id));
+  showOpenMap();
+  $('#mapfan').open = false;
   const { body } = await api(`/api/world?map=${encodeURIComponent(id)}`);
   state.zones = body.zones;
   state.byId = new Map(body.zones.map(z => [z.id, z]));
@@ -81,6 +111,167 @@ async function selectMap(id, { focus = null, restore = null } = {}) {
   else if (focus) focusZone(focus);
   else { fit(); showMapProps(); }
   refreshLint();
+}
+
+// ── Districts ───────────────────────────────────────────────────────────────
+async function loadDistrictList() {
+  const { body } = await api('/api/districts');
+  state.districts = body.districts || [];
+  state.districtById = new Map(state.districts.map(d => [d.id, d]));
+  state.districtStats = { unassigned: body.unassigned || 0, unknown: body.unknown || [] };
+  state.districtCatalog = body.catalog || {};
+  renderDistrictList();
+}
+
+function renderDistrictList() {
+  const s = state.districtStats || { unassigned: 0, unknown: [] };
+  const row = (id, swatch, name, count, cls = '') =>
+    `<button data-d="${esc(id)}" class="${cls}${state.district === id ? ' on' : ''}">
+       ${swatch}<span class="nm">${esc(name)}</span><span class="n">${count}</span></button>`;
+  const sw = (colour) => `<span class="sw" style="background:${esc(colour || 'transparent')}"></span>`;
+
+  // The eraser first, because "this tile belongs to nothing" is a state you paint
+  // INTO as often as out of, and because its count is the honest headline of this
+  // screen: 1,150 tiles nobody has classified.
+  let html = row('', '<span class="sw"></span>', 'Erase (no district)', s.unassigned, 'none');
+  html += state.districts.map(d => row(d.id, sw(d.color), d.name || d.id, d.tiles)).join('');
+  // A tile naming a district that does not exist is inert in the game and invisible
+  // in review — listed loudly rather than counted as if it were an assignment.
+  html += (s.unknown || []).map(u =>
+    row(u.id, '<span class="sw"></span>', `${u.id} — no such district`, u.tiles, 'bad')).join('');
+  $('#districts').innerHTML = html;
+  $('#districts').onclick = (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    selectDistrict(b.dataset.d);
+  };
+}
+
+// Selecting a district loads it as the brush AND opens its properties. One click
+// doing both is the point: the thing you are painting with is the thing you are
+// editing, so a colour you change lands on the map you are looking at.
+async function selectDistrict(id, { showProps = true } = {}) {
+  state.district = id;
+  state.selected = null;
+  renderDistrictList();
+  draw();
+  if (!showProps) return;
+  if (!id) {
+    $('#inspector').innerHTML = `<div class="row" style="justify-content:space-between">
+        <b>Erase</b><span class="pill">brush</span></div>
+      <div class="help">Paint over a tile to clear <code>flags.district</code>. The tile
+        falls back to the legacy id-prefix rung if it has one, and otherwise reads as
+        nothing — which in game means the engine's own default neighbourhood, not silence.</div>`;
+    return;
+  }
+  if (!state.districtById.has(id)) {
+    $('#inspector').innerHTML = `<div class="row" style="justify-content:space-between">
+        <b>${esc(id)}</b><span class="pill" style="border-color:var(--bad)">missing</span></div>
+      <div class="help stale">Tiles claim this district and no district file defines it, so
+        every one of them resolves to the engine default instead. Repaint them, or add
+        <code>content/districts/${esc(id)}.json</code>.</div>`;
+    return;
+  }
+  const { body } = await api(`/api/district/${encodeURIComponent(id)}`);
+  editingDistrict = body.district;
+  renderDistrictInspector();
+}
+
+let editingDistrict = null;
+
+function renderDistrictInspector() {
+  const d = editingDistrict;
+  if (!d) return;
+  const meta = state.districtById.get(d.id) || {};
+  const cols = state.districtCatalog || {};
+  const groups = new Map();
+  const ordered = Object.entries(cols).sort((a, b) =>
+    String(a[1].group || '').localeCompare(String(b[1].group || '')) || (a[1].order ?? 99) - (b[1].order ?? 99));
+  for (const [key, def] of ordered) {
+    const g = def.group || 'District';
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(fieldHtml(key, def, d[key], 'dcol'));
+  }
+  $('#inspector').innerHTML = `
+    <div class="row" style="justify-content:space-between">
+      <b>${esc(d.name || d.id)}</b><span class="pill">district</span>
+    </div>
+    <div class="help">${esc(d.id)} · ${meta.tiles ?? 0} tile(s)
+      — ${meta.authoredTiles ?? 0} painted, ${meta.prefixTiles ?? 0} by legacy id prefix</div>
+    ${meta.isFallback ? `<div class="help">This is the engine's fallback: any tile that
+      names no district and matches no prefix reads as this one. Editing its prose edits
+      what ${state.districtStats?.unassigned ?? 0} unclassified tiles say.</div>` : ''}
+    ${[...groups].map(([g, fs]) => `<div class="grp"><div class="t">${esc(g)}</div>${fs.join('')}</div>`).join('')}
+    <div class="row" style="margin-top:12px"><button id="d-save">Save district</button><button id="d-revert">Revert</button></div>
+    <div id="errs"></div><div id="note" class="help"></div>
+    <div class="help" style="margin-top:8px">Writes <code>content/districts/${esc(d.id)}.json</code>.
+      Colour shows on the tablet's regional map; terrain still paints the tile at normal zoom.</div>`;
+  $('#d-revert').onclick = () => selectDistrict(d.id);
+  $('#d-save').onclick = saveDistrict;
+}
+
+async function saveDistrict() {
+  $('#errs').textContent = '';
+  const row = { ...editingDistrict };
+  try {
+    for (const el of document.querySelectorAll('#inspector [data-kind="dcol"]')) {
+      const k = el.dataset.k, shape = el.dataset.shape;
+      if (shape === 'number') row[k] = el.value === '' ? null : Number(el.value);
+      else if (shape === 'json') {
+        if (el.value.trim() === '') row[k] = null;
+        else { try { row[k] = JSON.parse(el.value); } catch { throw new Error(`${k}: not valid JSON`); } }
+      } else row[k] = el.value === '' ? null : el.value;
+    }
+  } catch (e) { $('#errs').textContent = e.message; return; }
+  const { ok, body } = await api(`/api/district/${encodeURIComponent(row.id)}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(row),
+  });
+  if (!ok) { $('#errs').textContent = (body.errors || [body.error]).join('\n'); return; }
+  editingDistrict = body.district;
+  state.districts = body.districts || state.districts;
+  state.districtById = new Map(state.districts.map(x => [x.id, x]));
+  state.districtStats = { unassigned: body.unassigned || 0, unknown: body.unknown || [] };
+  renderDistrictList();
+  renderDistrictInspector();
+  $('#note').textContent = 'Saved.';
+  draw();          // a colour change lands on the map in the same breath
+  refreshLint();
+}
+
+// Painting a district is the same gesture as painting terrain, against a different
+// field: the stroke collects tile ids, and the server writes flags.district on each.
+async function assign(ids) {
+  if (!ids.length) return;
+  const { body } = await api('/api/assign', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids, district: state.district || null }),
+  });
+  for (const [id, d] of Object.entries(body.changed || {})) {
+    const z = state.byId.get(id);
+    if (z) z.district = d ? { id: d, source: 'authored' } : { id: null, source: 'none' };
+  }
+  if (body.errors?.length) alert(body.errors.join('\n'));
+  state.districts = body.districts || state.districts;
+  state.districtById = new Map(state.districts.map(x => [x.id, x]));
+  state.districtStats = { unassigned: body.unassigned || 0, unknown: body.unknown || [] };
+  renderDistrictList();
+  draw();
+  refreshLint();
+}
+
+function setView(v) {
+  state.view = v;
+  $('#v-tiles').classList.toggle('on', v === 'tiles');
+  $('#v-districts').classList.toggle('on', v === 'districts');
+  $('#pane-terrain').style.display = v === 'tiles' ? '' : 'none';
+  $('#pane-districts').style.display = v === 'districts' ? '' : 'none';
+  // The camera, the floor and the open map are deliberately untouched — switching
+  // view is a change of question ("what is here?" / "whose is this?"), not a change
+  // of place. Only the brush has to be handed over, since the two views paint
+  // different fields with the same drag.
+  setTool('select');
+  if (v === 'districts') { if (state.district === null) state.district = ''; selectDistrict(state.district); }
+  else if (state.selected) select(state.selected); else showMapProps();
+  draw();
 }
 
 // ── Floors ──────────────────────────────────────────────────────────────────
@@ -304,13 +495,32 @@ function draw() {
     // reads as a row of thresholds facing the road, and a door on the wrong side
     // is visible from across the map instead of one tile at a time.
     const authoredDoor = !!(spec.entrance && c >= 8 && edgeBar(x, y, c, spec.entrance, '#ffd479'));
-    // The two layers that stand on the ground, exactly as the game stacks them and in
-    // the same order: the footprint SVG, then the code someone reads off it. Both are
-    // present-iff in the spec, so there is no rule here to get wrong — this tool no
-    // longer decides which tiles wear lettering, which is what put `#` across the
-    // grasslands when it did.
-    if (spec.feature) drawFeature(x, y, c, spec.feature, spec.text);
-    if (spec.label && c >= 9) {
+    // The two layers that stand on the ground, in the same order the game stacks
+    // them: the footprint SVG, then the code someone reads off it. Which of the two
+    // a tile shows is the OVERLAY MODE, and the rule is the game's — minimap.js's
+    // `symFor`, not a second one written here:
+    //
+    //   Labels REPLACES the graphic. A building's art and its navigable code are two
+    //   ways of saying the same tile, so the game shows one or the other. Drawing
+    //   both — which this did — is the one combination no screen in the game renders,
+    //   and on a small cell the letters sit in the middle of the rooftop.
+    //   A label of kind `art` is exempt in both directions: the sewer corridors'
+    //   connectivity pieces are the TILE'S OWN DRAWING, like a road connector, so
+    //   they survive every mode. That is the rule that stops half the sewers
+    //   vanishing when someone switches buildings to letters.
+    //   A tile with no label falls through to its art, so Labels mode empties the
+    //   map of buildings' rooftops and nothing else.
+    //
+    // The one place this parts company with the game: a tile with a code and NO art
+    // still shows the code in Art mode. Most interiors are that — Chrome Court is 12
+    // room designations and not one SVG — and the game can afford to show those as
+    // bare floor because a player is standing in the room reading its name. An editor
+    // cannot: the toggle is there to stop two layers fighting over one tile, and
+    // there is nothing to fight with here.
+    const lbl = (spec.label && c >= 9) ? spec.label : null;
+    const lettersWin = state.overlay === 'labels' && lbl && lbl.kind !== 'art';
+    if (spec.feature && !lettersWin) drawFeature(x, y, c, spec.feature, spec.text);
+    if (lbl && (lettersWin || lbl.kind === 'art' || !spec.feature)) {
       ctx.fillStyle = spec.text || '#c8c8cc';
       ctx.fillText(spec.label.text, x + c / 2 - 0.5, y + c / 2);
     }
@@ -324,6 +534,42 @@ function draw() {
       ctx.beginPath();
       ctx.arc(x + c - Math.max(2.5, c * 0.16), y + Math.max(2.5, c * 0.16), Math.max(1.5, c * 0.09), 0, 7);
       ctx.fill();
+    }
+    // DISTRICT VIEW. The ground keeps its own colour underneath — a district is a
+    // claim ABOUT this tile, not a replacement for it, and painting over the terrain
+    // entirely would leave you assigning neighbourhoods to a map you can no longer
+    // read. So it goes on as a wash, the district's own authored colour, with the
+    // selected one at full strength and the rest halved: which tiles are mine, and
+    // what is around them, in one look.
+    //
+    // A tile claiming nothing gets NO wash and a dim cross-hatch dot instead. That
+    // is 1,150 tiles, and they must not look like a decision somebody made.
+    if (state.view === 'districts') {
+      const d = z.district || { id: null, source: 'none' };
+      const colour = d.id ? state.districtById.get(d.id)?.color : null;
+      if (colour) {
+        const mine = state.district && d.id === state.district;
+        ctx.globalAlpha = mine ? 0.72 : 0.34;
+        ctx.fillStyle = colour;
+        ctx.fillRect(x, y, c, c);
+        ctx.globalAlpha = 1;
+        // Claimed by a district that does not exist: the wash cannot show it (there
+        // is no colour to show), so it is marked the way a stale pin is.
+      } else if (d.id) {
+        ctx.strokeStyle = chrome('--bad'); ctx.lineWidth = 1;
+        ctx.strokeRect(x + 1.5, y + 1.5, c - 3, c - 3);
+      } else if (c >= 6) {
+        ctx.fillStyle = chrome('--dim'); ctx.globalAlpha = 0.5;
+        ctx.fillRect(x + c / 2 - 1, y + c / 2 - 1, 2, 2);
+        ctx.globalAlpha = 1;
+      }
+      // A tile assigned only by its zone-id prefix is inherited, not authored. It
+      // reads as a district today and stops the moment its id changes, so it is
+      // drawn a half-tone lighter than a painted one rather than identically.
+      if (colour && d.source === 'prefix' && c >= 8) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1;
+        ctx.strokeRect(x + 0.5, y + 0.5, c - 1, c - 1);
+      }
     }
     const seams = state.portals[z.id];
     if (seams && c >= 5) drawPortal(x, y, c, seams, authoredDoor);
@@ -347,6 +593,15 @@ canvas.addEventListener('mousedown', (e) => {
   if (e.button === 2) { panning = { px, py, ox: state.ox, oy: state.oy }; return; }
   const z = cellAt(px, py);
   if (!z) return;
+  // Same three tools, pointed at whichever field the view is about.
+  if (state.view === 'districts') {
+    if (state.tool === 'pick') { selectDistrict(z.district?.id || ''); setTool('paint'); return; }
+    if (state.tool === 'paint') { painting = true; stroke.clear(); stroke.add(z.id); return; }
+    // Select, in this view, answers "whose is this?" — it opens the tile's district
+    // rather than the tile, which is the question you are in this view to ask.
+    selectDistrict(z.district?.id || '');
+    return;
+  }
   if (state.tool === 'pick') { state.terrain = z.spec?.terrain || null; setTool('paint'); paintSwatches(); return; }
   if (state.tool === 'paint') { painting = true; stroke.clear(); stroke.add(z.id); return; }
   select(z.id);
@@ -359,8 +614,16 @@ canvas.addEventListener('mousemove', (e) => {
   }
   const z = cellAt(px, py);
   const seam = z && seamLabel(state.portals[z.id]);
+  // In the district view the readout answers that view's question: which district,
+  // and whether the tile was painted into it or merely inherits it from its id.
+  const SOURCE_WORDS = { authored: 'painted', prefix: 'by legacy id prefix', unknown: 'NO SUCH DISTRICT' };
+  const dis = z && state.view === 'districts'
+    ? (z.district?.id
+        ? `${state.districtById.get(z.district.id)?.name || z.district.id} (${SOURCE_WORDS[z.district.source] || z.district.source})`
+        : 'no district')
+    : null;
   $('#status').textContent = z
-    ? `${z.name || '(unnamed)'} · ${z.id} · ${z.grid_x},${z.grid_y} · ${z.spec?.terrain || 'no terrain'}${seam ? ` · ${seam} — double-click to follow` : ''}`
+    ? `${z.name || '(unnamed)'} · ${z.id} · ${z.grid_x},${z.grid_y} · ${dis || z.spec?.terrain || 'no terrain'}${seam ? ` · ${seam} — double-click to follow` : ''}`
     : '—';
   if (painting && z) { stroke.add(z.id); }
 });
@@ -380,7 +643,8 @@ window.addEventListener('mouseup', async () => {
   panning = null;
   if (!painting) return;
   painting = false;
-  await paint([...stroke]);
+  if (state.view === 'districts') await assign([...stroke]);
+  else await paint([...stroke]);
 });
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
@@ -400,6 +664,16 @@ $('#t-select').onclick = () => setTool('select');
 $('#t-paint').onclick = () => setTool('paint');
 $('#t-pick').onclick = () => setTool('pick');
 $('#t-clear').onclick = () => { state.terrain = null; setTool('paint'); paintSwatches(); };
+function setOverlay(o) {
+  state.overlay = o;
+  $('#o-art').classList.toggle('on', o === 'icons');
+  $('#o-labels').classList.toggle('on', o === 'labels');
+  draw();
+}
+$('#v-tiles').onclick = () => setView('tiles');
+$('#v-districts').onclick = () => setView('districts');
+$('#o-art').onclick = () => setOverlay('icons');
+$('#o-labels').onclick = () => setOverlay('labels');
 $('#zoom-in').onclick = () => { state.cell = Math.min(40, state.cell + 2); draw(); };
 $('#zoom-out').onclick = () => { state.cell = Math.max(2, state.cell - 2); draw(); };
 $('#fit').onclick = fit;
@@ -674,6 +948,35 @@ function lockedFieldHtml(label, value, why) {
           <div class="help">${why}</div>`;
 }
 
+// Stated in the corner instead of typed in the form — see the note in the loop below.
+// Named from the catalog's own keys, so a coordinate the catalog renames stops being
+// suppressed here rather than quietly staying hidden.
+const COORDS = new Set(['grid_x', 'grid_y', 'grid_z']);
+
+// The tile's side of the district seam. The tile view still ANSWERS "which
+// neighbourhood is this?" — it just doesn't let you type the answer. Clicking it
+// crosses to the district view with that district selected and the camera exactly
+// where it was, which is the whole of what "seamless" has to mean here.
+function districtLine() {
+  const d = state.byId.get(editing?.id)?.district;
+  if (!d) return '';
+  const known = d.id && state.districtById.get(d.id);
+  if (!d.id) {
+    return `<div class="help">district: <b>none</b> — this tile is one of
+      ${state.districtStats?.unassigned ?? '?'} that claim nothing, so it reads as the
+      engine's default neighbourhood. <button id="d-jump" data-d="">Paint one →</button></div>`;
+  }
+  if (!known) {
+    return `<div class="help stale">district: <b>${esc(d.id)}</b> — no district by that
+      name exists, so the tile falls through to the default.
+      <button id="d-jump" data-d="${esc(d.id)}">Show →</button></div>`;
+  }
+  const why = d.source === 'authored' ? 'painted onto this tile'
+    : `inherited from the id prefix — rename the zone and it changes`;
+  return `<div class="help">district: <b>${esc(known.name || d.id)}</b> — ${esc(why)}
+    <button id="d-jump" data-d="${esc(d.id)}">Open →</button></div>`;
+}
+
 function renderInspector(spec, prov) {
   if (!editing) return;
   const cols = state.catalog.columns, flags = state.catalog.flags;
@@ -689,6 +992,14 @@ function renderInspector(spec, prov) {
   const onMap = !!editing.map_id;
   const mapAnchor = state.maps.get(editing.map_id)?.parent_zone_id ?? null;
   for (const [key, def] of ordered(cols)) {
+    // WHERE A TILE IS, IS NOT A FIELD. The coordinates are stated in the corner and
+    // shown by the canvas the tile is sitting on, so a second copy as three number
+    // boxes is the same fact typed twice — and typed is the problem: the spinners
+    // invite a nudge, and nudging one moves the tile with none of what moving a tile
+    // needs (the neighbours it auto-tiles with, the cell it might land on top of,
+    // the seams that point at it). Moving a tile is a structural operation the
+    // Studio does not do yet; it should not be reachable by an arrow key either.
+    if (COORDS.has(key)) continue;
     if (key === 'parent_zone' && onMap) {
       push(def.group || 'Zone', lockedFieldHtml(def.label || key, editing[key],
         `Owned by map <code>${esc(editing.map_id)}</code> — every tile on it shares one anchor. Change it in the map's properties.`));
@@ -700,6 +1011,12 @@ function renderInspector(spec, prov) {
   // wall, and a tile's flags are a short list in practice.
   const carried = Object.keys(editing.flags || {}).filter(k => flags[k]);
   for (const key of carried) {
+    // `district` is not typed on a tile any more. It was a free-text box holding a
+    // key that had to match a district exactly, with nothing checking it did — a
+    // typo read as "unclassified" and looked identical to a blank. It is painted
+    // in the district view now, from a list of the districts that exist, and the
+    // tile states which one it landed in (below) with a way over to it.
+    if (key === 'district') continue;
     // Same rule for the interior tile's copy of the anchor. On a FACADE the flag
     // means the street out front, which is nobody else's business — left alone.
     if (key === 'world_exit_zone' && onMap && !editing.flags?.facade && mapAnchor != null) {
@@ -715,14 +1032,25 @@ function renderInspector(spec, prov) {
   const addable = Object.entries(flags).filter(([k]) => !carried.includes(k))
     .sort((a, b) => String(a[1].label || a[0]).localeCompare(String(b[1].label || b[0])));
 
+  // The coordinates left the form, so the group they lived in says where they went.
+  // The group NAME comes from the catalog entry rather than being typed here, so it
+  // follows a re-grouping instead of stranding this line under a heading that moved.
+  if (cols.grid_x) {
+    push(cols.grid_x.group || 'Zone', `<div class="help">Coordinates
+      <b>${esc(editing.grid_x)},${esc(editing.grid_y)},${esc(editing.grid_z ?? 0)}</b>
+      (x, y, floor) — in the corner above, and on the canvas. Moving a tile is a
+      structural change the Studio does not make.</div>`);
+  }
+
   $('#inspector').innerHTML = `
     <div class="row" style="justify-content:space-between">
       <b>${esc(editing.name || editing.id)}</b>
-      <span class="pill">${esc(editing.grid_x)},${esc(editing.grid_y)}</span>
+      <span class="pill" title="x, y, floor">${esc(editing.grid_x)},${esc(editing.grid_y)},${esc(editing.grid_z ?? 0)}</span>
     </div>
     <div class="help">${esc(editing.id)}</div>
     <div class="help">derived: fill ${esc(spec?.fill || '—')} · terrain ${esc(spec?.terrain || '—')} · label ${esc(spec?.label?.text || '—')}</div>
     ${featureLine(prov)}
+    ${districtLine()}
     ${seamsHtml(seams, 'Leads to')}
     ${[...groups].map(([g, fs]) => `<div class="grp"><div class="t">${esc(g)}</div>${fs.join('')}</div>`).join('')}
     ${uncatalogued.length ? `<div class="grp"><div class="t" style="color:var(--warn)">Not in the catalog</div>
@@ -744,6 +1072,8 @@ function renderInspector(spec, prov) {
   };
   $('#revert').onclick = () => select(editing.id);
   $('#save').onclick = save;
+  const jump = $('#d-jump');
+  if (jump) jump.onclick = () => { setView('districts'); selectDistrict(jump.dataset.d || ''); };
   wireSeams(seams);
 }
 
@@ -792,3 +1122,4 @@ window.addEventListener('resize', resize);
 await loadCatalog();
 resize();
 await loadMaps();
+await loadDistrictList();

@@ -1,0 +1,20 @@
+{
+  "blurb": "Cargo comes ashore here and asks no questions on the way in.",
+  "color": "#1fb5aa",
+  "created_by": "districts-to-content",
+  "id": "docks",
+  "landmark": "dock_wharf",
+  "name": "the Docks",
+  "prefixes": [
+    "dock"
+  ],
+  "signature": [
+    "Brine and diesel and rotting rope — the docks announce themselves through the nose.",
+    "Gulls wheel and scream over something dead in the water.",
+    "A hull groans against its moorings, timber and rust arguing.",
+    "A foghorn calls once, low and lonely, and gets no answer."
+  ],
+  "skyline": "the dock cranes stand black over the waterline",
+  "sort": 80,
+  "updated_at": "1785196800"
+}

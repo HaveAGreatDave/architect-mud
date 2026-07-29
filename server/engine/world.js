@@ -2,7 +2,7 @@ import { query } from '../models/db.js';
 import { neighborZoneIds, primaryExits, allExits, addExit, removeExit } from './exits.js';
 import { OPPOSITE, DIR_OFFSET } from './directions.js';
 import { titleCaseName } from './text.js';
-import { districtFor } from './districts.js';
+import { districtFor, loadDistricts } from './districts.js';
 import { isSanctuary, getZoneRadiation } from './zone-tags.js';
 import { hasTag } from './tags.js';
 import { registerProtectionProvider } from './protection.js';
@@ -77,6 +77,7 @@ export async function initWorld() {
   await loadOrgVentures();
   await loadMaps();
   await loadRegions();
+  await loadDistrictRegistry();
   await loadZoneRender();
   await loadPlayerCorpses();
   console.log(`✓ World loaded: ${world.zones.size} zones, ${world.npcs.size} NPCs, ${world.apartments.size} apartments, ${world.doors.size} doors, ${world.orgs.size} orgs`);
@@ -98,6 +99,18 @@ async function loadRegions() {
   const { rows } = await query('SELECT * FROM regions').catch(() => ({ rows: [] }));
   world.regions.clear();
   for (const row of rows) world.regions.set(row.id, row);
+}
+
+// Land-use districts (the neighbourhood a tile reads as). Held by the districts
+// module rather than on `world`, because every consumer already imports districtFor
+// from there — and that function is sync by contract, so the rows have to be in
+// memory before the first move command. One query, at boot, like regions.
+async function loadDistrictRegistry() {
+  const { rows } = await query('SELECT * FROM districts ORDER BY sort, id').catch(() => ({ rows: [] }));
+  const n = loadDistricts(rows);
+  // Silence here would be the bad kind: with an empty registry every tile answers
+  // with the unloaded placeholder, which reads in-game as a district with no name.
+  if (!n) console.warn('⚠ no districts loaded — run npm run content:import (or db:schema for the table)');
 }
 // ── Generated presentation (zone_render) ────────────────────────────────────
 // Built by content:import's derive pass, never authored. Cached in RAM because
