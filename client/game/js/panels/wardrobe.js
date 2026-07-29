@@ -107,6 +107,16 @@ function wearable(items) {
 
 function slotOf(item) { return item.tags?.slot || null; }
 
+// The equipped list retyped into the shape the rails render. It carries no
+// inventory ROW on purpose: a worn garment can be dressed onto the doll, but it
+// can't be hung or taken (that's `Undress`, which the panel already has), and
+// every rail-move path is guarded on `row` so the omission is the enforcement.
+function wornStock() {
+  return equippedNow
+    .filter(p => p.slot)
+    .map(p => ({ id: `worn:${p.itemId}`, item_id: p.itemId, name: p.name, tags: { slot: p.slot, layer: p.layer } }));
+}
+
 function renderWardrobePanel(data) {
   document.getElementById('wardrobe-title').textContent = data.containerName || 'Wardrobe';
   document.getElementById('wardrobe-notify').textContent = data.notify || '';
@@ -123,6 +133,11 @@ function renderWardrobePanel(data) {
   renderOutfits(data.outfits || []);
   renderStock('wardrobe-hanging-list', wearable(data.containerItems), 'hanging');
   renderStock('wardrobe-carried-list', wearable(data.invItems), 'carried');
+  // What's on your back, under what's in your hands. The two rails above list
+  // is_equipped=0 rows only, so without this the clothes you are visibly wearing
+  // are the one wardrobe full of garments you cannot drag onto the doll — you had
+  // to strip first to compose a look around a coat you already had on.
+  renderStock('wardrobe-worn-list', wornStock(), 'worn');
   // Idempotent — the rails are persistent elements, so this wires them once and
   // no-ops on every later refresh.
   wireRailDrop('wardrobe-hanging-list', 'hanging');
@@ -190,15 +205,21 @@ function renderStock(listId, items, source) {
   if (!items.length) {
     const empty = document.createElement('div');
     empty.className = 'wdr-empty';
-    empty.textContent = source === 'hanging' ? 'Nothing hanging.' : 'No clothes on you.';
+    empty.textContent = source === 'hanging' ? 'Nothing hanging.'
+      : source === 'worn' ? 'Not wearing anything.'
+      : 'No clothes in your pack.';
     list.appendChild(empty);
     return;
   }
   for (const item of items) {
     const card = document.createElement('div');
-    card.className = 'ctr-item-card wdr-garment';
+    card.className = 'ctr-item-card wdr-garment' + (source === 'worn' ? ' wdr-garment-worn' : '');
     card.setAttribute('draggable', 'true');
-    card.innerHTML = `<span class="ctr-name">${item.name}</span><span class="ctr-meta wdr-slot-tag">${slotOf(item)}</span>`;
+    // The layer is named on a worn card — the whole reason to see this rail is to
+    // know which of the three coats on you is the one under the armour.
+    const tag = source === 'worn' && item.tags.layer
+      ? `${slotOf(item)} · ${layerLabel(slotOf(item), item.tags.layer)}` : slotOf(item);
+    card.innerHTML = `<span class="ctr-name">${item.name}</span><span class="ctr-meta wdr-slot-tag">${tag}</span>`;
 
     const btn = document.createElement('button');
     btn.className = 'ctr-action-btn';
@@ -211,7 +232,9 @@ function renderStock(listId, items, source) {
       btn.title = 'Take out of the wardrobe';
       btn.onclick = (e) => { e.stopPropagation(); sendCmdSilent(`pullid ${item.id}`); };
     }
-    card.appendChild(btn);
+    // Nothing to hang or take on a worn card — it's on you. Dressing the doll
+    // with it is the only thing it's for.
+    if (source !== 'worn') card.appendChild(btn);
 
     card.ondragstart = (e) => {
       // `row` and `source` are what let a garment be dragged between the rails as
@@ -219,7 +242,9 @@ function renderStock(listId, items, source) {
       // moving a real garment in or out of the box needs its inventory ROW.
       draggedItem = {
         itemId: item.item_id, name: item.name, slot: slotOf(item), layer: layerOf(item),
-        row: item.id, source,
+        // A worn card's id is a synthetic `worn:<template>`, never a real row —
+        // null here is what stops a rail drop from firing `stowid worn:foo`.
+        row: source === 'worn' ? null : item.id, source,
       };
       card.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'copyMove';
@@ -232,7 +257,7 @@ function renderStock(listId, items, source) {
     card.onclick = () => {
       armedItem = armedItem?.id === item.id
         ? null
-        : { id: item.id, itemId: item.item_id, name: item.name, slot: slotOf(item), layer: layerOf(item), row: item.id, source };
+        : { id: item.id, itemId: item.item_id, name: item.name, slot: slotOf(item), layer: layerOf(item), row: source === 'worn' ? null : item.id, source };
       syncArmed();
     };
     if (armedItem?.id === item.id) card.classList.add('wdr-armed');
@@ -249,6 +274,9 @@ function renderStock(listId, items, source) {
 // The OPPOSITE rail lights up, never the one it came from: dropping a hanging
 // coat back on the rail it is already on should look like nothing, because it is.
 function highlightRails(source) {
+  // A worn garment belongs to neither rail — lighting them both up would promise
+  // a move that the missing row id makes impossible.
+  if (source === 'worn') source = null;
   const rails = {
     carried: document.getElementById('wardrobe-carried-list')?.closest('.wdr-rail') || document.getElementById('wardrobe-carried-list'),
     hanging: document.getElementById('wardrobe-hanging-list')?.closest('.wdr-rail') || document.getElementById('wardrobe-hanging-list'),
@@ -312,17 +340,45 @@ function syncArmed() {
   updateDollLabel();
 }
 
-// The one place a garment lands on the doll — shared by the drop handler and
-// the tap handler so the two routes can never drift apart. A piece replaces only
-// what shares its LAYER, so a helmet no longer evicts the cap under it.
-function placeOnDoll(slot, piece) {
+// The one place a garment lands on the doll — shared by the drop handler, the
+// tap handler, the "Wearing" seed and outfit-card editing, so no two routes can
+// layer differently.
+//
+// The LAYER IS THE GARMENT'S OWN, never the pad you aimed at: a piece carries a
+// `layer` tag (underwear/outerwear/armor, defaulting to outerwear) and the doll
+// resolves it exactly the way the engine's `bodyLayer` does when it equips. So a
+// helmet dropped on a head already wearing a cap lands ON TOP of it — there is
+// nothing to aim at and nothing to get wrong, and the pad's sub-line ("Helmet
+// +1") is the confirmation.
+//
+// `announce` is off for the bulk seeds (loading a saved look, "Wearing"), which
+// would otherwise fire a line per piece for something the player did once.
+function placeOnDoll(slot, piece, announce = false) {
   if (slot === 'accessory') {
     const acc = (doll.accessory ||= []);
-    if (!acc.some(p => p.itemId === piece.itemId) && acc.length < 3) acc.push(piece);
+    if (acc.some(p => p.itemId === piece.itemId)) {
+      if (announce) showWardrobeNotify(`${piece.name} is already on.`);
+    } else if (acc.length >= 3) {
+      if (announce) showWardrobeNotify(`Only three accessories — take one off first.`);
+    } else {
+      acc.push(piece);
+      if (announce) showWardrobeNotify(`${piece.name} → Accessories.`);
+    }
     return;
   }
+  const layer = LAYERS.includes(piece.layer) ? piece.layer : 'outerwear';
   const byLayer = (doll[slot] ||= {});
-  byLayer[piece.layer || 'outerwear'] = piece;
+  // One item per (slot, layer) — the engine's rule, so the doll enforces it here
+  // rather than letting a look be composed that can't actually be worn. Naming
+  // what got displaced is the point: otherwise a second shirt silently deletes
+  // the first and the saved outfit is quietly short a piece.
+  const displaced = byLayer[layer];
+  byLayer[layer] = { ...piece, layer };
+  if (announce) {
+    showWardrobeNotify(displaced && displaced.itemId !== piece.itemId
+      ? `${piece.name} → ${layerLabel(slot, layer)}, replacing ${displaced.name}.`
+      : `${piece.name} → ${layerLabel(slot, layer)}.`);
+  }
 }
 
 function renderDoll() {
@@ -364,7 +420,9 @@ function renderDoll() {
     pad.innerHTML = `<span class="wdr-pad-label">${label}</span>`
       + `<span class="wdr-pad-item">${shown ? shown.name : '—'}</span>`
       + (sub ? `<span class="wdr-pad-sub">${sub}</span>` : '');
-    pad.title = shown ? `${shown.name} — click to take off` : `Drop a ${label.toLowerCase()} piece here`;
+    pad.title = shown
+      ? `${shown.name} — click to take off`
+      : `Drop any ${label.toLowerCase()} piece here — it lands on its own layer`;
 
     pad.addEventListener('dragover', (e) => {
       if (draggedItem?.slot === slot) e.preventDefault();
@@ -377,7 +435,7 @@ function renderDoll() {
       e.preventDefault();
       pad.classList.remove('ctr-drag-over');
       if (!draggedItem || draggedItem.slot !== slot) return;
-      placeOnDoll(slot, { itemId: draggedItem.itemId, name: draggedItem.name, layer: draggedItem.layer });
+      placeOnDoll(slot, { itemId: draggedItem.itemId, name: draggedItem.name, layer: draggedItem.layer }, true);
       draggedItem = null;
       renderDoll();
     });
@@ -397,7 +455,7 @@ function renderDoll() {
         return;
       }
       if (armedItem.slot !== slot) return;
-      placeOnDoll(slot, { itemId: armedItem.itemId, name: armedItem.name, layer: armedItem.layer });
+      placeOnDoll(slot, { itemId: armedItem.itemId, name: armedItem.name, layer: armedItem.layer }, true);
       armedItem = null;
       renderDoll();
     };
@@ -419,11 +477,18 @@ function updateDollLabel() {
     editingName && !armedItem ? `Editing "${editingName}"` : hint;
 }
 
+// Every piece on the doll, innermost first — an outfit is saved at FULL DEPTH.
+// A body slot holds a `{ layer -> piece }` map, not one piece, so reading
+// `doll[slot].itemId` here (as this once did) yielded `undefined` for every
+// layered slot: the liner, the shirt and the plate all collapsed into one
+// literal "undefined" id and the saved look came back empty. Walking LAYERS is
+// what makes the panel able to save what it can visibly compose.
 function dollItemIds() {
   const ids = [];
   for (const { slot } of PADS) {
-    if (slot === 'accessory') for (const p of (doll.accessory || [])) ids.push(p.itemId);
-    else if (doll[slot]) ids.push(doll[slot].itemId);
+    if (slot === 'accessory') { for (const p of (doll.accessory || [])) ids.push(p.itemId); continue; }
+    const byLayer = doll[slot] || {};
+    for (const layer of LAYERS) if (byLayer[layer]) ids.push(byLayer[layer].itemId);
   }
   return ids;
 }

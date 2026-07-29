@@ -287,6 +287,29 @@ lives in the `Speech` IIFE in `client/shared/audio-engine.js`.
 > into "in-t'huh-rusive" — the dictionary entry was correct all along, so this was a
 > rendering fault, not a lookup one.
 
+> **Double-counting is the recurring failure mode here — check for it first.** Three
+> separate bugs turned out to be the same mistake: modelling something twice that the
+> engine was already doing once.
+>
+> - **Undershoot.** `setTargetAtTime` *already* undershoots — at a 22 ms time constant
+>   a 45 ms vowel physically cannot reach its target, which is precisely the
+>   phenomenon Lindblom describes. Applying an explicit blend on top undershot
+>   everything twice: the schwa in *some* spent its entire life near the `/s/` locus
+>   at F2 ≈ 1500 and the word came out **"sim"**. The glide is the primary model;
+>   `TUNING.undershoot` (0.2, was 0.65) is a small correction on top.
+> - **Schwa duration.** `AX` *is* the reduced vowel — it exists because the dictionary
+>   said the syllable is weak — so applying the unstressed 0.8× on top left it at
+>   45 ms with no time to reach anything. Now exempt.
+> - **Weak forms.** Mapping every function-word vowel to schwa (see above) is the
+>   same error in the vowel-quality domain.
+>
+> And the **stale-filter** family, of which there are now three known instances: a
+> filter whose *gain* is scheduled but whose *frequency* is not keeps whatever the
+> last phoneme left it at. Breath noise played through the `/s/` band; the nasal zero
+> notched nasalised vowels at an arbitrary frequency; `nbp.Q` was assigned rather than
+> scheduled. **If a filter parameter is set anywhere, set all of them, at the same
+> time value.**
+
 > **Undershoot — the coarticulation model.** Everything else here renders each
 > phoneme at its *canonical* target. Real speech doesn't get there: a short
 > unstressed vowel wedged between two consonants runs out of time and lands

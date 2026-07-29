@@ -206,6 +206,12 @@ function setSleepBar(sleeping, dreaming) {
   const bar = document.getElementById('sleep-bar');
   if (!bar) return;
   bar.hidden = !sleeping;
+  // Dreamless sleep blacks the room out. The server already refuses to deliver
+  // the room to a sleeper (receivesZoneMessage), so this is the visual half of
+  // the same rule — the transcript you were reading before you dozed off
+  // shouldn't stay legible behind your eyelids. A DREAMER is exempt: the dream
+  // is the only room they're in, and it's meant to be read.
+  document.body.classList.toggle('asleep', !!sleeping && !dreaming);
   if (!sleeping) return;
   const label = document.getElementById('sleep-bar-label');
   if (label) {

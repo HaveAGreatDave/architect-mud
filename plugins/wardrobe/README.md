@@ -48,6 +48,12 @@ never has to re-request it.
 
 `client/game/js/panels/wardrobe.js` (+ the `#wardrobe-panel` markup in
 `client/game/index.html` and the `.wdr-*` block in `client/game/styles.css`).
-Three columns: saved outfits, a paper doll of drop pads, and the wardrobe's
-hanging stock over your carried clothes. Drag any garment onto its matching pad,
-name the look, save.
+Three columns: saved outfits, a paper doll of drop pads, and three rails —
+what's **hanging** in the box, what you're **carrying**, and what you're
+**wearing**. Drag any garment onto its matching pad, name the look, save.
+
+Each body pad is a stack, not a slot: a piece lands on its own `layer`
+(underwear / outerwear / armor), so a liner, a shirt and a plate coexist and all
+three are saved. The worn rail carries no inventory row — a garment on your body
+can dress the doll but can't be hung or taken (that's `Undress`), and the missing
+row is what enforces it.

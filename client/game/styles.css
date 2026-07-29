@@ -6101,6 +6101,23 @@ body.fsim-external #look-resize-handle { display: none; }
 }
 #sleep-wake-btn:hover { background: var(--cyan); color: var(--bg); }
 
+/* ─── ASLEEP (dreamless) ───
+   Eyes shut. The server already refuses to deliver the room to a sleeper, so
+   the log behind you is stale — this makes it look it, unreadable rather than
+   merely faded. Scoped to the two panes that carry room awareness; the sleep
+   bar (your way out) and the sidebar (your own body) stay crisp on purpose.
+   A dreamer never gets this class — a dream is meant to be read. */
+body.asleep #area-pane,
+body.asleep #output {
+	filter: blur(4px) brightness(0.35) saturate(0.4);
+	opacity: 0.5;
+	pointer-events: none;
+	user-select: none;
+	transition: filter 0.9s ease, opacity 0.9s ease;
+}
+body.asleep #area-pane { opacity: 0.25; }
+#area-pane, #output { transition: filter 0.5s ease, opacity 0.5s ease; }
+
 /* ─── BOTTOM BAR (quick-cmds + dpad) ─── */
 #bottom-bar {
 	display: flex;
@@ -13502,6 +13519,14 @@ input.trade-qty { width: 56px; }
 	pointer-events: none;
 }
 .wdr-rail .wdr-empty { margin-top: 8px; }
+/* Worn garments read as ON the body rather than in stock: a cooler edge, and no
+   action button, because the only thing you can do with them here is dress the
+   doll. Dimmed a shade so the two rails above still read as the live inventory. */
+.wdr-garment-worn {
+	border-left-color: rgba(120, 190, 200, 0.6);
+	opacity: 0.9;
+}
+.wdr-garment-worn .wdr-slot-tag { color: rgba(140, 200, 210, 0.75); }
 .wdr-outfits-head { margin-top: 6px; }
 
 @media (prefers-reduced-motion: reduce) {

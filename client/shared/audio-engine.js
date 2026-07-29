@@ -1533,6 +1533,7 @@
       tiltEmph:    8200,   // … and emphatic (shouting is BRIGHT — the folds slam)
       emphasis:    1.0,    // scales how far emphasis moves pitch/length/gain over plain stress
       creak:       1.0,    // phrase-final vocal fry; 0 disables
+      undershoot:  0.2,    // EXPLICIT coarticulation only — see the note in the loop
       lineGapMs:   180,    // breath between chained lines (tv.js reads this)
     };
 
@@ -1715,7 +1716,11 @@
         let dur = Math.max(0.03, (p.d/1000)/speed);
         if (!nxt || nxt === '__' || nxt === '_C') dur *= 1.22;
         if (p.t === 'V') {
-          dur *= stress === 2 ? 1 + 0.65*TUNING.emphasis : stress ? 1.12 : 0.8; stress = 0;
+          // Mirrors the loop, INCLUDING the schwa exception — AX is already the
+          // reduced vowel and must not be shortened twice.
+          dur *= stress === 2 ? 1 + 0.65*TUNING.emphasis
+               : stress ? 1.12 : (code === 'AX' ? 1 : 0.8);
+          stress = 0;
           const np = PH[nxt];
           if (np && (np.t === 'F' || np.t === 'S' || np.t === 'H')) dur *= np.vd ? 1.25 : 0.85;
         }
@@ -2146,7 +2151,11 @@
         if (p.t==='V' || p.t==='N' || p.t==='L') {
           const stressed = pendingStress; pendingStress = 0;
           let f = p.f;
-          if (p.t === 'V') dur *= stressed === 2 ? 1 + (shoutLine ? 1.15 : 0.65)*TUNING.emphasis : stressed ? 1.12 : 0.8;
+          // AX is already THE reduced vowel — it exists because the dictionary said
+          // this syllable is weak — so shortening it again for being unstressed is a
+          // double-count, and it left schwa at 45ms with no time to reach anything.
+          if (p.t === 'V') dur *= stressed === 2 ? 1 + (shoutLine ? 1.15 : 0.65)*TUNING.emphasis
+                                : stressed ? 1.12 : (code === 'AX' ? 1 : 0.8);
           // PRE-VOICED LENGTHENING. An English vowel runs roughly 1.5× longer before
           // a voiced consonant than a voiceless one, and that ratio — not the final
           // consonant's own voicing, which is often barely produced at all — is the
@@ -2179,6 +2188,14 @@
           // The blend is exponential in duration (tau ≈ 75ms, so a 160ms vowel
           // barely moves and a 50ms one goes half way) and STRESSED vowels resist,
           // because speakers hyperarticulate exactly where the information is.
+          //
+          // BUT IT IS MOSTLY REDUNDANT, and this was set far too high at first. The
+          // setTargetAtTime glide ALREADY undershoots: at a 22ms time constant a
+          // 45ms vowel physically cannot arrive, which is exactly the phenomenon
+          // this models. Applying an explicit blend on top undershot everything
+          // twice — the schwa in "some" then spent its whole life near the /s/
+          // locus at F2≈1500 and the word came out "sim". The glide is the primary
+          // model; this is a small correction on top of it, not a substitute.
           if (p.t === 'V' && !p.to) {
             const ctx = [];
             if (prevP && (prevP.lf || prevP.f)) ctx.push(prevP.lf || prevP.f);
@@ -2187,7 +2204,7 @@
               const loc = [0,1,2].map(k => ctx.reduce((s,c) => s + c[k], 0) / ctx.length);
               let blend = Math.exp(-dur / 0.075);
               if (stressed) blend *= stressed === 2 ? 0.25 : 0.5;
-              f = f.map((v, k) => v + (loc[k] - v) * blend * 0.65);
+              f = f.map((v, k) => v + (loc[k] - v) * blend * TUNING.undershoot);
             }
           }
           setF(t, f, nasalised, p.tc);
@@ -2195,6 +2212,13 @@
             nzero.frequency.setTargetAtTime(p.az, t, 0.008);
             nzero.gain.setTargetAtTime(-22, t, 0.010);
           } else {
+            // The zero has to state its frequency too. Setting only the GAIN left
+            // the notch wherever the last nasal put it — or at the 1500Hz default —
+            // so a nasalised vowel got a 7dB hole at an arbitrary place in its
+            // spectrum. Same class of bug as the breath band playing through the
+            // /s/ filter. Aim it at whichever nasal this vowel is touching.
+            const az = (nasalNext && nxt.az) || (prevNasal && prevP && prevP.az) || 1000;
+            if (nasalised) nzero.frequency.setTargetAtTime(az, t, 0.020);
             nzero.gain.setTargetAtTime(nasalised ? -7 : 0, t, 0.020);
           }
           voiced.gain.setTargetAtTime(p.t==='V' ? (stressed === 2 ? (shoutLine ? 1.4 : 1.25) : stressed ? 0.95 : 0.72) : 0.6, t, 0.012);

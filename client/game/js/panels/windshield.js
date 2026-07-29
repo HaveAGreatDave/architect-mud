@@ -5566,7 +5566,13 @@ function blinkLight(ctx, cam, dx, dy, wz, rgb, now, seed, alpha, r = 1.6) {
   emitFace(decoDepth(p.f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = `rgba(${rgb},${k})`; ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, 7); ctx.fill(); ctx.globalAlpha = 1; });
 }
 function mast(ctx, cam, dx, dy, h0, h1, alpha, now, seed) {   // guyed antenna mast + red aviation light
-  if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment — you don't CFIT into an antenna
+  // A SPAR: recorded, but never as mass. A mast is what holds a finial, a crown box or the Dead
+  // Pigeon's stuffed bird up in the air — capture it and those pieces float, which is exactly what
+  // the cold open's wireframe showed. So it goes into the sink under its own kind, and shapeForModel
+  // hands it out separately: collision, footprint, shadow and roof height never see it (you still
+  // don't CFIT into an antenna), and the wireframe draws it as the one line it is.
+  if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'spar', dx, dy, wz0: h0, wz1: h1 }); return; }
+  if (ADORN_TIER < ADORN_CHEAP) return;   // adornment
   const a = cam.proj(dx, dy, h0), b = cam.proj(dx, dy, h1);
   if (a.f > 0.1 && b.f > 0.1) emitFace(decoDepth(a.f, b.f), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(184,192,206,0.8)'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; });
   blinkLight(ctx, cam, dx, dy, h1, '255,80,80', now, seed, alpha);
@@ -6195,6 +6201,10 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.60, entTop, drum1, stone, seed + 5, night, alpha, true);
       // 7) The verdigris copper dome — smooth stacked discs following a hemisphere profile.
       const domeH = h * 0.46, domeR = fh * 0.60, apex = drum1 + domeH;
+      // Revolved by hand rather than through a mass primitive, so it records itself: without this the
+      // dome is a hole in the captured envelope and the stone lantern above it stands on nothing in
+      // any consumer drawing the silhouette. A tapered drum is what a hemisphere is, to a wireframe.
+      if (SHAPE_SINK) SHAPE_SINK.push({ kind: 'drum', dx, dy, wz0: drum1, wz1: apex, rb: domeR, rt: domeR * 0.08, n: 12, cap: false, pal: SHAPE_PAL });
       for (let i = 0; i <= 7; i++) {
         const t = i / 7, z = drum1 + domeH * t, r = domeR * Math.sqrt(Math.max(0, 1 - t * t));
         const pts = []; let ok = true;
@@ -6452,6 +6462,8 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       const lantStyle = (f) => { const s = (night ? 0.44 : 0.78) + f.nl * 0.5; return `rgba(${stoneRGB[0]*s|0},${stoneRGB[1]*s|0},${stoneRGB[2]*s|0},0.97)`; };
       drawFacetDrum(ctx, cam, dx, dy, lantZ0, lantZ1, lantR * 1.04, lantR, 8, alpha, lantStyle, null);
       const cupH = h * 0.30, cupR = lantR * 1.12, apex = lantZ1 + cupH;
+      // Records itself for the same reason the Hall of Records' dome does — see there.
+      if (SHAPE_SINK) SHAPE_SINK.push({ kind: 'drum', dx, dy, wz0: lantZ1, wz1: apex, rb: cupR, rt: cupR * 0.08, n: 12, cap: false, pal: SHAPE_PAL });
       for (let i = 0; i <= 8; i++) {
         const t = i / 8, z = lantZ1 + cupH * t, r = cupR * Math.pow(Math.max(0, 1 - t * t), 0.7);       // ogee (pointed) copper cap
         const pts = []; let ok = true;
@@ -7521,12 +7533,17 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
 // the mass segments it would have drawn. See the SHAPE_SINK block near emitFace for why this exists
 // and why it can't affect a rendered frame.
 //
-// KNOWN GAP, DELIBERATE. Two arms build revolved shells by hand out of cam.proj + emitFace rather
-// than a mass primitive — the bank's stone dome and the Meridian's ogee cupola — so capture misses
-// them. Both are subsumed by an adjacent captured box in BOTH the height envelope (each is
-// immediately followed by a lantern/finial box starting at the shell's apex) and the footprint hull
-// (each shell is far narrower than the stylobate/shaft below it). Collision and shadow error is
-// therefore exactly zero; the only loss is wireframe contour. Don't "fix" this without a reason.
+// TWO HAND-ROLLED SHELLS. The bank's stone dome and the Meridian's ogee cupola are revolved out of
+// cam.proj + emitFace rather than through a mass primitive, so they used to be invisible to capture.
+// That cost nothing in collision or shadow — each is subsumed by an adjacent box in both the height
+// envelope and the footprint hull — but it cost the WIREFRAME its contour, and the lantern sitting on
+// each shell's apex was left floating over a hole. Both now push a tapered drum into the sink beside
+// their draw loop (grep SHAPE_SINK in the `archive` and bank arms), which is what a revolved shell is
+// at cage resolution. Any future hand-rolled shell should do the same.
+//
+// MASTS are the other half of that story and are handled the opposite way: see `mast()`. They record
+// as `kind: 'spar'` and shapeForModel keeps them OUT of the mass list — a mast holds a crown box up,
+// but you still don't CFIT into an antenna.
 
 // A ctx that answers every call the arms make and does nothing. Deliberately a plain object and NOT
 // a Proxy: a Proxy that auto-returns functions would silently swallow a genuine typo, whereas this
@@ -7588,6 +7605,7 @@ const SHAPE_NUM_FIELDS = {
   drum:     ['dx', 'dy', 'wz0', 'wz1', 'rb', 'rt'],
   barrel:   ['dx', 'dy', 'cxL', 'hl', 'hw', 'wz0', 'archH'],
   sawtooth: ['dx', 'dy', 'hx', 'hy', 'wz0', 'rh'],
+  spar:     ['dx', 'dy', 'wz0', 'wz1'],   // a mast: a line, not a volume
 };
 
 // Every geometric scalar is stored DECOMPOSED as [a, b, c], meaning `a·fh + b·h + c`.
@@ -7725,16 +7743,25 @@ const _shapeCache = new WeakMap();
 let _shapeFailed = false;
 // The captured mass of one building model, normalized. Returns null (and logs once) if an arm
 // throws under the stub, so a bad model degrades to today's plain box instead of killing the sim.
+// Spars (masts) are captured alongside the mass but are NOT mass — they hang off the returned array
+// as `.spars` instead of living in it, so every consumer that asks "how tall/wide/solid is this
+// building" (collision, footprint, shadow, LOD) is unchanged by their existence and only a consumer
+// that wants the drawn silhouette has to know they're there.
+const splitSpars = (all) => {
+  const mass = all.filter((s) => s.kind !== 'spar');
+  mass.spars = all.filter((s) => s.kind === 'spar');
+  return mass;
+};
 export function shapeForModel(m, seed) {
   if (!m) return null;
   let e = _shapeCache.get(m);
   if (!e) { e = { variant: null, base: null, bySeed: new Map() }; _shapeCache.set(m, e); }
   try {
     if (e.variant === null) e.variant = shapeIsSeedVariant(m);
-    if (!e.variant) return (e.base ||= captureAt(m, 0));
+    if (!e.variant) return (e.base ||= splitSpars(captureAt(m, 0)));
     const k = seed | 0;
     let s = e.bySeed.get(k);
-    if (!s) { s = captureAt(m, k); e.bySeed.set(k, s); }
+    if (!s) { s = splitSpars(captureAt(m, k)); e.bySeed.set(k, s); }
     return s;
   } catch (err) {
     if (!_shapeFailed) { _shapeFailed = true; console.error('[windshield] shape capture failed:', err); }
@@ -8010,11 +8037,63 @@ export function shapeWireList(m, max = 6) {
   const topZ = (r) => shapeVal(r.s.z1, 1, 1);
   let tallest = ranked[0];
   for (const r of ranked) if (topZ(r) > topZ(tallest)) tallest = r;
-  const kept = ranked.slice(0, max);
+  // Rank order is by visual MASS, which for a stacked tower means the budget is eaten from the
+  // ground up: Solenne is 26 twisted slabs, so the first eight kept pieces reached 1.1× the storey
+  // stack and the ninth was the crown at 3.05× — a tower with two thirds of its shaft missing and
+  // its hat floating in the air. Hall of Records did the same. So after ranking, any VERTICAL GAP
+  // under the tallest kept piece is filled by a stand-in: the dropped segment nearest the middle of
+  // the gap, stretched to span it. That's the shaft's own footprint (a stack tapers slowly, so a mid
+  // slab is representative), and it costs nothing extra — fillers come out of the same budget, by
+  // taking one fewer ranked piece until the whole thing fits.
+  const zAt = (p) => shapeVal(p, 1, 1);
+  const gapFill = (kept) => {
+    const top = Math.max(...kept.map((r) => zAt(r.s.z1)));
+    const dropped = ranked.filter((r) => !kept.includes(r) && zAt(r.s.z0) < top);
+    if (!dropped.length) return [];
+    // Walk the kept spans bottom-up; every uncovered stretch a dropped piece lives in becomes one filler.
+    const spans = kept.map((r) => [zAt(r.s.z0), zAt(r.s.z1)]).sort((a, b) => a[0] - b[0]);
+    const out = [];
+    let z = Math.min(...ranked.map((r) => zAt(r.s.z0)));
+    for (const [lo, hi] of spans.concat([[top, top]])) {
+      if (lo - z > 1e-4) {
+        const mid = (z + lo) / 2;
+        const inGap = dropped.filter((r) => zAt(r.s.z1) > z + 1e-4 && zAt(r.s.z0) < lo - 1e-4);
+        if (inGap.length) {
+          let best = inGap[0];
+          for (const r of inGap) {
+            const c = (zAt(r.s.z0) + zAt(r.s.z1)) / 2;
+            if (Math.abs(c - mid) < Math.abs((zAt(best.s.z0) + zAt(best.s.z1)) / 2 - mid)) best = r;
+          }
+          const loSeg = inGap.reduce((a, r) => (zAt(r.s.z0) < zAt(a.s.z0) ? r : a), inGap[0]);
+          const hiSeg = inGap.reduce((a, r) => (zAt(r.s.z1) > zAt(a.s.z1) ? r : a), inGap[0]);
+          out.push({ ...best, s: { ...best.s, z0: loSeg.s.z0, z1: hiSeg.s.z1 } });
+        }
+      }
+      z = Math.max(z, hi);
+    }
+    return out;
+  };
+  let kept = ranked.slice(0, max);
   if (!kept.includes(tallest)) kept[Math.max(0, max - 1)] = tallest;
+  let fill = gapFill(kept);
+  // Make room for the fillers rather than exceeding the budget: a shaft with a gap in it is worse
+  // than a shaft with one fewer setback.
+  while (fill.length && kept.length + fill.length > max && kept.length > 1) {
+    const drop = kept.filter((r) => r !== tallest).pop();
+    kept = kept.filter((r) => r !== drop);
+    fill = gapFill(kept);
+  }
+  kept = kept.concat(fill).slice(0, max);
   // Left in RANK order, not source order: a consumer that can only afford the first two segments
   // should get the two that define the building. Painter order doesn't matter to a wireframe.
   const add = (p, q) => [p[0] + q[0], p[1] + q[1], p[2] + q[2]];
+  // The masts, appended OUTSIDE the budget. A spar is one line — it can't push a real piece off the
+  // list, and without it a crown box, a finial or the Dead Pigeon's bird stands on nothing. Never
+  // marked `tall`: a consumer sizing its camera to clear the city should clear the roofs, not the
+  // antennas.
+  const spars = (segs.spars || []).map((s) => ({
+    kind: 'mast', cx: s.cx, cy: s.cy, hx: [0, 0, 0], hy: [0, 0, 0], z0: s.z0, z1: s.z1, yaw: 0, front: 0, tall: 0,
+  }));
   return kept.map(({ s }) => {
     let cx = s.cx, hx, hy;
     if (s.kind === 'box') { hx = hy = s.hwRaw; }
@@ -8028,7 +8107,7 @@ export function shapeWireList(m, max = 6) {
     if (s.kind === 'drum') { out.kind = 'drum'; out.rb = s.rb; out.rt = s.rt; out.n = s.n; }
     else if (s.kind === 'barrel') { out.kind = 'arch'; }
     return out;
-  });
+  }).concat(spars);
 }
 
 // Faces a model would queue at a given detail level — the number LOD exists to cut. Diagnostic, used

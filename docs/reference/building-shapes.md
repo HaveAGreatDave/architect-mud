@@ -82,13 +82,38 @@ Rotating a model to its entrance vector `θ(E) = atan2(-E[0], E[1])` must rotate
 small enough to ship unnoticed. Where practical, transform the four corners individually instead and
 the question disappears; that is what the cold open does.
 
-### Known gap, deliberate
+### Spars (masts) — recorded, but never mass
 
-The bank's stone dome and the Meridian's ogee cupola are hand-rolled `cam.proj`+`emitFace` shells
-that bypass the mass primitives, so capture misses them. Both are **subsumed by an adjacent captured
-box** in both height envelope and footprint hull, so collision and shadow error is exactly zero; only
-wireframe contour is lost. A happy side effect: `MASS_OFF` doesn't stop them either, so those two
-keep their contour at LOD range. Don't "fix" this without a reason.
+`mast()` pushes `{ kind: 'spar' }` into the sink, and **`shapeForModel` hands spars back on the
+returned array's `.spars` property rather than inside it**. So collision, footprint, shadow, roof
+height and LOD are byte-for-byte unaffected — you still don't CFIT into an antenna — while a consumer
+drawing the silhouette can ask for them.
+
+They exist because a mast is *structural to the picture*: several arms hang a crown box, a finial or
+(the Dead Pigeon) a stuffed bird off the top of one, and without the spar those pieces float in the
+air over a gap. `shapeWireList` appends them **outside the `max` budget** (one line each, they can't
+push a real piece off the list) as `kind: 'mast'` with zero `hx`/`hy`, and never flags one `tall` — a
+consumer sizing a camera to clear the city should clear the roofs, not the antennas.
+
+### The two hand-rolled shells
+
+The bank's stone dome and the Meridian's ogee cupola are revolved out of `cam.proj`+`emitFace` rather
+than through a mass primitive, so capture used to miss them. That cost nothing in collision or shadow
+— each is subsumed by an adjacent box in both height envelope and footprint hull — but it cost the
+wireframe its contour, and the stone lantern on each shell's apex was left standing over a hole. Both
+now push a **tapered drum** into the sink beside their draw loop, which is what a revolved shell is at
+cage resolution. Any future hand-rolled shell should do the same.
+
+### Trimming a stack: keep it continuous
+
+`shapeWireList(m, max)` ranks by **visual mass**, which for a stacked tower spends the budget from the
+ground up. Solenne is 26 twisted slabs: the first eight kept pieces reached 1.1× the storey stack and
+the ninth was the crown at 3.05× — a tower missing two thirds of its shaft with its hat in mid-air.
+Hall of Records did the same. So after ranking, any **vertical gap under the tallest kept piece** is
+filled with the dropped segment nearest the gap's midpoint, stretched to span it (a stack tapers
+slowly, so a mid slab is a faithful footprint). Fillers come out of the **same budget** — it keeps one
+fewer ranked piece until the whole thing fits — so per-frame stroke cost is unchanged. All 83 models
+are now gap-free at `max = 9`.
 
 ## Consumers
 

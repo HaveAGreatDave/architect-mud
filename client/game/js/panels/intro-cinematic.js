@@ -611,6 +611,14 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
     const out = [];
     for (const s of list) {
       const cx = V(s.cx), cy = V(s.cy), hx = V(s.hx), hy = V(s.hy);
+      // A MAST is a line, so it's the one piece with no width — and the reason it's here is that
+      // several buildings hang a crown box, a finial or (the Dead Pigeon) a stuffed bird off the top
+      // of one. Without it those pieces float over a gap.
+      if (s.kind === 'mast') {
+        const p = P2S(V(s.cx), V(s.cy));
+        out.push({ kind: 'mast', pts: [p], yTop: GY - V(s.z1), yBot: GY - V(s.z0), tall: false });
+        continue;
+      }
       if (!(hx > 0.0005) || !(hy > 0.0005)) continue;
       const cw = Math.cos(s.yaw || 0), sw = Math.sin(s.yaw || 0);
       const local = (ax, ay) => P2S(cx + ax * cw - ay * sw, cy + ax * sw + ay * cw);   // yaw applied
@@ -669,7 +677,10 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
         // the city, which is the sort of thing that only shows up on a first login.
         // From EVERY captured piece, not just the ones drawn at this distance — the camera has to
         // clear the spire whether or not the spire is being stroked this frame.
-        hMax: segs ? Math.max(h, ...segs.map((s) => GY - s.yTop)) : h,
+        // Masts excluded on purpose: the camera should clear the roofs, not the antennas — a spar is
+        // a line you'd never see yourself pass, and letting one lift the cruise altitude would push
+        // the whole flythrough above the skyline it exists to fly through.
+        hMax: segs ? Math.max(h, ...segs.filter((s) => s.kind !== 'mast').map((s) => GY - s.yTop)) : h,
         // Downtown lands first and the edges of the map last, so the city
         // assembles from its middle outward rather than in a flat wipe.
         delay: clamp01(Math.hypot(sx, sz) / 22) * 0.55 + seed * 0.22,
@@ -1207,8 +1218,16 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
           // The spire always draws, however far away. It sorts last (almost no bulk) but it is the
           // single most recognisable thing about a tower on a skyline — dropping it at distance
           // would turn Halcyon and Solenne back into the plain slabs this work exists to replace.
-          if (si >= nSeg && !sg.tall) continue;
+          if (si >= nSeg && !sg.tall && sg.kind !== 'mast') continue;
           const sTop = sg.yTop, sBot = lerp(sTop, sg.yBot, grow);
+          if (sg.kind === 'mast') {
+            // One line, at any distance — it costs a single stroke and it's the difference between a
+            // finial standing on an antenna and a finial standing on nothing. Extrudes DOWN from the
+            // tip on the shared clock like everything else, so it arrives with the crown it carries.
+            const p = sg.pts[0];
+            stroke3([b.sx + p[0], sTop, b.sz + p[1]], [b.sx + p[0], sBot, b.sz + p[1]], al * 0.9, lw);
+            continue;
+          }
           if (sg.kind === 'arch') {
             // A vault, unrolling downward: the ridge is already at the top, and the eave drops away
             // from it on the shared clock.
