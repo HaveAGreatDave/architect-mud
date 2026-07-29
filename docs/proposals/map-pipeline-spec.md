@@ -343,17 +343,35 @@ game's DOM renderer both consume it; neither re-implements a palette lookup. A r
 must pin this (§9), because the moment one renderer computes something the other doesn't, the
 two-tool cost in redesign §16 becomes real.
 
+A tile is **three layers**, and which layers it *has* is the whole answer to what a renderer
+may do to it (§7.7):
+
 ```jsonc
 {
-  "fill": "#3a3a3e",
-  "text": "#c8c8cc",
-  "glyph": "═",              // resolved marker/glyph to paint
+  // ground — always present
+  "fill": "#4c5157",
+  "text": "#f2c53d",
   "minimap_class": "road",
+  "terrain": "road",
+  "speed_mult": 1,
+
+  // feature — present iff something stands on the ground. One zone-icon asset name.
+  "feature": "road_nesw",
   "auto_tile": { "n": true, "e": true, "s": false, "w": true },  // present iff palette auto_tile
-  "entrance": "north",        // facades only — mirrors flags.entrance, for the arrow
+
+  // label — present iff a code means something here. NEVER on painted ground.
+  "label": { "text": "BW", "kind": "building" },   // kind: building | room | art
+
+  "entrance": "north",        // facades only — mirrors flags.entrance, for the bar
   "height": 4                 // buildings only — from flags.floors
 }
 ```
+
+**`glyph` was removed** (2026-07-28). It carried `deriveMarker`'s output and had exactly one
+consumer in the repo — the Studio's inspector debug line — because every renderer read the
+*authored* `zones.marker` off the payload instead. So the derived marker shipped in the spec and
+was ignored while the value it was meant to replace did the work. `label` is that same value with
+the missing half of the wiring; see §7.7.
 
 ### 2.4 `content/map/index.json` — the coordinate atlas
 
@@ -697,7 +715,9 @@ connectivity. Lift these into derive rather than reinventing them.
 | `deriveMarker(zone, ctx)` | tile + neighbours | string\|null | Four cases, see §7.4. |
 | `deriveIcon(zone, ctx)` | tile | string\|null | **Derived only.** Nothing may read it as game logic. |
 | `deriveColors(zone, palette)` | tile | `{color, bg_color}` | override → palette. |
-| `deriveAutoTile(zone, ctx)` | tile + neighbours | `{n,e,s,w}` | only when the palette entry sets `auto_tile`. |
+| `deriveAutoTile(zone, ctx)` | tile + neighbours | `{n,e,s,w}` | **BUILT.** Only when the palette entry sets `auto_tile` — 158 tiles. See §7.6. |
+| `deriveFeature(zone, autoTile)` | tile | string\|null | **BUILT.** The footprint SVG — authored `flags.icon` → building rooftop → auto-tiled connector. 232 tiles. See §7.7. |
+| `deriveLabel(zone, palette, ctx)` | tile | `{text,kind}`\|null | **BUILT.** The code someone reads. Never on painted ground. 270 tiles. See §7.7. |
 | `buildRenderSpec(...)` | all of the above | `spec` JSONB | §2.3. The only renderer channel. |
 | `projectEdges(zones, connections)` | world | `EdgeRow[]` | §7.5. |
 | `buildIndex(zones)` | world | index object | §2.4. |
@@ -716,6 +736,10 @@ connectivity. Lift these into derive rather than reinventing them.
 > 846 glyphs are hand-placed decoration that happens to sit on painted ground. Deriving
 > them from a palette glyph would blank 375 grass tiles or stamp one on 688 empty water
 > tiles, so the palette's `glyph` stays null and terrain glyphs **stay authored**.
+>
+> **Follow-up (§7.7, 2026-07-28): they stay authored and are no longer *drawn*.** The data was
+> right to keep; advertising it in `spec` was not. `deriveLabel` suppresses a label on any tile
+> with a terrain, which is what the game had always done and the Studio had not.
 >
 > Two more things measured rather than assumed:
 >
@@ -820,6 +844,133 @@ standability rules decide, not proximity.
 **Lint check (redesign §8.2): the undeclared one-way.** A geometry pair that projects in one
 direction only, with no connection file saying `one_way`, is an error — that is a warp the map
 cannot draw and nobody chose.
+
+### 7.6 `deriveAutoTile` — adjacency-aware art
+
+> **BUILT.** One rule, one copy. `world.js roadConnector` — which computed this live on every
+> map payload — was **deleted** on 2026-07-28 (§7.7); `tools/zone-planner roadIcon` bakes it into
+> `flags.icon` at export, which is now an authored override rather than a competing derivation.
+> The dev panel's Maps tab keeps its own `mapRoadConnector` and is the last remaining copy.
+
+`spec.auto_tile` was a bare `!!entry.auto_tile` — true on 158 tiles, false on 5,630 — which told
+a renderer that a tile auto-tiles **without telling it what to draw**. So nothing drew anything,
+and the Studio fell back to lettering the roads with their authored texture glyphs. It now
+carries the adjacency itself, `{n,e,s,w}`, and is **present iff** the palette auto-tiles the
+terrain, for the same reason `entrance` is: a key that is `false` on 5,630 tiles teaches a
+renderer to test for it rather than read it.
+
+Like the building markers this is a **whole-map** derivation — which piece a road draws is a
+function of its neighbours, so `deriveWorld` builds one coordinate index and both passes walk the
+same id-sorted list. 273 cells on this world hold more than one tile, so that index is
+last-wins, and which tile wins must not depend on which rows an upsert happened to touch (§7.2).
+
+**Two tiles join when both terrains auto-tile.** Today that set is exactly `{road, dirt_road}`,
+which reproduces `world.js isRoadTerrain` deliberately: a graded dirt lane meets a paved street
+at a proper junction and draws the same piece, recoloured by the palette's own `text`. A future
+auto-tiling terrain that must *not* fuse with roads needs a family key in the palette — inventing
+that field before a second family exists is how the three drifted terrain tables in
+`content/map/terrain.json`'s header happened.
+
+The 158 tiles derive as a real network — 66 `ns` straights, 33 `ew`, 23 corners, 20 T-junctions,
+5 crossroads and exactly **1 island**, which is a road tile touching no other road and is
+probably a bug in the content rather than in the derivation. Regress checks each of the four
+sides against the map rather than against itself, so a piece that disagrees with its neighbours
+fails at the gate.
+
+---
+
+### 7.7 The tile stack — `deriveFeature` and `deriveLabel`
+
+> **BUILT** 2026-07-28. The spec now answers "what does this tile look like" on one channel, and
+> `world.js` reads it instead of computing a second one.
+
+**The problem.** A tile's appearance was assembled from four sources at three different times:
+ground from `spec` (build), the footprint SVG from `tileIconSvg` (**runtime**, per payload), a
+fallback character on the client, and an overlay toggle gated by an `isBuilding()` predicate each
+renderer spelled for itself. Two of those consequences were measured, not theorised:
+
+- **`spec.glyph` had one consumer in the whole repo** — the Studio's inspector debug line. The
+  map read the *authored* `zones.marker` off the payload, so `deriveMarker`'s output (62 building
+  acronyms, 116 apartment designations, 118 sewer corridors) shipped in the spec and was ignored.
+  §7.4 did the hard half of that split and the wiring was never finished.
+- **The predicates disagreed.** The minimap used `building_type || enterable || building_name`;
+  the tablet used `building_type || building_name`. The two screens differed on enterable facades.
+
+And because the feature layer was runtime-derived, **the Studio could not be WYSIWYG at all** — it
+only ever had the build's half. Its first attempt hand-drew road lanes on canvas to match the SVGs
+by eye, which is the editor holding an opinion about what a road looks like.
+
+**The model.** Three layers, present-iff:
+
+| layer | key | when |
+|---|---|---|
+| ground | `fill` / `text` / `terrain` | always |
+| feature | `feature` — one zone-icon name | iff something stands on the ground |
+| label | `label: {text, kind}` | iff a code means something here |
+
+`deriveFeature` resolves the footprint with an explicit precedence — **authored `flags.icon` →
+building rooftop → auto-tiled connector → none**. Rung 1 is the override seam: it is what lets the
+Studio pin a tile's art, and it is ordinary content, so the pin ships through the normal deploy.
+
+`deriveLabel` returns `{text, kind}` where `kind ∈ building | room | art`, and **painted ground
+never carries a label**. That single rule is the `#`-on-grass fix: 870 tiles author a terrain
+decoration in `zones.marker` that the map has never drawn, and the Studio drew them because the
+spec still advertised them. It was rendering the spec faithfully; the spec described a tile the
+game abandoned.
+
+**The hierarchy is data, not a predicate.** The overlay toggle acts on `label` and on a building's
+own feature. It cannot reach a road, because a road tile has no `label` key — there is nothing
+there to toggle. That is the property the redesign was asked for ("when buildings toggle, I don't
+want roads to toggle"), and it holds by construction rather than by every renderer remembering to
+check. `kind: 'art'` — the sewer corridors' connectivity pieces — is the tile's own drawing, so it
+survives every mode exactly as a road connector does.
+
+**What it retired.** `roadConnector` and the whole-map coordinate index that both map payloads
+rebuilt *on every send* (per move, per player); the second `icon_svg` / `svg` payload field; the
+two `isBuilding` predicates; `spec.glyph`.
+
+**The drift it exposed.** An authored `flags.icon` outranks auto-tiling — that is what makes it an
+override — but a road piece frozen by hand does not grow an arm when someone paints a lane beside
+it later. **13 of the 91 frozen road icons disagree with adjacency**, twelve missing an arm and one
+with a phantom one, which renders as a road dead-ending into another road. `deriveWorld` returns
+these as `featureOverrides` and regress prints the count rather than asserting zero: which of the
+two is right is a decision about the map, and silently preferring either would be the build
+deciding content. Reconciling them is separate work.
+
+### 7.8 `featureProvenance` — the override, made editable
+
+> **BUILT** 2026-07-28. The precedence in §7.7 answers *what* a tile draws. An editor also has to
+> answer *who decided*, and let you change the answer.
+
+`featureProvenance(zone, autoTile)` returns `{ source, name, implied, stale }` — the same
+precedence `deriveFeature` ships, reporting which rung won. `deriveFeature` delegates to it, so
+there is one copy of the order and an editor cannot describe a tile the build did not make
+(regress checks provenance against the shipped feature on all 5,788 tiles, not a sample).
+
+- `source` — `authored` | `rooftop` | `auto` | `null`
+- `implied` — what adjacency alone would draw
+- `stale` — an authored pin whose neighbours have moved on beneath it
+
+**Staleness is same-family, and lives here.** A runway resolves to `road` terrain and therefore
+auto-tiles, but `runway_ns` is a deliberate choice of a different piece set. Comparing across
+families reported all 10 runway tiles as drift — as a count in regress *and* as a false warning on
+the tile itself. `deriveWorld` now reports `featureOverrides` from this flag rather than
+re-filtering, so the list and the per-tile warning can never disagree.
+
+**The override is the catalog's, not a hand-written control.** `flags.icon` moved from
+`shape: 'text'` to `shape: 'ref'` with `refTable: 'zone_icons'`, so the Studio renders its standard
+ref picker: every asset that exists, `—` to clear back to derived, and an unresolvable name shown
+in red. This keeps §10's "the form is the catalog" intact — the picker was bought by describing the
+field better, not by writing a widget.
+
+**`zone_icons` is an ASSET REF** (`lib.mjs ASSET_REFS`) — a ref whose collection is a directory of
+files rather than a content table, with the filename minus extension as the id. Declared once
+because three things must agree about it: the Studio populates the picker from it, `content:lint`
+resolves against it, and regress's "every ref names a real table" gate has to know it is legitimate
+rather than a typo. That gate's exemption is only sound because lint really does check it — before
+this, a `refTable` lint could not resolve fell through a "nothing to check against" branch and a
+typo'd icon name stayed inert forever, which is the exact failure the ref shape exists to catch.
+All 18 distinct authored icon names resolve; a typo now fails the gate.
 
 ---
 
@@ -966,7 +1117,10 @@ reintroduces runtime derivation, the thing this removes).
 > regress rather than believed:
 >
 > - **The preview is the ship.** The canvas paints `spec.fill` / `spec.text` /
->   `spec.glyph` from `deriveWorld` — the module `content:import` runs. Regress checks
+>   `spec.feature` / `spec.label` from `deriveWorld` — the module `content:import` runs, and
+>   since §7.7 the same module the *game* reads its footprints from, so the string shown here
+>   is the string shipped. The feature layer rasterises the game's own zone-icon asset rather
+>   than a canvas impression of it, which regress pins. Regress checks
 >   the client contains no hex literal outside its own chrome and no palette; the
 >   server imports derive and can reach no `db.js`. Visible proof: painting `grass`
 >   onto a wilderness tile leaves it dark brown, because the palette sets
@@ -1036,6 +1190,56 @@ reintroduces runtime derivation, the thing this removes).
 > `scripts/content/sync-map-anchors.mjs` repaired the tree — 191 zone files, 64 map
 > files — and is idempotent. Gates: `content:lint` clean at **13 warnings**
 > (unmoved), regress **1677/1677** (1672 + 5 new), map audit **1906** (unmoved).
+
+> **INCREMENT 3 BUILT — the map tree is walkable.** A tile that leaves the map is
+> outlined; **double-clicking it opens the far map centred on the tile you would
+> land on**, with Back. The inspector says it in words too — *Leads to* per tile,
+> *Leads off this map* per map, which on the world map is the index of all 62
+> buildings you can walk into.
+>
+> **A BAR ON THE EDGE, NEVER AN ARROW AT THE NEIGHBOUR.** The side you go through is
+> drawn as a threshold across that edge — amber where a door is authored (62 tiles),
+> blue where only the seam direction is available (65), a centre dot for `up`/`down`/
+> `in`/`out`, which have no side (23).
+>
+> The first cut used a wedge, and it was wrong on 63 of the 150. A portal's
+> `direction` *is* a true statement about the tile's own edge — an authored
+> connection claims its `(from, direction)` and the grid edge steps aside (§7.5), so
+> nothing is reachable that way but the seam. An arrow, though, reads as a vector at
+> the tile beyond, and that tile is innocent: Pawn & Pity's seam direction is `east`,
+> and east on the world map is The Neon Vig, so the arrow pointed at the casino while
+> meaning "step east into Pawn & Pity's own interior". A bar is a property of the
+> edge and points at nobody.
+>
+> **Where a tile has two candidate edges, the AUTHORED one wins.** A facade carries a
+> street-facing `flags.entrance` and a seam direction into the building, **opposite by
+> construction on 60 of the 62** — through a north door means heading south. Drawing
+> both is §2.3's failure moved to the presentation layer: one fact rendered twice, by
+> a tool that computed one of the renderings itself. So the amber bar replaces the
+> blue one rather than joining it, and `flags.entrance` — long drawn as a dot — became
+> a bar too, because on a map the *side* is the useful half.
+>
+> **It marks nothing of its own.** §7.5 already labels every edge whose ends are on
+> different maps `kind: 'portal'` — 150 of them, covering 70 of the 71 maps — so the
+> marking is the build's answer, not a list of shapes this tool learned to recognise.
+> A facade, a bunker hatch, an elevator and a connection authored tomorrow all appear
+> with no edit here. Two things it declines to tidy: **one-way** seams are labelled
+> (2 of 150), and the **12 that land on a tile filed on no map** (the Echelon suite's
+> bathroom, Solenne's apartments) say so with the jump disabled, rather than being
+> filtered out of a list that claims to be complete.
+>
+> **Floors had to come with it.** A map is a stack — 20 of the 71 carry more than one
+> `grid_z`, `map_world` alone has 202 tiles below ground and the residential lobby
+> has five storeys — and the canvas was painting them on top of each other while
+> `cellAt` hard-coded `z=0`, so four fifths of that lobby could not be clicked at all.
+> One floor is drawn and hit-tested at a time, and following a seam switches floors,
+> without which the 13 seams landing below ground would have "centred" on a tile
+> under another one.
+>
+> Regress gained a world law with it: **every map can be walked into**, with the two
+> that legitimately cannot — `map_dream` (sleeping) and `map_aircraft_leviathan`
+> (boarding) — named in the test with their reason, so a third joins them out loud
+> instead of quietly becoming unreachable.
 
 **Not a live-DB tool.** It reads and writes `content/` directly, served locally the way
 `tools/zone-planner/serve.mjs` already is, importing the *same* derive module the build uses —

@@ -291,6 +291,179 @@ export function assignBuildingMarkers(zones) {
   return { markers, collisions };
 }
 
+// ── deriveAutoTile — adjacency-aware art (§7.3) ──────────────────────────────
+//
+// Which connector piece a road draws is a function of its NEIGHBOURS, so like the
+// building markers this can only be right if something sees the whole map at once.
+// `ctx.byCell` is the coordinate index deriveWorld builds in the same pass.
+//
+// This is the third copy of one rule and the last: world.js `roadConnector` computes
+// it live per map payload, tools/zone-planner `roadIcon` bakes it into `flags.icon`
+// at export, and both answer the same question off the same adjacency. Here it lands
+// in the spec, so a renderer draws the network instead of re-deriving it.
+//
+// TWO TILES JOIN WHEN BOTH TERRAINS AUTO-TILE. Today that set is exactly
+// {road, dirt_road}, which reproduces world.js's `isRoadTerrain` deliberately: a
+// graded dirt lane meets a paved street at a proper junction and draws the same
+// piece, recoloured by the palette's own `text`. A future auto-tiling terrain that
+// must NOT fuse with roads would need a family key in the palette — inventing that
+// field before a second family exists is how the three drifted terrain tables in
+// content/map/terrain.json's header happened.
+const AUTO_DIRS = Object.freeze({ n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] });
+// One key format for "which tile is at this coordinate", used by both whole-map
+// passes (this one and projectEdges) and by the Studio's neighbour lookup.
+export const gridKey = (mapId, x, y, z) => `${mapId ?? ''}|${x},${y},${z ?? 0}`;
+
+export function deriveAutoTile(zone, palette, ctx = {}) {
+  const out = { n: false, e: false, s: false, w: false };
+  // A tile with no coordinates has no neighbours to speak of — 530 interiors and
+  // every off-map room. All-false is the honest answer, and it is what an isolated
+  // road tile draws anyway (the `road_x` dot).
+  if (!ctx.byCell || zone?.grid_x == null || zone?.grid_y == null) return out;
+  const gz = zone.grid_z ?? 0;
+  for (const [dir, [dx, dy]] of Object.entries(AUTO_DIRS)) {
+    const n = ctx.byCell.get(gridKey(zone.map_id, zone.grid_x + dx, zone.grid_y + dy, gz));
+    out[dir] = !!(n && paletteEntry(n, palette)?.auto_tile);
+  }
+  return out;
+}
+
+// ── The tile stack — ground, feature, label (§7.7) ───────────────────────────
+//
+// A tile is at most three layers, and which layers it HAS is the whole answer to
+// what a renderer may do to it:
+//
+//   ground   fill + terrain texture      always
+//   feature  one named SVG footprint     optional — the thing standing on the ground
+//   label    a human code someone reads  optional — only where a code means anything
+//
+// The map's overlay toggle acts on `label` and on a BUILDING's feature. It cannot
+// reach a road, because a road tile has no `label` key — there is nothing there to
+// toggle. That is the point of expressing the hierarchy as data rather than as an
+// `isBuilding()` predicate each renderer re-derives: the client had one, the tablet
+// had another, and they disagreed about interiors.
+//
+// Building type → top-down rooftop footprint SVG (client/game/assets/zone-icons/
+// bldg_*.svg). Synonyms collapse (store/grocery → shop); an unrecognised-but-present
+// type gets a plain office block. MOVED HERE FROM world.js so the build resolves a
+// footprint the same way the engine always did — world.js now delegates, exactly as
+// it does for `resolveTerrain`.
+//
+// STANDARD: a new building_type needs BOTH a 2-D footprint here AND a 3-D shape in
+// BLDG_TYPE_3D (client/game/js/panels/windshield.js) so it reads consistently on the
+// map and from the air. Each registry has its own fallback, so an unlisted type still
+// renders something rather than nothing.
+export const BUILDING_TYPE_ICON = Object.freeze({
+  residential: 'bldg_residential', apartment: 'bldg_apartment',
+  shop: 'bldg_shop', store: 'bldg_shop', grocery: 'bldg_shop',
+  bar: 'bldg_bar', club: 'bldg_club', nightclub: 'bldg_club', boutique: 'bldg_shop', police: 'bldg_police',
+  corporate_office: 'bldg_office', hotel: 'bldg_hotel', power: 'bldg_power',
+  hangar: 'bldg_hangar', studio: 'bldg_studio', clinic: 'bldg_clinic', diner: 'bldg_diner',
+  gun_shop: 'bldg_gunshop', casino: 'bldg_casino', fence: 'bldg_fence', chem_supply: 'bldg_chem',
+  // The Yards — semi-industrial freight district (docs/proposals/yards.md).
+  warehouse: 'bldg_warehouse', container_yard: 'bldg_container', fuel_yard: 'bldg_fuel', cold_storage: 'bldg_cold',
+  fabrication: 'bldg_fab', wharf: 'bldg_wharf', freight_office: 'bldg_freightoffice', freight_forwarder: 'bldg_forwarder',
+  // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md) — reuse the nearest existing
+  // glyphs so the campus reads on the 2-D map this build; bespoke SVGs are an optional polish pass.
+  asc_spire: 'bldg_office', asc_gate: 'bldg_police', asc_clinic: 'bldg_clinic',
+  asc_weave: 'bldg_fab', asc_vats: 'bldg_cold', asc_shrine: 'bldg_power',
+});
+
+// Gated on the `facade` tag so interior tiles (which also carry is_building) never
+// wear a rooftop. Zones keep their tags in `flags`, so this is engine `hasTag`
+// spelled out — derive imports nothing, and that is enforced, not stylistic.
+const hasFacadeTag = (zone) => Object.prototype.hasOwnProperty.call(zone?.flags || {}, 'facade');
+
+export function buildingIconSvg(zone) {
+  if (!zone || !hasFacadeTag(zone)) return null;
+  const bt = String(zone?.flags?.building_type || '').toLowerCase();
+  return BUILDING_TYPE_ICON[bt] || (bt ? 'bldg_office' : null);
+}
+
+// The connector piece an auto-tiled tile draws. Direction order is n,e,s,w and must
+// stay that way — it is the filename (`road_nesw.svg`), not a set.
+export const autoTileName = (at) => {
+  const s = ['n', 'e', 's', 'w'].filter((d) => at?.[d]).join('');
+  return s ? `road_${s}` : 'road_x';   // no neighbours ⇒ the lone dot
+};
+
+/**
+ * The one SVG this tile draws, resolved at BUILD time. Precedence, highest first:
+ *
+ *   1. authored `flags.icon`   — the override. A statue, a helipad, an AA nest,
+ *                                or a road piece someone pinned by hand.
+ *   2. building rooftop        — a facade draws its type's footprint.
+ *   3. auto-tiled connector    — a road draws the piece its neighbours imply.
+ *   4. nothing.
+ *
+ * This used to be `tileIconSvg` in world.js, recomputed per map payload from a
+ * whole-map coordinate index rebuilt on every send. Resolving it here is what lets
+ * the Studio show the shipped value rather than an approximation of it, and it
+ * retires the third and fourth copies of the road-adjacency rule (world.js
+ * `roadConnector`, the dev panel's mirror of it).
+ */
+export function deriveFeature(zone, autoTile = null) {
+  return featureProvenance(zone, autoTile).name;
+}
+
+/**
+ * The same precedence, plus WHICH RUNG WON — for an editor that has to explain a tile
+ * rather than just draw it. `deriveFeature` delegates to this so the order lives in one
+ * place; a second copy written "just for the inspector" is how a tool starts disagreeing
+ * with the build about what it is showing you.
+ *
+ * `implied` is what adjacency alone would draw, and `stale` is the point of the whole
+ * function: an authored pin does not grow an arm when someone paints a lane beside it
+ * later, so a pinned tile whose neighbours have moved on is a defect rather than a
+ * decision — visible per tile instead of only in an aggregate count (§7.7).
+ *
+ * SAME-FAMILY ONLY. A runway resolves to `road` terrain (resolveTerrain reads the
+ * `runway_` icon prefix) and therefore auto-tiles, but `runway_ns` is a deliberate
+ * choice of a different piece set, not a stale road. Comparing across families marked
+ * all 10 runway tiles as drift — in a regress count, and as a false warning on the
+ * tile itself. This is the ONE definition of staleness; deriveWorld reports from it.
+ *
+ * @returns {{ source: 'authored'|'rooftop'|'auto'|null, name: string|null,
+ *             implied: string|null, stale: boolean }}
+ */
+export function featureProvenance(zone, autoTile = null) {
+  const implied = autoTile ? autoTileName(autoTile) : null;
+  const authored = zone?.flags?.icon;
+  if (authored) {
+    const name = String(authored);
+    const stale = !!implied && name.startsWith('road_') && implied !== name;
+    return { source: 'authored', name, implied, stale };
+  }
+  const rooftop = buildingIconSvg(zone);
+  if (rooftop) return { source: 'rooftop', name: rooftop, implied, stale: false };
+  if (autoTile) return { source: 'auto', name: implied, implied, stale: false };
+  return { source: null, name: null, implied, stale: false };
+}
+
+/**
+ * The code a human reads off this tile, or null. Three kinds, because the overlay
+ * toggle treats them differently:
+ *
+ *   building  a navigable 2-letter code (Labels mode turns the tile into that box)
+ *   room      an apartment designation / floor — a code, but not a landmark
+ *   art       sewer-corridor connectivity art: the tile's own drawing, like a road
+ *             connector, so it survives every overlay mode and is never toggled off
+ *
+ * PAINTED GROUND NEVER CARRIES A LABEL. 870 tiles author a terrain decoration in
+ * `zones.marker` (`#` on grass, `≈` on water, six textures on road) and the map has
+ * never drawn one — `symFor` letters a building and paints the tile's art everywhere
+ * else. Suppressing them here rather than in each renderer is what stopped the Studio
+ * lettering the grasslands `# # # #`: it was drawing the spec faithfully, and the
+ * spec was describing a tile the game abandoned.
+ */
+export function deriveLabel(zone, palette, ctx = {}) {
+  const text = deriveMarker(zone, palette, ctx);
+  if (!text) return null;
+  if (resolveTerrain(zone)) return null;
+  const kind = isBuildingTile(zone) ? 'building' : (isSewerTile(zone) ? 'art' : 'room');
+  return { text, kind };
+}
+
 // ── projectEdges — the traversal graph (§7.5) ────────────────────────────────
 //
 // Geometry says where tiles TOUCH. It does not say where a player can WALK, and
@@ -368,7 +541,7 @@ export const OPPOSITE = Object.freeze({
 });
 
 const byIdAsc = (a, b) => (String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0);
-const cellKey = (z) => `${z.map_id}|${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`;
+const cellKey = (z) => gridKey(z.map_id, z.grid_x, z.grid_y, z.grid_z);
 
 /**
  * A facade is a building's street face. It is a wall on three sides and a door on
@@ -515,17 +688,35 @@ export function edgesToExits(edges = []) {
  * Every renderer reads these values; none of them looks up a palette, and none
  * of them can invent a colour the build didn't produce.
  */
-export function buildRenderSpec(zone, palette, resolved) {
+export function buildRenderSpec(zone, palette, resolved, ctx = {}) {
   const entry = paletteEntry(zone, palette);
   const spec = {
     fill: resolved.bg_color,
     text: resolved.color,
-    glyph: resolved.marker,
     minimap_class: entry?.minimap_class ?? null,
     terrain: resolveTerrain(zone),
-    auto_tile: !!entry?.auto_tile,
     speed_mult: entry?.speed_mult ?? 1,
   };
+  // `glyph: resolved.marker` used to sit here. It had exactly one consumer in the
+  // repo — the Studio's inspector debug line — because the map reads the AUTHORED
+  // `zones.marker` off the payload instead. So the derived marker (62 building
+  // acronyms, 116 apartment designations, 118 sewer corridors) shipped in the spec
+  // and was ignored, while the authored value it was meant to replace did the work.
+  // `spec.label` below is that same value with the missing half of the wiring.
+  //
+  // §2.3: present iff the palette auto-tiles this terrain, and then it carries the
+  // adjacency itself rather than a boolean the renderer would have to chase. It was
+  // a bare `!!entry.auto_tile` — true on 158 tiles, false on 5,700 — which told a
+  // renderer that a tile auto-tiles without telling it what to draw, so nothing drew
+  // anything and the Studio fell back to lettering the road with `#`.
+  const autoTile = entry?.auto_tile ? deriveAutoTile(zone, palette, ctx) : null;
+  if (autoTile) spec.auto_tile = autoTile;
+  // The two layers that stand on the ground. Both present-iff, so a renderer tests
+  // for the layer instead of testing a null against five thousand tiles.
+  const feature = deriveFeature(zone, autoTile);
+  if (feature) spec.feature = feature;
+  const label = deriveLabel(zone, palette, ctx);
+  if (label) spec.label = label;
   // Facade-only and building-only extras, present just when they mean something
   // — a spec key that is null on 5,700 tiles teaches a renderer to test for it.
   const entrance = zone?.flags?.entrance;
@@ -553,11 +744,21 @@ export function deriveWorld({ zones = [], regions = [], connections = [], palett
   // it cannot be a per-tile function. Collisions come back rather than being
   // silently resolved — an authored duplicate is a human decision to unpick.
   const { markers: buildingMarkers, collisions } = assignBuildingMarkers(zones);
-  const ctx = { buildingMarkers };
 
-  // Sorted iteration: derive must not depend on which rows the upsert happened
-  // to touch, or on a Map's insertion order (§7.2).
-  for (const zone of [...zones].sort((a, b) => String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0)) {
+  // Sorted ONCE, and everything below walks this list. Both whole-map passes have
+  // to agree on order or they are not deterministic: 273 cells on this world hold
+  // more than one tile, so the coordinate index is a last-wins map and which tile
+  // wins must not depend on which rows an upsert happened to touch first (§7.2).
+  const sorted = [...zones].sort((a, b) => String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0);
+  const byCell = new Map();
+  for (const z of sorted) {
+    if (z?.grid_x == null || z?.grid_y == null) continue;
+    byCell.set(gridKey(z.map_id, z.grid_x, z.grid_y, z.grid_z), z);
+  }
+  const ctx = { buildingMarkers, byCell };
+  const featureOverrides = [];
+
+  for (const zone of sorted) {
     const region = zone?.flags?.region_id ? regionById.get(zone.flags.region_id) ?? null : null;
     const { color, bg_color } = deriveColors(zone, palette);
     const resolved = {
@@ -569,12 +770,22 @@ export function deriveWorld({ zones = [], regions = [], connections = [], palett
       audio_theme_id: resolveDefault('audio_theme_id', zone, region, palette),
     };
     const entry = paletteEntry(zone, palette);
+    const spec = buildRenderSpec(zone, palette, resolved, ctx);
+    // An authored `flags.icon` outranks auto-tiling, which is what makes it an
+    // override — but a road piece frozen by hand does not grow an arm when someone
+    // paints a lane beside it later. Report the disagreements rather than resolving
+    // them: which of the two is right is a human call about the map, and silently
+    // preferring either would be this pass deciding content.
+    // Reported from featureProvenance's `stale`, not re-derived here — the Studio warns
+    // on the same tiles this list names, because it is the same function deciding.
+    const prov = featureProvenance(zone, spec.auto_tile ?? null);
+    if (prov.stale) featureOverrides.push({ id: zone.id, authored: prov.name, implied: prov.implied });
     render.set(zone.id, {
       zone_id: zone.id,
       ...resolved,
       minimap_class: entry?.minimap_class ?? null,
       glyph: resolved.marker,
-      spec: buildRenderSpec(zone, palette, resolved),
+      spec,
     });
   }
 
@@ -584,5 +795,5 @@ export function deriveWorld({ zones = [], regions = [], connections = [], palett
   // step — this one only earns the right to.
   const { edges, undeclaredOneWays, unusedBlocks } = projectEdges(zones, connections);
 
-  return { render, edges, index: null, markerCollisions: collisions, undeclaredOneWays, unusedBlocks };
+  return { render, edges, index: null, markerCollisions: collisions, featureOverrides, undeclaredOneWays, unusedBlocks };
 }

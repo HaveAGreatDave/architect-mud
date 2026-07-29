@@ -12,7 +12,6 @@
   },
   "flags": {
     "district": "residential",
-    "icon": "road_e",
     "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",

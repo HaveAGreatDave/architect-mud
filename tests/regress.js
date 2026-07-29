@@ -45,7 +45,8 @@ import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/cont
 import { SCHEMA_SQL } from '../server/models/schema.js';
 import { handleApiRequest, apiUpdateZone, apiPatchZoneTag } from '../server/api/routes.js';
 import { query } from '../server/models/db.js';
-import { resolveDefault, deriveWorld, deriveMarker, assignBuildingMarkers, projectEdges, edgesToExits, OPPOSITE } from '../scripts/content/derive.mjs';
+import { resolveDefault, resolveTerrain, deriveWorld, deriveMarker, assignBuildingMarkers, projectEdges, edgesToExits, OPPOSITE, featureProvenance } from '../scripts/content/derive.mjs';
+import { ASSET_REFS, assetRefIds, isAssetRef } from '../scripts/content/lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGINS_DIR = join(__dirname, '../plugins');
@@ -308,11 +309,20 @@ console.log('— layer 1d: zone tag substrate —');
 
   // A `ref` with no refTable, or one naming a table that doesn't exist, is a
   // picker that can't populate and a lint check that silently passes everything.
+  // An ASSET REF is the one legitimate exception: its collection is a directory of
+  // files rather than a table (lib.mjs ASSET_REFS), and it is only exempt here
+  // because lint resolves it against that directory — so the failure this check
+  // guards against, a ref nobody can resolve, still cannot happen.
   const badRefs = Object.entries(TAG_CATALOG)
     .filter(([, d]) => d?.shape === 'ref')
-    .filter(([, d]) => !d.refTable || !new RegExp(`CREATE TABLE IF NOT EXISTS ${d.refTable} \\(`).test(SCHEMA_SQL))
+    .filter(([, d]) => !d.refTable || !(isAssetRef(d.refTable)
+      || new RegExp(`CREATE TABLE IF NOT EXISTS ${d.refTable} \\(`).test(SCHEMA_SQL)))
     .map(([k, d]) => `${k}→${d.refTable ?? '(none)'}`);
-  check('every ref names a real table', badRefs.length === 0, badRefs.join(', '));
+  check('every ref names a real table or a real asset directory', badRefs.length === 0, badRefs.join(', '));
+  // The exemption is only sound while every asset ref actually resolves to files.
+  const emptyAssetRefs = Object.keys(ASSET_REFS).filter(t => (assetRefIds(t) || []).length === 0);
+  check('every asset ref resolves to a real directory of assets',
+    emptyAssetRefs.length === 0, emptyAssetRefs.join(', '));
 
   const colBad = validateZoneColumns({ ambient_theme: 'swamp', grid_x: 'twelve', audio_theme_id: 7, ambient_events: 'a pipe knocks' });
   check('validateZoneColumns catches enum/number/ref/list violations', colBad.badShape.length === 4, colBad.badShape.join(' | '));
@@ -838,6 +848,10 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   const zonesForDerive = getAllZones().map(z => ({
     id: z.id, marker: z.marker, color: z.color, bg_color: z.bg_color,
     ambient_theme: z.ambient_theme, audio_theme_id: z.audio_theme_id, flags: z.flags,
+    // Coordinates, because auto-tiling is a function of the NEIGHBOURS (§7.3).
+    // Without them the determinism and order-independence checks below would be
+    // passing over a world in which every road tile is an island.
+    map_id: z.map_id, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z,
   }));
   const regionsForDerive = [...world.regions.values()];
   const ser = (w) => JSON.stringify([...w.render.entries()]);
@@ -849,6 +863,109 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   const shuffled = [...zonesForDerive].reverse();
   check('deriveWorld does not depend on input order',
     ser(deriveWorld({ zones: shuffled, regions: regionsForDerive, palette })) === ser(a));
+
+  // ── deriveAutoTile — adjacency-aware art (spec §7.3, §2.3) ────────────────
+  // Which connector piece a road draws is a function of its neighbours, so it is
+  // checked against THE MAP rather than against itself: for every auto-tiling tile,
+  // each of the four sides must say exactly whether an auto-tiling tile is there.
+  // Checked on the pure derive rather than on zone_render, because this is the
+  // authored half — the table is only as fresh as the last import.
+  const autoTerrains = new Set(Object.entries(palette?.terrains || {})
+    .filter(([, t]) => t.auto_tile).map(([k]) => k));
+  const autoOf = (z) => !!(z && autoTerrains.has(resolveTerrain(z)));
+  const AT_DIRS = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
+  const atKey = (z, dx = 0, dy = 0) => `${z.map_id ?? ''}|${z.grid_x + dx},${z.grid_y + dy},${z.grid_z ?? 0}`;
+  const occupied = new Map();
+  for (const z of zonesForDerive) if (z.grid_x != null && z.grid_y != null) occupied.set(atKey(z), z);
+  const autoTiles = zonesForDerive.filter(z => autoOf(z) && z.grid_x != null);
+  const specAt = (id) => a.render.get(id)?.spec;
+  const wrongSide = autoTiles.filter(z => {
+    const at = specAt(z.id)?.auto_tile;
+    if (!at) return true;
+    return Object.entries(AT_DIRS).some(([d, [dx, dy]]) => at[d] !== autoOf(occupied.get(atKey(z, dx, dy))));
+  });
+  check(`every auto-tiling tile's spec matches its neighbours (${autoTiles.length} tiles)`,
+    autoTiles.length > 0 && wrongSide.length === 0, wrongSide.slice(0, 3).map(z => z.id).join(', '));
+  // Present iff the palette auto-tiles the terrain (§2.3). It used to be a bare
+  // boolean on all 5,788 tiles, which told a renderer that a tile auto-tiles
+  // without telling it what to draw — so nothing drew anything.
+  const strayAuto = zonesForDerive.filter(z => !autoOf(z) && specAt(z.id)?.auto_tile !== undefined);
+  check('a terrain the palette does not auto-tile carries no auto_tile key',
+    strayAuto.length === 0, strayAuto.slice(0, 3).map(z => z.id).join(', '));
+  // And the thing that makes it worth deriving at all: a street in the middle of a
+  // grid joins on more than one side. All-islands would satisfy every check above.
+  const junctions = autoTiles.filter(z => Object.values(specAt(z.id).auto_tile).filter(Boolean).length >= 2);
+  check('painted roads derive as a connected network, not a field of islands',
+    junctions.length > 0, `${junctions.length}/${autoTiles.length} tiles join two or more sides`);
+
+  // ── The tile stack: ground / feature / label (spec §7.7) ──────────────────
+  // The rule the whole redesign rests on: PAINTED GROUND NEVER CARRIES A LABEL. 870
+  // tiles author a terrain decoration in `zones.marker` and the map has never drawn
+  // one; the Studio drew them because the spec still advertised them, which is what
+  // put `#` across the grasslands there and nothing across them in the game.
+  const specs = [...a.render.values()].map(r => r.spec);
+  const labelledGround = zonesForDerive.filter(z => specAt(z.id)?.label && specAt(z.id)?.terrain);
+  check('painted ground carries no label', labelledGround.length === 0,
+    labelledGround.slice(0, 3).map(z => z.id).join(', '));
+  // `spec.glyph` had exactly one consumer in the repo — the Studio's debug line —
+  // because every renderer read the authored `zones.marker` off the payload instead.
+  // Its replacement must not quietly come back.
+  check('the dead spec.glyph channel is gone', specs.every(s => !('glyph' in s)));
+  const labels = specs.filter(s => s.label);
+  check(`a label declares what the overlay may do to it (${labels.length} tiles)`,
+    labels.length > 0 && labels.every(s => typeof s.label.text === 'string' && s.label.text
+      && ['building', 'room', 'art'].includes(s.label.kind)));
+  // The hierarchy, as data: a road tile has no label key, so no overlay mode can
+  // reach it. This is what stops "letters instead of buildings" also blanking roads.
+  const labelledAuto = autoTiles.filter(z => specAt(z.id)?.label);
+  check('an auto-tiled road wears no label, so no overlay mode can toggle it',
+    labelledAuto.length === 0, labelledAuto.slice(0, 3).map(z => z.id).join(', '));
+  // deriveFeature's precedence, checked against the map rather than against itself.
+  const features = specs.filter(s => s.feature);
+  const badFeature = features.filter(s => !/^[a-z0-9_-]+$/i.test(s.feature));
+  check(`every feature names one zone-icon asset (${features.length} tiles)`,
+    features.length > 0 && badFeature.length === 0, badFeature.slice(0, 3).map(s => s.feature).join(', '));
+  const autoNoFeature = autoTiles.filter(z => !specAt(z.id)?.feature);
+  check('every auto-tiling tile resolves to a connector piece',
+    autoNoFeature.length === 0, autoNoFeature.slice(0, 3).map(z => z.id).join(', '));
+  // An authored flags.icon is the OVERRIDE rung and must win — that is the whole
+  // basis for overriding a tile in the Studio.
+  const overridden = zonesForDerive.filter(z => z.flags?.icon);
+  check(`an authored flags.icon outranks the derived feature (${overridden.length} tiles)`,
+    overridden.length > 0 && overridden.every(z => specAt(z.id)?.feature === String(z.flags.icon)));
+  // featureProvenance is what the Studio explains a tile with. It must be the SAME
+  // precedence deriveFeature ships, or the editor is describing a tile the build did
+  // not make — so it is checked against deriveFeature on every tile, not sampled.
+  const provMismatch = zonesForDerive.filter(z =>
+    featureProvenance(z, specAt(z.id)?.auto_tile ?? null).name !== (specAt(z.id)?.feature ?? null));
+  check('the provenance an editor shows is the feature the build ships',
+    provMismatch.length === 0, provMismatch.slice(0, 3).map(z => z.id).join(', '));
+  const provSrc = zonesForDerive.map(z => featureProvenance(z, specAt(z.id)?.auto_tile ?? null));
+  check('every feature reports which rung produced it',
+    provSrc.every(p => (p.name === null) === (p.source === null)
+      && (p.source === null || ['authored', 'rooftop', 'auto'].includes(p.source))));
+  // The stale-pin warning the Studio draws is exactly the drift list, by construction.
+  const staleProv = provSrc.filter(p => p.stale);
+  check(`a stale pin is detectable per tile, not just in aggregate (${staleProv.length})`,
+    staleProv.length === a.featureOverrides.length);
+  // The Map Icon picker is the catalog's, not a hand-written control: `ref` + a
+  // refTable the Studio can resolve. If this reverts to `text` the picker silently
+  // becomes a free-text box and a typo goes back to being inert forever.
+  check('Map Icon is a catalogued picker, not a free-text field',
+    TAG_CATALOG.icon?.shape === 'ref' && TAG_CATALOG.icon?.refTable === 'zone_icons');
+  // Every asset a feature names must exist on disk, or the map draws a broken image.
+  const iconDir = join(__dirname, '..', 'client', 'game', 'assets', 'zone-icons');
+  const haveIcons = new Set((await readdir(iconDir)).filter(f => f.endsWith('.svg')).map(f => f.slice(0, -4)));
+  const missingIcons = [...new Set(features.map(s => s.feature))].filter(n => !haveIcons.has(n));
+  check('every derived feature has an SVG on disk', missingIcons.length === 0, missingIcons.slice(0, 5).join(', '));
+  // Drift, reported not resolved: an authored road piece frozen by hand does not grow
+  // an arm when someone paints a lane beside it later. This is a real, visible defect
+  // class (a road dead-ending into another road), so it is surfaced with a count
+  // rather than asserted to zero — which of the two is right is a call about the map.
+  if (a.featureOverrides.length) {
+    console.log(`    note: ${a.featureOverrides.length} authored road icons disagree with adjacency — ` +
+      a.featureOverrides.slice(0, 3).map(o => `${o.id} ${o.authored}→${o.implied}`).join(', '));
+  }
 
   // Completeness. A tile with no derived row renders with no fill at all, and the
   // renderers have no fallback any more — that is the point, so this must hold.
@@ -1088,6 +1205,29 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     && world.zones.get(m.parent_zone_id)?.map_id === m.id);
   check('no map is anchored on one of its own tiles', anchoredOnItself.length === 0,
     anchoredOnItself.map(m => m.id).join(', '));
+
+  // LAW: EVERY MAP HAS A WAY IN. A seam is an exit whose far end is on a different
+  // map — the same thing projectEdges labels `kind: 'portal'` and the Studio draws.
+  // A map with none is a map a player can only be teleported into, which is fine
+  // when that is the design and a defect when it is an oversight. So the two that
+  // legitimately have none are NAMED here: a map that joins them has to say so out
+  // loud rather than quietly becoming unreachable.
+  const NO_WALK_IN = new Set([
+    'map_dream',                // entered by sleeping — plugins/dreams, never on foot
+    'map_aircraft_leviathan',   // entered by boarding — the cabin has no ground seam
+  ]);
+  const withSeam = new Set();
+  for (const z of world.zones.values()) {
+    if (!z.map_id) continue;
+    for (const target of Object.values(z.exits || {}).flat()) {
+      const t = world.zones.get(target);
+      if (t && (t.map_id || null) !== z.map_id) { withSeam.add(z.map_id); break; }
+    }
+  }
+  const stranded = [...world.maps.keys()].filter(id => !withSeam.has(id) && !NO_WALK_IN.has(id));
+  check(`every map can be walked into (${withSeam.size}/${world.maps.size} have a seam)`,
+    stranded.length === 0,
+    stranded.join(', ') + (stranded.length ? ' — add a connection, or name it in NO_WALK_IN with the reason' : ''));
 }
 
 // LAW: the Studio computes no presentation and hand-writes no form field
@@ -1117,10 +1257,53 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   check('the Studio locks the map-owned anchor on the tile inspector',
     /lockedFieldHtml/.test(client) && /parent_zone/.test(client));
 
+  // A seam is marked because the BUILD called it one. The moment this tool decides
+  // for itself what a warp looks like — a facade here, a hatch there — the marking
+  // stops being complete and starts being a list somebody has to remember to grow.
+  check('the Studio marks the seams the build projected, not ones it recognises',
+    /kind !== 'portal'/.test(serve) && /body\.portals/.test(client));
+  // ONE SPATIAL MARK PER TILE. A facade's authored door and its seam direction are
+  // opposite by construction on 60 of 62, so drawing both puts two marks on one tile
+  // disagreeing about which way through — §2.3's failure at the presentation layer.
+  // The bar is also why it is a bar: an arrow would point at the innocent neighbour.
+  //
+  // Scoped to drawPortal rather than the whole file. It used to assert the client
+  // held no `ctx.moveTo` at all, as a proxy for "nothing here draws an arrow" — a
+  // proxy that stopped being true the moment roads auto-tiled, because a lane from
+  // the tile centre to a connected edge is a stroked path and has every right to be.
+  // The invariant was always about the SEAM mark, so that is what it reads now.
+  const portalFn = (client.match(/function drawPortal\([\s\S]*?\n\}/) || [''])[0];
+  check('the Studio bars one edge, and the authored door wins it',
+    /const BAR = \{/.test(client) && /authoredDoor/.test(client)
+    && portalFn.length > 0 && !/(moveTo|lineTo)/.test(portalFn));
+  // The tile stack, drawn from the spec and nowhere else. `spec.label` is present iff
+  // a code means something there, so this file no longer holds the rule about which
+  // tiles wear lettering — holding it wrongly is what stamped `#` across grasslands
+  // the game renders as grass.
+  check('the Studio draws the layers the spec declares, deciding neither',
+    /spec\.feature/.test(client) && /spec\.label/.test(client)
+    && !/\.marker\b/.test(client.slice(client.indexOf('function draw('), client.indexOf('// ── Input'))));
+  // And the feature is THE GAME'S OWN ASSET, rasterised. An earlier pass hand-drew the
+  // road lanes to match the SVGs by eye: correct that day, drift the day someone edits
+  // road_ns.svg. No piece name may appear in this file — the build supplies it.
+  check('the Studio rasterises the game\'s zone-icon asset, not an impression of it',
+    /zone-icons\//.test(client) && /drawImage/.test(client) && !/road_[nesw]/.test(client));
+  // A paint stroke changes the LOOK of the ring around it, so the response has to
+  // carry that ring — otherwise a new lane meets an old one that still thinks it is
+  // a dead end, until you reload the map.
+  check('a paint response carries the tiles whose art the stroke changed',
+    /orthoNeighbours/.test(serve) && /touched\.add/.test(serve));
+
+  // One floor at a time. 273 cells on this world hold more than one tile, so a
+  // stacked draw hides tiles under tiles and a click can only ever reach z=0.
+  check('the Studio draws and hit-tests one floor at a time',
+    /onFloor/.test(client) && /,\$\{state\.z\}/.test(client));
+
   // No hex literals in the client: a colour written here is a colour the build did
   // not produce. The CSS lives in index.html, which is chrome, not map paint.
+  // #8ab4ff is the seam outline — chrome, and declared as --seam next to the rest of it.
   const hexes = [...client.matchAll(/#[0-9a-fA-F]{6}\b/g)].map(m => m[0])
-    .filter(h => !['#0e0f12', '#c8c8cc', '#1a1c21', '#6ee7d0', '#ffd479'].includes(h));
+    .filter(h => !['#0e0f12', '#c8c8cc', '#1a1c21', '#6ee7d0', '#ffd479', '#8ab4ff'].includes(h));
   check('the Studio client paints no colour of its own invention', hexes.length === 0, hexes.join(', '));
   check('the Studio client owns no terrain palette',
     !/TERRAIN_FILL|luminanceTextColor|terrains\s*:\s*\{/.test(client));

@@ -7,7 +7,7 @@ import { isSanctuary, getZoneRadiation } from './zone-tags.js';
 import { hasTag } from './tags.js';
 import { registerProtectionProvider } from './protection.js';
 import { zoneDanger, enemyThreat, bucketThreat } from './danger.js';
-import { resolveTerrain, resolveDefault } from '../../scripts/content/derive.mjs';
+import { resolveTerrain, resolveDefault, buildingIconSvg, BUILDING_TYPE_ICON } from '../../scripts/content/derive.mjs';
 
 // In-memory world state — same as before, DB is source of truth
 const world = {
@@ -161,37 +161,12 @@ export function isEnterableFacade(zone) {
   return !!(m?.entry_zone_id && world.zones.has(m.entry_zone_id));
 }
 
-// Building type → top-down rooftop footprint SVG (client/game/assets/zone-icons/
-// bldg_*.svg). Now that a zone is one building, a facade tile with no authored
-// flags.icon falls back to the footprint for its building_type, so every building
-// reads as itself on the 1:1 map. Synonyms collapse (store/grocery → shop); an
-// unrecognised-but-present type gets a plain office block. Gated on the `facade`
-// tag so interior tiles (also is_building) never wear a rooftop.
-//
-// STANDARD: a new building_type needs BOTH a 2-D footprint here AND a 3-D shape in
-// BLDG_TYPE_3D (client/game/js/panels/windshield.js) so it reads consistently on the
-// map and from the air. Each registry has its own fallback, so an unlisted type still
-// renders something rather than nothing.
-const BUILDING_TYPE_ICON = {
-  residential: 'bldg_residential', apartment: 'bldg_apartment',
-  shop: 'bldg_shop', store: 'bldg_shop', grocery: 'bldg_shop',
-  bar: 'bldg_bar', club: 'bldg_club', nightclub: 'bldg_club', boutique: 'bldg_shop', police: 'bldg_police',
-  corporate_office: 'bldg_office', hotel: 'bldg_hotel', power: 'bldg_power',
-  hangar: 'bldg_hangar', studio: 'bldg_studio', clinic: 'bldg_clinic', diner: 'bldg_diner',
-  gun_shop: 'bldg_gunshop', casino: 'bldg_casino', fence: 'bldg_fence', chem_supply: 'bldg_chem',
-  // The Yards — semi-industrial freight district (docs/proposals/yards.md).
-  warehouse: 'bldg_warehouse', container_yard: 'bldg_container', fuel_yard: 'bldg_fuel', cold_storage: 'bldg_cold',
-  fabrication: 'bldg_fab', wharf: 'bldg_wharf', freight_office: 'bldg_freightoffice', freight_forwarder: 'bldg_forwarder',
-  // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md) — reuse the nearest existing
-  // glyphs so the campus reads on the 2-D map this build; bespoke SVGs are an optional polish pass.
-  asc_spire: 'bldg_office', asc_gate: 'bldg_police', asc_clinic: 'bldg_clinic',
-  asc_weave: 'bldg_fab', asc_vats: 'bldg_cold', asc_shrine: 'bldg_power',
-};
-export function buildingIconSvg(zone) {
-  if (!zone || !hasTag(zone, 'facade')) return null;
-  const bt = (zone.flags?.building_type || '').toLowerCase();
-  return BUILDING_TYPE_ICON[bt] || (bt ? 'bldg_office' : null);
-}
+// The rooftop-footprint table and `buildingIconSvg` now live in derive.mjs, next to
+// the rest of the tile stack, and are re-exported here so existing importers are
+// unaffected. Same move `resolveTerrain` made, for the same reason: a build that
+// resolves presentation must resolve it the way the engine always did, and the only
+// way to guarantee that is one copy.
+export { buildingIconSvg, BUILDING_TYPE_ICON };
 // The tile's own building type (facade-gated), for the map's labels/icons overlay —
 // null for streets, water, interiors and anything that isn't a building facade.
 export function buildingTypeOf(zone) {
@@ -283,37 +258,30 @@ export function zoneTerrain(zone) {
   return resolveTerrain(zone);
 }
 
-// The road-connector SVG for a road tile, auto-tiled from which orthogonal neighbors are
-// also road terrain — so painting roads next to each other forms straights / turns / T-
-// junctions / crossroads with no hand-picked piece (mirrors tools/zone-planner apply.mjs
-// roadIcon, but computed live from adjacency). `at(x,y,z)` returns the neighbor zone at a
-// grid coord (null when out of the caller's window). Returns a `road_<nesw>` name, `road_x`
-// when isolated, or null for a non-grid tile.
-// A tile reads as road-for-connectivity if it's paved road OR a graded dirt road — the two
-// auto-tile together (a dirt lane meets a paved street at a proper junction), and both draw
-// the same road_<nesw> connector piece (dirt_road just recolours it to a packed-dirt track).
+// A tile reads as road-for-connectivity if it's paved road OR a graded dirt road — the
+// two auto-tile together (a dirt lane meets a paved street at a proper junction) and draw
+// the same road_<nesw> piece, dirt_road just recoloured. Kept for callers that ask the
+// question; the piece itself is no longer computed here.
 export function isRoadTerrain(t) { return t === 'road' || t === 'dirt_road'; }
-export function roadConnector(zone, at) {
-  if (!zone || zone.grid_x == null || zone.grid_y == null) return null;
-  const x = zone.grid_x, y = zone.grid_y, z = zone.grid_z ?? 0;
-  const isRoad = (nx, ny) => isRoadTerrain(zoneTerrain(at(nx, ny, z)));
-  let s = '';
-  if (isRoad(x, y - 1)) s += 'n';
-  if (isRoad(x + 1, y)) s += 'e';
-  if (isRoad(x, y + 1)) s += 's';
-  if (isRoad(x - 1, y)) s += 'w';
-  return s ? 'road_' + s : 'road_x';
-}
 
-// The named zone-icon SVG for a tile's map payload: an authored `flags.icon` / building
-// rooftop wins (so hand-tuned roads are untouched); otherwise a painted `road` terrain
-// auto-tiles into the right connector piece. `at` is the caller's coord lookup (see
-// roadConnector); omit it to skip road auto-tiling.
-export function tileIconSvg(zone, at) {
-  const authored = zone.flags?.icon || buildingIconSvg(zone);
-  if (authored) return authored;
-  if (at && isRoadTerrain(zoneTerrain(zone))) return roadConnector(zone, at);
-  return null;
+// The named zone-icon SVG for a tile's map payload — READ, not computed.
+//
+// `roadConnector` used to live here and auto-tile a road from live adjacency, which
+// meant every map payload first built a coordinate index over the whole map (both
+// callers did it, on every send) and then re-derived a value the build already knew.
+// `deriveFeature` in scripts/content/derive.mjs owns the precedence now — authored
+// flags.icon, then building rooftop, then the auto-tiled connector — so this reads
+// `zone_render.spec.feature` and the Studio's preview is the shipped string rather
+// than an approximation of it.
+//
+// A transient zone (a waste-crossing room) has no derived row by construction, so it
+// falls back to the two rungs that need no whole-map context. It is never road terrain,
+// so nothing is lost by not auto-tiling it.
+export function tileIconSvg(zone) {
+  if (!zone) return null;
+  const spec = specOf(zone.id);
+  if (spec) return spec.feature ?? null;
+  return zone.flags?.icon || buildingIconSvg(zone) || null;
 }
 
 // The street tile a facade spills you onto when you leave. The facade is
@@ -1019,14 +987,9 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
   // node payloads.
   const zoneObjs = applyMinimapVisibility([...ids].map((id) => world.zones.get(id)).filter(Boolean), viewer);
 
-  // Coord index over this map/floor so road tiles can auto-tile their connector from
-  // neighbors (roadConnector). One pass, then O(1) lookups per node.
-  const roadIndex = new Map();
-  if (centerMapId) for (const z of world.zones.values())
-    if (z.map_id === centerMapId && z.grid_x != null && z.grid_y != null)
-      roadIndex.set(`${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`, z);
-  const roadAt = (x, y, z) => roadIndex.get(`${x},${y},${z}`) || null;
-
+  // (No coord index here any more. This walked every zone in the world on every
+  // minimap send — i.e. per move, per player — to auto-tile road connectors that the
+  // build has already resolved into spec.feature.)
   const nodes = [];
   for (const zone of zoneObjs) {
     // Building name(s) reachable from this tile — for the hover tooltip (same rule
@@ -1052,9 +1015,12 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       // spec is the GENERATED presentation (zone_render.spec) and the only thing a
       // renderer should colour a tile from. marker/color/bg_color stay in the
       // payload for the tooltip and for a transient zone, which has no derived row.
+      // The tile's footprint SVG and its map code are spec.feature / spec.label now.
+      // `icon_svg` was a second name for the same value, computed a second way; a
+      // renderer reading two channels is how the client and the tablet came to
+      // disagree about which tiles wear a label.
       spec: specOf(zone.id),
       marker: zone.marker || null, color: zone.color || null, bg_color: zone.bg_color || null,
-      icon_svg: tileIconSvg(zone, roadAt), // named SVG in client/game/assets/zone-icons/ (authored icon / rooftop, or an auto-tiled road connector)
       building_type: buildingTypeOf(zone), // facade tile's type — drives the sidebar/full-map labels/icons overlay
       entrance: buildingEntranceDir(zone), // which edge the door faces — drives the map entrance arrow
       exit_dirs: interiorExitDirs(zone), // interior room's ways out — drives the interior map's exit arrows

@@ -7,6 +7,9 @@
   :root {
     --bg: #0e0f12; --panel: #16181d; --panel2: #1d2027; --line: #2a2e37;
     --text: #d5d8de; --dim: #838a97; --accent: #6ee7d0; --warn: #e7b96e; --bad: #e77a6e;
+    /* Chrome the canvas also draws with — kept next to the rest of the chrome so
+       the swatch in the key and the outline on the tile cannot drift apart. */
+    --seam: #8ab4ff; --entrance: #ffd479;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
@@ -42,6 +45,9 @@
   }
   textarea { resize: vertical; min-height: 54px; }
   .help { color: var(--dim); font-size: 10px; margin-top: 2px; }
+  /* A pin that adjacency has moved on beneath — a defect, not a decision, so it
+     reads as one. Matches the red dot the canvas puts on the same tile. */
+  .help.stale { color: var(--bad); }
   .grp { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 6px; }
   .grp > .t { color: var(--accent); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
   .flagrow { display: flex; gap: 6px; align-items: center; margin: 3px 0; }
@@ -56,6 +62,20 @@
   .muted { color: var(--dim); }
   .pill { display: inline-block; border: 1px solid var(--line); border-radius: 9px;
           padding: 0 6px; color: var(--dim); font-size: 10px; }
+  button:disabled { opacity: .45; cursor: default; border-color: var(--line); }
+  #floors button { min-width: 30px; }
+  /* A seam, in the inspector: where this tile (or this map) leads. */
+  button.seam { display: block; width: 100%; text-align: left; margin: 3px 0; line-height: 1.35; }
+  button.seam .d { color: var(--seam); display: inline-block; width: 12px; }
+  button.seam .w { color: var(--text); }
+  button.seam .m { display: block; color: var(--dim); font-size: 10px; padding-left: 12px; }
+  .key { display: flex; gap: 6px; align-items: center; color: var(--dim); font-size: 10px; margin-top: 3px; }
+  .key { align-items: flex-start; }
+  .key i { width: 12px; height: 12px; border: 2px solid var(--seam); border-radius: 2px; flex: none; }
+  /* The bar swatches sit on an edge, the way the canvas draws them. */
+  .key i.ent { border: 0; border-bottom: 4px solid var(--entrance); border-radius: 0; }
+  .key i.der { border: 0; border-bottom: 4px solid var(--seam); border-radius: 0; }
+  .key i.dot { border: 0; background: var(--seam); border-radius: 50%; width: 7px; height: 7px; margin: 3px 2px; }
 </style>
 </head>
 <body>
@@ -63,6 +83,7 @@
   <h2>Map</h2>
   <div class="maplist" id="maps"></div>
   <button id="m-props" style="width:100%;margin-top:5px">Map properties…</button>
+  <button id="back" style="width:100%;margin-top:3px" disabled>← Back</button>
 
   <h2>Tool</h2>
   <div class="row">
@@ -77,7 +98,17 @@
 
   <h2>View</h2>
   <div class="row"><button id="zoom-out">−</button><button id="zoom-in">+</button><button id="fit">Fit</button></div>
+  <div class="row" id="floors" style="margin-top:4px;flex-wrap:wrap;display:none"></div>
   <div class="help" style="margin-top:8px">Drag with the right mouse button to pan.<br>Paint drags across tiles.</div>
+
+  <h2>Key</h2>
+  <div class="key"><i></i> leaves this map — double-click to follow</div>
+  <div class="key"><i class="ent"></i> the authored door side (a facade)</div>
+  <div class="key"><i class="der"></i> the side the seam leaves by</div>
+  <div class="key"><i class="dot"></i> up / down / in / out — no side</div>
+  <div class="help" style="margin-top:5px">A bar sits <i>on</i> the edge you go
+    through, like a doorway on a floor plan — it never points at the tile beyond,
+    which you don't reach that way. Hover for the direction in words.</div>
 
   <h2>Where this writes</h2>
   <div class="help">

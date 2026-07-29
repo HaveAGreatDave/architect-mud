@@ -238,6 +238,38 @@ export function isRuntimeResidueId(table, id) {
 // unknown-directory guard has to know about it by name.
 export const NON_TABLE_DIRS = new Set(['map']);
 
+// ── Asset refs ──────────────────────────────────────────────────────────────
+//
+// A catalog `ref` means "an id in another collection". For almost every field that
+// collection is a content table; for these it is a DIRECTORY OF FILES, and the id is
+// the filename without its extension.
+//
+// Declared once, on purpose. Three separate things need to agree about what
+// `zone_icons` means — the Studio's picker populates from it, content:lint resolves
+// against it, and regress's "every ref names a real table" gate has to know it is
+// legitimate rather than a typo. Special-casing the string in three files is how they
+// start disagreeing, and a ref nobody can resolve is silently inert forever, which is
+// the exact failure that check exists to prevent.
+export const ASSET_REFS = Object.freeze({
+  zone_icons: { dir: join('client', 'game', 'assets', 'zone-icons'), ext: '.svg' },
+});
+
+export function isAssetRef(table) {
+  return Object.prototype.hasOwnProperty.call(ASSET_REFS, table);
+}
+
+/** Every id in an asset-ref collection, or null if `table` is not one. */
+export function assetRefIds(table) {
+  const def = ASSET_REFS[table];
+  if (!def) return null;
+  try {
+    return readdirSync(join(REPO_ROOT, def.dir))
+      .filter(n => n.endsWith(def.ext))
+      .map(n => n.slice(0, -def.ext.length))
+      .sort();
+  } catch { return []; }
+}
+
 export function readPalette(baseDir = CONTENT_DIR) {
   const path = join(baseDir, 'map', 'terrain.json');
   if (!existsSync(path)) return null;

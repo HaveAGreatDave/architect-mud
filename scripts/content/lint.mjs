@@ -14,7 +14,7 @@
 import { contentEntries } from '../../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../../server/models/schema.js';
 import { validateTags, validateZoneColumns, TAG_CATALOG as CATALOG, ZONE_COLUMN_PREFIX } from '../../server/engine/tags.js';
-import { readContentTree, fileNameForRow, schemaColumnsOf as columnsOf, readPalette } from './lib.mjs';
+import { readContentTree, fileNameForRow, schemaColumnsOf as columnsOf, readPalette, assetRefIds } from './lib.mjs';
 import { assignBuildingMarkers, projectEdges, OPPOSITE, deriveMapName } from './derive.mjs';
 import { anchorViolations } from './map-anchor.mjs';
 
@@ -143,6 +143,11 @@ export function lintContentTree(baseDir) {
       .map(([k, d]) => [k.slice(ZONE_COLUMN_PREFIX.length), d])
       .filter(([col]) => !sqlFkCols.has(col));
     const resolves = (table, value) => {
+      // An asset ref resolves against a DIRECTORY OF FILES, not a content table. Without
+      // this it fell through the "nothing to check against" door below and a typo'd icon
+      // name stayed inert forever — which is precisely what this section exists to catch.
+      const assets = assetRefIds(table);
+      if (assets) return assets.includes(String(value));
       const set = pkSets.get(table);
       if (!set) return true;                       // not a content table — nothing to check against
       const first = set.values().next().value;

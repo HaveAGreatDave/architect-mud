@@ -23,6 +23,13 @@ const state = {
   maps: new Map(),   // id → { name, parent_zone_id } — the tile inspector needs to
                      // know whether a tile's map has an anchor at all
   mapView: null,     // the selected map's own properties, when the inspector is on it
+  portals: {},       // zoneId → seam[] for the open map, from the build's own edge
+                     // projection (kind: 'portal'). The tool decides nothing about
+                     // what a warp is; it draws what derive already called one.
+  z: 0, floors: [0], // ONE floor is drawn at a time. 273 cells on this world hold
+                     // more than one tile, so a stacked draw is tiles hidden under
+                     // tiles — and a click could only ever reach the z=0 occupant.
+  history: [],       // where a jump came from, so following a seam is not one-way
 };
 
 const canvas = $('#c');
@@ -53,7 +60,10 @@ async function loadMaps({ keep = false } = {}) {
 const paintSwatches = () => document.querySelectorAll('.sw')
   .forEach(s => s.classList.toggle('on', s.dataset.t === state.terrain));
 
-async function selectMap(id) {
+// `focus` lands on one tile (following a seam); `restore` puts a remembered view
+// back (stepping back out of one). Neither is given when a map is picked from the
+// list, and then it fits and shows the map's own properties as it always has.
+async function selectMap(id, { focus = null, restore = null } = {}) {
   if (!id) return;
   state.mapId = id;
   state.selected = null;
@@ -62,9 +72,36 @@ async function selectMap(id) {
   state.zones = body.zones;
   state.byId = new Map(body.zones.map(z => [z.id, z]));
   state.byCell = new Map(body.zones.map(z => [`${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`, z]));
-  fit();
+  state.portals = body.portals || {};
+  state.floors = [...new Set(body.zones.map(z => z.grid_z ?? 0))].sort((a, b) => b - a);
+  if (!state.floors.length) state.floors = [0];
+  state.z = state.floors.includes(0) ? 0 : state.floors[0];
+  renderFloors();
+  if (restore) restoreView(restore);
+  else if (focus) focusZone(focus);
+  else { fit(); showMapProps(); }
   refreshLint();
-  showMapProps();
+}
+
+// ── Floors ──────────────────────────────────────────────────────────────────
+// A map is a stack, not a sheet: 20 of the 71 have more than one z, and the
+// residential lobby has five. Drawing them at once buried tiles under tiles and
+// let a click reach only the ground floor, so the canvas shows one at a time.
+function renderFloors() {
+  const wrap = $('#floors');
+  wrap.style.display = state.floors.length > 1 ? '' : 'none';
+  wrap.innerHTML = state.floors.map(z =>
+    `<button data-z="${z}" class="${z === state.z ? 'on' : ''}">${z > 0 ? `+${z}` : z}</button>`).join('');
+  wrap.onclick = (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    setFloor(Number(b.dataset.z));
+  };
+}
+function setFloor(z) {
+  if (z === state.z) return;
+  state.z = z;
+  renderFloors();
+  draw();
 }
 
 // ── Canvas ──────────────────────────────────────────────────────────────────
@@ -73,9 +110,11 @@ function resize() {
   canvas.width = r.width; canvas.height = r.height;
   draw();
 }
+const onFloor = (z) => (z.grid_z ?? 0) === state.z;
+
 function bounds() {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const z of state.zones) {
+  for (const z of state.zones.filter(onFloor)) {
     x0 = Math.min(x0, z.grid_x); x1 = Math.max(x1, z.grid_x);
     y0 = Math.min(y0, z.grid_y); y1 = Math.max(y1, z.grid_y);
   }
@@ -98,7 +137,144 @@ function fit() {
 const sx = (gx) => state.ox + gx * state.cell;
 const sy = (gy) => state.oy + gy * state.cell;
 const cellAt = (px, py) => state.byCell.get(
-  `${Math.floor((px - state.ox) / state.cell)},${Math.floor((py - state.oy) / state.cell)},0`);
+  `${Math.floor((px - state.ox) / state.cell)},${Math.floor((py - state.oy) / state.cell)},${state.z}`);
+
+// A BAR ACROSS AN EDGE, never an arrow. This is the one piece of chrome that took
+// three goes, so the reasoning lives here.
+//
+// A portal's `direction` is the movement VERB you would type. Its far end is on
+// another map, so no side of this tile faces it — but the direction is still a
+// true statement about THIS TILE'S EDGE, because an authored connection *claims*
+// its (from, direction) and the grid edge there steps aside (§7.5). Nothing is
+// reachable that way except the seam.
+//
+// Drawn as an arrow that reads as a vector AT THE NEIGHBOUR, and the neighbour is
+// innocent: Pawn & Pity's seam direction is `east`, and east on the world map is
+// The Neon Vig, so the arrow pointed at the casino while meaning "step east into
+// Pawn & Pity's own interior". Drawn as a bar ON the edge it reads as a property
+// of this tile — a threshold, the way a floor plan draws a doorway — and says the
+// same thing without pointing at anybody.
+//
+// WHICH edge, when a tile has two candidates: the AUTHORED one wins. A facade
+// carries `flags.entrance` (the street-facing door) and a seam direction into the
+// building, and they are opposite by construction on 60 of the 62 — through a
+// north door means heading south. Two bars on two edges is one fact rendered
+// twice, so the entrance bar is drawn INSTEAD, not as well. Only a tile with no
+// authored door falls back to its seam direction (65 of 150). Up/down/in/out have
+// no side at all (23), and those keep a centre dot; there is no edge to bar and
+// inventing one would be the arrow all over again.
+const BAR = {
+  north: (x, y, c, t) => [x + 2, y + 1, c - 5, t],
+  south: (x, y, c, t) => [x + 2, y + c - 2 - t, c - 5, t],
+  west: (x, y, c, t) => [x + 1, y + 2, t, c - 5],
+  east: (x, y, c, t) => [x + c - 2 - t, y + 2, t, c - 5],
+};
+const edgeBar = (x, y, c, dir, colour) => {
+  const at = BAR[dir];
+  if (!at) return false;
+  ctx.fillStyle = colour;
+  ctx.fillRect(...at(x, y, c, Math.max(2, Math.round(c * 0.17))));
+  return true;
+};
+
+// ── The feature layer (spec.feature) ────────────────────────────────────────
+//
+// THE ACTUAL SVG THE GAME DRAWS, not a drawing of one. `spec.feature` is a name in
+// client/game/assets/zone-icons/ — a road connector, a building rooftop, a statue —
+// resolved by the build (derive.mjs deriveFeature), and the game paints exactly the
+// same file through a CSS mask.
+//
+// An earlier pass hand-drew the road lanes on canvas from `spec.auto_tile`, matching
+// the connector SVGs' geometry and dash pattern by eye. It looked right, and it was
+// still the Studio holding an opinion about what a road looks like — the one thing
+// this file is not allowed to do, and guaranteed drift the moment anyone retouches
+// one of those assets. Naming a piece here at all is what regress forbids.
+//
+// The assets are stroked `currentColor` on a 24-unit viewBox, so the tile's own ink
+// (spec.text — yellow road markings, tan for a dirt lane) is substituted in and the
+// result cached per name+colour. A miss draws nothing this frame and repaints once
+// loaded, which keeps draw() synchronous.
+const ICON_CACHE = new Map();   // "name|ink" → Image once loaded, null while pending
+let iconPending = 0;
+
+// Chrome colours come from the one place chrome is declared — index.html's `:root` —
+// so the swatch in the key and the mark on the tile cannot drift apart. A canvas will
+// not take a `var()`, so they are resolved once and cached.
+const CSSVAR = new Map();
+function chrome(name) {
+  if (!CSSVAR.has(name)) {
+    CSSVAR.set(name, getComputedStyle(document.documentElement).getPropertyValue(name).trim());
+  }
+  return CSSVAR.get(name) || '#c8c8cc';
+}
+
+function featureImage(name, ink) {
+  if (!/^[a-z0-9_-]+$/i.test(name || '')) return null;
+  const key = `${name}|${ink || 'none'}`;
+  const hit = ICON_CACHE.get(key);
+  if (hit !== undefined) return hit;
+  ICON_CACHE.set(key, null);
+  iconPending++;
+  const settle = () => { if (--iconPending === 0) draw(); };
+  fetch(`/zone-icons/${encodeURIComponent(name)}.svg`)
+    .then(r => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
+    .then((svg) => {
+      const img = new Image();
+      // `currentColor` is what lets one asset serve every terrain. The game does the
+      // substitution with a CSS mask and `color`; a canvas has no cascade.
+      const painted = svg.replace(/currentColor/g, ink || '#c8c8cc');
+      img.onload = () => { ICON_CACHE.set(key, img); settle(); };
+      img.onerror = settle;
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(painted);
+    })
+    .catch(settle);
+  return null;
+}
+
+function drawFeature(x, y, c, name, ink) {
+  const img = featureImage(name, ink);
+  if (img) ctx.drawImage(img, x, y, c, c);
+}
+
+// ── Why this tile looks like this ───────────────────────────────────────────
+//
+// `prov` is derive's own precedence reporting which rung won (featureProvenance),
+// not a second opinion computed here. It answers the question an editor has to
+// answer and a renderer never does: not "what does this draw" but "who decided".
+//
+// The stale case is the one worth the code. An authored `flags.icon` outranks
+// auto-tiling — that is what makes it an override — but a pin does not grow an arm
+// when a lane is painted beside it later, and the result is a road visibly dead-
+// ending into another road. 13 tiles are already in that state. Aggregate counts in
+// a regress log do not get read while you are looking at the map; this does.
+const PROV_WORDS = {
+  authored: 'pinned by hand — outranks everything below',
+  rooftop: "derived from this building's type",
+  auto: 'auto-tiled from the lanes beside it',
+};
+function featureLine(p) {
+  if (!p?.name) return '<div class="help">art: none — this tile draws only its ground</div>';
+  const stale = p.stale;
+  return `<div class="help">art: <b>${esc(p.name)}</b> — ${esc(PROV_WORDS[p.source] || p.source)}</div>`
+    + (stale ? `<div class="help stale">⚠ this pin is stale: the lanes around it now imply
+         <b>${esc(p.implied)}</b>. Clear Map Icon to follow the map, or leave it to keep this.</div>` : '');
+}
+
+function drawPortal(x, y, c, seams, authoredDoor) {
+  const leaves = seams.find(s => s.way === 'out') || seams[0];
+  ctx.strokeStyle = '#8ab4ff'; ctx.lineWidth = c >= 12 ? 2 : 1;
+  ctx.strokeRect(x + 1, y + 1, c - 3, c - 3);
+  if (c < 9) return;
+  // The authored door already barred this tile — don't bar a second edge.
+  if (authoredDoor) return;
+  // An inbound-only seam's direction belongs to the tile at the OTHER end, so it
+  // is not an edge of this one.
+  if (leaves.way === 'out' && edgeBar(x, y, c, leaves.dir, '#8ab4ff')) return;
+  const m = (c - 1) / 2, q = Math.max(2.5, c * 0.2);
+  ctx.fillStyle = '#8ab4ff'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(x + m, y + m, q * 0.7, 0, 7);
+  if (leaves.way === 'out') ctx.fill(); else ctx.stroke();
+}
 
 function draw() {
   ctx.fillStyle = '#0e0f12';
@@ -107,27 +283,54 @@ function draw() {
   ctx.font = `${Math.max(6, Math.floor(c * 0.62))}px ui-monospace, monospace`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   for (const z of state.zones) {
+    if (!onFloor(z)) continue;
     const x = sx(z.grid_x), y = sy(z.grid_y);
     if (x + c < 0 || y + c < 0 || x > canvas.width || y > canvas.height) continue;
     const spec = z.spec || {};
     ctx.fillStyle = spec.fill || '#1a1c21';
-    ctx.fillRect(x, y, c - 1, c - 1);
-    // The entrance arrow is a fact the spec carries (facades only) — drawn, never
-    // guessed from the road graph, which is the whole point of authoring it.
-    if (spec.entrance && c >= 8) {
-      ctx.fillStyle = '#ffd479';
-      const m = c / 2, q = Math.max(2, c * 0.16);
-      const p = { north: [m, q], south: [m, c - q], east: [c - q, m], west: [q, m] }[spec.entrance];
-      if (p) { ctx.beginPath(); ctx.arc(x + p[0], y + p[1], q * 0.8, 0, 7); ctx.fill(); }
+    // EDGE TO EDGE. Painted ground is a surface, not a swatch: the 1px gutter this
+    // used to leave broke a bay into 945 blue squares and a road into a dotted line
+    // of separate tiles. The grid comes back as a hairline once you are zoomed in
+    // far enough to be editing rather than looking (below), which is the only time
+    // counting tiles is what you are doing.
+    ctx.fillRect(x, y, c, c);
+    if (c >= 14) {
+      ctx.fillStyle = 'rgba(255,255,255,0.055)';
+      ctx.fillRect(x + c - 1, y, 1, c); ctx.fillRect(x, y + c - 1, c, 1);
     }
-    if (z.marker && c >= 9) {
+    // The entrance is a fact the spec carries (facades only) — drawn, never guessed
+    // from the road graph, which is the whole point of authoring it. It is a BAR
+    // rather than a dot because the side is the useful half: a street of shops
+    // reads as a row of thresholds facing the road, and a door on the wrong side
+    // is visible from across the map instead of one tile at a time.
+    const authoredDoor = !!(spec.entrance && c >= 8 && edgeBar(x, y, c, spec.entrance, '#ffd479'));
+    // The two layers that stand on the ground, exactly as the game stacks them and in
+    // the same order: the footprint SVG, then the code someone reads off it. Both are
+    // present-iff in the spec, so there is no rule here to get wrong — this tool no
+    // longer decides which tiles wear lettering, which is what put `#` across the
+    // grasslands when it did.
+    if (spec.feature) drawFeature(x, y, c, spec.feature, spec.text);
+    if (spec.label && c >= 9) {
       ctx.fillStyle = spec.text || '#c8c8cc';
-      ctx.fillText(z.marker, x + c / 2 - 0.5, y + c / 2);
+      ctx.fillText(spec.label.text, x + c / 2 - 0.5, y + c / 2);
     }
+    // A pinned tile is marked, because an override you cannot see is one you cannot
+    // review — and a STALE pin (adjacency has moved on beneath it) is marked louder,
+    // since that one is a defect rather than a decision. This is the only thing on
+    // the canvas that is about authoring rather than about what the game will draw.
+    if (z.prov?.source === 'authored' && c >= 7) {
+      const stale = z.prov.stale;
+      ctx.fillStyle = chrome(stale ? '--bad' : '--accent');
+      ctx.beginPath();
+      ctx.arc(x + c - Math.max(2.5, c * 0.16), y + Math.max(2.5, c * 0.16), Math.max(1.5, c * 0.09), 0, 7);
+      ctx.fill();
+    }
+    const seams = state.portals[z.id];
+    if (seams && c >= 5) drawPortal(x, y, c, seams, authoredDoor);
   }
   if (state.selected) {
     const z = state.byId.get(state.selected);
-    if (z) {
+    if (z && onFloor(z)) {
       ctx.strokeStyle = '#6ee7d0'; ctx.lineWidth = 2;
       ctx.strokeRect(sx(z.grid_x) - 1, sy(z.grid_y) - 1, c + 1, c + 1);
     }
@@ -155,8 +358,23 @@ canvas.addEventListener('mousemove', (e) => {
     return draw();
   }
   const z = cellAt(px, py);
-  $('#status').textContent = z ? `${z.name || '(unnamed)'} · ${z.id} · ${z.grid_x},${z.grid_y} · ${z.spec?.terrain || 'no terrain'}` : '—';
+  const seam = z && seamLabel(state.portals[z.id]);
+  $('#status').textContent = z
+    ? `${z.name || '(unnamed)'} · ${z.id} · ${z.grid_x},${z.grid_y} · ${z.spec?.terrain || 'no terrain'}${seam ? ` · ${seam} — double-click to follow` : ''}`
+    : '—';
   if (painting && z) { stroke.add(z.id); }
+});
+
+// Following a seam is the whole point of marking it: the map list is 71 entries
+// deep and finding the far side of a door by name is the thing this replaces.
+canvas.addEventListener('dblclick', (e) => {
+  if (state.tool !== 'select') return;   // a double-click while painting is a paint
+  const r = canvas.getBoundingClientRect();
+  const z = cellAt(e.clientX - r.left, e.clientY - r.top);
+  const seams = z && state.portals[z.id];
+  if (!seams?.length) return;
+  const seam = seams.find(s => s.way === 'out') || seams[0];
+  jumpTo(seam.far);
 });
 window.addEventListener('mouseup', async () => {
   panning = null;
@@ -186,6 +404,59 @@ $('#zoom-in').onclick = () => { state.cell = Math.min(40, state.cell + 2); draw(
 $('#zoom-out').onclick = () => { state.cell = Math.max(2, state.cell - 2); draw(); };
 $('#fit').onclick = fit;
 
+// ── Traversal ───────────────────────────────────────────────────────────────
+const DIR_ARROW = { north: '↑', south: '↓', east: '→', west: '←', up: '↑', down: '↓', in: '↘', out: '↖' };
+function seamLabel(seams) {
+  if (!seams?.length) return null;
+  const s = seams.find(x => x.way === 'out') || seams[0];
+  const where = `${s.far.name || s.far.zone}${s.far.mapName ? ` · ${s.far.mapName}` : ' · on no map'}`;
+  return s.way === 'out'
+    ? `${DIR_ARROW[s.dir] || s.dir} ${where}${s.twoWay ? '' : ' (one-way)'}`
+    : `← ${where} (one-way in)`;
+}
+
+// Centre the view on one tile, on ITS floor — a destination two storeys down is
+// not "found" if the canvas is still showing the ground floor.
+function focusZone(id) {
+  const z = state.byId.get(id);
+  if (!z) return;
+  if ((z.grid_z ?? 0) !== state.z) { state.z = z.grid_z ?? 0; renderFloors(); }
+  state.cell = Math.max(state.cell, 14);
+  state.ox = Math.round(canvas.width / 2 - (z.grid_x + 0.5) * state.cell);
+  state.oy = Math.round(canvas.height / 2 - (z.grid_y + 0.5) * state.cell);
+  select(id);
+}
+
+function restoreView(v) {
+  state.z = v.z; state.cell = v.cell; state.ox = v.ox; state.oy = v.oy;
+  renderFloors();
+  if (v.zone && state.byId.has(v.zone)) select(v.zone); else { state.selected = null; draw(); showMapProps(); }
+}
+
+// A tile on no map has nowhere to open — 12 seams end that way, and the honest
+// answer is to say so rather than to jump somewhere plausible.
+async function jumpTo(far) {
+  if (!far?.map) { $('#status').textContent = `${far?.name || far?.zone} is on no map — nothing to open.`; return; }
+  state.history.push({ map: state.mapId, zone: state.selected, z: state.z, cell: state.cell, ox: state.ox, oy: state.oy });
+  if (far.map !== state.mapId) await selectMap(far.map, { focus: far.zone });
+  else focusZone(far.zone);
+  updateBack();
+}
+
+async function goBack() {
+  const v = state.history.pop();
+  if (!v) return;
+  if (v.map !== state.mapId) await selectMap(v.map, { restore: v });
+  else restoreView(v);
+  updateBack();
+}
+function updateBack() {
+  const b = $('#back');
+  b.disabled = !state.history.length;
+  b.textContent = state.history.length ? `← Back (${state.history.length})` : '← Back';
+}
+$('#back').onclick = goBack;
+
 async function paint(ids) {
   if (!ids.length) return;
   const { body } = await api('/api/paint', {
@@ -197,6 +468,12 @@ async function paint(ids) {
   // render differently cannot appear correct here.
   for (const [id, spec] of Object.entries(body.specs || {})) {
     const z = state.byId.get(id); if (z) z.spec = spec;
+  }
+  // Provenance moves with the spec: painting a lane beside a PINNED tile is exactly
+  // what turns that pin stale, so the badge and the warning have to land in the same
+  // stroke that caused it — not on the next reload.
+  for (const [id, prov] of Object.entries(body.provs || {})) {
+    const z = state.byId.get(id); if (z) z.prov = prov;
   }
   if (body.errors?.length) alert(body.errors.join('\n'));
   draw();
@@ -215,7 +492,10 @@ async function select(id) {
   draw();
   const { body } = await api(`/api/zone/${encodeURIComponent(id)}`);
   editing = body.zone;
-  renderInspector(body.spec);
+  // prov comes from the server with the tile, not from the map view: `editing` is the
+  // AUTHORED row and carries no derived anything, and the inspector must be able to
+  // explain a tile whether or not it is on the map currently drawn.
+  renderInspector(body.spec, body.prov);
 }
 
 // ── The map's own properties ────────────────────────────────────────────────
@@ -240,6 +520,7 @@ function renderMapInspector() {
   const zoneOpts = (sel, rows) => ['<option value="">—</option>',
     ...rows.map(r => `<option value="${esc(r.id)}"${r.id === sel ? ' selected' : ''}>${esc(r.name || r.id)}</option>`)].join('');
   const allZones = state.catalog.refs.zones || [];
+  const seams = mapSeams();
 
   $('#inspector').innerHTML = `
     <div class="row" style="justify-content:space-between">
@@ -272,6 +553,12 @@ function renderMapInspector() {
     ${v.drifted ? `<div class="grp"><div class="t" style="color:var(--warn)">Out of sync</div>
       <div class="help">${v.drifted} tile(s) on this map disagree with the anchor. Saving repairs them.</div></div>` : ''}
 
+    ${seams.length
+      ? seamsHtml(seams, `Leads off this map (${seams.length})`)
+      : `<div class="grp"><div class="t">Leads off this map</div>
+         <div class="help">No tile on this map crosses to another one. Players reach it some
+         other way — boarding, a dream, a script — or they cannot reach it at all.</div></div>`}
+
     <div class="row" style="margin-top:12px"><button id="m-save">Save map</button><button id="m-revert">Revert</button></div>
     <div id="errs"></div><div id="note" class="help"></div>
     <div class="help" style="margin-top:8px">Writes <code>content/maps/${esc(m.id)}.json</code>
@@ -279,6 +566,7 @@ function renderMapInspector() {
 
   $('#m-revert').onclick = showMapProps;
   $('#m-save').onclick = saveMapProps;
+  wireSeams(seams);
 }
 
 async function saveMapProps() {
@@ -307,6 +595,32 @@ async function saveMapProps() {
 }
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// The seams, in words — the same list the canvas draws, for when you want to read
+// where a map goes rather than hunt for the marked tiles.
+function seamsHtml(seams, title) {
+  if (!seams.length) return '';
+  return `<div class="grp"><div class="t">${esc(title)}</div>${seams.map((s, i) => `
+    <button class="seam" data-seam="${i}"${s.far.map ? '' : ' disabled'}>
+      <span class="d">${esc(DIR_ARROW[s.dir] || s.dir)}</span>
+      <span class="w">${esc(s.far.name || s.far.zone)}</span>
+      <span class="m">${s.far.mapName ? esc(s.far.mapName) : 'on no map'}${
+        s.way === 'in' ? ' · one-way in' : s.twoWay ? '' : ' · one-way'}</span>
+    </button>`).join('')}</div>`;
+}
+function wireSeams(seams) {
+  for (const b of document.querySelectorAll('#inspector button.seam')) {
+    b.onclick = () => jumpTo(seams[Number(b.dataset.seam)].far);
+  }
+}
+// Every seam on the open map, sorted by where it lands. On map_world this is the
+// index of all 62 buildings you can walk into.
+function mapSeams() {
+  const out = [];
+  for (const seams of Object.values(state.portals)) out.push(...seams);
+  return out.sort((a, b) => String(a.far.mapName || '').localeCompare(String(b.far.mapName || ''))
+    || String(a.far.name || '').localeCompare(String(b.far.name || '')));
+}
 
 function fieldHtml(key, def, value, kind) {
   const id = `f-${kind}-${key}`;
@@ -360,7 +674,7 @@ function lockedFieldHtml(label, value, why) {
           <div class="help">${why}</div>`;
 }
 
-function renderInspector(spec) {
+function renderInspector(spec, prov) {
   if (!editing) return;
   const cols = state.catalog.columns, flags = state.catalog.flags;
   const groups = new Map();
@@ -396,6 +710,7 @@ function renderInspector(spec) {
     push(flags[key].group || 'Flags', fieldHtml(key, flags[key], editing.flags[key], 'flag'));
   }
   const uncatalogued = Object.keys(editing.flags || {}).filter(k => !flags[k]);
+  const seams = state.portals[editing.id] || [];
 
   const addable = Object.entries(flags).filter(([k]) => !carried.includes(k))
     .sort((a, b) => String(a[1].label || a[0]).localeCompare(String(b[1].label || b[0])));
@@ -406,7 +721,9 @@ function renderInspector(spec) {
       <span class="pill">${esc(editing.grid_x)},${esc(editing.grid_y)}</span>
     </div>
     <div class="help">${esc(editing.id)}</div>
-    <div class="help">derived: fill ${esc(spec?.fill || '—')} · glyph ${esc(spec?.glyph || '—')} · terrain ${esc(spec?.terrain || '—')}</div>
+    <div class="help">derived: fill ${esc(spec?.fill || '—')} · terrain ${esc(spec?.terrain || '—')} · label ${esc(spec?.label?.text || '—')}</div>
+    ${featureLine(prov)}
+    ${seamsHtml(seams, 'Leads to')}
     ${[...groups].map(([g, fs]) => `<div class="grp"><div class="t">${esc(g)}</div>${fs.join('')}</div>`).join('')}
     ${uncatalogued.length ? `<div class="grp"><div class="t" style="color:var(--warn)">Not in the catalog</div>
       <div class="help">${uncatalogued.map(esc).join(', ')} — these fail content:lint. Catalogue them or remove them.</div></div>` : ''}
@@ -422,10 +739,12 @@ function renderInspector(spec) {
     const k = e.target.value; if (!k) return;
     const def = flags[k];
     editing.flags = { ...(editing.flags || {}), [k]: def.shape === 'flag' ? true : (def.options?.[0] ?? '') };
-    renderInspector(spec);
+    // Same prov: adding an empty flag row changes nothing derived until you save.
+    renderInspector(spec, prov);
   };
   $('#revert').onclick = () => select(editing.id);
   $('#save').onclick = save;
+  wireSeams(seams);
 }
 
 function collect() {
@@ -454,7 +773,7 @@ async function save() {
   });
   if (!ok) { $('#errs').textContent = (body.errors || [body.error]).join('\n'); return; }
   const z = state.byId.get(row.id);
-  if (z) { z.spec = body.spec; z.name = row.name; z.marker = row.marker ?? null; }
+  if (z) { z.spec = body.spec; z.prov = body.prov; z.name = row.name; z.marker = row.marker ?? null; }
   draw();
   await select(row.id);
   refreshLint();

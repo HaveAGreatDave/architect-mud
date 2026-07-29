@@ -26,7 +26,6 @@
       "npc_id": "npc_fs_dispatcher",
       "npc_name": "Marta Kell"
     },
-    "icon": "road_nsw",
     "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",

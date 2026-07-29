@@ -426,8 +426,14 @@
       help: 'Provenance marker: the blueprint id that generated this zone (tools/zone-planner). Re-running that blueprint may reassert this zone\'s grid position and planner-drawn exits.' },
     region_id: { label: 'Region (spatial)', shape: 'ref', refTable: 'regions', scope: 'zone', group: 'Zone: Identity',
       help: 'Spatial region membership: the regions.id this tile belongs to (dev-panel World Editor). Distinct from "District Override" above (land-use). Selecting/moving a region acts on every zone sharing this id.' },
-    icon: { label: 'Map Icon', shape: 'text', scope: 'zone', group: 'Zone: Identity',
-      help: 'Name of an SVG in client/game/assets/zone-icons/ (without .svg) drawn on the minimap tile in place of the marker glyph, e.g. "store". The file is the asset; this just references it.' },
+    // `ref` rather than `text` so the Studio renders a picker of the assets that
+    // actually exist and marks a name that doesn't. `zone_icons` is NOT a content
+    // table — it is a directory of SVGs, and the Studio's refOptions special-cases it.
+    // Everything downstream copes: shapeError only checks 'ref' is a non-empty string,
+    // content:lint skips a refTable with no content files ("nothing to check against"),
+    // and the dev panel renders any ref as a plain text input.
+    icon: { label: 'Map Icon', shape: 'ref', refTable: 'zone_icons', scope: 'zone', group: 'Zone: Identity',
+      help: 'OVERRIDE for this tile\'s map art. Names an SVG in client/game/assets/zone-icons/ (without .svg). This is the top rung of deriveFeature — it outranks the building rooftop and road auto-tiling, so a pinned tile keeps this art even when the map around it changes. Leave empty to let the tile derive its own.' },
     prologue: { label: 'Prologue', shape: 'flag', scope: 'zone', group: 'Zone: Identity',
       help: 'Part of the prologue instance.' },
 

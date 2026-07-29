@@ -604,7 +604,7 @@ export function renderMinimap(nodes, direction) {
   }
 
   // Edge-to-edge 1:1: a 9×9 tile window (x,y ∈ −R..R), one cell per tile — tiles
-  // touch and roads/buildings render their own icon_svg footprint, so there are no
+  // touch and roads/buildings render their own spec.feature footprint, so there are no
   // connector/gap cells (mirrors the full-map popup). Gateways: a foreign tile one
   // step across a district boundary from an in-district tile still renders as an edge
   // marker, so crossing between neighborhoods reads.
@@ -626,7 +626,7 @@ export function renderMinimap(nodes, direction) {
     }
   }
 
-  // A named zone-icon SVG (icon_svg → assets/zone-icons/<name>.svg) is the tile's
+  // A named zone-icon SVG (spec.feature → assets/zone-icons/<name>.svg) is the tile's
   // footprint, drawn as a CSS mask so it takes the tile's text colour. Mirrors the
   // full map: the SVG footprint is the base layer in every overlay mode, and the
   // shared overlay setting (mapState.avenueOverlay) paints a 2-letter acronym or a
@@ -634,40 +634,31 @@ export function renderMinimap(nodes, direction) {
   const iconSvg = (name) => /^[a-z0-9_-]+$/i.test(name || '')
     ? `<span class="mm-icon" style="--zi:url(/assets/zone-icons/${name}.svg)"></span>` : '';
   const overlay = mapState.avenueOverlay || 'icons'; // none | labels | icons
-  const baseSym = (node) => iconSvg(node.icon_svg) || (node.enterable
+  // ONE CHANNEL. Both layers a tile can stand on top of its ground come from the spec
+  // the build derived (scripts/content/derive.mjs), so this file no longer decides what
+  // a tile is: `spec.feature` is the footprint SVG, `spec.label` is the code someone
+  // reads. There used to be a second, separately-computed `node.icon_svg`, and an
+  // `isBuilding()` predicate here that the tablet spelled differently — which is how the
+  // two screens came to disagree about which tiles wear a label.
+  const baseSym = (node) => iconSvg(node.spec?.feature) || (node.enterable
     ? '▣ ' // pass-through building tile: a door you enter, not a room you stand in
     : (node.sanctuary ? '◆ ' : '')); // bare tile — no marker glyph (#, ⸪., …)
-  // A tile counts as a building for the overlay if it's an enterable facade, carries a
-  // building type, or has a building name — broader than building_type alone so labels
-  // still land on buildings the type-detector misses.
-  const isBuilding = (node) => !!(node.building_type || node.enterable || node.building_name);
-  // The label is the AUTHORED zones.marker, and nothing else. That column exists to be
-  // the tile's map glyph; deriving one here instead meant the authored value rendered
-  // nowhere while this map and the tablet derived two DIFFERENT codes from the same
-  // name ("Hall of Records" → "HA" here, "HO" there, authored "HR" on neither).
-  //
-  // Derivation now happens ONCE, at authoring time — the dev panel stamps a suggested
-  // acronym when it converts a tile into a facade — so it is a value someone can see
-  // and edit. The trade is deliberate: a building authored outside the panel shows no
-  // letters until someone sets one. That gap is visible and audited (MARK-2 asks for
-  // the missing marker, MARK-4 catches two buildings wearing the same one), which beats
-  // a plausible-looking code that differs per screen.
-  //
-  // Interiors fall out of this for free. An unmarked room inside a building inherits
-  // flags.building_name from its parent for the directory and the exit links, so a
-  // derived label stamped the parent's acronym on every room ("The Stacks" reading
-  // "HA"). Its own marker still shows if it has one — that is how an apartment shows
-  // its floor.
-  const bldLabel = (node) => (node.marker || '').trim() || null;
+  // `spec.label.kind` decides what the overlay toggle is allowed to do, so the toggle
+  // cannot reach a tile that has no business toggling:
+  //   building  a navigable code — Labels mode replaces the graphic with a solid box
+  //   room      an apartment designation — a code, so it follows Labels too
+  //   art       sewer-corridor connectivity art. THE TILE'S OWN DRAWING, exactly like a
+  //             road connector, so it survives every mode. This is the rule that stops
+  //             roads vanishing when someone switches buildings to letters.
+  // A road has no label key at all, which is why no mode can touch it.
   const symFor = (node) => {
-    // Labels: hide the building graphic entirely and show a 2-letter acronym filling the
-    // tile square (mm-bld-label turns the tile into a solid labelled box).
-    if (overlay === 'labels' && isBuilding(node)) {
-      const lbl = bldLabel(node);
-      // No label ⇒ an unmarked interior room. Draw the bare tile, not the building
-      // furniture — falling through would stamp the building-type glyph on it instead.
-      return lbl ? `<span class="map-bld-ov map-bld-label">${escapeHtml(lbl)}</span>` : baseSym(node);
-    }
+    const lbl = node.spec?.label || null;
+    if (lbl?.kind === 'art') return baseSym(node) + `<span class="map-bld-ov map-bld-art">${escapeHtml(lbl.text)}</span>`;
+    // Labels: hide the building graphic entirely and show the code filling the tile
+    // square (map-bld-label turns the tile into a solid labelled box). No label ⇒ draw
+    // the bare tile, not the building furniture — falling through would stamp the
+    // building-type glyph on an unmarked interior room.
+    if (overlay === 'labels' && lbl) return `<span class="map-bld-ov map-bld-label">${escapeHtml(lbl.text)}</span>`;
     const base = baseSym(node);
     if (overlay === 'none' || !node.building_type) return base;
     const glyph = BUILDING_ICON[node.building_type] || BUILDING_ICON._default;
@@ -759,7 +750,7 @@ export function renderMinimap(nodes, direction) {
         // is used so the .mm-<terrain> class's texture image survives.
         // Roads and dirt roads need no branch any more: their yellow/tan markings
         // are just the palette's `text` for that terrain (auto_tile says the
-        // connector SVG in node.icon_svg is doing the drawing).
+        // connector SVG in spec.feature is doing the drawing).
         styles.length = 0;
         styles.push(`background-color:${node.spec.fill}`, `color:${node.spec.text}`);
         styled = ' mm-styled';

@@ -35,8 +35,8 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { CONTENT_DIR, canonicalJson, schemaColumnsOf, readPalette } from '../../scripts/content/lib.mjs';
-import { deriveWorld, projectEdges, deriveMapName } from '../../scripts/content/derive.mjs';
+import { CONTENT_DIR, canonicalJson, schemaColumnsOf, readPalette, assetRefIds } from '../../scripts/content/lib.mjs';
+import { deriveWorld, projectEdges, deriveMapName, gridKey, featureProvenance } from '../../scripts/content/derive.mjs';
 import { applyAnchor, expectedAnchor } from '../../scripts/content/map-anchor.mjs';
 import { lintContentTree } from '../../scripts/content/lint.mjs';
 // tags.js pulls in client/shared/tagCatalog.js for its side effect, so the
@@ -90,8 +90,111 @@ function world() {
       connections: [...tree.connections.values()],
       palette,
     });
+    derived.portals = indexPortals(derived.edges);
   }
   return derived;
+}
+
+// WHY this tile draws what it draws — from derive's own precedence, never a second
+// copy of it here. The canvas badges an authored pin and the inspector explains it,
+// including when a pin has gone stale against the lanes painted since (§7.7).
+function provOf(zone) {
+  if (!zone) return { source: null, name: null, implied: null };
+  return featureProvenance(zone, world().render.get(zone.id)?.spec?.auto_tile ?? null);
+}
+
+// The four tiles orthogonally touching this one, on its own map and floor. The
+// coordinate index hangs off the derive cache so it is rebuilt exactly when that
+// is — a paint stroke is many tiles and one derive, and this must not be the thing
+// that makes it many scans of 5,788 files.
+const ORTHO = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+function coordIndex() {
+  const w = world();
+  if (!w.byCellId) {
+    const m = new Map();
+    for (const z of tree.zones.values()) {
+      if (z.grid_x == null || z.grid_y == null) continue;
+      m.set(gridKey(z.map_id, z.grid_x, z.grid_y, z.grid_z), z.id);
+    }
+    w.byCellId = m;
+  }
+  return w.byCellId;
+}
+function orthoNeighbours(id) {
+  const z = tree.zones.get(id);
+  if (!z || z.grid_x == null || z.grid_y == null) return [];
+  const at = coordIndex();
+  return ORTHO
+    .map(([dx, dy]) => at.get(gridKey(z.map_id, z.grid_x + dx, z.grid_y + dy, z.grid_z)))
+    .filter(Boolean);
+}
+
+// ── Portals: the seams between maps ──────────────────────────────────────────
+// A warp is not a special kind of tile. It is an edge whose two ends are on
+// different maps — which is exactly what projectEdges already decides and labels
+// `kind: 'portal'` (§7.5). Reading it from there instead of asking "does this
+// look like a front door" is what makes the marking complete: the 150 seams the
+// tool draws are the 150 rows the build writes into `zone_edges`, so a facade, a
+// bunker hatch, an elevator shaft and a connection authored tomorrow all appear
+// here without this file knowing what any of those are.
+//
+// Both ends are indexed, because a seam is a fact about two tiles and the map you
+// happen to be looking at might be the far one. `twoWay` is resolved here rather
+// than in the client so a one-way drop is visibly a one-way drop.
+function indexPortals(edges) {
+  const idx = new Map();
+  const bag = (id) => { if (!idx.has(id)) idx.set(id, { out: [], in: [] }); return idx.get(id); };
+  const pairs = new Set();
+  for (const e of edges) if (e.kind === 'portal') pairs.add(`${e.from_zone}|${e.to_zone}`);
+  for (const e of edges) {
+    if (e.kind !== 'portal') continue;
+    const twoWay = pairs.has(`${e.to_zone}|${e.from_zone}`);
+    bag(e.from_zone).out.push({ ...e, twoWay });
+    bag(e.to_zone).in.push({ ...e, twoWay });
+  }
+  return idx;
+}
+
+// The far end of a seam, resolved far enough to label it AND to land on it: the
+// client must never have to load the other map to find out where it would go.
+// `map: null` is a real answer and stays visible — 12 of the 150 lead to a tile
+// filed on no map at all (the Echelon suite's bathroom, Solenne's apartments),
+// which the build calls a portal because it crosses a map boundary in the only
+// sense it can measure. Saying so is more useful than hiding it.
+function farEnd(zoneId, mapNames) {
+  const z = tree.zones.get(zoneId);
+  if (!z) return null;
+  return {
+    zone: zoneId,
+    name: z.name ?? null,
+    map: z.map_id ?? null,
+    mapName: z.map_id ? (mapNames.get(z.map_id) || z.map_id) : null,
+    x: z.grid_x ?? null, y: z.grid_y ?? null, z: z.grid_z ?? 0,
+  };
+}
+
+// Every seam touching one map, keyed by the tile on THIS side. An inbound edge
+// that mirrors an outbound one is dropped — 148 of 150 are two-way, and listing
+// both halves would double every entry to say the same thing twice.
+function portalsOnMap(mapId, mapNames) {
+  const { portals } = world();
+  const out = {};
+  for (const z of tree.zones.values()) {
+    if (z.map_id !== mapId) continue;
+    const p = portals.get(z.id);
+    if (!p) continue;
+    const list = [];
+    for (const e of p.out) {
+      list.push({ way: 'out', dir: e.direction, twoWay: e.twoWay, connection_id: e.connection_id, far: farEnd(e.to_zone, mapNames) });
+    }
+    for (const e of p.in) {
+      if (e.twoWay) continue;   // the outbound entry above already says it
+      list.push({ way: 'in', dir: e.direction, twoWay: false, connection_id: e.connection_id, far: farEnd(e.from_zone, mapNames) });
+    }
+    const usable = list.filter(e => e.far);
+    if (usable.length) out[z.id] = usable;
+  }
+  return out;
 }
 
 // ── Reference targets, for the `ref` shape (§10.1) ───────────────────────────
@@ -99,8 +202,21 @@ function world() {
 // and complains when a reference does not resolve. It does NOT create the target
 // — a loot table or an audio theme is somebody else's entity.
 const REF_CACHE = new Map();
+// The zone-icon assets are a DIRECTORY OF SVGs, not a content table — but the picker
+// wants the same shape a ref gives it, so the catalog names `zone_icons` as a refTable
+// and this supplies the rows. Grouped by family in the label so a 100-entry list reads
+// as "roads / buildings / runways / one-offs" rather than an alphabet soup.
+function iconOptions() {
+  const family = (n) => /^road_/.test(n) ? 'road' : /^bldg_/.test(n) ? 'building'
+    : /^runway_/.test(n) ? 'runway' : 'other';
+  return (assetRefIds('zone_icons') || [])
+    .map(id => ({ id, name: `${family(id)} · ${id}` }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 function refOptions(table) {
   if (REF_CACHE.has(table)) return REF_CACHE.get(table);
+  if (table === 'zone_icons') { const o = iconOptions(); REF_CACHE.set(table, o); return o; }
   let out = [];
   try {
     const dir = join(CONTENT_DIR, table);
@@ -266,6 +382,19 @@ const server = createServer(async (req, res) => {
       return send(res, 200, await readFile(join(HERE, 'studio.js')), 'text/javascript; charset=utf-8');
     }
 
+    // The game's own zone-icon assets, served so the canvas rasterises the SAME file
+    // the minimap masks rather than a canvas impression of it. Name-restricted to
+    // `[A-Za-z0-9_-]` and joined onto a fixed directory, so the path cannot climb out
+    // of it — the Studio is local-only, but a traversal here would read any file on
+    // the machine and that is not a bet worth taking for one route.
+    const icon = /^\/zone-icons\/([A-Za-z0-9_-]+)\.svg$/.exec(path);
+    if (req.method === 'GET' && icon) {
+      try {
+        const buf = await readFile(join(HERE, '..', '..', 'client', 'game', 'assets', 'zone-icons', `${icon[1]}.svg`));
+        return send(res, 200, buf, 'image/svg+xml; charset=utf-8');
+      } catch { return send(res, 404, 'no such icon', 'text/plain; charset=utf-8'); }
+    }
+
     // The catalog IS the form. Shipped whole so the client renders fields it has
     // never heard of, which is what stops this tool needing an edit per column.
     if (req.method === 'GET' && path === '/api/catalog') {
@@ -292,15 +421,18 @@ const server = createServer(async (req, res) => {
       }));
       const counts = new Map();
       for (const z of tree.zones.values()) counts.set(z.map_id, (counts.get(z.map_id) || 0) + 1);
+      const mapNames = new Map(maps.map(m => [m.id, m.name]));
       const zones = mapId
         ? [...tree.zones.values()].filter(z => z.map_id === mapId).map(z => ({
             id: z.id, name: z.name, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z,
             spec: render.get(z.id)?.spec ?? {}, marker: render.get(z.id)?.marker ?? null,
+            prov: provOf(z),
           }))
         : [];
       return json(res, 200, {
         maps: maps.map(m => ({ ...m, tiles: counts.get(m.id) || 0 })).sort((a, b) => (counts.get(b.id) || 0) - (counts.get(a.id) || 0)),
         mapId, zones,
+        portals: mapId ? portalsOnMap(mapId, mapNames) : {},
         terrains: Object.entries(palette?.terrains || {}).map(([key, t]) => ({ key, label: t.label || key, fill: t.fill })),
       });
     }
@@ -329,14 +461,17 @@ const server = createServer(async (req, res) => {
       if (req.method === 'GET') {
         const row = tree.zones.get(id);
         if (!row) return json(res, 404, { error: 'no such zone' });
-        return json(res, 200, { zone: row, spec: world().render.get(id)?.spec ?? {} });
+        return json(res, 200, { zone: row, spec: world().render.get(id)?.spec ?? {}, prov: provOf(row) });
       }
       if (req.method === 'PUT') {
         let body; try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { errors: ['body is not JSON'] }); }
         if (body.id !== id) return json(res, 400, { errors: ['id in body does not match the URL'] });
         const r = await saveZone(body);
         if (!r.ok) return json(res, 422, r);
-        return json(res, 200, { ok: true, spec: world().render.get(id)?.spec ?? {} });
+        // spec AND prov: setting Map Icon changes which rung wins, so the inspector's
+        // explanation and the canvas badge have to move with the save that caused it.
+        return json(res, 200, { ok: true, spec: world().render.get(id)?.spec ?? {},
+          prov: provOf(tree.zones.get(id)) });
       }
     }
 
@@ -354,9 +489,18 @@ const server = createServer(async (req, res) => {
         if (!r.ok) errors.push(`${id}: ${r.errors.join('; ')}`);
       }
       const { render } = world();
+      // The stroke plus everything it changed the LOOK of. A tile the palette
+      // auto-tiles draws a connector derived from its neighbours, so painting one
+      // road tile re-draws the four around it — and returning only the painted ids
+      // would leave a new lane meeting an old one that still thinks it is a dead
+      // end, until you reloaded the map. One tile of radius is the whole blast
+      // radius of deriveAutoTile, so this is complete rather than generous.
+      const touched = new Set(ids.filter(i => tree.zones.has(i)));
+      for (const id of [...touched]) for (const n of orthoNeighbours(id)) touched.add(n);
       return json(res, errors.length ? 207 : 200, {
         errors,
-        specs: Object.fromEntries(ids.filter(i => tree.zones.has(i)).map(i => [i, render.get(i)?.spec ?? {}])),
+        specs: Object.fromEntries([...touched].map(i => [i, render.get(i)?.spec ?? {}])),
+        provs: Object.fromEntries([...touched].map(i => [i, provOf(tree.zones.get(i))])),
       });
     }
 
