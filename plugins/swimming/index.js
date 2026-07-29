@@ -36,7 +36,7 @@
 // whether a given deck defends itself is the vessel's own business.
 
 import { query } from '../../server/models/db.js';
-import { getZone, getAllLivePlayers, getAllZones, zoneTerrain } from '../../server/engine/world.js';
+import { world, getZone, getAllLivePlayers, zoneTerrain } from '../../server/engine/world.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
@@ -306,18 +306,42 @@ const sameTile = (a, b) =>
   a && b && a.map_id === b.map_id && (a.grid_z ?? 0) === (b.grid_z ?? 0) &&
   a.grid_x != null && a.grid_x === b.grid_x && a.grid_y === b.grid_y;
 
-// Vessels are a handful of zones and they MOVE, so there's no coordinate index to
-// keep honest — scan by position, and only on a verb or a blocked step (never on the
-// ordinary move path).
+// WHICH zones are vessels is static content (git owns the flag; nothing sets it at
+// runtime) — it's their COORDINATES that move. So the roster is built once and cached,
+// and the live zone object is re-fetched on every probe so a sailing yacht is always
+// found where she actually is. Same idiom as the yacht plugin's `waterSet()`.
+//
+// This matters because `vesselAt` runs from a move gate: every stroke a swimmer takes
+// used to walk all ~5,800 zones through getAllZones(), which doesn't just iterate but
+// allocates a fresh object per zone and computes danger/radiation for each. Now it's a
+// handful of Map lookups.
+let _vesselIds = null;
+function vesselZones() {
+  if (!_vesselIds) {
+    _vesselIds = [];
+    for (const z of world.zones.values()) if (isVesselZone(z)) _vesselIds.push(z.id);
+  }
+  // Re-fetched AND re-checked: reloadZone() swaps in a fresh object, so both a sailed
+  // coordinate and an un-flagged vessel are picked up with no cache-busting. Only a
+  // zone that BECOMES a vessel mid-session needs the invalidator below.
+  const out = [];
+  for (const id of _vesselIds) { const z = getZone(id); if (isVesselZone(z)) out.push(z); }
+  return out;
+}
+// A dev-panel zone save can flag a vessel that wasn't one at boot; drop the roster so
+// the next probe rebuilds it. Nothing in the engine calls this today (there's no
+// zone-reload event to hang it on) — it's the seam for when there is one.
+function invalidateVesselIndex() { _vesselIds = null; }
+
 function vesselAt(zone) {
   if (!zone || zone.grid_x == null) return null;
-  for (const v of getAllZones()) if (isVesselZone(v) && v.id !== zone.id && sameTile(v, zone)) return v;
+  for (const v of vesselZones()) if (v.id !== zone.id && sameTile(v, zone)) return v;
   return null;
 }
 function vesselNear(zone) {
   if (!zone || zone.grid_x == null) return null;
-  for (const v of getAllZones()) {
-    if (!isVesselZone(v) || v.map_id !== zone.map_id) continue;
+  for (const v of vesselZones()) {
+    if (v.map_id !== zone.map_id) continue;
     if ((v.grid_z ?? 0) !== (zone.grid_z ?? 0)) continue;
     const dx = Math.abs(v.grid_x - zone.grid_x), dy = Math.abs(v.grid_y - zone.grid_y);
     if (dx + dy === 1) return v;   // alongside her, at her waterline
@@ -330,7 +354,10 @@ function vesselNear(zone) {
 // them into a zone that doesn't exist.
 function waterUnder(vessel) {
   if (!vessel || vessel.grid_x == null) return null;
-  for (const z of getAllZones()) {
+  // Runs on `disembark` only, so a plain Map walk is fine — but it's the live store,
+  // not getAllZones(), because that call allocates a copy of every zone in the world.
+  // The map_id filter keeps transient void rooms out, same as getAllZones would.
+  for (const z of world.zones.values()) {
     if (z.id === vessel.id || z.map_id !== vessel.map_id) continue;
     if ((z.grid_z ?? 0) !== (vessel.grid_z ?? 0) || !isSwimZone(z) || isUnderwater(z)) continue;
     const dx = Math.abs(z.grid_x - vessel.grid_x), dy = Math.abs(z.grid_y - vessel.grid_y);
@@ -405,6 +432,6 @@ registerAction({
   },
 });
 
-export const _test = { isSwimZone, isUnderwater, hasBoatItem, hasRebreather, strokeCost, treadCost, isVesselZone, vesselAt, vesselNear, waterUnder, BASE_STROKE, MIN_STROKE, DIVE_EXTRA, TREAD_BASE };
+export const _test = { isSwimZone, isUnderwater, hasBoatItem, hasRebreather, strokeCost, treadCost, isVesselZone, vesselAt, vesselNear, waterUnder, invalidateVesselIndex, BASE_STROKE, MIN_STROKE, DIVE_EXTRA, TREAD_BASE };
 
 console.log('[swimming] Plugin loaded.');
