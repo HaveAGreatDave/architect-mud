@@ -2569,9 +2569,26 @@ async function purgeFakePlayer(playerId) {
 // suite that armed the timer is the one that should go red for it. Every suite was
 // clean when this was tightened, so this gates the class shut rather than opening
 // old ground.
+// The same reasoning covers ALTERED STATES OF MIND, which are worse than a timer:
+// a leaked dissociative episode or a leaked dreaming sleep doesn't fire once and
+// move on, it re-gates every command for the rest of the process. Both make the
+// engine answer any verb outside DREAM_VERBS with a DREAM_REFUSAL, so the next
+// suite's assertions get "the intention arrives without a body attached to it"
+// instead of the error they asked for, and the suite that lost its mind is not the
+// one that goes red. The sanity suite leaked exactly this (a 1-in-8 dice roll at
+// sanity 0/5 starting an episode), and yacht paid for it.
+//
+// Cleared through the real funnels — endDissociation / wakeFromDream — not by
+// deleting the flags, because an episode also owns a built dreamscape and deleting
+// the flag would strand its rooms for the life of the process.
+const { endDissociation: _endDissoc, wakeFromDream: _wakeDream } = await import('../server/engine/dreamscape.js');
+
 const TRANSIENT = ['_moveQueue', '_moveTimer', '_consume', '_crossing', '_elevator', '_pendingTrade'];
 function disarm(p) {
   const left = [];
+  if (p._dissociating) { _endDissoc(p, { broadcast: null, reason: 'silent' }); left.push('dissociative episode'); }
+  if (p.sleeping?.inDream) { _wakeDream(p); left.push('dreaming sleep'); }
+  if (p.sleeping) { p.sleeping = null; left.push('asleep'); }
   if (p._moveTimer) { clearTimeout(p._moveTimer); left.push('paced move timer'); }
   if (p._moveQueue?.length) left.push(`${p._moveQueue.length} queued step(s)`);
   for (const t of p._consume?.timers || []) clearTimeout(t);

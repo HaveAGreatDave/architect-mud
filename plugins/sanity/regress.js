@@ -61,7 +61,21 @@ export default async function regress({ run, check, getPlayer }) {
   }
   check('insane never scrambles sleep', !sleepEverScrambled);
 
-  // Cleanup — leave the fake player sane and not mid-nap.
+  // Cleanup — leave the fake player sane, not mid-nap, and BEHIND THEIR OWN EYES.
+  //
+  // That last one is not hypothetical. The ticks above run at sanity 0 and 5, both
+  // under DISSOCIATE_AT (7), so each one rolls DISSOCIATE_CHANCE (0.06) to start a
+  // dissociative episode on the shared fake player — about a 1-in-8 chance per run
+  // that this suite ends with `_dissociating` set. That flag makes the engine's
+  // dream gate (server/engine/commands/index.js) answer every verb outside
+  // DREAM_VERBS with a DREAM_REFUSAL, for the rest of the process — so a LATER,
+  // innocent suite went red at random instead (it was yacht's `sail`/`dock`
+  // expecting a clearance error and getting "your real arm twitches under a
+  // blanket"). endDissociation is the single funnel every wake path uses and is
+  // idempotent, so this is a no-op on the runs where no episode fired — and on the
+  // runs where one did, it also dissolves the dreamscape rooms it built.
+  const { endDissociation } = await import('../../server/engine/dreamscape.js');
+  endDissociation(p, { broadcast: null, reason: 'silent' });
   p.insane = false;
   p.sleeping = null;
   p.sanity = orig;
