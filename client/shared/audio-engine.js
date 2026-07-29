@@ -935,6 +935,7 @@
   let activePlayer = null;
   let pendingNext = null;
   let activeSongId = null;
+  let activeOwner = null;
 
   // def.channels' step.instrument references an instrument id. The caller
   // (server plugin for live playback, devpanel panel for preview) is expected
@@ -952,6 +953,11 @@
     if (opts.restartIfSame === false && activePlayer && activeSongId === songId) return;
     if (activePlayer) activePlayer.stop();
     activeSongId = songId;
+    // WHO asked for this song. There is one global music player — a zone theme, the
+    // AMP player and a TV broadcast all share it — so a panel that wants to stop
+    // "its" music on close must be able to tell whether it's still the one playing.
+    // Absent for local/UI callers, which is why stopMusicOwnedBy never matches them.
+    activeOwner = opts.owner ?? null;
     // Pre-warm sample cache for any sample-backed instruments so first notes don't stutter
     for (const inst of Object.values(def._instrumentsById || {})) {
       if (inst._sampleDef) loadSample(inst._sampleDef);
@@ -971,9 +977,19 @@
 
   function stopMusic() {
     activeSongId = null;
+    activeOwner = null;
     if (!activePlayer) return;
     activePlayer.stop();
     activePlayer = null;
+  }
+
+  // Stop the music ONLY if `owner` is the one who started what's currently playing.
+  // Closing the TV must silence the show it was airing without cutting off the zone
+  // theme or the player's own AMP tape, which live on this same single player.
+  function stopMusicOwnedBy(owner) {
+    if (!owner || activeOwner !== owner) return false;
+    stopMusic();
+    return true;
   }
 
   function pauseMusic() { activePlayer?.pause(); }
@@ -2334,7 +2350,7 @@
     init, onUnlock, applyVolumeSettings,
     playSfx, playSample, clearSampleCache,
     loopSound, stopLoop, setLoopGain, duckLoop, setEcho,
-    playMusic, stopMusic, pauseMusic, resumeMusic, queueMusic, fadeTo, crossFade, setLayerWeight,
+    playMusic, stopMusic, stopMusicOwnedBy, pauseMusic, resumeMusic, queueMusic, fadeTo, crossFade, setLayerWeight,
     stop,
     noteToFreq,
     speak: (text, opt) => Speech.speak(text, opt),

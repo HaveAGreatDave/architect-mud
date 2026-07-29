@@ -1023,7 +1023,10 @@ const handlers = {
   esp_state:   (msg) => { applyEspState(msg); },
   esp_warning: (msg) => { handleEspWarning(msg); },
 
-  audio_music: (msg) => { window.AudioEngine?.playMusic(msg.def, { restartIfSame: false }); },
+  // `owner` (set by the broadcast plugin on TV playback) says which surface asked
+  // for this song, so closing that surface can stop it without silencing a zone
+  // theme or the player's own AMP tape — they all share one music player.
+  audio_music: (msg) => { window.AudioEngine?.playMusic(msg.def, { restartIfSame: false, owner: msg.owner }); },
   audio_sfx: (msg) => { console.log('[audio] sfx received', msg.def?.id, msg.def?.name, 'gain', msg.gain ?? 1); window.AudioEngine?.playSfx(msg.def, (msg.gain ?? 1) * GAME_SFX_GAIN); },
   // Procedural cue: the server sent PARAMETERS and a seed, not layers. We build
   // the sound here from the shared generator — same seed, same field, ~100 bytes

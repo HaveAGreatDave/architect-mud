@@ -3544,7 +3544,7 @@ async function broadcastTick() {
         if (tvWatchers.get(player.id) === channelId) {
           servedThisTick.add(`${player.id}:${channelId}`);
           if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(result.duration != null ? { duration: result.duration } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
-          if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song });
+          if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song, owner: 'tv' });
           if (isSample) sendToPlayer(player.id, { type: 'audio_sample', def: result.sample });
           if (scorebugOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: scorebugOverlay });
           if (gamedayOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: gamedayOverlay });
@@ -3768,7 +3768,7 @@ async function _tabletBroadcastPass(tickResults, activeChannels, nowMs, servedTh
 
     for (const pid of viewers) {
       if (formatted) sendToPlayer(pid, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(result.duration != null ? { duration: result.duration } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
-      if (isMusic) sendToPlayer(pid, { type: 'audio_music', def: result.song });
+      if (isMusic) sendToPlayer(pid, { type: 'audio_music', def: result.song, owner: 'tv' });
       if (isSample) sendToPlayer(pid, { type: 'audio_sample', def: result.sample });
       if (scorebugOverlay) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: scorebugOverlay });
       if (gamedayOverlay) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: gamedayOverlay });

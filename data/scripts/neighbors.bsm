@@ -34,10 +34,6 @@ EVENT FADE_IN
 
 TITLE neighbors_14b_logo
 
-MUSIC neighbors_theme
-♪ The Neighbors from 14B theme begins playing. ♪
-MUSIC_END
-
 TICKER
 CITY TRANSIT ANNOUNCES MINOR DELAYS DUE TO AUTOMATED TANK COLLISION • BUY ACID COLA™ • APARTMENT LOTTERY RESULTS AVAILABLE AFTER MIDNIGHT •
 TICKER_END
@@ -203,12 +199,8 @@ EVENT LAUGHTER
 CAM 2 WIDE
 
 SHOT
-The camera slowly pulls back from Apartment 14B as the familiar theme plays over the closing credits. The sounds of rattling pipes continue long after the apartment disappears from view.
+The camera slowly pulls back from Apartment 14B over the closing credits. The sounds of rattling pipes continue long after the apartment disappears from view.
 SHOT_END
-
-MUSIC neighbors_theme
-♪ The Neighbors from 14B theme begins playing. ♪
-MUSIC_END
 
 EVENT FADE_OUT
 

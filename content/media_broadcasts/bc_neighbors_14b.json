@@ -119,7 +119,7 @@
           "y": 80
         },
         "graphic_id": "neighbors_14b_logo",
-        "next": "bsm_3",
+        "next": "bsm_4",
         "type": "title_card"
       },
       "bsm_20": {
@@ -217,16 +217,6 @@
         "next": "bsm_30",
         "npc_id": "npc_donna",
         "type": "npc_anchor"
-      },
-      "bsm_3": {
-        "_vine": {
-          "x": 740,
-          "y": 80
-        },
-        "next": "bsm_4",
-        "song": "neighbors_theme",
-        "text": "♪ The Neighbors from 14B theme begins playing. ♪",
-        "type": "music"
       },
       "bsm_30": {
         "_vine": {
@@ -774,20 +764,10 @@
           "x": 520,
           "y": 2640
         },
-        "next": "bsm_83",
-        "style": "narration",
-        "text": "The camera slowly pulls back from Apartment 14B as the familiar theme plays over the closing credits. The sounds of rattling pipes continue long after the apartment disappears from view.",
-        "type": "say"
-      },
-      "bsm_83": {
-        "_vine": {
-          "x": 740,
-          "y": 2640
-        },
         "next": "bsm_84",
-        "song": "neighbors_theme",
-        "text": "♪ The Neighbors from 14B theme begins playing. ♪",
-        "type": "music"
+        "style": "narration",
+        "text": "The camera slowly pulls back from Apartment 14B over the closing credits. The sounds of rattling pipes continue long after the apartment disappears from view.",
+        "type": "say"
       },
       "bsm_84": {
         "_vine": {
@@ -853,7 +833,7 @@
     "When the ceiling falls down.",
     "...",
     "Called it.",
-    "The camera slowly pulls back from Apartment 14B as the familiar theme plays over the closing credits. The sounds of rattling pipes continue long after the apartment disappears from view."
+    "The camera slowly pulls back from Apartment 14B over the closing credits. The sounds of rattling pipes continue long after the apartment disappears from view."
   ],
   "morning_pools": null,
   "name": "Neighbors from 14B - Episode 12: The Loud Pipe",

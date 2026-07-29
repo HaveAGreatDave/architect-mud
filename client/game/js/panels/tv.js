@@ -573,6 +573,10 @@ export function createTvView(root, opts = {}) {
     root.classList.remove('active');
     window.AudioEngine?.stopLoop(_humDef.id);
     window.AudioEngine?.stopLoop(_staticDef.id);
+    // Kill the show's music too. Owner-scoped, because the one music player is
+    // shared: if the zone theme or the player's own AMP tape is what's currently
+    // playing, this is a no-op and their music keeps going.
+    window.AudioEngine?.stopMusicOwnedBy('tv');
     opts.onClose?.();
   }
 
