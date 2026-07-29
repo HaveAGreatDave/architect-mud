@@ -29,7 +29,7 @@ import {
   initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
   ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg, groundTheme, vtolOnlyField,
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
-  RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, listAirfields, runwayFor, airfieldForRunway, yachtFieldNear, isGroundRolling,
+  RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, listAirfields, craftIsVtol, runwayFor, airfieldForRunway, yachtFieldNear, isGroundRolling,
   isWalkableCabin, isCabinZone, boardCabin, lookPayload, pushWindowTo, closeHud,
 } from './state.js';
 import { describeExterior, rampColorWord, conspicuousnessMult, normalizeLivery } from './livery.js';
@@ -406,7 +406,16 @@ async function cmdCircle(args, raw, player) {
   if (m) { tx = +m[1]; ty = +m[2]; }
   if (live.crew) return cmdNav(['loiter', String(tx), String(ty)], `nav loiter ${tx} ${ty}`, player);   // redirect the flying crew
   if (player.seat === 'pilot' && live.row.airborne) { live.navDest = { loiter: true, tx, ty, name: `${tx},${ty}` }; return cmdHandoff([], 'handoff', player); }
-  if (!live.row.airborne) return { type: 'emote', message: "She's on the ground — get her aloft first." };
+  // Parked → the crew take her off themselves. Same dispatch the DEADHEAD app uses to launch her
+  // remotely; there was never a reason it should work from a tablet across town but not from a seat
+  // in her own cabin. Refused while YOU hold the controls — she must not leap off the deck with a
+  // player sitting in the cockpit sim.
+  if (!live.row.airborne) {
+    if (player.seat === 'pilot') return { type: 'emote', message: "You've got the controls — fly her off yourself, or <b>handoff</b> and ask again." };
+    const dep = crewLaunchCheck(live); if (dep) return dep;
+    remoteDispatchLoiter(live, tx, ty);
+    return { type: 'emote', message: `<span class="text-dim">You pass the word forward. The crew spin her up for a hold over ${tx},${ty}.</span>` };
+  }
   return { type: 'emote', message: 'No crew is flying her — take the controls or hand off first.' };
 }
 async function cmdLandAt(args, raw, player) {
@@ -420,8 +429,23 @@ async function cmdLandAt(args, raw, player) {
     if (r?.type === 'emote' && /course charted/i.test(r.message || '')) return cmdHandoff([], 'handoff', player);
     return r;   // couldn't resolve the field → pass the error back
   }
-  if (!live.row.airborne) return { type: 'emote', message: "She's already on the ground." };
+  // Parked → this is a DEPARTURE order, not a landing one: the crew take off and fly you there.
+  if (!live.row.airborne) {
+    if (player.seat === 'pilot') return { type: 'emote', message: "You've got the controls — fly her off yourself, or <b>handoff</b> and ask again." };
+    const dep = crewLaunchCheck(live); if (dep) return dep;
+    if (!remoteDispatchField(live, arg)) return { type: 'emote', message: `No airfield matches "${_stripTags(arg)}". Try <b>nav</b> for the list.` };
+    return { type: 'emote', message: `<span class="text-dim">You pass the word forward. The crew spin her up — next stop ${live.crew?.destName || arg}.</span>` };
+  }
   return { type: 'emote', message: 'No crew is flying her — take the controls or hand off first.' };
+}
+
+// Can the crew legally take her off right now? Returns an emote to REFUSE with, or null to go.
+// The crew are competent, not miracle workers: an empty aeroplane on a dead tank stays put, and
+// they won't launch out of a hangar bay she has to be towed out of first.
+function crewLaunchCheck(live) {
+  if ((live.row.fuel || 0) <= 0) return { type: 'emote', message: "<span class=\"text-amber\">The crew wave it off — she's dry. Refuel her first.</span>" };
+  if (live.row.is_wreck) return { type: 'emote', message: "She's a wreck. Nobody's flying her anywhere." };
+  return null;
 }
 
 // The crew's destination: a NAV-charted airfield if one is set, else the nearest field.
@@ -431,7 +455,7 @@ function navTarget(live) {
     const z = getZone(live.navDest.destZone);
     return { id: live.navDest.destZone, name: live.navDest.destName, tx: live.navDest.tx ?? z?.grid_x, ty: live.navDest.ty ?? z?.grid_y };
   }
-  const near = nearestAirfield(live.row.grid_x, live.row.grid_y);
+  const near = nearestAirfield(live.row.grid_x, live.row.grid_y, { needsRunway: !craftIsVtol(live) });
   if (!near) return null;
   const z = getZone(near.id);
   return { id: near.id, name: near.name, tx: z?.grid_x, ty: z?.grid_y };
@@ -464,7 +488,7 @@ async function cmdNav(args, raw, player) {
     }
     return { type: 'emote', message: `<span class="text-green">Loiter point set at <b>${tx},${ty}</b>.</span> <span class="text-dim">Hand off and the crew orbit it until fuel forces a divert to land.</span>` };
   }
-  const fields = listAirfields().filter(f => f.id !== live.row.parked_zone_id);
+  const fields = listAirfields({ needsRunway: !craftIsVtol(live) }).filter(f => f.id !== live.row.parked_zone_id);
   const cheb = (f) => Math.max(Math.abs(f.gx - (live.row.grid_x || 0)), Math.abs(f.gy - (live.row.grid_y || 0)));
   if (!arg) {
     if (!fields.length) return { type: 'emote', message: 'No airfields on the charts.' };
@@ -521,7 +545,7 @@ async function crewStep(live) {
   live.row.fuel = Math.max(0, (live.row.fuel || 0) - crewBurn(live));   // every tick burns fuel — the point of the divert
 
   if (c.mode === 'loiter' && c.phase === 'loiter') {
-    const near = nearestAirfield(live.row.grid_x, live.row.grid_y);
+    const near = nearestAirfield(live.row.grid_x, live.row.grid_y, { needsRunway: !craftIsVtol(live) });
     if (!near || live.row.fuel <= crewDivertFuel(live, near)) {
       c.phase = 'divert';
       const z = getZone(near?.id);
@@ -816,7 +840,7 @@ async function cmdFlightSync(args, raw, player) {
 // aircraft still comes back; consider the rest a debt to your dignity.
 async function retrieveOffField(live, player, { abort = false } = {}) {
   const spot = surfaceAt(live.row.grid_x, live.row.grid_y);
-  const home = nearestAirfield(live.row.grid_x, live.row.grid_y);
+  const home = nearestAirfield(live.row.grid_x, live.row.grid_y, { needsRunway: !craftIsVtol(live) });   // a helipad is only a tow destination for something that can operate off one
   const fee = Math.max(120, Math.round((live.type.price_buy || 400) * 0.05));
   const paid = Math.min(player.credits || 0, fee);
   player.credits = Math.max(0, (player.credits || 0) - fee);
@@ -1201,7 +1225,7 @@ const AUTO_RETURN_MS = 10 * 60 * 1000;   // an unattended airborne craft is flow
 // offline crew association so she's boardable fresh. Mirrors the off-field tow, minus the fee.
 async function autoReturn(live) {
   const homeZone = (live.homeField && getZone(live.homeField)?.flags?.airfield_id) ? live.homeField : null;
-  const near = nearestAirfield(live.row.grid_x, live.row.grid_y);
+  const near = nearestAirfield(live.row.grid_x, live.row.grid_y, { needsRunway: !craftIsVtol(live) });
   const dest = homeZone || near?.id || live.row.parked_zone_id;
   if (!dest) return;   // nowhere to send her (no airfield in the world) — leave her be
   toOccupants(live, '<span class="text-amber">⏱ Left unattended aloft — a hangar recovery crew flies her back and puts her away.</span>');
@@ -1646,7 +1670,7 @@ async function cmdAirHome(args, raw, player) {
   if (!devOk(player)) return { type: 'error', message: 'Access denied.' };
   const { live, err } = requirePilot(player); if (err) return err;
   const homeZone = (live.homeField && getZone(live.homeField)?.flags?.airfield_id) ? live.homeField : null;
-  const dest = homeZone || nearestAirfield(live.row.grid_x, live.row.grid_y)?.id || live.row.parked_zone_id;
+  const dest = homeZone || nearestAirfield(live.row.grid_x, live.row.grid_y, { needsRunway: !craftIsVtol(live) })?.id || live.row.parked_zone_id;
   if (!dest) return { type: 'emote', message: 'No hangar to rewind to.' };
   await parkAt(live, dest);
   detach(player);   // climb out cleanly at the hangar (clears aircraftId/posture) so you can re-fly or manage her
@@ -1763,7 +1787,7 @@ function crewDispatch(live, order) {
     : { mode: 'field', destZone: order.destZone, destName: order.destName, tx: order.tx, ty: order.ty };
 }
 function remoteDispatchField(live, arg) {
-  const a = String(arg || '').toLowerCase(), fields = listAirfields();
+  const a = String(arg || '').toLowerCase(), fields = listAirfields({ needsRunway: !craftIsVtol(live) });
   const dest = fields.find(f => f.id.toLowerCase() === a || f.name.toLowerCase() === a)
     || fields.find(f => f.name.toLowerCase().includes(a) || f.id.toLowerCase().includes(a));
   if (!dest) return false;
@@ -1779,7 +1803,7 @@ function buildDeadhead(player) {
   const { live, aboard } = ownLeviathan(player);
   if (!live) return { view: 'deadhead', deadhead: { none: true } };
   const gx = live.row.grid_x || 0, gy = live.row.grid_y || 0;
-  const fields = listAirfields().map(f => ({ id: f.id, name: f.name, gx: f.gx, gy: f.gy, dist: Math.max(Math.abs(f.gx - gx), Math.abs(f.gy - gy)) }));
+  const fields = listAirfields({ needsRunway: !craftIsVtol(live) }).map(f => ({ id: f.id, name: f.name, gx: f.gx, gy: f.gy, dist: Math.max(Math.abs(f.gx - gx), Math.abs(f.gy - gy)) }));
   let status;
   if (live.crew) {
     const c = live.crew;

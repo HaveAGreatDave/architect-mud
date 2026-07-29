@@ -226,6 +226,87 @@ lives in the `Speech` IIFE in `client/shared/audio-engine.js`.
 > carry stress in normal speech, and *not* reducing to "nuht" is far more audible
 > than any function word left unreduced.
 
+> **Names are the letter-guesser's worst case, and the `y` rule was wrong.** `y` has
+> **four** jobs and `g2p` knew two: the consonant `/j/` initially (*yes*), `/i/`
+> word-finally (*city*, *happy*), and medially it splits the way every other English
+> vowel does — **open** syllable (one consonant then a vowel) `/aɪ/` as in *cyborg*,
+> *tyrant*, *style*; **closed** (cluster or word end) `/ɪ/` as in *cyd*, *gym*,
+> *myth*, *crypt*. Guessing `IY` medially turned **Cyd** into "Seed". Ordinary words
+> hide this completely because the dictionary covers them — it surfaces *only* on
+> names and coinages, which is exactly where an error repeats forever. Sweeping the
+> recurring cast through the guesser also caught `echelon` ("etch-a-lon" — it's
+> French-derived `/ʃ/`), `kiyo` (pure noise), `bijou`, `merrin` and `solenne`; all
+> now carry hand-`DICT` entries with explicit stress, along with `auggie` (spoken 236
+> times in the `.bsm` corpus and rendered "aw-jye") and `vigo`.
+>
+> **6.1 % of broadcast word tokens miss the dictionary and reach the guesser**, and
+> they are overwhelmingly names — which is why an error there repeats all night
+> rather than passing once. **When you add a named NPC or place, run it through the
+> guesser and listen**; CMUdict has none of them and never will. The voice lab's
+> phoneme readout is the fastest check.
+>
+> One trap inside `g2p` worth knowing: **`'aeiou'.includes('')` is `true`**, so every
+> lookahead past the end of a word reads as a vowel unless guarded. That is what made
+> *cyd*, *gym* and *myth* look like open syllables; `isV` now rejects the empty
+> string. Any new rule doing `at(i+n)` arithmetic has the same hazard.
+
+> **Shouting is three cases, not two.** The first version had only "this word is
+> emphatic" and "ignore", and put a wholly-capitalised line in the ignore bucket so
+> title cards wouldn't be screamed. That meant a line which is nothing *but* a
+> shout — `FUCK!` — got no emphasis at all and came out shorter and quieter than
+> ordinary speech. Exactly backwards. Now: **mixed case** → the caps words are
+> emphatic; **all caps and short** (≤20 letters) → the whole line is a shout, every
+> word emphatic and driven harder still (`shoutLine`: the vowel is *held*, not
+> merely accented); **all caps and long** → a banner, nobody is yelling it.
+
+> **Released final stops.** The unreleased-stop rule fired on a stop followed by a
+> pause *or another stop*, which is catastrophic in a final cluster: in *architect*
+> (… `EH K T`) the K was unreleased because T follows, then T was unreleased because
+> the pause follows — so the whole "ct" became silence with no burst anywhere and the
+> word ended after "archite". A stop is now unreleased **only when another stop's
+> closure masks it**. A stop with nothing but silence in front of it has no formant
+> transition to identify it, so taking its burst away leaves literally nothing.
+> Phrase-final releases are softened (0.4× aspiration) so they don't pop.
+
+> **Stop allophones — clusters.** Aspiration was applied to every voiceless stop
+> regardless of context, which is wrong in two common cases. **After `/s/` a stop is
+> unaspirated** — *stop*, *sky*, *street* have nothing like the puff of *top*, *key*,
+> *treat*; one of the most reliable rules in English phonology, and we were
+> aspirating all of them. **Before a liquid or glide** the aspiration isn't a neutral
+> puff either: the liquid is devoiced and the turbulence takes the shape of *its*
+> constriction, so `/tr/` is one fricated gesture rather than t + breath + r. The
+> noise is retuned to the liquid's own F2 and the formant transition starts during
+> the release. A full 60 ms of 1800 Hz noise between them is what turned *intrusive*
+> into "in-t'huh-rusive" — the dictionary entry was correct all along, so this was a
+> rendering fault, not a lookup one.
+
+> **Undershoot — the coarticulation model.** Everything else here renders each
+> phoneme at its *canonical* target. Real speech doesn't get there: a short
+> unstressed vowel wedged between two consonants runs out of time and lands
+> somewhere between its own target and the constrictions either side. That's
+> Lindblom's undershoot, and it is the systematic difference between a correct
+> sequence of phonemes and connected speech — a 60 ms schwa was previously hitting
+> exactly the same formants as a 160 ms stressed vowel. The blend is exponential in
+> duration (τ ≈ 75 ms), and **stressed vowels resist it**, because speakers
+> hyperarticulate precisely where the information is. It is context-dependent by
+> construction: the same schwa moves its F2 *up* between alveolars and *down*
+> between labials.
+
+> **Pre-voiced lengthening.** An English vowel runs ~1.5× longer before a voiced
+> consonant than a voiceless one, and that ratio — not the final consonant's own
+> voicing, which is often barely produced — is the primary cue separating *bad* from
+> *bat* and *seed* from *seat*. Modelling the consonant's voicing without the vowel
+> length that actually carries it left those pairs almost on top of each other.
+> Mirrored in `estimateDuration`, and it nets out across the corpus (the lengthen
+> and shorten are symmetric) so the broadcast hold is unaffected.
+
+> **Declination resets per phrase.** Pitch drifting down as breath runs out happens
+> over a *phrase*, not over however much text arrived in one message, and a speaker
+> re-pitches at every full stop. Taking the fraction from the start of the whole line
+> meant a long broadcast line sagged monotonically from first word to last and had
+> nowhere left to go by the end — exactly where the long ones needed it. The run is
+> split at `__` and each phrase gets its own declination.
+
 > **Authored emphasis.** Scripts were already writing it and the synth was throwing
 > it away: **11 % of spoken `.bsm` lines** carry an ALL-CAPS word — *"it is GONE!"*,
 > *"slides into THIRD!"*, *"welcome to DEADBALL"* — and `pronounceWord` lowercased
@@ -271,6 +352,25 @@ lives in the `Speech` IIFE in `client/shared/audio-engine.js`.
 > that defines it. The clamp applies *after* the rescale, or it would flatten the
 > very variation this exists to produce.
 
+> **Noise shaping — keep the peak, lose the spill.** A single bandpass is 2-pole, so
+> its skirts fall at only 6 dB/octave and every fricative sprays energy right across
+> the spectrum either side of the band that identifies it. That spill is what reads
+> as hiss, and it carries **no phonetic information** — place of articulation lives
+> in the peak. A second identical bandpass in series doubles the skirt slope while
+> leaving the peak exactly where it was, because Web Audio normalises a bandpass to
+> unity gain at its centre frequency, so two in series are still unity there.
+> Measured on the `/s/` band (6 kHz, Q 2.5): **0.0 dB change at the peak**, −10.7 dB
+> at 10 kHz, −19.9 dB at 16 kHz. Intelligibility is untouched by construction. A
+> 9 kHz lowpass then removes the "air" above where English fricatives carry any
+> contrast at all. `setNoiseBand()` drives both bandpasses so they can never drift
+> apart and stop describing the same band.
+
+> **Breath is now per-voice, not per-everyone.** It was `r()*0.02` — a uniform roll,
+> so *nobody* drew zero and the entire cast whispered a little all the time, which
+> matters because breath is the only noise that runs continuously. Two thirds of
+> voices now get none at all and the rest get slightly more, which is both quieter
+> overall and more distinguishing: breathiness now actually marks a voice out.
+
 > **Pink noise, not white.** White noise has equal energy per Hz — which is
 > ever-increasing energy per *octave*, far brighter than anything a throat makes,
 > and it was what remained making the fricatives hiss once their levels came down.
@@ -315,7 +415,7 @@ lives in the `Speech` IIFE in `client/shared/audio-engine.js`.
 > Pre-boundary lengthening keys off `__` alone — keyed off *any* pause it stretched
 > the last sound of every word in the line.
 
-Still not modelled: F5 movement, syllabification and rhythm beyond
+Still not modelled: F5 movement, polysyllabic shortening and rhythm beyond
 pre-boundary lengthening, emphasis or emotion, whisper/creak, and more than one
 accent. Only one utterance plays at a time by design — `live` is a single flat
 array and the broadcast pacing contract assumes one speaker.

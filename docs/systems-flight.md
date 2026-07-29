@@ -106,6 +106,55 @@ the server owns the consequences:
 - `posture === 'flying'` on the pilot is the activity flag (inherits engine
   force-stand interruptions for free).
 
+### The wing: angle of attack, stalls, sink rates (2026-07-28)
+The aerodynamics in `flight-model.js` are an **arcade energy model**, not 6-DOF — but the
+wing itself now runs on the one variable a wing actually runs on. `s.aoa = pitch − γ` (§6)
+is a definition, not an estimate, and it is the single input to lift, drag, the stall, the
+buffet and the g-meter. Before this pass the model carried *two* unreconciled angles of
+attack — one for drag, a separately-solved `aoaTrim` for lift — and neither was the stall
+trigger; the stall fired on `airspeed < stallSpeed`, which is why `aoaCrit` existed on every
+airframe while doing nothing but anchoring `weightOf()`.
+
+What that buys, and what it means when you're tuning:
+
+- **The stall is an AoA event.** `s.aoa > p.aoaCrit`, full stop (§6b). `STALL_ARM` (0.12 s)
+  only rejects single-frame spikes; recovery is `REATTACH` (3.5°) of genuine hysteresis,
+  which is what the old 1.9 s `STALL_HOLD` grace was standing in for. **The stall speed is
+  now an OUTPUT** — every airframe measures within 4% of its authored `vs0`, emergently.
+- **Accelerated stalls exist.** A hard pull outruns the flight path (γ chases the nose over
+  `vsTau`), α spikes, and she departs at a perfectly healthy speed. The old speed trigger made
+  this literally impossible. Measured breaks match the textbook √n rule against the derived g.
+- **Load factor is real** (§6a) — the bank's own demand plus the α the pilot is pulling above
+  trim. A level 60° bank reads 2g on its own. Exceeding a type's `gLimit` fires an `overg`
+  event: the airframe groans (`creak('stress')`) and the master lamp calls it.
+- **The post-stall sink is a consequence, not a script.** A developed stall collapses CL by
+  `CL_COLLAPSE`, and `MUSH_DEG` (§7) droops the flight path in proportion to the resulting lift
+  deficit — so the sink scales with speed, weight, bank and flap instead of being clamped to a
+  fixed multiple of `vsMax`. The same term un-caps the ordinary low-speed mush, which used to
+  saturate (and stop deepening) the moment `aoaTrim` hit `aoaCrit`.
+- **Rudder recovers a spin; aileron makes it worse.** The departure yaw scales with stall depth
+  and the pedal is given authority against it. The old wing-over marched heading at a flat
+  42°/s while the rudder was worth 4–18°/s, so the actual recovery input could not work.
+  Aileron authority drops with stall depth (§4), and fighting the drop deepens it (§6c).
+- **Every airframe has a real drag polar.** Induced drag is `kInd·CL²` for all of them,
+  replacing both the old `aoa²·V` fudge (wrong exponent on V) and the Leviathan-only,
+  rpm-gated `glideDrag` patch. `kInd` is **derived from the authored `ldMax`**, and
+  `p.bestGlide` is now a *measured consequence* of the polar rather than a number typed
+  beside it — which is why best glide sits at a realistic 1.4–1.6 × Vs across the fleet.
+  Adding induced drag cost everyone 3–5% of top speed, so each type's `dragP` was re-solved
+  to put its authored level top speed back exactly; the envelope is unchanged.
+- **Buffet.** `s.buffet` ramps over `BUFFET_BAND` before the break and sustains a shake in the
+  cockpit — the warning you feel before the horn. There was previously nothing at all between
+  "flying fine" and "a wing dropped".
+
+**Harnesses** (headless, no DB or browser): [`scripts/stall-tune.mjs`](../scripts/stall-tune.mjs)
+measures the 1g and accelerated breaks, max g, the held-departure sink, the hands-off recovery
+and the rudder's anti-spin authority per airframe, plus level-top/climb/takeoff as regression
+guards. [`scripts/glide-polar.mjs`](../scripts/glide-polar.mjs) measures the polar;
+[`scripts/dive-tune.mjs`](../scripts/dive-tune.mjs) the dive shed. The old `glide-tune.mjs`
+was deleted — it solved for `glideDrag`, a knob the model no longer reads. The model's own
+behaviour is now covered in `plugins/flight/regress.js` (it had none before).
+
 Takeoff and landing are therefore **flown from the cockpit, not commanded**: `takeoff`
 and `land` return a nudge ("throttle up … ease back on the yoke") for a continuous
 craft (index.js:688). A botched landing does hull damage; enough damage → crash. A

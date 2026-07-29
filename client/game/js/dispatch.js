@@ -353,10 +353,11 @@ const handlers = {
       v.showOnAir();
       if (msg.style === 'ticker') v.updateTicker(msg.message);
       else {
-        v.appendMessage(msg.message, msg.style, msg.duration, msg.hasGameday);
         // catchUp = the beat that was ALREADY on air when you tuned in, replayed so
         // the screen isn't blank until the next one. Show it, don't narrate it —
-        // its read-aloud is part-way through airing to everyone else.
+        // its read-aloud is part-way through airing to everyone else. It's passed
+        // through so the panel knows never to hold it back for the voice either.
+        v.appendMessage(msg.message, msg.style, msg.duration, msg.hasGameday, msg.catchUp);
         if (!msg.catchUp) v.speak(msg.message, msg.style, msg.duration);
       }
       if (msg.programName !== undefined) v.setProgramName(msg.programName);

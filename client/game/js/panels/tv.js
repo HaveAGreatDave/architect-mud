@@ -143,6 +143,10 @@ export function createTvView(root, opts = {}) {
   // to SEED the voice, so each host sounds consistent; narration with no speaker
   // falls back to the station name as the seed.
   function speak(rawText, style, windowSec) {
+    // appendMessage ran a moment ago for this same message and queued it — the
+    // delivery will speak it when the voice frees. Coupled to dispatch's call order
+    // (append then speak), which is why the flag is cleared on every append.
+    if (_deferredLast) { _deferredLast = false; return; }
     // While the Gameday view is open it owns Chip's voice, starting it exactly when
     // his caption is displayed (a play-by-play line waits for the hit to land).
     if (_gamedayOpen && _gamedayView) return;
@@ -171,9 +175,18 @@ export function createTvView(root, opts = {}) {
   // second timing constant in a different file that quietly disagrees with them.
   const lineGap = () => window.AudioEngine?.voiceTuning?.lineGapMs ?? 180;
   const RESYNC_MS     = 2500;  // backlog past which we shed at the next scene beat
-  let _speechQ = [];           // [{ speech, seed, at }]
+  let _speechQ = [];           // [{ speech, seed, at }] — utterance pieces
+  let _deliverQ = [];          // [{ text, style, … }]   — whole messages awaiting the voice
   let _busyUntil = 0;          // performance.now() when the current utterance ends
   let _pumpTimer = null;
+  let _deliverTimer = null;
+  let _deferredLast = false;   // the message just handed to appendMessage was queued
+  let _voiceLive = true;       // does the engine actually make sound? see _pump()
+  // A message cannot wait forever. If the voice somehow stops finishing — a bug, a
+  // suspended context, a line that outruns everything — the screen must not go dead,
+  // so an old delivery is shown regardless. Generous, because normal operation never
+  // reaches it: a line finishes in seconds, not tens of them.
+  const DELIVER_MAX_WAIT_MS = 20000;
 
   // A line longer than 273 characters CANNOT fit its hold, whatever the voice
   // does — nodeHoldMs caps at 30s while speech keeps growing. That is the only
@@ -205,27 +218,60 @@ export function createTvView(root, opts = {}) {
 
   function _clearSpeech() {
     _speechQ = [];
+    _flushDeliveries();
     _busyUntil = 0;
     if (_pumpTimer) { clearTimeout(_pumpTimer); _pumpTimer = null; }
   }
 
   function _pump() {
     if (_pumpTimer) { clearTimeout(_pumpTimer); _pumpTimer = null; }
-    if (!_speechQ.length) return;
+    if (!_speechQ.length) { _pumpDeliver(); return; }
     const now = performance.now();
     if (now < _busyUntil) { _pumpTimer = setTimeout(_pump, _busyUntil - now); return; }
     const item = _speechQ.shift();
     // A muted or disabled engine returns nothing; treat it as a zero-length read
     // so the queue drains immediately instead of stalling forever on a dead voice.
     const res = window.AudioEngine?.speak(item.speech, { seed: item.seed, budget: item.budget });
-    const dur = (res && res.duration > 0) ? res.duration * 1000 : 0;
+    const spoke = !!(res && res.duration > 0);
+    // The authority on whether there is a voice to wait for. If the engine produced
+    // nothing, every queued caption is released at once and display goes back to the
+    // server's timing — otherwise a muted set would hold its lines forever.
+    if (_voiceLive !== spoke) { _voiceLive = spoke; if (!spoke) _flushDeliveries(); }
+    const dur = spoke ? res.duration * 1000 : 0;
     _busyUntil = now + dur + lineGap();
-    if (_speechQ.length) _pumpTimer = setTimeout(_pump, dur + lineGap());
+    _pumpTimer = setTimeout(_pump, dur + lineGap());
+  }
+
+  // Show the next waiting message once the voice has fallen silent, then speak it —
+  // caption and audio start together, which is the whole point.
+  function _pumpDeliver() {
+    if (_deliverTimer) { clearTimeout(_deliverTimer); _deliverTimer = null; }
+    if (!_deliverQ.length) return;
+    const now = performance.now();
+    const waited = now - _deliverQ[0].at;
+    if ((_speechQ.length || now < _busyUntil) && waited < DELIVER_MAX_WAIT_MS) {
+      _deliverTimer = setTimeout(_pumpDeliver, Math.max(30, _busyUntil - now));
+      return;
+    }
+    const m = _deliverQ.shift();
+    _renderMessage(m.text, m.style, m.duration, m.hasGameday);
+    // A card or ticker that queued only to keep its place in the order has nothing
+    // to say. And while Gameday is open it owns Chip's voice and starts it with the
+    // caption, so firing here as well would speak the line twice.
+    if (m.spoken && !m.catchUp && !(_gamedayOpen && _gamedayView)) _speakNow(m.text, m.style, m.duration);
+    if (_deliverQ.length) _pumpDeliver();
+  }
+
+  function _flushDeliveries() {
+    const pending = _deliverQ; _deliverQ = [];
+    if (_deliverTimer) { clearTimeout(_deliverTimer); _deliverTimer = null; }
+    for (const m of pending) _renderMessage(m.text, m.style, m.duration, m.hasGameday);
   }
 
   // How long the oldest unspoken line has been waiting — i.e. how far the voice
   // has fallen behind the server's timeline.
   function _backlogMs() {
+    if (_deliverQ.length) return performance.now() - _deliverQ[0].at;
     return _speechQ.length ? performance.now() - _speechQ[0].at : 0;
   }
 
@@ -238,7 +284,8 @@ export function createTvView(root, opts = {}) {
   // it exists to BOUND worst-case drift, not to run in normal operation.
   function _sceneBeat() {
     if (_backlogMs() <= RESYNC_MS) return;
-    _speechQ = _speechQ.slice(-1);   // keep only the freshest line, drop the stale ones
+    _speechQ = [];
+    _deliverQ = _deliverQ.slice(-1);   // keep only the freshest, drop the stale ones
   }
 
   function _speakNow(rawText, style, windowSec) {
@@ -1317,7 +1364,36 @@ export function createTvView(root, opts = {}) {
   }
 
   // ── content ───────────────────────────────────────────────────────────────
-  function appendMessage(text, style, duration, hasGameday) {
+  // A spoken line is not DISPLAYED until the voice is free to read it. Previously
+  // the caption appeared the moment the server sent it while the speech queued
+  // behind whatever was still talking, so on any overrun the text ran ahead of the
+  // voice. Now the whole message — caption and audio together — waits.
+  //
+  // With the voice OFF this must not apply at all: nothing is going to finish, so
+  // lines fall straight through and pace on the server's own hold, exactly as they
+  // always did. `_voiceLive` tracks whether the engine is actually producing sound
+  // (it returns nothing when muted, disabled, or blocked by the browser's autoplay
+  // policy), so a muted set never sits waiting on a voice that will never speak.
+  function appendMessage(text, style, duration, hasGameday, catchUp) {
+    _deferredLast = false;
+    const spoken = !style || style === 'raw' || style === 'emote' || style === 'narrate' || style === 'system';
+    // catchUp is the beat already on air when you tuned in — deliberately shown but
+    // not narrated, so it never waits on the voice.
+    const holdForVoice = spoken && !catchUp && _readAloud && _voiceLive
+      && (_speechQ.length || performance.now() < _busyUntil);
+    // ORDER FIRST. Anything already waiting means this message must wait too, even a
+    // title card that has nothing to say — otherwise the picture overtakes the line
+    // it belongs to and a card appears before the dialogue that sets it up.
+    if (holdForVoice || _deliverQ.length) {
+      _deliverQ.push({ text, style, duration, hasGameday, spoken, catchUp, at: performance.now() });
+      _deferredLast = spoken && !catchUp;
+      _pumpDeliver();
+      return;
+    }
+    _renderMessage(text, style, duration, hasGameday);
+  }
+
+  function _renderMessage(text, style, duration, hasGameday) {
     const container = el('messages');
     if (!container) return;
 
@@ -1577,6 +1653,7 @@ export function createTvView(root, opts = {}) {
       localStorage.setItem('tvReadAloud', _readAloud ? '1' : '0');
       syncReadBtn();
       if (!_readAloud) { window.AudioEngine?.cancelSpeech(); _clearSpeech(); }
+      else _voiceLive = true;   // give the voice the benefit of the doubt again
     });
 
     // Gameday toggle: reveals the animated at-bat sub-screen. Hidden until a sports
@@ -1713,7 +1790,7 @@ export function openTvPanel(data)            { panel()?.open(data); }
 export function closeTvPanel()               { panel()?.close(); }
 export function shutdownTvPanel()            { panel()?.shutdown(); }
 export function applyTvOverlay(overlay)      { panel()?.applyOverlay(overlay); }
-export function appendTvMessage(t, s, d, g)  { panel()?.appendMessage(t, s, d, g); }
+export function appendTvMessage(t, s, d, g, c)  { panel()?.appendMessage(t, s, d, g, c); }
 export function updateTvTicker(text)         { panel()?.updateTicker(text); }
 export function showTvOffAir(content, type)  { panel()?.showOffAir(content, type); }
 export function showTvOnAir()                { panel()?.showOnAir(); }

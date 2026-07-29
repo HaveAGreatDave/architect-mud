@@ -43,6 +43,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/systems-terrain.md](docs/systems-terrain.md) — `flags.terrain` ground-surface SSOT + the dev-panel Terrain Painter; drives minimap/tablet/pacing, **not passability, not flight** (as built)
 - [docs/systems-overland-void-travel.md](docs/systems-overland-void-travel.md) — transient (non-DB) waste rooms off a region's rim: the `movement.edge` seam + `registerTransientZone`. Read before touching transient zones or the map rim (as built)
 - [docs/reference/world-rendering.md](docs/reference/world-rendering.md) — how a DB tile becomes a building out the cockpit; palettes, decoration helpers, the **three separate "tower" renderers**. Read before "improving a model"
+- [docs/reference/building-shapes.md](docs/reference/building-shapes.md) — **building geometry as data**: the model arms record themselves (`SHAPE_SINK`) rather than being rewritten, so the flight sim's own shapes now drive distance LOD, occlusion culling, ground shadows, per-point CFIT collision and the cold open's skyline. Read before touching a building model, the CFIT sweep or the flythrough — and for the `hwRaw` pre-clamp rule, the solved-not-assumed `[a·fh + b·h + c]` basis, and the `yaw` trap (as built)
 - [docs/devpanel-js.md](docs/devpanel-js.md) — what each script in `client/devpanel/js/` holds, and the load-order contract
 
 **Systems (as built)**
@@ -145,6 +146,18 @@ at the bottom.
 `excludeColumns` key like `zones.stains` — fails locally instead of surviving to the CI deploy gate.
 Both mirror the CI order (lint → import → regress). `content:export` already strips those columns, so
 only hand-written files can trip this.
+
+`pretest:regress` also runs **`shapes:smoke`** ([scripts/shapes/smoke.mjs](scripts/shapes/smoke.mjs)),
+which executes all ~83 flight-sim building models in `drawTypeModel` (`client/game/js/panels/windshield.js`)
+against a DOM stub — night and day, both entrance facings — and fails if any of them throws. This is
+the ONLY automated coverage the windshield has. It exists because the only thing that ever ran a
+building model was a player flying past that particular building: the Battery Acid Coffee Co. roaster
+passed a palette KEY where `drawFacetDrum` wants a style FUNCTION, and it froze the whole sim mid-frame
+the first time that cafe came into view. It also gates the shape-capture data (geometry must stay
+affine in the footprint/height arguments). **Run it after touching any building model or mass
+primitive**; it needs no browser, DB or network and takes about a second. If it fails on a browser API
+rather than a real bug, add that API to [scripts/shapes/dom-stub.mjs](scripts/shapes/dom-stub.mjs).
+It proves models RUN, not that they look right — there is no pixel comparison.
 
 ## VINE Graph Workflow
 

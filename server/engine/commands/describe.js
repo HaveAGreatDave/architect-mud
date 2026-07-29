@@ -289,14 +289,21 @@ function describeBuildingDiscovery(buildings) {
 	return " " + sentences.join(" ");
 }
 
-export function resolveNamedDestination(zone, typedNameRaw) {
+// dirFilter narrows the candidate set to exits leading a given way — the click
+// path passes the direction it drew the link under, so a name shared by several
+// exits ("Runway", "Runway", …) still resolves to the one you actually clicked.
+export function resolveNamedDestination(zone, typedNameRaw, dirFilter) {
 	const typed = (typedNameRaw || "").trim().toLowerCase();
 	if (!typed) return { type: "none" };
 	// Every named connected destination is resolvable — buildings, interior rooms,
 	// and plain exits with a zone name (so clicking "[North] Meridian Ave", or a
 	// specific one of several exits sharing a direction, lands there by name).
 	const { buildings, rooms, plain } = getConnectedDestinations(zone);
-	const candidates = [...buildings, ...rooms, ...plain.filter((p) => p.name)];
+	let candidates = [...buildings, ...rooms, ...plain.filter((p) => p.name)];
+	if (dirFilter) {
+		const narrowed = candidates.filter((c) => c.direction === dirFilter);
+		if (narrowed.length) candidates = narrowed;
+	}
 	if (!candidates.length) return { type: "none" };
 
 	const exact = candidates.filter((c) => c.name.toLowerCase() === typed);

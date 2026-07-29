@@ -29,6 +29,17 @@ export default async function regress({ check }) {
   check('skyline entries are {x,y,t,f}', sky.every(b =>
     Number.isFinite(b.x) && Number.isFinite(b.y) && typeof b.t === 'string' && Number.isFinite(b.f)));
   check('skyline is Coldwater, not The Reach', sky.every(b => b.y <= 960));
+  // `n` (building name) and `e` (entrance) are what let the cold open draw a building's REAL shape
+  // rather than a box — the name resolves a landmark to its own model, the entrance is the frame
+  // that model's geometry is laid out in. Both are optional per entry (plenty of tiles are a plain
+  // typed building with no name), so assert the TYPES when present and that the city as a whole
+  // still carries them: a rename or a lost `facade` tag that emptied either one would silently
+  // downgrade every landmark in the flythrough back to a generic box.
+  check('skyline n/e are well-formed when present', sky.every(b =>
+    (b.n === undefined || (typeof b.n === 'string' && b.n.length > 0))
+    && (b.e === undefined || ['north', 'south', 'east', 'west'].includes(b.e))));
+  check('skyline still carries named landmarks', sky.filter(b => b.n).length > 5, `named=${sky.filter(b => b.n).length}`);
+  check('skyline still carries entrances', sky.filter(b => b.e).length > 5, `withEntrance=${sky.filter(b => b.e).length}`);
   check('skyline is cached (same array identity)', coldwaterSkyline() === sky);
 
   // The coastline the flythrough traces. Same failure mode as the skyline: a

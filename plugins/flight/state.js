@@ -246,11 +246,12 @@ export function bounds() { if (!_bounds) buildCoordIndex(); return _bounds; }
 // Nearest airfield tile to a grid point (Chebyshev distance) — used to tow a craft
 // home after an off-strip landing. Returns { id, name, dist } or null if the world
 // somehow has no airfields.
-export function nearestAirfield(x, y) {
+export function nearestAirfield(x, y, opts = {}) {
   if (!_coordIndex) buildCoordIndex();
   let best = null;
   for (const cell of _coordIndex.values()) {
     if (!cell.flags?.airfield_id) continue;
+    if (opts.needsRunway && vtolOnlyField(cell)) continue;   // a helipad is no diversion for something that needs tarmac to roll on
     const z = getZone(cell.id);
     if (z?.grid_x == null) continue;
     const dist = Math.max(Math.abs(z.grid_x - x), Math.abs(z.grid_y - y));
@@ -261,11 +262,14 @@ export function nearestAirfield(x, y) {
 
 // Every landable airfield on the world grid — { id, name, gx, gy } — for the NAV console's
 // destination list (the walkable-base crew flies charted airfield-to-airfield legs).
-export function listAirfields() {
+// `opts.needsRunway` drops the VTOL-only pads. A helipad has no runway, so it is not a legal
+// destination for a fixed-wing and must never appear in a list the crew can be dispatched to.
+export function listAirfields(opts = {}) {
   if (!_coordIndex) buildCoordIndex();
   const out = [];
   for (const cell of _coordIndex.values()) {
     if (!cell.flags?.airfield_id) continue;
+    if (opts.needsRunway && vtolOnlyField(cell)) continue;
     const z = getZone(cell.id);
     if (z?.grid_x == null) continue;
     out.push({ id: cell.id, name: cell.flags.airfield_name || cell.name, gx: z.grid_x, gy: z.grid_y });
@@ -403,6 +407,10 @@ export function inHangarInterior(player) {
 // Gates acquisition (buy/rent) AND charter to `takeoff_mode === 'vtol'` craft. The
 // canonical flag is `airfield_vtol_only`; `charter_vtol_only` is the older Echelon-pad
 // flag, kept working here so both read as the same thing.
+// Can this airframe work out of a pad with no runway? Rotorcraft and anything else marked
+// takeoff_mode 'vtol'. Everything else needs tarmac.
+export function craftIsVtol(live) { return (live?.type?.takeoff_mode || '') === 'vtol'; }
+
 export function vtolOnlyField(field) {
   const f = field?.flags || {};
   return !!(f.airfield_vtol_only || f.charter_vtol_only);

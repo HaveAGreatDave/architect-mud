@@ -745,6 +745,9 @@ document.getElementById("area-content")?.addEventListener("click", (e) => {
 	);
 }
 
+// Raw directions the server's `go` understands as a leading disambiguator.
+const RAW_DIRS = ["north", "south", "east", "west", "up", "down", "in", "out", "exit"];
+
 // Output / area pane: click .action-link nodes to auto-run command
 function handleActionLinkClick(e) {
 	const el = e.target.closest(".action-link");
@@ -790,8 +793,13 @@ function handleActionLinkClick(e) {
 	// exactly that one — the only way to reach the second of two same-named enemies
 	// (the typed "attack <name>" path can only ever hit the FATE default).
 	const instanceId = el.dataset.instanceId;
+	// Send the drawn direction alongside the name: the server resolves the name
+	// within that direction, and falls back to plain movement if it can't.
+	const destDir = dest && action === "go" && RAW_DIRS.includes((target || "").toLowerCase())
+		? `${target.toLowerCase()} `
+		: "";
 	const cmd = dest
-		? `go ${dest.toLowerCase()}`
+		? `go ${destDir}${dest.toLowerCase()}`
 		: instanceId
 			? `${action} ${instanceId}`
 			: `${action} ${target.toLowerCase()}`;

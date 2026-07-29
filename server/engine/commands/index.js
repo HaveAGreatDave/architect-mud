@@ -160,9 +160,12 @@ export async function handleCommand(input, player, broadcast) {
       const { verb, dispatchType, dispatchParam, moveDirection } = _sel.context;
       // Movement picker: the candidate carries the destination zone id, so move
       // straight there — never a `go <name>` round-trip (long/duplicate names fail).
-      if (moveDirection && adv.candidate?.id) {
+      // A name picker (`go runway`) spans several directions, so each candidate
+      // carries its own; a same-direction picker has one for the whole page.
+      const _moveDir = adv.candidate?.direction || moveDirection;
+      if (_moveDir && adv.candidate?.id) {
         const { cmdMove } = await import('./movement.js');
-        return cmdMove(moveDirection, player, broadcast, { targetZoneId: adv.candidate.id });
+        return cmdMove(_moveDir, player, broadcast, { targetZoneId: adv.candidate.id });
       }
       if (dispatchType && dispatchParam) {
         const { dispatchAction } = await import('../actions.js');

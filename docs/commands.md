@@ -135,6 +135,7 @@ const target = result.candidate; // auto-selected by FATE, no UI
 | `world.js` | Enemies + NPCs + players (examine) | SIFT with disambiguation UI, combined pool. The **interactions** plugin owns the `examine` verb and falls through here for entity targets |
 | `doors.js` | Hackable locks (hack) | SIFT UI; replay via `dispatchType: 'doors.hack'` |
 | `movement.js` | Same-direction destinations (move) | SIFT UI; replay via `moveDirection` + the candidate's zone id |
+| `movement.js` | Same-named destinations (`go <name>`) | SIFT UI across directions; each candidate carries its own `direction`, replayed with the candidate's zone id. A click-path `go <dir> <name>` resolves within that direction first and never prompts |
 | `inventory.js` | Items (take, drop) | SIFT via `dispatchType/dispatchParam`; `drop all` → `confirm` result (`drop __allconfirm`, sheds everything incl. equipped); `drop all <filter>` → `matchAll`, drops every match with no prompt. Equipped items are included and `recomputeArmor`/`recomputeInsulation` re-run if any dropped item was equipped |
 | `inventory.js` | Players (give) | SIFT scoring only, error on ambiguous |
 | `housing.js` | Windows (open, close) | SIFT with disambiguation UI |

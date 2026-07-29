@@ -2700,12 +2700,15 @@ function navBack() {
   navTo(_navStack.pop());
 }
 
-function nav(appId, screenLabel, params) {
+// `replace` swaps the current history entry instead of pushing a new one. Used by
+// the in-app tab strip: tabs are lateral moves within one screen, not a drill-in,
+// so Back must leave the app the way it came rather than walking the tabs you tried.
+function nav(appId, screenLabel, params, replace) {
   narrateStop();   // turning the page stops the previous page reading
   // Remember where we were, unless it's where we're already going (re-navving the
   // same screen — the surveillance poller does this every 5s — must not stack up).
   const next = { appId, screen: screenLabel ?? null, params: params ?? null };
-  if (!navSame(_navHere, next)) {
+  if (!replace && !navSame(_navHere, next)) {
     _navStack.push(_navHere);
     if (_navStack.length > NAV_STACK_MAX) _navStack.shift();
   }
@@ -6945,7 +6948,9 @@ function wireBody() {
   _overlay.querySelectorAll('[data-tos-tab]').forEach(el => {
     el.addEventListener('click', () => {
       const id = el.getAttribute('data-tos-tab');
-      if (id !== _data?.activeTab) nav(_data.appId, id, null);
+      // Replace, don't push: a tab is a lateral move inside the same screen, so
+      // Back should exit the app, not rewind through the tabs you flipped through.
+      if (id !== _data?.activeTab) nav(_data.appId, id, null, true);
     });
   });
   // Calendar month arrows: re-nav the app to a specific 'YYYY-MM' via screenId 'month'.

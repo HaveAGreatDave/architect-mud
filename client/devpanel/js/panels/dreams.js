@@ -310,3 +310,110 @@ function cacheTemplates(rows) { window._dreamTemplateCache = Array.isArray(rows)
 const causeBadge = (r) => r.cause === 'drug'
   ? `<span class="badge badge-medium">${esc(r.drug_id || 'default set')}</span>`
   : `<span class="badge badge-safe-zone">dream</span>`;
+
+// ── Unreality suite (one nav item, two tabs) ────────────────────────────────
+//
+// Three tables, one sidebar entry. A room and the presence that walks through it
+// are halves of the same authoring job — you cannot judge a pool of rooms without
+// knowing who turns up in them — so they share a tab and are read together.
+// Transforms get their own tab because they are the opposite thing: no room at
+// all, just the real world re-dressed (see docs/systems-dreams.md).
+//
+// There is no separate suite panel: the three PANELS entries stay exactly as they
+// were, and the ACTIVE ONE is the tab. That is what keeps the generic machinery
+// working untouched — currentPanel still names one table, so editForm/save/delete
+// and the post-save loadPanel() all resolve to the right one with no overrides.
+
+const DREAM_SUITE_PANELS = ['dream_templates', 'dream_presences', 'drug_transforms'];
+const DREAM_SUITE_TAB = { dream_templates: 'dreams', dream_presences: 'dreams', drug_transforms: 'trips' };
+const DREAM_SUITE_TABS = [
+  { id: 'dreams', label: '🌒 Dreamscapes', panel: 'dream_templates' },
+  { id: 'trips',  label: '🌀 Drug Transforms', panel: 'drug_transforms' },
+];
+const DREAM_SUITE_TITLE = 'Unreality';
+const DREAM_SUITE_DESC = 'Everything a player experiences that isn\'t there — the rooms sleep and dissociatives build, whoever wanders them, and what a psychedelic turns the real world into.';
+
+// Every tab fetches all three tables (they are tiny, cold-tier, and the pool
+// warnings read across them), but returns only the ACTIVE panel's rows so
+// loadPanel's `allRecords` — and therefore editRecord's lookup — stays correct.
+async function dreamSuiteFetch(which) {
+  const [templates, presences, transforms] = await Promise.all([
+    API('/dream-templates'), API('/dream-presences'), API('/drug-transforms'),
+    // The drug pickers in all three forms read DREAM_DRUGS; nothing else loads it.
+    loadDreamDrugs(),
+  ]);
+  window._dreamSuite = {
+    dream_templates: Array.isArray(templates) ? templates : [],
+    dream_presences: Array.isArray(presences) ? presences : [],
+    drug_transforms: Array.isArray(transforms) ? transforms : [],
+  };
+  cacheTemplates(window._dreamSuite.dream_templates);
+  return window._dreamSuite[which];
+}
+
+// Rows carry their own panel key rather than relying on currentPanel at click
+// time: two tables from two tables live in one view, and the click has to say
+// which one it came from.
+window.dreamSuiteEdit = function (panel, id) {
+  currentPanel = panel;
+  allRecords = (window._dreamSuite?.[panel]) || [];
+  editRecord(id);
+};
+
+window.dreamSuiteNew = function (panel) {
+  currentPanel = panel;
+  allRecords = (window._dreamSuite?.[panel]) || [];
+  newRecord();
+};
+
+window.dreamSuiteTab = function (tabId) {
+  const tab = DREAM_SUITE_TABS.find(t => t.id === tabId);
+  if (tab) showPanel(tab.panel);
+};
+
+function dreamSuiteSection(panel, rows) {
+  const p = PANELS[panel];
+  const singular = p.title.replace(/s$/, '');
+  const head = `
+    <div style="display:flex;align-items:baseline;gap:10px;margin:18px 0 6px">
+      <strong>${esc(p.title)}</strong>
+      <span class="text-dim" style="font-size:11px">${esc(p.description)}</span>
+      <button type="button" class="btn btn-sm" style="margin-left:auto"
+        onclick="dreamSuiteNew('${panel}')">+ New ${esc(singular)}</button>
+    </div>`;
+  if (!rows.length) return head + '<div style="padding:16px;color:var(--text-dim)">No records found.</div>';
+  const body = rows.map(rec => `
+    <tr onclick="dreamSuiteEdit('${panel}','${esc(rec.id)}')">
+      ${p.columns.map(c => `<td>${c.render ? c.render(rec[c.key], rec) : (rec[c.key] ?? '—')}</td>`).join('')}
+      <td><button class="action-btn" onclick="event.stopPropagation();dreamSuiteEdit('${panel}','${esc(rec.id)}')">Edit</button></td>
+    </tr>`).join('');
+  return `${head}<table><thead><tr>${p.columns.map(c => `<th>${c.label}</th>`).join('')}<th></th></tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function renderDreamSuite() {
+  const active = DREAM_SUITE_TAB[currentPanel] || 'dreams';
+  const q = (document.getElementById('search-input')?.value || '').toLowerCase();
+  const rowsOf = (panel) => {
+    const rows = (window._dreamSuite?.[panel]) || [];
+    return q ? rows.filter(r => Object.values(r).some(v => String(v).toLowerCase().includes(q))) : rows;
+  };
+  // loadPanel wrote the active table's own title into the toolbar; the suite is
+  // one place as far as the author is concerned, so say so.
+  document.getElementById('panel-title').textContent = DREAM_SUITE_TITLE;
+  document.getElementById('panel-description').textContent = DREAM_SUITE_DESC;
+
+  const tabs = `
+    <div class="bc-tabs">
+      ${DREAM_SUITE_TABS.map(t => `
+        <button class="bc-tab${active === t.id ? ' bc-tab-active' : ''}"
+          onclick="dreamSuiteTab('${t.id}')">${t.label}</button>`).join('')}
+    </div>`;
+
+  const body = active === 'dreams'
+    ? dreamPreviewWidget()
+      + dreamSuiteSection('dream_templates', rowsOf('dream_templates'))
+      + dreamSuiteSection('dream_presences', rowsOf('dream_presences'))
+    : dreamSuiteSection('drug_transforms', rowsOf('drug_transforms'));
+
+  document.getElementById('list-panel').innerHTML = tabs + body;
+}

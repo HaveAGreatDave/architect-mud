@@ -16,7 +16,7 @@ import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, visorFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx } from './engine-audio.js';
-import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFt, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup } from './windshield.js';
+import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
 import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
@@ -237,7 +237,10 @@ export function closeCockpit() {
 // `cockpit_close` the landing/disembark flow already sends (closeCockpit → stopEngineAudio).
 export function cabinAudio(s) {
   if (isFlightSimActive() || isCockpitHudActive()) return;   // the pilot's cockpit / an open window overlay already owns the bus
-  updateEngineAudio(s || {});
+  // Forced to the 'cabin' perspective: whoever is listening is back in a room, not at the controls,
+  // so the engines arrive muffled through the structure. Set here rather than trusted from the
+  // server payload, because this entry point is BY DEFINITION the walking-the-cabin one.
+  updateEngineAudio({ ...(s || {}), perspective: 'cabin' });
 }
 
 // ── The per-frame animation loop ──────────────────────────────────────────────
@@ -1162,12 +1165,17 @@ function stepShots(F, now, dt, s) {
 // shared source of truth is the FLOOR COUNT, not the render's world-z: the renderer extrudes floors
 // into a stylised world-z (bldgStretch etc.) and the camera eye-height rises as a √-compressed
 // function of altitude, so world-z can't be both visually pretty AND linear in real feet. So the
-// collision works in real feet off the floors (buildingRoofFt in windshield.js) — a shop tops out
-// ~12 ft, a 22-storey tower ~264 ft — instead of the old flat hz·600 that put a 3-storey's roof at
-// 353 ft and made you CFIT with wide-open air out the window. Shallow clip = damage; deep = write-off.
-// Building collision half-width = the SAME footprint the windshield draws (BUILDING_FOOT),
-// scaled by the live bldgFoot knob, so a plane hits a tower's visible mass — not a tiny box
-// at the tile centre. (Was a fixed 0.12 back when buildings drew as thin spikes.)
+// collision works in real feet off the floors — a shop tops out ~12 ft, a 22-storey tower ~264 ft —
+// instead of the old flat hz·600 that put a 3-storey's roof at 353 ft and made you CFIT with
+// wide-open air out the window. Shallow clip = damage; deep = write-off.
+//
+// SHAPE, not a square. It used to test one axis-aligned box of half-width BUILDING_FOOT with its
+// roof at floors × 12, and the models draw nothing like that — the per-model height multipliers
+// (office 1.7×, Halcyon 2.9×, Solenne 3.31×) never reached the sim at all, so the tallest towers in
+// the city were flyable through their top two thirds, while the bank's stylobate is wider than the
+// square and its attic narrower. buildingRoofFtAt now answers per POINT from the same captured
+// segments the renderer draws, so what you hit is what you can see — including, for the first time,
+// the gap between a tower and its low wing on the same tile, which returns 0 and is flown through.
 const CFIT_CRASH_PEN = 110;   // ft below the roofline that means you're INTO the structure → crash
 const CFIT_SWEEP = 4;         // sub-samples along the frame's ground track (anti-tunnel for fast craft)
 
@@ -1180,16 +1188,22 @@ function buildingCollisionAt(F, s) {
   const prev = F.cfitPrev || { x: F.pos.x, y: F.pos.y };
   const hd = (s.heading || 0) * Math.PI / 180, sinh = Math.sin(hd), cosh = Math.cos(hd);
   const height = Math.min(1, Math.sqrt(Math.max(0, s.altitude) / 3000));   // matches windshield's v.height
-  const foot = BUILDING_FOOT * (RENDER_TUNE.bldgFoot || 1);   // collision footprint tracks the drawn one
+  // Cheap reject only. The real containment test is per SEGMENT inside buildingRoofFtAt, which knows
+  // the building's actual shape — so this outer box just has to be generous enough never to reject a
+  // point some part of the model still occupies.
+  const foot = MODEL_MAX_EXTENT * (RENDER_TUNE.bldgFoot || 1);
   let worst = null;
   for (let i = 1; i <= CFIT_SWEEP; i++) {
     const t = i / CFIT_SWEEP;
     const px = prev.x + (F.pos.x - prev.x) * t, py = prev.y + (F.pos.y - prev.y) * t;
     const wx = Math.round(px), wy = Math.round(py);   // one building per tile, at integer coords
-    if (Math.abs(px - wx) > foot || Math.abs(py - wy) > foot) continue;   // outside the footprint
+    if (Math.abs(px - wx) > foot || Math.abs(py - wy) > foot) continue;   // nowhere near this tile's building
     const rx = Math.round(wx - mc.x + R), ry = Math.round(wy - mc.y + R);
     if (ry < 0 || ry >= map.length || rx < 0 || rx >= map[ry].length) continue;
-    const roofFt = buildingRoofFt(wx, wy, map[ry][rx]);   // roof altitude in real feet (floors × storey)
+    // Roof altitude in real feet AT THIS POINT — the tallest captured segment actually under the
+    // aircraft, not the tile's single storey-stack roof. A miss between a tower and its low wing
+    // returns 0 and is flown through, which is the point.
+    const roofFt = buildingRoofFtAt(wx, wy, map[ry][rx], px, py);
     if (roofFt <= 0) continue;
     const dx = wx - px, dy = wy - py, f = dx * sinh - dy * cosh, lat = dx * cosh + dy * sinh;
     // Must be inside the renderer's own near/far visibility window — a building the windshield
@@ -1224,8 +1238,22 @@ const FSIM_TUNE = [
   ['climbLift', 'Climb lift', 0, 20, 0.5],
   ['tile', 'Floor tiles', 0.1, 3, 0.05],
   ['pixel', 'Pixel size', 1, 10, 1],
+  ['perfDS', 'Adaptive chunk', 0, 1, 1],   // 0 pins 'Pixel size' — under load the ground stays crisp and the frame rate takes the hit instead
   ['fog', 'Fog (N64)', 0, 1, 0.05],
   ['vlight', 'Vertex light', 0, 1.5, 0.05],
+  // Performance dials. These existed in RENDER_TUNE but had no slider, which meant the three
+  // cheapest experiments in the renderer (is the cost texturing? fog overfill? face count?) could
+  // only be run by editing source. Profiling put ~54% of the frame in the building face flush, so
+  // they earn their place in the panel.
+  ['occlude', 'Occlusion cull', 0, 1, 1],
+  ['shapeShadow', 'Shape shadows', 0, 1, 1],
+  ['shapeWire', 'Shape wire', 0, 1, 1],
+  ['lodAdorn', 'LOD lights', 0, 2, 1],
+  ['lodNear', 'LOD start', 0, 40, 1],
+  ['lodFar', 'LOD full', 4, 60, 1],
+  ['wallLodPx', 'Wall LOD (px)', 0, 400, 10],
+  ['decoFar', 'Deco distance', 0, 40, 1],
+  ['shadowFar', 'Shadow distance', 0, 40, 1],
   ['coastWarp', 'Coast wobble', 0, 1.5, 0.05],
   ['bldgH', 'Bldg height', 0.05, 3, 0.05],
   ['bldgStretch', 'Vert stretch', 1, 15, 0.5],
@@ -1303,8 +1331,16 @@ function ensureFlightSimStyles() {
     .fsim-lamp{ position:absolute; top:8px; left:50%; transform:translateX(-50%); font:11px/1 monospace; letter-spacing:2px; z-index:3;
       color:#ff5a5b; background:rgba(40,4,6,.7); border:1px solid #ff5a5b; border-radius:5px; padding:3px 9px; opacity:0; transition:opacity .12s; }
     /* transient action toast (flap/gear/jettison confirmations) */
-    .fsim-toast{ position:absolute; top:38%; left:50%; transform:translateX(-50%); font:11px/1 monospace; letter-spacing:2px; z-index:5;
-      color:var(--cy); background:rgba(6,12,18,.82); border:1px solid var(--cy); border-radius:5px; padding:4px 11px; opacity:0; transition:opacity .18s; pointer-events:none; white-space:nowrap; }
+    /* The TEXT is deliberately near-white and does NOT use --cy. --cy resolves to the app-wide
+       --accent, which is whatever the player's UI theme happens to be — on a dark accent that put
+       dark grey lettering on an almost-black cockpit and the message was unreadable. The accent
+       still themes the box (border + glow), where a low-contrast colour is decorative rather than
+       load-bearing; legibility rides on the white and the near-opaque backing instead. */
+    .fsim-toast{ position:absolute; top:38%; left:50%; transform:translateX(-50%); font:bold 12px/1.25 monospace; letter-spacing:1.6px; z-index:5;
+      color:#f2f8ff; text-shadow:0 0 6px rgba(0,0,0,.95), 0 1px 2px rgba(0,0,0,.9);
+      background:rgba(4,9,14,.94); border:1px solid var(--cy,#8fd0ff); border-radius:5px;
+      box-shadow:0 0 12px rgba(0,0,0,.75), inset 0 0 10px rgba(0,0,0,.6);
+      padding:6px 13px; opacity:0; transition:opacity .18s; pointer-events:none; white-space:nowrap; }
     .fsim-toast.show{ opacity:1; }
     /* CHECKRIDE guidance card — the persistent instruction panel during a checkride. Sits
        top-left (clear of the centre rings), stays up the whole stage, and re-pulses on a
@@ -1379,7 +1415,7 @@ function ensureFlightSimStyles() {
     .fsim-card.crash .fsim-card-grade{ color:#ff4a5a; }
     /* look-direction tag (Q/E/S hold-to-look) */
     .fsim-viewtag{ position:absolute; bottom:8px; left:50%; transform:translateX(-50%); font:10px/1 monospace; letter-spacing:2px; z-index:5;
-      color:var(--cy); background:rgba(6,12,18,.7); border:1px solid #16303f; border-radius:4px; padding:2px 8px; opacity:0; transition:opacity .12s; pointer-events:none; }
+      color:#e8f3ff; text-shadow:0 1px 2px rgba(0,0,0,.9); background:rgba(4,9,14,.86); border:1px solid #16303f; border-radius:4px; padding:2px 8px; opacity:0; transition:opacity .12s; pointer-events:none; }   /* same reasoning as .fsim-toast: a message overlay must not take its legibility from --accent */
     .fsim-viewtag.show{ opacity:.9; }
     /* fuel chip (always shown) + a REFUEL button that appears only when parked on a fuelled strip */
     .fsim-fuel{ position:absolute; left:8px; top:22px; z-index:6; display:flex; align-items:center; gap:5px;
@@ -1563,6 +1599,10 @@ function ensureFlightSimStyles() {
     .fsim-climbmark::after{ content:'BEST CLIMB'; position:absolute; right:1px; top:-9px; font-size:7px; letter-spacing:1px; color:var(--gr); }
     .fsim-throttle{ position:relative; flex:0 0 56px; background:linear-gradient(180deg,#0c141c,#080e14); border:1px solid #16303f;
       border-radius:10px; touch-action:none; cursor:ns-resize; overflow:hidden; }
+    /* Throttle baulked by the cargo-nose interlock: the lever won't leave idle, so say so on the
+       quadrant itself rather than letting it feel like the control has broken. */
+    .fsim-throttle.baulked{ border-color:#7a2a22; box-shadow:inset 0 0 12px rgba(255,70,60,.16); cursor:not-allowed; }
+    .fsim-throttle.baulked .fsim-thr-grip{ filter:saturate(.35) brightness(.7); }
     .fsim-thr-slot{ position:absolute; left:50%; top:12px; bottom:22px; width:8px; margin-left:-4px; background:#04080c; border:1px solid #16303f; border-radius:4px; box-shadow:inset 0 0 4px #000; }
     .fsim-thr-notch{ position:absolute; left:8px; width:7px; height:1px; background:rgba(120,150,175,.4); }
     .fsim-thr-lever{ position:absolute; left:6px; right:6px; height:20px; }
@@ -1737,14 +1777,33 @@ function ensureFlightSimStyles() {
     .fsim-extg-lbl{ color:var(--cy); font-size:13px; letter-spacing:2px; }
     .fsim-extg-row b{ color:#e8f4ff; font-size:38px; line-height:1; font-variant-numeric:tabular-nums; min-width:92px; text-align:right; }
     .fsim-extg-u{ color:#6f8fa4; font-size:13px; }
-    .fsim-tune{ position:absolute; top:32px; right:8px; z-index:4; width:186px; max-height:72vh; overflow-y:auto; overscroll-behavior:contain; background:rgba(8,14,20,.94); border:1px solid #14212d; border-radius:8px; padding:8px; }
-    .fsim-tune-drag{ font-size:9px; letter-spacing:1px; color:var(--cy); background:rgba(20,33,45,.98); border:1px solid #16303f; border-radius:5px; padding:4px 6px; margin:-2px 0 6px; cursor:move; user-select:none; touch-action:none; position:sticky; top:-8px; z-index:1; }
-    .fsim-tune .thdr{ font-size:9px; letter-spacing:1px; color:var(--cy); border-bottom:1px solid #16303f; padding-bottom:3px; margin:2px 0 6px; position:sticky; top:-8px; background:rgba(8,14,20,.98); }
-    .fsim-tune .thdr:not(:first-child){ margin-top:9px; }
-    .fsim-tune .trow{ display:flex; align-items:center; gap:5px; margin-bottom:5px; font-size:9px; }
-    .fsim-tune .trow label{ flex:0 0 64px; color:#6f8698; letter-spacing:.5px; }
+    /* Tuning panel. Was 186px wide at 9px type with all ~60 controls in one scroll — unreadable,
+       and you hunted for a slider by scrolling past forty others. Now: legible type, real hit
+       targets, sections that COLLAPSE (state remembered), and a panel you can resize. */
+    .fsim-tune{ position:absolute; top:32px; right:8px; z-index:4; width:min(312px, 88vw); max-height:80vh; overflow-y:auto; overscroll-behavior:contain;
+      background:rgba(8,14,20,.96); border:1px solid #1d3242; border-radius:10px; padding:10px; resize:horizontal; box-shadow:0 10px 30px rgba(0,0,0,.6); }
+    .fsim-tune-drag{ font-size:11px; letter-spacing:1px; color:var(--cy); background:rgba(20,33,45,.98); border:1px solid #1d3f52; border-radius:6px; padding:7px 9px; margin:-3px 0 8px; cursor:move; user-select:none; touch-action:none; position:sticky; top:-10px; z-index:2; }
+    /* Section header doubles as the collapse toggle. */
+    .fsim-tune .thdr{ font-size:11px; letter-spacing:1px; color:var(--cy); border-bottom:1px solid #1d3f52; padding:6px 5px; margin:2px 0 7px; position:sticky; top:-10px;
+      background:rgba(10,18,26,.99); z-index:1; cursor:pointer; user-select:none; display:flex; align-items:center; gap:7px; border-radius:6px 6px 0 0; }
+    .fsim-tune .thdr:hover{ background:rgba(24,42,56,.99); }
+    .fsim-tune .tsec + .thdr{ margin-top:12px; }   /* gap only BETWEEN sections, not above the first */
+    .fsim-tune .thdr .car{ flex:0 0 9px; transition:transform .12s; font-size:9px; }
+    .fsim-tune .thdr.collapsed .car{ transform:rotate(-90deg); }
+    .fsim-tune .thdr .cnt{ margin-left:auto; color:#5f7c91; font-size:10px; letter-spacing:0; }
+    .fsim-tune .tsec.collapsed{ display:none; }
+    .fsim-tune .trow{ display:flex; align-items:center; gap:8px; margin-bottom:7px; font-size:11px; }
+    .fsim-tune .trow label{ flex:0 0 98px; color:#8fa6b8; letter-spacing:.3px; line-height:1.25; }
     .fsim-tune .trow input{ flex:1; min-width:0; }
-    .fsim-tune .tv{ flex:0 0 34px; text-align:right; color:var(--cy); font-variant-numeric:tabular-nums; }
+    .fsim-tune .tv{ flex:0 0 48px; text-align:right; color:var(--cy); font-variant-numeric:tabular-nums; font-size:11px; }
+    /* Fatter track + a thumb you can actually grab (the 9px default was a coin-flip on a trackpad). */
+    .fsim-tune input[type=range]{ -webkit-appearance:none; appearance:none; height:18px; background:transparent; cursor:pointer; }
+    .fsim-tune input[type=range]::-webkit-slider-runnable-track{ height:5px; border-radius:3px; background:#1d3242; }
+    .fsim-tune input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:15px; height:15px; margin-top:-5px; border-radius:50%; background:var(--cy); border:1px solid #0a1119; }
+    .fsim-tune input[type=range]::-webkit-slider-thumb:hover{ filter:brightness(1.25); }
+    .fsim-tune input[type=range]::-moz-range-track{ height:5px; border-radius:3px; background:#1d3242; }
+    .fsim-tune input[type=range]::-moz-range-thumb{ width:14px; height:14px; border-radius:50%; background:var(--cy); border:1px solid #0a1119; }
+    .fsim-tune input[type=color]{ height:22px; padding:0; border:1px solid #1d3f52; border-radius:4px; background:transparent; cursor:pointer; }
 
     /* ══ PAINTED DASHBOARD — when the craft has a paint job, the whole instrument-panel
        surround takes the interior CABIN / UPHOLSTERY colour, overriding the per-craft
@@ -2416,6 +2475,7 @@ export function openFlightSim(opts = {}) {
           <button class="fsim-engbtn" id="fsim-eng" title="engine master">⏻</button>
           <button class="fsim-nightsw" id="fsim-nightsw" title="instrument panel lights (needs engine power)" tabindex="-1"><span class="fsim-nightsw-led"></span>PANEL</button>
           <button class="fsim-nightsw" id="fsim-landsw" title="exterior landing / taxi lights (needs engine power)" tabindex="-1"><span class="fsim-nightsw-led"></span>LIGHTS</button>
+          <button class="fsim-nightsw" id="fsim-visorsw" title="CARGO NOSE — raise the visor to load. Only on the ground, and she will not roll with it open." tabindex="-1" style="display:none"><span class="fsim-nightsw-led"></span>NOSE</button>
           <div class="fsim-ft-row">
             ${buildFlapHtml(flapStyle)}
             <div class="fsim-trim" id="fsim-trim" title="ELEVATOR TRIM — drag or roll the wheel; up = NOSE DOWN, down = NOSE UP">
@@ -2809,6 +2869,23 @@ export function openFlightSim(opts = {}) {
     if (landSw) { landSw.classList.toggle('on', F.landingLight); landSw.classList.toggle('nopwr', !F.engineOn); }
   };
 
+  // CARGO NOSE switch — the manual answer to "how do I open the nose". The automatic behaviour
+  // (shut down on the ramp → she yawns open; power up → she closes) still runs and is still the
+  // normal path; this is for opening the hold with the engines live, which is what you actually want
+  // when loading. Ground-only, and the existing thrust interlock means an open nose still can't
+  // taxi, so the switch can't be used to do anything unsafe.
+  const visorBtn = q('#fsim-visorsw');
+  if (visorBtn) {
+    if (F.hasVisor === undefined) F.hasVisor = !!visorSpecFor(F.cls);
+    if (F.hasVisor) visorBtn.style.display = '';   // hidden entirely on an airframe with no visor
+    add(visorBtn, 'click', () => {
+      if (!F.hasVisor) return;
+      if (F.reportedAirborne || F.rolling) { if (F.toast) F.toast('NOSE — only on the ground, stopped.'); return; }
+      F.visorWant = (F.visorWant ?? ((F.noseVisor ?? 0) > 0.5 ? 1 : 0)) > 0.5 ? 0 : 1;
+      try { visorFx(F.visorWant ? 'open' : 'close'); } catch {}
+      if (F.toast) F.toast(F.visorWant ? 'NOSE OPENING — cargo visor coming up.' : 'NOSE CLOSING — ~5s to the lock.');
+    });
+  }
   const engBtn = q('#fsim-eng');
   if (F.engineOn) engBtn.classList.add('on');
   add(engBtn, 'click', () => {
@@ -2819,7 +2896,14 @@ export function openFlightSim(opts = {}) {
       // input.throttle each frame, so zeroing it here also drops the lever to idle).
       F.input.throttle = 0; F.throttleKey = 0;
       try { spoolUp(F.cls); } catch {}
-      if (F.hasVisor && F.noseVisor > 0.02) { try { visorFx('close'); } catch {} }   // nose visor lowers home under power
+      // Nose visor lowers home under power. SAY SO: she boards cold with the cargo nose standing
+      // wide open and no thrust reaches the ground until it's locked forward, so a pilot who isn't
+      // told simply sits there with the engines running wondering why she won't roll. The close is
+      // the answer to "how do I shut the nose" — you don't, the start-up does, and you wait for it.
+      if (F.hasVisor && F.noseVisor > 0.02) {
+        try { visorFx('close'); } catch {}
+        if (F.toast) F.toast('NOSE OPEN — cargo visor lowering, ~5s. No taxi until it locks.');
+      }
       sendCmdSilent('flightevent engineon');
       syncLights();   // power restored — switches come live again (lights stay off until switched on)
     } else if (s.onGround && s.airspeed < 5) {
@@ -2921,11 +3005,31 @@ export function openFlightSim(opts = {}) {
   ];
   const colRow = ([k, lbl]) =>
     `<div class="trow"><label>${lbl}</label><input type="color" data-ck="${k}" value="${RENDER_TUNE[k]}"><span class="tv"></span></div>`;
+  // Collapsible sections. With ~60 controls stacked in one scroll, finding a slider meant paging
+  // past forty you didn't want — so each section folds, and which ones you left open is remembered
+  // across flights. Aircraft feel and the colour pickers start closed; world render is the one
+  // people actually came for.
+  const SEC_LS = 'fsimTuneSections';
+  let secOpen = {};
+  try { secOpen = JSON.parse(localStorage.getItem(SEC_LS) || '{}') || {}; } catch { secOpen = {}; }
+  const isOpen = (id, dflt) => (typeof secOpen[id] === 'boolean' ? secOpen[id] : dflt);
+  const section = (id, title, rows, dflt) => {
+    const open = isOpen(id, dflt), cl = open ? '' : ' collapsed';
+    return `<div class="thdr${cl}" data-sec="${id}"><span class="car">▼</span><span>${title}</span><span class="cnt">${rows.length}</span></div>`
+      + `<div class="tsec${cl}" data-secbody="${id}">${rows.join('')}</div>`;
+  };
   tunePanel.innerHTML =
-    `<div class="fsim-tune-drag" id="fsim-tune-drag">⠿ TUNING — drag to move</div>` +
-    `<div class="thdr">✈ ${esc(F.P.name || 'AIRCRAFT')} · FEEL</div>` + PHYS_TUNE.map(physRow).join('') +
-    `<div class="thdr">▦ WORLD RENDER</div>` + FSIM_TUNE.map(rndRow).join('') +
-    `<div class="thdr">◧ VERTEX LIGHT COLOURS</div>` + VLIGHT_COLORS.map(colRow).join('');
+    `<div class="fsim-tune-drag" id="fsim-tune-drag">⠿ TUNING — drag to move · edge to resize</div>` +
+    section('phys', `✈ ${esc(F.P.name || 'AIRCRAFT')} · FEEL`, PHYS_TUNE.map(physRow), false) +
+    section('world', '▦ WORLD RENDER', FSIM_TUNE.map(rndRow), true) +
+    section('vlight', '◧ VERTEX LIGHT COLOURS', VLIGHT_COLORS.map(colRow), false);
+  tunePanel.querySelectorAll('.thdr[data-sec]').forEach((h) => add(h, 'click', () => {
+    const id = h.dataset.sec, body = tunePanel.querySelector(`[data-secbody="${id}"]`);
+    const nowOpen = h.classList.contains('collapsed');
+    h.classList.toggle('collapsed', !nowOpen); if (body) body.classList.toggle('collapsed', !nowOpen);
+    secOpen[id] = nowOpen;
+    try { localStorage.setItem(SEC_LS, JSON.stringify(secOpen)); } catch { /* private mode — folding still works, just isn't remembered */ }
+  }));
   // Drag the tuning window by its header. Switches to left/top positioning (relative to the
   // view) on first grab so it can move anywhere; the sliders below keep their own pointer events.
   const dragH = q('#fsim-tune-drag');
@@ -3426,6 +3530,15 @@ function fsimFrame(now) {
   // landed". Hold the last deck-cam frame (she's on the pad, rotors stopped) until closeFlightSim.
   if (F.landed) { F.raf = requestAnimationFrame(fsimFrame); return; }
 
+  // Frame profiling (off by default, free when off — see the profiler block in windshield.js).
+  // `frame` is the WHOLE rAF handler from here down: the first profile run measured
+  // paintWindshield at 25.7ms while the sim ran at 13fps (~77ms/frame), so two thirds of the
+  // frame was somewhere nobody had looked. These phases exist to find it.
+  //
+  // Opened AFTER the three cinematic early-returns above deliberately — a perfBegin before them
+  // would leak an unclosed stack entry every cinematic frame and quietly corrupt the table.
+  perfBegin('frame');
+
   // Yoke springs to centre when released.
   if (!F.yokeDrag) { input.elevator = lerpN(input.elevator, 0, Math.min(1, dt * 6)); input.aileron = lerpN(input.aileron, 0, Math.min(1, dt * 6)); }
   // External-view orbit LOCKS wherever you left it (no spring-back). The ⟲ reset SWINGS it home:
@@ -3450,10 +3563,20 @@ function fsimFrame(now) {
   // down (or you ABORT for a tow). This is the punishment for raising the gear parked/rolling.
   const bellyDown = s.onGround && F.gearRetract && F.gearUp;
   // Visor lock: the Leviathan can't ROLL until its cargo nose is closed and locked forward. The
-  // engines still light, spool and rev while it's open (the lock only severs the thrust force via
-  // `noThrust` below) — you start up, run the ~5s close, and only then can you taxi. (No visor →
-  // always "locked".)
+  // engines still light and idle while it's open, but the THROTTLE IS BAULKED at idle — a real
+  // interlock holds the levers, it doesn't let you firewall them into a load of thrust that quietly
+  // goes nowhere. (Severing thrust alone, which is what `noThrust` does below, left the lever free
+  // to sit at 100% doing nothing, which reads as a broken aeroplane rather than a locked one.)
+  // `noThrust` stays as the backstop. No visor → always "locked".
   const visorLocked = !F.hasVisor || (F.noseVisor ?? 0) <= 0.02;
+  if (!visorLocked) {
+    if ((input.throttle > 0.02 || F.throttleKey > 0) && !(F.visorBaulkT > 0)) {
+      F.visorBaulkT = 2.5;                       // one nudge, then quiet — this fires off a held key
+      if (F.toast) F.toast('THROTTLE BAULKED — cargo nose is open.');
+    }
+    input.throttle = 0; F.throttleKey = 0;       // levers held at idle until the nose locks forward
+  }
+  if (F.visorBaulkT > 0) F.visorBaulkT = Math.max(0, F.visorBaulkT - dt);
   // Effective throttle: the lever always moves, but there's no thrust unless the
   // engine master switch is on and the tank isn't dry (dead stick) — and never on the belly.
   const thr = (F.engineOn && !F.deadStick && !bellyDown) ? input.throttle : 0;
@@ -3472,6 +3595,7 @@ function fsimFrame(now) {
   const FIXED = 1 / 60;
   F.acc = Math.min((F.acc || 0) + dt, 0.5);
   let nSteps = 0;
+  perfBegin('sim:physics');
   while (F.acc >= FIXED && nSteps < 8) {
     const h = FIXED;
     // gear: extended fraction of RETRACTABLE gear (1 = down/locked, 0 = up) — feeds the model's
@@ -3481,6 +3605,14 @@ function fsimFrame(now) {
     // engine dead (power=false), so a rotor-out descent is flyable to a flared touchdown. Fixed-wing
     // ignores both. power gates on engine master / dead-stick / belly (same conditions that gate thr).
     step(s, { elevator: input.elevator, aileron: input.aileron, throttle: thr, collRaw: input.throttle, power: (F.engineOn && !F.deadStick && !bellyDown), noThrust: !visorLocked, flaps: input.flaps, pedal: input.pedal, trim: input.trim, gear: F.gearRetract ? (F.gearAnim ?? 1) : 0, dmgSurf: F.surfaces || null }, P, h);
+
+    // Model events. OVER-G: the airframe groans and the master lamp calls it — the flight model
+    // now derives a real load factor from the angle of attack (flight-model.js §6a), so hauling
+    // the wings off her is finally something you can do, and hear.
+    for (const ev of (s.events || [])) {
+      if (ev.type === 'overg') { creak('stress'); F.overGLamp = 1.4; F.shake = Math.max(F.shake, 5); }
+    }
+    if (F.overGLamp > 0) F.overGLamp = Math.max(0, F.overGLamp - h);
 
     // Turbulence: the air disturbs the AIRCRAFT (you correct it), it never cheats the physics.
     // Deterministic summed-sine "noise" (no RNG) rolls/pitches you and bumps lift, ∝ severity.
@@ -3514,6 +3646,7 @@ function fsimFrame(now) {
     }
     F.acc -= FIXED; nSteps++;
   }
+  perfEnd();   // sim:physics
 
   // Gear position eases toward its target (0 = up/stowed, 1 = down/locked) over ~1.6s so the
   // external view shows it swinging out and tucking away, not snapping.
@@ -3527,10 +3660,26 @@ function fsimFrame(now) {
   // ease-out that finishes early. Only the heavy (Leviathan) mesh has a visor.
   if (F.hasVisor === undefined) F.hasVisor = !!visorSpecFor(F.cls);
   if (F.hasVisor) {
-    const tgt = (!F.engineOn && s.onGround && s.airspeed < 5) ? 1 : 0;
+    // Target: the manual switch wins while she's stopped on the ground, otherwise the automatic rule
+    // (cold and parked ⇒ open). Any movement drops the override, so a nose left open by the switch
+    // closes itself the moment you roll rather than latching open forever.
+    const parked = s.onGround && s.airspeed < 5;
+    if (!parked) F.visorWant = null;
+    const tgt = (parked && F.visorWant != null) ? F.visorWant : ((!F.engineOn && parked) ? 1 : 0);
     if (F.noseVisor === undefined) F.noseVisor = tgt;   // already raised if you board her cold — no start-up sweep
     const stepV = dt / 5;                               // 0→1 (or 1→0) in five seconds flat
+    const wasOpen = F.noseVisor > 0.02;
     F.noseVisor = F.noseVisor < tgt ? Math.min(tgt, F.noseVisor + stepV) : Math.max(tgt, F.noseVisor - stepV);
+    // The moment the lock takes is the moment thrust reaches the ground, so it gets its own call —
+    // otherwise the five seconds end in silence and you're left guessing whether you may roll.
+    if (wasOpen && F.noseVisor <= 0.02) { if (F.toast) F.toast('NOSE LOCKED — cleared to taxi.'); }
+    // Switch LED follows the actual visor, not the request, so it reads as a state lamp during the
+    // five-second travel rather than snapping the moment you press it. Element cached — this runs
+    // every frame.
+    if (F._visorBtn === undefined) F._visorBtn = document.getElementById('fsim-visorsw');
+    if (F._visorBtn) F._visorBtn.classList.toggle('on', F.noseVisor > 0.02);
+    if (F._thrBox === undefined) F._thrBox = document.getElementById('fsim-thr');
+    if (F._thrBox) F._thrBox.classList.toggle('baulked', F.noseVisor > 0.02);
   }
 
   // ── Building collision (CFIT) — flying into a tower you can see out the glass ─────
@@ -3538,6 +3687,7 @@ function fsimFrame(now) {
   // the windshield is drawing. A deep/fast hit writes her off (crash cfit); a shallow clip of
   // the roofline is a hard jolt + real hull damage you fly out of (clip). Debounced so one
   // rooftop doesn't bill every frame; suppressed once she's already gone in.
+  perfBegin('sim:cfit');
   if (!s.onGround && !(F.cfitCd > 0)) {
     const hit = buildingCollisionAt(F, s);
     if (hit && hit.severe) {
@@ -3560,6 +3710,13 @@ function fsimFrame(now) {
   }
   if (F.cfitCd > 0 && F.cfitCd < 9999) F.cfitCd = Math.max(0, F.cfitCd - dt);
   F.cfitPrev = { x: F.pos.x, y: F.pos.y };
+  perfEnd();   // sim:cfit
+  // Everything between collision and the repaint: transitions, autopilot/guidance, targeting,
+  // engine audio, gauge smoothing and the instrument DOM writes. ~400 lines that nothing had ever
+  // timed, and the largest un-phased block in the handler — so if the missing two thirds of the
+  // frame is anywhere, the arithmetic says look here first. (No early returns in this range, so
+  // the phase always closes.)
+  perfBegin('sim:systems');
 
   // Transitions → tell the server. Track descent rate while airborne so touchdown knows
   // how hard the arrival was (soft squeak vs firm thump).
@@ -3716,6 +3873,8 @@ function fsimFrame(now) {
     // Extra panel furniture (annunciator strip · secondary bar gauges · reaper gun/stores):
     craft: F.craftType, engineOn: F.engineOn, airborne: F.reportedAirborne, prpm: F.rpms[0] || 0,
     gear: F.gearRetract ? (F.gearUp ? 'up' : 'down') : 'fixed',
+    hasVisor: !!F.hasVisor, noseVisor: F.noseVisor ?? 0,   // cargo-nose annunciator (Leviathan): lit until the visor locks forward
+
     hardpoints: F.hardpoints, armed: F.armed, weapon: F.weapon, msl: F.msl,
     gunRounds: F.gunRounds, gunCap: F.gunCap,
     avionicsOut: !!F.avionicsOut,   // EMP — the whole panel is dark
@@ -3963,6 +4122,8 @@ function fsimFrame(now) {
   F.propPhase = (F.propPhase || 0) + dt * F.propSpin * 34;   // rev rate ∝ spool → frozen at rest
   const propDisc = clampNum((d.rpm - 0.12) / 0.45, 0, 1);    // no disc at idle; fully in by ~57% rpm
 
+  perfEnd();   // sim:systems
+  perfBegin('sim:paint');
   paintWindshield('fsim-ws', {
     gates: gateView,
     pitch: d.pitch, bank: d.bank,
@@ -4055,9 +4216,12 @@ function fsimFrame(now) {
     // she's about to take you. Cleared during the deck-cam cinematic (that view draws its own).
     padDome: (F.heli && F.reportedAirborne && !F.deckCine) ? { armed: !!F.onYacht } : null,
   });
+  perfEnd();   // sim:paint
 
   // Drug/booze impairment: warp the out-the-window view if the pilot is flying loaded.
+  perfBegin('sim:drugfx');
   applyFlightDrugFx(root.querySelector('.fsim-view'), document.getElementById('fsim-ws'), dt);
+  perfEnd();
 
   // Stream state to the server while flying AND during any ground roll — the landing
   // roll-out (F.rolling) and, just as importantly, the PRE-TAKEOFF taxi: without this the
@@ -4095,13 +4259,21 @@ function fsimFrame(now) {
 
   // Impact screen-shake — a decaying jitter on the whole panel, kicked by the sink rate at
   // touchdown (or a crash/clip). Bigger arrival = bigger jolt; settles in ~0.15s.
-  if (F.shake > 0.2) {
-    const m = F.shake;
+  // STALL BUFFET rides the same channel but SUSTAINED, not decaying: as the angle of attack
+  // comes up on the critical angle the separating flow burbles over the tail and the airframe
+  // shakes. It's the warning you feel before the horn — the old model had nothing at all
+  // between "flying fine" and "a wing just dropped", which is why the break came as a surprise.
+  const buffet = (F.s && !F.s.onGround) ? (F.s.buffet || 0) : 0;
+  const shakeAmt = Math.max(F.shake || 0, buffet * 2.8);
+  if (shakeAmt > 0.2) {
+    const m = shakeAmt;
     root.style.transform = `translate(${(Math.random() * 2 - 1) * m}px, ${(Math.random() * 2 - 1) * m}px)`;
     F.shake *= Math.exp(-dt * 9);
     F.shakeOn = true;
   } else if (F.shakeOn) { root.style.transform = ''; F.shake = 0; F.shakeOn = false; }
 
+  perfEnd();    // frame
+  perfTick();   // prints + resets on a 2s window
   F.raf = requestAnimationFrame(fsimFrame);
 }
 
@@ -4119,7 +4291,8 @@ function fsimHorn(F, dt) {
     return;
   }
   if (s.stalled) { lamp.textContent = '⚠ STALL'; lamp.style.opacity = 1; stallHorn(0.6); }
-  else if (s.stallMargin < 0.35) { F.hornBeat = (F.hornBeat + dt * (2 + (0.35 - s.stallMargin) * 10)) % 1; const on = F.hornBeat < 0.5; lamp.style.opacity = on ? 1 : 0; stallHorn(on ? 0.4 : 0); }
+  else if (F.overGLamp > 0) { lamp.textContent = '⚠ OVER G'; lamp.style.opacity = 1; stallHorn(0); }
+  else if (s.stallMargin < 0.35) { lamp.textContent = '⚠ STALL'; F.hornBeat = (F.hornBeat + dt * (2 + (0.35 - s.stallMargin) * 10)) % 1; const on = F.hornBeat < 0.5; lamp.style.opacity = on ? 1 : 0; stallHorn(on ? 0.4 : 0); }
   else { lamp.style.opacity = 0; stallHorn(0); }
 }
 
@@ -4399,6 +4572,9 @@ function paintGauges(cv, g) {
       { lbl: 'GEN', on: g.battery < 20, col: '#ff5a5b' },
       { lbl: 'STALL', on: !!g.stall, col: '#ff5a5b' },
     ];
+    // NOSE lamp — only on an airframe that HAS a cargo visor, and lit for exactly as long as the
+    // nose is off its lock. It's a red lamp because while it's lit the aeroplane cannot move.
+    if (g.hasVisor) tiles.push({ lbl: 'NOSE', on: (g.noseVisor || 0) > 0.02, col: '#ff5a5b' });
     if (eng === 'heli') tiles.push({ lbl: 'AUTO', on: !!g.autorot, col: '#ffb23e' }, { lbl: 'LO NR', on: !!g.lowNr, col: '#ff5a5b' }, { lbl: 'VRS', on: !!g.vrs, col: '#ff5a5b' });
     if (g.hardpoints > 0 && !gun) tiles.push({ lbl: 'ARM', on: !!g.armed, col: '#ff5a3a' });
     if (gun) { gunStores(ctx, koR, innerR, H * 0.10, H * 0.52, g); annunTiles(ctx, koR, H * 0.58, innerR, H * 0.9, tiles); }

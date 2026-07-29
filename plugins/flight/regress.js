@@ -11,15 +11,111 @@ import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.
 import { sellAircraft, cancelRental, flushAirborne } from './hangars.js';
 import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
   shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
-  isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, salvoOf,
+  isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, nearestAirfield, salvoOf,
   vtolOnlyField, acquirableTypes, hangarRampFor, HANGAR_REACH } from './state.js';
 import { isFreightLicensed, ensureFreightDrops } from './contracts.js';
 import { isPilotLicensed, _test as checkrideTest } from './checkride.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { query } from '../../server/models/db.js';
+import { TYPES as FM_TYPES, createState as fmCreate, step as fmStep } from '../../client/game/js/panels/flight-model.js';
+
+// ── Flight-model harness ──────────────────────────────────────────────────────
+// The continuous flight model is pure and DOM-free, so it can be stepped headless. It had
+// no automated coverage at all until the AoA rework; these guard the properties that the
+// rework is FOR, so a future tuning pass can't quietly undo them. Deliberately loose
+// bounds — this is a regression net, not a tuning rig (that's scripts/stall-tune.mjs).
+const FM_DT = 1 / 60;
+const fmIn = (o = {}) => ({ elevator: 0, aileron: 0, throttle: 0.6, flaps: 0, pedal: 0, ...o });
+function fmAir(p, spd, alt = 8000) {
+  const s = fmCreate(p); s.onGround = false; s.altitude = alt; s.airspeed = spd; s.rpm = 0.6; s.pitch = 0;
+  return s;
+}
+// Decelerating wings-level entry: hold height with an increasing pull until the wing lets go.
+function fmStall1g(p) {
+  const s = fmAir(p, p.cruise);
+  for (let t = 0; t < 180; t += FM_DT) {
+    fmStep(s, fmIn({ elevator: Math.min(1, Math.max(0, -s.vs / 400) + 0.06), throttle: 0 }), p, FM_DT);
+    if (s.stalled) return s;
+  }
+  return null;
+}
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
+
+  // ── Flight model: the stall is an ANGLE OF ATTACK event ─────────────────────
+  const may = FM_TYPES.mayfly;
+  const br = fmStall1g(may);
+  check('flight model: a decelerating wings-level aircraft stalls at all', !!br);
+  // The stall speed is now an OUTPUT of the AoA model, not an input — it must still land on
+  // the airframe's authored vs0, or every approach speed in the fleet has quietly moved.
+  check('flight model: the 1g break lands on the authored vs0',
+    !!br && br.airspeed > may.vs0 * 0.9 && br.airspeed < may.vs0 * 1.1, br && Math.round(br.airspeed));
+  check('flight model: the break happens AT the critical angle of attack',
+    !!br && br.aoa > may.aoaCrit - 1 && br.aoa < may.aoaCrit + 4, br && +br.aoa.toFixed(1));
+  // The whole point of the rework: a hard pull at a healthy speed can depart. The old
+  // speed-triggered stall made this impossible, so this check is the load-bearing one.
+  {
+    const s = fmAir(may, may.cruise); let broke = null;
+    for (let t = 0; t < 60 && !broke; t += FM_DT) {
+      fmStep(s, fmIn({ elevator: t > 1.5 ? 1 : 0.1, aileron: 1, throttle: 1 }), may, FM_DT);
+      if (s.stalled) broke = { spd: s.airspeed, g: s.g };
+    }
+    check('flight model: an ACCELERATED stall exists (hard pull, banked, well above vs0)',
+      !!broke && broke.spd > may.vs0 * 1.25, broke && Math.round(broke.spd));
+    // √n is the textbook relation between load factor and stall speed. If the derived g and
+    // the AoA stall ever stop agreeing on it, one of the two has drifted off physics.
+    check('flight model: the accelerated break obeys the √n rule against the derived g',
+      !!broke && Math.abs(broke.spd - Math.sqrt(broke.g) * may.vs0) < may.vs0 * 0.2, broke && broke.g.toFixed(2));
+  }
+  // Load factor must be real and derived — a wings-level pull used to produce exactly 1.0g.
+  {
+    const s = fmAir(may, may.cruise); let peak = 0;
+    for (let t = 0; t < 6; t += FM_DT) { fmStep(s, fmIn({ elevator: 1, throttle: 1 }), may, FM_DT); peak = Math.max(peak, s.g); }
+    check('flight model: a wings-level pull loads the wing past 1g', peak > 2, peak.toFixed(2));
+  }
+  check('flight model: level cruise sits near 1g', (() => {
+    const s = fmAir(may, may.cruise);
+    for (let t = 0; t < 20; t += FM_DT) fmStep(s, fmIn({ throttle: 0.7 }), may, FM_DT);
+    return s.g > 0.7 && s.g < 1.4;
+  })());
+  // Hysteresis + the departure: a HELD stall must stay stalled (it's a departure, not a
+  // speed bump), a released one must recover on its own, and it must sink while it lasts.
+  {
+    const s = fmStall1g(may);
+    for (let i = 0; i < 180; i++) fmStep(s, fmIn({ elevator: 1, throttle: 0 }), may, FM_DT);
+    check('flight model: a HELD stall does not self-recover', s.stalled);
+    check('flight model: a stalled aircraft actually falls', s.vs < -250, Math.round(s.vs));
+    let rec = null;
+    for (let i = 0; i < 60 * 25 && rec == null; i++) { fmStep(s, fmIn({ elevator: 0, throttle: 0 }), may, FM_DT); if (!s.stalled) rec = i * FM_DT; }
+    check('flight model: releasing the stick recovers the stall', rec != null && rec < 12, rec && rec.toFixed(1));
+  }
+  // Every airframe must carry a real drag polar now — no per-type glideDrag special cases.
+  for (const [id, t] of Object.entries(FM_TYPES)) {
+    if (t.heli) continue;
+    check(`flight model: ${id} has a derived best-glide speed above its stall speed`,
+      t.bestGlide > t.vs0 && t.bestGlide < t.cruise, t.bestGlide);
+  }
+  check('flight model: the buffet warns BEFORE the break', (() => {
+    const s = fmAir(may, may.cruise); let sawBuffet = false;
+    for (let t = 0; t < 180; t += FM_DT) {
+      fmStep(s, fmIn({ elevator: Math.min(1, Math.max(0, -s.vs / 400) + 0.06), throttle: 0 }), may, FM_DT);
+      if (!s.stalled && s.buffet > 0.25) sawBuffet = true;
+      if (s.stalled) break;
+    }
+    return sawBuffet;
+  })());
+  check('flight model: a grounded aircraft never reads stalled or buffeting', (() => {
+    const s = fmCreate(may);   // idle: she stays on the wheels, yoke fully back, for the whole run
+    for (let t = 0; t < 10; t += FM_DT) fmStep(s, fmIn({ elevator: 1, throttle: 0 }), may, FM_DT);
+    return s.onGround && !s.stalled && s.buffet === 0 && s.stallMargin === 1;
+  })());
+  // The heli branch has no wing: it must not pick up any of the fixed-wing stall state.
+  check('flight model: the heli branch reports no aerodynamic stall', (() => {
+    const d = FM_TYPES.dragonfly, s = fmCreate(d); s.onGround = false; s.altitude = 500;
+    for (let t = 0; t < 5; t += FM_DT) fmStep(s, fmIn({ elevator: 1, throttle: 0.9 }), d, FM_DT);
+    return !s.stalled && s.stallDepth === 0 && s.buffet === 0;
+  })());
 
   // ── Crash collateral (pure) ─────────────────────────────────────────────────
   check('crash severity scales with airframe', crashSeverity(8) === 1 && crashSeverity(30) === 2 && crashSeverity(85) === 3);
@@ -491,7 +587,7 @@ export default async function regress({ run, check, getPlayer }) {
       // NAV console (flight-deck only): list airfields, chart one — it becomes the hand-off course.
       let nv = await run('nav');
       check('nav lists airfields to chart from the flight deck', nv?.type === 'output' && /NAV/i.test(nv?.message || ''), nv?.message);
-      const navField = listAirfields().find(f => f.id !== cLive.row.parked_zone_id);
+      const navField = listAirfields({ needsRunway: true }).find(f => f.id !== cLive.row.parked_zone_id);
       if (navField) {
         nv = await run(`nav ${navField.id}`);
         check('nav <field> charts a course', /course charted/i.test(nv?.message || '') && cLive.navDest?.destZone === navField.id, `${cLive.navDest?.destZone}`);
@@ -514,6 +610,59 @@ export default async function regress({ run, check, getPlayer }) {
       ho = await run('handoff');
       check('handoff on the ground returns you to a cabin room as a passenger',
         p.seat === 'passenger' && cLive.pilotId === null && !cLive.crew && !!getZone(p.current_zone)?.flags?.aircraft_cabin, `${p.seat}:${cLive.pilotId}:${p.current_zone}`);
+      // Departure from PARKED: `landat <field>` in the cabin is a takeoff order, not a landing one —
+      // the crew spin her up and go. Previously refused ("she's already on the ground"), so the only
+      // way to launch a crew-flown base was to fly her off yourself and hand off in the air.
+      {
+        const df = listAirfields({ needsRunway: true }).find(f => f.id !== cLive.row.parked_zone_id) || listAirfields({ needsRunway: true })[0];
+        cLive.row.airborne = 0; delete cLive.crew; cLive.row.fuel = cLive.type?.fuel_capacity || 1760;
+        p.seat = 'passenger'; cLive.pilotId = null;
+        const dep = await run(`landat ${df.id}`);
+        check('landat from a PARKED cabin launches the crew (takeoff, not a refusal)',
+          cLive.row.airborne === 1 && cLive.crew?.mode === 'field' && cLive.crew.destZone === df.id,
+          `air=${cLive.row.airborne} crew=${JSON.stringify(cLive.crew)} msg=${dep?.message}`);
+        // Dry tank: the crew wave it off rather than launching on fumes.
+        cLive.row.airborne = 0; delete cLive.crew; cLive.row.fuel = 0;
+        const dry = await run(`landat ${df.id}`);
+        check('the crew refuse to launch on a dry tank', cLive.row.airborne === 0 && !cLive.crew && /dry/i.test(dry?.message || ''), dry?.message);
+        // At the controls yourself → the aeroplane must not leap off the deck under you.
+        cLive.row.fuel = cLive.type?.fuel_capacity || 1760; p.seat = 'pilot'; cLive.pilotId = p.id;
+        const own = await run(`landat ${df.id}`);
+        check('a parked launch is refused while YOU have the controls',
+          cLive.row.airborne === 0 && !cLive.crew && /controls/i.test(own?.message || ''), own?.message);
+        p.seat = 'passenger'; cLive.pilotId = null; cLive.row.airborne = 0; delete cLive.crew; delete cLive.navDest;
+      }
+      // A helipad has no runway, so it is not a destination for a fixed-wing — the crew must never
+      // be dispatchable to one, from the NAV list, the DEADHEAD map, or a typed `landat`. This is
+      // load-bearing: before it, listAirfields() returned the pads too and the FIRST field in the
+      // world is Threshold Helipad, so the obvious dispatch sent a 400-tonne freighter to a helipad.
+      {
+        const pads = listAirfields().filter(f => !listAirfields({ needsRunway: true }).some(r => r.id === f.id));
+        check('the world actually has VTOL-only pads to exclude (else this proves nothing)', pads.length > 0, `pads=${pads.length}`);
+        check('the runway-only list excludes every helipad',
+          listAirfields({ needsRunway: true }).every(f => !pads.some(p2 => p2.id === f.id)));
+        if (pads.length) {
+          cLive.row.airborne = 0; delete cLive.crew; cLive.row.fuel = cLive.type?.fuel_capacity || 1760;
+          p.seat = 'passenger'; cLive.pilotId = null;
+          const bad = await run(`landat ${pads[0].id}`);
+          check('the crew refuse to fly a fixed-wing base to a helipad',
+            !cLive.crew && cLive.row.airborne === 0 && /no airfield matches/i.test(bad?.message || ''), bad?.message);
+        }
+        // The same rule on the TOW paths. A recovery crew dragging a fixed-wing home must not pick
+        // a helipad as "the nearest airfield" either — and since the pads sit inside the city they
+        // very often ARE the nearest thing to where you came down, so this is the common case, not
+        // the edge one. Asserted straight against the helper both tow paths call.
+        for (const pad of pads) {
+          const z = getZone(pad.id); if (z?.grid_x == null) continue;
+          const forJet = nearestAirfield(z.grid_x, z.grid_y, { needsRunway: true });
+          const forHeli = nearestAirfield(z.grid_x, z.grid_y, { needsRunway: false });
+          check(`tow: a fixed-wing down ON ${pad.name} is recovered to a RUNWAY, not that pad`,
+            forJet && forJet.id !== pad.id, `${forJet?.id}`);
+          check(`tow: a rotorcraft down on ${pad.name} may still be recovered to it`,
+            forHeli?.id === pad.id, `${forHeli?.id}`);
+        }
+        delete cLive.crew; delete cLive.navDest; cLive.row.airborne = 0;
+      }
       // DEADHEAD tablet app — the portable NAV/crew console reads the live base state.
       if (navField) cLive.navDest = { destZone: navField.id, destName: navField.name, tx: navField.gx, ty: navField.gy };
       let dhp = await run('tabletnav deadhead');
@@ -524,7 +673,7 @@ export default async function regress({ run, check, getPlayer }) {
       // Loiter: tap a bare tile (DEADHEAD map's tap-empty 'loiter' action) → the crew orbit it,
       // burning fuel, until bingo fuel forces a divert. Use an airfield's own tile so a divert is
       // always reachable (the fuel maths otherwise depend on how far the nearest field is).
-      const lf = listAirfields()[0];
+      const lf = listAirfields({ needsRunway: true })[0];
       if (lf) {
         await run(`tabletaction deadhead loiter ${lf.gx} ${lf.gy}`);
         check('DEADHEAD map tap charts a bare HOLD tile (loiter), not an airfield course',
@@ -559,7 +708,7 @@ export default async function regress({ run, check, getPlayer }) {
       check('DEADHEAD is a REMOTE dispatcher when you own a live Leviathan but aren\'t aboard',
         rem?.deadhead?.remote === true && rem?.deadhead?.aboard === false && (rem?.deadhead?.fields?.length || 0) > 0,
         `remote=${rem?.deadhead?.remote} aboard=${rem?.deadhead?.aboard} fields=${rem?.deadhead?.fields?.length}`);
-      const rf = listAirfields().find(f => f.id !== savedZoneW);
+      const rf = listAirfields({ needsRunway: true }).find(f => f.id !== savedZoneW);
       if (rf) {
         await run(`tabletaction deadhead chart ${rf.id}`);
         check('remote dispatch launches the PARKED base by crew to the chosen field',

@@ -2,7 +2,7 @@
 // insurance) that want a schematic read rather than the realistic shaded 3D
 // model those screens deliberately don't use (see aircraft3d.js — the hangar
 // floor/bench's "real" turntable render, left untouched by this file on purpose).
-import { aircraftFaces, groundPitchFor } from './aircraft3d.js';
+import { aircraftFaces, groundPitchFor, visorHidden } from './aircraft3d.js';
 
 // Canvas fillStyle/strokeStyle can't resolve CSS custom properties itself (var()
 // is a CSSOM-cascade feature, not something the 2D context parses) — so any CRT
@@ -42,6 +42,7 @@ export function drawWireframe3D(ctx, { cls, armed = false, w, h, accent = '#39ff
   const edges = [];
   let zMin = Infinity, zMax = -Infinity;
   for (const face of faces) {
+    if (visorHidden(face)) continue;   // the dealer schematic draws her buttoned up: no cargo hold, no dangling ramp
     const P = face.p.map(v => proj(v[0], v[1], v[2]));
     if (P.some(q => q.z <= 0.15)) continue;
     let avgZ = 0; for (const q of P) avgZ += q.z;

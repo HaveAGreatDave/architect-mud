@@ -91,9 +91,10 @@
     </div>
     <div class="nav-item" data-panel="mutations" onclick="showPanel('mutations')">☢ Mutations</div>
     <div class="nav-item" data-panel="drugs" onclick="showPanel('drugs')">💊 Drugs</div>
-    <div class="nav-item" data-panel="dream_templates" onclick="showPanel('dream_templates')">🌒 Dream Rooms</div>
-    <div class="nav-item" data-panel="dream_presences" onclick="showPanel('dream_presences')">👤 Dream Presences</div>
-    <div class="nav-item" data-panel="drug_transforms" onclick="showPanel('drug_transforms')">🌀 Drug Transforms</div>
+    <!-- One row, two tabs: dream/hallucination rooms + their presences, and drug
+         transforms. data-panel is the nav key, not a panel id — see NAV_ALIASES
+         in js/core/panels.js. -->
+    <div class="nav-item" data-panel="dreams" onclick="showPanel('dream_templates')">🌒 Unreality</div>
     <div class="nav-item" data-panel="sounds" onclick="showPanel('sounds')">🔊 SoundScript</div>
     <div class="nav-item" data-panel="audio" onclick="showPanel('audio')">🎵 Audio</div>
     <!-- data-ops-ro: kept on /admin but READ-ONLY — worth looking at on prod (what's

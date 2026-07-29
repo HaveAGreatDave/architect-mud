@@ -30,7 +30,7 @@ import { sendToPlayer, teachVerb, pointAt, beaconOn, beaconOff, beaconClear } fr
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { maxHpForEndurance, invalidateSkillCache } from '../../server/engine/ip.js';
 import { registerAction } from '../../server/engine/actions.js';
-import { getZone, getMinimapData, getLivePlayer, getAllZones } from '../../server/engine/world.js';
+import { getZone, getMinimapData, getLivePlayer, getAllZones, buildingEntranceDir } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { cmdExamine } from '../../server/engine/commands/world.js';
 
@@ -127,9 +127,16 @@ async function grantArchitectInterfaceIp(player) {
 // from the already-in-memory zone Maps — no query, no tick, no DB read on a
 // login path — and cached forever after, because world geometry doesn't move.
 //
-// Deliberately NOT the flight sim's cell shape: this is four numbers per
+// Deliberately NOT the flight sim's cell shape: this is a handful of fields per
 // building, not a 73×73 window of terrain, roads and scatter. ~70 buildings,
-// well under 3 KB on the wire.
+// a few KB on the wire.
+//
+// `n` (building name) and `e` (entrance side) were added when the cold open started
+// drawing real building SHAPES rather than plain boxes. Both are load-bearing and
+// neither is derivable client-side: the name is how a landmark resolves to its own
+// model (Halcyon's helical slab rather than the generic office box), and the entrance
+// is the frame every model's geometry is laid out in — without it a portico, a loading
+// bay or a marquee faces an arbitrary direction. See client/shared/building-shapes.js.
 let _skyline = null;
 function coldwaterSkyline() {
   if (_skyline) return _skyline;
@@ -146,7 +153,11 @@ function coldwaterSkyline() {
       const region = z.flags?.region_id;
       if (region && region !== 'region_coldwater') continue;
       if (z.grid_y > 960) continue;
-      out.push({ x: z.grid_x, y: z.grid_y, t: bt, f: Number(z.flags?.floors) || 0 });
+      out.push({
+        x: z.grid_x, y: z.grid_y, t: bt, f: Number(z.flags?.floors) || 0,
+        n: z.flags?.building_name || undefined,
+        e: buildingEntranceDir(z) || undefined,
+      });
     }
   } catch (e) {
     console.error('[prologue] skyline build failed:', e.message);

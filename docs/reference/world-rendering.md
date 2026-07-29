@@ -10,6 +10,11 @@ how to add or edit one. It complements [Rendering_Implementation.md](Rendering_I
 can be drawn by more than one renderer depending on the view, and it's easy to edit the
 wrong one.
 
+> **A building model is now READ as well as drawn.** Its geometry is captured out of these same
+> arms and drives the distance LOD, occlusion culling, ground shadows, CFIT collision and the cold
+> open's skyline — see [building-shapes.md](building-shapes.md). Editing a model changes all of
+> them, and `npm run shapes:smoke` (in `pretest:regress`) fails if the baked copy goes stale.
+
 ## The one rule that would have saved three rounds of confusion
 
 There is **no billboard/sprite system for buildings**. Everything solid you fly around is

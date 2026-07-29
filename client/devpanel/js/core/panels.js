@@ -124,18 +124,26 @@ const PANELS = {
   },
   // Three tables, one editor — a dream room and a hallucination room are the same
   // kind of thing, kept apart by the `cause` label. See docs/systems-dreams.md.
+  //
+  // All three are ONE nav entry (🌒 Unreality) with two tabs, and the active
+  // PANELS entry IS the tab — see renderDreamSuite in panels/dreams.js. Each keeps
+  // its own columns/editForm/save/delete so the generic machinery is untouched;
+  // only the list rendering is shared. `hideNewBtn` because the toolbar's single
+  // + New can't say which of two tables on screen it means — each section has its own.
   dream_templates: {
     title: 'Dream Rooms',
     description: 'Rooms for the experiences a player can be put inside — a sleep dream, or a dissociative hallucination. Not zones: they have no coordinates and no place on any map.',
     idPrefix: 'dt',
-    fetch: () => API('/dream-templates').then(rows => cacheTemplates(rows)),
+    fetch: () => dreamSuiteFetch('dream_templates'),
     columns: [
       { key: 'name', label: 'Room' },
       { key: 'cause', label: 'Cause', render: (_v, r) => causeBadge(r) },
       { key: 'objects', label: 'Objects', render: v => (Array.isArray(v) ? v.length : 0) },
       { key: 'ambient', label: 'Ambient', render: v => (Array.isArray(v) ? v.length : 0) },
     ],
-    beforeList: dreamPreviewWidget,
+    render: renderDreamSuite,
+    filter: renderDreamSuite,
+    hideNewBtn: true,
     editForm: dreamTemplateEditForm,
     save: saveDreamTemplate,
     delete: id => API(`/dream-templates/${encodeURIComponent(id)}`, 'DELETE'),
@@ -144,12 +152,15 @@ const PANELS = {
     title: 'Dream Presences',
     description: 'The wandering figure that moves between the rooms of an instance. It is announced arriving and leaving, and never resolves into anything.',
     idPrefix: 'dp',
-    fetch: () => API('/dream-presences'),
+    fetch: () => dreamSuiteFetch('dream_presences'),
     columns: [
       { key: 'name', label: 'Presence' },
       { key: 'cause', label: 'Cause', render: (_v, r) => causeBadge(r) },
       { key: 'looks', label: 'Looks', render: v => (Array.isArray(v) ? v.length : 0) },
     ],
+    render: renderDreamSuite,
+    filter: renderDreamSuite,
+    hideNewBtn: true,
     editForm: dreamPresenceEditForm,
     save: saveDreamPresence,
     delete: id => API(`/dream-presences/${encodeURIComponent(id)}`, 'DELETE'),
@@ -158,13 +169,16 @@ const PANELS = {
     title: 'Drug Transforms',
     description: 'What a psychedelic turns the real furniture around you into. Live world, per-viewer — these never build a room.',
     idPrefix: 'dx',
-    fetch: () => API('/drug-transforms'),
+    fetch: () => dreamSuiteFetch('drug_transforms'),
     columns: [
       { key: 'name', label: 'Becomes' },
       { key: 'drug_id', label: 'Drug', render: v => `<span class="badge badge-medium">${v || 'default set'}</span>` },
       { key: 'matches', label: 'Only on', render: v => v || '<span class="text-dim">anything</span>' },
       { key: 'says', label: 'Says', render: v => (Array.isArray(v) ? v.length : 0) },
     ],
+    render: renderDreamSuite,
+    filter: renderDreamSuite,
+    hideNewBtn: true,
     editForm: drugTransformEditForm,
     save: saveDrugTransform,
     delete: id => API(`/drug-transforms/${encodeURIComponent(id)}`, 'DELETE'),
@@ -466,8 +480,15 @@ const OPS_READONLY_BANNER =
   + 'reaches prod through the CODEX deploy (a push to <code>main</code>). Nothing changed here would save — '
   + 'and if it did, the next deploy would revert it. Live-world actions (spawning an enemy, restocking a '
   + 'vendor) still work.';
+// A panel that shares a nav entry with its siblings highlights that entry rather
+// than one of its own (the Unreality suite: three panels, one 🌒 row, two tabs).
+const NAV_ALIASES = {
+  dream_templates: 'dreams', dream_presences: 'dreams', drug_transforms: 'dreams',
+};
+
 function activatePanelNav(name) {
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.panel === name));
+  const nav = NAV_ALIASES[name] || name;
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.panel === nav));
   const group = document.getElementById('nav-vine-children');
   if (group) group.classList.toggle('open', VINE_GROUP_PANELS.has(name));
 }
@@ -496,7 +517,7 @@ async function loadPanel(name) {
     banner.innerHTML = readOnly ? OPS_READONLY_BANNER : '';
     banner.style.display = readOnly ? '' : 'none';
   }
-  document.getElementById('new-btn').style.display = readOnly || p.noEdit || name === 'worldstate' || name === 'players' ? 'none' : '';
+  document.getElementById('new-btn').style.display = readOnly || p.noEdit || p.hideNewBtn || name === 'worldstate' || name === 'players' ? 'none' : '';
 
   let data;
   try {

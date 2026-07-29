@@ -119,7 +119,10 @@ function buildFixedWing(p, detail = 1) {
     ? [p.noseF, p.noseF * 0.66, p.noseF * 0.33, 0, p.tailF * 0.35, p.tailF * 0.7, p.tailF]
     : [p.noseF, 0, p.tailF];
   if (detail && p.extraF) {
-    const keep = stations.filter(f => !p.extraF.some(e => Math.abs(e - f) < 0.03));   // an inserted ring wins over a default one right next to it
+    // An inserted ring wins over a default one right next to it — EXCEPT the two tip stations, which
+    // define the model's length. Evicting those doesn't tidy the mesh, it shortens the aeroplane, so
+    // a ring placed close to the tip to round a blunt radome would silently chop the snout off.
+    const keep = stations.filter(f => f === p.noseF || f === p.tailF || !p.extraF.some(e => Math.abs(e - f) < 0.03));
     stations = [...keep, ...p.extraF].sort((a, b) => b - a);
   }
   // Radius profile 1 (mid) → 0 (tips). A `bodyTube` plateau holds NEAR-FULL width across the
@@ -153,26 +156,51 @@ function buildFixedWing(p, detail = 1) {
   // windscreen) while the sides stay wide, and the nose tapers to a low drooped point with the
   // belly rising gently to meet it (a wedge, not a sagging tube). Doing it with czAt droop alone
   // dropped the whole ring, sinking the belly below the nose tip; a height-only taper keeps the
-  // keel up. Only active where set (the Mule) — every other craft's ring is unchanged.
+  // keel up. Only active where set (the Mule, the Leviathan) — every other craft's ring is unchanged.
+  // `noseVFloor` stops the taper short of zero: the Otter's snout really does come to a low POINT
+  // (floor 0, the default), but the An-124's roof drops away over the cargo visor to a still-blunt
+  // ROUND radome, so its height bottoms out at a fraction of full rather than collapsing to a slit.
+  const vFloor = p.noseVFloor || 0;
   const radVAt = (f) => {
     const rH = radAt(f);
     if (!(detail && p.noseVTaper && f > 0)) return rH;
     const u = Math.min(1, f / p.noseF);
     const t = u <= tube ? 0 : (u - tube) / (1 - tube);
-    return rH * Math.pow(1 - t, p.noseVTaper);
+    return rH * (vFloor + (1 - vFloor) * Math.pow(1 - t, p.noseVTaper));
   };
   // Cross-section: an ellipse (fr wide × fv tall) morphed toward a rounded RECTANGLE by p.boxy
   // (0 = round, →1 = slab-sided) — a Twin Otter is a flat-sided box, an An-124 near circular.
   // At the 4 cardinal points |cos|/|sin| are 0 or 1, so a 4-sided coarse ring is unaffected →
   // the LOD-0 silhouette is identical regardless of boxy.
   const shapeExp = 1 - (p.boxy || 0) * 0.55;
+  // UPPER-DECK HUMP (p.hump = {f0, f1, h}): a local swelling of the CROWN over a stretch of the
+  // fuselage — the An-124's flight-deck bulge, and a 747's for that matter. A raised cosine over
+  // [f0,f1] so it grows out of the skin and blends back in with no crease at either end, and it's
+  // scaled by max(0, sin) around the ring so it lifts the top and dies to nothing at the shoulders
+  // rather than inflating the whole section. This has to be part of `ring`, not a bolted-on blister:
+  // the flight-deck glass IS the skin here, so the windows have to ride the bump with it.
+  const humpAt = (f) => {
+    const Hp = p.hump;
+    if (!detail || !Hp || f <= Hp.f0 || f >= Hp.f1) return 0;
+    return Hp.h * 0.5 * (1 - Math.cos(2 * Math.PI * (f - Hp.f0) / (Hp.f1 - Hp.f0)));
+  };
+  // FLAT-BOTTOM HULL (p.bellyFlat, 0…1). A freighter's cargo floor is a low flat deck, and the hull
+  // under it is a shallow pan with a hard chine, not a barrel — it's a big part of why an An-124
+  // looks like it's squatting. This needs facets to read: on a 12- or 16-gon the lower half is so
+  // coarse that flattening it just moves two vertices, so it was never worth having. At 24 it is.
+  // Blends the round section toward a constant depth that turns up sharply at the chine.
+  const flatK = p.bellyFlat || 0;
   const ring = (f) => {
-    const rW = radAt(f), rH = radVAt(f), cz = czAt(f), out = [];
+    const rW = radAt(f), rH = radVAt(f), cz = czAt(f), hb = humpAt(f), out = [];
     for (let k = 0; k < sides; k++) {
       const a = k / sides * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
       const g = Math.sign(ca) * Math.pow(Math.abs(ca), shapeExp) * p.fr * rW;   // width uses the plan taper
-      const h = Math.sign(sa) * Math.pow(Math.abs(sa), shapeExp) * p.fv * rH;   // height can taper faster in the nose (radVAt)
-      out.push(V(f, g, cz + h));
+      let h = Math.sign(sa) * Math.pow(Math.abs(sa), shapeExp) * p.fv * rH;     // height can taper faster in the nose (radVAt)
+      if (flatK && sa < 0) {
+        const flat = -p.fv * rH * Math.min(1, Math.abs(sa) * 3);   // full depth across the middle, rising fast at the corners
+        h = h * (1 - flatK) + flat * flatK;
+      }
+      out.push(V(f, g, cz + h + hb * Math.max(0, sa)));
     }
     return out;
   };
@@ -377,15 +405,48 @@ function buildFixedWing(p, detail = 1) {
   // the seam is invisible; opening yawns a clean cargo mouth instead of stretching the hull.
   // The nose gear (role 'gear') is deliberately left out so it stays planted on the ramp.
   if (detail && p.visor) {
-    const cut = p.noseF * (p.visor.hingeAt ?? 0.33);
-    const crownZ = czAt(cut) + p.fv * radAt(cut);              // top of the fuselage at the cut station
+    // SNAP THE CUT TO A REAL RING. `hingeAt` is authored as a fraction, so noseF × hingeAt lands a
+    // few 1e-5 off the station it was meant to name — and since the "is this face forward of the
+    // break" test is an inequality against that number, being 4.5e-5 on the wrong side excluded the
+    // entire bay at the seam. The visor group then started one ring FURTHER FORWARD than the hinge
+    // it pivots on, so the nose swung about an axis it wasn't attached to and tore open a gap the
+    // width of a whole fuselage bay. Snapping to the nearest actual station makes the comment above
+    // true instead of merely intended, and no authored fraction can drift off a ring again.
+    const rawCut = p.noseF * (p.visor.hingeAt ?? 0.33);
+    const cut = stations.reduce((b, s) => Math.abs(s - rawCut) < Math.abs(b - rawCut) ? s : b, stations[0]);
+    // radVAt, not radAt: on a class whose nose sheds HEIGHT faster than width the crown at the cut
+    // sits lower than the plan taper alone says, and a hinge axis floating above the skin tears the
+    // nose off its own roof the moment it swings.
+    const crownZ = czAt(cut) + p.fv * radVAt(cut) + humpAt(cut);   // top of the fuselage at the cut station — hump included, or the hinge floats above a crown that's risen out from under it
     const A = V(cut, p.fr, crownZ), B = V(cut, -p.fr, crownZ); // hinge axis: a lateral line across the crown
     const LIFT = new Set(['body', 'glass', 'window']);         // skin + flight-deck glass lift with the nose
+    // HINGE KNUCKLE. A 70–90° swing about a line on the crown is geometrically correct but reads as
+    // a severed nose, because the only thing joining the two halves is a mathematical axis with no
+    // structure on it — nothing for the eye to accept as a JOINT. Real visor noses carry big external
+    // hinge brackets up there, so give her a pair: two plates straddling the crown at the cut, left
+    // on the BODY (untagged) so the nose visibly pivots on something that stays put.
+    {
+      const hf = 0.07, hb = 0.05, hh = 0.030, hg = p.fr * 0.34;   // fore reach · aft reach · height · lateral offset
+      for (const s of [1, -1]) {
+        const gg = s * hg;
+        faces.push({ role: 'strut', sh: 0.52, visorOnly: true, p: [
+          V(cut - hb, gg, crownZ - 0.01), V(cut + hf, gg, crownZ - 0.01),
+          V(cut + hf * 0.35, gg, crownZ + hh), V(cut - hb * 0.5, gg, crownZ + hh)] });
+      }
+      faces.push({ role: 'strut', sh: 0.66, visorOnly: true, p: [   // the pin itself, capping the two brackets
+        V(cut - hb * 0.5, hg, crownZ + hh), V(cut + hf * 0.35, hg, crownZ + hh),
+        V(cut + hf * 0.35, -hg, crownZ + hh), V(cut - hb * 0.5, -hg, crownZ + hh)] });
+    }
     const noseGearF = p.noseF * 0.45;                          // fore of this centroid = the NOSE leg; the main centipede bogies sit well aft and stay planted
     for (const f of faces) {
       const fwd = f.p.every(v => v[0] >= cut - 1e-6);
-      // The nose gear rides up with the visor (the rear bogies alone hold her stable); the mains don't.
-      const isNoseGear = f.role === 'gear' && (f.p.reduce((a, v) => a + v[0], 0) / f.p.length) > noseGearF;
+      // The nose leg is part of the swinging assembly and comes up with it, but ONLY if it really is
+      // mounted on that section (centroid forward of the cut — see `noseGearAt`). Tagging a leg that
+      // stands AFT of the break made it pivot about a hinge it isn't attached to, and it swung off
+      // the belly into mid-air. Both halves of this test matter: the first picks the nose leg out of
+      // the centipede, the second refuses to move anything the nose doesn't actually carry.
+      const gearF = f.role === 'gear' ? f.p.reduce((a, v) => a + v[0], 0) / f.p.length : -Infinity;
+      const isNoseGear = gearF > noseGearF && gearF >= cut - 1e-6;
       if ((LIFT.has(f.role) && fwd) || isNoseGear) { f.visor = true; f.visorHinge = [A, B]; f.visorMax = p.visor.maxAng ?? 0.9; }
     }
     // Cargo hold revealed when the visor stands up: a boxy inner bay (floor, ceiling, side walls,
@@ -401,15 +462,60 @@ function buildFixedWing(p, detail = 1) {
     // Fold-down cargo ramp, hinged at the lower front lip. Authored DEPLOYED (lip → ground), then
     // pre-rotated UP into its stowed pose (tucked flat inside the hold, hidden behind the closed
     // nose); as part of the visor group, hingeVisorFace swings it back down as noseVisor → 1.
-    const lipZ = czAt(cut) - p.fv * radAt(cut);               // fuselage bottom at the cut station
+    const lipZ = czAt(cut) - p.fv * radVAt(cut);              // fuselage bottom at the cut station
     const rw = bw * 0.94, rampAng = 2.9;
     const hA = V(cut, rw, lipZ), hB = V(cut, -rw, lipZ);
-    const footF = cut + 0.62, footZ = -p.fv - 0.09;           // ramp foot reaches forward to the ground
-    const depTop = [V(cut, -rw, lipZ), V(cut, rw, lipZ), V(footF, rw, footZ), V(footF, -rw, footZ)];
-    const depBot = [V(footF, -rw, footZ - 0.01), V(footF, rw, footZ - 0.01), V(cut, rw, lipZ - 0.01), V(cut, -rw, lipZ - 0.01)];
-    for (const [sh, dep] of [[0.72, depTop], [0.44, depBot]]) {
-      faces.push({ role: 'ramp', sh, p: rotAboutAxis(dep, hA, hB, rampAng), visor: true, visorHinge: [hA, hB], visorMax: -rampAng });
+    // The foot is the FULLY EXTENDED toe, and it is placed on the same ground plane the gear defines
+    // (mains: belly − wheel radius) so a deployed ramp meets the tarmac instead of hovering over it
+    // or sinking through. Everything below is a fraction of that lip→toe axis, so the slide can't
+    // overshoot: fixed plate 0→MID, extension slides exactly the remaining MID→1.
+    const footF = cut + (p.visor.ramp ?? 0.62), footZ = -(p.fv + 0.07);
+    // Deployed frame: `d` runs down the ramp lip→foot, `n` is its surface normal. Every detail below
+    // is placed in this frame and then stowed, so the ribs and rails sit ON the plate at any angle
+    // instead of being hand-placed in world space and drifting off it as the ramp swings.
+    const dF = footF - cut, dZ = footZ - lipZ, dL = Math.hypot(dF, dZ) || 1;
+    const d = [dF / dL, 0, dZ / dL], n = [-dZ / dL, 0, dF / dL];
+    const at = (u, gg, lift = 0) => V(cut + d[0] * dL * u + n[0] * lift, gg, lipZ + d[2] * dL * u + n[2] * lift);
+    const stow = (pts) => rotAboutAxis(pts, hA, hB, rampAng);
+    const push = (sh, pts, slide) => {
+      const f = { role: 'ramp', sh, p: stow(pts), visor: true, visorHinge: [hA, hB], visorMax: -rampAng };
+      if (slide) f.slide = slide;
+      faces.push(f);
+    };
+    // Main plate — the fixed half, lip to mid-span. The sliding section carries the rest: MID + the
+    // slide fraction sum to exactly 1, i.e. the toe.
+    const MID = 0.58;
+    push(0.72, [at(0, -rw), at(0, rw), at(MID, rw), at(MID, -rw)]);
+    push(0.44, [at(MID, -rw, -0.012), at(MID, rw, -0.012), at(0, rw, -0.012), at(0, -rw, -0.012)]);
+    // Side rails — raised kerbs down both edges, the thing that stops a pallet walking off the side.
+    for (const s of [1, -1]) {
+      const gg = s * rw;
+      push(0.60, [at(0, gg), at(MID, gg), at(MID, gg, 0.022), at(0, gg, 0.022)]);
+      push(0.84, [at(0, gg, 0.022), at(MID, gg, 0.022), at(MID, gg - s * 0.014, 0.022), at(0, gg - s * 0.014, 0.022)]);   // rail top
     }
+    // Traction ribs across the deck — the cross-hatching every cargo ramp has, and the detail that
+    // reads as "load-bearing steel" rather than a plank.
+    for (let i = 1; i <= 4; i++) {
+      const u = MID * (i / 5), w = 0.012;
+      push(0.90, [at(u - w, -rw * 0.93, 0.005), at(u - w, rw * 0.93, 0.005), at(u + w, rw * 0.93, 0.005), at(u + w, -rw * 0.93, 0.005)]);
+    }
+    // TELESCOPING EXTENSION. Authored nested under the fixed plate (so a shut ramp is one slab) and
+    // slid out along the ramp's own axis by `slide`. hingeVisorFace runs it on a DELAYED curve — it
+    // stays home until the nose is most of the way up, then eases out — because a ramp that
+    // telescopes while it's still swinging reads as two unrelated things moving at once.
+    // The extension must be authored at least EXT long, or sliding it out by EXT drags its rear edge
+    // past the fixed plate's end and opens a hole in the middle of the ramp — the gap being exactly
+    // EXT minus the overlap. Start it a further LAP back so the two stay lapped at full extension
+    // instead of meeting on a hairline.
+    const EXT = 1 - MID, LAP = 0.05, U0 = Math.max(0.02, MID - EXT - LAP);
+    const ext = dL * EXT, erw = rw * 0.88, sl = [d[0] * ext, 0, d[2] * ext];
+    push(0.78, [at(U0, -erw, 0.006), at(U0, erw, 0.006), at(MID, erw, 0.006), at(MID, -erw, 0.006)], sl);
+    push(0.40, [at(MID, -erw, -0.006), at(MID, erw, -0.006), at(U0, erw, -0.006), at(U0, -erw, -0.006)], sl);
+    for (const s of [1, -1]) {   // the slide's own rails, so the extended section still has edges
+      const gg = s * erw;
+      push(0.56, [at(U0, gg, 0.006), at(MID, gg, 0.006), at(MID, gg, 0.024), at(U0, gg, 0.024)], sl);
+    }
+    push(0.94, [at(MID - 0.03, -erw, 0.006), at(MID - 0.03, erw, 0.006), at(MID, erw, -0.002), at(MID, -erw, -0.002)], sl);   // the toe: a bevelled lip that meets the tarmac
   }
   return faces;
 }
@@ -441,12 +547,24 @@ const _lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t,
 // the surface's inboard/outboard ends; te0/te1 = the trailing-edge points there; `cf` = the
 // surface's chord fraction (how far forward of the TE the hinge sits). Hinge corners sit ON
 // the axis (unmoved by the rotation); the TE corners swing.
-function pushCtrlSurface(faces, role, side, sh, le0, le1, te0, te1, cf) {
-  const lift = 0.006;                                     // float a hair above the wing skin so it reads as a separate panel
+// `axis` is which way the parent panel is thin — 'z' for a wing/tailplane, 'g' for a vertical fin —
+// and `half` is the parent's half-thickness. The surface is emitted as a two-sided plate standing
+// just PROUD of the parent on both faces, never in its plane.
+//
+// This is a z-fighting fix, not decoration. The old single quad floated 0.006 off the panel's MID
+// plane, which buries it inside a wing 0.028 thick and puts it exactly coplanar with a flat fin. Two
+// overlapping faces at the same depth have no stable painter's-algorithm order, so the sort flipped
+// with the camera and the wing tops and fins strobed. Separating them by the real skin thickness
+// gives the sort something to be right about.
+function pushCtrlSurface(faces, role, side, sh, le0, le1, te0, te1, cf, axis = 'z', half = 0.014) {
+  const off = half + 0.004;
+  const bump = (v, s) => axis === 'g' ? [v[0], v[1] + s * off, v[2]] : [v[0], v[1], v[2] + s * off];
   const h0 = _lerp3(te0, le0, cf), h1 = _lerp3(te1, le1, cf);
-  const T0 = [te0[0], te0[1], te0[2] + lift], T1 = [te1[0], te1[1], te1[2] + lift];
-  const H0 = [h0[0], h0[1], h0[2] + lift], H1 = [h1[0], h1[1], h1[2] + lift];
-  faces.push({ role, defl: role, side, sh, hinge: [H0, H1], p: [H0, H1, T1, T0] });
+  for (const s of [1, -1]) {
+    const T0 = bump(te0, s), T1 = bump(te1, s), H0 = bump(h0, s), H1 = bump(h1, s);
+    faces.push({ role, defl: role, side, sh: s > 0 ? sh : sh * 0.72,
+      hinge: [H0, H1], p: s > 0 ? [H0, H1, T1, T0] : [T0, T1, H1, H0] });
+  }
 }
 
 // Build the flap (inboard) + aileron (outboard) for one wing (`s` = +1 right, −1 left).
@@ -463,7 +581,7 @@ function addStabSurface(faces, p, s) {
   const rootLE = V(p.hF, s * p.fr * 0.5, 0.04), tipLE = V(p.hTipF, s * p.hSpan, 0.05);
   const tipTE = V(p.hTipB, s * p.hSpan, 0.05), rootTE = V(p.hB, s * p.fr * 0.5, 0.04);
   const le = (u) => _lerp3(rootLE, tipLE, u), te = (u) => _lerp3(rootTE, tipTE, u);
-  pushCtrlSurface(faces, 'elevator', s, 0.72, le(0.06), le(0.95), te(0.06), te(0.95), 0.34);
+  pushCtrlSurface(faces, 'elevator', s, 0.72, le(0.06), le(0.95), te(0.06), te(0.95), 0.34, 'z', 0.010);   // tailplane is thinner than the wing (0.02) — match it or the elevator floats off the surface
 }
 
 // Build the rudder on one vertical fin at lateral station `fg`. The fin is a flat triangle in the
@@ -472,9 +590,18 @@ function addStabSurface(faces, p, s) {
 // in ±g (yaw). Coplanar with the fin at rest → invisible seam; visible only once it kicks over.
 function addFinSurface(faces, p, fg) {
   const cf = 0.4, df = cf * (p.finF0 - p.finF2);                        // forward hinge offset from the TE
-  const P1 = V(p.finF1, fg, p.finH), P2 = V(p.finF2, fg, 0.06);        // trailing edge: apex → base-rear
-  const Htop = V(p.finF1 + df, fg, p.finH), Hbot = V(p.finF2 + df, fg, 0.06);
-  faces.push({ role: 'rudder', defl: 'rudder', side: Math.sign(fg) || 1, sh: 0.88, hinge: [Htop, Hbot], p: [Htop, Hbot, P2, P1] });
+  // Two-sided, straddling the fin. The fin is a flat triangle and the rudder used to be authored in
+  // exactly its plane — "coplanar at rest → invisible seam" was true right up until the depth sort
+  // had to choose between two faces at identical depth, at which point the fin strobed. A plate with
+  // a side to it can't be coplanar with anything.
+  const off = 0.007;
+  for (const s of [1, -1]) {
+    const gg = fg + s * off;
+    const P1 = V(p.finF1, gg, p.finH), P2 = V(p.finF2, gg, 0.06);      // trailing edge: apex → base-rear
+    const Htop = V(p.finF1 + df, gg, p.finH), Hbot = V(p.finF2 + df, gg, 0.06);
+    faces.push({ role: 'rudder', defl: 'rudder', side: Math.sign(fg) || 1, sh: s > 0 ? 0.88 : 0.66,
+      hinge: [Htop, Hbot], p: s > 0 ? [Htop, Hbot, P2, P1] : [P1, P2, Hbot, Htop] });
+  }
 }
 
 // Peak deflection (radians) for each surface at full input.
@@ -517,11 +644,43 @@ function rotAboutAxis(pts, A, B, ang) {
 // Visor-nose group: does this class HAVE one (→ null if not), for the driver to gate the animation.
 export function visorSpecFor(cls) { return (FW_PARAMS[cls] || {}).visor || null; }
 
+// Geometry that exists ONLY to be seen through an open cargo mouth — the hold's inner box and the
+// fold-down ramp stowed inside it. With the nose shut it's sealed inside the fuselage, where it is
+// not merely redundant but actively wrong: the painter's sort every renderer uses orders faces by
+// centroid depth, and the hold's floor is one long face whose centroid can sort AHEAD of the small
+// belly quads actually in front of it. So it punches through the skin and reads as loose panels
+// floating around the aeroplane. Skipping it when the visor is home is both cheaper and correct.
+//
+// A renderer that has no concept of a visor (the hangar turntable, the dealer wireframe, the
+// showroom scene) passes nothing and gets t=0 — which is exactly right for those views: a parked
+// aeroplane on display sits buttoned up, not gaping.
+// `visorOnly` extends this to anything else that must not exist with the nose home — notably the
+// hinge brackets, which are external structure you only ever see once the joint is broken open. Left
+// drawn on a shut aeroplane they'd be two lumps sitting proud of an otherwise clean crown.
+export function visorHidden(face, t = 0) {
+  return (face.visorOnly || face.role === 'interior' || face.role === 'ramp') && !(t > 0.001);
+}
+
 // Swing a tagged visor face UP by `t` (0 = closed/home, 1 = fully raised). Untagged faces and t≈0
 // pass through untouched, so a craft with no visor (or a closed one) costs nothing.
+// A telescoping part starts moving only once `t` passes SLIDE_T0, then eases out on a smoothstep.
+// The delay is the whole trick: run the slide on the same clock as the swing and the eye reads two
+// unrelated motions at once, instead of one machine finishing its cycle — nose up, THEN ramp out.
+const SLIDE_T0 = 0.58;
+export function slideEase(t) {
+  const u = t <= SLIDE_T0 ? 0 : Math.min(1, (t - SLIDE_T0) / (1 - SLIDE_T0));
+  return u * u * (3 - 2 * u);
+}
 export function hingeVisorFace(face, t) {
   if (!face.visorHinge || !t) return face.p;
-  return rotAboutAxis(face.p, face.visorHinge[0], face.visorHinge[1], (face.visorMax || 0.9) * t);
+  const pts = rotAboutAxis(face.p, face.visorHinge[0], face.visorHinge[1], (face.visorMax || 0.9) * t);
+  if (!face.slide) return pts;
+  // Translate AFTER the rotation, in world space: `slide` was authored along the deployed ramp's own
+  // axis, and by the time the ease is non-zero the plate is nearly deployed, so the extension runs
+  // true down the ramp rather than skewing off it.
+  const e = slideEase(t);
+  if (!e) return pts;
+  return pts.map(q => [q[0] + face.slide[0] * e, q[1] + face.slide[1] * e, q[2] + face.slide[2] * e]);
 }
 
 // A small forward-pointing spinner cone + hub (prop hub). `scale` sizes it: a big turboprop
@@ -547,10 +706,18 @@ function addHeavyGear(faces, p) {
       pushWheel(faces, f - 0.055, s * gside, wz, wr, 0.02, 8);
     }
   }
-  const nf = p.noseF * 0.55, nz = wz + 0.015;
+  // Nose unit. `noseGearAt` puts it FORWARD of the visor cut on a class with a hinged cargo nose,
+  // so the leg is bolted to the section that swings and rides up with it as one assembly — rather
+  // than standing under the hinge unattached to either half, which is what read as a landing leg
+  // floating loose beside the aeroplane.
+  // The nose wheels are SMALLER than the mains (wr*0.85), so sharing the mains' axle height hung
+  // them 0.0225 clear of the ground — a front wheel visibly floating above the tarmac while the
+  // aeroplane rested on its bogies. Put the axle where the smaller tyre's BOTTOM lands on the same
+  // ground line the mains define, and the whole undercarriage sits on one plane.
+  const nf = p.noseF * (p.noseGearAt ?? 0.55), nWr = wr * 0.85, nz = (wz - wr) + nWr;
   addStrut(faces, nf, 0, nz + 0.10, nz + 0.045, 0.018, 6);
-  pushWheel(faces, nf + 0.045, 0, nz, wr * 0.85, 0.018, 8);   // twin nose unit
-  pushWheel(faces, nf - 0.045, 0, nz, wr * 0.85, 0.018, 8);
+  pushWheel(faces, nf + 0.045, 0, nz, nWr, 0.018, 8);   // twin nose unit
+  pushWheel(faces, nf - 0.045, 0, nz, nWr, 0.018, 8);
 }
 
 // One fixed gear leg (short, stout strut) + a wheel, in side profile. The leg tops out
@@ -1280,35 +1447,90 @@ const FW_PARAMS = {
   heavy: { ...FW_DEFAULT, fr: 0.205, fv: 0.215, span: 1.05, noseF: 1.15, tailF: -1.12, hSpan: 0.46, finH: 0.66,
     wingH: 0.20, dih: -0.05, wRootF: 0.34, wRootB: -0.14, wTipF: 0.20, wTipB: -0.10,
     engines: [-0.60, -0.34, 0.34, 0.60], nacF: 0.26, nacH: -0.03, nacR: 0.095, pylons: true, heavyGear: true,
-    // BODY (per ref photos): the An-124 is a DEEP near-circular tube — taller than it is wide (the
+    // Nose leg forward of the visor cut (0.78) so it hangs off the swinging nose and hinges with it
+    // as one piece — see `noseGearAt` in addHeavyGear and the visor tagging in buildFixedWing.
+    // …and at the fore-aft MIDDLE of that nose section (0.78 → 1.15), rather than hard up against
+    // the hinge where it read as hanging off the seam instead of being carried by the nose.
+    noseGearAt: 0.839,
+    // BODY (per ref photo): the An-124 is a DEEP near-circular tube — taller than it is wide (the
     // upper flight deck sits over a full-height cargo bay) — held at constant section over most of
     // its length, closed by a bluntly rounded radome up front and an UPSWEPT cargo boat-tail aft.
-    // sides 16 rounds the section properly (12 facets read as a barrel on something this fat), the
-    // longer bodyTube gives the constant-section run, and the radome dips a touch below the
-    // fuselage line (noseZ) with the drop spent on the snout alone, the way the real nose does.
-    sides: 16, noseBlunt: 4.2, noseCowl: 0.27, boxy: 0.06, bodyTube: 0.74, tailUp: 0.145,
-    noseZ: -0.02, noseDroopK: 0.7,
+    // sides 16 rounds the section properly (12 facets read as a barrel on something this fat).
+    //
+    // THE NOSE IS THE WHOLE POINT OF THE TYPE, and it is not a cone. Ahead of the flight deck the
+    // ROOF falls away hard while the body stays wide (noseVTaper) — that shed IS the cargo visor,
+    // and it's why the aeroplane looks like it's frowning — but it bottoms out at noseVFloor rather
+    // than tapering to a slit, because what it ends in is a fat ROUND radome (noseCowl), not a
+    // point. The centreline droops with it (noseZ), spent early (noseDroopK < 1) so the drop lands
+    // on the visor and never tips the flight deck down with it. Result: a level cockpit sitting up
+    // behind a long sloping snout, exactly the profile in the reference.
+    // (noseVFloor is what keeps the tip ROUND: the vertical taper multiplies a width profile that is
+    // itself collapsing into the cowl, so the two compound — floor it too low and the radome comes
+    // out a letterbox slab rather than a snout. 0.60 against a 0.34 cowl lands it near circular.)
+    // AN AIRLINER NOSE, not a chopped cylinder. The lever here is noseBlunt: a HIGH exponent holds
+    // full width and then falls off a cliff, which is why the snout kept ending in a flat disc no
+    // matter what the cowl floor was set to. 2.2 rounds it down continuously instead — sampled at
+    // the extraF stations below the half-width runs 0.98 · 0.92 · 0.81 · 0.66 · 0.50 · 0.32 · 0.10,
+    // a smooth curve into a tip that is very nearly a point. The cowl floor drops to 0.10 to match:
+    // with the taper doing the work there's no cliff left to hide, so the end cap is a few pixels
+    // rather than a dinner plate.
+    // sides 24, not 16, and the reason is the COCKPIT. Glazing works in whole facets, so the ring
+    // resolution sets the smallest window you can cut: at 16 sides each facet is a 22.5° slice of the
+    // section, and the narrowest possible band was still 45° tall — a greenhouse. At 24 a facet is
+    // 15°, so the flight deck can be a tight strip near the crown the way the real one is. The extra
+    // rings cost ~100 faces on the whole airframe and buy the one detail you actually look at.
+    sides: 24, noseBlunt: 2.2, noseCowl: 0.10, boxy: 0.06, bodyTube: 0.56, tailUp: 0.145,
+    noseZ: -0.03, noseDroopK: 0.60, noseVTaper: 1.1, noseVFloor: 0.60,
     // Cargo VISOR NOSE (C-5 Galaxy / An-124): parked with the engines shut down the whole forward
-    // section ahead of the noseF*0.33 ring hinges fully UP (~90°), exposing the cargo hold + ramp;
-    // powering on lowers it home. hingeAt is a fraction of noseF so the cut lands exactly on a
-    // fuselage ring (a clean break, no torn skin).
-    visor: { hingeAt: 0.33, maxAng: 1.5708 },
+    // section hinges fully UP (~90°), exposing the cargo hold + ramp; powering on lowers it home.
+    // THE CUT IS AHEAD OF THE FLIGHT DECK, not behind it — on the real aeroplane the visor swings up
+    // in FRONT of the windows and the crew's office stays bolted to the fuselage. Cutting it aft of
+    // the glass (as this did) took the entire cockpit up with the nose, which is the single weirdest
+    // thing the model did. hingeAt is a fraction of noseF and lands on the 0.78 ring, so the break
+    // is a clean structural seam at the windscreen base. Shorter ramp to match the forward lip.
+    // maxAng 1.20 (69°), not a full 90°. The lower lip of the cut ring swings forward by
+    // sin(angle) × the fuselage's own depth, so at 90° it ends up a third of the airframe ahead of
+    // the hinge and the nose stops reading as attached to anything. Backing off to ~70° still yawns
+    // the mouth wide open for the ramp but keeps the section leaning on its hinge.
+    // THE FLIGHT DECK RIDES THE NOSE. The cut is aft of the glass (snapped to the 0.56 ring), so the
+    // cockpit is part of the swinging section — which is what the first-person view already assumes:
+    // `cockpitTilt` pitches the pilot's camera up with `noseVisor` and rotates back down as the
+    // visor closes. Leave the glass on the fixed fuselage and the camera swings while the windows
+    // it's looking through don't, which is the one arrangement that can't be right.
+    visor: { hingeAt: 0.4870, maxAng: 1.20, ramp: 0.50 },
     // FLIGHT DECK CUT INTO THE HULL, not a hump bolted on the roof (the Mule's treatment, and what
-    // the real aeroplane does): the An-124's cockpit windows are set into the upper forward
-    // fuselage above the cargo deck, so the glass IS the skin there. Rings at 0.76/0.66/0.58/0.48
-    // and the visor cut give each pane bay its own facet; on a 16-gon the upper half is k 0…7
-    // (starboard mid-height → crown at 4 → port). The WINDSCREEN bays (fore of wsF) glaze the whole
-    // upper band k1…6 — six panes wrapping cheek-to-cheek, split by the painted centre post — and
-    // the bays behind it glaze only the high side band (k1/k6) so the spine stays solid metal.
-    // f1 / the last extraF station are noseF*0.33 exactly, i.e. the visor cut, so the flight deck
-    // ends ON the hinge ring and rides up with the nose in one piece.
-    // 1.08/0.96 are the RADOME rings: the blunt superellipse only shows up if the mesh actually
+    // the real aeroplane does): the An-124's cockpit windows are set into the upper forward fuselage
+    // above the cargo deck, so the glass IS the skin there. On a 16-gon the upper half is k 0…7
+    // (starboard mid-height → crown at 4 → port). The WINDSCREEN wraps STRAIGHT ACROSS — k1…k6, the
+    // crown included — because that's what the real flight deck does: one continuous band of glass
+    // over the nose, split only by a painted centre post. Leaving k3/k4 as metal put a spine down the
+    // middle of the screen and the band read as two separate side windows with a wall between them.
+    // The bays BEHIND the screen still glaze only the high strip k2/k5 — the side window running aft
+    // under a roofline that, aft of the screen, genuinely is solid.
+    // The glass band is SHORT (0.78 → 0.56, under a fifth of the airframe): on the real thing it's a
+    // small bright patch high on a very long fuselage, and stretching it aft was what made the deck
+    // read as an airliner cabin.
+    // 1.11/1.02 are the RADOME rings: the blunt superellipse only shows up if the mesh actually
     // samples it, and the default nose has no station between the windscreen and the tip — without
-    // these the whole nose is one straight wedge from full section to the cowl face.
-    extraF: [1.08, 0.96, 0.87, 0.76, 0.66, 0.58, 0.48, 0.3795],
-    // wsF is tested against a bay's FORWARD station, so 0.66 means the two bays ahead of f=0.58
-    // are windscreen and everything aft of it is side glass.
-    glaze: { f0: 0.76, f1: 0.3795, ks: [2, 5], wsKs: [1, 2, 3, 4, 5, 6], wsF: 0.66, art: 'leviathan' } },
+    // these the whole nose is one straight wedge from full section to the cowl face. (1.11, not
+    // 1.13: an extraF within 0.03 of a default station EVICTS it, and 1.13 would have swallowed the
+    // nose tip at 1.15 and left the aeroplane snubbed.)
+    // 24 facets AROUND wants matching resolution ALONG, or the hull is smooth in section and creased
+    // in profile. The tailcone was the worst of it — three rings carrying the whole 1.1-long upswept
+    // boat-tail — so −0.18/−0.55/−0.95 go in to let the upsweep actually curve.
+    extraF: [1.14, 1.11, 1.06, 0.98, 0.88, 0.78, 0.70, 0.62, 0.56, 0.40, -0.18, -0.55, -0.95],
+    bellyFlat: 0.55,   // flat cargo-deck underside with a chine, not a barrel — see ring()
+    // wsF is tested against a bay's FORWARD station, so 0.74 makes the single bay 0.78→0.70 the
+    // windscreen and everything aft of it side glass.
+    // On a 24-gon the upper half is k 0…11 with the CROWN AT 6. The windscreen is k3…k8 — 45°→135°,
+    // symmetric about the crown, a tight strip across the top rather than a band down the cheeks —
+    // and the side glass aft is k3/k8 alone, the lowest facet of that strip carried backwards. The
+    // fore-aft run is short too (0.78→0.62, one bay of screen and one of side glass): the deck used
+    // to reach back to 0.56 and that length was half of why it read as too much glass.
+    glaze: { f0: 0.78, f1: 0.62, ks: [3, 8], wsKs: [3, 4, 5, 6, 7, 8], wsF: 0.74, art: 'leviathan' },
+    // The flight-deck HUMP. Peaks at f=0.70, dead centre of the glass band (0.78→0.56), and blends
+    // out to nothing well clear of the wing root at 0.34 so it can't crease the wing fairing.
+    hump: { f0: 0.42, f1: 0.98, h: 0.055 } },
   // Grasshopper — a Piper L-4 (per ref): a high-wing, strut-braced TANDEM two-seat TAILDRAGGER
   // liaison/observation plane. Signatures vs the Cessna: a deeper, SLAB-SIDED slim fuselage; a
   // long GLAZED "greenhouse" cabin (a row of big observation windows + a raked windscreen); a
@@ -1656,29 +1878,40 @@ const CANOPY_ART = {
       hairs: [0.40, 0.60], mid: 0, edge: 13 },
   },
   // Leviathan — an An-124 FLIGHT DECK glazed into the hull (FW_PARAMS.heavy.glaze). A working heavy
-  // freighter's cockpit: six big green-tinted screen panes wrapping the nose, a chunky painted
-  // frame, wipers parked low, and a FULL Antonov crew — two pilots at the screen, engineer and
-  // navigator at the side glass behind them. Which of this sheet shows depends on the facet: the
-  // WINDSCREEN bays (U 0–0.47) glaze the whole upper band, so all of V is glass there; the bays
-  // behind glaze only the high side band (V 0.25–0.375 and 0.625–0.75) — the middle of the sheet
-  // aft of the screen is painted spine and never drawn.
+  // freighter's office, and the read to chase is a WORKPLACE seen from outside: a small bright patch
+  // of green-tinted glass high on a very long grey fuselage, chunky painted frames, sun blinds half
+  // down, a black glareshield coaming under the screen, wipers parked on the sill, and a full Antonov
+  // crew — two pilots at the screen, engineer and navigator at the side glass behind them.
+  //
+  // Which of this sheet shows depends on the facet, and the important thing is what NEVER shows: the
+  // crown is unglazed, so the middle band of the sheet (V 0.375–0.625) is painted spine and is never
+  // drawn. The WINDSCREEN bay (U 0–0.364) glazes the upper cheeks — V 0.125–0.375 and 0.625–0.875,
+  // a pane pair either side of the spine — and the side-glass bays behind it glaze only the high
+  // strip V 0.25–0.375 / 0.625–0.75. Everything painted here is authored to those bands: put a
+  // detail on the crown and it simply doesn't exist.
   leviathan: {
-    wash: [[0.00, 'rgba(10,18,22,0.82)'], [0.15, 'rgba(18,34,40,0.68)'], [0.33, 'rgba(52,96,104,0.36)'],
-           [0.47, 'rgba(146,196,204,0.30)'], [0.53, 'rgba(146,196,204,0.30)'], [0.67, 'rgba(52,96,104,0.36)'],
-           [0.85, 'rgba(18,34,40,0.68)'], [1.00, 'rgba(10,18,22,0.82)']],
-    crew: [{ u: 0.16, v: 0.34, sc: 0.95, cap: true, hair: 'rgba(22,24,30,0.92)' },   // captain + first officer at the screen
-           { u: 0.16, v: 0.66, sc: 0.95, cap: true, hair: 'rgba(22,24,30,0.92)' },
-           { u: 0.62, v: 0.31, sc: 0.9, hair: 'rgba(30,28,26,0.92)' },               // engineer / navigator at the side glass
-           { u: 0.62, v: 0.69, sc: 0.9, hair: 'rgba(30,28,26,0.92)' }],
-    glow: { u: [0.06, 0.16], col: '90,180,190', a: 0.26, r: 70 },
-    spec: { band: [0.0, 1.0], streaks: [[0.12, 26, 0.18], [0.20, 16, 0.11]] },   // sun rake across the windscreen U
+    wash: [[0.00, 'rgba(10,18,22,0.82)'], [0.12, 'rgba(16,30,36,0.72)'], [0.26, 'rgba(46,88,98,0.40)'],
+           [0.34, 'rgba(132,184,192,0.30)'], [0.42, 'rgba(150,200,206,0.26)'], [0.50, 'rgba(52,96,104,0.42)'],
+           [0.58, 'rgba(150,200,206,0.26)'], [0.66, 'rgba(132,184,192,0.30)'], [0.74, 'rgba(46,88,98,0.40)'],
+           [0.88, 'rgba(16,30,36,0.72)'], [1.00, 'rgba(10,18,22,0.82)']],   // brightest at the two glazed cheeks, darkening back toward both sills
+    crew: [{ u: 0.24, v: 0.37, sc: 0.62, cap: true, hair: 'rgba(22,24,30,0.92)' },   // captain + first officer at the screen
+           { u: 0.24, v: 0.63, sc: 0.62, cap: true, hair: 'rgba(22,24,30,0.92)' },
+           { u: 0.74, v: 0.29, sc: 0.55, hair: 'rgba(30,28,26,0.92)' },              // engineer / navigator back in the side glass
+           { u: 0.74, v: 0.71, sc: 0.55, hair: 'rgba(30,28,26,0.92)' }],
+    glow: { u: [0.06, 0.20], col: '90,180,190', a: 0.24, r: 44 },
+    spec: { band: [0.0, 1.0], streaks: [[0.14, 16, 0.16], [0.26, 10, 0.10]] },   // sun rake clipped to the windscreen U
     frame: { col: 'rgba(40,44,50,0.95)', lit: 'rgba(104,112,122,0.5)',
-      // U posts on the real ring seams (glaze f 0.76→0.3795 ⇒ U 0→1): screen front (0), its two
-      // inter-pane dividers (0.26 / 0.47 — the beefy A-pillar where the screen ends), the
-      // side-window divider (0.74), and the aft edge of the glass at the visor hinge (1).
-      posts: [[0.00, 9], [0.26, 6], [0.47, 13], [0.74, 8], [1.00, 9]],
-      sills: [[0.25, 9], [0.75, 9]],   // window line — the bottom rail of the side glass and the base of the screen wrap
-      hairs: [0.375, 0.625], mid: 7, edge: 15, extra: 'wipers' },   // mid = the windscreen centre post
+      // UNDIVIDED. One unbroken strip of glass: no centre post, no pane hairlines, no inter-bay
+      // pillars — only the perimeter and the sill rails top and bottom of the band. The blinds and
+      // wipers went with them: on a strip this narrow each of those was a line straight across the
+      // window, and a few lines across a small band is all you would have seen of it.
+      posts: [], hairs: [], mid: 0,
+      sills: [[0.25, 7], [0.75, 7]],   // the window line — the only structure left
+      edge: 11, extra: ['glareshield'],
+      // The glareshield sits just inside each sill, clipped to the windscreen U — the one bit of
+      // interior structure worth keeping, because it's what stops a small dark strip reading as a
+      // painted-on slot rather than a window with a cockpit behind it.
+      shieldV: [[0.25, 0.315], [0.75, 0.685]], deckU: 0.5 },
   },
   // Grasshopper — an XCub (per ref photo): the big wraparound backcountry greenhouse. A SKYLIGHT
   // over the crown (you look up through the wing root), deep curved side glass, a black steel cage
@@ -1714,8 +1947,64 @@ export function canopyTex(art = 'viper') {
   for (const [st, col] of S.wash) gl.addColorStop(st, col);
   g.fillStyle = gl; g.fillRect(0, 0, W, H);
 
+  // Style extras. `extra` is one name or a LIST of them — a flight deck wants blinds AND a
+  // glareshield AND wipers, and each is an independent little painter rather than a mode.
+  const EX = (n) => [].concat(S.frame.extra || []).includes(n);
+
   // 1b) Style extras that belong UNDER the crew and frames.
-  if (S.frame.extra === 'skylight') {
+  if (EX('glareshield')) {
+    // The coaming: the black anti-glare shelf under the windscreen, seen from outside as a hard dark
+    // band hugging the sill with the instrument panel's own light leaking up off it. This is the
+    // detail that stops a big pane reading as an empty hole — there's an INSTRUMENT PANEL in there.
+    const dU = S.frame.deckU ?? 1;
+    for (const [vS, vI] of (S.frame.shieldV || [])) {
+      const y0 = Math.min(vS, vI) * H, y1 = Math.max(vS, vI) * H;
+      const cg = g.createLinearGradient(0, vS * H, 0, vI * H);
+      cg.addColorStop(0, 'rgba(6,8,10,0.92)'); cg.addColorStop(0.55, 'rgba(10,14,18,0.62)'); cg.addColorStop(1, 'rgba(10,14,18,0)');
+      g.fillStyle = cg; g.fillRect(0, y0, W * dU, y1 - y0);
+      // Panel light spilling off the shelf onto the glass just above it.
+      const lg = g.createLinearGradient(0, vI * H, 0, vS * H);
+      lg.addColorStop(0, 'rgba(70,190,170,0)'); lg.addColorStop(1, 'rgba(70,190,170,0.20)');
+      g.fillStyle = lg; g.fillRect(0, y0, W * dU * 0.9, y1 - y0);
+    }
+  }
+  if (EX('brow')) {
+    // The BROW. On the real aeroplane the flight deck is recessed into a fuselage that overhangs it,
+    // so the top of every pane sits in the shadow of its own roofline — and the eye reads that band
+    // of shade as depth. Without it the glass is a decal lying flat on the skin; with it the cockpit
+    // is set INTO the nose, which is the single biggest fidelity win available here.
+    for (const [vRail, vIn] of (S.frame.browV || [])) {
+      const bg = g.createLinearGradient(0, vRail * H, 0, vIn * H);
+      bg.addColorStop(0, 'rgba(4,7,10,0.78)'); bg.addColorStop(0.6, 'rgba(6,10,14,0.30)'); bg.addColorStop(1, 'rgba(6,10,14,0)');
+      // Clipped to the U band AFT of the screen: a wraparound windscreen has open sky over it, so a
+      // brow there would be shading the pane from a roofline that isn't there.
+      const bU = S.frame.deckU ?? 0;
+      g.fillStyle = bg;
+      g.fillRect(bU * W, Math.min(vRail, vIn) * H, (1 - bU) * W, Math.abs(vIn - vRail) * H);
+    }
+  }
+  if (S.panes) {
+    // Per-pane tint step. Flat panes at different angles never catch the sky identically, and a
+    // uniform wash across the whole sheet is what makes faceted glass read as one printed sticker.
+    // Alternating a hair of light and dark per bay costs nothing and breaks that up.
+    S.panes.forEach(([u0, u1], i) => {
+      g.fillStyle = i % 2 ? 'rgba(255,255,255,0.05)' : 'rgba(0,10,16,0.07)';
+      g.fillRect(u0 * W, 0, (u1 - u0) * W, H);
+    });
+  }
+  if (EX('blinds')) {
+    // Sun blinds pulled part-way down from the roofline — never level with each other, because no
+    // two crew ever set them the same, and that asymmetry is most of what sells them as blinds.
+    const dU = S.frame.deckU ?? 1;
+    (S.frame.blindV || []).forEach(([vTop, vBot], i) => {
+      const y0 = Math.min(vTop, vBot) * H, y1 = Math.max(vTop, vBot) * H, drop = i ? 0.82 : 1;
+      const yb = y0 + (y1 - y0) * drop;
+      g.fillStyle = 'rgba(148,132,104,0.62)'; g.fillRect(0, Math.min(y0, yb), W * dU, Math.abs(yb - y0));
+      g.strokeStyle = 'rgba(60,52,38,0.7)'; g.lineWidth = 2;   // the weighted bottom rail
+      g.beginPath(); g.moveTo(0, yb); g.lineTo(W * dU, yb); g.stroke();
+    });
+  }
+  if (EX('skylight')) {
     // The Cub skylight: an overhead pane running the length of the crown, so the roof band reads
     // as open sky rather than fabric. Brighter than the wash and squared off at the door station.
     const sk = g.createLinearGradient(0, H * 0.38, 0, H * 0.62);
@@ -1784,12 +2073,14 @@ export function canopyTex(art = 'viper') {
   for (const v of (F.hairs || [])) bar(0, v * H, W, v * H, 1.4, F.lit);
   if (F.mid) { bar(0, H / 2, W, H / 2, F.mid, F.col); bar(0, H / 2 - F.mid * 0.34, W, H / 2 - F.mid * 0.34, 1.4, F.lit); }
   // 4b) Style extras that belong ON TOP of the frame.
-  if (F.extra === 'wipers') {
-    // Two wiper arms parked low across the windscreen — the flight-deck tell.
+  if (EX('wipers')) {
+    // Two wiper arms parked low across the windscreen — the flight-deck tell. Parked ON the sill
+    // (frame.wiperV) so they lie in glass a class actually glazes rather than out on painted metal.
     g.strokeStyle = 'rgba(18,20,24,0.85)'; g.lineWidth = 3; g.lineCap = 'round';
-    for (const v of [0.06, 0.94]) { g.beginPath(); g.moveTo(W * 0.02, v * H); g.lineTo(W * 0.20, (v > 0.5 ? v - 0.13 : v + 0.13) * H); g.stroke(); }
+    for (const v of (F.wiperV || [0.06, 0.94])) { g.beginPath(); g.moveTo(W * 0.02, v * H); g.lineTo(W * 0.20, (v > 0.5 ? v - 0.13 : v + 0.13) * H); g.stroke(); }
     g.lineCap = 'butt';
-  } else if (F.extra === 'skylight') {
+  }
+  if (EX('skylight')) {
     // The cage: a diagonal door brace running down from the roof to the sill on each side — the
     // steel triangle you see through the XCub's side glass.
     g.strokeStyle = F.col; g.lineWidth = 4;
@@ -1912,9 +2203,18 @@ export function drawNoseArt(ctx, proj, cls, lv, occluders = null) {
   const fr = p.fr, fv = p.fv, shapeExp = 1 - (p.boxy || 0) * 0.55;
   const noseK = p.noseBlunt || 2.4, tube = p.bodyTube || 0, cowl = p.noseCowl || 0, OUT = 1.03;
   const radAt = (f) => { let u = Math.min(1, Math.abs(f / p.noseF)); u = u <= tube ? 0 : (u - tube) / (1 - tube); return cowl + (1 - cowl) * Math.pow(Math.max(0, 1 - Math.pow(u, noseK)), 1 / noseK); };
+  // Height profile, mirroring buildFixedWing's radVAt: on a class whose nose sheds height faster
+  // than width the flank is SHORTER up front, and wrapping the decal on the plan taper alone hangs
+  // it off the top of the snout.
+  const radVAt = (f) => {
+    if (!(p.noseVTaper && f > 0)) return radAt(f);
+    let u = Math.min(1, f / p.noseF); u = u <= tube ? 0 : (u - tube) / (1 - tube);
+    const vf = p.noseVFloor || 0;
+    return radAt(f) * (vf + (1 - vf) * Math.pow(1 - u, p.noseVTaper));
+  };
   const czAt = (f) => (p.noseZ ?? 0.02) * (f / p.noseF);            // centreline height (drooped nose pulls it down)
   const surf = (f, h, sign) => {                                     // near-flank hull point at (f, h) — sign picks the flank
-    const r = radAt(f), sv = clampN((h - czAt(f)) / (fv * r || 1e-6), -0.999, 0.999);
+    const r = radAt(f), sv = clampN((h - czAt(f)) / (fv * radVAt(f) || 1e-6), -0.999, 0.999);
     const cosMag = Math.sqrt(Math.max(0, 1 - Math.pow(Math.abs(sv), 2 / shapeExp)));
     return [f, sign * Math.pow(cosMag, shapeExp) * fr * r * OUT, h];
   };
@@ -1929,7 +2229,7 @@ export function drawNoseArt(ctx, proj, cls, lv, occluders = null) {
       const f = fF + (fR - fF) * (i / Nc);
       // Reach decals ride the nose cone, so the vertical band tapers with the shrinking radius —
       // it hugs the cone to the tip instead of overshooting the thin front as a fixed-height slab.
-      const hh = reach ? hHalf * (0.30 + 0.70 * radAt(f)) : hHalf;
+      const hh = reach ? hHalf * (0.30 + 0.70 * radVAt(f)) : hHalf;
       const h = czAt(f) + hh - 2 * hh * (j / Nr);   // top(j=0) → bottom
       const P = proj(...surf(f, h, sign)); row.push(P); if (P.z > 0.18) anyNear = true;
     }
@@ -2499,6 +2799,7 @@ function paintTurntable(ctx, { cls, armed = false, livery, yaw = 0, w, h, wreck 
   const drawn = [];
   for (const face of faces) {
     if (face.role === 'rotor') continue;   // spinning surfaces drawn by drawRotorFX below
+    if (visorHidden(face)) continue;       // parked on the turntable she sits nose-CLOSED, so the hold isn't there to punch through her belly
     const P = face.p.map(v => { const t = tiltV ? tiltV(v) : v; return proj(t[0], t[1], t[2]); });
     if (P.some(q => q.z <= 0.15)) continue;
     // Newell's method for the face normal (sum over all edges) — stays valid even when ONE
@@ -2947,6 +3248,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     const drawn = [];
     for (const face of faces) {
       if (face.role === 'rotor') continue;   // spinning surfaces drawn by drawRotorFX below
+      if (visorHidden(face)) continue;       // showroom aeroplanes are buttoned up (see visorHidden)
       const P = face.p.map(v0 => {
         const v = tilt ? tilt(v0) : v0;
         const vy = v[1] * sc, vz = v[2] * sc;

@@ -38,6 +38,10 @@ import { loadSettings } from '../../../shared/settings.js';
 // The SAME height/footprint numbers the flight sim extrudes Coldwater with, so
 // the skyline you fly through here is the skyline you fly over later.
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
+// The real shape of every building, captured out of the flight sim and baked to data so a FIRST
+// LOGIN never has to import the ~8500-line renderer to find out what a tower looks like. Same
+// reason skyline-scale.js exists, one level up: this is form where that is mass.
+import { shapeFor, shapeVal } from '../../../shared/building-shapes.js';
 
 const SEEN_KEY = 'introCinematicSeen';
 
@@ -543,17 +547,72 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
   const CX = rawSkyline.reduce((s, b) => s + b.x, 0) / rawSkyline.length;
   const CY = rawSkyline.reduce((s, b) => s + b.y, 0) / rawSkyline.length;
 
+  // ── Real building shapes ──
+  // How many captured pieces a building is allowed. The baked list is ordered most-defining first,
+  // so 4 buys the setbacks, the spire and the portico while keeping the stroke count sane: every
+  // edge here is its own beginPath, and 240 buildings × 12 edges is already the frame's budget.
+  // The bake already trims to the most-defining pieces (tallest always kept), so nothing is sliced
+  // here — instead the DRAW picks how many to stroke by distance, because a far tower is a few
+  // pixels of cage and every edge is its own beginPath. That keeps the frame near its old cost:
+  // most of the ~240 buildings are far, and they stay one box exactly as before.
+  const segCountFor = (dist) => (dist < 9 ? 5 : dist < 20 ? 3 : 1);
+  const ENT_VEC = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
+  // A building's captured segments, resolved and pre-transformed into SCENE offsets around its own
+  // position. Done once at build time, never per frame.
+  //
+  // Corners are carried all the way through model-local → tile → scene individually rather than by
+  // composing angles. A segment's `yaw` (the twist on Halcyon, Solenne and the Ascendant spire) and
+  // the building's entrance rotation are two different frames, and adding them in the wrong order
+  // gives a tower that stands in the right place with its footprint turned the wrong way — right
+  // enough to ship unnoticed. Rotating the four corners sidesteps the question entirely.
+  const segsFor = (b, half, h) => {
+    const list = shapeFor(b.n, b.t);
+    if (!list || !list.length) return null;
+    const E = ENT_VEC[b.e] || ENT_VEC.south;
+    const px = E[1], py = -E[0];                 // model-local +x = right of the door
+    const V = (p) => shapeVal(p, half, h);
+    const out = [];
+    for (const s of list) {
+      const cx = V(s.cx), cy = V(s.cy), hx = V(s.hx), hy = V(s.hy);
+      if (!(hx > 0.0005) || !(hy > 0.0005)) continue;
+      const cw = Math.cos(s.yaw || 0), sw = Math.sin(s.yaw || 0);
+      const pts = [[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]].map(([ax, ay]) => {
+        const lx = cx + ax * cw - ay * sw, ly = cy + ax * sw + ay * cw;   // local, yaw applied
+        const tx = lx * px + ly * E[0], ty = lx * py + ly * E[1];         // → tile offset (facePt)
+        return [-ty * SPACING, -tx * SPACING];                            // → scene, same axis flip as T2X/T2Z
+      });
+      // Scene y is DOWN, ground at GY — so a taller world-z is a smaller y.
+      out.push({ pts, yTop: GY - V(s.z1), yBot: GY - V(s.z0), tall: !!s.tall });
+    }
+    return out.length ? out : null;
+  };
+
   const city = (() => {
     const src = rawSkyline.slice(0, 240);
     const out = src.map((b, i) => {
       const seed = ((b.x + 512) * 73 + (b.y + 512) * 149) % 1000 / 1000;
       const floors = floorsFor(b.t, b.f);
       const sx = T2X(b.y, CY), sz = T2Z(b.x, CX);
+      const half = (BUILDING_FOOT + seed * 0.05) * SPACING;
+      const h = BASE_H + floors * FLOOR_Z * STRETCH * (0.9 + seed * 0.2);
+      const segs = segsFor(b, half, h);
       return {
         sx, sz, i,
-        half: (BUILDING_FOOT + seed * 0.05) * SPACING,
-        h: BASE_H + floors * FLOOR_Z * STRETCH * (0.9 + seed * 0.2),
-        floors, seed,
+        half, h, floors, seed,
+        // The building's REAL shape, captured out of the flight sim and baked into
+        // client/shared/building-shapes.js. `segs` are wireframe boxes in the model's own frame —
+        // stepped setbacks, spires, porticos, water towers — so the tower you fly between here is
+        // the tower you fly over later, not a box standing in for it. Null for anything with no
+        // captured model (or an old server that ships no name/entrance), and the plain box below
+        // still handles that case: this is a detail upgrade, never a dependency.
+        segs,
+        // The building's REAL top. A captured model can stand far above its storey stack — an
+        // office tower extrudes to 1.7× it, Halcyon to 2.9× — and the cruise altitude below is
+        // derived from this. Miss it and the camera calmly flies THROUGH the tallest towers in
+        // the city, which is the sort of thing that only shows up on a first login.
+        // From EVERY captured piece, not just the ones drawn at this distance — the camera has to
+        // clear the spire whether or not the spire is being stroked this frame.
+        hMax: segs ? Math.max(h, ...segs.map((s) => GY - s.yTop)) : h,
         // Downtown lands first and the edges of the map last, so the city
         // assembles from its middle outward rather than in a flat wipe.
         delay: clamp01(Math.hypot(sx, sz) / 22) * 0.55 + seed * 0.22,
@@ -579,7 +638,7 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
   // canyon-diving read and you gain a move that never argues with itself, which is
   // the trade the "it should be smooth" brief is asking for.
   const CRUISE_CLEAR = 1.35;               // headroom over the tallest roof
-  const maxRoof = city.length ? Math.max(...city.map(b => b.h)) : 3.6;
+  const maxRoof = city.length ? Math.max(...city.map(b => b.hMax || b.h)) : 3.6;
   const CRUISE_Y = -(maxRoof + CRUISE_CLEAR);
   const APPROACH_Y = CRUISE_Y - 5.4;       // up is -y, so this is HIGHER
   // Where the run starts and ends in z. Hoisted because the reform lattice below
@@ -941,7 +1000,7 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
       const grow = smooth(clamp01((assemble - b.delay * 0.42 - 0.20) / 0.26));  // box extrudes down
       const lit  = clamp01((assemble - b.delay * 0.42 - 0.40) / 0.34);          // lights come on
 
-      const top = GY - b.h;
+      const top = GY - (b.hMax || b.h);   // the real roofline — where the lattice node lands
       // The node: from somewhere out there to exactly this rooftop.
       const nx = lerp(b.ox, b.sx, land), ny = lerp(b.oy, top, land), nz = lerp(b.oz, b.sz, land);
       const np = proj(nx, ny, nz);
@@ -965,22 +1024,48 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
       if (hz <= 0.02) continue;
       const al = 0.42 * hz, lw = Math.max(0.5, 1.15 * clamp01(9 / Math.max(0.6, b.sz - cam.z)));
 
-      // The roof, drawn brightest — it's the part the node made.
-      stroke3([x0, top, z0], [x1, top, z0], al * 1.5, lw);
-      stroke3([x1, top, z0], [x1, top, z1], al * 1.5, lw);
-      stroke3([x1, top, z1], [x0, top, z1], al * 1.5, lw);
-      stroke3([x0, top, z1], [x0, top, z0], al * 1.5, lw);
-      // Four corner posts, growing toward the ground.
-      stroke3([x0, top, z0], [x0, bot, z0], al, lw);
-      stroke3([x1, top, z0], [x1, bot, z0], al, lw);
-      stroke3([x1, top, z1], [x1, bot, z1], al, lw);
-      stroke3([x0, top, z1], [x0, bot, z1], al, lw);
-      // And the footprint, only once it has actually reached the ground.
-      if (grow > 0.97) {
-        stroke3([x0, GY, z0], [x1, GY, z0], al * 0.85, lw);
-        stroke3([x1, GY, z0], [x1, GY, z1], al * 0.85, lw);
-        stroke3([x1, GY, z1], [x0, GY, z1], al * 0.85, lw);
-        stroke3([x0, GY, z1], [x0, GY, z0], al * 0.85, lw);
+      if (b.segs) {
+        // The building's REAL form: stepped setbacks, a spire, a portico, a rooftop water tower —
+        // the same geometry the flight sim extrudes, so this IS the city you'll fly over later
+        // rather than a stand-in for it. Each piece extrudes down from its own top on the shared
+        // clock, so a tower still assembles roof-first instead of arriving whole.
+        const nSeg = segCountFor(b.sz - cam.z);
+        for (let si = 0; si < b.segs.length; si++) {
+          const sg = b.segs[si];
+          // The spire always draws, however far away. It sorts last (almost no bulk) but it is the
+          // single most recognisable thing about a tower on a skyline — dropping it at distance
+          // would turn Halcyon and Solenne back into the plain slabs this work exists to replace.
+          if (si >= nSeg && !sg.tall) continue;
+          const sTop = sg.yTop, sBot = lerp(sTop, sg.yBot, grow);
+          const P = sg.pts;
+          for (let k = 0; k < 4; k++) {
+            const n = (k + 1) % 4;
+            const ax = b.sx + P[k][0], az = b.sz + P[k][1], bx = b.sx + P[n][0], bz = b.sz + P[n][1];
+            stroke3([ax, sTop, az], [bx, sTop, bz], al * 1.5, lw);        // roof ring, brightest
+            stroke3([ax, sTop, az], [ax, sBot, az], al, lw);              // corner post, growing down
+            if (grow > 0.97) stroke3([ax, sg.yBot, az], [bx, sg.yBot, bz], al * 0.85, lw);   // base ring, once landed
+          }
+        }
+      } else {
+        // No captured shape (an unmodelled tile, or an old server shipping no name/entrance) — the
+        // original plain box, unchanged.
+        // The roof, drawn brightest — it's the part the node made.
+        stroke3([x0, top, z0], [x1, top, z0], al * 1.5, lw);
+        stroke3([x1, top, z0], [x1, top, z1], al * 1.5, lw);
+        stroke3([x1, top, z1], [x0, top, z1], al * 1.5, lw);
+        stroke3([x0, top, z1], [x0, top, z0], al * 1.5, lw);
+        // Four corner posts, growing toward the ground.
+        stroke3([x0, top, z0], [x0, bot, z0], al, lw);
+        stroke3([x1, top, z0], [x1, bot, z0], al, lw);
+        stroke3([x1, top, z1], [x1, bot, z1], al, lw);
+        stroke3([x0, top, z1], [x0, bot, z1], al, lw);
+        // And the footprint, only once it has actually reached the ground.
+        if (grow > 0.97) {
+          stroke3([x0, GY, z0], [x1, GY, z0], al * 0.85, lw);
+          stroke3([x1, GY, z0], [x1, GY, z1], al * 0.85, lw);
+          stroke3([x1, GY, z1], [x0, GY, z1], al * 0.85, lw);
+          stroke3([x0, GY, z1], [x0, GY, z0], al * 0.85, lw);
+        }
       }
 
       // ── Lights ──

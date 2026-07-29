@@ -1,0 +1,119 @@
+// shapes:smoke — execute every flight-sim building model and fail if any of them throws.
+//
+//   npm run shapes:smoke
+//
+// Why this exists. The windshield's 72 building models (drawTypeModel in
+// client/game/js/panels/windshield.js) had ZERO automated coverage of any kind. The only thing
+// that ever ran an arm was a player flying past that particular building, which meant a model
+// could be broken for months and nobody would know until someone happened to fly over it.
+//
+// That is not hypothetical. The Battery Acid Coffee Co. roaster passed `pal` — a palette KEY
+// string — where drawFacetDrum's 11th argument must be a style FUNCTION. It threw
+// "style is not a function" on the first frame the cafe was visible, which killed the render
+// loop and froze the sim with the last frame still painted. Every other drawFacetDrum call in
+// the file passes a function; this one outlier shipped because nothing executed it.
+//
+// WHAT THIS CHECKS, and what it does not. It proves every model RUNS — no exceptions, across
+// night and day and both entrance facings. It says nothing about whether a building looks right;
+// there is no pixel comparison here and adding one would need a browser. The bar is deliberately
+// "the render loop survives", because that is the failure that takes the whole sim down.
+//
+// Two gates run, both cheap:
+//   PAINT   — drawTypeModel + flushFaces() for every model. The flush matters: nearly all the ctx
+//             work lives in deferred closures, so a smoke test that skipped it would have sailed
+//             straight past the roaster bug.
+//   SHAPE   — the capture harness over every model: geometry must be affine in (fh, h) and must
+//             reproduce at a scale the decomposition never saw. This is what catches an arm
+//             smuggling an absolute constant into a mass argument, which would silently break
+//             collision and shadows at any footprint but the captured one.
+//
+// Runs in node in about a second via scripts/shapes/dom-stub.mjs — no browser, no DB, no network.
+import { loadWindshield } from './dom-stub.mjs';
+import { bakeShapes } from './bake.mjs';
+
+const WARN_ONLY = process.argv.includes('--warn-only');
+
+async function main() {
+  let ws;
+  try {
+    ws = await loadWindshield();
+  } catch (e) {
+    // A load failure is itself a real result: windshield.js is broken, or it grew a dependency on
+    // a browser API the stub doesn't answer yet. Both are worth failing on.
+    console.error('✗ shapes:smoke — could not load windshield.js:\n ', e.message);
+    console.error('\n  If this is a NEW browser API rather than a real bug, add it to scripts/shapes/dom-stub.mjs.');
+    process.exit(WARN_ONLY ? 0 : 1);
+  }
+
+  const models = ws.shapeModelRegistry();
+  const problems = [];
+
+  // ── PAINT ──
+  for (const f of ws.shapeRenderSmoke()) {
+    problems.push(`paint  ${f.key} (night=${f.night}, ${f.front ? 'entrance toward camera' : 'entrance away'}) → ${f.err}`);
+  }
+
+  // ── SHAPE ──
+  let segs = 0, seedVariant = 0;
+  const constWarnings = [];
+  for (const { key, m } of models) {
+    const err = ws.shapeLinearityError(m, 0);
+    if (err) { problems.push(`shape  ${key} → ${err}`); continue; }
+    const captured = ws.shapeForModel(m, 0);
+    if (!captured) { problems.push(`shape  ${key} → capture returned null`); continue; }
+    if (!captured.length) problems.push(`shape  ${key} → captured no mass at all (a building with no building)`);
+    segs += captured.length;
+    if (ws.shapeIsSeedVariant(m)) seedVariant++;
+    for (const w of ws.shapeConstantWarnings(m)) constWarnings.push(`${key}: ${w}`);
+  }
+
+  // Absolute terms are legal (the Layover's cone apex is a literal 0.001) but they are also what a
+  // modelling slip looks like, so they are surfaced rather than swallowed — and never fail the run.
+  if (constWarnings.length) {
+    console.warn(`! shapes:smoke — ${constWarnings.length} absolute term(s) in mass arguments (legal, but check they're intentional):`);
+    for (const w of constWarnings) console.warn(`    ${w}`);
+  }
+
+  // ── STALE BAKE ──
+  // client/shared/building-shapes.js is generated from these same arms, and the cold open reads it
+  // instead of importing the renderer. Because the capture runs in node, this can be a DIRECT
+  // comparison rather than a hash of source text: re-capture, compare, and name the models that
+  // moved. A hash would only ever say "something changed"; this says what.
+  try {
+    const baked = await import('../../client/shared/building-shapes.js');
+    const fresh = bakeShapes(ws);
+    const drifted = [];
+    for (const k of new Set([...Object.keys(fresh), ...Object.keys(baked.BUILDING_SHAPES)])) {
+      if (JSON.stringify(fresh[k]) !== JSON.stringify(baked.BUILDING_SHAPES[k])) drifted.push(k);
+    }
+    if (drifted.length) {
+      problems.push(`stale bake — ${drifted.length} model(s) differ from client/shared/building-shapes.js `
+        + `(${drifted.slice(0, 5).join(', ')}${drifted.length > 5 ? ', …' : ''}). Run: npm run shapes:bake`);
+    }
+  } catch (e) {
+    problems.push(`could not read client/shared/building-shapes.js (${e.message}). Run: npm run shapes:bake`);
+  }
+
+  if (problems.length) {
+    console.error(`✗ shapes:smoke — ${problems.length} problem(s) across ${models.length} building models:`);
+    for (const p of problems) console.error(`    ${p}`);
+    console.error('\n  A model that throws takes the whole flight sim down with it, not just itself.');
+    process.exit(WARN_ONLY ? 0 : 1);
+  }
+
+  // What the distance LOD actually buys, measured rather than asserted: faces queued per building
+  // at full detail vs. at range. `detail 1` must equal the arm's own mass (that's the no-pop
+  // handover); the drop to `detail 0` is the saving on a distant skyline.
+  const at = (d) => models.reduce((s, { m }) => s + ws.shapeLodFaces(m, d), 0) / models.length;
+  const full = at(1), mid = at(0.5), far = at(0);
+  console.log(`✓ shapes:smoke — ${models.length} models render clean (night/day × both facings, plus the LOD path across 4 detail levels × 4 facings); ${segs} mass segments captured, ${seedVariant} seed-variant.`);
+  console.log(`  LOD faces per building: ${full.toFixed(1)} at full detail → ${mid.toFixed(1)} mid → ${far.toFixed(1)} at range (${(100 - far / full * 100).toFixed(0)}% fewer).`);
+  // Cost of the LIGHTS, measured in the two canvas operations that actually hurt. Face count is a
+  // bad proxy: a mass face is a flat fill, a neon blade sets shadowBlur (a software blur per draw).
+  const cost = (t, f) => models.reduce((a, { m }) => { const c = ws.shapeAdornCost(m, t, 0.9, f); a.g += c.grads; a.b += c.blurs; return a; }, { g: 0, b: 0 });
+  const aNear = cost(2, 4), aFar = cost(2, 30), aCheap = cost(1, 4);
+  console.log(`  Adornment cost per skyline: tier 2 near ${aNear.g} gradients + ${aNear.b} blurs · tier 2 beyond glowFar ${aFar.g} + ${aFar.b} · tier 1 (beacons/masts) ${aCheap.g} + ${aCheap.b}.`);
+  process.exit(0);
+}
+
+main();

@@ -245,11 +245,28 @@ async function cmdGo(argText, player, broadcast) {
   }
   const zone = getZone(player.current_zone);
   if (!zone) return { type: 'error', message: 'Your zone is missing.' };
-  const resolved = resolveNamedDestination(zone, argText);
+  // "go <dir> <name>" — the click path sends the direction the link was drawn
+  // under alongside the destination name. The name picks the specific exit; if
+  // it can't be resolved at all, we still walk the direction.
+  const dirHint = goParts.length > 1 && RAW_DIRECTIONS.includes(goParts[0]) ? goParts[0] : null;
+  const nameText = dirHint ? goParts.slice(1).join(' ') : argText;
+  const resolved = resolveNamedDestination(zone, nameText, dirHint);
   if (resolved.type === 'unique') return cmdMove(resolved.match.direction, player, broadcast, { targetZoneId: resolved.match.targetId });
+  if (dirHint && resolved.type !== 'ambiguous') return cmdMove(dirHint, player, broadcast);
   if (resolved.type === 'ambiguous') {
-    const names = resolved.candidates.map(c => c.name).join(', ');
-    return { type: 'error', message: `That could mean several things here: ${names}. Try being more specific.` };
+    // Numbered SIFT picker, one line per candidate with the way it lies — picking
+    // a number moves straight to that zone id (see the intercept in index.js),
+    // which is the only route that works when the names are identical.
+    const candidates = resolved.candidates.map(c => ({
+      id: c.targetId,
+      name: `${c.name} (${c.direction})`,
+      direction: c.direction,
+    }));
+    createSelectionState(player.id, candidates, { verb: 'go' });
+    return {
+      type: 'output',
+      message: `Several places here are called that.\n${formatSelectionPage(getSelectionState(player.id))}`,
+    };
   }
   return cmdMove(argText, player, broadcast);
 }

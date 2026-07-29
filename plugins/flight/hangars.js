@@ -9,7 +9,7 @@ import { query } from '../../server/models/db.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { liveAircraft, persist, out, effStats, fieldFor as fieldOf,
   SEAT_KG, isConfigurable, loadoutBudget, effLoadout, sendToPlayer, skyState, inHangarInterior,
-  FLIGHT_PACE, tuneRange, installedKits, KITS, perfAxes, parkAt, nearestAirfield, getZone,
+  FLIGHT_PACE, tuneRange, installedKits, KITS, perfAxes, parkAt, nearestAirfield, craftIsVtol, getZone,
   detach, getLivePlayer, resetSurfaces, acquirableTypes } from './state.js';
 import { normalizeLivery, sanitizeLivery, signatureScore, describeExterior,
   paintCost, isPaintable, readSchemes, schemeOf,
@@ -185,7 +185,11 @@ export async function pushHangarBay(player, selectId, opts = {}) {
     // VTOL only. This lot used to run its own unfiltered query, which showed
     // fixed-wings whose Buy/Rent buttons the server then refused.
     const types = await acquirableTypes(field);
-    lots = types.map(t => ({ id: t.id, name: t.name, class: t.class, seats: t.seats, fuel: t.fuel_type, priceBuy: t.price_buy, priceRent: t.price_rent_hourly }));
+    // `hardpoints` rides along because CLASS ALONE DOESN'T NAME THE MESH: an armed heli draws the
+    // Viper (stub wings, rocket pods, chin gun), an unarmed one the Dragonfly, and without this the
+    // whole lot fell back to the Dragonfly — you shopped for a gunship and were shown a taxi.
+    lots = types.map(t => ({ id: t.id, name: t.name, class: t.class, seats: t.seats, fuel: t.fuel_type,
+      hardpoints: t.hardpoints || 0, priceBuy: t.price_buy, priceRent: t.price_rent_hourly }));
   }
   // Licence gate for the acquisition buttons (admins/devs are auto-rated + bypass the price).
   const licensed = await isPilotLicensed(player);
@@ -788,8 +792,11 @@ export async function cancelRental(player, aircraftId) {
 // vehicle Cancel Rental button reappears and clears her normally.
 export async function flushAirborne(player) {
   const { rows } = await query(
-    `SELECT id, airborne, parked_zone_id, grid_x, grid_y
-     FROM aircraft WHERE owner_id=$1 AND is_wreck=0`, [player.id]);
+    // takeoff_mode joined in: an OFFLINE row (no live instance) still has to know whether a
+    // helipad is a legal place to tow it to, and the aircraft row alone can't say.
+    `SELECT a.id, a.airborne, a.parked_zone_id, a.grid_x, a.grid_y, t.takeoff_mode
+     FROM aircraft a JOIN aircraft_types t ON t.id = a.type_id
+     WHERE a.owner_id=$1 AND a.is_wreck=0`, [player.id]);
   let grounded = 0;
   for (const ac of rows) {
     const live = liveAircraft.get(ac.id);
@@ -809,12 +816,12 @@ export async function flushAirborne(player) {
       if (realRider) continue;
       if (live.row.airborne) {
         const home = (live.homeField && getZone(live.homeField)?.flags?.airfield_id) ? live.homeField : null;
-        const dest = home || nearestAirfield(live.row.grid_x, live.row.grid_y)?.id || live.row.parked_zone_id;
+        const dest = home || nearestAirfield(live.row.grid_x, live.row.grid_y, { needsRunway: !craftIsVtol(live) })?.id || live.row.parked_zone_id;
         if (dest) { await parkAt(live, dest); recovered = true; }           // set her down
       }
       if (recovered) grounded++;
     } else if (ac.airborne) {
-      const dest = ac.parked_zone_id || nearestAirfield(ac.grid_x, ac.grid_y)?.id || null;
+      const dest = ac.parked_zone_id || nearestAirfield(ac.grid_x, ac.grid_y, { needsRunway: ac.takeoff_mode !== 'vtol' })?.id || null;
       await query(
         `UPDATE aircraft SET airborne=0, altitude_band='ground', throttle=0${dest ? ', parked_zone_id=$2' : ''} WHERE id=$1`,
         dest ? [ac.id, dest] : [ac.id]);

@@ -334,6 +334,27 @@ scale with people currently high or asleep rather than with players online.
 
 ---
 
+## Authoring — one nav row, two tabs
+
+All three tables live behind a single dev-panel sidebar entry, **🌒 Unreality**, with two tabs:
+
+| tab | tables | why together |
+|---|---|---|
+| 🌒 Dreamscapes | `dream_templates` + `dream_presences` | halves of one job — a pool of rooms can't be judged without knowing who turns up in them. The roll-a-preview widget sits above both. |
+| 🌀 Drug Transforms | `drug_transforms` | the opposite thing: no room at all, just the real world re-dressed. |
+
+There is no suite panel object. The three `PANELS` entries are unchanged and **the active one *is* the
+tab** (`renderDreamSuite` in `client/devpanel/js/panels/dreams.js`, keyed off `currentPanel`) — which is
+what lets every generic path (`editForm`/`save`/`delete`, the post-save `loadPanel`) still resolve to
+exactly one table with no overrides. Two consequences worth knowing before touching it: rows pass their
+own panel key to `dreamSuiteEdit(panel, id)` rather than reading `currentPanel` at click time (two
+tables share one view), and the toolbar's single **+ New** is suppressed via `hideNewBtn` because it
+couldn't say which of the two tables it meant — each section carries its own. The sidebar row's
+`data-panel="dreams"` is a *nav* key, not a panel id; `NAV_ALIASES` in `js/core/panels.js` maps the
+three panels onto it so the row stays lit.
+
+---
+
 
 ## Planned
 
