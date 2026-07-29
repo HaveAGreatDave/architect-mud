@@ -2234,13 +2234,25 @@ setTimeout(() => { refreshTalkshowNewsStory().catch(() => {}); }, 8000);
 const TALKSHOW_MONOLOGUE = 4;   // base jokes for the monologue (+0..1 more per night); audience
                                 // beats between jokes carry the pacing, so fewer jokes per show
 const TALKSHOW_INTERVIEW = 3;   // base host-question / guest-answer exchanges (+0..1 more per night)
+// CALL TIME, in slots. The guest is the only cast member who isn't already at the studio when
+// the show starts: it materialises backstage and has to WALK there. Coming on shift at airtime
+// meant it started walking as the theme played and was still en route through the interview —
+// and because the host and sidekick WERE on the floor, the "nobody home" stand-by never fired,
+// so the room-authority rule (a line belongs to whoever is standing there to say it) silently
+// dropped every guest answer. What aired was John interrogating an empty chair. So the guest
+// gets a call time: on shift a slot early, in the studio before it's introduced. Like a real one.
+const TALKSHOW_GUEST_CALL_LEAD = 1;
 
 // The show airs on a nightly @airtime slot, reusing the sports in-game 3-hour block clock
 // (sportsSlotOfDay). No @airtime ⇒ every slot (continuous), same convention as sports.
-function talkshowAiring(script) {
+// `lead` looks AHEAD: lead 1 is also true during the slot before an airing one, which is how
+// the guest gets called in early (see TALKSHOW_GUEST_CALL_LEAD).
+function talkshowAiring(script, lead = 0) {
   const slots = script?.airSlots;
   if (!Array.isArray(slots) || !slots.length) return true;
-  return slots.includes(sportsSlotOfDay());
+  const now = sportsSlotOfDay();
+  for (let k = 0; k <= lead; k++) if (slots.includes((now + k) % SPORTS_GAMES_PER_DAY)) return true;
+  return false;
 }
 // Episode bucket = the in-game calendar day, so a fresh guest + fresh episode roll once a
 // day and every viewer (and every restart within that day) sees the same one.
@@ -2260,37 +2272,74 @@ function talkshowPersonaFor(script, bucket) {
 function talkshowFill(line, tok) {
   return String(line).replace(/\{(\w+)\}/g, (_, k) => (tok[k] !== undefined && tok[k] !== null ? String(tok[k]) : ''));
 }
-// Draw N distinct lines from a pool (shuffled by the seeded rng), filled with tokens. Falls
-// back to fewer if the pool is short; empty pool ⇒ [].
+// TOPIC TAGS. An authored line may open with `[topic]`, which is a promise that no other line
+// sharing that topic appears in the same episode. Distinctness by line identity was never
+// enough: the pools are big and well-stocked, but "What would you tell young people considering
+// your line of work?" and "Did you always know this was your calling?" are two different lines
+// asking one question, and drawing both made the show feel like it wasn't listening. Untagged
+// lines are unconstrained, so tagging is opt-in and a pool can be half-tagged without surprise.
+const TOPIC_RE = /^\s*\[([\w-]+)\]\s*/;
+const lineTopic = (l) => (TOPIC_RE.exec(String(l))?.[1]) || null;
+const stripTopic = (l) => String(l).replace(TOPIC_RE, '');
+// Shuffle, then take n while allowing each topic at most once.
+function topicPick(arr, n, rand) {
+  const seen = new Set();
+  const out = [];
+  for (const l of sportsShuffle(arr, rand)) {
+    if (out.length >= n) break;
+    const t = lineTopic(l);
+    if (t) { if (seen.has(t)) continue; seen.add(t); }
+    out.push(l);
+  }
+  return out;
+}
+// Draw N distinct lines from a pool (shuffled by the seeded rng), filled with tokens, never
+// two from the same [topic]. Falls back to fewer if the pool is short; empty pool ⇒ [].
 function talkshowDraw(pools, key, n, tok, rand) {
   const arr = Array.isArray(pools[key]) ? pools[key] : [];
   if (!arr.length) return [];
-  return sportsShuffle(arr, rand).slice(0, n).map(l => talkshowFill(l, tok).trim()).filter(Boolean);
+  return topicPick(arr, n, rand).map(l => talkshowFill(stripTopic(l), tok).trim()).filter(Boolean);
 }
-// One interview beat is an authored Q&A PAIR — "host question >> guest answer" — so the
-// question and the reply always belong together (no index-paired non-sequiturs). Split on the
-// first `>>`; a line with no delimiter is treated as an answer-only aside.
+// A strict TWO-part beat — "A >> B" — where the halves mean different things and a missing
+// delimiter means the whole line is the second half. Split on the FIRST `>>` only, so a stray
+// one later in the text can't silently promote itself to a speaker change. The morning show's
+// host/cohost beats are authored this way; the talk show reads the same delimiter as turns.
 function splitExchange(pair) {
-  const s = String(pair);
+  const s = stripTopic(pair);
   const i = s.indexOf('>>');
   return i < 0 ? ['', s.trim()] : [s.slice(0, i).trim(), s.slice(i + 2).trim()];
+}
+// The same delimiter read as a CONVERSATION: every `>>` is a change of speaker, so one authored
+// line can run to as many turns as the bit needs and keep its timing through the shuffle. This
+// is what lets a follow-up ("Tuesday." / "Which Tuesday?") be authored as a single unit instead
+// of two pool entries that might never be dealt together.
+function splitTurns(line) {
+  return stripTopic(line).split('>>').map(s => s.trim()).filter(Boolean);
 }
 // Build the night's interview deck: up to 2 of the guest's SIGNATURE exchanges (the persona
 // pool `interview.<tag>`, where the host's question is about THEIR thing), the rest generic
 // small-talk exchanges (`interview`), shuffled together — so every guest gets a couple of
 // on-topic beats while the mix still varies night to night.
+// The generic half is drawn by TOPIC, so one night's interview never asks the same question
+// twice in two different phrasings — the failure that made the show look like it wasn't
+// listening. Signature exchanges are exempt: they're all about the guest's one thing, which is
+// the point of them, and there are only ever two.
 function talkshowExchangeDeck(pools, persona, n, rand) {
   const sigPool = persona?.tag && Array.isArray(pools[`interview.${persona.tag}`]) ? pools[`interview.${persona.tag}`] : [];
   const genPool = Array.isArray(pools['interview']) ? pools['interview'] : [];
   const sig = sportsShuffle(sigPool, rand).slice(0, Math.min(2, sigPool.length));
-  const gen = sportsShuffle(genPool, rand).slice(0, Math.max(0, n - sig.length));
+  const gen = topicPick(genPool, Math.max(0, n - sig.length), rand);
   return sportsShuffle([...sig, ...gen], rand);
 }
 
 // Assemble one night's episode into a VINE broadcast graph of npc_anchor + say nodes, acted
 // by the real cast. Deterministic given the day bucket (seeded rng) so all viewers see the
 // same show. Segments: title/theme → sidekick cold open → host monologue → guest interview
-// (host asks / guest answers) → commercial → host sign-off.
+// (host asks / guest answers) → commercial → host sign-off. The host and the announcer trade
+// authored two-handers throughout (greeting, banter, and the no-show cover), so the desk plays
+// as two people who know each other rather than one man reading and one man interjecting.
+// The interview is GATED on the guest actually being in the studio; if it isn't, the two of
+// them cover instead — see the chair gate below.
 function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   const pools = script.pools || {};
   const rand = sportsRng(sportsHash(...[...`${broadcastId}:${bucket}`].map(c => c.charCodeAt(0))));
@@ -2319,6 +2368,31 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   const anchor = (npcId) => { if (npcId !== curAnchor) { add({ type: 'npc_anchor', npc_id: npcId }); curAnchor = npcId; } };
   const line = (npcId, text) => { if (!text) return; anchor(npcId); add({ type: 'say', text, style: 'raw' }); };
   const lines = (npcId, arr) => arr.forEach(t => line(npcId, t));
+  // Build a detached run of nodes and hand back its ends, so a branch can be wired by hand.
+  // `prevId`/`curAnchor` are saved and cleared: a branch must never inherit the trunk's
+  // last node (that's the whole point) and must re-state its own anchor, because which
+  // branch ran is not knowable when the graph is built.
+  const branch = (fn) => {
+    const savedPrev = prevId, savedAnchor = curAnchor;
+    prevId = null; curAnchor = null;
+    const before = n;
+    fn();
+    const out = { first: n > before ? `ts_${before}` : null, last: prevId };
+    prevId = savedPrev; curAnchor = savedAnchor;
+    return out;
+  };
+  // A two-hander: one authored line of `A >> B >> A >> B …` spoken by two people ALTERNATING.
+  // This is how John and Graham talk to each other rather than past each other — the setup,
+  // the reply and the topper are authored as one unit, so the timing survives the shuffle and
+  // can't be dealt into a non-sequitur. Any number of turns: a two-beat jab and a four-beat
+  // "wait, what?" run both come out of the same pool and read as the same relationship.
+  const duet = (aNpc, bNpc, pair) => {
+    if (!pair) return false;
+    const turns = splitTurns(pair);
+    let said = false;
+    turns.forEach((t, i) => { if (t) { line(i % 2 ? bNpc : aNpc, talkshowFill(t, tok)); said = true; } });
+    return said;
+  };
 
   // Audience reactions — laughs, groans, applause between the jokes and around the guest
   // exchanges, so the room breathes and each line lands before the next. They're unattributed
@@ -2352,6 +2426,11 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   lines(sidekick, talkshowDraw(pools, 'tease', 1 + Math.floor(rand() * 2), tok, rand));  // 1–2
   line(sidekick, talkshowFill(sportsPick(pools, rand, 'announce_host') || "Ladies and gentlemen — {host}!", tok));
   applause();   // the host walks out to applause
+  // …and the first thing John does is talk to Graham. A late-night show opens on the two of
+  // them, not on a monologue — the greeting is the moment the audience learns these two have
+  // known each other a long time. Authored host-first, so it reads as John arriving at the desk.
+  const greetDeck = talkshowDraw(pools, 'greeting', 2, tok, rand);
+  if (duet(host, sidekick, greetDeck[0])) react();
 
   // Monologue — the host's opening jokes; 4–5 a night, each landing on an audience beat so the
   // room breathes between punchlines instead of the jokes running together.
@@ -2371,10 +2450,18 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
     const newsBit = talkshowDraw(pools, 'newsjoke', 1, newsTok, rand);
     if (newsBit.length) { lines(host, newsBit); react(); }
   }
-  // Sometimes the sidekick heckles back mid-monologue (~45% of nights).
+  // Sometimes the sidekick heckles back mid-monologue (~45% of nights) — a one-way jab, no reply.
   if (rand() < 0.45) { lines(sidekick, talkshowDraw(pools, 'sidekick_aside', 1, tok, rand)); react(); }
+  // A proper back-and-forth most nights (~70%): Graham says something, John has to deal with it.
+  // Authored sidekick-first so John gets the last word, which is the shape of the desk — the
+  // announcer needles, the host recovers. One or two rounds; two only occasionally, so the show
+  // doesn't stall on the two of them before the guest is even out.
+  const banterDeck = talkshowDraw(pools, 'banter', 3, tok, rand);
+  let bIdx = 0;
+  if (rand() < 0.70 && duet(sidekick, host, banterDeck[bIdx++])) react();
   // Sometimes the host does a desk bit before the guest (~50%).
   if (rand() < 0.50) { lines(host, talkshowDraw(pools, 'desk_bit', 1, tok, rand)); react(); }
+  if (rand() < 0.30 && duet(sidekick, host, banterDeck[bIdx++])) react();
 
   // Guest intro + interview — host welcomes tonight's persona (to applause), then 3–4 EXCHANGES.
   // Each exchange is an authored Q&A pair, so the host's question and the guest's reply belong
@@ -2383,22 +2470,57 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   // beat between exchanges gives the back-and-forth a live rhythm.
   line(host, talkshowFill(sportsPick(pools, rand, 'guest_intro') || "My next guest is {title}. Please welcome {guest}!", tok));
   applause();   // the guest takes the stage
-  const exN = TALKSHOW_INTERVIEW + Math.floor(rand() * 2);   // 3–4
-  const deck = talkshowExchangeDeck(pools, persona, exN + 1, rand);   // +1 spare for the follow-up
-  const sayExchange = (pair, withBeat) => {
-    const [q, a] = splitExchange(pair);
-    if (q) line(host, talkshowFill(q, tok));
-    if (a) line(guestNpc, talkshowFill(a, tok));
-    if (withBeat) react();   // the crowd reacts to the answer before the next question
-  };
-  let ex = 0;
-  const total = Math.min(exN, deck.length);
-  for (; ex < total; ex++) sayExchange(deck[ex], ex < total - 1 && rand() < 0.6);
-  // A second, shorter guest beat some nights (~35%) - one more on-topic exchange.
-  if (rand() < 0.35 && deck[ex]) sayExchange(deck[ex], false);
+
+  // THE CHAIR GATE. Everything past here depends on somebody actually sitting in it, and that
+  // is a fact about the world at airtime, not about the script — the guest walks in across a
+  // real map and can be late, lost or dead. Asked at showtime rather than assumed at build
+  // time, because the alternative is what used to air: the say-node room-authority rule quietly
+  // binning every answer while the questions went out anyway, and John interviewing furniture.
+  // If the chair's empty the show KNOWS, and John and Graham cover for it, which is a better
+  // three minutes of television than the interview would have been.
+  const gate = add({ type: 'condition', condition_type: 'NPC_IN_STUDIO', params: { npc_id: guestNpc } });
+  prevId = null;   // the gate wires its own two branches by hand, below
+
+  const interview = branch(() => {
+    // 3–4 EXCHANGES. Each is an authored Q&A pair, so the host's question and the guest's reply
+    // belong together; the night blends a couple of the guest's on-topic signature beats with
+    // generic small-talk, shuffled, so the interview is coherent AND different every night. An
+    // audience beat between exchanges gives the back-and-forth a live rhythm.
+    const exN = TALKSHOW_INTERVIEW + Math.floor(rand() * 2);   // 3–4
+    const deck = talkshowExchangeDeck(pools, persona, exN + 1, rand);   // +1 spare for the follow-up
+    // An exchange is normally question-then-answer, but it's read as ALTERNATING turns, so a
+    // beat that needs a follow-up ("Tuesday." / "Which Tuesday?") can be authored as one unit
+    // and keep its timing. Two turns is just the common case of that.
+    const sayExchange = (pair, withBeat) => {
+      const turns = splitTurns(pair);
+      turns.forEach((t, i) => line(i % 2 ? guestNpc : host, talkshowFill(t, tok)));
+      if (withBeat && turns.length) react();   // the crowd reacts before the next question
+    };
+    let ex = 0;
+    const total = Math.min(exN, deck.length);
+    for (; ex < total; ex++) sayExchange(deck[ex], ex < total - 1 && rand() < 0.6);
+    // A second, shorter guest beat some nights (~35%) - one more on-topic exchange.
+    if (rand() < 0.35 && deck[ex]) sayExchange(deck[ex], false);
+    // Host throws back to the announcer on the way out of the segment.
+    if (rand() < 0.5 && duet(host, sidekick, greetDeck[1])) react();
+  });
+
+  // The no-show. Graham is the one who has to explain it, John is the one who has to fill —
+  // so the cover is a two-hander by nature, and the pair carry the segment the guest didn't.
+  const noShow = branch(() => {
+    const cover = talkshowDraw(pools, 'guest_noshow', 3, tok, rand);
+    let did = false;
+    for (let i = 0; i < Math.min(2 + Math.floor(rand() * 2), cover.length); i++) {
+      if (duet(host, sidekick, cover[i])) { did = true; react(); }
+    }
+    // Nothing authored to cover with ⇒ the host eats it alone rather than airing silence.
+    if (!did) { line(host, talkshowFill("Well — {guest} isn't here. That's showbusiness, and that's a chair.", tok)); react(); }
+  });
 
   // Commercial — a quick sponsor break read as narration over the studio (an ad break, not the
   // host talking), one line so it doesn't overstay.
+  prevId = null; curAnchor = null;   // the tail is reached from BOTH branches; wired below
+  const tailFirst = `ts_${n}`;
   const ad = talkshowDraw(pools, 'commercial', 1, tok, rand);
   if (ad.length) { add({ type: 'npc_anchor', npc_id: '' }); curAnchor = ''; ad.forEach(t => add({ type: 'say', text: t, style: 'narration' })); }
 
@@ -2406,6 +2528,16 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   // goodnight twice.
   applause();
   lines(host, talkshowDraw(pools, 'signoff', 1, { ...tok }, rand));
+
+  // Wire the gate now that the tail exists. An empty branch routes straight to the tail, so a
+  // missing pool can never strand the walker on a dead port mid-show; and if the tail itself
+  // came out empty (no ad, no applause, no signoff authored) every edge is left undefined,
+  // which the walker reads as "the show is over" rather than as a dangling node id.
+  const tail = nodes[tailFirst] ? tailFirst : null;
+  nodes[gate].ifTrue  = interview.first || tail;
+  nodes[gate].ifFalse = noShow.first    || tail;
+  if (interview.last) nodes[interview.last].next = tail;
+  if (noShow.last)    nodes[noShow.last].next    = tail;
 
   const graph = _normalizeBroadcastGraph({ _start: startId, nodes });
   graph._broadcastId = `${broadcastId}:talkshow:${bucket}`;
@@ -3893,7 +4025,10 @@ registerNpcScheduleChecker((npcId) => {
       // A cast member isn't on shift for an episode that doesn't air today — otherwise
       // a Friday-only talk show would commute its host to the studio all week.
       if (state.scheduleMode === 'daily' && !_slotAirsOn(item, dayOfWeek)) continue;
-      if (item.npcStaff?.includes(npcId) && talkshowAiring(item.talkshowScript)) return true;
+      // The guest — and only the guest — comes on shift a slot early, because it's the only
+      // one with a journey to make. See TALKSHOW_GUEST_CALL_LEAD.
+      const lead = item.talkshowScript?.guestNpc === npcId ? TALKSHOW_GUEST_CALL_LEAD : 0;
+      if (item.npcStaff?.includes(npcId) && talkshowAiring(item.talkshowScript, lead)) return true;
     }
     let item = null;
     if (state.scheduleMode === 'daily') {
@@ -4640,6 +4775,19 @@ function _evalBroadcastCondition(node, channelId, nowMs) {
       const from = params.from ?? 0;
       const to = params.to ?? 23;
       return from <= to ? (hour >= from && hour <= to) : (hour >= from || hour <= to);
+    }
+    // Is this actor actually standing on the studio floor right now? The say-node room-authority
+    // rule already refuses to put words in an absent mouth, but it does it SILENTLY — fine for a
+    // stray line, useless for a whole segment built around one person, which just becomes the
+    // host talking to a chair. This lets a graph ask FIRST and play something else instead.
+    // No studio bound to the channel ⇒ presence isn't modelled here, so answer yes rather than
+    // cutting a segment on a technicality.
+    case 'NPC_IN_STUDIO': {
+      const npcId = params.npc_id;
+      if (!npcId) return false;
+      const zoneId = channelRuntime.get(params.channel_id || channelId)?.studioZoneId;
+      if (!zoneId) return true;
+      return !!getZone(zoneId)?.npcs?.has(npcId);
     }
     case 'RANDOM_CHANCE':
       return Math.random() < (params.chance ?? 0.5);
@@ -6880,6 +7028,7 @@ export const _test = {
   sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY, nextAirSlot,
   assembleNewsGraph, newsFill, newsSceneNames,
   assembleTalkshowGraph, talkshowAiring, talkshowPersonaFor, talkshowFill, makeTalkshowGuestGraph, ensureTalkshowSlot,
+  talkshowDraw, splitTurns, topicPick, TALKSHOW_GUEST_CALL_LEAD,
   assembleMorningGraph, morningRunInKey,
   assembleGameshowGraph, gameshowAiring, gameshowDayBucket, gameshowPool, gameshowOpenRound,
   gameshowResolveRound, gameshowTokens, parseGuess, scorePrice, scoreOverUnder, scoreLot,

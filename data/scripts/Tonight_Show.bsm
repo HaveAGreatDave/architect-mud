@@ -18,8 +18,14 @@
 # Graham Mercer (@sidekick) commute in on schedule, and ONE reusable guest NPC
 # (@guest npc_guest) is renamed to a different persona every night, appears in a
 # random unobserved corner of the city, walks to the studio to perform, and slips
-# away to vanish once the show's done. If the guest hasn't reached the stage by
-# airtime, the channel breaks to "technical difficulties" — it's genuinely live.
+# away to vanish once the show's done. It gets a CALL TIME — on shift a slot before
+# airtime — because it's the only one of the three with a journey to make.
+#
+# AND IF IT DOESN'T MAKE IT, the show says so. The interview is gated on the guest
+# actually being in the studio at showtime; when the chair is empty, John and Graham
+# play the ::lines guest_noshow cover instead. This is not a safety net bolted on,
+# it's the segment: before the gate existed, the questions aired and the answers were
+# silently dropped, and what you saw was John interrogating furniture.
 #
 # There's no fixed script: each night the runner assembles a FRESH episode from
 # the ::lines pools below, and the SHAPE varies too — segment lengths wobble, and
@@ -28,8 +34,22 @@
 # per-persona interview.<tag> pools) with the generic ones, so every guest
 # sounds like themselves while the mix still shifts night to night.
 #
+# TWO AUTHORING RULES worth knowing before you add a line:
+#   `>>` is a CHANGE OF SPEAKER, and a line may hold as many as the bit needs
+#        ("A >> B >> A >> B"). That's what makes ::lines greeting / banter /
+#        guest_noshow real two-handers between John and Graham instead of one
+#        man talking and the other interrupting.
+#   `[topic]` at the START of a line is a promise that no other line sharing that
+#        topic reaches the same episode. Tag by what a question WANTS, coarsely —
+#        the failure it exists to stop is two phrasings of one question in a row.
+#   NEVER prefix a line with a speaker name. The runtime already airs every line
+#        as `<name> says, "…"`, so "{sidekick}: …" says Graham's name twice.
+#
 # Tokens: {host} {sidekick} {guest} {title}
 # See docs/bsm-format.md#talk-show-broadcasts-type-talkshow.
+#
+# The .bsm is the SOURCE; the row that airs is compiled from it. After editing:
+#   node scripts/content/build-tonight-show.mjs
 # =============================================================================
 
 # --- Show logo / title card: shown once before each episode (@titlecard) -------
@@ -252,21 +272,90 @@ Tonight's headline: "{headline}." Frame that one, folks. In this city, that's wh
 ::endlines
 
 # --- Sidekick heckle: Graham chimes in mid-monologue (~45% of nights) -----------
+# --- NO speaker prefix. The runtime already wraps every line as `<name> says, "…"`, --
+# --- so a "{sidekick}: " in the text airs Graham's name twice. Just write the line. ----
 ::lines sidekick_aside
-{sidekick}: That's the one you told at rehearsal, {host}. It didn't work then either.
-{sidekick}: I laughed. I want that on the record. Somebody had to.
-{sidekick}: The band would like it noted that they are contractually forbidden from reacting to that.
-{sidekick}: Legally I have to remind the audience that laughter is voluntary.
-{sidekick}: {host}, the sponsors just turned the applause sign off manually. That's a first.
-{sidekick}: I've heard that joke in three districts now and it's wanted in two of them.
-{sidekick}: Beautiful. No notes. Well — all notes, but no time.
-{sidekick}: For those at home, {host} is now doing the little bow he does when he's stalling.
-{sidekick}: I'd like the audience to know I begged him to cut that one.
-{sidekick}: That joke is now evidence, {host}. I'm just the announcer, but I know evidence.
-{sidekick}: The band wants hazard pay after that, and honestly, so do I.
-{sidekick}: For the folks at home, that silence is the sound of {host} realizing what he said.
-{sidekick}: We are contractually one more of those away from a warning label, {host}.
-{sidekick}: I'm laughing. It's a survival response, but I'm laughing.
+That's the one you told at rehearsal, {host}. It didn't work then either.
+I laughed. I want that on the record. Somebody had to.
+The band would like it noted that they are contractually forbidden from reacting to that.
+Legally I have to remind the audience that laughter is voluntary.
+{host}, the sponsors just turned the applause sign off manually. That's a first.
+I've heard that joke in three districts now and it's wanted in two of them.
+Beautiful. No notes. Well — all notes, but no time.
+For those at home, {host} is now doing the little bow he does when he's stalling.
+I'd like the audience to know I begged him to cut that one.
+That joke is now evidence, {host}. I'm just the announcer, but I know evidence.
+The band wants hazard pay after that, and honestly, so do I.
+For the folks at home, that silence is the sound of {host} realizing what he said.
+We are contractually one more of those away from a warning label, {host}.
+I'm laughing. It's a survival response, but I'm laughing.
+Nineteen years I've announced this man. That was in the bottom four.
+I'm required to say the views expressed are his. Loudly. Twice, tonight.
+The teleprompter skipped that one on purpose, {host}. It's been right before.
+Somewhere a lawyer just woke up and doesn't know why.
+I've started keeping a list. That one goes near the top, and the list is not a good list.
+The crew has voted. It was close. You lost, {host}.
+::endlines
+
+# --- GREETING: the host arrives at the desk and the first thing he does is talk to ----
+# --- the announcer. Authored as a PAIR — "{host} line >> {sidekick} line" — so the -----
+# --- setup and the topper stay together no matter how the night shuffles. This is the --
+# --- beat that establishes these two have worked together a very long time. -----------
+# --- The runner also uses the SECOND greeting drawn as the throw-back after the guest. -
+::lines greeting
+Graham. You look well. >> I look EMBALMED, {host}. But thank you for saying it in front of witnesses.
+How are we doing tonight, Graham? >> Alive, employed, and only one of those by choice.
+Graham, good crowd tonight. >> It's a crowd, {host}. "Good" is a scheduling matter.
+Nineteen years, Graham. Nineteen years we've done this. >> And every one of them, {host}, you've asked me that like it's a surprise.
+Graham, did you do anything nice this week? >> I slept, {host}. Through a fire alarm. Best night I've had in months.
+Talk to me, Graham — how's the building? >> Standing. Ask me again after the second commercial.
+Graham, were you here for rehearsal? >> I was here for rehearsal, {host}. I'd like that considered at my sentencing.
+You're quiet tonight, Graham. >> I'm PACED, {host}. There's a lot of show left and only one of us is being paid by the hour.
+Graham, tell the people what we've got coming. >> A guest, a sponsor, and roughly eleven minutes of you, {host}. Brace accordingly.
+Good to see you, Graham. >> You saw me forty minutes ago, {host}. You were crying. We agreed not to mention it.
+Graham, how was your commute? >> Two checkpoints and a man who wanted to sell me my own coat back.
+Graham, anything I should know before we start? >> Several things, {host}. None of them survivable. Let's do the show.
+::endlines
+
+# --- BANTER: a genuine back-and-forth mid-show. Authored the OTHER way round ---------
+# --- ("{sidekick} line >> {host} line") because at the desk the announcer needles and --
+# --- the host has to recover — John gets the last word, Graham gets the better one. ---
+::lines banter
+{host}, I have to ask — do you write these yourself? >> Every word, Graham. >> That explains a great deal, and I'd like to stop thinking about it.
+{host}, the audience has questions. >> About the show? >> About the exits, mostly. I gave them what I knew.
+I've been told to remind you we're live, {host}. >> I know we're live, Graham. >> You didn't sound like a man who knew that. I'm just doing my job.
+{host}, your microphone is fine. >> I didn't ask about my microphone. >> I know. I wanted you to have one piece of good news tonight.
+Can I say something, {host}? >> Can I stop you? >> No. That's the arrangement. That's been the arrangement since the fire.
+{host}, I looked up your contract today. >> And? >> And it's beautiful work, Graham. Not the contract — the looking up. It took me eleven minutes to find where they'd hidden it.
+The band has a request, {host}. >> Music? >> Distance. They'd like more of it, between them and the desk.
+{host}, I want you to know the crowd is with you. >> That's kind, Graham. >> Physically. They're locked in until eleven. But they're with you.
+I've done the arithmetic, {host}. >> On what? >> On how many of those we have left before the network intervenes. It's fewer than you'd like and more than I'd hoped.
+{host}, quick note from the booth. >> Go ahead. >> They've asked whether you could do the show slightly differently. >> Differently how? >> They didn't specify. I think that's the note.
+You know what I admire about you, {host}? >> Tell me. >> The confidence. Not the material. I want to be precise, because the lawyers are.
+{host}, be honest with me. >> Always, Graham. >> Do you enjoy this? >> Not for a moment. >> Good. It shows, and I'd hate to think you were hiding it.
+I've got a card here from the producers, {host}. >> Read it. >> It says "keep going." That's all it says. It's not encouragement, {host}, it's an instruction.
+{host}, the crowd's warm tonight. >> They are. >> They're warm because the air handling failed. But I know how much you needed that.
+Something's different about you tonight, {host}. >> New suit. >> That's it. I thought you'd slept.
+{host}, I'd like to register a formal objection. >> To what? >> I'll fill in the details later. I wanted it timestamped before whatever you're about to say.
+::endlines
+
+# --- NO-SHOW COVER: the guest never made it to the studio. This is not a fallback -----
+# --- string, it's a SEGMENT — the two of them fill the hole, which is the most --------
+# --- late-night thing that can possibly happen. Authored host-first, as a pair. -------
+# --- The runner plays 2–3 of these when the chair is empty at showtime. ---------------
+::lines guest_noshow
+Graham. There's no one in the chair. >> I see the chair, {host}. I've been looking at the chair for some time now.
+Where is our guest, Graham? >> In transit, {host}. That's the word the booth used. It's a generous word. It covers a great deal of ground and several outcomes.
+Graham, did we book a guest tonight? >> We booked one. We are between the booking and the guest. It's a wide space and people do get lost in it.
+So what do we do now, Graham? >> What we always do, {host}. We talk until something happens. It's worked before. Twice.
+Is anyone looking for them? >> Two interns and a drone, {host}. The drone is the one I'd bet on.
+Graham, I've interviewed empty chairs before. >> You have. And I'd like the record to show the chair came off better both times.
+Should I be worried, Graham? >> About the guest? No. About the twelve minutes of airtime we've just inherited? Yes, {host}, and immediately.
+Graham, what do we know? >> That they left. That they were coming here. Everything after that is theology.
+This has happened before, hasn't it? >> Four times this year, {host}. Three came back. We don't discuss the fourth on air.
+Can we just go to the commercial? >> The commercial is ninety seconds, {host}. You'd still be sitting here afterwards, and so would the chair.
+Graham, say something reassuring. >> The building is insured. >> That's not reassuring. >> It's what I've got, {host}. The rest is aspiration.
+All right — Graham, YOU sit in the chair. >> I will not. >> Why not? >> Because then there'd be nobody to announce you, {host}, and you'd be entirely alone up here. Think about that carefully before you ask again.
 ::endlines
 
 # --- Desk bit: a host riff before the guest (~50% of nights) --------------------
@@ -313,35 +402,57 @@ Here's someone the Machine flagged, the corporates blacklisted, and we booked an
 # --- guest; the per-persona `interview.<tag>` pools are ON-TOPIC to that guest. ---
 # --- The runner blends up to two signature exchanges with the generic ones. ------
 
+# --- The [topic] tag is a PROMISE: no two lines sharing one reach the same episode. ---
+# --- Without it the runner drew "What would you tell young people considering your ----
+# --- line of work?" and "Did you always know this was your calling?" on the same night, -
+# --- which is one question asked twice and made the show look like it wasn't listening. -
+# --- Tag by what the question WANTS, not by its wording, and tag coarsely — near --------
+# --- duplicates are the failure, so `career` covers origin, advice, calling and quitting. -
 ::lines interview
-Welcome to the show. First off — are you okay? You can blink twice. >> I've survived worse rooms than this one, John. Barely.
-Be honest with me — do you sleep at night? >> Like a baby. I wake up every two hours screaming. Same as everyone in this city.
-What's the biggest misconception about what you do? >> That I know what I'm doing. I do not. Nobody does. That's the whole secret.
-Last question, our lawyers are standing — would you do it all again? >> John, I'm contractually obligated to do it again. Twice, on weekends.
-What would you tell young people considering your line of work? >> Aim low. That way the disappointment is punctual.
-And the money — as good as they say? >> It's incredible. It's also on fire, and so are my hands. But it's incredible.
-Who taught you all this? >> A mentor. Then he vanished. I like to think he retired. The evidence suggests otherwise.
-What keeps you up at night? >> The ceiling, mostly. It's structural. But also, yes, the dread.
-People either love you or fear you. Which do you prefer? >> Fear's more reliable, John. Love expects things back.
-There are rumors. Care to set the record straight? >> They're mostly true, and the parts that aren't, I'm flattered by.
-Best part of the job, worst part, go. >> Same part, John. That's the trouble with an honest living out here.
-Did you always know this was your calling? >> I knew the day everyone told me to stop. That's usually the sign, isn't it?
-So how did you even get started? >> One bad decision, made confidently, repeated until it became a career.
-Any regrets? >> Regret's a luxury, John. I can barely afford the studio parking.
-Let's start easy — how was the trip in? >> Two checkpoints, one shakedown, and a man selling maps to the exit. Standard, John.
-Do people recognize you on the street? >> They recognize the liability, John. The face comes second.
-What's a normal day look like for you? >> There are no normal days. There's the day it works and the day it's on the news. Sometimes both.
-Any advice you wish someone had given you? >> "Don't." One word. Would've saved everyone a lot of paperwork, including yours.
-Be honest — is it as bad as it looks? >> No, John. It's worse. But it looks bad from a very flattering angle tonight.
-What's the one thing people always get wrong about you? >> They think I chose this. I was ASSIGNED this. There's a difference, and there's a form.
-How do you unwind after a long day? >> I sit very still in the dark and let the building settle. If it settles quietly, I've won.
-Do your parents know what you do? >> My mother thinks I'm in "logistics." She's not entirely wrong, and I'd like to keep it that way.
-What would you be doing if not this? >> The same thing, John, but without the title and the dental. Mostly I'm here for the dental.
-Ever think about quitting? >> Every morning. Then the alarm goes off, and by "alarm" I mean the neighbors, and by "morning" I mean it's still dark.
-What's the most dangerous part of the job? >> The commute, easily. The job itself is only trying to kill me part-time.
-Do you have any rivals? >> I had one. We settled our differences. He settled first. It was very amicable, geographically speaking.
-What's your proudest achievement? >> I'm still here, John. In this city, that's not a milestone, that's a miracle with a pulse.
-If you could tell the Machine one thing, what would it be? >> Nothing. It's listening right now. Hi. We're all very productive. Please don't.
+[arrival] Welcome to the show. First off — are you okay? You can blink twice. >> I've survived worse rooms than this one, John. Barely.
+[arrival] Let's start easy — how was the trip in? >> Two checkpoints, one shakedown, and a man selling maps to the exit. Standard, John.
+[arrival] Did our people treat you well backstage? >> They gave me a form, a bottle of water, and a look. I've signed the form. I'm still thinking about the look.
+[sleep] Be honest with me — do you sleep at night? >> Like a baby. I wake up every two hours screaming. Same as everyone in this city.
+[sleep] What keeps you up at night? >> The ceiling, mostly. It's structural. But also, yes, the dread.
+[sleep] How do you unwind after a long day? >> I sit very still in the dark and let the building settle. If it settles quietly, I've won.
+[misconception] What's the biggest misconception about what you do? >> That I know what I'm doing. I do not. Nobody does. That's the whole secret.
+[misconception] What's the one thing people always get wrong about you? >> They think I chose this. I was ASSIGNED this. There's a difference, and there's a form.
+[regret] Last question, our lawyers are standing — would you do it all again? >> John, I'm contractually obligated to do it again. Twice, on weekends.
+[regret] Any regrets? >> Regret's a luxury, John. I can barely afford the studio parking.
+[career] What would you tell young people considering your line of work? >> Aim low. That way the disappointment is punctual.
+[career] Did you always know this was your calling? >> I knew the day everyone told me to stop. That's usually the sign, isn't it?
+[career] So how did you even get started? >> One bad decision, made confidently, repeated until it became a career.
+[career] Any advice you wish someone had given you? >> "Don't." One word. Would've saved everyone a lot of paperwork, including yours.
+[career] What would you be doing if not this? >> The same thing, John, but without the title and the dental. Mostly I'm here for the dental.
+[career] Ever think about quitting? >> Every morning. Then the alarm goes off, and by "alarm" I mean the neighbors, and by "morning" I mean it's still dark.
+[money] And the money — as good as they say? >> It's incredible. It's also on fire, and so are my hands. But it's incredible.
+[money] Do you ever worry about money? >> I've stopped, John. Not because it improved. Because worrying was the last thing I owned outright and I sold it.
+[mentor] Who taught you all this? >> A mentor. Then he vanished. I like to think he retired. The evidence suggests otherwise.
+[reputation] People either love you or fear you. Which do you prefer? >> Fear's more reliable, John. Love expects things back.
+[reputation] Do people recognize you on the street? >> They recognize the liability, John. The face comes second.
+[rumors] There are rumors. Care to set the record straight? >> They're mostly true, and the parts that aren't, I'm flattered by.
+[bestworst] Best part of the job, worst part, go. >> Same part, John. That's the trouble with an honest living out here.
+[bestworst] Be honest — is it as bad as it looks? >> No, John. It's worse. But it looks bad from a very flattering angle tonight.
+[routine] What's a normal day look like for you? >> There are no normal days. There's the day it works and the day it's on the news. Sometimes both.
+[family] Do your parents know what you do? >> My mother thinks I'm in "logistics." She's not entirely wrong, and I'd like to keep it that way.
+[danger] What's the most dangerous part of the job? >> The commute, easily. The job itself is only trying to kill me part-time.
+[rivals] Do you have any rivals? >> I had one. We settled our differences. He settled first. It was very amicable, geographically speaking.
+[pride] What's your proudest achievement? >> I'm still here, John. In this city, that's not a milestone, that's a miracle with a pulse.
+[machine] If you could tell the Machine one thing, what would it be? >> Nothing. It's listening right now. Hi. We're all very productive. Please don't.
+[city] What would you change about this city? >> Nothing, John. Every single thing here is load-bearing. Pull one out and we all learn something we can't unlearn.
+[city] Would you ever leave the Basin? >> And go where? I've read the map. It's the same map, John. They just print it in different colours.
+[future] Where do you see yourself in five years? >> That's a beautiful question and I'd like you to hear how funny it is out loud. Five years.
+[fear] What actually frightens you? >> Paperwork that arrives without being requested. Everything else in this city announces itself first.
+[trust] Who do you trust? >> One person, John. I won't say who, and I'd appreciate it if the camera stopped doing that.
+[lucky] Do you consider yourself lucky? >> I consider myself OVERDUE. Those look identical from the outside and they are not the same thing.
+[first] Tell me about your first day. >> I've been told not to. Not by lawyers — by a friend, which is worse, because a friend has no reason to lie about it.
+[worstday] What's the worst day you've had on this job? >> Tuesday. >> Which Tuesday? >> That's the trouble, John. That's exactly the trouble.
+[health] How's your health, if you don't mind me asking? >> The clinic says I'm in the top percentile. They wouldn't say of what, or of whom, and the room got quiet.
+[secret] Is there anything you've never told anyone? >> Several things, John, and I've kept them alive this long by not doing what you're currently inviting me to do.
+[retire] Any plans to retire? >> In my line of work, John, retirement isn't a plan. It's a verdict, and somebody else reads it out.
+[fame] Has any of this gone to your head? >> It went straight past my head, John. It's been going around behind me for years and I've stopped turning to look.
+[food] What's the last decent meal you had? >> Define decent. >> Something that didn't move. >> Then I'd have to check my notes, and I'd rather we both didn't.
+[love] Anyone special in your life? >> There was. She read the job description. That was the end of a very promising evening.
 ::endlines
 
 # --- Persona-specific exchanges (interview.<tag>): the host asks about THEIR thing.

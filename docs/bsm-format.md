@@ -761,8 +761,33 @@ Same collector as the other library formats. Pools (all optional; missing ones s
 **Cold open (sidekick):** `open` (the "it's the show!" intro, 1–2 a night) · `tease` (tonight's line-up, 2–3) · `announce_host` (brings out `{host}`)
 **Monologue (host):** `monologue` (opening jokes — **5–8 a night**, so the length itself varies)
 **News bit (host):** `newsjoke` (one joke about a **real headline** — see below; folded in right after the monologue, once a show). Each line embeds a `{headline}` token; the runner fills it from the freshest story in the live news feed, **preferring a LIVE/event-sourced story over a wire/tabloid filler**, and strips the headline's trailing punctuation so the line supplies its own. The bit **skips cleanly** on nights the feed is empty or the file has no `newsjoke` pool, so it's purely additive to the monologue jokes.
-**Optional beats (some nights only):** `sidekick_aside` (the sidekick heckles back mid-monologue, ~45%) · `desk_bit` (a host riff before the guest, ~50%)
-**Interview (host ↔ guest):** `guest_intro` (host welcomes `{guest}`, `{title}`) · `interview` (**generic** Q&A exchanges) · `interview.<tag>` (a guest's **signature** exchanges). Each exchange is one authored pair — **`host question >> guest answer`** — so the question and reply always belong together (no index-paired non-sequiturs). The night's deck blends up to two of the guest's signature exchanges with generic ones and runs **4–6** exchanges, plus a ~35%-chance follow-up
+**Host ↔ sidekick two-handers:** `greeting` (the host arrives at the desk and talks to the announcer — the beat that establishes these two have worked together for years; the second one drawn is reused as the throw-back after the interview) · `banter` (a mid-show back-and-forth, ~70% plus a ~30% second round). Both are **alternating-turn** lines (below). `greeting` is authored **host-first**, `banter` **sidekick-first** — at a desk the announcer needles and the host recovers, so the host gets the last word.
+**Optional beats (some nights only):** `sidekick_aside` (a one-way heckle mid-monologue, no reply, ~45%) · `desk_bit` (a host riff before the guest, ~50%)
+**Interview (host ↔ guest):** `guest_intro` (host welcomes `{guest}`, `{title}`) · `interview` (**generic** exchanges) · `interview.<tag>` (a guest's **signature** exchanges). Each exchange is one authored unit — **`host question >> guest answer`** — so the question and reply always belong together (no index-paired non-sequiturs). The night's deck blends up to two of the guest's signature exchanges with generic ones and runs **4–6** exchanges, plus a ~35%-chance follow-up
+**Guest no-show:** `guest_noshow` — host/sidekick two-handers played **instead of** the interview when the guest isn't in the studio at showtime. See [the chair gate](#the-chair-gate).
+
+### `>>` is a change of speaker
+
+A `>>` separates **turns**, and a line may carry as many as the bit needs:
+
+```
+{host}, I looked up your contract today. >> And? >> And it's beautiful work, Graham.
+```
+
+Turns alternate between the pool's two speakers, starting with whichever the pool is authored for. This is what keeps a setup, its reply and the topper together through the shuffle — the alternative is authoring them as separate pool entries that may never be dealt together. An interview exchange is simply the two-turn case (host, then guest).
+
+> **Never prefix a line with a speaker name.** The runtime already airs every line as `<name> says, "…"`, so an authored `{sidekick}: …` says the announcer's name twice.
+
+### `[topic]` — the anti-repetition tag
+
+A line may open with a bracketed topic:
+
+```
+[career] What would you tell young people considering your line of work? >> Aim low.
+[career] Did you always know this was your calling? >> I knew the day everyone told me to stop.
+```
+
+**At most one line per topic reaches an episode.** Untagged lines are unconstrained, so tagging is opt-in and a pool can be half-tagged without surprise; the tag is stripped before air. This exists because those two lines are one question in two costumes, and drawing both — which the runner did — made the show look like it wasn't listening. **Tag by what a question wants, and tag coarsely:** near-duplicates are the failure mode, so `career` deliberately covers origin, advice, calling and quitting rather than splitting them.
 **Break:** `commercial` (a sponsor read, spoken as studio narration, 1–2)
 **Sign-off (host):** `signoff` (thanks the guest, goodnight, 2–3)
 
@@ -778,7 +803,7 @@ Same collector as the other library formats. Pools (all optional; missing ones s
 
 ## Assembly order
 
-Each in-game day: `title_card` (if `@titlecard`) → `music` (`@theme`) → **cold open:** `open` ×1–2 → `tease` ×2–3 → `announce_host` → **monologue:** `monologue` ×5–8 → *(if a headline is available)* `newsjoke` ×1 → *(~45%)* `sidekick_aside` → *(~50%)* `desk_bit` ×1–2 → **interview:** `guest_intro` → (`interview` / `interview.<tag>` pair: host Q → guest A) ×4–6 → *(~35%)* one follow-up exchange → **break:** `commercial` ×1–2 (narration) → **sign-off:** `signoff` ×2–3. The **counts and the optional beats are seeded off the day**, so both the *content* and the *shape* of the episode change night to night — it doesn't go stale. Each spoken beat is an `npc_anchor` (switching the on-stage speaker) followed by `say` nodes; the walker resolves the anchor's *current* name at air time, so the renamed guest is attributed correctly. Each interview beat is an authored **`question >> answer`** pair, so the host's question and the guest's reply always match; the per-night deck blends up to two of the guest's `interview.<tag>` **signature** exchanges (the host asks about THEIR thing) with the generic `interview` pool, so each guest sounds like themselves. The episode re-rolls when the in-game day advances (new guest, new jokes, new structure); within a day it's stable so every TV agrees, and it only airs during the `@airtime` slot.
+Each in-game day: `title_card` (if `@titlecard`) → `music` (`@theme`) → **cold open:** `open` ×1–2 → `tease` ×2–3 → `announce_host` → `greeting` (host ↔ sidekick) → **monologue:** `monologue` ×5–8 → *(if a headline is available)* `newsjoke` ×1 → *(~45%)* `sidekick_aside` → *(~70%)* `banter` → *(~50%)* `desk_bit` ×1–2 → *(~30%)* a second `banter` → **interview:** `guest_intro` → **[chair gate]** → *guest present:* (`interview` / `interview.<tag>`: host Q → guest A) ×4–6 → *(~35%)* one follow-up → *(~50%)* a closing `greeting` throw-back · *guest absent:* `guest_noshow` ×2–3 → **break:** `commercial` ×1–2 (narration) → **sign-off:** `signoff` ×2–3. The **counts and the optional beats are seeded off the day**, so both the *content* and the *shape* of the episode change night to night — it doesn't go stale. Each spoken beat is an `npc_anchor` (switching the on-stage speaker) followed by `say` nodes; the walker resolves the anchor's *current* name at air time, so the renamed guest is attributed correctly. Each interview beat is an authored **`question >> answer`** pair, so the host's question and the guest's reply always match; the per-night deck blends up to two of the guest's `interview.<tag>` **signature** exchanges (the host asks about THEIR thing) with the generic `interview` pool, so each guest sounds like themselves. The episode re-rolls when the in-game day advances (new guest, new jokes, new structure); within a day it's stable so every TV agrees, and it only airs during the `@airtime` slot.
 
 ## Guest lifecycle (roaming NPC)
 
@@ -792,7 +817,22 @@ start → IS_BROADCAST_SCHEDULED?
 
 - **`TALKSHOW_APPEAR`** (engine AI action): while the show is on the clock and the guest is still parked in its hidden backstage zone (`home_zone` = `zone_talkshow_backstage`, an exit-less limbo), it teleports the guest into a random zone a few tiles from the studio that has **no players and no active camera/planted device** watching (`pickUnobservedZoneNear` + the `isZoneWatched` bridge). `GO_TO_WORK` then walks it onstage one zone per tick.
 - **`TALKSHOW_HIDE`** (engine AI action): off the clock, the moment the guest is standing somewhere unobserved it vanishes back to backstage; otherwise it walks toward the studio's exterior exit and re-checks each tick.
-- The host + sidekick use the ordinary `makeDefaultStudioGraph` commute (studio ↔ home). All three are staffed for the `@airtime` slot, so `IS_BROADCAST_SCHEDULED` is true exactly while the episode airs.
+- The host + sidekick use the ordinary `makeDefaultStudioGraph` commute (studio ↔ home).
+- **Call time (`TALKSHOW_GUEST_CALL_LEAD`).** The guest — and only the guest — is staffed from **one slot before** `@airtime`, because it's the only one of the three with a journey to make. Everyone else is on shift exactly while the episode airs.
+
+### The chair gate
+
+The interview is wrapped in a `condition` node, `NPC_IN_STUDIO { npc_id: <@guest> }`, evaluated **at air time**. Guest on the studio floor ⇒ the interview plays; guest absent ⇒ the `guest_noshow` cover plays instead. Both branches rejoin at the commercial, so the show reaches its sign-off either way.
+
+This is load-bearing, not belt-and-braces. Without it the failure was **silent and total**:
+
+- the guest came on shift *at* airtime, so it began walking as the theme played and was still en route through the interview;
+- the say-node **room-authority rule** (a line belongs to whoever is standing there to say it) dropped every one of its answers without a trace;
+- the `_requireHost` stand-by only fires when **nobody at all** is on the floor — and the host and sidekick were both there, so the show sailed on.
+
+What aired was the host asking four questions in a row and nothing answering. The call time makes that rare; the gate makes it *visible* — and turns the worst night into a segment, which is the most late-night outcome available.
+
+`NPC_IN_STUDIO` is a general broadcast condition, not a talk-show special case: any graph can ask whether an actor is actually on set before committing to a segment built around them. A channel with no `studio_zone_id` answers **true** (presence isn't modelled there), so it never cuts a segment on a technicality.
 
 ## Compiler & runtime contract (as built)
 
@@ -813,7 +853,11 @@ start → IS_BROADCAST_SCHEDULED?
 
 ## Worked example
 
-See [data/scripts/Tonight_Show.bsm](../data/scripts/Tonight_Show.bsm) — **The Tonight Show with John Akerson** (host `npc_john_akerson`, announcer `npc_graham_mercer`, reusable `npc_guest`, eighteen guest personas each with their own signature-exchange pool, plus `sidekick_aside`/`desk_bit` optional beats). A minimal file needs `@type talkshow`, `@host`, `@guest`, a `::guests` line, and the `monologue` and `interview` (Q&A pairs) pools; add `@sidekick` + `open`/`announce_host`/`signoff` for the full show, and `interview.<tag>` pools to give each guest an on-topic, distinct voice. Import through the dev panel (Broadcast → Import BSM) and pick a channel — the show **auto-schedules to its `@airtime`** (a daily slot on that channel) and staffs the cast automatically, so it airs a fresh, live-acted episode at its broadcast time each night with no manual scheduling.
+See [data/scripts/Tonight_Show.bsm](../data/scripts/Tonight_Show.bsm) — **The Tonight Show with John Akerson** (host `npc_john_akerson`, announcer `npc_graham_mercer`, reusable `npc_guest`, eighteen guest personas each with their own signature-exchange pool, `greeting`/`banter`/`guest_noshow` two-handers, plus `sidekick_aside`/`desk_bit` optional beats). A minimal file needs `@type talkshow`, `@host`, `@guest`, a `::guests` line, and the `monologue` and `interview` (Q&A pairs) pools; add `@sidekick` + `open`/`announce_host`/`signoff` for the full show, and `interview.<tag>` pools to give each guest an on-topic, distinct voice.
+
+> **The `.bsm` is the source; the shipped row is compiled from it.** For the Tonight Show that loop is a script, not a browser — edit the file, then run `node scripts/content/build-tonight-show.mjs`, which rewrites `talkshow_pools` on the content row (and nothing else). Same reasoning as [build-cluster-puck.mjs](../scripts/content/build-cluster-puck.mjs): the dev-panel import writes to your local DB and relies on `content:export`, which lets the file in git and the row that airs drift apart silently.
+
+For a new show, import through the dev panel (Broadcast → Import BSM) and pick a channel — the show **auto-schedules to its `@airtime`** (a daily slot on that channel) and staffs the cast automatically, so it airs a fresh, live-acted episode at its broadcast time each night with no manual scheduling.
 
 ---
 

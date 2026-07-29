@@ -377,8 +377,15 @@ Node types for the visual broadcast script editor. Saved to `media_broadcasts.br
 The node-type catalogue (20+ types — say/ticker/npc_anchor/npc_action/inject_news/camera_cut/
 title_card/music/overlay/credits/tech_difficulties/…) is **owned by
 [systems-broadcast.md](systems-broadcast.md)**, which documents what each one does at
-air time. Conditions available here: `IS_DAYTIME`, `VIEWERS_PRESENT`, `NEWS_AVAILABLE`,
-`HOUR_RANGE`, `RANDOM_CHANCE`.
+air time. Conditions available here: `IS_DAYTIME`, `VIEWERS_PRESENT`, `OTHER_VIEWERS_PRESENT`,
+`NEWS_AVAILABLE`, `HOUR_RANGE`, `RANDOM_CHANCE`, `NPC_IN_STUDIO`.
+
+`NPC_IN_STUDIO { npc_id }` asks whether an actor is **actually standing on the studio floor**
+right now. Use it before any segment built around one person: the say-node room-authority rule
+already refuses to put words in an absent mouth, but it does so *silently*, so a segment that
+assumes someone is there degrades into the rest of the cast talking to an empty chair. Ask
+first and play something else instead — see [the chair gate](bsm-format.md#the-chair-gate).
+A channel with no `studio_zone_id` answers **true**, so it never cuts a segment on a technicality.
 
 ### Conversion helpers
 

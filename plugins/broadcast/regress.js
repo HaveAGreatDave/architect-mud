@@ -184,6 +184,93 @@ export default async function regress({ check, run, getPlayer }) {
   check('talkshow keeps each Q&A pair together (question then its own authored answer)',
     qi >= 0 && (cSays[qi + 1] || '').includes('MARKERA'), qi >= 0 ? (cSays[qi + 1] || 'nothing after') : 'no question');
 
+  // ── The empty chair ─────────────────────────────────────────────────────────
+  // The guest is the one cast member with a journey to make: it materialises backstage and
+  // WALKS to the studio. It used to come on shift at airtime, so it was still en route through
+  // the interview — and because the host and sidekick WERE on the floor, the "nobody home"
+  // stand-by never fired and the say-node room-authority rule silently binned every answer.
+  // What aired was John asking four questions of an empty chair. Two guards, both needed:
+  // a call time so it arrives, and a gate so the show notices when it doesn't.
+  {
+    const gScript = { ...tsScript, pools: { ...tsScript.pools, guest_noshow: ['No guest, Graham? >> No guest, {host}.'] } };
+    const gg = _test.assembleTalkshowGraph(gScript, 'bc_gate', 'day1', persona);
+    const gate = Object.entries(gg.nodes).find(([, n]) => n.type === 'condition' && n.data?.condition_type === 'NPC_IN_STUDIO');
+    check('talkshow gates the interview on the guest being in the studio', !!gate, gate ? 'gated' : 'NO GATE — answers would be dropped silently');
+    check('the chair gate names the guest NPC', gate?.[1]?.data?.params?.npc_id === 'npc_guest', gate?.[1]?.data?.params?.npc_id);
+
+    // Both ports must lead somewhere and both must rejoin, or a night where the guest is late
+    // strands the walker mid-show instead of reaching the sign-off.
+    const edgeOf = (from, port) => gg.edges.find(e => e.fromNode === from && e.fromPort === port)?.toNode;
+    const yes = edgeOf(gate?.[0], 'ifTrue'), no = edgeOf(gate?.[0], 'ifFalse');
+    check('the chair gate wires both outcomes', !!yes && !!no && yes !== no, `ifTrue=${yes} ifFalse=${no}`);
+    check('both outcomes land on real nodes', !!gg.nodes[yes] && !!gg.nodes[no], 'reachable');
+
+    // Walk each branch to its end; both must arrive at the same sign-off, so the show ends once.
+    const walkEnd = (from) => { let at = from, seen = 0; while (at && seen++ < 200) { const nx = edgeOf(at, 'next'); if (!nx) return at; at = nx; } return null; };
+    check('guest-present and guest-absent branches rejoin (one sign-off, either way)',
+      walkEnd(yes) && walkEnd(yes) === walkEnd(no), `${walkEnd(yes)} vs ${walkEnd(no)}`);
+    const textOf = (from) => { const out = []; let at = from, seen = 0; while (at && seen++ < 200) { if (gg.nodes[at]?.type === 'say') out.push(gg.nodes[at].data?.text || ''); at = edgeOf(at, 'next'); } return out; };
+    check('the no-show branch covers rather than airing silence', textOf(no).some(t => /No guest/.test(t)), textOf(no).slice(0, 2).join(' | '));
+    // The absent-guest cover must never itself be spoken BY the absent guest.
+    const noAnchors = (() => { const out = []; let at = no, seen = 0; while (at && seen++ < 200) { if (gg.nodes[at]?.type === 'npc_anchor') out.push(gg.nodes[at].data?.npc_id); at = edgeOf(at, 'next'); } return out; })();
+    check('the no-show cover is never anchored to the missing guest', !noAnchors.includes('npc_guest'), noAnchors.join(','));
+  }
+
+  // Call time: the guest is on shift a slot EARLY (and nobody else is), which is the half of
+  // the fix that means the gate almost never has to fire.
+  check('the guest gets a call time (on shift the slot before airtime)',
+    _test.talkshowAiring({ airSlots: [(_test.sportsSlotIndex() % _test.SPORTS_GAMES_PER_DAY + 1) % _test.SPORTS_GAMES_PER_DAY] }, _test.TALKSHOW_GUEST_CALL_LEAD) === true, 'called early');
+  check('the rest of the cast is NOT called early (no lead ⇒ airtime only)',
+    _test.talkshowAiring({ airSlots: [(_test.sportsSlotIndex() % _test.SPORTS_GAMES_PER_DAY + 1) % _test.SPORTS_GAMES_PER_DAY] }, 0) === false, 'airtime only');
+
+  // ── Not asking the same question twice ──────────────────────────────────────
+  // "What would you tell young people considering your line of work?" and "Did you always know
+  // this was your calling?" are one question in two costumes. Drawing both made the show look
+  // like it wasn't listening, so a [topic] tag is a promise that only one of a group airs.
+  {
+    const tagged = ['[career] A >> a', '[career] B >> b', '[career] C >> c', '[money] D >> d', '[sleep] E >> e'];
+    const got = _test.topicPick(tagged, 5, () => 0.5);
+    const topics = got.map(l => /^\[([\w-]+)\]/.exec(l)[1]);
+    check('a topic can only be asked once per episode', new Set(topics).size === topics.length, topics.join(','));
+    check('topic dedupe still fills the episode from other topics', got.length === 3, String(got.length));
+    check('untagged lines are unconstrained', _test.topicPick(['x', 'y', 'z'], 3, () => 0.5).length === 3, 'free');
+    check('the [topic] tag never reaches the air',
+      !_test.talkshowDraw({ p: ['[career] the line'] }, 'p', 1, {}, () => 0.5)[0].includes('['), _test.talkshowDraw({ p: ['[career] the line'] }, 'p', 1, {}, () => 0.5)[0]);
+  }
+
+  // ── John and Graham ─────────────────────────────────────────────────────────
+  // A two-hander is authored as ONE line of alternating turns, so the setup, the reply and the
+  // topper can't be dealt apart. More than two turns is the whole point — a real desk exchange
+  // runs "…?" / "…" / "…?" / "…" — and splitting on only the first `>>` would air the rest as
+  // one line with a literal `>>` in it.
+  check('a two-hander splits into every turn, not just the first',
+    _test.splitTurns('one >> two >> three >> four').length === 4, _test.splitTurns('one >> two >> three').join(' / '));
+  {
+    const bScript = { ...tsScript, pools: { ...tsScript.pools,
+      banter: ['GRAHAM1 >> JOHN1 >> GRAHAM2'], greeting: ['JOHNG >> GRAHAMG'] } };
+    // Assemble a few nights: the banter beat is probabilistic, so assert over a spread.
+    let sawAlternating = false;
+    for (const day of ['d1', 'd2', 'd3', 'd4', 'd5', 'd6']) {
+      const g = _test.assembleTalkshowGraph(bScript, 'bc_b', day, persona);
+      const seq = [];
+      let anchorNow = null;
+      for (const n of Object.values(g.nodes)) {
+        if (n.type === 'npc_anchor') anchorNow = n.data?.npc_id;
+        else if (n.type === 'say' && /^(GRAHAM|JOHN)/.test(n.data?.text || '')) seq.push([anchorNow, n.data.text]);
+      }
+      const i = seq.findIndex(([, t]) => t === 'GRAHAM1');
+      if (i >= 0 && seq[i][0] === 'npc_graham_mercer'
+          && seq[i + 1]?.[1] === 'JOHN1' && seq[i + 1][0] === 'npc_john_akerson'
+          && seq[i + 2]?.[1] === 'GRAHAM2' && seq[i + 2][0] === 'npc_graham_mercer') sawAlternating = true;
+    }
+    check('banter alternates announcer and host across every turn', sawAlternating, 'three-turn exchange staged correctly');
+  }
+  // The runtime already wraps a line as `<name> says, "…"`, so an authored "{sidekick}: " prefix
+  // aired Graham's name twice. Nothing in a pool should carry its own speaker.
+  check('no assembled line carries its own speaker prefix',
+    !tsSays.some(t => /^(John Akerson|Graham Mercer|\{host\}|\{sidekick\}):/.test(t)),
+    tsSays.find(t => /^(John Akerson|Graham Mercer):/.test(t)) || 'clean');
+
   // Auto-lock scheduling: saving a talk show pins it to a DAILY slot at its @airtime block
   // on its channel and flips the channel to daily mode — so it airs at its broadcast time
   // with zero manual scheduling.
