@@ -546,8 +546,16 @@ function ensureStyles() {
     #tablet-os-overlay .tos-home-apps { position:relative; padding-bottom:34px; }
     /* The home grid packs DENSE so a small tile backfills any hole a wide box
        leaves — which is what stops a group from pushing the rest of the screen
-       around instead of just sitting in it. */
-    #tablet-os-overlay .tos-homegrid { grid-auto-flow:row dense; grid-auto-rows:1fr; }
+       around instead of just sitting in it.
+       It also RESERVES ALL FOUR ROWS whether or not they're full: rows are a fixed
+       height and the grid keeps a four-row min-height, so the toolbar and the widget
+       cards sit at the same place on every page and with any number of apps. Sized
+       rows (not 1fr) are the point — 1fr rows collapse when a page is half empty,
+       which slid everything below them up and made the furniture move. */
+    #tablet-os-overlay { --tos-tile-h:66px; }
+    #tablet-os-overlay .tos-homegrid { grid-auto-flow:row dense;
+      grid-auto-rows:var(--tos-tile-h); align-content:start;
+      min-height:calc(var(--tos-tile-h) * 4 + 8px * 3); }
     /* A box is a grid ITEM spanning exactly the cells its members occupied. A 2×2
        selection stays a 2×2 square with tiles beside it; a row of four is a row of
        four. The old full-width band is what flattened every shape into a line. */
@@ -638,9 +646,13 @@ function ensureStyles() {
        The live sky behind the Home grid. Sits under .tos-scroll (z-index 2) and
        over nothing, so every screen's own content still paints on top; the CRT
        overlays and void-mode haze layer above it unchanged. */
+    /* Strength comes from --wall-strength (set by startWallpaper) and only applies
+       while the .on class is present — that pairing is what makes turning it OFF
+       work. An inline opacity here would outrank the class and strand the canvas
+       visible over every app screen, which is exactly the bug this replaced. */
     #tablet-os-overlay .tos-wall { position:absolute; inset:0; z-index:1; pointer-events:none;
       opacity:0; transition:opacity .5s ease; }
-    #tablet-os-overlay .tos-wall.on { opacity:.62; }
+    #tablet-os-overlay .tos-wall.on { opacity:var(--wall-strength, .4); }
     /* Home content gets a soft scrim so the wallpaper can't eat the text under it. */
     #tablet-os-overlay .tos-body .tos-summary, #tablet-os-overlay .tos-widgets { position:relative; }
 
@@ -751,7 +763,10 @@ function ensureStyles() {
     html[data-density="compact"] #tablet-os-overlay .tos-panel {
       width:min(760px,100vw); height:100dvh; max-height:100dvh; border-width:1px; border-radius:0; }
     html[data-density="compact"] #tablet-os-overlay .tos-anchor { left:0; top:0; transform:none; width:100vw; }
-    /* Tighter tiles: the icon carries the recognition, the label just confirms it. */
+    /* Tighter tiles: the icon carries the recognition, the label just confirms it.
+       The row height shrinks with them so the reserved four-row block still fits. */
+    html[data-density="compact"] #tablet-os-overlay { --tos-tile-h:56px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-homegrid { min-height:calc(var(--tos-tile-h) * 4 + 6px * 3); }
     html[data-density="compact"] #tablet-os-overlay .tos-grid { gap:6px; }
     html[data-density="compact"] #tablet-os-overlay .tos-tile { padding:7px 3px; }
     html[data-density="compact"] #tablet-os-overlay .tos-tile .tos-icon { font-size:18px; margin-bottom:3px; }
@@ -939,6 +954,54 @@ function ensureStyles() {
        panel's full width is a wall, and nobody finishes a wall. */
     #tablet-os-overlay .tos-detail-body { font-size:13.5px; line-height:1.72; color:var(--tos-fg); max-width:62ch; margin-bottom:12px; }
     #tablet-os-overlay .tos-detail-body p { margin:0 0 0.95em; }
+
+    /* ── The book (library chapters) ────────────────────────────────────────────
+       These are pre-collapse artifacts, and they should read like one: aged paper,
+       a serif face, an illuminated initial, and the shadow of a spine down the left
+       edge. All of it derives from the theme — the paper is the theme's own surface
+       warmed toward parchment, so a green terminal gets a green-tinged vellum rather
+       than a beige rectangle nobody asked for. */
+    #tablet-os-overlay .tos-book { position:relative; max-width:60ch; padding:20px 22px 18px 30px;
+      border-radius:3px 8px 8px 3px; font-size:14px; line-height:1.78; letter-spacing:.1px;
+      font-family:Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
+      color:color-mix(in srgb, var(--tos-fg) 92%, #d9c39a);
+      background:
+        /* the faintest foxing, so the page isn't a flat fill */
+        radial-gradient(120% 80% at 12% 8%, color-mix(in srgb, #d9c39a 9%, transparent), transparent 60%),
+        radial-gradient(90% 70% at 88% 92%, color-mix(in srgb, #a8875a 8%, transparent), transparent 55%),
+        linear-gradient(100deg, color-mix(in srgb, var(--tos-surface-hi) 82%, #c9ab7d),
+                                color-mix(in srgb, var(--tos-surface-lo) 88%, #b9975f));
+      border:1px solid color-mix(in srgb, #6b5433 40%, var(--tos-border));
+      box-shadow:inset 22px 0 26px -22px rgba(0,0,0,.55),   /* the gutter, page curving into the spine */
+                 inset 0 0 40px color-mix(in srgb, #4a3a22 16%, transparent),
+                 0 3px 12px rgba(0,0,0,.35); }
+    /* The spine itself: a dark band down the binding edge. */
+    #tablet-os-overlay .tos-book::before { content:''; position:absolute; left:0; top:0; bottom:0; width:7px;
+      border-radius:3px 0 0 3px; pointer-events:none;
+      background:linear-gradient(90deg, color-mix(in srgb, #4a3a22 55%, transparent), transparent); }
+    /* ILLUMINATED INITIAL, via ::first-letter — no markup, no extra element. That
+       matters: the narration splits this text into character-aligned sentence spans
+       and the glossary matches word runs, so inserting a <span> for the capital would
+       shift both. ::first-letter styles the glyph where it already is. */
+    #tablet-os-overlay .tos-book p:first-of-type::first-letter {
+      float:left; font-size:3.5em; line-height:.82; margin:2px 8px 0 0; padding:4px 8px 2px;
+      font-family:'Trajan Pro', Georgia, serif; font-weight:bold;
+      color:color-mix(in srgb, var(--mg-accent) 70%, #7a5c2a);
+      background:linear-gradient(160deg, color-mix(in srgb, var(--mg-accent) 15%, transparent), transparent);
+      border:1px solid color-mix(in srgb, var(--mg-accent) 34%, transparent);
+      text-shadow:0 1px 0 rgba(255,255,255,.14); }
+    /* Book paragraphs indent and close up, the way a set page does — the blank line
+       between paragraphs is a screen convention, not a book one. The first one after
+       an illuminated capital is never indented. */
+    #tablet-os-overlay .tos-book p { margin:0 0 .35em; text-indent:1.6em; }
+    #tablet-os-overlay .tos-book p:first-of-type { text-indent:0; }
+    /* Narration highlight and glossed words have to survive the serif setting. */
+    #tablet-os-overlay .tos-book .tos-gloss { border-bottom-color:color-mix(in srgb, var(--mg-accent) 55%, transparent); }
+    /* The title above a chapter reads as a title page, not a UI label. */
+    #tablet-os-overlay .tos-book-title { font-family:Georgia, 'Palatino Linotype', serif;
+      font-size:16px; letter-spacing:2px; text-transform:none; }
+    html[data-density="compact"] #tablet-os-overlay .tos-book { padding:14px 14px 12px 20px; font-size:13.5px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-book p:first-of-type::first-letter { font-size:3em; }
     /* The sentence the voice is on. Background rather than colour, so the
        highlight survives every theme without fighting the palette. */
     #tablet-os-overlay .tos-narr-s { transition:background-color .18s ease; border-radius:2px; }
@@ -4812,9 +4875,17 @@ function renderTabletSettings() {
   // Grouped pages so Settings isn't one long scroll — same buckets as the game
   // settings panel (General / Layout / Sound). Poker felt + MIS live under
   // General now that the standalone Game tab is gone.
+  // Wallpaper lives beside the theme, because it IS part of the theme — every option
+  // derives its colours from the active one. Default None; the rest are opt-in.
+  const wpNow = loadWallpaper();
+  const wallpaperRow = `<div class="tos-set-row"><span class="tos-set-label">Wallpaper<span class="tos-set-val">Behind the home screen</span></span><div class="tos-opts">
+    ${TABLET_WALLPAPERS.map(wp => `<div class="tos-opt${wp.id === wpNow ? ' selected' : ''}" data-set-wallpaper="${esc(wp.id)}" title="${esc(wp.label)}">${esc(wp.label)}</div>`).join('')}
+  </div></div>`;
+
   const pages = {
     General:
       themeSection +
+      wallpaperRow +
       `<div class="tos-set-row"><span class="tos-set-label">Contrast <span class="tos-set-val" data-contrast-label="1">${contrast === 0 ? 'Base' : '+' + contrast + '%'}</span></span>
         <span><input type="range" class="tos-slider" data-set-contrast="1" min="0" max="100" step="1" value="${contrast}">
         <span class="tos-btn-sub" data-contrast-reset="1" style="margin:0 0 0 8px;padding:4px 9px">Reset</span></span></div>` +
@@ -8004,13 +8075,18 @@ function renderBody() {
     // A quest's detail carries its own action log — the narrative of what you did
     // on this quest, built from the server's structured quest_log beats.
     const qlog = d.appId === 'quests' && det.id ? renderQuestActivityLog(det.id) : '';
+    // A library chapter is set as a BOOK — aged paper, serif, an illuminated initial.
+    // These are pre-collapse artifacts (docs/systems-library.md: the bar is US public
+    // domain), and reading one on a scavenged tablet should feel like handling
+    // something much older than the tablet.
+    const isBook = d.appId === 'library';
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderTosTabs(d)}
       ${d.notice ? `<div class="tos-error" style="text-align:left;padding:0 0 10px">${esc(d.notice)}</div>` : ''}
-      <div class="tos-detail-name">${esc(det.name || '')}</div>
+      <div class="tos-detail-name${isBook ? ' tos-book-title' : ''}">${esc(det.name || '')}</div>
       ${det.desc ? `<div class="tos-detail-desc">${esc(det.desc)}</div>` : ''}
       ${renderObjectives(d.quest?.objectives)}
       ${d.narratable ? renderNarrateBar() : ''}
-      ${det.body ? `<div class="tos-detail-body">${d.narratable ? renderNarratableBody(det.body, d.glossary) : `<p>${esc(det.body).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>`}</div>` : ''}
+      ${det.body ? `<div class="tos-detail-body${isBook ? ' tos-book' : ''}">${d.narratable ? renderNarratableBody(det.body, d.glossary) : `<p>${esc(det.body).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>`}</div>` : ''}
       ${renderDetailRows(det.rows)}
       ${renderActions(d.appId, d.actions, params)}
       ${qlog}
@@ -8823,6 +8899,15 @@ function wireTabletSettings() {
   });
   // Extra Lore — local pref + a silent push to the server, which owns the actual
   // per-player flag the lore plugin reads.
+  // Wallpaper choice — per device, on the tablet theme record. Re-renders, which is
+  // what restarts the canvas with the new mode and the theme's current colours.
+  _overlay.querySelectorAll('[data-set-wallpaper]').forEach(el => {
+    el.addEventListener('click', () => {
+      sfx(TOS_SELECT_DEF);
+      saveWallpaper(el.getAttribute('data-set-wallpaper'));
+      render();
+    });
+  });
   // Home widgets on/off — a per-device preference like the tile order, not a
   // server setting, so it commits to localStorage and re-renders in place.
   _overlay.querySelectorAll('[data-set-widgets]').forEach(el => {
@@ -9978,20 +10063,95 @@ function render() {
 let _wallRaf = null;
 let _wallState = null;   // { sky, drops:[], stars:[], w, h }
 
-const WALL_SKIES = {
-  // phase → [top, horizon]. Muted: this sits UNDER text and must never fight it.
-  night:   ['#050a14', '#0d1826'],
-  dawn:    ['#1b2338', '#5b3a46'],
-  morning: ['#1d3550', '#4d6f88'],
-  day:     ['#20415e', '#5b7f95'],
-  evening: ['#2a2440', '#7a4a44'],
-  dusk:    ['#171a2e', '#43304a'],
+// ── The wallpaper catalog ────────────────────────────────────────────────────
+// OFF BY DEFAULT. A wallpaper is a thing you choose, not a thing the device does
+// at you — and the home screen's job is to launch apps, so the honest default is
+// a flat themed screen. Chosen under Settings → General → Wallpaper; the choice
+// lives on the tablet theme record (per device, like the theme itself).
+//
+// EVERY ONE IS DERIVED FROM THE THEME. Nothing here hardcodes a colour: each
+// painter is handed `st.c` — the live --bg / --bg2 / --mg-accent / --tos-fg read
+// off the overlay — and mixes from those, so switching theme moves the wallpaper
+// with it instead of leaving a blue sky over a green terminal. The sky's
+// time-of-day tone is a *cast* blended into the theme's own background rather
+// than a palette of its own, which is what keeps it recognisably your theme at
+// 3am and at noon.
+//
+// And they stay QUIET: contrast is capped in CSS (.tos-wall.on), the accent is
+// used at single-digit alpha, and every painter is a no-op with motion off after
+// its first static frame. If you can read the tile labels without effort, it's
+// working.
+const TABLET_WALLPAPERS = [
+  { id: 'none',     label: 'None' },
+  { id: 'sky',      label: 'Sky' },       // live weather + game clock
+  { id: 'grid',     label: 'Grid' },      // drifting blueprint lattice
+  { id: 'contours', label: 'Contours' },  // slow interference lines
+  { id: 'drift',    label: 'Drift' },     // sparse floating motes
+  { id: 'scan',     label: 'Scan' },      // a single slow radar sweep
+];
+const TABLET_WALLPAPER_DEFAULT = 'none';
+function loadWallpaper() {
+  const t = loadTabletTheme();
+  const id = t?.wallpaper;
+  return TABLET_WALLPAPERS.some(w => w.id === id) ? id : TABLET_WALLPAPER_DEFAULT;
+}
+function saveWallpaper(id) {
+  const t = loadTabletTheme() || {};
+  t.wallpaper = TABLET_WALLPAPERS.some(w => w.id === id) ? id : TABLET_WALLPAPER_DEFAULT;
+  saveTabletTheme(t);
+}
+
+// The theme's live colours, resolved once per start (cheap, and they only change
+// on a re-render, which restarts the wallpaper anyway).
+function wallColors(el) {
+  const cs = getComputedStyle(el);
+  const pick = (v, fb) => (cs.getPropertyValue(v) || '').trim() || fb;
+  return {
+    bg: pick('--bg', '#0c1114'),
+    bg2: pick('--bg2', '#1a2226'),
+    accent: pick('--mg-accent', pick('--accent', '#3fd0d8')),
+    fg: pick('--tos-fg', '#dfe9f5'),
+  };
+}
+
+// A time-of-day CAST, expressed as an accent-independent tint plus a weight. The
+// painter blends this INTO the theme background, so the result is the player's own
+// palette leaning warm at dusk and cold at 3am — not a stock blue sky.
+const WALL_CASTS = {
+  night:   ['#0a1020', 0.55],
+  dawn:    ['#6a4250', 0.30],
+  morning: ['#5b7f95', 0.22],
+  day:     ['#7d9fb2', 0.26],
+  evening: ['#8a5246', 0.30],
+  dusk:    ['#3a2c4a', 0.42],
 };
-function wallPalette(sky) {
+function wallPhase(sky) {
   const m = sky?.minutes ?? 720;
-  const key = m < 270 ? 'night' : m < 390 ? 'dawn' : m < 630 ? 'morning'
+  return m < 270 ? 'night' : m < 390 ? 'dawn' : m < 630 ? 'morning'
     : m < 1020 ? 'day' : m < 1140 ? 'evening' : m < 1290 ? 'dusk' : 'night';
-  return WALL_SKIES[key] || WALL_SKIES.day;
+}
+// Mix two CSS colours the cheap way — through a canvas-friendly rgb tuple. Only
+// hex and rgb() ever reach this (theme vars are one or the other); anything else
+// falls back to the base so a wallpaper can never render as transparent nothing.
+function wallRgb(c) {
+  const s = String(c || '').trim();
+  let m = /^#([0-9a-f]{3})$/i.exec(s);
+  if (m) return m[1].split('').map(h => parseInt(h + h, 16));
+  m = /^#([0-9a-f]{6})$/i.exec(s);
+  if (m) return [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16));
+  m = /^rgba?\(([^)]+)\)$/i.exec(s);
+  if (m) return m[1].split(',').slice(0, 3).map(n => Math.max(0, Math.min(255, parseFloat(n) || 0)));
+  return null;
+}
+function wallMix(a, b, t) {
+  const A = wallRgb(a), B = wallRgb(b);
+  if (!A) return b; if (!B) return a;
+  const k = Math.max(0, Math.min(1, t));
+  return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * k)).join(',')})`;
+}
+function wallAlpha(c, a) {
+  const A = wallRgb(c);
+  return A ? `rgba(${A[0]},${A[1]},${A[2]},${a})` : c;
 }
 // Which particle system the weather calls for. Anything unrecognised falls through
 // to 'none', so a new weather type degrades to a plain sky rather than an error.
@@ -10005,14 +10165,19 @@ function wallPrecip(type) {
   return 'none';
 }
 
-function initWallState(sky, w, h) {
+function initWallState(sky, w, h, mode, c) {
   const precip = wallPrecip(sky?.weather);
   const heavy = /heavy|torrential|severe/i.test(sky?.intensity || '');
   const n = precip === 'none' || precip === 'fog' ? 0
     : Math.round((precip === 'snow' || precip === 'dust' ? 40 : 70) * (heavy ? 1.6 : 1));
   const rnd = (a, b) => a + Math.random() * (b - a);
   return {
-    sky, w, h, precip,
+    sky, w, h, precip, mode, c,
+    // Drift's motes. Sparse on purpose — 26 across a whole screen reads as air, not
+    // as snow; a dozen more and it becomes weather you didn't ask for.
+    motes: Array.from({ length: 26 }, () => ({
+      x: rnd(0, w), y: rnd(0, h), v: rnd(.08, .28), r: rnd(.8, 2.1), o: rnd(.2, .6), big: Math.random() < 0.25,
+    })),
     // Wind shears the fall; a still day drops straight down.
     shear: Math.max(-1.4, Math.min(1.4, (sky?.windKph || 0) / 40)),
     drops: Array.from({ length: n }, () => ({ x: rnd(0, w), y: rnd(0, h), v: rnd(.5, 1.4), len: rnd(4, 14), o: rnd(.25, .8) })),
@@ -10022,85 +10187,178 @@ function initWallState(sky, w, h) {
   };
 }
 
-function paintWall(ctx, st, t) {
-  const { w, h, sky } = st;
-  const [top, horizon] = wallPalette(sky);
-  const g = ctx.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0, top);
-  g.addColorStop(1, horizon);
-  ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, h);
+// Each wallpaper is one painter, all handed the same state. `st.c` is the LIVE
+// theme (see wallColors) — no painter may hardcode a colour, which is what makes
+// every one of these follow the theme instead of sitting on top of it.
+const WALL_PAINTERS = {
+  // ── Sky: the live weather and the game clock, cast over your theme ──────────
+  sky(ctx, st, t) {
+    const { w, h, sky, c } = st;
+    const [castCol, castW] = WALL_CASTS[wallPhase(sky)] || WALL_CASTS.day;
+    // The theme's own two backgrounds, leaned toward the hour. Your palette at 3am
+    // and your palette at noon — never a stock blue over a green terminal.
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, wallMix(c.bg, castCol, castW));
+    g.addColorStop(1, wallMix(c.bg2, castCol, castW * 0.72));
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
 
-  const m = sky?.minutes ?? 720;
-  const night = m < 330 || m > 1200;
+    const m = sky?.minutes ?? 720;
+    const night = m < 330 || m > 1200;
 
-  if (night) {
-    for (const s of st.stars) {
-      ctx.globalAlpha = s.o * (0.6 + 0.4 * Math.sin(t / 900 + s.x * 40));
-      ctx.fillStyle = '#dfe9f5';
-      ctx.beginPath(); ctx.arc(s.x * w, s.y * h, s.r, 0, 6.284); ctx.fill();
+    if (night) {
+      ctx.fillStyle = wallAlpha(c.fg, 0.55);
+      for (const s2 of st.stars) {
+        ctx.globalAlpha = s2.o * (0.6 + 0.4 * Math.sin(t / 900 + s2.x * 40));
+        ctx.beginPath(); ctx.arc(s2.x * w, s2.y * h, s2.r, 0, 6.284); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
     }
+
+    // Sun/moon: a straight arc from 06:00 to 18:00, mirrored overnight. The disc is
+    // the theme's foreground at night and its accent by day — even the sun is yours.
+    const dayFrac = night ? ((m + 360) % 1440) / 720 : (m - 360) / 720;
+    const cx = w * Math.max(-0.1, Math.min(1.1, dayFrac));
+    const cy = h * (0.78 - 0.52 * Math.sin(Math.PI * Math.max(0, Math.min(1, dayFrac))));
+    ctx.globalAlpha = night ? 0.42 : 0.34;
+    ctx.fillStyle = night ? c.fg : c.accent;
+    ctx.beginPath(); ctx.arc(cx, cy, night ? 9 : 13, 0, 6.284); ctx.fill();
     ctx.globalAlpha = 1;
-  }
 
-  // Sun/moon: a straight arc from 06:00 to 18:00 and the mirror of it overnight.
-  const dayFrac = night ? ((m + 360) % 1440) / 720 : (m - 360) / 720;
-  const cx = w * Math.max(-0.1, Math.min(1.1, dayFrac));
-  const cy = h * (0.78 - 0.52 * Math.sin(Math.PI * Math.max(0, Math.min(1, dayFrac))));
-  ctx.globalAlpha = night ? 0.5 : 0.42;
-  ctx.fillStyle = night ? '#c9d4e6' : '#ffd9a0';
-  ctx.beginPath(); ctx.arc(cx, cy, night ? 9 : 13, 0, 6.284); ctx.fill();
-  ctx.globalAlpha = 1;
-
-  // Skyline: a deterministic silhouette (seeded off x, not random) so it doesn't
-  // reshuffle itself every time the tablet re-renders. Coldwater from a rooftop.
-  ctx.fillStyle = 'rgba(3,7,11,.72)';
-  const base = h * 0.82;
-  for (let x = -10; x < w + 10; x += 17) {
-    const s = Math.abs(Math.sin(x * 0.7) * 43758.5453) % 1;
-    const bh = 16 + s * 62;
-    ctx.fillRect(x, base - bh, 15, bh + 30);
-    // A few lit windows, same seed, so the city looks inhabited without a texture.
-    if (!night && s < 0.5) continue;
-    ctx.fillStyle = 'rgba(255,206,120,.5)';
-    for (let wy = base - bh + 6; wy < base - 6; wy += 11) {
-      if ((Math.abs(Math.sin((x + wy) * 1.3) * 4375.54)) % 1 > 0.62) ctx.fillRect(x + 4, wy, 3, 4);
+    // Skyline: deterministic (seeded off x, not random) so it doesn't reshuffle every
+    // re-render. A darkening of the theme, not a black cut-out over it.
+    const silhouette = wallMix(c.bg, '#000000', 0.45);
+    const lit = wallAlpha(c.accent, 0.5);
+    ctx.fillStyle = silhouette;
+    const base = h * 0.82;
+    for (let x = -10; x < w + 10; x += 17) {
+      const sd = Math.abs(Math.sin(x * 0.7) * 43758.5453) % 1;
+      const bh = 16 + sd * 62;
+      ctx.fillRect(x, base - bh, 15, bh + 30);
+      // A few lit windows, same seed, so the city looks inhabited without a texture.
+      if (!night && sd < 0.5) continue;
+      ctx.fillStyle = lit;
+      for (let wy = base - bh + 6; wy < base - 6; wy += 11) {
+        if ((Math.abs(Math.sin((x + wy) * 1.3) * 4375.54)) % 1 > 0.62) ctx.fillRect(x + 4, wy, 3, 4);
+      }
+      ctx.fillStyle = silhouette;
     }
-    ctx.fillStyle = 'rgba(3,7,11,.72)';
-  }
 
-  if (st.precip === 'fog') {
-    for (let i = 0; i < 3; i++) {
-      const y = h * (0.35 + i * 0.2) + Math.sin(t / 2600 + i) * 8;
-      ctx.globalAlpha = 0.1;
-      ctx.fillStyle = '#b9c6cf';
-      ctx.fillRect(0, y, w, 26);
+    if (st.precip === 'fog') {
+      ctx.fillStyle = wallAlpha(c.fg, 0.09);
+      for (let i = 0; i < 3; i++) ctx.fillRect(0, h * (0.35 + i * 0.2) + Math.sin(t / 2600 + i) * 8, w, 26);
+    } else if (st.drops.length) {
+      const flake = st.precip === 'snow' || st.precip === 'dust';
+      // Acid rain is the one case that earns a hue of its own — it's a warning, and a
+      // warning that matched the wallpaper would not be one.
+      ctx.strokeStyle = st.precip === 'acid' ? 'rgba(150,220,110,.7)' : wallAlpha(c.fg, 0.5);
+      ctx.fillStyle = wallAlpha(c.fg, 0.6);
+      ctx.lineWidth = 1;
+      for (const d of st.drops) {
+        d.y += d.v * (flake ? 1.1 : 5.2);
+        d.x += st.shear * (flake ? 1.1 : 2.2) + (flake ? Math.sin((t + d.y * 9) / 700) * 0.6 : 0);
+        if (d.y > h) { d.y = -10; d.x = Math.random() * w; }
+        if (d.x < -12) d.x = w + 6; else if (d.x > w + 12) d.x = -6;
+        ctx.globalAlpha = d.o;
+        if (flake) { ctx.beginPath(); ctx.arc(d.x, d.y, 1.3, 0, 6.284); ctx.fill(); }
+        else { ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + st.shear * d.len, d.y + d.len); ctx.stroke(); }
+      }
+      ctx.globalAlpha = 1;
     }
-    ctx.globalAlpha = 1;
-  } else if (st.drops.length) {
-    const acid = st.precip === 'acid';
-    const flake = st.precip === 'snow' || st.precip === 'dust';
-    ctx.strokeStyle = acid ? 'rgba(150,220,110,.75)' : 'rgba(175,205,230,.6)';
-    ctx.fillStyle = st.precip === 'dust' ? 'rgba(198,170,120,.5)' : 'rgba(226,236,245,.7)';
+  },
+
+  // ── Grid: a blueprint lattice, drifting one slow direction ─────────────────
+  grid(ctx, st, t) {
+    const { w, h, c } = st;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = wallMix(c.bg, c.bg2, 0.5);
+    ctx.fillRect(0, 0, w, h);
+    const step = 34;
+    const drift = (t / 90) % step;
     ctx.lineWidth = 1;
-    for (const d of st.drops) {
-      d.y += d.v * (flake ? 1.1 : 5.2);
-      d.x += st.shear * (flake ? 1.1 : 2.2) + (flake ? Math.sin((t + d.y * 9) / 700) * 0.6 : 0);
-      if (d.y > h) { d.y = -10; d.x = Math.random() * w; }
-      if (d.x < -12) d.x = w + 6; else if (d.x > w + 12) d.x = -6;
-      ctx.globalAlpha = d.o;
-      if (flake) { ctx.beginPath(); ctx.arc(d.x, d.y, 1.3, 0, 6.284); ctx.fill(); }
-      else { ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + st.shear * d.len, d.y + d.len); ctx.stroke(); }
+    ctx.strokeStyle = wallAlpha(c.accent, 0.16);
+    ctx.beginPath();
+    for (let x = -step + drift; x < w + step; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+    for (let y = -step + drift; y < h + step; y += step) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+    ctx.stroke();
+    // Every fourth line heavier — gives the lattice a scale without more lines.
+    ctx.strokeStyle = wallAlpha(c.accent, 0.26);
+    ctx.beginPath();
+    for (let x = -step * 4 + drift; x < w + step * 4; x += step * 4) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+    for (let y = -step * 4 + drift; y < h + step * 4; y += step * 4) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+    ctx.stroke();
+  },
+
+  // ── Contours: slow interference lines, a depth map breathing ───────────────
+  contours(ctx, st, t) {
+    const { w, h, c } = st;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = wallMix(c.bg, c.bg2, 0.35);
+    ctx.fillRect(0, 0, w, h);
+    ctx.lineWidth = 1;
+    const bands = 9;
+    for (let i = 0; i < bands; i++) {
+      const phase = t / 5200 + i * 0.55;
+      ctx.strokeStyle = wallAlpha(c.accent, 0.07 + (i / bands) * 0.1);
+      ctx.beginPath();
+      for (let x = 0; x <= w; x += 8) {
+        const k = x / w;
+        const y = h * (0.12 + (i / bands) * 0.82)
+          + Math.sin(phase + k * 5.2) * 11 + Math.sin(phase * 1.7 + k * 2.1) * 7;
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  },
+
+  // ── Drift: sparse motes rising. The quietest of the set. ───────────────────
+  drift(ctx, st, t) {
+    const { w, h, c } = st;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = wallMix(c.bg, c.bg2, 0.28);
+    ctx.fillRect(0, 0, w, h);
+    for (const d of st.motes) {
+      d.y -= d.v;
+      d.x += Math.sin((t + d.y * 6) / 1400) * 0.25;
+      if (d.y < -6) { d.y = h + 6; d.x = Math.random() * w; }
+      ctx.globalAlpha = d.o * (0.55 + 0.45 * Math.sin(t / 1600 + d.x));
+      ctx.fillStyle = d.big ? wallAlpha(c.accent, 0.7) : wallAlpha(c.fg, 0.5);
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 6.284); ctx.fill();
     }
     ctx.globalAlpha = 1;
-  }
+  },
+
+  // ── Scan: static rings, one slow sweep. Only one thing moves. ─────────────
+  scan(ctx, st, t) {
+    const { w, h, c } = st;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = wallMix(c.bg, c.bg2, 0.35);
+    ctx.fillRect(0, 0, w, h);
+    const cx = w * 0.5, cy = h * 0.62, maxR = Math.hypot(w, h) * 0.55;
+    ctx.strokeStyle = wallAlpha(c.accent, 0.1);
+    ctx.lineWidth = 1;
+    for (let i = 1; i <= 4; i++) { ctx.beginPath(); ctx.arc(cx, cy, (maxR / 4) * i, 0, 6.284); ctx.stroke(); }
+    const ang = ((t / 4200) % 1) * 6.283 - 1.571;   // ~4s a revolution
+    const grad = ctx.createLinearGradient(cx, cy, cx + Math.cos(ang) * maxR, cy + Math.sin(ang) * maxR);
+    grad.addColorStop(0, wallAlpha(c.accent, 0.24));
+    grad.addColorStop(1, wallAlpha(c.accent, 0));
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(ang) * maxR, cy + Math.sin(ang) * maxR); ctx.stroke();
+  },
+};
+
+function paintWall(ctx, st, t) {
+  (WALL_PAINTERS[st.mode] || WALL_PAINTERS.sky)(ctx, st, t);
 }
 
 function startWallpaper(sky) {
   const cv = _overlay?.querySelector('#tos-wall');
   if (!cv) return;
   stopWallpaper();
+  const mode = loadWallpaper();
+  if (mode === 'none') return;   // the default: a flat themed screen, nothing drawn
   const box = cv.parentElement.getBoundingClientRect();
   const w = Math.max(1, Math.round(box.width)), h = Math.max(1, Math.round(box.height));
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -10108,11 +10366,19 @@ function startWallpaper(sky) {
   cv.style.width = w + 'px'; cv.style.height = h + 'px';
   const ctx = cv.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  // Indoors you're looking at a wall, not weather — the sky is still THERE (the
-  // hour still reads), it's just heavily knocked back.
-  cv.style.opacity = sky?.indoors ? '.28' : '.62';
+  // Strength rides a CUSTOM PROPERTY, never inline `opacity`. It used to set opacity
+  // directly, which beat the `.on` class in the cascade — so stopWallpaper's class
+  // removal did nothing and the sky stayed painted over every app screen for the
+  // rest of the session. The var only takes effect while `.on` is present.
+  //
+  // The patterns sit lower than the sky: the sky IS a picture and can carry itself,
+  // whereas a lattice or a sweep at the same strength stops being a backdrop and
+  // starts competing with the tile labels. Indoors knocks the sky back again —
+  // you can't see the weather through a wall, though the hour still reads.
+  const strength = mode === 'sky' ? (sky?.indoors ? 0.26 : 0.5) : 0.34;
+  cv.style.setProperty('--wall-strength', String(strength));
   cv.classList.add('on');
-  _wallState = initWallState(sky, w, h);
+  _wallState = initWallState(sky, w, h, mode, wallColors(_overlay));
   paintWall(ctx, _wallState, 0);
   if (document.documentElement.getAttribute('data-motion') === 'off') return; // one static frame and stop
   const loop = (t) => {
@@ -10127,7 +10393,12 @@ function stopWallpaper() {
   if (_wallRaf) { cancelAnimationFrame(_wallRaf); _wallRaf = null; }
   _wallState = null;
   const cv = _overlay?.querySelector('#tos-wall');
-  if (cv) cv.classList.remove('on');
+  if (!cv) return;
+  cv.classList.remove('on');
+  // Belt and braces: drop the strength var too, so nothing an older build (or a
+  // future edit) left inline can keep the canvas visible off the home screen.
+  cv.style.removeProperty('--wall-strength');
+  cv.style.removeProperty('opacity');
 }
 
 export function closeTabletPanel() { shutdownTablet(); }
