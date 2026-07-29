@@ -707,11 +707,23 @@ function ensureStyles() {
       border-color:color-mix(in srgb, var(--red, #e0413a) 45%, transparent); }
     /* Add-apps sheet: a scrim + card over the home screen, listing removed apps. */
     #tablet-os-overlay .tos-addsheet { position:absolute; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
-      padding:18px; background:color-mix(in srgb, var(--bg,#030806) 72%, transparent); backdrop-filter:blur(2px); }
-    #tablet-os-overlay .tos-addsheet-card { width:100%; max-width:340px; max-height:88%; overflow:auto; padding:14px;
+      padding:9px; background:color-mix(in srgb, var(--bg,#030806) 72%, transparent); backdrop-filter:blur(2px); }
+    #tablet-os-overlay .tos-addsheet-card { width:100%; max-width:340px; max-height:94%; overflow:auto; padding:14px;
       border-radius:10px; border:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent);
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); box-shadow:0 12px 34px rgba(0,0,0,.55); }
-    #tablet-os-overlay .tos-addsheet-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;
+    /* The stash listing takes the whole screen: with the default sixteen out, there
+       are ~20 apps in here, and at the home grid's 4 columns that is five rows of
+       full-size tiles — guaranteed to scroll. So this card is as wide as the tablet
+       and its tiles are denser, which fits the whole stash in view. The group-naming
+       sheet keeps the narrow default; only this one opts in. */
+    #tablet-os-overlay .tos-addsheet-card.wide { max-width:100%; padding:11px; }
+    #tablet-os-overlay .tos-addsheet-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(62px,1fr)); gap:6px; }
+    #tablet-os-overlay .tos-addsheet-grid .tos-tile { padding:6px 3px; border-radius:6px; }
+    #tablet-os-overlay .tos-addsheet-grid .tos-tile .tos-icon { font-size:17px; margin-bottom:3px; }
+    #tablet-os-overlay .tos-addsheet-grid .tos-tile .tos-icon svg { width:18px; height:18px; }
+    #tablet-os-overlay .tos-addsheet-grid .tos-tile .tos-name { font-size:9px; letter-spacing:.2px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
+    #tablet-os-overlay .tos-addsheet-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;
       font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-addsheet-x { cursor:pointer; color:var(--mg-accent); font-size:14px; padding:0 4px; }
     #tablet-os-overlay .tos-addsheet-x:hover { filter:brightness(1.2); }
@@ -3558,36 +3570,53 @@ function renderHomeToolbar(searching) {
 const HOME_COLS = 4;
 const HOME_ROWS = 4;
 const HOME_SLOTS = HOME_COLS * HOME_ROWS;   // 16
+// A group box's label strip, measured in tile-rows. It's a thin inline row (~15px
+// against a ~62px tile row), and costing it honestly is what keeps a page's height
+// truthful — the first version ignored it AND ignored the part-row a group's line
+// break wastes, so a single group could pack SIX rows of content onto a four-row
+// page. Everything below the box then shunted down, which is what "grouping moved
+// everything into a line" actually looked like on screen.
+const HOME_LABEL_ROWS = 0.4;
 let _homePage = 0;   // which page is showing; survives re-renders, reset on close
 
+// Accounting is in ROWS (fractional), not slots, because the two things that broke
+// the old slot maths are both sub-row: a group's label, and the ragged remainder a
+// group's line break leaves in the row above it.
 function paginateHome(blocks) {
   const pages = [];
-  let cur = { blocks: [], left: HOME_SLOTS };
-  const push = () => { pages.push(cur); cur = { blocks: [], left: HOME_SLOTS }; };
-  const rowsFor = (n) => Math.ceil(n / HOME_COLS) * HOME_COLS;
+  let cur = { blocks: [], rowsLeft: HOME_ROWS };
+  const push = () => { pages.push(cur); cur = { blocks: [], rowsLeft: HOME_ROWS }; };
 
   let i = 0;
   while (i < blocks.length) {
     const b = blocks[i];
     if (b.kind === 'group') {
-      const cost = rowsFor(b.members.length);
-      if (cost > cur.left && cur.blocks.length) push();
+      // A box is a BLOCK: it starts on a fresh row, so whatever part-row the
+      // preceding tiles left is dead space. Charge it by flooring.
+      cur.rowsLeft = Math.floor(cur.rowsLeft);
+      const tileRows = Math.ceil(b.members.length / HOME_COLS);
+      // Fit test is on the box's TILE rows only, so a group whose tiles fit stays on
+      // this page and only its thin label strip can spill. Testing the label too
+      // would bump the box to the next page over ~25px and leave a near-empty row
+      // behind — worse than the spill, and it would move the group away from the
+      // spot its first app occupies, which is the thing this is all protecting.
+      if (tileRows > cur.rowsLeft && cur.blocks.length) push();
       cur.blocks.push(b);
-      cur.left = Math.max(0, cur.left - cost);
+      cur.rowsLeft = Math.max(0, cur.rowsLeft - (tileRows + HOME_LABEL_ROWS));
       i++;
       continue;
     }
-    // A run of consecutive loose tiles: take as many as fit, splitting across a
-    // page break wherever they land, same as before — just interleaved with
-    // groups now instead of always trailing them.
-    if (!cur.left) { push(); continue; }
+    // A run of consecutive loose tiles: take as many WHOLE ROWS as are left, and
+    // split the run across a page break wherever it lands.
+    const capacity = Math.floor(cur.rowsLeft) * HOME_COLS;
+    if (capacity < 1) { push(); continue; }
     const run = [];
-    while (i < blocks.length && blocks[i].kind === 'tile' && run.length < cur.left) {
+    while (i < blocks.length && blocks[i].kind === 'tile' && run.length < capacity) {
       run.push(blocks[i].app);
       i++;
     }
     cur.blocks.push({ kind: 'tiles', apps: run });
-    cur.left -= run.length;
+    cur.rowsLeft -= run.length / HOME_COLS;
   }
   pages.push(cur);   // the trailing page (empty when there are no apps at all)
   return pages;
@@ -3672,20 +3701,22 @@ function openAddAppsSheet() {
   const hidden = loadHiddenApps();
   const byId = new Map([...(_data?.apps || []), ...CLIENT_APPS].map(a => [a.id, a]));
   // Alphabetical, not stash order: this list is 20-odd tiles on a fresh tablet
-  // (everything outside the default twelve), so it's a thing you scan by name.
+  // (everything outside the default sixteen), so it's a thing you scan by name.
   const apps = hidden.map(id => byId.get(id)).filter(Boolean)
     .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  // Its own denser grid (.tos-addsheet-grid), not the home screen's 4-column one —
+  // that's what keeps the whole stash on screen without a scrollbar.
   const body = apps.length
-    ? `<div class="tos-grid">${apps.map(a => {
+    ? `<div class="tos-addsheet-grid">${apps.map(a => {
         const svg = TOS_APP_ICONS[a.id];
         const icon = svg ? svg : esc(a.icon || '▫');
-        return `<div class="tos-tile" data-readd-app="${esc(a.id)}"><span class="tos-icon">${icon}</span><span class="tos-name">${esc(a.name)}</span></div>`;
+        return `<div class="tos-tile" data-readd-app="${esc(a.id)}" title="${esc(a.name)}"><span class="tos-icon">${icon}</span><span class="tos-name">${esc(a.name)}</span></div>`;
       }).join('')}</div>`
     : '<div class="tos-empty">Everything is on your home screen. Drag an app off the tablet to stash it here.</div>';
   const sheet = document.createElement('div');
   sheet.className = 'tos-addsheet';
-  sheet.innerHTML = `<div class="tos-addsheet-card">
-    <div class="tos-addsheet-hdr"><span>Add apps</span><span class="tos-addsheet-x" data-addsheet-close title="Close">✕</span></div>
+  sheet.innerHTML = `<div class="tos-addsheet-card wide">
+    <div class="tos-addsheet-hdr"><span>Add apps · ${apps.length}</span><span class="tos-addsheet-x" data-addsheet-close title="Close">✕</span></div>
     ${body}
   </div>`;
   screen.appendChild(sheet);

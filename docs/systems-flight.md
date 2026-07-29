@@ -81,7 +81,7 @@ the "content is deliberate" rule. Instead:
   foot instead of riding the cabin-window HUD. Every instance of the type shares the
   one authored shell — privacy comes from the occupant Set, so still no runtime rows.
   See [proposals/leviathan-flying-base.md](proposals/leviathan-flying-base.md).
-- **Text-only passenger travel** (`textmode.js`): a passenger who has set Cabin View to
+- **Text-only passenger travel** (`textmode.js`): a passenger who has set Flight Display to
   *Text only* (Tablet → Vehicles; persisted as the `flight_text_only` player flag) is sent
   **no client panel at all** — not the HUD, not the cabin audio feed — and rides on narrated
   flight instead, on its own 45s schedule (the 3s physics tick is far too fast for prose).

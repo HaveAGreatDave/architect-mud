@@ -7,9 +7,10 @@
 // latched onto the live player as `player.textTravel`, so `pushHud` — which is sync
 // and runs every 3s tick — can skip a text-only rider without an await.
 //
-// Deliberately PASSENGERS ONLY. Piloting stays sim-only: the continuous model is a
-// client-side physics sim reconciled by the server, so there is no server-side
-// flight to narrate for a pilot. A text-mode pilot is a separate system, not a flag.
+// This module is the PASSENGER half only. The pilot's seat is textpilot.js, which
+// reads the SAME flag (via `prefersTextTravel` below) but is a genuinely different
+// system: a rider is narrated, whereas a pilot needs the server to actually run the
+// physics. One preference, two implementations — don't merge them.
 //
 // The rider keeps `window` — opting into the view for one leg sets cabinWindowOpen,
 // which outranks this everywhere, so text mode is a default, not a lockout.
@@ -63,7 +64,7 @@ const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 // to load something. Also tells them the door back to the view is still there.
 export function boardingLine(live) {
   return `<span class="text-dim">You take a seat in the ${live.type.name}'s cabin and let the window stay a window. `
-    + '(<span class="action-link" data-action="cmd" data-cmd="window">window</span> to look out; Vehicles → Cabin View to change this for good.)</span>';
+    + '(<span class="action-link" data-action="cmd" data-cmd="window">window</span> to look out; Tablet → Vehicles → Flight Display to change this for good.)</span>';
 }
 
 // A quiet, low-frequency readout so a text-only rider can still answer "where am I,

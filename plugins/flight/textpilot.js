@@ -2,7 +2,7 @@
 // running the physics instead of a 60fps WebGL cockpit.
 //
 // The counterpart to textmode.js (which is the passenger half). Same one player
-// preference governs both: set Cabin View to "Text only" and you never see a canvas,
+// preference governs both: set Flight Display to "Text only" and you never see a canvas,
 // whether you're riding or flying.
 //
 // THE KEY FACT that makes this cheap: `flight-model.js` is a pure, DOM-free module.

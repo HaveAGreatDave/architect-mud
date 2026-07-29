@@ -10,11 +10,13 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { registerTabletApp } from './registry.js';
 
-// Cabin View — the text-only travel preference (plugins/flight/textmode.js reads it).
+// Flight Display — the text-only preference for BOTH seats: riding as a passenger
+// (plugins/flight/textmode.js) and flying as a pilot (plugins/flight/textpilot.js).
+// One switch, because "I don't want the 3D layer" is one preference, not two.
 // It lives here rather than in the Settings app because Settings is entirely
 // client-side localStorage (see settings-app.js) and this has to be server state:
 // the flight plugin reads it at board time, on the server, to decide whether to
-// push a cabin panel at all. Persisted in player_flags through the mandated funnel.
+// push a graphical panel at all. Persisted in player_flags through the mandated funnel.
 const TEXT_TRAVEL_FLAG = 'flight_text_only';
 const textTravelOn = async (player) =>
   String(await getFlag('player', TEXT_TRAVEL_FLAG, player).catch(() => undefined)) === 'true';
@@ -99,7 +101,7 @@ async function buildScreen(player, screenId, params) {
       }] : []),
       // Shown whether or not you own anything — you can ride as a passenger with an
       // empty fleet, and that's exactly the player this setting is for.
-      { id: 'cabin_view', label: `Cabin View: ${textOnly ? 'Text only' : 'Window'}` },
+      { id: 'cabin_view', label: `Flight Display: ${textOnly ? 'Text only' : 'Graphical'}` },
     ],
   };
 }
@@ -111,15 +113,19 @@ async function buildScreen(player, screenId, params) {
 // "call this function with an id." Bottom-pane message either way, then stay on
 // this vehicle's screen on failure or fall back to the fleet list once she's gone.
 async function handleAction(player, actionId, params) {
-  // Cabin View — ride as a passenger without the client ever mounting the graphical
-  // cabin panel. Takes effect from the next boarding; a rider already aboard keeps
-  // whatever they boarded with (the flight plugin latches it at board time).
+  // Flight Display — board any aircraft, in either seat, without the client ever
+  // mounting a graphical panel. Takes effect from the next boarding; anyone already
+  // aboard keeps what they boarded with (the flight plugin latches it at board time).
   if (actionId === 'cabin_view') {
     const next = !(await textTravelOn(player));
     await setFlag('player', TEXT_TRAVEL_FLAG, next ? 'true' : 'false', player);
     sendToPlayer(player.id, { type: 'output', message: `<span class="msg-system">${next
-      ? 'Cabin view set to TEXT ONLY — as a passenger you\'ll ride on description alone. Type <b>window</b> mid-flight to look out anyway.'
-      : 'Cabin view set to WINDOW — passengers get the cabin-window display again.'}</span>` });
+      ? 'Flight display set to <b>TEXT ONLY</b>.<br>'
+        + '· As a <b>passenger</b>: you ride on description alone — <b>window</b> mid-flight looks out anyway.<br>'
+        + '· As a <b>pilot</b>: no cockpit opens. You fly her by command from a character-drawn instrument panel — '
+        + '<b>startup</b>, <b>throttle 100</b>, <b>takeoff</b>, then <b>climb to 2000</b> / <b>turn to heading 090</b> / <b>land</b>. '
+        + '<b>status</b> reads the gauges any time.'
+      : 'Flight display set to <b>GRAPHICAL</b> — the cabin window and the 3D cockpit are back.'}</span>` });
     return buildScreen(player, null, '');
   }
 
