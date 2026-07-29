@@ -6,7 +6,7 @@
 @sidekick npc_lot_operator
 @titlecard the_last_lot_logo
 @theme last_lot_theme
-@airtime 13
+@airtime 16
 @rounds 4
 
 # The Last Lot used to be a shopping channel: Vosk described municipal surplus and

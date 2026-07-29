@@ -163,6 +163,14 @@ async function buildCards(player, field) {
 export async function pushHangarBay(player, selectId, opts = {}) {
   const field = fieldOf(player);
   if (!field) return { type: 'emote', message: 'Hangars are at the airfields.' };
+  // WHERE THEY WERE WHEN THEY ASKED. Everything below is awaited DB work — five
+  // round trips against a remote Postgres — and the auto-open path fires from
+  // `zone.entered`, so a player who walks straight back out is long gone by the
+  // time the panel is built. The push would then open a full-screen hangar over
+  // whatever room they're actually standing in: step onto the Solenne Sky Pad,
+  // turn round into the lift, and the Sky Pad bay would bloom over the elevator
+  // car until the next look. Checked again at the send, below.
+  const askedFrom = player.current_zone;
   const { rows: mine } = await query('SELECT id FROM hangars WHERE field_zone=$1 AND owner_id=$2', [field.id, player.id]);
   const craft = await buildCards(player, field);
   // A charter this player already booked shows as a fuelled, boarding-ready CHARTER
@@ -194,6 +202,10 @@ export async function pushHangarBay(player, selectId, opts = {}) {
   // Licence gate for the acquisition buttons (admins/devs are auto-rated + bypass the price).
   const licensed = await isPilotLicensed(player);
   const isAdmin = ['admin', 'dev'].includes(player.role);
+  // They moved while we were building it — drop the push rather than opening a
+  // hangar over a room that isn't one. `noop` because every caller here is a
+  // command handler and null would read as an unhandled verb.
+  if (player.current_zone !== askedFrom) return { type: 'noop' };
   sendToPlayer(player.id, { type: 'hangar_bay_open', data: {
     field: field.flags.airfield_name || field.name,
     // Tells the client whether "Close" also has to walk the player back out to

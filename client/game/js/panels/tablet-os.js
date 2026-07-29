@@ -6831,12 +6831,25 @@ function wireBody() {
       // Auto-advance through the book: at the end of a chapter, read the next.
       // Resolved lazily off the live payload, so a chapter that hasn't loaded (or
       // the last one) simply stops.
-      const chaptersOf = () => (_data?.detail?.chapters || _data?.chapters || null);
+      // SNAPSHOT the shelf and our place in it, right now, and walk that.
+      //
+      // This used to read `_data` inside advance(), which broke it twice over.
+      // Minimize calls close(), and close() nulls `_data` — so the moment you
+      // minimized, the next chapter resolved to null and the book stopped dead at
+      // the end of the one you were on, which is the whole thing minimize exists to
+      // prevent. And with the tablet OPEN it was no better: `_data.detail.id` is the
+      // chapter you pressed play on and never moves, so every advance re-derived the
+      // same index and handed back chapter N+1 for ever.
+      //
+      // Capturing the list and holding our own cursor fixes both — the reader walks
+      // forward on its own and needs nothing from a screen that may be long gone.
+      const chapterList = _data?.detail?.chapters || _data?.chapters || null;
+      let atIdx = Array.isArray(chapterList)
+        ? chapterList.findIndex(c => (c.id ?? c) === (_data?.detail?.id))
+        : -1;
       const advance = () => {
-        const list = chaptersOf();
-        if (!Array.isArray(list)) return null;
-        const at = list.findIndex(c => (c.id ?? c) === (_data?.detail?.id));
-        const nxt = at >= 0 ? list[at + 1] : null;
+        if (!Array.isArray(chapterList) || atIdx < 0) return null;
+        const nxt = chapterList[++atIdx];
         return nxt?.body ? { text: nxt.body, title: `${book} — ${nxt.name || nxt.title || ''}`.trim() } : null;
       };
       narrateStart(det.body || '', book, `${book} — ${det.name || ''}`.trim(), _data?.lex, advance);

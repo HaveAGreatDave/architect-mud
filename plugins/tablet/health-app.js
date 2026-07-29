@@ -305,15 +305,22 @@ async function buildScreen(player, screenId, params, notice = null) {
   const [remedies, status] = await Promise.all([carriedRemedies(player.id), getDrugStatus(player)]);
   // The paper doll. All seven parts every time, injured or not, so the client
   // renders a whole body rather than a scatter of marks — and `band` comes from
-  // the server like every other colour on this screen. Omitted entirely when
-  // nothing is wrong, so an uninjured player gets the screen they had before.
+  // the server like every other colour on this screen.
+  //
+  // ALWAYS SENT, like the Gear doll. This used to be omitted when nothing was
+  // wrong ("an uninjured player gets the screen they had before"), which meant a
+  // healthy player never saw the body at all and the feature read as missing.
+  // The body is the frame this screen is built around, the same way it is in
+  // Gear — an uninjured doll reading "no injury" on every part IS the healthy
+  // state, and a screen whose shape changes depending on whether you're hurt is
+  // harder to read at a glance, not easier.
   const body = bodyReport(player);
   return {
     ...base,
     meters: buildMeters(player),
     afflictions: buildAfflictions(player, status),
     quick: buildQuick(player, remedies),
-    body: body.some(p => p.severity > 0) ? body : null,
+    body,
     // Which silhouette sits behind the injury schematic. Same field, read the
     // same way, as the Gear doll and the wardrobe doll — one character should
     // be one shape everywhere the game draws them, and three screens quietly

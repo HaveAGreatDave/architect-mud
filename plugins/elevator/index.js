@@ -37,6 +37,7 @@ import { emit, on } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { registerInputMatcher } from '../../server/engine/plugins.js';
 import { query } from '../../server/models/db.js';
+import { getFlag, setFlag } from '../../server/engine/flags.js';
 
 const sys = (s) => `<span class="msg-system">${s}</span>`;
 
@@ -62,6 +63,9 @@ const SFX_ELEVATOR_CHIME = {
 
 // The car nominally rests at the lobby — call that Floor 1 for counter purposes.
 const GROUND_FLOOR = 1;
+// One-shot: this player has had the floor panel explained in the log. Durable, so a
+// relog doesn't re-teach a lift they already know how to use.
+const PANEL_SEEN_FLAG = 'elevator_panel_seen';
 
 // A ride shouldn't be instant, but it also shouldn't feel like a loading screen.
 // Time scales with how far the car climbs: a quick hop to the gym, a long haul to
@@ -371,18 +375,22 @@ on('zone.entered', ({ actor, zone, from }) => {
   const boarded = floorsOf(car).find((f) => f.zone === from);
   if (boarded) actor._elevatorAt = { n: boarded.n, zone: from, car: car.id, label: boarded.label };
 });
-// Boarding also SPEAKS the panel into the message log. The directory itself is
-// drawn by the describeRoom hook into the room pane — which mobile hides entirely
+// Boarding also SPEAKS the panel into the message log, ONCE, the first time this
+// player ever rides a lift. The directory itself is drawn by the describeRoom hook
+// into the room pane on every entry — which mobile hides entirely
 // (`#area-pane.mob-pane-hidden`), leaving a rider staring at a car with no visible
-// floors. The log is always on screen, and the buttons are the same action-links,
-// so this costs one message and fixes the surface everywhere. Runs after the
-// parking listener above so the ▶/doors-open line is already accurate.
-on('zone.entered', ({ actor, zone, from }) => {
+// floors — so the log copy exists to teach the surface, not to be the surface.
+// Repeating it every single boarding turned a one-time explanation into noise in
+// the one place a player can't scroll away from. Runs after the parking listener
+// above so the ▶/doors-open line is already accurate.
+on('zone.entered', async ({ actor, zone, from }) => {
   if (!actor || !from || from === zone) return;
   const car = getZone(zone);
   if (!isElevator(car)) return;
   const floors = floorsOf(car);
   if (!floors.length) return;
+  if (await getFlag('player', PANEL_SEEN_FLAG, actor) === 'true') return;
+  await setFlag('player', PANEL_SEEN_FLAG, 'true', actor);
   sendToPlayer(actor.id, {
     type: 'output',
     message: `${sys('The panel lights up as the doors settle.')}\n${buildPanel(floors, doorsOpenAt(car, actor))}`,
