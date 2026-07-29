@@ -955,6 +955,30 @@ console.log('— layer 1g: broadcast / spawn / durable wait —');
   await clearFlag('world', 'regress_durable_ran');
 }
 
+// ── Stale-fixture sweep (start of run, deliberately) ──────────────────────────
+//
+// Suite fixtures that live in the DB are created and deleted by straight-line code:
+// DELETE by id, INSERT, …checks…, DELETE by id. A check that THROWS between the two
+// deletes skips the teardown, and the row survives the process — into the NEXT run,
+// where it is no longer a fixture but world content. Aircraft are the sharp case,
+// because several are parked in the fake player's own zone: a leftover one made three
+// unrelated suites fail on the following run ("no aircraft here" checks found one, and
+// `embark` answered with the pilot-licence gate). The failures pointed nowhere near
+// the suite that actually leaked them.
+//
+// This runs at the START, unlike the orphaned-per-player sweep at the very end, and
+// the difference is the whole point: an end-of-run sweep cannot help a run that died
+// before reaching it. Nothing has created a fixture yet at this point, so there is
+// nothing live to wipe.
+//
+// Scoped to ids only this suite ever mints (`aircraft_regress_*`) — deliberately NOT
+// `aircraft_test_*`, which is what the in-game `testfly` verb conjures and would mean
+// deleting a developer's own aircraft out of their dev world.
+{
+  const { rowCount } = await query("DELETE FROM aircraft WHERE id LIKE 'aircraft\\_regress\\_%'");
+  if (rowCount) console.log(`  · swept ${rowCount} stale aircraft fixture(s) left by a previous crashed run`);
+}
+
 // ── Fake player setup ─────────────────────────────────────────────────────────
 const zones = getAllZones();
 // The fake player's home zone must be door-free. The door regress fixtures anchor
@@ -1458,6 +1482,435 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     world.zones.delete(originId);
   } else {
     check('multi-exit behavioural (needs 2 named interiors)', true, 'skipped — insufficient interior zones');
+  }
+
+  // ── Hunger and thirst as prose ─────────────────────────────────────────────
+  // The bars come off the HUD by default, so these lines ARE the interface now. What they
+  // replaced was one band each ("You are very hungry.") fired every single minute — which is
+  // the cry-wolf failure, and left the whole 20-point runway to starvation undifferentiated.
+  {
+    const { appetiteMessages, satiationLine, _test: A } = await import('../server/engine/appetite.js');
+    const say = (p, gm = 1) => appetiteMessages(p, gm);
+
+    // A healthy body is SILENT. Nagging a player who is fine is how you teach them to skim.
+    const well = { hunger: 100, thirst: 100 };
+    check('a fed, watered body says nothing', say(well).length === 0, JSON.stringify(say(well)));
+
+    // Crossing into a band is an event and speaks at once, rather than waiting out a cadence.
+    const falling = { hunger: 100, thirst: 100 };
+    say(falling);
+    falling.hunger = 38;
+    check('falling into a band speaks immediately', say(falling).length === 1, JSON.stringify(say(falling)));
+
+    // Sitting in a band repeats on ITS OWN cadence — that is the severity signal.
+    const sitting = { hunger: 38, thirst: 100 };
+    say(sitting);
+    let quiet = 0;
+    for (let i = 0; i < 21; i++) if (!say(sitting).length) quiet++;
+    check('sitting in a mild band is mostly quiet', quiet >= 20, `${quiet}/21 silent minutes`);
+    check('…but it does come back round', say(sitting).length === 1, 'repeats on cadence');
+    // …and a worse band repeats faster. Cadence has to be monotonic or the rhythm lies.
+    check('worse bands repeat faster than milder ones',
+      A.HUNGER_BANDS.every((b, i) => i === 0 || b.every > A.HUNGER_BANDS[i - 1].every),
+      A.HUNGER_BANDS.map(b => b.every).join(' < '));
+    check('thirst warns harder than hunger throughout (it kills twice as fast)',
+      A.THIRST_BANDS.every((b, i) => b.every < A.HUNGER_BANDS[i].every),
+      A.THIRST_BANDS.map(b => b.every).join(','));
+
+    // Bands must narrow toward zero: that is where the damage is, so that is where the
+    // resolution belongs. Equal-width bands were the original sin.
+    const widths = A.HUNGER_BANDS.map((b, i) => b.at - (A.HUNGER_BANDS[i - 1]?.at ?? 0));
+    check('bands narrow toward starvation', widths.every((w, i) => i === 0 || w >= widths[i - 1]), widths.join(','));
+
+    // AT ZERO the damage line already fires every minute and says all of this. Two systems
+    // narrating one moment is exactly how the old version reached four lines a minute.
+    const dead = { hunger: 0, thirst: 0 };
+    say(dead);
+    check('at zero the flavour stands aside for the damage line', say(dead).length === 0, JSON.stringify(say(dead)));
+
+    // Recovery is quiet, EXCEPT climbing out of real trouble — and that must survive jumping
+    // straight past every band, which is the normal case for a player who just ate.
+    const rescued = { hunger: 8, thirst: 100 };
+    say(rescued);
+    rescued.hunger = 100;
+    check('eating your way out of starvation is acknowledged', say(rescued)[0] === A.HUNGER_RELIEF, JSON.stringify(say(rescued)));
+    const mild = { hunger: 50, thirst: 100 };
+    say(mild);
+    mild.hunger = 100;
+    check('…but merely topping up from peckish is silent', say(mild).length === 0, JSON.stringify(say(mild)));
+
+    // "Fine" has to sort ABOVE every band. Returning -1 made entering the mildest band look
+    // like a recovery, so the first thing a hungry player was told was that it had let up.
+    check('"fine" sorts above every band, not below',
+      A.bandFor(A.HUNGER_BANDS, 100) > A.bandFor(A.HUNGER_BANDS, 3), 'fine is best');
+
+    // A whole starvation run should be a handful of lines, not a wall of them.
+    const run = { hunger: 100, thirst: 100 };
+    let lines = 0;
+    for (let m = 1; m <= 420; m++) {
+      if (m % 4 === 0) run.hunger = Math.max(0, run.hunger - 1);
+      if (m % 3 === 0) run.thirst = Math.max(0, run.thirst - 1);
+      lines += say(run).length;
+    }
+    check('seven game-hours of starving is a few dozen lines, not hundreds',
+      lines > 10 && lines < 60, `${lines} lines`);
+
+    // SATIATION — the half that never existed. A bar tells you how empty you are; nothing in
+    // the game could tell you how full, so portion sizes were unlearnable.
+    check('a big meal on an empty stomach reads as full',
+      /full/i.test(satiationLine({ hunger: 95, digestive_load: 80 })), satiationLine({ hunger: 95, digestive_load: 80 }));
+    check('a stuffed body is told to stop', /another bite/i.test(satiationLine({ hunger: 100, digestive_load: 100 })), 'stop');
+    check('a crumb on an empty stomach reads as barely anything',
+      /barely/i.test(satiationLine({ hunger: 10, digestive_load: 5 })), satiationLine({ hunger: 10, digestive_load: 5 }));
+    check('satiation always says something', typeof satiationLine({}) === 'string', 'never null');
+  }
+
+
+  // ── Dissociative episodes ─────────────────────────────────────────────────
+  // The wake paths ARE the risk: a missed one strands a player in a zone that is deleted out
+  // from under them, and the symptom is a character who cannot move and cannot be found. Every
+  // path funnels through endDissociation, so these assert the funnel rather than the callers.
+  {
+    const { beginDissociation, endDissociation, isDissociating, isDreamZone, DREAM_ZONE_PREFIX } =
+      await import('../server/engine/dreamscape.js');
+
+    const victim = getPlayer();
+    const home = victim.current_zone;
+
+    const began = await beginDissociation(victim, { broadcast: null, size: 2 });
+    check('a dissociative episode builds and takes the mind elsewhere',
+      began && isDissociating(victim) && victim.current_zone !== home,
+      `began=${began} zone=${victim.current_zone}`);
+    check('…into a real dreamscape zone', isDreamZone(victim.current_zone), victim.current_zone);
+
+    // THE BODY STAYS PUT. This is the load-bearing half of the mind/body split: the player is
+    // never removed from the real room, so they stand there vacant — lootable and killable,
+    // exactly as a sleeper is. Removing them would make a dissociating player invulnerable.
+    check('the body stays in the real room, vacant and vulnerable',
+      !!world.zones.get(home)?.players?.has(victim.id), `zone.players in ${home}`);
+
+    // persistableZone must find the real room if the socket drops mid-episode, or a relog
+    // writes a dreamscape id into players.current_zone and strands them for good.
+    const { persistableZone } = await import('../server/engine/world.js');
+    check('a disconnect mid-episode persists the BODY zone, never the dreamscape',
+      persistableZone(victim) === home, persistableZone(victim));
+
+    // An episode cannot nest, or the second build orphans the first one's rooms.
+    check('a second episode cannot start on top of the first',
+      (await beginDissociation(victim, { broadcast: null })) === false, 'refused');
+
+    const ended = endDissociation(victim, { broadcast: null, reason: 'silent' });
+    check('ending returns the mind to the body', ended && victim.current_zone === home, victim.current_zone);
+    check('…and clears the flag', !isDissociating(victim), 'clear');
+    check('…and clears _bodyZone so nothing else reads a stale one', victim._bodyZone === undefined, String(victim._bodyZone));
+
+    // The zones must actually be gone. A leak here is invisible until the process is full of
+    // rooms nobody can reach.
+    const leaked = [...world.zones.keys()].filter(z => z.startsWith(`${DREAM_ZONE_PREFIX}${victim.id}_`));
+    check('the dreamscape is torn down, not leaked', leaked.length === 0, `${leaked.length} orphaned rooms`);
+
+    // Idempotent, which is what lets death and logout call it unconditionally.
+    check('ending an episode that is not running is a safe no-op',
+      endDissociation(victim, { broadcast: null }) === false, 'no-op');
+    check('a sleeping player never dissociates (they are already elsewhere)',
+      (await (async () => { victim.sleeping = { inDream: false }; const r = await beginDissociation(victim, { broadcast: null }); victim.sleeping = null; return r; })()) === false,
+      'refused while asleep');
+
+    // The command gate is the other half of the hazard: a dream room is deleted seconds later,
+    // so `drop` inside one orphans the item in the DB forever. The allowlist must cover a
+    // dissociating player exactly as it covers a dreaming one.
+    const { DREAM_VERBS } = await import('../server/engine/commands/index.js');
+    check('walking and looking are allowed inside an episode',
+      ['north', 'look', 'examine', 'say'].every(v => DREAM_VERBS.has(v)), 'allowed');
+    check('anything that writes the world is not',
+      !['drop', 'get', 'give', 'buy', 'attack'].some(v => DREAM_VERBS.has(v)), 'blocked');
+  }
+  // ── Body temperature: the sleeping body is still a body ────────────────────
+  // Sleep used to be a total, free immunity to temperature — resourceTick skipped a sleeper
+  // before it reached the drift, so the canonical way to die of cold (fall asleep in it) was
+  // the one guaranteed way not to, and any blizzard was survivable by lying down. The drift
+  // is now a shared function both paths call, so the two can never diverge again.
+  {
+    const { driftBodyTemperature } = await import('../server/engine/gameLoop.js');
+    const { bodyZoneOf } = await import('../server/engine/world.js');
+    const { getZoneApparentTemperature } = await import('../server/engine/environment.js');
+
+    // A scratch room, plus a dreamscape stand-in for the dreamer case below.
+    const roomId = 'zone_regress_temp_' + process.pid;
+    registerTransientZone({ id: roomId, name: 'Regress Thermal Room', description: 'A room.', exits: {}, flags: { is_interior: true } });
+    const dreamId = 'zone_regress_dream_' + process.pid;
+    registerTransientZone({ id: dreamId, name: 'Regress Dream', description: 'Not a place.', exits: {}, flags: { is_interior: true } });
+
+    // MEASURE the room rather than assuming it: an interior's temperature is driven by the
+    // live HVAC/outdoor sim, so the tests below aim the player's own terms (insulation and
+    // exposure, both plain °C offsets) at a known warmthTemp instead of hardcoding an ambient.
+    const amb = getZoneApparentTemperature(roomId, 0);
+    // Deep cold: warmthTemp = −40, a 50° deficit ⇒ ~1.88 °C/min, far above the 0.1° rounding
+    // the drift quantises to, so proportionality is actually measurable here.
+    const deepCold = amb + 40;
+    const body = (over = {}) => ({ current_zone: roomId, body_temp_c: 37.0, insulation: 0, exposurePenalty: deepCold, wetness: 0, ...over });
+    // One rounding step of slack — driftBodyTemperature rounds the core to 0.1 every call.
+    const near = (a, b) => Math.abs(a - b) <= 0.11;
+
+    const chilled = body();
+    driftBodyTemperature(chilled, 1);
+    check('deep cold cools the core', chilled.body_temp_c < 37.0, String(chilled.body_temp_c));
+
+    // Insulation and bare skin are the two player-controlled terms, in opposite directions.
+    const coated = body({ insulation: 12 });
+    driftBodyTemperature(coated, 1);
+    check('insulation slows the cooling', coated.body_temp_c > chilled.body_temp_c, `${coated.body_temp_c} > ${chilled.body_temp_c}`);
+    const barer = body({ exposurePenalty: deepCold + 15 });
+    driftBodyTemperature(barer, 1);
+    check('bare skin speeds the cooling', barer.body_temp_c < chilled.body_temp_c, `${barer.body_temp_c} < ${chilled.body_temp_c}`);
+
+    // Wetness is a MULTIPLIER on the cold side — the term the bare-skin wetness bug was
+    // silently zeroing out for an unclothed player standing in the rain.
+    const soaked = body({ wetness: 100 });
+    driftBodyTemperature(soaked, 1);
+    const dLoss = 37.0 - chilled.body_temp_c, wLoss = 37.0 - soaked.body_temp_c;
+    check('being soaked roughly doubles the cooling rate', near(wLoss, dLoss * 2), `${wLoss.toFixed(2)} vs ${(dLoss * 2).toFixed(2)}`);
+
+    // Time scale: the drift is per GAME-minute, so a faster clock cools proportionally faster.
+    const fast = body(); driftBodyTemperature(fast, 3);
+    check('drift scales with game-minutes elapsed', near(37.0 - fast.body_temp_c, dLoss * 3), `${(37.0 - fast.body_temp_c).toFixed(2)} vs ${(dLoss * 3).toFixed(2)}`);
+
+    // The comfort band is the cure, and the only one. Aim insulation so warmthTemp lands at
+    // 20°C — inside 10..35 from both sides, whatever the room actually is today.
+    const comfy = (over = {}) => ({ current_zone: roomId, body_temp_c: 37.0, insulation: 20 - amb, exposurePenalty: 0, wetness: 0, ...over });
+    const recovering = comfy({ body_temp_c: 34.0 });
+    driftBodyTemperature(recovering, 1);
+    check('the comfort band warms you back toward 37', recovering.body_temp_c > 34.0, String(recovering.body_temp_c));
+    const settled = comfy();
+    driftBodyTemperature(settled, 60);
+    check('thermoregulation settles at 37 and does not overshoot', settled.body_temp_c === 37.0, String(settled.body_temp_c));
+
+    // THE DREAMER. The mind is in a dreamscape with no sky; the body is lying in the cold.
+    // Reading current_zone here would have made every dream a warm one.
+    const dreamer = { current_zone: dreamId, sleeping: { bodyZone: roomId }, body_temp_c: 37.0, insulation: 0, exposurePenalty: deepCold, wetness: 0 };
+    check('bodyZoneOf prefers the sleeping body over the dreaming mind', bodyZoneOf(dreamer) === roomId, bodyZoneOf(dreamer));
+    driftBodyTemperature(dreamer, 1);
+    check('a dreamer freezes in the room their BODY is in, not the dream', dreamer.body_temp_c < 37.0, String(dreamer.body_temp_c));
+
+    // Clamped, so no single extreme tick can produce a nonsense core reading.
+    const extreme = body();
+    driftBodyTemperature(extreme, 100000);
+    check('core temperature is clamped to the survivable floor', extreme.body_temp_c === 25, String(extreme.body_temp_c));
+
+    // ── Metabolic heat: a body is a furnace, not a rock ──────────────────────
+    // The term the model was missing. Keeping moving in the cold is the most iconic fact
+    // about cold survival there is, and none of it was represented.
+    // Compared over FIVE minutes, not one: the drift rounds the core to 0.1°C every call, and
+    // on the (deliberately flatter) 1.25 curve a few degrees of metabolic warmth is worth less
+    // than one rounding step in a single minute. Five is still a short exposure and puts the
+    // difference well clear of the quantisation.
+    const still = body({ _lastMoveAt: 0, stamina: 0 });
+    driftBodyTemperature(still, 5);
+    const walking = body({ _lastMoveAt: Date.now(), stamina: 0 });
+    driftBodyTemperature(walking, 5);
+    const running = body({ _lastMoveAt: Date.now(), running: true, stamina: 0 });
+    driftBodyTemperature(running, 5);
+    check('moving keeps you warmer than standing still', walking.body_temp_c > still.body_temp_c, `${walking.body_temp_c} > ${still.body_temp_c}`);
+    check('running keeps you warmer than walking', running.body_temp_c > walking.body_temp_c, `${running.body_temp_c} > ${walking.body_temp_c}`);
+
+    // Shivering: costs stamina, and is the difference between holding the line and not.
+    const shivering = body({ _lastMoveAt: 0, stamina: 100 });
+    driftBodyTemperature(shivering, 5);
+    check('a body with stamina shivers', shivering._shivering === true, String(shivering._shivering));
+    check('shivering slows the cooling', shivering.body_temp_c > still.body_temp_c, `${shivering.body_temp_c} > ${still.body_temp_c}`);
+    check('shivering costs stamina', shivering.stamina < 100, String(shivering.stamina));
+    check('an exhausted body cannot shiver', still._shivering === false, String(still._shivering));
+
+    // The cliff. Real shivering ceases around 32°C, and its absence is a classic marker that
+    // mild hypothermia has become moderate — so the cooling rate STEPS UP exactly when the
+    // body can least afford it. This is the mechanic that makes cold a slope with a cliff in it.
+    const tooFarGone = body({ _lastMoveAt: 0, stamina: 100, body_temp_c: 31.5 });
+    driftBodyTemperature(tooFarGone, 1);
+    check('below 32C the body stops shivering however much stamina is left', tooFarGone._shivering === false, String(tooFarGone._shivering));
+    check('and it does not spend stamina it cannot use', tooFarGone.stamina === 100, String(tooFarGone.stamina));
+
+    check('a body in the heat does not shiver',
+      (() => { const h = comfy({ insulation: 45 - amb, thirst: 0, _lastMoveAt: 0, stamina: 100 }); driftBodyTemperature(h, 1); return h._shivering === false; })(), 'no shivering in a heatwave');
+
+    // ── Sweat: the heat side's mirror ───────────────────────────────────────
+    // The cold half had shivering; the heat half had nothing, and the flavour pool has been
+    // promising "You're not sweating anymore. That's very bad." to a model that couldn't
+    // deliver it. Aim insulation so heatTemp lands at 45 — a genuine heatwave — whatever the
+    // room is today.
+    const baking = (over = {}) => ({ current_zone: roomId, body_temp_c: 37.0, insulation: 45 - amb, insulationWet: 45 - amb, exposurePenalty: 0, wetness: 0, thirst: 100, stamina: 100, _lastMoveAt: 0, ...over });
+
+    // Ten minutes, for the same reason the cold comparisons take five: the drift rounds the
+    // core to 0.1C a call, and sweat's edge is smaller than that over a single minute.
+    const parched = baking({ thirst: 0 });
+    driftBodyTemperature(parched, 10);
+    const sweating = baking();
+    driftBodyTemperature(sweating, 10);
+    check('a hydrated body sweats in a heatwave', sweating._sweating === true, String(sweating._sweating));
+    check('sweating slows the heating', sweating.body_temp_c < parched.body_temp_c, `${sweating.body_temp_c} < ${parched.body_temp_c}`);
+    check('sweating spends WATER, not stamina',
+      sweating.thirst < 100 && sweating.stamina === 100, `thirst ${sweating.thirst}, stamina ${sweating.stamina}`);
+    check('a body with no water left cannot sweat', parched._sweating === false, String(parched._sweating));
+    check('...and sweat is the ONLY thing draining thirst in the heat now (no double-count)',
+      sweating.thirst === 100 - 2 * 10, String(sweating.thirst));
+
+    // ANHIDROSIS — the exact mirror of shivering ceasing at 32°C, and the same cliff.
+    const gone = baking({ body_temp_c: 41.6 });
+    driftBodyTemperature(gone, 1);
+    check('above 41C the body stops sweating however much water is left', gone._sweating === false, String(gone._sweating));
+    check('and it does not spend water it cannot use', gone.thirst === 100, String(gone.thirst));
+
+    // Dehydration THROTTLES sweat before it stops it — being thirsty is a slow disadvantage,
+    // not just a bar that runs out.
+    const dry = baking({ thirst: 10 });
+    driftBodyTemperature(dry, 10);
+    check('dehydration throttles sweating before it stops it',
+      dry._sweating === true && dry.body_temp_c > sweating.body_temp_c, `${dry.body_temp_c} > ${sweating.body_temp_c}`);
+
+    // Sweat feeds the hygiene meter — a long hot day should smell like one.
+    check('sweating feeds the hygiene substrate', (sweating._sweat || 0) > 0, String(sweating._sweat));
+
+    // A sealed shell is boil-in-the-bag: the same tag that saves you in a gale traps the sweat.
+    const bagged = baking({ windproof: 1 });
+    driftBodyTemperature(bagged, 10);
+    check('a windproof shell makes a heatwave worse (trapped sweat)',
+      bagged.body_temp_c > sweating.body_temp_c, `${bagged.body_temp_c} > ${sweating.body_temp_c}`);
+
+    // EXERTION CUTS BOTH WAYS. A working body makes the same watts whichever way the weather
+    // is trying to kill it, which is what makes the optimal play opposite at the two extremes.
+    const restingHot = baking({ thirst: 0 });
+    driftBodyTemperature(restingHot, 10);
+    const runningHot = baking({ thirst: 0, _lastMoveAt: Date.now(), running: true });
+    driftBodyTemperature(runningHot, 10);
+    check('running makes a heatwave WORSE (it helped in the cold)',
+      runningHot.body_temp_c > restingHot.body_temp_c, `${runningHot.body_temp_c} > ${restingHot.body_temp_c}`);
+
+    // ── Wet insulation: "cotton kills" ──────────────────────────────────────
+    // Wetness used to be a flat multiplier on the drift RATE and never touched insulation, so
+    // a soaked arctic parka insulated exactly as well as a dry one. It was the single largest
+    // inaccuracy left in the model.
+    const coat = (over) => body({ insulation: 10, insulationWet: 0, ...over });
+    const dryCoat = coat({ wetness: 0 });   driftBodyTemperature(dryCoat, 1);
+    const wetCoat = coat({ wetness: 100 }); driftBodyTemperature(wetCoat, 1);
+    check('a soaked coat no longer insulates like a dry one', wetCoat.body_temp_c < dryCoat.body_temp_c, `${wetCoat.body_temp_c} < ${dryCoat.body_temp_c}`);
+    // …but wool and neoprene do. This is load-bearing for swimming: submersion pins wetness to
+    // 100, so a wetsuit that lost its value wet would be no wetsuit at all.
+    const wool = body({ insulation: 10, insulationWet: 10, wetness: 100 });
+    driftBodyTemperature(wool, 1);
+    check('a hydrophobic garment keeps its INSULATION soaked - but wet skin still conducts, so it never matches dry',
+      wool.body_temp_c > wetCoat.body_temp_c && wool.body_temp_c < dryCoat.body_temp_c,
+      `wet wool ${wool.body_temp_c}, wet cotton ${wetCoat.body_temp_c}, dry ${dryCoat.body_temp_c}`);
+    check('…which is what stops a soaked wetsuit becoming useless', wool.body_temp_c > wetCoat.body_temp_c, `${wool.body_temp_c} > ${wetCoat.body_temp_c}`);
+    // A soaked coat is still marginally better than nothing — it's a windbreak even when it
+    // has stopped being a blanket.
+    const bare = body({ insulation: 0, insulationWet: 0, wetness: 100 });
+    driftBodyTemperature(bare, 1);
+    check('a soaked coat still beats no coat at all', wetCoat.body_temp_c > bare.body_temp_c, `${wetCoat.body_temp_c} > ${bare.body_temp_c}`);
+
+    // ── Warmth is a gradient, not a door ────────────────────────────────────
+    // Recovery used to be a flat 0.05/min with warmthTemp nowhere in it, so a 20C room, a 35C
+    // sauna and a freezing corridor-with-a-good-coat all rewarmed you at identical speed.
+    // Being WARMER than merely comfortable did nothing — which is why the game had no fires,
+    // heaters, blankets or hot drinks: there was no mechanic that would have rewarded one.
+    const chilledBody = (ins) => ({ current_zone: roomId, body_temp_c: 32.0, insulation: ins, insulationWet: ins, exposurePenalty: 0, wetness: 0, thirst: 100, stamina: 100, _lastMoveAt: 0 });
+    const barely = chilledBody(10 - amb);        // warmthTemp ~10: just inside the band
+    driftBodyTemperature(barely, 10);
+    const cosy = chilledBody(22 - amb);          // warmthTemp ~22: dressed, indoors
+    driftBodyTemperature(cosy, 10);
+    const toasty = chilledBody(28 - amb);        // warmthTemp ~28: heater plus winter gear
+    driftBodyTemperature(toasty, 10);
+    check('being warmer rewarms you faster', cosy.body_temp_c > barely.body_temp_c, `${cosy.body_temp_c} > ${barely.body_temp_c}`);
+    check('and warmer still, faster still', toasty.body_temp_c > cosy.body_temp_c, `${toasty.body_temp_c} > ${cosy.body_temp_c}`);
+    // The floor is the OLD constant, so being barely-in-the-band is exactly as slow as it was.
+    const oldRate = 32 + (37 - 32) * (1 - Math.pow(0.95, 10));
+    check('barely-in-the-band is unchanged from the old flat rate',
+      Math.abs(barely.body_temp_c - oldRate) < 0.11, `${barely.body_temp_c} vs ${oldRate.toFixed(2)}`);
+    // …and it is CAPPED, so a heat source is a strong advantage and never an instant reset.
+    // Both of these sit at or past the cap; they must land on the same number. Note the
+    // insulation stays at 34 in both so `heatTemp` never crosses 35 — the gradient is only
+    // reachable in the comfort band, and a test that overshot it would be measuring the
+    // heating branch instead.
+    const { applyWarmth } = await import('../server/engine/warmth.js');
+    const atCap = chilledBody(34 - amb);
+    driftBodyTemperature(atCap, 10);
+    const pastCap = chilledBody(34 - amb);
+    applyWarmth(pastCap, 5, 60);                 // a hot drink on top of an already-capped body
+    driftBodyTemperature(pastCap, 10);
+    check('rewarming is capped — no heat source is an instant reset',
+      pastCap.body_temp_c === atCap.body_temp_c && pastCap.body_temp_c < 37,
+      `capped at ${pastCap.body_temp_c}`);
+    check('the cap still beats a merely warm room', atCap.body_temp_c > toasty.body_temp_c, `${atCap.body_temp_c} > ${toasty.body_temp_c}`);
+
+    // A hot drink or a hand warmer rides the same cold-side ledger as shivering.
+    const cocoa = body(); applyWarmth(cocoa, 5, 30); driftBodyTemperature(cocoa, 1);
+    const nothing = body(); driftBodyTemperature(nothing, 1);
+    check('a hot drink slows the cold', cocoa.body_temp_c > nothing.body_temp_c, `${cocoa.body_temp_c} > ${nothing.body_temp_c}`);
+    check('…and the drift burns its clock down', cocoa._warmMin === 29, String(cocoa._warmMin));
+
+    removeTransientZone(roomId);
+    removeTransientZone(dreamId);
+  }
+
+  // ── Windproofing, and seasonal water ───────────────────────────────────────
+  {
+    const { windChillDelta, waterTemperature, apparentTemperature } = await import('../server/engine/environment.js');
+    const { recomputeInsulation } = await import('../server/engine/commands/inventory.js');
+
+    // Wind chill is a property of the ZONE; a shell is a property of the PLAYER. The delta is
+    // isolated by running the curve twice so the humidity terms cancel exactly.
+    const windy = apparentTemperature(-5, 40, 80), calm = apparentTemperature(-5, 0, 80);
+    check('wind chill only ever makes cold air colder', windy < calm, `${windy} < ${calm}`);
+    check('windChillDelta is zero indoors (no wind in a room)', windChillDelta('nonexistent_zone_id') === 0, 'indoor/unknown → 0');
+
+    // A shell gives back the wind's share for the slots it covers — torso is worth most of it.
+    const shellRows = [{ tags: { slot: 'torso', windproof: true, insulation: 4 } }];
+    const shelled = {}; await recomputeInsulation(shelled, shellRows);
+    check('a windproof torso blocks most of the chill', shelled.windproof === 0.65, String(shelled.windproof));
+    const fullRows = [{ tags: { slot: 'torso', covers: ['legs'], windproof: true, insulation: 4 } }];
+    const sealed = {}; await recomputeInsulation(sealed, fullRows);
+    check('a shell covering torso and legs blocks all of it', sealed.windproof === 1, String(sealed.windproof));
+    const plainRows = [{ tags: { slot: 'torso', insulation: 4 } }];
+    const plain = {}; await recomputeInsulation(plain, plainRows);
+    check('an ordinary coat blocks none of it (windproof is not insulation)', plain.windproof === 0, String(plain.windproof));
+
+    // `insulationWet` — the share that survives a soaking, derived here so the temp tick
+    // never has to look at an item.
+    check('an ordinary coat keeps none of its warmth wet', plain.insulationWet === 0, String(plain.insulationWet));
+    const woolly = {}; await recomputeInsulation(woolly, [{ tags: { slot: 'torso', insulation: 3, hydrophobic: true } }]);
+    check('a hydrophobic garment keeps all of it', woolly.insulationWet === 3, String(woolly.insulationWet));
+    const mixed = {}; await recomputeInsulation(mixed, [
+      { tags: { slot: 'torso', insulation: 3 } }, { tags: { slot: 'legs', insulation: 2, hydrophobic: true } }]);
+    check('a mixed outfit keeps only the hydrophobic share',
+      mixed.insulation === 5 && mixed.insulationWet === 2, `${mixed.insulation} total, ${mixed.insulationWet} wet`);
+    check('the wet share can never exceed the total', mixed.insulationWet <= mixed.insulation, 'bounded');
+    check('the two coats insulate identically — only the wind differs',
+      plain.insulation === shelled.insulation, `${plain.insulation} vs ${shelled.insulation}`);
+
+    // Extremity exposure — the field frostbite runs on, owned here so the plugin reads no inventory.
+    check('bare extremities read fully exposed', plain.extremityExposure === 1, String(plain.extremityExposure));
+    const gloved = {}; await recomputeInsulation(gloved, [
+      { tags: { slot: 'hands' } }, { tags: { slot: 'feet' } }, { tags: { slot: 'head' } }]);
+    check('gloves, boots and a hat cover every extremity', gloved.extremityExposure === 0, String(gloved.extremityExposure));
+    const halfGloved = {}; await recomputeInsulation(halfGloved, [{ tags: { slot: 'hands' } }]);
+    check('extremity exposure is a fraction, not a flag',
+      Math.abs(halfGloved.extremityExposure - 2 / 3) < 1e-9, String(halfGloved.extremityExposure));
+
+    // Water: authored override still wins outright, and the derived value stays in a band that
+    // is liquid at one end and a temperate sea at the other, whatever month it is.
+    const poolId = 'zone_regress_pool_' + process.pid;
+    registerTransientZone({ id: poolId, name: 'Regress Pool', description: 'Water.', exits: {}, flags: { terrain: 'water', water_temp_c: 30 } });
+    check('an authored water temperature wins outright', waterTemperature(poolId) === 30, String(waterTemperature(poolId)));
+    removeTransientZone(poolId);
+
+    const seaId = 'zone_regress_sea_' + process.pid;
+    registerTransientZone({ id: seaId, name: 'Regress Sea', description: 'Water.', exits: {}, flags: { terrain: 'water' } });
+    const deepId = 'zone_regress_deep_' + process.pid;
+    registerTransientZone({ id: deepId, name: 'Regress Deep', description: 'Water.', exits: {}, flags: { terrain: 'water', underwater: true } });
+    const surfaceC = waterTemperature(seaId), deepC = waterTemperature(deepId);
+    check('surface water stays liquid and temperate', surfaceC >= 2 && surfaceC <= 24, String(surfaceC));
+    check('deep water is colder than the surface', deepC < surfaceC, `${deepC} < ${surfaceC}`);
+    check('deep water is capped below the surface maximum', deepC <= 12, String(deepC));
+    removeTransientZone(seaId);
+    removeTransientZone(deepId);
   }
 
   // ── Transient zones (void-travel Slice 1 substrate) ────────────────────────

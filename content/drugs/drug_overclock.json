@@ -32,7 +32,8 @@
     "take_line": "You feed {name} into your lace.",
     "tolerance": {
       "gain_per_dose": 0.14,
-      "max_reduction": 0.7
+      "max_reduction": 0.7,
+      "recovery_per_sec": 0.000011
     },
     "withdrawal": {
       "message": "Baseline feels like wading through mud. You want the clock back up.",

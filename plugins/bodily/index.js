@@ -25,7 +25,7 @@ import { setPosture } from '../../server/engine/posture.js';
 import { emit, on } from '../../server/engine/events.js';
 import './help.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
-import { coolSweat, markWashed, checkFilthy } from '../../server/engine/hygiene.js';
+import { coolSweat, coolSewerGrime, markWashed, checkFilthy } from '../../server/engine/hygiene.js';
 import { adjustRelation } from '../../server/engine/relations.js';
 
 // What counts as a toilet. Historically this only checked object_type==='toilet'
@@ -195,6 +195,7 @@ schedule('1m', async () => {
     // Sweat dries on everyone, asleep or not — it's the one part of this that
     // isn't digestion. In memory, no write (engine hygiene owns the meter).
     coolSweat(player);
+    coolSewerGrime(player);
     // Slow cadence on purpose: the filth latch must not live on the smell path.
     checkFilthy(player);
     if (player.sleeping) continue;
@@ -1248,8 +1249,18 @@ async function cmdSoap(args, raw, player, broadcast) {
   );
   if (!water.length) return { type: 'error', message: `You need running water for that.` };
 
-  // No target (or yourself) → the ordinary self-wash, which mis owns.
-  if (!nameStr || /^(me|myself|self)$/i.test(nameStr)) return undefined;
+  // No target (or yourself) → wash yourself, which is what SOAP plainly means.
+  // (It used to fall through here on the assumption mis owned a bare `soap`; mis
+  // only registers `wash`, so bare `soap` reached no handler at all.)
+  if (!nameStr || /^(me|myself|self)$/i.test(nameStr)) {
+    if (!await consumeSoap(player)) return { type: 'error', message: `You have no soap.` };
+    await scrubCreature(player, true);
+    sendToZone(player.current_zone, {
+      type: 'zone_event',
+      message: `${player.handle} works a block of soap over themselves at the water.`,
+    }, player.id);
+    return { type: 'output', message: `You work the soap over yourself and rinse off. Clean — properly clean, the kind that lasts a while. <span class="text-dim">(A block of soap, well spent.)</span>` };
+  }
 
   const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);
   const npcs = getZoneNpcs(player.current_zone).filter(n => !n._dead);
@@ -1288,6 +1299,6 @@ async function cmdSoap(args, raw, player, broadcast) {
 commands.soap  = cmdSoap;
 commands.scrub = cmdSoap;
 
-// Declaration-only: a sink or shower advertises SOAP on examine. The verb itself
-// stays a command because it self-resolves a creature, which no tag can express.
-specializedActions.push({ verb: 'soap', requiredTag: 'water_source', handler: null });
+// Deliberately NOT a specializedAction: registering it put a SOAP button on the
+// smartbar beside every sink in the world, which is far too much prominence for a
+// verb this incidental. Discovered via the soap item's own description instead.

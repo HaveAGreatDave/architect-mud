@@ -9,6 +9,18 @@ Tone authority is [story.md](story.md).
 Not to be confused with [systems-survival.md](systems-survival.md), which owns
 thirst itself — this is what you drink, not what drinking does to you.
 
+## Hot drinks warm you
+
+A hot drink is the cheapest cold-weather gear in the game and the only kind you can carry in your
+hands. `drinks.finishServing` calls `applyWarmth` (server/engine/warmth.js) scaled by the same
+`hotMultiplier` the thirst credit already uses — so a mug you left on the desk warms you as little
+as it refreshes you, and a thermos (`tags.insulated`) stays useful far longer. A drink that was never
+hot does nothing, which is why iced tea is not a survival item. Cocoa, tea and every coffee are
+already `hot: true` recipes, so they all qualify with no per-recipe authoring.
+
+Deliberately NOT the `warming` item tag: a vessel never passes through `applyItemUse`, so the tag
+would never fire. See [plugins/warmth](../plugins/warmth/README.md).
+
 ## Why it exists
 
 The game had 14 alcoholic cocktails, four soft drinks, one bowl and no cups. You

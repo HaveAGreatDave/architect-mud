@@ -9,7 +9,7 @@
   "bg_color": "#141b19",
   "color": "#8fae9a",
   "created_by": "sewer-grid",
-  "description": "A grimy trunk of storm tunnel under Voss Avenue, the concrete cracked and weeping, the air thick with the sour breath of the drains.",
+  "description": "A grimy trunk of storm tunnel under Voss Avenue, the concrete cracked and weeping, the air thick with the sour breath of the drains. West, a collapse has choked the bore down to a rusted grate wedged fast in the rubble.",
   "exits": {
     "east": "zone_under_904_909",
     "west": "zone_under_902_909"

@@ -18,6 +18,7 @@ import { sfx, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews,
 import { sendCmdSilent } from '../net.js';
 import { toggleAutoWalk, isAutoWalking, isRunning, onRunStateChange, setGpsRoute, routeBetween, getTracePath, setMapOpener, FUNC_LEGEND, POI_LEGEND, isWorldWaterVoid, districtCoord, WATER_VOID_FILL, crossingInnerHtml, isOnCrossing } from './minimap.js';
 import { state } from '../state.js';
+import { maybeTabletTour } from './tour.js';
 import { loadSettings, saveSettings, applySettings, openThemeEditor, probeBuiltinThemeColors, DARK_THEMES, LIGHT_THEMES, DEFAULT_AUDIO_SETTINGS } from '/shared/settings.js';
 import { getChatTabs, getChatMessages, sendChatMessage, markChatRead, onChatUpdate, getOnlinePlayers, refreshOnlinePlayers, ensureChatConversation, leaveChatConversation, removeCorpChannels, getClosedChatTabs, reopenChatTab, getMotdHtml } from './whisper.js';
 import { showPromptDialog, showConfirmDialog, showSelectDialog } from './confirm.js';
@@ -292,10 +293,20 @@ function ensureStyles() {
     /* While a drag-scroll gesture is live, show the grabbing hand and kill text
        selection so dragging pans the screen instead of highlighting content. */
     #tablet-os-overlay .tos-scroll.tos-drag-scrolling { cursor:grabbing; user-select:none; }
-    #tablet-os-overlay .tos-scroll::-webkit-scrollbar { width:6px; }
-    #tablet-os-overlay .tos-scroll::-webkit-scrollbar-track { background:var(--bg2); }
-    #tablet-os-overlay .tos-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
-    #tablet-os-overlay .tos-scroll { scrollbar-width:thin; scrollbar-color:var(--border) var(--bg2); }
+    /* Scrollbars inside the tablet answer to the TABLET's palette, not the
+       terminal's. The device has its own surface and accent (--tos-*, --mg-accent)
+       and a bar drawn in the game's --border reads as the room's chrome leaking
+       through the screen. Scoped to every descendant because WebKit won't inherit
+       the pseudo-elements; the per-app bars below are more specific and still win. */
+    #tablet-os-overlay * { scrollbar-width:thin;
+      scrollbar-color:color-mix(in srgb, var(--mg-accent) 40%, transparent) transparent; }
+    #tablet-os-overlay *::-webkit-scrollbar { width:6px; height:6px; }
+    #tablet-os-overlay *::-webkit-scrollbar-track { background:rgba(0,0,0,.32); border-radius:3px; }
+    #tablet-os-overlay *::-webkit-scrollbar-thumb {
+      background:color-mix(in srgb, var(--mg-accent) 40%, transparent); border-radius:3px; }
+    #tablet-os-overlay *::-webkit-scrollbar-thumb:hover {
+      background:color-mix(in srgb, var(--mg-accent) 68%, transparent); }
+    #tablet-os-overlay *::-webkit-scrollbar-corner { background:transparent; }
     #tablet-os-overlay .tos-body { padding:14px 13px; font-size:13.5px; }
     /* ── Sticky chrome ───────────────────────────────────────────────────────
        The status row (location · clock) and the breadcrumb (Back) live INSIDE
@@ -520,6 +531,180 @@ function ensureStyles() {
       border-color:color-mix(in srgb, var(--mg-accent) 30%, transparent); box-shadow:none; opacity:.72; }
     #tablet-os-overlay .tos-tile-add:hover { opacity:1; box-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 22%, transparent); }
     #tablet-os-overlay .tos-tile-add .tos-icon { color:var(--mg-accent); }
+    /* ── App groups ────────────────────────────────────────────────────────────
+       A coloured box drawn around a sub-grid of tiles, with a small inline label
+       as its FIRST ROW — inset within the border, not a tab notched above it, so
+       forming a group never costs the box any extra outer space (a group sits in
+       the flow exactly like a tile run does; see the JS "grouping is in place"
+       comment). The group's colour rides one custom property (--tos-grp) set
+       inline per box, so every edge/fill/glow below derives from the single
+       swatch the player picked. */
+    #tablet-os-overlay .tos-home-apps { position:relative; padding-bottom:34px; }
+    #tablet-os-overlay .tos-appgroup { position:relative; margin:6px 0; padding:7px 8px 8px; border-radius:8px;
+      border:1px solid color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 50%, transparent);
+      background:color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 8%, transparent);
+      box-shadow:inset 0 0 18px color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 10%, transparent); }
+    #tablet-os-overlay .tos-appgroup:first-child { margin-top:0; }
+    #tablet-os-overlay .tos-appgroup-tab { display:flex; align-items:center; gap:6px; cursor:grab;
+      padding:0 2px 6px; margin-bottom:6px; border-bottom:1px solid color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 28%, transparent);
+      font-size:9px; letter-spacing:1.1px; text-transform:uppercase; }
+    #tablet-os-overlay .tos-appgroup-tab:active { cursor:grabbing; }
+    #tablet-os-overlay .tos-appgroup-swatch { width:6px; height:6px; border-radius:50%; flex:0 0 auto;
+      background:var(--tos-grp, var(--mg-accent)); box-shadow:0 0 4px color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 70%, transparent); }
+    #tablet-os-overlay .tos-appgroup-nm { flex:1; min-width:0; color:var(--tos-fg-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #tablet-os-overlay .tos-appgroup-tab:hover .tos-appgroup-nm { color:var(--tos-fg); }
+    #tablet-os-overlay .tos-appgroup-n { color:var(--tos-fg-dim2); }
+    /* Lifted for a whole-group drag: the box left behind dims, same grammar as a
+       single lifted tile (.tos-tile-ghost). */
+    #tablet-os-overlay .tos-appgroup-ghost { opacity:.32; }
+    /* The floating clone under the finger while a whole group is being dragged —
+       a compact chip rather than a scaled copy of the box, since dragging a full
+       grid of tiles under the pointer would be both heavy and illegible. Same
+       fixed/unscoped placement as .tos-tile-drag. */
+    .tos-group-drag { position:fixed; z-index:9300; pointer-events:none; display:flex; align-items:center; gap:6px;
+      padding:6px 12px; border-radius:7px; font-size:10.5px; letter-spacing:.6px; text-transform:uppercase;
+      color:var(--tos-fg, #eee); background:color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 22%, #14181b);
+      border:1px solid var(--tos-grp, var(--mg-accent)); box-shadow:0 8px 22px rgba(0,0,0,.5); }
+    .tos-group-drag .tos-appgroup-swatch { background:var(--tos-grp, var(--mg-accent)); }
+    .tos-group-drag.tos-tile-removing { opacity:.7; border-color:var(--red,#e0413a) !important;
+      box-shadow:0 8px 22px rgba(0,0,0,.5), 0 0 16px color-mix(in srgb, var(--red,#e0413a) 60%, transparent); }
+    .tos-group-drag.tos-tile-removing::after { content:'✕'; color:var(--red,#e0413a); }
+    /* Marquee band — drag on empty home-screen space to lasso tiles. Global (it's
+       appended to <body> so its fixed coords are plain viewport pixels). */
+    .tos-marquee { position:fixed; z-index:9290; pointer-events:none; border-radius:3px;
+      border:1px dashed var(--mg-accent, #3fd0d8); background:color-mix(in srgb, var(--mg-accent, #3fd0d8) 14%, transparent); }
+    #tablet-os-overlay .tos-tile-sel { border-color:var(--mg-accent) !important;
+      box-shadow:0 0 0 2px color-mix(in srgb, var(--mg-accent) 55%, transparent),
+                 0 0 14px color-mix(in srgb, var(--mg-accent) 40%, transparent) !important; }
+    /* ── Animated wallpaper ────────────────────────────────────────────────────
+       The live sky behind the Home grid. Sits under .tos-scroll (z-index 2) and
+       over nothing, so every screen's own content still paints on top; the CRT
+       overlays and void-mode haze layer above it unchanged. */
+    #tablet-os-overlay .tos-wall { position:absolute; inset:0; z-index:1; pointer-events:none;
+      opacity:0; transition:opacity .5s ease; }
+    #tablet-os-overlay .tos-wall.on { opacity:.62; }
+    /* Home content gets a soft scrim so the wallpaper can't eat the text under it. */
+    #tablet-os-overlay .tos-body .tos-summary, #tablet-os-overlay .tos-widgets { position:relative; }
+
+    /* ── Home widgets ──────────────────────────────────────────────────────────
+       Cards under the app grid, one per app that opted in (buildWidget). Same
+       raised-surface idiom as a tile, wider and quieter — these are read, not
+       pressed, even though tapping one opens its app. */
+    #tablet-os-overlay .tos-widgets { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:14px; }
+    #tablet-os-overlay .tos-widget { cursor:pointer; padding:9px 10px 10px; border-radius:8px; min-width:0;
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--mg-accent) 26%, transparent);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), 0 2px 5px rgba(0,0,0,.22);
+      transition:filter .12s, box-shadow .12s; }
+    #tablet-os-overlay .tos-widget:hover { filter:brightness(1.1);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), 0 3px 9px rgba(0,0,0,.3); }
+    #tablet-os-overlay .tos-wg-title { font-size:8.5px; letter-spacing:1.6px; text-transform:uppercase;
+      color:var(--tos-fg-dim2); margin-bottom:7px; }
+    /* meters */
+    #tablet-os-overlay .tos-wg-meter { display:grid; grid-template-columns:1fr auto; gap:2px 6px; margin-bottom:6px; }
+    #tablet-os-overlay .tos-wg-mlabel { font-size:9.5px; letter-spacing:.4px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-wg-mnote { grid-column:2; grid-row:1; font-size:8.5px; color:var(--tos-fg-dim2);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:96px; text-align:right; }
+    #tablet-os-overlay .tos-wg-mbar { grid-column:1 / -1; height:4px; border-radius:2px; overflow:hidden;
+      background:rgba(0,0,0,.45); box-shadow:inset 0 1px 2px rgba(0,0,0,.6); }
+    #tablet-os-overlay .tos-wg-mfill { display:block; height:100%; border-radius:2px; background:var(--mg-accent); transition:width .3s ease; }
+    #tablet-os-overlay .tos-wg-mfill.band-warn { background:var(--yellow, #d8c23f); }
+    #tablet-os-overlay .tos-wg-mfill.band-bad  { background:var(--orange, #e08a3a); }
+    #tablet-os-overlay .tos-wg-mfill.band-crit { background:var(--red, #e0413a); }
+    /* stat */
+    #tablet-os-overlay .tos-wg-stat { display:flex; align-items:baseline; gap:7px; min-width:0; }
+    #tablet-os-overlay .tos-wg-icon { font-size:15px; line-height:1; }
+    #tablet-os-overlay .tos-wg-big { font-size:19px; font-weight:bold; color:var(--tos-fg); letter-spacing:.5px; }
+    #tablet-os-overlay .tos-wg-sub { flex:1; min-width:0; font-size:9.5px; color:var(--tos-fg-dim);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-transform:capitalize; }
+    #tablet-os-overlay .tos-wg-stat.tone-warn .tos-wg-big { color:var(--yellow, #d8c23f); }
+    #tablet-os-overlay .tos-wg-stat.tone-bad .tos-wg-big { color:var(--red, #e0413a); }
+    #tablet-os-overlay .tos-wg-note { margin-top:6px; font-size:8.5px; letter-spacing:.3px; color:var(--tos-fg-dim2);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* lines */
+    #tablet-os-overlay .tos-wg-line { display:flex; gap:6px; justify-content:space-between; font-size:10px;
+      color:var(--tos-fg); margin-bottom:4px; min-width:0; }
+    #tablet-os-overlay .tos-wg-line > span:first-child { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #tablet-os-overlay .tos-wg-lsub { color:var(--tos-fg-dim2); white-space:nowrap; }
+
+    /* ── Home toolbar ──────────────────────────────────────────────────────────
+       One short strip under the grid holding the tools that used to be tiles, so
+       they stop eating app slots. It shares the space below the grid with the
+       widget cards, hence the compact height: icon over a 7px label, four of them
+       on one line at any tablet width. */
+    #tablet-os-overlay .tos-hbar { display:flex; align-items:center; gap:6px; margin-top:12px; }
+    #tablet-os-overlay .tos-hbar-btn { flex:1 1 0; min-width:0; display:flex; flex-direction:column;
+      align-items:center; gap:2px; cursor:pointer; padding:5px 4px 4px; border-radius:6px; font:inherit;
+      color:var(--tos-fg-dim); background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi); transition:filter .12s, color .12s; }
+    #tablet-os-overlay .tos-hbar-btn:hover { filter:brightness(1.16); color:var(--tos-fg); }
+    #tablet-os-overlay .tos-hbar-btn:active { transform:translateY(1px); }
+    /* A toggle that's ON wears the accent, so the strip doubles as a status line. */
+    #tablet-os-overlay .tos-hbar-btn.on { color:var(--mg-accent);
+      border-color:color-mix(in srgb, var(--mg-accent) 55%, transparent);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), 0 0 10px color-mix(in srgb, var(--mg-accent) 20%, transparent); }
+    #tablet-os-overlay .tos-hbar-ic { font-size:14px; line-height:1; }
+    #tablet-os-overlay .tos-hbar-ic.srch { color:var(--mg-accent); padding:0 2px 0 4px; }
+    #tablet-os-overlay .tos-hbar-lb { font-size:7.5px; letter-spacing:.8px; text-transform:uppercase;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+    /* Find field — takes the whole strip while it's open; Done gives the row back. */
+    #tablet-os-overlay .tos-hbar-input { flex:1 1 auto; min-width:0; padding:5px 8px; font:inherit; font-size:12px;
+      color:var(--tos-fg); background:var(--bg, #0c1114); border-radius:6px;
+      border:1px solid color-mix(in srgb, var(--mg-accent) 34%, transparent); }
+    #tablet-os-overlay .tos-hbar.searching .tos-hbar-btn { flex:0 0 auto; min-width:52px; }
+    /* A stashed app turning up in a search result: dimmed, dashed, tap to restore. */
+    #tablet-os-overlay .tos-tile-stashed { opacity:.5; border-style:dashed; box-shadow:none; }
+    #tablet-os-overlay .tos-tile-stashed:hover { opacity:.85; }
+
+    /* Page dots — only rendered past one page, so a small home screen looks exactly
+       as it did before paging existed. Dots are drop targets as well as buttons
+       (drag a tile onto one to send the app to that page), hence the generous hit
+       padding on something that draws as a 6px dot. */
+    #tablet-os-overlay .tos-home-pager { display:flex; align-items:center; justify-content:center; gap:4px; margin-top:12px; }
+    #tablet-os-overlay .tos-page-dot { width:6px; height:6px; border-radius:50%; cursor:pointer;
+      box-sizing:content-box; padding:6px; background-clip:content-box;
+      background-color:color-mix(in srgb, var(--tos-fg) 28%, transparent); transition:background-color .15s, transform .1s; }
+    #tablet-os-overlay .tos-page-dot:hover { background-color:color-mix(in srgb, var(--mg-accent) 60%, transparent); transform:scale(1.2); }
+    #tablet-os-overlay .tos-page-dot.on { background-color:var(--mg-accent);
+      box-shadow:0 0 8px color-mix(in srgb, var(--mg-accent) 55%, transparent); }
+    #tablet-os-overlay .tos-page-arrow { cursor:pointer; padding:2px 7px; font-size:15px; line-height:1;
+      color:var(--tos-fg-dim); user-select:none; }
+    #tablet-os-overlay .tos-page-arrow:hover { color:var(--mg-accent); }
+    #tablet-os-overlay .tos-page-arrow.off { opacity:.25; pointer-events:none; }
+    /* Mid-drag, the dots read as the targets they are. */
+    #tablet-os-overlay .tos-grid-arranging .tos-page-dot { background-color:color-mix(in srgb, var(--mg-accent) 45%, transparent);
+      outline:1px dashed color-mix(in srgb, var(--mg-accent) 45%, transparent); outline-offset:-2px; }
+
+    /* Selection mode (armed by the ⧉ tile): tiles pick instead of open, and a bar
+       along the bottom of the grid holds the count and the commit. */
+    #tablet-os-overlay .tos-selecting { user-select:none; }
+    #tablet-os-overlay .tos-selecting .tos-tile { cursor:copy; }
+    #tablet-os-overlay .tos-selecting .tos-tile:active { transform:none; }
+    #tablet-os-overlay .tos-selbar { position:sticky; bottom:0; z-index:5; display:flex; align-items:center; gap:8px;
+      margin-top:12px; padding:8px 10px; border-radius:8px;
+      border:1px solid color-mix(in srgb, var(--mg-accent) 34%, transparent);
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      box-shadow:0 -4px 16px rgba(0,0,0,.35), inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-selbar-n { flex:1; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-selbar-n b { color:var(--mg-accent); font-size:12.5px; }
+    /* Group sheet (name + colour), reusing the add-apps card chrome below. */
+    #tablet-os-overlay .tos-grp-input { width:100%; box-sizing:border-box; padding:7px 9px; margin-bottom:12px;
+      font:inherit; font-size:12.5px; color:var(--tos-fg); background:var(--bg, #0c1114);
+      border:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent); border-radius:6px; }
+    #tablet-os-overlay .tos-grp-swatches { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+    #tablet-os-overlay .tos-grp-sw { width:24px; height:24px; border-radius:50%; cursor:pointer;
+      border:2px solid transparent; box-shadow:0 1px 4px rgba(0,0,0,.45); transition:transform .1s; }
+    #tablet-os-overlay .tos-grp-sw.on { border-color:var(--tos-fg); transform:scale(1.14); }
+    #tablet-os-overlay .tos-grp-btns { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+    #tablet-os-overlay .tos-grp-btn { cursor:pointer; padding:6px 13px; border-radius:6px; font-size:11px;
+      letter-spacing:.7px; text-transform:uppercase; color:var(--tos-fg);
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-grp-btn:hover { filter:brightness(1.15); }
+    #tablet-os-overlay .tos-grp-btn.danger { color:var(--red, #e0413a);
+      border-color:color-mix(in srgb, var(--red, #e0413a) 45%, transparent); }
     /* Add-apps sheet: a scrim + card over the home screen, listing removed apps. */
     #tablet-os-overlay .tos-addsheet { position:absolute; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
       padding:18px; background:color-mix(in srgb, var(--bg,#030806) 72%, transparent); backdrop-filter:blur(2px); }
@@ -751,6 +936,14 @@ function ensureStyles() {
       max-width:46%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     #tablet-os-overlay .tos-cx-step:hover { color:var(--mg-accent); }
     #tablet-os-overlay .tos-cx-step.off { opacity:.35; cursor:default; }
+    /* The chapter nav and the back link are 10.5px text with no box of their own —
+       a mouse target, not a thumb one. Under a coarse pointer they get real height
+       via padding, pulled back out with a matching negative margin so the reader's
+       spacing is unchanged; only the hit area grows. */
+    @media (hover:none), (pointer:coarse) {
+      #tablet-os-overlay .tos-cx-step { padding:12px 2px; margin:-12px 0; }
+      #tablet-os-overlay .tos-cx-back { display:inline-block; padding:11px 8px; margin:-11px -8px; }
+    }
     @media (max-width:560px) {
       #tablet-os-overlay .tos-cx-hero-title { font-size:25px; letter-spacing:8px; }
       #tablet-os-overlay .tos-cx-title { font-size:22px; }
@@ -1685,7 +1878,34 @@ function ensureStyles() {
     #tablet-os-overlay .tos-vt-notice { font-size:12.5px; color:var(--tos-fg); font-weight:bold; line-height:1.5;
       border:1px solid var(--border); border-left:3px solid var(--mg-accent); padding:9px 11px; margin-bottom:12px;
       background:var(--tos-surface-lo); white-space:pre-line; }
-    #tablet-os-overlay .tos-vt-meters { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:11px 16px; }
+    #tablet-os-overlay .tos-vt-meters { display:grid; grid-template-columns:repeat(auto-fit,minmax(165px,1fr)); gap:11px 16px; }
+    /* Word readouts (hunger/thirst) — a phrase, not a track. Same label idiom as a
+       meter so they read as part of the same instrument, with no bar to play. */
+    #tablet-os-overlay .tos-vt-readouts { display:grid; grid-template-columns:repeat(auto-fit,minmax(165px,1fr));
+      gap:9px 16px; margin-top:12px; }
+    #tablet-os-overlay .tos-vt-readout { display:flex; flex-direction:column; gap:2px; min-width:0; }
+    #tablet-os-overlay .tos-vt-rlbl { font-size:8.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-vt-rval { font-size:12.5px; color:var(--tos-fg); line-height:1.35; }
+    #tablet-os-overlay .tos-vt-rval.warn { color:var(--yellow, #d8c23f); }
+    #tablet-os-overlay .tos-vt-rval.bad { color:var(--orange, #e08a3a); }
+    #tablet-os-overlay .tos-vt-rval.crit { color:var(--red, #e0413a); font-weight:bold; }
+    /* Vitals tab: body column beside the readings column. The doll is tall and
+       narrow, the meters short and wide — stacked, the doll wasted a panel-wide
+       strip of empty box and shoved the numbers off screen. */
+    #tablet-os-overlay .tos-vt-cols { display:grid; grid-template-columns:minmax(150px,0.75fr) minmax(0,2fr);
+      gap:0 18px; align-items:start; }
+    #tablet-os-overlay .tos-vt-cols .tos-vt-sect:first-child { margin-top:4px; }
+    /* In-column the doll stacks: figure, then its detail line under it. */
+    #tablet-os-overlay .tos-vt-cols .tos-vt-doll { flex-direction:column; align-items:center; gap:9px;
+      padding:12px 10px; }
+    #tablet-os-overlay .tos-vt-cols .tos-vt-dollstage { width:100%; max-width:158px; }
+    #tablet-os-overlay .tos-vt-cols .tos-vt-dolldet { flex:0 0 auto; width:100%; text-align:center; font-size:11.5px; }
+    @media (max-width:620px) {
+      #tablet-os-overlay .tos-vt-cols { grid-template-columns:minmax(0,1fr); gap:0; }
+      #tablet-os-overlay .tos-vt-cols .tos-vt-doll { flex-direction:row; align-items:center; gap:16px; padding:6px 4px 10px; }
+      #tablet-os-overlay .tos-vt-cols .tos-vt-dollstage { width:104px; }
+      #tablet-os-overlay .tos-vt-cols .tos-vt-dolldet { flex:1 1 auto; text-align:left; }
+    }
     #tablet-os-overlay .tos-vt-mlbl { display:flex; justify-content:space-between; align-items:baseline; gap:8px;
       font-size:10.5px; letter-spacing:1.6px; text-transform:uppercase; color:var(--tos-fg-dim); font-weight:bold; margin-bottom:5px; }
     #tablet-os-overlay .tos-vt-mlbl .v { letter-spacing:.6px; text-transform:none; font-variant-numeric:tabular-nums;
@@ -2708,6 +2928,7 @@ function navBack() {
 // so Back must leave the app the way it came rather than walking the tabs you tried.
 function nav(appId, screenLabel, params, replace) {
   narrateStop();   // turning the page stops the previous page reading
+  _tosSelectMode = false;  // leaving Home disarms the home-grid selection mode
   // Remember where we were, unless it's where we're already going (re-navving the
   // same screen — the surveillance poller does this every 5s — must not stack up).
   const next = { appId, screen: screenLabel ?? null, params: params ?? null };
@@ -3062,7 +3283,50 @@ const TABLET_APP_ORDER_KEY = 'architect_tablet_app_order';
 // Apps the player has flung off the home grid. Client-only, like the order — a list
 // of ids; anything here is dropped from the grid and offered back under the ⊕ tile.
 const TABLET_APP_HIDDEN_KEY = 'architect_tablet_hidden_apps';
+// The out-of-the-box home screen: three rows of four, then the ⧉/⊕ tiles. Every
+// OTHER registered app starts stashed under ⊕ — a fresh tablet shows 30-odd tiles
+// otherwise, and the ones you reach for hourly (where am I, what am I wearing, am
+// I dying, how wanted am I) get lost among the ones you open twice a character.
+//
+// The bar for a slot here is "you open it without being prompted to". Apps that
+// only matter once you OWN something (properties, storefront, vehicles, corp) or
+// once you're DOING something specific (crafting, cookbook, bar, frontier, sports,
+// arcade, specter) are one tap away under ⊕ and stay put once added.
+//
+// SIXTEEN IS ONE PAGE — four rows of four (see paginateHome). It isn't a ceiling:
+// a seventeenth app simply starts page 2, and a player can keep as many out as they
+// like. But the DEFAULT should land on a single page, so a first login isn't handed
+// a home screen it has to swipe. Adding one here means dropping one, or accepting a
+// page 2 with a single tile on it.
+// ORDER IS THE POINT, not just the membership: reading order, most-reached-for
+// first. Row 1 is the four you open without thinking (where am I, what am I
+// carrying, how am I, what am I doing). Row 2 is the day's business — people,
+// money, heat, progress. Row 3 is the things you do when you have a minute. Row 4
+// is reference and housekeeping, the stuff you open on purpose and rarely.
+const TABLET_DEFAULT_HOME_APPS = [
+  'map', 'gear', 'health', 'quests',
+  'chat', 'bank', 'crime', 'skills',
+  'crafting', 'news', 'music', 'calendar',
+  'tv', 'codex', 'help', 'settings',
+];
+// Bump when TABLET_DEFAULT_HOME_APPS changes. A device that seeded its stash under
+// an older default set re-seeds ONCE to the new one — without this, a player who
+// first logged in when the default was twelve apps keeps that twelve forever, plus
+// whatever registered afterwards, and reports (correctly) that the home screen
+// doesn't match the default at all. Re-seeding does discard a custom arrangement,
+// which is why it's tied to a deliberate version bump and not to the list's length.
+const TABLET_HOME_SEED_VERSION = 2;
+const TABLET_HOME_SEED_KEY = 'architect_tablet_home_seed_v';
 let _suppressTileClick = false; // swallow the click that fires right after a drag-drop
+// Home-grid selection mode (armed by the ⧉ tile). While it's on, a tile tap picks
+// rather than opens, a drag anywhere over the grid lassoes, and the long-press
+// reorder stands down — so nothing is competing for the same gesture.
+let _tosSelectMode = false;
+// True from the moment a home tile is LIFTED for reorder until the next press. The
+// page-swipe handler checks it: a tile dragged sideways across the grid is a
+// reorder that happens to move horizontally, not a request to turn the page, and
+// the two listeners are on the same element with no other way to tell them apart.
+let _homeDragLifted = false;
 
 function loadAppOrder() {
   try { const a = JSON.parse(localStorage.getItem(TABLET_APP_ORDER_KEY)); return Array.isArray(a) ? a : []; }
@@ -3075,6 +3339,25 @@ function loadHiddenApps() {
   try { const a = JSON.parse(localStorage.getItem(TABLET_APP_HIDDEN_KEY)); return Array.isArray(a) ? a : []; }
   catch { return []; }
 }
+// Stash everything outside the default set and write it down — on first run, and
+// again once whenever TABLET_HOME_SEED_VERSION moves. Materializing it rather than
+// deriving it on every render is what makes a LATER-registered app appear on the
+// home grid instead of silently landing in the stash: it isn't in the saved list,
+// so it shows up at the end of the last page.
+function seedDefaultHiddenApps(all) {
+  if (!all.length) return;   // roster not in yet — don't seed an empty default
+  let seeded = null;
+  try { seeded = localStorage.getItem(TABLET_HOME_SEED_KEY); } catch { return; }
+  // Devices from before the version key existed: treat a stash with no version as
+  // version 1, so they re-seed to the current default exactly once.
+  if (seeded !== null && Number(seeded) >= TABLET_HOME_SEED_VERSION) return;
+  saveHiddenApps(all.filter(a => !TABLET_DEFAULT_HOME_APPS.includes(a.id)).map(a => a.id));
+  // Seed the order too, so the sixteen land in the reading order above rather than
+  // in whatever order the plugins happened to register.
+  saveAppOrder(TABLET_DEFAULT_HOME_APPS.filter(id => all.some(a => a.id === id)));
+  saveAppGroups([]);   // a re-seed can't leave a box holding apps that are now stashed
+  try { localStorage.setItem(TABLET_HOME_SEED_KEY, String(TABLET_HOME_SEED_VERSION)); } catch {}
+}
 function saveHiddenApps(ids) {
   try { localStorage.setItem(TABLET_APP_HIDDEN_KEY, JSON.stringify(ids || [])); } catch {}
 }
@@ -3084,6 +3367,41 @@ function hideApp(id) {
 }
 function unhideApp(id) {
   saveHiddenApps(loadHiddenApps().filter(x => x !== id));
+  saveAppGroups(loadAppGroups().map(g => ({ ...g, apps: g.apps.filter(x => x !== id) })));
+}
+
+// Home-grid app groups — the same client-only, per-device preference shape as the
+// order and hidden lists above: `[{ id, name, color, apps:[appId] }]`. A group is
+// purely presentational (a coloured box with a name tab around a sub-grid); it
+// never changes what an app IS, so the server neither knows nor cares about it.
+const TABLET_APP_GROUPS_KEY = 'architect_tablet_app_groups';
+// Swatches offered when naming a group. Picked to stay legible against the tab's
+// dark text on every tablet theme (all are mid-to-bright, none near-black).
+const TOS_GROUP_COLORS = ['#3fd0d8', '#5ad07a', '#d8c23f', '#e08a3a', '#e0413a', '#c76ad8', '#6a8fe0', '#a9b4bd'];
+function loadAppGroups() {
+  try {
+    const a = JSON.parse(localStorage.getItem(TABLET_APP_GROUPS_KEY));
+    return Array.isArray(a) ? a.filter(g => g && g.id && Array.isArray(g.apps)) : [];
+  } catch { return []; }
+}
+function saveAppGroups(groups) {
+  // Drop emptied groups on the way out — a box with nothing in it renders as a
+  // floating tab and can never be repopulated except by lassoing into it.
+  try { localStorage.setItem(TABLET_APP_GROUPS_KEY, JSON.stringify((groups || []).filter(g => g.apps.length))); } catch {}
+}
+// Put `ids` in a group, taking them out of whatever group they were in before —
+// an app belongs to exactly one box. Pass a null groupId to create a new one.
+function assignAppsToGroup(ids, name, color, groupId) {
+  const set = new Set(ids);
+  const groups = loadAppGroups().map(g => ({ ...g, apps: g.apps.filter(x => !set.has(x)) }));
+  const existing = groupId ? groups.find(g => g.id === groupId) : null;
+  if (existing) {
+    existing.name = name; existing.color = color;
+    existing.apps = [...existing.apps, ...ids];
+  } else {
+    groups.push({ id: 'g' + Date.now().toString(36), name, color, apps: [...ids] });
+  }
+  saveAppGroups(groups);
 }
 
 // Reorder apps to the cached arrangement: saved-order apps first (in saved order),
@@ -3098,25 +3416,250 @@ function applyAppOrder(apps) {
   return ordered;
 }
 
+// One home-screen tile. `stashed` is only ever true in search results — an app you
+// removed still turns up when you look for it by name, dimmed, and tapping it puts
+// it back rather than pretending it isn't there.
+function homeTile(a, stashed) {
+  const svg = TOS_APP_ICONS[a.id];
+  const icon = svg ? svg : esc(a.icon || '▫');
+  // A positive `notify` count (e.g. SPECTER reels waiting to be clipped) lights a
+  // red badge on the tile.
+  const n = Number(a.notify) || 0;
+  const badge = n > 0 ? `<span class="tos-tile-badge">${n > 9 ? '9+' : n}</span>` : '';
+  const glow = (a.id === 'frontier' && isOnCrossing()) ? ' tos-tile-glow' : '';
+  const attr = stashed ? `data-search-restore="${esc(a.id)}"` : `data-nav-app="${esc(a.id)}"`;
+  return `<div class="tos-tile${glow}${stashed ? ' tos-tile-stashed' : ''}" ${attr}`
+    + `${stashed ? ' title="Stashed — tap to put it back"' : ''}>`
+    + `${badge}<span class="tos-icon">${icon}</span><span class="tos-name">${esc(a.name)}</span></div>`;
+}
+
 function renderHomeApps(apps) {
+  const roster = [...(apps || []), ...CLIENT_APPS];
+  seedDefaultHiddenApps(roster);
   const hidden = new Set(loadHiddenApps());
-  const all = applyAppOrder([...(apps || []), ...CLIENT_APPS]).filter(a => !hidden.has(a.id));
+  const all = applyAppOrder(roster).filter(a => !hidden.has(a.id));
   if (!all.length && !hidden.size) return '<div class="tos-empty">No applications registered.</div>';
-  const onJourney = isOnCrossing(); // Frontier glows while you're out on a crossing
-  const tiles = all.map(a => {
-    const svg = TOS_APP_ICONS[a.id];
-    const icon = svg ? svg : esc(a.icon || '▫');
-    // A positive `notify` count (e.g. SPECTER reels waiting to be clipped) lights a
-    // red badge on the tile.
-    const n = Number(a.notify) || 0;
-    const badge = n > 0 ? `<span class="tos-tile-badge">${n > 9 ? '9+' : n}</span>` : '';
-    const glow = (a.id === 'frontier' && onJourney) ? ' tos-tile-glow' : '';
-    return `<div class="tos-tile${glow}" data-nav-app="${esc(a.id)}">${badge}<span class="tos-icon">${icon}</span><span class="tos-name">${esc(a.name)}</span></div>`;
+  // Searching flattens everything: no pages, no boxes, no arranging — just the apps
+  // that match, in order. With thirty-odd registered, typing three letters is faster
+  // than remembering which page you put a thing on.
+  if (_homeSearchOpen) {
+    const q = _homeSearch.trim().toLowerCase();
+    const hits = [...all, ...[...hidden].map(id => roster.find(a => a.id === id)).filter(Boolean)]
+      .filter(a => !q || String(a.name).toLowerCase().includes(q) || a.id.includes(q));
+    const grid = hits.length
+      ? `<div class="tos-grid">${hits.map(a => homeTile(a, hidden.has(a.id))).join('')}</div>`
+      : `<div class="tos-empty">Nothing matches “${esc(_homeSearch.trim())}”.</div>`;
+    return `<div class="tos-home-apps tos-searching">${grid}${renderHomeToolbar(true)}</div>`;
+  }
+  const tile = (a) => homeTile(a, false);
+  // Grouping draws a box around apps WHERE THEY ALREADY ARE — it never moves them.
+  // Walk the saved order once; the moment we meet any member of a group we haven't
+  // drawn yet, draw the whole box right there (using the members' own relative
+  // order) and skip the rest of its members when we reach them later. So a group's
+  // position is simply wherever its earliest member already sat — never the top of
+  // the screen, never anywhere the player didn't put an app. Membership is by id,
+  // so an app the server stopped registering (or one the player stashed under ⊕)
+  // just drops out of its box.
+  const groupOf = new Map();
+  for (const g of loadAppGroups()) for (const id of g.apps) if (!groupOf.has(id)) groupOf.set(id, g);
+  const drawn = new Set();
+  const blocks = [];
+  for (const a of all) {
+    const g = groupOf.get(a.id);
+    if (!g) { blocks.push({ kind: 'tile', app: a }); continue; }
+    if (drawn.has(g.id)) continue;              // a later member of an already-drawn group
+    drawn.add(g.id);
+    const members = all.filter(x => groupOf.get(x.id)?.id === g.id);
+    if (members.length) blocks.push({ kind: 'group', g, members });
+  }
+
+  const pages = paginateHome(blocks);
+  if (_homePage >= pages.length) _homePage = pages.length - 1;   // pages shrank under us
+  if (_homePage < 0) _homePage = 0;
+  const page = pages[_homePage] || { blocks: [], utilities: true };
+
+  // Rendered in the SAME sequence as page.blocks — a group box and a run of loose
+  // tiles are both direct children of .tos-home-apps in reading order, which is
+  // what lets a group sit between two runs of tiles instead of always leading them.
+  const body = page.blocks.map(b => {
+    if (b.kind === 'tiles') return `<div class="tos-grid tos-appgrid tos-looserun" data-group-grid="">${b.apps.map(tile).join('')}</div>`;
+    const { g, members } = b;
+    const color = /^#[0-9a-f]{3,8}$/i.test(g.color || '') ? g.color : TOS_GROUP_COLORS[0];
+    return `<div class="tos-appgroup" data-group-id="${esc(g.id)}" style="--tos-grp:${esc(color)}">`
+      + `<div class="tos-appgroup-tab" data-group-menu="${esc(g.id)}" title="Hold to move the group · tap to edit it">`
+      + `<span class="tos-appgroup-swatch"></span><span class="tos-appgroup-nm">${esc(g.name || 'Group')}</span>`
+      + `<span class="tos-appgroup-n">${members.length}</span></div>`
+      + `<div class="tos-grid tos-appgrid" data-group-grid="${esc(g.id)}">${members.map(tile).join('')}</div></div>`;
   }).join('');
-  // The ⊕ tile — always last, opens the "add removed apps" sheet. Excluded from the
-  // drag-reorder / drag-off machinery (it isn't a real app).
-  const add = `<div class="tos-tile tos-tile-add" data-tos-addapps="1" title="Add apps"><span class="tos-icon">⊕</span><span class="tos-name">Add</span></div>`;
-  return `<div class="tos-grid">${tiles}${add}</div>`;
+  // Selection mode: tiles toggle instead of opening, dragging anywhere lassoes, and
+  // a bar along the bottom holds the count and the commit.
+  const bar = _tosSelectMode ? `<div class="tos-selbar">
+      <span class="tos-selbar-n"><b data-sel-count>0</b> selected</span>
+      <button type="button" class="tos-grp-btn" data-sel-cancel>Cancel</button>
+      <button type="button" class="tos-grp-btn" data-sel-group>Group</button>
+    </div>` : '';
+  return `<div class="tos-home-apps${_tosSelectMode ? ' tos-selecting' : ''}" data-home-page-now="${_homePage}">${body}`
+    + renderHomePager(pages.length)
+    + renderHomeToolbar(false)
+    + `${bar}</div>`;
+}
+
+// ── The home toolbar ─────────────────────────────────────────────────────────
+// Select and Add used to be tiles, which cost two app slots and made the grid read
+// as fifteen-of-sixteen. They're not apps — they're tools for arranging apps — so
+// they live in one short strip under the grid instead, sharing that space with the
+// widget cards below it. Everything here is an icon with a label, sized to sit on
+// one line at tablet width.
+//
+// Search earns its place at thirty-odd registered apps: typing three letters beats
+// remembering which page you put a thing on, and it looks in the stash too.
+let _homeSearchOpen = false;   // is the find field showing
+let _homeSearch = '';          // what's typed in it
+function renderHomeToolbar(searching) {
+  const btn = (attr, icon, label, title, on) =>
+    `<button type="button" class="tos-hbar-btn${on ? ' on' : ''}" ${attr} title="${esc(title)}">`
+    + `<span class="tos-hbar-ic">${icon}</span><span class="tos-hbar-lb">${esc(label)}</span></button>`;
+  if (searching) {
+    return `<div class="tos-hbar searching">
+      <span class="tos-hbar-ic srch">⌕</span>
+      <input class="tos-hbar-input" data-home-search-input value="${esc(_homeSearch)}" placeholder="Find an app…" spellcheck="false">
+      ${btn('data-home-search-clear="1"', '✕', 'Done', 'Stop searching')}
+    </div>`;
+  }
+  if (_tosSelectMode) return '';   // the selection bar owns the strip while picking
+  return `<div class="tos-hbar">
+    ${btn('data-tos-select="1"', '⧉', 'Select', 'Select apps to group')}
+    ${btn('data-tos-addapps="1"', '⊕', 'Add', 'Add a stashed app back')}
+    ${btn('data-home-search="1"', '⌕', 'Find', 'Search your apps')}
+    ${btn('data-toggle-widgets="1"', '▤', 'Cards', 'Show or hide the home widgets', widgetsEnabled())}
+  </div>`;
+}
+
+// ── Home paging ──────────────────────────────────────────────────────────────
+// The grid is a fixed 4 rows of 4 — sixteen tiles to a page. Past that it doesn't
+// grow, it pages, so the screen keeps one shape however many apps you keep out and
+// there is no ceiling on how many that is.
+//
+// Packing is by whole ROWS, not by tile: a group box occupies the rows it needs
+// (its label is its own first row, costing nothing extra beyond that), and loose
+// tiles fill what's left, splitting across the page break wherever they land. A
+// group too tall for one page gets its own and is allowed to run over — clamping
+// it would silently hide apps, which is the one outcome worse than an odd page.
+//
+// Nothing here is stored: pages are derived from the saved order + groups every
+// render, so reordering re-flows them the way a phone home screen does. `blocks`
+// arrives already interleaved in reading order (see renderHomeApps) — a group and
+// a run of loose tiles alternate exactly as the player's own arrangement has them;
+// this function only decides where the PAGE BREAKS fall across that sequence.
+//
+// Select and Add are NOT in here at all — they're in the toolbar under the grid
+// (renderHomeToolbar), which is what lets a page hold a full sixteen apps. As tiles
+// they ate two slots and the default set read as fifteen-of-sixteen.
+const HOME_COLS = 4;
+const HOME_ROWS = 4;
+const HOME_SLOTS = HOME_COLS * HOME_ROWS;   // 16
+let _homePage = 0;   // which page is showing; survives re-renders, reset on close
+
+function paginateHome(blocks) {
+  const pages = [];
+  let cur = { blocks: [], left: HOME_SLOTS };
+  const push = () => { pages.push(cur); cur = { blocks: [], left: HOME_SLOTS }; };
+  const rowsFor = (n) => Math.ceil(n / HOME_COLS) * HOME_COLS;
+
+  let i = 0;
+  while (i < blocks.length) {
+    const b = blocks[i];
+    if (b.kind === 'group') {
+      const cost = rowsFor(b.members.length);
+      if (cost > cur.left && cur.blocks.length) push();
+      cur.blocks.push(b);
+      cur.left = Math.max(0, cur.left - cost);
+      i++;
+      continue;
+    }
+    // A run of consecutive loose tiles: take as many as fit, splitting across a
+    // page break wherever they land, same as before — just interleaved with
+    // groups now instead of always trailing them.
+    if (!cur.left) { push(); continue; }
+    const run = [];
+    while (i < blocks.length && blocks[i].kind === 'tile' && run.length < cur.left) {
+      run.push(blocks[i].app);
+      i++;
+    }
+    cur.blocks.push({ kind: 'tiles', apps: run });
+    cur.left -= run.length;
+  }
+  pages.push(cur);   // the trailing page (empty when there are no apps at all)
+  return pages;
+}
+
+// The page dots. Hidden entirely at one page — a lone dot is noise, and the whole
+// point is that a twelve-app home screen looks exactly as it did before paging
+// existed. Dots are also drop targets: drag a tile onto one to send it to that
+// page, which is the only way to move an app between pages.
+function renderHomePager(count) {
+  if (count <= 1) return '';
+  const dots = Array.from({ length: count }, (_, i) =>
+    `<span class="tos-page-dot${i === _homePage ? ' on' : ''}" data-home-page="${i}" title="Page ${i + 1}"></span>`).join('');
+  return `<div class="tos-home-pager">
+    <span class="tos-page-arrow${_homePage === 0 ? ' off' : ''}" data-home-page="${Math.max(0, _homePage - 1)}">‹</span>
+    ${dots}
+    <span class="tos-page-arrow${_homePage >= count - 1 ? ' off' : ''}" data-home-page="${Math.min(count - 1, _homePage + 1)}">›</span>
+  </div>`;
+}
+
+// ── Home widgets ─────────────────────────────────────────────────────────────
+// Cards under the app grid, contributed by the apps themselves (buildWidget on the
+// server appDef — see the contract in plugins/tablet/index.js). Three kinds, and a
+// card whose kind this client doesn't know is skipped rather than drawn wrong, so
+// an older client meeting a newer widget degrades quietly.
+// Home widgets are opt-in, per device, and OFF by default — the home screen is a
+// launcher first, and a fresh player should meet a grid of apps, not a dashboard.
+// Turned on under Settings → Layout → Home Widgets. Off means off: even the Wanted
+// alarm stays down, because a feature you switched off should not be switchable
+// back on by the game.
+const TABLET_WIDGETS_KEY = 'architect_tablet_widgets';
+function widgetsEnabled() {
+  try { return localStorage.getItem(TABLET_WIDGETS_KEY) === 'on'; } catch { return false; }
+}
+function setWidgetsEnabled(on) {
+  try { localStorage.setItem(TABLET_WIDGETS_KEY, on ? 'on' : 'off'); } catch {}
+}
+
+function renderHomeWidgets(widgets) {
+  if (!widgetsEnabled()) return '';
+  // A card belongs to its app: stash the app under ⊕ and its card goes with it,
+  // add the app back and the card returns. The home screen you arranged is the one
+  // you get. (This runs after renderHomeApps in the same template, so the first-run
+  // default stash is already seeded by the time we read it.)
+  //
+  // The exception is a card that declares `alwaysOn` — an ALARM, whose entire job
+  // is to appear uninvited. The app it opens may well be stashed; that's the point.
+  // The server owns that call (see the buildWidget contract), not this list.
+  const hidden = new Set(loadHiddenApps());
+  const cards = (widgets || []).filter(w => w.alwaysOn || !hidden.has(w.nav)).map(w => {
+    let body = '';
+    if (w.kind === 'meters') {
+      body = (w.rows || []).map(r => `<div class="tos-wg-meter">
+        <span class="tos-wg-mlabel">${esc(r.label)}</span>
+        <span class="tos-wg-mbar"><span class="tos-wg-mfill band-${esc(r.band || 'good')}" style="width:${Math.max(0, Math.min(100, Number(r.pct) || 0))}%"></span></span>
+        <span class="tos-wg-mnote">${esc(r.note || '')}</span>
+      </div>`).join('');
+    } else if (w.kind === 'stat') {
+      body = `<div class="tos-wg-stat${w.tone ? ' tone-' + esc(w.tone) : ''}">
+        ${w.icon ? `<span class="tos-wg-icon">${esc(w.icon)}</span>` : ''}
+        <span class="tos-wg-big">${esc(w.big ?? '')}</span>
+        <span class="tos-wg-sub">${esc(w.sub || '')}</span>
+      </div>${w.note ? `<div class="tos-wg-note">${esc(w.note)}</div>` : ''}`;
+    } else if (w.kind === 'lines') {
+      body = (w.lines || []).map(l => `<div class="tos-wg-line"><span>${esc(l.text)}</span>${l.sub ? `<span class="tos-wg-lsub">${esc(l.sub)}</span>` : ''}</div>`).join('');
+    } else {
+      return '';   // unknown kind — say nothing rather than something wrong
+    }
+    const nav = w.nav ? ` data-widget-nav="${esc(w.nav)}"` : '';
+    return `<div class="tos-widget"${nav}><div class="tos-wg-title">${esc(w.title || '')}</div>${body}</div>`;
+  }).filter(Boolean).join('');
+  return cards ? `<div class="tos-widgets">${cards}</div>` : '';
 }
 
 // The "add removed apps" sheet — a client-side card over the home screen listing every
@@ -3128,14 +3671,17 @@ function openAddAppsSheet() {
   screen.querySelector('.tos-addsheet')?.remove();
   const hidden = loadHiddenApps();
   const byId = new Map([...(_data?.apps || []), ...CLIENT_APPS].map(a => [a.id, a]));
-  const apps = hidden.map(id => byId.get(id)).filter(Boolean);
+  // Alphabetical, not stash order: this list is 20-odd tiles on a fresh tablet
+  // (everything outside the default twelve), so it's a thing you scan by name.
+  const apps = hidden.map(id => byId.get(id)).filter(Boolean)
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
   const body = apps.length
     ? `<div class="tos-grid">${apps.map(a => {
         const svg = TOS_APP_ICONS[a.id];
         const icon = svg ? svg : esc(a.icon || '▫');
         return `<div class="tos-tile" data-readd-app="${esc(a.id)}"><span class="tos-icon">${icon}</span><span class="tos-name">${esc(a.name)}</span></div>`;
       }).join('')}</div>`
-    : '<div class="tos-empty">Nothing removed. Drag an app off the tablet to stash it here.</div>';
+    : '<div class="tos-empty">Everything is on your home screen. Drag an app off the tablet to stash it here.</div>';
   const sheet = document.createElement('div');
   sheet.className = 'tos-addsheet';
   sheet.innerHTML = `<div class="tos-addsheet-card">
@@ -3158,7 +3704,7 @@ function openAddAppsSheet() {
 // metaphor, so it works with touch and mouse and never fights a tap-to-open or a
 // scroll-swipe). Wired fresh on each home render; window listeners live only for
 // the duration of a press, so re-wiring can't leak them.
-function wireAppGridDrag(grid) {
+function wireAppGridDrag(container) {
   const LIFT_MS = 300;   // hold this long (finger still) to pick a tile up
   const CANCEL_MOVE = 10; // moving more than this before the lift = a tap/scroll, not a pickup
   let press = null; // { tile, x, y, timer }
@@ -3171,7 +3717,9 @@ function wireAppGridDrag(grid) {
     // between two neighbouring slots (each insert reflowed the grid and flipped
     // which neighbour was "nearest"). Swap past whichever real tile is closest,
     // on the side it sits relative to the drag tile in DOM order.
-    const tiles = [...grid.querySelectorAll('.tos-tile:not(.tos-tile-add)')];
+    // The sweep spans EVERY app grid on the home screen (the loose one plus one
+    // per group box), which is what lets a tile be dragged into or out of a group.
+    const tiles = [...container.querySelectorAll('.tos-appgrid .tos-tile:not(.tos-tile-add)')];
     let target = null, best = Infinity;
     for (const t of tiles) {
       const b = t.getBoundingClientRect();
@@ -3180,7 +3728,7 @@ function wireAppGridDrag(grid) {
     }
     if (!target || target === drag.tile) return;
     const targetAfterDrag = drag.tile.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING;
-    grid.insertBefore(drag.tile, targetAfterDrag ? target.nextSibling : target);
+    target.parentElement.insertBefore(drag.tile, targetAfterDrag ? target.nextSibling : target);
   };
 
   const begin = () => {
@@ -3196,8 +3744,9 @@ function wireAppGridDrag(grid) {
     Object.assign(clone.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
     document.body.appendChild(clone);
     tile.classList.add('tos-tile-ghost');
-    grid.classList.add('tos-grid-arranging');
-    drag = { tile, clone, offX: press.x - r.left, offY: press.y - r.top };
+    container.classList.add('tos-grid-arranging');
+    _homeDragLifted = true;   // this gesture belongs to the reorder, not to the pager
+    drag = { tile, clone, offX: press.x - r.left, offY: press.y - r.top, fromGrid: tile.parentElement };
     press = null;
     sfx(TOS_SELECT_DEF);
   };
@@ -3237,7 +3786,7 @@ function wireAppGridDrag(grid) {
       const appId = drag.tile.getAttribute('data-nav-app');
       drag.clone.remove();
       drag.tile.classList.remove('tos-tile-ghost');
-      grid.classList.remove('tos-grid-arranging');
+      container.classList.remove('tos-grid-arranging');
       _suppressTileClick = true;                       // the drop's trailing click must not open an app
       setTimeout(() => { _suppressTileClick = false; }, 0);
       if (dropOff && appId) {
@@ -3247,19 +3796,351 @@ function wireAppGridDrag(grid) {
         render();
         return;
       }
-      saveAppOrder([...grid.querySelectorAll('.tos-tile')].map(t => t.getAttribute('data-nav-app')).filter(Boolean));
+      // Dropped on a page dot → send the app to that page. Pages are derived from
+      // the flat order, so "moving to page N" means splicing the id to the front of
+      // the run of ids that page starts with — and since the drop point is a dot,
+      // not a slot, this is the one gesture that can cross a page boundary.
+      const dot = document.elementFromPoint(drag.lastX, drag.lastY)?.closest?.('[data-home-page]');
+      if (dot && appId) {
+        drag = null;
+        moveAppToPage(container, appId, Number(dot.getAttribute('data-home-page')) || 0);
+        return;
+      }
+      const movedBox = drag.tile.parentElement !== drag.fromGrid;
       drag = null;
+      persistHomeArrangement(container);
+      // Crossing between a group box and the loose grid changes a tab's count (and
+      // can empty a box out of existence), so that drop needs a real rebuild.
+      if (movedBox) render();
     }
   };
 
-  grid.addEventListener('pointerdown', (e) => {
-    if (e.button > 0) return;
+  container.addEventListener('pointerdown', (e) => {
+    if (e.button > 0 || _tosSelectMode) return;                   // selection mode owns the gesture
     const tile = e.target.closest('.tos-tile');
-    if (!tile || tile.classList.contains('tos-tile-add')) return; // ⊕ tile isn't draggable
+    if (!tile || tile.classList.contains('tos-tile-add')) return; // ⧉/⊕ tiles aren't draggable
     press = { tile, x: e.clientX, y: e.clientY, timer: setTimeout(begin, LIFT_MS) };
     window.addEventListener('pointermove', onMove, { passive: false });
     window.addEventListener('pointerup', end);
     window.addEventListener('pointercancel', end);
+  });
+}
+
+// Whole-group drag: press-hold a group's LABEL (never a member tile) to lift the
+// entire box and set it down next to another top-level block — another group, or a
+// run of loose tiles — on the same page. A member tile keeps its own ordinary
+// per-tile drag (wireAppGridDrag, above); this is a second, independent gesture
+// bound to a different element, so the two can never compete for the same press.
+//
+// Precision is BLOCK-level, not tile-level: you're moving a whole chunk, so the
+// drop snaps to the nearest other block's position rather than a slot inside it —
+// dropping "into" another group would mean picking a merge behaviour nobody asked
+// for. Reuses persistHomeArrangement to save, because once the box has been moved
+// among its DOM siblings that function's document-order read already sees it there.
+function wireGroupDrag(container) {
+  const LIFT_MS = 300;
+  const CANCEL_MOVE = 10;
+  let press = null;   // { box, x, y, timer }
+  let drag = null;    // { box, clone, offX, offY, lastX, lastY }
+
+  // Every OTHER top-level block on this page: other groups' boxes, and loose-tile
+  // runs. Direct children of the container only — never a tile buried inside
+  // another group, which is what keeps this "move the box", not "merge into it".
+  const otherBlocks = () => [...container.children].filter(el =>
+    el !== drag.box && (el.classList.contains('tos-appgroup') || el.classList.contains('tos-looserun')));
+
+  const reflow = (px, py) => {
+    let target = null, best = Infinity;
+    for (const el of otherBlocks()) {
+      const b = el.getBoundingClientRect();
+      const d = Math.hypot(px - (b.left + b.width / 2), py - (b.top + b.height / 2));
+      if (d < best) { best = d; target = el; }
+    }
+    if (!target) return;
+    const after = drag.box.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING;
+    target.parentElement.insertBefore(drag.box, after ? target.nextSibling : target);
+  };
+
+  const begin = () => {
+    const box = press.box;
+    const r = box.getBoundingClientRect();
+    const tab = box.querySelector('.tos-appgroup-tab');
+    const clone = document.createElement('div');
+    clone.className = 'tos-group-drag';
+    clone.style.setProperty('--tos-grp', box.style.getPropertyValue('--tos-grp'));
+    clone.innerHTML = `<span class="tos-appgroup-swatch"></span>`
+      + `<span>${esc(tab?.querySelector('.tos-appgroup-nm')?.textContent || 'Group')}</span>`
+      + `<span class="tos-appgroup-n">${esc(tab?.querySelector('.tos-appgroup-n')?.textContent || '')}</span>`;
+    Object.assign(clone.style, { left: r.left + 'px', top: r.top + 'px' });
+    document.body.appendChild(clone);
+    box.classList.add('tos-appgroup-ghost');
+    container.classList.add('tos-grid-arranging');
+    drag = { box, clone, offX: press.x - r.left, offY: press.y - r.top };
+    press = null;
+    sfx(TOS_SELECT_DEF);
+  };
+
+  // Same "flung off the screen" test as the tile drag — dropping the box past the
+  // tablet's edge stashes every app in it.
+  const offTablet = (x, y) => {
+    const screen = _overlay?.querySelector('#tos-screen-inner');
+    if (!screen) return false;
+    const b = screen.getBoundingClientRect();
+    return x < b.left || x > b.right || y < b.top || y > b.bottom;
+  };
+
+  const onMove = (e) => {
+    if (drag) {
+      e.preventDefault();
+      drag.clone.style.left = (e.clientX - drag.offX) + 'px';
+      drag.clone.style.top = (e.clientY - drag.offY) + 'px';
+      drag.lastX = e.clientX; drag.lastY = e.clientY;
+      const off = offTablet(e.clientX, e.clientY);
+      drag.clone.classList.toggle('tos-tile-removing', off);
+      if (!off) reflow(e.clientX, e.clientY);
+      return;
+    }
+    if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > CANCEL_MOVE) {
+      clearTimeout(press.timer); press = null;
+    }
+  };
+
+  const end = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+    if (press) { clearTimeout(press.timer); press = null; }
+    if (drag) {
+      const dropOff = offTablet(drag.lastX, drag.lastY);
+      const groupId = drag.box.getAttribute('data-group-id');
+      drag.clone.remove();
+      drag.box.classList.remove('tos-appgroup-ghost');
+      container.classList.remove('tos-grid-arranging');
+      _suppressTileClick = true;   // the drop's trailing click must not open the edit sheet
+      setTimeout(() => { _suppressTileClick = false; }, 0);
+      const group = groupId ? loadAppGroups().find(x => x.id === groupId) : null;
+      if (dropOff && group) {
+        // Flung the whole box off the tablet → stash every member. The group
+        // definition itself is left alone (it's pruned once empty, same as a
+        // single app's last member leaving), so a re-added app can rejoin it.
+        group.apps.forEach(hideApp);
+        drag = null;
+        render();
+        return;
+      }
+      const dot = document.elementFromPoint(drag.lastX, drag.lastY)?.closest?.('[data-home-page]');
+      if (dot && group) {
+        drag = null;
+        moveGroupToPage(container, group.apps, Number(dot.getAttribute('data-home-page')) || 0);
+        return;
+      }
+      drag = null;
+      persistHomeArrangement(container);   // the box's new sibling position IS the new order
+    }
+  };
+
+  container.addEventListener('pointerdown', (e) => {
+    if (e.button > 0 || _tosSelectMode) return;
+    const tab = e.target.closest('.tos-appgroup-tab');
+    const box = tab?.closest('.tos-appgroup');
+    if (!box) return;   // a press anywhere else (a member tile, empty space) isn't this gesture
+    press = { box, x: e.clientX, y: e.clientY, timer: setTimeout(begin, LIFT_MS) };
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  });
+}
+
+// Read the home screen back out of the DOM and cache it: one flat display order
+// across every grid, plus each box's membership. Called after any drop, so the
+// arrangement the player sees is exactly the one that survives a re-render.
+function persistHomeArrangement(container) {
+  const idsOf = (grid) => [...grid.querySelectorAll('.tos-tile')]
+    .map(t => t.getAttribute('data-nav-app')).filter(Boolean);
+  const grids = [...container.querySelectorAll('.tos-appgrid')];
+  const visible = grids.flatMap(idsOf);
+
+  // ONLY THE CURRENT PAGE IS IN THE DOM. Saving the visible ids as the whole order
+  // would erase every app on every other page, so splice them back into the saved
+  // order at the position the page already occupied instead of replacing it.
+  const prev = loadAppOrder();
+  if (prev.length) {
+    const vis = new Set(visible);
+    const at = prev.findIndex(id => vis.has(id));
+    const rest = prev.filter(id => !vis.has(id));
+    const cut = at < 0 ? rest.length : Math.min(at, rest.length);
+    saveAppOrder([...rest.slice(0, cut), ...visible, ...rest.slice(cut)]);
+  } else {
+    saveAppOrder(visible);
+  }
+  // Group membership: only boxes actually on screen can have changed.
+  const live = new Map(grids.map(g => [g.getAttribute('data-group-grid'), idsOf(g)]));
+  saveAppGroups(loadAppGroups().map(g => live.has(g.id) ? { ...g, apps: live.get(g.id) } : g));
+}
+
+// Currently-picked tiles, and the live count on the selection bar.
+function selectedAppTiles(container) {
+  return [...(container || _overlay || document).querySelectorAll('.tos-tile-sel')];
+}
+function refreshSelCount(container) {
+  const n = selectedAppTiles(container).length;
+  const el = container.querySelector('[data-sel-count]');
+  if (el) el.textContent = String(n);
+}
+// Leave selection mode and rebuild the home screen (which puts ⧉/⊕ back and drops
+// the bar). Every exit route — Cancel, committing a group, navigating away — goes
+// through here so the mode can never outlive the screen that shows it.
+function exitAppSelectMode() {
+  if (!_tosSelectMode) return;
+  _tosSelectMode = false;
+  render();
+}
+
+// Shared splice for both page-dot drops below: pull `ids` (in their existing
+// relative order) out of the saved order and reinsert them as one run at the
+// boundary the target page starts on. `HOME_SLOTS * targetPage` is an
+// APPROXIMATION of where that boundary actually falls once groups are interleaved
+// (a group can push the real boundary earlier or later) — close enough that the
+// drop lands on the right page, and any further nudge is an ordinary drag from there.
+function moveIdsToPage(container, ids, targetPage) {
+  const order = [...container.querySelectorAll('.tos-appgrid .tos-tile')]
+    .map(t => t.getAttribute('data-nav-app')).filter(Boolean);
+  // The DOM only holds the CURRENT page, so start from the saved order (which spans
+  // all of them) and fall back to the visible one if nothing has been saved yet.
+  const full = loadAppOrder().length ? loadAppOrder() : order;
+  const set = new Set(ids);
+  const moving = full.filter(id => set.has(id));   // preserve their relative order
+  const rest = full.filter(id => !set.has(id));
+  const at = Math.max(0, Math.min(rest.length, targetPage * HOME_SLOTS));
+  saveAppOrder([...rest.slice(0, at), ...moving, ...rest.slice(at)]);
+}
+
+// Send one app to another page. Grouped apps leave their group in the process — a
+// box is laid out as a unit and can't straddle a page, so the lone app has to come
+// out of it first (see moveGroupToPage for moving the whole box instead).
+function moveAppToPage(container, appId, targetPage) {
+  moveIdsToPage(container, [appId], targetPage);
+  saveAppGroups(loadAppGroups().map(g => ({ ...g, apps: g.apps.filter(x => x !== appId) })));
+  _homePage = targetPage;
+  render();
+}
+
+// Send an entire GROUP to another page — every member moves together and is still
+// a group when it lands, which is the whole point of dragging the box.
+function moveGroupToPage(container, ids, targetPage) {
+  moveIdsToPage(container, ids, targetPage);
+  _homePage = targetPage;
+  render();
+}
+
+// Rectangular lasso, live only while selection mode is armed: drag anywhere over
+// the grid — including across tiles — and every tile the band touches joins the
+// picture. It's additive, so several sweeps build one selection, and a plain tap
+// toggles a single tile. Nothing here competes with the long-press reorder,
+// because that stands down entirely while the mode is on.
+function wireAppMarquee(container) {
+  const ENGAGE = 6; // pixels of travel before a press becomes a lasso
+  let sel = null;   // { x, y, band, base:Set }
+
+  const paint = (x, y) => {
+    const left = Math.min(sel.x, x), top = Math.min(sel.y, y);
+    const w = Math.abs(x - sel.x), h = Math.abs(y - sel.y);
+    Object.assign(sel.band.style, { left: left + 'px', top: top + 'px', width: w + 'px', height: h + 'px' });
+    for (const t of container.querySelectorAll('.tos-appgrid .tos-tile:not(.tos-tile-add)')) {
+      const b = t.getBoundingClientRect();
+      const hit = b.right > left && b.left < left + w && b.bottom > top && b.top < top + h;
+      t.classList.toggle('tos-tile-sel', hit || sel.base.has(t));
+    }
+    refreshSelCount(container);
+  };
+
+  const onMove = (e) => {
+    if (!sel.band) {
+      if (Math.hypot(e.clientX - sel.x, e.clientY - sel.y) < ENGAGE) return;
+      sel.band = document.createElement('div');
+      sel.band.className = 'tos-marquee';
+      // The band lives on <body> (like the drag clone) so its fixed coordinates are
+      // plain viewport pixels; the accent is copied across from the themed overlay.
+      sel.band.style.setProperty('--mg-accent', getComputedStyle(container).getPropertyValue('--mg-accent') || '#3fd0d8');
+      document.body.appendChild(sel.band);
+    }
+    e.preventDefault();
+    paint(e.clientX, e.clientY);
+  };
+
+  const end = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+    const band = sel?.band;
+    sel = null;
+    if (!band) return;               // never engaged — that press was a plain tap
+    band.remove();
+    _suppressTileClick = true;       // the lasso's trailing click must not toggle a tile
+    setTimeout(() => { _suppressTileClick = false; }, 0);
+    refreshSelCount(container);
+  };
+
+  container.addEventListener('pointerdown', (e) => {
+    if (e.button > 0 || !_tosSelectMode) return;
+    if (e.target.closest('.tos-selbar')) return;  // the bar's own buttons
+    sel = { x: e.clientX, y: e.clientY, band: null, base: new Set(selectedAppTiles(container)) };
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  });
+}
+
+// The group sheet — name + colour for a new box (`{ ids }`) or an existing one
+// (`{ groupId }`, which also offers Ungroup). Same scrim/card chrome as the ⊕
+// add-apps sheet, and like it, purely client-side.
+function openGroupSheet({ ids = null, groupId = null }) {
+  if (!_overlay) return;
+  const screen = _overlay.querySelector('#tos-screen-inner');
+  if (!screen) return;
+  screen.querySelector('.tos-addsheet')?.remove();
+  const existing = groupId ? loadAppGroups().find(g => g.id === groupId) : null;
+  if (groupId && !existing) return;
+  let color = existing?.color || TOS_GROUP_COLORS[0];
+  const count = existing ? existing.apps.length : ids.length;
+
+  const sheet = document.createElement('div');
+  sheet.className = 'tos-addsheet';
+  sheet.innerHTML = `<div class="tos-addsheet-card">
+    <div class="tos-addsheet-hdr"><span>${existing ? 'Edit group' : `New group · ${count} app${count === 1 ? '' : 's'}`}</span><span class="tos-addsheet-x" data-addsheet-close title="Close">✕</span></div>
+    <input class="tos-grp-input" data-grp-name maxlength="24" placeholder="Group name" value="${esc(existing?.name || '')}">
+    <div class="tos-grp-swatches">${TOS_GROUP_COLORS.map(c =>
+      `<div class="tos-grp-sw${c === color ? ' on' : ''}" data-grp-color="${c}" style="background:${c}"></div>`).join('')}</div>
+    <div class="tos-grp-btns">
+      ${existing ? '<button type="button" class="tos-grp-btn danger" data-grp-ungroup>Ungroup</button>' : ''}
+      <button type="button" class="tos-grp-btn" data-addsheet-close>Cancel</button>
+      <button type="button" class="tos-grp-btn" data-grp-save>${existing ? 'Save' : 'Create'}</button>
+    </div>
+  </div>`;
+  screen.appendChild(sheet);
+  sfx(TOS_SELECT_DEF);
+  const close = () => sheet.remove();
+  sheet.addEventListener('click', (e) => { if (e.target === sheet) close(); });
+  sheet.querySelectorAll('[data-addsheet-close]').forEach(el => el.addEventListener('click', close));
+  sheet.querySelectorAll('[data-grp-color]').forEach(el => el.addEventListener('click', () => {
+    color = el.getAttribute('data-grp-color');
+    sheet.querySelectorAll('[data-grp-color]').forEach(s => s.classList.toggle('on', s === el));
+  }));
+  const input = sheet.querySelector('[data-grp-name]');
+  input?.focus();
+  const save = () => {
+    const name = (input?.value || '').trim() || 'Group';
+    assignAppsToGroup(existing ? [] : ids, name, color, existing ? existing.id : null);
+    close();
+    _tosSelectMode = false;   // the pick is spent; the rebuild below drops the bar
+    render();
+  };
+  sheet.querySelector('[data-grp-save]')?.addEventListener('click', save);
+  input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
+  sheet.querySelector('[data-grp-ungroup]')?.addEventListener('click', () => {
+    saveAppGroups(loadAppGroups().filter(g => g.id !== existing.id));
+    close();
+    render();  // the freed apps fall back into the loose grid in their saved order
   });
 }
 
@@ -3322,6 +4203,9 @@ function wireDragScroll(scroll) {
     const canPan = scroll.scrollHeight > scroll.clientHeight; // vertical pan needs overflow
     if (!canPan && !ideoActive()) return;                     // nothing to pan and no swipe target
     if (isInteractive(e.target)) return;                      // let controls/tiles handle it
+    // While the home grid is in selection mode the lasso owns every press over it;
+    // out of that mode the pan works exactly as it always did.
+    if (_tosSelectMode && e.target.closest('.tos-home-apps')) return;
     start = { x: e.clientX, y: e.clientY, top: scroll.scrollTop, dragging: false, axis: null, dx: 0 };
     window.addEventListener('pointermove', onMove, { passive: false });
     window.addEventListener('pointerup', end);
@@ -3644,9 +4528,16 @@ function renderTabletSettings() {
       loreRow +
       renderMisSection(),
     Layout: (layoutRows || '') +
+      // Home widgets are OFF until you ask for them. The home screen's job is to
+      // launch apps; cards under the grid are a second thing it does, and a first
+      // login shouldn't have to read them to find the tile it wants.
+      `<div class="tos-set-row"><span class="tos-set-label">Home Widgets<span class="tos-set-val">Info cards under the app grid</span></span><div class="tos-opts">
+        <div class="tos-opt${widgetsEnabled() ? ' selected' : ''}" data-set-widgets="on" title="Show home widgets">On</div>
+        <div class="tos-opt${!widgetsEnabled() ? ' selected' : ''}" data-set-widgets="off" title="Hide home widgets">Off</div>
+      </div></div>` +
       `<div class="tos-set-row"><span class="tos-set-label">Sidebar Order<span class="tos-set-val">Drag order &amp; hidden panels</span></span>
         <span class="tos-btn-sub" data-reset-sidebar="1" style="margin:0">Reset to Default</span></div>` +
-      `<div class="tos-set-row"><span class="tos-set-label">Home App Layout<span class="tos-set-val">Tile order + restore removed apps</span></span>
+      `<div class="tos-set-row"><span class="tos-set-label">Home App Layout<span class="tos-set-val">Tile order, groups &amp; stashed apps</span></span>
         <span class="tos-btn-sub" data-reset-apps="1" style="margin:0">Reset to Default</span></div>`,
     Sound: soundRow + audioToggleRows + volRows +
       `<div class="tos-set-row"><span class="tos-set-label">Sound Settings<span class="tos-set-val">Toggles &amp; volumes</span></span>
@@ -4371,6 +5262,20 @@ function renderHealthMeter(m) {
     </div>`;
 }
 
+// Readouts — the vitals the body reports in WORDS. Hunger and thirst come through
+// here rather than as bars: a bar invites you to play the number (top up at 80%,
+// panic at 30%), and you don't know your hydration as a fraction, you know you're
+// thirsty. Band still carries the colour; there is deliberately no track and no
+// figure. The server owns the phrasing (health-app buildReadouts).
+function renderHealthReadouts(readouts) {
+  if (!readouts?.length) return '';
+  return `<div class="tos-vt-readouts">${readouts.map(r => `
+    <div class="tos-vt-readout">
+      <span class="tos-vt-rlbl">${esc(r.label)}</span>
+      <span class="tos-vt-rval ${esc(r.band || 'good')}">${esc(r.text || '')}</span>
+    </div>`).join('')}</div>`;
+}
+
 // ── The paper doll ───────────────────────────────────────────────────────────
 //
 // Injuries are the first data in this game that is genuinely SPATIAL, and a list
@@ -4518,7 +5423,7 @@ function renderHealthDoll(d) {
         <div class="tos-vt-dollsil" aria-hidden="true"></div>
         <svg viewBox="${geom.viewBox}" class="tos-vt-dollsvg" aria-label="Body diagram">${parts}</svg>
       </div>
-      <div class="tos-vt-dolldet" data-doll-detail-slot>${esc(worst?.detail || '')}</div>
+      <div class="tos-vt-dolldet" data-doll-detail-slot>${esc(worst?.detail || 'No injuries. Tap a part for detail.')}</div>
     </div>`;
 }
 
@@ -4605,14 +5510,26 @@ function renderHealth(d) {
   const notice = d.notice ? `<div class="tos-vt-notice">${esc(d.notice)}</div>` : '';
   if (d.tab === 'apothecary') return `${notice}${renderHealthApothecary(d)}`;
   if (d.tab === 'substances') return `${notice}${renderHealthSubstances(d)}`;
+  // Two columns where there's room: the body is a tall narrow thing and the
+  // readings are a stack of short wide ones, so side by side they finish at
+  // roughly the same depth. Stacked (the old layout) the doll left a
+  // panel-wide band of empty box beside it and pushed every meter below the
+  // fold. Below 620px the grid collapses back to one column.
+  const readings = `
+    <div class="tos-vt-sect">Readings</div>
+    <div class="tos-vt-meters">${(d.meters || []).map(renderHealthMeter).join('')}</div>
+    ${renderHealthReadouts(d.readouts)}
+    <div class="tos-vt-sect">Presenting</div>
+    <div class="tos-vt-affs">${renderHealthAfflictions(d.afflictions)}</div>`;
+  const doll = renderHealthDoll(d);
+  if (!doll) return `${notice}${renderHealthQuick(d)}${readings}`;
   return `
     ${notice}
     ${renderHealthQuick(d)}
-    ${renderHealthDoll(d)}
-    <div class="tos-vt-sect">Readings</div>
-    <div class="tos-vt-meters">${(d.meters || []).map(renderHealthMeter).join('')}</div>
-    <div class="tos-vt-sect">Presenting</div>
-    <div class="tos-vt-affs">${renderHealthAfflictions(d.afflictions)}</div>`;
+    <div class="tos-vt-cols">
+      <div class="tos-vt-col-body">${doll}</div>
+      <div class="tos-vt-col-read">${readings}</div>
+    </div>`;
 }
 
 function renderAccolades(d) {
@@ -6657,7 +7574,7 @@ function renderBody() {
   const summary = renderSummary(d.player);
 
   if (d.screen === 'home' || !d.appId) {
-    return `<div class="tos-body">${hdr}${summary}${renderHomeApps(d.apps)}</div>`;
+    return `<div class="tos-body">${hdr}${summary}${renderHomeApps(d.apps)}${renderHomeWidgets(d.widgets)}</div>`;
   }
 
   // App screen. view: categories | list | detail | corp | tablet_settings | error
@@ -7019,6 +7936,14 @@ function wireBody() {
   _overlay.querySelectorAll('[data-nav-app]').forEach(el => {
     el.addEventListener('click', () => {
       if (_suppressTileClick) return; // a drag-reorder just ended; don't also open the app
+      // Selection mode: a tap picks the tile instead of opening it.
+      if (_tosSelectMode && el.classList.contains('tos-tile')) {
+        el.classList.toggle('tos-tile-sel');
+        const home = _overlay.querySelector('.tos-home-apps');
+        if (home) refreshSelCount(home);
+        sfx(TOS_SELECT_DEF);
+        return;
+      }
       const appId = el.getAttribute('data-nav-app');
       // Music is a native overlay (AMP walkman), not an in-tablet screen. It opens
       // over the still-running tablet (its z-index sits above the chassis — see
@@ -7031,12 +7956,119 @@ function wireBody() {
       nav(appId, null, null);
     });
   });
-  // Home-grid tiles are drag-reorderable (order cached locally, never sent up).
-  const appGrid = _overlay.querySelector('.tos-grid');
-  if (appGrid) wireAppGridDrag(appGrid);
+  // Home-grid tiles are drag-reorderable, and empty space lassoes them into groups
+  // (order, membership and colours all cached locally — never sent up).
+  const appHome = _overlay.querySelector('.tos-home-apps');
+  // A search result is a FILTERED, flattened view — arranging it would splice a
+  // partial list back over the saved order and lose apps, so the drag machinery
+  // stays out of it entirely.
+  if (appHome && !_homeSearchOpen) { wireAppGridDrag(appHome); wireGroupDrag(appHome); wireAppMarquee(appHome); }
+  _overlay.querySelectorAll('[data-group-menu]').forEach(el => {
+    el.addEventListener('click', () => {
+      if (_suppressTileClick || _tosSelectMode) return; // a drag/lasso just ended, or we're picking
+      openGroupSheet({ groupId: el.getAttribute('data-group-menu') });
+    });
+  });
+  // ⧉ arms selection mode; the bar it puts up commits or backs out.
+  _overlay.querySelector('[data-tos-select]')?.addEventListener('click', () => {
+    if (_suppressTileClick) return;
+    _tosSelectMode = true;
+    sfx(TOS_SELECT_DEF);
+    render();
+  });
+  _overlay.querySelector('[data-sel-cancel]')?.addEventListener('click', () => exitAppSelectMode());
+  _overlay.querySelector('[data-sel-group]')?.addEventListener('click', () => {
+    const ids = selectedAppTiles(appHome).map(t => t.getAttribute('data-nav-app')).filter(Boolean);
+    if (!ids.length) return;   // nothing picked yet — the bar stays up
+    openGroupSheet({ ids });
+  });
+  // Page dots + arrows. Also the drop target that moves an app between pages (see
+  // the drag `end` handler), which is why they're live in selection mode too.
+  _overlay.querySelectorAll('[data-home-page]').forEach(el => {
+    el.addEventListener('click', () => {
+      if (_suppressTileClick) return;
+      const n = Number(el.getAttribute('data-home-page')) || 0;
+      if (n === _homePage) return;
+      _homePage = n;
+      sfx(TOS_SELECT_DEF);
+      render();
+    });
+  });
+  // Horizontal swipe over the grid turns the page — the gesture a paged home screen
+  // trains you to expect. Vertical movement wins the tie so this can't hijack a
+  // scroll, and a long-press lift (drag-reorder) claims the press before it starts.
+  if (appHome) {
+    let sw = null;
+    appHome.addEventListener('pointerdown', (e) => {
+      if (e.button > 0 || _tosSelectMode) return;
+      _homeDragLifted = false;
+      sw = { x: e.clientX, y: e.clientY, t: Date.now() };
+    });
+    appHome.addEventListener('pointerup', (e) => {
+      if (!sw) return;
+      const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
+      const fast = Date.now() - sw.t < 600;
+      const lifted = _homeDragLifted;
+      sw = null;
+      if (lifted) return;   // a tile is being rearranged; the pager keeps out of it
+      if (!fast || Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.6) return;
+      const dots = _overlay.querySelectorAll('.tos-page-dot').length;
+      const next = Math.max(0, Math.min(dots - 1, _homePage + (dx < 0 ? 1 : -1)));
+      if (next === _homePage || !dots) return;
+      _homePage = next;
+      sfx(TOS_SELECT_DEF);
+      render();
+    });
+  }
+  // A home widget is a shortcut into the app that contributed it.
+  _overlay.querySelectorAll('[data-widget-nav]').forEach(el => {
+    el.addEventListener('click', () => nav(el.getAttribute('data-widget-nav'), null, null));
+  });
   _overlay.querySelector('[data-tos-addapps]')?.addEventListener('click', () => {
     if (_suppressTileClick) return; // a drag just ended; don't also open the sheet
     openAddAppsSheet();
+  });
+  // Toolbar: find, the widgets toggle, and restoring a stashed app straight out of
+  // a search result.
+  _overlay.querySelector('[data-home-search]')?.addEventListener('click', () => {
+    _homeSearchOpen = true;
+    _homeSearch = '';
+    sfx(TOS_SELECT_DEF);
+    render();
+    _overlay.querySelector('[data-home-search-input]')?.focus();
+  });
+  _overlay.querySelector('[data-home-search-clear]')?.addEventListener('click', () => {
+    _homeSearchOpen = false; _homeSearch = '';
+    sfx(TOS_SELECT_DEF);
+    render();
+  });
+  const searchInput = _overlay.querySelector('[data-home-search-input]');
+  if (searchInput) {
+    // Re-render per keystroke (the grid is small and this is all local), keeping the
+    // caret because render() rebuilds the node underneath us.
+    searchInput.addEventListener('input', () => {
+      _homeSearch = searchInput.value || '';
+      const pos = searchInput.selectionStart;
+      render();
+      const again = _overlay.querySelector('[data-home-search-input]');
+      if (again) { again.focus(); try { again.setSelectionRange(pos, pos); } catch {} }
+    });
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { _homeSearchOpen = false; _homeSearch = ''; render(); }
+    });
+  }
+  _overlay.querySelector('[data-toggle-widgets]')?.addEventListener('click', () => {
+    setWidgetsEnabled(!widgetsEnabled());
+    sfx(TOS_SELECT_DEF);
+    render();
+  });
+  _overlay.querySelectorAll('[data-search-restore]').forEach(el => {
+    el.addEventListener('click', () => {
+      unhideApp(el.getAttribute('data-search-restore'));
+      _homeSearch = '';
+      sfx(TOS_SELECT_DEF);
+      render();
+    });
   });
   _overlay.querySelectorAll('[data-back]').forEach(el => {
     // Exactly one level up the history, whatever that was. This is what stops a
@@ -7493,6 +8525,15 @@ function wireTabletSettings() {
   });
   // Extra Lore — local pref + a silent push to the server, which owns the actual
   // per-player flag the lore plugin reads.
+  // Home widgets on/off — a per-device preference like the tile order, not a
+  // server setting, so it commits to localStorage and re-renders in place.
+  _overlay.querySelectorAll('[data-set-widgets]').forEach(el => {
+    el.addEventListener('click', () => {
+      sfx(TOS_SELECT_DEF);
+      setWidgetsEnabled(el.getAttribute('data-set-widgets') === 'on');
+      render();
+    });
+  });
   _overlay.querySelectorAll('[data-set-lore]').forEach(el => {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
@@ -7675,12 +8716,18 @@ function wireTabletSettings() {
     render();
   });
 
-  // Reset the local home-grid arrangement — clears the cached drag order so the
-  // Home screen falls back to default (registration) order. Client-only; brief
-  // in-place confirmation rather than a re-render (the grid isn't on this screen).
+  // Reset the local home-grid arrangement — clears the cached order, groups and
+  // stash, so the Home screen re-seeds to the default twelve on its next render.
+  // Client-only; brief in-place confirmation rather than a re-render (the grid
+  // isn't on this screen).
   _overlay.querySelector('[data-reset-apps]')?.addEventListener('click', (e) => {
     sfx(TOS_SELECT_DEF);
-    try { localStorage.removeItem(TABLET_APP_ORDER_KEY); localStorage.removeItem(TABLET_APP_HIDDEN_KEY); } catch {}
+    try {
+      localStorage.removeItem(TABLET_APP_ORDER_KEY);
+      localStorage.removeItem(TABLET_APP_HIDDEN_KEY);
+      localStorage.removeItem(TABLET_APP_GROUPS_KEY);
+      localStorage.removeItem(TABLET_HOME_SEED_KEY);   // …so the next render re-seeds the default set
+    } catch {}
     const btn = e.currentTarget;
     btn.textContent = '✓ Reset';
     setTimeout(() => { if (btn.isConnected) btn.textContent = 'Reset to Default'; }, 1400);
@@ -7957,6 +9004,7 @@ export function openTabletPanel(msg) {
     const html = `<div class="tos-anchor"><div class="tos-panel mg-chassis${skip ? '' : ' tos-powering-on'}">
       ${deviceHeader('&#9635;', 'ARCHITECT OS', 'Tablet Interface')}
       <div class="tos-bezel mg-bezel">${bezelScrews()}<div class="tos-screen mg-screen" style="--mg-sweep-h:420px" id="tos-screen-inner">
+        <canvas class="tos-wall" id="tos-wall"></canvas>
         <div class="tos-scroll" id="tos-scroll">
           ${skip ? '' : '<div class="tos-boot" id="tos-boot"><div class="tos-boot-logo">A</div><div class="tos-boot-title">ARCHITECT OS</div><div class="tos-boot-sub">Booting Tablet Interface&hellip;</div></div>'}
         </div>
@@ -8608,6 +9656,180 @@ function render() {
   if (_data?.view === 'deadhead' && _data.deadhead?.moving) _dhTimer = setInterval(pollDeadhead, 2000);
 
   applyVoidMode(); // cosmetic off-grid theming, re-applied on every render
+  // The home screen shows the live sky behind the grid; every other screen is a
+  // document and gets the flat background it always had.
+  if (_data.screen === 'home' || !_data.appId) startWallpaper(_data.sky); else stopWallpaper();
+
+  // First home screen a player ever sees gets the short tablet walkthrough. It
+  // no-ops on every subsequent open (localStorage), and it waits for the boot to
+  // settle, so this costs one flag read per render.
+  if (_data.screen === 'home' || !_data.appId) maybeTabletTour();
+}
+
+// ── Animated wallpaper ───────────────────────────────────────────────────────
+// The home screen's backdrop: the sky as it actually is outside, drawn from the
+// `sky` snapshot the home payload carries (in-memory engine state — see
+// buildHomePayload). Sun/moon position comes from the game clock, the palette from
+// the time phase, and the particles from the live weather, so opening the tablet
+// during an acid storm at 3am looks nothing like opening it at noon.
+//
+// It is deliberately cheap and deliberately optional: one canvas, no images, a
+// single rAF that only runs while Home is on screen, and with motion off it paints
+// exactly one static frame. Indoors it dims right down — you can't see the weather
+// through a wall, but the device still knows the hour.
+let _wallRaf = null;
+let _wallState = null;   // { sky, drops:[], stars:[], w, h }
+
+const WALL_SKIES = {
+  // phase → [top, horizon]. Muted: this sits UNDER text and must never fight it.
+  night:   ['#050a14', '#0d1826'],
+  dawn:    ['#1b2338', '#5b3a46'],
+  morning: ['#1d3550', '#4d6f88'],
+  day:     ['#20415e', '#5b7f95'],
+  evening: ['#2a2440', '#7a4a44'],
+  dusk:    ['#171a2e', '#43304a'],
+};
+function wallPalette(sky) {
+  const m = sky?.minutes ?? 720;
+  const key = m < 270 ? 'night' : m < 390 ? 'dawn' : m < 630 ? 'morning'
+    : m < 1020 ? 'day' : m < 1140 ? 'evening' : m < 1290 ? 'dusk' : 'night';
+  return WALL_SKIES[key] || WALL_SKIES.day;
+}
+// Which particle system the weather calls for. Anything unrecognised falls through
+// to 'none', so a new weather type degrades to a plain sky rather than an error.
+function wallPrecip(type) {
+  const t = String(type || '').toLowerCase();
+  if (t.includes('acid')) return 'acid';
+  if (t.includes('snow') || t.includes('sleet') || t.includes('hail')) return 'snow';
+  if (t.includes('rain') || t.includes('storm') || t.includes('drizzle')) return 'rain';
+  if (t.includes('fog') || t.includes('mist') || t.includes('smog')) return 'fog';
+  if (t.includes('dust') || t.includes('sand') || t.includes('ash')) return 'dust';
+  return 'none';
+}
+
+function initWallState(sky, w, h) {
+  const precip = wallPrecip(sky?.weather);
+  const heavy = /heavy|torrential|severe/i.test(sky?.intensity || '');
+  const n = precip === 'none' || precip === 'fog' ? 0
+    : Math.round((precip === 'snow' || precip === 'dust' ? 40 : 70) * (heavy ? 1.6 : 1));
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  return {
+    sky, w, h, precip,
+    // Wind shears the fall; a still day drops straight down.
+    shear: Math.max(-1.4, Math.min(1.4, (sky?.windKph || 0) / 40)),
+    drops: Array.from({ length: n }, () => ({ x: rnd(0, w), y: rnd(0, h), v: rnd(.5, 1.4), len: rnd(4, 14), o: rnd(.25, .8) })),
+    // Stars only exist at night and only outdoors; drawn once into the state so
+    // they don't twinkle their way across the sky between frames.
+    stars: Array.from({ length: 46 }, () => ({ x: Math.random(), y: Math.random() * .62, r: rnd(.4, 1.1), o: rnd(.2, .9) })),
+  };
+}
+
+function paintWall(ctx, st, t) {
+  const { w, h, sky } = st;
+  const [top, horizon] = wallPalette(sky);
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, top);
+  g.addColorStop(1, horizon);
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+
+  const m = sky?.minutes ?? 720;
+  const night = m < 330 || m > 1200;
+
+  if (night) {
+    for (const s of st.stars) {
+      ctx.globalAlpha = s.o * (0.6 + 0.4 * Math.sin(t / 900 + s.x * 40));
+      ctx.fillStyle = '#dfe9f5';
+      ctx.beginPath(); ctx.arc(s.x * w, s.y * h, s.r, 0, 6.284); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Sun/moon: a straight arc from 06:00 to 18:00 and the mirror of it overnight.
+  const dayFrac = night ? ((m + 360) % 1440) / 720 : (m - 360) / 720;
+  const cx = w * Math.max(-0.1, Math.min(1.1, dayFrac));
+  const cy = h * (0.78 - 0.52 * Math.sin(Math.PI * Math.max(0, Math.min(1, dayFrac))));
+  ctx.globalAlpha = night ? 0.5 : 0.42;
+  ctx.fillStyle = night ? '#c9d4e6' : '#ffd9a0';
+  ctx.beginPath(); ctx.arc(cx, cy, night ? 9 : 13, 0, 6.284); ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // Skyline: a deterministic silhouette (seeded off x, not random) so it doesn't
+  // reshuffle itself every time the tablet re-renders. Coldwater from a rooftop.
+  ctx.fillStyle = 'rgba(3,7,11,.72)';
+  const base = h * 0.82;
+  for (let x = -10; x < w + 10; x += 17) {
+    const s = Math.abs(Math.sin(x * 0.7) * 43758.5453) % 1;
+    const bh = 16 + s * 62;
+    ctx.fillRect(x, base - bh, 15, bh + 30);
+    // A few lit windows, same seed, so the city looks inhabited without a texture.
+    if (!night && s < 0.5) continue;
+    ctx.fillStyle = 'rgba(255,206,120,.5)';
+    for (let wy = base - bh + 6; wy < base - 6; wy += 11) {
+      if ((Math.abs(Math.sin((x + wy) * 1.3) * 4375.54)) % 1 > 0.62) ctx.fillRect(x + 4, wy, 3, 4);
+    }
+    ctx.fillStyle = 'rgba(3,7,11,.72)';
+  }
+
+  if (st.precip === 'fog') {
+    for (let i = 0; i < 3; i++) {
+      const y = h * (0.35 + i * 0.2) + Math.sin(t / 2600 + i) * 8;
+      ctx.globalAlpha = 0.1;
+      ctx.fillStyle = '#b9c6cf';
+      ctx.fillRect(0, y, w, 26);
+    }
+    ctx.globalAlpha = 1;
+  } else if (st.drops.length) {
+    const acid = st.precip === 'acid';
+    const flake = st.precip === 'snow' || st.precip === 'dust';
+    ctx.strokeStyle = acid ? 'rgba(150,220,110,.75)' : 'rgba(175,205,230,.6)';
+    ctx.fillStyle = st.precip === 'dust' ? 'rgba(198,170,120,.5)' : 'rgba(226,236,245,.7)';
+    ctx.lineWidth = 1;
+    for (const d of st.drops) {
+      d.y += d.v * (flake ? 1.1 : 5.2);
+      d.x += st.shear * (flake ? 1.1 : 2.2) + (flake ? Math.sin((t + d.y * 9) / 700) * 0.6 : 0);
+      if (d.y > h) { d.y = -10; d.x = Math.random() * w; }
+      if (d.x < -12) d.x = w + 6; else if (d.x > w + 12) d.x = -6;
+      ctx.globalAlpha = d.o;
+      if (flake) { ctx.beginPath(); ctx.arc(d.x, d.y, 1.3, 0, 6.284); ctx.fill(); }
+      else { ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + st.shear * d.len, d.y + d.len); ctx.stroke(); }
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+function startWallpaper(sky) {
+  const cv = _overlay?.querySelector('#tos-wall');
+  if (!cv) return;
+  stopWallpaper();
+  const box = cv.parentElement.getBoundingClientRect();
+  const w = Math.max(1, Math.round(box.width)), h = Math.max(1, Math.round(box.height));
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // Indoors you're looking at a wall, not weather — the sky is still THERE (the
+  // hour still reads), it's just heavily knocked back.
+  cv.style.opacity = sky?.indoors ? '.28' : '.62';
+  cv.classList.add('on');
+  _wallState = initWallState(sky, w, h);
+  paintWall(ctx, _wallState, 0);
+  if (document.documentElement.getAttribute('data-motion') === 'off') return; // one static frame and stop
+  const loop = (t) => {
+    if (!_wallState || !cv.isConnected) return;
+    paintWall(ctx, _wallState, t);
+    _wallRaf = requestAnimationFrame(loop);
+  };
+  _wallRaf = requestAnimationFrame(loop);
+}
+
+function stopWallpaper() {
+  if (_wallRaf) { cancelAnimationFrame(_wallRaf); _wallRaf = null; }
+  _wallState = null;
+  const cv = _overlay?.querySelector('#tos-wall');
+  if (cv) cv.classList.remove('on');
 }
 
 export function closeTabletPanel() { shutdownTablet(); }
@@ -8630,6 +9852,10 @@ function close() {
   if (_fakeTimer) { clearInterval(_fakeTimer); _fakeTimer = null; }
   if (_reelTimer) { clearInterval(_reelTimer); _reelTimer = null; _reelPlaying = false; }
   if (_chatUnsub) { _chatUnsub(); _chatUnsub = null; }
+  _homePage = 0;     // the tablet always opens on the first page of the home screen
+  _tosSelectMode = false;
+  _homeSearchOpen = false; _homeSearch = '';
+  stopWallpaper();   // the rAF must never outlive the overlay it draws into
   unmountTabletTv();
   _wasSurvLive = false;
   // The back stack dies with the shell. A tablet reopened later starts at Home,

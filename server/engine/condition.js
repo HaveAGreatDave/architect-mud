@@ -26,6 +26,7 @@
  */
 import { effectStatBonus } from './effects.js';
 import { impairmentStatPenalty, impairmentOf } from './impairment.js';
+import { getTimeScale } from './gametime.js';
 
 // Cold hands don't do what you tell them. The bands mirror `tempRegenMultiplier`
 // in gameLoop.js exactly, so the message that says you're cold is the same
@@ -113,30 +114,67 @@ export function resistSanityLoss(player, amount) {
 // logged off is still time awake), and there is no second number that can drift
 // out of step with the first.
 //
-// PACING, deliberately gentler than life. Hunger runs 100 → 0 over ~6.7 hours,
-// and fatigue is slower still: you should be able to play a long session and
-// only start feeling it at the end, rather than being sent to bed twice an
-// evening. Nobody wants a game where the correct move is lying down.
-export const FATIGUE_FULL_HOURS = 8;      // awake this long = completely wrecked
-export const FATIGUE_TIRED = 50;          // the first band you can feel
-export const FATIGUE_EXHAUSTED = 75;
-export const FATIGUE_RUINED = 90;
-
-// One minute asleep undoes this many minutes awake.
+// PACING, in GAME hours. Everything else the body does — hunger, thirst, drug
+// tolerance, withdrawal — is measured on the game clock, and a body that got
+// hungry three times a day but tired once every real-time third of a day was the
+// odd one out.
 //
-// Tuned so a FULL night clears in about five real minutes. That is long enough
-// to be a decision you make — you are not playing during it — and short enough
-// that it never costs a player a meaningful slice of their evening. The whole
-// mechanic is worthless if the optimal play is to sit in a bed, so it is priced
-// as a short errand rather than a shift.
-export const SLEEP_RECOVERY_RATIO = 100;   // 8h awake ≈ 4.8 min in a bed
+// The curve is written off what a person actually does: twelve hours up is
+// nothing, a full day up is unpleasant and survivable — plenty of people do it —
+// and it is the SECOND and THIRD nights that take you apart. So the scale runs to
+// three days rather than one, which puts the felt bands where they belong:
+//
+//   12h →  17   nothing yet, just a note on the rail
+//   24h →  33   still nothing mechanical. A hard night is meant to be affordable
+//   36h →  50   TIRED
+//   48h →  67   EXHAUSTED — Brains starts to go
+//   72h → 100   RUINED, and the sanity bleed at its worst
+export const FATIGUE_FULL_HOURS = 72;     // awake this long (GAME time) = completely wrecked
+export const FATIGUE_TIRED = 50;          // the first band you can feel — ~36h
+export const FATIGUE_EXHAUSTED = 65;      // ~47h
+export const FATIGUE_RUINED = 85;         // ~61h — past here it costs you your mind
+
+// Real minutes in a bed to clear a full night's fatigue.
+//
+// Expressed as an OUTCOME rather than a ratio, because the ratio it replaced was
+// a fixed multiple of real time and so drifted whenever the game-speed knob
+// moved: at 3× the same constant cleared a full night in 1.6 minutes instead of
+// the 5 it was tuned for. Five is long enough to be a decision you make — you
+// are not playing during it — and short enough that it never costs a player a
+// meaningful slice of their evening. The whole mechanic is worthless if the
+// optimal play is to sit in a bed, so it is priced as a short errand.
+export const SLEEP_FULL_CLEAR_MINUTES = 5;
+
+/** Real ms of "awake" that one minute of sleep undoes, at the current game speed. */
+export function sleepRecoveryPerMinute() {
+  return fatigueSpanMs() / SLEEP_FULL_CLEAR_MINUTES;
+}
+
+/** Real ms of being awake that takes you from fresh to completely wrecked. */
+export function fatigueSpanMs() {
+  return (FATIGUE_FULL_HOURS * 3600000) / Math.max(0.01, getTimeScale());
+}
 
 export function fatigueOf(player, now = Date.now()) {
   const since = Number(player?.last_slept_at);
   if (!Number.isFinite(since) || since <= 0) return 0;   // never slept = treated as fresh
-  const hours = (now - since) / 3600000;
-  return Math.max(0, Math.min(100, (hours / FATIGUE_FULL_HOURS) * 100));
+  return Math.max(0, Math.min(100, ((now - since) / fatigueSpanMs()) * 100));
 }
+
+// ── Uppers vs. the fatigue clock ─────────────────────────────────────────────
+//
+// A stimulant does not rest you. It BORROWS: while you are wired the fatigue
+// clock runs backwards, and every minute of relief is banked as debt and handed
+// back with interest when the drug lets go. Taking speed to finish the night is
+// therefore a real option with a real price, rather than either a free bed (dull)
+// or nothing at all (which is what it was — an upper couldn't touch fatigue, and
+// isWired even blocked you from lying down, so it was strictly worse than water).
+//
+// Implemented by moving `last_slept_at` itself rather than masking the readout,
+// so a wired player reads as less tired EVERYWHERE at once — stats, the Vitals
+// rail, the sleep-deprivation sanity bleed — with no second number to drift.
+export const STIM_FATIGUE_RELIEF = 12;    // ms of fatigue erased per real ms wired (unit-free ratio)
+export const STIM_FATIGUE_INTEREST = 1.25; // ...paid back at this multiple on the crash
 
 // Tired hands and a tired head. Deliberately spread across two stats rather than
 // stacked on one, so exhaustion degrades you broadly instead of gutting a single

@@ -42,6 +42,26 @@ function saveArr(prefix, key, arr) {
   else localStorage.removeItem(prefix + key);
 }
 
+// HIDDEN is stored differently from ORDER, and the difference matters. A list may ship with
+// rows hidden by DEFAULT (`opts.defaultHidden`), and a player must be able to un-hide them
+// permanently — so "no key at all" (never touched, use the defaults) has to stay
+// distinguishable from "an explicitly empty set" (the player un-hid everything). saveArr
+// deletes an empty key, which would collapse those two states and silently re-hide the rows
+// on the next load. So hidden gets its own pair that always writes.
+function loadHidden(key, defaults = []) {
+  const raw = localStorage.getItem(HIDDEN_PREFIX + key);
+  if (raw === null) return [...defaults];
+  try { return JSON.parse(raw) || []; } catch { return []; }
+}
+function saveHidden(key, arr) {
+  localStorage.setItem(HIDDEN_PREFIX + key, JSON.stringify(arr));
+}
+// What a scope is hiding right now, for anything outside this module that has to match it
+// (the mobile vitals bars are not list-reorder rows but must hide in step with the sidebar).
+export function hiddenKeys(key, defaults = []) {
+  return new Set(loadHidden(key, defaults));
+}
+
 function rowsOf(container, sel) {
   return [...container.querySelectorAll(`:scope > ${sel}`)];
 }
@@ -67,7 +87,7 @@ function applyState(container, opts) {
   rows.forEach((el, i) => { el.dataset.lrKey = keyOf(el, opts, i); });
 
   const order = loadArr(ORDER_PREFIX, opts.key);
-  const hidden = new Set(loadArr(HIDDEN_PREFIX, opts.key));
+  const hidden = new Set(loadHidden(opts.key, opts.defaultHidden));
 
   // Desired sequence: saved-order rows first (in saved order), then any rows not
   // in the saved list, in their current DOM order.
@@ -99,9 +119,9 @@ function ensureRowControls(container, opts) {
       del.textContent = '✕';
       del.addEventListener('click', (e) => {
         e.stopPropagation();
-        const hidden = new Set(loadArr(HIDDEN_PREFIX, opts.key));
+        const hidden = new Set(loadHidden(opts.key, opts.defaultHidden));
         hidden.add(el.dataset.lrKey);
-        saveArr(HIDDEN_PREFIX, opts.key, [...hidden]);
+        saveHidden(opts.key, [...hidden]);
         el.classList.add('list-row-hidden');
         // Optional purge hook: lets the owner drop any backing data for a removed
         // row (e.g. a locally-cached file), beyond just hiding it from the list.
@@ -208,7 +228,7 @@ export function mountScopeToggle(scope, host) {
     for (const c of liveLists(scope)) {
       const opts = listOpts.get(c);
       saveArr(ORDER_PREFIX, opts.key, []);
-      saveArr(HIDDEN_PREFIX, opts.key, []);
+      saveHidden(opts.key, []);
     }
     resetScope(scope);
   });

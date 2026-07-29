@@ -21,12 +21,42 @@
 //   {
 //     id, name, icon, category,
 //     buildHome(player) -> summary data shown as the Home-screen tile (optional extra),
+//     buildWidget(player) -> a small card under the Home app grid (optional),
 //     buildScreen(player, screenId, params) -> full screen payload for this app,
 //   }
+//
+// Widgets are OPT-IN on the client (Settings → Layout → Home Widgets, off by
+// default), but the server builds them regardless — the payload is the same either
+// way and the client simply doesn't draw them. Don't be tempted to gate this end on
+// a preference the server doesn't own.
+//
+// buildWidget CONTRACT — read it before writing one. A widget is rendered on every
+// single Home render, which is the most-opened screen in the game, so it must be
+// **query-free**: serve it from the live player object, the world Maps or an
+// in-memory engine getter (getHUDPayload and friends). If a card needs a round
+// trip it doesn't belong here — put the number on the app's own screen and let the
+// tile badge (buildHome's `notify`) point at it. Return null to omit the card this
+// render; that's how a widget stays quiet until it has something to say.
+// (CPU is a separate budget from round trips: the Sports card simulates exactly one
+// game slot, which is bounded and local. A widget that sims a WINDOW isn't.)
+//
+// Widget shape: { id, title, kind, nav?, ...kindFields } where kind is one of
+//   'meters' — rows: [{ label, pct, band }]        (band: good|warn|bad)
+//   'stat'   — icon, big, sub, note
+//   'lines'  — lines: [{ text, sub }]
+// The client renders those three kinds (renderHomeWidgets in tablet-os.js); adding
+// a fourth means adding a renderer there too. `nav` is an appId — tapping the card
+// opens that app.
+//
+// A card is TIED TO ITS TILE: stash the app under ⊕ on the home screen and its card
+// goes with it. `alwaysOn: true` opts out of that, and is for ALARMS only — a card
+// whose job is to appear uninvited (the Wanted card is the one that has it, because
+// heat you have to subscribe to is not a warning). Don't set it to make a widget
+// feel important; the player arranged their home screen on purpose.
 
 import { query } from '../../server/models/db.js';
 import { getOrg, getPlayerMembership, getZone } from '../../server/engine/world.js';
-import { getGameDateTime } from '../../server/engine/environment.js';
+import { getGameDateTime, getHUDPayload } from '../../server/engine/environment.js';
 import { getNetXp } from '../../server/engine/ip.js';
 import { getTabletApps, findTabletApp } from './registry.js';
 
@@ -48,6 +78,7 @@ import './settings-app.js';
 import './help-app.js';
 import './corp-app.js';
 import './surveillance-app.js';
+import './crime-app.js';
 import './chat-app.js';
 import './news-app.js';
 import './map-app.js';
@@ -64,6 +95,14 @@ export { registerTabletApp, getTabletApps } from './registry.js';
 
 // ── Home screen ──────────────────────────────────────────────────────────────
 
+// "HH:MM" → minutes past midnight, for the wallpaper's sun position. The clock
+// string is already formatted for display, so this reuses it rather than reaching
+// back into environment state for a second copy of the same number.
+function hudMinutes(hhmm) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(String(hhmm || ''));
+  return m ? (+m[1] * 60 + +m[2]) : 720;
+}
+
 async function buildHomePayload(player) {
   const { rows } = await query('SELECT credits, bank_credits FROM players WHERE id=$1', [player.id]);
   const p = rows[0] || {};
@@ -76,6 +115,7 @@ async function buildHomePayload(player) {
   const { date, time } = getGameDateTime();
 
   const appTiles = [];
+  const widgets = [];
   for (const app of getTabletApps()) {
     // Optional per-player gate: an app can hide its Home tile when it's not relevant
     // (e.g. DEADHEAD only when you have a Leviathan live in the world). On error, show it.
@@ -85,7 +125,29 @@ async function buildHomePayload(player) {
       try { extra = await app.buildHome(player); } catch { extra = null; }
     }
     appTiles.push({ id: app.id, name: app.name, icon: app.icon || '▫', category: app.category || 'General', ...(extra || {}) });
+    // …and the optional home-screen card. Same visibility gate as the tile: an app
+    // you can't see doesn't get to put a widget on your home screen.
+    if (typeof app.buildWidget === 'function') {
+      try {
+        const w = await app.buildWidget(player);
+        if (w) widgets.push({ nav: app.id, ...w });
+      } catch { /* a broken widget must never cost you the home screen */ }
+    }
   }
+
+  // Everything the animated wallpaper needs to draw the sky behind the grid. All
+  // of it is in-memory engine state (no query), and it's a snapshot — the client
+  // animates from it and re-syncs on the next home render.
+  const hud = getHUDPayload() || {};
+  const sky = {
+    phase: hud.timePhase || 'day',
+    minutes: hudMinutes(time),
+    weather: hud.currentWeatherType || hud.weatherType || 'clear',
+    intensity: hud.currentIntensity || null,
+    tempC: Math.round(hud.tempC ?? 0),
+    windKph: Math.round(hud.windKph ?? 0),
+    indoors: !!zone?.flags?.is_interior,   // the environment model's own indoors flag
+  };
 
   return {
     type: 'tablet_panel',
@@ -100,6 +162,8 @@ async function buildHomePayload(player) {
     time: { date, time },
     location: zone?.name || player.current_zone,
     apps: appTiles,
+    widgets,
+    sky,
   };
 }
 

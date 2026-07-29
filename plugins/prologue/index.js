@@ -597,11 +597,24 @@ async function beginArrival(player) {
 // The arrival prose itself. Split out of beginArrival so the tour can gate it,
 // and claimed in memory (not a flag) because several callers race for it: the
 // tour answer, the tour's end, and both fallbacks.
+// The last arrival line lands at 17600ms (below); ARRIVAL_DONE_MS is when the
+// client's `tour_tablet` handoff is allowed to fire — a beat after that line is on
+// screen, not the instant it appears, so a player has a moment to read it before
+// the tablet's boot chrome covers the log.
+const ARRIVAL_DONE_MS = 18400;
+
 function speakArrival(player) {
+  if (!player) return;
   // Zone-guarded: `tutorial` is replayable forever, and a veteran replaying it in
-  // Coldwater must not be told they don't know how they got here.
-  if (!player || player.current_zone !== Z_INBETWEEN) return;
-  if (player._prologueArrivalSpoken) return;
+  // Coldwater must not be told they don't know how they got here. Same for a
+  // second call once the monologue has already played (both the tour's own end
+  // and the "no tour" fallback can reach this). Neither case has any prose left to
+  // wait for, so the tablet handoff (see `tutorial done` below) is cleared to fire
+  // immediately rather than sitting on a timer for prose that's never coming.
+  if (player.current_zone !== Z_INBETWEEN || player._prologueArrivalSpoken) {
+    sendToPlayer(player.id, { type: 'tutorial_prose_done' });
+    return;
+  }
   player._prologueArrivalSpoken = true;
   setTimeout(() => out(player, `<span class="ambient">I don't know how I got here. That's the first thing — not <i>where</i> I am, but <i>how</i>. I reach back for the moment before this one and my hand closes on nothing at all. There was something. There must have been something. A name, a room, a life with a Tuesday in it. It's gone the way a dream goes, and I can't even find the shape of the hole it left.</span>`), 1400);
   setTimeout(() => {
@@ -618,6 +631,11 @@ function speakArrival(player) {
     // in it is a room with no answer in it.
     setBeacons(player, [B_ATTENDANT]);
   }, 17600);
+  // The interface tour's last step opens the tablet on finish ("Open the tablet");
+  // without this signal the client would have to guess how long the monologue runs
+  // and either cut it off or leave an awkward dead pause. This tells it exactly
+  // when the room has gone quiet.
+  setTimeout(() => sendToPlayer(player.id, { type: 'tutorial_prose_done' }), ARRIVAL_DONE_MS);
 }
 
 // ── Room telegraphs + the wake-up beat ────────────────────────────────────────
@@ -857,7 +875,15 @@ async function cmdTutorial(args, _raw, player) {
     await raise(player, F_TOUR_ASKED);
     await raise(player, F_TOUR_TAKEN);
     speakArrival(player);
-    return { type: 'system', message: `<span class="hint">That's the interface. Everything else you learn by doing. (<b>help</b> lists the commands; <b>tutorial</b> replays this.)</span>` };
+    return { type: 'system', message: `<span class="hint">That's the interface. Everything else you learn by doing. (<b>help</b> lists the commands; <b>tutorial</b> replays this, <b>tutorial tablet</b> walks the tablet.)</span>` };
+  }
+
+  // `tutorial tablet` — the short walkthrough of the device, on its own. Fires
+  // itself the first time the tablet is ever opened; this is the replay. No flag
+  // raised: it isn't the interface tour and doesn't gate the arrival prose.
+  if (arg === 'tablet') {
+    sendToPlayer(player.id, { type: 'tour_tablet' });
+    return null;
   }
 
   // Bare `tutorial` — replay it.

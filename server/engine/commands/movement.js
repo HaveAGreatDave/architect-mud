@@ -13,6 +13,7 @@ import { closeShopSession } from '../vendor-session.js';
 import { computeCarriedWeight, carryCapacity, formatWeight } from './inventory.js';
 import { OPPOSITE } from '../directions.js';
 import { forceStand } from '../posture.js';
+import { isSneaking } from '../stealth.js';
 import { isDreamZone, pushDreamFx } from '../dreamscape.js';
 import { registerMoveGate, runMoveGates } from '../movement-gates.js';
 import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
@@ -20,6 +21,7 @@ import { createSelectionState, getSelectionState, formatSelectionPage } from '..
 import { districtFor } from '../districts.js';
 import { getFlag, setFlag } from '../flags.js';
 import { zoneDanger } from '../danger.js';
+import { addSewerGrime } from '../hygiene.js';
 
 const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out', 'exit'];
 
@@ -457,6 +459,10 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   removePlayerFromZone(player.id, player.current_zone);
   addPlayerToZone(player.id, targetId);
   player.current_zone = targetId;
+  // Runtime-only, no query — the zone object is already loaded, so this is a
+  // free field check, not a hot-path DB read. Grease-skinned sewer water rubs
+  // off a little on every step down there; see hygiene.js's sewer grime meter.
+  if (targetZone.flags?.district === 'sewer') addSewerGrime(player);
   emit('zone.entered', { actor: player, zone: targetId, from: oldZoneId, opts });
   player.combatTargetId = null;
   // Walking in a dream is the MIND moving; the body is still lying in a bed
@@ -465,7 +471,11 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   // Walking between rooms of a dream changes the particle field with you; walking
   // OUT of one clears it, which is what hands the real weather back.
   if (isDreamZone(targetId) || isDreamZone(oldZoneId)) pushDreamFx(player, broadcast);
-  const interrupted = player.sleeping?.inDream ? null : forceStand(player, 'moved');
+  // Sneaking SURVIVES a step. It is the one posture whose entire purpose is to
+  // be held while crossing rooms — forceStand('moved') clearing it meant you
+  // could never sneak anywhere, only sneak where you already were.
+  const sneaking = isSneaking(player);
+  const interrupted = (player.sleeping?.inDream || sneaking) ? null : forceStand(player, 'moved');
   if (interrupted === 'sitting') {
     broadcast(null, { type: 'emote', message: 'You stand up.' }, null, player.id);
     broadcast(oldZoneId, { type: 'zone_event', message: `${player.handle} stands up.` }, player.id);
@@ -515,8 +525,14 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   // A plugin may replace the arrival line entirely (drama: armed dramatic entrances).
   const customArrive = await fireHook('movement.arriveMessage', { player, fromZone: zone, toZoneId: targetId, direction, arrivalDir, defaultMessage: arriveMsg });
   if (typeof customArrive === 'string' && customArrive.trim()) arriveMsg = customArrive.trim();
-  broadcast(zone.id, { type:'zone_event', message: departMsg, refresh: true, _movement: true }, player.id);
-  broadcast(targetId, { type:'zone_event', message: arriveMsg, refresh: true, _movement: true }, player.id);
+  // A sneaker's coming and going is NOT announced. The room-wide line is the
+  // thing that made stealth cosmetic: you could roll unnoticed and still be
+  // read out on arrival. Anyone who does notice is told by the sneak plugin's
+  // sweep instead, per observer — which is the only place that knows who did.
+  if (!sneaking) {
+    broadcast(zone.id, { type:'zone_event', message: departMsg, refresh: true, _movement: true }, player.id);
+    broadcast(targetId, { type:'zone_event', message: arriveMsg, refresh: true, _movement: true }, player.id);
+  }
 
   // Close (and re-lock if locked) the door behind the player
   if (hadDoor && doorWasClosed) {

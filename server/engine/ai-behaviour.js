@@ -1702,9 +1702,13 @@ export async function tickEntityAI(entity, ctx) {
   // every connected player. Skip it until it's given a zone.
   if (!entityZone(entity)) return;
 
-  // A break-in alarm (burglary plugin) has taken this NPC over — it drives the
-  // panic cop-call / flee sequence directly. Suspend the normal graph (and the
-  // passive home-life below) until the plugin clears the flag.
+  // Something has taken this NPC over and is driving it directly — a break-in
+  // alarm (burglary plugin) or ordinary fright (engine/panic.js). Suspend the
+  // normal graph (and the passive home-life below) until the driver clears it.
+  //
+  // ⚠ THIS FLAG IS NOT A BEHAVIOUR. It only yields the graph; it makes the NPC
+  // do nothing at all. Setting it without a driver to clear it freezes that NPC
+  // permanently. Go through panicNpc() unless you own the whole sequence.
   if (ai.alarm) return;
 
   // Dosed unconscious or panicking (npc-drugs plugin) — the plugin drives the

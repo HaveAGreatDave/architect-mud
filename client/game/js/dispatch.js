@@ -31,9 +31,10 @@ import { openSignalHijack } from './panels/signalhijack.js';
 import { openPirateConsole, closePirateConsole } from './panels/piratedeck.js';
 import { openFishing, armFishFight } from './panels/fishing.js';
 import { abortMacros } from './panels/smartbar-macros.js';
-import { offerInterfaceTour, startInterfaceTour } from './panels/tour.js';
+import { offerInterfaceTour, startInterfaceTour, startTabletTour, consumeTourHandoff } from './panels/tour.js';
 import { playIntroCinematic } from './panels/intro-cinematic.js';
 import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
+import { openTextCockpit, updateTextCockpit, closeTextCockpit, isTextCockpitActive } from './panels/textcockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/helm-mode.js';
 import { setYachtAmbience, yachtUnderway, yachtSettled } from './panels/yacht-ambience.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
@@ -274,7 +275,7 @@ const handlers = {
     // Don't clobber the live cockpit (either the continuous sim or the discrete
     // passenger HUD) or an open hangar bay panel — all replace the plain-text room
     // description with their own app in the same area-pane.
-    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive()) setAreaPane(msg.message);
+    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive() && !isTextCockpitActive()) setAreaPane(msg.message);
     if (state.echoNextLook) { appendMsg('You look around.', 'system'); state.echoNextLook = false; }
     if (msg.zone) { notifyZoneChanged(msg.zone); state.currentZone = msg.zone; }
     setYachtAmbience(msg.ambience);   // naval on deck / engine below / null elsewhere
@@ -288,7 +289,7 @@ const handlers = {
     // against this plain-text room description — whichever lands second wins.
     // If the bay panel already won that race, don't stomp it; it owns the pane
     // until the player actually leaves (hangar_close triggers a fresh look).
-    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive()) setAreaPane(msg.message, msg.direction);
+    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive() && !isTextCockpitActive()) setAreaPane(msg.message, msg.direction);
     if (msg.narration) appendHtml(msg.narration, 'move');
     notifyZoneChanged(msg.zone);
     state.currentZone = msg.zone;
@@ -402,6 +403,21 @@ const handlers = {
   intro_cinematic: (msg) => { playIntroCinematic(() => sendCmdSilent('introdone'), msg?.skyline, msg?.shore); },
   tour_offer: () => { offerInterfaceTour(); },
   tour_start: () => { startInterfaceTour(); },
+  // `tutorial tablet`. The tour needs the device actually on screen, so if it
+  // isn't we open it first and let the shell finish booting — startTabletTour
+  // returns false rather than spotlighting nothing, and we try again once the
+  // CRT ceremony is over. Gives up after that instead of polling forever.
+  tour_tablet: () => {
+    if (startTabletTour()) return;
+    sendCmdSilent('tablet');
+    setTimeout(() => startTabletTour(), 2200);
+  },
+  // The prologue's arrival monologue has finished landing in the log — safe now to
+  // run whatever the interface tour's last step handed off (opening the tablet).
+  // See tour.js armTourHandoff/consumeTourHandoff for why this is a server signal
+  // and not a client-guessed delay: the monologue's length is scripted server-side
+  // and can change without this file knowing.
+  tutorial_prose_done: () => { consumeTourHandoff(); },
   sleep: (msg) => { appendHtml(msg.message, 'system'); setSleepBar(true, false); },
 
   // Authoritative sleep state, stamped on every command reply by the server (and
@@ -929,7 +945,11 @@ const handlers = {
 
   // ── Flight (cockpit HUD + takeoff/landing minigames) ─────────────────────
   cockpit_update: (msg) => { updateCockpit(msg.state); },
-  cockpit_close: () => { closeCockpit(); sendCmdSilent('look'); },   // hand the area pane back to the room view
+  cockpit_close: () => { closeCockpit(); closeTextCockpit(); sendCmdSilent('look'); },   // hand the area pane back to the room view
+  // Text cockpit — the same top pane, drawn in characters for a text-mode pilot.
+  // No canvas in this path at all; `cockpit_close` above hands the pane back.
+  text_cockpit_open: (msg) => { openTextCockpit(msg); },
+  text_cockpit: (msg) => { updateTextCockpit(msg); },
   cabin_audio: (msg) => { cabinAudio(msg.audio); },   // walkable-cabin occupants HEAR the engines without the HUD taking over the room
   // Continuous cockpit (client-sim + server-reconcile) — the Mayfly slice.
   flight_sim: (msg) => { openFlightSim(msg); },

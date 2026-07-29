@@ -25,7 +25,7 @@ import { query } from '../../server/models/db.js';
 import { world, getZone, getLivePlayer, getMinimapData, getDoorById, getZoneDoors, setDoorCache } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { hasTag } from '../../server/engine/tags.js';
-import { getFlag } from '../../server/engine/flags.js';
+import { getFlag, setFlag, setFlagById } from '../../server/engine/flags.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { on, emit } from '../../server/engine/events.js';
 import { dispatchAction, registerAction } from '../../server/engine/actions.js';
@@ -308,6 +308,11 @@ async function bookIntoCell(player, { teleport = false } = {}) {
     [player.id, CELL_ZONE, RELEASE_ZONE, String(ms), stars, JSON.stringify(held), heldCredits, fine, charge]
   );
   markImprisoned(player.id);   // the one INSERT — the roster's only hard requirement
+  // Jail's half of the permanent record (surveillance keeps the priors tally).
+  // `jail_prisoners` is the CURRENT stint only — the row is deleted on release —
+  // so a lifetime count of collars has to be kept somewhere that outlives it.
+  await setFlag('player', 'crime_arrests', (Number(await getFlag('player', 'crime_arrests', player).catch(() => 0)) || 0) + 1, player)
+    .catch(() => {});
   scheduleRelease(player.id, ms);
   // Engage the detention lock behind the new prisoner. The door ships locked in
   // content and re-locks here on every booking, so an admin poking at it can't
@@ -485,6 +490,58 @@ registerAction({
   },
 });
 
+// ── The permanent record (jail's half) ───────────────────────────────────────
+// Lifetime totals that a deleted `jail_prisoners` row can no longer answer for:
+//
+//   crime_arrests     collars, incremented at booking
+//   crime_fines       ₵ actually kept as fines, summed at release
+//   crime_served_min  minutes actually served, summed at release
+//
+// Two flag writes per release — a release is a once-per-stretch event, never a
+// tick — and read back sync off the flag cache by the tablet's Crime app.
+async function recordStint(playerId, rec) {
+  const p = getLivePlayer(playerId);
+  const bump = async (key, add) => {
+    if (!add) return;
+    const cur = Number(p ? await getFlag('player', key, p) : 0) || 0;
+    // Offline: setFlagById writes without a cached read, so the running total can
+    // only be trusted for a live player. An offline release still records the
+    // stint; it just adds to whatever the DB last held via the same read path.
+    if (p) await setFlag('player', key, cur + add, p);
+    else {
+      const { rows } = await query('SELECT flag_value FROM player_flags WHERE player_id=$1 AND flag_key=$2', [playerId, key]);
+      await setFlagById(playerId, key, (Number(rows[0]?.flag_value) || 0) + add);
+    }
+  };
+  const served = rec.created_at && rec.release_at
+    ? Math.max(0, Math.round((new Date(rec.release_at) - new Date(rec.created_at)) / 60000))
+    : 0;
+  // Only what the desk actually kept — a fine larger than the cash you were
+  // carrying still charges in full, which is the point of the debt.
+  await bump('crime_fines', Math.max(0, Number(rec.fine) || 0));
+  await bump('crime_served_min', served);
+}
+
+// The current stint, or null. One query, and only on the screen that asks for it —
+// the tablet's Crime app reads this rather than touching jail's table itself.
+export async function custodyOf(playerId) {
+  if (!playerId) return null;
+  const { rows } = await query(
+    'SELECT cell_zone, release_at, stars, fine, held_credits, charge, created_at FROM jail_prisoners WHERE player_id=$1',
+    [playerId],
+  );
+  const r = rows[0];
+  if (!r) return null;
+  return {
+    cellZone: r.cell_zone,
+    charge: r.charge || null,
+    stars: Number(r.stars) || 0,
+    fine: Number(r.fine) || 0,
+    held: Number(r.held_credits) || 0,
+    minutesLeft: Math.max(0, Math.ceil((new Date(r.release_at) - Date.now()) / 60000)),
+  };
+}
+
 // ── Release (guard walks you out) ────────────────────────────────────────────
 async function release(playerId) {
   const { rows } = await query('SELECT * FROM jail_prisoners WHERE player_id = $1', [playerId]);
@@ -495,6 +552,10 @@ async function release(playerId) {
   try {
     await query('DELETE FROM jail_prisoners WHERE player_id = $1', [playerId]);
     markFreed(playerId);
+    // File the stint before the row is gone from memory: fine actually paid and
+    // minutes actually served. setFlagById works for an offline release (the
+    // boot-time sweep frees prisoners whose deadline passed while they were away).
+    await recordStint(playerId, rec).catch(() => {});
     await restoreHeld(playerId, rec.held_items);
 
     // Return the cash the desk was holding, minus the booking fine. A fine larger

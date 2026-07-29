@@ -17,6 +17,7 @@ gameLoop save — this plugin never touches the DB directly.
 
 ```
 base = max(minimum, ceil(missingHP × rate)) + (bleeding ? bleed_fee : 0)
+     + wounds × wound_fee + frostbiteStages × frost_fee
 cost = round(base × (1 − relationHelp))     ... and 0 outright at `close`
 ```
 
@@ -30,11 +31,21 @@ charges you *more*.
 Passing no NPC id (the `treatmentQuote(player, params)` form) prices exactly as
 it did before relationships existed.
 
+**Three things can be wrong with you, and they are priced separately** because a
+player can walk in at full HP, unbled, with a ruined leg and two dead fingers.
+HP is `rate`; injuries are `wound_fee` and cleared by
+[injury](../injury/README.md)'s `clearInjuries`; frostbite is `frost_fee` and
+cleared by [frostbite](../frostbite/README.md)'s `clearFrostbite`. The last is
+the only **permanent** injury in the game — every field kit floors out short of
+curing it, so this Action is the only thing that gives you your hands back.
+
 | Param | Default | Meaning |
 |---|---|---|
 | `rate` | `2` | credits per point of missing HP |
 | `minimum` | `10` | floor — nobody opens a sterile pack for less |
 | `bleed_fee` | `25` | flat surcharge to stop an active bleed |
+| `wound_fee` | `40` | per injury cleared outright — surgical work no field kit can do |
+| `frost_fee` | `60` | per frostbite stage. Dearest line on the bill, and rightly: a deep case is dead tissue that never thaws, so unlike everything else here it is not something the patient could have waited out |
 | `free` | `false` | treat at no charge (charity ward, quest reward, faction perk) |
 
 Every param is per-node, so a back-alley cutter and a corporate trauma bay charge
@@ -57,7 +68,7 @@ already cracked on yourself).
 
 | Action | Params | Result |
 |---|---|---|
-| `CLINIC_TREAT` | `rate`, `minimum`, `bleed_fee`, `free` (all optional, read **flat** off the dialogue node) | `{ type: 'dialogue_line', text }` |
+| `CLINIC_TREAT` | `rate`, `minimum`, `bleed_fee`, `wound_fee`, `frost_fee`, `free` (all optional, read **flat** off the dialogue node) | `{ type: 'dialogue_line', text }` |
 
 Dialogue actions are authored flat by the VINE editor (`{action, rate, …}`), which
 is why the params sit alongside `action` rather than nested under `params`.

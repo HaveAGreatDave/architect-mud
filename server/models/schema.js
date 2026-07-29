@@ -619,6 +619,7 @@ export const SCHEMA_SQL = `
     is_addicted INTEGER DEFAULT 0,
     last_used_at BIGINT,
     tolerance REAL DEFAULT 0,
+    tolerance_lethal REAL DEFAULT 0,
     addiction REAL DEFAULT 0,
     -- Inline-drug payload. Spliced compounds have no drugs row, so the withdrawal
     -- tick has nothing to look up; their composed effects blob is stored here at use
@@ -752,6 +753,12 @@ export const SCHEMA_SQL = `
   -- Drug tolerance + addiction accumulation (phased-effect drug system)
   ALTER TABLE player_drug_state ADD COLUMN IF NOT EXISTS tolerance REAL DEFAULT 0;
   ALTER TABLE player_drug_state ADD COLUMN IF NOT EXISTS addiction REAL DEFAULT 0;
+  -- Differential tolerance. 'tolerance' is the FELT one (dulls the high); this is
+  -- the LETHAL one (raises the overdose ceiling), and it builds slower and fades
+  -- slower. The gap between them is what kills long-term users. Existing rows
+  -- start at 0, which is the safe direction: a veteran's ceiling drops to novice
+  -- level until they use again, rather than silently inheriting free headroom.
+  ALTER TABLE player_drug_state ADD COLUMN IF NOT EXISTS tolerance_lethal REAL DEFAULT 0;
   -- Composed effects for inline (spliced-compound) drugs, which have no drugs row.
   ALTER TABLE player_drug_state ADD COLUMN IF NOT EXISTS effects JSONB;
 

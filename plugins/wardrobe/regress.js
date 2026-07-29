@@ -20,11 +20,17 @@ export default async function regress({ run, check }) {
   // The three panel verbs take a furniture id straight off the wire. An id that
   // isn't a wardrobe in this room must not resolve — otherwise the panel could
   // be pointed at someone else's closet.
-  for (const verb of ['outfitsetid', 'outfitwearid', 'outfitdelid']) {
+  for (const verb of ['outfitsetid', 'outfitwearid', 'outfitwearnowid', 'outfitdelid', 'undressid', 'hangwornid', 'takeoffid']) {
     const res = await run(`${verb} furn_not_a_wardrobe thing`);
     check(`${verb} rejects a non-wardrobe id`,
       res?.type === 'container_error', JSON.stringify(res));
   }
+
+  // `hangwornid` takes a client-supplied inventory row and unequips it, so the
+  // wardrobe gate has to come FIRST — before the row is touched at all. With a
+  // bogus furniture id it must fail on the wardrobe, whether or not a row follows.
+  check('hangwornid gates on the wardrobe before the row',
+    (await run('hangwornid furn_not_a_wardrobe'))?.type === 'container_error');
 
   // Outfits capture clothing + accessories but never the wielded weapon —
   // changing clothes must not disarm you.

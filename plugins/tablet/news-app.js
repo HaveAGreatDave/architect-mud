@@ -164,7 +164,31 @@ async function buildScreen(player) {
   };
 }
 
+// ── Home widget ──────────────────────────────────────────────────────────────
+// Today's sky, one line, off the same getHUDPayload snapshot the weather section
+// uses — no query, no forecast fetch. The note escalates to tomorrow's hero event
+// when the bureau has one scheduled, because that's the bit you want on the home
+// screen rather than buried three taps into the paper.
+function buildWidget() {
+  const hud = getHUDPayload();
+  if (!hud) return null;
+  const hero = (getForecast() || []).slice(0, 2).find(f => f.heroEvent);
+  const note = hero
+    ? `⚠ ${hero.heroEventLabel || hero.weatherType} · ${hero.forecastDay === 0 ? 'today' : 'tomorrow'}`
+    : `feels ${Math.round(hud.feelsLikeC)}°C · wind ${Math.round(hud.windKph)} kph`;
+  return {
+    id: 'weather',
+    title: 'Weather',
+    kind: 'stat',
+    icon: hud.currentWeatherIcon || hud.weatherIcon || '',
+    big: `${Math.round(hud.tempC)}°C`,
+    sub: [hud.currentIntensity, hud.currentWeatherType].filter(Boolean).join(' '),
+    note,
+    tone: hero ? 'warn' : null,
+  };
+}
+
 registerTabletApp({
   id: 'news', name: 'News', icon: '📰', category: 'General',
-  buildScreen,
+  buildScreen, buildWidget,
 });

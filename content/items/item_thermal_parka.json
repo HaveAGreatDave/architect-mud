@@ -10,9 +10,11 @@
     },
     "bulkiness": 4,
     "description": "A sealed thermal shellcoat with a powered filament liner that sips charge from a wrist-cell to hold body heat against the worst the arcology winters can muster. The outer skin is matte ripstop nanoweave, grease-black and beaded to shrug off sleet.",
+    "hydrophobic": true,
     "insulation": 8,
     "layer": "outerwear",
-    "slot": "torso"
+    "slot": "torso",
+    "windproof": true
   },
   "type": "clothing",
   "value": 700,

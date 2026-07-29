@@ -18,6 +18,7 @@ import { registerAction } from '../../server/engine/actions.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { relationHelp, relationAtLeast, getRelation } from '../../server/engine/relations.js';
 import { injuryReport, clearInjuries } from '../injury/index.js';
+import { frostbiteReport, clearFrostbite } from '../frostbite/index.js';
 
 // Tuning. All overridable per-node so a back-alley cutter and a corporate
 // trauma bay can charge wildly different money off the same Action.
@@ -28,6 +29,13 @@ const DEFAULT_BLEED_FEE = 25;  // surcharge to stop an active bleed
 // is the one thing no field kit can do — they all floor at Bruised — so it is
 // surgical work and priced as such, per problem rather than per point of HP.
 const DEFAULT_WOUND_FEE = 40;
+// Per FROSTBITE STAGE. Dearer than a wound, and it should be: a deep case is dead tissue
+// that will never thaw on its own, so unlike every other line on this bill it is not
+// something the patient could have waited out. It is the only permanent injury in the game,
+// and this is the only thing that undoes it.
+const DEFAULT_FROST_FEE = 60;
+// Worst-first, matching the plugin's own stage order, so the bill scales with the work.
+const STAGE_RANK = { frostnip: 1, frostbite: 2, deep_frostbite: 3 };
 
 const NOT_HURT = [
   `She looks you over, unimpressed. "You're fine. Come back when something's open."`,
@@ -56,36 +64,44 @@ export function treatmentQuote(player, params = {}, npcId = null) {
   // Wounds are a separate line on the bill. A player can walk in at full HP with
   // a ruined leg — HP and injury are different problems and always were.
   const wounds = injuryReport(player).length;
-  if (!missing && !bleeding && !wounds) return { missing: 0, bleeding: false, wounds: 0, cost: 0, free: false };
+  // Frostbite is its own line for the same reason wounds are: a player can walk in at full
+  // HP, unbled and unwounded, with two dead fingers. Priced per STAGE, so a deep case costs
+  // three times a nip — which is also the shape of the work.
+  const frost = frostbiteReport(player);
+  const frostStages = frost ? (STAGE_RANK[frost.stage] || 0) : 0;
+  if (!missing && !bleeding && !wounds && !frostStages) {
+    return { missing: 0, bleeding: false, wounds: 0, frost: null, cost: 0, free: false };
+  }
 
   const rate    = Number(params.rate ?? DEFAULT_RATE);
   const minimum = Number(params.minimum ?? DEFAULT_MINIMUM);
   const bleedFee = bleeding ? Number(params.bleed_fee ?? DEFAULT_BLEED_FEE) : 0;
   const woundFee = wounds * Number(params.wound_fee ?? DEFAULT_WOUND_FEE);
+  const frostFee = frostStages * Number(params.frost_fee ?? DEFAULT_FROST_FEE);
   const authoredFree = params.free === true || params.free === 'true';
 
   // Close enough and she stops charging you. Deliberately a hard cliff at the
   // top of the ladder rather than an asymptote — "she waves the money away" is a
   // moment; "she charges you 4₵" is a rounding error nobody notices.
   const onTheHouse = authoredFree || (npcId && relationAtLeast(getRelation(player, npcId), 'close'));
-  if (onTheHouse) return { missing, bleeding, wounds, cost: 0, free: true };
+  if (onTheHouse) return { missing, bleeding, wounds, frost, cost: 0, free: true };
 
-  const base = Math.max(minimum, Math.ceil(missing * rate)) + bleedFee + woundFee;
+  const base = Math.max(minimum, Math.ceil(missing * rate)) + bleedFee + woundFee + frostFee;
   const help = npcId ? relationHelp(player, npcId) : 0;
-  return { missing, bleeding, wounds, cost: Math.max(1, Math.round(base * (1 - help))), free: false };
+  return { missing, bleeding, wounds, frost, cost: Math.max(1, Math.round(base * (1 - help))), free: false };
 }
 
 registerAction({
   type: 'CLINIC_TREAT',
   handler: async ({ actor, params = {}, context }) => {
     const npcId = params.npc_id || context?.npc?.id || null;
-    const { missing, bleeding, wounds, cost, free } = treatmentQuote(actor, params, npcId);
+    const { missing, bleeding, wounds, frost, cost, free } = treatmentQuote(actor, params, npcId);
 
     // No injury = no charge and no state change. This also makes the Action
     // safe to re-render: dialogue fires node actions every time the node is
     // drawn, so a second look at a patched-up player is a free flavour line
     // rather than a second bill.
-    if (!missing && !bleeding && !wounds) return { type: 'dialogue_line', text: pick(NOT_HURT) };
+    if (!missing && !bleeding && !wounds && !frost) return { type: 'dialogue_line', text: pick(NOT_HURT) };
 
     if (cost > 0 && !(await adjustCredits(actor, -cost, undefined, 'clinic:treatment'))) {
       return { type: 'dialogue_line', text: pick(BROKE) };
@@ -99,8 +115,14 @@ registerAction({
     // kit floors at Bruised, so this is the only thing in the game that makes you
     // whole — which is what makes a clinic a destination rather than a vendor.
     const mended = clearInjuries(actor);
+    // The one permanent injury in the game, and the only thing that lifts it. A field kit
+    // can walk deep frostbite back to a working hand; nothing but this gives you the hand.
+    const thawed = await clearFrostbite(actor);
 
     const bleedLine = bleeding ? ' She packs the bleed first, hard enough to hurt, and it stops.' : '';
+    const frostLine = thawed
+      ? ` She takes your hands in hers, turns them over, and does not say anything for a moment. What she does next is slow, and expensive, and you get to keep your fingers.`
+      : '';
     const woundLine = mended.length
       ? ` She sets and closes ${mended.map(m => m.partLabel).join(', ')} — unhurried, and it hurts more than the wound did.`
       : '';
@@ -113,7 +135,7 @@ registerAction({
         : ' On the house, this once.');
     return {
       type: 'dialogue_line',
-      text: `Gloves, light, pressure.${bleedLine}${woundLine} Whatever was wrong with you is closed, cleaned and taped. You come off the table whole.${priceLine}`,
+      text: `Gloves, light, pressure.${bleedLine}${woundLine}${frostLine} Whatever was wrong with you is closed, cleaned and taped. You come off the table whole.${priceLine}`,
     };
   },
 });

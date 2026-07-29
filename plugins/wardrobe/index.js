@@ -22,7 +22,7 @@ import { emit } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { sendToPlayer, teachVerb, pointAt } from '../../server/engine/messaging.js';
 import {
-  BODY_SLOTS, recomputeEquipped, cmdEquipById, buildContainerView,
+  BODY_SLOTS, recomputeEquipped, cmdEquipById, cmdUnequipById, buildContainerView,
   cmdUndress, containerCapacity, containerContentsWeight, loadContainerById,
 } from '../../server/engine/commands/inventory.js';
 
@@ -67,7 +67,12 @@ async function loadWardrobeById(player, furnId) {
 // renders pads head-to-foot rather than in whatever order the rows came back.
 async function loadEquipped(player) {
   const { rows } = await query(
-    `SELECT DISTINCT pi.item_id, pi.slot FROM player_inventory pi
+    // `pi.id` is the INVENTORY ROW, and it's what makes the panel's Worn rail
+    // more than a readout: a worn garment can only be hung up if the client can
+    // name the row to move. Selecting it also makes DISTINCT per-row rather than
+    // per-template, which is what we want — two identical shirts on two layers
+    // are two things you can pick up, not one.
+    `SELECT pi.id, pi.item_id, pi.slot FROM player_inventory pi
       WHERE pi.player_id=$1 AND pi.is_equipped=1 AND pi.slot = ANY($2)`,
     [player.id, OUTFIT_SLOTS]
   );
@@ -77,7 +82,7 @@ async function loadEquipped(player) {
     // and the second one silently evicts the first — the exact bug the layered
     // doll exists to prevent, reintroduced through the back door.
     .map(r => ({
-      itemId: r.item_id, slot: r.slot,
+      rowId: r.id, itemId: r.item_id, slot: r.slot,
       layer: getItem(r.item_id)?.tags?.layer || null,
       name: getItem(r.item_id)?.name || r.item_id,
     }))
@@ -155,14 +160,13 @@ async function claimForWear(player, furnId, itemId) {
   return row.id;
 }
 
-async function wearOutfit(player, furnId, name, broadcast) {
-  const { rows } = await query(
-    'SELECT name, item_ids FROM player_outfits WHERE player_id=$1 AND furniture_id=$2 AND lower(name)=lower($3)',
-    [player.id, furnId, name.trim()]
-  );
-  if (!rows.length) return { ok: false, message: `No outfit called "${name}" in this wardrobe.` };
-  const outfit = rows[0];
-  const itemIds = outfit.item_ids || [];
+// The actual dressing mechanic: strip OUTFIT_SLOTS, then equip each template id
+// in order, claiming a copy from hand or from `furnId`'s hanging stock. Shared by
+// `wearOutfit` (a saved look, by name) and `wearNow` (whatever the doll currently
+// holds, unsaved) — the two are the same action with two different sources for
+// the id list, and had drifted into two copies of this once already.
+async function dressFrom(player, furnId, itemIds, broadcast, label) {
+  if (!itemIds.length) return { ok: false, message: 'Nothing to wear.' };
 
   // Strip what's on first, in one statement — the same shape as `undress`, so
   // shed pieces land in the pack rather than vanishing. Layering is rebuilt from
@@ -190,10 +194,28 @@ async function wearOutfit(player, furnId, name, broadcast) {
   }
 
   let msg = worn.length
-    ? `You dress in "${outfit.name}" — ${worn.join(', ')}.`
-    : `You couldn't put any of "${outfit.name}" together.`;
+    ? `You dress in ${label} — ${worn.join(', ')}.`
+    : `You couldn't put any of ${label} together.`;
   if (missing.length) msg += ` Missing: ${missing.join(', ')}.`;
   return { ok: true, message: msg };
+}
+
+async function wearOutfit(player, furnId, name, broadcast) {
+  const { rows } = await query(
+    'SELECT name, item_ids FROM player_outfits WHERE player_id=$1 AND furniture_id=$2 AND lower(name)=lower($3)',
+    [player.id, furnId, name.trim()]
+  );
+  if (!rows.length) return { ok: false, message: `No outfit called "${name}" in this wardrobe.` };
+  const outfit = rows[0];
+  return dressFrom(player, furnId, outfit.item_ids || [], broadcast, `"${outfit.name}"`);
+}
+
+// `outfitwearnowid <furnId> <itemId,itemId,…>` — the doll's "Wear Now" button.
+// Dresses straight from whatever is composed on the doll, no save required. This
+// is the thing the panel was missing: without it, trying a look on cost a
+// wardrobe slot even to test it once.
+async function wearNow(player, furnId, itemIds, broadcast) {
+  return dressFrom(player, furnId, itemIds, broadcast, 'this look');
 }
 
 // --- Undressing into the box ------------------------------------------------
@@ -245,6 +267,68 @@ async function undressInto(player, wardrobe, broadcast) {
     : `You strip down.`;
   if (kept.length) msg += ` The ${wardrobe.name} is full, so ${kept.join(', ')} stayed in your pack.`;
   return { ok: true, message: msg };
+}
+
+// Take ONE worn garment off and hang it, in a single gesture — `undressInto` for
+// a single piece. This exists because the panel's Worn rail is draggable onto the
+// Hanging rail, and neither engine verb can do that move alone: `stowid` refuses
+// a row it doesn't find unequipped, and unequip-then-stow from the client is two
+// round trips with a visible half-state between them.
+//
+// It also can't be `stowid` with the equipped check relaxed. Unequipping has to
+// go through recomputeEquipped, or the player's cached soak/insulation keep
+// counting armor that is now hanging in a box.
+async function hangWorn(player, wardrobe, rowId) {
+  const { rows } = await query(
+    `SELECT pi.id, i.name, i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+      WHERE pi.id=$1 AND pi.player_id=$2 AND pi.is_equipped=1 AND pi.slot = ANY($3)`,
+    [rowId, player.id, OUTFIT_SLOTS]
+  );
+  if (!rows.length) return { ok: false, message: "You're not wearing that." };
+  const garment = rows[0];
+
+  const container = await loadContainerById(wardrobe.id, player);
+  const used = await containerContentsWeight(wardrobe.id);
+  if (used + (garment.weight || 0) > containerCapacity(container)) {
+    return { ok: false, message: `The ${wardrobe.name} is full.` };
+  }
+
+  await query(
+    `UPDATE player_inventory SET container_id=$1, is_equipped=0, slot=NULL, layer=NULL, equipped_at=NULL
+      WHERE id=$2`,
+    [wardrobe.id, garment.id]
+  );
+  await recomputeEquipped(player);
+  emit('inventory.changed', { actor: player });
+  return { ok: true, message: `You take off ${garment.name} and hang it up.` };
+}
+
+// Panel verb: a worn garment dragged onto the CARRIED rail — just take it off.
+//
+// The engine's `unequipid` already does the mutation correctly, but it answers
+// with `{type:'unequip'}`, and the wardrobe panel only re-renders off a container
+// view. Sent straight from the panel it therefore looked like nothing happened:
+// the garment stayed in the Worn rail and never appeared in Carried until the
+// wardrobe was closed and reopened. This is `unequipid` plus the refreshed view.
+async function cmdTakeOffId(args, raw, player) {
+  const [furnId, rowId] = args;
+  const wardrobe = furnId && await loadWardrobeById(player, furnId);
+  if (!wardrobe) return { type: 'container_error', message: 'Wardrobe not found.' };
+  const res = await cmdUnequipById(rowId, player);
+  if (res?.type === 'error') return { type: 'container_error', message: res.message };
+  await recomputeEquipped(player);
+  emit('inventory.changed', { actor: player });
+  return viewWith(player, furnId, res?.message || 'Taken off.');
+}
+
+// Panel verb: a worn garment dragged (or tapped) onto the Hanging rail.
+async function cmdHangWornId(args, raw, player) {
+  const [furnId, rowId] = args;
+  const wardrobe = furnId && await loadWardrobeById(player, furnId);
+  if (!wardrobe) return { type: 'container_error', message: 'Wardrobe not found.' };
+  if (!rowId) return { type: 'container_error', message: 'Hang what?' };
+  const res = await hangWorn(player, wardrobe, rowId);
+  return viewWith(player, furnId, res.message);
 }
 
 // --- Teaching the verb ------------------------------------------------------
@@ -411,6 +495,19 @@ async function cmdOutfitWearId(args, raw, player, broadcast) {
   return viewWith(player, furnId, res.message);
 }
 
+// outfitwearnowid <furnId> <itemId,itemId,…> — the doll's "Wear Now" button.
+// Same payload shape as outfitsetid's id half, without the name/save step: this
+// is what was missing from the panel — the doll could compose a look and save
+// it, but never put it on without first spending a wardrobe slot on it.
+async function cmdOutfitWearNowId(args, raw, player, broadcast) {
+  const furnId = args[0];
+  const wardrobe = furnId && await loadWardrobeById(player, furnId);
+  if (!wardrobe) return { type: 'container_error', message: 'Wardrobe not found.' };
+  const itemIds = args.slice(1).join(' ').split(',').map(s => s.trim()).filter(Boolean);
+  const res = await wearNow(player, furnId, itemIds, broadcast);
+  return viewWith(player, furnId, res.message);
+}
+
 async function cmdOutfitDelId(args, raw, player) {
   const furnId = args[0];
   const name = args.slice(1).join(' ').trim();
@@ -477,8 +574,11 @@ export const commands = {
   dress: cmdDress,
   undress: cmdUndressHere,
   undressid: cmdUndressId,
+  hangwornid: cmdHangWornId,
+  takeoffid: cmdTakeOffId,
   outfitsetid: cmdOutfitSetId,
   outfitwearid: cmdOutfitWearId,
+  outfitwearnowid: cmdOutfitWearNowId,
   outfitdelid: cmdOutfitDelId,
 };
 

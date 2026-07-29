@@ -291,16 +291,18 @@ export default async function regress({ run, check, getPlayer }) {
     check('finishing a cook clears the session and sets cooked', !row.custom_data?.cooking && row.custom_data?.cooked === true, row.custom_data);
 
     // Eating cooked food behaves normally.
+    player.hunger = 0;
     r = await run('eat test raw cutlet');
-    check('eating cooked food restores normally', /\+20 Hunger/.test(r?.message || ''), r?.message);
+    check('eating cooked food restores normally', player.hunger === 20, `hunger=${player.hunger}`);
 
     // Fresh raw instance, never cooked — eating it should sicken instead of feed.
     await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, RAW]);
     const rawInvId = randomUUID();
     await query(`INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)`, [rawInvId, player.id, RAW]);
+    player.hunger = 0;
     r = await run('eat test raw cutlet');
     check('eating raw food applies the undercooked message, not a normal restore', /raw in the middle/.test(r?.message || ''), r?.message);
-    check('eating raw food does not restore hunger', !/\+20 Hunger/.test(r?.message || ''), r?.message);
+    check('eating raw food does not restore hunger', player.hunger === 0, `hunger=${player.hunger}`);
     check('eating raw food applies food_poisoning', (player.statuses || []).some(s => s.name === 'food_poisoning'), player.statuses);
     player.statuses = (player.statuses || []).filter(s => s.name !== 'food_poisoning');
 
@@ -459,7 +461,7 @@ export default async function regress({ run, check, getPlayer }) {
       );
       player.hunger = 0;
       const eaten = await run('eat test steak');
-      check(`a ${band} meal restores ${expected} hunger`, new RegExp(`\\+${expected} Hunger`).test(eaten?.message || ''), eaten?.message);
+      check(`a ${band} meal restores ${expected} hunger`, player.hunger === expected, `hunger=${player.hunger}`);
       if (band === 'masterful') check('a masterful meal is well-fed even though the item is not tagged well_fed', /Well-fed/.test(eaten?.message || ''), eaten?.message);
     }
 
@@ -469,7 +471,7 @@ export default async function regress({ run, check, getPlayer }) {
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,custom_data) VALUES ($1,$2,$3,1,1.0,'{"cooked":true}'::jsonb)`, [plainId, player.id, STEAK]);
     player.hunger = 0;
     r = await run('eat test steak');
-    check('food with no cook_quality restores exactly what it always did', /\+20 Hunger/.test(r?.message || ''), r?.message);
+    check('food with no cook_quality restores exactly what it always did', player.hunger === 20, `hunger=${player.hunger}`);
 
     // Burning: a profiled cook left alone resolves to the burnt target.
     const burnId = randomUUID();

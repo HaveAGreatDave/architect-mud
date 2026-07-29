@@ -1,0 +1,26 @@
+{
+  "door_type": "grate",
+  "exit_dir": "west",
+  "flags": {},
+  "hololock_difficulty": 0,
+  "hp": 4000,
+  "hp_max": 4000,
+  "id": "door_under_west_seal",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "collapsed maintenance grate",
+  "tags": {
+    "lock:collapsed": {
+      "canHack": false,
+      "messages": {
+        "denied": "The passage west is choked with fallen brick and a rusted grate wedged tight behind it. Nothing back here is going anywhere.",
+        "lock": "The grate settles back into the rubble with a grinding shriek.",
+        "unlock": "The grate does not move. Whatever's past it stays past it, for now."
+      }
+    },
+    "unbreakable": true
+  },
+  "target_zone": "zone_under_902_909",
+  "zone_id": "zone_under_903_909"
+}

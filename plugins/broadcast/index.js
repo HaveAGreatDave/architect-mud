@@ -4354,6 +4354,16 @@ on('zone.broadcast', ({ zoneId, msg }) => {
   state.wasActive = true;
 });
 
+// Display name for an anchor whose npc_id has no NPC row — a scripted show's
+// fictional cast (`npc_vic` → "Vic"). Both the live path and the mid-show seek
+// path must use this, or tuning in late attributes lines to the raw id.
+function _anchorFallbackName(npcId) {
+  if (!npcId) return null;
+  return npcId.startsWith('npc_')
+    ? npcId.slice(4).split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+    : npcId;
+}
+
 // ── Behaviour graph work-phase injection ─────────────────────────────────────
 // Walk a normalised broadcast VINE graph and extract a linear sequence of
 // say/npc_action nodes for a specific NPC anchor. Returns an array of
@@ -4927,7 +4937,7 @@ function _seekGraph(graph, bb, segElapsedMs, nowMs) {
       // Track speaker so early say nodes have the correct anchor after seeking
       const npcId = node.data?.npc_id;
       const npc = world.npcs?.get(npcId);
-      bb.npcAnchor = npc?.name || npcId || null;
+      bb.npcAnchor = npc?.name || _anchorFallbackName(npcId) || null;
       bb.npcAnchorId = npcId || null;
       nodeId = _resolveEdge(edges, nodeId, 'next');
     } else {
@@ -5219,10 +5229,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       case 'npc_anchor': {
         const npcId = node.data?.npc_id;
         const npc = world.npcs?.get(npcId);
-        const fallbackName = npcId?.startsWith('npc_')
-          ? npcId.slice(4).split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-          : npcId;
-        bb.npcAnchor = npc?.name || fallbackName || null;
+        bb.npcAnchor = npc?.name || _anchorFallbackName(npcId) || null;
         bb.npcAnchorId = npcId || null;
         // Presence check — for live channels and any host-required graph (weather).
         // Two different failures, two different outcomes: nobody at all on the studio
@@ -5803,6 +5810,99 @@ registerAction({
     // `overtime` matters to the caller: a final decided past regulation pays the loser
     // a point in a hockey table, so the crowning result has to carry how it was settled.
     return { away: away.name, home: home.name, awayScore, homeScore, winner, overtime: !!gs.game.overtime, shootout: !!gs.game.shootout };
+  },
+});
+
+// The ONE game the schedule puts on next — not a fixture list. Walks forward from
+// the current slot over the sports items on every channel's grid, clearing both
+// gates a real airing clears (the script's `airSlots` hour AND the item's day
+// mask), and stops at the first one that qualifies. That's what makes this "what
+// you could sit down and watch", rather than "every game the round-robin plays
+// today", most of which nobody ever sees.
+//
+// SPOILER RULE, same as getTeamCard and for the same reason: a future game is a
+// pure function of its slot and its score is therefore already computable. A game
+// that has not started returns matchup + airtime only. A game currently ON AIR
+// returns the score AS FAR AS IT HAS BEEN CALLED — indexed off the same shared
+// clock the play-by-play is seeked by — so the widget knows what the announcer has
+// said and not one beat more. Once the slot's play-out is done it's a FINAL.
+//
+// Query-free: channel grids, the season and the environment clock are all in
+// memory, and only the one matching slot is ever simulated. Safe on a home screen.
+registerAction({
+  type: 'broadcast.getNextOnAir',
+  handler: async ({ params = {} } = {}) => {
+    const wantSport = params.sport || null;
+    const wantTeam = (params.team || '').trim() || null;
+    const G = SPORTS_GAMES_PER_DAY;
+    const now = sportsSlotIndex();
+    const dow0 = getEnvironmentState()?.dayOfWeek;
+
+    const cands = [];
+    for (const [channelId, state] of channelRuntime) {
+      for (const i of state.playlist || []) {
+        if (i.playback_mode !== 'sports' || !i.sportsScript) continue;
+        const sport = sportOf(i.sportsScript)?.id || 'baseball';
+        if (wantSport && sport !== wantSport) continue;
+        cands.push({ channelId, number: state.number ?? null, item: i, script: i.sportsScript, sport });
+      }
+    }
+    if (!cands.length) return null;
+
+    const LOOKAHEAD = G * 8;   // a week and a day of slots — beyond that, say nothing
+    for (let slot = now; slot < now + LOOKAHEAD; slot++) {
+      const sod = ((slot % G) + G) % G;
+      // Day-of-week walks with the slot so a Tuesday-only show isn't matched
+      // against today's mask when the slot we're testing lands on Thursday.
+      const dow = dow0 == null ? null : ((Number(dow0) - 1 + Math.floor(slot / G) - Math.floor(now / G)) % 7 + 7) % 7 + 1;
+      for (const c of cands) {
+        const slots = c.script.airSlots;
+        if (Array.isArray(slots) && slots.length && !slots.includes(sod)) continue;
+        if (dow != null && !_slotAirsOn(c.item, dow)) continue;
+        const gs = sportsGameForSlot(c.script, slot, overrideFor(c.script));
+        if (!gs) continue;
+        const g = gs.game;
+        if (wantTeam && g.away.name !== wantTeam && g.home.name !== wantTeam) continue;
+
+        const out = {
+          sport: c.sport,
+          channel: c.number,
+          slot,
+          slotsAway: slot - now,
+          hour: sod * (24 / G),
+          away: g.away.name, home: g.home.name,
+          awayAbbr: sportsAbbr(g.away.name), homeAbbr: sportsAbbr(g.home.name),
+          live: false, final: false,
+          awayScore: null, homeScore: null,
+          status: null,
+        };
+        if (slot !== now) {
+          out.status = out.slotsAway === 1 ? 'Up next' : `${String(Math.floor(out.hour)).padStart(2, '0')}:00`;
+          return out;
+        }
+        // On air. How far in are we? The play-by-play fills SPORTS_GAME_FILL of the
+        // slot and the rest is post-game, so past that the score is the final one.
+        const frac = (sportsSlotElapsedMin() / SPORTS_SLOT_GAME_MIN) / SPORTS_GAME_FILL;
+        const beats = Array.isArray(g.beats) ? g.beats : [];
+        if (frac >= 1 || !beats.length) {
+          out.final = true;
+          out.awayScore = g.awayScore; out.homeScore = g.homeScore;
+          out.status = 'FINAL';
+          return out;
+        }
+        const b = beats[Math.min(beats.length - 1, Math.max(0, Math.floor(frac * beats.length)))];
+        out.live = true;
+        out.awayScore = b.awayScore ?? 0;
+        out.homeScore = b.homeScore ?? 0;
+        // Sport-agnostic status line: baseball beats carry half/inning, hockey beats
+        // carry period + clock. A sport with neither still gets an honest "LIVE".
+        out.status = b.inning != null ? `${b.half === 'bottom' ? 'BOT' : 'TOP'} ${sportsOrdinal(b.inning)}`
+          : b.period ? `P${b.period}${b.clockStr ? ' ' + b.clockStr : ''}`
+          : 'LIVE';
+        return out;
+      }
+    }
+    return null;
   },
 });
 

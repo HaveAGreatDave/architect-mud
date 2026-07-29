@@ -36,7 +36,7 @@
     "tolerance": {
       "gain_per_dose": 0.12,
       "max_reduction": 0.7,
-      "recovery_per_sec": 0.0002
+      "recovery_per_sec": 0.000011
     },
     "withdrawal": {
       "message": "Your teeth won't stop grinding. You need another hit.",

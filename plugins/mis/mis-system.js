@@ -369,6 +369,48 @@ const HORNY_TIERS = [
   ]},
 ];
 
+// How often a sustained tier speaks up, in minutes, tightening as it rises — the cadence IS
+// the intensity, exactly as it is for hunger. At the top it is nearly every tick, because a
+// body at 92 is not letting you forget.
+const HORNY_SUSTAIN_MIN = { 50: 9, 65: 6, 80: 4, 92: 2 };
+
+// …and coming back down. Crossing a tier the other way is worth one line: it is the only
+// signal that the pressure is actually easing, and without it a decay from 95 to nothing is
+// twenty minutes of silence indistinguishable from never having been aroused at all.
+const HORNY_COOLING = {
+  92: [`The edge recedes. Not gone — just no longer immediate.`,
+       `You come back down off the peak, breathing out slowly.`],
+  80: [`The worst of it passes. You can hold a thought again.`,
+       `It loosens its grip, a little. Enough to function.`],
+  65: [`The heat banks down to something you can carry around.`,
+       `It settles into the background, still there, no longer shouting.`],
+  50: [`Whatever that was, it has mostly let go of you.`,
+       `The warmth fades out. You feel oddly, quietly disappointed.`],
+};
+
+// One tick of sustained arousal. Returns a line or null. Mutates only its own accumulator.
+export function hornySustainLine(player, gm = 1) {
+  const h = player.horniness || 0;
+  const tier = h >= 92 ? 92 : h >= 80 ? 80 : h >= 65 ? 65 : h >= 50 ? 50 : 0;
+  if (!tier) { player._hornyAcc = 0; return null; }
+  player._hornyAcc = (player._hornyAcc || 0) + gm;
+  if (player._hornyAcc < HORNY_SUSTAIN_MIN[tier]) return null;
+  player._hornyAcc = 0;
+  const band = HORNY_TIERS.find(t => t.at === tier);
+  const set = band ? pick(band.messages) : null;
+  return set ? set[0] : null;
+}
+
+// One tick of cooling. Returns a line when the meter has just fallen back through a tier.
+export function hornyCoolingLine(player, prev) {
+  const now = player.horniness || 0;
+  for (const at of [92, 80, 65, 50]) {
+    // NOTE pick() in this file is NOT generic — it always returns an ARRAY, wrapping a flat
+    // pool in one. Both helpers here hand back a single string, so both index into it.
+    if (prev >= at && now < at) return pick(HORNY_COOLING[at])[0];
+  }
+  return null;
+}
 // The final beat before climax — one last warning that this is the moment to
 // direct where it lands, before your body takes the decision out of your hands.
 const HNNNG_MESSAGES = [

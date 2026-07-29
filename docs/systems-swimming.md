@@ -42,11 +42,11 @@ A **dive spot** is a water tile with a `down` exit to an `flags.underwater` tile
 
 ## Cold-water hypothermia
 Reuses the existing body-temperature path (`gameLoop.js` temp tick), no new hypothermia code:
-- `environment.js` `waterTemperature(zoneId)` — the cold temp a submerged body drifts toward (default **12°C** surface / **7°C** underwater; per-tile override `flags.water_temp_c`, e.g. `26` for a warm lagoon).
+- `environment.js` `waterTemperature(zoneId)` — the cold temp a submerged body drifts toward. **Seasonal, and lagging:** derived from the climate month, `clamp(4 + monthlyMean × 0.5, 2, 24)`, with underwater tiles 5°C colder (capped 12°C). Roughly **5°C in January, 15°C in July**. Per-tile override `flags.water_temp_c` (e.g. `26` for a warm lagoon) wins outright. It was a flat 12/7 year-round until 2026-07-29, which made a midsummer swim as lethal as a January one — and because it read flags out of the environment's power-graph snapshot rather than `world.zones`, **the underwater branch had never once fired on any of the 82 underwater tiles**. Both fixed together, so diving is now genuinely colder than the surface for the first time.
 - When `player._submerged`, the temp tick uses `waterTemperature` as the ambient and treats you as fully wet (2× cooling). Clothing **`insulation`** (summed over equipped items) and **torso/legs coverage** (nakedness adds an exposure penalty) still offset the pull via the existing body-temp math — a **wetsuit** is just a high-`insulation` garment. (`sealed` is unrelated — that's the ash-mask/choking tag, not cold.) A long cold swim drives `body_temp_c` down into the existing **`<30°C for 5 min → −10 HP/min`** hypothermia band.
 
 ## Gear
-- **Wetsuit** (`item_wetsuit`, clothing, `insulation: 6`, covers torso+legs) — offsets the cold-water pull through the insulation math above; at the default temps it keeps you warm even underwater (7°C). Colder authored tiles (`flags.water_temp_c`) still bite through it.
+- **Wetsuit** (`item_wetsuit`, clothing, `insulation: 6`, covers torso+legs) — offsets the cold-water pull through the insulation math above. Comfortably enough for a summer swim at any depth; a **winter** dive (deep water at ~2°C) now bites through it, which it never used to. Colder authored tiles (`flags.water_temp_c`) bite harder still.
 - **Rebreather** (`item_rebreather`, gear, `tags.rebreather`) — carried or worn, it supplies air underwater: no breath timer, so you never drown from lack of air. Stamina still applies (you can still exhaust yourself), and it does nothing for the cold.
 - Both stocked at **Brack the Fishmonger** (The Fishmarket). Checked like the `boat` item: uncontained inventory, cached on move (`player._hasRebreather`).
 

@@ -61,8 +61,14 @@ The lethal path already exists in `resourceTick` ([gameLoop.js](../server/engine
 `player.insulation` + `player.exposurePenalty` (`recomputeInsulation` in
 [inventory.js](../server/engine/commands/inventory.js)). The tail just has to *reach* the threshold.
 
-- **Lever:** a high-`severity` cell adds extra `tempOffset` in the field beyond the current `K_TEMP = 4`,
-  so a cold snap pulls harder than an ordinary cloud.
+- **Not built, and deliberately not:** an earlier plan had a high-`severity` cell add extra `tempOffset`
+  beyond `K_TEMP = 4`, so a cold snap would pull harder than an ordinary cloud. `sampleWeatherAt`
+  ([weather/index.js](../plugins/weather/index.js)) applies only `−f × K_TEMP` plus the static region
+  `bias.temp`, and nothing feeds severity back into the field. **It would be circular if it did:**
+  severity is *derived from* temperature (see the tail-first note above), so letting it re-cool the tile
+  would be a feedback loop with no fixed point. The cold tail is already carried by the climate base,
+  the ±11°C anomaly, the −9°C diurnal trough and wind chill — a severe night is severe because it *is*
+  cold, not because severity made it colder.
 - **No free safe haven** *(built, step 2):* when the grid is down, HVAC stops and the interior bleeds toward
   outdoor temp by **passive conduction proportional to the gap** (`step = (outdoor − current) × 0.01`/min in
   `stepIndoorTemps`). A mild outage barely drifts (survivable), but a −30°C snap drops an unheated flat to

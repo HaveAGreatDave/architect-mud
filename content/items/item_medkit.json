@@ -11,6 +11,10 @@
       "duration_seconds": 300
     },
     "stackable": true,
+    "treat_frostbite": {
+      "steps": 1,
+      "floor": 1
+    },
     "treat_injury": {
       "steps": 1,
       "floor": 1

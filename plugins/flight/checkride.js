@@ -130,6 +130,23 @@ export function evaluateCheckride(live) {
   }
 }
 
+// Ring proximity, tested SERVER-SIDE. A 3D cockpit decides for itself that it flew
+// through a ring and reports `flightevent gate <idx>`, because it owns the plane's
+// world position at 60fps. A text pilot has no such client — but the server owns its
+// position outright, so it can simply check. Same gate list, same ordering rule, same
+// state advance; only the observer differs. Returns true when a ring was just passed.
+export function checkGateProximity(live) {
+  const state = live.checkride;
+  if (!state || state.stage !== STAGE.RINGS) return false;
+  const g = state.gates[state.gateIdx];
+  const c = live.cont;
+  if (!g || !c) return false;
+  const dx = (live.fx ?? live.row.grid_x) - g.gx, dy = (live.fy ?? live.row.grid_y) - g.gy;
+  if (Math.hypot(dx, dy) > g.r) return false;
+  if (Math.abs(c.altitude - g.alt) > g.altTol) return false;
+  return true;
+}
+
 // Discrete transitions — called from cmdFlightEvent's engineon/takeoff/gate/land
 // branches. Returns true only for a PASSED landing, telling index.js to delete the
 // loaner after the normal land flow detaches the pilot.
@@ -194,4 +211,4 @@ on('flight.crashed', ({ aircraftId, pilotId }) => {
   out(pilotId, '<span class="text-amber">Checkride over — you balled up the trainer. No harm done; see the examiner at Coldwater Regional to take it again.</span>');
 });
 
-export const _test = { STAGE, GATES, checkrides, isPilotLicensed, beginCheckride, evaluateCheckride, checkrideEvent, getCheckrideState, hasActiveCheckride };
+export const _test = { STAGE, GATES, checkrides, isPilotLicensed, beginCheckride, evaluateCheckride, checkrideEvent, getCheckrideState, hasActiveCheckride, checkGateProximity };

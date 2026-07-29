@@ -3,6 +3,7 @@ import { query, withTransaction } from '../../models/db.js';
 import { useDrug, getDrugCache } from '../drugs.js';
 import { hasTag, tagValue, hasFlag, isStackable, TAG_CATALOG } from '../tags.js';
 import { foodLoad, applyThirst } from '../bodily.js';
+import { satiationLine, slakeLine } from '../appetite.js';
 import { dispatchAction, getRegisteredActions } from '../actions.js';
 import { burnCharge, rowIsInstanced, NOT_INSTANCED_SQL } from '../inventory.js';
 import { getZonePlayers, getZoneNpcs } from '../world.js';
@@ -102,14 +103,33 @@ export async function recomputeArmor(player, rows = null) {
 // gloves are common enough that including them would make full cover trivial.
 const ACID_SLOTS = ['head', 'torso', 'legs', 'feet'];
 
+// How much of the wind chill each covered slot is worth giving back. Torso dominates for the
+// same reason it dominates the exposure penalty — it's the surface the body defends hardest —
+// and the two together are the whole of it, so a coat and trousers in a windproof shell
+// cancel the chill entirely. Sums to 1.
+const WINDPROOF_WEIGHTS = { torso: 0.65, legs: 0.35 };
+
+// The extremities frostbite actually takes. Core slots are excluded on purpose: a frozen
+// torso is hypothermia, which the core-temperature model already owns — this is the
+// peripheral injury that happens to a body whose core is still being defended successfully.
+const EXTREMITY_SLOTS = ['hands', 'feet', 'head'];
+
 export async function recomputeInsulation(player, rows = null) {
   if (!rows) ({ rows } = await query(`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]));
   let total = 0;
+  let wetKept = 0;
   let sealed = false;
   const covered = new Set();
   const shed = new Set();
+  const blocked = new Set();
   for (const r of rows) {
-    total += tagValue(r, 'insulation', 0) || 0;
+    const ins = tagValue(r, 'insulation', 0) || 0;
+    total += ins;
+    // Wool, neoprene, sealed shells and wicking synthetics keep their warmth when soaked;
+    // cotton, denim and padding do not. Tracked as a SECOND sum rather than a per-item
+    // wetness because `player.wetness` is already an average over the whole outfit — this
+    // is the share of your insulation that average can't touch.
+    if (hasTag(r, 'hydrophobic')) wetKept += ins;
     if (hasTag(r, 'sealed')) sealed = true;   // respirator/mask — blocks ash choking
     const slot = tagValue(r, 'slot');
     if (slot) covered.add(slot);
@@ -122,8 +142,19 @@ export async function recomputeInsulation(player, rows = null) {
       if (slot) shed.add(slot);
       if (Array.isArray(covers)) for (const c of covers) shed.add(c);
     }
+    // Windproofing is coverage-based for the same reason, and deliberately a SEPARATE tag
+    // from waterproof: oilskin sheds rain and flaps in a gale, a windbreaker does the
+    // opposite. A garment that does both simply carries both tags.
+    if (hasTag(r, 'windproof')) {
+      if (slot) blocked.add(slot);
+      if (Array.isArray(covers)) for (const c of covers) blocked.add(c);
+    }
   }
   player.insulation = total;
+  // The part of that total that survives a soaking. The body-temp tick interpolates between
+  // the two on `player.wetness`, so a wet hoodie is nearly worthless and a wet wool scarf is
+  // not. Never greater than the total.
+  player.insulationWet = Math.min(total, wetKept);
   // Whether any equipped item seals the airway (gas mask / respirator). Read by the
   // ashfall breathing hazard in gameLoop's resourceTick. See systems-weather-extreme.md.
   player.sealed = sealed;
@@ -136,6 +167,17 @@ export async function recomputeInsulation(player, rows = null) {
   // Applied only to the cooling side of the body-temp tick (see gameLoop.js) —
   // going shirtless in the heat is a relief, not a penalty.
   player.exposurePenalty = (covered.has('torso') ? 0 : 10) + (covered.has('legs') ? 0 : 5);
+  // Fraction of the wind chill a shell keeps off you (0..1). Read by the body-temp tick,
+  // which gives back that share of `windChillDelta`. Only counts a slot that is windproof
+  // AND actually clothed — a shell you aren't wearing over anything is still a shell, but
+  // the bookkeeping stays honest if a future garment is windproof without occupying a slot.
+  player.windproof = Object.entries(WINDPROOF_WEIGHTS)
+    .reduce((n, [slot, w]) => n + (blocked.has(slot) && covered.has(slot) ? w : 0), 0);
+  // Fraction of the EXTREMITIES left bare (0..1) — hands, feet, head. Drives frostbite,
+  // which is a peripheral injury and so cares about exactly the slots the core model
+  // ignores. Owned here so the frostbite plugin needs no inventory read of its own.
+  player.extremityExposure =
+    EXTREMITY_SLOTS.reduce((n, s) => n + (covered.has(s) ? 0 : 1), 0) / EXTREMITY_SLOTS.length;
 }
 
 // Armor and insulation derive from the same equipped-rows set and are always
@@ -691,12 +733,16 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
   if (hp) { player.hp = Math.min(player.hp_max, player.hp+hp); messages.push(`+${hp} HP.`); }
   if (hunger) {
     player.hunger = Math.min(100, player.hunger+hunger);
-    messages.push(`+${hunger} Hunger.`);
     player.digestive_load = Math.min(120, (player.digestive_load || 0) + foodLoad(hunger));
+    // WHERE YOU ENDED UP, not what you ate. `+12 Hunger.` is a receipt for a number the
+    // player can no longer see, and it never said the one thing a bar cannot: how FULL you
+    // are. Read after the restore lands so it describes the body, not the item.
+    messages.push(satiationLine(player));
   }
   if (t.restore_thirst && !opts.skipThirstRestore) {
     applyThirst(player, t.restore_thirst);
-    messages.push(`+${t.restore_thirst} Thirst.`);
+    // Same reasoning as the hunger line above: where you ended up, not what you poured.
+    messages.push(slakeLine(player));
   }
   if (t.restore_radiation) { player.radiation = Math.max(0, player.radiation+t.restore_radiation); messages.push(`${t.restore_radiation} Radiation.`); }
   if (t.restore_sanity) { player.sanity = Math.min(player.sanity_max, Math.max(0, player.sanity+t.restore_sanity)); messages.push(`${t.restore_sanity>0?'+':''}${t.restore_sanity} Sanity.`); }

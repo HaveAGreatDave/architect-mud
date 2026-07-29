@@ -61,6 +61,29 @@ export function coolSweat(player) {
   if (!player._sweat) delete player._sweat;
 }
 
+// ── Sewer grime ──────────────────────────────────────────────────────────────
+//
+// Same shape as sweat, deliberately: runtime-only, no column, no query. Every
+// step through a `flags.district === 'sewer'` zone (checked inline in cmdMove
+// off the zone object it already loaded — no extra read) adds a little; it
+// decays on the same 1m tick as sweat. A single pass-through barely registers,
+// but loitering or crossing it repeatedly does, and it rinses off with the rest
+// of you on `markWashed` — no special verb, no soap required.
+export const SEWER_GRIME_MAX = 100;
+const SEWER_GRIME_COOL_PER_MIN = 12;
+export const SEWER_GRIME_PER_STEP = 4;
+
+export function addSewerGrime(player, amount = SEWER_GRIME_PER_STEP) {
+  if (!player || !amount) return;
+  player._sewerGrime = Math.min(SEWER_GRIME_MAX, (player._sewerGrime || 0) + amount);
+}
+
+export function coolSewerGrime(player) {
+  if (!player?._sewerGrime) return;
+  player._sewerGrime = Math.max(0, player._sewerGrime - SEWER_GRIME_COOL_PER_MIN);
+  if (!player._sewerGrime) delete player._sewerGrime;
+}
+
 // ── Time since a proper wash ─────────────────────────────────────────────────
 //
 // Persisted in player_flags (never a new `players` column). A player who has
@@ -114,7 +137,7 @@ export function laundryFactor(player) {
 // wash, a swim in water that isn't worse than you are.
 export async function markWashed(player, { sweat = true } = {}) {
   if (!player?.id) return;
-  if (sweat) delete player._sweat;
+  if (sweat) { delete player._sweat; delete player._sewerGrime; }
   player._hygieneSince = Date.now();
   await setFlag('player', WASH_FLAG, String(Date.now()), player).catch(() => {});
   checkImmaculate(player);
@@ -204,6 +227,7 @@ export function npcWashAtHome(npc) {
   npc._hygieneSince = now;
   npc._laundrySince = now;
   delete npc._sweat;
+  delete npc._sewerGrime;
   if (npc.clothing_contamination) npc.clothing_contamination = {};
   if (npc.covered_in_blood) npc.covered_in_blood = 0;
   const ad = npc.appearance_data;
@@ -258,21 +282,23 @@ export function hygieneOf(creature) {
   if (ap.ejaculate_state && (!at || Date.now() - at < 30 * 60 * 1000)) add('ejaculate');
 
   const sweat = creature._sweat || 0;
+  const sewerGrime = creature._sewerGrime || 0;
   const grime = grimeFactor(creature);
   const laundry = laundryFactor(creature);
 
   // Score: start clean, subtract the worst contaminant hard and the rest softly,
-  // then sweat, plain unwashedness, and clothes nobody has laundered.
+  // then sweat, sewer muck, plain unwashedness, and clothes nobody has laundered.
   let score = 100;
   const worst = sources.reduce((m, s) => Math.max(m, s.strength), 0);
   score -= worst * 7;
   score -= Math.max(0, sources.length - 1) * 5;
   score -= Math.round((sweat / SWEAT_MAX) * 15);
+  score -= Math.round((sewerGrime / SEWER_GRIME_MAX) * 15);
   score -= Math.round(grime * 25);
   score -= Math.round(laundry * 15);
   score = Math.max(0, Math.min(100, score));
 
-  return { score, band: hygieneBand(score), sources, sweat, grime, laundry };
+  return { score, band: hygieneBand(score), sources, sweat, sewerGrime, grime, laundry };
 }
 
 // Smell contributions for the creatures in a room. Sync, query-free — called
@@ -284,7 +310,7 @@ export function creatureFilthSmells(creatures, viewer, acuity = 0) {
   const out = [];
   const best = new Map(); // type → strongest contribution seen
   for (const c of creatures) {
-    const { sources, sweat, grime, laundry } = hygieneOf(c);
+    const { sources, sweat, sewerGrime, grime, laundry } = hygieneOf(c);
     if (laundry > 0.6 || (acuity >= 1 && laundry > 0.3)) {
       const prev = best.get('_laundry');
       const strength = Math.min(6, 2 + Math.round(laundry * 4));
@@ -304,6 +330,13 @@ export function creatureFilthSmells(creatures, viewer, acuity = 0) {
       const strength = Math.min(7, 2 + Math.round(sweat / 20));
       if (!prev || strength > prev.strength) {
         best.set('_sweat', { text: 'fresh sweat, the working kind', strength, source: 'sweat' });
+      }
+    }
+    if (sewerGrime > 40 || (acuity >= 1 && sewerGrime > 20)) {
+      const prev = best.get('_sewer');
+      const strength = Math.min(7, 2 + Math.round(sewerGrime / 20));
+      if (!prev || strength > prev.strength) {
+        best.set('_sewer', { text: 'the drains — grease-skinned water, still wet on somebody', strength, source: 'sewer' });
       }
     }
     if (grime > 0.5 || (acuity >= 1 && grime > 0.2)) {
@@ -328,10 +361,11 @@ export function creatureFilthSmells(creatures, viewer, acuity = 0) {
 // from the room pass because the wording is second-person and because you never
 // need the MIS gate on yourself (you opted in or the state can't exist).
 export function bodyOdourSelf(player) {
-  const { band, sources, sweat, grime } = hygieneOf(player);
-  if (!sources.length && sweat < 30 && grime < 0.3) return null;
+  const { band, sources, sweat, sewerGrime, grime } = hygieneOf(player);
+  if (!sources.length && sweat < 30 && sewerGrime < 30 && grime < 0.3) return null;
   const bits = sources.map(s => s.source).filter(Boolean);
   if (sweat >= 30) bits.push('sweat');
+  if (sewerGrime >= 30) bits.push('the drains');
   if (grime >= 0.3) bits.push('yourself, unwashed');
   if (!bits.length) return null;
   return `You smell ${band === 'biohazard' ? 'like a crime scene' : `of ${bits.join(', ')}`}.`;

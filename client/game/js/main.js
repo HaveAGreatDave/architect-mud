@@ -55,15 +55,23 @@ import { isHangarBayWalkActive } from "./panels/hangar-bay.js";
 
 // Settings
 const settings = loadSettings();
-const _isMobile =
+// Touch device, at ANY width — a phone, a tablet, a handset held sideways. This
+// half of the test never changes after load.
+const _isTouch =
 	/Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-	window.innerWidth < 720;
-if (!localStorage.getItem(SETTINGS_KEY) && _isMobile) {
+	(globalThis.matchMedia?.("(pointer: coarse)")?.matches ?? false);
+const _isMobile = () => _isTouch || window.innerWidth < 720;
+if (!localStorage.getItem(SETTINGS_KEY) && _isMobile()) {
 	settings.fontSize = "19";
 }
 // Display density (desktop/mobile layout) is not a player setting — it's fixed
-// to the device on every load, full stop.
-settings.density = _isMobile ? "compact" : "comfortable";
+// to the device, full stop. It is also THE authority for the phone chrome: the
+// stylesheet's chrome rules key off html[data-density="compact"] rather than a
+// viewport query, precisely so a touch device wider than 720px gets all of it
+// instead of half. Recomputed on resize/orientationchange because a window
+// dragged past 720px, or a phone rotated, has genuinely changed device class —
+// computing it once at load left the flag lying for the rest of the session.
+settings.density = _isMobile() ? "compact" : "comfortable";
 // Smart UI (the contextual per-room action bar, panels/smartbar.js) is always on
 // now, every device — applySettings pins data-smart-ui="on" — so there's no
 // per-player default to seed here anymore.
@@ -91,7 +99,22 @@ applySettings(settings);
 // user toggle for that (data-density above). The Smart bar (#smart-bar,
 // data-smart-ui) is always on, every device — applySettings pins it.
 applyMobileScale();
-window.addEventListener("resize", applyMobileScale);
+
+// Keep the density flag honest as the window changes shape. Only re-applies when
+// the class actually flips, so an ordinary resize doesn't churn the whole
+// stylesheet — and applySettings is what writes data-density, so this is the one
+// call that has to happen.
+function syncDensity() {
+	const want = _isMobile() ? "compact" : "comfortable";
+	if (settings.density !== want) {
+		settings.density = want;
+		applySettings(settings);
+		if (want === "compact") setupMobilePane();
+	}
+	applyMobileScale();
+}
+window.addEventListener("resize", syncDensity);
+window.addEventListener("orientationchange", syncDensity);
 
 // Load any dev-panel overrides for the interface/game SFX catalog (the poker
 // table + the hacking/lock minigames) so tuned cues take effect. Fire-and-forget;
@@ -109,7 +132,15 @@ fetch("/api/audio/interface-sfx")
 
 // Mobile area-pane: always starts collapsed. The resize-handle bar is always
 // visible and hosts the toggle button (▼/▲). No auto-open on content update.
-if (_isMobile) {
+//
+// Wired once, the first time the layout is compact — at load for a phone, or on
+// the resize that flips a desktop window into the compact class (syncDensity
+// calls this). Without that second entry point the handle would appear with the
+// chrome but do nothing until a refresh.
+let _mobilePaneWired = false;
+function setupMobilePane() {
+	if (_mobilePaneWired) return;
+	_mobilePaneWired = true;
 	const _areaPane = document.getElementById("area-pane");
 	const _toggleBar = document.getElementById("area-toggle-bar");
 	const _toggleBtn = document.getElementById("area-pane-toggle");
@@ -169,6 +200,7 @@ if (_isMobile) {
 		});
 	}
 }
+if (_isMobile()) setupMobilePane();
 
 listenForSettingsChanges((s) => {
 	applySettings(s);

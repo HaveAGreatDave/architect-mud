@@ -33,6 +33,7 @@ import {
 } from './state.js';
 import { removePlayerFromZone } from '../../server/engine/world.js';
 import { pushHangarBay } from './hangars.js';
+import { prefersTextTravel } from './textmode.js';
 
 const SHIFT_HOURS = 8;
 const AUTO_DISEMBARK_MS = 20000;
@@ -399,6 +400,13 @@ export async function embarkCharter(player, ch) {
   // and walks them for the whole ride, instead of the synthesized cabin-window HUD. Any
   // other craft: pulled out of the zone and strapped into the flying-posture HUD as before.
   if (p) {
+    // Text-only travel: latched here for the same reason boardFound latches it — one
+    // flag read per boarding, so the tick's pushHud can skip this rider synchronously.
+    // A walkable cabin is ALREADY graphics-free (real rooms), and its occupants get a
+    // slim engine-audio feed rather than a panel — text mode has nothing to opt out of
+    // there, and latching it would only cost them the sound. Mirrors boardFound, where
+    // the walkable branch returns before the latch.
+    p.textTravel = !isWalkableCabin(live) && await prefersTextTravel(p);
     if (isWalkableCabin(live)) { const look = await boardCabin(p, live); if (look) sendToPlayer(p.id, look); }
     else { getZone(p.current_zone)?.players.delete(p.id); setPosture(p, 'flying'); }
   }

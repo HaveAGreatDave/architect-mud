@@ -391,9 +391,85 @@ export function wakeFromDream(player) {
   return true;
 }
 
+
+// ── Dissociation: the same machinery, awake ──────────────────────────────────
+//
+// A dreamscape you did not go to sleep to reach. Sanity's bottom rung: the voices failed you,
+// then the people, then the room, and this is what is left — the room stops being anywhere at
+// all and you go somewhere your mind has made instead.
+//
+// It reuses the SLEEP machinery deliberately, down to the `dream` templates, because a
+// dissociative episode and a dream are the same place and building a second one would mean a
+// second set of wake paths to leak through. The mind/body split is identical: `current_zone`
+// is the dreamscape, but the player is NEVER removed from the real room's occupant set, so
+// the body stands there vacant — visible, lootable, killable — exactly as a sleeper's is.
+//
+// THE WAKE PATHS ARE THE WHOLE RISK. A missed one strands a player in a zone that gets
+// deleted under them. There are four, and every one of them funnels through
+// `endDissociation`: the episode's own timer, sanity recovering, death, and logout. A fifth
+// exists on the client side of the fence — `wake` in the command gate — because being unable
+// to leave is a bug however good the fiction is.
+//
+// `_bodyZone` mirrors the drug-trip convention rather than inventing a field, so
+// `persistableZone` already knows how to find the real room if the socket drops mid-episode.
+
+export function isDissociating(player) { return !!player?._dissociating; }
+
+export async function beginDissociation(player, { broadcast = null, size = 2 } = {}) {
+  if (!player?.id || player._dissociating || player.sleeping) return false;
+  const body = player.current_zone;
+  if (!body || isDreamZone(body)) return false;
+
+  // `cause: dream` on purpose — those templates exist and are the right register. A
+  // `dissociation` cause with no rows would make buildDreamscape return null and the whole
+  // feature would silently never fire.
+  const entry = await buildDreamscape(player.id, {
+    size, cause: 'dream', broadcast, player,
+    tether: { zone: world.zones.get(body)?.name },
+  });
+  if (!entry) return false;
+
+  player._dissociating = { bodyZone: body, startedAt: Date.now() };
+  player._bodyZone = body;
+  player.current_zone = entry;
+  addPlayerToZone(player.id, entry);
+
+  if (broadcast) {
+    // The room sees the body stop being tenanted. No name for what happened — the onlookers
+    // do not know either.
+    broadcast(body, { type: 'zone_event', message: `<span class="text-dim"><em>${player.handle} stops. Their face goes completely slack, and whatever was behind it is not there any more.</em></span>` }, player.id);
+    broadcast(null, { type: 'output', message: '<span style="color:var(--cyan)">You are not here. You have not moved, and you are not here.</span>\n<span class="text-dim">(You can walk. You cannot do much else. It will pass, or it will not.)</span>' }, null, player.id);
+    broadcast(null, { type: 'force_look' }, null, player.id);
+  }
+  return true;
+}
+
+// The single funnel every wake path calls. Idempotent: calling it on a player who is not
+// dissociating is a no-op, which is what lets death and logout call it unconditionally.
+export function endDissociation(player, { broadcast = null, reason = 'time' } = {}) {
+  const st = player?._dissociating;
+  if (!st) return false;
+  const body = st.bodyZone;
+  if (body && isDreamZone(player.current_zone)) {
+    removePlayerFromZone(player.id, player.current_zone);
+    player.current_zone = body;
+    // Normally a no-op — the body never left. Kept because death sweeps every zone, and this
+    // makes the return correct even when something else evicted them mid-episode.
+    addPlayerToZone(player.id, body);
+  }
+  delete player._dissociating;
+  delete player._bodyZone;
+  dissolveDreamscape(player.id);
+  if (broadcast && reason !== 'silent') {
+    broadcast(body, { type: 'zone_event', message: `<span class="text-dim"><em>${player.handle} blinks, and is behind their own eyes again.</em></span>` }, player.id);
+    broadcast(null, { type: 'output', message: '<span style="color:var(--cyan)">You come back to yourself. You are exactly where you were, and you have no idea how long you were gone.</span>' }, null, player.id);
+    broadcast(null, { type: 'force_look' }, null, player.id);
+  }
+  return true;
+}
 /**
  * Tear down every room of a player's instance, and stop its beat timer. Called on
- * waking and at the end of a trip.
+ * waking, at the end of a trip, and at the end of a dissociative episode.
  */
 export function dissolveDreamscape(playerId) {
   let removed = 0;

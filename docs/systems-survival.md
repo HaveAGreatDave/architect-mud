@@ -16,6 +16,51 @@ pacing below is in **game** minutes and scales with the game-speed knob:
 - **Thirst:** −1 every 3 game-minutes (`THIRST_DECAY_INTERVAL_MIN = 3`) → ~5 game-hours from full to empty.
 - **Hunger:** −1 every 4 game-minutes (`HUNGER_DECAY_INTERVAL_MIN = 4`) → ~6.7 game-hours from full to empty.
 
+### Sanity has no bar either — and no honest prose
+
+**The sanity bar is hidden by default too, for the opposite reason.** Hunger and thirst lost their bars and *gained* plain banded lines that tell you exactly how hungry you are. Sanity gets no such replacement, deliberately: people losing their minds do not get a readout, and a reliable narrator would defeat the system it narrates. The **symptoms are the interface**, and they are built to be deniable — a whisper you might have imagined, a person who might have been there, a line somebody might actually have said.
+
+`condition` still reports the Cool penalty ("rattled"), which is honest without being a gauge — the same deal temperature has always had.
+
+The ladder is staggered *inside* the bands rather than aligned to them, so learning one threshold does not hand you a diagnostic, and each rung is **harder to verify than the last**:
+
+| Sanity | Symptom | Can you check it? |
+|---|---|---|
+| < 50 | whispers (`.msg-dread`) | Yes — it is visibly its own channel. The one honest symptom. |
+| < 42 | **misattributed speech** — someone genuinely in the room says something they didn't | Yes: ask them. |
+| < 25 | phantoms — a person who isn't there at all | Yes: swing at them ([phantomWhiff](../plugins/trip/README.md)). |
+| < 18 | **disembodied voices** — a name with nobody attached, from elsewhere in the world | Not in the moment. |
+| < 12 | the room itself warps (`setRoomTransform`) | Nothing left to cross-reference. |
+| < 7 | **dissociative episode** — the room stops being anywhere at all | No. |
+
+**Dissociation** reuses the *sleep* machinery down to the `dream` templates, because an episode and a dream are the same place and a second implementation would mean a second set of wake paths to leak through. Same mind/body split: `current_zone` becomes the dreamscape while the body stays in the real room's occupant set — vacant, visible, lootable, killable. Rare and self-limiting (6 %/min, 12-minute cooldown, 1–2½ real minutes), never in combat, never while asleep.
+
+> **The wake paths are the whole risk** — a missed one strands a player in a zone deleted under them. All five funnel through `endDissociation` (idempotent, so death and logout call it unconditionally): the episode's clock, sanity recovering, death, logout, and `wake`. And a dissociating player takes the **same `DREAM_VERBS` allowlist** a dreamer does — that gate is about standing in a transient room, not about sleep, and `drop` inside one orphans the item in the DB forever. See [systems-dreams.md](systems-dreams.md).
+
+**On the voices.** [voices.js](../plugins/sanity/voices.js) emits through the *exact* wire format real speech uses — `formatChitchat`'s inline `style="color:var(--yellow)"` span for NPCs, `cmdSay`'s plain-text `say` payload for players — byte for byte, with no speaker id and nothing added. `sendToPlayer` is a unicast over the same `broadcast()` a room message uses and carries no zone, so the payload is indistinguishable from one the whole room received. The regression suite asserts the forgery against the real `formatChitchat` output, because the two formats it copies live in files that know nothing about it and could be "tidied" without anyone noticing on screen for weeks.
+
+It never invents a speaker: misattribution uses somebody actually standing there, and disembodied voices use a real NPC who is provably elsewhere. A hallucination you cannot investigate is just noise.
+
+### Reading hunger and thirst without a bar
+
+**Hunger and thirst are off the HUD by default** (still one click away in the vitals edit mode, which already supported per-row hiding). Body temperature has never had a bar — you read it from `condition` and from banded prose — and hunger and thirst were the inconsistency, not the rule. A number also invites you to top up at 79 *because you can see 79*; prose makes eating a response to your own body instead of a chore against a gauge.
+
+What replaced them lives in [appetite.js](../server/engine/appetite.js), and it is not the old warning with more words. The old implementation was one band each, fired **every single minute**:
+
+```js
+if (hunger > 0 && hunger <= 20) messages.push('You are very hungry.');
+```
+
+That is nagging, not information — it trains a player to skim past the one line that matters, and it left the entire 20-point runway to starvation undifferentiated. Three rules replaced it:
+
+1. **Bands are unequal** — wide and silent at the top, narrow at the bottom. Danger is at zero, so that is where the resolution belongs.
+2. **Cadence is the severity signal.** Repeat intervals tighten as the band worsens (hunger 35 → 22 → 14 → 8 → 4 game-minutes; thirst runs harder throughout because it drains faster and kills twice as fast). Urgency is *felt* in the rhythm, not only stated in the words.
+3. **Crossing is an event.** Falling into a band speaks at once; sitting in it repeats on cadence; climbing out is silent **except** out of the two worst bands, where one line confirms you fixed it.
+
+At **zero** the flavour goes quiet entirely and the damage line owns the moment — `Starvation is taking its toll. (-1 HP)` already fires every minute and says everything the flavour would. Two systems narrating one moment is exactly how the first draft reached four lines a minute; a full simulated starvation run went from **235 lines to 38** across seven game-hours.
+
+**Satiation** is the half that never existed. `digestive_load` has always been there — eating adds `restoreHunger × 0.7` — but its only feedback was eventually needing the toilet, so a full stomach was a state the game could not express and portion sizes were unlearnable. Eating and drinking now report **where you ended up** rather than what the item was worth (`satiationLine` / `slakeLine`), which is the one thing a bar never could: how *full* you are, rather than how empty. The old `+20 Hunger.` receipt is gone; cooking's own quality line ("*Masterful, this one.*") still carries how good the meal was.
+
 At ≤20 the player is warned ("very hungry/thirsty"). At 0:
 
 - **Starvation:** −1 HP/min while hunger is 0.
@@ -121,9 +166,30 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   the original verb, so the `consume` plugin supplies `route` in `extraOpts` from its category.
 - **Tolerance** (`tolerance` block) — each dose raises `player_drug_state.tolerance`; it recovers lazily
   off `last_used_at`. Potency (locked into the active-drug entry) is `1 − tolerance × max_reduction`,
-  scaling both phased buff magnitude and hallucination intensity.
-- **Overdose = death** — the ceiling is **`overdose_threshold × (1 + tolerance × 1.5)`**, computed from the
-  tolerance carried *into* the dose (post-decay, pre-gain). Tolerance therefore buys real headroom — and
+  scaling phased buff magnitude, hallucination intensity **and the stimulant fatigue relief** (below).
+  Recovery is measured in **game** seconds (every site multiplies elapsed real time by `getTimeScale()`),
+  and an undeclared rate falls back to `TOLERANCE_RECOVERY_PER_SEC` — **three game days** to shed a full
+  habit, on the same axis as the fatigue curve. This was `1/3600` (one game *hour*), which quietly made
+  tolerance meaningless for every drug that didn't override it: nobody held one long enough to feel a
+  dulled high, and the relapse law had nothing to take away. `ADDICTION_RECOVERY_PER_SEC` is deliberately
+  **twice** that span — dependency outlasts tolerance, and that gap (still craving it, no longer able to
+  survive it) is the trap. The uppers override to ~1 game day so a stimulant habit is reachable inside a
+  single bender.
+- **Differential tolerance — the gap that kills a veteran.** `tolerance` is the **felt** one (dulls the
+  high); **`player_drug_state.tolerance_lethal`** is the one that raises the overdose ceiling. They are
+  separate because real tolerance is: euphoric tolerance builds fast, respiratory tolerance builds slowly
+  and never fully, and the widening gap between "enough to feel it" and "enough to kill me" is what kills
+  long-term users. Lethal gains at `LETHAL_TOLERANCE_GAIN_RATIO` (0.4) of the felt rate and fades at
+  `LETHAL_TOLERANCE_RECOVERY_RATIO` (0.5) of it — **slow in, slow out** — so a deep habit is precarious
+  rather than comfortable, and the relapse law bites from both ends. Both halves decay through the single
+  `decayTolerances()` helper, so no caller can drift. Per-drug override: `tolerance.lethal_gain_ratio` /
+  `lethal_recovery_ratio`; a psychedelic that can't stop your breathing should set the gain ratio to **0**.
+  **The margin is surfaced in `habits`** (`toleranceGap` at 0.25 / 0.5) in the body's own words — a habit
+  that silently narrowed your survivable dose would be a trap, not a system. Existing rows start at 0,
+  which is the safe direction: a ceiling that has to be re-earned, never free headroom.
+- **Overdose = death** — the ceiling is **`overdose_threshold × (1 + tolerance_lethal × 1.5)`**, computed
+  from the **lethal** tolerance carried *into* the dose (post-decay, pre-gain). `classBurden` reads the same
+  half for a cousin's ceiling — it is a question about what the body survives, not what it still feels. Tolerance therefore buys real headroom — and
   losing it takes that headroom away, which is the **relapse law**: a habit dose that was routine at peak
   tolerance becomes lethal once time clean has burned the tolerance off. When `doses_in_system` reaches that
   ceiling and `effects.overdose.lethal` is set, `useDrug()` returns `overdose_death` and `cmdUse` runs the
@@ -165,6 +231,16 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   addiction band, so a casual user at the latch and a 0.95 addict no longer suffer identically).
   `isWired(player)` reports an active stimulant — `cmdSleep` asks it rather than growing its own
   pharmacology, so you cannot lie down on a live upper.
+- **Uppers vs. the fatigue clock** — a stimulant does not rest you, it **borrows**. While `isWired`,
+  `tickDrugs` walks `last_slept_at` FORWARD at `STIM_FATIGUE_RELIEF` (12×) off elapsed real time and banks
+  every millisecond of it on the in-memory `player._fatigueDebtMs`; the moment nothing is holding you up
+  the whole bank is handed back at `STIM_FATIGUE_INTEREST` (1.25×) and the crash line prints. So speed is a
+  real way to finish the night at a real price — before this an upper couldn't touch fatigue at all *and*
+  `isWired` blocked the bed, making it strictly worse than water. It moves **`last_slept_at` itself** rather
+  than masking the readout, so a wired player reads as less tired everywhere at once (stats, the Vitals
+  rail, the sleep-deprivation bleed) with no second number to drift. Sleeping clears the debt — that's the
+  honest way out of a bender. In memory only, deliberately: logging out sleeps you, which would clear it
+  anyway.
 - **`habits` (the read-out)** — the whole model above is server-side and was otherwise invisible: a
   player could only infer tolerance, dependency and the withdrawal arc from stats moving for no stated
   reason. `habits` (drugs plugin) lists every substance you have a history with — decayed tolerance,
@@ -242,7 +318,7 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
 
 `players.sanity` (0–100, `sanity_max` default 100). Nothing in the **sanity plugin**
 ([plugins/sanity/index.js](../plugins/sanity/index.js)) *drains* it — drugs (`instant.sanity`),
-`restore_sanity` consumables and sleep own the meter. The plugin owns only the **consequence**: a
+`restore_sanity` consumables, **sleep deprivation** (below) and sleep own the meter. The plugin owns only the **consequence**: a
 gradual, deliberately scarier-than-a-drug-trip dread that escalates as sanity falls, driven by its
 `tick.minute` hook walking the live `world.players` (no DB reads — reads `player.sanity` off the live
 object). One continuous intensity curve (`(50 − sanity)/50`, clamped) over three bands on the **raw**
@@ -298,6 +374,32 @@ Applied by the `use`/`eat`/`drink` command from item tags ([inventory.js](../ser
   or 30 minutes slept (`SLEEP_MAX_MINUTES`).
 - Any command other than `sleep`/`rest` wakes the player and is then executed (`commands/index.js`).
 
+### Fatigue — the clock you're sleeping off
+
+Lives in [condition.js](../server/engine/condition.js), **derived from `players.last_slept_at`** and never
+stored as a meter: no per-tick write, it survives logout for free, and there is no second number to drift.
+
+- **Measured in GAME hours, not real ones** (`fatigueSpanMs()` divides by `getTimeScale()`). Everything else
+  the body does — hunger, thirst, tolerance, withdrawal — runs on the game clock; fatigue was the odd one
+  out. At the standard 3× the whole scale is ~24 real hours.
+- **The curve runs to THREE days, not one**, because it's written off what a person actually does: 12h up is
+  nothing, 24h up is unpleasant and survivable, and it's the second and third nights that take you apart.
+  `FATIGUE_FULL_HOURS = 72`; bands at `TIRED 50` (~36h), `EXHAUSTED 65` (~47h), `RUINED 85` (~61h). The stat
+  penalties stay deliberately gentle (Brains first, then Reflexes, ≤2 points) — **the teeth are the sanity
+  bleed**, not the stats.
+- **Sleep deprivation bleeds sanity** past `FATIGUE_RUINED`, in `resourceTick`
+  ([gameLoop.js](../server/engine/gameLoop.js)), ramped rather than flat: 1 sanity per 6 game-minutes at
+  `RUINED`, per 3 above 93, per 1 above 99 — so the third night empties the meter in about half an hour of
+  play and hands you straight to the sanity plugin's dread/hallucination bands. It reads `fatigueOf`, which
+  a stimulant has already moved, so being wired genuinely holds the madness off and the crash genuinely
+  brings it on. `sanity` rides the existing batched resource write rather than adding a round trip.
+- **Logging off sleeps you.** Any disconnect sets `offline_sleeping`; login resets `last_slept_at`
+  ([index.js](../server/index.js)) and mirrors it onto the live object. So fatigue only accrues within a
+  continuous session — which is why the three-day curve is affordable.
+- **Sleeping it off** is priced as an OUTCOME, `SLEEP_FULL_CLEAR_MINUTES = 5` real minutes for a full three
+  nights, via `sleepRecoveryPerMinute()`. It replaced a fixed real-time ratio that silently cleared a full
+  night in 1.6 minutes once the speed knob moved off 1×.
+
 ## Bodily pressure
 
 Owned by the **bodily plugin** ([plugins/bodily/index.js](../plugins/bodily/index.js)) — its own 1m
@@ -319,34 +421,124 @@ Two hidden float columns on the `players` row — `digestive_load` (bowel) and `
 
 ## Body temperature & thermal comfort
 
-`players.body_temp_c` (float, initialised to `37.0` on login in [index.js](../server/index.js)), drifted once per minute by `resourceTick` in [gameLoop.js](../server/engine/gameLoop.js) for each awake player. Clamped to **25–45°C** and rounded to one decimal. This is an **engine** system; the clothing fields it reads (`player.insulation`, `player.exposurePenalty`) are derived by `recomputeInsulation` in [inventory.js](../server/engine/commands/inventory.js), and the wetness field it reads (`player.wetness`) is owned by the clothing-wetness plugin (see below). The three must agree on those field names.
+`players.body_temp_c` (float, initialised to `37.0` on login in [index.js](../server/index.js)), drifted once per minute by **`driftBodyTemperature`** in [gameLoop.js](../server/engine/gameLoop.js) for **every** player, awake or asleep. Clamped to **25–45°C** and rounded to one decimal.
+
+This is an **engine** system, and it reads four fields it does not own — they must all agree on their names:
+
+| Field | Owner |
+|---|---|
+| `player.insulation`, `player.exposurePenalty` | `recomputeInsulation`, [inventory.js](../server/engine/commands/inventory.js) |
+| `player.wetness` | the clothing-wetness plugin (below) |
+| `player._submerged` | the swimming plugin ([systems-swimming.md](systems-swimming.md)) — reroutes ambient entirely |
+
+> **Sleep is not a shelter.** The drift was extracted into `driftBodyTemperature` precisely so the sleeping body runs the *same* equation: `resourceTick` used to skip a sleeper before it reached this code, which made sleep a total, free immunity to temperature — the canonical way to die of cold (falling asleep in it) was the one guaranteed way not to, and any blizzard was survivable by lying down. There is deliberately **no sleep-specific rate**; two copies of the equation would drift apart, and a bed's protection is simply that it's usually indoors. `tickSleep` wakes the sleeper at **34°C** (or 40°C on the hot side) — a full four degrees clear of the `<30°C` lethal threshold — which is the same courtesy hunger and thirst already extend. The drift uses `bodyZoneOf(player)`, not `current_zone`, so a **dreamer** freezes in the room their body is lying in rather than in the dreamscape their mind is visiting.
+
+> **A roof is not always a shelter either.** `isIndoorZone` returns **false** for any zone flagged `open_sky`, even one that is `is_interior`/`is_building` — a roof, deck or helipad takes raw outdoor temperature, wind chill and precipitation. That is deliberate ("standing on the pad in a storm is standing in the storm", [systems-weather-extreme.md](systems-weather-extreme.md#1-thermal-siege-nearly-free)), and it is the one case where a player who believes they are inside is not.
 
 **Ambient the body drifts toward.** `getZoneApparentTemperature(zoneId, tempOffset)` in [environment.js](../server/engine/environment.js) — the "feels like" temperature (diurnal + per-tile weather offset outdoors, or a stored interior temp indoors; wind chill + humidity folded in outdoors only). See the apparent-temperature detail in [systems-world.md](systems-world.md); the temperature tick does not re-derive the curves. A **submerged** swimmer (`player._submerged`, owned by the swimming plugin) drifts toward `waterTemperature(zone)` instead and counts as fully wet regardless of gear — see [systems-swimming.md](systems-swimming.md).
 
+**Windproofing.** Wind chill is a property of the *zone*; a shell is a property of the *player*. `windChillDelta(zoneId, offset)` isolates the wind's share of the feels-like figure (by running the apparent-temperature curve at the real wind and at zero, so the humidity terms cancel), and the drift gives back `chill × player.windproof`. `player.windproof` is coverage-weighted — **torso 0.65, legs 0.35** — from the `windproof` item tag, so a shell over both cancels the chill entirely. Without this the chill was applied to the ambient *before* any clothing and bit a bundled-up player exactly as hard as a naked one, which is the opposite of what a shell is for. **Windproof is not insulation:** a shell over nothing still leaves you in the cold, and the tag is separate from `waterproof` because oilskin sheds rain and flaps in a gale while a windbreaker does the reverse.
+
+**Wet insulation — "cotton kills".** Soaked clothing stops being clothing. Only the `hydrophobic` share of your insulation (`player.insulationWet` — wool, neoprene, sealed shells, wicking synthetics) survives a soaking; the rest is interpolated away on `player.wetness`, losing up to **80 %** of its value. Wetness *also* still multiplies the drift rate, and both are intended: wet skin conducts faster even through neoprene, so wet wool beats wet cotton and never matches dry. Before this, wetness was a rate multiplier that **never touched insulation**, so a soaked arctic parka insulated exactly as well as a dry one — the largest single inaccuracy in the model. Applies to both sides, since wet clothing traps less heat in a heatwave too.
+
+> **`hydrophobic` is load-bearing for swimming.** Submersion pins wetness to 100, so a wetsuit without the tag would lose 80 % of its rating the moment you got in the water — i.e. stop being a wetsuit. Tag any garment whose material genuinely works wet.
+
+**Metabolic heat.** A body is a furnace, not a rock — and this was missing entirely, so standing still and running were thermally identical.
+
+| Source | Worth | Side | Cost |
+|---|---|---|---|
+| Walking (moved in last 2 min) | +3 °C | **both** | — |
+| Running | +6 °C | **both** | — |
+| Shivering | +4 °C | cold only | 2 stamina/min |
+| Sweating | up to −7 °C | hot only | 2 thirst/min |
+
+**Exertion appears on both sides with the same sign,** because a working body makes the same watts whichever way the weather is trying to kill it. That's what makes the optimal play *opposite* at the two extremes: keep moving in the cold, sit still in the heat.
+
+**The two defences are mirrors, and both fail.** Shivering stops below **32 °C**; sweating stops above **41 °C** (anhidrosis — hot, dry skin, the classic sign that heat exhaustion has become heat stroke). Either way the defence quits and the drift steps up at exactly the worst moment. Both transitions are messaged, because otherwise the player experiences the jump as the game misbehaving. Note the flavour pool has said *"You're not sweating anymore. That's very bad."* since long before anything made it true; it is earned now.
+
+**Sweat is evaporative, not a flat bonus** — it delivers `SWEAT_COOLING_C × efficiency`, where efficiency is the product of:
+
+- **humidity** — `1 − RH/100`. Saturated air takes no more water, so sweat runs off and cools nothing. This is the wet-bulb story, and why humid heat kills at temperatures dry heat doesn't.
+- **wind** — up to +50 %, the one place moving air is your friend, and the exact mirror of wind chill.
+- **hydration** — throttles below 40 thirst, zero when you can't pay the 2/min. Dehydration doesn't just make you thirsty; it removes the thing keeping you alive.
+- **breathability** — `1 − 0.5 × windproof`. A sealed shell is boil-in-the-bag: the same garment that saves you in a gale traps every drop against your skin in a heatwave. One real property, honestly cutting both ways.
+
+Sweating also feeds the hygiene substrate's `_sweat` meter, which listed heat as a source from the start and never received it. And it is now the **only** thirst drain in the heat — the old flat "hot bodies get thirsty" tick was removed rather than left to double-count.
+
 **Clothing offsets.** Two effective temperatures are computed from the ambient:
-- `warmthTemp = effectiveAmbient + insulation − exposurePenalty` — used on the **cold** side.
+- `warmthTemp = effectiveAmbient + insulation − exposurePenalty + metabolicWarmth` — used on the **cold** side.
 - `heatTemp = effectiveAmbient + insulation` — used on the **hot** side.
 
 `recomputeInsulation(player)` sums the `insulation` tag value of every equipped item into `player.insulation` and sets `player.exposurePenalty = (torso covered ? 0 : 10) + (legs covered ? 0 : 5)` from the equipped items' `slot` tags. The exposure penalty is subtracted **only on the cooling side**, so bare skin makes the cold bite (torso dominant, legs secondary) but is a relief in the heat. `recomputeInsulation` (alongside `recomputeArmor`) is re-run on every equip/unequip and on bulk-drop of equipped items, so the fields stay current.
 
 **Drift.** With `COLD_THRESHOLD = 10` and `HOT_THRESHOLD = 35`:
-- **Cooling** (`warmthTemp < 10`): body temp falls by `baseDrift × wetMult` per minute, where `baseDrift = 0.002 × |10 − warmthTemp|^1.75` and `wetMult = 1 + wetness/100` (soaked ≈ 2× faster cooling).
-- **Heating** (`heatTemp > 35`): body temp rises by `baseDrift × wetMult`, `baseDrift = 0.002 × (heatTemp − 35)^1.75`, `wetMult = max(0.70, 1 − wetness × 0.003)` (being wet mildly slows overheating via evaporative cooling).
-- **Comfort band** (neither): metabolic thermoregulation relaxes core toward 37°C exponentially, `cur + (37 − cur) × 0.05` per minute (snaps to 37.0 within 0.1°C). A ~3°C deficit recovers in ~35 min.
+- **Cooling** (`warmthTemp < 10`): body temp falls by `driftRate(10 − warmthTemp) × wetMult` per minute, `wetMult = 1 + wetness/100` (soaked ≈ 2× faster cooling).
+- **Heating** (`heatTemp > 35`): body temp rises by `driftRate(heatTemp − 35) × wetMult`, `wetMult = max(0.70, 1 − wetness × 0.003)` (being wet mildly slows overheating via evaporative cooling).
+- **Comfort band** (neither): metabolic thermoregulation relaxes the core toward 37°C exponentially at `REWARM_BASE × mult` per minute, snapping to 37.0 within 0.1°C.
 
-Drift examples: `|diff|=10 → 0.11°C/min`; `|diff|=20 → 0.38°C/min`.
+**Warmth is a gradient, not a door.** That rate used to be a flat `0.05` with `warmthTemp` nowhere in it — so a 20°C room, a 35°C sauna and a freezing corridor-with-a-good-coat all rewarmed you at identical speed. Being *warmer* than merely comfortable did nothing at all, and that, not missing content, is why the game had no fires, heaters, blankets or hot drinks: **there was no mechanic that would have rewarded authoring one.** A brazier would have been a decoration.
+
+Recovery now scales with how far past the cold threshold you actually are:
+
+| warmthTemp | multiplier | rate | 30 → 36.9 °C |
+|---|---|---|---|
+| 10 (barely in band) | 1.0× | 0.050 | 83 min |
+| 15 (outdoors, coat) | 1.4× | 0.071 | 58 min |
+| 22 (indoors, dressed) | 2.0× | 0.102 | 40 min |
+| 30 (heated + winter gear) | 2.7× | 0.133 | 30 min |
+| 34+ (cap) | 3.0× | 0.150 | 27 min |
+
+The floor is the old constant, so barely-in-the-band is exactly as slow as it ever was; everything above it is new headroom that clothing, shelter and heat sources buy. Capped at 3× so a heat source is a strong advantage and never an instant reset. Note the gradient is only reachable **inside the comfort band** — push `heatTemp` past 35 and you are in the heating branch instead.
+
+**Heat sources.** `registerHeatSource(fn)` in [environment.js](../server/engine/environment.js) is a contributor seam like the smell/sound gather hooks: `fn(zoneId, baseTempC)` returns °C to add, summed into `getZoneTemperature` so the drift, frostbite's peripheral skin temperature and the HUD thermometer all read one number. **In-memory only by contract** — a heat source is runtime state (a burning fire, a battery with charge in it), never a persisted zone flag. Its first consumer is [plugins/warmth](../plugins/warmth/README.md): battery-backed space heaters that *hold a room at* a target temperature (a thermostat, not a bonfire — self-limiting, and two of them are not twice as warm) and run 12 in-game hours off their own cell once the grid drops.
+
+**Carried warmth.** `player._warmC`/`_warmMin`, applied by [warmth.js](../server/engine/warmth.js) and burned down by the drift so there is exactly one clock. Fed by the `warming` item tag (hand warmers) and by hot drinks, which scale it by how hot the cup still is. Cold side only — a mug of cocoa is ~40 kcal against 70 kg of body, so it honestly models a *defence* against cold rather than calories added.
+
+### The drift curve
+
+`driftRate(d) = DRIFT_COEFF × d^1.25`, where `DRIFT_COEFF` is *solved* so the rate at a 10° deficit is exactly `0.1125 °C/min`.
+
+| Deficit | °C/min | 37 → 30 |
+|---|---|---|
+| 5 | 0.047 | 148 min |
+| 10 | 0.113 | 62 min |
+| 20 | 0.268 | 26 min |
+| 35 | 0.539 | 13 min |
+| 50 | 0.841 | 8 min |
+
+**The exponent was 1.75, and that tail was the least realistic number in the model:** a 50° deficit (arctic air on bare skin) cooled 37→30 in three and a half minutes against a couple of *hours* in reality, while ordinary cold — where players actually spend their time — was only ~4× fast. The error was concentrated almost entirely in the extremes.
+
+It is **1.25** now, for a reason rather than a nerf. The steep curve was standing in for something real — a body's defences collapsing as it loses — but that collapse *is shivering*, and shivering is now an explicit term (+4 °C, costs stamina, switches off below 32 °C). Modelling it twice was the mistake. With the compensation explicit, what's left below the threshold is a body whose defence is already saturated, which is close to Newton's law: heat loss roughly linear in ΔT, with a little steepening for radiative loss and failing vasoconstriction.
+
+**Pivoted, not merely flattened.** Anchoring the coefficient at a 10° deficit leaves ordinary cold untouched — it was closest to right and is the case players meet most — so only the tail stretches. Extreme conditions roughly double in survival time: long enough to be a journey to shelter rather than a coin flip, still lethal. The one trade is that *very* mild cold (a 5° deficit) got somewhat faster, 209 → 148 minutes, which is the unavoidable other side of pivoting and makes a chilly night marginally less toothless.
 
 **Effects of core temperature** (on `body_temp_c` after drift):
 - **Danger HP loss:** freezing (`<30°C`) or overheating (`>42°C`) increments `player._dangerousTempTicks`; after **5 continuous minutes** it deals **−10 HP/min** (hypothermia / heat stroke message), floored at 0 and feeding `handlePlayerDeath`. Any non-dangerous tick resets the counter, so short spells don't kill.
-- **Thirst drain:** hot/overheating (`>40°C`) drains 1 extra thirst on a 50% roll per minute.
+- **Thirst drain:** owned entirely by **sweating** (2/min while sweating, and nothing once anhidrosis sets in — which is correct, and quietly the most sinister readout in the game). The old flat `>40°C` drain was removed rather than left to double-count.
 - **Stamina:** freezing/overheating drain −3/min, cold (`30–34°C`) or hot (`40–42°C`) drain −1/min; otherwise passive regen of `floor(2 × tempRegenMultiplier(tempC))` — full regen in 36–38°C (and mildly-hot 38–40°C), tapering to 0 at `<30°C` or `>42°C`.
 - **Flavour:** `tempFlavorMessage(tempC, tick)` emits banded ambient lines (chilly → shivering → hypothermia; warm → sweating → heat stroke), rate-limited by tick count so they don't spam. Silent in the 36–38°C comfort band.
 
 `body_temp_c` is persisted each tick and pushed to the client in the `resource_tick` `player_update` whenever it changes.
 
+**Frostbite** is the peripheral half, and lives in its own plugin — see [plugins/frostbite](../plugins/frostbite/README.md). Core temperature asks whether the body as a whole is winning; frostbite is what happens to the parts it *sacrifices* to keep winning, which is why a superb coat used to make −30 °C free. It reads the windproofed apparent temperature with **no credit for core insulation** (a parka does nothing for your fingers) scaled by `player.extremityExposure` (hands/feet/head, owned by `recomputeInsulation`).
+
+**Deep frostbite is the only permanent injury in the game.** Frostnip and frostbite are circulation damage and thaw on their own; past 90 the meter latches a floor and thaws only *to* it, because dead tissue does not warm up and come back. A `treat_frostbite` field kit walks it back but can never clear it — only the clinic's `CLINIC_TREAT` lifts the floor, billed per stage at a higher rate than a wound precisely because it's the one line on the bill the patient couldn't have waited out. It penalises the hand; it never costs you the hand (amputation is deliberately out of scope).
+
+## Water temperature
+
+`waterTemperature(zoneId)` — what a submerged body drifts toward. An authored `flags.water_temp_c` wins outright; otherwise it's derived from the **climate month**, damped: `clamp(4 + monthlyMean × 0.5, 2, 24)`, with underwater tiles 5 °C colder and capped at 12 °C.
+
+Seasonal but *lagging* — a body of water has enormous thermal mass, so it tracks neither the time of day (no diurnal term) nor today's weather anomaly (which wanders ±11 °C), only the monthly mean. In practice: ~5 °C in January, ~15 °C in July. It was previously a flat **12 °C / 7 °C year-round**, which made a midsummer swim exactly as lethal as a January one.
+
+> **Zone flags here come from `world.zones`, not `state.zones`.** The environment's own zone map is a snapshot of the **power graph** and contains only zones belonging to a power zone — which no body of water does. Reading flags from it meant `flags.underwater` was never seen on any of the **82** underwater tiles: every dive silently used the surface temperature, the deep-water branch had never once executed, and an authored `water_temp_c` was dead. Fixed 2026-07-29; the same trap applies to anything else reading world flags out of `state.zones`.
+
 ## Clothing wetness & drying
 
-The [clothing-wetness plugin](../plugins/clothing-wetness/index.js). This is a **plugin**, not engine code: its `tick.minute` hook walks every live, awake player, updates per-item wetness, and writes the aggregate to `player.wetness` — the field the engine's temperature tick reads as `wetMult`. Wetness is stored **per item** in `player_inventory.custom_data.wetness` (0–100 integer, merged via a `jsonb ||` update only when the rounded value changes); `player.wetness` is the mean over equipped wettable items. Only items tagged **`gets_wet`** accumulate wetness; a player with no such equipped item has `player.wetness = 0`.
+The [clothing-wetness plugin](../plugins/clothing-wetness/index.js). This is a **plugin**, not engine code: its `tick.minute` hook walks every live player, updates per-item wetness, and writes the aggregate to `player.wetness` — the field the engine's temperature tick reads as `wetMult`. Wetness is stored **per item** in `player_inventory.custom_data.wetness` (0–100 integer, merged via a `jsonb ||` update only when the rounded value changes); `player.wetness` is the mean over equipped wettable items. Only items tagged **`gets_wet`** accumulate wetness.
+
+**Sleepers are included** (rain doesn't check whether you're awake, and since the temperature drift now follows you into bed, exempting them would have re-created the immunity that change removed) — but they get no wetness *messages*; cold is what wakes them. Like the temperature tick, the hook reads `bodyZoneOf(player)`, so a dreamer's body gets rained on.
+
+**Bare skin.** A player wearing nothing wettable is **not** simply dry. Skin wets at the same rate cloth does and dries `SKIN_DRY_FACTOR` (8×) faster — soaked to bone-dry in ~7 minutes at the outdoor base rate, against ~50 for a soaked coat — and it is held in RAM, not an inventory row, because nobody logs back in still damp. This used to be a flat `player.wetness = 0`, which read as "bare skin dries at once" (true, and what the submersion branch hands over to) but silently also meant *bare skin never gets wet*: a naked player in freezing rain took the full −15 exposure penalty and **none** of the ×2 wet multiplier, making stripping off a way to shrug off a storm.
 
 **Wetting** (outdoors, when `getZonePrecip` reports `precipRate > 0` and the zone is not `flags.is_interior`). Per minute:
 - **Rain:** `rainWettingRate = precipRate² × 30` (quadratic — torrential soaks far faster than drizzle). Light rain (0.3) ≈ 37 min to soaked; moderate (0.5) ≈ 13 min; heavy (0.65) ≈ 8 min; torrential (0.95) ≈ 4 min.

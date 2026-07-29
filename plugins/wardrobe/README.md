@@ -39,6 +39,7 @@ flag read doesn't repeat on every later wardrobe.
 | `outfit list\|save <name>\|wear <name>\|delete <name>` | player |
 | `outfitsetid <furnId> <name>\|<ids>` | wardrobe panel — paper-doll Save |
 | `outfitwearid <furnId> <name>` | wardrobe panel |
+| `outfitwearnowid <furnId> <ids>` | wardrobe panel — doll's "Wear Now", no save required |
 | `outfitdelid <furnId> <name>` | wardrobe panel |
 
 The three by-id verbs answer with the refreshed `wardrobe_view`, so the panel
@@ -54,6 +55,11 @@ what's **hanging** in the box, what you're **carrying**, and what you're
 
 Each body pad is a stack, not a slot: a piece lands on its own `layer`
 (underwear / outerwear / armor), so a liner, a shirt and a plate coexist and all
-three are saved. The worn rail carries no inventory row — a garment on your body
+three are saved. Every body pad carries a **layer strip** — three pips named for
+that body part (Liner / Hat / Helmet), filled when occupied, each naming its
+garment and removing exactly that layer. The pips are read-and-remove only, never
+drop targets: a garment's layer is its own tag and the server re-derives it on
+wear, so re-aiming one would build a look that dresses differently from how it
+was composed. The worn rail carries no inventory row — a garment on your body
 can dress the doll but can't be hung or taken (that's `Undress`), and the missing
 row is what enforces it.

@@ -1,0 +1,19 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_snow_boots",
+  "name": "insulated snow boots",
+  "tags": {
+    "bulkiness": 2,
+    "description": "Sealed rubber to the ankle, felt liner above it, a sole with actual bite. Heavy enough that you feel every step and warm enough that you stop caring. The liners come out to dry, which is the entire difference between a good boot and a boot that gives you trench foot.",
+    "hydrophobic": true,
+    "insulation": 4,
+    "layer": "outerwear",
+    "slot": "feet",
+    "waterproof": true,
+    "windproof": true
+  },
+  "type": "clothing",
+  "value": 180,
+  "weight": 1900
+}

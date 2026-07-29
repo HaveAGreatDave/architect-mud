@@ -40,14 +40,14 @@
       "note": "Requires a shower in the zone (object_type='shower' / flags.shower / name ~ 'shower'); errors otherwise. Surfaced as an action-link inside the 'use shower' panel. Strips clothing_contamination + soiled_state + ejaculate_state + covered_in_blood (a superset of MIS `wash`, which leaves the bodily stains) and applies the cosmetic 'refreshed' effect."
     },
     "soap": {
-      "discoverVia": "water_source",
-      "exposed": true,
-      "note": "Declaration-only specializedAction on water_source furniture — a sink/shower advertises SOAP. The verb self-resolves the target and needs a carried item tagged soap."
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "DELIBERATE GAP: was a declaration-only specializedAction on water_source, but that put a SOAP button on the smartbar beside every sink in the world — too prominent for an incidental verb. Discovered via the soap item's description. Needs running water in the room + a carried item tagged soap; bare `soap` washes yourself, `soap <name>` washes another creature."
     },
     "scrub": {
-      "discoverVia": "water_source",
+      "discoverVia": "none",
       "exposed": false,
-      "note": "Alias of soap; the sink surfaces the primary verb."
+      "note": "Alias of soap."
     }
   }
 }

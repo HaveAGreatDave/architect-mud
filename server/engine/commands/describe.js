@@ -17,6 +17,7 @@ import {
 	shiftVisibility,
 } from "../environment.js";
 import { acuitySync } from "../senses.js";
+import { isHiddenFrom } from "../stealth.js";
 import { getCustodianOutcastResponse } from "../mutations.js";
 import { allExits } from "../exits.js";
 import { districtFor } from "../districts.js";
@@ -491,9 +492,14 @@ export async function describeZone(zone, player, out = {}) {
 	// These exist so a room with nothing to transform still transforms.
 	const phantomObjects = phantoms.filter((p) => p.kind === "object");
 	const phantomBeasts = phantoms.filter((p) => p.kind !== "person" && p.kind !== "object");
+	// Sneakers this viewer has not clocked are simply not in the room as far as
+	// they are concerned — per viewer, so the same crouched player can be listed
+	// for one person and absent for another. One Set lookup, no query.
 	const others = isDark
 		? []
-		: getZonePlayers(zone.id).filter((p) => p.id !== player.id);
+		: getZonePlayers(zone.id).filter(
+				(p) => p.id !== player.id && !isHiddenFrom(p, player.id),
+			);
 
 	// These are mutually independent, so they issue together rather than
 	// serially: each query() is its own pool checkout and round trip, and hosted

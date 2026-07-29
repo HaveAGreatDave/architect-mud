@@ -5,7 +5,6 @@
 @host npc_lot_vosk
 @sidekick npc_lot_operator
 @titlecard the_last_lot_logo
-@theme last_lot_theme
 @airtime 16
 @rounds 4
 

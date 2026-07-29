@@ -38,9 +38,7 @@ EVENT FADE_IN
 
 TITLE quiet_hour_testcard
 
-MUSIC quiet_hour_tone
 ♪ A single sustained tone, low and warm, the kind you stop hearing after a while and then notice you have stopped hearing. ♪
-MUSIC_END
 
 WAIT 4
 
@@ -174,9 +172,7 @@ TICKER
 THE QUIET HOUR · Overnight service · This broadcast contains no advertising and requires no subscription · Viewing figures are collected passively and are not stored, except where they are · Persons experiencing distress should remain seated until it passes · The morning service begins at 04:00 · Thank you for watching · Thank you for watching · Thank you for watching
 TICKER_END
 
-MUSIC quiet_hour_tone
 ♪ The tone resumes. It does not resolve. It simply continues, at exactly the volume it was before. ♪
-MUSIC_END
 
 CREDITS 8
 THE QUIET HOUR

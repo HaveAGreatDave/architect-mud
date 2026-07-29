@@ -25,7 +25,7 @@
 import { query } from '../../server/models/db.js';
 import { hasTag } from '../../server/engine/tags.js';
 import { getZoneTemperature, getZonePrecip, getWindKph, getHumidityPct } from '../../server/engine/environment.js';
-import { getAllLivePlayers, getZone } from '../../server/engine/world.js';
+import { getAllLivePlayers, getZone, bodyZoneOf } from '../../server/engine/world.js';
 import { resolveInventoryForPlayers, patchInventoryCustomData } from '../../server/engine/inventory.js';
 import { wear, announceWear } from '../../server/engine/durability.js';
 
@@ -42,6 +42,20 @@ function snowWettingRate(precipRate) {
   if (precipRate <= 0.2) return precipRate * 2;
   if (precipRate <= 0.7) return precipRate * 6;
   return Math.min(precipRate * 3, 3); // blizzard — dry wind limits soak rate
+}
+
+// Bare skin sheds water far faster than cloth does — it absorbs none, so there is nothing
+// to evaporate but the film on the surface. Multiplies the garment dry rate for a player
+// wearing nothing wettable: soaked skin is dry in ~7 minutes at the outdoor base rate and
+// faster once wind, heat or an interior multiply it — against ~50 minutes for a soaked coat.
+const SKIN_DRY_FACTOR = 8;
+
+// One minute of weather on bare skin. Split out from the tick so the rule it encodes is
+// testable on its own: skin WETS at the same rate cloth does and DRIES much faster — it is
+// never simply "always dry", which is what the old `wetness = 0` shortcut amounted to.
+function skinWetnessStep(prev, { isPrecipitating, wettingRate, dryRate }) {
+  const next = isPrecipitating ? prev + wettingRate : prev - dryRate * SKIN_DRY_FACTOR;
+  return Math.max(0, Math.min(100, next));
 }
 
 // Drying multiplier: every 10°C above 15°C adds 50% more drying speed.
@@ -82,23 +96,33 @@ export const hooks = {
     // per player in front of radiation and drug decay — at 50 players that is
     // several hundred sequential waits inside a 60-second tick, holding a pool
     // slot while player commands queue behind it.
-    const awake = getAllLivePlayers().filter(p => !p.sleeping);
-    if (!awake.length) return;
+    // SLEEPERS INCLUDED. Rain does not check whether you're awake, and since the body's
+    // temperature drift now follows you into bed (gameLoop's driftBodyTemperature), leaving
+    // sleepers dry would have quietly re-created the immunity that change removed — sleeping
+    // rough in a downpour would cost you the ambient cold but never the 2× wet multiplier.
+    // They get no wetness MESSAGES, though: they're asleep. Cold is what wakes them.
+    const people = getAllLivePlayers();
+    if (!people.length) return;
     const equippedByPlayer = await resolveInventoryForPlayers(
-      awake.map(p => p.id), { equipped: true, topLevel: false });
+      people.map(p => p.id), { equipped: true, topLevel: false });
     // [invId, {wetness}] pairs, flushed together after the loop.
     const wetnessPatches = [];
 
-    for (const player of awake) {
+    for (const player of people) {
       const playerId = player.id;
+      const asleep = !!player.sleeping;
+      const say = (payload) => { if (!asleep && broadcast) broadcast(null, payload, null, playerId); };
 
-      const zone = getZone(player.current_zone);
+      // The BODY's room, not the mind's — a dreamer's current_zone is a dreamscape with
+      // no sky, but the body it belongs to may be lying out in the rain.
+      const zoneId = bodyZoneOf(player);
+      const zone = getZone(zoneId);
       const isIndoors = zone?.flags?.is_interior ?? false;
       // Local precipitation at the player's tile — under a passing cell or not.
-      const { precipRate, precipType } = getZonePrecip(player.current_zone);
+      const { precipRate, precipType } = getZonePrecip(zoneId);
       const isPrecipitating = precipRate > 0 && !isIndoors;
       const isSnow = precipType === 'snow';
-      const zoneTemp = getZoneTemperature(player.current_zone);
+      const zoneTemp = getZoneTemperature(zoneId);
       const baseDryRate = isIndoors ? 3 : 2;
       // Wind and humidity only bite outdoors; interiors are sheltered and HVAC-neutral.
       const windMult = isIndoors ? 1 : windMultiplier(getWindKph());
@@ -138,19 +162,38 @@ export const hooks = {
           if (prevWetness < t.value && 100 >= t.value) messages.push(t.risingMsg);
         }
         if ((messages.length || Math.round(prevWetness) !== 100) && broadcast) {
-          broadcast(null, { type: 'resource_tick', messages, player_update: { wetness: 100 } }, null, playerId);
+          say({ type: 'resource_tick', messages, player_update: { wetness: 100 } });
         }
-        continue;
-      }
-
-      if (!wettable.length) {
-        player.wetness = 0;
         continue;
       }
 
       const wettingRate = isPrecipitating
         ? (isSnow ? snowWettingRate(precipRate) : rainWettingRate(precipRate))
         : 0;
+
+      // ── Bare skin ─────────────────────────────────────────────────────────
+      // This used to pin `wetness` to 0 whenever nothing wettable was equipped, which read as
+      // "bare skin dries at once" (true, and what the submersion branch above hands over to)
+      // but silently also meant "bare skin never gets wet" — so a naked player in freezing
+      // rain took the −15 exposure penalty and NONE of the 2× wet multiplier, making
+      // stripping off a way to shrug off a storm. Skin wets like anything else; it just holds
+      // no water, so it sheds several times faster than cloth. RAM-only, because skin has no
+      // inventory row to persist to — which is correct: nobody logs back in still damp.
+      if (!wettable.length) {
+        const prev = player.wetness ?? 0;
+        const next = skinWetnessStep(prev, { isPrecipitating, wettingRate, dryRate });
+        player.wetness = next;
+        const msgs = [];
+        for (const t of WETNESS_THRESHOLDS) {
+          if (prev < t.value && next >= t.value) msgs.push(t.risingMsg);
+          else if (prev > t.value && next <= t.value) msgs.push(t.fallingMsg);
+        }
+        if (next === 0 && prev > 0) msgs.push(DRY_MSG);
+        if (msgs.length || Math.round(prev) !== Math.round(next)) {
+          say({ type: 'resource_tick', messages: msgs, player_update: { wetness: Math.round(next) } });
+        }
+        continue;
+      }
 
       let totalWetness = 0;
       for (const item of wettable) {
@@ -183,11 +226,17 @@ export const hooks = {
 
       const wetnessChanged = Math.round(newWetness) !== Math.round(prevWetness);
       if ((messages.length || wetnessChanged) && broadcast) {
-        broadcast(null, { type: 'resource_tick', messages, player_update: { wetness: Math.round(newWetness) } }, null, playerId);
+        say({ type: 'resource_tick', messages, player_update: { wetness: Math.round(newWetness) } });
       }
     }
 
     // One write for every garment that changed, anywhere in the world.
     if (wetnessPatches.length) await patchInventoryCustomData(wetnessPatches);
   },
+};
+
+// Test surface (regress only; never imported in production).
+export const _test = {
+  rainWettingRate, snowWettingRate, dryMultiplier, windMultiplier, humidityMultiplier,
+  skinWetnessStep, SKIN_DRY_FACTOR, WETNESS_THRESHOLDS,
 };

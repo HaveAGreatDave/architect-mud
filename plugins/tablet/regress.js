@@ -31,10 +31,131 @@ export default async function regress({ run, check, getPlayer }) {
   check('tablet verb opens home screen', r?.type === 'tablet_panel' && r?.screen === 'home', JSON.stringify(r));
   check('home screen carries player summary', !!r?.player && typeof r.player.credits === 'number', JSON.stringify(r?.player));
   check('home screen lists apps', Array.isArray(r?.apps) && r.apps.length >= 9, `apps=${r?.apps?.length}`);
-  check('home screen apps include quests/skills/bank/vehicles/properties/settings/corp/specter/party',
-    ['quests', 'skills', 'bank', 'vehicles', 'properties', 'settings', 'corp', 'specter', 'party']
+  check('home screen apps include quests/skills/bank/vehicles/properties/settings/corp/specter/party/crime',
+    ['quests', 'skills', 'bank', 'vehicles', 'properties', 'settings', 'corp', 'specter', 'party', 'crime']
       .every(id => r.apps.some(a => a.id === id)),
     JSON.stringify(r?.apps?.map(a => a.id)));
+
+  // ── Home widgets + wallpaper sky ─────────────────────────────────────────────
+  // The widget seam is contributed by apps (buildWidget) and rendered by three
+  // client kinds; a card of an unknown kind is dropped by the client, so the shape
+  // assertion here is what stops a widget silently vanishing. buildWidget always
+  // runs server-side regardless of the client's own widgets-on/off preference (that
+  // toggle is display-only) — see the contract note in plugins/tablet/index.js.
+  check('home screen carries a widgets array', Array.isArray(r?.widgets), JSON.stringify(r?.widgets));
+  check('every widget declares a kind the client can draw',
+    (r.widgets || []).every(w => ['meters', 'stat', 'lines'].includes(w.kind)),
+    JSON.stringify((r.widgets || []).map(w => `${w.id}:${w.kind}`)));
+  check('every widget names the app it opens',
+    (r.widgets || []).every(w => typeof w.nav === 'string' && r.apps.some(a => a.id === w.nav)),
+    JSON.stringify((r.widgets || []).map(w => w.nav)));
+  {
+    // There is deliberately NO vitals card — the body's numbers are metered out by
+    // the Vitals screen itself, not parked on the home screen (see health-app.js).
+    check('no vitals widget exists',
+      !(r.widgets || []).some(w => w.id === 'vitals'),
+      JSON.stringify((r.widgets || []).map(w => w.id)));
+    // The beginner cards: where you are, what's in your pocket, a thing you might
+    // not know. All three must be free of DB reads, which the buildWidget contract
+    // enforces by convention rather than by an assertion here — this just checks
+    // they exist and are drawable.
+    for (const id of ['place', 'pocket', 'tip']) {
+      const w = (r.widgets || []).find(x => x.id === id);
+      check(`the ${id} widget rides along with drawable lines`,
+        !!w && w.kind === 'lines' && Array.isArray(w.lines) && w.lines.length > 0
+          && w.lines.every(l => typeof l.text === 'string'),
+        JSON.stringify(w));
+    }
+    // Clean by default — the heat card is an alarm, so its absence is the feature.
+    check('no wanted widget while the player is clean',
+      !(r.widgets || []).some(w => w.id === 'heat'),
+      JSON.stringify((r.widgets || []).map(w => w.id)));
+  }
+  check('home screen carries the wallpaper sky snapshot',
+    !!r?.sky && typeof r.sky.minutes === 'number' && r.sky.minutes >= 0 && r.sky.minutes < 1440,
+    JSON.stringify(r?.sky));
+  check('the sky names a weather and a phase',
+    typeof r.sky.weather === 'string' && !!r.sky.weather && typeof r.sky.phase === 'string',
+    JSON.stringify(r?.sky));
+
+  // ── Crime app: the rap sheet ─────────────────────────────────────────────────
+  // Four screens, all windows onto other owners. The fake player is clean and has
+  // never been arrested, so this also asserts the empty-state reads honestly
+  // rather than throwing on absent flags/rows.
+  {
+    let c = await run('tabletnav crime');
+    check('crime app opens on the Record screen',
+      c?.appId === 'crime' && c?.activeTab === 'Record' && Array.isArray(c?.rows), JSON.stringify(c?.breadcrumb));
+    check('a clean record reads as no active warrants',
+      (c.rows || []).some(x => String(x.value).includes('no active warrants')),
+      JSON.stringify((c.rows || []).map(x => x.label)));
+    check('the record screen carries the lifetime counters',
+      ['  Arrests', '  Fines paid', '  Time served', '  Offences charged'].every(l => (c.rows || []).some(x => x.label === l)),
+      JSON.stringify((c.rows || []).map(x => x.label)));
+
+    c = await run('tabletnav crime statutes');
+    check('statutes screen lists the crime catalogue',
+      c?.activeTab === 'Statutes' && (c.items || []).length > 10, `items=${c?.items?.length}`);
+    check('statutes are ordered heaviest first',
+      (() => {
+        const stars = (c.items || []).map(i => Number(String(i.badgeLabel).replace('★', '')));
+        return stars.every((n, k) => k === 0 || stars[k - 1] >= n);
+      })(), JSON.stringify((c.items || []).slice(0, 4).map(i => i.badgeLabel)));
+
+    c = await run('tabletnav crime priors');
+    check('priors screen stands up with nothing on file',
+      c?.activeTab === 'Priors' && (c.items || []).length === 1
+        && String(c.items[0].label).includes('No priors'), JSON.stringify(c?.items));
+
+    c = await run('tabletnav crime property');
+    check('property screen stands up with an empty locker',
+      c?.activeTab === 'Property' && (c.items || []).length === 1, JSON.stringify(c?.items));
+    check('property screen says the locker is a graveyard',
+      (c.rows || []).some(x => /nothing in the locker comes back/i.test(String(x.value))),
+      JSON.stringify(c?.rows));
+
+    // The Wanted card belongs to Crime now, not Surveillance — that's what lets it
+    // sit on a default home screen (specter is stashed out of the box).
+    const { crimeRecordOf } = await import('../surveillance/index.js');
+    const rec = await crimeRecordOf(getPlayer());
+    check('crimeRecordOf returns a well-formed record',
+      !!rec && Array.isArray(rec.active) && Array.isArray(rec.history)
+        && typeof rec.priorsTotal === 'number' && !!rec.wanted, JSON.stringify(rec));
+  }
+
+  // ── Sports card: one game, and never a score that hasn't aired ──────────────
+  {
+    const { dispatchAction } = await import('../../server/engine/actions.js');
+    const p = getPlayer();
+    const next = await dispatchAction({ type: 'broadcast.getNextOnAir', actor: p, params: {} }).catch(() => null);
+    if (next) {
+      check('next-on-air names both clubs and a channel slot',
+        !!next.away && !!next.home && typeof next.slot === 'number', JSON.stringify(next));
+      check('next-on-air is ONE game, not a fixture list', !Array.isArray(next), typeof next);
+      // The whole point of the action: a fixture that has not started must not
+      // carry a score, because every game is computable from its slot.
+      check('an upcoming game carries NO score (the spoiler rule)',
+        next.live || next.final || (next.awayScore === null && next.homeScore === null),
+        JSON.stringify({ live: next.live, final: next.final, a: next.awayScore, h: next.homeScore }));
+      check('a live game carries a score and a status',
+        !next.live || (typeof next.awayScore === 'number' && typeof next.homeScore === 'number' && !!next.status),
+        JSON.stringify(next));
+      check('narrowing to one code only returns that code',
+        await (async () => {
+          const hk = await dispatchAction({ type: 'broadcast.getNextOnAir', actor: p, params: { sport: 'hockey' } }).catch(() => null);
+          return !hk || hk.sport === 'hockey';
+        })(), 'hockey filter');
+    } else {
+      check('next-on-air answers null rather than throwing when nothing is scheduled', true);
+    }
+    // The widget's ON/OFF/code filter is per-player, and 'off' must mean absent.
+    await setFlag('player', 'sports_widget', 'off', p);
+    const off = await run('tablet');
+    check('sports card obeys the off setting',
+      !(off.widgets || []).some(w => w.id === 'sports'),
+      JSON.stringify((off.widgets || []).map(w => w.id)));
+    await setFlag('player', 'sports_widget', 'both', p);
+  }
 
   r = await run('os');
   check('os verb aliases tablet', r?.type === 'tablet_panel' && r?.screen === 'home', JSON.stringify(r));
@@ -429,12 +550,26 @@ export default async function regress({ run, check, getPlayer }) {
     // Every meter must carry a band the client knows how to colour — an unknown
     // band renders as an invisible bar, which is worse than a wrong number.
     const BANDS = ['good', 'warn', 'bad', 'crit'];
-    check('vitals meters cover the core five',
-      ['hp', 'sanity', 'hunger', 'thirst', 'radiation'].every(k => r.meters?.some(m => m.key === k)),
+    check('vitals meters cover the ones that ARE numbers',
+      ['hp', 'stamina', 'radiation', 'temp', 'fatigue'].every(k => r.meters?.some(m => m.key === k)),
       JSON.stringify(r?.meters?.map(m => m.key)));
     check('every meter has a renderable band and a 0-100 fill',
       (r.meters || []).every(m => BANDS.includes(m.band) && m.pct >= 0 && m.pct <= 100),
       JSON.stringify(r?.meters?.map(m => [m.key, m.band, m.pct])));
+    // Withheld on purpose: sanity is never a percentage (the sanity system tells you
+    // by what you see), and hunger/thirst are words rather than a bar you can play.
+    check('there is no sanity meter', !(r.meters || []).some(m => m.key === 'sanity'),
+      JSON.stringify(r?.meters?.map(m => m.key)));
+    check('hunger and thirst are not meters',
+      !(r.meters || []).some(m => m.key === 'hunger' || m.key === 'thirst'),
+      JSON.stringify(r?.meters?.map(m => m.key)));
+    check('hunger and thirst come through as word readouts',
+      Array.isArray(r?.readouts) && ['hunger', 'thirst'].every(k => r.readouts.some(x => x.key === k)),
+      JSON.stringify(r?.readouts));
+    check('every readout is a phrase with a colourable band and NO number',
+      (r.readouts || []).every(x => typeof x.text === 'string' && x.text && BANDS.includes(x.band)
+        && x.pct === undefined && !/\d/.test(x.text)),
+      JSON.stringify(r?.readouts));
     check('afflictions is a list, empty or otherwise', Array.isArray(r?.afflictions));
     // The quick strip is contextual: it may only ever offer something the player
     // is genuinely carrying, and every offer must be usable as-is.

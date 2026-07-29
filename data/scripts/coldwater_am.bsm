@@ -15,7 +15,6 @@
 @host npc_am_pace
 @cohost npc_am_dorn
 @titlecard coldwater_am_logo
-@theme coldwater_am_theme
 
 # The compiler switches an ::asset to type 'svg' on seeing a leading <svg, so this block
 # needs no directive of its own. The window frame is the joke: the sunrise behind it is

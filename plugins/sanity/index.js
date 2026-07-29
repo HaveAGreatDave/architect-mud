@@ -26,10 +26,13 @@
  * engine/phantoms.js. Client FX is deliberately its own channel so it composes
  * with an active drug trip rather than fighting the #trip-overlay.
  */
-import { world } from '../../server/engine/world.js';
+import { world, getLivePlayer } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
-import { addPhantom, removePhantom } from '../../server/engine/phantoms.js';
+import { addPhantom, removePhantom, setRoomTransform } from '../../server/engine/phantoms.js';
+import { speakVoice } from './voices.js';
+import { beginDissociation, endDissociation, isDissociating } from '../../server/engine/dreamscape.js';
+import { getBroadcast } from '../../server/engine/messaging.js';
 
 // playerId -> { band, phantomIds:Set<string>, timers:Timeout[], audioOn:bool }
 const sanityState = new Map();
@@ -39,6 +42,47 @@ const sanityState = new Map();
 const CREEP_AT = 50;   // dread begins creeping in
 const HALLUC_AT = 25;  // hallucinations begin
 const INSANE_CLEAR = 10; // insane flag lifts once sanity climbs back to here
+
+// ── The ladder ───────────────────────────────────────────────────────────────
+// Bands say how bad it is; these say what it DOES, and they are deliberately staggered
+// inside the bands rather than aligned to them. A player who learns "below 25 I see people"
+// has a diagnostic. A player who finds symptoms arriving at odd, unannounced points does not
+// — which is the whole design brief, because a mind coming apart does not publish a schedule.
+//
+// The order is chosen so that each rung is harder to verify than the last:
+//   VOICES_AT      a person who IS there says something they didn't. Checkable — ask them.
+//   PHANTOMS       a person who isn't there at all. Checkable — swing at them.
+//   DISEMBODIED_AT a name with nobody attached, from somewhere else entirely. Not checkable
+//                  in the moment, which is why it is far down.
+//   WARP_AT        the ROOM is wrong. Nothing left to cross-reference against.
+const VOICES_AT = 42;        // misattributed speech, indistinguishable from the real thing
+const DISEMBODIED_AT = 18;   // …spoken by somebody who is not in the room
+const WARP_AT = 12;          // the room itself stops holding still
+const DISSOCIATE_AT = 7;     // …and then the room stops being anywhere at all
+
+// The bottom of the ladder. Rare and self-limiting on purpose: an episode you cannot act
+// through is powerful exactly once per stretch of play, and a system that fires it every few
+// minutes is a system players learn to log out of rather than to fear.
+const DISSOCIATE_CHANCE = 0.06;              // per minute, once past the threshold
+const DISSOCIATE_COOLDOWN_MS = 12 * 60_000;  // …and not again for a while afterwards
+const DISSOCIATE_MIN_MS = 60_000;            // an episode runs 1–2½ minutes of real time
+const DISSOCIATE_MAX_MS = 150_000;
+
+// How often a voice lands, and how far gone it sounds. Keyed by the rung, not the band, and
+// rising steeply — at the bottom the voices are most of what you hear.
+const VOICE_CHANCE = { 1: 0.18, 2: 0.35, 3: 0.6 };
+
+// The room, seen from inside a mind that has stopped rendering it faithfully. Applied
+// through the SAME per-viewer `setRoomTransform` seam the drug-trip plugin uses, so a
+// warped description costs no new machinery and never touches the shared world cache.
+const ROOM_WARPS = [
+  'The proportions are wrong. The far wall is further than the room is deep, and you can see both facts at once.',
+  'Everything here is very slightly too clean, as though it was assembled recently and quickly, for you.',
+  'You have the strong sense the room is only rendered where you are looking, and is not bothering elsewhere.',
+  'The room is the right room. It is simply not where it was, and it is being patient about that.',
+  'Every surface has the faint give of something breathing very slowly.',
+  'You have been here before. You have been here for some time. You may not have left.',
+];
 
 // ── Dread audio bed — a low detuned sub with a slow uneasy tremolo and a
 // dissonant high shimmer. Sent once on entering an affected band, stopped
@@ -154,6 +198,12 @@ function stateFor(id) {
   return st;
 }
 
+// Drop any room warp we applied. Called from the same teardown paths as the phantoms —
+// a player who recovers, dies or logs out must not keep a bent room.
+function dropOurWarp(playerId, st) {
+  if (st?.warpZone) { setRoomTransform(playerId, st.warpZone, null); st.warpZone = null; }
+}
+
 function roomEmote(playerId, message) {
   sendToPlayer(playerId, { type: 'zone_event', message });
 }
@@ -186,11 +236,20 @@ function conjurePhantom(player, st) {
 
 // Remove only the phantoms WE spawned (never clearPhantoms — that would wipe a
 // concurrent drug trip's phantoms too).
+// Wake paths 3 and 4 ride here: death and logout both reset, and both must return the mind
+// to the body before the dreamscape is torn down under it.
+function dropOurDissociation(player) {
+  if (player && isDissociating(player)) endDissociation(player, { broadcast: getBroadcast(), reason: 'silent' });
+}
+
 function dropOurPhantoms(playerId, st) {
   for (const id of st.phantomIds) removePhantom(playerId, id);
   st.phantomIds.clear();
   st.timers.forEach(clearTimeout);
   st.timers = [];
+  // The warp rides along: it is applied by the same tick and must be forgotten by the same
+  // teardown, or recovery leaves the room bent with nothing left to un-bend it.
+  dropOurWarp(playerId, st);
 }
 
 // Full reset for a player — used on recovery, death and logout.
@@ -201,6 +260,16 @@ function resetPlayer(player, { sendClear = true } = {}) {
   if (sendClear) sendToPlayer(player.id, { type: 'sanity_fx', band: 'clear', intensity: 0 });
 }
 
+// Wake path 1 and 2: the episode's own clock, and sanity climbing back out from under it.
+// Checked before anything else in the tick so a recovering player is never narrated at from
+// inside a dreamscape they have already left.
+function tickDissociation(player, st) {
+  if (!isDissociating(player)) return;
+  const expired = Date.now() >= (st.dissociateUntil || 0);
+  const recovered = (player.sanity ?? 100) >= DISSOCIATE_AT + 5;
+  if (expired || recovered) endDissociation(player, { broadcast: getBroadcast() });
+}
+
 // One player's slice of the minute tick.
 function tickPlayer(player) {
   // Maintain the insane hysteresis flag first, so bandFor sees it.
@@ -209,6 +278,7 @@ function tickPlayer(player) {
 
   const band = bandFor(player);
   const st = stateFor(player.id);
+  tickDissociation(player, st);
 
   if (band === 'clear') {
     if (st.band !== 'clear') resetPlayer(player); // came back from the brink
@@ -226,14 +296,54 @@ function tickPlayer(player) {
   if (!st.audioOn) { sendToPlayer(player.id, { type: 'audio_ambience', def: DREAD_BED }); st.audioOn = true; }
 
   if (!sleeping) {
-    // Whispers.
+    // Whispers. These are the HONEST symptom — `.msg-dread` is visibly its own channel, so
+    // you always know a whisper was in your head. Everything below this line is not.
     if (Math.random() < (WHISPER_CHANCE[band] ?? 0)) {
       sendToPlayer(player.id, { type: 'output', message: `<span class="msg-dread">${whisperFor(band)}</span>` });
     }
+
+    // VOICES. The first rung, and the one that lies to the interface — see voices.js. The
+    // tier climbs with how far gone you are: mundane and aimed at nobody, then addressing
+    // you by name, then not pretending to be a person in a room at all.
+    const s = player.sanity ?? 100;
+    if (s < VOICES_AT) {
+      const tier = s < WARP_AT ? 3 : s < DISEMBODIED_AT ? 2 : 1;
+      if (Math.random() < (VOICE_CHANCE[tier] ?? 0)) {
+        speakVoice(player, tier, { disembodied: s < DISEMBODIED_AT });
+      }
+    }
+
     // Hallucinations (halluc + insane bands only).
     const phantomCap = PHANTOM_CAP[band] ?? 0;
     if (phantomCap && st.phantomIds.size < phantomCap && Math.random() < (band === 'insane' ? 0.9 : 0.6)) {
       conjurePhantom(player, st);
+    }
+
+    // DISSOCIATION. The last rung: the voices failed you, then the people, then the room, and
+    // this is what is left. Never while asleep (you are already elsewhere) and never in the
+    // middle of a fight — an episode you cannot act through would be a death sentence handed
+    // out by a dice roll, which is cruelty rather than horror.
+    if (s < DISSOCIATE_AT && !isDissociating(player) && !player.in_combat
+        && Date.now() - (st.lastDissociate || 0) > DISSOCIATE_COOLDOWN_MS
+        && Math.random() < DISSOCIATE_CHANCE) {
+      st.lastDissociate = Date.now();
+      st.dissociateUntil = Date.now() + DISSOCIATE_MIN_MS + Math.random() * (DISSOCIATE_MAX_MS - DISSOCIATE_MIN_MS);
+      // Fire-and-forget: buildDreamscape is async and the tick is not, and a failed build
+      // simply means no episode this minute rather than a broken one.
+      beginDissociation(player, { broadcast: getBroadcast() }).catch(() => {});
+    }
+
+    // THE ROOM STOPS HOLDING STILL. Bottom rung: once the voices and the people have both
+    // failed you, the last thing left to doubt is the floor. Re-applied per tick (and on
+    // every room change, because the transform is keyed to a zone) so it follows you.
+    if (s < WARP_AT) {
+      if (st.warpZone !== player.current_zone || Math.random() < 0.25) {
+        st.warpZone = player.current_zone;
+        setRoomTransform(player.id, player.current_zone, pick(ROOM_WARPS));
+      }
+    } else if (st.warpZone) {
+      setRoomTransform(player.id, st.warpZone, null);
+      st.warpZone = null;
     }
   }
 
@@ -244,9 +354,12 @@ function tickPlayer(player) {
 // Death resets sanity to max (gameLoop) — tear our state down immediately so
 // stray phantoms/insane don't survive the respawn. No FX push (the client is
 // mid-death handling).
-on('player.death', ({ player }) => { if (player?.id) resetPlayer(player, { sendClear: false }); });
+on('player.death', ({ player }) => { if (player?.id) { dropOurDissociation(player); resetPlayer(player, { sendClear: false }); } });
 
 on('player.logout', ({ id }) => {
+  // persistableZone already knows to write _bodyZone rather than a dreamscape id, but the
+  // zone still has to be torn down or it leaks for the life of the process.
+  dropOurDissociation(getLivePlayer(id));
   const st = sanityState.get(id);
   if (st) dropOurPhantoms(id, st);
   sanityState.delete(id);

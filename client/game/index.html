@@ -1527,8 +1527,16 @@
 				<div id="wardrobe-body">
 					<div class="wdr-col" id="wardrobe-doll-col">
 						<div class="container-section-label" id="wardrobe-doll-label">Drag clothes onto the doll</div>
+						<!-- Under/Over/Armor — the Gear app's layer selector, same three
+						     labels and the same behaviour: the doll shows ONE layer, and
+						     placing a garment jumps the doll to that garment's layer. -->
+						<div id="wardrobe-layers"></div>
 						<div id="wardrobe-doll"></div>
 						<div id="wardrobe-doll-actions">
+							<!-- The one button that puts the composed look ON without saving it
+							     first — the whole reason to be standing at the doll. Save/Clear
+							     manage the wardrobe's memory; this is the doll's actual verb. -->
+							<button id="wardrobe-wear-now" class="loot-btn wdr-wear-now" title="Put this look on right now">Wear Now</button>
 							<input id="wardrobe-outfit-name" type="text" maxlength="24" placeholder="name this look" autocomplete="off">
 							<button id="wardrobe-save" class="loot-btn">Save</button>
 							<button id="wardrobe-clear" class="loot-btn">Clear</button>

@@ -12,10 +12,12 @@ import { sellAircraft, cancelRental, flushAirborne } from './hangars.js';
 import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
   shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
   isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, nearestAirfield, listRegions, worldTerrainMap, salvoOf,
-  vtolOnlyField, acquirableTypes, hangarRampFor, HANGAR_REACH } from './state.js';
+  vtolOnlyField, acquirableTypes, hangarRampFor, HANGAR_REACH, BANDS } from './state.js';
 import { isFreightLicensed, ensureFreightDrops } from './contracts.js';
 import { isPilotLicensed, _test as checkrideTest } from './checkride.js';
-import { setFlag } from '../../server/engine/flags.js';
+import { setFlag, clearFlag } from '../../server/engine/flags.js';
+import { prefersTextTravel, textTravelTick, TEXT_TRAVEL_FLAG } from './textmode.js';
+import { startTextPilot, stopTextPilot, textPilotTick, landingGrade, statusLines, panelPayload, _test as tpTest } from './textpilot.js';
 import { query } from '../../server/models/db.js';
 import { TYPES as FM_TYPES, createState as fmCreate, step as fmStep } from '../../client/game/js/panels/flight-model.js';
 
@@ -506,6 +508,101 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('checkride');
   check('checkride is player-accessible (not access-denied) and gates on being aboard', /climb out/i.test(r?.message || ''), r?.message);
   if (savedAcC) p.aircraftId = savedAcC; else delete p.aircraftId;
+
+  // ── Text-only passenger travel (textmode.js) ────────────────────────────────
+  // The accessibility opt-out: a passenger who never wants the graphical cabin.
+  // What's load-bearing is that the preference is LATCHED onto the live player at
+  // board time — pushHud is sync and runs on the 3s tick, so it can only skip a
+  // text-only rider by reading a property, never by awaiting a flag.
+  await clearFlag('player', TEXT_TRAVEL_FLAG, p);
+  check('text travel is OFF by default', (await prefersTextTravel(p)) === false);
+  await setFlag('player', TEXT_TRAVEL_FLAG, 'true', p);
+  check('the flag turns text travel on', (await prefersTextTravel(p)) === true);
+  await setFlag('player', TEXT_TRAVEL_FLAG, 'false', p);
+  check('an explicit false reads as off (not merely "set")', (await prefersTextTravel(p)) === false);
+  // The narrator must be safe to run against whatever is aloft at any moment — it's
+  // on its own 45s schedule with no guard around it beyond its own.
+  await setFlag('player', TEXT_TRAVEL_FLAG, 'true', p);
+  let ttThrew = null;
+  try { textTravelTick(); } catch (e) { ttThrew = e.message; }
+  check('the narration tick survives the live-aircraft set as it stands', ttThrew === null, ttThrew);
+  await clearFlag('player', TEXT_TRAVEL_FLAG, p);
+
+  // ── Text-native piloting (textpilot.js) ─────────────────────────────────────
+  // The pure seams first: the grade curve, the heading arithmetic, and the assist.
+  check('landing grade follows the cockpit report card curve',
+    landingGrade(50) === 'A+' && landingGrade(200) === 'B+' && landingGrade(400) === 'B-' && landingGrade(9999) === 'F-');
+  check('a passing checkride grade is reachable by a soft text landing', ['A+', 'A', 'A-', 'B+', 'B', 'B-'].includes(landingGrade(300)));
+  // A reciprocal is genuinely ambiguous — it resolves to a left turn, which is a choice,
+  // not a bug; what matters is that it never takes the 340° way round.
+  check('heading error takes the short way round',
+    tpTest.headingError(350, 10) === 20 && tpTest.headingError(10, 350) === -20 && Math.abs(tpTest.headingError(0, 180)) === 180);
+  check('every continuous airframe has a physics profile to fly in text',
+    [...CONTINUOUS_TYPES].every(id => !!tpTest.fmTypeOf({ type: { id } })), 'a continuous type with no flight-model entry would silently fall back to the 3D sim');
+
+  // End-to-end on a live aircraft: start the server-side sim, fly it, and confirm it
+  // writes the SAME live.cont contract reconcile does — that contract is the whole
+  // reason hazards/combat/contacts can't tell a text-flown craft from a client-flown one.
+  const savedZoneTP = p.current_zone;
+  const tpId = 'aircraft_regress_textpilot';
+  await query('DELETE FROM aircraft WHERE id=$1', [tpId]);
+  await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,parked_zone_id,fuel,grid_x,grid_y,heading) VALUES ($1,'ac_mayfly','REGR-TP',$2,0,0,0,$3,40,925,903,'n')`, [tpId, p.id, savedZoneTP]);
+  const tpLive = await loadAircraft(tpId);
+  // try/finally, not straight-line: this row is PARKED IN THE PLAYER'S ZONE, so if a
+  // check throws before the cleanup below, the leftover row survives into the NEXT run
+  // and every earlier "no aircraft here" check finds one. (That is exactly what happened
+  // once — a throw here failed three unrelated suites on the following run.)
+  try {
+  if (tpLive) {
+    liveAircraft.set(tpId, tpLive);
+    const started = startTextPilot(p, tpLive);
+    check('startTextPilot arms the server-side sim on a Mayfly', started === true && !!tpLive.fmState && tpLive.textPilot === true);
+    check('a text pilot is latched on the player too (so the sync push paths can skip them)', p.textPilot === true);
+
+    // A cold, parked aeroplane must simply not be simulated — the tick's early-out.
+    tpLive.fx = 925; tpLive.fy = 903;
+    await textPilotTick();
+    check('a cold parked craft is not simulated', tpLive.fmState.airspeed === 0 && (tpLive.cont === undefined || tpLive.cont === null));
+
+    // Full power on the deck: she must actually accelerate and then fly.
+    tpLive.row.engine_on = 1;
+    tpLive.textTargets.throttle = 100;
+    tpLive.textTargets.takeoff = true;
+    for (let i = 0; i < 30 && tpLive.fmState.onGround; i++) await textPilotTick();
+    check('full power + takeoff intent rolls her down the strip and flies her off',
+      !tpLive.fmState.onGround && tpLive.fmState.airspeed > 0, `onGround=${tpLive.fmState.onGround} ias=${Math.round(tpLive.fmState.airspeed)}`);
+    check('the sim writes the same seven-field live.cont contract reconcile does',
+      tpLive.cont && ['altitude', 'airspeed', 'vs', 'bank', 'pitch', 'onGround', 'stalled'].every(k => k in tpLive.cont), JSON.stringify(tpLive.cont));
+    check('flying moves her across the map (the tile position is integrated, not frozen)',
+      tpLive.fx !== 925 || tpLive.fy !== 903, `${tpLive.fx},${tpLive.fy}`);
+    check('altitude_band tracks the sim height', BANDS.includes(tpLive.row.altitude_band));
+
+    // The assist is the whole point: hold a commanded altitude, and never leave her stalled.
+    tpLive.textTargets.altitude = 1200;
+    for (let i = 0; i < 60; i++) await textPilotTick();
+    check('the autopilot climbs toward a commanded altitude', tpLive.fmState.altitude > 200, `alt=${Math.round(tpLive.fmState.altitude)}`);
+    check('the assist does not leave her parked in a stall', !tpLive.fmState.stalled);
+    check('status reads out real instruments', /ALT/.test(statusLines(tpLive)) && /HDG/.test(statusLines(tpLive)));
+
+    // The live ASCII panel: every field the renderer reads must actually be present,
+    // because a missing one draws as `undefined` in the middle of the instruments.
+    const panel = panelPayload(tpLive);
+    check('the live panel payload carries a full instrument set',
+      panel && panel.type === 'text_cockpit' &&
+      ['alt', 'ias', 'hdg', 'vs', 'pitch', 'bank', 'throttle', 'vr', 'vs0', 'fuelPct', 'hull', 'x', 'y']
+        .every(k => Number.isFinite(panel[k])), JSON.stringify(panel && Object.keys(panel)));
+    check('the panel carries the map data the ASCII minimap rasterizes', panel && 'minimap' in panel && 'surface' in panel);
+
+    stopTextPilot(tpLive);
+    check('stopTextPilot tears the sim down', !tpLive.textPilot && !tpLive.fmState);
+  }
+  } finally {
+    if (tpLive) stopTextPilot(tpLive);
+    delete p.textPilot;
+    liveAircraft.delete(tpId);
+    await query('DELETE FROM aircraft WHERE id=$1', [tpId]);
+    p.current_zone = savedZoneTP; delete p.aircraftId; delete p.seat;
+  }
 
   // ── Walkable aircraft cabin — the Leviathan flying base, Phase 1 ─────────────
   // Pure seams: which craft carry a walkable interior.

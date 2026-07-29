@@ -112,7 +112,7 @@ nothing, silently; wire a reader first.
 | `floors` | flight | explicit storey count for the flight-sim skyline, overriding the per-building-type default so a landmark tower stands taller |
 | `region_id` | world (World Editor) | spatial region membership — the `regions.id` this tile belongs to. **Distinct from `district`** (land-use); see [reference/land-taxonomy.md](reference/land-taxonomy.md) |
 | `underwater` | swimming | submerged tile below a surface water tile (link up/down). Always submerged (a boat doesn't help), colder and dark; starts the breath timer that drowns you |
-| `water_temp_c` | swimming | override the temperature a submerged swimmer here drifts toward (default 12 °C surface / 7 °C underwater) |
+| `water_temp_c` | swimming | override the temperature a submerged swimmer here drifts toward. Default is **seasonal**: `clamp(4 + climate monthly mean × 0.5, 2, 24)`, underwater 5 °C colder (cap 12) — ~5 °C in January, ~15 °C in July |
 | `lawless` | surveillance | crimes here raise no heat/wanted |
 | `safehouse` | surveillance | launders wanted heat: unseen time bleeds a wanted star 3× as fast as lying low on the street. Pair with `unsurveilled`/`sanctuary` for a true refuge |
 | `mining_table_id` | mining | scavenging-table id used for mining here |

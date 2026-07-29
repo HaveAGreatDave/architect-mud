@@ -10,7 +10,7 @@
 import { query } from '../../server/models/db.js';
 import { isMisActive, isAttractedTo, isMisServerEnabled } from '../../server/engine/mis.js';
 import {
-  addHorniness, washEjaculate, MIS_TUTORIAL,
+  addHorniness, hornySustainLine, hornyCoolingLine, washEjaculate, MIS_TUTORIAL,
   startMisEvent, stopMisEvent, hasMisEvent, getMisEventMeta,
   triggerClimax, triggerGroundClimax,
   erectionVisibilityNote, breastVisibilityNote, femaleChestNote,
@@ -2347,10 +2347,22 @@ schedule('1m', async () => {
     if ((player.horniness || 0) <= 0) continue;
     const lastIncrease = player.horniness_last_increased || 0;
     const decayDelayMs = 5 * 60 * 1000;
+
+    // SUSTAIN. Held high but not yet decaying. The tier messages only ever fired on the way
+    // UP, which was fine while a bar carried the state between crossings — with the bar gone,
+    // a body at 92 and a body at 50 both read as silence. Runs BEFORE the decay gate, because
+    // the five-minute hold is exactly where a player spends most of their time.
+    const sustained = hornySustainLine(player, 1);
+    if (sustained) sendToPlayer(player.id, { type: 'resource_tick', messages: [sustained] });
+
     if (lastIncrease && (Date.now() - lastIncrease) < decayDelayMs) continue;
+    const prevHorny = player.horniness;
     player.horniness = Math.max(0, player.horniness - 1);
     dirty.push([player.id, player.horniness]);
-    sendToPlayer(player.id, { type: 'resource_tick', messages: [], player_update: { horniness: player.horniness, mis_enabled: player.mis_enabled } });
+    // …and falling back through a tier is an event. Without it, decaying from 95 to nothing
+    // is twenty silent minutes, indistinguishable from never having been aroused at all.
+    const cooled = hornyCoolingLine(player, prevHorny);
+    sendToPlayer(player.id, { type: 'resource_tick', messages: cooled ? [cooled] : [], player_update: { horniness: player.horniness, mis_enabled: player.mis_enabled } });
   }
   if (dirty.length) {
     // Both columns cast explicitly — a bare VALUES list gives Postgres nothing

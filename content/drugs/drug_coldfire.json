@@ -33,7 +33,8 @@
     "take_line": "You dose yourself with {name}, cold and clinical.",
     "tolerance": {
       "gain_per_dose": 0.15,
-      "max_reduction": 0.7
+      "max_reduction": 0.7,
+      "recovery_per_sec": 0.000011
     },
     "withdrawal": {
       "message": "Everything aches. Coldfire fixes that. Coldfire fixes everything.",

@@ -28,9 +28,7 @@ EVENT FADE_IN
 
 TITLE sleepright_logo
 
-MUSIC corporate_chime
 ♪ A soothing corporate melody begins playing. ♪
-MUSIC_END
 
 ::scene COMMERCIAL
 

@@ -2123,14 +2123,39 @@ export function getWeatherDescription() {
 // Returns the effective temperature for a zone. Indoor zones (is_interior /
 // is_apartment) return their HVAC-simulated temp; outdoor zones return the
 // global outdoor temp with diurnal offset.
+// ── Heat sources ─────────────────────────────────────────────────────────────
+// A contributor seam, exactly like the smell/sound gather hooks: a plugin registers a
+// function that answers "how many °C is this room warmed by things standing in it", and the
+// engine sums them into the ambient. IN-MEMORY ONLY by contract — a heat source is runtime
+// state (a burning fire, a battery with charge left in it), never a persisted zone flag, so
+// this must never write anything and must stay cheap enough for a per-player tick.
+//
+// It lives here rather than in whichever plugin needs it first because the whole point is
+// that everything sees the same number: the body-temp drift, frostbite's peripheral skin
+// temperature, and the HUD thermometer all read `getZoneTemperature`, and a fire that warmed
+// your core but not your fingers would be a bug nobody could find.
+// A source is called with the room's temperature BEFORE any heating, which is what lets it be
+// a TARGET ("hold this room at 20C, however cold it started") rather than only a flat offset.
+// A thermostat is the honest model for a heater; a flat bonus is the honest model for a fire.
+const heatSources = [];
+export function registerHeatSource(fn) { if (typeof fn === 'function') heatSources.push(fn); }
+export function getZoneHeatBonus(zoneId, baseC) {
+  let total = 0;
+  for (const fn of heatSources) {
+    try { total += Number(fn(zoneId, baseC)) || 0; } catch { /* a broken source warms nothing */ }
+  }
+  return total;
+}
+
 export function getZoneTemperature(zoneId) {
   const z = state.zones.get(zoneId);
-  if (isIndoorZone(z) && state.zoneTemps.has(zoneId)) {
-    return state.zoneTemps.get(zoneId);
-  }
-  const base = state.tempC + diurnalOffset(state.minutes);
-  const f = fieldAt(zoneId);
-  return f ? Math.round(base + f.tempOffset) : base;
+  // Applied to indoor and outdoor alike: a brazier works in a blacked-out flat and it works
+  // in an alley. What it CANNOT do is beat the weather in an open field, because the bonus is
+  // a fixed number of degrees rather than a target the room is driven to.
+  const raw = (isIndoorZone(z) && state.zoneTemps.has(zoneId))
+    ? state.zoneTemps.get(zoneId)
+    : (() => { const b = state.tempC + diurnalOffset(state.minutes); const f = fieldAt(zoneId); return f ? Math.round(b + f.tempOffset) : b; })();
+  return heatSources.length ? raw + getZoneHeatBonus(zoneId, raw) : raw;
 }
 
 // Prevailing wind speed (kph) for the current day. Global — one figure for the
@@ -2200,18 +2225,66 @@ export function getZoneApparentTemperature(zoneId, extraOffsetC = 0) {
   return apparentTemperature(ambient, state.forecast[0]?.windKph ?? 0, getZoneHumidity(zoneId));
 }
 
-// The temperature a SUBMERGED swimmer's body drifts toward — water conducts heat
-// far faster than air, and the coastal/open water here runs cold regardless of the
-// day's air temp, so a long swim pulls the core toward hypothermia. Read by the
-// body-temperature tick when player._submerged. Authorable per tile via
-// flags.water_temp_c (e.g. a warm lagoon); underwater tiles default colder.
-const SURFACE_WATER_C = 12;
-const DEEP_WATER_C = 7;
-export function waterTemperature(zoneId) {
+// The wind's share of the feels-like temperature at a zone, in °C — always ≤ 0, and 0
+// indoors or in calm air. Isolated by running the apparent-temperature curve twice, once at
+// the real wind and once at zero, so the humidity terms cancel exactly and what's left is
+// wind alone. Exists so a WINDPROOF shell can give that share back: wind chill is a
+// skin-cooling effect a sealed outer layer largely defeats, but the model applies it to the
+// ambient BEFORE clothing, which otherwise chills a bundled-up player exactly as hard as a
+// naked one. See the windproof handling in gameLoop's driftBodyTemperature.
+export function windChillDelta(zoneId, extraOffsetC = 0) {
   const z = state.zones.get(zoneId);
+  if (isIndoorZone(z)) return 0;
+  const ambient = getZoneTemperature(zoneId) + extraOffsetC;
+  const hum = getZoneHumidity(zoneId);
+  return apparentTemperature(ambient, state.forecast[0]?.windKph ?? 0, hum)
+       - apparentTemperature(ambient, 0, hum);
+}
+
+// The temperature a SUBMERGED swimmer's body drifts toward — water conducts heat far faster
+// than air, so a long swim pulls the core toward hypothermia. Read by the body-temperature
+// tick when player._submerged. Authorable per tile via flags.water_temp_c (e.g. a heated pool
+// or a warm lagoon), which short-circuits everything below.
+//
+// SEASONAL, BUT LAGGING. This was a flat 12°C/7°C year-round, which made a midsummer swim
+// exactly as lethal as a January one — the single least realistic thing in the thermal model.
+// Water now tracks the CLIMATE MONTH rather than the day: a body of water has enormous
+// thermal mass, so it neither cares what time it is (no diurnal term) nor what today's
+// weather anomaly did (no `state.tempC`, which carries a ±11°C wander). It follows the
+// monthly mean, damped and offset, which is why a temperate sea sits well above freezing in
+// winter and well below air temperature in a heatwave.
+const WATER_DAMPING = 0.5;      // half the seasonal swing reaches the water
+const WATER_BASE_C = 4;         // …around this floor-ish anchor
+const WATER_MIN_C = 2;          // liquid, but only just — the ice edge
+const WATER_MAX_C = 24;         // a shallow temperate sea at the end of a hot summer
+const DEEP_WATER_DROP_C = 5;    // below the thermocline, colder and far more stable
+const DEEP_WATER_MAX_C = 12;
+export function waterTemperature(zoneId) {
+  // Flags come from the WORLD, not from `state.zones`. The environment's own zone map is a
+  // snapshot of the POWER graph and only ever contains zones that belong to a power zone —
+  // which no body of water does. Reading flags from it meant `flags.underwater` was never
+  // seen on any of the 82 underwater tiles, so every dive silently used the surface
+  // temperature and the deep-water branch below had never once executed; an authored
+  // `water_temp_c` was dead for the same reason.
+  const z = world.zones.get(zoneId);
   const authored = z?.flags?.water_temp_c;
   if (Number.isFinite(authored)) return authored;
-  return z?.flags?.underwater ? DEEP_WATER_C : SURFACE_WATER_C;
+  const surface = Math.max(WATER_MIN_C, Math.min(WATER_MAX_C,
+    WATER_BASE_C + seasonalMeanTempC() * WATER_DAMPING));
+  if (!z?.flags?.underwater) return Math.round(surface * 10) / 10;
+  return Math.round(Math.max(WATER_MIN_C, Math.min(DEEP_WATER_MAX_C, surface - DEEP_WATER_DROP_C)) * 10) / 10;
+}
+
+// This month's mean air temperature from the active climate profile — the seasonal signal
+// with the day's weather, the anomaly and the diurnal cycle all stripped out. Falls back to
+// the day's base temp when no profile is loaded (dev DBs, early boot), which is wrong by the
+// anomaly but never wildly so.
+function seasonalMeanTempC() {
+  const monthly = state.activeClimateProfile?.monthly_temp_c;
+  if (!Array.isArray(monthly) || monthly.length !== 12) return state.tempC;
+  const month = Number(String(state.date || '').slice(5, 7)) - 1;
+  const v = monthly[Number.isInteger(month) && month >= 0 && month <= 11 ? month : 0];
+  return Number.isFinite(v) ? v : state.tempC;
 }
 
 export function getPowerMap() {

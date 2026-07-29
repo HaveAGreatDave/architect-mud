@@ -50,6 +50,21 @@ export function isSneaking(player) {
 const noticedBy = new Map();
 
 export function clearNotices(sneakerId) { noticedBy.delete(sneakerId); }
+
+/**
+ * Should this viewer see this person at all?
+ *
+ * The single question every describe/broadcast path asks. It is the whole reason
+ * the notice record exists: without a consumer, rolling to be unnoticed changed
+ * nothing about what anybody saw.
+ *
+ * Cheap by construction — a posture read and one Set lookup, no query, no clone.
+ */
+export function isHiddenFrom(person, viewerId) {
+  if (!person || !viewerId || person.id === viewerId) return false;
+  return isSneaking(person) && !hasNoticed(person.id, viewerId);
+}
+
 export function hasNoticed(sneakerId, observerId) {
   return !!noticedBy.get(sneakerId)?.has(observerId);
 }
@@ -129,6 +144,40 @@ export function noticeRoll(observer, sneaker, zoneId) {
  * NPC gets alarmed and runs, an enemy attacks. The roll is identical; only the
  * reaction differs, because that difference IS the design.
  */
+/**
+ * THE CLOCK. Staying unnoticed is not a state you reach, it is a thing that
+ * keeps being true — every window the room gets another look at you.
+ *
+ * This is what makes stealth a race rather than a switch: get in, do the thing,
+ * get out. Being well hidden buys you seconds rather than immunity, so darkness
+ * is time and time is what you actually needed.
+ */
+export const SNEAK_WINDOW_MS = 20000;
+
+export function armSneakWindow(player, zoneId) {
+  if (!player) return;
+  player._sneakUntil = Date.now() + SNEAK_WINDOW_MS + Math.max(0, concealment(player, zoneId)) * 1000;
+}
+
+/**
+ * Sweep live players whose window has run out and emit `stealth.window` for each.
+ *
+ * Called from the game loop's existing per-second player walk, alongside
+ * tickUnconscious and for the same reason: no timer bookkeeping per sneaker
+ * across logout, death and reconnect. The re-roll itself is the plugin's
+ * business — the engine only owns the clock.
+ */
+export function tickStealth(players) {
+  const now = Date.now();
+  for (const p of players) {
+    if (!p?._sneakUntil) continue;
+    if (!isSneaking(p)) { p._sneakUntil = 0; continue; }
+    if (p._sneakUntil > now) continue;
+    armSneakWindow(p, p.current_zone);
+    emit('stealth.window', { player: p, zoneId: p.current_zone });
+  }
+}
+
 export function noticeSweep(sneaker, zoneId, beings) {
   const caught = [];
   for (const b of beings || []) {

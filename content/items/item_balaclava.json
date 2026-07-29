@@ -1,0 +1,18 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_balaclava",
+  "name": "knitted balaclava",
+  "tags": {
+    "bulkiness": 1,
+    "description": "Wool, one hole, no opinions. Covers everything the cold actually takes — ears, nose, the back of the neck — and has the incidental property of making you unrecognisable, which is why the Custodians stop anyone wearing one and why everyone wears one anyway.",
+    "gets_wet": true,
+    "hydrophobic": true,
+    "insulation": 3,
+    "layer": "underwear",
+    "slot": "head"
+  },
+  "type": "clothing",
+  "value": 26,
+  "weight": 110
+}

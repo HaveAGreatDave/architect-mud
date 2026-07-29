@@ -12,14 +12,40 @@
 import { sendCmdSilent } from '../net.js';
 
 const SEEN_KEY = 'interfaceTourSeen';
+const TABLET_SEEN_KEY = 'tabletTourSeen';
+// The tablet tour is VERSIONED, unlike the interface one. The device's home screen
+// keeps changing shape — sixteen tiles to a page, pages, the toolbar, groups — and a
+// walkthrough describing the old one is worse than none. Bump this when the home
+// screen changes and everyone gets shown around once more; the value stored is the
+// version seen, so a legacy '1' replays exactly once.
+const TABLET_TOUR_VERSION = 2;
 
-// Each step spotlights one element. `sel` may list fallbacks (mobile layouts
-// carry different nodes); a step whose target is missing or hidden is skipped.
+// Which layout is on screen. Same authority the stylesheet uses (main.js keeps
+// html[data-density] live on resize), so the tour can never describe a control
+// the player isn't actually looking at — the failure mode that makes a
+// walkthrough worse than none at all.
+const compact = () => document.documentElement.getAttribute('data-density') === 'compact';
+
+// Each step spotlights one element. `sel` may list fallbacks; a step whose target
+// is missing or hidden is skipped. `on` restricts a step to one layout — the two
+// interfaces are different enough that a shared wording would be vague on both,
+// so the phone-only controls (the collapsing room pane, the D-pad, the ≡ fan) get
+// their own steps rather than a parenthetical.
 const STEPS = [
   {
     sel: ['#area-pane'],
     title: 'The room',
     body: `This top pane is <b>where you are</b> — the room's description, who and what is standing in it, and the ways out. It redraws every time the room changes. Names in it are clickable: tapping one is the same as typing the command.`,
+  },
+  {
+    // Phone-only, and the single most useful thing to know about the small
+    // layout: on a handset this pane starts CLOSED, and nothing else on screen
+    // says so. A player who never finds the bar thinks the game forgot to
+    // describe the room.
+    on: 'mobile',
+    sel: ['#look-resize-handle'],
+    title: 'Open the room',
+    body: `On a small screen the room pane starts <b>closed</b> so the log gets the space. This bar is the handle — tap it to slide the room open (<b>▼</b>/<b>▲</b>), or drag it up and down to set the height you want. It also carries the room's name, so you always know where you're standing with the pane shut. Opening the keyboard tucks it away and reopens it after.`,
   },
   {
     sel: ['#output'],
@@ -32,30 +58,151 @@ const STEPS = [
     body: `You play by typing. <b>look</b>, <b>north</b> (or just <b>n</b>), <b>take bat</b>, <b>talk attendant</b>, <b>i</b> for inventory, <b>help</b> for the rest. Press <b>↑</b> to bring back what you typed last.`,
   },
   {
-    sel: ['#quick-cmds', '#cmd-fan-btn'],
+    // Phone-only. Typing directions on a handset is the fastest way to make a
+    // text game feel like work; the pad exists so it doesn't have to.
+    on: 'mobile',
+    sel: ['#mob-dpad'],
+    title: 'The D-pad',
+    body: `Getting around without typing. <b>N/S/E/W</b> for the compass, <b>↑</b>/<b>↓</b> for up and down, <b>in</b>/<b>out</b> for doorways. The <b>⤢</b> in the middle cycles the pad's size — make it bigger if you're missing the buttons, or shrink it to give the log more room.`,
+  },
+  {
+    on: 'desktop',
+    sel: ['#quick-cmds'],
     title: 'Shortcuts',
-    body: `The common commands, one tap each — inventory, gear, who's online, help. Nothing here that you can't also type.`,
+    body: `The common commands, one click each — inventory, gear, who's online, help. Nothing here that you can't also type.`,
+  },
+  {
+    on: 'mobile',
+    sel: ['#cmd-fan-btn'],
+    title: 'Shortcuts',
+    body: `<b>≡ cmds</b> fans out the common commands — inventory, gear, who's online, help — so they're one tap instead of a typed word. Tap it again to fold them away. Next to it sits the weather, the temperature, and your own body temperature, which is worth watching in bad weather.`,
+  },
+  {
+    on: 'mobile',
+    sel: ['#mobile-chat-btn'],
+    title: 'Chat',
+    body: `The 💬 opens the chat channels without giving up the screen to them. It marks itself when something's arrived while you were elsewhere.`,
+    optional: true,
   },
   {
     sel: ['#smart-bar'],
     title: 'The smartbar',
-    body: `Your own buttons. Save any command — or a whole chain of them — as a macro and it lives down here for one-tap use. It fills up as you find things worth repeating.`,
+    body: `Your own buttons. Save any command — or a whole chain of them — as a macro and it lives down here for one-tap use. It fills up as you find things worth repeating, and it's the fastest way to reach your <b>tablet</b>.`,
     optional: true,
   },
   {
+    on: 'desktop',
     sel: ['#sidebar'],
     title: 'The panels',
-    body: `Down the side are <b>panels</b> — your map, your vitals, where you are, the weather, who else is here. They're yours to arrange: unlock with the padlock at the top to drag them into order or resize them, hide the ones you don't want, and add your own with <b>＋ panel</b>.`,
+    body: `Down the side are <b>panels</b> — your map, your vitals, where you are, the weather, who else is here.`,
   },
   {
-    sel: ['#minimap-section', '#minimap-grid-hud'],
+    on: 'desktop',
+    sel: ['#minimap-section'],
     title: 'The map',
-    body: `The world is a grid, and this is the piece of it around you. You're the marker in the middle. Click a tile to plot a route; the footprints button walks it for you.`,
+    body: `The world is a grid, and this is the piece of it around you. You're the marker in the middle. Click a tile to plot a route; the footprints button walks it for you, and <b>+</b>/<b>−</b> zoom.`,
   },
   {
-    sel: ['#vitals-section', '#mobile-vitals'],
+    on: 'mobile',
+    sel: ['#minimap-grid-hud'],
+    title: 'The map',
+    body: `The world is a grid, and this corner is the piece of it around you — you're the marker in the middle. <b>Tap it for the full map</b>, where you can pick a tile to plot a route and have the game walk it for you.`,
+  },
+  {
+    on: 'desktop',
+    sel: ['#vitals-section'],
     title: 'Staying alive',
     body: `Health, sanity, hunger, thirst, stamina. They all drift the wrong way on their own — eat, drink, and <b>sit</b> or <b>sleep</b> to get them back. When health empties, you wake up in a vat, lighter than you were.`,
+  },
+  {
+    on: 'mobile',
+    sel: ['#mobile-vitals'],
+    title: 'Staying alive',
+    body: `Your condition, abbreviated to fit: <b>HP</b> health, <b>SA</b> sanity, <b>HU</b> hunger, <b>TH</b> thirst, <b>ST</b> stamina. They all drift the wrong way on their own — eat, drink, and <b>sit</b> or <b>sleep</b> to get them back. Extra bars appear when they start to matter. When health empties, you wake up in a vat, lighter than you were.`,
+  },
+  // ── Making it yours ───────────────────────────────────────────────────────
+  // Both layouts get a customisation beat, because on both the defaults are a
+  // starting point rather than the intended end state — and neither interface
+  // advertises that on its own.
+  {
+    on: 'desktop',
+    sel: ['#sidebar-header', '#sidebar'],
+    title: 'Rearrange it',
+    body: `The panels are yours to move. The <b>padlock</b> up here unlocks them: <b>✥</b> to drag them into whatever order you like, <b>⤢</b> to drag a panel's bottom edge and resize it, <b>↺</b> to put the sizes back. Hide the ones you never read, bring them back from <b>panels ▾</b>, and build your own — a note, a stat readout, a camera feed — with <b>＋ panel</b>. Lock it again when it looks right.`,
+  },
+  {
+    on: 'mobile',
+    sel: ['#smart-bar', '#mob-dpad'],
+    title: 'Make it yours',
+    body: `The small layout is adjustable too. <b>⤢</b> on the D-pad resizes it. The smartbar takes your own macros, so a command you type often becomes a button. And the room pane's height is whatever you drag it to. Anything you can't fit on screen is in the tablet.`,
+  },
+  {
+    sel: ['#settings-btn'],
+    title: 'Settings',
+    body: compact()
+      ? `The <b>⚙</b> holds the rest: <b>text size</b> (the one worth setting first — the layout scales to it), the colour theme, D-pad size, and <b>motion</b>, which turns off the screen effects if they make reading harder or you'd rather save the battery. The tablet's own Settings app has the same controls if the tablet's already open.`
+      : `The <b>⚙</b> holds the rest: text size, the colour theme (there are several, and you can build your own), which side the panels live on, and <b>motion</b>, which turns off the screen effects if you'd rather read in peace. Worth a look now — everything here is a preference, not a difficulty setting.`,
+  },
+  {
+    // Last, because it's the one thing here that is a whole second interface. The
+    // button on this step OPENS it, and the tablet's own tour picks up from there
+    // (see `handoff` in showStep and maybeTabletTour) — a new player shouldn't have
+    // to take our word that there's a second half and go looking for it.
+    sel: ['#smart-bar', '#input-area'],
+    title: 'The tablet',
+    body: `Nearly everything that isn't in this window is in your <b>tablet</b> — what you're carrying, the full map, bank, quests, messages, your record, the codex. Type <b>tablet</b> any time to open it. Let's have a look now.`,
+    nextLabel: 'Open the tablet',
+    handoff: 'tablet',
+  },
+];
+
+// ── The tablet's own short tour ──────────────────────────────────────────────
+// Run when the tablet first opens — which the last step of the interface tour now
+// does for you, so the two read as one walkthrough with the device arriving in the
+// middle of it. It stays a separate tour rather than more interface steps because
+// it also has to work for a player who skipped that one, and because you cannot
+// spotlight a screen that isn't on yet. #tour-overlay sits at 9700, above the
+// Tablet OS at 9200, so the spotlight reaches inside it.
+const TABLET_STEPS = [
+  {
+    sel: ['#tablet-os-overlay .tos-appgrid', '#tablet-os-overlay .tos-screen'],
+    title: 'Your tablet',
+    body: `Everything the interface outside doesn't have room for. Sixteen apps to a screen — <b>Map</b> for the city, <b>Gear</b> for what you're carrying and wearing, <b>Vitals</b> for how you're doing, <b>Quests</b> for what you're doing. Below those: people, money, your <b>Crime</b> record, your skills. Tap a tile to open it.`,
+  },
+  {
+    sel: ['#tablet-os-overlay .tos-hdr'],
+    title: 'The status bar',
+    body: `Date, where you are, and the time — <b>tap the clock</b> to set an alarm. The bars on the right are signal: out past the city there's nothing to connect to, and the tablet says so rather than pretending.`,
+  },
+  {
+    optional: true,
+    sel: ['#tablet-os-overlay .tos-home-pager'],
+    title: 'More than one screen',
+    body: `Past sixteen apps the home screen <b>pages</b>. ${compact() ? 'Swipe sideways' : 'Swipe, or use the arrows and dots'} to turn it. Dragging a tile onto a dot sends that app to that page.`,
+  },
+  {
+    sel: ['#tablet-os-overlay .tos-hbar', '#tablet-os-overlay .tos-appgrid'],
+    title: 'The toolbar',
+    body: `Under the grid: <b>⧉ Select</b> picks several apps at once to box them into a named, coloured group. <b>⊕ Add</b> brings back an app you've taken off the screen. <b>⌕ Find</b> searches all of them by name — quicker than remembering where you put one. <b>▤ Cards</b> turns on the info cards under the grid: where you are, what's in your pocket, the weather.`,
+  },
+  {
+    sel: ['#tablet-os-overlay .tos-appgrid'],
+    title: 'Rearrange it',
+    body: compact()
+      ? `<b>Press and hold</b> a tile to lift it, then drag it where you want it. Drag one clean off the tablet to stash it — <b>⊕ Add</b> has it whenever you want it back.`
+      : `<b>Press and hold</b> a tile to lift it, then drag it where you want it — including into or out of a group. Drag one clean off the tablet to stash it; <b>⊕ Add</b> has it whenever you want it back.`,
+  },
+  {
+    // On the home screen there's no breadcrumb yet, so this lands on the header —
+    // still "the top of the screen", which is what the wording has to survive.
+    sel: ['#tablet-os-overlay .tos-crumb', '#tablet-os-overlay .tos-hdr'],
+    title: 'Getting back',
+    body: `Open an app and a trail appears along the top — tap the first crumb to come back here. <b>Esc</b> closes the tablet, and so does typing <b>tablet</b> again.`,
+  },
+  {
+    sel: ['#tablet-os-overlay .tos-appgrid'],
+    title: 'Settings live here too',
+    body: `The <b>Settings</b> app carries the same preferences as the <b>⚙</b> outside — text size, theme, motion${compact() ? ', D-pad size' : ''} — plus the tablet's own wallpaper and tone. Set it up once; it follows your account, not this device.`,
   },
 ];
 
@@ -64,6 +211,8 @@ let _card = null;    // the explanation card
 let _idx = 0;
 let _steps = [];
 let _onResize = null;
+let _mode = 'interface';   // 'interface' | 'tablet' — decides how endTour finishes
+let _handoff = null;       // a command the finished tour should run (see `handoff`)
 
 const el = (sel) => (Array.isArray(sel) ? sel : [sel]).map((s) => document.querySelector(s)).find(visible);
 
@@ -121,8 +270,42 @@ export function offerInterfaceTour() {
 export function startInterfaceTour() {
   if (_ov) endTour();
   localStorage.setItem(SEEN_KEY, '1');
-  _steps = STEPS.filter((s) => el(s.sel) || !s.optional);
+  _mode = 'interface';
+  const layout = compact() ? 'mobile' : 'desktop';
+  _steps = STEPS
+    .filter((s) => !s.on || s.on === layout)
+    .filter((s) => el(s.sel) || !s.optional);
   _idx = 0;
+  mountTour();
+}
+
+// Replayable with `tutorial tablet`; also fires itself once, from the tablet's
+// own render, the first time a home screen is drawn. Refuses to run with no
+// tablet on screen rather than spotlighting empty air.
+export function startTabletTour() {
+  if (!document.getElementById('tablet-os-overlay')) return false;
+  if (_ov) endTour();
+  localStorage.setItem(TABLET_SEEN_KEY, String(TABLET_TOUR_VERSION));
+  _mode = 'tablet';
+  _steps = TABLET_STEPS.filter((s) => el(s.sel) || !s.optional);
+  if (!_steps.length) return false;
+  _idx = 0;
+  mountTour();
+  return true;
+}
+
+// Called from tablet-os.js's render() on every home screen; does nothing after
+// the first time. Deliberately not tied to the interface tour's answer — a player
+// who skipped that one still gets the tablet shown to them, because the tablet is
+// the half of the game you cannot discover by typing.
+export function maybeTabletTour() {
+  if (Number(localStorage.getItem(TABLET_SEEN_KEY)) >= TABLET_TOUR_VERSION) return;
+  if (_ov) return;                       // never interrupt a tour already running
+  localStorage.setItem(TABLET_SEEN_KEY, String(TABLET_TOUR_VERSION));
+  setTimeout(() => startTabletTour(), 700);   // let the boot/render settle first
+}
+
+function mountTour() {
 
   _ov = document.createElement('div');
   _ov.id = 'tour-overlay';
@@ -185,11 +368,17 @@ function showStep(i) {
     <div class="tour-card-actions">
       <button class="tour-btn tour-btn-ghost" data-tour="skip">Skip</button>
       <button class="tour-btn tour-btn-ghost" data-tour="back"${i ? '' : ' disabled'}>Back</button>
-      <button class="tour-btn" data-tour="next">${last ? 'Done' : 'Next'}</button>
+      <button class="tour-btn" data-tour="next">${s.nextLabel || (last ? 'Done' : 'Next')}</button>
     </div>`;
   _card.querySelector('[data-tour="skip"]').addEventListener('click', () => endTour());
   _card.querySelector('[data-tour="back"]').addEventListener('click', () => step(-1));
-  _card.querySelector('[data-tour="next"]').addEventListener('click', () => step(1));
+  _card.querySelector('[data-tour="next"]').addEventListener('click', () => {
+    // A step can hand the walkthrough on to something it first has to OPEN. Stash it
+    // for endTour: the command must go out after the lights come up, or the tablet
+    // boots behind a dimming overlay that's about to be torn down anyway.
+    _handoff = s.handoff || null;
+    step(1);
+  });
   placeCard(r);
   _card.querySelector('[data-tour="next"]').focus();
 }
@@ -211,13 +400,23 @@ function placeCard(r) {
   _card.style.top = `${Math.max(gap, Math.min(globalThis.innerHeight - h - gap, y))}px`;
 }
 
-function endTour() {
+// `finished` is true only when the player walked to the end (step() past the last
+// card). Skip and Esc arrive here without it, which is how the handoff below knows
+// not to open anything for someone who just asked to be left alone.
+function endTour(finished) {
   globalThis.removeEventListener('resize', _onResize);
   globalThis.removeEventListener('keydown', onKey);
   document.querySelectorAll('.tour-lit').forEach((n) => n.classList.remove('tour-lit'));
   const ov = _ov;
+  const mode = _mode;
   _card?.remove();
   _ov = null; _card = null; _onResize = null;
+
+  // The tablet tour is a guest inside another overlay: it just gets out of the
+  // way. None of what follows applies — there is no held-back arrival prose to
+  // release, and dimming the panes behind the tablet would be theatre nobody can
+  // see.
+  if (mode === 'tablet') { ov?.remove(); _handoff = null; return; }
 
   // THE LIGHTS COME UP, TOP TO BOTTOM.
   //
@@ -250,4 +449,34 @@ function endTour() {
   // holds the arrival prose until it hears this, so a player who hits Skip or
   // Esc on step 2 would otherwise be left standing in a silent room forever.
   sendCmdSilent('tutorial done');
+
+  // Handoff: the walkthrough's last step said "let's have a look now", so open the
+  // thing — but only after the arrival monologue has actually finished landing in
+  // the log, or the tablet's CRT boot covers it mid-sentence. `tutorial done` is
+  // the same command that starts that monologue server-side, so we don't guess its
+  // length: armTourHandoff stashes the command and waits for the server's
+  // `tutorial_prose_done` signal (dispatch.js) to run it. Only on a clean finish —
+  // Skip and Esc mean "leave me alone", and honouring that matters more than the
+  // handoff.
+  const hand = _handoff;
+  _handoff = null;
+  if (hand && finished) armTourHandoff(hand);
+}
+
+// Command a finished tour wants to run, once the server says it's safe to. Set by
+// endTour above; consumed either by the `tutorial_prose_done` push (the normal
+// path) or, if that never arrives (an old server, a dropped message), by the
+// backstop timer armTourHandoff itself sets — 20s covers the slowest scripted
+// arrival with room to spare, and firing twice is harmless since the second call
+// finds nothing left to consume.
+let _pendingHandoff = null;
+function armTourHandoff(cmd) {
+  _pendingHandoff = cmd;
+  setTimeout(consumeTourHandoff, 20000);
+}
+export function consumeTourHandoff() {
+  if (!_pendingHandoff) return;
+  const cmd = _pendingHandoff;
+  _pendingHandoff = null;
+  sendCmdSilent(cmd);
 }

@@ -538,9 +538,17 @@
   .toggle-switch--esp.esp-standingdown input:checked + .toggle-slider { background: rgba(180,120,0,0.55); }
   .toggle-switch--esp.esp-standingdown input:checked + .toggle-slider:before { background: #f59e0b; }
 
-  ::-webkit-scrollbar { width: 5px; }
+  /* Scrollbars. `height` matters as much as `width`: without it a horizontally
+     scrolling pane (the wide tables, the map strip) keeps the OS's grey bar
+     while the vertical one next to it is themed. `scrollbar-width/color` is the
+     Firefox half — WebKit ignores it, Firefox ignores the pseudo-elements, so
+     both are needed to cover both engines. */
+  * { scrollbar-width: thin; scrollbar-color: var(--border) var(--bg2); }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: var(--bg2); }
-  ::-webkit-scrollbar-thumb { background: var(--border); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent-dim, var(--accent)); }
+  ::-webkit-scrollbar-corner { background: var(--bg2); }
 
   /* Mobile-only controls hidden on desktop */
   .mobile-only { display: none; }

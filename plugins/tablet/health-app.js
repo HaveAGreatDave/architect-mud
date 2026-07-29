@@ -82,18 +82,16 @@ function buildMeters(player) {
     { key: 'hp', label: 'Vitality', value: player.hp ?? 0, max: hpMax,
       pct: pct(player.hp ?? 0, hpMax), band: bandHigh(pct(player.hp ?? 0, hpMax)),
       note: `${player.hp ?? 0} / ${hpMax} HP` },
-    { key: 'sanity', label: 'Sanity', value: player.sanity ?? 0, max: sanMax,
-      pct: pct(player.sanity ?? 0, sanMax), band: player.insane ? 'crit' : bandHigh(pct(player.sanity ?? 0, sanMax)),
-      note: { clear: 'lucid', creep: 'unsettled', halluc: 'seeing things', insane: 'gone' }[sanBand] || sanBand },
+    // NO SANITY METER. How sound your own mind is isn't something a clinic cuff
+    // reads back to you as a percentage — the sanity system tells you by what you
+    // see and hear (see docs/systems-sanity via plugins/sanity), and putting a
+    // number on it would undo that. The afflictions list below still names it when
+    // it's actually biting.
     { key: 'stamina', label: 'Stamina', value: Math.round(player.stamina ?? stamMax), max: stamMax,
       pct: pct(player.stamina ?? stamMax, stamMax), band: bandHigh(pct(player.stamina ?? stamMax, stamMax)),
       note: `${Math.round(player.stamina ?? stamMax)} / ${stamMax}` },
-    { key: 'hunger', label: 'Nourishment', value: player.hunger ?? 0, max: 100,
-      pct: player.hunger ?? 0, band: bandHigh(player.hunger ?? 0),
-      note: (player.hunger ?? 100) <= 0 ? 'starving — losing HP' : (player.hunger ?? 100) <= 20 ? 'very hungry' : 'fed' },
-    { key: 'thirst', label: 'Hydration', value: player.thirst ?? 0, max: 100,
-      pct: player.thirst ?? 0, band: bandHigh(player.thirst ?? 0),
-      note: (player.thirst ?? 100) <= 0 ? 'dehydrated — losing HP fast' : (player.thirst ?? 100) <= 20 ? 'very thirsty' : 'watered' },
+    // Hunger and thirst are NOT meters either — see buildReadouts(). A body knows
+    // it's thirsty, not that it's at 41%.
     { key: 'radiation', label: 'Radiation', value: rad, max: 100, pct: rad, band: bandLow(rad), invert: true,
       note: rad >= 40 ? 'mutagenic dose' : rad >= 25 ? 'hot' : rad > 0 ? 'traces' : 'clean' },
     { key: 'temp', label: 'Core temp', value: temp, max: 100,
@@ -112,6 +110,46 @@ function buildMeters(player) {
     });
   }
   return meters;
+}
+
+// ── Readouts: the things a body reports in words, not percentages ────────────
+// Hunger and thirst were bars, and a bar invites you to play the number — top it
+// up at 80%, panic at 30%. You don't know your hydration as a fraction; you know
+// you're thirsty. So these render as a phrase, with a band for colour and nothing
+// else. The ladders are deliberately coarser than the underlying 0–100 (which the
+// survival system still runs on) — the whole point is that you can't read the
+// exact figure off this screen.
+function describeBand(v, ladder) {
+  for (const [floor, text, band] of ladder) if (v >= floor) return { text, band };
+  const last = ladder[ladder.length - 1];
+  return { text: last[1], band: last[2] };
+}
+const HUNGER_LADDER = [
+  [85, 'full — could not eat another thing', 'good'],
+  [60, 'fed', 'good'],
+  [40, 'starting to think about food', 'good'],
+  [22, 'hungry', 'warn'],
+  [8, 'very hungry — it is getting hard to ignore', 'bad'],
+  [1, 'starving', 'crit'],
+  [0, 'starving to death — this is costing you HP', 'crit'],
+];
+const THIRST_LADDER = [
+  [85, 'watered', 'good'],
+  [60, 'comfortable', 'good'],
+  [40, 'dry-mouthed', 'good'],
+  [22, 'thirsty', 'warn'],
+  [8, 'very thirsty — your head is starting to ache', 'bad'],
+  [1, 'parched', 'crit'],
+  [0, 'dehydrated — this is costing you HP, fast', 'crit'],
+];
+
+function buildReadouts(player) {
+  const h = describeBand(player.hunger ?? 100, HUNGER_LADDER);
+  const t = describeBand(player.thirst ?? 100, THIRST_LADDER);
+  return [
+    { key: 'hunger', label: 'Nourishment', text: h.text, band: h.band },
+    { key: 'thirst', label: 'Hydration', text: t.text, band: t.band },
+  ];
 }
 
 // ── What is currently dragging on you ────────────────────────────────────────
@@ -318,6 +356,7 @@ async function buildScreen(player, screenId, params, notice = null) {
   return {
     ...base,
     meters: buildMeters(player),
+    readouts: buildReadouts(player),
     afflictions: buildAfflictions(player, status),
     quick: buildQuick(player, remedies),
     body,
@@ -351,6 +390,12 @@ async function handleAction(player, actionId, params, broadcast) {
 
   return buildScreen(player, tab, '', text || null);
 }
+
+// NO HOME WIDGET, deliberately. A Vitals card on the home screen would put the
+// body's numbers permanently in front of the player, which is the opposite of how
+// this game meters that information out — a lot of it is withheld on purpose (see
+// the sanity note in buildMeters and the readouts above). If you want to know how
+// you're doing, open the app and look.
 
 registerTabletApp({
   id: 'health', name: 'Vitals', icon: '🩺', category: 'General',

@@ -184,19 +184,31 @@ export default async function regress({ run, check, getPlayer }) {
   check('a healthy player has nothing to report', conditionReport(WARM).length === 0);
 
   // ── Fatigue: derived, gentle, and only sleep undoes it ──────────────────────
-  const { fatigueOf, FATIGUE_FULL_HOURS, SLEEP_RECOVERY_RATIO, FATIGUE_TIRED } =
+  const { fatigueOf, FATIGUE_FULL_HOURS, FATIGUE_TIRED, FATIGUE_RUINED, SLEEP_FULL_CLEAR_MINUTES,
+          sleepRecoveryPerMinute, fatigueSpanMs, STIM_FATIGUE_RELIEF, STIM_FATIGUE_INTEREST } =
     await import('../../server/engine/condition.js');
-  const awake = h => ({ ...WARM, last_slept_at: Date.now() - h * 3600000 });
+  const { getTimeScale } = await import('../../server/engine/gametime.js');
+  // GAME hours, not real ones — the span shrinks as the game-speed knob rises, so
+  // the assertions below have to be written in the units the design is stated in.
+  const awake = h => ({ ...WARM, last_slept_at: Date.now() - (h / FATIGUE_FULL_HOURS) * fatigueSpanMs() });
 
   check('a player who has never slept is treated as fresh, not wrecked',
     fatigueOf({ ...WARM, last_slept_at: null }) === 0);
   check('fatigue builds with time awake', fatigueOf(awake(4)) > fatigueOf(awake(1)));
   check('...and is gentler than hunger — a long session before it bites',
-    fatigueOf(awake(3)) < FATIGUE_TIRED, fatigueOf(awake(3)));
-  check('it caps rather than running away', fatigueOf(awake(100)) === 100);
+    fatigueOf(awake(12)) < FATIGUE_TIRED, fatigueOf(awake(12)));
+  // The curve is written off what a person actually does, so these two are the
+  // load-bearing ones: a hard night has to stay affordable, and it's the second
+  // and third nights that are supposed to hurt.
+  check('twelve hours up costs you nothing mechanical',
+    statPenalty(awake(12), 'stat_brains') === 0 && statPenalty(awake(12), 'stat_reflexes') === 0);
+  check('...and a full day up is unpleasant, not crippling',
+    statPenalty(awake(24), 'stat_brains') <= 1 && statPenalty(awake(24), 'stat_reflexes') === 0);
+  check('...but three days up is ruinous', fatigueOf(awake(72)) >= FATIGUE_RUINED);
+  check('it caps rather than running away', fatigueOf(awake(1000)) === 100);
   check('exhaustion costs Brains first', statPenalty(awake(FATIGUE_FULL_HOURS), 'stat_brains') > 0);
   check('...and Reflexes only once it is severe',
-    statPenalty(awake(3), 'stat_reflexes') === 0 && statPenalty(awake(FATIGUE_FULL_HOURS), 'stat_reflexes') > 0);
+    statPenalty(awake(24), 'stat_reflexes') === 0 && statPenalty(awake(FATIGUE_FULL_HOURS), 'stat_reflexes') > 0);
   check('tired reaches combat through the same funnel',
     skillStatBonus(awake(FATIGUE_FULL_HOURS), 'dodge') < skillStatBonus(WARM, 'dodge'));
   check('being tired is reported, not silent',
@@ -204,13 +216,37 @@ export default async function regress({ run, check, getPlayer }) {
 
   // Sleep undoes it in REAL time — fast enough to be a mechanic, slow enough to
   // be a decision.
-  check('sleep is meaningfully faster than being awake', SLEEP_RECOVERY_RATIO > 1);
+  check('sleep is meaningfully faster than being awake', sleepRecoveryPerMinute() > 60000);
   // Short enough that nobody spends their evening in a bed. The mechanic is
-  // worthless if the optimal play is lying down.
+  // worthless if the optimal play is lying down. This must hold at ANY game
+  // speed — the constant it replaced was a fixed multiple of real time and
+  // silently became 1.6 minutes at 3×.
   check('...and a full night clears in about five minutes, not half an hour', (() => {
-    const minutes = (FATIGUE_FULL_HOURS * 60) / SLEEP_RECOVERY_RATIO;
+    const minutes = fatigueSpanMs() / sleepRecoveryPerMinute();
     return minutes >= 3 && minutes <= 7;
-  })(), (FATIGUE_FULL_HOURS * 60) / SLEEP_RECOVERY_RATIO);
+  })(), fatigueSpanMs() / sleepRecoveryPerMinute());
+  check('a full night awake is FATIGUE_FULL_HOURS of GAME time', (() => {
+    const gameHours = (fatigueSpanMs() * getTimeScale()) / 3600000;
+    return Math.abs(gameHours - FATIGUE_FULL_HOURS) < 0.01;
+  })());
+
+  // ── Uppers: relief now, with interest ──────────────────────────────────────
+  check('a stimulant erases fatigue faster than it accrues', STIM_FATIGUE_RELIEF > 1);
+  check('...and the crash costs more than the relief was worth', STIM_FATIGUE_INTEREST > 1);
+  check('being wired reads as less tired everywhere at once', (() => {
+    const p = awake(FATIGUE_FULL_HOURS);
+    const before = fatigueOf(p);
+    p.last_slept_at += 60000 * STIM_FATIGUE_RELIEF;   // one minute wired
+    return fatigueOf(p) < before && statPenalty(p, 'stat_brains') <= statPenalty(awake(FATIGUE_FULL_HOURS), 'stat_brains');
+  })());
+  check('...and paying the debt back leaves you worse than never dosing', (() => {
+    const start = Date.now() - fatigueSpanMs() * 0.5;
+    const relief = 60000 * STIM_FATIGUE_RELIEF;
+    const after = start + relief - relief * STIM_FATIGUE_INTEREST;
+    return after < start;
+  })());
+  check('sleep deprivation bleeds sanity only from the second night on, never before',
+    fatigueOf(awake(24)) < FATIGUE_RUINED && fatigueOf(awake(72)) >= FATIGUE_RUINED);
 
   // The reward has to outweigh the penalty — sleeping is optional, so it must be
   // worth doing rather than merely something bad you're avoiding.
@@ -218,10 +254,10 @@ export default async function regress({ run, check, getPlayer }) {
   const restedPlayer = { ...WARM, statuses: [{ name: 'rested', duration: 100 }] };
   check('Well Rested actually raises stats', effectStatBonus(restedPlayer, 'stat_brains') > 0);
   check('...and the reward beats the penalty for skipping sleep',
-    effectStatBonus(restedPlayer, 'stat_brains') >= statPenalty(awake(6), 'stat_brains'));
+    effectStatBonus(restedPlayer, 'stat_brains') >= statPenalty(awake(24), 'stat_brains'));
   check('a rested player is better than a merely-not-tired one',
     effectiveStat(restedPlayer, 'stat_brains') > effectiveStat(WARM, 'stat_brains'));
-  check('being tired is a nudge, not a crippling', statPenalty(awake(6), 'stat_brains') <= 1);
+  check('being tired is a nudge, not a crippling', statPenalty(awake(48), 'stat_brains') <= 1);
 
   // ── Cool ↔ sanity: composure protects, and losing it costs ─────────────────
   const { resistSanityLoss } = await import('../../server/engine/condition.js');

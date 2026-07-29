@@ -12,7 +12,7 @@ import { exitTargets, neighborZoneIds } from "./exits.js";
 import { emit } from "./events.js";
 import { fireHook } from "./plugins.js";
 import { getEnvironmentState } from "./environment.js";
-import { fatigueOf, SLEEP_RECOVERY_RATIO } from "./condition.js";
+import { fatigueOf, sleepRecoveryPerMinute } from "./condition.js";
 import { gameMinutes, minutesUntil, hhmm } from "./clock.js";
 import { applyEffect } from "./effects.js";
 import { getFlag } from "./flags.js";
@@ -930,11 +930,13 @@ export async function tickSleep(player, broadcastFn) {
 	player.sleeping.minutesSlept++;
 
 	// FATIGUE. Sleep is the only thing that undoes it, and it undoes it in real
-	// time: last_slept_at walks forward SLEEP_RECOVERY_RATIO minutes per minute
-	// slept, so clearing a heavy fatigue is a genuine quarter of an hour in a bed
-	// rather than a button. Capped at now — you cannot bank sleep for later.
-	const recovered = SLEEP_RECOVERY_RATIO * 60000 * (player.sleeping.light ? 0.5 : 1);
+	// time: last_slept_at walks forward, so clearing a heavy fatigue is a genuine
+	// few minutes in a bed rather than a button. Capped at now — you cannot bank
+	// sleep for later. Sleeping it off also clears any stimulant debt, which is
+	// the one honest way out of a bender: you paid for the bed instead.
+	const recovered = sleepRecoveryPerMinute() * (player.sleeping.light ? 0.5 : 1);
 	player.last_slept_at = Math.min(Date.now(), (Number(player.last_slept_at) || Date.now()) + recovered);
+	player._fatigueDebtMs = 0;
 
 	await query(
 		"UPDATE players SET hp=$1, sanity=$2, stamina=$3, hunger=$4, thirst=$5, last_slept_at=$6 WHERE id=$7",
@@ -1005,6 +1007,17 @@ export async function tickSleep(player, broadcastFn) {
 	const runningOnEmpty = player.hunger <= 5 || player.thirst <= 5;
 	const tooLong = player.sleeping.minutesSlept >= SLEEP_MAX_MINUTES;
 
+	// EXPOSURE. The body drifts toward the room's temperature while you sleep (gameLoop's
+	// driftBodyTemperature runs for sleepers too), so lying down in a blizzard is no longer a
+	// way to opt out of one. It shouldn't be a silent death either: cold wakes a real body long
+	// before it kills it, so this fires at the top of the "cold" band (34°C) — a full four
+	// degrees clear of the <30°C lethal threshold, leaving plenty of room to do something about
+	// it. Same courtesy hunger and thirst already extend. Heat gets the mirror at 40°C.
+	// Deliberately NOT a one-way trip: sleep again in the same spot and it will wake you again.
+	const tempC = player.body_temp_c ?? 37.0;
+	const frozeOut = tempC <= 34;
+	const bakedOut = tempC >= 40;
+
 	// THE ALARM. Set on the tablet before lying down; wakes you at that time
 	// whether or not your body is finished, which is the entire point — it turns
 	// sleep from an open-ended commitment into a nap you planned.
@@ -1019,7 +1032,7 @@ export async function tickSleep(player, broadcastFn) {
 		if (minutesUntil(nowMins, player.sleeping.alarmAt) >= 1439) alarmRang = true;
 	}
 
-	if (fullyRested || runningOnEmpty || tooLong || alarmRang) {
+	if (fullyRested || runningOnEmpty || tooLong || alarmRang || frozeOut || bakedOut) {
 		// Going ALL THE WAY is what's rewarded. Waking early — because you were
 		// starving, or hit the cap, or something woke you — clears whatever
 		// fatigue you actually slept off and nothing more. The buff is the reason
@@ -1028,7 +1041,11 @@ export async function tickSleep(player, broadcastFn) {
 		// Out of the dream and back into your own body. Shared helper because
 		// there are five ways for sleep to end and every one has to do this.
 		wakeFromDream(player);
-		const reason = alarmRang
+		const reason = frozeOut
+			? `<span style="color:var(--cyan)">You wake up shivering hard enough to hurt. You cannot feel your hands. Whatever you were sleeping in, it is not enough.</span>`
+			: bakedOut
+			? `<span style="color:var(--orange)">You wake up soaked in sweat, heart going like a hammer. It is far too hot to be lying here.</span>`
+			: alarmRang
 			? `<span style="color:var(--yellow)">⏰ Your tablet chimes. ${hhmm(player.sleeping.alarmAt)}. You get up.</span>`
 			: fullyRested
 			? "You wake up fully rested. Everything is a little sharper than it was."

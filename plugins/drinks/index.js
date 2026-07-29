@@ -25,6 +25,12 @@ import { sendToZone } from '../../server/engine/messaging.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { useDrug } from '../../server/engine/drugs.js';
 import { isPluggedIn } from '../appliances/index.js';
+import { applyWarmth } from '../../server/engine/warmth.js';
+
+// A hot drink is the cheapest cold-weather gear in the game and the only kind you can carry
+// in your hands. Worth about a wool hat while it lasts, and it does not last long.
+const WARM_DRINK_C = 4;
+const WARM_DRINK_MIN = 12;   // game-minutes at full heat, tapering to nothing
 import {
   DRINKS, UNKNOWN_DRINK, signature, matchDrink, drinkName, composeBand,
   seasoningBonus, DRINKWARE_KINDS, describeRecipe,
@@ -287,6 +293,15 @@ registerAction({
     const parts = [params.takeLine || ''];
     if (left > 0) parts.push(dim(`${left} left in the ${row.name}.`));
     else parts.push(dim(`That's the last of it. The ${row.name} could do with a rinse.`));
+
+    // WARMTH. Scaled by how hot the cup still IS — the same `hotMultiplier` the thirst credit
+    // already uses, so a mug you left on the desk warms you as little as it refreshes you, and
+    // a thermos (`tags.insulated`) stays useful far longer. A drink that was never hot does
+    // nothing, which is why iced tea is not a survival item.
+    if (drink.hot_at) {
+      const heat = hotMultiplier(drink.hot_at, isInsulated(row), Date.now());
+      if (heat > 0.4) applyWarmth(player, WARM_DRINK_C * heat, WARM_DRINK_MIN * heat);
+    }
 
     // The alcohol, through the ordinary path. A serving's share of the whole,
     // so nursing a pint is three small doses rather than one triple.

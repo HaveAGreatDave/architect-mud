@@ -335,6 +335,38 @@ their heat restored is grabbed on the spot.
   `atm.drained`, `theft.caught`, `burglary.reported`, `hololock.breached`, `bodily.publicRelief`→
   `indecent_exposure`, `vendor.safeHackWitnessed`; witnessed charges also emit `crime.witnessed`.
 
+## The permanent record + the tablet Crime app (2026-07-29)
+
+`crimeBoard`/`crimeHistory` are the **live police board**: in memory, global to every
+player, capped at 100, and gone on restart. Right for a dispatcher's screen, useless as a
+rap sheet — so a charge that sticks *also* files a lifetime tally in `player_flags`:
+
+| Flag | Written by | Meaning |
+| --- | --- | --- |
+| `crime_priors` | surveillance `recordPrior()` in `raiseCrime` | JSON `{ crimeKey: count }` — **one** flag, not one per offence |
+| `crime_first_at` / `crime_last_at` | same | epoch seconds of the first/most-recent charge |
+| `crime_arrests` | jail, at booking | lifetime collars (`jail_prisoners` is the *current* stint only and is deleted on release) |
+| `crime_fines` | jail `recordStint()`, at release | ₵ actually kept as fines |
+| `crime_served_min` | same | minutes actually served |
+
+One coalesced write per charge / per release, both player-caused and rare — never a tick.
+
+Read back through **`crimeRecordOf(player)`** (surveillance) and **`custodyOf(playerId)`**
+(jail). The first is in-memory + flag-cache only, no query; the second is one query and
+runs only on the screen that asks. That budget is the point: the consumer is the tablet's
+**Crime app** (`plugins/tablet/crime-app.js`), whose **Wanted home-screen card** renders on
+every home render — see the `buildWidget` contract in `plugins/tablet/index.js`. That card
+is also the only widget in the tablet carrying **`alwaysOn: true`**, so it shows even when
+its app is stashed: an alarm you have to opt into is not an alarm.
+
+The app's four screens are all windows onto existing owners — heat and priors from
+surveillance, the current stint from jail, star weights from the engine's crime catalogue
+(`getCrimeList`), seized property from `police_evidence` filtered to your handle. It holds
+no ledger of its own; a number there disagreeing with the one that shot at you is a bug.
+**Property is honest about being a graveyard** — nothing in the evidence locker comes back
+(see the `police_evidence` comment in `schema.js`), so the screen says so rather than
+reading like a claim ticket.
+
 ## Crime registry & camera catch (2026-07-02)
 
 The hardcoded per-crime star amounts were replaced with a **data-driven crime registry** plus a

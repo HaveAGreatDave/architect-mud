@@ -1,6 +1,8 @@
-import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse, tryBattleCry, setApartmentCache, hasActivePlayers, resolveLanding, getZone, reconcileZoneMembership } from './world.js';
+import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse, tryBattleCry, setApartmentCache, hasActivePlayers, resolveLanding, getZone, reconcileZoneMembership, bodyZoneOf } from './world.js';
 import { wakeFromDream } from './dreamscape.js';
 import { tickUnconscious, knockOut, KO_MS } from './unconscious.js';
+import { tickStealth } from './stealth.js';
+import { tickPanic } from './panic.js';
 import { getZoneRadiation } from './zone-tags.js';
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
@@ -24,9 +26,12 @@ import { carryCapacity } from './commands/inventory.js';
 import { flushDirtyPositions } from './commands/movement.js';
 import { flushAllRelations } from './relations.js';
 import { flushAllWear } from './durability.js';
-import { effectiveStat } from './condition.js';
+import { effectiveStat, fatigueOf, FATIGUE_RUINED } from './condition.js';
 import { query, logActivity } from '../models/db.js';
-import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, waterTemperature, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot, getZonePrecip } from './environment.js';
+import { addSweat } from './hygiene.js';
+import { warmthBonus, tickWarmth } from './warmth.js';
+import { appetiteMessages } from './appetite.js';
+import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, windChillDelta, waterTemperature, getZoneHumidity, getWindKph, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot, getZonePrecip } from './environment.js';
 import { tickDrugDecayAll, tickDrugs, tickOnsets, tickWithdrawalAll, clearActiveDrugState } from './drugs.js';
 import { getTimeScale } from './gametime.js';
 
@@ -251,6 +256,16 @@ async function tick() {
   tickUnconscious(world.players.values(), (b, msg) =>
     broadcastFn(null, { type: 'output', message: `<span class="msg-system">${msg}</span>` }, null, b.id));
   tickUnconscious(world.npcs.values(), null);
+
+  // Sneakers whose window has run out get looked at again. Same walk, same
+  // reason as the KO sweep above — no per-sneaker timer, and it costs a posture
+  // read per live player.
+  tickStealth(world.players.values());
+
+  // And anyone who saw something they couldn't handle gets one second of being
+  // frightened: a shout, and a try at the door. Returns immediately on an empty
+  // map, which is the normal case.
+  tickPanic();
 
   // Player auto-attack: sustain combat against combatTargetId each tick
   for (const [playerId, player] of world.players) {
@@ -1067,6 +1082,283 @@ function tempFlavorMessage(tempC, tick) {
   return null;
 }
 
+// Drift one body's core temperature by `gm` game-minutes. Mutates and clamps
+// `player.body_temp_c`; reads nothing it doesn't own.
+//
+// EXTRACTED SO THE SLEEPING BODY USES THE SAME PHYSICS. Sleep used to be a total, free
+// immunity to temperature — `resourceTick` skipped a sleeper before it reached this code, so
+// the canonical way to die of cold (fall asleep in it) was the one guaranteed way not to. It
+// also made a blizzard trivially survivable: lie down. A sleeper now drifts exactly like a
+// waking body, and `tickSleep` wakes them once the cold bites, which is both what a real body
+// does and the same courtesy hunger and thirst already extend ("your stomach wakes you up
+// before you starve in your sleep"). There is deliberately no sleep-specific rate: two copies
+// of this equation would drift apart, and the bed's protection is that it is usually INDOORS.
+//
+// Uses the BODY's zone, not `current_zone` — a dreamer's mind is in a dreamscape with no sky,
+// while the body it belongs to may be lying in the weather.
+// ── Metabolic heat ───────────────────────────────────────────────────────────
+// Below 10°C → cooling; above 35°C → heating; in the comfort band between, the body's own
+// thermoregulation restores the 37°C setpoint. THE THRESHOLD IS THE MODEL OF
+// THERMOREGULATION: a real body holds 37°C exactly until its defences are outmatched, and
+// only then starts losing ground. Everything past it is a body that has already lost.
+// Module-scope because `bodyHeatTerms` needs them to decide whether to shiver or sweat.
+const COLD_THRESHOLD = 10;
+const HOT_THRESHOLD = 35;
+
+// ── Rewarming ────────────────────────────────────────────────────────────────
+// The comfort band's pull back to 37°C. `REWARM_BASE` is the old flat constant and is now the
+// FLOOR — a body barely inside the band recovers exactly as slowly as it always did — while
+// every degree of genuine warmth above the threshold buys speed, to a hard ceiling.
+// The knee is set so a clothed body in a heated room (~22°C effective) lands near 2×, and only
+// something deliberately hot — a heater plus real winter gear — approaches the cap.
+const REWARM_BASE = 0.05;
+const REWARM_KNEE_C = 12;     // °C above COLD_THRESHOLD per +1× of recovery speed
+const REWARM_MAX_MULT = 3;    // …capped, so a fire is a strong advantage, never an instant reset
+
+// How much of its rated insulation a non-`hydrophobic` garment loses when completely soaked.
+// Real wet down loses ~90% of its loft; 0.8 keeps a sliver so a soaked coat is still marginally
+// better than bare skin, which is also true — it's a windbreak even when it isn't a blanket.
+const WET_INSULATION_LOSS = 0.8;
+// Sweat feeds the hygiene substrate's own meter (server/engine/hygiene.js) so a long hot day
+// smells like one. Thermal sweat was listed there as a source from the beginning and was the
+// one that never actually arrived.
+const SWEAT_HYGIENE_PER_MIN = 3;
+
+// A body is a furnace, not a rock, and this is the term the model was missing entirely: a
+// person who keeps moving in the cold survives conditions that kill a person who stands
+// still, and that is the single most iconic fact about cold survival there is.
+//
+// Both terms are expressed in °C of effective ambient, the same currency as `insulation`, so
+// they can be read against a garment at a glance: shivering is worth about a hoodie, running
+// about a wetsuit. That is roughly right in physiological terms too — resting metabolism is
+// ~100 W, brisk walking ~300 W, and shivering can reach ~500 W.
+const EXERTION_WINDOW_MS = 120_000;   // how long the furnace stays lit after you stop moving
+const EXERTION_WALK_C = 3;
+const EXERTION_RUN_C = 6;
+const SHIVER_WARMTH_C = 4;
+const SHIVER_STAMINA_PER_MIN = 2;
+// Shivering STOPS below ~32°C in a real body — the muscles can no longer be driven, and its
+// absence is a classic marker that mild hypothermia has become moderate. Keeping that here
+// is what turns the cold from a slope into a cliff: while you can shiver you hold the line,
+// and the moment you can't — out of stamina, or too far gone — the cooling rate jumps.
+const SHIVER_FLOOR_C = 32;
+
+// ── Sweat: the heat side's answer to shivering ───────────────────────────────
+// Humans are the best sweaters in the animal kingdom, and it is the whole reason we survive
+// heat that kills other mammals — so it is worth more than shivering is. But it is
+// EVAPORATIVE, which makes it not a flat bonus but a bonus multiplied by whether the air
+// will take the water. That is the wet-bulb story, and it is why humid heat kills at
+// temperatures dry heat doesn't.
+const SWEAT_COOLING_C = 7;
+const SWEAT_THIRST_PER_MIN = 2;   // sweating is spending water, and there is only so much
+// ANHIDROSIS. Sweating fails at the top exactly as shivering fails at the bottom: production
+// stops and the skin goes hot and dry. It is the classic sign that heat exhaustion has become
+// heat stroke — and the flavour pool has said "You're not sweating anymore. That's very bad."
+// for a long time while nothing in the model made it true.
+const SWEAT_CEILING_C = 41;
+// Below this much of the thirst bar, sweat starts to throttle. Dehydration doesn't just make
+// you thirsty, it takes away the thing keeping you alive.
+const SWEAT_HYDRATION_KNEE = 40;
+
+// How much of its rated cooling sweat actually delivers here, 0..1.
+function sweatEfficiency(player, zoneId) {
+  // Saturated air cannot accept more water: the sweat runs off you and cools nothing.
+  const hum = getZoneHumidity(zoneId);
+  let eff = Math.max(0, 1 - (hum ?? 50) / 100);
+  // Moving air carries the vapour away — the one place wind is your friend, and the exact
+  // mirror of wind chill. It scales rather than adds, because it cannot manufacture headroom
+  // that saturated air doesn't have.
+  eff *= 1 + Math.min(0.5, (getWindKph() || 0) / 60);
+  // You cannot sweat water you haven't got.
+  eff *= Math.max(0, Math.min(1, (player.thirst ?? 100) / SWEAT_HYDRATION_KNEE));
+  // A sealed shell is boil-in-the-bag: the garment that saves you in a gale traps every drop
+  // against your skin in a heatwave. Deliberately reuses `windproof` — one real property,
+  // honestly cutting both ways.
+  eff *= 1 - 0.5 * (player.windproof || 0);
+  return Math.max(0, Math.min(1, eff));
+}
+
+// The body's own contribution, in °C, to each side of the ledger.
+//   warmth — added to the COLD side (exertion + shivering)
+//   load   — added to the HOT side  (exertion − sweating)
+// Exertion appears in BOTH, with the same sign, because a working body produces the same
+// watts whichever way the weather is trying to kill it. That is what makes the optimal play
+// opposite at the two extremes: keep moving in the cold, sit still in the heat.
+function bodyHeatTerms(player, cooling, heating, zoneId) {
+  const sinceMove = Date.now() - (player._lastMoveAt ?? 0);
+  const exertion = sinceMove < EXERTION_WINDOW_MS
+    ? (player.running ? EXERTION_RUN_C : EXERTION_WALK_C) : 0;
+
+  player._shivering = false;
+  let shiver = 0;
+  if (cooling && (player.body_temp_c ?? 37) >= SHIVER_FLOOR_C && (player.stamina ?? 0) >= SHIVER_STAMINA_PER_MIN) {
+    player._shivering = true;
+    shiver = SHIVER_WARMTH_C;
+  }
+
+  player._sweating = false;
+  let sweat = 0;
+  if (heating && (player.body_temp_c ?? 37) <= SWEAT_CEILING_C && (player.thirst ?? 0) >= SWEAT_THIRST_PER_MIN) {
+    const eff = sweatEfficiency(player, zoneId);
+    if (eff > 0.01) { player._sweating = true; sweat = SWEAT_COOLING_C * eff; }
+  }
+
+  // A hot drink or a hand warmer. Cold side only, and see warmth.js for why: a mug of cocoa
+  // is thermally negligible, so it is honestly modelled as a DEFENCE rather than as calories.
+  return { warmth: exertion + shiver + warmthBonus(player), load: exertion - sweat };
+}
+
+// ── The drift curve ──────────────────────────────────────────────────────────
+// °C per game-minute the core moves, given how far past the threshold the body is.
+//
+// The exponent was 1.75, and the tail it produced was the least realistic number in the
+// model: at a 50° deficit (arctic air on bare skin) it cooled 37→30 in three and a half
+// minutes, against a couple of HOURS in reality — while ordinary cold, where players
+// actually spend their time, was only about 4× fast. The error was concentrated almost
+// entirely in the extremes.
+//
+// It is 1.25 now, for a reason rather than a nerf. The steep curve was standing in for
+// something real — a body's defences collapsing as it loses — but that collapse is
+// SHIVERING, and shivering is now an explicit term above (worth +4°C, costing stamina, and
+// switching off below 32°C). Modelling it twice was the mistake. With the compensation
+// explicit, what remains below the threshold is a body whose defence is already saturated,
+// and that is close to Newton's law: heat loss roughly linear in ΔT, with a little
+// steepening for radiative loss and failing vasoconstriction. 1.25 is that.
+//
+// PIVOTED, not merely flattened: the coefficient is solved so the rate at a 10° deficit is
+// exactly what it always was. Ordinary cold is therefore untouched — it was the closest to
+// right and is the case players meet most — and only the tail stretches, roughly doubling
+// survival time in genuinely extreme conditions. At a 50° deficit that is 3.5 minutes → 8.
+// Still lethal, but now long enough to be a journey to shelter rather than a coin flip.
+const DRIFT_EXPONENT   = 1.25;
+const DRIFT_PIVOT_DIFF = 10;        // the deficit the curve is anchored at…
+const DRIFT_PIVOT_RATE = 0.1125;    // …and the °C/min there, carried over from the old curve
+const DRIFT_COEFF = DRIFT_PIVOT_RATE / Math.pow(DRIFT_PIVOT_DIFF, DRIFT_EXPONENT);
+const driftRate = (absDiff) => DRIFT_COEFF * Math.pow(absDiff, DRIFT_EXPONENT);
+
+// °C of warmth the body is currently generating for itself. `cooling` gates shivering: you
+// don't shiver in a warm room, and you certainly don't shiver in a heatwave.
+function metabolicWarmth(player, cooling) {
+  let warmth = 0;
+  const sinceMove = Date.now() - (player._lastMoveAt ?? 0);
+  if (sinceMove < EXERTION_WINDOW_MS) warmth += player.running ? EXERTION_RUN_C : EXERTION_WALK_C;
+  player._shivering = false;
+  if (cooling && (player.body_temp_c ?? 37) >= SHIVER_FLOOR_C && (player.stamina ?? 0) >= SHIVER_STAMINA_PER_MIN) {
+    player._shivering = true;
+    warmth += SHIVER_WARMTH_C;
+  }
+  return warmth;
+}
+
+export function driftBodyTemperature(player, gm) {
+  const bodyZone = bodyZoneOf(player);
+  const tempOffset = world.zones.get(bodyZone)?.flags?.temp_offset || 0;
+  // Apparent ("feels like") temperature — folds the day's wind chill and
+  // humidity into the ambient the body actually has to cope with (outdoors).
+  // A SUBMERGED swimmer (player._submerged, owned by the swimming plugin) drifts
+  // toward the cold WATER temperature instead, and is soaked (full wet multiplier)
+  // regardless of gear — a long cold swim pulls the core toward hypothermia via
+  // the existing cold-drift + <30°C lethal path. Insulation (a wetsuit) still
+  // applies, so gear can offset the pull.
+  const submerged = !!player._submerged;
+  // WINDPROOFING gives back the wind's share of the feels-like temperature for the slots a
+  // shell covers. It has to happen here rather than inside getZoneApparentTemperature because
+  // the chill is a property of the ZONE and the shell is a property of the PLAYER; without
+  // it, wind chill was applied to the ambient before any clothing and so bit a bundled-up
+  // player exactly as hard as a naked one, which is the opposite of what a shell is for.
+  // Underwater there is no wind, and no shell.
+  const chill = submerged ? 0 : windChillDelta(bodyZone, tempOffset);
+  const effectiveAmbient = submerged
+    ? waterTemperature(bodyZone)
+    : getZoneApparentTemperature(bodyZone, tempOffset) - chill * (player.windproof || 0);
+
+  const playerWetness = submerged ? 100 : (player.wetness ?? 0);
+
+  // WET INSULATION. Soaked clothing stops being clothing — wet down loses most of its loft,
+  // which is the whole reason "cotton kills" is a saying. Only the `hydrophobic` share
+  // (`player.insulationWet`: wool, neoprene, sealed shells, wicking synthetics) survives a
+  // soaking; the rest is interpolated away on `player.wetness`. Before this, wetness was a
+  // flat multiplier on the drift RATE and never touched insulation at all, so a soaked
+  // arctic parka insulated exactly as well as a dry one — the single largest inaccuracy left
+  // in the model. It applies to BOTH sides on purpose: wet clothing traps less heat too, so
+  // the same rule that makes a wet hoodie dangerous in the cold makes it cooler in a heatwave.
+  const insDry  = player.insulation || 0;
+  const insKept = Math.min(insDry, player.insulationWet || 0);
+  const insulation = insKept + (insDry - insKept) * (1 - (playerWetness / 100) * WET_INSULATION_LOSS);
+
+  // Effective temperature = ambient + clothing insulation (insulation in °C offset).
+  // Bare core skin (no torso/legs clothing) subtracts an exposure penalty on the
+  // cold side only — nakedness bites in the cold but still vents heat when hot.
+  const clothed = effectiveAmbient + insulation;
+  const bared   = clothed - (player.exposurePenalty || 0);
+
+  // The body's own terms, evaluated against the PRE-metabolic figures so the decision to
+  // shiver or sweat is about the environment rather than about how well it's already working.
+  const { warmth, load } = bodyHeatTerms(player, bared < COLD_THRESHOLD, clothed > HOT_THRESHOLD, bodyZone);
+  const warmthTemp = bared + warmth;
+  const heatTemp   = clothed + load;
+  // Neither defence is free, and that is what makes weather a RESOURCE problem rather than a
+  // timer. Shivering burns stamina; sweating burns water. Hold out long enough either way and
+  // the tank empties, the defence stops, and the drift steps up at the worst possible moment.
+  if (player._shivering) player.stamina = Math.max(0, (player.stamina ?? 0) - SHIVER_STAMINA_PER_MIN * gm);
+  tickWarmth(player, gm);
+  if (player._sweating) {
+    player.thirst = Math.max(0, (player.thirst ?? 0) - SWEAT_THIRST_PER_MIN * gm);
+    // The smell of it is somebody else's system; this just tells them it happened.
+    addSweat(player, SWEAT_HYGIENE_PER_MIN * gm);
+  }
+
+  const cooling = warmthTemp < COLD_THRESHOLD;
+  const heating = heatTemp > HOT_THRESHOLD;
+  // Drift rates are °C per GAME-minute, so multiply by the game-minutes elapsed
+  // this tick (gm) — at 3× the core cools/warms three times as fast per real
+  // minute, keeping thermal exposure proportional to the sped-up day.
+  if (cooling) {
+    const absDiff = COLD_THRESHOLD - warmthTemp;
+    const wetMult = 1 + (playerWetness / 100);
+    player.body_temp_c = (player.body_temp_c ?? 37.0) - driftRate(absDiff) * wetMult * gm;
+  } else if (heating) {
+    const absDiff = heatTemp - HOT_THRESHOLD;
+    const wetMult = Math.max(0.70, 1 - playerWetness * 0.003);
+    player.body_temp_c = (player.body_temp_c ?? 37.0) + driftRate(absDiff) * wetMult * gm;
+  } else {
+    // Comfort band: metabolic thermoregulation pulls the core back to 37°C, by exponential
+    // relaxation, compounded over gm so it tracks the game-speed knob.
+    //
+    // WARMTH IS A GRADIENT, NOT A DOOR. This rate used to be a flat 0.05/min with
+    // `warmthTemp` nowhere in it, which meant a 20°C room, a 35°C sauna and a freezing
+    // corridor-with-a-good-coat all rewarmed you at exactly the same speed. Being WARMER than
+    // merely comfortable did nothing at all — and that, not missing content, is why the game
+    // had no fires, heaters, blankets or hot drinks: there was no mechanic that would have
+    // rewarded authoring one. A brazier would have been a decoration.
+    //
+    // So recovery now scales with how far past the cold threshold you actually are, capped so
+    // that huddling somewhere hot is a strong advantage rather than an instant reset. The
+    // floor is the old constant, so being barely-in-the-band is exactly as slow as it ever
+    // was; everything above it is new headroom that clothing, shelter and heat sources buy.
+    const cur = player.body_temp_c ?? 37.0;
+    const diff = 37.0 - cur;
+    const over = Math.max(0, warmthTemp - COLD_THRESHOLD);
+    const mult = 1 + Math.min(REWARM_MAX_MULT - 1, over / REWARM_KNEE_C);
+    const rate = 1 - Math.pow(1 - REWARM_BASE * mult, gm);
+    player.body_temp_c = Math.abs(diff) < 0.1 ? 37.0 : cur + diff * rate;
+  }
+
+  // Clamp to survivable range; prevents runaway values on extreme ticks.
+  player.body_temp_c = Math.round(Math.max(25, Math.min(45, player.body_temp_c ?? 37.0)) * 10) / 10;
+  return player.body_temp_c;
+}
+
+// What being awake far too long does to the inside of your head. Deliberately
+// unglamorous — this is not a trip, it is the room going wrong at the edges.
+const SLEEP_DEPRIVED_MESSAGES = [
+  `<span class="text-dim">Something crosses the corner of your vision. Nothing is there when you look.</span>`,
+  `<span class="text-dim">You lose a few seconds standing up, and don't know where they went.</span>`,
+  `<span class="text-dim">Your own thoughts arrive slightly out of order, like someone else is saying them.</span>`,
+  `<span class="text-dim">The light has a grain to it now. You need to sleep.</span>`,
+  `<span class="text-dim">You blink and the room is a half-step to the left of where you left it.</span>`,
+];
+
 async function resourceTick() {
   // Idle short-circuit (Phase 7c): the loop below already no-ops with zero
   // players — this just makes idle-safety explicit so future pre-loop work
@@ -1086,22 +1378,30 @@ async function resourceTick() {
   try { worldWeather = getEnvironmentState(); } catch { worldWeather = null; }
   const isAshfall = worldWeather?.weatherType === 'ash';
   for (const [playerId, player] of world.players) {
-    if (player.sleeping) {
-      const result = await tickSleep(player, broadcastFn);
-      if (result) broadcastFn(null, result, null, playerId);
-      continue;
-    }
-
     // Game-minutes elapsed this real tick, per the game-speed knob (state.timeScale).
     // A fractional scale (e.g. 1.5×) is carried in _gmAccum so no partial minute is
     // ever lost between ticks. At 1× this is exactly 1 per tick — unchanged behaviour.
+    // Computed BEFORE the sleep branch: time passes for a sleeping body too, and the
+    // temperature drift below needs the same clock the waking one gets.
     const gm = (() => {
       player._gmAccum = (player._gmAccum || 0) + getTimeScale();
       const whole = Math.floor(player._gmAccum);
       player._gmAccum -= whole;
       return whole;
     })();
+
+    if (player.sleeping) {
+      // The one piece of survival physics that follows you into bed. Everything else a
+      // sleeper needs (hunger, thirst, healing, dreams) is tickSleep's business; core
+      // temperature is not, because it's the same equation as the waking body's and must
+      // not become a second copy of it. tickSleep reads the result and wakes on cold.
+      driftBodyTemperature(player, gm);
+      const result = await tickSleep(player, broadcastFn);
+      if (result) broadcastFn(null, result, null, playerId);
+      continue;
+    }
     player._tickCounter = (player._tickCounter || 0) + gm;
+    const prevSanity = player.sanity;
     const messages = [];
     let hpChanged = false;
     // The survival system labels its own kill: whichever hazard last dealt
@@ -1121,8 +1421,11 @@ async function resourceTick() {
       while (player._hungerAccum >= HUNGER_DECAY_INTERVAL_MIN) { player._hungerAccum -= HUNGER_DECAY_INTERVAL_MIN; if (player.hunger > 0) player.hunger = Math.max(0, player.hunger - 1); }
     }
 
-    if (player.hunger > 0 && player.hunger <= 20) messages.push('You are very hungry.');
-    if (player.thirst > 0 && player.thirst <= 20) messages.push('You are very thirsty.');
+    // Hunger and thirst, banded. Unequal widths (fine resolution where the danger is), a
+    // cadence that shortens as it worsens, and crossing treated as an event — see
+    // appetite.js for why the single every-minute "You are very hungry." it replaced was
+    // worse than saying nothing.
+    for (const line of appetiteMessages(player, gm)) messages.push(line);
 
     // Starvation/dehydration are slow but genuinely lethal if ignored —
     // small, steady damage rather than a hard floor that can never kill.
@@ -1159,58 +1462,30 @@ async function resourceTick() {
     // --- Body temperature drift ---
     const prevBodyTemp = player.body_temp_c ?? 37.0;
     const zone = world.zones.get(player.current_zone);
-    const tempOffset = zone?.flags?.temp_offset || 0;
-    // Apparent ("feels like") temperature — folds the day's wind chill and
-    // humidity into the ambient the body actually has to cope with (outdoors).
-    // A SUBMERGED swimmer (player._submerged, owned by the swimming plugin) drifts
-    // toward the cold WATER temperature instead, and is soaked (full wet multiplier)
-    // regardless of gear — a long cold swim pulls the core toward hypothermia via
-    // the existing cold-drift + <30°C lethal path below. Insulation (a wetsuit) still
-    // applies, so gear can offset the pull.
-    const submerged = !!player._submerged;
-    const effectiveAmbient = submerged
-      ? waterTemperature(player.current_zone)
-      : getZoneApparentTemperature(player.current_zone, tempOffset);
+    driftBodyTemperature(player, gm);
 
-    // Effective temperature = ambient + clothing insulation (insulation in °C offset).
-    // Bare core skin (no torso/legs clothing) subtracts an exposure penalty on the
-    // cold side only — nakedness bites in the cold but still vents heat when hot.
-    const warmthTemp = effectiveAmbient + (player.insulation || 0) - (player.exposurePenalty || 0);
-    const heatTemp   = effectiveAmbient + (player.insulation || 0);
-    const playerWetness = submerged ? 100 : (player.wetness ?? 0);
-
-    // Below 10°C → cooling; above 35°C → heating; in the comfort band between,
-    // the body's own thermoregulation restores the 37°C setpoint.
-    // Drift rate = 0.002 * |diff|^1.75 °C/min (e.g. diff=10 → 0.11°C/min; diff=20 → 0.38°C/min).
-    const COLD_THRESHOLD = 10;
-    const HOT_THRESHOLD = 35;
-    const cooling = warmthTemp < COLD_THRESHOLD;
-    const heating = heatTemp > HOT_THRESHOLD;
-    // Drift rates are °C per GAME-minute, so multiply by the game-minutes elapsed
-    // this tick (gm) — at 3× the core cools/warms three times as fast per real
-    // minute, keeping thermal exposure proportional to the sped-up day.
-    if (cooling) {
-      const absDiff = COLD_THRESHOLD - warmthTemp;
-      const baseDrift = 0.002 * Math.pow(absDiff, 1.75); // °C per minute
-      const wetMult = 1 + (playerWetness / 100);
-      player.body_temp_c = (player.body_temp_c ?? 37.0) - baseDrift * wetMult * gm;
-    } else if (heating) {
-      const absDiff = heatTemp - HOT_THRESHOLD;
-      const baseDrift = 0.002 * Math.pow(absDiff, 1.75); // °C per minute
-      const wetMult = Math.max(0.70, 1 - playerWetness * 0.003);
-      player.body_temp_c = (player.body_temp_c ?? 37.0) + baseDrift * wetMult * gm;
-    } else {
-      // Comfort band: metabolic thermoregulation pulls core back to 37°C.
-      // Exponential relaxation (~0.05/min): a 3°C deficit recovers in ~35 min —
-      // enough to warm up indoors without trivializing cold exposure. Compounded
-      // over gm game-minutes so it tracks the game-speed knob.
-      const cur = player.body_temp_c ?? 37.0;
-      const diff = 37.0 - cur;
-      player.body_temp_c = Math.abs(diff) < 0.1 ? 37.0 : cur + diff * (1 - Math.pow(0.95, gm));
+    // SHIVERING, and the moment it stops. Starting to shiver is a warning; stopping is the
+    // emergency, because it only happens two ways and both are bad — the tank is empty, or
+    // you're already too cold to drive the muscles. Called out explicitly because the player
+    // otherwise experiences the resulting jump in cooling rate as the game misbehaving.
+    if (player._shivering && !player._wasShivering) messages.push('You start to shiver.');
+    else if (!player._shivering && player._wasShivering) {
+      messages.push((player.body_temp_c ?? 37) < 34
+        ? '<span style="color:var(--red)">You stop shivering. That should frighten you more than it does.</span>'
+        : 'You stop shivering.');
     }
+    player._wasShivering = player._shivering;
 
-    // Clamp to survivable range; prevents runaway values on extreme ticks.
-    player.body_temp_c = Math.round(Math.max(25, Math.min(45, player.body_temp_c ?? 37.0)) * 10) / 10;
+    // …and its mirror. Sweating failing at the top is anhidrosis, and it is exactly as bad a
+    // sign as shivering failing at the bottom — the difference between heat exhaustion and
+    // heat stroke. The flavour pool has claimed this line for a long time; now it is earned.
+    if (player._sweating && !player._wasSweating) messages.push('You break out in a sweat.');
+    else if (!player._sweating && player._wasSweating) {
+      messages.push((player.body_temp_c ?? 37) > 40
+        ? '<span style="color:var(--red)">You stop sweating. Your skin goes hot and dry, and that is the worst thing that has happened today.</span>'
+        : 'You stop sweating.');
+    }
+    player._wasSweating = player._sweating;
 
     // Temperature effects
     const tempC = player.body_temp_c;
@@ -1233,10 +1508,12 @@ async function resourceTick() {
       if (isFreezing) { messages.push(`Hypothermia is damaging your body. (-10 HP) [${player.hp}/${player.hp_max ?? 100} HP]`); lethalCause = { type: 'survival', label: 'Exposure (cold)' }; }
       else { messages.push(`Heat stroke is damaging your body. (-10 HP) [${player.hp}/${player.hp_max ?? 100} HP]`); lethalCause = { type: 'survival', label: 'Exposure (heat)' }; }
     }
-    // Hot/overheating: increased thirst drain
-    if ((isHot || isOverheating) && Math.random() < 0.5) {
-      player.thirst = Math.max(0, player.thirst - 1);
-    }
+    // No separate "hot bodies get thirsty" drain any more: SWEATING owns thirst in the heat
+    // now, and it does it better — it drains while you're actually defending yourself rather
+    // than only once your core is already over 40°C, and it stops when anhidrosis sets in,
+    // which is both correct and quietly the most sinister readout in the game. Keeping the
+    // old flat drain alongside it would have been the same double-count that put a schwa on
+    // the wrong formant: two models of one phenomenon, fighting.
 
     const flavorMsg = tempFlavorMessage(tempC, player._tickCounter);
     if (flavorMsg) messages.push(flavorMsg);
@@ -1269,6 +1546,36 @@ async function resourceTick() {
       player.stamina = Math.max(0, player.stamina - 1);
     }
 
+    // --- Sleep deprivation ---
+    // Past the point where fatigue is merely a stat penalty, staying up starts
+    // costing you your mind. This is the tooth the fatigue system was missing:
+    // the stat bands are deliberately gentle (condition.js says so in as many
+    // words), so without this the correct play at 100% wrecked was to shrug and
+    // keep going. Sanity is the right currency for it — the sanity plugin already
+    // owns the consequences of a low meter, so this needs no new failure mode of
+    // its own, and sleep is one of the few things that restores it.
+    //
+    // Reads fatigueOf, which a stimulant has already moved: being wired genuinely
+    // holds the madness off, and the crash genuinely brings it on.
+    const tired = fatigueOf(player);
+    if (tired >= FATIGUE_RUINED && player.sanity > 0) {
+      // Ramped, not flat: the second night frays you and the third one takes you
+      // apart. Game-minutes per point of sanity, so at the top the meter empties
+      // in about half an hour of play and staying up stops being a choice you can
+      // keep making.
+      const perPoint = tired >= 99 ? 1 : tired >= 93 ? 3 : 6;
+      player._sleepDeprivedAccum = (player._sleepDeprivedAccum || 0) + gm;
+      let lost = 0;
+      while (player._sleepDeprivedAccum >= perPoint && player.sanity > 0) {
+        player._sleepDeprivedAccum -= perPoint;
+        player.sanity = Math.max(0, player.sanity - 1);
+        lost++;
+      }
+      if (lost && Math.random() < 0.25) messages.push(SLEEP_DEPRIVED_MESSAGES[Math.floor(Math.random() * SLEEP_DEPRIVED_MESSAGES.length)]);
+    } else {
+      player._sleepDeprivedAccum = 0;
+    }
+
     // Diff-gate the write (Phase 6): only persist when one of the five tracked
     // values actually changed since the last successful write in this process.
     // Basis is the in-memory stamp, never a DB re-read — avoids a round-trip and
@@ -1282,6 +1589,7 @@ async function resourceTick() {
     const changed = !last
       || last.hunger !== player.hunger || last.thirst !== player.thirst
       || last.hp !== player.hp || last.stamina !== player.stamina
+      || last.sanity !== player.sanity
       || Math.round(last.body_temp_c * 2) !== Math.round(player.body_temp_c * 2);
     if (changed) {
       // Defer the write to the batched flush after the loop; the _lastSavedResources
@@ -1299,7 +1607,7 @@ async function resourceTick() {
     }
 
     const bodyTempChanged = player.body_temp_c !== prevBodyTemp;
-    if (messages.length || bodyTempChanged) broadcastFn(null, { type:'resource_tick', messages, player_update:{hunger:player.hunger,thirst:player.thirst,hp:player.hp,stamina:player.stamina,body_temp_c:player.body_temp_c} }, null, playerId);
+    if (messages.length || bodyTempChanged || player.sanity !== prevSanity) broadcastFn(null, { type:'resource_tick', messages, player_update:{hunger:player.hunger,thirst:player.thirst,hp:player.hp,stamina:player.stamina,body_temp_c:player.body_temp_c,sanity:player.sanity} }, null, playerId);
 
     if (player.hp <= 0) {
       await handlePlayerDeath(player, null, lethalCause);
@@ -1315,21 +1623,25 @@ async function resourceTick() {
     const players = [...dirtyResources];
     const rows = [], params = [];
     players.forEach((p, i) => {
-      const b = i * 6;
-      rows.push(`($${b + 1}::text, $${b + 2}::int, $${b + 3}::int, $${b + 4}::int, $${b + 5}::int, $${b + 6}::real)`);
-      params.push(p.id, p.hunger, p.thirst, p.hp, p.stamina, p.body_temp_c);
+      const b = i * 7;
+      rows.push(`($${b + 1}::text, $${b + 2}::int, $${b + 3}::int, $${b + 4}::int, $${b + 5}::int, $${b + 6}::real, $${b + 7}::int)`);
+      params.push(p.id, p.hunger, p.thirst, p.hp, p.stamina, p.body_temp_c, p.sanity);
     });
     try {
       await query(
-        `UPDATE players AS pl SET hunger=v.hunger, thirst=v.thirst, hp=v.hp, stamina=v.stamina, body_temp_c=v.btemp
-         FROM (VALUES ${rows.join(', ')}) AS v(id, hunger, thirst, hp, stamina, btemp)
+        // sanity rides this write rather than a second one: the sleep-deprivation
+        // bleed above is the first thing in resourceTick to move the meter, and a
+        // per-minute round trip of its own for one integer would be the exact
+        // mistake the batched write was built to stop.
+        `UPDATE players AS pl SET hunger=v.hunger, thirst=v.thirst, hp=v.hp, stamina=v.stamina, body_temp_c=v.btemp, sanity=v.sanity
+         FROM (VALUES ${rows.join(', ')}) AS v(id, hunger, thirst, hp, stamina, btemp, sanity)
          WHERE pl.id = v.id`,
         params
       );
       // Stamp + counter resets only after the batch succeeds (matches the old
       // per-row semantics: the stamp reflects the last SUCCESSFUL persist).
       for (const p of players) {
-        p._lastSavedResources = { hunger: p.hunger, thirst: p.thirst, hp: p.hp, stamina: p.stamina, body_temp_c: p.body_temp_c };
+        p._lastSavedResources = { hunger: p.hunger, thirst: p.thirst, hp: p.hp, stamina: p.stamina, body_temp_c: p.body_temp_c, sanity: p.sanity };
         p._resourceNoWriteTicks = 0;
         p._resourceTripwireWarned = false;
       }

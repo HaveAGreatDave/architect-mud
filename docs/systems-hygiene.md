@@ -130,6 +130,17 @@ only reach ~27. You have to have stopped washing as well.
 `checkFilthy` latches per descent (cleared when you climb back out) and runs on
 bodily's 1m tick, never on the smell path.
 
+## Sewer grime
+
+Same shape as sweat, deliberately: a runtime-only meter (`player._sewerGrime`,
+no column, no query), incremented a little on every step into a zone whose
+`flags.district === 'sewer'` (checked inline in `cmdMove` off the zone object
+it already loaded, so this costs nothing beyond a field read), and cooled on
+the same 1m tick that dries sweat. A single pass-through barely registers;
+loitering or crossing repeatedly does. It rinses off with the rest of you on
+any `markWashed` call — no special verb, no soap required — and contributes to
+`hygieneOf`'s score and room-smell pass exactly like sweat does.
+
 ## Soap
 
 `item_soap_block` (4₵, tag `soap`) is what turns a rinse into a wash: `wash`

@@ -1083,6 +1083,11 @@ async function finishAuth(ws, session, player) {
 		"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), last_slept_at=CASE WHEN offline_sleeping THEN EXTRACT(EPOCH FROM NOW())*1000 ELSE last_slept_at END, offline_sleeping=FALSE, died_offline=FALSE WHERE id=$1",
 		[player.id],
 	);
+	// ...and mirror that onto the live object. livePlayer was built from the
+	// PRE-update row, and fatigueOf() reads the live object — without this the
+	// session right after a logout plays at the fatigue you logged off with and
+	// only reads as rested on the NEXT login.
+	if (player.offline_sleeping) livePlayer.last_slept_at = Date.now();
 
 	broadcast(
 		livePlayer.current_zone,

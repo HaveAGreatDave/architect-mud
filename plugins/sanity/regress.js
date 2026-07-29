@@ -6,8 +6,13 @@
 // by the trip plugin's suite.
 import { bandFor, intensityFor, hooks } from './index.js';
 import { getPhantoms } from '../../server/engine/phantoms.js';
+import regressVoices from './regress-voices.js';
 
 export default async function regress({ run, check, getPlayer }) {
+  // The forgery suite: a hallucinated line must stay byte-identical to a real one, and the
+  // two formats it copies live in files that know nothing about this one.
+  regressVoices({ check });
+
   const p = getPlayer();
   const orig = p.sanity;
 

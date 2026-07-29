@@ -6,6 +6,7 @@
   "tags": {
     "bulkiness": 1,
     "description": "A skin-tight base layer of thermex mesh that traps a thin cushion of warm air against the body. Cheap, reactive, and worn under everything by anyone who's spent one night outdoors and learned the lesson.",
+    "hydrophobic": true,
     "insulation": 2,
     "layer": "outerwear",
     "slot": "torso"

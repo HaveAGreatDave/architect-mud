@@ -27,6 +27,36 @@
    client/shared/themes.css (linked after this file). The "dark"/Void default
    above IS this client's base theme. Add new themes there, not here. */
 
+/* ── Scrollbars, everywhere ───────────────────────────────────────────────────
+   The OS scrollbar is the one piece of chrome that ignores the theme, and a
+   chunky grey Windows bar down the side of a neon terminal wrecks it instantly.
+   Scroll containers used to be themed one id at a time (#output, #area-pane,
+   #map-box, the theme editor's panes…), which meant every NEW scrolling element
+   shipped with the default until somebody noticed. This is the baseline for all
+   of them, off the theme vars, so a scroll area is themed by default and the
+   bespoke rules further down still win on specificity where they want something
+   different (the sidebar's fade-in-on-hover bar, the wardrobe's brass).
+
+   `*` rather than `html`: WebKit does not inherit scrollbar pseudo-elements to
+   descendants, so an inner div would otherwise keep the grey one. */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--border) transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+	background: var(--border);
+	border-radius: 4px;
+	/* An inset border keeps the thumb off the track edges — a hairline bar
+	   floating in the gutter rather than a slab filling it. */
+	border: 2px solid transparent;
+	background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); background-clip: content-box; }
+/* Where two scrollbars meet. Left unstyled it is a light grey square. */
+*::-webkit-scrollbar-corner { background: transparent; }
+
 /* Theme swatch picker (settings) — replaces the flat theme <select> */
 .theme-grid-wrap { max-height: 300px; overflow-y: auto; }
 /* Theme-editor scroll areas honour the active theme instead of the OS default */
@@ -190,102 +220,99 @@ textarea {
 	border-right: 1px solid var(--border);
 }
 
-[data-density="compact"] #main {
-	grid-template-columns: 1fr;
+/* THE PHONE CHROME. One authority, and it is the data-density flag rather than a
+ viewport query, because the flag is also true for a touch device that happens to
+ be WIDER than 720px (a tablet, a handset in landscape). Those used to get the
+ collapsed layout from the twinned rules below while missing everything that only
+ existed in the media query — half a phone UI on a wide screen. Panel-level
+ layout (map, wardrobe, shop, TV) deliberately stays on real viewport queries:
+ that IS a question about available pixels, and a 1024px tablet should get the
+ wide version. main.js keeps the flag live on resize/orientationchange. */
+html[data-density="compact"] body {
+	height: 100dvh;
 }
-
-[data-density="compact"] #sidebar {
+html[data-density="compact"] #main {
+	grid-template-columns: 1fr;
+	grid-template-rows: 1fr;
+	overflow: hidden;
+}
+html[data-density="compact"] #output-container {
+	border-right: none;
+}
+html[data-density="compact"] #sidebar {
 	display: none;
 }
 
-/* Narrow viewport — hide sidebar, keep full-height layout in viewport */
-@media (max-width: 720px) {
-	body {
-		height: 100dvh;
-	}
-	#main {
-		grid-template-columns: 1fr;
-		grid-template-rows: 1fr;
-		overflow: hidden;
-	}
-	#output-container {
-		border-right: none;
-	}
-	#sidebar {
-		display: none;
-	}
+/* Header: compress so all items fit on one line */
+html[data-density="compact"] #header {
+	padding: 4px 8px;
+	gap: 6px;
+	flex-wrap: nowrap;
+	overflow: hidden;
+}
+html[data-density="compact"] #header .logo {
+	font-size: 11px;
+	letter-spacing: 1px;
+	flex-shrink: 0;
+}
+html[data-density="compact"] #header .conn-status {
+	font-size: 10px;
+	flex-shrink: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+html[data-density="compact"] #header .handle-display {
+	font-size: 11px;
+	flex-shrink: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	margin-left: auto;
+}
+html[data-density="compact"] #header .credits-display {
+	font-size: 11px;
+	padding: 1px 5px;
+	flex-shrink: 0;
+}
+html[data-density="compact"] #settings-btn,
+html[data-density="compact"] #signout-btn {
+	font-size: 13px;
+	width: 24px;
+	height: 24px;
+	flex-shrink: 0;
+}
 
-	/* Header: compress so all items fit on one line */
-	#header {
-		padding: 4px 8px;
-		gap: 6px;
-		flex-wrap: nowrap;
-		overflow: hidden;
-	}
-	#header .logo {
-		font-size: 11px;
-		letter-spacing: 1px;
-		flex-shrink: 0;
-	}
-	#header .conn-status {
-		font-size: 10px;
-		flex-shrink: 1;
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	#header .handle-display {
-		font-size: 11px;
-		flex-shrink: 1;
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		margin-left: auto;
-	}
-	#header .credits-display {
-		font-size: 11px;
-		padding: 1px 5px;
-		flex-shrink: 0;
-	}
-	#settings-btn,
-	#signout-btn {
-		font-size: 13px;
-		width: 24px;
-		height: 24px;
-		flex-shrink: 0;
-	}
-
-	#quick-cmds {
-		overflow-x: auto;
-		flex-wrap: nowrap;
-		padding: 6px 10px;
-		gap: 6px;
-	}
-	.qcmd {
-		font-size: 13px;
-		padding: 8px 14px;
-		min-height: 36px;
-		flex-shrink: 0;
-	}
-	#cmd-input {
-		font-size: 16px; /* prevents iOS viewport zoom on focus */
-	}
-	#look-resize-handle {
-		display: none;
-	}
-	#auth-box {
-		width: 95vw;
-		padding: 18px 14px 24px;
-	}
-	#auth-ascii {
-		font-size: 9px;
-	}
-	#auth-title {
-		font-size: 7px;
-		letter-spacing: 0;
-	}
+html[data-density="compact"] #quick-cmds {
+	overflow-x: auto;
+	flex-wrap: nowrap;
+	padding: 6px 10px;
+	gap: 6px;
+}
+html[data-density="compact"] .qcmd {
+	font-size: 13px;
+	padding: 8px 14px;
+	min-height: 36px;
+	flex-shrink: 0;
+}
+html[data-density="compact"] #cmd-input {
+	font-size: 16px; /* prevents iOS viewport zoom on focus */
+}
+html[data-density="compact"] #look-resize-handle {
+	display: none;
+}
+html[data-density="compact"] #auth-box {
+	width: 95vw;
+	padding: 18px 14px 24px;
+}
+html[data-density="compact"] #auth-ascii {
+	font-size: 9px;
+}
+html[data-density="compact"] #auth-title {
+	font-size: 7px;
+	letter-spacing: 0;
 }
 
 /* Auth screen — compact/mobile overrides */
@@ -10614,7 +10641,11 @@ body.asleep #area-pane { opacity: 0.25; }
 }
 
 /* ── TV panel: mobile overrides ─────────────────────────────────────────────── */
-@media (max-width: 600px) {
+/* 720px, not 600 — the client is already in its mobile layout (sidebar gone,
+   mobile vitals up) from 720 down, and a 601–720px handset was getting a
+   desktop-scaled TV set inside it. The sports sub-screens (gameday, the rink)
+   render into #tv-content, so this is also what keeps them legible. */
+@media (max-width: 720px) {
 	#tv-window {
 		/* Square-ish: fills most of the viewport width, height matches */
 		width: min(96vw, 96vh);
@@ -13156,12 +13187,17 @@ input.trade-qty { width: 56px; }
 	justify-content: space-between;
 	align-items: center;
 }
+#wardrobe-header {
+	padding-bottom: 8px;
+	border-bottom: 1px solid rgba(185, 139, 74, 0.22);
+}
 #wardrobe-header h2 {
 	color: #e0b978;
 	font-size: 14px;
 	letter-spacing: 3px;
 	text-transform: uppercase;
 	margin: 0;
+	text-shadow: 0 0 12px rgba(224, 185, 120, 0.28);
 }
 #wardrobe-close {
 	background: transparent;
@@ -13173,12 +13209,30 @@ input.trade-qty { width: 56px; }
 	border-radius: 2px;
 }
 #wardrobe-close:hover { border-color: #e0b978; color: #e0b978; }
+/* The status line — now a pill rather than loose text, because it is answering a
+   gesture you just made ("Combat plate → Plate, replacing work shirt") and needs
+   to look like a reply. It reserves its own height whether or not it has content,
+   so the doll never jumps a row when a message arrives; :empty only drops the
+   chrome, never the space. */
 #wardrobe-notify {
+	align-self: center;
+	max-width: 100%;
+	padding: 3px 12px;
+	min-height: 20px;
+	box-sizing: border-box;
 	font-size: 11px;
-	color: var(--yellow, #c8a000);
+	letter-spacing: 0.3px;
 	text-align: center;
-	min-height: 14px;
+	color: #e8c88e;
+	border: 1px solid rgba(185, 139, 74, 0.34);
+	border-radius: 10px;
+	background: rgba(185, 139, 74, 0.1);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	transition: opacity .18s;
 }
+#wardrobe-notify:empty { border-color: transparent; background: none; }
 #wardrobe-body {
 	display: flex;
 	gap: 14px;
@@ -13193,12 +13247,15 @@ input.trade-qty { width: 56px; }
 	min-height: 0;
 	min-width: 0;
 }
-#wardrobe-outfits-col { flex: 1.1; }
-#wardrobe-doll-col { flex: 1.2; border-left: 1px solid rgba(185, 139, 74, 0.2); border-right: 1px solid rgba(185, 139, 74, 0.2); padding: 0 12px; }
-#wardrobe-stock-col { flex: 1.1; }
+/* Two columns: the figure, and the rails it draws from. The doll column carries
+   only a RIGHT edge — it's the leftmost column, so a left border would draw a
+   line down the inside of the cabinet wall with nothing on the far side of it. */
+#wardrobe-doll-col { flex: 1.25; border-right: 1px solid rgba(185, 139, 74, 0.2); padding-right: 14px; }
+#wardrobe-stock-col { flex: 1; }
 #wardrobe-outfit-list,
 #wardrobe-hanging-list,
-#wardrobe-carried-list {
+#wardrobe-carried-list,
+#wardrobe-worn-list {
 	flex: 1;
 	overflow-y: auto;
 	min-height: 60px;
@@ -13209,6 +13266,16 @@ input.trade-qty { width: 56px; }
 	border: 1px dashed transparent;
 	border-radius: 3px;
 }
+/* A slim brass scrollbar, so a full rail doesn't hand the cabinet the OS's grey
+   one. Firefox takes the two-value form; WebKit needs the pseudo-elements. */
+#wardrobe-box *::-webkit-scrollbar { width: 6px; }
+#wardrobe-box *::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.25); }
+#wardrobe-box *::-webkit-scrollbar-thumb {
+	background: rgba(185, 139, 74, 0.42);
+	border-radius: 3px;
+}
+#wardrobe-box *::-webkit-scrollbar-thumb:hover { background: rgba(224, 185, 120, 0.66); }
+#wardrobe-box * { scrollbar-width: thin; scrollbar-color: rgba(185, 139, 74, 0.42) rgba(0, 0, 0, 0.25); }
 .wdr-empty {
 	font-size: 11px;
 	color: var(--text-dim);
@@ -13217,17 +13284,27 @@ input.trade-qty { width: 56px; }
 	font-style: italic;
 }
 
-/* --- Saved outfits --- */
+/* --- Saved outfits ---
+   A card is a hanger tag: brass spine on the left, the look's name, its pieces
+   as chips. The spine goes grey when a piece is out of reach, so an outfit you
+   can't actually assemble is legible as a state of the card rather than only as
+   a struck-through chip somewhere inside it. */
 .wdr-outfit {
 	border: 1px solid var(--border);
 	border-left: 2px solid #b98b4a;
-	border-radius: 2px;
+	border-radius: 3px;
 	padding: 6px 8px;
 	cursor: pointer;
-	background: rgba(0, 0, 0, 0.2);
+	background: linear-gradient(180deg, rgba(185, 139, 74, 0.07), rgba(0, 0, 0, 0.22));
+	transition: border-color .15s, background .15s, transform .12s;
 }
-.wdr-outfit:hover { border-color: #e0b978; background: rgba(185, 139, 74, 0.08); }
-.wdr-outfit-incomplete { border-left-color: var(--text-dim); }
+.wdr-outfit:hover {
+	border-color: #e0b978;
+	background: linear-gradient(180deg, rgba(185, 139, 74, 0.16), rgba(0, 0, 0, 0.2));
+	transform: translateX(1px);
+}
+.wdr-outfit:active { transform: translateX(1px) translateY(1px); }
+.wdr-outfit-incomplete { border-left-color: var(--text-dim); opacity: 0.82; }
 .wdr-outfit-head {
 	display: flex;
 	justify-content: space-between;
@@ -13268,64 +13345,40 @@ input.trade-qty { width: 56px; }
    silhouette — the same two alpha masks the tablet's Gear doll uses — with the
    slot pads anchored to where those things actually sit ON that body.
 
-   The stage takes the silhouette's own aspect ratio (set per sex below), which
-   is what lets the percentage anchors be exact: the masked figure fills the box
-   edge to edge, so "top: 8%" is the head on both bodies rather than an average
-   of the two that fits neither. */
-#wardrobe-doll {
-	position: relative;
-	flex: 1 1 auto;
-	min-height: 0;
-	max-height: 46vh;
-	margin: 4px auto 2px;
-	padding: 0;
-	overflow: visible;
-}
-#wardrobe-doll.wdr-doll-male   { aspect-ratio: 242 / 540; }
-#wardrobe-doll.wdr-doll-female { aspect-ratio: 500 / 708; }
+   Height-driven (width derives from the aspect) so the whole figure including
+   the feet pad at 96% always fits without scrolling — the same sizing rule as
+   .tos-doll in tablet-os.js.
 
-/* The body. One image, tinted by CSS, so it serves every character — and it is
-   a mask rather than an <img> so the brass palette carries onto it instead of
-   sitting next to it. */
-.wdr-figure {
-	position: absolute;
-	inset: 0;
-	background: linear-gradient(180deg, #e8c88e 0%, #b98b4a 60%, #8a6532 100%);
-	opacity: 0.55;
-	filter: drop-shadow(0 0 10px rgba(224, 185, 120, 0.35));
-	pointer-events: none;
-	-webkit-mask: url('/assets/paperdoll-mask.png') center / contain no-repeat;
-	mask: url('/assets/paperdoll-mask.png') center / contain no-repeat;
-}
-.wdr-doll-female .wdr-figure {
-	-webkit-mask-image: url('/assets/femsil-mask.png');
-	mask-image: url('/assets/femsil-mask.png');
-}
-
-/* Pads sit ON the body. Head/torso/legs/feet run down the centre line; hands go
-   out to the left where a hand is, accessories to the right so they never fight
-   the figure for the same space. */
-/* Pads sit ON the silhouette at anatomical anchors — the SAME geometry as the
-   Gear app's loadout doll (.tos-gslot in tablet-os.js), down to the percentages.
-   Two screens showing the same body should place the same slot in the same spot;
-   anything else makes you re-learn the layout every time you switch. */
+   EACH SEX GETS ITS OWN ASPECT RATIO, and they are genuinely different shapes:
+   femsil is 500×708, paperdoll is 242×540. The mask is `contain`, so a male
+   figure in a female-shaped box doesn't stretch — it letterboxes, and every
+   anatomical percentage below then points at empty space instead of at the
+   body. A stray second copy of this block once forced male to 500/708 and did
+   exactly that: the pads floated off a small centred figure. */
 #wardrobe-doll {
 	position: relative;
 	height: min(46vh, 336px);
 	width: auto;
 	max-width: 46vw;
 	margin: 0 auto;
-	aspect-ratio: 500 / 708;
 	flex: 0 0 auto;
 	overflow: visible;
 	padding: 0;
+	aspect-ratio: 500 / 708;
 }
-#wardrobe-doll.wdr-doll-male { aspect-ratio: 500 / 708; }
+#wardrobe-doll.wdr-doll-female { aspect-ratio: 500 / 708; }
+#wardrobe-doll.wdr-doll-male   { aspect-ratio: 242 / 540; }
+
+/* The body. One image, tinted by CSS, so it serves every character — and it is
+   a mask rather than an <img> so the brass palette carries onto it instead of
+   sitting next to it. The gradient runs light at the shoulders to dark at the
+   feet, which is what stops the figure reading as a flat cut-out. */
 .wdr-figure {
-	position: absolute; inset: 0;
-	background: #b98b4a;
-	opacity: .82;
-	filter: drop-shadow(0 0 6px rgba(224,185,120,.38));
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(180deg, #e8c88e 0%, #b98b4a 55%, #7d5a2c 100%);
+	opacity: 0.8;
+	filter: drop-shadow(0 0 8px rgba(224, 185, 120, 0.34));
 	pointer-events: none;
 	-webkit-mask: url('/assets/femsil-mask.png') center / contain no-repeat;
 	mask: url('/assets/femsil-mask.png') center / contain no-repeat;
@@ -13334,6 +13387,23 @@ input.trade-qty { width: 56px; }
 	-webkit-mask-image: url('/assets/paperdoll-mask.png');
 	mask-image: url('/assets/paperdoll-mask.png');
 }
+/* A pool of light under the figure — the cabinet's own lamp. Purely atmospheric,
+   sits behind the pads (z-index 2) and takes no pointer events. */
+#wardrobe-doll::before {
+	content: '';
+	position: absolute;
+	left: 50%; bottom: -4%;
+	width: 78%; height: 12%;
+	transform: translateX(-50%);
+	border-radius: 50%;
+	background: radial-gradient(ellipse at center, rgba(224, 185, 120, 0.22), rgba(224, 185, 120, 0) 70%);
+	pointer-events: none;
+}
+
+/* Pads sit ON the silhouette at anatomical anchors — the SAME geometry as the
+   Gear app's loadout doll (.tos-gslot in tablet-os.js), down to the percentages.
+   Two screens showing the same body should place the same slot in the same spot;
+   anything else makes you re-learn the layout every time you switch. */
 
 /* The slot box — .tos-gslot's shape, in the wardrobe's brass. */
 .wdr-pad {
@@ -13356,6 +13426,67 @@ input.trade-qty { width: 56px; }
 	box-shadow: 0 0 10px rgba(224,185,120,.22), inset 0 1px 0 rgba(255,255,255,.05), 0 2px 6px rgba(0,0,0,.35); }
 .wdr-pad.filled .wdr-pad-item { color: var(--text); }
 .wdr-pad.filled .wdr-pad-label { color: #e0b978; }
+/* The accessory pad lists every accessory, one row each, and each row is its own
+   remove target. Safe to grow where a body pad isn't: it's anchored off the side
+   of the figure (right: -56px), so extra rows expand into empty space rather
+   than over the silhouette. */
+.wdr-acc-row {
+	cursor: pointer;
+	border-radius: 2px;
+	padding: 0 3px;
+	margin: 0 -3px;
+	transition: color .12s, background .12s;
+}
+.wdr-acc-row:hover { color: var(--red); background: rgba(255, 59, 92, 0.1); }
+
+/* A pad showing a piece from a layer other than the selected one. Dimmer and
+   dashed: it's a pointer to somewhere else, and clicking it goes there rather
+   than taking the piece off. */
+.wdr-pad.wdr-pad-fallback { border-style: dashed; opacity: 0.78; }
+
+/* The layer selector — Under / Over / Armor, the Gear app's control in brass.
+   It sits OUTSIDE the doll stage on purpose. An earlier attempt put the three
+   layers on the pads themselves as a strip of pips; it read fine but the pads
+   are centred on their anchors, so anything that grows one expands it outward in
+   every direction and walks it over the figure. Layers belong beside the body,
+   not on it. */
+#wardrobe-layers {
+	display: flex;
+	gap: 4px;
+	justify-content: center;
+	flex-shrink: 0;
+	margin-bottom: 2px;
+}
+.wdr-layer-btn {
+	position: relative;
+	flex: 0 0 auto;
+	padding: 3px 12px;
+	font-family: inherit;
+	font-size: 9px;
+	letter-spacing: 1.5px;
+	text-transform: uppercase;
+	color: var(--text-dim);
+	background: rgba(0, 0, 0, 0.3);
+	border: 1px solid rgba(185, 139, 74, 0.28);
+	border-radius: 3px;
+	cursor: pointer;
+	transition: color .15s, border-color .15s, background .15s;
+}
+.wdr-layer-btn:hover { color: #e8c88e; border-color: rgba(224, 185, 120, 0.5); }
+.wdr-layer-btn.active {
+	color: #0a0a0a;
+	background: #e0b978;
+	border-color: #e0b978;
+	box-shadow: 0 0 10px rgba(224, 185, 120, 0.3);
+}
+/* How many pieces sit on a layer you're NOT looking at — the one thing a
+   single-layer doll can't show you, and the reason you'd click the button. */
+.wdr-layer-count {
+	margin-left: 5px;
+	font-size: 8px;
+	opacity: 0.75;
+	font-variant-numeric: tabular-nums;
+}
 
 /* Anchors — identical percentages to the Gear doll. */
 .wdr-pad-head      { left: 50%; top: 8%;  transform: translate(-50%,-50%); text-align: center; }
@@ -13429,9 +13560,29 @@ input.trade-qty { width: 56px; }
 	display: flex;
 	gap: 6px;
 	flex-shrink: 0;
-	/* Four controls now (name/Save/Clear/Wearing/Undress) — wrap to a second row on
-	   a narrow panel instead of crushing the name field to nothing. */
+	/* Five controls now (Wear Now/name/Save/Clear/Wearing/Undress) — wrap to a
+	   second row on a narrow panel instead of crushing the name field to nothing. */
 	flex-wrap: wrap;
+}
+/* Wear Now is the doll's actual verb — everything else here manages the
+   wardrobe's memory of a look, this one puts it on. Filled brass rather than an
+   outline, so it doesn't read as one option among five equal buttons. */
+.wdr-wear-now {
+	border-color: #e0b978;
+	background: linear-gradient(180deg, #e8c88e, #b98b4a);
+	color: #0a0a0a;
+	font-weight: 600;
+}
+.wdr-wear-now:hover:not(:disabled) {
+	background: linear-gradient(180deg, #f0d49c, #c89858);
+	box-shadow: 0 0 10px rgba(224, 185, 120, 0.4);
+}
+.wdr-wear-now:disabled {
+	background: rgba(0, 0, 0, 0.25);
+	border-color: var(--border);
+	color: var(--text-dim);
+	opacity: 0.55;
+	cursor: default;
 }
 /* Undress moves real garments; Clear only wipes the doll. Warm it slightly so the
    destructive-looking one isn't visually identical to the harmless one. */
@@ -13450,10 +13601,21 @@ input.trade-qty { width: 56px; }
 	padding: 4px 6px;
 	border-radius: 2px;
 }
-#wardrobe-outfit-name:focus { outline: none; border-color: #e0b978; }
+#wardrobe-outfit-name::placeholder { color: var(--text-dim); opacity: 0.6; font-style: italic; }
+#wardrobe-outfit-name:focus {
+	outline: none;
+	border-color: #e0b978;
+	background: rgba(185, 139, 74, 0.1);
+	box-shadow: 0 0 0 1px rgba(224, 185, 120, 0.22);
+}
 
 /* --- Stock lists --- */
-.wdr-garment { border-left: 2px solid rgba(185, 139, 74, 0.55); }
+.wdr-garment {
+	border-left: 2px solid rgba(185, 139, 74, 0.55);
+	transition: border-color .15s, background .15s;
+}
+.wdr-garment:hover { border-color: #e0b978; background: rgba(185, 139, 74, 0.09); }
+/* The drag ghost is .ctr-item-card.dragging, shared with the container panel. */
 .wdr-slot-tag {
 	font-size: 9px;
 	letter-spacing: 1px;
@@ -13519,6 +13681,18 @@ input.trade-qty { width: 56px; }
 	pointer-events: none;
 }
 .wdr-rail .wdr-empty { margin-top: 8px; }
+/* The far rail, lit while a garment is in hand — the JS has toggled this class
+   since the rails became drop targets, but nothing drew it, so "you can throw
+   this over there" was a rule the interface knew and never told anyone. Dashed,
+   not solid: it is an invitation, not a boundary. */
+.wdr-rail-eligible {
+	border: 1px dashed rgba(224, 185, 120, 0.5) !important;
+	background: rgba(185, 139, 74, 0.06);
+}
+.wdr-rail.ctr-drag-over {
+	border: 1px dashed var(--green) !important;
+	background: rgba(57, 255, 143, 0.07);
+}
 /* Worn garments read as ON the body rather than in stock: a cooler edge, and no
    action button, because the only thing you can do with them here is dress the
    doll. Dimmed a shade so the two rails above still read as the live inventory. */
@@ -13562,21 +13736,21 @@ input.trade-qty { width: 56px; }
 		padding: 0 0 10px;
 	}
 	#wardrobe-stock-col { order: 2; }
-	#wardrobe-outfits-col {
-		order: 3;
-		border-top: 1px solid rgba(185, 139, 74, 0.2);
-		padding-top: 10px;
-	}
-	#wardrobe-doll { flex: 0 0 auto; overflow: visible; }
+	/* The doll shrinks on a handset: at min(46vh) it eats the screen, and the
+	   rails below it are then a scroll away from the pads they feed. */
+	#wardrobe-doll { flex: 0 0 auto; overflow: visible; height: min(38vh, 300px); }
 	#wardrobe-outfit-list,
 	#wardrobe-hanging-list,
-	#wardrobe-carried-list {
+	#wardrobe-carried-list,
+	#wardrobe-worn-list {
 		flex: 0 0 auto;
 		max-height: 34vh;
 	}
-	/* Thumb-sized: the pads are drop targets AND tap targets now. */
+	/* Thumb-sized: the pads are drop targets AND tap targets now. The layer bars
+	   get real height too — a 3px bar is a mouse target, not a thumb one — but
+	   they stay absolutely positioned, so this costs the pad nothing. */
 	.wdr-pad { min-height: 54px; padding: 6px 8px; }
-	.wdr-worn { font-size: 11px; padding: 2px 8px; }
+	.wdr-layer-btn { padding: 6px 14px; font-size: 10px; }
 	#wardrobe-outfit-name { padding: 8px 6px; }
 }
 

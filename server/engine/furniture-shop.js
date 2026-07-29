@@ -70,12 +70,19 @@ function deliveryLine(npc, item, aptName, buildingName) {
 
 // Insert a placed furniture piece from an item definition into a zone.
 async function placeFurniture(item, base, zoneId, ownerId) {
-  const flags = { interactions: furnitureInteractions(item) };
+  // Carry the item's own flags across, not just `interactions`. Only the latter used to
+  // survive, which meant every functional furniture item — a kettle's `brew_tier`, a heater's
+  // element — became an inert prop the moment somebody bought it rather than authoring it into
+  // a room. `power_draw_kw` is promoted to its column so the appliance verbs can find it.
+  const flags = { ...(item.flags || {}), interactions: furnitureInteractions(item) };
+  const draw = Number(flags.power_draw_kw);
+  delete flags.power_draw_kw;
   const id = `furn_${randomUUID().slice(0, 8)}`;
   await insertFurniture({
     id, zone_id: zoneId, name: item.name, description: item.description,
     flags: JSON.stringify(flags), object_type: 'furniture', price: base,
     origin: 'player', owner_id: ownerId ?? null,
+    ...(Number.isFinite(draw) ? { power_draw_kw: draw } : {}),
   });
   return id;
 }

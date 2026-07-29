@@ -1016,6 +1016,11 @@ export function pushHud(live) {
   for (const pid of live.occupants) {
     const p = getLivePlayer(pid);
     if (!p) continue;
+    // Text-only travel (textmode.js): this rider asked not to be shown the graphical
+    // cabin at all, so send them NOTHING here — not the HUD, not even the audio feed.
+    // Latched at board time, so this stays a sync property read on the tick path. An
+    // explicitly opened `window` outranks it: asking to look out is asking for the view.
+    if (p.textTravel && !p.cabinWindowOpen) continue;
     // Walkable cabin: an occupant walking the interior rooms is in a real MUD room, not
     // on the cockpit-window HUD — don't clobber it. But once they open the WINDOW overlay
     // (cabinWindowOpen) it IS fed the live view here. Non-cabin occupants (a seated pilot)
@@ -1159,7 +1164,14 @@ export function seatList(live) {
 }
 export function pushContext(live) {
   const payload = contextPayload(live);
-  for (const pid of live.occupants) { const p = getLivePlayer(pid); if (p) sendToPlayer(pid, payload); }
+  // A text-mode occupant (rider or pilot) has no panel mounted for this to feed, so
+  // sending it is pure waste at best and would re-open the 3D layer at worst. Both
+  // latches are set at board time — see textmode.js / textpilot.js.
+  for (const pid of live.occupants) {
+    const p = getLivePlayer(pid);
+    if (!p || ((p.textTravel || p.textPilot) && !p.cabinWindowOpen)) continue;
+    sendToPlayer(pid, payload);
+  }
 }
 
 // One airborne craft as another pilot's radar/windshield sees it: world position
@@ -1268,6 +1280,10 @@ export async function boardCabin(player, live) {
 }
 
 // ── Attach / detach ───────────────────────────────────────────────────────────
+// textpilot.js registers its teardown here at load (see the cycle note in `detach`).
+let _clearTextPilot = null;
+export function registerTextPilotTeardown(fn) { _clearTextPilot = fn; }
+
 export function detach(player, { restore = true } = {}) {
   const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
   // Walkable cabin: step the occupant out of the interior room onto the aircraft's
@@ -1287,6 +1303,12 @@ export function detach(player, { restore = true } = {}) {
   delete player.aircraftId;
   delete player.seat;
   delete player.cabinWindowOpen;
+  delete player.textTravel;
+  // Text piloting is per-AIRCRAFT state (the physics sim lives on `live`), so it has
+  // to be torn down with the seat, not just the player. Cleared through a callback the
+  // plugin injects rather than an import — state.js must not depend on textpilot.js,
+  // which already imports it.
+  if (player.textPilot) { delete player.textPilot; if (live) _clearTextPilot?.(live); }
   if (restore) closeHud(player.id);
   if (live) reap(live);
 }

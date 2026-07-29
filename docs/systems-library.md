@@ -439,6 +439,40 @@ lives in the `Speech` IIFE in `client/shared/audio-engine.js`.
 > has none of the masking a real voice provides. `nq` came down with it: Q 6 at
 > 6.5 kHz is a ~1 kHz-wide whistle, where real `/s/` is broadband hiss above ~4 kHz.
 
+> **`/h/` is the following vowel, devoiced.** It has no constriction of its own — the
+> turbulence is at the glottis while the tract is already in position for whatever
+> comes next, which is why the `/h/` of *he* and of *who* are acoustically different
+> sounds. A fixed 1500 Hz band made every one of them the same neutral puff. The noise
+> is now shaped on the coming vowel's F2 and the formants start moving there during
+> the `/h/`, so the vowel is in place when voicing arrives instead of sliding in after.
+
+> **Polysyllabic shortening.** A syllable gets shorter as the word around it gets
+> longer — the vowel in *cat* is measurably longer than the same vowel in
+> *catamaran*. English compresses to stop word duration growing linearly with
+> syllable count, and its absence made long words ponderous in a way no per-phoneme
+> tuning could fix, because the fault was at word scale. Counted by lookahead once per
+> word; 1 syllable 1.00, 2 → 0.94, 3 → 0.89, 4 → 0.85, flattening out as it does in
+> real speech. Applied to vowels only — consonants are far less compressible.
+
+> **Coarticulation crosses a word juncture.** `prevP`/`prevCode` are deliberately
+> *not* reset at `_`, so the first vowel of each word keeps its left-hand context
+> instead of being shaped only by what follows it. English coarticulates straight
+> through a word boundary (*this year*, *did you*). A real phrase break does reset
+> them, because there the articulators genuinely come to rest.
+
+> **Syllable amplitude envelope.** A real syllable rises to a peak and falls away;
+> one flat gain target for the whole vowel is a plateau, and a run of plateaus is the
+> organ-like quality that survives even when every formant is correct. Each vowel now
+> decays through its back half so it has a shape rather than a level.
+
+> **A word boundary is a juncture, not a pause.** The `_` gap used to zero `voiced`
+> like any other pause, opening a 40 ms hole between **every single word** — 8.5 per
+> line across the corpus, which is precisely the word-by-word robot artifact.
+> Connected speech doesn't do that: *the cat sat* is continuously voiced throughout
+> and only a phrase boundary gets real silence. `_` now relaxes the voice to 0.45
+> rather than cutting it, and the formants keep gliding through toward the next word.
+> `_C` and `__` still go properly quiet.
+
 > **Two pauses.** Connected speech doesn't stop between words; only phrase boundaries
 > get real silence. A single 120 ms gap after every word was most of what made this
 > read as dictation, so `_` (word gap) is now 40 ms and `__` (punctuation) is 210 ms.
@@ -449,6 +483,49 @@ Still not modelled: F5 movement, polysyllabic shortening and rhythm beyond
 pre-boundary lengthening, emphasis or emotion, whisper/creak, and more than one
 accent. Only one utterance plays at a time by design — `live` is a single flat
 array and the broadcast pacing contract assumes one speaker.
+
+### Connected-speech transforms
+
+Applied over the finished run like `applyAccent`, because each depends on a
+segment's **neighbours** rather than on the word it came from — and two of them
+reach across word boundaries, which only became meaningful once a juncture stopped
+being a silence.
+
+- **Flapping** (`applyFlap`) — GA only. `/t/` or `/d/` between a vowel and an
+  *unstressed* vowel becomes a voiced tap (`DX`): *better* → "bedder", *city* →
+  "ciddy", *water* → "wodder". Blocked before a stressed vowel, so *atomic* and
+  *attack* keep their `/t/`. **Skipped for RP** — the Library reads in RP, the
+  network in GA. Its absence is a large part of why a GA dictionary read straight
+  sounds stilted.
+- **Nasal place assimilation** (`applyAssimilation`) — a nasal takes the place of
+  the consonant after it, across a word boundary as readily as inside one: *in
+  case* → `/ŋ/`, *ten past* → `/m/`, *in bed* → `/m/`. Nobody articulates those
+  `/n/`s. Junctures are transparent to it; a real phrase break is not.
+- **Devoicing** — an unstressed vowel trapped between two voiceless obstruents is
+  partly whispered (*potato*, *support*, *suppose*). Voicing drops to 0.35 and
+  breath fills in, so the syllable is still there but isn't *sung*. Fully voicing it
+  is a small constant over-articulation — the sound of a machine pronouncing every
+  letter it was handed.
+
+### Voice smoke test — the gate
+
+[`scripts/voice/smoke.mjs`](../scripts/voice/smoke.mjs), wired into
+`pretest:regress` beside `shapes:smoke` and for exactly the same reason: before it
+existed, **the only thing that ever checked a pronunciation was a person listening
+to a broadcast and noticing**. Every defect in this system surfaced that way —
+*intrusive*, *architect*, *some*, *Cyd* — meaning each one shipped, aired, and was
+caught by luck.
+
+It loads the engine headlessly (`audio-engine.js` is dual-mode and attaches to
+`globalThis` when `window` is absent; `_phonemesFor` and `_estimateDuration` are
+pure and touch no `AudioContext`), so it needs no browser, DB or network and runs in
+about a second. It asserts **substrings** of each run rather than whole runs, so a
+case fails on the contrast it exists for and not on unrelated tuning.
+
+**It caught two real bugs on its first run**, which is the argument for it: the
+suffix rules were guessing *truncated stems* (so `cypher` was guessed as `cyph`+er,
+whose `y` had nothing after the digraph to open its syllable), and `ER` was emitting
+its own `r` twice. Both had been shipping silently.
 
 ### The voice lab — tuning by ear
 
@@ -587,6 +664,7 @@ The whole catalogue opens at once — Marrowby is not a man who rations.
 | `scripts/content/build-glossary.mjs` | Glossary term authoring |
 | `scripts/content/build-formant-dict.mjs` | Regenerates the stressed CMUdict subset |
 | `client/devpanel/voice-lab.html` | Voice lab — live tuning + phoneme readout |
+| `scripts/voice/smoke.mjs` | Voice smoke test — runs in pretest:regress |
 | `client/shared/formant-cmudict.js` | GENERATED — 25,787 words with stress, one char per phone |
 | `client/shared/audio-engine.js` | `applyAccent`, `ERR` phoneme, `lexLook` |
 | `client/game/js/panels/tablet-os.js` | Narration, highlighting, minimize pill, gloss render |

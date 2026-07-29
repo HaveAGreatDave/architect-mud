@@ -1,5 +1,5 @@
 import { handlers as moveHandlers } from './movement.js';
-import { wakeFromDream } from '../dreamscape.js';
+import { wakeFromDream, endDissociation } from '../dreamscape.js';
 import { handlers as combatHandlers } from './combat.js';
 import { handlers as invHandlers } from './inventory.js';
 import { handlers as socialHandlers } from './social.js';
@@ -218,6 +218,22 @@ export async function handleCommand(input, player, broadcast) {
   //
   // Everything ELSE still wakes you, exactly as before — an alarm, an attack, the
   // game loop, being killed. This changes only what YOUR OWN typing does.
+  // A DISSOCIATIVE EPISODE takes the same gate, and it is not optional. The allowlist above is
+  // not about sleep, it is about standing in a room that is going to be deleted in ninety
+  // seconds: `drop` in one files the item under `_ground_<dream zone>` and orphans it in the
+  // DB forever. An awake dissociating player is in exactly that room, so leaving them
+  // ungated would have been the same bug with none of the protection.
+  if (player._dissociating) {
+    if (cmd === 'wake') {
+      endDissociation(player, { broadcast });
+      return { type: 'output', message: 'You claw your way back. The room is where you left it.' };
+    }
+    if (!DREAM_VERBS.has(cmd)) {
+      return { type: 'error', message: DREAM_REFUSALS[Math.floor(Math.random() * DREAM_REFUSALS.length)] };
+    }
+    // Falls through — you can walk and look, and nothing else.
+  }
+
   if (player.sleeping?.inDream) {
     if (cmd === 'wake') {
       wakeFromDream(player);

@@ -10,6 +10,10 @@
       "amount": 50,
       "duration_seconds": 300
     },
+    "treat_frostbite": {
+      "steps": 2,
+      "floor": 1
+    },
     "treat_injury": {
       "steps": 1,
       "floor": 1,

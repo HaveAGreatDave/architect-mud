@@ -41,6 +41,12 @@ import { commands as contractCommands, checkContractDelivery, checkCargoDropDeli
 import { commands as hangarCommands, pushHangarBay } from './hangars.js';
 import { commands as charterCommands, charterDebug, charterParkedAt, embarkCharter, activeCharters, chaseCont, stepToward, CRUISE_TILES } from './charter.js';
 import { isPilotLicensed, beginCheckride, evaluateCheckride, checkrideEvent, getCheckrideState, hasActiveCheckride } from './checkride.js';
+import { prefersTextTravel, boardingLine, textTravelTick } from './textmode.js';
+import {
+  startTextPilot, stopTextPilot, wireTextPilot, statusLines as textPilotStatus,
+  cmdTextThrottle, cmdTextClimb, cmdTextLevel, cmdTextTurn, cmdTextFlaps, cmdTextGear,
+  cmdTextStatus, cmdTextTakeoff, cmdTextLand,
+} from './textpilot.js';
 import { registerTabletApp } from '../tablet/registry.js';
 
 // Verb-collision routers (see plugin.json `after`): flight wins `board`/`refuel`
@@ -223,12 +229,24 @@ async function boardFound(found, player, broadcast) {
   }
   // A pilot flies the live cockpit sim; everyone else (passengers on any craft, and legacy
   // craft occupants) rides the cabin-window HUD — they look out a window, nothing to fly.
-  if (seat === 'pilot' && isContinuous(live)) sendFlightSim(player, live); else pushHud(live);
+  // Unless they've asked not to: a text-only rider is latched here (ONE flag read per
+  // boarding, never on the tick) so pushHud can skip them without an await, and gets
+  // narrated flight instead of a panel. See textmode.js.
+  player.textTravel = seat !== 'pilot' && await prefersTextTravel(player);
+  // The SAME preference governs the pilot's seat: a text-only player flies her by
+  // command with the server running the physics (textpilot.js), and no cockpit panel
+  // is ever sent. Falls back to the 3D sim if the airframe has no physics profile.
+  const textFly = seat === 'pilot' && isContinuous(live) && await prefersTextTravel(player) && startTextPilot(player, live);
+  if (textFly) { /* no panel — the text pilot flies on commands + status lines */ }
+  else if (seat === 'pilot' && isContinuous(live)) sendFlightSim(player, live);
+  else pushHud(live);
   // Refresh the cabin-occupancy readout on a seated pilot when a rider joins.
   if (seat !== 'pilot' && isContinuous(live)) pushContext(live);
   const hint = seat !== 'pilot'
-    ? 'You strap into a passenger seat and wait on the pilot.'
-    : isContinuous(live)
+    ? (player.textTravel ? boardingLine(live) : 'You strap into a passenger seat and wait on the pilot.')
+    : textFly
+      ? "You settle into the seat and run your hands over the panel. <span class=\"text-dim\">startup</span>, <span class=\"text-dim\">throttle 100</span>, then <span class=\"text-dim\">takeoff</span> — and <span class=\"text-dim\">status</span> any time for the gauges."
+      : isContinuous(live)
       ? "You drop into the seat. <b>Flip the ENGINE switch</b>, ease the <b>THROTTLE</b> up, and <b>pull back</b> on the yoke as she comes alive to fly her off."
       : "You settle into the pilot's seat. <span class=\"text-dim\">startup</span>, set a <span class=\"text-dim\">throttle</span>, then <span class=\"text-dim\">takeoff</span>.";
   const scramble = inCombat
@@ -305,7 +323,22 @@ async function cmdDisembark(args, raw, player, broadcast) {
 // turns back to the room. Only from a windowed cabin room aboard a walkable craft.
 async function cmdWindow(args, raw, player) {
   const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
-  if (!live || !isWalkableCabin(live)) return { type: 'emote', message: "There's no window here to look out of." };
+  if (!live) return { type: 'emote', message: "There's no window here to look out of." };
+  // A text-only rider on an ORDINARY craft has no cabin room to be in — the same verb
+  // is their way to take the view for one leg without giving up the preference. The
+  // toggle-off below closes it and pushHud goes back to skipping them.
+  if (!isWalkableCabin(live) && player.textTravel) {
+    const shut = /^(close|shut|off|away)$/i.test((args[0] || '').trim());
+    if (player.cabinWindowOpen || shut) {
+      player.cabinWindowOpen = false;
+      closeHud(player.id);
+      return { type: 'emote', message: 'You turn away from the window and let the flight be a sound again.' };
+    }
+    player.cabinWindowOpen = true;
+    pushWindowTo(live, player);
+    return { type: 'noop' };
+  }
+  if (!isWalkableCabin(live)) return { type: 'emote', message: "There's no window here to look out of." };
   const zone = getZone(player.current_zone);
   if (!isCabinZone(zone, live)) return { type: 'emote', message: "You're not in the cabin." };
   const closing = /^(close|shut|off|away)$/i.test((args[0] || '').trim());
@@ -605,7 +638,9 @@ export function requirePilot(player) {
 
 async function cmdStartup(args, raw, player, broadcast) {
   const { live, err } = requirePilot(player); if (err) return err;
-  if (isContinuous(live)) return { type: 'emote', message: 'Flip the <b>ENGINE</b> switch on the cockpit panel.' };
+  // A text pilot has no ENGINE switch to flip — the verb IS their switch, so the
+  // continuous-craft refusal below only applies to someone sitting in the 3D cockpit.
+  if (isContinuous(live) && !live.textPilot) return { type: 'emote', message: 'Flip the <b>ENGINE</b> switch on the cockpit panel.' };
   if (live.row.airborne) return { type: 'emote', message: "The engine's already running — you're flying it." };
   if (live.row.engine_on && enginesAllStable(live)) return { type: 'emote', message: 'Engines are lit and stable.' };
   if (live.row.engine_on && live.runup) return { type: 'emote', message: 'Already running up — watch the gauges settle.' };
@@ -622,6 +657,9 @@ async function cmdStartup(args, raw, player, broadcast) {
   await persist(live);
   pushHud(live);
   await awardSkillUse(player.id, 'piloting', 0);
+  // A text pilot's `startup` IS the engine-master switch, so it's what advances the
+  // checkride out of its STARTUP stage (the 3D cockpit reports `flightevent engineon`).
+  if (live.textPilot && live.checkride) await checkrideEvent(live, 'engineon', [], player);
   const n = engineCount(live);
   broadcast(player.current_zone, { type: 'zone_event', message: `The ${live.type.name} whines and its ${n > 1 ? n + ' engines' : 'engine'} spin up.` }, player.id);
   return { type: 'emote', message: `<span class="text-cyan">Starter engaged — ${n > 1 ? 'all ' + n + ' engines' : 'the engine'} spooling up.</span> Watch the temps climb and <b>settle to green</b> before you roll — a cold engine can fail on takeoff.` };
@@ -665,6 +703,7 @@ async function cmdShutdown(args, raw, player, broadcast) {
 async function cmdThrottle(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
   if (!live.row.engine_on) return { type: 'emote', message: 'The engine is off. Nothing to throttle.' };
+  if (live.textPilot) return cmdTextThrottle(args, player);   // sets the target the sim flies, not the row directly
   const n = parseInt(args[0], 10);
   if (Number.isNaN(n)) return { type: 'emote', message: 'Throttle to what? Try `throttle 0`–`throttle 100`.' };
   live.row.throttle = Math.max(0, Math.min(100, n));
@@ -675,6 +714,7 @@ async function cmdThrottle(args, raw, player) {
 // ── Heading / altitude ────────────────────────────────────────────────────────
 async function cmdHeading(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
+  if (live.textPilot) return cmdTextTurn(args, player);
   if (!live.row.airborne) return { type: 'emote', message: 'Set a heading once you\'re in the air.' };
   const arg = (args[0] || '').toLowerCase();
   const card = DIR_ALIASES[arg] || arg;
@@ -688,6 +728,7 @@ async function cmdHeading(args, raw, player) {
 
 async function cmdClimb(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
+  if (live.textPilot) return cmdTextClimb(args, player);
   if (!live.row.airborne) return { type: 'emote', message: 'You need to be airborne to climb.' };
   const cur = BANDS.indexOf(live.row.altitude_band), ceil = effStats(live).ceiling;
   if (cur >= ceil) return { type: 'emote', message: `The ${live.type.name} won't climb past ${BAND_LABEL[BANDS[ceil]]}.` };
@@ -701,6 +742,7 @@ async function cmdClimb(args, raw, player) {
 
 async function cmdDive(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
+  if (live.textPilot) return cmdTextClimb(args, player);   // `descend to 800` is the same setpoint, read the other way
   if (!live.row.airborne) return { type: 'emote', message: 'You need to be airborne to descend.' };
   const cur = BANDS.indexOf(live.row.altitude_band);
   if (cur <= 1) return { type: 'emote', message: "You're as low as you fly without landing. Try `land`." };
@@ -734,13 +776,32 @@ function groundStop(live) {
 // Both are flown, not commanded — the continuous cockpit owns the roll, the rotate,
 // the glideslope and the flare. These verbs survive only to tell a pilot who typed
 // them where the controls actually are.
+// ── Text-pilot-only verbs ─────────────────────────────────────────────────────
+// Each returns `undefined` when the player isn't a text pilot, so the dispatcher
+// falls through to whoever else owns the word (`status`, `gear` and `level` are
+// generic enough that flight must not swallow them for everyone else).
+function textOnlyVerb(fn) {
+  return async (args, raw, player) => {
+    const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+    if (!live?.textPilot || player.seat !== 'pilot') return undefined;
+    return fn(args, player);
+  };
+}
+const cmdTurnVerb = textOnlyVerb(cmdTextTurn);
+const cmdLevelVerb = textOnlyVerb(cmdTextLevel);
+const cmdFlapsVerb = textOnlyVerb(cmdTextFlaps);
+const cmdGearVerb = textOnlyVerb(cmdTextGear);
+const cmdStatusVerb = textOnlyVerb(cmdTextStatus);
+
 async function cmdTakeoff(args, raw, player) {
-  const { err } = requirePilot(player); if (err) return err;
+  const { live, err } = requirePilot(player); if (err) return err;
+  if (live.textPilot) return cmdTextTakeoff(args, player);
   return { type: 'emote', message: 'No command needed — <b>throttle up</b> in the cockpit and ease back on the yoke as she comes alive to fly her off.' };
 }
 
 async function cmdLand(args, raw, player) {
-  const { err } = requirePilot(player); if (err) return err;
+  const { live, err } = requirePilot(player); if (err) return err;
+  if (live.textPilot) return cmdTextLand(args, player);
   return { type: 'emote', message: 'No command needed — line her up on a runway and fly her down; brake to a stop and cut the <b>ENGINE</b> to taxi in and park.' };
 }
 
@@ -1325,6 +1386,14 @@ async function flightTick() {
   } finally { ticking = false; }
 }
 schedule('3s', () => flightTick().catch(e => console.error('[flight] tick error:', e.message)));   // TICK_MS
+// Hand textpilot.js the two things it can't import without a cycle: the flight-event
+// handler (so a server-flown takeoff/landing runs the SAME consequence chain a
+// client-flown one does) and a zone broadcaster.
+wireTextPilot({ flightEvent: cmdFlightEvent, broadcast: sendToZone });
+// Text-only riders get narrated flight on their OWN, much slower clock — the 3s tick
+// above is the physics cadence, and a line of prose every three seconds is a wall of
+// scroll rather than a journey. Matches the engine's 45s zone-ambience beat.
+schedule('45s', () => { try { textTravelTick(); } catch (e) { console.error('[flight] text-travel tick error:', e.message); } });
 
 // ── Delete one aircraft instance for good ─────────────────────────────────────
 // The shared teardown used by the dev-panel DELETE route AND the wreck-maintenance
@@ -1889,6 +1958,11 @@ export const commands = {
   startup: cmdStartup, shutdown: cmdShutdown, throttle: cmdThrottle,
   heading: cmdHeading, climb: cmdClimb, dive: cmdDive,
   takeoff: cmdTakeoff, land: cmdLand, refuel: cmdRefuel,
+  // Text-pilot verbs (textpilot.js). `turn`/`descend` are aliases onto the same
+  // setpoints `heading`/`dive` already route; `level`, `flaps`, `gear` and `status`
+  // have no banded-craft equivalent, so they answer only for a text pilot.
+  turn: cmdTurnVerb, descend: cmdDive, level: cmdLevelVerb,
+  flaps: cmdFlapsVerb, gear: cmdGearVerb, status: cmdStatusVerb,
   flightsync: cmdFlightSync, flightevent: cmdFlightEvent, airhome: cmdAirHome,
   checkride: cmdCheckride,
   ...hazardCommands, ...acquisitionCommands, ...combatCommands, ...contractCommands, ...hangarCommands, ...charterCommands,

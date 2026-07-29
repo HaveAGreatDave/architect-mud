@@ -10,7 +10,27 @@
 // stored to go stale and nothing to migrate: a season that has not been played is
 // simply an empty table with an honest line under it.
 import { dispatchAction } from '../../server/engine/actions.js';
+import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { registerTabletApp, normScreen } from './registry.js';
+
+// ── Home-widget preference ───────────────────────────────────────────────────
+// Two player flags, both optional, both read from the hydrated flag cache (no
+// query — see the buildWidget contract in index.js):
+//   sports_widget      off | both | baseball | hockey   (default: both)
+//   sports_follow_team a club name, or unset
+// Following a club narrows the card to the next time THAT club is on television,
+// which is the only reason a fan wants a scoreboard on their home screen. With
+// nobody followed it's simply whatever airs next.
+const WIDGET_MODES = ['both', 'baseball', 'hockey', 'off'];
+const WIDGET_MODE_LABEL = { both: 'Both codes', baseball: 'Deadball only', hockey: 'Cluster Puck only', off: 'Off' };
+const widgetModeOf = async (player) => {
+  const v = await getFlag('player', 'sports_widget', player).catch(() => undefined);
+  return WIDGET_MODES.includes(v) ? v : 'both';
+};
+const followedTeam = async (player) => {
+  const v = await getFlag('player', 'sports_follow_team', player).catch(() => undefined);
+  return (typeof v === 'string' && v && v !== 'none') ? v : null;
+};
 
 // The two codes, and how each one's table reads. Column sets differ (a hockey
 // table has four result columns, a baseball table three), so the shape is data
@@ -99,6 +119,15 @@ async function leagueScreen(player, code) {
     for (const line of r.lines) rowsOut.push({ label: `  ${line.name}`, value: line.stat });
   }
 
+  // What the home-screen card is currently set to, and the button that walks it on
+  // to the next setting. One action, four states — cheaper to read than a row of
+  // four buttons, and this screen is a table, not a settings panel.
+  const mode = await widgetModeOf(player);
+  const follow = await followedTeam(player);
+  const nextMode = WIDGET_MODES[(WIDGET_MODES.indexOf(mode) + 1) % WIDGET_MODES.length];
+  rowsOut.push({ label: '—', value: '' });
+  rowsOut.push({ label: 'Home card', value: WIDGET_MODE_LABEL[mode] + (follow ? ` · following ${follow}` : '') });
+
   return {
     view: 'list',
     breadcrumb: ['Sports', code.tab],
@@ -107,6 +136,7 @@ async function leagueScreen(player, code) {
     boardName: `${code.icon} ${code.league}`,
     items,
     rows: rowsOut,
+    actions: [{ id: `widget:${code.id}:${nextMode}`, label: `Home card: ${WIDGET_MODE_LABEL[nextMode]}` }],
   };
 }
 
@@ -117,12 +147,17 @@ function pushRace(out, title, rows, stat) {
 
 // One club. Record, recent form, and the next time they're on — which is the
 // reason to open this screen rather than read the table.
-async function teamScreen(player, code, team) {
-  const [standings, card] = await Promise.all([
-    dispatchAction({ type: 'sportsleague.getStandings', actor: player, params: { sport: code.id } }).catch(() => null),
-    dispatchAction({ type: 'broadcast.getTeamCard', actor: player, params: { sport: code.id, team } }).catch(() => null),
-  ]);
+async function teamScreen(player, code, teamParam) {
+  // The dispatcher lowercases every command it tokenizes, so the club name that
+  // comes back off a tap is 'coldwater kingfishers', never the 'Coldwater
+  // Kingfishers' the league knows. Resolve it against the live table BEFORE asking
+  // for a card — an exact-match lookup on the lowercased string finds nothing, and
+  // the screen reads as a club that has never played.
+  const standings = await dispatchAction({ type: 'sportsleague.getStandings', actor: player, params: { sport: code.id } }).catch(() => null);
   const rows = standings?.rows || [];
+  const team = resolveTeam(rows, teamParam);
+  const card = await dispatchAction({ type: 'broadcast.getTeamCard', actor: player, params: { sport: code.id, team } }).catch(() => null);
+  const following = await followedTeam(player);
   const idx = rows.findIndex(r => r.team === team);
   const rec = idx >= 0 ? rows[idx] : null;
 
@@ -169,11 +204,25 @@ async function teamScreen(player, code, team) {
     breadcrumb: ['Sports', code.tab, team],
     detail: {
       id: team, name: team,
-      desc: `${code.icon} ${code.league}`,
+      desc: `${code.icon} ${code.league}${following === team ? ' · following' : ''}`,
       rows: out,
     },
-    actions: [],
+    // Following a club points the home-screen card at the next time THEY are on
+    // television instead of whatever airs next. The detail view hands its own id
+    // through as the action's params, so the club travels with the tap.
+    actions: [{
+      id: `follow:${code.id}`,
+      label: following === team ? '★ Following — tap to unfollow' : '☆ Follow on home screen',
+    }],
   };
+}
+
+// Match a lowercased (or otherwise scruffy) club name back to the league's own
+// spelling. Falls through to the raw string so an unknown club still renders an
+// honest "has not played" rather than an error.
+function resolveTeam(rows, name) {
+  const want = String(name || '').trim().toLowerCase();
+  return (rows || []).find(r => String(r.team).toLowerCase() === want)?.team || String(name || '').trim();
 }
 
 async function buildScreen(player, screenId, params) {
@@ -189,7 +238,74 @@ async function buildHome(player) {
   return { count: (s?.rows || []).length };
 }
 
+// ── Home widget: the next game on television ─────────────────────────────────
+// ONE game — the next thing the schedule actually puts on air, not the day's
+// fixture list. If it's already playing, the score as far as it has been called
+// (broadcast.getNextOnAir enforces the spoiler rule; nothing here can leak a
+// result the announcer hasn't reached). Off, or narrowed to one code, or pinned
+// to a club, from the app's own settings row.
+async function buildWidget(player) {
+  const mode = await widgetModeOf(player);
+  if (mode === 'off') return null;
+  const team = await followedTeam(player);
+  const game = await dispatchAction({
+    type: 'broadcast.getNextOnAir',
+    actor: player,
+    params: { sport: mode === 'both' ? null : mode, team },
+  }).catch(() => null);
+
+  const code = CODES[game?.sport] || null;
+  if (!game) {
+    // Nothing scheduled is worth saying out loud when you've pinned a club —
+    // otherwise the card just goes quiet rather than nagging about an empty grid.
+    if (!team) return null;
+    return {
+      id: 'sports', title: 'Next on TV', kind: 'lines',
+      lines: [{ text: team, sub: 'not scheduled' }],
+    };
+  }
+
+  const scored = game.live || game.final;
+  const vs = `${game.awayAbbr} @ ${game.homeAbbr}`;
+  return {
+    id: 'sports',
+    title: `${code?.icon || '🏆'} ${game.live ? 'Live' : 'Next on TV'}`,
+    kind: 'stat',
+    icon: null,
+    // Live: the scoreline is the headline. Upcoming: the matchup is.
+    big: scored ? `${game.awayScore}–${game.homeScore}` : vs,
+    sub: scored ? vs : (code?.tab || game.sport),
+    note: [game.status, game.channel != null ? `CH ${game.channel}` : null].filter(Boolean).join(' · '),
+    tone: game.live ? 'warn' : null,
+  };
+}
+
+// Settings + follow live on the screens themselves: the league screen carries the
+// widget mode, a club's card carries Follow/Unfollow. Both are one flag write and
+// a re-render — no new verb, no new screen.
+// Both controls encode everything they need in the action id — which is safe
+// because the ids are single lowercase tokens. A club NAME could never travel that
+// way (the tokenizer splits on whitespace and lowercases), so Follow reads the
+// club out of `params`, which the detail view fills from the screen's own id, and
+// resolves its real spelling off the table.
+async function handleAction(player, actionId, params) {
+  const [kind, codeId, arg] = String(actionId || '').split(':');
+  const code = CODES[codeId] || CODES.baseball;
+  if (kind === 'widget') {
+    await setFlag('player', 'sports_widget', WIDGET_MODES.includes(arg) ? arg : 'both', player);
+    return leagueScreen(player, code);
+  }
+  if (kind === 'follow') {
+    const standings = await dispatchAction({ type: 'sportsleague.getStandings', actor: player, params: { sport: code.id } }).catch(() => null);
+    const team = resolveTeam(standings?.rows || [], params || '');
+    const cur = await followedTeam(player);
+    await setFlag('player', 'sports_follow_team', cur === team ? 'none' : team, player);
+    return teamScreen(player, code, team);
+  }
+  return leagueScreen(player, code);
+}
+
 registerTabletApp({
   id: 'sports', name: 'Sports', icon: '🏆', category: 'General',
-  buildHome, buildScreen,
+  buildHome, buildScreen, buildWidget, handleAction,
 });

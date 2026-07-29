@@ -176,6 +176,30 @@
     {
       "item_id": "item_jeans_relaxed",
       "price": 24
+    },
+    {
+      "item_id": "item_snowsuit",
+      "price": 700
+    },
+    {
+      "item_id": "item_snow_boots",
+      "price": 205
+    },
+    {
+      "item_id": "item_wool_mittens",
+      "price": 39
+    },
+    {
+      "item_id": "item_balaclava",
+      "price": 30
+    },
+    {
+      "item_id": "item_thermal_liner_gloves",
+      "price": 25
+    },
+    {
+      "item_id": "item_space_heater",
+      "price": 540
     }
   ],
   "vendor_restock_rate": 3,
@@ -224,7 +248,7 @@
     ]
   },
   "vendor_shop_name": "Layers",
-  "vendor_stock_size": 30,
+  "vendor_stock_size": 38,
   "wander_zones": [],
   "wanders": 0,
   "work_zone_id": null

@@ -21,7 +21,12 @@
       },
       "peak_seconds": 180
     },
-    "take_line": "You dry-swallow a tab of {name}."
+    "take_line": "You dry-swallow a tab of {name}.",
+    "tolerance": {
+      "gain_per_dose": 0.18,
+      "max_reduction": 0.8,
+      "recovery_per_sec": 0.000011
+    }
   },
   "flags": {
     "drug_class": "stimulant"

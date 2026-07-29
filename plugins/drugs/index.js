@@ -93,6 +93,16 @@ async function habits(args, raw, player) {
     } else if (d.withdrawalIn > 0) {
       lines.push(dim(`      Quiet — ${soon(d.withdrawalIn)} before it starts asking.`));
     }
+    // THE MARGIN. Felt tolerance outruns lethal tolerance, so a long habit needs
+    // more to feel anything while the dose that stops your breathing has barely
+    // moved. Stated in the body's own terms rather than as a number, because it is
+    // a thing you'd notice about yourself, and never stated at all until the gap is
+    // wide enough to matter — a warning that prints from the first dose is noise.
+    if (d.toleranceGap >= 0.5) {
+      lines.push(`      <span class="overdose-warning">You need far more than you used to, and you are not sure your body has kept up.</span>`);
+    } else if (d.toleranceGap >= 0.25) {
+      lines.push(dim(`      It takes more than it did. Whether you can take more is another question.`));
+    }
     if (d.dosesInSystem > 0) {
       // The ceiling is the whole point of the relapse law: it moves with tolerance,
       // so seeing it shrink while you are clean is the warning the system owes you.

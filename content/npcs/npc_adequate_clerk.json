@@ -164,6 +164,26 @@
     {
       "item_id": "item_ration",
       "price": 8
+    },
+    {
+      "item_id": "item_wool_socks",
+      "price": 21
+    },
+    {
+      "item_id": "item_earmuffs",
+      "price": 17
+    },
+    {
+      "item_id": "item_neck_gaiter",
+      "price": 22
+    },
+    {
+      "item_id": "item_hand_warmers",
+      "price": 14
+    },
+    {
+      "item_id": "item_cocoa_powder",
+      "price": 12
     }
   ],
   "vendor_restock_rate": 3,
@@ -212,7 +232,7 @@
     ]
   },
   "vendor_shop_name": "Adequate!",
-  "vendor_stock_size": 30,
+  "vendor_stock_size": 36,
   "wander_zones": [],
   "wanders": 0,
   "work_zone_id": null

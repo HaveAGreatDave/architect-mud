@@ -42,6 +42,30 @@ async function buildHome(player) {
   return { credits: rows[0]?.credits ?? 0, bank_credits: rows[0]?.bank_credits ?? 0 };
 }
 
+// ── Home widget: what's in your pocket, and the thing nobody tells you ───────
+// The numbers are already on the live player object, so this costs nothing (the
+// buildWidget contract in index.js forbids a query here). What earns it a slot is
+// the SECOND line: cash on hand is what a mugging, a booking or a death takes off
+// you, and banked cash isn't. That is the single most expensive thing a new player
+// learns the hard way.
+function buildWidget(player) {
+  const cash = Number(player.credits) || 0;
+  const banked = Number(player.bank_credits) || 0;
+  const exposed = cash >= 500;
+  return {
+    id: 'pocket',
+    title: 'Pocket',
+    kind: 'lines',
+    lines: [
+      { text: `₵${cash.toLocaleString()} on hand`, sub: exposed ? 'at risk' : '' },
+      { text: `₵${banked.toLocaleString()} banked`, sub: 'safe' },
+      exposed
+        ? { text: 'Anything you are carrying is lost if you are robbed, booked or killed.', sub: '' }
+        : { text: 'An ATM will bank it for you. Banked credits survive anything.', sub: '' },
+    ],
+  };
+}
+
 async function buildScreen(player, screenId, params) {
   const { rows } = await query('SELECT credits, bank_credits FROM players WHERE id=$1', [player.id]);
   const balances = { credits: rows[0]?.credits ?? 0, bank_credits: rows[0]?.bank_credits ?? 0 };
@@ -118,5 +142,5 @@ async function handleAction(player, actionId, params) {
 
 registerTabletApp({
   id: 'bank', name: 'Bank', icon: '🏦', category: 'Finance',
-  buildHome, buildScreen, handleAction,
+  buildHome, buildScreen, handleAction, buildWidget,
 });

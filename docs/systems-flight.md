@@ -81,6 +81,57 @@ the "content is deliberate" rule. Instead:
   foot instead of riding the cabin-window HUD. Every instance of the type shares the
   one authored shell — privacy comes from the occupant Set, so still no runtime rows.
   See [proposals/leviathan-flying-base.md](proposals/leviathan-flying-base.md).
+- **Text-only passenger travel** (`textmode.js`): a passenger who has set Cabin View to
+  *Text only* (Tablet → Vehicles; persisted as the `flight_text_only` player flag) is sent
+  **no client panel at all** — not the HUD, not the cabin audio feed — and rides on narrated
+  flight instead, on its own 45s schedule (the 3s physics tick is far too fast for prose).
+  The preference is read ONCE at board time and latched as `player.textTravel`, because
+  `pushHud` is sync and on the tick path; it is cleared by `detach`. `window` still works
+  mid-flight and outranks it (`cabinWindowOpen`), so the mode is a default, not a lockout.
+  **Passengers only** — a pilot has no server-side flight to narrate (the sim IS the model),
+  so a text-mode pilot is a separate system, not this flag. A walkable cabin deliberately
+  does not latch it: those rooms are already graphics-free and latching would only cost
+  the occupant their engine audio.
+- **Text-native PILOTING** (`textpilot.js`) — the same preference, applied to the pilot's
+  seat. Instead of `sendFlightSim`, the server runs the physics itself and the player
+  flies by command. What makes this affordable is that `flight-model.js` is a **pure,
+  DOM-free module** already stepped headless by this suite and by `scripts/*-tune.mjs`:
+  the identical physics the 3D client runs, run server-side. The tick is its own `1s`
+  sweep over `liveAircraft` (NOT the `registerActivity` posture sweep — posture only
+  becomes `flying` at wheels-up, and a text pilot must be simulated through startup,
+  taxi and the takeoff roll), sub-stepped 10× so the model sees the small `dt` it was
+  tuned at. World position is integrated from heading × speed at the **charter
+  autopilot's** tile pace (`CRUISE_TILES`), the existing server-side answer for how
+  fast an aircraft crosses the map.
+  - **ASSISTED, not raw.** The player sets intent — `climb to 3000`, `turn to heading
+    090`, `throttle 70`, `level`, `flaps`, `gear`, `takeoff`, `land`, `status` — and a
+    proportional autopilot flies the surfaces toward it. Exposing `elevator 0.3` would
+    punish a text pilot for a control scheme the model was never tuned for. **Stall
+    recovery outranks every commanded target**, because a text pilot has no stick to
+    catch a departure with.
+  - **It writes the same `live.cont` contract `reconcile` does**, which is the whole
+    reason hazards, air-to-air contacts, AA and missiles work unchanged — none of them
+    can tell a text-flown craft from a client-flown one. None of reconcile's anti-spoof
+    clamping applies here (the server generated the numbers), so `reconcile` itself is
+    untouched and the 60fps path is unaffected.
+  - **Takeoff and landing reuse `cmdFlightEvent`**, injected via `wireTextPilot` to
+    avoid an import cycle — so parking, cargo delivery, checkride grading, landing IP
+    and detaching everyone are shared, not reimplemented. The landing grade comes from
+    `landingGrade(fpm)`, the cockpit report card's curve ported server-side.
+  - **The checkride is flyable entirely in text**: `checkGateProximity` tests the ring
+    course server-side (the `GATES` list already carried `r`/`altTol`; only the 3D
+    client ever tested them), and `startup` fires the `engineon` stage advance the
+    cockpit's switch used to.
+  - **The live panel** is a `text_cockpit` payload pushed once a tick and drawn by
+    `client/game/js/panels/textcockpit.js` in the same top pane as the room description
+    — box-drawing rules, a sliding compass tape, `█░` bars, an ASCII attitude ladder and
+    a character-glyph minimap. **No canvas anywhere in that path.** Most of its content
+    is lifted from `contextPayload`, the same payload feeding the 3D cockpit: one source
+    of truth, two renderers. `cockpit_close` hands the pane back.
+  - **Known gaps (v1):** air-to-air GUNS (`cmdAirFire` needs the client reticle's
+    `aimQuality`) and lock-dwell timing remain 3D-only. AA and missiles are fully
+    available, being server-authoritative dice already. RWR lock/launch warnings reach a
+    text pilot as text rather than as an instrument strip.
 
 ### The sky is a computed overlay
 An airborne craft carries its own `(grid_x, grid_y, altitude, heading)`.
@@ -201,7 +252,8 @@ throttle, yoke, pedals, flap detent lever, trim):
   the server's `map` window. **`paintGauges`** draws the engine cluster (one dial per
   `aircraft_types.engines`), the annunciator strip, gear/flap/stores state and the
   stall lamp. Passengers get the cabin-window layout (windshield above a
-  dest/alt/spd/hdg strip — no controls).
+  dest/alt/spd/hdg strip — no controls) — unless they've opted into text-only travel,
+  who get no panel at all (see the walkable-cabin/text-mode bullets above).
 - **SFX:** a `flight` group in `client/shared/sfx-catalog.js` (engine start, roll,
   rotate, abort, warble, approach, flare, touchdown, crash) — dev-panel editable.
 

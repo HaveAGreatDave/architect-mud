@@ -112,6 +112,9 @@ async function handleAction(player, actionId, params, broadcast) {
   return buildScreen(player, null, '');
 }
 
+// NOTE: the Wanted home-screen card lives in crime-app.js, not here. Your own heat
+// is a matter for your rap sheet; SPECTER is the kit you point at everyone else.
+
 registerTabletApp({
   id: 'specter', name: 'Surveillance', icon: '📡', category: 'Espionage',
   buildHome, buildScreen, handleAction,

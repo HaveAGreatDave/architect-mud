@@ -1662,6 +1662,57 @@ function logActiveCrime(player, key, zoneId, label) {
   });
 }
 
+// ── The permanent record ─────────────────────────────────────────────────────
+// crimeBoard/crimeHistory above are the LIVE police board: in memory, global,
+// capped, and gone on restart — right for a dispatcher's screen, useless as a rap
+// sheet. So a charge also files a lifetime tally against the player, in flags:
+//
+//   crime_priors    JSON { crimeKey: count }   — one flag, not one per offence
+//   crime_first_at  epoch seconds of the first charge ever
+//   crime_last_at   epoch seconds of the most recent
+//
+// One coalesced write per charge, and charges are rare and player-caused, so this
+// never lands on a hot path. Read back through crimeRecordOf() below — off the
+// hydrated flag cache, no query — which is what lets the tablet's Crime app show
+// it on a screen the player opens constantly. Arrests/fines/time-served are the
+// jail plugin's half of the same record (it owns those numbers).
+export function parsePriors(raw) {
+  try { const o = JSON.parse(raw || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }
+  catch { return {}; }
+}
+async function recordPrior(player, key) {
+  try {
+    const priors = parsePriors(await getFlag('player', 'crime_priors', player));
+    priors[key] = (Number(priors[key]) || 0) + 1;
+    const now = Math.floor(Date.now() / 1000);
+    const first = await getFlag('player', 'crime_first_at', player);
+    await setFlag('player', 'crime_priors', JSON.stringify(priors), player);
+    await setFlag('player', 'crime_last_at', now, player);
+    if (!first) await setFlag('player', 'crime_first_at', now, player);
+  } catch { /* a record that won't file must never block the charge itself */ }
+}
+
+// The player's own slice of the live board + history, plus their lifetime tally.
+// In-memory and flag-cache only. Used by the tablet Crime app.
+export async function crimeRecordOf(player) {
+  const id = player?.id;
+  if (!id) return null;
+  const priors = parsePriors(await getFlag('player', 'crime_priors', player).catch(() => '{}'));
+  return {
+    wanted: wantedSnapshot(id),
+    active: crimeBoard.filter(c => c.playerId === id)
+      .map(({ crimeKey, crime, zone, wanted, ts }) => ({ crimeKey, crime, zone, wanted, ts }))
+      .reverse(),
+    history: crimeHistory.filter(c => c.playerId === id)
+      .slice(0, 20)
+      .map(({ crimeKey, crime, zone, ts, clearedTs, outcome }) => ({ crimeKey, crime, zone, ts, clearedTs, outcome })),
+    priors,
+    priorsTotal: Object.values(priors).reduce((s, n) => s + (Number(n) || 0), 0),
+    firstAt: Number(await getFlag('player', 'crime_first_at', player).catch(() => 0)) || null,
+    lastAt: Number(await getFlag('player', 'crime_last_at', player).catch(() => 0)) || null,
+  };
+}
+
 // Move all of a suspect's active crimes to history. Called from every wanted-clear
 // path so a cleared perpetrator's rap sheet leaves the live board.
 function flushCrimesToHistory(playerId, outcome) {
@@ -1715,6 +1766,7 @@ async function raiseCrime(player, key, zoneId, suspectName, forced = false) {
   await raiseWanted(player, stars, label.toLowerCase(), zoneId);
   await addHeat(player, stars * HEAT_PER_STAR, `${label.toLowerCase()} on the wire`);
   logActiveCrime(player, key, zoneId, label);
+  await recordPrior(player, key);   // the permanent tally, not just the live board
   await logPoliceEvidence(zoneId, [key], player.handle);
   if (stars >= 1) {  // no sirens over a half-star puff
     // ATM robbery is witness:'always', so this fires on every single drain —
@@ -2580,6 +2632,20 @@ export async function hubDataFor(player) {
   return { net: p.net, tiles: p.tiles, alerts: p.alerts };
 }
 export function hasSpyDeck(playerId) { return playerHasSpyDeck(playerId); }
+
+// Your current heat, straight off the in-memory wanted runtime — no query, so the
+// tablet's home screen can read it on every render. Returns nulls-free zeros when
+// you're clean, which is the common case and the one that has to be free.
+export function wantedSnapshot(playerId) {
+  const s = wantedRuntime.get(playerId);
+  if (!s || !s.stars) return { stars: 0, bar: starBar(0), charges: [], hunted: false };
+  return {
+    stars: s.stars,
+    bar: starBar(s.stars),
+    charges: [...new Set(s.charges || [])].slice(-3),
+    hunted: s.hunters.size > 0,
+  };
+}
 
 // The rolling event-line buffer for one of the player's own cameras — what the
 // tablet shows in the focused-cam pane so you can read what's recorded before you

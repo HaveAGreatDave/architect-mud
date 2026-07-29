@@ -91,5 +91,90 @@ export default async function regress({ run, check, getPlayer }) {
   check('a body out cold reads as out cold, not asleep',
     bodyTell(both, p.current_zone) === 'out cold');
 
+  // ── The three things that make it more than a posture ───────────────────────
+  // Before these, a sneaker rolled unnoticed and was still announced on arrival
+  // and listed in the room. The notice record had no consumer.
+  const { isHiddenFrom, armSneakWindow, tickStealth, SNEAK_WINDOW_MS } =
+    await import('../../server/engine/stealth.js');
+
+  const crouched = { id: 'regress-crouched', posture: SNEAKING, current_zone: p.current_zone };
+  clearNotices(crouched.id);
+  check('an unnoticed sneaker is hidden from a viewer', isHiddenFrom(crouched, 'regress-viewer') === true);
+  check('...but never from themselves', isHiddenFrom(crouched, crouched.id) === false);
+  for (let i = 0; i < 60 && !hasNoticed(crouched.id, blind.id); i++) noticeRoll(blind, crouched, p.current_zone);
+  if (hasNoticed(crouched.id, blind.id)) {
+    check('...and not from someone who has clocked them', isHiddenFrom(crouched, blind.id) === false);
+  }
+  crouched.posture = 'standing';
+  check('standing up hides you from nobody', isHiddenFrom(crouched, 'regress-viewer') === false);
+
+  // The clock. Staying unnoticed is a thing that keeps being true, not a state
+  // you reach — the window expiring is what gives the room another look.
+  const { on: onEvent } = await import('../../server/engine/events.js');
+  crouched.posture = SNEAKING;
+  armSneakWindow(crouched, p.current_zone);
+  check('sneaking arms a window', crouched._sneakUntil > Date.now(), crouched._sneakUntil);
+  check('...of at least the base length', crouched._sneakUntil - Date.now() >= SNEAK_WINDOW_MS - 50);
+  let fired = 0;
+  onEvent('stealth.window', ({ player: who }) => { if (who?.id === crouched.id) fired++; });
+  tickStealth([crouched]);
+  check('an unexpired window does not re-roll the room', fired === 0);
+  crouched._sneakUntil = Date.now() - 1;
+  tickStealth([crouched]);
+  check('an expired one does', fired === 1);
+  check('...and re-arms itself rather than firing every tick', crouched._sneakUntil > Date.now());
+  crouched.posture = 'standing';
+  crouched._sneakUntil = Date.now() - 1;
+  tickStealth([crouched]);
+  check('standing up stops the clock entirely', fired === 1 && !crouched._sneakUntil);
+
+  // Sneaking must SURVIVE a step, or you can only ever sneak where you already
+  // are. forceStand('moved') used to clear it on every move.
+  setPosture(p, SNEAKING);
+  const before = p.current_zone;
+  await run('look');
+  check('sneaking survives a look', isSneaking(p));
+  p.current_zone = before;
+
+  // ── Panic: the flag must never outlive its driver ───────────────────────────
+  // `_ai.alarm` only SUSPENDS the AI graph and waits for whoever set it to drive
+  // the NPC and clear it. Setting it by hand — which this plugin used to do —
+  // froze that NPC permanently.
+  const { panicNpc, calmNpc, isPanicking, tickPanic, PANIC_MS } =
+    await import('../../server/engine/panic.js');
+
+  const scared = { id: 'regress-scared', name: 'Bystander', hp: 10, zone_id: p.current_zone, _ai: {} };
+  check('panicking takes the NPC over', panicNpc(scared, { reason: 'assault' }) === true);
+  check('...suspending its graph', scared._ai.alarm === true);
+  check('...standing it up', scared.posture === 'standing');
+  check('...and it is idempotent, so a per-swing event costs nothing',
+    panicNpc(scared, { reason: 'assault' }) === false);
+  check('isPanicking reports it', isPanicking(scared) === true);
+  check('calming hands the graph back', calmNpc(scared) === true && scared._ai.alarm === false);
+  check('...and is safe on someone who was never scared', calmNpc(scared) === false);
+
+  // Two drivers on one suspended graph means whichever finishes first hands it
+  // back while the other is still steering.
+  const driven = { id: 'regress-driven', name: 'Resident', hp: 10, zone_id: p.current_zone, _ai: { alarm: true } };
+  check('an NPC another plugin is already driving is left alone', panicNpc(driven) === false);
+  const dosed = { id: 'regress-dosed', name: 'Nodder', hp: 10, zone_id: p.current_zone, _ai: { dosedOut: true } };
+  check('...as is one the drug plugin has', panicNpc(dosed) === false);
+
+  // Somebody out cold or asleep witnessed nothing — the same rule the notice
+  // roll uses, and what makes clearing a room one body at a time work.
+  const koWitness = { id: 'regress-ko-witness', name: 'Sleeper', hp: 10, zone_id: p.current_zone, _koUntil: Date.now() + 60000, _ai: {} };
+  check('an unconscious NPC does not panic', panicNpc(koWitness) === false);
+  const deadWitness = { id: 'regress-dead-witness', name: 'Corpse', hp: 0, zone_id: p.current_zone, _ai: {} };
+  check('...nor a dead one', panicNpc(deadWitness) === false);
+
+  // The tick must RELEASE an NPC that has gone away, or the flag outlives the
+  // driver by another route.
+  check('the tick is a no-op with nobody panicking', tickPanic() === undefined);
+  const vanishing = { id: 'regress-vanishing', name: 'Ghost', hp: 10, zone_id: p.current_zone, _ai: {} };
+  panicNpc(vanishing);
+  tickPanic();   // not in world.npcs — dropped rather than left holding the flag
+  check('a panicking NPC the world no longer has is dropped', isPanicking(vanishing) === false);
+  check('panic is bounded, not indefinite', PANIC_MS > 0 && PANIC_MS <= 120000, PANIC_MS);
+
   setPosture(p, 'standing');
 }

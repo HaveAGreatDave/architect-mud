@@ -501,6 +501,27 @@ Folding them in is what makes them dev-panel editable and `interface_sfx`-overri
 `client/game/index.html` and `client/devpanel/index.html` — otherwise the bank still
 plays but the dev panel can't see it.
 
+### Reading the league from outside (`broadcast.getNextOnAir`)
+
+Two read Actions serve anything that wants league data without touching the sim:
+`broadcast.getTeamCard` (a club's form + when they're next on) and
+**`broadcast.getNextOnAir`** — *the one game the schedule puts on next*, optionally
+narrowed by `{ sport }` or `{ team }`. It walks forward from the current slot over
+every channel's sports playlist items, clearing **both** gates a real airing clears
+(the script's `airSlots` hour **and** the item's day mask, with day-of-week advanced
+per slot), and returns the first match. Query-free — grids, season and clock are all
+in memory — and only the matching slot is ever simulated, which is what makes it
+safe on the tablet's home screen (the Sports home widget is its only consumer).
+
+**Both obey the spoiler rule, and it is the load-bearing constraint here.** Every
+game is a pure function of its slot, so a future fixture's final score is already
+computable. An upcoming game therefore returns matchup + airtime with `awayScore`/
+`homeScore` **null**; a game currently on air returns the score *as far as the
+play-by-play has been called* (indexed off the same shared clock the graph walker
+seeks by, over `SPORTS_GAME_FILL` of the slot); past that point it's `FINAL`. If you
+add another consumer, keep this — the whole sports system exists to make watching
+the broadcast worth doing.
+
 ### Rebuilding the show from its script
 
 `data/scripts/hockey.bsm` is the source of the show. `node scripts/content/build-cluster-puck.mjs`

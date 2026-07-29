@@ -845,6 +845,20 @@ export function isTransientZone(id) { return world.transientZones.has(id); }
  * A system that genuinely needs to restore a transient location across a relog
  * must stash it itself (voidwalking's `crossing_room` player flag is the model).
  */
+/**
+ * The room the player's BODY is standing (or lying) in, right now.
+ *
+ * Not the same question as `persistableZone`, which is about what's safe to write to
+ * `players.current_zone` and falls back to an anchor when it can't tell. This one is for
+ * PHYSICS — weather, temperature, precipitation — and so it must never guess: a dreamer's
+ * `current_zone` is a dreamscape with no sky, but the body it belongs to is lying in a room
+ * that may well be in a blizzard. Returns null when there's genuinely no body zone, so a
+ * caller can skip rather than silently apply the weather of somewhere else.
+ */
+export function bodyZoneOf(player) {
+  return player?.sleeping?.bodyZone || player?._bodyZone || player?.current_zone || null;
+}
+
 export function persistableZone(player) {
   const zid = player?.current_zone;
   if (zid && !isTransientZone(zid)) return zid;
