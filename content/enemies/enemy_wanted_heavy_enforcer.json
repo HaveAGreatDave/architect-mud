@@ -58,7 +58,10 @@
         "energy": 5,
         "kinetic": 8
       },
-      "weight": 3
+      "weight": 3,
+      "grants": {
+        "component": 1
+      }
     },
     {
       "part": "legs",

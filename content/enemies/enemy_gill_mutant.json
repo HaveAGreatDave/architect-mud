@@ -35,6 +35,9 @@
       "weight": 9,
       "soak": {
         "kinetic": 1
+      },
+      "grants": {
+        "component": 1
       }
     },
     {
@@ -42,6 +45,9 @@
       "weight": 7,
       "soak": {
         "kinetic": 0
+      },
+      "grants": {
+        "capability": "waterbreath"
       }
     },
     {

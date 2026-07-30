@@ -746,7 +746,19 @@ function enemyPartSoak(enemy, part, damageType) {
 // Monsters with no weapon array fall back to an unarmed strike.
 function enemyWeaponComponents(enemy) {
   if (Array.isArray(enemy.weapon) && enemy.weapon.length) {
-    return enemy.weapon.map(c => ({
+    // A body part may OWN a damage component (body_parts[].grants.component).
+    // Ruin every part that grants it and that component stops firing — the arc
+    // goes out, the bite stops. `_lostComponents` is maintained by the injury
+    // plugin; absent it, this is exactly the list it always was.
+    const lost = enemy._lostComponents;
+    const live = lost
+      ? enemy.weapon.filter((_, i) => !lost.has(i))
+      : enemy.weapon;
+    // Never leave a creature with NO attack at all — something that cannot
+    // strike is a corpse that hasn't been told, and it would stand there being
+    // hit forever. The last component always survives.
+    const use = live.length ? live : [enemy.weapon[enemy.weapon.length - 1]];
+    return use.map(c => ({
       type: c.type || 'kinetic',
       min: Number(c.min) || 0,
       max: Number(c.max) || 0,
@@ -782,7 +794,10 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
   }
 
   const power = takePower(player);
-  const enemyDodge = enemy.dodge ?? 1;
+  // Ruined fins, wings or legs cost a creature its evasion — the injury plugin
+  // maintains `_injuryDodgeMod` from `grants.dodge` on the parts that provide it.
+  // Floored at 0: a wrecked thing is easy to hit, never impossible to miss.
+  const enemyDodge = Math.max(0, (enemy.dodge ?? 1) + (Number(enemy._injuryDodgeMod) || 0));
   // Calling your shot costs accuracy, and skill buys most of it back.
   const aimCost = aimHitPenalty(player, attackSkill);
   // A weapon well above your grade swings wide as well as soft.

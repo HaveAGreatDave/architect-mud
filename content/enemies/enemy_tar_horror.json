@@ -63,14 +63,22 @@
       "soak": {
         "kinetic": 1
       },
-      "weight": 20
+      "weight": 20,
+      "grants": {
+        "component": 0,
+        "capability": "grab"
+      }
     },
     {
       "part": "right_tendril",
       "soak": {
         "kinetic": 1
       },
-      "weight": 20
+      "weight": 20,
+      "grants": {
+        "component": 0,
+        "capability": "grab"
+      }
     }
   ],
   "butcher_difficulty": 8,

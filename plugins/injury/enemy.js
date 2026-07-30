@@ -54,8 +54,8 @@ const LEG_FLEE = { [HURT]: -2, [MAIMED]: -6 };
 //   'mobility' — a limb it moves on. Wounding it degrades the flee roll.
 //   null       — everything else: real, nameable, wounded, but mechanically inert
 //                (a wounded torso on a mob is a number nobody can perceive).
-const ATTACK_HINTS = ['arm', 'claw', 'pincer', 'maw', 'jaw', 'fang', 'talon', 'tentacle'];
-const MOBILITY_HINTS = ['leg', 'foot', 'feet', 'coil', 'fluke', 'tail', 'wing', 'tread', 'rotor'];
+const ATTACK_HINTS = ['arm', 'claw', 'pincer', 'maw', 'jaw', 'fang', 'talon', 'tentacle', 'tendril', 'stinger'];
+const MOBILITY_HINTS = ['leg', 'foot', 'feet', 'coil', 'fluke', 'tail', 'wing', 'tread', 'rotor', 'fin', 'flipper'];
 
 // Any authored part name reads as prose: `venom_sac` -> "venom sac". The
 // humanoid labels still win where they exist.
@@ -117,6 +117,65 @@ function recompute(enemy) {
 
   enemy._injuryHitMod = hitMod;
   enemy._injuryFleeMod = worstMobility >= HURT ? (LEG_FLEE[Math.min(worstMobility, MAIMED)] || 0) : 0;
+  recomputeGrants(enemy, entries, map);
+}
+
+// ── What a part GIVES the creature, and what breaking it takes away ──────────
+//
+// A body part may carry a `grants` block. While the part is intact the creature
+// has that capability; MAIM it and the capability is gone. This is the half that
+// turns anatomy from a damage-location table into a set of things worth aiming
+// at for a reason other than "more damage".
+//
+//   grants.component  index into the creature's `weapon` array. That damage
+//                     COMPONENT stops firing — the Heavy Enforcer's arc goes
+//                     out, the gill mutant stops biting. Lost only when EVERY
+//                     part granting it is maimed, so a pair of arms sharing a
+//                     component behaves like a pair.
+//   grants.dodge      evasion the part provides. Ruin a lurker's fins and it
+//                     cannot slip you any more.
+//   grants.capability a named string other systems can gate on (`grab`, `spit`).
+//                     Nothing consumes these yet by design — the seam is here so
+//                     a behaviour can check it without this file learning about
+//                     that behaviour.
+//
+// Deliberately NOT here: soak. Parts already carry their own typed `soak`, and a
+// second creature-wide plating number in the same block would be two knobs that
+// look like one.
+function recomputeGrants(enemy, entries, map) {
+  const dead = (part) => (map.get(part)?.sev || 0) >= MAIMED;
+
+  // component -> [parts granting it]; lost when all of them are gone.
+  const byComponent = new Map();
+  let dodgeLost = 0;
+  const capabilities = new Set();
+
+  for (const [part, entry] of entries) {
+    const g = entry?.grants;
+    if (!g) continue;
+    if (Number.isInteger(g.component)) {
+      if (!byComponent.has(g.component)) byComponent.set(g.component, []);
+      byComponent.get(g.component).push(part);
+    }
+    if (g.dodge > 0 && dead(part)) dodgeLost += Number(g.dodge) || 0;
+    if (g.capability && !dead(part)) capabilities.add(String(g.capability));
+  }
+
+  const lost = new Set();
+  for (const [idx, parts] of byComponent) if (parts.every(dead)) lost.add(idx);
+
+  enemy._lostComponents = lost.size ? lost : null;
+  enemy._injuryDodgeMod = dodgeLost ? -dodgeLost : 0;
+  enemy._capabilities = capabilities;
+}
+
+/** Does this creature still have a named capability? Intact parts grant them. */
+export function enemyHasCapability(enemy, name) {
+  if (!enemy?._capabilities) {
+    // Never wounded: everything it was authored with is still attached.
+    return (enemy?.body_parts || []).some(p => p?.grants?.capability === name);
+  }
+  return enemy._capabilities.has(name);
 }
 
 /**

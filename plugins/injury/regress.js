@@ -13,7 +13,7 @@ import {
   severityFor, injuryReport, bodyReport, severityOf, clearInjuries, hooks,
 } from './index.js';
 import { PARTS, TYPES, BRUISED, HURT, MAIMED, injuryName, typeRules } from './tables.js';
-import { enemySeverity, enemyWoundNote, partLabel } from './enemy.js';
+import { enemySeverity, enemyWoundNote, partLabel, enemyHasCapability } from './enemy.js';
 import { impairmentOf } from '../../server/engine/impairment.js';
 import { effectiveStat } from '../../server/engine/condition.js';
 import { aimHitPenalty, aimedWeights as aimedWeightsFor, splitSpread, spreadGroups, executionShot, enemyAttackPlayer, waterCombatPenalty, underskilledPenalty, weaponSkillRequirement, applyStun, isStunned, isOnCooldown } from '../../server/engine/combat.js';
@@ -480,6 +480,72 @@ export default async function regress({ run, check }) {
 
   check('an electrical weapon in water discharges instead',
     waterCombatPenalty(wet, { weapon_skill: 'science', water_shock: true }, 1)?.discharge === true);
+
+  // ── grants: what a part GIVES, and what breaking it takes away ─────────────
+  const enemyWith = (parts, weapon, dodge = 2) => ({
+    instanceId: 'regress-grants', name: 'a specimen', hp_max: 60, hit: 5, dodge,
+    weapon, body_parts: parts,
+  });
+  const ruin = (mob, part) => fireEnemy(mob, { part, damage: 999, baseDamage: 999, type: 'kinetic', critical: true });
+  const liveTypes = (mob) => {
+    const lost = mob._lostComponents;
+    const kept = lost ? mob.weapon.filter((_, i) => !lost.has(i)) : mob.weapon;
+    return (kept.length ? kept : [mob.weapon[mob.weapon.length - 1]]).map(c => c.type);
+  };
+
+  // A part can own a damage component; ruin it and that damage stops.
+  const arc = enemyWith(
+    [{ part: 'torso', weight: 60 }, { part: 'emitter', weight: 40, grants: { component: 1 } }],
+    [{ type: 'kinetic', min: 4, max: 6 }, { type: 'energy', min: 2, max: 4 }]);
+  check('an intact creature fires every component',
+    JSON.stringify(liveTypes(arc)) === JSON.stringify(['kinetic', 'energy']));
+  ruin(arc, 'emitter');
+  check('ruining the granting part silences that component',
+    JSON.stringify(liveTypes(arc)) === JSON.stringify(['kinetic']), JSON.stringify(liveTypes(arc)));
+
+  // Two parts sharing one component behave like a PAIR: it survives until both go.
+  const pair = enemyWith(
+    [{ part: 'left_tendril', weight: 50, grants: { component: 0 } },
+     { part: 'right_tendril', weight: 50, grants: { component: 0 } }],
+    [{ type: 'kinetic', min: 3, max: 5 }]);
+  ruin(pair, 'left_tendril');
+  check('one of a pair does not silence the shared component', liveTypes(pair).length === 1);
+
+  // The floor that stops a wrecked creature becoming a statue that cannot fight
+  // back and cannot be finished cleanly.
+  ruin(pair, 'right_tendril');
+  check('a creature always keeps at least one attack', liveTypes(pair).length === 1);
+
+  // Granted dodge: ruin the fins and it cannot slip you.
+  const finned = enemyWith(
+    [{ part: 'body', weight: 60 }, { part: 'left_fin', weight: 20, grants: { dodge: 2 } },
+     { part: 'right_fin', weight: 20, grants: { dodge: 2 } }],
+    [{ type: 'kinetic', min: 2, max: 4 }], 4);
+  check('an intact creature has lost no dodge', !finned._injuryDodgeMod);
+  ruin(finned, 'left_fin');
+  ruin(finned, 'right_fin');
+  check('ruined fins cost it its evasion', finned._injuryDodgeMod === -4, `${finned._injuryDodgeMod}`);
+  check('...and dodge floors at 0, never negative',
+    Math.max(0, (finned.dodge ?? 1) + finned._injuryDodgeMod) === 0);
+
+  // Capabilities: present while the part is, gone when it is not — and readable
+  // on a creature that has never been touched.
+  const grabber = enemyWith(
+    [{ part: 'maw', weight: 40, grants: { capability: 'grab' } }, { part: 'body', weight: 60 }],
+    [{ type: 'kinetic', min: 2, max: 4 }]);
+  check('an untouched creature still has its capabilities', enemyHasCapability(grabber, 'grab'));
+  ruin(grabber, 'maw');
+  check('destroying the part removes the capability', !enemyHasCapability(grabber, 'grab'));
+  check('a capability it never had reads false', !enemyHasCapability(grabber, 'spit'));
+
+  // A merely HURT part still works — destruction is the threshold, not damage.
+  const grazed = enemyWith(
+    [{ part: 'maw', weight: 40, grants: { capability: 'grab' } }, { part: 'body', weight: 60 }],
+    [{ type: 'kinetic', min: 2, max: 4 }]);
+  fireEnemy(grazed, { part: 'maw', damage: 20, baseDamage: 20, type: 'kinetic' });
+  check('a wounded-but-not-destroyed part still grants',
+    enemySeverity(grazed, 'maw') < MAIMED ? enemyHasCapability(grazed, 'grab') : true,
+    `sev ${enemySeverity(grazed, 'maw')}`);
 
   // ── Stunned ────────────────────────────────────────────────────────────────
   //

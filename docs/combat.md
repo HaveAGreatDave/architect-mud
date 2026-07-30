@@ -224,6 +224,39 @@ chainblade is worse off than unarmed. Mastery scales between skill 8 and 18, and
   the person holding it. Capped so it is humiliating, never lethal. Resolved as part of the same
   blow, not a second attack: no extra cooldown, no second to-hit roll.
 
+### What a part GIVES — `body_parts[].grants`
+
+A body part can carry a `grants` block. While it is intact the creature has that
+capability; **Maim it and the capability is gone**. This is what turns anatomy
+from a damage-location table into a set of things worth aiming at for a reason
+other than "more damage".
+
+| key | effect when the part is destroyed |
+|---|---|
+| `component: <n>` | that index of the creature's `weapon` array **stops firing** — the arc goes out, the bite stops |
+| `dodge: <n>` | it loses that much evasion (floored at 0 — a wrecked thing is easy to hit, never impossible to miss) |
+| `capability: "<name>"` | the named capability is lost; read with `enemyHasCapability(enemy, name)` |
+
+**A shared component behaves like a pair.** Two parts granting `component: 0`
+keep it alive until *both* are destroyed, which is how a creature with two
+tendrils should work without a special case.
+
+**A creature always keeps at least one attack.** If every component is silenced,
+the last one survives — something that cannot strike is a corpse that has not
+been told, and it would stand there being hit forever.
+
+Authored today: the **Heavy Enforcer's** energy arc dies with its torso emitter,
+the **gill mutant's** edged bite dies with its head, the **tar-pit horror's**
+tendrils share one attack and both carry `grab`, and the **harbour lurker's**
+fins are worth 2 dodge each — take both and dodge 4 becomes dodge 0.
+
+Deliberately **not** in the block: `soak`. Parts already carry their own typed
+soak, and a second creature-wide plating number in the same place would be two
+knobs that look like one.
+
+Nothing consumes `capability` yet, by design — the seam exists so a behaviour can
+gate on `grab` without this layer learning about that behaviour.
+
 ### `status_chance` — the tag that finally does something
 
 Weapons authored `status_chance` (e.g. `{ "stunned": 0.3 }`) for a long time with
