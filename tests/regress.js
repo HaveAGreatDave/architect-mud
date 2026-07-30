@@ -2517,13 +2517,28 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
 // table instead of quietly skipping it.
 // Delete every per-player row whose owner no longer exists in `players`. See the
 // call site at the end of the run for why this is safe rather than heuristic.
+// `player_inventory.player_id` is not always a player. The engine parks WORLD-owned
+// rows there under sentinel ids, keyed and read by `container_id`/zone and never by
+// player — so "has no `players` row" does NOT mean "unreachable" for them:
+//
+//   `_restock`          sourced vendor stock — the physical goods inside every shop
+//                       cooler, display case and stockroom (engine/vendor.js).
+//   `_ground_<zoneId>`  items dropped on the floor of a room (loadContainerById reads
+//                       these explicitly, alongside the player's own rows).
+//
+// Sweeping those wiped every shop's self-service stock on every local regress run,
+// which is as confusing as it sounds: the grocer's coolers read empty, re-seeding
+// them fixed it, and the next test run emptied them again.
+const WORLD_OWNED_PLAYER_ID = `(f.player_id = '_restock' OR f.player_id LIKE '_ground_%')`;
+
 async function sweepOrphanedPlayerRows() {
   let total = 0;
   const hit = [];
   for (const t of PER_PLAYER_TABLES) {
     try {
+      const keep = t === 'player_inventory' ? ` AND NOT ${WORLD_OWNED_PLAYER_ID}` : '';
       const { rowCount } = await query(
-        `DELETE FROM ${t} f WHERE NOT EXISTS (SELECT 1 FROM players p WHERE p.id = f.player_id)`
+        `DELETE FROM ${t} f WHERE NOT EXISTS (SELECT 1 FROM players p WHERE p.id = f.player_id)${keep}`
       );
       if (rowCount) { total += rowCount; hit.push(`${t} ${rowCount}`); }
     } catch (err) {
@@ -2641,6 +2656,11 @@ removeLivePlayer(P.id);
 // can never be read again** — every read in the codebase is keyed by the id of a
 // live or loading player. They are unreachable by construction, so deleting them
 // is safe in a way that a heuristic on id shape would not be.
+//
+// The one exception is `player_inventory`, where the engine parks WORLD-owned rows
+// under sentinel player ids that ARE still read (by container, not by player). See
+// WORLD_OWNED_PLAYER_ID above — those are held back, or this sweep quietly empties
+// every shop cooler and every pile of dropped loot in the game.
 //
 // Left this to the very end so a mid-suite crash can't wipe a fixture a later
 // suite still needs. Local-only in practice: CI runs against a throwaway DB.

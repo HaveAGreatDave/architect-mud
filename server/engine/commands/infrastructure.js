@@ -63,7 +63,17 @@ export async function cmdAttackDestructible(targetStr, player, broadcast) {
     return { type: 'error', message: `You're still recovering. (${(getCooldownRemaining(player.id, 'attack') / 1000).toFixed(1)}s)` };
   setCooldown(player.id, 'attack');
 
-  const dmg  = equipped ? (tagValue(equipped, 'damage', {}) || {}) : {};
+  // A demolition tool's anti-MACHINERY damage is a separate number from its
+  // anti-personnel damage, and deliberately much larger. A sledgehammer is
+  // clumsy against someone who is dodging and devastating against a static steel
+  // casing; keeping one number for both meant the sledgehammer had to roll 40-70
+  // to get through this soak wall, which made it a one-shot against a 40 HP
+  // player. `demolition_damage` lets the casing stay tough without the weapon
+  // being absurd in a fight. Falls back to `damage`, so every other item and
+  // every unarmed swing behaves exactly as before.
+  const dmg  = equipped
+    ? (tagValue(equipped, 'demolition_damage', null) || tagValue(equipped, 'damage', {}) || {})
+    : {};
   const dmin = dmg.min ?? (equipped ? 3 : 2);
   const dmax = dmg.max ?? (equipped ? 8 : 4);
   const raw  = Math.floor(Math.random() * (dmax - dmin + 1)) + dmin;

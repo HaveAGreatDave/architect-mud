@@ -1,6 +1,6 @@
 import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse, tryBattleCry, setApartmentCache, hasActivePlayers, resolveLanding, getZone, reconcileZoneMembership, bodyZoneOf } from './world.js';
 import { wakeFromDream } from './dreamscape.js';
-import { tickUnconscious, knockOut, KO_MS } from './unconscious.js';
+import { tickUnconscious, knockOut, isOut, KO_MS } from './unconscious.js';
 import { tickStealth } from './stealth.js';
 import { tickPanic } from './panic.js';
 import { getZoneRadiation } from './zone-tags.js';
@@ -274,6 +274,15 @@ async function tick() {
     if (!player.combatTargetId) continue;
     const combatEnemy = world.enemies.get(player.combatTargetId);
     if (!combatEnemy || combatEnemy.zoneId !== player.current_zone) {
+      player.combatTargetId = null;
+      continue;
+    }
+    // Auto-attack never finishes an unconscious body. Standing over one and
+    // killing it has to be a thing you TYPE — it is charged as `execution` at
+    // 5 stars, and a crime that severe must never be committed by a background
+    // tick on your behalf. This is also what makes a mid-fight knockout visible
+    // at all rather than being undone a second later.
+    if (isOut(combatEnemy)) {
       player.combatTargetId = null;
       continue;
     }

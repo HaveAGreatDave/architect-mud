@@ -1,8 +1,8 @@
 {
-  "description": "A zip gun welded from pipe, spring, and optimism. Fires once reliably, twice if you pray.",
+  "description": "A counterfeit so brazen it spells the name wrong on the slide. Everything the real Ferris does not do — jam, shed springs, warm alarmingly — this does eagerly, and for a third of the price.",
   "flags": {},
   "id": "item_scrap_pistol",
-  "name": "scrap-iron pistol",
+  "name": "Ferriss Model 9 counterfeit pistol",
   "tags": {
     "__own": {
       "damage": {
@@ -10,7 +10,7 @@
         "min": 6
       },
       "damage_type": "kinetic",
-      "description": "A zip gun welded from pipe, spring, and optimism. Fires once reliably, twice if you pray."
+      "description": "A counterfeit so brazen it spells the name wrong on the slide. Everything the real Ferris does not do — jam, shed springs, warm alarmingly — this does eagerly, and for a third of the price."
     },
     "__super": [
       "weapon_firearms"
@@ -20,7 +20,7 @@
       "min": 6
     },
     "damage_type": "kinetic",
-    "description": "A zip gun welded from pipe, spring, and optimism. Fires once reliably, twice if you pray.",
+    "description": "A counterfeit so brazen it spells the name wrong on the slide. Everything the real Ferris does not do — jam, shed springs, warm alarmingly — this does eagerly, and for a third of the price.",
     "slot": "weapon_hand",
     "weapon": true,
     "weapon_skill": "firearms"

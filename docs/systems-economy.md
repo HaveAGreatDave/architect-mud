@@ -70,7 +70,8 @@ error between the two steps can't tear them:
   now rejects entries missing `item_id`). Price is `entry.price` (falling back to the item's `value`), discounted by
   ideology reputation, floored at 1.
 - **Buy:** debits credits via `adjustCredits`, then inserts/stacks the item. Vendor `stock` is **not**
-  decremented — supply is effectively infinite (default `stock ?? 99` is display-only).
+  decremented — supply is effectively infinite (default `stock ?? 99` is display-only). **Sourced
+  entries are the exception** and are genuinely finite — see *Physical stock* below.
 - **Two opt-in seams let a plugin change what a sale produces**, both registered against `vendor.js`
   and both running *inside* the sale transaction:
   - `registerPurchaseStamp(itemId, fn)` — **what state the unit arrives in.** Returns a `custom_data`
@@ -93,6 +94,45 @@ it dies with the conversation. `getVendorStock` and `buyFromVendor` both filter 
 is load-bearing, because the client sends an item id and without it a front-counter session could buy
 straight off the back room. This is what lets Sully be a bartender selling swill *and* a fence selling
 precursor without his bar list ever leaking contraband.
+
+### Physical stock — the cooler IS the shelf (as built)
+
+A `vendor_inventory` entry may carry `sourceContainer` (a furniture container id) and `restockToQty`
+(the delivery target). That entry stops being an abstract shelf slot and becomes **real rows in a real
+box**: it always lists (bypassing the `vendor_stock` rotation), its `stock` count is a live `COUNT(*)`
+of that container, and buying it **moves an existing row out** rather than minting a fresh one — so a
+steak that has been sitting in the cooler keeps its own freshness/cooked state right through the sale.
+
+Flag that container `vendor_stock: <npcId>` and the player can work it themselves: open it, take goods
+out (marked `custom_data.unpaid`), carry them to a `checkout: <npcId>` counter to pay — or out the door,
+which is `shoplifting`. That whole half lives in **commerce**; see [plugins.md](plugins.md).
+
+**The cold chain.** A shop-floor case flagged `backstock: <containerId>` is refilled from that
+stockroom container first — real rows walked forward, keeping whatever freshness they've accrued — and
+only the shortfall is minted. `restockSourcedContainers` then tops the **stockroom itself** back up to
+`backstock_depth × restockToQty` (default 2, set on the stockroom container). Both halves matter: with
+only the first, nothing ever puts anything *in* the back room, so the walk-forward never fires, the
+stockroom is a permanently empty prop, and every delivery just mints onto the floor. Stocking it is
+also what makes walking into the back of a shop worth doing — there is real, liftable inventory there.
+
+Two traps, both of which shipped and both of which fail **silently**:
+
+- **Never put `restock_items` on a `vendor_stock` container.** That flag is the *consort* bottomless
+  dispenser — it re-mints one of every listed item on **each container view**. On a sourced case it is
+  a second, infinite source of truth for the same box: free goods forever, and a `stock` count on
+  Dell's shelf that doesn't match what's in the freezer. One box, one mechanic.
+- **Size the box for a full delivery.** The weight cap is applied per entry in catalogue order, so an
+  over-subscribed case starves whatever is authored *last* — those items read `stock: 0` forever and
+  look like missing content rather than a small `flags.container`. A short delivery now logs a
+  `[vendor]` warning naming the container and the item.
+
+`plugins/commerce/regress.js` asserts all of this over the live world (dispenser conflict, catalogue
+coverage, floor capacity, backstock capacity and existence), because each failure is a **content
+shape** rather than a code path.
+
+Ration Nine (Dell Fry, Marquee District) is the reference build: dry shelving, an open chiller case and
+a frozen well on the shop floor; the two cold cases backstock from a walk-in Ironchill fridge and a
+deep-freeze in the stockroom behind. The dry shelving has no back room — `backstock` is optional.
 - ⚠️ **Abort a sale by THROWING, never by returning false.** `withTransaction` commits on a falsy
   return and only rolls back on a throw, so a mid-sale bail-out that returns takes the credits and
   hands over nothing — which the sold-out-mid-transaction path silently did until 2026-07-29. Use the

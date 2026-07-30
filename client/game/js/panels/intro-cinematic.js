@@ -1497,14 +1497,14 @@ export function playIntroCinematic(onDone, skyline, shore) {
         <button type="button" class="intro-cine-gate-sound" id="intro-cine-sound" aria-pressed="false"></button>
         <button type="button" class="intro-cine-gate-btn" id="intro-cine-begin">Begin <span>›</span></button>
         <!-- The skip is stated plainly and up front. Someone who won't sit through
-             ninety seconds of backstory is going to hammer Escape regardless; better
+             fifty seconds of backstory is going to hammer Escape regardless; better
              they're told where the door is than left clawing at the frame. The line
              is a shrug, not a scolding — the CODEX app holds all of this anyway. -->
         <!-- Device-agnostic on purpose: SKIP is the one instruction that is true
              everywhere, and Escape is a bonus nobody needs to be told about. The
              tone is a shrug with a raised eyebrow — the CODEX holds all of it, so
              a player who bails has lost nothing but the good version. -->
-        <div class="intro-cine-gate-fine">Ninety seconds of how the world ended. If that's a lot to ask, SKIP is right there, and your CODEX will explain it later — to you, slowly.</div>
+        <div class="intro-cine-gate-fine">Fifty seconds of how the world ended. If that's a lot to ask, SKIP is right there, and your CODEX will explain it later — to you, slowly.</div>
         </div>
         <!-- The auto-begin, made visible. The sequence has always started on its own
              after AUTO_BEGIN_MS (a player who tabbed away must never be stranded), but

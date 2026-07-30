@@ -150,6 +150,8 @@ const BUILDING_TYPE_ICON = {
   // Marrow Street — the workaday downtown strip either side of the Sentinel.
   dept_store: 'bldg_deptstore', hardware: 'bldg_hardware', bathhouse: 'bldg_bathhouse',
   noodle_bar: 'bldg_noodlebar', outfitter: 'bldg_outfitter', bodega: 'bldg_bodega',
+  // Foundry Way — Grind House, the working blacksmith.
+  blade_shop: 'bldg_bladeshop',
   // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md) — reuse the nearest existing
   // glyphs so the campus reads on the 2-D map this build; bespoke SVGs are an optional polish pass.
   asc_spire: 'bldg_office', asc_gate: 'bldg_police', asc_clinic: 'bldg_clinic',

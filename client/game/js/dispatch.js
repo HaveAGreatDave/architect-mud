@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, showSkyBanner, pointAtRoomTarget, setRoomBeacon, clearRoomBeacons } from './render.js';
+import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, showSkyBanner, pointAtRoomTarget, setRoomBeacon, clearRoomBeacons, isAreaPaneVisible } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
 import { renderMinimap, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors, setEnvUnreal } from './panels/environment.js';
@@ -40,6 +40,7 @@ import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetCon
 import { setYachtAmbience, yachtUnderway, yachtSettled } from './panels/yacht-ambience.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
+import { openConcealKeypad } from './panels/keypad.js';
 import { openSynthMinigame, openCookMenu } from './panels/synthlab.js';
 import { openSpliceSelect, openSpliceStages, applySplicePreview } from './panels/splicelab.js';
 import { showSpliceReport } from './panels/spliceReport.js';
@@ -787,6 +788,9 @@ const handlers = {
     // A GPS auto-walk that hit a numbered exit picker answers it itself (matching
     // its known target zone) — swallow the picker text rather than spam the log.
     if (msg.movePicker && resolveAutoWalkPicker(msg.movePicker)) return;
+    // paneFallback: a log copy of something the room pane already shows. Only
+    // worth printing when the pane isn't on screen (collapsed mobile).
+    if (msg.paneFallback && isAreaPaneVisible()) return;
     appendHtml(msg.message, 'help');
   },
   gps_route: (msg) => {
@@ -1027,6 +1031,14 @@ const handlers = {
       deviceName: msg.deviceName || 'TARGET',
       onResult: ({ won }) => sendCmdSilent(`strafresolve ${msg.token} ${won ? 1 : 0}`),
     });
+  },
+
+  // A concealment cabinet's passcode pad (plugins/concealment). The digits are
+  // submitted with sendCmdSilent from inside the overlay, never echoed — that
+  // privacy is the feature, not a nicety.
+  conceal_keypad: (msg) => {
+    if (msg.message) appendHtml(msg.message, 'system');
+    openConcealKeypad(msg);
   },
 
   vault_crack: (msg) => {

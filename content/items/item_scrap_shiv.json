@@ -9,7 +9,7 @@
       "max": 6,
       "min": 2
     },
-    "damage_type": "kinetic",
+    "damage_type": "edged",
     "description": "A ground-down strip of rebar with a grip of grubby tape. Cuts, badly, which is still cutting.",
     "slot": "weapon_hand",
     "weapon": true,

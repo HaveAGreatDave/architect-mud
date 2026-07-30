@@ -194,8 +194,10 @@ nothing, silently; wire a reader first.
 | `camera_id` | broadcast | media_cameras row this camera feeds |
 | `channel_id` | broadcast | channel a deck/TV is tuned to |
 | `chargen` | prologue | character-generation terminal |
-| `concealed` | surveillance | planted device concealment state |
+| `concealed` | surveillance / concealment | hidden from the room's furniture list entirely (`commands/describe.js`). A planted spy device sets it at plant time; a concealment cabinet flips it on the piece it hides |
+| `conceal_hides` / `conceal_code` / `conceal_brand` | concealment | on the DISGUISE piece: the id of the furniture it hides (same zone), the passcode (factory `1234`), and the brand shown on the keypad |
 | `backstock` | commerce | container id a `vendor_stock` case refills from (stockroom → shop floor) before minting a delivery |
+| `backstock_depth` | commerce | on the STOCKROOM container: how many deliveries' worth of each sourced item to keep in reserve, as a multiple of the catalogue entry's `restockToQty` (default 2). Set 0 to leave a back room deliberately bare |
 | `checkout` | commerce | vendor id whose till this counter is — enables `checkout` here |
 | `container` | inventory | holds items |
 | `corp_poster` / `hero_poster` / `poster_key` | corps/events | wall poster identity |

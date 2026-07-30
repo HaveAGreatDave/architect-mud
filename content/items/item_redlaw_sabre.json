@@ -1,0 +1,38 @@
+{
+  "description": "Issued to transit wardens back when there were transit wardens, and built to be drawn in a crowded carriage: short guard, shallow curve, a blade that goes exactly where you point it. The pommel is stamped with a serial and a route number.",
+  "flags": {},
+  "id": "item_redlaw_sabre",
+  "name": "Redlaw sabre",
+  "tags": {
+    "__own": {
+      "damage": {
+        "min": 8,
+        "max": 15
+      },
+      "damage_type": "edged",
+      "weapon_skill": "blades",
+      "min_skill": {
+        "blades": 4
+      },
+      "description": "Issued to transit wardens back when there were transit wardens, and built to be drawn in a crowded carriage: short guard, shallow curve, a blade that goes exactly where you point it. The pommel is stamped with a serial and a route number."
+    },
+    "__super": [
+      "weapon_blades"
+    ],
+    "damage": {
+      "min": 8,
+      "max": 15
+    },
+    "damage_type": "edged",
+    "weapon_skill": "blades",
+    "min_skill": {
+      "blades": 4
+    },
+    "description": "Issued to transit wardens back when there were transit wardens, and built to be drawn in a crowded carriage: short guard, shallow curve, a blade that goes exactly where you point it. The pommel is stamped with a serial and a route number.",
+    "slot": "weapon_hand",
+    "weapon": true
+  },
+  "type": "weapon",
+  "value": 320,
+  "weight": 2400
+}

@@ -134,6 +134,19 @@ export function setAreaPane(html, direction) {
   document.getElementById('area-pane').dispatchEvent(new CustomEvent('contentupdate'));
 }
 
+// Is the room pane actually on screen right now? Desktop always: true. Mobile
+// starts collapsed (`mob-pane-hidden`) and the player toggles it. Server messages
+// flagged `paneFallback` are LOG COPIES of something already drawn into the room
+// pane — they exist for the collapsed-mobile case only, and appending them while
+// the pane is open is pure duplication (the elevator's floor panel three times
+// over). Anything that can't find the pane errs toward showing the copy.
+export function isAreaPaneVisible() {
+  const pane = document.getElementById('area-pane');
+  if (!pane) return false;
+  if (pane.classList.contains('mob-pane-hidden')) return false;
+  return pane.offsetParent !== null && pane.getBoundingClientRect().height > 4;
+}
+
 // Ripple the room-pane link for `action`+`target` (server `pointAt()`), telling
 // the player where to click. The pane may not carry the link yet — a look can
 // still be in flight behind the message that pointed — so retry briefly.

@@ -370,8 +370,12 @@ Applied by the `use`/`eat`/`drink` command from item tags ([inventory.js](../ser
   dropped WITHOUT conversion, so sleeping in the open requires a deliberately-tagged `sanctuary`.
 - **Per minute asleep:** restore a slice of missing HP/sanity/stamina (stamina fastest — a good
   sleep leaves you rested well before your wounds knit or your head clears), drain 1 hunger + 1 thirst.
-- **Auto-wake** on any of: fully rested (HP **and** sanity **and** stamina full), hunger or thirst ≤ 5,
-  or 30 minutes slept (`SLEEP_MAX_MINUTES`).
+- **Fully rested is a NOTICE, not a wake-up.** When HP, sanity and stamina are all full and fatigue is
+  gone, the sleeper gets one green line saying so (and the `rested` buff is granted right there, the
+  moment it's earned) — and keeps sleeping. Bedding down to skip a night must not be cut short by the
+  body happening to finish topping up.
+- **Auto-wake** on any of: hunger or thirst ≤ 5, the alarm, body temp ≤ 34 °C or ≥ 40 °C, or the
+  backstop at 180 minutes slept (`SLEEP_MAX_MINUTES` — hunger/thirst almost always bite first).
 - Any command other than `sleep`/`rest` wakes the player and is then executed (`commands/index.js`).
 
 ### Fatigue — the clock you're sleeping off

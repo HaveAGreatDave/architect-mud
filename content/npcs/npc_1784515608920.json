@@ -394,7 +394,7 @@
     {
       "item_id": "item_riot_shotgun",
       "min_trust": 0,
-      "price": 224
+      "price": 308
     },
     {
       "item_id": "item_khole",
@@ -550,6 +550,11 @@
       "item_id": "item_raw_ibogaine",
       "min_trust": 50,
       "price": 1008
+    },
+    {
+      "item_id": "item_blackvane_ripsaw",
+      "min_trust": 14,
+      "price": 672
     }
   ],
   "vendor_restock_rate": 1,

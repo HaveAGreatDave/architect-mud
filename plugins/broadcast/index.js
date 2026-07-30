@@ -8463,3 +8463,81 @@ installAudienceGate({
 });
 
 console.log(`[broadcast] Plugin loaded. ${channelRuntime.size} channel(s), ${zoneTunings.size} tuned zone(s), ${graphicsCache.size} graphic(s).`);
+
+// ── The proprietor puts their tape back on ───────────────────────────────────
+//
+// A deck may name an owner (`flags.deck_owner_npc`) and the thing it is supposed
+// to be playing (`flags.deck_default`). Anyone is free to stop it or tune the set
+// to an actual station — and while the owner is standing there, they will put it
+// back, every time, with a line about it.
+//
+// Deliberately general rather than a Grind House special case: any shopkeeper who
+// cares what is on their own television gets this by authoring two flags.
+//
+// Scoped to zones that currently contain a PLAYER. A tape reverting in an empty
+// room is both unobservable and a pointless write, and iterating ~5,800 zones a
+// minute to find out would be worse than the feature is worth.
+const OWNER_REVERT_LINES = [
+  '$npc reaches past you without a word, thumbs the tape back in, and hits PLAY.',
+  '"No." $npc puts the tape back on. "You can watch the news at home."',
+  '$npc glances up, sees what is on, and fixes it. The fuzz guitar starts again.',
+];
+
+// The same instinct, applied to a television rather than a tape deck. A set may
+// carry `flags.owner_npc` + `flags.channel_default` (a channel NUMBER): change it,
+// or switch it off, and while that NPC is behind the bar it goes straight back.
+// Switching it off is covered by the same check — `tuned_channel` simply becomes
+// absent, which is not the default either.
+const CHANNEL_REVERT_LINES = [
+  '$npc does not look up from the glass he is drying. "Game\'s on." The dial goes back.',
+  '$npc puts the game back on with the wet end of a bar towel. Nobody argues.',
+  '"That stays where it is." $npc retunes the set without breaking stride.',
+  '$npc reaches up and thumbs it back to the game, and gives you a long look about it.',
+];
+
+export const hooks = {
+  'tick.minute': async () => {
+    const zones = new Set();
+    for (const p of world.players.values()) if (p?.current_zone) zones.add(p.current_zone);
+
+    for (const zoneId of zones) {
+      const npcsHere = getZoneNpcs(zoneId);
+      const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+      for (const f of getZoneFurniture(zoneId)) {
+        const fl = f.flags || {};
+
+        // A tape deck whose owner wants their tape on.
+        const deckOwner = fl.deck_owner_npc;
+        if (deckOwner && fl.deck_default && fl.deck_active !== fl.deck_default) {
+          const npc = npcsHere.find(n => n.id === deckOwner);
+          if (npc) {
+            const next = { ...fl, deck_active: fl.deck_default };
+            const lib = Array.isArray(next.deck_cassettes) ? next.deck_cassettes : [];
+            if (!lib.includes(fl.deck_default)) next.deck_cassettes = [...lib, fl.deck_default];
+            await updateFurniture(f.id, { flags: next }).catch(() => {});
+            sendToZone(zoneId, { type: 'zone_event', message: pick(OWNER_REVERT_LINES).replace(/\$npc/g, npc.name) });
+          }
+        }
+
+        // A television whose owner wants the game on. Covers being retuned AND
+        // being switched off — `tuned_channel` absent is not the default either,
+        // which is why you cannot turn a barkeep's set off and walk away.
+        const tvOwner = fl.owner_npc;
+        const wantCh = Number(fl.channel_default) || 0;
+        if (tvOwner && wantCh && Number(fl.tuned_channel) !== wantCh) {
+          const npc = npcsHere.find(n => n.id === tvOwner);
+          if (npc) {
+            // Route through the real tune path so `zoneTunings` and the furniture
+            // channel index stay in step — writing the flag alone would leave the
+            // set showing one thing and the runtime believing another.
+            const res = await _applyTuning(f, wantCh, zoneId).catch(() => null);
+            if (res?.status === 'tuned') {
+              sendToZone(zoneId, { type: 'zone_event', message: pick(CHANNEL_REVERT_LINES).replace(/\$npc/g, npc.name) });
+            }
+          }
+        }
+      }
+    }
+  },
+};

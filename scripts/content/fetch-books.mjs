@@ -59,6 +59,12 @@ const LEXICONS = {
     'philomath': 'F IH L AH M AE TH', 'oligarch': 'AA L IH G AA R K',
     'wickson': 'W IH K S AH N',
   },
+  book_sleeper_awakes: {
+    'isbister': 'IH Z B IH S T ER', 'ostrog': 'AA S T R AO G',
+    'wotton': 'W AA T AH N', 'aeronaut': 'EH R AH N AO T',
+    'aeronauts': 'EH R AH N AO T S', 'eadhamite': 'IY D AH M AY T',
+    'phonograph': 'F OW N AH G R AE F',
+  },
   book_machine_stops: {
     'vashti': 'V AE SH T IY', 'kuno': 'K UW N OW',
     'euphrates': 'Y UW F R EY T IY Z',
@@ -101,6 +107,22 @@ const BOOKS = [
     // Headings carry a trailing period ("CHAPTER I."), and the volume also opens
     // with a table of contents listing "I. MY EAGLE" — matching only the CHAPTER
     // form keeps the contents page out of the chapter list.
+    splitOn: /^\s*CHAPTER\s+[IVXLC]+\.?\s*$/gim,
+  },
+  {
+    id: 'book_sleeper_awakes',
+    // The 1910 revision, which is the text Wells wanted; the 1899 serial "When the
+    // Sleeper Wakes" is Gutenberg #775 and is a different book in the places that
+    // matter. Both are US public domain.
+    gutenbergId: 12163,
+    title: 'The Sleeper Awakes',
+    author: 'H. G. Wells',
+    year: 1910,
+    source: 'Project Gutenberg #12163, the 1910 revised text — public domain in the United States.',
+    blurb: 'A man lies down with insomnia and gets up two centuries later to find that his money kept compounding the whole time, and that he now legally owns most of the world. Everyone wants to explain the arrangement to him. Nobody wants to hand it over. On what it costs to be the figurehead of your own fortune.',
+    // Headings are a bare "CHAPTER I" on its own line with the chapter title on the
+    // line after — the title stays in the body, exactly as it does for The Iron
+    // Heel. A prose line ("the Isbister of the last chapter") does not anchor.
     splitOn: /^\s*CHAPTER\s+[IVXLC]+\.?\s*$/gim,
   },
 

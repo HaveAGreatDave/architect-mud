@@ -89,6 +89,172 @@ arms→hands, legs→legs, feet→feet. The low-weight `feet` part (weight 4) le
 slot's typed soak actually reduce damage when the feet are struck — surfaced per-region in the
 `gear` screen.
 
+### Aiming (`aim`)
+
+**Opt-in, and free to ignore.** The weighted roll above is the default and always sufficient. A
+player may call their shot with `aim head` / `aim left leg` / `aim auto` (the verb lives in
+[plugins/injury](../plugins/injury/index.js)); it persists until changed and **resets to auto on
+login**, deliberately — it is in-memory only, with no flag write and no hydration path to go stale.
+
+Aim **biases** `rollBodyPart`'s existing weights rather than adding a second targeting path
+(`aimedWeights`): the aimed part takes ~70% of the pool and everything else keeps a quarter of its
+weight, so a missed aim still lands somewhere and a creature lacking that part falls through to its
+ordinary spread. The engine reads `player._aimPart` — a plain field armed by the plugin, the same
+one-way shape `_powQueued` uses — so with the plugin absent, combat is byte-identical.
+
+Cost is a to-hit penalty in margin units (`AIM_PENALTY`): head −8, feet −7, arms/legs −6, torso 0.
+Weapon skill buys back `floor(skill/2)` down to a shared floor of **−2** — one legible rule: *a novice
+pays the full anatomy cost, a master pays 2 for any shot they call.* Aiming is never free, or leaving
+it switched on permanently would be strictly correct. Applied in **both** `playerAttackEnemy` and
+`pvpSwing`.
+
+Hit chance in an even matchup (unaimed baseline is **54%**):
+
+| aim at | skill 1 | skill 3 | skill 6 | skill 12+ |
+|---|---:|---:|---:|---:|
+| centre mass | 54% | 54% | 54% | 54% |
+| arm / leg | 12% | 23% | 30% | 38% |
+| feet | 8% | 17% | 30% | 38% |
+| head | 5% | 12% | 17% | 38% |
+
+### The execution shot
+
+A called head shot can kill outright. Three conditions, all chosen or earned:
+
+1. the attacker **deliberately** aimed at the head (`_aimPart === 'head'`),
+2. the blow actually landed on the head, and
+3. it was a **critical**.
+
+**There is no hidden roll** — the rarity is emergent. Aiming high costs −8 to hit, so a novice's
+margin cannot arithmetically reach the +8 crit threshold: it is *0%* until you train, not merely
+unlikely. Per swing:
+
+| weapon skill | vs weak mob | vs tough | vs elite / PvP |
+|---:|---:|---:|---:|
+| 1–3 | **0.0%** | 0.0% | 0.0% |
+| 6 | 3.9% | 0.3% | 0.0% |
+| 12 | 47.2% | 22.6% | 3.9% |
+| 18 | 71.8% | 58.3% | 28.5% |
+
+**The weapon decides lethal vs non-lethal.** With `clubs` or `fists` a successful called head shot is
+a **knockout**, not a kill — the stealth system's rule reused verbatim (*"swinging a blade at a skull
+is not a knockout attempt, it is a killing"*), so the two routes to unconsciousness agree and no new
+verb is needed. You chose the outcome when you picked up a bat instead of a knife. See
+[systems-stealth.md](systems-stealth.md#the-rule-that-shapes-everything) for why this does not
+contradict "combat is to the death".
+
+Two guards (`executionShot`):
+
+- **The damage floor** — the blow must be ≥25% of the target's `hp_max` *after soak*. A 600 HP boss
+  would need 150 damage in one strike, so it can never be cheesed. This is what stops "one hit"
+  meaning "one hit on anything".
+- **Falling short still ruins the skull.** A called crit under the floor forces a **Maimed** head via
+  `forceSeverity` on the damage payload — combat's decision, not a second roll. So the shot is worth
+  attempting against big targets even though it can't kill them.
+
+Head armour is the counterplay: enough soak pushes the attacker under the floor, which finally gives
+the `head` slot a job. **Symmetric in PvP** — a helmet is the only thing between you and a skilled
+sniper.
+
+**Enemies never set `_aimPart`, so a mob cannot execute a player** — `enemyAttackPlayer` consults
+none of the aim machinery. This is always something a player chose to do, never something that
+happens to them, the same principle the stealth system uses for knockouts.
+
+That is **reserved rather than permanent**: truly elite enemies will aim once such enemies exist
+(decided 2026-07-30), because the "no mob can one-shot you" guarantee is safe to spend on a named,
+telegraphed opponent and reckless to spend on a street thug. See
+[injury-system.md §15](proposals/injury-system.md) for the four-step wiring — in particular that the
+enemy must pay `aimHitPenalty` too, or the rarity curve that makes this fair disappears.
+
+### Buckshot (`spread`)
+
+A weapon tagged `spread: N` (2–4) lands as N **separate impacts** instead of one. Each rolls its own
+body part, is soaked **separately** against the armour covering that part, and fires its own damage
+event; the whole lot is summed for HP. `splitSpread` distributes the remainder, so nothing is lost.
+Absent or `1` is the single-impact path every weapon has always used.
+
+This exists because one big roll saturated the injury curve. The breacher shotgun (18–34 against a
+40 HP body) cleared the Maimed bar on ~71% of hits **unarmoured and 40% through heavy armour** —
+armour had a flat line where every other weapon had a curve. Splitting the same damage three ways:
+
+| soak | any injury | maimed | avg damage |
+|---:|---|---|---|
+| 0 | 100% → 31% | **71.3% → 2.7%** | 28.6 → **28.6** |
+| 6 | 100% → 5% | 40.3% → 0.0% | 22.6 → 10.6 |
+
+Lethality is untouched unarmoured; the guaranteed maim is gone; and per-group soak means **armour is
+far better against shot than against a slug**, which is both realistic and the point. Currently on
+`item_breacher_shotgun` (3) and `item_riot_shotgun` (2).
+
+**Both directions are wired.** Enemies carry a component list rather than item tags, so their
+authoring surface is **`enemies.flags.spread`** instead of a weapon tag — same helper, same mechanic,
+different place to write it down. (Enemy flags have no section in
+[flags-keys.md](flags-keys.md) as a class, so this one is documented here.) On the enemy side each
+component is rolled **once** and its damage split across the groups, never re-rolled per group —
+otherwise a spread weapon would quietly deal more total damage than the same weapon firing a slug.
+No enemy authors it yet; tag a shotgun-carrying mob to switch it on.
+
+### Fighting in water
+
+`waterCombatPenalty(zone, weaponStats, skill)`. Water state is read straight off the zone —
+terrain `water`, `flags.water`, `flags.underwater`, the same test the swimming plugin uses — so
+the engine needs no plugin import and this holds on every attack path including the auto-attack
+tick.
+
+- **A firearm does not fire.** Wet powder, and no amount of skill fixes it.
+- **Melee is dismal, and *how* dismal depends on the weapon's BULK as much as your skill.** A
+  knife is a thrust, which water barely argues with; a big sword is a swing, which is the exact
+  motion water refuses to allow. `weight` (grams) is the proxy, so this needs no new authoring:
+  ≤1000 g unaffected, ≥4000 g hopeless.
+
+| weapon | unskilled damage in water |
+|---|---:|
+| knife (700 g) | ~97% |
+| shortsword (2400 g) | ~64% |
+| chainblade (4400 g) | ~15% |
+
+Two independent outs — **be good, or carry something small** (`relief = max(mastery, 1 − bulk)`).
+A novice with a knife fights nearly normally; a master with a chainblade manages; a novice with a
+chainblade is worse off than unarmed. Mastery scales between skill 8 and 18, and a master is never
+*better* in water than out.
+
+- **`waterproof`** exempts anything actually built for it — the Tidewell speargun.
+- **`water_shock`** (the Halcyon ComplyMate taser) works perfectly, which is the problem: the water
+  is the circuit, so it earths through every enemy and every player in the zone at 60% — including
+  the person holding it. Capped so it is humiliating, never lethal. Resolved as part of the same
+  blow, not a second attack: no extra cooldown, no second to-hit roll.
+
+### Weapons above your grade (`min_skill`)
+
+`min_skill` (e.g. `{ "blades": 6 }`) is **two different gates, deliberately split**:
+
+- **Buying is a hard refusal.** A vendor will not sell you a weapon you visibly cannot handle
+  (`vendor.js`, at the purchase point) — you can never buy your way past the ladder.
+- **Using one is a soft penalty.** `underskilledPenalty()` costs you `-1` to-hit per level short
+  and up to 75% of your damage (floored at 25%). **Never an equip block.**
+
+That split is the point: "you may not hold this" is a rule, whereas "you are visibly terrible with
+this" is a story, and it leaves the looted-a-great-sword-too-early moment intact instead of
+deleting it.
+
+### Injuries, and the `baseDamage` contract
+
+Where a hit lands now outlives the fight — see [systems/injury](proposals/injury-system.md). Two
+things combat owes that system:
+
+- `fireDamageToPlayer` / `fireDamageToEnemy` ([damage-events.js](../server/engine/damage-events.js))
+  fire at every damage site. Observers are **notified, not consulted** — nothing they return is read
+  and they cannot change the damage.
+- Each payload carries **`baseDamage`** alongside `damage`: the same roll, soaked, but *without* the
+  crit and head multipliers. The injury system scores the base, because crit and head already lower
+  its threshold and were otherwise counted twice. **`damage` is unchanged** — this affects how often
+  a blow wounds, never how hard it hits. (`pow` is deliberately included in `baseDamage`: a called
+  haymaker at a knee should break it.)
+
+Enemies are wounded too, in memory on the instance. Combat reads two plain fields the plugin
+maintains: `enemy._injuryHitMod` (wounded arms degrade its swing, in `enemyAttackPlayer`) and
+`enemy._injuryFleeMod` (wounded legs cost it the `mobFleeRoll` contest). Both absent = unchanged.
+
 ### Soak (armour)
 
 Players carry a per-slot soak structure on `player.soak`, built by `recomputeArmor()`

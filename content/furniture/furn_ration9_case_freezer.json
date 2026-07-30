@@ -9,16 +9,6 @@
       "lean"
     ],
     "preserves": "frozen",
-    "restock_items": [
-      "item_offcut",
-      "item_pink_slab",
-      "item_raw_meat",
-      "item_sausage",
-      "item_battery_chicken",
-      "item_meatballs",
-      "item_ice_cubes",
-      "item_fresh_catch"
-    ],
     "vendor_stock": "npc_ration_cook"
   },
   "hp": null,

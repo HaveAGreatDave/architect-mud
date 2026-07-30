@@ -338,7 +338,13 @@ const SLEEP_RESTORE_SAFE_ZONE = { hp: 0.08, sanity: 0.05, stamina: 0.35 };
 // otherwise imply nothing was happening. Per minute of sleep.
 const SLEEP_HUNGER_DRAIN = 1;
 const SLEEP_THIRST_DRAIN = 1;
-const SLEEP_MAX_MINUTES = 30; // auto-wake safety cap, even if fully rested already
+// Auto-wake BACKSTOP, in game minutes — not the length of a sleep. It used to be
+// 30, which was the finish line back when hitting "fully rested" ended the sleep
+// anyway; now that being rested is only a notice (see tickSleep), a player bedding
+// down to skip a night has to be able to stay in bed. Hunger/thirst are the real
+// bound long before this — they drain 1/minute and wake you at 5 — so this only
+// catches a sleeper who went to bed stuffed and never came back.
+const SLEEP_MAX_MINUTES = 180;
 // Well Rested runs on the 1s effects tick, so this is half an hour of play for
 // about five minutes in a bed. Deliberately generous: the buff is what makes
 // sleeping worth doing, and it should comfortably outlast the errand.
@@ -1032,12 +1038,25 @@ export async function tickSleep(player, broadcastFn) {
 		if (minutesUntil(nowMins, player.sleeping.alarmAt) >= 1439) alarmRang = true;
 	}
 
-	if (fullyRested || runningOnEmpty || tooLong || alarmRang || frozeOut || bakedOut) {
-		// Going ALL THE WAY is what's rewarded. Waking early — because you were
-		// starving, or hit the cap, or something woke you — clears whatever
-		// fatigue you actually slept off and nothing more. The buff is the reason
-		// to see it through rather than nap.
-		if (fullyRested) applyEffect(player, 'rested', WELL_RESTED_TICKS);
+	// BEING FINISHED IS A NOTICE, NOT AN EJECTION. Hitting full HP/sanity/stamina
+	// with no fatigue left used to end the sleep on the spot, which meant the game
+	// decided for you: a player bedding down to skip a night, wait out a storm, or
+	// let an alarm carry them to morning got thrown out of bed the moment their
+	// body topped up. So the milestone announces itself — once per sleep — and the
+	// sleep continues until something that genuinely should end it does (wake up,
+	// the alarm, hunger, the cap, the cold). The reward for going all the way is
+	// granted HERE, the moment it's earned, rather than on the way out the door.
+	if (fullyRested && !player.sleeping.restedNotified) {
+		player.sleeping.restedNotified = true;
+		applyEffect(player, 'rested', WELL_RESTED_TICKS);
+		broadcastFn(null, {
+			type: 'output',
+			message: '<span style="color:var(--green)">◈ You are fully rested — healed, clear-headed, and out of fatigue.</span>\n'
+				+ '<span class="text-dim">You are still asleep. <strong>wake up</strong> whenever you like.</span>',
+		}, null, player.id);
+	}
+
+	if (runningOnEmpty || tooLong || alarmRang || frozeOut || bakedOut) {
 		// Out of the dream and back into your own body. Shared helper because
 		// there are five ways for sleep to end and every one has to do this.
 		wakeFromDream(player);
@@ -1047,8 +1066,6 @@ export async function tickSleep(player, broadcastFn) {
 			? `<span style="color:var(--orange)">You wake up soaked in sweat, heart going like a hammer. It is far too hot to be lying here.</span>`
 			: alarmRang
 			? `<span style="color:var(--yellow)">⏰ Your tablet chimes. ${hhmm(player.sleeping.alarmAt)}. You get up.</span>`
-			: fullyRested
-			? "You wake up fully rested. Everything is a little sharper than it was."
 			: runningOnEmpty
 				? "Your stomach and throat wake you up before you starve in your sleep."
 				: "You wake up, having slept as long as your body will allow in one go.";

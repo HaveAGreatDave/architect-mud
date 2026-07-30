@@ -13,8 +13,12 @@ import {
   severityFor, injuryReport, bodyReport, severityOf, clearInjuries, hooks,
 } from './index.js';
 import { PARTS, TYPES, BRUISED, HURT, MAIMED, injuryName, typeRules } from './tables.js';
+import { enemySeverity, enemyWoundNote, partLabel } from './enemy.js';
 import { impairmentOf } from '../../server/engine/impairment.js';
 import { effectiveStat } from '../../server/engine/condition.js';
+import { aimHitPenalty, aimedWeights as aimedWeightsFor, splitSpread, spreadGroups, executionShot, enemyAttackPlayer, waterCombatPenalty, underskilledPenalty, weaponSkillRequirement } from '../../server/engine/combat.js';
+import { knockOut, wakeUp, isOut } from '../../server/engine/unconscious.js';
+import { fireDamageToEnemy as fireEnemy, fireDamageToPlayer } from '../../server/engine/damage-events.js';
 
 // A fake live player: injuries live entirely in memory, so no DB row is needed.
 function body(injuries = {}) {
@@ -42,27 +46,44 @@ export default async function regress({ run, check }) {
   check('kinetic threshold is higher than edged',
     TYPES.kinetic.threshold > TYPES.edged.threshold);
   check('a mid hit injures with a blade but not a club',
-    severityFor(10, 100, 'edged') > 0 && severityFor(10, 100, 'kinetic') === 0,
-    `edged=${severityFor(10, 100, 'edged')} kinetic=${severityFor(10, 100, 'kinetic')}`);
+    severityFor(20, 100, 'edged') > 0 && severityFor(20, 100, 'kinetic') === 0,
+    `edged=${severityFor(20, 100, 'edged')} kinetic=${severityFor(20, 100, 'kinetic')}`);
 
   // ...but once it lands, it lands harder. This is the row that makes blunt
-  // interesting rather than just weaker, and it's uncapped by design.
+  // interesting rather than just weaker.
   check('a big blunt hit outranks the same blade hit',
-    severityFor(40, 100, 'kinetic') > severityFor(40, 100, 'edged'),
-    `kinetic=${severityFor(40, 100, 'kinetic')} edged=${severityFor(40, 100, 'edged')}`);
-  check('kinetic can reach Maimed (no cap)',
+    severityFor(60, 100, 'kinetic') > severityFor(60, 100, 'edged'),
+    `kinetic=${severityFor(60, 100, 'kinetic')} edged=${severityFor(60, 100, 'edged')}`);
+  check('kinetic can reach Maimed',
     severityFor(60, 100, 'kinetic') === MAIMED);
 
-  // ── Crit and cumulative both lower the bar ─────────────────────────────────
+  // The climb is the other half of the character, and a tuning pass can silently
+  // invert it (an early one did). Blunt must stay the STEEPER curve — smaller
+  // step — or "glances off, then breaks something" becomes untrue.
+  check('kinetic climbs steeper than edged',
+    TYPES.kinetic.step < TYPES.edged.step,
+    `kinetic=${TYPES.kinetic.step} edged=${TYPES.edged.step}`);
+
+  // Saturation: the bug this curve exists to fix. An enormous blow must not be
+  // able to do more than Maim, and — more importantly — the rungs must not be so
+  // cheap that every mid-tier weapon reaches Maimed on a routine hit.
+  check('an absurd blow still only Maims',
+    severityFor(500, 100, 'kinetic') === MAIMED && severityFor(5000, 100, 'edged') === MAIMED);
+  check('a routine mid-tier blow does not Maim',
+    severityFor(30, 100, 'kinetic') < MAIMED && severityFor(30, 100, 'edged') < MAIMED,
+    `kinetic=${severityFor(30, 100, 'kinetic')} edged=${severityFor(30, 100, 'edged')}`);
+
+  // ── Crit, head and cumulative all lower the bar — and ONLY the bar ─────────
   check('a crit injures where the same hit otherwise would not',
-    severityFor(10, 100, 'kinetic') === 0 && severityFor(10, 100, 'kinetic', { critical: true }) === 0
-      ? severityFor(14, 100, 'kinetic') === 0 && severityFor(14, 100, 'kinetic', { critical: true }) > 0
-      : true);
+    severityFor(22, 100, 'kinetic') === 0 && severityFor(22, 100, 'kinetic', { critical: true }) > 0,
+    `plain=${severityFor(22, 100, 'kinetic')} crit=${severityFor(22, 100, 'kinetic', { critical: true })}`);
+  check('a head hit injures where the same blow elsewhere would not',
+    severityFor(22, 100, 'kinetic') === 0 && severityFor(22, 100, 'kinetic', { head: true }) > 0);
   check('cumulative types find a wounded part easier',
-    severityFor(12, 100, 'kinetic', { existing: HURT }) > severityFor(12, 100, 'kinetic', { existing: 0 })
-      || severityFor(12, 100, 'kinetic', { existing: 0 }) > 0);
+    severityFor(20, 100, 'kinetic', { existing: HURT }) > severityFor(20, 100, 'kinetic', { existing: 0 }),
+    `wounded=${severityFor(20, 100, 'kinetic', { existing: HURT })} fresh=${severityFor(20, 100, 'kinetic', { existing: 0 })}`);
   check('non-cumulative types ignore an existing wound',
-    severityFor(12, 100, 'edged', { existing: MAIMED }) === severityFor(12, 100, 'edged', { existing: 0 }));
+    severityFor(20, 100, 'edged', { existing: MAIMED }) === severityFor(20, 100, 'edged', { existing: 0 }));
 
   // ── Decay ──────────────────────────────────────────────────────────────────
   const oneStep = typeRules('kinetic').healMins;
@@ -174,14 +195,18 @@ export default async function regress({ run, check }) {
 
   // ── Phase 4: the compounding guard ─────────────────────────────────────────
   //
-  // Steep kinetic escalation, the head damage multiplier and `cumulative` all
-  // push the same direction, so blunt-to-the-head maims more often than any one
-  // rule suggests. That is intended, but it must stay a HARD hit's reward rather
-  // than the default outcome — the failure mode is every scrap ending in a
-  // fractured skull. These bound the worst case so a future tweak to one number
-  // can't quietly cross that line without a test going red.
-  const HEAD_MULT = 1.5;   // getTunable('head_damage_multiplier') default
-  const worstCase = (raw) => severityFor(raw * HEAD_MULT, 100, 'kinetic', { critical: true, existing: HURT });
+  // Steep kinetic rungs, the head threshold scale and `cumulative` all push the
+  // same direction, so blunt-to-the-head maims more often than any one rule
+  // suggests. That is intended, but it must stay a HARD hit's reward rather than
+  // the default outcome — the failure mode is every scrap ending in a fractured
+  // skull. These bound the worst case so a future tweak to one number can't
+  // quietly cross that line without a test going red.
+  //
+  // NOTE: the head term is now `head: true` (a threshold scale), NOT a x1.5 on
+  // the damage. Passing inflated damage here was the double-dip this pass
+  // removed; scoring it that way again would make this guard test a model the
+  // engine no longer runs.
+  const worstCase = (raw) => severityFor(raw, 100, 'kinetic', { critical: true, existing: HURT, head: true });
 
   check('a light blunt head crit on a wounded skull still does not maim',
     worstCase(10) < MAIMED, `got ${worstCase(10)}`);
@@ -237,4 +262,287 @@ export default async function regress({ run, check }) {
   check('a clinic clears wounds outright', injuryReport(forSurgery).length === 0);
   check('and reports what it treated', mended.length === 2, `${mended.length}`);
   check('clearing removes the impairment too', impairmentOf(forSurgery).runBlocked == null);
+
+  // ── `aim`: the opt-in half ─────────────────────────────────────────────────
+  //
+  // The load-bearing property is that NOT aiming costs nothing and changes
+  // nothing. If aim ever becomes mandatory-by-optimisation, the design has
+  // failed — so the free-by-default case is asserted first and hardest.
+  const shooter = body();
+  check('a player who never aims has no aim state', !shooter._aimPart);
+  check('and pays no accuracy for it', aimHitPenalty(shooter, 0) === 0);
+  check('an unaimed roll is left completely alone',
+    aimedWeightsFor(shooter, { head: 10, torso: 40 }).torso === 40);
+
+  const aimed = await run('aim head');
+  check('aim verb routed', aimed?.type !== 'error', aimed?.message);
+  const aimBare = await run('aim');
+  check('bare aim reports without changing anything', aimBare?.type !== 'error');
+  const aimJunk = await run('aim spleen');
+  check('an unaimable part is refused, not silently ignored', aimJunk?.type === 'error');
+
+  const headAimer = body(); headAimer._aimPart = 'head';
+  check('aiming high costs accuracy', aimHitPenalty(headAimer, 0) < 0);
+  check('skill buys most of it back',
+    aimHitPenalty(headAimer, 12) > aimHitPenalty(headAimer, 0),
+    `unskilled=${aimHitPenalty(headAimer, 0)} skilled=${aimHitPenalty(headAimer, 12)}`);
+  check('but aiming is NEVER free, however good you get',
+    aimHitPenalty(headAimer, 999) < 0, `got ${aimHitPenalty(headAimer, 999)}`);
+  check('centre mass is free — it is what the roll already favoured',
+    (() => { const p = body(); p._aimPart = 'torso'; return aimHitPenalty(p, 0) === 0; })());
+
+  const w = aimedWeightsFor(headAimer, { head: 10, torso: 40, left_leg: 11 });
+  const wTotal = Object.values(w).reduce((a, b) => a + b, 0);
+  check('aiming heavily biases the roll toward that part', w.head / wTotal > 0.6,
+    `head share ${(100 * w.head / wTotal).toFixed(0)}%`);
+  check('but a missed aim can still land elsewhere', w.torso > 0 && w.left_leg > 0);
+  check('aiming at a part the creature does not have falls back cleanly',
+    (() => { const p = body(); p._aimPart = 'head';
+             const drone = { power_cell: 30, rotor: 20 };
+             return aimedWeightsFor(p, drone) === drone; })());
+
+  // ── The execution shot ─────────────────────────────────────────────────────
+  //
+  // The safety properties matter more than the payoff here. An execution must be
+  // impossible to trigger by accident, impossible for a mob to land on a player,
+  // and impossible to cheese against something huge.
+  const sniper = body(); sniper._aimPart = 'head';
+  const exec = (attacker, o) => executionShot(attacker, o);
+
+  check('a called head crit that lands hard enough kills',
+    exec(sniper, { part: 'head', damage: 20, critical: true, targetHpMax: 40, weaponSkill: 'firearms' }) === 'kill');
+
+  // ── The knockout branch ────────────────────────────────────────────────────
+  //
+  // The WEAPON decides lethal vs non-lethal, reusing the stealth system's rule
+  // so the two ways to knock somebody out agree. No new verb: you chose this
+  // when you picked up a bat instead of a knife.
+  for (const skill of ['clubs', 'fists']) {
+    check(`a called head crit with ${skill} knocks out rather than kills`,
+      exec(sniper, { part: 'head', damage: 20, critical: true, targetHpMax: 40, weaponSkill: skill }) === 'knockout');
+  }
+  for (const skill of ['blades', 'firearms', 'science']) {
+    check(`a called head crit with ${skill} is a killing, not a knockout`,
+      exec(sniper, { part: 'head', damage: 20, critical: true, targetHpMax: 40, weaponSkill: skill }) === 'kill');
+  }
+  check('a blunt called shot under the floor still only maims',
+    exec(sniper, { part: 'head', damage: 4, critical: true, targetHpMax: 40, weaponSkill: 'clubs' }) === 'maim');
+  check('an UNAIMED blunt head crit never knocks anyone out — no random KOs',
+    exec(body(), { part: 'head', damage: 39, critical: true, targetHpMax: 40, weaponSkill: 'clubs' }) === null);
+
+  // The invisibility fix, and the reason a mid-fight KO is allowed at all: an
+  // unconscious thing must stop swinging. Without this the knockout changes
+  // nothing observable and reads as a bug.
+  const sparked = { name: 'a sparked thug', hp: 10, hp_max: 40, hit: 5 };
+  knockOut(sparked);
+  check('a knocked-out enemy is out', isOut(sparked) === true);
+  check('...and does not swing while it is out',
+    (await enemyAttackPlayer(sparked, body())) === null);
+  wakeUp(sparked);
+  check('and swings again once it comes round', isOut(sparked) === false);
+  check('the same shot without aiming does nothing special',
+    exec(body(), { part: 'head', damage: 20, critical: true, targetHpMax: 40 }) === null);
+  check('an UNAIMED head crit can never execute — no random one-shots',
+    exec(body(), { part: 'head', damage: 39, critical: true, targetHpMax: 40 }) === null);
+  check('a non-crit called shot does nothing special',
+    exec(sniper, { part: 'head', damage: 20, critical: false, targetHpMax: 40 }) === null);
+  check('aiming at the head but hitting a leg does nothing special',
+    exec(sniper, { part: 'left_leg', damage: 20, critical: true, targetHpMax: 40 }) === null);
+
+  // The floor: this is what stops "one hit" meaning "one hit on anything".
+  check('a light called crit cannot kill, but ruins the skull',
+    exec(sniper, { part: 'head', damage: 4, critical: true, targetHpMax: 40 }) === 'maim');
+  check('a boss cannot be one-shot by a called head crit',
+    exec(sniper, { part: 'head', damage: 30, critical: true, targetHpMax: 600 }) === 'maim');
+  check('a helmet that soaks enough demotes a kill to a maim',
+    exec(sniper, { part: 'head', damage: 20, critical: true, targetHpMax: 40 }) === 'kill' &&
+    exec(sniper, { part: 'head', damage: 9, critical: true, targetHpMax: 40 }) === 'maim');
+
+  // An enemy never has an aim part, so this can never happen TO a player.
+  check('a mob can never execute a player', exec({ name: 'a rat' }, { part: 'head', damage: 99, critical: true, targetHpMax: 40 }) === null);
+
+  // forceSeverity is combat's decision, not a second roll — a called crit that
+  // fell short must ruin the skull even though the damage alone would not.
+  const skulled = body();
+  // 2 damage on a 100 HP body would normally wound nothing at all.
+  check('a graze to the head normally does nothing',
+    severityFor(2, 100, 'kinetic', { critical: true, head: true }) === 0);
+  fireDamageToPlayer(skulled, {
+    part: 'head', damage: 2, baseDamage: 2, type: 'kinetic', critical: true, forceSeverity: 3,
+  });
+  check('...but a fallen-short called shot forces a Maimed head anyway',
+    severityOf(skulled, 'head') === MAIMED, `got ${severityOf(skulled, 'head')}`);
+
+  // ── Anatomy is data, not the humanoid seven ────────────────────────────────
+  //
+  // Enemies already author non-human bodies (the bay leviathan is body/coils/
+  // fluke/maw). Validating their wounds against the PLAYER's fixed part list
+  // silently threw every one of them away.
+  const eel = { name: 'a cable eel', hp_max: 40, hit: 4,
+    body_parts: [{ part: 'head', weight: 20 }, { part: 'torso', weight: 50 }, { part: 'tail', weight: 30 }] };
+  fireEnemy(eel, { part: 'tail', damage: 30, baseDamage: 30, type: 'kinetic' });
+  check('a non-humanoid part can be wounded at all', enemySeverity(eel, 'tail') >= HURT,
+    `tail sev ${enemySeverity(eel, 'tail')}`);
+  check('a tail counts as mobility, so it slows the escape', eel._injuryFleeMod < 0);
+
+  fireEnemy(eel, { part: 'venom_sac', damage: 30, baseDamage: 30, type: 'kinetic' });
+  check('a part the creature does NOT have is still rejected', enemySeverity(eel, 'venom_sac') === 0);
+
+  check('part names never reach a player with underscores in them',
+    !partLabel('upper_left_arm').includes('_') && partLabel('upper_left_arm') === 'upper left arm',
+    partLabel('upper_left_arm'));
+
+  // The multi-armed gimmick: attack limbs STACK, so dismantling them is a real
+  // target-priority decision rather than flavour.
+  const thresher = { name: 'a six-arm thresher', hp_max: 58, hit: 9,
+    body_parts: [
+      { part: 'torso', weight: 24 },
+      { part: 'upper_left_arm', role: 'attack', weight: 9 },
+      { part: 'upper_right_arm', role: 'attack', weight: 9 },
+      { part: 'middle_left_arm', role: 'attack', weight: 8 },
+      { part: 'left_leg', weight: 10 },
+    ] };
+  const armHit = [];
+  for (const arm of ['upper_left_arm', 'upper_right_arm', 'middle_left_arm']) {
+    fireEnemy(thresher, { part: arm, damage: 40, baseDamage: 40, type: 'kinetic' });
+    armHit.push(thresher._injuryHitMod);
+  }
+  check('each ruined arm costs it again', armHit[0] > armHit[1] && armHit[1] > armHit[2],
+    JSON.stringify(armHit));
+  check('a many-armed thing can be dismantled into uselessness', thresher._injuryHitMod <= -9,
+    `${thresher._injuryHitMod}`);
+  check('but its legs are untouched by arm damage', !thresher._injuryFleeMod);
+
+  // Mobility does NOT stack — six legs is not six times the escape.
+  const many = { name: 'a crawler', hp_max: 40,
+    body_parts: [{ part: 'left_leg', weight: 20 }, { part: 'right_leg', weight: 20 }, { part: 'torso', weight: 60 }] };
+  fireEnemy(many, { part: 'left_leg', damage: 30, baseDamage: 30, type: 'kinetic' });
+  const oneLeg = many._injuryFleeMod;
+  fireEnemy(many, { part: 'right_leg', damage: 30, baseDamage: 30, type: 'kinetic' });
+  check('crippling a second leg does not double the penalty', many._injuryFleeMod === oneLeg,
+    `one=${oneLeg} two=${many._injuryFleeMod}`);
+
+  // ── Wielding something above your grade ────────────────────────────────────
+  //
+  // The split is the point: a vendor refuses to SELL over the bar (hard), but a
+  // looted weapon is merely terrible in your hands (soft). Never an equip block.
+  const chain = { weapon_skill: 'blades', min_skill: { blades: 6 } };
+  check('a weapon with no requirement never penalises',
+    underskilledPenalty({ weapon_skill: 'blades' }, 0) === null);
+  check('meeting the bar exactly costs nothing',
+    underskilledPenalty(chain, 6) === null);
+  check('exceeding it costs nothing', underskilledPenalty(chain, 20) === null);
+
+  const raw = underskilledPenalty(chain, 1);
+  check('a novice with a top-tier blade swings wide', raw.hitMod < 0, `${raw.hitMod}`);
+  check('...and lands soft', raw.damageScale < 0.5, `${raw.damageScale}`);
+  check('but it is never reduced to nothing', raw.damageScale >= 0.25);
+  check('the shortfall scales — one level short beats five short',
+    underskilledPenalty(chain, 5).damageScale > underskilledPenalty(chain, 1).damageScale);
+  check('the requirement is readable for the vendor gate',
+    weaponSkillRequirement(chain)?.skillId === 'blades' && weaponSkillRequirement(chain)?.need === 6);
+
+  // ── Fighting in water ──────────────────────────────────────────────────────
+  const dry = { id: 'z_dry', flags: {} };
+  const wet = { id: 'z_wet', flags: { water: true } };
+  check('on dry land water rules do not apply',
+    waterCombatPenalty(dry, { weapon_skill: 'clubs' }, 1) === null);
+  check('a firearm does not fire in water',
+    waterCombatPenalty(wet, { weapon_skill: 'firearms' }, 20)?.blocked === true);
+  check('...not even for a master — wet powder does not care about skill',
+    waterCombatPenalty(wet, { weapon_skill: 'firearms' }, 99)?.blocked === true);
+  check('a weapon built for water is exempt',
+    waterCombatPenalty(wet, { weapon_skill: 'firearms', waterproof: true }, 1) === null);
+
+  // Size is the other lever, and for a novice it is the bigger one: a knife is a
+  // THRUST, which water barely argues with, while a big sword is a SWING, which
+  // is exactly the motion water refuses to allow.
+  const knife = waterCombatPenalty(wet, { weapon_skill: 'blades', weight: 700 }, 1);
+  const sword = waterCombatPenalty(wet, { weapon_skill: 'blades', weight: 2400 }, 1);
+  const bigblade = waterCombatPenalty(wet, { weapon_skill: 'blades', weight: 4400 }, 1);
+  check('an unskilled knife is nearly unaffected in water', knife.damageScale > 0.9,
+    `${knife.damageScale}`);
+  check('a sword is much worse than a knife for the same novice',
+    sword.damageScale < knife.damageScale, `knife=${knife.damageScale} sword=${sword.damageScale}`);
+  check('and a chainblade is worse again', bigblade.damageScale < sword.damageScale);
+  check('a light weapon barely slows either', knife.swingExtraMs < bigblade.swingExtraMs);
+  check('mastery still rescues the heavy weapon',
+    waterCombatPenalty(wet, { weapon_skill: 'blades', weight: 4400 }, 20).damageScale > bigblade.damageScale);
+
+  const novice = waterCombatPenalty(wet, { weapon_skill: 'clubs', weight: 4000 }, 1);
+  const master = waterCombatPenalty(wet, { weapon_skill: 'clubs', weight: 4000 }, 20);
+  check('a bat underwater does almost nothing unskilled', novice.damageScale <= 0.2,
+    `${novice.damageScale}`);
+  check('and swings much slower', novice.swingExtraMs > 1000, `${novice.swingExtraMs}`);
+  check('mastery buys nearly all of it back', master.damageScale > 0.9 && master.swingExtraMs === 0,
+    `scale=${master.damageScale} extra=${master.swingExtraMs}`);
+  check('but a master is never BETTER in water than out', master.damageScale <= 1);
+
+  check('an electrical weapon in water discharges instead',
+    waterCombatPenalty(wet, { weapon_skill: 'science', water_shock: true }, 1)?.discharge === true);
+
+  // ── Buckshot ───────────────────────────────────────────────────────────────
+  //
+  // The property that matters: a spread weapon must deal the SAME total damage
+  // as a slug while producing several ordinary wounds instead of one guaranteed
+  // maim. If a future edit makes splitting lossy, the shotguns silently become
+  // weaker rather than different, and nothing else would notice.
+  check('a spread splits the whole blast, losing nothing',
+    splitSpread(34, 3).reduce((a, b) => a + b, 0) === 34,
+    JSON.stringify(splitSpread(34, 3)));
+  check('an uneven split spreads the remainder, never drops it',
+    JSON.stringify(splitSpread(10, 3)) === JSON.stringify([4, 3, 3]),
+    JSON.stringify(splitSpread(10, 3)));
+  check('an ordinary weapon is one impact', splitSpread(20, 1).length === 1);
+  check('spread is clamped to something sane',
+    spreadGroups({ spread: 99 }) <= 4 && spreadGroups({ spread: 0 }) === 1 &&
+    spreadGroups({}) === 1 && spreadGroups(null) === 1);
+
+  // Each pellet group is scored on its own share, so the same total damage that
+  // maims as a slug should not maim as buckshot. This is the whole reason the
+  // mechanic exists.
+  const slug = severityFor(30, 40, 'kinetic');
+  const pellet = severityFor(10, 40, 'kinetic');
+  check('one pellet group wounds far less than the whole blast as a slug',
+    pellet < slug, `slug=${slug} pellet=${pellet}`);
+
+  // ── §8b: enemies get wounded too ───────────────────────────────────────────
+  const mob = { name: 'a scrapper', hp_max: 40, hit: 5, dodge: 2 };
+  check('an untouched mob allocates no injury state', !mob._injuries);
+  check('and reads as unmodified', !mob._injuryHitMod && !mob._injuryFleeMod);
+
+  // A blow far too small to matter must not create state.
+  fireEnemy(mob, { part: 'left_arm', damage: 1, baseDamage: 1, type: 'kinetic' });
+  check('chip damage does not wound an enemy', !mob._injuries?.size);
+
+  // A real blow to the arm degrades its swing — the tactic half of the system.
+  fireEnemy(mob, { part: 'right_arm', damage: 30, baseDamage: 30, type: 'kinetic' });
+  check('a heavy blow wounds an enemy arm', enemySeverity(mob, 'right_arm') >= HURT,
+    `sev ${enemySeverity(mob, 'right_arm')}`);
+  check('a wounded arm degrades the mob swing', mob._injuryHitMod < 0, `${mob._injuryHitMod}`);
+
+  // ...and the legs are what stop it running away.
+  const runner = { name: 'a rat', hp_max: 40, hit: 3, dodge: 4 };
+  check('an unwounded mob has no flee penalty', !runner._injuryFleeMod);
+  fireEnemy(runner, { part: 'left_leg', damage: 30, baseDamage: 30, type: 'kinetic' });
+  check('ruined legs make a mob worse at breaking away', runner._injuryFleeMod < 0,
+    `${runner._injuryFleeMod}`);
+
+  // One wound per part on the enemy side too, and never a downgrade.
+  fireEnemy(runner, { part: 'left_leg', damage: 12, baseDamage: 12, type: 'kinetic' });
+  check('a later graze never downgrades an enemy wound',
+    enemySeverity(runner, 'left_leg') >= HURT);
+  check('and never stacks a second wound on one part', runner._injuries.size === 1);
+
+  check('a wounded mob explains itself to anyone looking',
+    (enemyWoundNote(runner) || '').length > 10, enemyWoundNote(runner));
+  check('an unhurt mob says nothing', enemyWoundNote({ name: 'x' }) == null);
+
+  // The scaling that lets one rule cover a rat and a boss: the SAME blow that
+  // ruins something small should barely trouble something huge.
+  const boss = { name: 'a colossus', hp_max: 600, hit: 9 };
+  fireEnemy(boss, { part: 'left_leg', damage: 30, baseDamage: 30, type: 'kinetic' });
+  check('the same blow that ruins a rat barely troubles a boss',
+    enemySeverity(boss, 'left_leg') < enemySeverity(runner, 'left_leg'),
+    `boss=${enemySeverity(boss, 'left_leg')} rat=${enemySeverity(runner, 'left_leg')}`);
 }

@@ -1,0 +1,78 @@
+@broadcast "Whitlock Arms — Sixty Thousand Precincts Can't Be Wrong"
+@category commercial
+@length 30
+@type commercial
+
+::asset whitlock_logo
+
+██╗    ██╗██╗  ██╗██╗████████╗██╗      ██████╗  ██████╗██╗  ██╗
+██║    ██║██║  ██║██║╚══██╔══╝██║     ██╔═══██╗██╔════╝██║ ██╔╝
+██║ █╗ ██║███████║██║   ██║   ██║     ██║   ██║██║     █████╔╝
+██║███╗██║██╔══██║██║   ██║   ██║     ██║   ██║██║     ██╔═██╗
+╚███╔███╔╝██║  ██║██║   ██║   ███████╗╚██████╔╝╚██████╗██║  ██╗
+ ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝   ╚═╝   ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝
+
+              W H I T L O C K   A R M S
+           "Still Here. Still Works. Still Loud."
+
+::endasset
+
+::scene TITLE
+
+ROOM studio_stage
+
+EVENT FADE_IN
+
+TITLE whitlock_logo
+
+♪ A brass fanfare plays, the kind that used to open the evening news. ♪
+
+::scene COMMERCIAL
+
+CAM 1 WIDE
+
+SHOT
+Archive footage, badly restored. Rank after rank of uniformed officers stand in a parade ground that is now, if you know the skyline, four feet under water.
+SHOT_END
+
+NARRATOR:
+In the old world, Whitlock Arms shipped sixty thousand Model 12 riot guns to the precincts of this city.
+
+NARRATOR:
+Every precinct is gone.
+
+3s
+
+NARRATOR:
+Every Model 12 still works.
+
+CAM 2 CLOSEUP whitlock_model12
+
+SHOT
+A heat-scarred pump-action turns slowly on a velvet cushion, lit like jewellery.
+SHOT_END
+
+NARRATOR:
+The Whitlock Model 12. Chambered wide. Solves problems in a broad, apologetic spread.
+
+NARRATOR:
+Ask yourself: what else from before The Handoff still does exactly what it says on the box?
+
+OVERLAY
+WHITLOCK ARMS
+
+WE OUTLASTED THE INSTITUTIONS THAT ORDERED US
+
+THIS IS NOT A BOAST, IT IS A LIABILITY DISCLOSURE
+OVERLAY_END
+
+SHOT
+Small print scrolls too fast to read, then slows, deliberately, on one line.
+SHOT_END
+
+NARRATOR:
+Whitlock does not manufacture the sawn-off Doorman. Whoever shortened yours did that themselves, and Whitlock would like that noted.
+
+EVENT FADE_OUT
+
+END

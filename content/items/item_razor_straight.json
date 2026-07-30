@@ -9,7 +9,7 @@
       "min": 2,
       "max": 6
     },
-    "damage_type": "kinetic",
+    "damage_type": "edged",
     "slot": "weapon_hand",
     "weapon": true,
     "weapon_skill": "blades"

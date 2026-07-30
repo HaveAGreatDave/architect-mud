@@ -52,9 +52,21 @@ via a second decay path, so there stays exactly one place that turns elapsed tim
 
 ## Gotchas
 
-- **`tables.js` is the balance file.** Steep kinetic escalation, the head damage multiplier and
-  `cumulative` all compound in the same direction; blunt produces Maimed head wounds more often than
-  any one rule suggests. Tune kinetic's threshold *high*.
+- **`tables.js` is the balance file**, and it has two traps, both of which have already been sprung
+  once (see injury-system.md §11):
+  1. **The character is a constraint, not an outcome.** `edged` must keep the lower threshold *and*
+     the shallower climb (larger `step`); `kinetic` the higher bar and the steeper climb. Tuning both
+     types against the same rate targets silently swaps their roles, because the weapons that carry
+     them are not the same strength. Asserted by `kinetic climbs steeper than edged`.
+  2. **Tune against every weapon that will use the curve.** `kinetic` was first tuned only up to the
+     riot shotgun, which sent the SMG to 36% and the sledgehammer to 54% maim per hit.
+- **The injury check scores `baseDamage`, not `damage`.** Crit and head hits lower the *threshold*
+  and must never also inflate the number measured against it — that double-dip produced a 92% maim
+  rate on head hits. If you add a damage source, pass `baseDamage` (pre-crit, pre-head, post-soak) or
+  it will wound harder than everything else.
+- **`enemy.js` is the §8b half and shares only `severityFor`.** No storage, no decay, no naming — an
+  enemy instance is disposable, so wounds live on it and die with it. Never give this file a
+  `query()`; it runs once per landed player swing.
 - **Unauthored names are a valid state.** `injuryName` falls back
   `type.severity.part → type.severity → severity → generic`. Never feel obliged to fill the table.
 - **The paper doll lives in the tablet plugin**, not here — `plugins/tablet/health-app.js` imports

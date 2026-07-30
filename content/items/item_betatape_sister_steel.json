@@ -1,0 +1,14 @@
+{
+  "description": "A fat little cassette in a scuffed shell, about the size of a paperback and twice the weight. Through the window you can see the tape has been wound to the same spot so many times it has gone slightly transparent there. The label is hand-written in marker, in capitals, by somebody who pressed hard:\n\n  ┌───────────────────────────────┐\n  │ ▓▓▓▓▓  S I S T E R  S T E E L │\n  │ ▓   ▓  ───────────────────────│\n  │ ▓▓▓▓▓  DRIVE-IN PRINT · 15MIN │\n  │  ( )    ( )   REEL 4 MISSING  │\n  │ ═══════════════════════════   │\n  └───────────────────────────────┘\n\nSomebody has added, underneath, in different ink: \"DO NOT TAPE OVER.\"",
+  "flags": {},
+  "id": "item_betatape_sister_steel",
+  "name": "betatape: SISTER STEEL",
+  "tags": {
+    "beta_cassette": true,
+    "broadcast_id": "bc_sister_steel",
+    "media_cassette": true
+  },
+  "type": "media",
+  "value": 40,
+  "weight": 220
+}

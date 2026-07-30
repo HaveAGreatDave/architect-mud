@@ -849,7 +849,15 @@ function benchScreen() {
   // paintTuning); every other tab keeps the real 3D turntable.
   const stage = B.benchTab === 'tuning'
     ? `<canvas id="hb-perf-radar" width="220" height="200"></canvas>`
-    : bayCanvas('hb-bench-hero', c.wreck ? 'wreck' : c.class, B.work, null, 240, 'data-hb-src="work" data-hb-zoom="1.5" data-hb-flat="1"' + (c.class === 'heli' && c.hardpoints > 0 ? ' data-hb-armed="1"' : ''));
+    : (() => {
+        // The Viper's mesh ships DOUBLE-SIZE (VIPER_SCALE), so the stock bench zoom
+        // pushes her out of frame. Pull the camera back for her only — she still
+        // reads bigger than the rest of the fleet, just inside the viewport.
+        const armed = c.class === 'heli' && c.hardpoints > 0;
+        const zoom = armed ? 0.95 : 1.5;
+        return bayCanvas('hb-bench-hero', c.wreck ? 'wreck' : c.class, B.work, null, 240,
+          `data-hb-src="work" data-hb-zoom="${zoom}" data-hb-flat="1"` + (armed ? ' data-hb-armed="1"' : ''));
+      })();
   const stageCap = B.benchTab === 'tuning' ? 'PERFORMANCE ENVELOPE' : 'BAY 1 · LIVE PREVIEW';
 
   return `

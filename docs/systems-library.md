@@ -1,6 +1,6 @@
 # Library — public-domain books as a readable system (as built)
 
-Eight complete public-domain books, readable anywhere from the tablet, narrated
+Nine complete public-domain books, readable anywhere from the tablet, narrated
 aloud in RP with the spoken line highlighted, and glossed for archaic vocabulary.
 
 Not to be confused with **CODEX** ([systems-codex.md](systems-codex.md)), which is
@@ -37,6 +37,7 @@ where I live"; check the title's US status on Project Gutenberg before adding it
 | The Iron Heel | London | 1908 | 26 |
 | The Machine Stops | Forster | 1909 | 3 |
 | The Scarlet Plague | London | 1912 | 6 |
+| The Sleeper Awakes | Wells | 1910 | 26 |
 | We | Zamyatin (Zilboorg tr., 1924) | 1924 | 41 |
 
 ## Read tier — the load-bearing constraint
@@ -44,7 +45,7 @@ where I live"; check the title's US status on Project Gutenberg before adding it
 **`books` is `readTier: 'cold'` and is never boot-loaded.** This is not
 descriptive; it is the reason the feature is affordable. A deploy already
 cold-reloads the world from Neon at ~36MB and that cap has been hit before
-(July 2026). The books are ~1.7MB of raw text.
+(July 2026). The books are ~2.3MB of raw text.
 
 Three rules follow, and breaking any one of them silently undoes it:
 
@@ -98,8 +99,8 @@ still the trap it is documented as.
 
 | | |
 |---|---|
-| Raw text | 1.69 MB |
-| Stored (pglz, automatic) | 0.95 MB — 1.83× |
+| Raw text | 2.29 MB |
+| Stored (pglz, automatic) | 1.19 MB — 1.93× |
 | Shelf query | ~4 ms |
 | One chapter | ~4 ms |
 | Added to the boot reload | **zero** |
@@ -126,6 +127,9 @@ Gotchas the script encodes, each of which cost a wrong shipment once:
   12k-word novella came back at 239k words.
 - **The Machine Stops is not on Gutenberg US at all** and comes from Wikisource
   as three subpages. Its absence there is a sourcing gap, not a rights one.
+- **A title can exist twice under two names.** Wells revised *When the Sleeper
+  Wakes* (1899, #775) into *The Sleeper Awakes* (1910, #12163); both are US public
+  domain and they differ in the places that matter. We shelve the 1910 text.
 - Gutenberg plain text is **CRLF**, so chapter patterns must anchor `\r?$`.
 - Chapter headings vary wildly: `CHAPTER I.` (Iron Heel), a bare roman numeral
   alone on its line (Scarlet Plague, Candide), `Record One` (We), roman + period
@@ -638,14 +642,14 @@ Scope rule: **gloss what a reader would stop at, not everything old-fashioned.**
 the words that mean something *else* now — *want* = lack, *sensible* = aware,
 *ejaculated* = exclaimed.
 
-- `glossary` is `readTier: 'boot'` and cached in memory — it is small (151 terms,
-  128 aliases) unlike the books it annotates, so page turns are query-free.
+- `glossary` is `readTier: 'boot'` and cached in memory — it is small (155 terms,
+  133 aliases) unlike the books it annotates, so page turns are query-free.
 - The term list came from a **corpus sweep**, not from reading: word frequencies
-  across all eight books, minus anything in the bundled 25k common-word list
+  across all nine books, minus anything in the bundled 25k common-word list
   (`formant-cmudict.js` doubles as the frequency filter), minus inflections of
   words already glossed. That leaves ~650 candidates, and the scope rule above
-  decides which of them halt a sentence. 121 of the 151 terms fire somewhere in
-  the corpus, 1,530 hits in all; the 30 that never fire are authored terms kept
+  decides which of them halt a sentence. 127 of the 155 terms fire somewhere in
+  the corpus, 1,813 hits in all; the 28 that never fire are authored terms kept
   because a ninth book would want them.
 - Only terms **occurring in the current chapter** travel to the client. Matching
   is one pass over the chapter's own word set, not 170 passes over the chapter.
@@ -658,7 +662,7 @@ the words that mean something *else* now — *want* = lack, *sensible* = aware,
 
 ## The app arrives, it does not ship
 
-A tablet pre-loaded with eight novels is a menu item. A tablet that grows a
+A tablet pre-loaded with nine novels is a menu item. A tablet that grows a
 Library app the first time you put it in a brass slot in the back of the Hall of
 Records is something that happened to you.
 

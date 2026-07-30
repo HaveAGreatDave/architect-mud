@@ -13467,8 +13467,10 @@ input.trade-qty { width: 56px; }
 /* The slot box — .tos-gslot's shape, in the wardrobe's brass. */
 .wdr-pad {
 	position: absolute; z-index: 2;
-	display: flex; flex-direction: column; gap: 1px;
-	padding: 4px 6px; min-width: 56px; max-width: 47%;
+	/* Box metrics copied from .tos-gslot, not re-invented — same reason as the
+	   anchors below: a pad has to occupy the same footprint on both screens. */
+	display: flex; flex-direction: column; gap: 0;
+	padding: 3px 6px; min-width: 76px; max-width: 44%;
 	border-radius: 5px; user-select: none; touch-action: none;
 	background: rgba(10, 8, 6, .88);
 	border: 1px solid rgba(185, 139, 74, .34);
@@ -13478,7 +13480,7 @@ input.trade-qty { width: 56px; }
 	cursor: pointer;
 }
 .wdr-pad-label { font-size: 8px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); }
-.wdr-pad-item { font-size: 10.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wdr-pad-item { font-size: 10px; line-height: 1.2; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wdr-pad-sub { font-size: 8px; letter-spacing: .5px; text-transform: uppercase;
 	color: rgba(224,185,120,.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wdr-pad.filled { border-color: rgba(224,185,120,.6);
@@ -13547,13 +13549,21 @@ input.trade-qty { width: 56px; }
 	font-variant-numeric: tabular-nums;
 }
 
-/* Anchors — identical percentages to the Gear doll. */
-.wdr-pad-head      { left: 50%; top: 8%;  transform: translate(-50%,-50%); text-align: center; }
-.wdr-pad-torso     { left: 50%; top: 33%; transform: translate(-50%,-50%); text-align: center; }
-.wdr-pad-legs      { left: 50%; top: 64%; transform: translate(-50%,-50%); text-align: center; }
-.wdr-pad-feet      { left: 50%; top: 96%; transform: translate(-50%,-50%); text-align: center; }
-.wdr-pad-hands     { left: 0;  top: 55%; transform: translateY(-50%); text-align: left; }
-.wdr-pad-accessory { right: -56px; top: 20%; transform: translateY(-50%); text-align: right; }
+/* Anchors — the SAME percentages as the Gear doll's .tos-gslot--<slot>
+   (tablet-os.js), which is the point: the two screens draw the same body, so a
+   slot has to sit in the same place on both. They had drifted (torso 33 vs 31,
+   legs 64 vs 69, hands 55 vs 50) under a comment claiming they matched. If Gear's
+   anchors move, these move with them.
+   The one deliberate difference is accessory's horizontal offset: this pad lists
+   every accessory as its own removable row, so it hangs off the side of the
+   figure where extra rows grow into empty space instead of over the silhouette.
+   Its vertical anchor still matches Gear's. */
+.wdr-pad-head      { left: 50%; top: 7%;  transform: translate(-50%,-50%); text-align: center; }
+.wdr-pad-torso     { left: 50%; top: 31%; transform: translate(-50%,-50%); text-align: center; }
+.wdr-pad-legs      { left: 50%; top: 69%; transform: translate(-50%,-50%); text-align: center; }
+.wdr-pad-feet      { left: 50%; top: 97%; transform: translate(-50%,-50%); text-align: center; }
+.wdr-pad-hands     { left: 0;  top: 50%; transform: translateY(-50%); text-align: left; }
+.wdr-pad-accessory { right: -56px; top: 16%; transform: translateY(-50%); text-align: right; }
 
 .wdr-pad-eligible { border-color: #e0b978 !important;
 	box-shadow: 0 0 12px rgba(224,185,120,.55) !important; }
@@ -14291,10 +14301,11 @@ body.intro-cine-open { overflow: hidden; }
 }
 .intro-cine-gate-fine {
 	margin-top: 22px;
-	font-size: 10px;
-	letter-spacing: 0.22em;
+	font-size: 12.5px;
+	line-height: 1.5;
+	letter-spacing: 0.16em;
 	text-transform: uppercase;
-	color: rgba(235,245,244,0.24);
+	color: rgba(235,245,244,0.62);
 }
 [data-motion="off"] .intro-cine-gate-card,
 [data-motion="off"] .intro-cine-gate-lamp,

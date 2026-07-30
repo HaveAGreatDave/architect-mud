@@ -1,0 +1,23 @@
+{
+  "description": "A squat top-loading tape player in scratched brushed steel, riding on top of the set with a brick on it to stop the lid springing. Three chunky piano keys — LOAD, PLAY, STOP — and a counter that has not been reset since before The Handoff. It takes the fat little cassettes, not the big deck ones.",
+  "flags": {
+    "media_deck": true,
+    "mini_deck": true,
+    "beta_player": true,
+    "channel_id": "ch_7_1782953079593",
+    "deck_cassettes": [
+      "bc_sister_steel"
+    ],
+    "deck_active": "bc_sister_steel",
+    "deck_owner_npc": "npc_smith_vessa",
+    "deck_default": "bc_sister_steel"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_betamax_zone_grindhouse_interior",
+  "name": "the tape player",
+  "object_type": "media_deck",
+  "power_draw_kw": 0.03,
+  "price": null,
+  "zone_id": "zone_grindhouse_interior"
+}

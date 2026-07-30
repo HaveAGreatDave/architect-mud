@@ -81,7 +81,13 @@ function resolveIngredients(recipe, inventory) {
 async function findWorkspace(recipe, player) {
   const wantStation = recipe.requires_station || 'chem_lab';
   const { rows } = await query(
-    `SELECT id, flags FROM furniture WHERE zone_id = $1 AND flags->>'crafting_station' = $2 LIMIT 1`,
+    // A lab behind a concealment cabinet (plugins/concealment) is not a lab you can
+    // work at — `flags.concealed` is what keeps it out of the room, and cooking at
+    // furniture nobody can see would be the one hole that made the disguise pointless.
+    `SELECT id, flags FROM furniture
+      WHERE zone_id = $1 AND flags->>'crafting_station' = $2
+        AND COALESCE((flags->>'concealed')::boolean, false) = false
+      LIMIT 1`,
     [player.current_zone, wantStation]
   );
   if (rows.length) {

@@ -1,0 +1,24 @@
+{
+  "description": "A slab of brushed titanium sitting under the flatscreen on its own machined shelf, no bigger than a hardback and considerably heavier. The loading door does not have a catch — you offer it a cassette and it takes it from you, draws it in over about four seconds, and closes without a sound. A single amber bar reports what it is doing. Polaris sold these to people who owned exactly one film and wanted it treated properly.",
+  "flags": {
+    "media_deck": true,
+    "mini_deck": true,
+    "beta_player": true,
+    "channel_id": "ch_7_1782953079593",
+    "deck_cassettes": [],
+    "deck_active": null,
+    "interactions": [
+      "watch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_betamax_zone_solenne_apt_b",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Polaris Executive Cassette Theatre",
+  "object_type": "media_deck",
+  "power_draw_kw": 0.04,
+  "price": null,
+  "zone_id": "zone_solenne_apt_b"
+}

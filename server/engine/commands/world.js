@@ -781,7 +781,13 @@ async function cmdExamine(targetStr, player, broadcast) {
     const c = er.candidate;
     if (c._examType === 'enemy') {
       const attackLink = `<span class="action-link" data-action="attack" data-target="${escAttr(c.name)}" title="Attack ${escAttr(c.name)}">attack</span>`;
-      return { type:'examine', message:`${c.name}\n${c.description}\nHP: ${c.hp}/${c.hp_max}\n<span class="text-dim">Actions:</span> ${attackLink}` };
+      // What's visibly wrong with it. Without this a player aiming at a limb is
+      // working blind — the wound would exist and change the fight, but nothing
+      // would ever say so. Mirrors `player.appearanceNotes`; absent the injury
+      // plugin, this is empty and the line is exactly what it always was.
+      const notes = await fireHook('enemy.appearanceNotes', { target: c, viewer: player });
+      const wounds = notes ? `\n<span class="text-dim">${notes}</span>` : '';
+      return { type:'examine', message:`${c.name}\n${c.description}\nHP: ${c.hp}/${c.hp_max}${wounds}\n<span class="text-dim">Actions:</span> ${attackLink}` };
     }
     if (c._examType === 'npc') {
       let postureLine = '';

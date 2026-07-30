@@ -1,0 +1,17 @@
+{
+  "description": "A single caged bulb on a hook, swinging slightly whenever anything heavy moves upstairs.",
+  "flags": {
+    "is_light": true,
+    "light_type": "lamp"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_util_zone_grindhouse_interior",
+  "light_type": "lamp",
+  "lumen_output": 400,
+  "name": "a caged bulb",
+  "object_type": "light",
+  "power_draw_kw": 0.005,
+  "price": null,
+  "zone_id": "zone_util_zone_grindhouse_interior"
+}

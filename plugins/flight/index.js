@@ -1492,11 +1492,14 @@ function serviceBits(field) {
 // Inside a walk-in hangar: the same services (they resolve to the ramp via fieldFor),
 // a way `out` to the ramp, the charter pilot when one's on shift — and this is where
 // you BOARD: the `embark` link reaches the aircraft parked on the linked ramp.
-async function describeHangarInterior(zone) {
+async function describeHangarInterior(zone, player) {
   const ramp = getZone(zone.flags.hangar_ramp);
   if (!ramp) return `<span class="furniture-label">Hangar:</span> ${svcLink('out', 'out')} <span class="text-dim">back out to the ramp</span>`;
+  const textOnly = await prefersTextTravel(player);
   let line = `${serviceBits(ramp)}\n<span class="furniture-label">Ramp:</span> ${svcLink('out', 'out')} <span class="text-dim">step back out onto the ramp</span>`;
-  line += `\n<span class="furniture-label">Hangar bay:</span> ${svcLink('hangar', 'hangar')} <span class="text-dim">walk the floor — your aircraft up close in 3D; charter, buy/rent, maintenance</span>`;
+  line += textOnly
+    ? `\n<span class="furniture-label">Hangar bay:</span> ${svcLink('hangar', 'hangar')} <span class="text-dim">the floor, written out — charter, buy/rent, maintenance</span>`
+    : `\n<span class="furniture-label">Hangar bay:</span> ${svcLink('hangar', 'hangar')} <span class="text-dim">walk the floor — your aircraft up close in 3D; charter, buy/rent, maintenance</span>`;
   // Board straight from the office — the aircraft on the linked ramp are in reach.
   const { rows } = await query(
     "SELECT name FROM aircraft WHERE parked_zone_id=$1 AND is_wreck=0 AND (custom_data->>'charter') IS DISTINCT FROM 'true' LIMIT 1",
@@ -1519,8 +1522,8 @@ async function describeHangarInterior(zone) {
 // Fires unconditionally per zone (unlike zone.furniturePanel, which only fires
 // when the zone has furniture rows) — several airfields have none, so this is
 // the only reliable way to surface "there's a hangar here" at every field.
-async function describeAirfield(zone) {
-  if (zone?.flags?.hangar_interior) return await describeHangarInterior(zone);
+async function describeAirfield(zone, player) {
+  if (zone?.flags?.hangar_interior) return await describeHangarInterior(zone, player);
   // Walkable-base flight deck (the Leviathan): the seat that flies the whole ship.
   if (zone?.flags?.flightdeck)
     return `<span class="furniture-label">Controls:</span> ${svcLink('takecontrols', 'take the controls')} <span class="text-dim">— drop into the seat and fly her; step back out with <b>handoff</b> once she's down</span>`
@@ -1531,7 +1534,9 @@ async function describeAirfield(zone) {
   // A prominent, dedicated line for the 3D hangar bay so the look scene has an
   // obvious call-to-action to open it (matches the walk-in interior's line) — the
   // terse `hangar` link in the Services row is easy to miss.
-  line += `\n<span class="furniture-label">Hangar bay:</span> ${svcLink('hangar', 'Open Hangar Bay')} <span class="text-dim">your aircraft up close in 3D — charter, buy/rent, maintenance</span>`;
+  line += (await prefersTextTravel(player))
+    ? `\n<span class="furniture-label">Hangar bay:</span> ${svcLink('hangar', 'Hangar Bay')} <span class="text-dim">what's on the floor, written out — charter, buy/rent, maintenance</span>`
+    : `\n<span class="furniture-label">Hangar bay:</span> ${svcLink('hangar', 'Open Hangar Bay')} <span class="text-dim">your aircraft up close in 3D — charter, buy/rent, maintenance</span>`;
   // If this field has a walk-in hangar, boarding is done INSIDE it (less ambiguity) —
   // point players in through the bay doors; the embark links live in the office.
   if (f.hangar_interior_zone) {

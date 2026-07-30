@@ -1,0 +1,17 @@
+{
+  "description": "A brick forge with a cracked throat, banked and breathing. The coals move when the door opens. There is a steel bucket beside it that you should not look into.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_forge_zone_grindhouse_interior",
+  "light_type": "overhead",
+  "lumen_output": 1600,
+  "name": "the forge",
+  "object_type": "light",
+  "power_draw_kw": 0,
+  "price": null,
+  "zone_id": "zone_grindhouse_interior"
+}

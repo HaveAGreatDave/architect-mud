@@ -84,6 +84,10 @@ export function startTextPilot(player, live) {
   live.textTargets = { throttle: live.row.throttle || 0, altitude: null, heading: null, flaps: 0, gear: 1 };
   live._textPrevVs = 0;
   player.textPilot = true;
+  // Paint the instruments at once rather than making the pilot wait on the 1s sweep —
+  // and the sweep skips a cold parked aircraft entirely, so this is the first frame.
+  const first = panelPayload(live);
+  if (first) sendToPlayer(player.id, first);
   return true;
 }
 
@@ -279,7 +283,16 @@ export async function textPilotTick() {
   try {
     for (const live of [...liveAircraft.values()]) {
       if (!live.textPilot || !live.fmState) continue;
-      if (!live.row.engine_on && live.fmState.onGround && live.fmState.airspeed < 0.5) continue;   // cold and parked — nothing to simulate
+      // Cold and parked — nothing to SIMULATE, but the panel still has to paint, or a
+      // pilot who boards an engine-off aircraft sits on the "instruments coming alive…"
+      // placeholder forever with no way to see (or reach) the throttle.
+      if (!live.row.engine_on && live.fmState.onGround && live.fmState.airspeed < 0.5) {
+        if (live.pilotId) {
+          const idle = panelPayload(live);
+          if (idle) sendToPlayer(live.pilotId, idle);
+        }
+        continue;
+      }
       await stepOne(live);
       // The wheels and the DB flag disagreeing IS the edge: flying with airborne unset
       // means she just rotated, on the ground with it still set means she just arrived.

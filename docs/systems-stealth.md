@@ -29,6 +29,33 @@ clocked them. That keeps fights unambiguous and makes the interesting case — t
 decision rather than a dice roll. The one scripted exception is police at ≥4★, and a scripted knockout
 is not a random one.
 
+### The second deliberate route (2026-07-30): a called head shot
+
+There is now a way to knock somebody out **mid-fight**, and it does not weaken the rule above —
+because the rule forbids a *random* knockout, and this is the opposite of random. A **called head
+shot** (`aim head`) that lands a **critical** while you are holding a **blunt or unarmed** weapon
+knocks the target out instead of killing them. See [combat.md](combat.md#the-execution-shot).
+
+Every clause of the rule survives:
+
+- **Not random.** It needs two decisions taken in advance — aiming at the head (at −8 to hit, so a
+  novice's margin *cannot* reach the crit threshold: 0%, not merely unlikely) and carrying a bat
+  rather than a blade. The same shot with a knife or a gun kills.
+- **Not ambiguous.** You cannot do this by accident, so a fight never ends in a knockout the dice
+  chose for you. Winning still means winning.
+- **Not invisible** — the objection that mattered most. Reason (1) above was that the 1s auto-attack
+  loop would finish the body a tick later, and that was literally true: nothing in `combat.js` or
+  `gameLoop.js` consulted `isOut`. Fixed in the same pass. A landed knockout now **disengages the
+  attacker** (`combatTargetId`/`pvpTargetId` cleared), the player auto-attack loop **skips an
+  unconscious enemy**, and `enemyAttackPlayer` **returns null for an out-cold attacker**.
+
+That last change has a consequence worth stating plainly: **auto-attack will never finish an
+unconscious body.** Killing one is charged as `execution` at 5★, and a crime that severe must be
+something you type, not something a background tick commits on your behalf.
+
+HP is pinned at 1 on every path, exactly as `knockout` does — an NPC or enemy at 0 is simply dead, so
+an unpinned knockout would be a killing with extra steps.
+
 ## Stealth is borrowed, not built
 
 Almost nothing here is new simulation. The substrate already existed for other reasons; this is the seam

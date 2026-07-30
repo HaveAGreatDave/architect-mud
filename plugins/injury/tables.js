@@ -33,20 +33,43 @@ export const SEVERITY_BANDS = { 0: 'good', 1: 'warn', 2: 'bad', 3: 'crit' };
 //
 // threshold  — fraction of max HP a POST-SOAK hit must exceed to injure at all.
 //              Armour that did its job prevents the wound outright.
-// escalation — how much more damage buys the next severity rung. SMALL = steep.
+// step       — how many MULTIPLES of the threshold buy the next severity rung.
+//              SMALL = steep. See the balance note below for why this is
+//              geometric rather than a flat additive slice.
 // healMins   — real minutes to shed one rung of severity.
 // cumulative — an already-injured part is easier to injure again.
 //
 // Read the `kinetic` row: a high bar that most blunt hits fail, and a steep climb
 // once cleared. A pipe glances off your ribs eleven times and the twelfth breaks
-// something. Deliberately UNCAPPED — a fracture has no business being milder
-// than a cut.
+// something. `edged` is the deliberate opposite — a low bar and a shallow climb,
+// so a blade wounds constantly and ruins rarely. Neither is strictly better.
+//
+// ── Balance note (2026-07-29 tuning pass) ────────────────────────────────────
+// These rungs used to be ADDITIVE — `(frac - threshold) / escalation` — which
+// made severity linear in a quantity that is not bounded. Damage in this game
+// runs from 2 to 100 while `hp_max` is a flat 40, so `frac` spans 0.05 to 2.5
+// against a maim bar of 0.38: every weapon above about 15 average damage maimed
+// on 100% of its hits, THROUGH heavy armour, which broke the system's own rule
+// that armour doing its job prevents the wound. Measured before the change:
+// SMG 55% maim per hit (92% of head hits), breacher shotgun / sledgehammer /
+// thermal lance 100%. Expected wounds in a normal fight were 2.5–3.8, against a
+// design target of "zero or one".
+//
+// Geometric rungs fix the saturation: each rung costs a MULTIPLE of the bar, so
+// overwhelming damage tapers instead of guaranteeing the worst outcome. Values
+// below come from a grid search against explicit targets (~1.2 wounds/fight,
+// ~1.2% maim per hit, ~12% of head hits) over the real authored weapon set.
+// The character is a CONSTRAINT on these numbers, not an outcome of tuning them:
+// edged must keep the lower bar AND the shallower climb, kinetic the higher bar
+// AND the steeper one. A tuning pass that inverts that has mis-tuned, however
+// good its rates look — an early pass did exactly that, because identical targets
+// applied to types wielded by very different weapons quietly swap their roles.
 export const TYPES = {
-  edged:     { threshold: 0.08, escalation: 0.20, healMins: 90,  cumulative: false },
-  kinetic:   { threshold: 0.18, escalation: 0.10, healMins: 45,  cumulative: true  },
-  energy:    { threshold: 0.12, escalation: 0.15, healMins: 90,  cumulative: false },
-  fire:      { threshold: 0.12, escalation: 0.22, healMins: 150, cumulative: true  },
-  radiation: { threshold: 0.05, escalation: 0.30, healMins: 300, cumulative: false },
+  edged:     { threshold: 0.16, step: 2.00, healMins: 90,  cumulative: false },
+  kinetic:   { threshold: 0.28, step: 1.45, healMins: 45,  cumulative: true  },
+  energy:    { threshold: 0.22, step: 1.60, healMins: 90,  cumulative: false },
+  fire:      { threshold: 0.22, step: 2.10, healMins: 150, cumulative: true  },
+  radiation: { threshold: 0.10, step: 2.60, healMins: 300, cumulative: false },
 };
 
 export const DEFAULT_TYPE = 'kinetic';
@@ -55,7 +78,19 @@ export function typeRules(type) { return TYPES[type] || TYPES[DEFAULT_TYPE]; }
 
 // A crit is a hit that found a gap — it lowers the bar rather than adding a rung,
 // so it makes an injury LIKELIER without making every crit catastrophic.
+//
+// This is now the ONLY way a crit reaches the injury system. It used to ALSO
+// arrive as inflated damage (crit multiplies the blow by 1.5 before the check),
+// so a crit both lowered the bar and raised the number cleared against it —
+// counted twice. Combat now passes `baseDamage` alongside `damage`, and this
+// system scores the base. Same for the head multiplier, below.
 export const CRIT_THRESHOLD_SCALE = 0.7;
+
+// A head hit is easier to wound, and that is ALL it is now. The engine still
+// multiplies head damage by 1.5 for HP purposes — that is untouched — but that
+// multiplier no longer also feeds the injury check, where it was compounding
+// with crit and `cumulative` to produce a 92%-of-head-hits maim rate on an SMG.
+export const HEAD_THRESHOLD_SCALE = 0.7;
 
 // How much easier a `cumulative` type finds an already-wounded part.
 export const CUMULATIVE_THRESHOLD_SCALE = 0.6;

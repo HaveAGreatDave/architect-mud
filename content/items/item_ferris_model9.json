@@ -1,0 +1,37 @@
+{
+  "description": "A boxy polymer service pistol with all the personality of a kettle. Ferris never advertised, never changed the design, and never apologised for either. It does not jam. It has never jammed. Somewhere under the rust of the old world there is a warehouse of these still waiting to not jam.",
+  "flags": {},
+  "id": "item_ferris_model9",
+  "name": "Ferris Model 9 service pistol",
+  "tags": {
+    "__own": {
+      "damage": {
+        "max": 14,
+        "min": 7
+      },
+      "damage_type": "kinetic",
+      "description": "A boxy polymer service pistol with all the personality of a kettle. Ferris never advertised, never changed the design, and never apologised for either. It does not jam. It has never jammed. Somewhere under the rust of the old world there is a warehouse of these still waiting to not jam.",
+      "min_skill": {
+        "firearms": 2
+      }
+    },
+    "__super": [
+      "weapon_firearms"
+    ],
+    "damage": {
+      "max": 14,
+      "min": 7
+    },
+    "damage_type": "kinetic",
+    "description": "A boxy polymer service pistol with all the personality of a kettle. Ferris never advertised, never changed the design, and never apologised for either. It does not jam. It has never jammed. Somewhere under the rust of the old world there is a warehouse of these still waiting to not jam.",
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "firearms",
+    "min_skill": {
+      "firearms": 2
+    }
+  },
+  "type": "weapon",
+  "value": 230,
+  "weight": 850
+}

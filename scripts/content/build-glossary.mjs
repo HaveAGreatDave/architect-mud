@@ -87,6 +87,12 @@ const TERMS = [
   ['airship', 'A steerable powered balloon.', 'air-ship', 'airships', 'air-ships'],
   ['respirator', 'A breathing mask.', 'respirators'],
   ['homelessness', 'In Forster, a punishment: expulsion to the surface, which is assumed to be fatal.'],
+  // Wells coinages in The Sleeper Awakes — invented words, so nothing else will
+  // explain them and a reader stops dead on the first one.
+  ['eadhamite', "Wells's invented road surface: a seamless artificial rubber the whole city is paved in."],
+  ['babble machine', 'A street-corner speaking machine that shouts the news at passers-by, forever, whether or not there is any.', 'babble machines', 'babble-machine'],
+  ['wind-vane', 'In Wells, not a weathercock but a giant power turbine — the wind-vane keepers are the men who run the city.', 'wind vane', 'wind-vanes'],
+  ['aeronaut', 'A flyer — the pilot of an aircraft.', 'aeronauts'],
 
   // ── General reading friction ──
   ['hitherto', 'Until now.'],
@@ -125,7 +131,7 @@ const TERMS = [
   ['erudition', 'Deep book-learning.', 'erudite'],
   ['pedant', 'Someone obsessed with small points of correctness.', 'pedantry', 'pedantic'],
 
-  // ── Second pass: swept the eight shelved books for words that (a) recur, (b)
+  // ── Second pass: swept the shelved books for words that (a) recur, (b)
   //    aren't in the 25k common-word list, and (c) actually halt a sentence.
   //    Proper names and merely-old spellings were left alone on the scope rule.
 

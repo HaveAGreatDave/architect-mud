@@ -1,0 +1,40 @@
+{
+  "description": "A stubby pneumatic speargun with a rubber-wrapped grip and a spare shaft clipped along the barrel. Built for salvage crews working the flooded blocks: it is the one weapon in this city that does not care that it is underwater, because underwater is the only place anyone ever meant to fire it.",
+  "flags": {},
+  "id": "item_tidewell_speargun",
+  "name": "Tidewell speargun",
+  "tags": {
+    "__own": {
+      "damage": {
+        "min": 9,
+        "max": 16
+      },
+      "damage_type": "edged",
+      "weapon_skill": "firearms",
+      "waterproof": true,
+      "min_skill": {
+        "firearms": 3
+      },
+      "description": "A stubby pneumatic speargun with a rubber-wrapped grip and a spare shaft clipped along the barrel. Built for salvage crews working the flooded blocks: it is the one weapon in this city that does not care that it is underwater, because underwater is the only place anyone ever meant to fire it."
+    },
+    "__super": [
+      "weapon_firearms"
+    ],
+    "damage": {
+      "min": 9,
+      "max": 16
+    },
+    "damage_type": "edged",
+    "weapon_skill": "firearms",
+    "waterproof": true,
+    "min_skill": {
+      "firearms": 3
+    },
+    "description": "A stubby pneumatic speargun with a rubber-wrapped grip and a spare shaft clipped along the barrel. Built for salvage crews working the flooded blocks: it is the one weapon in this city that does not care that it is underwater, because underwater is the only place anyone ever meant to fire it.",
+    "slot": "weapon_hand",
+    "weapon": true
+  },
+  "type": "weapon",
+  "value": 260,
+  "weight": 2600
+}

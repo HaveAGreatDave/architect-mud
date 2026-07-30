@@ -2853,6 +2853,8 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   // Corporate-Assets claimable businesses — a distinct wall tone per storefront type.
   ty_armory: [70, 74, 80], ty_casino: [58, 30, 60], ty_pawn: [74, 62, 44], ty_chem: [76, 92, 70],
   ty_kitchen: [74, 68, 58],
+  // Grind House — soot-dark iron; the ember glow comes from the neon field.
+  ty_forge: [62, 52, 46],
   // The Yards — semi-industrial freight district models (see TYPE_MODEL). The ribbed-steel keys also join METAL_WALL.
   ty_wh_metal: [120, 124, 130], ty_cont_r: [150, 66, 54], ty_cont_b: [56, 84, 120], ty_cont_g: [70, 104, 80], ty_cont_y: [150, 128, 54],
   ty_pallet: [96, 74, 48], ty_cold: [186, 196, 204], ty_cold_unit: [70, 78, 86], ty_fab_metal: [96, 100, 108], ty_fab_steel: [70, 74, 82],
@@ -2913,6 +2915,7 @@ const BLDG_TYPE_3D = {
   power:            { a: 'industrial', h: 0.34 },
   hangar:           { a: 'freight',   h: 0.14 },
   gun_shop:         { a: 'citycore',   h: 0.13 }, // squat riveted blockhouse
+  blade_shop:       { a: 'citycore',   h: 0.12 }, // low forge shed, chimney short
   casino:           { a: 'marquee',    h: 0.17 }, // neon-drowned gambling house
   fence:            { a: 'citycore',   h: 0.13 }, // grimy pawnshop
   chem_supply:      { a: 'industrial', h: 0.16 }, // drum-stacked depot
@@ -5447,6 +5450,7 @@ const TYPE_MODEL = {
   power:            { type: 'power',     pal: 'ty_power' },
   hangar:           { type: 'hangar',    pal: 'ty_hangar_a' },
   gun_shop:         { type: 'armory',    pal: 'ty_armory', neon: '#ff6a4a' },
+  blade_shop:       { type: 'armory',    pal: 'ty_forge',  neon: '#ff8a2a' },
   casino:           { type: 'casino',    pal: 'ty_casino', neon: '#ff3e8a' },
   fence:            { type: 'pawn',      pal: 'ty_pawn',   neon: '#ffcf3e' },
   chem_supply:      { type: 'chemsupply', pal: 'ty_chem',  neon: '#7dff6a' },

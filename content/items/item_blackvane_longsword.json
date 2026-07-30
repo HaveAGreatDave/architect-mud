@@ -1,0 +1,38 @@
+{
+  "description": "Blackvane made perhaps two hundred of these and signed every one under the grip. It is lighter than it looks and it does not forgive a bad grip, but in a hand that knows what it is doing it is the best thing in this room by a distance the price only partly explains.",
+  "flags": {},
+  "id": "item_blackvane_longsword",
+  "name": "Blackvane longsword",
+  "tags": {
+    "__own": {
+      "damage": {
+        "min": 9,
+        "max": 17
+      },
+      "damage_type": "edged",
+      "weapon_skill": "blades",
+      "min_skill": {
+        "blades": 5
+      },
+      "description": "Blackvane made perhaps two hundred of these and signed every one under the grip. It is lighter than it looks and it does not forgive a bad grip, but in a hand that knows what it is doing it is the best thing in this room by a distance the price only partly explains."
+    },
+    "__super": [
+      "weapon_blades"
+    ],
+    "damage": {
+      "min": 9,
+      "max": 17
+    },
+    "damage_type": "edged",
+    "weapon_skill": "blades",
+    "min_skill": {
+      "blades": 5
+    },
+    "description": "Blackvane made perhaps two hundred of these and signed every one under the grip. It is lighter than it looks and it does not forgive a bad grip, but in a hand that knows what it is doing it is the best thing in this room by a distance the price only partly explains.",
+    "slot": "weapon_hand",
+    "weapon": true
+  },
+  "type": "weapon",
+  "value": 420,
+  "weight": 1700
+}

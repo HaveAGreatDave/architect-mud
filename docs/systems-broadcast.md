@@ -659,6 +659,38 @@ Implemented in `plugins/broadcast/index.js` (search `Media Deck`).
 - Cassette items are `items` rows with a deterministic id `item_cassette_<showname>` (broadcast name, slugified) and `tags.media_cassette = true` / `tags.broadcast_id`. The same id convention is used both by the dev-panel BSM import flow (`POST /broadcast/cassette`) and by `eject`, so the two paths always converge on one item definition per broadcast rather than creating duplicates. Only one cassette can exist per broadcast — if a *different* broadcast's name slugifies to the same id, `_ensureCassetteItem` throws (`CASSETTE_NAME_COLLISION`) instead of overwriting; `POST /broadcast/cassette` returns `409` and `eject`'s fallback-create path returns an in-game error.
 - The media deck panel (`client/game/js/panels/mediadeck.js`, markup in `client/game/index.html`) shows a cartridge "slot" that slides a cartridge graphic into view when a cassette is active, a scrollable library list (click a row to `selectcassette`), a read-only schedule preview, and a LOAD / EJECT button row (LOAD sends `load cassette`, EJECT sends `eject`).
 
+### Small-format players (`flags.mini_deck`) — the betamax
+
+A **tape player** is a media deck scoped to one room and one set: a squat top-loading box
+that sits on a television and plays whatever is in it, on a loop, until somebody stops it.
+First example: `furn_betamax_zone_grindhouse_interior` in the Grind House.
+
+It is **the same `object_type: 'media_deck'`**, and that is the whole design. Reusing the deck
+gets `load` / `eject` / `selectcassette`, the examine panel with its LIVE/LOAD dots, and the
+zone-scoped channel override for nothing — and `_playDeckItem` **already loops a flat list on
+its own duration**, so "plays until stopped" required no playback code at all. `mini_deck` is
+a marker for the physical thing (one tape, one receiver), not a second mechanism.
+
+**How the television "tunes to" it: it doesn't.** `_zoneDeck(zoneId, channelId)` finds decks in
+the *same zone* and prefers the one whose `flags.channel_id` matches the channel the viewer's
+set is on. The set stays on its channel; the deck **substitutes what that channel shows, for
+that room only**. So the linkage between player and TV is simply that both furniture rows carry
+the same `channel_id` — there is no pairing table and no cable.
+
+**Small-format cassettes** carry `tags.beta_cassette` alongside the usual `media_cassette` +
+`broadcast_id`. A full-size deck reads them perfectly well; the tag exists so the little players
+can refuse the big deck cassettes, which physically would not fit. It has no playback behaviour.
+
+### The proprietor puts their tape back on
+
+A deck may name `flags.deck_owner_npc` and `flags.deck_default`. Anyone can stop it or tune the
+set to a real station — and while that NPC is in the room, they will put it back on the next
+`tick.minute`, with a line about it. Two flags, no bespoke code per shop.
+
+Scoped to zones that currently contain a **player**: a tape reverting in an empty room is both
+unobservable and a pointless write, and sweeping ~5,800 zones a minute to find out would cost
+more than the feature is worth. (This is the broadcast plugin's only engine hook.)
+
 ## Game Client — Passive vs Active
 
 The **server** (`broadcastTick`) decides who gets what: it splits the players in a tuned

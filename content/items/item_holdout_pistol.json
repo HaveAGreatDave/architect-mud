@@ -1,14 +1,14 @@
 {
-  "description": "A snub little pistol built to vanish in a waistband. Not accurate, not pretty, but very final at conversational range.",
+  "description": "A snub little pistol built to vanish in a waistband. Corvid marketed it to \"the discerning commuter\" right up until the commuting stopped. Not accurate, not pretty, but very final at conversational range.",
   "flags": {},
   "id": "item_holdout_pistol",
-  "name": "holdout pistol",
+  "name": "Corvid Featherweight .25 pocket pistol",
   "tags": {
     "damage": {
       "max": 11,
       "min": 6
     },
-    "description": "A snub little pistol built to vanish in a waistband. Not accurate, not pretty, but very final at conversational range.",
+    "description": "A snub little pistol built to vanish in a waistband. Corvid marketed it to \"the discerning commuter\" right up until the commuting stopped. Not accurate, not pretty, but very final at conversational range.",
     "slot": "weapon_hand",
     "weapon": true,
     "weapon_skill": "firearms"

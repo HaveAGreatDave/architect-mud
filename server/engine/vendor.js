@@ -25,6 +25,8 @@ import { isStackable } from './tags.js';
 import { isConsumerFurniture } from './furniture-shop.js';
 import { getFlag, setFlag } from './flags.js';
 import { emit } from './events.js';
+import { weaponSkillRequirement } from './combat.js';
+import { effectiveSkill } from './skills.js';
 import { vendorGrudgeRemaining, grudgeRefusal } from './vendor-grudge.js';
 import { markSessionPurchase } from './vendor-session.js';
 import { vendorBuyReaction } from './vendor-reactions.js';
@@ -257,6 +259,22 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1, shelfKey 
 
   const item = getItem(itemId);
   if (!item) return { success: false, message: 'Item not found.' };
+
+  // A shopkeeper will not sell you a weapon you visibly cannot handle. This is a
+  // HARD gate on buying and a soft one on using: nothing stops you looting the
+  // same weapon off a corpse, you will just be terrible with it (see
+  // `underskilledPenalty` in combat.js). Keeps the good gear out of a fresh
+  // character's hands without ever confiscating something they earned.
+  const req = weaponSkillRequirement(item.tags);
+  if (req) {
+    const have = await effectiveSkill(player, req.skillId);
+    if (have < req.need) {
+      return {
+        success: false,
+        message: `${npc.name} looks at the ${item.name}, then at you, and puts it back. "Come back when you know which end is which."`,
+      };
+    }
+  }
 
   const sourceContainer = catalogueEntry?.sourceContainer;
   if (sourceContainer) {
@@ -561,25 +579,79 @@ export async function restockVendor(npc) {
 // checkpoints its freshness (examine/eat/stow/pull) — same lazy philosophy as
 // everywhere else. Capped by the container's own weight capacity so a big
 // delivery can't silently overfill it.
+//
+// The BACK ROOM is stocked by the same pass, one step behind the floor. A case
+// flagged `backstock: <containerId>` is filled from that container first (real
+// rows walked forward, keeping whatever freshness they've accrued), and only the
+// shortfall is minted; then the back room itself is topped up to
+// `backstock_depth × restockToQty` (default 2 — a couple of deliveries in
+// reserve). Without that second half the stockroom stays empty forever, the
+// walk-forward never fires, and "backstock" is decoration: every delivery just
+// mints onto the floor. It also makes the stockroom worth walking into — there
+// is real, liftable stock behind the shop.
+
+// How many more units of `item` fit in a container, by weight. Shared by the
+// floor top-up and the back-room top-up so neither can overfill its box.
+async function containerRoomFor(containerId, item, capacityG) {
+  const { rows: used } = await query(
+    `SELECT COALESCE(SUM(i.weight*pi.quantity),0)::float AS w FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1`,
+    [containerId]
+  );
+  return Math.max(0, Math.floor((capacityG - (used[0]?.w || 0)) / (item.weight || 1)));
+}
+
+// Mint `need` fresh quantity-1 rows of `item` into `containerId`, capped by room.
+// A short delivery is LOGGED: the cap is applied per entry in catalogue order, so
+// an over-subscribed case silently starves whichever items are authored last —
+// they read `stock: 0` on the shelf forever and look like a content bug rather
+// than a case that needs a bigger `container` capacity.
+async function mintInto(containerId, item, need, capacityG) {
+  if (need <= 0) return 0;
+  const room = await containerRoomFor(containerId, item, capacityG);
+  const toAdd = Math.min(need, room);
+  if (toAdd < need) {
+    console.warn(`[vendor] ${containerId} is full — short ${need - toAdd}x ${item.id} this delivery; raise its flags.container capacity.`);
+  }
+  for (let i = 0; i < toAdd; i++) {
+    await query(
+      `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, container_id) VALUES ($1,'_restock',$2,1,1.0,$3)`,
+      [randomUUID(), item.id, containerId]
+    );
+  }
+  return toAdd;
+}
+
+const countIn = async (containerId, itemId) => Number((await query(
+  'SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id=$1 AND item_id=$2',
+  [containerId, itemId]
+)).rows[0]?.n) || 0;
+
 export async function restockSourcedContainers(npc) {
   const sourced = (npc.vendor_inventory || []).filter(e => e.sourceContainer && e.restockToQty > 0);
+  // Container flags are read once per container, not once per catalogue entry —
+  // a grocer sources 30 items off one case and this ran 30 identical lookups.
+  const flagCache = new Map();
+  const flagsFor = async (id) => {
+    if (!flagCache.has(id)) {
+      const { rows } = await query('SELECT flags FROM furniture WHERE id=$1', [id]);
+      flagCache.set(id, rows[0]?.flags || null);
+    }
+    return flagCache.get(id);
+  };
+
   for (const entry of sourced) {
     const item = getItem(entry.item_id);
     if (!item) continue;
-    const { rows: cur } = await query(
-      'SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id=$1 AND item_id=$2',
-      [entry.sourceContainer, entry.item_id]
-    );
-    let need = entry.restockToQty - (cur[0]?.n || 0);
-    if (need <= 0) continue;
 
-    const { rows: cap } = await query('SELECT flags FROM furniture WHERE id=$1', [entry.sourceContainer]);
-    const capacityG = cap[0]?.flags?.container ?? 60000;
-    // A shop-floor case flagged `backstock: <containerId>` is filled from the back
-    // room first — real rows walked forward out of the stockroom, keeping whatever
-    // freshness they've accrued — and only the shortfall is minted as a delivery.
-    const backstock = cap[0]?.flags?.backstock;
-    if (backstock) {
+    const flags = await flagsFor(entry.sourceContainer);
+    if (!flags) continue;                              // case has been deleted
+    const capacityG = flags.container ?? 60000;
+    const backstock = flags.backstock;
+
+    let need = entry.restockToQty - (await countIn(entry.sourceContainer, entry.item_id));
+
+    // Walk the back room forward onto the floor first.
+    if (backstock && need > 0) {
       const { rows: moved } = await query(
         'SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 ORDER BY id LIMIT $3',
         [backstock, entry.item_id, need]
@@ -587,20 +659,20 @@ export async function restockSourcedContainers(npc) {
       if (moved.length) {
         await query('UPDATE player_inventory SET container_id=$1 WHERE id = ANY($2::text[])', [entry.sourceContainer, moved.map(r => r.id)]);
         need -= moved.length;
-        if (need <= 0) continue;
       }
     }
-    const { rows: used } = await query(
-      `SELECT COALESCE(SUM(i.weight*pi.quantity),0)::float AS w FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1`,
-      [entry.sourceContainer]
-    );
-    const room = Math.max(0, Math.floor((capacityG - (used[0]?.w || 0)) / (item.weight || 1)));
-    const toAdd = Math.min(need, room);
-    for (let i = 0; i < toAdd; i++) {
-      await query(
-        `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, container_id) VALUES ($1,'_restock',$2,1,1.0,$3)`,
-        [randomUUID(), entry.item_id, entry.sourceContainer]
-      );
+
+    await mintInto(entry.sourceContainer, item, need, capacityG);
+
+    // Then the delivery to the back room. Runs whether or not the floor needed
+    // anything — a full case with an empty stockroom is exactly the state that
+    // used to persist forever.
+    if (backstock) {
+      const bFlags = await flagsFor(backstock);
+      if (!bFlags) continue;
+      const depth = Math.max(0, Number(bFlags.backstock_depth ?? 2));
+      const target = Math.floor(entry.restockToQty * depth);
+      await mintInto(backstock, item, target - (await countIn(backstock, entry.item_id)), bFlags.container ?? 60000);
     }
   }
 }

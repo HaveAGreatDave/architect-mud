@@ -18,7 +18,16 @@
 import 'dotenv/config';
 import { pathToFileURL } from 'node:url';
 import { restockAllVendors } from '../../server/engine/vendor.js';
+import { loadItems } from '../../server/engine/items-cache.js';
 import { query } from '../../server/models/db.js';
+
+// The items cache is normally filled by server boot, which never happens here.
+// restockSourcedContainers() reads item weight/existence straight off it and
+// SKIPS any entry getItem() can't resolve — so without this every vendor's
+// physical stock (shop-floor coolers, display cases, stockrooms) silently seeds
+// EMPTY while the abstract `vendor_stock` shelf, which needs no cache, fills
+// normally and hides the failure.
+const primeItemCache = () => loadItems();
 
 // atm_units is runtime-class (one row per placed ATM, drained/refilled by play), so
 // content:import never writes it — but the row only ever gets created by the dev-panel
@@ -61,6 +70,7 @@ async function lightAuthoredFixtures() {
 }
 
 const TASKS = [
+  ['prime item cache', primeItemCache],   // must precede 'restock vendors'
   ['restock vendors', restockAllVendors],
   ['provision ATM units', provisionAtmUnits],
   ['light authored fixtures', lightAuthoredFixtures],

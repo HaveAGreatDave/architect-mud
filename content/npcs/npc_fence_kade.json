@@ -81,19 +81,9 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_lockpick_roll",
-      "price": 63,
-      "stock": 8
-    },
-    {
       "item_id": "item_burner_phone",
       "price": 42,
       "stock": 12
-    },
-    {
-      "item_id": "item_fenced_watch",
-      "price": 84,
-      "stock": 5
     },
     {
       "item_id": "item_pawn_ring",
@@ -101,9 +91,29 @@
       "stock": 8
     },
     {
+      "item_id": "item_lockpick_roll",
+      "price": 63,
+      "stock": 8
+    },
+    {
+      "item_id": "item_fenced_watch",
+      "price": 84,
+      "stock": 5
+    },
+    {
       "item_id": "item_holdout_pistol",
       "price": 126,
       "stock": 4
+    },
+    {
+      "item_id": "item_ripsaw_chaimsword",
+      "price": 672,
+      "stock": 1
+    },
+    {
+      "item_id": "item_breacher_shotgun",
+      "price": 868,
+      "stock": 2
     }
   ],
   "vendor_restock_rate": 1,

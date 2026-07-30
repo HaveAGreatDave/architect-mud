@@ -1,0 +1,548 @@
+{
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "type": "start",
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "next": "bsm_pre_0"
+      },
+      "bsm_1": {
+        "type": "overlay",
+        "overlayType": "letterbox",
+        "on": true,
+        "text": "",
+        "duration_s": 0,
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
+        "next": "bsm_2"
+      },
+      "bsm_2": {
+        "type": "title_card",
+        "graphic_id": "sister_steel_title",
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "next": "bsm_3"
+      },
+      "bsm_3": {
+        "type": "say",
+        "text": "♪ A fuzz-guitar sting, badly transferred, with the top end gone. ♪",
+        "style": "ambient",
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "next": "bsm_4"
+      },
+      "bsm_4": {
+        "type": "say",
+        "text": "The print is scratched to hell. A hair sits in the gate for the whole first minute and nobody in eleven years has cared enough to pull it out.",
+        "style": "narration",
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "next": "bsm_5"
+      },
+      "bsm_5": {
+        "type": "overlay",
+        "overlayType": "lower_third",
+        "text": "COLDWATER",
+        "subtext": "2081 — THE DRY MONTH",
+        "graphic_id": "",
+        "duration_s": 6,
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "next": "bsm_6"
+      },
+      "bsm_6": {
+        "type": "say",
+        "text": "A woman crosses a lot full of dead cars carrying something long, wrapped in a moving blanket.",
+        "style": "narration",
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "next": "bsm_7"
+      },
+      "bsm_7": {
+        "type": "say",
+        "text": "They said the Handoff made men equal.",
+        "style": "narration",
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "next": "bsm_8"
+      },
+      "bsm_8": {
+        "type": "say",
+        "text": "They lied about that too.",
+        "style": "narration",
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "next": "bsm_9"
+      },
+      "bsm_9": {
+        "type": "overlay",
+        "overlayType": "act_card",
+        "text": "ACT 1",
+        "subtext": "The Foreclosure",
+        "duration_s": 8,
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "next": "bsm_10"
+      },
+      "bsm_10": {
+        "type": "say",
+        "text": "An office. HALLORAN does not look up from his ledger. Behind him, a window looks out on nothing at all.",
+        "style": "narration",
+        "_vine": {
+          "x": 80,
+          "y": 400
+        },
+        "next": "bsm_11"
+      },
+      "bsm_11": {
+        "type": "say",
+        "text": "Mr. Halloran says, \"Your permit lapsed, Miss Sark. The machine says it lapsed. I only read what the machine says.\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 300,
+          "y": 400
+        },
+        "next": "bsm_12"
+      },
+      "bsm_12": {
+        "type": "say",
+        "text": "Vonnie Sark says, \"My father cut steel on that floor for thirty years.\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 520,
+          "y": 400
+        },
+        "next": "bsm_13"
+      },
+      "bsm_13": {
+        "type": "say",
+        "text": "Mr. Halloran says, \"And the machine has no column for that.\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 740,
+          "y": 400
+        },
+        "next": "bsm_14"
+      },
+      "bsm_14": {
+        "type": "say",
+        "text": "He slides a form across the desk. She does not take it. The scratch on the print goes right through her face, and stays there for the rest of the picture.",
+        "style": "narration",
+        "_vine": {
+          "x": 960,
+          "y": 400
+        },
+        "next": "bsm_15"
+      },
+      "bsm_15": {
+        "type": "say",
+        "text": "They burned out her forge on a Tuesday.",
+        "style": "narration",
+        "_vine": {
+          "x": 80,
+          "y": 560
+        },
+        "next": "bsm_16"
+      },
+      "bsm_16": {
+        "type": "say",
+        "text": "By Friday, Vonnie Sark had learned what a foreclosure notice sounds like going through a windscreen.",
+        "style": "narration",
+        "_vine": {
+          "x": 300,
+          "y": 560
+        },
+        "next": "bsm_17"
+      },
+      "bsm_17": {
+        "type": "overlay",
+        "overlayType": "act_card",
+        "text": "ACT 2",
+        "subtext": "The Long Grind",
+        "duration_s": 8,
+        "_vine": {
+          "x": 520,
+          "y": 560
+        },
+        "next": "bsm_18"
+      },
+      "bsm_18": {
+        "type": "overlay",
+        "overlayType": "lower_third",
+        "text": "FOUNDRY WAY",
+        "subtext": "THREE WEEKS LATER",
+        "graphic_id": "",
+        "duration_s": 6,
+        "_vine": {
+          "x": 740,
+          "y": 560
+        },
+        "next": "bsm_19"
+      },
+      "bsm_19": {
+        "type": "say",
+        "text": "Sparks. A LOT of sparks — the director has clearly discovered that sparks are free and is going to get his money's worth.",
+        "style": "narration",
+        "_vine": {
+          "x": 960,
+          "y": 560
+        },
+        "next": "bsm_20"
+      },
+      "bsm_20": {
+        "type": "say",
+        "text": "♪ Wah-wah pedal, over-committed. ♪",
+        "style": "ambient",
+        "_vine": {
+          "x": 80,
+          "y": 720
+        },
+        "next": "bsm_21"
+      },
+      "bsm_21": {
+        "type": "say",
+        "text": "The Preacher says, \"I got a van, I got a shotgun, and I got nothing anybody wants back. What are you building in there, sister?\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 300,
+          "y": 720
+        },
+        "next": "bsm_22"
+      },
+      "bsm_22": {
+        "type": "say",
+        "text": "Vonnie Sark says, \"Something with teeth.\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 520,
+          "y": 720
+        },
+        "next": "bsm_23"
+      },
+      "bsm_23": {
+        "type": "tech_difficulties",
+        "duration": 8,
+        "_vine": {
+          "x": 740,
+          "y": 720
+        },
+        "next": "bsm_24"
+      },
+      "bsm_24": {
+        "type": "say",
+        "text": "REEL FOUR IS MISSING. It has been missing from this print since before The Handoff, and no surviving copy has it. Whatever happened in the Halcyon car park, you will have to take the picture's word for it.",
+        "style": "narration",
+        "_vine": {
+          "x": 960,
+          "y": 720
+        },
+        "next": "bsm_25"
+      },
+      "bsm_25": {
+        "type": "overlay",
+        "overlayType": "intermission",
+        "text": "INTERMISSION",
+        "subtext": "",
+        "duration_s": 45,
+        "_vine": {
+          "x": 80,
+          "y": 880
+        },
+        "next": "bsm_26"
+      },
+      "bsm_26": {
+        "type": "overlay",
+        "overlayType": "act_card",
+        "text": "ACT 3",
+        "subtext": "Certified Unsuitable",
+        "duration_s": 8,
+        "_vine": {
+          "x": 300,
+          "y": 880
+        },
+        "next": "bsm_27"
+      },
+      "bsm_27": {
+        "type": "overlay",
+        "overlayType": "lower_third",
+        "text": "THE HALCYON ATRIUM",
+        "subtext": "THAT NIGHT",
+        "graphic_id": "",
+        "duration_s": 6,
+        "_vine": {
+          "x": 520,
+          "y": 880
+        },
+        "next": "bsm_28"
+      },
+      "bsm_28": {
+        "type": "say",
+        "text": "Fourteen company men. One woman. The audio drops out for nine seconds and comes back somewhere else entirely.",
+        "style": "narration",
+        "_vine": {
+          "x": 740,
+          "y": 880
+        },
+        "next": "bsm_29"
+      },
+      "bsm_29": {
+        "type": "say",
+        "text": "Mr. Halloran says, \"You can't do this. There are PROCEDURES.\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 960,
+          "y": 880
+        },
+        "next": "bsm_30"
+      },
+      "bsm_30": {
+        "type": "say",
+        "text": "Vonnie Sark says, \"There's a procedure for me too, Mr. Halloran. It's about four feet long and it doesn't file.\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 80,
+          "y": 1040
+        },
+        "next": "bsm_31"
+      },
+      "bsm_31": {
+        "type": "say",
+        "text": "♪ The fuzz guitar returns, louder, and the print jumps a sprocket. ♪",
+        "style": "ambient",
+        "_vine": {
+          "x": 300,
+          "y": 1040
+        },
+        "next": "bsm_32"
+      },
+      "bsm_32": {
+        "type": "say",
+        "text": "What follows was cut by three separate censors, restored badly twice, and is still the reason this print has a certificate that reads UNSUITABLE FOR CORPORATE VIEWING.",
+        "style": "narration",
+        "_vine": {
+          "x": 520,
+          "y": 1040
+        },
+        "next": "bsm_33"
+      },
+      "bsm_33": {
+        "type": "overlay",
+        "overlayType": "fade",
+        "fade": "out",
+        "text": "",
+        "duration_s": 3,
+        "_vine": {
+          "x": 740,
+          "y": 1040
+        },
+        "next": "bsm_34"
+      },
+      "bsm_34": {
+        "type": "overlay",
+        "overlayType": "lower_third",
+        "text": "FOUNDRY WAY",
+        "subtext": "THE FOLLOWING SPRING",
+        "graphic_id": "",
+        "duration_s": 6,
+        "_vine": {
+          "x": 960,
+          "y": 1040
+        },
+        "next": "bsm_35"
+      },
+      "bsm_35": {
+        "type": "say",
+        "text": "The forge is lit. A hand-lettered card in the window says OPEN. Somebody has drawn a circle on it, worn flat on one side.",
+        "style": "narration",
+        "_vine": {
+          "x": 80,
+          "y": 1200
+        },
+        "next": "bsm_36"
+      },
+      "bsm_36": {
+        "type": "say",
+        "text": "She never got the permit.",
+        "style": "narration",
+        "_vine": {
+          "x": 300,
+          "y": 1200
+        },
+        "next": "bsm_37"
+      },
+      "bsm_37": {
+        "type": "say",
+        "text": "She never asked again either.",
+        "style": "narration",
+        "_vine": {
+          "x": 520,
+          "y": 1200
+        },
+        "next": "bsm_38"
+      },
+      "bsm_38": {
+        "type": "overlay",
+        "overlayType": "fade",
+        "fade": "in",
+        "text": "",
+        "duration_s": 2,
+        "_vine": {
+          "x": 740,
+          "y": 1200
+        },
+        "next": "bsm_39"
+      },
+      "bsm_39": {
+        "type": "overlay",
+        "overlayType": "letterbox",
+        "on": false,
+        "text": "",
+        "duration_s": 0,
+        "_vine": {
+          "x": 960,
+          "y": 1200
+        },
+        "next": "bsm_40"
+      },
+      "bsm_40": {
+        "type": "credits",
+        "text": "SISTER STEEL\n\nVonnie Sark ......... herself, mostly\nMr. Halloran ........ a man who read what the machine said\nThe Preacher ........ and his van\n\nA MELTWATER DRIVE-IN RELEASING PICTURE\n\nFilmed on location in Coldwater, without permission.",
+        "duration": 20,
+        "_vine": {
+          "x": 80,
+          "y": 1360
+        }
+      },
+      "bsm_pre_0": {
+        "type": "overlay",
+        "overlayType": "act_card",
+        "text": "MELTWATER DRIVE-IN RELEASING",
+        "subtext": "presents",
+        "duration_s": 5,
+        "_vine": {
+          "x": 80,
+          "y": -120
+        },
+        "next": "bsm_pre_1"
+      },
+      "bsm_pre_1": {
+        "type": "overlay",
+        "overlayType": "act_card",
+        "text": "CERTIFIED — UNSUITABLE FOR CORPORATE VIEWING",
+        "subtext": "BASIN BROADCAST STANDARDS BOARD",
+        "duration_s": 5,
+        "_vine": {
+          "x": 300,
+          "y": -120
+        },
+        "next": "bsm_pre_2"
+      },
+      "bsm_pre_2": {
+        "type": "overlay",
+        "overlayType": "act_card",
+        "text": "A film by Auggie Prine",
+        "subtext": "",
+        "duration_s": 5,
+        "_vine": {
+          "x": 520,
+          "y": -120
+        },
+        "next": "bsm_1"
+      }
+    }
+  },
+  "category": "film",
+  "channel_id": null,
+  "created_by": null,
+  "description": "A 2081 revenge picture, printed badly and cut worse. Reel four is missing and always has been.",
+  "enabled": 1,
+  "fallback_messages": [],
+  "film_meta": {
+    "presents": "Meltwater Drive-In Releasing",
+    "rating": "CERTIFIED — UNSUITABLE FOR CORPORATE VIEWING",
+    "director": "Auggie Prine",
+    "cast": [
+      {
+        "label": "VONNIE",
+        "name": "Vonnie Sark",
+        "role": "the sister"
+      },
+      {
+        "label": "HALLORAN",
+        "name": "Mr. Halloran",
+        "role": "the company man"
+      },
+      {
+        "label": "PREACHER",
+        "name": "The Preacher",
+        "role": "the man with the van"
+      }
+    ],
+    "title": "sister_steel_title",
+    "theme": "",
+    "airSlots": null,
+    "airDays": null,
+    "runtime": 900
+  },
+  "gameshow_pools": null,
+  "id": "bc_sister_steel",
+  "loop": 1,
+  "message_interval": 5,
+  "messages": [
+    "The print is scratched to hell. A hair sits in the gate for the whole first minute and nobody in eleven years has cared enough to pull it out.",
+    "A woman crosses a lot full of dead cars carrying something long, wrapped in a moving blanket.",
+    "They said the Handoff made men equal.",
+    "They lied about that too.",
+    "An office. HALLORAN does not look up from his ledger. Behind him, a window looks out on nothing at all.",
+    "Mr. Halloran says, \"Your permit lapsed, Miss Sark. The machine says it lapsed. I only read what the machine says.\"",
+    "Vonnie Sark says, \"My father cut steel on that floor for thirty years.\"",
+    "Mr. Halloran says, \"And the machine has no column for that.\"",
+    "He slides a form across the desk. She does not take it. The scratch on the print goes right through her face, and stays there for the rest of the picture.",
+    "They burned out her forge on a Tuesday.",
+    "By Friday, Vonnie Sark had learned what a foreclosure notice sounds like going through a windscreen.",
+    "Sparks. A LOT of sparks — the director has clearly discovered that sparks are free and is going to get his money's worth.",
+    "The Preacher says, \"I got a van, I got a shotgun, and I got nothing anybody wants back. What are you building in there, sister?\"",
+    "Vonnie Sark says, \"Something with teeth.\"",
+    "REEL FOUR IS MISSING. It has been missing from this print since before The Handoff, and no surviving copy has it. Whatever happened in the Halcyon car park, you will have to take the picture's word for it.",
+    "Fourteen company men. One woman. The audio drops out for nine seconds and comes back somewhere else entirely.",
+    "Mr. Halloran says, \"You can't do this. There are PROCEDURES.\"",
+    "Vonnie Sark says, \"There's a procedure for me too, Mr. Halloran. It's about four feet long and it doesn't file.\"",
+    "What follows was cut by three separate censors, restored badly twice, and is still the reason this print has a certificate that reads UNSUITABLE FOR CORPORATE VIEWING.",
+    "The forge is lit. A hand-lettered card in the window says OPEN. Somebody has drawn a circle on it, worn flat on one side.",
+    "She never got the permit.",
+    "She never asked again either."
+  ],
+  "morning_pools": null,
+  "name": "SISTER STEEL",
+  "news_pools": null,
+  "override_duration": 900,
+  "playback_mode": "scripted",
+  "sermon_pools": null,
+  "sports_pools": null,
+  "tags": [],
+  "talkshow_pools": null,
+  "updated_at": "1785388339",
+  "weather_pools": null
+}

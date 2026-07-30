@@ -27,7 +27,10 @@ export function drawWireframe3D(ctx, { cls, armed = false, w, h, accent = '#39ff
   const gp = groundPitchFor(cls, armed) * Math.PI / 180, cgp = Math.cos(gp), sgp = Math.sin(gp);
   const E = 0.42, cosE = Math.cos(E), sinE = Math.sin(E);
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
-  const camDist = 3.5, focal = Math.min(w, h) * 1.5, ox = w / 2, oy = h * 0.54;
+  // The armed heli (Viper) is authored double-size, so at the stock focal she
+  // overflows the schematic viewport. Back the camera off for her alone — still
+  // visibly the biggest airframe on the lot, just fully in frame.
+  const camDist = 3.5, focal = Math.min(w, h) * (armed ? 0.95 : 1.5), ox = w / 2, oy = h * 0.54;
   const proj = (f0, g, h0) => {
     const f = gp ? f0 * cgp - h0 * sgp : f0, hh = gp ? f0 * sgp + h0 * cgp : h0;   // nose-up ground tilt
     const fx = f * cy - g * sy, gy = f * sy + g * cy, hz = hh;

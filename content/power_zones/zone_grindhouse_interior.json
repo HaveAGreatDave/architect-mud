@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_grindhouse_interior_1783900000000",
+  "id": "zone_grindhouse_interior",
+  "max_capacity_kw": 1000,
+  "name": "Grind House",
+  "source_type": "junction_box"
+}

@@ -45,6 +45,35 @@ export function fireDamageToPlayer(player, hit) {
 
 export function getRegisteredDamageObservers() { return observers.map(o => o.owner); }
 
+// ── The enemy side (injury-system.md §8b) ────────────────────────────────────
+//
+// A separate list, not a flag on the same one, because the two sides are
+// genuinely different: a player is a persistent row and an enemy instance is a
+// disposable object that stops existing when it dies. Anything listening here
+// must keep its state ON the instance and expect to lose it — that is the whole
+// reason enemy wounds are affordable.
+//
+// Same contract as above: SYNC, query-free, notified rather than consulted.
+const enemyObservers = [];
+
+export function registerEnemyDamageObserver(observer, owner = 'plugin') {
+  if (typeof observer !== 'function') throw new Error('registerEnemyDamageObserver: function required');
+  enemyObservers.push({ observer, owner });
+}
+
+export function fireDamageToEnemy(enemy, hit) {
+  if (!enemyObservers.length || !enemy) return;
+  for (const { observer, owner } of enemyObservers) {
+    try {
+      observer(enemy, hit);
+    } catch (e) {
+      console.error(`[damage-events:${owner}] enemy observer error: ${e.message}`);
+    }
+  }
+}
+
+export function getRegisteredEnemyDamageObservers() { return enemyObservers.map(o => o.owner); }
+
 // Multi-component attacks (an enemy swinging 1–2 kinetic + 2–3 energy) have no
 // single damage type. Pick the one that actually did the work: the component
 // contributing the most AFTER its own soak, so a type the player's armour shrugs

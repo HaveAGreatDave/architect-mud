@@ -124,6 +124,16 @@
       help: 'Carrying any item with this tag lets you butcher corpses (knives, blades, etc.).' },
     demolition: { label: 'Demolition Tool', shape: 'flag', scope: 'class', group: 'Combat',
       help: 'Marks a heavy tool/weapon (sledgehammer, cutting torch, breaching charge) capable of damaging armoured industrial infrastructure — generators and junction boxes. The main power plant can ONLY be damaged by an equipped item with this tag.' },
+    min_skill: { label: 'Minimum Skill', shape: 'json', scope: 'class', group: 'Combat',
+      help: 'Skill required to handle this weapon, e.g. { "blades": 6 }. TWO different gates: a vendor will REFUSE TO SELL it to anyone under the bar (hard), while actually using one you are short on merely makes you terrible with it — to-hit drops by the shortfall and damage falls up to 75% (soft). That split is deliberate: you can never buy your way past the ladder, but a weapon looted off a corpse is still yours to struggle with. Skill ids are the ones in skills.js (blades, clubs, firearms, science, fists).' },
+    waterproof: { label: 'Works In Water', shape: 'flag', scope: 'class', group: 'Combat',
+      help: 'Exempts this weapon from the water combat penalty. By default a FIREARM will not fire at all while you are in water (wet powder), and every melee weapon swings slower and lands at a fraction of its damage until high skill claws it back. Tag anything actually designed for it — a speargun, a diving knife — and it fights normally.' },
+    water_shock: { label: 'Discharges In Water', shape: 'flag', scope: 'class', group: 'Combat',
+      help: 'Using this weapon while in water dumps its charge into the water instead of the target: everyone in the zone takes the hit, INCLUDING the person holding it. For electrical weapons (the ComplyMate taser). Overrides the ordinary water penalty — it works fine, it just works on everybody.' },
+    spread: { label: 'Spread (pellet groups)', shape: 'int', scope: 'class', group: 'Combat',
+      help: 'Buckshot. The blast lands as this many SEPARATE impacts (2-4), each rolling its own body part and soaked separately by the armour covering it, then summed for HP. Absent or 1 = one impact, the way every weapon has always worked. Use it to make a heavy shotgun frightening without letting it saturate the injury curve: one 18-34 slug cleared the Maimed bar on nearly every hit at every armour tier, while the same damage split three ways lands several ordinary wounds and lets armour matter again (soak is subtracted once per group, so plate is far better against shot than against a slug).' },
+    demolition_damage: { label: 'Demolition Damage', shape: 'json', scope: 'class', group: 'Combat',
+      help: 'Damage roll { "min": N, "max": N } used ONLY against destructible infrastructure, in place of `damage`. Exists because industrial soak is brutal (the Coldwater generator absorbs 25 per hit) while people are not: a sledgehammer needs to roll 40-70 to scratch a generator casing, and that same roll one-shot a 40 HP player and maimed on every landed blow. Split the two and each stays sane. Falls back to `damage` when absent, so only demolition tools need it.' },
 
     // --- Cooking ---
     needs_cooking: { label: 'Needs Cooking', shape: 'flag', scope: 'class', group: 'Cooking',
@@ -316,6 +326,8 @@
       help: 'Destination zone id a teleporter furniture jumps an approved user to.' },
     concealed: { label: 'Concealed', shape: 'flag', scope: 'furniture', group: 'Broadcast',
       help: 'Cosmetic marker: this furniture is a hidden fixture whose true function is not advertised.' },
+    beta_cassette: { label: 'Small-Format Cassette', shape: 'flag', scope: 'class', group: 'Broadcast',
+      help: 'Marks a cassette as the SMALL format — the fat paperback-sized shell the top-loading tape players take. Carries `media_cassette` too, so a full-size media deck reads it perfectly well; the tag exists so the little players can refuse the big deck cassettes, which physically will not fit. Purely a compatibility marker, no playback behaviour of its own.' },
     media_cassette: { label: 'Media Cassette', shape: 'flag', scope: 'class', group: 'Broadcast',
       help: 'This item is a cassette tape. It should also have flags.broadcast_id pointing to a media_broadcasts row.' },
 

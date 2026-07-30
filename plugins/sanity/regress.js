@@ -4,7 +4,7 @@
 // commands, always allow sleep). Phantom conjuring itself is probabilistic and
 // setTimeout-driven, covered by manual QA; the shared phantom seam is exercised
 // by the trip plugin's suite.
-import { bandFor, intensityFor, hooks } from './index.js';
+import { bandFor, intensityFor, hooks, _test } from './index.js';
 import { getPhantoms } from '../../server/engine/phantoms.js';
 import regressVoices from './regress-voices.js';
 
@@ -16,6 +16,19 @@ export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
   const orig = p.sanity;
 
+  // Pin the one non-deterministic thing in here that can outlive the suite. Every
+  // tick below runs under DISSOCIATE_AT, so each one rolled a 6% chance of starting
+  // a dissociative episode on the SHARED fake player — and because the build is
+  // async and fire-and-forget, it could set `_dissociating` after our cleanup had
+  // already run, landing on whatever suite came next (slots most often, purely by
+  // alphabet). The harness then reported "<that suite>: leaves no live state behind
+  // — dissociative episode (disarmed)", i.e. a red gate on an unlucky roll rather
+  // than on anyone's change. Pinned off, the ticks below are reproducible; the
+  // dissociation path itself is covered directly in tests/regress.js.
+  _test.setDissociation(false);
+
+  const tick = hooks['tick.minute'];
+  try {
   // ── Band boundaries (raw sanity, honouring the insane flag) ────────────────
   p.insane = false;
   p.sanity = 80; check('sanity 80 → clear', bandFor(p) === 'clear');
@@ -31,7 +44,6 @@ export default async function regress({ run, check, getPlayer }) {
   p.sanity = 0;  p.insane = false; check('intensity at 0 = 1', intensityFor(p) === 1);
 
   // ── Insane hysteresis via the minute tick ──────────────────────────────────
-  const tick = hooks['tick.minute'];
   const INSANE_RE = /nonsense|isn't there|makes no sense|melt|scream|refuses/i;
   p.insane = false;
   p.sanity = 0;  tick(); check('tick at 0 sets insane', p.insane === true);
@@ -61,23 +73,28 @@ export default async function regress({ run, check, getPlayer }) {
   }
   check('insane never scrambles sleep', !sleepEverScrambled);
 
-  // Cleanup — leave the fake player sane, not mid-nap, and BEHIND THEIR OWN EYES.
-  //
-  // That last one is not hypothetical. The ticks above run at sanity 0 and 5, both
-  // under DISSOCIATE_AT (7), so each one rolls DISSOCIATE_CHANCE (0.06) to start a
-  // dissociative episode on the shared fake player — about a 1-in-8 chance per run
-  // that this suite ends with `_dissociating` set. That flag makes the engine's
-  // dream gate (server/engine/commands/index.js) answer every verb outside
-  // DREAM_VERBS with a DREAM_REFUSAL, for the rest of the process — so a LATER,
-  // innocent suite went red at random instead (it was yacht's `sail`/`dock`
-  // expecting a clearance error and getting "your real arm twitches under a
-  // blanket"). endDissociation is the single funnel every wake path uses and is
-  // idempotent, so this is a no-op on the runs where no episode fired — and on the
-  // runs where one did, it also dissolves the dreamscape rooms it built.
-  const { endDissociation } = await import('../../server/engine/dreamscape.js');
-  endDissociation(p, { broadcast: null, reason: 'silent' });
-  p.insane = false;
-  p.sleeping = null;
-  p.sanity = orig;
-  tick();
+  } finally {
+    // Cleanup — leave the fake player sane, not mid-nap, and BEHIND THEIR OWN EYES.
+    //
+    // That last one is not hypothetical. The ticks above run at sanity 0 and 5, both
+    // under DISSOCIATE_AT (7), so each one used to roll DISSOCIATE_CHANCE (0.06) and
+    // start a dissociative episode on the shared fake player. That flag makes the
+    // engine's dream gate (server/engine/commands/index.js) answer every verb outside
+    // DREAM_VERBS with a DREAM_REFUSAL, for the rest of the process — so a LATER,
+    // innocent suite went red at random instead (yacht's `sail`/`dock` expecting a
+    // clearance error and getting "your real arm twitches under a blanket"; later
+    // slots' leak guard). The roll is pinned off above, so this is now belt-and-braces
+    // rather than the fix: await any build that was already in flight, then run the
+    // single funnel every wake path uses. endDissociation is idempotent, so it is a
+    // no-op on a clean run — and on a dirty one it also dissolves the dreamscape
+    // rooms the episode built, which deleting the flag would strand.
+    const { endDissociation } = await import('../../server/engine/dreamscape.js');
+    await _test.settled();
+    endDissociation(p, { broadcast: null, reason: 'silent' });
+    p.insane = false;
+    p.sleeping = null;
+    p.sanity = orig;
+    tick();
+    _test.setDissociation(true); // restore the real behaviour for anything after us
+  }
 }

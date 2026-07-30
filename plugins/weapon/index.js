@@ -78,6 +78,14 @@ export async function resolveAttack(player, target, broadcast) {
 				status_chance: tagValue(equipped, "status_chance"),
 				weapon_skill: wskill,
 				damage_type: tagValue(equipped, "damage_type") || "kinetic",
+				// Buckshot: how many separate pellet groups the blast lands as.
+				// Absent/1 = one impact, exactly as every weapon has always worked.
+				spread: tagValue(equipped, "spread"),
+				// Bulk decides how badly water fights your swing.
+				weight: equipped.weight,
+				min_skill: tagValue(equipped, "min_skill"),
+				waterproof: tagValue(equipped, "waterproof"),
+				water_shock: tagValue(equipped, "water_shock"),
 			}
 		: {
 				damage_min: 2,

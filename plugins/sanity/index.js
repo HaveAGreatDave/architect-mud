@@ -68,6 +68,24 @@ const DISSOCIATE_COOLDOWN_MS = 12 * 60_000;  // …and not again for a while aft
 const DISSOCIATE_MIN_MS = 60_000;            // an episode runs 1–2½ minutes of real time
 const DISSOCIATE_MAX_MS = 150_000;
 
+// ── Test seam: pin the dissociation roll ─────────────────────────────────────
+//
+// Dissociation is the only thing in this tick that outlives the tick. It is async
+// (buildDreamscape) and deliberately fire-and-forget, and once it lands it re-gates
+// EVERY command for the rest of the process. In the regression harness that turned a
+// 6%-per-tick dice roll into a cross-suite flake: this suite drives ticks at sanity
+// 0 and 5 (both under DISSOCIATE_AT), and the episode would set `_dissociating`
+// after our own cleanup had already run — so the harness's leak guard named whichever
+// suite happened to be running when the build resolved (slots, scavenging, senses…)
+// rather than the one that rolled it. Tests pin the roll off and await any in-flight
+// build; nothing in production touches either of these.
+let dissociationEnabled = true;
+let pendingDissociation = null;
+export const _test = {
+  setDissociation(on) { dissociationEnabled = on !== false; },
+  settled: () => pendingDissociation || Promise.resolve(),
+};
+
 // How often a voice lands, and how far gone it sounds. Keyed by the rung, not the band, and
 // rising steeply — at the bottom the voices are most of what you hear.
 const VOICE_CHANCE = { 1: 0.18, 2: 0.35, 3: 0.6 };
@@ -323,14 +341,14 @@ function tickPlayer(player) {
     // this is what is left. Never while asleep (you are already elsewhere) and never in the
     // middle of a fight — an episode you cannot act through would be a death sentence handed
     // out by a dice roll, which is cruelty rather than horror.
-    if (s < DISSOCIATE_AT && !isDissociating(player) && !player.in_combat
+    if (dissociationEnabled && s < DISSOCIATE_AT && !isDissociating(player) && !player.in_combat
         && Date.now() - (st.lastDissociate || 0) > DISSOCIATE_COOLDOWN_MS
         && Math.random() < DISSOCIATE_CHANCE) {
       st.lastDissociate = Date.now();
       st.dissociateUntil = Date.now() + DISSOCIATE_MIN_MS + Math.random() * (DISSOCIATE_MAX_MS - DISSOCIATE_MIN_MS);
       // Fire-and-forget: buildDreamscape is async and the tick is not, and a failed build
       // simply means no episode this minute rather than a broken one.
-      beginDissociation(player, { broadcast: getBroadcast() }).catch(() => {});
+      pendingDissociation = beginDissociation(player, { broadcast: getBroadcast() }).catch(() => {});
     }
 
     // THE ROOM STOPS HOLDING STILL. Bottom rung: once the voices and the people have both

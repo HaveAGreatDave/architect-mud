@@ -9,6 +9,7 @@ import { rowIsInstanced, NOT_INSTANCED_SQL } from '../../server/engine/inventory
 import { getCrimeStars } from '../../server/engine/crimes.js';
 import { world, streetExitFrom, isStreetLanding, isEnterableFacade } from '../../server/engine/world.js';
 import { getItem } from '../../server/engine/items-cache.js';
+import { query } from '../../server/models/db.js';
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
@@ -72,6 +73,59 @@ export default async function regress({ run, check, getPlayer }) {
   check('unpaid is an instance key (SQL)', NOT_INSTANCED_SQL.includes("'unpaid'"), NOT_INSTANCED_SQL);
 
   check('shoplifting is a chargeable crime', getCrimeStars('shoplifting') > 0, String(getCrimeStars('shoplifting')));
+
+  // ── Self-service stock: the shop floor and the room behind it ───────────────
+  // A `vendor_stock` case is filled by exactly ONE mechanic — the owning vendor's
+  // sourced catalogue entries (`sourceContainer` + `restockToQty`), delivered by
+  // restockSourcedContainers. Four ways that has silently broken, each asserted
+  // over the LIVE world because each is a content shape rather than a code path,
+  // and each failed QUIETLY: the case just reads empty (or free) and looks like
+  // the feature was never built.
+  {
+    const { rows: cases } = await query(
+      `SELECT id, flags FROM furniture WHERE jsonb_exists(flags, 'vendor_stock')`);
+    check('at least one self-service case is authored', cases.length > 0, String(cases.length));
+
+    const { rows: boxes } = await query(
+      `SELECT id, flags FROM furniture WHERE object_type = 'container'`);
+    const boxById = new Map(boxes.map(b => [b.id, b.flags || {}]));
+    const capOf = id => boxById.get(id)?.container ?? 60000;
+
+    for (const c of cases) {
+      const vendor = world.npcs.get(c.flags.vendor_stock);
+      check(`${c.id} names a live vendor`, !!vendor, String(c.flags.vendor_stock));
+      if (!vendor) continue;
+
+      // `restock_items` is the consort BOTTOMLESS dispenser — it re-mints one of
+      // every listed item on each container view. On a `vendor_stock` case that is
+      // a second, infinite source of truth for the same box: it hands out free
+      // goods forever and inflates the `stock` count the shelf reads.
+      check(`${c.id} is not also a bottomless dispenser`, !c.flags.restock_items,
+        `carries restock_items (${(c.flags.restock_items || []).length} ids) AND vendor_stock`);
+
+      const sourced = (vendor.vendor_inventory || []).filter(e => e.sourceContainer === c.id && e.restockToQty > 0);
+      check(`${c.id} is sourced by ${vendor.id}'s catalogue`, sourced.length > 0,
+        'nothing in the catalogue names it — the case can never be stocked');
+      if (!sourced.length) continue;
+
+      // The cap is applied per entry in catalogue order, so an over-subscribed
+      // case starves whatever is authored LAST — those items read `stock: 0` on
+      // the shelf forever, which reads as a missing item rather than a small box.
+      let floorG = 0;
+      for (const e of sourced) floorG += (getItem(e.item_id)?.weight || 0) * e.restockToQty;
+      check(`${c.id} can hold a full delivery`, floorG <= capOf(c.id),
+        `needs ${(floorG / 1000).toFixed(1)}kg, holds ${(capOf(c.id) / 1000).toFixed(1)}kg`);
+
+      // The stockroom the case draws from, and the reserve depth kept behind it.
+      const back = c.flags.backstock;
+      if (!back) continue;
+      check(`${c.id} backstocks from a real container`, boxById.has(back), String(back));
+      if (!boxById.has(back)) continue;
+      const depth = Math.max(0, Number(boxById.get(back).backstock_depth ?? 2));
+      check(`${back} can hold ${depth}x reserve for ${c.id}`, floorG * depth <= capOf(back),
+        `needs ${(floorG * depth / 1000).toFixed(1)}kg, holds ${(capOf(back) / 1000).toFixed(1)}kg`);
+    }
+  }
 
   // ── Vendor purchase remarks ────────────────────────────────────────────────
   // The wiring is generic, so what can actually break is the AUTHORING: a remark

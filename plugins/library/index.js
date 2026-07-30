@@ -4,7 +4,7 @@
  * The books themselves live in the `books` table and are read through
  * plugins/tablet/library-app.js. This plugin exists for one reason: to make the
  * app ARRIVE rather than simply be there. A tablet that ships pre-loaded with
- * eight novels is a menu item; a tablet that grows a Library app the first time
+ * nine novels is a menu item; a tablet that grows a Library app the first time
  * you put it in a brass slot in the back of the Hall of Records is a thing that
  * happened to you.
  *

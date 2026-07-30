@@ -480,7 +480,7 @@
       "item_id": "item_battery_chicken",
       "price": 15,
       "restockToQty": 10,
-      "sourceContainer": "furn_ration9_case_chiller"
+      "sourceContainer": "furn_ration9_case_freezer"
     },
     {
       "item_id": "item_jerk_paste",
@@ -528,7 +528,7 @@
       "item_id": "item_sausage",
       "price": 26,
       "restockToQty": 8,
-      "sourceContainer": "furn_ration9_case_chiller"
+      "sourceContainer": "furn_ration9_case_freezer"
     },
     {
       "item_id": "item_tinned_tomatoes",
@@ -577,6 +577,102 @@
       "price": 78,
       "restockToQty": 6,
       "sourceContainer": "furn_ration9_shelves"
+    },
+    {
+      "item_id": "item_meatballs",
+      "price": 38,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_case_freezer"
+    },
+    {
+      "item_id": "item_ice_cubes",
+      "price": 2,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_case_freezer"
+    },
+    {
+      "item_id": "item_apple_pressing",
+      "price": 11,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_case_chiller"
+    },
+    {
+      "item_id": "item_arcline_cola",
+      "price": 8,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_case_chiller"
+    },
+    {
+      "item_id": "item_cold_brew_can",
+      "price": 14,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_case_chiller"
+    },
+    {
+      "item_id": "item_cream_pot",
+      "price": 13,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_case_chiller"
+    },
+    {
+      "item_id": "item_ginger_soda",
+      "price": 8,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_case_chiller"
+    },
+    {
+      "item_id": "item_horchata",
+      "price": 13,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_case_chiller"
+    },
+    {
+      "item_id": "item_iced_tea_carton",
+      "price": 10,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_case_chiller"
+    },
+    {
+      "item_id": "item_kefir",
+      "price": 14,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_case_chiller"
+    },
+    {
+      "item_id": "item_lemon_soda",
+      "price": 8,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_case_chiller"
+    },
+    {
+      "item_id": "item_orange_pressing",
+      "price": 13,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_case_chiller"
+    },
+    {
+      "item_id": "item_soda_water",
+      "price": 5,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_case_chiller"
+    },
+    {
+      "item_id": "item_tomato_juice",
+      "price": 10,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_case_chiller"
+    },
+    {
+      "item_id": "item_tonic_water",
+      "price": 8,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_case_chiller"
+    },
+    {
+      "item_id": "item_water_bottle",
+      "price": 8,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_case_chiller"
     }
   ],
   "vendor_restock_rate": 1,

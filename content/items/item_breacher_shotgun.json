@@ -1,8 +1,8 @@
 {
-  "description": "A stubby, sawn-down pump gun. Loud enough to end an argument and start three more.",
+  "description": "A Whitlock Doorman with two feet of barrel removed by someone in a hurry. The factory stamp still promises COMPLIANCE THROUGH PRESENCE. Loud enough to end an argument and start three more.",
   "flags": {},
   "id": "item_breacher_shotgun",
-  "name": "breacher shotgun",
+  "name": "Whitlock Doorman sawn-off shotgun",
   "tags": {
     "__own": {
       "damage": {
@@ -10,7 +10,11 @@
         "min": 18
       },
       "damage_type": "kinetic",
-      "description": "A stubby, sawn-down pump gun. Loud enough to end an argument and start three more."
+      "description": "A Whitlock Doorman with two feet of barrel removed by someone in a hurry. The factory stamp still promises COMPLIANCE THROUGH PRESENCE. Loud enough to end an argument and start three more.",
+      "spread": 3,
+      "min_skill": {
+        "firearms": 7
+      }
     },
     "__super": [
       "weapon_firearms"
@@ -20,12 +24,16 @@
       "min": 18
     },
     "damage_type": "kinetic",
-    "description": "A stubby, sawn-down pump gun. Loud enough to end an argument and start three more.",
+    "description": "A Whitlock Doorman with two feet of barrel removed by someone in a hurry. The factory stamp still promises COMPLIANCE THROUGH PRESENCE. Loud enough to end an argument and start three more.",
     "slot": "weapon_hand",
     "weapon": true,
-    "weapon_skill": "firearms"
+    "weapon_skill": "firearms",
+    "spread": 3,
+    "min_skill": {
+      "firearms": 7
+    }
   },
   "type": "weapon",
-  "value": 420,
+  "value": 620,
   "weight": 3200
 }

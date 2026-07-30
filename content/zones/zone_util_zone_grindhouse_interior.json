@@ -1,0 +1,25 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": null,
+  "color": null,
+  "created_by": null,
+  "description": "A brick cellar under the shop floor, hot as an airing cupboard. Pipes sweat, the junction cabinet hums, and the whole ceiling ticks as the forge above it expands.",
+  "exits": {
+    "up": "zone_grindhouse_interior"
+  },
+  "flags": {
+    "is_interior": true,
+    "utility_room": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_grindhouse_interior",
+  "map_id": "map_interior_zone_grindhouse_interior",
+  "marker": null,
+  "name": "Grind House — Utility Room",
+  "parent_zone": null,
+  "updated_at": "1785388326"
+}

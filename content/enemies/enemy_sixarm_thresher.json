@@ -1,0 +1,132 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "attack",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": { "kinetic": 1 },
+      "weight": 7
+    },
+    {
+      "part": "torso",
+      "soak": { "kinetic": 3 },
+      "weight": 24
+    },
+    {
+      "part": "upper_left_arm",
+      "role": "attack",
+      "soak": { "kinetic": 1 },
+      "weight": 9
+    },
+    {
+      "part": "upper_right_arm",
+      "role": "attack",
+      "soak": { "kinetic": 1 },
+      "weight": 9
+    },
+    {
+      "part": "middle_left_arm",
+      "role": "attack",
+      "soak": { "kinetic": 1 },
+      "weight": 8
+    },
+    {
+      "part": "middle_right_arm",
+      "role": "attack",
+      "soak": { "kinetic": 1 },
+      "weight": 8
+    },
+    {
+      "part": "lower_left_arm",
+      "role": "attack",
+      "soak": { "kinetic": 1 },
+      "weight": 7
+    },
+    {
+      "part": "lower_right_arm",
+      "role": "attack",
+      "soak": { "kinetic": 1 },
+      "weight": 7
+    },
+    {
+      "part": "left_leg",
+      "soak": { "kinetic": 2 },
+      "weight": 10
+    },
+    {
+      "part": "right_leg",
+      "soak": { "kinetic": 2 },
+      "weight": 11
+    }
+  ],
+  "butcher_difficulty": 6,
+  "butcher_table": [],
+  "death_message": "The six-arm thresher runs down like a toy, every arm folding in a different direction, and lies there looking far too much like a person.",
+  "description": "Something went very wrong in a womb near a leaking tank. Six arms, in three ragged pairs down a torso that never grew to match them, and it uses every single one — it does not swing so much as work, the way a machine works, until whatever is in front of it stops. Break the arms and it becomes a great deal less than the sum of them.",
+  "dodge": 1,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": true,
+    "battle_cries": [
+      "$enemy opens all six arms at once, and there is no good way to look at that.",
+      "$enemy sets to work on $player with an awful, patient rhythm.",
+      "Something in $enemy's chest clicks like a metronome as it reaches for $player."
+    ],
+    "first_strike_delay_ms": 5000
+  },
+  "hit": 9,
+  "hp_max": 58,
+  "id": "enemy_sixarm_thresher",
+  "loot_table": [
+    {
+      "item": "item_scrap_metal",
+      "qty": [2, 3],
+      "weight": 30
+    },
+    {
+      "credits": [40, 95],
+      "item": "item_credit_chip",
+      "qty": [1, 1],
+      "weight": 26
+    },
+    {
+      "item": "item_rag_bandage",
+      "qty": [1, 2],
+      "weight": 18
+    }
+  ],
+  "name": "six-arm thresher",
+  "weapon": [
+    { "max": 4, "min": 2, "type": "kinetic" },
+    { "max": 4, "min": 1, "type": "kinetic" },
+    { "max": 3, "min": 1, "type": "kinetic" }
+  ]
+}

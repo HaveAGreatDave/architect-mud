@@ -17,6 +17,7 @@ import { normalizeLivery, sanitizeLivery, signatureScore, describeExterior,
 import { fieldStocks } from './acquisition.js';
 import { pilotStatusForField, charterParkedAt } from './charter.js';
 import { isPilotLicensed } from './checkride.js';
+import { prefersTextTravel } from './textmode.js';
 // `tune` also belongs to broadcast (tune a channel); flight wins it and hands
 // back when you're not tuning an aircraft. `repair` shadows the engine gear-repair
 // builtin — cmdRepair returns undefined out of aircraft context to fall through.
@@ -157,12 +158,109 @@ async function buildCards(player, field) {
   });
 }
 
+// ── The text hangar (the same floor, written down) ────────────────────────────
+// The flight display preference (textmode.js `flight_text_only`) is one setting for
+// the whole of flight, not just the ride: a player who asked never to be shown the
+// graphical cockpit must never have the 3D hangar bay thrown at them either — least
+// of all by walking through a door, which is how the bay auto-opens. So the gate
+// lives in pushHangarBay rather than in `cmdHangar`, and every entry point (bare
+// `hangar`, `fleet`, `showroom`, `view <tail>`, the zone.entered auto-open, and the
+// post-action refreshes each command fires) is covered by construction.
+//
+// It SENDS rather than returning, because half the callers do
+// `await pushHangarBay(player); return { type:'emote', … }` — a returned message
+// there would be dropped on the floor. Sending and returning `noop` keeps one shape
+// for both kinds of caller and can never double-print.
+const link = (cmd, label) => `<span class="action-link" data-action="cmd" data-cmd="${cmd}">${label || cmd}</span>`;
+
+function textCraftLine(c, detailed) {
+  const where = c.wreck ? 'wreck' : (c.location === 'hangar' ? 'in the bay' : 'on the ramp');
+  const tags = [c.typeName, where];
+  if (c.rental) tags.push('rental');
+  let s = `· <b>${clean(c.tail)}</b> <span class="text-dim">(${tags.join(', ')})</span>`
+    + ` — hull ${c.hullPct}%, fuel ${c.fuelPct}% <span class="text-dim">(${c.fuelType})</span>`;
+  // `salvage`/`rebuild` work off the wreck standing in this zone and take no
+  // argument — don't hand them a craft id they'd try to parse.
+  if (c.wreck) return `${s}\n   ${link('salvage', 'salvage')} · ${link('rebuild', 'rebuild')}`;
+  const acts = [link(`embark ${c.tail}`, 'embark')];
+  if (c.fuelPct < 100) acts.push(link(`refuel ${c.id}`, 'refuel'));
+  if (c.hullPct < 100 && !c.rental) acts.push(`${link(`repair ${c.id}`, 'repair')} <span class="text-dim">(${c.diyCost}c DIY · ${c.shopCost}c shop)</span>`);
+  if (!c.rental) {
+    // The full sheet — tuning curves, name/livery. `modify <id>` is the one that
+    // takes an explicit craft id; bare `tune` would grab whichever craft is first.
+    acts.push(link(`modify ${c.id}`, 'modify'));
+    if (c.configurable) acts.push(link(`loadout ${c.id}`, 'loadout'));
+  }
+  s += `\n   ${acts.join(' · ')}`;
+  if (detailed) {
+    const t = c.tune;
+    s += `\n   <span class="text-dim">Tune — mixture ${t.mixture} · pitch ${t.pitch} · boost ${t.boost} · CG ${t.cg}`
+      + ` | seats ${c.seatsNow}, cargo ${c.cargoLoaded}/${c.cargoCapNow}kg`
+      + ` | kits: ${c.kitsInstalled.length ? c.kitsInstalled.map(k => KITS[k]?.name || k).join(', ') : 'none'}</span>`;
+  }
+  return s;
+}
+
+async function textHangarBay(player, field, selectId, opts) {
+  // A background refresh has nothing to say in text — the player didn't ask to be
+  // shown the floor, and reprinting it after every action would be a wall of scroll.
+  if (opts.refreshOnly) return { type: 'noop' };
+  const { rows: mine } = await query('SELECT id, name FROM hangars WHERE field_zone=$1 AND owner_id=$2', [field.id, player.id]);
+  const craft = await buildCards(player, field);
+  const name = field.flags.airfield_name || field.name;
+  let msg = `<span class="text-cyan">HANGAR — ${name}</span>`
+    + ` <span class="text-dim">(text flight display; Tablet → Vehicles → Flight Display to change)</span>`;
+  msg += `\n<span class="furniture-label">Your bay:</span> `
+    + (mine.length ? `${clean(mine[0].name)} — ${link('hangar store', 'store')} · ${link('hangar pull', 'pull')}`
+      : `<span class="text-dim">you rent none here</span> — ${link('hangar rent', 'hangar rent')} <span class="text-dim">(200c/period, safe from thieves)</span>`);
+
+  if (craft.length) {
+    const sel = selectId ? craft.filter(c => c.id === selectId) : [];
+    const rest = sel.length ? craft.filter(c => c.id !== selectId) : craft;
+    msg += `\n<span class="furniture-label">On the floor:</span>`;
+    for (const c of sel) msg += `\n${textCraftLine(c, true)}`;
+    for (const c of rest) msg += `\n${textCraftLine(c, false)}`;
+  } else {
+    msg += `\n<span class="text-dim">Nothing of yours is here.</span>`;
+  }
+
+  const canBuy = !!field.flags.airfield_dealer, canRent = !!field.flags.airfield_rental;
+  if (canBuy || canRent) {
+    const types = await acquirableTypes(field);
+    if (types.length) {
+      msg += `\n<span class="furniture-label">For ${canBuy && canRent ? 'sale or hire' : (canBuy ? 'sale' : 'hire')}:</span>`;
+      for (const t of types) {
+        const bits = [];
+        if (canBuy) bits.push(`${link(`buy ${t.id}`, 'buy')} ${t.price_buy}c`);
+        if (canRent) bits.push(`${link(`rent ${t.id}`, 'rent')} ${t.price_rent_hourly}c/hr`);
+        msg += `\n· <b>${t.name}</b> <span class="text-dim">(${t.class}, ${t.seats} seat${t.seats > 1 ? 's' : ''}, ${t.fuel_type})</span> — ${bits.join(' · ')}`;
+      }
+      if (!await isPilotLicensed(player) && !['admin', 'dev'].includes(player.role))
+        msg += `\n<span class="text-amber">You're not rated to fly — see the examiner for a checkride before you buy.</span>`;
+    }
+  }
+
+  const parked = charterParkedAt(field.id);
+  if (parked && parked.chartererId === player.id)
+    msg += `\n<span class="furniture-label">Charter waiting:</span> bound for ${parked.destName} — ${link('embark', 'embark')}`;
+  else if (pilotStatusForField(field.id).present)
+    msg += `\n<span class="furniture-label">Charter desk:</span> ${link('charter', 'charter')} <span class="text-dim">— ${pilotStatusForField(field.id).name} is on shift</span>`;
+
+  const stocks = fieldStocks(field);
+  if (stocks.length) msg += `\n<span class="text-dim">Pumps here: ${stocks.join(', ')} — ${link('refuel', 'refuel')}</span>`;
+  msg += `\n<span class="text-dim">Credits: ${player.credits || 0}c</span>`;
+
+  sendToPlayer(player.id, { type: 'output', message: msg });
+  return { type: 'noop' };
+}
+
 // `opts.refreshOnly` marks this push as a background refresh (e.g. after a remote
 // tablet sale): the client updates the hangar bay only if it's already open on
 // screen, and ignores it otherwise instead of popping the 3D hangar open.
 export async function pushHangarBay(player, selectId, opts = {}) {
   const field = fieldOf(player);
   if (!field) return { type: 'emote', message: 'Hangars are at the airfields.' };
+  if (await prefersTextTravel(player)) return textHangarBay(player, field, selectId, opts);
   // WHERE THEY WERE WHEN THEY ASKED. Everything below is awaited DB work — five
   // round trips against a remote Postgres — and the auto-open path fires from
   // `zone.entered`, so a player who walks straight back out is long gone by the

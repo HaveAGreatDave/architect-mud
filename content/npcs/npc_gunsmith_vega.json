@@ -101,9 +101,24 @@
       "stock": 5
     },
     {
-      "item_id": "item_riot_shotgun",
-      "price": 224,
+      "item_id": "item_kettleman_no4",
+      "price": 210,
+      "stock": 5
+    },
+    {
+      "item_id": "item_tidewell_diving_knife",
+      "price": 266,
       "stock": 4
+    },
+    {
+      "item_id": "item_riot_shotgun",
+      "price": 308,
+      "stock": 4
+    },
+    {
+      "item_id": "item_ferris_model9",
+      "price": 322,
+      "stock": 6
     }
   ],
   "vendor_restock_rate": 1,

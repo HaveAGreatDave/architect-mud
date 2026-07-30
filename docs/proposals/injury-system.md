@@ -1,7 +1,7 @@
 # Injuries — Proposal
 
-**Status: BUILT (Phases 1–5); Phase 4 tuning awaits playtest, §8b enemy injuries deferred.**
-Drafted and shipped 2026-07-27.
+**Status: BUILT (Phases 1–5 and §8b). Phase 4 balance pass done 2026-07-29; live playtest still owed.**
+Drafted and shipped 2026-07-27. Balance pass, enemy injuries and `aim` added 2026-07-29.
 
 *Built:* the `damage-events.js` and `impairment.js` substrates and their call sites; the injury
 plugin (storage, lazy decay, type curves, naming, penalties, medicine, the `injuries` verb,
@@ -9,9 +9,15 @@ plugin (storage, lazy decay, type curves, naming, penalties, medicine, the `inju
 wound clearing through the existing `clinic` plugin. **Wounds appear, are named, penalise, heal on
 their own, and can be treated.**
 
-*Not built:* §8b (injuries on enemies) — deliberately deferred until the §10 kill criterion has been
-evaluated in play. Phase 4's numbers are in place with a compounding guard in the regress suite, but
-the actual balance pass needs playtesting and has not happened.
+*Also built (2026-07-29):* **§8b enemy injuries** — in-memory on the instance, `plugins/injury/enemy.js`,
+wired through a second `registerEnemyDamageObserver` channel; wounded arms cost a mob to-hit and
+wounded legs cost it the flee roll, both read by the engine as plain fields. **The `aim` verb** —
+opt-in manual body targeting that biases the existing weighted roll rather than adding a second
+targeting path, at an accuracy cost that weapon skill partly buys back. And **the Phase 4 balance
+pass** (§11 below), which found the curve was saturating badly.
+
+*Still owed:* the live playtest. The numbers below come from simulation over the real authored weapon
+set, not from play.
 
 Combat resolves to a specific body part with typed soak, and then throws all of it away at the
 moment of impact. A blow to the knee and a blow to the chest produce the same aftermath: a smaller
@@ -104,13 +110,18 @@ sixth damage type later costs one row, not six cells.
 The enum is closed and small — `kinetic`, `edged`, `energy`, `fire`, `radiation`
 (`client/shared/tagCatalog.js:115`).
 
-| Type | Threshold<br>(frac of max HP to injure at all) | Escalation | Heals | Cumulative | Character |
+| Type | Threshold<br>(frac of max HP to injure at all) | Climb (`step`) | Heals | Cumulative | Character |
 |---|---|---|---|---|---|
 | `edged` | low | shallow | slow | no | Cuts easily, bleeds, lingers |
 | `kinetic` | **high** | **steep** | fast | **yes** | Glances off, glances off, then breaks something |
 | `energy` | moderate | moderate | slow | no | Cauterized, deep, doesn't bleed |
 | `fire` | moderate | shallow | very slow | **yes** | Burns; the type that scars |
 | `radiation` | very low | very shallow | barely | no | Doesn't present at once; the worst to carry |
+
+The climb column is `step` in `tables.js` — how many **multiples of the threshold** buy the next
+severity rung, so a *smaller* step is a *steeper* curve. It replaced an additive `escalation` in the
+§11 balance pass. The two columns together are the character, and **both halves are constrained**:
+`edged` must keep the lower bar *and* the shallower climb. See §11 for how easily that inverts.
 
 Read the `kinetic` row: most blunt hits do nothing, and then one does everything. A pipe glances off
 your ribs eleven times and the twelfth breaks them. That is how blunt trauma actually behaves, it is
@@ -128,18 +139,24 @@ against state we are already storing.
 
 Worth protecting, because they deepen whenever anyone tunes something else and never need maintaining:
 
-- **Blunt is disproportionately concussive.** Head hits are scaled by `head_damage_multiplier` *before*
-  the threshold check (`combat.js:540`, `:644`), so a blunt hit to the head clears kinetic's high bar
-  ~1.5× more often. Zero head-specific code.
+- **Blunt is disproportionately concussive.** ~~Head hits are scaled by `head_damage_multiplier`
+  *before* the threshold check.~~ **Superseded by §11.** That was the double-dip: the head multiplier
+  inflated the damage *and* the head lowered the bar, compounding with crit and `cumulative` to a 92%
+  maim rate on head hits from an SMG. A head hit now lowers the threshold and nothing else
+  (`HEAD_THRESHOLD_SCALE`). The behaviour survives — blunt still concusses more than its share,
+  because kinetic's steep climb means clearing the head's reduced bar escalates fast — but it is now
+  one rule instead of two multiplying each other.
 - **Blunt defeats armor.** Typed soak means a vest subtracts little from kinetic and a lot from edged
   (`combat.js:547`). Vests already stop knives better than clubs in authored soak data, so
   "blunt gets through" falls out of existing content.
 
 ### Balance warning
 
-Steep kinetic escalation, the head multiplier, and `cumulative` all compound in the same direction.
-Blunt weapons will produce Maimed head injuries more often than any one rule suggests. **Tune
-kinetic's threshold high initially** and bring it down from playtesting.
+**Resolved in §11 — this warning was correct, and understated.** Steep kinetic escalation, the head
+multiplier and `cumulative` did compound, and measurement found a 92% maim rate on head hits from an
+SMG. But the larger fault was structural rather than a tuning error: severity climbed *additively*
+against an unbounded quantity, so three weapons maimed on 100% of their hits **through heavy armour**.
+Rungs are now geometric, and the head multiplier no longer feeds the check at all.
 
 ---
 
@@ -376,7 +393,7 @@ in the rare even-split case, invisible in play.
 
 ---
 
-## 8b. Phase 2 — injuries on enemies (deferred, but design for it)
+## 8b. Phase 2 — injuries on enemies — **BUILT 2026-07-29**
 
 Everything above is **player-side only**. `fireDamageToPlayer` fires on incoming damage; enemies take
 typed damage and are never wounded. That is deliberate for a first build — it is self-contained and
@@ -402,7 +419,12 @@ building anything, because the differentiation may be cheaper than expected.
 
 **Cost:** a second hook at `combat.js:459`, in-memory-only injury state on the enemy (it dies with the
 mob, nothing persists), and penalties routed through enemy stats rather than player ones. Not free,
-not large. **Not to be started until the player side has passed the kill criterion in §10.**
+not large. ~~**Not to be started until the player side has passed the kill criterion in §10.**~~
+**Built 2026-07-29** — see the status header for why it went ahead of the criterion. It came in close
+to this estimate: one new observer channel (`registerEnemyDamageObserver`), state on the instance,
+and two plain fields the engine reads (`_injuryHitMod` for the swing, `_injuryFleeMod` for the flee
+roll). The torso and head rules were deliberately dropped on this side — a mob has no stamina bar and
+no stat block worth degrading, so those two would have been invisible.
 
 ---
 
@@ -454,5 +476,272 @@ No screen they had to open. No item they had to buy.
 All five steps shipped and are reversible: with the plugin removed both substrates are inert, and
 with the substrates removed combat is byte-identical to before.
 
-**The kill criterion below has NOT been evaluated.** It is the next thing that should happen, and it
-gates §8b.
+**The kill criterion below has still NOT been evaluated in play.** §8b was built ahead of it: the
+player half had been live without reported problems, and the balance pass (§11) had to open combat.js
+anyway, so doing both at once cost far less than two passes. The criterion remains the right thing to
+check — it is now a question about the whole system rather than a gate on half of it.
+
+---
+
+## 11. The balance pass (2026-07-29)
+
+§3 warned that crit, the head multiplier and `cumulative` compound in the same direction. They do,
+but that turned out to be the *smaller* problem. Two structural faults were found by simulating the
+real authored weapon set against the real 40 HP baseline.
+
+### Fault 1 — the curve saturated
+
+Severity climbed **additively**: `(frac - threshold) / escalation`, linear in a quantity with no
+upper bound. Damage in this game runs 2–100 while `hp_max` is a flat **40**, so `frac` spanned
+0.05–2.5 against a maim bar of 0.38. Everything above ~15 average damage pinned at the worst outcome.
+
+Measured before the change, per landed hit, unarmoured:
+
+| Weapon | any injury | maimed | maim % of head hits |
+|---|---:|---:|---:|
+| bat / pipe wrench | 37–43% | 0.4% | ~4% |
+| scrap pistol | 77% | 7.3% | 34% |
+| riot shotgun | 100% | 26% | 78% |
+| rattlecan SMG | 100% | **55%** | **92%** |
+| breacher shotgun / sledgehammer / thermal lance | 100% | **100%** | **100%** |
+
+Those bottom three maimed on every hit **through heavy armour**, breaking §5's own rule that armour
+which did its job prevents the wound. Expected wounds per fight ran 2.5–3.8 against §5's stated
+target of "zero or one".
+
+**Fix:** rungs are now **geometric** — each severity costs a *multiple* of the threshold (`step`),
+so overwhelming damage tapers instead of guaranteeing the worst rung.
+
+### Fault 2 — crit and head damage counted twice
+
+A crit lowered the threshold (×0.7) *and* inflated the damage measured against it (×1.5). A head hit
+did the same through `head_damage_multiplier`. Both were being charged twice.
+
+**Fix:** combat now passes **`baseDamage`** alongside `damage`, and the injury system scores the base.
+Crit and head are threshold modifiers **only** (`CRIT_THRESHOLD_SCALE`, `HEAD_THRESHOLD_SCALE`). HP
+damage is completely unchanged — this alters how often a blow *wounds*, never how hard it *hits*.
+`pow` is deliberately excluded from the exclusion: a called haymaker at a knee should break it.
+
+### The tuning trap worth remembering
+
+The first grid search hit its rate targets and **silently inverted the design**, handing `edged` a
+steeper climb than `kinetic` — because identical targets were applied to types wielded by very
+different weapons, and the weaker one needed a steeper curve to reach the same maim rate. The
+character is now a **constraint** (`edged` keeps the lower bar *and* the shallower climb), asserted
+by `kinetic climbs steeper than edged` in the regress suite.
+
+A second pass caught the mirror error: `kinetic` was tuned only on weapons up to the riot shotgun, so
+`step 1.25` sent the SMG to 36% and the sledgehammer to 54% maim. Re-swept across the full lineup to
+**1.45**. *Tune a curve against every weapon that will use it, not the ones you happened to list.*
+
+### Content faults found in the same pass
+
+- **`edged` had never run.** All four blades — rusty knife, combat knife, scrap shiv, straight razor —
+  were tagged `kinetic` or untyped. The entire edged curve, the deliberate counterweight to kinetic,
+  was dead content while *armour* had been authored with `edged` soak all along. Retagged.
+- **Two weapons were out of band.** The sledgehammer (40–70) and thermal lance (55–100) one-shot a
+  40 HP player. Their damage could not simply be cut: they are `demolition` tools, and the Coldwater
+  generator absorbs **25 per hit**, so a 12–22 sledgehammer would have done zero damage forever and
+  made the plant indestructible. Split into a new **`demolition_damage`** tag — anti-machinery damage
+  preserved exactly, anti-personnel damage brought into band.
+- **A shipped crash.** `combat.js` called `wearHeldWeapon(player)` inside `pvpSwing`, where no
+  `player` exists (it is `attacker`) and the correct call already appeared nine lines later. Every
+  landed PvP hit threw a ReferenceError. Removed.
+
+### Where it landed
+
+Per landed hit, unarmoured — mid-tier now sits where §5 always said it should:
+
+| Weapon | any injury | maimed | wounds per fight |
+|---|---:|---:|---:|
+| bat / pipe wrench | 6–7% | ~0.15% | 0.4 |
+| combat knife (`edged`) | 48% | 0% | 3.2 |
+| scrap pistol | 25% | 0.5% | 1.1 |
+| riot shotgun | 70% | 0.6% | 2.2 |
+| rattlecan SMG | 85% | 7.4% | 2.3 |
+| sledgehammer (rebalanced) | 100% | 10.9% | 2.4 |
+
+**Still an outlier:** the breacher shotgun (18–34 kinetic) remains at ~100% maim unarmoured and 70%
+through heavy armour. That is a *weapon* problem, not a curve problem — 18–34 against 40 HP is most
+of a health bar per hit — and it was left alone deliberately rather than bent around by the injury
+maths. It is the obvious next candidate if a weapon-damage pass ever happens.
+
+---
+
+## 12. Buckshot, and the outlier that forced it (2026-07-29, same day)
+
+§11 left the breacher shotgun alone as "a weapon problem, not a curve problem". Looked at properly,
+it was a problem the curve *could* solve — just not by tuning.
+
+**Why it mattered more than its damage.** Every other weapon has an armour curve. The breacher had a
+flat line: 100% injury rate at *every* soak tier, and still 40% maim through heavy armour. The
+design's load-bearing promise is "a hit that got through — armour that did its job prevents the wound
+outright", and against this one weapon armour never did its job at any price. Downstream, it
+collapsed the three-rung ladder to one rung: Maimed is meant to be rare, which is why field kits
+floor at Bruised and only a clinic clears it — a weapon where Maimed is the *default* makes the
+clinic a tax rather than a destination.
+
+**The fix reuses the anatomy system instead of fighting it.** A `spread: N` tag lands the blast as N
+separate impacts, each rolling its own part and soaked separately. Same total damage, distributed —
+which is what buckshot does, and what §9 of the original brief already imagined ("Shotgun prefers
+chest/legs", "Explosives: random body regions").
+
+| soak | any injury | maimed | avg damage |
+|---:|---|---|---|
+| 0 | 100% → 31% | **71.3% → 2.7%** | 28.6 → **28.6** |
+| 3 | 100% → 13% | 55.9% → 0.9% | 25.6 → 19.6 |
+| 6 | 100% → 5% | 40.3% → 0.0% | 22.6 → 10.6 |
+
+Unarmoured lethality is **identical** — still two hits to kill. What changed is that the weapon now
+wounds you several ordinary times instead of ruining you once, and that armour has a curve against it.
+Per-group soak makes plate substantially better against shot than against a slug, which falls out of
+the mechanic rather than needing a rule.
+
+**Also caught here:** `aim` applied its accuracy penalty in `playerAttackEnemy` but **not** in
+`pvpSwing` — calling a head shot at another player was free, all payoff and no price. And
+`aimedWeights` returned `null` unchanged for any target using the global spread (every player, and
+every mob with no authored `body_parts`), so aim silently did nothing against most of the game. Both
+fixed; both were invisible without looking.
+
+### Aim, steepened
+
+The first pass was too gentle. Aiming is now a real gamble unskilled and a genuine skill payoff:
+head 5% → 38% over a career, against a 54% unaimed baseline, with a shared −2 floor so it is never
+free. See the table in [combat.md](../combat.md#aiming-aim).
+
+---
+
+## 13. The execution shot (2026-07-30)
+
+The original brief listed "high crit" against the head and catastrophic injuries as a rare payoff.
+This is that, built from mechanics that already existed rather than as a new subsystem.
+
+**The rule.** A called head shot kills outright when the attacker *deliberately* aimed at the head,
+the blow *landed* on the head, and it was a *critical*.
+
+**There is no lethality roll.** The rarity is emergent, which is why it needs no tuning knob: aiming
+high costs −8 to hit, so a novice's margin cannot arithmetically reach the +8 crit threshold. It is
+**0%** until you train — not unlikely, impossible. Per swing: skill 6 is 3.9% against a weak mob,
+skill 12 is 47.2% (3.9% against an elite), skill 18 is 71.8% (28.5% against an elite). Mastery is the
+entire gate, which is exactly the "precise, not lucky" line from the brief.
+
+**Two guards.**
+
+- A **damage floor** of 25% of the target's `hp_max` after soak. A 600 HP boss would need 150 damage
+  in a single strike, so the mechanic cannot be cheesed upward.
+- Falling short **forces a Maimed head** via `forceSeverity` on the damage payload — the one override
+  the injury observer honours. Combat decided; the observer does not get a second opinion. This keeps
+  the shot worth attempting against targets it can never kill.
+
+**Head armour is the counterplay**, and this is the first thing that has ever given the `head` slot a
+distinct job: enough soak pushes the attacker under the floor and demotes a kill to a maim.
+
+**Symmetric in PvP** — the same rule kills a player, which is what makes a helmet load-bearing there.
+But **a mob can never execute a player**, because enemies never set `_aimPart`. That asymmetry is
+deliberate and is the same principle the stealth system uses for knockouts: *a death this sudden is
+always something somebody chose.* A random one-shot from an ordinary mob would be the single most
+frustrating thing this system could produce, and it is structurally impossible rather than merely
+improbable.
+
+Asserted in `plugins/injury/regress.js` — including that an unaimed head crit for 39 of 40 HP still
+does nothing special, and that a mob with no aim part can never trigger it.
+
+---
+
+## 14. Knockouts on the called shot (2026-07-30)
+
+The same head-shot gate, with the weapon deciding whether it is lethal. `clubs`/`fists` → knockout;
+`blades`/`firearms`/`science` → kill. Identical rarity curve, because it is the identical gate.
+
+**This collides with a documented rule, and survives it.** `systems-stealth.md` states *"combat is to
+the death, and stays that way — there is no random knockout mid-fight"*, for two load-bearing reasons.
+Both were checked rather than waved at:
+
+1. *"It would be invisible — knock somebody out and the next tick kills them."* **This was literally
+   true.** Nothing in `combat.js` or `gameLoop.js` consulted `isOut`, so an unconscious body in a
+   fight really would have been finished a second later. Fixed here: a landed knockout disengages the
+   attacker, the auto-attack loop skips unconscious enemies, and `enemyAttackPlayer` returns null for
+   an out-cold attacker. **Auto-attack can no longer finish an unconscious body at all** — which is
+   right independently, since that is `execution` at 5★ and should never be committed by a background
+   tick on the player's behalf.
+2. *"It would make every fight ambiguous."* Does not apply: this cannot happen by accident. It needs a
+   called shot AND a blunt weapon, both chosen in advance, and an unaimed blunt head crit for 39 of a
+   target's 40 HP still does nothing special (asserted).
+
+Reusing the stealth rule about blades rather than inventing a `subdue` verb means the two routes to
+unconsciousness agree, and the choice lives somewhere the player already understands — what they are
+holding.
+
+---
+
+## 15. Closing the gaps (2026-07-30)
+
+Four things the system was missing, found by reading it back rather than by anything failing.
+
+### It said nothing about itself
+
+**`_injuryAnnounce` was written in two places and read in none.** Nothing told a player they had been
+wounded — you found out by typing `injuries`, opening Vitals, or having someone examine you. That is
+the exact inverse of §0's governing sentence, *"an injury is something you NOTICE, not something you
+administer"*: it was silent until you went looking. The dead field predates the enemy half (which
+faithfully mirrored it).
+
+Wounds are now announced **from the observer, at the moment they happen**, because that is the only
+moment it means anything. `sendToPlayer` is a synchronous socket write, so this keeps the
+sync/query-free contract — the same way durability announces a band change from the combat hot path.
+Bruised says so quietly; Maimed is loud.
+
+Enemies announce too (`Its left leg is fractured.`) at Hurt and above. Without it the tactical half
+was invisible: you could cripple a mob's leg and nothing would say so until you examined it, so
+nobody would ever discover that working a limb is a thing that works.
+
+### `aim` was never taught
+
+The house convention is `teachVerb()` shimmer on first mention, and an opt-in system that nobody is
+told about is a system that does not exist. Two one-shot teaches, both flag-gated:
+
+- first wound ever → `injuries`
+- first wound you inflict on an enemy → `aim`
+
+The second is the discovery path for the whole opt-in half, and it fires at the only moment
+*"you could have chosen where that went"* is worth hearing.
+
+### Buckshot now works in both directions
+
+Enemies use `flags.spread` rather than a weapon tag. Each component is rolled once and split, never
+re-rolled per group.
+
+### The breacher was unobtainable
+
+No vendor stocked it and no loot table dropped it — a 420-credit orphan referenced only by its own
+file. It now sells through **Sallow 'Ledger' Kade** at *Sentimental Value Pawn* (588, stock 2), which
+is where a sawn-down breaching gun belongs; a licensed gunsmith selling one openly would read wrong.
+The demolition tools were already sold (Bolt Keeper, Watts) and needed nothing.
+
+### Deliberately NOT done
+
+**Enemies still never aim**, so no mob can execute or knock out a player. That asymmetry is the
+safety property in §13, not an oversight — a death that sudden must always be something somebody
+chose.
+
+**Decided 2026-07-30: this is RESERVED, not forbidden.** Truly elite enemies *will* aim, when such
+enemies exist. None do yet, and that is the whole reason it is switched off: the guarantee "no mob can
+one-shot you" is safe to spend on a named, telegraphed, obviously-dangerous opponent, and reckless to
+spend on an ordinary street thug. Ship the elites first, then hand them the ability.
+
+**What switching it on takes** (it is not just setting a field — `enemyAttackPlayer` consults none of
+the aim machinery today):
+
+1. set `_aimPart` on the enemy, from AI or `flags`,
+2. apply `aimHitPenalty` to the enemy's hit roll — an elite that aims *for free* is a different and
+   much worse thing than an elite that aims,
+3. pass its weights through `aimedWeights` in the part roll, and
+4. call `executionShot` on the result, supplying a `weaponSkill` — note that enemy weapons carry no
+   skill id, so without one every elite execution is lethal and the knockout branch is unreachable.
+   If elites should ever take a player *alive*, that is the line to look at.
+
+Step 2 is the one that will get skipped by accident. It is what keeps the rarity curve honest.
+
+**`status_chance` remains unread.** §1 nominated injuries as its natural consumer, but injuries grew
+their own threshold model instead, and nothing in content authors the field. It is a dead tag looking
+for a feature, not a gap in this one.

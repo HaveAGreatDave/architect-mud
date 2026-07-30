@@ -30,13 +30,21 @@
  */
 import { registerDamageObserver } from '../../server/engine/damage-events.js';
 import { registerImpairmentProvider } from '../../server/engine/impairment.js';
+import { AIM_PENALTY } from '../../server/engine/combat.js';
 import { setFlag } from '../../server/engine/flags.js';
+import { sendToPlayer, teachVerb } from '../../server/engine/messaging.js';
 import { world } from '../../server/engine/world.js';
 import { buildImpairment } from './penalties.js';
+// Side-effect import: registers the enemy-side damage observer (§8b). Kept as a
+// separate module because the two halves share only `severityFor` — the enemy
+// side has no storage, no decay and no display, and mixing them would hide that.
+import './enemy.js';
+import { enemyWoundNote, partLabel } from './enemy.js';
 import {
   PARTS, PART_LABELS, SEVERITY_LABELS, SEVERITY_BANDS,
   BRUISED, MAIMED, typeRules, injuryName,
-  CRIT_THRESHOLD_SCALE, CUMULATIVE_THRESHOLD_SCALE, SLEEP_HEAL_MULTIPLIER,
+  CRIT_THRESHOLD_SCALE, CUMULATIVE_THRESHOLD_SCALE, HEAD_THRESHOLD_SCALE,
+  SLEEP_HEAL_MULTIPLIER,
 } from './tables.js';
 
 const FLAG_KEY = 'injuries';
@@ -170,30 +178,44 @@ function flavour(inj) {
  * Exported for the regress suite and for tuning — this is the function you poke
  * when kinetic feels wrong.
  */
-export function severityFor(damage, hpMax, type, { critical = false, existing = 0 } = {}) {
+export function severityFor(damage, hpMax, type, { critical = false, existing = 0, head = false } = {}) {
   const rules = typeRules(type);
   const frac = damage / Math.max(1, hpMax);
 
   let threshold = rules.threshold;
   if (critical) threshold *= CRIT_THRESHOLD_SCALE;
   if (rules.cumulative && existing > 0) threshold *= CUMULATIVE_THRESHOLD_SCALE;
+  if (head) threshold *= HEAD_THRESHOLD_SCALE;
 
   if (frac < threshold) return 0;
-  return Math.min(MAIMED, BRUISED + Math.floor((frac - threshold) / rules.escalation));
+  // Geometric rungs: each severity costs a MULTIPLE of the bar, not a flat slice
+  // of max HP. Damage far above the threshold tapers instead of guaranteeing a
+  // maim — see the balance note in tables.js for the numbers that forced this.
+  const rungs = Math.log(frac / threshold) / Math.log(rules.step);
+  return Math.min(MAIMED, BRUISED + Math.floor(rungs));
 }
 
 // The observer. SYNC BY CONTRACT — no awaits, no queries, no exceptions that
 // escape (damage-events catches, but don't rely on it).
-function onDamage(player, { part, damage, type, critical }) {
+function onDamage(player, { part, damage, baseDamage, type, critical, forceSeverity }) {
   if (!part || !PARTS.includes(part) || !(damage > 0)) return;
 
   const map = injuriesOf(player);
   decay(player);
 
   const existing = map.get(part);
-  const sev = severityFor(damage, player.hp_max || 100, type, {
-    critical, existing: existing?.sev || 0,
-  });
+  // Score the BASE blow, not the crit/head-inflated one — those two are threshold
+  // modifiers here and would otherwise count twice. `baseDamage` is optional so an
+  // older or third-party damage source still works, just slightly hot.
+  const scored = baseDamage > 0 ? baseDamage : damage;
+  // `forceSeverity` is the one override: a called head shot that met every
+  // condition but the damage floor ruins the skull outright rather than rolling
+  // for it. Combat decided; this is not a second opinion.
+  const sev = forceSeverity > 0
+    ? Math.min(MAIMED, forceSeverity)
+    : severityFor(scored, player.hp_max || 100, type, {
+        critical, existing: existing?.sev || 0, head: part === 'head',
+      });
   if (sev <= 0) return;
 
   // A second wound DEEPENS rather than stacks — one injury per part, forever.
@@ -211,7 +233,46 @@ function onDamage(player, { part, damage, type, critical }) {
   });
   player._injuriesDirty = true;
 
-  if (worsened) player._injuryAnnounce = { part, sev: next, type: type || 'kinetic' };
+  if (worsened) announceWound(player, part, next, type || 'kinetic');
+}
+
+// ── Telling the player ───────────────────────────────────────────────────────
+//
+// The governing sentence of this design is "an injury is something you NOTICE,
+// not something you administer." Until this existed it was the opposite: wounds
+// accrued in total silence and you only found out by typing `injuries` or
+// opening Vitals. A field was set for this and read by nothing.
+//
+// Announced from the observer, at the moment it happens, because that is the
+// only moment it means anything. `sendToPlayer` is a synchronous socket write,
+// so this respects the sync/query-free contract — the same way durability
+// announces a band change from the combat hot path.
+const SEVERITY_CLASS = { 1: 'ambient', 2: 'dmg-taken', 3: 'crit-tag-in' };
+const TAUGHT_FLAG = 'taught_injuries';
+
+function announceWound(player, part, sev, type) {
+  const label = PART_LABELS[part] || part;
+  const name = injuryName(type, sev, part);
+  const cls = SEVERITY_CLASS[sev] || 'ambient';
+
+  // Bruised is flavour and says so quietly; Maimed is the loudest thing that can
+  // happen to you short of dying.
+  const line = sev >= MAIMED
+    ? `<span class="${cls}">Your ${label} is ${name}. Something has gone badly wrong in there.</span>`
+    : sev === BRUISED
+      ? `<span class="${cls}">Your ${label} is ${name} — sore, nothing worse.</span>`
+      : `<span class="${cls}">Your ${label} is ${name}.</span>`;
+
+  // First wound ever: teach the verb that explains the rest, once, using the
+  // house shimmer convention. Read is sync off the hydrated flag cache; the
+  // write is fire-and-forget because nothing downstream depends on it landing.
+  let teach = '';
+  if (!player._flags?.get(TAUGHT_FLAG)) {
+    teach = ` <span class="ambient">(${teachVerb('injuries')} to take stock of yourself.)</span>`;
+    setFlag('player', TAUGHT_FLAG, '1', player).catch(() => {});
+  }
+
+  sendToPlayer(player.id, { type: 'output', message: line + teach });
 }
 
 // ── Persistence ──────────────────────────────────────────────────────────────
@@ -338,6 +399,11 @@ export const hooks = {
     return `You work on your ${treated.join(', ')}. Better — not good, but better.`;
   },
 
+  // §8b — what's visibly wrong with a creature you are fighting. This is the
+  // feedback loop that makes aiming at a limb worth doing: you work the leg, and
+  // `examine` eventually tells you the leg is ruined.
+  'enemy.appearanceNotes': ({ target }) => enemyWoundNote(target) || undefined,
+
   // What a wound looks like from the outside. Only Maimed shows to others — a
   // bruise is not visible across a room, and this is the line that makes a bad
   // injury a social fact rather than a private number.
@@ -357,7 +423,122 @@ export const hooks = {
 
 // ── Command ──────────────────────────────────────────────────────────────────
 
+// ── `aim` — opt-in manual body targeting ─────────────────────────────────────
+//
+// The whole system is optional and this is the opt-in. Automatic targeting (the
+// weighted roll combat has always done) is the default and is sufficient for all
+// combat; a player can finish the game without ever typing this.
+//
+// State is `player._aimPart`, read directly by combat.js. DELIBERATELY NOT
+// PERSISTED: it resets to auto on login. That costs one flag write we don't
+// have to make, removes a hydration path that could go stale, and matches how it
+// reads — you re-shoulder your weapon each session rather than resuming an aim
+// you set days ago and forgot about.
+const AIM_ALIASES = {
+  auto: null, off: null, none: null, centre: 'torso', center: 'torso',
+  chest: 'torso', body: 'torso', 'centre mass': 'torso', 'center mass': 'torso',
+  skull: 'head', gut: 'torso', belly: 'torso', abdomen: 'torso',
+  arm: 'right_arm', leg: 'right_leg', hands: 'right_arm', foot: 'feet',
+  'left arm': 'left_arm', 'right arm': 'right_arm',
+  'left leg': 'left_leg', 'right leg': 'right_leg',
+};
+
+// The thing you are currently fighting, if any. Read straight off the live
+// player object and the world Maps — no query, because `aim` is typed mid-fight.
+function currentFoe(player) {
+  if (!player?.combatTargetId) return null;
+  return world.enemies?.get(player.combatTargetId) || null;
+}
+
+// A creature's targetable anatomy, in the order it was authored. Falls back to
+// the humanoid spread for anything with no `body_parts` of its own — the same
+// fallback `rollBodyPart` uses, so what this prints is always what you'd hit.
+function foeAnatomy(foe) {
+  const list = Array.isArray(foe?.body_parts) ? foe.body_parts.filter(p => p?.part) : [];
+  if (list.length) return list.map(p => ({ part: p.part, label: partLabel(p.part) }));
+  return PARTS.map(p => ({ part: p, label: PART_LABELS[p] }));
+}
+
+// `valid` is the anatomy of whatever you are actually fighting, so `aim middle
+// left arm` works on a thresher and `aim fluke` works on a leviathan. Falls back
+// to the humanoid seven when you are not fighting anything — you can still set an
+// aim before the fight starts, which is the whole point of it persisting.
+function resolveAimPart(raw, valid = PARTS) {
+  const s = String(raw || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!s) return { ok: false };
+  if (s in AIM_ALIASES) return { ok: true, part: AIM_ALIASES[s] };
+  const underscored = s.replace(/ /g, '_');
+  if (valid.includes(underscored)) return { ok: true, part: underscored };
+  // Prefix match, so `aim hea` works like every other verb in the game.
+  const hits = valid.filter(p => p.startsWith(underscored) || partLabel(p).startsWith(s));
+  if (hits.length === 1) return { ok: true, part: hits[0] };
+  return { ok: false };
+}
+
 export const commands = {
+  aim: (args, raw, player) => {
+    const arg = (args || []).join(' ');
+
+    if (!arg) {
+      const cur = player._aimPart;
+      // What you are actually looking at, if anything. Anatomy is data — most
+      // things are broadly humanoid, but a leviathan is coils and a fluke and a
+      // maw, and a thresher has six arms. Reading the list off the target beats
+      // making the player guess what a creature is even made of.
+      const foe = currentFoe(player);
+      const anatomy = foe ? foeAnatomy(foe) : null;
+
+      const head = cur
+        ? `You are aiming for the <span class="hit-part">${partLabel(cur)}</span>. <span class="dmg-type">(${AIM_PENALTY[cur] ?? 0} to hit before skill)</span>`
+        : 'You are not aiming anywhere in particular — you swing for whatever presents itself.';
+
+      if (anatomy?.length) {
+        // Capitalised in the list because it reads as a menu of choices, not as
+        // prose — and never, ever with the underscores still in it.
+        const list = anatomy
+          .map(p => (p.part === cur ? `<b>${cap(p.label)}</b>` : cap(p.label)))
+          .join(', ');
+        return {
+          type: 'info',
+          message: `${head}\n\n<span class="text-dim">${foe.name} presents:</span> ${list}\n<span class="text-dim">${cur ? 'Type <b>aim auto</b> to stop calling your shots.' : 'Name any of them to call your shot.'}</span>`,
+        };
+      }
+
+      return {
+        type: 'info',
+        message: cur
+          ? `${head}\nType <b>aim auto</b> to stop calling your shots.`
+          : `${head}\nTry <b>aim head</b>, <b>aim left leg</b>, or <b>aim auto</b> to go back to this.`,
+      };
+    }
+
+    const foe = currentFoe(player);
+    const anatomy = foe ? foeAnatomy(foe) : null;
+    const validParts = anatomy ? anatomy.map(p => p.part) : PARTS;
+
+    const { ok, part } = resolveAimPart(arg, validParts);
+    if (!ok) {
+      const offer = anatomy ? anatomy.map(p => p.label).join(', ') : PARTS.map(p => PART_LABELS[p]).join(', ');
+      const who = foe ? `${foe.name} has no "${arg}"` : `You cannot aim for a "${arg}"`;
+      return { type: 'error', message: `${who}. Try: ${offer} — or <b>auto</b>.` };
+    }
+
+    if (!part) {
+      player._aimPart = null;
+      return { type: 'info', message: 'You stop calling your shots and just fight.' };
+    }
+
+    player._aimPart = part;
+    const cost = AIM_PENALTY[part] || 0;
+    const note = cost === 0
+      ? 'Centre mass is where you were swinging anyway — it costs you nothing.'
+      : `Harder to land. <span class="dmg-type">(${cost} to hit, less as your weapon skill improves)</span>`;
+    return {
+      type: 'info',
+      message: `You line up on the <span class="hit-part">${PART_LABELS[part]}</span>. ${note}`,
+    };
+  },
+
   injuries: (args, raw, player) => {
     const injuries = injuryReport(player);
     if (!injuries.length) {

@@ -7,7 +7,10 @@
       "watch"
     ],
     "tv": true,
-    "tv_dial_freq": 7
+    "tv_dial_freq": 7,
+    "owner_npc": "npc_embassy_barkeep",
+    "channel_default": 7,
+    "tuned_channel": 7
   },
   "hp": null,
   "hp_max": null,

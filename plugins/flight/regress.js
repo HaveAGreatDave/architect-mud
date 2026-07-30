@@ -8,7 +8,8 @@ import { signatureMult, signatureScore, colorName, describeExterior,
   normalizeLivery, sanitizeLivery, conspicuousnessMult, paintCost, isPaintable,
   readSchemes, schemeOf } from './livery.js';
 import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.js';
-import { sellAircraft, cancelRental, flushAirborne } from './hangars.js';
+import { sellAircraft, cancelRental, flushAirborne, pushHangarBay } from './hangars.js';
+import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
   shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
   isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, nearestAirfield, listRegions, worldTerrainMap, salvoOf,
@@ -757,6 +758,49 @@ export default async function regress({ run, check, getPlayer }) {
   try { textTravelTick(); } catch (e) { ttThrew = e.message; }
   check('the narration tick survives the live-aircraft set as it stands', ttThrew === null, ttThrew);
   await clearFlag('player', TEXT_TRAVEL_FLAG, p);
+
+  // The preference covers the HANGAR too, not just the ride. The 3D bay auto-opens
+  // when you walk through a hangar door, so a player who asked for a text display
+  // would have had a graphics panel thrown at them without ever typing anything.
+  // The gate lives in pushHangarBay (not cmdHangar) precisely so every entry point
+  // — bare `hangar`, `fleet`, `showroom`, `view`, the zone.entered auto-open, and
+  // each command's post-action refresh — is covered by construction.
+  {
+    const savedBc = getBroadcast(), savedZoneH = p.current_zone;
+    const field = listAirfields().find(f => getZone(f.id)?.flags?.airfield_id);
+    if (!field) check('an airfield exists to open a hangar at', false, 'no airfield zones loaded');
+    else {
+      const sent = [];
+      p.current_zone = field.id;
+      setBroadcast((zoneId, message, excludeId, targetId) => { sent.push({ targetId, message }); });
+      try {
+        await setFlag('player', TEXT_TRAVEL_FLAG, 'true', p);
+        await pushHangarBay(p);
+        check('text flight display gets the text hangar, never the 3D bay panel',
+          !sent.some(s => s.message?.type === 'hangar_bay_open')
+          && sent.some(s => s.message?.type === 'output' && /HANGAR —/.test(s.message.message || '')),
+          sent.map(s => s.message?.type).join(',') || 'nothing sent');
+
+        // A background refresh has nothing to say in text — reprinting the whole
+        // floor after every action would be a wall of scroll.
+        sent.length = 0;
+        await pushHangarBay(p, null, { refreshOnly: true });
+        check('a refresh-only push says nothing at all in text mode', sent.length === 0,
+          sent.map(s => s.message?.type).join(','));
+
+        // …and the graphical player is untouched by any of this.
+        sent.length = 0;
+        await clearFlag('player', TEXT_TRAVEL_FLAG, p);
+        await pushHangarBay(p);
+        check('with the flag off the 3D bay still opens as before',
+          sent.some(s => s.message?.type === 'hangar_bay_open'),
+          sent.map(s => s.message?.type).join(',') || 'nothing sent');
+      } finally {
+        setBroadcast(savedBc); p.current_zone = savedZoneH;
+        await clearFlag('player', TEXT_TRAVEL_FLAG, p);
+      }
+    }
+  }
 
   // ── Text-native piloting (textpilot.js) ─────────────────────────────────────
   // The pure seams first: the grade curve, the heading arithmetic, and the assist.
