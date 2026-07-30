@@ -677,6 +677,18 @@ set is on. The set stays on its channel; the deck **substitutes what that channe
 that room only**. So the linkage between player and TV is simply that both furniture rows carry
 the same `channel_id` — there is no pairing table and no cable.
 
+**Channel 0 is the VCR input** (`ch_0_vcr`, name `VCR`), exactly as every television that ever
+had a tape deck under it. Tape players carry `channel_id: 'ch_0_vcr'`; **KSAB-TV on 7 is
+independent**, so putting a tape on no longer hijacks the station in that room — you change
+input, the way you would in life.
+
+That required freeing `0`, which used to mean *off*. **Powering down is the power button, not a
+dial position**: in `client/game/js/panels/tv.js` a **tap** closes the view and leaves the set on,
+a **450 ms hold** sends `tv_poweroff` and switches it off room-wide. `_applyTuning` now takes an
+explicit **`TV_OFF`** sentinel, and both `tune` and `tablettune` accept the word `off`. The two
+dials are deliberately identical — a tablet standing in a room with a deck in it watches the tape
+on 0 like anything else.
+
 **Small-format cassettes** carry `tags.beta_cassette` alongside the usual `media_cassette` +
 `broadcast_id`. A full-size deck reads them perfectly well; the tag exists so the little players
 can refuse the big deck cassettes, which physically would not fit. It has no playback behaviour.

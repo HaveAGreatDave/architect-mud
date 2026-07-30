@@ -147,7 +147,7 @@ async function powerOffWatchedTv(playerId, channelId) {
 
   for (const fid of deviceIds) {
     const { rows } = await query('SELECT * FROM furniture WHERE id=$1', [fid]).catch(() => ({ rows: [] }));
-    if (rows.length) await _applyTuning(rows[0], 0, zoneId); // channel 0 = off — drops the zone from ambient ticks
+    if (rows.length) await _applyTuning(rows[0], TV_OFF, zoneId); // power button (hold) — drops the zone from ambient ticks
   }
 
   // The physical set is now off — close any co-watcher's panel too.
@@ -5565,6 +5565,11 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
 // for its own side effects (text output vs tv_off/panel) so the two can't drift on the core.
 // NB: the off-path device.tuned emit is left to the caller — cmdTune deliberately stays
 // silent there (no tv_relay_click on manual power-off) while TUNE_DEVICE emits.
+// Powering off is NOT channel 0 — channel 0 is the VCR input, the same as every
+// television that ever had a tape deck under it. The set is switched off by the
+// power button (hold), which routes here with TV_OFF.
+export const TV_OFF = -1;
+
 async function _applyTuning(device, channelNumber, zoneId) {
   const flags = typeof device.flags === 'object' ? { ...device.flags } : JSON.parse(device.flags || '{}');
 
@@ -5576,7 +5581,7 @@ async function _applyTuning(device, channelNumber, zoneId) {
     furnitureChannelIndex.delete(device.id);
   }
 
-  if (channelNumber === 0) {
+  if (channelNumber === TV_OFF) {
     delete flags.tuned_channel;
     await updateFurniture(device.id, { flags: JSON.stringify(flags) });
     return { status: 'off' };
@@ -6820,8 +6825,11 @@ schedule('30s', () => mediaDeckSyncTick().catch(e => console.error('[broadcast] 
 
 async function cmdTune(args, raw, player, broadcast) {
   if (!player) return { type: 'error', message: 'No character.' };
-  const channelNumber = parseInt(args[0], 10);
-  if (isNaN(channelNumber)) return { type: 'output', message: 'Usage: tune <channel number> (or 0 to turn off)' };
+  // `0` is the tape deck, not the off switch — the power button owns off (tap to
+  // close the view, hold to switch the set off room-wide; see tv.js).
+  const word = String(args[0] || '').toLowerCase();
+  const channelNumber = word === 'off' ? TV_OFF : parseInt(args[0], 10);
+  if (isNaN(channelNumber)) return { type: 'output', message: 'Usage: tune <channel number> — 0 is the tape deck. Hold the power button to switch the set off.' };
 
   // Find a broadcast_receiver furniture in the player's current zone
   const { rows } = await query(
@@ -6903,10 +6911,14 @@ function buildTvPanel(channelId, player, dialFrequency, dest) {
 // is its own receiver. `0` powers the app's screen down (drops the tuner registration).
 async function cmdTabletTune(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
-  const channelNumber = parseInt(args[0], 10);
-  if (isNaN(channelNumber)) return { type: 'output', message: 'Usage: tablettune <channel number>' };
+  // Same dial as the wall set: `0` is the tape deck, `off` powers the app's
+  // screen down. Keeping these consistent matters — a tablet standing in a room
+  // with a deck in it should be able to watch the tape on 0 like anything else.
+  const word = String(args[0] || '').toLowerCase();
+  const channelNumber = word === 'off' ? TV_OFF : parseInt(args[0], 10);
+  if (isNaN(channelNumber)) return { type: 'output', message: 'Usage: tablettune <channel number>, or <b>tablettune off</b>.' };
 
-  if (channelNumber === 0) {
+  if (channelNumber === TV_OFF) {
     // Just drop the tuner. Deliberately NO `tv_off` push: that message is the ROOM
     // set's power-off and the client routes it to the standalone CRT panel, so
     // sending it here would switch off the wall television because you turned your

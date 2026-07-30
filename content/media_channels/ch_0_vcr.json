@@ -1,0 +1,19 @@
+{
+  "channel_type": "playlist",
+  "commercial_pool": [],
+  "description": "Not a station. The input on the back of the set that whatever is under it is plugged into.",
+  "enabled": 1,
+  "id": "ch_0_vcr",
+  "idle_broadcast_id": null,
+  "loop_playlist": 1,
+  "name": "VCR",
+  "news_categories": [],
+  "number": 0,
+  "offline_graphic_id": null,
+  "priority": 0,
+  "schedule_mode": null,
+  "station_name": null,
+  "studio_zone_id": null,
+  "theme_id": null,
+  "updated_at": null
+}

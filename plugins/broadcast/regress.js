@@ -775,14 +775,18 @@ export default async function regress({ check, run, getPlayer }) {
   check('wall `tune` still needs a device in the zone',
     wallTune?.type === 'output' && /no broadcast-capable device/i.test(wallTune.message || ''), JSON.stringify(wallTune));
 
-  if (chans.length) {
-    await run(`tablettune ${chans[0].number}`);
+  // Channel 0 is the VCR input now, not the off switch — a tablet standing in a
+  // room with a tape deck can watch the tape on 0 like anything else. So pick a
+  // real station here, and power down with the word.
+  const station = chans.find(c => c.number > 0) || chans[0];
+  if (station) {
+    await run(`tablettune ${station.number}`);
     check('tablettune registers the portable tuner with no furniture',
-      getTabletTunedChannel(player.id) === chans[0].channelId,
-      `${getTabletTunedChannel(player.id)} vs ${chans[0].channelId}`);
+      getTabletTunedChannel(player.id) === station.channelId,
+      `${getTabletTunedChannel(player.id)} vs ${station.channelId}`);
 
-    await run('tablettune 0');
-    check('tablettune 0 powers the tablet screen down', getTabletTunedChannel(player.id) === null, String(getTabletTunedChannel(player.id)));
+    await run('tablettune off');
+    check('tablettune off powers the tablet screen down', getTabletTunedChannel(player.id) === null, String(getTabletTunedChannel(player.id)));
 
     // An unknown dial position is silent (the dial sweeps across dead frequencies)
     // and must not leave a stale tuner behind.

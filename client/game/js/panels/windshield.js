@@ -2902,6 +2902,9 @@ const BLDG_H = { uptown: 0.36, civic: 0.21, citycore: 0.18, marquee: 0.22, freig
 // believable mid-rise instead of vanishing. Keep the archetype in the BLDG_H key set.
 const BLDG_TYPE_3D = {
   corporate_office: { a: 'uptown',    h: 0.40 }, // glass towers
+  office:           { a: 'uptown',    h: 0.36 }, // alias — see TYPE_MODEL note
+  civic:            { a: 'civic',     h: 0.22 },
+  grocery:          { a: 'citycore',  h: 0.15 },
   hotel:            { a: 'uptown',    h: 0.34 },
   apartment:        { a: 'citycore',  h: 0.28 },
   residential:      { a: 'citycore',  h: 0.18 },
@@ -5435,6 +5438,12 @@ function namedModel(name) { return NAMED_MODELS[bldgSlug(name)] || null; }
 // null and keeps its biome archetype.
 const TYPE_MODEL = {
   corporate_office: { type: 'office',    pal: 'ty_office' },
+  // Bare aliases for authored types that never got their own model. Without an
+  // entry here a building bakes NO shape at all and draws as lights with no mass
+  // — which is what made the Sentinel a floating grid of windows in the intro.
+  office:           { type: 'office',    pal: 'ty_office' },
+  civic:            { type: 'police',    pal: 'ty_police' },
+  grocery:          { type: 'shop',      pal: 'ty_shop_a', neon: '#5fd0ff' },
   hotel:            { type: 'hotel',     pal: 'ty_hotel',  neon: '#ff4a9a' },
   apartment:        { type: 'apartment', pal: 'ty_apt_a' },
   residential:      { type: 'apartment', pal: 'ty_apt_b' },
