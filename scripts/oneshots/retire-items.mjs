@@ -35,6 +35,9 @@ const RETIRED = [
   'item_tidewell_diving_knife',
   // Renamed to item_ferris_model9 before it ever shipped.
   'item_vorhaus_vh9',
+  // Renamed to item_orme_shortsword (the blade carries the smith's marque, not
+  // the shop's) before it ever shipped.
+  'item_grindhouse_shortsword',
 ];
 
 let deleted = 0, held = 0, absent = 0;

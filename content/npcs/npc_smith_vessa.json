@@ -34,7 +34,7 @@
       ]
     },
     "marques": {
-      "text": "\"House work's mine — the flat circle. Redlaw's transit-warden surplus, good steel, boring. Blackvane's behind the glass and you can look at it.\" She pauses. \"And if somebody in the Reach offers you a Blackvane with a motor on it, that's a decal and a chainsaw and your own business.\"",
+      "text": "\"House work's mine — ORME, under the guard. Redlaw's transit-warden surplus, good steel, boring. Blackvane's behind the glass and you can look at it.\" She pauses. \"And if somebody in the Reach offers you a Blackvane with a motor on it, that's a decal and a chainsaw and your own business.\"",
       "options": [
         {
           "text": "Noted.",
@@ -72,7 +72,7 @@
       "stock": 10
     },
     {
-      "item_id": "item_grindhouse_shortsword",
+      "item_id": "item_orme_shortsword",
       "price": 630,
       "stock": 6
     },
