@@ -1246,13 +1246,36 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
         // rather than a stand-in for it. Each piece extrudes down from its own top on the shared
         // clock, so a tower still assembles roof-first instead of arriving whole.
         const nSeg = segCountFor(depthOf(b.sx, b.sz));
+        // A dropped middle leaves a HOLE, not a simpler tower. The cull below keeps
+        // the first N pieces plus the spire, which is right when the tail is
+        // ornament (a finial, a water tower) and wrong when the model is a STACK:
+        // an office tower is base → middle → crown, so culling to N=1 drew the base
+        // and the crown with nothing between them. With the window lights still
+        // running the full height, distant towers read as floating strings of lit
+        // dots — which is exactly what they were.
+        //
+        // So a skipped run is not discarded, it is INHERITED: the next piece that
+        // does draw extends down to cover it. The silhouette keeps its setbacks
+        // (the crown is still narrower than the base) and the tower is solid again,
+        // at no extra stroke cost.
+        let gapBot = null;   // scene y is DOWN, so "lower" is a LARGER y
         for (let si = 0; si < b.segs.length; si++) {
           const sg = b.segs[si];
           // The spire always draws, however far away. It sorts last (almost no bulk) but it is the
           // single most recognisable thing about a tower on a skyline — dropping it at distance
           // would turn Halcyon and Solenne back into the plain slabs this work exists to replace.
-          if (si >= nSeg && !sg.tall && sg.kind !== 'mast') continue;
-          const sTop = sg.yTop, sBot = lerp(sTop, sg.yBot, grow);
+          if (si >= nSeg && !sg.tall && sg.kind !== 'mast') {
+            // Masts are lines with no bulk — they can never stand in for a shaft.
+            if (sg.kind !== 'mast') gapBot = gapBot === null ? sg.yBot : Math.max(gapBot, sg.yBot);
+            continue;
+          }
+          const sTop = sg.yTop;
+          // Absorb the run culled beneath this piece. Masts keep their own length —
+          // stretching an antenna down through the building it sits on would be worse
+          // than the gap.
+          const rawBot = (gapBot !== null && sg.kind !== 'mast') ? Math.max(sg.yBot, gapBot) : sg.yBot;
+          if (sg.kind !== 'mast') gapBot = null;
+          const sBot = lerp(sTop, rawBot, grow);
           if (sg.kind === 'mast') {
             // One line, at any distance — it costs a single stroke and it's the difference between a
             // finial standing on an antenna and a finial standing on nothing. Extrudes DOWN from the
@@ -1285,7 +1308,7 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
             const ax = b.sx + P[k][0], az = b.sz + P[k][1], bx = b.sx + P[n][0], bz = b.sz + P[n][1];
             stroke3([tx, sTop, tz], [tnx, sTop, tnz], al * 1.5, lw);      // roof ring, brightest
             stroke3([tx, sTop, tz], [ax, sBot, az], al, lw);              // corner post, growing down
-            if (grow > 0.97) stroke3([ax, sg.yBot, az], [bx, sg.yBot, bz], al * 0.85, lw);   // base ring, once landed
+            if (grow > 0.97) stroke3([ax, rawBot, az], [bx, rawBot, bz], al * 0.85, lw);   // base ring, once landed
           }
         }
       } else {
