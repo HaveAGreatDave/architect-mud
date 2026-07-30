@@ -32,58 +32,78 @@
   "body_parts": [
     {
       "part": "head",
-      "soak": { "kinetic": 1 },
+      "soak": {
+        "kinetic": 1
+      },
       "weight": 7
     },
     {
       "part": "torso",
-      "soak": { "kinetic": 3 },
+      "soak": {
+        "kinetic": 3
+      },
       "weight": 24
     },
     {
       "part": "upper_left_arm",
       "role": "attack",
-      "soak": { "kinetic": 1 },
+      "soak": {
+        "kinetic": 1
+      },
       "weight": 9
     },
     {
       "part": "upper_right_arm",
       "role": "attack",
-      "soak": { "kinetic": 1 },
+      "soak": {
+        "kinetic": 1
+      },
       "weight": 9
     },
     {
       "part": "middle_left_arm",
       "role": "attack",
-      "soak": { "kinetic": 1 },
+      "soak": {
+        "kinetic": 1
+      },
       "weight": 8
     },
     {
       "part": "middle_right_arm",
       "role": "attack",
-      "soak": { "kinetic": 1 },
+      "soak": {
+        "kinetic": 1
+      },
       "weight": 8
     },
     {
       "part": "lower_left_arm",
       "role": "attack",
-      "soak": { "kinetic": 1 },
+      "soak": {
+        "kinetic": 1
+      },
       "weight": 7
     },
     {
       "part": "lower_right_arm",
       "role": "attack",
-      "soak": { "kinetic": 1 },
+      "soak": {
+        "kinetic": 1
+      },
       "weight": 7
     },
     {
       "part": "left_leg",
-      "soak": { "kinetic": 2 },
+      "soak": {
+        "kinetic": 2
+      },
       "weight": 10
     },
     {
       "part": "right_leg",
-      "soak": { "kinetic": 2 },
+      "soak": {
+        "kinetic": 2
+      },
       "weight": 11
     }
   ],
@@ -102,31 +122,55 @@
     ],
     "first_strike_delay_ms": 5000
   },
-  "hit": 9,
+  "hit": 6,
   "hp_max": 58,
   "id": "enemy_sixarm_thresher",
   "loot_table": [
     {
       "item": "item_scrap_metal",
-      "qty": [2, 3],
+      "qty": [
+        2,
+        3
+      ],
       "weight": 30
     },
     {
-      "credits": [40, 95],
+      "credits": [
+        40,
+        95
+      ],
       "item": "item_credit_chip",
-      "qty": [1, 1],
+      "qty": [
+        1,
+        1
+      ],
       "weight": 26
     },
     {
       "item": "item_rag_bandage",
-      "qty": [1, 2],
+      "qty": [
+        1,
+        2
+      ],
       "weight": 18
     }
   ],
   "name": "six-arm thresher",
   "weapon": [
-    { "max": 4, "min": 2, "type": "kinetic" },
-    { "max": 4, "min": 1, "type": "kinetic" },
-    { "max": 3, "min": 1, "type": "kinetic" }
+    {
+      "max": 4,
+      "min": 2,
+      "type": "kinetic"
+    },
+    {
+      "max": 4,
+      "min": 1,
+      "type": "kinetic"
+    },
+    {
+      "max": 3,
+      "min": 1,
+      "type": "kinetic"
+    }
   ]
 }

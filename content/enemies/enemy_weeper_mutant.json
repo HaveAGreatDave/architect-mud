@@ -1,0 +1,121 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "attack",
+        "type": "condition"
+      },
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "weight": 12,
+      "soak": {
+        "kinetic": 0
+      }
+    },
+    {
+      "part": "torso",
+      "weight": 40,
+      "soak": {
+        "kinetic": 1
+      }
+    },
+    {
+      "part": "left_arm",
+      "weight": 12,
+      "soak": {
+        "kinetic": 0
+      },
+      "role": "attack"
+    },
+    {
+      "part": "right_arm",
+      "weight": 12,
+      "soak": {
+        "kinetic": 0
+      },
+      "role": "attack"
+    },
+    {
+      "part": "left_leg",
+      "weight": 12,
+      "soak": {
+        "kinetic": 0
+      }
+    },
+    {
+      "part": "right_leg",
+      "weight": 12,
+      "soak": {
+        "kinetic": 0
+      }
+    }
+  ],
+  "butcher_difficulty": 3,
+  "butcher_table": [],
+  "death_message": "The weeping mutant sits down in its own puddle and does not get up.",
+  "description": "A stooped thing that will not stop leaking. Clear fluid runs from its eyes, its ears and a dozen splits along its arms, and it goes where the sound is because it stopped being able to see some time ago. It is not fast and it is not strong. There are simply always more of them.",
+  "dodge": 1,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": true,
+    "battle_cries": [
+      "$enemy turns its wet face toward the noise $player is making.",
+      "$enemy reaches for $player with both dripping hands."
+    ],
+    "first_strike_delay_ms": 6000
+  },
+  "hit": 2,
+  "hp_max": 20,
+  "id": "enemy_weeper_mutant",
+  "loot_table": [
+    {
+      "item": "item_rag_bandage",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 14
+    },
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 12
+    }
+  ],
+  "name": "weeping mutant",
+  "weapon": [
+    {
+      "type": "kinetic",
+      "min": 1,
+      "max": 3
+    }
+  ]
+}
