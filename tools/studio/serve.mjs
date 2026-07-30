@@ -125,6 +125,10 @@ async function conflictOf(table, id) {
 // that will not boot until somebody finds it. rename(2) within a directory is
 // atomic, so a reader sees either the old file or the new one.
 async function writeRow(table, id, obj) {
+  // The one funnel every write goes through, which is the only reason an undo can
+  // be complete: the journal does not have to know what a paint stroke is, or that
+  // saving a map rewrites 331 tiles. See the action log below.
+  record(table, id, obj);
   const p = rowPath(table, id);
   const tmp = `${p}.tmp-${process.pid}`;
   await writeFile(tmp, canonicalJson(obj), 'utf8');
@@ -134,6 +138,117 @@ async function writeRow(table, id, obj) {
   // filled once at first use and never invalidated, so the zone picker and the
   // red NOT IN <table> flagging both went stale within a session.
   REF_CACHE.delete(table);
+}
+
+// ── The action log ───────────────────────────────────────────────────────────
+// UNDO IS A FILE OPERATION, SO IT LIVES HERE. The obvious place to put Ctrl+Z is
+// the client — it knows what you just did — and it would be wrong in both
+// directions. It does not know what else the server wrote (saving a map pushes
+// the anchor onto every tile; painting one road re-derives four more), and it
+// does not survive a reload, while the files it would be apologising for do.
+//
+// So an action is recorded where the writes happen: every mutation runs inside
+// action(), writeRow() reports each file it touches, and the entry keeps the
+// WHOLE ROW from both sides — before as the tree held it, after as it was
+// written. Undo is then not a reverse-operation ("un-paint", "un-assign", each
+// its own inverse to get wrong) but the same write in the other direction.
+//
+// LIFO, and that is load-bearing. Undoing only the newest entry is what makes it
+// sound without a dependency graph: the newest action is, by construction, the
+// last writer of every file it touched. A file somebody ELSE wrote in the
+// meantime is caught by the same conflictOf() a save is — an undo refuses whole
+// rather than reverting half.
+const JOURNAL_MAX = 20;
+const applied = [];        // oldest → newest; the actions currently in effect
+const undoneStack = [];    // index 0 is the newest action undone; redo pops the tail
+let seqNo = 0;
+let recording = null;
+
+function record(table, id, after) {
+  if (!recording) return;
+  const key = `${table}/${id}`;
+  const seen = recording.files.get(key);
+  // One entry per file per action: the first `before` is the state to go back to,
+  // and the last `after` is what actually ended up on disk. A stroke that paints
+  // the same tile twice is still one thing you did once.
+  if (seen) { seen.after = after; return; }
+  recording.files.set(key, { table, id, before: tree[table]?.get(id) ?? null, after });
+}
+
+// One request is one entry, however many files it turns into. Committed on the way
+// out even if the handler reported errors, because a partly-completed paint stroke
+// wrote real files and the whole point is to be able to take them back.
+async function action(label, fn) {
+  if (recording) return fn();   // a nested write joins the action already open
+  recording = { label, files: new Map() };
+  try {
+    return await fn();
+  } finally {
+    const rec = recording;
+    recording = null;
+    if (rec.files.size) {
+      applied.push({ seq: ++seqNo, at: Date.now(), label: rec.label, files: [...rec.files.values()] });
+      undoneStack.length = 0;   // a new action abandons the redo branch, as everywhere
+      while (applied.length > JOURNAL_MAX) applied.shift();
+    }
+  }
+}
+
+const publicEntry = (e, undone) => ({
+  seq: e.seq, at: e.at, label: e.label, files: e.files.length, undone,
+  detail: e.files.slice(0, 8).map(f => f.id).join(', ')
+    + (e.files.length > 8 ? `, +${e.files.length - 8} more` : ''),
+});
+// Newest first in both lists, so the client can concatenate them into one column
+// that reads down through time: undone at the top, in effect below.
+const journalView = () => ({
+  entries: applied.map(e => publicEntry(e, false)).reverse(),
+  undone: undoneStack.map(e => publicEntry(e, true)),
+  max: JOURNAL_MAX,
+});
+
+// Which maps and tiles an entry is about, so the client can go and LOOK at what it
+// just took back rather than reporting it into a canvas showing somewhere else.
+function touchedBy(entry) {
+  const maps = new Set(), zones = [], districts = [];
+  for (const f of entry.files) {
+    const row = f.before || f.after;
+    if (f.table === 'zones') { zones.push(f.id); if (row?.map_id) maps.add(row.map_id); }
+    else if (f.table === 'maps') maps.add(f.id);
+    else if (f.table === 'districts') districts.push(f.id);
+  }
+  return { maps: [...maps], zones, districts };
+}
+
+// Rewrite every file in an entry to one side of itself. Validation is deliberately
+// NOT re-run: this content was on disk, written through the same gate, and refusing
+// to restore it because a rule tightened since would leave the tree in the state
+// nobody asked for. What IS checked is that the bytes being replaced are the bytes
+// this entry left — otherwise an undo silently discards a git pull.
+async function applyEntry(entry, side) {
+  const objections = [];
+  for (const f of entry.files) {
+    const conflict = await conflictOf(f.table, f.id);
+    if (conflict) objections.push(conflict);
+    if (!f[side]) objections.push(`content/${f.table}/${f.id}.json did not exist before this action — the Studio does not create or delete content files`);
+  }
+  if (objections.length) {
+    return { ok: false, errors: [
+      `nothing was written — ${objections.length} objection(s) to reverting ${entry.files.length} file(s):`,
+      ...objections,
+    ] };
+  }
+  for (const f of entry.files) {
+    await writeRow(f.table, f.id, f[side]);   // recording is null here: an undo is not an action
+    tree[f.table].set(f.id, f[side]);
+  }
+  // AS IF IT WERE A FRESH PAINT. derive is whole-map by contract (§7.2) — a
+  // building's marker depends on every other building and a road's connector on its
+  // neighbours — so the cache is dropped rather than patched, and the next read
+  // re-derives the world from the files that now exist. There is no "undo path"
+  // through the renderer to get subtly wrong.
+  derived = null;
+  return { ok: true, entry: publicEntry(entry, side === 'before'), touched: touchedBy(entry) };
 }
 
 // The registry's omitWhenNull, per table, read rather than retyped.
@@ -709,9 +824,9 @@ const server = createServer(async (req, res) => {
       if (req.method === 'PUT') {
         let body; try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { errors: ['body is not JSON'] }); }
         if (body.id !== id) return json(res, 400, { errors: ['id in body does not match the URL'] });
-        const r = await saveDistrict(body);
+        const r = await action(`District ${row.name || id}`, () => saveDistrict(body));
         if (!r.ok) return json(res, 422, r);
-        return json(res, 200, { district: tree.districts.get(id), ...districtsView() });
+        return json(res, 200, { district: tree.districts.get(id), ...districtsView(), journal: journalView() });
       }
     }
 
@@ -720,8 +835,13 @@ const server = createServer(async (req, res) => {
     // the map, so it is painted like one.
     if (req.method === 'POST' && path === '/api/assign') {
       let body; try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { errors: ['body is not JSON'] }); }
-      const r = await assignDistrict(Array.isArray(body.ids) ? body.ids : [], body.district || null);
-      return json(res, 200, { ...r, ...districtsView() });
+      const ids = Array.isArray(body.ids) ? body.ids : [];
+      const into = body.district || null;
+      const label = into
+        ? `Assign ${tree.districts.get(into)?.name || into} — ${ids.length} tile(s)`
+        : `Clear district — ${ids.length} tile(s)`;
+      const r = await action(label, () => assignDistrict(ids, into));
+      return json(res, 200, { ...r, ...districtsView(), journal: journalView() });
     }
 
     // A map's own properties. PUT writes content/maps/<id>.json and pushes the
@@ -735,9 +855,9 @@ const server = createServer(async (req, res) => {
       if (req.method === 'PUT') {
         let body; try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { errors: ['body is not JSON'] }); }
         if (body.id !== id) return json(res, 400, { errors: ['id in body does not match the URL'] });
-        const r = await saveMap(body);
+        const r = await action(`Map ${deriveMapName(row, zoneIndex()) || id}`, () => saveMap(body));
         if (!r.ok) return json(res, 422, r);
-        return json(res, 200, { ...r, ...mapView(tree.maps.get(id)) });
+        return json(res, 200, { ...r, ...mapView(tree.maps.get(id)), journal: journalView() });
       }
     }
 
@@ -759,12 +879,13 @@ const server = createServer(async (req, res) => {
         if (!tree.zones.has(id)) return json(res, 404, { error: 'no such zone' });
         let body; try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { errors: ['body is not JSON'] }); }
         if (body.id !== id) return json(res, 400, { errors: ['id in body does not match the URL'] });
-        const r = await saveZone(body);
+        const was = tree.zones.get(id);
+        const r = await action(`Edit ${was?.name || id}`, () => saveZone(body));
         if (!r.ok) return json(res, 422, r);
         // spec AND prov: setting Map Icon changes which rung wins, so the inspector's
         // explanation and the canvas badge have to move with the save that caused it.
         return json(res, 200, { ok: true, spec: world().render.get(id)?.spec ?? {},
-          prov: provOf(tree.zones.get(id)) });
+          prov: provOf(tree.zones.get(id)), journal: journalView() });
       }
     }
 
@@ -773,26 +894,30 @@ const server = createServer(async (req, res) => {
       const { ids = [], terrain = null } = JSON.parse(await readBody(req) || '{}');
       if (terrain && !palette?.terrains?.[terrain]) return json(res, 400, { errors: [`no palette entry for "${terrain}"`] });
       const errors = [];
-      for (const id of ids) {
-        const row = tree.zones.get(id);
-        if (!row) { errors.push(`${id}: no such zone`); continue; }
-        // A BUILDING IS NOT GROUND. Painting one is silently destructive: the tile
-        // keeps its rooftop but loses its map code, because derive suppresses a label
-        // on painted ground and resolveTerrain reads flags.terrain before its own
-        // "a building footprint is not ground" rung. Hall of Records and Halloran's
-        // Fix-It were both in that state, codeless and looking untouched. Refused
-        // here so the brush cannot do it, and content:lint errors if it arrives any
-        // other way. CLEARING terrain on one is always allowed — that is the repair.
-        const fl = row.flags || {};
-        if (terrain && row.map_id === 'map_world' && (fl.facade || fl.is_building)) {
-          errors.push(`${id} (${row.name || 'unnamed'}): a building tile cannot carry ground — painting it would remove its map code`);
-          continue;
+      await action(terrain
+        ? `Paint ${palette.terrains[terrain].label || terrain} — ${ids.length} tile(s)`
+        : `Clear terrain — ${ids.length} tile(s)`, async () => {
+        for (const id of ids) {
+          const row = tree.zones.get(id);
+          if (!row) { errors.push(`${id}: no such zone`); continue; }
+          // A BUILDING IS NOT GROUND. Painting one is silently destructive: the tile
+          // keeps its rooftop but loses its map code, because derive suppresses a label
+          // on painted ground and resolveTerrain reads flags.terrain before its own
+          // "a building footprint is not ground" rung. Hall of Records and Halloran's
+          // Fix-It were both in that state, codeless and looking untouched. Refused
+          // here so the brush cannot do it, and content:lint errors if it arrives any
+          // other way. CLEARING terrain on one is always allowed — that is the repair.
+          const fl = row.flags || {};
+          if (terrain && row.map_id === 'map_world' && (fl.facade || fl.is_building)) {
+            errors.push(`${id} (${row.name || 'unnamed'}): a building tile cannot carry ground — painting it would remove its map code`);
+            continue;
+          }
+          const flags = { ...fl };
+          if (terrain) flags.terrain = terrain; else delete flags.terrain;
+          const r = await saveZone({ ...row, flags });
+          if (!r.ok) errors.push(`${id}: ${r.errors.join('; ')}`);
         }
-        const flags = { ...fl };
-        if (terrain) flags.terrain = terrain; else delete flags.terrain;
-        const r = await saveZone({ ...row, flags });
-        if (!r.ok) errors.push(`${id}: ${r.errors.join('; ')}`);
-      }
+      });
       const { render } = world();
       // The stroke plus everything it changed the LOOK of. A tile the palette
       // auto-tiles draws a connector derived from its neighbours, so painting one
@@ -806,7 +931,26 @@ const server = createServer(async (req, res) => {
         errors,
         specs: Object.fromEntries([...touched].map(i => [i, render.get(i)?.spec ?? {}])),
         provs: Object.fromEntries([...touched].map(i => [i, provOf(tree.zones.get(i))])),
+        journal: journalView(),
       });
+    }
+
+    // ── Undo / redo ──────────────────────────────────────────────────────────
+    // The log itself, so a reloaded tab still knows what this session did — the
+    // files it is apologising for outlive the page.
+    if (req.method === 'GET' && path === '/api/journal') return json(res, 200, journalView());
+
+    if (req.method === 'POST' && (path === '/api/undo' || path === '/api/redo')) {
+      const back = path === '/api/undo';
+      const entry = back ? applied[applied.length - 1] : undoneStack[undoneStack.length - 1];
+      if (!entry) return json(res, 409, { errors: [back ? 'nothing to undo' : 'nothing to redo'] });
+      const r = await applyEntry(entry, back ? 'before' : 'after');
+      // 409, not 422: nothing is wrong with the request — the world moved under it,
+      // and the entry stays exactly where it is so the next attempt is the same one.
+      if (!r.ok) return json(res, 409, { ...r, journal: journalView() });
+      if (back) { applied.pop(); undoneStack.push(entry); }
+      else { undoneStack.pop(); applied.push(entry); }
+      return json(res, 200, { ...r, direction: back ? 'undo' : 'redo', journal: journalView() });
     }
 
     // The authored half of the audit, live (§8.4). It reads the tree from DISK, so

@@ -34,6 +34,9 @@ const state = {
                      // more than one tile, so a stacked draw is tiles hidden under
                      // tiles — and a click could only ever reach the z=0 occupant.
   history: [],       // where a jump came from, so following a seam is not one-way
+  journal: { entries: [], undone: [], max: 0 },  // the server's action log — what
+                     // Ctrl+Z would take back, and what redo would put back. Held
+                     // by the server, because the files are, so it survives a reload.
   // ── The district view ──────────────────────────────────────────────────────
   // A SECOND VIEW OF THE SAME MAP, not a second screen: the canvas, the camera,
   // the floor and the open map all survive the switch, and only three things
@@ -91,6 +94,38 @@ function showOpenMap() {
   $('#mapfan').title = m ? `${m.id} — ${state.maps.size} maps` : '';
 }
 
+// The tiles of one map and everything derived about them. Split out of selectMap
+// because an undo needs the SAME re-read without the camera moving: after a revert
+// the files have changed under a map you are already looking at, and re-fitting it
+// would be the tool losing your place to tell you something it could have told you
+// in situ. `resetFloor` is the difference between opening a map and refreshing one.
+async function loadMapData(id, { resetFloor = false } = {}) {
+  const { body } = await api(`/api/world?map=${encodeURIComponent(id)}`);
+  state.zones = body.zones;
+  state.byId = new Map(body.zones.map(z => [z.id, z]));
+  state.byCell = new Map(body.zones.map(z => [`${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`, z]));
+  state.portals = body.portals || {};
+  state.floors = [...new Set(body.zones.map(z => z.grid_z ?? 0))].sort((a, b) => b - a);
+  if (!state.floors.length) state.floors = [0];
+  if (resetFloor || !state.floors.includes(state.z)) {
+    state.z = state.floors.includes(0) ? 0 : state.floors[0];
+  }
+}
+
+// Re-read the open map in place: same camera, same floor, same selection. The
+// specs come back re-derived by the server, so this is a fresh paint of the whole
+// map rather than a patch of the tiles somebody names.
+async function reloadOpenMap() {
+  if (!state.mapId) return;
+  const keep = state.selected;
+  const onMapProps = !!state.mapView;
+  await loadMapData(state.mapId);
+  renderFloors();
+  draw();
+  if (keep && state.byId.has(keep)) await select(keep);
+  else if (onMapProps) await showMapProps();
+}
+
 // `focus` lands on one tile (following a seam); `restore` puts a remembered view
 // back (stepping back out of one). Neither is given when a map is picked from the
 // list, and then it fits and shows the map's own properties as it always has.
@@ -101,14 +136,7 @@ async function selectMap(id, { focus = null, restore = null } = {}) {
   document.querySelectorAll('.maplist button').forEach(b => b.classList.toggle('on', b.dataset.map === id));
   showOpenMap();
   $('#mapfan').open = false;
-  const { body } = await api(`/api/world?map=${encodeURIComponent(id)}`);
-  state.zones = body.zones;
-  state.byId = new Map(body.zones.map(z => [z.id, z]));
-  state.byCell = new Map(body.zones.map(z => [`${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`, z]));
-  state.portals = body.portals || {};
-  state.floors = [...new Set(body.zones.map(z => z.grid_z ?? 0))].sort((a, b) => b - a);
-  if (!state.floors.length) state.floors = [0];
-  state.z = state.floors.includes(0) ? 0 : state.floors[0];
+  await loadMapData(id, { resetFloor: true });
   renderFloors();
   if (restore) restoreView(restore);
   else if (focus) focusZone(focus);
@@ -234,6 +262,7 @@ async function saveDistrict() {
   state.districtById = new Map(state.districts.map(x => [x.id, x]));
   state.districtStats = { unassigned: body.unassigned || 0, unknown: body.unknown || [] };
   renderDistrictList();
+  renderJournal(body.journal);
   renderDistrictInspector();
   $('#note').textContent = 'Saved.';
   draw();          // a colour change lands on the map in the same breath
@@ -257,6 +286,7 @@ async function assign(ids) {
   state.districtById = new Map(state.districts.map(x => [x.id, x]));
   state.districtStats = { unassigned: body.unassigned || 0, unknown: body.unknown || [] };
   renderDistrictList();
+  renderJournal(body.journal);
   draw();
   refreshLint();
 }
@@ -734,6 +764,109 @@ function updateBack() {
 }
 $('#back').onclick = goBack;
 
+// ── The action log ──────────────────────────────────────────────────────────
+// Every write in this tool is a file on disk before you have finished the gesture
+// — there is no unsaved buffer to close without saving — so the only honest undo
+// is one that writes the files back, and that is the server's job (see the action
+// log in serve.mjs). This half is the shelf it goes on: what happened, what a
+// Ctrl+Z would take back, and where to look while it does.
+//
+// Nothing here decides what an action was or what reverting it means. Every
+// mutation response carries the log, so the list is the server's answer rather
+// than a client-side guess that drifts the first time a save touches a file the
+// client did not know about — which a map save, pushing its anchor onto 331
+// tiles, does every time.
+const ago = (t) => {
+  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+  return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`;
+};
+
+function renderJournal(j) {
+  if (j) state.journal = j;
+  const { entries = [], undone = [], max = 0 } = state.journal;
+  $('#undo').disabled = !entries.length;
+  $('#redo').disabled = !undone.length;
+  $('#undo').title = entries.length ? `Undo: ${entries[0].label}` : 'Nothing to undo';
+  $('#redo').title = undone.length ? `Redo: ${undone[undone.length - 1].label}` : 'Nothing to redo';
+  $('#logwho').textContent = entries.length ? entries[0].label : 'no edits yet';
+  $('#logn').textContent = entries.length ? `${entries.length}/${max}` : '';
+  // Newest first, undone entries above the ones still in effect — the line between
+  // them is where you are, and it moves as you travel rather than the list rewriting.
+  const rows = [...undone, ...entries];
+  const row = (e, i) => `<button data-seq="${e.seq}" data-undone="${e.undone ? 1 : 0}"
+      class="${e.undone ? 'undone' : ''}${i === undone.length && !e.undone ? ' here' : ''}"
+      title="${esc(e.detail || '')}">${esc(e.label)}<span class="n">${e.files} file(s)</span><span class="when">${ago(e.at)}</span></button>`;
+  $('#log').innerHTML = rows.length
+    ? rows.map(row).join('')
+    : `<div class="help">Nothing yet. Paint, assign or save and it lands here — the
+       last ${max} actions, oldest dropped.</div>`;
+  $('#log').onclick = (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    travelTo(Number(b.dataset.seq), b.dataset.undone === '1');
+  };
+}
+
+async function refreshJournal() { renderJournal((await api('/api/journal')).body); }
+
+// One step, either way. A refusal is reported and the entry stays exactly where it
+// was: the usual cause is somebody else having written the file since (a git pull,
+// sync-map-anchors), and there is nothing to retry until that is dealt with.
+async function timeTravel(url) {
+  const { ok, body } = await api(url, { method: 'POST' });
+  if (!ok) {
+    renderJournal(body.journal);
+    $('#status').textContent = (body.errors || [body.error]).join(' ');
+    return false;
+  }
+  renderJournal(body.journal);
+  const t = body.touched || {};
+  // GO AND LOOK AT IT. A revert that lands on a map you are not showing is a
+  // silent write, which is the thing this feature exists to stop being possible.
+  const target = t.maps?.includes(state.mapId) ? state.mapId : t.maps?.[0];
+  if (target && target !== state.mapId) await selectMap(target, { focus: t.zones?.[0] });
+  else await reloadOpenMap();
+  // A district's colour, a tile's membership and a map's resolved name all move
+  // with the same revert, and each is read from somewhere other than the tiles.
+  await loadDistrictList();
+  if (state.view === 'districts') await selectDistrict(state.district);
+  await loadMaps({ keep: true });
+  $('#status').textContent =
+    `${body.direction === 'redo' ? 'Redid' : 'Undid'}: ${body.entry.label} · ${body.entry.files} file(s) rewritten`;
+  refreshLint();
+  return true;
+}
+
+const undo = () => timeTravel('/api/undo');
+const redo = () => timeTravel('/api/redo');
+
+// Clicking an entry goes back (or forward) THROUGH it, which is only ever repeated
+// single steps — the stack stays strictly last-in-first-out, because that is what
+// makes each step's "this file was mine to revert" true. A step that refuses stops
+// the run where it is rather than skipping over it.
+async function travelTo(seq, isUndone) {
+  for (let i = 0; i <= state.journal.max; i++) {
+    const { entries = [], undone = [] } = state.journal;
+    if (!isUndone && !entries.some(e => e.seq === seq)) break;   // it has been undone
+    if (isUndone && !undone.some(e => e.seq === seq)) break;     // it has been redone
+    if (!(await timeTravel(isUndone ? '/api/redo' : '/api/undo'))) break;
+  }
+}
+
+$('#undo').onclick = undo;
+$('#redo').onclick = redo;
+
+// A text field owns its own Ctrl+Z — the inspector is full of them, and stealing
+// the keystroke there would mean a typo in a description could only be taken back
+// by reverting the whole file.
+window.addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey)) return;
+  const t = e.target;
+  if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) return;
+  const k = e.key.toLowerCase();
+  if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+  else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+});
+
 async function paint(ids) {
   if (!ids.length) return;
   const { body } = await api('/api/paint', {
@@ -753,6 +886,7 @@ async function paint(ids) {
     const z = state.byId.get(id); if (z) z.prov = prov;
   }
   if (body.errors?.length) alert(body.errors.join('\n'));
+  renderJournal(body.journal);
   draw();
   refreshLint();
   if (state.selected && ids.includes(state.selected)) select(state.selected);
@@ -863,6 +997,7 @@ async function saveMapProps() {
   });
   if (!ok) { $('#errs').textContent = (body.errors || [body.error]).join('\n'); return; }
   state.mapView = body;
+  renderJournal(body.journal);
   renderMapInspector();
   // No partial-success branch to render any more: the server validates and
   // conflict-checks every file the push would touch BEFORE writing any of them, so
@@ -1110,6 +1245,7 @@ async function save() {
   if (!ok) { $('#errs').textContent = (body.errors || [body.error]).join('\n'); return; }
   const z = state.byId.get(row.id);
   if (z) { z.spec = body.spec; z.prov = body.prov; z.name = row.name; }
+  renderJournal(body.journal);
   draw();
   await select(row.id);
   refreshLint();
@@ -1136,3 +1272,6 @@ await loadCatalog();
 resize();
 await loadMaps();
 await loadDistrictList();
+// The log is the SERVER'S — a reloaded tab can still take back what the session
+// wrote, because the files it would be reverting are still there.
+await refreshJournal();

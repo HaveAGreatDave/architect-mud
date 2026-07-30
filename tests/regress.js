@@ -1425,6 +1425,34 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // anchor tile by tile, and return 200 with `failed` for the ones that didn't.
   check('a map save validates every file it would touch before writing any',
     /objections/.test(serve) && !/failed\.push/.test(serve) && !/body\.failed/.test(client));
+
+  // UNDO IS A FILE OPERATION. Every edit in the Studio is on disk before the gesture
+  // is finished — there is no unsaved buffer — so a client-side undo would be
+  // apologising for writes it cannot see and could not survive a reload. The journal
+  // records at writeRow(), the ONE funnel every write goes through, which is the only
+  // reason it is complete: a map save pushing its anchor onto 331 tiles is one entry
+  // without the log knowing what an anchor push is.
+  check('the Studio journals undo where the writes happen, not in the client',
+    /function record\(table, id, after\)/.test(serve) && /record\(table, id, obj\);/.test(serve)
+    && !/localStorage/.test(client));
+  // Both sides of every file, so reverting is the same write in the other direction
+  // rather than a per-operation inverse (un-paint, un-assign) with its own bugs.
+  check('an undo entry keeps the whole row from both sides',
+    /before: tree\[table\]\?\.get\(id\) \?\? null, after/.test(serve));
+  // LIFO is what makes it sound without a dependency graph: the newest entry is by
+  // construction the last writer of every file it touched. Anything else wrote it and
+  // conflictOf catches that — the same check a save makes, refusing whole.
+  check('an undo refuses rather than reverting over somebody else\'s write',
+    /async function applyEntry/.test(serve) && /conflictOf\(f\.table, f\.id\)/.test(serve)
+    && /nothing was written/.test(serve));
+  // AS IF IT WERE A FRESH PAINT. derive is whole-map by contract, so the cache is
+  // dropped and the world re-derived from the files that now exist — there is no
+  // second render path through "undo" to disagree with the build.
+  const applyFn = (serve.match(/async function applyEntry[\s\S]*?\n\}/) || [''])[0];
+  check('an undo re-derives the world rather than patching the tiles it knows about',
+    /derived = null;/.test(applyFn) && /reloadOpenMap/.test(client)
+    && /'\/api\/undo'/.test(client) && /'\/api\/redo'/.test(client));
+  check('the action log holds 20 actions deep', /const JOURNAL_MAX = 20;/.test(serve));
 }
 
 // LAW: content-store's SCHEMA_SQL parse still finds columns.

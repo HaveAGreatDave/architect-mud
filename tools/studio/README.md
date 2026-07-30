@@ -294,6 +294,47 @@ other and a click could only ever reach the ground floor — which also meant th
 13 seams landing below ground had nowhere visible to land. Following one switches
 floors for you.
 
+## Taking it back
+
+**Ctrl+Z**, or the **Undo** button under History. Ctrl+Shift+Z (or Ctrl+Y) puts it
+back. The log holds the last **20** actions and it is the *server's*, not the page's
+— reload the tab and you can still take back what the session wrote, because the
+files it would be reverting are still there.
+
+The reason it lives on the server is that there is nothing else it could honestly
+live on. Every edit here is a file on disk before the gesture is finished; there is
+no unsaved buffer to close without saving. A client-side undo would also be
+apologising for writes it never saw: saving a map pushes the anchor onto every tile
+on it, and painting one road tile changes what the four around it draw.
+
+**An action is one thing you did, whatever number of files it turned into.** A paint
+stroke across 40 tiles is one entry. A map save that rewrites 331 is one entry. The
+journal does not know what any of those *are* — it records at `writeRow`, the one
+funnel every write goes through, and keeps the whole row from **both sides**. So
+reverting is the same write in the other direction rather than a per-operation
+inverse (un-paint, un-assign, un-anchor) with its own bugs to find.
+
+**It re-derives, it does not un-draw.** After a revert the derive cache is dropped
+and the map is re-read from the files that now exist — the same whole-map pass a
+fresh paint gets, because a building's rooftop depends on every other building and a
+road's connector on its neighbours. There is no undo path through the renderer to
+disagree with the build.
+
+**It undoes newest-first, and that is load-bearing.** The newest entry is, by
+construction, the last writer of every file it touched, which is what makes a revert
+safe without a dependency graph between actions. Clicking an entry in the log walks
+back through everything above it one step at a time; it never reaches past them.
+
+**Somebody else's write wins.** An undo runs the same `conflictOf` check a save
+does, against every file it would rewrite — so a git pull, `sync-map-anchors`, or a
+hand edit since the action stops it, whole, with nothing written. That is the same
+refusal a save gives you and for the same reason: the bytes it is about to replace
+must be the bytes it wrote.
+
+The canvas follows the revert. If the action landed on a map you are not looking at,
+the Studio opens it and centres on the tile — a write you cannot see is exactly what
+this is here to stop.
+
 ## What it writes
 
 `content/zones/<id>.json`, through the same `canonicalJson` writer `content:export`

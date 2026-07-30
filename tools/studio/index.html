@@ -65,6 +65,12 @@
   .dlist button.none .sw { background: repeating-linear-gradient(45deg,
     var(--dim) 0 2px, transparent 2px 4px); }
   .dlist button.bad { border-color: var(--bad); }
+  /* The action log. An undone entry is still THERE — it is what redo means — so it
+     is dimmed rather than removed, and the line between the two is drawn where the
+     next Ctrl+Z would land. */
+  #log button.undone { opacity: .45; font-style: italic; }
+  #log button.here { border-color: var(--accent); }
+  #log .when { color: var(--dim); float: right; margin-left: 6px; }
   .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }
   .sw { height: 26px; border: 1px solid var(--line); border-radius: 3px; cursor: pointer; position: relative; }
   .sw.on { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -145,6 +151,19 @@
       neighbourhood a tile reads as — its name with the room, the line when you cross
       in, the smells outdoors. <b>Erase</b> hands a tile back to nothing.</div>
   </div>
+
+  <h2>History</h2>
+  <div class="row">
+    <button id="undo" style="flex:1" disabled>↶ Undo</button>
+    <button id="redo" style="flex:1" disabled>↷ Redo</button>
+  </div>
+  <details class="fan" id="logfan" style="margin-top:4px">
+    <summary><span class="caret">▸</span><span class="who" id="logwho">no edits yet</span><span class="n" id="logn"></span></summary>
+    <div class="maplist" id="log"></div>
+  </details>
+  <div class="help">Ctrl+Z, Ctrl+Shift+Z. One entry per stroke or save, whatever
+    number of files it turned into. Click one to go back through it. The map
+    re-derives from the files afterwards, exactly as a fresh paint does.</div>
 
   <h2>View</h2>
   <div class="row"><button id="zoom-out">−</button><button id="zoom-in">+</button><button id="fit">Fit</button></div>
