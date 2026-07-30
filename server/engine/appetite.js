@@ -154,48 +154,143 @@ export function appetiteMessages(player, gm = 1) {
 //
 // Read AFTER the meal lands, so it describes where you have ended up rather than what you
 // ate. A bar tells you how empty you are; this is the only thing that tells you how full.
+// One line per band would be right if you ate once. You eat constantly, so the
+// same sentence at the same fullness becomes wallpaper within an hour and stops
+// being read at all. Several per band, picked at random, keeps the information
+// arriving as language rather than as a status code you learn to skip.
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+
+const SATIATION = {
+  stuffed: [
+    'You could not manage another bite, and you should probably stop trying.',
+    'Your stomach has opinions about that last mouthful, and they are not kind ones.',
+    'That was too much. You know it was too much. You ate it anyway.',
+  ],
+  full: [
+    'You are full — properly, heavily full. It was worth it.',
+    'That is enough. That is comfortably, unarguably enough.',
+    'You sit back and let it settle. Nothing about you wants anything for a while.',
+  ],
+  sated: [
+    'You sit back. For the first time today, nothing in you is asking for anything.',
+    'The gnawing stops. You had almost stopped noticing it was there.',
+    'Something in your middle unclenches. You had been carrying that all day.',
+  ],
+  eased: [
+    'That takes the edge off.',
+    'The worst of it goes quiet.',
+    'Better. Not finished, but better.',
+  ],
+  partial: [
+    'It helps. It does not fix it.',
+    'A dent in it. No more than a dent.',
+    'Your stomach acknowledges the gesture and goes back to complaining.',
+  ],
+  trivial: [
+    'It barely registers. You are going to need considerably more than that.',
+    'That disappears into you without touching the sides.',
+    'You may as well have thought about food.',
+  ],
+};
+
 export function satiationLine(player) {
   const hunger = Number(player?.hunger ?? 0);
   const load = Number(player?.digestive_load ?? 0);
-  if (load >= 95) return "You could not manage another bite, and you should probably stop trying.";
-  if (load >= 70) return 'You are full — properly, heavily full. It was worth it.';
-  if (hunger >= 85) return 'You sit back. For the first time today, nothing in you is asking for anything.';
-  if (hunger >= 60) return 'That takes the edge off.';
-  if (hunger >= 30) return "It helps. It does not fix it.";
-  return 'It barely registers. You are going to need considerably more than that.';
+  if (load >= 95) return pick(SATIATION.stuffed);
+  if (load >= 70) return pick(SATIATION.full);
+  if (hunger >= 85) return pick(SATIATION.sated);
+  if (hunger >= 60) return pick(SATIATION.eased);
+  if (hunger >= 30) return pick(SATIATION.partial);
+  return pick(SATIATION.trivial);
 }
 
 // The drinking half. Thirst has no `digestive_load` equivalent that matters here — hydration
 // load exists but tops out at "you need the toilet", which is a different sentence — so this
 // reads off thirst alone.
+const SLAKE = {
+  done: [
+    'You drink until you have to stop for breath. That is that dealt with.',
+    'You keep going well past needing to, because you can.',
+    'You drain it and stand there a moment, not thirsty. It is a strange feeling.',
+  ],
+  good: [
+    'That is better. Considerably better.',
+    'The dust goes out of your throat.',
+    'Your head clears a little, which you had not expected.',
+  ],
+  helps: [
+    'It helps. Your mouth stops sticking to itself.',
+    'Enough to talk properly again, at least.',
+    'The worst of the dryness lifts.',
+  ],
+  start: [
+    'A start. Not enough of one.',
+    'Your throat notices. It is not impressed.',
+    'That wets your mouth and very little else.',
+  ],
+  trivial: [
+    'It disappears into you and barely touches the sides.',
+    'You may as well have licked the lid.',
+    'Gone before you register drinking it.',
+  ],
+};
+
 export function slakeLine(player) {
   const thirst = Number(player?.thirst ?? 0);
-  if (thirst >= 95) return 'You drink until you have to stop for breath. That is that dealt with.';
-  if (thirst >= 75) return 'That is better. Considerably better.';
-  if (thirst >= 45) return 'It helps. Your mouth stops sticking to itself.';
-  if (thirst >= 20) return 'A start. Not enough of one.';
-  return 'It disappears into you and barely touches the sides.';
+  if (thirst >= 95) return pick(SLAKE.done);
+  if (thirst >= 75) return pick(SLAKE.good);
+  if (thirst >= 45) return pick(SLAKE.helps);
+  if (thirst >= 20) return pick(SLAKE.start);
+  return pick(SLAKE.trivial);
 }
 
 /**
- * The amount actually taken on, as a quiet clause after the prose.
+ * Whether the portion was WASTED, said in words.
  *
- * `gained` is what the body ABSORBED; `offered` is what the item was worth. When
- * they differ you were already close to full, and saying so is the entire point —
- * it is the only way a player ever learns that finishing a banquet on a full
- * stomach throws most of it away. When they match, the waste clause is omitted
- * rather than reading "(+20, none wasted)" on every single meal.
+ * `gained` is what the body absorbed; `offered` is what the item was worth. The
+ * gap between them is the one thing the fullness line above cannot say — "you
+ * are full" reads the same whether you finished a ration or threw away most of
+ * a banquet, and the waste is precisely the lesson about portion sizes.
  *
- * Returns '' when nothing landed, so a drink taken at full hydration reads as the
- * prose alone rather than "(+0)".
+ * DELIBERATELY NOT A NUMBER. Hunger and thirst have no bar any more; quoting
+ * "+6, 14 wasted" would be a receipt against a scale the player cannot see, and
+ * it turns a sentence about a body into a line of accounting. The information is
+ * identical; only the register changes.
+ *
+ * Silent when little or nothing was lost, so an ordinary meal is just the meal.
  */
-export function appetiteGain(kind, gained, offered) {
-  const got = Math.round(Number(gained) || 0);
-  if (got <= 0) return '';
-  const had = Math.round(Number(offered) || 0);
-  const wasted = had - got;
-  const tail = wasted > 0 ? `, ${wasted} wasted` : '';
-  return ` <span class="text-dim">(+${got} ${kind}${tail})</span>`;
+const WASTE = {
+  most: {
+    hunger: ['Most of it goes to waste — you were fuller than you thought.',
+             'You get perhaps a third of the way through before your stomach refuses the rest.',
+             'The rest of it is a gift to the floor. You had no room for it.'],
+    thirst: ['Most of it goes straight through you and does nothing at all.',
+             'You manage a few swallows and give up. There was nowhere for it to go.',
+             'The rest runs down your chin, unwanted.'],
+  },
+  some: {
+    hunger: ['A fair bit of it goes uneaten.', 'You leave more of it than you meant to.'],
+    thirst: ['You leave a good deal of it.', 'More of it than you would like goes unswallowed.'],
+  },
+};
+
+export function portionLine(kind, gained, offered) {
+  const got = Math.max(0, Number(gained) || 0);
+  const had = Math.max(0, Number(offered) || 0);
+  if (had <= 0) return '';
+  const lost = (had - got) / had;
+  const bank = kind === 'thirst' ? 'thirst' : 'hunger';
+  if (lost >= 0.6) return ' ' + pick(WASTE.most[bank]);
+  if (lost >= 0.3) return ' ' + pick(WASTE.some[bank]);
+  return '';
 }
 
-export const _test = { HUNGER_BANDS, THIRST_BANDS, bandFor, step, HUNGER_RELIEF, THIRST_RELIEF, RELIEF_FROM_INDEX };
+// SATIATION/SLAKE are exported for the suite so it can assert the BAND a state
+// maps to rather than a keyword in one particular phrasing. Keyword assertions
+// silently become flaky the moment a band gains a variant that happens not to
+// contain the magic word — which is exactly what happened when these grew from
+// one line each to three.
+export const _test = {
+  HUNGER_BANDS, THIRST_BANDS, bandFor, step, HUNGER_RELIEF, THIRST_RELIEF, RELIEF_FROM_INDEX,
+  SATIATION, SLAKE, WASTE,
+};

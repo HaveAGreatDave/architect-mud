@@ -1557,11 +1557,20 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
 
     // SATIATION — the half that never existed. A bar tells you how empty you are; nothing in
     // the game could tell you how full, so portion sizes were unlearnable.
+    // Assert the BAND a state maps to, not a keyword inside one phrasing. Each
+    // band carries several lines now, and a /full/i test goes quietly flaky the
+    // day someone adds a variant that happens not to contain the magic word.
+    const inBand = (line, band) => A.SATIATION[band].includes(line);
     check('a big meal on an empty stomach reads as full',
-      /full/i.test(satiationLine({ hunger: 95, digestive_load: 80 })), satiationLine({ hunger: 95, digestive_load: 80 }));
-    check('a stuffed body is told to stop', /another bite/i.test(satiationLine({ hunger: 100, digestive_load: 100 })), 'stop');
+      inBand(satiationLine({ hunger: 95, digestive_load: 80 }), 'full'), satiationLine({ hunger: 95, digestive_load: 80 }));
+    check('a stuffed body is told to stop',
+      inBand(satiationLine({ hunger: 100, digestive_load: 100 }), 'stuffed'), satiationLine({ hunger: 100, digestive_load: 100 }));
     check('a crumb on an empty stomach reads as barely anything',
-      /barely/i.test(satiationLine({ hunger: 10, digestive_load: 5 })), satiationLine({ hunger: 10, digestive_load: 5 }));
+      inBand(satiationLine({ hunger: 10, digestive_load: 5 }), 'trivial'), satiationLine({ hunger: 10, digestive_load: 5 }));
+    // Hunger has no bar, so a number here would be a receipt against a scale the
+    // player cannot see. Sampled, because the lines are chosen at random.
+    check('eating never quotes a number at you',
+      !/[0-9]/.test(Array.from({ length: 40 }, () => satiationLine({ hunger: 50, digestive_load: 20 })).join('')), 'no digits');
     check('satiation always says something', typeof satiationLine({}) === 'string', 'never null');
   }
 
