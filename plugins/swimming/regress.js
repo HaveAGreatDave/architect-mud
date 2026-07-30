@@ -60,6 +60,54 @@ export default async function regress({ run, check, getPlayer }) {
   const r = await run('embark');
   check('embark ashore still answers for aircraft', r?.type === 'emote' && /aircraft/i.test(r.message || ''), r?.message);
 
+  // ── The swimmer roster: who the per-second tick is allowed to look at ───────
+  // The tick no longer derives this by walking every logged-in player, so the
+  // roster IS the correctness boundary — an id that never gets added is a player
+  // who never drowns, and one that never leaves is a body treading water ashore.
+  {
+    const { syncSwimmer, dropSwimmer, swimmers, swimTick } = _test;
+    const p = getPlayer();
+    const savedZone = p.current_zone, savedHp = p.hp, savedStatuses = p.statuses, savedStam = p.stamina;
+    const savedBoat = p._hasBoat, savedSub = p._submerged;
+    swimmers.clear();
+
+    p.current_zone = alongside.id;
+    p._hasBoat = false;
+    check('entering open water puts you on the roster', syncSwimmer(p) === true && swimmers.has(p.id));
+    check('…and marks you submerged for wetness/temperature to read', p._submerged === true);
+
+    p.current_zone = deck.id;                     // hauled out onto her deck
+    check('leaving the water takes you off the roster', syncSwimmer(p) === false && !swimmers.has(p.id));
+    check('…and clears the submerged flag', p._submerged === false && p._breath === null);
+
+    // A boat rides you across the surface: submerged is false, so there is no tread,
+    // no breath and no drowning — and therefore nothing for the tick to do.
+    p.current_zone = alongside.id;
+    p._hasBoat = true;
+    check('riding a boat keeps you off the roster', syncSwimmer(p) === false && !swimmers.has(p.id));
+    p._hasBoat = false;
+
+    // Logging out mid-swim must not leave an id nobody can serve.
+    p.current_zone = alongside.id;
+    syncSwimmer(p);
+    dropSwimmer(p);
+    check('logging out clears you from the roster', !swimmers.has(p.id) && p._submerged === false);
+
+    // Self-heal: an id for a player who is no longer live is dropped by the tick
+    // rather than being re-checked every second for the rest of the process.
+    swimmers.add('nobody-at-all');
+    await swimTick();
+    check('the tick sweeps an id with no live player', !swimmers.has('nobody-at-all'));
+
+    // An empty roster is the common case and must cost nothing — no live-player walk.
+    swimmers.clear();
+    check('an empty roster leaves the tick with nothing to do', swimmers.size === 0);
+
+    p.current_zone = savedZone; p.hp = savedHp; p.statuses = savedStatuses;
+    p.stamina = savedStam; p._hasBoat = savedBoat; p._submerged = savedSub;
+    swimmers.clear();
+  }
+
   // ── The `drowning` status effect bleeds HP (engine tick would persist/kill) ──
   const p = getPlayer();
   const savedHp = p.hp, savedStatuses = p.statuses;

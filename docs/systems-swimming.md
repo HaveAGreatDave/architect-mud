@@ -11,10 +11,20 @@ Owner: **`plugins/swimming/`** (mechanics) + small engine seams. New **Swimming*
 Driven by an `on('zone.entered', …)` handler (mirrors the pacing sprint spend):
 - **Wade in / haul out** — land→water and water→land are **free** (flavour lines only).
 - **Stroke** — water→water costs stamina over a wide skill band, `strokeCost(eff) = clamp(BASE_STROKE − effectiveSkill, MIN_STROKE, BASE_STROKE)` (18→4 across effective skill 0..14), so the Swimming skill keeps paying off instead of saturating at the floor immediately. Each stroke runs a Swimming `skillCheck` and `awardSkillUse`, so it trains.
-- **Tread** — a 1s `setInterval` tick bleeds `treadCost(eff)` (min 1) every `TREAD_MS` (8s) while you stay on a water tile — a gentle, sustainable bleed (~6–13 min afloat), so *moving* is the real cost, not floating.
+- **Tread** — a 1s scheduled tick bleeds `treadCost(eff)` (min 1) every `TREAD_MS` (8s) while you stay on a water tile — a gentle, sustainable bleed (~6–13 min afloat), so *moving* is the real cost, not floating.
 - **Drown** — at **0 stamina** while submerged you start drowning: the plugin applies the `drowning` **status effect** (registered in the plugin), and the engine's per-second effect tick (`gameLoop.js`) bleeds HP (`-6/s`), persists/broadcasts, and runs the death path at 0 HP. Reaching land clears it.
 
-The single signal everything else reads is the runtime flag **`player._submerged`** (owned by the plugin; set on move, refreshed each tick).
+The single signal everything else reads is the runtime flag **`player._submerged`** (owned by the plugin, maintained by **event**).
+
+### The swimmer roster — why the 1s tick is cheap
+The tick stays at **1 Hz because the breath timer is counted in ticks** (`_breath -= 1`), but it does **not** discover who is swimming. A module-level `Set` of player ids — the roster — is maintained by `syncSwimmer()`, and **`syncSwimmer` is the only writer**. Every path that moves a body calls it: `zone.entered`, `player.login`, `player.respawn`; `player.logout` and `player.death` call `dropSwimmer`. An empty sea costs one `.size` check.
+
+Two consequences worth knowing before touching this:
+
+- **A system/teleport move must still update submersion.** `zone.entered` used to return early on `opts.bypassEncumbrance` and let the next full sweep notice you were now in water. There is no full sweep any more, so the handler applies the physics on *every* move and skips only the **toll** (stamina, skill check, flavour prose) when the move was free. Teleporting someone into the sea and having them never drown is the failure mode this guards.
+- **The roster self-heals, it isn't trusted.** The tick drops ids with no live player, and re-runs `syncSwimmer` per member, so a move path that somehow never fired `zone.entered` corrects itself on the next tick instead of stranding a body treading water on dry land.
+
+A **sleeping** swimmer is skipped but **stays on the roster** — the mind is off in a dreamscape and the body isn't treading, but waking up out there should put you straight back in trouble.
 
 ## Boat perk
 Carry an **uncontained `boat`-tagged item** and you're *riding*, not swimming: no stroke cost, no tread, no submersion (so no wetness/cold), no drowning. Underwater tiles ignore this — you're under the water regardless.

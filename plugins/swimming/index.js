@@ -18,7 +18,15 @@
 //     tiles are always submerged — a boat doesn't help once you're under.
 //
 // The single signal the wetness and body-temperature systems read is the runtime
-// flag `player._submerged`, owned here (set on move + refreshed each tick).
+// flag `player._submerged`, owned here and maintained by EVENT — every path that
+// moves a body (`zone.entered`, login, respawn) calls syncSwimmer, which sets the
+// flag and decides whether the tick has anything to do for that player.
+//
+// It used to be "set on move + refreshed each tick", where the refresh meant a
+// full walk of every logged-in player, once a second, forever, to discover the
+// handful standing in water — a fact the move handler had already established.
+// The tick now iterates a roster instead, so an empty sea costs one `.size` check.
+// The tick itself stays at 1 Hz because the breath timer is COUNTED in ticks.
 //
 // No player verbs of its own — everything is automatic on movement. The ONE seam
 // out of here is BOARDING. A `flags.vessel` zone is a boat sitting on the map, and it
@@ -36,7 +44,7 @@
 // whether a given deck defends itself is the vessel's own business.
 
 import { query } from '../../server/models/db.js';
-import { world, getZone, getAllLivePlayers, zoneTerrain } from '../../server/engine/world.js';
+import { world, getZone, getLivePlayer, zoneTerrain } from '../../server/engine/world.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
@@ -173,14 +181,80 @@ async function rinseOff(player) {
   return cleaned;
 }
 
+// ── Who the tick has to look at ──────────────────────────────────────────────
+// Submersion is already event-maintained below — `zone.entered` knows the moment
+// you go in and the moment you come out — so the tick has no business re-deriving
+// it for every logged-in player once a second. This set is the roster: player ids
+// currently IN the water and owed tread drain, breath countdown and drowning.
+//
+// It is a cache of a fact the move handler already computes, so the rule is that
+// `syncSwimmer` is the ONLY writer, and every path that changes where a body is
+// (move, login, logout, death, respawn) calls it. An id that goes stale is
+// self-healed in the tick rather than trusted.
+const swimmers = new Set();
+
+// Recompute membership from the player's CURRENT zone. Sync and query-free — the
+// capability flags (`_hasBoat`, `_hasRebreather`) are set by the move handler,
+// which is the only thing that can afford to look them up.
+function syncSwimmer(player) {
+  if (!player) return false;
+  const zone = getZone(player.current_zone);
+  if (!isSwimZone(zone)) {
+    if (player._submerged) { player._submerged = false; player._breath = null; }
+    player._drowning = false;
+    swimmers.delete(player.id);
+    return false;
+  }
+  const submerged = isUnderwater(zone) || !player._hasBoat;
+  player._submerged = submerged;
+  // Riding a boat across the surface is not swimming: no tread, no breath, no
+  // drowning. Nothing for the tick to do, so stay off the roster.
+  if (!submerged) { player._breath = null; swimmers.delete(player.id); return false; }
+  swimmers.add(player.id);
+  return true;
+}
+
+function dropSwimmer(player) {
+  const id = player?.id ?? player;
+  if (id == null) return;
+  swimmers.delete(id);
+  const live = getLivePlayer(id);
+  if (live) { live._submerged = false; live._breath = null; live._drowning = false; }
+}
+
+// A body that stops being in the world stops being in the water. Without these the
+// roster would hold ids nobody can serve — the tick self-heals those, but leaking
+// them for a whole session just to lean on the self-heal is the wrong way round.
+on('player.logout', ({ player }) => dropSwimmer(player));
+on('player.death',  ({ player }) => dropSwimmer(player));
+
+// Logging back in standing in the sea used to be caught by the next sweep, because
+// the sweep looked at everyone. Now it has to be armed explicitly.
+on('player.login', async ({ player }) => {
+  if (!player) return;
+  const zone = getZone(player?.current_zone);
+  if (!isSwimZone(zone)) return;
+  player._hasBoat = isUnderwater(zone) ? false : await hasBoatItem(player.id);
+  player._hasRebreather = await hasRebreather(player.id);
+  syncSwimmer(player);
+});
+on('player.respawn', ({ player }) => syncSwimmer(player));
+
 // ── Per-move cost + submersion state (fires after a committed move) ───────────
 on('zone.entered', async ({ actor: player, from, opts }) => {
-  if (!player || opts?.bypassEncumbrance) return;   // system/teleport move — no swim toll
+  if (!player) return;
+  // A system/teleport move pays no swim TOLL — but it still moves a body, and the
+  // body is either in water or it isn't. The old code returned early here and let
+  // the next sweep notice; with no sweep to fall back on, physics has to be
+  // applied on every move and only the cost skipped.
+  const free = !!opts?.bypassEncumbrance;
   const toZone = getZone(player.current_zone);
 
   if (!isSwimZone(toZone)) {                          // stepped onto dry land
-    if (player._submerged) {
-      player._submerged = false; player._breath = null; player._hasBoat = false;
+    const wasSubmerged = player._submerged;
+    syncSwimmer(player);
+    player._hasBoat = false;
+    if (wasSubmerged && !free) {
       // Going fully under is a wash, and a free one — the poor man's shower.
       // Not in water that's worse than you are: a sewer outfall or a chem-slick
       // pool leaves you dirtier, so those only cost you the swim.
@@ -197,21 +271,20 @@ on('zone.entered', async ({ actor: player, from, opts }) => {
     return;
   }
 
+  // Capability lookup — the two queries this plugin makes, on the one path that
+  // can afford them (a move, not a tick). Everything downstream reads the flags.
   const underwater = isUnderwater(toZone);
   player._hasBoat = underwater ? false : await hasBoatItem(player.id);
   player._hasRebreather = await hasRebreather(player.id);
-  const submerged = underwater || !player._hasBoat;
-  player._submerged = submerged;
 
-  if (!submerged) {                                  // riding a boat across the surface — dry & free
-    player._breath = null;
-    return;
-  }
+  if (!syncSwimmer(player)) return;                  // riding a boat across the surface — dry & free
 
   // Breath: entering an underwater tile arms it (unless a rebreather feeds you air);
   // surfacing clears it.
   if (underwater && !player._hasRebreather) { if (player._breath == null) player._breath = await breathMax(player); }
   else player._breath = null;
+
+  if (free) return;                                  // teleported in — submerged, but no toll and no prose
 
   const wasSwim = from && isSwimZone(getZone(from));
   if (!wasSwim) {                                    // waded/dove in from land or a deck — free
@@ -229,23 +302,31 @@ on('zone.entered', async ({ actor: player, from, opts }) => {
 });
 
 // ── Per-second tick: tread drain, breath, drowning, ambience ─────────────────
+// Breath is counted in TICKS (`_breath -= 1` below), so this genuinely wants to be
+// 1 Hz — the cadence is the unit. What it does NOT want is to derive who is
+// swimming by walking every logged-in player once a second; that work is now done
+// on the move that puts them in the water. With nobody in the sea the whole thing
+// is one `.size` check.
 let ticking = false;
-async function swimTick() {
+export async function swimTick() {
+  if (!swimmers.size) return;
   if (ticking) return;
   ticking = true;
   try {
     const now = Date.now();
-    for (const player of getAllLivePlayers()) {
+    for (const pid of [...swimmers]) {
+      const player = getLivePlayer(pid);
+      // Self-heal: an id nobody can serve, or a body that is no longer in water
+      // (a move path that never fired `zone.entered`), leaves the roster here
+      // rather than being carried and re-checked forever.
+      if (!player) { swimmers.delete(pid); continue; }
+      if (!syncSwimmer(player)) continue;
+      // Asleep in the water: the mind is off in a dreamscape and the body is not
+      // treading, so it is not drowning either. Skipped, but kept on the roster —
+      // waking up out here should put you straight back in trouble.
       if (player.sleeping) continue;
       const zone = getZone(player.current_zone);
-      if (!isSwimZone(zone)) {
-        if (player._submerged) { player._submerged = false; player._breath = null; }
-        continue;
-      }
       const underwater = isUnderwater(zone);
-      const submerged = underwater || !player._hasBoat;
-      player._submerged = submerged;
-      if (!submerged) continue;                       // riding a boat — no swim effects
 
       // Breath countdown underwater — a rebreather supplies air, so it never runs out.
       if (underwater && !player._hasRebreather) {
@@ -432,6 +513,6 @@ registerAction({
   },
 });
 
-export const _test = { isSwimZone, isUnderwater, hasBoatItem, hasRebreather, strokeCost, treadCost, isVesselZone, vesselAt, vesselNear, waterUnder, invalidateVesselIndex, BASE_STROKE, MIN_STROKE, DIVE_EXTRA, TREAD_BASE };
+export const _test = { isSwimZone, isUnderwater, hasBoatItem, hasRebreather, strokeCost, treadCost, isVesselZone, vesselAt, vesselNear, waterUnder, invalidateVesselIndex, syncSwimmer, dropSwimmer, swimmers, swimTick, BASE_STROKE, MIN_STROKE, DIVE_EXTRA, TREAD_BASE };
 
 console.log('[swimming] Plugin loaded.');

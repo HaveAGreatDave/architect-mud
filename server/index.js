@@ -1157,8 +1157,10 @@ async function finishAuth(ws, session, player) {
 	// remedy, so they're one branch rather than the flag-shaped special case this
 	// used to be:
 	//
-	//   1. An authored drug dreamzone (`flags.is_dreamzone`). Trips are in-memory,
-	//      so a restart mid-trip would otherwise wake you inside the hallucination.
+	//   1. A LEGACY authored drug dreamzone (`flags.is_dreamzone`). Those shared
+	//      rooms are retired — every trip is instanced now — but a database that
+	//      predates the retirement can still hold one, and a stored `current_zone`
+	//      pointing into it must not be logged in to.
 	//   2. A TRANSIENT id — a dreamscape room or a void crossing. `persistableZone`
 	//      stops these being written now, but rows already corrupted by the old
 	//      disconnect checkpoint are still out there, and this repairs them on the

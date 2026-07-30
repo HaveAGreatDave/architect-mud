@@ -1,4 +1,4 @@
-// One-shot seed for the expanded drugs catalogue + hallucination dream-zones.
+// One-shot seed for the expanded drugs catalogue.
 //
 //   node server/models/temp/seed-drugs.js           # seed (skips ids already present)
 //   node server/models/temp/seed-drugs.js --force    # wipe seeded drugs/items/zones and reseed
@@ -14,27 +14,13 @@
 import 'dotenv/config';
 import { query, getClient } from '../db.js';
 
-// ── Dream zones (isolated, off the world map) ────────────────────────────────
-// map_id 'map_dream' + flags.is_dreamzone keeps them off the minimap and lets
-// the login rescue bounce anyone stranded by a restart. No exits: the player is
-// held until the trip ends and the plugin teleports them back.
-const DREAM_ZONES = [
-  {
-    id: 'zone_dream_threshold',
-    name: 'The Threshold',
-    description: 'There is no floor and there is no ceiling and yet you are standing. Fractal architecture unfolds in every direction, breathing, made of light that has weight. Vast machine-elves of chrome and stained glass turn to regard you without eyes. A sound like a cathedral being tuned rolls through your chest. You understand everything. You will remember none of it.',
-  },
-  {
-    id: 'zone_dream_khole',
-    name: 'The K-Hole',
-    description: 'You have become very far away from yourself. Your body is a rumour someone told you once. The world is a smooth grey funnel and you are sliding down the inside of it, slowly, without fear, without much of anything. Distant shapes move like continents. Time has been folded into a small flat square and put away.',
-  },
-  {
-    id: 'zone_dream_void',
-    name: 'The Static Sea',
-    description: 'An ocean of soft blue static stretches past every horizon. It laps at your ankles and hums your name in a voice you almost recognise. Things swim beneath the surface — old memories wearing new bodies, advertisements for products that do not exist, the shape of a room you grew up in. None of it is quite solid. All of it is watching.',
-  },
-];
+// ── Dream zones: GONE ────────────────────────────────────────────────────────
+// This file used to seed three authored dreamzones (The Threshold, The K-Hole,
+// The Static Sea) that every tripper on the same drug was teleported into — so
+// two people in a K-hole met each other in it. Hallucinations and sleep dreams
+// are instanced now (buildDreamscape: private rooms keyed by player id), and
+// hallucination.dreamzone_id is no longer read by anything. Do not add them
+// back: a shared hallucination is a contradiction.
 
 // ── Drug catalogue ───────────────────────────────────────────────────────────
 // Each entry authors one drug + its linked item. key → drug_id `drug_<key>` and
@@ -283,7 +269,7 @@ const DRUGS = [
     duration: 200, addiction: 0.01, od: 6,
     effects: {
       instant: { sanity: -12 },
-      hallucination: { mode: 'dreamzone', dreamzone_id: 'zone_dream_threshold', intensity: 1.0, palette: 'magenta', duration_seconds: 180, eventEverySec: 20,
+      hallucination: { mode: 'dreamzone', intensity: 1.0, palette: 'magenta', duration_seconds: 180, eventEverySec: 20,
         events: [
           { atSec: 4, text: '[trip]The room peels away like wet paper and you fall UP through it.[/trip]' },
           { atSec: 30, text: '[trip]The machine-elves are showing you something. It is the most important thing there is.[/trip]' },
@@ -299,7 +285,7 @@ const DRUGS = [
     duration: 240, addiction: 0.12, od: 4,
     effects: {
       instant: { sanity: -8 },
-      hallucination: { mode: 'dreamzone', dreamzone_id: 'zone_dream_khole', intensity: 0.7, palette: 'blue', duration_seconds: 200, eventEverySec: 18,
+      hallucination: { mode: 'dreamzone', intensity: 0.7, palette: 'blue', duration_seconds: 200, eventEverySec: 18,
         eventPool: [
           '[trip]You slide a little further down the smooth grey funnel.[/trip]',
           '[trip]Your body is somewhere behind you now, waving. You wave back, or think about it.[/trip]',
@@ -317,7 +303,7 @@ const DRUGS = [
     duration: 300, addiction: 0.1, od: 4,
     effects: {
       instant: { sanity: -14 },
-      hallucination: { mode: 'dreamzone', dreamzone_id: 'zone_dream_void', intensity: 0.9, palette: 'cyan', duration_seconds: 260, eventEverySec: 20,
+      hallucination: { mode: 'dreamzone', intensity: 0.9, palette: 'cyan', duration_seconds: 260, eventEverySec: 20,
         eventPool: [
           '[trip]The static sea hums your name and you feel it in your back teeth.[/trip]',
           '[trip]A memory swims past wearing someone else\'s face. It nods at you.[/trip]',
@@ -388,20 +374,8 @@ try {
   if (force) {
     const drugIds = DRUGS.map(d => `drug_${d.key}`);
     const itemIds = DRUGS.map(d => `item_${d.key}`);
-    const zoneIds = DREAM_ZONES.map(z => z.id);
     await client.query('DELETE FROM drugs WHERE id = ANY($1)', [drugIds]);
     await client.query('DELETE FROM items WHERE id = ANY($1)', [itemIds]);
-    await client.query('DELETE FROM zones WHERE id = ANY($1)', [zoneIds]);
-  }
-
-  // Dream zones.
-  for (const z of DREAM_ZONES) {
-    await client.query(
-      `INSERT INTO zones (id, name, description, danger_rating, is_safe_zone, pvp_enabled, exits, flags, map_id)
-       VALUES ($1,$2,$3,'safe',1,0,'{}'::jsonb,$4,'map_dream')
-       ON CONFLICT (id) DO NOTHING`,
-      [z.id, z.name, z.description, JSON.stringify({ is_dreamzone: true, is_interior: true })]
-    );
   }
 
   // Items + drugs.
@@ -425,7 +399,7 @@ try {
   }
 
   await client.query('COMMIT');
-  console.log(`✓ Seeded ${n} drugs (+items) and ${DREAM_ZONES.length} dream zones.`);
+  console.log(`✓ Seeded ${n} drugs (+items).`);
 } catch (e) {
   await client.query('ROLLBACK');
   console.error('✗ seed failed:', e.message);

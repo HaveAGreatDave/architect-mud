@@ -531,10 +531,16 @@ async function surveillanceTick() {
   await refreshRecordingCams();
   await pollSensors();
   await scanActiveCrimes();
-  for (const playerId of hubViewers) {
-    const { rows } = await query('SELECT id, handle FROM players WHERE id=$1', [playerId]);
-    if (!rows.length) { hubViewers.delete(playerId); continue; }
-    sendToPlayer(playerId, await buildHubPayload(rows[0], false));
+  // buildHubPayload only ever reads `id` and `handle`, both of which are already
+  // on the live player object — so this used to be one round trip PER OPEN HUB,
+  // every 5 s, to re-fetch two columns we were holding in memory. The live lookup
+  // is also the stricter existence check: the old query asked whether a row
+  // existed in `players`, which stays true after logout, so a viewer whose
+  // logout hook didn't fire was pushed to forever.
+  for (const playerId of [...hubViewers]) {
+    const viewer = getLivePlayer(playerId);
+    if (!viewer) { hubViewers.delete(playerId); continue; }
+    sendToPlayer(playerId, await buildHubPayload(viewer, false));
   }
   for (const playerId of panelWatchers.keys()) await pushPanelFeeds(playerId);
 }

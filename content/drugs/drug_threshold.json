@@ -4,7 +4,6 @@
   "duration_seconds": 200,
   "effects": {
     "hallucination": {
-      "dreamzone_id": "zone_dream_threshold",
       "duration_seconds": 180,
       "eventEverySec": 20,
       "events": [

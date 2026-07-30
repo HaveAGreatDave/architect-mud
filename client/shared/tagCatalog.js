@@ -463,7 +463,7 @@
     is_interior: { label: 'Interior', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'Indoors — weather/temperature/lighting use the interior model.' },
     is_dreamzone: { label: 'Dreamzone', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
-      help: 'Off-map hallucination zone the trip plugin teleports a mind into (map_dream, no exits). Kept off the minimap; login bounces anyone stranded here by a restart.' },
+      help: 'RETIRED — do not use. Marked the old SHARED authored dreamzones, where two people on the same drug met each other inside the hallucination. Every dream and trip is instanced now (private, RAM-only rooms). Kept only so the login rescue still recognises a legacy row.' },
     is_apartment: { label: 'Apartment', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'Rentable apartment zone (RENT / LOCK / SLEEP). Pairs with an apartments row.' },
     is_building: { label: 'Building', shape: 'flag', scope: 'zone', group: 'Zone: Structure',

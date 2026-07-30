@@ -827,12 +827,42 @@ const THUNDER_MESSAGES = [
 //   • Sky fill — a few strikes scattered inside each storm cell so a pilot flying
 //     a storm sees lightning even with nobody on the ground below. Visual only;
 //     the ground roll is the sole path that can kill.
+/**
+ * The set of zones that currently contain a BODY.
+ *
+ * Weather is a per-room effect that only matters where somebody is standing, so a
+ * physics sweep wants the handful of occupied rooms — not a walk of all ~5,800
+ * zones to find them, once every 5 s, for the whole duration of a storm.
+ *
+ * Uses `bodyZoneOf`, NOT `current_zone`, and that distinction is the whole reason
+ * this is a named function with a test: a dreamer's `current_zone` is a dreamscape
+ * with no sky, while the body it belongs to lies in a room that may well be in the
+ * storm. That body IS in `zone.players`, so the full sweep this replaces did reach
+ * it — keying on `current_zone` would silently stop weather happening to any room
+ * whose only occupants are asleep.
+ *
+ * NOT the same as `getOccupiedZones` (server/index.js, passed into environment.js),
+ * which walks live WS sessions and keys on `current_zone` deliberately: that one is
+ * for PRESENTATION — pushing a weather update to the room a client is currently
+ * rendering — and a dreamer's client is rendering the dreamscape. Physics follows
+ * the body, delivery follows the eyes. Don't collapse them into one helper.
+ */
+export function occupiedBodyZones() {
+  const occupied = new Set();
+  for (const p of world.players.values()) {
+    const zid = bodyZoneOf(p);
+    if (zid) occupied.add(zid);
+  }
+  return occupied;
+}
+
 async function stormTick() {
   const { weatherType } = getEnvironmentState();
   if (!STORM_WEATHER_TYPES.has(weatherType)) return;
 
-  for (const [zoneId, zone] of world.zones) {
-    if (zone.players.size === 0) continue;
+  for (const zoneId of occupiedBodyZones()) {
+    const zone = world.zones.get(zoneId);
+    if (!zone || zone.players.size === 0) continue;
     if (zone.flags?.is_interior || zone.flags?.is_apartment || zone.flags?.is_building) continue;
     // Per-tile: only zones actually under a storm cell flash, and denser cells
     // flash (and kill) more often. Field disabled → uniform 0.5 (old behaviour).

@@ -5,7 +5,6 @@
   "effects": {
     "comeon_message": "<span class=\"msg-system\">You dose and stand very still, waiting for the channel to change.</span>",
     "hallucination": {
-      "dreamzone_id": "zone_dream_void",
       "duration_seconds": 260,
       "events": [
         {

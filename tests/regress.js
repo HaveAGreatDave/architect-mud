@@ -1706,6 +1706,32 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     driftBodyTemperature(extreme, 100000);
     check('core temperature is clamped to the survivable floor', extreme.body_temp_c === 25, String(extreme.body_temp_c));
 
+    // ── The storm sweep's candidate set ─────────────────────────────────────
+    // stormTick used to walk all ~5,800 zones every 5s to find the few anyone is
+    // standing in; it now derives them from the players. The trap is the same one
+    // the drift above exists for: key that derivation on `current_zone` and a room
+    // whose only occupants are ASLEEP drops out of the weather entirely, because a
+    // dreamer's current_zone is a dreamscape. Their body is still lying in the storm.
+    {
+      const { occupiedBodyZones } = await import('../server/engine/gameLoop.js');
+      const { world } = await import('../server/engine/world.js');
+      const wakerId = 'regress_storm_awake_' + process.pid;
+      const sleeperId = 'regress_storm_asleep_' + process.pid;
+      world.players.set(wakerId,  { id: wakerId,  current_zone: roomId });
+      world.players.set(sleeperId, { id: sleeperId, current_zone: dreamId, sleeping: { bodyZone: roomId } });
+      try {
+        const occ = occupiedBodyZones();
+        check('the storm sweep sees a room someone is awake in', occ.has(roomId));
+        check('the storm sweep does NOT chase a dreamer into their dreamscape', !occ.has(dreamId));
+        world.players.delete(wakerId);
+        const asleepOnly = occupiedBodyZones();
+        check('a room whose only occupant is asleep still gets weather', asleepOnly.has(roomId));
+      } finally {
+        world.players.delete(wakerId);
+        world.players.delete(sleeperId);
+      }
+    }
+
     // ── Metabolic heat: a body is a furnace, not a rock ──────────────────────
     // The term the model was missing. Keeping moving in the cold is the most iconic fact
     // about cold survival there is, and none of it was represented.

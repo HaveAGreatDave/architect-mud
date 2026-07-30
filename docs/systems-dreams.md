@@ -327,10 +327,15 @@ The only ongoing cost is timers — one per active dreamer (moves the presence),
 (re-dresses rooms, speaks lines). Both are RAM-only, both self-cancel if their player vanishes, and both
 scale with people currently high or asleep rather than with players online.
 
-> **Legacy:** `zone_dream_threshold`, `zone_dream_khole` and `zone_dream_void` are the old authored
-> single-room dreamzones. Nothing reads them now. Retiring them needs a **hand-run one-shot** — the
-> additive CODEX deploy can never delete rows. See `scripts/prune-orphan-dream-rows.mjs` for the same
-> problem in the newer tables.
+> **Legacy — RETIRED 2026-07-30.** `zone_dream_threshold`, `zone_dream_khole` and `zone_dream_void`
+> were the old authored single-room dreamzones: every tripper on the same drug was teleported into the
+> *same* room, so two people in a K-hole met each other inside the hallucination. Nothing has read them
+> since instancing landed, and their content files (plus `map_dream` and the dead
+> `hallucination.dreamzone_id` key on khole/deadair/threshold) are now deleted, so the deploy's own
+> deletion pass drops the rows. `scripts/retire-shared-dreamzones.mjs` is the belt-and-braces hand-run
+> version — it also moves anyone whose stored `current_zone` still points at one. **There is no shared
+> dream or trip space anywhere: every experience is per-player by construction.**
+> See `scripts/prune-orphan-dream-rows.mjs` for the same additive-deploy problem in the newer tables.
 
 ---
 
@@ -363,9 +368,7 @@ The original three-step plan is BUILT. What actually remains:
 1. **Exercise it against a running server.** The largest outstanding item by far. Regress boots no
    sockets and runs no timers, so the presence beat, the transform speech, the FX push, the devpanel
    panel, and a real trip entering and leaving an instance are all unverified.
-2. **Retire the three legacy `zone_dream_*` rows** — nothing reads them. Needs a hand-run one-shot; the
-   additive deploy cannot delete.
-3. **More dissociatives** if wanted. The mode has room for nitrous-style loops and scripted
+2. **More dissociatives** if wanted. The mode has room for nitrous-style loops and scripted
    life-review structures that the current random-instance builder cannot express.
 
 ## Known gaps

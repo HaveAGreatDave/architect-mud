@@ -502,17 +502,20 @@ async function replenishTick() {
     `SELECT id, cash_max, replenish_interval_hours, last_replenish
      FROM atm_units WHERE cash_stock < cash_max AND is_broken = 0`
   );
-  for (const atm of rows) {
-    // Authored in game-hours — convert to the real seconds to actually wait via
-    // the game-speed knob so refills track the sped-up day.
+  // Which units are actually due. The interval is authored in GAME hours and
+  // converted through the game-speed knob, so the decision stays in JS — but the
+  // write does not have to. Every due unit gets the IDENTICAL update
+  // (`cash_stock=cash_max`, same timestamp), so this is one statement, not one
+  // round trip per drained cash machine every 5 minutes.
+  const due = rows.filter(atm => {
     const intervalSec = gameMsToReal((atm.replenish_interval_hours || 6) * 3600 * 1000) / 1000;
-    if (nowSec - (atm.last_replenish || 0) >= intervalSec) {
-      await query(
-        'UPDATE atm_units SET cash_stock=cash_max, last_replenish=$1 WHERE id=$2',
-        [nowSec, atm.id]
-      );
-    }
-  }
+    return nowSec - (atm.last_replenish || 0) >= intervalSec;
+  });
+  if (!due.length) return;
+  await query(
+    'UPDATE atm_units SET cash_stock=cash_max, last_replenish=$1 WHERE id = ANY($2)',
+    [nowSec, due.map(a => a.id)]
+  );
 }
 
 schedule('5m', () => replenishTick().catch(e => console.error('[atm] replenish error:', e.message)));

@@ -1163,10 +1163,25 @@
       // fully voiced, with no aspiration and barely any closure. Modelled as a stop so
       // it inherits the locus machinery, but with the timing of a tap.
       DX:{t:'S',d:28,nf:2600,vd:.7,lf:ALV,asp:0},
-      _:{t:'P',d:40},      // word gap
-      _C:{t:'P',d:180},    // continuation pause (, ; :) — the clause is not finished
-      __:{t:'P',d:230},    // terminal pause (. ! ?)
+      // PUNCTUATION IS NOT ONE THING. A comma, a colon, a dash and an ellipsis are
+      // four different silences, and collapsing them into one 180ms gap threw away
+      // most of what punctuation is FOR. Each break carries its own duration, and
+      // `term` marks the ones that end a phrase (re-pitch, declination reset).
+      _:{t:'P',d:40},              // word gap
+      _C:{t:'P',d:150},            // comma — the lightest real break
+      _S:{t:'P',d:260},            // semicolon / colon — heavier than a comma, not an end
+      _D:{t:'P',d:190},            // dash, parenthesis — an interruption, not a clause edge
+      _E:{t:'P',d:430,term:1},     // ellipsis — trailing off, and the longest silence there is
+      __:{t:'P',d:250,term:1},     // full stop
+      _X:{t:'P',d:200,term:1},     // exclamation — a shout doesn't linger, it lands and moves
+      _Q:{t:'P',d:290,term:1},     // question — held open a beat for the answer
+      _P:{t:'P',d:480,term:1},     // paragraph / line break
     };
+    // Break classes, so nothing has to enumerate the codes. `_` is a juncture and
+    // is deliberately NOT a break — see the word-boundary note in the synth loop.
+    const isBreak = c => !!(PH[c] && PH[c].t === 'P' && c !== '_');
+    const isTerm  = c => !!(PH[c] && PH[c].term);
+    const isGap   = c => !!(PH[c] && PH[c].t === 'P');
 
     // High-frequency irregulars + broadcast vocab the rules/dict get wrong. Wins over CMU.
     // Entries may carry their own '*' stress marker (and AX for schwa) exactly as
@@ -1531,7 +1546,7 @@
         if (p === 'AE'){
           // Scan to the next non-gap phone: the trigger consonant may sit across
           // a syllable break in the run.
-          let j = i+1; while (phon[j] === '_' || phon[j] === '_C' || phon[j] === '__' || isMark(phon[j])) j++;
+          let j = i+1; while (isGap(phon[j]) || isMark(phon[j])) j++;
           if (RP_BATH_FOLLOW.has(phon[j])) { out.push('AA'); continue; }
         }
         out.push(p);
@@ -1749,9 +1764,27 @@
       return out;
     }
 
+    const ABBREV = new Set(['mr','mrs','ms','dr','st','jr','sr','prof','sgt','lt','capt','col','gen','inc','ltd','vs','approx','dept']);   // NOT "no" — "no." ends sentences far more often than it abbreviates number
     function textToPhonemes(text){
       const seq = [];
-      const toks = expandNumbers(text).trim().split(/(\s+|[.,!?;:])/).filter(Boolean);
+      // Multi-character marks come FIRST in the alternation or "..." arrives as three
+      // full stops — three terminal pauses and three declination resets for one
+      // trailing-off. `-{2,}`/em-dash only: a hyphen inside a word (well-known) is
+      // not a break and must stay inside the word token.
+      const toks = expandNumbers(text).trim().split(/(\s+|\.{2,}|…|—|–|-{2,}|[.,!?;:()])/).filter(Boolean);
+      const PUNCT = /^(\.{2,}|…|—|–|-{2,}|[.,!?;:()])$/;
+      // Two marks in a row ("?!", ", —") are ONE silence, not two. Take the longer of
+      // them and drop any word gap that got in first, so the pause the writer meant
+      // is the pause that plays.
+      const pushBreak = code => {
+        while (seq.length && seq[seq.length-1] === '_') seq.pop();
+        const last = seq[seq.length-1];
+        if (isBreak(last)) {
+          if (PH[code].d > PH[last].d || (PH[code].term && !PH[last].term)) seq[seq.length-1] = code;
+          return;
+        }
+        seq.push(code);
+      };
       // THREE cases, not two. The first version of this had only "emphasis" and
       // "ignore", and put a wholly-capitalised line in the ignore bucket to stop
       // title cards being screamed — which meant a line that is nothing BUT a shout,
@@ -1764,14 +1797,26 @@
       const { shout, shouty } = lineCaps(text);
       for (let i = 0; i < toks.length; i++) {
         const tok = toks[i];
-        if (/^\s+$/.test(tok)) { seq.push('_'); continue; }
-        // A comma is not a full stop. The clause continues, and the voice needs to
-        // say so — see the continuation rise in speak().
-        if (/^[,;:]$/.test(tok)) { seq.push('_C'); continue; }
-        if (/^[.!?]$/.test(tok)) { seq.push('__'); continue; }
-        // Phrase edge: nothing but whitespace between here and a stop or the end.
+        if (/^\s+$/.test(tok)) { tok.includes('\n') ? pushBreak('_P') : seq.push('_'); continue; }
+        // A comma is not a full stop, a colon is not a comma, and a dash is not
+        // either of them — see the continuation contour in speak().
+        if (/^\.{2,}$|^…$/.test(tok)) { pushBreak('_E'); continue; }
+        if (/^,$/.test(tok))          { pushBreak('_C'); continue; }
+        if (/^[;:]$/.test(tok))       { pushBreak('_S'); continue; }
+        if (/^(—|–|-{2,}|[()])$/.test(tok)) { pushBreak('_D'); continue; }
+        if (/^\.$/.test(tok)) {
+          // A full stop after "Mr" or after a single letter ("U.S.", "J. Vale") is not
+          // the end of a sentence, and stopping dead there is the most obvious way a
+          // reader gives itself away.
+          const prev = (i ? toks[i-1] : '').replace(/[^A-Za-z]/g, '');
+          if (/^[A-Za-z]$/.test(prev) || ABBREV.has(prev.toLowerCase())) { seq.push('_'); continue; }
+          pushBreak('__'); continue;
+        }
+        if (/^!$/.test(tok))          { pushBreak('_X'); continue; }
+        if (/^\?$/.test(tok))         { pushBreak('_Q'); continue; }
+        // Phrase edge: nothing but whitespace between here and a mark or the end.
         let j = i + 1; while (j < toks.length && /^\s+$/.test(toks[j])) j++;
-        const edge = j >= toks.length || /^[.,!?;:]$/.test(toks[j]);
+        const edge = j >= toks.length || PUNCT.test(toks[j]);
         const w = tok.toLowerCase().replace(/[^a-z']/g, '');
         let ph = stressWord(pronounceWord(tok), w, edge);
         if (!shouty && (shout || isEmphatic(tok))) {
@@ -1838,7 +1883,7 @@
       let n = 0;
       for (let j = i; j < phon.length; j++) {
         const c = phon[j];
-        if (c === '_' || c === '_C' || c === '__') break;
+        if (isGap(c)) break;
         if (VOWELS.has(c)) n++;
       }
       return n;
@@ -1850,7 +1895,12 @@
     function segmentDuration(p, code, ctx) {
       let dur = Math.max(0.03, (p.d/1000)/ctx.speed);
       // Pre-boundary lengthening — a PHRASE edge, not a word edge.
-      if (!ctx.nxtCode || ctx.nxtCode === '__' || ctx.nxtCode === '_C') dur *= 1.22;
+      // …and it scales with the WEIGHT of the break. A syllable before a full stop is
+      // held longer than one before a comma; that difference is a large part of how a
+      // listener hears which mark was written.
+      if (!ctx.nxtCode) dur *= 1.30;
+      else if (isTerm(ctx.nxtCode)) dur *= 1.30;
+      else if (isBreak(ctx.nxtCode)) dur *= 1.18;
       if (p.t === 'V') {
         dur *= ctx.wordScale;
         // AX is already the reduced vowel; shortening it again double-counts.
@@ -2245,8 +2295,11 @@
       // follows syllables rather than consonant clusters.
       // A question doesn't just end differently, it LEANS differently the whole way:
       // declination is shallower because the speaker is holding the phrase open.
-      const rise = /\?\s*$/.test(String(text).trim());
-      const decl = rise ? V.decl * 0.45 : V.decl;
+      // …and that is a property of the PHRASE, not of the line: "Is it done? It is."
+      // has one phrase leaning open and one closing down. Worked out per phrase below.
+      const tail = String(text).trim();
+      const rise  = /\?["'’”)]*\s*$/.test(tail);
+      const trail = /(\.{2,}|…)["'’”)]*\s*$/.test(tail);   // a line that trails off doesn't land
       // "FUCK!" is not "lean on this word" — it is the whole line at full effort, and
       // the vowel has to be HELD. Word-level emphasis alone reads as a nudge.
       const shoutLine = lineCaps(text).shout;
@@ -2260,10 +2313,16 @@
       const phrases = [[]];
       for (const code of phon) {
         phrases[phrases.length-1].push(code);
-        if (code === '__') phrases.push([]);
+        if (isTerm(code)) phrases.push([]);
       }
       if (!phrases[phrases.length-1].length) phrases.pop();
       const phraseDur = phrases.map(ph => estimateDuration(ph, speed) || 1);
+      // Per-phrase declination, read off the mark that ENDS each phrase: a question
+      // holds itself open, an ellipsis sags away harder than a full stop does.
+      const phraseDecl = phrases.map(ph => {
+        const end = ph[ph.length-1];
+        return end === '_Q' ? V.decl * 0.45 : end === '_E' ? V.decl * 1.25 : V.decl;
+      });
       let phraseIx = 0, phraseT0 = t0;
       const totalDur = estimateDuration(phon, speed) || 1;
       // INTRINSIC F0. High vowels sit a little higher in pitch than low ones — the
@@ -2279,8 +2338,13 @@
       // one it starts low and rises. Real, small, and free here.
       let micro = 1;
 
-      const pitchAt = (when, frac, stressed, f1, cont) => {
-        const fall = 1 - decl * frac;                         // declination
+      // BOUNDARY TONE — what the pitch does going INTO the mark. Each punctuation
+      // mark has its own, and it is most of what tells the ear which one was written:
+      // a comma rises and hands over, a colon holds level and announces, a dash breaks
+      // off flat, an ellipsis drifts down and away, a question climbs.
+      const BOUNDARY = { _C: 1.07, _S: 1.05, _D: 1.04, _E: 0.955, _Q: 1.13, _X: 1.02 };
+      const pitchAt = (when, frac, stressed, f1, nextCode) => {
+        const fall = 1 - (phraseDecl[phraseIx] ?? V.decl) * frac;   // declination
         // Emphasis is a level ABOVE stress, not a louder version of it — it moves
         // pitch about twice as far, which is what makes "it is GONE" land.
         const lift = stressed === 2 ? 1 + V.lilt * 3.4 * TUNING.emphasis
@@ -2290,7 +2354,7 @@
         // English says so by rising (or at least not falling) into the pause. Without
         // it a list reads as a series of separate little sentences, because every
         // clause got the same terminal fall.
-        const hold = cont ? 1.07 : 1;
+        const hold = BOUNDARY[nextCode] || 1;
         glot.frequency.setTargetAtTime(F0 * fall * lift * hold * intrinsicF0(f1) * micro, when, 0.05);
         micro = 1;
         // SPECTRAL TILT tracks effort. A voice raised in emphasis doesn't just get
@@ -2411,7 +2475,7 @@
           // A devoiced vowel is breath where the voice should be — without this the
           // syllable would just get quieter, which is a dropout, not a whisper.
           noiseG.gain.setTargetAtTime(devoiced ? 0.10 : V.breath * TUNING.breath, t, 0.01);
-          if (p.t === 'V') pitchAt(t, (t - phraseT0) / (phraseDur[phraseIx] || totalDur), stressed, f[0], nxtCode === '_C');
+          if (p.t === 'V') pitchAt(t, (t - phraseT0) / (phraseDur[phraseIx] || totalDur), stressed, f[0], nxtCode);
           if (p.to) setF(t+dur*0.62, p.to, false, 0.018);
           t += dur;
         } else if (p.t==='F' || p.t==='H') {
@@ -2520,7 +2584,7 @@
         } else if (p.t==='P') {
           // A terminal pause ends the phrase: the next one starts from the top of the
           // speaker's range again, which is what re-pitching after a full stop is.
-          if (code === '__') { phraseIx++; phraseT0 = t + dur/speed; }
+          if (isTerm(code)) { phraseIx++; phraseT0 = t + dur/speed; }
           pendingStress = 0;
           // A WORD BOUNDARY IS NOT A PAUSE. This zeroed the voice at every `_`, so
           // a 40ms hole opened between every single word in the line — which is the
@@ -2565,7 +2629,7 @@
       // the old code re-anchored F0 at t0 and ramped, which erased every contour
       // scheduled above it. A question turns the fall into a rise.
       glot.frequency.setTargetAtTime(
-        rise ? F0 * (1 + V.lilt * 1.9) : F0 * (1 - V.decl) * 0.94,
+        rise ? F0 * (1 + V.lilt * 1.9) : F0 * (1 - V.decl) * (trail ? 0.88 : 0.94),
         Math.max(t0, end - 0.18), 0.06);
       // CREAK. English speakers routinely fall into vocal fry on the last syllable of
       // a statement — the folds run out of breath pressure, the pitch drops off a
