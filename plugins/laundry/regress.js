@@ -2,9 +2,9 @@
 // The harness player stands in an ordinary zone with no washing machine, which is
 // the important case: the verb must fall THROUGH rather than claim the input.
 import { getRegisteredSpecializedActions } from '../../server/engine/specializedActions.js';
-import { hygieneOf, laundryFactor, markLaundered, checkImmaculate, checkFilthy,
-  warmthMultiplier, npcWashAtHome, CLEAN_EFFECT, CLEAN_BAND, LAUNDRY_FLAG, WASH_FLAG }
-  from '../../server/engine/hygiene.js';
+import { hygieneOf, laundryFactor, lastLaunderedAt, lastWashedAt, markLaundered,
+  checkImmaculate, checkFilthy, warmthMultiplier, npcWashAtHome, CLEAN_EFFECT,
+  CLEAN_BAND, LAUNDRY_FLAG, WASH_FLAG } from '../../server/engine/hygiene.js';
 
 export default async function regress({ run, check, getPlayer }) {
   // Discoverability: a machine has to advertise the verb, or it's invisible content.
@@ -31,10 +31,15 @@ export default async function regress({ run, check, getPlayer }) {
     check('dirty clothes drag the hygiene score down',
       hygieneOf(p).score < 100, String(hygieneOf(p).score));
 
-    // A body wash does NOT reset the laundry clock.
-    const before = laundryFactor(p);
+    // A body wash does NOT reset the laundry clock. Assert that on the CLOCK, not on
+    // laundryFactor's return value: the factor ramps off Date.now(), so comparing two
+    // calls with `===` fails the moment a millisecond passes between them — which is a
+    // coin flip on CI and always won locally. The clock is the thing under test anyway.
+    const before = lastLaunderedAt(p);
     p._flags.set(WASH_FLAG, String(Date.now()));
-    check('showering does not launder your clothes', laundryFactor(p) === before);
+    check('showering does not launder your clothes', lastLaunderedAt(p) === before,
+      `${lastLaunderedAt(p)} vs ${before}`);
+    check('showering does still wash the body', lastWashedAt(p) > before);
   }
 
   // The clean buff and its accolade hook: reaching immaculate has to be worth
