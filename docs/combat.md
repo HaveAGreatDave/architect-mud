@@ -125,6 +125,29 @@ Hit chance in an even matchup (unaimed baseline is **54%**):
 | feet | 8% | 17% | 30% | 38% |
 | head | 5% | 12% | 17% | 38% |
 
+#### How a player finds out, and why it's a person who tells them
+
+That table is the whole reason the discovery path is what it is. At skill 1 a called head shot lands
+**5%** of the time, so "you can aim" is not a tip — handed over unqualified it is a way to make a new
+player worse at the game with no way to see why.
+
+So two things carry the caveat:
+
+- **`aim` quotes YOUR cost, not the constant.** `aimReadiness()` in the plugin reads the equipped
+  weapon's `weapon_skill`, the player's effective skill, and then calls **`aimHitPenalty` itself** —
+  the same function the swing uses — so the number on screen is the number in the maths, and the
+  trainer and the tool cannot drift. It reports one of three bands: *a gamble, not a tactic* /
+  *already bought back N* / *as cheap as it ever gets*.
+- **Grady teaches the verb** (`TEACH_AIM`, a dialogue action returning a `dialogue_line`, which is
+  the seam that lets an NPC's spoken line carry a live `teachVerb` shimmer).
+
+It used to be an ambient one-shot on your first durable wound, keyed on `player_flags.taught_aim`.
+That fired at precisely the moment your skill was lowest — the verb was a trap exactly when the game
+introduced it — and the "you're ready for this" wording was unreachable for anyone but a high-stat
+build, since first-wound and first-training are the same moment for everyone else. A lesson whose
+answer is *not yet* needs someone who is still standing there when the answer becomes *now*. Both the
+hint and its flag are gone.
+
 ### The execution shot
 
 A called head shot can kill outright. Three conditions, all chosen or earned:

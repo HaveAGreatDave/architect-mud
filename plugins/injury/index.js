@@ -30,7 +30,10 @@
  */
 import { registerDamageObserver } from '../../server/engine/damage-events.js';
 import { registerImpairmentProvider } from '../../server/engine/impairment.js';
-import { AIM_PENALTY } from '../../server/engine/combat.js';
+import { AIM_PENALTY, aimHitPenalty } from '../../server/engine/combat.js';
+import { getEquippedWeapon } from '../../server/engine/inventory.js';
+import { registerAction } from '../../server/engine/actions.js';
+import { effectiveSkill, SKILLS } from '../../server/engine/skills.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { sendToPlayer, teachVerb } from '../../server/engine/messaging.js';
 import { world } from '../../server/engine/world.js';
@@ -475,8 +478,86 @@ function resolveAimPart(raw, valid = PARTS) {
   return { ok: false };
 }
 
+// What a called shot actually costs THIS player, with the weapon they are
+// actually holding.
+//
+// AIM_PENALTY is a novice's number. Printing it to a master understates them by
+// six points, and printing it to a novice without saying so sells them a shot
+// that lands 5% of the time. combat.js has already decided that skill buys the
+// cost back, so the surface that advertises the feature reads it from the same
+// function the swing does (`aimHitPenalty`) rather than restating the rule.
+//
+// Not a hot path — `aim` is typed by a human, once, between swings — so the
+// equipped-weapon read (TTL-cached) and the IP read are both affordable here.
+async function aimReadiness(player, part) {
+  const row = await getEquippedWeapon(player).catch(() => null);
+  const skillId = row?.tags?.weapon_skill || 'fists';
+  const skill = await effectiveSkill(player, skillId).catch(() => 0);
+  const base = AIM_PENALTY[part] ?? 0;
+  // Borrow a bare shape rather than mutating the live player: this is called
+  // before `_aimPart` is set, and to preview parts they are not aiming at.
+  const real = aimHitPenalty({ _aimPart: part }, skill);
+  return {
+    skill, base, real,
+    bought: real - base,
+    name: SKILLS[skillId]?.name || skillId,
+    weapon: row?.name || 'bare hands',
+  };
+}
+
+// The one sentence that answers "why did I miss?" before they ask it.
+function aimCostNote(r) {
+  if (r.base === 0) return 'Centre mass is where you were swinging anyway — it costs you nothing.';
+  const cost = `<span class="dmg-type">(${r.real} to hit)</span>`;
+  if (r.bought <= 0) {
+    return `Right now that is a gamble, not a tactic ${cost}. A called shot is a trained hand — `
+      + `your <b>${r.name}</b> is ${r.skill}, and every 2 points of it buys back 1 of that penalty. `
+      + `Fight with the ${r.weapon} until it does.`;
+  }
+  if (r.real <= -2) {
+    return `Harder to land ${cost}. Your <b>${r.name}</b> of ${r.skill} has bought back everything it can — `
+      + `a called shot never gets cheaper than this.`;
+  }
+  return `Harder to land ${cost}. Your <b>${r.name}</b> of ${r.skill} has already bought back ${r.bought} of it; `
+    + `train it further and the rest follows.`;
+}
+
+// ── TEACH_AIM — the lesson, delivered by a person ────────────────────────────
+//
+// A dialogue node fires this with no params; same content-facing shape as
+// TEACH_RECIPE and ADJUST_REPUTATION, so any VINE graph can reach it.
+//
+// It returns a `dialogue_line`, which the runner appends to the node's authored
+// text and the client sets with innerHTML — that is the seam that lets an NPC's
+// spoken line carry a real `teachVerb` shimmer instead of a dead mention of a
+// verb the player then has to type from memory.
+//
+// The whole reason this is an ACTION and not just authored prose: what he says
+// depends on how good you actually are, and it has to stay true when you come
+// back. `aimReadiness` is the same function the `aim` verb reads, so the trainer
+// and the tool can never drift apart or quote different numbers.
+registerAction({
+  type: 'TEACH_AIM',
+  handler: async ({ actor }) => {
+    if (!actor?.id) return { type: 'error', message: 'Nobody here to teach.' };
+    const r = await aimReadiness(actor, 'head');
+    const verb = teachVerb('aim');
+    // Head is the reference shot because it is the one everybody wants and the
+    // one that punishes a novice hardest — it makes the "not yet" honest.
+    const line = r.bought <= 0
+      ? `<span class="ambient">You can ${verb} a body part to call your shots — but not yet, not usefully. `
+        + `Your <b>${r.name}</b> is ${r.skill}, and a called head shot at that costs you `
+        + `<span class="dmg-type">${r.real}</span> to hit. Put the hours in first; every 2 points of the skill `
+        + `buys 1 of that back.</span>`
+      : `<span class="ambient">You can ${verb} a body part to call your shots, and you have the hands for it now — `
+        + `your <b>${r.name}</b> of ${r.skill} has bought a called head shot down to `
+        + `<span class="dmg-type">${r.real}</span> to hit${r.real <= -2 ? ', which is as cheap as it ever gets' : ''}.</span>`;
+    return { type: 'dialogue_line', text: `\n${line}` };
+  },
+});
+
 export const commands = {
-  aim: (args, raw, player) => {
+  aim: async (args, raw, player) => {
     const arg = (args || []).join(' ');
 
     if (!arg) {
@@ -489,7 +570,7 @@ export const commands = {
       const anatomy = foe ? foeAnatomy(foe) : null;
 
       const head = cur
-        ? `You are aiming for the <span class="hit-part">${partLabel(cur)}</span>. <span class="dmg-type">(${AIM_PENALTY[cur] ?? 0} to hit before skill)</span>`
+        ? `You are aiming for the <span class="hit-part">${partLabel(cur)}</span>. ${aimCostNote(await aimReadiness(player, cur))}`
         : 'You are not aiming anywhere in particular — you swing for whatever presents itself.';
 
       if (anatomy?.length) {
@@ -529,10 +610,7 @@ export const commands = {
     }
 
     player._aimPart = part;
-    const cost = AIM_PENALTY[part] || 0;
-    const note = cost === 0
-      ? 'Centre mass is where you were swinging anyway — it costs you nothing.'
-      : `Harder to land. <span class="dmg-type">(${cost} to hit, less as your weapon skill improves)</span>`;
+    const note = aimCostNote(await aimReadiness(player, part));
     return {
       type: 'info',
       message: `You line up on the <span class="hit-part">${PART_LABELS[part]}</span>. ${note}`,

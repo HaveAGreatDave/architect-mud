@@ -25,8 +25,7 @@
  * undefined and combat is byte-identical.
  */
 import { registerEnemyDamageObserver } from '../../server/engine/damage-events.js';
-import { sendToPlayer, teachVerb } from '../../server/engine/messaging.js';
-import { setFlag } from '../../server/engine/flags.js';
+import { sendToPlayer } from '../../server/engine/messaging.js';
 import { severityFor } from './index.js';
 import { PARTS, PART_LABELS, HURT, MAIMED, injuryName } from './tables.js';
 
@@ -241,22 +240,21 @@ function onEnemyDamage(enemy, { part, damage, baseDamage, type, critical, forceS
       type: 'output',
       message: `<span class="ambient">Its ${label} is ${name}.</span>`,
     });
-    maybeTeachAim(attacker);
   }
 }
 
-// The discovery path for the whole opt-in half. Seeing a wound land on something
-// you are fighting is the moment "you could have chosen where that went" is
-// worth hearing — earlier is noise, later is too late to matter.
-const TAUGHT_AIM_FLAG = 'taught_aim';
-
-function maybeTeachAim(player) {
-  if (player._flags?.get(TAUGHT_AIM_FLAG)) return;
-  setFlag('player', TAUGHT_AIM_FLAG, '1', player).catch(() => {});
-  sendToPlayer(player.id, {
-    type: 'output',
-    message: `<span class="ambient">You could have put that somewhere you chose — ${teachVerb('aim')} a body part to call your shots. Harder to land, and worth it.</span>`,
-  });
-}
+// `aim` is NOT taught from here, and deliberately.
+//
+// It used to be: the first durable wound you inflicted fired a one-shot hint.
+// The trouble is that a called shot at skill 0 lands 5% of the time, and the
+// first wound you ever inflict is by definition the moment your skill is
+// lowest — so the hint arrived exactly when the verb was a trap, and the
+// version of it that said "you are ready for this" was unreachable for anyone
+// but a high-stat build. A lesson whose caveat is "not yet" should not be
+// delivered mid-swing by nobody.
+//
+// Grady teaches it instead (TEACH_AIM, plugins/injury/index.js). He can say
+// "not yet" and still be there to say "now" when you come back trained, which
+// an ambient one-shot never could.
 
 registerEnemyDamageObserver(onEnemyDamage, 'injury');

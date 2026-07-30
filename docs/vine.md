@@ -301,6 +301,14 @@ AI behaviour nodes come from a **separate** pair of catalogues (`AI_CONDITIONS`/
 
 Plugins also register dialogue actions via `registerAction` that the editor catalog (`vine-action-types.js`) doesn't yet list, so they're authored by hand in the JSON. Notably **`GPS_TO`** (from the **gps** plugin, `params.zone`) plots a route onto the player's map and pushes a `gps_route` independently of the dialogue text — an NPC can send you somewhere (e.g. `npc_claude_merrin`). No-ops when you're already at the destination.
 
+An action that returns `{ type: 'dialogue_line', text }` has its text **appended to the node's authored
+text**, and the client sets that with `innerHTML` — so a plugin action is how an NPC's spoken line
+carries live markup (a `teachVerb` shimmer, a clickable listing) that authored prose can't. **`TEACH_AIM`**
+(from the **injury** plugin, no params) is the reference example: Grady teaches the `aim` verb, and the
+action words the lesson against the player's *current* weapon skill so the same node reads "not yet" to a
+novice and "you have the hands for it now" when they come back. Prefer this over baking a verb name into
+the prose — a mentioned verb is a verb the player has to retype from memory.
+
 ---
 
 ## Auto-layout

@@ -164,6 +164,42 @@
       ],
       "text": "\"Good. There’s a green line on your map now — that’s the way. East, into the alley. Try not to die out there; the paperwork on a fresh clone is murder.\""
     },
+    "aim_lesson": {
+      "_vine": {
+        "x": 360,
+        "y": 1680
+      },
+      "actions": [
+        {
+          "action": "TEACH_AIM"
+        }
+      ],
+      "options": [
+        {
+          "label": "And if I do put the hours in?",
+          "next": "aim_lesson_trained"
+        },
+        {
+          "label": "Centre mass it is.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Where do you hit them.\" He says it flat, like it is not a question worth the breath. \"Same place everyone hits them, is where. The middle. It is the biggest part of a person and it is the part that is always facing you.\"\nHe sets down the crate he was holding.\n\"Now — you *can* pick a spot. Head, knee, the hand holding the thing you do not want held. It works. It works about as well as your hands do, which right now is not very. A man who calls a head shot he cannot make has not made a head shot, he has made a miss, and out here a miss is a whole second of your life you handed to somebody else.\""
+    },
+    "aim_lesson_trained": {
+      "_vine": {
+        "x": 680,
+        "y": 1680
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then it stops being a gamble and starts being a decision.\" He shrugs. \"That is the entire difference between the two of us and whatever is out in that alley. It is not the gun. Anyone can hold the gun. It is that you get to choose where it goes and they do not.\"\nHe goes back to the crate.\n\"Come ask me again when you have been swinging a while. I will tell you the same thing and it will be worth more.\""
+    },
     "bye": {
       "_vine": {
         "x": 680,
@@ -263,6 +299,10 @@
           "next": "shop"
         },
         {
+          "label": "Where do you hit them, exactly?",
+          "next": "aim_lesson"
+        },
+        {
           "label": "Just passing.",
           "next": "bye"
         }
@@ -307,6 +347,10 @@
         {
           "label": "\"Two-Cell?\"",
           "next": "lore"
+        },
+        {
+          "label": "Where do you hit them, exactly?",
+          "next": "aim_lesson"
         },
         {
           "conditions": [

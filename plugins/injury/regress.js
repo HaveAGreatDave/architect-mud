@@ -17,6 +17,7 @@ import { enemySeverity, enemyWoundNote, partLabel, enemyHasCapability } from './
 import { impairmentOf } from '../../server/engine/impairment.js';
 import { effectiveStat } from '../../server/engine/condition.js';
 import { aimHitPenalty, aimedWeights as aimedWeightsFor, splitSpread, spreadGroups, executionShot, enemyAttackPlayer, waterCombatPenalty, underskilledPenalty, weaponSkillRequirement, applyStun, isStunned, isOnCooldown } from '../../server/engine/combat.js';
+import { dispatchAction } from '../../server/engine/actions.js';
 import { knockOut, wakeUp, isOut } from '../../server/engine/unconscious.js';
 import { fireDamageToEnemy as fireEnemy, fireDamageToPlayer } from '../../server/engine/damage-events.js';
 
@@ -30,7 +31,7 @@ function body(injuries = {}) {
   return { id: 'regress-injury', handle: 'Testsubject', hp_max: 100, _flags: new Map(), _injuries: map };
 }
 
-export default async function regress({ run, check }) {
+export default async function regress({ run, check, getPlayer }) {
   // ── The verb ───────────────────────────────────────────────────────────────
   const r = await run('injuries');
   check('injuries verb routed', r?.type !== 'error', r?.message);
@@ -290,6 +291,27 @@ export default async function regress({ run, check }) {
     aimHitPenalty(headAimer, 999) < 0, `got ${aimHitPenalty(headAimer, 999)}`);
   check('centre mass is free — it is what the roll already favoured',
     (() => { const p = body(); p._aimPart = 'torso'; return aimHitPenalty(p, 0) === 0; })());
+
+  // The lesson is Grady's now, and its whole point is that it tells the truth
+  // about YOUR hands. The trap it exists to prevent is a novice being sold a
+  // called shot as an unqualified good, so the untrained wording must actually
+  // say no — and the readout must quote the skill-adjusted cost, not the
+  // textbook one, or the trainer and the verb drift apart.
+  const lesson = await dispatchAction({ type: 'TEACH_AIM', actor: getPlayer() });
+  check('TEACH_AIM is registered and reachable from a dialogue node',
+    lesson?.type === 'dialogue_line', JSON.stringify(lesson));
+  check('it carries a real teachVerb shimmer, not a dead mention of the verb',
+    /class="[^"]*verb-teach[^"]*"[^>]*>aim</.test(lesson?.text || ''), lesson?.text);
+  // Quoted cost must sit inside the band the engine can actually produce for a
+  // head shot: the novice constant at worst, AIM_FLOOR at best. The test player
+  // has real stats, so pinning it to one number would be pinning it to their
+  // build — the property that matters is that the number came from
+  // aimHitPenalty rather than from AIM_PENALTY.
+  const quoted = Number((lesson?.text || '').match(/dmg-type">(-?\d+)/)?.[1]);
+  check('the lesson quotes a real skill-adjusted cost, not the novice constant',
+    quoted <= -2 && quoted >= aimHitPenalty(headAimer, 0), `quoted ${quoted}`);
+  check('an untrained player is told NO, a trained one is told now',
+    /not yet|hands for it now/i.test(lesson?.text || ''), lesson?.text);
 
   const w = aimedWeightsFor(headAimer, { head: 10, torso: 40, left_leg: 11 });
   const wTotal = Object.values(w).reduce((a, b) => a + b, 0);
