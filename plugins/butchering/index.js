@@ -23,6 +23,7 @@ import { stainClothing } from '../../server/engine/bodily.js';
 import { on } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { setPosture } from '../../server/engine/posture.js';
+import { escAttr } from '../../server/engine/text.js';
 
 const BUTCHER_MS = 5000;
 
@@ -161,7 +162,7 @@ async function resolveButcher(player) {
 			}
 			const label = qty > 1 ? `${qty}x ${carvedName}` : carvedName;
 			carved.push(
-				`<span class="action-link room-item" data-action="examine" data-target="${itemName}" title="Examine ${itemName}">${label}</span>`,
+				`<span class="action-link room-item" data-action="examine" data-target="${escAttr(itemName)}" title="Examine ${escAttr(itemName)}">${label}</span>`,
 			);
 		} else {
 			ruined.push(itemName);

@@ -20,6 +20,7 @@ import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
+import { escAttr } from '../../server/engine/text.js';
 
 const ATTEMPT_MS = 3500;   // per-attempt cadence, sibling to the attack cooldown
 const MAX_SWING = 14;      // best possible 2d8-2d8 roll — reachability ceiling
@@ -225,7 +226,7 @@ async function runAttempt(player, st, nowMs) {
       'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)',
       [randomUUID(), player.id, target.item_id]
     );
-    const link = `<span class="action-link item-link" data-action="examine" data-target="${target.name}" title="Examine ${target.name}">${target.name}</span>`;
+    const link = `<span class="action-link item-link" data-action="examine" data-target="${escAttr(target.name)}" title="Examine ${escAttr(target.name)}">${target.name}</span>`;
     out(player.id, `${flavor}\n<span class="item-grant">You turn up ${link} and pocket it.</span>`);
     if (totalStock - 1 === 0)
       out(player.id, 'That was the last of it — you\'ve picked the area clean.');

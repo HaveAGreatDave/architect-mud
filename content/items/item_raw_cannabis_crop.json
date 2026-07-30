@@ -1,0 +1,15 @@
+{
+  "description": "A bale of unsorted cannabis flower, cut wet and pressed too soon, sweating gently inside its wrap. It is entirely legal and it announces itself from thirty feet away, which makes it the honest man's cargo and the cheapest thing on the Reach's books. Trim and cure it and you have loose leaf worth rolling.",
+  "flags": {
+    "cook_tier": 0,
+    "raw_of": "drug_loose_cannabis"
+  },
+  "id": "item_raw_cannabis_crop",
+  "name": "a bale of raw cannabis flower",
+  "tags": {
+    "crop": true
+  },
+  "type": "chemical",
+  "value": 18,
+  "weight": 3
+}

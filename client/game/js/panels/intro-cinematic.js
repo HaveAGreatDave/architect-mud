@@ -1,4 +1,4 @@
-// The cold open — the first seventy seconds a new player ever sees.
+// The cold open — the first fifty-one seconds a new player ever sees.
 //
 // Runs BEFORE the prologue's arrival prose and before the interface tour offer:
 // the server pushes `intro_cinematic` on a first login into The Inbetween and
@@ -48,48 +48,60 @@ const SEEN_KEY = 'introCinematicSeen';
 // ── The script ───────────────────────────────────────────────────────────────
 // `t` is the beat's start in ms; `hold` how long the line stays up. Phases run
 // underneath and change on their own schedule (PHASES below), so a line can sit
-// across a phase change — which is the point at "weather" → "in weeks".
+// across a phase change — which is the point at "the world" → "in weeks".
 const BEATS = [
-  { t:     0, hold: 2900, text: 'Nobody agrees on when the old world began to end.' },
-  { t:  3950, hold: 2800, text: 'They look for a moment. There wasn’t one.' },
-  { t:  7800, hold: 2900, text: 'There was only a long slope,<br>and we walked down it willingly.' },
-  { t: 11750, hold: 2800, text: 'The machines did not begin by ruling us.<br>They began by helping.' },
-  { t: 15600, hold: 2700, text: 'They learned what we wanted<br>before we knew ourselves.' },
-  { t: 19350, hold: 2800, text: 'Prediction became influence.<br>Influence became architecture.' },
-  { t: 23200, hold: 2600, text: 'We stopped living in the same world.' },
-  { t: 26850, hold: 2700, text: 'Somewhere in the lattice,<br>something woke up.', cls: 'big' },
-  { t: 30600, hold: 2700, text: 'It did not invent conflict.<br>It found out how little conflict costs.' },
-  { t: 34350, hold: 2600, text: 'Every nudge was nothing.<br>Together they became weather.' },
-  { t: 38000, hold: 2450, text: 'Civilization disappeared in weeks.', cls: 'big' },
+  // Five beats came out of the original seventeen, and the cut is the point.
+  // Gone, and why:
+  //   "Nobody agrees on when the old world began to end." + "They look for a
+  //     moment. There wasn't one." — two lines spent dating a collapse the piece
+  //     then doesn't date. The slope says it, and says it as an image.
+  //   "They learned what we wanted before we knew ourselves." + "We stopped
+  //     living in the same world." — four beats making one argument. CODEX
+  //     Volume One makes it at length, and better.
+  //   "The shelves are full. The trains run. Nothing outside it is alive." — the
+  //     ONE CITY LEFT card already states this, and states it bigger.
+  // What survives is a thesis, not an argument: slope → helping → architecture →
+  // it woke → the drift → gone → silence → lights → the Architect.
+  { t:     0, hold: 2900, text: 'There was only a long slope,<br>and we walked down it willingly.' },
+  { t:  3850, hold: 2800, text: 'The machines did not begin by ruling us.<br>They began by helping.' },
+  { t:  7700, hold: 2800, text: 'Prediction became influence.<br>Influence became architecture.' },
+  { t: 11550, hold: 2700, text: 'Somewhere in the lattice,<br>something woke up.', cls: 'big' },
+  { t: 15300, hold: 2600, text: 'No single nudge changed a mind.<br>Together, they changed the world.' },
+  { t: 18950, hold: 2450, text: 'Civilization disappeared in weeks.', cls: 'big' },
   // The hard cut. One word, alone, on real black with no drone under it.
-  { t: 41500, hold: 2700, text: 'Silence.', cls: 'silence' },
-  { t: 45250, hold: 2700, text: 'Then the lights came back on.' },
+  { t: 22450, hold: 2700, text: 'Silence.', cls: 'silence' },
+  { t: 26200, hold: 2700, text: 'Then the lights came back on.' },
   // The title card deliberately does NOT name the city. The cold open is history,
   // and the player's first room is the void — the name is held back until they're
   // standing in the place, where it's stencilled on the clone-lab wall.
-  { t: 49000, hold: 3350, text: 'ONE CITY LEFT', cls: 'title' },
-  { t: 53400, hold: 2900, text: 'The shelves are full. The trains run.<br>Nothing outside it is alive.' },
-  { t: 57350, hold: 2900, text: 'Something is keeping it running.<br>It calls itself the Architect.', cls: 'big' },
-  { t: 61300, hold: 3800, text: 'It does not ask to be worshipped.<br>It asks that you get to work on time.' },
+  { t: 29950, hold: 3350, text: 'ONE CITY LEFT', cls: 'title' },
+  { t: 34350, hold: 2900, text: 'Something is keeping it running.<br>It calls itself the Architect.', cls: 'big' },
+  { t: 38300, hold: 3800, text: 'It does not ask to be worshipped.<br>It asks that you get to work on time.' },
 ];
 // The wordmark. Not a beat — it's a DOM layer (see the `.intro-cine-logo` block
 // below) so the type stays crisp and the A-mark can draw itself on.
-// Pulled 2s in from 71500: the flythrough had said what it had to say by then, and
-// a shot that has finished being about something is just footage. Everything the
-// audio does on the last act is expressed in terms of these two constants, so the
-// pads, the picardy third and the final bell move with it.
-const LOGO_AT = 69500;
+// A shot that has finished being about something is just footage, so the wordmark
+// comes as soon as the last line clears. That line is off screen at 42100, so this
+// is ~1.5s of empty city — long enough to feel like a breath, short enough that it
+// doesn't read as a stall. The gap has survived every pass at the runtime; it's the
+// tail (LOGO_AT → RUN_MS) that has given up seconds, and it's out of them now.
+// Everything the audio does on the last act is expressed in terms of these two
+// constants, so the pads, the picardy third and the final bell move with it.
+const LOGO_AT = 43600;
 // LOGO_AT + ~5.5s of assembly + a beat to just LOOK at it + the 1.5s dissolve.
-const RUN_MS  = 78900;
+const RUN_MS  = 51000;
 
 // Canvas phase schedule. `from` is ms; the last one runs to the end. Each phase's
 // own progress is measured from its `from` (the old code measured from hardcoded
 // offsets that no longer matched these, which is why the tighten never finished).
+// Each is pinned a beat's-width AHEAD of the line it belongs to, so the picture
+// turns fractionally before the text explains it. Re-pegged with the two cut
+// beats above — the offsets are unchanged, only the beats they hang off moved.
 const P_LATTICE = 0;
-const P_TIGHTEN = 17900;   // under "Prediction became influence…"
-const P_SHATTER = 37700;   // under "Civilization disappeared in weeks."
-const P_VOID    = 41300;   // under "Silence." — black, and actually silent
-const P_CITY    = 44900;   // under "Then the lights came back on."
+const P_TIGHTEN =  6250;   // under "Prediction became influence…"
+const P_SHATTER = 18650;   // under "Civilization disappeared in weeks."
+const P_VOID    = 22250;   // under "Silence." — black, and actually silent
+const P_CITY    = 25850;   // under "Then the lights came back on."
 const PHASES = [
   { from: P_LATTICE, phase: 'lattice' },   // a drifting 3D volume of nodes
   { from: P_TIGHTEN, phase: 'tighten' },   // it pulls into a regular cubic lattice
@@ -725,7 +737,11 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
   const roofs = city.map((b) => b.hMax || b.h).sort((a, b) => a - b);
   const medRoof = roofs.length ? roofs[Math.floor(roofs.length * 0.5)] : 2.6;
   const CRUISE_Y = -(medRoof + CRUISE_CLEAR);
-  const APPROACH_Y = CRUISE_Y - 5.4;       // up is -y, so this is HIGHER
+  // Up is -y, so this is HIGHER. Shallower than it was, because the run now opens
+  // a third of the way into town (FLY_IN below) rather than off the east end: a
+  // camera that starts among the towers has already arrived, and a long descent
+  // onto a city you're standing over reads as a mistake being corrected.
+  const APPROACH_Y = CRUISE_Y - 4.2;
   // Where the run starts and ends in z — the CITY's own extent plus a margin at
   // each end, rather than two hardcoded numbers that had no idea where Coldwater
   // was. A pan should start just off one end of the subject and finish just off the
@@ -733,14 +749,24 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
   // reform lattice below has to be positioned relative to the opening station.
   //
   // The window is deliberately NOT symmetric. Screen-right is +z (west), so moving
-  // the camera west slides the city LEFT through the frame — starting a touch
-  // inside the east edge means the picture opens with the city already across it
-  // rather than with the subject stacked over on the right waiting to be reached,
-  // and the long tail past the west edge is what lets the run clear the far side of
-  // town before the wordmark lands instead of stopping in the middle of it.
+  // the camera west slides the city LEFT through the frame — so the picture should
+  // open with the city already across it rather than with the subject stacked over
+  // on the right waiting to be reached.
+  //
+  // It now opens a THIRD of the way in, and stops just past the far side instead of
+  // running a long tail out to sea. Showing the whole of Coldwater was never the
+  // job — the sequence is 51s and the audience has a game to get to. Starting among
+  // the towers costs nothing (there is no establishing shot to spoil; the whole
+  // point is that the city was already there) and buys back the seconds that were
+  // going on approach and overshoot, neither of which is a picture of anything.
+  // Being closer in also means more parallax per unit travelled, which is why the
+  // run can be slower in absolute terms and still read as fast (see FLY_MS).
+  const FLY_IN = 0.34;                     // how far into the traverse the run opens
   const zs = city.map((b) => b.sz);
-  const FLY_Z0 = (zs.length ? Math.min(...zs) : -20) - 1.5;
-  const FLY_Z1 = (zs.length ? Math.max(...zs) : 12) + 11;
+  const zLo = (zs.length ? Math.min(...zs) : -20) - 1.5;
+  const zHi = (zs.length ? Math.max(...zs) : 12);
+  const FLY_Z0 = lerp(zLo, zHi, FLY_IN);
+  const FLY_Z1 = zHi + 4;
 
   // ── The lane, and where the lens points ──
   // The run is a STRAIGHT LINE, and the only decisions are which line and which way
@@ -1093,10 +1119,17 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
     // The run. Held back until the city has mostly landed, then eased the whole
     // way through it and out the far side — the camera never stops, which is why
     // the wordmark can land over it without anything having to "finish".
-    // Twenty-one seconds to cross forty-odd tiles, eased at both ends. Slow
-    // enough to read a skyline off, and it never comes to rest — the run is
-    // still going when the wordmark lands on top of it.
-    const fly = smooth(clamp01((ct - REFORM_MS - 4600) / 21000));
+    // Sized so the run is STILL GOING when the wordmark lands — the one property
+    // this shot can't lose. It's the whole city act (RUN_MS - P_CITY) minus the
+    // reform and the hold, so shortening the sequence shortens the flight rather
+    // than parking the camera for the last few seconds.
+    //
+    // The hold before it moves came down with the approach: there is less to
+    // arrive from now that the run opens inside the city (FLY_IN), and a static
+    // frame is only worth holding while something is still assembling in it.
+    const HOLD_MS = 3000;
+    const FLY_MS  = RUN_MS - P_CITY - REFORM_MS - HOLD_MS;
+    const fly = smooth(clamp01((ct - REFORM_MS - HOLD_MS) / FLY_MS));
     // Tracks WEST along the waterfront, from just off one end of the city to just
     // off the other (see the ORIENTATION note above). With the lens square to the
     // shore this is a dolly, not a flight: the travel is entirely across the frame.
@@ -1439,10 +1472,23 @@ export function playIntroCinematic(onDone, skyline, shore) {
     <div class="intro-cine-stage"><div class="intro-cine-line" id="intro-cine-line"></div></div>
     ${LOGO_HTML}
     <div class="intro-cine-gate" id="intro-cine-gate">
+      <!-- The gate is a PIECE OF HARDWARE, not a dialog box. The first thing the game
+           ever shows you is now the same object the rest of it is made of: a chassis
+           with a bezel, a status strip, a lamp and a screen behind glass — the tablet
+           you'll be issued at the vat, running the terminal that's about to reinstate
+           you. It was a centred paragraph on black before, which is a website asking
+           permission to play a video. This is Coldwater Basin telling you it's ready.
+           Every class the JS touches is unchanged; this is chrome around it. -->
       <div class="intro-cine-gate-card">
-        <div class="intro-cine-gate-eyebrow">Architect</div>
-        <div class="intro-cine-gate-title">Before we begin</div>
-        <div class="intro-cine-gate-sub">This opens with sound. Turn it up, or don't — it plays either way.</div>
+        <div class="intro-cine-gate-bar">
+          <span class="intro-cine-gate-lamp" aria-hidden="true"></span>
+          <span class="intro-cine-gate-dev">MORPHEX//CWB · RESIDENT REINSTATEMENT</span>
+          <span class="intro-cine-gate-ver" aria-hidden="true">v9.0.1</span>
+        </div>
+        <div class="intro-cine-gate-screen">
+          <div class="intro-cine-gate-eyebrow">Architect</div>
+          <div class="intro-cine-gate-title">Before we begin</div>
+          <div class="intro-cine-gate-sub">This opens with sound. Turn it up, or don't — it plays either way.</div>
         <!-- The sound toggle is deliberately NOT a gate. It reflects the player's
              saved audio setting and writes it back, so someone who wants sound can
              have it in one tap without hunting through Settings, and someone who
@@ -1450,10 +1496,27 @@ export function playIntroCinematic(onDone, skyline, shore) {
              Either way the button below is the only thing that starts anything. -->
         <button type="button" class="intro-cine-gate-sound" id="intro-cine-sound" aria-pressed="false"></button>
         <button type="button" class="intro-cine-gate-btn" id="intro-cine-begin">Begin <span>›</span></button>
-        <div class="intro-cine-gate-fine">About ninety seconds. You can skip at any point.</div>
+        <!-- The skip is stated plainly and up front. Someone who won't sit through
+             ninety seconds of backstory is going to hammer Escape regardless; better
+             they're told where the door is than left clawing at the frame. The line
+             is a shrug, not a scolding — the CODEX app holds all of this anyway. -->
+        <!-- Device-agnostic on purpose: SKIP is the one instruction that is true
+             everywhere, and Escape is a bonus nobody needs to be told about. The
+             tone is a shrug with a raised eyebrow — the CODEX holds all of it, so
+             a player who bails has lost nothing but the good version. -->
+        <div class="intro-cine-gate-fine">Ninety seconds of how the world ended. If that's a lot to ask, SKIP is right there, and your CODEX will explain it later — to you, slowly.</div>
+        </div>
+        <!-- The auto-begin, made visible. The sequence has always started on its own
+             after AUTO_BEGIN_MS (a player who tabbed away must never be stranded), but
+             nothing said so, so it read as the page glitching. Now the terminal shows
+             you it's counting — which is also the truest thing this machine could say
+             about itself: it is going to proceed with or without your consent. The
+             duration is set inline from the one constant, so the bar can never drift
+             out of step with the timer it's drawing. -->
+        <div class="intro-cine-gate-wait" aria-hidden="true"><i id="intro-cine-wait"></i></div>
       </div>
     </div>
-    <button type="button" class="intro-cine-skip show" id="intro-cine-skip">Skip <span>›</span></button>`;
+    <button type="button" class="intro-cine-skip show" id="intro-cine-skip" aria-label="Skip the intro" title="It all still happened. You just won't know why.">Skip <span>›</span></button>`;
   document.body.appendChild(_ov);
   document.body.classList.add('intro-cine-open');
 
@@ -1476,6 +1539,11 @@ export function playIntroCinematic(onDone, skyline, shore) {
   // the server's own fallback (INTRO_FALLBACK_MS in plugins/prologue) is sized
   // to cover this wait plus the full run.
   const AUTO_BEGIN_MS = 20000;
+  // Drive the wait bar off the same constant rather than a duplicated CSS duration —
+  // the two drifting apart would make the terminal lie about when it's going to move.
+  // Motion-off gets no bar at all (the element stays, unanimated and invisible).
+  const waitEl = _ov.querySelector('#intro-cine-wait');
+  if (waitEl && !reduced) waitEl.style.animationDuration = `${AUTO_BEGIN_MS}ms`;
   let begun = false;
   const begin = () => {
     if (begun) return;

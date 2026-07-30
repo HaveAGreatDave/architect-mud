@@ -32,7 +32,7 @@ where I live"; check the title's US status on Project Gutenberg before adding it
 |---|---|---|---|
 | A Modest Proposal | Swift | 1729 | 1 |
 | Candide | Voltaire | 1759 | 31 |
-| Confessions of an English Opium-Eater | De Quincey | 1821 | 5 |
+| Confessions of an English Opium-Eater | De Quincey | 1821 | 6 |
 | The Island of Doctor Moreau | Wells | 1896 | 22 |
 | The Iron Heel | London | 1908 | 26 |
 | The Machine Stops | Forster | 1909 | 3 |
@@ -53,7 +53,34 @@ Three rules follow, and breaking any one of them silently undoes it:
   materialising the text. A lazy `SELECT *` here drags a megabyte into a screen
   that shows six lines.
 - A page turn pulls **one chapter, by index, inside Postgres**.
+- The contents page measures each chapter's **length** inside Postgres and sends
+  only the integer (rendered as a reading estimate). It is built with
+  `jsonb_array_elements … WITH ORDINALITY`, **not** `jsonb_path_query_array(chapters,
+  '$[*].title')` — a path query silently SKIPS any element missing the key, so one
+  untitled chapter would shorten the array and shift every index after it, sending
+  taps to the wrong chapter with nothing to show it had.
 - Nothing caches the text in Node.
+
+### Chapter splitting is per-book, and it is easy to under-split
+
+`scripts/content/fetch-books.mjs` carries a `splitOn` regex per title. A heading
+the regex doesn't know is not an error — the text before the first match becomes
+one **"Front Matter"** blob, so the missing sections simply never appear on the
+contents page. De Quincey shipped that way: `TO THE READER` and `PRELIMINARY
+CONFESSIONS` (a third of the book, and the part everyone quotes) were buried in an
+80KB front-matter section, and the contents ran from the title straight to PART II.
+**After changing a `splitOn`, read the chapter titles back** — a chapter count that
+looks plausible is not evidence the split is right.
+
+### Routing: a contents tap arrives as the CONTENTS screen
+
+The client resends the screen you are currently on plus the tile's id as params
+(`wireBody`'s `data-open-item`), so tapping chapter 3 sends
+`tabletnav library contents "<bookId> 2"`. `buildScreen` matches a trailing index
+and forwards to the reader. Without that it fell through to the cover branch and
+looked up a book called `"<bookId> 2"` — **"No such book." for every chapter of
+every book on the shelf**, which is what shipped until 2026-07-29. Regress now
+drives the tap itself, not just the contents page.
 
 ### The `::int` cast
 
@@ -659,6 +686,7 @@ The whole catalogue opens at once — Marrowby is not a man who rations.
 | Path | Role |
 |---|---|
 | `plugins/tablet/library-app.js` | The reader: shelf, contents, page, gloss, bookmark |
+| `client/game/js/panels/tablet-os.js` | `view:'library'` — `renderLibraryShelf` / `Cover` / `Contents` + the `.tos-lib-*` CSS; the page itself is `.tos-book` |
 | `plugins/library/` | The unlock: `scan`, the intro, the `lending_terminal` tag |
 | `scripts/content/fetch-books.mjs` | Text acquisition (Gutenberg/Wikisource) + lexicons |
 | `scripts/content/build-glossary.mjs` | Glossary term authoring |

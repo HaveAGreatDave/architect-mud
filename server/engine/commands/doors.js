@@ -10,11 +10,12 @@ import { effectiveSkill, awardSkillUse } from '../skills.js';
 import { getEquippedWeapon } from '../inventory.js';
 import { reloadItem, getItem } from '../items-cache.js';
 import { getZoneProtection } from '../protection.js';
-import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
+import { doorGuardsOnlyUnownedApartment, playerControlsApt } from '../apartments.js';
 import { gameMsToReal } from '../gametime.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage, getSelectionState } from '../sift.js';
 import { registerAction } from '../actions.js';
 import { hasHackDeck, hackDifficulty, damageHackDeck, breachMargin } from '../hack-gear.js';
+import { escAttr } from '../text.js';
 
 const DIRECTIONS = ['north','south','east','west','up','down','in','out'];
 const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
@@ -84,9 +85,46 @@ function getLockTag(door) {
 }
 export { getLockTag as getLockTagPublic };
 
+// ── A resident is never locked out of their own home ─────────────────────────
+// The law: if a door touches a residence this player controls, they are authorised
+// on it, whatever kind of lock is hanging there. This sits ABOVE the per-lock-type
+// registry on purpose, because the registry is where the ways to be shut out of your
+// own flat were hiding — each lock type authored its own auth in isolation and only
+// the hololock happened to know what an apartment was:
+//
+//   • `keycardlock` authorised on INVENTORY alone, so being robbed of (or dropping,
+//     or losing to a corpse) `keycard_<doorId>` locked the deed holder out of a unit
+//     they own, permanently — cmdInstallLock mints exactly one card.
+//   • `privacylock` authorised on "am I standing on the private side", so any
+//     visitor could throw the bolt and shut the owner out of their own home from
+//     the street. Not hackable either (hackDoor is hololock-only).
+//   • An NPC arriving home locks whatever door it just used (ai-behaviour.js), so a
+//     roommate NPC in a keycard/privacy unit could bolt a player's own door.
+//
+// Deliberately NOT in locks.js: that module is a pure registry with no world
+// knowledge, and this is a housing rule. checkLockAuth is the single funnel every
+// caller already uses (the move gate, open/close/lock/unlock, hackDoor, and the
+// describe pane's "owned" marker), so one check here covers all of them — including
+// making the door render as yours.
+//
+// This grants AUTH, not passage: a manual bolt still has to be physically undone
+// (lockTypePassesWhileLocked is a separate question, see the engine:door-lock gate),
+// which is what keeps a privacy latch meaningful. It means the resident can always
+// UNLOCK it — they can never be left with no way in.
+function controlsEitherSide(player, door) {
+  if (!player || !door) return false;
+  const sides = [door.zone_id, door.target_zone, ...exitTargets(door)].filter(Boolean);
+  for (const zid of new Set(sides)) {
+    const apt = getApartment(zid);
+    if (apt && playerControlsApt(player, apt)) return true;
+  }
+  return false;
+}
+
 // Returns true if player is authorised to operate this lock.
 // Dispatches to the registered handler for lockTag.type (see locks.js).
 export async function checkLockAuth(lockTag, door, player) {
+  if (controlsEitherSide(player, door)) return true;
   return resolveLockAuth(lockTag, door, player);
 }
 
@@ -540,7 +578,7 @@ async function cmdInstallLock(args, raw, player, broadcast) {
       const choiceDoor = resolveDoor(args, player);
       const dir = choiceDoor && choiceDoor !== 'ambiguous' ? choiceDoor.exit_dir : '';
       const links = carrying.map(t =>
-        `<span class="action-link" data-action="install" data-target="${t.name}${dir ? ' ' + dir : ''}">${t.name}</span>`
+        `<span class="action-link" data-action="install" data-target="${escAttr(t.name)}${dir ? ' ' + dir : ''}">${t.name}</span>`
       ).join('  ');
       return { type: 'output', message: `What do you want to install?\n${links}` };
     }

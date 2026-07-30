@@ -5,7 +5,7 @@
 // as combat math. SIFT ambiguous picks replay through the commerce.shop_vendor /
 // commerce.buy_item Actions (builtin replay can't reach plugin verbs).
 import { query, withTransaction } from '../../server/models/db.js';
-import { getZoneNpcs, getZone, getAllLivePlayers, getMinimapData, world, syncNpc } from '../../server/engine/world.js';
+import { getZoneNpcs, getZone, getAllLivePlayers, getMinimapData, world, syncNpc, streetExitFrom } from '../../server/engine/world.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { getIdeologyDiscount } from '../../server/engine/ideologies.js';
 import { getItem } from '../../server/engine/items-cache.js';
@@ -24,6 +24,7 @@ import { dispatchAction } from '../../server/engine/actions.js';
 import { getBroadcast, sendToPlayer } from '../../server/engine/messaging.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
+import { isResidentOf, getBuildingName } from '../../server/engine/apartments.js';
 
 // Resolve which vendor a bare buy/sell targets: the one the player is actively
 // shopping with (if still in the zone), else the first vendor present. Without this,
@@ -235,9 +236,22 @@ function reopensPhrase(npc) {
   return when ? `in ${when}` : 'during business hours';
 }
 
-registerMoveGate(({ to }) => {
+// ── Does this player LIVE here? ───────────────────────────────────────────────
+// Coldwater is mixed-use: shops sit on the ground floor of buildings people live in,
+// and the closing-time law must never trump the housing one. Someone who owns a unit
+// in this building is a resident of it — closing time locks the door to CUSTOMERS,
+// not to the person who lives upstairs, and they are never swept out onto the street
+// at closing. After hours the building simply belongs to its residents.
+//
+// Building-level, not unit-level, deliberately: your own front door isn't the only
+// room you're entitled to be in at night — the stairwell, the lobby and the corridor
+// are the way home.
+const livesHere = (player, zone) => isResidentOf(player, getBuildingName(zone));
+
+registerMoveGate(({ player, to }) => {
   const shut = shopClosedFor(to);
   if (!shut) return;
+  if (livesHere(player, to)) return;   // you live here; the hours aren't about you
   return { block: true, message: `The door won't give — shutters down, lights off. ${shut.name} opens again ${reopensPhrase(shut)}.` };
 }, 'commerce:shop-hours');
 
@@ -249,11 +263,16 @@ async function closingSweep() {
     const zone = getZone(player.current_zone);
     const shut = shopClosedFor(zone);
     if (!shut) continue;
+    if (livesHere(player, zone)) continue;   // never sweep someone out of their own building
 
-    // Out to the street if there's a way to it, else any exit at all.
-    const exits = zone.exits || {};
-    let dest = Object.values(exits).find(zid => { const z = getZone(zid); return z && !z.flags?.is_interior; })
-      || Object.values(exits)[0];
+    // Out to the STREET — see streetExitFrom (server/engine/world.js). This used to
+    // prefer a non-interior exit and fall back to "any exit at all", which had two
+    // teeth: a facade tile counts as non-interior, and a landing on a facade forwards
+    // into that building, so closing time could put you inside the shop next door;
+    // and the any-exit fallback could shove you into a back office or a walk-in
+    // freezer. No street, no sweep: leaving someone inside a closed shop is a
+    // nuisance, and dropping them somewhere impossible is a bug report.
+    const dest = streetExitFrom(zone.id);
     if (!dest) continue;
 
     sendToPlayer(player.id, formatChitchat(shut.name, `"That's us. Out you go — we open again ${reopensPhrase(shut)}."`));

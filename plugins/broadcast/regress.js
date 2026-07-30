@@ -697,7 +697,11 @@ export default async function regress({ check, run, getPlayer }) {
   check('lock error hints to pirate an un-seized deck', /pirate/i.test(deckLockError({}, { id: 'p2', role: 'player' })?.message || ''), 'hint');
   check('an operator gets no lock error', deckLockError({ pirate_owner: 'p1' }, { id: 'p1', role: 'player' }) === null, 'no-error');
 
-  // `pirate` without the firmware installed is refused (the firmware is the gate).
+  // `pirate` is gated TWICE, and the order matters: the firmware first (it's the
+  // thing you have to go and get), then a carried `hack_device` like every other
+  // breach in the game. The firmware check fires first here because the fake player
+  // has neither — so this also pins the ordering, and a regression that dropped the
+  // firmware gate would surface as a device error instead of this one.
   const pir = await run('pirate');
   check('pirate is gated on the firmware', pir?.type === 'error' && /firmware/i.test(pir?.message || ''), JSON.stringify(pir));
 

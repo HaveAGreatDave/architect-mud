@@ -19,9 +19,69 @@
 // thumb-friendly re-presentation of those links; each leaf fires a real command
 // (attack/talk/take/loot/examine, turn on|off, open/close/lock/unlock, knock,
 // look through, sit/lie/lean/watch, scavenge) via sendCmd.
-import { sendCmd } from '../net.js';
+import { sendCmd, sendCmdSilent } from '../net.js';
 import { appendMsg } from '../render.js';
 import { buildMacroNodes, openMacroManager, isMacroRunning, abortMacros } from './smartbar-macros.js';
+
+// ── Do you have a tablet yet? ────────────────────────────────────────────────
+// Everyone who has ever finished the prologue does, so this starts TRUE and the
+// server only ever turns it off — the prologue plugin pushes `tablet_access:false`
+// while you're in its corridor and `true` when the clone vat issues the device
+// (dispatch.js → setTabletAccess). With it off, the three anchors below don't
+// render: a control that opens something you don't own is a lie about the fiction,
+// and the refusal you'd get from typing `tablet` is the only place that belongs.
+let _tabletAccess = true;
+// The arrival itself: a chip pinned to the left of the bar that asks to be tapped,
+// and takes the walkthrough with it. It gives up after TABLET_OFFER_MS rather than
+// sitting there forever — a player who ignored it has answered the question.
+let _tabletOffer = false;
+let _offerTimer = null;
+const TABLET_OFFER_MS = 25000;
+
+export function setTabletAccess(has) {
+  const next = !!has;
+  if (next === _tabletAccess) return;
+  _tabletAccess = next;
+  if (!next) clearTabletOffer();
+  renderSmartBar();
+}
+
+// The chip. Rendered from renderSmartBar (so a look or a move can't wipe it) and
+// removed either by the tap or by the timer.
+export function showTabletOffer() {
+  if (_tabletOffer) return;
+  _tabletOffer = true;
+  clearTimeout(_offerTimer);
+  // Ignored is a real answer: the chip goes, and the server is told the walkthrough
+  // isn't happening so the prologue can get on with its last beat (the poster).
+  _offerTimer = setTimeout(() => {
+    clearTabletOffer();
+    sendCmdSilent('tabletdone');
+  }, TABLET_OFFER_MS);
+  renderSmartBar();
+}
+
+function clearTabletOffer() {
+  clearTimeout(_offerTimer);
+  _offerTimer = null;
+  if (!_tabletOffer) return;
+  _tabletOffer = false;
+  renderSmartBar();
+}
+
+// Tapped. Open the device and run its walkthrough from the top — the seen-marker is
+// cleared first because this IS the first time, and a stale marker from an earlier
+// character on this browser would otherwise silently swallow the tutorial the chip
+// just promised. The tour's own end reports back (`tabletdone`, see tour.js
+// endTour); the 20s check covers the tablet failing to open at all.
+function takeTabletOffer() {
+  clearTabletOffer();
+  import('./tour.js').then((t) => {
+    t.resetTabletTour?.();
+    sendCmd('tablet');
+    setTimeout(() => { if (!t.tourRunning?.()) sendCmdSilent('tabletdone'); }, 20000);
+  });
+}
 
 // ── Flow node model ─────────────────────────────────────────────────────────
 // A node is one of:
@@ -95,15 +155,16 @@ const CATALOG = [
   // left-hand anchor of the (otherwise context-sensitive) bar and rendered a
   // touch brighter than the room verbs. One tap opens Tablet OS, the home for
   // Skills/Stats/Map/Music/Bank/etc. now that those quick-cmd buttons are gone.
-  { build: () => ({ label: 'Tablet', cmd: 'tablet', accent: true }) },
+  { build: () => (_tabletAccess ? { label: 'Tablet', cmd: 'tablet', accent: true } : null) },
 
-  // Fast lane to the Gear app's Inventory page — same accent as Tablet, sits right
+  // Fast lane to the Kit app's Inventory page — same accent as Tablet, sits right
   // beside it. Opens the tablet with no CRT boot delay (client-side onFire).
-  { build: () => ({ label: 'Inv', accent: true, onFire: () => import('./tablet-os.js').then(m => m.openTabletToInventory?.()) }) },
+  // Labelled for the app it opens: the tablet app is Kit, so the shortcut says Kit.
+  { build: () => (_tabletAccess ? { label: 'Kit', accent: true, onFire: () => import('./tablet-os.js').then(m => m.openTabletToInventory?.()) } : null) },
 
   // Fast lane to the Quests app root — same accent anchor, sits right after Inv.
   // Opens the tablet with no CRT boot delay (client-side onFire).
-  { build: () => ({ label: 'Quests', accent: true, onFire: () => import('./tablet-os.js').then(m => m.openTabletToQuests?.()) }) },
+  { build: () => (_tabletAccess ? { label: 'Quests', accent: true, onFire: () => import('./tablet-os.js').then(m => m.openTabletToQuests?.()) } : null) },
 
   // Combat / social — single target, fires immediately when there's just one.
   { build: (m) => pick('Attack', 'Attack what?', m.enemies,
@@ -197,7 +258,15 @@ function autoVerbNodes(m) {
 
 // ── Sheet navigator ───────────────────────────────────────────────────────────
 let _sheet = null;
-function closeSheet() { _sheet?.remove(); _sheet = null; }
+// Remove the sheet AND its Escape handler. The listener has to live on `document` to
+// catch a keypress when focus is anywhere, so it can't be cleaned up by removing the
+// element — it's stashed on the overlay (see renderStep) and torn down here. renderStep
+// calls closeSheet first thing, so a step-to-step re-render can never stack two.
+function closeSheet() {
+  if (_sheet?._onKey) document.removeEventListener('keydown', _sheet._onKey, true);
+  _sheet?.remove();
+  _sheet = null;
+}
 
 const PAGE_SIZE = 4; // options shown per sheet page before it paginates
 
@@ -274,6 +343,25 @@ function renderStep(node, stack, page = 0) {
   nav.appendChild(cancel);
 
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeSheet(); });
+
+  // Escape closes it — and on a nested step, steps BACK one level first, mirroring the
+  // two buttons in the nav. A modal you can only dismiss by finding and clicking its
+  // Cancel is a modal that feels stuck: the keyboard is already where your hands are
+  // (you got here from a bar button while typing), and Esc is what every other overlay
+  // in the client answers to. Capture-phase and stopped, so the same keypress can't
+  // also reach the game's input handler and cancel something else behind the sheet.
+  const onKey = (e) => {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (stack.length) renderStep(stack[stack.length - 1], stack.slice(0, -1));
+    else closeSheet();
+  };
+  // Held on the overlay so closeSheet's removal takes the listener with it — no
+  // document-level handler to leak or double-bind when a step re-renders.
+  overlay._onKey = onKey;
+  document.addEventListener('keydown', onKey, true);
+
   document.body.appendChild(overlay);
   _sheet = overlay;
 }
@@ -422,12 +510,21 @@ export function renderSmartBar() {
     } });
   }
 
+  // The tablet has just been issued (prologue, at the clone vat). Pinned leftmost
+  // and after the custom-order sort for the same reason Stop is: it's a one-off
+  // prompt, not a button anyone owns, so it can't be dragged away and it can't be
+  // buried behind a room full of verbs.
+  if (_tabletOffer) {
+    nodes.unshift({ label: '▤ Tablet — show me', tabletOffer: true, onFire: takeTabletOffer });
+  }
+
   bar.textContent = '';
   for (const node of nodes) {
     // Show the choice count on branches so "Open (3)" hints at the sheet.
     const opts = node.options ? node.options.filter(Boolean) : null;
     const btn = document.createElement('button');
-    if (node.macroStop) btn.className = 'smart-btn smart-btn-macro-stop';
+    if (node.tabletOffer) btn.className = 'smart-btn smart-btn-tablet-offer';
+    else if (node.macroStop) btn.className = 'smart-btn smart-btn-macro-stop';
     else if (node.macroAdd) btn.className = 'smart-btn smart-btn-accent smart-btn-macro-add';
     else if (node.macro) {
       btn.className = 'smart-btn smart-btn-macro';

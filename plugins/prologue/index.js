@@ -33,6 +33,7 @@ import { registerAction } from '../../server/engine/actions.js';
 import { getZone, getMinimapData, getLivePlayer, getAllZones, buildingEntranceDir } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { cmdExamine } from '../../server/engine/commands/world.js';
+import { escAttr } from '../../server/engine/text.js';
 
 const Z_INBETWEEN = 'zone_the_inbetween';
 const Z_LATTICE   = 'zone_the_lattice';
@@ -346,7 +347,7 @@ async function prologueMoveGate({ player, to }) {
     return { block: true, message: `The way north will not open. The attendant does not move. "First, be certain of your shape," it says. "Use the terminal. Tell it what you are." <span class="hint">(try: ${teachVerb('use', 'use', 'MORPHEX 9000 BioSculpt terminal')} — or click the shimmering terminal)</span>` };
   }
   if (to.id === Z_BROADCAST && !(await isSet(player, F_BROADCAST))) {
-    return { block: true, message: `There is no door here yet — only lattice, waiting for you to make one. <span class="hint">(the X-90 is in your pack: ${teachVerb('use', 'use', 'X-90 Sequence Holocaster')} — or tap its shimmering USE in the tablet's Gear app)</span>` };
+    return { block: true, message: `There is no door here yet — only lattice, waiting for you to make one. <span class="hint">(the X-90 is in your pack: ${teachVerb('use', 'use', 'X-90 Sequence Holocaster')} — or type <b>i</b> to see what you're holding)</span>` };
   }
   if (to.id === Z_COLLAPSE && !(await isSet(player, F_COLLAPSE))) {
     if (!(await isSet(player, F_PLAYED))) setBeacons(player, [B_CHAIR]);
@@ -413,13 +414,14 @@ async function useHolosign(args, raw, player) {
   // The handoff, made physical: the thing doesn't "appear in your inventory", it
   // is pushed out of the light INTO YOUR HAND and your fingers close on it. Then
   // one sentence naming the only thing left to do with it, with the verb itself
-  // shimmering — and it goes on shimmering in the tablet's Gear app, where the
-  // row wears a pulsing USE chip.
+  // shimmering. No tablet is mentioned here on purpose — there isn't one yet (see
+  // firstClothing, where the city issues it), so the room link and the verb are the
+  // whole of the nudge.
   setTimeout(() => {
     out(player, `The light in front of you thickens, bunches, and <b>hands you something</b> — pushes it out of itself the way a wave puts a stone on a beach. Your fingers are already closed around it before you decide to close them. A palm-sized wedge of warm ceramic, one seam, one stud: an <span class="action-link" data-action="examine" data-target="X-90 Sequence Holocaster" title="Examine the X-90 Sequence Holocaster"><b>X-90 Sequence Holocaster</b></span>.`);
   }, 1500);
   setTimeout(() => {
-    out(player, `<span class="ambient">There is a stud under my thumb, and only one thing to do about it.</span> <span class="hint">(${teachVerb('use', 'use', 'X-90 Sequence Holocaster')} — or open the tablet's GEAR app and tap the shimmering USE)</span>`);
+    out(player, `<span class="ambient">There is a stud under my thumb, and only one thing to do about it.</span> <span class="hint">(${teachVerb('use', 'use', 'X-90 Sequence Holocaster')} — or click it up in the room)</span>`);
   }, 3400);
 
   return { type: 'emote', message: `You reach into the holosign and, impossibly, the lattice reaches back. For one bright second you are touching the thoughts of the thing that made you — and it does not leave you as it found you. Every sinew, every nerve, every thought sits a fraction sharper than before.` };
@@ -562,12 +564,12 @@ on('player.login', async ({ id }) => {
 // of the login handler so `introdone` can trigger it, and guarded by an in-memory
 // claim (not a flag) because both callers can arrive within the same tick.
 // Longer than the client's start gate (it auto-begins at 20s if nobody clicks
-// "Begin") PLUS the full cinematic (81s) and its fade. Sized off the WORST case,
+// "Begin") PLUS the full cinematic (57s) and its fade. Sized off the WORST case,
 // not the usual one: if this fires while the sequence is still playing, the
 // arrival prose lands behind the overlay and scrolls past unread — the exact
 // failure the cold-open gating exists to prevent. See the start gate in
 // client/game/js/panels/intro-cinematic.js; the two numbers move together.
-const INTRO_FALLBACK_MS = 116000;
+const INTRO_FALLBACK_MS = 92000;
 // If the interface question is never answered — a tab left open on the veil, a
 // client that lost the socket mid-tour — the prose comes anyway rather than the
 // player standing in a silent room forever. Generous, because a first-timer
@@ -641,6 +643,9 @@ function speakArrival(player) {
 // ── Room telegraphs + the wake-up beat ────────────────────────────────────────
 on('zone.entered', async ({ actor, zone, from }) => {
   if (!actor) return;
+  // Weather/clock on or off, every move, in both directions — including the step
+  // out of the collapse into the vat, which is where the real world starts.
+  envUnreal(actor, !!getZone(zone)?.flags?.prologue);
   if (zone === Z_LATTICE) {
     out(actor, `<span class="ambient">The holosign turns to face you. It wants to be read.</span> <span class="hint">(try: ${teachVerb('examine', 'examine', 'floating holosign')} — it'll show you what you can do with it)</span>`);
     if (!(await isSet(actor, F_INTERFACED))) setBeacons(actor, [B_HOLOSIGN]);
@@ -698,19 +703,95 @@ function firstClothing(actor) {
   setTimeout(() => {
     out(actor, `<span class="clone-vat-message">There is stencilling on the wall opposite, half-scoured by whatever they wash this room down with. You read it twice before it means anything. <b>COLDWATER BASIN — RESIDENT REINSTATEMENT</b>. Under it, in letters twice the size, in the flat voice of a thing that has printed it ten million times: <b>WELCOME BACK</b>.</span>`);
   }, 8400);
-  // ── The advert ──
-  // The LAST beat of the prologue, and the only one that points at somewhere to
-  // go. A player standing in the vat with a bat, a helmet and ₵100 has no idea
-  // that anything in this city wants them — Grady's poster is the first thing
-  // that does, and it is already on this wall (furn_poster_twocell_supply). The
-  // beat just makes sure it's SEEN: an ambient nudge, the `read` verb taught with
-  // the usual shimmer, and a ripple on the poster's own link up in the room pane,
-  // so the nudge exists in both places a new player might be looking.
-  setTimeout(() => {
-    out(actor, `<span class="ambient">Something on the wall by the door is trying very hard to get your attention. It is doing this the way a man with no budget does it: a paper advert, hand-pasted, hung crooked, with a photograph of somebody's face on it roughly four times life size.</span>`);
-    out(actor, `<span class="ambient">Maybe I should ${teachVerb('read', 'read', 'advert')} it.</span>`);
-    pointAt(actor.id, 'read', 'advert');
-  }, 12600);
+  // ── The tablet ──
+  // The device arrives HERE and nowhere earlier. Everything before this room is a
+  // corridor with no floor, and a player standing in it holding a city services
+  // terminal was the one thing in the prologue that came from nowhere; now the
+  // reinstatement machine issues it, along with everything else it issues. The
+  // client turns its tablet controls on off the back of this (`tablet_access`) and
+  // pops the chip in the smart bar (`tablet_offer`) — see client/game/js/panels/
+  // smartbar.js — so the tutorial is something the player CHOOSES to take, not a
+  // walkthrough that opens over the top of the room they just woke up in.
+  setTimeout(async () => {
+    await raise(actor, F_TABLET);
+    out(actor, `<span class="clone-vat-message">A hatch coughs open at hip height and something slides out of the wall at you, hard enough that catching it is not really optional: a slab of scuffed grey glass, warm on one side, a hairline crack across the corner that somebody has decided is within tolerance. Your name is already on it. Your <b>tablet</b> — issued, apparently, to whoever ends up wearing this body.</span>`);
+    out(actor, `<span class="ambient">It wakes when I touch it, and it seems to think I'll know what to do with it.</span> <span class="hint">(it's in your bar, bottom left — or type <b>tablet</b> any time)</span>`);
+    tabletAccess(actor, true);
+    sendToPlayer(actor.id, { type: 'tablet_offer' });
+    // Backstop: the chip and its walkthrough are both optional and both live on the
+    // client, so the poster beat can never be allowed to depend on them. If nothing
+    // has answered by now, point at the wall anyway — this is the only beat in the
+    // whole prologue that tells a new player where to GO.
+    setTimeout(() => pointAtAdvert(getLivePlayer(actor.id) || actor), ADVERT_FALLBACK_MS);
+  }, 11200);
+}
+
+// The tablet the vat issues you, and the client's permission to draw its controls.
+// A flag rather than an item because the tablet has never been an item — it's the
+// second half of the interface (plugins/tablet/), and this is the record of the
+// moment it turned up. Nothing outside the prologue reads it: the refusal in
+// plugins/tablet/index.js is keyed off the ZONE, so a character who predates this
+// beat is unaffected.
+const F_TABLET = 'tablet_issued';
+function tabletAccess(player, has) {
+  if (player) sendToPlayer(player.id, { type: 'tablet_access', has: !!has });
+}
+
+// ── No weather, no clock ─────────────────────────────────────────────────────
+// The corridor is not a place. A HUD reading "☁ 14°C · light rain · 03:42" over a
+// room with no floor tells a brand-new player that the metaphysical space they're
+// standing in is really just an interior tile in Coldwater — the loudest immersion
+// break in the whole prologue. So the client is told to drop the weather readout
+// entirely and scramble the time for as long as the zone carries `flags.prologue`
+// (client/game/js/panels/environment.js → setEnvUnreal). Keyed off the ZONE flag,
+// exactly like tabletAccess, so a new prologue room needs no code here; sent in
+// both directions unconditionally because the client boots assuming real weather.
+function envUnreal(player, unreal) {
+  if (player) sendToPlayer(player.id, { type: 'env_unreal', unreal: !!unreal });
+}
+
+// The tablet controls are hidden for anyone standing in the corridor, and shown
+// again the moment they aren't — on every login, not just the first, so a player who
+// closes the tab mid-prologue and comes back doesn't return to a bar that offers a
+// device they don't have yet. Sent unconditionally in both directions because the
+// client boots assuming it HAS a tablet (every existing character does).
+on('player.login', async ({ id }) => {
+  const player = getLivePlayer(id);
+  if (!player) return;
+  const inCorridor = !!getZone(player.current_zone)?.flags?.prologue;
+  tabletAccess(player, !inCorridor);
+  envUnreal(player, inCorridor);
+  // Recovery: the chip, its 25s timer and the advert backstop are all timers, and
+  // timers die with the connection. A player who closed the tab in the ten seconds
+  // between the tablet arriving and answering the chip would otherwise come back to
+  // a vat with nothing pointing anywhere. They have had their tablet; give them the
+  // signpost. Flag-guarded, so it cannot double up on someone who already got it.
+  if (player.current_zone === Z_CLONEVAT && await isSet(player, F_TABLET)) {
+    setTimeout(() => pointAtAdvert(getLivePlayer(id) || player), 4000);
+  }
+});
+
+// ── The advert ──
+// The LAST beat of the prologue, and the only one that points at somewhere to go. A
+// player standing in the vat with a bat, a helmet and ₵100 has no idea that anything
+// in this city wants them — Grady's poster is the first thing that does, and it is
+// already on this wall (furn_poster_twocell_supply). The beat just makes sure it's
+// SEEN: an ambient nudge, the `read` verb taught with the usual shimmer, and a
+// ripple on the poster's own link up in the room pane, so the nudge exists in both
+// places a new player might be looking.
+//
+// It waits for the tablet walkthrough to be over (or declined — see `tabletdone`),
+// because these are the same two lines of the log: a poster nudge delivered under a
+// spotlight overlay is a poster nudge nobody reads.
+const F_ADVERT = 'prologue_advert_nudged';
+const ADVERT_FALLBACK_MS = 210000;   // ~3.5 min: a first-timer can read every tour card
+async function pointAtAdvert(actor) {
+  if (!actor || actor.current_zone !== Z_CLONEVAT) return;
+  if (await isSet(actor, F_ADVERT)) return;
+  await raise(actor, F_ADVERT);
+  out(actor, `<span class="ambient">Something on the wall by the door is trying very hard to get your attention. It is doing this the way a man with no budget does it: a paper advert, hand-pasted, hung crooked, with a photograph of somebody's face on it roughly four times life size.</span>`);
+  out(actor, `<span class="ambient">Maybe I should ${teachVerb('read', 'read', 'advert')} it.</span>`);
+  pointAt(actor.id, 'read', 'advert');
 }
 
 // ── Reading the advert offers you the way there ──────────────────────────────
@@ -786,7 +867,7 @@ function playBroadcast(player) {
       // are actually visible without the player having to look again.
       const mentions = KIT.map(({ name, qty }) => {
         const label = qty > 1 ? `${qty}x ${name}` : name;
-        return `<span class="action-link room-item" data-action="take" data-target="${name}" title="Take ${name}">${label}</span>`;
+        return `<span class="action-link room-item" data-action="take" data-target="${escAttr(name)}" title="Take ${escAttr(name)}">${label}</span>`;
       }).join(', ');
       out(player, `<span class="ambient">Objects thud onto the invisible floor in front of you, one after another, as if the dark is emptying its pockets:</span> ${mentions}. <span class="hint">(take them or leave them — then go ${teachVerb('north', 'go', 'north')} to the collapse)</span>`);
       // The pile on the floor shimmers, and NOT the exit alongside it — the exit
@@ -803,7 +884,10 @@ function playBroadcast(player) {
       try {
         const { grantVolume } = await import('../tablet/codex-app.js');
         await grantVolume(player, 'quiet');
-        out(player, `<span class="ambient">Something else arrives with no sound at all — a document, already open on your tablet, as though it had been waiting for someone to hand it to.</span> <span class="hint">(read it any time with <b>codex</b> — the rest of the record you'll have to go and find)</span>`);
+        // Filed, not handed over on a screen: there is no tablet in this corridor
+        // (it's issued at the vat), so the volume waits in the record until there's
+        // something to read it on.
+        out(player, `<span class="ambient">Something else arrives with no sound at all. Not an object — a document, filed somewhere under your name, waiting for you to have somewhere to read it.</span> <span class="hint">(it'll be in your CODEX the moment you have a device; <b>codex</b> opens it)</span>`);
       } catch (e) {
         console.error('[prologue] codex grant failed:', e.message);
       }
@@ -906,10 +990,21 @@ async function cmdIntro(args, _raw, player) {
   return null;
 }
 
+// The client's echo when the tablet walkthrough ends — finished, skipped, or the
+// chip in the bar ignored until it went away (25s, see smartbar.js). Like
+// `introdone` it isn't something a player types, and is harmless if they do: the
+// only thing it does is release the poster beat, which is flag- and zone-guarded.
+// Everything about the walkthrough itself is client-side; this is the one wire back.
+async function cmdTabletDone(args, _raw, player) {
+  if (player?.current_zone === Z_CLONEVAT) await pointAtAdvert(player);
+  return null;
+}
+
 export const commands = {
   tutorial: cmdTutorial,
   introdone: cmdIntroDone,
   intro: cmdIntro,
+  tabletdone: cmdTabletDone,
 };
 
 // Test surface for plugins/prologue/regress.js (never used in production).
@@ -921,6 +1016,7 @@ export const _test = {
   F_ALIGNED, F_INTERFACED, F_BROADCAST, F_COLLAPSE, F_PLAYED,
   cmdTutorial, F_TOUR_ASKED, F_TOUR_TAKEN,
   coldwaterSkyline, coldwaterShore, speakArrival, readTwocellAdvert, Z_CLONEVAT,
+  cmdTabletDone, pointAtAdvert, F_ADVERT, F_TABLET,
 };
 
 console.log('[prologue] Plugin loaded.');

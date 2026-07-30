@@ -368,6 +368,125 @@ full, late = half; contraband pays in "unmarked cash"). Payout = distance × wei
 (or passenger rate) × risk × the job's `payMult`. The board tags each job
 LEGAL/ILLEGAL and shows the deadline.
 
+### Raw-drug dead drops — the air smuggling run *(as built)*
+
+The top of the raw-supply chain, above the smuggle plugin's ground MULE crates.
+It never touches a checkpoint because it never touches the city ground at all.
+All of it lives in `contracts.js`.
+
+**Nothing spawns unbidden.** Every pallet out on the hardpan is one the player
+**ordered and paid for** at Amos's counter. There is no rotating free pool (there
+was, briefly) and no top-up on embark — `ensureFenceDrops` is gone; an ordered
+pallet is inserted once, at order time.
+
+- **Three caches, not an airfield.** `FENCE_CACHES` names three tiles out on the
+  Reach hardpan — the **Bonepile** (NW), the **Sump** (SE), the **Sisters** (SW) —
+  each themed content with its own fixture. Siting them out in the waste is what
+  makes the aircraft matter, because `index.js`'s land handler parks a
+  **rough-field-rated** craft (VTOL/STOL) where it flares but **tows a fixed-wing
+  back to the nearest field**. So the Mule (STOL, 180kg hold) can service a cache
+  and the 600kg Leviathan can't — it's `takeoff_mode: strip` with nowhere out
+  there to put down. **No new capability check was written for any of that**; it
+  falls out of the existing landing physics and the existing `loadcargo` weight
+  math. Don't add one.
+- **Both ends of the ground trade must vouch** (`hasCacheStanding`): the covert
+  dealer's `dealer_inner_circle` **and** `bm_trust ≥ CACHE_TRUST_MIN` (10) earned
+  running the fence's crates through a gate. Enforced in the `UNLOCK_AIR_CARGO`
+  action *as well as* in Amos's dialogue conditions — the action must never be the
+  only thing holding the door, or a hand-authored option hands out the caches.
+
+#### The ladder — legal crop at the bottom
+
+This is the load-bearing idea, and it is a **risk** ladder as much as a price one.
+Every `item_raw_*` is tagged `contraband` + `raw_drug`, and carrying one in view of
+a camera is **"Manufacturing a controlled substance" — four stars**. So the entry
+rung cannot be a precursor. It's baled **tobacco** and **cannabis** leaf
+(`item_raw_tobacco_crop` / `item_raw_cannabis_crop`), tagged `crop` and nothing
+else, which trips neither the manufacturing scan nor customs. Each **cures** into
+the existing `item_loose_*` via a **fabrication** recipe — deliberately not a
+chemistry cook, so it lives under `craft`, never appears on the felony `cook`
+surface, and survives `add-raw-supply.js` wiping the chemistry recipe set.
+
+Graduating from tier 0 to tier 1 is therefore the moment the player accepts felony
+risk for the first time. That alignment is the whole point.
+
+- `TIER_TRUST` gates each rung **on top of** the unlock (tier 0 is +0 — nobody has
+  to trust you with a bale of tobacco). `PALLET_UNITS` trades volume for grade, so
+  a pallet costs roughly a pallet's worth of money at any tier: **what standing
+  buys is access to grade, not a bigger load**, and the payoff is on the far side
+  in what the raw cooks into. Don't "fix" the flat price curve.
+- Both halves are **content**. A new crop is an item tagged `crop`; a new precursor
+  is an item tagged `raw_drug` with a `cook_tier`. Neither needs a code change.
+
+#### Ordering — the counter is a vendor shelf
+
+**The ledger IS the shop panel.** Amos carries `flags.trust_flag: 'bm_trust'` and a
+`min_trust` on every `vendor_inventory` entry, so `getVendorStock` (`vendor.js:140`)
+switches off the random `vendor_stock` shelf and serves the whole catalogue filtered
+per player — **a sealed rung simply isn't on the shelf.** That's the ladder rendered
+by the ordinary GUI panel with no client work at all. Quantity on the panel is the
+pallet count; entry `price` is priced **per pallet**
+(`value × ORDER_MARKUP(1.4) × units`). Sully charges ×2 because he runs a MULE for
+you; here you fly it yourself. His `raws_list` dialogue node fires `OPEN_SHOP`.
+
+- **`trust_per_buy` is 0 on the counter, deliberately.** Standing is earned by
+  FLYING pallets home (`deliverFenceDrop`), never by paying for them. Leave it at
+  the engine default and a rich player buys their way up the ladder without ever
+  running the customs risk, which guts the progression.
+- **A pallet must never land in a pocket**, so the counter claims the engine's
+  **purchase-delivery seam** (`registerPurchaseDelivery`, `vendor.js`) — keyed on the
+  **`raws_counter` NPC flag**, not on the goods, because Sully's fence sells the same
+  raws through the same seam and would otherwise collide. It runs inside the sale
+  transaction *in place of* the inventory insert, writes the `cargo_drops` rows, and
+  returns the receipt line naming the cache. `'!reason'` aborts and rolls the sale
+  back, so the pallet cap refuses without taking the money; **`null` means "not
+  mine"**, which is how Amos still sells a shotgun across the desk normally.
+- **`raws`** (the verb) survives as the text surface, and it shows what the panel
+  can't: lead time remaining and what's already out there. Amos's dialogue teaches
+  it with `teachVerb` per the house convention.
+- His existing back-room stock (guns, taser, hack deck) shares the shelf at
+  `min_trust: 0` — as a trust vendor **every** entry needs one, or it vanishes.
+- **The counter is content-addressed**: `raws` looks for a live NPC in the room
+  with `flags.raws_counter`, so a second quartermaster anywhere else is content.
+  Amos is deliberately off the night-commute schedule, so the counter never shuts.
+- **`raws` is invisible outside the trade.** No counter present *and* no unlock →
+  the command falls through as though unregistered, so a player who was never let
+  in never learns the surface exists. Unlocked, it answers anywhere and points you
+  at him — otherwise learning the verb at the Layover and typing it in Coldwater
+  reads as a bug.
+- **Lead time is derived, not ticked.** An order isn't out there for
+  `ORDER_LEAD_S` (180s) — somebody has to drive it into the waste. `waitingDropsAt`
+  filters on `created_at + lead`, so there is **no scheduler and no extra column**,
+  and a restart can't lose it. `openOrders` reports the remaining seconds.
+- **Amos is the tracker.** `FENCE_CACHE_REPORT` reads `openOrders()` and emits the
+  line through `out()` — deliberately *not* node text, because node text is
+  authored content and this is live state.
+
+#### Getting it home
+
+- **A pallet is `CACHE_KG` (150kg)**, one `cargo_drops` row per pallet, all pallets
+  of one order in the **same** cache so there's one place to fly. It only ever
+  exists as a row — there is no ground item, so it cannot be hand-carried.
+- Landing at any field that isn't `airfield_lawless` runs the customs scan:
+  Deception vs `3 + maxCookTier + (pallets−1) − (smuggler's hold ? 2 : 0)`. Buzzard
+  Field is lawless, which is what makes the Reach a base rather than a target.
+- **Legal crop is exempt and is scanned separately from the rest.** Clean pallets
+  deliver before the scan runs; the difficulty is then computed over the
+  **contraband pallets only**, on their own worst tier and their own count — so
+  hiding one crate of Blacktar behind four bales of tobacco doesn't lower it.
+- Delivery pays `bm_trust` (`deliverFenceDrop`), which is the same currency the
+  ladder is measured in — **you climb it by flying it**. A contraband pallet is
+  worth 3–5; legal crop hits the floor of 1, which is what lets a newly-vouched
+  pilot climb off the legal rung at all.
+
+**Content is authored by `scripts/reach-dead-drops.mjs`** (idempotent; writes the
+DB *and* the content files, because `content:import` is additive and can't rewrite
+the existing zone/NPC rows). It's a **clamp, not a converging script**, so it is
+deliberately *not* in `oneshots.bat` — **run it by hand, once per environment.**
+The crop items and cure recipes are ordinary additive content and ride the import.
+The cache ids in that script and in `FENCE_CACHES` must stay in step: the flight
+regress suite fails if a cache names a tile that doesn't exist or isn't landable.
+
 **Ground combat** (`combat.js`). `tickCombat()` each airborne tick: AA sites in
 range fire on low/slow overflights (altitude, speed, `evade`, and a piloting jink
 cut the hit chance); a hit walks the hull-damage ladder → breakup → `crash`.

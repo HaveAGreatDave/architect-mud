@@ -18,7 +18,7 @@ import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { emit } from '../../server/engine/events.js';
 import { holdVendorGrudge } from '../../server/engine/vendor-grudge.js';
-import { hackDifficulty, damageHackDeck, breachMargin } from '../../server/engine/hack-gear.js';
+import { hackDifficulty, damageHackDeck, breachMargin, hasHackDeck } from '../../server/engine/hack-gear.js';
 
 // Per-player lockout: Map<playerId, timestampMs>
 const _lockout = new Map();
@@ -59,6 +59,19 @@ async function cmdHack(args, raw, player, broadcast) {
   const flags = safe.flags || {};
   const npcId = flags.vendor_npc_id;
   if (!npcId) return { type: 'error', message: "The safe isn't linked to a vendor. Nothing to steal." };
+
+  // You need a deck. This gate was missing, which made the vendor safe the one
+  // strongbox in the city you could open with your bare hands — while the ATM
+  // (plugins/atm cmdJack), the hololock (commands/doors hackDoor) and even the
+  // PRACTICE rig all demanded hardware. It also made `hack_penalty` /
+  // `hack_fail_damage` meaningless here: WHICH deck you carry is supposed to decide
+  // how hard the safe reads and what a bungled attempt costs you, and with no deck
+  // there was nothing to read from and nothing to damage. Placed after the
+  // `return undefined` self-gate above so other `hack` targets still get their turn,
+  // and before the lockout so an empty-handed attempt can't burn five minutes.
+  if (!(await hasHackDeck(player.id))) {
+    return { type: 'error', message: `The ${safe.name} has a keypad, a comm port and no sense of humour. You need a hacking device to get into it.` };
+  }
 
   // Lockout check
   const lockedUntil = _lockout.get(player.id) || 0;

@@ -15,6 +15,7 @@
  * caller renders itself, state-dependently, so they don't double up here).
  */
 import { availableActions } from './specializedActions.js';
+import { escAttr } from './text.js';
 
 // Verbs that act on an "on <name>" object ("sit on couch", "lie on bed").
 // Every other verb targets the bare name.
@@ -47,5 +48,5 @@ export function genericFurnitureLinks(f, exclude = []) {
   const n = f.name.toLowerCase();
   return furnitureVerbs(f)
     .filter((v) => !skip.has(v))
-    .map((v) => `<span class="action-link" data-action="${v}" data-target="${verbTarget(v, n)}">${v}</span>`);
+    .map((v) => `<span class="action-link" data-action="${v}" data-target="${escAttr(verbTarget(v, n))}">${v}</span>`);
 }

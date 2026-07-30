@@ -22,6 +22,7 @@ import { getHelpTopic, listHelpTopics } from '../help.js';
 import '../help-topics.js';
 import '../help-senses.js';
 import { genericFurnitureLinks, furnitureVerbs, verbTarget } from '../furnitureActions.js';
+import { escAttr } from '../text.js';
 import { statusLabels, applyEffect } from '../effects.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 import { carryCapacity, formatWeight } from './inventory.js';
@@ -519,7 +520,7 @@ async function cmdExamine(targetStr, player, broadcast) {
     const acts = itemActionVerbs(it);
     if (acts.length) {
       const links = acts.map(v =>
-        `<span class="action-link" data-action="${v}" data-target="${it.name}">${v}</span>`
+        `<span class="action-link" data-action="${v}" data-target="${escAttr(it.name)}">${v}</span>`
       ).join('  ');
       msg += `\n<span class="text-dim">Actions:</span> ${links}`;
     }
@@ -564,14 +565,14 @@ async function cmdExamine(targetStr, player, broadcast) {
         if (interactions.includes('switch')) {
           const n = f.name.toLowerCase();
           const stateDir = f.light_on ? 'off' : 'on';
-          structural.push(`<span class="action-link" data-action="switch" data-target="${stateDir} ${n}">switch ${stateDir}</span>`);
-          structural.push(`<span class="action-link" data-action="turn" data-target="${stateDir} ${n}">turn ${stateDir}</span>`);
+          structural.push(`<span class="action-link" data-action="switch" data-target="${stateDir} ${escAttr(n)}">switch ${stateDir}</span>`);
+          structural.push(`<span class="action-link" data-action="turn" data-target="${stateDir} ${escAttr(n)}">turn ${stateDir}</span>`);
           excludeVerbs.push('switch', 'flip', 'turn');
         }
       }
     } else if (f.object_type === 'container') {
       const n = f.name.toLowerCase();
-      structural.push(`<span class="action-link" data-action="open" data-target="${n}">open</span>`);
+      structural.push(`<span class="action-link" data-action="open" data-target="${escAttr(n)}">open</span>`);
       excludeVerbs.push('open');
     } else if (f.object_type === 'media_deck' || f.flags?.media_deck) {
       const flags = f.flags || {};
@@ -650,7 +651,7 @@ async function cmdExamine(targetStr, player, broadcast) {
         cassetteList = '\n  <span style="color:var(--border)">— empty —</span>';
       }
 
-      structural.push(`<span class="action-link" data-action="use" data-target="${f.name.toLowerCase()}">use</span>`);
+      structural.push(`<span class="action-link" data-action="use" data-target="${escAttr(f.name.toLowerCase())}">use</span>`);
       if (deckActive) structural.push(`<span class="action-link" data-action="eject" data-target="">eject</span>`);
       excludeVerbs.push('use', 'eject');
       msg += `\n<span style="display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0">${liveDot}${loadDot}</span>\n${statusLine}${cassetteList}`;
@@ -683,8 +684,8 @@ async function cmdExamine(targetStr, player, broadcast) {
           // Only claim record/stream when the camera row actually backs them; a
           // furniture piece with a dangling camera_id still gets its generic
           // affordances from the shared Actions line below.
-          structural.push(`<span class="action-link" data-action="record" data-target="${f.name.toLowerCase()}">record</span>`);
-          structural.push(`<span class="action-link" data-action="stream" data-target="${f.name.toLowerCase()}">stream</span>`);
+          structural.push(`<span class="action-link" data-action="record" data-target="${escAttr(f.name.toLowerCase())}">record</span>`);
+          structural.push(`<span class="action-link" data-action="stream" data-target="${escAttr(f.name.toLowerCase())}">stream</span>`);
           excludeVerbs.push('record', 'stream');
         }
       }
@@ -714,8 +715,8 @@ async function cmdExamine(targetStr, player, broadcast) {
         ? '<span style="color:var(--red)">WRECKED — offline</span>'
         : online ? '<span style="color:var(--green)">Online</span>'
                  : '<span style="color:var(--yellow)">No power</span>';
-      structural.push(`<span class="action-link" data-action="attack" data-target="${n}">attack</span>`);
-      if (destroyed) structural.push(`<span class="action-link" data-action="repair" data-target="${n}">repair</span>`);
+      structural.push(`<span class="action-link" data-action="attack" data-target="${escAttr(n)}">attack</span>`);
+      if (destroyed) structural.push(`<span class="action-link" data-action="repair" data-target="${escAttr(n)}">repair</span>`);
       excludeVerbs.push('attack', 'repair');
       msg += `\n<span class="text-dim">Status:</span> ${stateLbl} · integrity ${integrityPct}%`;
     }
@@ -779,7 +780,7 @@ async function cmdExamine(targetStr, player, broadcast) {
   if (er.type === 'match') {
     const c = er.candidate;
     if (c._examType === 'enemy') {
-      const attackLink = `<span class="action-link" data-action="attack" data-target="${c.name}" title="Attack ${c.name}">attack</span>`;
+      const attackLink = `<span class="action-link" data-action="attack" data-target="${escAttr(c.name)}" title="Attack ${escAttr(c.name)}">attack</span>`;
       return { type:'examine', message:`${c.name}\n${c.description}\nHP: ${c.hp}/${c.hp_max}\n<span class="text-dim">Actions:</span> ${attackLink}` };
     }
     if (c._examType === 'npc') {
@@ -791,14 +792,14 @@ async function cmdExamine(targetStr, player, broadcast) {
         const where = c.sittingOn ? `the ${c.sittingOn}` : 'the floor';
         postureLine = `\n<span class="text-dim">${c.name} is lying on ${where}.</span>`;
       }
-      const talkLink   = `<span class="action-link" data-action="talk" data-target="${c.name}" title="Talk to ${c.name}">talk</span>`;
-      const attackLink = `<span class="action-link" data-action="attack" data-target="${c.name}" title="Attack ${c.name}">attack</span>`;
+      const talkLink   = `<span class="action-link" data-action="talk" data-target="${escAttr(c.name)}" title="Talk to ${escAttr(c.name)}">talk</span>`;
+      const attackLink = `<span class="action-link" data-action="attack" data-target="${escAttr(c.name)}" title="Attack ${escAttr(c.name)}">attack</span>`;
       return { type:'examine', message:`${c.name}\n${c.description}${postureLine}${npcClothingLine(c, player)}\n<span class="text-dim">Actions:</span> ${talkLink}  ${attackLink}` };
     }
     if (c._examType === 'player') {
       const app = await describePlayerAppearance(c, false, player, broadcast);
-      const stealLink  = `<span class="action-link" data-action="steal" data-target="${c.handle}" title="Steal from ${c.handle}">steal</span>`;
-      const attackLink = `<span class="action-link" data-action="attack" data-target="${c.handle}" title="Attack ${c.handle}">attack</span>`;
+      const stealLink  = `<span class="action-link" data-action="steal" data-target="${escAttr(c.handle)}" title="Steal from ${escAttr(c.handle)}">steal</span>`;
+      const attackLink = `<span class="action-link" data-action="attack" data-target="${escAttr(c.handle)}" title="Attack ${escAttr(c.handle)}">attack</span>`;
       // An ONLINE sleeper. The offline-sleeper branch further down already says
       // this and offers the loot, but a live sleeping body fell through to here
       // and read as an ordinary person standing about. Same shape as the NPC
@@ -813,7 +814,7 @@ async function cmdExamine(targetStr, player, broadcast) {
         const line = tell === 'sleeping'
           ? `${c.handle} is asleep on ${where}.`
           : `${c.handle} is upright and not here. The eyes are open and pointed at nothing, and whatever they are seeing, it is not this room.`;
-        const lootLink = `<span class="action-link" data-action="loot" data-target="${c.handle}" title="Loot ${c.handle}">loot</span>`;
+        const lootLink = `<span class="action-link" data-action="loot" data-target="${escAttr(c.handle)}" title="Loot ${escAttr(c.handle)}">loot</span>`;
         return { type:'examine', message: app + `\n<span class="text-dim">(${line})</span>\n<span class="text-dim">Actions:</span> ${lootLink}  ${stealLink}  ${attackLink}` };
       }
       return { type:'examine', message: app + `\n<span class="text-dim">Actions:</span> ${stealLink}  ${attackLink}` };
@@ -827,9 +828,9 @@ async function cmdExamine(targetStr, player, broadcast) {
   if (sleepers.length) {
     const s = sleepers[0];
     const app = await describePlayerAppearance(s, false, player, broadcast);
-    const lootLink   = `<span class="action-link" data-action="loot"  data-target="${s.handle}" title="Loot ${s.handle}">loot</span>`;
-    const attackLink = `<span class="action-link" data-action="attack" data-target="${s.handle}" title="Attack ${s.handle}">attack</span>`;
-    const pinchLink  = `<span class="action-link" data-action="pinch" data-target="${s.handle}" title="Pinch ${s.handle} awake">pinch</span>`;
+    const lootLink   = `<span class="action-link" data-action="loot"  data-target="${escAttr(s.handle)}" title="Loot ${escAttr(s.handle)}">loot</span>`;
+    const attackLink = `<span class="action-link" data-action="attack" data-target="${escAttr(s.handle)}" title="Attack ${escAttr(s.handle)}">attack</span>`;
+    const pinchLink  = `<span class="action-link" data-action="pinch" data-target="${escAttr(s.handle)}" title="Pinch ${escAttr(s.handle)} awake">pinch</span>`;
     return { type:'examine', message: app + `\n<span class="text-dim">(${s.handle} is asleep.)</span>\n<span class="text-dim">Actions:</span> ${lootLink}  ${attackLink}  ${pinchLink}` };
   }
 
@@ -1273,7 +1274,7 @@ async function cmdTargetHelp(targetStr, player) {
     }
     msg += `\n<span class="text-dim">Things you can do:</span>\n`;
     msg += entries.map(e =>
-      `  <span class="action-link" data-action="${e.verb}" data-target="${e.target}">${e.verb} ${e.target}</span>`
+      `  <span class="action-link" data-action="${e.verb}" data-target="${escAttr(e.target)}">${e.verb} ${e.target}</span>`
     ).join('\n');
     return { type: 'help', message: msg };
   };

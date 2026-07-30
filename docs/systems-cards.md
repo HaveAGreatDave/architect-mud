@@ -34,7 +34,7 @@ to the `tee` drawer with different tints — **cost scales with distinct shapes 
 | File | Role |
 |---|---|
 | [client/game/js/card-render.js](../client/game/js/card-render.js) | The whole renderer: mask loading, anchors, classifier, tier/palette, the ~30 archetype drawers, `renderPortrait`. Exposes `window.CardRender`. |
-| `client/game/assets/paperdoll-mask.png` | **Male** silhouette, 242×540, shape in the **alpha** channel (white-on-transparent). Already used by the Gear app paperdoll. |
+| `client/game/assets/paperdoll-mask.png` | **Male** silhouette, 242×540, shape in the **alpha** channel (white-on-transparent). Already used by the Kit app paperdoll. |
 | `client/game/assets/femsil.png` | **Female** silhouette, 500×708, Vitruvian, shape in the **alpha** channel (this is the file formerly named `femsil2.png`). The module's default path is `/assets/femsil.png`. |
 | `data/femsil.png` | Rejected first female silhouette (arms-down pose, black-on-white). Kept for reference; **not used**. Note the name collision — the *used* female mask is the one under `client/game/assets/`. |
 
@@ -125,7 +125,7 @@ CardRender.renderPortrait(canvas, {           // draws the figure into a sized <
 `renderPortrait` sizes to the canvas's CSS box × DPR, fits the figure by height with a small bottom bias,
 paints a ground shadow, builds the figure on an offscreen, and composites. The **card chrome** (frame,
 header, stat block, rarity chip, rain/haze) is **HTML/CSS around the canvas**, not the renderer's job — this
-matches how the client already builds DOM panels with a canvas centerpiece (see the Gear app).
+matches how the client already builds DOM panels with a canvas centerpiece (see the Kit app).
 
 The item shape the renderer needs is the **equipped-item shape the game already has**: `id`, `name`, `value`,
 `tags.slot`, `tags.armor`, `tags.layer`. See [docs/items.md](items.md).

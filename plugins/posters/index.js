@@ -26,6 +26,7 @@ import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { getApartment, insertFurniture, deleteFurniture } from '../../server/engine/world.js';
 import { playerControlsApt } from '../../server/engine/apartments.js';
+import { escAttr } from '../../server/engine/text.js';
 
 // Posters that share a secret seam. Deliberately tiny and mechanical.
 const SECRET_PAIR = { kiyo: 'cyd', cyd: 'kiyo' };
@@ -261,7 +262,7 @@ export const hooks = {
     // Every hero poster tells you it comes off the wall — furniture doesn't
     // advertise this the way a loose item does, so say it plainly, with a
     // clickable `take` link (data-action/target -> auto-runs `take <name>`).
-    const takeLink = `<span class="action-link" data-action="take" data-target="${f.name}" data-label="${shortName(f.name)}" title="Peel this poster off the wall">take</span>`;
+    const takeLink = `<span class="action-link" data-action="take" data-target="${escAttr(f.name)}" data-label="${escAttr(shortName(f.name))}" title="Peel this poster off the wall">take</span>`;
     let out = `<span class="text-dim">It's only wheat-pasted on — you could peel it down and roll it up. (${takeLink})</span>`;
 
     // The whole run hanging together supersedes the pair hint — GRU is one of

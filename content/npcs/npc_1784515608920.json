@@ -99,7 +99,6 @@
         "x": 420,
         "y": 380
       },
-      "actions": [],
       "options": [
         {
           "actions": [
@@ -107,29 +106,139 @@
               "action": "UNLOCK_AIR_CARGO"
             }
           ],
-          "label": "I'm in. I'll fly it myself.",
+          "conditions": [
+            {
+              "flag": "dealer_inner_circle",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "bm_trust",
+              "op": "gt",
+              "scope": "player",
+              "value": "9"
+            }
+          ],
+          "label": "I'm in. Tell me where.",
           "next": "raws_done"
+        },
+        {
+          "label": "And how would a man get himself trusted with that?",
+          "next": "raws_unvouched"
         },
         {
           "label": "Not my line of work.",
           "next": "root"
         }
       ],
-      "text": "Amos studies you a long moment. \"The hardpan out past the fence grows a crop the city pays stupid money for. Raw, uncut — no good to anyone till it's cooked down proper. We can't move it through a checkpoint, and we won't.\" He shrugs. \"But a flyer with a hold and no manifest? Land at Buzzard Field, load a pallet, fly it home, and cook it there. What happens after is your business.\""
+      "text": "Amos studies you a long moment. \"The hardpan out past the fence grows a crop the city pays stupid money for. Raw, uncut — no good to anyone till it's cooked down proper. We can't move it through a checkpoint, and we won't.\" He shrugs. \"So it doesn't go through one. It sits out in the waste where it was cut, under a tarp, and it waits for a flyer with a hold and no manifest to come and sit down in the dirt beside it.\""
     },
     "raws_done": {
       "_vine": {
         "x": 800,
         "y": 380
       },
-      "actions": [],
+      "options": [
+        {
+          "label": "What can I order?",
+          "next": "raws_ladder"
+        },
+        {
+          "label": "What have I got out there?",
+          "next": "raws_where"
+        },
+        {
+          "label": "Understood.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Then I'll say it once and you'll remember it.\" Amos turns the ledger around. Three lines of shorthand, no map. \"<b>The Bonepile</b>, northwest, where the hauler died. <b>The Sump</b>, southeast on the flats, under the slab. <b>The Sisters</b>, southwest, the two rocks leaning together — you'll hear them before you see them.\" <span class=\"text-dim\">He turns it back.</span> \"Nothing sits out there on spec. You tell me what you want, I have it run out to one of the three, and I tell you which. Set down <i>on</i> the drop — a pallet that size doesn't walk to you, so bring something that can put down rough and has the hold for it. Then <b>loadcargo</b>, and fly it home.\""
+    },
+    "raws_ladder": {
+      "_vine": {
+        "x": 1180,
+        "y": 560
+      },
+      "options": [
+        {
+          "label": "Show me the ledger.",
+          "next": "raws_list"
+        },
+        {
+          "label": "Understood.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Start with what won't get you shot.\" Amos counts it off on the ledger cover. \"Tobacco leaf. Cannabis flower. Baled, legal, dull as ditchwater — a scanner looks straight through it and the money is thin but it is money, and every bale you move is a bale I know you moved.\" <span class=\"text-dim\">He turns his hand over.</span> \"Above that it stops being farming. Precursor. The good stuff is a felony in your hold and the customs man is specifically looking for it, and I don't write that down for a man who's only ever hauled leaf. You'll see the ledger open up as it opens up.\""
+    },
+    "raws_list": {
+      "_vine": {
+        "x": 1560,
+        "y": 560
+      },
+      "actions": [
+        {
+          "action": "OPEN_SHOP"
+        }
+      ],
+      "options": [],
+      "text": "He turns the ledger around and slides it across the desk."
+    },
+    "raws_then": {
+      "_vine": {
+        "x": 1180,
+        "y": 200
+      },
       "options": [
         {
           "label": "Understood.",
           "next": "root"
         }
       ],
-      "text": "\"Then it's waiting on you. Whenever you're wheels-down at Buzzard Field — loadcargo, and take it home.\" He goes back to the ledger. \"Don't get caught between here and there. That part's on you.\""
+      "text": "\"Then I'd turn this ledger around and show you.\" <span class=\"text-dim\">He taps the closed cover once.</span> \"Three places out there hold a load. Never all three at once, and never the same two twice — that's the whole trick of it. Which is why you'd be asking me every single time you came through that door, and why I'd still be here when you did.\""
+    },
+    "raws_unvouched": {
+      "_vine": {
+        "x": 800,
+        "y": 200
+      },
+      "options": [
+        {
+          "label": "Fair enough.",
+          "next": "root"
+        },
+        {
+          "label": "And then you'd say where it is?",
+          "next": "raws_then"
+        }
+      ],
+      "text": "\"He wouldn't.\" Amos says it without heat, the way you'd read out a weight. \"Not from me, not on your face. There's a man in the city who doesn't exist and won't talk to you till you've moved enough of his product to be worth the risk of existing to. When he vouches, that's a start.\" <span class=\"text-dim\">He turns a page.</span> \"Then there's the fence who takes his overflow. Carry crates for him. Walk them through a gate and come out the other side clean, enough times that he stops counting.\" <span class=\"text-dim\">He looks up.</span> \"Do all that and come back. I'll know before you tell me.\""
+    },
+    "raws_where": {
+      "_vine": {
+        "x": 1180,
+        "y": 380
+      },
+      "actions": [
+        {
+          "action": "FENCE_CACHE_REPORT"
+        }
+      ],
+      "options": [
+        {
+          "label": "That'll do.",
+          "next": "root"
+        },
+        {
+          "label": "I want to order something.",
+          "next": "raws_list"
+        },
+        {
+          "label": "Remind me where they are.",
+          "next": "raws_done"
+        }
+      ],
+      "text": "Amos doesn't look up. He just pulls the ledger a little closer and finds the page without searching for it."
     },
     "root": {
       "_vine": {
@@ -141,6 +250,28 @@
         {
           "label": "I hear the flats grow more than scrub.",
           "next": "raws"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "air_cargo_unlocked",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "I want to put in an order.",
+          "next": "raws_ladder"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "air_cargo_unlocked",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "Where's it sitting today?",
+          "next": "raws_where"
         },
         {
           "label": "What happens if I get scanned on the way home?",
@@ -208,7 +339,12 @@
       "canvas trousers, suspenders, and long johns"
     ],
     "drug_buyer": true,
-    "personality": "unemployed"
+    "personality": "unemployed",
+    "raws_counter": true,
+    "trust_flag": "bm_trust",
+    "trust_max": 100,
+    "trust_per_buy": 0,
+    "vendor_shop_name": "Dune's Back Room"
   },
   "home_activities": [],
   "home_zone": "zone_bld_900_1171_lobby",
@@ -222,43 +358,198 @@
   "vendor_inventory": [
     {
       "item_id": "item_nitrous",
+      "min_trust": 0,
       "price": 35
     },
     {
       "item_id": "item_dxm",
+      "min_trust": 0,
       "price": 70
     },
     {
       "item_id": "item_combat_knife",
+      "min_trust": 0,
       "price": 77
     },
     {
       "item_id": "item_taser",
+      "min_trust": 0,
       "price": 91
     },
     {
       "item_id": "item_holdout_pistol",
+      "min_trust": 0,
       "price": 126
     },
     {
       "item_id": "item_screamers",
+      "min_trust": 0,
       "price": 140
     },
     {
       "item_id": "item_scrap_pistol",
+      "min_trust": 0,
       "price": 168
     },
     {
       "item_id": "item_riot_shotgun",
+      "min_trust": 0,
       "price": 224
     },
     {
       "item_id": "item_khole",
+      "min_trust": 0,
       "price": 252
     },
     {
       "item_id": "item_hack_deck",
+      "min_trust": 0,
       "price": 630
+    },
+    {
+      "item_id": "item_raw_tobacco_crop",
+      "min_trust": 10,
+      "price": 1008
+    },
+    {
+      "item_id": "item_raw_cannabis_crop",
+      "min_trust": 10,
+      "price": 1512
+    },
+    {
+      "item_id": "item_raw_slow",
+      "min_trust": 14,
+      "price": 280
+    },
+    {
+      "item_id": "item_raw_glasshollow",
+      "min_trust": 14,
+      "price": 280
+    },
+    {
+      "item_id": "item_raw_buzz",
+      "min_trust": 14,
+      "price": 280
+    },
+    {
+      "item_id": "item_raw_salvia",
+      "min_trust": 14,
+      "price": 1008
+    },
+    {
+      "item_id": "item_raw_nitrous",
+      "min_trust": 14,
+      "price": 1232
+    },
+    {
+      "item_id": "item_raw_dxm",
+      "min_trust": 20,
+      "price": 504
+    },
+    {
+      "item_id": "item_raw_psilocybin",
+      "min_trust": 20,
+      "price": 588
+    },
+    {
+      "item_id": "item_raw_blotter",
+      "min_trust": 20,
+      "price": 588
+    },
+    {
+      "item_id": "item_raw_mescaline",
+      "min_trust": 20,
+      "price": 588
+    },
+    {
+      "item_id": "item_raw_screamers",
+      "min_trust": 20,
+      "price": 588
+    },
+    {
+      "item_id": "item_raw_laughers",
+      "min_trust": 20,
+      "price": 588
+    },
+    {
+      "item_id": "item_raw_threshold",
+      "min_trust": 20,
+      "price": 588
+    },
+    {
+      "item_id": "item_raw_static",
+      "min_trust": 28,
+      "price": 868
+    },
+    {
+      "item_id": "item_raw_memhack",
+      "min_trust": 28,
+      "price": 868
+    },
+    {
+      "item_id": "item_raw_dreamsmoke",
+      "min_trust": 28,
+      "price": 868
+    },
+    {
+      "item_id": "item_raw_dmt",
+      "min_trust": 28,
+      "price": 1120
+    },
+    {
+      "item_id": "item_raw_coldfire",
+      "min_trust": 38,
+      "price": 1058
+    },
+    {
+      "item_id": "item_raw_blacktar",
+      "min_trust": 38,
+      "price": 1058
+    },
+    {
+      "item_id": "item_raw_lull",
+      "min_trust": 38,
+      "price": 1058
+    },
+    {
+      "item_id": "item_raw_ether",
+      "min_trust": 38,
+      "price": 1058
+    },
+    {
+      "item_id": "item_raw_khole",
+      "min_trust": 38,
+      "price": 1058
+    },
+    {
+      "item_id": "item_raw_amyls",
+      "min_trust": 38,
+      "price": 1058
+    },
+    {
+      "item_id": "item_raw_redline",
+      "min_trust": 38,
+      "price": 1058
+    },
+    {
+      "item_id": "item_raw_overclock",
+      "min_trust": 38,
+      "price": 1058
+    },
+    {
+      "item_id": "item_raw_grey",
+      "min_trust": 38,
+      "price": 1058
+    },
+    {
+      "item_id": "item_raw_deadair",
+      "min_trust": 38,
+      "price": 1058
+    },
+    {
+      "item_id": "item_raw_ibogaine",
+      "min_trust": 50,
+      "price": 1008
     }
   ],
   "vendor_restock_rate": 1,

@@ -7,7 +7,7 @@ import { getEnvironmentState } from '../../server/engine/environment.js';
 import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
 import { rowIsInstanced, NOT_INSTANCED_SQL } from '../../server/engine/inventory.js';
 import { getCrimeStars } from '../../server/engine/crimes.js';
-import { world } from '../../server/engine/world.js';
+import { world, streetExitFrom, isStreetLanding, isEnterableFacade } from '../../server/engine/world.js';
 import { getItem } from '../../server/engine/items-cache.js';
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -94,4 +94,31 @@ export default async function regress({ run, check, getPlayer }) {
     }
   }
   check('at least one vendor purchase remark is authored', remarkCount > 0, String(remarkCount));
+
+  // ── Being put out lands you on the STREET ───────────────────────────────────
+  // Closing time and the club bouncer both eject through streetExitFrom, and the one
+  // destination that must never be chosen is a FACADE tile: `resolveLanding` forwards
+  // a landing on a facade into that building's interior, so an eject onto one puts
+  // the player inside the shop next door instead of on the pavement. Water is out for
+  // the same class of reason (an ejection is not a drowning).
+  //
+  // Asserted as an invariant over the LIVE world rather than a fixture, because the
+  // failure mode is a content shape — one shop whose only exit is a facade — and a
+  // hand-built fixture would never contain the case that breaks it.
+  {
+    const interiors = [...world.zones.values()].filter(z => z.flags?.is_interior).slice(0, 400);
+    let checked = 0;
+    let bad = null;
+    for (const z of interiors) {
+      const dest = streetExitFrom(z.id);
+      if (!dest) continue;              // sealed room — the caller leaves them put
+      checked++;
+      if (!isStreetLanding(dest)) { bad = `${z.id} → ${dest}`; break; }
+    }
+    check('every interior that can eject ejects onto standable street', !bad, bad || `${checked} rooms`);
+    check('the eject search actually found streets (not vacuously true)', checked > 0, String(checked));
+    // A facade is never a landing, and the predicate is what every ejector shares.
+    const facade = [...world.zones.values()].find(z => isEnterableFacade(z));
+    if (facade) check('a facade is never a valid eject landing', isStreetLanding(facade.id) === false, facade.id);
+  }
 }

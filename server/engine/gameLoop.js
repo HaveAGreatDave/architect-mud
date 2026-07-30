@@ -34,6 +34,7 @@ import { appetiteMessages } from './appetite.js';
 import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, windChillDelta, waterTemperature, getZoneHumidity, getWindKph, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot, getZonePrecip } from './environment.js';
 import { tickDrugDecayAll, tickDrugs, tickOnsets, tickWithdrawalAll, clearActiveDrugState } from './drugs.js';
 import { getTimeScale } from './gametime.js';
+import { escAttr } from './text.js';
 
 // Rest/regen tunables (restRegenTick, every 15 seconds).
 // Stamina only regenerates once you've been idle (no movement) for a short delay,
@@ -719,7 +720,7 @@ export async function handlePlayerDeath(player, killer, cause = null) {
   // Notify others in the death zone that a corpse has appeared (skipped when a
   // plugin took custody of the body — there's no corpse to loot).
   if (corpseId) {
-    const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${corpseName}" title="Loot ${corpseName}">${corpseName}</span>`;
+    const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${escAttr(corpseName)}" title="Loot ${escAttr(corpseName)}">${corpseName}</span>`;
     broadcastFn(deathZone, { type:'zone_event', message:`${player.handle} has died. ${corpseLink}`, refresh: true }, player.id);
   }
 

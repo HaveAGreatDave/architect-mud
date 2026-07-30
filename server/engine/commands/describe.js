@@ -31,7 +31,7 @@ import { isStackable } from "../tags.js";
 import { getZoneRadiation, isSanctuary } from "../zone-tags.js";
 import { zoneDanger } from "../danger.js";
 import { furnitureVerbs } from "../furnitureActions.js";
-import { titleCaseName } from "../text.js";
+import { titleCaseName, escAttr } from "../text.js";
 import { getLockTagPublic, checkLockAuth } from "./doors.js";
 import { getItem } from "../items-cache.js";
 import { getPhantomsInZone, applyTransforms, getRoomTransform, getWeatherWarp } from "../phantoms.js";
@@ -144,9 +144,6 @@ function firstSentence(text) {
 }
 function pluralName(name) {
 	return /s$/i.test(name) ? name : `${name}s`;
-}
-function escAttr(s) {
-	return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
 // Cluster order for the plain Furniture list. Things you sit on and things you
@@ -774,7 +771,7 @@ export async function describeZone(zone, player, out = {}) {
 			const itemMentions = mentions.map(({ item, qty }) => {
 				const disp = titleCaseName(item.name);
 				const label = qty > 1 ? `${qty}x ${disp}` : disp;
-				return `<span class="action-link room-item" data-action="take" data-target="${item.name}" title="Take ${disp}">${label}</span>`;
+				return `<span class="action-link room-item" data-action="take" data-target="${escAttr(item.name)}" title="Take ${escAttr(disp)}">${label}</span>`;
 			});
 			desc += `\n<span class="items-label">Lying here:</span> ${itemMentions.join(", ")}`;
 		}
@@ -799,7 +796,7 @@ export async function describeZone(zone, player, out = {}) {
 			const actionsAttr = verbs.length ? ` data-actions="${verbs.join(" ")}"` : "";
 			// data-ftype carries the row's object_type through to CSS so each kind of
 			// thing gets its own tint (see .furniture-link[data-ftype=…] in styles.css).
-			return `<span class="action-link furniture-link" data-ftype="${f.object_type || "furniture"}" data-action="examine" data-target="${f.name}"${actionsAttr} title="Examine ${f.name}">${titleCaseName(f.name)}</span>${stateTag}${occTag}`;
+			return `<span class="action-link furniture-link" data-ftype="${f.object_type || "furniture"}" data-action="examine" data-target="${escAttr(f.name)}"${actionsAttr} title="Examine ${escAttr(f.name)}">${titleCaseName(f.name)}</span>${stateTag}${occTag}`;
 		});
 		desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(", ")}`;
 	}
@@ -822,7 +819,7 @@ export async function describeZone(zone, player, out = {}) {
 				w.glass_state === "broken"
 					? ' <span style="color:var(--red)">(broken)</span>'
 					: "";
-			return `<span class="action-link furniture-link" data-ftype="window" data-action="look" data-target="through ${w.name}" title="Look through ${w.name}">${titleCaseName(w.name)}</span>${curtainTag}${glassTag}`;
+			return `<span class="action-link furniture-link" data-ftype="window" data-action="look" data-target="through ${escAttr(w.name)}" title="Look through ${escAttr(w.name)}">${titleCaseName(w.name)}</span>${curtainTag}${glassTag}`;
 		});
 		desc += `\n<span class="furniture-label">Windows:</span> ${windowLinks.join(", ")}`;
 	}
@@ -834,14 +831,14 @@ export async function describeZone(zone, player, out = {}) {
 		// description hinted that they were lootable.
 		const playerLinks = others.map(
 			(p) =>
-				`<span class="action-link player-link" data-action="examine" data-target="${p.handle}" title="Look at ${p.handle}">${p.handle}${bodyTell(p, zone.id) ? ` <span class="text-dim">(${bodyTell(p, zone.id)})</span>` : ''}</span>`,
+				`<span class="action-link player-link" data-action="examine" data-target="${escAttr(p.handle)}" title="Look at ${escAttr(p.handle)}">${p.handle}${bodyTell(p, zone.id) ? ` <span class="text-dim">(${bodyTell(p, zone.id)})</span>` : ''}</span>`,
 		);
 		desc += `\n<span class="players-label">Also here:</span> ${playerLinks.join(", ")}`;
 	}
 	if (sleepingBodies.length) {
 		const bodyLinks = sleepingBodies.map(
 			(p) =>
-				`<span class="action-link player-link" data-action="examine" data-target="${p.handle}" title="Look at ${p.handle}">${p.handle} <span class="text-dim">(sleeping)</span></span>`,
+				`<span class="action-link player-link" data-action="examine" data-target="${escAttr(p.handle)}" title="Look at ${escAttr(p.handle)}">${p.handle} <span class="text-dim">(sleeping)</span></span>`,
 		);
 		desc += `\n<span class="players-label">Sleeping here:</span> ${bodyLinks.join(", ")}`;
 	}
@@ -856,12 +853,12 @@ export async function describeZone(zone, player, out = {}) {
 					: n.posture === 'lying'
 						? ` <span class="text-dim">(lying down)</span>`
 						: '';
-				return `<span class="action-link npc-link" data-action="talk" data-target="${n.name}" title="Talk to ${n.name}">${n.name}</span>${postureTag}`;
+				return `<span class="action-link npc-link" data-action="talk" data-target="${escAttr(n.name)}" title="Talk to ${escAttr(n.name)}">${n.name}</span>${postureTag}`;
 			};
 			// A phantom person wears the exact same markup as a real NPC — the
 			// only "tell" is that talking to it or touching it doesn't behave.
 			const phantomLink = (p) =>
-				`<span class="action-link npc-link" data-action="talk" data-target="${p.name}" title="Talk to ${p.name}">${p.name}</span>`;
+				`<span class="action-link npc-link" data-action="talk" data-target="${escAttr(p.name)}" title="Talk to ${escAttr(p.name)}">${p.name}</span>`;
 			// Vendors get their own section — but covert/trust-gated dealers stay
 			// camouflaged among the regular NPCs so their storefront isn't outed.
 			const isVendor = (n) =>
@@ -882,11 +879,11 @@ export async function describeZone(zone, player, out = {}) {
 	if (enemies.length || phantomBeasts.length) {
 		const enemyLinks = enemies.map(
 			(e) =>
-				`<span class="action-link enemy-link" data-action="attack" data-target="${e.name}" data-instance-id="${e.instanceId}" title="Attack ${e.name}">${e.name}</span> (${e.hp}/${e.hp_max}HP)`,
+				`<span class="action-link enemy-link" data-action="attack" data-target="${escAttr(e.name)}" data-instance-id="${e.instanceId}" title="Attack ${escAttr(e.name)}">${e.name}</span> (${e.hp}/${e.hp_max}HP)`,
 		);
 		const phantomBeastLinks = phantomBeasts.map(
 			(p) =>
-				`<span class="action-link enemy-link" data-action="attack" data-target="${p.name}" title="Attack ${p.name}">${p.name}</span> (${p.hp}/${p.hp_max}HP)`,
+				`<span class="action-link enemy-link" data-action="attack" data-target="${escAttr(p.name)}" title="Attack ${escAttr(p.name)}">${p.name}</span> (${p.hp}/${p.hp_max}HP)`,
 		);
 		desc += `\n<span class="enemies-label">Hostiles:</span> ${[...enemyLinks, ...phantomBeastLinks].join(", ")}`;
 	}
@@ -902,7 +899,7 @@ export async function describeZone(zone, player, out = {}) {
 	if (corpses.length) {
 		const corpseLinks = corpses.map(
 			(c) =>
-				`<span class="action-link corpse-link" data-action="loot" data-target="${c.id}" data-label="${c.name}" title="Loot ${c.name}">${c.name}</span>`,
+				`<span class="action-link corpse-link" data-action="loot" data-target="${c.id}" data-label="${escAttr(c.name)}" title="Loot ${escAttr(c.name)}">${c.name}</span>`,
 		);
 		desc += `\n<span class="corpses-label">Corpses:</span> ${corpseLinks.join(", ")}`;
 	}

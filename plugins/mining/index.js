@@ -26,6 +26,7 @@ import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
+import { escAttr } from '../../server/engine/text.js';
 
 const ATTEMPT_MS = 3800;   // per-swing cadence — a touch slower than scavenging; stone is stubborn
 const MAX_SWING = 14;      // best possible 2d8-2d8 roll — reachability ceiling
@@ -247,7 +248,7 @@ async function runAttempt(player, st, nowMs) {
       'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)',
       [randomUUID(), player.id, target.item_id]
     );
-    const link = `<span class="action-link item-link" data-action="examine" data-target="${target.name}" title="Examine ${target.name}">${target.name}</span>`;
+    const link = `<span class="action-link item-link" data-action="examine" data-target="${escAttr(target.name)}" title="Examine ${escAttr(target.name)}">${target.name}</span>`;
     out(player.id, `${flavor}\n<span class="item-grant">You break out ${link} and pocket it.</span>`);
     if (totalStock - 1 === 0)
       out(player.id, 'That was the last of it — this deposit is worked out.');

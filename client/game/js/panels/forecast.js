@@ -1,6 +1,6 @@
 import { appendMsg } from '../render.js';
 import { formatTemp, formatTempPrecise } from '/shared/settings.js';
-import { getEnvSnapshot } from './environment.js';
+import { getEnvSnapshot, isEnvUnreal } from './environment.js';
 
 // A forecast day at or above this severity shows a ⚠ warning. Deliberately a
 // boolean band, not the raw number — the telegraph warns "severe conditions
@@ -18,6 +18,13 @@ function windLabel(kph) {
 }
 
 export function openForecast() {
+  // No weather here, and no week to have weather in — see setEnvUnreal in
+  // environment.js. Answering in fiction rather than opening a panel full of
+  // Coldwater's forecast at someone standing in the prologue's corridor.
+  if (isEnvUnreal()) {
+    appendMsg('There is no sky here to read, and no tomorrow to read it for.', 'ambient');
+    return;
+  }
   renderForecastToday();
   document.getElementById('forecast-panel').classList.add('active');
   fetch('/api/environment/forecast')

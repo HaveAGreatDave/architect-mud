@@ -17,6 +17,15 @@ async function buildGear(player) {
     sex: player.biological_sex === 'female' ? 'female' : 'male',  // doll silhouette
     items: g.items,                         // equippable subset (the doll reads equipped)
     inventory: inv.items || [],             // every carried item (tray = unequipped subset)
+    // The AUTHORITATIVE per-slot soak — `player.soak`, the exact structure combat
+    // routes a hit through: { slot: { soak: { kinetic: n, … } } }. This used to be
+    // dropped here, which forced the client to re-derive protection by summing
+    // `tags.armor_soak` over equipped rows. That derivation is blind to everything
+    // recomputeArmor does on top of the raw tags — a `covers` garment protecting the
+    // slots it fills, and every registered armor contributor (subdermal augments) —
+    // so a player could be genuinely protected and read as bare. Never re-derive
+    // this on the client; it is not the sum of the tags.
+    soak: g.soak || {},
     effects: g.effects,
     weight: g.weight,
     capacity: g.capacity,
@@ -25,7 +34,9 @@ async function buildGear(player) {
 
 registerTabletApp({
   id: 'gear',
-  name: 'Gear',
+  // Display name only — the app id stays `gear` (it's in saved home-screen layouts,
+  // every `tabletnav gear` call site, and the client's `_data.appId === 'gear'` checks).
+  name: 'Kit',
   icon: '🧥',
   category: 'General',
   buildScreen(player) {

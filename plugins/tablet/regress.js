@@ -36,6 +36,38 @@ export default async function regress({ run, check, getPlayer }) {
       .every(id => r.apps.some(a => a.id === id)),
     JSON.stringify(r?.apps?.map(a => a.id)));
 
+  // ── Kit app: the soak seam ───────────────────────────────────────────────────
+  // The Kit (formerly Gear) screen must carry the server's AUTHORITATIVE per-slot
+  // soak — `player.soak`, the exact structure combat routes a hit through. It was
+  // silently dropped from the payload for a long time, which forced the client to
+  // re-derive protection by summing `tags.armor_soak` over equipped rows: blind to a
+  // `covers` garment's extra slots and to every registered armor contributor (a
+  // subdermal augment grants soak with no worn item at all), so a protected player
+  // read as bare. The client no longer computes this, so its absence isn't a
+  // cosmetic regression — it's the whole Protection table going to zero.
+  // Deliberately a LOCAL `g`, not the shared `r`: the wallpaper-sky checks further
+  // down still read `r` as the home payload fetched above.
+  {
+    const g = await run('tabletnav gear');
+    check('Kit screen is the gear app', g?.appId === 'gear' && g?.view === 'gear', JSON.stringify({ a: g?.appId, v: g?.view }));
+    check('Kit screen carries per-slot soak', g?.soak && typeof g.soak === 'object', JSON.stringify(g?.soak));
+    // Shape, not values — the fake player wears nothing, so an empty object is the
+    // correct answer here. What must hold is that a populated slot is
+    // `{ soak: { type: n } }` and never a bare `{ type: n }`, because the client
+    // reads `soak[slot].soak[type]` and a flattened shape reads as zero everywhere.
+    check('…in the { slot: { soak: {…} } } shape combat uses',
+      Object.values(g.soak).every(v => v && typeof v === 'object' && typeof v.soak === 'object'),
+      JSON.stringify(g?.soak));
+    check('Kit screen still carries the tray + weights',
+      Array.isArray(g?.inventory) && typeof g?.weight === 'number' && typeof g?.capacity === 'number',
+      JSON.stringify({ inv: Array.isArray(g?.inventory), w: g?.weight, c: g?.capacity }));
+    // The app is named Kit and the id is STILL `gear`: the id is in saved home-screen
+    // layouts, every `tabletnav gear` call site, the smartbar's Inv/Gear deep links and
+    // the client's `_data.appId === 'gear'` refresh check. Renaming it breaks all four.
+    const kit = r.apps.find(a => a.id === 'gear');
+    check('the gear app is called Kit but keeps its id', kit?.name === 'Kit', JSON.stringify(kit?.name));
+  }
+
   // ── Home widgets + wallpaper sky ─────────────────────────────────────────────
   // The widget seam is contributed by apps (buildWidget) and rendered by three
   // client kinds; a card of an unknown kind is dropped by the client, so the shape
@@ -653,20 +685,44 @@ export default async function regress({ run, check, getPlayer }) {
     check('the shelf carries a breadcrumb (or tiles cannot route)',
       Array.isArray(r?.breadcrumb) && r.breadcrumb.length > 0, JSON.stringify(r?.breadcrumb));
 
-    const firstBook = (r?.items || []).find(i => i.id)?.id;
+    const firstBook = (r?.books || []).find(b => b.id)?.id;
     if (firstBook) {
       // The route a tile click actually produces now.
       const viaParams = await run(`tabletnav library library ${firstBook}`);
       check('a book opens when its id arrives as params',
-        viaParams?.view === 'detail' && !viaParams?.error, JSON.stringify(viaParams)?.slice(0, 140));
+        viaParams?.libKind === 'cover' && !viaParams?.error, JSON.stringify(viaParams)?.slice(0, 140));
       // The route it produced BEFORE the fix — must also work, not silently
       // fall through to the shelf.
       const viaScreen = await run(`tabletnav library ${firstBook}`);
       check('a book opens when its id arrives as the screen',
-        viaScreen?.view === 'detail' && !viaScreen?.error, JSON.stringify(viaScreen)?.slice(0, 140));
+        viaScreen?.libKind === 'cover' && !viaScreen?.error, JSON.stringify(viaScreen)?.slice(0, 140));
       check('the two routes open the SAME book',
-        viaParams?.detail?.name === viaScreen?.detail?.name,
-        `${viaParams?.detail?.name} vs ${viaScreen?.detail?.name}`);
+        viaParams?.book?.title === viaScreen?.book?.title,
+        `${viaParams?.book?.title} vs ${viaScreen?.book?.title}`);
+
+      // The contents page, and then a TAP on one of its entries. A tile click sends
+      // the screen you are currently on ('Contents') plus the tile id, so a chapter
+      // arrives as `contents <bookId> <idx>` — which used to look up a book called
+      // "<bookId> 2" and answer "No such book." for every chapter of every book.
+      const toc = await run(`tabletnav library contents ${firstBook}`);
+      check('contents lists chapters',
+        toc?.libKind === 'contents' && (toc.chapters || []).length > 0,
+        JSON.stringify(toc)?.slice(0, 140));
+      const nth = (toc?.chapters || [])[2] || (toc?.chapters || [])[0];
+      if (nth) {
+        const page = await run(`tabletnav library contents ${nth.id}`);
+        check('tapping a contents entry opens THAT chapter',
+          page?.view === 'detail' && !!page?.detail?.body,
+          JSON.stringify(page)?.slice(0, 140));
+        check('the chapter opened is the one that was tapped',
+          page?.detail?.desc?.includes(` ${(toc.chapters.indexOf(nth) + 1)} of `),
+          `${page?.detail?.desc} for entry ${nth.id}`);
+      }
+      // Every entry in a contents page must carry a title — a jsonb path query
+      // silently drops untitled elements and shifts every index after it.
+      check('every contents entry has a title and a length',
+        (toc?.chapters || []).every(c => c.title && c.mins >= 1),
+        JSON.stringify((toc?.chapters || []).filter(c => !c.title || !(c.mins >= 1))).slice(0, 140));
     } else {
       check('library shelf has books to open', false, 'no book ids on the shelf');
     }

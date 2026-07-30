@@ -8,7 +8,7 @@
     "extinguish", "eject", "bail", "preflight", "hover", "spot", "scan", "spray", "loadhopper", "chart", "squawk",
     "buy", "rent", "charter", "charterinfo", "charterbook", "cancel", "testfly", "flight", "fs",
     "arm", "safe", "evade", "strafe", "fire", "strafresolve", "airfire", "airlock", "airunlock", "flares",
-    "contracts", "jobs", "accept", "manifest", "jettison", "loadcargo", "freightlicense", "cargolicense", "customs",
+    "contracts", "jobs", "accept", "manifest", "jettison", "loadcargo", "freightlicense", "cargolicense", "customs", "raws",
     "hangar", "showroom", "fleet", "carousel", "view", "hangaract", "paintset", "scheme", "repair", "salvage", "rebuild", "tune", "tuneset", "installkit", "modify", "customize", "loadout", "sell", "cancelrental",
     "examine", "look"
   ],

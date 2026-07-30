@@ -135,6 +135,15 @@ the till. It runs the same VAULT CRACK contract as a vendor safe — arm → cli
 can't be spoofed and two crackers can't both empty it. Arming it pings the proprietor
 wherever they are; a successful crack emits `hack.success` for surveillance to charge.
 
+**A carried `hack_device` is required** (`hasHackDeck`, [hack-gear.js](../../server/engine/hack-gear.js)),
+as it is for the ATM, the hololock and the vendor safe — and a failed attempt now costs the
+deck condition (`damageHackDeck`). Both were missing: you could open a vault bare-handed while
+the room-broadcast announced that you'd "jacked a deck" into it, and a botched crack was free,
+which made the cheap high-penalty Pry-Bar strictly better than nothing and never worse. The gate
+sits **after** the no-vault fall-through (`return undefined`) and **before** the lockout, so a
+`hack` aimed at something else in the room still reaches it and an attempt you were never
+allowed to make can't burn five minutes.
+
 Leaving takings in the till is a real risk. `till` early and often.
 
 ## Flags

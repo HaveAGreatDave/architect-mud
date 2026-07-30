@@ -63,7 +63,7 @@ import { registerAction } from '../../server/engine/actions.js';
 import { on, emit } from '../../server/engine/events.js';
 import { fireHook } from '../../server/engine/plugins.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
-import { hackDifficulty, breachMargin } from '../../server/engine/hack-gear.js';
+import { hackDifficulty, breachMargin, hasHackDeck, damageHackDeck } from '../../server/engine/hack-gear.js';
 import { getBroadcast, sendToPlayer } from '../../server/engine/messaging.js';
 import { registerLockType } from '../../server/engine/locks.js';
 import { exitTargets } from '../../server/engine/exits.js';
@@ -615,6 +615,17 @@ async function cmdHackVault(args, raw, player, broadcast) {
   if (!deed?.owner_id) return { type: 'output', message: `The ${vault.name} hangs open and empty. Nobody's trading out of here yet.` };
   if (ownsShop(player, deed)) return { type: 'error', message: `It's your own vault. Use <b>TILL</b>.` };
 
+  // A deck is required, as it is for the ATM, the hololock and the vendor safe. It
+  // was missing here, which is doubly odd given the room-broadcast below announces
+  // that you "jack a deck into the vault" — the fiction already assumed the hardware
+  // the code never asked for. It also left `hack_difficulty` reading off a deck that
+  // might not exist. After the `return undefined` self-gate so a bare-handed `hack`
+  // still falls through to another target in the room, and before the lockout so a
+  // failed attempt you were never allowed to make can't cost you five minutes.
+  if (!(await hasHackDeck(player.id))) {
+    return { type: 'error', message: `The ${vault.name} is a lump of ceramic and a comm port. You need a hacking device to talk to it.` };
+  }
+
   const until = _vaultLockout.get(player.id) || 0;
   if (Date.now() < until) {
     return { type: 'error', message: `Your rig is still flagged from the last attempt. Lockout expires in ${Math.ceil((until - Date.now()) / 1000)}s.` };
@@ -671,6 +682,11 @@ async function cmdTillCrackResolve(args, raw, player) {
   if (!vault || vault.id !== vaultId) return { type: 'noop' };
   if (!win) {
     _vaultLockout.set(player.id, Date.now() + VAULT_LOCKOUT_MS);
+    // A botched crack costs the deck condition, exactly as it does on the ATM and the
+    // hololock. This path never did, which — now that a deck is required to be here at
+    // all — was the last thing making a cheap Pry-Bar strictly better than no deck and
+    // never worse: `hack_fail_damage` is the price of its higher `hack_penalty`.
+    await damageHackDeck(player.id);
     return { type: 'error', message: 'The combination re-seats mid-spin and the tamper sensor logs the attempt. Your rig is flagged — five-minute lockout.' };
   }
 

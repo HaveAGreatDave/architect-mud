@@ -14,7 +14,7 @@ import { getEnvironmentState, recomputePower, resyncAllLightingStates, fixZonePo
 import { getSongDefByName, getSfxDefByName, getAmbientDefByName, getSampleDefByName } from '../audio/index.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
-import { hackDifficulty, breachMargin } from '../../server/engine/hack-gear.js';
+import { hackDifficulty, breachMargin, hasHackDeck, damageHackDeck } from '../../server/engine/hack-gear.js';
 import { reloadItem, deleteItemCache, getItem } from '../../server/engine/items-cache.js';
 import { sportsRng, sportsHash, sportsPick, sportsFill, sportsShuffle } from './rng.js';
 // Sport modules. One entry today; the registry shape is what a second sport plugs
@@ -6065,6 +6065,14 @@ async function cmdPirate(args, raw, player) {
   if (!deck) return { type: 'error', message: 'There is no media deck here to pirate.' };
   const dflags = _deckFlags(deck);
   if (canOperateDeck(dflags, player)) return { type: 'error', message: `You already control the ${deck.name}.` };
+  // Firmware AND hardware. The firmware (above) is what makes a transmitter stack
+  // *possible*; the deck is what you breach the station's deck WITH, and it's what
+  // `hack_difficulty` reads from on the next line. Every other breach in the game
+  // demands one, so this one does too — the two gates aren't redundant, they're the
+  // program and the machine that runs it.
+  if (!(await hasHackDeck(player.id))) {
+    return { type: 'error', message: `The firmware is flashed and ready, but the ${deck.name} still needs something jacked into it. You need a hacking device.` };
+  }
 
   const skill = await effectiveSkill(player, 'hacking');
   const difficulty = await hackDifficulty(player.id, dflags.hack_difficulty);
@@ -6093,6 +6101,8 @@ async function cmdPirateResolve(args, raw, player) {
 
   if (!win) {
     pirateLockout.set(player.id, Date.now() + PIRACY_LOCKOUT_MS);
+    // The trace costs the deck condition, as it does on every other failed breach.
+    await damageHackDeck(player.id);
     return { type: 'error', message: 'The carrier slips your lock and the station traces your transmitter. Rig lockout: 5 minutes.' };
   }
 

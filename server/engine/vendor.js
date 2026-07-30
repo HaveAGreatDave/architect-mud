@@ -43,6 +43,47 @@ import { relationHelp } from './relations.js';
 // the same thing) — the stamp key must also be listed in inventory.js INSTANCE_KEYS
 // so pickUp/give/drop honour that too.
 const purchaseStamps = new Map();   // item_id -> async (player, npc, item) => object | string
+
+// Thrown to abort a sale from inside the transaction. See buyFromVendor's comment:
+// `withTransaction` commits on a falsy return and only rolls back on a throw, so any
+// mid-sale bail-out MUST throw. `reason` becomes the vendor's refusal line.
+class VendorAbort extends Error {
+  constructor(reason) { super(reason || 'vendor abort'); this.reason = reason || null; }
+}
+
+// Per-purchase DELIVERY override. Sibling of the stamps above, and the same shape,
+// but it answers a different question: not "what state does this unit arrive in" but
+// "where does it arrive at all". Almost everything a vendor sells is handed across the
+// counter into your hands — but some goods are bought here and delivered ELSEWHERE: a
+// 150kg pallet of crop run out to a dead drop in the waste (plugins/flight), a
+// cipher-locked crate a drone drops at the Scald (plugins/smuggle).
+//
+// Registered against an NPC FLAG KEY, not an item tag, because "does this counter
+// deliver rather than hand over" is a property of the VENDOR. Keying it on the goods
+// instead would make two fences selling the same raws collide — which they do.
+//
+// The handler runs INSIDE the sale transaction, after credits are debited and in place
+// of the inventory insert. It returns:
+//   • a string        → the receipt line; the handler now owns the goods
+//   • '!reason'       → refuse, roll the sale back, show `reason`
+//   • null            → NOT MINE: fall through to ordinary inventory delivery (a
+//                       counter that also sells a shotgun over the counter)
+//   • anything else, or a throw → abort and roll back, because a purchase must never
+//                       take credits and deliver nothing anywhere
+const purchaseDeliveries = new Map();   // npc flag key -> async (player, npc, item, quantity, q) => string|null
+export function registerPurchaseDelivery(npcFlagKey, fn) {
+  if (typeof fn !== 'function') throw new Error('registerPurchaseDelivery: fn required');
+  purchaseDeliveries.set(npcFlagKey, fn);
+}
+function deliveryFor(npc) {
+  for (const key of Object.keys(npc?.flags || {})) {
+    if (!npc.flags[key]) continue;
+    const fn = purchaseDeliveries.get(key);
+    if (fn) return fn;
+  }
+  return null;
+}
+
 export function registerPurchaseStamp(itemId, fn) {
   if (typeof fn !== 'function') throw new Error('registerPurchaseStamp: fn required');
   purchaseStamps.set(itemId, fn);
@@ -126,9 +167,15 @@ export function vendorStatLines(tags = {}) {
 
 // ─── Stock display ───────────────────────────────────────────────────────────
 
-export async function getVendorStock(npc, playerId) {
-  const catalogue = npc.vendor_inventory || [];
-  const activeStock = npc.vendor_stock || [];
+// `shelfKey` selects which of the NPC's shelves is being browsed. A vendor may keep
+// more than one: entries with no `shelf` are the FRONT COUNTER (what `shop` and the
+// implicit "Browse your wares" open), and an entry tagged `shelf: 'back_room'` is only
+// ever visible to an OPEN_SHOP that named that shelf. This is what lets one NPC be
+// both a bartender selling swill and a fence selling precursor without the bar list
+// ever leaking contraband — the covert half stays covert.
+export async function getVendorStock(npc, playerId, shelfKey = null) {
+  const catalogue = (npc.vendor_inventory || []).filter(e => (e.shelf || null) === (shelfKey || null));
+  const activeStock = (npc.vendor_stock || []).filter(e => (e.shelf || null) === (shelfKey || null));
   if (!catalogue.length) return [];
 
   const trust = await readTrust(npc, playerId);
@@ -185,13 +232,15 @@ export async function getVendorStock(npc, playerId) {
 
 // ─── Buy ─────────────────────────────────────────────────────────────────────
 
-export async function buyFromVendor(player, npc, itemId, quantity = 1) {
+export async function buyFromVendor(player, npc, itemId, quantity = 1, shelfKey = null) {
   if (isVendorClosed(npc)) return { success: false, message: vendorClosedLine(npc) };
   const grudge = await vendorGrudgeRemaining(player.id, npc.id);
   if (grudge > 0) return { success: false, message: grudgeRefusal(npc, grudge) };
 
-  const catalogue = npc.vendor_inventory || [];
-  const activeStock = npc.vendor_stock || [];
+  // Only the shelf the player actually has open is buyable — the client sends an item
+  // id, so without this a front-counter session could buy straight off the back room.
+  const catalogue = (npc.vendor_inventory || []).filter(e => (e.shelf || null) === (shelfKey || null));
+  const activeStock = (npc.vendor_stock || []).filter(e => (e.shelf || null) === (shelfKey || null));
 
   if (!catalogue.length) return { success: false, message: 'This NPC has nothing to sell.' };
   const catalogueEntry = catalogue.find(e => e.item_id === itemId);
@@ -229,16 +278,50 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
     if (stamp?._line) { stampLine = `\n<span class="msg-system">${stamp._line}</span>`; delete stamp._line; }
   }
 
+  const delivery = deliveryFor(npc);
+  let deliveryLine = '';      // receipt flavour from a delivery handler
+  let deliveryRefusal = null; // its own refusal text, when it declined the sale
+
   const discount = await vendorDiscount(player.id, npc);
   const basePrice = catalogueEntry?.price ?? item.value;
   const price = Math.max(1, Math.round(basePrice * (1 - discount))) * quantity;
 
   // Debit, deliver the item, and pay the vendor safe as one atomic unit so a
   // failure between steps can't take credits without handing over the goods.
-  const paid = await withTransaction(async (q) => {
-    if (!await adjustCredits(player, -price, q, 'vendor:buy')) return false;
+  //
+  // ABORT BY THROWING, never by returning false. `withTransaction` only rolls back on
+  // a throw — a falsy RETURN commits everything done so far, which is why the
+  // sold-out-mid-transaction path below used to take the credits and hand over
+  // nothing. VendorAbort is caught immediately outside and becomes the refusal.
+  let paid = false;
+  try {
+    paid = await withTransaction(async (q) => {
+    if (!await adjustCredits(player, -price, q, 'vendor:buy')) throw new VendorAbort();
 
-    if (sourceContainer) {
+    // Bought here, delivered elsewhere — the handler owns the goods from this point
+    // and nothing lands in inventory. Anything short of a receipt line rolls the
+    // sale back, so a failed delivery can never keep the money.
+    let handled = false;
+    if (delivery) {
+      let line;
+      try { line = await delivery(player, npc, item, quantity, q); }
+      catch (err) {
+        if (err instanceof VendorAbort) throw err;
+        console.warn(`[vendor] purchase delivery for ${itemId} threw: ${err.message}`);
+        throw new VendorAbort();
+      }
+      // null = "not mine" — this counter delivers pallets, but is also selling you a
+      // shotgun across the desk. Fall through to the ordinary inventory path.
+      if (line !== null && line !== undefined) {
+        if (typeof line !== 'string' || !line || line.startsWith('!'))
+          throw new VendorAbort(typeof line === 'string' && line.startsWith('!') ? line.slice(1) : null);
+        deliveryLine = `\n<span class="msg-system">${line}</span>`;
+        handled = true;
+      }
+    }
+    if (handled) {
+      // The goods are the handler's now — there is nothing to put in a pocket.
+    } else if (sourceContainer) {
       // Physical stock: MOVE real rows out of the container (never a fresh
       // INSERT), so whatever's been sitting there — freshness checkpoint,
       // cooked state — travels intact with the sale, exactly like `pull`.
@@ -246,7 +329,8 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
         'SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 ORDER BY id LIMIT $3',
         [sourceContainer, itemId, quantity]
       );
-      if (picked.length < quantity) return false; // sold out from under us mid-transaction
+      if (picked.length < quantity)   // sold out from under us mid-transaction
+        throw new VendorAbort(`${item.name} is out of stock — check back after the next delivery.`);
       await q(
         'UPDATE player_inventory SET container_id=NULL, player_id=$1, is_equipped=0 WHERE id = ANY($2::text[])',
         [player.id, picked.map(r => r.id)]
@@ -278,9 +362,20 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
     const { rows: vc } = await q('UPDATE npcs SET vendor_credits = vendor_credits + $1 WHERE id = $2 RETURNING vendor_credits', [price, npc.id]);
     if (vc.length) syncNpc(npc.id, { vendor_credits: vc[0].vendor_credits });
     return true;
-  });
+    });
+  } catch (err) {
+    if (!(err instanceof VendorAbort)) throw err;
+    deliveryRefusal = err.reason || null;
+    // The rollback restored the row, but `adjustCredits` already mirrored the debit
+    // onto the live player object — put it back or the session shows money it still has.
+    const { rows: cr } = await query('SELECT credits FROM players WHERE id=$1', [player.id]);
+    if (cr.length) player.credits = cr[0].credits;
+  }
 
   if (!paid) {
+    // A delivery handler that declined gets to say why — "you already have six
+    // pallets sitting out there" is not "you can't afford that".
+    if (deliveryRefusal) return { success: false, message: deliveryRefusal };
     return { success: false, message: `You can't afford that. Need ${price} credits, have ${player.credits || 0}.\n${vendorBuyReaction(npc, 'poor')}` };
   }
 
@@ -312,7 +407,7 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
 
   return {
     success: true,
-    message: `You buy ${quantity}x ${item.name} for ${price} credits. (${player.credits} remaining)\n${vendorBuyReaction(npc, 'success')}${stampLine}${trustLine}`,
+    message: `You buy ${quantity}x ${item.name} for ${price} credits. (${player.credits} remaining)\n${vendorBuyReaction(npc, 'success')}${stampLine}${deliveryLine}${trustLine}`,
     credits_remaining: player.credits,
   };
 }

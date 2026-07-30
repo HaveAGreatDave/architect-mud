@@ -53,6 +53,19 @@ left in a silent room. Two belts on the braces: `speakArrival` claims itself wit
 veteran replaying `tutorial` isn't told they don't know how they got here), and a
 480 s fallback releases the prose if the question is never answered at all.
 
+**The tablet is not part of this.** The interface tour runs in The Inbetween, where
+there is no tablet at all (`plugins/tablet/index.js` refuses every entry point in a
+zone carrying `flags.prologue`), so its last step *promises* the device rather than
+opening it — the old `handoff: 'tablet'` step is gone, along with the tablet mentions
+in the corridor's own prose. The device is issued at the clone vat, and the walkthrough
+comes with it: `tablet_offer` pops a bobbing chip in the smart bar which opens the
+tablet **and** its tour, or clears itself after 25 s. Either ending echoes
+**`tabletdone`**, which is what now releases the clone-vat poster beat — the only
+signpost in the prologue that names somewhere to go, and previously the one thing the
+tablet's own boot chrome could cover up. Volume I is still granted at the welcome
+broadcast, but is described as *filed to your record*: there is nothing to read it on
+until the vat.
+
 **What.** A black field, a canvas, one line of mono text at a time, and a DOM
 wordmark at the end. The canvas is **one 3D scene** (a single pinhole `proj()`;
 no libraries, no matrices) run through five phases against **one** node field —

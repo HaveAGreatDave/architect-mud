@@ -307,6 +307,63 @@ export function resolveLanding(zoneId) {
   return zoneId;
 }
 
+// ── Where you land when something PUTS YOU OUT ────────────────────────────────
+// Being thrown out of a business (closing time, a bouncer, a shutter coming down)
+// has one correct destination: the street. Every ejector used to pick its own, and
+// each picked wrong in its own way — the bouncer took the first exit it found
+// (which can be a back office), closing time preferred a non-interior tile (which
+// includes a FACADE), and a facade is the worst possible answer, because
+// `resolveLanding` forwards a landing on a facade straight into that building's
+// interior. Thrown out of a bar, you'd be standing in the shop next door.
+//
+// So: one helper, and one law — an ejection lands OUTDOORS, on a tile a player can
+// legitimately stand on, and never on a facade. Breadth-first from the room you're
+// being removed from, so a back room three doors deep still finds the pavement,
+// with a bounded sweep because this runs on a scheduler tick.
+//
+// Returns null when there is genuinely no way out (a sealed test zone, a dreamscape).
+// Callers must treat null as "don't move them" rather than inventing a fallback —
+// leaving someone inside is recoverable; teleporting them into a wall is not.
+// Is this a tile you can be PUT OUT onto? Outdoors, standable, not a facade, not
+// water. Exported so a hand-authored eject destination (a club's own back alley,
+// flags.bouncer_eject_zone) is validated by the same rule the search uses — an
+// authored facade would otherwise walk the player straight back indoors.
+export function isStreetLanding(zoneId) {
+  const z = world.zones.get(zoneId);
+  if (!z) return false;
+  if (z.flags?.is_interior) return false;
+  if (isEnterableFacade(z)) return false;
+  if (z.flags?.terrain === 'water' || z.flags?.underwater) return false;
+  return true;
+}
+
+const EJECT_MAX_HOPS = 4;
+export function streetExitFrom(zoneId) {
+  const start = world.zones.get(zoneId);
+  if (!start) return null;
+  const seen = new Set([zoneId]);
+  let frontier = [start];
+  for (let hop = 0; hop < EJECT_MAX_HOPS && frontier.length; hop++) {
+    const next = [];
+    for (const z of frontier) {
+      for (const target of Object.values(z.exits || {})) {
+        if (!target || seen.has(target)) continue;
+        seen.add(target);
+        const t = world.zones.get(target);
+        if (!t) continue;
+        // Standable pavement? Done. (isStreetLanding rejects facades and water: a
+        // facade forwards you back indoors, and the harbour is a drowning.)
+        if (isStreetLanding(target)) return target;
+        // Otherwise keep walking out through interiors, but never THROUGH a facade
+        // or into water.
+        if (t.flags?.is_interior) next.push(t);
+      }
+    }
+    frontier = next;
+  }
+  return null;
+}
+
 export async function loadPlayerCorpses() {
   const now = Date.now();
   const { rows } = await query(

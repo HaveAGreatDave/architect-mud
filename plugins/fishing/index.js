@@ -37,6 +37,7 @@ import { on } from '../../server/engine/events.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { repairItem, conditionBand, destroyItem } from '../../server/engine/durability.js';
+import { escAttr } from '../../server/engine/text.js';
 
 const ATTEMPT_MS = 4200;    // per-cast cadence — a touch slower than scavenging; fishing is patient
 const MAX_SWING = 14;       // best possible 2d8-2d8 roll — reachability ceiling
@@ -520,7 +521,7 @@ async function cmdFishResolve(args, raw, player, broadcast) {
     if (bait.hasBait) await consumeBait(player.id);
     const margin = Math.max(0, (await effectiveSkill(player, 'fishing')) - target.difficulty);
     await awardSkillUse(player.id, 'fishing', margin);
-    const link = `<span class="action-link item-link" data-action="examine" data-target="${target.name}" title="Examine ${target.name}">${target.name}</span>`;
+    const link = `<span class="action-link item-link" data-action="examine" data-target="${escAttr(target.name)}" title="Examine ${escAttr(target.name)}">${target.name}</span>`;
     out(player.id, `<span class="item-grant">You work it in and swing ${link} up onto the dock.</span>`);
     // A landed catch ends the action, mirroring scavenging — recast to keep going.
     stopFishing(player.id, st.zoneId, player.handle);

@@ -45,6 +45,21 @@ export default async function regress({ run, check, getPlayer }) {
   const clip = await run('clip');
   check('clip with no device errors cleanly', clip?.type === 'error' && /no deployed device/i.test(clip?.message || ''), clip?.message);
 
+  // `hijack` now needs a carried `hack_device`, same as the ATM, the hololock, both
+  // vaults and the practice rig — breaching a camera is the same act as breaching a
+  // safe. The gate deliberately sits BELOW the device-exists check so a mistyped name
+  // still answers "there's no X here" (the useful error) rather than lecturing about
+  // hardware, which is exactly what these two assertions pin: no args → the usage
+  // error, a name that matches nothing → the not-here error, neither mentioning a
+  // device. The empty-handed refusal itself needs a real security_device in the room
+  // and is covered by manual QA.
+  const hjNone = await run('hijack');
+  check('hijack with no args asks what', hjNone?.type === 'error' && /hijack what/i.test(hjNone?.message || ''), hjNone?.message);
+  const hjGhost = await run('hijack ghostcam_xyz');
+  check('hijack of a device that is not here says so, not "you need a device"',
+    hjGhost?.type === 'error' && /no "ghostcam_xyz" here/i.test(hjGhost?.message || '') && !/hacking device/i.test(hjGhost?.message || ''),
+    hjGhost?.message);
+
   // purge is admin-only: a normal player gets the generic unknown-command reply
   // (the verb stays hidden); an admin runs it clean with no police in the room.
   const denied = await run('purge');

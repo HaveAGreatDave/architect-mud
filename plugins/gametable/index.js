@@ -16,6 +16,7 @@ import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { textModePlayers, isTextMode } from './text-mode.js';
 import { isVendorWorkTime } from '../../server/engine/ai-behaviour.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
+import { escAttr } from '../../server/engine/text.js';
 
 // ── Boot ───────────────────────────────────────────────────────────────────────
 
@@ -667,7 +668,7 @@ function renderTablePanel(t, furniture) {
   const dealerBit = dealer ? ` <span class="text-dim">— dealt by ${dealer}</span>` : '';
 
   const link = (action, target, label, title) =>
-    `<span class="action-link furniture-link" data-action="${action}" data-target="${target}" title="${title}">${label}</span>`;
+    `<span class="action-link furniture-link" data-action="${action}" data-target="${escAttr(target)}" title="${escAttr(title)}">${label}</span>`;
 
   // Per-seat breakdown: empty seats are click-to-sit, taken seats show the handle.
   const seatBits = t.seats.map((s, i) =>

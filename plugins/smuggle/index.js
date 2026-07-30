@@ -42,6 +42,7 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getLivePlayer } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { registerPurchaseDelivery } from '../../server/engine/vendor.js';
 
 const DROP_ZONE = 'zone_district_925_903';    // Coldwater Regional — smuggle drop, consolidated onto the district airfield
 const DROP_NAME = 'the Scald airstrip';
@@ -87,9 +88,38 @@ async function placeOrder(player, itemId, qty, vendorId) {
   return { ok: true, cost, name: item.name, qty };
 }
 
+// ── The fence's back room IS a shop shelf ─────────────────────────────────────
+// This replaces a generated dialogue fan-out: the fence used to carry one node per
+// raw and three quantity nodes under each of those (~28 × 3), authored by
+// scripts/add-blackmarket-fence.js, purely to collect "which raw" and "how many" —
+// which is exactly an item list and a quantity stepper. He now carries the same
+// catalogue as `vendor_inventory` entries on a NAMED SHELF (`shelf: 'back_room'`, so
+// his ordinary bar list never shows contraband) with his old bm_trust tiers as
+// `min_trust`, and the panel renders the ladder for free.
+//
+// A crate isn't handed over the bar, though — a MULE drops it out at the Scald. So
+// the sale claims the engine's purchase-delivery seam, keyed on his `mule_counter`
+// flag: it books the smuggle_orders row inside the vendor's own transaction (the
+// vendor already took the money, so there's no second debit here) and hands back the
+// receipt. See registerPurchaseDelivery in server/engine/vendor.js.
+registerPurchaseDelivery('mule_counter', async (player, npc, item, quantity, exec) => {
+  // Not contraband raw — he still sells beer over the counter. Hand it across.
+  if (!item.tags?.raw_drug || item.tags?.mule_crate) return null;
+  const qty = Math.max(1, Math.min(MAX_QTY, Number(quantity) || 1));
+  await exec(
+    `INSERT INTO smuggle_orders (id, player_id, item_id, item_name, qty, drop_zone, deliver_at, status, vendor_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8)`,
+    [randomUUID(), player.id, item.id, item.name, qty, DROP_ZONE, Date.now() + DELIVERY_MS, npc?.id || null]);
+  ordersGate.noteWork();   // a shipment is in flight — wake the delivery tick
+  const mins = Math.round(DELIVERY_MS / 60000);
+  return `A MULE drops <b>${qty}× ${item.name}</b> at ${DROP_NAME} in about ${mins} minute${mins === 1 ? '' : 's'}. `
+    + `Getting it home past the checkpoint is your lookout — <b>unpack</b> it out there first.`;
+});
+
 // Dialogue option action: the fence takes an order. On success the receipt is
 // pushed to the player and the dialogue proceeds to its `next` node; if they're
 // short, redirect the conversation to the "you're broke" node (nothing charged).
+// KEPT for any tree still authored the old way — the shelf above is the live path.
 registerAction({
   type: 'PLACE_SMUGGLE_ORDER',
   handler: async ({ actor, params, context }) => {

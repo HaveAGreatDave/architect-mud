@@ -147,6 +147,8 @@ nothing, silently; wire a reader first.
 | `bouncer` | strippers | bouncer NPC — enforces club ejection |
 | `bouncer_eject_zone` | strippers | where this bouncer throws you (optional; falls back to a derived zone) |
 | `charter_pilot` | flight | offers charter flights |
+| `mule_counter` | smuggle | the ground fence's back room — claims the engine purchase-delivery seam, so buying raw off his `shelf: 'back_room'` catalogue books a `smuggle_orders` MULE drop at the Scald instead of handing anything over. Pairs with `trust_flag: 'bm_trust'` + per-entry `min_trust` for the tiers, replacing the old per-raw dialogue fan-out. Sully at the Pigeon Bar |
+| `raws_counter` | flight | the raws order counter — `raws` only works while this NPC is alive and in the room, and each order is run out to one of the dead-drop caches ([systems-flight.md](systems-flight.md#raw-drug-dead-drops--the-air-smuggling-run)). Amos Dune at the Layover; a second quartermaster elsewhere is content, not code |
 | `clothing_layers` | npc-clothing | descriptive outfit model (see npc-clothing.md) |
 | `consort` | consort | a kept companion — stays in their billet until the keeper `beckon`s them |
 | `devoted_to` | consort | handle of the keeper this consort is devoted to |

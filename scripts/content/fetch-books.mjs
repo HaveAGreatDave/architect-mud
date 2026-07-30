@@ -163,7 +163,12 @@ const BOOKS = [
     year: 1821,
     source: 'Project Gutenberg #2040 — public domain in the United States.',
     blurb: 'The first drug memoir, and still one of the few honest ones: the pleasures described at length and without apology, then the bill, described the same way. He is not sorry and he is not well.',
-    splitOn: /^\s*(?:PART\s+[IVX]+|THE\s+PLEASURES\s+OF\s+OPIUM|INTRODUCTION\s+TO\s+THE\s+PAINS\s+OF\s+OPIUM|THE\s+PAINS\s+OF\s+OPIUM)\s*\.?\s*$/gim,
+    // TO THE READER and PRELIMINARY CONFESSIONS are load-bearing entries, not front
+    // matter: the Preliminary Confessions alone are a third of the book (the Oxford
+    // Street/Ann chapters everyone actually quotes). Without them here the split
+    // swallowed both into one 80KB "Front Matter" blob and the contents page went
+    // straight from the title to PART II, so two real sections had no way in.
+    splitOn: /^\s*(?:TO\s+THE\s+READER|PRELIMINARY\s+CONFESSIONS|PART\s+[IVX]+|THE\s+PLEASURES\s+OF\s+OPIUM|INTRODUCTION\s+TO\s+THE\s+PAINS\s+OF\s+OPIUM|THE\s+PAINS\s+OF\s+OPIUM)\s*\.?\s*$/gim,
   },
 ];
 

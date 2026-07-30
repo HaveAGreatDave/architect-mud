@@ -2,7 +2,7 @@ import { state } from './state.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, showSkyBanner, pointAtRoomTarget, setRoomBeacon, clearRoomBeacons } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
 import { renderMinimap, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt } from './panels/minimap.js';
-import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors } from './panels/environment.js';
+import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors, setEnvUnreal } from './panels/environment.js';
 import { setWeatherEventFx, setFireworksGlow, launchFirework } from './panels/weather-fx.js';
 import { setDreamFx } from './panels/environment.js';
 import { openDialogue, closeDialogue, openShop, notifyZoneChanged } from './panels/dialogue.js';
@@ -31,6 +31,7 @@ import { openSignalHijack } from './panels/signalhijack.js';
 import { openPirateConsole, closePirateConsole } from './panels/piratedeck.js';
 import { openFishing, armFishFight } from './panels/fishing.js';
 import { abortMacros } from './panels/smartbar-macros.js';
+import { setTabletAccess, showTabletOffer } from './panels/smartbar.js';
 import { offerInterfaceTour, startInterfaceTour, startTabletTour, consumeTourHandoff } from './panels/tour.js';
 import { playIntroCinematic } from './panels/intro-cinematic.js';
 import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
@@ -401,6 +402,12 @@ const handlers = {
   // plugins/prologue/index.js) — the closing flythrough is the actual city. An
   // old server that doesn't send it falls back to a procedural block grid.
   intro_cinematic: (msg) => { playIntroCinematic(() => sendCmdSilent('introdone'), msg?.skyline, msg?.shore); },
+  // Whether the player owns a tablet at all. Only the prologue ever says no — its
+  // corridor has no device in it, and the clone vat on the far side issues one.
+  tablet_access: (msg) => { setTabletAccess(msg?.has !== false); },
+  // …and the moment it's issued: a chip in the smart bar that animates for attention,
+  // opens the tablet and its walkthrough when tapped, and gives up after 25s.
+  tablet_offer: () => { showTabletOffer(); },
   tour_offer: () => { offerInterfaceTour(); },
   tour_start: () => { startInterfaceTour(); },
   // `tutorial tablet`. The tour needs the device actually on screen, so if it
@@ -501,6 +508,9 @@ const handlers = {
   loot_view: (msg) => {
     if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');
     openLootPanel(msg);
+    // Looting a body puts its gear in your pack — the loot panel redraws itself, but
+    // the Kit app behind it was left a corpse out of date.
+    refreshTabletGearIfOpen();
   },
 
   container_error: (msg) => {
@@ -539,7 +549,9 @@ const handlers = {
   who: (msg) => { appendHtml(msg.message, 'help'); },
   help: (msg) => { appendHtml(msg.message, 'help'); },
   examine: (msg) => { if (consumeExamineLogSuppression()) return; appendHtml(msg.message, 'help'); },
-  take: (msg) => { appendHtml(msg.message, 'help'); sendCmdSilent('look'); },
+  // `take` adds the row and `drop` below already refreshes — the pair have to agree, or
+  // the Kit app grows items it can never be seen losing.
+  take: (msg) => { appendHtml(msg.message, 'help'); sendCmdSilent('look'); refreshTabletGearIfOpen(); },
   drop: (msg) => {
     appendHtml(msg.message, 'help');
     sendCmdSilent('look');
@@ -612,9 +624,20 @@ const handlers = {
     if (!refreshTabletGearIfOpen()) appendHtml(msg.message, 'help');
   },
 
+  // The server's canonical "your inventory changed" ping (emitted on
+  // `inventory.changed`). No payload — the Kit app refetches itself, and only if it's
+  // open, so this is free when the tablet is closed.
+  inventory_dirty: () => { refreshTabletGearIfOpen(); },
+
   use: (msg) => {
     appendHtml(msg.message, 'loot');
     if (msg.player_update) updateVitals(msg.player_update);
+    // Eating, drinking, mixing, filling, reloading, unpacking — every one of these
+    // comes back as `use` and every one of them consumes or transforms a row. The
+    // Kit app was left showing the ration you just ate. Not covered by the
+    // `inventory_dirty` ping above because the consumption paths mutate directly and
+    // don't emit; refreshing here is the belt to that braces.
+    refreshTabletGearIfOpen();
   },
 
   dialogue: (msg) => { openDialogue(msg); },
@@ -690,14 +713,19 @@ const handlers = {
     else appendMsg(`(${msg.ui} interface requested)`, 'system');
   },
 
+  // Both sides of a counter move an item between you and the vendor, so the Kit app has
+  // to follow. Same reason as `use` above: commerce writes player_inventory directly
+  // rather than through the emitting helpers.
   buy: (msg) => {
     appendHtml(msg.message, 'loot');
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
+    refreshTabletGearIfOpen();
   },
 
   sell: (msg) => {
     appendHtml(msg.message, 'loot');
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
+    refreshTabletGearIfOpen();
   },
 
   deposit: (msg) => {
@@ -1087,6 +1115,11 @@ const handlers = {
   // ignoring the real weather and the indoor gate — ash falling in a windowless
   // corridor is the point. { effect: rain|snow|ash|fog|wind|none, intensity }.
   dream_fx:   (msg) => { setDreamFx(msg); },
+
+  // "This room has no weather and no clock" (plugins/prologue, off flags.prologue).
+  // Strips the weather readout from the HUD and scrambles the time — Coldwater's
+  // forecast has no business showing over a corridor with no floor.
+  env_unreal: (msg) => { setEnvUnreal(!!msg.unreal); },
 
   // Drunkenness level stream (intoxication plugin) → drives the drunk flight-view warp.
   intox_fx:   (msg) => { const lvl = Math.max(0, Math.min(100, Number(msg.level) || 0)); if (lvl <= 0) clearDrugFx('intox'); else setDrugFx('intox', 'drunk', lvl / 100); },

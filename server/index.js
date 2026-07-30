@@ -1378,8 +1378,11 @@ async function handleDialogue(ws, session, msg) {
 	// clobbering the shop that just opened. (This is why a vendor's authored shop
 	// option looked like it "didn't open the shop".)
 	const targetNode = (npc.dialogue_tree || {})[msg.choice];
-	if (targetNode?.actions?.some((a) => a?.action === "OPEN_SHOP")) {
-		await openNpcShop(ws, session, npc);
+	const openShopAction = (targetNode?.actions || []).find((a) => a?.action === "OPEN_SHOP");
+	if (openShopAction) {
+		// A node may name a SHELF (params.shelf) — that is the only way a back-room
+		// catalogue is ever reachable, so the covert half of a vendor stays covert.
+		await openNpcShop(ws, session, npc, openShopAction.params?.shelf || openShopAction.shelf || null);
 		return;
 	}
 
@@ -1419,10 +1422,10 @@ async function handleDialogue(ws, session, msg) {
 // shop session, and push the GUI panel. The single clean shop-open path shared by
 // the implicit "__shop__" option and any dialogue node authored with an OPEN_SHOP
 // action — so the two can't drift on guards or payload.
-async function openNpcShop(ws, session, npc) {
+async function openNpcShop(ws, session, npc, shelf = null) {
 	const player = getLivePlayer(session.playerId);
 	if (!player) return;
-	if (!npc.vendor_inventory?.length) {
+	if (!(npc.vendor_inventory || []).some((e) => (e.shelf || null) === (shelf || null))) {
 		ws.send(JSON.stringify({ type: "error", message: `${npc.name} has nothing to sell.` }));
 		return;
 	}
@@ -1431,7 +1434,7 @@ async function openNpcShop(ws, session, npc) {
 		ws.send(JSON.stringify({ type: "error", message: vendorClosedLine(npc) }));
 		return;
 	}
-	openShopSession(session.playerId, npc.id);
+	openShopSession(session.playerId, npc.id, shelf);
 	await sendShopPanel(ws, npc, session.playerId);
 }
 
@@ -1441,7 +1444,8 @@ async function sendShopPanel(ws, npc, playerId, extra = {}) {
 	const player = getLivePlayer(playerId);
 	if (!player) return;
 	const { getVendorStock, getSellableInventory } = await import("./engine/vendor.js");
-	const stock = await getVendorStock(npc, playerId);
+	const { getShopShelf } = await import("./engine/vendor-session.js");
+	const stock = await getVendorStock(npc, playerId, getShopShelf(playerId));
 	const inventory = await getSellableInventory(player, npc);
 	ws.send(JSON.stringify({
 		type: "dialogue_shop",
@@ -1481,7 +1485,8 @@ async function handleBuyFromNpc(ws, session, msg) {
 	// unique into one over-counted row.
 	let qty = Math.max(1, Math.min(99, Number(msg.quantity) || 1));
 	if (boughtItem && !isStackable(boughtItem)) qty = 1;
-	const result = await buyFromVendor(player, npc, msg.itemId, qty);
+	const { getShopShelf } = await import("./engine/vendor-session.js");
+	const result = await buyFromVendor(player, npc, msg.itemId, qty, getShopShelf(session.playerId));
 	await sendShopPanel(ws, npc, session.playerId, { buyResult: result.message, buySuccess: result.success });
 	if (result.success) {
 		ws.send(JSON.stringify({ type: "player_update", credits: player.credits }));

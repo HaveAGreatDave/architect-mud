@@ -7,6 +7,8 @@
  * exposes a narrow `sendToPlayer` so subscribers don't have to thread broadcast
  * through every Event. Mirrors the setBroadcast pattern already used by routes.js.
  */
+import { escAttr } from './text.js';
+
 let broadcastFn = null;
 
 export function setBroadcast(fn) { broadcastFn = fn; }
@@ -32,7 +34,7 @@ export function sendToZone(zoneId, message, excludeId = null) {
 // is highlighted and shimmers once (client `.verb-teach`) and is clickable like a
 // room link. Use this for every first mention of a new verb, everywhere.
 export function teachVerb(verb, action = verb, target = '') {
-  const targetAttr = target ? ` data-target="${target}"` : '';
+  const targetAttr = target ? ` data-target="${escAttr(target)}"` : '';
   const label = target ? `${verb} ${target}` : verb;
   return `<span class="action-link verb-teach" data-action="${action}"${targetAttr} title="${label}">${verb}</span>`;
 }

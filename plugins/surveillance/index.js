@@ -15,7 +15,7 @@ import { exitTargets, neighborZoneIds } from '../../server/engine/exits.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { skillCheck, awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
-import { hackDifficulty, breachMargin } from '../../server/engine/hack-gear.js';
+import { hackDifficulty, breachMargin, hasHackDeck, damageHackDeck } from '../../server/engine/hack-gear.js';
 import { visibleIntoxication } from '../../server/engine/drugs.js';
 import { getPowerMap, getZoneVisibility, LIGHT_LADDER } from '../../server/engine/environment.js';
 import { sendToPlayer, sendToZone, getBroadcast } from '../../server/engine/messaging.js';
@@ -1001,6 +1001,14 @@ async function cmdHijack(args, raw, player) {
   const dev = rows[0];
   if (!dev) return { type: 'error', message: `There's no "${nameHint}" here. Try "sweep" first.` };
   if (dev.owner_id === player.id) return { type: 'error', message: `You already control the ${dev.name}.` };
+  // Same rule as every other breach in the game: no deck, no hack. A camera is a
+  // smaller prize than a vault but it is the same act — and `hack_difficulty` is read
+  // off the deck you're carrying two lines below, so without one there was nothing for
+  // it to read. After the device-exists check so the failure message is the useful one
+  // ("there's no X here" beats "you need a device" when you mistyped the name).
+  if (!(await hasHackDeck(player.id))) {
+    return { type: 'error', message: `The ${dev.name} has a port under its housing and nothing you're carrying speaks to it. You need a hacking device.` };
+  }
   const fx = await getInterferenceZones();
   const status = deviceStatus(dev, fx);
   if (status !== 'ok' && status !== 'spoofed') {
@@ -1047,6 +1055,10 @@ async function cmdHijackResolve(args, raw, player) {
     return { type: 'output', message: `<span class="ip-gain">BREACH SUCCESSFUL.</span> The ${dev.name} answers to you now. Pull up your hub.` };
   }
   hijackLockout.set(player.id, Date.now() + 5 * 60 * 1000);
+  // Countermeasures cost the deck condition, as they do on the ATM and the hololock.
+  // The message already said they "traced your rig"; now the rig actually feels it,
+  // which is what makes a cheap deck's higher `hack_fail_damage` a real trade.
+  await damageHackDeck(player.id);
   tamperPing(dev.owner_id, player.id, dev.name, dev.zone_name || dev.zone_id, 'repelled an intrusion attempt.');
   return { type: 'error', message: 'Handshake collapsed. Countermeasures traced your rig. Lockout: 5 minutes.' };
 }

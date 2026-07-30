@@ -256,6 +256,19 @@ function ensureStyles() {
        to fit without the home screen scrolling, which is the whole promise of a
        fixed-shape grid. max-height keeps it inside a short viewport, and the mobile
        block near the bottom of this sheet takes over on a compact layout. */
+    /* The height is CONSTANT whether or not the cards are on. Widgets are off by
+       default, so the common case was ~110px reserved for a dashboard that isn't there
+       — a band of empty screen under the toolbar. That space now goes to the tiles
+       (see the .tos-no-widgets block further down) rather than coming off the chassis:
+       a shorter panel still left the grid huddled at the top, and the apps are what the
+       home screen is FOR. The .tos-no-widgets class is set from widgetsEnabled()
+       (_applyWidgetChrome), so turning cards on in Settings shrinks the tiles back in
+       the same gesture that adds the dashboard.
+       NB: this whole sheet is a TEMPLATE LITERAL — never put a backtick in a comment
+       here. One in this very block closed the string early, the rest of the sheet
+       parsed as JavaScript, and ensureStyles threw "no is not defined" at runtime.
+       A node --check passes anyway, because the result is still valid JS — so the only
+       symptom is the tablet silently refusing to open. */
     #tablet-os-overlay .tos-panel { width:min(760px,96vw); height:820px; max-height:94vh; display:flex; flex-direction:column;
       position:relative; overflow:hidden; color:var(--mg-accent); transform-origin:center center;
       background:
@@ -788,9 +801,54 @@ function ensureStyles() {
        invisible padding and gain a little more room to be thumbed. */
     html[data-density="compact"] #tablet-os-overlay .tos-page-dot { padding:8px; }
     html[data-density="compact"] #tablet-os-overlay .tos-page-arrow { padding:4px 10px; font-size:17px; }
+    /* No cards: SPEND the widget space on the tiles instead of shrinking the chassis.
+       Shrinking was the first answer and it was the wrong one — the panel got shorter
+       but the grid still sat in the top two-thirds with a band of nothing under it, so
+       the device read as half-empty either way. The apps are the reason the home screen
+       exists; with nothing else competing for the room they get to be a proper
+       thumb-sized target. The grid is four fixed rows, so this is the one place bigger
+       tiles cost nothing. */
+    /* The knob is --tos-tile-h, NOT padding. The home grid runs on fixed-height rows
+       (grid-auto-rows, see the --tos-tile-h block above) so the furniture below it can't
+       move when a page is half empty — which means growing a tile's PADDING just pushes
+       its label out of a 66px row, where the next row clips it. Raise the row and the
+       tile fills it. 116px ≈ the leftover once the header, summary, pager and toolbar
+       have taken theirs, so four rows genuinely use the screen instead of leaving a
+       band of nothing under the toolbar. min-height follows automatically: it's a calc
+       on this same variable. */
+    #tablet-os-overlay.tos-no-widgets { --tos-tile-h:116px; }
+    /* Centre the icon+label in the taller row rather than letting them sit at the top
+       with the growth all below them. */
+    #tablet-os-overlay.tos-no-widgets .tos-tile { display:flex; flex-direction:column;
+      align-items:center; justify-content:center; padding:8px 6px; border-radius:9px; }
+    #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon { font-size:30px; margin-bottom:9px; }
+    #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon svg { width:31px; height:31px; }
+    #tablet-os-overlay.tos-no-widgets .tos-tile .tos-name { font-size:11.5px; letter-spacing:.6px; }
+    #tablet-os-overlay.tos-no-widgets .tos-grid { gap:10px; }
+    /* Groups keep their proportions inside the bigger grid rather than inheriting the
+       full tile size (a group is a sub-grid — its tiles are meant to read as smaller). */
+    #tablet-os-overlay.tos-no-widgets .tos-grp-inner .tos-tile { padding:7px 4px; }
+    #tablet-os-overlay.tos-no-widgets .tos-grp-inner .tos-tile .tos-icon { font-size:20px; margin-bottom:3px; }
+    #tablet-os-overlay.tos-no-widgets .tos-grp-inner .tos-tile .tos-icon svg { width:21px; height:21px; }
+    #tablet-os-overlay.tos-no-widgets .tos-grp-inner .tos-tile .tos-name { font-size:9.5px; }
     /* A short window (not a phone) — just don't let the chassis exceed the viewport. */
     @media (max-height:860px) {
       #tablet-os-overlay .tos-panel { height:94vh; }
+    }
+    /* Shorter windows get shorter rows, in steps, so four rows always fit without the
+       home screen scrolling — the whole promise of a fixed-shape grid. Only the row
+       height moves; the tile keeps its centred layout at every size, so a label can
+       never end up clipped the way it did when this scaled padding instead. */
+    @media (max-height:760px) {
+      #tablet-os-overlay.tos-no-widgets { --tos-tile-h:96px; }
+      #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon { font-size:26px; margin-bottom:7px; }
+      #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon svg { width:27px; height:27px; }
+    }
+    @media (max-height:660px) {
+      #tablet-os-overlay.tos-no-widgets { --tos-tile-h:78px; }
+      #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon { font-size:22px; margin-bottom:5px; }
+      #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon svg { width:23px; height:23px; }
+      #tablet-os-overlay.tos-no-widgets .tos-tile .tos-name { font-size:10px; }
     }
     @media (max-height:620px) {
       #tablet-os-overlay .tos-tile { padding:6px 3px; }
@@ -1000,6 +1058,107 @@ function ensureStyles() {
     /* The title above a chapter reads as a title page, not a UI label. */
     #tablet-os-overlay .tos-book-title { font-family:Georgia, 'Palatino Linotype', serif;
       font-size:16px; letter-spacing:2px; text-transform:none; }
+    /* ── The shelf, a cover, a table of contents ────────────────────────────────
+       Every colour here is derived: --bk-hue comes from a hash of the book's id
+       (see bookHue), and the cloth mixes that hue into the THEME's own surface, so
+       a green-terminal tablet gets eight distinguishable bindings rather than eight
+       stock jacket colours fighting the palette. */
+    #tablet-os-overlay .tos-lib-shelf { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:10px; }
+    /* The board the row stands on — a lit edge and a shadow under it, nothing more. */
+    #tablet-os-overlay .tos-lib-board { height:9px; margin:2px 0 12px; border-radius:2px;
+      background:linear-gradient(180deg, color-mix(in srgb, var(--tos-border) 80%, transparent), transparent);
+      box-shadow:0 6px 14px -6px rgba(0,0,0,.6); }
+    #tablet-os-overlay .tos-lib-card { display:flex; gap:11px; align-items:center; cursor:pointer;
+      padding:9px 11px 9px 9px; border-radius:4px; border:1px solid var(--tos-border);
+      background:linear-gradient(180deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      transition:transform .14s ease, border-color .14s ease, box-shadow .14s ease; }
+    /* A book you pull out tilts up off the shelf. */
+    #tablet-os-overlay .tos-lib-card:hover { transform:translateY(-2px);
+      border-color:color-mix(in srgb, var(--mg-accent) 45%, var(--tos-border));
+      box-shadow:0 6px 16px -8px rgba(0,0,0,.7); }
+    #tablet-os-overlay .tos-lib-card-txt { min-width:0; flex:1; }
+    #tablet-os-overlay .tos-lib-card-title { font-family:Georgia,'Palatino Linotype',serif; font-size:13.5px;
+      color:var(--tos-fg); line-height:1.25; }
+    #tablet-os-overlay .tos-lib-card-by { font-size:11px; color:var(--tos-fg-dim); margin-top:2px; font-style:italic; }
+    #tablet-os-overlay .tos-lib-card-meta { font-size:10.5px; color:var(--tos-fg-dim); margin-top:3px; opacity:.8; }
+
+    /* The plate. Cloth, a foil rule, a stamped monogram, and the spine's shadow. */
+    #tablet-os-overlay .tos-lib-plate { position:relative; flex:none; border-radius:2px 4px 4px 2px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px;
+      background:
+        linear-gradient(150deg, hsl(var(--bk-hue) 34% 34% / .85), hsl(var(--bk-hue) 40% 18% / .92)),
+        linear-gradient(180deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid hsl(var(--bk-hue) 30% 12% / .8);
+      box-shadow:inset 0 0 18px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.45); }
+    #tablet-os-overlay .tos-lib-plate-sm { width:44px; height:62px; }
+    #tablet-os-overlay .tos-lib-plate-lg { width:104px; height:148px; gap:9px; }
+    #tablet-os-overlay .tos-lib-plate-spine { position:absolute; left:0; top:0; bottom:0; width:6px;
+      border-radius:2px 0 0 2px; background:linear-gradient(90deg, rgba(0,0,0,.5), transparent); }
+    #tablet-os-overlay .tos-lib-plate-mono { font-family:'Trajan Pro', Georgia, serif; font-weight:bold;
+      letter-spacing:1px; font-size:14px; color:color-mix(in srgb, var(--mg-accent) 62%, #e8d8ae);
+      text-shadow:0 1px 0 rgba(0,0,0,.5); }
+    #tablet-os-overlay .tos-lib-plate-lg .tos-lib-plate-mono { font-size:28px; letter-spacing:2px; }
+    #tablet-os-overlay .tos-lib-plate-rule { width:56%; height:1px;
+      background:color-mix(in srgb, var(--mg-accent) 45%, transparent); }
+    #tablet-os-overlay .tos-lib-plate-year { font-size:8.5px; letter-spacing:1.5px;
+      color:color-mix(in srgb, #e8d8ae 55%, transparent); }
+    #tablet-os-overlay .tos-lib-plate-lg .tos-lib-plate-year { font-size:11px; }
+
+    /* Progress. Thin, accent-coloured, and only ever drawn for a book you started —
+       an empty bar on every unopened title reads as a chore list. */
+    #tablet-os-overlay .tos-lib-bar { height:3px; margin-top:5px; border-radius:2px; overflow:hidden;
+      background:color-mix(in srgb, var(--tos-border) 70%, transparent); }
+    #tablet-os-overlay .tos-lib-bar span { display:block; height:100%;
+      background:linear-gradient(90deg, color-mix(in srgb, var(--mg-accent) 55%, transparent), var(--mg-accent)); }
+    #tablet-os-overlay .tos-lib-bar-wide { margin:10px 0 0; height:4px; }
+
+    /* Cover page: the plate beside the blurb, set on the same parchment as a page. */
+    #tablet-os-overlay .tos-lib-cover { display:flex; gap:16px; align-items:flex-start; margin-bottom:12px; }
+    #tablet-os-overlay .tos-lib-cover-txt { min-width:0; flex:1; }
+    #tablet-os-overlay .tos-lib-cover-title { font-family:Georgia,'Palatino Linotype',serif; font-size:18px;
+      color:var(--tos-fg); line-height:1.2; }
+    #tablet-os-overlay .tos-lib-cover-by { font-size:12px; font-style:italic; color:var(--tos-fg-dim); margin-top:3px; }
+    #tablet-os-overlay .tos-lib-blurb { margin-top:9px; font-size:13px; line-height:1.66; max-width:56ch;
+      font-family:Georgia,'Palatino Linotype',serif;
+      color:color-mix(in srgb, var(--tos-fg) 92%, #d9c39a);
+      padding:11px 13px; border-radius:3px 6px 6px 3px;
+      background:linear-gradient(100deg, color-mix(in srgb, var(--tos-surface-hi) 82%, #c9ab7d),
+                                         color-mix(in srgb, var(--tos-surface-lo) 88%, #b9975f));
+      border:1px solid color-mix(in srgb, #6b5433 40%, var(--tos-border)); }
+    #tablet-os-overlay .tos-lib-facts { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:9px;
+      font-size:11px; letter-spacing:.4px; color:var(--tos-fg-dim); text-transform:uppercase; }
+    #tablet-os-overlay .tos-lib-prov { margin-top:8px; font-size:10.5px; line-height:1.5; opacity:.65;
+      color:var(--tos-fg-dim); max-width:56ch; }
+
+    /* Table of contents: leader dots out to a reading time, the way a printed one
+       runs out to a page number. Chapters behind the bookmark dim; the bookmark
+       itself gets the ribbon. */
+    #tablet-os-overlay .tos-lib-toc { margin-bottom:12px; }
+    #tablet-os-overlay .tos-lib-toc-head { font-family:Georgia,'Palatino Linotype',serif; font-size:12px;
+      letter-spacing:3px; text-transform:uppercase; color:var(--tos-fg-dim);
+      padding-bottom:6px; margin-bottom:4px; border-bottom:1px solid var(--tos-border); }
+    #tablet-os-overlay .tos-lib-toc-row { display:flex; align-items:baseline; gap:8px; cursor:pointer;
+      padding:7px 8px; border-radius:3px; border-left:2px solid transparent;
+      font-family:Georgia,'Palatino Linotype',serif; font-size:13px; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-lib-toc-row:hover { background:color-mix(in srgb, var(--mg-accent) 12%, transparent);
+      border-left-color:color-mix(in srgb, var(--mg-accent) 60%, transparent); }
+    #tablet-os-overlay .tos-lib-toc-n { flex:none; width:2.1em; text-align:right; font-size:11px;
+      color:var(--tos-fg-dim); font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-lib-toc-t { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60%; }
+    /* The leaders. A repeating dot gradient rather than a row of literal periods,
+       so it stretches to whatever space is left instead of wrapping. */
+    #tablet-os-overlay .tos-lib-toc-dots { flex:1; min-width:12px; height:1em; align-self:flex-end;
+      background-image:radial-gradient(circle, color-mix(in srgb, var(--tos-fg-dim) 55%, transparent) 1px, transparent 1px);
+      background-size:5px 5px; background-position:0 .72em; background-repeat:repeat-x; opacity:.6; }
+    #tablet-os-overlay .tos-lib-toc-len { flex:none; font-size:10.5px; color:var(--tos-fg-dim);
+      font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-lib-toc-read { opacity:.55; }
+    #tablet-os-overlay .tos-lib-toc-at { border-left-color:var(--mg-accent);
+      background:color-mix(in srgb, var(--mg-accent) 10%, transparent); }
+    #tablet-os-overlay .tos-lib-toc-at .tos-lib-toc-t::after { content:' ⌖'; color:var(--mg-accent); }
+    html[data-density="compact"] #tablet-os-overlay .tos-lib-shelf { grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); }
+    html[data-density="compact"] #tablet-os-overlay .tos-lib-plate-lg { width:82px; height:118px; }
+
     html[data-density="compact"] #tablet-os-overlay .tos-book { padding:14px 14px 12px 20px; font-size:13.5px; }
     html[data-density="compact"] #tablet-os-overlay .tos-book p:first-of-type::first-letter { font-size:3em; }
     /* The sentence the voice is on. Background rather than colour, so the
@@ -1507,14 +1666,21 @@ function ensureStyles() {
        Default (female) matches femsil (500×708); .male matches paperdoll (242×540). */
     /* Height-driven so the whole figure (incl. the feet box at 94%) always fits the
        screen without scrolling — width derives from the aspect. */
-    #tablet-os-overlay .tos-doll { position:relative; height:min(46vh, 336px); width:auto; max-width:46vw; margin:0 auto; aspect-ratio:500 / 708; }
+    /* A little taller than it was (46vh/336px): the crowding is vertical — seven boxes
+       sharing one figure — and height is the cheapest room there is. The aspect ratio is
+       unchanged, so the silhouette keeps its shape and every anchor stays on its body
+       part; there's simply more space between them. */
+    #tablet-os-overlay .tos-doll { position:relative; height:min(52vh, 392px); width:auto; max-width:46vw; margin:0 auto; aspect-ratio:500 / 708; }
     #tablet-os-overlay .tos-doll.male { aspect-ratio:242 / 540; }
     /* Loadout: inventory list on the LEFT (col 1), the layer selector + paperdoll
        centred in the middle (col 2), an empty right spacer (col 3) balancing the left
        so the doll stays centred. Both list and doll are on one screen for drag/drop;
        the whole left column is the unequip drop-zone. */
     #tablet-os-overlay .tos-gload { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); gap:10px; align-items:start; margin-top:2px; }
-    #tablet-os-overlay .tos-gload-side { grid-column:1; justify-self:start; width:100%; max-width:186px; min-width:0; display:flex; flex-direction:column; gap:7px; }
+    /* 186px cut "nyra synthleather jacket" in half. 230 fits the long tail of real
+       item names on one line and still leaves the doll its centred column, since the
+       right-hand readout cluster is narrower than the tray. */
+    #tablet-os-overlay .tos-gload-side { grid-column:1; justify-self:start; width:100%; max-width:230px; min-width:0; display:flex; flex-direction:column; gap:7px; }
     #tablet-os-overlay .tos-gload-doll { grid-column:2; display:flex; flex-direction:column; align-items:center; gap:4px; }
     /* Below-feet feedback line (equip errors), accent, hidden until it has a message. */
     #tablet-os-overlay .tos-gload-fb { min-height:15px; font-size:11px; letter-spacing:.4px; text-align:center; color:var(--mg-accent); opacity:0; transition:opacity .15s; text-shadow:0 0 6px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
@@ -1552,7 +1718,10 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gbrk-ico { display:inline-flex; flex:0 0 auto; }
     #tablet-os-overlay .tos-gbrk-ico svg { width:19px; height:19px; }
     #tablet-os-overlay .tos-gbrk-name { flex:1; }
-    #tablet-os-overlay .tos-gbrk-val { font-size:15px; font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-gbrk-val { font-size:15px; font-variant-numeric:tabular-nums; display:flex; align-items:baseline; gap:6px; }
+    /* The weakest slot, beside the total. A big total hides a bare head, and the bare
+       head is what actually kills you. */
+    #tablet-os-overlay .tos-gbrk-worst { font-style:normal; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-gbrk-foot { margin-top:8px; font-size:10.5px; color:color-mix(in srgb, var(--mg-accent) 62%, transparent); }
     #tablet-os-overlay .tos-doll-fig { position:absolute; inset:0; background:var(--mg-accent);
       -webkit-mask:url('/assets/femsil-mask.png') center / contain no-repeat;
@@ -1562,22 +1731,49 @@ function ensureStyles() {
       -webkit-mask-image:url('/assets/paperdoll-mask.png');
       mask-image:url('/assets/paperdoll-mask.png'); }
 
-    #tablet-os-overlay .tos-gslot { position:absolute; z-index:2; display:flex; flex-direction:column; gap:1px; padding:4px 6px; min-width:56px; max-width:47%; border-radius:5px; user-select:none; touch-action:none;
+    /* Sized for real item names ("hooded acid slicker", "cyber track pants") without
+       the boxes colliding. The earlier 88px/64% was too greedy in BOTH axes: hands and
+       weapon are anchored to opposite edges of the same row, so 2 × 88px met in the
+       middle of the figure, and a wrapped two-line name grew the box downward into the
+       row beneath it. 76px/44% keeps a pair clear of each other with the stage's width
+       to spare, and the wrap is capped at two lines (below). */
+    #tablet-os-overlay .tos-gslot { position:absolute; z-index:2; display:flex; flex-direction:column; gap:0; padding:3px 6px; min-width:76px; max-width:44%; border-radius:5px; user-select:none; touch-action:none;
       background:color-mix(in srgb, var(--tos-surface-lo) 88%, transparent); border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo), 0 2px 6px rgba(0,0,0,0.35); backdrop-filter:blur(1px); transition:border-color .15s, box-shadow .15s; }
     #tablet-os-overlay .tos-gslot-label { font-size:8px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
-    #tablet-os-overlay .tos-gslot-item { font-size:10.5px; color:var(--tos-fg-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* Two lines before it gives up, so a long name wraps instead of vanishing. */
+    #tablet-os-overlay .tos-gslot-item { font-size:10px; line-height:1.2; color:var(--tos-fg-dim);
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
+    /* An EMPTY slot is just a label — the em-dash placeholder was making every bare
+       box as tall as a filled one, which is most of the crowding on a half-dressed
+       body. Collapse it to the label alone; the box still reads as a slot and is still
+       the same drop target. */
+    #tablet-os-overlay .tos-gslot:not(.filled) .tos-gslot-item { display:none; }
+    #tablet-os-overlay .tos-gslot:not(.filled) { min-width:62px; opacity:.72; }
     #tablet-os-overlay .tos-gslot.filled { border-color:color-mix(in srgb, var(--mg-accent) 50%, transparent); box-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 22%, transparent), inset 0 1px 0 var(--tos-bevel-hi), 0 2px 6px rgba(0,0,0,0.35); }
     #tablet-os-overlay .tos-gslot.filled .tos-gslot-item { color:var(--tos-fg); }
     #tablet-os-overlay .tos-gslot.filled .tos-gslot-label { color:var(--mg-accent); }
+    /* Worn, but not on the layer you're looking at: faded and un-glowed, so the doll
+       shows at a glance which boxes are actually the layer you selected. Still fully
+       interactive (tap = unequip) — dimmed means elsewhere, not disabled — and it
+       brightens on hover to say so. */
+    #tablet-os-overlay .tos-gslot.off-layer { opacity:.46; box-shadow:inset 0 1px 0 var(--tos-bevel-hi), 0 2px 6px rgba(0,0,0,0.35);
+      border-color:color-mix(in srgb, var(--mg-accent) 22%, transparent); border-style:dashed; }
+    #tablet-os-overlay .tos-gslot.off-layer:hover { opacity:.92; }
     /* Anchor each box over its body part (percentages of the doll stage). */
-    #tablet-os-overlay .tos-gslot--head { left:50%; top:8%; transform:translate(-50%,-50%); text-align:center; }
-    #tablet-os-overlay .tos-gslot--torso { left:50%; top:33%; transform:translate(-50%,-50%); text-align:center; }
-    #tablet-os-overlay .tos-gslot--legs { left:50%; top:64%; transform:translate(-50%,-50%); text-align:center; }
-    #tablet-os-overlay .tos-gslot--feet { left:50%; top:96%; transform:translate(-50%,-50%); text-align:center; }
-    #tablet-os-overlay .tos-gslot--hands { left:0; top:55%; transform:translateY(-50%); text-align:left; }
-    #tablet-os-overlay .tos-gslot--weapon_hand { right:0; top:55%; transform:translateY(-50%); text-align:right; }
-    #tablet-os-overlay .tos-gslot--accessory { right:-56px; top:20%; transform:translateY(-50%); text-align:right; }
+    /* Anchors re-spaced to stop the boxes stacking on each other. The three centred
+       ones (head/torso/legs/feet) each own a band of the figure, and the hands/weapon
+       pair sits in the GAP between torso and legs rather than level with the top of the
+       legs box — which is what put three boxes in one horizontal strip. */
+    #tablet-os-overlay .tos-gslot--head { left:50%; top:7%; transform:translate(-50%,-50%); text-align:center; }
+    #tablet-os-overlay .tos-gslot--torso { left:50%; top:31%; transform:translate(-50%,-50%); text-align:center; }
+    #tablet-os-overlay .tos-gslot--legs { left:50%; top:69%; transform:translate(-50%,-50%); text-align:center; }
+    #tablet-os-overlay .tos-gslot--feet { left:50%; top:97%; transform:translate(-50%,-50%); text-align:center; }
+    #tablet-os-overlay .tos-gslot--hands { left:0; top:50%; transform:translateY(-50%); text-align:left; }
+    #tablet-os-overlay .tos-gslot--weapon_hand { right:0; top:50%; transform:translateY(-50%); text-align:right; }
+    /* Inside the stage, not hanging off it: at right:-56px this overlapped whatever sat
+       in the next grid column, which on a narrow panel is the readout cluster. */
+    #tablet-os-overlay .tos-gslot--accessory { right:0; top:16%; transform:translateY(-50%); text-align:right; }
     /* Filled boxes are tap-to-unequip; every box is a drag-to-equip target. */
     #tablet-os-overlay .tos-gslot.filled { cursor:pointer; }
     #tablet-os-overlay .tos-gslot.filled:hover { border-color:var(--mg-accent); }
@@ -1598,8 +1794,10 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gear-fx span { font-size:11px; padding:3px 10px; border-radius:11px; color:var(--tos-fg); background:color-mix(in srgb, var(--mg-accent) 14%, transparent); border:1px solid color-mix(in srgb, var(--mg-accent) 30%, transparent); }
     #tablet-os-overlay .tos-gear-fx.empty { color:var(--tos-fg-dim2); font-size:11.5px; }
 
-    /* Carried tray + drop-off zone. Cards drag onto the doll (equip) or the drop
-       zone (drop); the ⤓ button drops directly. */
+    /* Carried tray + the drag-to-ground zone. Cards drag onto the doll to equip or
+       onto the zone to drop; the per-card ⤓ button moved to the Inventory tab
+       (.tos-ginv-drop), so .tos-gcard-drop below is now unused by the tray and kept
+       only so a card rendered with one still styles correctly. */
     #tablet-os-overlay .tos-gtray { display:flex; flex-direction:column; gap:5px; min-height:72px; padding:4px; border-radius:6px; border:1px dashed color-mix(in srgb, var(--mg-accent) 16%, transparent); }
     #tablet-os-overlay .tos-gtray-empty { color:var(--tos-fg-dim2); font-size:11.5px; padding:4px 2px; display:flex; align-items:center; justify-content:center; min-height:60px; text-align:center; }
     #tablet-os-overlay .tos-gcard { display:flex; align-items:center; gap:8px; padding:6px 9px; border-radius:5px; user-select:none; touch-action:none;
@@ -1608,7 +1806,10 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gcard.equippable { cursor:pointer; }
     #tablet-os-overlay .tos-gcard.equippable:hover { border-color:color-mix(in srgb, var(--mg-accent) 50%, transparent); filter:brightness(1.08); }
     #tablet-os-overlay .tos-gcard.dragging { opacity:.45; }
-    #tablet-os-overlay .tos-gcard-name { flex:1; min-width:0; font-size:12.5px; color:var(--tos-fg); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* Wraps to two lines rather than ellipsising — the tray is a column, so vertical
+       room is the one thing it has plenty of. */
+    #tablet-os-overlay .tos-gcard-name { flex:1; min-width:0; font-size:12.5px; line-height:1.3; color:var(--tos-fg);
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
     #tablet-os-overlay .tos-gcard-meta { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); white-space:nowrap; }
     #tablet-os-overlay .tos-gcard-drop { flex:0 0 auto; cursor:pointer; font-size:14px; line-height:1; color:color-mix(in srgb, var(--mg-accent) 60%, transparent); background:transparent; border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); border-radius:4px; padding:2px 7px; transition:color .12s, border-color .12s, background .12s; }
     #tablet-os-overlay .tos-gcard-drop:hover { color:var(--mg-accent); border-color:var(--mg-accent); background:color-mix(in srgb, var(--mg-accent) 20%, transparent); }
@@ -1640,7 +1841,45 @@ function ensureStyles() {
     #tablet-os-overlay .tos-ginv-row:hover { border-color:color-mix(in srgb, var(--mg-accent) 48%, transparent); filter:brightness(1.08); }
     #tablet-os-overlay .tos-ginv-name { flex:1; min-width:0; font-size:12.5px; color:var(--tos-fg); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     #tablet-os-overlay .tos-ginv-slot { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); white-space:nowrap; }
+    /* Per-row weight — tabular so the column reads as a column, and dim enough that
+       the name still wins the row. */
+    #tablet-os-overlay .tos-ginv-wt { flex:0 0 auto; font-size:10px; font-variant-numeric:tabular-nums; color:var(--tos-fg-dim2); white-space:nowrap; }
+    /* ⤓, moved here off the Gear tab. Sits quiet until the row is hovered so a list of
+       twenty things isn't twenty invitations to throw them away. */
+    #tablet-os-overlay .tos-ginv-drop { flex:0 0 auto; cursor:pointer; font-size:13px; line-height:1; padding:2px 6px; border-radius:4px;
+      color:color-mix(in srgb, var(--mg-accent) 42%, transparent); background:transparent;
+      border:1px solid color-mix(in srgb, var(--mg-accent) 16%, transparent); opacity:.5; transition:opacity .12s, color .12s, border-color .12s, background .12s; }
+    #tablet-os-overlay .tos-ginv-row:hover .tos-ginv-drop { opacity:1; }
+    #tablet-os-overlay .tos-ginv-drop:hover { color:var(--mg-accent); border-color:var(--mg-accent); background:color-mix(in srgb, var(--mg-accent) 20%, transparent); }
+    /* ⇧ wear/wield · ⇩ take off. Brighter than ⤓ and always legible rather than
+       hover-revealed, because putting kit ON is the thing you came to this list to do —
+       dropping it is the destructive one that should stay quiet. */
+    #tablet-os-overlay .tos-ginv-eqbtn { flex:0 0 auto; cursor:pointer; font-size:13px; line-height:1; padding:2px 6px; border-radius:4px;
+      color:color-mix(in srgb, var(--mg-accent) 82%, #fff); background:color-mix(in srgb, var(--mg-accent) 10%, transparent);
+      border:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent); transition:color .12s, border-color .12s, background .12s; }
+    #tablet-os-overlay .tos-ginv-eqbtn:hover { border-color:var(--mg-accent); background:color-mix(in srgb, var(--mg-accent) 26%, transparent); }
+    /* Taking something off is the quieter half of the same control. */
+    #tablet-os-overlay .tos-ginv-eqbtn.off { color:var(--tos-fg-dim); background:transparent; border-color:color-mix(in srgb, var(--mg-accent) 18%, transparent); }
+    #tablet-os-overlay .tos-ginv-eqbtn.off:hover { color:var(--mg-accent); border-color:color-mix(in srgb, var(--mg-accent) 45%, transparent); }
     #tablet-os-overlay .tos-ginv-eq { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--mg-accent); white-space:nowrap; }
+    /* ── What's in your hand ────────────────────────────────────────────────────
+       The wielded weapon, pinned above the paged list. It gets a real block with a
+       label rather than just being sorted first, because an unlabelled pinned row
+       reads as a sorting bug. Its badge is brighter and heavier than "equipped" —
+       in a fight this is the one line on the screen you're looking for. */
+    #tablet-os-overlay .tos-ginv-hand { margin:6px 0 2px; padding:6px 7px 4px; border-radius:6px;
+      background:color-mix(in srgb, var(--mg-accent) 7%, transparent);
+      border:1px solid color-mix(in srgb, var(--mg-accent) 24%, transparent); }
+    #tablet-os-overlay .tos-ginv-handlab { font-size:8.5px; letter-spacing:1.6px; text-transform:uppercase;
+      color:color-mix(in srgb, var(--mg-accent) 66%, transparent); margin-bottom:4px; }
+    /* The row itself, held: a lit left edge so it reads as "active" at a glance even
+       with the badge text unread. */
+    #tablet-os-overlay .tos-ginv-row.wielding { border-color:color-mix(in srgb, var(--mg-accent) 55%, transparent);
+      box-shadow:inset 3px 0 0 var(--mg-accent), 0 0 10px color-mix(in srgb, var(--mg-accent) 14%, transparent); }
+    #tablet-os-overlay .tos-ginv-row.wielding .tos-ginv-name { color:color-mix(in srgb, var(--mg-accent) 30%, var(--tos-fg)); font-weight:bold; }
+    #tablet-os-overlay .tos-ginv-eq.wielding { font-weight:bold;
+      color:color-mix(in srgb, var(--mg-accent) 80%, #fff);
+      text-shadow:0 0 7px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
     #tablet-os-overlay .tos-ginv-chev { flex:0 0 auto; font-size:15px; color:var(--tos-fg-dim2); }
     /* The primary-verb chip: the one thing this item is FOR (Use / Read / Eat / …),
        shown on the row itself and tappable straight through, so a player never has
@@ -3886,6 +4125,15 @@ function widgetsEnabled() {
 }
 function setWidgetsEnabled(on) {
   try { localStorage.setItem(TABLET_WIDGETS_KEY, on ? 'on' : 'off'); } catch {}
+  _applyWidgetChrome();
+}
+
+// The chassis is sized for what's actually on the home screen: with cards off it
+// sheds the height it was only holding for them. Called on open and on every toggle,
+// so the device resizes in the same gesture that switches the cards.
+function _applyWidgetChrome() {
+  if (!_overlay) return;
+  _overlay.classList.toggle('tos-no-widgets', !widgetsEnabled());
 }
 
 function renderHomeWidgets(widgets) {
@@ -4635,6 +4883,102 @@ function renderCalendar(d) {
       <span class="tos-cal-nav" data-cal-month="${esc(d.nextMonth || '')}" title="Next month">&#8594;</span>
     </div>
     <div class="tos-cal-grid">${dow}${cells}</div>
+  </div>`;
+}
+
+// ── Library: the shelf, a cover, a table of contents ─────────────────────────
+// The chapter READER was already set as a book (.tos-book); these are the three
+// screens that lead to it, and they used to be the generic list/detail furniture —
+// eight identical grey rows for eight objects that are meant to be the most
+// physical things on the tablet. A shelf should look like a shelf.
+//
+// Every cover is generated from the book's own id: one hash, one hue. No art to
+// author, no asset to ship, and the same book is always the same colour, which is
+// what lets you find it by colour on the second visit.
+function bookHue(id) {
+  let h = 0;
+  for (let i = 0; i < String(id).length; i++) h = (h * 31 + String(id).charCodeAt(i)) % 360;
+  return h;
+}
+
+// The cloth-and-foil plate a book is represented by. `size` picks the shelf tile
+// or the bigger one on the cover page; both are the same object at two scales.
+function renderBookPlate(b, size) {
+  const hue = bookHue(b.id);
+  // Initials rather than a truncated title: at shelf size a title wraps to mush,
+  // and a stamped monogram is what a real spine does with the same problem.
+  const initials = String(b.title || '?').replace(/[^A-Za-z ]/g, '').split(/\s+/)
+    .filter(w => w && !/^(a|an|the|of|and|to)$/i.test(w)).slice(0, 3).map(w => w[0].toUpperCase()).join('');
+  return `<div class="tos-lib-plate tos-lib-plate-${size}" style="--bk-hue:${hue}">
+    <div class="tos-lib-plate-spine"></div>
+    <div class="tos-lib-plate-mono">${esc(initials || '§')}</div>
+    <div class="tos-lib-plate-rule"></div>
+    <div class="tos-lib-plate-year">${esc(String(b.year || ''))}</div>
+  </div>`;
+}
+
+function renderLibraryShelf(d) {
+  const books = d.books || [];
+  if (!books.length) return '<div class="tos-empty">Nothing here.</div>';
+  const cards = books.map(b => {
+    const total = b.chapters || 0;
+    // Progress is deliberately the bookmark, not "chapters finished" — there is no
+    // finished flag, and pretending otherwise would show 100% on a book you opened
+    // to its last chapter and bounced off.
+    const pct = total > 1 ? Math.round((b.at / (total - 1)) * 100) : (b.at ? 100 : 0);
+    const started = b.at > 0;
+    return `<div class="tos-lib-card" data-open-item="${esc(b.id)}">
+      ${renderBookPlate(b, 'sm')}
+      <div class="tos-lib-card-txt">
+        <div class="tos-lib-card-title">${esc(b.title)}</div>
+        <div class="tos-lib-card-by">${esc(b.author)}</div>
+        <div class="tos-lib-card-meta">${total} chapter${total === 1 ? '' : 's'}${started ? ` · ${pct}%` : ''}</div>
+        ${started ? `<div class="tos-lib-bar"><span style="width:${Math.max(3, pct)}%"></span></div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  // The shelf board under the row of books. Pure decoration, and worth it — it is
+  // the thing that says "these are objects" before you read a single title.
+  return `<div class="tos-lib-shelf">${cards}</div><div class="tos-lib-board"></div>`;
+}
+
+function renderLibraryCover(d) {
+  const b = d.book || {};
+  const total = b.chapters || 0;
+  const pct = total > 1 ? Math.round((b.at / (total - 1)) * 100) : (b.at ? 100 : 0);
+  return `<div class="tos-lib-cover">
+    <div class="tos-lib-cover-plate">${renderBookPlate(b, 'lg')}</div>
+    <div class="tos-lib-cover-txt">
+      <div class="tos-lib-cover-title">${esc(b.title || '')}</div>
+      <div class="tos-lib-cover-by">${esc(b.author || '')} · ${esc(String(b.year || ''))}</div>
+      <div class="tos-lib-blurb">${esc(b.blurb || '')}</div>
+      <div class="tos-lib-facts">
+        <span>${total} chapter${total === 1 ? '' : 's'}</span>
+        <span>${b.at > 0 ? `Bookmarked at ${b.at + 1} of ${total}` : 'Unopened'}</span>
+      </div>
+      ${b.at > 0 ? `<div class="tos-lib-bar tos-lib-bar-wide"><span style="width:${Math.max(3, pct)}%"></span></div>` : ''}
+      ${b.source ? `<div class="tos-lib-prov">${esc(b.source)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderLibraryContents(d) {
+  const chs = d.chapters || [];
+  const at = d.at || 0;
+  const rows = chs.map((c, i) => {
+    const cls = ['tos-lib-toc-row'];
+    if (i < at) cls.push('tos-lib-toc-read');
+    if (i === at) cls.push('tos-lib-toc-at');
+    return `<div class="${cls.join(' ')}" data-open-item="${esc(c.id)}">
+      <span class="tos-lib-toc-n">${i + 1}</span>
+      <span class="tos-lib-toc-t">${esc(c.title)}</span>
+      <span class="tos-lib-toc-dots"></span>
+      <span class="tos-lib-toc-len">${c.mins} min</span>
+    </div>`;
+  }).join('');
+  return `<div class="tos-lib-toc">
+    <div class="tos-lib-toc-head">Contents</div>
+    ${rows || '<div class="tos-empty">No chapters.</div>'}
   </div>`;
 }
 
@@ -6488,6 +6832,12 @@ const GEAR_LAYER_DEFS = [{ n: 1, label: 'Under' }, { n: 2, label: 'Over' }, { n:
 const GEAR_SLOT_LABEL = { head: 'Head', torso: 'Torso', hands: 'Hands', legs: 'Legs', feet: 'Feet', weapon_hand: 'Weapon', accessory: 'Accessory' };
 const GEAR_DMG = ['kinetic', 'edged', 'energy', 'fire', 'radiation'];
 const GEAR_ARMOR_SLOTS = ['head', 'torso', 'hands', 'legs', 'feet'];
+// Slots that fold into the Inventory tab's two WORN groups (Clothing / Armour). The
+// body slots plus accessories — deliberately not weapon_hand, which stays in the main
+// list where you can see it next to the rest of your kit. Kept separate from
+// GEAR_ARMOR_SLOTS because that one drives the paperdoll and the soak table, where an
+// accessory has no body region to protect.
+const WORN_GROUP_SLOTS = [...GEAR_ARMOR_SLOTS, 'accessory'];
 // Monochrome line icons (stroke = currentColor → tinted to the theme accent) for
 // the far-right loadout readouts: total worn armor + insulation temperature.
 const GEAR_SHIELD_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 2.5v5.6c0 4.4-3 7.4-7 9.4-4-2-7-5-7-9.4V5.5z"/></svg>`;
@@ -6501,6 +6851,10 @@ const GEAR_DMG_ICON = {
   fire: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c3 4 4.5 6 4.5 9a4.5 4.5 0 0 1-9 0c0-1.6.6-2.9 1.7-3.9.1 1 .8 1.9 1.8 2.2-.7-2.3-.4-4.7 1-7.3z"/></svg>`,
   radiation: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><circle cx="12" cy="12" r="2.1"/><path d="M12 9.6 16.4 4 7.6 4Z"/><path d="M13.5 12.8 18.4 15.8 15.4 20.5Z"/><path d="M10.5 12.8 8.6 20.5 5.6 15.8Z"/></svg>`,
 };
+
+// Insulation is a fractional °C offset (a t-shirt is 0.5), so rounding it to whole
+// degrees turned three light layers into "2°" and a scarf into nothing at all.
+const round1 = (n) => Math.round((Number(n) || 0) * 10) / 10;
 
 function gearWeight(g) {
   g = Number(g) || 0;
@@ -6520,6 +6874,19 @@ function primaryVerb(it) {
   const acts = it?.actions || [];
   return GEAR_PRIMARY_VERBS.find(v => acts.includes(v)) || null;
 }
+// What you DO with a piece, named off its slot. "Equip" is engine vocabulary; a
+// player wears a coat, wields a bat and puts on a ring, and the tooltip on a
+// one-tap control is the only place the game gets to say which.
+function wearVerb(it) {
+  const slot = it?.tags?.slot;
+  if (slot === 'weapon_hand') return 'Wield';
+  if (slot === 'accessory') return 'Put on';
+  return 'Wear';
+}
+function takeOffVerb(it) {
+  return it?.tags?.slot === 'weapon_hand' ? 'Put away' : 'Take off';
+}
+
 const GEAR_TRAY_PAGE = 6;   // loadout carried-tray page size
 const GEAR_INV_PAGE = 8;    // Inventory-tab page size
 const gcap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -6544,27 +6911,31 @@ function gearPager(kind, page, pages) {
     <button class="tos-gpg" data-gpg="next"${page >= pages - 1 ? ' disabled' : ''}>▸</button></div>`;
 }
 
-// A draggable carried-item card for the loadout tray. Equippable cards drag onto
-// their body slot (or tap) to equip; the ⤓ button — or dragging off the tray —
-// drops a piece on the ground.
+// A draggable carried-item card for the Gear tab's tray. Equippable cards drag onto
+// their body slot (or tap) to equip.
+//
+// No ⤓ here any more. The Gear tab is the KIT-BUILDING screen — its whole job is
+// getting things onto the body — and a drop-on-the-ground button one thumb-width from
+// the equip target is a way to lose a jacket, not a feature. Dropping lives on the
+// Inventory tab, next to everything else you can do to a thing you're carrying.
 function gearCard(it) {
   const slot = it.tags?.slot || '';
   const qty = it.quantity > 1 ? ` ×${it.quantity}` : '';
   const meta = slot ? esc(slot.replace('_', ' ')) : (it.tags?.container != null ? 'container' : '');
   return `<div class="tos-gcard${slot ? ' equippable' : ''}" data-gid="${it.id}" data-gslot="${slot}">` +
     `<span class="tos-gcard-name">${esc(it.name)}${qty}</span>` +
-    (meta ? `<span class="tos-gcard-meta">${meta}</span>` : '') +
-    `<button class="tos-gcard-drop" data-gdrop="${it.id}" title="Drop on ground">⤓</button></div>`;
+    (meta ? `<span class="tos-gcard-meta">${meta}</span>` : '') + `</div>`;
 }
 
-// The Gear app is two tabs: Inventory (the full paged pack, the primary tab,
-// mirroring the game's inventory — tap a row for the detail sheet with its actions)
-// and Loadout (the paperdoll + carried tray).
+// The KIT app is two tabs: Inventory (the full paged pack, the primary tab, mirroring
+// the game's inventory — tap a row for the detail sheet with its actions) and Gear (the
+// paperdoll + carried tray). The tab KEY is still `loadout` — it's persisted in
+// `_gearTab` and referenced by wireGear's `data-gtab` handler; only the label changed.
 function renderGear(d) {
   const tabs =
     `<div class="tos-gtabs">
        <button class="tos-gtab${_gearTab === 'inventory' ? ' active' : ''}" data-gtab="inventory">Inventory</button>
-       <button class="tos-gtab${_gearTab === 'loadout' ? ' active' : ''}" data-gtab="loadout">Loadout</button>
+       <button class="tos-gtab${_gearTab === 'loadout' ? ' active' : ''}" data-gtab="loadout">Gear</button>
      </div>`;
   return `<div class="tos-gear">${tabs}${_gearTab === 'inventory' ? renderGearInventory(d) : renderGearLoadout(d)}</div>`;
 }
@@ -6595,16 +6966,24 @@ function renderGearLoadout(d) {
   // sub-line names the layer when the shown piece isn't on the one currently selected.
   const box = (slot, it) => {
     let sub = '';
+    // Whether what's in this box belongs to the layer you're looking at. A fallback
+    // piece from another layer is drawn DIMMED (.off-layer) — without that the doll
+    // read as if every box were on the selected layer, so switching Under/Over/Armor
+    // appeared to do nothing and you couldn't tell what you were actually looking at.
+    // The layer name in the sub-line said so in 8px text; the dimming says it at a
+    // glance. Still a live unequip target, just visibly not-here.
+    let offLayer = false;
     if (!it) {
       const hidden = hiddenPieces(slot);
       if (hidden.length) {
         it = hidden[0];
+        offLayer = true;
         const idx = GEAR_LAYER_DEFS.findIndex(l => l.n === (it.layer || 1));
         const more = hidden.length > 1 ? ` +${hidden.length - 1}` : '';
         sub = `<span class="tos-gslot-sub">${esc(GEAR_LAYER_DEFS[idx]?.label || '')}${more}</span>`;
       }
     }
-    return `<div class="tos-gslot tos-gslot--${slot}${it ? ' filled' : ''}" data-gslot="${slot}"` +
+    return `<div class="tos-gslot tos-gslot--${slot}${it ? ' filled' : ''}${offLayer ? ' off-layer' : ''}" data-gslot="${slot}"` +
       `${it ? ` data-geq="${it.id}"` : ''}>` +
       `<span class="tos-gslot-label">${esc(GEAR_SLOT_LABEL[slot] || slot)}</span>` +
       `<span class="tos-gslot-item">${it ? esc(it.name) : '—'}</span>${sub}</div>`;
@@ -6633,15 +7012,12 @@ function renderGearLoadout(d) {
        <span class="tos-gear-carry-txt">${gearWeight(d.weight)} / ${gearWeight(d.capacity)}</span>
      </div>`;
 
-  // Per-region soak, summed across worn layers.
-  const slotSoak = (slot) => {
-    const t = {};
-    for (const p of equipped.filter(i => occupies(i, slot))) {
-      const soak = p.tags?.armor_soak || {};
-      for (const dt of GEAR_DMG) t[dt] = (t[dt] || 0) + (Number(soak[dt]) || 0);
-    }
-    return t;
-  };
+  // Per-region soak — READ, not derived. `d.soak` is the server's `player.soak`,
+  // the same structure combat routes a hit through, so what this table says is what
+  // a swing actually meets. Summing `tags.armor_soak` here instead (which is what
+  // this did) silently missed a `covers` garment's extra slots and every armor
+  // contributor that isn't a worn item at all, e.g. subdermal plating.
+  const slotSoak = (slot) => d.soak?.[slot]?.soak || {};
   let soak = `<table class="tos-gear-soak"><thead><tr><th></th>${GEAR_DMG.map(t => `<th>${esc(gcap(t).slice(0, 3))}</th>`).join('')}</tr></thead><tbody>`;
   for (const slot of GEAR_ARMOR_SLOTS) {
     const t = slotSoak(slot);
@@ -6662,20 +7038,29 @@ function renderGearLoadout(d) {
 
   // Top-right cluster: layer selector, carry weight, then the cumulative-soak (shield)
   // + insulation (thermometer) readouts. All monochrome; icons stroke in the accent.
-  const totalSoak = equipped.reduce((s, i) =>
-    s + Object.values(i.tags?.armor_soak || {}).reduce((a, v) => a + (Number(v) || 0), 0), 0);
+  // Same source as the table: every slot's typed soak, added up. A hit only ever
+  // meets ONE slot's share of this, which is what the title says and what the
+  // breakdown popup shows per damage type.
+  const totalSoak = GEAR_ARMOR_SLOTS.reduce((s, slot) =>
+    s + Object.values(slotSoak(slot)).reduce((a, v) => a + (Number(v) || 0), 0), 0);
   const far =
     `<div class="tos-gload-far">
        <div class="tos-gl-group">${layers}</div>
        ${carry}
-       <div class="tos-gstat tos-gstat-armor" data-armor-break title="Total soak — click for the per-type breakdown">${GEAR_SHIELD_SVG}<span>${totalSoak}</span></div>
-       <div class="tos-gstat" title="Insulation">${GEAR_THERMO_SVG}<span>${Math.round(fx.insulation || 0)}°</span></div>
+       <div class="tos-gstat tos-gstat-armor" data-armor-break title="Soak across all five body slots. A hit only meets its own slot's share — click for the per-type breakdown, and see the Protection table for where you're bare.">${GEAR_SHIELD_SVG}<span>${totalSoak}</span></div>
+       <div class="tos-gstat" title="Insulation from what you're wearing: +${round1(fx.insulation || 0)}°C of effective ambient, dry. This is NOT your body temperature — that's in Vitals — and soaked clothing keeps far less of it.">${GEAR_THERMO_SVG}<span>+${round1(fx.insulation || 0)}° insul</span></div>
      </div>`;
 
   // Carried-item tray, paged. Only equippable pieces (a `slot` tag) — this is the
-  // kit-building drag source, so loose non-gear (food, etc.) stays out (it's still
-  // on the Inventory tab). Drag a card onto a slot to equip, a filled slot onto this
-  // tray to unequip; the ⤓ button / dragging off drops on the ground.
+  // kit-building drag source, so loose non-gear (food, etc.) stays out (it's still on
+  // the Inventory tab). Drag a card onto a slot to equip, a filled slot onto this tray
+  // to unequip, or a card onto the zone below to leave it on the ground.
+  //
+  // The per-card ⤓ BUTTON is what moved to the Inventory tab — a one-tap discard
+  // sitting a thumb-width from the equip target is how you lose a jacket. The drag
+  // ZONE stays: it takes a deliberate press-and-drag across the panel, it's the only
+  // way to get a piece out of a full tray without leaving the screen, and it costs the
+  // tray nothing (it sits under the pager, so no card is any narrower for it).
   const tray = (d.inventory || []).filter(i => !i.is_equipped && i.tags?.slot);
   const pages = Math.max(1, Math.ceil(tray.length / GEAR_TRAY_PAGE));
   _gearTrayPage = Math.min(Math.max(0, _gearTrayPage), pages - 1);
@@ -6683,7 +7068,7 @@ function renderGearLoadout(d) {
   const trayHtml =
     `<div class="tos-gtray">${slice.length ? slice.map(gearCard).join('') : '<div class="tos-gtray-empty">Nothing loose in your pack.</div>'}</div>
      ${gearPager('tray', _gearTrayPage, pages)}
-     <div class="tos-gear-drop" data-gdropzone title="Drop an item here to leave it on the ground">⤓ Drop to ground</div>`;
+     <div class="tos-gear-drop" data-gdropzone title="Drag an item here to leave it on the ground">⤓ Drop to ground</div>`;
 
   // Inventory list left, big centred doll in the middle, controls/readouts top-right.
   // The whole left column is the unequip drop-zone. A feedback line sits below the
@@ -6705,14 +7090,37 @@ function renderGearInventory(d) {
   // Worn body-slot gear folds into two collapsed-by-default groups so the pack
   // list isn't buried: Clothing (underwear/outerwear) and Armour (the `armor`
   // layer). Weapons, accessories, and loose gear stay in the main paged list.
-  const isArmor = (it) => GEAR_ARMOR_SLOTS.includes(it.tags?.slot) && (it.tags?.layer || 'outerwear') === 'armor';
-  const isClothing = (it) => GEAR_ARMOR_SLOTS.includes(it.tags?.slot) && !isArmor(it);
+  // Armour means PROTECTIVE, not "worn on the armor layer". Grouping by layer put a
+  // kevlar raincoat, a padded jacket and steel-toe boots under Clothing and left the
+  // Armour group missing entirely, so a player wearing real protection was told they
+  // had none. Layer still decides where a piece sits on the doll; here what matters is
+  // whether it stops anything. `armor_soak` is the only armor mechanism (see
+  // docs/items.md), so it's the only honest test.
+  const hasSoak = (it) => Object.values(it.tags?.armor_soak || {}).some(v => (Number(v) || 0) > 0);
+  // Armour is a BODY-slot piece that stops something. Accessories are excluded on
+  // purpose even when they carry soak (the cobalt scarf does): a scarf is something you
+  // wear, not armour you kit up in, and putting it under Armour makes that group a lie
+  // about how protected you are.
+  const isArmor = (it) => GEAR_ARMOR_SLOTS.includes(it.tags?.slot) && hasSoak(it);
+  // ...and accessories group WITH clothing. They were falling through to the main paged
+  // list, which is the loose-kit list — a ring sitting between a ration and a crowbar.
+  // Everything you wear belongs in the two worn groups; the main list is for everything
+  // else you're carrying.
+  const isClothing = (it) => WORN_GROUP_SLOTS.includes(it.tags?.slot) && !isArmor(it);
   const clothing = all.filter(isClothing);
   const armor = all.filter(isArmor);
   const main = all.filter(it => !isClothing(it) && !isArmor(it));
-  const pages = Math.max(1, Math.ceil(main.length / GEAR_INV_PAGE));
+  // What you're actually holding, PINNED above the paged list and outside the paging.
+  // A wielded weapon used to be an ordinary row wearing the same small "equipped" badge
+  // as a sock, eight rows to a page — so the one question this screen gets asked in a
+  // fight ("what am I swinging?") needed a page-hunt to answer. Now it's the first thing
+  // on the tab, it can never be paged away, and it says WIELDED rather than equipped.
+  const isWeapon = (it) => it.tags?.slot === 'weapon_hand';
+  const wielded = main.filter(it => it.is_equipped && isWeapon(it));
+  const loose = main.filter(it => !(it.is_equipped && isWeapon(it)));
+  const pages = Math.max(1, Math.ceil(loose.length / GEAR_INV_PAGE));
   _gearInvPage = Math.min(Math.max(0, _gearInvPage), pages - 1);
-  const slice = main.slice(_gearInvPage * GEAR_INV_PAGE, _gearInvPage * GEAR_INV_PAGE + GEAR_INV_PAGE);
+  const slice = loose.slice(_gearInvPage * GEAR_INV_PAGE, _gearInvPage * GEAR_INV_PAGE + GEAR_INV_PAGE);
   const wPct = d.capacity ? Math.min(100, Math.round((d.weight / d.capacity) * 100)) : 0;
   const head =
     `<div class="tos-gear-head">
@@ -6725,19 +7133,51 @@ function renderGearInventory(d) {
   const row = (it) => {
     const qty = it.quantity > 1 ? ` ×${it.quantity}` : '';
     const slot = it.tags?.slot || '';
-    const badge = it.is_equipped ? '<span class="tos-ginv-eq">equipped</span>'
+    // A held weapon says WIELDED, not "equipped" — it's the one piece of kit whose state
+    // you need to read at a glance, and "equipped" is what the socks say too.
+    const badge = it.is_equipped
+      ? (isWeapon(it) ? '<span class="tos-ginv-eq wielding">⚔ wielded</span>' : '<span class="tos-ginv-eq">equipped</span>')
       : (slot ? `<span class="tos-ginv-slot">${esc(slot.replace('_', ' '))}</span>` : '');
     const pv = primaryVerb(it);
     const verbChip = pv
       ? `<span class="tos-ginv-verb" data-ginv-verb="${esc(pv)}" title="${esc(GEAR_VERB_LABELS[pv] || gcap(pv))} ${esc(it.name)}">${esc(GEAR_VERB_LABELS[pv] || gcap(pv))}</span>`
       : '';
-    return `<div class="tos-ginv-row" data-ginv="${it.id}">
-      <span class="tos-ginv-name">${esc(it.name)}${qty}</span>${badge}${verbChip}
+    // Weight on the row, not two taps down in the detail sheet. Carry capacity is a
+    // live constraint — the whole reason you open this list is to decide what to leave
+    // behind — and you can't make that call against a bar that only shows the total.
+    // ×quantity, because a row is what it actually costs you: 5 rations weigh 5.
+    const w = Number(it.weight) || 0;
+    const wt = w ? `<span class="tos-ginv-wt" title="${esc(gearWeight(w))} each">${esc(gearWeight(w * (it.quantity || 1)))}</span>` : '';
+    // ⤓ moved here off the Gear tab (see gearCard). Equipped pieces don't get one —
+    // dropping what you're wearing is a two-step on purpose.
+    const drop = it.is_equipped ? ''
+      : `<button class="tos-ginv-drop" data-gdrop="${it.id}" title="Drop ${esc(it.name)} on the ground">⤓</button>`;
+    // ⇧ / ⇩ — put it on, take it off, from the list. Anything with a `slot` tag is
+    // wearable or wieldable, and the whole point of the Inventory tab is that it's the
+    // list you're already looking at: making the player cross to the Gear tab and drag
+    // a doll to put a hat on is a chore, not a decision. The verb NAMES itself off the
+    // slot (wield a weapon, wear everything else) rather than saying "equip", because
+    // nobody equips a jacket. Same one-round-trip action the doll uses, so the
+    // paperdoll, the tray and this list can't disagree about what's worn.
+    const body = it.tags?.slot
+      ? (it.is_equipped
+        ? `<button class="tos-ginv-eqbtn off" data-gunequip="${it.id}" title="${esc(takeOffVerb(it))} ${esc(it.name)}">⇩</button>`
+        : `<button class="tos-ginv-eqbtn" data-gequip="${it.id}" title="${esc(wearVerb(it))} ${esc(it.name)}">⇧</button>`)
+      : '';
+    const held = it.is_equipped && isWeapon(it) ? ' wielding' : '';
+    return `<div class="tos-ginv-row${held}" data-ginv="${it.id}">
+      <span class="tos-ginv-name">${esc(it.name)}${qty}</span>${badge}${wt}${verbChip}${body}${drop}
       <span class="tos-ginv-chev">›</span></div>`;
   };
-  const list = main.length
+  // The pinned in-hand block. Labelled, because an unlabelled pinned row just looks like
+  // the list is badly sorted. Absent entirely when your hands are empty — a "Nothing
+  // wielded" placeholder would cost a line on every screen to say nothing.
+  const inHand = wielded.length
+    ? `<div class="tos-ginv-hand"><div class="tos-ginv-handlab">In hand</div>${wielded.map(row).join('')}</div>`
+    : '';
+  const list = loose.length
     ? `<div class="tos-ginv-list">${slice.map(row).join('')}</div>`
-    : ((clothing.length || armor.length) ? '' : '<div class="tos-gtray-empty">Your pack is empty.</div>');
+    : ((clothing.length || armor.length || wielded.length) ? '' : '<div class="tos-gtray-empty">Your pack is empty.</div>');
   // A collapsible group: header with count + expanded row list. `key` is the
   // data attribute the click handler toggles.
   const group = (items, label, key, open) => items.length
@@ -6750,7 +7190,7 @@ function renderGearInventory(d) {
     : '';
   const groups = group(clothing, 'Clothing', 'gclothing', _gearClothingOpen)
     + group(armor, 'Armour', 'garmor', _gearArmorOpen);
-  return `${head}${list}${gearPager('inv', _gearInvPage, pages)}${groups}`;
+  return `${head}${inHand}${list}${gearPager('inv', _gearInvPage, pages)}${groups}`;
 }
 
 // A tablet-native item-detail sheet — the tap target from the Inventory tab. Shows
@@ -6893,14 +7333,25 @@ function gearFeedback(msg) {
 // as coverage.
 function showArmorBreakdown() {
   closeGearItemDetail();
-  const equipped = (_data?.items || []).filter(i => i.is_equipped);
-  const soak = {}; for (const k of GEAR_DMG) soak[k] = 0;
-  for (const it of equipped) {
-    const s = it.tags?.armor_soak || {};
-    for (const k of GEAR_DMG) soak[k] += Number(s[k]) || 0;
+  // Read from the server's per-slot soak (see slotSoak in renderGearLoadout) rather
+  // than re-summing item tags, so a `covers` garment and a soak-granting augment both
+  // show up here. Per type: the total, and the WEAKEST slot — the number that decides
+  // whether a hit hurts, since a hit lands somewhere specific.
+  const bySlot = _data?.soak || {};
+  const soak = {}; const worst = {};
+  for (const k of GEAR_DMG) {
+    soak[k] = 0;
+    worst[k] = Infinity;
+    for (const slot of GEAR_ARMOR_SLOTS) {
+      const v = Number(bySlot[slot]?.soak?.[k]) || 0;
+      soak[k] += v;
+      worst[k] = Math.min(worst[k], v);
+    }
   }
   const rows = GEAR_DMG.map(k =>
-    `<div class="tos-gbrk-row${soak[k] ? '' : ' zero'}"><span class="tos-gbrk-ico">${GEAR_DMG_ICON[k]}</span><span class="tos-gbrk-name">${esc(gcap(k))}</span><span class="tos-gbrk-val">${soak[k]}</span></div>`).join('');
+    `<div class="tos-gbrk-row${soak[k] ? '' : ' zero'}"><span class="tos-gbrk-ico">${GEAR_DMG_ICON[k]}</span><span class="tos-gbrk-name">${esc(gcap(k))}</span>` +
+    `<span class="tos-gbrk-val" title="Total across the five body slots; weakest slot stops ${worst[k] === Infinity ? 0 : worst[k]}">${soak[k]}` +
+    `<i class="tos-gbrk-worst">min ${worst[k] === Infinity ? 0 : worst[k]}</i></span></div>`).join('');
   const el = document.createElement('div');
   el.className = 'tos-idp-overlay';
   el.innerHTML = `<div class="tos-idp tos-gbrk">
@@ -7052,6 +7503,18 @@ function wireGear() {
   // Per-card ⤓ → drop on the ground.
   _overlay.querySelectorAll('[data-gdrop]').forEach(el => {
     el.addEventListener('click', (e) => { e.stopPropagation(); gearDrop(gearTrayItem(el.getAttribute('data-gdrop'))); });
+  });
+
+  // Inventory-row ⇧ / ⇩ → wear/wield it, or take it off. stopPropagation because the
+  // row itself opens the item-detail sheet, and a quick-equip that also popped a modal
+  // would make the fast path slower than the slow one. gearAct is the same
+  // mutate-and-return-the-screen round trip the paperdoll uses, so the list, the tray
+  // and the doll all redraw from one authoritative payload.
+  _overlay.querySelectorAll('[data-gequip]').forEach(el => {
+    el.addEventListener('click', (e) => { e.stopPropagation(); gearAct('equip', el.getAttribute('data-gequip')); });
+  });
+  _overlay.querySelectorAll('[data-gunequip]').forEach(el => {
+    el.addEventListener('click', (e) => { e.stopPropagation(); gearAct('unequip', el.getAttribute('data-gunequip')); });
   });
 
   // ── Drag/drop (pointer-based) ──────────────────────────────────────────────
@@ -7992,6 +8455,15 @@ function renderBody() {
     }
     return `<div class="tos-body">${hdr}${summary}${crumb}
       ${d.section ? renderCodexVolume(d) : renderCodexShelf(d)}
+    </div>`;
+  }
+  if (d.view === 'library') {
+    const body = d.libKind === 'cover' ? renderLibraryCover(d)
+               : d.libKind === 'contents' ? renderLibraryContents(d)
+               : renderLibraryShelf(d);
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+      ${body}
+      ${renderActions(d.appId, d.actions, d.book?.id || '')}
     </div>`;
   }
   if (d.view === 'alarm') {
@@ -9407,6 +9879,7 @@ export function openTabletPanel(msg) {
     makeDraggable(_overlay.querySelector('.tos-anchor'), _overlay.querySelector('.mg-head'));
     wireDragScroll(_overlay.querySelector('#tos-scroll'));
     applyTabletTheme();
+    _applyWidgetChrome();
     window.AudioEngine?.init?.();
     if (skip) {
       render(); // straight to content, no boot ceremony

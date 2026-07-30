@@ -112,13 +112,13 @@ const STEPS = [
     on: 'desktop',
     sel: ['#vitals-section'],
     title: 'Staying alive',
-    body: `Health, sanity, hunger, thirst, stamina. They all drift the wrong way on their own — eat, drink, and <b>sit</b> or <b>sleep</b> to get them back. When health empties, you wake up in a vat, lighter than you were.`,
+    body: `Two bars, because two things are worth watching all the time: <b>health</b> and <b>stamina</b>. Everything else about your body — hunger, thirst, cold, radiation, whatever you took — has no gauge on purpose. It tells you in words instead, so read what your body says, and type <b>condition</b> for the whole picture. Eat, drink, and <b>sit</b> or <b>sleep</b> to claw it back. When health empties, you wake up in a vat, lighter than you were. (Want the instruments anyway? The hidden bars are one click away in this panel's edit mode.)`,
   },
   {
     on: 'mobile',
     sel: ['#mobile-vitals'],
     title: 'Staying alive',
-    body: `Your condition, abbreviated to fit: <b>HP</b> health, <b>SA</b> sanity, <b>HU</b> hunger, <b>TH</b> thirst, <b>ST</b> stamina. They all drift the wrong way on their own — eat, drink, and <b>sit</b> or <b>sleep</b> to get them back. Extra bars appear when they start to matter. When health empties, you wake up in a vat, lighter than you were.`,
+    body: `Abbreviated to fit: <b>HP</b> health, <b>ST</b> stamina. That's deliberately all — hunger, thirst, cold, radiation and anything you've taken get no gauge, they tell you in words, and <b>condition</b> gives you the whole picture on demand. Eat, drink, and <b>sit</b> or <b>sleep</b> to claw it back. When health empties, you wake up in a vat, lighter than you were.`,
   },
   // ── Making it yours ───────────────────────────────────────────────────────
   // Both layouts get a customisation beat, because on both the defaults are a
@@ -144,15 +144,15 @@ const STEPS = [
       : `The <b>⚙</b> holds the rest: text size, the colour theme (there are several, and you can build your own), which side the panels live on, and <b>motion</b>, which turns off the screen effects if you'd rather read in peace. Worth a look now — everything here is a preference, not a difficulty setting.`,
   },
   {
-    // Last, because it's the one thing here that is a whole second interface. The
-    // button on this step OPENS it, and the tablet's own tour picks up from there
-    // (see `handoff` in showStep and maybeTabletTour) — a new player shouldn't have
-    // to take our word that there's a second half and go looking for it.
+    // Last, because it's the one thing here that is a whole second interface — and
+    // the one thing on this list the player does NOT yet have. The interface tour
+    // runs in The Inbetween; the tablet is issued at the clone vat on the other
+    // side, and the bar offers its own walkthrough the moment it arrives (see
+    // showTabletOffer in smartbar.js). So this step promises it and stops there:
+    // opening it here would spotlight a device the fiction hasn't handed over.
     sel: ['#smart-bar', '#input-area'],
     title: 'The tablet',
-    body: `Nearly everything that isn't in this window is in your <b>tablet</b> — what you're carrying, the full map, bank, quests, messages, your record, the codex. Type <b>tablet</b> any time to open it. Let's have a look now.`,
-    nextLabel: 'Open the tablet',
-    handoff: 'tablet',
+    body: `Nearly everything that isn't in this window lives on a <b>tablet</b> — what you're carrying, the full map, bank, quests, messages, your record, the codex. You don't have one yet. When you do, it turns up in this bar and offers to show you round.`,
   },
 ];
 
@@ -224,6 +224,19 @@ function visible(n) {
 
 export function hasSeenTour() {
   return localStorage.getItem(SEEN_KEY) === '1';
+}
+
+// Is a walkthrough on screen right now? Used by the smart bar's tablet chip to tell
+// "the tutorial is running, it'll report back when it ends" from "nothing happened".
+export function tourRunning() {
+  return !!_ov;
+}
+
+// Forget having seen the tablet walkthrough. Called only from the chip the clone vat
+// pops: that chip is a promise of a tutorial, so a marker left in this browser by a
+// previous character must not be allowed to swallow it.
+export function resetTabletTour() {
+  try { localStorage.removeItem(TABLET_SEEN_KEY); } catch {}
 }
 
 // The question itself. Deliberately plain — this is the interface talking, not
@@ -416,7 +429,16 @@ function endTour(finished) {
   // way. None of what follows applies — there is no held-back arrival prose to
   // release, and dimming the panes behind the tablet would be theatre nobody can
   // see.
-  if (mode === 'tablet') { ov?.remove(); _handoff = null; return; }
+  if (mode === 'tablet') {
+    ov?.remove();
+    _handoff = null;
+    // …and the one thing it does report: the walkthrough is over. In the prologue
+    // that releases the last beat (the poster on the clone-vat wall — a nudge
+    // delivered under a spotlight is a nudge nobody reads). Sent on a replay too;
+    // the server side is flag- and zone-guarded, so it's a no-op everywhere else.
+    sendCmdSilent('tabletdone');
+    return;
+  }
 
   // THE LIGHTS COME UP, TOP TO BOTTOM.
   //

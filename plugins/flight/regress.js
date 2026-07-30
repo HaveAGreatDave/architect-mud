@@ -13,9 +13,16 @@ import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
   shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
   isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, nearestAirfield, listRegions, worldTerrainMap, salvoOf,
   vtolOnlyField, acquirableTypes, hangarRampFor, HANGAR_REACH, BANDS } from './state.js';
-import { isFreightLicensed, ensureFreightDrops } from './contracts.js';
+import { isFreightLicensed, ensureFreightDrops, isAirCargoUnlocked, hasCacheStanding,
+  openOrders, placeCacheOrder, rawsCatalogue, trustFor, unitsPerPallet, palletPrice,
+  waitingDropAt, FENCE_CACHES } from './contracts.js';
 import { isPilotLicensed, _test as checkrideTest } from './checkride.js';
 import { setFlag, clearFlag } from '../../server/engine/flags.js';
+import { dispatchAction } from '../../server/engine/actions.js';
+import { adjustCredits } from '../../server/engine/economy.js';
+import { buyFromVendor } from '../../server/engine/vendor.js';
+
+const nowSec = () => Math.floor(Date.now() / 1000);
 import { prefersTextTravel, textTravelTick, TEXT_TRAVEL_FLAG } from './textmode.js';
 import { startTextPilot, stopTextPilot, textPilotTick, landingGrade, statusLines, panelPayload, _test as tpTest } from './textpilot.js';
 import { query } from '../../server/models/db.js';
@@ -483,6 +490,229 @@ export default async function regress({ run, check, getPlayer }) {
   check('ensureFreightDrops holds the pool at the cap (no runaway)', fd[0]?.n === 4, JSON.stringify(fd[0]));
   await query("DELETE FROM cargo_drops WHERE owner_id=$1 AND kind='freight'", [p.id]);
   await setFlag('player', 'air_freight_licensed', '0', p);
+
+  // ── Fence dead drops (raw-drug caches out on the Reach hardpan) ─────────────
+  // The pallets are heavy and the caches are off-strip, so the aircraft gate is
+  // pure physics — what's tested here is the STANDING gate (both ends of the
+  // ground trade must vouch), the rotation (never all caches at once), and that
+  // every cache id names a tile a player could actually put down on. A cache
+  // pointing at a nonexistent or built-over tile would spawn unreachable pallets.
+  for (const c of FENCE_CACHES) {
+    const z = getZone(c.zone);
+    check(`fence cache ${c.name} names a real world tile`, !!z, c.zone);
+    if (!z) continue;
+    check(`fence cache ${c.name} is landable ground (not a building/water)`,
+      !z.flags?.is_building && !z.flags?.water && z.flags?.terrain !== 'water',
+      JSON.stringify({ b: z.flags?.is_building, t: z.flags?.terrain }));
+  }
+
+  await query("DELETE FROM cargo_drops WHERE owner_id=$1 AND kind='fence'", [p.id]);
+  await clearFlag('player', 'air_cargo_unlocked', p);
+  await clearFlag('player', 'dealer_inner_circle', p);
+  await setFlag('player', 'bm_trust', '0', p);
+  check('hasCacheStanding false with no vouch and no standing', (await hasCacheStanding(p)) === false);
+  await setFlag('player', 'bm_trust', '25', p);
+  check('hasCacheStanding false on standing alone (needs the dealer vouch)', (await hasCacheStanding(p)) === false);
+  await setFlag('player', 'dealer_inner_circle', '1', p);
+  await setFlag('player', 'bm_trust', '4', p);
+  check('hasCacheStanding false on the vouch alone (needs the standing)', (await hasCacheStanding(p)) === false);
+  await setFlag('player', 'bm_trust', '10', p);
+  check('hasCacheStanding true once both ends vouch', (await hasCacheStanding(p)) === true);
+
+  // The action re-checks standing itself, so a stale dialogue option can't hand out
+  // the caches — and it must not have unlocked anything on the way to refusing.
+  await setFlag('player', 'bm_trust', '4', p);
+  let ua = await dispatchAction({ type: 'UNLOCK_AIR_CARGO', actor: p });
+  check('UNLOCK_AIR_CARGO refuses the unvouched to raws_unvouched', ua?.node === 'raws_unvouched', JSON.stringify(ua));
+  check('UNLOCK_AIR_CARGO leaves the run locked when it refuses', (await isAirCargoUnlocked(p)) === false);
+  let { rows: cd } = await query("SELECT COUNT(*)::int n FROM cargo_drops WHERE owner_id=$1 AND kind='fence'", [p.id]);
+  check('a refused unlock spawns no pallets', cd[0]?.n === 0, JSON.stringify(cd[0]));
+
+  await setFlag('player', 'bm_trust', '10', p);
+  ua = await dispatchAction({ type: 'UNLOCK_AIR_CARGO', actor: p });
+  check('UNLOCK_AIR_CARGO opens the run for the vouched', (await isAirCargoUnlocked(p)) === true, JSON.stringify(ua));
+  ({ rows: cd } = await query("SELECT COUNT(*)::int n FROM cargo_drops WHERE owner_id=$1 AND kind='fence'", [p.id]));
+  check('nothing spawns unbidden — the unlock alone puts no pallets in the caches', cd[0]?.n === 0, JSON.stringify(cd[0]));
+
+  // ── The raws catalogue: the ladder, and the legal rung at the bottom ────────
+  const cat = await rawsCatalogue();
+  check('the raws catalogue is populated', cat.length > 0, `n=${cat.length}`);
+  // A MULE crate is tagged raw_drug at cook_tier 5 but is a SHELL, not a precursor:
+  // ordered or rolled into a pallet it arrives with no custom_data, an unopenable dud
+  // `unpack` calls a bad drop, whose tier 5 inflated the customs difficulty for nothing.
+  check('the catalogue excludes the MULE crate shell (an unopenable dud)',
+    !cat.some(e => e.id === 'item_mule_crate'), JSON.stringify(cat.filter(e => e.id === 'item_mule_crate')));
+  const crops = cat.filter(e => e.legal);
+  check('the bottom rung is legal crop, and there is some', crops.length >= 2, JSON.stringify(crops.map(e => e.id)));
+  check('every legal crop is tier 0', crops.every(e => e.tier === 0), JSON.stringify(crops.map(e => [e.id, e.tier])));
+  // The whole point of the legal rung: a bale is NOT a manufacturing felony, so the
+  // crop items must never carry the tags that make one.
+  const { rows: cropTags } = await query(
+    `SELECT id, jsonb_exists(tags,'raw_drug') rawdrug, jsonb_exists(tags,'contraband') contra
+       FROM items WHERE id = ANY($1)`, [crops.map(e => e.id)]);
+  check('legal crop carries neither raw_drug nor contraband (no 4-star manufacturing)',
+    cropTags.length > 0 && cropTags.every(r => !r.rawdrug && !r.contra), JSON.stringify(cropTags));
+  check('every contraband entry is tier 1+ (the felony rungs sit above the legal one)',
+    cat.filter(e => !e.legal).every(e => e.tier >= 1), JSON.stringify(cat.filter(e => !e.legal && e.tier < 1)));
+  // The ladder has to actually be a ladder, and the legal rung has to be reachable the
+  // moment you're vouched — otherwise a newly-vouched pilot can order nothing at all.
+  check('tier 0 is orderable at the moment the caches unlock', trustFor(0) === 10, `${trustFor(0)}`);
+  const ladder = [0, 1, 2, 3, 4, 5].map(trustFor);
+  check('the trust ladder is strictly increasing', ladder.every((v, i) => i === 0 || v > ladder[i - 1]), JSON.stringify(ladder));
+  const units = [0, 1, 2, 3, 4, 5].map(unitsPerPallet);
+  check('a pallet holds fewer units as the grade climbs', units.every((v, i) => i === 0 || v < units[i - 1]), JSON.stringify(units));
+
+  // ── Placing an order ───────────────────────────────────────────────────────
+  const crop = crops[0];
+  // A pallet costs roughly a pallet's worth of money at every grade — the units-per-
+  // pallet table trades volume for value as the tier climbs, deliberately. So what
+  // standing buys is ACCESS to grade, not a bigger load, and the payoff is on the far
+  // side (what the raw cooks into). Guard the shape of the pricing rather than a
+  // monotonic curve the item values don't actually have: every entry is priced, and
+  // ordering more pallets costs proportionally more.
+  check('every catalogue entry has a real price', cat.every(e => palletPrice(e) > 0),
+    JSON.stringify(cat.filter(e => !(palletPrice(e) > 0)).map(e => e.id)));
+  check('pallet price scales with the item value at a fixed grade', (() => {
+    const t1 = cat.filter(e => e.tier === 1).sort((a, b) => a.value - b.value);
+    return t1.length < 2 || palletPrice(t1[t1.length - 1]) > palletPrice(t1[0]);
+  })(), 'a dearer raw of the same grade must cost more');
+
+  // Fund the fake player enough to cover two pallets — TOP UP to the figure rather than
+  // adding to it, because earlier suites can leave these credits deep in the red.
+  // adjustCredits needs a real `players` row to charge (it debits via a guarded UPDATE
+  // and reports failure when nothing was updated), and the suite's fake player has
+  // none. Insert one for the duration, then take it back out.
+  const need = palletPrice(crop) * 2 + 500;
+  const { rows: had } = await query('SELECT id FROM players WHERE id=$1', [p.id]);
+  await query(
+    `INSERT INTO players (id, username, password_hash, handle, credits) VALUES ($1,$1,'x',$1,$2)
+     ON CONFLICT (id) DO UPDATE SET credits=$2`, [p.id, need]);
+  p.credits = need;
+  const beforeCredits = p.credits || 0;
+  const ord = await placeCacheOrder(p, crop, 2);
+  check('placeCacheOrder reports the cache it was run out to', !!ord.cache?.zone, JSON.stringify(ord));
+  check('placeCacheOrder charges up front', (p.credits || 0) === beforeCredits - ord.cost, `${beforeCredits} → ${p.credits} (cost ${ord.cost})`);
+  const { rows: ordered } = await query(
+    "SELECT origin_zone, weight_kg, contents FROM cargo_drops WHERE owner_id=$1 AND kind='fence' AND status='waiting'", [p.id]);
+  check('an order inserts one row per pallet', ordered.length === 2, `n=${ordered.length}`);
+  check('every pallet of one order goes to the SAME cache (one place to fly)',
+    new Set(ordered.map(d => d.origin_zone)).size === 1, JSON.stringify(ordered.map(d => d.origin_zone)));
+  check('pallets only ever land in a declared cache',
+    ordered.every(d => FENCE_CACHES.some(c => c.zone === d.origin_zone)), JSON.stringify(ordered.map(d => d.origin_zone)));
+  check('a pallet is a heavy load, not a hand-carry', ordered.every(d => d.weight_kg >= 150),
+    JSON.stringify(ordered.map(d => d.weight_kg)));
+  check('an ordered pallet holds exactly what was asked for, in bulk',
+    ordered.every(d => (d.contents || []).length === 1
+      && d.contents[0].itemId === crop.id && d.contents[0].qty === unitsPerPallet(crop.tier)),
+    JSON.stringify(ordered.map(d => d.contents)));
+  check('a legal-crop manifest is marked legal (this is what exempts it from customs)',
+    ordered.every(d => d.contents[0].legal === true), JSON.stringify(ordered.map(d => d.contents[0].legal)));
+
+  // The lead time is derived from created_at — no tick, no column. A pallet you just
+  // ordered is real but not yet out there, so loadcargo must not see it.
+  let ords = await openOrders(p);
+  check('openOrders groups the order into one cache line', ords.length === 1, JSON.stringify(ords));
+  check('a fresh order reports pallets and units', ords[0]?.pallets === 2 && ords[0]?.units === unitsPerPallet(crop.tier) * 2, JSON.stringify(ords[0]));
+  check('a fresh order is not out there yet (lead time)', ords[0]?.readyIn > 0, `readyIn=${ords[0]?.readyIn}`);
+  check('a pallet still in transit is NOT loadable at the cache',
+    (await waitingDropAt(ords[0].cache.zone, p.id)) === null, 'waitingDropAt saw an in-transit pallet');
+  await query("UPDATE cargo_drops SET created_at=$2 WHERE owner_id=$1 AND kind='fence'", [p.id, nowSec() - 3600]);
+  ords = await openOrders(p);
+  check('once the lead time is up the order reads as delivered to the cache', ords[0]?.readyIn === 0, `readyIn=${ords[0]?.readyIn}`);
+  check('a landed pallet IS loadable at its cache', !!(await waitingDropAt(ords[0].cache.zone, p.id)));
+
+  // ── The counter as a vendor shelf (the purchase-delivery seam) ─────────────
+  // The GUI shop panel sells pallets, and a 150kg pallet must NOT land in anyone's
+  // pockets: the engine's purchase-delivery seam hands the sale to flight, which
+  // writes cargo_drops instead. Guard both halves — the goods go to a cache, and
+  // nothing appears in inventory.
+  {
+    const counter = {
+      id: 'npc_regress_raws_counter', name: 'a regress quartermaster',
+      flags: { raws_counter: true, trust_flag: 'bm_trust', trust_per_buy: 0, trust_max: 100 },
+      vendor_inventory: [{ item_id: crop.id, price: palletPrice(crop), min_trust: 0 }],
+      vendor_stock: [], vendor_credits: 0,
+    };
+    await query(
+      `INSERT INTO npcs (id, name, description, vendor_inventory, vendor_stock, vendor_credits, flags)
+       VALUES ($1,$2,'a regress quartermaster',$3::jsonb,'[]'::jsonb,0,$4::jsonb)
+       ON CONFLICT (id) DO UPDATE SET vendor_inventory=EXCLUDED.vendor_inventory, flags=EXCLUDED.flags`,
+      [counter.id, counter.name, JSON.stringify(counter.vendor_inventory), JSON.stringify(counter.flags)]);
+    await query("DELETE FROM cargo_drops WHERE owner_id=$1 AND kind='fence'", [p.id]);
+    await query('UPDATE players SET credits=$2 WHERE id=$1', [p.id, palletPrice(crop) * 4]);
+    p.credits = palletPrice(crop) * 4;
+
+    const buy = await buyFromVendor(p, counter, crop.id, 2);
+    check('buying a pallet at the counter succeeds', buy.success === true, JSON.stringify(buy.message));
+    check('the receipt names the cache it was run out to', /Bonepile|Sump|Sisters/.test(buy.message || ''), buy.message);
+    const { rows: bought } = await query(
+      "SELECT origin_zone FROM cargo_drops WHERE owner_id=$1 AND kind='fence' AND status='waiting'", [p.id]);
+    check('a shop purchase writes pallets to a cache', bought.length === 2, `n=${bought.length}`);
+    const { rows: inInv } = await query(
+      'SELECT COUNT(*)::int n FROM player_inventory WHERE player_id=$1 AND item_id=$2', [p.id, crop.id]);
+    check('a shop purchase puts NOTHING in inventory (a pallet is not a hand-carry)', inInv[0]?.n === 0, JSON.stringify(inInv[0]));
+
+    // The seam is keyed on the VENDOR, not the goods, so two fences selling the same
+    // raws can't collide. A shop with no counter flag therefore has no delivery
+    // handler and sells a bale the ordinary way — which is right: legal produce is
+    // legal produce, and only a raws counter runs it out to a cache.
+    const notCounter = { ...counter, id: 'npc_regress_not_counter', flags: { trust_flag: 'bm_trust', trust_per_buy: 0 } };
+    await query(
+      `INSERT INTO npcs (id, name, description, vendor_inventory, vendor_stock, vendor_credits, flags)
+       VALUES ($1,$2,'a regress shopkeep',$3::jsonb,'[]'::jsonb,0,$4::jsonb)
+       ON CONFLICT (id) DO UPDATE SET vendor_inventory=EXCLUDED.vendor_inventory, flags=EXCLUDED.flags`,
+      [notCounter.id, notCounter.name, JSON.stringify(notCounter.vendor_inventory), JSON.stringify(notCounter.flags)]);
+    const plainBuy = await buyFromVendor(p, notCounter, crop.id, 1);
+    check('a vendor with no counter flag sells a bale the ordinary way', plainBuy.success === true, JSON.stringify(plainBuy.message));
+    const { rows: handed } = await query(
+      'SELECT COUNT(*)::int n FROM player_inventory WHERE player_id=$1 AND item_id=$2', [p.id, crop.id]);
+    check('…and hands it across the counter into inventory', handed[0]?.n === 1, JSON.stringify(handed[0]));
+    const { rows: noNew } = await query(
+      "SELECT COUNT(*)::int n FROM cargo_drops WHERE owner_id=$1 AND kind='fence'", [p.id]);
+    check('…and books no cache pallet', noNew[0]?.n === 2, JSON.stringify(noNew[0]));
+    await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [p.id, crop.id]);
+
+    // A counter refusal (over the pallet cap) must roll the whole sale back — never
+    // take the money and deliver nowhere. This is the path `withTransaction` used to
+    // commit, because a falsy RETURN commits and only a throw rolls back.
+    await query('UPDATE players SET credits=$2 WHERE id=$1', [p.id, palletPrice(crop) * 20]);
+    p.credits = palletPrice(crop) * 20;
+    const capBuy = await buyFromVendor(p, counter, crop.id, 6);   // 2 already out + 6 > MAX_OPEN_PALLETS
+    check('a counter refuses an order over the outstanding-pallet cap', capBuy.success === false, JSON.stringify(capBuy.message));
+    check('the refusal explains itself (not "you can\'t afford that")', /pallet/i.test(capBuy.message || ''), capBuy.message);
+    const { rows: after } = await query('SELECT credits FROM players WHERE id=$1', [p.id]);
+    check('a refused delivery rolls the sale back (no credits taken)', after[0]?.credits === palletPrice(crop) * 20,
+      `${palletPrice(crop) * 20} → ${after[0]?.credits}`);
+    check('…and the live player object is not left showing the phantom debit', p.credits === after[0]?.credits,
+      `live=${p.credits} db=${after[0]?.credits}`);
+
+    await query('DELETE FROM npcs WHERE id = ANY($1)', [[counter.id, notCounter.id]]);
+    await query("DELETE FROM cargo_drops WHERE owner_id=$1 AND kind='fence'", [p.id]);
+    await query('UPDATE players SET credits=$2 WHERE id=$1', [p.id, palletPrice(crop) * 4]);
+    p.credits = palletPrice(crop) * 4;
+    await placeCacheOrder(p, crop, 2);   // restore the two pallets the checks below expect
+    await query("UPDATE cargo_drops SET created_at=$2 WHERE owner_id=$1 AND kind='fence'", [p.id, nowSec() - 3600]);
+  }
+
+  // Ordering happens at a counter NPC, and the fake player is nowhere near Amos. An
+  // unlocked pilot gets pointed at him; nothing is ordered and no ledger is printed.
+  r = await run('raws');
+  check('raws away from a counter points at the counter instead of ordering',
+    /ledger/i.test(r?.message || '') && !/pallet/i.test(r?.message || ''), JSON.stringify(r));
+  ({ rows: cd } = await query("SELECT COUNT(*)::int n FROM cargo_drops WHERE owner_id=$1 AND kind='fence'", [p.id]));
+  check('raws away from a counter orders nothing', cd[0]?.n === 2, JSON.stringify(cd[0]));
+
+  // …and a player who was never let in on the trade never learns the verb exists: with
+  // no counter present and no unlock, it falls through as if unregistered.
+  await clearFlag('player', 'air_cargo_unlocked', p);
+  r = await run('raws');
+  check('raws is invisible to a player outside the trade', /unknown command/i.test(r?.message || ''), JSON.stringify(r));
+
+  await query("DELETE FROM cargo_drops WHERE owner_id=$1 AND kind='fence'", [p.id]);
+  await clearFlag('player', 'air_cargo_unlocked', p);
+  await clearFlag('player', 'dealer_inner_circle', p);
+  await setFlag('player', 'bm_trust', '0', p);
+  if (!had.length) await query('DELETE FROM players WHERE id=$1', [p.id]);   // leave no row behind
 
   // ── Pilot licence + checkride (hard gate to fly; distinct from the freight licence) ──
   const savedRole = p.role;

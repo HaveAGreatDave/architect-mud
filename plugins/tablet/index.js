@@ -177,13 +177,32 @@ async function buildHomePayload(player) {
 
 async function cmdTablet(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
+  // You don't have a tablet yet in The Inbetween. The prologue corridor issues it
+  // at the clone vat on the other side (plugins/prologue/index.js firstClothing),
+  // so the device arrives as a thing the city hands you rather than something you
+  // mysteriously already own while standing in a room with no floor. Gated on the
+  // zone's own `prologue` flag, not a player flag: nobody who has ever left that
+  // corridor can get back into it, so this can't strand an existing character.
+  const none = noTablet(player);
+  if (none) return none;
   return buildHomePayload(player);
+}
+
+// One gate, used by every door into the shell — `tablet`/`os`, and `tabletnav`,
+// which is what the deep-link verbs (`codex`, `map`, `gear`, `bank`…) and the
+// client's own nav both come through. Returning the refusal from all of them means
+// there is no verb that can put a device in the player's hands early.
+function noTablet(player) {
+  if (!getZone(player.current_zone)?.flags?.prologue) return null;
+  return { type: 'system', message: `<span class="hint">You have no tablet. Whatever you were carrying, you weren't carrying it here.</span>` };
 }
 
 // tabletnav <screenSpec...> — screenSpec is "home" or "<appId> [screenId] [params...]"
 // Re-invokes the relevant app's buildScreen and pushes the updated payload.
 async function cmdTabletNav(args, raw, player) {
   if (!player) return { type: 'noop' };
+  const none = noTablet(player);
+  if (none) return none;
   const [first, screenId, ...rest] = args || [];
   if (!first || first === 'home') return buildHomePayload(player);
 

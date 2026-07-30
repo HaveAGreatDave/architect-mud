@@ -80,8 +80,26 @@ export function initNet(messageHandler) {
 
 export function setWhoModalHandler(fn) { _whoModalHandler = fn; }
 
+// ── Dropped-while-disconnected notice ────────────────────────────────────────
+// Both senders below return silently when the socket is shut, which is correct (there
+// is nowhere to send it) but reads as the FEATURE being broken: clicking Tablet or Kit
+// does nothing at all, no error, no console line, and the natural conclusion is that
+// the tablet is broken rather than that you're disconnected. Say so instead — once per
+// window, because sendCmdSilent also carries the post-move look refresh and a
+// disconnected player would otherwise get a wall of identical lines.
+// The connection indicator (● / ◌ in the header) is the standing signal; this is the
+// nudge for the moment you actually try to do something.
+let _dropNoticeAt = 0;
+const DROP_NOTICE_MS = 12000;
+function noticeDropped() {
+  const now = Date.now();
+  if (now - _dropNoticeAt < DROP_NOTICE_MS) return;
+  _dropNoticeAt = now;
+  appendMsg('Not connected — that did nothing. Reconnecting… (if it sticks, reload the page.)', 'system');
+}
+
 export function sendCmd(cmd, displayText) {
-  if (!_connection?.isOpen()) return;
+  if (!_connection?.isOpen()) { noticeDropped(); return; }
   if (cmd.trim().toLowerCase() === 'who' && _whoModalHandler) { _whoModalHandler(); return; }
   // Explicit user look should echo the room description into the scrolling log,
   // not just refresh the top area pane. Silent looks (combat/move refresh) use
@@ -92,7 +110,7 @@ export function sendCmd(cmd, displayText) {
 }
 
 export function sendCmdSilent(cmd) {
-  if (!_connection?.isOpen()) return;
+  if (!_connection?.isOpen()) { noticeDropped(); return; }
   // silent: client automation (post-move look refresh, tablet re-nav polls) —
   // the server excludes these from idle-logoff activity stamping.
   _connection.send({ type: 'command', command: cmd, silent: true });

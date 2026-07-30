@@ -16,6 +16,7 @@ import { titleCaseName } from '../text.js';
 import { getItem } from '../items-cache.js';
 import { fireHook } from '../plugins.js';
 import { applyEffect } from '../effects.js';
+import { sendToPlayer } from '../messaging.js';
 
 // Throttle: only broadcast "rummages in container" once per 30s per player.
 const _ctrBroadcastTs = new Map();
@@ -341,6 +342,19 @@ export function carryCapacity(player) {
 // weight is benign: encumbrance is a soft gate, and the value self-corrects.
 const CARRIED_WEIGHT_TTL_MS = 5000;
 on('inventory.changed', ({ actor }) => { if (actor) delete actor._carriedWeight; });
+
+// …and tell the client, so an open tablet Kit app isn't showing a pack you no longer
+// have. `inventory.changed` is the canonical mutation signal (actions.js TAKE/DROP/
+// GIVE/EQUIP/UNEQUIP, durability wear, and the plugins that emit it), and this is the
+// one place it needs to leave the server. Deliberately a bare "it changed" ping and
+// not a payload: the client refetches ONLY if the Kit app is actually on screen
+// (refreshTabletGearIfOpen), so the common case — a closed tablet — costs one tiny
+// frame and no query. Plugins that mutate player_inventory with raw SQL and never
+// emit are still invisible to this; that's an argument for emitting, not for the
+// client polling.
+on('inventory.changed', ({ actor }) => {
+  if (actor?.id) sendToPlayer(actor.id, { type: 'inventory_dirty' });
+});
 export async function computeCarriedWeight(player) {
   const cached = player._carriedWeight;
   if (cached && Date.now() - cached.at < CARRIED_WEIGHT_TTL_MS) return cached.value;

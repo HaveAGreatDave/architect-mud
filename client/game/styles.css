@@ -6530,6 +6530,49 @@ body.asleep #area-pane { opacity: 0.25; }
 	background: var(--stop-color);
 	color: var(--bg);
 }
+/* The tablet-issued chip — the one button in the bar that has to be noticed. Pinned
+   leftmost, brighter than the accent anchors, and it BOBS: a slow nudge upward with a
+   halo behind it, which reads as "tap me" in peripheral vision the way a static glow
+   doesn't. It exists for 25 seconds (smartbar.js), so it's allowed to be loud.
+   Motion off ⇒ no movement, no sweep: it keeps the halo and stays put. */
+.smart-btn-tablet-offer {
+	background: color-mix(in srgb, var(--accent) 34%, var(--bg3));
+	border-color: color-mix(in srgb, var(--accent) 100%, white 45%);
+	color: color-mix(in srgb, var(--accent) 100%, white 60%);
+	font-weight: bold;
+	position: relative;
+	overflow: hidden;
+	animation: smart-offer-bob 1.6s ease-in-out infinite;
+}
+.smart-btn-tablet-offer:active {
+	background: var(--accent);
+	color: var(--bg);
+}
+/* The pass of light across the chip — a screen waking up, which is what just
+   happened in the fiction. */
+.smart-btn-tablet-offer::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--accent) 55%, white) 50%, transparent 65%);
+	transform: translateX(-120%);
+	animation: smart-offer-sweep 2.4s ease-in-out infinite;
+	pointer-events: none;
+}
+@keyframes smart-offer-bob {
+	0%, 100% { transform: translateY(0); box-shadow: 0 0 6px 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+	50% { transform: translateY(-3px); box-shadow: 0 4px 14px 2px color-mix(in srgb, var(--accent) 60%, transparent); }
+}
+@keyframes smart-offer-sweep {
+	0% { transform: translateX(-120%); }
+	55%, 100% { transform: translateX(120%); }
+}
+[data-motion="off"] .smart-btn-tablet-offer {
+	animation: none;
+	box-shadow: 0 0 10px 1px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+[data-motion="off"] .smart-btn-tablet-offer::after { display: none; }
+
 @keyframes smart-stop-pulse {
 	0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--stop-color) 55%, transparent); }
 	50% { box-shadow: 0 0 6px 1px color-mix(in srgb, var(--stop-color) 45%, transparent); }
@@ -14054,14 +14097,121 @@ body.intro-cine-open { overflow: hidden; }
 	transition: opacity 500ms ease;
 }
 .intro-cine-gate.gone { opacity: 0; pointer-events: none; }
+/* ── The gate as hardware ────────────────────────────────────────────────────
+   The card is a CHASSIS: a bezel with a bevelled edge, a status strip across the
+   top, and the copy sitting behind glass in a recessed screen. Deliberately the
+   same visual language as the Tablet OS shell (tos-panel) and the devpanel's float
+   cards — the first object the game shows you should be made of the same stuff as
+   the object you're about to be issued, so the cold open reads as a machine
+   addressing you rather than a web page asking to play a video.
+   Everything here is a border, a gradient and a mask: no images, no fonts. */
 .intro-cine-gate-card {
+	position: relative;
 	text-align: center;
-	padding: 0 24px;
 	max-width: 560px;
+	width: min(560px, calc(100vw - 32px));
+	padding: 0;
+	overflow: hidden;
+	border-radius: 10px;
 	font-family: var(--font-mono, 'Courier New', monospace);
+	background:
+		linear-gradient(180deg, rgba(255,255,255,0.05), transparent 22%),
+		linear-gradient(168deg, #0e1414, #060909 62%, #0b1111);
+	border: 1px solid color-mix(in srgb, var(--accent, #35e0c8) 26%, transparent);
+	box-shadow:
+		inset 0 1px 0 rgba(255,255,255,0.07),
+		inset 0 -1px 2px rgba(0,0,0,0.7),
+		0 24px 70px rgba(0,0,0,0.85),
+		0 0 60px color-mix(in srgb, var(--accent, #35e0c8) 12%, transparent);
 	animation: intro-cine-gate-in 900ms ease-out both;
 }
-@keyframes intro-cine-gate-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+/* Corner brackets — the cheapest possible "this is an instrument". Drawn as two
+   gradients per corner on a pseudo-element so they cost no DOM. */
+.intro-cine-gate-card::before {
+	content: '';
+	position: absolute;
+	inset: 7px;
+	border-radius: 6px;
+	pointer-events: none;
+	background:
+		linear-gradient(var(--accent, #35e0c8), var(--accent, #35e0c8)) left top / 14px 1px no-repeat,
+		linear-gradient(var(--accent, #35e0c8), var(--accent, #35e0c8)) left top / 1px 14px no-repeat,
+		linear-gradient(var(--accent, #35e0c8), var(--accent, #35e0c8)) right top / 14px 1px no-repeat,
+		linear-gradient(var(--accent, #35e0c8), var(--accent, #35e0c8)) right top / 1px 14px no-repeat,
+		linear-gradient(var(--accent, #35e0c8), var(--accent, #35e0c8)) left bottom / 14px 1px no-repeat,
+		linear-gradient(var(--accent, #35e0c8), var(--accent, #35e0c8)) left bottom / 1px 14px no-repeat,
+		linear-gradient(var(--accent, #35e0c8), var(--accent, #35e0c8)) right bottom / 14px 1px no-repeat,
+		linear-gradient(var(--accent, #35e0c8), var(--accent, #35e0c8)) right bottom / 1px 14px no-repeat;
+	opacity: 0.34;
+}
+@keyframes intro-cine-gate-in { from { opacity: 0; transform: translateY(10px) scale(0.985); } to { opacity: 1; transform: none; } }
+
+/* Status strip. Reads like a device label: who owns the machine, and its version.
+   Same joke the vat wall makes — the city has printed this ten million times. */
+.intro-cine-gate-bar {
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	padding: 9px 14px;
+	border-bottom: 1px solid color-mix(in srgb, var(--accent, #35e0c8) 16%, transparent);
+	background: linear-gradient(180deg, color-mix(in srgb, var(--accent, #35e0c8) 9%, transparent), transparent);
+	font-size: 9px;
+	letter-spacing: 0.2em;
+	text-transform: uppercase;
+	color: color-mix(in srgb, var(--accent, #35e0c8) 62%, transparent);
+	text-align: left;
+}
+.intro-cine-gate-dev { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.intro-cine-gate-ver { opacity: 0.5; }
+/* The ready lamp. A terminal with a live lamp is a terminal that is WAITING for
+   you, which is the whole posture of this screen. */
+.intro-cine-gate-lamp {
+	flex: 0 0 auto;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--accent, #35e0c8);
+	box-shadow: 0 0 8px 1px color-mix(in srgb, var(--accent, #35e0c8) 70%, transparent);
+	animation: intro-cine-lamp 2.6s ease-in-out infinite;
+}
+@keyframes intro-cine-lamp { 0%, 100% { opacity: 1; } 55% { opacity: 0.28; } }
+
+/* The screen itself: recessed, with a hairline scanline field over it. */
+.intro-cine-gate-screen {
+	position: relative;
+	padding: 30px 26px 26px;
+	background:
+		radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--accent, #35e0c8) 7%, transparent), transparent 70%),
+		#050808;
+	box-shadow: inset 0 2px 10px rgba(0,0,0,0.8);
+}
+.intro-cine-gate-screen::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background: repeating-linear-gradient(180deg, rgba(255,255,255,0.028) 0 1px, transparent 1px 3px);
+}
+/* The auto-begin countdown, along the bottom edge of the chassis. Empties left to
+   right over AUTO_BEGIN_MS (duration set inline from the constant, in
+   intro-cinematic.js) — the machine showing you it will proceed regardless. */
+.intro-cine-gate-wait {
+	height: 2px;
+	background: color-mix(in srgb, var(--accent, #35e0c8) 10%, transparent);
+	overflow: hidden;
+}
+.intro-cine-gate-wait i {
+	display: block;
+	height: 100%;
+	width: 100%;
+	transform-origin: left center;
+	background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent, #35e0c8) 75%, transparent));
+	box-shadow: 0 0 10px color-mix(in srgb, var(--accent, #35e0c8) 45%, transparent);
+	animation: intro-cine-gate-drain linear both;
+	animation-duration: 20s;   /* overwritten inline; this is only a safety net */
+}
+@keyframes intro-cine-gate-drain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
 .intro-cine-gate-eyebrow {
 	font-size: 11px;
 	letter-spacing: 0.62em;
@@ -14069,6 +14219,7 @@ body.intro-cine-open { overflow: hidden; }
 	text-transform: uppercase;
 	color: var(--accent, #35e0c8);
 	opacity: 0.75;
+	text-shadow: 0 0 14px color-mix(in srgb, var(--accent, #35e0c8) 45%, transparent);
 }
 .intro-cine-gate-title {
 	margin-top: 18px;
@@ -14146,7 +14297,17 @@ body.intro-cine-open { overflow: hidden; }
 	color: rgba(235,245,244,0.24);
 }
 [data-motion="off"] .intro-cine-gate-card,
+[data-motion="off"] .intro-cine-gate-lamp,
+[data-motion="off"] .intro-cine-gate-wait i,
 [data-motion="off"] .intro-cine-gate-btn { animation: none; }
+/* No bar rather than a frozen full one — a static countdown reads as a stuck load. */
+[data-motion="off"] .intro-cine-gate-wait { opacity: 0; }
+/* The chassis keeps its shape on a phone; only the padding gives. */
+@media (max-width: 520px) {
+	.intro-cine-gate-screen { padding: 22px 16px 20px; }
+	.intro-cine-gate-bar { font-size: 8px; letter-spacing: 0.14em; }
+	.intro-cine-gate-ver { display: none; }
+}
 
 .intro-cine-skip {
 	position: absolute;
@@ -14173,8 +14334,15 @@ body.intro-cine-open { overflow: hidden; }
 	border-color: rgba(235,245,244,0.7);
 	background: rgba(255,255,255,0.06);
 }
+/* On a phone the skip is the ONLY way out — there is no Escape key — so it keeps
+   a thumb-sized target even though the label shrinks. */
 @media (max-width: 700px) {
-	.intro-cine-skip { font-size: 11px; padding: 6px 11px; }
+	.intro-cine-skip {
+		font-size: 11px;
+		padding: 0 16px;
+		min-height: 44px;
+		min-width: 88px;
+	}
 }
 
 /* ── The wordmark ───────────────────────────────────────────────────────────

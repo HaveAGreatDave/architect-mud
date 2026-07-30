@@ -1,0 +1,22 @@
+{
+  "base_difficulty": 2,
+  "base_output": {
+    "item_id": "item_loose_cannabis",
+    "quantity": 4
+  },
+  "category": "goods",
+  "description": "Trim a bale of wet cannabis flower and dry it down into loose leaf worth rolling. Legal work, start to finish — deliberately a fabrication recipe, not a chemistry cook, so it lives under CRAFT and never touches the felony bench.",
+  "id": "cure_cannabis",
+  "ingredients": [
+    {
+      "item_id": "item_raw_cannabis_crop",
+      "quantity": 1
+    }
+  ],
+  "name": "Cure Cannabis Flower",
+  "requires_station": null,
+  "skill_id": "fabrication",
+  "skill_req": {
+    "fabrication": 0
+  }
+}

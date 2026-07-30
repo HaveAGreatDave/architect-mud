@@ -20,7 +20,7 @@
 // columns/tables for scalar state). One flag holds the bookmark; owning a book is
 // implied by having opened it, which keeps the shelf honest without a join.
 import { query } from '../../server/models/db.js';
-import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { getFlag, setFlag, getFlagsByPrefix } from '../../server/engine/flags.js';
 import { registerTabletApp, normScreen } from './registry.js';
 
 const BOOKMARK = (bookId) => `book_pos_${bookId}`;
@@ -59,12 +59,24 @@ async function chapter(bookId, idx) {
   return rows[0]?.text ? rows[0] : null;
 }
 
-async function chapterTitles(bookId) {
+// The table of contents: title + LENGTH of each chapter, never the prose. The
+// length is measured inside Postgres and only the integer travels, so a contents
+// page for `We` costs a couple of KB rather than 390.
+//
+// Built with WITH ORDINALITY rather than jsonb_path_query_array($[*].title): a path
+// query SKIPS any element missing the key, so one untitled chapter would silently
+// shorten the array and shift every index after it — the contents page would then
+// send you to the wrong chapter with nothing to indicate it had.
+async function chapterToc(bookId) {
   const { rows } = await query(
-    `SELECT jsonb_path_query_array(chapters, '$[*].title') AS titles FROM books WHERE id=$1`,
+    `SELECT COALESCE((
+       SELECT jsonb_agg(jsonb_build_object('title', c->>'title', 'len', length(c->>'text')) ORDER BY i)
+         FROM jsonb_array_elements(chapters) WITH ORDINALITY AS t(c, i)
+     ), '[]'::jsonb) AS toc
+       FROM books WHERE id=$1`,
     [bookId]
   );
-  return rows[0]?.titles || [];
+  return rows[0]?.toc || [];
 }
 
 // ── Glossary ────────────────────────────────────────────────────────────────
@@ -108,6 +120,19 @@ async function bookmarkOf(player, bookId) {
   const v = await getFlag('player', BOOKMARK(bookId), player);
   const n = parseInt(v, 10);
   return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+// Every bookmark in one read — one prefix scan, and zero round trips for a
+// hydrated player, which is what makes a shelf that shows progress on all eight
+// spines cost the same as one that shows none.
+async function bookmarks(player) {
+  const m = await getFlagsByPrefix(player, 'book_pos_');
+  const out = new Map();
+  for (const [k, v] of m) {
+    const n = parseInt(v, 10);
+    if (Number.isFinite(n) && n >= 0) out.set(k.slice('book_pos_'.length), n);
+  }
+  return out;
 }
 
 // ── Screens ─────────────────────────────────────────────────────────────────
@@ -184,19 +209,36 @@ async function buildScreen(player, screenId, params) {
     };
   }
 
-  // `contents <bookId>` — the chapter list.
+  // `contents <bookId> <chapterIndex>` — a tap on a contents entry. The client
+  // resends the screen it is currently ON as the screen token and the tile's id as
+  // params (see wireBody's data-open-item), so a chapter tapped from the contents
+  // page arrives here as the CONTENTS screen carrying "<bookId> <idx>". Without
+  // this it fell into the branch below and looked up a book called
+  // "book_opium_eater 3" — "No such book." for every chapter in the shelf.
+  if (screen === 'contents' && /\s\d+$/.test(arg)) {
+    return buildScreen(player, 'read', arg);
+  }
+
+  // `contents <bookId>` — the chapter list, set as a table of contents: leaders
+  // running out to a length, the bookmark called out, and everything before it
+  // marked read. A plain list said "1. PART II" and nothing else.
   if (screen === 'contents' && arg) {
     const meta = await bookMeta(arg);
     if (!meta) return { view: 'error', message: 'No such book.' };
-    const titles = await chapterTitles(arg);
+    const toc = await chapterToc(arg);
     const at = await bookmarkOf(player, arg);
     return {
-      view: 'list',
+      view: 'library',
+      libKind: 'contents',
       breadcrumb: [meta.title, 'Contents'],
-      items: titles.map((t, i) => ({
+      book: { id: meta.id, title: meta.title, author: meta.author, year: meta.year },
+      at,
+      // `mins` is a reading estimate, not a word count — a chapter is a commitment
+      // of time, and that's the number that decides whether you start it now.
+      chapters: toc.map((c, i) => ({
         id: `${arg} ${i}`,
-        label: `${i + 1}. ${t || `Chapter ${i + 1}`}`,
-        sub: i === at ? 'Where you left off' : undefined,
+        title: c.title || `Chapter ${i + 1}`,
+        mins: Math.max(1, Math.round((c.len || 0) / 5.6 / 220)),
       })),
     };
   }
@@ -207,17 +249,12 @@ async function buildScreen(player, screenId, params) {
     if (!meta) return { view: 'error', message: 'No such book.' };
     const at = await bookmarkOf(player, arg);
     return {
-      view: 'detail',
+      view: 'library',
+      libKind: 'cover',
       breadcrumb: [meta.title],
-      detail: {
-        name: meta.title,
-        desc: `${meta.author} · ${meta.year}`,
-        body: meta.blurb,
-        rows: [
-          { label: 'Chapters', value: String(meta.chapters) },
-          { label: 'Bookmark', value: at > 0 ? `Chapter ${at + 1}` : 'Not started' },
-          { label: 'Provenance', value: meta.source || 'Unknown' },
-        ],
+      book: {
+        id: meta.id, title: meta.title, author: meta.author, year: meta.year,
+        blurb: meta.blurb, source: meta.source, chapters: meta.chapters, at,
       },
       actions: [
         { id: `read:${meta.id}`, label: at > 0 ? 'Continue' : 'Read' },
@@ -230,19 +267,17 @@ async function buildScreen(player, screenId, params) {
   if (!books.length) {
     return { view: 'error', message: 'The shelf is empty. Somebody burned everything again.' };
   }
+  const marks = await bookmarks(player);
   return {
-    view: 'list',
-    // NOT empty, and that is load-bearing. The client builds a list tile's nav
-    // from the LAST BREADCRUMB entry (`currentScreen`, see wireBody), so an empty
-    // breadcrumb sends `tabletnav library <bookId>` with no screen — the book id
-    // lands in screenId, params arrives empty, no branch above matches, and the
-    // shelf renders again. Tapping a book did nothing, and looked like a dead app.
+    view: 'library',
+    libKind: 'shelf',
+    // NOT empty, and that is load-bearing. The client builds a tile's nav from the
+    // LAST BREADCRUMB entry (`currentScreen`, see wireBody), so an empty breadcrumb
+    // sends `tabletnav library <bookId>` with no screen — the book id lands in
+    // screenId, params arrives empty, no branch above matches, and the shelf
+    // renders again. Tapping a book did nothing, and looked like a dead app.
     breadcrumb: ['Library'],
-    items: books.map(b => ({
-      id: b.id,
-      label: b.title,
-      sub: `${b.author} · ${b.year} · ${b.chapters} chapters`,
-    })),
+    books: books.map(b => ({ ...b, at: marks.get(b.id) || 0 })),
   };
 }
 

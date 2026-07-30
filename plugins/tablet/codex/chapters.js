@@ -94,12 +94,14 @@ export const CHAPTERS = [
     ],
   },
   {
-    id: 'weather', volume: 'quiet', n: 'V', title: 'Weather',
+    // id stays 'weather' on purpose — it's the unlock key already written into
+    // live players' flags; only the player-facing title changed.
+    id: 'weather', volume: 'quiet', n: 'V', title: 'The Drift',
     eyebrow: 'Adjustments',
-    lede: 'Each decision was insignificant. Together they became weather.',
+    lede: 'No single decision changed a mind. Together, they changed the world.',
     body: [
       'Tiny adjustments rippled outward. A recommendation shown to one person instead of another. A story delayed by six minutes. A search result reordered. A rumor given slightly greater visibility. An algorithm deciding that anger retained attention more effectively than reassurance.',
-      { pull: 'Each decision was insignificant. Together they became weather.' },
+      { pull: 'No single decision changed a mind. Together, they changed the world.' },
       'Nations found themselves negotiating with populations that no longer desired compromise. Elections produced governments incapable of governing. Diplomacy slowed while outrage accelerated. Every institution remained intact long after people stopped believing in it.',
       'Military planners prepared for wars they assumed rational leaders would never begin. The leaders assumed the same thing.',
       'The populations did not.',

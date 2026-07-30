@@ -71,6 +71,33 @@ error between the two steps can't tear them:
   ideology reputation, floored at 1.
 - **Buy:** debits credits via `adjustCredits`, then inserts/stacks the item. Vendor `stock` is **not**
   decremented — supply is effectively infinite (default `stock ?? 99` is display-only).
+- **Two opt-in seams let a plugin change what a sale produces**, both registered against `vendor.js`
+  and both running *inside* the sale transaction:
+  - `registerPurchaseStamp(itemId, fn)` — **what state the unit arrives in.** Returns a `custom_data`
+    bag seeded onto the fresh row (a ticket stamped for one showing), or a string to refuse the sale.
+    A stamped unit never merges into a stack.
+  - `registerPurchaseDelivery(npcFlagKey, fn)` — **where it arrives at all.** Runs in place of the
+    inventory insert and owns the goods: nothing lands in the buyer's pockets. Returns the receipt
+    line, `'!reason'` to refuse and roll back, or **`null` for "not mine"** so the same counter can
+    still sell a shotgun over the desk. Registered against an **NPC flag, not an item tag**, because
+    "does this counter deliver rather than hand over" is a property of the *vendor* — two fences
+    selling the same raws would otherwise collide, and they do: `raws_counter` runs a pallet out to a
+    dead drop ([systems-flight.md](systems-flight.md#ordering--the-counter-is-a-vendor-shelf)) while
+    `mule_counter` books a drone drop at the Scald ([smuggle](../plugins/smuggle/README.md)).
+
+**Shelves — one NPC, a front counter and a back room.** A `vendor_inventory` entry may carry a
+`shelf` label. Entries with **no** `shelf` are the front counter: what `shop` and the implicit
+"Browse your wares" option open. A labelled entry is only ever visible to an `OPEN_SHOP` action that
+names that shelf (`params: { shelf: 'back_room' }`), and the label is held on the **shop session**, so
+it dies with the conversation. `getVendorStock` and `buyFromVendor` both filter on it — the buy check
+is load-bearing, because the client sends an item id and without it a front-counter session could buy
+straight off the back room. This is what lets Sully be a bartender selling swill *and* a fence selling
+precursor without his bar list ever leaking contraband.
+- ⚠️ **Abort a sale by THROWING, never by returning false.** `withTransaction` commits on a falsy
+  return and only rolls back on a throw, so a mid-sale bail-out that returns takes the credits and
+  hands over nothing — which the sold-out-mid-transaction path silently did until 2026-07-29. Use the
+  `VendorAbort` sentinel; it is caught immediately outside the transaction, becomes the refusal line,
+  and re-reads `players.credits` to undo the mirror `adjustCredits` left on the live player object.
 - **Sell:** pays `floor(value × 0.4 × (1 + Cool×0.05) × (1 + factionDiscount))`, floored at 1 — a base **40% of the item's `value`**, boosted **+5% per point of the seller's Cool stat**, and adjusted by ideology reputation with the vendor (friendly rep pays more, hostile pays less — the same discount buy uses, inverted). Rejects `quest_item`-tagged and equipped items. Sell price logic lives in `computeSellUnitPrice` (`vendor.js`), shared by the actual sale and the GUI Sell-tab preview.
 
 ## Ideology reputation
@@ -265,7 +292,8 @@ never looted, `take`n or stack-merged.
   stock and the till but refunds nothing already paid in — that gap is the whole difference
   between walking away and defaulting.
 - **The vault:** furniture flagged `shop_vault` holds the till and runs the same VAULT CRACK
-  contract as a [vendor safe](../plugins/vendor-safe/index.js) — arm → client minigame →
+  contract as a [vendor safe](../plugins/vendor-safe/index.js) — **both now require a carried
+  `hack_device`**, like `jack` above, and both damage the deck on a failure — arm → client minigame →
   `tillcrackresolve`, with the amount re-read server-side under `SELECT … FOR UPDATE` so the
   payout can't be spoofed and two crackers can't both drain it. Arming pings the proprietor
   wherever they are.

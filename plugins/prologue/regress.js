@@ -15,6 +15,7 @@ export default async function regress({ check }) {
     F_ALIGNED, F_INTERFACED, F_BROADCAST,
     cmdTutorial, F_TOUR_ASKED, F_TOUR_TAKEN, isSet,
     coldwaterSkyline, coldwaterShore, readTwocellAdvert, Z_CLONEVAT,
+    cmdTabletDone, pointAtAdvert, F_ADVERT,
   } = _test;
 
   // ── The cold open's skyline manifest ───────────────────────────────────────
@@ -84,6 +85,37 @@ export default async function regress({ check }) {
   check('read <not the advert> falls through', advertOther === undefined);
   const twocell = await query(`SELECT name FROM zones WHERE id='zone_district_920_903'`);
   check('the advert has somewhere to send you', twocell.rows[0]?.name === 'Two-Cell Supply', twocell.rows[0]?.name);
+
+  // ── The poster beat waits for the tablet walkthrough ───────────────────────
+  // The nudge used to fire on a timer; it now fires when the client says the
+  // tablet tutorial is over (`tabletdone`) or when the server's own backstop
+  // gives up. Two things must hold: it happens EXACTLY ONCE (it raises a flag,
+  // and a doubled nudge is two shimmering posters and a repeated paragraph), and
+  // it never fires anywhere but the vat — `tabletdone` is a replayable client
+  // echo, so a veteran replaying `tutorial tablet` in a bar must get nothing.
+  await clearFlag('player', F_ADVERT, p);
+  await cmdTabletDone([], 'tabletdone', { ...p, current_zone: Z_LATTICE });
+  check('tabletdone outside the vat leaves the poster beat unspent', !(await isSet(p, F_ADVERT)));
+  await cmdTabletDone([], 'tabletdone', { ...p, current_zone: Z_CLONEVAT });
+  check('tabletdone in the vat spends the poster beat', await isSet(p, F_ADVERT));
+  await pointAtAdvert({ ...p, current_zone: Z_CLONEVAT });
+  check('the poster beat is once-only', await isSet(p, F_ADVERT));   // flag-guarded; no throw, no re-send
+  await clearFlag('player', F_ADVERT, p);
+
+  // ── No tablet in the corridor ─────────────────────────────────────────────
+  // The device is issued at the vat, so every door into the shell has to refuse
+  // while you're in a prologue-flagged room — including `tabletnav`, which is
+  // what `codex`/`map`/`gear` and the client's own nav all come through.
+  {
+    const { commands: tabletCmds } = await import('../tablet/index.js');
+    const inCorridor = { ...p, current_zone: Z_INBETWEEN };
+    const t1 = await tabletCmds.tablet([], 'tablet', inCorridor);
+    check('tablet refused in the prologue corridor', t1?.type === 'system' && /no tablet/i.test(t1.message || ''), JSON.stringify(t1)?.slice(0, 80));
+    const t2 = await tabletCmds.tabletnav(['codex'], 'codex', inCorridor);
+    check('tabletnav refused in the prologue corridor too', t2?.type === 'system' && /no tablet/i.test(t2.message || ''), JSON.stringify(t2)?.slice(0, 80));
+    const t3 = await tabletCmds.tablet([], 'tablet', { ...p, current_zone: Z_CLONEVAT });
+    check('…and opens normally the moment you are out of it', t3?.type === 'tablet_panel', JSON.stringify(t3)?.slice(0, 60));
+  }
 
   // ── Gate 1: north out of The Inbetween (→ The Lattice) needs alignment ──────
   const g1blocked = await prologueMoveGate({ player: { ...p, current_zone: Z_INBETWEEN }, to: { id: Z_LATTICE } });

@@ -37,7 +37,7 @@ import { districtBiome } from './biomes.js';
 import { rollHazards, commands as hazardCommands } from './hazards.js';
 import { commands as acquisitionCommands, refuelAt, refuelParked, fieldStocks } from './acquisition.js';
 import { commands as combatCommands, tickCombat, relayContacts } from './combat.js';
-import { commands as contractCommands, checkContractDelivery, checkCargoDropDelivery, waitingDropAt, ensureFenceDrops, ensureFreightDrops, isFreightLicensed } from './contracts.js';
+import { commands as contractCommands, checkContractDelivery, checkCargoDropDelivery, waitingDropAt, ensureFreightDrops, isFreightLicensed } from './contracts.js';
 import { commands as hangarCommands, pushHangarBay } from './hangars.js';
 import { commands as charterCommands, charterDebug, charterParkedAt, embarkCharter, activeCharters, chaseCont, stepToward, CRUISE_TILES } from './charter.js';
 import { isPilotLicensed, beginCheckride, evaluateCheckride, checkrideEvent, getCheckrideState, hasActiveCheckride } from './checkride.js';
@@ -254,10 +254,10 @@ async function boardFound(found, player, broadcast) {
     : '';
   // A standing cargo drop at this field only comes up for the pilot, and only
   // once there's actually one waiting here — see contracts.js `waitingDropAt`.
-  // `ensureFenceDrops` is a cheap no-op for anyone who hasn't unlocked the fence's
-  // air-cargo branch; for those who have, it tops their pallet pool back up first.
+  // Fence cache pallets are never topped up here — nothing spawns unbidden, so the
+  // only pallets out there are ones the player ordered at the counter (`raws`).
   let drop = null;
-  if (seat === 'pilot') { await ensureFenceDrops(player); await ensureFreightDrops(player, player.current_zone); drop = await waitingDropAt(player.current_zone, player.id); }
+  if (seat === 'pilot') { await ensureFreightDrops(player, player.current_zone); drop = await waitingDropAt(player.current_zone, player.id); }
   const cargoHint = drop
     ? drop.kind === 'fence'
       ? `\n<span class="text-cyan">📦 A sealed shipment is waiting on the ramp — <span class="action-link" data-action="cmd" data-cmd="loadcargo">load it</span> and fly it home.</span>`
