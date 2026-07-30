@@ -20,7 +20,6 @@
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "road",
     "world_exit_zone": "zone_district_923_910"
   },
   "grid_x": 922,

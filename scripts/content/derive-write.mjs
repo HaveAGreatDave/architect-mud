@@ -13,9 +13,13 @@
 
 import { deriveWorld } from './derive.mjs';
 
-// zone_render columns, in the order the multi-row INSERT builds its tuples.
-const RENDER_COLS = ['zone_id', 'marker', 'color', 'bg_color', 'icon', 'ambient_theme',
-  'audio_theme_id', 'minimap_class', 'glyph', 'spec'];
+// zone_render columns, in the order the multi-row INSERT builds its tuples. Four
+// used to sit here that nothing read — `glyph` (a second name for `marker`),
+// `color`/`bg_color` (spec.text/spec.fill) and `minimap_class` (spec.minimap_class).
+// They are dropped from the table in SCHEMA_SQL; a column here that derive no longer
+// produces would insert NULL rather than fail, which is why the list is worth reading
+// next to the row deriveWorld builds.
+const RENDER_COLS = ['zone_id', 'marker', 'icon', 'ambient_theme', 'audio_theme_id', 'spec'];
 const EDGE_COLS = ['from_zone', 'direction', 'to_zone', 'connection_id', 'kind'];
 
 // One batched multi-row INSERT per CHUNK rows. 21,203 separate statements would be

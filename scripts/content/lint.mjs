@@ -215,6 +215,21 @@ export function lintContentTree(baseDir) {
       const wez = f.data.flags?.world_exit_zone;
       if (!wez || !zoneIds.has(wez)) errors.push(`${label}: facade needs a valid world_exit_zone (got "${wez ?? ''}")`);
     }
+
+    // A BUILDING IS NOT GROUND, so it cannot carry a ground surface. resolveTerrain
+    // says exactly that in its own comment — but it reads flags.terrain first, so a
+    // stray paint stroke wins and the tile silently loses its navigable code
+    // (deriveLabel suppresses a label on painted ground, by design). Hall of Records
+    // sat as `terrain: road` and Halloran's Fix-It as `grass`, both codeless on the
+    // map and the tablet, with nothing to see: a missing label looks like a tile that
+    // never had one. Scoped exactly as derive's isBuildingTile is, so lint and the
+    // build agree on which tiles wear a code.
+    for (const f of zoneFiles) {
+      const fl = f.data.flags || {};
+      if (f.data.map_id !== 'map_world' || !(fl.facade || fl.is_building)) continue;
+      if (!fl.terrain) continue;
+      errors.push(`zones/${f.name}: building tile carries flags.terrain="${fl.terrain}" — a building footprint is not ground, and painted ground suppresses the tile's map code (it would vanish from the map and the tablet). Remove the terrain.`);
+    }
   }
 
   // THE MAP ANCHOR. A map hangs off one world tile and `maps.parent_zone_id` is

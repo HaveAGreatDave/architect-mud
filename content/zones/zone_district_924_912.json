@@ -19,7 +19,6 @@
     "planner": "bp_district",
     "region_id": "region_coldwater",
     "street_life": true,
-    "terrain": "grass",
     "world_exit_zone": "zone_district_924_913"
   },
   "grid_x": 924,

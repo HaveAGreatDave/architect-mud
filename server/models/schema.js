@@ -170,15 +170,21 @@ export const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS zone_render (
     zone_id        TEXT PRIMARY KEY REFERENCES zones(id) ON DELETE CASCADE,
     marker         TEXT,
-    color          TEXT,
-    bg_color       TEXT,
     icon           TEXT,
     ambient_theme  TEXT,
     audio_theme_id TEXT,
-    minimap_class  TEXT,
-    glyph          TEXT,
     spec           JSONB NOT NULL DEFAULT '{}'
   );
+  -- Four columns left this table because nothing read them and each duplicated a
+  -- value the same row already carried: glyph was marker under a second name,
+  -- color/bg_color are spec.text/spec.fill, and minimap_class is spec.minimap_class
+  -- (both consumers -- minimap.js and tablet-os.js -- read it through the spec).
+  -- Two channels for one value is precisely the drift this table was introduced to
+  -- end, so carrying the unread half was working against itself.
+  ALTER TABLE zone_render DROP COLUMN IF EXISTS color;
+  ALTER TABLE zone_render DROP COLUMN IF EXISTS bg_color;
+  ALTER TABLE zone_render DROP COLUMN IF EXISTS minimap_class;
+  ALTER TABLE zone_render DROP COLUMN IF EXISTS glyph;
 
   -- The region-level slot of the defaults-and-overrides mechanism
   -- (docs/proposals/map-pipeline-spec.md §1.3): { "<column>": <value> } read by

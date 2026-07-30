@@ -314,6 +314,38 @@ const AUTO_DIRS = Object.freeze({ n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] }
 // passes (this one and projectEdges) and by the Studio's neighbour lookup.
 export const gridKey = (mapId, x, y, z) => `${mapId ?? ''}|${x},${y},${z ?? 0}`;
 
+/**
+ * ONE COORDINATE INDEX, built once and read by both whole-map passes.
+ *
+ * There used to be two, and they disagreed in both directions available:
+ * deriveWorld's was last-wins (one tile per cell) and INCLUDED off-map rooms, while
+ * projectEdges' was a list and SKIPPED them. Neither difference showed on this
+ * world's map today — measured: 0 auto-tile lookups resolve differently — but both
+ * are real:
+ *
+ *   • 6 cells hold more than one tile, and a last-wins map hands the auto-tiler
+ *     whichever one sorts last. A road beside a cell holding road + not-road could
+ *     draw an arm to nothing, or fail to draw one it should.
+ *   • 7 off-map rooms — the Echelon suite's bath and boudoir, four Solenne baths,
+ *     The Inbetween — all carry coordinates and no map, so they collided on the
+ *     single key `|0,0,0` and shadowed each other. An off-map room has no map to be
+ *     adjacent ON, so it does not belong in a geometry index at all.
+ *
+ * Cells are LISTS and off-map rooms are skipped, which is projectEdges' rule — it
+ * was the correct one. `anyAuto` is then the honest reading of a shared cell: if
+ * anything standing there auto-tiles, the lane joins it.
+ */
+export function buildCellIndex(zones) {
+  const byCell = new Map();
+  for (const z of zones) {
+    if (z?.map_id == null || z?.grid_x == null || z?.grid_y == null) continue;
+    const k = gridKey(z.map_id, z.grid_x, z.grid_y, z.grid_z);
+    if (!byCell.has(k)) byCell.set(k, []);
+    byCell.get(k).push(z);
+  }
+  return byCell;
+}
+
 export function deriveAutoTile(zone, palette, ctx = {}) {
   const out = { n: false, e: false, s: false, w: false };
   // A tile with no coordinates has no neighbours to speak of — 530 interiors and
@@ -322,8 +354,8 @@ export function deriveAutoTile(zone, palette, ctx = {}) {
   if (!ctx.byCell || zone?.grid_x == null || zone?.grid_y == null) return out;
   const gz = zone.grid_z ?? 0;
   for (const [dir, [dx, dy]] of Object.entries(AUTO_DIRS)) {
-    const n = ctx.byCell.get(gridKey(zone.map_id, zone.grid_x + dx, zone.grid_y + dy, gz));
-    out[dir] = !!(n && paletteEntry(n, palette)?.auto_tile);
+    const at = ctx.byCell.get(gridKey(zone.map_id, zone.grid_x + dx, zone.grid_y + dy, gz)) || [];
+    out[dir] = at.some(n => paletteEntry(n, palette)?.auto_tile);
   }
   return out;
 }
@@ -455,6 +487,20 @@ export function featureProvenance(zone, autoTile = null) {
  * else. Suppressing them here rather than in each renderer is what stopped the Studio
  * lettering the grasslands `# # # #`: it was drawing the spec faithfully, and the
  * spec was describing a tile the game abandoned.
+ *
+ * AND A BUILDING CARRYING TERRAIN IS A CONTENT BUG, NOT A CASE TO HANDLE HERE. Two
+ * tiles were in that state — Hall of Records (a poured-concrete civic building
+ * flagged `terrain: road`) and Halloran's Fix-It (a shopfront flagged `grass`) — and
+ * both had silently lost their navigable codes, on the map and on the tablet, because
+ * `resolveTerrain` reads `flags.terrain` before it reads its own "a building
+ * footprint is not ground" rung.
+ *
+ * The first fix attempted here was `&& !isBuildingTile(zone)`, which would have let a
+ * building keep its code over painted ground. Two regress laws refused it, correctly:
+ * one of those tiles auto-tiles as a ROAD, and a road that wears a label is a road the
+ * overlay toggle can stamp letters on. The paint stroke was the defect. It is removed
+ * from the two files, `content:lint` now errors on the combination, and the Studio
+ * refuses to paint ground onto a building — so the rule below stays one line.
  */
 export function deriveLabel(zone, palette, ctx = {}) {
   const text = deriveMarker(zone, palette, ctx);
@@ -577,14 +623,9 @@ export function projectEdges(zones = [], connections = []) {
   const byId = new Map(sorted.map(z => [z.id, z]));
 
   // Position index. A cell can legitimately hold more than one zone (6 do), so
-  // this is a list and every occupant is a candidate neighbour.
-  const byCell = new Map();
-  for (const z of sorted) {
-    if (z.map_id == null || z.grid_x == null || z.grid_y == null) continue;
-    const k = cellKey(z);
-    if (!byCell.has(k)) byCell.set(k, []);
-    byCell.get(k).push(z);
-  }
+  // this is a list and every occupant is a candidate neighbour. Shared with the
+  // render pass — see buildCellIndex for why there is only one of these now.
+  const byCell = buildCellIndex(sorted);
 
   const grid = new Map();   // `from|dir|to` → row
   for (const z of sorted) {
@@ -615,13 +656,21 @@ export function projectEdges(zones = [], connections = []) {
     const a = byId.get(c.a), b = byId.get(c.b);
     if (!a || !b) continue;                      // lint reports the dangling end
     if (c.blocked) {
+      let walled = false;
       for (const k of [`${c.a}|${c.dir}|${c.b}`, `${c.b}|${OPPOSITE[c.dir]}|${c.a}`]) {
         if (!grid.has(k)) continue;
         blocked.add(k);
+        walled = true;
       }
       // A wall that walls nothing is a file whose reason has been edited away —
       // the tiles moved apart, or a rule now covers it. Reported, not silent.
-      if (!blocked.has(`${c.a}|${c.dir}|${c.b}`)) unusedBlocks.push(c.id);
+      //
+      // "Nothing" means NEITHER DIRECTION. This tested only the forward key, so a
+      // wall whose one existing grid edge ran the other way did real work and was
+      // reported redundant anyway — and the fix for a redundant wall is deleting it,
+      // which here would have re-opened the step. Nothing on this world is in that
+      // state (0 reported before and after), so this closes it before it bites.
+      if (!walled) unusedBlocks.push(c.id);
       continue;
     }
     const kind = a.map_id === b.map_id ? 'authored' : 'portal';
@@ -746,16 +795,11 @@ export function deriveWorld({ zones = [], regions = [], connections = [], palett
   const { markers: buildingMarkers, collisions } = assignBuildingMarkers(zones);
 
   // Sorted ONCE, and everything below walks this list. Both whole-map passes have
-  // to agree on order or they are not deterministic: 273 cells on this world hold
-  // more than one tile, so the coordinate index is a last-wins map and which tile
-  // wins must not depend on which rows an upsert happened to touch first (§7.2).
+  // to agree on order or they are not deterministic (§7.2) — and while the cell
+  // index no longer picks a winner per cell (buildCellIndex keeps every occupant),
+  // the marker pass and the order of `render` still ride on this.
   const sorted = [...zones].sort((a, b) => String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0);
-  const byCell = new Map();
-  for (const z of sorted) {
-    if (z?.grid_x == null || z?.grid_y == null) continue;
-    byCell.set(gridKey(z.map_id, z.grid_x, z.grid_y, z.grid_z), z);
-  }
-  const ctx = { buildingMarkers, byCell };
+  const ctx = { buildingMarkers, byCell: buildCellIndex(sorted) };
   const featureOverrides = [];
 
   for (const zone of sorted) {
@@ -769,7 +813,6 @@ export function deriveWorld({ zones = [], regions = [], connections = [], palett
       ambient_theme: resolveDefault('ambient_theme', zone, region, palette),
       audio_theme_id: resolveDefault('audio_theme_id', zone, region, palette),
     };
-    const entry = paletteEntry(zone, palette);
     const spec = buildRenderSpec(zone, palette, resolved, ctx);
     // An authored `flags.icon` outranks auto-tiling, which is what makes it an
     // override — but a road piece frozen by hand does not grow an arm when someone
@@ -780,11 +823,24 @@ export function deriveWorld({ zones = [], regions = [], connections = [], palett
     // on the same tiles this list names, because it is the same function deciding.
     const prov = featureProvenance(zone, spec.auto_tile ?? null);
     if (prov.stale) featureOverrides.push({ id: zone.id, authored: prov.name, implied: prov.implied });
+    // ONE CHANNEL PER VALUE. `glyph` was `resolved.marker` under a second name,
+    // top-level `color`/`bg_color` were `spec.text`/`spec.fill`, and top-level
+    // `minimap_class` was `spec.minimap_class` — four columns carrying a value
+    // something else in the same row already carried, and not one of them had a
+    // reader (every consumer resolves through `spec`, and `marker` survives because
+    // regress holds it to the authored value). Two channels for one value is the
+    // drift this whole pass was built to delete; keeping the unread half is how the
+    // next reader concludes there are two ways to letter a tile.
+    // Spelled out rather than spread, so the row's columns and derive-write's
+    // RENDER_COLS read as the same short list. `color`/`bg_color` stay in `resolved`
+    // because buildRenderSpec turns them into spec.text/spec.fill — they just do not
+    // get a second home on the row.
     render.set(zone.id, {
       zone_id: zone.id,
-      ...resolved,
-      minimap_class: entry?.minimap_class ?? null,
-      glyph: resolved.marker,
+      marker: resolved.marker,
+      icon: resolved.icon,
+      ambient_theme: resolved.ambient_theme,
+      audio_theme_id: resolved.audio_theme_id,
       spec,
     });
   }

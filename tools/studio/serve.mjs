@@ -776,7 +776,19 @@ const server = createServer(async (req, res) => {
       for (const id of ids) {
         const row = tree.zones.get(id);
         if (!row) { errors.push(`${id}: no such zone`); continue; }
-        const flags = { ...(row.flags || {}) };
+        // A BUILDING IS NOT GROUND. Painting one is silently destructive: the tile
+        // keeps its rooftop but loses its map code, because derive suppresses a label
+        // on painted ground and resolveTerrain reads flags.terrain before its own
+        // "a building footprint is not ground" rung. Hall of Records and Halloran's
+        // Fix-It were both in that state, codeless and looking untouched. Refused
+        // here so the brush cannot do it, and content:lint errors if it arrives any
+        // other way. CLEARING terrain on one is always allowed — that is the repair.
+        const fl = row.flags || {};
+        if (terrain && row.map_id === 'map_world' && (fl.facade || fl.is_building)) {
+          errors.push(`${id} (${row.name || 'unnamed'}): a building tile cannot carry ground — painting it would remove its map code`);
+          continue;
+        }
+        const flags = { ...fl };
         if (terrain) flags.terrain = terrain; else delete flags.terrain;
         const r = await saveZone({ ...row, flags });
         if (!r.ok) errors.push(`${id}: ${r.errors.join('; ')}`);

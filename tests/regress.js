@@ -45,7 +45,7 @@ import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/cont
 import { SCHEMA_SQL } from '../server/models/schema.js';
 import { handleApiRequest, apiUpdateZone, apiPatchZoneTag } from '../server/api/routes.js';
 import { query } from '../server/models/db.js';
-import { resolveDefault, resolveTerrain, deriveWorld, deriveMarker, assignBuildingMarkers, projectEdges, edgesToExits, OPPOSITE, featureProvenance } from '../scripts/content/derive.mjs';
+import { resolveDefault, resolveTerrain, deriveWorld, deriveMarker, assignBuildingMarkers, projectEdges, edgesToExits, OPPOSITE, featureProvenance, buildCellIndex, gridKey } from '../scripts/content/derive.mjs';
 import { ASSET_REFS, assetRefIds, isAssetRef } from '../scripts/content/lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -874,15 +874,21 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     .filter(([, t]) => t.auto_tile).map(([k]) => k));
   const autoOf = (z) => !!(z && autoTerrains.has(resolveTerrain(z)));
   const AT_DIRS = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
-  const atKey = (z, dx = 0, dy = 0) => `${z.map_id ?? ''}|${z.grid_x + dx},${z.grid_y + dy},${z.grid_z ?? 0}`;
-  const occupied = new Map();
-  for (const z of zonesForDerive) if (z.grid_x != null && z.grid_y != null) occupied.set(atKey(z), z);
+  // THE BUILD'S OWN CELL INDEX, not a second one written here. This check used to
+  // build a last-wins map that also indexed off-map rooms — the same two defects
+  // deriveWorld's private index had, so the test would have enshrined the bug it
+  // was meant to catch. A cell holds a LIST, and a side joins if ANY occupant there
+  // auto-tiles; off-map rooms have no map to be adjacent on and are not in the index.
+  const cells = buildCellIndex(zonesForDerive);
+  const occupantsAt = (z, dx = 0, dy = 0) =>
+    cells.get(gridKey(z.map_id, z.grid_x + dx, z.grid_y + dy, z.grid_z)) || [];
+  const anyAutoAt = (z, dx, dy) => occupantsAt(z, dx, dy).some(autoOf);
   const autoTiles = zonesForDerive.filter(z => autoOf(z) && z.grid_x != null);
   const specAt = (id) => a.render.get(id)?.spec;
   const wrongSide = autoTiles.filter(z => {
     const at = specAt(z.id)?.auto_tile;
     if (!at) return true;
-    return Object.entries(AT_DIRS).some(([d, [dx, dy]]) => at[d] !== autoOf(occupied.get(atKey(z, dx, dy))));
+    return Object.entries(AT_DIRS).some(([d, [dx, dy]]) => at[d] !== anyAutoAt(z, dx, dy));
   });
   check(`every auto-tiling tile's spec matches its neighbours (${autoTiles.length} tiles)`,
     autoTiles.length > 0 && wrongSide.length === 0, wrongSide.slice(0, 3).map(z => z.id).join(', '));
@@ -907,6 +913,25 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   const labelledGround = zonesForDerive.filter(z => specAt(z.id)?.label && specAt(z.id)?.terrain);
   check('painted ground carries no label', labelledGround.length === 0,
     labelledGround.slice(0, 3).map(z => z.id).join(', '));
+  // AND THE OTHER SIDE OF THAT RULE: a building must not BE painted ground. The
+  // suppression above is by design, so a stray terrain on a building tile silently
+  // deletes its navigable code — and a missing label looks exactly like a tile that
+  // never had one. Hall of Records sat as `terrain: road` and Halloran's Fix-It as
+  // `grass`, both codeless on the map and the tablet, and the roads beside Hall of
+  // Records drew a lane straight through the building. content:lint errors on it and
+  // the Studio's brush refuses it; this is the same invariant against the live world.
+  const groundedBuildings = zonesForDerive.filter(z => z.map_id === 'map_world'
+    && (z.flags?.facade || z.flags?.is_building) && z.flags?.terrain);
+  check('no building tile is painted as ground', groundedBuildings.length === 0,
+    groundedBuildings.slice(0, 3).map(z => `${z.id} (${z.flags.terrain})`).join(', '));
+  // An off-map room carries coordinates but no map, so it cannot be anybody's
+  // neighbour. Seven of them — the Echelon suite's bath and boudoir, four Solenne
+  // baths, The Inbetween — all sat on the single key `|0,0,0` in the render pass's
+  // old private index, shadowing each other.
+  const offMapIndexed = zonesForDerive.filter(z => z.map_id == null && z.grid_x != null
+    && cells.has(gridKey(z.map_id, z.grid_x, z.grid_y, z.grid_z)));
+  check('off-map rooms are absent from the coordinate index', offMapIndexed.length === 0,
+    offMapIndexed.slice(0, 3).map(z => z.id).join(', '));
   // `spec.glyph` had exactly one consumer in the repo — the Studio's debug line —
   // because every renderer read the authored `zones.marker` off the payload instead.
   // Its replacement must not quietly come back.
