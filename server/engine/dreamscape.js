@@ -259,6 +259,10 @@ export async function buildDreamscape(playerId, {
     playerId, roomIds: ids, presence,
     presenceRoom: presence ? pick(ids) : null,
     broadcast, timer: null,
+    // What built this. Only a sleep dream ('dream') can end by being used up —
+    // see noteDreamProgress.
+    cause,
+    seenRooms: new Set(), seenObjects: new Set(), dissolving: false, dissolveTimer: null,
   };
   if (broadcast) inst.timer = setInterval(() => beat(inst), BEAT_MS);
   instances.set(stamp, inst);
@@ -314,7 +318,15 @@ function beat(inst) {
  * what puts the real weather back when a room has no field of its own.
  */
 export function pushDreamFx(player, broadcast) {
-  if (!broadcast || !player) return;
+  if (!player) return;
+  // ARRIVAL HOOK. Both callers (the dream's entry in apartments.js, and every
+  // step in movement.js) invoke this at exactly the moment a mind lands in a
+  // room, which makes it the one place that sees every arrival — so the "seen
+  // it" bookkeeping rides here rather than being duplicated at both sites and
+  // drifting apart. Marked BEFORE the broadcast guard: a room is visited whether
+  // or not anyone is listening.
+  noteDreamProgress(player, markRoomSeen(player.current_zone), broadcast);
+  if (!broadcast) return;
   const fx = world.zones.get(player.current_zone)?.dreamFx;
   broadcast(null, { type: 'dream_fx', ...(fx || { effect: 'none', intensity: 0 }) }, null, player.id);
 }
@@ -348,6 +360,129 @@ export function bodyTell(player, roomId) {
 /** Everything a player can poke at in the room they're standing in. */
 export function dreamObjectsAt(zoneId) {
   return world.zones.get(zoneId)?.dreamObjects || [];
+}
+
+// ── Exhaustion: a dream you have finished should end ─────────────────────────
+//
+// A dreamscape is 1–4 rooms with a handful of objects, so it CAN be used up —
+// and a used-up dream you are still standing in is dead time, which is the one
+// thing sleep was reworked to stop being.
+//
+// It does not eject you. Being finished with the ordinary sleep is a notice, not
+// an ejection (see apartments.js), and the arrival line promises "you will wake
+// when you wake" — so exhaustion answers that promise instead of contradicting
+// it: the rooms come apart around you over a couple of beats and you surface on
+// your own. An ending, authored, rather than the game deciding for you.
+//
+// Tracked on the INSTANCE rather than the player, so it dies with the dream and
+// a second dream is a fresh sheet.
+function instanceOf(zoneId) {
+  for (const inst of instances.values()) if (inst.roomIds.includes(zoneId)) return inst;
+  return null;
+}
+
+/** Mark a room as visited. Returns the instance, or null outside a dream. */
+export function markRoomSeen(zoneId) {
+  const inst = instanceOf(zoneId);
+  if (!inst) return null;
+  (inst.seenRooms ||= new Set()).add(zoneId);
+  return inst;
+}
+
+/** Mark one object in one room as examined. Keyed by room so names can repeat. */
+export function markObjectSeen(zoneId, objectName) {
+  const inst = instanceOf(zoneId);
+  if (!inst || !objectName) return null;
+  (inst.seenObjects ||= new Set()).add(`${zoneId}::${String(objectName).toLowerCase()}`);
+  return inst;
+}
+
+/**
+ * Has this instance been used up — every room walked, every object looked at?
+ *
+ * The wandering presence deliberately does NOT count. It moves on its own timer,
+ * so requiring it would let completion stall through no fault of the dreamer.
+ */
+export function isExhausted(inst) {
+  if (!inst) return false;
+  const seenRooms = inst.seenRooms || new Set();
+  if (inst.roomIds.some(id => !seenRooms.has(id))) return false;
+  const seenObjects = inst.seenObjects || new Set();
+  for (const id of inst.roomIds) {
+    for (const o of (world.zones.get(id)?.dreamObjects || [])) {
+      if (!seenObjects.has(`${id}::${o.name.toLowerCase()}`)) return false;
+    }
+  }
+  return true;
+}
+
+// The come-apart. Two beats of prose, then the caller's own wake path runs — this
+// module does not know whether it is ending a sleep or a drug trip, and must not
+// guess. `onSurface` is what actually ends it.
+const DISSOLVE_LINES = [
+  'You have been everywhere this place goes.',
+  'The walls stop pretending. Something that was a corridor is just a colour now, and the colour is going too.',
+];
+const DISSOLVE_BEAT_MS = 4000;
+
+/**
+ * Call after marking a room or object seen. Ends the dream if it is used up.
+ *
+ * SLEEP DREAMS ONLY (`cause: 'dream'`). A drug hallucination ends when the DRUG
+ * ends — cutting a trip short because the tripper was thorough would make a
+ * dose's length depend on how much they poked at, and the dose is the thing they
+ * paid for. A dissociative episode ends when sanity recovers, for the same
+ * reason: it is a symptom, not a place with an exit.
+ */
+export function noteDreamProgress(player, inst, broadcast) {
+  if (!inst || inst.cause !== 'dream') return false;
+  if (!player?.sleeping?.inDream) return false;
+  if (!isExhausted(inst)) return false;
+  return beginDissolve(inst, {
+    broadcast,
+    onSurface: () => {
+      // Re-check everything: two beats passed, and in that time they may have
+      // been woken by an alarm, killed, or logged out. Waking someone who is
+      // already awake would stand them up out of a chair somewhere else.
+      const p = world.players.get(inst.playerId);
+      if (!p?.sleeping?.inDream) return;
+      wakeFromDream(p);
+      p.sleeping = null;
+      p.posture = 'standing';
+      p.sittingOn = null;
+      try {
+        broadcast?.(p.current_zone, { type: 'zone_event', message: `${p.handle} stirs and opens their eyes.` }, p.id);
+        broadcast?.(null, { type: 'force_look' }, null, p.id);
+        broadcast?.(null, { type: 'sleep_state', sleeping: false, dreaming: false }, null, p.id);
+        broadcast?.(null, { type: 'output', message: 'You surface. The room reassembles itself around you, and this time it stays put.' }, null, p.id);
+      } catch { /* they are awake either way */ }
+    },
+  });
+}
+
+/**
+ * Begin the dissolve, once. Idempotent per instance: a player who keeps examining
+ * things after finishing does not restart it or stack timers.
+ */
+export function beginDissolve(inst, { broadcast, onSurface }) {
+  if (!inst || inst.dissolving) return false;
+  inst.dissolving = true;
+  const pid = inst.playerId;
+  const tell = (message) => {
+    try { broadcast?.(null, { type: 'output', message: `<span style="color:var(--cyan)">${message}</span>` }, null, pid); }
+    catch { /* the dream ends either way */ }
+  };
+  tell(DISSOLVE_LINES[0]);
+  inst.dissolveTimer = setTimeout(() => {
+    tell(DISSOLVE_LINES[1]);
+    inst.dissolveTimer = setTimeout(() => {
+      inst.dissolveTimer = null;
+      // The occupant may have woken, died or logged out during the two beats. The
+      // surface callback is responsible for being safe to skip.
+      try { onSurface?.(); } catch { /* nothing left to do about it */ }
+    }, DISSOLVE_BEAT_MS);
+  }, DISSOLVE_BEAT_MS);
+  return true;
 }
 
 /**
@@ -476,6 +611,11 @@ export function dissolveDreamscape(playerId) {
   for (const [key, inst] of instances) {
     if (inst.playerId !== playerId) continue;
     if (inst.timer) clearInterval(inst.timer);
+    // The dissolve is a two-beat timeout chain. If anything else ends the dream
+    // first — waking by hand, an alarm, a knife — the pending beat must die with
+    // the instance, or it fires against a torn-down dream and calls onSurface on
+    // someone who is awake and standing somewhere else entirely.
+    if (inst.dissolveTimer) clearTimeout(inst.dissolveTimer);
     instances.delete(key);
   }
   for (const id of [...world.zones.keys()]) {

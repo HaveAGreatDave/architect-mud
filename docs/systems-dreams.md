@@ -174,6 +174,52 @@ invitation used to end the dream.
 > verb added here must be checked for whether it writes anything keyed to the zone id. Walking, looking
 > and talking are safe because they touch nothing that outlives the room.
 
+**Not waking you is a property of the DISPATCHER SHAPE, and it is fragile.** The dream branch in
+`handleCommand` *falls through* to the ordinary pipeline, and the ordinary pipeline's rule is "any
+command wakes a sleeper". What stops that is the `else if` on the branch below it — a dreamer never
+reaches the waking branch. Turn that `else if` into an `if` and every dream ends on the first
+keystroke. Regress drives all ten allowlisted verbs plus a refused one and asserts the dream survives
+each, precisely because the protection is invisible at the call site.
+
+### Exhaustion — a dream you have finished ends
+A dreamscape is 1–4 rooms with a handful of objects, so it can be *used up*, and a used-up dream you
+are still standing in is exactly the dead time the sleep rework existed to remove. Walk every room and
+`examine` every `dreamObject` and the dream **dissolves**: two beats of prose four seconds apart, then
+you surface on your own.
+
+It is deliberately **not** an ejection. Being finished with an ordinary sleep is a notice, not an
+ejection ([apartments.js](../server/engine/apartments.js)), and the arrival line promises *"you will
+wake when you wake"* — so exhaustion answers that promise rather than contradicting it.
+
+Three rules that are easy to get wrong:
+
+- **Sleep dreams only** (`cause: 'dream'`). A drug hallucination ends when the DRUG ends — making a
+  dose's length depend on how thorough the tripper was would cheat them out of what they paid for. A
+  dissociative episode ends when sanity recovers; it is a symptom, not a place with an exit.
+- **The wandering presence does not count.** It moves on its own timer, so requiring it would let
+  completion stall through no fault of the dreamer.
+- **The dissolve arms a timeout chain, and `dissolveDreamscape` must clear it.** Anything else ending
+  the dream first — waking by hand, an alarm, a knife — has to kill the pending beat, or it fires
+  against a torn-down instance and wakes somebody who is already awake and standing somewhere else.
+  `onSurface` re-checks `sleeping.inDream` for the same reason.
+
+Progress is tracked on the **instance**, not the player, so it dies with the dream and a second dream
+is a fresh sheet. The bookkeeping rides `pushDreamFx` because both callers (the dream's entry, and
+every step) invoke it at exactly the moment a mind lands in a room — one hook instead of two that
+drift apart.
+
+### The steps you took in a dream must not come true
+Walking faster than the pacing cadence **queues** the extra steps on a timer
+([`plugins/pacing/`](../plugins/pacing/README.md)) rather than rejecting them. A queued step is intent
+about *one room*: "from where I am now, go north." Waking before that timer fired used to drain those
+steps into the **waking** room — you dream-walked north twice, woke, and your body walked north twice.
+
+The queue is therefore stamped with the zone it was opened in (`_moveQueueZone`) and dropped when the
+player is somewhere else by the time it drains, plus dropped outright for a sleeping or dissociating
+player. That covers the general case, not just dreams: a jail booking, a respawn and an admin teleport
+all used to leave queued steps that walked the body on arrival. **A drained step is only valid if the
+player is where the previous step left them.**
+
 External wake causes — alarm, attack, the game loop, death — are unaffected. This governs only what
 the player's own typing does.
 

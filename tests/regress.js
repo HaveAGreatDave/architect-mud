@@ -1633,6 +1633,160 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
       ['north', 'look', 'examine', 'say'].every(v => DREAM_VERBS.has(v)), 'allowed');
     check('anything that writes the world is not',
       !['drop', 'get', 'give', 'buy', 'attack'].some(v => DREAM_VERBS.has(v)), 'blocked');
+
+    // ── A DREAM ACTION MUST NOT WAKE YOU ────────────────────────────────────
+    // Membership in DREAM_VERBS is only half the promise. The dream branch in the
+    // dispatcher FALLS THROUGH to the ordinary command pipeline, and the ordinary
+    // pipeline's rule is "any command wakes a sleeper" — so the protection is the
+    // `else if` that skips that branch, plus movement.js exempting a dreamer from
+    // forceStand. Both are one edit away from being lost, and nothing tested that
+    // the dream survived actually RUNNING a verb. This does.
+    {
+      const { buildDreamscape, wakeFromDream } = await import('../server/engine/dreamscape.js');
+      const pacing = await import('../plugins/pacing/index.js');
+      const p = getPlayer();
+      const bodyZone = p.current_zone;
+      const savedSleeping = p.sleeping, savedPosture = p.posture;
+
+      const entry = await buildDreamscape(p.id, { size: 3, cause: 'dream', broadcast: null, player: p });
+      if (!entry) {
+        // No authored dream templates in this database — say so rather than
+        // reporting a pass nothing exercised.
+        check('SKIPPED: no dream templates authored, cannot test dream verbs', true, 'skipped');
+      } else {
+        p.sleeping = { inDream: true, bodyZone, minutesSlept: 5, light: false, restore: { hp: 0, sanity: 0, stamina: 0 } };
+        p.posture = 'lying';                 // what cmdSleep actually leaves a sleeper as
+        p.current_zone = entry;
+        addPlayerToZone(p.id, entry);
+        try {
+          // Every allowlisted verb, run for real through the dispatcher. `wake` is
+          // excluded on purpose — it is the ONE that is supposed to end this.
+          for (const verb of ['look', 'examine', 'north', 'south', 'east', 'west', 'up', 'down', 'say hello', 'talk']) {
+            await run(verb);
+            check(`\`${verb}\` inside a dream does not wake you`,
+              p.sleeping?.inDream === true, `sleeping=${JSON.stringify(p.sleeping)}`);
+          }
+
+          // A refused verb must not wake you either — the refusal is a flavour line,
+          // not an ejection. This is the case a naive "unknown input wakes the
+          // sleeper" fix would break.
+          await run('drop everything');
+          check('a verb REFUSED inside a dream still does not wake you',
+            p.sleeping?.inDream === true, `sleeping=${JSON.stringify(p.sleeping)}`);
+
+          // Moving in a dream must not stand the body up, or the sleeper is on their
+          // feet in the real room while their mind is elsewhere.
+          check('walking a dream leaves the body lying down',
+            p.posture !== 'standing', String(p.posture));
+
+          // THE STEPS YOU TOOK IN A DREAM MUST NOT COME TRUE. Walking faster than
+          // the cadence QUEUES the extra steps on a timer; waking before that timer
+          // fires used to drain them into the waking room, so a dream walk moved the
+          // real body. The queue belongs to the room it was opened in.
+          //
+          // Forced rather than hoped for: stamping the cadence clock to NOW
+          // guarantees the next step is too fast and therefore queued. Letting the
+          // natural timing decide made the assertion count wobble between runs,
+          // which is how a suite starts being ignored.
+          // A dream room gets one or two RANDOM exits, so a hardcoded direction is
+          // a coin flip: `north` usually doesn't exist, cmdMove errors before the
+          // cadence gate is ever consulted, and nothing queues. Ask the room.
+          pacing._test.cancelQueue(p);
+          const exitDir = Object.keys(getZone(p.current_zone)?.exits || {})[0];
+          check('a dream room has somewhere to walk to', !!exitDir, JSON.stringify(getZone(p.current_zone)?.exits));
+          p._lastStepAt = Date.now();
+          await run(exitDir);
+          check('a too-fast step inside a dream is queued, not run',
+            (p._moveQueue?.length || 0) === 1, `dir=${exitDir} queued=${p._moveQueue?.length || 0}`);
+
+          await run('wake');
+          check('`wake` is the way out, and it works', !p.sleeping, JSON.stringify(p.sleeping));
+
+          const { drainOne } = pacing._test;
+          await drainOne(p);
+          check('steps queued in a dream do not walk the waking body',
+            p.current_zone === bodyZone && (p._moveQueue?.length || 0) === 0,
+            `zone=${p.current_zone} queued=${p._moveQueue?.length || 0}`);
+        } finally {
+          pacing._test.cancelQueue(p);
+          wakeFromDream(p);
+          p.sleeping = savedSleeping;
+          p.posture = savedPosture;
+          p.current_zone = bodyZone;
+          addPlayerToZone(p.id, bodyZone);
+        }
+      }
+    }
+
+    // ── Exhaustion: a dream you have finished should end ────────────────────
+    // A used-up dreamscape is dead time. Walking every room and examining every
+    // object dissolves it — over two beats, so it reads as an ending rather than
+    // the ejection the sleep rework deliberately moved away from.
+    {
+      const { buildDreamscape, wakeFromDream, markRoomSeen, markObjectSeen, isExhausted, _liveInstanceCount } =
+        await import('../server/engine/dreamscape.js');
+      const p = getPlayer();
+      const bodyZone = p.current_zone;
+      const savedSleeping = p.sleeping;
+
+      const entry = await buildDreamscape(p.id, { size: 3, cause: 'dream', broadcast: null, player: p });
+      if (!entry) {
+        check('SKIPPED: no dream templates authored, cannot test exhaustion', true, 'skipped');
+      } else {
+        try {
+          const inst = markRoomSeen(entry);
+          check('a fresh dream is not exhausted', isExhausted(inst) === false, 'fresh');
+
+          // Walk every room, examine every object — the long way, through the
+          // same helpers the real verbs call.
+          for (const id of inst.roomIds) {
+            markRoomSeen(id);
+            for (const o of (world.zones.get(id)?.dreamObjects || [])) markObjectSeen(id, o.name);
+          }
+          check('seeing every room and every object exhausts the dream',
+            isExhausted(inst) === true, `rooms=${inst.roomIds.length}`);
+
+          // Leaving ONE object unseen must hold it open — otherwise "exhausted"
+          // is really just "walked around a bit".
+          const withObjects = inst.roomIds.find(id => (world.zones.get(id)?.dreamObjects || []).length);
+          if (withObjects) {
+            const obj = world.zones.get(withObjects).dreamObjects[0];
+            inst.seenObjects.delete(`${withObjects}::${obj.name.toLowerCase()}`);
+            check('one unexamined object is enough to hold the dream open',
+              isExhausted(inst) === false, `held by ${obj.name}`);
+            markObjectSeen(withObjects, obj.name);
+          }
+
+          // A DRUG TRIP MUST NOT END THIS WAY. The dose is what the player paid
+          // for; its length cannot depend on how thorough they were.
+          const { noteDreamProgress } = await import('../server/engine/dreamscape.js');
+          inst.cause = 'trip';
+          p.sleeping = { inDream: true, bodyZone };
+          check('an exhausted drug trip does NOT dissolve — the drug owns its clock',
+            noteDreamProgress(p, inst, null) === false, 'trip held');
+          inst.cause = 'dream';
+
+          // …and a sleep dream does. Idempotent: poking at things after finishing
+          // must not stack a second dissolve chain.
+          check('an exhausted sleep dream begins to dissolve',
+            noteDreamProgress(p, inst, null) === true, 'dissolving');
+          check('…once, no matter how much more you poke at',
+            noteDreamProgress(p, inst, null) === false, 'already dissolving');
+
+          // The pending beat MUST die with the instance, or it fires against a
+          // torn-down dream and wakes someone standing somewhere else.
+          check('the dissolve arms a timer', !!inst.dissolveTimer, 'armed');
+          wakeFromDream(p);
+          check('waking by hand mid-dissolve clears the pending beat',
+            !inst.dissolveTimer || _liveInstanceCount() === 0, `live=${_liveInstanceCount()}`);
+        } finally {
+          wakeFromDream(p);
+          p.sleeping = savedSleeping;
+          p.current_zone = bodyZone;
+          addPlayerToZone(p.id, bodyZone);
+        }
+      }
+    }
   }
   // ── Body temperature: the sleeping body is still a body ────────────────────
   // Sleep used to be a total, free immunity to temperature — resourceTick skipped a sleeper

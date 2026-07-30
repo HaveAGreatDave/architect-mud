@@ -9,7 +9,7 @@ import { getPlayerSkills, SKILLS } from '../skills.js';
 import { describeZone } from './describe.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone, removeLivePlayer, resolveLanding } from '../world.js';
 import { allExits, exitTargets } from '../exits.js';
-import { isDreamZone, dreamObjectsAt, presenceAt, bodyTell } from '../dreamscape.js';
+import { isDreamZone, dreamObjectsAt, presenceAt, bodyTell, markObjectSeen, noteDreamProgress } from '../dreamscape.js';
 import { getTransform } from '../phantoms.js';
 import { getSoundReach, isNoisy } from '../sounds.js';
 import { conditionLine } from '../durability.js';
@@ -820,7 +820,13 @@ async function cmdExamine(targetStr, player, broadcast) {
   if (isDreamZone(player.current_zone)) {
     const t = targetStr.toLowerCase();
     const obj = dreamObjectsAt(player.current_zone).find(o => o.name.toLowerCase().includes(t));
-    if (obj) return { type: 'examine', message: `${titleCaseName(obj.name)}\n${obj.look}` };
+    if (obj) {
+      // Looking at the last unseen thing in the last unseen room finishes the
+      // dream — it comes apart around you rather than ejecting you. See
+      // beginDissolve; the wake itself is the caller's, not this module's.
+      noteDreamProgress(player, markObjectSeen(player.current_zone, obj.name), broadcast);
+      return { type: 'examine', message: `${titleCaseName(obj.name)}\n${obj.look}` };
+    }
     const figure = presenceAt(player.current_zone);
     if (figure && figure.name.toLowerCase().includes(t)) {
       const look = figure.looks.length ? figure.looks[Math.floor(Math.random() * figure.looks.length)] : 'You cannot afterwards say what it was.';

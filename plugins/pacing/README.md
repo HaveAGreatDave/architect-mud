@@ -33,12 +33,26 @@ instead of hitting a wall of errors. System-driven relocations
   the rest of the queue. Exempt for `opts.bypassEncumbrance` and drained
   (`opts._pacingDrain`) steps.
 
+### A queued step belongs to the room it was queued in
+The queue is intent about *one place*: "from where I am now, go north." So the drain
+refuses to run it anywhere else, and drops the whole queue when:
+
+- the player is **asleep or dissociating** — a mind that isn't in the room doesn't get
+  to walk it. Queue steps, lie down, and these used to march the body out of its bed.
+- the player is **not where the last step left them** (`_moveQueueZone`). Waking out of
+  a dreamscape is the case that found this — you dream-walked north twice, woke, and the
+  queued steps came true in the waking room — but a jail booking, a respawn and an admin
+  teleport all had the same shape.
+- the player is gone or downed (never sleepwalk a corpse), or a step hit a wall.
+
 ## Transient player state (in-memory, never persisted)
 
 - `player._lastStepAt` — epoch ms of the last committed step (cadence clock)
 - `player._sprinting` — sprint toggle
 - `player._winded` — set on auto-drop; blocks re-enable until `stamina >= WINDED_RECOVER`
 - `player._moveQueue` — pending `[{direction, opts}]` steps
+- `player._moveQueueZone` — the zone the queue was opened in; the drain drops the queue
+  if the player is somewhere else by the time it fires
 - `player._moveTimer` — the armed drain timeout handle (or null)
 
 ## Tunables (module consts in `index.js`)
