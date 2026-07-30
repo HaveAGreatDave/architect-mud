@@ -177,4 +177,25 @@ export function slakeLine(player) {
   return 'It disappears into you and barely touches the sides.';
 }
 
+/**
+ * The amount actually taken on, as a quiet clause after the prose.
+ *
+ * `gained` is what the body ABSORBED; `offered` is what the item was worth. When
+ * they differ you were already close to full, and saying so is the entire point —
+ * it is the only way a player ever learns that finishing a banquet on a full
+ * stomach throws most of it away. When they match, the waste clause is omitted
+ * rather than reading "(+20, none wasted)" on every single meal.
+ *
+ * Returns '' when nothing landed, so a drink taken at full hydration reads as the
+ * prose alone rather than "(+0)".
+ */
+export function appetiteGain(kind, gained, offered) {
+  const got = Math.round(Number(gained) || 0);
+  if (got <= 0) return '';
+  const had = Math.round(Number(offered) || 0);
+  const wasted = had - got;
+  const tail = wasted > 0 ? `, ${wasted} wasted` : '';
+  return ` <span class="text-dim">(+${got} ${kind}${tail})</span>`;
+}
+
 export const _test = { HUNGER_BANDS, THIRST_BANDS, bandFor, step, HUNGER_RELIEF, THIRST_RELIEF, RELIEF_FROM_INDEX };

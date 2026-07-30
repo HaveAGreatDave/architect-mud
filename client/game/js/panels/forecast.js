@@ -1,5 +1,5 @@
 import { appendMsg } from '../render.js';
-import { formatTemp, formatTempPrecise } from '/shared/settings.js';
+import { formatTemp } from '/shared/settings.js';
 import { getEnvSnapshot, isEnvUnreal } from './environment.js';
 
 // A forecast day at or above this severity shows a ⚠ warning. Deliberately a
@@ -56,8 +56,7 @@ function renderForecastToday() {
     ${env.windKph != null ? `<div class="ft-row"><span class="ft-label">Wind</span><span class="ft-val">\u{1F4A8} ${env.windKph} km/h · ${windLabel(env.windKph)}</span></div>` : ''}
     ${env.humidityPct != null ? `<div class="ft-row"><span class="ft-label">Humidity</span><span class="ft-val">\u{1F4A7} ${env.humidityPct}%</span></div>` : ''}
     ${env.bodyFeel ? `<div class="ft-row"><span class="ft-label">Feels</span><span class="ft-val">${env.bodyFeel}</span></div>` : ''}
-    ${precipStr ? `<div class="ft-row"><span class="ft-label">Precip</span><span class="ft-val ft-precip">${precipStr}</span></div>` : ''}
-    ${env.bodyTempC !== null ? `<div class="ft-row"><span class="ft-label">Body</span><span class="ft-val">\u{1F321} ${formatTempPrecise(env.bodyTempC)}</span></div>` : ''}
+    ${precipStr ? `<div class="ft-row"><span class="ft-label">Precip</span><span class="ft-val ft-precip">${precipStr}</span></div>` : ''}
   `;
 }
 

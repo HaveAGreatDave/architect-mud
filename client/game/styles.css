@@ -6021,11 +6021,6 @@ body.fsim-external #look-resize-handle { display: none; }
 	line-height: 1;
 }
 
-.mob-hud-bodytemp {
-	color: var(--orange);
-	font-size: 9px;
-	line-height: 1;
-}
 
 #mobile-chat-btn {
 	display: none; /* lives in the input row; mobile/compact only */
@@ -6226,7 +6221,6 @@ body.asleep #area-pane { opacity: 0.25; }
 }
 #bottom-weather .mob-hud-weather { font-size: 16px; }
 #bottom-weather .mob-hud-temp,
-#bottom-weather .mob-hud-bodytemp { font-size: 11px; }
 
 /* Mobile: command list becomes a fan-out popup above the bar, triggered by
    #cmd-fan-btn; #bottom-left (button + weather) takes its place inline.

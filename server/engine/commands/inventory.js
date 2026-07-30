@@ -3,7 +3,7 @@ import { query, withTransaction } from '../../models/db.js';
 import { useDrug, getDrugCache } from '../drugs.js';
 import { hasTag, tagValue, hasFlag, isStackable, TAG_CATALOG } from '../tags.js';
 import { foodLoad, applyThirst } from '../bodily.js';
-import { satiationLine, slakeLine } from '../appetite.js';
+import { satiationLine, slakeLine, appetiteGain } from '../appetite.js';
 import { dispatchAction, getRegisteredActions } from '../actions.js';
 import { burnCharge, rowIsInstanced, NOT_INSTANCED_SQL } from '../inventory.js';
 import { getZonePlayers, getZoneNpcs } from '../world.js';
@@ -746,17 +746,24 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
   const hunger = Math.round((t.restore_hunger || 0) * qm);
   if (hp) { player.hp = Math.min(player.hp_max, player.hp+hp); messages.push(`+${hp} HP.`); }
   if (hunger) {
+    const before = player.hunger;
     player.hunger = Math.min(100, player.hunger+hunger);
     player.digestive_load = Math.min(120, (player.digestive_load || 0) + foodLoad(hunger));
     // WHERE YOU ENDED UP, not what you ate. `+12 Hunger.` is a receipt for a number the
     // player can no longer see, and it never said the one thing a bar cannot: how FULL you
     // are. Read after the restore lands so it describes the body, not the item.
-    messages.push(satiationLine(player));
+    //
+    // The amount rides ALONGSIDE that, and it is the amount ACTUALLY ABSORBED, not
+    // the number stamped on the tin — eat a banquet on a full stomach and most of
+    // it is wasted. That gap is the whole lesson about portion sizes, and quoting
+    // the tin instead would hide exactly the case worth learning from.
+    messages.push(`${satiationLine(player)}${appetiteGain('hunger', player.hunger - before, hunger)}`);
   }
   if (t.restore_thirst && !opts.skipThirstRestore) {
+    const before = player.thirst || 0;
     applyThirst(player, t.restore_thirst);
     // Same reasoning as the hunger line above: where you ended up, not what you poured.
-    messages.push(slakeLine(player));
+    messages.push(`${slakeLine(player)}${appetiteGain('thirst', (player.thirst || 0) - before, t.restore_thirst)}`);
   }
   if (t.restore_radiation) { player.radiation = Math.max(0, player.radiation+t.restore_radiation); messages.push(`${t.restore_radiation} Radiation.`); }
   if (t.restore_sanity) { player.sanity = Math.min(player.sanity_max, Math.max(0, player.sanity+t.restore_sanity)); messages.push(`${t.restore_sanity>0?'+':''}${t.restore_sanity} Sanity.`); }

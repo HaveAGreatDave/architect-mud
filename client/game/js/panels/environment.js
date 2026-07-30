@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { formatTemp, formatTempPrecise } from '/shared/settings.js';
+import { formatTemp } from '/shared/settings.js';
 import { setWeatherFx } from './weather-fx.js';
 
 const DAY_PHASES_CLIENT = [
@@ -128,7 +128,7 @@ export function setEnvUnreal(on) {
     const el = document.getElementById(id);
     if (el) el.style.display = hide;
   }
-  renderEnvironmentHUD();   // re-decides the body-temp chip and repaints the clock
+  renderEnvironmentHUD();   // repaints the clock and the weather rows
   refreshWeatherFx();       // and stops any rain that was already falling
 }
 
@@ -155,21 +155,17 @@ function renderEnvironmentHUD() {
     const t  = document.getElementById(`env-time-icon${suffix}`);
     const p  = document.getElementById(`env-temp${suffix}`);
     const bf = document.getElementById(`env-body-feel${suffix}`);
-    const bt = document.getElementById(`env-body-temp${suffix}`);
     const pl = document.getElementById(`env-precip-intensity${suffix}`);
     if (w)  w.textContent  = envWeatherIcon;
     if (c)  c.textContent  = timeStr;
     if (t)  t.textContent  = timeIcon;
     if (p)  p.textContent  = tempStr;
+    // `bf` is how the AIR feels and stays — that's the world describing itself.
+    // Your own core temperature does NOT appear here any more: it is one of the
+    // things you are meant to feel through prose (shivering, sweating, the
+    // hypothermia lines) rather than read off a gauge to two decimal places.
+    // The value is still tracked and still drives everything it drove before.
     if (bf) bf.textContent = feelStr;
-    if (bt) {
-      if (envBodyTempC !== null && !envUnreal) {
-        bt.textContent = `🌡 ${formatTempPrecise(envBodyTempC)}`;
-        bt.style.display = '';
-      } else {
-        bt.style.display = 'none';
-      }
-    }
     if (pl) pl.textContent = precipLabel;
   }
 }
@@ -200,9 +196,7 @@ export function refreshTempDisplay() {
   if (tempStr === null) return;
   for (const suffix of ['', '-m']) {
     const p  = document.getElementById(`env-temp${suffix}`);
-    const bt = document.getElementById(`env-body-temp${suffix}`);
     if (p) p.textContent = tempStr;
-    if (bt && envBodyTempC !== null) bt.textContent = `🌡 ${formatTempPrecise(envBodyTempC)}`;
   }
 }
 
