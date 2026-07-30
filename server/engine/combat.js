@@ -929,7 +929,16 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
 
   // The weapon's authored status_chance, finally read. A taser that stuns is the
   // whole reason that tag was ever written down.
-  const statusHit = rollWeaponStatus(weaponStats, enemy);
+  let statusHit = rollWeaponStatus(weaponStats, enemy);
+
+  // HEAD CRIT → STUN, as the consolation for a crit that landed on the skull by
+  // luck rather than design. Deliberately gated to an UNAIMED crit: a called
+  // head shot already pays out as an execution or a knockout, and stacking a
+  // stun on top would be two rewards for one event. So aiming buys the bigger
+  // outcome, and not aiming still makes a lucky head crit worth something.
+  if (!statusHit && execution === null && part === 'head' && critical && player._aimPart !== 'head') {
+    if (applyStun(enemy)) statusHit = 'stunned';
+  }
 
   enemy.hp -= damage;
   enemy.targetId = player.id;
@@ -1024,7 +1033,13 @@ export async function enemyAttackPlayer(enemy, player) {
   // total damage than the same weapon firing a slug.
   const rolls = components.map(c => ({ c, shares: splitSpread(randInt(c.min, c.max), groups) }));
 
-  // TODO(phase5): head crit-to-stun once a turn-skip mechanic exists.
+  // The old TODO here wanted head-crit-to-stun "once a turn-skip mechanic
+  // exists". It exists now (applyStun) — and it is deliberately NOT used on this
+  // path. This is the ENEMY hitting the PLAYER, and a mob stunning you is the
+  // same agency theft the knockout rules already refuse: combat is to the death,
+  // and nothing a mob rolls should take your turn away. Head crits still hurt
+  // more here (head_damage_multiplier) and still wound harder. The stun lives on
+  // the player's own swing instead — see playerAttackEnemy.
   let total = 0;
   let baseTotal = 0;
   const impacts = [];
@@ -1070,6 +1085,19 @@ export async function enemyAttackPlayer(enemy, player) {
     });
   }
 
+  // A RADIATING creature dopes you just by getting close enough to land a blow.
+  // `flags.radiates` + `flags.radiation_damage` have been authored on the Rad
+  // Mutant and the Redline horror since before anything read them; this is that
+  // reader. It costs nothing new — `player.radiation` and the `irradiated`
+  // status effect both already exist — and it gives those two a real identity:
+  // you can win the fight and still walk away carrying something.
+  let radDose = 0;
+  if (enemy.flags?.radiates) {
+    radDose = Math.max(1, Number(enemy.flags.radiation_damage) || 1);
+    player.radiation = Math.min(100, (player.radiation || 0) + radDose);
+    player._resDirty = true;
+  }
+
   const part = impacts[0].part;
   const partLabel = impacts.length > 1
     ? impacts.map(i => partLabelOf(i.part)).filter((v, i, a) => a.indexOf(v) === i).join(' and ')
@@ -1077,14 +1105,18 @@ export async function enemyAttackPlayer(enemy, player) {
   // player.hp is still pre-damage here; gameLoop decrements it after this
   // returns, so the bar reflects the same value the client receives as `hp`.
   const selfHp = selfHpTag(player.hp - damage, player.hp_max);
+  // Said out loud, or it is a number moving on a screen nobody has open.
+  const radTag = radDose
+    ? ` <span class="dmg-type">The air around it is wrong. (+${radDose} rad)</span>`
+    : '';
 
   return {
     hit: true,
     damage,
     critical,
     message: critical
-      ? `${cry}<span class="crit-tag-in">CRITICAL!</span> ${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${dodged ? DODGE_BROKEN : ''}${selfHp}`
-      : `${cry}${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${dodged ? DODGE_BROKEN : ''}${selfHp}`,
+      ? `${cry}<span class="crit-tag-in">CRITICAL!</span> ${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${dodged ? DODGE_BROKEN : ''}${radTag}${selfHp}`
+      : `${cry}${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${dodged ? DODGE_BROKEN : ''}${radTag}${selfHp}`,
   };
 }
 

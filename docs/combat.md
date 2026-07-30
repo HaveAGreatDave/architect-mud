@@ -89,6 +89,14 @@ arms→hands, legs→legs, feet→feet. The low-weight `feet` part (weight 4) le
 slot's typed soak actually reduce damage when the feet are struck — surfaced per-region in the
 `gear` screen.
 
+> **`feet` must stay in the authored `body_part_weights` tunable.** The DB value
+> OVERRIDES the engine default rather than merging with it, and it shipped
+> without a `feet` key — so feet were struck 0% of the time, the entire `feet`
+> armour slot was decorative across six footwear items, and `aim feet` was a pure
+> −7 penalty you could never collect on (`aimedWeights` returns the map unchanged
+> when the part is absent). Restored to 4. Anything editing that tunable in the
+> dev panel must keep every part it means to be reachable.
+
 ### Aiming (`aim`)
 
 **Opt-in, and free to ignore.** The weighted roll above is the default and always sufficient. A
@@ -223,6 +231,22 @@ chainblade is worse off than unarmed. Mastery scales between skill 8 and 18, and
   is the circuit, so it earths through every enemy and every player in the zone at 60% — including
   the person holding it. Capped so it is humiliating, never lethal. Resolved as part of the same
   blow, not a second attack: no extra cooldown, no second to-hit roll.
+
+### Stun and radiation on the hit path
+
+Two small readers, both for data that already existed:
+
+- **A head crit STUNS** — but only an **unaimed** one. A called head shot already
+  pays out as an execution or a knockout, so stacking a stun on top would be two
+  rewards for one event. Aiming buys the bigger outcome; not aiming still makes a
+  lucky head crit worth something. Deliberately **not** applied on the
+  enemy→player path: a mob taking your turn away is the same agency theft the
+  knockout rules refuse, and the old `TODO(phase5)` there is now answered with a
+  no.
+- **`flags.radiates` + `flags.radiation_damage`** on an enemy dose the player when
+  it lands a blow (Rad Mutant +5, a Redline horror +8). Authored long before
+  anything read them; `player.radiation` and the `irradiated` effect already
+  existed, so this is a reader, not a system.
 
 ### What a part GIVES — `body_parts[].grants`
 
