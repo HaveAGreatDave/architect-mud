@@ -31,11 +31,19 @@
 // loop this replaces.
 
 import { createServer } from 'node:http';
-import { readFile, writeFile } from 'node:fs/promises';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFile, writeFile, rename, stat } from 'node:fs/promises';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { CONTENT_DIR, canonicalJson, schemaColumnsOf, readPalette, assetRefIds } from '../../scripts/content/lib.mjs';
+// The registry, for omitWhenNull. NOT a second copy of it: a Studio save and a
+// content:export have to produce the same bytes, and the way that stops being an
+// aspiration is by reading the rule instead of retyping it. This file used to
+// carry `k === 'audio_theme_id' || k === 'marker'` as literals, which meant a
+// third omitted column added to the registry would silently make every
+// subsequent no-op save produce a diff — quietly voiding the one property the
+// whole tool is built on.
+import { contentEntries } from '../../server/models/content-registry.js';
 import { deriveWorld, projectEdges, deriveMapName, gridKey, featureProvenance } from '../../scripts/content/derive.mjs';
 import { applyAnchor, expectedAnchor } from '../../scripts/content/map-anchor.mjs';
 import { lintContentTree } from '../../scripts/content/lint.mjs';
@@ -64,18 +72,91 @@ const tree = {};
 let palette = null;
 let derived = null;   // { render, edges } — invalidated on every write
 
+// What the tree believes each file looked like when it last saw it: "<table>/<id>"
+// → mtimeMs+size. This is what turns "the tree needs a restart after a git pull"
+// from a silent data loss into an error — see conflictOf().
+const stamps = new Map();
+const rowPath = (table, id) => join(CONTENT_DIR, table, `${id}.json`);
+const stampOf = (s) => `${s.mtimeMs}:${s.size}`;
+
 function loadTree() {
+  stamps.clear();
   for (const t of TABLES) {
     const dir = join(CONTENT_DIR, t);
     const rows = new Map();
     for (const f of readdirSync(dir).filter(n => n.endsWith('.json'))) {
-      const row = JSON.parse(readFileSync(join(dir, f), 'utf8'));
+      const p = join(dir, f);
+      const row = JSON.parse(readFileSync(p, 'utf8'));
       rows.set(row.id, row);
+      stamps.set(`${t}/${row.id}`, stampOf(statSync(p)));
     }
     tree[t] = rows;
   }
   palette = readPalette();
   derived = null;
+}
+
+// ── Writing a row ────────────────────────────────────────────────────────────
+// THE TREE IS READ ONCE, AND THAT IS ONLY SAFE IF A SAVE CAN TELL. The Studio is
+// not the only writer of content/: a git pull writes it, sync-map-anchors.mjs
+// writes it, the dev panel's save-hook writes it, and I write it by hand. Without
+// this check a save did not merely serve stale data — it overwrote the file from a
+// boot-time copy of the row, silently discarding whatever the other writer did.
+//
+// It is deliberately per-FILE and checked at write time rather than a global "is
+// the tree stale" flag: the only question that matters is whether the bytes I am
+// about to replace are the bytes I read.
+async function conflictOf(table, id) {
+  const key = `${table}/${id}`;
+  const seen = stamps.get(key);
+  if (!seen) return null;                       // never read it; nothing to lose
+  let now;
+  try { now = stampOf(await stat(rowPath(table, id))); }
+  catch { return `content/${table}/${id}.json has been deleted since the Studio read it — restart the Studio`; }
+  if (now === seen) return null;
+  return `content/${table}/${id}.json changed on disk since the Studio read it `
+    + '(a git pull, another tab, sync-map-anchors, or a hand edit). Saving would discard that change. '
+    + 'Restart the Studio to pick it up.';
+}
+
+// Write, then move into place. A plain writeFile can be interrupted mid-stream and
+// leave truncated JSON on disk — and every reader of this tree does a bare
+// JSON.parse, so a torn file is not a bad tile, it is a Studio (and an import)
+// that will not boot until somebody finds it. rename(2) within a directory is
+// atomic, so a reader sees either the old file or the new one.
+async function writeRow(table, id, obj) {
+  const p = rowPath(table, id);
+  const tmp = `${p}.tmp-${process.pid}`;
+  await writeFile(tmp, canonicalJson(obj), 'utf8');
+  await rename(tmp, p);
+  stamps.set(`${table}/${id}`, stampOf(await stat(p)));
+  // A saved name is a ref option somebody is about to pick from. The cache was
+  // filled once at first use and never invalidated, so the zone picker and the
+  // red NOT IN <table> flagging both went stale within a session.
+  REF_CACHE.delete(table);
+}
+
+// The registry's omitWhenNull, per table, read rather than retyped.
+const OMIT_WHEN_NULL = new Map(contentEntries()
+  .filter(e => Array.isArray(e.omitWhenNull) && e.omitWhenNull.length)
+  .map(e => [e.table, new Set(e.omitWhenNull)]));
+
+// An absent-by-default column is written by ABSENCE. A present null is the bug the
+// rule exists to catch, and an empty string from a text input is the same
+// statement typed differently.
+function cleanRow(table, row) {
+  const omit = OMIT_WHEN_NULL.get(table) || new Set();
+  const clean = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (omit.has(k)) {
+      const blank = v == null || (typeof v === 'string' && v.trim() === '');
+      if (blank) continue;
+      clean[k] = typeof v === 'string' ? v.trim() : v;
+      continue;
+    }
+    clean[k] = v;
+  }
+  return clean;
 }
 
 // Whole-map, because derive is whole-map (§7.2) — a building's marker depends on
@@ -231,7 +312,13 @@ function refOptions(table) {
 
 // ── Validation: the Studio cannot author what the deploy gate would reject ───
 const ZONE_COLS = schemaColumnsOf('zones');
-function validateZone(row) {
+// `mapForAnchor` is the map to hold this tile's anchor against. It defaults to the
+// one in the tree, and saveMap passes the map it is ABOUT to write: the anchor push
+// validates every tile before writing anything, so at that moment the tree still
+// holds the old map and every planned tile would look wrong against it. (The old
+// code avoided this by writing the map first and validating tiles afterwards —
+// which is precisely how a half-applied push became possible.)
+function validateZone(row, mapForAnchor = undefined) {
   const errors = [];
   if (!row?.id) errors.push('no id');
   for (const k of Object.keys(row || {})) {
@@ -252,7 +339,7 @@ function validateZone(row) {
   // The map owns the anchor. A tile on a map does not get to disagree with it —
   // that is a content:lint ERROR, and the Studio's whole point is that you find
   // that out here rather than at push time. Change it on the map, not the tile.
-  const map = row?.map_id ? tree.maps.get(row.map_id) : null;
+  const map = mapForAnchor !== undefined ? mapForAnchor : (row?.map_id ? tree.maps.get(row.map_id) : null);
   if (map) {
     const want = expectedAnchor(map);
     if ((row.parent_zone ?? null) !== want) {
@@ -269,14 +356,10 @@ function validateZone(row) {
 async function saveZone(row) {
   const errors = validateZone(row);
   if (errors.length) return { ok: false, errors };
-  // Null override columns are omitted, matching the registry's omitWhenNull — so
-  // a Studio save and a content:export produce the same bytes.
-  const clean = {};
-  for (const [k, v] of Object.entries(row)) {
-    if (v === null && (k === 'audio_theme_id' || k === 'marker')) continue;
-    clean[k] = v;
-  }
-  await writeFile(join(CONTENT_DIR, 'zones', `${row.id}.json`), canonicalJson(clean), 'utf8');
+  const conflict = await conflictOf('zones', row.id);
+  if (conflict) return { ok: false, errors: [conflict] };
+  const clean = cleanRow('zones', row);
+  await writeRow('zones', row.id, clean);
   tree.zones.set(row.id, clean);
   derived = null;
   return { ok: true };
@@ -339,32 +422,62 @@ function validateMap(row) {
   return errors;
 }
 
+// SAVING A MAP IS ONE ACTION ACROSS MANY FILES, so it either happens or it does
+// not. It used to write the map, then push the anchor tile by tile, and report
+// `{ok: true, pushed, failed}` with HTTP 200 when tiles had failed — so the client
+// printed "Saved." over a half-applied push, and the half that landed was whichever
+// tiles happened to sort first. A pre-existing uncatalogued flag on one tile was
+// enough to trigger it, because the push re-validates the whole row.
+//
+// So every row is validated and conflict-checked BEFORE anything is written, and
+// any objection refuses the whole save with nothing touched. That removes the
+// realistic partial failure entirely rather than reporting it.
+//
+// Honest about what remains: N renames are not one atomic operation, so a crash
+// between them still leaves some tiles pushed. Each file is individually complete
+// (writeRow renames into place), content:lint errors on any tile that disagrees
+// with its map, and sync-map-anchors.mjs repairs it idempotently. A journal to
+// close that last gap would be more machinery than the failure deserves.
 async function saveMap(row) {
   const errors = validateMap(row);
   if (errors.length) return { ok: false, errors };
-  const clean = {};
-  for (const [k, v] of Object.entries(row)) {
-    // An empty name means "derive it", and the registry's omitWhenNull says that
-    // is written by ABSENCE — a present null is the bug that rule exists to catch.
-    if (k === 'name' && (v == null || String(v).trim() === '')) continue;
-    clean[k] = k === 'name' ? String(v).trim() : v;
-  }
-  await writeFile(join(CONTENT_DIR, 'maps', `${row.id}.json`), canonicalJson(clean), 'utf8');
-  tree.maps.set(row.id, clean);
+  const clean = cleanRow('maps', row);
 
-  // The push. Every tile on this map takes the map's anchor; a tile already
-  // carrying it is returned by identity and never rewritten, so this is a no-op
-  // for a map whose geometry didn't move.
-  const pushed = [];
-  const failed = [];
+  // What the push would rewrite. A tile already carrying the anchor comes back by
+  // identity, so a map whose geometry didn't move plans no writes at all.
+  const plan = [];
   for (const z of [...tree.zones.values()].filter(z => z.map_id === row.id)) {
     const next = applyAnchor(z, clean);
-    if (next === z) continue;
-    const r = await saveZone(next);
-    if (r.ok) pushed.push(z.id); else failed.push(`${z.id}: ${r.errors.join('; ')}`);
+    if (next !== z) plan.push(next);
+  }
+
+  const objections = [];
+  for (const next of plan) {
+    const bad = validateZone(next, clean);   // against the map being written, not the stale one
+    if (bad.length) objections.push(`${next.id}: ${bad.join('; ')}`);
+  }
+  for (const [table, id] of [['maps', row.id], ...plan.map(z => ['zones', z.id])]) {
+    const conflict = await conflictOf(table, id);
+    if (conflict) objections.push(conflict);
+  }
+  if (objections.length) {
+    return { ok: false, errors: [
+      `nothing was written — ${objections.length} objection(s) to a save that would have touched ${plan.length + 1} file(s):`,
+      ...objections,
+    ] };
+  }
+
+  await writeRow('maps', row.id, clean);
+  tree.maps.set(row.id, clean);
+  const pushed = [];
+  for (const next of plan) {
+    const written = cleanRow('zones', next);
+    await writeRow('zones', next.id, written);
+    tree.zones.set(next.id, written);
+    pushed.push(next.id);
   }
   derived = null;
-  return { ok: true, pushed, failed };
+  return { ok: true, pushed };
 }
 
 // ── Districts: the neighbourhood a tile reads as ─────────────────────────────
@@ -469,12 +582,13 @@ function validateDistrict(row) {
 async function saveDistrict(row) {
   const errors = validateDistrict(row);
   if (errors.length) return { ok: false, errors };
-  const clean = {};
-  for (const [k, v] of Object.entries(row)) {
-    if (k === 'signature' || k === 'prefixes') { clean[k] = Array.isArray(v) ? v : []; continue; }
-    clean[k] = v;
-  }
-  await writeFile(join(CONTENT_DIR, 'districts', `${row.id}.json`), canonicalJson(clean), 'utf8');
+  const conflict = await conflictOf('districts', row.id);
+  if (conflict) return { ok: false, errors: [conflict] };
+  const clean = cleanRow('districts', row);
+  // The two list columns are NOT NULL arrays in the schema, so an absent one is a
+  // missing value rather than an omitted override — normalized, not dropped.
+  for (const k of ['signature', 'prefixes']) clean[k] = Array.isArray(row[k]) ? row[k] : [];
+  await writeRow('districts', row.id, clean);
   tree.districts.set(row.id, clean);
   return { ok: true };
 }
@@ -557,8 +671,12 @@ const server = createServer(async (req, res) => {
       const prefixes = prefixIndex();
       const zones = mapId
         ? [...tree.zones.values()].filter(z => z.map_id === mapId).map(z => ({
+            // No `marker`: the canvas letters a tile from `spec.label` and nothing
+            // reads a marker here (regress asserts draw() doesn't). A second copy
+            // of the glyph shipped to a non-consumer is how the next reader
+            // concludes there are two ways to letter a tile.
             id: z.id, name: z.name, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z,
-            spec: render.get(z.id)?.spec ?? {}, marker: render.get(z.id)?.marker ?? null,
+            spec: render.get(z.id)?.spec ?? {},
             prov: provOf(z),
             // Which district this tile reads as, and WHY — the district view tints
             // from this, and the tile inspector states it. Shipped with the tile

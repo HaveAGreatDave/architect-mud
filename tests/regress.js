@@ -1374,6 +1374,47 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // And the district form comes from the catalog, exactly as the tile form does.
   check('the Studio builds its district form from the field catalog',
     /districtColumnCatalog/.test(serve) && /districtCatalog/.test(client));
+
+  // A SAVE AND AN EXPORT MUST PRODUCE THE SAME BYTES, which is what makes a no-op
+  // save a no-op diff and a terrain paint a one-line one. The rule that decides it
+  // is the registry's omitWhenNull, and this file used to carry a hand-typed copy
+  // (`k === 'audio_theme_id' || k === 'marker'`) — so adding a third omitted column
+  // to the registry would have made every subsequent no-op save write an explicit
+  // null the exporter omits, and nobody would have noticed until the diffs grew.
+  // Matched on the old CODE's shape (`if (v === null && (k === 'audio_theme_id'`)
+  // rather than on the column name, which still appears in the comment explaining
+  // why this check exists — the first version of this check failed on that prose.
+  check('the Studio reads omitWhenNull from the registry rather than retyping it',
+    /contentEntries\(\)/.test(serve) && /omitWhenNull/.test(serve)
+    && !/v === null && \(k ===/.test(serve));
+
+  // Writes land whole, and never over somebody else's. The Studio is not the only
+  // writer of content/ (a git pull, sync-map-anchors, the dev-panel save-hook, a
+  // hand edit), and it reads the tree once at boot — so a save has to compare the
+  // file it is replacing against the one it read, or it silently discards their work.
+  check('the Studio renames writes into place rather than truncating a live file',
+    /\.tmp-\$\{process\.pid\}/.test(serve) && /await rename\(/.test(serve));
+  check('the Studio refuses to overwrite a file that changed under it',
+    /function conflictOf/.test(serve) && /stamps\.get/.test(serve));
+  // And the multi-file one is all-or-nothing: it used to write the map, push the
+  // anchor tile by tile, and return 200 with `failed` for the ones that didn't.
+  check('a map save validates every file it would touch before writing any',
+    /objections/.test(serve) && !/failed\.push/.test(serve) && !/body\.failed/.test(client));
+}
+
+// LAW: content-store's SCHEMA_SQL parse still finds columns.
+// It reads the schema by regex — including the four-space column indent — and an
+// empty result does not throw: it downgrades every jsonb column to a pass-through
+// string, so anything that walks one (an exits graph, a flags lookup) sees
+// characters instead of keys. A reformat of SCHEMA_SQL is the realistic cause.
+{
+  const { columnTypesOf } = await import('../tools/lib/content-store.mjs');
+  const zoneTypes = columnTypesOf('zones');
+  check(`content-store reads zone column types from SCHEMA_SQL (${zoneTypes.size} columns)`,
+    zoneTypes.size > 10);
+  check('content-store reads a jsonb column as jsonb, not as its default clause',
+    zoneTypes.get('flags') === 'jsonb' && zoneTypes.get('exits') === 'jsonb',
+    `flags=${zoneTypes.get('flags')} exits=${zoneTypes.get('exits')}`);
 }
 
 // LAW: DISTRICT DEFINITIONS ARE CONTENT, NOT CODE (and there is only one copy).

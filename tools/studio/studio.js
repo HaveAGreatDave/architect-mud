@@ -54,13 +54,16 @@ const ctx = canvas.getContext('2d');
 async function loadMaps({ keep = false } = {}) {
   const { body } = await api('/api/world');
   state.maps = new Map(body.maps.map(m => [m.id, m]));
+  // esc() like every other render site here. A map's name is DERIVED from the
+  // building it hangs off, so it is authored prose reaching innerHTML — one
+  // apostrophe-and-angle-bracket building name away from breaking this list.
   $('#maps').innerHTML = body.maps.map(m =>
-    `<button data-map="${m.id}">${m.name || m.id}<span class="n">${m.tiles}</span></button>`).join('');
+    `<button data-map="${esc(m.id)}">${esc(m.name || m.id)}<span class="n">${esc(m.tiles)}</span></button>`).join('');
   $('#maps').onclick = (e) => { const b = e.target.closest('button'); if (b) selectMap(b.dataset.map); };
   showOpenMap();
   state.terrains = body.terrains;
   $('#terrains').innerHTML = state.terrains.map(t =>
-    `<div class="sw" data-t="${t.key}" style="background:${t.fill}" title="${t.label}"><span>${t.key.slice(0, 4)}</span></div>`).join('');
+    `<div class="sw" data-t="${esc(t.key)}" style="background:${esc(t.fill)}" title="${esc(t.label)}"><span>${esc(t.key.slice(0, 4))}</span></div>`).join('');
   $('#terrains').onclick = (e) => {
     const s = e.target.closest('.sw'); if (!s) return;
     state.terrain = s.dataset.t; setTool('paint'); paintSwatches();
@@ -861,7 +864,10 @@ async function saveMapProps() {
   if (!ok) { $('#errs').textContent = (body.errors || [body.error]).join('\n'); return; }
   state.mapView = body;
   renderMapInspector();
-  if (body.failed?.length) $('#errs').textContent = body.failed.join('\n');
+  // No partial-success branch to render any more: the server validates and
+  // conflict-checks every file the push would touch BEFORE writing any of them, so
+  // a save that had objections came back 422 above with nothing written. "Saved."
+  // over a half-applied anchor push was the bug that branch used to describe.
   $('#note').textContent = body.pushed?.length
     ? `Saved · anchor pushed to ${body.pushed.length} tile(s).` : 'Saved.';
   await loadMaps({ keep: true });   // the list shows resolved names; this one may have changed
@@ -1103,7 +1109,7 @@ async function save() {
   });
   if (!ok) { $('#errs').textContent = (body.errors || [body.error]).join('\n'); return; }
   const z = state.byId.get(row.id);
-  if (z) { z.spec = body.spec; z.prov = body.prov; z.name = row.name; z.marker = row.marker ?? null; }
+  if (z) { z.spec = body.spec; z.prov = body.prov; z.name = row.name; }
   draw();
   await select(row.id);
   refreshLint();

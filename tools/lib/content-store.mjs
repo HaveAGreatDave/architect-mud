@@ -36,8 +36,14 @@ import { CONTENT_DIR, canonicalJson, fileNameForRow, schemaColumnsOf } from '../
 // ── Column types from SCHEMA_SQL ─────────────────────────────────────────────
 // Needed because the adapter receives jsonb parameters already JSON.stringify'd
 // (that is how pg wants them) and files want them parsed back into real objects.
+// Exported ONLY so regress can pin it. This function reads SCHEMA_SQL by regex,
+// including the four-space column indent, so a reformat of the schema would empty
+// it silently — and an empty type map does not fail, it downgrades every jsonb
+// column to a pass-through string, so an exits graph or a flags lookup starts
+// walking characters instead of keys. A test that it still finds columns is the
+// difference between that being caught and being discovered downstream.
 const typeCache = new Map();
-function columnTypesOf(table) {
+export function columnTypesOf(table) {
   if (typeCache.has(table)) return typeCache.get(table);
   const types = new Map();
   const block = SCHEMA_SQL.match(new RegExp(`CREATE TABLE IF NOT EXISTS ${table} \\(([\\s\\S]*?)\\n  \\);`, 'm'));
