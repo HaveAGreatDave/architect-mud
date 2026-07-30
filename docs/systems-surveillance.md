@@ -462,6 +462,30 @@ loses `CAM_VIS_STEP` (0.18) — `dim` 0.82, `gloomy` 0.64, `dark` 0.46, `murk` 0
 time-to-detection** for ongoing offences. Only the camera witness is degraded — an on-scene cop or
 bystander (human eyes) still sees you at their usual odds.
 
+### A feed on your own television (`patch`) — *2026-07-30*
+
+A **consumer tape deck** can take one of your cams as its input instead of a cassette, so a live
+feed plays on the set in the room you're sitting in: `patch <cam>` at the deck, the **Patch →**
+action on a focused cam in the SPECTER app, or the `IN` row on the deck panel. The mechanism and
+every gate live in broadcast — see
+[systems-broadcast.md § The spare input](systems-broadcast.md#the-spare-input-a-specter-camera-instead-of-a-tape-flagsdeck_cam_source).
+
+What this system owns is the **frame**, and it is not re-derived anywhere else. Two exports are the
+only sanctioned route for another plugin to turn a device id into something watchable:
+
+| export | returns |
+|---|---|
+| `camSourcesFor(ownerId)` | the owner's undamaged cams as pickable inputs (`{deviceId, zoneId, kind, label}`) |
+| `camPatchFrame(deviceId, ownerId)` | `{label, zoneId, status, frame}` for one owned cam — `null` if the device is gone |
+
+Both run off the existing 4 s `allDevices()` cache and `getInterferenceZones()`, so **neither adds a
+query**, which is what makes them safe to call from a 5 s tick. Because `deviceStatus`/`deviceFrame`
+decide the frame, a spoofed cam tells the same clean-empty-room lie on a living-room TV that it
+tells in the hub, and a jam reads as `▓ JAMMED` rather than as a working feed.
+
+Consumer decks only: this is a feed on **your** wall, not on the air. Putting a cam on a citywide
+channel is still the piracy path (`pirate` → `air live`), and still a crime.
+
 ### Microreels, capped buffers & the in-app viewer (2026-07-10)
 
 The SPECTER **tablet app** ([`plugins/tablet/surveillance-app.js`](../plugins/tablet/surveillance-app.js))

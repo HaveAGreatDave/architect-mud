@@ -204,6 +204,7 @@ nothing, silently; wire a reader first.
 | `cosmetic_machine` | appearance | morphex/biosculpt station |
 | `crafting_station` | crafting | crafting station |
 | `deck_active` / `deck_cassettes` / `deck_ejected_slots` | broadcast | media deck state |
+| `deck_cam_source` | broadcast | on a `mini_deck` only: the SPECTER camera patched into its spare input instead of a tape — `{ deviceId, label, zoneId }`. Exclusive with `deck_active`; cleared lazily when the camera dies. See [systems-broadcast.md](systems-broadcast.md) |
 | `emergency_deck` | broadcast | the Echelon's emergency MediaDeck — overrides every tuned TV in the city |
 | `tuned_channel` | broadcast | channel **number** a TV/receiver is tuned to (joined against `media_channels.number`) — distinct from `channel_id` |
 | `charge_sheet` | jail | the booking form clipped to the cell bars — `read <sheet>` prints the reader's own detention record (charge, stars, time remaining, held property) |

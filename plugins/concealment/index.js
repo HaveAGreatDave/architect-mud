@@ -32,6 +32,7 @@
  */
 import { getZone, getZoneFurniture, getFurnitureById, updateFurniture } from '../../server/engine/world.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
+import { zoneOwnerId } from '../../server/engine/zone-filth.js';
 
 const CODE_RE = /^\d{4,8}$/;
 const FACTORY_CODE = '1234';
@@ -59,6 +60,21 @@ function resolveDisguise(player, hint) {
   }
   const hit = all.find((f) => f.name.toLowerCase().includes(h) || String(f.flags.conceal_brand || '').toLowerCase().includes(h));
   return hit ? { furniture: hit } : { error: `There's no keypad on "${hint}".` };
+}
+
+// Should this viewer even be TOLD there's a keypad? In a room somebody owns —
+// your flat, your shop — the panel is the owner's business, so a guest sees a
+// very expensive cabinet and nothing else. In unowned space (a squatted basement,
+// a back room nobody holds the deed to) it reads as before, because there's no
+// owner for it to be private FROM.
+//
+// This hides the ADVERT, never the verb: someone who knows the cabinet is there
+// can still type `keypad` at it and still needs the code. The secret stays the
+// code; this just stops the room description handing out the first half of it.
+function keypadVisibleTo(disguise, viewer) {
+  const owner = zoneOwnerId(disguise?.zone_id);
+  if (!owner) return true;
+  return !!viewer && String(viewer.id) === String(owner);
 }
 
 const isOpen = (disguise) => {
@@ -165,16 +181,20 @@ function describeFurniture(furniture, player) {
   // (it ate the appliances plugin's "unplugged" line the first time round).
   if (!hides) return undefined;
   if (isOpen(furniture)) {
+    // Open is public whoever you are — the lab is standing in the room.
     const hidden = getFurnitureById(hides);
     return `\n<span class="text-dim">It stands pivoted open, ${hidden ? hidden.name : 'the compartment'} exposed behind it.</span>`;
   }
+  if (!keypadVisibleTo(furniture, player)) return undefined;
   return `\n<span class="text-dim">A slim keypad sits flush in the trim — <span class="action-link" data-action="keypad" data-target="${furniture.name.toLowerCase()}">keypad</span>.</span>`;
 }
 
 // requiredFlag makes `keypad` advertise itself on exactly the pieces that have
-// one (examine's Actions row, and the mobile smart bar), and nowhere else.
+// one (examine's Actions row, and the mobile smart bar), and nowhere else;
+// visibleFor narrows that again to the owner of an owned room, so the two
+// discovery surfaces agree with the describe hook above.
 export const specializedActions = [
-  { verb: 'keypad', requiredFlag: 'conceal_hides', handler: cmdKeypad },
+  { verb: 'keypad', requiredFlag: 'conceal_hides', visibleFor: keypadVisibleTo, handler: cmdKeypad },
 ];
 
 export const hooks = {

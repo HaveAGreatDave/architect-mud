@@ -172,7 +172,7 @@ function furnitureSortRank(f) {
 // first sentence, kept clickable so examine/sit/etc. still work and the smart
 // bar reads its verbs. Identical pieces (same name) collapse into one counted
 // sentence so four chairs don't spawn four lines.
-function weaveFurniture(pieces) {
+function weaveFurniture(pieces, viewer) {
 	if (!pieces.length) return "";
 	const groups = new Map();
 	for (const f of pieces) {
@@ -182,7 +182,7 @@ function weaveFurniture(pieces) {
 		else groups.set(key, { f, qty: 1 });
 	}
 	const sentences = [...groups.values()].map(({ f, qty }) => {
-		const verbs = furnitureVerbs(f);
+		const verbs = furnitureVerbs(f, viewer);
 		const actionsAttr = verbs.length ? ` data-actions="${verbs.join(" ")}"` : "";
 		const target = escAttr(f.name);
 		const body =
@@ -595,7 +595,7 @@ export async function describeZone(zone, player, out = {}) {
 			if (ta !== tb) return ta.localeCompare(tb);
 			return (a.name || "").localeCompare(b.name || "");
 		});
-	const furnitureAside = weaveFurniture(wovenPieces);
+	const furnitureAside = weaveFurniture(wovenPieces, player);
 
 	// Header line: name and the danger tag sit together so the [SAFE]/[LETHAL]
 	// chip reads as a label on the room rather than a separate line.
@@ -792,7 +792,7 @@ export async function describeZone(zone, player, out = {}) {
 				: "";
 			// Ship each piece's full affordance set so the mobile smart bar can
 			// surface exactly the verbs it supports (sit/switch/watch/…).
-			const verbs = furnitureVerbs(f);
+			const verbs = furnitureVerbs(f, player);
 			const actionsAttr = verbs.length ? ` data-actions="${verbs.join(" ")}"` : "";
 			// data-ftype carries the row's object_type through to CSS so each kind of
 			// thing gets its own tint (see .furniture-link[data-ftype=…] in styles.css).

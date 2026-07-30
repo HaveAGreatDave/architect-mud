@@ -1,0 +1,21 @@
+{
+  "description": "A shoddy old set on a bracket above the bottles, one corner of the picture permanently green. The volume knob came off years ago and lives in the till. It shows the game, because Lowry has decided that it shows the game.",
+  "flags": {
+    "broadcast_device_type": "tv",
+    "channel_default": 7,
+    "is_tv": true,
+    "owner_npc": "npc_embassy_barkeep",
+    "tuned_channel": 7,
+    "tv_dial_freq": 7
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_tv_embassy",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a shoddy television",
+  "object_type": "tv",
+  "power_draw_kw": 0.08,
+  "price": null,
+  "zone_id": "zone_district_920_904"
+}

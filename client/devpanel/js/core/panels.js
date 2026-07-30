@@ -467,14 +467,14 @@ const VINE_GROUP_PANELS = new Set(['vine', 'scripts', 'script-triggers', 'quests
 // with the data-ops attributes in index.html.
 const OPS_PANELS = new Set(['dashboard', 'devlog', 'worldstate', 'timeweather', 'players',
                             'games', 'gossip', 'validator', 'power', 'emergency', 'bank', 'flight',
-                            'broadcasts', 'zones', 'npcs', 'items']);
+                            'broadcasts', 'zones', 'npcs', 'items', 'enemies']);
 
 // Content panels kept on /admin to LOOK at (data-ops-ro in index.html). They answer
 // the questions a live bug actually raises — why can't they leave this room, where
 // is that NPC, what does this item really do — without a DB shell. Every write they
 // can make is refused in api.js and by CONTENT_READONLY server-side; here we just
 // stop offering the buttons and say why once, at the top.
-const OPS_READONLY_PANELS = new Set(['broadcasts', 'zones', 'npcs', 'items']);
+const OPS_READONLY_PANELS = new Set(['broadcasts', 'zones', 'npcs', 'items', 'enemies']);
 const OPS_READONLY_BANNER =
   '<b>READ-ONLY — production.</b> This is world content: it\'s edited on your <b>local</b> dev panel and '
   + 'reaches prod through the CODEX deploy (a push to <code>main</code>). Nothing changed here would save — '

@@ -41,9 +41,40 @@ const ownedProviders = [];
  * Register a "does a player own this zone?" answer. Called at plugin load;
  * `fn(zoneId)` must be SYNCHRONOUS and query-free — it runs once per owned zone
  * inside the daily sweep and on every clean.
+ *
+ * A provider may return a bare boolean (is it owned at all?) or, better, the
+ * OWNER'S PLAYER ID. Returning the id costs the provider nothing and lets
+ * `zoneOwnerId` answer "owned by WHOM" from the same seam — which is what gates
+ * owner-only affordances (a concealment keypad you only see in your own flat).
  */
 export function registerOwnedZoneProvider(fn) {
   if (typeof fn === 'function') ownedProviders.push(fn);
+}
+
+/**
+ * Who owns this zone, or null. Sync and query-free by the same contract as
+ * `isOwnedZone` — it runs off room description, so it must never touch the DB.
+ * A provider that only answers `true` contributes ownership but no identity, and
+ * an owner-gated affordance stays hidden rather than guessing.
+ */
+export function zoneOwnerId(zoneId) {
+  if (!zoneId) return null;
+  const apt = world.apartments?.get(zoneId);
+  if (apt?.owner_id) return apt.owner_id;
+  for (const fn of ownedProviders) {
+    try {
+      const r = fn(zoneId);
+      if (r && r !== true) return r;
+    } catch { /* a broken provider must not break a room description */ }
+  }
+  return null;
+}
+
+/** Does this player own this zone? False for an unowned room and for a stranger. */
+export function ownsZone(zoneId, playerId) {
+  if (!playerId) return false;
+  const owner = zoneOwnerId(zoneId);
+  return owner != null && String(owner) === String(playerId);
 }
 
 // Apartments are the engine's own answer: world.apartments is already in memory

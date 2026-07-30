@@ -10,6 +10,7 @@
     "load",
     "eject",
     "selectcassette",
+    "patch",
     "pirate",
     "pirateresolve",
     "air",
@@ -43,6 +44,11 @@
       "discoverVia": "furniture:media_deck",
       "exposed": false,
       "note": "KNOWN GAP: client-driven cassette pick; gates on media_deck furniture; use/media_deck panel is the discovery path."
+    },
+    "patch": {
+      "discoverVia": "furniture:media_deck",
+      "exposed": false,
+      "note": "Patches one of your own SPECTER cameras into a consumer (mini_deck) deck as its input instead of a cassette. Gated on mini_deck furniture AND the specter_installed player flag; discovery is the use/media_deck panel. Station decks refuse it — cutting a spy cam onto a city channel stays the piracy route."
     },
     "guess": {
       "discoverVia": "broadcast:gameshow",

@@ -693,6 +693,12 @@ export default async function regress({ check, run, getPlayer }) {
   check('an admin can operate any deck', canOperateDeck({}, { id: 'p1', role: 'admin' }) === true, 'admin');
   check('the current pirate can operate their seized deck', canOperateDeck({ pirate_owner: 'p1' }, { id: 'p1', role: 'player' }) === true, 'pirate-owner');
   check('a stranger cannot operate an un-seized deck', canOperateDeck({}, { id: 'p2', role: 'player' }) === false, 'stranger');
+  // A consumer deck is an appliance, not a transmitter: whoever is in the room works
+  // it. Without this a resident can't put a tape in their own machine, and the
+  // SPECTER cam patch (which reuses the same gate) would be unreachable.
+  check('anyone present can operate a consumer deck', canOperateDeck({ mini_deck: true }, { id: 'p2', role: 'player' }) === true, 'mini-deck');
+  check('a consumer deck stays operable even while pirated by someone else',
+    canOperateDeck({ mini_deck: true, pirate_owner: 'p1' }, { id: 'p2', role: 'player' }) === true, 'mini-deck+pirate');
   check('a stranger cannot operate someone else\'s seized deck', canOperateDeck({ pirate_owner: 'p1' }, { id: 'p2', role: 'player' }) === false, 'rival');
   check('lock error hints to pirate an un-seized deck', /pirate/i.test(deckLockError({}, { id: 'p2', role: 'player' })?.message || ''), 'hint');
   check('an operator gets no lock error', deckLockError({ pirate_owner: 'p1' }, { id: 'p1', role: 'player' }) === null, 'no-error');

@@ -36,10 +36,20 @@ and the hidden piece roll out, by design. A witness learns what you are; they st
 A wrong code is deliberately mute: it doesn't tell the room, and it doesn't hint that the cabinet is
 worth guessing at.
 
+**The keypad itself is owner-only in an owned room.** In a zone somebody holds — a rented flat, a
+shop deed — only the owner is told there's a panel: the describe hook stays silent, and `keypad`
+drops off examine's Actions row and the smart bar for everyone else (`visibleFor` on the specialized
+action, gated by `zoneOwnerId` in `server/engine/zone-filth.js`). In UNOWNED space it reads as it
+always did, because there's no owner for it to be private from. This hides the advert, never the
+verb — a guest who already knows the cabinet is there can still type `keypad` at it, and still
+needs the code.
+
 ## Live content
 
 `furn_cachet_v900` (Cachet Vantage 900 cabinet, 18 500c) in `zone_drum_basement` hides
-`furn_chem_lab`, factory code `1234`. `plugins/synthesis` refuses to find a concealed lab, so a
+`furn_chem_lab`, factory code `1234`. `furn_cachet_v900_solenne_b` (a mirrored **bar wall**, not
+another wardrobe — the flat already has a Polaris Valet Wardrobe) hides `furn_chem_lab_solenne_b`
+in `zone_solenne_apt_b`, where the owner-only rule actually bites. `plugins/synthesis` refuses to find a concealed lab, so a
 sealed cabinet means no cooking — the disguise is mechanical, not cosmetic.
 
 Not done: the cabinet isn't purchasable furniture yet (no furniture-shop stock, no

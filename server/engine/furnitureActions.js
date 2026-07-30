@@ -26,12 +26,15 @@ const OBJECT_FORM = new Set(['sit', 'lie', 'lean', 'watch']);
 const STRUCTURAL = new Set(['examine', 'look', 'open', 'close', 'switch', 'flip', 'turn']);
 
 // The canonical, de-duped verb list a furniture entity affords.
-export function furnitureVerbs(f) {
+// `viewer` (optional) is the player being shown this list — a few verbs hide
+// themselves from anyone but the room's owner (see `visibleFor` in
+// specializedActions.js), so pass the looking player wherever one is in scope.
+export function furnitureVerbs(f, viewer) {
   const seen = new Set();
   const out = [];
   const add = (v) => { if (v && !seen.has(v)) { seen.add(v); out.push(v); } };
   for (const ix of (f.flags?.interactions || [])) add(ix);
-  for (const v of availableActions(f)) add(v);
+  for (const v of availableActions(f, viewer)) add(v);
   return out;
 }
 
@@ -43,10 +46,10 @@ export function verbTarget(verb, name) {
 // Clickable action-link spans for the affordances the caller hasn't already
 // rendered itself. `exclude` lists verbs the caller emitted structurally (e.g.
 // a light's state-aware `switch off`), so they aren't duplicated here.
-export function genericFurnitureLinks(f, exclude = []) {
+export function genericFurnitureLinks(f, exclude = [], viewer) {
   const skip = new Set([...STRUCTURAL, ...exclude]);
   const n = f.name.toLowerCase();
-  return furnitureVerbs(f)
+  return furnitureVerbs(f, viewer)
     .filter((v) => !skip.has(v))
     .map((v) => `<span class="action-link" data-action="${v}" data-target="${escAttr(verbTarget(v, n))}">${v}</span>`);
 }

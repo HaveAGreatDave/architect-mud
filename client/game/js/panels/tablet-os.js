@@ -7757,6 +7757,9 @@ function renderSurveillance(d) {
         { id: 'record', label: focus.recording ? 'Stop Recording' : 'Record' },
         { id: 'clip', label: 'Clip → Reel', disabled: !hasBuffer },
         { id: 'clear', label: 'Clear', disabled: !hasBuffer, confirm: 'Discard this buffer without saving a reel?' },
+        // Only offered when there is a consumer deck in the room to take the feed —
+        // the app never advertises an output that isn't plugged in.
+        ...(d.deckHere ? [{ id: 'cast', label: d.deckCam === focus.id ? `Unpatch ${d.deckHere}` : `Patch → ${d.deckHere}` }] : []),
         { id: 'destruct', label: 'Self-Destruct', confirm: 'Fry this device where it sits? It is destroyed, not recovered.' },
       ], focus.id)}
     </div>` : '';

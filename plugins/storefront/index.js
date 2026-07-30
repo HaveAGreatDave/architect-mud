@@ -125,7 +125,9 @@ export function getDeed(zoneId) { return deeds.get(zoneId) || null; }
 // cycle like an apartment does rather than being swept nightly with the street.
 // The engine can't import a plugin, so ownership is contributed, not assumed —
 // sync and query-free, straight off the deed cache above.
-registerOwnedZoneProvider((zoneId) => !!deeds.get(zoneId)?.owner_id);
+// Returns the owner's id rather than a bare true, so the same seam also answers
+// "owned by WHOM" for owner-gated affordances.
+registerOwnedZoneProvider((zoneId) => deeds.get(zoneId)?.owner_id || null);
 
 function setDeed(zoneId, row) { if (row) deeds.set(zoneId, row); else deeds.delete(zoneId); }
 

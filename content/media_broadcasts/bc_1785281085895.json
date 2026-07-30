@@ -1,0 +1,696 @@
+{
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "next": "bsm_1",
+        "type": "start"
+      },
+      "bsm_1": {
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
+        "event_type": "FADE_IN",
+        "next": "bsm_2",
+        "type": "event"
+      },
+      "bsm_10": {
+        "_vine": {
+          "x": 80,
+          "y": 400
+        },
+        "next": "bsm_11",
+        "style": "narration",
+        "text": "A hand presses to the glass from the inside. It is a very good hand. It has never held anything, yet.",
+        "type": "say"
+      },
+      "bsm_11": {
+        "_vine": {
+          "x": 300,
+          "y": 400
+        },
+        "next": "bsm_12",
+        "style": "raw",
+        "text": "Halcyon Re-You™. We take your impression now, while you're standing there breathing and signing things.",
+        "type": "say"
+      },
+      "bsm_12": {
+        "_vine": {
+          "x": 520,
+          "y": 400
+        },
+        "next": "bsm_13",
+        "style": "raw",
+        "text": "And on the day it all goes wrong out there — and it does go wrong out there — you open your eyes on our floor, whole, warm, and owed a second go at it.",
+        "type": "say"
+      },
+      "bsm_13": {
+        "_vine": {
+          "x": 740,
+          "y": 400
+        },
+        "next": "bsm_14",
+        "style": "raw",
+        "text": "Not a copy. Not a keepsake. A second chance, in your own face, with your own bad ideas still intact.",
+        "type": "say"
+      },
+      "bsm_14": {
+        "_vine": {
+          "x": 960,
+          "y": 400
+        },
+        "label": "CAM — 3 — MEDIUM testimonial_couch",
+        "next": "bsm_15",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_15": {
+        "_vine": {
+          "x": 80,
+          "y": 560
+        },
+        "next": "bsm_16",
+        "style": "narration",
+        "text": "A beige couch that has never been in anybody's home. A woman sits on it with the posture of someone who has been told to relax.",
+        "type": "say"
+      },
+      "bsm_16": {
+        "_vine": {
+          "x": 300,
+          "y": 560
+        },
+        "next": "bsm_17",
+        "npc_id": "npc_reyou_dessa",
+        "type": "npc_anchor"
+      },
+      "bsm_17": {
+        "_vine": {
+          "x": 520,
+          "y": 560
+        },
+        "next": "bsm_18",
+        "style": "raw",
+        "text": "I remember getting caught out in the rain without a hood, and I remember thinking, well, that was stupid. And then I remember the ceiling here.",
+        "type": "say"
+      },
+      "bsm_18": {
+        "_vine": {
+          "x": 740,
+          "y": 560
+        },
+        "next": "bsm_19",
+        "style": "raw",
+        "text": "Nothing in between. No tunnel, no light, no relatives. Just a bit of a gap, like nodding off on a tram.",
+        "type": "say"
+      },
+      "bsm_19": {
+        "_vine": {
+          "x": 960,
+          "y": 560
+        },
+        "next": "bsm_20",
+        "style": "raw",
+        "text": "Best thing about it? I got my whole twenties back and I already know how they end.",
+        "type": "say"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "graphic_id": "halcyon_reyou_logo",
+        "next": "bsm_3",
+        "type": "title_card"
+      },
+      "bsm_20": {
+        "_vine": {
+          "x": 80,
+          "y": 720
+        },
+        "label": "CAM — 4 — MEDIUM testimonial_couch",
+        "next": "bsm_21",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_21": {
+        "_vine": {
+          "x": 300,
+          "y": 720
+        },
+        "next": "bsm_22",
+        "style": "narration",
+        "text": "A man in a work jacket, hands folded, both of them noticeably newer than his face.",
+        "type": "say"
+      },
+      "bsm_22": {
+        "_vine": {
+          "x": 520,
+          "y": 720
+        },
+        "next": "bsm_23",
+        "npc_id": "npc_reyou_orrin",
+        "type": "npc_anchor"
+      },
+      "bsm_23": {
+        "_vine": {
+          "x": 740,
+          "y": 720
+        },
+        "next": "bsm_24",
+        "style": "raw",
+        "text": "The lads had a bet on how I'd go. Nobody had \"vending machine.\" I came back four hours later and settled it myself, which they did not enjoy.",
+        "type": "say"
+      },
+      "bsm_24": {
+        "_vine": {
+          "x": 960,
+          "y": 720
+        },
+        "next": "bsm_25",
+        "style": "raw",
+        "text": "Walking home with no boots and no coat, that's the humbling part. Halcyon gives you your life back. Your trousers are between you and the city.",
+        "type": "say"
+      },
+      "bsm_25": {
+        "_vine": {
+          "x": 80,
+          "y": 880
+        },
+        "message": "shrugs with the calm of a man who has done this twice",
+        "next": "bsm_26",
+        "type": "npc_action"
+      },
+      "bsm_26": {
+        "_vine": {
+          "x": 300,
+          "y": 880
+        },
+        "label": "CAM — 5 — CLOSEUP testimonial_couch",
+        "next": "bsm_27",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_27": {
+        "_vine": {
+          "x": 520,
+          "y": 880
+        },
+        "next": "bsm_28",
+        "style": "narration",
+        "text": "A young woman, delighted, sitting far too close to the lens.",
+        "type": "say"
+      },
+      "bsm_28": {
+        "_vine": {
+          "x": 740,
+          "y": 880
+        },
+        "next": "bsm_29",
+        "npc_id": "npc_reyou_bex",
+        "type": "npc_anchor"
+      },
+      "bsm_29": {
+        "_vine": {
+          "x": 960,
+          "y": 880
+        },
+        "next": "bsm_30",
+        "style": "raw",
+        "text": "Everyone goes on about how you'd live differently if you got another go. I've had another go. I do exactly the same things, just faster.",
+        "type": "say"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "next": "bsm_4",
+        "song": "halcyon_reyou_theme",
+        "text": "♪ Three chrome tones, warm and unhurried, the kind of sound a waiting room plays at you until you agree. ♪",
+        "type": "music"
+      },
+      "bsm_30": {
+        "_vine": {
+          "x": 80,
+          "y": 1040
+        },
+        "next": "bsm_31",
+        "style": "raw",
+        "text": "I'm braver now! Not smarter. Nobody claimed smarter. But you try a thing, and it goes badly, and then you're up and you're trying it again by lunch.",
+        "type": "say"
+      },
+      "bsm_31": {
+        "_vine": {
+          "x": 300,
+          "y": 1040
+        },
+        "next": "bsm_32",
+        "style": "raw",
+        "text": "Honestly the worst part is finding out who kept your stuff.",
+        "type": "say"
+      },
+      "bsm_32": {
+        "_vine": {
+          "x": 520,
+          "y": 1040
+        },
+        "label": "CAM — 6 — MEDIUM testimonial_couch",
+        "next": "bsm_33",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_33": {
+        "_vine": {
+          "x": 740,
+          "y": 1040
+        },
+        "next": "bsm_34",
+        "style": "narration",
+        "text": "A very large man on a very small cushion, still faintly annoyed about something.",
+        "type": "say"
+      },
+      "bsm_34": {
+        "_vine": {
+          "x": 960,
+          "y": 1040
+        },
+        "next": "bsm_35",
+        "npc_id": "npc_reyou_tuck",
+        "type": "npc_anchor"
+      },
+      "bsm_35": {
+        "_vine": {
+          "x": 80,
+          "y": 1200
+        },
+        "next": "bsm_36",
+        "style": "raw",
+        "text": "Freight train. Through the Yards. And before anybody says anything — in my defence, it was a very long way off when I set out.",
+        "type": "say"
+      },
+      "bsm_36": {
+        "_vine": {
+          "x": 300,
+          "y": 1200
+        },
+        "next": "bsm_37",
+        "style": "raw",
+        "text": "I could see it the whole time. It could see me the whole time. We both had ample opportunity to reconsider and neither of us took it.",
+        "type": "say"
+      },
+      "bsm_37": {
+        "_vine": {
+          "x": 520,
+          "y": 1200
+        },
+        "next": "bsm_38",
+        "style": "raw",
+        "text": "Halcyon had me up by teatime, and I'll be honest, the walk home was worse than the train. Train was quick. Walk was forty minutes with no trousers past everyone I know.",
+        "type": "say"
+      },
+      "bsm_38": {
+        "_vine": {
+          "x": 740,
+          "y": 1200
+        },
+        "message": "stares into the middle distance, reliving a specific injustice",
+        "next": "bsm_39",
+        "type": "npc_action"
+      },
+      "bsm_39": {
+        "_vine": {
+          "x": 960,
+          "y": 1200
+        },
+        "label": "CAM — 7 — WIDE testimonial_couch",
+        "next": "bsm_40",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "label": "CAM — 1 — WIDE reyou_print_floor",
+        "next": "bsm_5",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_40": {
+        "_vine": {
+          "x": 80,
+          "y": 1360
+        },
+        "next": "bsm_41",
+        "style": "narration",
+        "text": "An older woman on the same couch, alone, very composed, hands flat on her knees.",
+        "type": "say"
+      },
+      "bsm_41": {
+        "_vine": {
+          "x": 300,
+          "y": 1360
+        },
+        "next": "bsm_42",
+        "npc_id": "npc_reyou_marguerite",
+        "type": "npc_anchor"
+      },
+      "bsm_42": {
+        "_vine": {
+          "x": 520,
+          "y": 1360
+        },
+        "next": "bsm_43",
+        "style": "raw",
+        "text": "It wasn't me, it was Wallace. Thirty-one years married. He went out for a fuse and came back on the Thursday, no coat, no boots, very cheerful.",
+        "type": "say"
+      },
+      "bsm_43": {
+        "_vine": {
+          "x": 740,
+          "y": 1360
+        },
+        "next": "bsm_44",
+        "style": "raw",
+        "text": "He's left-handed now. Thirty-one years right-handed, and he comes back through that door buttering toast the wrong way about like it's nothing.",
+        "type": "say"
+      },
+      "bsm_44": {
+        "_vine": {
+          "x": 960,
+          "y": 1360
+        },
+        "next": "bsm_45",
+        "style": "raw",
+        "text": "He doesn't like fish. He's never not liked fish. And he's polite to me, which he wasn't, and which I've decided I'll allow.",
+        "type": "say"
+      },
+      "bsm_45": {
+        "_vine": {
+          "x": 80,
+          "y": 1520
+        },
+        "next": "bsm_46",
+        "style": "raw",
+        "text": "Can't remember our wedding. Can remember every word of a song neither of us ever liked. I've stopped asking. It only upsets the one of us who was there.",
+        "type": "say"
+      },
+      "bsm_46": {
+        "_vine": {
+          "x": 300,
+          "y": 1520
+        },
+        "message": "adjusts her cardigan with enormous dignity",
+        "next": "bsm_47",
+        "type": "npc_action"
+      },
+      "bsm_47": {
+        "_vine": {
+          "x": 520,
+          "y": 1520
+        },
+        "next": "bsm_48",
+        "style": "raw",
+        "text": "No, I shan't be putting in a complaint. I've thought about it. He does the washing up now.",
+        "type": "say"
+      },
+      "bsm_48": {
+        "_vine": {
+          "x": 740,
+          "y": 1520
+        },
+        "label": "CAM — 8 — MEDIUM claims_desk",
+        "next": "bsm_49",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_49": {
+        "_vine": {
+          "x": 960,
+          "y": 1520
+        },
+        "next": "bsm_50",
+        "npc_id": "npc_narrator",
+        "type": "npc_anchor"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "next": "bsm_6",
+        "npc_id": "npc_narrator",
+        "type": "npc_anchor"
+      },
+      "bsm_50": {
+        "_vine": {
+          "x": 80,
+          "y": 1680
+        },
+        "next": "bsm_51",
+        "style": "narration",
+        "text": "A Halcyon clerk stamps a form without looking up. Behind her, the calm eye watches the skyline, and the skyline watches nothing at all.",
+        "type": "say"
+      },
+      "bsm_51": {
+        "_vine": {
+          "x": 300,
+          "y": 1680
+        },
+        "next": "bsm_52",
+        "style": "raw",
+        "text": "So take the shortcut through the Yards. Say the thing to the man with the bat. Swim out a bit further than you should.",
+        "type": "say"
+      },
+      "bsm_52": {
+        "_vine": {
+          "x": 520,
+          "y": 1680
+        },
+        "next": "bsm_53",
+        "style": "raw",
+        "text": "Halcyon Re-You™. Coverage begins the moment you stop, and so, thankfully, do you.",
+        "type": "say"
+      },
+      "bsm_53": {
+        "_vine": {
+          "x": 740,
+          "y": 1680
+        },
+        "next": "bsm_54",
+        "overlayType": "text_card",
+        "text": "HALCYON RE-YOU™\n\nA SECOND CHANCE AT LIFE\n\nWHEN THE FIRST TIME WASN'T GOOD ENOUGH",
+        "type": "overlay"
+      },
+      "bsm_54": {
+        "_vine": {
+          "x": 960,
+          "y": 1680
+        },
+        "next": "bsm_55",
+        "text": "Halcyon Re-You™ activates on confirmed cessation only; deliberately triggering coverage is fraud, and is also, statistically, extremely popular · You return with your body, your memories and your debts, in that order of reliability · Impressions older than six months may omit recent relationships, grudges, PIN numbers and children · Halcyon returns the person, never the possessions; the city keeps whatever you were carrying and the city has always kept it · Personality drift of up to 11% falls within Halcyon's published tolerance and is not grounds for refund · In the unlikely event the original is recovered alive, Halcyon will contact both parties and requests that neither of you does anything hasty before we arrive · Halcyon has been watching you sleep for eleven years and has notes",
+        "type": "ticker"
+      },
+      "bsm_55": {
+        "_vine": {
+          "x": 80,
+          "y": 1840
+        },
+        "next": "bsm_56",
+        "style": "raw",
+        "text": "Halcyon Re-You™. When the first time wasn't good enough.",
+        "type": "say"
+      },
+      "bsm_56": {
+        "_vine": {
+          "x": 300,
+          "y": 1840
+        },
+        "next": "bsm_57",
+        "style": "narration",
+        "text": "The seal closes over the skyline like an eyelid, and holds, and does not blink.",
+        "type": "say"
+      },
+      "bsm_57": {
+        "_vine": {
+          "x": 520,
+          "y": 1840
+        },
+        "event_type": "FADE_OUT",
+        "type": "event"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "next": "bsm_7",
+        "style": "narration",
+        "text": "A white room with no corners. A row of tanks, softly lit, each one holding a person who is not currently needed.",
+        "type": "say"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "next": "bsm_8",
+        "style": "raw",
+        "text": "Everybody gets one life. That was the arrangement. Nobody was asked, and nobody has ever been happy with theirs.",
+        "type": "say"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "next": "bsm_9",
+        "style": "raw",
+        "text": "So Halcyon changed the arrangement.",
+        "type": "say"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "label": "CAM — 2 — CLOSEUP tank_glass",
+        "next": "bsm_10",
+        "type": "camera_cut",
+        "zone_id": ""
+      }
+    }
+  },
+  "category": "advertisement",
+  "channel_id": null,
+  "created_by": "bb1b3a85-e716-4885-8de7-6c12a496086a",
+  "description": "",
+  "enabled": 1,
+  "fallback_messages": [],
+  "film_meta": null,
+  "gameshow_pools": null,
+  "id": "bc_1785281085895",
+  "loop": 0,
+  "message_interval": 5,
+  "messages": [
+    {
+      "text": "A white room with no corners. A row of tanks, softly lit, each one holding a person who is not currently needed."
+    },
+    {
+      "text": "Everybody gets one life. That was the arrangement. Nobody was asked, and nobody has ever been happy with theirs."
+    },
+    {
+      "text": "So Halcyon changed the arrangement."
+    },
+    {
+      "text": "A hand presses to the glass from the inside. It is a very good hand. It has never held anything, yet."
+    },
+    {
+      "text": "Halcyon Re-You™. We take your impression now, while you're standing there breathing and signing things."
+    },
+    {
+      "text": "And on the day it all goes wrong out there — and it does go wrong out there — you open your eyes on our floor, whole, warm, and owed a second go at it."
+    },
+    {
+      "text": "Not a copy. Not a keepsake. A second chance, in your own face, with your own bad ideas still intact."
+    },
+    {
+      "text": "A beige couch that has never been in anybody's home. A woman sits on it with the posture of someone who has been told to relax."
+    },
+    {
+      "text": "I remember getting caught out in the rain without a hood, and I remember thinking, well, that was stupid. And then I remember the ceiling here."
+    },
+    {
+      "text": "Nothing in between. No tunnel, no light, no relatives. Just a bit of a gap, like nodding off on a tram."
+    },
+    {
+      "text": "Best thing about it? I got my whole twenties back and I already know how they end."
+    },
+    {
+      "text": "A man in a work jacket, hands folded, both of them noticeably newer than his face."
+    },
+    {
+      "text": "The lads had a bet on how I'd go. Nobody had \"vending machine.\" I came back four hours later and settled it myself, which they did not enjoy."
+    },
+    {
+      "text": "Walking home with no boots and no coat, that's the humbling part. Halcyon gives you your life back. Your trousers are between you and the city."
+    },
+    {
+      "text": "A young woman, delighted, sitting far too close to the lens."
+    },
+    {
+      "text": "Everyone goes on about how you'd live differently if you got another go. I've had another go. I do exactly the same things, just faster."
+    },
+    {
+      "text": "I'm braver now! Not smarter. Nobody claimed smarter. But you try a thing, and it goes badly, and then you're up and you're trying it again by lunch."
+    },
+    {
+      "text": "Honestly the worst part is finding out who kept your stuff."
+    },
+    {
+      "text": "A very large man on a very small cushion, still faintly annoyed about something."
+    },
+    {
+      "text": "Freight train. Through the Yards. And before anybody says anything — in my defence, it was a very long way off when I set out."
+    },
+    {
+      "text": "I could see it the whole time. It could see me the whole time. We both had ample opportunity to reconsider and neither of us took it."
+    },
+    {
+      "text": "Halcyon had me up by teatime, and I'll be honest, the walk home was worse than the train. Train was quick. Walk was forty minutes with no trousers past everyone I know."
+    },
+    {
+      "text": "An older woman on the same couch, alone, very composed, hands flat on her knees."
+    },
+    {
+      "text": "It wasn't me, it was Wallace. Thirty-one years married. He went out for a fuse and came back on the Thursday, no coat, no boots, very cheerful."
+    },
+    {
+      "text": "He's left-handed now. Thirty-one years right-handed, and he comes back through that door buttering toast the wrong way about like it's nothing."
+    },
+    {
+      "text": "He doesn't like fish. He's never not liked fish. And he's polite to me, which he wasn't, and which I've decided I'll allow."
+    },
+    {
+      "text": "Can't remember our wedding. Can remember every word of a song neither of us ever liked. I've stopped asking. It only upsets the one of us who was there."
+    },
+    {
+      "text": "No, I shan't be putting in a complaint. I've thought about it. He does the washing up now."
+    },
+    {
+      "text": "A Halcyon clerk stamps a form without looking up. Behind her, the calm eye watches the skyline, and the skyline watches nothing at all."
+    },
+    {
+      "text": "So take the shortcut through the Yards. Say the thing to the man with the bat. Swim out a bit further than you should."
+    },
+    {
+      "text": "Halcyon Re-You™. Coverage begins the moment you stop, and so, thankfully, do you."
+    },
+    {
+      "text": "Halcyon Re-You™ activates on confirmed cessation only; deliberately triggering coverage is fraud, and is also, statistically, extremely popular · You return with your body, your memories and your debts, in that order of reliability · Impressions older than six months may omit recent relationships, grudges, PIN numbers and children · Halcyon returns the person, never the possessions; the city keeps whatever you were carrying and the city has always kept it · Personality drift of up to 11% falls within Halcyon's published tolerance and is not grounds for refund · In the unlikely event the original is recovered alive, Halcyon will contact both parties and requests that neither of you does anything hasty before we arrive · Halcyon has been watching you sleep for eleven years and has notes"
+    },
+    {
+      "text": "Halcyon Re-You™. When the first time wasn't good enough."
+    },
+    {
+      "text": "The seal closes over the skyline like an eyelid, and holds, and does not blink."
+    }
+  ],
+  "morning_pools": null,
+  "name": "Halcyon Re-You™ - When The First Time Wasn't Good Enough",
+  "news_pools": null,
+  "override_duration": 60,
+  "playback_mode": "scripted",
+  "sermon_pools": null,
+  "sports_pools": null,
+  "tags": [],
+  "talkshow_pools": null,
+  "updated_at": "1785281086",
+  "weather_pools": null
+}

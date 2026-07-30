@@ -18,7 +18,9 @@ function getEntityType(path) {
 // Those panels are kept in the /admin nav and their writes are refused HERE, with
 // a sentence that says where to make the edit, rather than letting the button fire
 // and come back as a bare 403.
-const OPS_READONLY_PREFIXES = ['/broadcast', '/zones', '/npcs', '/items'];
+// '/spawns' rides with '/enemies': zone_spawns is authored content too, and the
+// Spawn Map's clickable tiles post to it.
+const OPS_READONLY_PREFIXES = ['/broadcast', '/zones', '/npcs', '/items', '/enemies', '/spawns'];
 // …except the live-ops actions that live INSIDE those panels and are allowlisted
 // server-side (OPS_ROUTES in server/api/routes.js). Spawning a live enemy or
 // restocking a vendor is runtime state, not authored content — it's the reason

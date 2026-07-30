@@ -693,6 +693,39 @@ on 0 like anything else.
 `broadcast_id`. A full-size deck reads them perfectly well; the tag exists so the little players
 can refuse the big deck cassettes, which physically would not fit. It has no playback behaviour.
 
+### The spare input: a SPECTER camera instead of a tape (`flags.deck_cam_source`)
+
+A consumer deck has one input, and with SPECTER on your tablet it can be one of **your own
+sticky cams** rather than a cassette. Patch a feed in and the set in that room shows the camera,
+live, refreshed every 5 s. `patch <cam>` / `patch off`, or the **Patch →** action on a focused cam
+in the tablet's SPECTER app, or the `IN` row at the top of the deck panel's library list.
+
+- The flag is `flags.deck_cam_source = { deviceId, label, zoneId }`, and the input is
+  **exclusive**: `_getDeckMessage` checks it *before* the cassette path, and loading or selecting a
+  tape clears it (the tape stays in `deck_cassettes`, so pulling the jack resumes where it was).
+  `_miniDeckPlayback` counts a patched cam as loaded, so the panel and the examine readout say
+  `▶ PLAYING: LIVE FEED — <zone>` rather than "nothing loaded" — the set still has to be on the
+  deck's channel, same rule as a tape.
+- **Deliberately `mini_deck` only.** A domestic deck transmits nothing, so this puts the feed on
+  *your* wall and nowhere else. Putting a spy cam on a city channel stays the piracy route
+  (`pirate` → `air live`), which is a crime and should keep costing what it costs. A station deck
+  refuses `patch` and says so.
+- **Jam, spoof, battery and damage are not re-decided here.** The frame comes from surveillance's
+  `camPatchFrame(deviceId, ownerId)`, the one sanctioned way for another plugin to turn a device id
+  into a frame; a spoofed cam plays its clean empty-room lie on your TV exactly as it does in the
+  hub, and a jammed one reads `▓ JAMMED`. Both that helper and `camSourcesFor(ownerId)` run off
+  surveillance's 4 s device cache, and the deck memoizes the resolved frame for 4 s
+  (`_camPatchCache`), so **a patched deck adds no query per tick**.
+- A cam that dies for good (24 h burnout, smashed, retrieved) makes the next frame drop the patch
+  itself — lazy cleanup, so nothing has to know to come and tidy up after a device.
+- The cross-plugin seam is two exports on broadcast: `miniDeckHere(zoneId)` (is there a deck to
+  take a feed — cache read, no query) and `patchCamToDeck(player, deviceId)` (patch/unpatch by id).
+  Every gate lives in broadcast; the SPECTER app only asks.
+
+**One fix this needed:** `canOperateDeck` now returns true for any `mini_deck`. A consumer deck is
+an appliance, not a transmitter — there is no frequency to seize — and until this, a resident
+could not put a tape in the machine in their own flat.
+
 ### The proprietor puts their tape back on
 
 A deck may name `flags.deck_owner_npc` and `flags.deck_default`. Anyone can stop it or tune the

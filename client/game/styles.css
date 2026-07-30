@@ -300,9 +300,12 @@ html[data-density="compact"] .qcmd {
 html[data-density="compact"] #cmd-input {
 	font-size: 16px; /* prevents iOS viewport zoom on focus */
 }
-html[data-density="compact"] #look-resize-handle {
-	display: none;
-}
+/* NOTE: do NOT hide #look-resize-handle under compact. It is not just a resize
+   grip on mobile — it is the room-name bar, the ▼/▲ toggle AND the only tap
+   target that reopens the look pane (main.js `setupMobilePane` starts the pane
+   collapsed). Hiding it took the room description off the phone with no way
+   back, and silently killed the `#area-pane-toggle { display:block }` rule
+   below, whose element lives inside it. */
 html[data-density="compact"] #auth-box {
 	width: 95vw;
 	padding: 18px 14px 24px;
@@ -5905,11 +5908,21 @@ body.fsim-external #look-resize-handle { display: none; }
 	50%       { opacity: 0; }
 }
 
-/* ─── MOBILE HUD STRIP ─── */
+/* ─── MOBILE TOP CHROME ───
+   Two bands stacked under the header: the vitals strip, then the minimap +
+   d-pad row. The d-pad moved up here (it used to sit beside the input) so the
+   bottom bars can run the full width of the screen; see #bottom-input-wrap.
+
+   Why vitals get their own full-width band: the default loadout is TWO bars
+   (see DEFAULT_HIDDEN_VITALS in render.js — hunger/thirst/sanity/horny are
+   hidden unless you re-add them). Stacked in a column beside the map that read
+   as a mostly-empty gutter. Laid across the width they are legible at a glance
+   and cost ~16px, and the flex-wrap means a player who re-adds all of them —
+   or picks up radiation — simply gets a second line instead of a broken row. */
 #mobile-hud {
 	display: none;
 	align-items: stretch;
-	gap: 6px;
+	gap: 8px;
 	padding: 4px 8px;
 	background: var(--bg2);
 	border-bottom: 1px solid var(--border);
@@ -5926,18 +5939,47 @@ body.fsim-external #look-resize-handle { display: none; }
 	}
 }
 
-#mobile-vitals {
+/* The map takes whatever the d-pad doesn't. min-width:0 is load-bearing — the
+   grid is wide content and without it the d-pad gets squeezed off the edge. */
+#mob-hud-map {
 	display: flex;
-	flex-direction: column;
-	gap: 2px;
+	align-items: center;
+	justify-content: flex-start;
 	flex: 1;
 	min-width: 0;
+	overflow: hidden;
 }
 
+/* ─── MOBILE VITALS STRIP ─── */
+#mobile-vitals {
+	display: none;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 3px 8px;
+	padding: 3px 8px;
+	background: var(--bg2);
+	border-bottom: 1px solid var(--border);
+	flex-shrink: 0;
+}
+
+[data-density="compact"] #mobile-vitals {
+	display: flex;
+}
+
+@media (max-width: 720px) {
+	#mobile-vitals {
+		display: flex;
+	}
+}
+
+/* Each vital is an equal share of the line. flex-basis 0 (not auto) so two
+   bars split the width evenly rather than sizing to their labels. */
 .mob-bar-row {
 	display: flex;
 	align-items: center;
 	gap: 3px;
+	flex: 1 1 0;
+	min-width: 96px;
 }
 
 .mob-bar-label {
@@ -5974,15 +6016,6 @@ body.fsim-external #look-resize-handle { display: none; }
 	line-height: 1;
 	pointer-events: none;
 	font-weight: bold;
-}
-
-/* ─── HUD RIGHT COLUMN (chat button + minimap, map on the right) ─── */
-#mob-hud-right {
-	display: flex;
-	flex-direction: row;
-	align-items: center;
-	gap: 4px;
-	flex-shrink: 0;
 }
 
 /* Compact HUD minimap — same edge-to-edge grid, smaller tiles. */
@@ -6094,14 +6127,15 @@ body.fsim-external #look-resize-handle { display: none; }
 	flex-direction: column;
 	min-width: 0;
 }
+/* The bottom wrap stays a COLUMN on mobile. It used to flip to a row so the
+   d-pad could occupy a full-height strip down the right — which squeezed the
+   weather bar, the command input and the smartbar into whatever was left.
+   The d-pad now lives in the top chrome (#mobile-hud), so every bar down here
+   runs the full width of the screen. */
 @media (max-width: 720px) {
-	#bottom-input-wrap { flex-direction: row; align-items: stretch; }
-	#bottom-stack { flex: 1; }
-	#bottom-input-wrap #mob-dpad { border-left: 1px solid var(--border); }
+	#bottom-stack { flex: 1; min-width: 0; }
 }
-[data-density="compact"] #bottom-input-wrap { flex-direction: row; align-items: stretch; }
-[data-density="compact"] #bottom-stack { flex: 1; }
-[data-density="compact"] #bottom-input-wrap #mob-dpad { border-left: 1px solid var(--border); }
+[data-density="compact"] #bottom-stack { flex: 1; min-width: 0; }
 
 /* ─── SLEEP BAR ───
    Only on screen while asleep. Sits directly above the quick-cmds so the way out
@@ -6259,6 +6293,19 @@ body.asleep #area-pane { opacity: 0.25; }
 [data-density="compact"] #quick-cmds.open { display: flex; }
 
 /* ─── MOBILE DPAD ─── */
+/* The four immersive fullscreen modes fold the d-pad away. This used to be free:
+   the d-pad lived inside #bottom-input-wrap, which each of those modes already
+   hides. Now that it sits in the top chrome it has to be named explicitly, or a
+   walking compass hangs over the cockpit while you are flying — where the
+   directions do not even mean anything. Keep this list in step with the
+   `#bottom-input-wrap { display:none }` rules further up. */
+body.fsim-fullscreen #mob-dpad,
+body.helm-fullscreen #mob-dpad,
+body.hb-fullscreen #mob-dpad,
+body.ck-fullscreen #mob-dpad {
+	display: none !important;
+}
+
 #mob-dpad {
 	display: none;
 	flex-direction: column;
@@ -6267,6 +6314,12 @@ body.asleep #area-pane { opacity: 0.25; }
 	gap: 1px;
 	flex-shrink: 0;
 	padding: 4px 4px;
+}
+
+/* Separator against the minimap it now sits beside. */
+#mobile-hud #mob-dpad {
+	border-left: 1px solid var(--border);
+	padding-left: 8px;
 }
 
 @media (max-width: 720px) {

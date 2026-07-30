@@ -19,12 +19,18 @@ const registry = new Map();
 // lookup below can advertise it on the objects that gate it. That's the seam for
 // the large class of verbs gated on a plain flag (`scrub` at a police_terminal)
 // rather than a Tag — they were previously invisible to examine.
-export function registerSpecializedAction({ verb, requiredTag, requiredFlag, handler, pluginName }) {
+// `visibleFor(entity, viewer)` is an OPTIONAL extra gate on discoverability only —
+// it hides the verb from examine/the smart bar for a viewer who shouldn't be told
+// it exists (a concealment keypad in somebody else's flat). It never gates the
+// handler: a player who knows the verb can still type it, which is the difference
+// between a secret and a lock.
+export function registerSpecializedAction({ verb, requiredTag, requiredFlag, visibleFor, handler, pluginName }) {
   if (!verb) throw new Error('registerSpecializedAction: verb required');
   if (handler !== null && typeof handler !== 'function') throw new Error(`registerSpecializedAction: "${verb}" handler must be a function, or null for a declaration-only entry`);
   if (handler === null && !requiredTag && !requiredFlag) throw new Error(`registerSpecializedAction: declaration-only "${verb}" needs a requiredTag or requiredFlag to be discoverable`);
+  if (visibleFor !== undefined && typeof visibleFor !== 'function') throw new Error(`registerSpecializedAction: "${verb}" visibleFor must be a function`);
   if (!registry.has(verb)) registry.set(verb, []);
-  registry.get(verb).push({ requiredTag, requiredFlag, handler, pluginName });
+  registry.get(verb).push({ requiredTag, requiredFlag, visibleFor, handler, pluginName });
 }
 
 // Fire the handlers registered for a verb, in registration order. Returns the
@@ -44,14 +50,20 @@ export async function fireSpecializedAction(verb, args, raw, player, broadcast) 
 // Reverse lookup: the verbs this Entity gates open, by its Tags or its flags.
 // Generic (ungated) verbs are always-on and intentionally omitted here — this
 // list is the Entity-specific action hints for examine / clickable UI.
-export function availableActions(entity) {
+// `viewer` is optional; pass the looking player wherever one is in scope so
+// `visibleFor` entries can hide themselves. Omitted, a visibleFor entry is
+// treated as NOT visible — the safe direction for a verb that opted into secrecy.
+export function availableActions(entity, viewer) {
   const flags = entity?.flags || {};
   const verbs = [];
   for (const [verb, entries] of registry) {
-    const open = entries.some(e =>
-      (e.requiredTag && hasTag(entity, e.requiredTag)) ||
-      (e.requiredFlag && flags[e.requiredFlag])
-    );
+    const open = entries.some(e => {
+      const gated = (e.requiredTag && hasTag(entity, e.requiredTag)) ||
+                    (e.requiredFlag && flags[e.requiredFlag]);
+      if (!gated) return false;
+      if (!e.visibleFor) return true;
+      try { return !!e.visibleFor(entity, viewer); } catch { return false; }
+    });
     if (open) verbs.push(verb);
   }
   return verbs;

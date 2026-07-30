@@ -594,7 +594,11 @@ async function cmdExamine(targetStr, player, broadcast) {
         liveCount = camRows[0]?.cnt || 0;
       }
 
-      const isLoad = !!deckActive;
+      // A camera patched into a consumer deck's spare input counts as loaded: the
+      // deck is feeding the set, just not off a tape. Same rule the panel uses
+      // (_miniDeckPlayback in plugins/broadcast/index.js) — keep the two in step.
+      const camPatch = flags.deck_cam_source?.deviceId ? flags.deck_cam_source : null;
+      const isLoad = !!deckActive || !!camPatch;
       // A consumer tape player is not a studio deck and should not pretend to be
       // one. It has no cameras and no transmitter, so LIVE is meaningless on it —
       // the only question it can answer is whether the tape is running, and that
@@ -629,10 +633,10 @@ async function cmdExamine(targetStr, player, broadcast) {
 
       let statusLine;
       if (isMini) {
-        const { rows: bcRows } = deckActive
+        const { rows: bcRows } = (deckActive && !camPatch)
           ? await query('SELECT name FROM media_broadcasts WHERE id=$1', [deckActive])
           : { rows: [] };
-        const bcName = bcRows[0]?.name || deckActive;
+        const bcName = camPatch ? `LIVE FEED — ${camPatch.label || 'camera'}` : (bcRows[0]?.name || deckActive);
         statusLine = miniPlaying
           ? `<span style="color:var(--cyan)">▶ PLAYING:</span> <span style="color:var(--text)">${bcName}</span>`
           : `<span style="color:var(--border)">■ NOT PLAYING</span> <span style="color:var(--text-dim)">— ${miniWhyNot}</span>`;
@@ -785,7 +789,7 @@ async function cmdExamine(targetStr, player, broadcast) {
     // object_type: what the branch drew structurally, then every affordance the
     // piece declares — flags.interactions (sit/lie/lean → "on <name>") plus the
     // gated specialized-action registry (read/drink/scrub → "<name>").
-    const acts = [...structural, ...genericFurnitureLinks(f, excludeVerbs)];
+    const acts = [...structural, ...genericFurnitureLinks(f, excludeVerbs, player)];
     if (acts.length) msg += `\n<span class="text-dim">Actions:</span> ${acts.join('  ')}`;
     return { type:'examine', message: msg };
   }
@@ -1363,7 +1367,7 @@ async function cmdTargetHelp(targetStr, player) {
   if (fr.length) {
     const f = fr[0];
     const n = f.name.toLowerCase();
-    return render(f.name, furnitureVerbs(f).map(v => ({ verb: v, target: verbTarget(v, n) })));
+    return render(f.name, furnitureVerbs(f, player).map(v => ({ verb: v, target: verbTarget(v, n) })));
   }
   return null;
 }

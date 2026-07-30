@@ -4,8 +4,10 @@
 // the Cachet Vantage 900, so the checks below double as a guard on that content
 // staying authored the way the feature needs (the cabinet naming the lab, the lab
 // carrying `concealed`).
-import { _test } from './index.js';
+import { _test, hooks } from './index.js';
 import { getFurnitureById, getZoneFurniture } from '../../server/engine/world.js';
+import { availableActions } from '../../server/engine/specializedActions.js';
+import { registerOwnedZoneProvider } from '../../server/engine/zone-filth.js';
 
 const CABINET = 'furn_cachet_v900';
 const LAB = 'furn_chem_lab';
@@ -58,6 +60,35 @@ export default async function regress({ run, check, getPlayer }) {
     const desc = await run('examine cachet vantage 900 cabinet');
     check('examine shows a keypad, not a lab', /keypad/i.test(desc?.message || '') && !/chem lab/i.test(desc?.message || ''), desc?.message);
   }
+
+  // --- Owner-only keypad ----------------------------------------------------
+  // In an OWNED room the pad is the owner's business: a guest is never told it's
+  // there (describe hook, examine Actions row and the smart bar's data-actions
+  // all read the same gate). An unowned room reads exactly as it always did.
+  const OWNED = '__conceal_owned_zone__';
+  registerOwnedZoneProvider((z) => (z === OWNED ? p.id : null));
+  const fake = { id: 'furn_fake_v900', name: 'test cabinet', zone_id: OWNED, flags: { conceal_hides: 'furn_nothing' } };
+  const stranger = { id: `${p.id}-not-me` };
+
+  check('owner sees the keypad hint', /keypad/i.test(hooks['furniture.describe'](fake, p) || ''),
+    'owner was not offered the pad in their own room');
+  check('a guest is told nothing', hooks['furniture.describe'](fake, stranger) === undefined,
+    'the pad advertised itself to a stranger');
+  check('owner gets the keypad action', availableActions(fake, p).includes('keypad'),
+    JSON.stringify(availableActions(fake, p)));
+  check('guest gets no keypad action', !availableActions(fake, stranger).includes('keypad'),
+    JSON.stringify(availableActions(fake, stranger)));
+
+  // Unowned space is unchanged — nobody to be private from.
+  const openRoom = { ...fake, zone_id: '__conceal_unowned_zone__' };
+  check('unowned room still shows the pad to anyone', availableActions(openRoom, stranger).includes('keypad'),
+    'owner-gating leaked into unowned space');
+
+  // Hiding the advert must NOT lock the verb: resolution is by name in the room,
+  // with no owner test anywhere on the path, so a guest with the code still works it.
+  p.current_zone = getFurnitureById(CABINET)?.zone_id || savedZone;
+  const asStranger = await _test.resolveDisguise(stranger.id ? { ...p, id: stranger.id } : p, 'cachet');
+  check('the verb itself is not owner-locked', !!asStranger.furniture, JSON.stringify(asStranger));
 
   p.current_zone = savedZone;
 }

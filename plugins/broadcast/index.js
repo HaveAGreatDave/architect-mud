@@ -3408,6 +3408,16 @@ async function _getPirateMessage(zoneId, nowMs, state) {
 async function _getDeckMessage(zoneId, nowMs, state) {
   const pirate = await _getPirateMessage(zoneId, nowMs, state);
   if (pirate !== undefined) return pirate;   // pirated deck runs its captor's queue
+
+  // A consumer deck patched to a SPECTER camera shows the feed instead of a tape.
+  // Checked before the cassette path because the input is exclusive: the tape may
+  // still be sitting in the slot, but the jack is what's on the screen.
+  {
+    const deck = _zoneDeck(zoneId, state?.channelId || null);
+    const dflags = deck?.flags && typeof deck.flags === 'object' ? deck.flags : null;
+    if (dflags?.deck_cam_source?.deviceId) return _camPatchMessage(deck, dflags, nowMs);
+  }
+
   let entry = _deckCache.get(zoneId);
   if (!entry || nowMs - entry.fetchedAt > _DECK_CACHE_TTL) {
     const deck = _zoneDeck(zoneId, state?.channelId || null);
@@ -6016,6 +6026,10 @@ function _isDeckAdmin(player) { return player?.role === 'admin' || player?.role 
 // otherwise locked — the firmware+hijack is the only way in for everyone else.
 function canOperateDeck(dflags, player) {
   if (_isDeckAdmin(player)) return true;
+  // A consumer deck is an appliance in someone's flat, not a transmitter — there
+  // is no frequency to seize, so whoever is standing in front of it works it.
+  // Without this a resident couldn't put a tape in their own machine.
+  if (dflags.mini_deck) return true;
   return !!dflags.pirate_owner && dflags.pirate_owner === player?.id;
 }
 
@@ -6461,6 +6475,8 @@ async function cmdLoadCassette(args, raw, player) {
   if (!cassettes.includes(broadcastId)) cassettes.push(broadcastId);
   dflags.deck_cassettes = cassettes;
   dflags.deck_active = broadcastId;
+  // One input at a time — putting a tape in pulls any patched camera feed.
+  if (dflags.deck_cam_source) { dflags.deck_cam_source = null; _camPatchCache.delete(deck.id); }
 
   // Restore any schedule slots that were saved when this cassette was ejected.
   const channelId = dflags.channel_id || null;
@@ -6660,8 +6676,163 @@ async function cmdSelectCassette(args, raw, player) {
   const cassettes = Array.isArray(dflags.deck_cassettes) ? dflags.deck_cassettes : [];
   if (!cassettes.includes(broadcastId)) return { type: 'output', message: 'That cassette is not in this deck.' };
   dflags.deck_active = broadcastId;
+  if (dflags.deck_cam_source) { dflags.deck_cam_source = null; _camPatchCache.delete(deck.id); }
+  _deckCache.delete(player.current_zone);
   await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
   return buildMediaDeckPanel(deck.id, player);
+}
+
+// ── Cam patch: a SPECTER feed as the deck's input ─────────────────────────────
+// A consumer deck takes one input at a time. Normally that's a cassette; with
+// SPECTER installed it can be one of your own cameras instead, and the set in the
+// room shows the live feed. Deliberately mini-deck only: a domestic deck
+// transmits nothing, so patching a cam into it puts the feed on YOUR wall and
+// nowhere else. Putting a spy cam on a city channel stays the piracy route
+// (`pirate` → `live`), which is a crime and should keep costing what it costs.
+const _CAM_PATCH_TTL = 4000;
+let _specterMod = null;
+async function _specter() {
+  if (!_specterMod) _specterMod = await import('../surveillance/index.js').catch(() => null);
+  return _specterMod;
+}
+
+// deckId -> { ts, snap } — the frame path runs on the 5s channel tick, so the
+// resolved frame is memoized. surveillance's own helpers are cache-backed too,
+// so a patched deck adds no query per tick.
+const _camPatchCache = new Map();
+async function _camPatchSnap(deckId, src) {
+  const now = Date.now();
+  const hit = _camPatchCache.get(deckId);
+  if (hit && now - hit.ts < _CAM_PATCH_TTL) return hit.snap;
+  const mod = await _specter();
+  // No owner id is passed (or stored on the flag): furniture flags are content, and
+  // a player id has no business in an exportable row. Ownership was checked when the
+  // jack went in, and the device row remains the authority on who owns the camera.
+  const snap = mod ? await mod.camPatchFrame(src.deviceId, null) : null;
+  _camPatchCache.set(deckId, { ts: now, snap });
+  return snap;
+}
+
+// The line a patched deck puts on the set. Null when the feed is dark, which the
+// TV renders as static — the same thing an empty deck does.
+async function _camPatchMessage(deck, dflags, nowMs) {
+  const src = dflags.deck_cam_source;
+  if (!src?.deviceId) return null;
+  const snap = await _camPatchSnap(deck.id, src);
+  const slot = Math.floor(nowMs / 5000);
+  if (!snap) {
+    // The camera is gone for good (burnt out, smashed, retrieved) — drop the patch
+    // rather than leaving a dead input wired in. Lazy, so nothing has to know to
+    // come and tidy up after a device dies; the branch runs at most once.
+    const dead = _deckFlags(deck);
+    dead.deck_cam_source = null;
+    await updateFurniture(deck.id, { flags: JSON.stringify(dead) });
+    _camPatchCache.delete(deck.id);
+    _deckCache.delete(deck.zone_id);
+    return { text: `[CAM · ${src.label || 'FEED'}] ◌ NO SIGNAL — the camera is gone.`, style: 'raw', key: `campatch:${slot}` };
+  }
+  if (snap.status !== 'ok' && snap.status !== 'spoofed') {
+    const label = snap.status === 'jammed' ? 'JAMMED' : snap.status === 'damaged' ? 'DAMAGED' : 'NO SIGNAL';
+    return { text: `[CAM · ${snap.label}] ▓ ${label}`, style: 'raw', key: `campatch:${slot}` };
+  }
+  if (!snap.frame) return null;
+  return { text: `[CAM · ${snap.label}] ${snap.frame}`, style: 'raw', key: `campatch:${slot}` };
+}
+
+// patch <cam name> | patch tape | patch off
+async function cmdPatch(args, raw, player) {
+  if (!player) return { type: 'error', message: 'No character.' };
+  const deck = await _findDeckInZone(player.current_zone);
+  if (!deck) return { type: 'output', message: 'There is no media deck here.' };
+  const dflags = _deckFlags(deck);
+  if (!dflags.mini_deck) {
+    return { type: 'output', message: 'Station decks take their feed from the gallery, not from you. Cut a camera live from the pirate console instead.' };
+  }
+  const lock = _deckLockError(dflags, player);
+  if (lock) return lock;
+
+  const mod = await _specter();
+  if (!mod || !(await mod.isSpecterInstalled(player))) {
+    return { type: 'output', message: 'The deck has a spare input jack, but nothing to plug into it. You would need SPECTER on your tablet to see a camera at all.' };
+  }
+
+  const wanted = args.join(' ').trim().toLowerCase();
+  const clear = !wanted || wanted === 'off' || wanted === 'tape' || wanted === 'cassette' || wanted === 'none';
+
+  if (clear && dflags.deck_cam_source) {
+    dflags.deck_cam_source = null;
+    await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
+    _camPatchCache.delete(deck.id);
+    _deckCache.delete(player.current_zone);
+    return { type: 'output', message: `You pull the jack. The ${deck.name} goes back to its own tape.` };
+  }
+
+  const sources = await mod.camSourcesFor(player.id);
+  if (!sources.length) {
+    return { type: 'output', message: 'You have no cameras out there to watch. Plant one first.' };
+  }
+  if (clear) {
+    const lines = sources.map((s, i) =>
+      `  <span class="action-link" data-action="patch" data-target="${s.label}">${i + 1}. ${s.label}</span>`
+    ).join('\n');
+    return { type: 'output', message: `Patch which feed into the ${deck.name}?\n${lines}` };
+  }
+  const pick = sources.find(s => s.label.toLowerCase().includes(wanted));
+  if (!pick) return { type: 'output', message: `You have no camera matching "${wanted}".` };
+
+  // One input at a time: patching a feed in stops the tape (the cassette stays in
+  // the deck's library, so pulling the jack resumes exactly where it was).
+  dflags.deck_cam_source = { deviceId: pick.deviceId, label: pick.label, zoneId: pick.zoneId };
+  await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
+  _camPatchCache.delete(deck.id);
+  _deckCache.delete(player.current_zone);
+
+  const state = dflags.channel_id ? channelRuntime.get(dflags.channel_id) : null;
+  const chan = state?.number != null ? ` Put the set on channel ${state.number}.` : '';
+  return { type: 'output', message: `You thumb the input over. The ${deck.name} takes the feed from <b>${pick.label}</b>.${chan}` };
+}
+
+// ── Cam patch: the SPECTER app's seam ────────────────────────────────────────
+// The tablet's SPECTER app patches a focused camera straight into the deck in the
+// room, so the flow is "see the cam, send it to the screen" without typing. Both
+// helpers are the app's ONLY route in — the gates (mini deck only, SPECTER
+// installed, cam is yours) stay in this file rather than being restated there.
+
+// The consumer deck in this zone, if any — what the app needs to know whether to
+// offer the output at all. Reads the live furniture cache; no query.
+export function miniDeckHere(zoneId) {
+  const deck = _zoneDeck(zoneId);
+  if (!deck) return null;
+  const dflags = deck.flags && typeof deck.flags === 'object' ? deck.flags : {};
+  if (!dflags.mini_deck) return null;
+  return { deckId: deck.id, name: deck.name, camDeviceId: dflags.deck_cam_source?.deviceId || null };
+}
+
+// Patch (or unpatch) one camera by id. Returns a short line for the app to echo.
+export async function patchCamToDeck(player, deviceId) {
+  const here = miniDeckHere(player.current_zone);
+  if (!here) return 'There is no deck here to take the feed.';
+  const mod = await _specter();
+  if (!mod || !(await mod.isSpecterInstalled(player))) return 'SPECTER is not installed.';
+  const { rows } = await query('SELECT * FROM furniture WHERE id=$1', [here.deckId]);
+  if (!rows.length) return 'There is no deck here to take the feed.';
+  const deck = rows[0];
+  const dflags = _deckFlags(deck);
+
+  if (here.camDeviceId === deviceId) {
+    dflags.deck_cam_source = null;
+  } else {
+    const src = (await mod.camSourcesFor(player.id)).find(s => s.deviceId === deviceId);
+    if (!src) return 'That camera is not yours.';
+    dflags.deck_cam_source = { deviceId: src.deviceId, label: src.label, zoneId: src.zoneId };
+    dflags.deck_active = dflags.deck_active || null;
+  }
+  await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
+  _camPatchCache.delete(deck.id);
+  _deckCache.delete(player.current_zone);
+  return dflags.deck_cam_source
+    ? `Feed patched into the ${deck.name}.`
+    : `Feed pulled from the ${deck.name}.`;
 }
 
 // ── Media Deck panel (client overlay) ─────────────────────────────────────────
@@ -6678,15 +6849,19 @@ function _deckLightState(channelType, deckActive) {
 // if the television above it is showing a station. Same rule the examine readout
 // uses (server/engine/commands/world.js), so the panel and the room agree.
 function _miniDeckPlayback(deck, dflags, deckNumber) {
-  const isLoad = !!dflags.deck_active;
+  // A patched camera counts as an input: there's no tape running, but the deck is
+  // feeding the set, so "not playing — nothing loaded" would be a lie.
+  const cam = dflags.deck_cam_source?.deviceId ? dflags.deck_cam_source : null;
+  const isLoad = cam ? true : !!dflags.deck_active;
   const tuned = getZoneFurniture(deck.zone_id)
     .map(x => Number(x.flags?.tuned_channel))
     .filter(n => Number.isFinite(n));
   const onInput = deckNumber != null && tuned.includes(deckNumber);
-  if (!isLoad) return { playing: false, whyNot: 'nothing loaded' };
-  if (!tuned.length) return { playing: false, whyNot: 'the set is off' };
-  if (!onInput) return { playing: false, whyNot: `the set is on channel ${tuned[0]}` };
-  return { playing: true, whyNot: null };
+  const camLabel = cam?.label || null;
+  if (!isLoad) return { playing: false, whyNot: 'nothing loaded', camLabel };
+  if (!tuned.length) return { playing: false, whyNot: 'the set is off', camLabel };
+  if (!onInput) return { playing: false, whyNot: `the set is on channel ${tuned[0]}`, camLabel };
+  return { playing: true, whyNot: null, camLabel };
 }
 
 async function buildMediaDeckPanel(deckId, player) {
@@ -6766,6 +6941,13 @@ async function buildMediaDeckPanel(deckId, player) {
     [player.id]
   );
 
+  // Only a consumer deck has a spare input, and only a SPECTER user can use it.
+  let specterOn = false;
+  if (isMini) {
+    const mod = await _specter();
+    specterOn = mod ? await mod.isSpecterInstalled(player).catch(() => false) : false;
+  }
+
   sendToPlayer(player.id, {
     type: 'mediadeck_panel',
     deckId: deck.id,
@@ -6785,6 +6967,10 @@ async function buildMediaDeckPanel(deckId, player) {
     silent: !!dflags.deck_silent,
     playing: miniState ? miniState.playing : null,
     whyNot: miniState ? miniState.whyNot : null,
+    camLabel: miniState ? miniState.camLabel : null,
+    // Whether to offer the spare input at all. A player without SPECTER never sees
+    // the row, so the deck doesn't advertise a surface they can't reach.
+    specter: specterOn,
     activeCassetteId: dflags.deck_active || null,
     cassettes,
     schedule,
@@ -7227,6 +7413,7 @@ export const commands = {
   },
   eject: cmdEjectCassette,
   selectcassette: cmdSelectCassette,
+  patch: cmdPatch,
   pirate: cmdPirate,
   pirateresolve: cmdPirateResolve,
   air: cmdAir,

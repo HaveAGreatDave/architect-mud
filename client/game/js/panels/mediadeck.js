@@ -330,17 +330,20 @@ function renderMediaDeckPanel(data) {
   // show it a LIVE/ON AIR readout: it transmits nothing.
   const isMini = !!data.isMini;
   const miniPlaying = isMini && data.playing === true;
+  // A camera patched into the spare input is an input like a tape is: the transport
+  // stays dark (nothing is spooling), but the machine is feeding the set.
+  const camLabel = isMini ? (data.camLabel || null) : null;
   const lightEl = document.getElementById('mediadeck-light');
   lightEl.className = 'mediadeck-light mediadeck-light-'
     + (isMini ? (miniPlaying ? 'orange' : 'red') : (lightState || 'red'));
   document.getElementById('mediadeck-light-label').textContent = isMini
-    ? (miniPlaying ? 'PLAYING' : `NOT PLAYING — ${data.whyNot || 'nothing loaded'}`)
+    ? (miniPlaying ? (camLabel ? `FEED — ${camLabel}` : 'PLAYING') : `NOT PLAYING — ${data.whyNot || 'nothing loaded'}`)
     : _lightLabel(lightState, activeCassetteId);
 
   const previewHeader = document.getElementById('mediadeck-preview-header');
   if (previewHeader) {
     if (isMini) {
-      previewHeader.textContent = miniPlaying ? '▶ PLAYING' : '■ NOT PLAYING';
+      previewHeader.textContent = miniPlaying ? (camLabel ? '▶ LIVE FEED' : '▶ PLAYING') : '■ NOT PLAYING';
       previewHeader.className = 'mediadeck-preview-header '
         + (miniPlaying ? 'mediadeck-preview-header-scripted' : 'mediadeck-preview-header-offline');
     } else if (!data.channelId || lightState === 'red') {
@@ -370,11 +373,13 @@ function renderMediaDeckPanel(data) {
   const caption = document.getElementById('mediadeck-door-status');
   _setCounter(data, miniPlaying);
   if (amber) {
-    const st = !activeCassetteId ? 'idle' : (miniPlaying ? 'run' : 'wait');
+    const st = (!activeCassetteId && !camLabel) ? 'idle' : (miniPlaying ? 'run' : 'wait');
     amber.className = 'mediadeck-amber-fill mediadeck-amber-' + st;
   }
   if (caption) {
-    caption.textContent = !activeCassetteId ? 'NO CASSETTE'
+    caption.textContent = camLabel
+      ? (miniPlaying ? `FEED · ${camLabel}`.toUpperCase() : (data.whyNot || 'STANDING BY').toUpperCase())
+      : !activeCassetteId ? 'NO CASSETTE'
       : miniPlaying ? 'PLAYING' : (data.whyNot || 'STANDING BY').toUpperCase();
   }
   // Keep the idle whir in sync with power state (idempotent), and give a capstan
@@ -403,8 +408,24 @@ function renderMediaDeckPanel(data) {
 
   const listEl = document.getElementById('mediadeck-cassette-list');
   listEl.innerHTML = '';
+  // The spare input sits above the tape library on a consumer deck, because that's
+  // where it is on the machine: one jack on the back, and either a tape or a feed.
+  if (data.specter) {
+    const row = document.createElement('div');
+    row.className = 'mediadeck-cassette-row' + (camLabel ? ' active' : '');
+    row.innerHTML = `<span class="mediadeck-track-num">IN</span>
+      <span class="mediadeck-cassette-spool${camLabel ? ' spinning' : ''}"></span>
+      <span class="mediadeck-cassette-name">${camLabel ? escapeHtml(camLabel) : 'SPECTER INPUT — patch a camera'}</span>
+      <span class="mediadeck-cassette-cat">live</span>
+      ${camLabel ? '<span class="mediadeck-playing-tag">▶ FEED</span>' : ''}`;
+    row.addEventListener('click', () => {
+      _deckClick();
+      sendCmdSilent(camLabel ? 'patch off' : 'patch');
+    });
+    listEl.appendChild(row);
+  }
   if (!cassettes || !cassettes.length) {
-    listEl.innerHTML = '<div class="mediadeck-empty">— NO TRACKS LOADED —</div>';
+    listEl.insertAdjacentHTML('beforeend', '<div class="mediadeck-empty">— NO TRACKS LOADED —</div>');
   } else {
     cassettes.forEach((c, i) => {
       const isActive = c.id === activeCassetteId;

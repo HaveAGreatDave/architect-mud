@@ -2782,6 +2782,44 @@ export async function wipeCameraBuffer(player, deviceId) {
   return true;
 }
 
+// ── Patching a feed into a domestic screen ───────────────────────────────────
+// A consumer tape deck can take a SPECTER camera as its input instead of a
+// cassette (see docs/systems-broadcast.md). Both helpers below serve that path,
+// which means they run off the 4s device cache and the interference cache and
+// add NO query of their own — the deck's frame builder is on the 5s channel tick
+// and cannot afford one. They are the only sanctioned way for another plugin to
+// turn a device id into a frame: jam/spoof/battery/damage all stay decided here.
+
+// The player's own cameras, as pickable inputs. Cams only — a motion sensor has
+// nothing to put on a screen.
+export async function camSourcesFor(ownerId) {
+  const devs = (await allDevices()).filter(d =>
+    d.owner_id === ownerId && CAM_KINDS.has(d.device_kind) && !d.is_damaged);
+  return devs.map(d => ({
+    deviceId: d.id,
+    zoneId: d.zone_id,
+    kind: d.device_kind,
+    label: getZone(d.zone_id)?.name || d.zone_id,
+  }));
+}
+
+// One frame from one of the owner's cameras, with its status. Returns null when the
+// device is gone (burnt out, smashed, retrieved) so the caller can drop the patch;
+// `frame: null` with a status means the device exists but is showing nothing.
+export async function camPatchFrame(deviceId, ownerId) {
+  const dev = (await allDevices()).find(d => d.id === deviceId);
+  if (!dev || (ownerId && dev.owner_id !== ownerId)) return null;
+  if (!CAM_KINDS.has(dev.device_kind)) return null;
+  const status = deviceStatus(dev, await getInterferenceZones());
+  return {
+    deviceId,
+    zoneId: dev.zone_id,
+    label: getZone(dev.zone_id)?.name || dev.zone_id,
+    status,
+    frame: deviceFrame(dev, status),
+  };
+}
+
 export const commands = {
   plant: cmdPlant,
   retrieve: cmdRetrieve,
