@@ -818,19 +818,29 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
     }
   }
 
-  // AMBIENT RISK — the food's own chance of being off, independent of cooking.
+  // AMBIENT RISK — a shelf-stable good that was simply off.
   //
-  // 66 items authored `status_chance` and nothing had ever read it, so a wheel of
-  // vat cheese carried a documented 5% chance of turning on you that could never
-  // fire. This is NOT a duplicate of the raw/doneness routes above: 35 of those
-  // items are not `needs_cooking` at all — cheese, rub, vinegar — and "this might
-  // simply be off" is a thing undercooking cannot express. For the ones that ARE
-  // raw, the authored rate (0.9 on a measure of filth, 0.6 on raw meat) is finer
-  // than the flat certainty the `sick` route applies.
+  // food_poisoning already has four paths (see plugins/preservation/index.js):
+  // spoiled, raw, deliberately rare, and a botched cook. This is the fifth, and
+  // it is deliberately confined to what those four CANNOT reach.
   //
-  // Skipped entirely when something already made you ill — being poisoned twice
-  // by one mouthful is a bug, not a gradient.
-  if (!madeIll && t.status_chance && typeof t.status_chance === 'object') {
+  //   needs_cooking → EXCLUDED. Its authored rate describes eating the thing
+  //     RAW, which `sick` above already owns. Rolling it after a successful cook
+  //     would mean a properly cooked steak still poisoned you 60% of the time,
+  //     i.e. cooking barely helping — which is how this was first written, and
+  //     it was wrong.
+  //   perishable  → EXCLUDED. Spoilage is modelled properly by freshness, and a
+  //     FRESH onion carrying a 10% poisoning chance is not a risk model, it is
+  //     noise on top of one that already works.
+  //
+  // What is left is the genuinely uncovered case: preserved goods that can be
+  // neither raw nor spoiled — a tin, salt fish, dried fungus, a jar of rub. Old
+  // stock in a city with no inspectors is exactly the thing nothing else models.
+  //
+  // Skipped when something already made you ill: poisoned twice by one mouthful
+  // is a bug, not a gradient.
+  const shelfStable = !t.needs_cooking && !t.perishable;
+  if (!madeIll && shelfStable && t.status_chance && typeof t.status_chance === 'object') {
     for (const [effect, chance] of Object.entries(t.status_chance)) {
       const p = Number(chance);
       if (!(p > 0) || Math.random() >= p) continue;

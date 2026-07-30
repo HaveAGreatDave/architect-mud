@@ -88,21 +88,28 @@ somewhere the player feels it. Both maxima are reconciled against `stat_enduranc
 ([index.js](../server/index.js)), so existing characters self-heal with no migration script.
 and partially by sleep economics.
 
-### Food that is simply off (`status_chance`)
+### Food that was simply off (`status_chance`)
 
 66 food items authored `status_chance: { food_poisoning: … }` at rates from 0.05
-to 0.9, and **nothing had ever read it** — a wheel of vat cheese carried a
-documented 5% chance of turning on you that could never fire.
+to 0.9 and **nothing had ever read it**. It is now read, but for **9 of them** —
+and the exclusions are the whole design.
 
-It is *not* a duplicate of the raw/undercooked routes. **35 of those items are
-not `needs_cooking` at all** — cheese, rub, vinegar — and "this might simply be
-off" is a thing undercooking cannot express. For the ones that are raw, the
-authored rate (0.9 on a *measure of filth*, 0.6 on raw meat) is finer-grained
-than the flat certainty the `sick` route applies.
+food_poisoning already has four paths (spoiled, raw, deliberately rare, botched
+cook). This is the fifth, confined to what those cannot reach:
 
-Rolled in the consume path **only when nothing has already made you ill**, and it
-breaks after the first affliction: being poisoned twice by one mouthful is a bug,
-not a gradient. Weapons use the same tag through a different door — see
+| tag | verdict | why |
+|---|---|---|
+| `needs_cooking` | **excluded** (31 items) | the rate describes eating it RAW, which `sick` owns. Rolling it after a good cook meant a properly cooked steak still poisoned you 60% of the time — cooking barely helping |
+| `perishable` | **excluded** (26 items) | spoilage is modelled properly by freshness; a *fresh* onion at 10% is noise on top of a system that already works |
+| neither | **live** (9 items) | a tin, salt fish, dried fungus, a jar of rub — goods that can be neither raw nor spoiled. Old stock in a city with no inspectors is exactly what nothing else models |
+
+Rolled **only when nothing has already made you ill**, breaking after the first
+affliction: poisoned twice by one mouthful is a bug, not a gradient.
+
+The 57 excluded values are now inert. They are left in place deliberately — they
+record how dangerous each thing is raw or spoiled, which is real authoring, and a
+future pass could use them to GRADE those routes instead of the flat severity
+they apply today. Weapons use the same tag through a different door — see
 [combat.md](combat.md#status_chance--the-tag-that-finally-does-something).
 
 ## Radiation
