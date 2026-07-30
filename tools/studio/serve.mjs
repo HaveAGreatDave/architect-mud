@@ -633,6 +633,12 @@ const server = createServer(async (req, res) => {
         return json(res, 200, { zone: row, spec: world().render.get(id)?.spec ?? {}, prov: provOf(row) });
       }
       if (req.method === 'PUT') {
+        // Only a zone that exists can be saved. This is the same rule the map and
+        // district routes enforce, and it is carrying more than symmetry: the id
+        // becomes a filename in saveZone, so an id this tree has never heard of is
+        // either a new entity (which the Studio deliberately does not create — spec
+        // §10.1) or a path pointed somewhere it must not write.
+        if (!tree.zones.has(id)) return json(res, 404, { error: 'no such zone' });
         let body; try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { errors: ['body is not JSON'] }); }
         if (body.id !== id) return json(res, 400, { errors: ['id in body does not match the URL'] });
         const r = await saveZone(body);

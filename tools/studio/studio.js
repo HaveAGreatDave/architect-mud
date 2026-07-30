@@ -1111,7 +1111,14 @@ async function save() {
 
 // ── Lint: the authored half, live (§8.4) ────────────────────────────────────
 async function refreshLint() {
-  const { body } = await api('/api/lint');
+  const { ok, body } = await api('/api/lint');
+  // A lint that crashed is not a lint that passed. Reporting `{error}` as zero
+  // errors would render the one badge this tool stakes its promise on as
+  // "lint clean" at the exact moment nothing was checked.
+  if (!ok) {
+    $('#lint').innerHTML = `<b style="color:var(--bad)">lint did not run</b> — ${esc(body.error || 'server error')}`;
+    return;
+  }
   const e = body.errors?.length || 0, w = body.warnings?.length || 0;
   $('#lint').innerHTML = e
     ? `<b style="color:var(--bad)">${e} lint error(s)</b> — ${esc(body.errors[0])}`
