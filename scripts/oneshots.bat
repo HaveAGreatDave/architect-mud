@@ -103,6 +103,13 @@ REM Runs Dell Fry's sourced-container restock so Ration Nine's chiller is stocke
 REM now rather than at the next 24h tick. Restock is what the game does anyway.
 call :run "seed-ration9-stock.mjs"         "stock Ration Nine's chiller + frozen well"
 
+REM Deletes retired item rows BY ID. The deploy's own deletion pass covers files
+REM that were committed and then removed, but it does NOT check whether a player
+REM is holding one - this does, and refuses rather than stranding an inventory
+REM row. Converges: a fixed id list of dead content, so it is a permanent no-op
+REM once they are gone and can never match an item authored later.
+call :run "oneshots/retire-items.mjs"      "delete retired item rows (safe: skips owned)"
+
 REM --- Policy, not repair: opt in explicitly ---------------------------------
 REM Lifts players carrying negative net XP after a stat retune up to exactly 0.
 REM That debt is real and deliberate - writing it off is a decision, so it only
