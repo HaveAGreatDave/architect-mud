@@ -5,6 +5,8 @@
     "mini_deck": true,
     "beta_player": true,
     "channel_id": "ch_0_vcr",
+    "deck_brand": "Polaris",
+    "deck_mark": "✦",
     "deck_cassettes": [],
     "deck_active": null,
     "interactions": [

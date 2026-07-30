@@ -1205,6 +1205,47 @@
     };
     function dictLook(w){ return DICT[w] ? DICT[w].split(' ') : null; }
 
+    // ── Contractions ─────────────────────────────────────────────────────────
+    // CMUdict carries no apostrophe forms whatsoever, so EVERY contraction fell
+    // through to the letter rules — which delete the apostrophe and then read
+    // what's left as one word. "i'm" became i+m, a closed syllable, and came out
+    // "im" rather than "eye-m"; "you're" came out "yoor-eh".
+    //
+    // Most are stem + clitic and are derived below (see cliticLook), exactly the
+    // way the inflectional suffixes extend the dictionary. Only the ones that
+    // AREN'T derivable are listed here: won't is not will+n't, don't is not
+    // do+n't (the vowel changes), can't loses its /n/ into a long vowel.
+    const CONTRACT = {
+      "won't":"W * OW N T",   "can't":"K * AE N T",   "don't":"D * OW N T",
+      "shan't":"SH * AE N T", "ain't":"* EY N T",     "y'all":"Y * AO L",
+      "let's":"L * EH T S",   "o'clock":"AX K L * AA K",
+      "gonna":"G * AO N AX",  "wanna":"W * AA N AX",  "gotta":"G * AA T AX",
+      "kinda":"K * AY N D AX","sorta":"S * AO R T AX","outta":"* AW T AX",
+      "'em":"AX M",           "'til":"T IH L",        "ma'am":"M * AE M",
+    };
+
+    // Stem + clitic. The clitic's own phones are fixed; only /s/ inflects, and it
+    // inflects by exactly the rule the plural suffix already uses below.
+    const CLITIC = { m:['M'], ll:['L'], ve:['V'], re:['ER'], d:['D'] };
+    function cliticLook(w, stemPh){
+      const q = w.indexOf("'");
+      if (q < 1) return null;
+      const stem = w.slice(0, q), tail = w.slice(q + 1);
+      // n't attaches to the stem WITH its n — "isn't" is "is" + /ənt/, and the
+      // stem to look up is "is", not "isn".
+      if (tail === 't' && stem.endsWith('n')) {
+        const ph = stemPh(stem.slice(0, -1));
+        return ph ? [...ph, 'AX', 'N', 'T'] : null;
+      }
+      const ph = stemPh(stem); if (!ph) return null;
+      if (tail === 's') {                       // possessive AND "it's"/"he's" — same rule
+        const last = ph[ph.length - 1];
+        if (SIBILANT.has(last)) return [...ph, 'IH', 'Z'];
+        return [...ph, VOICED_END.has(last) ? 'Z' : 'S'];
+      }
+      return CLITIC[tail] ? [...ph, ...CLITIC[tail]] : null;
+    }
+
     // Per-utterance pronunciation override, consulted BEFORE the built-in dict and
     // CMUDICT. CMUDICT is 25k words of General American and knows none of
     // Zamyatin's Russian, Voltaire's French, or De Quincey's Latin — those fall
@@ -1266,14 +1307,25 @@
       const x = lexLook(w); if (x) return x;
       const d = dictLook(w); if (d) return d;
       const c = cmuLook(w);  if (c) return c;
+      if (CONTRACT[w]) return CONTRACT[w].split(' ');
       // A suffix rule EXTENDS the dictionary — "runs" from a known "run". It is not a
       // way to improve a guess. If the stem is unknown too, chopping the word up is
       // strictly worse than guessing it whole, because the truncation destroys the
       // syllable structure the letter rules read: "cypher" became "SIFF-er" because
       // the guesser was handed "cyph", whose 'y' has nothing after the digraph to make
       // its syllable open. So an unknown stem falls through to g2p on the WHOLE word.
-      const stemPh = (s) => dictLook(s) || cmuLook(s) || null;
+      const stemPh = (s) => lexLook(s) || dictLook(s) || cmuLook(s) || null;
       let m, ph;
+      if ((ph = cliticLook(w, stemPh))) return ph;
+      // G-DROPPING. The corpus is written the way people talk — "somethin'",
+      // "nothin'", "gettin'" — and none of those are in any dictionary, so they
+      // all reached the letter rules and came back with a spurious vowel ("SAA-
+      // meth-in"). The -ing form IS in the dictionary, so ask for it and swallow
+      // the velar: NG → N is the whole of what g-dropping does.
+      if ((m = /^(.+in)'?$/.exec(w)) && w.length > 3) {
+        ph = stemPh(m[1] + 'g');
+        if (ph && ph[ph.length-1] === 'NG') return [...ph.slice(0,-1), 'N'];
+      }
       if ((m=/^(.+?)(s)$/.exec(w)) && w.length>2 && !/(ss|us|is)$/.test(w)) {
         ph = stemPh(m[1]);
         if (ph) { const last = ph[ph.length-1];
@@ -1573,7 +1625,14 @@
     // centre: /uː/ weakens to /ʊ/ and /iː/ to /ɪ/. Mapping everything to schwa turned
     // "you are" into "yuh er", which is further than even fast speech goes and reads
     // as a mumble rather than as connected speech.
-    const WEAK = { IY:'IH', UW:'UH', IH:'AX', EH:'AX', AE:'AX', AA:'AX', AO:'AX', AH:'AX', UH:'AX' };
+    //
+    // /ɪ/ IS ITSELF A WEAK-FORM VOWEL and must NOT map to schwa. This was the
+    // single most audible fault in the voice: "is in it his its him this" are all
+    // function words whose vowel is already IH, so reducing them centralised the
+    // most-spoken words in the language into "uhz uhn uht" and left the whole line
+    // sounding mumbled. English weakens /ɪ/ to nothing — the /ɪ/~/ə/ contrast
+    // survives reduction (it is the whole difference between "roses" and "Rosa's").
+    const WEAK = { IY:'IH', UW:'UH', EH:'AX', AE:'AX', AA:'AX', AO:'AX', AH:'AX', UH:'AX' };
 
     // Function words lose their accent at the PHRASE level, which no dictionary can
     // tell you — CMUdict gives "you" a primary stress because it lists words in

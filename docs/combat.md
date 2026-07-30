@@ -232,6 +232,41 @@ chainblade is worse off than unarmed. Mastery scales between skill 8 and 18, and
   the person holding it. Capped so it is humiliating, never lethal. Resolved as part of the same
   blow, not a second attack: no extra cooldown, no second to-hit roll.
 
+### Fighting something in the air — `flags.flies`
+
+The mirror image of the water rule, and it uses the same `weight` proxy with the
+opposite sign. **Water punishes the long weapon** (a swing is the motion water
+refuses to let you make); **air punishes the short one** (you simply cannot
+reach). No new authoring — `flightCombatPenalty(enemy, weaponStats, skill)`
+returns a `hitMod` between 0 and −7:
+
+| | novice (4) | trained (12) | grounded |
+|---|---|---|---|
+| bare fists | 23% (−7) | 92% (−5) | 77% |
+| scrap shiv (300 g) | 30% (−6) | 92% (−5) | 77% |
+| Orme Trueline shortsword (2200 g) | 54% (−3) | 97% (−3) | 77% |
+| sledgehammer (8000 g) / any firearm | 77% | 100% | 77% |
+
+Two independent outs, exactly as in water: **be good, or carry something that
+gets there.** Firearms and thrown weapons are exempt outright — shooting it down
+is the intended answer.
+
+**A stunned flier is a GROUNDED flier** and the penalty lifts entirely. That is
+the loop this exists to create: you can't reach it, so you drop it (a taser's
+`status_chance`, an unaimed head crit), then you get to use the weapon you
+actually brought. This is why the function takes the live enemy *instance*, not
+the template — and it's what gives the taser a job no gun does. The hit line
+reads `GROUNDED` instead of `STUNNED` when the target flies.
+
+A melee miss against a flier says **why** ("It is above you. You need reach, or
+something that shoots."), or a run of misses reads as bad luck rather than the
+wrong tool.
+
+> There is deliberately **no `reaches_flight` weapon tag.** Weight alone decides,
+> because a tag no item carries is exactly how `flies` sat unread for months in
+> the first place. Add the override when a weapon exists whose reach its weight
+> misrepresents — a long light spear — and not before.
+
 ### Stun and radiation on the hit path
 
 Two small readers, both for data that already existed:

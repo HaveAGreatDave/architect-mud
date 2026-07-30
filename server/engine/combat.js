@@ -463,6 +463,52 @@ export function waterCombatPenalty(zone, weaponStats, skill = 0) {
   };
 }
 
+// ── Fighting something that is off the ground ────────────────────────────────
+//
+// `flags.flies` has been authored since the Architect Scout Drone was written and
+// read by nothing, so a drone hovering out of arm's reach was punched exactly as
+// easily as a man standing in front of you. This is the reader, and it is the
+// mirror image of the water rule above: water punishes the LONG weapon (a swing
+// is the motion water refuses to let you make), air punishes the SHORT one (you
+// simply cannot reach). Same `weight` proxy, opposite sign — no new authoring.
+//
+// Ranged is the intended answer. Shoot the thing down.
+const FLIGHT_SKILL_FLOOR = 8;
+const FLIGHT_SKILL_CAP = 20;
+const FLIGHT_MAX_HIT_PENALTY = -7;   // an unskilled fist at a hovering drone
+const FLIGHT_REACH_G = 3500;         // a polearm-length weapon; reaches on its own
+
+function flightReach(weaponStats) {
+  const g = Number(weaponStats?.weight);
+  if (!(g > 0)) return 0;                          // unknown, and bare hands: none
+  return Math.min(1, g / FLIGHT_REACH_G);
+}
+
+/**
+ * null when it doesn't apply, otherwise `{ hitMod, reach, mastery }`.
+ *
+ * A STUNNED flier is a GROUNDED flier — the penalty lifts entirely for those few
+ * seconds. That is the whole loop this is here to create: you cannot reach it, so
+ * you drop it (a taser's `status_chance`, an unaimed head crit), and then you get
+ * to use the weapon you actually brought. It is also why this takes the live
+ * enemy instance rather than the template.
+ */
+export function flightCombatPenalty(enemy, weaponStats, skill = 0) {
+  if (!enemy?.flags?.flies) return null;
+  if (isStunned(enemy)) return null;               // knocked out of the air
+
+  const skillId = weaponStats?.weapon_skill || 'fists';
+  if (skillId === 'firearms' || skillId === 'thrown') return null;
+
+  const span = FLIGHT_SKILL_CAP - FLIGHT_SKILL_FLOOR;
+  const mastery = Math.min(1, Math.max(0, ((Number(skill) || 0) - FLIGHT_SKILL_FLOOR) / span));
+  const reach = flightReach(weaponStats);
+  // Two independent outs, exactly as in water: be good, or carry something that
+  // gets there. Timing a swing at a hovering thing is a skill like any other.
+  const relief = Math.max(mastery, reach);
+  return { hitMod: Math.round(FLIGHT_MAX_HIT_PENALTY * (1 - relief)), reach, mastery };
+}
+
 // ── Inline combat markup ──────────────────────────────────────────────
 // Combat lines render via innerHTML on the client, so we wrap the variable
 // bits in semantic spans (styled in client/game/styles.css). The text HP bar
@@ -802,7 +848,11 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
   const aimCost = aimHitPenalty(player, attackSkill);
   // A weapon well above your grade swings wide as well as soft.
   const unskilled = underskilledPenalty(weaponStats, attackSkill);
-  const margin = (attackSkill + hitBonus(player) - enemyDodge) + aimCost + (unskilled?.hitMod || 0) + rollSwing() + await darknessHitPenalty(enemy.zoneId, player);
+  // It is in the air and you are not. Ranged ignores this; so does a stunned
+  // flier, because a stunned flier is on the floor.
+  const flight = flightCombatPenalty(enemy, weaponStats, attackSkill);
+  const margin = (attackSkill + hitBonus(player) - enemyDodge) + aimCost + (unskilled?.hitMod || 0)
+    + (flight?.hitMod || 0) + rollSwing() + await darknessHitPenalty(enemy.zoneId, player);
   const hit = margin >= 0;
 
   // Water drags the swing out on top of the stance interval.
@@ -814,7 +864,9 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
       hit: false,
       margin,
       power,
-      message: playerMissLine(player, enemy.name, power),
+      // Say WHY, or a run of misses reads as bad luck instead of a wrong tool.
+      message: playerMissLine(player, enemy.name, power)
+        + (flight?.hitMod < 0 ? ` <span class="dmg-type">It is above you. You need reach, or something that shoots.</span>` : ''),
       enemyId: enemyInstanceId,
       enemyHp: enemy.hp,
       enemyHpMax: enemy.hp_max,
@@ -972,7 +1024,7 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
     damage,
     margin,
     power,
-    message: `${playerHitLine(player, enemy.name, partLabel, damage, damageType, critical, power, execution)}${critical ? '!' : '.'}${statusHit === 'stunned' ? ' <span class="crit-tag">STUNNED</span>' : ''}${enemyHpTag(enemy)}`,
+    message: `${playerHitLine(player, enemy.name, partLabel, damage, damageType, critical, power, execution)}${critical ? '!' : '.'}${statusHit === 'stunned' ? (enemy.flags?.flies ? ' <span class="crit-tag">GROUNDED</span>' : ' <span class="crit-tag">STUNNED</span>') : ''}${enemyHpTag(enemy)}`,
     enemyId: enemyInstanceId,
     enemyHp: enemy.hp,
     enemyHpMax: enemy.hp_max,

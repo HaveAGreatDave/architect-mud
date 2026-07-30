@@ -89,6 +89,35 @@ has('all-caps short line is a shout',       'FUCK!', 'F ! AH K');
 lacks('all-caps LONG line is a banner, not a scream',
       'THIS IS THE COLDWATER EVENING REPORT, LIVE ON NINE.', '!');
 
+// ── contractions ─────────────────────────────────────────────────────────────
+// CMUdict has no apostrophe forms at all, so before the clitic rules existed every
+// one of these reached the letter-guesser, which DELETES the apostrophe and reads
+// what's left as a single word: "i'm" came back as "im", "you're" as "yoor-eh".
+// These are among the most-spoken words there are, so the error was constant.
+has("I'm is eye-m, not im",          "I'm", 'AY M');
+has("you're is one syllable",        "you're", 'R');
+lacks("you're doesn't grow a vowel", "you're", 'R EH');
+has("it's takes a voiceless /s/",    "it's", 'T S');
+has("he's takes a voiced /z/",       "he's", 'IY Z');
+has("n't is stem + /ənt/ (isn't)",   "isn't", 'Z AX N T');
+has("don't is irregular, not do+n't","don't", 'D * OW N T');
+has("can't is irregular",            "can't", 'K * AE N T');
+has("we'll",                         "we'll", 'IY L');
+has("I've",                          "I've", 'AY V');
+// G-DROPPING. The corpus is written the way people talk. None of these are in any
+// dictionary; the -ing form is, so the rule asks for that and swallows the velar.
+has("somethin' is the -ing word minus the velar", "somethin'", 'TH IH N');
+lacks("somethin' keeps no NG",                    "somethin'", 'NG');
+has("gettin' without the apostrophe too",         'gettin', 'IH N');
+
+// ── /ɪ/ is a weak-form vowel and never reduces to schwa ─────────────────────
+// "is in it his" are function words whose vowel is ALREADY /ɪ/. Mapping it to
+// schwa with the other weak forms turned the most-spoken words in the language
+// into "uhz uhn uht" — the single most audible source of mumble in the voice.
+has('unstressed "is" keeps its /ɪ/',  'is it', 'IH Z');
+has('unstressed "in" keeps its /ɪ/',  'in the water', 'IH N');
+lacks('"his" does not centralise',    'his hand', 'HH AX Z');
+
 // ── punctuation shapes the phrase ────────────────────────────────────────────
 has('comma is a continuation, not a full stop', 'bread, water', '_C');
 has('full stop is terminal',                    'bread. water', '__');

@@ -695,7 +695,27 @@ async function cmdExamine(targetStr, player, broadcast) {
       const chrome = isMini
         ? 'display:inline-flex;gap:10px;padding:3px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:3px 0;font-size:0.92em'
         : 'display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0';
-      msg += `\n<span style="${chrome}">${lamps}</span>\n${statusLine}${cassetteList}`;
+      // A branded consumer unit gets a faceplate rather than a rack lamp strip:
+      // maker's badge on the left, a loading slot that reports the tape, and the
+      // one transport lamp on the right. Brand is content (`flags.deck_brand`), so
+      // an unbranded machine keeps the plain strip and nothing here is hardcoded.
+      const brand = isMini && typeof flags.deck_brand === 'string' ? flags.deck_brand.trim() : '';
+      if (brand) {
+        const mark = escAttr(String(flags.deck_mark || '✦'));
+        const badge = `<span style="color:var(--accent);font-weight:bold;letter-spacing:2px">${mark} ${escAttr(brand.toUpperCase())}</span>`;
+        const rule = `<span style="color:var(--border)">│</span>`;
+        // The door is the only part that moves: dark when empty, lit amber with the
+        // cassette in it — the amber bar the description promises.
+        const slot = isLoad
+          ? `<span style="color:var(--yellow);letter-spacing:1px">▮▮▮▮▮▮</span>`
+          : `<span style="color:var(--border);letter-spacing:1px">▭▭▭▭▭▭</span>`;
+        const face = 'display:inline-flex;align-items:center;gap:10px;padding:4px 10px;background:var(--bg2);'
+          + 'border:1px solid var(--border);border-top-color:var(--accent);border-radius:5px;'
+          + 'margin:3px 0;font-size:0.92em';
+        msg += `\n<span style="${face}">${badge}${rule}${slot}${rule}${lamps}</span>\n${statusLine}${cassetteList}`;
+      } else {
+        msg += `\n<span style="${chrome}">${lamps}</span>\n${statusLine}${cassetteList}`;
+      }
     } else if (f.object_type === 'broadcast_camera') {
       const flags = f.flags || {};
       const camId = flags.camera_id;
