@@ -1,0 +1,18 @@
+{
+  "description": "A civic mint press behind a scratched perspex window, beneath a sign reading SELF-ISSUANCE. There is a queue. There is always a queue. You have come to this building to be officially informed that you exist.",
+  "flags": {
+    "card_mint": true,
+    "interactions": [],
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cardmint_permits",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Window 6 — Self-Issuance",
+  "object_type": "terminal",
+  "power_draw_kw": 1.2,
+  "price": 0,
+  "zone_id": "zone_ward_permits"
+}

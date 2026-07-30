@@ -181,6 +181,7 @@ nothing, silently; wire a reader first.
 | `table_id` | gametable | which game table the NPC sits at |
 | `trust_flag` / `trust_max` / `trust_per_buy` | vendor | per-player trust meter unlocking stock |
 | `uses_drugs` | npc-drugs | NPC willingly accepts a drug `slip`-ped to them (addict-economy seam) |
+| `card_quote` / `card_note` / `card_rarity` / `card_standing` / `card_exclude` | cards | optional hand-tuning for this NPC's trading card — a spoken line, the prose block, an explicit rank (default is derived from role), the big number, or "never card this row". **All optional**: an NPC with none of them still produces a readable Common, which is what makes full-roster coverage free |
 
 ## furniture.flags
 
@@ -231,6 +232,8 @@ nothing, silently; wire a reader first.
 | `trash_bin` | scavenging | searchable trash |
 | `tv` / `tv_dial_freq` / `tv_skin` | broadcast | television set config |
 | `vends` / `vend_line` / `vend_cooldown_s` | vending | dispenser machine: item id to dispense (required), flavour line, per-machine throttle in seconds (default 20; 0 = off) |
+| `vends_packs` | cards | card-pack machine (value = series number). Renders its own lit product window through `zone.furniturePanel`; author with `power_draw_kw` so a blackout takes it dark |
+| `card_mint` | cards | mint terminal — `mint` previews here for free and strikes for ₵2,500; `scrap` eats duplicates here too |
 | `fuel_source` | fillable | a fuel point in this zone that `fill` draws from |
 | `woven` | describe (engine) | fold this furniture into the room prose instead of listing it separately (the LIVE tier) |
 | `notable` | describe (engine) | force this piece to stay in the `Furniture:` list even when the classifier would demote it to the scenery clause. The override for a stub-described prop that actually matters |

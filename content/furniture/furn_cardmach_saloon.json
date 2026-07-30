@@ -1,0 +1,18 @@
+{
+  "description": "A card machine next to the job board, catching everyone who just found out what the work pays.",
+  "flags": {
+    "vends_packs": 1,
+    "interactions": [],
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cardmach_saloon",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Rack ’Em card machine",
+  "object_type": "fixture",
+  "power_draw_kw": 0.4,
+  "price": 0,
+  "zone_id": "zone_bld_899_1171_lobby"
+}

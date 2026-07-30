@@ -32,6 +32,28 @@ const PANELS = {
     fetch: () => API('/gossip'),
     render: renderGossip,
   },
+  cards: {
+    title: 'Trading Cards',
+    description: 'Every struck card — players who minted themselves, plus the NPC and enemy cards cut from world content when a series opened. Edit rarity, pool weight and the three text blocks; the character counters enforce the budgets, because a card must never truncate. NPC flavour overrides (flags.card_quote / card_note / card_rarity) live on the NPC row, in the NPCs panel.',
+    idPrefix: 'card',
+    fetch: async () => {
+      const r = await API('/cards');
+      if (r?.budgets) _cardBudgets = { ...(_cardBudgets), ...r.budgets };
+      if (Array.isArray(r?.ranks)) _cardRanks = r.ranks;
+      return r?.cards || [];
+    },
+    columns: [
+      { key: 'subject_name', label: 'Subject' },
+      { key: 'subject_type', label: 'Type' },
+      { key: 'rarity', label: 'Rarity' },
+      { key: 'power', label: 'Power' },
+      { key: 'pool_weight', label: 'Pool' },
+    ],
+    editForm: cardEditForm,
+    save: saveCard,
+    delete: id => API(`/cards/${id}`, 'DELETE'),
+    render: () => renderCardsTable(allRecords),
+  },
   zones: {
     title: 'Zones',
     description: 'Edit room descriptions, exits, danger ratings, and zone properties.',

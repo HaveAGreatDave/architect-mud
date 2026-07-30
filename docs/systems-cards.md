@@ -1,6 +1,17 @@
-# Procedural Trading Cards (PROTOTYPE — Adoption Undecided)
+# Procedural Trading Cards — the PORTRAIT renderer (still unwired)
 
-> **Status: PROTOTYPE, not a committed feature (2026-07-27).** The renderer exists and works;
+> **⚠ ADOPTION DECIDED 2026-07-30 — but not this way.** Trading cards **shipped**, as
+> [`plugins/cards/`](../plugins/cards/README.md); the design and rationale are in
+> [proposals/trading-cards.md](proposals/trading-cards.md), which is now the authoritative doc for
+> the card system. What shipped is the **text face**: prose, budgets, spoken condition. This file
+> describes the **portrait face**, which is still exactly what it was — a complete, self-contained
+> canvas renderer that **nothing loads**. It was not dropped and it was not adopted; it is a second
+> face the card view could grow, and an enemy card can never use it (there is no silhouette for a
+> rot-hound). Everything below remains accurate about the renderer itself. The "Integration
+> roadmap" section at the bottom is **superseded** — read the proposal instead.
+>
+> **Original status header, kept for context — PROTOTYPE, not a committed feature (2026-07-27).**
+> The renderer exists and works;
 > **whether the game ships trading cards at all is an open question that has not been decided.**
 > Nothing downstream should assume this is coming. Do not file the missing mint verb, storage or UI
 > as debt, plan work that depends on cards existing, or count this toward the roadmap — it is a spike
