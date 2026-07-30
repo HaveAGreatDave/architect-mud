@@ -40,6 +40,50 @@ const REGEN_RE = /_regen_per_sec$/;
 // so the habit dose you walked away from is the one that kills you on the way back.
 const OD_TOLERANCE_BONUS = 1.5;      // +150% overdose headroom at full tolerance
 
+// ── What you know about a compound, and how you found out ────────────────────
+//
+// Knowledge is earned by CONSEQUENCE, not by a use counter. Reading "you have
+// taken this 6 times, here is its overdose ceiling" is a database telling you a
+// number; learning that ceiling because you went past it and your body revolted
+// is the game teaching you something. So each fact has exactly one way in, and
+// it is the experience that fact describes:
+//
+//   FELT       you took it and lived — what it feels like, the prose you saw
+//   EFFECTS    you rode a full peak — what it actually does to you
+//   DURATION   you rode one out to the end — how long it holds you
+//   OVERDOSE   you took too much — where the ceiling is
+//   ADDICTION  it got its hooks in — that it can
+//   WITHDRAWAL you came off it badly — what that costs
+//
+// Stored as a bitmask on player_drug_state.known_facts, which is already the
+// per-player-per-drug table. Never decays: you do not un-learn what a bad night
+// taught you.
+export const DRUG_FACTS = {
+  FELT:       1,
+  EFFECTS:    2,
+  DURATION:   4,
+  OVERDOSE:   8,
+  ADDICTION: 16,
+  WITHDRAWAL:32,
+};
+
+/**
+ * Record that this player now knows `bit` about `drugId`.
+ *
+ * Fire-and-forget and idempotent — a bitwise OR, so re-learning is a no-op and
+ * two ticks racing cannot lose a fact. Never awaited on a hot path: knowing
+ * something a second late costs nothing, and a failed write must not interrupt
+ * a drug tick.
+ */
+export function learnDrugFact(playerId, drugId, bit) {
+  if (!playerId || !drugId || !bit) return;
+  query(
+    `UPDATE player_drug_state SET known_facts = COALESCE(known_facts,0) | $3
+       WHERE player_id=$1 AND drug_id=$2 AND (COALESCE(known_facts,0) & $3) = 0`,
+    [playerId, drugId, bit]
+  ).catch(() => {});
+}
+
 // How fast an UNDECLARED tolerance burns off, per second of GAME time (every
 // caller multiplies elapsed real time by getTimeScale()).
 //
@@ -469,6 +513,12 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
      opts.inlineEffects ? JSON.stringify(eff) : null, toleranceLethal]
   );
 
+  // You have taken it and you are still here: you know what it feels like.
+  // Everything past this has to be earned the hard way.
+  learnDrugFact(player.id, stateKey, DRUG_FACTS.FELT);
+  if (overdosed) learnDrugFact(player.id, stateKey, DRUG_FACTS.OVERDOSE);
+  if (justAddicted) learnDrugFact(player.id, stateKey, DRUG_FACTS.ADDICTION);
+
   // Re-dosing clears any active withdrawal for this drug.
   reverseMods(player, `withdrawal:${stateKey}`);
   player._withdrawalActive?.delete(stateKey);
@@ -745,6 +795,9 @@ export function tickDrugs(player) {
     if (elapsed >= total) {
       reverseMods(player, source);
       if (entry.messages.end) messages.push(entry.messages.end);
+      // You rode it all the way out, so you now know how long it holds you.
+      // Someone who tops up before the end never finds out.
+      learnDrugFact(player.id, entry.drugId, DRUG_FACTS.DURATION);
       return false;
     }
 
@@ -758,6 +811,10 @@ export function tickDrugs(player) {
       applyMods(player, source, scaleMods(buffModsOf(entry.peak_mods), scale * entry.potency));
       const m = phase === 'peak' ? entry.messages.peak : phase === 'comedown' ? entry.messages.comedown : null;
       if (m) messages.push(m);
+      // A full peak is where the compound actually shows you what it does — the
+      // come-up is scaled down and the comedown is it leaving. Reach the peak and
+      // the stat effects stop being a mystery.
+      if (phase === 'peak') learnDrugFact(player.id, entry.drugId, DRUG_FACTS.EFFECTS);
     }
 
     // Drip regen (sanity_regen_per_sec, hp_regen_per_sec, ...).
@@ -885,6 +942,10 @@ function applyWithdrawal(player, states, now, writes, allRows = states) {
         const first = !player._withdrawalActive.has(state.drug_id);
         player._withdrawalActive.set(state.drug_id, sig);
         if (first && wd.message) messages.push(`<span class="withdrawal-warning">${wd.message}</span>`);
+        // Withdrawal has actually started biting — mods applied, not merely a
+        // clock passing onset. You now know what coming off this costs, and
+        // that is knowledge nobody could have handed you.
+        if (first) learnDrugFact(player.id, state.drug_id, DRUG_FACTS.WITHDRAWAL);
       }
       // `*_regen_per_sec` keys are a per-second drip, not a ledger buff. The phases
       // engine has always honoured them; withdrawal silently dropped them into
@@ -1015,9 +1076,26 @@ export async function getDrugStatus(player) {
     const onset = wd.onset_seconds ?? 3600;
     const biting = addicted && elapsed > onset && !!wd.mods;
 
+    // What this player has EARNED the right to be told, and the facts themselves.
+    // Gating happens here rather than in the client so an unlearned number never
+    // leaves the server — a payload you could read in devtools is not a secret.
+    const known = s.known_facts || 0;
+    const phases = eff.phases || {};
+    const learned = {
+      mask: known,
+      effects: (known & DRUG_FACTS.EFFECTS) ? (phases.peak_mods || {}) : null,
+      durationSeconds: (known & DRUG_FACTS.DURATION) ? (drug?.duration_seconds ?? null) : null,
+      overdoseCeiling: (known & DRUG_FACTS.OVERDOSE)
+        ? Math.max(1, Math.round((drug?.overdose_threshold ?? 3) * (1 + toleranceLethal * OD_TOLERANCE_BONUS)))
+        : null,
+      addictive: (known & DRUG_FACTS.ADDICTION) ? true : null,
+      withdrawal: (known & DRUG_FACTS.WITHDRAWAL) ? (wd.message || 'It takes something back.') : null,
+    };
+
     return {
       drugId: s.drug_id,
       name: drug?.name || String(s.drug_id).replace(/^drug_/, '').replace(/:.*$/, ' compound'),
+      learned,
       timesUsed: s.times_used,
       tolerance,
       addicted,

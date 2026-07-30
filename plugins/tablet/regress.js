@@ -651,6 +651,27 @@ export default async function regress({ run, check, getPlayer }) {
     r = await run('tabletnav health substances');
     check('substances tab builds', r?.tab === 'substances' && Array.isArray(r?.substances) && !r?.error,
       JSON.stringify(r)?.slice(0, 120));
+    // The tab is now TWO questions: what has been through me (experience) and
+    // what am I carrying (on hand). Both must always be present, even empty.
+    check('substances tab carries an on-hand list', Array.isArray(r?.onHand), JSON.stringify(r?.onHand));
+
+    // KNOWLEDGE IS EARNED, and the gate lives on the SERVER — an unlearned fact
+    // must never be in the payload at all. A value the client is merely trusted
+    // not to render is readable in devtools, which is not a secret.
+    const { DRUG_FACTS } = await import('../../server/engine/drugs.js');
+    check('every learnable fact has a distinct bit',
+      new Set(Object.values(DRUG_FACTS)).size === Object.keys(DRUG_FACTS).length
+      && Object.values(DRUG_FACTS).every(v => Number.isInteger(v) && v > 0 && (v & (v - 1)) === 0),
+      JSON.stringify(DRUG_FACTS));
+    for (const s of (r.substances || [])) {
+      const l = s.learned || {};
+      check(`unlearned facts are withheld server-side (${s.name})`,
+        ((l.mask & DRUG_FACTS.EFFECTS)   || l.effects === null)
+        && ((l.mask & DRUG_FACTS.DURATION)  || l.durationSeconds === null)
+        && ((l.mask & DRUG_FACTS.OVERDOSE)  || l.overdoseCeiling === null)
+        && ((l.mask & DRUG_FACTS.WITHDRAWAL) || l.withdrawal === null),
+        JSON.stringify(l));
+    }
 
     // An unknown tab must fall back to the readings, not blank the screen.
     r = await run('tabletnav health nonsense');

@@ -251,6 +251,29 @@ function describeRemedy(tags, drug) {
 // One query. Every carried item that is a drug OR carries a restorative tag,
 // collapsed to one row per item TYPE (stacks and duplicate rows summed) because
 // `use` targets a type, not a particular row.
+/**
+ * The drugs actually in your pockets — the ON HAND half of the Substances tab.
+ *
+ * Strictly `drugs`-backed items, not the wider remedy set: a bandage is not a
+ * compound and does not belong in a ledger about what you have taken. Anything
+ * you have never learned a single fact about shows here as a name and a blank,
+ * which is the tension worth having — you can see you are carrying something
+ * unidentified without the tablet quietly telling you what it is.
+ */
+async function carriedDrugs(playerId) {
+  const { rows } = await query(
+    `SELECT d.id AS drug_id, i.name, SUM(pi.quantity)::int AS qty
+       FROM player_inventory pi
+       JOIN items i ON i.id = pi.item_id
+       JOIN drugs d ON d.item_id = i.id
+      WHERE pi.player_id = $1 AND pi.container_id IS NULL
+      GROUP BY d.id, i.name
+      ORDER BY i.name`,
+    [playerId]
+  );
+  return rows.map(r => ({ drugId: r.drug_id, name: r.name, qty: r.qty }));
+}
+
 async function carriedRemedies(playerId) {
   const { rows } = await query(
     `SELECT i.id AS type_id, i.name, i.tags,
@@ -320,11 +343,18 @@ async function buildScreen(player, screenId, params, notice = null) {
   }
 
   if (tab === 'substances') {
-    const status = await getDrugStatus(player);
+    const [status, onHand] = await Promise.all([getDrugStatus(player), carriedDrugs(player.id)]);
+    // Two questions, deliberately separated: what has been through me and what
+    // do I know about it (EXPERIENCE), and what am I actually carrying (ON HAND).
+    // The second is where an unidentified pill shows up — you can see you have
+    // something without being told what it does.
+    const knownIds = new Set(status.filter(d => d.learned?.mask).map(d => d.drugId));
     return {
       ...base,
+      onHand: onHand.map(o => ({ ...o, known: knownIds.has(o.drugId) })),
       substances: status.map(d => ({
         name: d.name,
+        learned: d.learned,
         timesUsed: d.timesUsed,
         tolerancePct: Math.round(d.tolerance * 100),
         addicted: d.addicted,

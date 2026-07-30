@@ -314,6 +314,40 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   (and phantoms) are in-memory; a login rescue in `server/index.js` bounces anyone stranded in a dream
   zone by a restart back to their anchor.
 
+### What you KNOW about a compound (`known_facts`)
+
+A player learns a drug by **consequence, not by a counter**. `player_drug_state`
+already tracked `times_used`, and gating on it would have been trivial — but
+"you have taken this six times, here is its overdose ceiling" is a database
+telling you a number. Learning that ceiling *because you went past it and your
+body revolted* is the game teaching you something. So each fact has exactly one
+way in, and it is the experience that fact describes:
+
+| Fact | Bit | Earned by |
+|---|---:|---|
+| `FELT` | 1 | taking it and surviving |
+| `EFFECTS` | 2 | riding a full **peak** (the come-up is scaled down; the comedown is it leaving) |
+| `DURATION` | 4 | riding one out to its **natural end** — top up early and you never find out |
+| `OVERDOSE` | 8 | actually going over the ceiling |
+| `ADDICTION` | 16 | the moment dependency latches |
+| `WITHDRAWAL` | 32 | withdrawal **biting** — mods applied, not merely a clock passing onset |
+
+Stored as a bitmask on **`player_drug_state.known_facts`** — no new table, because
+that table is already exactly per-player-per-drug. `learnDrugFact()` is a
+fire-and-forget bitwise OR, so it is idempotent, race-safe, and never awaited on
+the drug tick. Knowledge never decays: you do not un-learn what a bad night
+taught you.
+
+**The gate is server-side.** `getDrugStatus` returns `learned.*` as `null` for
+anything unearned, so an unknown value never enters the payload at all — a number
+the client is merely trusted not to render is readable in devtools, which is not
+a secret. Asserted in `plugins/tablet/regress.js`.
+
+The Substances tab is two questions in one screen: **On hand** (drugs in your
+pockets, each marked `known` or `unidentified` — you can see you are carrying
+something without being told what it does) and **Experience** (what has been
+through you, and only the facts you have earned about it).
+
 ## Sanity — the slide into madness
 
 `players.sanity` (0–100, `sanity_max` default 100). Nothing in the **sanity plugin**

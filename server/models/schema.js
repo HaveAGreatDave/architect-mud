@@ -759,6 +759,13 @@ export const SCHEMA_SQL = `
   -- start at 0, which is the safe direction: a veteran's ceiling drops to novice
   -- level until they use again, rather than silently inheriting free headroom.
   ALTER TABLE player_drug_state ADD COLUMN IF NOT EXISTS tolerance_lethal REAL DEFAULT 0;
+  -- What this player has LEARNED about this compound, as a bitmask (see
+  -- DRUG_FACTS in server/engine/drugs.js). Knowledge is earned by CONSEQUENCE,
+  -- not by a use counter: you learn the overdose ceiling by overdosing, the
+  -- addiction risk by getting hooked, and what withdrawal feels like by going
+  -- through it. Lives here rather than on the players table because it is
+  -- inherently per-player-per-drug, which is exactly what this table already is.
+  ALTER TABLE player_drug_state ADD COLUMN IF NOT EXISTS known_facts INTEGER DEFAULT 0;
   -- Composed effects for inline (spliced-compound) drugs, which have no drugs row.
   ALTER TABLE player_drug_state ADD COLUMN IF NOT EXISTS effects JSONB;
 

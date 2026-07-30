@@ -6237,12 +6237,42 @@ function renderHealthApothecary(d) {
   }).join('');
 }
 
+// What you have learned about a compound, and how. Only facts the SERVER has
+// already decided you know arrive here — an unlearned value is null, never a
+// number the client is trusted to hide.
+function renderLearned(l) {
+  if (!l || !l.mask) return '<div class="tos-vt-subload">You took it. You could not tell you what it did.</div>';
+  const rows = [];
+  if (l.effects && Object.keys(l.effects).length) {
+    const mods = Object.entries(l.effects)
+      .filter(([, v]) => typeof v === 'number' && v !== 0)
+      .map(([k, v]) => `${esc(k.replace(/^stat_/, '').replace(/_/g, ' '))} ${v > 0 ? '+' : ''}${v}`);
+    if (mods.length) rows.push(['What it does', mods.join(', ')]);
+  }
+  if (l.durationSeconds != null) rows.push(['How long', `${Math.round(l.durationSeconds / 60)} min`]);
+  if (l.overdoseCeiling != null) rows.push(['Too much is', `${l.overdoseCeiling} doses`]);
+  if (l.addictive) rows.push(['Hooks', 'It gets them in.']);
+  if (!rows.length) return '<div class="tos-vt-subload">You know how it feels. Nothing else, yet.</div>';
+  return `<div class="tos-vt-subgrid">${rows.map(([k, v]) => `<span>${esc(k)}</span><b>${esc(v)}</b>`).join('')}</div>`;
+}
+
+function renderHealthOnHand(list) {
+  if (!list?.length) return '';
+  const rows = list.map(o => `
+    <div class="tos-vt-item">
+      <div class="tos-vt-itemtxt"><b>${esc(o.name)}</b>${o.qty > 1 ? ` <span class="text-dim">×${o.qty}</span>` : ''}</div>
+      <span class="tos-vt-flag${o.known ? '' : ' bad'}">${o.known ? 'known' : 'unidentified'}</span>
+    </div>`).join('');
+  return `<div class="tos-vt-sect">On hand</div>${rows}`;
+}
+
 function renderHealthSubstances(d) {
   const subs = d.substances || [];
+  const onHand = renderHealthOnHand(d.onHand);
   if (!subs.length) {
-    return `<div class="tos-vt-clear">Your bloodwork is boring.<br><span>No compound has ever been through you.</span></div>`;
+    return `${onHand}<div class="tos-vt-clear">Your bloodwork is boring.<br><span>No compound has ever been through you.</span></div>`;
   }
-  return subs.map(s => {
+  return `${onHand}<div class="tos-vt-sect">Experience</div>` + subs.map(s => {
     const flags = [];
     if (s.addicted) flags.push('<span class="tos-vt-flag bad">dependent</span>');
     if (s.substituted) flags.push('<span class="tos-vt-flag">substituted</span>');
@@ -6266,6 +6296,7 @@ function renderHealthSubstances(d) {
         </div>
         <div class="tos-vt-track sm"><div class="tos-vt-fill ${loadBand}" style="width:${Math.max(0, Math.min(100, s.loadPct))}%"></div></div>
         <div class="tos-vt-subload">System load against this compound's overdose ceiling.</div>
+        ${renderLearned(s.learned)}
         ${wd}
       </div>`;
   }).join('');
