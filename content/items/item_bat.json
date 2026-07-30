@@ -5,8 +5,8 @@
   "name": "aluminum bat",
   "tags": {
     "damage": {
-      "max": 16,
-      "min": 7
+      "max": 9,
+      "min": 3
     },
     "damage_type": "kinetic",
     "slot": "weapon_hand",
