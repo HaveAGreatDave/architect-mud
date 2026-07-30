@@ -595,7 +595,30 @@ async function cmdExamine(targetStr, player, broadcast) {
       }
 
       const isLoad = !!deckActive;
-      const isLive = !isLoad && liveCount > 0;
+      // A consumer tape player is not a studio deck and should not pretend to be
+      // one. It has no cameras and no transmitter, so LIVE is meaningless on it —
+      // the only question it can answer is whether the tape is running, and that
+      // needs the SET as well as the tape: a machine loaded and ready is still
+      // not playing if the television above it is showing a station.
+      const isMini = !!flags.mini_deck;
+      let miniPlaying = false, miniWhyNot = 'nothing loaded';
+      if (isMini) {
+        let deckNumber = null;
+        if (channelId) {
+          const { rows } = await query('SELECT number FROM media_channels WHERE id=$1', [channelId]);
+          deckNumber = rows[0]?.number ?? null;
+        }
+        // The receiver this unit feeds — same room, the deck override is zone-scoped.
+        const tuned = getZoneFurniture(f.zone_id)
+          .map(x => Number(x.flags?.tuned_channel))
+          .filter(n => Number.isFinite(n));
+        const onInput = deckNumber != null && tuned.includes(deckNumber);
+        miniPlaying = isLoad && onInput;
+        if (!isLoad) miniWhyNot = 'nothing loaded';
+        else if (!tuned.length) miniWhyNot = 'the set is off';
+        else if (!onInput) miniWhyNot = `the set is on channel ${tuned[0]}`;
+      }
+      const isLive = !isMini && !isLoad && liveCount > 0;
 
       const liveDot  = isLive
         ? `<span style="color:var(--red);font-weight:bold;letter-spacing:1px">⬤ LIVE</span>`
@@ -605,7 +628,15 @@ async function cmdExamine(targetStr, player, broadcast) {
         : `<span style="color:var(--border)">○ LOAD</span>`;
 
       let statusLine;
-      if (isLive) {
+      if (isMini) {
+        const { rows: bcRows } = deckActive
+          ? await query('SELECT name FROM media_broadcasts WHERE id=$1', [deckActive])
+          : { rows: [] };
+        const bcName = bcRows[0]?.name || deckActive;
+        statusLine = miniPlaying
+          ? `<span style="color:var(--cyan)">▶ PLAYING:</span> <span style="color:var(--text)">${bcName}</span>`
+          : `<span style="color:var(--border)">■ NOT PLAYING</span> <span style="color:var(--text-dim)">— ${miniWhyNot}</span>`;
+      } else if (isLive) {
         const camTag = `<span style="color:var(--text-dim)">${liveCount} cam${liveCount !== 1 ? 's' : ''} online</span>`;
         const chTag  = channelLabel ? `<span style="color:var(--text-dim)">${channelLabel}</span>` : '';
         statusLine = `<span style="color:var(--red)">▶ TRANSMITTING LIVE</span>  ${[chTag, camTag].filter(Boolean).join('  ·  ')}`;
@@ -654,7 +685,17 @@ async function cmdExamine(targetStr, player, broadcast) {
       structural.push(`<span class="action-link" data-action="use" data-target="${escAttr(f.name.toLowerCase())}">use</span>`);
       if (deckActive) structural.push(`<span class="action-link" data-action="eject" data-target="">eject</span>`);
       excludeVerbs.push('use', 'eject');
-      msg += `\n<span style="display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0">${liveDot}${loadDot}</span>\n${statusLine}${cassetteList}`;
+      // A consumer unit shows ONE lamp, and it is smaller: no LIVE (it transmits
+      // nothing), tighter padding, and every colour comes from the player's own
+      // theme variables so it sits in whatever palette they are running rather
+      // than in the studio's.
+      const lamps = isMini
+        ? `<span style="color:${miniPlaying ? 'var(--cyan)' : 'var(--border)'};font-weight:bold;letter-spacing:1px">${miniPlaying ? '⬤' : '○'} PLAY</span>`
+        : `${liveDot}${loadDot}`;
+      const chrome = isMini
+        ? 'display:inline-flex;gap:10px;padding:3px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:3px 0;font-size:0.92em'
+        : 'display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0';
+      msg += `\n<span style="${chrome}">${lamps}</span>\n${statusLine}${cassetteList}`;
     } else if (f.object_type === 'broadcast_camera') {
       const flags = f.flags || {};
       const camId = flags.camera_id;
