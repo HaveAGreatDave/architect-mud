@@ -102,7 +102,25 @@
   "hit": 10,
   "hp_max": 100,
   "id": "enemy_arbiterclass_enforcement_unit",
-  "loot_table": [],
+  "loot_table": [
+    {
+      "item": "item_mystery_component",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 30
+    },
+    {
+      "item": "item_junk_battery",
+      "qty": [
+        2,
+        3
+      ],
+      "weight": 3,
+      "super": true
+    }
+  ],
   "name": "Arbiter-Class Enforcement Unit",
   "weapon": [
     {

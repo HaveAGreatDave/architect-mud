@@ -117,16 +117,21 @@
       "weight": 16
     },
     {
-      "credits": [
-        12,
-        28
-      ],
-      "item": "item_credit_chip",
+      "item": "item_cracked_circuit",
       "qty": [
         1,
         1
       ],
-      "weight": 16
+      "weight": 30
+    },
+    {
+      "item": "item_scrap_copper_coil",
+      "qty": [
+        2,
+        3
+      ],
+      "weight": 3,
+      "super": true
     }
   ],
   "name": "maintenance drone",

@@ -294,44 +294,28 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_field_welder",
-      "price": 45
-    },
-    {
-      "item_id": "item_pipe_wrench",
-      "price": 30
-    },
-    {
-      "item_id": "item_thermal_lance",
-      "price": 1800
-    },
-    {
-      "item_id": "item_duct_tape",
-      "price": 10
+      "item_id": "item_scrap_metal",
+      "price": 4
     },
     {
       "item_id": "item_tangled_wire",
       "price": 6
     },
     {
-      "item_id": "item_scrap_metal",
-      "price": 4
+      "item_id": "item_duct_tape",
+      "price": 10
     },
     {
-      "item_id": "item_mystery_component",
-      "price": 70
-    },
-    {
-      "item_id": "item_keycard_lock_kit",
-      "price": 120
-    },
-    {
-      "item_id": "item_hololock_kit",
-      "price": 150
+      "item_id": "item_gun_oil_kit",
+      "price": 20
     },
     {
       "item_id": "item_jerry_can",
       "price": 35
+    },
+    {
+      "item_id": "item_field_welder",
+      "price": 45
     },
     {
       "item_id": "item_smoked_lenses",
@@ -342,8 +326,24 @@
       "price": 60
     },
     {
-      "item_id": "item_gun_oil_kit",
-      "price": 20
+      "item_id": "item_mystery_component",
+      "price": 70
+    },
+    {
+      "item_id": "item_keycard_lock_kit",
+      "price": 120
+    },
+    {
+      "item_id": "item_pipe_wrench",
+      "price": 125
+    },
+    {
+      "item_id": "item_hololock_kit",
+      "price": 150
+    },
+    {
+      "item_id": "item_thermal_lance",
+      "price": 8820
     }
   ],
   "vendor_restock_rate": 1,

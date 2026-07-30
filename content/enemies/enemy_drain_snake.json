@@ -112,16 +112,13 @@
       "weight": 20
     },
     {
-      "credits": [
-        4,
-        14
-      ],
-      "item": "item_credit_chip",
+      "item": "item_scrap_metal",
       "qty": [
-        1,
-        1
+        2,
+        3
       ],
-      "weight": 20
+      "weight": 3,
+      "super": true
     }
   ],
   "name": "drain snake",

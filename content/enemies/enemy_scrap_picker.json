@@ -114,9 +114,17 @@
       "weight": 70
     },
     {
+      "item": "item_ration",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 30
+    },
+    {
       "credits": [
-        5,
-        20
+        10,
+        30
       ],
       "item": "item_credit_chip",
       "qty": [
@@ -126,12 +134,17 @@
       "weight": 50
     },
     {
-      "item": "item_ration",
+      "credits": [
+        55,
+        135
+      ],
+      "item": "item_credit_chip",
       "qty": [
         1,
         1
       ],
-      "weight": 30
+      "weight": 3,
+      "super": true
     }
   ],
   "name": "Scrap-Picker",

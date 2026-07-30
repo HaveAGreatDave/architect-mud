@@ -233,24 +233,20 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_pipe_wrench",
-      "price": 30
-    },
-    {
-      "item_id": "item_jerry_can",
-      "price": 35
-    },
-    {
       "item_id": "item_scrap_metal",
       "price": 4
+    },
+    {
+      "item_id": "item_tangled_wire",
+      "price": 6
     },
     {
       "item_id": "item_duct_tape",
       "price": 10
     },
     {
-      "item_id": "item_tangled_wire",
-      "price": 6
+      "item_id": "item_jerry_can",
+      "price": 35
     },
     {
       "item_id": "item_mystery_component",
@@ -259,6 +255,10 @@
     {
       "item_id": "item_keycard_lock_kit",
       "price": 120
+    },
+    {
+      "item_id": "item_pipe_wrench",
+      "price": 125
     }
   ],
   "vendor_restock_rate": 1,

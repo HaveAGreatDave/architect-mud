@@ -135,9 +135,17 @@
       "weight": 30
     },
     {
+      "item": "item_rag_bandage",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 18
+    },
+    {
       "credits": [
-        40,
-        95
+        85,
+        205
       ],
       "item": "item_credit_chip",
       "qty": [
@@ -147,12 +155,17 @@
       "weight": 26
     },
     {
-      "item": "item_rag_bandage",
+      "credits": [
+        130,
+        345
+      ],
+      "item": "item_credit_chip",
       "qty": [
         1,
-        2
+        1
       ],
-      "weight": 18
+      "weight": 3,
+      "super": true
     }
   ],
   "name": "six-arm thresher",

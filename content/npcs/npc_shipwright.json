@@ -172,16 +172,16 @@
       "price": 8
     },
     {
-      "item_id": "item_pipe_wrench",
-      "price": 45
-    },
-    {
       "item_id": "canteen",
       "price": 15
     },
     {
       "item_id": "item_rusty_knife",
-      "price": 28
+      "price": 65
+    },
+    {
+      "item_id": "item_pipe_wrench",
+      "price": 125
     }
   ],
   "vendor_restock_rate": 1,

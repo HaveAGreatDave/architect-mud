@@ -113,16 +113,13 @@
       "weight": 25
     },
     {
-      "credits": [
-        3,
-        12
-      ],
-      "item": "item_credit_chip",
+      "item": "item_scrap_metal",
       "qty": [
-        1,
-        1
+        2,
+        3
       ],
-      "weight": 25
+      "weight": 3,
+      "super": true
     }
   ],
   "name": "sewer rat",

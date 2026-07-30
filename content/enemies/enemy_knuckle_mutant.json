@@ -102,9 +102,17 @@
       "weight": 26
     },
     {
+      "item": "item_bandage",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 12
+    },
+    {
       "credits": [
-        22,
-        55
+        45,
+        115
       ],
       "item": "item_credit_chip",
       "qty": [
@@ -114,12 +122,17 @@
       "weight": 22
     },
     {
-      "item": "item_bandage",
+      "credits": [
+        105,
+        280
+      ],
+      "item": "item_credit_chip",
       "qty": [
         1,
         1
       ],
-      "weight": 12
+      "weight": 3,
+      "super": true
     }
   ],
   "name": "knuckle-dragger",

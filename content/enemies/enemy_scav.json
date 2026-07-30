@@ -128,8 +128,8 @@
     },
     {
       "credits": [
-        5,
-        20
+        10,
+        30
       ],
       "item": "item_credit_chip",
       "qty": [
@@ -137,6 +137,19 @@
         1
       ],
       "weight": 60
+    },
+    {
+      "credits": [
+        70,
+        180
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 3,
+      "super": true
     }
   ],
   "name": "Desperate Scavenger",

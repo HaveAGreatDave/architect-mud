@@ -94,35 +94,23 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
+      "item_id": "item_foam_earplugs",
+      "price": 3
+    },
+    {
       "item_id": "item_soap_block",
       "price": 5
-    },
-    {
-      "item_id": "item_towel_rough",
-      "price": 9
-    },
-    {
-      "item_id": "item_razor_straight",
-      "price": 34
     },
     {
       "item_id": "item_nose_plugs",
       "price": 6
     },
     {
-      "item_id": "item_foam_earplugs",
-      "price": 3
-    },
-    {
-      "item_id": "item_sandals_strap",
-      "price": 10
-    },
-    {
-      "item_id": "item_undershirt_ribbed",
-      "price": 9
-    },
-    {
       "item_id": "item_underwear_male",
+      "price": 6
+    },
+    {
+      "item_id": "item_underwear_female_bottom",
       "price": 6
     },
     {
@@ -130,16 +118,28 @@
       "price": 7
     },
     {
-      "item_id": "item_underwear_female_bottom",
-      "price": 6
+      "item_id": "item_tote_canvas",
+      "price": 7
+    },
+    {
+      "item_id": "item_towel_rough",
+      "price": 9
+    },
+    {
+      "item_id": "item_undershirt_ribbed",
+      "price": 9
+    },
+    {
+      "item_id": "item_sandals_strap",
+      "price": 10
     },
     {
       "item_id": "item_slippers_monster",
       "price": 11
     },
     {
-      "item_id": "item_tote_canvas",
-      "price": 7
+      "item_id": "item_razor_straight",
+      "price": 140
     }
   ],
   "vendor_restock_rate": 3,

@@ -124,8 +124,8 @@
     },
     {
       "credits": [
-        14,
-        34
+        30,
+        75
       ],
       "item": "item_credit_chip",
       "qty": [
@@ -133,6 +133,19 @@
         1
       ],
       "weight": 22
+    },
+    {
+      "credits": [
+        75,
+        205
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 3,
+      "super": true
     }
   ],
   "name": "tunnel horror",

@@ -503,59 +503,9 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_flashlight",
-      "price": 55,
-      "stock": 10
-    },
-    {
-      "item_id": "item_battery",
-      "price": 12,
-      "stock": 40
-    },
-    {
-      "item_id": "item_bat",
-      "price": 45,
-      "stock": 8
-    },
-    {
-      "item_id": "item_tire_iron",
-      "price": 28,
-      "stock": 6
-    },
-    {
-      "item_id": "item_scrap_shiv",
-      "price": 12,
-      "stock": 10
-    },
-    {
-      "item_id": "item_padded_jacket",
-      "price": 60,
-      "stock": 6
-    },
-    {
-      "item_id": "item_kevlar_raincoat",
-      "price": 180,
-      "stock": 3
-    },
-    {
-      "item_id": "item_bump_cap",
-      "price": 30,
-      "stock": 8
-    },
-    {
-      "item_id": "item_work_gloves",
-      "price": 10,
-      "stock": 10
-    },
-    {
-      "item_id": "item_steel_toe_boots",
-      "price": 40,
-      "stock": 6
-    },
-    {
-      "item_id": "item_basic_pants",
-      "price": 10,
-      "stock": 10
+      "item_id": "item_water_bottle",
+      "price": 5,
+      "stock": 30
     },
     {
       "item_id": "item_rag_bandage",
@@ -563,29 +513,14 @@
       "stock": 30
     },
     {
-      "item_id": "item_bandage",
-      "price": 12,
-      "stock": 20
-    },
-    {
-      "item_id": "item_pain_pills",
-      "price": 16,
-      "stock": 15
-    },
-    {
-      "item_id": "item_medkit",
-      "price": 60,
-      "stock": 4
-    },
-    {
-      "item_id": "item_beef_jerky",
-      "price": 9,
-      "stock": 25
-    },
-    {
       "item_id": "item_bar_jerky",
       "price": 6,
       "stock": 20
+    },
+    {
+      "item_id": "item_bloodworm_bait",
+      "price": 6,
+      "stock": 30
     },
     {
       "item_id": "item_energy_drink",
@@ -593,13 +528,43 @@
       "stock": 25
     },
     {
-      "item_id": "item_water_bottle",
-      "price": 5,
+      "item_id": "item_beef_jerky",
+      "price": 9,
+      "stock": 25
+    },
+    {
+      "item_id": "item_foam_earplugs",
+      "price": 9,
       "stock": 30
+    },
+    {
+      "item_id": "item_work_gloves",
+      "price": 10,
+      "stock": 10
+    },
+    {
+      "item_id": "item_basic_pants",
+      "price": 10,
+      "stock": 10
     },
     {
       "item_id": "item_ration",
       "price": 10,
+      "stock": 20
+    },
+    {
+      "item_id": "item_nose_plugs",
+      "price": 11,
+      "stock": 30
+    },
+    {
+      "item_id": "item_battery",
+      "price": 12,
+      "stock": 40
+    },
+    {
+      "item_id": "item_bandage",
+      "price": 12,
       "stock": 20
     },
     {
@@ -608,19 +573,38 @@
       "stock": 20
     },
     {
+      "item_id": "item_pain_pills",
+      "price": 16,
+      "stock": 15
+    },
+    {
+      "item_id": "item_bump_cap",
+      "price": 30,
+      "stock": 8
+    },
+    {
+      "item_id": "item_gun_oil_kit",
+      "price": 30
+    },
+    {
+      "item_id": "item_steel_toe_boots",
+      "price": 40,
+      "stock": 6
+    },
+    {
+      "item_id": "item_scrap_shiv",
+      "price": 50,
+      "stock": 10
+    },
+    {
       "item_id": "item_fishing_rod",
       "price": 50,
       "stock": 5
     },
     {
-      "item_id": "item_bloodworm_bait",
-      "price": 6,
-      "stock": 30
-    },
-    {
-      "item_id": "item_jerry_can_full",
-      "price": 120,
-      "stock": 2
+      "item_id": "item_flashlight",
+      "price": 55,
+      "stock": 10
     },
     {
       "item_id": "item_mining_pick",
@@ -628,19 +612,19 @@
       "stock": 4
     },
     {
-      "item_id": "item_foam_earplugs",
-      "price": 9,
-      "stock": 30
-    },
-    {
-      "item_id": "item_nose_plugs",
-      "price": 11,
-      "stock": 30
-    },
-    {
       "item_id": "item_ear_defenders",
       "price": 55,
       "stock": 6
+    },
+    {
+      "item_id": "item_padded_jacket",
+      "price": 60,
+      "stock": 6
+    },
+    {
+      "item_id": "item_medkit",
+      "price": 60,
+      "stock": 4
     },
     {
       "item_id": "item_respirator_mask",
@@ -648,13 +632,29 @@
       "stock": 5
     },
     {
-      "item_id": "item_gun_oil_kit",
-      "price": 30
-    },
-    {
       "item_id": "item_pry_deck",
       "price": 95,
       "stock": 3
+    },
+    {
+      "item_id": "item_tire_iron",
+      "price": 120,
+      "stock": 6
+    },
+    {
+      "item_id": "item_jerry_can_full",
+      "price": 120,
+      "stock": 2
+    },
+    {
+      "item_id": "item_kevlar_raincoat",
+      "price": 180,
+      "stock": 3
+    },
+    {
+      "item_id": "item_bat",
+      "price": 190,
+      "stock": 8
     }
   ],
   "vendor_restock_rate": 1,

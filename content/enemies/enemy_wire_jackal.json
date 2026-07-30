@@ -101,6 +101,15 @@
         1
       ],
       "weight": 18
+    },
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        2,
+        3
+      ],
+      "weight": 3,
+      "super": true
     }
   ],
   "name": "wire jackal",

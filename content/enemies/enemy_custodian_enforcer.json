@@ -107,8 +107,8 @@
     },
     {
       "credits": [
-        25,
-        60
+        40,
+        90
       ],
       "item": "item_credit_chip",
       "qty": [
@@ -116,6 +116,19 @@
         1
       ],
       "weight": 60
+    },
+    {
+      "credits": [
+        130,
+        330
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 3,
+      "super": true
     }
   ],
   "name": "Custodian Enforcer",

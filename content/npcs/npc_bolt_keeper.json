@@ -94,84 +94,84 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_pipe_wrench",
-      "price": 24
-    },
-    {
-      "item_id": "item_tire_iron",
-      "price": 18
-    },
-    {
-      "item_id": "item_sledgehammer",
-      "price": 40
-    },
-    {
-      "item_id": "item_duct_tape",
-      "price": 9
-    },
-    {
-      "item_id": "item_industrial_tape",
-      "price": 14
-    },
-    {
-      "item_id": "item_work_gloves",
-      "price": 12
-    },
-    {
-      "item_id": "item_insulated_gloves",
-      "price": 20
-    },
-    {
-      "item_id": "item_mining_pick",
-      "price": 45
-    },
-    {
-      "item_id": "item_fishing_rod",
-      "price": 38
-    },
-    {
-      "item_id": "item_solvent",
-      "price": 16
-    },
-    {
-      "item_id": "item_gun_oil_kit",
-      "price": 26
-    },
-    {
-      "item_id": "item_salvaged_wiring",
-      "price": 10
-    },
-    {
       "item_id": "item_scrap_metal",
       "price": 6
-    },
-    {
-      "item_id": "item_steel_plate",
-      "price": 22
-    },
-    {
-      "item_id": "item_jerry_can",
-      "price": 18
-    },
-    {
-      "item_id": "item_propane_canister",
-      "price": 30
-    },
-    {
-      "item_id": "item_mop",
-      "price": 14
-    },
-    {
-      "item_id": "item_flashlight",
-      "price": 28
     },
     {
       "item_id": "item_battery",
       "price": 6
     },
     {
+      "item_id": "item_duct_tape",
+      "price": 9
+    },
+    {
+      "item_id": "item_salvaged_wiring",
+      "price": 10
+    },
+    {
+      "item_id": "item_work_gloves",
+      "price": 12
+    },
+    {
+      "item_id": "item_industrial_tape",
+      "price": 14
+    },
+    {
+      "item_id": "item_mop",
+      "price": 14
+    },
+    {
+      "item_id": "item_solvent",
+      "price": 16
+    },
+    {
+      "item_id": "item_jerry_can",
+      "price": 18
+    },
+    {
+      "item_id": "item_insulated_gloves",
+      "price": 20
+    },
+    {
+      "item_id": "item_steel_plate",
+      "price": 22
+    },
+    {
+      "item_id": "item_gun_oil_kit",
+      "price": 26
+    },
+    {
+      "item_id": "item_flashlight",
+      "price": 28
+    },
+    {
+      "item_id": "item_propane_canister",
+      "price": 30
+    },
+    {
+      "item_id": "item_fishing_rod",
+      "price": 38
+    },
+    {
+      "item_id": "item_mining_pick",
+      "price": 45
+    },
+    {
       "item_id": "item_lockpick_roll",
       "price": 55
+    },
+    {
+      "item_id": "item_tire_iron",
+      "price": 120
+    },
+    {
+      "item_id": "item_pipe_wrench",
+      "price": 125
+    },
+    {
+      "item_id": "item_sledgehammer",
+      "price": 1430
     }
   ],
   "vendor_restock_rate": 3,

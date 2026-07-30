@@ -115,6 +115,23 @@
         1
       ],
       "weight": 10
+    },
+    {
+      "item": "item_scrap_ore",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 30
+    },
+    {
+      "item": "item_scrap_ore",
+      "qty": [
+        2,
+        3
+      ],
+      "weight": 3,
+      "super": true
     }
   ],
   "name": "harbour lurker",

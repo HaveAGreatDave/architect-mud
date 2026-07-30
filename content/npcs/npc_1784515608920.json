@@ -367,34 +367,14 @@
       "price": 70
     },
     {
-      "item_id": "item_combat_knife",
-      "min_trust": 0,
-      "price": 77
-    },
-    {
-      "item_id": "item_taser",
-      "min_trust": 0,
-      "price": 91
-    },
-    {
-      "item_id": "item_holdout_pistol",
-      "min_trust": 0,
-      "price": 126
-    },
-    {
       "item_id": "item_screamers",
       "min_trust": 0,
       "price": 140
     },
     {
-      "item_id": "item_scrap_pistol",
+      "item_id": "item_combat_knife",
       "min_trust": 0,
-      "price": 168
-    },
-    {
-      "item_id": "item_riot_shotgun",
-      "min_trust": 0,
-      "price": 308
+      "price": 230
     },
     {
       "item_id": "item_khole",
@@ -402,19 +382,9 @@
       "price": 252
     },
     {
-      "item_id": "item_hack_deck",
+      "item_id": "item_taser",
       "min_trust": 0,
-      "price": 630
-    },
-    {
-      "item_id": "item_raw_tobacco_crop",
-      "min_trust": 10,
-      "price": 1008
-    },
-    {
-      "item_id": "item_raw_cannabis_crop",
-      "min_trust": 10,
-      "price": 1512
+      "price": 275
     },
     {
       "item_id": "item_raw_slow",
@@ -432,19 +402,19 @@
       "price": 280
     },
     {
-      "item_id": "item_raw_salvia",
-      "min_trust": 14,
-      "price": 1008
-    },
-    {
-      "item_id": "item_raw_nitrous",
-      "min_trust": 14,
-      "price": 1232
+      "item_id": "item_holdout_pistol",
+      "min_trust": 0,
+      "price": 380
     },
     {
       "item_id": "item_raw_dxm",
       "min_trust": 20,
       "price": 504
+    },
+    {
+      "item_id": "item_scrap_pistol",
+      "min_trust": 0,
+      "price": 505
     },
     {
       "item_id": "item_raw_psilocybin",
@@ -477,6 +447,11 @@
       "price": 588
     },
     {
+      "item_id": "item_hack_deck",
+      "min_trust": 0,
+      "price": 630
+    },
+    {
       "item_id": "item_raw_static",
       "min_trust": 28,
       "price": 868
@@ -492,9 +467,24 @@
       "price": 868
     },
     {
-      "item_id": "item_raw_dmt",
-      "min_trust": 28,
-      "price": 1120
+      "item_id": "item_riot_shotgun",
+      "min_trust": 0,
+      "price": 925
+    },
+    {
+      "item_id": "item_raw_tobacco_crop",
+      "min_trust": 10,
+      "price": 1008
+    },
+    {
+      "item_id": "item_raw_salvia",
+      "min_trust": 14,
+      "price": 1008
+    },
+    {
+      "item_id": "item_raw_ibogaine",
+      "min_trust": 50,
+      "price": 1008
     },
     {
       "item_id": "item_raw_coldfire",
@@ -547,14 +537,24 @@
       "price": 1058
     },
     {
-      "item_id": "item_raw_ibogaine",
-      "min_trust": 50,
-      "price": 1008
+      "item_id": "item_raw_dmt",
+      "min_trust": 28,
+      "price": 1120
+    },
+    {
+      "item_id": "item_raw_nitrous",
+      "min_trust": 14,
+      "price": 1232
+    },
+    {
+      "item_id": "item_raw_cannabis_crop",
+      "min_trust": 10,
+      "price": 1512
     },
     {
       "item_id": "item_blackvane_ripsaw",
       "min_trust": 14,
-      "price": 672
+      "price": 2015
     }
   ],
   "vendor_restock_rate": 1,

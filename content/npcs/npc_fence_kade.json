@@ -102,7 +102,7 @@
     },
     {
       "item_id": "item_holdout_pistol",
-      "price": 126,
+      "price": 380,
       "stock": 4
     },
     {
@@ -112,7 +112,7 @@
     },
     {
       "item_id": "item_breacher_shotgun",
-      "price": 868,
+      "price": 2605,
       "stock": 2
     }
   ],

@@ -79,7 +79,33 @@
   "hit": 7,
   "hp_max": 150,
   "id": "enemy_wanted_heavy_enforcer",
-  "loot_table": [],
+  "loot_table": [
+    {
+      "credits": [
+        150,
+        360
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 20
+    },
+    {
+      "credits": [
+        595,
+        1575
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 3,
+      "super": true
+    }
+  ],
   "name": "SPECTER-PD Heavy Enforcer",
   "weapon": [
     {

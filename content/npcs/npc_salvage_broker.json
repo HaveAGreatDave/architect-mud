@@ -128,15 +128,15 @@
     },
     {
       "item_id": "item_rusty_knife",
-      "price": 30
+      "price": 65
     },
     {
       "item_id": "item_pipe_wrench",
-      "price": 50
+      "price": 125
     },
     {
       "item_id": "item_taser",
-      "price": 110
+      "price": 275
     }
   ],
   "vendor_restock_rate": 1,

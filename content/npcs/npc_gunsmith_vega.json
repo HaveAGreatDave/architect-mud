@@ -86,11 +86,6 @@
       "stock": 15
     },
     {
-      "item_id": "item_combat_knife",
-      "price": 77,
-      "stock": 10
-    },
-    {
       "item_id": "item_ballistic_helm",
       "price": 126,
       "stock": 6
@@ -106,18 +101,23 @@
       "stock": 5
     },
     {
+      "item_id": "item_combat_knife",
+      "price": 230,
+      "stock": 10
+    },
+    {
       "item_id": "item_tidewell_diving_knife",
       "price": 266,
       "stock": 4
     },
     {
       "item_id": "item_riot_shotgun",
-      "price": 308,
+      "price": 925,
       "stock": 4
     },
     {
       "item_id": "item_ferris_model9",
-      "price": 322,
+      "price": 965,
       "stock": 6
     }
   ],
