@@ -110,6 +110,12 @@ REM row. Converges: a fixed id list of dead content, so it is a permanent no-op
 REM once they are gone and can never match an item authored later.
 call :run "oneshots/retire-items.mjs"      "delete retired item rows (safe: skips owned)"
 
+REM Cuts the NPC + enemy trading cards for the open series. They are DERIVED from
+REM content, so they are runtime rows the deploy structurally cannot carry.
+REM Converges: strikeSeries skips any subject already carded, so a later run only
+REM cards the NPCs and enemies added since. It can never restat or rewrite a card.
+call :run "oneshots/strike-card-series.mjs" "strike NPC + enemy trading cards"
+
 REM --- Policy, not repair: opt in explicitly ---------------------------------
 REM Lifts players carrying negative net XP after a stat retune up to exactly 0.
 REM That debt is real and deliberate - writing it off is a decision, so it only

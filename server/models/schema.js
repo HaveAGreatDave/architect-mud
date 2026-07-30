@@ -2393,6 +2393,38 @@ export const SCHEMA_SQL = `
     created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
 
+  -- TRADING CARDS (plugins/cards). A card is a frozen snapshot of somebody —
+  -- a player who minted themselves, or an NPC/enemy struck from world content
+  -- when a series opened. text_blocks holds the RENDERED strings, never a
+  -- recipe: an item renamed in content later must not rewrite an old card.
+  -- pool_weight 0 = never appears in a pack (the admin-only 'architect' rank).
+  CREATE TABLE IF NOT EXISTS cards (
+    id           SERIAL PRIMARY KEY,
+    series       INTEGER NOT NULL DEFAULT 1,
+    serial       INTEGER NOT NULL,
+    subject_type TEXT NOT NULL,
+    subject_ref  TEXT NOT NULL,
+    subject_name TEXT NOT NULL,
+    body         TEXT,
+    spec         JSONB NOT NULL DEFAULT '{}',
+    text_blocks  JSONB NOT NULL DEFAULT '{}',
+    rarity       TEXT NOT NULL DEFAULT 'common',
+    power        INTEGER NOT NULL DEFAULT 0,
+    zone_id      TEXT,
+    pool_weight  REAL NOT NULL DEFAULT 0,
+    minted_at    BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    UNIQUE (series, serial)
+  );
+  CREATE TABLE IF NOT EXISTS card_holdings (
+    player_id  TEXT NOT NULL,          -- players.id is TEXT
+    card_id    INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+    qty        INTEGER NOT NULL DEFAULT 1,
+    first_got  BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    PRIMARY KEY (player_id, card_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_cards_pool ON cards(series, pool_weight);
+  CREATE INDEX IF NOT EXISTS idx_cards_subject ON cards(subject_type, subject_ref);
+
   -- Hot-path indexes: per-zone entity fetches (room render), container lookups,
   -- and jsonb tag gates. Kept at the end of the script — some indexed columns
   -- (items.tags, doors.tags) are added by ALTERs above, so a fresh DB must

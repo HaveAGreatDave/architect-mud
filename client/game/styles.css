@@ -15011,3 +15011,153 @@ body.intro-cine-open { overflow: hidden; }
 	letter-spacing: 0.5px;
 	text-shadow: 0 0 6px color-mix(in srgb, var(--orange) 45%, transparent);
 }
+
+
+/* ═══ TRADING CARDS (plugins/cards) ═══════════════════════════════════════════
+   Three surfaces: the machine's room panel, a rendered card face, and the pack
+   opening. The opening is the product — the reveal is sorted worst-to-best
+   server-side, so all the CSS has to do is stagger it and let the last one land
+   hardest. Everything collapses to final state under reduced-motion, because the
+   ORDER is information and only the motion is decoration. */
+
+.cardmach {
+	display: block;
+	margin: 8px 0;
+	border: 1px solid var(--border);
+	background: linear-gradient(180deg, #101018, #07070d);
+	max-width: 340px;
+}
+.cardmach-top {
+	display: flex;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 7px 11px;
+	border-bottom: 1px solid var(--border);
+	background: linear-gradient(90deg, var(--accent-dim), #1a0c1a);
+	font-size: 0.78em;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: var(--text);
+}
+.cardmach-mint .cardmach-top { background: linear-gradient(90deg, #1a1206, #0d0a04); color: var(--yellow); }
+.cardmach-pwr { color: var(--green); }
+.cardmach-dead .cardmach-pwr { color: #4a2a2a; }
+.cardmach-win {
+	display: block;
+	margin: 10px 11px;
+	padding: 9px 10px;
+	border: 1px solid var(--border);
+	background: #04040a;
+	color: var(--green);
+	font-size: 0.85em;
+	line-height: 1.65;
+	white-space: pre-line;
+}
+.cardmach-mint .cardmach-win { color: var(--yellow); }
+.cardmach-off { color: #44445c; text-align: center; }
+.cardmach-buy {
+	display: block;
+	margin: 0 11px 11px;
+	padding: 8px;
+	text-align: center;
+	font-size: 0.8em;
+	letter-spacing: 0.18em;
+	background: var(--accent);
+	color: var(--accent-ink);
+	border-radius: 2px;
+}
+.cardmach-mint .cardmach-buy { background: var(--yellow); }
+.cardmach-buy:hover { filter: brightness(1.15); }
+
+/* A card face, rendered as text. Rarity tints the frame and nothing else —
+   the writing is the card. */
+.card-face {
+	display: block;
+	margin: 6px 0;
+	padding: 11px 13px;
+	max-width: 460px;
+	border: 1px solid var(--border);
+	border-left-width: 3px;
+	background: linear-gradient(180deg, var(--bg2), #07070d);
+}
+.card-uncommon { border-left-color: var(--green); }
+.card-rare { border-left-color: var(--cyan); }
+.card-epic { border-left-color: var(--purple); }
+.card-legendary { border-left-color: var(--orange); }
+.card-architect { border-left-color: var(--yellow); box-shadow: 0 0 22px -8px var(--yellow); }
+.card-serial { display: block; font-size: 0.72em; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-dim); }
+.card-handle { display: block; font-size: 1.5em; font-weight: 700; letter-spacing: 0.05em; margin: 2px 0 1px; }
+.card-sub { display: block; font-size: 0.78em; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
+.card-block { display: block; margin-top: 9px; font-size: 0.92em; }
+.card-lbl { display: block; font-size: 0.72em; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 3px; }
+.card-quote { display: block; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); color: var(--yellow); }
+.card-power { display: block; margin-top: 9px; font-size: 0.75em; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-dim); }
+.card-power b { color: var(--yellow); font-size: 1.5em; letter-spacing: 0; }
+.card-rank { font-weight: 700; }
+.card-r-uncommon { color: var(--green); }
+.card-r-rare { color: var(--cyan); }
+.card-r-epic { color: var(--purple); }
+.card-r-legendary { color: var(--orange); }
+.card-r-architect { color: var(--yellow); }
+.card-shelf-head { display: block; font-size: 0.8em; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+.card-shelf-row { display: block; margin: 2px 0; }
+
+/* THE OPENING. Each pull flips in on a stagger; the last one is the hit and
+   gets both a longer beat and a bloom. Delays are per-position because the
+   server already sorted the sleeve — position IS rarity order. */
+.card-sleeve { display: block; margin: 6px 0; }
+.card-tear {
+	display: block;
+	font-size: 0.85em;
+	letter-spacing: 0.1em;
+	color: var(--text-dim);
+	margin-bottom: 6px;
+	animation: cardTear 0.34s ease-out backwards;
+}
+@keyframes cardTear { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.card-pull {
+	display: block;
+	padding: 4px 0;
+	border-bottom: 1px dotted var(--border);
+	animation: cardFlip 0.34s cubic-bezier(0.2, 0.9, 0.3, 1.2) backwards;
+}
+@keyframes cardFlip {
+	from { opacity: 0; transform: perspective(400px) rotateX(-82deg); filter: brightness(2.4); }
+	to { opacity: 1; transform: none; filter: none; }
+}
+.card-pull:nth-child(2) { animation-delay: 0.45s; }
+.card-pull:nth-child(3) { animation-delay: 0.85s; }
+.card-pull:nth-child(4) { animation-delay: 1.25s; }
+.card-pull:nth-child(5) { animation-delay: 1.65s; }
+.card-pull:nth-child(6) { animation-delay: 2.05s; }
+.card-pull:nth-child(7) { animation-delay: 2.45s; }
+.card-pull:nth-child(8) { animation-delay: 2.85s; }
+.card-pull:nth-child(9) { animation-delay: 3.25s; }
+.card-pull:nth-child(10) { animation-delay: 3.65s; }
+.card-pull-name { color: var(--text); letter-spacing: 0.04em; }
+/* The hit: an extra beat before it turns, then a bloom. The pause is the tell. */
+.card-pull-hit {
+	margin-top: 3px;
+	padding: 7px 9px;
+	border-bottom: 1px solid currentColor;
+	animation-delay: inherit;
+}
+.card-pull-hit.card-pull-uncommon { color: var(--green); background: linear-gradient(90deg, color-mix(in srgb, var(--green) 13%, transparent), transparent); }
+.card-pull-hit.card-pull-rare { color: var(--cyan); background: linear-gradient(90deg, color-mix(in srgb, var(--cyan) 13%, transparent), transparent); }
+.card-pull-hit.card-pull-epic { color: var(--purple); background: linear-gradient(90deg, color-mix(in srgb, var(--purple) 15%, transparent), transparent); }
+.card-pull-hit.card-pull-legendary { color: var(--orange); background: linear-gradient(90deg, color-mix(in srgb, var(--orange) 16%, transparent), transparent); }
+.card-pull-hit .card-pull-name { font-weight: 700; color: currentColor; }
+.card-dupe {
+	font-size: 0.72em;
+	letter-spacing: 0.1em;
+	color: var(--orange);
+	border: 1px solid var(--orange);
+	border-radius: 2px;
+	padding: 0 4px;
+	margin-left: 5px;
+}
+.card-preview { display: block; opacity: 0.92; }
+
+@media (prefers-reduced-motion: reduce) {
+	.card-pull, .card-tear { animation: none !important; }
+}

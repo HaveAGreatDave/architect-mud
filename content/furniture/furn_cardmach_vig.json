@@ -1,0 +1,18 @@
+{
+  "description": "A card machine on the casino floor, which is either a joke about gambling or the least subtle thing in the room.",
+  "flags": {
+    "vends_packs": 1,
+    "interactions": [],
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cardmach_vig",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Rack ’Em card machine",
+  "object_type": "fixture",
+  "power_draw_kw": 0.4,
+  "price": 0,
+  "zone_id": "zone_casino_interior"
+}

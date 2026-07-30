@@ -294,6 +294,14 @@ export const REGISTRY = [
   { table: 'email_verification_tokens', class: 'player' },
 
   // ── runtime: world state regenerated / accumulated at play time ──
+  // Trading cards (plugins/cards). Deliberately NOT content, even though the NPC
+  // and enemy cards are derived from content: they are regenerated on any DB by
+  // `strikeSeries()`, which is idempotent, so exporting them would commit a
+  // derived artifact — and the same table holds player-minted cards, which are
+  // as private as inventory. One class for one table; the strike rebuilds it.
+  { table: 'cards', class: 'runtime', readTier: 'cold',
+    runtimeInserts: 'cards plugin — `mint` (player) and strikeSeries() (NPC/enemy, on series open)' },
+  { table: 'card_holdings', class: 'player' },   // somebody's shelf; never leaves the DB
   { table: 'script_waits', class: 'runtime' }, // parked long `wait` continuations; deleted on resume
   { table: 'world_events', class: 'runtime' },
   { table: 'void_traces', class: 'runtime' },      // voidwalking — scrawls/corpses left in the void, purged as windows rotate

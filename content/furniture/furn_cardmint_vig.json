@@ -1,0 +1,18 @@
+{
+  "description": "A mint press wedged between two slot banks, housing scratched to hell and lit like a prize. The house takes a picture of you at your best and then keeps it, which is the most honest thing in the building.",
+  "flags": {
+    "card_mint": true,
+    "interactions": [],
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cardmint_vig",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the Vig house press",
+  "object_type": "terminal",
+  "power_draw_kw": 1.2,
+  "price": 0,
+  "zone_id": "zone_casino_interior"
+}
