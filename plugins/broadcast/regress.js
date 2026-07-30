@@ -337,6 +337,21 @@ export default async function regress({ check, run, getPlayer }) {
     const g3 = _test.assembleGameshowGraph(gsScript, 'bc_gs_rx', 'day2', normalize);
     check('gameshow: a new day bucket deals a different episode',
       JSON.stringify(g3.nodes) !== JSON.stringify(g1.nodes), 'two days produced the same show');
+    // The block is longer than the show, so the walker replays it — and a replay of the
+    // SAME lots hands out the answers to anyone who sat through one pass.
+    const gp1 = _test.assembleGameshowGraph(gsScript, 'bc_gs_rx', 'day1', normalize, undefined, 1);
+    check('gameshow: the second pass of a block deals a different episode',
+      JSON.stringify(gp1.nodes) !== JSON.stringify(g1.nodes), 'the replay repeated the same lots');
+    check('gameshow: a pass re-deal keeps the day _broadcastId (no mid-block seek)',
+      gp1._broadcastId === g1._broadcastId, `${gp1._broadcastId} vs ${g1._broadcastId}`);
+    check('gameshow: the episode ends on a pass-bump node',
+      Object.values(g1.nodes).some(n => n.type === 'gameshow_endpass'), 'no gameshow_endpass node');
+    check('gameshow: the pass counter rolls and resets with the day',
+      _test.gameshowPassIndex('ch_gs_pass', 'day1') === 0
+      && (_test.gameshowEndPass('ch_gs_pass'), _test.gameshowPassIndex('ch_gs_pass') > 0)
+      && _test.gameshowPassIndex('ch_gs_pass', 'a_brand_new_day') === 0,
+      'pass counter did not roll or did not reset');
+
     check('gameshow: the episode is presence-gated', g1._requireHost === true, String(g1._requireHost));
     check('gameshow: the episode reaches a spoken line', saysOfG(g1).length > 0, String(saysOfG(g1).length));
     check('gameshow: every round is paired with a reveal',
@@ -454,6 +469,15 @@ export default async function regress({ check, run, getPlayer }) {
     const subbed = _test.subTokens('The floor said {guesses}. {verdict}', '__channel_that_never_aired__', {}, {});
     check('gameshow: a reveal line off-round substitutes cleanly',
       !subbed.includes('undefined') && !subbed.includes('{guesses}'), subbed);
+
+    // The title card reads the purses BEFORE a lot has been shown, so the money tokens must
+    // resolve with no round in play — and must never carry a price (that would be the answer).
+    check('gameshow: the money tokens resolve off-round',
+      ['purse_round', 'purse_showcase', 'paid_today'].every(k => typeof bare[k] === 'string' && /\d/.test(bare[k])),
+      JSON.stringify(bare));
+    const card = _test.subTokens('TOP PURSE ₵ {purse_showcase} / PAID ₵{paid_today}', '__channel_that_never_aired__', {}, {});
+    check('gameshow: the title card money line substitutes for real',
+      !card.includes('{') && card.includes(String(_test.gameshowTest.SHOWCASE_PRIZE)), card);
 
     _test.gameshowTest.rounds.delete('ch_gs_rx');
     _test.gameshowTest.rounds.delete('ch_gs_rx2');

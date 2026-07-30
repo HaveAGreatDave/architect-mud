@@ -24,6 +24,7 @@ import { HOCKEY } from './sports/hockey.js';
 import {
   gameshowAiring, gameshowDayBucket, getGameshowGraph, gameshowOpenRound, gameshowResolveRound,
   gameshowTokens, gameshowForgetPlayer, makeGuessCommand, assembleGameshowGraph, gameshowPool,
+  gameshowEndPass, gameshowPassIndex,
   parseGuess, scorePrice, scoreOverUnder, scoreLot, scoreShowcase, _gameshowTest,
 } from './gameshow.js';
 import { installAudienceGate } from './audience.js';
@@ -3016,7 +3017,7 @@ async function getCurrentMessage(state, nowMs) {
       // Game show — today's lots, played out on the studio floor. Only airs in its
       // @airtime slot, same convention as the talk show.
       if (item.playback_mode === 'gameshow' && gameshowAiring(item.gameshowScript, sportsSlotOfDay())) {
-        const gsGraph = getGameshowGraph(item, _normalizeBroadcastGraph);
+        const gsGraph = getGameshowGraph(item, _normalizeBroadcastGraph, state.channelId);
         if (gsGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
           const r = tickBroadcastGraph(state.channelId, gsGraph, state, nowMs, segElapsed);
@@ -3203,7 +3204,7 @@ async function getCurrentMessage(state, nowMs) {
       // show (and unlike news/morning) it owns its whole block, so there's no commercial
       // tail to fill — the rounds pace themselves.
       if (item.playback_mode === 'gameshow' && gameshowAiring(item.gameshowScript, sportsSlotOfDay())) {
-        const gsGraph = getGameshowGraph(item, _normalizeBroadcastGraph);
+        const gsGraph = getGameshowGraph(item, _normalizeBroadcastGraph, state.channelId);
         if (gsGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
           return tickBroadcastGraph(state.channelId, gsGraph, state, nowMs);
@@ -5448,6 +5449,15 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         break;
       }
 
+      // The episode is over. The block it airs in is longer than the show, so the walker
+      // is about to wrap to _start and play it again — this bumps the pass counter so what
+      // it wraps to is a NEW deal, rather than tonight's answers handed out a second time.
+      case 'gameshow_endpass': {
+        gameshowEndPass(channelId);
+        nodeId = _resolveEdge(edges, nodeId, 'next');
+        break;
+      }
+
       case 'title_card': {
         const gid = node.data?.graphic_id;
         const graphic = gid ? graphicsCache.get(gid) : null;
@@ -7451,7 +7461,8 @@ export const _test = {
   talkshowDraw, splitTurns, topicPick, TALKSHOW_GUEST_CALL_LEAD,
   assembleMorningGraph, morningRunInKey,
   assembleGameshowGraph, gameshowAiring, gameshowDayBucket, gameshowPool, gameshowOpenRound,
-  gameshowResolveRound, gameshowTokens, parseGuess, scorePrice, scoreOverUnder, scoreLot,
+  gameshowResolveRound, gameshowTokens, gameshowPassIndex, gameshowEndPass,
+  parseGuess, scorePrice, scoreOverUnder, scoreLot,
   scoreShowcase, gameshowTest: _gameshowTest, normalizeGraph: _normalizeBroadcastGraph,
   subTokens: _subTokens, scriptedTokens: _scriptedTokens, untilFour: _untilFour, otherViewers: _otherViewers,
   garbleLine: _garbleLine, actorImpairment: _actorImpairment,

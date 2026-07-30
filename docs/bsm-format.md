@@ -1070,12 +1070,28 @@ line with nothing behind it.
 title card + theme → announcer cold open → `announce_host` → applause → `audience_call` (teaches
 `guess`) → **for each round**: intro → prize copy → `gameshow_round` → prompt → 1–2 stalls →
 `gameshow_reveal` → reveal line → price card → `verdict_read` → crowd beat (commercial before the
-finale) → applause → `signoff` → `ticker`.
+finale) → applause → `signoff` → `ticker` → `gameshow_endpass`.
 
 `gameshow_round` and `gameshow_reveal` are **instantaneous side-effect nodes**, like `set_flag` —
 they take no on-air time. **The guess window is the host's own patter between them**, so there is
 never dead air waiting on a timer and the window is exactly as long as the show sounds like it is.
 Lengthen it by adding `stall` lines, not by setting a duration.
+
+**One deal per pass, not per day.** A game show owns its whole `@airtime` block, which is longer
+than the show, so when the graph's chain ends the walker wraps to `_start` and plays it again.
+The deal is therefore seeded on `(broadcastId, day, pass)` rather than the day alone — otherwise
+the second run-through was tonight's lots at tonight's prices a second time, and sitting through
+one pass handed you every answer in the next. The terminal `gameshow_endpass` node bumps the pass
+counter, so the re-deal lands exactly when the old episode finishes and never mid-show. The
+graph's `_broadcastId` stays keyed on the DAY on purpose: `tickBroadcastGraph` reseeks by
+slot-elapsed whenever that id changes, and a seek at a pass boundary would fast-forward the new
+episode to near its end. Pass 0 keeps the plain day key, so the first airing is identical on
+every set.
+
+The title card can read the money: `{purse_round}`, `{purse_showcase}` and `{paid_today}` (what
+this channel has actually handed over today, in memory, reset by a restart) resolve with **no
+round in play**, which is what makes them safe on a card that airs before the first lot. They are
+purses, never prices — nothing in them leaks an answer.
 
 ## Prizes and the cooldown
 

@@ -232,7 +232,9 @@ nothing, silently; wire a reader first.
 | `tv` / `tv_dial_freq` / `tv_skin` | broadcast | television set config |
 | `vends` / `vend_line` / `vend_cooldown_s` | vending | dispenser machine: item id to dispense (required), flavour line, per-machine throttle in seconds (default 20; 0 = off) |
 | `fuel_source` | fillable | a fuel point in this zone that `fill` draws from |
-| `woven` | describe (engine) | fold this furniture into the room prose instead of listing it separately |
+| `woven` | describe (engine) | fold this furniture into the room prose instead of listing it separately (the LIVE tier) |
+| `notable` | describe (engine) | force this piece to stay in the `Furniture:` list even when the classifier would demote it to the scenery clause. The override for a stub-described prop that actually matters |
+| `mundane` | describe (engine) | force this piece into the trailing scenery clause even when it affords verbs. The opposite override; wins over `notable` |
 | `vendor_npc_id` | vendor | vendor NPC whose shop this furniture belongs to |
 | `shop_unpaid` | storefront | *(player_inventory custom_data)* the shop zone this row was lifted from and not yet paid for; `buyware` clears it, carrying it out of the shop is `shoplifting` |
 | `shop_display` | storefront | marks the display counter in a player-owned shop. Prose/affordance anchor only — listings are zone-scoped, not stored in this piece |

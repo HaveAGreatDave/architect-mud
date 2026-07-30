@@ -178,9 +178,10 @@ Here's how it actually falls: {order}. You said {guesses}.
 ::endlines
 
 ::lines reveal.overunder
-{guesses}. And it's {prices}. So there's your answer.
-The floor said {guesses}. {prices}. Do the arithmetic you should have done a minute ago.
+The floor said {guesses}. The lots were {prices}. So there's your answer.
+The floor said {guesses}. On the card: {prices}. Do the arithmetic you should have done a minute ago.
 Bids in: {guesses}. The card reads {prices}.
+{guesses}, all of you. It was {prices}. Draw your own conclusions.
 ::endlines
 
 ::lines showcase_reveal

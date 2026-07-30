@@ -68,6 +68,18 @@ const rounds = new Map();
 // The most recent RESOLVED round per channel — what the reveal lines read their tokens
 // from, kept separately so it survives the next round opening.
 const lastResults = new Map();
+// channelId → { bucket, pass } — which run-through of today's slot this channel is on.
+// The episode fills its whole @airtime block, so when the graph's chain ends the walker
+// wraps to _start and plays it AGAIN. Keying the deal on the day alone meant the second
+// run-through had the same lots at the same prices: sit through one pass, sweep the next.
+// The pass counter is bumped by the terminal gameshow_endpass node, so a fresh set of lots
+// is dealt at exactly the moment the old episode finishes — never mid-show.
+const passes = new Map();
+// channelId → { bucket, paid } — credits this channel has actually handed out today, for
+// the title card's money line. In memory like the rest of the runtime; a restart resets it
+// to zero, which is the honest number for "paid out on this transmission".
+const payouts = new Map();
+
 // playerId → epoch ms of last PAID win. Populated lazily when a player guesses (the
 // round window gives the read ~45s to land), so the on-air verdict can be decided
 // synchronously at resolve time without the walker awaiting anything. Persisted to
@@ -188,9 +200,12 @@ function npcGuessValue(price, rand) {
 // Prize names and prices are baked into the text at assemble time (they're already known
 // and deterministic). Only the OUTCOME tokens — {guesses} {contestant} {guess} {winner}
 // {verdict} — resolve at airtime, because only they depend on who was in the room.
-export function assembleGameshowGraph(script, broadcastId, bucket, normalizeGraph, cache) {
+export function assembleGameshowGraph(script, broadcastId, bucket, normalizeGraph, cache, pass = 0) {
   const pools = script.pools || {};
-  const rand = seedFromKey(`${broadcastId}:${bucket}`);
+  // The pass is IN the seed, so each run-through of the block is a different episode —
+  // otherwise the show's own replay hands out the answers. Pass 0 keeps the plain day key,
+  // so the first airing of a given day is still the same show on every set.
+  const rand = seedFromKey(pass ? `${broadcastId}:${bucket}:p${pass}` : `${broadcastId}:${bucket}`);
   const host = script.host || 'npc_host';
   const sidekick = script.sidekick || host;
   const contestantNames = (Array.isArray(script.contestants) ? script.contestants : []).filter(Boolean);
@@ -303,7 +318,12 @@ export function assembleGameshowGraph(script, broadcastId, bucket, normalizeGrap
       price2: prizes[1] ? money(prizes[1].value) : '',
       price3: prizes[2] ? money(prizes[2].value) : '',
       // Every lot with its price, in the order they were shown — for a multi-item reveal.
-      prices: prizes.map(p => `${p.name} at ${money(p.value)}`).join(', '),
+      // The two-lot case (higher-or-lower) gets "against" rather than a comma: this token
+      // is read out right after {guesses}, which is itself a comma list of names, and two
+      // comma lists in a row parse as one run-on roster.
+      prices: prizes.length === 2
+        ? `${prizes[0].name} at ${money(prizes[0].value)} against ${prizes[1].name} at ${money(prizes[1].value)}`
+        : prizes.map(p => `${p.name} at ${money(p.value)}`).join(', '),
       // The right answer, read out as prose.
       order: ranked.map(p => `${p.name} at ${money(p.value)}`).join(', then '),
       total: money(prizes.reduce((s, p) => s + p.value, 0)),
@@ -387,8 +407,16 @@ export function assembleGameshowGraph(script, broadcastId, bucket, normalizeGrap
   // it's the same disclaimer every time by design.
   const crawl = draw(pools, 'ticker', 1, baseTok, rand);
   if (crawl.length) { curAnchor = null; add({ type: 'ticker', text: crawl[0] }); }
+  // Terminal side-effect node: the episode is over, so bump the pass counter and let the
+  // next tick deal a fresh one. Instantaneous, like the round nodes, and _seekGraph walks
+  // past it without firing — a late tuner must not re-deal the show they just tuned into.
+  add({ type: 'gameshow_endpass' });
 
   const graph = normalizeGraph({ _start: startId, nodes });
+  // Deliberately keyed on the DAY, not the pass: tickBroadcastGraph resets the blackboard
+  // (and seeks by slot-elapsed) whenever _broadcastId changes, and a seek at a pass boundary
+  // would fast-forward the new episode to somewhere near its end. The walker is already at
+  // a clean stop when the pass rolls, so it picks the new graph up at _start on its own.
   graph._broadcastId = `${broadcastId}:gameshow:${bucket}`;
   graph._requireHost = true;   // presence-gate: no cast on the floor ⇒ camera-idle → tech-diff
   return graph;
@@ -396,14 +424,32 @@ export function assembleGameshowGraph(script, broadcastId, bucket, normalizeGrap
 
 // Return the day's assembled episode for a gameshow playlist item, rebuilt when the day
 // bucket rolls. Cached on the item between ticks, exactly like the talk show's.
-export function getGameshowGraph(item, normalizeGraph) {
+export function getGameshowGraph(item, normalizeGraph, channelId = null) {
   const script = item.gameshowScript;
   if (!script) return null;
   const bucket = gameshowDayBucket();
-  if (item._gameshowGraph && item._gameshowBucket === bucket) return item._gameshowGraph;
-  item._gameshowGraph = assembleGameshowGraph(script, item.broadcastId, bucket, normalizeGraph);
-  item._gameshowBucket = bucket;
+  const pass = gameshowPassIndex(channelId, bucket);
+  const key = `${bucket}#${pass}`;
+  if (item._gameshowGraph && item._gameshowBucket === key) return item._gameshowGraph;
+  item._gameshowGraph = assembleGameshowGraph(script, item.broadcastId, bucket, normalizeGraph, undefined, pass);
+  item._gameshowBucket = key;
   return item._gameshowGraph;
+}
+
+// Which run-through of today's block this channel is on. Rolls back to 0 when the day does.
+export function gameshowPassIndex(channelId, bucket = gameshowDayBucket()) {
+  if (!channelId) return 0;
+  const cur = passes.get(channelId);
+  if (!cur || cur.bucket !== bucket) { passes.set(channelId, { bucket, pass: 0 }); return 0; }
+  return cur.pass;
+}
+
+// Fired by the terminal node of an episode: the next tick deals a brand-new one.
+export function gameshowEndPass(channelId) {
+  if (!channelId) return;
+  const bucket = gameshowDayBucket();
+  const cur = passes.get(channelId);
+  passes.set(channelId, { bucket, pass: (cur && cur.bucket === bucket ? cur.pass : 0) + 1 });
 }
 
 // ── Scoring ─────────────────────────────────────────────────────────────────
@@ -532,6 +578,9 @@ export function gameshowResolveRound(channelId) {
     } else {
       result.paid = round.purse;
       lastWinAt.set(winner.playerId, Date.now());
+      const bucket = gameshowDayBucket();
+      const tally = payouts.get(channelId);
+      payouts.set(channelId, { bucket, paid: (tally && tally.bucket === bucket ? tally.paid : 0) + round.purse });
       _payWinner(winner.playerId, round.purse, round.grantsItem ? round.prizes[0] : null)
         .catch(e => console.error('[gameshow] payout failed:', e.message));
     }
@@ -572,9 +621,19 @@ async function _payWinner(playerId, amount, prizeItem) {
 // walks past the round nodes without firing them, so a viewer tuning in mid-episode
 // lands on a reveal line with nothing behind it — and must not see `undefined` on air.
 export function gameshowTokens(channelId) {
+  // The money the show is playing for, and what it has actually handed over today. These
+  // three are knowable with no round in play — the title card reads them before a single
+  // lot has been shown — so they sit outside the no-result early return. They are purses,
+  // never prices: nothing here leaks an answer.
+  const tally = payouts.get(channelId);
+  const money_tok = {
+    purse_round: money(ROUND_PRIZE),
+    purse_showcase: money(SHOWCASE_PRIZE),
+    paid_today: money(tally && tally.bucket === gameshowDayBucket() ? tally.paid : 0),
+  };
   const res = lastResults.get(channelId);
   if (!res) {
-    return { guesses: 'the studio', contestant: 'our contestant', guess: 'a number', winner: 'nobody', verdict: '' };
+    return { ...money_tok, guesses: 'the studio', contestant: 'our contestant', guess: 'a number', winner: 'nobody', verdict: '' };
   }
   const guesses = res.guesses.length
     ? res.guesses.map(g => `${g.name} ${g.label}`).join(', ')
@@ -587,6 +646,7 @@ export function gameshowTokens(channelId) {
       ? `${w.name} takes it — though the network says one purse a day, friend.`
       : `${w.name} takes it.`;
   return {
+    ...money_tok,
     guesses,
     contestant: (w?.name) || first?.name || 'our contestant',
     guess: (w?.label) || first?.label || 'a number',
@@ -682,7 +742,7 @@ export function gameshowForgetPlayer(playerId) {
 
 // Test seam for regress.js — never used in production paths.
 export const _gameshowTest = {
-  rounds, lastResults, lastWinAt,
+  rounds, lastResults, lastWinAt, passes, payouts,
   npcGuessValue, tierOf, deal, gameshowTiers,
   ROUND_PRIZE, SHOWCASE_PRIZE, WIN_COOLDOWN_MS, SHOWCASE_BAND, OVERUNDER_MIN_RATIO,
   PRIZE_MIN_VALUE, PRIZE_MAX_VALUE,

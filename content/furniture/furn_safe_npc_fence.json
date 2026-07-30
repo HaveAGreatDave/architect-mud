@@ -1,5 +1,5 @@
 {
-  "description": "A dented industrial lockbox riveted to a steel upright, painted over more times than anyone can count, the dial stiff with grime.",
+  "description": "A scarred strongbox set into the gap where a radiator used to be, the hole bricked back up around it so only the door shows. Sluice has never once opened it while anyone was watching.",
   "flags": {
     "hack_difficulty": 5,
     "vendor_npc_id": "npc_fence",
@@ -10,9 +10,9 @@
   "id": "furn_safe_npc_fence",
   "light_type": "lamp",
   "lumen_output": null,
-  "name": "Sluice's lockbox",
+  "name": "Sluice's strongbox",
   "object_type": "fixture",
   "power_draw_kw": null,
   "price": 600,
-  "zone_id": "zone_coldwater_turbine_hall"
+  "zone_id": "zone_yards_tenement_u3_4"
 }
