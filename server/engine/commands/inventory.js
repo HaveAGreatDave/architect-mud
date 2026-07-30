@@ -800,9 +800,11 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
   if (consumedNote) messages.push(consumedNote);
   }
 
+  let madeIll = false;
   if (sick) {
     applyEffect(player, 'food_poisoning', 90);
     messages.push('Your stomach churns immediately.');
+    madeIll = true;
   } else if (cd?.doneness) {
     // Doneness has a consequence, or it's just a label. Food deliberately pulled
     // rare carries a real chance of making you ill — which is what stops "blue"
@@ -812,6 +814,31 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
     if (risk > 0 && Math.random() < risk) {
       applyEffect(player, 'food_poisoning', 60);
       messages.push('It was pinker in the middle than it should have been. You feel it almost at once.');
+      madeIll = true;
+    }
+  }
+
+  // AMBIENT RISK — the food's own chance of being off, independent of cooking.
+  //
+  // 66 items authored `status_chance` and nothing had ever read it, so a wheel of
+  // vat cheese carried a documented 5% chance of turning on you that could never
+  // fire. This is NOT a duplicate of the raw/doneness routes above: 35 of those
+  // items are not `needs_cooking` at all — cheese, rub, vinegar — and "this might
+  // simply be off" is a thing undercooking cannot express. For the ones that ARE
+  // raw, the authored rate (0.9 on a measure of filth, 0.6 on raw meat) is finer
+  // than the flat certainty the `sick` route applies.
+  //
+  // Skipped entirely when something already made you ill — being poisoned twice
+  // by one mouthful is a bug, not a gradient.
+  if (!madeIll && t.status_chance && typeof t.status_chance === 'object') {
+    for (const [effect, chance] of Object.entries(t.status_chance)) {
+      const p = Number(chance);
+      if (!(p > 0) || Math.random() >= p) continue;
+      applyEffect(player, effect, effect === 'food_poisoning' ? 60 : 30);
+      messages.push(effect === 'food_poisoning'
+        ? 'That was not right. You knew it going down, and you swallowed anyway.'
+        : 'Something about that disagrees with you.');
+      break;   // one affliction per mouthful
     }
   }
   // Apply the item's effects and consume it as one atomic unit, so a failure

@@ -199,6 +199,25 @@ registerStatusEffect({
   },
 });
 
+// ── Stunned ──────────────────────────────────────────────────────────────────
+//
+// The effect two weapons have been authored against since before it existed: the
+// ComplyMate taser and the resonant stylus both declare a `status_chance` of
+// `stunned`, and there was no such effect, so neither ever did anything.
+//
+// It carries NO onTick behaviour on purpose. Being stunned means you cannot
+// swing, and combat already has a proven way to say that: `dodge` locks the
+// attack cooldown, and `cmdAttack` plus all four auto-attack loops then refuse on
+// their own with no new guard anywhere in the tick. So the lock is applied once
+// at the moment of the stun (see `applyStun` in combat.js) and this registration
+// exists to give it a NAME — a label on your status line, and something the
+// senses/impairment layers can see. Enforcement and description, kept apart.
+registerStatusEffect({
+  name: 'stunned',
+  label: 'Stunned',
+  onTick() { return null; },
+});
+
 // Set by the engine at boot (see bodily wiring in index/gameLoop): effects.js
 // stays free of world/DB imports, so the messy part is injected rather than
 // imported. Absent in a bare unit-test context, which is why it's optional.

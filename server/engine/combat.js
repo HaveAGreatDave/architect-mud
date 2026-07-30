@@ -11,6 +11,7 @@ import { wear, WEAR_EVENTS, conditionPenalty, announceWear } from './durability.
 import { fireDamageToPlayer, fireDamageToEnemy, dominantDamageType } from './damage-events.js';
 import { BASE_ATTACK_MS, hitBonus, defenseBonus, swingInterval, consumeDodge, swingVerb, missLine } from './stance.js';
 import { knockOut, isOut } from './unconscious.js';
+import { applyEffect } from './effects.js';
 import { sendToPlayer } from './messaging.js';
 
 // A power attack (`pow`) multiplies the rolled damage after crit and before the
@@ -141,6 +142,63 @@ export async function playerFleeRoll(player, attackerHit) {
 
 // The mob half. Enemies use their flat `dodge` rating (or an explicit
 // flags.flee_skill override, which the old FLEE node already honoured).
+// ── Stun ─────────────────────────────────────────────────────────────────────
+//
+// Being stunned means you cannot swing. Rather than invent a turn-skip mechanic,
+// this reuses the one `dodge` already proved: lock the attack cooldown, and
+// `cmdAttack` refuses with its existing "still recovering" line while every
+// auto-attack loop skips on its own. No new guard in the tick.
+//
+// Two targets, two shapes, because a player and a mob keep their readiness in
+// different places:
+//   PLAYER — the cooldown map, plus a named status so it shows on the status line
+//   ENEMY  — `_stunnedUntil`, checked by enemyAttackPlayer beside the isOut guard
+//
+// NPCs are deliberately not covered: they have no status list and no equivalent
+// readiness field, so a stun would be silent. Better absent than pretend.
+const STUN_MS = 4000;
+
+export function applyStun(target, ms = STUN_MS) {
+  if (!target) return false;
+  if (target.instanceId) {                 // a live enemy instance
+    target._stunnedUntil = Math.max(target._stunnedUntil || 0, Date.now() + ms);
+    return true;
+  }
+  if (target.id && target.hp_max != null) { // a player
+    setCooldown(target.id, 'attack', ms);
+    applyEffect(target, 'stunned', Math.ceil(ms / 1000));
+    return true;
+  }
+  return false;
+}
+
+export function isStunned(entity) {
+  return !!entity?._stunnedUntil && Date.now() < entity._stunnedUntil;
+}
+
+/**
+ * Roll a weapon's authored `status_chance` against whatever it just hit.
+ *
+ * The tag has existed on items for a long time with exactly one reader, which
+ * copied it into a variable nobody consumed — so the taser's 30% stun has never
+ * once fired. This is that reader.
+ */
+function rollWeaponStatus(weaponStats, target) {
+  const table = weaponStats?.status_chance;
+  if (!table || typeof table !== 'object') return null;
+  for (const [effect, chance] of Object.entries(table)) {
+    const p = Number(chance);
+    if (!(p > 0) || Math.random() >= p) continue;
+    if (effect === 'stunned') return applyStun(target) ? 'stunned' : null;
+    // Anything else only lands on something with a status list — a mob has none.
+    if (target?.hp_max != null && !target.instanceId) {
+      applyEffect(target, effect, 20);
+      return effect;
+    }
+  }
+  return null;
+}
+
 export function mobFleeRoll(entity, attackerHit) {
   const rating = Number(entity?.flags?.flee_skill ?? entity?.dodge ?? entity?.flags?.dodge ?? 1);
   // A mob with ruined legs is worse at breaking contact. `_injuryFleeMod` is a
@@ -854,6 +912,10 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
     player._resDirty = true;
   }
 
+  // The weapon's authored status_chance, finally read. A taser that stuns is the
+  // whole reason that tag was ever written down.
+  const statusHit = rollWeaponStatus(weaponStats, enemy);
+
   enemy.hp -= damage;
   enemy.targetId = player.id;
 
@@ -886,7 +948,7 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
     damage,
     margin,
     power,
-    message: `${playerHitLine(player, enemy.name, partLabel, damage, damageType, critical, power, execution)}${critical ? '!' : '.'}${enemyHpTag(enemy)}`,
+    message: `${playerHitLine(player, enemy.name, partLabel, damage, damageType, critical, power, execution)}${critical ? '!' : '.'}${statusHit === 'stunned' ? ' <span class="crit-tag">STUNNED</span>' : ''}${enemyHpTag(enemy)}`,
     enemyId: enemyInstanceId,
     enemyHp: enemy.hp,
     enemyHpMax: enemy.hp_max,
@@ -898,6 +960,8 @@ export async function enemyAttackPlayer(enemy, player) {
   // An unconscious thing does not swing. Without this a knocked-out mob keeps
   // fighting, which makes the knockout meaningless and reads as a bug.
   if (isOut(enemy)) return null;
+  // A stunned mob does not swing either. Same reasoning as isOut above.
+  if (isStunned(enemy)) return null;
   // A quantum forcefield shields its zone from all hostile touch — the same law
   // that stops a player's swing (getZoneProtection) stops an enemy's. The claws
   // wash off the blue field, harmless. No cooldown burn: it's as if no swing landed.
@@ -1227,6 +1291,9 @@ export async function pvpSwing(attacker, defender) {
       forceSeverity: (execution === 'maim' && im === headImpact) ? 3 : undefined,
     });
   }
+  // Same roll against a player. A stun here locks their attack cooldown, which
+  // every path already respects — so it works in PvP with no new guard.
+  rollWeaponStatus({ status_chance: equipped?.tags?.status_chance }, defender);
   wearHeldWeapon(attacker);
 
   const defHpBefore = defender.hp ?? defender.hp_max ?? 100;

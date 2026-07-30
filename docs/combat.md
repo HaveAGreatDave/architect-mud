@@ -224,6 +224,33 @@ chainblade is worse off than unarmed. Mastery scales between skill 8 and 18, and
   the person holding it. Capped so it is humiliating, never lethal. Resolved as part of the same
   blow, not a second attack: no extra cooldown, no second to-hit roll.
 
+### `status_chance` — the tag that finally does something
+
+Weapons authored `status_chance` (e.g. `{ "stunned": 0.3 }`) for a long time with
+exactly one reader — `plugins/weapon/index.js` copied it into `weaponStats` and
+**`combat.js` never looked at it**, so the ComplyMate taser's 30% stun had never
+once fired. `rollWeaponStatus()` is that missing reader, rolled on every landed
+hit in `playerAttackEnemy` and `pvpSwing`.
+
+**`stunned`** did not exist either. Rather than invent a turn-skip mechanic (the
+thing `combat.js` has a standing TODO about), it reuses the one `dodge` already
+proved: **lock the attack cooldown**. `cmdAttack` then refuses with its existing
+"still recovering" line and all four auto-attack loops skip on their own — no new
+guard anywhere in the tick. Two shapes, because readiness lives in two places:
+
+| target | how it is stunned | how it is enforced |
+|---|---|---|
+| player | `applyStun` → cooldown + the `stunned` status | every attack path already checks the cooldown |
+| enemy | `_stunnedUntil` on the instance | `enemyAttackPlayer` returns null, beside the `isOut` guard |
+
+**NPCs are deliberately not covered** — they have no status list and no equivalent
+readiness field, so a stun would be silent. `applyStun` returns `false` rather
+than pretending, and that is asserted.
+
+Non-`stunned` effects only land on something with a status list, so a mob cannot
+be set on fire by this path. Food uses the same tag through a different door — see
+[systems-survival.md](systems-survival.md#hunger--thirst).
+
 ### Weapons above your grade (`min_skill`)
 
 `min_skill` (e.g. `{ "blades": 6 }`) is **two different gates, deliberately split**:

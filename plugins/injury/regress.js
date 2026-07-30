@@ -16,7 +16,7 @@ import { PARTS, TYPES, BRUISED, HURT, MAIMED, injuryName, typeRules } from './ta
 import { enemySeverity, enemyWoundNote, partLabel } from './enemy.js';
 import { impairmentOf } from '../../server/engine/impairment.js';
 import { effectiveStat } from '../../server/engine/condition.js';
-import { aimHitPenalty, aimedWeights as aimedWeightsFor, splitSpread, spreadGroups, executionShot, enemyAttackPlayer, waterCombatPenalty, underskilledPenalty, weaponSkillRequirement } from '../../server/engine/combat.js';
+import { aimHitPenalty, aimedWeights as aimedWeightsFor, splitSpread, spreadGroups, executionShot, enemyAttackPlayer, waterCombatPenalty, underskilledPenalty, weaponSkillRequirement, applyStun, isStunned, isOnCooldown } from '../../server/engine/combat.js';
 import { knockOut, wakeUp, isOut } from '../../server/engine/unconscious.js';
 import { fireDamageToEnemy as fireEnemy, fireDamageToPlayer } from '../../server/engine/damage-events.js';
 
@@ -480,6 +480,28 @@ export default async function regress({ run, check }) {
 
   check('an electrical weapon in water discharges instead',
     waterCombatPenalty(wet, { weapon_skill: 'science', water_shock: true }, 1)?.discharge === true);
+
+  // ── Stunned ────────────────────────────────────────────────────────────────
+  //
+  // Two weapons have declared `status_chance: { stunned }` since long before the
+  // effect existed, so the taser could never once stun anything. The enforcement
+  // reuses the cooldown lock `dodge` already proved rather than inventing a
+  // turn-skip mechanic, so the assertions are about READINESS, not a new tick.
+  const thug = { instanceId: 'regress-mob', name: 'a thug', hp_max: 40, hit: 5 };
+  check('a fresh mob is not stunned', isStunned(thug) === false);
+  check('stunning a mob takes', applyStun(thug, 2000) && isStunned(thug));
+  check('...and a stunned mob does not swing',
+    (await enemyAttackPlayer(thug, body())) === null);
+
+  const victim = { id: 'regress-stun-player', hp_max: 40, statuses: [] };
+  check('stunning a player names it on the status line',
+    applyStun(victim, 3000) && (victim.statuses || []).some(s => s.name === 'stunned'),
+    JSON.stringify(victim.statuses));
+  check('...and locks their attack', isOnCooldown('regress-stun-player', 'attack'));
+
+  // A stun must never be silently unapplicable: an NPC has no status list and no
+  // readiness field, so applyStun says so rather than pretending.
+  check('an unstunnable target reports failure', applyStun({ name: 'a bystander' }) === false);
 
   // ── Buckshot ───────────────────────────────────────────────────────────────
   //

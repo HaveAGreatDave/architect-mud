@@ -88,6 +88,23 @@ somewhere the player feels it. Both maxima are reconciled against `stat_enduranc
 ([index.js](../server/index.js)), so existing characters self-heal with no migration script.
 and partially by sleep economics.
 
+### Food that is simply off (`status_chance`)
+
+66 food items authored `status_chance: { food_poisoning: … }` at rates from 0.05
+to 0.9, and **nothing had ever read it** — a wheel of vat cheese carried a
+documented 5% chance of turning on you that could never fire.
+
+It is *not* a duplicate of the raw/undercooked routes. **35 of those items are
+not `needs_cooking` at all** — cheese, rub, vinegar — and "this might simply be
+off" is a thing undercooking cannot express. For the ones that are raw, the
+authored rate (0.9 on a *measure of filth*, 0.6 on raw meat) is finer-grained
+than the flat certainty the `sick` route applies.
+
+Rolled in the consume path **only when nothing has already made you ill**, and it
+breaks after the first affliction: being poisoned twice by one mouthful is a bug,
+not a gradient. Weapons use the same tag through a different door — see
+[combat.md](combat.md#status_chance--the-tag-that-finally-does-something).
+
 ## Radiation
 
 Range 0–100. Three sources/sinks:
