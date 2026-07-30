@@ -2469,25 +2469,41 @@ function ensureStyles() {
     }
     #tablet-os-overlay .tos-vt-dollstage { position:relative; flex:0 0 auto; width:104px; }
     #tablet-os-overlay .tos-vt-dollstage .tos-vt-dollsvg { position:relative; z-index:1; width:100%; display:block; }
-    #tablet-os-overlay .tos-vt-dollsil { position:absolute; inset:0; opacity:0.16; pointer-events:none;
+    /* The figure itself — no longer a ghost under a schematic, so it carries the
+       readable weight instead of hinting at it from behind one. */
+    #tablet-os-overlay .tos-vt-dollsil { position:absolute; inset:0; opacity:0.55; pointer-events:none;
       background:var(--tos-fg);
       -webkit-mask:url('/assets/paperdoll-mask.png') center / contain no-repeat;
       mask:url('/assets/paperdoll-mask.png') center / contain no-repeat; }
     #tablet-os-overlay .tos-vt-sil-female .tos-vt-dollsil {
       -webkit-mask-image:url('/assets/femsil-mask.png'); mask-image:url('/assets/femsil-mask.png'); }
+    /* A wound, painted THROUGH the same mask and clipped to its region — so the
+       shape that lights up is the limb, not a box drawn where the limb is. */
+    #tablet-os-overlay .tos-vt-dollhurt { position:absolute; inset:0; pointer-events:none;
+      -webkit-mask:url('/assets/paperdoll-mask.png') center / contain no-repeat;
+      mask:url('/assets/paperdoll-mask.png') center / contain no-repeat;
+      transition:opacity .18s linear; }
+    #tablet-os-overlay .tos-vt-sil-female .tos-vt-dollhurt {
+      -webkit-mask-image:url('/assets/femsil-mask.png'); mask-image:url('/assets/femsil-mask.png'); }
+    #tablet-os-overlay .tos-vt-dollhurt.warn { background:#d3a72e; opacity:0.62; }
+    #tablet-os-overlay .tos-vt-dollhurt.bad  { background:#d16a25; opacity:0.78; }
+    #tablet-os-overlay .tos-vt-dollhurt.crit { background:#c0342e; opacity:0.92;
+      filter:drop-shadow(0 0 6px rgba(192,52,46,.7)); animation:tos-doll-pulse 1.9s ease-in-out infinite; }
+    /* The primitives are HIT-AREAS now, not artwork: invisible, still clickable.
+       pointer-events:all is load-bearing here — an SVG shape with no fill takes
+       no pointer events without it, which would make every region untappable. */
     #tablet-os-overlay .tos-vt-doll-part { cursor:pointer; }
-    #tablet-os-overlay .tos-vt-doll-part > * { fill:var(--tos-surface-hi); stroke:var(--border); stroke-width:1.2;
-      transition:fill .18s linear, filter .18s linear; }
-    #tablet-os-overlay .tos-vt-doll-part.warn > * { fill:#d3a72e; stroke:#f4dd8a; }
-    #tablet-os-overlay .tos-vt-doll-part.bad  > * { fill:#d16a25; stroke:#f0a870; }
-    #tablet-os-overlay .tos-vt-doll-part.crit > * { fill:#c0342e; stroke:#f08c8c;
-      filter:drop-shadow(0 0 5px rgba(192,52,46,.75)); }
-    /* Only a Maimed part pulses. If everything moves, nothing reads as urgent. */
-    #tablet-os-overlay .tos-vt-doll-part.crit { animation:tos-doll-pulse 1.9s ease-in-out infinite; }
+    #tablet-os-overlay .tos-vt-doll-part > * { fill:none; stroke:none; pointer-events:all;
+      transition:stroke .18s linear; }
+    /* Only a Maimed part pulses. If everything moves, nothing reads as urgent.
+       Driven on the tinted layer now, since the region shape is what pulses. */
     @keyframes tos-doll-pulse { 0%,100% { opacity:1; } 50% { opacity:.62; } }
-    #tablet-os-overlay .tos-vt-doll-part.sel > * { stroke:var(--tos-fg); stroke-width:2.2; }
+    /* Selection is a soft wash over the region, not an outline. A 2px stroke
+       around a rounded rect would put the boxes-and-circles mannequin straight
+       back on screen the moment anybody tapped it. */
+    #tablet-os-overlay .tos-vt-doll-part.sel > * { fill:var(--tos-fg); fill-opacity:.13; }
     #tablet-os-overlay .tos-vt-doll-part:focus { outline:none; }
-    #tablet-os-overlay .tos-vt-doll-part:focus > * { stroke:var(--tos-fg); stroke-width:2.2; }
+    #tablet-os-overlay .tos-vt-doll-part:focus > * { fill:var(--tos-fg); fill-opacity:.13; }
     #tablet-os-overlay .tos-vt-dolldet { flex:1 1 auto; min-width:0; font-size:12px; font-weight:bold;
       line-height:1.6; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-vt-clear { padding:26px 8px; text-align:center; font-size:14px; color:var(--tos-fg);
@@ -6116,21 +6132,64 @@ function renderHealthDoll(d) {
     </g>`).join('');
 
   const worst = d.body.filter(p => p.severity > 0).sort((a, b) => b.severity - a.severity)[0];
-  // The silhouette sits BEHIND the schematic rather than replacing it. The
-  // boxes-and-circles are load-bearing here in a way the wardrobe's dummy never
-  // was — each one is a click target and carries its own injury colour — so
-  // this adds the body without costing the diagram. On a medical suite a scan
-  // ghost under a schematic is exactly the right register anyway.
   const sil = (d.sex === 'female' || d.sex === 'male') ? d.sex : 'male';
+
+  // THE SILHOUETTE IS THE BODY. It used to be a 16%-opacity ghost with a
+  // boxes-and-circles schematic stacked on top, so you read a crude mannequin
+  // sitting over a good figure — two bodies, neither of them convincing.
+  //
+  // Now there is one. The primitives stay, because each is a click target and a
+  // named region, but they are INVISIBLE: hit-areas, not artwork. A wound is
+  // painted by re-using the silhouette's own mask in the injury colour and
+  // clipping it to that region's box — so what lights up is the shape of the
+  // arm, not a rectangle where the arm is.
+  const wounded = d.body.filter(p => p.severity > 0).map(p => {
+    const box = regionInset(DOLL_SHAPES[p.part], geom.viewBox);
+    return box ? `<div class="tos-vt-dollhurt ${esc(p.band)}" aria-hidden="true" style="clip-path:${box};-webkit-clip-path:${box}"></div>` : '';
+  }).join('');
+
   return `
     <div class="tos-vt-sect">Body</div>
     <div class="tos-vt-doll">
       <div class="tos-vt-dollstage tos-vt-sil-${sil}">
         <div class="tos-vt-dollsil" aria-hidden="true"></div>
+        ${wounded}
         <svg viewBox="${geom.viewBox}" class="tos-vt-dollsvg" aria-label="Body diagram">${parts}</svg>
       </div>
       <div class="tos-vt-dolldet" data-doll-detail-slot>${esc(worst?.detail || 'No injuries. Tap a part for detail.')}</div>
     </div>`;
+}
+
+// The bounding box of a region's primitives, as a CSS `inset()` in percentages of
+// the viewBox — which is what lets an injury tint be clipped to "the left arm"
+// while still being drawn through the silhouette mask.
+//
+// Measured off the SAME shape strings the hit-areas use rather than authored
+// separately, so moving a limb can never leave its wound colour behind.
+function regionInset(shapeStr, viewBox) {
+  if (!shapeStr) return null;
+  const [, , vw, vh] = String(viewBox).split(/\s+/).map(Number);
+  if (!(vw > 0) || !(vh > 0)) return null;
+  const num = (s, k) => { const m = s.match(new RegExp(`${k}="(-?[\\d.]+)"`)); return m ? parseFloat(m[1]) : null; };
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+
+  for (const tag of shapeStr.match(/<(rect|circle)[^>]*>/g) || []) {
+    if (tag.startsWith('<rect')) {
+      const x = num(tag, 'x'), y = num(tag, 'y'), w = num(tag, 'width'), h = num(tag, 'height');
+      if (x == null || y == null) continue;
+      x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + w); y1 = Math.max(y1, y + h);
+    } else {
+      const cx = num(tag, 'cx'), cy = num(tag, 'cy'), r = num(tag, 'r');
+      if (cx == null || cy == null || r == null) continue;
+      x0 = Math.min(x0, cx - r); y0 = Math.min(y0, cy - r); x1 = Math.max(x1, cx + r); y1 = Math.max(y1, cy + r);
+    }
+  }
+  if (!isFinite(x0)) return null;
+  // A hair of bleed so neighbouring regions meet instead of leaving a seam of
+  // untinted body between a wounded arm and the torso beside it.
+  const pad = 0.6;
+  const pc = (v) => `${Math.max(0, Math.min(100, v)).toFixed(2)}%`;
+  return `inset(${pc(y0 / vh * 100 - pad)} ${pc(100 - x1 / vw * 100 - pad)} ${pc(100 - y1 / vh * 100 - pad)} ${pc(x0 / vw * 100 - pad)})`;
 }
 
 function renderHealthQuick(d) {
