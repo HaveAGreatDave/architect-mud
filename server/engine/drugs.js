@@ -12,7 +12,12 @@
  *   withdrawal    — { onset_seconds, mods, message, addiction_per_dose,
  *                     addiction_recovery_per_sec }
  *   overdose      — { lethal, message, mods }
- *   hallucination — { mode, intensity, palette, duration_seconds, events, dreamzone_id }
+ *   hallucination — { mode, intensity, palette, duration_seconds, events }
+ *                     mode 'dreamzone' takes the MIND out of the room into a
+ *                     private generated dreamscape (the body stays put). It
+ *                     names no destination: the authored, SHARED dreamzones and
+ *                     their `dreamzone_id` are retired, because two people on
+ *                     the same drug used to meet inside the hallucination.
  *
  * Back-compat: a drug whose `effects` has none of the structured keys above
  * is treated as a flat `instant` block, so pre-existing drugs run untouched.

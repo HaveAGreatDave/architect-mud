@@ -379,8 +379,12 @@ function composeSplice(inputs) {
     const h = clone(withH[0].eff.hallucination);
     h.intensity = Math.min(1, withH.reduce((s, i, idx) => s + (i.eff.hallucination.intensity || 0.5) * (hw[idx] / ht), 0));
     h.events = withH.flatMap(i => i.eff.hallucination.events || []).slice(0, 12);
-    const dz = withH.find(i => i.eff.hallucination.mode === 'dreamzone');
-    if (dz) { h.mode = 'dreamzone'; h.dreamzone_id = h.dreamzone_id || dz.eff.hallucination.dreamzone_id; }
+    // Dreamzone is infectious: splice anything that takes you out of the room into
+    // anything that doesn't, and the result takes you out of the room. It no longer
+    // carries a destination — `mode: 'dreamzone'` means the trip plugin BUILDS a
+    // private dreamscape, where it used to name one authored room everybody shared.
+    if (withH.some(i => i.eff.hallucination.mode === 'dreamzone')) h.mode = 'dreamzone';
+    delete h.dreamzone_id;   // a legacy source drug may still carry one; it means nothing now
     composed.hallucination = h;
   }
 
@@ -802,6 +806,10 @@ async function chemLabHub(f, player) {
   links.push(`<span class="action-link" data-raw-cmd="open ${n}">vault</span>`);
   return `<span class="text-dim">Lab:</span> ${links.join('  ')}`;
 }
+
+// Pure blend maths, exported for the regression suite (the minigame around it is
+// client-driven; this is the part with an opinion).
+export const _test = { composeSplice };
 
 export const hooks = {
   'furniture.describe': (f, player) => chemLabHub(f, player),

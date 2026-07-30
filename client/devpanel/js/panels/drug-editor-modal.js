@@ -211,7 +211,7 @@ function openDrugEditorModal(rec, isNew) {
           ${_num('hal_intensity', 'Intensity (0–1)', hal.intensity, 0.05)}
           ${_num('hal_duration_seconds', 'Duration (s)', hal.duration_seconds)}
         </div>
-        ${_txt('hal_dreamzone_id', 'Dreamzone ID (dreamzone mode)', hal.dreamzone_id)}
+        <div style="font-size:11px;color:var(--text-dim);margin:4px 0"><b>dreamzone</b> mode builds a private, throwaway dreamscape for that one tripper — there is no room to name, and nobody else can walk into it.</div>
         <div style="font-size:11px;color:var(--text-dim);margin:4px 0">Timed events:</div>
         <div id="dg-events"></div>
         <button type="button" class="action-btn" onclick="_dgAddEvt('dg-events')">+ event</button>
@@ -302,7 +302,7 @@ async function _dgSave() {
     }
     effects.hallucination = _pruneUndef({
       mode: _v('hal_mode'), palette: _v('hal_palette'), intensity: _n('hal_intensity'),
-      duration_seconds: _n('hal_duration_seconds'), dreamzone_id: _v('hal_dreamzone_id') || undefined,
+      duration_seconds: _n('hal_duration_seconds'),
       events: events.length ? events : undefined,
     });
   }
