@@ -87,6 +87,45 @@ export function lintContentTree(baseDir) {
           errors.push(`${label}: ${fk.col}="${v}" references ${fk.refTable}.${fk.refCol} but no such content file exists (dangling FK — would break a fresh restore)`);
         }
       }
+      // Enemy anatomy: `body_parts[].grants` is read by the injury plugin, and
+      // every failure mode here is SILENT — a component index that is a string,
+      // or points past the end of the weapon array, simply never fires, and the
+      // enemy looks perfectly correct while its arc can never be shot out. Same
+      // silent-typo bug class as item tags below, so it fails the same way.
+      if (entry.table === 'enemies' && Array.isArray(f.data.body_parts)) {
+        const weaponLen = Array.isArray(f.data.weapon) ? f.data.weapon.length : 0;
+        const ROLES = new Set(['attack', 'mobility', 'none']);
+        for (const p of f.data.body_parts) {
+          if (!p || typeof p !== 'object') continue;
+          if (p.role !== undefined && !ROLES.has(p.role)) {
+            errors.push(`${label}: body part "${p.part}" has role "${p.role}" — must be attack, mobility or none`);
+          }
+          const g = p.grants;
+          if (g === undefined) continue;
+          if (g === null || typeof g !== 'object' || Array.isArray(g)) {
+            errors.push(`${label}: body part "${p.part}" has a grants that is not an object`);
+            continue;
+          }
+          for (const k of Object.keys(g)) {
+            if (!['component', 'dodge', 'capability'].includes(k)) {
+              errors.push(`${label}: body part "${p.part}" grants unknown key "${k}" (component, dodge or capability)`);
+            }
+          }
+          if (g.component !== undefined) {
+            if (!Number.isInteger(g.component)) {
+              errors.push(`${label}: body part "${p.part}" grants component "${g.component}" — must be an integer index, not a ${typeof g.component}`);
+            } else if (g.component < 0 || g.component >= weaponLen) {
+              errors.push(`${label}: body part "${p.part}" grants component ${g.component}, but this enemy has ${weaponLen} weapon component(s) — it could never be silenced`);
+            }
+          }
+          if (g.dodge !== undefined && (typeof g.dodge !== 'number' || !(g.dodge > 0))) {
+            errors.push(`${label}: body part "${p.part}" grants dodge "${g.dodge}" — must be a positive number`);
+          }
+          if (g.capability !== undefined && (typeof g.capability !== 'string' || !g.capability.trim())) {
+            errors.push(`${label}: body part "${p.part}" grants capability "${g.capability}" — must be a non-empty string`);
+          }
+        }
+      }
       // Item tags must exist in the tag catalog with the right value shape —
       // the engine gates on tag names, so a typo here is silently inert in prod.
       if (entry.table === 'items' && f.data.tags) {

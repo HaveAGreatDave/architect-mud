@@ -86,9 +86,45 @@ Full model + the fallback table: [docs/npc-clothing.md](../../../docs/npc-clothi
 **Enemy:**
 - [ ] A zone spawn entry (`zones/<id>/spawns`) — an enemy with no spawn ships nothing
 - [ ] Loot table items exist
+- [ ] **Any NEW body part gets its rules written in the same build.** A part the
+      humanoid set doesn't already cover (`gills`, `fluke`, `tendril`, `venom_sac`,
+      `sensor_cluster`) is inert unless you say what it does — see below.
 - [ ] **Butcher yield decided, not defaulted.** Should the corpse be carvable? If yes, populate `butcher_table` (entries `{item, qty:[min,max]}`) and set `butcher_difficulty`; the yield items must exist as `items` rows. If no, leave `butcher_table: []`. A new enemy defaults to an *empty* table = non-butcherable — decide deliberately (see below).
 - [ ] Behaviour graph (or default AI is acceptable — say which)
 - [ ] Danger rating of the target zone matches enemy lethality
+
+### New body parts — write the rules, or the part is scenery
+
+`body_parts` is free-form: a creature can declare `gills`, `coils`, a `venom_sac`,
+a `sensor_cluster`. The injury system will happily wound any of them. But a part
+only DOES something if you say so, and the failure is silent — the part reads
+beautifully in `examine` and changes nothing about the fight.
+
+**Whenever you invent a part the humanoid set doesn't cover, decide two things
+in the same build:**
+
+1. **Its role.** `role: 'attack'` (wounding it degrades the creature's to-hit,
+   and these STACK — six arms means six bites at that) or `role: 'mobility'`
+   (degrades its flee roll, worst-of rather than stacking) or `role: 'none'`
+   (deliberately inert — flavour anatomy, which is a legitimate choice).
+   Omit `role` and it is INFERRED from the name against a hint list
+   (`arm/claw/maw/jaw/tendril/stinger…`, `leg/fin/coil/fluke/tail/rotor…`).
+   Inference is a convenience, not a contract: `fin` and `tendril` were missing
+   from those lists for a while and a harbour lurker's fins were pure decoration.
+   **If the name is at all unusual, state the role rather than hoping.**
+
+2. **What it GRANTS**, if anything — `grants: { component, dodge, capability }`.
+   This is what makes a part worth aiming at for a reason other than damage:
+   - `component: <n>` — that index of the creature's `weapon` array stops firing
+     when the part is Maimed. Two parts granting the same index behave as a pair
+     (it survives until both are gone). A creature always keeps one attack.
+   - `dodge: <n>` — evasion the part provides, lost when it is destroyed.
+   - `capability: '<name>'` — a named string other systems can gate on.
+
+`content:lint` fails on a bad `role`, an unknown `grants` key, a non-integer
+component index, and an index pointing past the end of the weapon array — because
+every one of those is otherwise silently inert. Full reference:
+[docs/combat.md](../../../docs/combat.md#what-a-part-gives--body_partsgrants).
 
 ### Butcherable enemies — `butcher_table` + `butcher_difficulty`
 
