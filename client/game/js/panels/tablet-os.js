@@ -1777,10 +1777,6 @@ function ensureStyles() {
     /* Filled boxes are tap-to-unequip; every box is a drag-to-equip target. */
     #tablet-os-overlay .tos-gslot.filled { cursor:pointer; }
     #tablet-os-overlay .tos-gslot.filled:hover { border-color:var(--mg-accent); }
-    /* Sub-line under a slot box's item: names the layer when the shown piece isn't on
-       the layer currently selected (so a filled box that fell back to another layer's
-       gear still reads clearly). */
-    #tablet-os-overlay .tos-gslot-sub { font-size:8px; letter-spacing:.5px; text-transform:uppercase; color:color-mix(in srgb, var(--mg-accent) 58%, transparent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     #tablet-os-overlay .tos-gslot-over { border-color:var(--mg-accent) !important; box-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 55%, transparent) !important; }
 
     #tablet-os-overlay .tos-gear-stats { display:flex; flex-direction:column; gap:5px; }
@@ -6962,31 +6958,27 @@ function renderGearLoadout(d) {
   // empty but the slot has gear on ANOTHER layer, it falls back to the outermost worn
   // piece so an equipped item ALWAYS reads as a filled panel on the body. Either way a
   // filled box is a drop target (equip) AND a drag/tap-to-unequip source (data-geq),
-  // so any layer's piece can be taken off straight into the carried list. A small
-  // sub-line names the layer when the shown piece isn't on the one currently selected.
+  // so any layer's piece can be taken off straight into the carried list.
   const box = (slot, it) => {
-    let sub = '';
     // Whether what's in this box belongs to the layer you're looking at. A fallback
     // piece from another layer is drawn DIMMED (.off-layer) — without that the doll
     // read as if every box were on the selected layer, so switching Under/Over/Armor
     // appeared to do nothing and you couldn't tell what you were actually looking at.
-    // The layer name in the sub-line said so in 8px text; the dimming says it at a
-    // glance. Still a live unequip target, just visibly not-here.
+    // The dimming is the WHOLE signal: this used to also stamp the layer name and a
+    // "+N" hidden count in 8px under the item, which read as a stat on a box that is
+    // otherwise all stats. Still a live unequip target, just visibly not-here.
     let offLayer = false;
     if (!it) {
       const hidden = hiddenPieces(slot);
       if (hidden.length) {
         it = hidden[0];
         offLayer = true;
-        const idx = GEAR_LAYER_DEFS.findIndex(l => l.n === (it.layer || 1));
-        const more = hidden.length > 1 ? ` +${hidden.length - 1}` : '';
-        sub = `<span class="tos-gslot-sub">${esc(GEAR_LAYER_DEFS[idx]?.label || '')}${more}</span>`;
       }
     }
     return `<div class="tos-gslot tos-gslot--${slot}${it ? ' filled' : ''}${offLayer ? ' off-layer' : ''}" data-gslot="${slot}"` +
       `${it ? ` data-geq="${it.id}"` : ''}>` +
       `<span class="tos-gslot-label">${esc(GEAR_SLOT_LABEL[slot] || slot)}</span>` +
-      `<span class="tos-gslot-item">${it ? esc(it.name) : '—'}</span>${sub}</div>`;
+      `<span class="tos-gslot-item">${it ? esc(it.name) : '—'}</span></div>`;
   };
 
   const acc = equipped.filter(i => i.slot === 'accessory').sort((a, b) => (a.layer || 0) - (b.layer || 0))[0];
