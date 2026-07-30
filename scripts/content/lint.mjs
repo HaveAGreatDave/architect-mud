@@ -15,7 +15,7 @@ import { contentEntries } from '../../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../../server/models/schema.js';
 import { validateTags, validateZoneColumns, TAG_CATALOG as CATALOG, ZONE_COLUMN_PREFIX } from '../../server/engine/tags.js';
 import { readContentTree, fileNameForRow, schemaColumnsOf as columnsOf, readPalette, assetRefIds } from './lib.mjs';
-import { assignBuildingMarkers, projectEdges, OPPOSITE, deriveMapName } from './derive.mjs';
+import { assignBuildingMarkers, projectEdges, OPPOSITE, CARDINAL, deriveMapName } from './derive.mjs';
 import { anchorViolations } from './map-anchor.mjs';
 
 // ── SCHEMA_SQL parsing (content→content FKs), no DB required ─────────────────
@@ -395,6 +395,48 @@ export function lintContentTree(baseDir) {
       for (const end of ['a', 'b']) {
         if (c[end] && zoneIds.size && !zoneIds.has(c[end])) errors.push(`${label}: ${end}="${c[end]}" is not a zone`);
       }
+    }
+
+    // ── The curtain is closed (the city↔wilds frontier) ──────────────────────
+    // The frontier used to be a rule in derive.mjs reading `flags.district`, which
+    // meant a district edit could delete a wall with no diff to show for it — and
+    // walking out of Coldwater anywhere but The South Gate skips the gate warning,
+    // the wanted/contraband check, and lands a player in country with no clone-vat.
+    // It is 133 authored walls now (scripts/content/mint-curtain-walls.mjs), so
+    // THIS is what keeps it shut: every frontier adjacency must be spoken for by a
+    // file — a wall, or the gate that deliberately opens one.
+    //
+    // Knowing what "wilds" means is fine HERE. Lint is authoring-side bookkeeping
+    // that never ships; the engine is what was not allowed to hold this rule.
+    if (zoneFiles.length) {
+      const isWilds = (z) => z?.flags?.district === 'wilds';
+      const facadeBlocks = (z, dir) => !!z?.flags?.facade && z.flags.entrance !== dir;
+      const cells = new Map();
+      for (const f of zoneFiles) {
+        const z = f.data;
+        if (z.map_id == null || z.grid_x == null || z.grid_y == null) continue;
+        const k = `${z.map_id}|${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`;
+        if (!cells.has(k)) cells.set(k, []);
+        cells.get(k).push(z);
+      }
+      const spoken = new Set(connections.map(c => [c.a, c.b].sort().join('~')));
+      const open = [];
+      for (const f of zoneFiles) {
+        const z = f.data;
+        if (z.map_id == null || z.grid_x == null || z.grid_y == null) continue;
+        for (const [dir, [dx, dy]] of Object.entries(CARDINAL)) {
+          for (const n of cells.get(`${z.map_id}|${z.grid_x + dx},${z.grid_y + dy},${z.grid_z ?? 0}`) || []) {
+            if (isWilds(z) === isWilds(n)) continue;
+            if (facadeBlocks(z, dir) || facadeBlocks(n, OPPOSITE[dir])) continue;
+            if (spoken.has([z.id, n.id].sort().join('~'))) continue;
+            open.push(`${z.id} —${dir}→ ${n.id}`);
+          }
+        }
+      }
+      for (const o of open.slice(0, 10)) {
+        errors.push(`the city↔wilds curtain is open at ${o} — a player walks into the waste there without passing a gate. Author a wall (blocked: true) or run node scripts/content/mint-curtain-walls.mjs --write`);
+      }
+      if (open.length > 10) errors.push(`…and ${open.length - 10} more open curtain crossing(s)`);
     }
 
     if (zoneFiles.length) {

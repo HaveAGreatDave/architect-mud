@@ -472,15 +472,18 @@ export function deriveLabel(zone, palette, ctx = {}) {
 // and the whole design of this function is the search for which of them are a
 // RULE and which are a DECISION.
 //
-// Measured over the shipped world, three rules and 271 files reproduce every one
-// of the 21,203 edges exactly:
+// Measured over the shipped world, ONE rule and 404 files reproduce every one of
+// the 21,203 edges exactly:
 //
 //   grid            21,478 raw cardinal adjacencies on the same map
 //   − facade rule      280  a facade opens at flags.entrance and nowhere else
-//   − wilds curtain    268  the city↔wilds boundary, a code-enforced invariant
-//   = 20,930 projected, of which 114 are wrong and 387 are missing
-//   + 271 connection files (214 links geometry cannot say, 57 walls it cannot
+//   = 21,198 projected, of which 380 are wrong and 385 are missing
+//   + 404 connection files (214 links geometry cannot say, 190 walls it cannot
 //     un-say) → exact agreement with zones.exits
+//
+// The wilds curtain was the second rule and is now 133 of those walls — see the
+// note above crossesCurtain's grave, below. It left because its input was a field
+// an editor paints, not because a rule is worse than a file.
 //
 // Two things this refuses to do, both measured rather than assumed:
 //
@@ -551,16 +554,14 @@ const cellKey = (z) => gridKey(z.map_id, z.grid_x, z.grid_y, z.grid_z);
  */
 const facadeBlocks = (z, dir) => !!z?.flags?.facade && z.flags.entrance !== dir;
 
-/**
- * The city↔wilds curtain. Not an oversight and not terrain: the map editor
- * refuses to wire across it, routes.js will not re-open it, and
- * seal-wilds-boundary.mjs strips any crossing that appears. It is pierced in
- * exactly one place — The South Gate — which is a connection file, and the audit's
- * GATE-1 guards. A code-enforced invariant belongs in the projection, not in 268
- * identical files saying "still sealed".
- */
-const crossesCurtain = (a, b) => (a?.flags?.district === 'wilds') !== (b?.flags?.district === 'wilds');
-
+// THE CITY↔WILDS CURTAIN USED TO BE A RULE HERE, and is now 133 authored walls
+// (`scripts/content/mint-curtain-walls.mjs`, which states the whole argument).
+// The short version: the rule read `flags.district === 'wilds'`, and `district` is
+// a presentation field the Studio paints. Erasing a district on a frontier tile
+// deleted a wall with no diff to show for it, and a player would have walked into
+// the killing ground without passing The South Gate. A wall is a fact about a
+// place, so it is content; this module no longer knows what a district is.
+//
 /**
  * Project the traversal graph.
  *
@@ -593,7 +594,6 @@ export function projectEdges(zones = [], connections = []) {
       const neighbours = byCell.get(`${z.map_id}|${z.grid_x + dx},${z.grid_y + dy},${z.grid_z ?? 0}`) || [];
       for (const n of neighbours) {
         if (facadeBlocks(n, OPPOSITE[dir])) continue;
-        if (crossesCurtain(z, n)) continue;
         grid.set(`${z.id}|${dir}|${n.id}`, {
           from_zone: z.id, direction: dir, to_zone: n.id, connection_id: null, kind: 'grid',
         });

@@ -1163,6 +1163,48 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     `table ${written.rows[0].n} vs derived ${edges.length} — run npm run map:derive`);
 }
 
+// LAW: YOU LEAVE THE CITY THROUGH A GATE, OR YOU DO NOT LEAVE IT.
+// The city↔wilds curtain used to be `crossesCurtain` in derive.mjs, keyed on
+// `flags.district === 'wilds'` — a presentation field the Studio paints. Erasing a
+// district on a frontier tile deleted a wall, produced no diff (the wall was never
+// a file), and looked like nothing at all on the map, because missing ground-level
+// wall reads exactly like ground. What a player got for it was the waste without
+// The South Gate: no gate warning, no wanted/contraband check coming back, and
+// death out there with no clone-vat.
+//
+// It is 133 authored walls now (scripts/content/mint-curtain-walls.mjs). The files
+// are lint's business; THIS is the world you can actually walk, asserted against
+// the booted engine — and it is deliberately independent of `zones.exits`, because
+// the agreement gate above dies at the §5 cutover and this must not die with it.
+{
+  const isWilds = (z) => z?.flags?.district === 'wilds';
+  const crossings = [];
+  for (const z of getAllZones()) {
+    for (const [dir, v] of Object.entries(z.exits || {})) {
+      for (const t of (Array.isArray(v) ? v : [v])) {
+        if (!t) continue;
+        const far = getZone(t);
+        if (!far || isWilds(z) === isWilds(far)) continue;
+        // An authored connection is somebody DECIDING to open a hole, which is
+        // what a gate is. Geometry deciding it is the bug.
+        const conn = getConnectionBetween(z.id, t);
+        crossings.push({ from: z.id, dir, to: t, gated: !!conn && !conn.blocked });
+      }
+    }
+  }
+  const ungated = crossings.filter(c => !c.gated);
+  check('no step crosses the city↔wilds curtain except through an authored gate',
+    ungated.length === 0,
+    ungated.slice(0, 3).map(c => `${c.from} —${c.dir}→ ${c.to}`).join(' | '));
+
+  // Positive control. An empty crossing list would satisfy the check above while
+  // meaning the gate had been walled up and the wilds made unreachable on foot —
+  // which is the same map defect wearing the opposite sign.
+  check(`the curtain is pierced, and only at the gate (${crossings.length} crossing(s))`,
+    crossings.length === 2 && crossings.every(c => c.from === 'zone_district_918_919' || c.to === 'zone_district_918_919'),
+    crossings.map(c => `${c.from} —${c.dir}→ ${c.to}`).join(' | '));
+}
+
 // LAW: A MAP HANGS OFF ONE WORLD TILE, AND ONLY THE MAP SAYS WHICH.
 // `maps.parent_zone_id` is the single place a map's anchor is decided; the copy
 // every tile carries in `parent_zone` (and in `flags.world_exit_zone`, where it

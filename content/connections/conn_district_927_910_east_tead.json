@@ -1,0 +1,10 @@
+{
+  "a": "zone_district_927_910",
+  "b": "zone_district_928_910",
+  "blocked": true,
+  "dir": "east",
+  "id": "conn_district_927_910_east_tead",
+  "lockable": false,
+  "name": "the Architect's Curtain",
+  "one_way": false
+}
