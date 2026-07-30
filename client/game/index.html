@@ -1798,7 +1798,7 @@
 				<div class="mediadeck-vents"></div>
 				<button id="mediadeck-close" aria-label="Close">✕</button>
 				<div id="mediadeck-header">
-					<div class="atm-logo">▌ MEDIA DECK ▐</div>
+					<div class="atm-logo" id="mediadeck-wordmark">▌ MEDIA DECK ▐</div>
 					<div id="mediadeck-name"></div>
 					<div id="mediadeck-channel" class="atm-subtitle"></div>
 				</div>
@@ -1826,7 +1826,26 @@
 					<div class="mediadeck-empty-hint">─ NO CASSETTE ─</div>
 					<div class="mediadeck-glass-cover"></div>
 				</div>
-				<div id="mediadeck-cartridge"></div>
+				<!-- Consumer faceplate. Only rendered for a branded unit (.consumer on
+				     #mediadeck-box), which hides the studio reel transport above: a slab
+				     like this has no reels to watch, just a catchless door that takes the
+				     cassette from you over four seconds, and one amber bar that reports
+				     what it is doing. -->
+					<div id="mediadeck-door">
+						<div class="mediadeck-door-mouth">
+							<div class="mediadeck-door-tape" id="mediadeck-door-tape"></div>
+							<div class="mediadeck-door-lip"></div>
+						</div>
+						<div class="mediadeck-amber"><span class="mediadeck-amber-fill" id="mediadeck-amber-fill"></span></div>
+						<div class="mediadeck-keys" id="mediadeck-keys" aria-hidden="true">
+							<span class="mediadeck-key">LOAD</span><span class="mediadeck-key">PLAY</span><span class="mediadeck-key">STOP</span>
+						</div>
+						<div class="mediadeck-door-caption" id="mediadeck-door-caption">
+							<span class="mediadeck-counter" id="mediadeck-counter"></span>
+							<span id="mediadeck-door-status"></span>
+						</div>
+					</div>
+					<div id="mediadeck-cartridge"></div>
 				<div class="atm-status-row">
 					<span class="atm-label">STATUS</span>
 					<span id="mediadeck-light" class="mediadeck-light"></span>

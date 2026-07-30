@@ -6672,6 +6672,23 @@ function _deckLightState(channelType, deckActive) {
   return 'red';
 }
 
+// A consumer tape player transmits nothing, so LIVE/ON AIR is meaningless on it —
+// the only question it can answer is whether the tape is actually running, and
+// that needs the SET as well as the tape: loaded and ready is still not playing
+// if the television above it is showing a station. Same rule the examine readout
+// uses (server/engine/commands/world.js), so the panel and the room agree.
+function _miniDeckPlayback(deck, dflags, deckNumber) {
+  const isLoad = !!dflags.deck_active;
+  const tuned = getZoneFurniture(deck.zone_id)
+    .map(x => Number(x.flags?.tuned_channel))
+    .filter(n => Number.isFinite(n));
+  const onInput = deckNumber != null && tuned.includes(deckNumber);
+  if (!isLoad) return { playing: false, whyNot: 'nothing loaded' };
+  if (!tuned.length) return { playing: false, whyNot: 'the set is off' };
+  if (!onInput) return { playing: false, whyNot: `the set is on channel ${tuned[0]}` };
+  return { playing: true, whyNot: null };
+}
+
 async function buildMediaDeckPanel(deckId, player) {
   const { rows } = await query('SELECT * FROM furniture WHERE id=$1', [deckId]);
   if (!rows.length) return { type: 'error', message: 'Deck not found.' };
@@ -6725,6 +6742,21 @@ async function buildMediaDeckPanel(deckId, player) {
   }
   const lightState = _deckLightState(channelType, dflags.deck_active);
 
+  // A branded consumer unit reports on its own terms: no LIVE lamp, no transport
+  // window, one amber bar. `deck_brand` is content, so an unbranded deck sends
+  // nothing new here and the client keeps the studio chassis it always had.
+  const isMini = !!dflags.mini_deck;
+  const brand = typeof dflags.deck_brand === 'string' ? dflags.deck_brand.trim() : '';
+  let miniState = null;
+  if (isMini) {
+    let deckNumber = state?.number ?? null;
+    if (deckNumber == null && channelId) {
+      const { rows: nRows } = await query('SELECT number FROM media_channels WHERE id=$1', [channelId]);
+      deckNumber = nRows[0]?.number ?? null;
+    }
+    miniState = _miniDeckPlayback(deck, dflags, deckNumber);
+  }
+
   const { rows: invRows } = await query(
     `SELECT i.name FROM player_inventory pi
        JOIN items i ON i.id = pi.item_id
@@ -6743,6 +6775,16 @@ async function buildMediaDeckPanel(deckId, player) {
     channelNumber: state?.number ?? null,
     channelType,
     lightState,
+    isMini,
+    brand: brand || null,
+    // Branding, cabinet and noise are three separate axes on purpose: a cheap
+    // branded unit is loud with chunky piano keys, and an expensive one takes the
+    // cassette from you without a sound. Inferring silence from "is it branded"
+    // would make every future budget deck a whisper-quiet slab.
+    deckStyle: brand ? (dflags.deck_style || 'slab') : null,
+    silent: !!dflags.deck_silent,
+    playing: miniState ? miniState.playing : null,
+    whyNot: miniState ? miniState.whyNot : null,
     activeCassetteId: dflags.deck_active || null,
     cassettes,
     schedule,

@@ -1,0 +1,19 @@
+{
+  "description": "A Cachet Vantage 900 in apartment trim — matte graphite, floor to ceiling, filling the alcove where a walk-in closet would go. Suits hang behind a hairline of warm light, each on its own motorised rail, and the facade is machined so precisely that no join shows anywhere on it. Cachet's marketing calls it a discretion suite. Cachet's marketing does not say what for.",
+  "flags": {
+    "conceal_brand": "Cachet Vantage 900",
+    "conceal_code": "1234",
+    "conceal_hides": "furn_chem_lab_solenne_b",
+    "interactions": ["lean"]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cachet_v900_solenne_b",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Cachet Vantage 900 wardrobe",
+  "object_type": "furniture",
+  "power_draw_kw": 0.4,
+  "price": 18500,
+  "zone_id": "zone_solenne_apt_b"
+}

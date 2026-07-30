@@ -7,6 +7,8 @@
     "channel_id": "ch_0_vcr",
     "deck_brand": "Polaris",
     "deck_mark": "✦",
+    "deck_style": "slab",
+    "deck_silent": true,
     "deck_cassettes": [],
     "deck_active": null,
     "interactions": [
