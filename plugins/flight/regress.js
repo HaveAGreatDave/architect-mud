@@ -767,7 +767,14 @@ export default async function regress({ run, check, getPlayer }) {
   // each command's post-action refresh — is covered by construction.
   {
     const savedBc = getBroadcast(), savedZoneH = p.current_zone;
-    const field = listAirfields().find(f => getZone(f.id)?.flags?.airfield_id);
+    // A residents-only pad is deliberately invisible to a non-resident — fieldFor()
+    // returns null there, so the bay never opens and both halves of this check would
+    // read "nothing sent". Which field comes back first depends on world load order,
+    // so pick a PUBLIC one explicitly rather than trusting the head of the list.
+    const field = listAirfields().find(f => {
+      const z = getZone(f.id);
+      return z?.flags?.airfield_id && !z.flags.airfield_residents_only;
+    });
     if (!field) check('an airfield exists to open a hangar at', false, 'no airfield zones loaded');
     else {
       const sent = [];
