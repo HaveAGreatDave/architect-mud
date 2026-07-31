@@ -115,6 +115,16 @@
   .key i.ent { border: 0; border-bottom: 4px solid var(--entrance); border-radius: 0; }
   .key i.der { border: 0; border-bottom: 4px solid var(--seam); border-radius: 0; }
   .key i.dot { border: 0; background: var(--seam); border-radius: 50%; width: 7px; height: 7px; margin: 3px 2px; }
+  .key i.no { border: 0; border-radius: 2px; background: repeating-linear-gradient(45deg,
+    var(--bad) 0 2px, transparent 2px 5px); }
+  /* The move plan, in the inspector: what would be written, before it is. */
+  #inspector .files { max-height: 26vh; overflow-y: auto; color: var(--dim); font-size: 10px;
+    border: 1px solid var(--line); border-radius: 3px; padding: 4px 6px; margin-top: 4px; }
+  #inspector .warn { color: var(--warn); white-space: pre-wrap; margin-top: 6px; font-size: 10.5px; }
+  /* The door sides a building can turn to. A side it cannot reach stays visible and
+     says why on hover, rather than vanishing and leaving you to guess. */
+  .turn { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-top: 4px; }
+  .turn button.now { background: var(--entrance); color: #0e0f12; border-color: var(--entrance); }
 </style>
 </head>
 <body>
@@ -136,6 +146,17 @@
     <button id="t-select" class="on">Select</button>
     <button id="t-paint">Paint</button>
     <button id="t-pick">Pick</button>
+    <button id="t-move">Move</button>
+  </div>
+
+  <div id="pane-move" style="display:none">
+    <h2>Move a building</h2>
+    <div id="movewho" class="help">Click a building to pick it up.</div>
+    <button id="m-cancel" style="width:100%;margin-top:5px" disabled>Put it down</button>
+    <div class="key" style="margin-top:6px"><i class="no"></i> already built on, or something standing there</div>
+    <div class="help" style="margin-top:5px">The door does not move itself. A destination
+      with no street on the door's side is refused, and says which sides would work —
+      turn the building first, in its own inspector.</div>
   </div>
 
   <div id="pane-terrain">

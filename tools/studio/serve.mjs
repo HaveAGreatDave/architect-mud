@@ -46,6 +46,10 @@ import { CONTENT_DIR, canonicalJson, schemaColumnsOf, readPalette, assetRefIds }
 import { contentEntries } from '../../server/models/content-registry.js';
 import { deriveWorld, projectEdges, deriveMapName, gridKey, featureProvenance } from '../../scripts/content/derive.mjs';
 import { applyAnchor, expectedAnchor } from '../../scripts/content/map-anchor.mjs';
+// The two structural operations, as pure planners. They live beside derive.mjs and
+// map-anchor.mjs for the same reason those do: regress drives them without a server,
+// and a rule about what moving a building means must have exactly one home.
+import { planMove, planRotate, buildingOf, attachmentsOf, isBuildingish } from '../../scripts/content/transform.mjs';
 import { lintContentTree } from '../../scripts/content/lint.mjs';
 // tags.js pulls in client/shared/tagCatalog.js for its side effect, so the
 // catalog the game validates against is the catalog this tool builds forms from.
@@ -67,7 +71,21 @@ const readBody = (req) => new Promise((resolve, reject) => {
 // Read once, kept current by every write going through saveZone(). A file the
 // Studio did not write (a git pull, a hand edit) needs a restart, which is the
 // honest tradeoff for never serving a tile that disagrees with disk.
-const TABLES = ['zones', 'maps', 'regions', 'connections', 'doors', 'districts'];
+// Six tables were enough while every edit was a field on a tile. Moving a building
+// is not: it repoints roughly a dozen rows that name the facade (the front door, the
+// utility generator, every interior tile's anchor), and it has to be able to SEE what
+// is standing on the cell it would land on — a streetlight sealed inside a facade is
+// a defect nothing else would report. The second group is read for that check and to
+// repoint; nothing else in this tool writes them.
+//
+// `power_zones` is deliberately absent from both. Its id IS the zone id and its row
+// is a fact about the cell, so it must not travel with a building — see the note at
+// the end of planMove.
+const TABLES = [
+  'zones', 'maps', 'regions', 'connections', 'doors', 'districts',
+  'furniture', 'npcs', 'generators', 'security_devices', 'zone_spawns',
+  'job_boards', 'media_cameras', 'media_channels', 'npc_residences', 'aa_sites', 'windows',
+];
 const tree = {};
 let palette = null;
 let derived = null;   // { render, edges } — invalidated on every write
@@ -514,7 +532,12 @@ function mapView(m) {
   };
 }
 
-function validateMap(row) {
+// `idx` is the zone index to resolve the derived name against. It defaults to the
+// tree's, and a plan passes one with its own pending rows merged in: a move repoints
+// this map at the tile that is ABOUT to become the facade, and against the stale tree
+// that tile is still plain ground carrying no building_name — so the map would be
+// refused for having no derivable name at the exact moment it grew one.
+function validateMap(row, idx = zoneIndex()) {
   const errors = [];
   if (!row?.id) errors.push('no id');
   for (const k of Object.keys(row || {})) {
@@ -531,7 +554,7 @@ function validateMap(row) {
   }
   // `name` is NOT NULL in the schema and absent-by-default in the file: omitting
   // it is a statement ("name me after my building"), and it has to resolve.
-  if (!deriveMapName(row, zoneIndex())) {
+  if (!deriveMapName(row, idx)) {
     errors.push('no name, and none derivable — this map\'s parent zone carries no building_name. Type a name.');
   }
   return errors;
@@ -726,6 +749,119 @@ async function assignDistrict(ids, district) {
     changed[id] = district || null;
   }
   return { errors, changed };
+}
+
+// ── Structural operations: moving and turning a building ─────────────────────
+// The rules live in scripts/content/transform.mjs; this half is the gate they pass
+// through. It is saveMap's shape, generalised: validate and conflict-check EVERY
+// file the plan would touch, refuse the whole thing on any objection, and only then
+// write — wrapped in one `action`, so a move that rewrote 80 files is one Ctrl+Z.
+const TABLE_COLS = new Map();
+const columnsFor = (table) => {
+  if (!TABLE_COLS.has(table)) TABLE_COLS.set(table, schemaColumnsOf(table));
+  return TABLE_COLS.get(table);
+};
+
+// zones and maps have real invariants and keep their own checkers. Everything else
+// the plan touches is rewritten in ONE id-valued or direction-valued field, so the
+// schema's column list is the whole of what can go wrong — and it is still read from
+// the schema rather than trusted.
+function validateRow(table, row, ctx) {
+  if (table === 'zones') {
+    return validateZone(row, ctx.maps.has(row.map_id) ? ctx.maps.get(row.map_id) : undefined);
+  }
+  if (table === 'maps') return validateMap(row, ctx.zones);
+  const errors = [];
+  if (!row?.id) errors.push('no id');
+  const cols = columnsFor(table);
+  for (const k of Object.keys(row || {})) {
+    if (cols.size && !cols.has(k)) errors.push(`"${k}" is not a column of ${table}`);
+  }
+  return errors;
+}
+
+/** The plan's writes, cleaned and deduped — last write to a file wins, as on disk. */
+function planFiles(plan) {
+  const out = new Map();
+  for (const w of plan.writes) out.set(`${w.table}/${w.id}`, { ...w, row: cleanRow(w.table, w.row) });
+  return [...out.values()];
+}
+
+async function applyPlan(plan) {
+  if (plan.errors.length) return { ok: false, errors: plan.errors };
+  const files = planFiles(plan);
+
+  // The plan's own pending rows, so each file is judged against the tree the write
+  // is about to produce rather than the one it is replacing.
+  const ctx = { maps: new Map(), zones: zoneIndex() };
+  for (const f of files) {
+    if (f.table === 'maps') ctx.maps.set(f.id, f.row);
+    if (f.table === 'zones') ctx.zones.set(f.id, f.row);
+  }
+
+  const objections = [];
+  for (const f of files) {
+    if (!tree[f.table]) { objections.push(`${f.table} is not a table the Studio holds`); continue; }
+    // The same rule every other route here keeps (spec §10.1): this tool edits
+    // content, it does not bring it into existence. A plan naming a file that is not
+    // there is a bug in the planner, not a file to create.
+    if (!tree[f.table].has(f.id)) { objections.push(`content/${f.table}/${f.id}.json does not exist — the Studio does not create content files`); continue; }
+    const bad = validateRow(f.table, f.row, ctx);
+    if (bad.length) objections.push(`${f.table}/${f.id}: ${bad.join('; ')}`);
+  }
+  for (const f of files) {
+    const conflict = await conflictOf(f.table, f.id);
+    if (conflict) objections.push(conflict);
+  }
+  if (objections.length) {
+    return { ok: false, errors: [
+      `nothing was written — ${objections.length} objection(s) to a change that would have touched ${files.length} file(s):`,
+      ...objections,
+    ] };
+  }
+
+  for (const f of files) {
+    await writeRow(f.table, f.id, f.row);
+    tree[f.table].set(f.id, f.row);
+  }
+  derived = null;
+  return { ok: true, files: files.map(f => `${f.table}/${f.id}`), warnings: plan.warnings };
+}
+
+/**
+ * What arming the Move tool needs to draw an honest ghost without a round trip per
+ * hover: which cells are already built on, and which have something standing on
+ * them. Both lists are short (62 and 178 world-wide) and both are the CHEAP half of
+ * the refusals — the authoritative answer is still the plan, on click.
+ */
+function moveArm(facadeId) {
+  const b = buildingOf(tree, facadeId);
+  if (b.error) return { error: b.error };
+  const built = [], occupied = [];
+  for (const z of tree.zones.values()) {
+    if (z.map_id !== b.facade.map_id) continue;
+    if (isBuildingish(z)) { built.push(z.id); continue; }
+    if (attachmentsOf(tree, z.id).length) occupied.push(z.id);
+  }
+  return {
+    facade: b.facade.id,
+    name: b.facade.flags?.building_name || b.facade.name,
+    entrance: b.facade.flags?.entrance ?? null,
+    interior: b.interior.length,
+    built, occupied,
+  };
+}
+
+/** Which door sides this building could turn to, so the inspector can offer them. */
+function turnOptions(facadeId) {
+  const b = buildingOf(tree, facadeId);
+  if (b.error) return { error: b.error };
+  const sides = [];
+  for (let k = 1; k <= 3; k++) {
+    const p = planRotate(tree, facadeId, k);
+    sides.push({ k, to: p.to ?? null, ok: !p.errors.length, why: p.errors[0] ?? null });
+  }
+  return { facade: b.facade.id, entrance: b.facade.flags?.entrance ?? null, sides };
 }
 
 // ── Server ───────────────────────────────────────────────────────────────────
@@ -933,6 +1069,66 @@ const server = createServer(async (req, res) => {
         provs: Object.fromEntries([...touched].map(i => [i, provOf(tree.zones.get(i))])),
         journal: journalView(),
       });
+    }
+
+    // ── Move a building ──────────────────────────────────────────────────────
+    // Arming: the cheap half of the refusals, once, so the ghost can be honest
+    // while the cursor moves instead of one POST per hovered cell.
+    const arm = path.match(/^\/api\/move-arm\/(.+)$/);
+    if (req.method === 'GET' && arm) {
+      const r = moveArm(decodeURIComponent(arm[1]));
+      return json(res, r.error ? 400 : 200, r);
+    }
+
+    // A PLAN WRITES NOTHING. It is the same call the commit makes, so what the
+    // panel lists is what would land — not a description of it maintained beside
+    // the thing it describes.
+    if (req.method === 'POST' && path === '/api/move-plan') {
+      const { facadeId, toX, toY, donorId = null } = JSON.parse(await readBody(req) || '{}');
+      const plan = planMove(tree, facadeId, Number(toX), Number(toY), { donorId });
+      const donor = plan.donorId ? tree.zones.get(plan.donorId) : null;
+      return json(res, 200, {
+        errors: plan.errors, warnings: plan.warnings, label: plan.label,
+        files: planFiles(plan).map(f => `${f.table}/${f.id}`),
+        donor: donor ? { id: donor.id, name: donor.name, terrain: donor.flags?.terrain ?? null } : null,
+        // What the eyedropper may pick instead: the plain ground touching the hole.
+        donorOptions: (() => {
+          const f = tree.zones.get(facadeId);
+          if (!f) return [];
+          const out = [];
+          for (const id of orthoNeighbours(facadeId)) {
+            const z = tree.zones.get(id);
+            if (z && !isBuildingish(z)) out.push({ id, name: z.name, terrain: z.flags?.terrain ?? null });
+          }
+          return out;
+        })(),
+      });
+    }
+
+    if (req.method === 'POST' && path === '/api/move') {
+      const { facadeId, toX, toY, donorId = null } = JSON.parse(await readBody(req) || '{}');
+      const plan = planMove(tree, facadeId, Number(toX), Number(toY), { donorId });
+      const r = await action(plan.label, () => applyPlan(plan));
+      if (!r.ok) return json(res, 422, r);
+      // `facadeId` comes back because it CHANGED: the destination row is the
+      // building now, and a client still holding the old id would open a tile that
+      // is a patch of street.
+      return json(res, 200, { ...r, facadeId: plan.facadeId, journal: journalView() });
+    }
+
+    // ── Turn a building ──────────────────────────────────────────────────────
+    const turn = path.match(/^\/api\/turn-options\/(.+)$/);
+    if (req.method === 'GET' && turn) {
+      const r = turnOptions(decodeURIComponent(turn[1]));
+      return json(res, r.error ? 400 : 200, r);
+    }
+
+    if (req.method === 'POST' && path === '/api/rotate') {
+      const { facadeId, k = 1 } = JSON.parse(await readBody(req) || '{}');
+      const plan = planRotate(tree, facadeId, Number(k));
+      const r = await action(plan.label, () => applyPlan(plan));
+      if (!r.ok) return json(res, 422, r);
+      return json(res, 200, { ...r, from: plan.from, to: plan.to, journal: journalView() });
     }
 
     // ── Undo / redo ──────────────────────────────────────────────────────────

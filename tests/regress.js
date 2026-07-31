@@ -1453,6 +1453,183 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     /derived = null;/.test(applyFn) && /reloadOpenMap/.test(client)
     && /'\/api\/undo'/.test(client) && /'\/api\/redo'/.test(client));
   check('the action log holds 20 actions deep', /const JOURNAL_MAX = 20;/.test(serve));
+
+  // MOVING AND TURNING A BUILDING ARE THE PLANNER'S RULES, NOT THIS TOOL'S. Same
+  // argument as the palette and the field catalog: the moment the Studio holds its
+  // own idea of what a quarter turn does, it is a second opinion about content the
+  // build has to agree with, and `npm run test:regress` below drives the planner
+  // directly with no server in the room.
+  check('the Studio moves and turns through the shared planner',
+    /from '\.\.\/\.\.\/scripts\/content\/transform\.mjs'/.test(serve)
+    && /planMove/.test(serve) && /planRotate/.test(serve));
+  check('the Studio client computes no direction algebra of its own',
+    !/rotateDir|rotatePoint|northeast'\s*,/.test(client));
+  // ONE GESTURE IS ONE ENTRY, however many files it turned into — a move rewrites a
+  // dozen for a small building and eighty for the Yards tenement, and taking that
+  // back has to be one Ctrl+Z rather than eighty.
+  check('a structural change is one journal action', /action\(plan\.label/.test(serve));
+  // And it is all-or-nothing, the shape saveMap already keeps: every file validated
+  // and conflict-checked before any is written.
+  const applyPlanFn = (serve.match(/async function applyPlan[\s\S]*?\n\}/) || [''])[0];
+  check('a move validates and conflict-checks every file before writing any',
+    /objections/.test(applyPlanFn) && /conflictOf/.test(applyPlanFn)
+    && /nothing was written/.test(applyPlanFn)
+    && applyPlanFn.indexOf('objections.length') < applyPlanFn.indexOf('await writeRow'));
+  // A PLAN WRITES NOTHING. The panel lists what would land because it is the same
+  // call the commit makes — not a description maintained beside the thing it describes.
+  const planRoute = (serve.match(/path === '\/api\/move-plan'\)[\s\S]*?\n    \}/) || [''])[0];
+  check('a move plan writes nothing', planRoute.length > 0
+    && !/writeRow|applyPlan|action\(/.test(planRoute));
+  // power_zones is per-CELL: its id IS the zone id and its row says which grid feeds
+  // that tile. A building that dragged it along would take the street's power with it.
+  const tablesDecl = (serve.match(/const TABLES = \[[\s\S]*?\];/) || [''])[0];
+  check('the Studio never opens power_zones, so a move cannot take one with it',
+    tablesDecl.length > 0 && !/power_zones/.test(tablesDecl));
+}
+
+// LAW: a building moves and turns WHOLE, and neither can author what the gate rejects.
+// Driven against the real content tree with no server and no database — the planners
+// are pure, which is the entire reason they live in scripts/content/ beside derive.
+{
+  const { readContentTree, canonicalJson } = await import('../scripts/content/lib.mjs');
+  const { planRotate, planMove, rotateDir, rotatePoint } = await import('../scripts/content/transform.mjs');
+
+  const tree = {};
+  for (const { entry, files } of readContentTree().entries) {
+    tree[entry.table] = new Map(files.map(f => [f.data.id, f.data]));
+  }
+  const facades = [...tree.zones.values()].filter(z => z.flags?.facade);
+  const apply = (t, writes) => {
+    const next = {};
+    for (const [k, v] of Object.entries(t)) next[k] = new Map(v);
+    for (const w of writes) next[w.table].set(w.id, w.row);
+    return next;
+  };
+  const driftFrom = (t) => {
+    const out = [];
+    for (const table of Object.keys(tree)) {
+      for (const [id, row] of t[table]) {
+        if (canonicalJson(row) !== canonicalJson(tree[table].get(id))) out.push(`${table}/${id}`);
+      }
+    }
+    return out;
+  };
+
+  // NORTH IS y−1, so clockwise is (x, y) → (−y, x). Get this backwards and every
+  // interior turns the wrong way while every exit key turns the right way — a
+  // building whose rooms disagree with its own doors.
+  check('a quarter turn moves north to east and takes the diagonals with it',
+    rotateDir('north', 1) === 'east' && rotateDir('east', 1) === 'south'
+    && rotateDir('northeast', 1) === 'southeast' && rotateDir('north', -1) === 'west');
+  check('a quarter turn leaves up, down, in and out alone',
+    ['up', 'down', 'in', 'out'].every(d => rotateDir(d, 1) === d));
+  check('the grid turns the same way the compass does',
+    String(rotatePoint(0, -1, 1)) === '1,0' && String(rotatePoint(1, -1, 1)) === '1,1');
+  check('four quarter turns is no turn at all',
+    ['north', 'northeast', 'west', 'up'].every(d => rotateDir(d, 4) === d));
+
+  // TURNING BACK IS BYTE-FOR-BYTE THE SAME BUILDING. The strongest property the
+  // planner has: it says the geometry, the exit keys, the connection directions, the
+  // front door and the camera all turn together and reversibly. A partial turn —
+  // exits without coordinates, or the facade without its interior — shows up here as
+  // a file that did not come home.
+  let turned = 0; const notHome = [];
+  for (const f of facades) {
+    for (const k of [1, -1]) {
+      const out = planRotate(tree, f.id, k);
+      if (out.errors.length) continue;
+      const back = planRotate(apply(tree, out.writes), f.id, -k);
+      if (back.errors.length) { notHome.push(`${f.id}: cannot turn back — ${back.errors[0]}`); continue; }
+      turned++;
+      const d = driftFrom(apply(apply(tree, out.writes), back.writes));
+      if (d.length) notHome.push(`${f.id} (${k > 0 ? 'cw' : 'ccw'}): ${d.slice(0, 4).join(', ')}`);
+    }
+  }
+  check(`turning a building back leaves the same bytes (${turned} turns)`,
+    turned > 0 && notHome.length === 0, notHome.slice(0, 6).join(' | '));
+
+  // A DOOR OPENS ONTO A STREET OR IT IS REFUSED. This is the rule that makes the
+  // facade rule in derive.mjs meaningful: a facade opens at flags.entrance and
+  // nowhere else, so an entrance pointed at another building is a building with no
+  // way in that still looks enterable on the map.
+  const intoWall = [];
+  for (const f of facades) {
+    for (const k of [1, 2, 3]) {
+      const p = planRotate(tree, f.id, k);
+      if (p.errors.length) continue;
+      const w = p.writes.find(x => x.table === 'zones' && x.id === f.id);
+      const street = tree.zones.get(w.row.flags.world_exit_zone);
+      const blocked = !street || street.flags?.facade || street.flags?.is_building
+        || street.flags?.is_interior || street.flags?.terrain === 'water' || street.flags?.water;
+      if (blocked) intoWall.push(`${f.id} → ${w.row.flags.entrance} onto ${w.row.flags.world_exit_zone}`);
+      // The zone's identity and its floor are not what a turn is about.
+      if (w.row.id !== f.id || (w.row.grid_z ?? 0) !== (f.grid_z ?? 0)) intoWall.push(`${f.id}: a turn moved its id or its floor`);
+    }
+  }
+  check('no turn ever opens a door onto a wall or water', intoWall.length === 0, intoWall.slice(0, 5).join(' | '));
+
+  // MOVING NEVER TOUCHES A COORDINATE. A world-map zone id encodes its own position
+  // (`zone_district_<x>_<y>`, 58 of the 62 facades), and map-audit GEO-1 calls a
+  // coord/id disagreement the signature of a botched move — then refuses to run its
+  // other fixers over the tile. The identity swap is what keeps every id true.
+  const moved = [];
+  let planned = 0;
+  const OFF = { north: [0, -1], east: [1, 0], south: [0, 1], west: [-1, 0] };
+  for (const f of facades) {
+    for (const [, [dx, dy]] of Object.entries(OFF)) {
+      const p = planMove(tree, f.id, f.grid_x + dx * 2, f.grid_y + dy * 2);
+      if (p.errors.length) continue;
+      planned++;
+      for (const w of p.writes.filter(x => x.table === 'zones')) {
+        const was = tree.zones.get(w.id);
+        if (w.row.grid_x !== was.grid_x || w.row.grid_y !== was.grid_y || (w.row.grid_z ?? 0) !== (was.grid_z ?? 0)) {
+          moved.push(`${f.id}: ${w.id} changed coordinates`);
+        }
+        if (w.row.id !== was.id) moved.push(`${f.id}: ${w.id} changed id`);
+      }
+      if (p.writes.some(w => w.table === 'power_zones')) moved.push(`${f.id}: a move wrote a power_zones row`);
+      // THE DOOR DOES NOT MOVE ITSELF (world.js:190 — inferring it relocated Pawn &
+      // Pity's off Marrow Street). Turning is the only thing allowed to.
+      const landed = p.writes.find(w => w.table === 'zones' && w.id === p.facadeId);
+      if (landed.row.flags.entrance !== f.flags.entrance) moved.push(`${f.id}: a move turned the door`);
+      // Exactly one interior map still hangs off exactly one facade — the dup-map
+      // state regress hard-fails elsewhere, reached here by a tool rather than by hand.
+      const maps = p.writes.filter(w => w.table === 'maps');
+      if (maps.some(m => m.row.parent_zone_id !== p.facadeId)) moved.push(`${f.id}: an interior map was left on the old cell`);
+      break;
+    }
+  }
+  check(`moving a building changes no coordinate, no id and no door (${planned} moves planned)`,
+    planned > 0 && moved.length === 0, moved.slice(0, 6).join(' | '));
+
+  // The two refusals that stop the Studio authoring something the gate rejects.
+  const ontoBuilding = [], ontoOccupied = [];
+  for (const f of facades) {
+    for (const [, [dx, dy]] of Object.entries(OFF)) {
+      const target = [...tree.zones.values()].find(z => z.map_id === f.map_id
+        && z.grid_x === f.grid_x + dx && z.grid_y === f.grid_y + dy && (z.grid_z ?? 0) === (f.grid_z ?? 0));
+      if (!target?.flags?.facade) continue;
+      const p = planMove(tree, f.id, target.grid_x, target.grid_y);
+      if (!p.errors.some(e => /already a building/.test(e))) ontoBuilding.push(`${f.id} → ${target.id}`);
+    }
+  }
+  check('a building cannot be moved onto another building',
+    ontoBuilding.length === 0, ontoBuilding.slice(0, 5).join(' | '));
+
+  // A facade is not standable, so anything left on the cell is sealed inside a
+  // building nobody can enter — and nothing else in the pipeline reports it.
+  const withStuff = [...tree.zones.values()].filter(z => z.map_id === 'map_world'
+    && !z.flags?.facade && !z.flags?.is_building
+    && [...tree.furniture.values()].some(fu => fu.zone_id === z.id));
+  for (const z of withStuff.slice(0, 12)) {
+    const near = facades.find(f => f.map_id === z.map_id
+      && Math.abs(f.grid_x - z.grid_x) + Math.abs(f.grid_y - z.grid_y) <= 3);
+    if (!near) continue;
+    const p = planMove(tree, near.id, z.grid_x, z.grid_y);
+    if (!p.errors.some(e => /standing on it/.test(e))) ontoOccupied.push(`${near.id} → ${z.id}`);
+  }
+  check('a building cannot be moved onto a cell something is standing on',
+    ontoOccupied.length === 0, ontoOccupied.slice(0, 5).join(' | '));
 }
 
 // LAW: content-store's SCHEMA_SQL parse still finds columns.
