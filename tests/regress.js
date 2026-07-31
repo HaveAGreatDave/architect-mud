@@ -23,7 +23,7 @@ import { readdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, frontDoorOf, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone, regionForZone, renderOf, specOf, getConnection, getConnectionBetween, getDoorForEdge, doorOnLink } from '../server/engine/world.js';
+import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, frontDoorOf, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone, regionForZone, renderOf, specOf, propsOf, getConnection, getConnectionBetween, getDoorForEdge, doorOnLink } from '../server/engine/world.js';
 import { moveEntity } from '../server/engine/ai-behaviour.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
 import { cmdMove, dragFollowers } from '../server/engine/commands/movement.js';
@@ -45,7 +45,7 @@ import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/cont
 import { SCHEMA_SQL } from '../server/models/schema.js';
 import { handleApiRequest, apiUpdateZone, apiPatchZoneTag } from '../server/api/routes.js';
 import { query } from '../server/models/db.js';
-import { resolveDefault, resolveTerrain, deriveWorld, deriveMarker, assignBuildingMarkers, projectEdges, edgesToExits, OPPOSITE, featureProvenance, buildCellIndex, gridKey } from '../scripts/content/derive.mjs';
+import { resolveDefault, resolveTerrain, resolveProps, PROP_DEFAULTS, deriveWorld, deriveMarker, assignBuildingMarkers, projectEdges, edgesToExits, OPPOSITE, featureProvenance, buildCellIndex, gridKey } from '../scripts/content/derive.mjs';
 import { ASSET_REFS, assetRefIds, isAssetRef } from '../scripts/content/lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -289,7 +289,7 @@ console.log('— layer 1d: zone tag substrate —');
   // One shape vocabulary. A catalog entry whose shape shapeError() doesn't know
   // is unvalidated and looks validated, which is the failure mode this whole
   // section exists to remove.
-  const KNOWN_SHAPES = new Set(['text', 'flag', 'int', 'number', 'enum', 'ref', 'list', 'object', 'range', 'hot', 'statmap']);
+  const KNOWN_SHAPES = new Set(['text', 'flag', 'tristate', 'int', 'number', 'enum', 'ref', 'list', 'object', 'range', 'hot', 'statmap']);
   const oddShapes = [...new Set(Object.values(TAG_CATALOG).map(d => d?.shape))].filter(s => !KNOWN_SHAPES.has(s));
   check('every catalogued shape is one shapeError understands', oddShapes.length === 0, oddShapes.join(', '));
   check('int was collapsed into number', !Object.values(TAG_CATALOG).some(d => d?.shape === 'int'));
@@ -828,7 +828,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
 }
 
 // LAW: presentation is DERIVED AT BUILD TIME, and there is exactly one derivation.
-// Every renderer reads zone_render.spec; none of them owns a palette. These pin the
+// Every renderer reads zone_derived.spec; none of them owns a palette. These pin the
 // three claims that makes: the table is complete, the function is pure, and the
 // function is deterministic — because a derived value that varies by machine is
 // worse than one computed at runtime, not better.
@@ -868,7 +868,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // Which connector piece a road draws is a function of its neighbours, so it is
   // checked against THE MAP rather than against itself: for every auto-tiling tile,
   // each of the four sides must say exactly whether an auto-tiling tile is there.
-  // Checked on the pure derive rather than on zone_render, because this is the
+  // Checked on the pure derive rather than on zone_derived, because this is the
   // authored half — the table is only as fresh as the last import.
   const autoTerrains = new Set(Object.entries(palette?.terrains || {})
     .filter(([, t]) => t.auto_tile).map(([k]) => k));
@@ -995,10 +995,76 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // Completeness. A tile with no derived row renders with no fill at all, and the
   // renderers have no fallback any more — that is the point, so this must hold.
   const missing = getAllZones().filter(z => !renderOf(z.id));
-  check(`every zone has a zone_render row (${world.render.size} rows)`, missing.length === 0,
+  check(`every zone has a zone_derived row (${world.render.size} rows)`, missing.length === 0,
     missing.slice(0, 3).map(z => z.id).join(', ') + (missing.length ? ' — run npm run map:derive' : ''));
   const noSpec = getAllZones().filter(z => !specOf(z.id));
-  check('every zone_render row carries a spec', noSpec.length === 0, noSpec.slice(0, 3).map(z => z.id).join(', '));
+  check('every zone_derived row carries a spec', noSpec.length === 0, noSpec.slice(0, 3).map(z => z.id).join(', '));
+
+  // ── Gameplay properties (docs/proposals/terrain-property-presets.md) ────────
+  // Pure resolver first: no world, no DB, so a failure here is the RULE breaking
+  // rather than the data.
+  {
+    const P = (flags) => resolveProps({ flags }, palette);
+    check('props: an unpainted tile gets the defaults',
+      JSON.stringify(P({})) === JSON.stringify(PROP_DEFAULTS));
+    check('props: water inherits its terrain preset',
+      P({ terrain: 'water' }).swimmable === true && P({ terrain: 'water' }).routable === false);
+    check('props: solid ground inherits the defaults',
+      P({ terrain: 'road' }).routable === true && P({ terrain: 'road' }).swimmable === false);
+    // THE tri-state regression. `false` must beat the preset — if this fails, the
+    // override rung has collapsed back to presence-only and a frozen bay is
+    // unauthorable. It is the reason the shape is `tristate` and not `flag`.
+    const frozen = P({ terrain: 'water', swimmable: false, routable: true });
+    check('props: an explicit FALSE overrides the preset (the frozen bay)',
+      frozen.swimmable === false && frozen.routable === true,
+      JSON.stringify(frozen));
+    check('props: an unset key still inherits alongside an overridden one',
+      frozen.buildable === false);
+    check('props: a tile can force a property ON against its terrain (flooded basement)',
+      P({ terrain: 'concrete', swimmable: true }).swimmable === true);
+    // NUMERIC properties. A number already distinguishes absent from set, so it needs
+    // no tri-state — but it must not go through the boolean path, which would turn
+    // `speed_mult: 2` into `true` and every road into walking pace.
+    check('props: a numeric property carries its preset', P({ terrain: 'road' }).speed_mult === 2);
+    check('props: a numeric override is a NUMBER, not coerced to a boolean',
+      P({ terrain: 'road', speed_mult: 0.5 }).speed_mult === 0.5,
+      `${P({ terrain: 'road', speed_mult: 0.5 }).speed_mult}`);
+    check('props: a garbage numeric override falls back to the default, never NaN',
+      P({ terrain: 'road', speed_mult: 'fast' }).speed_mult === 1);
+    // The underwater terrain: paints exactly like water, behaves nothing like it.
+    check('props: the underwater terrain presets underwater + swimmable + liquid',
+      P({ terrain: 'underwater' }).underwater === true && P({ terrain: 'underwater' }).swimmable === true
+      && P({ terrain: 'underwater' }).liquid === true);
+    check('props: surface water is NOT underwater',
+      P({ terrain: 'water' }).underwater === false);
+    check('props: frontage is preset on road only (dirt_road is not a front-door street)',
+      P({ terrain: 'road' }).frontage === true && P({ terrain: 'dirt_road' }).frontage === false);
+    // Your call, 2026-07-30: a marsh is walked, not swum.
+    check('props: marsh is deliberately not swimmable',
+      P({ terrain: 'marsh' }).swimmable === false && P({ terrain: 'marsh' }).liquid === false);
+  }
+  // The flag→terrain migration: 82 tiles carried terrain 'water' AND flags.underwater,
+  // two facts saying one thing. They are now terrain 'underwater' and the flag is gone.
+  check('no tile still carries a raw underwater flag (migrated to terrain)',
+    getAllZones().every(z => !('underwater' in (z.flags || {}))),
+    getAllZones().filter(z => 'underwater' in (z.flags || {})).slice(0, 3).map(z => z.id).join(', '));
+  const noProps = getAllZones().filter(z => !renderOf(z.id)?.props);
+  check('every zone_derived row carries props', noProps.length === 0,
+    noProps.slice(0, 3).map(z => z.id).join(', '));
+
+  // The 2026-07-21 guard, and the reason this block exists at all. `flags.water`
+  // was migrated to terrain and its 12 readers were left behind; because the flag
+  // then sat on no row, every water check silently answered "no" and GPS routed
+  // across a 945-tile basin for nine days. Nothing failed. This is what would have.
+  {
+    const water = getAllZones().filter(z => z.flags?.terrain === 'water');
+    const notSwim = water.filter(z => !propsOf(z.id).swimmable && !('swimmable' in (z.flags || {})));
+    const routable = water.filter(z => propsOf(z.id).routable && !('routable' in (z.flags || {})));
+    check(`every painted water tile resolves swimmable (${water.length} tiles)`,
+      notSwim.length === 0, notSwim.slice(0, 3).map(z => z.id).join(', '));
+    check('no painted water tile is routable unless it says so explicitly',
+      routable.length === 0, routable.slice(0, 3).map(z => z.id).join(', '));
+  }
 
   // Every painted terrain must resolve in the palette, or the tile paints nothing.
   const unknownTerrain = [...new Set(getAllZones().map(z => z.flags?.terrain).filter(Boolean))]
@@ -1024,13 +1090,18 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // fact and the mechanical fact are the same fact now.
   const paintedRoadNoIcon = getAllZones().find(z =>
     z.flags?.terrain === 'road' && !/^(road_|runway_)/.test(z.flags?.icon || '') && !z.flags?.artery);
+  // speed_mult moved from spec to props on 2026-07-30 — it is pacing, which is
+  // gameplay, and spec is the render payload. Assert it left, so nothing quietly
+  // starts reading a stale copy from both places.
   if (paintedRoadNoIcon) {
     check('a painted road with no authored icon carries the road speed-up',
-      specOf(paintedRoadNoIcon.id).speed_mult === 2,
-      `${paintedRoadNoIcon.id} → ${specOf(paintedRoadNoIcon.id).speed_mult}`);
+      propsOf(paintedRoadNoIcon.id).speed_mult === 2,
+      `${paintedRoadNoIcon.id} → ${propsOf(paintedRoadNoIcon.id).speed_mult}`);
   }
   check('a non-road terrain carries no speed-up',
-    specOf(getAllZones().find(z => z.flags?.terrain === 'redrock')?.id)?.speed_mult === 1);
+    propsOf(getAllZones().find(z => z.flags?.terrain === 'redrock')?.id)?.speed_mult === 1);
+  check('speed_mult no longer rides the render spec (one home, not two)',
+    specOf(paintedRoadNoIcon?.id)?.speed_mult === undefined);
 
   // The step-1 loan, repaid: the resolved audio theme now lives in the table, and it
   // must agree with what resolveDefault would have said at the call site.
@@ -1039,7 +1110,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     renderOf(z.id).audio_theme_id !== resolveDefault('audio_theme_id', z, regionForZone(z)));
   check('the derived audio theme agrees with resolveDefault', themeMismatch.length === 0,
     themeMismatch.slice(0, 3).map(z => z.id).join(', '));
-  check('zone_render.ambient_theme is always present',
+  check('zone_derived.ambient_theme is always present',
     getAllZones().every(z => !!renderOf(z.id).ambient_theme));
 
   // ── deriveMarker: four jobs, separated (spec §7.4) ─────────────────────────

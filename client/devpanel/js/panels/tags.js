@@ -4,7 +4,7 @@ function renderTagsPanel(data) {
   // Must stay in step with the shape list documented in client/shared/tagCatalog.js
   // and validated by shapeError() in server/engine/tags.js. A shape missing here is
   // silently rewritten to the first option the moment somebody edits that tag.
-  const SHAPES = ['text','flag','number','enum','ref','list','object','range','hot','statmap'];
+  const SHAPES = ['text','flag','tristate','number','enum','ref','list','object','range','hot','statmap'];
   // Scopes this dialog can author. Anything else (zone flags, zone columns) is
   // shown but not reassignable — the Usable-on checkboxes only describe item and
   // furniture editors, and letting them answer for a zone tag silently converted

@@ -44,6 +44,13 @@ export default async function regress({ run, check, getPlayer }) {
   // Open water on the map's edge: 109 real rim tiles are basin (the whole y=896 row),
   // and you don't walk into the waste off a tile you're swimming in.
   world.zones.set(WATER, mkZone(WATER, 'Open Basin', { map_id: 'map_world', flags: { region_id: VOIDKEY, terrain: 'water' }, grid_x: 2000, grid_y: 2005 }));
+  // The rim test asks the DERIVED `liquid` property, not the paint (the build
+  // resolves terrain water ⇒ liquid). A synthetic tile is never built, so the
+  // fixture supplies the row the build would have written — otherwise the basin
+  // reads as solid ground and grows a rim it must not have.
+  const prevRender = new Map();
+  const derive = (id, props) => { prevRender.set(id, world.render.get(id)); world.render.set(id, { zone_id: id, spec: {}, props }); };
+  derive(WATER, { liquid: true, swimmable: true, routable: false, buildable: false });
   FILLERS.forEach(([fx, fy], i) =>
     world.zones.set(`${FILLER}${i}`, mkZone(`${FILLER}${i}`, 'Filler', { map_id: 'map_world', flags: { region_id: VOIDKEY }, grid_x: fx, grid_y: fy })));
 
@@ -373,6 +380,7 @@ export default async function regress({ run, check, getPlayer }) {
     await query('DELETE FROM player_inventory WHERE player_id=$1', [player.id]).catch(() => {});
     wipe();
     for (const [id, z] of prev) { if (z) world.zones.set(id, z); else world.zones.delete(id); }
+    for (const [id, r] of prevRender) { if (r) world.render.set(id, r); else world.render.delete(id); }
     player.current_zone = savedZone;
   }
 }

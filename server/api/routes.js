@@ -1,6 +1,6 @@
 import { query, logActivity } from '../models/db.js';
 import { syncContentFromRequest, syncZoneDeletion } from './content-sync.js';
-import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere, refreshZoneFurniture, zoneTerrain, loadZoneRender, getAllRegions } from '../engine/world.js';
+import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere, refreshZoneFurniture, propsOf, loadZoneRender, getAllRegions } from '../engine/world.js';
 import { authorUtilityRoom } from '../../tools/lib/utility-room.mjs';
 import { readPalette } from '../../scripts/content/lib.mjs';
 import { writeDerived } from '../../scripts/content/derive-write.mjs';
@@ -813,19 +813,19 @@ async function apiBuildBuilding(body, auth) {
 
   // The cell must be empty or a plain ground tile — never an existing building or water.
   const isBuildingish = (t) => !!t && (isEnterableFacade(t) || t.flags?.building_type || t.flags?.is_building || t.flags?.is_interior || t.flags?.is_apartment);
-  if (isBuildingish(target) || target?.flags?.water || (target && zoneTerrain(target) === 'water'))
+  if (isBuildingish(target) || (target && !propsOf(target.id).buildable))
     return { status: 400, body: { error: 'That cell already holds a building or water — pick an empty or ground tile.' } };
 
   // Candidate fronting streets = standable orthogonal neighbours (a building needs a door
   // onto a walkable tile). Prefer a road-terrain neighbour, like move-building.
-  const standable = (t) => !!t && !isBuildingish(t) && !t.flags?.water && zoneTerrain(t) !== 'water';
+  const standable = (t) => !!t && !isBuildingish(t) && propsOf(t.id).buildable;
   const neighbours = [];
   for (const [dir, off] of Object.entries(BUILD_DIR_OFF)) {
     const n = at(toX + off[0], toY + off[1], toZ);
     if (standable(n)) neighbours.push({ dir, n });
   }
   if (!neighbours.length) return { status: 400, body: { error: 'No adjacent street to enter from — place the building next to a walkable ground/road tile.' } };
-  const front = neighbours.find(x => zoneTerrain(x.n) === 'road') || neighbours[0];
+  const front = neighbours.find(x => propsOf(x.n.id).frontage) || neighbours[0];
 
   const tmpl = templateForType(bt);
   const isHangar = bt === 'hangar';
@@ -851,7 +851,7 @@ async function apiBuildBuilding(body, auth) {
     //    fresh. It has to exist before the lobby/rooms, which reference it via parent_zone
     //    (a FK). Its own `in`→lobby exit can point ahead (exits is JSONB, no FK).
     const keepFlags = target ? { ...(target.flags || {}) } : {};
-    delete keepFlags.terrain; delete keepFlags.runway; delete keepFlags.pier; delete keepFlags.water;
+    delete keepFlags.terrain; delete keepFlags.runway; delete keepFlags.pier;
     if (/^(runway_|road_)/.test(keepFlags.icon || '')) delete keepFlags.icon;
     const facadeFlags = { ...keepFlags, is_building: true, facade: true, building_name: buildingName, building_type: bt, entrance: entranceDir, world_exit_zone: front.n.id };
     if (regionId) facadeFlags.region_id = regionId;
@@ -1023,7 +1023,7 @@ async function apiGetMap(id) {
   const { rows: zones } = await query(
     `SELECT z.id, z.name, z.grid_x, z.grid_y, z.grid_z, z.marker, z.color, z.bg_color,
             z.exits, z.flags, z.map_id, r.spec
-     FROM zones z LEFT JOIN zone_render r ON r.zone_id = z.id
+     FROM zones z LEFT JOIN zone_derived r ON r.zone_id = z.id
      WHERE z.map_id=$1`, [id]
   );
   // Interior maps that hang off any of this map's zones, so the editor can
@@ -1189,7 +1189,8 @@ async function apiMoveBuilding(body) {
 
   // A "street" is a placed, walkable exterior tile that can host a front door.
   const isStreet = (t) => !!t && t.grid_x != null && !isEnterableFacade(t)
-    && !t.flags?.is_building && !t.flags?.is_interior && !t.flags?.is_apartment && !t.flags?.water;
+    && !t.flags?.is_building && !t.flags?.is_interior && !t.flags?.is_apartment
+    && propsOf(t.id).buildable;
   // Buildings/interiors are never overwritable; plain walkable ground is.
   const isBuildingish = (t) => !!t && (isEnterableFacade(t) || t.flags?.building_type
     || t.flags?.is_building || t.flags?.is_interior || t.flags?.is_apartment);
@@ -1200,7 +1201,7 @@ async function apiMoveBuilding(body) {
   const occupant = cellAt(toX, toY);
   let swapTile = null;
   if (occupant && occupant.id !== facadeId) {
-    if (isBuildingish(occupant) || occupant.flags?.water || zoneTerrain(occupant) === 'water' || (facade.grid_z ?? 0) !== z)
+    if (isBuildingish(occupant) || !propsOf(occupant.id).buildable || (facade.grid_z ?? 0) !== z)
       return { status: 400, body: { error: `Destination cell is occupied by ${occupant.name}.` } };
     swapTile = occupant; // will move into the facade's vacated cell
   }
@@ -1257,7 +1258,7 @@ async function apiMoveBuilding(body) {
     candidates.push({ dir, nb });
   }
   if (!candidates.length) return { status: 400, body: { error: 'Destination has no adjacent street to host a front door — pick a cell next to a road.' } };
-  const pick = candidates.find(c => zoneTerrain(c.nb) === 'road') || candidates[0];
+  const pick = candidates.find(c => propsOf(c.nb.id).frontage) || candidates[0];
   workExits(facade)[pick.dir] = pick.nb.id;
   workExits(pick.nb)[OPPOSITE[pick.dir]] = facadeId;
   plan.moves.push(`Wire ${facade.name} ↔ ${pick.nb.name} (${pick.dir}) as the new front door`);
@@ -1313,7 +1314,7 @@ async function apiGetTerrainPalette() {
   return { status: 200, body: readPalette() || { version: 0, terrains: {} } };
 }
 
-// Rebuild zone_render from the live world. The derive pass normally runs inside
+// Rebuild zone_derived from the live world. The derive pass normally runs inside
 // content:import, which is a deploy — but the terrain painter changes what a tile
 // looks like RIGHT NOW, and a painter whose paint doesn't appear until the next
 // deploy is a painter nobody will use. Whole-map, because derive is whole-map by

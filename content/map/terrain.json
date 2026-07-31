@@ -47,7 +47,10 @@
       "glyph": null,
       "minimap_class": "road",
       "auto_tile": true,
-      "speed_mult": 2
+      "props": {
+        "speed_mult": 2,
+        "frontage": true
+      }
     },
     "dirt_road": {
       "label": "Dirt Road",
@@ -56,7 +59,9 @@
       "glyph": null,
       "minimap_class": "dirt_road",
       "auto_tile": true,
-      "speed_mult": 2
+      "props": {
+        "speed_mult": 2
+      }
     },
     "asphalt": {
       "label": "Asphalt",
@@ -64,8 +69,7 @@
       "text": null,
       "glyph": null,
       "minimap_class": "asphalt",
-      "auto_tile": false,
-      "speed_mult": 1
+      "auto_tile": false
     },
     "concrete": {
       "label": "Concrete",
@@ -73,8 +77,7 @@
       "text": null,
       "glyph": null,
       "minimap_class": "concrete",
-      "auto_tile": false,
-      "speed_mult": 1
+      "auto_tile": false
     },
     "grass": {
       "label": "Grass",
@@ -83,7 +86,6 @@
       "glyph": null,
       "minimap_class": "grass",
       "auto_tile": false,
-      "speed_mult": 1,
       "authored_bg_wins": true
     },
     "park": {
@@ -92,8 +94,7 @@
       "text": null,
       "glyph": null,
       "minimap_class": "park",
-      "auto_tile": false,
-      "speed_mult": 1
+      "auto_tile": false
     },
     "dirt": {
       "label": "Dirt",
@@ -101,8 +102,7 @@
       "text": null,
       "glyph": null,
       "minimap_class": "dirt",
-      "auto_tile": false,
-      "speed_mult": 1
+      "auto_tile": false
     },
     "sand": {
       "label": "Sand",
@@ -110,8 +110,7 @@
       "text": null,
       "glyph": null,
       "minimap_class": "sand",
-      "auto_tile": false,
-      "speed_mult": 1
+      "auto_tile": false
     },
     "gravel": {
       "label": "Gravel",
@@ -119,8 +118,7 @@
       "text": null,
       "glyph": null,
       "minimap_class": "gravel",
-      "auto_tile": false,
-      "speed_mult": 1
+      "auto_tile": false
     },
     "dock": {
       "label": "Dock",
@@ -128,8 +126,7 @@
       "text": null,
       "glyph": null,
       "minimap_class": "dock",
-      "auto_tile": false,
-      "speed_mult": 1
+      "auto_tile": false
     },
     "water": {
       "label": "Water",
@@ -138,8 +135,13 @@
       "glyph": null,
       "minimap_class": "water",
       "auto_tile": false,
-      "speed_mult": 1,
-      "authored_bg_wins": true
+      "authored_bg_wins": true,
+      "props": {
+        "liquid": true,
+        "swimmable": true,
+        "routable": false,
+        "buildable": false
+      }
     },
     "scrub": {
       "label": "Scrubland",
@@ -147,8 +149,7 @@
       "text": null,
       "glyph": null,
       "minimap_class": "scrub",
-      "auto_tile": false,
-      "speed_mult": 1
+      "auto_tile": false
     },
     "redrock": {
       "label": "Red Rock",
@@ -156,8 +157,7 @@
       "text": null,
       "glyph": null,
       "minimap_class": "redrock",
-      "auto_tile": false,
-      "speed_mult": 1
+      "auto_tile": false
     },
     "ash": {
       "label": "Ash",
@@ -165,8 +165,7 @@
       "text": null,
       "glyph": null,
       "minimap_class": "ash",
-      "auto_tile": false,
-      "speed_mult": 1
+      "auto_tile": false
     },
     "marsh": {
       "label": "Marsh",
@@ -174,8 +173,48 @@
       "text": null,
       "glyph": null,
       "minimap_class": "marsh",
+      "auto_tile": false
+    },
+    "underwater": {
+      "label": "Underwater",
+      "fill": "#3f7fb0",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "water",
       "auto_tile": false,
-      "speed_mult": 1
+      "authored_bg_wins": true,
+      "props": {
+        "liquid": true,
+        "swimmable": true,
+        "underwater": true,
+        "routable": false,
+        "buildable": false
+      }
     }
-  }
+  },
+  "_props_comment": [
+    "props — the GAMEPLAY preset a tile inherits by being painted this terrain.",
+    "See docs/proposals/terrain-property-presets.md. Resolved at build into",
+    "zone_derived.props; a tile overrides any key with a flag of the same name.",
+    "A boolean override may be an explicit FALSE (absent = inherit, false = no):",
+    "a frozen bay is terrain water with swimmable:false, routable:true — still blue",
+    "on the map, walked across.",
+    "",
+    "liquid      you are IN this tile, not ON it (fishing casts into it; the",
+    "            overland void rim does not exist here). default false",
+    "swimmable   entering costs stamina; wetness, drowning, hypothermia. default false",
+    "underwater  submerged BELOW a surface tile: breath timer, colder, dark. default false",
+    "routable    GPS and pathfinding may cross it. default TRUE",
+    "buildable   the dev-panel builder may place/move a building here. default TRUE",
+    "frontage    a street a building front door may face onto. default false",
+    "speed_mult  movement pacing multiplier. default 1. Numeric, not boolean —",
+    "            properties are typed by their default in PROP_DEFAULTS.",
+    "",
+    "Only DIVERGENCE from the defaults is recorded, so a terrain with no props block",
+    "inherits everything — which is what most solid ground wants. marsh is deliberately",
+    "NOT liquid/swimmable: a marsh is walked, not swum (decision, 2026-07-30).",
+    "",
+    "underwater is visually identical to water on purpose — same fill, same minimap",
+    "class. What differs is what it does to you, not what it looks like."
+  ]
 }

@@ -19,6 +19,12 @@
  * shape — drives the editor widget, serialization, and validateTags():
  *   text    free text (textarea)
  *   flag    valueless marker (stored as `true`)
+ *   tristate unset / true / false, where FALSE IS LOAD-BEARING. For a property a
+ *           terrain presets and a tile overrides: absent = inherit the preset,
+ *           false = explicitly not this. `flag` cannot express the last one —
+ *           there absence and false are the same signal. Editors render a
+ *           three-way select, not a checkbox. See
+ *           docs/proposals/terrain-property-presets.md
  *   number  any number (integers included — `int` was collapsed into this)
  *   enum    one of `options`
  *   ref     an id in another table; `refTable` names it. Buys a picker in the
@@ -305,8 +311,6 @@
       help: 'Corporate Assets: a corp can take this storefront over with "corp asset claim". Value is the asset type key (restaurant, casino, fence, gun_shop, clinic, chem_supply). Needs a vendor NPC in the zone for the sales cut.' },
     aa_site: { label: 'AA Emplacement', shape: 'flag', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Exposed anti-aircraft emplacement (aa-sites plugin): the standable tile that fires on overflying aircraft and can be assaulted on foot. Pairs with an aa_sites row.' },
-    aa_bunker: { label: 'AA Bunker', shape: 'text', scope: 'zone', group: 'Zone: Law & Hazard',
-      help: 'Interior bunker of an AA emplacement (aa-sites plugin). Value is the linked AA site id (e.g. aa_clone_guard).' },
 
     is_interior: { label: 'Interior', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'Indoors — weather/temperature/lighting use the interior model.' },
@@ -340,10 +344,6 @@
       help: 'Suppress the exit/room/building list in the room description; graph (movement, pathfinding, minimap) is untouched. Elevator cars use it so the floor panel is the sole exit UI.' },
     open_sky: { label: 'Open Sky', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'Outdoor zone aircraft can overfly/land; on interiors, an open roof.' },
-    water: { label: 'Water', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
-      help: 'Deep/open water. Swimmable on foot (costs stamina, soaks + chills you); a boat-tagged item rides you across dry.' },
-    underwater: { label: 'Underwater', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
-      help: 'A submerged tile below a surface water tile (link up/down). Always submerged (a boat does not help), colder, and dark; starts a breath timer that drowns you when it runs out.' },
     water_temp_c: { label: 'Water Temperature (°C)', shape: 'number', scope: 'zone', group: 'Zone: Structure',
       help: 'Override the temperature a submerged swimmer here drifts toward (default: 12°C surface / 7°C underwater). Lower = hypothermia faster; e.g. 26 for a warm lagoon.' },
     vessel: { label: 'Vessel (boardable from water)', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
@@ -352,8 +352,8 @@
       help: 'Never dark regardless of power/time.' },
     rest_multiplier: { label: 'Rest Multiplier', shape: 'number', scope: 'zone', group: 'Zone: Structure',
       help: 'Scales both stamina regen and HP knit-back for anyone resting in this zone (restRegenTick in gameLoop.js). Default 1. Comfort zones raise it — Solenne units 1.5, penthouse 2.0.' },
-    terrain: { label: 'Terrain', shape: 'enum', options: ['water', 'road', 'dirt_road', 'asphalt', 'concrete', 'grass', 'park', 'dirt', 'sand', 'gravel', 'dock', 'scrub', 'redrock', 'ash', 'marsh'], scope: 'zone', group: 'Zone: Structure',
-      help: 'Ground surface for the map/minimap and the flight-sim ground tint — the authoritative source for zoneTerrain (overrides the inferred surface). Painted in the dev panel: Maps → Terrain mode. Road AND dirt_road tiles auto-tile their connector piece from adjacent road/dirt_road tiles; dirt_road renders as a graded packed-dirt track (brown, wheel ruts, no paint) rather than paved asphalt.' },
+    terrain: { label: 'Terrain', shape: 'enum', options: ['water', 'underwater', 'road', 'dirt_road', 'asphalt', 'concrete', 'grass', 'park', 'dirt', 'sand', 'gravel', 'dock', 'scrub', 'redrock', 'ash', 'marsh'], scope: 'zone', group: 'Zone: Structure',
+      help: 'Ground surface for the map/minimap and the flight-sim ground tint — the authoritative source for zoneTerrain (overrides the inferred surface). Painted in the dev panel: Maps → Terrain mode. Road AND dirt_road tiles auto-tile their connector piece from adjacent road/dirt_road tiles; dirt_road renders as a graded packed-dirt track (brown, wheel ruts, no paint) rather than paved asphalt. NOT render-only for one value: "water" is the SOLE marker for open water — it makes the tile swimmable (stamina, wetness, drowning), impassable to GPS/pathfinding, and a ditching crash to land on. There is no flags.water; test it with zoneTerrain(zone) === \'water\'.' },
     park_feature: { label: 'Park Feature', shape: 'enum', options: ['grove', 'pond', 'benches', 'flowerbeds', 'path'], scope: 'zone', group: 'Zone: Structure',
       help: 'On a "park" terrain tile, forces which flight-sim park dressing it draws (grove/pond/benches/flowerbeds/path) so a park can be laid out symmetrically. Unset → chosen from the tile position hash.' },
 
@@ -361,8 +361,6 @@
       help: 'Marks a world tile as part of the Ascendant stronghold campus (western frontier) — used for ambience and faction framing.' },
     ascension_gate: { label: 'Ascension Gate', shape: 'flag', scope: 'zone', group: 'Zone: Ascendant',
       help: 'The gated entrance tile into the Ascendant campus.' },
-    ascendant_inner: { label: 'Ascendant Inner Sanctum', shape: 'flag', scope: 'zone', group: 'Zone: Ascendant',
-      help: 'The Spire sanctum — deepest Ascendant interior, reserved for the highest standing.' },
     ascendant_vats: { label: 'Ascendant Vats', shape: 'flag', scope: 'zone', group: 'Zone: Ascendant',
       help: 'The cloning/regrowth hall within The Vats.' },
     ascendant_registry: { label: 'Ascendant Registry', shape: 'flag', scope: 'zone', group: 'Zone: Ascendant',
@@ -371,8 +369,6 @@
       help: 'A room where cybernetic augments can be installed (Chrome Clinic). Read by the augments plugin.' },
     assurance_policy: { label: 'Cortical Assurance Desk', shape: 'flag', scope: 'zone', group: 'Zone: Ascendant',
       help: 'A desk that sells prepaid cortical-backup restores (the secret Halcyon front). Enables the `policy` verb. Read by the augments plugin.' },
-    architect_uplink: { label: 'Architect Uplink', shape: 'flag', scope: 'zone', group: 'Zone: Ascendant',
-      help: 'The Architect Shrine uplink chamber — the Ascendants’ direct line to the Architect.' },
 
     yacht: { label: 'Yacht (Access-Gated)', shape: 'flag', scope: 'zone', group: 'Zone: Echelon',
       help: 'Marks a zone as part of an invite-only vessel (the yacht plugin). Boarding on foot is blocked for the uninvited; an uninvited player who ends up here anyway (teleport/glitch) is smitten on entry.' },
@@ -388,8 +384,6 @@
       help: 'The stern landing pad — a Dragonfly (VTOL) can set down here to embark/disembark.' },
     echelon_sundeck: { label: 'Echelon Sun Deck', shape: 'flag', scope: 'zone', group: 'Zone: Echelon',
       help: 'The open-air top-deck lounge with the jacuzzi; beckoned consorts suntan / soak / lounge here (consort plugin area-life).' },
-    echelon_broadcast: { label: 'Echelon Broadcast Deck', shape: 'flag', scope: 'zone', group: 'Zone: Echelon',
-      help: 'The lower-deck studio housing the special emergency MediaDeck that overrides every tuned TV in the city.' },
     pier: { label: 'Pier / Jetty', shape: 'flag', scope: 'zone', group: 'Zone: Echelon',
       help: 'A shoreline docking point. When a yacht (the Echelon) comes to rest on the water tile alongside, a gangway exit is auto-wired between them so invited players can board or step ashore.' },
     naval_ambience: { label: 'Naval Ambience', shape: 'flag', scope: 'zone', group: 'Zone: Echelon',
@@ -401,14 +395,12 @@
 
     aircraft_cabin: { label: 'Aircraft Cabin', shape: 'text', scope: 'zone', group: 'Zone: Aircraft',
       help: 'Marks a zone as an interior cabin room of a walkable aircraft (the craft-type id, e.g. "leviathan"). The flight plugin binds these coordinate-free rooms to the live aircraft and lets occupants walk between them; the move gate keeps world exits sealed while airborne.' },
-    cabin_entry: { label: 'Cabin Entry', shape: 'flag', scope: 'zone', group: 'Zone: Aircraft',
-      help: 'The room boarders arrive in when they embark a walkable aircraft (and are set down near on deplane). One per cabin; mirrors the cabin map\'s entry_zone_id.' },
     cabin_window: { label: 'Cabin Window', shape: 'flag', scope: 'zone', group: 'Zone: Aircraft',
       help: 'A cabin room with windows: the WINDOW verb opens the through-hull moving-world view from here (reuses the passenger windshield fed by the live map window).' },
+    home_slots: { label: 'Home Slots', shape: 'list', scope: 'zone', group: 'Zone: Aircraft',
+      help: 'Authored decor anchors a walkable-base room offers, each { id, kind, label } — the owner fills them from the decor catalog (custom_data.home.slots). The shell defines the anchors; per-owner choices are runtime overlays, never zone edits. NOT YET READ BY ANY CODE — the anchors are authored ahead of the decor feature (docs/proposals/leviathan-flying-base.md). Kept deliberately; do not "clean up".' },
     flightdeck: { label: 'Flight Deck', shape: 'flag', scope: 'zone', group: 'Zone: Aircraft',
       help: 'The cockpit room of a walkable aircraft: where the NPC (or player) pilot flies. Home of the TAKE CONTROLS / HAND OFF verbs and the NAV course console (later phases).' },
-    home_slots: { label: 'Home Slots', shape: 'list', scope: 'zone', group: 'Zone: Aircraft',
-      help: 'Authored decor anchors a walkable-base room offers, each { id, kind, label } — the owner fills them from the decor catalog (custom_data.home.slots). The shell defines the anchors; per-owner choices are runtime overlays, never zone edits.' },
 
     district: { label: 'District Override', shape: 'text', scope: 'zone', group: 'Zone: Identity',
       help: 'Override the derived district key (normally from the zone-id prefix; see server/engine/districts.js).' },
@@ -437,6 +429,34 @@
     prologue: { label: 'Prologue', shape: 'flag', scope: 'zone', group: 'Zone: Identity',
       help: 'Part of the prologue instance.' },
 
+    // ── Zone PROPERTIES: terrain presets them, a tile overrides them ───────────
+    // docs/proposals/terrain-property-presets.md. These are the only `tristate`
+    // entries in the catalog, and they are tristate for one reason: the override
+    // has to be able to say NO. A frozen bay is terrain:'water' with
+    // swimmable:false + routable:true — still blue on the map, walked across,
+    // and no new terrain type invented. `flag` cannot express that, because there
+    // absence and false are the same signal.
+    //
+    // `presetFrom` is editor copy only: it tells the Studio what to name in the
+    // "— inherit (from …)" option so the row reads as an override of something.
+    liquid: { label: 'Liquid', shape: 'tristate', scope: 'zone', group: 'Zone: Properties', preset: true, presetFrom: 'terrain',
+      help: 'OVERRIDE. You are IN this tile rather than ON it — fishing casts into it, and the overland void rim does not exist here. Preset by terrain (water ⇒ liquid). Omit to inherit; set No to force a water tile solid.' },
+    swimmable: { label: 'Swimmable', shape: 'tristate', scope: 'zone', group: 'Zone: Properties', preset: true, presetFrom: 'terrain',
+      help: 'OVERRIDE. Entering costs stamina and applies wetness, drowning and hypothermia. Preset by terrain (water ⇒ swimmable). Set No for a frozen bay; set Yes for a flooded basement on concrete.' },
+    routable: { label: 'Routable', shape: 'tristate', scope: 'zone', group: 'Zone: Properties', preset: true, presetFrom: 'terrain',
+      help: 'OVERRIDE. GPS and pathfinding may cross this tile. Preset by terrain (water ⇒ NOT routable; everything else routable). This is the flag that keeps routes off the basin.' },
+    buildable: { label: 'Buildable', shape: 'tristate', scope: 'zone', group: 'Zone: Properties', preset: true, presetFrom: 'terrain',
+      help: 'OVERRIDE. The dev-panel building tool may place or move a building here. Preset by terrain (water ⇒ NOT buildable). Authoring-only — no player-facing effect.' },
+    underwater: { label: 'Underwater', shape: 'tristate', scope: 'zone', group: 'Zone: Properties', preset: true, presetFrom: 'terrain',
+      help: 'OVERRIDE. A submerged tile below a surface water tile (link up/down): always submerged (a boat does not help), colder, and dark, and it starts a breath timer that drowns you. Preset by the "underwater" terrain, which paints identically to water — the difference is what it does to you, not what it looks like.' },
+    frontage: { label: 'Frontage (front-door street)', shape: 'tristate', scope: 'zone', group: 'Zone: Properties', preset: true, presetFrom: 'terrain',
+      help: 'OVERRIDE. A street a building\'s front door may face onto — the map builder prefers a neighbouring tile with this when choosing which side the entrance goes. Preset by terrain (road). Authoring-only.' },
+    // NUMERIC property: shape 'number', not 'tristate'. A number already tells absent
+    // from a value, so it needs no third state — the tri-state problem is only a
+    // boolean problem. Typed by its default in PROP_DEFAULTS (derive.mjs).
+    speed_mult: { label: 'Speed Multiplier', shape: 'number', scope: 'zone', group: 'Zone: Properties', preset: true, presetFrom: 'terrain',
+      help: 'OVERRIDE. Movement pacing on this tile — 2 means you cross it in half the time. Preset by terrain (road and dirt_road are 2, everything else 1). Set it to make one stretch slow (rubble, a rutted lane) without inventing a terrain for it.' },
+
     scavenging_table_id: { label: 'Scavenging Table', shape: 'ref', refTable: 'scavenging_tables', scope: 'zone', group: 'Zone: Systems',
       help: 'Loot table id for SCAVENGE here.' },
     fishing_table_id: { label: 'Fishing Table', shape: 'ref', refTable: 'scavenging_tables', scope: 'zone', group: 'Zone: Systems',
@@ -445,8 +465,6 @@
       help: 'Scavenging-table id used for MINE here.' },
     checkpoint_cfg: { label: 'Checkpoint Config', shape: 'object', scope: 'zone', group: 'Zone: Systems',
       help: 'Security-checkpoint config object driving the checkpoint plugin: { guards, checks:[wanted|contraband], wantedMode:hard|bluff, and one entry predicate insideFlag|fromFlag|fromDistrict }.' },
-    gov_checkpoint: { label: 'Gov Checkpoint', shape: 'flag', scope: 'zone', group: 'Zone: Systems',
-      help: 'Government checkpoint — contraband scan on pass-through.' },
     gov_enclave: { label: 'Gov Enclave', shape: 'flag', scope: 'zone', group: 'Zone: Systems',
       help: 'Inside the government enclave.' },
     greeter: { label: 'Greeter Config', shape: 'object', scope: 'zone', group: 'Zone: Systems',

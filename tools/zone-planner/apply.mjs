@@ -26,7 +26,7 @@
 //               "tags": { "artery": ["Meridian Ave"], "street_life": true },
 //               "ambient_theme": "city", "marker": "░", "color": "#ccc", "bg_color": "#4a4a52" },
 //       ".": { "template": "alley", "name": "Back Alley" },
-//       "~": { "template": "water", "name": "Cold Channel", "tags": { "water": true } },
+//       "~": { "template": "water", "name": "Cold Channel", "tags": { "terrain": "water" } },
 //       "B": { "template": "building", "building_type": "store",
 //               "name_pool": ["The Stacked Deck", "Nine Lives Salvage"],
 //               "interior": { "lobby_name": "{name} — Ground Floor" } }

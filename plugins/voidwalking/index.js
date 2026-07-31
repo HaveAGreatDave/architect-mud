@@ -37,7 +37,7 @@
 //     per step. A same-session reconnect needs nothing (rooms still in RAM).
 
 import { getLivePlayer, getAllLivePlayers, getAllZones, getZone, getZoneEnemies, getMinimapData, addPlayerToZone, removePlayerFromZone,
-  registerTransientZone, removeTransientZone, spawnEnemySync, removeEnemyInstance, zoneTerrain } from '../../server/engine/world.js';
+  registerTransientZone, removeTransientZone, spawnEnemySync, removeEnemyInstance, propsOf } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
@@ -115,7 +115,7 @@ function isMapRim(zone, direction) {
   // lie told to someone who is swimming in it. A water tile has no rim in any
   // direction — no line, and no way in. Whatever lies past the far shore is a
   // different system's problem (boats, the leviathan), not the void's.
-  if (zoneTerrain(zone) === 'water') return false;
+  if (propsOf(zone.id).liquid) return false;
   return !placedCoords().has(
     `${zone.map_id}|${zone.grid_z ?? 0}|${zone.grid_x + d[0]},${zone.grid_y + d[1]}`);
 }

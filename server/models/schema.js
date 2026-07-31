@@ -162,29 +162,44 @@ export const SCHEMA_SQL = `
     updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
 
-  -- GENERATED presentation, one row per zone. TRUNCATEd and rebuilt by the derive
-  -- pass of content:import (docs/proposals/map-pipeline-spec.md §2.1) — never
-  -- authored, never exported, classed runtime so it structurally cannot enter
-  -- content/. Renderers read ONLY these values; a renderer that falls back to
-  -- zones.marker is drawing a marker nobody authored.
-  CREATE TABLE IF NOT EXISTS zone_render (
+  -- EVERYTHING THE BUILD RESOLVED, one row per zone. TRUNCATEd and rebuilt by the
+  -- derive pass of content:import (docs/proposals/map-pipeline-spec.md §2.1) —
+  -- never authored, never exported, classed runtime so it structurally cannot
+  -- enter content/. Renderers read ONLY these values; a renderer that falls back
+  -- to zones.marker is drawing a marker nobody authored.
+  --
+  -- Two payloads, and the split is the point (docs/proposals/terrain-property-presets.md):
+  --   spec   the RENDER resolution — fill, text, feature, minimap_class, speed_mult
+  --   props  the GAMEPLAY resolution — liquid/swimmable/routable/buildable, each
+  --          resolved terrain-preset then tile-flag override
+  -- It was called zone_render while spec was all it held. Gameplay properties riding
+  -- a table named "render" would mislead the next reader, so it was renamed when
+  -- props landed.
+  DO $$ BEGIN
+    IF to_regclass('zone_render') IS NOT NULL AND to_regclass('zone_derived') IS NULL THEN
+      ALTER TABLE zone_render RENAME TO zone_derived;
+    END IF;
+  END $$;
+  CREATE TABLE IF NOT EXISTS zone_derived (
     zone_id        TEXT PRIMARY KEY REFERENCES zones(id) ON DELETE CASCADE,
     marker         TEXT,
     icon           TEXT,
     ambient_theme  TEXT,
     audio_theme_id TEXT,
-    spec           JSONB NOT NULL DEFAULT '{}'
+    spec           JSONB NOT NULL DEFAULT '{}',
+    props          JSONB NOT NULL DEFAULT '{}'
   );
+  ALTER TABLE zone_derived ADD COLUMN IF NOT EXISTS props JSONB NOT NULL DEFAULT '{}';
   -- Four columns left this table because nothing read them and each duplicated a
   -- value the same row already carried: glyph was marker under a second name,
   -- color/bg_color are spec.text/spec.fill, and minimap_class is spec.minimap_class
   -- (both consumers -- minimap.js and tablet-os.js -- read it through the spec).
   -- Two channels for one value is precisely the drift this table was introduced to
   -- end, so carrying the unread half was working against itself.
-  ALTER TABLE zone_render DROP COLUMN IF EXISTS color;
-  ALTER TABLE zone_render DROP COLUMN IF EXISTS bg_color;
-  ALTER TABLE zone_render DROP COLUMN IF EXISTS minimap_class;
-  ALTER TABLE zone_render DROP COLUMN IF EXISTS glyph;
+  ALTER TABLE zone_derived DROP COLUMN IF EXISTS color;
+  ALTER TABLE zone_derived DROP COLUMN IF EXISTS bg_color;
+  ALTER TABLE zone_derived DROP COLUMN IF EXISTS minimap_class;
+  ALTER TABLE zone_derived DROP COLUMN IF EXISTS glyph;
 
   -- The region-level slot of the defaults-and-overrides mechanism
   -- (docs/proposals/map-pipeline-spec.md §1.3): { "<column>": <value> } read by
@@ -222,7 +237,7 @@ export const SCHEMA_SQL = `
 
   -- GENERATED connectivity (spec §2.2): the whole traversal graph, both
   -- directions, projected from grid geometry plus the connections above.
-  -- TRUNCATEd and rebuilt by the same derive pass as zone_render, classed runtime
+  -- TRUNCATEd and rebuilt by the same derive pass as zone_derived, classed runtime
   -- so it structurally cannot enter content/.
   --
   -- The PK is (from_zone, direction, to_zone), NOT the spec's (from_zone,

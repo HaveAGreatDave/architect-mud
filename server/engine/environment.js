@@ -28,7 +28,7 @@ import { schedule } from './scheduler.js';
 import { setTimeScale, getTimeScale } from './gametime.js';
 import { logActivity } from '../models/db.js';
 import { emit } from './events.js';
-import { world, addExitOverride, removeExitOverride, insertFurniture, updateFurniture, updateFurnitureWhere, getZoneFurniture } from './world.js';
+import { world, addExitOverride, removeExitOverride, insertFurniture, updateFurniture, updateFurnitureWhere, getZoneFurniture, propsOf } from './world.js';
 import { neighborZoneIds, allExits, addExit } from './exits.js';
 
 // ---------------------------------------------------------------------------
@@ -2119,7 +2119,9 @@ export function waterTemperature(zoneId) {
   const z = state.zones.get(zoneId);
   const authored = z?.flags?.water_temp_c;
   if (Number.isFinite(authored)) return authored;
-  return z?.flags?.underwater ? DEEP_WATER_C : SURFACE_WATER_C;
+  // `underwater` is a resolved property now (preset by the underwater terrain), not a
+  // raw flag — so a tile that overrides it gets the matching temperature for free.
+  return propsOf(zoneId).underwater ? DEEP_WATER_C : SURFACE_WATER_C;
 }
 
 export function getPowerMap() {

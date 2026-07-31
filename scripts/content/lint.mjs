@@ -15,7 +15,7 @@ import { contentEntries } from '../../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../../server/models/schema.js';
 import { validateTags, validateZoneColumns, TAG_CATALOG as CATALOG, ZONE_COLUMN_PREFIX } from '../../server/engine/tags.js';
 import { readContentTree, fileNameForRow, schemaColumnsOf as columnsOf, readPalette, assetRefIds } from './lib.mjs';
-import { assignBuildingMarkers, projectEdges, OPPOSITE, CARDINAL, deriveMapName } from './derive.mjs';
+import { assignBuildingMarkers, projectEdges, OPPOSITE, CARDINAL, deriveMapName, PROP_DEFAULTS } from './derive.mjs';
 import { anchorViolations } from './map-anchor.mjs';
 
 // ── SCHEMA_SQL parsing (content→content FKs), no DB required ─────────────────
@@ -48,9 +48,16 @@ function fksOf(table) {
 // author should see and decide about — a catalogued field nothing uses, an
 // ambient theme with no pool behind it. Warnings exist so those stop being
 // invisible without becoming a reason the deploy can't ship.
+const PROP_KEYS = Object.keys(PROP_DEFAULTS);
+
 export function lintContentTree(baseDir) {
   const errors = [];
   const warnings = [];
+  // Read once, up here, because two rules need it: the palette reconciliation
+  // further down, and the property-override checks inside the per-file loop.
+  let palette = null;
+  let paletteErr = null;
+  try { palette = readPalette(baseDir); } catch (e) { paletteErr = e.message; }
   let tree;
   try {
     tree = readContentTree(baseDir);
@@ -124,6 +131,28 @@ export function lintContentTree(baseDir) {
       if (entry.table === 'zones') {
         for (const s of validateZoneColumns(f.data).badShape) errors.push(`${label}: zone column value shape — ${s}`);
       }
+      // PROPERTY OVERRIDES (docs/proposals/terrain-property-presets.md). These two
+      // warnings are the guard that replaced the export exclusion: the invariant is
+      // that a terrain PRESET never gets written into a tile's flags, and the way
+      // that invariant dies is one redundant override at a time.
+      //
+      // This is the `flags.water` failure re-armed: on 2026-07-21 the flag was
+      // migrated to terrain and its readers were left behind, so 945 tiles and 12
+      // `if`s disagreed silently for nine days. A preset baked into content is the
+      // same divergence with the arrow reversed — the day the preset changes, every
+      // baked tile keeps the old answer and nothing says so.
+      if (entry.table === 'zones' && f.data.flags && palette) {
+        const fl = f.data.flags;
+        const terrain = fl.terrain || null;
+        const preset = (terrain && palette.terrains?.[terrain]?.props) || {};
+        for (const key of PROP_KEYS) {
+          if (!(key in fl)) continue;
+          if (key in preset && fl[key] === preset[key])
+            warnings.push(`${label}: ${key}=${fl[key]} is REDUNDANT — terrain "${terrain}" already presets it. Delete the override; a preset baked into content stops tracking the palette`);
+          else if (!terrain)
+            warnings.push(`${label}: ${key}=${fl[key]} overrides nothing — the tile has no terrain, so it only restates the global default`);
+        }
+      }
     }
   }
 
@@ -180,8 +209,15 @@ export function lintContentTree(baseDir) {
       if (t) usedThemes.set(t, (usedThemes.get(t) || 0) + 1);
     }
     if (zoneFiles.length) {
+      // `preset: true` entries are EXEMPT, and the exemption is the point. A
+      // property override is supposed to be absent from almost every tile — the
+      // terrain presets it and the flag only appears where an author disagreed.
+      // Listing them as "catalogued but on no tile" would invite exactly the
+      // cleanup this whole mechanism is built to prevent: someone deletes the
+      // catalog entry, the palette keeps presetting a key nothing validates, and
+      // the preset and its readers drift apart again.
       const dead = Object.entries(CATALOG)
-        .filter(([k, d]) => d?.scope === 'zone' && !usedFlags.has(k))
+        .filter(([k, d]) => d?.scope === 'zone' && !d.preset && !usedFlags.has(k))
         .map(([k]) => k);
       if (dead.length) warnings.push(`${dead.length} zone flag(s) catalogued but on no tile: ${dead.join(', ')}`);
     }
@@ -305,8 +341,20 @@ export function lintContentTree(baseDir) {
   // entry behind it paints nothing and says nothing. Same two rules as every other
   // reconciliation in this file: unresolvable is an error, unused is a warning.
   {
-    let palette = null;
-    try { palette = readPalette(baseDir); } catch (e) { errors.push(e.message); }
+    if (paletteErr) errors.push(paletteErr);
+    // A typo in a terrain's `props` block (`swimable`) presets NOTHING, silently, on
+    // every tile of that terrain — and unlike a bad flag it never reaches validateTags,
+    // because it lives in the palette rather than in a content file. So check it here.
+    for (const [name, entry] of Object.entries(palette?.terrains || {})) {
+      for (const key of Object.keys(entry?.props || {})) {
+        if (!PROP_KEYS.includes(key))
+          errors.push(`content/map/terrain.json: terrain "${name}" presets unknown property "${key}" — not one of ${PROP_KEYS.join('/')}. It would preset nothing, on every tile of that terrain`);
+        // Typed by its DEFAULT, so a numeric property (speed_mult) and a boolean one
+        // are checked by the same rule without either being special-cased here.
+        else if (typeof entry.props[key] !== typeof PROP_DEFAULTS[key])
+          errors.push(`content/map/terrain.json: terrain "${name}".props.${key} is ${JSON.stringify(entry.props[key])} — expected a ${typeof PROP_DEFAULTS[key]}`);
+      }
+    }
     const zoneFiles = entries.find(e => e.entry.table === 'zones')?.files || [];
     if (palette && zoneFiles.length) {
       const known = new Set(Object.keys(palette.terrains || {}));

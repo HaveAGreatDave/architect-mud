@@ -84,7 +84,6 @@ function renderZonesTable(records) {
   // wins (scrub/concrete/dock/…), else inferred water/road/grass, else 'land'.
   const terrainKey = z => {
     if (z.flags?.terrain) return z.flags.terrain;
-    if (z.flags?.water) return 'water';
     if (/^(road_|runway_)/.test(z.flags?.icon || '')) return 'road';
     const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(z.bg_color || '');
     if (m) { const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
@@ -1030,7 +1029,14 @@ async function saveZone(existing) {
     if (tagAppliesTo(def, 'zone') && !ZONE_STRUCTURED_KEYS.includes(name)) delete flags[name];
   }
   try {
-    for (const row of document.querySelectorAll('#zone-tags .tag-row')) flags[row.dataset.tag] = readZoneTag(row);
+    for (const row of document.querySelectorAll('#zone-tags .tag-row')) {
+      const v = readZoneTag(row);
+      // A tristate set to "— inherit" reads back undefined and must DROP its key,
+      // so the tile falls through to the terrain preset. `false` is not undefined
+      // and deliberately survives — that is the override.
+      if (v === undefined) delete flags[row.dataset.tag];
+      else flags[row.dataset.tag] = v;
+    }
   } catch (e) { return { error: e.message }; }
 
   const rawMapId = document.getElementById('f-map_id')?.value;

@@ -5,7 +5,7 @@ Water is no longer a wall. Entering a water tile is a **swim**, not a boat-or-di
 Owner: **`plugins/swimming/`** (mechanics) + small engine seams. New **Swimming** skill (`server/engine/skills.js`), governed by **Endurance + Brawn**.
 
 ## What counts as water
-`isSwimZone(zone)` = `zoneTerrain(zone)==='water'` (painted water, the SSOT) **or** `flags.water` (deep/open) **or** `flags.underwater` (a submerged tile below one). The old `engine:water` move gate (boat-or-block) is **retired** — `server/engine/commands/movement.js` no longer registers it, and the `gameLoop.js` insta-drown failsafe is gone; swimming governs water now.
+`isSwimZone(zone)` = `zoneTerrain(zone)==='water'` (painted water, the SSOT) **or** `flags.underwater` (a submerged tile below one). There is no `flags.water` — that second marker was deleted 2026-07-30. The old `engine:water` move gate (boat-or-block) is **retired** — `server/engine/commands/movement.js` no longer registers it, and the `gameLoop.js` insta-drown failsafe is gone; swimming governs water now.
 
 ## The swim (surface)
 Driven by an `on('zone.entered', …)` handler (mirrors the pacing sprint spend):

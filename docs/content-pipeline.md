@@ -34,7 +34,7 @@ rather than upserted per row: `terrain.json`, the terrain palette. It is git-own
 like everything else under `content/`, and `NON_TABLE_DIRS` in
 [lib.mjs](../scripts/content/lib.mjs) is what stops the unknown-directory guard
 rejecting it. Nothing reads it at runtime — the build resolves it into
-`zone_render` and renderers read only that.
+`zone_derived` and renderers read only that.
 
 **Editing tiles: the Studio.** `npm run studio`, or `npm run dev` which starts it
 alongside the game server ([tools/studio/](../tools/studio/README.md))
@@ -93,7 +93,7 @@ any time:        npm run content:status   # "do files match my DB?"
   are untouched. On a **local** target it then runs `content:seed-runtime`. It
   finishes with a **derive pass**: it reads the zones, regions and connections the
   transaction just committed plus [content/map/terrain.json](../content/map/terrain.json),
-  and rebuilds `zone_render` — the generated presentation every renderer paints
+  and rebuilds `zone_derived` — the generated presentation every renderer paints
   from — and `zone_edges`, the whole traversal graph (map-pipeline-spec §9). The
   pass writes only generated tables, never `zones`, so the drift report and the
   git-diff deletion pass need no changes at all.

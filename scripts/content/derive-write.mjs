@@ -13,13 +13,13 @@
 
 import { deriveWorld } from './derive.mjs';
 
-// zone_render columns, in the order the multi-row INSERT builds its tuples. Four
+// zone_derived columns, in the order the multi-row INSERT builds its tuples. Four
 // used to sit here that nothing read — `glyph` (a second name for `marker`),
 // `color`/`bg_color` (spec.text/spec.fill) and `minimap_class` (spec.minimap_class).
 // They are dropped from the table in SCHEMA_SQL; a column here that derive no longer
 // produces would insert NULL rather than fail, which is why the list is worth reading
 // next to the row deriveWorld builds.
-const RENDER_COLS = ['zone_id', 'marker', 'icon', 'ambient_theme', 'audio_theme_id', 'spec'];
+const RENDER_COLS = ['zone_id', 'marker', 'icon', 'ambient_theme', 'audio_theme_id', 'spec', 'props'];
 const EDGE_COLS = ['from_zone', 'direction', 'to_zone', 'connection_id', 'kind'];
 
 // One batched multi-row INSERT per CHUNK rows. 21,203 separate statements would be
@@ -37,7 +37,7 @@ async function insertBatched(client, table, cols, rows, jsonCols = new Set()) {
 }
 
 /**
- * TRUNCATE + rebuild zone_render and zone_edges from the rows handed in.
+ * TRUNCATE + rebuild zone_derived and zone_edges from the rows handed in.
  *
  * @param {{query: Function}} client  anything with a pg-shaped query(sql, params)
  * @param {object} input              { zones, regions, connections, palette } — see deriveWorld
@@ -50,11 +50,11 @@ export async function writeDerived(client, input) {
   // rebuilding it wholesale makes idempotency free and removes the stale-row class
   // entirely (spec §2). Inside the import's transaction this is atomic with the
   // content it derives from.
-  await client.query('TRUNCATE zone_render');
+  await client.query('TRUNCATE zone_derived');
   await client.query('TRUNCATE zone_edges');
 
   const rows = [...render.values()];
-  await insertBatched(client, 'zone_render', RENDER_COLS, rows, new Set(['spec']));
+  await insertBatched(client, 'zone_derived', RENDER_COLS, rows, new Set(['spec', 'props']));
   await insertBatched(client, 'zone_edges', EDGE_COLS, edges);
   return { rows: rows.length, edges: edges.length };
 }

@@ -17,7 +17,7 @@
       "marker": "≈",
       "ambient_theme": "coast",
       "tags": {
-        "water": true
+        "terrain": "water"
       }
     },
     "Fisherman Statue": {

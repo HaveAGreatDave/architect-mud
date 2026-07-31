@@ -12,8 +12,7 @@
   },
   "flags": {
     "planner": "bp_district",
-    "terrain": "water",
-    "underwater": true
+    "terrain": "underwater"
   },
   "grid_x": 897,
   "grid_y": 937,

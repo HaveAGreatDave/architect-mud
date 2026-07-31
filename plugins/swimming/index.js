@@ -1,7 +1,7 @@
 // Swimming plugin.
 //
-// Water tiles (flags.terrain === 'water', or an underwater flags.underwater tile
-// below one) are passable on foot now — the engine:water gate no longer walls
+// Water tiles (anything the build resolved `swimmable` — terrain water and the
+// underwater tiles below it) are passable on foot now — the engine:water gate no longer walls
 // them. This plugin turns that crossing into a real swim:
 //
 //   • Stroking between two water tiles costs stamina, scaled by the Swimming skill
@@ -24,7 +24,7 @@
 // water is the flight plugin's embark/disembark (it owns those verbs).
 
 import { query } from '../../server/models/db.js';
-import { getZone, getAllLivePlayers, zoneTerrain } from '../../server/engine/world.js';
+import { getZone, getAllLivePlayers, propsOf } from '../../server/engine/world.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { effectiveSkill, skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
@@ -54,13 +54,20 @@ const bad  = (s) => `<span class="msg-bad">${s}</span>`;
 
 const staminaOf = (p) => p.stamina ?? (p.stamina_max ?? 100);
 
-// A swim tile: painted water (flags.terrain), deep open water (flags.water), or an
-// underwater tile hung below one (flags.underwater).
+// A swim tile: one the build resolved as `swimmable` (terrain water presets it; a
+// tile can force it either way — a frozen bay says swimmable:false and stays water
+// on the map), or an underwater tile hung below one. We ask for the CAPABILITY, not
+// for what the tile is painted — docs/proposals/terrain-property-presets.md.
 export function isSwimZone(zone) {
-  return !!zone && (zoneTerrain(zone) === 'water' || !!zone.flags?.water || !!zone.flags?.underwater);
+  return !!zone && propsOf(zone.id).swimmable;
 }
+// Submerged BELOW a surface tile — breath timer, colder, dark, and a boat is no help.
+// A property since 2026-07-30, preset by the `underwater` terrain (which paints exactly
+// like water: the difference is what it does to you, not what it looks like). It was an
+// authored flag on 82 tiles that all carried terrain 'water' — two facts saying one
+// thing, which is the shape of every bug this rail exists to prevent.
 export function isUnderwater(zone) {
-  return !!zone?.flags?.underwater;
+  return !!zone && propsOf(zone.id).underwater;
 }
 
 // Capability items carried loose or worn (uncontained inventory), checked the same
