@@ -18,7 +18,7 @@
  * being drunk.
  */
 import { query } from '../../server/models/db.js';
-import { registerAction, dispatchAction } from '../../server/engine/actions.js';
+import { registerAction, dispatchAction, getRegisteredActions } from '../../server/engine/actions.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { getZoneFurniture } from '../../server/engine/world.js';
 import { sendToZone } from '../../server/engine/messaging.js';
@@ -85,13 +85,37 @@ async function cmdMix(args, raw, player, broadcast) {
 
   // Bare `mix <vessel>` — resolve what's already in it.
   const vessel = await findVessel(player, str);
-  if (!vessel) return undefined;   // not ours; fall through
-  return resolveBuild(player, vessel, broadcast, { hot: false });
+  if (vessel) return resolveBuild(player, vessel, broadcast, { hot: false });
+
+  // Not drinkware. It may still be a MIXING BOWL, which is cooking's — hand it
+  // over (see cooking.mix_vessel). Falling through to the dispatcher instead
+  // answered "Unknown command: mix" on the line after `mix` had just printed
+  // its own usage, which reads as the verb not existing.
+  return (await toCooking(player, null, str))
+    ?? { type: 'error', message: `You don't have a "${str}" to mix in.` };
+}
+
+// Cooking's bowls take the same verb. Returns undefined when cooking isn't
+// loaded or doesn't recognise the vessel either, so the caller still owns the
+// refusal — this only ever ADDS an outcome.
+const hasCooking = () => getRegisteredActions().includes('cooking.mix_vessel');
+async function toCooking(player, ingredient, vessel) {
+  if (!hasCooking()) return undefined;
+  const r = await dispatchAction({
+    type: 'cooking.mix_vessel', actor: player, params: { ingredient, vessel },
+  });
+  return r || undefined;
 }
 
 async function addToBuild(player, ingredientStr, vesselStr) {
   const vessel = await findVessel(player, vesselStr);
-  if (!vessel) return { type: 'error', message: `You don't have a "${vesselStr}" to mix into.` };
+  // Same hand-off as the bare form: a mixing bowl is a cooking vessel, and
+  // "mix mustard into bowl" is the most natural sentence a player will ever
+  // type at one.
+  if (!vessel) {
+    return (await toCooking(player, ingredientStr, vesselStr))
+      ?? { type: 'error', message: `You don't have a "${vesselStr}" to mix into.` };
+  }
   if (drinkOf(vessel)) return { type: 'error', message: `The ${vessel.name} already has a drink in it.` };
 
   const row = await resolveInventoryItem(player, { name: ingredientStr, topLevel: true });

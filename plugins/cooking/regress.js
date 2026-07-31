@@ -486,6 +486,35 @@ export default async function regress({ run, check, getPlayer }) {
     const freed = await getFurnitureById(STOVE);
     check('burning off the heat frees the stove too', !freed.flags?.busy_until, freed.flags);
 
+    // ── `mix` on a cooking vessel ────────────────────────────────────────────
+    //
+    // `mix` is the drinks plugin's verb and stays there, but a mixing bowl is a
+    // `vessel`, never `drinkware` — so every sentence a player would naturally
+    // type at a bowl ("mix mustard into bowl") missed drinks' lookup and came
+    // back either "You don't have a bowl" or, worse, "Unknown command: mix" one
+    // line after `mix` had printed its own usage.
+    await query('DELETE FROM player_inventory WHERE container_id=$1', [panId]);
+    const mixMeId = randomUUID();
+    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [mixMeId, player.id, TOM]);
+
+    r = await run('mix test tomato into test pan');
+    check('mix <thing> into a cooking vessel is accepted, not refused', r?.type === 'use', JSON.stringify(r));
+    const moved = (await query('SELECT container_id FROM player_inventory WHERE id=$1', [mixMeId])).rows[0];
+    check('mixing into a vessel MOVES the ingredient in', moved?.container_id === panId, moved?.container_id);
+    check('the reply teaches the verb that finishes it', /plate/.test(r?.message || ''), r?.message);
+
+    // The failure that started this: an unknown vessel must refuse in words,
+    // never fall through to "Unknown command" — the verb plainly exists.
+    r = await run('mix nothing at all into a fictional bowl');
+    check('mixing into something you do not have is a spoken refusal',
+      r?.type === 'error' && /don't have/.test(r.message || ''), JSON.stringify(r));
+    r = await run('mix a fictional bowl');
+    check('bare mix of an unknown vessel is a spoken refusal too',
+      r?.type === 'error' && /don't have/.test(r.message || ''), JSON.stringify(r));
+
+    await query('DELETE FROM player_inventory WHERE container_id=$1', [panId]);
+    await query('DELETE FROM player_inventory WHERE id=$1', [mixMeId]).catch(() => {});
+
     // ── Mince → bowl: the working board ──────────────────────────────────────
     //
     // A minced cut is renamed in custom_data ONLY, and `inventory` prints that

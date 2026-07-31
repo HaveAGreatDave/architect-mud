@@ -17,6 +17,7 @@ import { resolve as siftResolve, createSelectionState, formatSelectionPage } fro
 import { registerAction, dispatchAction, getRegisteredActions } from '../../server/engine/actions.js';
 import { getZonePowerStatus } from '../../server/engine/environment.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
+import { containerCapacity, containerContentsWeight } from '../../server/engine/commands/inventory.js';
 import { tagValue, hasTag } from '../../server/engine/tags.js';
 import { skillCheck, awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 import { grantSkillIp } from '../../server/engine/ip.js';
@@ -1380,6 +1381,54 @@ async function cmdKitchenKit(args, raw, player) {
     ].join('\n'),
   };
 }
+
+// `mix` belongs to the drinks plugin, and it should: mixology is what the verb
+// is for. But a MIXING BOWL is ours — it's a `vessel`, never `drinkware` — so
+// "mix mustard into bowl" hit drinks' drinkware lookup, missed, and answered
+// "You don't have a bowl", which is both wrong and unhelpable-with.
+//
+// A bowl is the one vessel you never heat: bowl dishes are mashed, mixed and
+// seasoned (see dishes.js), which makes `mix` the most natural verb in the game
+// for it and its absence a real gap. So drinks falls through to this Action when
+// its own lookup misses. Target-first routing, exactly like `cook` handing a
+// recipe to synthesis — the verb stays with the plugin whose thing it is, and
+// the vessel decides which one that is.
+//
+// Adding is a MOVE into the vessel, not a copy: the same thing `stow` does, done
+// here because a bowl sitting in the kitchen's dish cabinet is resolved in place
+// (`fromNearby`) and `stow` can only reach what you're carrying.
+async function addToVessel(player, ingredientStr, vessel) {
+  const row = await resolveInventoryItem(player, { name: ingredientStr, topLevel: true });
+  if (!row) return { type: 'error', message: `You don't have "${ingredientStr}".` };
+  if (row.inv_id === vessel.inv_id) return { type: 'error', message: `You can't put the ${vessel.name} in itself.` };
+  if (row.custom_data?.cooking) return { type: 'error', message: `Not while it's on the heat.` };
+
+  const cap = containerCapacity({ ...vessel, tags: vessel.tags, kind: 'item' });
+  const used = await containerContentsWeight(vessel.inv_id);
+  const adding = (row.weight || 0) * (row.quantity || 1);
+  if (cap && used + adding > cap) {
+    return { type: 'error', message: `The ${vessel.name} won't hold that too.` };
+  }
+
+  await query('UPDATE player_inventory SET container_id=$1, is_equipped=0, slot=NULL WHERE id=$2', [vessel.inv_id, row.inv_id]);
+  cookSfx(player, { action: 'stir', material: sfxMaterial(row), intensity: 0.4 });
+  const contents = await vesselContents(vessel.inv_id);
+  return {
+    type: 'use',
+    message: `You put ${shownName(row)} in the ${vessel.name}. <span class="text-dim">${contents.length} thing${contents.length === 1 ? '' : 's'} in it now — "plate ${vessel.name}" when it's right.</span>`,
+  };
+}
+
+registerAction({
+  type: 'cooking.mix_vessel',
+  handler: async ({ actor, params }) => {
+    const vessel = await resolveInventoryItem(actor, { tag: 'vessel', name: params.vessel, topLevel: true, fromNearby: true });
+    if (!vessel) return undefined;   // not a cooking vessel either — drinks says its piece
+    return params.ingredient
+      ? addToVessel(actor, params.ingredient, vessel)
+      : plateVessel(vessel, actor);
+  },
+});
 
 // Where the stove-or-lab pick lands. Plugin verbs must replay through an Action,
 // never `{ verb }` — that route only reaches engine builtins (docs/commands.md).

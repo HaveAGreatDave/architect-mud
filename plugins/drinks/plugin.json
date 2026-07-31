@@ -17,7 +17,8 @@
     ],
     "consumes": [
       "consume.begin",
-      "bodily.drinkContaminated"
+      "bodily.drinkContaminated",
+      "cooking.mix_vessel"
     ],
     "tagGated": [
       {

@@ -34,7 +34,7 @@ function build() {
     ].join('\n')),
 
     cat('VESSELS', [
-      `  add <food> in <vessel>   ${dim('also: put, stow')}`,
+      `  add <food> in <vessel>   ${dim('also: put, stow, mix — "mix mustard into bowl" works')}`,
       `  cook <vessel>            ${dim('the vessel and everything in it goes on the heat')}`,
       `  plate <vessel>           ${dim('resolves the whole thing into ONE dish')}`,
       dim(`  Kinds: ${VESSEL_KINDS.join(', ')} — a stew needs a pot, a sear needs a pan, a roast a tray.`),
