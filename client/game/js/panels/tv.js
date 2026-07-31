@@ -377,7 +377,10 @@ export function createTvView(root, opts = {}) {
     }
 
     const _channelChanged = (data.channelId || null) !== _tvActiveChannelId;
-    if (_channelChanged) { _clearScorebug(); _clearStandings(); _clearSportsFx(); _clearGameday(); _clearStandingsPanel(); _clearFilmLayers(); }
+    // A held card belongs to the station that raised it. Anything with duration 0 — a
+    // stand-by delay card above all — waits for its own channel to take it down, so it
+    // has to come off the glass when you tune away or it hangs over the next station.
+    if (_channelChanged) { _clearOverlay(); _clearScorebug(); _clearStandings(); _clearSportsFx(); _clearGameday(); _clearStandingsPanel(); _clearFilmLayers(); }
     _tvActiveChannelId = data.channelId || null;
     // Keep the TV guide open across a channel change, but refresh it for the new station.
     if (_channelChanged && _scheduleOpen) _requestSchedule();
