@@ -1,7 +1,7 @@
 import { query } from '../../models/db.js';
 import { getZone } from '../world.js';
 import { getZonePowerStatus, getZoneVisibility, setWindowState, getWindowsForZone } from '../environment.js';
-import { cmdRent, cmdUnrent, cmdLockDoor, cmdUpgradeLock, cmdPickLock, cmdSleep } from '../apartments.js';
+import { cmdRent, cmdUnrent, cmdLockDoor, cmdUpgradeLock, cmdPickLock, cmdSleep, cmdDoze } from '../apartments.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 
 const STAFF_ROLES = new Set(['admin','dev','builder','designer']);
@@ -81,6 +81,10 @@ export const handlers = {
   unlock:    (args, raw, player) => cmdLockDoor(player, false),
   pick:      (args, raw, player) => cmdPickLock(player),
   sleep:     (args, raw, player, broadcast) => cmdSleep(player, broadcast),
+  // Light sleep: half the recovery, but your senses stay open. The tactical
+  // alternative to being helpless — see cmdDoze.
+  doze:      (args, raw, player, broadcast) => cmdDoze(player, broadcast),
+  nap:       (args, raw, player, broadcast) => cmdDoze(player, broadcast),
   upgrade: (args, raw, player) => {
     if (args[0] === 'lock') return cmdUpgradeLock(player);
     return { type:'error', message:'Upgrade what? Try "upgrade lock".' };

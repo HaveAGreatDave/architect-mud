@@ -74,10 +74,17 @@ async function buildScreen(player, screenId, params) {
   // A focused camera also carries its rolling buffer (the recorded event-lines) so
   // the operator can read what's on tape before saving it to a reel.
   const focusBuffer = sel ? await s.cameraBufferLines(player, sel) : null;
+  // A consumer tape deck in the room can take a feed as its input, so a focused cam
+  // gets a "patch to the screen" action. broadcast owns the deck and every gate on
+  // it; this is only asking whether there's one here (cache read, no query).
+  const bc = await import('../broadcast/index.js').catch(() => null);
+  const deck = bc?.miniDeckHere ? bc.miniDeckHere(player.current_zone) : null;
   return {
     view: 'surveillance', live: true, breadcrumb: ['Surveillance'],
     net: liveNet || net, tiles, alerts, links,
     focusId: sel || null, focusBuffer,
+    deckHere: deck?.name || null,
+    deckCam: deck?.camDeviceId || null,
   };
 }
 
@@ -100,6 +107,14 @@ async function handleAction(player, actionId, params, broadcast) {
     return buildScreen(player, null, '');
   }
 
+  // cast — put the focused camera on the consumer deck in this room (or pull it
+  // back off). broadcast decides whether that's allowed; we just re-render focused.
+  if (actionId === 'cast') {
+    const bc = await import('../broadcast/index.js').catch(() => null);
+    if (bc?.patchCamToDeck && focus) await bc.patchCamToDeck(player, focus);
+    return buildScreen(player, null, focus);
+  }
+
   // record/clip/wipe run the plugin's own verbs (same behaviour as the standalone
   // hub buttons): record toggles the tape, clip saves a microreel + clears the
   // buffer, clear (wipe) discards it. Then re-render the hub focused on the cam.
@@ -111,6 +126,9 @@ async function handleAction(player, actionId, params, broadcast) {
   }
   return buildScreen(player, null, '');
 }
+
+// NOTE: the Wanted home-screen card lives in crime-app.js, not here. Your own heat
+// is a matter for your rap sheet; SPECTER is the kit you point at everyone else.
 
 registerTabletApp({
   id: 'specter', name: 'Surveillance', icon: '📡', category: 'Espionage',

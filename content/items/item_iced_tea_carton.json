@@ -1,0 +1,20 @@
+{
+  "description": "Over-sweetened to the point of structural integrity. Cuts dust out of your throat like nothing else on the shelf.",
+  "flags": {},
+  "id": "item_iced_tea_carton",
+  "name": "carton of iced tea",
+  "tags": {
+    "consumable": true,
+    "description": "Over-sweetened to the point of structural integrity. Cuts dust out of your throat like nothing else on the shelf.",
+    "drink_noun": "iced tea",
+    "drink_profile": "tea_base",
+    "hydrating": true,
+    "pour_units": 3,
+    "restore_sanity": 5,
+    "restore_thirst": 42,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 6,
+  "weight": 400
+}

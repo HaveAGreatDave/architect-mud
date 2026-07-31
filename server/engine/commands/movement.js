@@ -1,23 +1,27 @@
 import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
-import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, doorOnLink, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, frontDoorOf, getMapByParentZone, buildingTypeOf, zoneTerrain, buildingEntranceDir, interiorExitDirs, facadeStreetTile, applyMinimapVisibility, specOf } from '../world.js';
+import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, doorOnLink, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, frontDoorOf, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, tileIconSvg, buildingEntranceDir, interiorExitDirs, interiorOpenDirs, facadeStreetTile, applyMinimapVisibility, specOf, persistableZone } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
-import { checkLockAuth, getLockTagPublic } from './doors.js';
+import { checkLockAuth, getLockTagPublic, syncApartmentLock } from './doors.js';
 import { lockTypePassesWhileLocked } from '../locks.js';
+import { impairmentOf } from '../impairment.js';
 import { emit } from '../events.js';
 import { fireHook } from '../plugins.js';
 import { closeShopSession } from '../vendor-session.js';
 import { computeCarriedWeight, carryCapacity, formatWeight } from './inventory.js';
 import { OPPOSITE } from '../directions.js';
 import { forceStand } from '../posture.js';
+import { isSneaking } from '../stealth.js';
+import { isDreamZone, pushDreamFx } from '../dreamscape.js';
 import { registerMoveGate, runMoveGates } from '../movement-gates.js';
 import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
 import { createSelectionState, getSelectionState, formatSelectionPage } from '../sift.js';
 import { districtFor } from '../districts.js';
 import { getFlag, setFlag } from '../flags.js';
 import { zoneDanger } from '../danger.js';
+import { addSewerGrime } from '../hygiene.js';
 
 const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out', 'exit'];
 
@@ -243,11 +247,28 @@ async function cmdGo(argText, player, broadcast) {
   }
   const zone = getZone(player.current_zone);
   if (!zone) return { type: 'error', message: 'Your zone is missing.' };
-  const resolved = resolveNamedDestination(zone, argText);
+  // "go <dir> <name>" — the click path sends the direction the link was drawn
+  // under alongside the destination name. The name picks the specific exit; if
+  // it can't be resolved at all, we still walk the direction.
+  const dirHint = goParts.length > 1 && RAW_DIRECTIONS.includes(goParts[0]) ? goParts[0] : null;
+  const nameText = dirHint ? goParts.slice(1).join(' ') : argText;
+  const resolved = resolveNamedDestination(zone, nameText, dirHint);
   if (resolved.type === 'unique') return cmdMove(resolved.match.direction, player, broadcast, { targetZoneId: resolved.match.targetId });
+  if (dirHint && resolved.type !== 'ambiguous') return cmdMove(dirHint, player, broadcast);
   if (resolved.type === 'ambiguous') {
-    const names = resolved.candidates.map(c => c.name).join(', ');
-    return { type: 'error', message: `That could mean several things here: ${names}. Try being more specific.` };
+    // Numbered SIFT picker, one line per candidate with the way it lies — picking
+    // a number moves straight to that zone id (see the intercept in index.js),
+    // which is the only route that works when the names are identical.
+    const candidates = resolved.candidates.map(c => ({
+      id: c.targetId,
+      name: `${c.name} (${c.direction})`,
+      direction: c.direction,
+    }));
+    createSelectionState(player.id, candidates, { verb: 'go' });
+    return {
+      type: 'output',
+      message: `Several places here are called that.\n${formatSelectionPage(getSelectionState(player.id))}`,
+    };
   }
   return cmdMove(argText, player, broadcast);
 }
@@ -431,9 +452,23 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   removePlayerFromZone(player.id, player.current_zone);
   addPlayerToZone(player.id, targetId);
   player.current_zone = targetId;
+  // Runtime-only, no query — the zone object is already loaded, so this is a
+  // free field check, not a hot-path DB read. Grease-skinned sewer water rubs
+  // off a little on every step down there; see hygiene.js's sewer grime meter.
+  if (targetZone.flags?.district === 'sewer') addSewerGrime(player);
   emit('zone.entered', { actor: player, zone: targetId, from: oldZoneId, opts });
   player.combatTargetId = null;
-  const interrupted = forceStand(player, 'moved');
+  // Walking in a dream is the MIND moving; the body is still lying in a bed
+  // somewhere and must stay lying, or the first step in a dreamscape would stand
+  // the sleeper up and broadcast it to a room they aren't awake in.
+  // Walking between rooms of a dream changes the particle field with you; walking
+  // OUT of one clears it, which is what hands the real weather back.
+  if (isDreamZone(targetId) || isDreamZone(oldZoneId)) pushDreamFx(player, broadcast);
+  // Sneaking SURVIVES a step. It is the one posture whose entire purpose is to
+  // be held while crossing rooms — forceStand('moved') clearing it meant you
+  // could never sneak anywhere, only sneak where you already were.
+  const sneaking = isSneaking(player);
+  const interrupted = (player.sleeping?.inDream || sneaking) ? null : forceStand(player, 'moved');
   if (interrupted === 'sitting') {
     broadcast(null, { type: 'emote', message: 'You stand up.' }, null, player.id);
     broadcast(oldZoneId, { type: 'zone_event', message: `${player.handle} stands up.` }, player.id);
@@ -459,19 +494,38 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   const hadDoor = !!(door && door.hp > 0);
   const lockTag = hadDoor ? getLockTagPublic(door) : null;
 
-  const departMsg = doorWasLocked
-    ? `The lock disengages. ${player.handle} opens the door and heads ${direction}.`
-    : doorWasClosed
-      ? `${player.handle} opens the door and heads ${direction}.`
-      : `${player.handle} heads ${direction}.`;
-  let arriveMsg = (doorWasLocked || doorWasClosed)
-    ? (arrivalDir ? `${player.handle} comes through the door from the ${arrivalDir}.` : `${player.handle} comes through the door.`)
-    : buildArriveMsg(player.handle, arrivalDir, zone.name);
+  // Elevator flavour, mirroring moveEntity (ai-behaviour.js) so a player and an
+  // NPC read the same when the doors open: every floor shares the car's `up`/`in`
+  // exit, so the raw direction lands as "climbs the stairs" in a lift.
+  const toCar   = !!targetZone.flags?.elevator;
+  const fromCar = !!zone.flags?.elevator;
+  const departMsg = toCar
+    ? `${player.handle} steps into the elevator.`
+    : fromCar
+      ? `${player.handle} steps out of the elevator.`
+      : doorWasLocked
+        ? `The lock disengages. ${player.handle} opens the door and heads ${direction}.`
+        : doorWasClosed
+          ? `${player.handle} opens the door and heads ${direction}.`
+          : `${player.handle} heads ${direction}.`;
+  let arriveMsg = toCar
+    ? `The doors part and ${player.handle} steps into the car.`
+    : fromCar
+      ? `The elevator chimes and ${player.handle} steps out.`
+      : (doorWasLocked || doorWasClosed)
+        ? (arrivalDir ? `${player.handle} comes through the door from the ${arrivalDir}.` : `${player.handle} comes through the door.`)
+        : buildArriveMsg(player.handle, arrivalDir, zone.name);
   // A plugin may replace the arrival line entirely (drama: armed dramatic entrances).
   const customArrive = await fireHook('movement.arriveMessage', { player, fromZone: zone, toZoneId: targetId, direction, arrivalDir, defaultMessage: arriveMsg });
   if (typeof customArrive === 'string' && customArrive.trim()) arriveMsg = customArrive.trim();
-  broadcast(zone.id, { type:'zone_event', message: departMsg, refresh: true }, player.id);
-  broadcast(targetId, { type:'zone_event', message: arriveMsg, refresh: true }, player.id);
+  // A sneaker's coming and going is NOT announced. The room-wide line is the
+  // thing that made stealth cosmetic: you could roll unnoticed and still be
+  // read out on arrival. Anyone who does notice is told by the sneak plugin's
+  // sweep instead, per observer — which is the only place that knows who did.
+  if (!sneaking) {
+    broadcast(zone.id, { type:'zone_event', message: departMsg, refresh: true, _movement: true }, player.id);
+    broadcast(targetId, { type:'zone_event', message: arriveMsg, refresh: true, _movement: true }, player.id);
+  }
 
   // Close (and re-lock if locked) the door behind the player
   if (hadDoor && doorWasClosed) {
@@ -479,6 +533,14 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     if (doorWasLocked) {
       door.lock_state = 'locked';
       setDoorCache(door.id, door);
+      // Mirror it onto the apartment row. `apartments.is_locked` and
+      // `doors.lock_state` are two records of one fact, and the apartment
+      // description reads the FORMER — so a door that re-locked here without
+      // this call left the room cheerfully announcing "The door is unlocked"
+      // while the hololock had just snapped shut behind you. Every other path
+      // that moves a lock already mirrors it; this one was the hole.
+      syncApartmentLock(door, 'locked').catch(e =>
+        console.error('[movement] apartment lock mirror failed for door', door.id, e.message));
       broadcast(zone.id, { type:'zone_event', message:'The door swings closed and locks.' }, player.id);
       broadcast(targetId, { type:'zone_event', message:'The door swings closed and locks.' }, player.id);
     } else {
@@ -499,15 +561,20 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   const zoneDesc = await describeZone(targetZone, player, describeOut);
 
   const destName = targetZone.name;
+  // The word the narration uses for the way you went. Normally the direction you
+  // typed, but a caller can override it when the exit's compass label isn't what
+  // the move IS — stepping off an elevator rides the car's shared `up` exit, and
+  // "you head up to the Sky Pad" reads as stairs.
+  const narrateDir = opts.narrateDir || direction;
   let narration;
   if (doorWasLocked) {
     const unlockMsg = lockTag?.messages?.unlock ?? 'The lock disengages.';
     const closeMsg = doorWasClosed ? ' It swings closed and locks behind you.' : '';
-    narration = `→ ${unlockMsg} You open the door ${direction} into ${destName}.${closeMsg}`;
+    narration = `→ ${unlockMsg} You open the door ${narrateDir} into ${destName}.${closeMsg}`;
   } else if (doorWasClosed) {
-    narration = `→ You open the door ${direction} into ${destName}. It swings closed behind you.`;
+    narration = `→ You open the door ${narrateDir} into ${destName}. It swings closed behind you.`;
   } else {
-    narration = `→ You head ${direction} to ${destName}.`;
+    narration = `→ You head ${narrateDir} to ${destName}.`;
   }
 
   // Wind/weather attrition — draining stamina for pushing into exposed severe
@@ -533,6 +600,17 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   // (shove, .gohome, follow-drag) pass bypassEncumbrance and never charge it. If
   // you can't afford the toll you walk the step for free — the gate that drops a
   // runner back to a jog when the tank hits empty.
+  // Walking hurt costs you. Charged on the same terms as the run toll — system
+  // relocations are exempt — and deliberately NEVER blocks the step: a player who
+  // cannot move is a player with nothing to do but wait, which is the one failure
+  // state this whole system is built to avoid.
+  const moveExtra = opts.bypassEncumbrance ? 0 : impairmentOf(player).moveStaminaExtra;
+  if (moveExtra > 0) {
+    player.stamina = Math.max(0, (player.stamina ?? (player.stamina_max ?? 100)) - moveExtra);
+    pendingWrite.stamina = player.stamina;
+    broadcast(null, { type:'resource_tick', messages:[], player_update:{ stamina: player.stamina } }, null, player.id);
+  }
+
   if (player.running && !opts.bypassEncumbrance) {
     const before = player.stamina ?? (player.stamina_max ?? 100);
     if (before >= RUN_STEP_STAMINA) {
@@ -616,7 +694,10 @@ export async function flushDirtyPositions() {
   dirty.forEach((p, i) => {
     const b = i * 3;
     rows.push(`($${b + 1}::text, $${b + 2}::text, $${b + 3}::int)`);
-    params.push(p.id, p.current_zone, Math.round(p.stamina ?? p.stamina_max ?? 100));
+    // persistableZone, not current_zone: a dreamer walking between dream rooms
+    // marks _posDirty like any other move, and this batch would otherwise write
+    // a RAM-only zone id into the durable row.
+    params.push(p.id, persistableZone(p), Math.round(p.stamina ?? p.stamina_max ?? 100));
   });
   try {
     await query(
@@ -701,7 +782,7 @@ function buildingsAt(zone) {
 // Uses the clean signals (airfield_name flag, building_type on adjacent buildings)
 // plus vendor NPCs and up/down stairs. Deliberately SPARSE: most tiles return null.
 // Priority is the "what matters most here" order. { icon, poi } | null.
-const POI_ICON = { aa: '⌖', airport: '✈', police: '★', power: '⚡', club: '♥', nightclub: '🎶', bar: '🍺', hotel: '🏨', vendor: '$', home: '⌂', stairs: '⇕' };
+const POI_ICON = { aa: '⌖', airport: '✈', police: '★', power: '⚡', club: '♥', nightclub: '🎶', bar: '🍺', hotel: '🏨', bathhouse: '♨', noodle_bar: '🍜', vendor: '$', home: '⌂', stairs: '⇕' };
 const POWER_RE = /coolant|turbine|reactor|powerplant/i;
 function buildingTypesAt(zone) {
   const types = new Set();
@@ -732,7 +813,13 @@ function mapPoi(zone) {
   // both outrank the generic vendor $ so a bar with a bartender-vendor still reads as a bar.
   if (bt.has('hotel')) return { icon: POI_ICON.hotel, poi: 'hotel' };
   if (bt.has('bar')) return { icon: POI_ICON.bar, poi: 'bar' };
-  if (bt.has('shop') || bt.has('grocery') || bt.has('store') || hasVendorNpc(zone.id)) return { icon: POI_ICON.vendor, poi: 'vendor' };
+  // Marrow Street's two destination-in-their-own-right shops outrank the generic $:
+  // you go to a bathhouse or a noodle counter for the thing, not for the shelf.
+  if (bt.has('bathhouse')) return { icon: POI_ICON.bathhouse, poi: 'bathhouse' };
+  if (bt.has('noodle_bar')) return { icon: POI_ICON.noodle_bar, poi: 'noodle_bar' };
+  if (bt.has('shop') || bt.has('grocery') || bt.has('store') || bt.has('dept_store') ||
+      bt.has('hardware') || bt.has('outfitter') || bt.has('bodega') || hasVendorNpc(zone.id))
+    return { icon: POI_ICON.vendor, poi: 'vendor' };
   // Residential blocks (not hotels — those returned above) get a home marker, ranked
   // below service/vendor POIs so a shop-fronted apartment tile still reads as a shop.
   if (bt.has('apartment')) return { icon: POI_ICON.home, poi: 'home' };
@@ -764,6 +851,7 @@ function mapTile(zone, x, y, placed, currentId) {
     building_name: zone.flags?.building_name || null,
     entrance: buildingEntranceDir(zone), // which edge the door faces — drives the map entrance arrow
     exit_dirs: interiorExitDirs(zone), // interior room's ways out — drives the interior map's exit arrows
+    open_dirs: interiorOpenDirs(zone), // every cardinal side that's open — drives the "edge lines" door style
     terrain: zoneTerrain(zone), // 'road' | 'water' | 'grass' | null — tileable terrain styling
 
     // `water:` used to ride here, described as "the client refuses to route onto it".

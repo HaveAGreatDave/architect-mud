@@ -1,0 +1,22 @@
+{
+  "description": "A real onion, papery and unbothered, one of the few crops that came through the singularity without being redesigned. Still makes you cry. Some things hold.",
+  "flags": {},
+  "id": "item_onion",
+  "name": "onion",
+  "tags": {
+    "consumable": true,
+    "description": "A real onion, papery and unbothered, one of the few crops that came through the singularity without being redesigned. Still makes you cry. Some things hold.",
+    "food_noun": "onion",
+    "food_profile": "soft_vegetable",
+    "perishable": true,
+    "restore_hunger": 8,
+    "spoil_rate": "slow",
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.15
+    }
+  },
+  "type": "consumable",
+  "value": 5,
+  "weight": 120
+}

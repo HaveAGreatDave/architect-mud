@@ -1,29 +1,32 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "bg_color": "#2f3a26",
+  "ambient_theme": "urban",
+  "bg_color": "#2a2721",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
-  "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "created_by": "marrow-infill",
+  "description": "A hardware shop with its stock spilling out under the awning: coils of rope, a barrel of rebar offcuts, a pallet of grey buckets. The sign reads NUTS TO THAT — WE HAVE IT, PROBABLY, and someone has amended PROBABLY in a different paint. The doorway smells of cut metal and machine oil from ten feet away.",
   "exits": {
-    "east": "zone_district_916_908",
-    "north": "zone_district_915_907",
+    "north": "zone_bolt_shop",
     "south": "zone_district_915_909"
   },
   "flags": {
+    "building_name": "Nuts to That",
+    "building_type": "hardware",
     "district": "wasteland",
+    "entrance": "south",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_915_909"
   },
   "grid_x": 915,
   "grid_y": 908,
   "grid_z": 0,
   "id": "zone_district_915_908",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "NT",
+  "name": "Nuts to That",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1785200000"
 }

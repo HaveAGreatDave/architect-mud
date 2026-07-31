@@ -1,0 +1,322 @@
+<title>Architect MUD — State of the Game</title>
+<style>
+  :root {
+    --paper: #e4e5e0;
+    --paper-2: #dadbd4;
+    --ink: #191a21;
+    --ink-2: #4c4e52;
+    --ink-3: #75776f;
+    --rule: #b9bbb2;
+    --signal: #c8401b;
+    --olive: #6b7a2c;
+    --steel: #4a6b7a;
+    --grid: rgba(25,26,33,.08);
+    --card: #ecede8;
+
+    --display: "Arial Narrow", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --body: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --data: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #121318; --paper-2: #17181f; --ink: #dcdde2; --ink-2: #a0a2a9;
+      --ink-3: #74767e; --rule: #2e3038; --signal: #f2662f; --olive: #9fb247;
+      --steel: #6fa3ba; --grid: rgba(220,221,226,.07); --card: #191a21;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #121318; --paper-2: #17181f; --ink: #dcdde2; --ink-2: #a0a2a9;
+    --ink-3: #74767e; --rule: #2e3038; --signal: #f2662f; --olive: #9fb247;
+    --steel: #6fa3ba; --grid: rgba(220,221,226,.07); --card: #191a21;
+  }
+  :root[data-theme="light"] {
+    --paper: #e4e5e0; --paper-2: #dadbd4; --ink: #191a21; --ink-2: #4c4e52;
+    --ink-3: #75776f; --rule: #b9bbb2; --signal: #c8401b; --olive: #6b7a2c;
+    --steel: #4a6b7a; --grid: rgba(25,26,33,.08); --card: #ecede8;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  .sheet { max-width: 940px; margin: 0 auto; padding: 0 24px 96px; }
+  p { max-width: 66ch; }
+
+  .masthead { border-bottom: 3px solid var(--ink); padding: 40px 0 14px; margin-bottom: 4px; }
+  .stamp {
+    font-family: var(--data); font-size: 11px; letter-spacing: .22em;
+    text-transform: uppercase; color: var(--signal);
+    display: flex; flex-wrap: wrap; gap: 6px 18px; margin-bottom: 22px;
+  }
+  .stamp span:not(:first-child) { color: var(--ink-3); }
+  h1 {
+    font-family: var(--display); font-weight: 700;
+    font-size: clamp(44px, 9.5vw, 104px); line-height: .86;
+    letter-spacing: -.02em; text-transform: uppercase;
+    text-wrap: balance; margin: 0 0 18px;
+  }
+  h1 em { font-style: normal; color: var(--signal); }
+  .dek { font-size: 19px; color: var(--ink-2); max-width: 60ch; margin: 0 0 8px; }
+  .byline {
+    font-family: var(--data); font-size: 11px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--ink-3);
+    border-top: 1px solid var(--rule); padding-top: 10px; margin-top: 22px;
+  }
+
+  .haiku {
+    margin: 44px 0; padding: 30px 34px; background: var(--card);
+    border-left: 4px solid var(--signal);
+    display: grid; gap: 20px; grid-template-columns: 1fr auto; align-items: center;
+  }
+  .haiku p {
+    font-family: var(--display); font-size: clamp(21px, 3.4vw, 30px);
+    line-height: 1.34; letter-spacing: .01em; margin: 0; text-transform: uppercase;
+  }
+  .haiku .meter {
+    font-family: var(--data); font-size: 10px; letter-spacing: .18em;
+    color: var(--ink-3); text-align: right; line-height: 2.3;
+  }
+  @media (max-width: 560px) { .haiku { grid-template-columns: 1fr; } .haiku .meter { text-align: left; } }
+
+  section { margin-top: 64px; }
+  h2 {
+    font-family: var(--display); text-transform: uppercase; font-size: 13px;
+    letter-spacing: .28em; color: var(--ink);
+    border-bottom: 1px solid var(--ink); padding-bottom: 8px; margin: 0 0 26px;
+    display: flex; justify-content: space-between; gap: 16px;
+  }
+  h2 .idx { color: var(--signal); font-variant-numeric: tabular-nums; }
+  h3 {
+    font-family: var(--display); text-transform: uppercase; letter-spacing: .06em;
+    font-size: 22px; margin: 34px 0 8px;
+  }
+  .aside {
+    font-family: var(--data); font-size: 12.5px; line-height: 1.7; color: var(--ink-2);
+    border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+    padding: 12px 0; margin: 26px 0; max-width: 68ch;
+  }
+  .aside b { color: var(--signal); font-weight: 400; }
+
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin: 34px 0;
+  }
+  .stat { background: var(--paper); padding: 16px 14px; }
+  .stat .n {
+    font-family: var(--display); font-size: 34px; line-height: 1;
+    font-variant-numeric: tabular-nums; letter-spacing: -.01em;
+  }
+  .stat .l {
+    font-family: var(--data); font-size: 10px; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--ink-3); margin-top: 7px; display: block;
+  }
+
+  figure { margin: 34px 0; }
+  figcaption {
+    font-family: var(--data); font-size: 11px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--ink-3); margin-bottom: 16px;
+    padding-bottom: 6px; border-bottom: 1px solid var(--rule);
+  }
+  .bars { display: grid; gap: 9px; }
+  .bar { display: grid; grid-template-columns: 148px 1fr 64px; align-items: center; gap: 12px; }
+  .bar .k { font-family: var(--data); font-size: 12px; color: var(--ink-2); }
+  .bar .track { height: 15px; background: var(--grid); position: relative; }
+  .bar .fill { height: 100%; background: var(--signal); }
+  .bar .fill.alt { background: var(--steel); }
+  .bar .fill.olive { background: var(--olive); }
+  .bar .v {
+    font-family: var(--data); font-size: 12px; text-align: right;
+    font-variant-numeric: tabular-nums; color: var(--ink);
+  }
+  @media (max-width: 620px) {
+    .bar { grid-template-columns: 108px 1fr 56px; gap: 8px; }
+    .bar .k, .bar .v { font-size: 11px; }
+  }
+
+  .matrix { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 14px; }
+  .matrix i { width: 13px; height: 13px; background: var(--olive); display: block; }
+  .matrix i.off { background: var(--signal); }
+  .legend {
+    font-family: var(--data); font-size: 11px; color: var(--ink-2);
+    display: flex; flex-wrap: wrap; gap: 18px;
+  }
+  .legend b { display: inline-block; width: 10px; height: 10px; vertical-align: -1px; margin-right: 6px; }
+
+  .tw { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 540px; font-family: var(--data); font-size: 13px; }
+  th, td { text-align: left; padding: 9px 12px 9px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th {
+    font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink-3); border-bottom: 1px solid var(--ink);
+  }
+  td.n { font-variant-numeric: tabular-nums; }
+  .pill {
+    display: inline-block; padding: 1px 7px; font-size: 10.5px;
+    letter-spacing: .1em; text-transform: uppercase; border: 1px solid currentColor;
+  }
+  .pill.ship { color: var(--olive); }
+  .pill.part { color: var(--steel); }
+  .pill.paper { color: var(--signal); }
+  .strike { text-decoration: line-through; color: var(--ink-3); }
+
+  ul { max-width: 66ch; padding-left: 20px; }
+  li { margin-bottom: 7px; }
+  li b { font-family: var(--display); text-transform: uppercase; letter-spacing: .04em; font-size: 17px; }
+
+  .colophon {
+    margin-top: 72px; border-top: 3px solid var(--ink); padding-top: 16px;
+    font-family: var(--data); font-size: 11px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink-3);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  }
+</style>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="stamp">
+      <span>State of the Game · Second Edition</span>
+      <span>Architect MUD</span>
+      <span>27 July 2026</span>
+      <span>Branch: main · clean · pushed</span>
+    </div>
+    <h1>The Docs Were<br>Lying. The Code<br>Was <em>Fine.</em></h1>
+    <p class="dek">A revised address, after five of this report's twelve findings turned out to describe work that had already shipped. The state of the game is stronger than its own paperwork claimed — which is a better problem than the reverse, and a more embarrassing one.</p>
+    <p class="byline">Compiled from the working tree · 1,878 commits · Contributors: HaveAGreatDave, Akerson</p>
+  </header>
+
+  <div class="haiku">
+    <p>"Not yet built," it said,<br>above nine green checkmarks and<br>a shipping receipt.</p>
+    <div class="meter">5<br>7<br>5</div>
+  </div>
+
+  <section>
+    <h2><span>What changed since the first edition</span><span class="idx">01</span></h2>
+    <p>The first edition of this report was published this morning. By this afternoon, five of its twelve outstanding-work items had been struck — not because they were fixed, but because they were never true. Every one of them came from the same failure: reading a status header instead of the code underneath it.</p>
+
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th>First edition claimed</th><th>Verdict</th><th>What was actually true</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="strike">Acid rain and EMP unbuilt</td><td><span class="pill ship">False</span></td><td>Both shipped weeks ago. Weather is complete through step 7d, with a presentation kit per event</td></tr>
+          <tr><td class="strike">Void travel documented, not written</td><td><span class="pill ship">False</span></td><td><code>plugins/voidwalking/</code> — five verbs, two engine hooks, its own regress suite</td></tr>
+          <tr><td class="strike">No visual quest editor</td><td><span class="pill ship">False</span></td><td>VINE authors quests as a prerequisite DAG, with a Suite front page</td></tr>
+          <tr><td class="strike">Empty content directories</td><td><span class="pill ship">False</span></td><td>Git doesn't track empty directories. They were local export artifacts; two of the four tables are annotated <code>readTier: 'dead'</code> on purpose</td></tr>
+          <tr><td class="strike">Cards renderer with nothing hanging off it</td><td><span class="pill part">Miscast</span></td><td>A prototype whose adoption is undecided. Parked deliberately — not debt</td></tr>
+          <tr><td class="strike">Ten entangled projects uncommitted</td><td><span class="pill ship">Resolved</span></td><td>Stale. The tree was 19 files, and is now pushed and empty</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="aside">The pattern, stated plainly: <b>the doc bodies were accurate and the doc headers were not.</b> systems-weather-extreme.md was titled "Design — Not Yet Built" with "nothing here is implemented" sitting directly above a roadmap where every step through 7d was marked ✅ with implementation notes. The void-travel memo opened "DESIGN ONLY, nothing built" above fourteen shipped slices. Nobody updates the top of a file they're appending to the bottom of.</div>
+  </section>
+
+  <section>
+    <h2><span>The reassessment</span><span class="idx">02</span></h2>
+    <p>Correcting the ledger changes the diagnosis. The first edition described a project with an excellent foundation and a long tail of half-finished systems. That second half was mostly an artifact of stale prose. What the corrected picture shows is a project that <em>finishes</em> things — weather went to 7d including presentation, void travel went to six slices including a frontier map and ghost-traces, and both did it without anyone updating the summary line.</p>
+
+    <div class="stats">
+      <div class="stat"><span class="n">1,878</span><span class="l">Commits</span></div>
+      <div class="stat"><span class="n">48/day</span><span class="l">Cadence</span></div>
+      <div class="stat"><span class="n">249k</span><span class="l">Lines of code</span></div>
+      <div class="stat"><span class="n">108</span><span class="l">Plugins</span></div>
+      <div class="stat"><span class="n">126</span><span class="l">DB tables</span></div>
+      <div class="stat"><span class="n">11,051</span><span class="l">Content files</span></div>
+      <div class="stat"><span class="n">3,079</span><span class="l">Regress checks</span></div>
+      <div class="stat"><span class="n">0</span><span class="l">Dirty files</span></div>
+    </div>
+
+    <p>The structural facts from the first edition all survive verification, because those were measured rather than read. Plugins still outweigh the engine two to one, which means the engine/plugin boundary is real rather than aspirational. The client is still the largest body of code in the repo. Content still lives in git behind a regress-gated deploy.</p>
+
+    <figure>
+      <figcaption>Codebase mass by area · lines of JS / HTML / CSS</figcaption>
+      <div class="bars">
+        <div class="bar"><span class="k">client/</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="v">110,404</span></div>
+        <div class="bar"><span class="k">plugins/</span><span class="track"><span class="fill alt" style="width:78.5%"></span></span><span class="v">86,721</span></div>
+        <div class="bar"><span class="k">server/</span><span class="track"><span class="fill alt" style="width:39.3%"></span></span><span class="v">43,417</span></div>
+        <div class="bar"><span class="k">docs/ (prose)</span><span class="track"><span class="fill" style="width:22.3%"></span></span><span class="v">24,669</span></div>
+        <div class="bar"><span class="k">scripts/</span><span class="track"><span class="fill olive" style="width:5.8%"></span></span><span class="v">6,421</span></div>
+        <div class="bar"><span class="k">tests/</span><span class="track"><span class="fill olive" style="width:1.9%"></span></span><span class="v">2,120</span></div>
+      </div>
+    </figure>
+
+    <h3>What the audit itself cost</h3>
+    <p>Five wrong findings out of twelve is a 42% error rate on the qualitative half of a report whose quantitative half was sound. That asymmetry is the useful lesson: the numbers were right because they were counted, and the assessments were wrong because they were quoted. A status line in a doc is a claim with no test behind it, and this codebase has 3,079 tests and 24,669 lines of prose. Only one of those two numbers is verified on every push.</p>
+  </section>
+
+  <section>
+    <h2><span>Where we genuinely stand</span><span class="idx">03</span></h2>
+
+    <h3>Verified strengths</h3>
+    <p>The engine is small and the systems are outside it. Substrates — durability, relationships, hygiene, senses, cleaning — are sync and query-free by contract, so an NPC recalling your face or a rifle degrading mid-swing costs no round trip. Content is one JSON file per entity in git, and a push is the deploy: schema first, content additively, backed up, regress-gated. Weather, void travel, the sports pipeline, flight, and the crime/jail loop are all complete systems rather than scaffolds.</p>
+
+    <figure>
+      <figcaption>Regression coverage · one square per plugin · 90 covered, 18 not</figcaption>
+      <div class="matrix" id="mx" aria-label="90 of 108 plugins have a regress suite"></div>
+      <div class="legend">
+        <span><b style="background:var(--olive)"></b>Has regress.js — 90 (83%)</span>
+        <span><b style="background:var(--signal)"></b>No suite — 18 (17%)</span>
+      </div>
+    </figure>
+
+    <h3>Verified remaining work</h3>
+    <p>What survives the correction pass is shorter, and every row below was checked against the code rather than a doc header.</p>
+
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th>Front</th><th>Status</th><th>What's actually missing</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Regress coverage</td><td><span class="pill part">83%</span></td><td>18 plugins with no suite; the ones that matter are scavenging, food, lighting, library, interactions — systems players touch constantly</td></tr>
+          <tr><td>Prod one-shots</td><td><span class="pill paper">Manual</span></td><td>CI never runs seed-runtime; lights, ATM units, vendor stock and NPC zone_ids need a hand-run after every deploy</td></tr>
+          <tr><td>Corps</td><td><span class="pill part">0–2 + war</span></td><td>Espionage (layered on SPECTER) and NPC corp AI are design-only — confirmed absent from <code>plugins/corps/</code></td></tr>
+          <tr><td>Flight</td><td><span class="pill done">Clean</span></td><td>One model only — the continuous client sim. The banded <code>flight_takeoff</code>/<code>flight_land</code> decks were deleted from server and client on 2026-07-27</td></tr>
+          <tr><td>Swimming</td><td><span class="pill part">Surface</span></td><td>Boat boarding and underwater content pending</td></tr>
+          <tr><td>Helm</td><td><span class="pill part">Built</span></td><td>Tablet mount pending</td></tr>
+          <tr><td>Wildlands / Curtain</td><td><span class="pill part">Map built</span></td><td>Gate, glacis, badlands and the 63-tile Curtain shipped as content; the <code>perimeter</code> plugin and every faction NPC still pending</td></tr>
+          <tr><td>Quest authoring</td><td><span class="pill part">Editor built</span></td><td>VINE authors them; no quest <em>runtime</em> gaps found, but 63 quests against 5,822 zones is the real shortfall</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="aside">Ratios unchanged and still the most important numbers here: <b>34 zones per NPC</b> · <b>92 zones per quest</b> · <b>149 zones per enemy</b>. Nothing in the correction pass touched this. The world is enormous and thinly populated, and no amount of stale-doc archaeology changes that.</div>
+
+    <h3>The three that actually matter</h3>
+    <ul>
+      <li><b>Content depth, not content mass.</b> This was the first edition's finding and it is the only one that got <em>stronger</em> under scrutiny. Every system that could give a player a reason to walk somewhere is built. What's thin is the reasons themselves — NPCs, quests, enemies. The next expansion pass should not be a map.</li>
+      <li><b>The manual post-deploy step.</b> A deploy that isn't finished until a human remembers to run a script against production isn't a deploy, it's a ritual. Everything else in the CODEX pipeline is automated and gated. This will eventually ship a city with the lights off.</li>
+      <li><b>Status prose has no test.</b> Newly promoted, on today's evidence. The codebase gates code on every push and gates content on every import, and lets a doc header claim a shipped system is unbuilt for weeks. A <code>docs:lint</code> that flags any header saying "not built" above a body full of ✅ would have caught every error in this report.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span>In conclusion</span><span class="idx">04</span></h2>
+    <p>Thirty-nine days, a quarter of a million lines, and a city that has weather that can kill you by name, a walkable void between regions, two sports leagues, and a public library restricted to expired copyrights. The foundations were reported as strong this morning and they remain strong this afternoon; what changed is that the list of unfinished things turned out to be a list of things nobody had written down as finished.</p>
+    <p>That is a better position than the reverse, and it comes with a cheaper fix. The engineering discipline here is real — 3,079 tests, a gated deploy, substrates that hold their contracts. The documentation discipline is real too, in the bodies of the files, where the ✅ marks are meticulous. What's missing is the thirty seconds at the end of a system's last commit when someone goes back to the top of the file and changes one line.</p>
+    <p>The state of the game is strong. It has been strong for some weeks. Somebody should have said so at the top of the file.</p>
+  </section>
+
+  <div class="colophon">
+    <span>Architect MUD · State of the Game · Second Edition</span>
+    <span>Figures from working tree at 4faacb9d, 27 Jul 2026</span>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var mx = document.getElementById('mx');
+    if (!mx) return;
+    for (var i = 0; i < 108; i++) {
+      var d = document.createElement('i');
+      if (i >= 90) d.className = 'off';
+      mx.appendChild(d);
+    }
+  })();
+</script>

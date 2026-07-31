@@ -1,4 +1,4 @@
-# Casino — The Neon Vig (as built)
+# Casino — The Lucky Bastard (as built)
 
 Added in commit `1946c559`. Two **independent** gambling systems that share one
 grimy zone: a self-contained **slots** plugin and a poker table that reuses the
@@ -7,7 +7,7 @@ changes were needed for either.
 
 ## Venue
 
-- **Zone:** `zone_casino_interior` — "The Neon Vig"
+- **Zone:** `zone_casino_interior` — "The Lucky Bastard"
   ([content/zones/zone_casino_interior.json](../content/zones/zone_casino_interior.json)).
   Interior building (`flags.is_interior: true`, `claimable_asset: "casino"`,
   marker `CA`), exit north → `zone_district_921_910`. Seedy-floor description
@@ -90,6 +90,18 @@ Same Hold'em engine (rules/betting/bots in
   refuse outright — that override is gone.)* Friendly stakes: `smallBlind 5`/`bigBlind 10`,
   `buyIn 100`, `turnTimerSecs 45` (more time to act by ear).
 
+### Table state persistence (2026-07-27)
+
+`maybePersist()` fires every 10s per table for as long as the server is up. It used to write
+unconditionally — and an **empty table's serialized state is byte-identical forever**, so three
+idle tables were ~18 pointless `UPDATE game_tables` a minute in a world where nobody was playing
+cards, each one keeping Neon's compute from suspending.
+
+`_persist()` now compares against what it last wrote (`_persistedJson` / `_persistedPhase`) and
+skips the round trip when nothing changed. This is safe by inspection: the row already holds
+exactly what the write would have set, so a restart reloads identical state. Measured 24 → 3 writes
+per 75s, the 3 being each table's first real persist after boot.
+
 ### Required seed (runtime rows, one-shot per environment)
 
 `game_tables` rows are runtime-classified and **not** carried by `content:import`.
@@ -112,7 +124,7 @@ the deploy).
 
 A second poker table, same content+seed pattern (no code), in the saloon at
 The Reach — `zone_bld_899_1171_lobby` ("The Saloon Floor"). Themed as a frontier smuggler's
-game; **stakes a notch above the Neon Vig**: `smallBlind 10`/`bigBlind 20`, `buyIn 200`
+game; **stakes a notch above the Lucky Bastard**: `smallBlind 10`/`bigBlind 20`, `buyIn 200`
 (`minBuyIn 100`/`maxBuyIn 2000`), `turnTimerSecs 45`.
 
 **Visual felt** — it opened as a called-aloud table until 2026-07-20; `textTable`
@@ -129,7 +141,7 @@ runtime-classified). Players who prefer the log game can still type `text`.
   `poker_bankroll 2200`, aggressive/tilty `poker_persona`, `npc_type gambler`, `HAVE_LIFE`
   graph). Summonable to the felt like Ledger (the bot is matched purely on `poker_player`).
 - **Seed:** `node scripts/seed-coyote-poker.mjs` (local) / `--env-file=.env.prod` (prod) —
-  the `game_tables` row is runtime-classified, same as the Neon Vig table.
+  the `game_tables` row is runtime-classified, same as the Lucky Bastard table.
 
 ## Verb ownership
 

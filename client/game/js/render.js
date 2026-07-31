@@ -1,18 +1,44 @@
 import { state } from './state.js';
 import { updateBodyTempHUD } from './panels/environment.js';
 import { refreshCustomPanels } from './panels/custom/manager.js';
-import { registerList, mountScopeToggle } from './panels/list-reorder.js';
+import { registerList, mountScopeToggle, hiddenKeys } from './panels/list-reorder.js';
 import { renderSmartBar } from './panels/smartbar.js';
 import { burnBehind } from './flame.js';
 
 // Make the Vitals list reorderable. Call after initSidebarOrder, which reparents
 // the section's rows into a .sidebar-section-body (the real row container).
+// HUNGER, THIRST AND SANITY ARE OFF BY DEFAULT.
+//
+// SANITY IS HIDDEN FOR A DIFFERENT REASON THAN THE OTHER TWO, and the difference is the
+// whole point. Hunger and thirst lost their bars and GAINED honest prose — banded lines that
+// tell you plainly how hungry you are. Sanity gets no such replacement, deliberately: people
+// losing their minds do not get a readout, and a reliable narrator would defeat the system it
+// is narrating. The symptoms ARE the interface, and they are meant to be deniable — a whisper
+// you could have imagined, a person who might have been there, a line somebody might actually
+// have said. A number would let you check, and checking is exactly what a mind coming apart
+// cannot do.
+//
+// `condition` still reports the Cool penalty ("rattled"), which is honest without being a
+// gauge — the same deal temperature has always had.
+//
+// Body temperature has never had a bar — you read it from `condition` and from banded prose —
+// and hunger and thirst were the inconsistency, not the rule. They now have proper banded
+// messages (server/engine/appetite.js: unequal bands, a cadence that tightens as it worsens,
+// crossing treated as an event) plus a satiation line when you eat, which is the one thing a
+// bar could never tell you: how FULL you are, rather than how empty.
+//
+// A number invites you to top up at 79 because you can see 79. Prose makes eating a response
+// to your own body instead of a chore against a gauge. Both are still one click away in the
+// vitals edit mode for anyone who wants the instrument back — and `condition` remains the
+// precise read for everyone, exactly as it already is for temperature.
+export const DEFAULT_HIDDEN_VITALS = ['hun', 'thi', 'san', 'hor'];
+
 export function initVitalsReorder() {
   const body = document.querySelector('#vitals-section .sidebar-section-body')
     || document.getElementById('vitals-section');
   if (!body) return;
   mountScopeToggle('vitals', document.getElementById('vitals-edit-host'));
-  registerList(body, { scope: 'vitals', key: 'vitals', rowSelector: '.vital' });
+  registerList(body, { scope: 'vitals', key: 'vitals', rowSelector: '.vital', defaultHidden: DEFAULT_HIDDEN_VITALS });
 }
 
 export function appendMsg(text, cls = '') {
@@ -94,6 +120,7 @@ export function setAreaPane(html, direction) {
   const el = document.getElementById('area-content');
   el.innerHTML = html;
   applyDescCollapse(el);
+  applyBeacons();
   // Only a location change (move) plays the slide transition. Silent refreshes
   // from kills, loot, look, etc. pass no direction and update in place.
   if (direction && el.animate && document.documentElement.getAttribute('data-motion') !== 'off') {
@@ -105,6 +132,89 @@ export function setAreaPane(html, direction) {
     );
   }
   document.getElementById('area-pane').dispatchEvent(new CustomEvent('contentupdate'));
+}
+
+// Is the room pane actually on screen right now? Desktop always: true. Mobile
+// starts collapsed (`mob-pane-hidden`) and the player toggles it. Server messages
+// flagged `paneFallback` are LOG COPIES of something already drawn into the room
+// pane — they exist for the collapsed-mobile case only, and appending them while
+// the pane is open is pure duplication (the elevator's floor panel three times
+// over). Anything that can't find the pane errs toward showing the copy.
+export function isAreaPaneVisible() {
+  const pane = document.getElementById('area-pane');
+  if (!pane) return false;
+  if (pane.classList.contains('mob-pane-hidden')) return false;
+  return pane.offsetParent !== null && pane.getBoundingClientRect().height > 4;
+}
+
+// Ripple the room-pane link for `action`+`target` (server `pointAt()`), telling
+// the player where to click. The pane may not carry the link yet — a look can
+// still be in flight behind the message that pointed — so retry briefly.
+export function pointAtRoomTarget(action, target, tries = 6) {
+  if (!action || !target) return;
+  if (document.documentElement.getAttribute('data-motion') === 'off') return;
+  const pane = document.getElementById('area-content');
+  const el = pane && [...pane.querySelectorAll(`[data-action="${action}"][data-target]`)]
+    .find((n) => n.dataset.target.toLowerCase() === String(target).toLowerCase());
+  if (!el) {
+    if (tries > 0) setTimeout(() => pointAtRoomTarget(action, target, tries - 1), 400);
+    return;
+  }
+  el.classList.remove('point-ripple');
+  void el.offsetWidth; // restart the animation if it's already been pointed at
+  el.classList.add('point-ripple');
+  setTimeout(() => el.classList.remove('point-ripple'), 3600);
+}
+
+// ── Sticky beacons ───────────────────────────────────────────────────────────
+// The object the tutorial is steering you toward keeps shimmering until the
+// server clears it (server `pointAt(..., { sticky: true })` / `clearPointAt()`).
+// Held here as a list rather than painted once, because the room pane is
+// rebuilt wholesale on every look, move, take and kill — a class stamped onto
+// the old DOM would be gone within seconds.
+let _beacons = [];   // [{ action, target }]
+
+function beaconEls() {
+  const pane = document.getElementById('area-content');
+  if (!pane || !_beacons.length) return [];
+  const out = [];
+  for (const { action, target } of _beacons) {
+    const t = String(target).toLowerCase();
+    for (const n of pane.querySelectorAll(`[data-action="${action}"][data-target]`)) {
+      if (n.dataset.target.toLowerCase() === t) out.push(n);
+    }
+  }
+  return out;
+}
+
+// Re-stamp the live beacons onto the freshly rendered pane. Called from
+// setAreaPane, and again on a short retry when a beacon is first set (the look
+// carrying the link can still be in flight behind the message that set it).
+export function applyBeacons() {
+  for (const el of beaconEls()) el.classList.add('point-beacon');
+}
+
+export function setRoomBeacon(action, target, on, tries = 6) {
+  if (!action || !target) return;
+  const key = (b) => `${b.action} ${String(b.target).toLowerCase()}`;
+  const me = key({ action, target });
+  _beacons = _beacons.filter(b => key(b) !== me);
+  if (!on) {
+    const pane = document.getElementById('area-content');
+    pane?.querySelectorAll('.point-beacon').forEach(n => {
+      if (n.dataset.action === action && n.dataset.target?.toLowerCase() === String(target).toLowerCase()) n.classList.remove('point-beacon');
+    });
+    return;
+  }
+  _beacons.push({ action, target });
+  if (!beaconEls().length && tries > 0) { setTimeout(() => setRoomBeacon(action, target, true, tries - 1), 400); return; }
+  applyBeacons();
+}
+
+// Drop every beacon (leaving the prologue, or a server-side reset).
+export function clearRoomBeacons() {
+  _beacons = [];
+  document.getElementById('area-content')?.querySelectorAll('.point-beacon').forEach(n => n.classList.remove('point-beacon'));
 }
 
 export function scrollOutput() {
@@ -119,6 +229,16 @@ export function updateVitals(p) {
   setBar('thi', p.thirst, 100);
   setBar('sta', p.stamina, p.stamina_max || 100);
   setBar('rad', p.radiation, 100, true);
+  // Mobile hunger/thirst mirror whatever the sidebar is hiding. The compact bars carry no
+  // `data-lr-key`, so list-reorder cannot manage them; hiding them here keeps one decision
+  // driving both layouts instead of letting the phone disagree with the desktop.
+  {
+    const hidden = hiddenKeys('vitals', DEFAULT_HIDDEN_VITALS);
+    for (const key of ['hun', 'thi', 'san']) {   // not 'hor': it has its own MIS-gated wrapper
+      const row = document.getElementById(`${key}-bar-m`)?.closest('.mob-bar-row');
+      if (row) row.style.display = hidden.has(key) ? 'none' : '';
+    }
+  }
   // Radiation bar — only visible when the player is actually irradiated
   if (p.radiation !== undefined) {
     const showRad = (p.radiation || 0) > 0;
@@ -150,9 +270,14 @@ export function updateVitals(p) {
     const el = document.getElementById('header-credits-val');
     if (el) el.textContent = p.credits;
   }
-  // Horniness bar — only visible when MIS is active
+  // Horniness bar — MIS-gated AND hidden by default like the other body meters. It is a
+  // feeling, not a dial: the mis plugin narrates it in bands on the way up, holds a cadence
+  // while it sits high, and says so on the way back down. Two gates, both of which must pass
+  // before it appears: MIS active (consent) and the player having deliberately re-added the
+  // row (preference).
   if (p.mis_enabled !== undefined) {
-    const show = p.mis_enabled === 1 || p.mis_enabled === true;
+    const misOn = p.mis_enabled === 1 || p.mis_enabled === true;
+    const show = misOn && !hiddenKeys('vitals', DEFAULT_HIDDEN_VITALS).has('hor');
     for (const id of ['horny-bar-wrap', 'horny-bar-wrap-m']) {
       const el = document.getElementById(id);
       if (el) el.style.display = show ? '' : 'none';

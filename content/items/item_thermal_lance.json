@@ -6,26 +6,40 @@
   "tags": {
     "__own": {
       "damage": {
-        "max": 100,
-        "min": 55
+        "min": 15,
+        "max": 28
       },
       "damage_type": "fire",
-      "demolition": true
+      "demolition": true,
+      "demolition_damage": {
+        "min": 55,
+        "max": 100
+      },
+      "min_skill": {
+        "science": 6
+      }
     },
     "__super": [
       "weapon_science"
     ],
     "damage": {
-      "max": 100,
-      "min": 55
+      "min": 15,
+      "max": 28
     },
     "damage_type": "fire",
     "demolition": true,
     "slot": "weapon_hand",
     "weapon": true,
-    "weapon_skill": "science"
+    "weapon_skill": "science",
+    "demolition_damage": {
+      "min": 55,
+      "max": 100
+    },
+    "min_skill": {
+      "science": 6
+    }
   },
   "type": "weapon",
-  "value": 1800,
+  "value": 6300,
   "weight": 6000
 }

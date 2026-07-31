@@ -4,13 +4,13 @@
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "The face of Pawn & Pity — barred windows, a half-dead sign, and no questions. Whatever you lost is probably in the case out front. Ironside Street runs off to the west.",
+  "description": "The face of Sentimental Value Pawn — barred windows, a half-dead sign, and no questions. Whatever you lost is probably in the case out front. Ironside Street runs off to the west.",
   "exits": {
     "east": "zone_fence_interior",
     "north": "zone_district_920_909"
   },
   "flags": {
-    "building_name": "Pawn & Pity",
+    "building_name": "Sentimental Value Pawn",
     "building_type": "fence",
     "district": "wasteland",
     "entrance": "north",
@@ -27,7 +27,7 @@
   "id": "zone_district_920_910",
   "map_id": "map_world",
   "marker": "PP",
-  "name": "Pawn & Pity",
+  "name": "Sentimental Value Pawn",
   "parent_zone": null,
   "updated_at": "1783739474"
 }

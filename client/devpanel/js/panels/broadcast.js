@@ -69,6 +69,9 @@ function renderBroadcastSuite(data) {
   _bcSuiteData = data || {};
   // Render the tab bar + content area into list-panel
   const panel = document.getElementById('list-panel');
+  // On /admin this suite is a window, not a workbench — but the read-only notice is
+  // the shared #ops-ro-banner raised by loadPanel(), not a bespoke one here, so all
+  // the read-only panels say the same thing. Writes are blocked in api.js.
   panel.innerHTML = `
     <div class="bc-suite">
       <div class="bc-tabs" id="bc-suite-tabs">
@@ -132,7 +135,7 @@ async function bcSuiteRefresh(focusTab) {
 }
 
 const BROADCAST_CATEGORIES = ['general','news','advertisement','entertainment','emergency','weather','sport','music','documentary','surveillance'];
-const BROADCAST_MODES      = ['scripted','dynamic_news','live','recorded','weather','sports','news'];
+const BROADCAST_MODES      = ['scripted','dynamic_news','live','recorded','weather','sports','news','talkshow','morning','gameshow'];
 
 const BC_CAT_COLOR = {
   entertainment: 'var(--cyan)',    news: 'var(--yellow)',
@@ -1711,7 +1714,7 @@ async function _bcDepFinish() {
   if (_bcDepCompiled) await _bcImportSave(_bcDepCompiled);
 }
 
-async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript, newsScript, talkshowScript, morningScript, messages, assets, cameras, actorIds, npcIds }) {
+async function _bcImportSave({ meta, broadcastGraph, filmScript, sermonScript, weatherScript, sportsScript, newsScript, talkshowScript, morningScript, gameshowScript, messages, assets, cameras, actorIds, npcIds }) {
   // Apply zone ID remaps to camera_cut nodes (BSM ID → real interior zone ID)
   for (const node of Object.values(broadcastGraph?.nodes || {})) {
     if (node.type === 'camera_cut') {
@@ -1757,18 +1760,39 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript
   const isNews     = meta.type === 'news';
   const isTalkshow = meta.type === 'talkshow';
   const isMorning  = meta.type === 'morning';
-  const isPool     = isWeather || isSports || isNews || isTalkshow || isMorning;
+  // @type gameshow → a line library acted live by a host (+ optional sidekick), whose
+  // questions are dealt from the live item catalog. Staffs the studio and gates on an
+  // @airtime slot like a talk show; uniquely, any PLAYER standing in the studio can play.
+  const isGameshow = meta.type === 'gameshow';
+  // @type film → NOT a line library. A feature is a fixed linear chain, exactly like a
+  // scripted broadcast; the two things that differ are that it pins itself to an
+  // @airtime block (so the picture screens at a fixed hour and a late viewer joins the
+  // reel already running) and that its cast are display names, never studio NPCs — so
+  // it is deliberately absent from `spawnsNpcs` below.
+  const isFilm     = meta.type === 'film';
+  // @type sermon → the news type's Sunday cousin: dynamic (assembled per in-game day
+  // from the live news feed) but NOT acted, so like news it spawns no studio NPC. It
+  // pins to an @airtime block like a talk show, and @airday makes that weekly.
+  const isSermon   = meta.type === 'sermon';
+  const isPool     = isWeather || isSports || isNews || isTalkshow || isMorning || isGameshow || isSermon;
   const body = {
-    name: meta.name, category: meta.category || (isWeather ? 'weather' : isSports ? 'sport' : isNews ? 'news' : isTalkshow ? 'late_night' : isMorning ? 'morning' : 'general'),
-    playback_mode: isWeather ? 'weather' : isSports ? 'sports' : isNews ? 'news' : isTalkshow ? 'talkshow' : isMorning ? 'morning' : 'scripted', message_interval: 5,
-    override_duration: meta.length || null, loop: isPool ? 1 : 0, enabled: 1,
-    messages: messages.map(t => ({ text: t })),
+    name: meta.name, category: meta.category || (isWeather ? 'weather' : isSports ? 'sport' : isNews ? 'news' : isTalkshow ? 'late_night' : isMorning ? 'morning' : isGameshow ? 'gameshow' : isSermon ? 'worship' : isFilm ? 'film' : 'general'),
+    playback_mode: isWeather ? 'weather' : isSports ? 'sports' : isNews ? 'news' : isTalkshow ? 'talkshow' : isMorning ? 'morning' : isGameshow ? 'gameshow' : isSermon ? 'sermon' : isFilm ? 'film' : 'scripted', message_interval: 5,
+    override_duration: meta.length || null, loop: (isPool || isFilm) ? 1 : 0, enabled: 1,
+    // A film's flat `messages` list is its entire script over again — 874 lines and 82 KB
+    // for a feature — and nothing ever reads it: the runner plays the graph and, when the
+    // reel ends, the commercial pool. Storing it would double the row and put the whole
+    // screenplay in git twice on the next content export.
+    messages: isFilm ? [] : messages.map(t => ({ text: t })),
     broadcast_graph: broadcastGraph,
     weather_pools: isWeather ? (weatherScript || { pools: {}, host: meta.host }) : null,
     sports_pools: isSports ? (sportsScript || { sport: meta.sport || 'baseball', announcer: meta.announcer, teams: [], players: [], pools: {}, airSlots: null }) : null,
     news_pools: isNews ? (newsScript || { anchors: [], reporters: [], announcer: meta.announcer, pools: {} }) : null,
     talkshow_pools: isTalkshow ? (talkshowScript || { host: meta.host, sidekick: meta.sidekick, guestNpc: meta.guestNpc, guests: [], pools: {}, title: meta.titlecard || '', theme: meta.theme || '', airSlots: null }) : null,
     morning_pools: isMorning ? (morningScript || { host: meta.host, cohost: meta.cohost, pools: {}, title: meta.titlecard || '', theme: meta.theme || '' }) : null,
+    gameshow_pools: isGameshow ? (gameshowScript || { host: meta.host, sidekick: meta.sidekick, contestants: [], pools: {}, title: meta.titlecard || '', theme: meta.theme || '', airSlots: null, rounds: null }) : null,
+    sermon_pools: isSermon ? (sermonScript || { celebrants: [], verger: meta.verger || '', pools: {}, title: meta.titlecard || '', theme: meta.theme || '', airSlots: null, airDays: null }) : null,
+    film_meta: isFilm ? (filmScript || { presents: '', rating: '', director: '', cast: [], title: meta.titlecard || '', theme: meta.theme || '', airSlots: null, runtime: meta.length || null }) : null,
     channel_id: channelId,
   };
   try {
@@ -1831,7 +1855,7 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript
         // for them, even if the .bsm declares ::actors / SPEAKER lines. For a talk show the
         // host + sidekick + reusable guest are placed here; the server's schedule recalc then
         // assigns the guest its roaming lifecycle graph when the show is put on a playlist.
-        const spawnsNpcs = meta.type === 'live' || meta.type === 'weather' || isTalkshow || isMorning;
+        const spawnsNpcs = meta.type === 'live' || meta.type === 'weather' || isTalkshow || isMorning || isGameshow;
         let npcSpawnCount = 0, npcMoveCount = 0;
         const existingNpcIds = _bcExistingNpcIds instanceof Set ? _bcExistingNpcIds : new Set();
         const actors = spawnsNpcs ? [...new Set([

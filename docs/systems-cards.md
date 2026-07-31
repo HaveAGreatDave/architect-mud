@@ -1,10 +1,30 @@
-# Procedural Trading Cards (Renderer Built; Integration Design)
+# Procedural Trading Cards — the PORTRAIT renderer (still unwired)
 
-> **Status: renderer built 2026-07-13** — [client/game/js/card-render.js](../client/game/js/card-render.js)
-> is a complete, self-contained portrait renderer with a ~30-archetype drawer library covering all
+> **⚠ ADOPTION DECIDED 2026-07-30 — but not this way.** Trading cards **shipped**, as
+> [`plugins/cards/`](../plugins/cards/README.md); the design and rationale are in
+> [proposals/trading-cards.md](proposals/trading-cards.md), which is now the authoritative doc for
+> the card system. What shipped is the **text face**: prose, budgets, spoken condition. This file
+> describes the **portrait face**, which is still exactly what it was — a complete, self-contained
+> canvas renderer that **nothing loads**. It was not dropped and it was not adopted; it is a second
+> face the card view could grow, and an enemy card can never use it (there is no silhouette for a
+> rot-hound). Everything below remains accurate about the renderer itself. The "Integration
+> roadmap" section at the bottom is **superseded** — read the proposal instead.
+>
+> **Original status header, kept for context — PROTOTYPE, not a committed feature (2026-07-27).**
+> The renderer exists and works;
+> **whether the game ships trading cards at all is an open question that has not been decided.**
+> Nothing downstream should assume this is coming. Do not file the missing mint verb, storage or UI
+> as debt, plan work that depends on cards existing, or count this toward the roadmap — it is a spike
+> that earned its keep by proving the approach is cheap, and it is parked at exactly that.
+>
+> **What exists** (built 2026-07-13): [client/game/js/card-render.js](../client/game/js/card-render.js),
+> a complete, self-contained portrait renderer with a ~30-archetype drawer library covering all
 > equippable slots on **both** Vitruvian silhouettes. It is **not wired into the client** (nothing loads
-> it yet) and there is **no mint verb, storage, or card UI**. This doc is the authoritative spec for what
-> exists and the agreed plan for the integration that doesn't.
+> it), and there is **no mint verb, storage, or card UI** — by choice, pending the adopt/drop call.
+>
+> **If adopted**, the rest of this doc is the authoritative spec and the agreed integration plan.
+> **If dropped**, the renderer is one self-contained file to delete and nothing else unwinds — which
+> was the point of building it this way.
 
 A trading card is a **snapshot of a character** — their body type plus the gear they had equipped at mint
 time — rendered as per-piece vector art on a body silhouette, framed with a tier/rarity treatment and a
@@ -25,7 +45,7 @@ to the `tee` drawer with different tints — **cost scales with distinct shapes 
 | File | Role |
 |---|---|
 | [client/game/js/card-render.js](../client/game/js/card-render.js) | The whole renderer: mask loading, anchors, classifier, tier/palette, the ~30 archetype drawers, `renderPortrait`. Exposes `window.CardRender`. |
-| `client/game/assets/paperdoll-mask.png` | **Male** silhouette, 242×540, shape in the **alpha** channel (white-on-transparent). Already used by the Gear app paperdoll. |
+| `client/game/assets/paperdoll-mask.png` | **Male** silhouette, 242×540, shape in the **alpha** channel (white-on-transparent). Already used by the Kit app paperdoll. |
 | `client/game/assets/femsil.png` | **Female** silhouette, 500×708, Vitruvian, shape in the **alpha** channel (this is the file formerly named `femsil2.png`). The module's default path is `/assets/femsil.png`. |
 | `data/femsil.png` | Rejected first female silhouette (arms-down pose, black-on-white). Kept for reference; **not used**. Note the name collision — the *used* female mask is the one under `client/game/assets/`. |
 
@@ -116,7 +136,7 @@ CardRender.renderPortrait(canvas, {           // draws the figure into a sized <
 `renderPortrait` sizes to the canvas's CSS box × DPR, fits the figure by height with a small bottom bias,
 paints a ground shadow, builds the figure on an offscreen, and composites. The **card chrome** (frame,
 header, stat block, rarity chip, rain/haze) is **HTML/CSS around the canvas**, not the renderer's job — this
-matches how the client already builds DOM panels with a canvas centerpiece (see the Gear app).
+matches how the client already builds DOM panels with a canvas centerpiece (see the Kit app).
 
 The item shape the renderer needs is the **equipped-item shape the game already has**: `id`, `name`, `value`,
 `tags.slot`, `tags.armor`, `tags.layer`. See [docs/items.md](items.md).

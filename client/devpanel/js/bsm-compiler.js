@@ -5,7 +5,7 @@ function compileBsm(text) {
   const lines = text.split('\n');
   let i = 0;
 
-  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', sport: '', announcer: '', airSlots: null, anchors: [], reporters: [], sidekick: '', guestNpc: '', cohost: '' };
+  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', sport: '', announcer: '', airSlots: null, anchors: [], reporters: [], sidekick: '', guestNpc: '', cohost: '', rounds: null, presents: '', rating: '', director: '', airDays: [] };
   const _debug = { unknownDirectives: [], nodeTypes: {}, unresolvedSpeakers: [] };
 
   // Pre-scan ::actors block to build alias map and actor list.
@@ -26,6 +26,39 @@ function compileBsm(text) {
     const mAlias = t.match(/^@?alias\s+(\S+)\s+(.+)$/);
     if (mAlias) aliases[mAlias[2].trim().toUpperCase()] = mAlias[1];
   }
+
+  // Pre-scan @type and the ::cast block. A film's speaker lines compile differently
+  // from every other type (see below), and @type may legally sit anywhere in the
+  // header, so both have to be known before the body pass starts.
+  //   ::cast
+  //   DIRK | Dirk Vantablack | the kid with the voice
+  //   ::endcast
+  // Cast entries are DISPLAY NAMES, not npc_ ids: a film's characters are photographed
+  // people in a recording, not studio staff. Nothing here ever reaches npcIds, so
+  // importing a film never spawns an NPC and never presence-gates.
+  const cast = [];              // [{ label, name, role }] in declaration order
+  const castByLabel = {};       // LABEL (uppercase) → display name
+  let _preType = 'live';
+  {
+    let inCast = false;
+    for (const ln of lines) {
+      const t = ln.trim();
+      if (t === '::cast')                     { inCast = true;  continue; }
+      if (t.startsWith('::') && t !== '::cast') { inCast = false; continue; }
+      if (inCast) {
+        if (!t || t.startsWith('#')) continue;
+        const [label, name, role] = t.split('|').map(p => p.trim().replace(/^(["'])([\s\S]*)\1$/, '$2'));
+        if (!label) continue;
+        const display = name || label.replace(/\b\w/g, c => c.toUpperCase());
+        cast.push({ label: label.toUpperCase(), name: display, role: role || '' });
+        castByLabel[label.toUpperCase()] = display;
+        continue;
+      }
+      const mType = t.match(/^@type\s+(\S+)/i);
+      if (mType) _preType = mType[1].toLowerCase();
+    }
+  }
+  const isFilm = _preType === 'film';
 
   // Implicit actor aliases: a SPEAKER label with no explicit @alias still resolves
   // to a declared @actor when it matches that actor's derived name — the humanized
@@ -57,6 +90,8 @@ function compileBsm(text) {
   const teams = [];           // team names from ::teams block  (only meaningful for @type sports)
   const players = [];         // player names from ::players block (only meaningful for @type sports)
   const guests = [];          // guest personas {name,title,theme} from ::guests block (only meaningful for @type talkshow)
+  const contestants = [];     // plain contestant NAMES from ::contestants block (only meaningful for @type gameshow)
+  const celebrants = [];      // {name,title,tag} from ::celebrants block (only meaningful for @type sermon)
   const messages = [];
   const rooms = [];           // zone IDs from ROOM directives (ordered, deduplicated)
   const cameraNumbers = [];   // unique CAM numbers in order of first appearance
@@ -101,6 +136,7 @@ function compileBsm(text) {
     '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT', 'NPC ', 'OVERLAY',
     'SHOT', 'SHOT_END', 'TICKER_END', 'OVERLAY_END', 'LOWER_THIRD_END', 'MUSIC_END', 'END', 'CAM ', 'ROOM ', 'LOWER_THIRD',
     'MUSIC', 'ENTER ', 'ACTION', 'END_ACTION', '♪', 'TECH_DIFFICULTIES ', 'CREDITS',
+    'ACT ', 'SLUG ', 'INTERMISSION', 'LETTERBOX ', 'FADE ',
   ];
 
   const BARE_DURATION_RE = /^(\d+(?:\.\d+)?)s?$/;  // "8s", "2s", "1.5s", "8"
@@ -163,6 +199,27 @@ function compileBsm(text) {
         // morning: the second host on the couch — a real npc_ id, like @host. The two trade
         // every beat, so the pools are authored as "host line >> cohost line" pairs.
         else if (key === 'cohost')   meta.cohost = val;
+        // film: the pre-roll cards. @presents is the production company on the
+        // distributor card, @rating the certification card, @director the "a film by"
+        // credit. All three are plain strings — a film has no studio cast.
+        // film: which weekday(s) the picture screens. Names or 1-7 (Mon=1), comma or
+        // space separated, repeatable. Omit and it screens every day — which for a
+        // feature is usually wrong: nine in-game hours every night is most of a channel.
+        else if (key === 'airday') {
+          const NAMES = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+          for (const tok of val.split(/[,\s]+/).filter(Boolean)) {
+            const n = Number(tok);
+            const d = Number.isFinite(n) ? n : NAMES.indexOf(tok.slice(0, 3).toLowerCase()) + 1;
+            if (d >= 1 && d <= 7 && !meta.airDays.includes(d)) meta.airDays.push(d);
+          }
+        }
+        // sermon: the unseen voice that opens and closes the service — a name, not an NPC.
+        else if (key === 'verger')   meta.verger = val.replace(/^["']|["']$/g, '');
+        else if (key === 'presents') meta.presents = val.replace(/^["']|["']$/g, '');
+        else if (key === 'rating')   meta.rating   = val.replace(/^["']|["']$/g, '');
+        else if (key === 'director') meta.director = val.replace(/^["']|["']$/g, '');
+        // gameshow: how many rounds an episode plays (1–4). Omit ⇒ all four.
+        else if (key === 'rounds')   { const r = parseInt(val, 10); if (Number.isFinite(r)) meta.rounds = r; }
         // @actor / @alias are pre-scanned from ::actors block; skip here
       }
       i++; continue;
@@ -231,6 +288,41 @@ function compileBsm(text) {
       }
       continue;
     }
+
+    // ── Sermon celebrant roster (::celebrants … ::endcelebrants) ─────────────
+    // One celebrant per line: "Name | Title | tag". Title and tag optional. These are
+    // display NAMES, never npc_ ids — a sermon is dynamic but NOT acted, so nothing here
+    // spawns a studio NPC. The optional `tag` names that celebrant's signature pools
+    // (`exegesis.<tag>`, `interjection.<tag>`), which is what stops five preachers from
+    // all sounding like one preacher.
+    if (ln === '::celebrants') {
+      i++;
+      const content = collectBlock('::endcelebrants');
+      for (const t of content.split('\n').map(x => x.trim()).filter(x => x && !x.startsWith('#'))) {
+        const [name, title, tag] = t.split('|').map(x => x.trim().replace(/^(["'])([\s\S]*)\1$/, '$2'));
+        if (name) celebrants.push({ name, title: title || '', tag: tag || '' });
+      }
+      continue;
+    }
+
+    // ── Game-show contestant names (::contestants … ::endcontestants) ────────
+    // One name per line, PLAIN STRINGS — not npc_ ids. The strangers on the studio floor
+    // are spoken attribution only: they never get bodies, never commute, never spawn. Their
+    // guesses are generated deterministically from the episode seed, so they lose
+    // convincingly for free. A player standing in the studio plays alongside them.
+    if (ln === '::contestants') {
+      i++;
+      const content = collectBlock('::endcontestants');
+      for (const s of content.split('\n').map(t => t.trim()).filter(t => t && !t.startsWith('#'))) {
+        contestants.push(s.replace(/^(["'])([\s\S]*)\1$/, '$2'));
+      }
+      continue;
+    }
+
+    // ── Film cast list (::cast … ::endcast) ──────────────────────────────────
+    // Pre-scanned above into `cast`/`castByLabel`; consumed here so the body pass
+    // never mistakes a "LABEL | Name | role" row for content.
+    if (ln === '::cast') { i++; collectBlock('::endcast'); continue; }
 
     if (ln.startsWith('::')) { i++; continue; }  // ::actors, ::endactors, ::scene, ::endasset, etc.
 
@@ -347,6 +439,63 @@ function compileBsm(text) {
       continue;
     }
 
+    // ── Film structure: ACT / SLUG / INTERMISSION / LETTERBOX / FADE ─────────
+    // Authored for @type film but harmless in any linear script — they all compile
+    // to ordinary overlay nodes, differing only in overlayType, so the existing
+    // walker, the late-tune seeker and the TV panel already know how to carry them.
+
+    // ACT 2 — The Boom  →  a chapter card between the movement of the story.
+    if (/^ACT\s+\S/.test(ln)) {
+      const rest = ln.slice(3).trim();
+      const m = rest.match(/^(\S+)\s*(?:[—–-]\s*(.+))?$/);
+      makeNode({
+        type: 'overlay', overlayType: 'act_card',
+        text: `ACT ${m ? m[1] : rest}`, subtext: (m && m[2]) ? m[2].trim() : '',
+        duration_s: 8,
+      });
+      i++; continue;
+    }
+
+    // SLUG SAN FERNANDO BASIN | 2079 — SUMMER  →  the scene slug, lower-third style.
+    // Everything before the first "|" is the place, the rest is the time.
+    if (ln.startsWith('SLUG ')) {
+      const [where, ...when] = ln.slice(5).split('|').map(s => s.trim());
+      makeNode({
+        type: 'overlay', overlayType: 'lower_third',
+        text: where, subtext: when.join(' — '), graphic_id: '', duration_s: 6,
+      });
+      i++; continue;
+    }
+
+    // INTERMISSION [seconds] — the reel change. Holds the house card; a viewer who
+    // tunes in during one sees the intermission, exactly as they would have.
+    if (ln === 'INTERMISSION' || ln.startsWith('INTERMISSION ')) {
+      const sec = ln === 'INTERMISSION' ? 60 : (parseFloat(ln.slice(13)) || 60);
+      makeNode({
+        type: 'overlay', overlayType: 'intermission',
+        text: 'INTERMISSION', subtext: '', duration_s: sec,
+      });
+      i++; continue;
+    }
+
+    // LETTERBOX on|off — a PERSISTENT layer (duration 0), not a timed card. The bars
+    // stay until they're switched off, so a feature can frame itself wide and drop
+    // back to broadcast-safe for a credit crawl.
+    if (/^LETTERBOX\s+/i.test(ln)) {
+      const on = !/off/i.test(ln.slice(9));
+      makeNode({ type: 'overlay', overlayType: 'letterbox', on, text: '', duration_s: 0 });
+      i++; continue;
+    }
+
+    // FADE out|in [seconds] — the optical transition between scenes.
+    if (/^FADE\s+/i.test(ln)) {
+      const parts = ln.slice(5).trim().split(/\s+/);
+      const dir = /in/i.test(parts[0] || '') ? 'in' : 'out';
+      const sec = parseFloat(parts[1]) || 3;
+      makeNode({ type: 'overlay', overlayType: 'fade', fade: dir, text: '', duration_s: sec });
+      i++; continue;
+    }
+
     // ── Explicit NPC anchor ──────────────────────────────────────────────────
     if (ln.startsWith('NPC ')) {
       const npcId = ln.slice(4).trim();
@@ -361,6 +510,33 @@ function compileBsm(text) {
     const speakerMatch = ln.match(SPEAKER_RE);
     if (speakerMatch) {
       const speaker = speakerMatch[1].toUpperCase();
+      // A film is a RECORDING, not a live studio: its characters are display names
+      // from ::cast, never npc_ ids. The line is pre-rendered with its own attribution
+      // and emitted `verbatim` — the walker airs such a line exactly as written and
+      // still leaks it to bystanders as [TV] speech, with no anchor and no NPC.
+      // NARRATOR:/ANNOUNCER: stay reserved in a film too. A voice-over is the one voice
+      // in a picture with nobody attached to it — "Narrator says, …" over the opening
+      // titles is exactly wrong — so unless the file explicitly casts the label, it falls
+      // through to the shared announcer path and airs as bare narration, like a SHOT block.
+      if (isFilm && !(ANNOUNCER_LABELS.has(speaker) && !castByLabel[speaker])) {
+        // Screenplay labels are conventionally ALL CAPS, so an undeclared walk-on has to
+        // be lowercased before it is title-cased or "BARMAN:" airs as "BARMAN says".
+        const who = castByLabel[speaker]
+          || speakerMatch[1].toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+        i++;
+        let ftext = '';
+        while (i < lines.length) {
+          const tl = lines[i].trim();
+          if (!tl) { i++; continue; }
+          if (isDirectiveLine(tl)) break;
+          ftext = tl; i++; break;
+        }
+        if (!ftext) continue;
+        const rendered = `${who} says, "${ftext}"`;
+        makeNode({ type: 'say', text: rendered, style: 'verbatim' });
+        messages.push(rendered);
+        continue;
+      }
       const resolved = aliases[speaker] ?? implicitActor(speaker);
       // Unseen announcer — no NPC, no anchor. (An explicit @alias still wins.)
       const isAnnouncer = ANNOUNCER_LABELS.has(speaker) && !resolved;
@@ -456,6 +632,13 @@ function compileBsm(text) {
 
     if (activeNpc) {
       makeNode({ type: 'npc_action', message: ln });
+    } else if (isFilm) {
+      // Screenplay action line. A film has no active NPC to attribute a stage
+      // direction to, and wrapping every "He crosses the lot" in SHOT/SHOT_END for a
+      // two-and-a-half-hour feature would be all scaffolding and no script — so bare
+      // prose in a film IS the narration, exactly as it reads on the page.
+      makeNode({ type: 'say', text: ln, style: 'narration' });
+      messages.push(ln);
     } else {
       _debug.unknownDirectives.push(ln);
     }
@@ -514,5 +697,67 @@ function compileBsm(text) {
     for (const id of [meta.host, meta.cohost]) if (id) npcIds.add(id);
   }
 
-  return { meta, broadcastGraph: { _start: startId, nodes }, weatherScript, sportsScript, newsScript, talkshowScript, morningScript, messages, assets, rooms, cameras: cameraNumbers, npcIds: [...npcIds], actorIds, _debug };
+  // Game shows (@type gameshow) are the talk show's audience-participation sibling: a line
+  // library acted live by a host (+ optional sidekick reading the prize copy), whose QUESTIONS
+  // come from the live item catalog rather than from the file. Only the cast are real npc_ ids;
+  // the ::contestants are name strings with no bodies. Any player standing in the studio when a
+  // round opens is a contestant too. See docs/bsm-format.md#game-shows-type-gameshow.
+  const gameshowScript = {
+    host: meta.host || '', sidekick: meta.sidekick || '',
+    contestants, pools: weatherPools, title: meta.titlecard || '', theme: meta.theme || '',
+    airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null,
+    rounds: meta.rounds || null,
+  };
+  if (meta.type === 'gameshow') {
+    for (const id of [meta.host, meta.sidekick]) if (id) npcIds.add(id);
+  }
+
+  // Film pre-roll. @presents / @rating / @director are cards that belong in front of
+  // the picture, but the chain was built front-to-back by the body pass, so they're
+  // spliced in between `start` and the first authored node afterwards rather than
+  // making the author hand-write three overlays every time.
+  if (isFilm && startId && (meta.presents || meta.rating || meta.director)) {
+    const cards = [];
+    if (meta.presents) cards.push({ text: meta.presents.toUpperCase(), subtext: 'presents', duration_s: 5 });
+    if (meta.rating)   cards.push({ text: meta.rating, subtext: 'BASIN BROADCAST STANDARDS BOARD', duration_s: 5 });
+    if (meta.director) cards.push({ text: `A film by ${meta.director}`, subtext: '', duration_s: 5 });
+    const firstContent = nodes[startId].next || null;
+    let link = startId;
+    cards.forEach((card, n) => {
+      const id = `bsm_pre_${n}`;
+      nodes[id] = { type: 'overlay', overlayType: 'act_card', ...card, _vine: { x: 80 + n * 220, y: -120 } };
+      nodes[link].next = id;
+      link = id;
+    });
+    nodes[link].next = firstContent;
+  }
+
+  // Films (@type film) are the odd one out: NOT a line library at all, but the plain
+  // linear chain a `scripted` broadcast compiles to — a feature is authored shot by
+  // shot, it does not re-roll. What the extra envelope carries is everything the
+  // chain can't: the pre-roll card copy, the cast list, and the @airtime block the
+  // importer pins the picture to so it screens at a fixed hour and a late viewer
+  // joins the reel already running. Nothing here is an npc_ id — see ::cast.
+  const filmScript = {
+    presents: meta.presents || '', rating: meta.rating || '', director: meta.director || '',
+    cast, title: meta.titlecard || '', theme: meta.theme || '',
+    airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null,
+    airDays: meta.airDays.length ? meta.airDays : null,
+    runtime: meta.length || null,
+  };
+
+  // Sermons (@type sermon) are the news type's Sunday cousin: a line library whose FACTS
+  // come from the same live news generator, but read as scripture rather than reported.
+  // Like news and unlike a talk show it is dynamic but NOT acted — the celebrants and the
+  // verger are display NAMES, deliberately never added to npcIds, so importing a service
+  // never spawns a studio NPC and it never presence-gates. `airDays` is what makes it a
+  // Sunday programme rather than a daily one.
+  const sermonScript = {
+    celebrants, verger: meta.verger || '',
+    pools: weatherPools, title: meta.titlecard || '', theme: meta.theme || '',
+    airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null,
+    airDays: meta.airDays.length ? meta.airDays : null,
+  };
+
+  return { meta, broadcastGraph: { _start: startId, nodes }, filmScript, sermonScript, weatherScript, sportsScript, newsScript, talkshowScript, morningScript, gameshowScript, messages, assets, rooms, cameras: cameraNumbers, npcIds: [...npcIds], actorIds, _debug };
 }

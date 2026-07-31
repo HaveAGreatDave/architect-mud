@@ -33,3 +33,20 @@ A season runs **`SPORTS_SEASON_DAYS` in-game days** (default 30 ≈ a month, dri
 ## Extension points
 
 - Future season/World Series logic reads `sports_standings` for top-two seeding and resets it at season's end. It will live in this plugin.
+
+## Per-player races
+
+Each sport folds its own leaderboard alongside the table, out of the beats the sim
+ALREADY emits — no second simulation, no stored rows, and the leaders can never
+disagree with the games that aired, because they are folded from the same games.
+
+- **DEADBALL** — batting average, home runs and RBI (`SEASON.foldExtras` in
+  [sports/baseball.js](../broadcast/sports/baseball.js)). Scoring follows real rules:
+  a **walk** and a **sacrifice fly** are plate appearances but **not at-bats**, while a
+  double play or a productive out is. Count those two as at-bats and every average in
+  the league reads low. A qualifier gate (40% of the leader's at-bats, floor 5) keeps
+  the board off whoever went 2-for-2 in April; it scales with the season so an early
+  table still has names on it, and falls back to the whole pool rather than showing
+  nothing.
+- **CLUSTER PUCK** — goals, assists, points, plus the casualty count (the one sport
+  where a season costs lives).

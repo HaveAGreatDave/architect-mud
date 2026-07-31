@@ -13,8 +13,10 @@
     "up": [
       "zone_solenne_gym",
       "zone_solenne_residences",
+      "zone_solenne_residences_34",
       "zone_solenne_skydeck",
-      "zone_solenne_ph_landing"
+      "zone_solenne_ph_landing",
+      "zone_solenne_helipad"
     ]
   },
   "flags": {
@@ -32,6 +34,11 @@
         "zone": "zone_solenne_residences"
       },
       {
+        "label": "The Upper Residences",
+        "n": 34,
+        "zone": "zone_solenne_residences_34"
+      },
+      {
         "label": "Sky Deck & Pool",
         "n": 40,
         "zone": "zone_solenne_skydeck"
@@ -40,6 +47,11 @@
         "label": "The Penthouse",
         "n": 44,
         "zone": "zone_solenne_ph_landing"
+      },
+      {
+        "label": "Sky Pad — residents",
+        "n": 45,
+        "zone": "zone_solenne_helipad"
       }
     ],
     "hide_exits": true,
@@ -53,5 +65,5 @@
   "map_id": "map_int_solenne",
   "name": "Elevator",
   "parent_zone": "zone_district_914_908",
-  "updated_at": "1784600000"
+  "updated_at": "1784900000"
 }

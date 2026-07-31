@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#1d2a2c",
+  "color": null,
+  "created_by": "marrow-infill",
+  "description": "A tiled hall of shower stalls under a ceiling that drips its own weather back on you. The heat is total and undeserved and, for about four credits' worth of nothing, entirely yours. Somewhere in the fog a man is singing, badly, and nobody has asked him to stop, because this is the one room in Coldwater where that would be cruelty.",
+  "exits": {
+    "west": "zone_soak_front"
+  },
+  "flags": {
+    "building_name": "Lather & Lye",
+    "building_type": "bathhouse",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_916_908"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_soak_baths",
+  "map_id": "map_int_soak",
+  "marker": null,
+  "name": "Lather & Lye — The Baths",
+  "parent_zone": "zone_district_916_908",
+  "updated_at": "1785200000"
+}

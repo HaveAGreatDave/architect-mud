@@ -111,6 +111,45 @@ export function lintContentTree(baseDir) {
           errors.push(`${label}: ${fk.col}="${v}" references ${fk.refTable}.${fk.refCol} but no such content file exists (dangling FK — would break a fresh restore)`);
         }
       }
+      // Enemy anatomy: `body_parts[].grants` is read by the injury plugin, and
+      // every failure mode here is SILENT — a component index that is a string,
+      // or points past the end of the weapon array, simply never fires, and the
+      // enemy looks perfectly correct while its arc can never be shot out. Same
+      // silent-typo bug class as item tags below, so it fails the same way.
+      if (entry.table === 'enemies' && Array.isArray(f.data.body_parts)) {
+        const weaponLen = Array.isArray(f.data.weapon) ? f.data.weapon.length : 0;
+        const ROLES = new Set(['attack', 'mobility', 'none']);
+        for (const p of f.data.body_parts) {
+          if (!p || typeof p !== 'object') continue;
+          if (p.role !== undefined && !ROLES.has(p.role)) {
+            errors.push(`${label}: body part "${p.part}" has role "${p.role}" — must be attack, mobility or none`);
+          }
+          const g = p.grants;
+          if (g === undefined) continue;
+          if (g === null || typeof g !== 'object' || Array.isArray(g)) {
+            errors.push(`${label}: body part "${p.part}" has a grants that is not an object`);
+            continue;
+          }
+          for (const k of Object.keys(g)) {
+            if (!['component', 'dodge', 'capability'].includes(k)) {
+              errors.push(`${label}: body part "${p.part}" grants unknown key "${k}" (component, dodge or capability)`);
+            }
+          }
+          if (g.component !== undefined) {
+            if (!Number.isInteger(g.component)) {
+              errors.push(`${label}: body part "${p.part}" grants component "${g.component}" — must be an integer index, not a ${typeof g.component}`);
+            } else if (g.component < 0 || g.component >= weaponLen) {
+              errors.push(`${label}: body part "${p.part}" grants component ${g.component}, but this enemy has ${weaponLen} weapon component(s) — it could never be silenced`);
+            }
+          }
+          if (g.dodge !== undefined && (typeof g.dodge !== 'number' || !(g.dodge > 0))) {
+            errors.push(`${label}: body part "${p.part}" grants dodge "${g.dodge}" — must be a positive number`);
+          }
+          if (g.capability !== undefined && (typeof g.capability !== 'string' || !g.capability.trim())) {
+            errors.push(`${label}: body part "${p.part}" grants capability "${g.capability}" — must be a non-empty string`);
+          }
+        }
+      }
       // Item tags must exist in the tag catalog with the right value shape —
       // the engine gates on tag names, so a typo here is silently inert in prod.
       if (entry.table === 'items' && f.data.tags) {
@@ -230,6 +269,22 @@ export function lintContentTree(baseDir) {
       for (const [theme, count] of [...usedThemes].sort((a, b) => b[1] - a[1])) {
         if (!pools.has(theme)) warnings.push(`ambient_theme "${theme}" is on ${count} tile(s) but has no global_ambient_events pool — those tiles get no ambience unless they carry their own ambient_events`);
       }
+    }
+  }
+
+  // NPC names are identity — two NPCs answering to the same name break
+  // targeting, dialogue references, and the player's mental map of the world.
+  // Exact (case-insensitive) collisions are a hard error, forever.
+  {
+    const npcFiles = entries.find(e => e.entry.table === 'npcs')?.files || [];
+    const byName = new Map();
+    for (const f of npcFiles) {
+      const n = String(f.data.name ?? '').trim().toLowerCase();
+      if (!n) continue;
+      (byName.get(n) || byName.set(n, []).get(n)).push(f.name);
+    }
+    for (const [n, files] of byName) {
+      if (files.length > 1) errors.push(`npcs: duplicate NPC name "${n}" in ${files.join(', ')} — every NPC needs a unique name`);
     }
   }
 
@@ -562,7 +617,94 @@ export function lintContentTree(baseDir) {
     }
   }
 
+  // Quest objectives must point somewhere a player can actually be SENT.
+  //
+  // Coldwater's street names repeat by design — 19 tiles are "Kessler Street",
+  // 366 are "Grasslands" — so an objective whose `desc` is a bare place name is
+  // not routable: `gps <desc>` resolves to the nearest tile of that name, which
+  // is almost never the objective's. A player then walks somewhere plausible and
+  // the quest sits still with nothing explaining why.
+  //
+  // This landed for real: a repair one-shot (scripts/salvage-legacy-world.mjs)
+  // repointed 17 job-board gigs and set each `desc` from the DISTRICT CLASS
+  // rather than the tile name, sending two quests to an apartment interior
+  // labelled "Residential Area" — a name it does not have and 19 other tiles do.
+  //
+  // Two rules, both about the same failure:
+  //   1. a bare-place-name desc must BE the target tile's name (prose descs, which
+  //      read as instructions, are exempt — they were never meant to be typed);
+  //   2. that name must be unique, or the desc is unroutable even when correct.
+  {
+    const questFiles = entries.find(e => e.entry.table === 'quests')?.files || [];
+    const zoneFiles = entries.find(e => e.entry.table === 'zones')?.files || [];
+    if (questFiles.length && zoneFiles.length) {
+      const zoneName = new Map(zoneFiles.map(f => [f.data.id, f.data.name]));
+      const nameCount = new Map();
+      for (const f of zoneFiles) nameCount.set(f.data.name, (nameCount.get(f.data.name) || 0) + 1);
+      // Only the ACTIVE TRAP is an error, and it is narrow on purpose: a desc that
+      // is the real name of one or more OTHER tiles, but not of its own target.
+      // That is the shape that misroutes — the player types it, the name resolves
+      // to genuine tiles, and every one of them is the wrong place.
+      //
+      // A desc naming nothing on the map ("The apron", "Check the drain") is NOT
+      // flagged: it can't misresolve, and it reads as an instruction anyway. Nor
+      // is a merely duplicated target name, which is a warning below — GPS now
+      // prefers a live objective's own zone, so those still route correctly.
+      const nameToIds = new Map();
+      for (const f of zoneFiles) {
+        const k = String(f.data.name || '').trim().toLowerCase();
+        if (!nameToIds.has(k)) nameToIds.set(k, []);
+        nameToIds.get(k).push(f.data.id);
+      }
+      for (const f of questFiles) {
+        for (const o of f.data.objectives || []) {
+          if (!o?.zone) continue;
+          const label = `quests/${f.name} ${o.id || '?'}`;
+          const real = zoneName.get(o.zone);
+          if (real === undefined) {
+            errors.push(`${label}: zone "${o.zone}" has no content file (objective can never be reached)`);
+            continue;
+          }
+          const desc = String(o.desc || '').trim();
+          if (!desc) continue;
+          if (desc.toLowerCase() === String(real).trim().toLowerCase()) continue;   // desc names its own target: fine
+          const elsewhere = nameToIds.get(desc.toLowerCase());
+          if (elsewhere && elsewhere.length) {
+            errors.push(`${label}: desc "${desc}" is the real name of ${elsewhere.length} OTHER tile(s) but not of its target ${o.zone} ("${real}") — a player routing by that name is sent to the wrong place and the quest never advances`);
+          }
+        }
+      }
+    }
+  }
   return { errors, warnings };
+}
+
+/**
+ * Advisory (non-fatal): quest objectives pointing at a tile whose name several
+ * tiles share. Not an error — GPS resolves a live objective by zone id, so these
+ * route correctly — but the desc the player reads isn't a name they can look up,
+ * so new quests should prefer a uniquely-named tile where one exists.
+ */
+export function warnQuestAmbiguousTargets() {
+  const warnings = [];
+  try {
+    const { entries } = readContentTree();
+    const questFiles = entries.find(e => e.entry.table === 'quests')?.files || [];
+    const zoneFiles = entries.find(e => e.entry.table === 'zones')?.files || [];
+    if (!questFiles.length || !zoneFiles.length) return warnings;
+    const zoneName = new Map(zoneFiles.map(f => [f.data.id, f.data.name]));
+    const nameCount = new Map();
+    for (const f of zoneFiles) nameCount.set(f.data.name, (nameCount.get(f.data.name) || 0) + 1);
+    for (const f of questFiles) {
+      for (const o of f.data.objectives || []) {
+        if (!o?.zone) continue;
+        const real = zoneName.get(o.zone);
+        const n = nameCount.get(real) || 0;
+        if (n > 1) warnings.push(`quests/${f.name} ${o.id || '?'}: target ${o.zone} is named "${real}", shared by ${n} tiles`);
+      }
+    }
+  } catch (e) { warnings.push(`(objective-ambiguity scan skipped: ${e.message})`); }
+  return warnings;
 }
 
 // CLI entry
@@ -570,6 +712,11 @@ import { fileURLToPath } from 'node:url';
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const { errors, warnings } = lintContentTree();
   for (const w of warnings) console.warn(`  ⚠ ${w}`);
+  // Advisory, never fatal: quest objectives aimed at a tile whose name is shared
+  // by others. These still route correctly (GPS prefers a live objective’s own
+  // zone id), but the desc a player reads is not a name they can look up — so it
+  // is worth knowing about when authoring, and worth avoiding in new quests.
+  for (const w of warnQuestAmbiguousTargets()) console.warn(`  ! ${w}`);
   if (errors.length) {
     console.error(`✗ content:lint — ${errors.length} problem(s):`);
     for (const e of errors) console.error(`  ${e}`);

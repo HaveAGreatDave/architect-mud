@@ -1,0 +1,75 @@
+@broadcast "Everstock — Buy It By The Pallet"
+@category commercial
+@length 30
+@type commercial
+
+::asset everstock_logo
+
+███████╗██╗   ██╗███████╗██████╗ ███████╗████████╗ ██████╗  ██████╗██╗  ██╗
+██╔════╝██║   ██║██╔════╝██╔══██╗██╔════╝╚══██╔══╝██╔═══██╗██╔════╝██║ ██╔╝
+█████╗  ██║   ██║█████╗  ██████╔╝███████╗   ██║   ██║   ██║██║     █████╔╝
+██╔══╝  ╚██╗ ██╔╝██╔══╝  ██╔══██╗╚════██║   ██║   ██║   ██║██║     ██╔═██╗
+███████╗ ╚████╔╝ ███████╗██║  ██║███████║   ██║   ╚██████╔╝╚██████╗██║  ██╗
+╚══════╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝╚══════╝   ╚═╝    ╚═════╝  ╚═════╝╚═╝  ╚═╝
+
+           E V E R S T O C K   B U L K   S U P P L Y
+        "Why Buy One? Nobody Here Knows Why You'd Buy One."
+
+::endasset
+
+::scene TITLE
+
+ROOM studio_stage
+
+EVENT FADE_IN
+
+TITLE everstock_logo
+
+♪ A relentlessly cheerful jingle, played on an instrument that is not quite a xylophone. ♪
+
+::scene COMMERCIAL
+
+CAM 1 WIDE
+
+SHOT
+A warehouse aisle that goes past the vanishing point. Shrink-wrapped pallets stacked four high: cooking oil, cooking oil, cooking oil, machine pistols, cooking oil.
+SHOT_END
+
+NARRATOR:
+Everstock. Forty years of not asking what you want it for.
+
+CAM 2 TRACKING pallet_aisle
+
+SHOT
+The camera trundles past a pallet of Rattlecans, spray-painted six different colours because the paint was also on offer.
+SHOT_END
+
+NARRATOR:
+The Everstock Rattlecan machine pistol. Sold by the pallet, beside the drums, under the same warranty as the drums.
+
+NARRATOR:
+Does it jam? Our manual describes this as a cadence feature.
+
+OVERLAY
+EVERSTOCK BULK SUPPLY
+
+MINIMUM ORDER: TWELVE
+
+NO, WE WILL NOT SPLIT A PALLET
+OVERLAY_END
+
+SHOT
+A shopper stands holding a single Rattlecan, looking around for someone to ask. There is nobody. There has never been anybody.
+SHOT_END
+
+NARRATOR:
+Everstock. It empties a magazine before it decides to agree.
+
+3s
+
+NARRATOR:
+So does the cooking oil, in fairness.
+
+EVENT FADE_OUT
+
+END

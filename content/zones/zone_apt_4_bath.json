@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#c9a884",
+  "color": null,
+  "created_by": "add-ensuite-bathroom",
+  "description": "A closet with plumbing. The toilet runs constantly, the sink has one tap and it only ever runs cold, and the shower is a rusted head over a cracked tile drain with a curtain that doesn't quite reach. The extractor fan died before you got here. It locks, though.",
+  "exits": {
+    "out": "zone_apt_4"
+  },
+  "flags": {
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_apt_4_bath",
+  "map_id": null,
+  "marker": null,
+  "name": "Unit 2D — Bathroom",
+  "parent_zone": "zone_apt_4",
+  "updated_at": "1785157992"
+}

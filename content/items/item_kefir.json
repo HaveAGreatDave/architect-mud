@@ -1,0 +1,20 @@
+{
+  "description": "Sour, fizzing very slightly, and technically still alive. Sits well on a bad stomach and badly on a nervous one.",
+  "flags": {},
+  "id": "item_kefir",
+  "name": "bottle of kefir",
+  "tags": {
+    "consumable": true,
+    "description": "Sour, fizzing very slightly, and technically still alive. Sits well on a bad stomach and badly on a nervous one.",
+    "drink_noun": "kefir",
+    "drink_profile": "dairy_cream",
+    "hydrating": true,
+    "pour_units": 3,
+    "restore_sanity": 6,
+    "restore_thirst": 34,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 9,
+  "weight": 420
+}

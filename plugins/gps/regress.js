@@ -222,6 +222,22 @@ export default async function regress({ run, check, getPlayer }) {
           (r?.type === 'gps_route' && !r.path.includes(avoidTile) && r.promptAutoWalk === false && r.message === ''),
         `type=${r?.type} avoided=${avoidTile} inPath=${r?.path?.includes(avoidTile)} prompt=${r?.promptAutoWalk} msg="${r?.message}"`,
       );
+      // `!go` — plot and set off, for a caller that has already put the question
+      // to the player itself (the clone-vat advert's "show me the way"). Asking
+      // again there would be asking one question twice.
+      r = await run(`gps ${destId} !go`);
+      check(
+        'gps !go autostarts instead of prompting',
+        r?.type === 'gps_route' && r.autostart === true && r.promptAutoWalk === false,
+        `type=${r?.type} autostart=${r?.autostart} prompt=${r?.promptAutoWalk}`,
+      );
+      // …and a plain plot is unchanged: it still asks.
+      r = await run(`gps ${destId}`);
+      check(
+        'a plain gps plot still asks before walking',
+        r?.type === 'gps_route' && r.promptAutoWalk === true && r.autostart === undefined,
+        `prompt=${r?.promptAutoWalk} autostart=${r?.autostart}`,
+      );
       p.current_zone = savedGps;
     }
   }

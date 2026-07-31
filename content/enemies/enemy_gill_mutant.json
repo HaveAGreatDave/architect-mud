@@ -1,0 +1,156 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "attack",
+        "type": "condition"
+      },
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "weight": 9,
+      "soak": {
+        "kinetic": 1
+      },
+      "grants": {
+        "component": 1
+      }
+    },
+    {
+      "part": "gills",
+      "weight": 7,
+      "soak": {
+        "kinetic": 0
+      },
+      "grants": {
+        "capability": "waterbreath"
+      }
+    },
+    {
+      "part": "torso",
+      "weight": 32,
+      "soak": {
+        "kinetic": 2
+      }
+    },
+    {
+      "part": "left_arm",
+      "weight": 12,
+      "soak": {
+        "kinetic": 1
+      },
+      "role": "attack"
+    },
+    {
+      "part": "right_arm",
+      "weight": 12,
+      "soak": {
+        "kinetic": 1
+      },
+      "role": "attack"
+    },
+    {
+      "part": "left_leg",
+      "weight": 14,
+      "soak": {
+        "kinetic": 1
+      }
+    },
+    {
+      "part": "right_leg",
+      "weight": 14,
+      "soak": {
+        "kinetic": 1
+      }
+    }
+  ],
+  "butcher_difficulty": 5,
+  "butcher_table": [],
+  "death_message": "The gill-necked mutant sags into the water and its neck keeps working for a while after the rest of it stops.",
+  "description": "Grey, hairless and entirely at home in the water, with three wet slits down each side of its neck that open and close out of time with each other. It hunts the flooded runs by pressure rather than sight, and it is very patient about it. Drowning is not available to it as a way out.",
+  "dodge": 2,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": true,
+    "battle_cries": [
+      "$enemy surfaces without a sound, already close to $player.",
+      "$enemy's neck flutters open as it comes at $player."
+    ],
+    "first_strike_delay_ms": 6000
+  },
+  "hit": 4,
+  "hp_max": 34,
+  "id": "enemy_gill_mutant",
+  "loot_table": [
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 20
+    },
+    {
+      "credits": [
+        30,
+        85
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 18
+    },
+    {
+      "credits": [
+        75,
+        205
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 3,
+      "super": true
+    }
+  ],
+  "name": "gill-necked mutant",
+  "weapon": [
+    {
+      "type": "kinetic",
+      "min": 2,
+      "max": 5
+    },
+    {
+      "type": "edged",
+      "min": 1,
+      "max": 3
+    }
+  ]
+}

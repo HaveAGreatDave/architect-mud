@@ -1,0 +1,10 @@
+{
+  "name": "wear",
+  "version": "1.0.0",
+  "description": "Repairing worn gear — field patch-ups and proper bench work, over the engine durability substrate.",
+  "commands": [],
+  "specializedActions": ["repair"],
+  "hooks": [],
+  "events": { "consumes": [], "emits": [] },
+  "ticks": []
+}

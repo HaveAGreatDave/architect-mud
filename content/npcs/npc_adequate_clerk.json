@@ -1,0 +1,239 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Bettine reprices a bin of socks without breaking eye contact with you.",
+    "\"Aisle four. Whatever it is, try aisle four first.\"",
+    "The tannoy announces a sale in Menswear. Bettine mouths along with it, word for word."
+  ],
+  "description": "The floor manager, in a store tabard she has clearly tailored herself, with a price gun holstered at her hip like she might need it in a hurry. She has worked every department in the building and can tell you which aisle a thing is in without looking up. Nothing she sells is good and she will not pretend otherwise; what she will tell you is exactly how long it will last.",
+  "dialogue_tree": {
+    "root": {
+      "text": "\"Morning.\" Bettine doesn't stop repricing. \"Everything in here is cheap and most of it is honest about that. You want good, you want the Marquee. You want to be dressed and fed by tonight, you want me.\" She finally looks up. \"So. Dressed, or fed?\"",
+      "options": [
+        {
+          "label": "Show me what you've got.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Is any of it any good?",
+          "next": "quality"
+        },
+        {
+          "label": "What's with the fake dining room upstairs?",
+          "next": "display"
+        },
+        {
+          "label": "You hear much, working the floor?",
+          "next": "gossip"
+        },
+        {
+          "label": "Just looking.",
+          "next": "bye"
+        }
+      ]
+    },
+    "quality": {
+      "text": "\"No.\" She says it without heat. \"The coats last a winter. The boots last a winter if you're kind to them. The plates last forever because nobody's ever excited enough about a plate to throw one.\" She shrugs. \"You're not buying quality, you're buying not-freezing. That's a real thing to buy.\"",
+      "options": [
+        {
+          "label": "Fair enough.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ]
+    },
+    "display": {
+      "text": "\"The dining set.\" Something moves behind her face and goes away again. \"Head office sent it down as a display. I've had three people ask to sit at it. I said yes, obviously.\" She reprices another bin. \"There's a man comes in Thursdays, sits, doesn't buy anything, leaves. I'm not going to be the one who stops him.\"",
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ]
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "text": "\"Everyone on this street comes through here eventually. You learn things by what people stop buying.\"",
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ]
+    },
+    "bye": {
+      "text": "\"Aisle four,\" she says, to your back. \"Just in case.\"",
+      "options": []
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a store tabard in faded ADEQUATE! orange, taken in at the waist",
+      "a plain blouse and a price gun on a belt clip",
+      "sensible trousers and plain briefs"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_adequate_floor",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_adequate_clerk",
+  "name": "Bettine Halm",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_basic_shirt",
+      "price": 14
+    },
+    {
+      "item_id": "item_basic_pants",
+      "price": 16
+    },
+    {
+      "item_id": "item_basic_shoes",
+      "price": 18
+    },
+    {
+      "item_id": "item_watch_cap",
+      "price": 9
+    },
+    {
+      "item_id": "item_sweater_ugly",
+      "price": 12
+    },
+    {
+      "item_id": "item_tee_offbrand_security",
+      "price": 10
+    },
+    {
+      "item_id": "item_hoodie_grey",
+      "price": 22
+    },
+    {
+      "item_id": "item_sweatpants_grey",
+      "price": 15
+    },
+    {
+      "item_id": "item_slippers_monster",
+      "price": 11
+    },
+    {
+      "item_id": "item_tote_canvas",
+      "price": 7
+    },
+    {
+      "item_id": "item_enamel_mug",
+      "price": 5
+    },
+    {
+      "item_id": "item_dinner_plate",
+      "price": 4
+    },
+    {
+      "item_id": "item_soap_block",
+      "price": 5
+    },
+    {
+      "item_id": "item_battery",
+      "price": 6
+    },
+    {
+      "item_id": "item_duct_tape",
+      "price": 9
+    },
+    {
+      "item_id": "item_foam_earplugs",
+      "price": 3
+    },
+    {
+      "item_id": "item_water_bottle",
+      "price": 4
+    },
+    {
+      "item_id": "item_ration",
+      "price": 8
+    },
+    {
+      "item_id": "item_wool_socks",
+      "price": 21
+    },
+    {
+      "item_id": "item_earmuffs",
+      "price": 17
+    },
+    {
+      "item_id": "item_neck_gaiter",
+      "price": 22
+    },
+    {
+      "item_id": "item_hand_warmers",
+      "price": 14
+    },
+    {
+      "item_id": "item_cocoa_powder",
+      "price": 12
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 7,
+        "to": 23
+      }
+    ],
+    "tue": [
+      {
+        "from": 7,
+        "to": 23
+      }
+    ],
+    "wed": [
+      {
+        "from": 7,
+        "to": 23
+      }
+    ],
+    "thu": [
+      {
+        "from": 7,
+        "to": 23
+      }
+    ],
+    "fri": [
+      {
+        "from": 7,
+        "to": 23
+      }
+    ],
+    "sat": [
+      {
+        "from": 7,
+        "to": 23
+      }
+    ],
+    "sun": [
+      {
+        "from": 7,
+        "to": 23
+      }
+    ]
+  },
+  "vendor_shop_name": "Adequate!",
+  "vendor_stock_size": 36,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

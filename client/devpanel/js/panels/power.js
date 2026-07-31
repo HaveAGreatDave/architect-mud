@@ -275,7 +275,7 @@ function renderPowerPanelBody() {
   const panel = document.getElementById('list-panel');
   const powerById = new Map(bigMapPowerData.map(p => [p.zoneId, p]));
 
-  const tabBar = `<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+  const tabBar = `<div class="panel-sticky-head" style="display:flex;gap:8px;margin-bottom:12px;align-items:center;padding:4px 0">
     <button class="action-btn${powerPanelView === 'city' ? ' primary' : ''}" onclick="setPowerPanelView('city')">⚡ City Grid</button>
     <button class="action-btn${powerPanelView === 'interior' ? ' primary' : ''}" onclick="setPowerPanelView('interior')">🏢 Building Interior</button>
   </div>`;

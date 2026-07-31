@@ -1,0 +1,26 @@
+{
+  "base_difficulty": 9,
+  "base_output": {
+    "item_id": "item_dmt",
+    "quantity": 1
+  },
+  "category": "synthesis",
+  "description": "Cook DMT from mimosa root bark + industrial solvent.",
+  "id": "cook_dmt",
+  "ingredients": [
+    {
+      "item_id": "item_raw_dmt",
+      "quantity": 1
+    },
+    {
+      "item_id": "item_reagent_solvent",
+      "quantity": 1
+    }
+  ],
+  "name": "Cook DMT",
+  "requires_station": "chem_lab",
+  "skill_id": "chemistry",
+  "skill_req": {
+    "chemistry": 2
+  }
+}

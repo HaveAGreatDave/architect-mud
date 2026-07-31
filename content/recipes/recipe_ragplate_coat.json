@@ -5,7 +5,6 @@
     "quantity": 1
   },
   "category": "armor",
-  "craft_time": 3,
   "description": "Quilt salvaged wadding into a longcoat and stitch scrap plate over the vitals. Crude, warm, and it'll take a swing so your ribs don't have to.",
   "id": "recipe_ragplate_coat",
   "ingredients": [

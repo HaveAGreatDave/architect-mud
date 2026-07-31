@@ -8,6 +8,8 @@
  */
 import { query } from '../models/db.js';
 import { world } from './world.js';
+import { setEpisodeHandler } from './effects.js';
+import { sendToZone } from './messaging.js';
 
 // How much load consuming food/drink adds. Scales with restore value. Tuned so
 // that, with no passive decay, steady eating/drinking builds a genuine urge:
@@ -32,6 +34,25 @@ export async function stainClothing(player, slots, type) {
     [JSON.stringify(contamination), player.id]);
 }
 
+// Where food poisoning actually lands. effects.js owns the timing and the
+// numbers but imports nothing — the world, the stains and the broadcast are
+// injected here, in the module that already owns all three.
+//
+// An episode is PUBLIC. It goes on your clothes, it goes on the floor, and
+// everyone in the room sees it happen. That's the whole point: the HP cost is
+// trivial, the humiliation is the mechanic.
+setEpisodeHandler(async (player, type) => {
+  const slots = type === 'vomit' ? ['torso', 'hands'] : ['legs', 'feet'];
+  await stainClothing(player, slots, type).catch(() => {});
+  stainZone(player.current_zone, type);
+  sendToZone(player.current_zone, {
+    type: 'zone_event',
+    message: type === 'vomit'
+      ? `${player.handle} is violently sick.`
+      : `${player.handle} soils themselves. Nobody can pretend not to notice.`,
+  }, player.id);
+});
+
 export function stainZone(zoneId, type) {
   const zone = world.zones.get(zoneId);
   if (!zone) return;
@@ -39,6 +60,41 @@ export function stainZone(zoneId, type) {
   zone.stains[type] = (zone.stains[type] || 0) + 1;
   // Stains are ephemeral (registry-excluded, wiped by dailyMaintenance) and read
   // live from world.zones — RAM is the source of truth, so no DB write.
+}
+
+// AIR TAINT — a smell with no stain under it.
+//
+// A stain is a mark on the floor: it persists until maintenance wipes it, and
+// anyone who looks can see it. A fart is not that. It's an event that hangs in
+// the air for a minute and then genuinely is gone, and the difference matters
+// because the joke only works if leaving the room escapes it.
+//
+// Same storage discipline as stains — live on the zone object in RAM, never
+// written to the DB, wiped with everything else by dailyMaintenance. The decay
+// is derived from the timestamp at read time; nothing ticks.
+export const TAINT_MS = 90 * 1000;
+
+export function taintAir(zoneId, type, at = Date.now()) {
+  const zone = world.zones.get(zoneId);
+  if (!zone) return;
+  zone.air = zone.air || {};
+  // A second one while the first still hangs makes it worse, not newer.
+  const prev = zone.air[type];
+  const stacked = prev && at - prev.at < TAINT_MS ? Math.min(3, (prev.n || 1) + 1) : 1;
+  zone.air[type] = { at, n: stacked };
+}
+
+// What's still hanging, strongest first. Expired entries are dropped as they're
+// read, so nothing has to sweep them.
+export function zoneAir(zoneId, now = Date.now()) {
+  const zone = world.zones.get(zoneId);
+  if (!zone?.air) return [];
+  const live = [];
+  for (const [type, v] of Object.entries(zone.air)) {
+    if (!v?.at || now - v.at > TAINT_MS) { delete zone.air[type]; continue; }
+    live.push({ type, n: v.n || 1, age: (now - v.at) / TAINT_MS });
+  }
+  return live.sort((a, b) => a.age - b.age);
 }
 
 // A named body part maps to whichever equip slot would actually cover it, so
@@ -72,4 +128,34 @@ export async function stainCreatureBodyPart(target, type, part) {
   target.appearance_data.soiled_state = { type, locations: [label] };
   await query('UPDATE players SET appearance_data=$1 WHERE id=$2',
     [JSON.stringify(target.appearance_data), target.id]);
+}
+
+// ── Filling a vessel with yourself ───────────────────────────────────────────
+//
+// The shared path behind `pee in <bowl>`, `poop in <bowl>` and `cum in <bowl>`.
+// It lives here rather than in either plugin because BOTH need it and neither
+// owns the other — same reason stainClothing/stainZone are engine.
+//
+// The product is an ordinary ITEM placed inside the vessel, not a custom_data
+// fluid, which is the whole trick: the cooking plugin already resolves a vessel's
+// contents as ingredients, so filth cooks through the normal pipeline with no
+// changes to cooking at all. It carries a food_profile, a food-poisoning chance,
+// and (for anything that can transmit) the donor's id.
+export const FILTH_ITEMS = {
+  ejaculate: 'item_vessel_seed',
+  urine:     'item_vessel_piss',
+  feces:     'item_vessel_filth',
+};
+
+export async function depositIntoVessel(player, vessel, type, extra = {}) {
+  const itemId = FILTH_ITEMS[type];
+  if (!itemId || !vessel?.inv_id) return false;
+  const { randomUUID } = await import('crypto');
+  await query(
+    `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, container_id, custom_data)
+     VALUES ($1,$2,$3,1,1.0,$4,$5)`,
+    [randomUUID(), player.id, itemId, vessel.inv_id,
+     JSON.stringify({ donor_id: player.id, donor: player.handle, produced_at: Date.now(), ...extra })]
+  );
+  return true;
 }

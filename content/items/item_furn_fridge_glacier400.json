@@ -1,0 +1,19 @@
+{
+  "description": "Scratched white enamel, twin doors, a magnetic seal that still bites. GLACIER 400 is stamped across the front in the confident sans-serif of a manufacturer that went bankrupt three product cycles ago, though the units keep running out of pure institutional stubbornness. Every third kitchen in the city has one, inherited from whoever lived here first and never fully forgiven.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ]
+  },
+  "id": "item_furn_fridge_glacier400",
+  "name": "Glacier 400 Refrigeration Unit",
+  "tags": {
+    "appliance_grade": "consumer",
+    "container": 40000,
+    "description": "Scratched white enamel, twin doors, a magnetic seal that still bites. GLACIER 400 is stamped across the front in the confident sans-serif of a manufacturer that went bankrupt three product cycles ago, though the units keep running out of pure institutional stubbornness. Every third kitchen in the city has one, inherited from whoever lived here first and never fully forgiven.",
+    "preserves": "refrigerated"
+  },
+  "type": "furniture",
+  "value": 1800,
+  "weight": 48000
+}

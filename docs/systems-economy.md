@@ -70,7 +70,74 @@ error between the two steps can't tear them:
   now rejects entries missing `item_id`). Price is `entry.price` (falling back to the item's `value`), discounted by
   ideology reputation, floored at 1.
 - **Buy:** debits credits via `adjustCredits`, then inserts/stacks the item. Vendor `stock` is **not**
-  decremented — supply is effectively infinite (default `stock ?? 99` is display-only).
+  decremented — supply is effectively infinite (default `stock ?? 99` is display-only). **Sourced
+  entries are the exception** and are genuinely finite — see *Physical stock* below.
+- **Two opt-in seams let a plugin change what a sale produces**, both registered against `vendor.js`
+  and both running *inside* the sale transaction:
+  - `registerPurchaseStamp(itemId, fn)` — **what state the unit arrives in.** Returns a `custom_data`
+    bag seeded onto the fresh row (a ticket stamped for one showing), or a string to refuse the sale.
+    A stamped unit never merges into a stack.
+  - `registerPurchaseDelivery(npcFlagKey, fn)` — **where it arrives at all.** Runs in place of the
+    inventory insert and owns the goods: nothing lands in the buyer's pockets. Returns the receipt
+    line, `'!reason'` to refuse and roll back, or **`null` for "not mine"** so the same counter can
+    still sell a shotgun over the desk. Registered against an **NPC flag, not an item tag**, because
+    "does this counter deliver rather than hand over" is a property of the *vendor* — two fences
+    selling the same raws would otherwise collide, and they do: `raws_counter` runs a pallet out to a
+    dead drop ([systems-flight.md](systems-flight.md#ordering--the-counter-is-a-vendor-shelf)) while
+    `mule_counter` books a drone drop at the Scald ([smuggle](../plugins/smuggle/README.md)).
+
+**Shelves — one NPC, a front counter and a back room.** A `vendor_inventory` entry may carry a
+`shelf` label. Entries with **no** `shelf` are the front counter: what `shop` and the implicit
+"Browse your wares" option open. A labelled entry is only ever visible to an `OPEN_SHOP` action that
+names that shelf (`params: { shelf: 'back_room' }`), and the label is held on the **shop session**, so
+it dies with the conversation. `getVendorStock` and `buyFromVendor` both filter on it — the buy check
+is load-bearing, because the client sends an item id and without it a front-counter session could buy
+straight off the back room. This is what lets Sully be a bartender selling swill *and* a fence selling
+precursor without his bar list ever leaking contraband.
+
+### Physical stock — the cooler IS the shelf (as built)
+
+A `vendor_inventory` entry may carry `sourceContainer` (a furniture container id) and `restockToQty`
+(the delivery target). That entry stops being an abstract shelf slot and becomes **real rows in a real
+box**: it always lists (bypassing the `vendor_stock` rotation), its `stock` count is a live `COUNT(*)`
+of that container, and buying it **moves an existing row out** rather than minting a fresh one — so a
+steak that has been sitting in the cooler keeps its own freshness/cooked state right through the sale.
+
+Flag that container `vendor_stock: <npcId>` and the player can work it themselves: open it, take goods
+out (marked `custom_data.unpaid`), carry them to a `checkout: <npcId>` counter to pay — or out the door,
+which is `shoplifting`. That whole half lives in **commerce**; see [plugins.md](plugins.md).
+
+**The cold chain.** A shop-floor case flagged `backstock: <containerId>` is refilled from that
+stockroom container first — real rows walked forward, keeping whatever freshness they've accrued — and
+only the shortfall is minted. `restockSourcedContainers` then tops the **stockroom itself** back up to
+`backstock_depth × restockToQty` (default 2, set on the stockroom container). Both halves matter: with
+only the first, nothing ever puts anything *in* the back room, so the walk-forward never fires, the
+stockroom is a permanently empty prop, and every delivery just mints onto the floor. Stocking it is
+also what makes walking into the back of a shop worth doing — there is real, liftable inventory there.
+
+Two traps, both of which shipped and both of which fail **silently**:
+
+- **Never put `restock_items` on a `vendor_stock` container.** That flag is the *consort* bottomless
+  dispenser — it re-mints one of every listed item on **each container view**. On a sourced case it is
+  a second, infinite source of truth for the same box: free goods forever, and a `stock` count on
+  Dell's shelf that doesn't match what's in the freezer. One box, one mechanic.
+- **Size the box for a full delivery.** The weight cap is applied per entry in catalogue order, so an
+  over-subscribed case starves whatever is authored *last* — those items read `stock: 0` forever and
+  look like missing content rather than a small `flags.container`. A short delivery now logs a
+  `[vendor]` warning naming the container and the item.
+
+`plugins/commerce/regress.js` asserts all of this over the live world (dispenser conflict, catalogue
+coverage, floor capacity, backstock capacity and existence), because each failure is a **content
+shape** rather than a code path.
+
+Ration Nine (Dell Fry, Marquee District) is the reference build: dry shelving, an open chiller case and
+a frozen well on the shop floor; the two cold cases backstock from a walk-in Ironchill fridge and a
+deep-freeze in the stockroom behind. The dry shelving has no back room — `backstock` is optional.
+- ⚠️ **Abort a sale by THROWING, never by returning false.** `withTransaction` commits on a falsy
+  return and only rolls back on a throw, so a mid-sale bail-out that returns takes the credits and
+  hands over nothing — which the sold-out-mid-transaction path silently did until 2026-07-29. Use the
+  `VendorAbort` sentinel; it is caught immediately outside the transaction, becomes the refusal line,
+  and re-reads `players.credits` to undo the mirror `adjustCredits` left on the live player object.
 - **Sell:** pays `floor(value × 0.4 × (1 + Cool×0.05) × (1 + factionDiscount))`, floored at 1 — a base **40% of the item's `value`**, boosted **+5% per point of the seller's Cool stat**, and adjusted by ideology reputation with the vendor (friendly rep pays more, hostile pays less — the same discount buy uses, inverted). Rejects `quest_item`-tagged and equipped items. Sell price logic lives in `computeSellUnitPrice` (`vendor.js`), shared by the actual sale and the GUI Sell-tab preview.
 
 ## Ideology reputation
@@ -112,9 +179,38 @@ credits, failure broadcasts a public "caught red-handed" event. Uses `adjustCred
 - **Skill gate:** each recipe's `skill_req` (skill → min rank) is checked against the player's skill
   levels (`floor(player_skills.ip / 100)`) before crafting.
 - **Station gate:** `requires_station` recipes need a matching station (`stationQuality !== 'none'`).
+- **Time gate:** a craft is **not instant**. `craft` validates up front (`checkCraftReady`), then puts you
+  in `posture === 'crafting'` with a `player.craftState = { recipeId, name, completeAt }`; the engine's
+  [activity-tick substrate](server.md) resolves it when the clock runs out. Posture being the authoritative
+  flag means every force-stand interruption — moving, attacking, being attacked, dying, `stop` — aborts the
+  craft for free. **Nothing is consumed until it completes**, so an interrupted craft costs only time.
 - **Resolution:** a `skillCheck` against `base_difficulty`, plus a station bonus (refined +2, pristine +4).
   Crits (rare) yield double output. Catastrophic failure (`margin < −4`) consumes ingredients for nothing;
-  ordinary failure leaves materials intact.
+  ordinary failure leaves materials intact. The resolve re-runs the full validation, so parts dropped or
+  sold during the wait fail the craft rather than being conjured out of nothing.
+
+### How long a craft takes
+
+**Derived, never authored** — `craftSeconds()` in [crafting.js](../server/engine/crafting.js):
+
+```
+seconds = 3 + base_difficulty × 1.5 + maxSkillReq × 1.0 + bulk × 0.5
+```
+
+where `bulk` is ingredient units beyond one each. The current table lands in a **6–23 s** band: a Field
+Bandage is near-instant, an Architect Signal Decoder pins you in place long enough to be worth ambushing.
+
+There was a `recipes.craft_time` column for this, and it is gone. Nothing ever read it, and **35 of its 36
+rows still carried the default of 3** — the standing proof that a per-recipe number with no mechanical
+effect never gets tuned. Deriving instead means every existing and future recipe gets a sensible duration
+with zero authoring. Note it is deliberately **not** derived from the output item's `value` the way
+durability derives its condition capacity: value tracks what a thing sells for, not what it takes to make
+(difficulty↔value correlate at r=0.04 across the table). If a recipe ever genuinely needs to defy the
+formula, add a **nullable** override column then — not a defaulted one.
+
+Only the `craft` path is timed. The ~23 chemistry recipes that produce drugs are claimed by the
+[synthesis plugin's](../plugins/synthesis/index.js) `cook`, which already has its own minigame as the
+time-and-skill gate; double-gating them would be a worse experience, not a harder one.
 
 Both `recipes` (the availability list) and `craft` (the actual gate) derive skill rank the same way —
 `floor(player_skills.ip / 100)` — so the list and what you can build always agree. (Previously
@@ -142,7 +238,12 @@ must be a round number.
 - **Net XP** (the spendable amount shown to players) = `Total XP − statSpent`, where `statSpent` is the
   cumulative curve cost to reach the current stat levels. Raising a stat raises `statSpent`, which
   lowers Net — nothing is decremented, so Total XP is unchanged. If the cost curve is later retuned,
-  Net can rise or **go negative**.
+  Net can rise or fall, and **both figures are reported raw — XP CAN go negative.** `getNetXp` and
+  `getTotalXp` apply no floor, so a cost-curve retune that outruns a survivor's earnings leaves them
+  in genuine debt: `stats`/`raise` display the negative figure, and every spend gate is a `net < cost`
+  comparison, so they must grind back up past 0 before a single point is spendable again. (The floor
+  that used to hide this was removed deliberately.) The one-shot `scripts/zero-negative-xp.mjs` remains
+  as the tool for *forgiving* a retune — it tops `bonus_xp` up by the shortfall to settle balances at 0.
 - **Stat cost curve:** `statCost(current) = ceil(stat_cost_base × current^stat_cost_exponent)`
   (defaults base 10, exponent 1.5). Raising 0→1 costs 10 XP; 9→10 costs ~310 XP.
 - **Raisable stats:** brawn, reflexes, endurance, brains, cool. `raise <stat>` spends Net XP and
@@ -188,3 +289,99 @@ The sync is **bidirectional**, so the two never drift regardless of which comman
 > block entry; an apartment with no physical door still only gates `sleep`.)
 
 `sleep` mechanics are covered in [systems-survival.md](systems-survival.md).
+
+## Player-owned shops (storefronts)
+
+The [storefront plugin](../plugins/storefront/README.md); commands `deed` / `buyshop` /
+`renameshop` / `stock` / `unstock` / `wares` / `buyware` / `till` / `sellshop`. A zone is a
+claimable retail unit when `flags.is_storefront` is set.
+
+**Source of truth — the same split as apartments, for the same reason:**
+
+- **Authored config = content, on the zone.** `flags.shop_price` (total asking price,
+  default 6000), `flags.shop_term` (instalments to clear it, default 8) and
+  `flags.shop_upkeep` (per-cycle charge once paid off, default 40), read via
+  `authoredTerms(zone)`. They ship in the zone file and return identically after any
+  restart or rebuild.
+- **The deed = player data, in the `storefronts` table** (`class: 'player'` in the content
+  registry — never exported). Owner, shop name, payments made, missed count, due date and
+  the till balance live only in the DB where the player plays. Exporting a deed would do to
+  shops exactly what it once did to apartments: stamp phantom ownership over every DB, and
+  make a deleted file a real player losing their shop.
+
+**Listed stock is not a table of its own.** `stock` re-owns the player's *existing*
+`player_inventory` row to the synthetic handle `_shopstock_<zoneId>` (the same convention as
+`_ground_<zone>` / `_container_<id>`) and stamps `custom_data.list_price`. The buyer receives
+that row, so condition, freshness, cook quality and potency all survive the counter — and
+because nothing else in the game addresses that owner id, the display can be bought from but
+never looted, `take`n or stack-merged.
+
+- **`buyshop`:** pays the first instalment (`ceil(price / term)`) and transfers the deed.
+- **`renameshop`:** the sign is written to the **deed**, never to `zones.name` — a zone is
+  content, and writing a player's shop name into one would drift git against prod on the
+  next export. The room description reads the name off the deed instead.
+- **Billing** recurs every `RENT_PERIOD_DAYS` (7) **game** days on the game calendar, charged
+  on the same `environment.dayRollover` event as apartment rent, so it scales with the
+  game-speed knob. Payment is drafted **till → bank → pocket**: a shop that trades pays for
+  itself.
+- **Payoff:** clearing the term sets `paid_off` and the unit is owned outright — only
+  `shop_upkeep` is charged from then on. That residual is deliberate: it means an abandoned
+  shop eventually lapses instead of squatting a prime tile forever.
+- **Default:** one short payment is a warning; **two consecutive misses repossess** the unit
+  *and seize the stock on the shelf*. `sellshop` (a voluntary surrender) returns both the
+  stock and the till but refunds nothing already paid in — that gap is the whole difference
+  between walking away and defaulting.
+- **The vault:** furniture flagged `shop_vault` holds the till and runs the same VAULT CRACK
+  contract as a [vendor safe](../plugins/vendor-safe/index.js) — **both now require a carried
+  `hack_device`**, like `jack` above, and both damage the deck on a failure — arm → client minigame →
+  `tillcrackresolve`, with the amount re-read server-side under `SELECT … FOR UPDATE` so the
+  payout can't be spoofed and two crackers can't both drain it. Arming pings the proprietor
+  wherever they are.
+
+`buy` (commerce's verb) means the same thing over a player's counter as over a vendor's, so
+when commerce finds no vendor NPC in the room it re-dispatches to the `storefront.buy_by_name`
+Action before refusing. Commerce never imports the plugin — the seam is a registered Action
+name, and if storefront isn't loaded the dispatch is simply unknown and `buy` refuses as it
+always did.
+
+**Not built:** a hired clerk NPC (the stock model was chosen so a vendor NPC can later be
+pointed at the same `_shopstock_<zoneId>` rows without a rewrite), corp-owned shops, and
+buying stock *from* players over your own counter.
+
+### Shop risk & counterplay
+
+- **Shutters.** The front shutter is a real `doors` row on the interior↔facade link tagged
+  `lock:shopshutter`, registered through the engine's `registerLockType` seam — so lock,
+  unlock, the hack minigame, bashing and the burglary alarm all reach it unchanged. The plugin
+  supplies only the auth rule (the proprietor) and durability: door state is runtime-only, so
+  the deed carries `shutters_closed` and re-applies it at boot, exactly as
+  `reconcileApartmentDoorLocks` does for `apartments.is_locked`. A vacant unit always ships
+  with the shutter open — an unowned shop must never be sealed, the same law as an unrented
+  apartment's door. A shut shop also takes no passing trade.
+- **Shoplifting.** `pocket <item>` lifts stock off the display, marking the row
+  `custom_data.shop_unpaid`. `buyware` settles it; carrying the mark out of the shop raises the
+  `shoplifting` charge under the ordinary witness law. The one departure from an NPC shop:
+  because this is a *player's* property, the proprietor is always notified — on the lift and
+  again at the door — whether or not anyone could prove it.
+- **Staff.** `hire clerk|guard` writes a `storefront_staff` row, **not an `npcs` row**. That's
+  the content/player boundary: hiring is a player action and `npcs`/`npc_residences` are
+  content-class tables, so a hired NPC would land in the git content tree on the next export
+  (the regress suite asserts the `npcs` count is unchanged by a hire). Staff are presence in
+  the room prose plus *odds* — a lift or a crack in front of them emits
+  `storefront.staffWitnessed`, which surveillance charges as a **forced witness**, the same
+  dedicated-event convention `vendor.safeHackWitnessed` and `burglary.reported` use. Wages ride
+  the billing cycle from the same pot; if the shop can't cover everything, the staff walk
+  *before* the lender forecloses.
+- **Cameras** need no integration — `plant` (surveillance) works in any zone, and the vault
+  crack's `hack.success` is already charged when a live camera sees it. `deed` simply reports
+  whether the unit is covered, because otherwise nobody would discover it.
+
+### Shop income while offline
+
+- **Passing trade.** A 5-minute footfall tick sells to NPCs walking past, so a stocked shop
+  earns with its owner logged off. Priced honestly: nothing above `FOOTFALL_MAX_MARKUP` (1.8×)
+  the item's base `value` ever sells, so a shelf of absurd markups gathers dust as it should.
+- **Buy orders.** `buyorder <item> for <price>` posts a standing offer that anyone can
+  `supply` into. **The till is the wallet** — an order the till can't cover simply doesn't
+  fill, which is the honest failure mode and needs no escrow. Supplied goods land on the shelf
+  unpriced.

@@ -29,6 +29,43 @@ let _schedNowTimer = null;
 let   _schedPxPerHour   = 52;
 const SCHED_SNAP        = 1800;
 const SCHED_H           = 72;
+const SCHED_GHOST_H     = 26;   // the read-only "every day" lane shown behind a weekday
+
+// ── Day scope ────────────────────────────────────────────────────────────────
+// There is ONE schedule. `days` is a 7-bit mask on each slot (bit 0 = Mon … bit 6
+// = Sun); 127 = every day, the default. The day bar picks which slice of that one
+// schedule you're editing:
+//   • Every day (_schedDay = 0) — the base grid that repeats seven days a week.
+//   • A weekday (_schedDay = 1..7) — that day's EXCEPTIONS, drawn on their own lane
+//     above a ghosted, read-only copy of the base grid they replace.
+// Dropping a show while a weekday is selected creates a slot restricted to that day,
+// and the server picks the most specific slot covering any given second — so an
+// override needs no gap cut in the base grid underneath it.
+const SCHED_DAYS_ALL  = 127;
+const SCHED_DAY_ABBR  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+let   _schedDay       = 0;
+
+function _schedDayMask(days) {
+  const n = Number(days);
+  return Number.isFinite(n) && (n & SCHED_DAYS_ALL) ? (n & SCHED_DAYS_ALL) : SCHED_DAYS_ALL;
+}
+function _schedDayBit(dow)      { return 1 << (dow - 1); }
+function _schedIsEveryDay(item) { return _schedDayMask(item.days) === SCHED_DAYS_ALL; }
+function _schedDayLabel(days) {
+  const m = _schedDayMask(days);
+  if (m === SCHED_DAYS_ALL) return '';
+  return SCHED_DAY_ABBR.filter((_, i) => m & (1 << i)).join(',');
+}
+// The mask a slot created in the current scope should carry.
+function _schedScopeMask() { return _schedDay === 0 ? SCHED_DAYS_ALL : _schedDayBit(_schedDay); }
+// Does this slot belong on the editable lane in the current scope?
+function _schedInScope(item) {
+  return _schedDay === 0
+    ? _schedIsEveryDay(item)
+    : (!_schedIsEveryDay(item) && (_schedDayMask(item.days) & _schedDayBit(_schedDay)));
+}
+// …and on the ghosted base lane behind it? (Only ever while a weekday is selected.)
+function _schedIsGhost(item) { return _schedDay !== 0 && _schedIsEveryDay(item); }
 
 function _schedScale() { return _schedPxPerHour / 3600; }
 function _schedW() {
@@ -150,6 +187,7 @@ async function _schedLoadItems() {
         start_time:        item.start_time || 0,
         duration:          dur,
         duration_override: item.duration_override || null,
+        days:              _schedDayMask(item.days),
         npc_staff:         Array.isArray(cond.npc_staff) ? cond.npc_staff : [],
       };
     });
@@ -175,6 +213,7 @@ async function _schedLoadItems() {
           start_time:         slot.start_time || 0,
           duration:           dur,
           duration_override:  slot.duration_override || null,
+          days:               _schedDayMask(slot.days),
           npc_staff:          [],
           missing_cassette:   true,
           deck_id:            slot.deck_id || null,
@@ -330,7 +369,8 @@ function _schedRenderContent() {
           ? `<div style="padding:24px 0;color:var(--text-dim);font-size:12px">
                Enable <strong>Daily mode</strong> above to use the 24-hour timeline editor for this channel.
              </div>`
-          : `<div class="bc-meta" style="margin-bottom:8px">Drag broadcasts from the library onto the timeline. Click a block to edit. Snap: 30 min.</div>
+          : `${_schedBuildDayBar()}
+             <div class="bc-meta" style="margin-bottom:8px">${_schedScopeHint()}</div>
              ${_schedBuildTimeline()}`}
       </div>
 
@@ -379,6 +419,164 @@ async function _schedSaveChMeta() {
   } catch (err) { toast(err.message, true); }
 }
 
+// ── Day bar ──────────────────────────────────────────────────────────────────
+// The whole point of the merge, made visible: one tab for the base grid that
+// repeats all week, then one per weekday carrying a count of that day's
+// exceptions. A day with no exceptions plays the base grid, and its tab says so.
+function _schedBuildDayBar() {
+  const counts = new Array(8).fill(0);
+  let base = 0;
+  for (const item of _schedItems) {
+    if (_schedIsEveryDay(item)) { base++; continue; }
+    const m = _schedDayMask(item.days);
+    for (let d = 1; d <= 7; d++) if (m & _schedDayBit(d)) counts[d]++;
+  }
+  const tab = (d, label, count, sub) => {
+    const sel = _schedDay === d;
+    return `<button onclick="_schedSetDay(${d})"
+      style="padding:4px 10px;font-size:11px;cursor:pointer;border:1px solid ${sel ? 'var(--accent)' : 'var(--border)'};
+             border-radius:2px;background:${sel ? 'var(--accent)' : 'var(--bg2)'};
+             color:${sel ? 'var(--bg)' : 'var(--text)'};font-weight:${sel ? 700 : 400};display:flex;
+             flex-direction:column;align-items:center;line-height:1.25;min-width:52px">
+      <span>${label}</span>
+      <span style="font-size:9px;opacity:0.75">${count ? sub : '—'}</span>
+    </button>`;
+  };
+  const dayTabs = SCHED_DAY_ABBR
+    .map((abbr, i) => tab(i + 1, abbr, counts[i + 1], `${counts[i + 1]} override${counts[i + 1] === 1 ? '' : 's'}`))
+    .join('');
+  return `
+    <div style="display:flex;gap:4px;align-items:stretch;margin-bottom:8px;flex-wrap:wrap">
+      ${tab(0, 'Every day', base, `${base} slot${base === 1 ? '' : 's'}`)}
+      <div style="width:1px;background:var(--border);margin:0 4px"></div>
+      ${dayTabs}
+    </div>`;
+}
+
+function _schedScopeHint() {
+  if (_schedDay === 0) {
+    return 'Editing the <strong>every-day grid</strong> — these slots play all seven days. '
+         + 'Drag from the library to add, click a block to edit. Snap: 30 min. '
+         + 'Pick a weekday above to change just that day.';
+  }
+  const d = SCHED_DAY_ABBR[_schedDay - 1];
+  return `Editing <strong>${d} only</strong>. Anything you drop here airs on ${d} instead of the `
+       + `every-day slot beneath it — the grid itself is untouched, and the other six days keep playing it.`;
+}
+
+async function _schedSetDay(d) {
+  if (_schedDay === d) return;
+  // The whole channel's slots live in _schedItems regardless of scope, so an unsaved
+  // edit survives a scope switch — but a confused author shouldn't have to know that.
+  _schedDay = d;
+  _schedClosePopover();
+  _schedRenderContent();
+}
+
+// Lift an every-day block onto the selected weekday as an editable override, then
+// open it. The base slot is untouched — the copy just wins on this one day.
+function _schedOverrideGhost(idx) {
+  if (_schedDay === 0) return;
+  const src = _schedItems[idx];
+  if (!src || src.missing_cassette) return;
+  const covered = _schedItems.some(o => _schedInScope(o) &&
+    o.start_time < src.start_time + src.duration && o.start_time + o.duration > src.start_time);
+  if (covered) { toast(`Already overridden on ${SCHED_DAY_ABBR[_schedDay - 1]} at this time.`, true); return; }
+  _schedItems.push({
+    ...src,
+    id: null,                                  // a new row, not a move of the base slot
+    days: _schedDayBit(_schedDay),
+    npc_staff: [...(src.npc_staff || [])],
+  });
+  _schedMarkDirty();
+  _schedRenderContent();
+}
+
+// One block on the editable lane. Shared by the full build and the partial
+// re-render so the two can never drift apart.
+function _schedItemHtml(item, idx) {
+  const x   = _schedToX(item.start_time);
+  const iw  = Math.max(12, _schedToX(item.duration));
+  const col = SCHED_CAT_COLOR[item.broadcast_category] || 'var(--text-dim)';
+
+  if (item.slot_type === 'commercial_break') {
+    return `
+      <div class="bc-break-slot" draggable="true"
+        ondragstart="_schedItemDragStart(event,${idx})"
+        onclick="_schedOpenPopover(event,${idx})"
+        style="left:${x}px;width:${iw}px;">
+        <span style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">⏸ BREAK</span>
+        <div class="sched-resize-handle" onmousedown="_schedResizeStart(event,${idx})"
+          style="position:absolute;right:0;top:0;width:6px;height:100%;cursor:ew-resize;background:var(--border);opacity:0.8"></div>
+      </div>`;
+  }
+
+  if (item.missing_cassette) {
+    return `
+      <div title="No cassette loaded — nothing scheduled here"
+        style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;
+                  background:repeating-linear-gradient(135deg,var(--bg3) 0,var(--bg3) 6px,var(--bg2) 6px,var(--bg2) 12px);
+                  border:1px dashed var(--border);border-radius:2px;box-sizing:border-box;
+                  overflow:hidden;opacity:0.7">
+        <div style="padding:3px 5px;font-size:10px;font-weight:600;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">⚠ ${escHtml(item.broadcast_name)}</div>
+        <div class="bc-meta" style="padding:0 5px">${_schedFmtTime(item.start_time)}–${_schedFmtTime(item.start_time + item.duration)}</div>
+        <div style="padding:0 5px;font-size:9px;color:var(--red);letter-spacing:1px;text-transform:uppercase">NO CASSETTE</div>
+        <div title="Discard this ghost slot" onclick="_schedRemoveEjected(${idx})"
+          style="position:absolute;top:2px;right:2px;width:16px;height:16px;line-height:15px;text-align:center;
+                 font-size:11px;color:var(--red);cursor:pointer;border:1px solid var(--border);border-radius:2px;
+                 background:var(--bg2)">✕</div>
+      </div>`;
+  }
+
+  const staffChips = item.npc_staff.map(id => {
+    const npc = _schedNpcs.find(n => n.id === id);
+    const initials = (npc?.name || id).slice(0, 2).toUpperCase();
+    return `<span class="bc-chip">${initials}</span>`;
+  }).join('');
+  // A day badge only appears when the slot isn't everyday — on the "Every day" scope
+  // you'll never see one, so its presence always means "this is an exception".
+  const dayTag = _schedDayLabel(item.days);
+  const dayBadge = dayTag
+    ? `<span style="font-size:8px;letter-spacing:0.5px;text-transform:uppercase;color:var(--bg);background:${col};border-radius:2px;padding:0 3px;margin-left:4px">${dayTag}</span>`
+    : '';
+  return `
+    <div class="sched-item" draggable="true"
+      ondragstart="_schedItemDragStart(event,${idx})"
+      onclick="_schedOpenPopover(event,${idx})"
+      style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;
+             background:color-mix(in srgb,${col} 18%,var(--bg2));
+             border:1px solid ${col};border-radius:2px;box-sizing:border-box;
+             overflow:hidden;cursor:grab;user-select:none">
+      <div style="padding:3px 5px;font-size:10px;font-weight:600;color:${col};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.broadcast_name)}${dayBadge}</div>
+      <div class="bc-meta" style="padding:0 5px">${_schedFmtTime(item.start_time)}–${_schedFmtTime(item.start_time + item.duration)}</div>
+      <div style="padding:2px 4px;display:flex;gap:2px;flex-wrap:wrap">${staffChips}</div>
+      <div class="sched-resize-handle" onmousedown="_schedResizeStart(event,${idx})"
+        style="position:absolute;right:0;top:0;width:6px;height:100%;cursor:ew-resize;background:${col};opacity:0.5"></div>
+    </div>`;
+}
+
+// The read-only base-grid lane shown while a weekday is selected: what airs on this
+// day unless an override on the lane above replaces it. Click one to lift a copy
+// onto this day as an editable override.
+function _schedGhostHtml(item, idx) {
+  const x   = _schedToX(item.start_time);
+  const iw  = Math.max(12, _schedToX(item.duration));
+  const col = SCHED_CAT_COLOR[item.broadcast_category] || 'var(--text-dim)';
+  const covered = _schedItems.some(o => _schedInScope(o) &&
+    o.start_time < item.start_time + item.duration && o.start_time + o.duration > item.start_time);
+  const name = item.slot_type === 'commercial_break' ? '⏸ Break' : item.broadcast_name;
+  return `
+    <div onclick="_schedOverrideGhost(${idx})"
+      title="${covered ? 'Replaced on this day by the override above.' : 'From the every-day grid. Click to override it on ' + SCHED_DAY_ABBR[_schedDay - 1] + '.'}"
+      style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_GHOST_H}px;top:0;
+             background:color-mix(in srgb,${col} 8%,var(--bg2));
+             border:1px dashed ${col};border-radius:2px;box-sizing:border-box;
+             opacity:${covered ? 0.25 : 0.6};cursor:${covered ? 'default' : 'copy'};
+             overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+             font-size:9px;line-height:${SCHED_GHOST_H - 2}px;padding:0 4px;color:${col};
+             text-decoration:${covered ? 'line-through' : 'none'}">${escHtml(name)}</div>`;
+}
+
 function _schedBuildTimeline() {
   const w = _schedW();
   // Ruler
@@ -389,68 +587,24 @@ function _schedBuildTimeline() {
   }
   ruler += '</div>';
 
-  // Items
-  let items = '';
-  _schedItems.forEach((item, idx) => {
-    const x   = _schedToX(item.start_time);
-    const iw  = Math.max(12, _schedToX(item.duration));
-    const col = SCHED_CAT_COLOR[item.broadcast_category] || 'var(--text-dim)';
+  const items = _schedItems.map((item, idx) => _schedInScope(item) ? _schedItemHtml(item, idx) : '').join('');
 
-    if (item.slot_type === 'commercial_break') {
-      items += `
-        <div class="bc-break-slot" draggable="true"
-          ondragstart="_schedItemDragStart(event,${idx})"
-          onclick="_schedOpenPopover(event,${idx})"
-          style="left:${x}px;width:${iw}px;">
-          <span style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">⏸ BREAK</span>
-          <div class="sched-resize-handle" onmousedown="_schedResizeStart(event,${idx})"
-            style="position:absolute;right:0;top:0;width:6px;height:100%;cursor:ew-resize;background:var(--border);opacity:0.8"></div>
-        </div>`;
-      return;
-    }
-
-    if (item.missing_cassette) {
-      items += `
-        <div title="No cassette loaded — nothing scheduled here"
-          style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;
-                    background:repeating-linear-gradient(135deg,var(--bg3) 0,var(--bg3) 6px,var(--bg2) 6px,var(--bg2) 12px);
-                    border:1px dashed var(--border);border-radius:2px;box-sizing:border-box;
-                    overflow:hidden;opacity:0.7">
-          <div style="padding:3px 5px;font-size:10px;font-weight:600;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">⚠ ${escHtml(item.broadcast_name)}</div>
-          <div class="bc-meta" style="padding:0 5px">${_schedFmtTime(item.start_time)}–${_schedFmtTime(item.start_time + item.duration)}</div>
-          <div style="padding:0 5px;font-size:9px;color:var(--red);letter-spacing:1px;text-transform:uppercase">NO CASSETTE</div>
-          <div title="Discard this ghost slot" onclick="_schedRemoveEjected(${idx})"
-            style="position:absolute;top:2px;right:2px;width:16px;height:16px;line-height:15px;text-align:center;
-                   font-size:11px;color:var(--red);cursor:pointer;border:1px solid var(--border);border-radius:2px;
-                   background:var(--bg2)">✕</div>
-        </div>`;
-      return;
-    }
-    const staffChips = item.npc_staff.map(id => {
-      const npc = _schedNpcs.find(n => n.id === id);
-      const initials = (npc?.name || id).slice(0, 2).toUpperCase();
-      return `<span class="bc-chip">${initials}</span>`;
-    }).join('');
-    items += `
-      <div class="sched-item" draggable="true"
-        ondragstart="_schedItemDragStart(event,${idx})"
-        onclick="_schedOpenPopover(event,${idx})"
-        style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;
-               background:color-mix(in srgb,${col} 18%,var(--bg2));
-               border:1px solid ${col};border-radius:2px;box-sizing:border-box;
-               overflow:hidden;cursor:grab;user-select:none">
-        <div style="padding:3px 5px;font-size:10px;font-weight:600;color:${col};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.broadcast_name)}</div>
-        <div class="bc-meta" style="padding:0 5px">${_schedFmtTime(item.start_time)}–${_schedFmtTime(item.start_time + item.duration)}</div>
-        <div style="padding:2px 4px;display:flex;gap:2px;flex-wrap:wrap">${staffChips}</div>
-        <div class="sched-resize-handle" onmousedown="_schedResizeStart(event,${idx})"
-          style="position:absolute;right:0;top:0;width:6px;height:100%;cursor:ew-resize;background:${col};opacity:0.5"></div>
-      </div>`;
-  });
+  // Base-grid lane — only while a weekday is selected. On "Every day" there is
+  // nothing behind the grid, so the lane would be an empty box.
+  // The lane is full-width and left-aligned with the timeline below it, so a ghost
+  // sits directly above the override that replaces it.
+  const ghosts = _schedDay === 0 ? '' : `
+    <div class="bc-meta" style="margin-bottom:1px">Every-day grid (read-only) — click a block to override it on ${SCHED_DAY_ABBR[_schedDay - 1]}</div>
+    <div id="sched-ghost-lane" style="position:relative;width:${w}px;height:${SCHED_GHOST_H}px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin-bottom:3px">
+      ${_schedItems.map((item, idx) => _schedIsGhost(item) ? _schedGhostHtml(item, idx) : '').join('')}
+    </div>
+    <div class="bc-meta" style="margin-bottom:1px;color:var(--accent)">${SCHED_DAY_ABBR[_schedDay - 1]} only — overrides</div>`;
 
   return `
     <div style="overflow:visible">
       <div style="width:${w}px">
         ${ruler}
+        ${ghosts}
         <div id="sched-timeline" style="position:relative;width:${w}px;height:${SCHED_H}px;background:var(--bg3);border:1px solid var(--border);border-radius:2px"
           ondragover="_schedTlDragOver(event)"
           ondragleave="_schedTlDragLeave()"
@@ -555,6 +709,7 @@ function _schedTlDrop(e) {
       start_time:         sec,
       duration:           dur,
       duration_override:  null,
+      days:               _schedScopeMask(),
       npc_staff:          [],
     });
   } else if (_schedDragIdx != null) {
@@ -601,62 +756,15 @@ function _schedRenderTimeline() {
   const tl = document.getElementById('sched-timeline');
   if (!tl) { _schedRenderContent(); return; }
 
-  let items = '';
-  _schedItems.forEach((item, idx) => {
-    const x   = _schedToX(item.start_time);
-    const iw  = Math.max(12, _schedToX(item.duration));
-    const col = SCHED_CAT_COLOR[item.broadcast_category] || 'var(--text-dim)';
+  const items = _schedItems.map((item, idx) => _schedInScope(item) ? _schedItemHtml(item, idx) : '').join('');
 
-    if (item.slot_type === 'commercial_break') {
-      items += `
-        <div class="bc-break-slot" draggable="true"
-          ondragstart="_schedItemDragStart(event,${idx})"
-          onclick="_schedOpenPopover(event,${idx})"
-          style="left:${x}px;width:${iw}px;">
-          <span style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">⏸ BREAK</span>
-          <div class="sched-resize-handle" onmousedown="_schedResizeStart(event,${idx})"
-            style="position:absolute;right:0;top:0;width:6px;height:100%;cursor:ew-resize;background:var(--border);opacity:0.8"></div>
-        </div>`;
-      return;
-    }
-
-    if (item.missing_cassette) {
-      items += `
-        <div title="No cassette loaded — nothing scheduled here"
-          style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;
-                    background:repeating-linear-gradient(135deg,var(--bg3) 0,var(--bg3) 6px,var(--bg2) 6px,var(--bg2) 12px);
-                    border:1px dashed var(--border);border-radius:2px;box-sizing:border-box;
-                    overflow:hidden;opacity:0.7">
-          <div style="padding:3px 5px;font-size:10px;font-weight:600;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">⚠ ${escHtml(item.broadcast_name)}</div>
-          <div class="bc-meta" style="padding:0 5px">${_schedFmtTime(item.start_time)}–${_schedFmtTime(item.start_time + item.duration)}</div>
-          <div style="padding:0 5px;font-size:9px;color:var(--red);letter-spacing:1px;text-transform:uppercase">NO CASSETTE</div>
-          <div title="Discard this ghost slot" onclick="_schedRemoveEjected(${idx})"
-            style="position:absolute;top:2px;right:2px;width:16px;height:16px;line-height:15px;text-align:center;
-                   font-size:11px;color:var(--red);cursor:pointer;border:1px solid var(--border);border-radius:2px;
-                   background:var(--bg2)">✕</div>
-        </div>`;
-      return;
-    }
-    const staffChips = item.npc_staff.map(id => {
-      const npc = _schedNpcs.find(n => n.id === id);
-      const initials = (npc?.name || id).slice(0, 2).toUpperCase();
-      return `<span class="bc-chip">${initials}</span>`;
-    }).join('');
-    items += `
-      <div class="sched-item" draggable="true"
-        ondragstart="_schedItemDragStart(event,${idx})"
-        onclick="_schedOpenPopover(event,${idx})"
-        style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;
-               background:color-mix(in srgb,${col} 18%,var(--bg2));
-               border:1px solid ${col};border-radius:2px;box-sizing:border-box;
-               overflow:hidden;cursor:grab;user-select:none">
-        <div style="padding:3px 5px;font-size:10px;font-weight:600;color:${col};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.broadcast_name)}</div>
-        <div class="bc-meta" style="padding:0 5px">${_schedFmtTime(item.start_time)}–${_schedFmtTime(item.start_time + item.duration)}</div>
-        <div style="padding:2px 4px;display:flex;gap:2px;flex-wrap:wrap">${staffChips}</div>
-        <div class="sched-resize-handle" onmousedown="_schedResizeStart(event,${idx})"
-          style="position:absolute;right:0;top:0;width:6px;height:100%;cursor:ew-resize;background:${col};opacity:0.5"></div>
-      </div>`;
-  });
+  // Keep the read-only base lane in step — resizing an override changes which
+  // every-day blocks it strikes through.
+  const ghostLane = document.getElementById('sched-ghost-lane');
+  if (ghostLane) {
+    ghostLane.style.width = _schedW() + 'px';
+    ghostLane.innerHTML = _schedItems.map((item, idx) => _schedIsGhost(item) ? _schedGhostHtml(item, idx) : '').join('');
+  }
 
   const w = _schedW();
   tl.style.width = w + 'px';
@@ -743,6 +851,9 @@ function _schedOpenPopover(e, idx) {
           onchange="_schedPopSetDur(${idx},this.value)" style="font-size:11px">
       </div>
     </div>
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:4px">Airs on</div>
+    <div style="display:flex;gap:2px;margin-bottom:4px">${_schedDayChips(idx)}</div>
+    <div class="bc-meta" style="margin-bottom:8px">${_schedDaySummary(item)}</div>
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:4px">NPC Staff</div>
     <div style="max-height:120px;overflow-y:auto;margin-bottom:8px">
       ${npcCheckboxes || '<div style="font-size:11px;color:var(--text-dim)">No NPCs in DB</div>'}
@@ -762,6 +873,47 @@ function _schedClosePopover() {
 function _schedPopoverOutsideClick(e) {
   const pop = document.getElementById('sched-popover');
   if (pop && !pop.contains(e.target)) _schedClosePopover();
+}
+
+// Seven toggles + an "all" shortcut, so a slot's days are editable directly rather
+// than only implied by which tab you dropped it on. Toggling every day back on
+// returns the slot to the base grid; clearing the last day is refused (a slot that
+// airs on no day is a slot that silently vanishes).
+function _schedDayChips(idx) {
+  const mask = _schedDayMask(_schedItems[idx].days);
+  const all  = mask === SCHED_DAYS_ALL;
+  const chip = (label, on, onclick, title) => `<button title="${title}" onclick="${onclick}"
+    style="flex:1;padding:3px 0;font-size:9px;cursor:pointer;border-radius:2px;
+           border:1px solid ${on ? 'var(--accent)' : 'var(--border)'};
+           background:${on ? 'var(--accent)' : 'var(--bg3)'};
+           color:${on ? 'var(--bg)' : 'var(--text-dim)'};font-weight:${on ? 700 : 400}">${label}</button>`;
+  return SCHED_DAY_ABBR.map((abbr, i) =>
+    chip(abbr[0], !!(mask & (1 << i)), `_schedToggleDay(${idx},${i})`, abbr)
+  ).join('') + chip('ALL', all, `_schedSetAllDays(${idx})`, 'Air every day');
+}
+
+function _schedDaySummary(item) {
+  const label = _schedDayLabel(item.days);
+  return label
+    ? `Plays on ${label} only — it replaces whatever the every-day grid has at this time.`
+    : 'Plays every day. Add a weekday-only slot over the top to change one day.';
+}
+
+function _schedToggleDay(idx, i) {
+  const cur  = _schedDayMask(_schedItems[idx].days);
+  const next = cur ^ (1 << i);
+  if (!next) { toast('A slot must air on at least one day.', true); return; }
+  _schedItems[idx].days = next;
+  _schedMarkDirty();
+  _schedRenderContent();
+  _schedClosePopover();
+}
+
+function _schedSetAllDays(idx) {
+  _schedItems[idx].days = SCHED_DAYS_ALL;
+  _schedMarkDirty();
+  _schedRenderContent();
+  _schedClosePopover();
 }
 
 function _schedPopSetStart(idx, val) {
@@ -797,12 +949,18 @@ function _schedDeleteItem(idx) {
 
 // ── Clear schedule ────────────────────────────────────────────────────────────
 
+// Clear is scoped to what you can see. Wiping a Thursday's exceptions must never
+// take the every-day grid with it — that's six other days of programming.
 async function _schedClear() {
-  if (!_schedItems.length) return;
-  if (!(await dpConfirm('Remove all items from this schedule?', { danger: true }))) return;
-  _schedItems = [];
+  const inScope = _schedItems.filter(_schedInScope);
+  if (!inScope.length) return;
+  const what = _schedDay === 0
+    ? 'Remove all slots from the every-day grid? Weekday overrides are kept.'
+    : `Remove all ${SCHED_DAY_ABBR[_schedDay - 1]} overrides? The every-day grid is kept.`;
+  if (!(await dpConfirm(what, { danger: true }))) return;
+  _schedItems = _schedItems.filter(i => !_schedInScope(i));
   _schedMarkDirty();
-  _schedRenderTimeline();
+  _schedRenderContent();
 }
 
 // ── Auto-schedule ─────────────────────────────────────────────────────────────
@@ -897,8 +1055,11 @@ function _schedAutoSchedule(startSec, endSec, loops) {
     return b.override_duration || ((Array.isArray(b.messages) ? b.messages.length : 0) * (b.message_interval || 5)) || 3600;
   }
 
-  // Remove existing items that fall within the target window, keep items outside it
-  const outside = _schedItems.filter(item => item.start_time + item.duration <= startSec || item.start_time >= endSec);
+  // Remove existing items that fall within the target window, keep items outside it.
+  // Out-of-scope slots are ALWAYS kept: auto-scheduling the every-day grid must not
+  // silently delete a weekday's overrides, and vice versa.
+  const outside = _schedItems.filter(item => !_schedInScope(item)
+    || item.start_time + item.duration <= startSec || item.start_time >= endSec);
 
   const MIN_BLOCK = 7200; // each show fills a minimum 2-hour block by looping
 
@@ -921,6 +1082,7 @@ function _schedAutoSchedule(startSec, endSec, loops) {
       start_time:         cursor,
       duration:           dur,
       duration_override:  null,
+      days:               _schedScopeMask(),
       npc_staff:          [],
     });
     cursor += dur;
@@ -944,6 +1106,7 @@ function _schedAutoSchedule(startSec, endSec, loops) {
             start_time:         cursor,
             duration:           commDur,
             duration_override:  null,
+            days:               _schedScopeMask(),
             npc_staff:          [],
           });
           cursor += commDur;
@@ -975,6 +1138,7 @@ async function _schedSave() {
     start_time:        item.start_time,
     duration_override: item.duration_override,
     slot_type:         item.slot_type || 'broadcast',
+    days:              _schedDayMask(item.days),
     // Always an object — the engine reads conditions.npc_staff; an empty [] would
     // read as undefined and silently drop the slot from the studio staff recompute.
     conditions:        { npc_staff: item.npc_staff },

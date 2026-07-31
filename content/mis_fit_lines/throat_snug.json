@@ -1,0 +1,15 @@
+{
+  "actor_lines": [
+    "{target} grips you [ADVERB]. You have to [VERB] to get all the way in, and it is [ADJECTIVE]."
+  ],
+  "band": "snug",
+  "hole": "throat",
+  "id": "throat:snug",
+  "target_lines": [
+    "{actor} stretches you [ADVERB]. You feel [SENSATION], right at the edge of [NOUN]."
+  ],
+  "updated_at": "1785158642",
+  "zone_lines": [
+    "{target} [REACTION VERB] as {actor} works in."
+  ]
+}

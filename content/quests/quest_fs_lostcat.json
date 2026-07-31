@@ -18,9 +18,9 @@
       "zone": "zone_district_904_909"
     },
     {
-      "desc": "Residential Area",
+      "desc": "Kessler Street + Marrow Street",
       "emotes": [
-        "{who} picks through Residential Area, checking every gap a small warm thing could hide in.",
+        "{who} works the Kessler Street corner, checking every gap a small warm thing could hide in.",
         "{who} whistles for a cat in a place where whistling attracts worse than cats.",
         "{who} spots a suspicious tuft of fur, follows it, and decides not to investigate the smell."
       ],
@@ -30,7 +30,7 @@
       ],
       "taskSeconds": 5,
       "type": "visit",
-      "zone": "zone_district_921_913"
+      "zone": "zone_district_922_909"
     },
     {
       "desc": "Marrow Street",

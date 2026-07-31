@@ -12,6 +12,7 @@ import { getShopperForNpc, closeShopSession, didBuyThisSession } from './vendor-
 import { getNpcChitchat } from './npc-personality.js';
 import { OPPOSITE as OPPOSITE_DIR } from './directions.js';
 import { setPosture } from './posture.js';
+import { npcWashAtHome } from './hygiene.js';
 
 // Breaking contact to flee is a competence check, not a given. An entity's flee
 // skill (`flags.flee_skill`, else its combat `dodge`, else 1) is rolled against a
@@ -98,12 +99,45 @@ export function isVendorClosed(npc) {
   return !isVendorWorkTime(npc, getEnvironmentState()).working;
 }
 
+// Game-hours until this vendor's next scheduled block opens, or null (no schedule,
+// or nothing scheduled in the coming week). Same clock + day-keying as
+// isVendorWorkTime, so it agrees with whatever just told the player "closed".
+export function hoursUntilOpen(npc) {
+  const schedule = npc?.vendor_schedule;
+  if (!schedule || !Object.keys(schedule).length) return null;
+  const env = getEnvironmentState();
+  const nowMinutes = env.minutes;
+  const todayIdx = env.dayOfWeek % 7; // ISO 1=Mon…7=Sun → DAY_KEYS 0=Sun…6=Sat
+  let best = null;
+  for (let dayOffset = 0; dayOffset <= 7; dayOffset++) {
+    for (const block of schedule[DAY_KEYS[(todayIdx + dayOffset) % 7]] || []) {
+      const gap = dayOffset * 1440 + (block.from ?? 0) * 60 - nowMinutes;
+      if (gap > 0 && (best === null || gap < best)) best = gap;
+    }
+    if (best !== null) break; // the earliest block on the first day that has one wins
+  }
+  return best === null ? null : best / 60;
+}
+
+// "about 3 hours" / "about 20 minutes" — the wait an off-shift vendor quotes you.
+// Empty string when they have no schedule to quote from.
+export function openInPhrase(npc) {
+  const h = hoursUntilOpen(npc);
+  if (h == null) return '';
+  if (h < 1) { const m = Math.max(1, Math.round(h * 60)); return `about ${m} minute${m === 1 ? '' : 's'}`; }
+  const r = Math.round(h);
+  return `about ${r} hour${r === 1 ? '' : 's'}`;
+}
+
 // The line an off-the-clock vendor gives when a player tries to shop/buy/sell.
 // Covert sellers don't do customer service hours — they just stop knowing you.
 export function vendorClosedLine(npc) {
   const name = npc?.name || 'The vendor';
   if (npc?.flags?.covert) return `${name} looks straight through you. "Wrong time. Walk on."`;
-  return `${name} shakes their head. "I'm off the clock right now — come back during business hours."`;
+  const when = openInPhrase(npc);
+  return when
+    ? `${name} shakes their head. "I'm off the clock right now — I open again in ${when}."`
+    : `${name} shakes their head. "I'm off the clock right now — come back during business hours."`;
 }
 
 // ── Chitchat ────────────────────────────────────────────────────────────────
@@ -417,8 +451,8 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
     world.zones.get(oldZoneId)?.enemies.delete(entity.instanceId);
     entity.zoneId = newZoneId;
     world.zones.get(newZoneId)?.enemies.add(entity.instanceId);
-    broadcast(newZoneId, { type: 'zone_event', message: arriveMsg, refresh: true });
-    broadcast(oldZoneId, { type: 'zone_event', message: departMsg, refresh: true });
+    broadcast(newZoneId, { type: 'zone_event', message: arriveMsg, refresh: true, _movement: true });
+    broadcast(oldZoneId, { type: 'zone_event', message: departMsg, refresh: true, _movement: true });
   } else {
     // If a player has this NPC's shop open, close it before the NPC leaves.
     shopperId = getShopperForNpc(entity.id);
@@ -430,8 +464,8 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
     world.zones.get(oldZoneId)?.npcs.delete(entity.id);
     entity.zone_id = newZoneId;
     world.zones.get(newZoneId)?.npcs.add(entity.id);
-    broadcast(newZoneId, { type: 'zone_event', message: arriveMsg, refresh: true });
-    broadcast(oldZoneId, { type: 'zone_event', message: departMsg, refresh: true });
+    broadcast(newZoneId, { type: 'zone_event', message: arriveMsg, refresh: true, _movement: true });
+    broadcast(oldZoneId, { type: 'zone_event', message: departMsg, refresh: true, _movement: true });
   }
 
   // Lock the door when an NPC arrives at their home zone
@@ -1298,16 +1332,27 @@ async function execAction(node, entity, ctx) {
     // VENDOR_COLLECT_SAFE: find linked safe in work zone, take 25% of vendor_credits.
     case 'VENDOR_COLLECT_SAFE': {
       if (!ai) break;
-      const workZone = entity.work_zone_id;
-      if (!workZone) break;
 
       try {
-        // Find the safe linked to this NPC in the work zone
+        // Find the safe by its LINK, not by the work zone.
+        //
+        // It used to require `work_zone_id` and search only there, which quietly
+        // did nothing for any vendor whose safe lives somewhere else — a dealer
+        // keeping the takings at home rather than behind a counter, say. Both
+        // Coldwater dealers were in exactly that state: safes bolted down in one
+        // district, owners living in another, and the collect step bailing on its
+        // first line so the money never moved.
+        //
+        // Searching by link finds it wherever it is, and the zone check below
+        // makes the physical journey the requirement instead of a config field.
         const { rows: safeRows } = await query(
-          `SELECT id, flags FROM furniture WHERE zone_id=$1 AND flags @> $2 LIMIT 1`,
-          [workZone, JSON.stringify({ vendor_safe: true, vendor_npc_id: entity.id })]
+          `SELECT id, flags, zone_id FROM furniture WHERE flags @> $1 LIMIT 1`,
+          [JSON.stringify({ vendor_safe: true, vendor_npc_id: entity.id })]
         );
         if (!safeRows.length) break;
+        // You have to actually be standing at it. This is what turns "collect the
+        // takings" into a thing the player can witness, intercept, or beat you to.
+        if (safeRows[0].zone_id && entity.zone_id !== safeRows[0].zone_id) break;
 
         // entity IS the live world.npcs entry — the write funnel keeps its
         // vendor_credits in sync, so no fresh SELECT needed.
@@ -1655,9 +1700,13 @@ export async function tickEntityAI(entity, ctx) {
   // every connected player. Skip it until it's given a zone.
   if (!entityZone(entity)) return;
 
-  // A break-in alarm (burglary plugin) has taken this NPC over — it drives the
-  // panic cop-call / flee sequence directly. Suspend the normal graph (and the
-  // passive home-life below) until the plugin clears the flag.
+  // Something has taken this NPC over and is driving it directly — a break-in
+  // alarm (burglary plugin) or ordinary fright (engine/panic.js). Suspend the
+  // normal graph (and the passive home-life below) until the driver clears it.
+  //
+  // ⚠ THIS FLAG IS NOT A BEHAVIOUR. It only yields the graph; it makes the NPC
+  // do nothing at all. Setting it without a driver to clear it freezes that NPC
+  // permanently. Go through panicNpc() unless you own the whole sequence.
   if (ai.alarm) return;
 
   // Dosed unconscious or panicking (npc-drugs plugin) — the plugin drives the
@@ -1671,6 +1720,11 @@ export async function tickEntityAI(entity, ctx) {
   // Passive home life — any NPC in their home zone does random activities when players are watching.
   // Skipped while homeSleeping (the NPC is visibly asleep; AT_HOME_LIFE owns that state).
   if (!isEnemy(entity) && !ai.homeSleeping && entity.home_zone && entityZone(entity) === entity.home_zone) {
+    // Being home means washing. Without this an NPC's grime clock starts the
+    // first time anything asks and climbs forever, so given enough uptime every
+    // NPC in the world ends up reeking. In memory only — NPC hygiene is never
+    // persisted, so this is a field reset, not a write.
+    npcWashAtHome(entity);
     const now = Date.now();
     if ((now - (ai.lastHomeSay || 0)) > 30000) {
       const playersHere = getZonePlayers(entityZone(entity));

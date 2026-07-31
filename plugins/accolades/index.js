@@ -25,6 +25,7 @@
  * one INSERT per genuine unlock, and the `file` verb's own read.
  */
 import { query } from '../../server/models/db.js';
+import { getFlagsByPrefix, setFlags } from '../../server/engine/flags.js';
 import { on, emit } from '../../server/engine/events.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { grantXp } from '../../server/engine/ip.js';
@@ -65,12 +66,12 @@ async function loadPlayer(playerId) {
   const s = blank();
   state.set(playerId, s);           // set first: concurrent events reuse this object
   try {
-    const [{ rows: unlocked }, { rows: counters }] = await Promise.all([
+    const [{ rows: unlocked }, counters] = await Promise.all([
       query('SELECT entry_key FROM player_achievements WHERE player_id = $1', [playerId]),
-      query("SELECT flag_key, flag_value FROM player_flags WHERE player_id = $1 AND flag_key LIKE 'rec\\_%'", [playerId]),
+      getFlagsByPrefix(playerId, 'rec_'),
     ]);
     for (const r of unlocked) s.unlocked.add(r.entry_key);
-    for (const r of counters) s.counters.set(r.flag_key.slice(4), Number(r.flag_value) || 0);
+    for (const [flagKey, flagValue] of counters) s.counters.set(flagKey.slice(4), Number(flagValue) || 0);
   } catch (e) {
     console.error('[accolades] load failed for', playerId, e.message);
   }
@@ -81,15 +82,11 @@ async function flushCounters(playerId) {
   const s = state.get(playerId);
   if (!s?.dirty || !s.counters.size) return;
   s.dirty = false;
-  const keys = [], vals = [];
-  for (const [k, v] of s.counters) { keys.push(`rec_${k}`); vals.push(String(v)); }
+  const entries = [...s.counters].map(([k, v]) => [`rec_${k}`, String(v)]);
   try {
-    await query(
-      `INSERT INTO player_flags (player_id, flag_key, flag_value)
-       SELECT $1, k, v FROM unnest($2::text[], $3::text[]) AS t(k, v)
-       ON CONFLICT (player_id, flag_key) DO UPDATE SET flag_value = EXCLUDED.flag_value`,
-      [playerId, keys, vals]
-    );
+    // Still one round trip for the whole counter set — now through the flag
+    // store, so a live player's cached Map moves with it.
+    await setFlags(playerId, entries);
   } catch (e) {
     console.error('[accolades] counter flush failed for', playerId, e.message);
   }

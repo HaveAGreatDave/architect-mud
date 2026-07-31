@@ -1,0 +1,83 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "\"Pass out, hand up, keep walking. It's not a conversation.\"",
+    "Orsino reads the stage door's light without turning his head, the way other men read a clock.",
+    "\"You can stand there. Standing there is free.\"",
+    "He rolls one shoulder, hears something in it he doesn't like, and stops."
+  ],
+  "description": "A wide, unhurried man planted between you and the stage door, in a KSAB-violet blazer that was tailored for a smaller decade. His hands stay folded low and in front, and his eyes do the moving. There's a floor-manager's headset hooked over one ear that he plainly isn't listening to, and a strip of house tape on the ground by his boot that he has never once stepped over.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mm.\" He is already looking past you at whoever's next."
+    },
+    "pass": {
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "root"
+        },
+        {
+          "label": "Just go, then.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"A pass is for a show. Not for the building, not for the week — a show.\" He holds up two thick fingers, then folds one down. \"Dovie stamps the night on it. If the night on it isn't tonight, it's a bookmark.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What's the pass for?",
+          "next": "pass"
+        },
+        {
+          "label": "What if I'd rather not have one?",
+          "next": "trouble"
+        },
+        {
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"House door,\" Orsino says, as though answering a question you haven't got round to. \"Which means when the light's on, I need to see paper, and when it's off there's nothing in there worth the walk.\""
+    },
+    "trouble": {
+      "options": [
+        {
+          "label": "Fair enough.",
+          "next": "root"
+        }
+      ],
+      "text": "He considers this without any visible feeling about it. \"Then you'd rather not go in.\" A pause exactly long enough. \"Some nights I'm not here. Some nights I'm on the floor with the paramedics standing over me and the door's wide open. You're welcome to plan around that. People do.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "audience_door": true,
+    "clothing_layers": [
+      "a KSAB-violet house blazer, seams let out twice and losing the argument",
+      "a black shirt buttoned to the throat, collar gone soft",
+      "heavy trousers and boots with the toes scuffed pale"
+    ],
+    "personality": "guard"
+  },
+  "home_activities": [],
+  "home_zone": "zone_district_913_911",
+  "hp": 120,
+  "hp_max": 120,
+  "id": "npc_ksab_doorman",
+  "name": "Orsino Tull",
+  "npc_type": "civilian",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

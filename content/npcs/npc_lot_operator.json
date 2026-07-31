@@ -1,0 +1,52 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "n_start",
+    "nodes": {
+      "n_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "n_loop",
+        "type": "action"
+      },
+      "n_loop": {
+        "next": "n_start",
+        "type": "loop"
+      },
+      "n_start": {
+        "next": "n_life",
+        "type": "start"
+      }
+    }
+  },
+  "chitchat": [],
+  "description": "She was hired to answer the phones when this was a shopping channel, and she still has the headset, though nothing is plugged into it. Her job now is to hold the sealed card and to not react to it. She is extraordinarily good at the second part.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a sequinned floor-length gown, missing sequins in a long diagonal",
+      "a phone-bank headset with the cord cut short",
+      "opera gloves",
+      "a slip"
+    ],
+    "personality": "tv_host",
+    "studio_npc": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_studio_1782953094650",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_lot_operator",
+  "name": "Yolanda Sarr",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": "zone_studio_1782953094650",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_studio_1782953094650"
+}

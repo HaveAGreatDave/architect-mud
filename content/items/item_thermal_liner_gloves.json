@@ -1,0 +1,18 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_thermal_liner_gloves",
+  "name": "thin thermal liner gloves",
+  "tags": {
+    "bulkiness": 0,
+    "description": "Wafer-thin wicking knit, worn under something else or under nothing when you need your hands to work. Barely warm on their own. The point is that they let you take the mittens off for the ten seconds without paying for it.",
+    "gets_wet": true,
+    "hydrophobic": true,
+    "insulation": 1,
+    "layer": "underwear",
+    "slot": "hands"
+  },
+  "type": "clothing",
+  "value": 22,
+  "weight": 60
+}

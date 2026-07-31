@@ -2,5 +2,8 @@
   "name": "district-ambience",
   "version": "1.0.0",
   "description": "Sensory signatures per district. Occasionally answers the zone.describeAmbient tick with a district-keyed leitmotif line (a smell, a sound-texture, an air quality) so each neighborhood imprints a felt character over time. Outdoor zones only — you can't smell the Docks from a sealed room. Content + gating live here; the district registry (server/engine/districts.js) owns the lines.",
-  "hooks": ["zone.describeAmbient"]
+  "hooks": [
+    "zone.describeAmbient",
+    "zone.smells"
+  ]
 }

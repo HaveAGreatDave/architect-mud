@@ -1,0 +1,63 @@
+{
+  "name": "cooking",
+  "version": "2.0.0",
+  "description": "Weight/thaw-based timed cooking at stoves (flags.stove_tier) or a carried portable oven (tags.portable_oven). `cook <food|vessel>` — background/lazy, no tick; a bounded set of timers narrate stage transitions and completion, rescheduled on boot. Food tagged `food_profile` adds depth: a peak window, a burn point, handling (`flip`/`stir`), and a quality band stamped by `plate` that scales the meal's effects and awards Cooking IP. Owns the shared `cook` verb and routes drug-cooking to plugins/synthesis via the `synthesis.cook` Action; a room holding both a stove and a chem lab disambiguates through SIFT. Bread is an EDIBLE vessel (tags.edible_vessel): sandwiches are assembled in it, an unmatched one is named off its contents rather than becoming slop, and `butter` counts as the dish fat. `cut` halves a finished dish. `heat` is an alias.",
+  "hooks": [
+    "item.checkCooking",
+    "item.describeVessel",
+    "cooking.restMultiplier",
+    "cooking.wellFedMs",
+    "cooking.restText",
+    "cooking.flavour",
+    "cooking.donenessRisk",
+    "cooking.prepText",
+    "zone.smells",
+    "zone.sounds"
+  ],
+  "commands": [
+    "cook",
+    "plate",
+    "flip",
+    "stir",
+    "stove",
+    "doneness",
+    "taste",
+    "score",
+    "tenderise",
+    "tenderize",
+    "marinate",
+    "chop",
+    "cut",
+    "butter",
+    "mince",
+    "cure",
+    "deglaze",
+    "scour",
+    "kitchenkit",
+    "microwave",
+    "cookbook",
+    "drain"
+  ],
+  "specializedActions": [
+    {
+      "verb": "read",
+      "requiredTag": "recipe_card"
+    }
+  ],
+  "actions": {
+    "provides": [
+      "TEACH_RECIPE",
+      "cooking.appliance_choice"
+    ]
+  },
+  "objectGatedCommands": {
+    "cook": {
+      "discoverVia": "furniture:flags.stove_tier",
+      "exposed": false,
+      "note": "Shared verb. Routes target-first: a carried needs_cooking/vessel item is food, anything else is a synthesis recipe. Bare `cook` in a room with both a stove and a chem lab raises a SIFT station prompt, replayed through the cooking.station_choice Action."
+    }
+  },
+  "extensionPoints": [
+    "Cookbook tablet app (plugins/tablet/cookbook-app.js) reads the cookbook: player_flags."
+  ]
+}

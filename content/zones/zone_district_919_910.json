@@ -7,8 +7,7 @@
   "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
   "exits": {
     "north": "zone_district_919_909",
-    "south": "zone_district_919_911",
-    "west": "zone_district_918_910"
+    "south": "zone_district_919_911"
   },
   "flags": {
     "district": "wasteland",
@@ -25,5 +24,5 @@
   "marker": "#",
   "name": "Ironside Street",
   "parent_zone": null,
-  "updated_at": "1784441751"
+  "updated_at": "1785200000"
 }

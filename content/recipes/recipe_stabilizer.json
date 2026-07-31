@@ -5,7 +5,6 @@
     "quantity": 1
   },
   "category": "chemical",
-  "craft_time": 4,
   "description": "Synthesize a compound stabilizer from an industrial catalyst and solvent — master-tier chemistry, and touchy to get right.",
   "id": "recipe_stabilizer",
   "ingredients": [

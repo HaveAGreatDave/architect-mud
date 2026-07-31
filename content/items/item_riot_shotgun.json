@@ -1,19 +1,23 @@
 {
-  "description": "A short, brutal pump-action with a heat-scarred barrel. Solves problems in a wide, apologetic spread.",
+  "description": "A short, brutal pump-action with a heat-scarred barrel. Whitlock shipped sixty thousand to precincts that no longer exist, and every one of them still works. Solves problems in a wide, apologetic spread.",
   "flags": {},
   "id": "item_riot_shotgun",
-  "name": "Ironside riot shotgun",
+  "name": "Whitlock Model 12 riot gun",
   "tags": {
     "damage": {
       "max": 16,
       "min": 9
     },
-    "description": "A short, brutal pump-action with a heat-scarred barrel. Solves problems in a wide, apologetic spread.",
+    "description": "A short, brutal pump-action with a heat-scarred barrel. Whitlock shipped sixty thousand to precincts that no longer exist, and every one of them still works. Solves problems in a wide, apologetic spread.",
     "slot": "weapon_hand",
     "weapon": true,
-    "weapon_skill": "firearms"
+    "weapon_skill": "firearms",
+    "spread": 2,
+    "min_skill": {
+      "firearms": 3
+    }
   },
   "type": "weapon",
-  "value": 160,
+  "value": 660,
   "weight": 3200
 }

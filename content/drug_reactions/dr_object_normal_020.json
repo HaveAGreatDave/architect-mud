@@ -1,0 +1,10 @@
+{
+  "id": "dr_object_normal_020",
+  "drug_id": null,
+  "source": "object",
+  "tone": "normal",
+  "self_line": "You always do this.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

@@ -40,9 +40,19 @@ const DEFAULT_FLAVOUR = { noun: 'floor safe',
 // Flavour keys off the shop name, the vendor's name, and the placement zone id
 // (zone slugs like zone_gunshop_interior / zone_stimcafe carry the trade when the
 // name doesn't). Zone slug underscores are treated as word breaks so \b tokens hit.
+//
+// The zone is consulted LAST and only as a tiebreak, because it is the weakest
+// signal and actively wrong when several vendors share a room: eight Yards
+// traders parked in zone_coldwater_turbine_hall all matched /turbine|plant/ and
+// were issued the same industrial lockbox — a fence, a soup cook and a
+// shipwright with byte-identical strongboxes. The trade beats the address.
 function flavourFor(npc, zoneId) {
-  const hay = `${npc.vendor_shop_name || ''} ${npc.name || ''} ${(zoneId || '').replace(/_/g, ' ')}`;
-  return FLAVOURS.find(f => f.re.test(hay)) || DEFAULT_FLAVOUR;
+  const own = `${npc.vendor_shop_name || ''} ${npc.name || ''}`;
+  return (
+    FLAVOURS.find(f => f.re.test(own)) ||
+    FLAVOURS.find(f => f.re.test((zoneId || '').replace(/_/g, ' '))) ||
+    DEFAULT_FLAVOUR
+  );
 }
 
 // Deterministic id so re-runs and ON CONFLICT dedupe cleanly. Note: hand-authored

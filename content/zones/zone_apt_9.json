@@ -8,6 +8,7 @@
   "created_by": null,
   "description": "Unit 4A, top floor, street-facing. Best light in the building up here — what little the smog lets through comes in clean and level through a window that actually opens. A proper bed, a desk someone bolted to the wall, and a hook in the ceiling that used to hold a fan and now holds nothing, turning slowly in the draft. Quiet. Expensive-feeling, for the Embassy.",
   "exits": {
+    "in": "zone_apt_9_bath",
     "south": "zone_embassy_floor3"
   },
   "flags": {

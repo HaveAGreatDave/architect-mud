@@ -124,7 +124,7 @@
     }
   },
   "chitchat": [],
-  "description": "A floor broker on the Bourse who trades in anything with a price, which is everything. He speaks in offers and hears in counters, and has never once in his life said a round number.",
+  "description": "A floor broker on the Ponzi Pavilion floor who trades in anything with a price, which is everything. He speaks in offers and hears in counters, and has never once in his life said a round number.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -225,7 +225,7 @@
       }
     ]
   },
-  "vendor_shop_name": "The Bourse",
+  "vendor_shop_name": "The Ponzi Pavilion",
   "vendor_stock_size": 8,
   "wander_zones": [],
   "wanders": 0,

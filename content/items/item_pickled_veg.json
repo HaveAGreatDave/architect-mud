@@ -1,0 +1,20 @@
+{
+  "description": "A jar of something chopped and drowned in vinegar until it lost the argument. Sharp, squeaky, and the only green thing some people see all month.",
+  "flags": {},
+  "id": "item_pickled_veg",
+  "name": "pickled veg",
+  "tags": {
+    "consumable": true,
+    "description": "A jar of something chopped and drowned in vinegar until it lost the argument. Sharp, squeaky, and the only green thing some people see all month.",
+    "food_noun": "pickle",
+    "food_profile": "preserved",
+    "restore_hunger": 8,
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.1
+    }
+  },
+  "type": "consumable",
+  "value": 7,
+  "weight": 300
+}

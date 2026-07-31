@@ -76,6 +76,19 @@ window.VineActionTypes = [
     ],
   },
   {
+    // Moves how THIS speaker feels about the player (server/engine/relations.js).
+    // Deliberately shows the player no number — they find out from how the NPC
+    // talks to them next time. Leave NPC blank to mean "whoever is speaking".
+    type: 'RELATION_ADJUST',
+    label: 'Adjust Relationship',
+    params: [
+      { key: 'warmth', type: 'number', label: 'Warmth ±', default: 0 },
+      { key: 'familiarity', type: 'number', label: 'Familiarity ±', default: 0 },
+      { key: 'npc_id', type: 'text', label: 'NPC (blank = speaker)' },
+      { key: 'reason', type: 'text', label: 'Reason (log label)' },
+    ],
+  },
+  {
     type: 'SET_FLAG',
     label: 'Set Flag',
     params: [

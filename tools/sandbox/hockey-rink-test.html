@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CPhL Rink — Gameday visual test</title>
+<link rel="stylesheet" href="../client/game/styles.css">
+<!--
+  VISUAL TEST for the hockey Gameday sub-screen (client/game/js/panels/gameday-rink.js).
+
+  This is NOT a mock. It imports the real sim (plugins/broadcast/sports/hockey.js) and
+  the real narrator (hockey-narrator.js), fetches the real line library from
+  data/scripts/hockey.bsm, and runs the exact production path — the narrator's own
+  say() is intercepted, and every (caption, gameday-payload) pair it emits is fed to
+  the real view. If it looks right here it looks right on air, because it IS the air.
+
+  Serve the repo root over HTTP and open /sandbox/hockey-rink-test.html (a file://
+  page can't fetch the .bsm or load the modules).
+-->
+<style>
+  html, body { margin: 0; background: radial-gradient(ellipse at 50% 20%, #1a2028, #05080c 70%); }
+  .stage { display: flex; flex-direction: column; gap: 16px; padding: 24px; align-items: center; }
+  .frame {
+    position: relative; width: 760px; max-width: 96vw; aspect-ratio: 760 / 560;
+    background: #04090f; border-radius: 8px; overflow: hidden;
+    border: 2px solid #2c3037; box-shadow: 0 0 0 3px #e6e9ee, 0 0 0 6px #70767e, 0 14px 40px rgba(0,0,0,.7);
+    font-family: monospace;
+  }
+  .frame::before {
+    content: '◉ CLUSTER PUCK — CH 7'; color: #7fd4ff; font-size: 11px; letter-spacing: 2px;
+    display: flex; align-items: center; padding: 0 12px;
+    position: absolute; top: 0; left: 0; right: 0; height: 34px;
+    background: rgba(0, 24, 40, .55); border-bottom: 1px solid rgba(79, 210, 255, .35); z-index: 2;
+  }
+  #tv-gameday { position: absolute; inset: 34px 0 0 0; }
+  .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .label { color: #8fb6cc; font-family: monospace; font-size: 13px; letter-spacing: 2px; }
+  .note { color: #5d7f95; font-family: monospace; font-size: 11px; max-width: 760px; text-align: center; line-height: 1.6; }
+  button, select {
+    font-family: monospace; background: #08151f; color: #7fd4ff; border: 1px solid #2e5a6a;
+    padding: 6px 12px; border-radius: 3px; cursor: pointer;
+  }
+  button:disabled { opacity: .4; cursor: default; }
+  .counter { color: #9fe4ff; font-family: monospace; font-size: 12px; min-width: 150px; text-align: center; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="label">CPhL GAMEDAY · RINK — real sim, real narrator, real view</div>
+    <div id="tv-window" data-theme="crt" class="frame">
+      <div id="tv-gameday"></div>
+    </div>
+    <div class="bar">
+      <button id="prev">◀ prev</button>
+      <span class="counter" id="count">loading…</span>
+      <button id="next">next ▶</button>
+      <button id="auto">▶ auto-play</button>
+      <select id="filter">
+        <option value="">every beat</option>
+        <option value="goal">goals only</option>
+        <option value="faceoff">faceoffs only</option>
+        <option value="chance">chances only</option>
+        <option value="fight">fights only</option>
+      </select>
+      <button id="reroll">⟳ new game</button>
+    </div>
+    <div class="note" id="head">&nbsp;</div>
+    <div class="note">Click anything once to unlock audio. Goal = puck crosses the red goal line, then the mesh takes it.</div>
+  </div>
+
+  <script src="../client/shared/audio-engine.js"></script>
+  <script src="../client/shared/hockey-sfx.js"></script>
+  <script type="module">
+    import { HOCKEY } from '../plugins/broadcast/sports/hockey.js';
+    import { sportsRng, sportsHash, sportsPick, sportsFill } from '../plugins/broadcast/rng.js';
+    import { createRinkView } from '../client/game/js/panels/gameday-rink.js';
+
+    const view = createRinkView(document.getElementById('tv-gameday'));
+    view.showIdle();
+
+    // The .bsm's line library, parsed the way the compiler parses it (the blocks this
+    // view cares about are ::lines / ::teams / ::players — assets and directives are
+    // the broadcast pipeline's business, not ours).
+    async function loadScript() {
+      const src = await (await fetch('../data/scripts/hockey.bsm')).text();
+      const pools = {}, teams = [], players = [];
+      let mode = null, key = null;
+      for (const raw of src.split(/\r?\n/)) {
+        const l = raw.trim();
+        if (l.startsWith('::lines ')) { key = l.slice(8).trim(); pools[key] = []; mode = 'lines'; continue; }
+        if (l === '::teams') { mode = 'teams'; continue; }
+        if (l === '::players') { mode = 'players'; continue; }
+        if (l.startsWith('::asset')) { mode = 'asset'; continue; }
+        if (l.startsWith('::end')) { mode = null; key = null; continue; }
+        if (!l || l.startsWith('#')) continue;
+        if (mode === 'lines') pools[key].push(l);
+        else if (mode === 'teams') teams.push(l);
+        else if (mode === 'players') players.push(l.replace(/"/g, ''));
+      }
+      return { pools, teams, players };
+    }
+
+    let beats = [], idx = 0, autoTimer = null, script = null, slot = 3;
+
+    // Run the production narrator with an instrumented say(), collecting the exact
+    // (caption, payload) pairs a TV would receive — only the ones carrying a gameday
+    // payload, since those are the beats the rink animates.
+    function buildGame() {
+      const seed = sportsHash(slot >>> 0, 0x00);
+      const t = script.teams;
+      const matchup = { away: t[(slot * 3) % t.length], home: t[(slot * 7 + 5) % t.length] };
+      if (matchup.away === matchup.home) matchup.home = t[(t.indexOf(matchup.away) + 1) % t.length];
+      const game = HOCKEY.simGame(matchup, script.players, sportsRng(seed));
+      const nrng = sportsRng(seed ^ 0x9e3779b9);
+      const out = [];
+      const pick = (...keys) => sportsPick(script.pools, nrng, ...keys);
+      const say = (line, tok, sb, graphic, gd) => {
+        if (!line) return;
+        const text = sportsFill(line, tok).trim();
+        if (gd) out.push({ gd, text, graphic: graphic || null });
+      };
+      HOCKEY.narrate({
+        script: { title: 'cphl_title' }, game, gs: { seed, game }, slot, ws: false,
+        announcer: 'Tug Brennan', pools: script.pools, nrng, sport: HOCKEY,
+        add: () => {}, say, pick,
+        abbr: (n) => String(n || '').replace(/[^A-Za-z ]/g, '').split(/\s+/).map(w => w[0] || '').join('').slice(0, 3).toUpperCase(),
+        recordOf: () => '6-4', lastId: () => null,
+      });
+      document.getElementById('head').textContent =
+        `${matchup.away} ${game.awayScore} — ${game.homeScore} ${matchup.home} · ${game.beats.length} beats simulated · ` +
+        `${out.length} animated · draws ${game.faceoffs.away}-${game.faceoffs.home}`;
+      return out;
+    }
+
+    function filtered() {
+      const f = document.getElementById('filter').value;
+      if (!f) return beats;
+      return beats.filter(b => (f === 'chance' ? b.gd.type === 'chance' : b.gd.type === f));
+    }
+
+    function show(i) {
+      const list = filtered();
+      if (!list.length) { document.getElementById('count').textContent = 'no beats match'; return; }
+      idx = (i + list.length) % list.length;
+      const b = list[idx];
+      view.apply(b.gd);
+      view.setCaption(b.text, { held: true });
+      if (b.graphic) view.showCard(b.graphic);
+      document.getElementById('count').textContent =
+        `${idx + 1}/${list.length} · ${b.gd.type}${b.gd.kind && b.gd.kind !== b.gd.type ? ` (${b.gd.kind})` : ''}${b.gd.dot ? ` @${b.gd.dot}` : ''}`;
+    }
+
+    document.getElementById('next').onclick = () => show(idx + 1);
+    document.getElementById('prev').onclick = () => show(idx - 1);
+    document.getElementById('filter').onchange = () => show(0);
+    document.getElementById('reroll').onclick = () => { slot++; beats = buildGame(); show(0); };
+    document.getElementById('auto').onclick = (e) => {
+      if (autoTimer) { clearInterval(autoTimer); autoTimer = null; e.target.textContent = '▶ auto-play'; return; }
+      e.target.textContent = '⏸ pause';
+      autoTimer = setInterval(() => show(idx + 1), 3200);
+    };
+
+    script = await loadScript();
+    beats = buildGame();
+    show(0);
+  </script>
+</body>
+</html>

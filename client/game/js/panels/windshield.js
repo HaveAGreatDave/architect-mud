@@ -34,8 +34,9 @@
 // }
 
 import { isWeatherFxEnabled } from './weather-fx.js';
-import { aircraftFaces, wingtipStation, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, hingeVisorFace, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE } from './aircraft3d.js';
+import { aircraftFaces, wingtipStation, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE } from './aircraft3d.js';
 import { playThunderSample } from './engine-audio.js';
+import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
 
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
 let _obsHgt = 0;                // current view altitude fraction — drawers show more of a roof/top as it climbs
@@ -60,10 +61,36 @@ export const RENDER_TUNE = {
   eh: 0.24,           // Mode-7 eye height on the GROUND — raised 0.05→0.14→0.24 to lift the camera so the near foreground drops off the bottom AND enough of the tile grid spreads into view that parked/startup ground reads as individual land tiles, not one flat sheet painted with the tile you're sitting on; a floor still keeps the runway from collapsing
   climbLift: 7.0,     // eye-height ADDED per unit altitude: EH = max(floor, eh + climbLift*height). ~2 by 500ft → clears buildings
   tile: 0.85,         // Mode-7 floor tile frequency (higher = smaller terrain tiles)
-  pixel: 4,           // Mode-7 render downscale → pixel chunkiness (higher = blockier/retro)
+  pixel: 1,           // Mode-7 render downscale → pixel chunkiness (higher = blockier/retro). 1 is the hard floor: DS = max(1, pixel + PERF_DS), one texel per screen pixel. Dropped 4 → 1 for the crispest ground the frame will allow; `perfDS` still coarsens it under sustained load, so this is a ceiling on quality rather than a fixed cost.
   // ── Performance / adaptive-quality knobs (all live-tunable) ─────────────────────
   perfDS: 1,          // 1 = under sustained frame-load, bump the Mode-7 floor's per-pixel downscale (DS) up to +4 on top of `pixel`, quartering the ground-raster texel count. The floor is a fixed-cost software raster the canvas dynamic-res dial can't touch, so this is the one lever that sheds its load. 0 = fixed `pixel` DS always.
   wallLodPx: 20,      // building-wall LOD: a wall whose on-screen height is below this (px) skips the perspective-correct column-split textured blit (the expensive clip/transform/drawImage storm) and fills one flat shaded polygon instead — a far/small wall's window grid is an aliased blur anyway. Higher = flat-shade more walls (faster, less detail); 0 = always texture every wall.
+  // Building distance LOD (see drawModelLOD). `lodNear` is where a building stops running its full
+  // model arm and is drawn from its captured segments instead; at exactly that distance the two are
+  // identical mass, and detail then dissolves segment-by-segment out to `lodFar`, where only the
+  // largest piece remains. Set lodNear to 0 to disable LOD entirely and always run the real arms.
+  // The honest cost of crossing lodNear is the arm's ADORNMENTS (neon, marquees, glow), so the
+  // default sits well out in the fog — raise it if you can see the handover.
+  // 1 = ground shadows are cast from the building's real captured footprint and real roof height;
+  // 0 = the old single square at the storey-stack height. Kept as a switch so the whole shape system
+  // has exactly two off-switches (this and lodNear) that together restore the pre-capture renderer
+  // byte for byte — a claim worth being able to TEST rather than assert.
+  occlude: 1,         // skip buildings entirely hidden behind a nearer one. Lossless by construction (there is no z-buffer, so a hidden building is otherwise fully built, queued, sorted and filled); the occluder/occludee boxes are biased so it can only ever be too timid. 0 = draw everything as before.
+  shapeShadow: 1,
+  shapeWire: 0,       // dev: stroke the captured building shapes over the render (cyan = mass, amber = entrance-face door/bay, magenta = the core segment that never fades). The one-glance check that collision/shadow/LOD geometry actually sits on the building.
+  // What a distant (LOD) building is allowed to light up with. 2 = every adornment, which looks
+  // right and costs nearly what the full model cost (gradients + shadowBlur, not face count, are
+  // the expense). 1 = the CHEAP lights only — blinking aviation beacons, masts, dishes: no gradient,
+  // no blur, so a tower is still identifiable and still warns you it's tall. 0 = nothing.
+  lodAdorn: 1,
+  lodNear: 20,        // tiles: full model closer than this, captured segments beyond
+  lodFar: 32,         // tiles: by here a building is down to its single biggest mass
+  // Distance (tiles) within which a neon sign earns a REAL glow. shadowBlur is a software blur pass
+  // per draw and one of the two things that genuinely cost time in canvas2d (the other, gradient
+  // construction, is now baked into sprites). An 8px halo around a blade three pixels wide is
+  // invisible — so past this the sign still paints, just without the bloom. Raise it if you can see
+  // the transition; 0 turns neon glow off entirely.
+  glowFar: 11,
   decoFar: 16,        // distance (tiles) beyond which generic-building rooftop decorations (holo-ads, window bloom) are culled — a few px at range, not worth the fill. Higher = draw them further out.
   shadowFar: 18,      // distance (tiles) beyond which a building's ground shadow is skipped in the shadow pre-pass — distant shadows are invisible smears.
   fog: 0.2,           // N64-style distance fog: how strongly the far floor dissolves into the sky/horizon colour (0 = off/modern clear view, 1 = far ground vanishes into the fog wall). Colour tracks the sky, so it fogs pale by day and dark-blue at night. Live 'Fog (N64)' slider
@@ -308,10 +335,26 @@ const airportCfg = (theme) => AIRPORT[theme] || AIRPORT.default;
 // line); fog/ash/storm thicken the air so distant ground genuinely dissolves. This is the
 // CEILING on the per-pixel haze weight in drawMode7Floor — hz (the live slider) still sets
 // how fast it climbs toward this cap.
+// The two hero events ride this table as pseudo weather types: acid sits between
+// storm and ash (a thick chemical murk you can still just about see through), an
+// ion storm dirties the air with charged dust. Everything downstream that keys
+// off `wx` — haze, glare, aurora — then treats them as first-class weather with
+// no extra plumbing.
 const WX_HAZE = {
   clear: 0.12, cloudy: 0.22, rain: 0.3, snow: 0.34, storm: 0.42, ash: 0.55, fog: 0.75,
+  acid_rain: 0.5, ion_storm: 0.38,
 };
 const hazeCeil = (wx) => WX_HAZE[wx] ?? 0.15;
+
+// Full-canopy colour cast for a hero event. Alpha scales with phase, so the
+// approach is a tint and the peak is a wall.
+const WX_EVENT_CAST = {
+  acid_rain: [150, 200, 40],
+  ion_storm: [90, 255, 150],
+};
+// What each hero event physically does to the canopy — reuses the existing rain
+// and storm on-glass behaviour rather than authoring new drop art.
+const WX_EVENT_AS = { acid_rain: 'rain', ion_storm: 'storm' };
 
 // ── Biome ground tint (the near/mid ground colour when flying over a district) ──
 // Not the flat map colours — the material the ground reads as from the air: arid
@@ -355,7 +398,7 @@ function nearField(map, rx, ry) {
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
     if (!dx && !dy) continue;
     const row = map[ry + dy], c = row && row[rx + dx];
-    if (c && (c.kind === 'field' || c.biome === 'airport')) return true;
+    if (c && ((c.kind === 'field' && !c.bt) || c.biome === 'airport')) return true;   // a rooftop pad's block keeps its own ground — no apron greying around a tower
   }
   return false;
 }
@@ -473,7 +516,10 @@ export function paintWindshield(id, view) {
   const vw = yawOff ? { ...v, heading: (v.heading || 0) + yawOff } : v;
   const W = cw, H = ch, speed = clamp(v.speed || 0, 0, 1), height = clamp(v.height || 0, 0, 1);
   const phase = v.phase || 'cruise';
-  const wx = (v.weather || 'clear').toLowerCase();
+  // A hero event OUTRANKS the ordinary weather type for everything visual: when
+  // the sky is doing something with a name, that's what you're flying through.
+  const wxEvent = v.event?.type && WX_EVENT_CAST[v.event.type] ? v.event : null;
+  const wx = wxEvent ? wxEvent.type : (v.weather || 'clear').toLowerCase();
   const sky = skyAt(v.hour == null ? 12 : v.hour);
   // Chase distance is size-relative: the camera sits `chaseBack` tiles behind a reference
   // (prop-class) craft, but pulls IN for physically smaller airframes (the Mayfly ultralight
@@ -880,7 +926,9 @@ export function paintWindshield(id, view) {
   // left a flat colour band where the grass should be ("grass isn't showing").
   if (worldBlend > 0.02) {
     ctx.save(); ctx.globalAlpha = worldBlend;
+    pBegin('ground');
     drawMode7Floor(ctx, W, H, horizonY, focal, vw, sky, gTop, now, sunFx, chase, hazeCeil(wx), st);
+    pEnd();
     ctx.restore();
   }
   if (side) {
@@ -919,7 +967,9 @@ export function paintWindshield(id, view) {
   // The close, on-the-canopy layer (drops + streaks) is drawGlass(), painted last.
   // When the weather field is plumbed, the precip is whatever cell we're inside (rain starts as
   // you fly into it, stops as you leave) rather than one global string. `precipLocal` overrides wx.
+  pBegin('weather');
   drawWeather(ctx, W, H, wx, st, dt, speed, wxSample && wxSample.precip > 0.12 ? { type: wxSample.ptype, rate: wxSample.precip } : null);
+  pEnd();
 
   // The airport (themed scenery flanking a runway) on the deck; the pad for VTOL;
   // otherwise the zones/obstacles projected in the direction we're actually looking.
@@ -955,7 +1005,9 @@ export function paintWindshield(id, view) {
     // (worldBlend 0) it's the flat airport scenery that stands in, so these layers stay dark.
     if (worldBlend > 0.02) {
       ctx.save(); ctx.globalAlpha = worldBlend;
+      pBegin('surfaces');
       drawGroundSurfaces(ctx, cam, vw, sky, now);
+      pEnd();
       ctx.restore();
     }
     // Aircraft's own shadow — drawn AFTER the ground surfaces but BEFORE the buildings, and NOT
@@ -976,7 +1028,7 @@ export function paintWindshield(id, view) {
     drawWorldObjects(ctx, cam, vw, sky, now, sunFx);
     if (worldBlend > 0.02) {
       if (st.bolts && st.bolts.length) drawLightning(ctx, cam, st, now, v.acX ?? 0, v.acY ?? 0);   // 3-D lightning bolts inside storm cells
-      if (volOn) drawVolumetricClouds(ctx, cam, st, v, baseTint, litTint, cloudAlpha, localStorm, sky.night, dt, W, H, horizonY, wx, lightX, lightY, lightStr);   // fly-through cloud deck: puff stacks + silver-lining rim, value-noise mottle, inter-lobe AO, virga shafts + whiteout/haze (base at a realistic altitude for `wx`)
+      if (volOn) { pBegin('clouds'); drawVolumetricClouds(ctx, cam, st, v, baseTint, litTint, cloudAlpha, localStorm, sky.night, dt, W, H, horizonY, wx, lightX, lightY, lightStr); pEnd(); }   // fly-through cloud deck: puff stacks + silver-lining rim, value-noise mottle, inter-lobe AO, virga shafts + whiteout/haze (base at a realistic altitude for `wx`)
       if (sky.night > 0.35) drawSearchlights(ctx, cam, vw, now, worldBlend);   // sweeping beams from restricted (no-fly) blocks at night
       if (!framed) drawBirds(ctx, W, H, horizonY, vw, st, dt, speed, sky, now, worldBlend);   // ambient flock scattering as you pass
       if (vw.landGuide && vw.runway) drawGuideBoxes(ctx, cam, vw, now);
@@ -998,8 +1050,10 @@ export function paintWindshield(id, view) {
     // external orbit camera without pasting an aircraft at world origin — the yacht cell that
     // sits at the map-window centre renders as the framed subject instead.
     if (ext && !v.hideOwnShip) {
+      pBegin('aircraft');
       const ownbb = drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, armed: !!v.armed, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: OWN_EXT_MUL, gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup, noseVisor: v.noseVisor || 0 }, ownShipBaseWz(cam, v), sunFx, now);
       if (v.wreckFx && ownbb) drawWreckFire(ctx, ownbb, v.wreckFx, now);   // crash-cinematic fire + smoke over the burning wreck
+      pEnd();
     }
     if (ext && v.reticle) drawGunReticle(ctx, cam, v, W, H, horizonY);   // two-part gunsight over the chase model
   }
@@ -1098,8 +1152,23 @@ export function paintWindshield(id, view) {
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.5)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 
+  // Hero-event colour cast over the whole scene — drawn after the vignette so it
+  // grades the world AND the canopy, the way flying inside a chemical cloud
+  // actually looks, and before the on-glass layer so the drops still read on top.
+  if (wxEvent) {
+    const [r, g, b] = WX_EVENT_CAST[wxEvent.type];
+    const m = wxEvent.phase === 'peak' ? 1 : 0.5;
+    ctx.fillStyle = `rgba(${r},${g},${b},${0.07 + 0.09 * m})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
   // On-glass weather (drops that cling to the canopy, lightning), bug splats + frost + a WX badge.
-  if (!ext) drawGlass(ctx, W, H, wx, st, dt, speed, framed);
+  // The on-glass layer still wants to know what's physically hitting the canopy:
+  // acid rain is rain (beads, streaks, a glass that stays clean of bugs), an ion
+  // storm is a storm (the lightning branch). The badge below keeps the real name.
+  pBegin('glass');
+  if (!ext) drawGlass(ctx, W, H, WX_EVENT_AS[wx] || wx, st, dt, speed, framed);
+  pEnd();
   if (!v.windowClass && !ext) drawCanopy(ctx, W, H);   // DA62-style curved windscreen header (forward view)
   if (!v.windowClass && !ext) drawCowl(ctx, W, H, v.cls);   // nose cowl / glareshield along the bottom — hides the bare near-ground band without lifting the camera
   if (!v.windowClass) drawWxBadge(ctx, W, wx, v.wind);
@@ -1561,7 +1630,11 @@ function drawGlass(ctx, W, H, wx, st, dt, speed, framed = false) {
   }
 }
 
-const WX_LABEL = { rain: '☔ RAIN', storm: '⛈ STORM', snow: '❄ SNOW', ash: '⛆ ASHFALL', dust: '⛆ DUST', fog: '🌫 FOG', cloudy: '☁ OVERCAST', clear: '☀ CLEAR' };
+const WX_LABEL = { rain: '☔ RAIN', storm: '⛈ STORM', snow: '❄ SNOW', ash: '⛆ ASHFALL', dust: '⛆ DUST', fog: '🌫 FOG', cloudy: '☁ OVERCAST', clear: '☀ CLEAR',
+  acid_rain: '☣ ACID RAIN', ion_storm: '⚡ ION STORM' };
+// Hero events read in the same alarm colour as a storm — the badge is the pilot's
+// one-glance answer to "what am I actually flying through".
+const WX_ALARM = new Set(['storm', 'acid_rain', 'ion_storm']);
 function drawWxBadge(ctx, W, wx, wind) {
   const label = WX_LABEL[wx] || (wx ? wx.toUpperCase() : 'CLEAR');
   const txt = wind ? `${label}  ${Math.round(wind)}kt` : label;
@@ -1569,7 +1642,7 @@ function drawWxBadge(ctx, W, wx, wind) {
   const w = ctx.measureText(txt).width + 14, x = W - w - 8, y = 8, h = 17;
   ctx.fillStyle = 'rgba(6,12,18,0.6)'; ctx.strokeStyle = 'rgba(143,208,255,0.35)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, 4) : ctx.rect(x, y, w, h); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = wx === 'storm' ? '#ffcf3e' : '#a9d4ec'; ctx.textAlign = 'left';
+  ctx.fillStyle = WX_ALARM.has(wx) ? '#ffcf3e' : '#a9d4ec'; ctx.textAlign = 'left';
   ctx.fillText(txt, x + 7, y + h / 2 + 0.5); ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
 }
 
@@ -2754,6 +2827,12 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   // Statue/KSAB media-civic quarter (mid-basin, moderately high-tech: working holo, scuffed).
   ty_ksab: [70, 56, 96], ty_ksab_glass: [86, 78, 116], ty_greenroom: [40, 54, 46], ty_sentinel: [56, 58, 70], ty_jitter: [58, 54, 48],
   ty_ward: [66, 68, 62],
+  // Marrow Street downtown strip — cheap civic materials: painted block, oiled iron,
+  // green bathhouse tile, soot-warmed brick, canvas-grey, and a corner shop's old paint.
+  ty_adequate: [78, 66, 52], ty_bolt: [58, 56, 50], ty_soak: [46, 66, 64],
+  ty_broth: [72, 52, 42], ty_secondskin: [62, 60, 54], ty_kessel: [70, 62, 50],
+  // Ration Nine — a state ration depot: cold concrete, roller shutter, no charm intended.
+  ty_ration: [84, 84, 78],
   // Bespoke named-building shells — a distinct wall tone per silhouette below.
   ty_lux: [58, 52, 78], ty_chrome: [118, 126, 136], ty_meridian: [112, 102, 82], ty_meridian_bronze: [96, 68, 40],
   // Halcyon Towers — dark smoked-teal curtain glass for the futuristic twisting spire.
@@ -2773,12 +2852,18 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_yacht: [16, 18, 22], ty_yacht_deck: [30, 33, 40], ty_yacht_glass: [24, 30, 42],
   // Corporate-Assets claimable businesses — a distinct wall tone per storefront type.
   ty_armory: [70, 74, 80], ty_casino: [58, 30, 60], ty_pawn: [74, 62, 44], ty_chem: [76, 92, 70],
+  ty_kitchen: [74, 68, 58],
+  // Grind House — soot-dark iron; the ember glow comes from the neon field.
+  ty_forge: [62, 52, 46],
   // The Yards — semi-industrial freight district models (see TYPE_MODEL). The ribbed-steel keys also join METAL_WALL.
   ty_wh_metal: [120, 124, 130], ty_cont_r: [150, 66, 54], ty_cont_b: [56, 84, 120], ty_cont_g: [70, 104, 80], ty_cont_y: [150, 128, 54],
   ty_pallet: [96, 74, 48], ty_cold: [186, 196, 204], ty_cold_unit: [70, 78, 86], ty_fab_metal: [96, 100, 108], ty_fab_steel: [70, 74, 82],
   ty_wharf: [72, 80, 86], ty_wharf_steel: [64, 70, 78], ty_freight_office: [86, 82, 74], ty_fwd_metal: [110, 116, 122],
   // Halloran's Fix-It — a grease-and-steel repair garage: oil-stained warm concrete block, darker roll-up bays.
   ty_garage: [92, 82, 70], ty_garage_bay: [46, 42, 40],
+  // Salvage Rites — the scrapyard: a rusted site shack, oxidised bales of crushed car,
+  // and the yellow of a grabber crane that has been repainted exactly once.
+  ty_junk_shack: [104, 84, 62], ty_junk_bale: [126, 72, 44], ty_junk_bale_dk: [88, 54, 36], ty_junk_crane: [168, 140, 48],
   // Yards landmark twins — each of these shared a TYPE_MODEL with a same-type neighbour and
   // read as its identical twin from the air, so the more characterful one got promoted to a
   // NAMED_MODEL with its own silhouette (see NAMED_MODELS / drawTypeModel).
@@ -2787,13 +2872,16 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_foundry: [88, 78, 70], ty_foundry_stack: [60, 54, 50], ty_slag: [74, 60, 50],   // Ferro: cupola + twin chimneys + slag
   ty_meltoffice: [116, 84, 64], ty_melt_tank: [88, 80, 70],          // Meltwater: older brick, rooftop water tank
   ty_bond_fence: [70, 74, 78], ty_guard: [98, 94, 86],               // Customs Bonded: lit compound + guard box
-  // The Neon Vig — the city's casino: dark plum stucco under an obscene amount of magenta neon.
+  // The Lucky Bastard — the city's casino: dark plum stucco under an obscene amount of magenta neon.
   ty_vig: [58, 34, 48], ty_vig_trim: [112, 62, 92],
   // The Ascendant Stronghold — a chrome campus in the western waste (docs/proposals/ascendant-stronghold.md).
   ty_asc_spire: [30, 50, 78], ty_asc_gate: [66, 80, 96], ty_asc_clinic: [150, 178, 190],
   ty_asc_weave: [92, 104, 118], ty_asc_vats: [88, 102, 118], ty_asc_shrine: [20, 28, 44],
   // The South Gate — scorched blast-concrete pylons + a darker riveted parapet cap.
   ty_gate: [78, 76, 74], ty_gate_dk: [44, 42, 44],
+  // Citadel Financial — the only marble in Ward Nine: cold white stone, brighter
+  // columns standing proud of it, and a dark bronze entrance band.
+  ty_marble: [172, 170, 164], ty_marble_col: [198, 196, 190], ty_marble_bronze: [86, 62, 34],
   // The Reach — grim-dark frontier: patched steel, sun-bleached plate, poured slag, salvaged neon.
   // Every wall carries dust and rust; the corrugated keys join METAL_WALL for a ribbed, windowless read.
   ty_reach_hangar: [126, 108, 88], ty_reach_rust: [128, 74, 46], ty_reach_shack: [96, 82, 64],
@@ -2814,6 +2902,9 @@ const BLDG_H = { uptown: 0.36, civic: 0.21, citycore: 0.18, marquee: 0.22, freig
 // believable mid-rise instead of vanishing. Keep the archetype in the BLDG_H key set.
 const BLDG_TYPE_3D = {
   corporate_office: { a: 'uptown',    h: 0.40 }, // glass towers
+  office:           { a: 'uptown',    h: 0.36 }, // alias — see TYPE_MODEL note
+  civic:            { a: 'civic',     h: 0.22 },
+  grocery:          { a: 'citycore',  h: 0.15 },
   hotel:            { a: 'uptown',    h: 0.34 },
   apartment:        { a: 'citycore',  h: 0.28 },
   residential:      { a: 'citycore',  h: 0.18 },
@@ -2827,9 +2918,18 @@ const BLDG_TYPE_3D = {
   power:            { a: 'industrial', h: 0.34 },
   hangar:           { a: 'freight',   h: 0.14 },
   gun_shop:         { a: 'citycore',   h: 0.13 }, // squat riveted blockhouse
+  blade_shop:       { a: 'citycore',   h: 0.12 }, // low forge shed, chimney short
   casino:           { a: 'marquee',    h: 0.17 }, // neon-drowned gambling house
   fence:            { a: 'citycore',   h: 0.13 }, // grimy pawnshop
   chem_supply:      { a: 'industrial', h: 0.16 }, // drum-stacked depot
+  // Marrow Street — the workaday downtown strip. Low-rise throughout except the
+  // department store, which is the only thing on the street with four floors.
+  dept_store:       { a: 'citycore',    h: 0.30 }, // Adequate! — the strip's anchor
+  hardware:         { a: 'citycore',    h: 0.13 }, // Nuts to That, stock under the awning
+  bathhouse:        { a: 'citycore',    h: 0.14 }, // Lather & Lye, venting steam
+  noodle_bar:       { a: 'oldcoldwater', h: 0.09 }, // Oyelaran's — one storey, open front
+  outfitter:        { a: 'citycore',    h: 0.13 }, // Layers
+  bodega:           { a: 'oldcoldwater', h: 0.11 }, // Bodega Vu, on the Ironside corner
   // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md) — heights come from
   // flags.floors on each facade; these are the archetype/fallback if a model fails to load.
   asc_spire:        { a: 'uptown',     h: 0.50 },
@@ -2860,17 +2960,10 @@ function bldgStyle(cell) {
 // dense ~50-year-future city reads wrong, so a corner shop is small-mixed-use, a soundstage
 // a tall clear-span volume, a bar/club a couple of storeys. Raises BOTH the rendered mass and
 // the CFIT collision ceiling (both key off floorsOf), so the taller look stays hittable.
-const TYPE_FLOORS = {
-  corporate_office: 22, hotel: 6, apartment: 8, residential: 4, shop: 3, diner: 2,
-  bar: 2, club: 3, studio: 4, police: 4, clinic: 4, power: 5, hangar: 1, civic: 6,
-  gun_shop: 2, casino: 3, fence: 2, chem_supply: 3, default: 4,
-};
-const FLOOR_Z = 0.028;   // world-z per storey — vertically stretched (taller storeys) so buildings stand up off the deck instead of reading flat; not more floors, just taller ones
-function floorsOf(cell) {
-  const f = cell && cell.flr;
-  if (f > 0) return f;
-  return (cell && TYPE_FLOORS[cell.bt]) || TYPE_FLOORS.default;
-}
+// TYPE_FLOORS / FLOOR_Z now live in client/shared/skyline-scale.js — the cold
+// open's closing flythrough renders the same skyline as a wireframe and cannot
+// import this file to get them. Same numbers, one home.
+function floorsOf(cell) { return floorsFor(cell && cell.bt, cell && cell.flr); }
 // Deterministic building height for a cell: floors × per-storey, with a small stable
 // jitter off the seed so same-type neighbours aren't a dead-flat skyline.
 function floorHeight(cell, seed) {
@@ -2881,7 +2974,10 @@ function floorHeight(cell, seed) {
 // is the SAME value the CFIT collision sweep reads (cockpit.js imports it) so a plane hits a
 // tower's mass exactly where its base is drawn, not a tiny box at the tile centre. Scaled by
 // the bldgFoot tuning knob at both the draw and the collision sites so they never drift.
-export const BUILDING_FOOT = 0.38;   // ~0.38–0.44 half-width → a real setback (sidewalk) from the tile edge, so a building doesn't touch its neighbour or spill onto the road on the next tile (was 0.42 → filled ~96% of the tile with no gap). Live-tunable via the dev-panel "Bldg width" slider (RENDER_TUNE.bldgFoot).
+// Defined in client/shared/skyline-scale.js and re-exported here, because
+// cockpit.js's collision sweep imports it from this module. Live-tunable via the
+// dev-panel "Bldg width" slider (RENDER_TUNE.bldgFoot).
+export { BUILDING_FOOT };
 
 // Deterministic building height (render world-z units) for a tile — the SAME value
 // drawWorldObjects paints (line ~1419), exposed so the flight sim can collision-check the
@@ -2893,7 +2989,9 @@ export const BUILDING_FOOT = 0.38;   // ~0.38–0.44 half-width → a real setba
 export function buildingHeightZ(wx, wy, cell) {
   if (!cell) return 0;
   const k = cell.kind, bi = cell.biome;
-  if (k === 'air' || cell.self || k === 'field' || k === 'nofly'
+  // A rooftop pad (a `bt` building tile that also carries an airfield_id) keeps its
+  // mass — the tower is still there to fly into; only bare field surfaces are clear.
+  if (k === 'air' || cell.self || (k === 'field' && !cell.bt) || k === 'nofly'
       || !bi || bi === 'water' || bi === 'parkland' || bi === 'badlands' || !cell.bt) return 0;
   const seed = (wx + 512) * 73 + (wy + 512) * 149;
   return floorHeight(cell, seed);
@@ -2911,6 +3009,71 @@ export function buildingRoofFt(wx, wy, cell) {
   if (buildingHeightZ(wx, wy, cell) <= 0) return 0;
   return floorsOf(cell) * FT_PER_FLOOR;
 }
+
+// Roof altitude in FEET at one specific point on a tile — the per-segment counterpart to
+// buildingRoofFt, which answers for the whole tile as a single square.
+//
+// What this fixes. Collision used to be one axis-aligned box of half-width BUILDING_FOOT with its
+// roof at floors × 12 ft, and the models draw nothing like that: an office tower extrudes to 1.7×
+// its storey stack, Halcyon to 2.9×, and none of those multipliers ever reached the sim — so you
+// flew through the top two thirds of the tallest buildings in the city. Meanwhile the bank's
+// stylobate is WIDER than the collision square and its attic narrower, so you also clipped mass
+// that wasn't there and passed through mass that was. Reading the captured segments makes what you
+// hit the thing you can see, including the gap between a tower and its low wing on the same tile.
+//
+// Returns 0 when the probe is inside no segment — which is now a real answer rather than an
+// approximation, and the reason a plaza between two wings is finally flyable.
+//
+// Deliberately reads the LIVE capture rather than the baked file: models whose shape varies with
+// the tile seed (rooftop clutter) collide as they are actually drawn on that tile.
+export function buildingRoofFtAt(wx, wy, cell, px, py) {
+  if (buildingHeightZ(wx, wy, cell) <= 0) return 0;
+  const seed = (wx + 512) * 73 + (wy + 512) * 149;
+  const m = modelFor(cell);
+  const floors = floorsOf(cell);
+  if (!m) {
+    // No dedicated model (a biome archetype) — the old square, unchanged.
+    const foot = BUILDING_FOOT * (RENDER_TUNE.bldgFoot || 1);
+    return (Math.abs(px - wx) <= foot && Math.abs(py - wy) <= foot) ? floors * FT_PER_FLOOR : 0;
+  }
+  const segs = shapeForModel(m, seed);
+  if (!segs || !segs.length) return floors * FT_PER_FLOOR;
+  const h = floorHeight(cell, seed);
+  if (!(h > 0)) return 0;
+  const fh = (BUILDING_FOOT + frac(seed + 2) * 0.06) * (RENDER_TUNE.bldgFoot || 1);
+  // Into the model's own frame: undo the entrance rotation, then per segment undo its yaw.
+  const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
+  const ox = px - wx, oy = py - wy;
+  const lx = ox * ct + oy * st, ly = -ox * st + oy * ct;
+  const V = (p) => p[0] * fh + p[1] * h + p[2];
+  const ftPerZ = (floors * FT_PER_FLOOR) / h;   // world-z → feet, via the storey stack both agree on
+  let best = 0;
+  for (const s of segs) {
+    const cx = V(s.cx), cy = V(s.cy);
+    const top = V(s.z1) * ftPerZ;
+    if (top <= best) continue;                   // can't raise the answer — skip the containment maths
+    let dx = lx - cx, dy = ly - cy, inside = false;
+    if (s.kind === 'box') {
+      if (s.yaw) { const c = Math.cos(-s.yaw), n = Math.sin(-s.yaw); const rx = dx * c - dy * n; dy = dx * n + dy * c; dx = rx; }
+      const w = Math.min(V(s.hwRaw), 0.44);      // the same clamp draw3DBoxAt applies internally
+      inside = Math.abs(dx) <= w && Math.abs(dy) <= w;
+    } else if (s.kind === 'drum') {
+      const r = Math.max(V(s.rb), V(s.rt));
+      inside = dx * dx + dy * dy <= r * r;
+    } else if (s.kind === 'barrel') {
+      inside = Math.abs(dx - V(s.cxL)) <= V(s.hl) && Math.abs(dy) <= V(s.hw);
+    } else {
+      inside = Math.abs(dx) <= V(s.hx) && Math.abs(dy) <= V(s.hy);
+    }
+    if (inside) best = top;
+  }
+  return best;
+}
+// The widest any model can reach from its tile centre, for a cheap reject before the per-segment
+// test. draw3DBoxAt clamps a footprint half-width to 0.44, and offset sub-parts (a forecourt vat, a
+// porch post) sit outside that — so this is deliberately generous. Being too big only costs a few
+// wasted containment tests; being too small would silently make buildings non-solid at the edges.
+export const MODEL_MAX_EXTENT = 1.0;
 
 // Shared climb-out corridor test: a building dead ahead and low, right off the runway, is
 // culled from the render entirely (see drawWorldObjects) so it never draws — and per the
@@ -3151,19 +3314,153 @@ function fogWeight(f) { if (!FOG_STATE) return 0; const ff = clamp((f - FOG_NEAR
 const hexRgb = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };   // '#rrggbb' → [r,g,b]; palette lives in RENDER_TUNE (live colour pickers)
 let LIGHT_STATE = null;
 function beginFaces() { FACE_SINK = []; }
-function emitFace(depth, fn) { if (FACE_SINK) FACE_SINK.push({ d: depth, fn }); else fn(); }
+function emitFace(depth, fn) { if (FACE_SINK) { FACE_SINK.push({ d: depth, fn }); if (PERF.on) PERF.n.faces++; } else fn(); }
 function flushFaces() { const s = FACE_SINK; if (!s) return; FACE_SINK = null; s.sort((a, b) => b.d - a.d); for (const e of s) e.fn(); }
+
+// ── Frame profiler ───────────────────────────────────────────────────────────
+// Off by default and free when off (one boolean test per phase). Exists to answer ONE question
+// before anyone optimises anything: where does the frame actually go? The guess is cheap and
+// usually wrong — this file already carries an adaptive Mode-7 downscale (PERF_DS), which is
+// evidence the ground plane was once the bottleneck, and that says nothing about today.
+//
+// The load-bearing split is BUILD vs FLUSH inside the world pass. Every building queues closures
+// into FACE_SINK and nothing paints until flushFaces sorts them, so "buildings are slow" has two
+// completely different cures: if BUILD dominates, skip whole arms at distance (LOD); if FLUSH
+// dominates, the cost is the sort plus fill-rate and cutting arms buys much less.
+//
+// Console usage, in the flight sim:
+//   __wsProfile(true)    // start; prints a table every 2s
+//   __wsProfile(false)   // stop
+// Keys are dynamic so the cockpit can add its own sim phases to the same table — the first profile
+// run showed paintWindshield was only a THIRD of the real frame, which makes a windshield-only
+// profiler actively misleading. `frame` is whatever the caller declares the whole frame to be.
+const PERF = { on: false, t: {}, n: {}, stack: [], last: 0, frames: 0 };
+const PERF_COUNTS = ['faces', 'arms', 'adorn', 'grads', 'lod', 'culled'];
+function perfReset() {
+  PERF.t = {}; PERF.n = {}; PERF.stack.length = 0; PERF.frames = 0;
+  for (const k of PERF_COUNTS) PERF.n[k] = 0;
+}
+// A real stack, so a phase can contain sub-phases (frame ⊃ sim:paint ⊃ world:flush). Times are
+// INCLUSIVE — a parent's number contains its children's — which is what you want when the question
+// is "which branch do I chase", not "which leaf is hot".
+export function perfBegin(k) { if (PERF.on) PERF.stack.push(k, performance.now()); }
+export function perfEnd() {
+  if (!PERF.on || !PERF.stack.length) return;
+  const t0 = PERF.stack.pop(), k = PERF.stack.pop();
+  PERF.t[k] = (PERF.t[k] || 0) + (performance.now() - t0);
+}
+const pBegin = perfBegin, pEnd = perfEnd;
+export function setWindshieldProfiler(on) {
+  PERF.on = !!on; perfReset(); PERF.last = performance.now();
+  return PERF.on ? 'flight-sim profiler ON — table every 2s' : 'flight-sim profiler OFF';
+}
+export function perfEnabled() { return PERF.on; }
+// Call once per rendered frame, after closing the `frame` phase.
+export function perfTick() {
+  if (!PERF.on) return;
+  // Defensive: an early return or a throw between perfBegin/perfEnd would leave the stack dirty and
+  // silently mis-attribute every later frame. Clearing per frame bounds the damage to one frame.
+  if (PERF.stack.length) PERF.stack.length = 0;
+  PERF.frames++;
+  const now = performance.now(), span = now - PERF.last;
+  if (span < 2000) return;
+  const f = PERF.frames || 1, total = PERF.t.frame || 0;
+  const rows = Object.keys(PERF.t).filter(k => k !== 'frame' && PERF.t[k] > 0.0001).map(k => ({
+    phase: k, 'ms/frame': +(PERF.t[k] / f).toFixed(3),
+    '% of frame': total > 0 ? +(PERF.t[k] / total * 100).toFixed(1) : 0,
+  })).sort((a, b) => b['ms/frame'] - a['ms/frame']);
+  // Only `sim:*` are top-level children of `frame`; the windshield phases nest INSIDE sim:paint, so
+  // summing both double-counts (the first run of this printed a nonsensical -7ms).
+  const named = rows.filter(r => r.phase.startsWith('sim:')).reduce((s, r) => s + r['ms/frame'], 0);
+  const fps = f / (span / 1000), wall = 1000 / fps;
+  console.log(`── flight-sim frame profile — ${f} frames, ${fps.toFixed(1)} fps, ${(total / f).toFixed(2)} ms/frame inside the rAF handler`);
+  console.table(rows);
+  console.log(`   unaccounted inside the handler: ${(total / f - named).toFixed(2)} ms/frame`);
+  // The handler is only part of a frame. If wall-clock per frame far exceeds the handler, the rest
+  // is the browser rasterising/compositing what we queued — canvas2d fills are GPU work that lands
+  // AFTER the handler returns, so heavy fill counts under-report here and show up as this gap.
+  console.log(`   outside the handler (browser raster/composite): ${(wall - total / f).toFixed(2)} ms/frame of a ${wall.toFixed(1)} ms wall-clock frame`);
+  console.log(`   per frame: ${(PERF.n.faces / f).toFixed(0)} faces queued · ${(PERF.n.arms / f).toFixed(0)} full model arms · ${(PERF.n.lod / f).toFixed(0)} LOD buildings · ${(PERF.n.culled / f).toFixed(0)} occluded ·${(PERF.n.adorn / f).toFixed(0)} adornments · ${(PERF.n.grads / f).toFixed(0)} gradients`);
+  perfReset(); PERF.last = now;
+}
+if (typeof window !== 'undefined') {
+  window.__wsProfile = setWindshieldProfiler;
+  // The live render knobs, for console experiments (`__wsTune.wallLodPx = 400`). Every one takes
+  // effect on the very next frame — same object the ⚙ sliders mutate.
+  window.__wsTune = RENDER_TUNE;
+}
+
+// ── SHAPE CAPTURE ────────────────────────────────────────────────────────────
+// A building's shape isn't data — it's 72 imperative case arms in drawTypeModel. Collision, the
+// ground shadow and the cold open all want to KNOW a building's form, and none of them can read
+// an arm. So the arms record themselves: when SHAPE_SINK is set, every MASS primitive pushes its
+// arguments and returns before doing anything else, and every ADORNMENT primitive no-ops. Run the
+// real drawTypeModel against a stub ctx/cam (see captureShape) and out comes the segment list the
+// renderer would have drawn — derived from the shipping code rather than transcribed from it.
+//
+// THE WHOLE POINT: on a real frame SHAPE_SINK is null, so the arms are byte-for-byte unchanged and
+// the render is pixel-identical BY CONSTRUCTION, not by anyone eyeballing 72 buildings. Never
+// assign this from a paint path; drawWorldObjects asserts it's null.
+//
+// Records are MODEL-LOCAL (captured at the canonical entrance vector E=[0,1], where facePt is the
+// identity) and NORMALIZED — cx/cy/hw/radii are multiples of the `fh` argument, z0/z1 multiples of
+// `h`. That's what makes one capture serve every tile and survive the bldgFoot/bldgH/bldgStretch
+// sliders, which enter only as multipliers on fh and h.
+// The primitives record RAW arguments; captureShape does the de-offsetting and normalization in one
+// post-pass. Keeping the guards dumb is deliberate — they sit at the top of the hottest drawing
+// functions in the file, and a guard that computes something is a guard that can be wrong.
+let SHAPE_SINK = null;
+// The model palette currently being captured. Only draw3DBoxAt is handed a palette key; drums,
+// barrels and sawtooth roofs take colours or shading closures the LOD renderer can't reuse. So the
+// palette rides along ambiently (same idiom as _bladeSign) and every record carries one — which is
+// what lets a distant drum be drawn in its real colour instead of a grey guess.
+let SHAPE_PAL = null;
+// Suppress MASS only. With this set an arm runs normally but its four mass primitives no-op, so
+// what reaches the screen is exactly its adornments — neon blades, marquees, glow pools, beacons,
+// masts, smoke. That is the whole trick behind the distance LOD: the profile showed running an arm
+// costs 3.2ms/frame while QUEUEING its faces costs 14.6ms, so the arm's JS was never the problem.
+// Drawing mass from cheap captured segments and still running the arm for its lights keeps every
+// landmark identifiable at range — the helix runners on Halcyon, Solenne's crown, the aviation
+// beacons that tell you something tall is ahead — while still cutting ~45 faces per building to ~5.
+//
+// Note the two hand-rolled shells (the bank's dome, the Meridian's cupola) draw straight through
+// cam.proj/emitFace rather than a mass primitive, so they survive this and keep their contour at
+// range. That's a happy accident of where they live, not a design.
+let MASS_OFF = false;
+// How much adornment a building is allowed to draw. 2 = everything (what a near building gets and
+// what the sim has always done), 1 = only the CHEAP lights, 0 = none.
+//
+// The tiers are by COST, not by taste, because face count turned out to be the wrong metric
+// entirely: a mass face is a flat polygon fill, while glowPool builds a radial gradient and
+// neonBlade/marqueeBand set shadowBlur — a software blur pass per draw, and the single most
+// expensive thing in canvas2d. Keeping "the lights" wholesale at range kept nearly all the
+// expensive work while shedding only the cheap fills, which is why it gave the framerate straight
+// back. Tier 1 keeps what carries identity for free — blinking aviation beacons, masts, dishes —
+// and drops everything that blurs or builds a gradient.
+let ADORN_TIER = 2;
+const ADORN_CHEAP = 1, ADORN_RICH = 2;
 
 // One extruded, texture-mapped box between two heights (base wz0 → top wz1): painter-sorted
 // walls + an optional roof. Setback towers stack several of these. When a face sink is active the
 // walls/roof are queued (per-face depth) instead of painted, so they interleave correctly with the
 // rest of the building instead of the whole box landing on top of whatever was drawn before it.
-function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, roof, yaw) {
+function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, roof, yaw, fd) {
+  // Shape capture records the RAW fh, ahead of the clamp below. That's load-bearing: 0.44 is an
+  // absolute world constant while everything else in a record is a multiple of fh, so a post-clamp
+  // number would only be valid at the one footprint it was captured at. Consumers re-apply
+  // min(hwRaw * fhLive, 0.44) instead, and the data stays invariant to the bldgFoot slider.
+  if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'box', dx, dy, hwRaw: fh, wz0, wz1, pal: biome, roof: !!roof, yaw: yaw || 0 }); return; }
+  if (MASS_OFF) return;   // adornments-only pass — the distance LOD draws this mass from captured segments
   fh = Math.min(fh, 0.44);   // hard cap so even a WIDE model (warehouse/depot fh*1.1+) keeps a setback inside its tile and never bleeds onto the neighbour/road (was 0.48 → capped boxes reached the tile edge)
+  // `fd` (optional half-DEPTH) makes the footprint rectangular instead of square. No model arm
+  // passes it — they are all square, exactly as before — it exists so the LOD renderer can stand in
+  // for a long shed roof without turning a hangar into a cube. Everything below reads `cs`, so a
+  // rectangle needs no other change.
+  fd = fd === undefined ? fh : Math.min(fd, 0.44);
   // `yaw` (rad, optional) spins the footprint about its centre — buildings never pass it (axis-
   // aligned as before); a heading-aware object like the sailing Echelon passes its heading so the
   // extruded box turns with the hull. cs stays the SSOT the projection + backface cull read from.
-  let cs = [[-fh, -fh], [fh, -fh], [fh, fh], [-fh, fh]];
+  let cs = [[-fh, -fd], [fh, -fd], [fh, fd], [-fh, fd]];
   if (yaw) { const cy = Math.cos(yaw), sy = Math.sin(yaw); cs = cs.map(([a, b]) => [a * cy - b * sy, a * sy + b * cy]); }
   // Raw (unclamped) forward distance of a footprint point — the value proj() clamps to 0.06.
   // f is constant up a vertical edge (height-independent), so this is per footprint CORNER.
@@ -3362,6 +3659,10 @@ function drawCurtainWall(ctx, cam, dx, dy, axis, alpha, now) {
 // for painter depth. `cap` optionally fills the top disc (a flat roof). No wall texture — the caller's
 // `style` owns the surface, so this is how a smooth glass/metal skin gets drawn instead of windows.
 function drawFacetDrum(ctx, cam, dx, dy, z0, z1, rb, rt, N, alpha, style, cap) {
+  // Recorded ahead of the per-facet backface cull below — capture wants the whole solid, not the
+  // half of it a stub camera happens to face.
+  if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'drum', dx, dy, wz0: z0, wz1: z1, rb, rt, n: N, cap: !!cap, pal: SHAPE_PAL }); return; }
+  if (MASS_OFF) return;   // adornments-only pass — the distance LOD draws this mass from captured segments
   const lx = -0.7, ly = -0.7, bk = cam.back || 0, rm = (rb + rt) / 2, F = [];
   for (let i = 0; i < N; i++) {
     const a0 = i / N * 6.2832, a1 = (i + 1) / N * 6.2832, am = (a0 + a1) / 2, nx = Math.cos(am), ny = Math.sin(am);
@@ -3388,6 +3689,7 @@ function drawFacetDrum(ctx, cam, dx, dy, z0, z1, rb, rt, N, alpha, style, cap) {
 // A horizontal RING at world-z `z`, radius `r`, centred on (dx,dy) — a band line / catwalk rail
 // around a drum. Projected through the camera; skipped if any point is behind the near plane.
 function drawRing(ctx, cam, dx, dy, z, r, N, strokeStyle, lw, alpha) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment — a catwalk rail is not mass
   const pts = [];
   for (let i = 0; i <= N; i++) { const a = i / N * 6.2832, p = cam.proj(dx + Math.cos(a) * r, dy + Math.sin(a) * r, z); if (p.f <= 0.08) return; pts.push(p); }
   emitFace(decoDepth(...pts.map(p => p.f)), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = strokeStyle; ctx.lineWidth = lw; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.stroke(); ctx.globalAlpha = 1; });
@@ -3399,6 +3701,13 @@ function drawRing(ctx, cam, dx, dy, z, r, N, strokeStyle, lw, alpha) {
 // order is exact); the two arched gable tympana are backface-culled against the camera. `base` = the
 // roof RGB. Draw AFTER the wall box so it caps it.
 function drawBarrelRoof(ctx, cam, F, cxL, hl, hw, wallTop, archH, NF, alpha, base) {
+  // This one takes the model-local frame as a closure rather than world coords, so capture reads
+  // the anchor out of F and keeps the local extents verbatim — under the canonical E=[0,1] facePt
+  // is the identity, so they're already in the frame every consumer wants.
+  // `base` (the roof RGB) is captured too — it's the one colour the LOD renderer can't derive from a
+  // palette key, and without it a distant barrel roof is a guess instead of the same roof.
+  if (SHAPE_SINK) { const [ax, ay] = F(0, 0); SHAPE_SINK.push({ kind: 'barrel', dx: ax, dy: ay, cxL, hl, hw, wz0: wallTop, archH, nf: NF, pal: SHAPE_PAL, base: base && base.slice ? base.slice() : base }); return; }
+  if (MASS_OFF) return;   // adornments-only pass — the distance LOD draws this mass from captured segments
   const [ox, oy] = F(0, 0), [rx, ry] = F(1, 0), [fx, fy] = F(0, 1);
   const RX = rx - ox, RY = ry - oy, FX = fx - ox, FY = fy - oy, bk = cam.back || 0;   // world basis per local unit
   const P = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return cam.proj(wx, wy, z); };
@@ -3782,6 +4091,7 @@ function modelLowestH(cls, pitchDeg, bankDeg, gearAnim, armed) {
   let m = 0;
   for (const face of aircraftFaces(cls, 1, !!armed)) {
     if (face.role === 'rotor') continue;                         // spinning disc isn't a ground contact
+    if (visorHidden(face)) continue;                             // nor is a ramp stowed inside the hold — the aeroplane must not sit on furniture she keeps indoors
     const isGear = face.role === 'gear';
     if (isGear && !showGear) continue;                           // gear stowed → not a contact point
     for (const p of face.p) {
@@ -3989,6 +4299,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   const gearDown = c.gearAnim == null ? 1 : clamp(c.gearAnim, 0, 1);
   for (const face of aircraftFaces(c.cls, detail, !!c.armed)) {
     if (face.role === 'rotor') continue;                            // spinning surfaces drawn by drawRotorFX below
+    if (visorHidden(face, c.noseVisor)) continue;                   // hold + stowed ramp exist only while the cargo nose is open
     const isGear = face.role === 'gear';
     if (isGear && !showGear) continue;                              // stowed (retracted) or a contact → no gear
     // Tuck the gear legs up into the belly (+z) and fold them inward (g·ga) as gearAnim → 0.
@@ -4752,7 +5063,8 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
   const at = (rx, ry) => (ry >= 0 && ry < map.length && rx >= 0 && rx < map[ry].length) ? map[ry][rx] : null;
   const kindOf = (c) => !c ? null : c.kind === 'field' ? 'field' : c.road ? 'road' : null;   // an airfield tile paints as runway even if it also carries a road icon
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
-    const c = map[ry][rx], surf = kindOf(c); if (!surf || c.mark === 'yacht') continue;   // the yacht's own deck is drawn as a 3D model over open water — no runway concrete
+    // …and a ROOFTOP pad (a field tile carrying a building) keeps its street: the pad is up on the roof, not painted on the block.
+    const c = map[ry][rx], surf = kindOf(c); if (!surf || c.mark === 'yacht' || (surf === 'field' && c.bt)) continue;   // the yacht's own deck is drawn as a 3D model over open water — no runway concrete
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
     // Near-clip per CORNER against the CAMERA. proj() clamps its returned f to 0.06, so a test on
     // proj's f is dead (never trips) — and clipping the tile CENTRE (f+back) dropped the whole tile
@@ -4929,8 +5241,15 @@ function drawGuideBoxes(ctx, cam, v, now) {
 // Rooftop clutter for the otherwise-featureless flat-top boxes: a set-back mechanical
 // penthouse, a couple of AC/vent units on the deck, and one seed-picked feature (water
 // tank on stilts / guyed antenna mast / satellite dish) + a night aviation blink. All of
-// it sits ABOVE the box's roof (`roofZ`) — the CFIT sweep ignores it, exactly like the
-// existing penthouses/masts — so it only lifts the silhouette, never the hittable mass.
+// it sits ABOVE the box's roof (`roofZ`).
+//
+// DELIBERATELY NOT SHAPE-CAPTURE-GUARDED. This used to be invisible to collision ("it only
+// lifts the silhouette, never the hittable mass"); that is no longer true. Its boxes go
+// through draw3DBoxAt, so they are captured as mass and you can now fly into a water tank.
+// The price is that shape stops being a pure function of the model — `ph` varies with
+// frac(seed) and the tank only exists on seed%4===0 — so the models that call this are
+// flagged seedVariant by the bake and keyed by seed at runtime. The mast/dish/blink inside
+// are still adornment; only the boxes count.
 function roofClutter(ctx, cam, dx, dy, fh, roofZ, bi, seed, night, alpha, now) {
   const ph = roofZ * (0.14 + frac(seed) * 0.2);
   draw3DBoxAt(ctx, cam, dx + fh * 0.12, dy - fh * 0.08, fh * 0.44, roofZ, roofZ + ph, bi, seed + 7, night, alpha, true);   // set-back penthouse
@@ -4964,6 +5283,7 @@ function drawCityBuilding(ctx, cam, dx, dy, fh, h, biome, seed, night, alpha, no
 
 // ── Per-biome adornments ──────────────────────────────────────────────────────
 function drawSmoke(ctx, cam, dx, dy, wz, col, alpha, now, seed) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.12) return;
   const s = clamp(20 / p.f, 2, 40);
   emitFace(decoDepth(p.f), () => {
@@ -5066,26 +5386,29 @@ const NAMED_MODELS = {
   hallofrecords:                  { type: 'archive',   pal: 'ty_archive' },
   coldwaterclonefacility:         { type: 'clone',     pal: 'ty_clone' },
   ksabtvstudiostage:              { type: 'ksabstudio', pal: 'ty_ksab', neon: '#b98cff' },
-  ksabaudiencegate:               { type: 'studiogate', pal: 'ty_ksab', neon: '#b98cff' },
-  thegreenroom:                   { type: 'divebar',   pal: 'ty_greenroom', neon: '#7dff6a' },
+  ksabwriterswing:                { type: 'studiogate', pal: 'ty_ksab', neon: '#b98cff' },
+  thegreenroom:                    { type: 'divebar',   pal: 'ty_greenroom', neon: '#7dff6a' },
   solenneresidences:              { type: 'solenne',   pal: 'ty_solenne',   neon: '#ffce78' },
-  coldwatersentinel:              { type: 'office',    pal: 'ty_sentinel',  neon: '#5fd0ff' },
-  meltwaterdiner:                 { type: 'diner',     pal: 'ty_diner',     neon: '#ffcf3e' },
-  jitter:                         { type: 'shop',      pal: 'ty_jitter',    neon: '#5fd0ff' },
-  wardninepermits:                { type: 'office',    pal: 'ty_ward' },
-  meltwaterwalkinclinic:          { type: 'clinic',    pal: 'ty_clinic' },
-  thehockshop:                    { type: 'pawn',      pal: 'ty_pawn',      neon: '#ffcf3e' },
+  coldwatersentinel:              { type: 'sentinel',  pal: 'ty_sentinel',  neon: '#5fd0ff' },   // was a recoloured corporate tower; it's a two-storey storefront newsroom
+  // These two were keyed to names the buildings no longer have — a rename silently
+  // dropped them back to the generic shop/office mesh, because namedModel() misses and
+  // TYPE_MODEL catches. Re-keyed to the live building_name and given real silhouettes.
+  // ('meltwaterdiner' and 'thecage' were dead the same way, but match NO building in
+  // content or the DB, so they were removed rather than re-pointed.)
+  batteryacidcoffeeco:            { type: 'stimcafe',  pal: 'ty_jitter',    neon: '#5fd0ff' },   // was `jitter`
+  officeofpermittedsuffering:     { type: 'permits',   pal: 'ty_ward',      neon: '#9ab08a' },   // was `wardninepermits`
+  copaypray:          { type: 'clinic',    pal: 'ty_clinic' },
+  inhockwetrust:                    { type: 'pawn',      pal: 'ty_pawn',      neon: '#ffcf3e' },
   coldwaterpowerplantturbinehall: { type: 'power',     pal: 'ty_power' },
   coldwaterregionalhangar:        { type: 'hangar',    pal: 'ty_hangar_a', big: true },
   thresholdhelipadhangar:         { type: 'hangar',    pal: 'ty_hangar_b', helipad: true },
   sump:                           { type: 'divebar',   pal: 'ty_bar_a',    neon: '#7dff6a' },
   thedeadpigeon:                  { type: 'divebar',   pal: 'ty_bar_b',    neon: '#5fd0ff', perch: true },
   thecherrypit:                   { type: 'strip',     pal: 'ty_club',     neon: '#ff4a9a' },
-  rationnine:                     { type: 'diner',     pal: 'ty_diner',    neon: '#ffcf3e' },
-  ampersandelectronics:           { type: 'techstall', pal: 'ty_tech',     neon: '#5fd0ff' },
+  rationnine:                     { type: 'rationnine', pal: 'ty_ration',  neon: '#ffb43a' },
+  ohmsweetohm:           { type: 'techstall', pal: 'ty_tech',     neon: '#5fd0ff' },
   deadspaceinteriors:             { type: 'showroom',  pal: 'ty_showroom', neon: '#7dff6a' },
   secondskin:                     { type: 'boutique',  pal: 'ty_boutique', neon: '#ff4a9a' },
-  thecage:                        { type: 'shop',      pal: 'ty_shop_d',   neon: '#ffcf3e' },
   velkspreownedfurnishings:       { type: 'junkshop',  pal: 'ty_junk',     neon: '#ff8a4a' },
   voltage:                        { type: 'nightclub', pal: 'ty_voltage',  neon: '#5cd6ff' },
   aurelia:                        { type: 'atelier',   pal: 'ty_aurelia',  neon: '#b070ff' },
@@ -5096,11 +5419,11 @@ const NAMED_MODELS = {
   // Each of these shared a TYPE_MODEL with a neighbour of the same building_type and
   // was indistinguishable from it in the air. The twin keeps the generic type model;
   // this one gets a silhouette you can name from a mile out.
-  coldlinereeferdepot:            { type: 'reefer',     pal: 'ty_reefer_blk' },
-  interchangestack:               { type: 'interstack', pal: 'ty_stack_dk' },
-  ferrofabricationworks:          { type: 'foundry',    pal: 'ty_foundry' },
-  meltwaterfreightoffice:         { type: 'oldoffice',  pal: 'ty_meltoffice', neon: '#ffb43a' },
-  customsbondedstore7:            { type: 'bonded',     pal: 'ty_wh_metal',   neon: '#6affa8' },
+  chilloutlogistics:            { type: 'reefer',     pal: 'ty_reefer_blk' },
+  stackoverflow:               { type: 'interstack', pal: 'ty_stack_dk' },
+  weldenoughalone:          { type: 'foundry',    pal: 'ty_foundry' },
+  yardsfreightoffice:         { type: 'oldoffice',  pal: 'ty_meltoffice', neon: '#ffb43a' },
+  bondedbothered:            { type: 'bonded',     pal: 'ty_wh_metal',   neon: '#6affa8' },
   // Promoted off the generic `casino` type model so a future casino still has one.
   theneonvig:                     { type: 'neonvig',    pal: 'ty_vig',        neon: '#ff3e8a' },
   buzzardfield:                   { type: 'buzzard',   pal: 'ty_reach_hangar', neon: '#ffb14a' },
@@ -5117,6 +5440,12 @@ function namedModel(name) { return NAMED_MODELS[bldgSlug(name)] || null; }
 // null and keeps its biome archetype.
 const TYPE_MODEL = {
   corporate_office: { type: 'office',    pal: 'ty_office' },
+  // Bare aliases for authored types that never got their own model. Without an
+  // entry here a building bakes NO shape at all and draws as lights with no mass
+  // — which is what made the Sentinel a floating grid of windows in the intro.
+  office:           { type: 'office',    pal: 'ty_office' },
+  civic:            { type: 'police',    pal: 'ty_police' },
+  grocery:          { type: 'shop',      pal: 'ty_shop_a', neon: '#5fd0ff' },
   hotel:            { type: 'hotel',     pal: 'ty_hotel',  neon: '#ff4a9a' },
   apartment:        { type: 'apartment', pal: 'ty_apt_a' },
   residential:      { type: 'apartment', pal: 'ty_apt_b' },
@@ -5132,9 +5461,14 @@ const TYPE_MODEL = {
   power:            { type: 'power',     pal: 'ty_power' },
   hangar:           { type: 'hangar',    pal: 'ty_hangar_a' },
   gun_shop:         { type: 'armory',    pal: 'ty_armory', neon: '#ff6a4a' },
+  blade_shop:       { type: 'armory',    pal: 'ty_forge',  neon: '#ff8a2a' },
   casino:           { type: 'casino',    pal: 'ty_casino', neon: '#ff3e8a' },
   fence:            { type: 'pawn',      pal: 'ty_pawn',   neon: '#ffcf3e' },
   chem_supply:      { type: 'chemsupply', pal: 'ty_chem',  neon: '#7dff6a' },
+  // Reuses the shop mesh with its own iron-toned palette + warm sign, the same
+  // "nearest existing model, bespoke colour" call the Ascendant campus makes.
+  kitchenware:      { type: 'shop',      pal: 'ty_kitchen', neon: '#ff9a3e' },
+  bank:             { type: 'bank',      pal: 'ty_marble' },
   // The Yards — semi-industrial freight district (see docs/proposals/yards.md).
   warehouse:         { type: 'warehouse',         pal: 'ty_wh_metal' },
   container_yard:    { type: 'container_yard',    pal: 'ty_cont_b' },
@@ -5144,6 +5478,20 @@ const TYPE_MODEL = {
   wharf:             { type: 'wharf',             pal: 'ty_wharf' },
   freight_office:    { type: 'freight_office',    pal: 'ty_freight_office', neon: '#ffb43a' },
   freight_forwarder: { type: 'freight_forwarder', pal: 'ty_fwd_metal' },
+  // The scrapyard on the wasteland edge — crushed-car bales, a grabber crane, a shack.
+  junkyard:          { type: 'junkyard',          pal: 'ty_junk_shack', neon: '#ffb43a' },
+  // The only warm-lit window on Ironside — a wide glazed front and a cold-blue sign.
+  laundromat:        { type: 'laundromat',        pal: 'ty_asc_clinic', neon: '#7fe3ff' },
+  // Marrow Street — the workaday downtown strip either side of the Sentinel. Each type
+  // has exactly one building and each gets its OWN silhouette, not a recoloured shop box:
+  // the strip has to read as a high street from the air, which it can't do if four of the
+  // six are the same mesh.
+  dept_store:        { type: 'deptstore',         pal: 'ty_adequate',   neon: '#ff8a2e' },
+  hardware:          { type: 'hardware',          pal: 'ty_bolt',       neon: '#ffcf3e' },
+  bathhouse:         { type: 'bathhouse',         pal: 'ty_soak',       neon: '#7fe3c0' },
+  noodle_bar:        { type: 'noodlebar',         pal: 'ty_broth',      neon: '#ff5a3e' },
+  outfitter:         { type: 'outfitter',         pal: 'ty_secondskin', neon: '#ffb43a' },
+  bodega:            { type: 'bodega',            pal: 'ty_kessel',     neon: '#ffe08a' },
   // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md).
   asc_spire:  { type: 'asc_spire',  pal: 'ty_asc_spire' },
   asc_gate:   { type: 'asc_gate',   pal: 'ty_asc_gate' },
@@ -5154,22 +5502,103 @@ const TYPE_MODEL = {
 };
 function modelFor(cell) { return (cell.bn && namedModel(cell.bn)) || (cell.bt && TYPE_MODEL[cell.bt]) || null; }
 
+// Every model the world can resolve, as {key, m} — the key space the shape bake enumerates and the
+// shape lint checks for coverage. Named models are prefixed so a building called "Hangar" can never
+// collide with the `hangar` building_type. The `m` values are the same object identities modelFor
+// hands back, which is what lets shapeForModel cache on them.
+export function shapeModelRegistry() {
+  return [
+    ...Object.entries(NAMED_MODELS).map(([k, m]) => ({ key: `named:${k}`, m })),
+    ...Object.entries(TYPE_MODEL).map(([k, m]) => ({ key: `type:${k}`, m })),
+  ];
+}
+// The bake's two correctness gates, re-exported so the script doesn't reach into module internals.
+export { shapeLinearityError, shapeIsSeedVariant };
+
+// PAINT SMOKE TEST. Capture returns early out of every mass primitive, so it proves a model's
+// GEOMETRY is sane but never executes the drawing. That gap is not theoretical: the Battery Acid
+// roaster passed a palette KEY where drawFacetDrum wanted a style FUNCTION, and because the only
+// thing that ever runs these 72 arms is a human flying past one, it sat there until it threw
+// "style is not a function" mid-frame and froze the sim.
+//
+// So: render every model for real against the stub ctx — including flushFaces(), since most of the
+// actual ctx work lives in deferred closures — across night/day and both entrance facings, and
+// report anything that throws. Runs in node under a DOM stub; see scripts/shapes/.
+export function shapeRenderSmoke() {
+  const out = [];
+  for (const { key, m } of shapeModelRegistry()) {
+    for (const night of [0, 0.9]) for (const dyOff of [-8, 8]) {
+      const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign;
+      try {
+        FACE_SINK = [];
+        drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, dyOff, 0.4, 1, m, 3, night, 1, 1000, [0, 1], 'SMOKE TEST');
+        flushFaces();   // the closures are where nearly all the ctx calls actually happen
+      } catch (e) {
+        out.push({ key, night, front: dyOff < 0, err: e.message });
+      } finally {
+        FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign;
+      }
+    }
+    // The adornments-only pass is a THIRD way an arm can run (mass suppressed, lights drawn), and an
+    // arm that reads back something a mass primitive would have returned would only fail here.
+    for (const night of [0, 0.9]) {
+      const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign;
+      try {
+        FACE_SINK = []; MASS_OFF = true;
+        drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, -8, 0.4, 1, m, 3, night, 1, 1000, [0, 1], 'SMOKE TEST');
+        flushFaces();
+      } catch (e) {
+        out.push({ key, night, err: `adornments-only: ${e.message}` });
+      } finally {
+        MASS_OFF = false; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign;
+      }
+    }
+    // The LOD path is a second renderer for the same 83 models and needs the same coverage — it has
+    // its own rotation, its own drum shading and its own roof approximations, any of which can throw
+    // on a model nobody flew past. Swept across the detail range and all four entrance facings,
+    // since the entrance vector feeds the yaw term.
+    for (const detail of [1, 0.6, 0.2, 0]) for (const E of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+      const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE;
+      try {
+        FACE_SINK = [];
+        drawModelLOD(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, -8, 0.4, 1, m, 3, 0.5, 1, E, detail);
+        flushFaces();
+      } catch (e) {
+        out.push({ key, detail, E: E.join(','), err: `LOD: ${e.message}` });
+      } finally {
+        FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight;
+      }
+    }
+  }
+  return out;
+}
+
 // Shared adornment primitives for the dedicated models (all project through the same camera).
 function blinkLight(ctx, cam, dx, dy, wz, rgb, now, seed, alpha, r = 1.6) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return;
   const k = 0.4 + 0.5 * Math.abs(Math.sin((now || 0) * 0.004 + seed));
   emitFace(decoDepth(p.f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = `rgba(${rgb},${k})`; ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, 7); ctx.fill(); ctx.globalAlpha = 1; });
 }
 function mast(ctx, cam, dx, dy, h0, h1, alpha, now, seed) {   // guyed antenna mast + red aviation light
+  // A SPAR: recorded, but never as mass. A mast is what holds a finial, a crown box or the Dead
+  // Pigeon's stuffed bird up in the air — capture it and those pieces float, which is exactly what
+  // the cold open's wireframe showed. So it goes into the sink under its own kind, and shapeForModel
+  // hands it out separately: collision, footprint, shadow and roof height never see it (you still
+  // don't CFIT into an antenna), and the wireframe draws it as the one line it is.
+  if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'spar', dx, dy, wz0: h0, wz1: h1 }); return; }
+  if (ADORN_TIER < ADORN_CHEAP) return;   // adornment
   const a = cam.proj(dx, dy, h0), b = cam.proj(dx, dy, h1);
   if (a.f > 0.1 && b.f > 0.1) emitFace(decoDepth(a.f, b.f), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(184,192,206,0.8)'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; });
   blinkLight(ctx, cam, dx, dy, h1, '255,80,80', now, seed, alpha);
 }
 function dish(ctx, cam, dx, dy, wz, s0, alpha) {   // rooftop satellite dish
+  if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return; const r = clamp(s0 / p.f, 2, 22);
   emitFace(decoDepth(p.f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(198,204,214,0.85)'; ctx.beginPath(); ctx.ellipse(p.sx, p.sy, r, r * 0.5, -0.5, 0, 7); ctx.fill(); ctx.globalAlpha = 1; });
 }
 function crossMark(ctx, cam, dx, dy, wz, alpha) {   // red medical cross billboard
+  if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return; const s = clamp(9 / p.f, 2, 16);
   emitFace(decoDepth(p.f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(230,60,60,0.95)'; ctx.fillRect(p.sx - s * 0.28, p.sy - s, s * 0.56, s * 2); ctx.fillRect(p.sx - s, p.sy - s * 0.28, s * 2, s * 0.56); ctx.globalAlpha = 1; });
 }
@@ -5178,6 +5607,7 @@ function crossMark(ctx, cam, dx, dy, wz, alpha) {   // red medical cross billboa
 // camera at world (dx,dy,z); worldR sets screen size off depth. Rotates on `now`. Wrapped as a
 // rooftop deco so it sits over its own mast without punching through nearer geometry.
 function windWheel(ctx, cam, dx, dy, z, worldR, now, alpha, seed = 0) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment (and animated — never geometry)
   const c = cam.proj(dx, dy, z); if (c.f <= 0.12) return;
   const R = clamp(worldR / c.f, 4, 60), ang = (now || 0) * 0.0015 + seed, N = 9, sq = 0.62;   // vertical squash → seen at a rake
   emitFace(decoDepth(c.f), () => {
@@ -5198,6 +5628,7 @@ function windWheel(ctx, cam, dx, dy, z, worldR, now, alpha, seed = 0) {
 // A DEAD-STILL windsock: a thin pole with a striped cone hanging straight DOWN off the top (no
 // wind in the Reach — the flavour text says it hangs limp). Pole z0→z1, sock drops below the tip.
 function windsockLimp(ctx, cam, dx, dy, z0, z1, alpha) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment
   const b = cam.proj(dx, dy, z0), t = cam.proj(dx, dy, z1); if (b.f <= 0.12 || t.f <= 0.12) return;
   const drop = (z1 - z0) * 0.42, m1 = cam.proj(dx, dy, z1 - drop * 0.5), m2 = cam.proj(dx, dy, z1 - drop);
   if (m1.f <= 0.12 || m2.f <= 0.12) return;
@@ -5213,6 +5644,7 @@ function windsockLimp(ctx, cam, dx, dy, z0, z1, alpha) {
 }
 // A hunched buzzard perched on a ridge/pole at world (dx,dy,z) — a tiny near-black silhouette.
 function perchBird(ctx, cam, dx, dy, z, alpha) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment
   const p = cam.proj(dx, dy, z); if (p.f <= 0.12) return; const s = clamp(5.5 / p.f, 1.4, 9);
   emitFace(decoDepth(p.f), () => {
     ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(16,14,16,0.94)';
@@ -5304,6 +5736,11 @@ function emitFlat(ctx, cam, pts, fill, alpha, opts = {}) {
 // glazed north-light face dropping back down (faces the entrance side), and the two triangular gable
 // ENDS that give the silhouette its saw. hx/hy are the roof-deck half-extents in the model-local frame.
 function sawtoothRoof(ctx, cam, dx, dy, E, hx, hy, z0, rh, teeth, roofc, glassc, edge, alpha) {
+  // Captured HERE and not in emitFlat: this roof is built entirely out of emitFlat, so hooking both
+  // would record the same geometry twice. The four direct emitFlat calls elsewhere in the arms are
+  // decorative (a studio visor, a buzzard triangle) and are deliberately not captured at all.
+  if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'sawtooth', dx, dy, hx, hy, wz0: z0, rh, teeth, pal: SHAPE_PAL, roofc, glassc, edge }); return; }
+  if (MASS_OFF) return;   // adornments-only pass — the distance LOD draws this mass from captured segments
   const L = (lx, ly, z) => { const w = facePt(dx, dy, lx, ly, E); return [w[0], w[1], z]; };
   const px = E[1], py = -E[0], step = (2 * hy) / teeth;
   for (let i = 0; i < teeth; i++) {
@@ -5318,6 +5755,7 @@ function sawtoothRoof(ctx, cam, dx, dy, E, hx, hy, z0, rh, teeth, roofc, glassc,
 // diagonals are the triangles) + a red aviation beacon. Pure stroke-work queued per segment at its own
 // depth (a hair forward so it beats the roof it stands on, nowhere near enough to bleed through the mass).
 function latticeTower(ctx, cam, dx, dy, z0, z1, r0, r1, alpha, now, seed) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // stroke-only silhouette, not solid mass
   const S = 3, H = 4;
   const corner = (i, z) => { const t = (z - z0) / (z1 - z0), r = r0 + (r1 - r0) * t, a = i / S * Math.PI * 2 + 0.5; return [dx + Math.cos(a) * r, dy + Math.sin(a) * r, z]; };
   const seg = (A, B, w, c) => {
@@ -5352,6 +5790,7 @@ function latticeTower(ctx, cam, dx, dy, z0, z1, r0, r1, alpha, now, seed) {
 const _signTexCache = new Map();   // key `label|color|dn|vertical` → offscreen neon-glyph canvas
 let _bladeSign;   // ambient: the current building's display name, set by drawTypeModel so its neonBlades paint real letters without threading the name through every call site (same idiom as FACE_SINK)
 function bakeSignText(label, color, dn, vertical) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return null;   // adornment — and it allocates a canvas, which capture must never do
   const key = `${label}|${color}|${dn}|${vertical ? 1 : 0}`;
   let c = _signTexCache.get(key); if (c) return c;
   const n = label.length, CELL = 46, PAD = 8;   // logical px per glyph cell + margin; the strip map scales this onto the quad
@@ -5373,6 +5812,7 @@ function bakeSignText(label, color, dn, vertical) {
 // called INSIDE an emitFace closure — it is pure screen-space drawing and composes onto the
 // current (DPR) transform via ctx.transform, never setTransform, so it stays in world scale.
 function drawSurfaceText(ctx, TL, TR, BR, BL, tex, vertical, alpha) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment
   const W = tex.width, H = tex.height, S = 8;
   const at = (P, Q, t) => ({ x: P.sx + (Q.sx - P.sx) * t, y: P.sy + (Q.sy - P.sy) * t });
   for (let i = 0; i < S; i++) {
@@ -5393,13 +5833,15 @@ function drawSurfaceText(ctx, TL, TR, BR, BL, tex, vertical, alpha) {
     ctx.drawImage(tex, sx, sy, sw, sh, sx, sy, sw, sh); ctx.restore();
   }
 }
-function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // vertical marquee blade — a stacked sign board; a label (explicit, or the ambient building name) paints real letters onto the blade face
+function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // vertical marquee blade
+  if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment — a stacked sign board; a label (explicit, or the ambient building name) paints real letters onto the blade face
   if (label === undefined) label = _bladeSign;   // default to the current building's name; pass '' to force the abstract rungs
   const b = cam.proj(dx, dy, h0), t = cam.proj(dx, dy, h1); if (b.f <= 0.12 || t.f <= 0.12) return;
   const ux = t.sx - b.sx, uy = t.sy - b.sy, len = Math.hypot(ux, uy) || 1;
   const wpx = clamp(9 / ((b.f + t.f) / 2), 2, 9);            // blade half-width (screen px), distance-scaled
   const nx = -uy / len * wpx, ny = ux / len * wpx;           // perpendicular half-width offset
   const P = [[b.sx + nx, b.sy + ny], [t.sx + nx, t.sy + ny], [t.sx - nx, t.sy - ny], [b.sx - nx, b.sy - ny]];
+  const glow = glowEarned(night, (b.f + t.f) / 2);   // the bloom is the expensive half of neon
   // Sort as a building-mounted deco (lifted DECO_LIFT tiles forward), not by its raw average depth:
   // a back-corner blade's average sits BEHIND its own tile-centered roof cap, so the two flip-flop in
   // the painter queue and the sign flashes on/off as the camera swings past (same fix as marqueeBand).
@@ -5408,7 +5850,7 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
     ctx.save();
     ctx.globalAlpha = alpha * (night ? 0.92 : 0.84); ctx.fillStyle = '#120d12'; trace(); ctx.fill();   // backing board
     ctx.globalAlpha = alpha * (night ? 0.8 : 0.55); ctx.fillStyle = color;                              // colour-lit face
-    if (night) { ctx.shadowColor = color; ctx.shadowBlur = 8; }
+    if (glow) { ctx.shadowColor = color; ctx.shadowBlur = 8; }
     trace(); ctx.fill(); ctx.shadowBlur = 0;
     if (label) {   // real letters painted DOWN the blade face (top→bottom), foreshortened with it
       const q = (p) => ({ sx: p[0], sy: p[1] });
@@ -5416,7 +5858,7 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
     } else {   // no name → the old abstract "letter" rungs
       const N = clamp(Math.round(len / 8), 3, 8);
       ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1;
-      if (night) { ctx.shadowColor = color; ctx.shadowBlur = 4; }
+      if (glow) { ctx.shadowColor = color; ctx.shadowBlur = 4; }
       for (let i = 1; i < N; i++) {
         const s = i / N, cx = b.sx + ux * s, cy = b.sy + uy * s;
         ctx.globalAlpha = alpha * (night ? 0.9 : 0.68);
@@ -5435,12 +5877,14 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
 // third side is against the wall. Per-face backface culling shows only the side facing you, so lettering
 // both never doubles the glyphs. Top/bottom cap triangles fill the prism into a solid.
 function verticalMarquee(ctx, cam, dx, dy, h0, h1, label, color, night, alpha, N) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment
   const n = label.length; if (!n) return;
   N = N || [0, 1];
   const ax = N[1], ay = -N[0], baseH = 0.045, projD = 0.15, bk = cam.back || 0;    // along-wall unit; base half-width + apex-ridge projection (tiles)
   const baseL = [dx - ax * baseH, dy - ay * baseH], baseR = [dx + ax * baseH, dy + ay * baseH], apex = [dx + N[0] * projD, dy + N[1] * projD];
   const board = () => { ctx.globalAlpha = alpha; ctx.fillStyle = '#0e0a0f'; };     // dark backing fill
-  const frame = () => { ctx.globalAlpha = alpha * (night ? 0.5 : 0.32); ctx.strokeStyle = color; ctx.lineWidth = 1.2; if (night) { ctx.shadowColor = color; ctx.shadowBlur = 7; } ctx.stroke(); ctx.shadowBlur = 0; };
+  const mGlow = glowEarned(night, cam.proj(dx, dy, (h0 + h1) / 2).f);   // one distance for the whole sign
+  const frame = () => { ctx.globalAlpha = alpha * (night ? 0.5 : 0.32); ctx.strokeStyle = color; ctx.lineWidth = 1.2; if (mGlow) { ctx.shadowColor = color; ctx.shadowBlur = 7; } ctx.stroke(); ctx.shadowBlur = 0; };
   const drawFace = (A, B) => {   // one FLAT slanted side, horizontal plan edge A→B (wall corner → apex ridge), full height h0..h1
     const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2;
     let nfx = B[1] - A[1], nfy = -(B[0] - A[0]);                                   // outward normal ⊥ to the edge
@@ -5472,9 +5916,44 @@ function verticalMarquee(ctx, cam, dx, dy, h0, h1, label, color, night, alpha, N
   drawFace(baseL, apex);           // front slanted face — EMBASSY
   drawFace(apex, baseR);           // back slanted face  — EMBASSY (the third side, baseR→baseL, is against the wall)
 }
+// Does a sign at this camera distance earn a real blurred halo? See RENDER_TUNE.glowFar — the blur
+// is the expensive part of neon, and beyond a handful of tiles it is smaller than a pixel.
+const glowEarned = (night, f) => !!night && f < (RENDER_TUNE.glowFar || 0);
+
+// A soft radial blob, baked ONCE per colour into a small offscreen canvas and thereafter blitted.
+//
+// glowPool used to build a fresh radial gradient every call — profiling counted 141 gradient
+// constructions per frame from the skyline alone, and gradient construction is one of the two
+// things (with shadowBlur) that actually cost real time in canvas2d. A radial falloff is the same
+// shape at every size, so there is nothing to recompute: bake it at a fixed radius, then scale on
+// blit. Alpha rides on globalAlpha rather than in the gradient stops, which is what lets one sprite
+// serve every intensity.
+//
+// Cached per RGB string; the palette is small and fixed, so this converges to a handful of 64px
+// canvases within the first second and never allocates again.
+const _glowSprites = new Map();
+const GLOW_SPRITE_R = 32;   // baked radius in px; blit scales from this
+function glowSprite(rgb) {
+  let c = _glowSprites.get(rgb);
+  if (c) return c;
+  c = texCanvas(GLOW_SPRITE_R * 2, GLOW_SPRITE_R * 2);
+  const g = c.getContext('2d');
+  const rg = g.createRadialGradient(GLOW_SPRITE_R, GLOW_SPRITE_R, 1, GLOW_SPRITE_R, GLOW_SPRITE_R, GLOW_SPRITE_R);
+  rg.addColorStop(0, `rgba(${rgb},1)`); rg.addColorStop(1, `rgba(${rgb},0)`);
+  g.fillStyle = rg; g.fillRect(0, 0, GLOW_SPRITE_R * 2, GLOW_SPRITE_R * 2);
+  _glowSprites.set(rgb, c);
+  return c;
+}
 function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha) {   // soft ground/roof glow (generalised ruin glow)
+  if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment
+  if (PERF.on) PERF.n.adorn++;
   const g = cam.proj(dx, dy, wz); if (g.f <= 0.12) return; const s = clamp(s0 / g.f, 3, 60);
-  emitFace(decoDepth(g.f), () => { const rg = ctx.createRadialGradient(g.sx, g.sy, 1, g.sx, g.sy, s); rg.addColorStop(0, `rgba(${rgb},${alpha})`); rg.addColorStop(1, `rgba(${rgb},0)`); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(g.sx, g.sy, s, 0, 7); ctx.fill(); });
+  const sp = glowSprite(rgb);
+  emitFace(decoDepth(g.f), () => {
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(sp, g.sx - s, g.sy - s, s * 2, s * 2);
+    ctx.globalAlpha = 1;
+  });
 }
 // A HORIZONTAL marquee SIGN across a building's entrance face (a hotel/bar marquee), at
 // height wz, spanning ±half across the front edge (E = entrance world vector). Drawn as a
@@ -5482,6 +5961,7 @@ function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha) {   // soft ground/roof 
 // marquee bulbs along the top & bottom rails — so it reads as signage in daylight instead
 // of a bare stroke (which is all it used to be).
 function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment
   const px = E[1] * half, py = -E[0] * half;                 // across-front half-width
   const ox = E[0] * half * 0.94, oy = E[1] * half * 0.94;    // pushed out to the front face
   const hh = Math.min(clamp(half * 0.26, 0.045, 0.12), Math.max(0.03, wz * 0.85));   // sign half-height (world-z), never dips below the base
@@ -5502,7 +5982,7 @@ function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label) 
   ctx.globalAlpha = alpha * (night ? 0.94 : 0.86); ctx.fillStyle = '#140f14'; quad(); ctx.fill();
   // 2. colour-lit sign face (glows at night)
   ctx.globalAlpha = alpha * (night ? 0.82 : 0.6); ctx.fillStyle = color;
-  if (night) { ctx.shadowColor = color; ctx.shadowBlur = 8; }
+  if (glowEarned(night, (tl.f + br.f) / 2)) { ctx.shadowColor = color; ctx.shadowBlur = 8; }   // bloom only where it's bigger than a pixel
   quad(); ctx.fill(); ctx.shadowBlur = 0;
   // 3. metal frame
   ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(18,14,18,0.9)'; ctx.lineWidth = 1.3; quad(); ctx.stroke();
@@ -5558,6 +6038,7 @@ function facePt(dx, dy, lx, ly, E) {
 // undersides — each face pushed through the shared building FACE_SINK (so the cornice/tower occlude
 // it), backface-culled (wings excepted). Stone: no gloss, no neon.
 function drawGargoyle(ctx, cam, wx, wy, wz, size, outDir, alpha, night, seed) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment — the Meridian's beasts are ornament, not envelope
   const om = Math.hypot(outDir[0], outDir[1]) || 1, fX = outDir[0] / om, fY = outDir[1] / om;
   const rX = fY, rY = -fX;                                                     // right = outward rotated -90°
   const L = (r, f, u) => [wx + (rX * r + fX * f) * size, wy + (rY * r + fY * f) * size, wz + u * size];
@@ -5655,6 +6136,8 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
   const pal = m.pal;
   // The building's display name, upper-cased for signage. Published as the ambient blade sign so
   // every neonBlade in this pass paints the real name; undefined (no name) → the abstract rungs.
+  if (PERF.on) PERF.n.arms++;
+  if (SHAPE_SINK) SHAPE_PAL = m.pal;   // ambient palette for the non-box mass primitives (capture only)
   const sign = (name || '').trim().toUpperCase() || undefined;
   _bladeSign = sign;
   const F = (lx, ly) => facePt(dx, dy, lx, ly, E);   // model-local → world, rotated to the entrance
@@ -5664,6 +6147,38 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
   // (it lives ON that face) instead of letting it float through the building from behind.
   const frontVis = (E[0] * (dx + E[0] * fh) + E[1] * (dy + E[1] * fh) + (cam.back || 0) * (E[0] * cam.sinh - E[1] * cam.cosh)) < 0;
   switch (m.type) {
+    case 'bank': {   // Citadel Financial — a windowless marble strongbox pretending to be a temple.
+      // Deliberately the archive's austere cousin: same civic vocabulary (stylobate, colonnade,
+      // entablature) with every window taken out, because the whole building is one wall. Four
+      // columns, a bronze entrance band under the portico, a blank attic block, and a floodlit
+      // frontage at night — no neon, nothing that could be switched off.
+      const stone = pal, colPal = 'ty_marble_col', bronze = 'ty_marble_bronze';
+      const plinth = h * 0.16, colTop = h * 0.88, entTop = h * 1.04, atticTop = h * 1.22;
+      // 1) Two broad stone steps up off the deck.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.34, 0, h * 0.08, stone, seed, night, alpha, false);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.20, h * 0.08, plinth, stone, seed + 1, night, alpha, false);
+      // 2) The strongbox itself — one solid windowless mass. This is the whole point of the model.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.00, plinth, colTop, stone, seed + 2, night, alpha, false);
+      // 3) Four fluted columns standing proud of it on the entrance side.
+      for (let i = 0; i < 4; i++) {
+        const [cx, cy] = F((-0.9 + i * 0.6) * fh * 0.98, fh * 1.10);
+        draw3DBoxAt(ctx, cam, cx, cy, fh * 0.11, plinth, colTop, colPal, seed + 10 + i, night, alpha, false);
+      }
+      // 4) Heavy entablature over the colonnade, and the blank attic block above it.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.16, colTop, entTop, stone, seed + 3, night, alpha, false);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.82, entTop, atticTop, stone, seed + 4, night, alpha, false);
+      // 5) The bronze doors — a dark band recessed under the portico, front face only.
+      if (frontVis) {
+        const [bx, by] = F(0, fh * 0.96);
+        draw3DBoxAt(ctx, cam, bx, by, fh * 0.30, plinth, plinth + h * 0.30, bronze, seed + 5, night, alpha, false);
+        // Floodlights wash the columns from the step line up — the frontage is never dark.
+        glowPool(ctx, cam, bx, by, plinth + h * 0.06, '236,226,200', 11, alpha * (night ? 0.75 : 0.3));
+      }
+      // 6) Rooftop plant and one steady red obstruction light. No beacon theatrics.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.30, atticTop, atticTop + h * 0.10, colPal, seed + 6, night, alpha, false);
+      blinkLight(ctx, cam, dx, dy, atticTop + h * 0.14, '255,90,80', now, seed, alpha, 1);
+      break;
+    }
     case 'archive': {   // Hall of Records — the oldest thing on the skyline: a weathered stone
       // civic temple. A stepped stylobate lifts a six-column portico under a heavy entablature and
       // a classical pediment; behind it a drum of clerestory windows carries a verdigris copper
@@ -5701,6 +6216,10 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.60, entTop, drum1, stone, seed + 5, night, alpha, true);
       // 7) The verdigris copper dome — smooth stacked discs following a hemisphere profile.
       const domeH = h * 0.46, domeR = fh * 0.60, apex = drum1 + domeH;
+      // Revolved by hand rather than through a mass primitive, so it records itself: without this the
+      // dome is a hole in the captured envelope and the stone lantern above it stands on nothing in
+      // any consumer drawing the silhouette. A tapered drum is what a hemisphere is, to a wireframe.
+      if (SHAPE_SINK) SHAPE_SINK.push({ kind: 'drum', dx, dy, wz0: drum1, wz1: apex, rb: domeR, rt: domeR * 0.08, n: 12, cap: false, pal: SHAPE_PAL });
       for (let i = 0; i <= 7; i++) {
         const t = i / 7, z = drum1 + domeH * t, r = domeR * Math.sqrt(Math.max(0, 1 - t * t));
         const pts = []; let ok = true;
@@ -5958,6 +6477,8 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       const lantStyle = (f) => { const s = (night ? 0.44 : 0.78) + f.nl * 0.5; return `rgba(${stoneRGB[0]*s|0},${stoneRGB[1]*s|0},${stoneRGB[2]*s|0},0.97)`; };
       drawFacetDrum(ctx, cam, dx, dy, lantZ0, lantZ1, lantR * 1.04, lantR, 8, alpha, lantStyle, null);
       const cupH = h * 0.30, cupR = lantR * 1.12, apex = lantZ1 + cupH;
+      // Records itself for the same reason the Hall of Records' dome does — see there.
+      if (SHAPE_SINK) SHAPE_SINK.push({ kind: 'drum', dx, dy, wz0: lantZ1, wz1: apex, rb: cupR, rt: cupR * 0.08, n: 12, cap: false, pal: SHAPE_PAL });
       for (let i = 0; i <= 8; i++) {
         const t = i / 8, z = lantZ1 + cupH * t, r = cupR * Math.pow(Math.max(0, 1 - t * t), 0.7);       // ogee (pointed) copper cap
         const pts = []; let ok = true;
@@ -6159,7 +6680,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         const [kx, ky] = F(-fh * 0.05, sfw * 0.6); glowPool(ctx, cam, kx, ky, h * 0.3, '190,200,255', 12, alpha * 0.16); }
       break;
     }
-    case 'studiogate': {   // KSAB Audience Gate: a glazed audience lobby with a violet KSAB parapet + a steady lit marquee. Deliberately simple and ENTIRELY within its own tile (no cantilevered canopy/turnstiles — those spilled onto the road). Reads low once flags.floors:2 reaches the DB.
+    case 'studiogate': {   // KSAB Writers' Wing: a glazed office annex with a violet KSAB parapet + a steady lit marquee. Deliberately simple and ENTIRELY within its own tile (no cantilevered canopy/turnstiles — those spilled onto the road). Reads low once flags.floors:2 reaches the DB.
       // Curtain-glass lobby — real glazed skin (ty_ksab_glass ∈ GLASS_WALL: sky sheen, no window grid).
       // No roof cap: the wider parapet below caps the footprint at h*0.9, so a lobby cap here would only
       // z-fight the parapet's own roof (near-identical queue depth → the roof strobed dark↔light purple).
@@ -6469,6 +6990,15 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       if (night) { const [wx, wy] = F(0, fh * 0.92); glowPool(ctx, cam, wx, wy, wallTop * 0.5, '255,200,120', 13, alpha * 0.26); }   // warm window band
       break;
     }
+    case 'laundromat': {   // The Wash: a low flat-roofed shopfront that is mostly window — the one place on Ironside you can see all the way into from the street
+      const hw = fh * 1.1, wallTop = h * 0.56;
+      draw3DBoxAt(ctx, cam, dx, dy, hw, 0, wallTop, pal, seed, night, alpha, true);                                       // single-storey box
+      { const [gx, gy] = F(0, fh * 0.96); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.96, 0, wallTop * 0.82, 'ty_marble_col', seed + 1, night, alpha, false); }  // the big glazed front
+      neonBlade(ctx, cam, dx, dy, wallTop, wallTop + h * 0.3, m.neon || '#7fe3ff', night, alpha);                          // cold-blue WASH sign
+      // Lit all night, deliberately: this is the building that says somebody is still open.
+      if (night) { const [wx, wy] = F(0, fh * 0.9); glowPool(ctx, cam, wx, wy, wallTop * 0.6, '210,235,255', 18, alpha * 0.34); }
+      break;
+    }
     case 'armory': {   // Ironside Arms: a squat riveted blockhouse — heavy overhanging parapet, vault door, slit-window glow
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.15, 0, h * 0.7, pal, seed, night, alpha, true);          // bunker box
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.24, h * 0.7, h * 0.82, pal, seed + 1, night, alpha, true); // thick overhanging parapet
@@ -6477,7 +7007,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       neonBlade(ctx, cam, dx, dy, h * 0.82, h * 1.06, m.neon || '#ff6a4a', night, alpha);           // small hard sign
       break;
     }
-    case 'casino': {   // The Neon Vig: a squat house drowned in neon — marquee crown, chasing bulbs, magenta wash
+    case 'casino': {   // The Lucky Bastard: a squat house drowned in neon — marquee crown, chasing bulbs, magenta wash
       const neon = m.neon || '#ff3e8a';
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.15, 0, h * 0.7, pal, seed, night, alpha, true);
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.22, h * 0.7, h * 0.9, pal, seed + 1, night, alpha, true); // marquee crown band
@@ -6487,7 +7017,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       glowPool(ctx, cam, dx, dy, h * 0.86, '255,62,138', 22, alpha * (night ? 0.4 : 0.2));           // neon wash
       break;
     }
-    case 'neonvig': {   // The Neon Vig — the city's casino, promoted off the generic `casino` box into a
+    case 'neonvig': {   // The Lucky Bastard — the city's casino, promoted off the generic `casino` box into a
       //                    landmark: a stepped marquee crown over a squat plum house, a TALL blade-sign
       //                    tower with bulbs chasing up it, a porte-cochère over the entrance, a lit
       //                    rooftop drum, and enough magenta spill to read from the far side of the basin.
@@ -6651,6 +7181,28 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       }
       break;
     }
+    case 'junkyard': {   // bales of crushed car in uneven rows, a grabber crane over them, a site shack
+      const hsh = (a) => { a = (a ^ 61) ^ (a >> 16); a += a << 3; a ^= a >> 4; a = Math.imul(a, 0x27d4eb2d); return (a ^ (a >> 15)) >>> 0; };   // deterministic — no per-frame flicker
+      // The stacks: squat, rust-toned, deliberately not squared off like the container yard's.
+      for (let gx = -1; gx <= 1; gx++) for (let gy = -1; gy <= 1; gy++) {
+        if (gx === 0 && gy === 0) continue;                                                                  // keep the middle clear for the crane
+        const stack = 1 + hsh(seed + gx * 11 + gy * 17) % 3;
+        const [bx, by] = F(gx * fh * 0.58, gy * fh * 0.58);
+        const w = fh * (0.2 + (hsh(seed + gx + gy * 3) % 5) * 0.014);                                        // uneven bale widths
+        for (let k = 0; k < stack; k++) {
+          draw3DBoxAt(ctx, cam, bx, by, w, h * 0.2 * k, h * 0.2 * (k + 1),
+            (hsh(seed + gx * 5 + gy + k * 7) & 1) ? 'ty_junk_bale' : 'ty_junk_bale_dk', seed + k, night, alpha, true);
+        }
+      }
+      // Grabber crane: a lattice mast over the middle with a jib reaching out over the rows.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.12, 0, h * 1.15, 'ty_junk_crane', seed + 21, night, alpha, true);
+      { const [jx, jy] = F(fh * 0.42, 0); draw3DBoxAt(ctx, cam, jx, jy, fh * 0.9, h * 1.0, h * 1.1, 'ty_junk_crane', seed + 22, night, alpha, true); }
+      // Site shack at the gate — the only part of this you can actually walk into.
+      { const [sx, sy] = F(-fh * 0.55, fh * 0.72); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.42, 0, h * 0.34, pal, seed + 23, night, alpha, true); }
+      if (frontVis) { const [gx2, gy2] = F(-fh * 0.55, fh * 0.94); draw3DBoxAt(ctx, cam, gx2, gy2, fh * 0.18, 0, h * 0.22, 'ty_door', seed + 24, night, alpha, false); }
+      if (night) glowPool(ctx, cam, dx, dy, 0.02, '255,180,90', 11, alpha * 0.13);                            // one sodium lamp over the gate
+      break;
+    }
     case 'fuel_yard': {   // a cluster of squat cylindrical storage tanks + a low pallet stack
       const steel = (r, g, b) => (f) => { const sh = 0.5 + f.nl * 0.5; return `rgb(${r * sh | 0},${g * sh | 0},${b * sh | 0})`; };
       const tankStyle = steel(150, 148, 140);
@@ -6811,6 +7363,174 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       blinkLight(ctx, cam, dx, dy, h * 2.6, asc, now, seed, alpha, 2);
       break;
     }
+    case 'stimcafe': {   // Battery Acid Coffee Co. — a narrow cafe with the roasting drum ON THE ROOF, smoking all day
+      const wallTop = h * 0.96;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, 0, wallTop, pal, seed, night, alpha, true);
+      // The roaster: a riveted drum on its cradle, venting roast smoke. The whole street smells of it.
+      // drawFacetDrum's 11th arg is a STYLE FUNCTION, not a palette key — passing `pal` here threw
+      // "style is not a function" and killed the render loop the moment this cafe came into view.
+      // Same shading idiom as asc_vats: base RGB off the palette, lit per facet normal.
+      const roast = WALL_COL[pal] || [58, 54, 48];
+      const roastSkin = (f) => { const s = 0.5 + f.nl * 0.55; return `rgba(${roast[0] * s | 0},${roast[1] * s | 0},${roast[2] * s | 0},0.97)`; };
+      drawFacetDrum(ctx, cam, dx, dy, wallTop, wallTop + h * 0.30, fh * 0.30, fh * 0.26, 10, alpha, roastSkin, night ? 'rgba(36,32,28,0.97)' : 'rgba(96,88,78,0.97)');
+      drawSmoke(ctx, cam, dx, dy, wallTop + h * 0.30, '160,140,120', alpha * 0.5, now, seed + 2);
+      { const [ax, ay] = F(0, fh * 0.98); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.00, wallTop * 0.60, wallTop * 0.68, 'ty_door', seed + 1, night, alpha, false); }   // awning over the pavement tables
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.90, wallTop * 0.80, m.neon || '#5fd0ff', night, alpha, 'BATTERY ACID');
+      if (night) { const [wx, wy] = F(0, fh * 0.94); glowPool(ctx, cam, wx, wy, h * 0.24, '255,205,150', 12, alpha * 0.30); }
+      break;
+    }
+    case 'permits': {   // Office of Permitted Suffering — a blank civic slab whose only architectural feature is the queue canopy
+      const body = h * 1.10;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.10, 0, body, pal, seed, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.16, body * 0.06, body * 0.14, 'ty_door', seed + 1, night, alpha, false);   // a mean plinth band
+      // The queue canopy — a long low shelter running out from the door, because the
+      // waiting is the building's real function. It is longer than the entrance is wide.
+      { const [cx, cy] = F(0, fh * 1.55); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.34, body * 0.28, body * 0.34, 'ty_door', seed + 2, night, alpha, false);
+        for (let i = 0; i < 4; i++) { const [px, py] = F(fh * 0.26 * (i % 2 ? 1 : -1), fh * (0.95 + i * 0.30));
+          draw3DBoxAt(ctx, cam, px, py, fh * 0.04, 0, body * 0.28, 'ty_door', seed + 20 + i, night, alpha, false); } }   // canopy posts
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 1.00, body * 0.62, m.neon || '#9ab08a', night, alpha, 'PERMITS');
+      // One lit window at the top, night or day: somebody up there is still processing forms.
+      { const [wx, wy] = F(fh * 0.55, fh * 1.12); glowPool(ctx, cam, wx, wy, body * 0.86, '210,225,180', 5, alpha * (night ? 0.42 : 0.18)); }
+      break;
+    }
+    case 'rationnine': {   // Ration Nine — a state ration depot: roller shutter, stacked crates, and a stencilled 9 the size of a door
+      const wallTop = h * 0.90;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.04, 0, wallTop, pal, seed, night, alpha, true);
+      { const [sx, sy] = F(0, fh * 1.06); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.62, 0, wallTop * 0.58, 'ty_door', seed + 1, night, alpha, false); }   // the roller shutter, half down
+      for (let i = 0; i < 3; i++) {   // delivery crates nobody has taken in yet
+        const [bx, by] = F((-0.8 + i * 0.8) * fh * 0.72, fh * 1.22);
+        draw3DBoxAt(ctx, cam, bx, by, fh * 0.20, 0, h * (0.14 + 0.05 * (i & 1)), 'ty_door', seed + 8 + i, night, alpha, true);
+      }
+      // The stencilled 9, painted straight onto the wall as surface text — it leans and
+      // foreshortens with the face, never billboards.
+      if (frontVis) {
+        const nhw = fh * 0.30, z0 = wallTop * 0.62, z1 = wallTop * 0.96;
+        const [lx, ly] = F(-nhw - fh * 0.4, fh * 1.05), [rx, ry] = F(nhw - fh * 0.4, fh * 1.05);
+        const TL = cam.proj(lx, ly, z1), TR = cam.proj(rx, ry, z1), BR = cam.proj(rx, ry, z0), BL = cam.proj(lx, ly, z0);
+        if ([TL, TR, BR, BL].every(p => p.f > 0.12)) {
+          const tex = bakeSignText('9', '#d8d2c0', night ? 1 : 0, false);
+          emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha * 0.9));
+        }
+        marqueeBand(ctx, cam, dx, dy, E, fh * 0.96, wallTop * 0.74, m.neon || '#ffb43a', night, alpha, 'RATION NINE');
+      }
+      if (night) { const [wx, wy] = F(0, fh * 1.02); glowPool(ctx, cam, wx, wy, h * 0.18, '255,200,140', 10, alpha * 0.22); }
+      break;
+    }
+    // ── Marrow Street, the workaday downtown strip ────────────────────────────
+    // Deliberately LOW and cluttered where the rest of the skyline is tall and clean:
+    // these read as a high street from the air because of what's on the pavement and
+    // venting off the roof, not because of height. The Sentinel anchors the row.
+    case 'deptstore': {   // Adequate! — a four-floor discount slab wearing one enormous banner, plant all over the roof
+      const body = h * 1.28;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.24, 0, body, pal, seed, night, alpha, true);
+      const banZ0 = body * 0.70, banZ1 = body * 0.86;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.30, banZ0, banZ1, 'ty_door', seed + 1, night, alpha, false);   // the banner, wrapping the whole facade
+      roofClutter(ctx, cam, dx, dy, fh * 1.24, body, 'citycore', seed + 2, night, alpha, now);
+      // "ADEQUATE!" painted the full width of the banner. The zone prose promises letters
+      // tall enough to read from the water, so it's surface text on the banner's real quad
+      // — it leans and foreshortens with the face instead of billboarding at the camera.
+      if (frontVis) {
+        const bhw = fh * 1.14, [blx, bly] = F(-bhw, fh * 1.32), [brx, bry] = F(bhw, fh * 1.32);
+        const TL = cam.proj(blx, bly, banZ1 - body * 0.012), TR = cam.proj(brx, bry, banZ1 - body * 0.012);
+        const BR = cam.proj(brx, bry, banZ0 + body * 0.012), BL = cam.proj(blx, bly, banZ0 + body * 0.012);
+        if ([TL, TR, BR, BL].every(p => p.f > 0.12)) {
+          const tex = bakeSignText('ADEQUATE!', m.neon || '#ff8a2e', night ? 1 : 0, false);
+          emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha));
+        }
+        const [nx, ny] = F(fh * 0.70, fh * 1.02); neonBlade(ctx, cam, nx, ny, body * 0.88, body + h * 0.34, m.neon || '#ff8a2e', night, alpha);
+      }
+      { const [bx, by] = F(fh * 0.90, -fh * 0.60); blinkLight(ctx, cam, bx, by, body + h * 0.03, '255,150,90', now, seed + 9, alpha, 1.8); }   // one roof bulb nobody ever fixed
+      if (night) { const [wx, wy] = F(0, fh * 1.06); glowPool(ctx, cam, wx, wy, h * 0.16, '255,190,120', 16, alpha * 0.30); }   // the mannequin windows
+      break;
+    }
+    case 'hardware': {   // Nuts to That — a low shop under a deep awning with its stock stacked out on the pavement
+      const wallTop = h * 0.86;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.08, 0, wallTop, pal, seed, night, alpha, true);
+      { const [ax, ay] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.18, wallTop * 0.66, wallTop * 0.74, 'ty_door', seed + 1, night, alpha, false); }   // the deep awning
+      for (let i = 0; i < 3; i++) {   // rope coils, the rebar barrel, a pallet of grey buckets
+        const [sx, sy] = F((-0.7 + i * 0.7) * fh * 0.80, fh * 1.16);
+        draw3DBoxAt(ctx, cam, sx, sy, fh * 0.22, 0, h * (0.16 + 0.06 * (i & 1)), 'ty_door', seed + 5 + i, night, alpha, true);
+      }
+      roofClutter(ctx, cam, dx, dy, fh * 1.08, wallTop, 'citycore', seed + 4, night, alpha, now);   // vents and a water tank break the flat roof
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 1.02, wallTop * 0.86, m.neon || '#ffcf3e', night, alpha, 'NUTS TO THAT');
+      break;
+    }
+    case 'bathhouse': {   // Lather & Lye — a low tiled bathhouse venting steam off the roof all day. The steam IS the sign.
+      const wallTop = h * 0.92;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.06, 0, wallTop, pal, seed, night, alpha, true);
+      for (const s of [-1, 1]) {
+        const [vx, vy] = F(s * fh * 0.42, -fh * 0.20);
+        draw3DBoxAt(ctx, cam, vx, vy, fh * 0.16, wallTop, wallTop + h * 0.16, 'ty_door', seed + 2 + s, night, alpha, true);
+        drawSmoke(ctx, cam, vx, vy, wallTop + h * 0.16, '210,225,230', alpha * 0.55, now, seed + s);
+        // Backlight the plume from the vent mouth, so at night the steam is a lit column
+        // off the roof rather than grey smudges — the one thing you can see this place by.
+        glowPool(ctx, cam, vx, vy, wallTop + h * 0.14, '170,240,225', 7, alpha * (night ? 0.34 : 0.12));
+      }
+      { const [px, py] = F(-fh * 0.70, fh * 1.04); draw3DBoxAt(ctx, cam, px, py, fh * 0.07, h * 0.10, h * 0.60, 'ty_marble_col', seed + 7, night, alpha, false); }   // the barber's pole
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 1.00, wallTop * 0.80, m.neon || '#7fe3c0', night, alpha, 'LATHER & LYE');
+      if (night) { const [wx, wy] = F(0, fh * 1.00); glowPool(ctx, cam, wx, wy, h * 0.20, '150,235,215', 12, alpha * 0.26); }
+      break;
+    }
+    case 'noodlebar': {   // Oyelaran's — one storey, front wall folded open, a steam hood dumping the entire advertising budget into the street
+      const wallTop = h * 0.74;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.90, 0, wallTop, pal, seed, night, alpha, true);
+      { const [ax, ay] = F(0, fh * 0.98); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.02, wallTop * 0.52, wallTop * 0.62, 'ty_door', seed + 1, night, alpha, false); }   // the counter awning over the open front
+      { const [hx, hy] = F(0, -fh * 0.10);
+        draw3DBoxAt(ctx, cam, hx, hy, fh * 0.30, wallTop, wallTop + h * 0.20, 'ty_door', seed + 2, night, alpha, true);
+        drawSmoke(ctx, cam, hx, hy, wallTop + h * 0.20, '225,215,200', alpha * 0.60, now, seed + 3); }   // the steam hood
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.86, wallTop * 0.74, m.neon || '#ff5a3e', night, alpha, "OYELARAN'S");
+      // A row of paper lanterns strung the length of the open front — nine stools, nine lamps.
+      for (let i = 0; i < 4; i++) {
+        const [lx, ly] = F((-0.72 + i * 0.48) * fh * 0.86, fh * 1.00);
+        draw3DBoxAt(ctx, cam, lx, ly, fh * 0.045, wallTop * 0.66, wallTop * 0.76, 'ty_door', seed + 12 + i, night, alpha, false);
+        glowPool(ctx, cam, lx, ly, wallTop * 0.70, '255,170,95', 4, alpha * (night ? 0.46 : 0.20));
+      }
+      if (night) {
+        const [lx, ly] = F(fh * 0.55, fh * 1.00); glowPool(ctx, cam, lx, ly, wallTop * 0.80, '255,180,110', 7, alpha * 0.40);    // the paper lantern
+        const [wx, wy] = F(0, fh * 0.96); glowPool(ctx, cam, wx, wy, wallTop * 0.45, '255,196,130', 12, alpha * 0.34);            // nine lit stools
+      }
+      break;
+    }
+    case 'outfitter': {   // Layers — a narrow workwear shopfront with boots strung up under the awning by their laces
+      const wallTop = h * 0.94;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.94, 0, wallTop, pal, seed, night, alpha, true);
+      { const [ax, ay] = F(0, fh * 0.98); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.04, wallTop * 0.60, wallTop * 0.68, 'ty_door', seed + 1, night, alpha, false); }
+      for (let i = 0; i < 4; i++) {   // the hanging boots
+        const [bx, by] = F((-0.75 + i * 0.50) * fh * 0.90, fh * 1.02);
+        draw3DBoxAt(ctx, cam, bx, by, fh * 0.05, wallTop * 0.44, wallTop * 0.58, 'ty_door', seed + 6 + i, night, alpha, false);
+      }
+      for (const s of [-1, 1]) {   // two headless forms in the window, each in this season's one coat
+        const [mx, my] = F(s * fh * 0.34, fh * 0.86);
+        draw3DBoxAt(ctx, cam, mx, my, fh * 0.09, h * 0.06, h * 0.42, 'ty_marble_col', seed + 14 + s, night, alpha, false);
+      }
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.88, wallTop * 0.82, m.neon || '#ffb43a', night, alpha, 'LAYERS');
+      if (night) { const [wx, wy] = F(0, fh * 0.96); glowPool(ctx, cam, wx, wy, h * 0.22, '255,200,140', 11, alpha * 0.24); }
+      break;
+    }
+    case 'bodega': {   // Bodega Vu — a tiny corner shop with awnings on BOTH streets, one warm window and a padlocked cooler outside
+      const wallTop = h * 0.82;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.90, 0, wallTop, pal, seed, night, alpha, true);
+      { const [ax, ay] = F(0, fh * 0.96); draw3DBoxAt(ctx, cam, ax, ay, fh * 0.98, wallTop * 0.58, wallTop * 0.66, 'ty_door', seed + 1, night, alpha, false); }
+      { const [bx, by] = F(fh * 0.96, 0); draw3DBoxAt(ctx, cam, bx, by, fh * 0.98, wallTop * 0.58, wallTop * 0.66, 'ty_door', seed + 2, night, alpha, false); }   // it turns the corner — that's the whole building
+      { const [cx, cy] = F(-fh * 0.60, fh * 1.00); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.14, 0, h * 0.24, 'ty_door', seed + 3, night, alpha, true); }              // the chained cooler
+      for (let i = 0; i < 2; i++) {   // produce crates out on the pavement, stacked two high
+        const [kx, ky] = F((0.30 + i * 0.34) * fh, fh * 1.06);
+        draw3DBoxAt(ctx, cam, kx, ky, fh * 0.13, 0, h * (0.12 + 0.07 * i), 'ty_door', seed + 16 + i, night, alpha, true);
+      }
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.84, wallTop * 0.78, m.neon || '#ffe08a', night, alpha, 'BODEGA VU');
+      if (night) { const [wx, wy] = F(0, fh * 0.94); glowPool(ctx, cam, wx, wy, h * 0.20, '255,215,150', 10, alpha * 0.30); }
+      break;
+    }
+    case 'sentinel': {   // Coldwater Sentinel — a narrow storefront newsroom under a guyed press mast, its window a wall of feed-screens
+      const body = h * 1.02;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.96, 0, body, pal, seed, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.02, body * 0.74, body * 0.84, 'ty_door', seed + 1, night, alpha, false);   // the stencilled masthead band
+      mast(ctx, cam, dx, dy, body, body + h * 0.62, alpha, now, seed);                                                // how the news actually gets out
+      roofClutter(ctx, cam, dx, dy, fh * 0.96, body, 'citycore', seed + 2, night, alpha, now);
+      if (frontVis) { const [nx, ny] = F(fh * 0.52, fh * 1.00); neonBlade(ctx, cam, nx, ny, body * 0.80, body + h * 0.30, m.neon || '#5fd0ff', night, alpha); }
+      if (night) { const [wx, wy] = F(0, fh * 1.00); glowPool(ctx, cam, wx, wy, h * 0.24, '120,200,255', 13, alpha * 0.34); }   // feed-screens through the glass
+      break;
+    }
     case 'shop':
     default: {   // small mixed-use storefront: a glazed lit ground floor + residential floors above + awning + sign
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, 0, h * 0.4, 'ty_office', seed, night, alpha, true);      // glazed ground-floor retail (glass tone)
@@ -6821,6 +7541,647 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       break;
     }
   }
+}
+
+// ── Shape capture harness ────────────────────────────────────────────────────
+// Runs the REAL drawTypeModel above against a stub ctx/cam with SHAPE_SINK installed, and returns
+// the mass segments it would have drawn. See the SHAPE_SINK block near emitFace for why this exists
+// and why it can't affect a rendered frame.
+//
+// TWO HAND-ROLLED SHELLS. The bank's stone dome and the Meridian's ogee cupola are revolved out of
+// cam.proj + emitFace rather than through a mass primitive, so they used to be invisible to capture.
+// That cost nothing in collision or shadow — each is subsumed by an adjacent box in both the height
+// envelope and the footprint hull — but it cost the WIREFRAME its contour, and the lantern sitting on
+// each shell's apex was left floating over a hole. Both now push a tapered drum into the sink beside
+// their draw loop (grep SHAPE_SINK in the `archive` and bank arms), which is what a revolved shell is
+// at cage resolution. Any future hand-rolled shell should do the same.
+//
+// MASTS are the other half of that story and are handled the opposite way: see `mast()`. They record
+// as `kind: 'spar'` and shapeForModel keeps them OUT of the mass list — a mast holds a crown box up,
+// but you still don't CFIT into an antenna.
+
+// A ctx that answers every call the arms make and does nothing. Deliberately a plain object and NOT
+// a Proxy: a Proxy that auto-returns functions would silently swallow a genuine typo, whereas this
+// throws loudly the first time an arm reaches for something new — which is exactly when we want to
+// hear about it.
+const SHAPE_STUB_GRAD = { addColorStop() {} };
+// Counts the two canvas operations that actually cost real time — building a gradient, and setting
+// shadowBlur (a software blur pass per draw). Face count turned out to be a poor proxy for cost, so
+// the bake measures the expensive ops directly instead.
+const SHAPE_STUB_COST = { grads: 0, blurs: 0 };
+const SHAPE_STUB_CTX = {
+  globalAlpha: 1, fillStyle: '', strokeStyle: '', lineWidth: 1, lineCap: '', lineJoin: '',
+  shadowBlur: 0, shadowColor: '', shadowOffsetX: 0, shadowOffsetY: 0, font: '', textAlign: '',
+  textBaseline: '', globalCompositeOperation: '', filter: '', miterLimit: 10,
+  save() {}, restore() {}, beginPath() {}, closePath() {}, moveTo() {}, lineTo() {}, arc() {},
+  arcTo() {}, ellipse() {}, roundRect() {}, quadraticCurveTo() {}, bezierCurveTo() {}, rect() {},
+  fill() {}, stroke() {}, clip() {}, setLineDash() {}, getLineDash() { return []; },
+  fillRect() {}, strokeRect() {}, clearRect() {}, fillText() {}, strokeText() {},
+  translate() {}, rotate() {}, scale() {}, setTransform() {}, resetTransform() {}, transform() {},
+  drawImage() {}, measureText() { return { width: 0 }; },
+  createLinearGradient() { SHAPE_STUB_COST.grads++; return SHAPE_STUB_GRAD; },
+  createRadialGradient() { SHAPE_STUB_COST.grads++; return SHAPE_STUB_GRAD; },
+  createConicGradient() { SHAPE_STUB_COST.grads++; return SHAPE_STUB_GRAD; }, createPattern() { return null; },
+};
+// shadowBlur is a plain property everywhere else, so count it with a setter rather than a method.
+Object.defineProperty(SHAPE_STUB_CTX, 'shadowBlur', {
+  get() { return 0; }, set(v) { if (v) SHAPE_STUB_COST.blurs++; },
+});
+// Heading 0, no chase offset. The constant f = 4 clears every `f > 0.1 / 0.12 / 0.08` guard in the
+// arms so no eager block short-circuits; sx/sy only have to be finite. sinh/cosh/back are what
+// frontVis and every backface test read, and holding them at 0/1/0 is what makes the ±dy trick below
+// flip frontVis deterministically.
+const SHAPE_STUB_CAM = { sinh: 0, cosh: 1, back: 0, EH: 1, FL: 400, R: 24, proj: (x, y, z) => ({ sx: x * 100, sy: -z * 100, f: 4 }) };
+
+// One raw pass. `dyOff` positions the model so that frontVis (which is just `dy + fh < 0` under this
+// stub cam) comes out the way we want: negative → the entrance face is toward the camera.
+function captureRawPass(m, fh, h, seed, dyOff) {
+  const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign;
+  const sink = [];
+  try {
+    // A scratch face sink is REQUIRED, not tidiness: emitFace runs its closure immediately when
+    // FACE_SINK is null, so capturing from outside a world pass (which is what collision does) would
+    // otherwise execute every deferred paint closure in the arm against the stub ctx.
+    FACE_SINK = [];
+    FOG_STATE = null; LIGHT_STATE = null;
+    SHAPE_SINK = sink;
+    drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, dyOff, fh, h, m, seed, 0, 1, 0, [0, 1], '');
+  } finally {
+    // Restore in a finally so a throwing arm can't leave the sink installed and blank the skyline.
+    SHAPE_SINK = null; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign;
+  }
+  return sink;
+}
+
+// The numeric (geometric) fields of each record kind. Everything else — yaw, palette, facet counts,
+// booleans — is scale-invariant and copied through.
+const SHAPE_NUM_FIELDS = {
+  box:      ['dx', 'dy', 'hwRaw', 'wz0', 'wz1'],
+  drum:     ['dx', 'dy', 'wz0', 'wz1', 'rb', 'rt'],
+  barrel:   ['dx', 'dy', 'cxL', 'hl', 'hw', 'wz0', 'archH'],
+  sawtooth: ['dx', 'dy', 'hx', 'hy', 'wz0', 'rh'],
+  spar:     ['dx', 'dy', 'wz0', 'wz1'],   // a mast: a line, not a volume
+};
+
+// Every geometric scalar is stored DECOMPOSED as [a, b, c], meaning `a·fh + b·h + c`.
+//
+// The obvious schema — widths are multiples of fh, heights multiples of h — is WRONG, and the
+// linearity check caught it: nine models derive a vertical from the footprint instead. A barrel
+// roof's rise is a function of how wide the shed is (diner, warehouse, hangar, buzzard, bonded,
+// studio), and the Layover's drum sits on fh-derived z. Those arms aren't buggy — a roof arch really
+// is proportional to its span — the single-basis assumption was.
+//
+// So instead of assuming a basis, we SOLVE for it. Three captures give three equations:
+//   v(1,1) = a + b + c    v(2,1) = 2a + b + c    v(1,2) = a + 2b + c
+//   ⇒ a = v(2,1) − v(1,1)   b = v(1,2) − v(1,1)   c = v(1,1) − a − b
+// exact for anything affine in fh and h, whichever basis an arm happened to reach for, and yielding
+// zeros for the common single-basis case. A fourth capture at (2,3) then verifies it.
+//
+// The CONSTANT term c exists because one arm genuinely needs it: the Layover's water-tank cap is a
+// cone, and its apex radius is the literal 0.001 rather than a fraction of anything. Supporting c
+// keeps that arm untouched — which is the whole premise — but a constant is also exactly what a
+// modelling mistake looks like, so the bake WARNS on any that isn't negligible instead of hiding it.
+const SHAPE_SOLVE_SCALES = [[1, 1], [2, 1], [1, 2]];
+const SHAPE_VERIFY_SCALE = [2, 3];
+const SHAPE_CONST_WARN = 1e-3;   // |c| above this is worth a human look
+// Evaluate a decomposed scalar at a live footprint/height. The one function every consumer uses.
+export const shapeVal = (p, fh, h) => p[0] * fh + p[1] * h + p[2];
+
+// Solve one model's segment list into decomposed form. `raws` are the three raw passes, in
+// SHAPE_SOLVE_SCALES order, all taken at the same dyOff. Returns null with a reason if the passes
+// don't align or the result isn't linear.
+function solveSegs(raws, dyOff) {
+  const [r11, r21, r12] = raws;
+  if (r21.length !== r11.length || r12.length !== r11.length) return { err: `segment count varies with scale (${r11.length}/${r21.length}/${r12.length})` };
+  const out = [];
+  for (let i = 0; i < r11.length; i++) {
+    const s11 = r11[i], s21 = r21[i], s12 = r12[i];
+    if (s11.kind !== s21.kind || s11.kind !== s12.kind) return { err: `segment ${i} changes kind with scale` };
+    const fields = SHAPE_NUM_FIELDS[s11.kind];
+    if (!fields) return { err: `segment ${i} has unknown kind ${s11.kind}` };
+    const seg = { kind: s11.kind };
+    for (const f of fields) {
+      // dy carries the frontVis staging offset, which is absolute and must come out before solving.
+      const off = f === 'dy' ? dyOff : 0;
+      const v11 = s11[f] - off, v21 = s21[f] - off, v12 = s12[f] - off;
+      const a = v21 - v11, b = v12 - v11, c = v11 - a - b;
+      seg[f] = [a, b, c];
+    }
+    // Scale-invariant passengers.
+    seg.pal = s11.pal;
+    if (s11.kind === 'box') { seg.yaw = s11.yaw; seg.roof = s11.roof; if (s21.yaw !== s11.yaw) return { err: `segment ${i} yaw varies with scale` }; }
+    if (s11.kind === 'drum') { seg.n = s11.n; seg.cap = s11.cap; }
+    if (s11.kind === 'barrel') { seg.nf = s11.nf; seg.base = s11.base; }
+    if (s11.kind === 'sawtooth') { seg.teeth = s11.teeth; seg.roofc = s11.roofc; seg.glassc = s11.glassc; seg.edge = s11.edge; }
+    // Convenience: the segment's vertical span, so no consumer has to know that a barrel's top is
+    // wz0+archH while a box's is wz1.
+    const add = (p, q) => [p[0] + q[0], p[1] + q[1], p[2] + q[2]];
+    seg.z0 = seg.wz0;
+    seg.z1 = seg.kind === 'barrel' ? add(seg.wz0, seg.archH)
+      : seg.kind === 'sawtooth' ? add(seg.wz0, seg.rh)
+        : seg.wz1;
+    seg.cx = seg.dx; seg.cy = seg.dy;
+    out.push(seg);
+  }
+  return { segs: out };
+}
+
+// Structural identity of a segment, rounded, for the multiset diff below. Excludes `frontOnly`
+// (which is what we're computing) and `pal` (texture, not geometry).
+function segKey(s) {
+  const r = (v) => (Array.isArray(v) ? v.map(n => Math.round(n * 1e6) / 1e6) : v);
+  return JSON.stringify([s.kind, r(s.cx), r(s.cy), r(s.z0), r(s.z1), r(s.hwRaw), s.yaw, r(s.rb), r(s.rt), s.n, r(s.cxL), r(s.hl), r(s.hw), r(s.hx), r(s.hy), s.teeth]);
+}
+
+// Capture one model, decomposed, with entrance-face mass tagged.
+//
+// TWO SIDES. Six arms gate mass on `frontVis` — the roller doors and truck bays on studio,
+// warehouse, container_yard, cold_storage, garage and freight_forwarder. Capturing once would
+// either always include them or always drop them; instead we capture with the door face toward the
+// camera and away from it, and multiset-diff. What only the near side produced is a door, and gets
+// `frontOnly: true` so a consumer can decide (shadows want it, a wireframe may not).
+function captureAt(m, seed) {
+  const side = (dyOff) => solveSegs(SHAPE_SOLVE_SCALES.map(([fh, h]) => captureRawPass(m, fh, h, seed, dyOff)), dyOff);
+  const near = side(-8); if (near.err) throw new Error(near.err);
+  const far = side(+8); if (far.err) throw new Error(far.err);
+  const farCount = new Map();
+  for (const s of far.segs) { const k = segKey(s); farCount.set(k, (farCount.get(k) || 0) + 1); }
+  for (const s of near.segs) {
+    const k = segKey(s), n = farCount.get(k) || 0;
+    if (n > 0) farCount.set(k, n - 1); else s.frontOnly = true;
+  }
+  return near.segs;
+}
+
+// The bake's correctness gate, and worth more than any amount of staring at towers: re-derive the
+// model at a scale the decomposition never saw and demand it match exactly. Catches an arm putting
+// an absolute constant into a mass argument — a z-fight epsilon, a hardcoded ledge — at bake time
+// rather than as a mystery few-centimetre offset in the sim a month later.
+function shapeLinearityError(m, seed) {
+  let segs;
+  try { segs = captureAt(m, seed); } catch (e) { return e.message; }
+  const [fh, h] = SHAPE_VERIFY_SCALE;
+  const raw = captureRawPass(m, fh, h, seed, -8);
+  if (raw.length !== segs.length) return `segment count differs at the verify scale (${segs.length} vs ${raw.length})`;
+  for (let i = 0; i < segs.length; i++) {
+    for (const f of SHAPE_NUM_FIELDS[segs[i].kind]) {
+      const off = f === 'dy' ? -8 : 0;
+      if (Math.abs(shapeVal(segs[i][f], fh, h) - (raw[i][f] - off)) > 1e-9) return `segment ${i} (${segs[i].kind}).${f} is not affine in fh/h`;
+    }
+  }
+  return null;
+}
+// Non-negligible absolute terms, as `segment.field = c` strings. Not an error — see the constant-term
+// note above — but a constant is what a modelling slip looks like, so the bake prints these.
+export function shapeConstantWarnings(m, seed = 0) {
+  const out = [];
+  let segs; try { segs = captureAt(m, seed); } catch { return out; }
+  segs.forEach((s, i) => {
+    for (const f of SHAPE_NUM_FIELDS[s.kind]) if (Math.abs(s[f][2]) > SHAPE_CONST_WARN) out.push(`seg ${i} (${s.kind}).${f} carries an absolute ${s[f][2].toFixed(4)}`);
+  });
+  return out;
+}
+// SEED VARIANCE. Shape is a pure function of the model for most arms, but roofClutter's penthouse
+// height is frac(seed) and its water tank only exists on seed%4===0, and junkshop's roof junk varies
+// outright. Those models must be keyed by seed at runtime instead of cached once.
+function shapeIsSeedVariant(m) {
+  const probes = [1, 2, 3, 4];   // 4 probes because roofClutter's water tank is seed%4===0
+  const first = captureAt(m, probes[0]).map(segKey).join('|');
+  return probes.slice(1).some(s => captureAt(m, s).map(segKey).join('|') !== first);
+}
+
+// ── Runtime cache ────────────────────────────────────────────────────────────
+// Keyed on the MODEL RECORD OBJECT, not on m.type: NAMED_MODELS/TYPE_MODEL entries are distinct
+// literals created once at module load, so object identity separates models that share a type but
+// differ in geometry via m.penthouse (the Meridian's extra roof box) or m.big (the wide hangar).
+const _shapeCache = new WeakMap();
+let _shapeFailed = false;
+// The captured mass of one building model, normalized. Returns null (and logs once) if an arm
+// throws under the stub, so a bad model degrades to today's plain box instead of killing the sim.
+// Spars (masts) are captured alongside the mass but are NOT mass — they hang off the returned array
+// as `.spars` instead of living in it, so every consumer that asks "how tall/wide/solid is this
+// building" (collision, footprint, shadow, LOD) is unchanged by their existence and only a consumer
+// that wants the drawn silhouette has to know they're there.
+const splitSpars = (all) => {
+  const mass = all.filter((s) => s.kind !== 'spar');
+  mass.spars = all.filter((s) => s.kind === 'spar');
+  return mass;
+};
+export function shapeForModel(m, seed) {
+  if (!m) return null;
+  let e = _shapeCache.get(m);
+  if (!e) { e = { variant: null, base: null, bySeed: new Map() }; _shapeCache.set(m, e); }
+  try {
+    if (e.variant === null) e.variant = shapeIsSeedVariant(m);
+    if (!e.variant) return (e.base ||= splitSpars(captureAt(m, 0)));
+    const k = seed | 0;
+    let s = e.bySeed.get(k);
+    if (!s) { s = splitSpars(captureAt(m, k)); e.bySeed.set(k, s); }
+    return s;
+  } catch (err) {
+    if (!_shapeFailed) { _shapeFailed = true; console.error('[windshield] shape capture failed:', err); }
+    return null;
+  }
+}
+
+// ── Occlusion culling ────────────────────────────────────────────────────────
+// There is no z-buffer here — the face queue is a painter's algorithm — so a building standing
+// completely behind a nearer tower is still fully built, queued, depth-sorted and filled. Downtown
+// that is a large fraction of ~2870 faces a frame spent on pixels nobody ever sees. Unlike the
+// distance LOD this has no visual tradeoff to argue about: it only ever removes buildings that are
+// already invisible.
+//
+// The structure is a 1-D horizontal span buffer. Every building is anchored to the ground, so a
+// nearer one covers a contiguous screen band from its roofline DOWN. `covTop[col]` therefore holds
+// the topmost screen y that is solidly covered from there downward, and a farther building is
+// hidden when its whole silhouette sits below that line across its entire width.
+//
+// CONSERVATISM IS THE WHOLE GAME — culling something visible is a hole in the world, far worse than
+// the frames it saves. So the two boxes are deliberately biased apart:
+//   • as an OCCLUDER a building contributes only its CORE segment (one solid box, never the setback
+//     silhouette whose bounding box claims coverage it doesn't have), shrunk by a margin;
+//   • as an OCCLUDEE it is tested with its FULL footprint and roof, expanded by a margin, so a neon
+//     blade or a marquee poking out of the mass can't be culled with it.
+// A building still fading in is never an occluder, because it isn't opaque yet.
+const OCC_BUCKETS = 96;      // horizontal resolution of the span buffer
+const OCC_SHRINK = 0.14;     // occluder box inset (fraction of its own size)
+const OCC_GROW = 0.22;       // occludee box outset — covers adornments that overhang the mass
+const OCC_OPAQUE = 0.98;     // below this alpha a building is still fading in and can't occlude
+
+// Screen-space AABB of a ground-anchored box, or null if any corner is too close/behind the eye.
+function screenBox(cam, corners, z0, z1) {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const [wx, wy] of corners) {
+    for (const z of [z0, z1]) {
+      const p = cam.proj(wx, wy, z);
+      if (p.f <= 0.25) return null;   // near the eye the projection stretches; don't reason about it
+      if (p.sx < x0) x0 = p.sx; if (p.sx > x1) x1 = p.sx;
+      if (p.sy < y0) y0 = p.sy; if (p.sy > y1) y1 = p.sy;
+    }
+  }
+  return { x0, x1, y0, y1 };
+}
+
+// ── Distance LOD ─────────────────────────────────────────────────────────────
+// Beyond `lodNear` tiles a building stops running its ~80-line arm and is drawn straight from its
+// captured segments instead. Profiling put ~54% of the frame in the building face flush at ~2870
+// faces per frame across ~65 buildings — about 45 faces each, whether the building filled the
+// screen or four pixels of it. The arm's own execution was only ~11%, so the win here is the faces
+// LOD never QUEUES, not the code it skips.
+//
+// WHY THIS DOESN'T POP. The segments ARE the arm's mass — same primitives, same palettes, same
+// numbers — so at the handover distance the LOD draws a byte-identical building. Detail then
+// dissolves gradually as you get further away: segments are ranked by visual mass and each one
+// fades out individually over its own little band, so you never see a building change shape in one
+// frame. The largest segment never fades, which is what stops you seeing through a tower.
+//
+// WHAT IS LOST, honestly: adornments. Neon blades, marquees, glow pools and beacons live in the arm
+// and are gone past `lodNear`. On a night skyline that IS visible, so the default sits well out in
+// the fog and it's a slider — push `lodNear` out until you can't see the handover.
+const LOD_MIN_ALPHA = 0.02;   // below this a segment is invisible; skip the draw entirely
+// Facets on a drum, thinned with distance. MUST return exactly `n` at detail 1 — a fixed cap here
+// (the first cut capped at 8) silently made the handover distance a visible facet-count jump on
+// every cylinder in the game, which is precisely the pop this design promises not to have.
+const lodFacets = (n, detail) => Math.max(5, Math.min(n, Math.round(n * (0.4 + 0.6 * clamp(detail, 0, 1)))));
+
+// Visual mass of a segment at unit scale — footprint area × height. Used only to rank which detail
+// survives longest at distance, so a crude measure is the right measure.
+function segBulk(s) {
+  const V = (p) => Math.abs(p[0]) + Math.abs(p[1]) + Math.abs(p[2]);   // scale-agnostic magnitude
+  const hgt = Math.max(0.001, V(s.z1) - V(s.z0));
+  const w = s.kind === 'box' ? V(s.hwRaw) : s.kind === 'drum' ? Math.max(V(s.rb), V(s.rt))
+    : s.kind === 'barrel' ? (V(s.hl) + V(s.hw)) / 2 : (V(s.hx) + V(s.hy)) / 2;
+  return w * w * hgt;
+}
+// Segments in draw order, each tagged with the detail level at which it starts to appear. Cached on
+// the segment array itself so ranking happens once per model, not once per building per frame.
+function lodOrder(segs) {
+  if (segs._lod) return segs._lod;
+  // Rank by bulk — but a REPEATED RUN of small pieces is an architectural feature, not several
+  // trivial boxes, and ranking them individually drops the very thing that identifies a building.
+  // The Hall of Records is a stone box without its six-column portico; the same mistake would strip
+  // the clone facility's vat row, the saloon's porch posts and the container yard's stacks. So
+  // segments that repeat (same kind, near-identical dimensions, three or more of them) are ranked
+  // on the bulk of the WHOLE GROUP, which keeps a colonnade alive as long as the mass it fronts.
+  const sig = (s) => {
+    const q = (p) => (p ? Math.round((Math.abs(p[0]) + Math.abs(p[1]) + Math.abs(p[2])) * 200) : 0);
+    return `${s.kind}|${q(s.hwRaw)}|${q(s.rb)}|${q(s.hl)}|${q(s.z1)}`;
+  };
+  const groupBulk = new Map(), groupCount = new Map();
+  for (const s of segs) {
+    const k = sig(s);
+    groupBulk.set(k, (groupBulk.get(k) || 0) + segBulk(s));
+    groupCount.set(k, (groupCount.get(k) || 0) + 1);
+  }
+  const ranked = segs.map((s, i) => {
+    const k = sig(s);
+    const bulk = groupCount.get(k) >= 3 ? groupBulk.get(k) : segBulk(s);
+    return { s, i, bulk };
+  }).sort((a, b) => b.bulk - a.bulk);
+  const n = ranked.length;
+  ranked.forEach((r, rank) => { r.at = n <= 1 ? 0 : rank / n; });   // rank 0 (the core) is always drawn
+  // A repeated group also has to be ATOMIC. Ranking alone still gave them consecutive thresholds, so
+  // a portico lost its columns one at a time — and two of six columns reads as a broken building,
+  // which is worse than the simplification it was meant to be. Every member of a group takes the
+  // group's earliest threshold, so a colonnade arrives and leaves all at once.
+  const first = new Map();
+  for (const r of ranked) {
+    const k = sig(r.s);
+    if (groupCount.get(k) >= 3) first.set(k, Math.min(first.has(k) ? first.get(k) : 1, r.at));
+  }
+  for (const r of ranked) { const k = sig(r.s); if (first.has(k)) r.at = first.get(k); }
+  // Restore original source order for painting — the depth queue sorts anyway, but keeping source
+  // order means ties resolve exactly as the arm resolved them.
+  const byIndex = ranked.slice().sort((a, b) => a.i - b.i);
+  segs._lod = { byIndex, band: n <= 1 ? 1 : 1 / n };
+  return segs._lod;
+}
+
+// Draw a building from its captured segments. `detail` 0..1: 1 = every segment (identical mass to
+// the arm), 0 = the single largest. Returns false if the model has no capture, so the caller can
+// fall back to the real arm rather than drawing nothing.
+function drawModelLOD(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, E, detail) {
+  const segs = shapeForModel(m, seed);
+  if (!segs || !segs.length) return false;
+  const { byIndex, band } = lodOrder(segs);
+  // Model-local → world. The yaw term is the trap: rotating a segment's CENTRE without also turning
+  // its FOOTPRINT leaves the three twisted towers (Halcyon, Solenne, the Ascendant spire) sitting in
+  // the right place with the wrong orientation — subtle enough to ship unnoticed.
+  const th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
+  const V = (p) => p[0] * fh + p[1] * h + p[2];
+  for (const r of byIndex) {
+    const s = r.s;
+    const fade = r.at <= 0 ? 1 : clamp((detail - r.at) / band, 0, 1);
+    if (fade <= LOD_MIN_ALPHA) continue;
+    const a = alpha * fade;
+    const lx = V(s.cx), ly = V(s.cy);
+    const wx = dx + lx * ct - ly * st, wy = dy + lx * st + ly * ct;
+    const z0 = V(s.z0), z1 = V(s.z1);
+    if (s.kind === 'box') {
+      draw3DBoxAt(ctx, cam, wx, wy, V(s.hwRaw), z0, z1, s.pal, seed + r.i, night, a, s.roof, s.yaw + th);
+    } else if (s.kind === 'drum') {
+      const base = WALL_COL[s.pal] || [96, 104, 116];
+      const skin = (fc) => { const k = 0.5 + fc.nl * 0.55; return `rgba(${base[0] * k | 0},${base[1] * k | 0},${base[2] * k | 0},0.97)`; };
+      const capCol = s.cap ? `rgba(${base[0] * 0.8 | 0},${base[1] * 0.8 | 0},${base[2] * 0.8 | 0},0.97)` : null;
+      drawFacetDrum(ctx, cam, wx, wy, z0, z1, V(s.rb), V(s.rt), lodFacets(s.n, detail), a, skin, capCol);
+    } else if (s.kind === 'barrel') {
+      // A barrel roof takes its LOCAL FRAME as a closure, not world coords — and that frame is
+      // reconstructible here, because the capture stored the anchor and we know E. So a distant
+      // shed roof is the REAL half-cylinder, not a box pretending to be one. Only when the detail
+      // budget runs out does it collapse, and then to a rectangular slab of the same span rather
+      // than a square (a hangar is long, and a square roof on a long shed reads instantly wrong).
+      if (detail > 0.45) {
+        const FL = (lx, ly) => facePt(wx, wy, lx, ly, E);
+        drawBarrelRoof(ctx, cam, FL, V(s.cxL), V(s.hl), V(s.hw), z0, V(s.archH), Math.max(4, Math.round(s.nf * (0.4 + 0.6 * detail))), a, s.base || (WALL_COL[s.pal] || [90, 96, 104]));
+      } else {
+        const cxL = V(s.cxL), bx = wx + cxL * ct, by = wy + cxL * st;
+        drawSlabAt(ctx, cam, bx, by, V(s.hl), V(s.hw), z0, z0 + (z1 - z0) * 0.66, s.pal, seed + r.i, night, a, th);
+      }
+    } else {
+      // Sawtooth: the real monitor roof while there's detail to spend, else a slab of the deck.
+      if (detail > 0.45) {
+        sawtoothRoof(ctx, cam, wx, wy, E, V(s.hx), V(s.hy), z0, V(s.rh), s.teeth, s.roofc, s.glassc, s.edge, a);
+      } else {
+        drawSlabAt(ctx, cam, wx, wy, V(s.hx), V(s.hy), z0, z0 + (z1 - z0) * 0.66, s.pal, seed + r.i, night, a, th);
+      }
+    }
+  }
+  if (PERF.on) PERF.n.lod++;
+  return true;
+}
+
+// ── Shape wireframe overlay (dev) ────────────────────────────────────────────
+// Strokes the captured segments over the live render so you can SEE whether the geometry the
+// collision sweep, the ground shadow and the cold open are all reading actually sits on the
+// building. Every bug this system can have is a bug you can see here in one glance: a lost `yaw`
+// leaves a twisted tower's cage square, a missed `frontOnly` puts a roller door in mid-air, a bad
+// rotation slides the whole cage off the model.
+//
+// Colour carries meaning: cyan = ordinary mass, amber = entrance-face mass (frontOnly), magenta =
+// the segment that survives to the furthest LOD level (the one that must never fade).
+// RENDER_TUNE.shapeWire = 0 off / 1 on. Drawn after the face flush, so it sits on top of everything.
+function drawShapeWire(ctx, cam, dx, dy, fh, h, m, seed, E, coreIdx) {
+  const segs = shapeForModel(m, seed); if (!segs || !segs.length) return;
+  const th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
+  const V = (p) => p[0] * fh + p[1] * h + p[2];
+  ctx.save();
+  ctx.lineWidth = 1;
+  segs.forEach((s, i) => {
+    const lx = V(s.cx), ly = V(s.cy);
+    const wx = dx + lx * ct - ly * st, wy = dy + lx * st + ly * ct;
+    const z0 = V(s.z0), z1 = V(s.z1);
+    // Half-extents along local x/y, then turned into world by the segment's own yaw plus the
+    // model's entrance rotation — the same composition the LOD renderer does.
+    let hx, hy, yaw = th;
+    if (s.kind === 'box') { hx = hy = Math.min(V(s.hwRaw), 0.44); yaw = s.yaw + th; }
+    else if (s.kind === 'drum') { hx = hy = Math.max(V(s.rb), V(s.rt)); }
+    else if (s.kind === 'barrel') { hx = V(s.hl); hy = V(s.hw); }
+    else { hx = V(s.hx); hy = V(s.hy); }
+    const cy2 = Math.cos(yaw), sy2 = Math.sin(yaw);
+    const corner = (sx, sy) => {
+      const ax = sx * hx, ay = sy * hy;
+      return [wx + ax * cy2 - ay * sy2, wy + ax * sy2 + ay * cy2];
+    };
+    const cs = [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)];
+    const lo = cs.map(([x, y]) => cam.proj(x, y, z0)), hi = cs.map(([x, y]) => cam.proj(x, y, z1));
+    if (lo.some(p => p.f <= 0.1) || hi.some(p => p.f <= 0.1)) return;
+    ctx.strokeStyle = i === coreIdx ? 'rgba(255,90,220,.95)' : s.frontOnly ? 'rgba(255,180,60,.9)' : 'rgba(80,240,255,.75)';
+    ctx.beginPath();
+    for (let k = 0; k < 4; k++) {
+      const n = (k + 1) % 4;
+      ctx.moveTo(lo[k].sx, lo[k].sy); ctx.lineTo(lo[n].sx, lo[n].sy);   // base ring
+      ctx.moveTo(hi[k].sx, hi[k].sy); ctx.lineTo(hi[n].sx, hi[n].sy);   // top ring
+      ctx.moveTo(lo[k].sx, lo[k].sy); ctx.lineTo(hi[k].sx, hi[k].sy);   // corner post
+    }
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
+// A rectangular extruded slab — the LOD stand-in for the two non-square mass kinds. Half-extents are
+// along the model's local x (span) and y (sweep), turned by `yaw` into world.
+function drawSlabAt(ctx, cam, dx, dy, halfX, halfY, z0, z1, pal, seed, night, alpha, yaw) {
+  draw3DBoxAt(ctx, cam, dx, dy, halfX, z0, z1, pal, seed, night, alpha, true, yaw, halfY);
+}
+
+// Faces a model's ADORNMENTS alone would queue — the cost of keeping a LOD building lit. Counted by
+// running the real adornments-only pass, not estimated, because the answer decides whether the
+// near-lossless LOD is affordable. Diagnostic; used by shapes:smoke.
+export function shapeAdornCost(m, tier = ADORN_RICH, night = 0.9, camF = 4) {
+  const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign;
+  SHAPE_STUB_COST.grads = 0; SHAPE_STUB_COST.blurs = 0;
+  // `camF` stands in for camera distance, which is what decides whether a neon sign earns its blur.
+  const cam = camF === 4 ? SHAPE_STUB_CAM : { ...SHAPE_STUB_CAM, proj: (x, y, z) => ({ sx: x * 100, sy: -z * 100, f: camF }) };
+  try {
+    FACE_SINK = []; MASS_OFF = true; ADORN_TIER = tier;
+    drawTypeModel(SHAPE_STUB_CTX, cam, 0, -8, 0.4, 1, m, 3, night, 1, 1000, [0, 1], 'SIGN');
+    // The closures are where the gradients and blurs live, so they have to actually run.
+    flushFaces();
+    return { faces: 0, grads: SHAPE_STUB_COST.grads, blurs: SHAPE_STUB_COST.blurs };
+  } catch { return { faces: 0, grads: 0, blurs: 0 }; } finally {
+    MASS_OFF = false; ADORN_TIER = ADORN_RICH; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign;
+  }
+}
+
+// A model reduced to a list of WIREFRAME pieces, ordered most-important first, for consumers that
+// want a silhouette rather than a render — the cold open above all, which strokes cages.
+//
+// Every piece carries a BOUNDING BOX {cx, cy, hx, hy, z0, z1, yaw} so a consumer that only wants a
+// cage can ignore everything else. On top of that it carries its KIND, because a cage is not what a
+// round tower looks like: the first pass boxed all 39 drums in the city, which turned every tank,
+// silo and cylindrical shaft in Coldwater into the same slab as the shop next door. So a drum now
+// ships its radii and facet count, and a barrel is flagged as an arch — a consumer can draw the real
+// contour or fall back to the box, and the box is right there either way. (The single sawtooth deck
+// stays a box: one roof, and its teeth are smaller than a wireframe line is wide at that distance.)
+//
+// Values stay in the affine [a·fh + b·h + c] form so the consumer can pick its own scale — the cold
+// open's storeys are much taller than the sim's, and this is what lets one bake serve both.
+//
+// Ordering is the LOD ranking, so `max` gives you the N most defining pieces of a building, with
+// repeated groups (a colonnade) already kept together.
+export function shapeWireList(m, max = 6) {
+  const segs = shapeForModel(m, 0);
+  if (!segs || !segs.length) return [];
+  const { byIndex } = lodOrder(segs);
+  const ranked = byIndex.slice().sort((a, b) => a.at - b.at || a.i - b.i);
+  // ALWAYS keep the tallest piece, whatever its bulk. The LOD ranking is by visual mass, which is
+  // right for a solid renderer — a spire covers almost no pixels — but wrong for a SILHOUETTE, and
+  // wrong for anything that needs to know how tall a building really is. Trimming by bulk alone
+  // dropped Halcyon's crown and reported the tower as 1.0× its storey stack instead of 2.9×, which
+  // would have flown the cold open's camera straight through it.
+  const topZ = (r) => shapeVal(r.s.z1, 1, 1);
+  let tallest = ranked[0];
+  for (const r of ranked) if (topZ(r) > topZ(tallest)) tallest = r;
+  // Rank order is by visual MASS, which for a stacked tower means the budget is eaten from the
+  // ground up: Solenne is 26 twisted slabs, so the first eight kept pieces reached 1.1× the storey
+  // stack and the ninth was the crown at 3.05× — a tower with two thirds of its shaft missing and
+  // its hat floating in the air. Hall of Records did the same. So after ranking, any VERTICAL GAP
+  // under the tallest kept piece is filled by a stand-in: the dropped segment nearest the middle of
+  // the gap, stretched to span it. That's the shaft's own footprint (a stack tapers slowly, so a mid
+  // slab is representative), and it costs nothing extra — fillers come out of the same budget, by
+  // taking one fewer ranked piece until the whole thing fits.
+  const zAt = (p) => shapeVal(p, 1, 1);
+  const gapFill = (kept) => {
+    const top = Math.max(...kept.map((r) => zAt(r.s.z1)));
+    const dropped = ranked.filter((r) => !kept.includes(r) && zAt(r.s.z0) < top);
+    if (!dropped.length) return [];
+    // Walk the kept spans bottom-up; every uncovered stretch a dropped piece lives in becomes one filler.
+    const spans = kept.map((r) => [zAt(r.s.z0), zAt(r.s.z1)]).sort((a, b) => a[0] - b[0]);
+    const out = [];
+    let z = Math.min(...ranked.map((r) => zAt(r.s.z0)));
+    for (const [lo, hi] of spans.concat([[top, top]])) {
+      if (lo - z > 1e-4) {
+        const mid = (z + lo) / 2;
+        const inGap = dropped.filter((r) => zAt(r.s.z1) > z + 1e-4 && zAt(r.s.z0) < lo - 1e-4);
+        if (inGap.length) {
+          let best = inGap[0];
+          for (const r of inGap) {
+            const c = (zAt(r.s.z0) + zAt(r.s.z1)) / 2;
+            if (Math.abs(c - mid) < Math.abs((zAt(best.s.z0) + zAt(best.s.z1)) / 2 - mid)) best = r;
+          }
+          const loSeg = inGap.reduce((a, r) => (zAt(r.s.z0) < zAt(a.s.z0) ? r : a), inGap[0]);
+          const hiSeg = inGap.reduce((a, r) => (zAt(r.s.z1) > zAt(a.s.z1) ? r : a), inGap[0]);
+          out.push({ ...best, s: { ...best.s, z0: loSeg.s.z0, z1: hiSeg.s.z1 } });
+        }
+      }
+      z = Math.max(z, hi);
+    }
+    return out;
+  };
+  let kept = ranked.slice(0, max);
+  if (!kept.includes(tallest)) kept[Math.max(0, max - 1)] = tallest;
+  let fill = gapFill(kept);
+  // Make room for the fillers rather than exceeding the budget: a shaft with a gap in it is worse
+  // than a shaft with one fewer setback.
+  while (fill.length && kept.length + fill.length > max && kept.length > 1) {
+    const drop = kept.filter((r) => r !== tallest).pop();
+    kept = kept.filter((r) => r !== drop);
+    fill = gapFill(kept);
+  }
+  kept = kept.concat(fill).slice(0, max);
+  // Left in RANK order, not source order: a consumer that can only afford the first two segments
+  // should get the two that define the building. Painter order doesn't matter to a wireframe.
+  const add = (p, q) => [p[0] + q[0], p[1] + q[1], p[2] + q[2]];
+  // The masts, appended OUTSIDE the budget. A spar is one line — it can't push a real piece off the
+  // list, and without it a crown box, a finial or the Dead Pigeon's bird stands on nothing. Never
+  // marked `tall`: a consumer sizing its camera to clear the city should clear the roofs, not the
+  // antennas.
+  const spars = (segs.spars || []).map((s) => ({
+    kind: 'mast', cx: s.cx, cy: s.cy, hx: [0, 0, 0], hy: [0, 0, 0], z0: s.z0, z1: s.z1, yaw: 0, front: 0, tall: 0,
+  }));
+  return kept.map(({ s }) => {
+    let cx = s.cx, hx, hy;
+    if (s.kind === 'box') { hx = hy = s.hwRaw; }
+    else if (s.kind === 'drum') { hx = hy = (Math.abs(s.rb[0]) + Math.abs(s.rb[1]) >= Math.abs(s.rt[0]) + Math.abs(s.rt[1])) ? s.rb : s.rt; }
+    else if (s.kind === 'barrel') { cx = add(s.cx, s.cxL); hx = s.hl; hy = s.hw; }
+    else { hx = s.hx; hy = s.hy; }
+    const out = { cx, cy: s.cy, hx, hy, z0: s.z0, z1: s.z1, yaw: s.yaw || 0, front: s.frontOnly ? 1 : 0, tall: s === tallest.s ? 1 : 0 };
+    // The real contour, for a consumer that can draw it. A drum tapers (rb→rt) and is faceted; a
+    // barrel is an arch over its span. Both are carried alongside the bounding box, never instead
+    // of it.
+    if (s.kind === 'drum') { out.kind = 'drum'; out.rb = s.rb; out.rt = s.rt; out.n = s.n; }
+    else if (s.kind === 'barrel') { out.kind = 'arch'; }
+    return out;
+  }).concat(spars);
+}
+
+// Faces a model would queue at a given detail level — the number LOD exists to cut. Diagnostic, used
+// by shapes:smoke to report the actual saving rather than assert one.
+export function shapeLodFaces(m, detail) {
+  const segs = shapeForModel(m, 0);
+  if (!segs || !segs.length) return 0;
+  const { byIndex, band } = lodOrder(segs);
+  let n = 0;
+  for (const r of byIndex) {
+    const fade = r.at <= 0 ? 1 : clamp((detail - r.at) / band, 0, 1);
+    if (fade <= LOD_MIN_ALPHA) continue;
+    const s = r.s;
+    n += s.kind === 'box' ? 4 + (s.roof ? 1 : 0)
+      : s.kind === 'drum' ? lodFacets(s.n, detail) + (s.cap ? 1 : 0)
+        : 5;   // barrel/sawtooth collapse to a capped box at LOD range
+  }
+  return n;
+}
+
+// ── Envelope helpers ─────────────────────────────────────────────────────────
+// Tallest point of the model, as a multiple of `h`. A plain one-box model returns 1.0, which is what
+// keeps today's collision ceiling unchanged for the simple types.
+export function shapeRoofZ(segs, fh, h) {
+  let m = 0; for (const s of segs) { const z = shapeVal(s.z1, fh, h); if (z > m) m = z; } return m;
+}
+// The model's ground footprint as a convex hull in TILE units, at a live footprint/height. Applies
+// the 0.44 clamp draw3DBoxAt applies internally — which is exactly why hwRaw is recorded raw.
+export function shapeFootprint(segs, fh, h, { includeFrontOnly = true } = {}) {
+  // Memoised on the segment array. The occlusion pre-pass asks for this once per building per frame
+  // and a convex hull is not free, so without a cache the culling optimisation pays for itself in
+  // hull-building. Keyed on the scale because the 0.44 clamp makes the result non-linear in fh, so
+  // one normalised hull can't just be scaled; in practice only a handful of (fh,h) pairs exist.
+  const ck = `${fh.toFixed(4)}|${h.toFixed(4)}|${includeFrontOnly ? 1 : 0}`;
+  if (!segs._fp) segs._fp = new Map();
+  const hit = segs._fp.get(ck);
+  if (hit) return hit;
+  const V = (p) => shapeVal(p, fh, h);
+  const pts = [];
+  for (const s of segs) {
+    if (s.frontOnly && !includeFrontOnly) continue;
+    const cx = V(s.cx), cy = V(s.cy);
+    if (s.kind === 'box') {
+      const w = Math.min(V(s.hwRaw), 0.44), c = Math.cos(s.yaw), sn = Math.sin(s.yaw);
+      for (const [a, b] of [[-w, -w], [w, -w], [w, w], [-w, w]]) pts.push([cx + a * c - b * sn, cy + a * sn + b * c]);
+    } else if (s.kind === 'drum') {
+      const r = Math.max(V(s.rb), V(s.rt));
+      for (let i = 0; i < 8; i++) { const a = i / 8 * 6.2832; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); }
+    } else if (s.kind === 'barrel') {
+      const x0 = cx + V(s.cxL) - V(s.hl), x1 = cx + V(s.cxL) + V(s.hl), y = V(s.hw);
+      pts.push([x0, cy - y], [x1, cy - y], [x1, cy + y], [x0, cy + y]);
+    } else if (s.kind === 'sawtooth') {
+      const x = V(s.hx), y = V(s.hy);
+      pts.push([cx - x, cy - y], [cx + x, cy - y], [cx + x, cy + y], [cx - x, cy + y]);
+    }
+  }
+  const hull = pts.length >= 3 ? convexHull2D(pts) : pts;
+  segs._fp.set(ck, hull);
+  return hull;
 }
 
 // Route each biome to its archetype set — the one place building variety is chosen.
@@ -6839,7 +8200,12 @@ function drawBuilding(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
 
 // Collect visible tiles, sort far→near, draw each (textured box / billboard).
 function drawWorldObjects(ctx, cam, v, sky, now, sun) {
-  const map = v.map; if (!map || !map.length) return; const R = cam.R, night = sky.night;
+  // The pixel-identity guarantee, asserted rather than assumed: no paint path may ever leave a
+  // shape sink installed. If this fires, a capture leaked (it failed to restore in a finally) and
+  // the frame is about to render buildings as nothing at all.
+  if (SHAPE_SINK) { SHAPE_SINK = null; console.error('[windshield] SHAPE_SINK leaked into a render pass — capture did not restore'); }
+  pBegin('world:build');
+  const map = v.map; if (!map || !map.length) { pEnd(); return; } const R = cam.R, night = sky.night;
   const FAR = VISIBLE_FAR_F, wcx = v.mapCenter ? v.mapCenter.x : 0, wcy = v.mapCenter ? v.mapCenter.y : 0;
   const items = [], wildF = v._wildFill;
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
@@ -6851,8 +8217,9 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     if (c.kind === 'air') {
       wild = wildF && wildF[ry] ? wildF[ry][rx] : null;
       if (!wild || wild === 'sea' || c.self) continue;
-    } else if ((c.self && c.mark !== 'yacht') || ((c.kind === 'field' || c.biome === 'water') && c.mark !== 'yacht')) {
+    } else if ((c.self && c.mark !== 'yacht') || ((c.kind === 'field' || c.biome === 'water') && c.mark !== 'yacht' && !c.bt)) {
       continue;   // the Echelon is a field-on-water tile that DOES get a 3D model — drawn even on our OWN tile so the pilot sits on the helipad, not open water
+                  // …and a ROOFTOP pad is a field tile carrying a real building (`bt`): draw the tower, the pad is on top of it
     }
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
     // Near-clip against the CAMERA, not the craft: in the external chase view the camera sits
@@ -6904,6 +8271,48 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     items.push({ dx, dy, f, c, alpha, seed: (wx + 512) * 73 + (wy + 512) * 149, wx, wy, rx, ry, wild });   // stable, positive, frac-friendly
   }
   items.sort((a, b) => b.f - a.f);
+  // Occlusion pre-pass: walk NEAR→FAR (the reverse of the paint order) building a span buffer, and
+  // mark every building already hidden behind a nearer one. See the notes above screenBox — the
+  // occluder/occludee boxes are deliberately biased so this can only ever be too timid.
+  let occluded = null;
+  if (RENDER_TUNE.occlude) {
+    const W = (ctx.canvas && ctx.canvas.width) || 1280;
+    const covTop = new Float32Array(OCC_BUCKETS).fill(Infinity);
+    const col = (x) => clamp(Math.floor(x / W * OCC_BUCKETS), 0, OCC_BUCKETS - 1);
+    occluded = new Set();
+    for (let i = items.length - 1; i >= 0; i--) {
+      const it = items[i];
+      if (!it.c || !it.c.bt) continue;
+      const om = modelFor(it.c); if (!om) continue;
+      const segs = shapeForModel(om, it.seed); if (!segs || !segs.length) continue;
+      const oh = floorHeight(it.c, it.seed);
+      const ofh = (BUILDING_FOOT + frac(it.seed + 2) * 0.06) * RENDER_TUNE.bldgFoot;
+      const E = faceVec(it.c.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
+      const toWorld = ([lx, ly]) => [it.dx + lx * ct - ly * st, it.dy + lx * st + ly * ct];
+      // Occludee: the whole building, grown.
+      const hull = shapeFootprint(segs, ofh, oh).map(toWorld);
+      const box = hull.length >= 3 ? screenBox(cam, hull, 0, shapeRoofZ(segs, ofh, oh)) : null;
+      if (box) {
+        const gw = (box.x1 - box.x0) * OCC_GROW, gh = (box.y1 - box.y0) * OCC_GROW;
+        const x0 = box.x0 - gw, x1 = box.x1 + gw, yTop = box.y0 - gh;
+        let hidden = x1 >= 0 && x0 <= W;
+        for (let c = col(x0); hidden && c <= col(x1); c++) if (covTop[c] > yTop) hidden = false;
+        if (hidden) { occluded.add(it); if (PERF.on) PERF.n.culled++; continue; }   // hidden things occlude nothing
+      }
+      // Occluder: the core segment only, shrunk — a guaranteed-solid slab of this building.
+      if (it.alpha < OCC_OPAQUE) continue;
+      const core = lodOrder(segs).byIndex.find(r => r.at <= 0);
+      if (!core) continue;
+      const V = (p) => p[0] * ofh + p[1] * oh + p[2];
+      const cw = core.s.kind === 'box' ? Math.min(V(core.s.hwRaw), 0.44)
+        : core.s.kind === 'drum' ? Math.max(V(core.s.rb), V(core.s.rt)) * 0.7 : V(core.s.hl || core.s.hx) * 0.7;
+      const ccx = V(core.s.cx), ccy = V(core.s.cy), k = cw * (1 - OCC_SHRINK);
+      const cc = [[ccx - k, ccy - k], [ccx + k, ccy - k], [ccx + k, ccy + k], [ccx - k, ccy + k]].map(toWorld);
+      const cbox = screenBox(cam, cc, 0, V(core.s.z1) * (1 - OCC_SHRINK));
+      if (!cbox) continue;
+      for (let c = col(cbox.x0); c <= col(cbox.x1); c++) if (cbox.y0 < covTop[c]) covTop[c] = cbox.y0;
+    }
+  }
   // Shadow pre-pass: lay every building's ground shadow FIRST (far→near) so the bodies drawn
   // next sit on top of the whole shadow field instead of over-painting a neighbour's shadow.
   if (sun && sun.len > 0) {
@@ -6912,7 +8321,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       if (!it.c.bt || it.f > shadowFar) continue;   // a distant building's ground shadow is an invisible smear — skip it
       const h = floorHeight(it.c, it.seed);
       const fh = (BUILDING_FOOT + frac(it.seed + 2) * 0.06) * RENDER_TUNE.bldgFoot;
-      drawBuildingShadow(ctx, cam, it.dx, it.dy, fh, h, sun, it.alpha);
+      const sm = RENDER_TUNE.shapeShadow ? modelFor(it.c) : null;
+      drawBuildingShadow(ctx, cam, it.dx, it.dy, fh, h, sun, it.alpha, sm ? shapeForModel(sm, it.seed) : null, sm ? faceVec(it.c.ent) : null);
     }
   }
   // ONE depth-sorted face queue for the WHOLE world pass (not per-building). Every building's
@@ -6945,6 +8355,9 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   } : null;
   beginFaces();
   for (const it of items) {
+    // Fully hidden behind a nearer building (see the occlusion pre-pass). Skipped before anything is
+    // built or queued — the point is to not pay for it at all, not to pay and then not show it.
+    if (occluded && occluded.has(it)) continue;
     const alpha = it.alpha, bi = it.c.biome, od = it.f + (cam.back || 0);
     if (it.c.mark === 'statue') { emitFace(od, () => drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now)); continue; }   // town-square monument + fountain
     if (it.c.mark === 'gate') { emitFace(od, () => drawSouthGate(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.c.cur || 'ew', it.seed, night, alpha, now)); continue; }   // the Curtain's fortified breach — flanking pylons + arch energy field + turrets
@@ -7013,7 +8426,31 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // depth-sort against each other AND against every other building's faces, so a tower/marquee
     // can't over-paint nearer geometry of the same building OR of a neighbour (the "see-through"
     // bug). One flushFaces() after the loop paints the whole district back→front.
-    if (m) drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face, it.c.bn);
+    // Distance LOD: past RENDER_TUNE.lodNear a dedicated model is drawn from its captured segments
+    // rather than by running its arm — same mass at the handover, dissolving to one box by lodFar.
+    // drawModelLOD returns false when a model has no usable capture, in which case we run the real
+    // arm as before, so a capture failure costs framerate and never correctness.
+    const lodN = RENDER_TUNE.lodNear || 0;
+    let drewLod = false;
+    if (m && lodN > 0 && it.f > lodN) {
+      const lodF = Math.max(lodN + 0.001, RENDER_TUNE.lodFar || 32);
+      const detail = clamp(1 - (it.f - lodN) / (lodF - lodN), 0, 1);
+      drewLod = drawModelLOD(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, face, detail);
+    }
+    if (drewLod) {
+      // Mass came from segments; now run the REAL arm with mass suppressed so the building keeps
+      // every light and sign it had. This is what makes the LOD nearly lossless: adornments are
+      // only ~120 faces per frame across the whole skyline against ~2750 of mass, so keeping them
+      // costs almost nothing and dropping them cost the only part of a distant building you can
+      // actually see. Set lodAdorn 0 to trade that back for the last slice of speed.
+      const tier = RENDER_TUNE.lodAdorn | 0;
+      if (tier > 0) {
+        MASS_OFF = true; ADORN_TIER = Math.min(tier, ADORN_RICH);
+        try { drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face, it.c.bn); }
+        finally { MASS_OFF = false; ADORN_TIER = ADORN_RICH; }   // never leave either set — an arm that throws would blank every building behind it
+      }
+    }
+    else if (m) drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face, it.c.bn);
     else drawBuilding(ctx, cam, it.dx, it.dy, fh, h, arch, it.seed, night, alpha, now);
     // Rooftop holo-ad: a flickering translucent sign floating over ~1 in 4 tall-ish city
     // buildings at night — post-singularity advertising, half its pixels dead. Generic
@@ -7029,7 +8466,22 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // depth), so a building between you and the site occludes it instead of the turret painting on top
   // — it used to draw as a post-pass after flushFaces (the "AA showing through a building" bug).
   if (v.aaSites && (v.worldBlend ?? 1) > 0.02) drawAASites(ctx, cam, v, now);
+  pEnd();                      // ── end world:build (queueing) ──
+  pBegin('world:flush');
   flushFaces();   // ONE depth-sorted paint across every building + object collected this pass
+  pEnd();
+  // Dev overlay: the captured shapes, stroked on top of the finished frame. Off unless asked for.
+  if (RENDER_TUNE.shapeWire) {
+    for (const it of items) {
+      if (!it.c || !it.c.bt || it.f > (RENDER_TUNE.lodFar || 32)) continue;
+      const wm = modelFor(it.c); if (!wm) continue;
+      const wsegs = shapeForModel(wm, it.seed); if (!wsegs || !wsegs.length) continue;
+      const wh = floorHeight(it.c, it.seed);
+      const wfh = (BUILDING_FOOT + frac(it.seed + 2) * 0.06) * RENDER_TUNE.bldgFoot;
+      const order = lodOrder(wsegs);
+      drawShapeWire(ctx, cam, it.dx, it.dy, wfh, wh, wm, it.seed, faceVec(it.c.ent), order.byIndex.find(r => r.at <= 0)?.i ?? -1);
+    }
+  }
   FOG_STATE = null; LIGHT_STATE = null;   // scoped to this world pass only — never bleed into the HUD/deck/yacht draws
 }
 
@@ -7583,10 +9035,27 @@ function convexHull2D(pts) {
 // the square footprint AND the top face slid along the sun by the height offset. The convex hull
 // of those eight ground points is the box's true cast silhouette — it takes the building's
 // footprint shape and stretches/skews with height and sun angle, instead of a featureless slab.
-function drawBuildingShadow(ctx, cam, dx, dy, fh, h, sun, alpha) {
-  const sd = sun.shadowDir, off = clamp(h * sun.len, 0.15, 3.5);
+// `segs`/`E` optional: with a captured shape the shadow is cast from the building's REAL footprint
+// instead of one square, so a stepped tower, an L-shaped studio lot and a long hangar stop all
+// casting the same rectangle. Falls back to the square when a model has no capture.
+//
+// Two things this fixes beyond the outline. The old square used the raw `fh`, ignoring the 0.44
+// clamp draw3DBoxAt applies internally — so every wide model already cast a shadow wider than the
+// building. And the cast height was the storey stack `h`, not the model's real roof, so an office
+// tower drawn to 1.7h threw a shadow sized for 1.0h. Both come out right from the segments.
+function drawBuildingShadow(ctx, cam, dx, dy, fh, h, sun, alpha, segs, E) {
+  let corners = null, topZ = h;
+  if (segs && segs.length) {
+    const local = shapeFootprint(segs, fh, h);
+    if (local.length >= 3) {
+      const th = E ? Math.atan2(-E[0], E[1]) : 0, ct = Math.cos(th), st = Math.sin(th);
+      corners = local.map(([lx, ly]) => [lx * ct - ly * st, lx * st + ly * ct]);
+      topZ = shapeRoofZ(segs, fh, h) || h;
+    }
+  }
+  if (!corners) corners = [[-fh, -fh], [fh, -fh], [fh, fh], [-fh, fh]];   // footprint square (building-local)
+  const sd = sun.shadowDir, off = clamp(topZ * sun.len, 0.15, 3.5);
   const ox = sd[0] * off, oy = sd[1] * off;   // where the roof lands on the ground, cast from the top
-  const corners = [[-fh, -fh], [fh, -fh], [fh, fh], [-fh, fh]];   // footprint square (building-local)
   const scr = [];
   for (const [cx, cy] of corners) { const p = cam.proj(dx + cx, dy + cy, 0); if (p.f <= 0.06) return; scr.push([p.sx, p.sy]); }
   for (const [cx, cy] of corners) { const p = cam.proj(dx + cx + ox, dy + cy + oy, 0); if (p.f <= 0.06) return; scr.push([p.sx, p.sy]); }

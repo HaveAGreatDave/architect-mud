@@ -5,6 +5,66 @@ let _wasPlaying = false;
 let _overlayTimer = null;
 const MAX_PREVIEW_LINES = 20;
 
+// ── Consumer branding ────────────────────────────────────────────────────────
+// A branded unit (server sends `brand` from the furniture's `deck_brand` flag)
+// wears its maker's mark instead of the studio "▌ MEDIA DECK ▐" wordmark. The
+// marks are drawn in `currentColor` so they inherit the player's theme accent
+// rather than carrying a palette of their own; an unknown brand falls back to a
+// plain mark, so new content needs no art here to look deliberate.
+const BRAND_MARKS = {
+  // Polaris: the north star. Four long points, four short, over an open
+  // navigator's ring — a company that sells you one machine for one film.
+  polaris: `<svg class="mediadeck-brandmark" viewBox="0 0 32 32" aria-hidden="true">
+      <circle cx="16" cy="16" r="11.5" fill="none" stroke="currentColor" stroke-width="1" opacity="0.45"/>
+      <path d="M16 1.5 L18 13 L16 16 L14 13 Z" fill="currentColor"/>
+      <path d="M16 30.5 L14 19 L16 16 L18 19 Z" fill="currentColor"/>
+      <path d="M1.5 16 L13 14 L16 16 L13 18 Z" fill="currentColor" opacity="0.9"/>
+      <path d="M30.5 16 L19 18 L16 16 L19 14 Z" fill="currentColor" opacity="0.9"/>
+      <path d="M6 6 L14.5 14.5 L16 16 L13.5 15 Z" fill="currentColor" opacity="0.5"/>
+      <path d="M26 26 L17.5 17.5 L16 16 L18.5 17 Z" fill="currentColor" opacity="0.5"/>
+      <path d="M26 6 L17.5 14.5 L16 16 L18.5 15 Z" fill="currentColor" opacity="0.5"/>
+      <path d="M6 26 L14.5 17.5 L16 16 L13.5 17 Z" fill="currentColor" opacity="0.5"/>
+      <circle cx="16" cy="16" r="1.6" fill="currentColor"/>
+    </svg>`,
+  // Bantam: the budget house. A stamped chevron in a box — one die, used on the
+  // tape players, the fan heaters and the kettles alike, and slightly off-centre
+  // on all of them.
+  bantam: `<svg class="mediadeck-brandmark" viewBox="0 0 32 32" aria-hidden="true">
+      <rect x="2.5" y="6" width="27" height="20" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M8 21 L16 11 L24 21" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="miter"/>
+    </svg>`,
+};
+const BRAND_FALLBACK_MARK = `<svg class="mediadeck-brandmark" viewBox="0 0 32 32" aria-hidden="true">
+    <path d="M16 3 L29 16 L16 29 L3 16 Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+    <circle cx="16" cy="16" r="2" fill="currentColor"/>
+  </svg>`;
+
+function _brandMark(brand) {
+  return BRAND_MARKS[String(brand || '').toLowerCase()] || BRAND_FALLBACK_MARK;
+}
+
+// The four-digit tape counter on a piano-key unit — the one that has not been
+// reset since before The Handoff. Purely cosmetic and purely local: the reading
+// is derived from the deck id so it is stable per machine and per viewer without
+// costing the server a column, and it only creeps while a tape is actually
+// rolling. Cleared with the panel so the interval can never outlive it.
+let _counterTimer = null;
+function _counterBase(deckId) {
+  let h = 0;
+  for (const ch of String(deckId || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return h % 10000;
+}
+function _setCounter(data, running) {
+  const el = document.getElementById('mediadeck-counter');
+  if (_counterTimer) { clearInterval(_counterTimer); _counterTimer = null; }
+  if (!el) return;
+  if (!data.brand || data.deckStyle !== 'keys') { el.textContent = ''; return; }
+  let n = _counterBase(data.deckId);
+  const paint = () => { el.textContent = String(n % 10000).padStart(4, '0'); };
+  paint();
+  if (running) _counterTimer = setInterval(() => { n++; paint(); }, 1200);
+}
+
 function _lightLabel(lightState, activeCassetteId) {
   if (lightState === 'green') return 'LIVE';
   if (lightState === 'orange') return activeCassetteId ? 'PLAYING TAPE' : 'ON AIR';
@@ -81,7 +141,18 @@ const MEDIADECK_SPINUP_DEF = {
 };
 
 // One-liner: chunky click for any deck button press. Never touches the whir.
-function _deckClick() { window.AudioEngine?.playSfx(MEDIADECK_BUTTON_DEF); }
+// Silence is a property of the MACHINE (`deck_silent`), not of being branded: a
+// cheap unit is branded too and is all piano keys and servo clunk. Every
+// mechanical SFX routes through these two guards rather than being called direct,
+// so only the deck that claims to close without a sound actually does.
+function _deckClick() {
+  if (deckData?.silent) return;
+  window.AudioEngine?.playSfx(MEDIADECK_BUTTON_DEF);
+}
+function _deckSfx(def) {
+  if (deckData?.silent) return;
+  window.AudioEngine?.playSfx(def);
+}
 
 // Whirring plays only while a cassette is actively spinning (lightState
 // 'orange' — see _deckLightState in plugins/broadcast/index.js); not for
@@ -98,7 +169,7 @@ export function openMediaDeckPanel(data) {
   document.getElementById('mediadeck-panel').classList.add('active');
   // Whir runs whenever the deck is powered (any state but offline), so it's a
   // constant idle drone rather than only-while-a-tape-spins.
-  _setDeckWhir(data.lightState !== 'red');
+  _setDeckWhir(!data.silent && data.lightState !== 'red');
   // Clear preview on open and subscribe to channel broadcast. Until the first
   // live line arrives (or if the channel is dead air) the screen shows the red
   // [NO BROADCAST] card; any real broadcast line hides it (see below).
@@ -120,6 +191,7 @@ export function closeMediaDeckPanel() {
   deckData = null;
   _wasPlaying = false;
   _setDeckWhir(false);
+  if (_counterTimer) { clearInterval(_counterTimer); _counterTimer = null; }
 }
 
 // Toggle the red [NO BROADCAST] dead-air card over the preview monitor.
@@ -229,18 +301,52 @@ function formatTime(secondsSinceMidnight) {
 function renderMediaDeckPanel(data) {
   const { deckName, channelName, channelNumber, lightState, channelType, activeCassetteId, cassettes, schedule } = data;
 
+  // Consumer chassis: a branded unit is a different object from a studio deck and
+  // should not read as one. It swaps the wordmark for the maker's mark, hides the
+  // reel transport in favour of a loading door and a single amber bar, and takes
+  // every colour from the player's theme instead of the studio's fixed magenta.
+  const box = document.getElementById('mediadeck-box');
+  const brand = data.brand || '';
+  box.classList.toggle('consumer', !!brand);
+  // Cabinet style is content (`deck_style`): a machined slab, or a squat plastic
+  // top-loader with piano keys. Both are consumer units; neither is a rack deck.
+  box.classList.toggle('style-keys', brand && data.deckStyle === 'keys');
+  box.classList.toggle('style-slab', brand && data.deckStyle !== 'keys');
+  const wordmark = document.getElementById('mediadeck-wordmark');
+  if (wordmark) {
+    wordmark.innerHTML = brand
+      ? `${_brandMark(brand)}<span class="mediadeck-brandname">${escapeHtml(brand)}</span>`
+      : '▌ MEDIA DECK ▐';
+    wordmark.classList.toggle('mediadeck-brandplate', !!brand);
+  }
+
   document.getElementById('mediadeck-name').textContent = deckName || 'Media Deck';
   document.getElementById('mediadeck-channel').textContent = channelName
     ? `Ch ${channelNumber ?? '—'}: ${channelName}`
     : 'Not linked to a channel';
 
+  // A consumer unit answers one question — is the tape running — and the server
+  // has already worked that out (it needs the SET as well as the tape). Never
+  // show it a LIVE/ON AIR readout: it transmits nothing.
+  const isMini = !!data.isMini;
+  const miniPlaying = isMini && data.playing === true;
+  // A camera patched into the spare input is an input like a tape is: the transport
+  // stays dark (nothing is spooling), but the machine is feeding the set.
+  const camLabel = isMini ? (data.camLabel || null) : null;
   const lightEl = document.getElementById('mediadeck-light');
-  lightEl.className = 'mediadeck-light mediadeck-light-' + (lightState || 'red');
-  document.getElementById('mediadeck-light-label').textContent = _lightLabel(lightState, activeCassetteId);
+  lightEl.className = 'mediadeck-light mediadeck-light-'
+    + (isMini ? (miniPlaying ? 'orange' : 'red') : (lightState || 'red'));
+  document.getElementById('mediadeck-light-label').textContent = isMini
+    ? (miniPlaying ? (camLabel ? `FEED — ${camLabel}` : 'PLAYING') : `NOT PLAYING — ${data.whyNot || 'nothing loaded'}`)
+    : _lightLabel(lightState, activeCassetteId);
 
   const previewHeader = document.getElementById('mediadeck-preview-header');
   if (previewHeader) {
-    if (!data.channelId || lightState === 'red') {
+    if (isMini) {
+      previewHeader.textContent = miniPlaying ? (camLabel ? '▶ LIVE FEED' : '▶ PLAYING') : '■ NOT PLAYING';
+      previewHeader.className = 'mediadeck-preview-header '
+        + (miniPlaying ? 'mediadeck-preview-header-scripted' : 'mediadeck-preview-header-offline');
+    } else if (!data.channelId || lightState === 'red') {
       previewHeader.textContent = '— NO SIGNAL —';
       previewHeader.className = 'mediadeck-preview-header mediadeck-preview-header-offline';
     } else if (lightState === 'green') {
@@ -254,16 +360,33 @@ function renderMediaDeckPanel(data) {
 
   // A deck with no channel link or in an offline state is authoritatively dead
   // air — raise the card immediately (live channels clear it when a line lands).
-  if (!data.channelId || lightState === 'red') _setNoBroadcast(true);
+  if (!data.channelId || lightState === 'red' || (isMini && !miniPlaying)) _setNoBroadcast(true);
 
   const activeCassette = (cassettes || []).find(c => c.id === activeCassetteId);
   const cartridgeEl = document.getElementById('mediadeck-cartridge');
   const slotEl = document.getElementById('mediadeck-slot');
-  const isPlaying = lightState === 'orange';
+  const isPlaying = isMini ? miniPlaying : lightState === 'orange';
+  // The one amber bar, which is the whole readout on a machine like this: dark
+  // when empty, steady when the tape is running, slowly breathing when it is
+  // loaded and waiting on the set.
+  const amber = document.getElementById('mediadeck-amber-fill');
+  const caption = document.getElementById('mediadeck-door-status');
+  _setCounter(data, miniPlaying);
+  if (amber) {
+    const st = (!activeCassetteId && !camLabel) ? 'idle' : (miniPlaying ? 'run' : 'wait');
+    amber.className = 'mediadeck-amber-fill mediadeck-amber-' + st;
+  }
+  if (caption) {
+    caption.textContent = camLabel
+      ? (miniPlaying ? `FEED · ${camLabel}`.toUpperCase() : (data.whyNot || 'STANDING BY').toUpperCase())
+      : !activeCassetteId ? 'NO CASSETTE'
+      : miniPlaying ? 'PLAYING' : (data.whyNot || 'STANDING BY').toUpperCase();
+  }
   // Keep the idle whir in sync with power state (idempotent), and give a capstan
-  // spin-up swell the moment a tape actually starts rolling.
-  _setDeckWhir(lightState !== 'red');
-  if (isPlaying && !_wasPlaying) window.AudioEngine?.playSfx(MEDIADECK_SPINUP_DEF);
+  // spin-up swell the moment a tape actually starts rolling. A deck that claims
+  // to run without a sound gets neither; a cheap one still whirs like a cheap one.
+  _setDeckWhir(!data.silent && lightState !== 'red');
+  if (!data.silent && isPlaying && !_wasPlaying) window.AudioEngine?.playSfx(MEDIADECK_SPINUP_DEF);
   _wasPlaying = isPlaying;
   document.getElementById('mediadeck-reel-l')?.classList.toggle('spinning', isPlaying);
   document.getElementById('mediadeck-reel-r')?.classList.toggle('spinning', isPlaying);
@@ -285,8 +408,24 @@ function renderMediaDeckPanel(data) {
 
   const listEl = document.getElementById('mediadeck-cassette-list');
   listEl.innerHTML = '';
+  // The spare input sits above the tape library on a consumer deck, because that's
+  // where it is on the machine: one jack on the back, and either a tape or a feed.
+  if (data.specter) {
+    const row = document.createElement('div');
+    row.className = 'mediadeck-cassette-row' + (camLabel ? ' active' : '');
+    row.innerHTML = `<span class="mediadeck-track-num">IN</span>
+      <span class="mediadeck-cassette-spool${camLabel ? ' spinning' : ''}"></span>
+      <span class="mediadeck-cassette-name">${camLabel ? escapeHtml(camLabel) : 'SPECTER INPUT — patch a camera'}</span>
+      <span class="mediadeck-cassette-cat">live</span>
+      ${camLabel ? '<span class="mediadeck-playing-tag">▶ FEED</span>' : ''}`;
+    row.addEventListener('click', () => {
+      _deckClick();
+      sendCmdSilent(camLabel ? 'patch off' : 'patch');
+    });
+    listEl.appendChild(row);
+  }
   if (!cassettes || !cassettes.length) {
-    listEl.innerHTML = '<div class="mediadeck-empty">— NO TRACKS LOADED —</div>';
+    listEl.insertAdjacentHTML('beforeend', '<div class="mediadeck-empty">— NO TRACKS LOADED —</div>');
   } else {
     cassettes.forEach((c, i) => {
       const isActive = c.id === activeCassetteId;
@@ -328,6 +467,19 @@ function escapeHtml(s) {
 // Glass swings open, a fresh cassette drops in from the top and seats, then the
 // glass closes over it.
 function _insertCassette() {
+  // A consumer unit has no glass and no reels to show, so drive its door rather
+  // than the transport. How long that takes is the machine's character: the
+  // silent slab takes the cassette from you over four unhurried seconds; a cheap
+  // top-loader is shoved shut and gets on with it.
+  if (deckData?.brand) {
+    const door = document.getElementById('mediadeck-door');
+    if (!door) return;
+    const ms = deckData.silent ? 4000 : 900;
+    door.classList.remove('ejecting');
+    door.classList.add('drawing');
+    setTimeout(() => door.classList.remove('drawing'), ms);
+    return;
+  }
   const slot = document.getElementById('mediadeck-slot');
   if (!slot) return;
   slot.classList.remove('ejecting');
@@ -338,6 +490,14 @@ function _insertCassette() {
 // The reverse: glass opens and the seated cassette rises up and out, then the
 // glass closes on the empty slot.
 function _ejectCassette() {
+  if (deckData?.brand) {
+    const door = document.getElementById('mediadeck-door');
+    if (!door) return;
+    door.classList.remove('drawing');
+    door.classList.add('ejecting');
+    setTimeout(() => door.classList.remove('ejecting'), 2200);
+    return;
+  }
   const slot = document.getElementById('mediadeck-slot');
   if (!slot) return;
   slot.classList.remove('inserting');
@@ -359,7 +519,7 @@ function showLoadPicker() {
       row.textContent = c.name;
       row.addEventListener('click', () => {
         _deckClick();
-        window.AudioEngine?.playSfx(MEDIADECK_INSERT_DEF);
+        _deckSfx(MEDIADECK_INSERT_DEF);
         _insertCassette();
         sendCmdSilent(`load cassette ${c.name}`);
         hideLoadPicker();
@@ -391,7 +551,7 @@ export function initMediaDeckPanel() {
   document.getElementById('mediadeck-eject-btn').addEventListener('click', () => {
     _deckClick();
     if (deckData?.activeCassetteId) {
-      window.AudioEngine?.playSfx(MEDIADECK_EJECT_DEF);
+      _deckSfx(MEDIADECK_EJECT_DEF);
       _ejectCassette();
     }
     // Note: the whir keeps running through the press — it only stops on close

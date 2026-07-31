@@ -1,0 +1,18 @@
+{
+  "description": "Wire, rusting at every joint, draining into a tray that has not been emptied. Everything in it is dry and has been for days.",
+  "flags": {
+    "dish_cabinet": true,
+    "container": 30000,
+    "aliases": "rack,dish rack,draining board"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt9_dishrack",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "dish rack",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_9"
+}

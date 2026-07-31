@@ -106,6 +106,31 @@
         1
       ],
       "weight": 50
+    },
+    {
+      "credits": [
+        70,
+        160
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 20
+    },
+    {
+      "credits": [
+        265,
+        685
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 3,
+      "super": true
     }
   ],
   "name": "Rad Mutant",

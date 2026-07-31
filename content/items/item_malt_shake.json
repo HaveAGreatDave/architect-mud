@@ -1,0 +1,20 @@
+{
+  "description": "Thick enough to bend a straw. Somewhere between a drink and a meal, and honest about neither.",
+  "flags": {},
+  "id": "item_malt_shake",
+  "name": "malt shake",
+  "tags": {
+    "consumable": true,
+    "description": "Thick enough to bend a straw. Somewhere between a drink and a meal, and honest about neither.",
+    "drink_noun": "malt",
+    "drink_profile": "dairy_cream",
+    "hydrating": true,
+    "pour_units": 3,
+    "restore_sanity": 8,
+    "restore_thirst": 30,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 11,
+  "weight": 480
+}

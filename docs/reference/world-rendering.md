@@ -10,6 +10,11 @@ how to add or edit one. It complements [Rendering_Implementation.md](Rendering_I
 can be drawn by more than one renderer depending on the view, and it's easy to edit the
 wrong one.
 
+> **A building model is now READ as well as drawn.** Its geometry is captured out of these same
+> arms and drives the distance LOD, occlusion culling, ground shadows, CFIT collision and the cold
+> open's skyline — see [building-shapes.md](building-shapes.md). Editing a model changes all of
+> them, and `npm run shapes:smoke` (in `pretest:regress`) fails if the baked copy goes stale.
+
 ## The one rule that would have saved three rounds of confusion
 
 There is **no billboard/sprite system for buildings**. Everything solid you fly around is
@@ -188,6 +193,22 @@ Rules for anyone adding to a building model:
   paints immediately, so those paths are unaffected. Painter's order still can't resolve genuinely
   interpenetrating geometry, but buildings here don't interpenetrate.
 
+## Building mass is shared with the cold open
+
+`TYPE_FLOORS`, `FLOOR_Z`, `BUILDING_FOOT` and `floorsFor()` live in
+[`client/shared/skyline-scale.js`](../../client/shared/skyline-scale.js), **not**
+in windshield.js. They moved there because the cold open's closing flythrough
+([systems-codex.md](../systems-codex.md)) renders the same Coldwater skyline as a
+wireframe, and a first-login path must not import the ~8000-line flight renderer
+to find out how many storeys a hotel has.
+
+So there are now **two renderers of the same city**, and changing a floor count
+in that file moves both — plus the CFIT collision ceiling, since `buildingHeightZ`
+keys off the same `floorsOf`. windshield.js imports them and re-exports
+`BUILDING_FOOT` (cockpit.js's collision sweep imports it from windshield.js, and
+that stays true). The cold open's own `STRETCH` and its 90° rotation of the city
+are local art choices in intro-cinematic.js and do not belong here.
+
 ## The three "tower" renderers (do not confuse them)
 
 | # | Renderer | File | When it draws | Is it the airport tower? |
@@ -210,6 +231,21 @@ The switch is **data-driven, not per-field art**: `state.vtolOnlyField(zone)` (i
 `flags.airfield_vtol_only`, or the legacy `charter_vtol_only`) → `ground.helipad` in
 the context payload → `v.helipad`. **Any future helipad gets the pad automatically
 by carrying the flag** — there is nothing to author.
+
+### Rooftop pads: a tile that is BOTH a field and a building
+
+A pad on a tower's roof (the Solenne Sky Pad) puts `airfield_id` on the same
+`map_world` tile that carries the building. `kind:'field'` used to mean "bare
+ground": the world pass skipped the tile, `buildingHeightZ` returned 0, the ground
+pass painted runway concrete over the block and `biomeOf` tinted it apron-grey — i.e.
+flagging the pad would have *deleted the tower* from the sky and from the CFIT sweep.
+
+The rule now is **a field tile carrying `bt` keeps its building**: `drawWorldObjects`
+draws the model, `buildingHeightZ` keeps its mass, `drawGroundSurfaces`/`nearField`
+leave the street alone, and `biomeOf` keeps the district biome. The pad itself is the
+departure surface you sit on (`vtolOnlyField` → `v.helipad`), which is exactly right —
+the pad is on the roof, not painted on the block. Any future rooftop pad inherits all
+of this by carrying `airfield_vtol_only` on a building tile.
 
 Note the H is drawn as three foreshortened bars lying ON the pad, not as canvas
 text — same rule as the surface-text renderer: painted markings are never

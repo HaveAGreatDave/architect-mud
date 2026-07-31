@@ -151,6 +151,402 @@ async function deleteAllZoneSpawns(zoneId) {
   await refreshEnemiesSection(zoneId);
 }
 
+// --- Enemies panel: list view + spawn map ------------------------------------
+// The map view answers "where is the danger?" — one region at a time, drawn as a
+// deliberately dumb monochrome plan (terrain tones only, no names or icons) with
+// a red threat heat overlay on top. Interior rooms have no tile of their own, so
+// their spawns are folded onto the building facade you enter them through.
+// Tiles are clickable to add/remove spawns without hunting through the Zones editor.
+let _enemyView = 'list';          // 'list' | 'map'
+let _enemyQuery = '';
+let _spawnMapData = null;         // { spawns, zones, regions, mapParents } — fetched once, cached
+let _spawnMapZone = null;         // facade/tile zone id whose spawn editor is open
+let _spawnMapRegion = null;       // selected region id ('__unassigned' for tiles with no region)
+let _spawnMapZ = null;            // selected floor (grid_z); null = pick the busiest one
+
+function enemyViewToggleHtml() {
+  const btn = (v, label) =>
+    `<button class="action-btn${_enemyView === v ? ' success' : ''}" onclick="setEnemyView('${v}')">${label}</button>`;
+  const refresh = _enemyView === 'map'
+    ? `<button class="action-btn" onclick="_spawnMapData=null;renderEnemiesPanel()">↻ Refresh</button>` : '';
+  return `<div class="panel-sticky-head" style="display:flex;gap:6px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--bg2)">
+    ${btn('list', 'Enemy List')}${btn('map', 'Spawn Map')}${refresh}
+  </div>`;
+}
+
+function setEnemyView(v) {
+  if (_enemyView === v) return;
+  _enemyView = v;
+  renderEnemiesPanel();
+}
+
+function renderEnemiesPanel(records) {
+  const all = Array.isArray(records) ? records : allRecords;
+  if (_enemyView === 'map') { renderSpawnMap(); return; }
+  const q = _enemyQuery;
+  const shown = q ? all.filter(r => Object.values(r).some(v => String(v).toLowerCase().includes(q))) : all;
+  renderTable(PANELS.enemies.columns, shown, false);
+  document.getElementById('list-panel').insertAdjacentHTML('afterbegin', enemyViewToggleHtml());
+}
+
+function filterEnemies(q) {
+  _enemyQuery = (q || '').toLowerCase();
+  renderEnemiesPanel();
+}
+
+async function renderSpawnMap() {
+  const host = document.getElementById('list-panel');
+  host.innerHTML = enemyViewToggleHtml() + '<div style="padding:24px;color:var(--text-dim)">Loading spawns...</div>';
+  if (!_spawnMapData) {
+    const [spawns, zones, regionData, maps] = await Promise.all([
+      API('/spawns').catch(() => []),
+      API('/zones').catch(() => []),
+      API('/maps/regions').catch(() => null),
+      API('/maps').catch(() => []),
+    ]);
+    _spawnMapData = {
+      spawns: Array.isArray(spawns) ? spawns : [],
+      zones: Array.isArray(zones) ? zones : [],
+      regions: new Map((regionData?.regions || []).map(r => [r.id, r.name || r.id])),
+      // interior map -> the exterior zone (facade tile) it hangs off
+      mapParents: new Map((Array.isArray(maps) ? maps : [])
+        .filter(m => m.parent_zone_id).map(m => [m.id, m.parent_zone_id])),
+    };
+  }
+  _spawnMapDraw();
+}
+
+function _spawnMapDraw() {
+  const host = document.getElementById('list-panel');
+  host.innerHTML = enemyViewToggleHtml() + spawnMapBodyHtml();
+}
+
+// --- Data shaping ------------------------------------------------------------
+
+// Every spawn keyed by the *tile* it should paint: its own zone if that zone sits
+// on the grid, otherwise the facade of the building whose interior map holds it.
+// Walks up through nested interior maps so a 4th-floor room still lands on the door.
+function _spawnTileZone(zone, zoneById) {
+  const seen = new Set();
+  let z = zone;
+  while (z && !seen.has(z.id)) {
+    if (z.grid_x != null && z.grid_y != null) return z;
+    seen.add(z.id);
+    const parentId = _spawnMapData.mapParents.get(z.map_id);
+    z = parentId ? zoneById.get(parentId) : null;
+  }
+  return null;
+}
+
+// { byTile: Map(tileZoneId -> [{zone, spawns}]), orphans: [{zone, spawns}] }
+// honouring the search box (matches enemy name).
+function _spawnMapIndex() {
+  const q = _enemyQuery;
+  const zoneById = new Map(_spawnMapData.zones.map(z => [z.id, z]));
+  const byZone = new Map();
+  for (const s of _spawnMapData.spawns) {
+    if (q && !(s.enemy_name || '').toLowerCase().includes(q)) continue;
+    if (!byZone.has(s.zone_id)) byZone.set(s.zone_id, []);
+    byZone.get(s.zone_id).push(s);
+  }
+  const byTile = new Map(), orphans = [];
+  for (const [zoneId, spawns] of byZone) {
+    const zone = zoneById.get(zoneId) || { id: zoneId, name: `${zoneId} (zone missing)` };
+    const tile = zoneById.has(zoneId) ? _spawnTileZone(zone, zoneById) : null;
+    if (!tile) {
+      orphans.push({ zone, spawns });
+      byTile.set(zone.id, [{ zone, spawns }]);   // so the detail editor still opens for them
+      continue;
+    }
+    if (!byTile.has(tile.id)) byTile.set(tile.id, []);
+    byTile.get(tile.id).push({ zone, spawns });
+  }
+  return { byTile, orphans, zoneById };
+}
+
+// The Under carries no region_id (it's a district, not a region) but it's a whole
+// map's worth of danger, so it gets its own bucket instead of drowning in the
+// unassigned pile beside stray basin tiles.
+const _spawnRegionOf = z =>
+  z.flags?.region_id || (z.flags?.district === 'sewer' ? '__under' : '__unassigned');
+const _spawnRegionName = rid =>
+  rid === '__under' ? 'The Under (sewers)'
+  : rid === '__unassigned' ? 'Unassigned tiles'
+  : (_spawnMapData.regions.get(rid) || rid);
+
+// --- Threat ------------------------------------------------------------------
+// Rough power score for one enemy definition — HP + average swing + accuracy.
+function enemyThreat(enemyId) {
+  const e = (allRecords || []).find(r => r.id === enemyId);
+  if (!e) return 1;
+  const weapon = Array.isArray(e.weapon) ? e.weapon : [];
+  const dmg = weapon.reduce((n, c) => n + ((+c.min || 0) + (+c.max || 0)) / 2, 0);
+  return Math.max(1, (+e.hp_max || 30) / 10 + dmg * 2 + (+e.hit || 0));
+}
+// Total threat parked on a zone: every spawn's power × how many of them stand up.
+function zoneThreat(list) {
+  return (list || []).reduce((n, s) => n + enemyThreat(s.enemy_id) * (+s.max_count || 1), 0);
+}
+// Threat of a whole tile — its own spawns plus every interior room folded onto it.
+function tileThreat(entries) {
+  return (entries || []).reduce((n, e) => n + zoneThreat(e.spawns), 0);
+}
+
+// --- Monochrome terrain base -------------------------------------------------
+// One accent hue, four tones. Enough to read coastline, roads and blocks at a
+// glance; never enough to compete with the red on top.
+const SPAWN_MAP_INK = '150,190,210';
+const SPAWN_TERRAIN_TONE = {
+  water: 0.10, marsh: 0.13,
+  grass: 0.19, park: 0.19, scrub: 0.19,
+  sand: 0.24, dirt: 0.24, dirt_road: 0.26, gravel: 0.26, redrock: 0.24, ash: 0.22,
+  road: 0.34, asphalt: 0.34, concrete: 0.38, dock: 0.30,
+};
+const SPAWN_TILE_DEFAULT = 0.16;   // placed tile with no authored terrain
+const SPAWN_TILE_BUILDING = 0.62;  // facades read as solid mass
+
+function _spawnTileIsBuilding(z) {
+  return !!(z.flags?.building_type || z.flags?.is_building);
+}
+function _spawnTileTone(z) {
+  if (_spawnTileIsBuilding(z)) return SPAWN_TILE_BUILDING;
+  if (z.flags?.runway) return 0.42;
+  const t = z.flags?.terrain;
+  return (t && SPAWN_TERRAIN_TONE[t] != null) ? SPAWN_TERRAIN_TONE[t] : SPAWN_TILE_DEFAULT;
+}
+
+// --- Render ------------------------------------------------------------------
+
+function spawnMapBodyHtml() {
+  const { byTile, orphans, zoneById } = _spawnMapIndex();
+
+  // Regions that actually have placed tiles, ordered by how much threat they hold.
+  const regionTiles = new Map();   // rid -> tile zones
+  for (const z of _spawnMapData.zones) {
+    if (z.grid_x == null || z.grid_y == null) continue;
+    const rid = _spawnRegionOf(z);
+    if (!regionTiles.has(rid)) regionTiles.set(rid, []);
+    regionTiles.get(rid).push(z);
+  }
+  const regions = [...regionTiles.entries()].map(([rid, tiles]) => ({
+    rid, tiles,
+    name: _spawnRegionName(rid),
+    threat: tiles.reduce((n, z) => n + tileThreat(byTile.get(z.id)), 0),
+    spawns: tiles.reduce((n, z) => n + (byTile.get(z.id) || []).reduce((m, e) => m + e.spawns.length, 0), 0),
+  })).sort((a, b) => b.threat - a.threat || a.name.localeCompare(b.name));
+
+  if (!regions.length) return '<div style="padding:24px;color:var(--text-dim)">No placed tiles to map.</div>';
+  if (!regions.some(r => r.rid === _spawnMapRegion)) _spawnMapRegion = regions[0].rid;
+  const sel = regions.find(r => r.rid === _spawnMapRegion);
+
+  const options = regions.map(r =>
+    `<option value="${r.rid}"${r.rid === _spawnMapRegion ? ' selected' : ''}>${r.name} — ${r.spawns} spawn${r.spawns === 1 ? '' : 's'}</option>`).join('');
+
+  // Floors are separate *places*, not storeys of one thing — the Under sits at
+  // z=-1 under the same x/y as the streets above it — so one floor draws at a
+  // time and the rest are a click away.
+  const floors = [...new Set(sel.tiles.map(z => z.grid_z ?? 0))].sort((a, b) => b - a);
+  const floorSpawns = z => sel.tiles.filter(t => (t.grid_z ?? 0) === z)
+    .reduce((n, t) => n + (byTile.get(t.id) || []).reduce((m, e) => m + e.spawns.length, 0), 0);
+  if (!floors.includes(_spawnMapZ)) {
+    // Default to the busiest floor so a region whose only danger is underground
+    // doesn't open on an empty street plan.
+    _spawnMapZ = floors.slice().sort((a, b) => floorSpawns(b) - floorSpawns(a) || b - a)[0] ?? 0;
+  }
+  const onFloor = sel.tiles.filter(z => (z.grid_z ?? 0) === _spawnMapZ);
+  const here = floorSpawns(_spawnMapZ);
+
+  const floorNav = floors.length > 1 ? `<div class="field" style="flex:0 0 auto"><label>Floor</label>
+    <div style="display:flex;align-items:center;gap:4px">
+      <button class="action-btn" onclick="spawnMapStepZ(-1)"${_spawnMapZ === floors[floors.length - 1] ? ' disabled' : ''}>▾</button>
+      <span style="min-width:52px;text-align:center;font-size:12px">z = ${_spawnMapZ}</span>
+      <button class="action-btn" onclick="spawnMapStepZ(1)"${_spawnMapZ === floors[0] ? ' disabled' : ''}>▴</button>
+      <span style="font-size:10px;color:var(--text-dim)">${floors.map(z =>
+        `<a href="#" onclick="spawnMapSetZ(${z});return false" style="color:${z === _spawnMapZ ? 'var(--text)' : 'var(--text-dim)'};text-decoration:none;padding:0 3px">${z}${floorSpawns(z) ? '•' : ''}</a>`).join('')}</span>
+    </div></div>` : '';
+
+  let html = `<div style="display:flex;gap:10px;align-items:flex-end;padding:10px 12px">
+    <div class="field" style="flex:0 0 260px"><label>Region</label>
+      <select id="spawn-map-region" onchange="spawnMapSetRegion(this.value)">${options}</select></div>
+    ${floorNav}
+    <div style="color:var(--text-dim);font-size:11px;padding-bottom:6px">
+      ${here} spawn${here === 1 ? '' : 's'} on this floor${floors.length > 1 ? ` of ${sel.spawns} in the region` : ''}${_enemyQuery ? ` (filtered by "${_enemyQuery}")` : ''} — click a tile to add or remove spawns. Interior rooms fold onto their building's facade.
+    </div>
+  </div>`;
+
+  html += onFloor.length
+    ? `<div style="padding:0 12px 12px">${spawnRegionMapHtml(onFloor, byTile)}</div>`
+    : `<div style="padding:24px;color:var(--text-dim)">No placed tiles on floor z=${_spawnMapZ}.</div>`;
+  html += spawnHeatLegendHtml();
+  html += `<div id="spawn-detail">${spawnDetailHtml(zoneById.get(_spawnMapZone) || null, byTile)}</div>`;
+
+  if (orphans.length) {
+    html += `<div style="border-top:1px solid var(--border);padding:8px 12px">
+      <b>Spawns with no tile</b> <span style="color:var(--text-dim);font-size:11px">${orphans.length}</span>
+      ${orphans.map(o => `<div class="zone-subitem-row" onclick='spawnTileSelect(${JSON.stringify(o.zone.id)})' style="cursor:pointer">
+        <span>${o.zone.name || o.zone.id} <span style="color:var(--text-dim);font-size:11px">· ${o.spawns.map(s => `${s.enemy_name} ×${s.max_count}`).join(', ')}</span></span>
+      </div>`).join('')}
+    </div>`;
+  }
+  return html;
+}
+
+function spawnMapSetRegion(rid) {
+  _spawnMapRegion = rid;
+  _spawnMapZone = null;
+  _spawnMapZ = null;      // re-pick the busiest floor of the new region
+  _spawnMapDraw();
+}
+
+function spawnMapSetZ(z) {
+  _spawnMapZ = z;
+  _spawnMapZone = null;
+  _spawnMapDraw();
+}
+
+// Step to the next floor that actually has tiles, so ▾/▴ never lands on a gap.
+function spawnMapStepZ(delta) {
+  const tiles = (_spawnMapData?.zones || []).filter(z =>
+    z.grid_x != null && z.grid_y != null && _spawnRegionOf(z) === _spawnMapRegion);
+  const floors = [...new Set(tiles.map(z => z.grid_z ?? 0))].sort((a, b) => a - b);
+  const next = delta > 0 ? floors.find(z => z > _spawnMapZ)
+                         : floors.slice().reverse().find(z => z < _spawnMapZ);
+  if (next != null) spawnMapSetZ(next);
+}
+
+// One floor of the region on one plan: terrain tone underneath, red on top.
+// Tiles arrive pre-filtered to the selected grid_z.
+function spawnRegionMapHtml(tiles, byTile) {
+  const xs = tiles.map(z => z.grid_x), ys = tiles.map(z => z.grid_y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const cols = maxX - minX + 1, rows = maxY - minY + 1;
+  const cell = Math.max(4, Math.min(18, Math.floor(880 / cols)));
+
+  // Normally one zone per coord on a floor; if two overlap, the lower one draws
+  // and the threat still sums across both.
+  const byCoord = new Map();
+  for (const z of tiles) {
+    const key = `${z.grid_x},${z.grid_y}`;
+    const cur = byCoord.get(key);
+    if (!cur || (z.grid_z ?? 0) < (cur.grid_z ?? 0)) byCoord.set(key, z);
+  }
+  const stack = new Map();   // coord -> zones on it
+  for (const z of tiles) {
+    const key = `${z.grid_x},${z.grid_y}`;
+    if (!stack.has(key)) stack.set(key, []);
+    stack.get(key).push(z);
+  }
+
+  let peak = 0;
+  const threatByCoord = new Map();
+  for (const [key, list] of stack) {
+    const t = list.reduce((n, z) => n + tileThreat(byTile.get(z.id)), 0);
+    threatByCoord.set(key, t);
+    if (t > peak) peak = t;
+  }
+
+  let html = `<div style="display:grid;grid-template-columns:repeat(${cols},${cell}px);grid-auto-rows:${cell}px;gap:1px;width:max-content">`;
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const key = `${x},${y}`;
+      const z = byCoord.get(key);
+      if (!z) { html += '<div></div>'; continue; }
+      const tone = _spawnTileTone(z);
+      const threat = threatByCoord.get(key) || 0;
+      // sqrt ramp so a lone weak spawn still reads, without washing out the peak.
+      const t = peak > 0 && threat > 0 ? Math.sqrt(threat / peak) : 0;
+      const heat = t ? `<div style="position:absolute;inset:0;background:rgba(255,48,48,${(0.2 + 0.8 * t).toFixed(3)})"></div>` : '';
+      const border = _spawnTileIsBuilding(z) ? `;box-shadow:inset 0 0 0 1px rgba(${SPAWN_MAP_INK},0.85)` : '';
+      const entries = (stack.get(key) || []).flatMap(zz => byTile.get(zz.id) || []);
+      const detail = entries.length
+        ? `\n${entries.flatMap(e => e.spawns.map(s => `${s.enemy_name} ×${s.max_count}${e.zone.id === z.id ? '' : ` (${e.zone.name || e.zone.id})`}`)).join('\n')}\nthreat ${Math.round(threat)}`
+        : '';
+      const isSel = (stack.get(key) || []).some(zz => zz.id === _spawnMapZone);
+      html += `<div class="spawn-heat-tile${isSel ? ' spawn-heat-sel' : ''}" style="position:relative;background:rgba(${SPAWN_MAP_INK},${tone})${border}"
+        title="${(z.name || z.id).replace(/"/g, '&quot;')}${detail}"
+        onclick='spawnTileSelect(${JSON.stringify(z.id)})'>${heat}</div>`;
+    }
+  }
+  return html + '</div>';
+}
+
+function spawnHeatLegendHtml() {
+  const heat = t => `<span style="display:inline-block;width:16px;height:12px;background:rgba(${SPAWN_MAP_INK},${SPAWN_TILE_DEFAULT});position:relative"><span style="position:absolute;inset:0;background:rgba(255,48,48,${(0.2 + 0.8 * t).toFixed(2)})"></span></span>`;
+  const ink = (a, label) => `<span style="display:inline-flex;gap:4px;align-items:center"><span style="display:inline-block;width:12px;height:12px;background:rgba(${SPAWN_MAP_INK},${a})"></span>${label}</span>`;
+  return `<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:0 12px 10px;font-size:10px;color:var(--text-dim)">
+    <span style="display:flex;gap:4px;align-items:center"><span>quiet</span>${[0.15, 0.4, 0.7, 1].map(heat).join('')}<span>deadly</span></span>
+    <span style="opacity:0.7">count × strength</span>
+    <span style="display:flex;gap:10px;align-items:center;margin-left:auto">
+      ${ink(SPAWN_TERRAIN_TONE.water, 'water')}${ink(SPAWN_TERRAIN_TONE.grass, 'open')}${ink(SPAWN_TERRAIN_TONE.road, 'paved')}${ink(SPAWN_TILE_BUILDING, 'building')}
+    </span>
+  </div>`;
+}
+
+function spawnTileSelect(zoneId) {
+  _spawnMapZone = _spawnMapZone === zoneId ? null : zoneId;
+  _spawnMapDraw();
+  document.getElementById('spawn-detail')?.scrollIntoView({ block: 'nearest' });
+}
+
+// The clicked tile plus every interior room folded onto it — you edit the tile's
+// own spawns here, and can strip a room's spawns without leaving the map.
+function spawnDetailHtml(zone, byTile) {
+  if (!zone) return '';
+  const entries = byTile.get(zone.id) || [];
+  const own = entries.find(e => e.zone.id === zone.id);
+  const inside = entries.filter(e => e.zone.id !== zone.id);
+  const zoneArg = JSON.stringify(zone.id);
+  const options = allRecords.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    .map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+  const spawnRow = (s, label) => `<div class="zone-subitem-row">
+      <span>${s.enemy_name} <span style="color:var(--text-dim);font-size:11px">· ×${s.max_count} · ${s.respawn_seconds}s · weight ${s.spawn_weight}${label ? ` · ${label}` : ''}</span></span>
+      <span class="zone-subitem-actions">
+        <button class="action-btn danger" onclick='spawnMapDelete(${JSON.stringify(s.id)})'>Remove</button>
+      </span>
+    </div>`;
+  const rows = (own ? own.spawns.map(s => spawnRow(s, '')).join('') : '')
+    + inside.map(e => e.spawns.map(s => spawnRow(s, e.zone.name || e.zone.id)).join('')).join('');
+  return `<div class="zone-inline-form" style="margin:0 12px 12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <b>${zone.name || zone.id}</b>
+      <button class="action-btn" onclick='spawnTileSelect(${zoneArg})'>Close</button>
+    </div>
+    ${rows || '<div class="zone-subitem-empty">No spawns here.</div>'}
+    <div class="field-row" style="gap:8px;align-items:flex-end;margin-top:8px">
+      <div class="field"><label>Enemy</label><select id="sm-enemy">${options || '<option value="">— no enemies defined —</option>'}</select></div>
+      <div class="field"><label>Max</label><input id="sm-max" type="number" value="1" min="1" style="width:60px"></div>
+      <div class="field"><label>Respawn (s)</label><input id="sm-respawn" type="number" value="300" min="1" style="width:80px"></div>
+      <div class="field"><label>Weight</label><input id="sm-weight" type="number" value="100" min="0" max="100" style="width:70px"></div>
+      <button class="action-btn success" onclick='spawnMapAdd(${zoneArg})'>Add Spawn</button>
+    </div>
+  </div>`;
+}
+
+async function spawnMapAdd(zoneId) {
+  const enemy_id = document.getElementById('sm-enemy')?.value;
+  if (!enemy_id) { toast('Pick an enemy', true); return; }
+  const row = await directAPI('/spawns', 'POST', {
+    zone_id: zoneId,
+    enemy_id,
+    max_count: parseInt(document.getElementById('sm-max').value) || 1,
+    respawn_seconds: parseInt(document.getElementById('sm-respawn').value) || 300,
+    spawn_weight: parseInt(document.getElementById('sm-weight').value) || 100,
+  });
+  if (row?.error) { toast(row.error, true); return; }
+  _spawnMapData.spawns.push(row);
+  toast('Spawn added');
+  _spawnMapDraw();
+}
+
+async function spawnMapDelete(spawnId) {
+  const result = await directAPI(`/spawns/${encodeURIComponent(spawnId)}`, 'DELETE');
+  if (result?.error) { toast(result.error, true); return; }
+  _spawnMapData.spawns = _spawnMapData.spawns.filter(s => s.id !== spawnId);
+  toast('Spawn removed');
+  _spawnMapDraw();
+}
+
 // Furniture
 let _lootItems = [];
 function lootItemOptions(items, selectedId) {

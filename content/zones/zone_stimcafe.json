@@ -9,7 +9,7 @@
     "east": "zone_district_906_912"
   },
   "flags": {
-    "building_name": "Jitter",
+    "building_name": "Battery Acid Coffee Co.",
     "building_type": "shop",
     "is_building": true,
     "is_interior": true,
@@ -20,7 +20,7 @@
   "grid_z": 0,
   "id": "zone_stimcafe",
   "map_id": "map_int_jitter",
-  "name": "Jitter",
+  "name": "Battery Acid Coffee Co.",
   "parent_zone": "zone_district_906_912",
   "updated_at": "1784500000"
 }

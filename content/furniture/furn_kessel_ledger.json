@@ -1,0 +1,14 @@
+{
+  "description": "An open ledger on a crate, half the street's names in it in a hand that has been getting shakier for years. Nobody has ever been chased for a line in this book.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_kessel_ledger",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the ledger",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_kessel_back"
+}

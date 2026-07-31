@@ -80,14 +80,32 @@ export async function query(text, params) {
   }
 }
 
-// Log a server activity event. Caps the table at 500 rows automatically.
+// Log a server activity event. Caps the table at ~500 rows.
+//
+// The prune used to run on EVERY log line, which meant two round trips per event
+// and a full sort of the table inside a NOT IN for the second one. The cap is a
+// housekeeping nicety, not an invariant anything reads, so it now fires roughly
+// one time in twenty: the table drifts to at most ~520 rows instead of exactly
+// 500, and the common path is a single INSERT.
+const PRUNE_ODDS = 0.05;
 export async function logActivity(eventType, handle, adminHandle = null, detail = null) {
   query(
     `INSERT INTO server_activity_log (event_type, handle, admin_handle, detail) VALUES ($1, $2, $3, $4)`,
     [eventType, handle, adminHandle, detail]
-  ).then(() =>
-    query(`DELETE FROM server_activity_log WHERE id NOT IN (SELECT id FROM server_activity_log ORDER BY occurred_at DESC LIMIT 500)`)
-  ).catch(() => {});
+  ).then(() => {
+    if (Math.random() >= PRUNE_ODDS) return;
+    // Anti-joining against the keep-set beats NOT IN (SELECT …): the planner can
+    // hash the 500-row window once instead of re-checking membership per row,
+    // and NOT IN would swallow the whole delete if any id were ever NULL.
+    return query(
+      `DELETE FROM server_activity_log a
+        WHERE NOT EXISTS (
+          SELECT 1 FROM (
+            SELECT id FROM server_activity_log ORDER BY occurred_at DESC LIMIT 500
+          ) keep WHERE keep.id = a.id
+        )`
+    );
+  }).catch(() => {});
 }
 
 // For transactions

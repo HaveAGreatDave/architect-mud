@@ -4,6 +4,6 @@
   "generator_id": "gen_zone_util_zone_chemsupply_interior_1783840662221",
   "id": "zone_chemsupply_interior",
   "max_capacity_kw": 1000,
-  "name": "Bulk & Bond Supply",
+  "name": "Pallets & Pals",
   "source_type": "junction_box"
 }

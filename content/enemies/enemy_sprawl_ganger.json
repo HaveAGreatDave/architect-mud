@@ -95,6 +95,31 @@
         2
       ],
       "weight": 25
+    },
+    {
+      "credits": [
+        15,
+        40
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 20
+    },
+    {
+      "credits": [
+        60,
+        160
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 3,
+      "super": true
     }
   ],
   "name": "sprawl ganger",

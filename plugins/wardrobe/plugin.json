@@ -1,0 +1,16 @@
+{
+  "name": "wardrobe",
+  "version": "1.0.0",
+  "description": "Wardrobe — saved outfits over a container furniture flagged `wardrobe`. Drag-and-drop paper doll in the client panel; wearing an outfit dresses you from what's hanging inside. Owns `dress`, and overrides the engine's `undress` to accept a wardrobe target (untargeted delegates back to the engine).",
+  "hooks": ["container.view", "furniture.describe"],
+  "commands": ["outfit", "outfitsetid", "outfitwearid", "outfitwearnowid", "outfitdelid", "dress", "undress", "undressid", "hangwornid", "takeoffid"],
+  "specializedActions": ["outfits"],
+  "objectGatedCommands": {
+    "outfit": {
+      "discoverVia": "wardrobe",
+      "exposed": false,
+      "note": "The discoverable verb on a wardrobe is `outfits` (a specialized action, so examine surfaces it). `outfit save|wear|delete` is the typed sibling that listing points at, and the panel is the primary path."
+    }
+  },
+  "dataSchema": ["player_outfits"]
+}

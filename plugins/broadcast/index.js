@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers, insertFurniture, updateFurniture, deleteFurnitureWhere, getZoneFurniture } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
@@ -7,13 +8,29 @@ import { on, emit } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { registerCommand } from '../../server/engine/plugins.js';
 import { apiDeleteZone } from '../../server/api/routes.js';
-import { registerViewerChecker, registerNpcScheduleChecker, registerNpcStudioZoneLookup, registerZoneWatchedChecker, hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from '../../server/engine/broadcast-bridge.js';
+import { registerViewerChecker, registerNpcScheduleChecker, registerNpcNextShiftLookup, registerNpcStudioZoneLookup, registerZoneWatchedChecker, hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from '../../server/engine/broadcast-bridge.js';
 import { registerAICondition, registerAIAction } from '../../server/engine/ai-behaviour.js';
 import { getEnvironmentState, recomputePower, resyncAllLightingStates, fixZonePowerConnections, fixBuildingPowerConnections, markPowerTopologyDirty } from '../../server/engine/environment.js';
 import { getSongDefByName, getSfxDefByName, getAmbientDefByName, getSampleDefByName } from '../audio/index.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
+import { hackDifficulty, breachMargin, hasHackDeck, damageHackDeck } from '../../server/engine/hack-gear.js';
 import { reloadItem, deleteItemCache, getItem } from '../../server/engine/items-cache.js';
+import { sportsRng, sportsHash, sportsPick, sportsFill, sportsShuffle } from './rng.js';
+// Sport modules. One entry today; the registry shape is what a second sport plugs
+// into, so it exists now rather than being retrofitted around hockey later.
+import { BASEBALL } from './sports/baseball.js';
+import { HOCKEY } from './sports/hockey.js';
+import {
+  gameshowAiring, gameshowDayBucket, getGameshowGraph, gameshowOpenRound, gameshowResolveRound,
+  gameshowTokens, gameshowForgetPlayer, makeGuessCommand, assembleGameshowGraph, gameshowPool,
+  gameshowEndPass, gameshowPassIndex,
+  parseGuess, scorePrice, scoreOverUnder, scoreLot, scoreShowcase, _gameshowTest,
+} from './gameshow.js';
+import { installAudienceGate } from './audience.js';
+import { registerMoveGate } from '../../server/engine/movement-gates.js';
+import { registerPurchaseStamp } from '../../server/engine/vendor.js';
+import { cmdListen } from '../../server/engine/commands/world.js';
 
 // ── Color helpers (for studio tile coloring) ─────────────────────────────────
 function _hexToHsl(hex) {
@@ -89,7 +106,7 @@ function _recordDeckMessage(channelId, message) {
   deckRecent.set(channelId, ring);
 }
 
-on('tv.watch',   ({ playerId, channelId }) => tvWatchers.set(playerId, channelId));
+on('tv.watch',   ({ playerId, channelId }) => { tvWatchers.set(playerId, channelId); sendCatchUp(playerId, channelId); });
 // A quick tap closes the panel — you stop watching, but the set keeps playing and the
 // room keeps overhearing it (ambient continues). So a plain unwatch just drops you as a
 // viewer; it does NOT switch the set off.
@@ -131,7 +148,7 @@ async function powerOffWatchedTv(playerId, channelId) {
 
   for (const fid of deviceIds) {
     const { rows } = await query('SELECT * FROM furniture WHERE id=$1', [fid]).catch(() => ({ rows: [] }));
-    if (rows.length) await _applyTuning(rows[0], 0, zoneId); // channel 0 = off — drops the zone from ambient ticks
+    if (rows.length) await _applyTuning(rows[0], TV_OFF, zoneId); // power button (hold) — drops the zone from ambient ticks
   }
 
   // The physical set is now off — close any co-watcher's panel too.
@@ -161,10 +178,10 @@ on('deck.unwatch', ({ playerId })            => deckWatchers.delete(playerId));
 
 // The Tablet TV app registering/dropping its portable tuner. No furniture, no zone —
 // the tablet streams wherever the player is.
-on('tablet_tv.watch',   ({ playerId, channelId }) => { if (channelId) tabletTuners.set(playerId, channelId); });
+on('tablet_tv.watch',   ({ playerId, channelId }) => { if (channelId) { tabletTuners.set(playerId, channelId); sendCatchUp(playerId, channelId); } });
 on('tablet_tv.unwatch', ({ playerId })            => { tabletTuners.delete(playerId); });
 
-on('player.logout', ({ id })              => { tvWatchers.delete(id); deckWatchers.delete(id); tabletTuners.delete(id); });
+on('player.logout', ({ id })              => { tvWatchers.delete(id); deckWatchers.delete(id); tabletTuners.delete(id); gameshowForgetPlayer(id); });
 
 // studioZoneIndex.get(studioZoneId) = channelId
 // Enables O(1) lookup in zone.broadcast relay listener.
@@ -173,6 +190,40 @@ const studioZoneIndex = new Map();
 // cameraZoneStatus.get(zoneId) = true if at least one camera in that zone is
 // powered and undamaged. Refreshed alongside loadChannelRuntimes().
 const cameraZoneStatus = new Map();
+
+// zoneCameras.get(zoneId) = [{ id, direction, label }, …] — the WORKING cameras
+// physically registered in that zone, in a stable order. A camera direction in a
+// broadcast graph is not a free-floating instruction: it has to be executed by one
+// of these units, and if the zone has none, that shot does not exist. Rebuilt
+// alongside cameraZoneStatus.
+const zoneCameras = new Map();
+
+// A camera's on-air name. Cameras created by the studio builder are ids like
+// `cam_<channel>_3_<ts>`; pull the crew number out of that when it's there, else
+// fall back to position in the zone's roster.
+function _cameraLabel(camId, idx) {
+  const m = /_(\d+)_\d+$/.exec(camId || '');
+  return `Camera ${m ? m[1] : idx + 1}`;
+}
+
+// Put a line on the studio floor as a physical event in the room. Tagged so the
+// studio-camera relay (`zone.broadcast`) doesn't pick the show's own performance
+// back up and re-air it — the acting layer already delivers those lines to air by
+// its own path. Untagged room events (players talking, things breaking) DO get
+// relayed: that's the audience seam.
+function _stageLine(zoneId, message) {
+  if (!zoneId || !message) return;
+  sendToZone(zoneId, { type: 'output', message, _fromBroadcast: true });
+}
+
+// Assign the next camera in the zone's roster to a shot, round-robin per channel so
+// a multi-camera studio visibly cuts between its units instead of parking on one.
+function _pickCamera(zoneId, state) {
+  const cams = zoneCameras.get(zoneId);
+  if (!cams?.length) return null;
+  const seq = state._camSeq = ((state._camSeq || 0) + 1);
+  return cams[seq % cams.length];
+}
 
 // Default behaviour graph assigned to studio NPCs that don't yet have one:
 // start -> CHECK_WORK -> (goToWork) -> GO_TO_WORK -> AT_WORK -> loop back to CHECK_WORK
@@ -265,6 +316,65 @@ const KNOWN_BROADCAST_NODES = new Set([
 // out (no transmitter deck, no offline graphic). Read-only; also returns the
 // live runtime broadcast log so authoring problems and on-air failures sit
 // side by side. Returns null if the channel doesn't exist.
+// ── Day-of-week slot masks ───────────────────────────────────────────────────
+// A playlist row carries a 7-bit `days` mask (bit 0 = Mon … bit 6 = Sun, matching
+// world_clock.day_of_week's 1=Mon..7=Sun). DAYS_ALL is the default, so a schedule
+// authored once repeats every day exactly as it always did.
+//
+// There is ONE schedule, not a weekly mode and a daily mode: exceptions are extra
+// rows over the top of the everyday grid. Where two rows both cover the current
+// second, the MORE SPECIFIC one wins — fewest days set. That's what lets an author
+// lay down a normal week and then drop a Thursday-only slot on 20:00 without
+// touching, duplicating, or gapping the everyday row underneath it. `priority` is
+// the manual escape hatch and outranks specificity; equal on both, the later
+// start_time wins (the slot that most recently began).
+const DAYS_ALL = 127;
+const DAY_ABBR = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function _dayMask(days) {
+  const n = Number(days);
+  // Anything unset/garbage/out-of-range reads as every day. A 0 mask would mean a
+  // slot that can never air, which is never what an author meant — and would make
+  // a bad write silently black out a channel.
+  return Number.isFinite(n) && (n & DAYS_ALL) ? (n & DAYS_ALL) : DAYS_ALL;
+}
+function _dayBit(dayOfWeek) {
+  const d = Number(dayOfWeek);
+  return 1 << ((Number.isFinite(d) && d >= 1 && d <= 7 ? d : 1) - 1);
+}
+function _dayCount(mask) {
+  let n = 0;
+  for (let m = _dayMask(mask); m; m >>= 1) n += m & 1;
+  return n;
+}
+// Human-readable mask, for the day-scan report and the dev panel: '' when it's
+// every day (nothing worth saying), else 'Thu' / 'Mon,Wed,Fri' / 'Sat,Sun'.
+function _dayLabel(mask) {
+  const m = _dayMask(mask);
+  if (m === DAYS_ALL) return '';
+  return DAY_ABBR.filter((_, i) => m & (1 << i)).join(',');
+}
+function _slotAirsOn(item, dayOfWeek) {
+  return !!(_dayMask(item?.days) & _dayBit(dayOfWeek));
+}
+// The one slot on air at `gameSecs` on `dayOfWeek`. Every daily-schedule read goes
+// through here so the runner, the NPC shift checker, the "what's on now" panel and
+// the viewer's TV guide can never disagree about which slot won.
+function _pickDailySlot(playlist, gameSecs, dayOfWeek) {
+  let best = null;
+  for (const i of playlist || []) {
+    if (gameSecs < i.startTime || gameSecs >= i.startTime + i.duration) continue;
+    if (!_slotAirsOn(i, dayOfWeek)) continue;
+    if (!best) { best = i; continue; }
+    const pi = i.priority || 0, pb = best.priority || 0;
+    if (pi !== pb) { if (pi > pb) best = i; continue; }
+    const di = _dayCount(i.days), db = _dayCount(best.days);
+    if (di !== db) { if (di < db) best = i; continue; }
+    if (i.startTime > best.startTime) best = i;
+  }
+  return best;
+}
+
 async function scanChannelDay(channelId) {
   const { rows: chRows } = await query('SELECT * FROM media_channels WHERE id=$1', [channelId]);
   if (!chRows.length) return null;
@@ -284,18 +394,24 @@ async function scanChannelDay(channelId) {
   if (!ch.offline_graphic_id) add('info', 'no_offline_graphic', 'No offline graphic set — off-air / technical difficulties will show plain stand-by text, not a graphic.');
 
   const { rows: items } = await query(
-    `SELECT p.start_time, p.broadcast_id, b.name AS broadcast_name, b.playback_mode, b.broadcast_graph
+    `SELECT p.start_time, p.broadcast_id, p.days, b.name AS broadcast_name, b.playback_mode, b.broadcast_graph
        FROM media_channel_playlist p JOIN media_broadcasts b ON b.id=p.broadcast_id
       WHERE p.channel_id=$1 ORDER BY p.start_time`, [channelId]
   );
   let scanned = 0;
   for (const item of items) {
-    const label = item.broadcast_name || item.broadcast_id;
+    // Day-restricted slots read as "'Fight Night' (Thu)" throughout the report, so a
+    // problem in a once-a-week programme can't be mistaken for a problem in the
+    // everyday slot it sits on top of.
+    const dayTag = _dayLabel(item.days);
+    const label = (item.broadcast_name || item.broadcast_id) + (dayTag ? ` (${dayTag})` : '');
     if (item.playback_mode === 'weather') { add('info', 'weather_live', `'${label}' is a weather forecast — assembled live, not statically scannable.`, { broadcast: label }); continue; }
     if (item.playback_mode === 'sports')  { add('info', 'sports_live',  `'${label}' is a sports broadcast — a fresh game is simulated each airing, not statically scannable.`, { broadcast: label }); continue; }
     if (item.playback_mode === 'news')    { add('info', 'news_live',    `'${label}' is a news broadcast — a fresh bulletin is assembled from the live news generator each airing, not statically scannable.`, { broadcast: label }); continue; }
     if (item.playback_mode === 'talkshow'){ add('info', 'talkshow_live', `'${label}' is a talk show — a fresh episode is assembled and acted live by the cast each night, not statically scannable.`, { broadcast: label }); continue; }
     if (item.playback_mode === 'morning') { add('info', 'morning_live', `'${label}' is a morning show — a fresh episode is assembled from the live world each day and acted by the hosts, not statically scannable.`, { broadcast: label }); continue; }
+    if (item.playback_mode === 'sermon')  { add('info', 'sermon_live',  `'${label}' is a sermon — a fresh service is assembled from the live news feed each in-game day, not statically scannable.`, { broadcast: label }); continue; }
+    if (item.playback_mode === 'gameshow'){ add('info', 'gameshow_live', `'${label}' is a game show — a fresh episode of lots is dealt from the live item catalog each day and played out on the studio floor, not statically scannable.`, { broadcast: label }); continue; }
     let graph = item.broadcast_graph;
     if (!graph) continue;
     if (typeof graph === 'string') { try { graph = JSON.parse(graph); } catch { add('error', 'bad_graph', `'${label}' has an unparseable broadcast graph.`, { broadcast: label }); continue; } }
@@ -334,6 +450,13 @@ function devOk(auth) {
 }
 
 function broadcastDuration(bc) {
+  // A film occupies its whole screening block, and this is the ONE mode whose
+  // override_duration must not be believed: `@length` is the picture's REAL runtime
+  // (150 minutes of somebody's evening), while a slot is measured in in-game seconds.
+  // Taken literally it would reserve 2.5 in-game hours for a 2.5-real-hour feature,
+  // which is only the same thing at timeScale 1. Checked before override_duration for
+  // exactly that reason. See the film branch in getCurrentMessage.
+  if (bc.playback_mode === 'film') return sportsSlotMs() / 1000;
   if (bc.override_duration) return bc.override_duration;
   // Weather graphs are assembled live from the forecast (not baked in the DB), so
   // there's nothing to measure here — give the slot a sane default airtime.
@@ -351,6 +474,11 @@ function broadcastDuration(bc) {
   // A morning show assembles today's episode from the live world (nothing baked to measure).
   // Its real airtime is whatever daily slot it sits in; this is only the unscheduled default.
   if (bc.playback_mode === 'morning') return 240;
+  // A service is assembled live from the week's feed — nothing baked to measure.
+  if (bc.playback_mode === 'sermon') return 900;
+  // A game show plays out across its whole @airtime block, like the talk show — the
+  // rounds are paced by the host's patter, not by a slot length baked in the DB.
+  if (bc.playback_mode === 'gameshow') return sportsSlotMs() / 1000;
   if (bc.broadcast_graph) {
     const d = _vineDuration(bc.broadcast_graph, bc.message_interval || 5);
     if (d > 0) return d;
@@ -423,7 +551,7 @@ async function loadChannelRuntimes() {
         WHERE c.enabled = 1 ORDER BY c.number`
     );
     const { rows: playlist } = await query(
-      `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages, b.weather_pools, b.sports_pools, b.news_pools, b.talkshow_pools, b.morning_pools
+      `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages, b.weather_pools, b.sports_pools, b.news_pools, b.talkshow_pools, b.morning_pools, b.gameshow_pools, b.sermon_pools
          FROM media_channel_playlist p
          LEFT JOIN media_broadcasts b ON b.id = p.broadcast_id
         ORDER BY p.channel_id, p.start_time`
@@ -432,23 +560,51 @@ async function loadChannelRuntimes() {
       'SELECT id, zone_id, streaming_channel_id FROM media_cameras WHERE is_streaming = 1 AND is_powered = 1'
     );
     const { rows: allCams } = await query(
-      'SELECT zone_id, is_powered, is_damaged FROM media_cameras'
+      'SELECT id, zone_id, direction, is_powered, is_damaged FROM media_cameras ORDER BY zone_id, id'
     );
     cameraZoneStatus.clear();
+    zoneCameras.clear();
     for (const cam of allCams) {
       const working = !!cam.is_powered && !cam.is_damaged;
       if (working) cameraZoneStatus.set(cam.zone_id, true);
       else if (!cameraZoneStatus.has(cam.zone_id)) cameraZoneStatus.set(cam.zone_id, false);
+      if (!working) continue;
+      const list = zoneCameras.get(cam.zone_id) || [];
+      list.push({ id: cam.id, direction: cam.direction || 'all', label: _cameraLabel(cam.id, list.length) });
+      zoneCameras.set(cam.zone_id, list);
     }
+    // An ad is a BROADCAST, not a list of lines: its graph is what carries the title
+    // card, the jingle riding that card, and each line's own hold. Loading only
+    // `messages` (as this did) threw all of that away the moment the ad aired in a
+    // break — the logo card never came up at all, and every line got a flat 5s.
     const { rows: allCommercials } = await query(
-      `SELECT id, messages, message_interval FROM media_broadcasts WHERE category = 'advertisement'`
+      `SELECT id, messages, message_interval, broadcast_graph, override_duration
+         FROM media_broadcasts WHERE category = 'advertisement'`
     );
     const commercialMap = new Map();
     for (const ad of allCommercials) {
+      const messages = Array.isArray(ad.messages) ? ad.messages : (ad.messages ? JSON.parse(ad.messages) : []);
+      const interval = ad.message_interval || 5;
+      let graph = ad.broadcast_graph;
+      if (typeof graph === 'string') { try { graph = JSON.parse(graph); } catch { graph = null; } }
+      graph = (graph && typeof graph === 'object') ? _normalizeBroadcastGraph(graph) : null;
+      if (graph && !graph.nodes?.[graph._start]) graph = null;
+      if (graph) {
+        // _normalizeBroadcastGraph strips _broadcastId, so stamp it after. An ad is
+        // pre-recorded film: _adBreak keeps it out of the live-acted path, so a break
+        // on a live channel never demands a host on the studio floor to run it.
+        graph._broadcastId = `commercial:${ad.id}`;
+        graph._adBreak = true;
+      }
+      // Runtime the rotation paces off — the ad's real on-air length, title-card holds
+      // included, so the next ad starts when this one actually finishes.
+      const graphSec = graph ? (ad.override_duration || _graphDurationSec(graph)) : 0;
       commercialMap.set(ad.id, {
         id: ad.id,
-        messages: Array.isArray(ad.messages) ? ad.messages : (ad.messages ? JSON.parse(ad.messages) : []),
-        message_interval: ad.message_interval || 5,
+        messages,
+        message_interval: interval,
+        graph,
+        durationSec: graphSec > 0 ? graphSec : messages.length * interval,
       });
     }
 
@@ -468,7 +624,8 @@ async function loadChannelRuntimes() {
     const playlistByChannel = new Map();
     for (const item of playlist) {
       if (!playlistByChannel.has(item.channel_id)) playlistByChannel.set(item.channel_id, []);
-      const dur = item.duration_override || broadcastDuration(item);
+      const naturalDur = broadcastDuration(item);
+      const dur = item.duration_override || naturalDur;
       let broadcastGraph = item.broadcast_graph;
       if (broadcastGraph && typeof broadcastGraph === 'object') {
         broadcastGraph = _normalizeBroadcastGraph({ ...broadcastGraph, _broadcastId: item.broadcast_id });
@@ -488,6 +645,10 @@ async function loadChannelRuntimes() {
       if (typeof talkshowScript === 'string') { try { talkshowScript = JSON.parse(talkshowScript); } catch { talkshowScript = null; } }
       let morningScript = item.morning_pools;
       if (typeof morningScript === 'string') { try { morningScript = JSON.parse(morningScript); } catch { morningScript = null; } }
+      let sermonScript = item.sermon_pools;
+      if (typeof sermonScript === 'string') { try { sermonScript = JSON.parse(sermonScript); } catch { sermonScript = null; } }
+      let gameshowScript = item.gameshow_pools;
+      if (typeof gameshowScript === 'string') { try { gameshowScript = JSON.parse(gameshowScript); } catch { gameshowScript = null; } }
       playlistByChannel.get(item.channel_id).push({
         id: item.id,
         broadcastId: item.broadcast_id,
@@ -495,7 +656,15 @@ async function loadChannelRuntimes() {
         slotType: item.slot_type || 'broadcast',
         startTime: item.start_time,
         duration: dur,
+        // Which weekdays this slot airs, and the manual tiebreak — see _pickDailySlot.
+        days: _dayMask(item.days),
+        priority: item.priority || 0,
         playback_mode: item.playback_mode,
+        // A film's REAL runtime (@length). Not a slot length — it's how the runner knows
+        // the picture has finished before its reserved blocks have.
+        filmRuntime: item.playback_mode === 'film' ? (item.override_duration || null) : null,
+        // Where THIS showing began, stamped on every row of the run by ensureFilmSlots.
+        filmRunStart: Number.isFinite(cond?.film_run_start) ? cond.film_run_start : null,
         weatherPools: weatherScript?.pools || null,
         weatherHost: weatherScript?.host || null,
         weatherTitle: weatherScript?.title || null,
@@ -503,10 +672,13 @@ async function loadChannelRuntimes() {
         newsScript: newsScript || null,
         talkshowScript: talkshowScript || null,
         morningScript: morningScript || null,
+        gameshowScript: gameshowScript || null,
+        sermonScript: sermonScript || null,
         messages: Array.isArray(item.messages) ? item.messages : (item.messages ? JSON.parse(item.messages) : []),
         message_interval: item.message_interval || 5,
         loop: item.loop,
         broadcastGraph,
+        passDuration: broadcastGraph ? naturalDur : null,
         fallbackMessages: Array.isArray(item.fallback_messages) ? item.fallback_messages : (item.fallback_messages ? JSON.parse(item.fallback_messages) : []),
         npcStaff: Array.isArray(cond?.npc_staff) ? cond.npc_staff : [],
       });
@@ -517,13 +689,15 @@ async function loadChannelRuntimes() {
     for (const ch of channels) {
       if (ch.studio_zone_id) studioZoneIndex.set(ch.studio_zone_id, ch.id);
       const pl = playlistByChannel.get(ch.id) || [];
-      // Studio staffing only applies to LIVE channels, WEATHER forecasts, TALK SHOWS, and
-      // MORNING SHOWS (all acted on-stage and presence-gated). A scripted show's npc_anchor
-      // nodes are speaker attribution, not a cue for the NPC to appear on-stage — so the
-      // AI schedule/studio lookups must never see them as staff. Talk-show and morning-show
-      // items carry their own cast regardless of the channel's declared type.
+      // Studio staffing only applies to LIVE channels, WEATHER forecasts, TALK SHOWS,
+      // MORNING SHOWS and GAME SHOWS (all acted on-stage and presence-gated). A scripted
+      // show's npc_anchor nodes are speaker attribution, not a cue for the NPC to appear
+      // on-stage — so the AI schedule/studio lookups must never see them as staff.
+      // Talk-show, morning-show and game-show items carry their own cast regardless of
+      // the channel's declared type.
+      const ACTED_MODES = new Set(['weather', 'talkshow', 'morning', 'gameshow']);
       for (const it of pl) {
-        if (ch.channel_type !== 'live' && it.playback_mode !== 'weather' && it.playback_mode !== 'talkshow' && it.playback_mode !== 'morning') it.npcStaff = [];
+        if (ch.channel_type !== 'live' && !ACTED_MODES.has(it.playback_mode)) it.npcStaff = [];
       }
       const totalDuration = pl.length
         ? Math.max(...pl.map(i => i.startTime + i.duration))
@@ -547,8 +721,6 @@ async function loadChannelRuntimes() {
         offlineGraphicId: ch.offline_graphic_id || null,
         commercialPool,
         commercialBroadcasts: commercialPool.map(id => commercialMap.get(id)).filter(Boolean),
-        commercialIndex: 0,
-        _commercialCycleCount: 0,
         loopOriginMs: Date.now(),
         lastMsgKey: '',
         wasActive: false,
@@ -622,6 +794,78 @@ function getScriptedMessage(messages, messageInterval, elapsedSec) {
   return { text: typeof m === 'string' ? m : m.text, idx };
 }
 
+// ── Live delivery: an impaired actor doesn't read the script ────────────────
+// Every line is still ATTEMPTED live. What comes out of the actor's mouth is
+// another matter. This reads the performer's actual physical state — the dose on
+// their AI blackboard (plugins/npc-drugs) and any drink in them — and degrades the
+// delivery accordingly, in the Paul Masson register: not just slurring, but losing
+// the thread, repeating a word, asking for the line back, going off-script. The
+// script is what they meant to say; this is what aired.
+
+// 0 (sharp) → 1 (unbroadcastable). `out` is its own case — they can't perform at all.
+function _actorImpairment(npcId) {
+  const npc = npcId && world.npcs?.get(npcId);
+  if (!npc) return { level: 0, out: false };
+  const dose = npc._ai?.dose;
+  // Drink is a meter; a dose is a state. Take whichever is doing more damage.
+  let level = Math.max(0, Math.min(1, (npc.intoxication || 0) / 100));
+  if (dose?.out) return { level: 1, out: true };
+  if (dose?.loose)    level = Math.max(level, 0.65);
+  if (dose?.paranoid) level = Math.max(level, 0.8);
+  if (dose?.wired)    level = Math.max(level, 0.4);
+  return { level, out: false };
+}
+
+const _FUMBLE = [
+  'uh —', 'that is —', 'well —', 'hold on —', 'no, wait —', "let's — let's go again —",
+];
+const _OFFSCRIPT = [
+  "...what is that? What does that even mean?",
+  "...I'm not saying that. Give me the other one.",
+  "...are we rolling? Are we still rolling?",
+  "...no. No, that's not — start me again.",
+  "...I can't read this. Who wrote this?",
+];
+
+// Mangle a line for airtime. Deterministic in shape (always visibly degraded above
+// the floor) but randomised in detail so repeat viewings differ.
+function _garbleLine(text, level) {
+  if (!text || level < 0.3) return text;
+  const p = Math.min(1, (level - 0.3) / 0.6);   // 0 at the floor, 1 at wrecked
+  let words = String(text).split(' ');
+
+  // Repeat a word — the drunk's stall while the next one arrives.
+  if (Math.random() < 0.35 + p * 0.5 && words.length > 2) {
+    const i = 1 + Math.floor(Math.random() * (words.length - 1));
+    words.splice(i, 0, words[i]);
+  }
+  // Trip over the start of a clause.
+  if (Math.random() < 0.25 + p * 0.5 && words.length > 3) {
+    const i = 1 + Math.floor(Math.random() * (words.length - 2));
+    words.splice(i, 0, _FUMBLE[Math.floor(Math.random() * _FUMBLE.length)]);
+  }
+  let out = words.join(' ');
+  // Consonants go soft.
+  out = out.replace(/s/g, (m) => (Math.random() < p * 0.5 ? 'sh' : m));
+  // Deep enough in, the line doesn't survive to its own full stop.
+  if (p > 0.55 && Math.random() < p * 0.7) {
+    const cut = out.split(' ');
+    out = cut.slice(0, Math.max(2, Math.floor(cut.length * (0.4 + Math.random() * 0.3)))).join(' ')
+        + ' ' + _OFFSCRIPT[Math.floor(Math.random() * _OFFSCRIPT.length)];
+  }
+  // Never silently a no-op once we're past the floor.
+  if (out === text) out = text.replace(/\s/, ' ... ');
+  return out;
+}
+
+// A performer too far gone to deliver anything — the take dies on the studio floor.
+const _COLLAPSE = [
+  'stares into the lens for a long moment and says nothing at all.',
+  'opens their mouth, thinks better of it, and just breathes.',
+  'has lost the script. It is on the floor. So, increasingly, are they.',
+  'gestures at something off-camera and does not finish the gesture.',
+];
+
 function buildCameraSnapshot(zoneId) {
   const zone = getZone(zoneId);
   if (!zone) return null;
@@ -638,26 +882,126 @@ function buildCameraSnapshot(zoneId) {
   return parts.join(' ');
 }
 
-// Round-robin through commercial pool for break slots
+// On-air length of one pass of a NORMALIZED graph, in seconds — measured with the
+// walker's own nodeHoldMs, so a title card's hold is counted as the airtime it really
+// takes. Ads are linear chains; a branch is followed down its 'next' port only.
+function _graphDurationSec(graph) {
+  if (!graph?._start || !graph.nodes) return 0;
+  const edges = graph.edges || [];
+  let id = graph._start, total = 0;
+  const seen = new Set();
+  while (id && !seen.has(id)) {
+    seen.add(id);
+    const node = graph.nodes[id];
+    if (!node) break;
+    if (node.type !== 'start') total += nodeHoldMs(node);
+    id = _resolveEdge(edges, id, 'next');
+  }
+  return total / 1000;
+}
+
+// One ad's runtime — its graph's measured length, or (no graph) lines × interval.
+function _adDurationSec(ad) {
+  if (ad?.durationSec > 0) return ad.durationSec;
+  return (ad?.messages?.length || 0) * (ad?.message_interval || 5);
+}
+
+// Which ad in the pool is on at `posSec` into the pool, and how far into that ad we
+// are. Deterministic, so every TV in the world is watching the same ad at the same
+// second — the old round-robin counters drifted per channel.
+function _adAt(ads, posSec) {
+  let t = 0;
+  for (let i = 0; i < ads.length * 4; i++) {
+    const ad = ads[i % ads.length];
+    const dur = _adDurationSec(ad);
+    if (dur <= 0) continue;
+    if (posSec < t + dur) return { ad, offset: posSec - t };
+    t += dur;
+  }
+  return null;
+}
+
+// Air one beat of `ad` at `offset` seconds into it. A graph ad plays as authored —
+// title card, jingle, per-line holds — by ticking its own graph, seeking to `offset`
+// so a viewer who tunes in mid-ad lands where the ad actually is. `pass` distinguishes
+// one airing from the next so the blackboard resets and the ad restarts from its card.
+function _airAd(ad, offset, pass, state, nowMs) {
+  if (ad.graph && state?.channelId) {
+    const graph = ad.graph;
+    const id = `commercial:${ad.id}:${pass}`;
+    if (graph._broadcastId !== id) graph._broadcastId = id;
+    return tickBroadcastGraph(state.channelId, graph, state, nowMs, offset);
+  }
+  if (!ad.messages?.length) return null;
+  const result = getScriptedMessage(ad.messages, ad.message_interval || 5, offset);
+  return result ? { text: result.text, key: `commercial:${ad.id}:${result.idx}` } : null;
+}
+
+// A commercial break: walk the pool on the wall clock.
 function _playCommercial(state, nowMs) {
   const ads = state.commercialBroadcasts || [];
   if (!ads.length) return null;
-  const adIdx = (state.commercialIndex || 0) % ads.length;
-  const ad = ads[adIdx];
-  if (!ad?.messages?.length) {
-    state.commercialIndex = adIdx + 1;
-    return null;
+  const poolSec = ads.reduce((s, ad) => s + _adDurationSec(ad), 0);
+  if (poolSec <= 0) return null;
+  const nowSec = nowMs / 1000;
+  const at = _adAt(ads, nowSec % poolSec);
+  if (!at) return null;
+  return _airAd(at.ad, at.offset, Math.floor(nowSec / poolSec), state, nowMs);
+}
+
+// Walk a commercial pool back-to-back starting `tail` seconds into the pool,
+// wrapping around as needed. Shared by the flat-list and VINE-graph loop-fill
+// paths below — the caller is responsible for only invoking this while still
+// inside the slot's own window, so an ad is simply cut off (never restarted)
+// the moment the slot ends and the outer scheduler moves to what's next.
+// `state`/`nowMs` are optional: without them a graph ad falls back to its flat
+// lines rather than airing nothing.
+function _fillCommercialTail(tail, ads, state = null, nowMs = 0) {
+  if (!ads.length) return null;
+  const at = _adAt(ads, tail);
+  if (!at) return null;
+  return _airAd(at.ad, at.offset, 0, state, nowMs);
+}
+
+// Shared item.loop=1 gate: once a full pass of `graph` (one-pass length `passDur`)
+// wouldn't fit again before the slot ends, park the graph — resetting its blackboard
+// so it restarts from the top next time this slot airs, rather than resuming mid-pass
+// — and hand back a commercial-tail message. Returns undefined when not gated, meaning
+// the caller should proceed and tick the graph as normal.
+function _loopFillOrNull(state, item, graph, segElapsed, passDur) {
+  if (!item.loop || !(passDur > 0)) return undefined;
+  const passesAvailable = Math.max(1, Math.floor(item.duration / passDur));
+  const showWindow = passesAvailable * passDur;
+  if (segElapsed < showWindow) return undefined;
+  const bb = state.graphBlackboard;
+  if (bb && bb.activeBroadcastId === graph._broadcastId) {
+    bb.currentNode = null;
+    bb.waitUntil = null;
+    bb.activeBroadcastId = null;
   }
-  const elapsed = (nowMs / 1000) % (ad.messages.length * (ad.message_interval || 5));
-  const result = getScriptedMessage(ad.messages, ad.message_interval || 5, elapsed);
-  // Advance to next commercial once we've completed a cycle
-  const cycleDone = Math.floor((nowMs / 1000) / (ad.messages.length * (ad.message_interval || 5)));
-  if (cycleDone > (state._commercialCycleCount || 0)) {
-    state._commercialCycleCount = cycleDone;
-    state.commercialIndex = adIdx + 1;
+  // The show's graph is parked, so its blackboard is free for the ad's own graph to
+  // use — the tail plays real commercials, cards and all.
+  return _fillCommercialTail(segElapsed - showWindow, state.commercialBroadcasts || [], state, nowMs);
+}
+
+// item.loop=1 flat-message slot: repeat the show to fill its slot, but only
+// repeat a pass that will actually finish before the slot ends — the leftover
+// tail plays commercials (cut off cleanly when the slot's own end arrives).
+function _fillLoopSlot(item, segElapsed, ads) {
+  const cycleDur = item.messages.length * (item.message_interval || 5);
+  if (cycleDur <= 0) return null;
+  if (!item.loop) {
+    const result = getScriptedMessage(item.messages, item.message_interval, segElapsed);
+    return result ? { text: result.text, key: `${item.broadcastId}:${result.idx}`, programName: item.broadcastName || null } : null;
   }
-  if (result) return { text: result.text, key: `commercial:${ad.id}:${result.idx}` };
-  return null;
+  const passesAvailable = Math.max(1, Math.floor(item.duration / cycleDur));
+  const showWindow = passesAvailable * cycleDur;    // time budget for full passes only
+  if (segElapsed < showWindow) {
+    const result = getScriptedMessage(item.messages, item.message_interval, segElapsed % cycleDur);
+    return result ? { text: result.text, key: `${item.broadcastId}:${result.idx}`, programName: item.broadcastName || null } : null;
+  }
+  const filled = _fillCommercialTail(segElapsed - showWindow, ads);
+  return filled ? { ...filled, programName: item.broadcastName || null } : null;
 }
 
 // ── Weather broadcasts ────────────────────────────────────────────────────────
@@ -682,7 +1026,20 @@ function wxWindBand(k)  { if (k == null) return null; return k < 6 ? 'calm' : k 
 function wxWindLabel(k) { return { calm: 'Calm', breezy: 'Breezy', windy: 'Windy', strong: 'Strong', gale: 'Gale' }[wxWindBand(k)] || ''; }
 function wxHumidBand(h) { if (h == null) return null; return h < 35 ? 'dry' : h <= 65 ? 'comfortable' : h <= 85 ? 'humid' : 'oppressive'; }
 
+// A scheduled hero event outranks every ordinary severity read: whatever the
+// temperature and wind say, the story of an acid day is the acid. The pool
+// suffix comes off the forecast row (weather plugin's `present` block), so a
+// future hero event needs new `.bsm` pools and nothing else here.
+const WX_EVENT_POOL = { acid_rain: 'acid', ion_storm: 'ion' };
+
+// A hero day is reported as itself: `sky.acid` / `sky.ion` rather than the
+// ordinary weather type sitting underneath it, and it is ALWAYS severe enough to
+// earn a warning regardless of what temperature and wind alone would score.
+function wxSkyPool(d) { return (d.heroEvent && WX_EVENT_POOL[d.heroEvent]) || d.weatherType; }
+function wxIsSevere(d) { return !!(d.heroEvent && WX_EVENT_POOL[d.heroEvent]) || (d.severity ?? 0) >= WX_SEVERE; }
+
 function wxSevereChannel(d) {
+  if (d.heroEvent && WX_EVENT_POOL[d.heroEvent]) return WX_EVENT_POOL[d.heroEvent];
   if (d.weatherType === 'blizzard') return 'blizzard';
   if (d.weatherType === 'thunderstorm' || d.weatherType === 'storm') return 'storm';
   if (d.tempC <= -12) return 'cold';
@@ -774,20 +1131,22 @@ function assembleWeatherGraph(pools, hostId, forecast, env, broadcastId, titleId
   const today = forecast[0];
   say(wxPick(pools, `intro.${wxTimeOfDayKey(env)}`, 'intro'), today, 0);
   say(wxPick(pools, 'today.lead'), today, 0);
-  say(wxPick(pools, `sky.${today.weatherType}`), today, 0, 'Conditions right now: {weather}, {temp} degrees.');
+  // A hero day is reported as ITSELF — sky.acid / sky.ion — not as whatever
+  // ordinary weather happens to be underneath it.
+  say(wxPick(pools, `sky.${wxSkyPool(today)}`), today, 0, 'Conditions right now: {weather}, {temp} degrees.');
   say(wxPick(pools, `temp.${wxTempBand(today.tempC)}`), today, 0);
   const twBand = wxWindBand(today.windKph);
   if (['calm', 'windy', 'strong', 'gale'].includes(twBand)) say(wxPick(pools, `wind.${twBand}`), today, 0);
   const thBand = wxHumidBand(today.humidityPct);
   if (thBand === 'dry' || thBand === 'oppressive') say(wxPick(pools, `humid.${thBand}`), today, 0);
-  if ((today.severity ?? 0) >= WX_SEVERE) say(wxPick(pools, `warn.${wxSevereChannel(today)}`, 'warn.generic'), today, 0);
+  if (wxIsSevere(today)) say(wxPick(pools, `warn.${wxSevereChannel(today)}`, 'warn.generic'), today, 0);
 
   say(wxPick(pools, 'forecast.lead'), today, 0);
   for (let i = 1; i < forecast.length; i++) {
     const day = forecast[i];
     say(wxPick(pools, `ahead.${wxLeadKey(i)}`, 'ahead.next'), day, i);
-    say(wxPick(pools, `sky.${day.weatherType}`), day, i, '{day}: {weather}, around {temp} degrees.');
-    if ((day.severity ?? 0) >= WX_SEVERE) say(wxPick(pools, `warn.${wxSevereChannel(day)}`, 'warn.generic'), day, i);
+    say(wxPick(pools, `sky.${wxSkyPool(day)}`), day, i, '{day}: {weather}, around {temp} degrees.');
+    if (wxIsSevere(day)) say(wxPick(pools, `warn.${wxSevereChannel(day)}`, 'warn.generic'), day, i);
   }
 
   say(wxPick(pools, `trend.${wxTrendKey(forecast)}`), today, 0);
@@ -837,161 +1196,27 @@ function sportsOrdinal(n) { return SPORTS_ORDINALS[n] || `${n}th`; }
 // The whole league is a pure function of wall-clock time: every game's outcome AND
 // its play-by-play are generated from a seed, so all TVs render an identical game at
 // the same instant and the standings can be recomputed from the seed alone (no
-// per-game DB rows). mulberry32 PRNG + an FNV-style integer hash for deriving seeds.
-function sportsRng(seed) {
-  let s = seed >>> 0;
-  return function () {
-    s = (s + 0x6d2b79f5) | 0;
-    let t = Math.imul(s ^ (s >>> 15), 1 | s);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-function sportsHash(...nums) {
-  let h = 2166136261 >>> 0;
-  for (const n of nums) { h = Math.imul(h ^ (n >>> 0), 16777619); }
-  return h >>> 0;
-}
+// per-game DB rows). The PRNG/hash/pick/fill/shuffle primitives live in ./rng.js —
+// gameshow.js needs them too, and importing them from here would be circular.
 
-// A pool pick, chatter, and the shuffle all draw from a supplied rng so the same
-// seed yields the same words in the same order (rng defaults to Math.random only for
-// any legacy caller — the sports path always threads a seeded rng).
-function sportsPick(pools, rand, ...keys) {
-  for (const k of keys) {
-    const arr = pools[k];
-    if (Array.isArray(arr) && arr.length) return arr[Math.floor(rand() * arr.length)];
-  }
-  return null;
-}
-function sportsFill(line, tok) {
-  return line.replace(/\{(\w+)\}/g, (_, k) => (tok[k] !== undefined && tok[k] !== null ? String(tok[k]) : ''));
-}
-function sportsShuffle(arr, rand = Math.random) {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
-  return a;
-}
 // Team pool → display names (a team may be a bare string or an object with .name).
 function sportsTeamNames(teams) {
   return (Array.isArray(teams) ? teams : []).map(t => (typeof t === 'string' ? t : t?.name)).filter(Boolean);
 }
 
-// One plate appearance → an outcome. Weights are tuned to real MLB per-PA rates:
-// K ~22.7%, reach-base ~32% (the single weight also absorbs reach-on-error so run
-// production lands right), HR ~3%, 2B ~4.2%, 3B ~0.4%. Ground outs outnumber fly
-// outs so double-play chances land near MLB. See the sim-tuning notes.
-const SPORTS_ATBAT_TABLE = [
-  { kind: 'strikeout', w: 225, bases: 0, out: true },
-  { kind: 'groundout', w: 240, bases: 0, out: true },
-  { kind: 'flyout',    w: 160, bases: 0, out: true },
-  { kind: 'popout',    w: 60,  bases: 0, out: true },
-  { kind: 'single',    w: 162, bases: 1, out: false },
-  { kind: 'walk',      w: 94,  bases: 1, out: false },
-  { kind: 'double',    w: 42,  bases: 2, out: false },
-  { kind: 'triple',    w: 4,   bases: 3, out: false },
-  { kind: 'homerun',   w: 31,  bases: 4, out: false },
-];
-const SPORTS_ATBAT_TOTAL = SPORTS_ATBAT_TABLE.reduce((s, o) => s + o.w, 0);
-function sportsRollAtBat(rand = Math.random) {
-  let roll = rand() * SPORTS_ATBAT_TOTAL;
-  for (const o of SPORTS_ATBAT_TABLE) { roll -= o.w; if (roll <= 0) return o; }
-  return SPORTS_ATBAT_TABLE[0];
-}
-
-// Situational-out tunables — base/out-aware outcomes layered over the flat at-bat
-// roll. Double plays kill rallies (and tame blowouts); sac flies and productive
-// groundouts trade an out for a run or a base.
-const SPORTS_DP_CHANCE = 0.38;              // groundout, runner on 1st, <2 outs → two (~0.75 DP/team/game)
-const SPORTS_SACFLY_CHANCE = 0.90;          // flyout, runner on 3rd, <2 outs → run scores, out
-const SPORTS_FORCE_ADVANCE_CHANCE = 0.60;   // non-DP groundout, runner on 1st → batter out at first, runners forced up (else fielder's choice, bases hold)
-const SPORTS_PRODUCTIVE_OUT_CHANCE = 0.35;  // other groundout nudges a runner on 2nd/3rd up (3rd scores)
-
-// Extra innings. There is ALWAYS a winner — no ties, ever. The 10th plays out free;
-// after that, each extra frame that ends still tied carries an escalating chance the
-// next big swing simply decides it — a walk-off, or a go-ahead that holds. The chance
-// climbs every inning, so the tie can never drag on and always resolves to a winner —
-// you just don't know which side breaks it until it happens. STEP is the per-inning rise.
-const SPORTS_EXTRAS_DECIDE_STEP = 0.34;     // +34%/inning past the 10th; forced-decisive by ~the 13th
-const SPORTS_MAX_INNINGS = 20;              // safety cap; a winner is forced if it's ever reached
-
-const SPORTS_DEFAULT_NAMES = ['Rodriguez', 'Kane', 'Okafor', 'Bishop', 'Hale', 'Vance', 'Cruz', 'Doyle', 'Reyes', 'Park', 'Sato', 'Mundt', 'Nagy', 'Flynn', 'Ruiz', 'Abara', 'Cole', 'Voss', 'Dunn', 'Marsh'];
-
-// ── Gameday: synthesized pitch-by-pitch + play descriptions ───────────────────
-// The DEADBALL sim resolves at the AT-BAT level — it has no pitch data. For the
-// animated Gameday sub-screen we synthesize a plausible pitch sequence per at-bat,
-// PURELY from a seed, so every TV renders the identical sequence and it always ends
-// on the pitch that matches Chip's called outcome (a K ends on strike three, a walk
-// on ball four, everything else on a ball put in play). This is cosmetic colour, not
-// a change to the game result — the outcome still comes solely from sportsSimGame.
-const SPORTS_PITCH_TYPES = [
-  { type: 'Four-Seam Fastball', lo: 92, hi: 99, w: 34 },
-  { type: 'Sinker',             lo: 90, hi: 96, w: 16 },
-  { type: 'Slider',             lo: 82, hi: 89, w: 20 },
-  { type: 'Changeup',           lo: 82, hi: 89, w: 12 },
-  { type: 'Curveball',          lo: 74, hi: 82, w: 10 },
-  { type: 'Cutter',             lo: 87, hi: 92, w: 8  },
-];
-const SPORTS_PITCH_TOTAL = SPORTS_PITCH_TYPES.reduce((s, o) => s + o.w, 0);
-// Neutral, factual play-card label (distinct from Chip's flavour narration).
-const SPORTS_PLAY_DESC = {
-  strikeout: 'Strikeout', groundout: 'Groundout', flyout: 'Flyout', popout: 'Pop Out',
-  single: 'Single', double: 'Double', triple: 'Triple', walk: 'Walk', homerun: 'Home Run',
-  doubleplay: 'Double Play', sacfly: 'Sacrifice Fly', productout: 'Groundout',
-};
-function sportsPlayDesc(b) {
-  if (b.kind === 'homerun') return b.rbi >= 4 ? 'Grand Slam' : (b.rbi > 1 ? `Home Run — ${b.rbi} RBI` : 'Home Run');
-  const base = SPORTS_PLAY_DESC[b.kind] || 'In Play';
-  return (b.rbi > 0 && b.kind !== 'walk') ? `${base} — ${b.rbi} RBI` : base;
-}
-// Build the pitch sequence for one at-bat. Returns pitches ending in the terminal
-// pitch that produces `kind`. Each pitch: {n, type, velo, x, y, result, balls, strikes}
-// where x,y ∈ [0,1] (the strike zone is the box ~0.25–0.75) and result is one of
-// ball | called | swinging | foul | inplay. balls/strikes are the count AFTER the pitch.
-function sportsSynthPitches(seed, kind) {
-  const rand = sportsRng(seed);
-  const pickType = () => { let r = rand() * SPORTS_PITCH_TOTAL; for (const p of SPORTS_PITCH_TYPES) { r -= p.w; if (r <= 0) return p; } return SPORTS_PITCH_TYPES[0]; };
-  const zone = (result) => {
-    if (result === 'ball') {
-      // At least one axis off the plate.
-      const out = () => (rand() < 0.5 ? 0.04 + rand() * 0.16 : 0.80 + rand() * 0.16);
-      return rand() < 0.5 ? { x: out(), y: 0.20 + rand() * 0.60 } : { x: 0.20 + rand() * 0.60, y: out() };
-    }
-    // In or on the edge of the zone (fouls hug the edge a bit more).
-    const edge = result === 'foul' ? 0.16 : 0.24;
-    return { x: 0.5 + (rand() - 0.5) * (1 - edge), y: 0.5 + (rand() - 0.5) * (1 - edge) };
-  };
-  const terminal = kind === 'strikeout' ? 'strike' : (kind === 'walk' ? 'ball' : 'inplay');
-  let preBalls, preStrikes;
-  if (terminal === 'strike') { preBalls = Math.floor(rand() * 4); preStrikes = 2; }      // K on strike three
-  else if (terminal === 'ball') { preBalls = 3; preStrikes = Math.floor(rand() * 3); }    // BB on ball four
-  else { preBalls = Math.floor(rand() * 4); preStrikes = Math.floor(rand() * 3); }        // in play, any count
-
-  const pre = [];
-  for (let i = 0; i < preBalls; i++) pre.push('ball');
-  for (let i = 0; i < preStrikes; i++) pre.push(rand() < 0.45 ? 'called' : 'swinging');
-  for (let i = pre.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [pre[i], pre[j]] = [pre[j], pre[i]]; }
-  // A little texture: an extra foul or two once there are two strikes.
-  if (preStrikes === 2) { let extra = 0; while (rand() < 0.30 && extra++ < 2) pre.push('foul'); }
-
-  const terminalResult = terminal === 'strike' ? (rand() < 0.5 ? 'called' : 'swinging')
-    : (terminal === 'ball' ? 'ball' : 'inplay');
-  const results = [...pre, terminalResult];
-
-  let balls = 0, strikes = 0;
-  return results.map((result, i) => {
-    if (result === 'ball') balls++;
-    else if (result === 'foul') { if (strikes < 2) strikes++; }
-    else strikes++;
-    const p = pickType();
-    const z = zone(result);
-    return {
-      n: i + 1, type: p.type,
-      velo: Math.round(p.lo + rand() * (p.hi - p.lo)),
-      x: Math.round(z.x * 1000) / 1000, y: Math.round(z.y * 1000) / 1000,
-      result, balls, strikes,
-    };
-  });
-}
+// ── SPORT REGISTRY ───────────────────────────────────────────────────────────
+// Each sport's sim, colour synthesis and play labels live in ./sports/<name>.js.
+// Everything LEFT in this file is sport-agnostic — the clock, the round robin, the
+// standings fold, line pacing, the recap reel, the cache, the heartbeat.
+//
+// A script declares its sport with `@sport`, and that is the ONLY thing that
+// selects a module. Nothing else in the pipeline should ever branch on the sport
+// name; if it needs to, the descriptor is missing a field.
+const SPORTS = { baseball: BASEBALL, hockey: HOCKEY };
+const sportOf = (script) => SPORTS[script?.sport] || BASEBALL;
+const sportsSimGame = (script, matchup, players, rand, opts) => sportOf(script).simGame(matchup, players, rand, opts);
+const sportsPlayDesc = (script, beat) => sportOf(script).playDesc(beat);
+const SPORTS_DEFAULT_NAMES = BASEBALL.defaultNames;
 
 // ── The shared clock: one game an hour, the same one on every TV ──────────────
 // Games run on a single global timeline keyed to wall-clock time, not per channel.
@@ -1108,146 +1333,6 @@ function sportsAbbr(name) {
   return a.length >= 2 ? a : (words[0] || 'TBD').slice(0, 3).toUpperCase();
 }
 
-// Simulate a full baseball game. Returns the two teams (with final scores) and an
-// ordered list of "beats" (half_start / atbat / half_end) carrying everything the
-// narration needs. Standard rules kept minimal: the home team doesn't bat in the
-// bottom half once it already leads in the 9th+, a bottom-half go-ahead run ends the
-// game as a walk-off, and a tie after nine goes to extra innings — where the offense
-// is cranked each frame until someone wins. There is always a winner; never a tie.
-function sportsSimGame(matchup, players, rand = Math.random) {
-  const awayName = matchup?.away || 'Away', homeName = matchup?.home || 'Home';
-  const names = sportsShuffle((Array.isArray(players) && players.length) ? players : SPORTS_DEFAULT_NAMES, rand);
-  const mk = (name, off) => ({
-    name, score: 0, idx: 0,
-    lineup: Array.from({ length: 9 }, (_, k) => names[(off + k) % names.length]),
-    pitcher: names[(off + 9) % names.length],
-  });
-  const away = mk(awayName, 0);
-  const home = mk(homeName, 9 % Math.max(names.length, 1));
-
-  const beats = [];
-  let gameOver = false, inning = 0;
-
-  const playHalf = (half, batting, fielding) => {
-    beats.push({ type: 'half_start', inning, half, battingName: batting.name, fieldingName: fielding.name, pitcher: fielding.pitcher, awayScore: away.score, homeScore: home.score });
-    let outs = 0, walkoff = false;
-    const bases = [false, false, false];   // 1st, 2nd, 3rd occupied?
-    while (outs < 3) {
-      const batter = batting.lineup[batting.idx % 9];
-      batting.idx++;
-      const ab = sportsRollAtBat(rand);
-      let kind = ab.kind, runs = 0;
-
-      if (ab.out) {
-        // Base/out-aware outs. A grounder with a man on first can turn two; a fly
-        // ball with a man on third can be traded for a run; other grounders can
-        // still push a runner over — a "productive out".
-        if (ab.kind === 'groundout' && bases[0] && outs < 2 && rand() < SPORTS_DP_CHANCE) {
-          kind = 'doubleplay';                 // batter + the force at second
-          bases[0] = false;
-          outs += 2;
-        } else if (ab.kind === 'flyout' && bases[2] && outs < 2 && rand() < SPORTS_SACFLY_CHANCE) {
-          kind = 'sacfly';                      // runner tags from third and scores
-          bases[2] = false; runs = 1;
-          outs += 1;
-        } else {
-          outs += 1;
-          // Groundout base-running. A runner on first is FORCED: either the batter is
-          // retired at first and every runner is pushed up a base (a run scores from
-          // third), or the defense takes the fielder's choice — the lead runner is out
-          // at second, the batter reaches, and the runners hold (bases untouched). With
-          // no man on first, a right-side grounder still nudges a runner on 2nd/3rd up.
-          if (ab.kind === 'groundout' && outs < 3 && bases[0] && rand() < SPORTS_FORCE_ADVANCE_CHANCE) {
-            kind = 'productout';                // batter out at first; runners forced up 90 ft
-            if (bases[2]) runs += 1;            // forced run scores from third
-            bases[2] = bases[1];                // second → third
-            bases[1] = bases[0];                // first → second
-            bases[0] = false;
-          } else if (ab.kind === 'groundout' && outs < 3 && !bases[0] && (bases[1] || bases[2]) && rand() < SPORTS_PRODUCTIVE_OUT_CHANCE) {
-            kind = 'productout';                // grounder to the right side moves 'em up
-            if (bases[2]) { runs += 1; bases[2] = false; }
-            if (bases[1]) { bases[2] = true; bases[1] = false; }
-          }
-        }
-        batting.score += runs;
-        walkoff = half === 'bottom' && inning >= 9 && runs > 0 && home.score > away.score;
-        beats.push({ type: 'atbat', inning, half, battingName: batting.name, fieldingName: fielding.name, batter, pitcher: fielding.pitcher, kind, out: true, outs, rbi: runs, awayScore: away.score, homeScore: home.score, walkoff, bases: [bases[0], bases[1], bases[2]] });
-        if (walkoff) break;
-        continue;
-      }
-
-      // Reached base. A walk pushes only forced runners; hits advance runners with
-      // realistic aggressiveness — a single often scores a man from second and can
-      // send the trail runner first-to-third; a double clears second and third and
-      // frequently scores one from first. Advancement odds tuned to MLB run output.
-      if (ab.kind === 'walk') {
-        if (bases[0]) { if (bases[1]) { if (bases[2]) runs = 1; bases[2] = true; } bases[1] = true; }
-        bases[0] = true;
-      } else {
-        const r0 = bases[0], r1 = bases[1], r2 = bases[2];
-        bases[0] = bases[1] = bases[2] = false;
-        if (ab.kind === 'single') {
-          if (r2) runs++;
-          if (r1) { if (rand() < 0.72) runs++; else bases[2] = true; }
-          if (r0) { if (rand() < 0.42 && !bases[2]) bases[2] = true; else bases[1] = true; }
-          bases[0] = true;
-        } else if (ab.kind === 'double') {
-          if (r2) runs++;
-          if (r1) runs++;
-          if (r0) { if (rand() < 0.62) runs++; else bases[2] = true; }
-          bases[1] = true;
-        } else if (ab.kind === 'triple') {
-          runs += (r0 ? 1 : 0) + (r1 ? 1 : 0) + (r2 ? 1 : 0);
-          bases[2] = true;
-        } else { // homerun
-          runs += 1 + (r0 ? 1 : 0) + (r1 ? 1 : 0) + (r2 ? 1 : 0);
-        }
-      }
-      batting.score += runs;
-      walkoff = half === 'bottom' && inning >= 9 && runs > 0 && home.score > away.score;
-      beats.push({ type: 'atbat', inning, half, battingName: batting.name, fieldingName: fielding.name, batter, pitcher: fielding.pitcher, kind, out: false, outs, rbi: runs, awayScore: away.score, homeScore: home.score, walkoff, bases: [bases[0], bases[1], bases[2]] });
-      if (walkoff) break;
-    }
-    beats.push({ type: 'half_end', inning, half, battingName: batting.name, fieldingName: fielding.name, awayScore: away.score, homeScore: home.score });
-    return walkoff;
-  };
-
-  // Force a decisive frame: one swing ends it — a walk-off for the home side or a
-  // go-ahead that holds up for the visitors (coin-flip which). Used both when the
-  // extra-inning "decide" roll fires and as the never-a-tie backstop at the cap.
-  const forceFinish = () => {
-    inning = Math.max(inning, 10);
-    const homeWins = rand() < 0.5;
-    const bat = homeWins ? home : away, fld = homeWins ? away : home;
-    const half = homeWins ? 'bottom' : 'top';
-    const r = rand();
-    const kind = r < 0.15 ? 'homerun' : (r < 0.5 ? 'double' : 'single');
-    bat.score += 1;
-    beats.push({ type: 'half_start', inning, half, battingName: bat.name, fieldingName: fld.name, pitcher: fld.pitcher, awayScore: away.score - (homeWins ? 0 : 1), homeScore: home.score - (homeWins ? 1 : 0) });
-    beats.push({ type: 'atbat', inning, half, battingName: bat.name, fieldingName: fld.name, batter: bat.lineup[bat.idx % 9], pitcher: fld.pitcher, kind, out: false, outs: 0, rbi: 1, awayScore: away.score, homeScore: home.score, walkoff: homeWins, bases: [false, false, false] });
-    beats.push({ type: 'half_end', inning, half, battingName: bat.name, fieldingName: fld.name, awayScore: away.score, homeScore: home.score });
-  };
-
-  while (!gameOver && inning < SPORTS_MAX_INNINGS) {
-    inning++;
-    playHalf('top', away, home);
-    // Home already ahead entering the bottom of the 9th+ → they've won; skip the half.
-    if (inning >= 9 && home.score > away.score) { gameOver = true; break; }
-    if (playHalf('bottom', home, away)) { gameOver = true; break; }   // walk-off
-    if (inning >= 9 && away.score !== home.score) { gameOver = true; break; }   // decided after a full inning
-    // Still tied in extras. Past the 10th, an escalating chance the next big swing
-    // decides it outright — so a tie can never drag on and always ends with a winner.
-    if (inning >= 10) {
-      const decide = Math.min(1, (inning - 10) * SPORTS_EXTRAS_DECIDE_STEP);
-      if (decide > 0 && rand() < decide) { forceFinish(); gameOver = true; break; }
-    }
-  }
-
-  // Never a tie: if the cap was somehow reached dead even, one swing settles it.
-  if (away.score === home.score) forceFinish();
-
-  return { away, home, awayScore: away.score, homeScore: home.score, beats, innings: inning };
-}
 
 // Floor for how long a spoken line holds on air (a multiple of the 5s broadcast tick).
 // The actual per-line hold is computed per game to stretch the play-by-play across
@@ -1261,14 +1346,75 @@ const SPORTS_LINE_HOLD_MS = 10000;
 // computed standings, so the table can never disagree with what viewers saw. A World
 // Series override forces the two finalists (with its own seed). Returns null if the
 // roster is too thin to make a game.
-function sportsGameForSlot(script, slot, override) {
+// ── the injury chain ─────────────────────────────────────────────────────────
+// Persistent injuries make game N depend on the games before it, which is exactly the
+// thing this league's determinism forbids — unless the dependency is itself derived
+// from the schedule. It is: fold the season's games forward in order, carrying who is
+// hurt and until when. Nothing is stored, every server computes the same ledger, and a
+// recomputation months later produces the identical answer.
+//
+// The chain is memoised and ADVANCED, not rebuilt: a normal slot roll costs one extra
+// sim. A cold start (or a jump backwards) rebuilds from the window start, which is the
+// same order of work the standings fold already does on a cache miss.
+//
+// `_injuryChains` is keyed by sport. Only sports whose module opts in (a `simGame` that
+// reads `opts.unavailable`) ever build one — baseball has no chain and pays nothing.
+const _injuryChains = new Map();   // sport -> { from, at, out: Map<name, healSlot> }
+const INJURY_CHAIN_MAX_REBUILD = 4000;   // guardrail: never fold more than this at once
+
+function _chainStep(script, chain, slot) {
+  // Retire anyone whose time is served BEFORE this game is played.
+  for (const [name, heal] of chain.out) if (heal <= slot) chain.out.delete(name);
+  const live = new Set();
+  for (const [name, heal] of chain.out) if (heal > slot) live.add(name);
+  const gs = sportsGameForSlot(script, slot, null, live);
+  if (gs) {
+    for (const c of gs.game.casualties || []) {
+      // A death never heals. Everything else books a return slot.
+      const heal = c.dead ? Number.MAX_SAFE_INTEGER : slot + Math.max(1, c.slotsOut || 1);
+      const prev = chain.out.get(c.name) || 0;
+      if (heal > prev) chain.out.set(c.name, heal);
+    }
+  }
+  chain.at = slot + 1;
+}
+
+// Who cannot play at `slot`. Returns a Set of names (empty for a sport with no chain).
+function ledgerAt(script, slot, windowStart) {
+  const sport = sportOf(script).id;
+  if (typeof sportsSimGame !== 'function') return new Set();
+  const from = Number.isFinite(windowStart) ? windowStart : slot - 64;
+  let chain = _injuryChains.get(sport);
+  // Rebuild when there is no chain, when the window moved (a new season), or when the
+  // caller asks about a slot the chain has already passed — a backwards jump can't be
+  // served by advancing.
+  if (!chain || chain.from !== from || chain.at > slot) {
+    chain = { from, at: from, out: new Map() };
+    _injuryChains.set(sport, chain);
+  }
+  if (slot - chain.at > INJURY_CHAIN_MAX_REBUILD) { chain.at = slot - INJURY_CHAIN_MAX_REBUILD; chain.out.clear(); }
+  while (chain.at < slot) _chainStep(script, chain, chain.at);
+  // Serve a COPY: the sim must not be able to mutate the chain it was derived from.
+  const out = new Set();
+  for (const [name, heal] of chain.out) if (heal > slot) out.add(name);
+  return out;
+}
+
+function sportsGameForSlot(script, slot, override, unavailable) {
   const seed = sportsHash(slot >>> 0, override?.worldSeries ? 0x77 : 0x00);
   const matchup = override?.teams
     ? { away: override.teams[0], home: override.teams[1] }
     : sportsMatchupForSlot(slot, script.teams);
   if (!matchup) return null;
-  const game = sportsSimGame(matchup, script.players, sportsRng(seed));
-  return { game, seed, matchup };
+  // The whole club list rides along. A sport whose rosters belong to the LEAGUE rather
+  // than to the game (hockey deals each club a disjoint, permanent six) can't derive
+  // them from two team names alone; baseball ignores it.
+  matchup.teams = sportsTeamNames(script.teams);
+  // `unavailable` is the injury chain's answer for this slot. Passing it in explicitly
+  // (rather than looking it up here) is what stops the chain recursing into itself
+  // while it is being built.
+  const game = sportsSimGame(script, matchup, script.players, sportsRng(seed), unavailable ? { unavailable } : undefined);
+  return { game, seed, matchup, unavailable: unavailable || null };
 }
 
 // Build the play-by-play VINE graph for one simulated game. Selective narration keeps
@@ -1281,7 +1427,11 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   const announcer = script.announcer || 'your announcer';
   const pools = script.pools || {};
   const ws = !!override?.worldSeries;                       // World Series takeover?
-  const gs = sportsGameForSlot(script, slot, override);
+  // The aired game is played by whoever is FIT — the injury chain, anchored to the same
+  // season window the standings fold walks, so the broadcast and the table always agree
+  // about who was missing.
+  const gs = sportsGameForSlot(script, slot, override,
+    ledgerAt(script, slot, injuryWindowStart(sportOf(script).id, slot)));
   if (!gs) return null;
   const game = gs.game;
   const nrng = sportsRng(gs.seed ^ 0x9e3779b9);
@@ -1338,6 +1488,31 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // rides the say node exactly like the score-bug and is pushed to TV watchers when
   // the line airs; the client animates it. See _applySportsFx in tv.js.
   const say = (line, tok, sb, graphic, gd) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (text) add({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}) }); };
+
+  // ── the sport seam ──────────────────────────────────────────────────────────
+  // Everything above this line is sport-agnostic: the node chain, the say/pick
+  // helpers, the seeded narration rng. Everything below in the `else` is Deadball's
+  // — halves, bases, RBI, extra innings — and only baseball can read it.
+  //
+  // A sport that isn't baseball exports `narrate` and gets handed the middle: it
+  // emits its own pre-game, its own play-by-play and its own final off the same
+  // primitives, and control returns here for the shared tail (the recap reel, the
+  // pacing, the graph). Adding a third sport touches this file nowhere else.
+  // See plugins/broadcast/sports/hockey-narrator.js.
+  const sportMod = sportOf(script);
+  let outroId = null;
+  if (typeof sportMod.narrate === 'function') {
+    const r = sportMod.narrate({
+      script, game, gs, slot, ws, announcer, pools, nrng,
+      sport: sportMod, add, say, pick, abbr: sportsAbbr,
+      // Bound to THIS sport's table — a narrator asking for a record must not be able
+      // to accidentally read the other league's.
+      recordOf: (team) => recordOf(team, sportMod.id),
+      standings: ((_standingsCaches.get(sportMod.id) || {}).rows || []).slice(0, 8),
+      lastId: () => prevId,
+    }) || {};
+    outroId = r.outroId || null;
+  } else {
   // Rich per-at-bat snapshot for the animated Gameday sub-screen. Rides one say node
   // per beat (the lead line) exactly like the score-bug/FX, and is pushed to watchers
   // when that line airs; the client animates it. Carries the same structured data Chip
@@ -1348,7 +1523,7 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // line-score strip + standings dock reveal in step with the play and can't disagree
   // with what viewers saw. Populated once `halves` exists; read here at call time.
   const lineSnap = new Map();   // beat -> { away:[perInningRuns], home:[…], hAway, hHome }
-  const gdStandings = (_standingsCache.rows || []).slice(0, 8)
+  const gdStandings = ((_standingsCaches.get('baseball') || {}).rows || []).slice(0, 8)
     .map(r => ({ team: r.team, wins: r.wins, losses: r.losses, rd: (r.runs_for || 0) - (r.runs_against || 0) }));
   const beatGameday = (b, basesBefore, idx) => ({
     batter: b.batter || '', pitcher: b.pitcher || '',
@@ -1359,8 +1534,8 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     basesBefore: basesBefore || [false, false, false],
     basesAfter: b.bases || [false, false, false],
     awayScore: b.awayScore, homeScore: b.homeScore,
-    desc: sportsPlayDesc(b),
-    pitches: sportsSynthPitches(sportsHash(gs.seed, b.inning * 2 + (b.half === 'bottom' ? 1 : 0), idx >>> 0), b.kind),
+    desc: sportsPlayDesc(script, b),
+    pitches: sportOf(script).synthDetail(sportsHash(gs.seed, b.inning * 2 + (b.half === 'bottom' ? 1 : 0), idx >>> 0), b.kind),
     line: lineSnap.get(b) || null,
     standings: gdStandings,
   });
@@ -1527,8 +1702,12 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     duration: ws ? 5.4 : 4.4,
   };
   say(pick(...(ws ? ['worldseries.final', 'final'] : ['final'])), finalTok, finalBug, winGraphic);
-  const outroId = prevId;
+  outroId = prevId;
   say(pick(...(ws ? ['worldseries.outro', 'outro'] : ['outro'])), finalTok, finalBug);
+  }
+  // ── end of the baseball body. Deliberately not re-indented: it is unchanged
+  // from before the seam existed, and re-indenting 230 lines would have buried a
+  // one-line behavioural change in a whole-function diff. ─────────────────────
 
   // Post-game recap reel (featured blocks only). A featured `@airtime` game fills ~85%
   // of its long block, leaving a tail that would otherwise just park on the final card.
@@ -1549,7 +1728,7 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
       const { away: ra, home: rh, awayScore: ras, homeScore: rhs } = rg.game;
       const rWin = ras === rhs ? '' : (ras > rhs ? ra.name : rh.name);
       const rBug = {
-        sport: 'baseball', away: ra.name, home: rh.name,
+        sport: sportMod.id, away: ra.name, home: rh.name,
         awayAbbr: sportsAbbr(ra.name), homeAbbr: sportsAbbr(rh.name),
         awayScore: ras, homeScore: rhs, status: 'FINAL',
       };
@@ -1608,11 +1787,27 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
 // game is announced once per slot. The result is deterministic, so this agrees
 // exactly with whatever any TV is showing.
 const _sportsHeartbeat = new Map();   // channelId -> last gameId emitted
+// Every sports broadcast on every channel that is AIRING RIGHT NOW. The old
+// version took the first sports item in each playlist and ignored airtime, which
+// was fine while Deadball was the only sport and silently wrong the moment a
+// second one shares KSAB-TV — the evening game would never be seen by the
+// heartbeat, the standings, or the betting plugin.
 function sportsChannels() {
   const out = [];
+  // `state.playlist` is the channel's WHOLE grid, every day of the week — so a slot
+  // has to clear both gates: the right hour (its script's airSlots) AND today's day
+  // mask. Checking only the hour was invisible while Deadball owned the 18:00 window
+  // outright; the moment Cluster Puck took two nights of it, both shows read as on
+  // air every night, and the betting desk would open wagers on a hockey game that
+  // isn't being broadcast.
+  const dow = getEnvironmentState()?.dayOfWeek;
   for (const [channelId, state] of channelRuntime) {
-    const item = (state.playlist || []).find(i => i.playback_mode === 'sports' && i.sportsScript);
-    if (item) out.push({ channelId, script: item.sportsScript });
+    for (const i of state.playlist || []) {
+      if (i.playback_mode !== 'sports' || !i.sportsScript) continue;
+      if (!sportsAiring(i.sportsScript)) continue;
+      if (dow != null && !_slotAirsOn(i, dow)) continue;
+      out.push({ channelId, script: i.sportsScript, broadcastId: i.broadcast_id || i.id });
+    }
   }
   return out;
 }
@@ -1620,27 +1815,35 @@ async function sportsHeartbeat() {
   const nowMs = Date.now();
   const chans = sportsChannels();
   if (!chans.length) return;
-  await refreshSeason(nowMs);                       // background WS detection (no viewer needed)
-  const override = worldSeriesOverride();
+  // Background postseason detection, per sport, with no viewer needed. Deduped so two
+  // channels carrying the same sport cost one round trip.
+  for (const sport of new Set(chans.map(c => sportOf(c.script).id))) await refreshSeason(nowMs, sport);
   const slot = sportsSlotIndex();
-  const gs = sportsGameForSlot(chans[0].script, slot, override);
-  if (!gs) return;
-  const g = gs.game;
-  const winner = g.awayScore === g.homeScore ? '' : (g.awayScore > g.homeScore ? g.away.name : g.home.name);
-  const gameId = `deadball:sport:${slot}${override?.worldSeries ? ':ws' : ''}`;
   const endsAtMs = sportsSlotEndsAtMs();
-  for (const { channelId } of chans) {
+  // EACH CHANNEL SIMULATES ITS OWN GAME. This used to sim chans[0] and emit that one
+  // result to every sports channel under a hardcoded `deadball:` id — harmless while
+  // Deadball was the only sport, and a wrong-result payout the moment a second one
+  // exists: a wager taken on a hockey game would settle against a ballgame's score.
+  // The id is keyed to the broadcast as well as the slot so two sports airing in the
+  // same slot can never collide.
+  for (const { channelId, script, broadcastId } of chans) {
+    const override = overrideFor(script);
+    const gs = sportsGameForSlot(script, slot, override);
+    if (!gs) continue;
+    const g = gs.game;
+    const winner = g.awayScore === g.homeScore ? '' : (g.awayScore > g.homeScore ? g.away.name : g.home.name);
+    const gameId = `${broadcastId || sportOf(script).id}:sport:${slot}${override?.worldSeries ? ':ws' : ''}`;
     if (_sportsHeartbeat.get(channelId) === gameId) continue;
     _sportsHeartbeat.set(channelId, gameId);
     emit('sports.game', {
-      channelId, gameId,
+      channelId, gameId, sport: sportOf(script).id,
       away: g.away.name, home: g.home.name,
       awayScore: g.awayScore, homeScore: g.homeScore,
       winner, endsAtMs,
     });
   }
 }
-setInterval(() => { if (hasActivePlayers()) sportsHeartbeat().catch(e => console.error('[broadcast] sports heartbeat error:', e.message)); }, 60 * 1000);
+schedule('1m', () => sportsHeartbeat().catch(e => console.error('[broadcast] sports heartbeat error:', e.message)));
 setTimeout(() => { sportsHeartbeat().catch(() => {}); }, 9000);
 
 // ── League standings feed (for the on-air standings bug + record mentions) ──────
@@ -1649,7 +1852,10 @@ setTimeout(() => { sportsHeartbeat().catch(() => {}); }, 9000);
 // hammer the DB, and the bug is pushed on a slow cadence per channel.
 const STANDINGS_CACHE_MS = 30000;
 const STANDINGS_BUG_EVERY_MS = 45000;   // how often the standings graphic flashes up mid-game
-let _standingsCache = { at: 0, rows: [] };
+// Cached PER SPORT. A single shared cache meant `recordOf` answered every question out
+// of the baseball table, so a CPhL club was permanently '0-0' no matter how many games
+// its league had played — and the announcer's records line could never fire for hockey.
+const _standingsCaches = new Map();     // sport -> { at, rows }
 const _lastStandingsBug = new Map();    // channelId -> last push ms
 
 // Overheard background-TV lines are throttled so a chatty channel doesn't spam the
@@ -1657,35 +1863,66 @@ const _lastStandingsBug = new Map();    // channelId -> last push ms
 // line in the panel; this only rate-limits the ambient overhear for non-watchers.
 const AMBIENT_LINE_EVERY_MS = 30000;    // min gap between overheard `[TV]` lines per zone+channel
 const _lastAmbientLine = new Map();     // `${zoneId}:${channelId}` -> last overhear ms
-async function refreshStandings(nowMs) {
-  if (nowMs - _standingsCache.at < STANDINGS_CACHE_MS) return _standingsCache.rows;
-  const res = await dispatchAction({ type: 'sportsleague.getStandings' }).catch(() => null);
-  _standingsCache = { at: nowMs, rows: Array.isArray(res?.rows) ? res.rows : _standingsCache.rows };
-  return _standingsCache.rows;
+// The transient on-air league table, in the shape the sport's viewers expect. One
+// builder, two leagues — the alternative was the same overlay literal pasted at each
+// of the three sites that raise it, each free to drift from the others.
+const STANDINGS_BUG = {
+  baseball: { title: 'DEADBALL — LEAGUE STANDINGS', row: (r) => ({ team: r.team, wins: r.wins, losses: r.losses, rd: (r.runs_for || 0) - (r.runs_against || 0) }) },
+  hockey: { title: 'CLUSTER PUCK — CPhL STANDINGS', row: (r) => ({ team: r.team, wins: r.wins, losses: r.losses, otl: r.otl || 0, points: r.points || 0 }) },
+};
+function standingsBugFor(sport, rows) {
+  const spec = STANDINGS_BUG[sport] || STANDINGS_BUG.baseball;
+  return { overlayType: 'standings', sport, title: spec.title, duration: 9, rows: rows.slice(0, 8).map(spec.row) };
 }
-// A team's "W-L" record from the cached standings, or '0-0' if it hasn't played.
-function recordOf(team) {
-  const r = _standingsCache.rows.find((x) => x.team === team);
-  return r ? `${r.wins}-${r.losses}` : '0-0';
+
+async function refreshStandings(nowMs, sport = 'baseball') {
+  const cur = _standingsCaches.get(sport) || { at: 0, rows: [] };
+  if (nowMs - cur.at < STANDINGS_CACHE_MS) return cur.rows;
+  const res = await dispatchAction({ type: 'sportsleague.getStandings', params: { sport } }).catch(() => null);
+  const rows = Array.isArray(res?.rows) ? res.rows : cur.rows;
+  _standingsCaches.set(sport, { at: nowMs, rows });
+  return rows;
+}
+// A team's record from its own league's cached standings, or '0-0' if it hasn't played.
+// Hockey reads W-L-OTL, because a record that hides the overtime losses isn't a hockey
+// club's record — and the announcer says this line out loud.
+function recordOf(team, sport = 'baseball') {
+  const rows = (_standingsCaches.get(sport) || { rows: [] }).rows;
+  const r = rows.find((x) => x.team === team);
+  if (!r) return '0-0';
+  if (sport === 'hockey') return `${r.wins}-${r.losses}-${r.otl || 0}`;
+  return `${r.wins}-${r.losses}`;
 }
 
 // Season/World-Series state (from the sportsleague plugin, same Action seam). When the
 // Series is on, sports airings run THESE two teams with championship branding instead
 // of a random matchup.
-let _seasonCache = { at: 0, phase: 'regular', finalistA: null, finalistB: null, wsSlot: null };
-async function refreshSeason(nowMs) {
-  if (nowMs - _seasonCache.at < STANDINGS_CACHE_MS) return _seasonCache;
-  const res = await dispatchAction({ type: 'sportsleague.getSeason' }).catch(() => null);
-  if (res && typeof res.phase === 'string') _seasonCache = { at: nowMs, phase: res.phase, finalistA: res.finalistA, finalistB: res.finalistB, wsSlot: res.wsSlot ?? null };
-  else _seasonCache.at = nowMs;
-  return _seasonCache;
+// One season per sport — Deadball's pennant and the CPhL's Cup run on their own
+// clocks over their own schedules and must never see each other's finalists.
+const _seasonCaches = new Map();   // sport -> { at, phase, finalistA, finalistB, wsSlot }
+const EMPTY_SEASON = { at: 0, phase: 'regular', finalistA: null, finalistB: null, wsSlot: null, startSlot: null };
+const seasonOf = (sport) => _seasonCaches.get(sport) || EMPTY_SEASON;
+async function refreshSeason(nowMs, sport = 'baseball') {
+  const cur = seasonOf(sport);
+  if (nowMs - cur.at < STANDINGS_CACHE_MS) return cur;
+  const res = await dispatchAction({ type: 'sportsleague.getSeason', params: { sport } }).catch(() => null);
+  const next = (res && typeof res.phase === 'string')
+    ? { at: nowMs, phase: res.phase, finalistA: res.finalistA, finalistB: res.finalistB, wsSlot: res.wsSlot ?? null, startSlot: res.startSlot ?? null }
+    : { ...cur, at: nowMs };
+  _seasonCaches.set(sport, next);
+  return next;
 }
 // { teams:[a,b], worldSeries:true } once the Series is on AND its slot has arrived, so
 // the finalists take over the schedule from the WS slot until a champion is crowned.
-function worldSeriesOverride() {
-  const s = _seasonCache;
+// A postseason belongs to ONE sport's season, and handing a takeover to the wrong sim
+// would drop two ballclubs onto the ice. Each script gets its own sport's final —
+// Deadball's World Series, Cluster Puck's Coldwater Cup — or nothing.
+const overrideFor = (script) => postseasonOverride(sportOf(script).id);
+
+function postseasonOverride(sport) {
+  const s = seasonOf(sport);
   if (s.phase !== 'worldseries' || !s.finalistA || !s.finalistB) return null;
-  if (s.wsSlot != null && sportsSlotIndex() < s.wsSlot) return null;   // WS airs from its slot on
+  if (s.wsSlot != null && sportsSlotIndex() < s.wsSlot) return null;   // the final airs from its slot on
   return { teams: [s.finalistA, s.finalistB], worldSeries: true };
 }
 
@@ -1695,11 +1932,27 @@ function worldSeriesOverride() {
 // hour. Cached module-wide and rebuilt only when the slot (or the World-Series
 // override) changes — one assembly per hour, not one per channel per tick.
 let _sportsGraphCache = { key: null, graph: null };
+// Cache key carries the SPORT. With one sport a bare slot happened to be unique;
+// with two sharing a channel it silently returns the wrong graph. The broadcast id
+// was also hardcoded to the literal string 'deadball', so hockey's graph would
+// have been assembled under Deadball's identity — a bug today, just an invisible
+// one while there was only ever the one sport.
+// The window the injury chain is anchored to. It must be the SAME window the standings
+// fold walks, or the aired game and the table would carry different casualty lists —
+// so it comes from the sport's own season, falling back to a bounded look-back before
+// a season exists.
+function injuryWindowStart(sport, slot) {
+  const s = seasonOf(sport);
+  const start = Number(s?.startSlot);
+  return Number.isFinite(start) && start <= slot ? start : slot - 64;
+}
+
 function getSportsGraph(script, slot, override) {
   if (!script) return null;
-  const key = `${slot}${override?.worldSeries ? `|ws:${override.teams.join('|')}` : ''}`;
+  const sport = script.sport || 'baseball';
+  const key = `${sport}:${slot}${override?.worldSeries ? `|ws:${override.teams.join('|')}` : ''}`;
   if (_sportsGraphCache.key !== key) {
-    _sportsGraphCache = { key, graph: assembleSportsGraph(script, 'deadball', slot, override) };
+    _sportsGraphCache = { key, graph: assembleSportsGraph(script, sport, slot, override) };
   }
   return _sportsGraphCache.graph;
 }
@@ -1864,6 +2117,133 @@ function assembleNewsGraph(script, broadcastId, stories, bucket) {
   return graph;
 }
 
+// ── Sermons (@type sermon) ───────────────────────────────────────────────────
+// The news type's Sunday cousin. Same live feed, read as scripture instead of
+// reported: every headline becomes a sign the Machine left in the week, and the
+// celebrants argue about what it meant. Dynamic but NOT acted — the celebrants are
+// display names, nothing spawns, nothing presence-gates.
+//
+// Variety comes from three places at once, because a service that varies only by
+// line pool reads as one madman with a thesaurus:
+//   1. WHO preaches a reading rotates, and each celebrant has a `tag` naming their
+//      signature pools (exegesis.<tag> / interjection.<tag>).
+//   2. HOW a reading is read is a randomly-drawn LENS (blessing / warning / omen /
+//      rebuke / miracle), which picks exegesis.<lens> — so the same headline is a
+//      benediction one week and an indictment the next.
+//   3. WHETHER the optional beats happen at all (interjection, second exegesis,
+//      testimony, hymn) is rolled per service.
+const SERMON_LENSES = ['blessing', 'warning', 'omen', 'rebuke', 'miracle'];
+const SERMON_READINGS = 3;
+
+function assembleSermonGraph(script, broadcastId, stories, bucket) {
+  const pools = script.pools || {};
+  const roster = (script.celebrants && script.celebrants.length)
+    ? script.celebrants : [{ name: 'the celebrant', title: '', tag: '' }];
+  const verger = script.verger || roster[0].name;
+  const scenes = newsSceneNames();
+
+  const nodes = {};
+  let n = 0, prevId = null, startId = null;
+  const add = (data) => {
+    const id = `sm_${n++}`;
+    nodes[id] = { ...data };
+    if (prevId) nodes[prevId].next = id;
+    if (startId === null) startId = id;
+    prevId = id;
+    return id;
+  };
+  add({ type: 'start' });
+  if (script.title) add({ type: 'title_card', graphic_id: script.title, theme: script.theme || null });
+  else if (script.theme) add({ type: 'music', song: script.theme, text: '♪ the calm eye opens ♪' });
+
+  // Same attribution contract as the news assembler: `Name says, "…"` so the client
+  // draws a nameplate and seeds a distinct procedural voice per celebrant. A null
+  // speaker is the congregation/unattributed liturgy, which is exactly what a
+  // responsive line should sound like.
+  const say = (speaker, line, tok, fallback) => {
+    const src = line || fallback;
+    if (!src) return;
+    const body = newsFill(src, tok).trim();
+    if (!body) return;
+    add({ type: 'say', text: speaker ? `${speaker} says, "${body}"` : body, style: 'raw' });
+  };
+  const pick = (...keys) => newsPick(pools, ...keys);
+  const presiding = roster[Math.floor(Math.random() * roster.length)];
+  const baseTok = {
+    verger, celebrant: presiding.name, title: presiding.title,
+    celebrant2: (roster.find(c => c.name !== presiding.name) || presiding).name,
+  };
+
+  // ── Gathering ──
+  say(verger, pick('call'), baseTok);
+  say(presiding.name, pick('invocation'), baseTok);
+  say(presiding.name, pick('greeting'), baseTok);
+  // The creed is responsive: a celebrant calls, the congregation answers unattributed.
+  if (Math.random() < 0.75) {
+    say(presiding.name, pick('creed'), baseTok);
+    say(null, pick('creed.response'), baseTok);
+  }
+
+  // ── The Readings: the week's news, taken as revelation ──
+  const readings = stories.slice(0, SERMON_READINGS);
+  readings.forEach((s, idx) => {
+    const reader = roster[(idx + roster.indexOf(presiding)) % roster.length];
+    const other = roster[(idx + 1 + roster.indexOf(presiding)) % roster.length];
+    const lens = SERMON_LENSES[Math.floor(Math.random() * SERMON_LENSES.length)];
+    const tok = {
+      ...baseTok, celebrant: reader.name, title: reader.title, celebrant2: other.name,
+      headline: s.headline || '', body: s.body || '', byline: s.byline || 'the wire',
+      scene: newsPickFrom(scenes, 'the Basin'), lens,
+    };
+    say(reader.name, pick('reading.lead'), tok, 'Hear what the Machine has permitted to happen: {headline}.');
+    say(reader.name, pick('reading.text'), tok, '{body}');
+    // The interpretation: the celebrant's own signature pool first, then the lens,
+    // then the generic. This is why five preachers do not sound like one preacher.
+    say(reader.name, pick(`exegesis.${reader.tag}`, `exegesis.${lens}`, 'exegesis'), tok,
+        'And so we are shown, again, that the flesh was only ever an interval.');
+    if (Math.random() < 0.55) say(other.name, pick(`interjection.${other.tag}`, 'interjection'), { ...tok, celebrant: other.name });
+    if (Math.random() < 0.4) say(reader.name, pick(`exegesis.${lens}`, 'exegesis'), tok);
+    say(null, pick('amen'), tok);
+  });
+
+  // ── The rest of the order of service, some of it optional ──
+  if (Math.random() < 0.7) {
+    say(presiding.name, pick('testimony.lead'), baseTok);
+    say(newsPickFrom(roster, presiding).name, pick('testimony'), baseTok);
+  }
+  if (Math.random() < 0.6) say(null, pick('hymn'), baseTok);
+  say(verger, pick('tithe'), baseTok);
+  say(presiding.name, pick('homily'), baseTok);
+  say(presiding.name, pick('benediction'), baseTok, 'Go now, and be less each day.');
+  say(null, pick('amen'), baseTok);
+  say(verger, pick('signoff'), baseTok);
+
+  const graph = _normalizeBroadcastGraph({ _start: startId, nodes });
+  graph._broadcastId = `${broadcastId}:sermon:${bucket}`;
+  return graph;
+}
+
+// One service per in-game day (not per 5-minute news bucket): a ~15-minute liturgy
+// re-rolling mid-service would cut itself off, and a weekly programme wants to be the
+// same service all the way through its block. Fresh stories, and a fresh draw of
+// celebrants/lenses/optional beats, next time it airs.
+async function getSermonGraph(item, nowMs) {
+  const script = item.sermonScript;
+  if (!script) return null;
+  const env = getEnvironmentState();
+  const bucket = (typeof env?.date === 'string' ? env.date.slice(0, 10) : '') || 'day0';
+  if (item._sermonGraph && item._sermonBucket === bucket) return item._sermonGraph;
+  let stories = [];
+  try {
+    const res = await dispatchAction({ type: 'news.getStories', params: { total: SERMON_READINGS + 2 } });
+    if (Array.isArray(res?.stories)) stories = res.stories;
+  } catch { /* generator unavailable — fall back below */ }
+  if (!stories.length) stories = NEWS_FALLBACK_STORIES;
+  item._sermonGraph = assembleSermonGraph(script, item.broadcastId, stories, bucket);
+  item._sermonBucket = bucket;
+  return item._sermonGraph;
+}
+
 // Return the assembled bulletin for a news playlist item, re-fetching live stories and
 // rebuilding when the refresh bucket (in-game day + 5-min window) advances. Cached on
 // the item between ticks so we don't hit the news generator every tick.
@@ -1900,7 +2280,7 @@ async function refreshTalkshowNewsStory() {
     _talkshowNewsStory = stories.find(s => s?.tag === 'live') || stories[0] || null;
   } catch { /* generator unreachable — keep the last story (or null: the bit just skips) */ }
 }
-setInterval(() => { if (hasActivePlayers()) refreshTalkshowNewsStory().catch(() => {}); }, NEWS_REFRESH_MS);
+schedule('5m', () => refreshTalkshowNewsStory().catch(() => {}));   // NEWS_REFRESH_MS
 setTimeout(() => { refreshTalkshowNewsStory().catch(() => {}); }, 8000);
 
 // ── Talk-show broadcasts ────────────────────────────────────────────────────
@@ -1916,13 +2296,25 @@ setTimeout(() => { refreshTalkshowNewsStory().catch(() => {}); }, 8000);
 const TALKSHOW_MONOLOGUE = 4;   // base jokes for the monologue (+0..1 more per night); audience
                                 // beats between jokes carry the pacing, so fewer jokes per show
 const TALKSHOW_INTERVIEW = 3;   // base host-question / guest-answer exchanges (+0..1 more per night)
+// CALL TIME, in slots. The guest is the only cast member who isn't already at the studio when
+// the show starts: it materialises backstage and has to WALK there. Coming on shift at airtime
+// meant it started walking as the theme played and was still en route through the interview —
+// and because the host and sidekick WERE on the floor, the "nobody home" stand-by never fired,
+// so the room-authority rule (a line belongs to whoever is standing there to say it) silently
+// dropped every guest answer. What aired was John interrogating an empty chair. So the guest
+// gets a call time: on shift a slot early, in the studio before it's introduced. Like a real one.
+const TALKSHOW_GUEST_CALL_LEAD = 1;
 
 // The show airs on a nightly @airtime slot, reusing the sports in-game 3-hour block clock
 // (sportsSlotOfDay). No @airtime ⇒ every slot (continuous), same convention as sports.
-function talkshowAiring(script) {
+// `lead` looks AHEAD: lead 1 is also true during the slot before an airing one, which is how
+// the guest gets called in early (see TALKSHOW_GUEST_CALL_LEAD).
+function talkshowAiring(script, lead = 0) {
   const slots = script?.airSlots;
   if (!Array.isArray(slots) || !slots.length) return true;
-  return slots.includes(sportsSlotOfDay());
+  const now = sportsSlotOfDay();
+  for (let k = 0; k <= lead; k++) if (slots.includes((now + k) % SPORTS_GAMES_PER_DAY)) return true;
+  return false;
 }
 // Episode bucket = the in-game calendar day, so a fresh guest + fresh episode roll once a
 // day and every viewer (and every restart within that day) sees the same one.
@@ -1942,37 +2334,74 @@ function talkshowPersonaFor(script, bucket) {
 function talkshowFill(line, tok) {
   return String(line).replace(/\{(\w+)\}/g, (_, k) => (tok[k] !== undefined && tok[k] !== null ? String(tok[k]) : ''));
 }
-// Draw N distinct lines from a pool (shuffled by the seeded rng), filled with tokens. Falls
-// back to fewer if the pool is short; empty pool ⇒ [].
+// TOPIC TAGS. An authored line may open with `[topic]`, which is a promise that no other line
+// sharing that topic appears in the same episode. Distinctness by line identity was never
+// enough: the pools are big and well-stocked, but "What would you tell young people considering
+// your line of work?" and "Did you always know this was your calling?" are two different lines
+// asking one question, and drawing both made the show feel like it wasn't listening. Untagged
+// lines are unconstrained, so tagging is opt-in and a pool can be half-tagged without surprise.
+const TOPIC_RE = /^\s*\[([\w-]+)\]\s*/;
+const lineTopic = (l) => (TOPIC_RE.exec(String(l))?.[1]) || null;
+const stripTopic = (l) => String(l).replace(TOPIC_RE, '');
+// Shuffle, then take n while allowing each topic at most once.
+function topicPick(arr, n, rand) {
+  const seen = new Set();
+  const out = [];
+  for (const l of sportsShuffle(arr, rand)) {
+    if (out.length >= n) break;
+    const t = lineTopic(l);
+    if (t) { if (seen.has(t)) continue; seen.add(t); }
+    out.push(l);
+  }
+  return out;
+}
+// Draw N distinct lines from a pool (shuffled by the seeded rng), filled with tokens, never
+// two from the same [topic]. Falls back to fewer if the pool is short; empty pool ⇒ [].
 function talkshowDraw(pools, key, n, tok, rand) {
   const arr = Array.isArray(pools[key]) ? pools[key] : [];
   if (!arr.length) return [];
-  return sportsShuffle(arr, rand).slice(0, n).map(l => talkshowFill(l, tok).trim()).filter(Boolean);
+  return topicPick(arr, n, rand).map(l => talkshowFill(stripTopic(l), tok).trim()).filter(Boolean);
 }
-// One interview beat is an authored Q&A PAIR — "host question >> guest answer" — so the
-// question and the reply always belong together (no index-paired non-sequiturs). Split on the
-// first `>>`; a line with no delimiter is treated as an answer-only aside.
+// A strict TWO-part beat — "A >> B" — where the halves mean different things and a missing
+// delimiter means the whole line is the second half. Split on the FIRST `>>` only, so a stray
+// one later in the text can't silently promote itself to a speaker change. The morning show's
+// host/cohost beats are authored this way; the talk show reads the same delimiter as turns.
 function splitExchange(pair) {
-  const s = String(pair);
+  const s = stripTopic(pair);
   const i = s.indexOf('>>');
   return i < 0 ? ['', s.trim()] : [s.slice(0, i).trim(), s.slice(i + 2).trim()];
+}
+// The same delimiter read as a CONVERSATION: every `>>` is a change of speaker, so one authored
+// line can run to as many turns as the bit needs and keep its timing through the shuffle. This
+// is what lets a follow-up ("Tuesday." / "Which Tuesday?") be authored as a single unit instead
+// of two pool entries that might never be dealt together.
+function splitTurns(line) {
+  return stripTopic(line).split('>>').map(s => s.trim()).filter(Boolean);
 }
 // Build the night's interview deck: up to 2 of the guest's SIGNATURE exchanges (the persona
 // pool `interview.<tag>`, where the host's question is about THEIR thing), the rest generic
 // small-talk exchanges (`interview`), shuffled together — so every guest gets a couple of
 // on-topic beats while the mix still varies night to night.
+// The generic half is drawn by TOPIC, so one night's interview never asks the same question
+// twice in two different phrasings — the failure that made the show look like it wasn't
+// listening. Signature exchanges are exempt: they're all about the guest's one thing, which is
+// the point of them, and there are only ever two.
 function talkshowExchangeDeck(pools, persona, n, rand) {
   const sigPool = persona?.tag && Array.isArray(pools[`interview.${persona.tag}`]) ? pools[`interview.${persona.tag}`] : [];
   const genPool = Array.isArray(pools['interview']) ? pools['interview'] : [];
   const sig = sportsShuffle(sigPool, rand).slice(0, Math.min(2, sigPool.length));
-  const gen = sportsShuffle(genPool, rand).slice(0, Math.max(0, n - sig.length));
+  const gen = topicPick(genPool, Math.max(0, n - sig.length), rand);
   return sportsShuffle([...sig, ...gen], rand);
 }
 
 // Assemble one night's episode into a VINE broadcast graph of npc_anchor + say nodes, acted
 // by the real cast. Deterministic given the day bucket (seeded rng) so all viewers see the
 // same show. Segments: title/theme → sidekick cold open → host monologue → guest interview
-// (host asks / guest answers) → commercial → host sign-off.
+// (host asks / guest answers) → commercial → host sign-off. The host and the announcer trade
+// authored two-handers throughout (greeting, banter, and the no-show cover), so the desk plays
+// as two people who know each other rather than one man reading and one man interjecting.
+// The interview is GATED on the guest actually being in the studio; if it isn't, the two of
+// them cover instead — see the chair gate below.
 function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   const pools = script.pools || {};
   const rand = sportsRng(sportsHash(...[...`${broadcastId}:${bucket}`].map(c => c.charCodeAt(0))));
@@ -2001,6 +2430,31 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   const anchor = (npcId) => { if (npcId !== curAnchor) { add({ type: 'npc_anchor', npc_id: npcId }); curAnchor = npcId; } };
   const line = (npcId, text) => { if (!text) return; anchor(npcId); add({ type: 'say', text, style: 'raw' }); };
   const lines = (npcId, arr) => arr.forEach(t => line(npcId, t));
+  // Build a detached run of nodes and hand back its ends, so a branch can be wired by hand.
+  // `prevId`/`curAnchor` are saved and cleared: a branch must never inherit the trunk's
+  // last node (that's the whole point) and must re-state its own anchor, because which
+  // branch ran is not knowable when the graph is built.
+  const branch = (fn) => {
+    const savedPrev = prevId, savedAnchor = curAnchor;
+    prevId = null; curAnchor = null;
+    const before = n;
+    fn();
+    const out = { first: n > before ? `ts_${before}` : null, last: prevId };
+    prevId = savedPrev; curAnchor = savedAnchor;
+    return out;
+  };
+  // A two-hander: one authored line of `A >> B >> A >> B …` spoken by two people ALTERNATING.
+  // This is how John and Graham talk to each other rather than past each other — the setup,
+  // the reply and the topper are authored as one unit, so the timing survives the shuffle and
+  // can't be dealt into a non-sequitur. Any number of turns: a two-beat jab and a four-beat
+  // "wait, what?" run both come out of the same pool and read as the same relationship.
+  const duet = (aNpc, bNpc, pair) => {
+    if (!pair) return false;
+    const turns = splitTurns(pair);
+    let said = false;
+    turns.forEach((t, i) => { if (t) { line(i % 2 ? bNpc : aNpc, talkshowFill(t, tok)); said = true; } });
+    return said;
+  };
 
   // Audience reactions — laughs, groans, applause between the jokes and around the guest
   // exchanges, so the room breathes and each line lands before the next. They're unattributed
@@ -2034,6 +2488,11 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   lines(sidekick, talkshowDraw(pools, 'tease', 1 + Math.floor(rand() * 2), tok, rand));  // 1–2
   line(sidekick, talkshowFill(sportsPick(pools, rand, 'announce_host') || "Ladies and gentlemen — {host}!", tok));
   applause();   // the host walks out to applause
+  // …and the first thing John does is talk to Graham. A late-night show opens on the two of
+  // them, not on a monologue — the greeting is the moment the audience learns these two have
+  // known each other a long time. Authored host-first, so it reads as John arriving at the desk.
+  const greetDeck = talkshowDraw(pools, 'greeting', 2, tok, rand);
+  if (duet(host, sidekick, greetDeck[0])) react();
 
   // Monologue — the host's opening jokes; 4–5 a night, each landing on an audience beat so the
   // room breathes between punchlines instead of the jokes running together.
@@ -2053,10 +2512,18 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
     const newsBit = talkshowDraw(pools, 'newsjoke', 1, newsTok, rand);
     if (newsBit.length) { lines(host, newsBit); react(); }
   }
-  // Sometimes the sidekick heckles back mid-monologue (~45% of nights).
+  // Sometimes the sidekick heckles back mid-monologue (~45% of nights) — a one-way jab, no reply.
   if (rand() < 0.45) { lines(sidekick, talkshowDraw(pools, 'sidekick_aside', 1, tok, rand)); react(); }
+  // A proper back-and-forth most nights (~70%): Graham says something, John has to deal with it.
+  // Authored sidekick-first so John gets the last word, which is the shape of the desk — the
+  // announcer needles, the host recovers. One or two rounds; two only occasionally, so the show
+  // doesn't stall on the two of them before the guest is even out.
+  const banterDeck = talkshowDraw(pools, 'banter', 3, tok, rand);
+  let bIdx = 0;
+  if (rand() < 0.70 && duet(sidekick, host, banterDeck[bIdx++])) react();
   // Sometimes the host does a desk bit before the guest (~50%).
   if (rand() < 0.50) { lines(host, talkshowDraw(pools, 'desk_bit', 1, tok, rand)); react(); }
+  if (rand() < 0.30 && duet(sidekick, host, banterDeck[bIdx++])) react();
 
   // Guest intro + interview — host welcomes tonight's persona (to applause), then 3–4 EXCHANGES.
   // Each exchange is an authored Q&A pair, so the host's question and the guest's reply belong
@@ -2065,22 +2532,57 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   // beat between exchanges gives the back-and-forth a live rhythm.
   line(host, talkshowFill(sportsPick(pools, rand, 'guest_intro') || "My next guest is {title}. Please welcome {guest}!", tok));
   applause();   // the guest takes the stage
-  const exN = TALKSHOW_INTERVIEW + Math.floor(rand() * 2);   // 3–4
-  const deck = talkshowExchangeDeck(pools, persona, exN + 1, rand);   // +1 spare for the follow-up
-  const sayExchange = (pair, withBeat) => {
-    const [q, a] = splitExchange(pair);
-    if (q) line(host, talkshowFill(q, tok));
-    if (a) line(guestNpc, talkshowFill(a, tok));
-    if (withBeat) react();   // the crowd reacts to the answer before the next question
-  };
-  let ex = 0;
-  const total = Math.min(exN, deck.length);
-  for (; ex < total; ex++) sayExchange(deck[ex], ex < total - 1 && rand() < 0.6);
-  // A second, shorter guest beat some nights (~35%) - one more on-topic exchange.
-  if (rand() < 0.35 && deck[ex]) sayExchange(deck[ex], false);
+
+  // THE CHAIR GATE. Everything past here depends on somebody actually sitting in it, and that
+  // is a fact about the world at airtime, not about the script — the guest walks in across a
+  // real map and can be late, lost or dead. Asked at showtime rather than assumed at build
+  // time, because the alternative is what used to air: the say-node room-authority rule quietly
+  // binning every answer while the questions went out anyway, and John interviewing furniture.
+  // If the chair's empty the show KNOWS, and John and Graham cover for it, which is a better
+  // three minutes of television than the interview would have been.
+  const gate = add({ type: 'condition', condition_type: 'NPC_IN_STUDIO', params: { npc_id: guestNpc } });
+  prevId = null;   // the gate wires its own two branches by hand, below
+
+  const interview = branch(() => {
+    // 3–4 EXCHANGES. Each is an authored Q&A pair, so the host's question and the guest's reply
+    // belong together; the night blends a couple of the guest's on-topic signature beats with
+    // generic small-talk, shuffled, so the interview is coherent AND different every night. An
+    // audience beat between exchanges gives the back-and-forth a live rhythm.
+    const exN = TALKSHOW_INTERVIEW + Math.floor(rand() * 2);   // 3–4
+    const deck = talkshowExchangeDeck(pools, persona, exN + 1, rand);   // +1 spare for the follow-up
+    // An exchange is normally question-then-answer, but it's read as ALTERNATING turns, so a
+    // beat that needs a follow-up ("Tuesday." / "Which Tuesday?") can be authored as one unit
+    // and keep its timing. Two turns is just the common case of that.
+    const sayExchange = (pair, withBeat) => {
+      const turns = splitTurns(pair);
+      turns.forEach((t, i) => line(i % 2 ? guestNpc : host, talkshowFill(t, tok)));
+      if (withBeat && turns.length) react();   // the crowd reacts before the next question
+    };
+    let ex = 0;
+    const total = Math.min(exN, deck.length);
+    for (; ex < total; ex++) sayExchange(deck[ex], ex < total - 1 && rand() < 0.6);
+    // A second, shorter guest beat some nights (~35%) - one more on-topic exchange.
+    if (rand() < 0.35 && deck[ex]) sayExchange(deck[ex], false);
+    // Host throws back to the announcer on the way out of the segment.
+    if (rand() < 0.5 && duet(host, sidekick, greetDeck[1])) react();
+  });
+
+  // The no-show. Graham is the one who has to explain it, John is the one who has to fill —
+  // so the cover is a two-hander by nature, and the pair carry the segment the guest didn't.
+  const noShow = branch(() => {
+    const cover = talkshowDraw(pools, 'guest_noshow', 3, tok, rand);
+    let did = false;
+    for (let i = 0; i < Math.min(2 + Math.floor(rand() * 2), cover.length); i++) {
+      if (duet(host, sidekick, cover[i])) { did = true; react(); }
+    }
+    // Nothing authored to cover with ⇒ the host eats it alone rather than airing silence.
+    if (!did) { line(host, talkshowFill("Well — {guest} isn't here. That's showbusiness, and that's a chair.", tok)); react(); }
+  });
 
   // Commercial — a quick sponsor break read as narration over the studio (an ad break, not the
   // host talking), one line so it doesn't overstay.
+  prevId = null; curAnchor = null;   // the tail is reached from BOTH branches; wired below
+  const tailFirst = `ts_${n}`;
   const ad = talkshowDraw(pools, 'commercial', 1, tok, rand);
   if (ad.length) { add({ type: 'npc_anchor', npc_id: '' }); curAnchor = ''; ad.forEach(t => add({ type: 'say', text: t, style: 'narration' })); }
 
@@ -2088,6 +2590,16 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   // goodnight twice.
   applause();
   lines(host, talkshowDraw(pools, 'signoff', 1, { ...tok }, rand));
+
+  // Wire the gate now that the tail exists. An empty branch routes straight to the tail, so a
+  // missing pool can never strand the walker on a dead port mid-show; and if the tail itself
+  // came out empty (no ad, no applause, no signoff authored) every edge is left undefined,
+  // which the walker reads as "the show is over" rather than as a dangling node id.
+  const tail = nodes[tailFirst] ? tailFirst : null;
+  nodes[gate].ifTrue  = interview.first || tail;
+  nodes[gate].ifFalse = noShow.first    || tail;
+  if (interview.last) nodes[interview.last].next = tail;
+  if (noShow.last)    nodes[noShow.last].next    = tail;
 
   const graph = _normalizeBroadcastGraph({ _start: startId, nodes });
   graph._broadcastId = `${broadcastId}:talkshow:${bucket}`;
@@ -2165,7 +2677,7 @@ registerZoneWatchedChecker((zoneId) => _watchedZones.has(zoneId));
 // them derive their state from the clock or from player-driven rows, so the
 // first tick after a login catches up correctly. The one-shot boot warmups
 // below each interval stay ungated so caches are warm for a quick first login.
-setInterval(() => { if (hasActivePlayers()) refreshWatchedZones().catch(() => {}); }, 15000);
+schedule('15s', () => refreshWatchedZones().catch(() => {}));
 setTimeout(() => { refreshWatchedZones().catch(() => {}); }, 8000);
 
 // Rename the reusable guest to tonight's persona, once per episode bucket, so it appears +
@@ -2194,7 +2706,7 @@ async function talkshowHeartbeat() {
     }
   }
 }
-setInterval(() => { if (hasActivePlayers()) talkshowHeartbeat().catch(e => console.error('[broadcast] talkshow heartbeat error:', e.message)); }, 60 * 1000);
+schedule('1m', () => talkshowHeartbeat().catch(e => console.error('[broadcast] talkshow heartbeat error:', e.message)));
 setTimeout(() => { talkshowHeartbeat().catch(() => {}); }, 10000);
 
 // ── Morning shows ────────────────────────────────────────────────────────────
@@ -2324,7 +2836,12 @@ function assembleMorningGraph(script, broadcastId, bucket, ctx) {
   banner('weather.banner');
   beat([`weather.${(ctx.env.currentWeatherType || ctx.env.weatherType || '').replace(/\s+/g, '_')}`, 'weather'],
     null, 'Out the window: {weather}, {temp} degrees, feels like {feels}. >> Feels like {feels}. It always feels like {feels}.');
-  if ((ctx.env.forecast?.[0]?.severity ?? 0) >= WX_SEVERE) beat('weather.severe');
+  // A hero day gets its own beat instead of the generic severe one — the whole
+  // point of a week's notice is that the morning show is still saying it on the
+  // day. Falls back to weather.severe if a new event has no pool authored yet.
+  const amHero = ctx.env.forecast?.[0]?.heroEvent;
+  if (amHero && WX_EVENT_POOL[amHero]) beat([`weather.${WX_EVENT_POOL[amHero]}`, 'weather.severe']);
+  else if ((ctx.env.forecast?.[0]?.severity ?? 0) >= WX_SEVERE) beat('weather.severe');
   // Only look ahead when there IS an ahead — the forecast is empty until the weather
   // plugin's first tick, and a look-ahead with no day to look at reads as a dropped line.
   if (ctx.env.forecast?.[1] && rand() < 0.7) beat('weather.ahead');
@@ -2423,9 +2940,9 @@ async function getCurrentMessage(state, nowMs) {
   // Daily schedule mode — start_time is seconds from midnight (0–86399)
   // Checked before live camera so VINE graphs always tick for live+daily channels.
   if (scheduleMode === 'daily' && playlist.length) {
-    const { minutes } = getEnvironmentState();
+    const { minutes, dayOfWeek } = getEnvironmentState();
     const gameSecondsSinceMidnight = minutes * 60;
-    const item = playlist.find(i => gameSecondsSinceMidnight >= i.startTime && gameSecondsSinceMidnight < i.startTime + i.duration);
+    const item = _pickDailySlot(playlist, gameSecondsSinceMidnight, dayOfWeek);
     if (item) {
       if (item.slotType === 'commercial_break') return _playCommercial(state, nowMs);
       state.currentFallbackMessages = item.fallbackMessages || [];
@@ -2444,9 +2961,11 @@ async function getCurrentMessage(state, nowMs) {
       // A `airSlots` broadcast only shows its featured game(s); otherwise this channel is
       // dark now (falls through to off-air / its other content).
       if (item.playback_mode === 'sports' && sportsAiring(item.sportsScript)) {
-        await refreshStandings(nowMs);   // warm the record cache before a fresh game assembles
-        await refreshSeason(nowMs);
-        const spGraph = getSportsGraph(item.sportsScript, sportsSlotIndex(), worldSeriesOverride());
+        // Warm THIS sport's record cache + season before its graph assembles — the
+        // announcer's records line and any postseason takeover both read them.
+        await refreshStandings(nowMs, sportOf(item.sportsScript).id);
+        await refreshSeason(nowMs, sportOf(item.sportsScript).id);
+        const spGraph = getSportsGraph(item.sportsScript, sportsSlotIndex(), overrideFor(item.sportsScript));
         if (spGraph) {
           const r = tickBroadcastGraph(state.channelId, spGraph, state, nowMs, sportsSegElapsedSec());
           if (r) r.programName = item.broadcastName || null;
@@ -2484,7 +3003,65 @@ async function getCurrentMessage(state, nowMs) {
           return r;
         }
       }
-      if (item.broadcastGraph) {
+      // Sermon — this week's service, preached over the live news feed. Dynamic but
+      // not acted, so no presence gate: it airs whether or not anyone is in a studio.
+      if (item.playback_mode === 'sermon') {
+        const smGraph = await getSermonGraph(item, nowMs);
+        if (smGraph) {
+          state.currentFallbackMessages = item.fallbackMessages || [];
+          const r = tickBroadcastGraph(state.channelId, smGraph, state, nowMs, segElapsed);
+          if (r) r.programName = item.broadcastName || null;
+          return r;
+        }
+      }
+      // Game show — today's lots, played out on the studio floor. Only airs in its
+      // @airtime slot, same convention as the talk show.
+      if (item.playback_mode === 'gameshow' && gameshowAiring(item.gameshowScript, sportsSlotOfDay())) {
+        const gsGraph = getGameshowGraph(item, _normalizeBroadcastGraph, state.channelId);
+        if (gsGraph) {
+          state.currentFallbackMessages = item.fallbackMessages || [];
+          const r = tickBroadcastGraph(state.channelId, gsGraph, state, nowMs, segElapsed);
+          if (r) r.programName = item.broadcastName || null;
+          return r;
+        }
+      }
+      // Film — a fixed linear picture, but the only broadcast whose seek has to be
+      // converted. Every other daily slot is authored on the in-game clock, so
+      // `segElapsed` (in-game seconds into the slot) is exactly what the seeker wants.
+      // A feature is authored in REAL time — a 150-minute runtime is 150 minutes of
+      // someone's evening — so the elapsed in-game seconds are divided back down by
+      // the game's time scale before seeking. Get this wrong and a viewer who walks in
+      // ten minutes late finds the reel already at the credits.
+      // A feature is longer than one block at any clock faster than 1×, so it is pinned
+      // across a RUN of consecutive blocks and the elapsed time is measured from the
+      // head of that run — otherwise the picture restarts from the distributor card
+      // every time the schedule rolls into the next hour.
+      if (item.playback_mode === 'film' && item.broadcastGraph) {
+        const ts = getEnvironmentState()?.timeScale || 1;
+        const realElapsed = filmRunElapsed(item, gameSecondsSinceMidnight) / ts;
+        // Blocks are reserved in whole 3-hour units, so a picture almost never fills its
+        // last one exactly — 174 minutes of film sits in 180 minutes of schedule.
+        if (!(item.filmRuntime > 0) || realElapsed < item.filmRuntime) {
+          const r = tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs, realElapsed);
+          if (r) r.programName = item.broadcastName || null;
+          return r;
+        }
+        // The reel has ended inside its own screening. Same rule as every other
+        // loop-filled slot: the tail plays commercials, cut off cleanly when the
+        // schedule moves on (_loopFillOrNull does exactly this for looping graphs).
+        // A film must NOT fall through to the generic paths below — the walker would
+        // wrap to _start and put the distributor card back up, and the flat-message
+        // path would read the picture's whole dialogue list out as bare lines.
+        // Park the blackboard so tomorrow's screening seeks cleanly from the top.
+        const bb = state.graphBlackboard;
+        if (bb && bb.activeBroadcastId === item.broadcastGraph._broadcastId) {
+          bb.currentNode = null;
+          bb.waitUntil = null;
+          bb.activeBroadcastId = null;
+        }
+        state.currentProgramName = null;
+        return _fillCommercialTail(realElapsed - item.filmRuntime, state.commercialBroadcasts || []);
+      } else if (item.broadcastGraph) {
         const r = tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs, segElapsed);
         if (r) r.programName = item.broadcastName || null;
         return r;
@@ -2561,11 +3138,17 @@ async function getCurrentMessage(state, nowMs) {
         }
         return null;
       }
-      // Weather — assemble a fresh graph from the live forecast, then walk it
+      // Weather — assemble a fresh graph from the live forecast, then walk it.
+      // item.loop=1: gate the same way as an authored graph, but since this graph
+      // is regenerated live, its one-pass length is measured fresh each tick rather
+      // than precomputed at load.
       if (item.playback_mode === 'weather') {
         const wxGraph = getWeatherGraph(item);
         if (wxGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
+          const segElapsed = elapsed - item.startTime;
+          const gated = _loopFillOrNull(state, item, wxGraph, segElapsed, _vineDuration(wxGraph, item.message_interval || 5));
+          if (gated !== undefined) return gated;
           return tickBroadcastGraph(state.channelId, wxGraph, state, nowMs);
         }
       }
@@ -2575,9 +3158,11 @@ async function getCurrentMessage(state, nowMs) {
       // events come from the background heartbeat (below), not the airing, so they fire
       // with nobody watching.
       if (item.playback_mode === 'sports' && sportsAiring(item.sportsScript)) {
-        await refreshStandings(nowMs);   // warm the record cache before a fresh game assembles
-        await refreshSeason(nowMs);      // is the World Series on? if so, run the finalists
-        const spGraph = getSportsGraph(item.sportsScript, sportsSlotIndex(), worldSeriesOverride());
+        // Warm THIS sport's record cache + season before its graph assembles — the
+        // announcer's records line and any postseason takeover both read them.
+        await refreshStandings(nowMs, sportOf(item.sportsScript).id);
+        await refreshSeason(nowMs, sportOf(item.sportsScript).id);      // is the World Series on? if so, run the finalists
+        const spGraph = getSportsGraph(item.sportsScript, sportsSlotIndex(), overrideFor(item.sportsScript));
         if (spGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
           return tickBroadcastGraph(state.channelId, spGraph, state, nowMs, sportsSegElapsedSec());
@@ -2588,6 +3173,9 @@ async function getCurrentMessage(state, nowMs) {
         const nwGraph = await getNewsGraph(item, nowMs);
         if (nwGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
+          const segElapsed = elapsed - item.startTime;
+          const gated = _loopFillOrNull(state, item, nwGraph, segElapsed, _vineDuration(nwGraph, item.message_interval || 5));
+          if (gated !== undefined) return gated;
           return tickBroadcastGraph(state.channelId, nwGraph, state, nowMs);
         }
       }
@@ -2605,19 +3193,37 @@ async function getCurrentMessage(state, nowMs) {
         const mnGraph = await getMorningGraph(item, nowMs);
         if (mnGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
+          const segElapsed = elapsed - item.startTime;
+          const gated = _loopFillOrNull(state, item, mnGraph, segElapsed, _vineDuration(mnGraph, item.message_interval || 5));
+          if (gated !== undefined) return gated;
           return tickBroadcastGraph(state.channelId, mnGraph, state, nowMs);
         }
       }
-      // VINE graph (scripted/news with broadcast_graph) — walker manages its own timing
+      // Game show — today's lots, played out live on the studio floor. Airs only in its
+      // @airtime slot; outside it, fall through so the channel goes off-air. Like the talk
+      // show (and unlike news/morning) it owns its whole block, so there's no commercial
+      // tail to fill — the rounds pace themselves.
+      if (item.playback_mode === 'gameshow' && gameshowAiring(item.gameshowScript, sportsSlotOfDay())) {
+        const gsGraph = getGameshowGraph(item, _normalizeBroadcastGraph, state.channelId);
+        if (gsGraph) {
+          state.currentFallbackMessages = item.fallbackMessages || [];
+          return tickBroadcastGraph(state.channelId, gsGraph, state, nowMs);
+        }
+      }
+      // VINE graph (scripted/news with broadcast_graph) — walker manages its own timing.
+      // item.loop=1: once a full pass wouldn't fit again before the slot ends, stop
+      // feeding the graph and fill the leftover tail with commercials instead — same
+      // policy as the flat-list case above, just gated on the graph's one-pass length.
       if (item.broadcastGraph) {
         state.currentFallbackMessages = item.fallbackMessages || [];
+        const segElapsed = elapsed - item.startTime;
+        const gated = _loopFillOrNull(state, item, item.broadcastGraph, segElapsed, item.passDuration);
+        if (gated !== undefined) return gated;
         return tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs);
       }
       // scripted flat list
       const segElapsed = elapsed - item.startTime;
-      const result = getScriptedMessage(item.messages, item.message_interval, segElapsed);
-      if (result) return { text: result.text, key: `${item.broadcastId}:${result.idx}` };
-      return null;
+      return _fillLoopSlot(item, segElapsed, state.commercialBroadcasts || []);
     }
   }
 
@@ -2803,6 +3409,16 @@ async function _getPirateMessage(zoneId, nowMs, state) {
 async function _getDeckMessage(zoneId, nowMs, state) {
   const pirate = await _getPirateMessage(zoneId, nowMs, state);
   if (pirate !== undefined) return pirate;   // pirated deck runs its captor's queue
+
+  // A consumer deck patched to a SPECTER camera shows the feed instead of a tape.
+  // Checked before the cassette path because the input is exclusive: the tape may
+  // still be sitting in the slot, but the jack is what's on the screen.
+  {
+    const deck = _zoneDeck(zoneId, state?.channelId || null);
+    const dflags = deck?.flags && typeof deck.flags === 'object' ? deck.flags : null;
+    if (dflags?.deck_cam_source?.deviceId) return _camPatchMessage(deck, dflags, nowMs);
+  }
+
   let entry = _deckCache.get(zoneId);
   if (!entry || nowMs - entry.fetchedAt > _DECK_CACHE_TTL) {
     const deck = _zoneDeck(zoneId, state?.channelId || null);
@@ -2842,7 +3458,7 @@ function _playDeckItem(item, state, nowMs) {
     }
     if (item.playback_mode === 'sports') {
       if (!sportsAiring(item.sportsScript)) return null;   // between featured games — dark
-      const g = getSportsGraph(item.sportsScript, sportsSlotIndex(), worldSeriesOverride());
+      const g = getSportsGraph(item.sportsScript, sportsSlotIndex(), overrideFor(item.sportsScript));
       return g ? tickBroadcastGraph(state.channelId, g, state, nowMs, sportsSegElapsedSec()) : null;
     }
     if (item.broadcastGraph) {
@@ -2943,6 +3559,20 @@ function _absentCastNames(graph, studioZoneId) {
   return out;
 }
 
+// Is ANY of the graph's scheduled cast standing on the studio floor right now?
+// The stand-by card is for an empty stage — a show that cannot start. A show that
+// has *someone* on set goes ahead, and the absentees just don't get their lines
+// (see the room-authority branch in the `say` node).
+function _anyCastPresent(graph, studioZoneId) {
+  if (!graph?.nodes || !studioZoneId) return false;
+  const present = getZone(studioZoneId)?.npcs;
+  if (!present?.size) return false;
+  for (const node of Object.values(graph.nodes)) {
+    if (node?.type === 'npc_anchor' && node.data?.npc_id && present.has(node.data.npc_id)) return true;
+  }
+  return false;
+}
+
 // "Alice" / "Alice and Bob" / "Alice, Bob, and Carol"
 function _joinNames(names) {
   if (names.length <= 1) return names[0] || '';
@@ -2970,6 +3600,13 @@ async function broadcastTick() {
   // (advancing it twice would make viewers skip lines).
   // tickResults.get(channelId) = { result, scorebugOverlay, gamedayOverlay, standingsOverlay }
   const tickResults = new Map();
+  // "<playerId>:<channelId>" for everyone the zone pass already delivered this beat
+  // to. A player can hold BOTH surfaces at once (wall set + Tablet TV app) — they're
+  // separate registrations (tvWatchers / tabletTuners) by design. But the client
+  // fans each `broadcast` out to every view on that channel, so if both passes send
+  // the same beat, both screens render it twice, play the music twice, and stack the
+  // overlays. The tablet pass skips anyone in here.
+  const servedThisTick = new Set();
   for (const [zoneId, channelMap] of zoneTunings) {
     if (!getZonePlayers(zoneId).length) continue;
     for (const cid of channelMap.keys()) activeChannels.add(cid);
@@ -2988,6 +3625,7 @@ async function broadcastTick() {
         let offAir = null;
         if (state.wasActive) {
           state.wasActive = false;
+          state.lastBeat = null;   // off air — nothing for a late tuner to catch up to
           offAir = _offAirMessage(state, channelId);
           for (const player of players) {
             if (tvWatchers.get(player.id) === channelId) sendToPlayer(player.id, offAir);
@@ -3015,6 +3653,7 @@ async function broadcastTick() {
         let offAir = null;
         if (!stillWaiting && state.wasActive) {
           state.wasActive = false;
+          state.lastBeat = null;   // off air — nothing for a late tuner to catch up to
           offAir = _offAirMessage(state, channelId);
           for (const player of players) {
             if (tvWatchers.get(player.id) === channelId)
@@ -3077,16 +3716,17 @@ async function broadcastTick() {
       // table up on a slow cadence per channel. It's a transient graphic that rides
       // the same tv_overlay channel and auto-dismisses client-side; it coexists with
       // the persistent score-bug rather than replacing it.
+      //
+      // ALWAYS the table for the sport on screen, never the other one — which is what
+      // the score-bug's own `sport` is read for. Each league supplies its own heading
+      // and its own last column (run differential / points).
       let standingsOverlay = null;
-      if (scorebugOverlay && _seasonCache.phase !== 'worldseries' && nowMs - (_lastStandingsBug.get(channelId) || 0) > STANDINGS_BUG_EVERY_MS) {
+      const bugSport = scorebugOverlay?.sport || 'baseball';
+      if (scorebugOverlay && seasonOf(bugSport).phase !== 'worldseries'
+          && nowMs - (_lastStandingsBug.get(channelId) || 0) > STANDINGS_BUG_EVERY_MS) {
         _lastStandingsBug.set(channelId, nowMs);
-        const rows = await refreshStandings(nowMs);
-        if (rows.length) standingsOverlay = {
-          overlayType: 'standings',
-          title: 'DEADBALL — LEAGUE STANDINGS',
-          duration: 9,
-          rows: rows.slice(0, 8).map(r => ({ team: r.team, wins: r.wins, losses: r.losses, rd: (r.runs_for || 0) - (r.runs_against || 0) })),
-        };
+        const rows = await refreshStandings(nowMs, bugSport);
+        if (rows.length) standingsOverlay = standingsBugFor(bugSport, rows);
       }
 
       // Attach this beat's graphics to the tick record so a portable tuner on the
@@ -3096,14 +3736,19 @@ async function broadcastTick() {
 
       // Rate-limit the overheard `[TV]` line for non-watchers so a talky channel
       // doesn't flood the room feed. Decided once per zone+channel per tick.
+      // Remember what's now on screen, so anyone tuning in mid-beat gets the picture
+      // immediately instead of waiting out the rest of the line.
+      _recordBeat(state, result, programName, scorebugOverlay, gamedayOverlay, nowMs);
+
       const ambientKey = `${zoneId}:${channelId}`;
       const ambientDue = result.speech && nowMs - (_lastAmbientLine.get(ambientKey) || 0) >= AMBIENT_LINE_EVERY_MS;
       if (ambientDue) _lastAmbientLine.set(ambientKey, nowMs);
 
       for (const player of players) {
         if (tvWatchers.get(player.id) === channelId) {
+          servedThisTick.add(`${player.id}:${channelId}`);
           if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(result.duration != null ? { duration: result.duration } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
-          if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song });
+          if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song, owner: 'tv' });
           if (isSample) sendToPlayer(player.id, { type: 'audio_sample', def: result.sample });
           if (scorebugOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: scorebugOverlay });
           if (gamedayOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: gamedayOverlay });
@@ -3150,6 +3795,7 @@ async function broadcastTick() {
         const stillWaiting = !result && state.graphBlackboard?.waitUntil > nowMs;
         if (!result && !stillWaiting) {
           state.wasActive = false;
+          state.lastBeat = null;   // off air — nothing for a late tuner to catch up to
           // Raise the deck-preview dead-air card once per transition into idle.
           if (!deckIdleChannels.has(channelId)) {
             deckIdleChannels.add(channelId);
@@ -3233,17 +3879,22 @@ async function broadcastTick() {
   // stateful and must advance exactly once per tick, or viewers skip lines), and
   // only resolve fresh for a channel nothing else drove. Whole pass is skipped when
   // nobody has the app open, so it costs nothing on an idle server.
-  if (tabletTuners.size) await _tabletBroadcastPass(tickResults, activeChannels, nowMs);
+  if (tabletTuners.size) await _tabletBroadcastPass(tickResults, activeChannels, nowMs, servedThisTick);
 }
 
 // Per-channel fan-out to the portable tablet tuners. Split out of broadcastTick to
 // keep that already-long function readable.
-async function _tabletBroadcastPass(tickResults, activeChannels, nowMs) {
+async function _tabletBroadcastPass(tickResults, activeChannels, nowMs, servedThisTick = new Set()) {
   for (const channelId of new Set(tabletTuners.values())) {
     const state = channelRuntime.get(channelId);
     if (!state) continue;
     const viewers = [];
-    for (const [pid, cid] of tabletTuners) if (cid === channelId) viewers.push(pid);
+    // Anyone whose wall set is already showing this channel got this beat from the
+    // zone pass; the client fans it to their tablet view too, so sending again would
+    // double every line on both screens.
+    for (const [pid, cid] of tabletTuners) {
+      if (cid === channelId && !servedThisTick.has(`${pid}:${channelId}`)) viewers.push(pid);
+    }
     if (!viewers.length) continue;
 
     let payload = tickResults.get(channelId);
@@ -3255,6 +3906,7 @@ async function _tabletBroadcastPass(tickResults, activeChannels, nowMs) {
       if (!channelTransmitterLive(state)) {
         if (state.wasActive) {
           state.wasActive = false;
+          state.lastBeat = null;   // off air — nothing for a late tuner to catch up to
           const offAir = _offAirMessage(state, channelId);
           for (const pid of viewers) sendToPlayer(pid, offAir);
         }
@@ -3271,6 +3923,7 @@ async function _tabletBroadcastPass(tickResults, activeChannels, nowMs) {
         const stillWaiting = !result && state.graphBlackboard?.waitUntil > nowMs;
         if (!stillWaiting && state.wasActive) {
           state.wasActive = false;
+          state.lastBeat = null;   // off air — nothing for a late tuner to catch up to
           const offAir = _offAirMessage(state, channelId);
           for (const pid of viewers) sendToPlayer(pid, offAir);
         }
@@ -3285,16 +3938,12 @@ async function _tabletBroadcastPass(tickResults, activeChannels, nowMs) {
         standingsOverlay: null,
       };
       // Same throttled league-table flash the zone loop raises during a sports airing.
-      if (payload.scorebugOverlay && _seasonCache.phase !== 'worldseries'
+      const pSport = payload.scorebugOverlay?.sport || 'baseball';
+      if (payload.scorebugOverlay && seasonOf(pSport).phase !== 'worldseries'
           && nowMs - (_lastStandingsBug.get(channelId) || 0) > STANDINGS_BUG_EVERY_MS) {
         _lastStandingsBug.set(channelId, nowMs);
-        const rows = await refreshStandings(nowMs);
-        if (rows.length) payload.standingsOverlay = {
-          overlayType: 'standings',
-          title: 'DEADBALL — LEAGUE STANDINGS',
-          duration: 9,
-          rows: rows.slice(0, 8).map(r => ({ team: r.team, wins: r.wins, losses: r.losses, rd: (r.runs_for || 0) - (r.runs_against || 0) })),
-        };
+        const rows = await refreshStandings(nowMs, pSport);
+        if (rows.length) payload.standingsOverlay = standingsBugFor(pSport, rows);
       }
       tickResults.set(channelId, payload);
     }
@@ -3319,10 +3968,11 @@ async function _tabletBroadcastPass(tickResults, activeChannels, nowMs) {
     const isSample = !!result.sample;
     if (!formatted && !isMusic && !isSample) continue;
     const programName = result.programName ?? state.currentProgramName ?? null;
+    _recordBeat(state, result, programName, scorebugOverlay, gamedayOverlay, nowMs);
 
     for (const pid of viewers) {
       if (formatted) sendToPlayer(pid, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(result.duration != null ? { duration: result.duration } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
-      if (isMusic) sendToPlayer(pid, { type: 'audio_music', def: result.song });
+      if (isMusic) sendToPlayer(pid, { type: 'audio_music', def: result.song, owner: 'tv' });
       if (isSample) sendToPlayer(pid, { type: 'audio_sample', def: result.sample });
       if (scorebugOverlay) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: scorebugOverlay });
       if (gamedayOverlay) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: gamedayOverlay });
@@ -3330,6 +3980,59 @@ async function _tabletBroadcastPass(tickResults, activeChannels, nowMs) {
       if (result.graphic) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: result.graphic });
     }
   }
+}
+
+// ── Catch-up: what's on screen RIGHT NOW ─────────────────────────────────────
+// A channel only pushes when its graph produces the NEXT beat, and a beat holds
+// for as long as its line takes to read (up to ~30s, longer for a title card or a
+// theme). So a viewer who tuned in a moment after one landed used to sit in front
+// of a blank set until the next one — which read as "the channel didn't come up,
+// change to it again". Nothing was broken; the picture just hadn't been repainted.
+//
+// So the current beat is remembered per channel and replayed to whoever tunes in.
+// It carries `catchUp: true`: the client renders it exactly like a live beat but
+// doesn't re-speak it, because the read-aloud for that line is already part-aired.
+function _recordBeat(state, result, programName, scorebugOverlay, gamedayOverlay, nowMs) {
+  state.lastBeat = {
+    text: result.text,
+    style: result.style || 'raw',
+    programName,
+    duration: result.duration ?? null,
+    hasGameday: !!gamedayOverlay,
+    graphic: result.graphic || null,
+  };
+  // The score-bug is persistent (re-sent every line while a game is on air), so a
+  // late tuner needs it — but only while it's still current. A stale bug from the
+  // last airing must never sit over a talk show.
+  if (scorebugOverlay) { state.lastScorebug = scorebugOverlay; state.lastScorebugAt = nowMs; }
+  if (gamedayOverlay)  { state.lastGameday  = gamedayOverlay;  state.lastGamedayAt  = nowMs; }
+}
+
+const CATCHUP_BUG_MAX_AGE_MS = 90_000;   // a score-bug older than this is last night's
+
+function sendCatchUp(playerId, channelId) {
+  const state = channelRuntime.get(channelId);
+  const beat = state?.lastBeat;
+  if (!beat) return;
+  // Tickers scroll their own text and off-air/overlay beats are transitions, not a
+  // picture — replaying either would be noise.
+  if (beat.style === 'ticker' || beat.style === 'overlay' || beat.style === 'live_relay') return;
+  // Both surfaces that can tune are `tv` devices, so no [Radio]/[FEED] prefix.
+  const formatted = formatMessage(beat.text, 'tv', null, beat.style);
+  if (formatted) {
+    sendToPlayer(playerId, {
+      type: 'broadcast', message: formatted, channel: channelId, style: beat.style,
+      programName: beat.programName, catchUp: true,
+      ...(beat.duration != null ? { duration: beat.duration } : {}),
+      ...(beat.hasGameday ? { hasGameday: true } : {}),
+    });
+  }
+  if (beat.graphic) sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: beat.graphic });
+  const now = Date.now();
+  if (state.lastScorebug && now - (state.lastScorebugAt || 0) < CATCHUP_BUG_MAX_AGE_MS)
+    sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: state.lastScorebug });
+  if (state.lastGameday && now - (state.lastGamedayAt || 0) < CATCHUP_BUG_MAX_AGE_MS)
+    sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: state.lastGameday });
 }
 
 // ── Dynamic news ─────────────────────────────────────────────────────────────
@@ -3382,7 +4085,7 @@ registerViewerChecker((channelId) => {
 
 // IS_BROADCAST_SCHEDULED: is this NPC in an active daily schedule slot right now?
 registerNpcScheduleChecker((npcId) => {
-  const { minutes } = getEnvironmentState();
+  const { minutes, dayOfWeek } = getEnvironmentState();
   const gameSecs = (minutes ?? 0) * 60;
   const nowMs = Date.now();
   for (const state of channelRuntime.values()) {
@@ -3391,11 +4094,17 @@ registerNpcScheduleChecker((npcId) => {
     // hold the stage exactly while the episode airs, and clear off the moment it's over.
     for (const item of (state.playlist || [])) {
       if (item.playback_mode !== 'talkshow') continue;
-      if (item.npcStaff?.includes(npcId) && talkshowAiring(item.talkshowScript)) return true;
+      // A cast member isn't on shift for an episode that doesn't air today — otherwise
+      // a Friday-only talk show would commute its host to the studio all week.
+      if (state.scheduleMode === 'daily' && !_slotAirsOn(item, dayOfWeek)) continue;
+      // The guest — and only the guest — comes on shift a slot early, because it's the only
+      // one with a journey to make. See TALKSHOW_GUEST_CALL_LEAD.
+      const lead = item.talkshowScript?.guestNpc === npcId ? TALKSHOW_GUEST_CALL_LEAD : 0;
+      if (item.npcStaff?.includes(npcId) && talkshowAiring(item.talkshowScript, lead)) return true;
     }
     let item = null;
     if (state.scheduleMode === 'daily') {
-      item = state.playlist.find(i => gameSecs >= i.startTime && gameSecs < i.startTime + i.duration);
+      item = _pickDailySlot(state.playlist, gameSecs, dayOfWeek);
     } else if (state.playlist.length && state.totalDuration > 0) {
       // Loop/mixed/emergency: find which playlist item is currently playing
       const elapsed = ((nowMs - state.loopOriginMs) / 1000) % state.totalDuration;
@@ -3404,6 +4113,44 @@ registerNpcScheduleChecker((npcId) => {
     if (item?.playback_mode !== 'talkshow' && item?.npcStaff?.includes(npcId)) return true;
   }
   return false;
+});
+
+// How long until this NPC is next due on. Game minutes; 0 while already on shift;
+// null when they're staffed on nothing that airs.
+//
+// Only DAILY slots have a knowable start — a loop/mixed channel has no wall-clock
+// timetable to count down to, so a host on one simply reports null and anything
+// scheduling against it (the pre-show ritual in npc-drugs) declines to fire rather
+// than guessing.
+registerNpcNextShiftLookup((npcId) => {
+  const { minutes, dayOfWeek } = getEnvironmentState();
+  const gameSecs = (minutes ?? 0) * 60;
+  const DAY_SECS = 24 * 60 * 60;
+  let soonest = null;
+  for (const state of channelRuntime.values()) {
+    if (state.scheduleMode !== 'daily') continue;
+    for (const item of (state.playlist || [])) {
+      if (!item.npcStaff?.includes(npcId)) continue;
+      // Already inside this slot — on shift now.
+      if (gameSecs >= item.startTime && gameSecs < item.startTime + item.duration) return 0;
+      // Airs today and still ahead of us? Otherwise the next airing is a future
+      // day — walk forward to find which, so a Friday-only show counts down
+      // across the week instead of reporting nothing for six days.
+      let wait = null;
+      if (_slotAirsOn(item, dayOfWeek) && item.startTime > gameSecs) {
+        wait = item.startTime - gameSecs;
+      } else {
+        for (let ahead = 1; ahead <= 7; ahead++) {
+          if (!_slotAirsOn(item, (dayOfWeek + ahead) % 7)) continue;
+          wait = (ahead * DAY_SECS) + item.startTime - gameSecs;
+          break;
+        }
+      }
+      if (wait == null) continue;
+      if (soonest == null || wait < soonest) soonest = wait;
+    }
+  }
+  return soonest == null ? null : Math.round(soonest / 60);
 });
 
 // getNpcStudioZone: find the studio zone for the channel this NPC is staffed on
@@ -3422,12 +4169,12 @@ registerNpcStudioZoneLookup((npcId) => {
 function nowBroadcastingFor(channelId) {
   const state = channelRuntime.get(channelId);
   if (!state) return null;
-  const { minutes } = getEnvironmentState();
+  const { minutes, dayOfWeek } = getEnvironmentState();
   const gameSecs = (minutes ?? 0) * 60;
   const nowMs = Date.now();
   let item = null;
   if (state.scheduleMode === 'daily') {
-    item = state.playlist.find(i => gameSecs >= i.startTime && gameSecs < i.startTime + i.duration);
+    item = _pickDailySlot(state.playlist, gameSecs, dayOfWeek);
   } else if (state.playlist.length && state.totalDuration > 0) {
     const elapsed = ((nowMs - state.loopOriginMs) / 1000) % state.totalDuration;
     item = state.playlist.find(i => elapsed >= i.startTime && elapsed < i.startTime + i.duration);
@@ -3467,7 +4214,7 @@ function _sportsScheduleSlots(script, cur) {
   const featured = (Array.isArray(script?.airSlots) && script.airSlots.length)
     ? [...new Set(script.airSlots.map((n) => ((n % G) + G) % G))].sort((x, y) => x - y) : null;
   if (!featured) return null;
-  const s = _seasonCache || {};
+  const s = seasonOf('baseball');
   const isWs = s.phase === 'worldseries' && s.finalistA && s.finalistB;
   const wsSlot = s.wsSlot != null ? Number(s.wsSlot) : null;
   const curDay = Math.floor(cur / G);
@@ -3498,8 +4245,8 @@ async function sendTvStandings(playerId) {
   await refreshSeason(nowMs).catch(() => {});
   sendToPlayer(playerId, {
     type: 'tv_standings',
-    title: _seasonCache.phase === 'worldseries' ? 'DEADBALL — WORLD SERIES' : 'DEADBALL — LEAGUE STANDINGS',
-    phase: _seasonCache.phase || 'regular',
+    title: seasonOf('baseball').phase === 'worldseries' ? 'DEADBALL — WORLD SERIES' : 'DEADBALL — LEAGUE STANDINGS',
+    phase: seasonOf('baseball').phase || 'regular',
     rows: (rows || []).map(r => ({
       team: r.team,
       wins: r.wins || 0,
@@ -3514,9 +4261,9 @@ async function sendTvStandings(playerId) {
 // does, rather than the generic stored broadcast name. Returns null for any non-sports item.
 function _sportsSlotLabel(item) {
   if (item.playback_mode !== 'sports' || !item.sportsScript) return null;
-  const s = _seasonCache || {};
+  const s = seasonOf('baseball');
   if (s.phase === 'worldseries' && s.finalistA && s.finalistB) return `⚾ WORLD SERIES — ${s.finalistA} vs ${s.finalistB}`;
-  const gs = sportsGameForSlot(item.sportsScript, sportsSlotIndex(), worldSeriesOverride());
+  const gs = sportsGameForSlot(item.sportsScript, sportsSlotIndex(), overrideFor(item.sportsScript));
   return gs ? `DEADBALL — ${gs.game.away.name} @ ${gs.game.home.name}` : (item.broadcastName || 'DEADBALL — Coldwater League Baseball');
 }
 function sendTvSchedule(playerId, channelId) {
@@ -3553,11 +4300,19 @@ function sendTvSchedule(playerId, channelId) {
   let slots;
   if (base.scheduleMode === 'daily') {
     const nowSec = nowMin * 60;
-    slots = state.playlist.map(i => ({
+    // TODAY's running order, not every row in the table: a slot that doesn't air on
+    // this weekday isn't in the listing at all, and where a day-specific slot covers
+    // an everyday one, only the winner is listed — the guide has to read as what a
+    // viewer will actually see, or the fight night shows up as two programmes at 20:00.
+    const dow = getEnvironmentState().dayOfWeek;
+    const onAir = state.playlist.filter(i => _slotAirsOn(i, dow) &&
+      _pickDailySlot(state.playlist, i.startTime, dow) === i);
+    const nowItem = _pickDailySlot(state.playlist, nowSec, dow);
+    slots = onAir.sort((a, b) => a.startTime - b.startTime).map(i => ({
       name: nameFor(i),
       todLabel: _fmtHHMM(i.startTime / 60),
       durationSec: i.duration,
-      onNow: nowSec >= i.startTime && nowSec < i.startTime + i.duration,
+      onNow: i === nowItem,
     }));
   } else {
     // A loop channel has no fixed daily grid, but it's still tied to the wall clock
@@ -3624,17 +4379,32 @@ on('zone.broadcast', ({ zoneId, msg }) => {
   const channelId = studioZoneIndex.get(zoneId);
   if (!channelId) return;
   const state = channelRuntime.get(channelId);
-  if (!state || state.channelType !== 'live') return;
+  if (!state) return;
+  // The studio floor goes out on air whenever the channel is actually acting a show
+  // there — not only on channels typed `live`. This is the audience seam: walk into
+  // shot, heckle the host, knock something over, and the city sees it. It still needs
+  // a working camera in the room to have a picture at all.
+  const acted = state.channelType === 'live' || state.graphBlackboard?.activeBroadcastId;
+  if (!acted || !state.wasActive) return;
+  if (!zoneCameras.get(zoneId)?.length) return;
+  // Never re-air the show's own performance — those lines reach air by the graph.
+  if (msg._fromBroadcast) return;
+  // Foot traffic is not television. A busy studio floor generates an arrive/depart
+  // line for every player and every NPC on a schedule, which buries the narration
+  // and the moments that actually matter. The camera stays on what people DO.
+  if (msg._movement) return;
   // Only relay player-visible events (speech, say, zone_event) — not combat or system messages
   if (msg.type !== 'output' && msg.type !== 'zone_event' && msg.type !== 'say') return;
   if (!msg.message) return;
   const sentDeck = new Set();
+  const sentTv = new Set();
   _recordDeckMessage(channelId, msg.message);
   for (const [viewZoneId, channelMap] of zoneTunings) {
     if (!channelMap.has(channelId)) continue;
     const players = getZonePlayers(viewZoneId);
     for (const player of players) {
       sendToPlayer(player.id, { type: 'broadcast', message: msg.message, channel: channelId, style: 'raw' });
+      sentTv.add(player.id);
       if (deckWatchers.get(player.id) === channelId) {
         sendToPlayer(player.id, { type: 'deck_broadcast', message: msg.message, channel: channelId, style: 'raw' });
         sentDeck.add(player.id);
@@ -3646,8 +4416,25 @@ on('zone.broadcast', ({ zoneId, msg }) => {
     if (watchChId !== channelId || sentDeck.has(playerId)) continue;
     sendToPlayer(playerId, { type: 'deck_broadcast', message: msg.message, channel: channelId, style: 'raw' });
   }
+  // Portable tuners see the studio floor too — the tablet is a receiver like any
+  // other. Skip anyone the zone loop above already served, or a player holding a
+  // tablet inside a tuned room gets the line twice.
+  for (const [playerId, tunedId] of tabletTuners) {
+    if (tunedId !== channelId || sentTv.has(playerId)) continue;
+    sendToPlayer(playerId, { type: 'broadcast', message: msg.message, channel: channelId, style: 'raw' });
+  }
   state.wasActive = true;
 });
+
+// Display name for an anchor whose npc_id has no NPC row — a scripted show's
+// fictional cast (`npc_vic` → "Vic"). Both the live path and the mid-show seek
+// path must use this, or tuning in late attributes lines to the raw id.
+function _anchorFallbackName(npcId) {
+  if (!npcId) return null;
+  return npcId.startsWith('npc_')
+    ? npcId.slice(4).split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+    : npcId;
+}
 
 // ── Behaviour graph work-phase injection ─────────────────────────────────────
 // Walk a normalised broadcast VINE graph and extract a linear sequence of
@@ -3738,7 +4525,9 @@ async function _injectWorkPhaseForPlaylistItem(item) {
 // broadcast's on-screen NPCs from its graph, merge them into the playlist item's
 // npc_staff conditions, assign a studio-aware behaviour graph + work_zone_id to
 // any host, and re-inject the per-broadcast work-phase actions. Idempotent.
-// Auto-lock a talk show to its broadcast time. A talkshow is ONLY available during its
+// Auto-lock an @airtime-blocked live show to its broadcast time. Named for the talk show
+// it was written for, but it reads nothing except `airSlots` — GAME SHOWS pin through it
+// too. A show of this kind is ONLY available during its
 // nightly @airtime block, so whenever one is saved we pin it to that block on its channel
 // automatically (a daily-scheduled slot) — the builder never has to hand-place it on the
 // timeline. Idempotent: re-pins THIS show's own slot(s) and leaves other broadcasts on the
@@ -3753,20 +4542,117 @@ async function ensureTalkshowSlot(broadcastId, channelId, talkshowPools) {
   // Pinning to a fixed time of day needs the channel in daily-schedule mode.
   await query(`UPDATE media_channels SET schedule_mode='daily' WHERE id=$1`, [channelId]).catch(() => {});
   await query('DELETE FROM media_channel_playlist WHERE channel_id=$1 AND broadcast_id=$2', [channelId, broadcastId]).catch(() => {});
+  // `airDays` makes the show WEEKLY rather than nightly. It rides through the same
+  // 7-bit day mask the playlist has always had, and because _pickDailySlot resolves
+  // ties by specificity (fewest days set wins), a one-day row simply outranks the
+  // everyday row underneath it — nothing else on the channel has to be edited or
+  // gapped. Absent ⇒ 127, every day, exactly as this always behaved.
+  const mask = filmDayMask(Array.isArray(ts?.airDays) && ts.airDays.length ? ts.airDays : null, 0);
   const windows = slots ? slots.map(b => [(((b % 8) + 8) % 8) * BLOCK, BLOCK]) : [[0, 24 * 3600]];
   for (const [start, dur] of windows) {
     await query(
-      `INSERT INTO media_channel_playlist (id,channel_id,broadcast_id,start_time,duration_override,priority,conditions,slot_type)
-       VALUES ($1,$2,$3,$4,$5,0,'[]'::jsonb,'broadcast')`,
-      [randomUUID(), channelId, broadcastId, start, dur]
+      `INSERT INTO media_channel_playlist (id,channel_id,broadcast_id,start_time,duration_override,priority,conditions,slot_type,days)
+       VALUES ($1,$2,$3,$4,$5,0,'[]'::jsonb,'broadcast',$6)`,
+      [randomUUID(), channelId, broadcastId, start, dur, mask]
     ).catch(() => {});
   }
+}
+
+// How many consecutive in-game blocks a film needs to screen without being cut off.
+// A block is 3 in-game hours, but its REAL length is (24h ÷ timeScale) ÷ 8 — at the
+// world's default 3× clock that is sixty real minutes, and a feature does not fit in
+// sixty minutes. So a picture reserves as many consecutive blocks as its runtime
+// actually needs, and `@airtime 21` means "starts at 21:00", not "is over by midnight".
+// Capped at the whole day; a film longer than a day is somebody else's problem.
+// The 7-bit day mask for a film reel that starts `shift` days after its screening's
+// weekday(s). A run that crosses midnight lands on the NEXT weekday, so a Saturday
+// feature's small-hours reels are SUNDAY rows — get this wrong and the back half of
+// the picture airs on the wrong day of the week entirely.
+function filmDayMask(days, shift) {
+  if (!Array.isArray(days) || !days.length) return 127;
+  return days.reduce((m, d) => m | (1 << ((((d - 1 + shift) % 7) + 7) % 7)), 0);
+}
+
+function filmBlocksNeeded(runtimeRealSec) {
+  const blockRealSec = sportsSlotMs() / 1000;
+  if (!(runtimeRealSec > 0) || !(blockRealSec > 0)) return 1;
+  return Math.min(SPORTS_GAMES_PER_DAY, Math.max(1, Math.ceil(runtimeRealSec / blockRealSec)));
+}
+
+// Pin a film's screening: one playlist slot per block, laid end to end from its
+// @airtime, wrapping past midnight if the picture runs that long. Separate from
+// ensureTalkshowSlot because a talk show wants exactly its one block and a film wants
+// however many its runtime demands. Idempotent, and only touches this broadcast's rows.
+async function ensureFilmSlots(broadcastId, channelId, filmMeta) {
+  if (!broadcastId || !channelId) return;
+  let fm = filmMeta;
+  if (typeof fm === 'string') { try { fm = JSON.parse(fm); } catch { fm = null; } }
+  const BLOCK = 3 * 3600;   // one in-game 3h block, in game-seconds-since-midnight
+  await query(`UPDATE media_channels SET schedule_mode='daily' WHERE id=$1`, [channelId]).catch(() => {});
+  await query('DELETE FROM media_channel_playlist WHERE channel_id=$1 AND broadcast_id=$2', [channelId, broadcastId]).catch(() => {});
+  const slots = Array.isArray(fm?.airSlots) && fm.airSlots.length ? fm.airSlots : null;
+  if (!slots) {
+    // No @airtime — a single all-day slot, the same fallback every pinned type uses.
+    await query(
+      `INSERT INTO media_channel_playlist (id,channel_id,broadcast_id,start_time,duration_override,priority,conditions,slot_type)
+       VALUES ($1,$2,$3,0,$4,0,'[]'::jsonb,'broadcast')`,
+      [randomUUID(), channelId, broadcastId, 24 * 3600]
+    ).catch(() => {});
+    return;
+  }
+  const need = filmBlocksNeeded(fm?.runtime);
+  // Which weekdays the picture screens. Omitted means every day, which for a feature
+  // is usually wrong — nine in-game hours nightly is most of a channel — but it is the
+  // schedule's existing default and this is not the place to override an author.
+  const days = Array.isArray(fm?.airDays) && fm.airDays.length ? fm.airDays : null;
+  const placed = new Set();
+  for (const s of slots) {
+    // Every row of a showing carries the showing's OWN start, so the runner never has
+    // to guess where a run began — see filmRunElapsed for what guessing cost.
+    const headBlock = (((s % SPORTS_GAMES_PER_DAY) + SPORTS_GAMES_PER_DAY) % SPORTS_GAMES_PER_DAY);
+    const conditions = JSON.stringify({ film_run_start: headBlock * BLOCK });
+    for (let n = 0; n < need; n++) {
+      const absolute = headBlock + n;
+      const block = absolute % SPORTS_GAMES_PER_DAY;
+      if (placed.has(block)) continue;   // a later showing would overlap an earlier one — first wins
+      placed.add(block);
+      // A run that crosses midnight lands on the NEXT weekday, so a Saturday-night
+      // feature's small-hours reels are Sunday rows. Getting this wrong would put the
+      // back half of the picture on the wrong day of the week entirely.
+      const dayShift = Math.floor(absolute / SPORTS_GAMES_PER_DAY);
+      const mask = filmDayMask(days, dayShift);
+      await query(
+        `INSERT INTO media_channel_playlist (id,channel_id,broadcast_id,start_time,duration_override,priority,conditions,slot_type,days)
+         VALUES ($1,$2,$3,$4,$5,0,$6::jsonb,'broadcast',$7)`,
+        [randomUUID(), channelId, broadcastId, block * BLOCK, BLOCK, conditions, mask]
+      ).catch(() => {});
+    }
+  }
+}
+
+// Game-seconds a film's CURRENT screening has been running, counting from the head of
+// its contiguous run of slots rather than from the slot the clock happens to be in.
+// Without this a three-block picture restarts from the distributor card every hour:
+// each block is its own playlist row, and every other type genuinely wants per-slot
+// elapsed. Handles a run that wraps past midnight (a 21:00 feature ending at 03:00).
+// The head is STAMPED on every row of a run (`conditions.film_run_start`) by
+// ensureFilmSlots, not inferred from which slots happen to touch. Inference looked
+// tidier and was wrong twice over: two separate one-block screenings that happen to
+// abut (`@airtime 9 12`) merged into a single six-hour run, so the second showing
+// seeked past its own ending and played nothing; and a picture reserving all eight
+// blocks formed a ring with no head at all. A stamp has neither failure and is a
+// straight modular subtraction. Rows with no stamp (a hand-placed slot from the dev
+// panel) fall back to per-slot elapsed, which is right for a lone slot.
+function filmRunElapsed(item, gameSecondsSinceMidnight) {
+  const DAY = 24 * 3600;
+  const head = Number.isFinite(item?.filmRunStart) ? item.filmRunStart : item.startTime;
+  return (((gameSecondsSinceMidnight - head) % DAY) + DAY) % DAY;
 }
 
 async function recalculateNpcSchedules() {
   const { rows: plItems } = await query(`
     SELECT p.id, p.channel_id, p.broadcast_id, p.conditions,
-           b.broadcast_graph, b.playback_mode, b.talkshow_pools, b.morning_pools,
+           b.broadcast_graph, b.playback_mode, b.talkshow_pools, b.morning_pools, b.gameshow_pools,
            c.channel_type, c.studio_zone_id
     FROM media_channel_playlist p
     JOIN media_broadcasts b ON b.id = p.broadcast_id
@@ -3818,10 +4704,24 @@ async function recalculateNpcSchedules() {
       for (const id of [mn?.host, mn?.cohost]) if (id && !npcIds.includes(id)) npcIds.push(id);
     }
 
-    // Only LIVE channels, WEATHER forecasts, TALK SHOWS, and MORNING SHOWS physically staff the
-    // studio. For a scripted show, npc_anchor is speaker attribution only — never staff it, and
-    // strip any stale staffing a previous (buggy) pass merged into its conditions.
-    const staffsNpcs = row.channel_type === 'live' || row.playback_mode === 'weather' || isTalkshow || isMorning;
+    // A game show's stored graph is start-only as well (the lots are dealt live from the item
+    // catalog), so its cast comes from gameshow_pools: the host and an optional sidekick who
+    // reads the prize copy. Both commute in on the show's slot. The CONTESTANTS are not NPCs
+    // at all — they're name strings spoken as attribution, so there is nothing to staff for
+    // them and no backstage.
+    const isGameshow = row.playback_mode === 'gameshow';
+    if (isGameshow) {
+      let gs = row.gameshow_pools;
+      if (typeof gs === 'string') { try { gs = JSON.parse(gs); } catch { gs = null; } }
+      npcIds.length = 0;
+      for (const id of [gs?.host, gs?.sidekick]) if (id && !npcIds.includes(id)) npcIds.push(id);
+    }
+
+    // Only LIVE channels, WEATHER forecasts, TALK SHOWS, MORNING SHOWS and GAME SHOWS
+    // physically staff the studio. For a scripted show, npc_anchor is speaker attribution
+    // only — never staff it, and strip any stale staffing a previous (buggy) pass merged
+    // into its conditions.
+    const staffsNpcs = row.channel_type === 'live' || row.playback_mode === 'weather' || isTalkshow || isMorning || isGameshow;
     const studioZoneId = row.studio_zone_id || null;
 
     // Reconcile npc_staff in the item's conditions (merge for live/weather/talkshow, clear otherwise)
@@ -3942,6 +4842,10 @@ function _evalBroadcastCondition(node, channelId, nowMs) {
       }
       return false;
     }
+    case 'OTHER_VIEWERS_PRESENT': {
+      const id = params.channel_id || channelId;
+      return _otherViewers(id) > 0;
+    }
     case 'NEWS_AVAILABLE': {
       const q = newsQueue.get(channelId) || [];
       if (!params.category) return q.length > 0;
@@ -3953,6 +4857,19 @@ function _evalBroadcastCondition(node, channelId, nowMs) {
       const from = params.from ?? 0;
       const to = params.to ?? 23;
       return from <= to ? (hour >= from && hour <= to) : (hour >= from || hour <= to);
+    }
+    // Is this actor actually standing on the studio floor right now? The say-node room-authority
+    // rule already refuses to put words in an absent mouth, but it does it SILENTLY — fine for a
+    // stray line, useless for a whole segment built around one person, which just becomes the
+    // host talking to a chair. This lets a graph ask FIRST and play something else instead.
+    // No studio bound to the channel ⇒ presence isn't modelled here, so answer yes rather than
+    // cutting a segment on a technicality.
+    case 'NPC_IN_STUDIO': {
+      const npcId = params.npc_id;
+      if (!npcId) return false;
+      const zoneId = channelRuntime.get(params.channel_id || channelId)?.studioZoneId;
+      if (!zoneId) return true;
+      return !!getZone(zoneId)?.npcs?.has(npcId);
     }
     case 'RANDOM_CHANCE':
       return Math.random() < (params.chance ?? 0.5);
@@ -3988,6 +4905,10 @@ function _themeDurationMs(name) {
 // single source of truth for how long each node type stays up, shared by the live walker
 // (tickBroadcastGraph sets bb.waitUntil = nowMs + nodeHoldMs(node)) and the late-tune
 // seeker (_seekGraph) — so a viewer tuning in mid-program lands where playback actually is.
+// Nothing that puts a PICTURE on screen (title card, credits card, tech-diff slate)
+// may hold for less than this. Matches the client's own card floor in tv.js.
+const CARD_MIN_HOLD_MS = 2600;
+
 function nodeHoldMs(node) {
   const d = node.data || {};
   switch (node.type) {
@@ -3999,31 +4920,51 @@ function nodeHoldMs(node) {
     case 'title_card':
       // A title card carrying a theme holds for the theme's full length, so its intro
       // song plays out before the first spoken line drops (title-card / theme sync).
-      if (d.theme) { const t = _themeDurationMs(d.theme); if (t > 0) return t; }
-      return (d.duration ?? 10) * 1000;
+      if (d.theme) { const t = _themeDurationMs(d.theme); if (t > 0) return Math.max(CARD_MIN_HOLD_MS, t); }
+      // Floored: a card is a picture that has to be READ. An authored duration of 0 (or a
+      // fraction of a second) put the logo on screen and took it away in the same breath.
+      return Math.max(CARD_MIN_HOLD_MS, (d.duration ?? 10) * 1000);
     case 'wait':
       return (d.seconds ?? 5) * 1000;
     case 'credits':
     case 'tech_difficulties':
-      return (d.duration ?? 10) * 1000;
+      return Math.max(CARD_MIN_HOLD_MS, (d.duration ?? 10) * 1000);
     case 'show_overlay':
     case 'overlay': {
       const overlayType = d.overlayType || d.overlay_type
         || (node.type === 'overlay' && !d.graphic_id ? 'text_card' : 'lower_third');
+      // The letterbox matte is a persistent layer, not a card: it holds no airtime at
+      // all (duration_s 0) and stays up until something switches it off.
       return (d.duration_s ?? (overlayType === 'text_card' ? 5 : 6)) * 1000;
     }
     default: {
       // say / ticker / camera_cut, … — scale the on-screen hold to how long the voice
       // needs to read the line, so the read-aloud never has to speed up and nothing is
       // cut off. ~110 ms/char (calibrated to the formant synth, which averages ~94 ms/char
-      // — the margin covers slower per-narrator voices), capped at 20 s of speech, plus a
-      // 1 s buffer before the next line. A small floor keeps very short lines readable.
+      // — the margin covers slower per-narrator voices), capped at 30 s of speech, plus a
+      // buffer before the next line. A small floor keeps very short lines readable.
+      // The cap is the ONLY thing that can now clip a read (the voice no longer
+      // compresses to fit — see AudioEngine.speak), so it's set past any sane line.
       // Sports lines pass an explicit holdMs and keep it.
+      //
+      // FITTED, NOT GUESSED. 110ms/char dated from when estimateDuration silently
+      // under-reported the real read length, so it was covering an error rather than
+      // a voice. With that fixed and the pace retuned, the coefficient was re-fitted
+      // against every line in the .bsm corpus read by the SLOWEST possible narrator
+      // (the speed range floor, 1.24) — because the average voice is not what has to
+      // fit. 75ms/char + 900ms leaves 0.5% of lines overrunning, essentially all of
+      // them the >273-char crawl copy that the read-aloud filter never voices. Below
+      // ~70 the overrun rate climbs sharply (2%, then 4%, then 10%) for progressively
+      // less dead air, so this sits just above that knee.
+      //
+      // A small overrun is now SAFE: the client queues (tv.js _pump), so it delays
+      // the next line rather than cutting the current one mid-word. That safety is
+      // what allows a fitted coefficient instead of a defensive one.
       if (d.holdMs != null) return d.holdMs;
       const text = typeof d.text === 'string' ? d.text : '';
       if (!text) return 8000;                          // e.g. runtime camera snapshot — sane default
-      const voiceMs = Math.min(text.length * 110, 20000);
-      return Math.max(2500, voiceMs + 1000);
+      const voiceMs = Math.min(text.length * 75, 30000);
+      return Math.max(2200, voiceMs + 900);
     }
   }
 }
@@ -4040,7 +4981,11 @@ function _seekGraph(graph, bb, segElapsedMs, nowMs) {
   // instantaneous during a walk.
   const CONTENT_TYPES = ['say', 'ticker', 'camera_cut', 'overlay', 'show_overlay', 'title_card',
     'event', 'npc_action', 'music', 'credits', 'tech_difficulties'];
-  for (let step = 0; step < 2000 && remaining > 0; step++) {
+  // Step budget scales with the graph: a feature-length film is thousands of nodes,
+  // and a fixed 2000-step cap would strand a late viewer partway through the picture
+  // instead of at the shot that's actually on.
+  const maxSteps = Math.max(2000, Object.keys(graph.nodes || {}).length * 2);
+  for (let step = 0; step < maxSteps && remaining > 0; step++) {
     if (!nodeId) {
       // Graph exhausted without a loop node — wrap back to _start (implicit looping)
       nodeId = graph._start;
@@ -4052,6 +4997,13 @@ function _seekGraph(graph, bb, segElapsedMs, nowMs) {
       const waitMs = Math.ceil(nodeHoldMs(node) / BROADCAST_TICK_MS) * BROADCAST_TICK_MS;
       if (remaining >= waitMs) { remaining -= waitMs; nodeId = _resolveEdge(edges, nodeId, 'next'); }
       else { bb.waitUntil = nowMs + (waitMs - remaining); bb.currentNode = _resolveEdge(edges, nodeId, 'next'); return; }
+    } else if (node.type === 'overlay' && (node.data?.overlayType === 'letterbox')) {
+      // The matte is a persistent LAYER, not a card: it holds no airtime, so the seeker
+      // would walk straight past it and a late viewer — which, for a 175-minute feature,
+      // is nearly every viewer — would watch the picture unframed and ungraded. Record
+      // the state as we pass it so the walker can raise it on the first tick.
+      bb.pendingLetterbox = !!node.data?.on;
+      nodeId = _resolveEdge(edges, nodeId, 'next');
     } else if (CONTENT_TYPES.includes(node.type)) {
       // Quantize the hold up to the tick grid — a 6s overlay occupies two 5s ticks.
       const holdMs = Math.ceil(nodeHoldMs(node) / BROADCAST_TICK_MS) * BROADCAST_TICK_MS;
@@ -4063,7 +5015,7 @@ function _seekGraph(graph, bb, segElapsedMs, nowMs) {
       // Track speaker so early say nodes have the correct anchor after seeking
       const npcId = node.data?.npc_id;
       const npc = world.npcs?.get(npcId);
-      bb.npcAnchor = npc?.name || npcId || null;
+      bb.npcAnchor = npc?.name || _anchorFallbackName(npcId) || null;
       bb.npcAnchorId = npcId || null;
       nodeId = _resolveEdge(edges, nodeId, 'next');
     } else {
@@ -4103,16 +5055,10 @@ function _untilFour(minutes) {
   return parts.join(' and ') || 'no time at all';
 }
 
-// Per-airing spooky viewer count — stable within an in-world hour (so the on-screen
-// count card and the spoken line always agree), fresh each hour and each new airing.
-// Stashed on the blackboard, which the reset block clears so a new airing re-rolls.
-function _airingViewers(bb, hour) {
-  const stamp = hour ?? 2;
-  if (bb.viewers == null || bb.viewersStamp !== stamp) {
-    bb.viewers = 900 + Math.floor(Math.random() * 2700);   // 900..3,599 still awake
-    bb.viewersStamp = stamp;
-  }
-  return bb.viewers;
+// How many OTHER sets are tuned to this channel right now, excluding the set the
+// spoken line is addressing — the "watching this with you" count.
+function _otherViewers(channelId) {
+  return Math.max(0, _liveWatchers(channelId) - 1);
 }
 
 function _scriptedTokens(channelId, state, bb) {
@@ -4123,9 +5069,12 @@ function _scriptedTokens(channelId, state, bb) {
     season:     String(env.season || '').replace(/_/g, ' '),
     weather:    String(env.currentWeatherType || env.weatherType || 'still').replace(/_/g, ' '),
     tempc:      Math.round(env.tempC ?? 0),
-    viewers:    _airingViewers(bb, env.hour).toLocaleString('en-US'),
+    viewers:    _otherViewers(channelId).toLocaleString('en-US'),
     watching:   _liveWatchers(channelId),
     until_four: _untilFour(env.minutes),
+    // Game-show outcome tokens — who was in the studio, what they said, who took it.
+    // Always strings, even off-round (a late tuner can land on a reveal line).
+    ...gameshowTokens(channelId),
   };
 }
 
@@ -4142,7 +5091,9 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
   // present host (weather forecasts set graph._requireHost). Such broadcasts are
   // presence-gated — the host NPC must be in the studio or the channel falls to
   // camera-idle → technical difficulties — and their lines are spoken in the studio.
-  const liveActed = state.channelType === 'live' || !!graph._requireHost;
+  // An ad break is never performed: a commercial is film that rolls whatever the studio
+  // floor is doing, so it must not be presence-gated or staged as spoken lines in-studio.
+  const liveActed = !graph._adBreak && (state.channelType === 'live' || !!graph._requireHost);
   // Scripted daily-schedule content plays through with no host gating — unless the
   // graph explicitly requires a present host (weather), which is gated everywhere.
   const skipPresence = state.scheduleMode === 'daily' && !graph._requireHost;
@@ -4153,11 +5104,10 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
     bb.waitUntil = null;
     bb.npcAnchor = null;
     bb.npcAnchorId = null;
+    bb.anchorPresent = true;
     bb.hostAbsent = false;
     bb.absentDetectedAt = null;
     bb.techDiffMode = false;
-    bb.viewers = null;
-    bb.viewersStamp = null;
     bb.activeBroadcastId = graph._broadcastId;
     // Seek to mid-program position if tuning in partway through
     if (segElapsedSec > 0) {
@@ -4169,10 +5119,25 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
   // Tech-diff / show-delay only apply to truly-live unscripted channels
   if (!skipPresence) {
     // Recover the instant the full cast is back on the studio floor.
-    if (bb.hostAbsent && state.studioZoneId && !_absentCastNames(graph, state.studioZoneId).length) {
+    // The stage is no longer empty — start the show, even if it's short-handed.
+    if (bb.hostAbsent && state.studioZoneId && _anyCastPresent(graph, state.studioZoneId)) {
       bb.hostAbsent = false;
       bb.absentDetectedAt = null;
       bb.techDiffMode = false;
+    }
+    // No working camera on the studio floor means no picture, whatever the script
+    // says. A live show with its cameras dark is a transmission failure, and it
+    // recovers by itself the moment a unit comes back up.
+    if (liveActed && state.studioZoneId) {
+      const studioLive = !!zoneCameras.get(state.studioZoneId)?.length;
+      if (!studioLive) {
+        bb.techDiffMode = true;
+        bb.cameraBlackout = true;
+        return _techDiffMessage(state, channelId, nowMs);
+      }
+      // A unit is back up — lift the blackout we raised (but not a tech-diff some
+      // other failure owns).
+      if (bb.cameraBlackout) { bb.cameraBlackout = false; bb.techDiffMode = false; }
     }
     if (bb.techDiffMode) {
       if (bb.npcAnchorId && state.studioZoneId) {
@@ -4209,6 +5174,17 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
     }
   }
 
+  // A matte the seeker walked past on the way in — raise it before anything else, so a
+  // viewer who joined mid-picture is framed the same as one who watched from the top.
+  if (bb.pendingLetterbox !== undefined) {
+    const on = bb.pendingLetterbox;
+    bb.pendingLetterbox = undefined;
+    return {
+      overlay: { overlayType: 'letterbox', on, text: '', duration: 0 },
+      key: `letterbox:${channelId}:${on}:${nowMs}`, style: 'overlay',
+    };
+  }
+
   if (bb.waitUntil && nowMs < bb.waitUntil) return null;
   bb.waitUntil = null;
 
@@ -4228,10 +5204,31 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         break;
 
       case 'say': {
-        const raw = _subTokens(node.data?.text || '', channelId, state, bb);
+        let raw = _subTokens(node.data?.text || '', channelId, state, bb);
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         const holdMs_say = nodeHoldMs(node);
         bb.waitUntil = nowMs + holdMs_say;
+        // Room authority: a line belongs to whoever is standing there to say it. If
+        // this anchor has walked off set mid-show, the line is not deferred and not
+        // covered for — it simply never happens. Dead air, and the show moves on.
+        if (liveActed && !skipPresence && bb.npcAnchorId && bb.anchorPresent === false
+            && node.data?.style !== 'narration' && node.data?.style !== 'ambient') {
+          bb.waitUntil = nowMs + 1200;
+          nodeId = bb.currentNode; bb.currentNode = null;
+          break;
+        }
+        // Every line is attempted live; the actor's condition decides what lands.
+        if (liveActed && bb.npcAnchorId) {
+          const imp = _actorImpairment(bb.npcAnchorId);
+          if (imp.out) {
+            // Nothing to broadcast — but the studio sees exactly why.
+            _stageLine(state.studioZoneId, `<span style="color:var(--text-dim);font-style:italic">${bb.npcAnchor || 'The host'} ${_COLLAPSE[Math.floor(Math.random() * _COLLAPSE.length)]}</span>`);
+            bb.waitUntil = nowMs + 2500;
+            nodeId = bb.currentNode; bb.currentNode = null;
+            break;
+          }
+          raw = _garbleLine(raw, imp.level);
+        }
         const key_say = `graph:${channelId}:${nodeId}:${nowMs}`;
         const style_say = node.data?.style || 'raw';
         const isNarration = style_say === 'narration';
@@ -4245,20 +5242,11 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           if (isNarration) {
             // Unseen announcer — no one is on stage saying this, so it comes over
             // the studio speakers (a NARRATOR:/ANNOUNCER: line, or a SHOT block).
-            sendToZone(state.studioZoneId, {
-              type: 'output',
-              message: `<span style="color:var(--yellow)">The studio speakers announce, "${raw}"</span>`,
-            });
+            _stageLine(state.studioZoneId, `<span style="color:var(--yellow)">The studio speakers announce, "${raw}"</span>`);
           } else if (!isAmbient && bb.npcAnchor) {
-            sendToZone(state.studioZoneId, {
-              type: 'output',
-              message: `<span style="color:var(--yellow)">${bb.npcAnchor} says, "${raw}"</span>`,
-            });
+            _stageLine(state.studioZoneId, `<span style="color:var(--yellow)">${bb.npcAnchor} says, "${raw}"</span>`);
           } else if (isAmbient) {
-            sendToZone(state.studioZoneId, {
-              type: 'output',
-              message: `<span style="color:var(--text-dim);font-style:italic">${raw}</span>`,
-            });
+            _stageLine(state.studioZoneId, `<span style="color:var(--text-dim);font-style:italic">${raw}</span>`);
           }
         }
         const text_say = style_say === 'ticker'
@@ -4295,12 +5283,17 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       case 'npc_action': {
         const emote = node.data?.message || node.data?.action || '';
         if (!emote) { nodeId = _resolveEdge(edges, nodeId, 'next'); break; }
+        // Nobody there to do it — the beat doesn't happen (see `say`).
+        if (liveActed && !skipPresence && bb.npcAnchorId && bb.anchorPresent === false) {
+          nodeId = _resolveEdge(edges, nodeId, 'next');
+          break;
+        }
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + nodeHoldMs(node);
         const key_act = `action:${channelId}:${nodeId}:${nowMs}`;
         const emoteText = bb.npcAnchor ? `${bb.npcAnchor} ${emote}` : emote;
         if (state.channelType === 'live' && state.studioZoneId) {
-          sendToZone(state.studioZoneId, { type: 'output', message: `<span style="color:var(--text-dim);font-style:italic">${emoteText}</span>` });
+          _stageLine(state.studioZoneId, `<span style="color:var(--text-dim);font-style:italic">${emoteText}</span>`);
         }
         return { text: emoteText, key: key_act, style: 'raw' };
       }
@@ -4316,20 +5309,24 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       case 'npc_anchor': {
         const npcId = node.data?.npc_id;
         const npc = world.npcs?.get(npcId);
-        const fallbackName = npcId?.startsWith('npc_')
-          ? npcId.slice(4).split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-          : npcId;
-        bb.npcAnchor = npc?.name || fallbackName || null;
+        bb.npcAnchor = npc?.name || _anchorFallbackName(npcId) || null;
         bb.npcAnchorId = npcId || null;
-        // Presence check — for live channels and any host-required graph (weather)
+        // Presence check — for live channels and any host-required graph (weather).
+        // Two different failures, two different outcomes: nobody at all on the studio
+        // floor is a show that can't start (stand-by card); this particular actor
+        // missing while the rest are working is just a hole in the programme, and the
+        // show carries on around them.
         if (!skipPresence && npcId && liveActed && state.studioZoneId) {
           const zone = getZone(state.studioZoneId);
-          if (zone?.npcs?.has(npcId)) {
+          bb.anchorPresent = !!zone?.npcs?.has(npcId);
+          if (bb.anchorPresent) {
             bb.hostAbsent = false;
-          } else if (!bb.hostAbsent) {
+          } else if (!bb.hostAbsent && !_anyCastPresent(graph, state.studioZoneId)) {
             bb.hostAbsent = true;
             bb.absentDetectedAt = nowMs;
           }
+        } else {
+          bb.anchorPresent = true;
         }
         nodeId = _resolveEdge(edges, nodeId, 'next');
         break;
@@ -4354,23 +5351,31 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       case 'camera_cut': {
         const zoneId = node.data?.zone_id;
         const label = node.data?.label || zoneId;
-        // cameraZoneStatus is `false` only when the zone has a registered camera that's
-        // off/damaged — a zone with no camera device at all is left ungated (legacy behavior).
-        const camDown = zoneId && cameraZoneStatus.get(zoneId) === false;
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
-        if (camDown && zoneId === state.studioZoneId && !skipPresence) {
-          // The studio's own camera feed is down — go to technical difficulties
-          // rather than silently cutting to the next node.
-          bb.techDiffMode = true;
-          return _techDiffMessage(state, channelId, nowMs);
+        // A camera direction is executed by a physical unit or not at all. Pick a
+        // working camera actually registered in the target zone; with none there,
+        // the shot has no source. Losing the studio's own feed is a transmission
+        // failure (tech difficulties); losing a remote feed just kills that cut.
+        const cam = zoneId ? _pickCamera(zoneId, state) : null;
+        if (!cam) {
+          if (zoneId === state.studioZoneId && !skipPresence) {
+            bb.techDiffMode = true;
+            return _techDiffMessage(state, channelId, nowMs);
+          }
+          nodeId = bb.currentNode; bb.currentNode = null;
+          break;
         }
-        const snap = (zoneId && !camDown) ? buildCameraSnapshot(zoneId) : null;
-        if (snap) {
-          bb.waitUntil = nowMs + nodeHoldMs(node);
-          return { text: `[CAM: ${label}] ${snap}`, key: `cam:${channelId}:${zoneId}:${nowMs}`, style: 'raw' };
+        const snap = buildCameraSnapshot(zoneId);
+        if (!snap) { nodeId = bb.currentNode; bb.currentNode = null; break; }
+        bb.waitUntil = nowMs + nodeHoldMs(node);
+        // Act the cut out where it physically happens: the crew on the studio floor
+        // see the unit take the shot, and anyone standing in a remote zone being cut
+        // to sees the lens find them.
+        if (liveActed) {
+          _stageLine(state.studioZoneId, `<span style="color:var(--text-dim);font-style:italic">${cam.label} swings around and takes ${zoneId === state.studioZoneId ? label : `the feed from ${label}`}; its tally light blinks red.</span>`);
+          if (zoneId !== state.studioZoneId) _stageLine(zoneId, `<span style="color:var(--text-dim);font-style:italic">A camera in the corner pivots to face the room. Its tally light comes on.</span>`);
         }
-        nodeId = bb.currentNode;
-        break;
+        return { text: `[${cam.label} — ${label}] ${snap}`, key: `cam:${channelId}:${zoneId}:${nowMs}`, style: 'raw' };
       }
 
       case 'break': {
@@ -4427,6 +5432,32 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         break;
       }
 
+      // ── Game-show round control ─────────────────────────────────────────────
+      // Both are INSTANTANEOUS side-effect nodes (like set_flag), not holds: the guess
+      // window is the host's own patter between them, so there's never dead air waiting
+      // on a timer. _seekGraph walks straight past them without firing, which is exactly
+      // right — a late tuner must not open or resolve a round they weren't present for.
+      case 'gameshow_round': {
+        gameshowOpenRound(channelId, node, state.studioZoneId);
+        nodeId = _resolveEdge(edges, nodeId, 'next');
+        break;
+      }
+
+      case 'gameshow_reveal': {
+        gameshowResolveRound(channelId);
+        nodeId = _resolveEdge(edges, nodeId, 'next');
+        break;
+      }
+
+      // The episode is over. The block it airs in is longer than the show, so the walker
+      // is about to wrap to _start and play it again — this bumps the pass counter so what
+      // it wraps to is a NEW deal, rather than tonight's answers handed out a second time.
+      case 'gameshow_endpass': {
+        gameshowEndPass(channelId);
+        nodeId = _resolveEdge(edges, nodeId, 'next');
+        break;
+      }
+
       case 'title_card': {
         const gid = node.data?.graphic_id;
         const graphic = gid ? graphicsCache.get(gid) : null;
@@ -4448,6 +5479,12 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         }
         // Graphic missing or empty — log it and skip straight to the next card this
         // tick (no dead 5s hold on a card that can't render).
+        // A MISS is usually a STALE CACHE, not a missing row: graphicsCache is only refilled at
+        // boot and by the graphics CRUD routes, so a card authored in git and loaded with
+        // `content:import` against a running server is invisible until a restart (which is how a
+        // perfectly good title card silently never shows). Kick an async refill — the walker is
+        // synchronous so this card is still skipped, but the next airing finds it.
+        if (gid && !graphic) loadGraphicsCache().catch(() => {});
         logBroadcast(channelId, 'warn', `Title-card graphic '${gid || '(none)'}' ${graphic ? 'is empty' : 'not found'} — skipped to next card`, nodeId);
         nodeId = bb.currentNode;
         bb.waitUntil = null;
@@ -4470,7 +5507,11 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           text: node.data?.text || '',
           subtext: node.data?.subtext || '',
           duration: node.data?.duration_s ?? (overlayType === 'text_card' ? 5 : 6),
-          clearScreen: overlayType === 'text_card',
+          clearScreen: overlayType === 'text_card' || overlayType === 'act_card' || overlayType === 'intermission',
+          // Film layers carry their own switch: `on` for the persistent letterbox
+          // matte, `fade` for the direction of an optical transition.
+          ...(node.data?.on !== undefined ? { on: !!node.data.on } : {}),
+          ...(node.data?.fade ? { fade: node.data.fade } : {}),
         };
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + (overlay.duration * 1000);
@@ -4501,7 +5542,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         bb.waitUntil = nowMs + nodeHoldMs(node);
         // Only relay to room for truly-live channels — never live_relay for recordings
         if (state.channelType === 'live' && state.studioZoneId) {
-          sendToZone(state.studioZoneId, { type: 'output', message: `<span style="color:var(--text-dim);font-style:italic">${evText}</span>` });
+          _stageLine(state.studioZoneId, `<span style="color:var(--text-dim);font-style:italic">${evText}</span>`);
         }
         return { text: evText, key: `event:${channelId}:${nodeId}:${nowMs}`, style: 'raw' };
       }
@@ -4544,6 +5585,11 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
 // for its own side effects (text output vs tv_off/panel) so the two can't drift on the core.
 // NB: the off-path device.tuned emit is left to the caller — cmdTune deliberately stays
 // silent there (no tv_relay_click on manual power-off) while TUNE_DEVICE emits.
+// Powering off is NOT channel 0 — channel 0 is the VCR input, the same as every
+// television that ever had a tape deck under it. The set is switched off by the
+// power button (hold), which routes here with TV_OFF.
+export const TV_OFF = -1;
+
 async function _applyTuning(device, channelNumber, zoneId) {
   const flags = typeof device.flags === 'object' ? { ...device.flags } : JSON.parse(device.flags || '{}');
 
@@ -4555,7 +5601,7 @@ async function _applyTuning(device, channelNumber, zoneId) {
     furnitureChannelIndex.delete(device.id);
   }
 
-  if (channelNumber === 0) {
+  if (channelNumber === TV_OFF) {
     delete flags.tuned_channel;
     await updateFurniture(device.id, { flags: JSON.stringify(flags) });
     return { status: 'off' };
@@ -4662,14 +5708,24 @@ registerAction({
 
 // The loaded sports script (teams + players + pools). Prefer a live channel runtime;
 // fall back to the DB so standings can be computed before any channel is tuned.
-async function anySportsScript() {
-  for (const { script } of sportsChannels()) if (script?.teams) return script;
+// Resolve a script BY SPORT. Grabbing "the first sports script found" would hand
+// hockey the baseball roster the moment both are on the air — the standings would
+// be right for one league and nonsense for the other, with no error anywhere.
+async function anySportsScript(sport) {
+  for (const { script } of sportsChannels()) {
+    if (!script?.teams) continue;
+    if (!sport || (script.sport || 'baseball') === sport) return script;
+  }
+  // Fall back to the DB, still filtered on the sport when one was asked for.
   const { rows } = await query(
-    `SELECT sports_pools FROM media_broadcasts WHERE playback_mode='sports' AND sports_pools IS NOT NULL LIMIT 1`,
+    `SELECT sports_pools FROM media_broadcasts WHERE playback_mode='sports' AND sports_pools IS NOT NULL`,
   ).catch(() => ({ rows: [] }));
-  if (!rows[0]) return null;
-  const sp = typeof rows[0].sports_pools === 'string' ? JSON.parse(rows[0].sports_pools || '{}') : rows[0].sports_pools;
-  return (sp && Array.isArray(sp.teams)) ? sp : null;
+  for (const row of rows) {
+    const sp = typeof row.sports_pools === 'string' ? JSON.parse(row.sports_pools || '{}') : row.sports_pools;
+    if (!sp || !Array.isArray(sp.teams)) continue;
+    if (!sport || (sp.sport || 'baseball') === sport) return sp;
+  }
+  return null;
 }
 
 // The global clock — the sportsleague plugin reads this to know "which slot are we in"
@@ -4697,8 +5753,32 @@ registerAction({
   type: 'broadcast.nextSportsAirSlot',
   handler: async ({ params = {} } = {}) => {
     const after = Number.isFinite(params.after) ? params.after : sportsSlotIndex();
-    const script = await anySportsScript();
+    // Each show has its own nightly airtime, so a championship has to be pinned to the
+    // slot ITS league actually airs in — pinning the Cup to Deadball's hour would put
+    // the biggest game of the hockey season on at a time nobody tunes in for it.
+    const script = await anySportsScript(params.sport);
     return nextAirSlot(after, script?.airSlots, SPORTS_GAMES_PER_DAY);
+  },
+});
+
+// Which sports have a show that can actually be scheduled. The league plugin asks so it
+// never opens a season for a sport whose broadcast was never imported.
+registerAction({
+  type: 'broadcast.getSports',
+  handler: async () => {
+    const ids = new Set();
+    for (const { script } of sportsChannels()) if (script?.teams) ids.add(script.sport || 'baseball');
+    if (ids.size) return { sports: [...ids] };
+    // Nothing airing this minute — fall back to what exists in the library, so a league
+    // still ticks over on a schedule where its show only airs in the evening.
+    const { rows } = await query(
+      `SELECT sports_pools FROM media_broadcasts WHERE playback_mode='sports' AND sports_pools IS NOT NULL`,
+    ).catch(() => ({ rows: [] }));
+    for (const row of rows) {
+      const sp = typeof row.sports_pools === 'string' ? JSON.parse(row.sports_pools || '{}') : row.sports_pools;
+      if (sp && Array.isArray(sp.teams)) ids.add(sp.sport || 'baseball');
+    }
+    return { sports: [...ids] };
   },
 });
 
@@ -4709,35 +5789,102 @@ registerAction({
 registerAction({
   type: 'broadcast.computeStandings',
   handler: async ({ params = {} } = {}) => {
-    const { startSlot, endSlot } = params;
-    const script = await anySportsScript();
+    // `sport` selects which league is being computed — each sport runs its own season
+    // over its own schedule, and each counts different things (see `SEASON` in
+    // sports/<name>.js). Omitting it keeps the original Deadball behaviour.
+    const { startSlot, endSlot, sport = 'baseball' } = params;
+    const script = await anySportsScript(sport);
     if (!script) return { rows: [] };
+    const season = sportOf(script).season;
+    if (!season) return { rows: [] };
     let from = Number.isFinite(startSlot) ? startSlot : 0;
     const to = Number.isFinite(endSlot) ? endSlot : sportsSlotIndex();
     if (to - from > 100000) { console.warn(`[broadcast] computeStandings window ${to - from} slots — clamping`); from = to - 100000; }
     const table = new Map();
-    const bump = (team, w, l, rf, ra) => {
-      const t = table.get(team) || { team, wins: 0, losses: 0, runs_for: 0, runs_against: 0 };
-      t.wins += w; t.losses += l; t.runs_for += rf; t.runs_against += ra; table.set(team, t);
-    };
+    const acc = {};
+    // Walk the window IN ORDER carrying the injury ledger, so the table is folded from
+    // the same games the broadcast aired — a club that lost three men to the boards is
+    // short in the standings for exactly the games it was short on air. A sport whose
+    // sim ignores `unavailable` (baseball) is unaffected by any of this.
+    const out = new Map();
     for (let slot = from; slot < to; slot++) {
-      const gs = sportsGameForSlot(script, slot, null);      // regular schedule only
+      for (const [name, heal] of out) if (heal <= slot) out.delete(name);
+      const unavailable = new Set(out.keys());
+      const gs = sportsGameForSlot(script, slot, null, unavailable);   // regular schedule only
       if (!gs) continue;
-      const { awayScore, homeScore } = gs.game;
-      if (awayScore === homeScore) continue;                 // sim never ties; guard anyway
-      const awayWon = awayScore > homeScore;
-      bump(gs.game.away.name, awayWon ? 1 : 0, awayWon ? 0 : 1, awayScore, homeScore);
-      bump(gs.game.home.name, awayWon ? 0 : 1, awayWon ? 1 : 0, homeScore, awayScore);
+      for (const c of gs.game.casualties || []) {
+        const heal = c.dead ? Number.MAX_SAFE_INTEGER : slot + Math.max(1, c.slotsOut || 1);
+        if (heal > (out.get(c.name) || 0)) out.set(c.name, heal);
+      }
+      season.fold(table, gs.game);
+      season.foldExtras(acc, gs.game);
     }
-    const rd = (r) => (r.runs_for || 0) - (r.runs_against || 0);
-    const rows = [...table.values()].sort((a, b) => {
-      const pa = a.wins / (a.wins + a.losses), pb = b.wins / (b.wins + b.losses);
-      if (pb !== pa) return pb - pa;
-      if (b.wins !== a.wins) return b.wins - a.wins;
-      if (rd(b) !== rd(a)) return rd(b) - rd(a);
-      return a.team.localeCompare(b.team);
-    });
-    return { rows };
+    return { rows: season.sort([...table.values()]), sport, columns: season.columns, ...season.summariseExtras(acc) };
+  },
+});
+
+// A team's card: how they've been going, and when they're next on.
+//
+// SPOILER RULE — the one thing that makes this action delicate. Every game is a
+// pure function of its slot, so a FUTURE fixture can be simulated right now and
+// would hand back a final score for a game nobody has watched. So upcoming games
+// return the matchup and the airtime ONLY; the scores are computed (there is no
+// way not to) and deliberately dropped on the floor. Past games return results,
+// because those already aired.
+//
+// Bounded on both sides: this runs on a tablet tap, not a tick, and each slot
+// inspected is a full game sim.
+registerAction({
+  type: 'broadcast.getTeamCard',
+  handler: async ({ params = {} } = {}) => {
+    const { sport = 'baseball', team, back = 24, ahead = 24 } = params;
+    if (!team) return null;
+    const script = await anySportsScript(sport);
+    if (!script) return null;
+    const now = sportsSlotIndex();
+    const isOurs = (g) => g && (g.away.name === team || g.home.name === team);
+
+    // Form, newest first. Only games this club actually played.
+    const form = [];
+    for (let slot = now - 1; slot >= Math.max(0, now - back) && form.length < 5; slot--) {
+      const gs = sportsGameForSlot(script, slot, null);
+      if (!isOurs(gs?.game)) continue;
+      const g = gs.game;
+      const home = g.home.name === team;
+      const us = home ? g.homeScore : g.awayScore;
+      const them = home ? g.awayScore : g.homeScore;
+      form.push({
+        slot, home, opponent: home ? g.away.name : g.home.name,
+        us, them, won: us > them, overtime: !!g.overtime,
+      });
+    }
+
+    // The next time they're on. Matchup and airtime only — see the spoiler rule.
+    let next = null;
+    for (let slot = now; slot < now + ahead; slot++) {
+      const gs = sportsGameForSlot(script, slot, null);
+      if (!isOurs(gs?.game)) continue;
+      const g = gs.game;
+      next = {
+        slot,
+        home: g.home.name === team,
+        opponent: g.home.name === team ? g.away.name : g.home.name,
+        hour: ((slot % SPORTS_GAMES_PER_DAY) + SPORTS_GAMES_PER_DAY) % SPORTS_GAMES_PER_DAY * (24 / SPORTS_GAMES_PER_DAY),
+        slotsAway: slot - now,
+        live: slot === now,
+      };
+      break;
+    }
+
+    // Current streak, read off the form we already have — no extra simulation.
+    let streak = 0, streakWon = null;
+    for (const f of form) {
+      if (streakWon === null) { streakWon = f.won; streak = 1; continue; }
+      if (f.won !== streakWon) break;
+      streak++;
+    }
+
+    return { sport, team, form, next, streak, streakWon };
   },
 });
 
@@ -4746,15 +5893,110 @@ registerAction({
 registerAction({
   type: 'broadcast.getSlotResult',
   handler: async ({ params = {} } = {}) => {
-    const { slot, teams } = params;
-    const script = await anySportsScript();
+    const { slot, teams, sport = 'baseball' } = params;
+    const script = await anySportsScript(sport);
     if (!script || !Number.isFinite(slot)) return null;
     const override = (Array.isArray(teams) && teams.length === 2) ? { teams, worldSeries: true } : null;
     const gs = sportsGameForSlot(script, slot, override);
     if (!gs) return null;
     const { away, home, awayScore, homeScore } = gs.game;
     const winner = awayScore === homeScore ? '' : (awayScore > homeScore ? away.name : home.name);
-    return { away: away.name, home: home.name, awayScore, homeScore, winner };
+    // `overtime` matters to the caller: a final decided past regulation pays the loser
+    // a point in a hockey table, so the crowning result has to carry how it was settled.
+    return { away: away.name, home: home.name, awayScore, homeScore, winner, overtime: !!gs.game.overtime, shootout: !!gs.game.shootout };
+  },
+});
+
+// The ONE game the schedule puts on next — not a fixture list. Walks forward from
+// the current slot over the sports items on every channel's grid, clearing both
+// gates a real airing clears (the script's `airSlots` hour AND the item's day
+// mask), and stops at the first one that qualifies. That's what makes this "what
+// you could sit down and watch", rather than "every game the round-robin plays
+// today", most of which nobody ever sees.
+//
+// SPOILER RULE, same as getTeamCard and for the same reason: a future game is a
+// pure function of its slot and its score is therefore already computable. A game
+// that has not started returns matchup + airtime only. A game currently ON AIR
+// returns the score AS FAR AS IT HAS BEEN CALLED — indexed off the same shared
+// clock the play-by-play is seeked by — so the widget knows what the announcer has
+// said and not one beat more. Once the slot's play-out is done it's a FINAL.
+//
+// Query-free: channel grids, the season and the environment clock are all in
+// memory, and only the one matching slot is ever simulated. Safe on a home screen.
+registerAction({
+  type: 'broadcast.getNextOnAir',
+  handler: async ({ params = {} } = {}) => {
+    const wantSport = params.sport || null;
+    const wantTeam = (params.team || '').trim() || null;
+    const G = SPORTS_GAMES_PER_DAY;
+    const now = sportsSlotIndex();
+    const dow0 = getEnvironmentState()?.dayOfWeek;
+
+    const cands = [];
+    for (const [channelId, state] of channelRuntime) {
+      for (const i of state.playlist || []) {
+        if (i.playback_mode !== 'sports' || !i.sportsScript) continue;
+        const sport = sportOf(i.sportsScript)?.id || 'baseball';
+        if (wantSport && sport !== wantSport) continue;
+        cands.push({ channelId, number: state.number ?? null, item: i, script: i.sportsScript, sport });
+      }
+    }
+    if (!cands.length) return null;
+
+    const LOOKAHEAD = G * 8;   // a week and a day of slots — beyond that, say nothing
+    for (let slot = now; slot < now + LOOKAHEAD; slot++) {
+      const sod = ((slot % G) + G) % G;
+      // Day-of-week walks with the slot so a Tuesday-only show isn't matched
+      // against today's mask when the slot we're testing lands on Thursday.
+      const dow = dow0 == null ? null : ((Number(dow0) - 1 + Math.floor(slot / G) - Math.floor(now / G)) % 7 + 7) % 7 + 1;
+      for (const c of cands) {
+        const slots = c.script.airSlots;
+        if (Array.isArray(slots) && slots.length && !slots.includes(sod)) continue;
+        if (dow != null && !_slotAirsOn(c.item, dow)) continue;
+        const gs = sportsGameForSlot(c.script, slot, overrideFor(c.script));
+        if (!gs) continue;
+        const g = gs.game;
+        if (wantTeam && g.away.name !== wantTeam && g.home.name !== wantTeam) continue;
+
+        const out = {
+          sport: c.sport,
+          channel: c.number,
+          slot,
+          slotsAway: slot - now,
+          hour: sod * (24 / G),
+          away: g.away.name, home: g.home.name,
+          awayAbbr: sportsAbbr(g.away.name), homeAbbr: sportsAbbr(g.home.name),
+          live: false, final: false,
+          awayScore: null, homeScore: null,
+          status: null,
+        };
+        if (slot !== now) {
+          out.status = out.slotsAway === 1 ? 'Up next' : `${String(Math.floor(out.hour)).padStart(2, '0')}:00`;
+          return out;
+        }
+        // On air. How far in are we? The play-by-play fills SPORTS_GAME_FILL of the
+        // slot and the rest is post-game, so past that the score is the final one.
+        const frac = (sportsSlotElapsedMin() / SPORTS_SLOT_GAME_MIN) / SPORTS_GAME_FILL;
+        const beats = Array.isArray(g.beats) ? g.beats : [];
+        if (frac >= 1 || !beats.length) {
+          out.final = true;
+          out.awayScore = g.awayScore; out.homeScore = g.homeScore;
+          out.status = 'FINAL';
+          return out;
+        }
+        const b = beats[Math.min(beats.length - 1, Math.max(0, Math.floor(frac * beats.length)))];
+        out.live = true;
+        out.awayScore = b.awayScore ?? 0;
+        out.homeScore = b.homeScore ?? 0;
+        // Sport-agnostic status line: baseball beats carry half/inning, hockey beats
+        // carry period + clock. A sport with neither still gets an honest "LIVE".
+        out.status = b.inning != null ? `${b.half === 'bottom' ? 'BOT' : 'TOP'} ${sportsOrdinal(b.inning)}`
+          : b.period ? `P${b.period}${b.clockStr ? ' ' + b.clockStr : ''}`
+          : 'LIVE';
+        return out;
+      }
+    }
+    return null;
   },
 });
 
@@ -4794,6 +6036,10 @@ function _isDeckAdmin(player) { return player?.role === 'admin' || player?.role 
 // otherwise locked — the firmware+hijack is the only way in for everyone else.
 function canOperateDeck(dflags, player) {
   if (_isDeckAdmin(player)) return true;
+  // A consumer deck is an appliance in someone's flat, not a transmitter — there
+  // is no frequency to seize, so whoever is standing in front of it works it.
+  // Without this a resident couldn't put a tape in their own machine.
+  if (dflags.mini_deck) return true;
   return !!dflags.pirate_owner && dflags.pirate_owner === player?.id;
 }
 
@@ -4848,9 +6094,17 @@ async function cmdPirate(args, raw, player) {
   if (!deck) return { type: 'error', message: 'There is no media deck here to pirate.' };
   const dflags = _deckFlags(deck);
   if (canOperateDeck(dflags, player)) return { type: 'error', message: `You already control the ${deck.name}.` };
+  // Firmware AND hardware. The firmware (above) is what makes a transmitter stack
+  // *possible*; the deck is what you breach the station's deck WITH, and it's what
+  // `hack_difficulty` reads from on the next line. Every other breach in the game
+  // demands one, so this one does too — the two gates aren't redundant, they're the
+  // program and the machine that runs it.
+  if (!(await hasHackDeck(player.id))) {
+    return { type: 'error', message: `The firmware is flashed and ready, but the ${deck.name} still needs something jacked into it. You need a hacking device.` };
+  }
 
   const skill = await effectiveSkill(player, 'hacking');
-  const difficulty = Number.isFinite(dflags.hack_difficulty) ? dflags.hack_difficulty : 5;
+  const difficulty = await hackDifficulty(player.id, dflags.hack_difficulty);
   const stationName = channelRuntime.get(dflags.channel_id)?.stationName || deck.name;
   pendingPirate.set(player.id, { deckId: deck.id, ts: Date.now() });
   return { type: 'signal_hijack', deckId: deck.id, deckName: deck.name, stationName, skill, difficulty };
@@ -4876,6 +6130,8 @@ async function cmdPirateResolve(args, raw, player) {
 
   if (!win) {
     pirateLockout.set(player.id, Date.now() + PIRACY_LOCKOUT_MS);
+    // The trace costs the deck condition, as it does on every other failed breach.
+    await damageHackDeck(player.id);
     return { type: 'error', message: 'The carrier slips your lock and the station traces your transmitter. Rig lockout: 5 minutes.' };
   }
 
@@ -4894,7 +6150,7 @@ async function cmdPirateResolve(args, raw, player) {
   await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
   _deckCache.delete(deck.zone_id);
   _pirateCache.delete(deck.zone_id);
-  await awardSkillUse(player.id, 'hacking', 2);
+  await awardSkillUse(player.id, 'hacking', await breachMargin(player, dflags.hack_difficulty));
   // Citywide takeover is self-reporting heat (broadcast_piracy, witness 'always').
   await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'broadcast_piracy', zoneId: deck.zone_id } }).catch(() => {});
   _deckTamperPing(priorOwner, player.id, stationName, deck.zone_name || deck.zone_id, 'was HIJACKED out from under you — you no longer control it.');
@@ -4961,7 +6217,7 @@ async function engineerTick() {
     sendToZone(deck.zone_id, { type: 'zone_event', message: `A station engineer reboots the deck. Normal programming resumes.` });
   }
 }
-setInterval(() => { if (hasActivePlayers()) engineerTick().catch(e => console.error('[broadcast] engineer tick error:', e.message)); }, 15 * 1000);
+schedule('15s', () => engineerTick().catch(e => console.error('[broadcast] engineer tick error:', e.message)));
 
 // Death (which covers a downing/arrest) drops every station the victim held.
 on('player.death', ({ player }) => {
@@ -5229,6 +6485,8 @@ async function cmdLoadCassette(args, raw, player) {
   if (!cassettes.includes(broadcastId)) cassettes.push(broadcastId);
   dflags.deck_cassettes = cassettes;
   dflags.deck_active = broadcastId;
+  // One input at a time — putting a tape in pulls any patched camera feed.
+  if (dflags.deck_cam_source) { dflags.deck_cam_source = null; _camPatchCache.delete(deck.id); }
 
   // Restore any schedule slots that were saved when this cassette was ejected.
   const channelId = dflags.channel_id || null;
@@ -5428,8 +6686,163 @@ async function cmdSelectCassette(args, raw, player) {
   const cassettes = Array.isArray(dflags.deck_cassettes) ? dflags.deck_cassettes : [];
   if (!cassettes.includes(broadcastId)) return { type: 'output', message: 'That cassette is not in this deck.' };
   dflags.deck_active = broadcastId;
+  if (dflags.deck_cam_source) { dflags.deck_cam_source = null; _camPatchCache.delete(deck.id); }
+  _deckCache.delete(player.current_zone);
   await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
   return buildMediaDeckPanel(deck.id, player);
+}
+
+// ── Cam patch: a SPECTER feed as the deck's input ─────────────────────────────
+// A consumer deck takes one input at a time. Normally that's a cassette; with
+// SPECTER installed it can be one of your own cameras instead, and the set in the
+// room shows the live feed. Deliberately mini-deck only: a domestic deck
+// transmits nothing, so patching a cam into it puts the feed on YOUR wall and
+// nowhere else. Putting a spy cam on a city channel stays the piracy route
+// (`pirate` → `live`), which is a crime and should keep costing what it costs.
+const _CAM_PATCH_TTL = 4000;
+let _specterMod = null;
+async function _specter() {
+  if (!_specterMod) _specterMod = await import('../surveillance/index.js').catch(() => null);
+  return _specterMod;
+}
+
+// deckId -> { ts, snap } — the frame path runs on the 5s channel tick, so the
+// resolved frame is memoized. surveillance's own helpers are cache-backed too,
+// so a patched deck adds no query per tick.
+const _camPatchCache = new Map();
+async function _camPatchSnap(deckId, src) {
+  const now = Date.now();
+  const hit = _camPatchCache.get(deckId);
+  if (hit && now - hit.ts < _CAM_PATCH_TTL) return hit.snap;
+  const mod = await _specter();
+  // No owner id is passed (or stored on the flag): furniture flags are content, and
+  // a player id has no business in an exportable row. Ownership was checked when the
+  // jack went in, and the device row remains the authority on who owns the camera.
+  const snap = mod ? await mod.camPatchFrame(src.deviceId, null) : null;
+  _camPatchCache.set(deckId, { ts: now, snap });
+  return snap;
+}
+
+// The line a patched deck puts on the set. Null when the feed is dark, which the
+// TV renders as static — the same thing an empty deck does.
+async function _camPatchMessage(deck, dflags, nowMs) {
+  const src = dflags.deck_cam_source;
+  if (!src?.deviceId) return null;
+  const snap = await _camPatchSnap(deck.id, src);
+  const slot = Math.floor(nowMs / 5000);
+  if (!snap) {
+    // The camera is gone for good (burnt out, smashed, retrieved) — drop the patch
+    // rather than leaving a dead input wired in. Lazy, so nothing has to know to
+    // come and tidy up after a device dies; the branch runs at most once.
+    const dead = _deckFlags(deck);
+    dead.deck_cam_source = null;
+    await updateFurniture(deck.id, { flags: JSON.stringify(dead) });
+    _camPatchCache.delete(deck.id);
+    _deckCache.delete(deck.zone_id);
+    return { text: `[CAM · ${src.label || 'FEED'}] ◌ NO SIGNAL — the camera is gone.`, style: 'raw', key: `campatch:${slot}` };
+  }
+  if (snap.status !== 'ok' && snap.status !== 'spoofed') {
+    const label = snap.status === 'jammed' ? 'JAMMED' : snap.status === 'damaged' ? 'DAMAGED' : 'NO SIGNAL';
+    return { text: `[CAM · ${snap.label}] ▓ ${label}`, style: 'raw', key: `campatch:${slot}` };
+  }
+  if (!snap.frame) return null;
+  return { text: `[CAM · ${snap.label}] ${snap.frame}`, style: 'raw', key: `campatch:${slot}` };
+}
+
+// patch <cam name> | patch tape | patch off
+async function cmdPatch(args, raw, player) {
+  if (!player) return { type: 'error', message: 'No character.' };
+  const deck = await _findDeckInZone(player.current_zone);
+  if (!deck) return { type: 'output', message: 'There is no media deck here.' };
+  const dflags = _deckFlags(deck);
+  if (!dflags.mini_deck) {
+    return { type: 'output', message: 'Station decks take their feed from the gallery, not from you. Cut a camera live from the pirate console instead.' };
+  }
+  const lock = _deckLockError(dflags, player);
+  if (lock) return lock;
+
+  const mod = await _specter();
+  if (!mod || !(await mod.isSpecterInstalled(player))) {
+    return { type: 'output', message: 'The deck has a spare input jack, but nothing to plug into it. You would need SPECTER on your tablet to see a camera at all.' };
+  }
+
+  const wanted = args.join(' ').trim().toLowerCase();
+  const clear = !wanted || wanted === 'off' || wanted === 'tape' || wanted === 'cassette' || wanted === 'none';
+
+  if (clear && dflags.deck_cam_source) {
+    dflags.deck_cam_source = null;
+    await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
+    _camPatchCache.delete(deck.id);
+    _deckCache.delete(player.current_zone);
+    return { type: 'output', message: `You pull the jack. The ${deck.name} goes back to its own tape.` };
+  }
+
+  const sources = await mod.camSourcesFor(player.id);
+  if (!sources.length) {
+    return { type: 'output', message: 'You have no cameras out there to watch. Plant one first.' };
+  }
+  if (clear) {
+    const lines = sources.map((s, i) =>
+      `  <span class="action-link" data-action="patch" data-target="${s.label}">${i + 1}. ${s.label}</span>`
+    ).join('\n');
+    return { type: 'output', message: `Patch which feed into the ${deck.name}?\n${lines}` };
+  }
+  const pick = sources.find(s => s.label.toLowerCase().includes(wanted));
+  if (!pick) return { type: 'output', message: `You have no camera matching "${wanted}".` };
+
+  // One input at a time: patching a feed in stops the tape (the cassette stays in
+  // the deck's library, so pulling the jack resumes exactly where it was).
+  dflags.deck_cam_source = { deviceId: pick.deviceId, label: pick.label, zoneId: pick.zoneId };
+  await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
+  _camPatchCache.delete(deck.id);
+  _deckCache.delete(player.current_zone);
+
+  const state = dflags.channel_id ? channelRuntime.get(dflags.channel_id) : null;
+  const chan = state?.number != null ? ` Put the set on channel ${state.number}.` : '';
+  return { type: 'output', message: `You thumb the input over. The ${deck.name} takes the feed from <b>${pick.label}</b>.${chan}` };
+}
+
+// ── Cam patch: the SPECTER app's seam ────────────────────────────────────────
+// The tablet's SPECTER app patches a focused camera straight into the deck in the
+// room, so the flow is "see the cam, send it to the screen" without typing. Both
+// helpers are the app's ONLY route in — the gates (mini deck only, SPECTER
+// installed, cam is yours) stay in this file rather than being restated there.
+
+// The consumer deck in this zone, if any — what the app needs to know whether to
+// offer the output at all. Reads the live furniture cache; no query.
+export function miniDeckHere(zoneId) {
+  const deck = _zoneDeck(zoneId);
+  if (!deck) return null;
+  const dflags = deck.flags && typeof deck.flags === 'object' ? deck.flags : {};
+  if (!dflags.mini_deck) return null;
+  return { deckId: deck.id, name: deck.name, camDeviceId: dflags.deck_cam_source?.deviceId || null };
+}
+
+// Patch (or unpatch) one camera by id. Returns a short line for the app to echo.
+export async function patchCamToDeck(player, deviceId) {
+  const here = miniDeckHere(player.current_zone);
+  if (!here) return 'There is no deck here to take the feed.';
+  const mod = await _specter();
+  if (!mod || !(await mod.isSpecterInstalled(player))) return 'SPECTER is not installed.';
+  const { rows } = await query('SELECT * FROM furniture WHERE id=$1', [here.deckId]);
+  if (!rows.length) return 'There is no deck here to take the feed.';
+  const deck = rows[0];
+  const dflags = _deckFlags(deck);
+
+  if (here.camDeviceId === deviceId) {
+    dflags.deck_cam_source = null;
+  } else {
+    const src = (await mod.camSourcesFor(player.id)).find(s => s.deviceId === deviceId);
+    if (!src) return 'That camera is not yours.';
+    dflags.deck_cam_source = { deviceId: src.deviceId, label: src.label, zoneId: src.zoneId };
+    dflags.deck_active = dflags.deck_active || null;
+  }
+  await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
+  _camPatchCache.delete(deck.id);
+  _deckCache.delete(player.current_zone);
+  return dflags.deck_cam_source
+    ? `Feed patched into the ${deck.name}.`
+    : `Feed pulled from the ${deck.name}.`;
 }
 
 // ── Media Deck panel (client overlay) ─────────────────────────────────────────
@@ -5438,6 +6851,27 @@ function _deckLightState(channelType, deckActive) {
   if (channelType === 'live') return 'green';
   if (deckActive || channelType) return 'orange'; // scripted/news channel or tape inserted
   return 'red';
+}
+
+// A consumer tape player transmits nothing, so LIVE/ON AIR is meaningless on it —
+// the only question it can answer is whether the tape is actually running, and
+// that needs the SET as well as the tape: loaded and ready is still not playing
+// if the television above it is showing a station. Same rule the examine readout
+// uses (server/engine/commands/world.js), so the panel and the room agree.
+function _miniDeckPlayback(deck, dflags, deckNumber) {
+  // A patched camera counts as an input: there's no tape running, but the deck is
+  // feeding the set, so "not playing — nothing loaded" would be a lie.
+  const cam = dflags.deck_cam_source?.deviceId ? dflags.deck_cam_source : null;
+  const isLoad = cam ? true : !!dflags.deck_active;
+  const tuned = getZoneFurniture(deck.zone_id)
+    .map(x => Number(x.flags?.tuned_channel))
+    .filter(n => Number.isFinite(n));
+  const onInput = deckNumber != null && tuned.includes(deckNumber);
+  const camLabel = cam?.label || null;
+  if (!isLoad) return { playing: false, whyNot: 'nothing loaded', camLabel };
+  if (!tuned.length) return { playing: false, whyNot: 'the set is off', camLabel };
+  if (!onInput) return { playing: false, whyNot: `the set is on channel ${tuned[0]}`, camLabel };
+  return { playing: true, whyNot: null, camLabel };
 }
 
 async function buildMediaDeckPanel(deckId, player) {
@@ -5493,6 +6927,21 @@ async function buildMediaDeckPanel(deckId, player) {
   }
   const lightState = _deckLightState(channelType, dflags.deck_active);
 
+  // A branded consumer unit reports on its own terms: no LIVE lamp, no transport
+  // window, one amber bar. `deck_brand` is content, so an unbranded deck sends
+  // nothing new here and the client keeps the studio chassis it always had.
+  const isMini = !!dflags.mini_deck;
+  const brand = typeof dflags.deck_brand === 'string' ? dflags.deck_brand.trim() : '';
+  let miniState = null;
+  if (isMini) {
+    let deckNumber = state?.number ?? null;
+    if (deckNumber == null && channelId) {
+      const { rows: nRows } = await query('SELECT number FROM media_channels WHERE id=$1', [channelId]);
+      deckNumber = nRows[0]?.number ?? null;
+    }
+    miniState = _miniDeckPlayback(deck, dflags, deckNumber);
+  }
+
   const { rows: invRows } = await query(
     `SELECT i.name FROM player_inventory pi
        JOIN items i ON i.id = pi.item_id
@@ -5501,6 +6950,13 @@ async function buildMediaDeckPanel(deckId, player) {
       ORDER BY i.name`,
     [player.id]
   );
+
+  // Only a consumer deck has a spare input, and only a SPECTER user can use it.
+  let specterOn = false;
+  if (isMini) {
+    const mod = await _specter();
+    specterOn = mod ? await mod.isSpecterInstalled(player).catch(() => false) : false;
+  }
 
   sendToPlayer(player.id, {
     type: 'mediadeck_panel',
@@ -5511,6 +6967,20 @@ async function buildMediaDeckPanel(deckId, player) {
     channelNumber: state?.number ?? null,
     channelType,
     lightState,
+    isMini,
+    brand: brand || null,
+    // Branding, cabinet and noise are three separate axes on purpose: a cheap
+    // branded unit is loud with chunky piano keys, and an expensive one takes the
+    // cassette from you without a sound. Inferring silence from "is it branded"
+    // would make every future budget deck a whisper-quiet slab.
+    deckStyle: brand ? (dflags.deck_style || 'slab') : null,
+    silent: !!dflags.deck_silent,
+    playing: miniState ? miniState.playing : null,
+    whyNot: miniState ? miniState.whyNot : null,
+    camLabel: miniState ? miniState.camLabel : null,
+    // Whether to offer the spare input at all. A player without SPECTER never sees
+    // the row, so the deck doesn't advertise a surface they can't reach.
+    specter: specterOn,
     activeCassetteId: dflags.deck_active || null,
     cassettes,
     schedule,
@@ -5587,14 +7057,17 @@ async function mediaDeckSyncTick() {
   }
 }
 
-setInterval(() => { if (hasActivePlayers()) mediaDeckSyncTick().catch(e => console.error('[broadcast] media deck sync error:', e.message)); }, 30 * 1000);
+schedule('30s', () => mediaDeckSyncTick().catch(e => console.error('[broadcast] media deck sync error:', e.message)));
 
 // ── Commands ─────────────────────────────────────────────────────────────────
 
 async function cmdTune(args, raw, player, broadcast) {
   if (!player) return { type: 'error', message: 'No character.' };
-  const channelNumber = parseInt(args[0], 10);
-  if (isNaN(channelNumber)) return { type: 'output', message: 'Usage: tune <channel number> (or 0 to turn off)' };
+  // `0` is the tape deck, not the off switch — the power button owns off (tap to
+  // close the view, hold to switch the set off room-wide; see tv.js).
+  const word = String(args[0] || '').toLowerCase();
+  const channelNumber = word === 'off' ? TV_OFF : parseInt(args[0], 10);
+  if (isNaN(channelNumber)) return { type: 'output', message: 'Usage: tune <channel number> — 0 is the tape deck. Hold the power button to switch the set off.' };
 
   // Find a broadcast_receiver furniture in the player's current zone
   const { rows } = await query(
@@ -5676,10 +7149,14 @@ function buildTvPanel(channelId, player, dialFrequency, dest) {
 // is its own receiver. `0` powers the app's screen down (drops the tuner registration).
 async function cmdTabletTune(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
-  const channelNumber = parseInt(args[0], 10);
-  if (isNaN(channelNumber)) return { type: 'output', message: 'Usage: tablettune <channel number>' };
+  // Same dial as the wall set: `0` is the tape deck, `off` powers the app's
+  // screen down. Keeping these consistent matters — a tablet standing in a room
+  // with a deck in it should be able to watch the tape on 0 like anything else.
+  const word = String(args[0] || '').toLowerCase();
+  const channelNumber = word === 'off' ? TV_OFF : parseInt(args[0], 10);
+  if (isNaN(channelNumber)) return { type: 'output', message: 'Usage: tablettune <channel number>, or <b>tablettune off</b>.' };
 
-  if (channelNumber === 0) {
+  if (channelNumber === TV_OFF) {
     // Just drop the tuner. Deliberately NO `tv_off` push: that message is the ROOM
     // set's power-off and the client routes it to the standalone CRT panel, so
     // sending it here would switch off the wall television because you turned your
@@ -5728,17 +7205,44 @@ function buildTvOffPanel(player, skin) {
   return { type: 'output', message: 'You turn to the television.' };
 }
 
+// The words a player uses for "the set" rather than for a specific piece of
+// furniture. `use tv` / `watch the telly` must find a set named "battered
+// television" or "wall screen", so these never become a name filter.
+const TV_WORDS = new Set(['tv', 'tvs', 'television', 'televisions', 'set', 'monitor', 'screen', 'tele', 'telly', 'box']);
+
+// Strip the article/preposition noise a clickable link or a natural phrasing
+// carries ("watch on wall screen", "use the tv") and drop a purely generic
+// noun so it doesn't get used as a name filter.
+function _tvNameHint(args) {
+  const words = (args || [])
+    .map(w => String(w).toLowerCase())
+    .filter(w => !['on', 'at', 'the', 'a', 'an', 'my'].includes(w));
+  if (!words.length) return '';
+  if (words.every(w => TV_WORDS.has(w))) return '';
+  return words.join(' ');
+}
+
+// Any furniture in the zone that is a television: the `broadcast_receiver` flag
+// (what the tuner actually keys off), the `tv` tag (what the action registry
+// gates on), or simply something named like a set. Kept in one place so the
+// `tv`, `watch` and `use` paths can never disagree about what counts.
+const TV_FURNITURE_SQL = `(flags::text LIKE '%broadcast_receiver%' OR flags::text LIKE '%"tv"%' OR name ILIKE '%television%')`;
+
+async function _findTvFurniture(zoneId, nameHint) {
+  const { rows } = await query(
+    `SELECT id, name, flags FROM furniture WHERE zone_id=$1 AND ${TV_FURNITURE_SQL}${nameHint ? ' AND name ILIKE $2' : ''} LIMIT 1`,
+    nameHint ? [zoneId, `%${nameHint}%`] : [zoneId]
+  );
+  return rows[0] || null;
+}
+
 // Specialized action: use <tv-furniture>
 async function doUseTv(args, raw, player) {
   if (!player) return undefined;
-  const nameHint = args.join(' ').toLowerCase();
+  const nameHint = _tvNameHint(args);
 
-  // Find a tv furniture in the zone matching the name hint. A piece counts as a
-  // TV if it carries the `tv` flag OR is simply named like a television.
-  const { rows } = await query(
-    `SELECT id, name, flags FROM furniture WHERE zone_id=$1 AND (flags::text LIKE '%broadcast_receiver%' OR name ILIKE '%television%')${nameHint ? ' AND name ILIKE $2' : ''} LIMIT 1`,
-    nameHint ? [player.current_zone, `%${nameHint}%`] : [player.current_zone]
-  );
+  const row = await _findTvFurniture(player.current_zone, nameHint);
+  const rows = row ? [row] : [];
   if (!rows.length) return undefined;
 
   // If this set is already tuned (emitting the ambient noise the room overhears),
@@ -5766,23 +7270,30 @@ async function cmdTv(args, raw, player) {
   }
 
   // No tuned TV — check for any TV furniture in the zone (TV exists but is off).
-  // Match the `tv` flag or anything simply named like a television.
-  const { rows } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND (flags::text LIKE '%broadcast_receiver%' OR name ILIKE '%television%') LIMIT 1`,
-    [player.current_zone]
-  );
-  if (rows.length) return buildTvOffPanel(player);
+  const row = await _findTvFurniture(player.current_zone, '');
+  if (row) {
+    const flags = typeof row.flags === 'object' ? row.flags : JSON.parse(row.flags || '{}');
+    return buildTvOffPanel(player, flags.tv_skin || 'crt');
+  }
   return { type: 'output', message: 'There is no television here.' };
 }
 
 async function cmdWatch(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
 
-  const firstArg = (args[0] || '').toLowerCase();
-  if (['tv', 'television', 'monitor', 'screen', 'tele', 'telly'].includes(firstArg)) {
-    return cmdTv([], raw, player);
-  }
+  // `watch`, `watch tv`, `watch on the wall screen` — anything that names (or
+  // implies) a television in the room opens that set, exactly like `use` does.
+  // Only when nothing here is a television do we fall back to the read-out of
+  // whatever broadcast devices (a radio, say) the zone has running.
+  const panel = await doUseTv(args, raw, player);
+  if (panel !== undefined) return panel;
+  if (TV_WORDS.has((args[0] || '').toLowerCase())) return cmdTv([], raw, player);
 
+  return _broadcastListing(player);
+}
+
+// The zone's running broadcast devices and what each is currently carrying.
+async function _broadcastListing(player) {
   const zoneMap = zoneTunings.get(player.current_zone);
   if (!zoneMap || !zoneMap.size) return { type: 'output', message: 'No active broadcast device in this area.' };
 
@@ -5883,7 +7394,22 @@ function cmdEndEmergency(args, raw, player, broadcast) {
 export const commands = {
   tune:  cmdTune,
   watch: cmdWatch,
-  listen: cmdWatch,
+  // `listen` is SHARED, the same way `cook` is shared with synthesis: in a room
+  // with a radio or a screen it means "what's on", and everywhere else — which
+  // is most of the world — it means the sense. Broadcast owns the verb because
+  // plugins beat engine builtins, so the fallthrough has to live here; the
+  // engine's own `listen` entry would never be reached otherwise.
+  //
+  // `watch` deliberately does NOT fall through. Watching is a visual act and
+  // belongs to the screen; only listening has a second, older meaning.
+  listen: async (args, raw, player) => {
+    // Listening never opens a screen — it reads out what the room's devices are
+    // carrying, and falls through to the sense when nothing is on the air.
+    if (!player) return { type: 'error', message: 'No character.' };
+    const r = await _broadcastListing(player);
+    if (r?.message === 'No active broadcast device in this area.') return cmdListen(args, raw, player);
+    return r;
+  },
   tv:    cmdTv,
   airemergency: cmdAirEmergency,
   endemergency: cmdEndEmergency,
@@ -5897,6 +7423,7 @@ export const commands = {
   },
   eject: cmdEjectCassette,
   selectcassette: cmdSelectCassette,
+  patch: cmdPatch,
   pirate: cmdPirate,
   pirateresolve: cmdPirateResolve,
   air: cmdAir,
@@ -5904,7 +7431,14 @@ export const commands = {
 };
 
 export const specializedActions = [
-  { verb: 'use', requiredTag: 'tv', handler: doUseTv },
+  // Gated on EITHER marker: `tv` is the authored tag, `broadcast_receiver` is the
+  // flag the tuner keys off. A set carrying only one of them still advertises
+  // `use` on examine, and the handler itself accepts both plus a set that's
+  // simply named like a television.
+  { verb: 'use', requiredTag: 'tv', requiredFlag: 'broadcast_receiver', handler: doUseTv },
+  // Declaration-only: `watch` stays the plugin's own command, but the row makes
+  // it visible as an affordance on every television.
+  { verb: 'watch', requiredTag: 'tv', requiredFlag: 'broadcast_receiver', handler: null },
   { verb: 'use', requiredTag: 'media_deck', handler: doUseMediaDeck },
   { verb: 'use', requiredTag: 'piracy_firmware', handler: doInstallPiracyFirmware },
 ];
@@ -5924,8 +7458,23 @@ export const _test = {
   sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY, nextAirSlot,
   assembleNewsGraph, newsFill, newsSceneNames,
   assembleTalkshowGraph, talkshowAiring, talkshowPersonaFor, talkshowFill, makeTalkshowGuestGraph, ensureTalkshowSlot,
+  talkshowDraw, splitTurns, topicPick, TALKSHOW_GUEST_CALL_LEAD,
   assembleMorningGraph, morningRunInKey,
-  subTokens: _subTokens, scriptedTokens: _scriptedTokens, untilFour: _untilFour, airingViewers: _airingViewers,
+  assembleGameshowGraph, gameshowAiring, gameshowDayBucket, gameshowPool, gameshowOpenRound,
+  gameshowResolveRound, gameshowTokens, gameshowPassIndex, gameshowEndPass,
+  parseGuess, scorePrice, scoreOverUnder, scoreLot,
+  scoreShowcase, gameshowTest: _gameshowTest, normalizeGraph: _normalizeBroadcastGraph,
+  subTokens: _subTokens, scriptedTokens: _scriptedTokens, untilFour: _untilFour, otherViewers: _otherViewers,
+  garbleLine: _garbleLine, actorImpairment: _actorImpairment,
+  cameraLabel: _cameraLabel, pickCamera: _pickCamera, anyCastPresent: _anyCastPresent, zoneCameras,
+  seekGraph: _seekGraph, nodeHoldMs, broadcastDuration, filmBlocksNeeded, filmRunElapsed,
+  channelRuntime, recordBeat: _recordBeat, sendCatchUp,
+  pickDailySlot: _pickDailySlot, filmDayMask,
+  assembleSermonGraph, getSermonGraph,
+  fillCommercialTail: _fillCommercialTail,
+  adDurationSec: _adDurationSec, adAt: _adAt, graphDurationSec: _graphDurationSec,
+  normalizeBroadcastGraph: _normalizeBroadcastGraph, CARD_MIN_HOLD_MS,
+  pickDailySlot: _pickDailySlot, dayMask: _dayMask, dayLabel: _dayLabel, slotAirsOn: _slotAirsOn,
 };
 
 // ── Route handler (CRUD) ─────────────────────────────────────────────────────
@@ -5954,17 +7503,28 @@ export const routeHandler = async (path, method, body, auth) => {
         const nwPools = body.news_pools ? JSON.stringify(body.news_pools) : null;
         const tsPools = body.talkshow_pools ? JSON.stringify(body.talkshow_pools) : null;
         const mnPools = body.morning_pools ? JSON.stringify(body.morning_pools) : null;
+        const gsPools = body.gameshow_pools ? JSON.stringify(body.gameshow_pools) : null;
+        const fmMeta = body.film_meta ? JSON.stringify(body.film_meta) : null;
+        const smPools = body.sermon_pools ? JSON.stringify(body.sermon_pools) : null;
         await query(
-          `INSERT INTO media_broadcasts (id,name,description,category,tags,playback_mode,messages,message_interval,override_duration,loop,enabled,created_by,updated_at,broadcast_graph,channel_id,fallback_messages,weather_pools,sports_pools,news_pools,talkshow_pools,morning_pools)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()),$13,$14,$15,$16,$17,$18,$19,$20)`,
+          `INSERT INTO media_broadcasts (id,name,description,category,tags,playback_mode,messages,message_interval,override_duration,loop,enabled,created_by,updated_at,broadcast_graph,channel_id,fallback_messages,weather_pools,sports_pools,news_pools,talkshow_pools,morning_pools,gameshow_pools,film_meta,sermon_pools)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()),$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)`,
           [bid, body.name || 'Untitled', body.description || '', body.category || 'general',
            JSON.stringify(body.tags || []), body.playback_mode || 'scripted',
            JSON.stringify(body.messages || []), body.message_interval || 5,
            body.override_duration || null, body.loop ? 1 : 0, body.enabled !== false ? 1 : 0,
            auth?.playerId || 'unknown', graph, body.channel_id || null,
-           JSON.stringify(body.fallback_messages || []), wxPools, spPools, nwPools, tsPools, mnPools]
+           JSON.stringify(body.fallback_messages || []), wxPools, spPools, nwPools, tsPools, mnPools, gsPools, fmMeta, smPools]
         );
         if (body.playback_mode === 'talkshow' && body.channel_id) await ensureTalkshowSlot(bid, body.channel_id, tsPools);
+        // Same @airtime pinning path — a game show owns its block just like a talk show.
+        if (body.playback_mode === 'gameshow' && body.channel_id) await ensureTalkshowSlot(bid, body.channel_id, gsPools);
+        // A film screens at a fixed hour for the same reason, but through its own door:
+        // the pinned block is what gives the picture a start time to be late for, and a
+        // feature needs a RUN of them rather than a talk show's single block.
+        if (body.playback_mode === 'film' && body.channel_id) await ensureFilmSlots(bid, body.channel_id, fmMeta);
+        // A sermon pins like a talk show — one block — but weekly, via airDays.
+        if (body.playback_mode === 'sermon' && body.channel_id) await ensureTalkshowSlot(bid, body.channel_id, smPools);
         await loadChannelRuntimes();
         return { status: 201, body: { id: bid } };
       }
@@ -5975,17 +7535,23 @@ export const routeHandler = async (path, method, body, auth) => {
         const nwPools = body.news_pools ? JSON.stringify(body.news_pools) : null;
         const tsPools = body.talkshow_pools ? JSON.stringify(body.talkshow_pools) : null;
         const mnPools = body.morning_pools ? JSON.stringify(body.morning_pools) : null;
+        const gsPools = body.gameshow_pools ? JSON.stringify(body.gameshow_pools) : null;
+        const fmMeta = body.film_meta ? JSON.stringify(body.film_meta) : null;
+        const smPools = body.sermon_pools ? JSON.stringify(body.sermon_pools) : null;
         await query(
           `UPDATE media_broadcasts SET name=$1,description=$2,category=$3,tags=$4,playback_mode=$5,
            messages=$6,message_interval=$7,override_duration=$8,loop=$9,enabled=$10,broadcast_graph=$11,
-           channel_id=$12,fallback_messages=$13,weather_pools=$14,sports_pools=$15,news_pools=$16,talkshow_pools=$17,morning_pools=$19,updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$18`,
+           channel_id=$12,fallback_messages=$13,weather_pools=$14,sports_pools=$15,news_pools=$16,talkshow_pools=$17,morning_pools=$19,gameshow_pools=$20,film_meta=$21,sermon_pools=$22,updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$18`,
           [body.name||'Untitled', body.description||'', body.category||'general',
            JSON.stringify(body.tags||[]), body.playback_mode||'scripted',
            JSON.stringify(body.messages||[]), body.message_interval||5,
            body.override_duration||null, body.loop?1:0, body.enabled!==false?1:0, graph,
-           body.channel_id||null, JSON.stringify(body.fallback_messages||[]), wxPools, spPools, nwPools, tsPools, id, mnPools]
+           body.channel_id||null, JSON.stringify(body.fallback_messages||[]), wxPools, spPools, nwPools, tsPools, id, mnPools, gsPools, fmMeta, smPools]
         );
         if (body.playback_mode === 'talkshow' && body.channel_id) await ensureTalkshowSlot(id, body.channel_id, tsPools);
+        if (body.playback_mode === 'gameshow' && body.channel_id) await ensureTalkshowSlot(id, body.channel_id, gsPools);
+        if (body.playback_mode === 'film'     && body.channel_id) await ensureFilmSlots(id, body.channel_id, fmMeta);
+        if (body.playback_mode === 'sermon'   && body.channel_id) await ensureTalkshowSlot(id, body.channel_id, smPools);
         await loadChannelRuntimes();
         return { status: 200, body: { id } };
       }
@@ -6062,11 +7628,11 @@ export const routeHandler = async (path, method, body, auth) => {
             const slotType = item.slot_type || 'broadcast';
             const cond = item.conditions || [];
             await query(
-              `INSERT INTO media_channel_playlist (id,channel_id,broadcast_id,start_time,duration_override,priority,conditions,slot_type)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+              `INSERT INTO media_channel_playlist (id,channel_id,broadcast_id,start_time,duration_override,priority,conditions,slot_type,days)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
               [pid, id, item.broadcast_id || null, item.start_time || 0,
                item.duration_override || null, item.priority || 0,
-               JSON.stringify(cond), slotType]
+               JSON.stringify(cond), slotType, _dayMask(item.days)]
             );
           }
           // Single authority for NPC staffing: recalc derives each broadcast's hosts
@@ -7120,10 +8686,110 @@ export const routeHandler = async (path, method, body, auth) => {
 await loadChannelRuntimes();
 await loadZoneTunings();
 await loadGraphicsCache();
-setInterval(broadcastTick, BROADCAST_TICK_MS);
+schedule('1s', broadcastTick);   // BROADCAST_TICK_MS
 
 // Register _tvfreq as a silent internal command (not listed in plugin.json, invisible to HELP)
 registerCommand('_tvfreq', cmdTvFreq);
 registerCommand('_restartbroadcast', cmdRestartBroadcast);
 
+// `guess` — the game-show answer verb. gameshow.js owns the parsing and scoring; it needs
+// to know which channels are staging a show in the room the player is standing in, and
+// channelRuntime lives here, so the lookup is injected rather than imported (which would
+// be circular).
+registerCommand('guess', makeGuessCommand((zoneId) => {
+  if (!zoneId) return [];
+  const out = [];
+  for (const [channelId, state] of channelRuntime) {
+    if (state.studioZoneId === zoneId) out.push({ channelId, studioZoneId: zoneId });
+  }
+  return out;
+}));
+
+// The studio audience door: a doorman NPC checking dated passes on the way into
+// a live taping. Everything it needs lives in this file's runtime maps, so it's
+// injected rather than imported (which would be circular).
+installAudienceGate({
+  channelRuntime, studioZoneIndex, sportsSlotIndex, gamesPerDay: SPORTS_GAMES_PER_DAY,
+  registerMoveGate, registerPurchaseStamp, getEnvironmentState, getZoneNpcs, getZone,
+  resolveInventoryItem,
+});
+
 console.log(`[broadcast] Plugin loaded. ${channelRuntime.size} channel(s), ${zoneTunings.size} tuned zone(s), ${graphicsCache.size} graphic(s).`);
+
+// ── The proprietor puts their tape back on ───────────────────────────────────
+//
+// A deck may name an owner (`flags.deck_owner_npc`) and the thing it is supposed
+// to be playing (`flags.deck_default`). Anyone is free to stop it or tune the set
+// to an actual station — and while the owner is standing there, they will put it
+// back, every time, with a line about it.
+//
+// Deliberately general rather than a Grind House special case: any shopkeeper who
+// cares what is on their own television gets this by authoring two flags.
+//
+// Scoped to zones that currently contain a PLAYER. A tape reverting in an empty
+// room is both unobservable and a pointless write, and iterating ~5,800 zones a
+// minute to find out would be worse than the feature is worth.
+const OWNER_REVERT_LINES = [
+  '$npc reaches past you without a word, thumbs the tape back in, and hits PLAY.',
+  '"No." $npc puts the tape back on. "You can watch the news at home."',
+  '$npc glances up, sees what is on, and fixes it. The fuzz guitar starts again.',
+];
+
+// The same instinct, applied to a television rather than a tape deck. A set may
+// carry `flags.owner_npc` + `flags.channel_default` (a channel NUMBER): change it,
+// or switch it off, and while that NPC is behind the bar it goes straight back.
+// Switching it off is covered by the same check — `tuned_channel` simply becomes
+// absent, which is not the default either.
+const CHANNEL_REVERT_LINES = [
+  '$npc does not look up from the glass he is drying. "Game\'s on." The dial goes back.',
+  '$npc puts the game back on with the wet end of a bar towel. Nobody argues.',
+  '"That stays where it is." $npc retunes the set without breaking stride.',
+  '$npc reaches up and thumbs it back to the game, and gives you a long look about it.',
+];
+
+export const hooks = {
+  'tick.minute': async () => {
+    const zones = new Set();
+    for (const p of world.players.values()) if (p?.current_zone) zones.add(p.current_zone);
+
+    for (const zoneId of zones) {
+      const npcsHere = getZoneNpcs(zoneId);
+      const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+      for (const f of getZoneFurniture(zoneId)) {
+        const fl = f.flags || {};
+
+        // A tape deck whose owner wants their tape on.
+        const deckOwner = fl.deck_owner_npc;
+        if (deckOwner && fl.deck_default && fl.deck_active !== fl.deck_default) {
+          const npc = npcsHere.find(n => n.id === deckOwner);
+          if (npc) {
+            const next = { ...fl, deck_active: fl.deck_default };
+            const lib = Array.isArray(next.deck_cassettes) ? next.deck_cassettes : [];
+            if (!lib.includes(fl.deck_default)) next.deck_cassettes = [...lib, fl.deck_default];
+            await updateFurniture(f.id, { flags: next }).catch(() => {});
+            sendToZone(zoneId, { type: 'zone_event', message: pick(OWNER_REVERT_LINES).replace(/\$npc/g, npc.name) });
+          }
+        }
+
+        // A television whose owner wants the game on. Covers being retuned AND
+        // being switched off — `tuned_channel` absent is not the default either,
+        // which is why you cannot turn a barkeep's set off and walk away.
+        const tvOwner = fl.owner_npc;
+        const wantCh = Number(fl.channel_default) || 0;
+        if (tvOwner && wantCh && Number(fl.tuned_channel) !== wantCh) {
+          const npc = npcsHere.find(n => n.id === tvOwner);
+          if (npc) {
+            // Route through the real tune path so `zoneTunings` and the furniture
+            // channel index stay in step — writing the flag alone would leave the
+            // set showing one thing and the runtime believing another.
+            const res = await _applyTuning(f, wantCh, zoneId).catch(() => null);
+            if (res?.status === 'tuned') {
+              sendToZone(zoneId, { type: 'zone_event', message: pick(CHANNEL_REVERT_LINES).replace(/\$npc/g, npc.name) });
+            }
+          }
+        }
+      }
+    }
+  },
+};

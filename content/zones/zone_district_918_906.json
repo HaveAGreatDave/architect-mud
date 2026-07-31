@@ -1,30 +1,32 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
+  "ambient_theme": "city",
+  "bg_color": "#3a3026",
+  "color": "#c9a86a",
   "created_by": "zone-planner",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "description": "The face of Salvage Rites. A chain-link gate on a rolling track, topped with wire that has caught more carrier bags than intruders, and a hand-painted board wired to it: SALVAGE RITES — WE BUY ANYTHING · WE ASK NOTHING · CASH, NOT FEELINGS. Beyond the mesh: rust-coloured bales of crushed car stacked in uneven rows, and the yellow arm of a grabber crane standing over them like it is presiding. The gate is open. It is always open. There is nothing in there worth stealing that you could carry.",
   "exits": {
     "east": "zone_district_919_906",
-    "north": "zone_district_918_905",
-    "south": "zone_district_918_907",
-    "west": "zone_district_917_906"
+    "west": "zone_junkyard_shack"
   },
   "flags": {
+    "building_name": "Salvage Rites",
+    "building_type": "junkyard",
     "district": "wasteland",
+    "entrance": "east",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_919_906"
   },
   "grid_x": 918,
   "grid_y": 906,
   "grid_z": 0,
   "id": "zone_district_918_906",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "SR",
+  "name": "Salvage Rites",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784600000"
 }

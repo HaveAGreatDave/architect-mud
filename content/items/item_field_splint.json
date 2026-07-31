@@ -6,7 +6,14 @@
   "tags": {
     "consumable": true,
     "description": "An aluminium-and-velcro splint. Sets the break well enough that you can limp somewhere better.",
-    "restore_hp": 20
+    "restore_hp": 20,
+    "treat_injury": {
+      "steps": 1,
+      "floor": 1,
+      "types": [
+        "kinetic"
+      ]
+    }
   },
   "type": "consumable",
   "value": 25,

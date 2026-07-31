@@ -8,6 +8,7 @@
   "created_by": null,
   "description": "A corner unit, Number 2A, riding the front of the building. Two windows face the street, one boarded, one still glassed and grimy enough to filter the neon into a permanent bruise-purple. A mattress on a bent steel frame, a hotplate wired straight into the wall, and a water stain on the ceiling shaped uncannily like a hanged man. The lock, at least, is real.",
   "exits": {
+    "in": "zone_apt_5_bath",
     "south": "zone_embassy_floor2"
   },
   "flags": {

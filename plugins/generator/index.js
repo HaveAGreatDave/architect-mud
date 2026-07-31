@@ -22,6 +22,7 @@ import { tagValue } from '../../server/engine/tags.js';
 import { recomputePower, markPowerTopologyDirty } from '../../server/engine/environment.js';
 import { insertFurniture, deleteFurniture } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
+import { togglePluggedByName } from '../appliances/index.js';
 
 // Fallbacks if the item's portable_generator tag omits a field. Numbers are
 // content tuning — a bigger tank/capacity is just a heftier (pricier) unit.
@@ -98,8 +99,16 @@ async function deploy(args, raw, player, broadcast) {
 }
 
 async function connect(args, raw, player, broadcast) {
-  const g = await resolveDeployed(player, args.join(' ').trim());
-  if (!g) return { type: 'error', message: `There's no generator deployed here.` };
+  const nameStr = args.join(' ').trim();
+  const g = await resolveDeployed(player, nameStr);
+  if (!g) {
+    // No deployed generator to wire in — but `plug`/`connect` is also the
+    // natural verb for "plug this appliance into the building's own supply"
+    // (a vending machine, a fridge). Fall through to that before giving up.
+    const appliance = await togglePluggedByName(player, nameStr, true, broadcast);
+    if (appliance) return appliance;
+    return { type: 'error', message: `There's no generator deployed here, and no powered appliance by that name either.` };
+  }
   if (g.flags?.junction_box_id) return { type: 'output', message: `The ${g.name} is already wired into the junction box.` };
 
   const jb = await zoneJunctionBox(player.current_zone);
@@ -114,8 +123,13 @@ async function connect(args, raw, player, broadcast) {
 }
 
 async function disconnect(args, raw, player, broadcast) {
-  const g = await resolveDeployed(player, args.join(' ').trim());
-  if (!g) return { type: 'error', message: `There's no generator deployed here.` };
+  const nameStr = args.join(' ').trim();
+  const g = await resolveDeployed(player, nameStr);
+  if (!g) {
+    const appliance = await togglePluggedByName(player, nameStr, false, broadcast);
+    if (appliance) return appliance;
+    return { type: 'error', message: `There's no generator deployed here, and no powered appliance by that name either.` };
+  }
   if (!g.flags?.junction_box_id) return { type: 'output', message: `The ${g.name} isn't wired into anything.` };
 
   await query(`UPDATE generators SET flags = COALESCE(flags,'{}'::jsonb) - 'junction_box_id' WHERE id=$1`, [g.id]);

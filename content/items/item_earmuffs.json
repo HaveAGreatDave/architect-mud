@@ -1,0 +1,17 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_earmuffs",
+  "name": "fleece earmuffs",
+  "tags": {
+    "bulkiness": 1,
+    "description": "A sprung band and two fleece cups, in a cheerful orange nobody has felt cheerful about in decades. Ears are the first thing to go and the least useful thing to lose, so this is the highest return on fifteen credits available anywhere in the Basin.",
+    "gets_wet": true,
+    "hydrophobic": true,
+    "insulation": 2,
+    "slot": "accessory"
+  },
+  "type": "clothing",
+  "value": 15,
+  "weight": 90
+}

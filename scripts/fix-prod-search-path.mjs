@@ -32,5 +32,7 @@ const sp = await query('SHOW search_path');
 console.log('this session search_path (unchanged, set by db.js):', sp.rows[0].search_path);
 
 console.log('\nDone. Verify with a fresh pooler connection:');
-console.log('  curl -s https://architect-mud.onrender.com/api/audio/sfx | head -c 120');
+// www, not the bare apex: the apex 301s to it and curl without -L would print
+// the redirect stub instead of the JSON this check is looking at.
+console.log('  curl -s https://www.architectgame.net/api/audio/sfx | head -c 120');
 process.exit(0);

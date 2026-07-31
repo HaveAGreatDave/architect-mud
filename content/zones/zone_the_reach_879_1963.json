@@ -1,21 +1,17 @@
 {
   "ambient_events": [
-    "Wind hisses through the scrub, carrying grit and the far-off drone of a plane that isn't coming here.",
-    "Something small breaks cover and bolts through the brush, gone before you can place it.",
-    "Heat-shimmer wobbles the horizon; for a moment the town looks like it's underwater.",
-    "A dust-devil spins up out of nowhere, staggers a few yards across the hardpan, and collapses.",
-    "Out in the flats a loose sheet of metal bangs, over and over, in a wind that never fully quits.",
-    "The scrub ticks and rustles as the day's heat bleeds slowly out of it.",
-    "A buzzard rides the thermals in a wide, patient circle, in no hurry at all.",
-    "Grit stings your cheek. The wind out here doesn't stop — it just changes its mind.",
-    "Tire-ruts and bootprints cross the hardpan and vanish into the brush, going nowhere good.",
-    "The light goes long and copper, and the whole waste seems to hold its breath."
+    "Cool air breathes up out of the crack in the slab, smelling of wet stone and old rust.",
+    "A pebble goes into the crack and takes a long, unhurried moment to land.",
+    "The slab pops as the heat comes off it, a flat crack that carries much too far.",
+    "Something down in the cistern moves in water you can't see.",
+    "Wind pours across the flats without a single thing to break it for half a mile.",
+    "The scoured arc in the concrete catches the low light and shows you exactly how often this gets opened."
   ],
   "ambient_theme": "wasteland",
   "bg_color": null,
   "color": null,
   "created_by": null,
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "A concrete slab lies flat in the scrub, cracked across the middle, too deliberate to be wreckage and too plain to be a building. It caps a dry cistern from whatever was out here before the Reach was — the crack is wide enough to drop a hand into and the air that comes up out of it is ten degrees cooler than the day. Somebody has dragged the slab aside more than once: there's a pale arc scored into the concrete where it pivots, and the scrub around that arc has been ground into dust and never recovered.",
   "exits": {
     "east": "zone_the_reach_880_1963",
     "north": "zone_the_reach_879_1962",
@@ -23,8 +19,8 @@
     "west": "zone_the_reach_878_1963"
   },
   "flags": {
+    "fence_cache": true,
     "lawless": true,
-    "planner": "world_editor",
     "region_id": "region_the_reach",
     "terrain": "scrub"
   },
@@ -33,7 +29,8 @@
   "grid_z": 0,
   "id": "zone_the_reach_879_1963",
   "map_id": "map_world",
-  "name": "The Reach 879,1963",
+  "marker": "drop",
+  "name": "The Sump",
   "parent_zone": null,
   "updated_at": "1784533790"
 }

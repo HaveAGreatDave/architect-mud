@@ -1,0 +1,72 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "n_start",
+    "nodes": {
+      "n_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "n_loop",
+        "type": "action"
+      },
+      "n_loop": {
+        "next": "n_start",
+        "type": "loop"
+      },
+      "n_start": {
+        "next": "n_life",
+        "type": "start"
+      }
+    }
+  },
+  "chitchat": [
+    "She nods at the machines. \"Eight is temperamental. Use six.\"",
+    "\"Card on the middle one means what it says. Nobody checks.\"",
+    "\"You can sit. People forget that's allowed.\"",
+    "\"Kettle's hot. Jar's by the kettle. You know how a jar works.\"",
+    "\"I've seen worse walk in here. I've seen worse walk out clean.\""
+  ],
+  "description": "A wide, unhurried woman in her sixties with her sleeves permanently pushed to the elbow and reading glasses shoved up into grey hair she has stopped fighting. She has run this room longer than most of Ironside has been standing, and she has the specific calm of somebody who has already seen you at your worst and thought nothing much of it. There is a stool behind the folding table. She is rarely on it.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a man's cardigan worn through at both elbows",
+      "a housecoat, faded to no colour in particular",
+      "soft flat shoes, backs trodden down",
+      "reading glasses pushed up into her hair"
+    ],
+    "mis_never": false,
+    "personality": "vendor",
+    "repairman": false
+  },
+  "home_activities": [],
+  "home_zone": "zone_the_wash",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_wash_attendant",
+  "name": "Bex Ferreira",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_soap_block",
+      "price": 4
+    },
+    {
+      "item_id": "item_condom",
+      "price": 6
+    },
+    {
+      "item_id": "item_water_bottle",
+      "price": 6
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": "The Wash — Front Shelf",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_the_wash"
+}

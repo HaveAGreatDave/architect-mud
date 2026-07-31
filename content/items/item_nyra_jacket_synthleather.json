@@ -10,9 +10,11 @@
     },
     "bulkiness": 3,
     "description": "A close-cut black synthetic leather jacket designed for mobility and protection. Lightweight but durable, with reinforced seams and a matte finish that absorbs light rather than reflecting it.",
+    "hydrophobic": true,
     "insulation": 5,
     "layer": "outerwear",
-    "slot": "torso"
+    "slot": "torso",
+    "windproof": true
   },
   "type": "clothing",
   "value": 1200,

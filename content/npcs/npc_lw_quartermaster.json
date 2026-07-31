@@ -123,26 +123,6 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_bat",
-      "price": 40
-    },
-    {
-      "item_id": "item_pipe_wrench",
-      "price": 30
-    },
-    {
-      "item_id": "item_rusty_pipe",
-      "price": 12
-    },
-    {
-      "item_id": "item_field_welder",
-      "price": 45
-    },
-    {
-      "item_id": "item_battery",
-      "price": 16
-    },
-    {
       "item_id": "item_rag_bandage",
       "price": 8
     },
@@ -151,12 +131,32 @@
       "price": 9
     },
     {
+      "item_id": "item_rusty_pipe",
+      "price": 12
+    },
+    {
+      "item_id": "item_battery",
+      "price": 16
+    },
+    {
       "item_id": "item_jerry_can",
       "price": 35
     },
     {
+      "item_id": "item_field_welder",
+      "price": 45
+    },
+    {
       "item_id": "item_keycard_lock_kit",
       "price": 120
+    },
+    {
+      "item_id": "item_pipe_wrench",
+      "price": 125
+    },
+    {
+      "item_id": "item_bat",
+      "price": 190
     }
   ],
   "vendor_restock_rate": 1,
@@ -204,7 +204,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Long Watch Quartermaster",
+  "vendor_shop_name": "Surplus of Sorrows",
   "vendor_stock_size": 9,
   "wander_zones": [],
   "wanders": 0,

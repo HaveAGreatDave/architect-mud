@@ -1,0 +1,80 @@
+@broadcast "Ferris Model 9 — It Does Not Jam"
+@category commercial
+@length 30
+@type commercial
+
+::asset ferris_logo
+
+███████╗███████╗██████╗ ██████╗ ██╗███████╗
+██╔════╝██╔════╝██╔══██╗██╔══██╗██║██╔════╝
+█████╗  █████╗  ██████╔╝██████╔╝██║███████╗
+██╔══╝  ██╔══╝  ██╔══██╗██╔══██╗██║╚════██║
+██║     ███████╗██║  ██║██║  ██║██║███████║
+╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚══════╝
+
+                 M O D E L   9
+              "It Does Not Jam."
+
+::endasset
+
+::scene TITLE
+
+ROOM studio_stage
+
+EVENT FADE_IN
+
+TITLE ferris_logo
+
+::scene COMMERCIAL
+
+CAM 1 STATIC
+
+SHOT
+A grey pistol on a grey table, shot flat and straight on. Nothing moves. There is no music. The camera does not push in, because nobody at Ferris has ever seen the point of that.
+SHOT_END
+
+NARRATOR:
+The Ferris Model 9 service pistol.
+
+6s
+
+NARRATOR:
+It does not jam.
+
+4s
+
+SHOT
+The shot has not changed. The pistol has not moved. Somebody off-camera clears their throat.
+SHOT_END
+
+NARRATOR:
+That is the advertisement.
+
+CAM 2 STATIC
+
+SHOT
+The same pistol. The same table. A card is placed beside it by a hand in a plain sleeve, and withdrawn.
+SHOT_END
+
+OVERLAY
+FERRIS
+
+SAME DESIGN SINCE BEFORE THE HANDOFF
+
+WE SAW NO REASON
+OVERLAY_END
+
+NARRATOR:
+Ferris has never advertised, never changed the design, and never apologised for either.
+
+NARRATOR:
+If you require a handgun with a personality, our competitors will be delighted to sell you one.
+
+3s
+
+NARRATOR:
+Theirs jam.
+
+EVENT FADE_OUT
+
+END

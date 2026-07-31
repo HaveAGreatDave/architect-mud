@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 5400,
+  "flags": {},
+  "generator_id": "gen_zone_mq_sump_util",
+  "id": "zone_mq_sump_pit",
+  "max_capacity_kw": 5400,
+  "name": "Sump — The Pit",
+  "source_type": "junction_box"
+}

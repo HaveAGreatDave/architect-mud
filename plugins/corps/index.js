@@ -221,13 +221,24 @@ async function buildConsolePayload(player) {
 // roster changes), so an open console updates without a manual refresh.
 async function pushConsole(orgId, broadcast) {
   if (!broadcast) return;
-  for (const p of getAllLivePlayers()) {
-    if (getPlayerMembership(p.id)?.org_id !== orgId) continue;
-    const payload = await buildConsolePayload(p);
-    if (payload.type === 'corp_console') {
-      broadcast(null, { type: 'corp_console_patch', treasury: payload.treasury, architectHeat: payload.architectHeat, members: payload.members, territory: payload.territory, tierInfo: payload.tierInfo, assets: payload.assets }, null, p.id);
-    }
-  }
+  const members = getAllLivePlayers().filter(p => getPlayerMembership(p.id)?.org_id === orgId);
+  if (!members.length) return;
+
+  // Every field this patch carries — treasury, heat, roster, territory, tier,
+  // assets — is ORG-level: byte-identical for everyone in the corp. It was being
+  // rebuilt per member anyway, and buildConsolePayload costs three queries a go,
+  // so a ten-strong corp paid thirty round trips to send ten identical messages.
+  // (The only per-player part of a console payload is `you`, which this patch
+  // does not include.) Build it once.
+  const payload = await buildConsolePayload(members[0]);
+  if (payload.type !== 'corp_console') return;
+  const patch = {
+    type: 'corp_console_patch',
+    treasury: payload.treasury, architectHeat: payload.architectHeat,
+    members: payload.members, territory: payload.territory,
+    tierInfo: payload.tierInfo, assets: payload.assets,
+  };
+  for (const p of members) broadcast(null, patch, null, p.id);
 }
 
 // Standalone strategic map payload: placed zones on the current map, tinted by

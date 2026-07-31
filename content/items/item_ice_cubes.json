@@ -1,0 +1,16 @@
+{
+  "description": "Cloudy, fast-melting, and made from water nobody asked about. Chills, dilutes, and leaves before you finish.",
+  "flags": {},
+  "id": "item_ice_cubes",
+  "name": "ice",
+  "tags": {
+    "description": "Cloudy, fast-melting, and made from water nobody asked about. Chills, dilutes, and leaves before you finish.",
+    "drink_noun": "ice",
+    "drink_profile": "ice",
+    "pour_units": 4,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 1,
+  "weight": 300
+}

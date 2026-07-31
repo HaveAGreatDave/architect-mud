@@ -14,7 +14,7 @@ let stars = 0;
 let heat = 0;
 let audioCtx = null;
 
-// Flame dials — tuned in sandbox/heat-flame-lab.html and locked here.
+// Flame dials — tuned in tools/sandbox/heat-flame-lab.html and locked here.
 const FLAME = { thresh: 20, density: 0.30, height: 0.50, flick: 0.9, spread: 0.18, psize: 1.15 };
 const FW = 220, FH = 82;    // fixed logical canvas (matches .wanted-flame CSS box)
 

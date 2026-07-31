@@ -1,0 +1,17 @@
+{
+  "id": "dx_mescaline_light_shaft",
+  "drug_id": "drug_mescaline",
+  "matches": "lamp",
+  "name": "a light that knows what to fall on",
+  "description": "A lamp, doing the one thing it has ever wanted to do, on exactly the right object.",
+  "looks": [
+    "It moves onto the right thing and settles, and it is right.",
+    "The light is older than the fitting by a very long way.",
+    "It goes round things, and takes its time about it."
+  ],
+  "says": [
+    "There. That one. Look at that one.",
+    "I have been pointing at it all along."
+  ],
+  "scope": "object"
+}

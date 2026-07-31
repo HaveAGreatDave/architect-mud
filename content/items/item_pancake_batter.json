@@ -1,0 +1,23 @@
+{
+  "description": "A tub of pale slurry that smells faintly of vanilla and more strongly of the factory. Hits the pan, goes up fast, and gives you about four seconds to decide when to turn it.",
+  "flags": {},
+  "id": "item_pancake_batter",
+  "name": "pancake batter",
+  "tags": {
+    "consumable": true,
+    "description": "A tub of pale slurry that smells faintly of vanilla and more strongly of the factory. Hits the pan, goes up fast, and gives you about four seconds to decide when to turn it.",
+    "food_noun": "pancake",
+    "food_profile": "batter",
+    "needs_cooking": true,
+    "perishable": true,
+    "restore_hunger": 14,
+    "spoil_rate": "normal",
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.4
+    }
+  },
+  "type": "consumable",
+  "value": 5,
+  "weight": 300
+}

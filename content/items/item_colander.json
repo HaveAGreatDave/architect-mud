@@ -1,0 +1,16 @@
+{
+  "description": "Punched steel, dented on one side. Does exactly one thing and has never needed to do anything else.",
+  "flags": {},
+  "id": "item_colander",
+  "name": "colander",
+  "tags": {
+    "container": 2000,
+    "description": "Punched steel, dented on one side. Does exactly one thing and has never needed to do anything else.",
+    "dishware": true,
+    "dishware_kind": "strainer",
+    "unique": true
+  },
+  "type": "misc",
+  "value": 8,
+  "weight": 380
+}

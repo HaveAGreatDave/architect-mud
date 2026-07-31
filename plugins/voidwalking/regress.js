@@ -65,6 +65,11 @@ export default async function regress({ run, check, getPlayer }) {
   };
 
   _test.setEncounters(false); // keep movement/traversal tests deterministic
+  // Pin the seed window. Layout, detours, hard nodes and the big-score room are all
+  // seeded off (voidKey, window), and the live window is the real-world WEEK — so an
+  // untouched tree would walk a different waste every Monday and this gate could go
+  // red on nobody's change. A fixed window makes every seeded choice below reproducible.
+  _test.setWindow(2900);
   // Solo helper: step off the rim to open the muster, then `ready` (all ready → launch).
   const launch = async () => { player._lastStepAt = 0; await run('north'); return run('ready'); };
   try {
@@ -287,15 +292,19 @@ export default async function regress({ run, check, getPlayer }) {
     const lc = _test.crossings.get(player._crossing.instanceId);
     const lcBig = _test.bigScoreSalt(lc.voidKey, lc.window, VOIDS[lc.voidKey].trunk);
     const spineRooms = [...lc.roomSet].filter(id => id !== lc.entry && !lc.detourSet.has(id) && getZone(id).flags.void_salt !== lcBig);
+    // Three distinct un-salvaged rooms are needed below (good roll, repeat, bad roll,
+    // unforced roll). Assert the fixture rather than indexing off the end — a seed that
+    // shrank the spine used to surface as an undefined-zone crash halfway down the suite.
+    check('a crossing has enough plain spine rooms to test salvage', spineRooms.length >= 3, `spine=${spineRooms.length}`);
     player.current_zone = spineRooms[0];
     _test.setSalvage(1); // force a good roll
-    const got = await run('sift');
+    const got = await run('loot');
     check('salvage yields loot on a good roll', /item-grant|pocket/i.test(got?.message || ''), got?.message?.slice(0, 60));
-    const again = await run('sift');
+    const again = await run('loot');
     check('a room can only be salvaged once per crossing', /already picked/i.test(again?.message || ''), again?.message?.slice(0, 50));
     player.current_zone = spineRooms[1];
     _test.setSalvage(0); // force a bad roll
-    const dud = await run('sift');
+    const dud = await run('loot');
     check('a bad roll comes up empty', /grit|disappointment/i.test(dud?.message || ''), dud?.message?.slice(0, 50));
     check('the void loot table is tiered (staples → rare)', _test.LOOT[1].diff < _test.LOOT[2].diff && _test.LOOT[2].diff < _test.LOOT[3].diff, JSON.stringify(Object.keys(_test.LOOT)));
     // Every entry is [itemId, maxQty] against a REAL item — a typo here is a silent
@@ -312,12 +321,12 @@ export default async function regress({ run, check, getPlayer }) {
     // A near-miss pays out rubbish rather than nothing (forced rolls stay hard).
     _test.setSalvage(null);
     player.current_zone = spineRooms[2];
-    const near = await run('sift');
+    const near = await run('loot');
     check('an unforced dig returns a dud or a grant, never a crash',
       /grit|item-grant/i.test(near?.message || ''), near?.message?.slice(0, 60));
     player.current_zone = savedZone; delete player._crossing;
-    const noSalv = await run('sift');
-    check('salvage outside the void is a gentle no-op', /nothing out here/i.test(noSalv?.message || ''), noSalv?.message?.slice(0, 40));
+    const noSalv = await run('loot');
+    check('loot outside the void falls through to engine corpse looting', /corpse/i.test(noSalv?.message || ''), noSalv?.message?.slice(0, 40));
 
     // ── Slice 5b: corpse-packs (loot the dead, first-come) ────────────────────
     _test.setSalvage(1);
@@ -329,11 +338,11 @@ export default async function regress({ run, check, getPlayer }) {
     const packSalt = getZone(packRoom).flags.void_salt;
     await traces.addTrace(pc.voidKey, pc.window, packSalt, 'corpse', 'Kaz', 'killed by a rad-mutant', ['item_water_bottle', 'item_scrap_metal']);
     player.current_zone = packRoom;
-    const loot = await run('sift');
-    check('sifting a corpse strips its pack', /strip|Kaz/i.test(loot?.message || '') && /item-grant/.test(loot?.message || ''), loot?.message?.slice(0, 70));
+    const loot = await run('loot');
+    check('looting a corpse strips its pack', /strip|Kaz/i.test(loot?.message || '') && /item-grant/.test(loot?.message || ''), loot?.message?.slice(0, 70));
     check('a looted corpse-pack is claimed (async first-come)',
       traces.getTraces(pc.voidKey, pc.window, packSalt).find(t => t.kind === 'corpse')?.claimed === true, 'not claimed');
-    const loot2 = await run('sift'); // claimed → falls through to ambient scav, not another strip
+    const loot2 = await run('loot'); // claimed → falls through to ambient scav, not another strip
     check('a claimed corpse cannot be stripped twice', !/strip/i.test(loot2?.message || ''), loot2?.message?.slice(0, 50));
     wipe();
 
@@ -343,7 +352,7 @@ export default async function regress({ run, check, getPlayer }) {
     const gc = _test.crossings.get(player._crossing.instanceId);
     const bsRoom = [...gc.roomSet].find(id => getZone(id).flags.void_salt === bsSalt);
     player.current_zone = bsRoom;
-    const bs = await run('sift');
+    const bs = await run('loot');
     check('the big score is claimable', /prize|wreck/i.test(bs?.message || '') && /item-grant/.test(bs?.message || ''), bs?.message?.slice(0, 70));
     check('claiming the big score records a global claim',
       traces.getTraces(gc.voidKey, gc.window, bsSalt).some(t => t.kind === 'bigscore_claim'), 'no claim');
@@ -353,7 +362,7 @@ export default async function regress({ run, check, getPlayer }) {
     await launch();
     const gc2 = _test.crossings.get(player._crossing.instanceId);
     player.current_zone = [...gc2.roomSet].find(id => getZone(id).flags.void_salt === bsSalt);
-    const bs2 = await run('sift');
+    const bs2 = await run('loot');
     check('the big score is gone for the next crosser (claimed globally)', !/the prize this stretch/i.test(bs2?.message || ''), bs2?.message?.slice(0, 60));
     wipe();
 
@@ -376,6 +385,7 @@ export default async function regress({ run, check, getPlayer }) {
   } finally {
     _test.setEncounters(true);
     _test.setSalvage(null);
+    _test.setWindow(null);
     await query(`DELETE FROM void_traces WHERE void_key='${VOIDKEY}'`).catch(() => {});
     await query('DELETE FROM player_inventory WHERE player_id=$1', [player.id]).catch(() => {});
     wipe();

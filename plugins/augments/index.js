@@ -105,10 +105,20 @@ async function applyStatMods(player, mods, sign) {
 // into the per-slot map, (b) sets player.chromed for the mutation-block guard.
 // Async is fine here — recomputeArmor runs on deliberate actions, never a
 // per-swing hot path; combat reads the finished player.soak from memory.
+// An EMP pulse knocks chrome out for a few minutes. The window is a plain
+// timestamp on the live player (set by the weather plugin's empPulse handler,
+// which forces a recompute at both ends) — transient state, memory only, never
+// the DB. `chromed` stays set: your body is still full of hardware, it's just
+// not doing anything for you right now.
+function chromeDown(player) {
+  return !!player?._augFriedUntil && Date.now() < player._augFriedUntil;
+}
+
 async function contributeAugmentState(player, bySlot) {
   const cache = await catalog();
   const mine = await installedRows(player.id);
   player.chromed = mine.length > 0 ? 1 : 0;
+  if (chromeDown(player)) return;
   for (const r of mine) {
     const a = cache[r.augment_id];
     if (!a || !a.soak || typeof a.soak !== 'object') continue;

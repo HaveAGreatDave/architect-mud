@@ -48,7 +48,7 @@ async function cmdTalk(targetStr, player, broadcast) {
     if (broadcast) broadcast(player.current_zone, msg, player.id);
     return msg;
   }
-  return { type:'dialogue', npcId:npc.id, npcName:npc.name, node:'root', text:rendered.text, options:rendered.options };
+  return { type:'dialogue', npcId:npc.id, npcName:npc.name, node:'root', text:rendered.text, options:rendered.options, stage:rendered.stage, mood:rendered.mood };
 }
 
 // If the player names an NPC in the room (any part of its name — first or last),

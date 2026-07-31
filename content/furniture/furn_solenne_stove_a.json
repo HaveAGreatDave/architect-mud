@@ -1,0 +1,19 @@
+{
+  "description": "A single blackened burner bolted to a scrap-metal stand, the dial worn down to bare metal at HIGH. No timer, no display, no apologies. You light it, you watch it, you don't walk away.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ],
+    "stove_tier": "low"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_stove_a",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Hobline Cooktop",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_a"
+}

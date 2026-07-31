@@ -1,0 +1,24 @@
+{
+  "description": "A chest freezer sunk into the end of the aisle, lid propped half open on a hinge that gave up years ago. Cold fog rolls over the rim and dies at knee height. Inside, frost-furred packets sit in a jumble nobody has faced up since the last delivery.",
+  "flags": {
+    "aliases": "freezer well, frozen well, chest freezer, freezer",
+    "appliance_grade": "commercial",
+    "backstock": "furn_ration9_freezer",
+    "container": 50000,
+    "interactions": [
+      "lean"
+    ],
+    "preserves": "frozen",
+    "vendor_stock": "npc_ration_cook"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_ration9_case_freezer",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Frozen Well",
+  "object_type": "container",
+  "power_draw_kw": 0.7,
+  "price": 0,
+  "zone_id": "zone_mq_grocery"
+}

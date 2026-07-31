@@ -29,9 +29,7 @@ EVENT FADE_IN
 
 TITLE acid_cola_logo
 
-MUSIC acid_cola_jingle
 ♪ An upbeat Acid Cola™ advertising jingle begins playing. ♪
-MUSIC_END
 
 ::scene COMMERCIAL
 

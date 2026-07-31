@@ -164,20 +164,20 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_contraband_crate",
-      "price": 90
+      "item_id": "item_salvaged_wiring",
+      "price": 8
     },
     {
       "item_id": "item_cracked_capacitor",
       "price": 14
     },
     {
-      "item_id": "item_salvaged_wiring",
-      "price": 8
+      "item_id": "item_rusty_knife",
+      "price": 65
     },
     {
-      "item_id": "item_rusty_knife",
-      "price": 28
+      "item_id": "item_contraband_crate",
+      "price": 90
     }
   ],
   "vendor_restock_rate": 1,

@@ -1,0 +1,10 @@
+{
+  "name": "cleaning",
+  "version": "1.0.0",
+  "description": "CLEAN/MOP the floor you're standing on. The engine could already stain a room and describe the stains, but only the nightly sweep could remove them — and owned rooms no longer get that sweep (server/engine/zone-filth.js keeps a player's own space dirty for a full rent cycle), so somebody has to do the work. A tool tagged `cleaning_tool` (carried, or a fixture in the room) clears the whole floor in one go; bare hands clear one patch and leave the filth on you. Either way the work costs sweat through the hygiene substrate, so a proper scrub earns you a shower. No table, no tick, no skill — stains live in RAM on the zone, so a clean is a synchronous mutation.",
+  "commands": ["clean", "mop"],
+  "extensionPoints": [
+    "items.tags.cleaning_tool",
+    "furniture.tags.cleaning_tool"
+  ]
+}

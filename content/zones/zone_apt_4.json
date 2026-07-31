@@ -8,7 +8,8 @@
   "created_by": null,
   "description": "A larger unit, big enough to actually pace in. The previous tenant left graffiti on the inside of the door: COUNT YOUR DAYS.",
   "exits": {
-    "east": "zone_embassy_floor_2nd"
+    "east": "zone_embassy_floor_2nd",
+    "in": "zone_apt_4_bath"
   },
   "flags": {
     "is_apartment": true,

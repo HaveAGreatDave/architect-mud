@@ -1,0 +1,17 @@
+{
+  "description": "Vacuum-walled and dented all over. Whatever goes in hot is still arguably hot a shift later, which is the closest thing to a miracle in your pack.",
+  "flags": {},
+  "id": "item_field_thermos",
+  "name": "field thermos",
+  "tags": {
+    "description": "Vacuum-walled and dented all over. Whatever goes in hot is still arguably hot a shift later, which is the closest thing to a miracle in your pack.",
+    "drinkware": true,
+    "drinkware_kind": "thermos",
+    "fillable": 4,
+    "insulated": true,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 30,
+  "weight": 900
+}

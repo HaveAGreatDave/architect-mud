@@ -8,8 +8,9 @@ import { resolveDefault } from '../../scripts/content/derive.mjs';
 import { neighborZoneIds } from '../../server/engine/exits.js';
 import { sendToZone, sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
+import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { propagateAudio, getWeatherLeakGain, getWeatherLeakSource } from '../../server/engine/sounds.js';
-import { getZonePrecip, getWindKph, getZonePowerStatus } from '../../server/engine/environment.js';
+import { getZonePrecip, getWindKph, getZonePowerStatus, activeWeatherEvent } from '../../server/engine/environment.js';
 
 // ── In-memory library cache (loaded from DB at boot, refreshed after CRUD) ──
 
@@ -343,11 +344,88 @@ const SFX_VAT_CHIME = {
 
 on('player.respawn', ({ player }) => {
   if (!player?.id) return;
-  const id = player.id;
+  vatSequence(player.id);
+});
+
+// The ordinary respawn: drain, boot, the seal breaking, the all-clear chime.
+function vatSequence(id) {
   sendToPlayer(id, { type: 'audio_sfx', def: SFX_VAT_DRAIN });
   setTimeout(() => sendToPlayer(id, { type: 'audio_sfx', def: SFX_VAT_BOOT  }), 900);
   setTimeout(() => sendToPlayer(id, { type: 'audio_sfx', def: SFX_VAT_OPEN  }), 1800);
   setTimeout(() => sendToPlayer(id, { type: 'audio_sfx', def: SFX_VAT_CHIME }), 2100);
+}
+
+// ── First time in the Clone Facility ─────────────────────────────────────────
+// You hear the vat cycle every time you die. The FIRST time is the one that
+// should land, because it is the only one where you don't yet know what it is —
+// so it gets a longer, heavier version of the same sequence plus a visual beat,
+// the same trick the holocaster uses: sound alone reads as a sound effect, sound
+// plus the room reacting reads as something happening TO you.
+//
+// The visual is the ion-storm overlay held for a few seconds. It is not weather
+// and never claims to be — it is the arc-and-etch layer the client already
+// renders, borrowed for the discharge of the thing that just printed a body. The
+// clear is unconditional and fires even if the player walks straight back out,
+// because a stuck overlay would read as a bug for the rest of the session.
+const VAT_FIRST_FLAG = 'seen_clone_vat';
+const VAT_FX_MS = 4200;
+
+// A deeper, slower spin-up than the routine one — the racks coming up cold.
+const SFX_VAT_FIRST_SWELL = {
+  id: 'sfx_vat_first_swell', name: 'sfx_vat_first_swell', category: 'sfx', priority: 9,
+  config: {
+    duration: 3.4,
+    layers: [
+      { waveform: 'sine', freq: 28, pitchBend: { to: 44, time: 3.0 }, adsr: { a: 1.2, d: 0.6, s: 0.8, r: 1.4 }, gain: 0.5 },
+      { waveform: 'sawtooth', freq: 41, pitchBend: { to: 96, time: 2.8 }, filter: { type: 'lowpass', freq: 700, q: 1.6 }, adsr: { a: 0.9, d: 0.5, s: 0.7, r: 1.2 }, gain: 0.3 },
+      { noiseMix: 0.7, filter: { type: 'bandpass', freq: 420, q: 3.2 }, tremolo: { rate: 7, depth: 0.7 }, adsr: { a: 1.4, d: 0.4, s: 0.6, r: 1.0 }, gain: 0.16 },
+    ],
+  },
+};
+
+// The discharge the overlay is drawing — a hard crack with a long room tail.
+const SFX_VAT_ARC = {
+  id: 'sfx_vat_arc', name: 'sfx_vat_arc', category: 'sfx', priority: 10,
+  config: {
+    duration: 2.2,
+    layers: [
+      { noiseMix: 1, filter: { type: 'highpass', freq: 2200, q: 0.8 }, adsr: { a: 0.001, d: 0.09, s: 0, r: 0.12 }, gain: 0.8 },
+      { waveform: 'sine', freq: 62, adsr: { a: 0.001, d: 0.5, s: 0.15, r: 1.6 }, gain: 0.7 },
+      { noiseMix: 0.5, filter: { type: 'bandpass', freq: 1100, q: 1.1 }, adsr: { a: 0.02, d: 1.1, s: 0.1, r: 1.4 }, gain: 0.22 },
+    ],
+  },
+};
+
+const CLONE_FACILITY_ZONES = new Set(['zone_start', 'zone_district_918_903']);
+
+on('zone.entered', async ({ actor, zone: zoneId }) => {
+  if (!actor?.id || !CLONE_FACILITY_ZONES.has(zoneId)) return;
+  try {
+    if (await getFlag('player', VAT_FIRST_FLAG, actor)) return;
+    await setFlag('player', VAT_FIRST_FLAG, '1', actor);
+  } catch { return; }   // can't record it → don't fire, or it repeats every entry
+
+  const id = actor.id;
+  sendToPlayer(id, { type: 'audio_sfx', def: SFX_VAT_FIRST_SWELL });
+  setTimeout(() => sendToPlayer(id, { type: 'audio_sfx', def: SFX_VAT_ARC }), 1500);
+  setTimeout(() => vatSequence(id), 2000);
+
+  // The visual borrows a GLOBAL channel: `weather_event` is normally broadcast to
+  // everyone on a real hero event, and the client only hears about it on a change.
+  // So if a genuine event is running we leave the screen alone entirely — the
+  // sound still lands, and stealing an acid-rain overlay for four seconds would be
+  // a worse trade than skipping the flourish. When we do borrow it, the restore
+  // re-sends the ACTUAL current state rather than a blind null, so we can never
+  // leave a player looking at clear skies through a storm.
+  if (activeWeatherEvent()) return;
+  sendToPlayer(id, { type: 'weather_event', eventType: 'ion_storm', phase: 'peak' });
+  const restore = () => {
+    const live = activeWeatherEvent();   // re-read: one may have begun while we held it
+    sendToPlayer(id, { type: 'weather_event', eventType: live?.type ?? null, phase: live?.phase ?? null });
+  };
+  // Drop off the peak first so it fades rather than blinking out.
+  setTimeout(() => { if (!activeWeatherEvent()) sendToPlayer(id, { type: 'weather_event', eventType: 'ion_storm', phase: null }); }, VAT_FX_MS - 1200);
+  setTimeout(restore, VAT_FX_MS);
 });
 
 // ── Ghost-mode audio ───────────────────────────────────────────────────────
@@ -651,87 +729,7 @@ const SFX_PLOP = {
   ] },
 };
 
-// Pee stream — a solid, steady jet, NOT a splashy patter, but never perfectly
-// static (a dead-steady jet is the fake-sounding tell). Each burst is broad
-// filtered noise held at near-full sustain with a gentle turbulence flutter and a
-// per-burst ±6% jitter, so it reads as one living, continuous stream; the gaps
-// between the bodily plugin's spaced bursts give the natural "breaks". The
-// surface it hits shapes the tone and adds its own splatter + resonant ring:
-//   main = stream-body noise center · high = airy hiss edge · body = low impact
-//   tone · splash = the bright splatter of the jet striking · res = the surface's
-//   own resonant ring under it (0 = dead, no reflection) · flutter = base
-//   turbulence LFO Hz.
-const STREAM_SURFACES = {
-  // toilet — water in the bowl: bright, bubbling, resonant droplets
-  water:    { main: 2100, high: 3200, hiGain: 0.08, body: 180, splash: 2700, splashGain: 0.10, res: 540,  resGain: 0.06, flutter: 8  },
-  // ground — crisp splatter, short bright reflection, faint metallic overtone
-  concrete: { main: 2600, high: 4200, hiGain: 0.12, body: 140, splash: 3800, splashGain: 0.12, res: 1600, resGain: 0.04, flutter: 10 },
-  // furniture — dull absorbed hiss, no resonance
-  soft:     { main: 1500, high: 2400, hiGain: 0.05, body: 160, splash: 2000, splashGain: 0.05, res: 0,    resGain: 0,    flutter: 7  },
-  // a person — muffled patter, no resonance
-  body:     { main: 1200, high: 2000, hiGain: 0.04, body: 150, splash: 1600, splashGain: 0.05, res: 0,    resGain: 0,    flutter: 7  },
-};
-// mode: 'start' (onset — narrow/high, swells in over ~200ms with extra wobble as
-// the jet finds its footing), 'steady' (the held jet), 'fade' (winding into a lull).
-function makePeeStream(surface, mode) {
-  const s = STREAM_SURFACES[surface] || STREAM_SURFACES.water;
-  const j = 1 + (Math.random() * 0.12 - 0.06); // ±6% on the noise center per burst
-  const flutter = s.flutter + Math.random() * 3; // turbulence LFO drifts a little
 
-  if (mode === 'fade') {
-    // Tapering into a lull — no sustain plateau, a long soft release so the
-    // stream audibly winds down instead of just stopping.
-    return {
-      id: 'sfx_pee_stream_fade', name: 'sfx_pee_stream_fade', category: 'sfx', priority: 3,
-      config: { duration: 1.3, layers: [
-        { noiseMix: 1, filter: { type: 'bandpass', freq: s.main * j, q: 0.55 }, tremolo: { rate: flutter, depth: 0.14 }, adsr: { a: 0.05, d: 0.5, s: 0.15, r: 0.7 }, gain: 0.22 },
-        { noiseMix: 1, filter: { type: 'highpass', freq: s.high, q: 0.5 }, adsr: { a: 0.05, d: 0.5, s: 0.1, r: 0.7 }, gain: s.hiGain * 0.7 },
-      ] },
-    };
-  }
-
-  const starting = mode === 'start';
-  const layers = [
-    // Stream body — broad, low-Q noise at near-full sustain with a gentle flutter
-    // (a few %). On the onset the attack is slower (swells in) and the flutter
-    // deeper while the jet stabilizes.
-    { noiseMix: 1, filter: { type: 'bandpass', freq: s.main * j, q: 0.55 }, tremolo: { rate: starting ? flutter * 1.5 : flutter, depth: starting ? 0.18 : 0.08 }, adsr: { a: starting ? 0.2 : 0.12, d: 0.1, s: 0.95, r: 0.22 }, gain: 0.26 },
-    // Thin airy hiss edge on top.
-    { noiseMix: 1, filter: { type: 'highpass', freq: s.high, q: 0.5 }, adsr: { a: starting ? 0.06 : 0.14, d: 0.1, s: 0.92, r: 0.22 }, gain: s.hiGain },
-    // Bright splatter of the jet striking the surface.
-    { noiseMix: 1, filter: { type: 'bandpass', freq: s.splash, q: 0.9 }, tremolo: { rate: flutter * 1.7, depth: 0.25 }, adsr: { a: starting ? 0.14 : 0.12, d: 0.1, s: 0.85, r: 0.2 }, gain: s.splashGain },
-    // Low impact of the stream on the surface; the onset slides down as it settles.
-    // Light FM adds a subtle liquid texture (spec: "light FM modulation adds texture").
-    { waveform: 'sine', freq: starting ? s.body * 1.5 : s.body, pitchBend: starting ? { to: s.body, time: 0.4 } : undefined, fm: { rate: s.body * 0.25, depth: s.body * 0.15 }, adsr: { a: starting ? 0.08 : 0.12, d: 0.1, s: 0.9, r: 0.22 }, gain: 0.05 },
-  ];
-  // A surface with a live resonance rings faintly under the stream (water droplets,
-  // concrete's short metallic reflection); soft/body surfaces stay dead.
-  if (s.resGain > 0) {
-    layers.push({ waveform: 'triangle', freq: s.res, fm: { rate: s.res * 0.5, depth: s.res * 0.3 }, adsr: { a: 0.1, d: 0.2, s: 0.5, r: 0.25 }, gain: s.resGain });
-  }
-  return {
-    id: starting ? 'sfx_pee_start' : 'sfx_pee_stream',
-    name: starting ? 'sfx_pee_start' : 'sfx_pee_stream',
-    category: 'sfx', priority: 3,
-    config: { duration: starting ? 1.0 : 1.6, layers },
-  };
-}
-
-// A single soft droplet in a mid-stream lull, or a final tail-off drip — quiet,
-// brief, pitch-scattered so no two are identical, with a bell-like resonant ring
-// on a live surface (spec: "small resonant impacts") and dead on a soft one.
-function makePeeDribble(surface) {
-  const s = STREAM_SURFACES[surface] || STREAM_SURFACES.water;
-  const p = 0.85 + Math.random() * 0.4; // pitch scatter
-  const layers = [
-    { waveform: 'sine', freq: s.body * 4 * p, pitchBend: { to: s.body * 2 * p, time: 0.12 }, adsr: { a: 0.003, d: 0.1, s: 0, r: 0.12 }, gain: 0.12 },
-    { noiseMix: 1, filter: { type: 'bandpass', freq: s.splash, q: 1.3 }, adsr: { a: 0.003, d: 0.08, s: 0, r: 0.1 }, gain: 0.06 },
-  ];
-  if (s.resGain > 0) {
-    layers.push({ waveform: 'sine', freq: s.res * 2 * p, adsr: { a: 0.002, d: 0.18, s: 0, r: 0.16 }, gain: s.resGain * 1.2 });
-  }
-  return { id: 'sfx_pee_dribble', name: 'sfx_pee_dribble', category: 'sfx', priority: 3, config: { duration: 0.35, layers } };
-}
 
 // Toilet flush — the initial water rush swells then drains, a low swirling gurgle
 // pitches down as the bowl empties, and a high tank-refill trickle lingers after.
@@ -744,47 +742,52 @@ const SFX_FLUSH = {
   ] },
 };
 
-// A fart — a buzzy sawtooth "brap" with a tremolo flutter and a noise splatter,
-// pitch sagging as it goes. `big` makes it longer, lower, LOUDER (the rare poop
-// finale, so it earns the volume), with a plop tail. Normal farts are kept well
-// back — they broadcast to the whole room and repeat, so restraint reads better.
-// Freq jitters per call so no two are identical.
-function makeFart(big, seedFreq) {
-  const base = (big ? 78 : 92) + seedFreq;
-  const dur = big ? 1.2 : 0.5;
-  const layers = [
-    { waveform: 'sawtooth', freq: base, pitchBend: { to: base * 0.7, time: dur * 0.9 }, tremolo: { rate: big ? 15 : 23, depth: 0.9 }, filter: { type: 'lowpass', freq: big ? 620 : 720, q: 1.3 }, adsr: { a: 0.01, d: 0.15, s: 0.7, r: big ? 0.3 : 0.15 }, gain: big ? 0.52 : 0.35 },
-    { noiseMix: 1, filter: { type: 'bandpass', freq: big ? 340 : 420, q: 1.4 }, tremolo: { rate: big ? 13 : 19, depth: 0.7 }, adsr: { a: 0.01, d: 0.15, s: 0.5, r: 0.15 }, gain: big ? 0.2 : 0.13 },
-  ];
-  if (big) {
-    // Plop tail, delayed to land after the brap.
-    layers.push(
-      { waveform: 'sine', freq: 110, pitchBend: { to: 50, time: 0.2 }, delay: 0.85, adsr: { a: 0.004, d: 0.18, s: 0, r: 0.1 }, gain: 0.6 },
-      { noiseMix: 1, filter: { type: 'bandpass', freq: 1000, q: 1 }, delay: 0.85, adsr: { a: 0.004, d: 0.15, s: 0, r: 0.08 }, gain: 0.28 },
-    );
-  }
-  return { id: 'sfx_fart', name: 'sfx_fart', category: 'sfx', priority: 4, config: { duration: big ? 1.3 : 0.55, layers } };
-}
 
-on('bodily.sfx', ({ zoneId, playerId, cue, surface }) => {
-  // The stream is personal; farts/plops/finale/flush carry to everyone in the room.
-  if (cue === 'stream' || cue === 'stream_fade' || cue === 'stream_start') {
-    const mode = cue === 'stream_fade' ? 'fade' : cue === 'stream_start' ? 'start' : 'steady';
-    if (playerId) sendToPlayer(playerId, { type: 'audio_sfx', def: makePeeStream(surface, mode), gain: mode === 'fade' ? 0.7 : 0.9 });
+// Cooking (and, in time, anything else that hits, cuts, stirs or heats a
+// material) emits a SEMANTIC event — an action, a material, an intensity — and
+// never a sound. Everything acoustic is decided here, so the same vocabulary can
+// be emitted by smithing or chemistry later and get audio for nothing.
+on('cooking.sfx', ({ zoneId, playerId, personal, ...params }) => {
+  if (!params.action) return;
+  // PARAMETERS, NOT LAYERS. A hot sizzle is ~32 randomised burst layers; shipping
+  // those serialised cost 6 KB per cue to every player in the room, and a deglaze
+  // fires three at once. The client holds the same generator (client/shared/
+  // procedural-sfx.js) and rebuilds the identical field from the seed, so the
+  // wire carries about a hundred bytes instead.
+  const msg = { type: 'audio_sfx_proc', params: { ...params, seed: (Math.random() * 0xffffffff) >>> 0 } };
+  // A knife on a board carries; spreading butter is your own business.
+  if (personal && playerId) sendToPlayer(playerId, msg);
+  else if (zoneId) sendToZone(zoneId, msg);
+});
+
+// Pissing and farting are PUBLIC. Both used to be hand-authored — the stream was
+// one fixed sound whatever the pressure behind it, and went only to the person
+// doing it, so a man relieving himself in a crowded bar was silent to the bar.
+// Both now run through the procedural transport: parameters and a seed, scaled
+// by how badly the character needed it, heard by the whole room.
+const STREAM_PHASE = { stream: 'steady', stream_start: 'start', stream_fade: 'fade', stream_dribble: 'dribble', final_drip: 'dribble' };
+
+on('bodily.sfx', ({ zoneId, playerId, cue, surface, intensity, style }) => {
+  const proc = (params, gain) => {
+    const msg = { type: 'audio_sfx_proc', gain, params: { ...params, seed: (Math.random() * 0xffffffff) >>> 0 } };
+    if (zoneId) sendToZone(zoneId, msg);
+    else if (playerId) sendToPlayer(playerId, msg);
+  };
+
+  if (STREAM_PHASE[cue]) {
+    proc({ action: 'stream', surface, intensity: intensity ?? 0.6, state: STREAM_PHASE[cue] },
+      cue === 'stream_fade' ? 0.7 : cue === 'final_drip' ? 0.6 : 0.9);
     return;
   }
-  if (cue === 'stream_dribble' || cue === 'final_drip') {
-    if (playerId) sendToPlayer(playerId, { type: 'audio_sfx', def: makePeeDribble(surface), gain: cue === 'final_drip' ? 0.6 : 0.7 });
+  if (cue === 'fart' || cue === 'finale') {
+    // `finale` is the end of a bowel movement — always a big one.
+    // `state` is how the transport carries a style token to any generator.
+    proc({ action: 'flatus', intensity: cue === 'finale' ? Math.max(0.8, intensity ?? 0.8) : (intensity ?? 0.5), state: style });
     return;
   }
   if (!zoneId) return;
   if (cue === 'flush') { sendToZone(zoneId, { type: 'audio_sfx', def: SFX_FLUSH }); return; }
-  const jitter = Math.floor(Math.random() * 26) - 10; // -10..+15 Hz
-  let def;
-  if (cue === 'fart')        def = makeFart(false, jitter);
-  else if (cue === 'plop')   def = SFX_PLOP;
-  else if (cue === 'finale') def = makeFart(true, jitter);
-  if (def) sendToZone(zoneId, { type: 'audio_sfx', def });
+  if (cue === 'plop')  { sendToZone(zoneId, { type: 'audio_sfx', def: SFX_PLOP }); return; }
 });
 
 // ── Weather ambience (reactive) ───────────────────────────────────────────
@@ -964,6 +967,16 @@ const WEATHER_EVENT_FALLBACK = {
     layers: [
       { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 2800, q: 0.7 }, adsr: { a: 1.5, d: 0, s: 1, r: 1.5 }, gain: 0.34 },
       { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 5200, q: 1.4 }, tremolo: { rate: 3, depth: 0.3 }, adsr: { a: 1.5, d: 0, s: 0.7, r: 1.5 }, gain: 0.2 },
+    ],
+    // The bed alone is a flat hiss. These are the individual spatters — a drop
+    // finding metal and going to work on it — and they're what makes the sound
+    // read as corrosive rather than as static. Faster and quieter than the ion
+    // zaps: acid is constant and everywhere, lightning is an event.
+    sparkle: [
+      { everyMin: 0.6, everyMax: 2.2, prob: 0.9, gain: 0.3, duration: 0.3, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 4200, q: 2.2 }, adsr: { a: 0.01, d: 0.12, s: 0.3, r: 0.18 }, gain: 0.42 },
+        { waveform: 'sawtooth', freq: 240, pitchBend: { to: 90, time: 0.28 }, filter: { type: 'lowpass', freq: 900, q: 0.8 }, adsr: { a: 0.02, d: 0.1, s: 0.2, r: 0.16 }, gain: 0.12 },
+      ] },
     ],
   } },
 };

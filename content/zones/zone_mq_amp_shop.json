@@ -15,7 +15,7 @@
     "south": "zone_district_905_908"
   },
   "flags": {
-    "building_name": "Ampersand Electronics",
+    "building_name": "Ohm Sweet Ohm",
     "building_type": "shop",
     "is_building": true,
     "is_interior": true,
@@ -26,7 +26,7 @@
   "grid_z": 0,
   "id": "zone_mq_amp_shop",
   "map_id": "map_int_mq_amp",
-  "name": "Ampersand Electronics",
+  "name": "Ohm Sweet Ohm",
   "parent_zone": "zone_district_905_908",
   "updated_at": "1782964407"
 }

@@ -1,0 +1,99 @@
+{
+  "banter": [],
+  "description": "A short, thick-forearmed woman with a burn scar that climbs out of her collar and stops just under her jaw, and the permanent squint of somebody who has looked into a forge for a living. She talks to you while working and does not stop working.",
+  "dialogue_tree": {
+    "root": {
+      "text": "\"Mind the floor, it's all grit.\" She sets something glowing back into the coals. \"You after an edge, or just warm?\"",
+      "options": [
+        {
+          "text": "Let me see what you have.",
+          "next": "shop"
+        },
+        {
+          "text": "I don't know one end from the other.",
+          "next": "green"
+        },
+        {
+          "text": "Who makes these?",
+          "next": "marques"
+        }
+      ]
+    },
+    "shop": {
+      "action": "OPEN_SHOP",
+      "text": "She wipes her hands and lifts the counter flap.",
+      "next": "bye"
+    },
+    "green": {
+      "text": "\"Then take the leaf-spring off the rack by the door. It's free, it's rubbish, and it'll teach you more in a month than that\" — she nods at the glass case — \"will teach you in a year. Come back when you've stopped cutting yourself.\"",
+      "options": [
+        {
+          "text": "Fair enough.",
+          "next": "root"
+        }
+      ]
+    },
+    "marques": {
+      "text": "\"House work is mine — the Trueline. Circle mark on every one, signature on the ones that earned it. Redlaw is transit-warden surplus, good steel, boring. Blackvane is behind the glass and you can look at it.\" She pauses. \"And if somebody in the Reach offers you a Blackvane with a motor on it, that is a decal and a chainsaw and your own business.\"",
+      "options": [
+        {
+          "text": "Noted.",
+          "next": "root"
+        }
+      ]
+    },
+    "bye": {
+      "text": "She is already back at the wheel."
+    }
+  },
+  "flags": {
+    "personality": "vendor",
+    "repairman": true,
+    "clothing_layers": [
+      "a scorched leather forge apron, scarred white where sparks have landed",
+      "a sleeveless work shirt gone grey at the seams",
+      "a plain sports bra and cotton shorts"
+    ]
+  },
+  "home_zone": "zone_grindhouse_interior",
+  "id": "npc_smith_vessa",
+  "name": "Vessa Orme",
+  "npc_type": "vendor",
+  "sex": "female",
+  "vendor_inventory": [
+    {
+      "item_id": "item_leafspring_blade",
+      "price": 0,
+      "stock": 12
+    },
+    {
+      "item_id": "item_gun_oil_kit",
+      "price": 28,
+      "stock": 10
+    },
+    {
+      "item_id": "item_orme_shortsword",
+      "price": 630,
+      "stock": 6
+    },
+    {
+      "item_id": "item_tidewell_speargun",
+      "price": 1090,
+      "stock": 3
+    },
+    {
+      "item_id": "item_redlaw_sabre",
+      "price": 1345,
+      "stock": 4
+    },
+    {
+      "item_id": "item_blackvane_longsword",
+      "price": 1765,
+      "stock": 2
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_shop_name": "Grind House",
+  "vendor_stock_size": 12,
+  "work_zone_id": "zone_grindhouse_interior"
+}

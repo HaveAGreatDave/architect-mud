@@ -18,7 +18,7 @@
   "grid_z": -1,
   "id": "zone_util_zone_dray_freightoffice",
   "map_id": "map_interior_zone_dray_freightoffice",
-  "name": "Meltwater Freight Office — Utility Room",
+  "name": "Shipping & Handling — Utility Room",
   "parent_zone": "zone_district_922_904",
   "updated_at": "1784100000"
 }

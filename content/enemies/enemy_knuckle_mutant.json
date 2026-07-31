@@ -1,0 +1,146 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "attack",
+        "type": "condition"
+      },
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "weight": 8,
+      "soak": {
+        "kinetic": 1
+      }
+    },
+    {
+      "part": "torso",
+      "weight": 26,
+      "soak": {
+        "kinetic": 3
+      }
+    },
+    {
+      "part": "left_arm",
+      "weight": 20,
+      "soak": {
+        "kinetic": 2
+      },
+      "role": "attack"
+    },
+    {
+      "part": "right_arm",
+      "weight": 20,
+      "soak": {
+        "kinetic": 2
+      },
+      "role": "attack"
+    },
+    {
+      "part": "left_leg",
+      "weight": 13,
+      "soak": {
+        "kinetic": 1
+      }
+    },
+    {
+      "part": "right_leg",
+      "weight": 13,
+      "soak": {
+        "kinetic": 1
+      }
+    }
+  ],
+  "butcher_difficulty": 6,
+  "butcher_table": [],
+  "death_message": "The knuckle-dragger topples forward onto the arms it lived by and stays there.",
+  "description": "Forearms like fire hydrants and a pair of legs that gave up the argument years ago, so it walks on its knuckles and swings from a standstill. The skin over those arms has gone thick and grey and slightly plated. Everything it does, it does with them.",
+  "dodge": 0,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": true,
+    "battle_cries": [
+      "$enemy plants both fists and drags itself at $player.",
+      "$enemy brings one grey arm up over $player like a gate closing."
+    ],
+    "first_strike_delay_ms": 6000
+  },
+  "hit": 5,
+  "hp_max": 46,
+  "id": "enemy_knuckle_mutant",
+  "loot_table": [
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        2,
+        3
+      ],
+      "weight": 26
+    },
+    {
+      "item": "item_bandage",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 12
+    },
+    {
+      "credits": [
+        45,
+        115
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 22
+    },
+    {
+      "credits": [
+        105,
+        280
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 3,
+      "super": true
+    }
+  ],
+  "name": "knuckle-dragger",
+  "weapon": [
+    {
+      "type": "kinetic",
+      "min": 3,
+      "max": 7
+    }
+  ]
+}

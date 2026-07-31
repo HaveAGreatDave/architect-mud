@@ -1,0 +1,18 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_wool_socks",
+  "name": "pair of heavy wool socks",
+  "tags": {
+    "bulkiness": 1,
+    "description": "Thick, grey, darned at both heels by somebody who cared. Wool is the one fibre that goes on working after it has been soaked through, which is a small miracle you will never notice until the day it is the only thing standing between you and a very short conversation with a surgeon.",
+    "gets_wet": true,
+    "hydrophobic": true,
+    "insulation": 2,
+    "layer": "underwear",
+    "slot": "feet"
+  },
+  "type": "clothing",
+  "value": 18,
+  "weight": 120
+}

@@ -2,7 +2,8 @@ import { getAllZones, getZone, resolveLanding, propsOf } from '../../server/engi
 import { findPath } from '../../server/engine/pathfinding.js';
 import { allExits } from '../../server/engine/exits.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
-import { registerAction } from '../../server/engine/actions.js';
+import { registerAction, dispatchAction } from '../../server/engine/actions.js';
+import { impairmentOf } from '../../server/engine/impairment.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 
 // The exact direction to step at each hop: dirs[k] is the exit direction from
@@ -23,7 +24,7 @@ function routeDirs(path) {
 // opts.avoid — a Set of zone ids to route around (auto-walk hit a blocked entrance).
 // opts.resume — this is an in-progress auto-walk reroute, not a fresh manual plot:
 // don't prompt the player and don't spam a "GPS locked" line; just quietly re-arm.
-function plotRoute(player, destZone, { avoid = null, resume = false } = {}) {
+function plotRoute(player, destZone, { avoid = null, resume = false, go = false } = {}) {
   // Open water isn't a place you can stand — you can't route to it, and it's hidden
   // from name resolution below so it never even surfaces as a candidate.
   if (!propsOf(destZone.id).routable) {
@@ -68,7 +69,11 @@ function plotRoute(player, destZone, { avoid = null, resume = false } = {}) {
     // gps_route without this flag, and in-progress reroutes pass resume) ask the
     // player whether to auto-walk there now. The client appends the y/n question
     // and arms a one-shot prompt.
-    promptAutoWalk: !resume,
+    // `!go` (see cmdGps) skips the question entirely and just starts walking —
+    // for a caller that has ALREADY asked, like the clone-vat advert's "walk me
+    // there" link. Without it that flow asks twice for one decision.
+    promptAutoWalk: !resume && !go,
+    ...(go ? { autostart: true } : {}),
     // A plain `gps` destination is a single, final target: arriving turns auto-walk
     // fully off. Only fresh plots declare this — a reroute (resume) omits it so an
     // in-progress quest walk keeps its "continuing" intent across the re-plot.
@@ -88,7 +93,7 @@ function gridDist(a, b) {
 // or a street that spans a dozen tiles ("Halcyon Boulevard"). Any one of them is as
 // good a destination as another, so route to the NEAREST reachable one instead of
 // popping an unusable N-row picker (or, worse, tie-break-routing to a far tile).
-function routeToNearest(player, candidates) {
+function routeToNearest(player, candidates, opts) {
   const here = getZone(player.current_zone);
   const sorted = candidates
     .filter(z => z.id !== player.current_zone)
@@ -97,11 +102,11 @@ function routeToNearest(player, candidates) {
   // attempts. Try the closest few so an unreachable nearest tile falls through to the
   // next — bounded so a name matching hundreds of tiles never fans out hundreds of BFS.
   for (const z of sorted.slice(0, 8)) {
-    const res = plotRoute(player, z);
+    const res = plotRoute(player, z, opts);
     if (res.type === 'gps_route') return res;
   }
   return sorted.length
-    ? plotRoute(player, sorted[0]) // surface its concrete error (e.g. can't find a path)
+    ? plotRoute(player, sorted[0], opts) // surface its concrete error (e.g. can't find a path)
     : { type: 'error', message: 'No reachable tile of that name.' };
 }
 
@@ -133,7 +138,12 @@ function cmdGps(args, raw, player) {
   const avoidM = query.match(/\s*!avoid\s+(\S+)/);
   if (avoidM) { avoid = new Set(avoidM[1].split(',').filter(Boolean)); query = query.replace(avoidM[0], '').trim(); }
   if (/\s*!resume\b/.test(query)) { resume = true; query = query.replace(/\s*!resume\b/, '').trim(); }
-  const routeOpts = { avoid, resume };
+  // `!go` — plot AND set off, no "auto-walk there now?" question. Same internal
+  // idiom as the two above (never typed by a human); used by a caller that has
+  // already put the question to the player itself.
+  let go = false;
+  if (/\s*!go\b/.test(query)) { go = true; query = query.replace(/\s*!go\b/, '').trim(); }
+  const routeOpts = { avoid, resume, go };
 
   if (!query) return { type: 'error', message: 'GPS to where? Try: gps <part of a location name>' };
 
@@ -161,6 +171,55 @@ function cmdGps(args, raw, player) {
   const direct = resolveDirect(query, player);
   if (direct) return plotRoute(player, direct, routeOpts);
 
+  // Option A½ — YOUR QUEST'S ACTUAL TILE.
+  //
+  // Coldwater's street names repeat by design: 19 tiles are called "Kessler
+  // Street", 366 are "Grasslands". So a quest objective's `desc` is not a routable
+  // name, and the generic resolution below routes to the NEAREST tile of that name
+  // — which is almost never the objective's. The player arrives somewhere that
+  // looks right, the quest doesn't move, and nothing explains why.
+  //
+  // So before name matching, ask the quests plugin what this player is actually
+  // being sent to and check the typed string against those. An objective's zone id
+  // is unambiguous, which the name never is. Async, hence the promise return —
+  // this is a typed command, not a hot path.
+  return resolveViaObjective(query, player, routeOpts);
+}
+
+// Does the typed string plausibly mean this objective? Matched against BOTH the
+// objective's own desc (what the quest log showed the player) and the target
+// tile's real name, since those can differ — and when they do, the desc is what
+// the player read and will type.
+function objectiveMatches(query, obj, zone) {
+  const q = query.toLowerCase().trim();
+  const fields = [obj.desc, zone?.name].filter(Boolean).map(s => String(s).toLowerCase());
+  return fields.some(f => f === q || f.includes(q) || q.includes(f));
+}
+
+async function resolveViaObjective(query, player, routeOpts) {
+  let objectives = [];
+  try {
+    const res = await dispatchAction({ type: 'QUEST_OBJECTIVE_ZONES', actor: player });
+    objectives = Array.isArray(res?.zones) ? res.zones : [];
+  } catch { objectives = []; }   // quests plugin absent or erroring — fall through to names
+
+  for (const obj of objectives) {
+    const zone = getZone(obj.zone);
+    if (!zone || zone.id === player.current_zone) continue;
+    if (!objectiveMatches(query, obj, zone)) continue;
+    const res = plotRoute(player, zone, routeOpts);
+    if (res.type !== 'gps_route') continue;   // unreachable — let name matching try
+    // Say WHICH stop this is. The tile's real name is often nothing like the desc
+    // the quest printed, and silently routing somewhere differently-named reads as
+    // the GPS having misheard.
+    if (res.message) res.message = `${res.message.replace(/\.$/, '')} — ${obj.questName}: ${obj.desc || zone.name}.`;
+    return res;
+  }
+  return resolveByName(query, player, routeOpts);
+}
+
+function resolveByName(query, player, routeOpts) {
+
   // Water tiles are invisible to GPS — they can't be a destination (Coldwater Basin and
   // its ilk would otherwise clutter every name match), so drop them before resolving.
   const landZones = getAllZones().filter(z => propsOf(z.id).routable);
@@ -169,7 +228,7 @@ function cmdGps(args, raw, player) {
   // street). Route to the nearest rather than SIFT's tie-break pick or a dead picker.
   const q = query.toLowerCase();
   const sameName = landZones.filter(z => String(z.name || '').trim().toLowerCase() === q);
-  if (sameName.length > 1) return routeToNearest(player, sameName);
+  if (sameName.length > 1) return routeToNearest(player, sameName, routeOpts);
 
   const r = siftResolve(query, landZones);
   if (r.type === 'none') return { type: 'error', message: `No location matching "${query.replace(/^["']|["']$/g, '')}".` };
@@ -210,6 +269,13 @@ registerAction({
 // Run button and paces GPS auto-walk off it. Bare `run` toggles; `run on|off` and
 // the `walk` alias set it explicitly.
 function setRunning(player, running) {
+  // Something can refuse the run outright — a ruined leg is the first thing that
+  // does. Asked through the impairment substrate so this never learns why.
+  const blocked = running ? impairmentOf(player).runBlocked : null;
+  if (blocked) {
+    player.running = false;
+    return { type: 'run_state', running: false, message: blocked };
+  }
   player.running = running;
   return {
     type: 'run_state',

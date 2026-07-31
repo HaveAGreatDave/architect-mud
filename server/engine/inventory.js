@@ -24,8 +24,12 @@ on('inventory.changed', ({ actor }) => { if (actor) delete actor._equippedWeapon
 export async function getEquippedWeapon(player) {
   const cached = player._equippedWeapon;
   if (cached && Date.now() - cached.at < EQUIPPED_WEAPON_TTL_MS) return cached.row;
+  // `pi.id`/`pi.condition` ride along so wear can be applied on the swing path
+  // without a query of its own (server/engine/durability.js) — the row this
+  // cache already holds is the row that wears.
   const { rows } = await query(
-    `SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+    `SELECT i.*, pi.id AS inv_id, pi.condition, pi.custom_data
+       FROM player_inventory pi JOIN items i ON i.id=pi.item_id
      WHERE pi.player_id=$1 AND pi.is_equipped=1 AND jsonb_exists(i.tags,'weapon') LIMIT 1`,
     [player.id]
   );
@@ -46,13 +50,31 @@ export async function getEquippedWeapon(player) {
 //   opts.equipped  true | false | undefined   worn-only / not-worn / either
 //   opts.orderBy   string             raw ORDER BY clause — LITERAL only, never user input
 //   opts.all       bool (default false) return every match instead of just the first
+//   opts.includeFried bool (default false) include EMP-fried instances
+//   opts.fromNearby bool (default false) on a MISS, also search furniture in the
+//                   player's zone flagged `dish_cabinet` (a rack, a cupboard, a
+//                   bar back-shelf). Opt-in, and deliberately narrow: it exists
+//                   so a kitchen you own can hold its own pots instead of you
+//                   carrying a stock pot around a gunfight. Costs ONE extra
+//                   round trip and only when the ordinary lookup found nothing,
+//                   so no hot path pays for it. A row found this way carries
+//                   `fromNearby: <furniture name>` and is used IN PLACE — never
+//                   moved into the pack — so nothing silently accumulates.
+//
+// Fried rows are excluded BY DEFAULT and on purpose. `custom_data.fried` is only
+// ever set on an `electronic` item an EMP pulse cooked, and this is the one
+// funnel every device lookup already goes through — so a fried deck, tablet or
+// torch simply isn't there, and each plugin's existing "you don't have one"
+// message does the work with no per-plugin gate. The repair path passes
+// includeFried to find the thing it's meant to be fixing.
 //
 // Rows carry: inv_id, item_id, quantity, condition, is_equipped, layer, slot,
 // custom_data, name, description, weight, tags, flags. Returns the first row (or
 // null), or an array with `all`.
 export async function resolveInventoryItem(player, opts = {}) {
   const playerId = typeof player === 'object' ? player.id : player;
-  const { tag, name, topLevel = true, equipped, orderBy, all = false } = opts;
+  const { tag, name, topLevel = true, equipped, orderBy, all = false, includeFried = false,
+          fromNearby = false } = opts;
   const where = ['pi.player_id = $1'];
   const params = [playerId];
   if (topLevel) where.push('pi.container_id IS NULL');
@@ -64,6 +86,7 @@ export async function resolveInventoryItem(player, opts = {}) {
     where.push(`(${ors.join(' OR ')})`);
   }
   if (name) { params.push(`%${name}%`); where.push(`i.name ILIKE $${params.length}`); }
+  if (!includeFried) where.push(`COALESCE(pi.custom_data->>'fried', 'false') <> 'true'`);
   const sql =
     `SELECT pi.id AS inv_id, pi.item_id, pi.quantity, pi.condition,
             pi.is_equipped, pi.layer, pi.slot, pi.custom_data,
@@ -71,7 +94,109 @@ export async function resolveInventoryItem(player, opts = {}) {
        FROM player_inventory pi JOIN items i ON i.id = pi.item_id
       WHERE ${where.join(' AND ')}${orderBy ? `\n      ORDER BY ${orderBy}` : ''}${all ? '' : '\n      LIMIT 1'}`;
   const { rows } = await query(sql, params);
-  return all ? rows : (rows[0] || null);
+  if (rows.length || !fromNearby) return all ? rows : (rows[0] || null);
+
+  // MISS, and the caller opted into the cabinet. Furniture containers already
+  // store their contents as ordinary player_inventory rows keyed by
+  // container_id, so this is the same SELECT with a different owner clause —
+  // no new storage, no new machinery, and `loadContainerById` already treats
+  // furniture flags as tags so everything downstream behaves identically.
+  const zoneId = typeof player === 'object' ? player.current_zone : null;
+  if (!zoneId) return all ? [] : null;
+  const nearWhere = [
+    `pi.container_id IN (SELECT id FROM furniture
+                          WHERE zone_id = $1 AND object_type = 'container'
+                            AND jsonb_exists(flags, 'dish_cabinet'))`,
+  ];
+  const nearParams = [zoneId];
+  if (equipped === true) nearWhere.push('pi.is_equipped = 1');
+  else if (equipped === false) nearWhere.push('pi.is_equipped = 0');
+  if (tag) {
+    const tags = Array.isArray(tag) ? tag : [tag];
+    const ors = tags.map(t => { nearParams.push(t); return `jsonb_exists(i.tags, $${nearParams.length})`; });
+    nearWhere.push(`(${ors.join(' OR ')})`);
+  }
+  if (name) { nearParams.push(`%${name}%`); nearWhere.push(`i.name ILIKE $${nearParams.length}`); }
+  if (!includeFried) nearWhere.push(`COALESCE(pi.custom_data->>'fried', 'false') <> 'true'`);
+  const nearSql =
+    `SELECT pi.id AS inv_id, pi.item_id, pi.quantity, pi.condition,
+            pi.is_equipped, pi.layer, pi.slot, pi.custom_data,
+            i.name, i.description, i.weight, i.tags, i.flags,
+            f.name AS from_nearby
+       FROM player_inventory pi
+       JOIN items i ON i.id = pi.item_id
+       JOIN furniture f ON f.id = pi.container_id
+      WHERE ${nearWhere.join(' AND ')}${orderBy ? `\n      ORDER BY ${orderBy}` : ''}${all ? '' : '\n      LIMIT 1'}`;
+  const near = await query(nearSql, nearParams);
+  return all ? near.rows : (near.rows[0] || null);
+}
+
+/**
+ * The same read as resolveInventoryItem, for MANY players in ONE round trip.
+ *
+ * Exists because per-minute ticks were calling resolveInventoryItem once per
+ * live player — one remote round trip each, every minute, whether or not that
+ * player owned anything relevant. That is a straight O(players) tax on a table
+ * that answers all of them in a single `= ANY($1)`.
+ *
+ * Same option semantics as resolveInventoryItem (tag / equipped / topLevel /
+ * includeFried); `all` and `name` don't apply. Returns Map<playerId, rows[]> —
+ * players with no matching rows are simply absent, so callers should treat a
+ * missing key as an empty list.
+ */
+export async function resolveInventoryForPlayers(playerIds, opts = {}) {
+  const ids = [...new Set((playerIds || []).filter(Boolean))];
+  const out = new Map();
+  if (!ids.length) return out;
+
+  const { tag, topLevel = false, equipped, includeFried = false } = opts;
+  const where = ['pi.player_id = ANY($1)'];
+  const params = [ids];
+  if (topLevel) where.push('pi.container_id IS NULL');
+  if (equipped === true) where.push('pi.is_equipped = 1');
+  else if (equipped === false) where.push('pi.is_equipped = 0');
+  if (tag) {
+    const tags = Array.isArray(tag) ? tag : [tag];
+    const ors = tags.map(t => { params.push(t); return `jsonb_exists(i.tags, $${params.length})`; });
+    where.push(`(${ors.join(' OR ')})`);
+  }
+  if (!includeFried) where.push(`COALESCE(pi.custom_data->>'fried', 'false') <> 'true'`);
+
+  const { rows } = await query(
+    `SELECT pi.player_id, pi.id AS inv_id, pi.item_id, pi.quantity, pi.condition,
+            pi.is_equipped, pi.layer, pi.slot, pi.custom_data,
+            i.name, i.description, i.weight, i.tags, i.flags
+       FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE ${where.join(' AND ')}`,
+    params
+  );
+  for (const r of rows) {
+    let arr = out.get(r.player_id);
+    if (!arr) { arr = []; out.set(r.player_id, arr); }
+    arr.push(r);
+  }
+  return out;
+}
+
+/**
+ * Apply a custom_data patch to MANY inventory rows in ONE round trip — the
+ * write-side twin of the above, mirroring flushDirtyResources in combat.js.
+ * `patches` is [[invId, objectToMerge], …]; merge semantics are identical to the
+ * per-row `COALESCE(custom_data,'{}') || $patch` these callers already used.
+ */
+export async function patchInventoryCustomData(patches) {
+  const list = (patches || []).filter(p => p && p[0]);
+  if (!list.length) return 0;
+  const vals = list.map((_, i) => `($${i * 2 + 1}::text, $${i * 2 + 2}::jsonb)`).join(', ');
+  const params = list.flatMap(([id, patch]) => [id, JSON.stringify(patch)]);
+  const { rowCount } = await query(
+    `UPDATE player_inventory pi
+        SET custom_data = COALESCE(pi.custom_data, '{}'::jsonb) || v.patch
+       FROM (VALUES ${vals}) AS v(id, patch)
+      WHERE pi.id = v.id`,
+    params
+  );
+  return rowCount;
 }
 
 // A fillable container holding fluid is unique (non-stackable) — only empty
@@ -83,13 +208,24 @@ const rowHasFluid = row => (row?.custom_data?.fluid_amount || 0) > 0;
 // and deletes the incoming one — which would dupe or destroy a cooked drug's
 // potency, a spliced compound's effects blob, a cigarette pack's charge count, a
 // loose single's flag, or a crate's owner lock.
-const INSTANCE_KEYS = ['fluid_amount', 'potency', 'effects', 'spliced', 'charges', 'ownerId', 'loose'];
+// 'freshness' joins this list once a perishable item gets its first checkpoint —
+// merging it into another stack would silently drop its independent decay history.
+// 'cooking' joins it the moment a cook session starts, for the same reason, and
+// 'cook_quality' stays on for good once plated — a Masterful steak must never
+// merge into a Poor one.
+// 'unpaid' joins this list for goods lifted out of a shop's display cooler: an
+// unpaid steak must never merge into a steak you already own and launder itself
+// clean on the way to the door.
+// 'show_pass' joins it because a ticket is a dated document: two passes to two
+// different tapings are not two of the same thing, and merging them would hand
+// the holder one pass carrying the wrong night's showing.
+const INSTANCE_KEYS = ['fluid_amount', 'potency', 'effects', 'spliced', 'charges', 'ownerId', 'loose', 'freshness', 'cooking', 'cook_quality', 'unpaid', 'dish', 'food_noun', 'crafted_quality', 'portion', 'minced', 'tasted', 'scored', 'tenderised', 'marinated_at', 'show_pass'];
 export const rowIsInstanced = row => {
   const cd = typeof row?.custom_data === 'string' ? (() => { try { return JSON.parse(row.custom_data); } catch { return {}; } })() : (row?.custom_data || {});
   return INSTANCE_KEYS.some(k => { const v = cd[k]; return v != null && v !== false && v !== 0; });
 };
 // SQL predicate: a stack row safe to merge into (carries none of the instance keys).
-export const NOT_INSTANCED_SQL = `(custom_data IS NULL OR NOT jsonb_exists_any(custom_data, ARRAY['fluid_amount','potency','effects','spliced','charges','ownerId','loose']))`;
+export const NOT_INSTANCED_SQL = `(custom_data IS NULL OR NOT jsonb_exists_any(custom_data, ARRAY['fluid_amount','potency','effects','spliced','charges','ownerId','loose','freshness','cooking','cook_quality','unpaid','show_pass']))`;
 
 // Move a ground inventory row into a player's inventory. Stacking-aware: a
 // stackable item merges into an existing unequipped stack the player already
@@ -128,6 +264,24 @@ export async function dropToGround(row, zoneId, qty) {
 // row — used by quest auto-spawn to seed a retrievable objective item into the
 // world so it's there to be found. Bare row (item_id + qty); the look/take path
 // enriches it from `items` like any other ground drop.
+// Spawn a fresh copy of an item INSIDE a container — a furniture container
+// (player_inventory rows whose container_id is the furniture id) or another
+// inventory row acting as a box. This is the dead-drop primitive: the item is
+// really there and really retrievable, but it isn't lying on the floor where
+// the next person through the room sees it.
+// Contents are looked up by container_id alone, so player_id is inert here —
+// but it must not be a real player's, or the row would count against someone's
+// carry weight. Use a synthetic owner, same convention as `_ground_<zone>`.
+// Taking the item out sets player_id to the taker and clears container_id.
+const containerOwner = containerId => `_container_${containerId}`;
+
+export async function spawnInContainer(itemId, containerId, qty = 1) {
+  await query(
+    'INSERT INTO player_inventory (id,player_id,item_id,quantity,is_equipped,container_id) VALUES ($1,$2,$3,$4,0,$5)',
+    [randomUUID(), containerOwner(containerId), itemId, Math.max(1, Number(qty) || 1), containerId]
+  );
+}
+
 export async function spawnOnGround(itemId, zoneId, qty = 1) {
   await query(
     'INSERT INTO player_inventory (id,player_id,item_id,quantity,is_equipped) VALUES ($1,$2,$3,$4,0)',

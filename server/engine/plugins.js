@@ -188,6 +188,33 @@ export async function fireHook(hookName, ...args) {
   return result;
 }
 
+// Every non-undefined result, not just the last one.
+//
+// `fireHook` answers "what is this value" and the last plugin to have an opinion
+// wins. Some hooks are the other shape entirely: "what does everyone have to
+// contribute". A SENSE is the clearest case — the kitchen smells of burnt fat
+// AND the floor smells of piss AND the street smells of the Slaglands, and
+// there is no sense in which one of those overwrites the others.
+//
+// Results are flattened one level so a contributor can return either a single
+// entry or a list of them without the caller caring which.
+export async function gatherHook(hookName, ...args) {
+  const handlers = hooks.get(hookName);
+  if (!handlers?.length) return [];
+
+  const out = [];
+  for (const { pluginName, handler } of handlers) {
+    try {
+      const r = await handler(...args);
+      if (r === undefined || r === null) continue;
+      Array.isArray(r) ? out.push(...r.filter(x => x != null)) : out.push(r);
+    } catch (e) {
+      console.error(`Plugin hook error [${pluginName}:${hookName}]: ${e.message}`);
+    }
+  }
+  return out;
+}
+
 // --- Command registration ---
 
 export function registerCommand(name, handler) {

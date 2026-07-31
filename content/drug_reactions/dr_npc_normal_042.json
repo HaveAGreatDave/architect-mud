@@ -1,0 +1,10 @@
+{
+  "id": "dr_npc_normal_042",
+  "drug_id": null,
+  "source": "npc",
+  "tone": "normal",
+  "self_line": "{npc} asks if you are going to be using that chair.",
+  "room_line": "{npc} asks {player} about a chair. The reply takes some time to arrive.",
+  "relation": null,
+  "npc_type": null
+}

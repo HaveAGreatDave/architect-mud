@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": null,
+  "id": "zone_kessel_shop",
+  "max_capacity_kw": 200,
+  "name": "Bodega Vu — Shop",
+  "source_type": "city_grid"
+}

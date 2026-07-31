@@ -33,12 +33,18 @@ function renderTimeWeatherPanel(data) {
   const SEVERE_THRESHOLD = 0.45;
   const forecastGrid = forecast.slice(0,7).map((f,i) => {
     const severe = (f.severity ?? 0) >= SEVERE_THRESHOLD;
+    // Mirrors the player-facing forecast panel: a scheduled hero event (acid
+    // rain, ion storm) is red and named, an ordinary severe day stays amber.
+    // Derived from the date, so scheduling a severe day here can't fake one.
+    const hero = f.heroEvent ? { icon: f.heroEventIcon || '⚠', label: f.heroEventLabel || String(f.heroEvent).replace(/_/g,' ') } : null;
+    const edge = hero ? 'var(--red)' : severe ? 'var(--yellow)' : 'var(--border)';
     return `
-    <div title="${(f.weatherType||'?')}${f.tempC!=null?' · '+f.tempC+'°C':''}${f.windKph!=null?' · '+f.windKph+' km/h '+windLabel(f.windKph):''}${f.humidityPct!=null?' · '+f.humidityPct+'% humidity':''}${severe?' · ⚠ severe (severity '+f.severity.toFixed(2)+')':''}" style="background:var(--bg3);border:1px solid ${severe?'var(--yellow)':'var(--border)'};border-radius:4px;padding:8px 4px;text-align:center;position:relative">
-      ${severe?`<div style="position:absolute;top:4px;right:6px;font-size:11px" title="Severe conditions">⚠</div>`:''}
+    <div title="${(f.weatherType||'?')}${f.tempC!=null?' · '+f.tempC+'°C':''}${f.windKph!=null?' · '+f.windKph+' km/h '+windLabel(f.windKph):''}${f.humidityPct!=null?' · '+f.humidityPct+'% humidity':''}${severe?' · ⚠ severe (severity '+f.severity.toFixed(2)+')':''}${hero?' · ⚠⚠ HERO EVENT: '+hero.label:''}" style="background:var(--bg3);border:1px solid ${edge};border-radius:4px;padding:8px 4px;text-align:center;position:relative">
+      ${hero?`<div style="position:absolute;top:4px;right:6px;font-size:11px;color:var(--red)" title="Hero event: ${hero.label}">⚠⚠</div>`
+        :severe?`<div style="position:absolute;top:4px;right:6px;font-size:11px" title="Severe conditions">⚠</div>`:''}
       <div style="font-size:9px;font-weight:600;color:var(--text-dim);letter-spacing:.5px">${i===0?'TODAY':'DAY '+(i+1)}</div>
-      <div style="font-size:22px;line-height:1.2;margin:2px 0">${f.icon||'?'}</div>
-      <div style="font-size:10px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.weatherType||'?'}</div>
+      <div style="font-size:22px;line-height:1.2;margin:2px 0">${hero?hero.icon:(f.icon||'?')}</div>
+      <div style="font-size:10px;color:${hero?'var(--red)':'var(--text)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${hero?hero.label:(f.weatherType||'?')}</div>
       ${f.tempC!=null?`<div style="font-size:12px;color:var(--text-bright);font-weight:600;margin-top:2px">${f.tempC}°</div>`:''}
       <div style="font-size:9px;color:var(--text-dim);margin-top:2px;white-space:nowrap">${f.windKph!=null?'💨'+f.windKph:''}${f.windKph!=null&&f.humidityPct!=null?' · ':''}${f.humidityPct!=null?'💧'+f.humidityPct+'%':''}</div>
     </div>`;
@@ -158,6 +164,26 @@ function renderTimeWeatherPanel(data) {
           <button class="action-btn" onclick="devApplyWeather()">Apply</button>
           <button class="action-btn danger" onclick="devMaxStorm()" title="Force thunderstorm at maximum precipitation rate (precipRate=1.0)">⛈ Max Storm</button>
           <button class="action-btn" onclick="devResetBuildingTemps()" title="Set all interior/apartment zones to 20°C">Reset Building Temps to 20°C</button>
+        </div>
+      </div>
+
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim)">Hero Weather Event</div>
+          ${env.heroEventActive?.type
+            ? `<div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:11px;color:var(--red);border:1px solid var(--red);border-radius:3px;padding:3px 8px">⚠⚠ Running: ${String(env.heroEventActive.type).replace(/_/g," ")} — ${env.heroEventActive.phase}</span>
+              </div>`
+            : `<span style="font-size:11px;color:var(--text-dim)">None running</span>`}
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:12px;line-height:1.5">
+          Named events ride <em>on top</em> of the forecast with an approach → peak → passing lifecycle,
+          forcing a severity preset instead of deriving one. One at a time. Firing one announces it to
+          every player outdoors, so this is a live-world action, not a preview.
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="action-btn danger" onclick="devTriggerHeroEvent('acid_rain')" title="Caustic downpour — gear-gated lethal, overrides precip to acid">☣ Acid Rain</button>
+          <button class="action-btn danger" onclick="devTriggerHeroEvent('ion_storm')" title="Ion storm — severity 0.9, the sky screams white">⚡ Ion Storm</button>
         </div>
       </div>
 
@@ -679,6 +705,21 @@ async function devMaxStorm() {
   const r = await API('/environment/weather/maxstorm', 'POST', {});
   if (r.error) { toast(r.error, true); return; }
   toast('⛈ Max storm forced — thunderstorm at precipRate 1.0');
+  loadPanel('timeweather');
+}
+
+// Fire a named hero weather event (acid rain / ion storm). The route and the
+// engine path have existed since step 7 — the panel simply never had a control
+// for them, so the only ways to start one were the action registry or blowing up
+// a city plant. Confirmed before firing because this is not a preview: it
+// announces itself to every player outdoors and runs a full
+// approach → peak → passing lifecycle.
+async function devTriggerHeroEvent(type) {
+  const label = type === 'acid_rain' ? 'ACID RAIN' : 'ION STORM';
+  if (!confirm(`Fire ${label} on the live world?\n\nIt announces to every player outdoors and runs its full lifecycle. One hero event at a time.`)) return;
+  const r = await API('/environment/weather/event', 'POST', { type });
+  if (r?.error || r?.ok === false) { toast(r?.error || `Could not start ${label}`, true); return; }
+  toast(`⚠⚠ ${r?.label || label} incoming`);
   loadPanel('timeweather');
 }
 

@@ -122,6 +122,23 @@
         1
       ],
       "weight": 10
+    },
+    {
+      "item": "item_bone_marrow",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 30
+    },
+    {
+      "item": "item_bone_marrow",
+      "qty": [
+        2,
+        3
+      ],
+      "weight": 3,
+      "super": true
     }
   ],
   "name": "bay leviathan",

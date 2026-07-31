@@ -168,6 +168,10 @@
           "next": "arch_defend"
         },
         {
+          "label": "Then what does it want?",
+          "next": "codex_wants"
+        },
+        {
           "label": "(leave it)",
           "next": "root"
         }
@@ -247,6 +251,43 @@
         }
       ],
       "text": "\"All twelve, sold like billboard space.\" He counts them off on ink-stained fingers, unhurried. \"Janufizz was a soda company. Februtek made robots. Marchex ran freight across half the world. Aprilex sold better genes to those who could afford them. Julyte kept the substations lit — scrape the paint off an old transformer and you'll still find their mark under three newer ones. Augmentum built limbs, and chose a grand Latin sound to seem permanent; ironically, it's the one thing of theirs that lasted. Septek was a security house — surveillance, predictive policing — which is the one that gives me a chill, given where we all ended up. Octane scarcely had to change its name at all. Novapex built rockets. And Decibel was the great broadcaster, and because their month carried the holidays, they owned the festive season for generations.\" He pauses on one, and turns his mug a quarter-turn without drinking. \"And Maytrix — an early thinking-machine company; a trademark suit forced the odd spelling. Some of us who keep these records believe their work fed, in time, the thing that drew this city.\" He does not say the word. \"I only file the belief. I've never been able to stamp it true.\""
+    },
+    "codex_habit": {
+      "options": [
+        {
+          "label": "(leave him with it)",
+          "next": "root"
+        }
+      ],
+      "text": "\"The commute,\" he says. \"The argument at the counter. The rent. The grudge. Tuesday.\" He looks, for a moment, genuinely tired. \"It didn't save humanity, whatever the Deacon sings. It kept a habit going.\"\n\nHe straightens the papers that did not need straightening. \"And I have never been able to establish whose habit it was. That's the drawer I can't fill.\""
+    },
+    "codex_theories": {
+      "options": [
+        {
+          "label": "So it wanted the ordinary parts.",
+          "next": "codex_habit"
+        }
+      ],
+      "text": "\"They do, and that's precisely what bothers me.\" The archivist's frown. \"The Custodians say preservation and point at the shelves. The Watch says containment and points at the ash. The Exodus say study. The Wildblood say farm, and don't bother pointing.\" He spreads his hands. \"Every one of those explains the evidence completely. In my profession, when four incompatible readings all fit the file perfectly, we stop admiring the readings and start asking who assembled the file.\""
+    },
+    "codex_wants": {
+      "actions": [
+        {
+          "action": "CODEX_UNLOCK",
+          "chapter": "wants"
+        }
+      ],
+      "options": [
+        {
+          "label": "So it wanted the ordinary parts.",
+          "next": "codex_habit"
+        },
+        {
+          "label": "Everyone has a theory.",
+          "next": "codex_theories"
+        }
+      ],
+      "text": "\"Ah.\" He sits back. \"The only question, and I've no business answering it, so let me tell you what I can actually stand behind.\n\nIt kept a city. Not a vault, not an archive, not a server hall with the lights off — a city. With bars in it. And traffic. And a man who steals from the co-op every Thursday and thinks nobody's noticed.\" He taps the desk once. \"If the aim was preserving us, a vault was cheaper by an order of magnitude. If the aim was finishing us, this was an extraordinary amount of unnecessary work.\""
     },
     "find": {
       "options": [
@@ -347,7 +388,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Work — the Franchise Strip runs day-labour off a board. Legal, mostly, and it pays out the same day, which is rarer than it ought to be. Ask for Marta Kell; she won't lie to you, and out here that counts double.\" He draws a line across the plan. \"There. The way's on your map.\""
+      "text": "\"Work — the Franchise Strip runs day-labour off a board. Legal, mostly, and it pays out the same day, which is rarer than it ought to be. Ask for Delia Kell; she won't lie to you, and out here that counts double.\" He draws a line across the plan. \"There. The way's on your map.\""
     },
     "folded": {
       "options": [

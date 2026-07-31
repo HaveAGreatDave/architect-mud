@@ -1,6 +1,6 @@
 // plugins/consort/index.js
 //
-// The Echelon's kept companions — Roxy & Bijou — living a life in the owner's
+// Kept companions — living a life in their keeper's rooms
 // cabin instead of working a pole. Forked in spirit from the strippers plugin,
 // but the money is gone: they're on the payroll, and what makes them undress is
 // AROUSAL, and arousal comes from exactly one person.
@@ -41,6 +41,9 @@ import { query } from '../../server/models/db.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { isStackable } from '../../server/engine/tags.js';
 import { randomUUID } from 'crypto';
+import { ARCHETYPES, PAIRINGS, archetypeOf, renderLine, soloSafe, needsOther } from './archetypes.js';
+import { rehydrateConsorts, consortRowsOf, privateSpacesOf } from './hire.js';
+import './bliss-app.js';   // registers the B.L.I.S.S. tablet app (MIS-gated)
 
 // ── Tunables ────────────────────────────────────────────────────────────────
 // Deliberately unhurried: these beats are meant to land rarely and mean something,
@@ -59,6 +62,27 @@ const MAX_TURNS      = 6;               // cap however long a chosen thread runs
 const FELLATIO_AT    = 84;              // arousal at/above which their signature act can happen
 const FELLATIO_CHANCE = 0.5;            // ...and how readily, once peaked (they're experts, not shy)
 const FELLATIO_DUO_CHANCE = 0.5;        // when both are here and peaked, chance the scene is a two-girl one
+
+// ── Absence ───────────────────────────────────────────────────────────────────
+// They notice how long you've been gone. The gap between the keeper leaving the
+// room and coming back to it is measured in REAL time (it's about the player's
+// absence, not the game clock) and, the first warm beat after a long enough one,
+// they say so instead of running the ordinary devotion pools. Two bands, because
+// "you were out for the afternoon" and "you were gone for days" are different
+// conversations and every archetype has a written line for each.
+// Consort ⇄ consort. Both have to be genuinely warmed up — a lower bar than the
+// keeper acts (FELLATIO_AT), because turning to each other is where a warm evening
+// goes before it peaks, not after. Paired or not; a pairing just brings history.
+const MUTUAL_AT     = 70;   // BOTH consorts must be at least this aroused
+const MUTUAL_CHANCE = 0.35; // ...and then only sometimes, on the shared scene cooldown
+
+// How readily two non-paired consorts acknowledge each other on an eligible beat.
+// Kept low: they're colleagues, not a double act, and this should read as texture
+// rather than a running commentary between them.
+const CO_PRESENCE_CHANCE = 0.3;
+
+const ABSENCE_SHORT_MS = 2 * 3_600_000;    // a few hours out → they mention it
+const ABSENCE_LONG_MS  = 20 * 3_600_000;   // the better part of a day+ → it lands harder
 
 // ── Runtime state (ephemeral) ─────────────────────────────────────────────────
 const arousal    = new Map(); // npcId  -> current arousal
@@ -124,157 +148,36 @@ function tieredZoneLine(zoneId, tame, graphic) {
 //           game to her own heart. Wicked and hungry on top, a real fear of being
 //           replaced underneath — which is why she can't stop watching the hatch.
 
-const VOICE = {
-  roxy: {
-    devotedTame: [
-      `marks you the second you clear the hatch and goes back to her book, having made her point.`,
-      `"There you are. The boat runs better when you're on it. Don't let that go to your head."`,
-      `"I had the galley hold dinner. I know how you lose track of time out there." A small shrug, like it cost her nothing.`,
-      `pours you two fingers of the good stuff without being asked and sets it exactly where your hand will fall.`,
-      `"Sit. You've been vertical since dawn — I can tell from here. Let me have the version of you that isn't working."`,
-      `watches you a beat too long, catches herself doing it, and goes coolly back to what she was doing.`,
-      `"I chose this, you know. All of it. Some days I even remember it was supposed to be a job." She says it lightly. It doesn't quite land light.`,
-    ],
-    devotedHot: [
-      `sets her drink down with deliberate care and crosses to you like she has all night, because she does.`,
-      `"I'm very good at this. You should let me remind you how good." She's not bragging. She's just right.`,
-      `takes your jaw in one steady hand and turns your face to the light, appraising, unhurried, in charge of the tempo.`,
-      `"The deal was I'd be worth the berth. Come here and let me overdeliver."`,
-      `"I don't do this because I have to anymore. That's the part that frightens me." She kisses you before you can answer.`,
-    ],
-    arousedTame: [
-      `"...alright. You've found the crack in me. Congratulations." Her composure is going and she hates and loves it in equal measure.`,
-      `presses the back of her hand to her mouth, steadying herself, failing at it.`,
-      `"This wasn't in the arrangement. Wanting it this much." She says it like an accusation and leans in anyway.`,
-    ],
-    arousedHot: [
-      `abandons the last of her control all at once and pulls you down with her, done pretending she's above it.`,
-      `"Fine. FINE. I need you — is that what you wanted to hear?" She's already climbing into your lap.`,
-      `guides your hand exactly where she wants it, precise even now, especially now.`,
-    ],
-    shy: [
-      `gives the guest a cool, unbothered once-over and returns to her book without a word.`,
-      `"He didn't mention company." It isn't a question, and she doesn't warm to it.`,
-      `pointedly refills only her own glass and lets the silence do the work.`,
-      `keeps herself between the stranger and Bijou, calm as a closed door.`,
-    ],
-    worried: [
-      `is across the cabin before you finish the doorway. "Sit down. Now. Let me see it — don't argue with me, just sit."`,
-      `has the medkit open on the silk already, hands quick and sure, mouth a hard flat line.`,
-      `"You come back to me like this again and I will personally end whoever did it." She's already cleaning the wound.`,
-      `presses a cloth to the worst of it, all business, and only her eyes give her away.`,
-    ],
-    pourTame: [
-      (d) => `crosses to the bar and pours you ${d} without being asked, setting it down exactly where your hand will fall.`,
-      (d) => `"You didn't have to ask. Knowing what you want before you do is the whole job." She presses ${d} into your hand.`,
-      (d) => `pours ${d} with an unhurried, practised economy and slides it to you. "There. Sit down before you fall down."`,
-    ],
-    pourHot: [
-      (d) => `pours ${d} slow, watching you over the rim of the glass, and holds it just out of reach a beat before she lets you take it.`,
-      (d) => `brings you ${d}, then leans in close enough that the drink is only half of what's on offer. "Anything else you want poured, be specific."`,
-    ],
-  },
-  bijou: {
-    devotedTame: [
-      `is off the bed and across the cabin before the hatch finishes opening. "You're BACK. God, finally, it's been an age—"`,
-      `"I watched the water all afternoon for the launch. I always spot yours first. Don't tell Roxy I said that."`,
-      `winds herself around your arm and doesn't let go. "Stay in tonight. Please. The boat's the wrong shape when you're gone."`,
-      `"Tell me you missed me. Even a little. Lie convincingly and I'll believe it on purpose."`,
-      `curls into your side like she's trying to occupy the same coordinates as you.`,
-      `"I picked this. Eyes open, both of them. Nobody warned me the feelings came free with it." She laughs. It's a little raw.`,
-      `keeps one eye on the hatch even now, as if you might be a very convincing dream about to end.`,
-    ],
-    devotedHot: [
-      `slides into your lap uninvited and grins like she owns the deed to it. "There. Now the evening can start."`,
-      `"I'm the best decision you ever made and I intend to keep proving it." She's already working your collar loose.`,
-      `"Want me. Out loud. I need to hear it more than I need air, which is embarrassing, so — indulge me."`,
-      `drags your hand under the satin and holds it there, watching your face like the answer to something lives in it.`,
-      `"You could have anyone on this whole boat, this whole city. Pick me. Pick me again." She kisses you before you can, just in case.`,
-    ],
-    arousedTame: [
-      `is undone almost instantly, breath already ragged. "That's not fair, you barely touched me—"`,
-      `whimpers and pushes into your hand, past any pretense of patience.`,
-      `"I've been like this since I heard the launch. Do something about it. Please, please—"`,
-    ],
-    arousedHot: [
-      `climbs you like the boat's going down and you're the last berth. "Now. I can't — I need it now—"`,
-      `"Tell me I'm the one you came home for. Say it while you—" and the rest dissolves into a moan.`,
-      `is all appetite and no shame, rolling against you, greedy and certain and terrified you'll stop.`,
-    ],
-    shy: [
-      `goes still and flat-eyed at the stranger, treating them like an unpleasant piece of furniture.`,
-      `edges behind Roxy and watches the hatch, willing the right face to appear in it.`,
-      `"...you're not supposed to be down here." Barely a whisper, and she won't meet the guest's eye.`,
-      `pulls the peignoir tight and makes herself small in the corner of the bed.`,
-    ],
-    worried: [
-      `makes a small wounded sound and is at your side instantly. "No, no, no — who did this, who do I have to hate, sit DOWN—"`,
-      `fusses at the wound with shaking hands, near tears. "You can't do this to me. You can't come back broken. I can't—"`,
-      `presses herself to your good side, gripping your shirt. "I thought— when the launch was late I thought— don't ever, don't EVER."`,
-      `fetches water and cloth at a run and won't stop touching you, checking you're really whole.`,
-    ],
-    pourTame: [
-      (d) => `is up and at the bar before you finish the sentence, pouring ${d}. "For you. Say thank you nicely."`,
-      (d) => `presses ${d} into your hand and folds your fingers around the glass, letting hers linger there a moment too long.`,
-      (d) => `brings you ${d} in both hands like it's something precious. "Made exactly how you like it. I pay attention."`,
-    ],
-    pourHot: [
-      (d) => `brings you ${d} and steals the first sip from your glass, eyes on you the whole time, before she hands it over.`,
-      (d) => `pours ${d} and drapes herself across your lap to deliver it. "Drink. Then I want your undivided attention."`,
-    ],
-  },
-  default: {
-    devotedTame: [
-      `watches you cross the cabin, everything in her turning to follow.`,
-      `arranges herself where the light is kindest and waits for your eyes to find her.`,
-      `"You've got that look. The one that means you're staying in tonight." She sounds glad of it.`,
-      `"There's nowhere I'd rather be than exactly where you left me."`,
-      `reaches out and just rests a hand on you, like she's checking you're real.`,
-    ],
-    devotedHot: [
-      `lets her robe fall open a careless inch and doesn't fix it, watching to see if you noticed.`,
-      `"Come here. You don't have to do anything. Just let me be near you."`,
-      `draws a slow line down her own throat, eyes on you, patient as the tide.`,
-      `"Everything I've got is already yours. I just like reminding you."`,
-    ],
-    arousedTame: [
-      `can't quite hold still now, warm and wanting under your gaze.`,
-      `"You're going to make me forget my own name again, aren't you."`,
-      `bites her lip and leans into the space between you like gravity.`,
-    ],
-    arousedHot: [
-      `presses herself against you, past shy, all heat and hunger and yours.`,
-      `"Please," she breathes, already half undone, "I've been good all day —"`,
-      `moves over you slow and shameless, the last of her modesty on the floor with her clothes.`,
-    ],
-    shy: [
-      `draws the throw up over herself and keeps to the far end of the bed, saying nothing.`,
-      `pretends to study the wall screen, arms folded, careful not to catch your eye.`,
-      `pulls her robe closed at the throat and waits, plainly, for you to leave.`,
-      `shifts so the other one is between her and you, and goes quiet.`,
-      `gives you a small, distant nod and finds something across the cabin to look at.`,
-    ],
-    worried: [
-      `drops everything and crosses to you. "You're hurt — sit, let me look at you."`,
-      `fetches a cloth and presses it to the worst of it, hands careful.`,
-      `"Whatever's out there can wait. You come first. Sit still for me."`,
-    ],
-    pourTame: [
-      (d) => `crosses to the bar, pours you ${d}, and sets it in your hand.`,
-      (d) => `pours ${d} and offers it up with a warm, easy smile.`,
-    ],
-    pourHot: [
-      (d) => `pours you ${d}, brushing close as she hands it over, in no hurry to step back.`,
-    ],
-  },
-};
+// Voice resolution. The register a consort speaks in comes from their ARCHETYPE
+// (flags.consort_archetype), never from their name — that indirection is the whole
+// reason a consort can be renamed, or generated with a random name, without
+// silently falling back to a generic voice. The pools themselves live in
+// archetypes.js alongside the rest of the authored personality.
+const voiceOf = (npc) => archetypeOf(npc);
 
-// Resolve a consort's spoken register by name (falls back to the neutral default).
-function voiceOf(npc) {
-  const n = String(npc.name || '').toLowerCase();
-  if (n.includes('roxy'))  return VOICE.roxy;
-  if (n.includes('bijou')) return VOICE.bijou;
-  return VOICE.default;
+// Pick a line from a pool and render it for this consort: pronouns resolved to
+// their sex, verb agreement fixed, name slots filled, and any beat written for two
+// consorts (the §other slot) either aimed at a present companion or skipped.
+function say(npc, pool, other = null) {
+  const usable = other ? pool : soloSafe(pool);
+  if (!usable.length) return null;
+  return renderLine(pick(usable), npc, { other: other && other.name });
+}
+
+// Which absence pool (if any) this consort owes the keeper right now. Set by the
+// tick when he walks back in after a long enough gap, consumed by the first warm
+// beat that fires, and cleared the moment he leaves again — so the "you were gone
+// for days" line lands once, on his return, and never on a loop.
+function absenceTierFor(npc, keeper, now) {
+  if (!keeper || !npc._pendingAbsence) return null;
+  const gap = npc._pendingAbsence;
+  npc._pendingAbsence = 0;
+  return gap >= ABSENCE_LONG_MS ? 'missLong' : 'missShort';
+}
+
+// Another consort in the room to aim a two-hander line at, if there is one.
+function companionFor(npc, zoneId) {
+  return getZoneNpcs(zoneId).find(n => isConsort(n) && n.id !== npc.id) || null;
 }
 
 // Peel / redress narration (generic; {g} is the garment). When she does come undone
@@ -355,8 +258,8 @@ const FELLATIO_SOLO = [
 ];
 const FELLATIO_DUO = [
   [
-    ['A', `§ draws you down onto the silk, and Bijou is already there.`,
-          `§ draws you down onto the silk and peels you open while Bijou settles in beside her, both grinning.`],
+    ['A', `§ draws you down onto the silk, and §other is already there.`,
+          `§ draws you down onto the silk and peels you open while §other settles in beside her, both grinning.`],
     ['B', `§ presses close on your other side, sharing the space easily.`,
           `§ takes you into her mouth first, slow and deep, while the other watches, waiting her turn.`],
     ['A', `§ leans in to trade places, unhurried and generous.`,
@@ -364,7 +267,7 @@ const FELLATIO_DUO = [
     ['B', `§ murmurs something to the other and they both laugh softly against you.`,
           `§ and her twin work you together, one deep and one teasing, then swap, tireless and adoring.`],
     ['A', `§ rests her head on your stomach, spent and pleased with the both of them.`,
-          `§ kisses her way back up you while Bijou finishes you off, and they share a look that says they'll do it again the second you can.`],
+          `§ kisses her way back up you while §other finishes you off, and they share a look that says they'll do it again the second you can.`],
   ],
 ];
 
@@ -393,12 +296,12 @@ const RIDE_SOLO = [
 ];
 const RIDE_DUO = [
   [
-    ['A', `§ climbs over you while Bijou settles in close beside you both.`,
-          `§ sinks down onto you while Bijou kisses her way up your chest, the two of them grinning at each other.`],
+    ['A', `§ climbs over you while §other settles in close beside you both.`,
+          `§ sinks down onto you while §other kisses her way up your chest, the two of them grinning at each other.`],
     ['B', `§ leans in, sharing the moment, hands roaming.`,
           `§ straddles your face while the other rides you, and the cabin fills with the sound of the two of them.`],
     ['A', `§ trades places without a word, generous and unhurried.`,
-          `§ lifts off and Bijou takes her in a heartbeat, keeping you buried and gasping between them.`],
+          `§ lifts off and §other takes her in a heartbeat, keeping you buried and gasping between them.`],
     ['A', `§ collapses against you, spent and glowing.`,
           `§ and her twin ride you between them until you're wrung out, then curl up warm on either side of you.`],
   ],
@@ -414,14 +317,484 @@ const HANDJOB_SOLO = [
   ],
 ];
 
+// ── The same repertoire, male consorts ──────────────────────────────────────────
+// Consorts come in both sexes, and these threads are the one place where a pronoun
+// swap isn't enough: the pools above are written for a female body and `ride` in
+// particular describes an act that simply works the other way round when the
+// consort is male. So each act carries a female and a male thread set, chosen off
+// flags.consort_sex at scene time. Same [who, tame, hot] shape, same `§` → speaker.
+const FELLATIO_SOLO_M = [
+  [
+    ['A', `§ sinks to his knees in front of you and looks up, in no hurry at all.`,
+          `§ sinks to his knees in front of you, mouth already parting, eyes up and adoring.`],
+    ['A', `§ leans in close, breath warm, and takes his time.`,
+          `§ takes you in slow and deep, throat opening for it like he's done this a thousand times and loved every one.`],
+    ['A', `§ finds a patient rhythm, watching your face for every tell.`,
+          `§ hollows his cheeks and works you with his tongue, reading each breath and giving you exactly what it asks for.`],
+    ['A', `§ hums low, savouring it, unbothered by time.`,
+          `§ takes you to the base and holds you there, throat working, eyes streaming and delighted about it.`],
+    ['A', `§ eases back with a soft, satisfied sound and rests his cheek on your thigh.`,
+          `§ pulls off slow, kisses the length of you, and murmurs, "You taste like the best part of my whole day."`],
+  ],
+  [
+    ['A', `§ tugs you toward the bed by the waistband, grinning.`,
+          `§ frees you from your clothes with practised hands and licks his lips at what he finds.`],
+    ['A', `§ starts slow and teasing, all lips and warm breath.`,
+          `§ drags his tongue up the underside of you, then swallows you down without warning, eyes locked on yours.`],
+    ['A', `§ settles into it, thorough and unhurried.`,
+          `§ works you deep and slow, one hand cupping you, the other flat on your hip to feel every twitch.`],
+    ['A', `§ looks up at you like there's nowhere else in the world he'd rather be.`,
+          `§ groans around you, the sound of it running straight up your spine, and takes you deeper still.`],
+  ],
+];
+const FELLATIO_DUO_M = [
+  [
+    ['A', `§ draws you down onto the silk, and §other is already there.`,
+          `§ draws you down onto the silk and peels you open while §other settles in beside him, both grinning.`],
+    ['B', `§ presses close on your other side, sharing the space easily.`,
+          `§ takes you into his mouth first, slow and deep, while the other watches, waiting his turn.`],
+    ['A', `§ leans in to trade places, unhurried and generous.`,
+          `§ takes over without missing a beat, the two of them passing you between warm mouths like they've rehearsed it.`],
+    ['B', `§ murmurs something to the other and they both laugh softly against you.`,
+          `§ and §other work you together, one deep and one teasing, then swap, tireless and adoring.`],
+    ['A', `§ rests his head on your stomach, spent and pleased with the both of them.`,
+          `§ kisses his way back up you while §other finishes you off, and they share a look that says they'll do it again the second you can.`],
+  ],
+];
+const RIDE_SOLO_M = [
+  [
+    ['A', `§ pushes you flat and swings a leg over you, taking his time about it.`,
+          `§ pushes you flat, straddles your hips, and works himself down onto you with a long, shameless groan.`],
+    ['A', `§ braces his hands on your chest and finds a slow rhythm.`,
+          `§ rolls his hips in a slow, filthy grind, taking you deep, watching your face the whole way down.`],
+    ['A', `§ leans down close, breath warm against your ear.`,
+          `§ rides you harder, thighs flexing either side of you, telling you between ragged breaths how much he's yours.`],
+    ['A', `§ tips his head back, utterly lost in it.`,
+          `§ drives down onto you and clenches tight, chasing it, like he never wants you to leave.`],
+  ],
+  [
+    ['A', `§ eases you back against the pillows and settles over you.`,
+          `§ guides you into him and rocks down, unhurried, savouring every inch like he's got all night.`],
+    ['A', `§ threads his fingers through yours and keeps moving.`,
+          `§ takes you slow and deep, pinning your hands, murmuring that this is exactly where he belongs.`],
+    ['A', `§ shivers and picks up the pace.`,
+          `§ grinds down faster, whole body shaking, gasping your name like a prayer he means every word of.`],
+  ],
+];
+const RIDE_DUO_M = [
+  [
+    ['A', `§ swings over you while §other settles in close beside you both.`,
+          `§ works himself down onto you while §other kisses his way up your chest, the two of them grinning at each other.`],
+    ['B', `§ leans in, sharing the moment, hands roaming.`,
+          `§ straddles your face while the other rides you, and the cabin fills with the sound of the two of them.`],
+    ['A', `§ trades places without a word, generous and unhurried.`,
+          `§ lifts off and §other takes his place in a heartbeat, keeping you buried and gasping between them.`],
+    ['A', `§ collapses against you, spent and glowing.`,
+          `§ and §other ride you between them until you're wrung out, then curl up warm on either side of you.`],
+  ],
+];
+const HANDJOB_SOLO_M = [
+  [
+    ['A', `§ reaches into your lap with a knowing little smile.`,
+          `§ frees your cock and wraps a warm hand around it, thumb already circling the head.`],
+    ['A', `§ works you slow, reading your face for every tell.`,
+          `§ strokes you in a steady, twisting rhythm, matching every breath you take and drawing out the next.`],
+    ['A', `§ rests his head on your shoulder and keeps going.`,
+          `§ jerks you faster, breath hot at your throat, telling you exactly how good you feel in his hand.`],
+  ],
+];
+
+// ── Consort ⇄ consort ───────────────────────────────────────────────────────────
+// Two consorts, both warmed right up, in a private room. Sooner or later their
+// attention lands on each other rather than on the keeper — and it isn't a
+// performance for him, which is rather the point of it. Fires for ANY two consorts
+// warm enough, paired or not: a pairing brings a history to it, but two colleagues
+// left aroused in the same room don't need one.
+//
+// Three pools by the sexes involved. In the mixed pool 'A' is ALWAYS the woman and
+// 'B' the man — mutualPoolFor() orders the cast to match, so the thread never has
+// to hedge about who is doing what. Same [who, tame, hot] shape as the keeper acts.
+const MUTUAL_FF = [
+  [
+    ['A', `§ catches §other's eye across the room and holds it a beat too long.`,
+          `§ catches §other's eye, and whatever passes between them ends with §other being pulled into her lap.`],
+    ['B', `§ goes willingly, settling in close.`,
+          `§ straddles her and kisses her open-mouthed, both of them past pretending this was going anywhere else.`],
+    ['A', `§ works loose what little §other was still wearing.`,
+          `§ strips the last of it off §other and gets her mouth on a bared breast, drawing a sound out of her.`],
+    ['B', `§ arches into her, breath gone ragged.`,
+          `§ rides §other's hand, thighs shaking, swearing softly into her hair.`],
+    ['A', `§ holds §other through it, murmuring something private.`,
+          `§ works her through it and doesn't stop until §other has gone boneless and swearing in her arms.`],
+    ['B', `§ takes a moment, then turns to return the favour, unhurried.`,
+          `§ slides down between §other's thighs to return it properly, in no hurry whatsoever.`],
+  ],
+  [
+    ['B', `§ tugs §other down onto the silk beside her without a word.`,
+          `§ pulls §other down onto the silk and is already working her out of the last of it.`],
+    ['A', `§ laughs low and lets herself be moved.`,
+          `§ laughs low, lets herself be moved, and hooks a leg over §other to keep her close.`],
+    ['B', `§ presses close, hands wandering.`,
+          `§ works two fingers into §other and swallows the noise she makes with a kiss.`],
+    ['A', `§ clings to her, undone.`,
+          `§ grinds down onto §other's hand, shameless, chasing it with her whole body.`],
+  ],
+];
+const MUTUAL_MM = [
+  [
+    ['A', `§ crosses to §other and stands close enough to make the question obvious.`,
+          `§ crosses to §other, takes a fistful of his shirt, and kisses him hard enough to answer the question.`],
+    ['B', `§ answers it by pulling him in.`,
+          `§ shoves him back against the wall and gets a hand down the front of his shorts.`],
+    ['A', `§ steers them both toward the bed, laughing at something unsaid.`,
+          `§ strips §other on the way to the bed, mouth working down his throat, neither of them patient about it.`],
+    ['B', `§ pins him there and takes his time.`,
+          `§ pins §other flat and works him with a slow, sure hand, watching every reaction he can drag out.`],
+    ['A', `§ swears, arches, and gives up on being quiet.`,
+          `§ arches off the sheets and comes apart under §other's hands, past caring who hears.`],
+    ['B', `§ settles beside him, breathing hard, thoroughly pleased.`,
+          `§ drops down beside §other and lets him return it, unhurried, the pair of them in no rush at all.`],
+  ],
+  [
+    ['B', `§ knocks his shoulder into §other's and doesn't step away again.`,
+          `§ backs §other into the nearest surface and kisses him like it's been building all week.`],
+    ['A', `§ makes a low sound and pulls him closer.`,
+          `§ drags §other's hand where he wants it and groans into his mouth.`],
+    ['B', `§ works him over slow, watching his face.`,
+          `§ sinks to his knees and takes §other in his mouth, unhurried, entirely happy about it.`],
+  ],
+];
+// Mixed: 'A' is the woman, 'B' the man. Cast is ordered to match.
+const MUTUAL_MIXED = [
+  [
+    ['B', `§ catches §other watching him and raises an eyebrow.`,
+          `§ catches §other watching him, crosses the room, and takes her face in both hands.`],
+    ['A', `§ doesn't pretend she wasn't.`,
+          `§ doesn't pretend she wasn't, and pulls him down onto the bed by the waistband.`],
+    ['B', `§ works her out of what's left of it, unhurried.`,
+          `§ peels the last of it off §other and puts his mouth everywhere he's been thinking about.`],
+    ['A', `§ pulls him over her, past waiting.`,
+          `§ hooks her legs around §other and takes him in with a long, filthy sigh.`],
+    ['B', `§ finds a rhythm and keeps it.`,
+          `§ moves in §other slow and deep, one hand at her throat, reading every sound she makes.`],
+    ['A', `§ comes apart under him, unashamed about it.`,
+          `§ clenches around him and comes apart, dragging §other over the edge right behind her.`],
+  ],
+  [
+    ['A', `§ takes §other's hand and simply doesn't let go of it.`,
+          `§ takes §other's hand, puts it where she wants it, and watches him work out what happens next.`],
+    ['B', `§ obliges without needing telling twice.`,
+          `§ obliges, fingers working her slow, mouth at her ear telling her exactly what he's going to do after.`],
+    ['A', `§ turns and pulls him with her.`,
+          `§ turns over and pulls §other in behind her, reaching back to guide him.`],
+    ['B', `§ folds himself around her and stays there.`,
+          `§ takes her from behind, slow and deep, arm locked across her chest to hold her against him.`],
+  ],
+];
+
+// The right mutual pool for two consorts, and the cast order the thread expects.
+// Returns null when there's no pool (shouldn't happen — all four sex combinations
+// are covered by three pools).
+function mutualFor(a, b) {
+  const sa = sexOf(a), sb = sexOf(b);
+  if (sa === 'female' && sb === 'female') return { pool: MUTUAL_FF, A: a, B: b };
+  if (sa === 'male' && sb === 'male') return { pool: MUTUAL_MM, A: a, B: b };
+  // Mixed — the thread is written with the woman as 'A', so order the cast to suit
+  // rather than making every line hedge about who's who.
+  return sa === 'female' ? { pool: MUTUAL_MIXED, A: a, B: b } : { pool: MUTUAL_MIXED, A: b, B: a };
+}
+
+// ── The same repertoire, for a FEMALE keeper ────────────────────────────────────
+// The keeper is a PLAYER, and players are male or female. Everything above is
+// written for a male keeper because this plugin started life as two women on one
+// man's yacht — which left every female player who kept a consort with no
+// signature acts at all. These are the other half of the matrix: what a consort
+// does for a woman, in both consort sexes. Same [who, tame, hot] shape.
+const ORAL_F_SOLO_F = [   // female consort → female keeper
+  [
+    ['A', `§ eases you back and kisses her way down, in no hurry at all.`,
+          `§ eases you back, hooks your thighs over her shoulders, and settles in like she's got all night.`],
+    ['A', `§ takes her time about it, warm and unhurried.`,
+          `§ works you slow with her tongue, reading every shift of your hips and giving back exactly what they ask for.`],
+    ['A', `§ hums against you, entirely content.`,
+          `§ moans into you, the vibration of it going straight through you, and slides two fingers in to match her mouth.`],
+    ['A', `§ keeps at it, patient past the point you can stand.`,
+          `§ works you right to the edge and holds you there, refusing to be hurried, until you're begging in earnest.`],
+    ['A', `§ rests her cheek against your thigh, thoroughly pleased with herself.`,
+          `§ takes you over the edge and works you through every last aftershock, then looks up at you, mouth wet and smug.`],
+  ],
+  [
+    ['A', `§ kneels between your knees and looks up for permission she already has.`,
+          `§ kneels between your knees, drags your underthings off with her teeth, and grins up at you.`],
+    ['A', `§ starts slow, all warmth and patience.`,
+          `§ licks into you slow and broad, then narrows to exactly the spot that makes you swear.`],
+    ['A', `§ holds your hips steady when they start to move.`,
+          `§ pins your hips flat with one forearm and keeps her rhythm no matter how much you buck against it.`],
+  ],
+];
+const ORAL_F_SOLO_M = [   // male consort → female keeper
+  [
+    ['A', `§ eases you back onto the bed and kisses his way down, unhurried.`,
+          `§ eases you back, drags you to the edge of the bed by the hips, and kneels.`],
+    ['A', `§ takes his time, reading every reaction.`,
+          `§ works you with his tongue, slow and thorough, one hand splayed across your stomach to feel every twitch.`],
+    ['A', `§ makes a low, satisfied sound against you.`,
+          `§ groans into you and works two fingers in, curling them until your back comes off the sheets.`],
+    ['A', `§ keeps going long past the point of politeness.`,
+          `§ doesn't let up, holding you open and working you through it while you shake apart under him.`],
+    ['A', `§ rests his forehead on your hip, breathing hard, delighted.`,
+          `§ kisses his way back up you, mouth still wet, entirely pleased with the state he's left you in.`],
+  ],
+  [
+    ['A', `§ tips you back and settles in without being asked.`,
+          `§ tips you back, hauls your thighs over his shoulders, and gets his mouth on you.`],
+    ['A', `§ works patiently, watching your face.`,
+          `§ licks you in long, deliberate strokes, eyes up, watching every second of what it does to you.`],
+    ['A', `§ holds you steady and keeps his rhythm.`,
+          `§ locks an arm across your hips and refuses to be rushed, no matter what you do to his hair.`],
+  ],
+];
+const ORAL_F_DUO_F = [    // two female consorts → female keeper
+  [
+    ['A', `§ draws you down onto the silk while §other settles in beside you.`,
+          `§ draws you down onto the silk and §other is already working your clothes off you.`],
+    ['B', `§ kisses her way down as the other keeps you occupied.`,
+          `§ settles between your thighs while §other kisses you quiet, the two of them working you from both ends.`],
+    ['A', `§ trades places, generous about it.`,
+          `§ takes over below without missing a beat while §other moves up to your mouth and your breasts.`],
+    ['B', `§ murmurs something to the other and they both laugh against your skin.`,
+          `§ and §other work you together, one mouth and two sets of hands, tireless and unhurried.`],
+    ['A', `§ curls up against your side, spent and warm.`,
+          `§ works you through the last of it while §other holds you steady, and neither of them lets go afterwards.`],
+  ],
+];
+const ORAL_F_DUO_M = [    // two male consorts → female keeper
+  [
+    ['A', `§ draws you down while §other takes your other side.`,
+          `§ draws you down and §other strips you between them, unhurried and entirely coordinated.`],
+    ['B', `§ moves down as the other keeps your attention.`,
+          `§ settles between your thighs while §other kisses you and works a hand over your breasts.`],
+    ['A', `§ takes his turn without a word being needed.`,
+          `§ takes over below while §other moves up, the two of them passing you between them like they've done this before.`],
+    ['B', `§ says something low to the other and they both grin.`,
+          `§ and §other work you together, one mouth below and one above, until you can't tell which is which.`],
+    ['A', `§ settles alongside you, thoroughly satisfied.`,
+          `§ works you through it while §other holds you against his chest, and they leave you wrung out between them.`],
+  ],
+];
+const RIDE_F_SOLO_M = [   // female keeper takes a male consort
+  [
+    ['A', `§ lies back and pulls you over him, letting you set the pace.`,
+          `§ lies back and pulls you astride him, hands at your hips, letting you take him at your own pace.`],
+    ['A', `§ lets you take the lead entirely.`,
+          `§ lets you work yourself down onto him and holds still, jaw tight, watching you use him exactly how you like.`],
+    ['A', `§ meets your rhythm when you find it.`,
+          `§ starts driving up to meet you, hands hard on your hips, the pair of you finding it together.`],
+    ['A', `§ holds on and gives you everything.`,
+          `§ pulls you down flush and thrusts up into you, breathless, telling you how good you feel.`],
+    ['A', `§ collapses back, wrecked and grinning.`,
+          `§ falls back wrecked and grinning, and doesn't let you climb off for a good long while.`],
+  ],
+];
+const RIDE_F_SOLO_F = [   // female consort, female keeper — no strap required
+  [
+    ['A', `§ climbs over you and settles her weight down slow.`,
+          `§ swings a leg over you and settles down until you're pressed together hot and slick.`],
+    ['A', `§ finds a rhythm and keeps it.`,
+          `§ grinds down against you in a slow filthy roll, both of you gasping every time she rocks forward.`],
+    ['A', `§ leans down close, breath at your ear.`,
+          `§ works a hand between you and keeps grinding, telling you exactly what you're doing to her.`],
+    ['A', `§ shakes and buries her face in your neck.`,
+          `§ shudders through it against you and drags you over with her, the pair of you a mess and past caring.`],
+  ],
+];
+const RIDE_F_DUO_F = [
+  [
+    ['A', `§ settles over you while §other takes the space beside your head.`,
+          `§ straddles your hips while §other straddles your face, the two of them steadying each other.`],
+    ['B', `§ leans in, sharing the moment.`,
+          `§ rocks down against your mouth while §other grinds against you below, both of them working you at once.`],
+    ['A', `§ trades places with the other, unhurried.`,
+          `§ swaps with §other without a word, and the whole thing starts again from the other end.`],
+    ['A', `§ folds down against you, spent.`,
+          `§ and §other collapse either side of you, all three of you wrecked and tangled up together.`],
+  ],
+];
+const RIDE_F_DUO_M = [
+  [
+    ['A', `§ lies back and lets you take him while §other moves in close.`,
+          `§ lies back and lets you ride him while §other kneels up beside your head.`],
+    ['B', `§ takes the place beside you, hands roaming.`,
+          `§ guides your mouth to him while §other works you from below, the two of them setting a rhythm between them.`],
+    ['A', `§ meets your pace, holding on.`,
+          `§ drives up into you while §other holds your hair, the pair of them entirely coordinated about it.`],
+    ['A', `§ gives out first, laughing about it.`,
+          `§ gives out first and §other finishes what he started, and they leave you shaking between them.`],
+  ],
+];
+const HAND_F_SOLO_F = [
+  [
+    ['A', `§ slides a hand into your lap with a knowing look.`,
+          `§ slides a hand between your thighs and starts working you slow, watching your face the whole time.`],
+    ['A', `§ keeps at it, patient, reading you.`,
+          `§ works two fingers into you and sets a rhythm with her thumb, unhurried and infuriatingly accurate.`],
+    ['A', `§ rests her head on your shoulder and doesn't stop.`,
+          `§ keeps going, mouth at your throat, telling you how wet you've got for her.`],
+  ],
+];
+const HAND_F_SOLO_M = [
+  [
+    ['A', `§ reaches over and slides a hand into your lap.`,
+          `§ slides a hand between your thighs and starts working you, slow and sure.`],
+    ['A', `§ works patiently, watching for every tell.`,
+          `§ pushes two fingers into you and curls them, learning exactly what makes you swear and doing it again.`],
+    ['A', `§ presses close and keeps going.`,
+          `§ keeps at it with his mouth at your ear, describing in detail what he intends to do to you next.`],
+  ],
+];
+
 // The acts they'll perform on the keeper — auto (when peaked) or on command. Each
-// is MIS-tiered, timed, and raises the keeper's arousal (gain per beat). maleOnly
-// acts quietly no-op for a female keeper.
+// is MIS-tiered, timed, and raises the keeper's arousal (gain per beat).
+//
+// A KEEPER IS A PLAYER, AND PLAYERS ARE MALE OR FEMALE, so every act is a full
+// matrix indexed [keeper sex][consort sex]. There is no `maleOnly` flag any more:
+// that was a fossil from when this plugin served exactly one man, and what it
+// actually did was give every female player who kept a consort nothing at all.
+//
+// Act keys are the ROLE, not the anatomy ('oral', not 'suck') — the same request
+// means different things depending on who is asking, which is the entire point of
+// the matrix. Player-facing verbs map onto these keys in DIRECT_ACT.
+//
+// Resolve through actSoloFor()/actDuoFor(). Never index solo/duo directly.
 const KEEPER_ACTS = {
-  suck:    { solo: FELLATIO_SOLO, duo: FELLATIO_DUO, gain: 16, maleOnly: true },
-  ride:    { solo: RIDE_SOLO,     duo: RIDE_DUO,     gain: 16, maleOnly: true },
-  handjob: { solo: HANDJOB_SOLO,  duo: null,         gain: 12, maleOnly: true },
+  oral: {
+    gain: 16,
+    solo: {
+      male:   { female: FELLATIO_SOLO, male: FELLATIO_SOLO_M },
+      female: { female: ORAL_F_SOLO_F, male: ORAL_F_SOLO_M },
+    },
+    duo: {
+      male:   { female: FELLATIO_DUO,  male: FELLATIO_DUO_M },
+      female: { female: ORAL_F_DUO_F,  male: ORAL_F_DUO_M },
+    },
+  },
+  ride: {
+    gain: 16,
+    solo: {
+      male:   { female: RIDE_SOLO,     male: RIDE_SOLO_M },
+      female: { female: RIDE_F_SOLO_F, male: RIDE_F_SOLO_M },
+    },
+    duo: {
+      male:   { female: RIDE_DUO,      male: RIDE_DUO_M },
+      female: { female: RIDE_F_DUO_F,  male: RIDE_F_DUO_M },
+    },
+  },
+  hand: {
+    gain: 12,
+    solo: {
+      male:   { female: HANDJOB_SOLO,  male: HANDJOB_SOLO_M },
+      female: { female: HAND_F_SOLO_F, male: HAND_F_SOLO_M },
+    },
+    duo: null,
+  },
 };
+
+const sexOf = (npc) => (npc?.flags?.consort_sex === 'male' ? 'male' : 'female');
+// The keeper's own sex. Anything not explicitly female reads as male, which keeps
+// every pre-existing keeper on exactly the threads they had before this change.
+const keeperSexOf = (p) => (p?.biological_sex === 'female' ? 'female' : 'male');
+
+// ── Co-presence: consorts who are NOT a pairing ─────────────────────────────────
+// Two consorts kept by the same person, sharing a room, who were never written for
+// each other. They don't run the two-hander threads — those belong to a PAIRING and
+// assume a shared history these two don't have — but they're not furniture either.
+// This is the basic register: sizing each other up, working out the pecking order,
+// the small courtesies and small territorialities of two people in the same job.
+//
+// Keyed by BOTH sexes, speaker first — `fm` is a woman reacting to a man, `mf` the
+// reverse — because who's in the room changes the reaction in both directions.
+// Each entry is [tame, hot]; `§` → speaker, `§other` → the other consort. The hot
+// variant only reaches MIS-opted-in eyes, same as everything else here.
+const CO_PRESENCE = {
+  ff: [
+    [`§ looks §other over once, unhurried, and files whatever she concludes away for later.`,
+     `§ takes in §other's body with a slow, frank appraisal, and doesn't much care about being caught at it.`],
+    [`§ and §other divide the room between them without a word being said about it.`,
+     `§ brushes past §other closer than the space required, and neither of them moves away.`],
+    [`"You're new." § says it to §other in a tone that gives away precisely nothing.`,
+     `"You're new." § lets her eyes travel the whole way down §other. "...I can see the appeal. Don't get comfortable."`],
+    [`§ adjusts §other's collar without being asked, and §other lets her.`,
+     `§ straightens §other's robe with unnecessary care, fingertips lingering at the throat.`],
+    [`§ moves a cushion so there's somewhere for §other to sit. It isn't quite friendliness.`,
+     `§ makes room beside her and pats it once, watching to see whether §other takes the invitation.`],
+    [`"You get talked about, you know." § tells §other that much and no more.`,
+     `"You get talked about, you know." § holds §other's eye, and the smile arrives slowly. "In detail. I asked."`],
+  ],
+  fm: [
+    [`§ studies §other with open curiosity, as though working out what he's for.`,
+     `§ looks §other over the way you'd price something, and lets him watch her do it.`],
+    [`§ gives §other a small nod — colleagues, near enough — and leaves it there.`,
+     `§ trails a hand across §other's shoulders on her way past, entirely deliberate.`],
+    [`"So there's two of us now." § says it at §other rather than to the room.`,
+     `"So there's two of us now." § looks §other up and down. "That could be interesting or it could be tiresome. Surprise me."`],
+    [`§ makes space for §other without looking up.`,
+     `§ pulls §other down beside her by the shirt front and goes back to what she was doing.`],
+    [`§ finds §other's presence obscurely reassuring and doesn't examine why.`,
+     `§ leans back against §other like he's furniture that happens to be warm, perfectly at ease about it.`],
+  ],
+  mf: [
+    [`§ stands when §other comes in, out of a habit he can't place the origin of.`,
+     `§ stands when §other comes in, and takes rather too long about looking away again.`],
+    [`§ gives §other the better chair without making anything of it.`,
+     `§ gives §other the better chair, and stays standing close enough to be noticed.`],
+    [`"You've been here longer than me." § makes it a question at §other without asking one.`,
+     `"You've been here longer than me." § lets the pause sit on §other. "You'll have to tell me what's liked around here. All of it."`],
+    [`§ keeps half an eye on §other, the way you watch someone you haven't decided about.`,
+     `§ watches §other cross the room and doesn't pretend he was looking anywhere else.`],
+    [`§ pours two and slides one to §other without asking whether she wanted it.`,
+     `§ pours two, hands §other hers, and lets his fingers stay on the glass a moment too long.`],
+  ],
+  mm: [
+    [`§ and §other acknowledge each other with the smallest possible movement of the head.`,
+     `§ holds §other's eye a beat past comfortable, and something unspoken gets settled.`],
+    [`§ takes the other side of the room from §other. Not hostile. Just arranged.`,
+     `§ ends up shoulder to shoulder with §other and neither of them bothers to fix it.`],
+    [`"Long day?" § asks §other, and means it.`,
+     `"Long day?" § asks, and puts a hand on the back of §other's neck without waiting for an answer.`],
+    [`§ works out the pecking order with §other in about four seconds and abides by it.`,
+     `§ decides the pecking order with §other in about four seconds, and looks quietly pleased with the result.`],
+    [`§ and §other fall into the easy silence of two people doing the same job.`,
+     `§ leans into §other in the easy way of two people who've already worked out what they are to each other.`],
+  ],
+};
+
+// The right co-presence pool for a speaker and the other consort in the room —
+// speaker's sex first. Both directions differ deliberately.
+function coPresenceFor(npc, other) {
+  const key = `${sexOf(npc) === 'male' ? 'm' : 'f'}${sexOf(other) === 'male' ? 'm' : 'f'}`;
+  return CO_PRESENCE[key] || null;
+}
+
+// Two consorts are a PAIRING only if they share a pairing key. Anyone else in the
+// room is a colleague, and gets the co-presence register rather than the threads.
+const arePaired = (a, b) =>
+  !!a?.flags?.consort_pairing && a.flags.consort_pairing === b?.flags?.consort_pairing;
+
+// The solo thread set for this consort.
+function actSoloFor(act, npc, keeper) {
+  return act?.solo?.[keeperSexOf(keeper)]?.[sexOf(npc)] || null;
+}
+
+// The duo thread set for a pair — only when BOTH consorts are the same sex. A
+// mixed-sex pairing is perfectly legal (the roster rolls each member's sex
+// independently), but a duo thread describes both bodies at once, so rather than
+// write a further set for every combination we fall back to a solo scene.
+// Nothing is lost but the two-at-once variant.
+function actDuoFor(act, a, b, keeper) {
+  if (!act?.duo || !a || !b) return null;
+  if (sexOf(a) !== sexOf(b)) return null;
+  return act.duo[keeperSexOf(keeper)]?.[sexOf(a)] || null;
+}
 
 // Play a MIS-tiered multi-turn scene aimed at the keeper. `speakers` maps role
 // ('A'/'B') to the consort object for that turn. Re-checks its audience each beat
@@ -451,90 +824,90 @@ function playKeeperScene(zoneId, thread, speakers, keeperId = null, gain = 14) {
   step().catch(() => {});
 }
 
-// ── Two-hander banter (Roxy ⇄ Bijou) ────────────────────────────────────────────
-// Each thread is an ordered list of [who, line] turns; who is 'R' (Roxy) or 'B'
-// (Bijou), resolved to whichever consort in the room carries that name. Same render
+// ── Two-hander banter (a PAIRING only) ──────────────────────────────────────────
+// Each thread is an ordered list of [who, line] turns; who is 'A' or 'B', resolved
+// to the two members of a pairing standing in the room (pairIn). Same render
 // convention as chitchat. PRIVATE threads play when it's just the two of them (their
 // life, each other, the one they're both waiting on); WITH_KEEPER threads play when
 // he's in the cabin and they perform their devotion — some of it aimed at him.
 const PAIR_PRIVATE = [
   [
-    ['B', `"He's not back yet." She says it to the porthole, not to Roxy.`],
-    ['R', `"He's back when he's back. Sit down, Bijou — you'll wear a track in the carpet."`],
+    ['B', `"He's not back yet." She says it to the porthole, not to §other.`],
+    ['A', `"He's back when he's back. Sit down, §other — you'll wear a track in the carpet."`],
     ['B', `"You watch that door same as me. Don't pretend you don't."`],
-    ['R', `a small, caught smile. "...I watch it a little."`],
+    ['A', `a small, caught smile. "...I watch it a little."`],
   ],
   [
-    ['R', `stretches out along the silk and sighs. "Do you ever think about before? Before the boat?"`],
+    ['A', `stretches out along the silk and sighs. "Do you ever think about before? Before the boat?"`],
     ['B', `"Every day. Then I look around at all this and I stop thinking about it."`],
-    ['R', `"That's the trick of it, isn't it. He makes the before very easy to forget."`],
+    ['A', `"That's the trick of it, isn't it. He makes the before very easy to forget."`],
   ],
   [
     ['B', `"Brush my hair? I can never reach the back the way you do."`],
-    ['R', `settles behind her and works the tangles out slow. "Hold still. You're always squirming."`],
+    ['A', `settles behind her and works the tangles out slow. "Hold still. You're always squirming."`],
     ['B', `"It's nice. Nobody did this, before you."`],
   ],
   [
-    ['R', `"You took the last of the good wine again."`],
+    ['A', `"You took the last of the good wine again."`],
     ['B', `grins, unrepentant. "I left you the bottle he likes. That's practically a love letter."`],
   ],
   [
     ['B', `"If it were only ever the two of us out here — would that be so bad?"`],
-    ['R', `quiet a moment. "It's never only the two of us. But I know what you mean."`],
+    ['A', `quiet a moment. "It's never only the two of us. But I know what you mean."`],
   ],
   [
-    ['R', `"You're humming that song again."`],
+    ['A', `"You're humming that song again."`],
     ['B', `"It's stuck. It's been stuck since the harbour." She hums it anyway, softer.`],
   ],
   [
     ['B', `paints a second coat on her toes and holds a foot out. "Honest opinion. Too much?"`],
-    ['R', `considers it like it's a matter of state. "For anyone else, yes. For you, exactly enough."`],
+    ['A', `considers it like it's a matter of state. "For anyone else, yes. For you, exactly enough."`],
     ['B', `wiggles the toes, satisfied. "That's why I ask you and not the mirror."`],
   ],
   [
-    ['R', `"Do you think he'd notice if we rearranged the whole cabin while he's out?"`],
+    ['A', `"Do you think he'd notice if we rearranged the whole cabin while he's out?"`],
     ['B', `"He notices when you move one cushion. He won't say anything. He'll just... look at it."`],
-    ['R', `laughs. "The look. God, the look. Fine, the cushion stays."`],
+    ['A', `laughs. "The look. God, the look. Fine, the cushion stays."`],
   ],
   [
     ['B', `curls up small on the chaise. "What do you think we'd be, if none of this had happened?"`],
-    ['R', `quiet a while. "Cold, probably. Hungry. Somewhere with worse light." She tucks the throw round them both. "Don't do that to yourself."`],
+    ['A', `quiet a while. "Cold, probably. Hungry. Somewhere with worse light." She tucks the throw round them both. "Don't do that to yourself."`],
   ],
   [
-    ['R', `"You fell asleep mid-sentence last night. Again."`],
+    ['A', `"You fell asleep mid-sentence last night. Again."`],
     ['B', `unbothered. "I was comfortable. That's a compliment to the company." She stretches. "What was I saying?"`],
-    ['R', `"No idea. Something about the stars. You were very moved about it."`],
+    ['A', `"No idea. Something about the stars. You were very moved about it."`],
   ],
 ];
 const PAIR_WITH_KEEPER = [
   [
-    ['B', `sits up the instant the hatch opens. "There he is. Roxy — he's home."`],
-    ['R', `already crossing the cabin. "We kept it warm for you. We always keep it warm."`],
+    ['B', `sits up the instant the hatch opens. "There he is. §other — he's home."`],
+    ['A', `already crossing the cabin. "We kept it warm for you. We always keep it warm."`],
   ],
   [
     ['B', `"He looked at you first this time. I'm keeping score, you know."`],
-    ['R', `"You keep a terrible score. He looked at the door — I was just standing in front of it."`],
+    ['A', `"You keep a terrible score. He looked at the door — I was just standing in front of it."`],
     ['B', `laughs. "Same thing, on this boat."`],
   ],
   [
-    ['R', `"Can we get you anything? You only have to say it. You barely have to say it."`],
+    ['A', `"Can we get you anything? You only have to say it. You barely have to say it."`],
     ['B', `"She means she'll fetch it. I'll supervise. It's a whole system."`],
   ],
   [
     ['B', `curls a little closer, eyes on him. "Stay in tonight. Let the sea handle the rest of them."`],
-    ['R', `"She's right. There's nothing out there we can't be for you in here."`],
+    ['A', `"She's right. There's nothing out there we can't be for you in here."`],
   ],
   [
-    ['R', `"Tell us where you sailed today. Bijou pretends she doesn't listen, but she memorises every word."`],
+    ['A', `"Tell us where you sailed today. §other pretends she doesn't listen, but she memorises every word."`],
     ['B', `doesn't look up from the porthole. "I do not." A beat. "...it was the northern channel, though, wasn't it."`],
   ],
   [
-    ['R', `"He's got that crease between his eyebrows again, Bijou."`],
+    ['A', `"He's got that crease between his eyebrows again, §other."`],
     ['B', `already moving. "I see it. I've got the shoulders, you've got the rest. Come here, you — sit."`],
   ],
   [
-    ['B', `"Roxy learned your coffee. The real way, not the way the galley does it."`],
-    ['R', `"It took me a week and I will not be humble about it. Sit. Let me ruin every other cup you'll ever have."`],
+    ['B', `"§other learned your coffee. The real way, not the way the galley does it."`],
+    ['A', `"It took me a week and I will not be humble about it. Sit. Let me ruin every other cup you'll ever have."`],
   ],
 ];
 
@@ -563,24 +936,27 @@ const TALK_SHY = [
 ];
 
 // ── Two-hander playback ─────────────────────────────────────────────────────────
-// Resolve 'R'/'B' to the named consorts in the room; play turn by turn, re-checking
-// both are still present and someone's still watching before every line.
-function playScene(zoneId, roxy, bijou, thread) {
+// Resolve 'A'/'B' to the two members of a PAIRING present in the room, and play
+// turn by turn, re-checking both are still there and someone's still watching
+// before every line. Each line is rendered for its speaker — pronouns to that
+// consort's sex, and the §other slot to whichever of the two isn't talking.
+function playScene(zoneId, a, b, thread) {
   sceneZones.add(zoneId);
   let i = 0;
   const step = () => {
-    const bothHere = roxy && bijou && !roxy._dead && !bijou._dead
-      && roxy.zone_id === zoneId && bijou.zone_id === zoneId;
+    const bothHere = a && b && !a._dead && !b._dead
+      && a.zone_id === zoneId && b.zone_id === zoneId;
     if (i >= thread.length || !bothHere || !getZonePlayers(zoneId).length) {
       sceneZones.delete(zoneId);
       return;
     }
     const [who, line] = thread[i++];
-    const speaker = who === 'B' ? bijou : roxy;
-    sendToZone(zoneId, formatChitchat(speaker.name, line));
+    const speaker = who === 'B' ? b : a;
+    const other   = who === 'B' ? a : b;
+    sendToZone(zoneId, formatChitchat(speaker.name, renderLine(line, speaker, { other: other.name })));
     const now = Date.now();
-    lastSpoke.set(roxy.id, now);
-    lastSpoke.set(bijou.id, now);
+    lastSpoke.set(a.id, now);
+    lastSpoke.set(b.id, now);
     if (speaker._ai) speaker._ai.lastSay = now;
     if (i >= thread.length) { sceneZones.delete(zoneId); return; }
     setTimeout(step, randInt(SCENE_TURN_MS[0], SCENE_TURN_MS[1]));
@@ -588,7 +964,40 @@ function playScene(zoneId, roxy, bijou, thread) {
   step();
 }
 
-const findConsort = (npcs, name) => npcs.find(n => String(n.name || '').toLowerCase().includes(name));
+// The two halves of a PAIRING standing in this room, in stable member order, or
+// null if there isn't a complete pair here. This is what replaced looking up the
+// names "roxy" and "bijou": a pairing is identified by flags.consort_pairing (a
+// B.L.I.S.S. placement) or, for authored set-pieces, by both consorts declaring
+// the same flags.consort_pairing key from the PAIRINGS registry. Two unrelated
+// consorts in the same room are NOT a pair and never run two-handers together.
+function pairIn(consorts, zoneId) {
+  const here = consorts.filter(n => n.zone_id === zoneId && !n._dead && !n._combatTargetId);
+  const byPairing = new Map();
+  for (const n of here) {
+    const key = n.flags?.consort_pairing;
+    if (!key) continue;
+    if (!byPairing.has(key)) byPairing.set(key, []);
+    byPairing.get(key).push(n);
+  }
+  for (const members of byPairing.values()) {
+    if (members.length < 2) continue;
+    // Stable A/B order. The pairing KEY may be an authored registry name or a
+    // generated uuid (a B.L.I.S.S. placement), so we don't parse it — we match the
+    // two archetypes present against the PAIRINGS registry and take its member
+    // order. That way a thread written for A always lands on the same personality
+    // whichever way round the two were spawned.
+    const kinds = members.map(m => m.flags?.consort_archetype);
+    const entry = Object.values(PAIRINGS).find(p =>
+      p.members.length === 2 && p.members.every(k => kinds.includes(k)));
+    if (entry) {
+      const a = members.find(m => m.flags?.consort_archetype === entry.members[0]);
+      const b = members.find(m => m.flags?.consort_archetype === entry.members[1] && m !== a);
+      if (a && b) return [a, b];
+    }
+    return [members[0], members[1]];
+  }
+  return null;
+}
 
 // ── The one beat that waits on him: "settle it" ─────────────────────────────────
 // Both of them, keeper present, they stage a mock-argument about which he likes best
@@ -596,40 +1005,40 @@ const findConsort = (npcs, name) => npcs.find(n => String(n.name || '').toLowerC
 // hands the room back and starts a timer); the `player.say` hook below reads his reply
 // and both of them react to the name he chose — or to his dodge, or to his silence.
 const SETTLE_TIMEOUT_MS = 90_000;                 // how long they'll wait on an answer
-const pendingSettle = new Map();                  // keeperId -> { zoneId, roxyId, bijouId, timer }
+const pendingSettle = new Map();                  // keeperId -> { zoneId, aId, bId, timer }
 
 const SETTLE_SETUP = [
   ['B', `"We had an argument today about which of us you like best."`],
-  ['R', `"There was no argument. I won." A beat. "...it was a draw. We're calling it a draw."`],
+  ['A', `"There was no argument. I won." A beat. "...it was a draw. We're calling it a draw."`],
   ['B', `leans in, eyes bright and merciless. "So settle it — out loud, a name. Whole evenings ride on this. Well?"`],
 ];
 const SETTLE_REACT = {
-  roxy: [
-    ['R', `doesn't gloat. She simply lets a slow, satisfied smile arrive and stay. "...noted. For the record."`],
-    ['B', `clutches her chest like she's been shot. "BETRAYED. In my own cabin. Roxy, don't you DARE look smug—"`],
-    ['R', `looking thoroughly smug. "I would never."`],
+  a: [
+    ['A', `doesn't gloat. She simply lets a slow, satisfied smile arrive and stay. "...noted. For the record."`],
+    ['B', `clutches her chest like she's been shot. "BETRAYED. In my own cabin. §other, don't you DARE look smug—"`],
+    ['A', `looking thoroughly smug. "I would never."`],
   ],
-  bijou: [
-    ['B', `lights up like the whole deck came on at once. "ME. He said ME — Roxy, are you hearing this—"`],
-    ['R', `dry as the good gin. "The entire harbour's hearing it, Bijou." A pause, softer. "...good taste, though. I'll allow it."`],
+  b: [
+    ['B', `lights up like the whole deck came on at once. "ME. He said ME — §other, are you hearing this—"`],
+    ['A', `dry as the good gin. "The entire harbour's hearing it, §other." A pause, softer. "...good taste, though. I'll allow it."`],
   ],
   both: [
-    ['R', `"Both of us. The diplomat's answer." She almost approves. "Cowardly. Effective. Very you."`],
-    ['B', `"He can't choose because he's SMART. Take notes, Roxy." She's delighted either way.`],
+    ['A', `"Both of us. The diplomat's answer." She almost approves. "Cowardly. Effective. Very you."`],
+    ['B', `"He can't choose because he's SMART. Take notes, §other." She's delighted either way.`],
   ],
   dodge: [
     ['B', `pouts to her full capacity. "That is not a name. That is a dodge. I know a dodge — I invented the dodge."`],
-    ['R', `"Leave him be. The non-answer IS the answer, and it's the kind one." She doesn't look entirely certain she believes that.`],
+    ['A', `"Leave him be. The non-answer IS the answer, and it's the kind one." She doesn't look entirely certain she believes that.`],
   ],
   timeout: [
     ['B', `waits, and waits, and finally throws up her hands. "He's not going to say it. He never says it."`],
-    ['R', `"That's your answer, then. He keeps us both guessing on purpose." A wry look at him. "Clever man."`],
+    ['A', `"That's your answer, then. He keeps us both guessing on purpose." A wry look at him. "Clever man."`],
   ],
 };
 
-const bothPresentWith = (zoneId, roxy, bijou, keeper) =>
-  roxy && bijou && !roxy._dead && !bijou._dead
-  && roxy.zone_id === zoneId && bijou.zone_id === zoneId
+const bothPresentWith = (zoneId, a, b, keeper) =>
+  a && b && !a._dead && !b._dead
+  && a.zone_id === zoneId && b.zone_id === zoneId
   && keeper && keeper.current_zone === zoneId;
 
 function clearSettle(keeperId) {
@@ -638,34 +1047,40 @@ function clearSettle(keeperId) {
   pendingSettle.delete(keeperId);
 }
 
-// Which reaction his spoken reply earns: a name, a "both of you", or a non-answer.
-function classifySettle(text) {
+// Which reaction the keeper's spoken reply earns: one of the two names, a "both of
+// you", or a non-answer. The names are whoever is actually standing there — the
+// old version tested for the literal strings "roxy" and "bijou", which is exactly
+// the bug that made this beat unreachable the moment a consort was renamed.
+function classifySettle(text, nameA = '', nameB = '') {
   const lower = ` ${String(text || '').toLowerCase()} `;
-  const saysRoxy  = /\broxy\b/.test(lower);
-  const saysBijou = /\bbijou\b/.test(lower);
-  if ((saysRoxy && saysBijou)
+  const escape = (n) => String(n).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const named = (n) => !!n && new RegExp(`\\b${escape(n)}\\b`).test(lower);
+  const saysA = named(nameA);
+  const saysB = named(nameB);
+  if ((saysA && saysB)
       || /\b(both|the two of you|you two|can'?t choose|won'?t choose|not choosing|equally|a draw|it'?s a tie|no favou?rite|love you both)\b/.test(lower)) return 'both';
-  if (saysRoxy)  return 'roxy';
-  if (saysBijou) return 'bijou';
+  if (saysA) return 'a';
+  if (saysB) return 'b';
   return 'dodge';
 }
 
 // Play the setup two-hander, then arm the question and let the room go quiet on him.
-function playSettleQuestion(zoneId, roxy, bijou, keeper) {
+function playSettleQuestion(zoneId, a, b, keeper) {
   sceneZones.add(zoneId);
   let i = 0;
   const step = () => {
-    if (!bothPresentWith(zoneId, roxy, bijou, keeper) || !getZonePlayers(zoneId).length) {
+    if (!bothPresentWith(zoneId, a, b, keeper) || !getZonePlayers(zoneId).length) {
       sceneZones.delete(zoneId);
       return;
     }
     if (i < SETTLE_SETUP.length) {
       const [who, line] = SETTLE_SETUP[i++];
-      const speaker = who === 'B' ? bijou : roxy;
-      sendToZone(zoneId, formatChitchat(speaker.name, line));
+      const speaker = who === 'B' ? b : a;
+      const other   = who === 'B' ? a : b;
+      sendToZone(zoneId, formatChitchat(speaker.name, renderLine(line, speaker, { other: other.name })));
       const now = Date.now();
-      lastSpoke.set(roxy.id, now);
-      lastSpoke.set(bijou.id, now);
+      lastSpoke.set(a.id, now);
+      lastSpoke.set(b.id, now);
       setTimeout(step, randInt(SCENE_TURN_MS[0], SCENE_TURN_MS[1]));
       return;
     }
@@ -673,10 +1088,10 @@ function playSettleQuestion(zoneId, roxy, bijou, keeper) {
     clearSettle(keeper.id);
     const timer = setTimeout(() => {
       pendingSettle.delete(keeper.id);
-      if (bothPresentWith(zoneId, roxy, bijou, keeper) && getZonePlayers(zoneId).length)
-        playScene(zoneId, roxy, bijou, SETTLE_REACT.timeout);
+      if (bothPresentWith(zoneId, a, b, keeper) && getZonePlayers(zoneId).length)
+        playScene(zoneId, a, b, SETTLE_REACT.timeout);
     }, SETTLE_TIMEOUT_MS);
-    pendingSettle.set(keeper.id, { zoneId, roxyId: roxy.id, bijouId: bijou.id, timer });
+    pendingSettle.set(keeper.id, { zoneId, aId: a.id, bId: b.id, timer });
   };
   step();
 }
@@ -688,15 +1103,15 @@ function onPlayerSay({ player, text }) {
   if (!player) return;
   const p = pendingSettle.get(player.id);
   if (!p) return;
-  const roxy = world.npcs.get(p.roxyId);
-  const bijou = world.npcs.get(p.bijouId);
+  const a = world.npcs.get(p.aId);
+  const b = world.npcs.get(p.bId);
   clearSettle(player.id);
-  if (!bothPresentWith(p.zoneId, roxy, bijou, player)) return;
-  const key = classifySettle(text);
+  if (!bothPresentWith(p.zoneId, a, b, player)) return;
+  const key = classifySettle(text, a.name, b.name);
   // Let his own say line land first, then they react.
   setTimeout(() => {
-    if (bothPresentWith(p.zoneId, roxy, bijou, player) && getZonePlayers(p.zoneId).length)
-      playScene(p.zoneId, roxy, bijou, SETTLE_REACT[key]);
+    if (bothPresentWith(p.zoneId, a, b, player) && getZonePlayers(p.zoneId).length)
+      playScene(p.zoneId, a, b, SETTLE_REACT[key]);
   }, 900);
 }
 
@@ -827,54 +1242,54 @@ const AREA_ACTIVITIES = {
   ],
 };
 
-// Deck two-handers — Roxy⇄Bijou banter keyed to where they're beckoned, played the
+// Deck two-handers — pairing banter keyed to where they're beckoned, played the
 // same way as the cabin scenes but out in the open (tame; the public deck isn't the
 // place they come undone). Rare and long-gapped like every other beat.
 const AREA_BANTER = {
   sundeck: [
     [
-      ['B', `sinks into the jacuzzi opposite Roxy. "He built a boat with a hot tub on the roof. For us. Do you ever just... stop and think about that?"`],
-      ['R', `"I try not to. If I think about it too hard I start crying into very expensive water."`],
+      ['B', `sinks into the jacuzzi opposite §other. "He built a boat with a hot tub on the roof. For us. Do you ever just... stop and think about that?"`],
+      ['A', `"I try not to. If I think about it too hard I start crying into very expensive water."`],
     ],
     [
-      ['R', `flicks a little water at Bijou across the froth. "You're hogging the good jet again."`],
+      ['A', `flicks a little water at §other across the froth. "You're hogging the good jet again."`],
       ['B', `"I found it first. Possession is nine tenths." She does not move. "You can share it. If you're nice."`],
-      ['R', `raises an eyebrow, and slides over. "...I can be nice."`],
+      ['A', `raises an eyebrow, and slides over. "...I can be nice."`],
     ],
     [
-      ['B', `oils her shoulders on the lounger and holds the bottle out. "Do my back? Roxy always misses a bit on purpose."`],
-      ['R', `"I do not." A beat. "I miss it so he has to finish the job. That's strategy, not laziness."`],
+      ['B', `oils her shoulders on the lounger and holds the bottle out. "Do my back? §other always misses a bit on purpose."`],
+      ['A', `"I do not." A beat. "I miss it so he has to finish the job. That's strategy, not laziness."`],
       ['B', `laughs. "See, this is exactly why he keeps us both."`],
     ],
     [
-      ['R', `stretches out gold with sun oil and sighs. "If the harbour could see us now."`],
+      ['A', `stretches out gold with sun oil and sighs. "If the harbour could see us now."`],
       ['B', `"The harbour can see us now. That's a camera drone." She waves at it, lazy and unbothered.`],
     ],
   ],
   view: [
     [
       ['B', `"I could watch this water all night."`],
-      ['R', `settles in beside her. "You say that, and then you're asleep on my shoulder in twenty minutes."`],
+      ['A', `settles in beside her. "You say that, and then you're asleep on my shoulder in twenty minutes."`],
       ['B', `"...and you let me. Every time."`],
     ],
     [
-      ['R', `"Name that constellation."`],
+      ['A', `"Name that constellation."`],
       ['B', `squints. "That one's 'The Big Expensive Boat.' And that one's 'The Two Girls Who Live On It.'"`],
-      ['R', `"...I can't fault your astronomy."`],
+      ['A', `"...I can't fault your astronomy."`],
     ],
   ],
   helipad: [
     [
-      ['B', `throws her arms wide into the wind. "I'm the queen of the entire sky, Roxy!"`],
-      ['R', `hangs back by the rail, laughing. "You're going to be the queen of the entire Basin if you lean any further."`],
+      ['B', `throws her arms wide into the wind. "I'm the queen of the entire sky, §other!"`],
+      ['A', `hangs back by the rail, laughing. "You're going to be the queen of the entire Basin if you lean any further."`],
       ['B', `"You'd catch me."`],
-      ['R', `"...I'd catch you."`],
+      ['A', `"...I'd catch you."`],
     ],
   ],
   cabin: [
     [
       ['B', `"Bet you can't guess which room he's in without looking."`],
-      ['R', `doesn't hesitate. "Bridge. He's always the bridge before dinner." A beat. "Am I right?"`],
+      ['A', `doesn't hesitate. "Bridge. He's always the bridge before dinner." A beat. "Am I right?"`],
       ['B', `grins. "You're always right. It's insufferable."`],
     ],
   ],
@@ -940,14 +1355,11 @@ function consortTick() {
       if (!isIntimateZone(zone) && !sceneZones.has(zoneId)
           && now - (sceneAt.get(zoneId) || 0) > SCENE_GAP_MS
           && Math.random() < SCENE_CHANCE) {
-        const roxy = findConsort(consorts, 'roxy');
-        const bijou = findConsort(consorts, 'bijou');
+        const pair = pairIn(consorts, zoneId);
         const pool = AREA_BANTER[areaProfile(zone)];
-        if (roxy && bijou && roxy !== bijou && pool?.length
-            && !roxy._combatTargetId && !bijou._combatTargetId
-            && roxy.zone_id === zoneId && bijou.zone_id === zoneId) {
+        if (pair && pool?.length) {
           sceneAt.set(zoneId, now);
-          playScene(zoneId, roxy, bijou, pick(pool));
+          playScene(zoneId, pair[0], pair[1], pick(pool));
           continue;                                              // the banter owns the room this tick
         }
       }
@@ -984,7 +1396,8 @@ function consortTick() {
             continue;
           }
           if (now - (lastSpoke.get(npc.id) || 0) >= SPEAK_GAP_MS && Math.random() < SPEAK_CHANCE) {
-            sendToZone(zoneId, formatChitchat(npc.name, pick(voiceOf(npc).worried)));
+            const worriedLine = say(npc, voiceOf(npc).worried, companionFor(npc, zoneId));
+            if (worriedLine) sendToZone(zoneId, formatChitchat(npc.name, worriedLine));
             lastSpoke.set(npc.id, now);
           }
           continue;                                                   // no arousal/undress while he's hurt
@@ -994,6 +1407,17 @@ function consortTick() {
         // A stranger in the room — even with him present — kills it. How far it climbs
         // this session is capped by the mood she rolled when she first warmed up, so
         // she doesn't strip every single time.
+        // Absence bookkeeping. While he's in the room we keep stamping the clock;
+        // the moment he's back after a gap worth remarking on, we arm the greeting.
+        // Leaving re-arms it, so every return is its own reunion.
+        if (keeperHere) {
+          const gap = now - (npc._lastSeenKeeper || now);
+          if (gap >= ABSENCE_SHORT_MS && !npc._absenceGreeted) npc._pendingAbsence = gap;
+          npc._lastSeenKeeper = now;
+        } else {
+          npc._absenceGreeted = 0;
+        }
+
         const warming = keeperHere && !strangerHere;
         let a = arousal.get(npc.id) || 0;
         if (warming) {
@@ -1047,25 +1471,50 @@ function consortTick() {
           continue;
         }
 
-        // Signature acts — their expertise. Peaked, alone with him, MIS on, and he's
-        // male: they start something on him, unbidden — fellatio, riding him, a slow
-        // handjob. A multi-beat, MIS-tiered, timed scene (it raises his arousal) on the
-        // same long cooldown as the two-handers, sometimes solo, sometimes both at once.
+        // Consort ⇄ consort. Another one here, BOTH of them warm enough, and their
+        // attention lands on each other rather than on the keeper. Deliberately its
+        // own branch ahead of the keeper acts, on a lower threshold: this is where a
+        // warm evening goes before it peaks. Unlike the keeper acts it does NOT care
+        // what sex the keeper is — he isn't in it — only that someone's watching, and
+        // MIS decides what that someone sees. Paired or not.
+        if (!strangerHere && !sceneZones.has(zoneId) && a >= MUTUAL_AT
+            && now - (sceneAt.get(zoneId) || 0) > SCENE_GAP_MS
+            && Math.random() < MUTUAL_CHANCE) {
+          const partner = getZoneNpcs(zoneId).find(n =>
+            isConsort(n) && n.id !== npc.id && !n._dead && !n._combatTargetId
+            && n.zone_id === zoneId && (arousal.get(n.id) || 0) >= MUTUAL_AT);
+          if (partner) {
+            const m = mutualFor(npc, partner);
+            if (m?.pool?.length) {
+              sceneAt.set(zoneId, now);
+              playKeeperScene(zoneId, pick(m.pool), { A: m.A, B: m.B }, keeper?.id || null, 12);
+              break;                                             // the scene owns the room this tick
+            }
+          }
+        }
+
+        // Signature acts — their expertise. Peaked, alone with the keeper, MIS on:
+        // they start something unbidden. A multi-beat, MIS-tiered, timed scene (it
+        // raises the keeper's arousal) on the same long cooldown as the two-handers,
+        // sometimes solo, sometimes both at once. The KEEPER'S SEX is not a gate —
+        // it selects which half of the act matrix plays.
         if (keeperHere && !strangerHere && a >= FELLATIO_AT
-            && keeper?.biological_sex === 'male' && isMisActive(keeper)
+            && isMisActive(keeper)
             && !sceneZones.has(zoneId)
             && now - (sceneAt.get(zoneId) || 0) > SCENE_GAP_MS
             && Math.random() < FELLATIO_CHANCE) {
           sceneAt.set(zoneId, now);
-          const roxy = findConsort(consorts, 'roxy');
-          const bijou = findConsort(consorts, 'bijou');
-          const bothHere = roxy && bijou && roxy !== bijou
-            && roxy.zone_id === zoneId && bijou.zone_id === zoneId;
+          const pair = pairIn(consorts, zoneId);
           const act = KEEPER_ACTS[pick(Object.keys(KEEPER_ACTS))];
-          if (bothHere && act.duo && Math.random() < FELLATIO_DUO_CHANCE) {
-            playKeeperScene(zoneId, pick(act.duo), { A: roxy, B: bijou }, keeper.id, act.gain);
+          // Threads come from [keeper sex][consort sex]. The duo set only exists for
+          // a same-sex pair, so a mixed pairing falls through to whichever of the two
+          // is running this beat.
+          const duo = pair && Math.random() < FELLATIO_DUO_CHANCE ? actDuoFor(act, pair[0], pair[1], keeper) : null;
+          if (duo) {
+            playKeeperScene(zoneId, pick(duo), { A: pair[0], B: pair[1] }, keeper.id, act.gain);
           } else {
-            playKeeperScene(zoneId, pick(act.solo), { A: npc }, keeper.id, act.gain);
+            const solo = actSoloFor(act, npc, keeper);
+            if (solo) playKeeperScene(zoneId, pick(solo), { A: npc }, keeper.id, act.gain);
           }
           break;                                                 // the scene owns the room this tick
         }
@@ -1077,15 +1526,14 @@ function consortTick() {
         if (!strangerHere && !sceneZones.has(zoneId)
             && now - (sceneAt.get(zoneId) || 0) > SCENE_GAP_MS
             && Math.random() < SCENE_CHANCE) {
-          const roxy = findConsort(consorts, 'roxy');
-          const bijou = findConsort(consorts, 'bijou');
-          if (roxy && bijou && roxy !== bijou) {
+          const pair = pairIn(consorts, zoneId);
+          if (pair) {
             sceneAt.set(zoneId, now);
             // Sometimes, with him here, they don't just perform — they make him answer.
             if (keeperHere && keeper && !pendingSettle.has(keeper.id) && Math.random() < SETTLE_CHANCE) {
-              playSettleQuestion(zoneId, roxy, bijou, keeper);
+              playSettleQuestion(zoneId, pair[0], pair[1], keeper);
             } else {
-              playScene(zoneId, roxy, bijou, pick(keeperHere ? PAIR_WITH_KEEPER : PAIR_PRIVATE));
+              playScene(zoneId, pair[0], pair[1], pick(keeperHere ? PAIR_WITH_KEEPER : PAIR_PRIVATE));
             }
             break;                                               // the scene owns the room this tick
           }
@@ -1096,15 +1544,37 @@ function consortTick() {
         // Solo beat: shy to a stranger; devoted (tier by arousal) to the keeper alone.
         // Each consort speaks in her own register (voiceOf).
         const V = voiceOf(npc);
+        const companion = companionFor(npc, zoneId);
+
+        // Co-presence: another consort here who ISN'T their pairing. They don't share
+        // the two-hander threads — those assume a history these two don't have — but
+        // they do notice each other, and the reaction depends on both their sexes.
+        // Only when the room is private: in front of a stranger the shy register wins.
+        if (companion && !arePaired(npc, companion) && !strangerHere
+            && Math.random() < CO_PRESENCE_CHANCE) {
+          const pool = coPresenceFor(npc, companion);
+          if (pool) {
+            const [tame, hot] = pick(pool);
+            const fill = (l) => renderLine(l, npc, { other: companion.name });
+            tieredZoneLine(zoneId, fill(tame), fill(hot));
+            lastSpoke.set(npc.id, now);
+            continue;
+          }
+        }
         if (strangerHere) {
-          sendToZone(zoneId, formatChitchat(npc.name, pick(V.shy)));
-          lastSpoke.set(npc.id, now);
+          const line = say(npc, V.shy, companion);
+          if (line) { sendToZone(zoneId, formatChitchat(npc.name, line)); lastSpoke.set(npc.id, now); }
         } else if (keeperHere) {
           const hot = isMisActive(keeper);
-          const pool = a >= AROUSED_AT ? (hot ? V.arousedHot : V.arousedTame)
-                                       : (hot ? V.devotedHot : V.devotedTame);
-          sendToZone(zoneId, formatChitchat(npc.name, pick(pool)));
-          lastSpoke.set(npc.id, now);
+          // How long he's been away colours the FIRST warm beat after he's back —
+          // see the absence model above. After that it's the usual devotion pools.
+          const absence = absenceTierFor(npc, keeper, now);
+          const pool = absence ? V[absence]
+            : a >= AROUSED_AT ? (hot ? V.arousedHot : V.arousedTame)
+                              : (hot ? V.devotedHot : V.devotedTame);
+          const line = say(npc, pool, companion);
+          if (line) { sendToZone(zoneId, formatChitchat(npc.name, line)); lastSpoke.set(npc.id, now); }
+          if (absence) npc._absenceGreeted = now;
         }
       }
     }
@@ -1130,11 +1600,16 @@ async function onTalk({ player, npc, broadcast }) {
   if (isKeeper && npc.dialogue_tree?.root) {
     const rendered = await renderDialogueNode(npc, 'root', player, { broadcast, npc });
     if (rendered) {
-      return { type: 'dialogue', npcId: npc.id, npcName: npc.name, node: 'root', text: rendered.text, options: rendered.options };
+      return { type: 'dialogue', npcId: npc.id, npcName: npc.name, node: 'root', text: rendered.text, options: rendered.options, stage: rendered.stage, mood: rendered.mood };
     }
   }
 
-  const line = isKeeper ? pick(TALK_TO_KEEPER) : pick(TALK_SHY);
+  // Falls back to the shared pools only if an archetype somehow carries none —
+  // every registered one does, and regress asserts it.
+  const V = voiceOf(npc);
+  const line = isKeeper
+    ? say(npc, V.talkKeeper?.length ? V.talkKeeper : TALK_TO_KEEPER)
+    : say(npc, V.talkShy?.length ? V.talkShy : TALK_SHY);
   return formatChitchat(npc.name, line);
 }
 
@@ -1164,61 +1639,16 @@ function narrateToRoom(zoneId, keeperId, tame, hot) {
   }
 }
 
-// Arrival / departure narration. From the suite she comes through the concealed
-// wardrobe; called out to any other deck she simply makes her way up to him. Each
-// consort moves in her own key — Roxy composed and unhurried, Bijou eager and
-// headlong — so beckoning both never prints the same beat twice. `§` → her name.
-const ENTRANCES = {
-  roxy: {
-    arriveWardrobe: [
-      `The mirrored wardrobe eases open and § steps through unhurried, taking in the room before she takes in you — then a small, private smile.`,
-      `The wardrobe panel swings back and § emerges, robe belted just so, her gaze finding you like she'd timed it to the second.`,
-    ],
-    arriveDeck: [
-      `§ crosses to you at her own measured pace and folds herself in at your side, as if she'd chosen the spot hours ago.`,
-      `§ makes her way over without hurry, settles in close, and lets the quiet do the greeting for her.`,
-    ],
-    departWardrobe: [
-      `§ holds your eye a beat, then slips back through the mirrored wardrobe without a wasted motion.`,
-      `§ touches two cool fingers to your jaw, unhurried, and steps back through the mirrored wardrobe out of sight.`,
-    ],
-    departDeck: [
-      `§ rises, smooths her robe, and makes her unhurried way back below to the boudoir.`,
-      `§ gives you one last measured look and heads below, in no particular hurry even now.`,
-    ],
-  },
-  bijou: {
-    arriveWardrobe: [
-      `The mirrored wardrobe bursts inward and § spills out mid-thought, reaching you before her feet quite catch up.`,
-      `The wardrobe barely clears before § slips through in a rush of warm silk, eyes going straight to you.`,
-    ],
-    arriveDeck: [
-      `§ comes across at a half-run and winds herself around your arm before you've properly turned.`,
-      `§ hurries over, robe loose and eyes bright, and folds herself in against you with a happy little sigh.`,
-    ],
-    departWardrobe: [
-      `§ steals one more look at you over her shoulder and ducks reluctantly back through the mirrored wardrobe.`,
-      `§ presses a kiss to your cheek, then one to the air, and slips back through the mirrored wardrobe.`,
-    ],
-    departDeck: [
-      `§ goes with a backward glance and a small wave, drifting below to the boudoir.`,
-      `§ blows you a kiss, holds it a beat too long, and slips away below.`,
-    ],
-  },
-  default: {
-    arriveWardrobe: [`The mirrored wardrobe swings inward and § steps out, finding you at once.`],
-    arriveDeck:     [`§ makes her way to you and settles in close.`],
-    departWardrobe: [`§ slips back through the mirrored wardrobe and is gone.`],
-    departDeck:     [`§ gathers herself and heads back below to the boudoir.`],
-  },
-};
-
-// Pick a name-varied entrance/exit line (a single line — an entrance isn't MIS-tiered).
+// Arrival / departure narration. From a room the boudoir opens onto they come
+// through the concealed wardrobe; called anywhere else they simply make their way
+// over. The pool comes from their ARCHETYPE, so a Strategist arrives composed and
+// unhurried while a Romantic arrives headlong — beckoning two never prints the same
+// beat twice, and it keeps working when the consort is a randomly-named placement
+// nobody has ever written a line for. `§` → their name.
 function pickEntrance(npc, kind, viaWardrobe) {
-  const n = String(npc.name || '').toLowerCase();
-  const table = n.includes('roxy') ? ENTRANCES.roxy : n.includes('bijou') ? ENTRANCES.bijou : ENTRANCES.default;
-  const pool = table[`${kind}${viaWardrobe ? 'Wardrobe' : 'Deck'}`];
-  return pick(pool).replace(/§/g, npc.name);
+  const table = archetypeOf(npc).entrances;
+  const pool = table[`${kind}${viaWardrobe ? 'Wardrobe' : 'Deck'}`] || table.arriveDeck;
+  return renderLine(pick(pool), npc);
 }
 
 async function cmdBeckon(args, raw, player) {
@@ -1367,8 +1797,8 @@ async function cmdPour(args, raw, player) {
   const bar = barIn(player.current_zone);
   if (!bar) return { type: 'error', message: 'There’s no bar here for her to pour from.' };
 
-  // Strip filler; what's left can name a consort ("pour Bijou") and/or a drink
-  // ("pour me a whiskey"), in any order ("roxy pour me a whiskey"). Match token by
+  // Strip filler; what's left can name a consort ("pour Vesper") and/or a drink
+  // ("pour me a whiskey"), in any order ("vesper pour me a whiskey"). Match token by
   // token so a name and a drink in the same request both land.
   const wantTokens = args.join(' ')
     .replace(/\b(pour|me|a|an|the|some|one|please|drink|glass|of)\b/gi, ' ')
@@ -1398,8 +1828,8 @@ async function cmdPour(args, raw, player) {
   // She speaks in her own register — hot only for the keeper if MIS is on; the room
   // (if anyone else is aboard) just sees the tame pour.
   const V = voiceOf(npc);
-  const tameLine = pick(V.pourTame)(dp);
-  const line = isMisActive(player) ? pick(V.pourHot)(dp) : tameLine;
+  const tameLine = renderLine(pick(V.pourTame)(dp), npc);
+  const line = isMisActive(player) ? renderLine(pick(V.pourHot)(dp), npc) : tameLine;
   const othersMsg = formatChitchat(npc.name, tameLine).message;
   for (const p of getZonePlayers(player.current_zone)) {
     if (p.id !== player.id) sendToPlayer(p.id, { type: 'zone_event', message: othersMsg });
@@ -1409,16 +1839,21 @@ async function cmdPour(args, raw, player) {
 
 // ── Direct commands to a present consort ─────────────────────────────────────────
 // The keeper addresses one of his consorts by name and tells her what he wants:
-//   roxy suck me   ·   bijou ride me   ·   roxy handjob   ·   roxy pour me a whiskey
+//   vesper suck me   ·   calla ride me   ·   sable handjob   ·   wren pour me a whiskey
 // A name-prefixed input matcher with a NARROW verb list — it never matches the
 // second word of another multi-word verb ("eat out …", "jerk off on …"), so it
 // can't shadow them. Anything whose first word isn't one of HIS present consorts
 // returns undefined and falls through to normal command routing.
-const CONSORT_DIRECT_RE = /^([a-z]+),?\s+(suck|blow|blowjob|bj|head|ride|mount|fuck|sex|screw|handjob|hj|stroke|pour|kiss)\b/i;
+// Verbs map onto the ROLE keys in KEEPER_ACTS, not onto an anatomy — "suck me" and
+// "lick me" are the same request, and what it turns into depends on who's asking.
+// `lick`/`eat` are safe additions because the matcher is name-prefixed: "eat" alone
+// still belongs to the food verb, only "vesper eat me" reaches here.
+const CONSORT_DIRECT_RE = /^([a-z]+),?\s+(suck|blow|blowjob|bj|head|lick|eat|go|ride|mount|fuck|sex|screw|handjob|hj|stroke|finger|pour|kiss)\b/i;
 const DIRECT_ACT = {
-  suck: 'suck', blow: 'suck', blowjob: 'suck', bj: 'suck', head: 'suck',
+  suck: 'oral', blow: 'oral', blowjob: 'oral', bj: 'oral', head: 'oral',
+  lick: 'oral', eat: 'oral', go: 'oral',
   ride: 'ride', mount: 'ride', fuck: 'ride', sex: 'ride', screw: 'ride',
-  handjob: 'handjob', hj: 'handjob', stroke: 'handjob',
+  handjob: 'hand', hj: 'hand', stroke: 'hand', finger: 'hand',
 };
 
 // Start a commanded act on the keeper right now — no arousal gate, he asked for it.
@@ -1427,14 +1862,14 @@ function startCommandedAct(npc, keeper, actKey) {
   const zoneId = keeper.current_zone;
   if (sceneZones.has(zoneId)) return { type: 'output', message: `${npc.name} is already busy with you.` };
   const act = KEEPER_ACTS[actKey];
-  if (act.maleOnly && keeper.biological_sex !== 'male') {
-    return { type: 'output', message: `${npc.name} gives you a look. "That's not going to work the way you're picturing, love."` };
-  }
+  if (!act) return undefined;
   if (!isMisActive(keeper)) return { type: 'output', message: `${npc.name} laughs softly and keeps it to a kiss on the cheek.` };
   sceneAt.set(zoneId, Date.now());
   arousal.set(npc.id, Math.max(arousal.get(npc.id) || 0, AROUSED_AT));
   npc._misHorny = Math.max(npc._misHorny || 0, AROUSED_AT); npc._misHornyAt = Date.now();
-  playKeeperScene(zoneId, pick(act.solo), { A: npc }, keeper.id, act.gain);
+  const solo = actSoloFor(act, npc, keeper);
+  if (!solo) return { type: 'output', message: `${npc.name} gives you a look and lets it go at that.` };
+  playKeeperScene(zoneId, pick(solo), { A: npc }, keeper.id, act.gain);
   return { type: 'output', message: `${npc.name} doesn't need telling twice.` };
 }
 
@@ -1456,7 +1891,7 @@ async function cmdConsortDirect(args, raw, player, broadcast) {
       `${npc.name} kisses you deep, one hand curling at the back of your neck.`);
     return { type: 'output', message: `You pull ${npc.name} in and kiss her.` };
   }
-  return startCommandedAct(npc, player, DIRECT_ACT[verb] || 'suck');
+  return startCommandedAct(npc, player, DIRECT_ACT[verb] || 'oral');
 }
 
 registerInputMatcher(CONSORT_DIRECT_RE, cmdConsortDirect, 'consort');
@@ -1467,6 +1902,13 @@ export const commands = {
   pour:    cmdPour,
 };
 
+// ── Boot ────────────────────────────────────────────────────────────────────────
+// Put every retained consort back in their billet. Plugins load after the world
+// (server/index.js), so world.zones is populated by the time this runs. These NPCs
+// exist ONLY in memory — the player_consorts ledger is their persistence, and they
+// are deliberately never `npcs` rows (see hire.js for why).
+rehydrateConsorts().catch(e => console.error('[consort] boot rehydrate:', e.message));
+
 // Exposed for the regress suite.
 export const _test = {
   isConsort, peeledForArousal, onTalk, consortTick,
@@ -1474,12 +1916,19 @@ export const _test = {
   rollMoodCap, PEEL_HOT, BARE_HOT,
   FELLATIO_SOLO, FELLATIO_DUO, FELLATIO_AT,
   RIDE_SOLO, RIDE_DUO, HANDJOB_SOLO, KEEPER_ACTS, NAKED_SOLO,
+  FELLATIO_SOLO_M, FELLATIO_DUO_M, RIDE_SOLO_M, RIDE_DUO_M, HANDJOB_SOLO_M,
+  actSoloFor, actDuoFor, sexOf, keeperSexOf,
+  ORAL_F_SOLO_F, ORAL_F_SOLO_M, ORAL_F_DUO_F, ORAL_F_DUO_M,
+  RIDE_F_SOLO_F, RIDE_F_SOLO_M, RIDE_F_DUO_F, RIDE_F_DUO_M,
+  HAND_F_SOLO_F, HAND_F_SOLO_M,
+  CO_PRESENCE, coPresenceFor, arePaired, CO_PRESENCE_CHANCE,
+  MUTUAL_FF, MUTUAL_MM, MUTUAL_MIXED, mutualFor, MUTUAL_AT, MUTUAL_CHANCE,
   cmdConsortDirect, startCommandedAct, DIRECT_ACT, CONSORT_DIRECT_RE,
-  VOICE, voiceOf,
+  voiceOf,
   MAX_AROUSAL, AROUSED_AT,
   consortsOf, cmdBeckon, cmdDismiss, cmdPour, barIn, retreatConsorts,
   areaProfile, isIntimateZone, runAreaActivity, AREA_ACTIVITIES, ACT_MIN_MS,
   AREA_BANTER, onFurnitureDescribe,
-  ENTRANCES, pickEntrance,
+  pickEntrance, pairIn, say, companionFor, absenceTierFor,
   SETTLE_SETUP, SETTLE_REACT, classifySettle, onPlayerSay, pendingSettle, clearSettle,
 };

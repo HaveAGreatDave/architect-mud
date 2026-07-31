@@ -21,12 +21,50 @@
 //   {
 //     id, name, icon, category,
 //     buildHome(player) -> summary data shown as the Home-screen tile (optional extra),
+//     buildWidget(player) -> a small card under the Home app grid (optional),
 //     buildScreen(player, screenId, params) -> full screen payload for this app,
 //   }
+//
+// Widgets are OPT-IN on the client (Settings → Layout → Home Widgets, off by
+// default), but the server builds them regardless — the payload is the same either
+// way and the client simply doesn't draw them. Don't be tempted to gate this end on
+// a preference the server doesn't own.
+//
+// buildWidget CONTRACT — read it before writing one. A widget is rendered on every
+// single Home render, which is the most-opened screen in the game, so it must be
+// **query-free**: serve it from the live player object, the world Maps or an
+// in-memory engine getter (getHUDPayload and friends). If a card needs a round
+// trip it doesn't belong here — put the number on the app's own screen and let the
+// tile badge (buildHome's `notify`) point at it. Return null to omit the card this
+// render; that's how a widget stays quiet until it has something to say.
+// (CPU is a separate budget from round trips: the Sports card simulates exactly one
+// game slot, which is bounded and local. A widget that sims a WINDOW isn't.)
+//
+// PREFER A PICTURE. A home card is glanced at, not read — so reach for a shape that
+// carries the meaning before the words do (a drawn proportion, a big glyph, a bar)
+// and let the text confirm it. A card that is three sentences long is a screen, and
+// belongs on the app's own screen.
+//
+// Widget shape: { id, title, kind, nav?, ...kindFields } where kind is one of
+//   'meters' — rows: [{ label, pct, band }]        (band: good|warn|bad)
+//   'stat'   — icon, big, sub, note                (icon renders large)
+//   'bar'    — segments: [{ pct, tone, label }], note — one stacked proportion with
+//              a keyed legend; tone is good|warn|bad
+//   'lines'  — lines: [{ text, sub }], icon?       (icon renders as a large glyph
+//              beside the lines; the first line is promoted to a headline)
+// The client renders those three kinds (renderHomeWidgets in tablet-os.js); adding
+// a fourth means adding a renderer there too. `nav` is an appId — tapping the card
+// opens that app.
+//
+// A card is TIED TO ITS TILE: stash the app under ⊕ on the home screen and its card
+// goes with it. `alwaysOn: true` opts out of that, and is for ALARMS only — a card
+// whose job is to appear uninvited (the Wanted card is the one that has it, because
+// heat you have to subscribe to is not a warning). Don't set it to make a widget
+// feel important; the player arranged their home screen on purpose.
 
 import { query } from '../../server/models/db.js';
 import { getOrg, getPlayerMembership, getZone } from '../../server/engine/world.js';
-import { getGameDateTime } from '../../server/engine/environment.js';
+import { getGameDateTime, getHUDPayload } from '../../server/engine/environment.js';
 import { getNetXp } from '../../server/engine/ip.js';
 import { getTabletApps, findTabletApp } from './registry.js';
 
@@ -35,20 +73,28 @@ import './quests-app.js';
 import './skills-app.js';
 import './bank-app.js';
 import './crafting-app.js';
+import './cookbook-app.js';
+import './bar-app.js';
 import './vehicles-app.js';
+import './sports-app.js';
 import './properties-app.js';
+import './storefront-app.js';
+import './library-app.js';
 import './calendar-app.js';
+import './alarm-app.js';
 import './settings-app.js';
 import './help-app.js';
 import './corp-app.js';
 import './surveillance-app.js';
+import './crime-app.js';
 import './chat-app.js';
 import './news-app.js';
 import './map-app.js';
 import './gear-app.js';
+import './health-app.js';
 import './arcade-app.js';
 import './tv-app.js';
-import './ideology-app.js';
+import './codex-app.js';
 import './party-app.js';
 import './frontier-app.js';
 import './accolades-app.js';
@@ -56,6 +102,14 @@ import './accolades-app.js';
 export { registerTabletApp, getTabletApps } from './registry.js';
 
 // ── Home screen ──────────────────────────────────────────────────────────────
+
+// "HH:MM" → minutes past midnight, for the wallpaper's sun position. The clock
+// string is already formatted for display, so this reuses it rather than reaching
+// back into environment state for a second copy of the same number.
+function hudMinutes(hhmm) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(String(hhmm || ''));
+  return m ? (+m[1] * 60 + +m[2]) : 720;
+}
 
 async function buildHomePayload(player) {
   const { rows } = await query('SELECT credits, bank_credits FROM players WHERE id=$1', [player.id]);
@@ -69,6 +123,7 @@ async function buildHomePayload(player) {
   const { date, time } = getGameDateTime();
 
   const appTiles = [];
+  const widgets = [];
   for (const app of getTabletApps()) {
     // Optional per-player gate: an app can hide its Home tile when it's not relevant
     // (e.g. DEADHEAD only when you have a Leviathan live in the world). On error, show it.
@@ -78,7 +133,29 @@ async function buildHomePayload(player) {
       try { extra = await app.buildHome(player); } catch { extra = null; }
     }
     appTiles.push({ id: app.id, name: app.name, icon: app.icon || '▫', category: app.category || 'General', ...(extra || {}) });
+    // …and the optional home-screen card. Same visibility gate as the tile: an app
+    // you can't see doesn't get to put a widget on your home screen.
+    if (typeof app.buildWidget === 'function') {
+      try {
+        const w = await app.buildWidget(player);
+        if (w) widgets.push({ nav: app.id, ...w });
+      } catch { /* a broken widget must never cost you the home screen */ }
+    }
   }
+
+  // Everything the animated wallpaper needs to draw the sky behind the grid. All
+  // of it is in-memory engine state (no query), and it's a snapshot — the client
+  // animates from it and re-syncs on the next home render.
+  const hud = getHUDPayload() || {};
+  const sky = {
+    phase: hud.timePhase || 'day',
+    minutes: hudMinutes(time),
+    weather: hud.currentWeatherType || hud.weatherType || 'clear',
+    intensity: hud.currentIntensity || null,
+    tempC: Math.round(hud.tempC ?? 0),
+    windKph: Math.round(hud.windKph ?? 0),
+    indoors: !!zone?.flags?.is_interior,   // the environment model's own indoors flag
+  };
 
   return {
     type: 'tablet_panel',
@@ -93,18 +170,39 @@ async function buildHomePayload(player) {
     time: { date, time },
     location: zone?.name || player.current_zone,
     apps: appTiles,
+    widgets,
+    sky,
   };
 }
 
 async function cmdTablet(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
+  // You don't have a tablet yet in The Inbetween. The prologue corridor issues it
+  // at the clone vat on the other side (plugins/prologue/index.js firstClothing),
+  // so the device arrives as a thing the city hands you rather than something you
+  // mysteriously already own while standing in a room with no floor. Gated on the
+  // zone's own `prologue` flag, not a player flag: nobody who has ever left that
+  // corridor can get back into it, so this can't strand an existing character.
+  const none = noTablet(player);
+  if (none) return none;
   return buildHomePayload(player);
+}
+
+// One gate, used by every door into the shell — `tablet`/`os`, and `tabletnav`,
+// which is what the deep-link verbs (`codex`, `map`, `gear`, `bank`…) and the
+// client's own nav both come through. Returning the refusal from all of them means
+// there is no verb that can put a device in the player's hands early.
+function noTablet(player) {
+  if (!getZone(player.current_zone)?.flags?.prologue) return null;
+  return { type: 'system', message: `<span class="hint">You have no tablet. Whatever you were carrying, you weren't carrying it here.</span>` };
 }
 
 // tabletnav <screenSpec...> — screenSpec is "home" or "<appId> [screenId] [params...]"
 // Re-invokes the relevant app's buildScreen and pushes the updated payload.
 async function cmdTabletNav(args, raw, player) {
   if (!player) return { type: 'noop' };
+  const none = noTablet(player);
+  if (none) return none;
   const [first, screenId, ...rest] = args || [];
   if (!first || first === 'home') return buildHomePayload(player);
 
@@ -155,6 +253,33 @@ async function cmdTabletAction(args, raw, player, broadcast) {
 }
 
 export const commands = {
+  // `alarm` opens the Alarm app directly, and `alarm 0730` sets it in one go —
+  // the tablet is a device you carry, so the verb is just a shortcut into the
+  // same screen the icon opens. Typing it beats three taps when you're about to
+  // lie down.
+  alarm: async (args, raw, player) => {
+    const arg = (args || []).join(' ').trim();
+    if (!arg) return cmdTabletNav(['alarm'], raw, player);
+    const { parseTime, setAlarm, clearAlarm, hhmm } = await import('./alarm-app.js');
+    if (/^(off|clear|none|cancel)$/i.test(arg)) {
+      await clearAlarm(player);
+      return { type: 'output', message: 'Alarm cleared. You will sleep until your body is done.' };
+    }
+    const mins = parseTime(arg);
+    if (mins == null) return { type: 'error', message: 'That is not a time. Try "alarm 07:30", "alarm 730", or "alarm off".' };
+    await setAlarm(player, mins);
+    return { type: 'output', message: `Alarm set for ${hhmm(mins)}.` };
+  },
+  // `codex` opens the reference shelf directly — the lore volumes and the orders
+  // reader are the one part of the tablet a player reaches for mid-thought
+  // ("what WAS the Exodus?"), so it gets a verb like `alarm` does.
+  codex: async (args, raw, player) => cmdTabletNav(['codex', ...(args || []).slice(0, 1)], raw, player),
+  // `vitals` (alias `health`) opens the medical suite directly. Same reasoning as
+  // `alarm`: when you need it, you need it NOW — bleeding out is a bad time to be
+  // tapping through a home screen. An optional tab argument goes straight there,
+  // so `vitals apothecary` is one keystroke from a stimpak.
+  vitals: async (args, raw, player) => cmdTabletNav(['health', ...(args || []).slice(0, 1)], raw, player),
+  health: async (args, raw, player) => cmdTabletNav(['health', ...(args || []).slice(0, 1)], raw, player),
   tablet: cmdTablet,
   os: cmdTablet,
   tabletnav: cmdTabletNav,

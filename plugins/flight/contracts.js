@@ -19,9 +19,12 @@ import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { getZone, liveAircraft, out, persist, fieldFor as fieldOf, isContinuous, pushContext, effLoadout, installedKits, BAND_BURN, REFUEL_PRICE_PER_UNIT, rentalOpFee } from './state.js';
 import { findPath } from '../../server/engine/pathfinding.js';
+import { getZoneNpcs } from '../../server/engine/world.js';
+import { teachVerb } from '../../server/engine/messaging.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { adjustCredits } from '../../server/engine/economy.js';
+import { registerPurchaseDelivery } from '../../server/engine/vendor.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 
 const nowSec = () => Math.floor(Date.now() / 1000);
@@ -272,10 +275,14 @@ async function nearestAirfieldToHome(homeZoneId) {
 
 // The waiting drop(s) at a zone the boarding player can see — public 'standard'
 // jobs plus their own personal 'fence' pallets (never someone else's).
+// An ordered cache pallet isn't there the instant you ask for it — somebody has to
+// drive it out into the waste. The lead time is DERIVED from created_at rather than
+// ticked or stored, so a restart can't lose it and no scheduler is involved.
 async function waitingDropsAt(zoneId, playerId) {
   const { rows } = await query(
-    "SELECT * FROM cargo_drops WHERE origin_zone=$1 AND status='waiting' AND (kind='standard' OR owner_id=$2) ORDER BY kind ASC",
-    [zoneId, playerId || null]);
+    `SELECT * FROM cargo_drops WHERE origin_zone=$1 AND status='waiting' AND (kind='standard' OR owner_id=$2)
+       AND (kind <> 'fence' OR COALESCE(created_at,0) + $3 <= $4) ORDER BY kind ASC`,
+    [zoneId, playerId || null, ORDER_LEAD_S, nowSec()]);
   return rows;
 }
 // What the embark hint checks for — just needs to know if there's anything at all.
@@ -284,80 +291,328 @@ export async function waitingDropAt(zoneId, playerId) {
   return rows[0] || null;
 }
 
-// ── Fence-unlocked raw-drug air pallets ────────────────────────────────────────
+// ── Fence-unlocked raw-drug dead drops ─────────────────────────────────────────
 // A step beyond the ground MULE-crate raw run (smuggle plugin's checkpoint dodge):
-// once the fence trusts you enough to open this branch of his dialogue
-// (UNLOCK_AIR_CARGO sets AIR_UNLOCK_FLAG), a standing pool of sealed pallets waits
-// at the Scald — no MULE roll, no checkpoint, because it never touches the ground
-// in the city at all; you fly it straight home. Too heavy to hand-carry: it only
-// ever exists as a cargo_drops row (no ground item), loaded the same `loadcargo`
-// way as an honest freight job. Every pallet weighs exactly SLOT_KG, so an
-// aircraft's hold naturally caps you at floor(cargoCap / SLOT_KG) of them —
-// "one per cargo slot" falls straight out of the existing weight math.
-const FENCE_ORIGIN = 'zone_the_reach_870_1958'; // Buzzard Field, The Reach — the frontier grows the raw crop; you fly it in to process. (Amos opens the runs; Sully's tip points here too.)
-const SLOT_KG = 100;
+// once you're vouched for on BOTH ends of the ground trade — the covert dealer's
+// inner circle plus real standing with the fence — Amos will tell you where the
+// Reach stashes its crop. It never touches a checkpoint, because it never touches
+// the city ground at all; you fly it straight home.
+//
+// The drops are NOT at Buzzard Field. They're three caches out on the hardpan, and
+// that siting IS the aircraft gate: index.js's land handler parks a rough-field-rated
+// craft (VTOL/STOL) where it flares but TOWS a fixed-wing back to the nearest field,
+// so only a STOL/VTOL with real hold space can service a cache. The Mule (180kg)
+// lifts one CACHE_KG pallet; the 600kg Leviathan can't — it's `takeoff_mode: strip`
+// and has nowhere out there to land. No new capability check was needed for any of
+// that; it falls out of the existing physics.
+//
+// A pallet only ever exists as a cargo_drops row (no ground item — far too heavy to
+// hand-carry), loaded the same `loadcargo` way as an honest freight job.
+//
+// NOTHING spawns unbidden: every pallet out there is one you ORDERED and paid for
+// (see the catalogue + `raws` verb below). Amos takes the order, the Reach runs it
+// out to a cache, and he tells you which one — so he stays in the loop for every
+// run instead of being a one-time unlock.
+const CACHE_KG = 150;
+// Where the pallets go is content identity, so the names live here beside the ids
+// (they're echoed to the player and read back in Amos's dialogue).
+export const FENCE_CACHES = [
+  { zone: 'zone_the_reach_865_1951', name: 'the Bonepile' },     // NW hardpan — a dead hauler over a buried pit
+  { zone: 'zone_the_reach_879_1963', name: 'the Sump' },         // SE flats — a dry cistern under a slab
+  { zone: 'zone_the_reach_867_1965', name: 'the Sisters' },      // SW scrub — two leaning rock teeth
+];
 const AIR_UNLOCK_FLAG = 'air_cargo_unlocked';
-const MAX_FENCE_WAITING = 6;                 // the standing pool size, topped up as pallets get flown out
-const TIER_BUCKETS = { low: [1, 2], mid: [3, 3], high: [4, 5] };
+const INNER_CIRCLE_FLAG = 'dealer_inner_circle'; // the covert dealer's vouch (engine vendor.js sets it at max trust)
+const CACHE_TRUST_MIN = 10;                      // …plus this much standing earned running the fence's ground orders
 
-const randInt = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
+// ── The raws catalogue and its ladder ─────────────────────────────────────────
+// You climb this ladder by flying it — every delivered pallet pays `bm_trust`
+// (deliverFenceDrop), which is the same currency the gate is measured in.
+//
+// The bottom rung is LEGAL CROP, and that is the whole design. Every `item_raw_*`
+// is tagged `contraband` + `raw_drug`, and carrying one in view of a camera is
+// "Manufacturing a controlled substance" — FOUR STARS (see plugins/surveillance).
+// So the entry rung can't be a precursor: it's baled tobacco and cannabis leaf,
+// tagged `crop` and nothing else, which trips neither the manufacturing scan nor
+// customs. Graduating from tier 0 to tier 1 is therefore the moment you accept
+// felony risk for the first time — the price ladder and the risk ladder are the
+// same ladder, which is why this is worth more than a shop with better stock.
+//
+// Both halves are CONTENT: a new crop is an item tagged `crop`, a new precursor is
+// an item tagged `raw_drug` with a `cook_tier`. Neither needs a code change here.
+const CROP_TAG = 'crop';
+// Trust needed to order a tier, ON TOP of the CACHE_TRUST_MIN that opened the
+// caches at all. Tier 0 is 0 — the legal crop is available the moment Amos talks
+// to you, because nobody has to trust you with a bale of tobacco.
+const TIER_TRUST = { 0: 0, 1: 4, 2: 10, 3: 18, 4: 28, 5: 40 };
+// Units per pallet. Cheap bulk crop packs deep; refined precursor doesn't, so a
+// tier-5 pallet is a small number of very expensive units.
+const PALLET_UNITS = { 0: 60, 1: 40, 2: 30, 3: 20, 4: 12, 5: 8 };
+const ORDER_MARKUP = 1.4;     // Sully charges ×2 and runs a MULE for you; here you fly it yourself
+const ORDER_LEAD_S = 180;     // it has to be driven out into the waste after you ask
+const MAX_OPEN_PALLETS = 6;   // outstanding, across all caches — your hold is the real limit
+const TRUST_PER_PALLET_DIV = 12;  // see deliverFenceDrop — tunes how fast the ladder climbs
 
-async function rawsByTier() {
+// The orderable catalogue: legal crop (tags.crop) plus contraband precursor
+// (tags.raw_drug). NOT every raw_drug item is a raw — the smuggle plugin's MULE
+// crate carries the tag too (so hauling one whole is the hardest sneak) at
+// cook_tier 5, and rolled into a pallet it arrives with no custom_data: an
+// unopenable dud that `unpack` calls a bad drop, whose tier 5 inflated the customs
+// difficulty for nothing. A shell is not a precursor.
+export async function rawsCatalogue() {
   const { rows } = await query(
-    `SELECT id, name, COALESCE((flags->>'cook_tier')::int, 1) tier FROM items WHERE jsonb_exists(tags, 'raw_drug')`);
-  const bucket = ([lo, hi]) => rows.filter(r => r.tier >= lo && r.tier <= hi);
-  return { low: bucket(TIER_BUCKETS.low), mid: bucket(TIER_BUCKETS.mid), high: bucket(TIER_BUCKETS.high) };
+    `SELECT id, name, value, COALESCE((flags->>'cook_tier')::int, 1) AS tier,
+            NOT jsonb_exists(tags, 'raw_drug') AS legal
+       FROM items
+      WHERE (jsonb_exists(tags, 'raw_drug') OR jsonb_exists(tags, $1))
+        AND NOT jsonb_exists(tags, 'mule_crate')
+      ORDER BY tier, value, name`, [CROP_TAG]);
+  return rows.map(r => ({ ...r, tier: Math.max(0, Math.min(5, r.tier)) }));
 }
 
-// A pallet is mostly low-tier bulk, a handful of mid-tier, and a rare shot of
-// something high-tier — never all one grade, never mostly the rare stuff.
-async function rollFenceManifest() {
-  const { low, mid, high } = await rawsByTier();
-  const manifest = [];
-  for (let i = 0; i < randInt(3, 5) && low.length; i++) {
-    const it = pick(low); manifest.push({ itemId: it.id, name: it.name, qty: randInt(4, 10), tier: it.tier });
-  }
-  for (let i = 0; i < randInt(1, 2) && mid.length; i++) {
-    const it = pick(mid); manifest.push({ itemId: it.id, name: it.name, qty: randInt(2, 5), tier: it.tier });
-  }
-  if (high.length && Math.random() < 0.3) {
-    const it = pick(high); manifest.push({ itemId: it.id, name: it.name, qty: randInt(1, 2), tier: it.tier });
-  }
-  return manifest;
-}
+export const unitsPerPallet = (tier) => PALLET_UNITS[tier] ?? 20;
+export const palletPrice = (entry) => Math.max(1, Math.round(entry.value * ORDER_MARKUP * unitsPerPallet(entry.tier)));
+export const trustFor = (tier) => CACHE_TRUST_MIN + (TIER_TRUST[tier] ?? 40);
 
 export async function isAirCargoUnlocked(player) {
   const v = await getFlag('player', AIR_UNLOCK_FLAG, player);
   return v === '1' || v === 1 || v === true;
 }
 
-// Tops the unlocked player's standing pool back up to MAX_FENCE_WAITING — a cheap
-// no-op for anyone who hasn't unlocked it. Called on every embark (see index.js
-// boardFound) so the pool is always current by the time `loadcargo` looks for it.
-export async function ensureFenceDrops(player) {
-  if (!player?.id || !(await isAirCargoUnlocked(player))) return;
-  const { rows } = await query("SELECT COUNT(*)::int n FROM cargo_drops WHERE owner_id=$1 AND kind='fence' AND status='waiting'", [player.id]);
-  for (let i = rows[0]?.n || 0; i < MAX_FENCE_WAITING; i++) {
-    const manifest = await rollFenceManifest();
-    if (!manifest.length) break;
-    await query(
-      `INSERT INTO cargo_drops (id, label, weight_kg, reward, origin_zone, status, kind, contents, owner_id, created_at)
-       VALUES ($1,$2,$3,0,$4,'waiting','fence',$5::jsonb,$6,$7)`,
-      [`cargo_fence_${randomUUID().slice(0, 8)}`, 'A sealed pallet (unmarked)', SLOT_KG, FENCE_ORIGIN, JSON.stringify(manifest), player.id, nowSec()]);
-  }
+// Both ends of the ground trade have to vouch for you before the Reach will tell
+// you where its crop is buried: the covert dealer's inner circle (street-dealing
+// the Fixer to max trust) AND real standing with the fence, earned running his
+// MULE crates through a checkpoint. Belt-and-braces with the dialogue conditions
+// on Amos's own option — the action must never be the only thing holding the door.
+export async function hasCacheStanding(player) {
+  if (!player?.id) return false;
+  const [inner, trust] = await Promise.all([
+    getFlag('player', INNER_CIRCLE_FLAG, player),
+    getFlag('player', 'bm_trust', player),
+  ]);
+  const vouched = inner === '1' || inner === 1 || inner === true || inner === 'true';
+  return vouched && (Number(trust) || 0) >= CACHE_TRUST_MIN;
 }
 
-// The fence's unlock — fired from Sully's dialogue (bm_menu → "bigger hauls",
-// gated behind bm_trust like his top drug tier; see scripts/add-fence-air-unlock.js
-// for the node itself). One-time; a repeat visit routes to a "already sorted" node.
+// Your outstanding orders, grouped by the cache they were run out to — one line per
+// cache, which is exactly what Amos reads off his ledger. `ready` is derived from
+// created_at, so the lead time needs no tick and no extra column: a pallet you
+// ordered ninety seconds ago is real, it just isn't out there yet.
+export async function openOrders(player) {
+  if (!player?.id) return [];
+  const { rows } = await query(
+    `SELECT origin_zone, contents, created_at FROM cargo_drops
+      WHERE owner_id=$1 AND kind='fence' AND status='waiting' ORDER BY created_at`, [player.id]);
+  const now = nowSec();
+  const byCache = new Map();
+  for (const r of rows) {
+    const line = (r.contents || [])[0] || {};
+    const cache = FENCE_CACHES.find(c => c.zone === r.origin_zone);
+    if (!cache) continue;                       // a cache retired out from under an old order
+    const key = `${cache.zone}|${line.itemId}`;
+    const cur = byCache.get(key) || {
+      cache, itemId: line.itemId, name: line.name || 'raw material', tier: line.tier ?? 1,
+      legal: !!line.legal, pallets: 0, units: 0, readyIn: 0,
+    };
+    cur.pallets += 1;
+    cur.units += Number(line.qty) || 0;
+    cur.readyIn = Math.max(cur.readyIn, Math.max(0, (Number(r.created_at) || 0) + ORDER_LEAD_S - now));
+    byCache.set(key, cur);
+  }
+  return [...byCache.values()];
+}
+
+// Write the pallets: one cargo_drops row each (so `loadcargo`'s per-drop weight math
+// is untouched and a small aircraft can take one of three), all of them run out to
+// the SAME cache so there's one place to fly. `exec` lets this run inside the vendor's
+// sale transaction.
+async function writePallets(player, entry, pallets, exec = query) {
+  const units = unitsPerPallet(entry.tier);
+  const cache = pick(FENCE_CACHES);
+  const at = nowSec();
+  for (let i = 0; i < pallets; i++) {
+    await exec(
+      `INSERT INTO cargo_drops (id, label, weight_kg, reward, origin_zone, status, kind, contents, owner_id, created_at)
+       VALUES ($1,$2,$3,0,$4,'waiting','fence',$5::jsonb,$6,$7)`,
+      [`cargo_fence_${randomUUID().slice(0, 8)}`,
+        entry.legal ? 'A strapped bale, tarped against the sun' : 'A tarped pallet, sand-drifted and unmarked',
+        CACHE_KG, cache.zone,
+        JSON.stringify([{ itemId: entry.id, name: entry.name, qty: units, tier: entry.tier, legal: entry.legal }]),
+        player.id, at]);
+  }
+  return { cache, units: units * pallets, pallets };
+}
+
+// Place an order from the text counter. Charged up front — a pre-paid load is what
+// gives the customs scan on the way home its teeth.
+export async function placeCacheOrder(player, entry, pallets) {
+  const cost = palletPrice(entry) * pallets;
+  if (!(await adjustCredits(player, -cost))) return { error: `That's ${cost}c and you can't cover it.` };
+  return { ...(await writePallets(player, entry, pallets)), cost };
+}
+
+// ── The counter as a vendor shelf ─────────────────────────────────────────────
+// The order counter is ALSO the ordinary GUI shop panel: Amos carries `trust_flag:
+// bm_trust` and a `min_trust` per catalogue entry, so `getVendorStock` filters the
+// shelf to the rungs the player has earned and a sealed tier simply isn't there —
+// the ladder, rendered, with no client work. Quantity on the panel is pallet count.
+//
+// What the panel can't do on its own is deliver a 150kg pallet into someone's
+// pockets, so both goods classes claim the engine's purchase-delivery seam: the
+// sale writes cargo_drops rows instead of inventory rows, inside the same
+// transaction, and hands back the receipt line naming the cache.
+//
+// `trust_per_buy` is deliberately 0 on the counter (see the content script):
+// standing is earned by FLYING pallets home, never by paying for them, or a rich
+// player buys their way up the ladder without ever running the customs risk.
+async function deliverPalletPurchase(player, npc, item, quantity, exec) {
+  // Not a pallet — he also sells a shotgun across the desk. Hand it over normally.
+  if (!item.tags?.crop && !item.tags?.raw_drug) return null;
+  if (!(await isAirCargoUnlocked(player))) return '!He turns the page. Whatever that is, it isn\'t for you.';
+  const pallets = Math.max(1, Math.min(MAX_OPEN_PALLETS, Number(quantity) || 1));
+  const already = (await openOrders(player)).reduce((s, o) => s + o.pallets, 0);
+  if (already + pallets > MAX_OPEN_PALLETS)
+    return `!You already have ${already} pallet${already === 1 ? '' : 's'} sitting out there. Clear some before you order more (${MAX_OPEN_PALLETS} at a time).`;
+
+  const legal = !item.tags?.raw_drug;
+  const tier = Math.max(0, Math.min(5, Number(item.flags?.cook_tier) || 0));
+  const res = await writePallets(player, { id: item.id, name: item.name, tier, legal }, pallets, exec);
+  const risk = legal ? 'Legal leaf — nobody will scan it.' : 'Contraband precursor — every policed field you land it at runs a scanner.';
+  return `Run out to <b>${res.cache.name}</b> — ${res.pallets} pallet${res.pallets === 1 ? '' : 's'}, ${res.units}× ${item.name}. `
+    + `Give it ${Math.round(ORDER_LEAD_S / 60)} minutes to get there, then set down <i>on</i> the drop and <b>loadcargo</b>. ${risk}`;
+}
+registerPurchaseDelivery('raws_counter', deliverPalletPurchase);
+
+// The unlock — fired from Amos's dialogue at Buzzard Field (and from Sully's
+// bm_menu "bigger hauls" node; see scripts/add-fence-air-unlock.js). One-time; a
+// repeat visit routes to an "already sorted" node. The standing check is repeated
+// here so a stale or hand-authored dialogue option can't hand out the caches.
 registerAction({
   type: 'UNLOCK_AIR_CARGO',
   handler: async ({ actor }) => {
     if (await isAirCargoUnlocked(actor)) return { type: 'goto_node', node: 'bm_air_already' };
+    if (!(await hasCacheStanding(actor))) return { type: 'goto_node', node: 'raws_unvouched' };
     await setFlag('player', AIR_UNLOCK_FLAG, '1', actor);
+    // House convention: the first mention of a new verb shimmers and is clickable.
+    // This is the only place a player learns `raws` exists.
+    out(actor.id, `<span class="ambient">He taps the ledger cover twice. "Ask me for the list when you want something — ${teachVerb('raws')} — and I'll have it run out."</span>`);
     return { type: 'ok' };
   },
 });
+
+// Amos reading his ledger: what you have on order and which cache it went to. Fired
+// as a dialogue action; the line goes out through `out()` rather than the node text,
+// because the node text is authored content and this is live state.
+registerAction({
+  type: 'FENCE_CACHE_REPORT',
+  handler: async ({ actor }) => {
+    if (!(await isAirCargoUnlocked(actor))) return { type: 'goto_node', node: 'raws_unvouched' };
+    const orders = await openOrders(actor);
+    if (!orders.length) {
+      out(actor.id, `<span class="ambient">Amos runs a finger down the ledger and finds nothing under your name. "You've nothing out there. Order it and I'll have it run out — <b>raws</b>."</span>`);
+      return { type: 'ok' };
+    }
+    const lines = orders.map(o => {
+      const when = o.readyIn > 0 ? ` <span class="text-dim">(not out there yet — ${o.readyIn}s)</span>` : '';
+      return `  <b>${o.cache.name}</b> — ${o.pallets} pallet${o.pallets > 1 ? 's' : ''}, ${o.units}× ${o.name}${when}`;
+    }).join('\n');
+    out(actor.id, `<span class="item-grant">Amos turns the ledger a few degrees toward you and taps his own shorthand.\n${lines}\n<span class="text-dim">Set down <i>on</i> the drop — a pallet that size doesn't walk. You'll want something that can put down rough.</span></span>`);
+    return { type: 'ok' };
+  },
+});
+
+// "He slides the ledger across" — prints the catalogue from inside his dialogue, so
+// a player who never noticed the verb can still order. Same body as `raws` with no
+// argument; the verb is the fast path, this is the discoverable one.
+registerAction({
+  type: 'FENCE_LEDGER_OPEN',
+  handler: async ({ actor }) => {
+    if (!(await isAirCargoUnlocked(actor))) return { type: 'goto_node', node: 'raws_unvouched' };
+    const res = await cmdRaws([], '', actor);
+    if (res?.message) out(actor.id, res.message);
+    return { type: 'ok' };
+  },
+});
+
+// ── `raws` — the order counter ────────────────────────────────────────────────
+// Ordering lives in a verb rather than in dialogue nodes, unlike Sully's ground
+// black market. That's a deliberate divergence: Sully's menu is a handful of nodes
+// per raw and already noted as bloat, and this catalogue is ~28 entries × a pallet
+// count, which no dialogue tree should carry. Amos's dialogue TEACHES the verb
+// (TEACH_VERB above); the verb does the work. He still has to be standing there.
+const counterNpcHere = (player) =>
+  getZoneNpcs(player.current_zone || player.zone_id).find(n => n.flags?.raws_counter && !n._dead);
+
+async function cmdRaws(args, raw, player) {
+  const npc = counterNpcHere(player);
+  // A player who hasn't been let in on the trade never learns the surface exists: with
+  // no counter in the room AND no unlock, the verb falls through as though it were
+  // never registered. Once you're in, it answers wherever you type it — otherwise
+  // learning the verb at the Layover and typing it in Coldwater reads as a bug.
+  if (!npc) {
+    if (!(await isAirCargoUnlocked(player))) return undefined;
+    return { type: 'emote', message: `Nobody here keeps that ledger. Amos does, at the front desk of the Layover.` };
+  }
+  if (!(await isAirCargoUnlocked(player)))
+    return { type: 'emote', message: `${npc.name} keeps the ledger closed. Whatever's in it isn't for you yet.` };
+
+  const trust = Number(await getFlag('player', 'bm_trust', player)) || 0;
+  const catalogue = await rawsCatalogue();
+  if (!catalogue.length) return { type: 'emote', message: 'The ledger is empty. Nothing is growing anywhere.' };
+
+  // `raws` with no argument = the board: what you can order, what you can't yet,
+  // and what's already out in the waste.
+  if (!args.length) {
+    const orders = await openOrders(player);
+    const rows = catalogue.map((e) => {
+      const need = trustFor(e.tier);
+      const locked = trust < need;
+      const price = palletPrice(e);
+      const label = locked
+        ? `<span class="text-dim">${e.name} — sealed (standing ${need})</span>`
+        : `<span class="action-link" data-action="cmd" data-cmd="raws ${e.name}">${e.name}</span> — ${unitsPerPallet(e.tier)}/pallet · <b>${price}c</b>`;
+      const grade = e.legal ? '<span class="text-dim">legal crop</span>' : `tier ${e.tier}`;
+      return `  ${label} <span class="text-dim">[${grade}]</span>`;
+    }).join('\n');
+    const open = orders.length
+      ? '\n\n<span class="text-amber">On order:</span>\n' + orders.map(o =>
+        `  ${o.pallets} pallet${o.pallets > 1 ? 's' : ''} · ${o.units}× ${o.name} → <b>${o.cache.name}</b>`
+        + (o.readyIn > 0 ? ` <span class="text-dim">(${o.readyIn}s out)</span>` : '')).join('\n')
+      : '';
+    return { type: 'output', message:
+      `<span class="text-amber">${npc.name}'s ledger</span> <span class="text-dim">— standing ${trust}. `
+      + `A pallet is run out to a cache and waits there; fly to it and <b>loadcargo</b>.</span>\n${rows}${open}\n`
+      + `<span class="text-dim">Order with <b>raws &lt;name&gt; [pallets]</b>. Legal crop scans clean; everything else is what customs is looking for.</span>` };
+  }
+
+  // `raws <name> [pallets]`
+  let pallets = 1;
+  const tail = args[args.length - 1];
+  if (/^\d+$/.test(tail) && args.length > 1) { pallets = Math.max(1, Math.min(MAX_OPEN_PALLETS, parseInt(tail, 10))); args = args.slice(0, -1); }
+  const want = args.join(' ').toLowerCase();
+  const entry = catalogue.find(e => e.name.toLowerCase() === want)
+    || catalogue.find(e => e.name.toLowerCase().includes(want));
+  if (!entry) return { type: 'emote', message: `Nothing in the ledger by that name. <b>raws</b> for the list.` };
+
+  const need = trustFor(entry.tier);
+  if (trust < need)
+    return { type: 'emote', message: `${npc.name} doesn't even look up. "Not for you. Not yet." <span class="text-dim">(needs standing ${need}; you're at ${trust})</span>` };
+
+  const already = (await openOrders(player)).reduce((s, o) => s + o.pallets, 0);
+  if (already + pallets > MAX_OPEN_PALLETS)
+    return { type: 'emote', message: `You already have ${already} pallet${already > 1 ? 's' : ''} sitting out there. Clear some before you order more (${MAX_OPEN_PALLETS} at a time).` };
+
+  const res = await placeCacheOrder(player, entry, pallets);
+  if (res.error) return { type: 'emote', message: `${npc.name} shakes his head. "${res.error}"` };
+
+  const risk = entry.legal
+    ? `<span class="text-dim">It's legal leaf. Nobody will scan it, nobody will care.</span>`
+    : `<span class="text-amber">That's contraband precursor. Every policed field you land it at runs a scanner.</span>`;
+  return { type: 'output', message:
+    `<span class="item-grant">${npc.name} writes it down without comment and takes <b>${res.cost}c</b>. `
+    + `${res.pallets} pallet${res.pallets > 1 ? 's' : ''} — ${res.units}× ${entry.name} — run out to <b>${res.cache.name}</b>.</span>\n`
+    + `<span class="ambient">"Give it a few minutes to get there. Then it's yours to fetch."</span> ${risk}` };
+}
 
 // ── Licensed freight drops — legit standing air-cargo work, bought once ──────
 // The honest cousin of the fence pallets: buy an air-freight licence at any
@@ -381,8 +636,8 @@ export async function isFreightLicensed(player) {
 }
 
 // Tops the licensed pilot's standing freight pool back up at the field they're at
-// — a cheap no-op for the unlicensed. Called on embark and in loadcargo, mirroring
-// ensureFenceDrops.
+// — a cheap no-op for the unlicensed. Called on embark and in loadcargo. The fence
+// caches have no counterpart: an ordered pallet is inserted once, at order time.
 export async function ensureFreightDrops(player, originZone) {
   if (!player?.id || !originZone || !(await isFreightLicensed(player))) return;
   const { rows } = await query(
@@ -412,7 +667,7 @@ async function cmdFreightLicense(args, raw, player) {
 }
 
 // Loads EVERY waiting drop that fits the hold, one at a time (heaviest constraint
-// first isn't needed — a fence pallet is a flat SLOT_KG, so it's just "as many as
+// first isn't needed — a fence pallet is a flat CACHE_KG, so it's just "as many as
 // fit"), rather than a single job per call — a big enough hauler clears the whole
 // pool in one visit.
 async function cmdLoadCargo(args, raw, player) {
@@ -420,7 +675,6 @@ async function cmdLoadCargo(args, raw, player) {
   if (!live) return { type: 'emote', message: "You're not aboard an aircraft." };
   if (player.seat !== 'pilot') return { type: 'emote', message: "Only the pilot can take on cargo." };
   if (live.row.airborne) return { type: 'emote', message: "Land first — you can't load cargo in the air." };
-  await ensureFenceDrops(player);
   await ensureFreightDrops(player, live.row.parked_zone_id);
   const waiting = await waitingDropsAt(live.row.parked_zone_id, player.id);
   if (!waiting.length) return { type: 'emote', message: 'No cargo waiting here.' };
@@ -438,7 +692,10 @@ async function cmdLoadCargo(args, raw, player) {
     already += drop.weight_kg;
     loaded.push(drop);
   }
-  if (!loaded.length) return { type: 'emote', message: `Nothing here fits your hold (${holdCap - already}kg free).` };
+  if (!loaded.length) {
+    const lightest = Math.min(...waiting.map(d => d.weight_kg));
+    return { type: 'emote', message: `Nothing here fits your hold — ${holdCap - already}kg free and the smallest load on the ground is ${lightest}kg. You need a bigger aircraft, or a hold rigged for cargo.` };
+  }
 
   const cd = live.row.custom_data || {};
   cd.cargoWeight = already;
@@ -482,7 +739,12 @@ async function deliverFenceDrop(player, live, d) {
     if (ex.rows.length) await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [m.qty, ex.rows[0].id]);
     else await query('INSERT INTO player_inventory (id,player_id,item_id,quantity) VALUES ($1,$2,$3,$4)', [randomUUID(), player.id, m.itemId, m.qty]);
   }
-  const trustGain = Math.max(1, Math.round(manifest.reduce((s, m) => s + (m.tier || 1) * m.qty, 0) / 6));
+  // Standing earned per pallet. Weighted by grade × volume, which lands at roughly a
+  // flat 3–5 for any contraband pallet (units per pallet shrink as the tier climbs) and
+  // at the floor of 1 for legal crop — tier 0 contributes nothing to the sum, so a bale
+  // run builds standing slowly and honestly. That floor is what lets a newly-vouched
+  // pilot climb off the legal rung at all.
+  const trustGain = Math.max(1, Math.round(manifest.reduce((s, m) => s + (m.tier || 0) * m.qty, 0) / TRUST_PER_PALLET_DIV));
   const next = (Number(await getFlag('player', 'bm_trust', player)) || 0) + trustGain;
   await setFlag('player', 'bm_trust', String(next), player);
   return { list: manifest.map(m => `${m.qty}× ${m.name}`).join(', '), trustGain, next };
@@ -535,28 +797,38 @@ export async function checkCargoDropDelivery(player, live, fieldZoneId) {
   const policed = !getZone(fieldZoneId)?.flags?.airfield_lawless;
   if (!policed) { await deliverAllFence(player, live, fence); return; }
 
-  const maxTier = Math.max(1, ...fence.flatMap(d => (d.contents || []).map(m => m.tier || 1)));
+  // Legal crop is the entry rung of the ladder and it is genuinely legal: a bale of
+  // tobacco or cannabis leaf isn't contraband, so a scanner has nothing to find and
+  // customs never runs. Only the contraband pallets are scanned — and they're scanned
+  // on their OWN worst tier and count, so hiding one crate of Blacktar behind four
+  // bales of tobacco doesn't lower the difficulty either.
+  const dirty = fence.filter(d => (d.contents || []).some(m => !m.legal));
+  const clean = fence.filter(d => !dirty.includes(d));
+  if (clean.length) await deliverAllFence(player, live, clean);
+  if (!dirty.length) return;
+
+  const maxTier = Math.max(1, ...dirty.flatMap(d => (d.contents || []).filter(m => !m.legal).map(m => m.tier || 1)));
   const hold = installedKits(live.row.custom_data).includes('kit_smuggler_hold');
 
   // The false bottom sometimes hides the load outright — no roll.
   if (hold && Math.random() < 0.4) {
     out(player.id, `<span class="ambient">Customs runs a scanner over your hold. The false bottom does its job — nothing pings. You taxi in clean.</span>`);
-    await deliverAllFence(player, live, fence); return;
+    await deliverAllFence(player, live, dirty); return;
   }
   // Deception scan — purer drugs + bigger hauls raise it; the hold eases it.
-  const diff = Math.max(1, 3 + maxTier + (fence.length - 1) - (hold ? 2 : 0));
+  const diff = Math.max(1, 3 + maxTier + (dirty.length - 1) - (hold ? 2 : 0));
   const chk = await skillCheck(player, 'deception', diff);
   if (chk.success) {
     await awardSkillUse(player.id, 'deception', chk.margin);
     out(player.id, `<span class="ambient">You hold the inspector's eye and keep your hands loose. The scanner blinks green; they wave you onto the ramp.</span>`);
-    await deliverAllFence(player, live, fence); return;
+    await deliverAllFence(player, live, dirty); return;
   }
 
   // Caught. Offer bribe or bolt; a timeout auto-bolts.
-  const bribe = 200 * fence.length + 150 * maxTier;
+  const bribe = 200 * dirty.length + 150 * maxTier;
   clearCustoms(player.id);
-  const timer = setTimeout(() => { customsBolt(player, live, fence, fieldZoneId, true).catch(() => {}); }, CUSTOMS_DECIDE_MS);
-  pendingCustoms.set(player.id, { dropIds: fence.map(d => d.id), bribe, fieldZoneId, aircraftId: live.row.id, timer });
+  const timer = setTimeout(() => { customsBolt(player, live, dirty, fieldZoneId, true).catch(() => {}); }, CUSTOMS_DECIDE_MS);
+  pendingCustoms.set(player.id, { dropIds: dirty.map(d => d.id), bribe, fieldZoneId, aircraftId: live.row.id, timer });
   out(player.id, `<span class="text-amber">⚠ Customs pulls your hold aside — <b>raw material</b> lights the scanner. The inspector's hand hovers over the alarm, palm turned up.</span>\n<span class="ambient">Slip them <b>${bribe}c</b> and it disappears — <span class="action-link" data-action="cmd" data-cmd="customs bribe">customs bribe</span> — or leave the load and run for it — <span class="action-link" data-action="cmd" data-cmd="customs bolt">customs bolt</span>. <span class="text-dim">(They move on you in 45s either way.)</span></span>`);
 }
 
@@ -626,4 +898,5 @@ export const commands = {
   freightlicense: cmdFreightLicense,
   cargolicense: cmdFreightLicense,
   customs: cmdCustoms,
+  raws: cmdRaws,
 };

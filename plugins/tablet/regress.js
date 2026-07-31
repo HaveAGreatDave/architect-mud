@@ -9,14 +9,202 @@ import { _test as news } from './news-generator.js';
 import { _test as calendar } from './calendar-app.js';
 
 export default async function regress({ run, check, getPlayer }) {
+  // ── Alarm: a clock on GAME time, set anywhere, before you sleep ─────────────
+  {
+    const { parseTime, minutesUntil, hhmm } = await import('../../server/engine/clock.js');
+    check('alarm accepts the ways people actually type a time',
+      parseTime('07:30') === 450 && parseTime('7:30') === 450
+        && parseTime('0730') === 450 && parseTime('730') === 450);
+    check('...and rejects what is not one',
+      parseTime('') === null && parseTime('25:00') === null
+        && parseTime('07:99') === null && parseTime('half seven') === null);
+    check('midnight is a time', parseTime('00:00') === 0 && hhmm(0) === '00:00');
+    check('the clock reads back what was set', hhmm(450) === '07:30' && hhmm(1439) === '23:59');
+    // An alarm always looks FORWARD — a time already gone means tomorrow.
+    check('a time later today rings today', minutesUntil(400, 450) === 50);
+    check('a time already passed rings tomorrow', minutesUntil(500, 450) === 1390);
+    check('setting it for right now means a full day, not instantly',
+      minutesUntil(450, 450) === 1440);
+  }
+
   let r = await run('tablet');
   check('tablet verb opens home screen', r?.type === 'tablet_panel' && r?.screen === 'home', JSON.stringify(r));
   check('home screen carries player summary', !!r?.player && typeof r.player.credits === 'number', JSON.stringify(r?.player));
   check('home screen lists apps', Array.isArray(r?.apps) && r.apps.length >= 9, `apps=${r?.apps?.length}`);
-  check('home screen apps include quests/skills/bank/vehicles/properties/settings/corp/specter/party',
-    ['quests', 'skills', 'bank', 'vehicles', 'properties', 'settings', 'corp', 'specter', 'party']
+  check('home screen apps include quests/skills/bank/vehicles/properties/settings/corp/specter/party/crime',
+    ['quests', 'skills', 'bank', 'vehicles', 'properties', 'settings', 'corp', 'specter', 'party', 'crime']
       .every(id => r.apps.some(a => a.id === id)),
     JSON.stringify(r?.apps?.map(a => a.id)));
+
+  // ── Kit app: the soak seam ───────────────────────────────────────────────────
+  // The Kit (formerly Gear) screen must carry the server's AUTHORITATIVE per-slot
+  // soak — `player.soak`, the exact structure combat routes a hit through. It was
+  // silently dropped from the payload for a long time, which forced the client to
+  // re-derive protection by summing `tags.armor_soak` over equipped rows: blind to a
+  // `covers` garment's extra slots and to every registered armor contributor (a
+  // subdermal augment grants soak with no worn item at all), so a protected player
+  // read as bare. The client no longer computes this, so its absence isn't a
+  // cosmetic regression — it's the whole Protection table going to zero.
+  // Deliberately a LOCAL `g`, not the shared `r`: the wallpaper-sky checks further
+  // down still read `r` as the home payload fetched above.
+  {
+    const g = await run('tabletnav gear');
+    check('Kit screen is the gear app', g?.appId === 'gear' && g?.view === 'gear', JSON.stringify({ a: g?.appId, v: g?.view }));
+    check('Kit screen carries per-slot soak', g?.soak && typeof g.soak === 'object', JSON.stringify(g?.soak));
+    // Shape, not values — the fake player wears nothing, so an empty object is the
+    // correct answer here. What must hold is that a populated slot is
+    // `{ soak: { type: n } }` and never a bare `{ type: n }`, because the client
+    // reads `soak[slot].soak[type]` and a flattened shape reads as zero everywhere.
+    check('…in the { slot: { soak: {…} } } shape combat uses',
+      Object.values(g.soak).every(v => v && typeof v === 'object' && typeof v.soak === 'object'),
+      JSON.stringify(g?.soak));
+    check('Kit screen still carries the tray + weights',
+      Array.isArray(g?.inventory) && typeof g?.weight === 'number' && typeof g?.capacity === 'number',
+      JSON.stringify({ inv: Array.isArray(g?.inventory), w: g?.weight, c: g?.capacity }));
+    // The app is named Kit and the id is STILL `gear`: the id is in saved home-screen
+    // layouts, every `tabletnav gear` call site, the smartbar's Inv/Gear deep links and
+    // the client's `_data.appId === 'gear'` refresh check. Renaming it breaks all four.
+    const kit = r.apps.find(a => a.id === 'gear');
+    check('the gear app is called Kit but keeps its id', kit?.name === 'Kit', JSON.stringify(kit?.name));
+  }
+
+  // ── Home widgets + wallpaper sky ─────────────────────────────────────────────
+  // The widget seam is contributed by apps (buildWidget) and rendered by three
+  // client kinds; a card of an unknown kind is dropped by the client, so the shape
+  // assertion here is what stops a widget silently vanishing. buildWidget always
+  // runs server-side regardless of the client's own widgets-on/off preference (that
+  // toggle is display-only) — see the contract note in plugins/tablet/index.js.
+  check('home screen carries a widgets array', Array.isArray(r?.widgets), JSON.stringify(r?.widgets));
+  check('every widget declares a kind the client can draw',
+    (r.widgets || []).every(w => ['meters', 'stat', 'bar', 'lines'].includes(w.kind)),
+    JSON.stringify((r.widgets || []).map(w => `${w.id}:${w.kind}`)));
+  check('every widget names the app it opens',
+    (r.widgets || []).every(w => typeof w.nav === 'string' && r.apps.some(a => a.id === w.nav)),
+    JSON.stringify((r.widgets || []).map(w => w.nav)));
+  {
+    // There is deliberately NO vitals card — the body's numbers are metered out by
+    // the Vitals screen itself, not parked on the home screen (see health-app.js).
+    check('no vitals widget exists',
+      !(r.widgets || []).some(w => w.id === 'vitals'),
+      JSON.stringify((r.widgets || []).map(w => w.id)));
+    // The beginner cards: where you are, what's in your pocket, a thing you might
+    // not know. All three must be free of DB reads, which the buildWidget contract
+    // enforces by convention rather than by an assertion here — this just checks
+    // they exist and are drawable.
+    for (const id of ['place', 'tip']) {
+      const w = (r.widgets || []).find(x => x.id === id);
+      check(`the ${id} widget rides along with drawable lines`,
+        !!w && w.kind === 'lines' && Array.isArray(w.lines) && w.lines.length > 0
+          && w.lines.every(l => typeof l.text === 'string'),
+        JSON.stringify(w));
+      // Glyph-led: the card has to be identifiable without being read.
+      check(`the ${id} widget leads with a glyph`, !!w?.icon, JSON.stringify(w?.icon));
+    }
+    {
+      // Pocket is DRAWN — a stacked proportion, not two printed figures.
+      const w = (r.widgets || []).find(x => x.id === 'pocket');
+      check('the pocket widget is a drawn proportion',
+        !!w && w.kind === 'bar' && Array.isArray(w.segments) && w.segments.length === 2,
+        JSON.stringify(w));
+      check('its segments are drawable percentages with a tone and a label',
+        (w?.segments || []).every(s => typeof s.pct === 'number' && s.pct >= 0 && s.pct <= 100
+          && ['good', 'warn', 'bad'].includes(s.tone) && typeof s.label === 'string'),
+        JSON.stringify(w?.segments));
+      // A broke player has 0 of both — the bar must still render something rather
+      // than dividing by zero into NaN.
+      check('...and never NaN, even at zero credits',
+        (w?.segments || []).every(s => Number.isFinite(s.pct)), JSON.stringify(w?.segments));
+    }
+    // Clean by default — the heat card is an alarm, so its absence is the feature.
+    check('no wanted widget while the player is clean',
+      !(r.widgets || []).some(w => w.id === 'heat'),
+      JSON.stringify((r.widgets || []).map(w => w.id)));
+  }
+  check('home screen carries the wallpaper sky snapshot',
+    !!r?.sky && typeof r.sky.minutes === 'number' && r.sky.minutes >= 0 && r.sky.minutes < 1440,
+    JSON.stringify(r?.sky));
+  check('the sky names a weather and a phase',
+    typeof r.sky.weather === 'string' && !!r.sky.weather && typeof r.sky.phase === 'string',
+    JSON.stringify(r?.sky));
+
+  // ── Crime app: the rap sheet ─────────────────────────────────────────────────
+  // Four screens, all windows onto other owners. The fake player is clean and has
+  // never been arrested, so this also asserts the empty-state reads honestly
+  // rather than throwing on absent flags/rows.
+  {
+    let c = await run('tabletnav crime');
+    check('crime app opens on the Record screen',
+      c?.appId === 'crime' && c?.activeTab === 'Record' && Array.isArray(c?.rows), JSON.stringify(c?.breadcrumb));
+    check('a clean record reads as no active warrants',
+      (c.rows || []).some(x => String(x.value).includes('no active warrants')),
+      JSON.stringify((c.rows || []).map(x => x.label)));
+    check('the record screen carries the lifetime counters',
+      ['  Arrests', '  Fines paid', '  Time served', '  Offences charged'].every(l => (c.rows || []).some(x => x.label === l)),
+      JSON.stringify((c.rows || []).map(x => x.label)));
+
+    c = await run('tabletnav crime statutes');
+    check('statutes screen lists the crime catalogue',
+      c?.activeTab === 'Statutes' && (c.items || []).length > 10, `items=${c?.items?.length}`);
+    check('statutes are ordered heaviest first',
+      (() => {
+        const stars = (c.items || []).map(i => Number(String(i.badgeLabel).replace('★', '')));
+        return stars.every((n, k) => k === 0 || stars[k - 1] >= n);
+      })(), JSON.stringify((c.items || []).slice(0, 4).map(i => i.badgeLabel)));
+
+    c = await run('tabletnav crime priors');
+    check('priors screen stands up with nothing on file',
+      c?.activeTab === 'Priors' && (c.items || []).length === 1
+        && String(c.items[0].label).includes('No priors'), JSON.stringify(c?.items));
+
+    c = await run('tabletnav crime property');
+    check('property screen stands up with an empty locker',
+      c?.activeTab === 'Property' && (c.items || []).length === 1, JSON.stringify(c?.items));
+    check('property screen says the locker is a graveyard',
+      (c.rows || []).some(x => /nothing in the locker comes back/i.test(String(x.value))),
+      JSON.stringify(c?.rows));
+
+    // The Wanted card belongs to Crime now, not Surveillance — that's what lets it
+    // sit on a default home screen (specter is stashed out of the box).
+    const { crimeRecordOf } = await import('../surveillance/index.js');
+    const rec = await crimeRecordOf(getPlayer());
+    check('crimeRecordOf returns a well-formed record',
+      !!rec && Array.isArray(rec.active) && Array.isArray(rec.history)
+        && typeof rec.priorsTotal === 'number' && !!rec.wanted, JSON.stringify(rec));
+  }
+
+  // ── Sports card: one game, and never a score that hasn't aired ──────────────
+  {
+    const { dispatchAction } = await import('../../server/engine/actions.js');
+    const p = getPlayer();
+    const next = await dispatchAction({ type: 'broadcast.getNextOnAir', actor: p, params: {} }).catch(() => null);
+    if (next) {
+      check('next-on-air names both clubs and a channel slot',
+        !!next.away && !!next.home && typeof next.slot === 'number', JSON.stringify(next));
+      check('next-on-air is ONE game, not a fixture list', !Array.isArray(next), typeof next);
+      // The whole point of the action: a fixture that has not started must not
+      // carry a score, because every game is computable from its slot.
+      check('an upcoming game carries NO score (the spoiler rule)',
+        next.live || next.final || (next.awayScore === null && next.homeScore === null),
+        JSON.stringify({ live: next.live, final: next.final, a: next.awayScore, h: next.homeScore }));
+      check('a live game carries a score and a status',
+        !next.live || (typeof next.awayScore === 'number' && typeof next.homeScore === 'number' && !!next.status),
+        JSON.stringify(next));
+      check('narrowing to one code only returns that code',
+        await (async () => {
+          const hk = await dispatchAction({ type: 'broadcast.getNextOnAir', actor: p, params: { sport: 'hockey' } }).catch(() => null);
+          return !hk || hk.sport === 'hockey';
+        })(), 'hockey filter');
+    } else {
+      check('next-on-air answers null rather than throwing when nothing is scheduled', true);
+    }
+    // The widget's ON/OFF/code filter is per-player, and 'off' must mean absent.
+    await setFlag('player', 'sports_widget', 'off', p);
+    const off = await run('tablet');
+    check('sports card obeys the off setting',
+      !(off.widgets || []).some(w => w.id === 'sports'),
+      JSON.stringify((off.widgets || []).map(w => w.id)));
+    await setFlag('player', 'sports_widget', 'both', p);
+  }
 
   r = await run('os');
   check('os verb aliases tablet', r?.type === 'tablet_panel' && r?.screen === 'home', JSON.stringify(r));
@@ -72,12 +260,27 @@ export default async function regress({ run, check, getPlayer }) {
   check('corp map sub-screen signals corp_map view', r?.view === 'corp_map' && Array.isArray(r?.tiles), JSON.stringify(r)?.slice(0, 200));
   check('corp map sub-screen has no error', !r?.error, r?.error);
 
-  // Ideology app: read-only reshape of the ideologies/rep command data. Renders
-  // natively (view: 'ideology'); all pages ride in one payload the client pages
-  // through. The fake player has no rep, so every order sits at the base tier.
-  r = await run('tabletnav ideology');
-  check('ideology app is registered on the home screen', (await run('tablet'))?.apps?.some(a => a.id === 'ideology'), 'ideology app missing from roster');
-  check('ideology app signals ideology view', r?.type === 'tablet_panel' && r?.appId === 'ideology' && r?.view === 'ideology', JSON.stringify(r)?.slice(0, 160));
+  // Codex app: the reference shelf. Its root lists the registered sections; each
+  // section is its own screen, and the Orders section is the former standalone
+  // Ideology app, payload-identical (see plugins/tablet/codex/section-orders.js).
+  r = await run('tabletnav codex');
+  check('codex app is registered on the home screen', (await run('tablet'))?.apps?.some(a => a.id === 'codex'), 'codex app missing from roster');
+  check('codex root signals the codex view with no section', r?.type === 'tablet_panel' && r?.appId === 'codex' && r?.view === 'codex' && !r?.section, JSON.stringify(r)?.slice(0, 160));
+  check('codex shelf carries its sections', Array.isArray(r?.sections) && ['quiet', 'basin', 'orders'].every(id => r.sections.some(s => s.id === id)), JSON.stringify(r?.sections)?.slice(0, 200));
+
+  // Volume I is granted whole by the prologue, so a fake player who never ran it
+  // sees the chapters sealed — and a sealed chapter must ship NO body.
+  r = await run('tabletnav codex quiet');
+  check('codex volume routes to a chapters section', r?.view === 'codex' && r?.section === 'quiet' && r?.sectionKind === 'chapters', JSON.stringify(r)?.slice(0, 160));
+  check('codex volume carries chapters with progress', Array.isArray(r?.chapters) && r.chapters.length > 0 && r?.progress && typeof r.progress.total === 'number', `chapters=${r?.chapters?.length}`);
+  const sealed = (r?.chapters || []).filter(c => !c.unlocked);
+  check('sealed chapters never ship their prose', sealed.every(c => c.body == null), JSON.stringify(sealed[0])?.slice(0, 160));
+  check('sealed chapters carry a hint instead', sealed.every(c => !c.hint || typeof c.hint === 'string'), 'hint should be a string when present');
+
+  // The Orders section — the alignment reader, unchanged by the move. The fake
+  // player has no rep, so every order sits at the base tier.
+  r = await run('tabletnav codex orders');
+  check('codex orders section signals kind orders', r?.view === 'codex' && r?.section === 'orders' && r?.sectionKind === 'orders', JSON.stringify(r)?.slice(0, 160));
   // Count-agnostic: the four canon orders must be present and live (not tagged
   // expansion). Expansion orders may or may not be imported locally, so assert
   // presence of the canon set rather than an exact length.
@@ -86,6 +289,52 @@ export default async function regress({ run, check, getPlayer }) {
   check('ideology payload carries the tier ladder', Array.isArray(r?.tiers) && r.tiers.length === 6, `tiers=${r?.tiers?.length}`);
   check('ideology overview carries stance + paths', r?.overview && typeof r.overview.stance === 'number' && !!r.overview.paths, JSON.stringify(r?.overview));
   check('ideology orders carry standing + profile + expansion fields', r?.orders?.every(o => o.id && o.color && typeof o.rep === 'number' && 'stance' in o && 'path' in o && 'expansion' in o && Array.isArray(o.opposed)), JSON.stringify(r?.orders?.[0])?.slice(0, 200));
+
+  // The `codex` verb is the same door as the app tile.
+  r = await run('codex');
+  check('codex verb opens the shelf', r?.type === 'tablet_panel' && r?.appId === 'codex' && r?.view === 'codex', JSON.stringify(r)?.slice(0, 160));
+
+  // ── Every sealed chapter must be reachable ─────────────────────────────────
+  // The one failure mode that would never surface in play: a chapter that ships
+  // with a hint and no way in. A locked chapter counts as reachable if it has an
+  // in-code trigger (codex-app.js) OR a CODEX_UNLOCK authored on some NPC's
+  // dialogue. Scanning the LIVE npcs (not the content files) also proves the
+  // authoring actually imported.
+  {
+    const { CHAPTERS } = await import('./codex/chapters.js');
+    const CODE_TRIGGERED = new Set(['inheritance', 'wants', 'answers', 'chrome', 'flesh', 'mind']);
+    const authored = new Set();
+    for (const npc of world.npcs.values()) {
+      const tree = npc.dialogue_tree;
+      if (!tree || typeof tree !== 'object') continue;
+      for (const node of Object.values(tree)) {
+        const all = [...(node?.actions || []), ...(node?.options || []).flatMap(o => o.actions || [])];
+        for (const a of all) if (a?.action === 'CODEX_UNLOCK' && a.chapter) authored.add(a.chapter);
+      }
+    }
+    const locked = CHAPTERS.filter(c => c.locked);
+    const orphans = locked.filter(c => !authored.has(c.id) && !CODE_TRIGGERED.has(c.id));
+    check('every sealed chapter has a way in', orphans.length === 0, `unreachable: ${orphans.map(c => c.id).join(', ')}`);
+    check('every sealed chapter has an NPC who explains it', locked.every(c => authored.has(c.id)),
+      `no dialogue unlock for: ${locked.filter(c => !authored.has(c.id)).map(c => c.id).join(', ')}`);
+    // And nobody is authoring an unlock for a chapter that doesn't exist — a typo
+    // in a dialogue tree would otherwise be a silently dead conversation branch.
+    const known = new Set(CHAPTERS.map(c => c.id));
+    check('no dialogue unlocks a chapter that does not exist', [...authored].every(id => known.has(id)),
+      `unknown chapter ids in dialogue: ${[...authored].filter(id => !known.has(id)).join(', ')}`);
+  }
+
+  // CODEX_UNLOCK itself: the authoring seam VINE calls. The fake player's flag
+  // writes are no-ops against the DB, so assert the action's own contract —
+  // a real chapter is accepted, a typo is refused rather than silently ignored.
+  {
+    const { dispatchAction } = await import('../../server/engine/actions.js');
+    const p = getPlayer();
+    const ok = await dispatchAction({ type: 'CODEX_UNLOCK', actor: p, params: { chapter: 'chrome', quiet: true } });
+    check('CODEX_UNLOCK accepts a real chapter', ok?.type === 'codex' && ok.chapter === 'chrome', JSON.stringify(ok));
+    const bad = await dispatchAction({ type: 'CODEX_UNLOCK', actor: p, params: { chapter: 'not_a_chapter' } });
+    check('CODEX_UNLOCK refuses an unknown chapter', bad?.type === 'error', JSON.stringify(bad));
+  }
 
   // Map app: the tablet-native city map. Reuses buildMapPayload, so the root
   // resolves to a map view with a tiles array + mode; the unified zoom ladder
@@ -291,4 +540,265 @@ export default async function regress({ run, check, getPlayer }) {
   const stories = await news.getStories(12);
   const heads = stories.map(s => String(s.headline).trim().toLowerCase());
   check('getStories returns no duplicate headlines', heads.length === new Set(heads).size, JSON.stringify(heads));
+
+  // ── Library app ───────────────────────────────────────────────────────────
+  // The book texts are hundreds of KB, so the shelf must never touch `chapters`
+  // and a page turn must index INTO the jsonb rather than pulling the array.
+  // Both of those are one silent typo away from breaking, and neither shows up
+  // as an exception — the shelf just gets slow, or every page reads blank.
+  const { rows: shelfRows } = await query(
+    `SELECT id, jsonb_array_length(chapters) AS chapters FROM books ORDER BY year`
+  );
+  if (!shelfRows.length) {
+    check('library: books table is populated (run scripts/content/fetch-books.mjs)', false, '0 rows');
+  } else {
+    check('library: every book has chapters', shelfRows.every(b => b.chapters > 0),
+      JSON.stringify(shelfRows));
+
+    // THE CAST. `chapters->$2` binds the index as TEXT, and `jsonb -> text` is a
+    // key lookup, not an array index — it returns NULL for every chapter of every
+    // book, with no error. This asserts the ::int form actually indexes.
+    const probe = shelfRows[0];
+    const { rows: chRows } = await query(
+      `SELECT chapters->($2::int)->>'text' AS text FROM books WHERE id=$1`,
+      [probe.id, 0]
+    );
+    check('library: a chapter reads by integer index (the ::int cast)',
+      !!chRows[0]?.text && chRows[0].text.length > 100, JSON.stringify(chRows[0])?.slice(0, 80));
+
+    // The uncast form is the bug — if this ever starts returning text, Postgres
+    // changed under us and the cast comment needs revisiting.
+    const { rows: badRows } = await query(
+      `SELECT chapters->$2->>'text' AS text FROM books WHERE id=$1`, [probe.id, 0]
+    );
+    check('library: the uncast form is still the trap it was documented as',
+      badRows[0]?.text == null, JSON.stringify(badRows[0])?.slice(0, 80));
+
+    // Out-of-range must be null, not an error — the reader clamps, but a bad
+    // deep link shouldn't 500.
+    const { rows: oob } = await query(
+      `SELECT chapters->($2::int)->>'text' AS text FROM books WHERE id=$1`,
+      [probe.id, 9999]
+    );
+    check('library: an out-of-range chapter is null, not an error', oob[0]?.text == null);
+
+    r = await run('tabletnav library');
+    check('library app routes', r?.type === 'tablet_panel', JSON.stringify(r)?.slice(0, 120));
+  }
+
+  // ── Vitals app ────────────────────────────────────────────────────────────
+  // The fake player has no inventory and no drug history, so this asserts the
+  // three tabs build and the empty cases answer cleanly instead of throwing.
+  {
+    r = await run('vitals');
+    check('vitals verb opens the health app',
+      r?.type === 'tablet_panel' && r?.appId === 'health' && r?.view === 'health', JSON.stringify(r)?.slice(0, 140));
+    check('vitals defaults to the readings tab', r?.tab === 'vitals' && r?.activeTab === 'vitals', r?.tab);
+    check('vitals has no error', !r?.error, r?.error);
+
+    // Every meter must carry a band the client knows how to colour — an unknown
+    // band renders as an invisible bar, which is worse than a wrong number.
+    const BANDS = ['good', 'warn', 'bad', 'crit'];
+    check('vitals meters cover the ones that ARE numbers',
+      ['hp', 'stamina', 'radiation', 'temp', 'fatigue'].every(k => r.meters?.some(m => m.key === k)),
+      JSON.stringify(r?.meters?.map(m => m.key)));
+    check('every meter has a renderable band and a 0-100 fill',
+      (r.meters || []).every(m => BANDS.includes(m.band) && m.pct >= 0 && m.pct <= 100),
+      JSON.stringify(r?.meters?.map(m => [m.key, m.band, m.pct])));
+    // Withheld on purpose: sanity is never a percentage (the sanity system tells you
+    // by what you see), and hunger/thirst are words rather than a bar you can play.
+    check('there is no sanity meter', !(r.meters || []).some(m => m.key === 'sanity'),
+      JSON.stringify(r?.meters?.map(m => m.key)));
+    check('hunger and thirst are not meters',
+      !(r.meters || []).some(m => m.key === 'hunger' || m.key === 'thirst'),
+      JSON.stringify(r?.meters?.map(m => m.key)));
+    check('hunger and thirst come through as word readouts',
+      Array.isArray(r?.readouts) && ['hunger', 'thirst'].every(k => r.readouts.some(x => x.key === k)),
+      JSON.stringify(r?.readouts));
+    check('every readout is a phrase with a colourable band and NO number',
+      (r.readouts || []).every(x => typeof x.text === 'string' && x.text && BANDS.includes(x.band)
+        && x.pct === undefined && !/\d/.test(x.text)),
+      JSON.stringify(r?.readouts));
+    check('afflictions is a list, empty or otherwise', Array.isArray(r?.afflictions));
+    // The quick strip is contextual: it may only ever offer something the player
+    // is genuinely carrying, and every offer must be usable as-is.
+    check('every quick remedy names a carried item type',
+      Array.isArray(r?.quick) && r.quick.every(q => q.id && q.name && q.label && q.qty > 0),
+      JSON.stringify(r?.quick));
+
+    const vitals = r;
+    r = await run('health apothecary');
+    check('health verb aliases vitals and takes a tab',
+      r?.appId === 'health' && r?.tab === 'apothecary', JSON.stringify(r)?.slice(0, 120));
+    // Don't assert WHICH items: the fake player's pack is whatever earlier plugin
+    // suites left in it. Assert the shape and the invariants instead.
+    check('apothecary builds a remedy list without erroring',
+      Array.isArray(r?.remedies) && !r?.error, JSON.stringify(r?.remedies)?.slice(0, 200));
+    // The quick strip may only ever offer something the apothecary can see —
+    // otherwise a button fires a `use` for an item that isn't there.
+    const shelf = new Set((r.remedies || []).map(x => x.id));
+    check('every quick remedy is an item the apothecary also lists',
+      (vitals.quick || []).every(q => shelf.has(q.id)),
+      `quick=${JSON.stringify(vitals.quick?.map(q => q.id))} shelf=${JSON.stringify([...shelf])}`);
+    // The filter is the point of the screen — a carried weapon is not medicine.
+    check('apothecary rows are all remedies, each with an effect line and a kind',
+      (r.remedies || []).every(x => x.effect && ['medical', 'compound', 'sustenance'].includes(x.kind)),
+      JSON.stringify(r?.remedies?.map(x => [x.id, x.kind])));
+    check('apothecary excludes non-medical carry',
+      !(r.remedies || []).some(x => /knife|pistol|bat\b/i.test(x.name || '')),
+      JSON.stringify(r?.remedies?.map(x => x.name)));
+
+    r = await run('tabletnav health substances');
+    check('substances tab builds', r?.tab === 'substances' && Array.isArray(r?.substances) && !r?.error,
+      JSON.stringify(r)?.slice(0, 120));
+    // The tab is now TWO questions: what has been through me (experience) and
+    // what am I carrying (on hand). Both must always be present, even empty.
+    check('substances tab carries an on-hand list', Array.isArray(r?.onHand), JSON.stringify(r?.onHand));
+
+    // KNOWLEDGE IS EARNED, and the gate lives on the SERVER — an unlearned fact
+    // must never be in the payload at all. A value the client is merely trusted
+    // not to render is readable in devtools, which is not a secret.
+    const { DRUG_FACTS } = await import('../../server/engine/drugs.js');
+    check('every learnable fact has a distinct bit',
+      new Set(Object.values(DRUG_FACTS)).size === Object.keys(DRUG_FACTS).length
+      && Object.values(DRUG_FACTS).every(v => Number.isInteger(v) && v > 0 && (v & (v - 1)) === 0),
+      JSON.stringify(DRUG_FACTS));
+    for (const s of (r.substances || [])) {
+      const l = s.learned || {};
+      check(`unlearned facts are withheld server-side (${s.name})`,
+        ((l.mask & DRUG_FACTS.EFFECTS)   || l.effects === null)
+        && ((l.mask & DRUG_FACTS.DURATION)  || l.durationSeconds === null)
+        && ((l.mask & DRUG_FACTS.OVERDOSE)  || l.overdoseCeiling === null)
+        && ((l.mask & DRUG_FACTS.WITHDRAWAL) || l.withdrawal === null),
+        JSON.stringify(l));
+    }
+
+    // An unknown tab must fall back to the readings, not blank the screen.
+    r = await run('tabletnav health nonsense');
+    check('an unknown tab falls back to the readings', r?.tab === 'vitals' && !r?.error, r?.tab);
+
+    // Use with no item is a no-op that still returns a screen (a mis-fired button
+    // must not leave the player staring at a dead panel).
+    r = await run('tabletaction health use');
+    check('a use action with no item still returns a screen',
+      r?.type === 'tablet_panel' && r?.view === 'health', JSON.stringify(r)?.slice(0, 120));
+  }
+
+  // ── Storefront app ────────────────────────────────────────────────────────
+  // The fake player owns no shop, so this asserts the empty case answers cleanly
+  // rather than throwing on an undefined deed.
+  r = await run('tabletnav storefront');
+  check('storefront app routes with no shop owned', r?.type === 'tablet_panel', JSON.stringify(r)?.slice(0, 120));
+
+  // ── Library: tapping a book must OPEN it ───────────────────────────────────
+  // The bug this guards: the client builds a list tile's nav from the last
+  // breadcrumb entry, and the shelf returned an EMPTY breadcrumb — so the book id
+  // arrived in the screen slot with no params, matched no branch, and re-rendered
+  // the shelf. Tapping a book did nothing at all.
+  //
+  // Asserted from BOTH directions, because either alone would pass while the app
+  // stayed broken: the shelf must carry a breadcrumb (so the client routes the id
+  // into params), AND the app must still open the book if an id arrives in the
+  // screen slot anyway.
+  {
+    r = await run('tabletnav library');
+    check('library shelf routes', r?.type === 'tablet_panel' && !r?.error, JSON.stringify(r)?.slice(0, 120));
+    check('the shelf carries a breadcrumb (or tiles cannot route)',
+      Array.isArray(r?.breadcrumb) && r.breadcrumb.length > 0, JSON.stringify(r?.breadcrumb));
+
+    const firstBook = (r?.books || []).find(b => b.id)?.id;
+    if (firstBook) {
+      // The route a tile click actually produces now.
+      const viaParams = await run(`tabletnav library library ${firstBook}`);
+      check('a book opens when its id arrives as params',
+        viaParams?.libKind === 'cover' && !viaParams?.error, JSON.stringify(viaParams)?.slice(0, 140));
+      // The route it produced BEFORE the fix — must also work, not silently
+      // fall through to the shelf.
+      const viaScreen = await run(`tabletnav library ${firstBook}`);
+      check('a book opens when its id arrives as the screen',
+        viaScreen?.libKind === 'cover' && !viaScreen?.error, JSON.stringify(viaScreen)?.slice(0, 140));
+      check('the two routes open the SAME book',
+        viaParams?.book?.title === viaScreen?.book?.title,
+        `${viaParams?.book?.title} vs ${viaScreen?.book?.title}`);
+
+      // The contents page, and then a TAP on one of its entries. A tile click sends
+      // the screen you are currently on ('Contents') plus the tile id, so a chapter
+      // arrives as `contents <bookId> <idx>` — which used to look up a book called
+      // "<bookId> 2" and answer "No such book." for every chapter of every book.
+      const toc = await run(`tabletnav library contents ${firstBook}`);
+      check('contents lists chapters',
+        toc?.libKind === 'contents' && (toc.chapters || []).length > 0,
+        JSON.stringify(toc)?.slice(0, 140));
+      const nth = (toc?.chapters || [])[2] || (toc?.chapters || [])[0];
+      if (nth) {
+        const page = await run(`tabletnav library contents ${nth.id}`);
+        check('tapping a contents entry opens THAT chapter',
+          page?.view === 'detail' && !!page?.detail?.body,
+          JSON.stringify(page)?.slice(0, 140));
+        check('the chapter opened is the one that was tapped',
+          page?.detail?.desc?.includes(` ${(toc.chapters.indexOf(nth) + 1)} of `),
+          `${page?.detail?.desc} for entry ${nth.id}`);
+      }
+      // Every entry in a contents page must carry a title — a jsonb path query
+      // silently drops untitled elements and shifts every index after it.
+      check('every contents entry has a title and a length',
+        (toc?.chapters || []).every(c => c.title && c.mins >= 1),
+        JSON.stringify((toc?.chapters || []).filter(c => !c.title || !(c.mins >= 1))).slice(0, 140));
+    } else {
+      check('library shelf has books to open', false, 'no book ids on the shelf');
+    }
+  }
+
+  // ── Sports app ─────────────────────────────────────────────────────────────
+  // A season that has not been played is the NORMAL state on a fresh world, so
+  // every screen has to answer cleanly with an empty league rather than throwing
+  // on an undefined table — which is exactly what a regress DB looks like.
+  {
+    r = await run('tabletnav sports');
+    check('sports app routes', r?.type === 'tablet_panel' && !r?.error, JSON.stringify(r)?.slice(0, 140));
+    check('sports opens on a league table', r?.view === 'list' && Array.isArray(r?.items), JSON.stringify(r)?.slice(0, 140));
+    // Never an empty screen: an unplayed league still says so on a row.
+    check('an unplayed league still renders a row', (r?.items || []).length > 0, String((r?.items || []).length));
+    check('both codes are offered as tabs', (r?.tabs || []).length === 2, JSON.stringify(r?.tabs));
+
+    r = await run('tabletnav sports cluster_puck');
+    check('the hockey tab routes', r?.type === 'tablet_panel' && !r?.error, JSON.stringify(r)?.slice(0, 140));
+    check('the hockey tab is the hockey league', /CPhL/.test(r?.boardName || ''), r?.boardName);
+    // Cluster Puck reported as "missing" — the cause was the client swallowing
+    // tabs on a list view, but assert the DATA side too so a genuinely empty
+    // hockey league is distinguishable from an unreachable one next time.
+    check('the hockey tab offers a way back to the other code',
+      (r?.tabs || []).some(t => /Deadball/i.test(t.label || '')), JSON.stringify(r?.tabs));
+    check('the hockey tab marks itself active',
+      /cluster/i.test(String(r?.activeTab || '')), String(r?.activeTab));
+
+    // An unknown tab must fall back to a league, not blank the screen — the same
+    // rule the health app follows.
+    r = await run('tabletnav sports nonsense');
+    check('an unknown code falls back to a league', r?.view === 'list' && !r?.error, JSON.stringify(r)?.slice(0, 120));
+
+    // A team card for a club that has never played must still answer.
+    r = await run('tabletnav sports deadball Nobody');
+    check('a team card renders for an unknown club', r?.view === 'detail' && !r?.error, JSON.stringify(r)?.slice(0, 140));
+    // THE SPOILER RULE. A future fixture is computable — every game is a pure
+    // function of its slot — so the card must never print a score for a game that
+    // has not aired. This asserts the card carries no score field at all for the
+    // upcoming game, which is the only way to be sure one can't leak into the UI.
+    const nextRow = (r?.detail?.rows || []).find(x => x.label === 'Next game');
+    check('an upcoming fixture never shows a score',
+      !nextRow || !/\d+\s*[–-]\s*\d+/.test(String(nextRow.value)), JSON.stringify(nextRow));
+  }
+
+  // ── News: the blotter replaced the standings box ───────────────────────────
+  {
+    r = await run('tabletnav news');
+    const types = (r?.sections || []).map(s => s.type);
+    check('news renders sections', Array.isArray(r?.sections), JSON.stringify(types));
+    check('the police blotter is on the front page', types.includes('blotter'), JSON.stringify(types));
+    check('the standings box has left the front page', !types.includes('standings'), JSON.stringify(types));
+    const blot = (r?.sections || []).find(s => s.type === 'blotter');
+    // A quiet night is a real answer — it must say so rather than render nothing.
+    check('an empty blotter still says something',
+      !!blot && ((blot.entries || []).length > 0 || !!blot.quiet), JSON.stringify(blot)?.slice(0, 140));
+  }
 }

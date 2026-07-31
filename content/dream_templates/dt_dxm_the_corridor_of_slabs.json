@@ -1,0 +1,33 @@
+{
+  "id": "dt_dxm_the_corridor_of_slabs",
+  "name": "The Corridor Of Slabs",
+  "description": "A corridor built of heavy blocks that arrive rather than exist. You move down it in increments. Each increment is complete and finished before the next begins, and there is no motion in between, only the arriving.",
+  "cause": "drug",
+  "drug_id": "drug_dxm",
+  "objects": [
+    {
+      "name": "the slabs",
+      "looks": [
+        "They arrive. They do not approach. There is a difference and it is the whole point.",
+        "Each one is finished before the next is considered.",
+        "You have passed this one. You are passing it. Both."
+      ]
+    },
+    {
+      "name": "the increments",
+      "looks": [
+        "You are here. Then here. The between was not provided.",
+        "It is restful. Nothing is asked of the gaps.",
+        "You count them and lose count and do not mind."
+      ]
+    }
+  ],
+  "ambient": [
+    "You arrive one increment further along.",
+    "A slab finishes being where it is.",
+    "The corridor produces another length of itself, unhurried."
+  ],
+  "weather": "Cold arrives in increments, complete, with no between.",
+  "fx": "snow",
+  "fx_intensity": 0.3
+}

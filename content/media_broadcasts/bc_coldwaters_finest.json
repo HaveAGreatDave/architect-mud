@@ -95,7 +95,7 @@
         "next": "bsm_18",
         "overlayType": "lower_third",
         "subtext": "SHIFT 11:04 · BASIN SOUTH",
-        "text": "SGT. VALE — PATROL",
+        "text": "SGT. ORDWAY — PATROL",
         "type": "overlay"
       },
       "bsm_18": {
@@ -225,7 +225,7 @@
         "next": "bsm_30",
         "overlayType": "lower_third",
         "subtext": "SOUTH GATE CHECKPOINT",
-        "text": "SGT. KESSLER & TPR. QUILL",
+        "text": "SGT. BOEDEKER & TPR. NADRE",
         "type": "overlay"
       },
       "bsm_3": {
@@ -298,7 +298,7 @@
           "x": 300,
           "y": 1200
         },
-        "message": "looks at Kessler for confirmation. He does not get it.",
+        "message": "looks at Boedeker for confirmation. He does not get it.",
         "next": "bsm_37",
         "type": "npc_action"
       },
@@ -318,7 +318,7 @@
         },
         "next": "bsm_39",
         "style": "raw",
-        "text": "That was nine months ago, Quill.",
+        "text": "That was nine months ago, Nadre.",
         "type": "say"
       },
       "bsm_39": {
@@ -357,7 +357,7 @@
         },
         "next": "bsm_42",
         "style": "narration",
-        "text": "Trooper Quill has been at the South Gate for two years and has recovered one knife.",
+        "text": "Trooper Nadre has been at the South Gate for two years and has recovered one knife.",
         "type": "say"
       },
       "bsm_42": {
@@ -503,7 +503,7 @@
         },
         "next": "bsm_56",
         "style": "narration",
-        "text": "Vale's cruiser, parked. Engine ticking as it cools. He does not get out for a long moment.",
+        "text": "Ordway's cruiser, parked. Engine ticking as it cools. He does not get out for a long moment.",
         "type": "say"
       },
       "bsm_56": {
@@ -561,7 +561,7 @@
         },
         "next": "bsm_61",
         "style": "narration",
-        "text": "Sergeant Vale will be back on shift in nine hours.",
+        "text": "Sergeant Ordway will be back on shift in nine hours.",
         "type": "say"
       },
       "bsm_61": {
@@ -637,7 +637,7 @@
         },
         "next": "bsm_8",
         "style": "narration",
-        "text": "Eleven hours into a nine-hour shift, Sergeant Vale is looking for a man who stole a coat.",
+        "text": "Eleven hours into a nine-hour shift, Sergeant Ordway is looking for a man who stole a coat.",
         "type": "say"
       },
       "bsm_8": {
@@ -667,6 +667,8 @@
   "description": "",
   "enabled": 1,
   "fallback_messages": [],
+  "film_meta": null,
+  "gameshow_pools": null,
   "id": "bc_coldwaters_finest",
   "loop": 0,
   "message_interval": 5,
@@ -678,7 +680,7 @@
       "text": "Coldwater Basin. Nine-forty PM."
     },
     {
-      "text": "Eleven hours into a nine-hour shift, Sergeant Vale is looking for a man who stole a coat."
+      "text": "Eleven hours into a nine-hour shift, Sergeant Ordway is looking for a man who stole a coat."
     },
     {
       "text": "Most nights it's not violence. Most nights it's somebody cold, or somebody owed."
@@ -720,13 +722,13 @@
       "text": "I found a knife once. In a boot. It was a really good find."
     },
     {
-      "text": "That was nine months ago, Quill."
+      "text": "That was nine months ago, Nadre."
     },
     {
       "text": "It was a really good find."
     },
     {
-      "text": "Trooper Quill has been at the South Gate for two years and has recovered one knife."
+      "text": "Trooper Nadre has been at the South Gate for two years and has recovered one knife."
     },
     {
       "text": "He has recovered it repeatedly, in conversation, ever since."
@@ -750,7 +752,7 @@
       "text": "Some of them cry. Some of them sleep. The ones who've been through a vat, they just sit there and stare at the wall like they're waiting for it to buffer."
     },
     {
-      "text": "Vale's cruiser, parked. Engine ticking as it cools. He does not get out for a long moment."
+      "text": "Ordway's cruiser, parked. Engine ticking as it cools. He does not get out for a long moment."
     },
     {
       "text": "People ask if it gets to you."
@@ -759,7 +761,7 @@
       "text": "It's a job. You do the job. Then you go home and you sit in your kitchen with the light off for a bit, and then you're fine."
     },
     {
-      "text": "Sergeant Vale will be back on shift in nine hours."
+      "text": "Sergeant Ordway will be back on shift in nine hours."
     },
     {
       "text": "Coldwater's Finest. Filmed on location, with the cooperation of people who had no realistic way to decline."
@@ -773,6 +775,7 @@
   "news_pools": null,
   "override_duration": 240,
   "playback_mode": "scripted",
+  "sermon_pools": null,
   "sports_pools": null,
   "tags": [],
   "talkshow_pools": null,

@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 10000,
+  "flags": {},
+  "generator_id": "gen_zone_powerplantnew_1782069598190",
+  "id": "zone_sf_voss7",
+  "max_capacity_kw": 10000,
+  "name": "Unit 7, Voss Avenue",
+  "source_type": "city_grid"
+}

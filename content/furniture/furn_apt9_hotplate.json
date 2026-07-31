@@ -1,0 +1,17 @@
+{
+  "description": "A single ring and a scorched enamel kettle that whistles a semitone flat. Between them they have kept this room alive for years.",
+  "flags": {
+    "brew_tier": "kettle",
+    "aliases": "kettle,hotplate"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt9_hotplate",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "hotplate and kettle",
+  "object_type": "fixture",
+  "power_draw_kw": 1.4,
+  "price": 0,
+  "zone_id": "zone_apt_9"
+}

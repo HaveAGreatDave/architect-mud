@@ -1,0 +1,17 @@
+{
+  "id": "dxs_psilocybin_animal",
+  "drug_id": "drug_psilocybin",
+  "matches": null,
+  "scope": "spawn",
+  "name": "a large animal pretending to be furniture",
+  "description": "Something the size and shape of a bench is here, and it is warm, and it is breathing.",
+  "looks": [
+    "It has been holding this shape for a while.",
+    "It rises and falls, and the rhythm is not yours yet.",
+    "Sitting on it would be accepted rather than permitted."
+  ],
+  "says": [
+    "You can sit. I do not mind the weight.",
+    "Breathe with me. You already are."
+  ]
+}

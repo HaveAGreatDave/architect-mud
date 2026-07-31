@@ -1,0 +1,15 @@
+{
+  "id": "dxr_default_room",
+  "drug_id": null,
+  "matches": null,
+  "scope": "room",
+  "name": "the room, aware",
+  "description": "Something about this place has begun paying attention.",
+  "looks": [
+    "The room is very slightly the wrong size, and adjusts while you are not looking at it.",
+    "Something in here has begun paying attention, and is being tactful about it.",
+    "The edges of this place are a suggestion it is choosing to honour.",
+    "The light is coming from about a foot in front of your face, which nobody has minded until now."
+  ],
+  "says": []
+}

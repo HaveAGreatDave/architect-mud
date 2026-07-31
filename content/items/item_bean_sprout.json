@@ -1,0 +1,22 @@
+{
+  "description": "A tangle of pale shoots grown in a jar on somebody's windowsill in four days flat. Crunch, water, and the faint smell of a cupboard.",
+  "flags": {},
+  "id": "item_bean_sprout",
+  "name": "bean sprouts",
+  "tags": {
+    "consumable": true,
+    "description": "A tangle of pale shoots grown in a jar on somebody's windowsill in four days flat. Crunch, water, and the faint smell of a cupboard.",
+    "food_noun": "sprout",
+    "food_profile": "soft_vegetable",
+    "perishable": true,
+    "restore_hunger": 5,
+    "spoil_rate": "fast",
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.25
+    }
+  },
+  "type": "consumable",
+  "value": 4,
+  "weight": 80
+}

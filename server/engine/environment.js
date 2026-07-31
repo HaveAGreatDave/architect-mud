@@ -1214,7 +1214,10 @@ function writeGeneratorRemaining(genRow, remainingKw) {
   genRow.remaining_kw = remainingKw;
 }
 
-async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } = {}) {
+async function simulatePowerNetwork(query, { weatherType, reason = 'unknown', silentBlackout = false } = {}) {
+  // An EMP blacks out every zone at once; one "the lights cut out" line per zone
+  // would bury the event's own sky-wide announce, so the caller can mute them.
+  const lightOpts = silentBlackout ? { silent: true } : undefined;
   powerSimCounts.set(reason, (powerSimCounts.get(reason) || 0) + 1);
   await refreshTopologyIfDirty(query);
   const allGenerators = [...generatorRows.values()];
@@ -1235,12 +1238,21 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
   // flags), so a downed building doesn't snap back the instant the weather eases.
   const updatedStatus = new Map();
   const genLightByZone = new Map(); // zoneId → any portable gen wants its work light on
+  // Writes are collected and flushed as a fixed number of batched statements after
+  // the loop rather than awaited per generator. The diff-gates below decide WHETHER
+  // a row is written exactly as before; this only changes how many round trips that
+  // costs. It matters under storm load: every junction_box faults independently, so
+  // the naive form was one sequential round trip per faulted box (~100) on the
+  // 5-minute storm cadence.
+  const wOffline = [];        // id           — destroyed units, status only
+  const wStatusFuel = [];     // [id, status, fuel]
+  const wStatusFuelFlags = []; // [id, status, fuel, flagsJson]
   for (const gen of allGenerators) {
     // A destroyed unit (its physical furniture was smashed apart) stays dark
     // regardless of type — this is what cuts power to everything downstream.
     if (gen.flags?.destroyed) {
       updatedStatus.set(gen.id, { ...gen, status: 'offline' });
-      if (gen.status !== 'offline') await query(`UPDATE generators SET status=$1 WHERE id=$2`, ['offline', gen.id]);
+      if (gen.status !== 'offline') wOffline.push(gen.id);
       gen.status = 'offline'; // keep the RAM row in step — nothing re-SELECTs it
       continue;
     }
@@ -1262,7 +1274,10 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
     const recoverAfter = flags.recover_after ? new Date(flags.recover_after).getTime() : 0;
     if (recoverAfter && now < recoverAfter) {
       inRecovery = true;
-      if (gen.generator_type === 'junction_box') status = 'offline';  // still knocked out
+      // Junction boxes fault in ordinary storms; an EMP pulse knocks the CITY
+      // PLANTS down too (forceGridBlackout), which is why this holds anything
+      // that isn't a player's own portable unit.
+      if (gen.generator_type !== 'player') status = 'offline';        // still knocked out
       anyRecovering = true;
     } else if (recoverAfter) {
       const { recover_after, ...rest } = flags;                       // window elapsed — clear the scar
@@ -1303,10 +1318,10 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
     const stateChanged = gen.status !== status || Number(gen.fuel_remaining) !== Number(fuelRemaining);
     if (flagsChanged) {
       if (stateChanged || JSON.stringify(gen.flags ?? {}) !== JSON.stringify(flags ?? {})) {
-        await query(`UPDATE generators SET status=$1, fuel_remaining=$2, flags=$3 WHERE id=$4`, [status, fuelRemaining, JSON.stringify(flags), gen.id]);
+        wStatusFuelFlags.push([gen.id, status, fuelRemaining, JSON.stringify(flags)]);
       }
     } else if (stateChanged) {
-      await query(`UPDATE generators SET status=$1, fuel_remaining=$2 WHERE id=$3`, [status, fuelRemaining, gen.id]);
+      wStatusFuel.push([gen.id, status, fuelRemaining]);
     }
     // The RAM row is the only basis the next cycle's diff-gate compares against
     // (nothing re-SELECTs generators any more), so it must carry the new values
@@ -1314,6 +1329,33 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
     gen.status = status;
     gen.fuel_remaining = fuelRemaining;
     gen.flags = flags;
+  }
+  // Flush the collected generator writes — at most three statements regardless of
+  // how many units changed. The two shapes stay separate on purpose: the
+  // status+fuel form must NOT touch flags — its diff-gate never established that
+  // flags moved, so folding it in would widen what that branch claims to persist.
+  // Columns are cast explicitly — a bare VALUES list gives Postgres nothing to
+  // infer parameter types from.
+  if (wOffline.length) {
+    await query(`UPDATE generators SET status='offline' WHERE id = ANY($1)`, [wOffline]);
+  }
+  if (wStatusFuel.length) {
+    const vals = wStatusFuel.map((_, i) => `($${i*3+1}::text, $${i*3+2}::text, $${i*3+3}::real)`).join(',');
+    await query(
+      `UPDATE generators g SET status = v.status, fuel_remaining = v.fuel
+         FROM (VALUES ${vals}) AS v(id, status, fuel)
+        WHERE g.id = v.id`,
+      wStatusFuel.flat()
+    );
+  }
+  if (wStatusFuelFlags.length) {
+    const vals = wStatusFuelFlags.map((_, i) => `($${i*4+1}::text, $${i*4+2}::text, $${i*4+3}::numeric, $${i*4+4}::jsonb)`).join(',');
+    await query(
+      `UPDATE generators g SET status = v.status, fuel_remaining = v.fuel, flags = v.flags
+         FROM (VALUES ${vals}) AS v(id, status, fuel, flags)
+        WHERE g.id = v.id`,
+      wStatusFuelFlags.flat()
+    );
   }
   stormFaultActive = anyRecovering;
 
@@ -1381,7 +1423,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
         const cap = z.max_capacity_kw ?? 1000;
         const prev_z = z.status; // capture before writeZonePower mutates the row
         writeZonePower(z, 'offline', 0, cap);
-        await applyPowerLightEffects(z.id, prev_z, 'offline', 0, cap);
+        await applyPowerLightEffects(z.id, prev_z, 'offline', 0, cap, lightOpts);
       }
       for (const jb of connectedJBs) {
         jbAlloc.set(jb.id, 0);
@@ -1423,7 +1465,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
           : 'powered';
         const prev_zone = zone.status; // capture before writeZonePower mutates the row
         writeZonePower(zone, status, alloc, ceiling);
-        await applyPowerLightEffects(zone.id, prev_zone, status, alloc, ceiling);
+        await applyPowerLightEffects(zone.id, prev_zone, status, alloc, ceiling, lightOpts);
       } else {
         jbAlloc.set(c.id, alloc);
         writeGeneratorRemaining(genById.get(c.id), alloc);
@@ -1467,7 +1509,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
         const cap = z.max_capacity_kw ?? 1000;
         const prev_z = z.status; // capture before writeZonePower mutates the row
         writeZonePower(z, 'offline', 0, cap);
-        await applyPowerLightEffects(z.id, prev_z, 'offline', 0, cap);
+        await applyPowerLightEffects(z.id, prev_z, 'offline', 0, cap, lightOpts);
       }
       if (jbSt) writeGeneratorRemaining(gen, 0);
       continue;
@@ -1491,7 +1533,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
         : 'powered';
       const prev_zone = zone.status; // capture before writeZonePower mutates the row
       writeZonePower(zone, status, alloc, ceiling);
-      await applyPowerLightEffects(zone.id, prev_zone, status, alloc, ceiling);
+      await applyPowerLightEffects(zone.id, prev_zone, status, alloc, ceiling, lightOpts);
     }
     writeGeneratorRemaining(gen, Math.max(0, pool));
   }
@@ -1501,7 +1543,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
     const cap = z.max_capacity_kw ?? 1000;
     const prev_z = z.status; // capture before writeZonePower mutates the row
     writeZonePower(z, 'offline', 0, cap);
-    await applyPowerLightEffects(z.id, prev_z, 'offline', 0, cap);
+    await applyPowerLightEffects(z.id, prev_z, 'offline', 0, cap, lightOpts);
   }
 
   reconcileDevicePower();
@@ -1634,6 +1676,20 @@ const CATEGORY_MIN_VIS = { pitch_dark: 0, murk: 0.05, dark: 0.10, gloomy: 0.26, 
 
 // Return a copy of `vis` raised to at least `floorCategory`. If it's already that
 // bright or brighter (or either category is unknown), returns `vis` unchanged.
+// Move `vis` up or down the ladder by whole steps. Used by sight acuity: a keen
+// eye reads a gloomy room as dim, a dark one as gloomy; smoked lenses do the
+// reverse. Unlike floorVisibility this is RELATIVE, so it composes with whatever
+// a light source already did rather than overriding it — a keen-eyed player with
+// a flashlight gets both.
+export function shiftVisibility(vis, steps) {
+  const cur = LIGHT_LADDER.indexOf(vis?.category);
+  if (cur < 0 || !steps) return vis;
+  const tgt = Math.max(0, Math.min(LIGHT_LADDER.length - 1, cur + steps));
+  if (tgt === cur) return vis;
+  const category = LIGHT_LADDER[tgt];
+  return { ...vis, category, visibility: CATEGORY_MIN_VIS[category] };
+}
+
 export function floorVisibility(vis, floorCategory) {
   const cur = LIGHT_LADDER.indexOf(vis.category);
   const tgt = LIGHT_LADDER.indexOf(floorCategory);
@@ -1761,6 +1817,13 @@ let weatherEventTrigger = null;     // (type) => { ok, line?, label?, error? }
 let weatherRegionRefresh = null;    // async () => void — rebuild the per-region climate boxes
 export function registerWeatherEventStep(fn)     { weatherEventStep = fn; }
 export function registerWeatherEventTrigger(fn)  { weatherEventTrigger = fn; }
+// What is running RIGHT NOW, if anything — { type, phase } | null. Added so the
+// dev panel can show whether a hero event is live instead of guessing: without
+// it the panel could offer a trigger but never report the result, which is the
+// kind of control that makes you press it twice.
+let weatherEventCurrent = null;     // () => { type, phase } | null
+export function registerWeatherEventCurrent(fn)  { weatherEventCurrent = fn; }
+export function activeWeatherEvent() { return weatherEventCurrent ? weatherEventCurrent() : null; }
 export function registerWeatherRegionRefresh(fn) { weatherRegionRefresh = fn; }
 
 // Broadcast weather-event announce lines to every player (sky-wide).
@@ -1781,6 +1844,35 @@ function syncWeatherEventSignal(event) {
   lastWeatherEventKey = key;
   if (deps.broadcast) deps.broadcast({ type: 'weather_event', eventType: event?.type ?? null, phase: event?.phase ?? null });
   emit('weather.event', { type: event?.type ?? null, phase: event?.phase ?? null });
+  // The EMP pulse. This is the only change-detected event seam in the file, so
+  // it's the one place a "fires exactly once, at the peak" effect can live.
+  if (event?.type === 'ion_storm' && event.phase === 'peak') firePulse();
+}
+
+// The moment the sky takes the city's power out. Kept separate from the signal
+// above so the ordering is explicit: black the grid out FIRST, then say so, then
+// let subscribers (fried gear, augments, aircraft avionics) react to the same beat.
+async function firePulse() {
+  const minutes = EMP_BLACKOUT_MIN;
+  try { await forceGridBlackout({ minutes, reason: 'emp' }); }
+  catch (e) { console.error(`[weather] EMP blackout failed: ${e.message}`); }
+  announceWeatherEvent([
+    'Every light in the city dies at once. Screens, streetlamps, the hum behind the walls — all of it, gone between one breath and the next.',
+  ]);
+  emit('weather.empPulse', { minutes });
+}
+// How long the grid stays down after a pulse, before generators start coming
+// back (jittered per unit inside forceGridBlackout, so recovery is ragged).
+const EMP_BLACKOUT_MIN = 6;
+
+// The live named event as { type, phase } | null, for anything that needs to
+// render or reason about it outside the change-detected broadcast — the flight
+// sim's canopy and hazard roll, the tablet's weather widget. Reads the last
+// signalled state rather than asking the plugin, so it's free.
+export function getWeatherEvent() {
+  if (lastWeatherEventKey === 'none') return null;
+  const [type, phase] = lastWeatherEventKey.split(':');
+  return { type, phase };
 }
 
 // Dev tool: force a named weather event immediately (sibling to devMaxStorm).
@@ -2031,14 +2123,39 @@ export function getWeatherDescription() {
 // Returns the effective temperature for a zone. Indoor zones (is_interior /
 // is_apartment) return their HVAC-simulated temp; outdoor zones return the
 // global outdoor temp with diurnal offset.
+// ── Heat sources ─────────────────────────────────────────────────────────────
+// A contributor seam, exactly like the smell/sound gather hooks: a plugin registers a
+// function that answers "how many °C is this room warmed by things standing in it", and the
+// engine sums them into the ambient. IN-MEMORY ONLY by contract — a heat source is runtime
+// state (a burning fire, a battery with charge left in it), never a persisted zone flag, so
+// this must never write anything and must stay cheap enough for a per-player tick.
+//
+// It lives here rather than in whichever plugin needs it first because the whole point is
+// that everything sees the same number: the body-temp drift, frostbite's peripheral skin
+// temperature, and the HUD thermometer all read `getZoneTemperature`, and a fire that warmed
+// your core but not your fingers would be a bug nobody could find.
+// A source is called with the room's temperature BEFORE any heating, which is what lets it be
+// a TARGET ("hold this room at 20C, however cold it started") rather than only a flat offset.
+// A thermostat is the honest model for a heater; a flat bonus is the honest model for a fire.
+const heatSources = [];
+export function registerHeatSource(fn) { if (typeof fn === 'function') heatSources.push(fn); }
+export function getZoneHeatBonus(zoneId, baseC) {
+  let total = 0;
+  for (const fn of heatSources) {
+    try { total += Number(fn(zoneId, baseC)) || 0; } catch { /* a broken source warms nothing */ }
+  }
+  return total;
+}
+
 export function getZoneTemperature(zoneId) {
   const z = state.zones.get(zoneId);
-  if (isIndoorZone(z) && state.zoneTemps.has(zoneId)) {
-    return state.zoneTemps.get(zoneId);
-  }
-  const base = state.tempC + diurnalOffset(state.minutes);
-  const f = fieldAt(zoneId);
-  return f ? Math.round(base + f.tempOffset) : base;
+  // Applied to indoor and outdoor alike: a brazier works in a blacked-out flat and it works
+  // in an alley. What it CANNOT do is beat the weather in an open field, because the bonus is
+  // a fixed number of degrees rather than a target the room is driven to.
+  const raw = (isIndoorZone(z) && state.zoneTemps.has(zoneId))
+    ? state.zoneTemps.get(zoneId)
+    : (() => { const b = state.tempC + diurnalOffset(state.minutes); const f = fieldAt(zoneId); return f ? Math.round(b + f.tempOffset) : b; })();
+  return heatSources.length ? raw + getZoneHeatBonus(zoneId, raw) : raw;
 }
 
 // Prevailing wind speed (kph) for the current day. Global — one figure for the
@@ -2108,20 +2225,70 @@ export function getZoneApparentTemperature(zoneId, extraOffsetC = 0) {
   return apparentTemperature(ambient, state.forecast[0]?.windKph ?? 0, getZoneHumidity(zoneId));
 }
 
-// The temperature a SUBMERGED swimmer's body drifts toward — water conducts heat
-// far faster than air, and the coastal/open water here runs cold regardless of the
-// day's air temp, so a long swim pulls the core toward hypothermia. Read by the
-// body-temperature tick when player._submerged. Authorable per tile via
-// flags.water_temp_c (e.g. a warm lagoon); underwater tiles default colder.
-const SURFACE_WATER_C = 12;
-const DEEP_WATER_C = 7;
-export function waterTemperature(zoneId) {
+// The wind's share of the feels-like temperature at a zone, in °C — always ≤ 0, and 0
+// indoors or in calm air. Isolated by running the apparent-temperature curve twice, once at
+// the real wind and once at zero, so the humidity terms cancel exactly and what's left is
+// wind alone. Exists so a WINDPROOF shell can give that share back: wind chill is a
+// skin-cooling effect a sealed outer layer largely defeats, but the model applies it to the
+// ambient BEFORE clothing, which otherwise chills a bundled-up player exactly as hard as a
+// naked one. See the windproof handling in gameLoop's driftBodyTemperature.
+export function windChillDelta(zoneId, extraOffsetC = 0) {
   const z = state.zones.get(zoneId);
+  if (isIndoorZone(z)) return 0;
+  const ambient = getZoneTemperature(zoneId) + extraOffsetC;
+  const hum = getZoneHumidity(zoneId);
+  return apparentTemperature(ambient, state.forecast[0]?.windKph ?? 0, hum)
+       - apparentTemperature(ambient, 0, hum);
+}
+
+// The temperature a SUBMERGED swimmer's body drifts toward — water conducts heat far faster
+// than air, so a long swim pulls the core toward hypothermia. Read by the body-temperature
+// tick when player._submerged. Authorable per tile via flags.water_temp_c (e.g. a heated pool
+// or a warm lagoon), which short-circuits everything below.
+//
+// SEASONAL, BUT LAGGING. This was a flat 12°C/7°C year-round, which made a midsummer swim
+// exactly as lethal as a January one — the single least realistic thing in the thermal model.
+// Water now tracks the CLIMATE MONTH rather than the day: a body of water has enormous
+// thermal mass, so it neither cares what time it is (no diurnal term) nor what today's
+// weather anomaly did (no `state.tempC`, which carries a ±11°C wander). It follows the
+// monthly mean, damped and offset, which is why a temperate sea sits well above freezing in
+// winter and well below air temperature in a heatwave.
+const WATER_DAMPING = 0.5;      // half the seasonal swing reaches the water
+const WATER_BASE_C = 4;         // …around this floor-ish anchor
+const WATER_MIN_C = 2;          // liquid, but only just — the ice edge
+const WATER_MAX_C = 24;         // a shallow temperate sea at the end of a hot summer
+const DEEP_WATER_DROP_C = 5;    // below the thermocline, colder and far more stable
+const DEEP_WATER_MAX_C = 12;
+export function waterTemperature(zoneId) {
+  // Flags come from the WORLD, not from `state.zones`. The environment's own zone map is a
+  // snapshot of the POWER graph and only ever contains zones that belong to a power zone —
+  // which no body of water does. Reading flags from it meant `flags.underwater` was never
+  // seen on any of the 82 underwater tiles, so every dive silently used the surface
+  // temperature and the deep-water branch below had never once executed; an authored
+  // `water_temp_c` was dead for the same reason.
+  const z = world.zones.get(zoneId);
   const authored = z?.flags?.water_temp_c;
   if (Number.isFinite(authored)) return authored;
-  // `underwater` is a resolved property now (preset by the underwater terrain), not a
-  // raw flag — so a tile that overrides it gets the matching temperature for free.
-  return propsOf(zoneId).underwater ? DEEP_WATER_C : SURFACE_WATER_C;
+  const surface = Math.max(WATER_MIN_C, Math.min(WATER_MAX_C,
+    WATER_BASE_C + seasonalMeanTempC() * WATER_DAMPING));
+  // `underwater` is a RESOLVED PROPERTY now, preset by the underwater terrain, not a raw
+  // flag — the 82 tiles the comment above found unreadable were migrated to that terrain.
+  // So this asks the build what the tile resolved to, which also means a tile that
+  // overrides the property one way or the other gets the matching temperature for free.
+  if (!propsOf(zoneId).underwater) return Math.round(surface * 10) / 10;
+  return Math.round(Math.max(WATER_MIN_C, Math.min(DEEP_WATER_MAX_C, surface - DEEP_WATER_DROP_C)) * 10) / 10;
+}
+
+// This month's mean air temperature from the active climate profile — the seasonal signal
+// with the day's weather, the anomaly and the diurnal cycle all stripped out. Falls back to
+// the day's base temp when no profile is loaded (dev DBs, early boot), which is wrong by the
+// anomaly but never wildly so.
+function seasonalMeanTempC() {
+  const monthly = state.activeClimateProfile?.monthly_temp_c;
+  if (!Array.isArray(monthly) || monthly.length !== 12) return state.tempC;
+  const month = Number(String(state.date || '').slice(5, 7)) - 1;
+  const v = monthly[Number.isInteger(month) && month >= 0 && month <= 11 ? month : 0];
+  return Number.isFinite(v) ? v : state.tempC;
 }
 
 export function getPowerMap() {
@@ -2144,8 +2311,28 @@ export function getGameDateTime() {
   return { date: state.date, time: formatHHMM(state.minutes) };
 }
 
+// The whole-world snapshot. Most callers want one clock or weather field off it —
+// the NPC/enemy AI asks for `minutes`, `hour`, `dayOfWeek` or `timePhase` on a
+// per-entity basis, every second — but building it eagerly also rebuilt the
+// forecast AND allocated one object per power-model zone, thousands of them, for
+// a caller that wanted an integer.
+//
+// So `forecast` and `powerMap` are lazy: computed on first access, memoised per
+// snapshot. They stay ENUMERABLE, so anything that spreads or JSON-stringifies
+// the whole state (the HUD sync payload, the dev panel) is completely unaffected
+// and still gets both fields. Callers that never touch them now pay nothing.
 export function getEnvironmentState() {
-  return { ...getHUDPayload(), minutes: state.minutes, hour: Math.floor(state.minutes / 60), timeScale: state.timeScale, ambientLight: state.ambientLight, forecast: getForecast(), powerMap: getPowerMap(), precipRate: state.precipRate, currentPrecip: state.currentPrecip, lightningKills: state.lightningKills };
+  const snap = { ...getHUDPayload(), minutes: state.minutes, hour: Math.floor(state.minutes / 60), timeScale: state.timeScale, ambientLight: state.ambientLight, precipRate: state.precipRate, currentPrecip: state.currentPrecip, lightningKills: state.lightningKills };
+  let forecast, powerMap;
+  Object.defineProperty(snap, 'forecast', {
+    enumerable: true, configurable: true,
+    get() { return forecast !== undefined ? forecast : (forecast = getForecast()); },
+  });
+  Object.defineProperty(snap, 'powerMap', {
+    enumerable: true, configurable: true,
+    get() { return powerMap !== undefined ? powerMap : (powerMap = getPowerMap()); },
+  });
+  return snap;
 }
 
 // Records a player killed by storm lightning (not smite). Appends
@@ -3152,6 +3339,45 @@ export async function recomputePower() {
   await simulatePowerNetwork(query, { weatherType: state.weatherType, reason: 'generator_change' });
   loadZonePowerAndLighting();
   return getPowerMap();
+}
+
+// EMP: knock the WHOLE grid down at once.
+//
+// It cannot write generators.status — Phase 1 of simulatePowerNetwork forcibly
+// resets every non-player generator to 'online' each cycle, so a raw status
+// write would be undone within 30 seconds. The durable lever is the same
+// `flags.recover_after` window ordinary storm faults already use; this just
+// applies it to every city plant and junction box at once, jittered per unit so
+// the city comes back raggedly rather than snapping on like a light switch.
+//
+// Player generators are deliberately untouched: an unplugged portable genset in
+// a back room is exactly the sort of preparation that should pay off here.
+export async function forceGridBlackout({ minutes = 6, jitterMinutes = 6, reason = 'emp' } = {}) {
+  const { query } = deps;
+  const now = Date.now();
+  const writes = [];
+  for (const gen of generatorRows.values()) {
+    if (gen.generator_type === 'player') continue;
+    const ms = (minutes + Math.random() * jitterMinutes) * 60_000;
+    const flags = { ...(gen.flags || {}), recover_after: new Date(now + ms).toISOString() };
+    gen.flags = flags;
+    gen.status = 'offline';
+    writes.push([gen.id, JSON.stringify(flags)]);
+  }
+  if (!writes.length) return { ok: false, generators: 0 };
+  // One round trip for the lot — an EMP touches every generator in the world,
+  // so the per-row form would be ~100 sequential round trips to remote Postgres.
+  await query(
+    `UPDATE generators SET status='offline', flags = d.flags::jsonb
+       FROM (SELECT * FROM unnest($1::text[], $2::text[]) AS t(id, flags)) d
+      WHERE generators.id = d.id`,
+    [writes.map(w => w[0]), writes.map(w => w[1])]
+  );
+  // The per-zone "the lights cut out" lines are suppressed: the ion storm's own
+  // sky-wide announce is the beat, and one line per zone would bury it.
+  await simulatePowerNetwork(query, { weatherType: state.weatherType, reason, silentBlackout: true });
+  loadZonePowerAndLighting();
+  return { ok: true, generators: writes.length };
 }
 
 // Ghost-mode sabotage: force a zone fully offline right now. Zeroes its supply

@@ -42,12 +42,55 @@ export function findRecipeByName(name) {
 }
 
 /**
- * Attempt to craft a recipe.
- * Returns { success, message, output?, critical? }
+ * How long a craft takes, in seconds.
+ *
+ * DERIVED, never authored. The `recipes.craft_time` column existed for years and
+ * 35 of 36 recipes still carried its default of 3 — a per-recipe number with no
+ * mechanical effect never gets tuned. So the duration comes out of the fields
+ * authors DO maintain, and every recipe gets a sensible time for free.
+ *
+ * Deliberately NOT derived from the output item's `value`, which is the trick
+ * durability uses for its condition capacity. Value tracks what a thing SELLS
+ * for, not what it takes to make: measured across the recipe table, difficulty
+ * and value correlate at r=0.04 (a Feed Spoofer worth 1400 is difficulty 6; a
+ * dose of Amyls worth 25 is difficulty 10). It is the wrong axis here.
+ *
+ * The three inputs, in order of how much they matter:
+ *   base_difficulty — the spine. Genuinely authored, spread 2..12.
+ *   skill_req       — a gated recipe is more involved than an open one.
+ *   bulk            — ingredient units beyond one each; separates a Scrap Vest
+ *                     (five units of scrap) from a two-part Relay Node.
+ *
+ * Lands the current table in a 6..23 s band: a Field Bandage is near-instant,
+ * an Architect Signal Decoder pins you in place long enough to matter.
  */
-export async function attemptCraft(player, recipeId, stationQuality = 'none') {
+export function craftSeconds(recipe) {
+  if (!recipe) return 0;
+  const ingredients = recipe.ingredients || [];
+  const bulk = ingredients.reduce((sum, ing) => sum + (ing.quantity || 1), 0) - ingredients.length;
+  const skillReq = Math.max(0, ...Object.values(recipe.skill_req || {}).map(Number).filter(Number.isFinite));
+  const seconds = 3
+    + (Number(recipe.base_difficulty) || 0) * 1.5
+    + (Number.isFinite(skillReq) ? skillReq : 0) * 1.0
+    + Math.max(0, bulk) * 0.5;
+  return Math.max(1, Math.round(seconds));
+}
+
+/**
+ * Everything `attemptCraft` checks BEFORE it rolls or writes anything: skill
+ * ranks, the station, and the ingredients on hand.
+ *
+ * Split out so a timed craft can refuse up front — being told after a 23-second
+ * wait that you were never skilled enough would be a bad joke. `attemptCraft`
+ * calls it too and re-checks at resolve time, so nothing is trusted across the
+ * wait: a player who drops or sells the parts mid-craft fails at the end, and
+ * the resolve is still the only thing that consumes anything.
+ *
+ * Returns { ok, message?, recipe?, toConsume?, playerSkills? }.
+ */
+export async function checkCraftReady(player, recipeId, stationQuality = 'none') {
   const recipe = RECIPE_CACHE[recipeId];
-  if (!recipe) return { success: false, message: 'Unknown recipe.' };
+  if (!recipe) return { ok: false, message: 'Unknown recipe.' };
 
   // Check skill requirements
   const { rows: skillRows } = await query(
@@ -59,13 +102,13 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
   for (const [skillId, minRank] of Object.entries(recipe.skill_req || {})) {
     if ((playerSkills[skillId] || 0) + skillStatBonus(player, skillId) < minRank) {
       const skillName = skillId.replace(/_/g, ' ');
-      return { success: false, message: `You need ${skillName} rank ${minRank} to craft this.` };
+      return { ok: false, message: `You need ${skillName} rank ${minRank} to craft this.` };
     }
   }
 
   // Check station requirement
   if (recipe.requires_station && stationQuality === 'none') {
-    return { success: false, message: `This recipe requires a ${recipe.requires_station.replace(/_/g, ' ')}.` };
+    return { ok: false, message: `This recipe requires a ${recipe.requires_station.replace(/_/g, ' ')}.` };
   }
 
   // Check ingredients
@@ -85,10 +128,22 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
     if (!found) {
       const { rows: itemRows } = await query('SELECT name FROM items WHERE id = $1', [ing.item_id]);
       const itemName = itemRows[0]?.name || ing.item_id;
-      return { success: false, message: `You need ${ing.quantity}x ${itemName}.` };
+      return { ok: false, message: `You need ${ing.quantity}x ${itemName}.` };
     }
     toConsume.push({ invId: found.id, quantity: ing.quantity, currentQty: found.quantity });
   }
+
+  return { ok: true, recipe, toConsume, playerSkills };
+}
+
+/**
+ * Attempt to craft a recipe.
+ * Returns { success, message, output?, critical? }
+ */
+export async function attemptCraft(player, recipeId, stationQuality = 'none') {
+  const ready = await checkCraftReady(player, recipeId, stationQuality);
+  if (!ready.ok) return { success: false, message: ready.message };
+  const { recipe, toConsume, playerSkills } = ready;
 
   // Roll the craft
   const skillResult = await skillCheck(player, recipe.skill_id, recipe.base_difficulty);

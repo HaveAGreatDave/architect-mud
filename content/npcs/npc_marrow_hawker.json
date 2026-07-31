@@ -1,0 +1,71 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "emote",
+        "seconds": 90,
+        "type": "wait"
+      },
+      "emote": {
+        "action_type": "EMOTE",
+        "next": "wait",
+        "type": "action",
+        "params": {
+          "message": "works three feet of pavement like a stage, tray tilted, calling prices at nobody in particular."
+        }
+      }
+    }
+  },
+  "chitchat": [
+    "Piper steps neatly into your path with the tray already tilted. \"Laces? Lighter? Something for the walk?\"",
+    "\"You dropped this.\" She hasn't got anything in her hand. She grins and moves on.",
+    "She shifts three feet down the pavement for no reason you can see, and a moment later a delivery cart goes through where she was standing."
+  ],
+  "description": "A hawker working the middle of Marrow Street off a folding tray slung round her neck, selling laces, lighters, needles and single cigarettes to people who only realise they need them when they see them. She has an unerring sense for who has just been paid.",
+  "dialogue_tree": {
+    "root": {
+      "text": "\"Working the street, not begging on it,\" Piper says, before you've asked. \"There's a difference and it's the tray.\" She tilts it at you hopefully.",
+      "options": [
+        {
+          "label": "Take care.",
+          "next": "bye"
+        }
+      ]
+    },
+    "bye": {
+      "text": "She is already three doors down and mid-sentence with someone else.",
+      "options": []
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a patched shell coat with the pockets sewn shut",
+      "a folding vendor tray on a neck strap",
+      "work trousers and plain briefs"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_district_916_909",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_marrow_hawker",
+  "name": "Piper Ostrand",
+  "npc_type": "civilian",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": null,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_916_909"
+}

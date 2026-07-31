@@ -727,6 +727,42 @@ registerAction({
   },
 });
 
+// Every UNMET zone objective on this player's live quests, as
+// `[{ zone, desc, questId, questName }]`.
+//
+// Why this exists: Coldwater's street names are shared by design — there are 19
+// tiles called "Kessler Street", 10 called "Ironside Street", 366 "Grasslands".
+// A quest objective's `desc` is therefore NOT a routable name, and `gps <desc>`
+// resolves to the NEAREST same-named tile, which is almost never the one the
+// objective wants. The player then walks somewhere plausible and the quest sits
+// still, with nothing anywhere saying why.
+//
+// The objective's zone id IS unambiguous, so GPS asks for it (plugins/gps) rather
+// than guessing from a name. Exposed as an Action rather than an import because
+// gps must not depend on quests — see docs/proposals/engine-plugin-boundary.md.
+registerAction({
+  type: 'QUEST_OBJECTIVE_ZONES',
+  handler: async ({ actor }) => {
+    const { rows } = await query(
+      `SELECT q.id, q.name, q.objectives, pq.progress
+         FROM player_quests pq JOIN quests q ON q.id = pq.quest_id
+        WHERE pq.player_id=$1 AND pq.status NOT IN ('turned_in','abandoned')`,
+      [actor.id]
+    );
+    const out = [];
+    for (const r of rows) {
+      const objectives = Array.isArray(r.objectives) ? r.objectives : [];
+      const progress = Array.isArray(r.progress) ? r.progress : [];
+      objectives.forEach((o, i) => {
+        if (!o?.zone) return;
+        if ((progress[i] || 0) >= (o.count || 1)) return;   // already done
+        out.push({ zone: o.zone, desc: o.desc || '', questId: r.id, questName: r.name });
+      });
+    }
+    return { type: 'objective_zones', zones: out };
+  },
+});
+
 // Reverse-scan: which NPC's dialogue actually turns this quest in? Mirrors the
 // devpanel VINE quest editor's "Offered by" reverse-link (client/devpanel/js/
 // vine/vine-schema-quest.js _questReferencedIn) but narrowed to TURN_IN

@@ -5,7 +5,6 @@
     "quantity": 1
   },
   "category": "synthesis",
-  "craft_time": 3,
   "description": "Cook Neural Overclock from crude Neural Overclock + industrial solvent.",
   "id": "cook_overclock",
   "ingredients": [

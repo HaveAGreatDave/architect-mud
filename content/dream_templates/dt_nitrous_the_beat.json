@@ -1,0 +1,30 @@
+{
+  "id": "dt_nitrous_the_beat",
+  "name": "The Beat",
+  "description": "Everything is a throb, and the throb has a beat, and the beat is the structure of the universe and also extremely funny. WAH. WAH. WAH. You have understood something enormous on each beat and lost it on the next.",
+  "cause": "drug",
+  "drug_id": "drug_nitrous",
+  "objects": [
+    {
+      "name": "the beat",
+      "looks": [
+        "WAH. WAH. WAH. It is the whole thing. It is all there is.",
+        "It is slowing. On each slow one you almost get it.",
+        "It is your own blood, and it is hilarious that nobody mentions this."
+      ]
+    },
+    {
+      "name": "the thing you almost understood",
+      "looks": [
+        "Gone. It was enormous. It was about everything.",
+        "It comes back on the next beat and goes on the one after.",
+        "It is very simple and you are nearly there."
+      ]
+    }
+  ],
+  "ambient": [
+    "WAH.",
+    "The beat slows, and on the slow one something is nearly said.",
+    "You laugh, and the laugh arrives in slices."
+  ]
+}

@@ -2,6 +2,27 @@
 import { sendCmd, sendCmdSilent } from '../net.js';
 import { appendMsg } from '../render.js';
 import { state } from '../state.js';
+import { loadSettings } from '/shared/settings.js';
+
+// Shared map state that outlives the retired full-screen popup: the overlay label
+// mode (read by the sidebar minimap), the door render style, and the active GPS
+// route — tracePath/traceDirs, set by the `gps` command or the tablet map's
+// "Route here", walked by auto-walk, and mirrored onto both the sidebar minimap
+// and the tablet map.
+//
+// DECLARED HERE, AT THE TOP, AND IT HAS TO BE. This module wires its buttons
+// during evaluation (`wireMinimap()` runs immediately when the DOM is already
+// parsed), and that wiring reads `mapState` to seed its buttons.
+// While this was declared at the BOTTOM of the file it sat in the temporal dead
+// zone at that moment, so the whole module threw
+//   ReferenceError: Cannot access 'mapState' before initialization
+// and, because one dead module takes the client's boot chain with it, the game
+// rendered its shell and then never connected. It only reproduced when the
+// script ran after DOMContentLoaded — a warm cache — which is why it passed
+// local testing and broke on a live load. `const` before use, not after.
+let _savedOverlay = 'labels';
+try { _savedOverlay = loadSettings().mapOverlay || 'labels'; } catch {}
+const mapState = { avenueOverlay: _savedOverlay, tracePath: null, traceDirs: null };
 
 // Avenue View for the sidebar/HUD/mobile minimaps: a rendering toggle (not a
 // server round-trip) that strips room symbols down to "does a named artery run
@@ -695,17 +716,19 @@ export function renderMinimap(nodes, direction) {
       const node = byId.get(id);
       if (!node) { html += `<span class="mm-c mm-void"></span>`; continue; }
       if (node.is_current) {
-        // Render the tile you're standing on (its terrain fill / authored colour)
-        // UNDER the "you are here" beacon, so the marker reads as a locator on a
-        // visible tile rather than a blank swatch. The beacon (mm-current ::before/
-        // ::after) is a small centred dot+ring, so the tile shows around it.
+        // The tile you're standing on renders like any other tile — terrain fill,
+        // road connector, icon/label glyph, door marks — with the beacon layered
+        // BETWEEN the glyph and the door marks (see .mm-current::before/::after,
+        // z-index 2, against .mm-edge at 3). Standing somewhere must
+        // not blank out what's there: the beacon is a small centred dot+ring that
+        // sits over the tile, not a swatch that replaces it.
         const cs = [];
         const cterr = terrainOf(node);
         if (node.spec?.fill) cs.push(`background-color:${node.spec.fill}`);
         else if (node.district?.color) { const [dr, dg, db] = hexToRgb(node.district.color); cs.push(`background-color:rgba(${dr},${dg},${db},0.20)`); }
-        const cterrCls = cterr ? ` mm-terr mm-${cterr}` : '';
+        const cterrCls = cterr ? ` mm-terr mm-${cterr} mm-styled` : '';
         const cStyle = cs.length ? ` style="${cs.join(';')}"` : '';
-        html += `<span class="mm-c mm-room mm-current${cterrCls}"${cStyle} title="${titleFor(node)}">${entranceMark(node.entrance, 'mm')}${exitMarks(node.exit_dirs, 'mm')}</span>`;
+        html += `<span class="mm-c mm-room mm-current${cterrCls}"${cStyle} title="${titleFor(node)}">${symFor(node)}${doorMarks(node, 'mm')}</span>`;
         continue;
       }
       // Foreign tile: only the ones one step across a boundary survive, as a gateway
@@ -769,7 +792,7 @@ export function renderMinimap(nodes, direction) {
         ? ` data-action="go" data-target="${escapeHtml(node.building_name)}" data-dest="${escapeHtml(node.building_name)}"`
         : '';
       const cls = `mm-c mm-room danger-${dangerCls}${styled}${unreach}${enterCls}${terrCls}${perimCls}`;
-      html += `<span class="${cls}"${styleAttr}${enterAttrs} title="${titleFor(node)}">${content}${entranceMark(node.entrance, 'mm')}${exitMarks(node.exit_dirs, 'mm')}</span>`;
+      html += `<span class="${cls}"${styleAttr}${enterAttrs} title="${titleFor(node)}">${content}${doorMarks(node, 'mm')}</span>`;
     }
   }
   // GPS route line: an accent polyline through the centres of the route tiles that
@@ -859,26 +882,18 @@ export const POI_LEGEND = {
   nightclub: { icon: '🎶', label: 'Nightclub' },
   hotel:   { icon: '🏨', label: 'Hotel' },
   bar:     { icon: '🍺', label: 'Bar' },
+  bathhouse: { icon: '♨', label: 'Bathhouse / baths' },
+  noodle_bar: { icon: '🍜', label: 'Noodle counter' },
   vendor:  { icon: '$', label: 'Vendor / shop' },
   home:    { icon: '⌂', label: 'Apartments / housing' },
   stairs:  { icon: '⇕', label: 'Stairs (up/down)' },
 };
 
-// Building-type → overlay glyph for the map's "icons" mode. One entry per
-// building_type the content pipeline emits (server BUILDING_TYPE_ICON in world.js);
-// synonyms collapse the way the rooftop-SVG table does (store/grocery → shop). Keep
-// this in sync when a new building_type is added so it reads on the map, not just
-// from the air. Unlisted types fall back to _default.
-export const BUILDING_ICON = {
-  residential: '⌂', apartment: '🏢',
-  shop: '$', store: '$', grocery: '$',
-  bar: '🍺', club: '♥', nightclub: '🎶', boutique: '👗', police: '★',
-  corporate_office: '💼', hotel: '🏨', power: '⚡',
-  hangar: '✈', studio: '🎬', clinic: '✚', diner: '🍔',
-  // The Yards — semi-industrial freight district.
-  warehouse: '📦', container_yard: '▤', fuel_yard: '⛽', cold_storage: '❄', fabrication: '⚙', wharf: '⚓', freight_office: '📋', freight_forwarder: '🚚',
-  _default: '▢',
-};
+// (The building-type emoji overlay — BUILDING_ICON, the map's third "icons" mode —
+// is gone. A glyph stamped on top of the rooftop footprint fought the tile art it
+// sat on and said less than the authored `marker` acronym does. The map now has two
+// modes: plain tiles, or lettering. The server-side BUILDING_TYPE_ICON in world.js
+// is a different thing and still live — that's the rooftop SVG footprint itself.)
 
 // Tileable terrain styling (server `terrain` field). Roads recolour to grey asphalt
 // with yellow lane markings; water/grass render as a seamless coloured expanse with a
@@ -925,30 +940,50 @@ export function districtCoord(id) {
 // Match the authored Coldwater water zones' bg_color (dark teal) so the cosmetic bay
 // reads as one body with the real water tiles, not a second brighter blue.
 export const WATER_VOID_FILL = '#1d3b52';
-// Small entrance arrow overlaid on a building tile, pointing to the edge the door
-// faces (server `entrance` field). A CSS triangle (no glyph) via .<pfx>-ent-<dir>;
-// pfx is 'mm' (sidebar) or 'map' (full popup).
+// The edge a building's door faces (server `entrance` field). pfx is 'mm' (sidebar)
+// or 'map' (full popup).
 const ENTRANCE_DIRS = new Set(['north', 'south', 'east', 'west']);
-function entranceMark(dir, pfx) {
-  return ENTRANCE_DIRS.has(dir) ? `<span class="${pfx}-entrance ${pfx}-ent-${dir}"></span>` : '';
+
+// The only door style: an interior room gets a thin line on each of its four sides —
+// green where there's a way through, red where there's a wall. Server `open_dirs` is
+// the authority and is null on exterior tiles, so out on the street this draws only
+// the single green line on the facade's door edge (see doorMarks).
+const CARDINALS = ['north', 'south', 'east', 'west'];
+function edgeMarks(node, pfx) {
+  const open = node?.open_dirs;
+  if (!Array.isArray(open)) return '';
+  return CARDINALS.map(d =>
+    `<span class="${pfx}-edge ${pfx}-edge-${d} ${open.includes(d) ? 'open' : 'shut'}"></span>`).join('');
 }
 
-// Interior exit arrows: the same amber triangles as the entrance arrow, one per
-// cardinal direction that leads out of the building (server `exit_dirs`).
-function exitMarks(dirs, pfx) {
-  return Array.isArray(dirs) ? dirs.map(d => entranceMark(d, pfx)).join('') : '';
+// A facade out on the street gets the green line on its door edge and NOTHING on the
+// other three — the red "this is wall" half only makes sense inside a floorplan; on
+// the street it would just outline every building.
+function doorMarks(node, pfx) {
+  if (Array.isArray(node?.open_dirs)) return edgeMarks(node, pfx);
+  if (ENTRANCE_DIRS.has(node?.entrance))
+    return `<span class="${pfx}-edge ${pfx}-edge-${node.entrance} open"></span>`;
+  return '';
 }
 
-// The tile-label overlay mode (none | labels | icons) is persisted so it survives
-// reloads; the sidebar minimap reads this one saved value.
-const MAP_OVERLAY_KEY = 'map_overlay';
-let _savedOverlay = 'none';
-try { _savedOverlay = localStorage.getItem(MAP_OVERLAY_KEY) || 'icons'; } catch {}
-// Shared map state that outlives the retired full-screen popup: the overlay label
-// mode (read by the sidebar minimap) and the active GPS route — tracePath/traceDirs,
-// set by the `gps` command or the tablet map's "Route here", walked by auto-walk, and
-// mirrored onto both the sidebar minimap and the tablet map.
-const mapState = { avenueOverlay: _savedOverlay, tracePath: null, traceDirs: null };
+// The tile-label overlay mode (none | labels) lives in the shared settings store as
+// `mapOverlay` — Tablet OS → Settings → Layout → "Map Labels". It used to be its own
+// `map_overlay` localStorage key written by the full-screen map popup's cycle button;
+// when that popup was retired the key went read-only, so the mode was frozen at
+// whatever a browser happened to have. Seeding from settings here covers the first
+// paint; applySettings pushes later changes in through setMapOverlay().
+const MAP_OVERLAY_MODES = new Set(['none', 'labels']);
+// (mapState is declared near the top of this module — it has to be, because the
+// wiring that runs during module evaluation reads it. See the comment there.)
+
+// Settings hook (window._applyMapOverlay, registered in main.js). Re-renders the
+// cached node payload so the change lands immediately instead of on the next move.
+export function setMapOverlay(mode) {
+  const next = MAP_OVERLAY_MODES.has(mode) ? mode : 'labels';
+  if (next === mapState.avenueOverlay) return;
+  mapState.avenueOverlay = next;
+  if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
+}
 
 function twoLetterAbbrev(name) {
   return ((name || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 2) || '??');

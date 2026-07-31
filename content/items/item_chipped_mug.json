@@ -1,0 +1,16 @@
+{
+  "description": "Somebody printed a joke on this in a decade nobody remembers. The glaze has taken most of the punchline and all of the humour.",
+  "flags": {},
+  "id": "item_chipped_mug",
+  "name": "chipped mug",
+  "tags": {
+    "description": "Somebody printed a joke on this in a decade nobody remembers. The glaze has taken most of the punchline and all of the humour.",
+    "drinkware": true,
+    "drinkware_kind": "mug",
+    "fillable": 3,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 3,
+  "weight": 300
+}

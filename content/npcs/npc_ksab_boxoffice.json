@@ -1,0 +1,136 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "\"Pass in hand before the light goes, or you're watching it at home like everyone else.\"",
+    "Dovie slides the window open a hand's width, decides against it, and slides it shut again."
+  ],
+  "description": "A heavy-set woman filling a box-office window cut into the soundstage wall, lit from below by the till so she looks permanently unimpressed. A hand-lettered card is taped to her glass: HOUSE OPENS ON THE LIGHT. She has been selling seats to this show since before the second letter of the sign went bad, and she counts change without looking.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Next.\" The window is already sliding shut."
+    },
+    "house": {
+      "options": [
+        {
+          "label": "One pass, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Doors are here, not north — north's the writers now, and they'll thank you not to knock.\" She taps the glass with a knuckle. \"Pass gets you inside and standing where the floor manager puts you. Clap when the sign says clap. Nobody films the monitors.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What's taping?",
+          "next": "show"
+        },
+        {
+          "label": "Sell me a pass.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Where does the audience go?",
+          "next": "house"
+        },
+        {
+          "label": "Just looking.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Here for the taping?\" Dovie doesn't move anything but her eyes. \"Twenty-five gets you a pass and a place to stand. It doesn't get you a seat, a drink, or an opinion about the show.\""
+    },
+    "show": {
+      "options": [
+        {
+          "label": "Sell me a pass, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Same as always — the couch, a guest sweating under the lamp, and a laugh track we've all agreed to become.\" Something that isn't quite a smile. \"It's the closest thing to civic duty we've got left, and it's twenty-five.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a KSAB-violet cardigan gone bobbled at the elbows, staff badge clipped crooked",
+      "a blouse the till light turns the colour of old paper",
+      "slacks, flat shoes, and sensible underwear"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_district_913_911",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_ksab_boxoffice",
+  "name": "Dovie Deeb",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_holo_ticket",
+      "price": 25
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 23
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 23
+      }
+    ],
+    "sat": [
+      {
+        "from": 9,
+        "to": 23
+      }
+    ],
+    "sun": [
+      {
+        "from": 9,
+        "to": 23
+      }
+    ],
+    "thu": [
+      {
+        "from": 9,
+        "to": 23
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 23
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 23
+      }
+    ]
+  },
+  "vendor_shop_name": "KSAB Box Office",
+  "vendor_stock_size": 40,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

@@ -1,0 +1,26 @@
+{
+  "base_difficulty": 14,
+  "base_output": {
+    "item_id": "item_ibogaine",
+    "quantity": 1
+  },
+  "category": "synthesis",
+  "description": "Cook Ibogaine from iboga root bark + industrial solvent.",
+  "id": "cook_ibogaine",
+  "ingredients": [
+    {
+      "item_id": "item_raw_ibogaine",
+      "quantity": 1
+    },
+    {
+      "item_id": "item_reagent_solvent",
+      "quantity": 1
+    }
+  ],
+  "name": "Cook Ibogaine",
+  "requires_station": "chem_lab",
+  "skill_id": "chemistry",
+  "skill_req": {
+    "chemistry": 3
+  }
+}

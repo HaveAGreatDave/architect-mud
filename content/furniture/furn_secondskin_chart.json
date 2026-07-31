@@ -1,0 +1,14 @@
+{
+  "description": "A chart of exposure times against wind speed, annotated in a hard hand over many years. The bottom line reads, simply: BUY THE PARKA.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_secondskin_chart",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "frostbite chart",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_secondskin_fitting"
+}

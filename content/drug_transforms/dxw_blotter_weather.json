@@ -1,0 +1,16 @@
+{
+  "id": "dxw_blotter_weather",
+  "drug_id": "drug_blotter",
+  "matches": null,
+  "scope": "weather",
+  "name": "the weather, patterned",
+  "description": "The weather has found a rhythm and is repeating it.",
+  "looks": [
+    "It is falling in a pattern, and the pattern is repeating, and you have started counting.",
+    "Every drop is taking the same route as the one before it.",
+    "The sky is doing something structural that it is rather pleased with."
+  ],
+  "says": [],
+  "fx": "ash",
+  "fx_intensity": 0.55
+}

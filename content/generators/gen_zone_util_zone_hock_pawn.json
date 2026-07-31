@@ -8,7 +8,7 @@
   "fuel_type": null,
   "generator_type": "junction_box",
   "id": "gen_zone_util_zone_hock_pawn",
-  "name": "The Hock Shop — Utility Room Junction Box",
+  "name": "In Hock We Trust — Utility Room Junction Box",
   "owner_id": null,
   "zone_id": "zone_util_zone_hock_pawn"
 }

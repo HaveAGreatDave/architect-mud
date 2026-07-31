@@ -2,7 +2,7 @@ function renderGamesPanel(data) {
   const panel = document.getElementById('list-panel');
   const tables = Array.isArray(data) ? data : [];
 
-  const toolbar = `<div style="padding:16px 16px 0;display:flex;gap:8px;flex-wrap:wrap">
+  const toolbar = `<div class="panel-sticky-head" style="padding:16px 16px 8px;display:flex;gap:8px;flex-wrap:wrap">
     <button class="action-btn" onclick="clearAllGameTables()">🃏 Clear all poker tables</button>
   </div>`;
 

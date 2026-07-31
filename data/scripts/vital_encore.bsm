@@ -44,9 +44,7 @@ EVENT FADE_IN
 
 TITLE vital_encore_logo
 
-MUSIC vital_encore_jingle
 ♪ A warm, syrupy jingle swells — the kind that plays in waiting rooms where nobody leaves. ♪
-MUSIC_END
 
 CAM 1 WIDE showroom_floor
 
@@ -152,9 +150,7 @@ ACTION npc_marv_sallow winks. It takes his whole face.
 MARV:
 Come back as YOU. Ish.
 
-MUSIC vital_encore_jingle
 ♪ The jingle returns, warmer and slower, resolving on a chord that doesn't quite land. ♪
-MUSIC_END
 
 CREDITS 6
 VITAL ENCORE™ — A DIVISION OF ENCORE

@@ -274,7 +274,7 @@
           "text": "\"Is this all there is?\""
         }
       ],
-      "text": "Marta glances at the tab, then at you. \"{quest}. Done, then.\" She thumbs a worn stamp onto the clipboard and the credits clear before the ink's dry. \"Pay's logged. Take a tab, do the thing, bring it back — that's the whole religion.\" A drag on the cigarette. \"Come back when you're hungry again.\""
+      "text": "Delia glances at the tab, then at you. \"{quest}. Done, then.\" She thumbs a worn stamp onto the clipboard and the credits clear before the ink's dry. \"Pay's logged. Take a tab, do the thing, bring it back — that's the whole religion.\" A drag on the cigarette. \"Come back when you're hungry again.\""
     },
     "remember": {
       "options": [
@@ -309,7 +309,7 @@
             }
           ],
           "next": "creed",
-          "text": "\"Something on your mind, Marta?\""
+          "text": "\"Something on your mind, Delia?\""
         },
         {
           "conditions": [
@@ -350,7 +350,7 @@
           "text": "\"What's on the board?\""
         }
       ],
-      "text": "The window's plexi is scratched to fog. Marta Kell slides a clipboard half an inch toward you without looking up. \"Board's on the wall. Take a tab, do the thing, bring it back, get paid. That's the whole religion.\" She finally lifts her eyes, weighs you for about as long as it takes to read a docket, and goes back to the clipboard. \"New-made. I can always tell — they come out of that facility with the shine still on.\""
+      "text": "The window's plexi is scratched to fog. Delia Kell slides a clipboard half an inch toward you without looking up. \"Board's on the wall. Take a tab, do the thing, bring it back, get paid. That's the whole religion.\" She finally lifts her eyes, weighs you for about as long as it takes to read a docket, and goes back to the clipboard. \"New-made. I can always tell — they come out of that facility with the shine still on.\""
     },
     "steady": {
       "options": [
@@ -440,11 +440,11 @@
     "job_board_dispatcher": true
   },
   "home_activities": [],
-  "home_zone": "zone_district_919_904",
+  "home_zone": "zone_district_919_908",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_fs_dispatcher",
-  "name": "Marta Kell",
+  "name": "Delia Kell",
   "npc_type": "npc",
   "sex": "female",
   "studio_zone_id": null,
@@ -455,5 +455,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_district_919_904"
+  "work_zone_id": "zone_district_919_908"
 }

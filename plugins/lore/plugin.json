@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "First-visit tone-setting lore: the first time any player looks at a zone that carries authored flags.intro_lore, a deeper block about the place's history/control/dangers is woven into the room, shimmering in accent before settling to normal text. The ONLY gate is the per-player lore_seen:<zone> marker (committed on departure); staff command lorereset clears it.",
   "hooks": ["zone.introLore"],
-  "commands": ["lorereset", "resetlore"],
+  "commands": ["lorereset", "resetlore", "lorealways"],
   "events": {
     "consumes": ["zone.entered"]
   },

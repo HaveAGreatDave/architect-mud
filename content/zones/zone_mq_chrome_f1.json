@@ -1,15 +1,15 @@
 {
   "ambient_events": [
-    "A door down the hall closes with the finality of a lock turning.",
-    "The amber emergency light hums and dims by a shade.",
-    "Something is cooking behind one of the doors; the smell almost reaches you.",
-    "The end-of-hall window rattles as the wind leans on it."
+    "A door releases somewhere on the arc, seals, and the corridor forgets it.",
+    "The LED band pulses once, imperceptibly, and holds.",
+    "The air changes temperature by a single degree as the building decides it should.",
+    "The curved glass hums faintly under a gust and stops."
   ],
   "ambient_theme": "indoors",
-  "bg_color": "#8b9096",
-  "color": null,
+  "bg_color": "#1b232c",
+  "color": "#cfe9ff",
   "created_by": null,
-  "description": "The first-floor hallway of Chrome Court, a tunnel of amber emergency light and doors painted so many times the numbers are just suggestions. The carpet is worn to jute down the center where every tenant walks the identical line. Four units open off the hall. A window at the end looks out over the district's neon, which from up here almost looks like a city that works.",
+  "description": "The first residential floor: a curved gallery following the decagon's inner wall, mirror steel to waist height and warm pale stone above, the floorplate a touch narrower than the one below where the shaft steps in. The cyan LED band that rings the tower outside carries straight through the glass here as a line of cool light running the corridor's whole arc. Four residences open off it, their doors flush enough that the numbers are the only seam. Where the curve ends, the glass does not — it just becomes the city, the Marquee laid out in pink and cyan below.",
   "exits": {
     "down": "zone_mq_chrome_lobby",
     "east": "zone_mq_chrome_102",

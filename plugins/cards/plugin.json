@@ -1,0 +1,13 @@
+{
+  "name": "cards",
+  "version": "1.0.0",
+  "description": "Trading cards. A card is a frozen snapshot of somebody — a PLAYER who minted themselves at a `flags.card_mint` terminal, or an NPC/ENEMY struck from world content when a series opened. Players mint because the card system deliberately does not follow anybody around (tracking every player's kit for a collectible would be a hot-path cost), so you walk to a terminal and hand it the moment: this body, this loadout, these numbers, this thing you just said. NPC and enemy rows are static content, so those cards are struck unattended and never go stale. Every text region has a HARD character budget and the builder never truncates — it emits ranked clauses and stops at the first that would cross, because an omitted clause is invisible and a truncated one is a bug the player can see. Condition is spoken as damage on the front (\"split at the knuckles\") and named as a band on the back. Rarity is common→legendary, stored on the row and never recomputed, plus an admin-only `architect` rank with pool_weight 0 that never rolls and never appears in a pack. Packs are bought from `flags.vends_packs` machines (powered, like everything else): ₵900 for a foil sleeve whose SIZE is itself rolled (4/5/6/7, and a 1% nine-card mis-cut), every card but the last rolled against the pool and the last excluding Common — so every sleeve holds at least an Uncommon. Cards reveal worst-to-best, so the pull always builds and the hit always lands last. Dupes stack and scrap at the mint. No tick, no hot-path query; the pool is cached behind one writer.",
+  "hooks": ["player.say", "zone.furniturePanel"],
+  "routePrefix": "/cards",
+  "commands": ["mint", "cards", "buypack", "sleeve", "scrap"],
+  "objectGatedCommands": {
+    "mint": { "discoverVia": "furniture:flags.card_mint", "exposed": false, "note": "Flag-value gate like vending's — availableActions can't surface it, so the terminal's furniturePanel renders its own PREVIEW control." },
+    "buypack": { "discoverVia": "furniture:flags.vends_packs", "exposed": false, "note": "Same class. The machine panel renders a BUY control; `sleeve` is the alias." },
+    "scrap": { "discoverVia": "furniture:flags.card_mint", "exposed": false, "note": "Duplicates are eaten at a mint terminal, not in the street." }
+  }
+}

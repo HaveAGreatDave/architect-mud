@@ -9,7 +9,7 @@
     "west": "zone_district_926_908"
   },
   "flags": {
-    "building_name": "Wharf Transfer Shed",
+    "building_name": "The Wet Handoff",
     "building_type": "wharf",
     "is_building": true,
     "is_interior": true,
@@ -20,7 +20,7 @@
   "grid_z": 0,
   "id": "zone_yard_wharf",
   "map_id": "map_int_yard_wharf",
-  "name": "Wharf Transfer Shed",
+  "name": "The Wet Handoff",
   "parent_zone": "zone_district_926_908",
   "updated_at": "1783739474"
 }

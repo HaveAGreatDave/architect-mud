@@ -70,7 +70,7 @@ export function openVoidwalkStaging(msg) {
 
   const readyCount = party.filter(p => p.ready).length;
   const dests = (msg.dests || []).join('&nbsp; · &nbsp;') || 'the unknown';
-  const btnLabel = msg.youReady ? '✓ Ready — holding for the party' : (msg.solo ? 'Set Out ▸' : 'Ready Up ▸');
+  const btnLabel = msg.youReady ? '✓ Ready — holding for the party' : (msg.solo ? 'Walk Off The Edge ▸' : 'Ready Up ▸');
   const btnClass = msg.youReady ? 'vwstage-btn vwstage-btn-done' : 'vwstage-btn vwstage-btn-go';
 
   // Private comms only make sense with a party — hide it when you set out alone.
@@ -89,10 +89,13 @@ export function openVoidwalkStaging(msg) {
 
   node.innerHTML = `
     <div class="vwstage-panel">
-      <div class="vwstage-topbar"><span class="vwstage-os">◈ ARCHITECT&nbsp;OS</span><span class="vwstage-mode">EXPEDITION&nbsp;MUSTER</span></div>
+      <span class="vwstage-corner tl"></span><span class="vwstage-corner tr"></span>
+      <span class="vwstage-corner bl"></span><span class="vwstage-corner br"></span>
+      <div class="vwstage-topbar"><span class="vwstage-os">◈ VOIDLINK</span><span class="vwstage-mode">MUSTER&nbsp;·&nbsp;OFF-GRID&nbsp;EGRESS</span></div>
       <div class="vwstage-head">
-        <div class="vwstage-title">The Crossing</div>
-        <div class="vwstage-route">${esc(msg.region || 'the frontier')} &nbsp;⟶&nbsp; ${dests}</div>
+        <div class="vwstage-title" data-text="VOIDWALKING">VOIDWALKING</div>
+        <div class="vwstage-route"><span class="vwstage-from">${esc(msg.region || 'the frontier')}</span><span class="vwstage-arrow">⟶⟶⟶</span><span class="vwstage-to">${dests}</span></div>
+        <div class="vwstage-rule"><span class="vwstage-rule-tag">NO ROADS · NO RESCUE · NO RECORD</span></div>
       </div>
       <div class="vwstage-lore">${esc(msg.lore || '')}</div>
       <div class="vwstage-cols">

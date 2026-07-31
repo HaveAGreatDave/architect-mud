@@ -1,0 +1,255 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Odile looks at your shoulders, then your boots, and names a size without asking.",
+    "\"Cold doesn't negotiate. Neither do I, but I'm cheaper.\"",
+    "She re-hangs a parka someone has put back on the wrong rail, slowly, so you can see her do it."
+  ],
+  "description": "A small, sharp woman with a tape measure round her neck and a habit of sizing you before you've finished the doorway. She spent a long time working outside and is entirely unsentimental about what that does to a person. She will sell you the cheap coat if you insist. She will also tell you, precisely, what month you will regret it.",
+  "dialogue_tree": {
+    "root": {
+      "text": "Odile looks at your shoulders, then your boots, and has already decided. \"You're dressed for indoors and you don't live indoors.\" The tape measure comes off her neck. \"I can fix that in about four minutes. Or you can browse and be wrong slower.\"",
+      "options": [
+        {
+          "label": "Fix it, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "What do I actually need out there?",
+          "next": "need"
+        },
+        {
+          "label": "The frostbite chart in the fitting room — yours?",
+          "next": "chart"
+        },
+        {
+          "label": "You hear much from the outside crews?",
+          "next": "gossip"
+        },
+        {
+          "label": "I'm fine as I am.",
+          "next": "bye"
+        }
+      ]
+    },
+    "need": {
+      "text": "\"Boots, gloves, a hood.\" She counts them off. \"Everyone spends their money on the coat because the coat is the bit people see. Then they lose two fingers, because nobody looks at your hands.\" She taps the glove rack. \"Coat last. Always coat last.\"",
+      "options": [
+        {
+          "label": "Start with the gloves.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ]
+    },
+    "chart": {
+      "text": "\"Mine. Nineteen years on outside crews.\" She doesn't elaborate on the annotations, and there are a lot of them. \"Every line on that chart is somebody. I don't put the names on because people stop reading it when you put the names on.\"",
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ]
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "text": "\"Crews come in here before they go out and after they come back. You learn to tell the difference from the doorway.\"",
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ]
+    },
+    "bye": {
+      "text": "\"You're not,\" she says, already re-hanging a parka. \"But you'll find that out.\"",
+      "options": []
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a quilted work vest with a tape measure round the neck",
+      "a heavy flannel shirt buttoned to the throat",
+      "canvas trousers and plain briefs"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_secondskin_floor",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_secondskin_fitter",
+  "name": "Odile Crow",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_cargo_pants",
+      "price": 26
+    },
+    {
+      "item_id": "item_shorts_cargo",
+      "price": 18
+    },
+    {
+      "item_id": "item_shirt_flannel",
+      "price": 22
+    },
+    {
+      "item_id": "item_jacket_denim",
+      "price": 34
+    },
+    {
+      "item_id": "item_padded_jacket",
+      "price": 48
+    },
+    {
+      "item_id": "item_thermal_parka",
+      "price": 90
+    },
+    {
+      "item_id": "item_longjohns_thermal",
+      "price": 28
+    },
+    {
+      "item_id": "item_thermex_top",
+      "price": 32
+    },
+    {
+      "item_id": "item_thermex_leggings",
+      "price": 30
+    },
+    {
+      "item_id": "item_work_gloves",
+      "price": 12
+    },
+    {
+      "item_id": "item_insulated_gloves",
+      "price": 20
+    },
+    {
+      "item_id": "item_steel_toe_boots",
+      "price": 65
+    },
+    {
+      "item_id": "item_steel_boots",
+      "price": 58
+    },
+    {
+      "item_id": "item_bump_cap",
+      "price": 16
+    },
+    {
+      "item_id": "item_watch_cap",
+      "price": 9
+    },
+    {
+      "item_id": "item_respirator_mask",
+      "price": 44
+    },
+    {
+      "item_id": "item_ear_defenders",
+      "price": 26
+    },
+    {
+      "item_id": "item_smoked_lenses",
+      "price": 22
+    },
+    {
+      "item_id": "item_acid_slicker",
+      "price": 70
+    },
+    {
+      "item_id": "item_acid_waders",
+      "price": 62
+    },
+    {
+      "item_id": "item_jeans_relaxed",
+      "price": 24
+    },
+    {
+      "item_id": "item_snowsuit",
+      "price": 700
+    },
+    {
+      "item_id": "item_snow_boots",
+      "price": 205
+    },
+    {
+      "item_id": "item_wool_mittens",
+      "price": 39
+    },
+    {
+      "item_id": "item_balaclava",
+      "price": 30
+    },
+    {
+      "item_id": "item_thermal_liner_gloves",
+      "price": 25
+    },
+    {
+      "item_id": "item_space_heater",
+      "price": 540
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 8,
+        "to": 22
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 22
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 22
+      }
+    ],
+    "thu": [
+      {
+        "from": 8,
+        "to": 22
+      }
+    ],
+    "fri": [
+      {
+        "from": 8,
+        "to": 22
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 22
+      }
+    ],
+    "sun": [
+      {
+        "from": 8,
+        "to": 22
+      }
+    ]
+  },
+  "vendor_shop_name": "Layers",
+  "vendor_stock_size": 38,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

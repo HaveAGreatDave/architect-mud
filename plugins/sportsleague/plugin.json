@@ -1,14 +1,46 @@
 {
   "name": "sportsleague",
-  "version": "1.0.0",
-  "description": "Baseball league for the DEADBALL broadcast: persistent standings (`standings`) booked from every simulated game, plus monthly seasons that climax in a single-game World Series between the top two teams (`worldseries`, `champions`). Standings reset each season; champions are kept as history.",
-  "commands": ["standings", "worldseries", "champions"],
-  "actions": { "registers": ["sportsleague.getStandings", "sportsleague.getSeason"] },
-  "events": { "consumes": ["sports.game"], "emits": ["sports.worldseries", "sports.champion"] },
-  "ticks": ["1m"],
-  "config": {
-    "seasonDays": { "type": "int", "default": 30, "note": "in-game days per season before the World Series (SPORTS_SEASON_DAYS in index.js)" },
-    "minWorldSeriesGames": { "type": "int", "default": 8, "note": "runner-up must have played this many before a Series can seed" }
+  "version": "2.0.0",
+  "description": "One league per sport for the sports broadcasts: computed standings (`standings [sport]`) folded from the deterministic schedule, plus monthly seasons that climax in a single championship game between the top two teams — Deadball's World Series (`worldseries`) and the CPhL's Coldwater Cup (`cup`). `champions` keeps the history. Each sport supplies its own fold (W-L-RD plus a hitting race — average, home runs, RBI — for baseball; W-L-OTL-PTS plus a scoring race and a casualty count for hockey). Per-player races are folded out of the at-bat/scoring beats the sim already emits, so they can never disagree with the games that aired.",
+  "commands": [
+    "standings",
+    "worldseries",
+    "cup",
+    "champions"
+  ],
+  "actions": {
+    "registers": [
+      "sportsleague.getStandings",
+      "sportsleague.getSeason"
+    ]
   },
-  "dataSchema": ["sports_standings", "sports_season", "sports_results"]
+  "events": {
+    "consumes": [
+      "sports.game"
+    ],
+    "emits": [
+      "sports.worldseries",
+      "sports.champion"
+    ]
+  },
+  "ticks": [
+    "1m"
+  ],
+  "config": {
+    "seasonDays": {
+      "type": "int",
+      "default": 30,
+      "note": "in-game days per season before the championship (SPORTS_SEASON_DAYS in index.js)"
+    },
+    "minWorldSeriesGames": {
+      "type": "int",
+      "default": 8,
+      "note": "runner-up must have played this many before a final can seed"
+    }
+  },
+  "dataSchema": [
+    "sports_standings",
+    "sports_season",
+    "sports_results"
+  ]
 }

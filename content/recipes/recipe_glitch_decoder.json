@@ -5,7 +5,6 @@
     "quantity": 1
   },
   "category": "tech",
-  "craft_time": 3,
   "description": "Assembles a device that can interpret Architect data fragments. Requires high skill and rare parts.",
   "id": "recipe_glitch_decoder",
   "ingredients": [

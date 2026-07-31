@@ -6,6 +6,8 @@
   "tags": {
     "consumable": true,
     "description": "Genuine pre-Collapse cognac, the label half-eaten by time and worth more than most people's lives. Smells of oak, apricot, and a world that no longer exists.",
+    "food_noun": "brandy",
+    "food_profile": "liquid",
     "hydrating": true,
     "laced_drug": "drug_alcohol",
     "laced_potency": 1.8,

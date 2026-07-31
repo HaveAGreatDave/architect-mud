@@ -10,7 +10,7 @@
     "south": "zone_district_922_908"
   },
   "flags": {
-    "building_name": "Customs Bonded Store 7",
+    "building_name": "Bonded & Bothered",
     "building_type": "warehouse",
     "district": "yards",
     "entrance": "south",
@@ -26,7 +26,7 @@
   "id": "zone_district_922_907",
   "map_id": "map_world",
   "marker": "BW",
-  "name": "Customs Bonded Store 7",
+  "name": "Bonded & Bothered",
   "parent_zone": null,
   "updated_at": "1783739474"
 }

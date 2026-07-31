@@ -1,0 +1,18 @@
+{
+  "description": "A wooden counter worn pale in nine evenly spaced patches, with nine stools bolted to the floor beneath it and standing room for as many again behind.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_broth_counter",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the counter",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_broth_counter"
+}

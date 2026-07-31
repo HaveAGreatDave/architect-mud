@@ -1,0 +1,13 @@
+{
+  "name": "concealment",
+  "version": "1.0.0",
+  "description": "Furniture that hides other furniture behind a passcode. A disguise piece (flags.conceal_hides = the hidden piece's id, flags.conceal_code = its factory code) sits in a room looking innocent while the piece it names carries flags.concealed and is left out of the room description entirely by the engine's own filter. `keypad` opens a private client keypad; the right code pivots the disguise on a turntable and rolls the hidden piece out where the WHOLE ROOM can see it. The digits are private (the overlay submits silently); the reveal is not.",
+  "hooks": ["furniture.describe"],
+  "commands": ["keypad", "concealcode", "concealsetcode"],
+  "objectGatedCommands": {
+    "keypad": { "discoverVia": "conceal_hides", "note": "The panel on a disguise piece. Surfaced by the specialized action registered under requiredFlag conceal_hides, and as an action-link on examine." },
+    "concealcode": { "discoverVia": "furniture:flags.conceal_hides", "exposed": false, "note": "Client transport only — the keypad overlay's submit, sent silently so the digits never reach the log. Players use `keypad`." },
+    "concealsetcode": { "discoverVia": "furniture:flags.conceal_hides", "exposed": false, "note": "Client transport only — the overlay's change-code panel (old code + new). Reached through `keypad`, never typed." }
+  },
+  "extensionPoints": ["furniture.flags.conceal_hides", "furniture.flags.conceal_code", "furniture.flags.conceal_brand", "furniture.flags.concealed"]
+}

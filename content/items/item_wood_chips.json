@@ -1,0 +1,18 @@
+{
+  "description": "A sack of pale chips cut from something that grew before the towers did. They smoulder rather than burn, which is the entire point of them.",
+  "flags": {},
+  "id": "item_wood_chips",
+  "name": "wood chips",
+  "tags": {
+    "consumable": true,
+    "description": "A sack of pale chips cut from something that grew before the towers did. They smoulder rather than burn, which is the entire point of them.",
+    "food_noun": "smoked",
+    "food_profile": "aromatic",
+    "perishable": false,
+    "restore_hunger": 0,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 9,
+  "weight": 300
+}

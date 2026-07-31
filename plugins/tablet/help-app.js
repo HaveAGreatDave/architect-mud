@@ -70,7 +70,34 @@ async function buildScreen(player, screenId, params) {
   };
 }
 
+// ── Home widget: the manual, one line at a time ──────────────────────────────
+// A beginner's problem in a text game is not that the answer is missing, it's that
+// they don't know the question. So this puts ONE thing you might not know on the
+// home screen, rotating through a short list of the sort of fact that only ever
+// arrives by accident. Free — a fixed table and the game clock, no query, no state.
+//
+// Rotation is derived from the clock rather than stored, so it changes as you play
+// without anything having to remember where it got to.
+const HELP_TIPS = [
+  ['look, then look at things', 'l describes the room; examine <thing> reads the detail. Most of this world is in the second one.'],
+  ['Banked money is safe money', 'Cash on hand is lost if you are robbed, booked or killed. An ATM fixes that in one command.'],
+  ['Cold kills quietly', 'Layers are not decoration. Check what you are wearing before you walk out into weather.'],
+  ['Everything wears out', 'Gear has condition. Repair it before the band reads Failing, because zero destroys the item.'],
+  ['You can sit down', 'sit, lie, rest. Posture changes how fast you heal and how easily you are noticed.'],
+  ['The city is watching', 'Cameras and police witness crimes. Heat decays on its own if nobody catches up with you.'],
+  ['Ask anyone about anything', 'talk to an NPC, then ask them about a subject. Some of them remember you afterwards.'],
+  ['Work before crime', 'The job board pays honestly and nobody shoots at you for it. Quests app, Work.'],
+  ['Type help', 'Every command, grouped by what you are trying to do. This app is the same manual, browsable.'],
+];
+function buildWidget() {
+  const twentyMinBlocks = Math.floor(Date.now() / (20 * 60 * 1000));
+  const [text, sub] = HELP_TIPS[twentyMinBlocks % HELP_TIPS.length];
+  // This one is unavoidably words — it's a sentence you haven't read yet. The glyph
+  // is there so the card is identifiable at a glance without being read at all.
+  return { id: 'tip', title: 'Did you know', kind: 'lines', icon: '❔', lines: [{ text }, { text: sub }] };
+}
+
 registerTabletApp({
   id: 'help', name: 'Help', icon: '❓', category: 'System',
-  buildScreen,
+  buildScreen, buildWidget,
 });

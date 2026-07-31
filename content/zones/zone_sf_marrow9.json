@@ -1,0 +1,37 @@
+{
+  "ambient_events": [
+    "Water moves somewhere behind the back wall, unhurried, going nowhere good.",
+    "The roller door rattles once in its housing as something heavy goes past outside.",
+    "A patch of plaster comes away from the mirror scars and lands soft on the floor.",
+    "Two voices haggle on the pavement outside, too low to make out, too long to be honest."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#2b2b33",
+  "color": null,
+  "created_by": null,
+  "description": "A square, low-ceilinged shop that used to do nails and then did something else. The mirrors have been taken off the wall and their adhesive has taken the plaster with them. A counter runs across the back, and beside it a strongbox is chained to a steel upright that was clearly put there for the purpose. It smells faintly of acetone and more strongly of damp.",
+  "exits": {
+    "north": "zone_district_917_910"
+  },
+  "flags": {
+    "building_name": "Unit 9, Marrow Street",
+    "building_type": "shop",
+    "is_building": true,
+    "is_interior": true,
+    "is_storefront": true,
+    "shop_price": 6000,
+    "shop_term": 8,
+    "shop_upkeep": 45,
+    "world_exit_zone": "zone_district_917_910"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_sf_marrow9",
+  "map_id": "map_int_sf_marrow9",
+  "marker": null,
+  "name": "Unit 9, Marrow Street",
+  "parent_zone": "zone_district_917_910",
+  "updated_at": "1784800000"
+}

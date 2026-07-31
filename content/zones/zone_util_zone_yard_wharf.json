@@ -18,7 +18,7 @@
   "grid_z": -1,
   "id": "zone_util_zone_yard_wharf",
   "map_id": "map_int_yard_wharf",
-  "name": "Wharf Transfer Shed — Utility Room",
+  "name": "The Wet Handoff — Utility Room",
   "parent_zone": "zone_district_926_908",
   "updated_at": "1784348804"
 }

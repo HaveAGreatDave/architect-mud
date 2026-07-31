@@ -159,6 +159,51 @@ export default async function regress({ run, check, getPlayer }) {
   check('longwatch: standing lost (hostile) → shut again', (await resolveLockAuth(lwTag, lwDoor, p)) === false);
   await query("DELETE FROM player_ideology_rep WHERE player_id=$1 AND ideology_id='ideology_long_watch'", [p.id]);
 
+  // ── A resident is never locked out of their own home ────────────────────────
+  // The law lives ABOVE the per-lock-type registry, in checkLockAuth
+  // (server/engine/commands/doors.js), because the registry is where the lockouts
+  // were hiding: `keycardlock` authorised on inventory alone (lose the one minted
+  // card and the deed holder is out forever), `privacylock` on standing-on-the-
+  // inside (any visitor could bolt the owner out from the street), and an NPC
+  // arriving home locks whatever door it just used. Only the hololock knew what an
+  // apartment was.
+  //
+  // So this asserts the difference between the two layers directly: the raw
+  // registry still refuses (each lock type's own rule is unchanged), and
+  // checkLockAuth — the single funnel the move gate, open/close/lock/unlock,
+  // hackDoor and the describe pane all use — grants it anyway because the door
+  // touches a unit this player controls.
+  {
+    const { checkLockAuth } = await import('../../server/engine/commands/doors.js');
+    const aptZone = p.current_zone;
+    const saved = getApartment(aptZone);
+    const keyTag = { type: 'lock:keycardlock', keyItemId: 'keycard_nonexistent_' + p.id };
+    const keyDoor = { id: 'rd_res_' + p.id, zone_id: aptZone, exit_dir: dir };
+
+    // Not your unit: the keycard rule stands, and you carry no card.
+    setApartmentCache(aptZone, { zone_id: aptZone, owner_id: 'someone_else_' + p.id, rent_due: 0 });
+    check('keycard lock refuses someone with no card', (await checkLockAuth(keyTag, keyDoor, p)) === false);
+
+    // Your unit, still no card — the registry says no, the housing law says yes.
+    setApartmentCache(aptZone, { zone_id: aptZone, owner_id: p.id, rent_due: 0 });
+    check('the raw lock registry still refuses (per-type rule unchanged)',
+      (await resolveLockAuth(keyTag, keyDoor, p)) === false);
+    check('but a resident is authorised on their own door without the card',
+      (await checkLockAuth(keyTag, keyDoor, p)) === true);
+
+    // Same for a privacy bolt thrown by a visitor while the owner is outside. Auth
+    // is granted (so they can UNLOCK it and get in); passage while still bolted is a
+    // separate question and deliberately stays false, which is what keeps a latch
+    // meaningful.
+    const privTag = { type: 'lock:privacylock', privacySide: aptZone };
+    check('a resident is authorised on a privacy bolt someone else threw',
+      (await checkLockAuth(privTag, { ...keyDoor }, { ...p, current_zone: 'zone_somewhere_outside' })) === true);
+    check('...but a manual bolt still has to be undone, not walked through',
+      lockTypePassesWhileLocked('lock:privacylock') === false);
+
+    if (saved) setApartmentCache(aptZone, saved); else setApartmentCache(aptZone, null);
+  }
+
   p.role = savedRole;
 
   // The forced-charge path moved. Breaching a lock no longer auto-charges

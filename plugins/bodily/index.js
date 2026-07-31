@@ -13,16 +13,20 @@
  * Actions (the builtin replay path can't reach plugin verbs).
  */
 import { query } from '../../server/models/db.js';
-import { stainClothing, stainZone, stainCreatureBodyPart } from '../../server/engine/bodily.js';
+import { stainClothing, stainZone, stainCreatureBodyPart, taintAir, depositIntoVessel } from '../../server/engine/bodily.js';
 import { isMisActive } from '../../server/engine/mis.js';
-import { getZonePlayers, getZoneEnemies, getZoneNpcs, getAllLivePlayers } from '../../server/engine/world.js';
+import { getZonePlayers, getZoneEnemies, getZoneNpcs, getAllLivePlayers, getZoneFurniture } from '../../server/engine/world.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
+import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { registerStatusEffect, applyEffect } from '../../server/engine/effects.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { setPosture } from '../../server/engine/posture.js';
 import { emit, on } from '../../server/engine/events.js';
+import './help.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
+import { coolSweat, coolSewerGrime, markWashed, checkFilthy } from '../../server/engine/hygiene.js';
+import { adjustRelation } from '../../server/engine/relations.js';
 
 // What counts as a toilet. Historically this only checked object_type==='toilet'
 // or a flags.toilet key, but most toilet furniture in content is typed 'furniture'
@@ -79,6 +83,12 @@ on('player.logout', ({ id }) => {
 // Same for a shower in progress: drop the timers so they don't fire against a
 // stale player object after disconnect. They didn't finish, so nothing is cleaned.
 on('player.logout', ({ id }) => endShower(id));
+
+// How full you are, 0..1 — the intensity every bodily sound scales on. Both
+// meters run 0..110 before an involuntary release, so this is simply "how badly
+// did you need that". A full bladder is a hard, high, splattering jet; an almost
+// empty one is a loose dribble that barely reaches.
+const pressureOf = (v) => Math.max(0, Math.min(1, (Number(v) || 0) / 110));
 
 // ── Pressure simulation (was engine tickBodily, on gameLoop's minute tick) ───
 
@@ -138,7 +148,23 @@ async function tickBodily(player) {
   if (digestive >= 60) {
     const p = 0.02 + (Math.min(110, digestive) - 60) / 50 * 0.18;
     if (Math.random() < p) {
-      sendToZone(player.current_zone, { type:'ambient', message:`<span class="msg-ambient">An embarrassing sound breaks the silence nearby.</span>` }, player.id);
+      // This fires on its own, so it gets the same treatment a deliberate one
+      // does: a rolled style, a matching line, and an actual SOUND. It used to
+      // be a bare ambient string with no audio, and the person it happened to
+      // wasn't even told — the room heard something and they didn't.
+      const pressure = pressureOf(digestive);
+      const style = rollFlatusStyle(pressure);
+      const line = FART_STYLE_LINES[style] || FART_STYLE_LINES.brassy;
+      messages.push(`<span style="color:var(--red)">It gets away from you. ${line.self}</span>`);
+      sendToZone(player.current_zone, {
+        type: 'ambient',
+        message: `<span class="msg-ambient">${line.zone.replace('{who}', player.handle)}</span>`,
+      }, player.id);
+      emit('bodily.sfx', { zoneId: player.current_zone, playerId: player.id, cue: 'fart', intensity: pressure, style });
+      // The sound is the joke; the smell is the consequence. It hangs for about
+      // a minute, so walking away really does escape it and standing there
+      // really doesn't.
+      taintAir(player.current_zone, 'fart');
     }
   }
 
@@ -166,6 +192,12 @@ async function tickBodily(player) {
 
 schedule('1m', async () => {
   for (const player of getAllLivePlayers()) {
+    // Sweat dries on everyone, asleep or not — it's the one part of this that
+    // isn't digestion. In memory, no write (engine hygiene owns the meter).
+    coolSweat(player);
+    coolSewerGrime(player);
+    // Slow cadence on purpose: the filth latch must not live on the smell path.
+    checkFilthy(player);
     if (player.sleeping) continue;
     const messages = await tickBodily(player);
     if (messages.length) sendToPlayer(player.id, { type: 'resource_tick', messages });
@@ -340,7 +372,11 @@ function tickFart(player, session, chance) {
     const f = pick(FART_LINES);
     sendToPlayer(player.id, { type: 'output', message: `<span class="text-dim">${f.self}</span>` });
     sendToZone(session.zoneId, { type: 'ambient', message: `<span class="msg-ambient">${f.zone}</span>` }, player.id);
-    emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'fart' });
+    emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'fart', intensity: pressureOf(player.digestive_load) });
+    // And it HANGS. A fart isn't a stain — there's nothing on the floor — so it
+    // goes in the air channel and fades on its own in about a minute. Anyone who
+    // walks in during that window and types `smell` finds out.
+    taintAir(session.zoneId, 'fart');
   }
   session.timers.push(setTimeout(() => tickFart(player, session, chance), 5000 + Math.random() * 4000));
 }
@@ -361,13 +397,13 @@ function tickStream(player, session) {
 
   // Taper into a lull instead of another steady pulse.
   if (Math.random() < 0.3) {
-    emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'stream_fade', surface: session.streamSurface });
+    emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'stream_fade', surface: session.streamSurface, intensity: session.pressure });
     const dribbles = 1 + Math.floor(Math.random() * 3);
     let delay = 500 + Math.random() * 300;
     for (let i = 0; i < dribbles; i++) {
       session.timers.push(setTimeout(() => {
         if (!toiletSessions.has(player.id) || !stillInPosition(player, session)) return;
-        emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'stream_dribble', surface: session.streamSurface });
+        emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'stream_dribble', surface: session.streamSurface, intensity: session.pressure });
       }, delay));
       delay += 350 + Math.random() * 300;
     }
@@ -375,7 +411,7 @@ function tickStream(player, session) {
     return;
   }
 
-  emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'stream', surface: session.streamSurface });
+  emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'stream', surface: session.streamSurface, intensity: session.pressure });
   session.timers.push(setTimeout(() => tickStream(player, session), 1800 + Math.random() * 900));
 }
 
@@ -410,6 +446,25 @@ async function startRelief(player, mode, target, broadcast) {
     return { type: 'error', message: `${who} would have to be lying down for that.` };
   }
 
+  // 4. Into a carried vessel. Short-circuits the whole timed routine — you are
+  //    aiming at something in your hands, not settling in — and produces an
+  //    ingredient item inside it, which the cooking plugin then treats as any
+  //    other ingredient. The load still empties, so this is a legitimate way to
+  //    relieve yourself with no toilet in sight, at a cost to your dignity.
+  if (target.kind === 'vessel') {
+    const ok = await depositIntoVessel(player, target.vessel, isPoop ? 'feces' : 'urine');
+    if (!ok) return { type: 'error', message: `You can't do that into the ${target.vessel.name}.` };
+    if (isPoop) player.digestive_load = 0; else player.hydration_load = 0;
+    await query('UPDATE players SET digestive_load=$1, hydration_load=$2 WHERE id=$3',
+      [player.digestive_load || 0, player.hydration_load || 0, player.id]).catch(() => {});
+    sendToZone(player.current_zone, { type: 'zone_event',
+      message: `${player.handle} relieves themselves into a ${target.vessel.name}, with the composure of someone who has decided this is normal.` }, player.id);
+    emit('bodily.publicRelief', { player, zoneId: player.current_zone });
+    return { type: 'output', message: isPoop
+      ? `You squat over the ${target.vessel.name} and fill it. It is warm, and it is yours, and it is in a bowl.`
+      : `You piss into the ${target.vessel.name} until it sloshes. Nobody was going to use it for anything else. Probably.` };
+  }
+
   const surface = (target.kind === 'toilet' || target.kind === 'furniture') ? target.furniture.name : null;
   // Pooping always squats (sitting). Peeing sits only for a woman with somewhere
   // to sit; otherwise she — and every man — stands.
@@ -434,7 +489,11 @@ async function startRelief(player, mode, target, broadcast) {
   if (seated) setPosture(player, 'sitting', { sittingOn: sitOn });
 
   const streamSurface = STREAM_SURFACE[target.kind] || 'concrete';
-  const session = { mode, target, zoneId: player.current_zone, seated, sitOn, droppedLegs, streamSurface, timers: [], broadcast };
+  // Snapshot the pressure at the start. The load is zeroed the moment relief
+  // finishes, so reading it live would make the stream change character
+  // mid-flow and the final dribble come out at zero intensity.
+  const pressure = pressureOf(mode === 'poop' ? player.digestive_load : player.hydration_load);
+  const session = { mode, target, zoneId: player.current_zone, seated, sitOn, droppedLegs, streamSurface, pressure, timers: [], broadcast };
   toiletSessions.set(player.id, session);
 
   if (isPoop) {
@@ -457,7 +516,7 @@ async function startRelief(player, mode, target, broadcast) {
     // the jet has found its footing (~1s in).
     session.timers.push(setTimeout(() => {
       if (toiletSessions.has(player.id) && stillInPosition(player, session))
-        emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'stream_start', surface: session.streamSurface });
+        emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'stream_start', surface: session.streamSurface, intensity: session.pressure });
     }, 300));
     session.timers.push(setTimeout(() => tickStream(player, session), 1200));
     session.timers.push(setTimeout(() => tickFart(player, session, 0.12), Math.min(5000, duration * 0.5)));
@@ -516,7 +575,7 @@ async function finishRelief(player, session) {
 
   // Sometimes cap a poop with a big fart + plop.
   if (isPoop && Math.random() < 0.55)
-    emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'finale' });
+    emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'finale', intensity: pressureOf(player.digestive_load) });
 
   // Cap a pee with a few isolated residual drips at irregular intervals (the
   // spec's "final drips" — the stream never just cuts off). Fire-and-forget:
@@ -525,7 +584,7 @@ async function finishRelief(player, session) {
     let d = 300 + Math.random() * 200;
     const drips = 2 + Math.floor(Math.random() * 3);
     for (let i = 0; i < drips; i++) {
-      setTimeout(() => emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'final_drip', surface: session.streamSurface }), d);
+      setTimeout(() => emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'final_drip', surface: session.streamSurface, intensity: session.pressure }), d);
       d += 250 + Math.random() * 350;
     }
   }
@@ -587,6 +646,13 @@ async function defaultTarget(player) {
 async function resolveBodilyTarget(args, player, dispatchType) {
   const str = args.join(' ').replace(/^(?:on|in|at)\s+/i, '').trim();
   if (!str) return null;
+
+  // A carried vessel wins over everything else in the room, because "pee in the
+  // bowl" can only sensibly mean the bowl you are holding. The product is an
+  // ordinary ingredient item dropped inside it — see depositIntoVessel — so the
+  // cooking plugin picks it up with no changes of its own.
+  const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: str, topLevel: true });
+  if (vessel) return { kind: 'vessel', vessel };
 
   // "<name>'s <part>" — aim at a specific body part (e.g. "alice's face").
   const partMatch = str.match(/^(.+?)'s\s+(.+)$/i);
@@ -756,12 +822,29 @@ async function finishShower(player, session) {
     cleaned = true;
   }
 
+  // A shower is the most thorough wash in the game — it resets the hygiene clock
+  // and the sweat with it.
+  await markWashed(player);
   applyEffect(player, 'refreshed', 180); // ~3 min visible badge
   sendToPlayer(player.id, { type:'output', private:true, message: cleaned ? SHOWER_DONE_DIRTY : SHOWER_DONE_CLEAN });
 }
 
 // An unflushed toilet reads that way on a look, until someone flushes it.
 export const hooks = {
+  // An unflushed toilet has no floor stain — the mess is in the bowl — so
+  // nothing else would ever report it. It's also the single most useful thing
+  // smell can tell you before you decide to use one.
+  'zone.smells': (zone) => {
+    const here = getZoneFurniture(zone.id).filter(isToilet);
+    const out = [];
+    if (here.some(f => fouledToilets.has(f.id))) {
+      out.push({ text: 'a toilet somebody used and did not flush', strength: 9, source: 'feces' });
+    }
+    if (here.some(f => peedToilets.has(f.id))) {
+      out.push({ text: 'stale piss standing in a bowl', strength: 7, source: 'urine' });
+    }
+    return out;
+  },
   'furniture.describe': (f) => {
     if (!isToilet(f)) return undefined;
     const lines = [];
@@ -916,7 +999,120 @@ export const specializedActions = [{
   },
 }];
 
+// `fart` — deliberately, on purpose, in public.
+//
+// Scales on the same bowel pressure everything else does: barely need to go and
+// you get a squeak, genuinely need to go and the room knows about it. The
+// cooldown is the only thing stopping it being a spam button, and it's real time
+// rather than a resource because the joke is the frequency, not the cost.
+//
+// It does NOT relieve pressure. You still have to find a toilet.
+const FART_COOLDOWN_MS = 5 * 60 * 1000;
+
+// Pushing your luck.
+//
+// Below the floor there is no risk at all — a fart on a comfortable gut is just
+// a fart. Past it you are relying on equipment that is already telling you it
+// wants a toilet, and the chance ramps to a coin-flip-ish 45% as you approach
+// the involuntary-release ceiling. The player has been getting DIGESTIVE_PRESSURE
+// warnings since 80/110, so nobody arrives here uninformed; choosing to fart
+// anyway is the gamble, and losing it is the joke.
+const FART_RISK_FLOOR = 0.75;   // ~82 of 110 — the same band the urgent messages fire in
+const FART_MAX_RISK   = 0.45;
+
+// Exported for the regression suite: the curve matters more than the roll.
+export function fartRisk(pressure) {
+  const p = Math.max(0, Math.min(1, Number(pressure) || 0));
+  if (p <= FART_RISK_FLOOR) return 0;
+  return ((p - FART_RISK_FLOOR) / (1 - FART_RISK_FLOOR)) * FART_MAX_RISK;
+}
+
+// Which shape this one takes.
+//
+// The style NAME is a shared vocabulary, like a material token — bodily owns
+// when each one can happen (a gameplay rule) and the prose that goes with it,
+// the audio generator owns what it sounds like. Neither imports the other, and
+// adding a style needs a line in both, which is honest: a new style genuinely
+// needs a sound AND something for the room to read.
+function rollFlatusStyle(pressure) {
+  const ok = Object.keys(FART_STYLE_LINES).filter(k => {
+    const l = FART_STYLE_LINES[k];
+    return pressure >= (l.min ?? 0) && pressure <= (l.max ?? 1);
+  });
+  return ok.length ? pick(ok) : 'brassy';
+}
+const lastFart = new Map(); // playerId -> epoch ms
+
+// The prose follows the SOUND. The audio system rolls a style from the pressure
+// (squeak, drone, staccato, silent…) and reports which one it landed on, so the
+// line the room reads matches what they just heard instead of being a separate
+// random draw that contradicts it.
+export const FART_STYLE_LINES = {
+  brassy:   { min: 0.2,  max: 1,    self: `You brace, concentrate, and deliver.`,            zone: `{who} farts, with visible commitment.` },
+  squeak:   { min: 0,    max: 0.55, self: `It comes out as a thin squeak. Undignified.`,     zone: `{who} emits a small, high squeak.` },
+  drone:    { min: 0.5,  max: 1,    self: `It goes on. And on. You wait it out.`,            zone: `{who} produces a long, low note that does not seem to end.` },
+  flutter:  { min: 0.3,  max: 1,    self: `A loose, flapping affair. Not your best work.`,   zone: `{who} lets out something loose and flapping.` },
+  staccato: { min: 0.35, max: 1,    self: `It arrives in instalments. You count four.`,      zone: `{who} fires off a rapid volley.` },
+  falter:   { min: 0.25, max: 0.9,  self: `A false start, a pause, then the real thing.`,    zone: `{who} starts, stops, then commits.` },
+  silent:   { min: 0.2,  max: 1,    self: `Almost nothing. The room will find out shortly.`, zone: `{who} shifts their weight, and says nothing.` },
+  ripper:   { min: 0.6,  max: 1,    self: `That one had real force behind it.`,              zone: `{who} tears one off with genuine violence.` },
+};
+
+async function cmdFart(args, player, broadcast) {
+  const now = Date.now();
+  const last = lastFart.get(player.id) || 0;
+  const left = FART_COOLDOWN_MS - (now - last);
+  if (left > 0) {
+    const mins = Math.ceil(left / 60000);
+    return { type: 'error', message: `You've nothing left in the tank. Give it ${mins} minute${mins === 1 ? '' : 's'}.` };
+  }
+
+  const pressure = pressureOf(player.digestive_load);
+  lastFart.set(player.id, now);
+
+  // THE GAMBLE. On a gut this full the muscle you are relying on is already
+  // failing, and it does not always distinguish between the two jobs.
+  const risk = fartRisk(pressure);
+  if (risk > 0 && Math.random() < risk) {
+    // Reuse the overflow path wholesale — same staining, same public shame, same
+    // zeroed meter. A deliberate accident and an involuntary one are the same
+    // event; only the reason differs.
+    const shame = await involuntaryBowelRelease(player);
+    await query('UPDATE players SET digestive_load=$1 WHERE id=$2', [player.digestive_load, player.id]);
+    // It still made a noise on the way out.
+    emit('bodily.sfx', { zoneId: player.current_zone, playerId: player.id, cue: 'fart', intensity: pressure, style: 'flutter' });
+    taintAir(player.current_zone, 'fart');
+    return { type: 'output', message: `You commit. It was not only gas.\n${shame}` };
+  }
+
+  // Below about a quarter full there is simply nothing to work with, and trying
+  // is its own small humiliation.
+  const empty = pressure < 0.22;
+  // Roll the STYLE here rather than in the audio layer, so the prose and the
+  // sound are the same event. The audio plugin is handed the result.
+  const style = rollFlatusStyle(empty ? 0.1 : pressure);
+  const line = FART_STYLE_LINES[style] || FART_STYLE_LINES.brassy;
+  // Getting away with it is the only warning the system gives, and it's enough:
+  // the player now knows the risk band exists and roughly where they are in it.
+  const closeCall = risk > 0
+    ? `\n<span style="color:var(--red)">That was closer than it needed to be. Find a toilet.</span>`
+    : '';
+  const self = (empty ? `You push. Nothing arrives but a thin, apologetic hiss.` : line.self) + closeCall;
+
+  emit('bodily.sfx', { zoneId: player.current_zone, playerId: player.id, cue: 'fart', intensity: empty ? 0.1 : pressure, style });
+  taintAir(player.current_zone, 'fart');
+  sendToZone(player.current_zone, {
+    type: 'zone_event',
+    message: empty
+      ? `${player.handle} strains at nothing in particular.`
+      : line.zone.replace('{who}', player.handle),
+  }, player.id);
+
+  return { type: 'output', message: self };
+}
+
 export const commands = {
+  fart:     (args, raw, player, broadcast) => cmdFart(args, player, broadcast),
   pee:      (args, raw, player, broadcast) => cmdPee(args, player, broadcast),
   urinate:  (args, raw, player, broadcast) => cmdPee(args, player, broadcast),
   piss:     (args, raw, player, broadcast) => cmdPee(args, player, broadcast),
@@ -999,3 +1195,110 @@ const HYDRATION_PRESSURE = [
 ];
 
 console.log('[bodily] Plugin loaded.');
+
+// ── Washing somebody else ────────────────────────────────────────────────────
+//
+// `soap <target>` — the altruistic half of hygiene. Everything else in the system
+// is something you do to yourself; this is the one verb that spends your own
+// resource on another person's state, which is why it's worth having in a game
+// this mean. It needs a water source in the room and a carried item tagged `soap`,
+// and it consumes the soap whether the target is a player or an NPC.
+//
+// No consent gate beyond the obvious: this is help, it removes nothing but filth,
+// and it can't be used on anyone hostile to you. A player target is told who did it.
+async function consumeSoap(player) {
+  const { rows } = await query(
+    `SELECT pi.id, pi.quantity FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id = $1 AND jsonb_exists(i.tags, 'soap') LIMIT 1`,
+    [player.id]
+  );
+  if (!rows.length) return false;
+  const row = rows[0];
+  if (row.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [row.id]);
+  else await query('DELETE FROM player_inventory WHERE id=$1', [row.id]);
+  return true;
+}
+
+// Strip the visible filth off a creature (player or NPC) and reset their clock.
+async function scrubCreature(target, isPlayer) {
+  const ad = target.appearance_data || {};
+  ad.soiled_state = null;
+  ad.ejaculate_state = null;
+  target.appearance_data = ad;
+  target.clothing_contamination = {};
+  target.covered_in_blood = 0;
+  delete target._sweat;
+  if (isPlayer) {
+    await query(
+      `UPDATE players SET appearance_data=$1, clothing_contamination='{}'::jsonb, covered_in_blood=0 WHERE id=$2`,
+      [JSON.stringify(ad), target.id]
+    ).catch(() => {});
+    await markWashed(target);
+  } else {
+    target._hygieneSince = Date.now();   // NPCs keep hygiene in memory only
+  }
+}
+
+async function cmdSoap(args, raw, player, broadcast) {
+  const nameStr = args.filter(a => !['up', 'down', 'off'].includes(a)).join(' ')
+    .replace(/^(the|my)\s+/i, '').trim();
+
+  const { rows: water } = await query(
+    `SELECT id FROM furniture WHERE zone_id=$1 AND (${SHOWER_SQL} OR object_type='sink' OR jsonb_exists(flags,'water_source')) LIMIT 1`,
+    [player.current_zone]
+  );
+  if (!water.length) return { type: 'error', message: `You need running water for that.` };
+
+  // No target (or yourself) → wash yourself, which is what SOAP plainly means.
+  // (It used to fall through here on the assumption mis owned a bare `soap`; mis
+  // only registers `wash`, so bare `soap` reached no handler at all.)
+  if (!nameStr || /^(me|myself|self)$/i.test(nameStr)) {
+    if (!await consumeSoap(player)) return { type: 'error', message: `You have no soap.` };
+    await scrubCreature(player, true);
+    sendToZone(player.current_zone, {
+      type: 'zone_event',
+      message: `${player.handle} works a block of soap over themselves at the water.`,
+    }, player.id);
+    return { type: 'output', message: `You work the soap over yourself and rinse off. Clean — properly clean, the kind that lasts a while. <span class="text-dim">(A block of soap, well spent.)</span>` };
+  }
+
+  const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);
+  const npcs = getZoneNpcs(player.current_zone).filter(n => !n._dead);
+  const r = siftResolve(nameStr, [...others.map(p => ({ ...p, name: p.handle })), ...npcs]);
+  if (r.type !== 'match') return { type: 'error', message: `Soap who?` };
+
+  const target = r.candidate;
+  const isPlayer = others.some(p => p.id === target.id);
+  const live = isPlayer ? others.find(p => p.id === target.id) : npcs.find(n => n.id === target.id);
+  const name = isPlayer ? live.handle : live.name;
+
+  if (!isPlayer && (live._combatTargetId === player.id || live.flags?.hostile)) {
+    return { type: 'error', message: `${name} is in no mood to be washed.` };
+  }
+
+  if (!await consumeSoap(player)) {
+    return { type: 'error', message: `You have no soap.` };
+  }
+
+  await scrubCreature(live, isPlayer);
+
+  // An NPC remembers who did this. It is a small kindness and the substrate is
+  // right there — this is one of the cheapest warmth moves in the game.
+  if (!isPlayer) adjustRelation(player, live.id, { familiarity: 2, warmth: 6, reason: 'soap' });
+
+  sendToZone(player.current_zone, {
+    type: 'zone_event',
+    message: `${player.handle} works a block of soap over ${name} until the worst of it comes off.`,
+  }, player.id);
+  if (isPlayer) {
+    sendToPlayer(live.id, { type: 'output', message: `${player.handle} scrubs you down. You come out the other side clean, and oddly moved.` });
+  }
+  return { type: 'output', message: `You scrub ${name} down. It takes a while, and a whole block of soap, and they look like a different person at the end of it.` };
+}
+
+commands.soap  = cmdSoap;
+commands.scrub = cmdSoap;
+
+// Deliberately NOT a specializedAction: registering it put a SOAP button on the
+// smartbar beside every sink in the world, which is far too much prominence for a
+// verb this incidental. Discovered via the soap item's own description instead.

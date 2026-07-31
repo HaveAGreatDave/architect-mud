@@ -44,9 +44,7 @@ ROOM zone_mq_precinct_bullpen
 
 EVENT FADE_IN
 
-MUSIC coldwaters_finest_theme
 ♪ A cheap, swaggering guitar riff kicks in — four chords, no budget, enormous confidence. ♪
-MUSIC_END
 
 TITLE coldwaters_finest_logo
 
@@ -225,9 +223,7 @@ A ROUTINE STOP AT THE NORTH LOCKS
 TWO OFFICERS. ONE SUSPECT. NINE BODIES.
 OVERLAY_END
 
-MUSIC coldwaters_finest_theme
 ♪ The cheap guitar riff returns, fading out over the wet street. ♪
-MUSIC_END
 
 CREDITS 6
 COLDWATER'S FINEST — A PRECINCT 9 CO-PRODUCTION

@@ -14,6 +14,7 @@
  * the engine — it's shared with the enemy-combat tick.
  */
 import { randomUUID } from 'crypto';
+import { wakeFromDream } from '../../server/engine/dreamscape.js';
 import { query, logActivity } from '../../server/models/db.js';
 import { getZoneEnemies, getZonePlayers, getZoneNpcs, getLivePlayer, getZone, createCorpse } from '../../server/engine/world.js';
 import { setFlag } from '../../server/engine/flags.js';
@@ -30,6 +31,7 @@ import { emit } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { forceStand } from '../../server/engine/posture.js';
 import { getZoneProtection } from '../../server/engine/protection.js';
+import { escAttr } from '../../server/engine/text.js';
 
 // The weapon_skill tag now carries the combat skill id directly. Guard against
 // stale/garbage values (and the old blunt/bladed/energy strings on un-migrated
@@ -60,7 +62,7 @@ async function spawnEnemyCorpse(player, targetName, result) {
 		butcher_table: result.butcher_table || [],
 		butcher_difficulty: result.butcher_difficulty ?? 5,
 	});
-	return `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${targetName}'s corpse" title="Loot ${targetName}'s corpse">${targetName}'s corpse</span>`;
+	return `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${escAttr(targetName)}'s corpse" title="Loot ${escAttr(targetName)}'s corpse">${targetName}'s corpse</span>`;
 }
 
 export async function resolveAttack(player, target, broadcast) {
@@ -76,6 +78,14 @@ export async function resolveAttack(player, target, broadcast) {
 				status_chance: tagValue(equipped, "status_chance"),
 				weapon_skill: wskill,
 				damage_type: tagValue(equipped, "damage_type") || "kinetic",
+				// Buckshot: how many separate pellet groups the blast lands as.
+				// Absent/1 = one impact, exactly as every weapon has always worked.
+				spread: tagValue(equipped, "spread"),
+				// Bulk decides how badly water fights your swing.
+				weight: equipped.weight,
+				min_skill: tagValue(equipped, "min_skill"),
+				waterproof: tagValue(equipped, "waterproof"),
+				water_shock: tagValue(equipped, "water_shock"),
 			}
 		: {
 				damage_min: 2,
@@ -254,6 +264,7 @@ export async function cmdAttack(targetStr, player, broadcast) {
 		targetPlayer.pvpTargetId = player.id;
 		if (targetPlayer.sleeping) {
 			// Wake the sleeping player so they can fight back.
+			wakeFromDream(targetPlayer);
 			targetPlayer.sleeping = null;
 			broadcast(null, { type: 'output', message: `${player.handle} attacks you, jolting you awake!` }, null, targetPlayer.id);
 		} else {
@@ -299,7 +310,8 @@ export async function offlineSleepSwing(attacker, targetId, broadcast) {
 		attacker.offlinePvpTargetId = null;
 		attacker.pvpTargetId = liveTarget.id;
 		liveTarget.pvpTargetId = attacker.id;
-		if (liveTarget.sleeping) liveTarget.sleeping = null;
+		if (liveTarget.sleeping) wakeFromDream(liveTarget);
+		liveTarget.sleeping = null;
 		broadcast(null, { type: 'output', message: `${attacker.handle} attacks you, jolting you awake!` }, null, liveTarget.id);
 		broadcast(attacker.current_zone, { type: 'zone_event', message: `${attacker.handle} engages ${liveTarget.handle} in combat!` }, attacker.id, null, liveTarget.id);
 		broadcast(null, { type: 'combat', message: `${liveTarget.handle} woke up — combat begins!` }, null, attacker.id);
@@ -336,7 +348,7 @@ export async function offlineSleepSwing(attacker, targetId, broadcast) {
 		// admin-protection retaliation apply to sleep-kills too (previously skipped).
 		emit('player.death', { player: target, killer: attacker, cause: { type: 'pvp', label: `Killed by ${attacker.handle}` }, deathZone: attacker.current_zone });
 		fireHook('player.death', target, attacker).catch(() => {});
-		const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${corpseName}" title="Loot ${corpseName}">${corpseName}</span>`;
+		const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${escAttr(corpseName)}" title="Loot ${escAttr(corpseName)}">${corpseName}</span>`;
 		broadcast(attacker.current_zone, { type: "zone_event", message: `${target.handle} has died. ${corpseLink}`, refresh: true }, attacker.id);
 		broadcast(null, { type: "combat", message: `You kill ${target.handle}.`, killed: true, corpseLink, auto: true }, null, attacker.id);
 	}

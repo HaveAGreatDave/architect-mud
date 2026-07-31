@@ -4,12 +4,12 @@
   "bg_color": "#1e1a28",
   "color": null,
   "created_by": null,
-  "description": "A raked gallery of seats behind a rope and a pane of scuffed acryl, looking down over the KSAB stage — the same lights, cameras and cabling you'd see from the floor, just from up here where the applause light can find you. An APPLAUSE / GASP / AWWW sign hangs dead-eyed over the rail, dark for now. The air is warm with lamp-heat and the breath of a hundred strangers who came to watch.",
+  "description": "The script vault: rolling stacks packed rail to rail with bound shooting drafts, continuity binders and tape logs going back further than anyone upstairs admits the station does. A card index sits by the door in a drawer cabinet the size of a coffin, and a lone reading carrel waits under a lamp with a legal pad already on it. It smells of toner, old plastic and the dust that gets into paper. Somewhere in here is the episode they pulled.",
   "exits": {
     "north": "zone_ksab_lobby"
   },
   "flags": {
-    "building_name": "KSAB Audience Gate",
+    "building_name": "KSAB Writers' Wing",
     "building_type": "studio",
     "is_building": true,
     "is_interior": true,
@@ -20,7 +20,7 @@
   "grid_z": 0,
   "id": "zone_ksab_gallery",
   "map_id": "map_int_ksab",
-  "name": "KSAB Studio Gallery",
+  "name": "KSAB Script Vault",
   "parent_zone": "zone_district_913_910",
   "updated_at": "1784500000"
 }

@@ -1,0 +1,22 @@
+{
+  "description": "A compressed slab of something extruded, dried, and stamped with a lot number. Snaps like slate. In water it becomes almost generous.",
+  "flags": {},
+  "id": "item_ersatz_noodle",
+  "name": "brick of noodles",
+  "tags": {
+    "consumable": true,
+    "description": "A compressed slab of something extruded, dried, and stamped with a lot number. Snaps like slate. In water it becomes almost generous.",
+    "food_also": "starchy_vegetable",
+    "food_noun": "noodle",
+    "food_profile": "dry_starch",
+    "needs_cooking": true,
+    "restore_hunger": 16,
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.1
+    }
+  },
+  "type": "consumable",
+  "value": 4,
+  "weight": 150
+}

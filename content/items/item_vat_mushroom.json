@@ -1,0 +1,22 @@
+{
+  "description": "Grown on a substrate nobody will name, in the dark, fast. The cap is the grey of a rain cloud and it weeps a little when cut. Tastes, unfairly, wonderful.",
+  "flags": {},
+  "id": "item_vat_mushroom",
+  "name": "vat mushroom",
+  "tags": {
+    "consumable": true,
+    "description": "Grown on a substrate nobody will name, in the dark, fast. The cap is the grey of a rain cloud and it weeps a little when cut. Tastes, unfairly, wonderful.",
+    "food_noun": "mushroom",
+    "food_profile": "soft_vegetable",
+    "perishable": true,
+    "restore_hunger": 10,
+    "spoil_rate": "fast",
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.35
+    }
+  },
+  "type": "consumable",
+  "value": 7,
+  "weight": 90
+}

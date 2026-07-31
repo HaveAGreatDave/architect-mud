@@ -1,0 +1,17 @@
+{
+  "description": "A boxy four-burner range in municipal grey, EMBER 300 stamped on a control panel that's outlived three kitchens' worth of grease. Even heat, even temper, exactly as advertised on the sticker nobody's peeled off.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ]
+  },
+  "id": "item_furn_stove_ember300",
+  "name": "Ember 300 Range",
+  "tags": {
+    "description": "A boxy four-burner range in municipal grey, EMBER 300 stamped on a control panel that's outlived three kitchens' worth of grease. Even heat, even temper, exactly as advertised on the sticker nobody's peeled off.",
+    "stove_tier": "mid"
+  },
+  "type": "furniture",
+  "value": 1600,
+  "weight": 32000
+}

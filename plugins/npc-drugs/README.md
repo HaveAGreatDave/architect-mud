@@ -34,7 +34,8 @@ graph" contract. The only engine touch is one guard line in `tickEntityAI`.
   jittery, agitated flavour; otherwise carries on.
 - everything else (downers, alcohol, benzos, cannabis) → **sedated**:
   - 1 dose → **loose**: glassy, pacified, blurts candid lines.
-  - 2+ doses → **out cold**: `setPosture` lying + `ai.dosedOut` (robbable, passable).
+  - 1-4 doses → **loose**: impaired but upright, graph still running.
+  - 5+ doses → **out cold** (blackout): `setPosture` lying + `ai.dosedOut` (robbable, passable). Deliberately hard to reach — a habitual drinker never gets there on their own.
 
 Effects last ~60–90s and expire on the plugin's own driver tick (`TICK_MS`), which also
 emits the ongoing flavour and flee steps and self-gates when nobody is dosed.

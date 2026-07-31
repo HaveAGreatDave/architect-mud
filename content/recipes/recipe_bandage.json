@@ -5,7 +5,6 @@
     "quantity": 2
   },
   "category": "medicine",
-  "craft_time": 3,
   "description": "Tear cloth into bandages. Requires nothing but desperation.",
   "id": "recipe_bandage",
   "ingredients": [

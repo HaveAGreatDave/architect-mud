@@ -6,7 +6,6 @@
   "created_by": "zone-planner",
   "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
   "exits": {
-    "east": "zone_district_921_913",
     "north": "zone_district_920_912",
     "south": "zone_district_920_914",
     "west": "zone_district_919_913"
@@ -26,5 +25,5 @@
   "marker": "#",
   "name": "Grasslands",
   "parent_zone": null,
-  "updated_at": "1784564578"
+  "updated_at": "1784800000"
 }

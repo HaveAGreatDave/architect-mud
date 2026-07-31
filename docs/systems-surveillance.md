@@ -220,12 +220,14 @@ A GTA-style **0–5 star** wanted level per player, driven by surveillance and t
 existing **Arbiters** (`plugins/emergency/index.js`). All in the "Wanted system" section of
 [`plugins/surveillance/index.js`](../plugins/surveillance/index.js).
 
-- **Witnessed-only** — `isWitnessed(zone)` = a live (un-jammed) PD cam, an on-duty `flags.police`
-  NPC, or another player present. Crime off-camera earns nothing (except `always`-witnessed crimes
-  like `murder`, which self-report). Triggers: a player kill (`player.death` → the 5★ `murder`
+- **Lens or badge** (2026-07-25) — `isWitnessed(zone)` = a live, powered, un-jammed camera (PD or
+  private) covering the zone, **or an on-scene `flags.police` NPC**. **Bystanders are no longer
+  witnesses** — another player watching isn't the law watching. Crime with neither a camera nor a cop
+  present earns nothing (except `always`-witnessed crimes like `murder`, which self-report). Police
+  both catch crime *and* enforce existing heat — see **Police make you on sight** below. Triggers: a player kill (`player.death` → the 5★ `murder`
   crime), smashing a PD device (+1★), hijacking one (+2★).
   - **`flags.unsurveilled` overrides everything** — a zone off the Architect's grid short-circuits
-    both `isWitnessed()` and `witnessRoll()` to *unseen* before any cam/cop/bystander check, so **no
+    both `isWitnessed()` and `witnessRoll()` to *unseen* before the camera check, so **no
     crime is ever witnessed there** — even an `always`-witnessed crime like `murder` self-reports to
     nothing. The Long Watch bunker (`zone_lw_commons` &c.) uses this to stay hidden from the machine.
     Distinct from `lawless` (which lets a crime be *seen* but earns no heat) — `unsurveilled` means it
@@ -290,6 +292,29 @@ booking, no death); **`run`** (or timeout) adds +2★ (`resisting_arrest`-style 
 hunt continues. Checkpoints and other systems can trigger the same flow via the **`APPREHEND`**
 action. Above 3.5★ the response is lethal as described above.
 
+### Police make you on sight (2026-07-25)
+
+Arrests used to come only from spawned hunter units. Now **every `flags.police` NPC has the same
+powers** — a street cop, a desk sergeant, the Precinct 9 detention officers (Kohl / Pryce / Marlow),
+anyone content flags as police. `policeSpot(suspect, s)` runs for every wanted suspect on the 4s
+`wantedTick`, *before* the dispatch-delay gate (the officer is already standing there — nothing has to
+be dispatched):
+
+- Any un-dead `flags.police` NPC in the suspect's zone ⇒ `s.lastSeenTs = now` (heat doesn't bleed off
+  in front of a cop) and:
+  - **≤ `APPREHEND_MAX` (3.5★)** → `startApprehension` with that officer as the arresting officer —
+    the same submit/run prompt, the same `ARREST` booking. Its own cooldown/dedup guards apply, so a
+    cop in the room doesn't re-prompt every tick.
+  - **> 3.5★** → the lone officer doesn't tackle a manhunt target; they radio it in
+    (`dispatchPolice`, one call per suspect per `COP_RADIO_MS` 30s) and the hunter units handle it.
+- Airborne suspects are skipped, same as hunter pursuit.
+
+Detection and enforcement are separate: a cop catching you in the act charges the crime through
+`witnessRoll`'s cop branch, while `policeSpot` is about heat **already on your file**. A practical
+consequence — walking into Precinct
+9's lobby wanted gets you booked by whoever's on shift, and an escapee who reaches the lobby with
+their heat restored is grabbed on the spot.
+
 ### Admin & upkeep commands
 
 - **`purge`** (admin-only) — "burn the law in the room": clears pursuit state + slate for the zone.
@@ -309,6 +334,38 @@ action. Above 3.5★ the response is lethal as described above.
 - **More crime wiring than listed above:** `item.given`→`drug_dealing`, `atm.jacked`/`atm.jackResolved`/
   `atm.drained`, `theft.caught`, `burglary.reported`, `hololock.breached`, `bodily.publicRelief`→
   `indecent_exposure`, `vendor.safeHackWitnessed`; witnessed charges also emit `crime.witnessed`.
+
+## The permanent record + the tablet Crime app (2026-07-29)
+
+`crimeBoard`/`crimeHistory` are the **live police board**: in memory, global to every
+player, capped at 100, and gone on restart. Right for a dispatcher's screen, useless as a
+rap sheet — so a charge that sticks *also* files a lifetime tally in `player_flags`:
+
+| Flag | Written by | Meaning |
+| --- | --- | --- |
+| `crime_priors` | surveillance `recordPrior()` in `raiseCrime` | JSON `{ crimeKey: count }` — **one** flag, not one per offence |
+| `crime_first_at` / `crime_last_at` | same | epoch seconds of the first/most-recent charge |
+| `crime_arrests` | jail, at booking | lifetime collars (`jail_prisoners` is the *current* stint only and is deleted on release) |
+| `crime_fines` | jail `recordStint()`, at release | ₵ actually kept as fines |
+| `crime_served_min` | same | minutes actually served |
+
+One coalesced write per charge / per release, both player-caused and rare — never a tick.
+
+Read back through **`crimeRecordOf(player)`** (surveillance) and **`custodyOf(playerId)`**
+(jail). The first is in-memory + flag-cache only, no query; the second is one query and
+runs only on the screen that asks. That budget is the point: the consumer is the tablet's
+**Crime app** (`plugins/tablet/crime-app.js`), whose **Wanted home-screen card** renders on
+every home render — see the `buildWidget` contract in `plugins/tablet/index.js`. That card
+is also the only widget in the tablet carrying **`alwaysOn: true`**, so it shows even when
+its app is stashed: an alarm you have to opt into is not an alarm.
+
+The app's four screens are all windows onto existing owners — heat and priors from
+surveillance, the current stint from jail, star weights from the engine's crime catalogue
+(`getCrimeList`), seized property from `police_evidence` filtered to your handle. It holds
+no ledger of its own; a number there disagreeing with the one that shot at you is a bug.
+**Property is honest about being a graveyard** — nothing in the evidence locker comes back
+(see the `police_evidence` comment in `schema.js`), so the screen says so rather than
+reading like a claim ticket.
 
 ## Crime registry & camera catch (2026-07-02)
 
@@ -331,6 +388,13 @@ camera-catch reaction. Stars are now **fractional** (half-steps) so petty acts r
   `npc.killed` (police kill → `kill_police`); `server/engine/drugs.js` emits `player.drugUsed`
   (illegal only — legal drugs carry `flags.legal`); device breach emits `hack.success`. Surveillance
   subscribes to all of these.
+- **Self-defence is not assault** *(as built)* — an assault charge lands on the **instigator only**.
+  Surveillance keeps an in-memory `defenderOf` map (victim → foe → expiry, **5 min**, lazily expired,
+  no tick and no query): `player.attacked` marks the *target* a defender against that attacker, and
+  `npc.aggressed` — emitted by `gameLoop` the once, when an NPC lands the first blow on a player who
+  wasn't already fighting it — marks the player a defender against that NPC. `player.attacked` /
+  `npc.attacked` then skip `raiseCrime` when the actor holds a live defender claim **on that specific
+  foe**. The pass is per-foe by design: being jumped doesn't licence hitting the bystander next to you.
 - **Camera catch** — when a **live, un-jammed camera** (police or player-owned) is in the zone during a
   crime, `flashCamera` broadcasts a red `camera-alert` line ("…locking focus on <suspect>") to the
   whole room and pushes a `camera_flash` message; the game client flashes a red vignette
@@ -347,10 +411,23 @@ deterministic `witness === 'camera' ? onCamera : isWitnessed(zone)` branch insid
 - **Camera** — rolls `camChance`: a flat `CAM_CATCH_BASE` (0.2) for a one-shot act, or the
   duration-ramped `camCatchChance(elapsed)` (0.2 → `CAM_CATCH_MAX` 0.9 over `CAM_CATCH_RAMP_MS` ~30s)
   for an ongoing one. Quick jobs can slip a lens; lingering ones almost always get made.
-- **Cop** (`any`-witnessed only) — an on-scene `flags.police` NPC catches you at `COP_CATCH` (0.9):
-  very high.
-- **Bystander** (`any`-witnessed only) — another player in the room reports at just `BYSTANDER_REPORT`
-  (0.12): rare. (`camera`-only crimes ignore cops/bystanders; `always` crimes self-report.)
+- **Cop** (`any`-witnessed only) — an on-scene, living `flags.police` NPC catches you at `COP_CATCH`
+  (0.9): very high. (`camera`-only crimes ignore the cop; `always` crimes self-report.)
+- **Bystander — removed** (2026-07-25) — the `BYSTANDER_REPORT` (0.12) branch and its constant are
+  gone. Another player in the room is not a witness the law hears from.
+
+`witnessRoll` returns the **witness source** — `'camera'` | `'cop'` | `'always'` | `false` — not a
+plain bool (every caller still reads it as truthy/falsy). `raiseCrime` uses it to pick the callout:
+
+- **Camera** → `flashCamera`: the red "a lens swivels, locking focus on …" line *plus* the
+  `camera_flash` full-screen overlay.
+- **Cop** → `flashCop`: one of four `COP_SPOT_LINES` naming the officer ("*Sergeant Vale stops
+  mid-step, eyes fixed on …*"). **No `camera_flash`** — the client overlay means "a camera made you",
+  and this wasn't one. The siren one-shot upgrades to `SFX_PD_ALERT` (the crisp dispatch ping a PD cam
+  gets), because a cop's collar goes straight onto the police net.
+- A `forced` charge with no live camera but a cop on scene is attributed to the cop as well — that
+  covers the ongoing-crime scan and the guaranteed-witness paths (a witnessed attack, a vendor
+  catching you at their safe).
 
 Because a failed roll returns *before* the 12s debounce is stamped, repeated acts (combat swings,
 repeat drug hits) simply re-roll — that's where "variability over time" comes from for one-shot acts.
@@ -370,7 +447,7 @@ the 12s debounce covers a resumed streak). Leaving the zone ends the offence. Tw
 
 `isWitnessed(zone)` stays deterministic — it now serves only heat-decay/visibility (wanted tick,
 witnessed-homicide gate), not the catch roll. Both `isWitnessed` and `witnessRoll` short-circuit to
-`false` in a `flags.unsurveilled` zone before any cam/cop/bystander check (see the Wanted System above).
+`false` in a `flags.unsurveilled` zone before the camera check (see the Wanted System above).
 
 ### Cameras see worse in low visibility (2026-07-09)
 
@@ -384,6 +461,30 @@ loses `CAM_VIS_STEP` (0.18) — `dim` 0.82, `gloomy` 0.64, `dark` 0.46, `murk` 0
 `scanActiveCrimes` re-rolls this each 5s tick, a lower per-roll chance also **lengthens
 time-to-detection** for ongoing offences. Only the camera witness is degraded — an on-scene cop or
 bystander (human eyes) still sees you at their usual odds.
+
+### A feed on your own television (`patch`) — *2026-07-30*
+
+A **consumer tape deck** can take one of your cams as its input instead of a cassette, so a live
+feed plays on the set in the room you're sitting in: `patch <cam>` at the deck, the **Patch →**
+action on a focused cam in the SPECTER app, or the `IN` row on the deck panel. The mechanism and
+every gate live in broadcast — see
+[systems-broadcast.md § The spare input](systems-broadcast.md#the-spare-input-a-specter-camera-instead-of-a-tape-flagsdeck_cam_source).
+
+What this system owns is the **frame**, and it is not re-derived anywhere else. Two exports are the
+only sanctioned route for another plugin to turn a device id into something watchable:
+
+| export | returns |
+|---|---|
+| `camSourcesFor(ownerId)` | the owner's undamaged cams as pickable inputs (`{deviceId, zoneId, kind, label}`) |
+| `camPatchFrame(deviceId, ownerId)` | `{label, zoneId, status, frame}` for one owned cam — `null` if the device is gone |
+
+Both run off the existing 4 s `allDevices()` cache and `getInterferenceZones()`, so **neither adds a
+query**, which is what makes them safe to call from a 5 s tick. Because `deviceStatus`/`deviceFrame`
+decide the frame, a spoofed cam tells the same clean-empty-room lie on a living-room TV that it
+tells in the hub, and a jam reads as `▓ JAMMED` rather than as a working feed.
+
+Consumer decks only: this is a feed on **your** wall, not on the air. Putting a cam on a citywide
+channel is still the piracy path (`pirate` → `air live`), and still a crime.
 
 ### Microreels, capped buffers & the in-app viewer (2026-07-10)
 
@@ -440,3 +541,41 @@ became self-contained, and "clipping" was re-pointed at reels rather than physic
   log fills a progress bar before "SPECTER INSTALLED". The old carried **spy-deck** (`item_spy_deck` →
   `hub`/standalone `#shub-panel`) still works but is superseded by the tablet app; retiring it is a
   vendor-side follow-up.
+
+## Runtime cost — how the ticks read the device table (2026-07-27)
+
+Surveillance was, by measurement, **45% of all database traffic on an idle server** (97 of 215
+round trips per 75s with one player standing still). Not because it does anything wrong, but
+because the 5-second tick asked the same small table the same questions repeatedly: one SELECT for
+recording cams, one for motion sensors, one for interference zones, then **one more per occupied
+zone** for "is a camera watching here?". The table holds tens of rows, and at the time **zero** of
+them were recording and **zero** were motion sensors — it was paying full freight to be told
+nothing, six times a tick.
+
+**`allDevices()`** now reads the whole `security_devices` table **once per tick** and every one of
+those questions is answered from that snapshot — `refreshRecordingCams`, `pollSensors`,
+`getInterferenceZones` and `cameraLiveInZone` are all filters over it. The TTL is 4s, which is the
+window `getInterferenceZones` already ran on, so this introduced **no new staleness class**.
+
+It is deliberately a **short TTL, not a write-through cache**. Every runtime writer lives in
+`plugins/surveillance/index.js` and calls `invalidateDeviceCache()`, so a camera you plant is
+visible immediately — but regress and the offline scripts write the table directly, and a TTL
+self-heals where a write-through cache would serve stale rows forever. A failed read keeps the last
+good snapshot rather than caching "no devices", which would silently switch surveillance off.
+
+Two related changes in the same pass:
+
+- **`scanCarried()`** replaced the separate `nakedAmong`/`rawAmong` scans. They asked two different
+  questions about the same inventory rows of the same players in the same tick; it is now one
+  `GROUP BY` with two `BOOL_OR` aggregates. It also **caches per player** — the answer only changes
+  when that player's inventory does — dropped on `inventory.changed` (so a real change lands on the
+  next sweep) with a 60s TTL backstop, because only some of the many `player_inventory` writers emit
+  that event. Pruned on `player.logout`, like the plugin's other per-player maps. Measured 15 → 2
+  round trips per 75s.
+- **The PD network id** is fixed content read once and latched, instead of re-read per evidence
+  clip. It only latches a *real* answer, so a fresh DB mid-seed doesn't cache "no PD" permanently.
+
+**Left alone deliberately:** the broadcast plugin keeps its own live `security_devices` read. The
+comment there explains why — no funnel to hang invalidation off, and a stale answer would make a
+talkshow guest materialise on camera. That is a correct refusal of silent staleness, not an
+oversight.

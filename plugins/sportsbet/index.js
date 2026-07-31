@@ -17,6 +17,7 @@
 // is scheduled for the broadcast's final. Locked bets persist in `sports_bets`
 // and settle via a 1-minute sweep, so a restart never loses or double-pays one.
 import { randomUUID } from 'crypto';
+import { createWorkGate } from '../../server/engine/worklist.js';
 import { query, withTransaction } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { getZonePlayers, getLivePlayer } from '../../server/engine/world.js';
@@ -36,6 +37,13 @@ on('sports.game', (g) => {
   if (!g?.gameId || !g.channelId) return;
   activeGames.set(g.channelId, { ...g });
 });
+
+// The desk takes action on whatever is on the air, so its wording follows the sport
+// rather than assuming a ballgame — a hockey wager confirmed with a baseball emoji
+// reads as a bug even though the money is right. The event carries `sport`; anything
+// that doesn't declare one is Deadball, which is what shipped first.
+const SPORT_LABEL = { baseball: { icon: '⚾', noun: 'baseball' }, hockey: { icon: '🏒', noun: 'hockey' } };
+const labelOf = (g) => SPORT_LABEL[g?.sport] || SPORT_LABEL.baseball;
 
 // The game currently on the air (soonest to wrap), pruning any that have ended.
 function currentGame() {
@@ -96,7 +104,7 @@ async function cmdWager(args, raw, player, broadcast) {
   if (amount <= 0) return { type: 'error', message: 'Wager a positive amount.' };
 
   const game = currentGame();
-  if (!game) return { type: 'error', message: "There's no baseball game on the air right now — nothing to bet on." };
+  if (!game) return { type: 'error', message: "There is no game on the air right now — nothing to bet on." };
   const myTeam = pickTeam(team, game);
   if (!myTeam) return { type: 'error', message: `Pick a side: ${game.away} or ${game.home}.` };
 
@@ -120,7 +128,7 @@ async function cmdWager(args, raw, player, broadcast) {
   }, OFFER_TTL_MS);
   pendingWagers.set(target.id, { fromId: player.id, fromHandle: player.handle, amount, team: myTeam, score, game, timer });
 
-  sendToPlayer(target.id, { type: 'output', message: `<span class="msg-system">⚾ ${player.handle} wagers <b>₵${amount}</b> that the <b>${myTeam}</b> beat the ${otherTeam}${scoreNote}. Type <b>takewager</b> to take the ${otherTeam} (add a score guess like <b>takewager 5-3</b>), or just ignore it to pass.</span>` });
+  sendToPlayer(target.id, { type: 'output', message: `<span class="msg-system">${labelOf(game).icon} ${player.handle} wagers <b>₵${amount}</b> that the <b>${myTeam}</b> beat the ${otherTeam}${scoreNote}. Type <b>takewager</b> to take the ${otherTeam} (add a score guess like <b>takewager 5-3</b>), or just ignore it to pass.</span>` });
   return { type: 'output', message: `You offer ${target.handle} a ₵${amount} wager on the ${myTeam}${scoreNote}. Waiting on them to take it.` };
 }
 
@@ -172,8 +180,9 @@ async function cmdTakeWager(args, raw, player, broadcast) {
     return { type: 'error', message: 'The wager desk glitched — your stakes are refunded, nothing locked.' };
   }
 
+  betsGate.noteWork();   // something is now locked and will need settling
   const pot = offer.amount * 2;
-  const line = `⚾ Bet locked — ₵${offer.amount} each (₵${pot} pot). ${proposer.handle}: ${offer.team}${offer.score ? ` ${offer.score.away}-${offer.score.home}` : ''} · ${player.handle}: ${myTeam}${myScore ? ` ${myScore.away}-${myScore.home}` : ''}. Settles when the ${g.away}–${g.home} game ends.`;
+  const line = `${labelOf(g).icon} Bet locked — ₵${offer.amount} each (₵${pot} pot). ${proposer.handle}: ${offer.team}${offer.score ? ` ${offer.score.away}-${offer.score.home}` : ''} · ${player.handle}: ${myTeam}${myScore ? ` ${myScore.away}-${myScore.home}` : ''}. Settles when the ${g.away}–${g.home} game ends.`;
   sendToPlayer(proposer.id, { type: 'output', message: `<span class="msg-system">${line}</span>` });
   return { type: 'output', message: `<span class="msg-system">${line}</span>` };
 }
@@ -226,7 +235,10 @@ async function settleBet(row) {
 
   // Notify both with the game result + the bet's outcome.
   const winLabel = row.winner_team ? `${row.winner_team} take it` : 'it ends in a tie';
-  const header = `⚾ FINAL — ${row.away_team} ${row.away_score}, ${row.home_team} ${row.home_score}. ${winLabel}.`;
+  // Neutral marker here on purpose: settlement reads from the `sports_bets` row, which
+  // has no sport column, and a bet can settle after a restart with no live game left to
+  // ask. A chequered flag is true of both codes and needs no schema change to stay true.
+  const header = `🏁 FINAL — ${row.away_team} ${row.away_score}, ${row.home_team} ${row.home_score}. ${winLabel}.`;
   const tell = (pid, team, won, push) => {
     let outcome;
     if (push) outcome = `Push — your ₵${row.amount} stake is returned.`;
@@ -241,7 +253,17 @@ async function settleBet(row) {
 
 // Sweep due bets every minute — settles anything whose game has wrapped, including
 // bets that came due while the server was down (restart-safe; no per-bet timers).
+// Locked bets are the exception, not the rule, and this sweep runs every minute
+// forever. Two writers touch the locked set — the wager INSERT and the settle
+// UPDATE — so the gate's counter is easy to keep honest, and worklist.js's
+// re-probe covers it if it ever isn't.
+const betsGate = createWorkGate({
+  name: 'sports_bets',
+  probe: async () => (await query(`SELECT COUNT(*)::int AS n FROM sports_bets WHERE status='locked'`)).rows[0].n,
+});
+
 async function settleDue() {
+  if (!await betsGate.shouldRun()) return;
   const { rows } = await query(`SELECT * FROM sports_bets WHERE status='locked' AND resolve_at <= NOW()`).catch(() => ({ rows: [] }));
   for (const row of rows) await settleBet(row).catch(e => console.error('[sportsbet] settle error:', e.message));
 }

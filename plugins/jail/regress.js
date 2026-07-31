@@ -81,22 +81,33 @@ export default async function regress({ run, check, getPlayer }) {
   check('the lobby is NOT in the block', _test.inCellBlock(_test.RELEASE_ZONE) === false);
   check('an unknown zone is NOT in the block', _test.inCellBlock('zone_nowhere') === false);
 
-  // ── The cell door actually locks ──────────────────────────────────────────
-  // The bug this guards: the door shipped `lock_state:"unlocked"`, so a prisoner
-  // walked `up` and the only consequence was a jailbreak log. Booking engages the
-  // lock, release disengages it, and the next booking engages it again.
+  // ── The cell door: a lock gated by your record, not a key ─────────────────
+  // The door stays engaged permanently; what changes is whether it recognises
+  // YOU. Clean (no stars, no open sentence) walks through; wanted or mid-stretch
+  // does not. The bug the lock itself guards: it once shipped unlocked, so a
+  // prisoner walked `up` and the only consequence was a jailbreak log.
   const cellDoor = getDoorById(_test.CELL_DOOR);
   check('the cell door exists', !!cellDoor, _test.CELL_DOOR);
   if (cellDoor) {
     const lockTag = getLockTagPublic(cellDoor);
     check('the cell door carries a lock', !!lockTag, JSON.stringify(cellDoor.tags)?.slice(0, 80));
+    check('the cell lock is a detention lock', lockTag?.type === 'lock:detentionlock', lockTag?.type);
     check('the cell lock is unhackable (police-only)', lockTag?.canHack === false, lockTag?.canHack);
     await _test.secureCellDoor();
-    check('booking engages the hololock', cellDoor.lock_state === 'locked' && !cellDoor.is_open, `${cellDoor.lock_state}/${cellDoor.is_open}`);
-    await _test.releaseCellDoor();
-    check('release disengages the hololock', cellDoor.lock_state === 'unlocked', cellDoor.lock_state);
-    await _test.secureCellDoor();
-    check('the next booking re-engages it', cellDoor.lock_state === 'locked', cellDoor.lock_state);
+    check('booking engages the lock', cellDoor.lock_state === 'locked' && !cellDoor.is_open, `${cellDoor.lock_state}/${cellDoor.is_open}`);
+
+    // Clean player passes; a wanted one and a serving prisoner do not.
+    await query('DELETE FROM jail_prisoners WHERE player_id=$1', [p.id]).catch(() => {});
+    check('a clean record opens the detention lock', (await _test.detentionAuth(lockTag, cellDoor, p)) === true);
+    await query(
+      `INSERT INTO jail_prisoners (player_id, cell_zone, release_zone, release_at, stars, held_items, held_credits, fine, charge)
+       VALUES ($1,$2,$3, NOW() + interval '1 hour', 1, '[]'::jsonb, 0, 0, 'regress')
+       ON CONFLICT (player_id) DO UPDATE SET release_at = NOW() + interval '1 hour'`,
+      [p.id, _test.CELL_ZONE, _test.RELEASE_ZONE]
+    ).catch(() => {});
+    check('a serving sentence keeps the detention lock shut', (await _test.detentionAuth(lockTag, cellDoor, p)) === false);
+    await query('DELETE FROM jail_prisoners WHERE player_id=$1', [p.id]).catch(() => {});
+    check('the lock has no opinion about a null player', (await _test.detentionAuth(lockTag, cellDoor, null)) === false);
   }
 
   // ── Sentence readout ──────────────────────────────────────────────────────

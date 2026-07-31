@@ -17,7 +17,8 @@ import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
 import { emit } from '../../server/engine/events.js';
 import { applyCrashCollateral, isSeverelyImpaired } from './collateral.js';
-import { getEnvironmentState, getWeatherFieldSnapshot } from '../../server/engine/environment.js';
+import { isResidentOf } from '../../server/engine/apartments.js';
+import { getEnvironmentState, getWeatherFieldSnapshot, getWeatherEvent } from '../../server/engine/environment.js';
 
 export const TICK_MS = 3000;
 // Overall traversal pace — a single knob that slows the flight down without
@@ -242,14 +243,85 @@ export function surfaceAt(x, y) {
 }
 export function bounds() { if (!_bounds) buildCoordIndex(); return _bounds; }
 
+// ── Coarse whole-world terrain (the DEADHEAD map) ─────────────────────────────
+// The world grid downsampled to a fixed cell budget: one character per output cell, packed into
+// row strings. A char, not an object — the whole point is that this ships on a 2s poll, and at
+// ~80×N cells an object-per-cell payload would be tens of KB of JSON for a picture.
+//
+// Each output cell takes the DOMINANT feature of the tiles under it, by priority rather than by
+// count: a runway or a river one tile wide is the thing you navigate by, and a majority vote would
+// erase exactly those. Priority runs man-made → water → ground, so a road never disappears under
+// the grass it crosses.
+const WORLD_MAP_CELLS = 84;   // longest axis; the client scales to fit
+const _TERRAIN_CH = { water: 'w', urban: 'u', industrial: 'i', residential: 'r', wasteland: 'x',
+  forest: 'f', grass: 'g', sand: 's', rock: 'k', snow: 'n', airport: 'a' };
+let _worldMap = null, _worldMapFor = null;
+export function worldTerrainMap() {
+  if (!_coordIndex) buildCoordIndex();
+  if (_worldMap && _worldMapFor === _coordIndex) return _worldMap;
+  const b = bounds();
+  const w = b.maxx - b.minx + 1, h = b.maxy - b.miny + 1;
+  const cell = Math.max(1, Math.ceil(Math.max(w, h) / WORLD_MAP_CELLS));
+  const cw = Math.ceil(w / cell), ch = Math.ceil(h / cell);
+  // rank: higher wins the cell. '.' (nothing mapped) is the floor.
+  const rank = (c) => c === '.' ? 0 : c === 'A' ? 9 : c === 'R' ? 8 : c === 'B' ? 7 : c === 'w' ? 6 : 4;
+  const grid = Array.from({ length: ch }, () => new Array(cw).fill('.'));
+  for (const [key, z] of _coordIndex) {
+    const ci = key.indexOf(','), gx = +key.slice(0, ci), gy = +key.slice(ci + 1);
+    const cx = Math.min(cw - 1, Math.floor((gx - b.minx) / cell));
+    const cy = Math.min(ch - 1, Math.floor((gy - b.miny) / cell));
+    const f = z.flags || {};
+    let chr;
+    if (f.airfield_id) chr = 'A';                                   // fields are the whole point of this map
+    else if (isRoadCell(z)) chr = 'R';                              // arteries: one tile wide and never to be averaged away
+    else if (f.building_type || f.is_building) chr = 'B';
+    else chr = _TERRAIN_CH[biomeOf(z)] || 'g';
+    if (rank(chr) > rank(grid[cy][cx])) grid[cy][cx] = chr;
+  }
+  _worldMap = { x0: b.minx, y0: b.miny, cell, w: cw, h: ch, rows: grid.map(r => r.join('')) };
+  _worldMapFor = _coordIndex;
+  return _worldMap;
+}
+
+// ── Region rectangles (the DEADHEAD region overlay) ───────────────────────────
+// A region has NO stored bounds — the `regions` row is just id/name/terrain, and membership lives
+// the other way round, on each tile's `flags.region_id`. So the rectangle has to be derived by
+// sweeping the tiles once. That sweep is O(mapped zones), which is far too much to redo on a 2s
+// poll, so it's memoised against the coord index OBJECT ITSELF: a dev-panel edit calls /world/reload,
+// which rebuilds `_coordIndex` into a new Map, and the identity check below misses and recomputes.
+// No manual cache-busting to forget.
+let _regionCache = null, _regionCacheFor = null;
+export function listRegions() {
+  if (!_coordIndex) buildCoordIndex();
+  if (_regionCache && _regionCacheFor === _coordIndex) return _regionCache;
+  const acc = new Map();
+  for (const [key, cell] of _coordIndex) {
+    const rid = cell.flags?.region_id; if (!rid) continue;
+    const c = key.indexOf(','), gx = +key.slice(0, c), gy = +key.slice(c + 1);
+    const r = acc.get(rid);
+    if (!r) acc.set(rid, { id: rid, minX: gx, maxX: gx, minY: gy, maxY: gy, tiles: 1 });
+    else { r.minX = Math.min(r.minX, gx); r.maxX = Math.max(r.maxX, gx); r.minY = Math.min(r.minY, gy); r.maxY = Math.max(r.maxY, gy); r.tiles++; }
+  }
+  const out = [];
+  for (const r of acc.values()) {
+    const row = getRegion(r.id);
+    out.push({ ...r, name: row?.name || r.id, terrain: row?.base_terrain || null,
+      cx: (r.minX + r.maxX) / 2, cy: (r.minY + r.maxY) / 2 });
+  }
+  out.sort((a, b) => b.tiles - a.tiles);   // biggest first, so a small region drawn later sits ON TOP of the one containing it
+  _regionCache = out; _regionCacheFor = _coordIndex;
+  return out;
+}
+
 // Nearest airfield tile to a grid point (Chebyshev distance) — used to tow a craft
 // home after an off-strip landing. Returns { id, name, dist } or null if the world
 // somehow has no airfields.
-export function nearestAirfield(x, y) {
+export function nearestAirfield(x, y, opts = {}) {
   if (!_coordIndex) buildCoordIndex();
   let best = null;
   for (const cell of _coordIndex.values()) {
     if (!cell.flags?.airfield_id) continue;
+    if (opts.needsRunway && vtolOnlyField(cell)) continue;   // a helipad is no diversion for something that needs tarmac to roll on
     const z = getZone(cell.id);
     if (z?.grid_x == null) continue;
     const dist = Math.max(Math.abs(z.grid_x - x), Math.abs(z.grid_y - y));
@@ -260,11 +332,14 @@ export function nearestAirfield(x, y) {
 
 // Every landable airfield on the world grid — { id, name, gx, gy } — for the NAV console's
 // destination list (the walkable-base crew flies charted airfield-to-airfield legs).
-export function listAirfields() {
+// `opts.needsRunway` drops the VTOL-only pads. A helipad has no runway, so it is not a legal
+// destination for a fixed-wing and must never appear in a list the crew can be dispatched to.
+export function listAirfields(opts = {}) {
   if (!_coordIndex) buildCoordIndex();
   const out = [];
   for (const cell of _coordIndex.values()) {
     if (!cell.flags?.airfield_id) continue;
+    if (opts.needsRunway && vtolOnlyField(cell)) continue;
     const z = getZone(cell.id);
     if (z?.grid_x == null) continue;
     out.push({ id: cell.id, name: cell.flags.airfield_name || cell.name, gx: z.grid_x, gy: z.grid_y });
@@ -313,9 +388,16 @@ export function groundTheme(zone) {
 export function fieldFor(player) {
   const z = getZone(player.current_zone);
   if (!z) return null;
-  if (z.flags?.airfield_id) return z;                                      // on the ramp
-  if (z.flags?.hangar_ramp) return getZone(z.flags.hangar_ramp) || null;   // inside the hangar → its ramp
-  return null;
+  const f = z.flags?.airfield_id ? z                                       // on the ramp
+    : z.flags?.hangar_ramp ? getZone(z.flags.hangar_ramp)                  // inside the hangar → its ramp
+    : null;
+  if (!f) return null;
+  // A PRIVATE field — a building's own pad (`airfield_residents_only: "<building>"`) —
+  // serves only that building's residents. Reporting "no field here" for everyone else
+  // gates the whole services surface in one place: bay, rent/store, refuel, tuning.
+  const priv = f.flags?.airfield_residents_only;
+  if (priv && !isResidentOf(player, priv)) return null;
+  return f;
 }
 
 // The real runway a field's aircraft take off along, derived from the map's yellow
@@ -363,6 +445,26 @@ export function airfieldForRunway(tile) {
   return best;
 }
 
+// The hangar a landing rolls up to. A field's walk-in hangar sits on ONE ramp tile, but a
+// strip is many tiles long — set down on a runway end (or a second ramp tile) and the craft
+// used to file itself on a tile the hangar office can't see, so `embark` from inside found
+// nothing ("boarded from inside the hangar office" became a dead end). Resolve any airfield
+// tile to the CLOSEST tile that actually carries a hangar interior, so every landing parks
+// her at a hangar. Returns null when no hangar is in reach (a bare strip parks where it is).
+export const HANGAR_REACH = 4;
+export function hangarRampFor(zone) {
+  if (!zone || zone.grid_x == null || !zone.flags?.airfield_id) return null;
+  if (zone.flags.hangar_interior_zone) return zone;
+  let best = null, nd = Infinity;
+  for (const z of getAllZones()) {
+    if (z.map_id !== zone.map_id || z.grid_x == null) continue;
+    if (!z.flags?.airfield_id || !z.flags?.hangar_interior_zone) continue;
+    const d = Math.max(Math.abs(z.grid_x - zone.grid_x), Math.abs(z.grid_y - zone.grid_y));
+    if (d <= HANGAR_REACH && d < nd) { nd = d; best = z; }
+  }
+  return best;
+}
+
 // True when the player is standing INSIDE a walk-in hangar interior (at the desk),
 // as opposed to out on the exterior ramp. Aircraft *requests* (buy/rent/charter) are
 // gated to inside the hangar — you deal with the desk indoors, then the machine is
@@ -375,6 +477,10 @@ export function inHangarInterior(player) {
 // Gates acquisition (buy/rent) AND charter to `takeoff_mode === 'vtol'` craft. The
 // canonical flag is `airfield_vtol_only`; `charter_vtol_only` is the older Echelon-pad
 // flag, kept working here so both read as the same thing.
+// Can this airframe work out of a pad with no runway? Rotorcraft and anything else marked
+// takeoff_mode 'vtol'. Everything else needs tarmac.
+export function craftIsVtol(live) { return (live?.type?.takeoff_mode || '') === 'vtol'; }
+
 export function vtolOnlyField(field) {
   const f = field?.flags || {};
   return !!(f.airfield_vtol_only || f.charter_vtol_only);
@@ -834,6 +940,9 @@ export function gaugePayload(live) {
     // airfield_vtol_only renders correctly without extra art data.
     ground: a.airborne ? null : { theme: groundTheme(parkedZone), field: parkedZone?.flags?.airfield_name || parkedZone?.name || null, helipad: vtolOnlyField(parkedZone) },
     sky: skyState(),
+    // Avionics dead (EMP hazard). The client blanks the gauges off this rather
+    // than deriving it — the server owns whether your instruments work.
+    avionicsOut: live.hazard?.type === 'EMP',
   };
 }
 
@@ -845,6 +954,10 @@ export function skyState() {
     const env = getEnvironmentState();
     return {
       hour: env.hour, weather: env.currentWeatherType || env.weatherType || 'clear', wind: env.windKph || 0,
+      // The live hero event, so the canopy can render an ion storm or an acid
+      // downpour as itself rather than as whatever ordinary weather is underneath
+      // it. Sent as { type, phase } — the client scales its effect by phase.
+      event: getWeatherEvent(),
       // Spatial weather: the day's moving cloud/precip/storm cells over map_world, so the flight
       // sim can render the REAL clouds/rain out the canopy at their true bearings and advect them
       // itself between packets. `tick` is the field's advect interval (s) — `vx/vy` are per that
@@ -879,9 +992,35 @@ function weatherFieldForClient() {
 export function pushHud(live) {
   const payload = gaugePayload(live);
   const walkable = isWalkableCabin(live);
+  // Cabin-audio extras, computed ONCE per push rather than per occupant. `spool` is an edge, so it
+  // has to be latched here — read it inside the occupant loop and the second passenger would miss it.
+  const engOn = !!live.row.engine_on;
+  const spool = (live._audEngPrev === undefined || live._audEngPrev === engOn) ? null : (engOn ? 'up' : 'down');
+  live._audEngPrev = engOn;
+  const rpmNow = engOn ? Math.max(0.16, (live.row.throttle || 0) / 100) : 0;   // idle floor: a running engine is never at zero
+  // Airborne edges → the one-shots a passenger actually notices: wheels leaving, and wheels ARRIVING.
+  // Both also open a ROLL WINDOW, because the crew autopilot flips airborne in a single tick with no
+  // rollout of its own — without a window there is no ground-roll phase at all for it to voice, and
+  // the take-off/landing would be silent apart from the thump.
+  const air = !!live.row.airborne;
+  let thump = null;
+  if (live._audAirPrev !== undefined && live._audAirPrev !== air) {
+    thump = air ? 'liftoff' : 'touchdown';
+    live._audRollUntil = Date.now() + (air ? 3200 : 5200);   // she rolls a little longer on arrival than departure
+  }
+  live._audAirPrev = air;
+  // Ground-roll intensity: real while the window is open (decaying, so she slows down instead of
+  // stopping dead), otherwise just a taxi proxy off the throttle.
+  const rollLeft = Math.max(0, (live._audRollUntil || 0) - Date.now());
+  const rollSpd = rollLeft > 0 ? Math.round(12 + 48 * (rollLeft / 5200)) : Math.round((live.row.throttle || 0) * 0.4);
   for (const pid of live.occupants) {
     const p = getLivePlayer(pid);
     if (!p) continue;
+    // Text-only travel (textmode.js): this rider asked not to be shown the graphical
+    // cabin at all, so send them NOTHING here — not the HUD, not even the audio feed.
+    // Latched at board time, so this stays a sync property read on the tick path. An
+    // explicitly opened `window` outranks it: asking to look out is asking for the view.
+    if (p.textTravel && !p.cabinWindowOpen) continue;
     // Walkable cabin: an occupant walking the interior rooms is in a real MUD room, not
     // on the cockpit-window HUD — don't clobber it. But once they open the WINDOW overlay
     // (cabinWindowOpen) it IS fed the live view here. Non-cabin occupants (a seated pilot)
@@ -894,6 +1033,18 @@ export function pushHud(live) {
       sendToPlayer(pid, { type: 'cabin_audio', audio: {
         airborne: payload.airborne, engineOn: payload.engineOn, class: payload.class,
         throttle: payload.throttle, spd: payload.spd, engines: payload.engines, bandIndex: payload.bandIndex,
+        // `continuous` is load-bearing, not decoration: without it the client falls through to the
+        // static crossfaded LOOP path (the deck-craft one) instead of the parametric FlightEngine —
+        // so the cabin got a generic drone with none of the per-class voicing, none of the
+        // rpm/load response, and none of the cabin muffling, which lives in the synth path only.
+        // onGround stays honest (it drives the wind model), but the roll window keeps the tyre
+        // rumble alive across the moment of rotation/touchdown so the gear noise doesn't cut dead
+        // on the exact tick the wheels leave or meet the tarmac.
+        continuous: isContinuous(live), rpm: rpmNow,
+        onGround: !live.row.airborne || rollLeft > 0, groundSpeed: rollSpd, thump,
+        // Engine start/stop is a one-shot the cabin never used to get, so a crew spinning her up
+        // simply faded in. `spool` fires the same start-up/shut-down arc the pilot hears.
+        spool,
       } });
       continue;
     }
@@ -930,6 +1081,14 @@ export function reconcile(live, d) {
   const cl = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
   live.fx = cl(d.gx, b.minx, b.maxx); live.fy = cl(d.gy, b.miny, b.maxy);
   a.grid_x = Math.round(live.fx); a.grid_y = Math.round(live.fy);
+  // TAXIING MOVES THE PLANE. On the wheels (not airborne) the tile under her IS where she's
+  // parked — so rolling from the strip up to the hangar apron re-files her there, and a
+  // shutdown/disembark puts her (and you) at the tile you actually taxied to. Confined to
+  // airfield tiles: a taxi never re-parks her onto the grass or a neighbouring street cell.
+  if (!a.airborne && a.parked_zone_id) {
+    const under = surfaceAt(a.grid_x, a.grid_y);
+    if (under?.flags?.airfield_id && under.id !== a.parked_zone_id) a.parked_zone_id = under.id;
+  }
   a.heading = String(((Math.round(d.hdg) % 360) + 360) % 360);
   a.throttle = cl(Math.round(d.thr), 0, 100);
   let alt = Math.max(0, d.alt || 0), vs = d.vs || 0;
@@ -1005,7 +1164,14 @@ export function seatList(live) {
 }
 export function pushContext(live) {
   const payload = contextPayload(live);
-  for (const pid of live.occupants) { const p = getLivePlayer(pid); if (p) sendToPlayer(pid, payload); }
+  // A text-mode occupant (rider or pilot) has no panel mounted for this to feed, so
+  // sending it is pure waste at best and would re-open the 3D layer at worst. Both
+  // latches are set at board time — see textmode.js / textpilot.js.
+  for (const pid of live.occupants) {
+    const p = getLivePlayer(pid);
+    if (!p || ((p.textTravel || p.textPilot) && !p.cabinWindowOpen)) continue;
+    sendToPlayer(pid, payload);
+  }
 }
 
 // One airborne craft as another pilot's radar/windshield sees it: world position
@@ -1114,6 +1280,10 @@ export async function boardCabin(player, live) {
 }
 
 // ── Attach / detach ───────────────────────────────────────────────────────────
+// textpilot.js registers its teardown here at load (see the cycle note in `detach`).
+let _clearTextPilot = null;
+export function registerTextPilotTeardown(fn) { _clearTextPilot = fn; }
+
 export function detach(player, { restore = true } = {}) {
   const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
   // Walkable cabin: step the occupant out of the interior room onto the aircraft's
@@ -1133,6 +1303,12 @@ export function detach(player, { restore = true } = {}) {
   delete player.aircraftId;
   delete player.seat;
   delete player.cabinWindowOpen;
+  delete player.textTravel;
+  // Text piloting is per-AIRCRAFT state (the physics sim lives on `live`), so it has
+  // to be torn down with the seat, not just the player. Cleared through a callback the
+  // plugin injects rather than an import — state.js must not depend on textpilot.js,
+  // which already imports it.
+  if (player.textPilot) { delete player.textPilot; if (live) _clearTextPilot?.(live); }
   if (restore) closeHud(player.id);
   if (live) reap(live);
 }
@@ -1204,6 +1380,13 @@ export function landDifficulty(live, emergency) {
 
 // ── Bring a craft to rest at an airfield; restore occupants to the ground ──────
 export async function parkAt(live, zoneId) {
+  // Landing files her at a HANGAR, not wherever the rollout stopped: any airfield tile
+  // resolves to the closest tile that has a walk-in hangar (hangarRampFor). That keeps the
+  // craft and the office you climb out into on the same tile, so the "board from inside the
+  // hangar office" contract below actually finds her. The Echelon's pad is exempt — she's a
+  // moving field and must never snap to a shore hangar she happens to be moored near.
+  const landed = getZone(zoneId);
+  if (!landed?.flags?.yacht) zoneId = hangarRampFor(landed)?.id || zoneId;
   const z = getZone(zoneId);
   if (z) {
     live.row.grid_x = z.grid_x; live.row.grid_y = z.grid_y; live.fx = z.grid_x; live.fy = z.grid_y;

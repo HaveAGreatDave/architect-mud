@@ -9,9 +9,11 @@
       "legs"
     ],
     "description": "A close-fitting neoprene wetsuit in scuffed black and hazard-yellow, salvaged and patched at the knees. It zips from tailbone to nape and traps a thin layer of warmth against the skin — the difference between a long cold swim and hypothermia. Cut for the water, clumsy on land.",
+    "hydrophobic": true,
     "insulation": 6,
     "layer": "outerwear",
-    "slot": "torso"
+    "slot": "torso",
+    "windproof": true
   },
   "type": "clothing",
   "value": 240,

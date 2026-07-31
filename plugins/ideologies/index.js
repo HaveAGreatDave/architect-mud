@@ -1,4 +1,4 @@
-import { getPlayerIdeologyRep, adjustReputation, PATHS } from '../../server/engine/ideologies.js';
+import { getPlayerIdeologyRep, adjustReputation, hydrateIdeologyProfile, PATHS } from '../../server/engine/ideologies.js';
 import { classifyLean } from '../../server/engine/ideologies.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
@@ -97,6 +97,11 @@ registerAction({
     const current = Number(await getFlag('player', STANCE_FLAG, actor)) || 0;
     const next = Math.max(-100, Math.min(100, current + delta));
     await setFlag('player', STANCE_FLAG, next, actor);
+    // The engine caches this profile on the live player (reputation decay reads
+    // it on every vendor price lookup). The flag write is the only way it moves,
+    // so this is where the cache is kept coherent — a stale profile would rest
+    // an opposed player's standing at neutral.
+    await hydrateIdeologyProfile(actor);
     return { type: 'stance', value: next, delta };
   },
 });
@@ -114,6 +119,7 @@ registerAction({
     const current = Number(await getFlag('player', pathFlag(path), actor)) || 0;
     const next = Math.max(0, Math.min(100, current + delta));
     await setFlag('player', pathFlag(path), next, actor);
+    await hydrateIdeologyProfile(actor);   // keep the cached profile coherent (see ADJUST_STANCE)
     return { type: 'path', path, value: next, delta };
   },
 });

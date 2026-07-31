@@ -1,0 +1,20 @@
+{
+  "description": "Water with opinions. Lengthens anything and improves about half of it.",
+  "flags": {},
+  "id": "item_soda_water",
+  "name": "soda water",
+  "tags": {
+    "consumable": true,
+    "description": "Water with opinions. Lengthens anything and improves about half of it.",
+    "drink_noun": "soda",
+    "drink_profile": "mixer",
+    "hydrating": true,
+    "pour_units": 4,
+    "restore_sanity": 2,
+    "restore_thirst": 44,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 3,
+  "weight": 380
+}

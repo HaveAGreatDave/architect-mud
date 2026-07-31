@@ -1,22 +1,87 @@
 {
   "name": "surveillance",
-  "version": "0.6.0",
-  "description": "SPECTER — player spy networks + a witnessed-crime wanted system. P1-5: plant/hub/record/counterplay/devices. P6: 0-5 star wanted, escalating police tiers up to Arbiters, evidence + bounties.",
-  "commands": ["plant", "retrieve", "sweep", "feed", "hub", "hubclose", "record", "clip", "wipe", "collect", "clips", "replay", "smash", "hijack", "hijackresolve", "pilot", "submit", "wanted", "bribe", "scrub", "apprehendresolve", "purge"],
-  "hooks": ["zone.delete"],
+  "version": "0.6.1",
+  "description": "SPECTER — player spy networks + a witnessed-crime wanted system. P1-5: plant/hub/record/counterplay/devices. P6: 0-5 star wanted, escalating police tiers up to Arbiters, evidence + bounties. Also consumes storefront.staffWitnessed — hired shop staff (plugins/storefront) are a forced witness for shoplifting/hacking, the same convention as vendor.safeHackWitnessed.",
+  "commands": [
+    "plant",
+    "retrieve",
+    "sweep",
+    "feed",
+    "hub",
+    "hubclose",
+    "record",
+    "clip",
+    "wipe",
+    "collect",
+    "clips",
+    "replay",
+    "smash",
+    "hijack",
+    "hijackresolve",
+    "pilot",
+    "submit",
+    "wanted",
+    "bribe",
+    "scrub",
+    "apprehendresolve",
+    "purge"
+  ],
+  "hooks": [
+    "zone.delete"
+  ],
   "routePrefix": "/surveillance",
   "specializedActions": [
-    { "verb": "use", "requiredTag": "specter_program" },
-    { "verb": "use", "requiredTag": "spy_deck" },
-    { "verb": "use", "requiredTag": "security_console" },
-    { "verb": "use", "requiredTag": "datachip" }
+    {
+      "verb": "use",
+      "requiredTag": "specter_program"
+    },
+    {
+      "verb": "use",
+      "requiredTag": "spy_deck"
+    },
+    {
+      "verb": "use",
+      "requiredTag": "security_console"
+    },
+    {
+      "verb": "use",
+      "requiredTag": "datachip"
+    },
+    {
+      "verb": "scrub",
+      "requiredFlag": "police_terminal"
+    }
   ],
   "objectGatedCommands": {
-    "scrub":  { "discoverVia": "police_terminal", "exposed": false, "note": "KNOWN GAP: plain command, no examine hint on the police records terminal" },
-    "bribe":  { "discoverVia": "npc:police",       "exposed": false, "note": "KNOWN GAP: on-scene cop NPC advertises this only via dialogue, not examine" },
-    "submit": { "discoverVia": "npc:police",       "exposed": false, "note": "KNOWN GAP: on-scene cop NPC advertises this only via dialogue, not examine" },
-    "retrieve": { "discoverVia": "furniture:security_device", "exposed": false, "note": "KNOWN GAP: acts on a concealed planted-device furniture revealed only by sweep; sweep output hints retrieve but examine lists no action (the device carries no tag/interactions)." },
-    "smash":    { "discoverVia": "furniture:security_device", "exposed": false, "note": "KNOWN GAP: destroys a swept-out device furniture; not hinted by sweep, not surfaced by examine." },
-    "hijack":   { "discoverVia": "furniture:security_device", "exposed": false, "note": "KNOWN GAP: breaches a swept-out device furniture; no examine/sweep hint." }
+    "scrub": {
+      "discoverVia": "police_terminal",
+      "exposed": true,
+      "note": "Declaration-only specializedAction (requiredFlag) — the terminal advertises scrub on examine; cmdScrub still owns the verb."
+    },
+    "bribe": {
+      "discoverVia": "npc:police",
+      "exposed": false,
+      "note": "KNOWN GAP: on-scene cop NPC advertises this only via dialogue, not examine"
+    },
+    "submit": {
+      "discoverVia": "npc:police",
+      "exposed": false,
+      "note": "KNOWN GAP: on-scene cop NPC advertises this only via dialogue, not examine"
+    },
+    "retrieve": {
+      "discoverVia": "furniture:security_device",
+      "exposed": false,
+      "note": "KNOWN GAP: acts on a concealed planted-device furniture revealed only by sweep; sweep output hints retrieve but examine lists no action (the device carries no tag/interactions)."
+    },
+    "smash": {
+      "discoverVia": "furniture:security_device",
+      "exposed": false,
+      "note": "KNOWN GAP: destroys a swept-out device furniture; not hinted by sweep, not surfaced by examine."
+    },
+    "hijack": {
+      "discoverVia": "furniture:security_device",
+      "exposed": false,
+      "note": "KNOWN GAP: breaches a swept-out device furniture; no examine/sweep hint."
+    }
   }
 }

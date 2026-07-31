@@ -69,7 +69,7 @@ function renderAudioPanel(data) {
   `).join('');
 
   panel.innerHTML = `
-    <div style="padding:10px 16px;border-bottom:2px solid var(--border);background:var(--bg2);display:flex;justify-content:space-between;align-items:center">
+    <div class="panel-sticky-head" style="padding:10px 16px;border-bottom:2px solid var(--border);background:var(--bg2);display:flex;justify-content:space-between;align-items:center">
       <div style="display:flex;gap:6px">${tabBar}</div>
       <div style="display:flex;gap:6px">
         <button class="action-btn" onclick="verifyAllAudio()" title="Re-fetch from the server, confirm every asset loads, and report any broken references or malformed configs">✔ Save &amp; Verify</button>
@@ -172,7 +172,12 @@ function findAudioAsset(tab, id) { return _audioData[tab].find(r => r.id === id)
 let _sfxEntries = [];
 
 function mergeInterfaceSfx(overrides) {
-  const defaults = (window.SFXCatalog && window.SFXCatalog.defaults) ? window.SFXCatalog.defaults() : [];
+  const defaults = [
+    ...((window.SFXCatalog && window.SFXCatalog.defaults) ? window.SFXCatalog.defaults() : []),
+    // Procedural generator TABLES — the real tuning surface for the material /
+    // action audio system. Same override rows, same editor, same persistence.
+    ...((window.ProceduralSFX && window.ProceduralSFX.defaults) ? window.ProceduralSFX.defaults() : []),
+  ];
   const ovById = {};
   for (const r of (Array.isArray(overrides) ? overrides : [])) ovById[r.id] = r;
   return defaults.map(d => {

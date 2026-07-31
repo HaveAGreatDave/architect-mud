@@ -1,0 +1,12 @@
+{
+  "description": "A steel bulb of nitrous oxide. Forty seconds, and then you are just a person in a room again.",
+  "flags": {},
+  "id": "item_nitrous",
+  "name": "whippet",
+  "tags": {
+    "drug": true
+  },
+  "type": "consumable",
+  "value": 15,
+  "weight": 20
+}

@@ -3,9 +3,6 @@
 // each mover's home_zone, frees their old unit's npc_residences, and registers one
 // primary resident per tenement unit used. Deterministic (ORDER BY id) → idempotent-ish.
 // Run: node scripts/house-npcs-in-tenement.mjs   (then import + [deploy])
-//
-// EXCLUDES Sergeant Vale (npc_pd_officer): the vale-apology plugin hardcodes her home to
-// Unit 3B and moves her there in a scripted scene — rehoming her would break it.
 
 import { readFileSync, writeFileSync, readdirSync, unlinkSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -18,12 +15,10 @@ const sortKeys = (x) => Array.isArray(x) ? x.map(sortKeys)
 const writeC = (rel, o) => writeFileSync(join(ROOT, rel), JSON.stringify(sortKeys(o), null, 2) + '\n');
 const readC = (rel) => JSON.parse(readFileSync(join(ROOT, rel), 'utf8'));
 
-const EXCLUDE = new Set(['npc_pd_officer']);   // Vale — plugin-anchored to Unit 3B
-
 // 1. the existing apartment-homed NPCs, deterministic order
 const { rows } = await query(
   "SELECT n.id FROM npcs n JOIN zones z ON z.id=n.home_zone WHERE z.flags->>'is_apartment'='true' ORDER BY n.id");
-const movers = rows.map(r => r.id).filter(id => !EXCLUDE.has(id));
+const movers = rows.map(r => r.id);
 
 // 2. tenement unit list + 2/unit (rarely 3) capacities
 const units = [];
@@ -60,7 +55,7 @@ for (const f of readdirSync(join(ROOT, 'content/npc_residences'))) {
 for (const unit of usedUnits) writeC(`content/npc_residences/${unit}.json`, { npc_id: perUnit[unit][0], zone_id: unit });
 
 console.log(`✓ Housed existing NPCs in The Yards Tenement.`);
-console.log(`  moved: ${movers.length} NPCs (excluded Vale) into ${usedUnits.length} units (${threes} units got 3, rest 2)`);
+console.log(`  moved: ${movers.length} NPCs into ${usedUnits.length} units (${threes} units got 3, rest 2)`);
 console.log(`  freed ${freed} old apartment residences (units open up for players)`);
 console.log(`  registered ${usedUnits.length} primary residents in the tenement`);
 process.exit(0);

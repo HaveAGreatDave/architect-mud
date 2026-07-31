@@ -32,6 +32,28 @@ const PANELS = {
     fetch: () => API('/gossip'),
     render: renderGossip,
   },
+  cards: {
+    title: 'Trading Cards',
+    description: 'Every struck card — players who minted themselves, plus the NPC and enemy cards cut from world content when a series opened. Edit rarity, pool weight and the three text blocks; the character counters enforce the budgets, because a card must never truncate. NPC flavour overrides (flags.card_quote / card_note / card_rarity) live on the NPC row, in the NPCs panel.',
+    idPrefix: 'card',
+    fetch: async () => {
+      const r = await API('/cards');
+      if (r?.budgets) _cardBudgets = { ...(_cardBudgets), ...r.budgets };
+      if (Array.isArray(r?.ranks)) _cardRanks = r.ranks;
+      return r?.cards || [];
+    },
+    columns: [
+      { key: 'subject_name', label: 'Subject' },
+      { key: 'subject_type', label: 'Type' },
+      { key: 'rarity', label: 'Rarity' },
+      { key: 'power', label: 'Power' },
+      { key: 'pool_weight', label: 'Pool' },
+    ],
+    editForm: cardEditForm,
+    save: saveCard,
+    delete: id => API(`/cards/${id}`, 'DELETE'),
+    render: () => renderCardsTable(allRecords),
+  },
   zones: {
     title: 'Zones',
     description: 'Edit room descriptions, exits, danger ratings, and zone properties.',
@@ -66,6 +88,8 @@ const PANELS = {
     editForm: enemyEditForm,
     save: saveEnemy,
     delete: id => API(`/enemies/${id}`, 'DELETE'),
+    render: renderEnemiesPanel,
+    filter: filterEnemies,
   },
   items: {
     title: 'Items',
@@ -119,6 +143,67 @@ const PANELS = {
     editForm: mutationEditForm,
     save: saveMutation,
     delete: id => API(`/mutations/${id}`, 'DELETE'),
+  },
+  // Three tables, one editor — a dream room and a hallucination room are the same
+  // kind of thing, kept apart by the `cause` label. See docs/systems-dreams.md.
+  //
+  // All three are ONE nav entry (🌒 Unreality) with two tabs, and the active
+  // PANELS entry IS the tab — see renderDreamSuite in panels/dreams.js. Each keeps
+  // its own columns/editForm/save/delete so the generic machinery is untouched;
+  // only the list rendering is shared. `hideNewBtn` because the toolbar's single
+  // + New can't say which of two tables on screen it means — each section has its own.
+  dream_templates: {
+    title: 'Dream Rooms',
+    description: 'Rooms for the experiences a player can be put inside — a sleep dream, or a dissociative hallucination. Not zones: they have no coordinates and no place on any map.',
+    idPrefix: 'dt',
+    fetch: () => dreamSuiteFetch('dream_templates'),
+    columns: [
+      { key: 'name', label: 'Room' },
+      { key: 'cause', label: 'Cause', render: (_v, r) => causeBadge(r) },
+      { key: 'objects', label: 'Objects', render: v => (Array.isArray(v) ? v.length : 0) },
+      { key: 'ambient', label: 'Ambient', render: v => (Array.isArray(v) ? v.length : 0) },
+    ],
+    render: renderDreamSuite,
+    filter: renderDreamSuite,
+    hideNewBtn: true,
+    editForm: dreamTemplateEditForm,
+    save: saveDreamTemplate,
+    delete: id => API(`/dream-templates/${encodeURIComponent(id)}`, 'DELETE'),
+  },
+  dream_presences: {
+    title: 'Dream Presences',
+    description: 'The wandering figure that moves between the rooms of an instance. It is announced arriving and leaving, and never resolves into anything.',
+    idPrefix: 'dp',
+    fetch: () => dreamSuiteFetch('dream_presences'),
+    columns: [
+      { key: 'name', label: 'Presence' },
+      { key: 'cause', label: 'Cause', render: (_v, r) => causeBadge(r) },
+      { key: 'looks', label: 'Looks', render: v => (Array.isArray(v) ? v.length : 0) },
+    ],
+    render: renderDreamSuite,
+    filter: renderDreamSuite,
+    hideNewBtn: true,
+    editForm: dreamPresenceEditForm,
+    save: saveDreamPresence,
+    delete: id => API(`/dream-presences/${encodeURIComponent(id)}`, 'DELETE'),
+  },
+  drug_transforms: {
+    title: 'Drug Transforms',
+    description: 'What a psychedelic turns the real furniture around you into. Live world, per-viewer — these never build a room.',
+    idPrefix: 'dx',
+    fetch: () => dreamSuiteFetch('drug_transforms'),
+    columns: [
+      { key: 'name', label: 'Becomes' },
+      { key: 'drug_id', label: 'Drug', render: v => `<span class="badge badge-medium">${v || 'default set'}</span>` },
+      { key: 'matches', label: 'Only on', render: v => v || '<span class="text-dim">anything</span>' },
+      { key: 'says', label: 'Says', render: v => (Array.isArray(v) ? v.length : 0) },
+    ],
+    render: renderDreamSuite,
+    filter: renderDreamSuite,
+    hideNewBtn: true,
+    editForm: drugTransformEditForm,
+    save: saveDrugTransform,
+    delete: id => API(`/drug-transforms/${encodeURIComponent(id)}`, 'DELETE'),
   },
   drugs: {
     title: 'Drugs',
@@ -181,6 +266,14 @@ const PANELS = {
     editForm: recipeEditForm,
     save: saveRecipe,
     delete: id => API(`/recipes/${id}`, 'DELETE'),
+  },
+  'mis-fit': {
+    title: 'MIS Fit Lines',
+    description: 'Authored prose for the fit model — what the room and both parties read when a size lands in each band. Blank pools fall back to the ordinary act text.',
+    idPrefix: 'misfit',
+    noEdit: true,
+    fetch: misFitFetch,
+    columns: [],
   },
   scavenging: {
     title: 'Scavenging Tables',
@@ -246,6 +339,22 @@ const PANELS = {
     editForm: scriptEditForm,
     save: saveScript,
     delete: id => API(`/scripts/${id}`, 'DELETE'),
+  },
+  'script-triggers': {
+    title: 'Script Triggers',
+    description: 'Bindings that fire a Script when a game event happens — "on entering this zone, run that graph". The engine ships the channel; every binding is content you author here.',
+    idPrefix: 'trigger',
+    fetch: () => API('/script-triggers'),
+    columns: [
+      { key: 'name', label: 'Name' },
+      { key: 'event', label: 'On event' },
+      { key: 'script_id', label: 'Runs' },
+      { key: 'zone_id', label: 'Zone', render: v => v || '—' },
+      { key: 'enabled', label: 'On', render: v => v ? '✓' : '—' },
+    ],
+    editForm: triggerEditForm,
+    save: saveScriptTrigger,
+    delete: id => API(`/script-triggers/${id}`, 'DELETE'),
   },
   vine: {
     title: 'VINE Suite',
@@ -371,14 +480,43 @@ const PANELS = {
   },
 };
 
-const VINE_GROUP_PANELS = new Set(['vine', 'scripts', 'quests', 'vine-dialogue', 'vine-ai']);
+const VINE_GROUP_PANELS = new Set(['vine', 'scripts', 'script-triggers', 'quests', 'vine-dialogue', 'vine-ai']);
+
+// Panels whose routes are on the server's production allowlist. In ops mode
+// (/admin — see bootstrap.js) the content-editing nav is pruned, but a stale
+// bookmark or a console call could still ask for one; bounce those to Dashboard
+// so you never land in an editor whose every save would 403. Keep this in sync
+// with the data-ops attributes in index.html.
+const OPS_PANELS = new Set(['dashboard', 'devlog', 'worldstate', 'timeweather', 'players',
+                            'games', 'gossip', 'validator', 'power', 'emergency', 'bank', 'flight',
+                            'broadcasts', 'zones', 'npcs', 'items', 'enemies']);
+
+// Content panels kept on /admin to LOOK at (data-ops-ro in index.html). They answer
+// the questions a live bug actually raises — why can't they leave this room, where
+// is that NPC, what does this item really do — without a DB shell. Every write they
+// can make is refused in api.js and by CONTENT_READONLY server-side; here we just
+// stop offering the buttons and say why once, at the top.
+const OPS_READONLY_PANELS = new Set(['broadcasts', 'zones', 'npcs', 'items', 'enemies']);
+const OPS_READONLY_BANNER =
+  '<b>READ-ONLY — production.</b> This is world content: it\'s edited on your <b>local</b> dev panel and '
+  + 'reaches prod through the CODEX deploy (a push to <code>main</code>). Nothing changed here would save — '
+  + 'and if it did, the next deploy would revert it. Live-world actions (spawning an enemy, restocking a '
+  + 'vendor) still work.';
+// A panel that shares a nav entry with its siblings highlights that entry rather
+// than one of its own (the Unreality suite: three panels, one 🌒 row, two tabs).
+const NAV_ALIASES = {
+  dream_templates: 'dreams', dream_presences: 'dreams', drug_transforms: 'dreams',
+};
+
 function activatePanelNav(name) {
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.panel === name));
+  const nav = NAV_ALIASES[name] || name;
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.panel === nav));
   const group = document.getElementById('nav-vine-children');
   if (group) group.classList.toggle('open', VINE_GROUP_PANELS.has(name));
 }
 
 async function showPanel(name) {
+  if (window.OPS_MODE && !OPS_PANELS.has(name)) name = 'dashboard';
   currentPanel = name;
   sortState = { key: null, dir: 1 };
   activatePanelNav(name);
@@ -393,7 +531,15 @@ async function loadPanel(name) {
   if (!p) return;
   document.getElementById('panel-title').textContent = p.title;
   document.getElementById('panel-description').textContent = p.description || '';
-  document.getElementById('new-btn').style.display = p.noEdit || name === 'worldstate' || name === 'players' ? 'none' : '';
+  // Read-only ops panel: banner up, Save/Delete/New hidden (body class → styles.css).
+  const readOnly = !!window.OPS_MODE && OPS_READONLY_PANELS.has(name);
+  document.body.classList.toggle('ops-ro-panel', readOnly);
+  const banner = document.getElementById('ops-ro-banner');
+  if (banner) {
+    banner.innerHTML = readOnly ? OPS_READONLY_BANNER : '';
+    banner.style.display = readOnly ? '' : 'none';
+  }
+  document.getElementById('new-btn').style.display = readOnly || p.noEdit || p.hideNewBtn || name === 'worldstate' || name === 'players' ? 'none' : '';
 
   let data;
   try {

@@ -202,6 +202,20 @@ export const REGISTRY = [
   // the zone as `flags.rent_cost` (content, read via authoredRentCost); lock_difficulty
   // was vestigial (rent resets it to BASE) and building_name is derived from the zone. */
   { table: 'apartments', class: 'player' },
+  // Player-owned shops (plugins/storefront) — the deed + mortgage ledger, same law
+  // as apartments: exporting it would stamp phantom/ownerless deeds over prod and a
+  // deleted file would wipe a real player's shop. The authored side (which units are
+  // for sale, and at what price/term) is zone flags, which DO ship as content.
+  { table: 'storefronts', class: 'player' },
+  // Hired staff and standing buy orders hang off a player's deed and are just as
+  // much player data — an exported clerk would be a phantom employee on every DB.
+  { table: 'storefront_staff', class: 'player' },
+  { table: 'storefront_orders', class: 'player' },
+  // Kept companions on retainer (plugins/consort). Player data for the same reason
+  // the deed is — and note the consort NPC herself has no `npcs` row at all: she's
+  // spawned into world.npcs from this ledger, so the roster can never leak into a
+  // content export the way a hired shop clerk would if it were an npcs row.
+  { table: 'player_consorts', class: 'player' },
   // Which apartment units NPCs live in — authored alongside npc.home_zone. Placed
   // after npcs + zones (both FK'd). Kept in sync by the NPC create/edit/auto-house
   // endpoints and the reconcile script.
@@ -222,6 +236,7 @@ export const REGISTRY = [
 
   // ── content: scripting / quests / factions ──
   { table: 'scripts', class: 'content', pk: ['id'], readTier: 'cold' },              // one row per graph run
+  { table: 'script_triggers', class: 'content', pk: ['id'], readTier: 'boot' },      // loadScriptTriggers
   { table: 'npc_banter_threads', class: 'content', pk: ['id'], readTier: 'boot' },   // loadBanterLibrary
   { table: 'ambient_routines', class: 'content', pk: ['id'], readTier: 'boot' },     // ambient-life plugin cache
   { table: 'quests', class: 'content', pk: ['id'], readTier: 'ttl', // plugins/quests 30s definition cache
@@ -235,6 +250,24 @@ export const REGISTRY = [
 
   // ── content: scavenging / security / finance / flight ──
   { table: 'scavenging_tables', class: 'content', pk: ['id'], readTier: 'cold' },       // per scavenge/fish/mine action
+  { table: 'mis_fit_lines', class: 'content', pk: ['id'], readTier: 'boot' },           // MIS fit prose — cached in memory at boot (plugins/mis/fit-lines.js), re-read only on a dev-panel write
+  // Public-domain book texts. 'cold' is load-bearing, not descriptive: these rows
+  // are hundreds of KB and MUST NOT join the boot read — a deploy already pulls
+  // ~36MB from Neon and that cap has been hit before. Read one chapter per page turn.
+  { table: 'books', class: 'content', pk: ['id'], readTier: 'cold' },
+  // The gloss layer over those books. Unlike `books` this one IS small enough to
+  // cache — a few hundred one-line rows — so it loads once on first reader page
+  // and is matched in memory thereafter (plugins/tablet/library-app.js).
+  { table: 'glossary', class: 'content', pk: ['id'], readTier: 'boot' },
+  // Dream/drug experience rooms. Cold on purpose: the read happens only when an
+  // experience actually fires (inside the odds check, once per instance), never on
+  // a per-tick path — so the round trip is free and there is no cache to keep
+  // valid. See docs/systems-dreams.md.
+  { table: 'dream_templates', class: 'content', pk: ['id'], readTier: 'cold' },
+  { table: 'dream_presences', class: 'content', pk: ['id'], readTier: 'cold' },
+  { table: 'dream_tethers', class: 'content', pk: ['id'], readTier: 'cold' },
+  { table: 'drug_transforms', class: 'content', pk: ['id'], readTier: 'cold' },
+  { table: 'drug_reactions', class: 'content', pk: ['id'], readTier: 'cold' },
   { table: 'scavenging_table_items', class: 'content', pk: ['id'], readTier: 'cold' },
   // NPC-police surveillance backbone only; player-planted nets/devices are runtime.
   { table: 'security_networks', class: 'content', pk: ['id'], where: 'is_police = 1', readTier: 'fresh',
@@ -288,8 +321,11 @@ export const REGISTRY = [
   { table: 'player_augments', class: 'player' },     // installed cybernetics (plugins/augments)
   { table: 'player_backups', class: 'player' },      // cortical-backup snapshots + prepaid restores (plugins/augments)
   { table: 'player_flags', class: 'player' },
+  { table: 'player_npc_relations', class: 'player' }, // relations substrate — who a player has met and how it went; accumulated by play, never authored
+  { table: 'mis_consents', class: 'player' },         // MIS per-player consent grants — one player's decision about another; never authored, never exported
   { table: 'player_quests', class: 'player' },
   { table: 'player_achievements', class: 'player' }, // record plugin — which entries a player has been observed doing
+  { table: 'player_outfits', class: 'player' },      // wardrobe plugin — saved looks, per player per wardrobe
   { table: 'bank_transactions', class: 'player' },   // Tablet OS Bank app deposit ledger
   { table: 'economy_ledger', class: 'player' },      // economy-ledger plugin — per-player credit mutations
   { table: 'insurance_policies', class: 'player' },  // Halcyon Assurance — bought policies
@@ -309,6 +345,15 @@ export const REGISTRY = [
   // (map-pipeline-spec §2.1, §9; terrain-property-presets.md).
   { table: 'zone_derived', class: 'runtime' },
   { table: 'zone_edges', class: 'runtime' },      // generated traversal graph — grid geometry + connections (spec §2.2)
+  // Trading cards (plugins/cards). Deliberately NOT content, even though the NPC
+  // and enemy cards are derived from content: they are regenerated on any DB by
+  // `strikeSeries()`, which is idempotent, so exporting them would commit a
+  // derived artifact — and the same table holds player-minted cards, which are
+  // as private as inventory. One class for one table; the strike rebuilds it.
+  { table: 'cards', class: 'runtime', readTier: 'cold',
+    runtimeInserts: 'cards plugin — `mint` (player) and strikeSeries() (NPC/enemy, on series open)' },
+  { table: 'card_holdings', class: 'player' },   // somebody's shelf; never leaves the DB
+  { table: 'script_waits', class: 'runtime' }, // parked long `wait` continuations; deleted on resume
   { table: 'world_events', class: 'runtime' },
   { table: 'void_traces', class: 'runtime' },      // voidwalking — scrawls/corpses left in the void, purged as windows rotate
   { table: 'world_clock', class: 'runtime' },

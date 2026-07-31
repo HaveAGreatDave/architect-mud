@@ -42,6 +42,15 @@ Flagged onto fitting zones (the `zones.flags.airfield_id` pattern):
 | **Coldwater Regional** | `af_regional` | `zone_district_925_903` (925,903) | **dealer + charter + rental** · all fuels |
 | The Echelon — Helipad | `echelon_helipad` | `zone_echelon_exterior` (897,898) | charter only · VTOL-only |
 | Buzzard Field | `buzzard_field` | `zone_the_reach_870_1958` (910,986) | charter only · **lawless** · dust strip |
+| **Solenne Sky Pad** | `af_solenne` | `zone_district_914_908` (914,908) | **private** — residents only · avgas/jet · **VTOL-only** |
+
+**Private fields.** `flags.airfield_residents_only: "<building name>"` makes a field the
+building's own: `fieldFor()` returns null for anyone who doesn't hold a unit there, so an
+outsider gets no bay, no `hangar rent`/`store`, no fuel and no services — the field simply
+isn't there for them. The pad ROOM is walled separately by `flags.residents_only`
+(the residency plugin), which also gates the lift. See
+[reference/world-rendering.md](reference/world-rendering.md) for how a rooftop pad renders
+as field *and* building on one tile.
 
 Nine aircraft types (Mayfly · Dragonfly · Mule · Leviathan · Reaper · Carcass ·
 Grasshopper · Locust · **Viper**), three fuel types (avgas/jet/biofuel), four ground AA
@@ -72,6 +81,57 @@ the "content is deliberate" rule. Instead:
   foot instead of riding the cabin-window HUD. Every instance of the type shares the
   one authored shell — privacy comes from the occupant Set, so still no runtime rows.
   See [proposals/leviathan-flying-base.md](proposals/leviathan-flying-base.md).
+- **Text-only passenger travel** (`textmode.js`): a passenger who has set Flight Display to
+  *Text only* (Tablet → Vehicles; persisted as the `flight_text_only` player flag) is sent
+  **no client panel at all** — not the HUD, not the cabin audio feed — and rides on narrated
+  flight instead, on its own 45s schedule (the 3s physics tick is far too fast for prose).
+  The preference is read ONCE at board time and latched as `player.textTravel`, because
+  `pushHud` is sync and on the tick path; it is cleared by `detach`. `window` still works
+  mid-flight and outranks it (`cabinWindowOpen`), so the mode is a default, not a lockout.
+  **Passengers only** — a pilot has no server-side flight to narrate (the sim IS the model),
+  so a text-mode pilot is a separate system, not this flag. A walkable cabin deliberately
+  does not latch it: those rooms are already graphics-free and latching would only cost
+  the occupant their engine audio.
+- **Text-native PILOTING** (`textpilot.js`) — the same preference, applied to the pilot's
+  seat. Instead of `sendFlightSim`, the server runs the physics itself and the player
+  flies by command. What makes this affordable is that `flight-model.js` is a **pure,
+  DOM-free module** already stepped headless by this suite and by `scripts/*-tune.mjs`:
+  the identical physics the 3D client runs, run server-side. The tick is its own `1s`
+  sweep over `liveAircraft` (NOT the `registerActivity` posture sweep — posture only
+  becomes `flying` at wheels-up, and a text pilot must be simulated through startup,
+  taxi and the takeoff roll), sub-stepped 10× so the model sees the small `dt` it was
+  tuned at. World position is integrated from heading × speed at the **charter
+  autopilot's** tile pace (`CRUISE_TILES`), the existing server-side answer for how
+  fast an aircraft crosses the map.
+  - **ASSISTED, not raw.** The player sets intent — `climb to 3000`, `turn to heading
+    090`, `throttle 70`, `level`, `flaps`, `gear`, `takeoff`, `land`, `status` — and a
+    proportional autopilot flies the surfaces toward it. Exposing `elevator 0.3` would
+    punish a text pilot for a control scheme the model was never tuned for. **Stall
+    recovery outranks every commanded target**, because a text pilot has no stick to
+    catch a departure with.
+  - **It writes the same `live.cont` contract `reconcile` does**, which is the whole
+    reason hazards, air-to-air contacts, AA and missiles work unchanged — none of them
+    can tell a text-flown craft from a client-flown one. None of reconcile's anti-spoof
+    clamping applies here (the server generated the numbers), so `reconcile` itself is
+    untouched and the 60fps path is unaffected.
+  - **Takeoff and landing reuse `cmdFlightEvent`**, injected via `wireTextPilot` to
+    avoid an import cycle — so parking, cargo delivery, checkride grading, landing IP
+    and detaching everyone are shared, not reimplemented. The landing grade comes from
+    `landingGrade(fpm)`, the cockpit report card's curve ported server-side.
+  - **The checkride is flyable entirely in text**: `checkGateProximity` tests the ring
+    course server-side (the `GATES` list already carried `r`/`altTol`; only the 3D
+    client ever tested them), and `startup` fires the `engineon` stage advance the
+    cockpit's switch used to.
+  - **The live panel** is a `text_cockpit` payload pushed once a tick and drawn by
+    `client/game/js/panels/textcockpit.js` in the same top pane as the room description
+    — box-drawing rules, a sliding compass tape, `█░` bars, an ASCII attitude ladder and
+    a character-glyph minimap. **No canvas anywhere in that path.** Most of its content
+    is lifted from `contextPayload`, the same payload feeding the 3D cockpit: one source
+    of truth, two renderers. `cockpit_close` hands the pane back.
+  - **Known gaps (v1):** air-to-air GUNS (`cmdAirFire` needs the client reticle's
+    `aimQuality`) and lock-dwell timing remain 3D-only. AA and missiles are fully
+    available, being server-authoritative dice already. RWR lock/launch warnings reach a
+    text pilot as text rather than as an instrument strip.
 
 ### The sky is a computed overlay
 An airborne craft carries its own `(grid_x, grid_y, altitude, heading)`.
@@ -97,16 +157,61 @@ the server owns the consequences:
 - `posture === 'flying'` on the pilot is the activity flag (inherits engine
   force-stand interruptions for free).
 
+### The wing: angle of attack, stalls, sink rates (2026-07-28)
+The aerodynamics in `flight-model.js` are an **arcade energy model**, not 6-DOF — but the
+wing itself now runs on the one variable a wing actually runs on. `s.aoa = pitch − γ` (§6)
+is a definition, not an estimate, and it is the single input to lift, drag, the stall, the
+buffet and the g-meter. Before this pass the model carried *two* unreconciled angles of
+attack — one for drag, a separately-solved `aoaTrim` for lift — and neither was the stall
+trigger; the stall fired on `airspeed < stallSpeed`, which is why `aoaCrit` existed on every
+airframe while doing nothing but anchoring `weightOf()`.
+
+What that buys, and what it means when you're tuning:
+
+- **The stall is an AoA event.** `s.aoa > p.aoaCrit`, full stop (§6b). `STALL_ARM` (0.12 s)
+  only rejects single-frame spikes; recovery is `REATTACH` (3.5°) of genuine hysteresis,
+  which is what the old 1.9 s `STALL_HOLD` grace was standing in for. **The stall speed is
+  now an OUTPUT** — every airframe measures within 4% of its authored `vs0`, emergently.
+- **Accelerated stalls exist.** A hard pull outruns the flight path (γ chases the nose over
+  `vsTau`), α spikes, and she departs at a perfectly healthy speed. The old speed trigger made
+  this literally impossible. Measured breaks match the textbook √n rule against the derived g.
+- **Load factor is real** (§6a) — the bank's own demand plus the α the pilot is pulling above
+  trim. A level 60° bank reads 2g on its own. Exceeding a type's `gLimit` fires an `overg`
+  event: the airframe groans (`creak('stress')`) and the master lamp calls it.
+- **The post-stall sink is a consequence, not a script.** A developed stall collapses CL by
+  `CL_COLLAPSE`, and `MUSH_DEG` (§7) droops the flight path in proportion to the resulting lift
+  deficit — so the sink scales with speed, weight, bank and flap instead of being clamped to a
+  fixed multiple of `vsMax`. The same term un-caps the ordinary low-speed mush, which used to
+  saturate (and stop deepening) the moment `aoaTrim` hit `aoaCrit`.
+- **Rudder recovers a spin; aileron makes it worse.** The departure yaw scales with stall depth
+  and the pedal is given authority against it. The old wing-over marched heading at a flat
+  42°/s while the rudder was worth 4–18°/s, so the actual recovery input could not work.
+  Aileron authority drops with stall depth (§4), and fighting the drop deepens it (§6c).
+- **Every airframe has a real drag polar.** Induced drag is `kInd·CL²` for all of them,
+  replacing both the old `aoa²·V` fudge (wrong exponent on V) and the Leviathan-only,
+  rpm-gated `glideDrag` patch. `kInd` is **derived from the authored `ldMax`**, and
+  `p.bestGlide` is now a *measured consequence* of the polar rather than a number typed
+  beside it — which is why best glide sits at a realistic 1.4–1.6 × Vs across the fleet.
+  Adding induced drag cost everyone 3–5% of top speed, so each type's `dragP` was re-solved
+  to put its authored level top speed back exactly; the envelope is unchanged.
+- **Buffet.** `s.buffet` ramps over `BUFFET_BAND` before the break and sustains a shake in the
+  cockpit — the warning you feel before the horn. There was previously nothing at all between
+  "flying fine" and "a wing dropped".
+
+**Harnesses** (headless, no DB or browser): [`scripts/stall-tune.mjs`](../scripts/stall-tune.mjs)
+measures the 1g and accelerated breaks, max g, the held-departure sink, the hands-off recovery
+and the rudder's anti-spin authority per airframe, plus level-top/climb/takeoff as regression
+guards. [`scripts/glide-polar.mjs`](../scripts/glide-polar.mjs) measures the polar;
+[`scripts/dive-tune.mjs`](../scripts/dive-tune.mjs) the dive shed. The old `glide-tune.mjs`
+was deleted — it solved for `glideDrag`, a knob the model no longer reads. The model's own
+behaviour is now covered in `plugins/flight/regress.js` (it had none before).
+
 Takeoff and landing are therefore **flown from the cockpit, not commanded**: `takeoff`
 and `land` return a nudge ("throttle up … ease back on the yoke") for a continuous
 craft (index.js:688). A botched landing does hull damage; enough damage → crash. A
 crash kills everyone aboard (`handlePlayerDeath`) and turns the craft into a wreck at
 the surface cell. Landing grade → piloting IP (`LANDING_IP`, ≥5 min airborne).
 
-> **Legacy, unreachable:** the interactive `flight_takeoff` / `flight_land` /
-> `takeoffresolve` / `landresolve` minigame decks (server + client) still exist but no
-> shipped airframe can reach them, because all nine are continuous. Don't build against
-> them; see [proposals/flight-unified-model.md](proposals/flight-unified-model.md).
 
 ## Player-facing surface
 
@@ -147,7 +252,8 @@ throttle, yoke, pedals, flap detent lever, trim):
   the server's `map` window. **`paintGauges`** draws the engine cluster (one dial per
   `aircraft_types.engines`), the annunciator strip, gear/flap/stores state and the
   stall lamp. Passengers get the cabin-window layout (windshield above a
-  dest/alt/spd/hdg strip — no controls).
+  dest/alt/spd/hdg strip — no controls) — unless they've opted into text-only travel,
+  who get no panel at all (see the walkable-cabin/text-mode bullets above).
 - **SFX:** a `flight` group in `client/shared/sfx-catalog.js` (engine start, roll,
   rotate, abort, warble, approach, flare, touchdown, crash) — dev-panel editable.
 
@@ -228,7 +334,7 @@ renting. The legacy `charter_vtol_only` flag is folded into `airfield_vtol_only`
 buffeting is the *in-air* half; this is the other half — past 0.7 severity the
 departure field simply doesn't launch. It's checked on the `engineon` flight event
 (the panel ENGINE switch) — deliberately *not* the wheels-up event, since refusing
-mid-takeoff-roll would be worse than useless — and in the legacy `cmdTakeoff`
+mid-takeoff-roll would be worse than useless — and in the retired banded `cmdTakeoff`
 preconditions. An airborne craft has no
 `parked_zone_id`, so it can never be caught by it; only departures are blocked.
 
@@ -261,6 +367,125 @@ tracks active jobs; delivery is detected on landing at the destination (on-time 
 full, late = half; contraband pays in "unmarked cash"). Payout = distance × weight
 (or passenger rate) × risk × the job's `payMult`. The board tags each job
 LEGAL/ILLEGAL and shows the deadline.
+
+### Raw-drug dead drops — the air smuggling run *(as built)*
+
+The top of the raw-supply chain, above the smuggle plugin's ground MULE crates.
+It never touches a checkpoint because it never touches the city ground at all.
+All of it lives in `contracts.js`.
+
+**Nothing spawns unbidden.** Every pallet out on the hardpan is one the player
+**ordered and paid for** at Amos's counter. There is no rotating free pool (there
+was, briefly) and no top-up on embark — `ensureFenceDrops` is gone; an ordered
+pallet is inserted once, at order time.
+
+- **Three caches, not an airfield.** `FENCE_CACHES` names three tiles out on the
+  Reach hardpan — the **Bonepile** (NW), the **Sump** (SE), the **Sisters** (SW) —
+  each themed content with its own fixture. Siting them out in the waste is what
+  makes the aircraft matter, because `index.js`'s land handler parks a
+  **rough-field-rated** craft (VTOL/STOL) where it flares but **tows a fixed-wing
+  back to the nearest field**. So the Mule (STOL, 180kg hold) can service a cache
+  and the 600kg Leviathan can't — it's `takeoff_mode: strip` with nowhere out
+  there to put down. **No new capability check was written for any of that**; it
+  falls out of the existing landing physics and the existing `loadcargo` weight
+  math. Don't add one.
+- **Both ends of the ground trade must vouch** (`hasCacheStanding`): the covert
+  dealer's `dealer_inner_circle` **and** `bm_trust ≥ CACHE_TRUST_MIN` (10) earned
+  running the fence's crates through a gate. Enforced in the `UNLOCK_AIR_CARGO`
+  action *as well as* in Amos's dialogue conditions — the action must never be the
+  only thing holding the door, or a hand-authored option hands out the caches.
+
+#### The ladder — legal crop at the bottom
+
+This is the load-bearing idea, and it is a **risk** ladder as much as a price one.
+Every `item_raw_*` is tagged `contraband` + `raw_drug`, and carrying one in view of
+a camera is **"Manufacturing a controlled substance" — four stars**. So the entry
+rung cannot be a precursor. It's baled **tobacco** and **cannabis** leaf
+(`item_raw_tobacco_crop` / `item_raw_cannabis_crop`), tagged `crop` and nothing
+else, which trips neither the manufacturing scan nor customs. Each **cures** into
+the existing `item_loose_*` via a **fabrication** recipe — deliberately not a
+chemistry cook, so it lives under `craft`, never appears on the felony `cook`
+surface, and survives `add-raw-supply.js` wiping the chemistry recipe set.
+
+Graduating from tier 0 to tier 1 is therefore the moment the player accepts felony
+risk for the first time. That alignment is the whole point.
+
+- `TIER_TRUST` gates each rung **on top of** the unlock (tier 0 is +0 — nobody has
+  to trust you with a bale of tobacco). `PALLET_UNITS` trades volume for grade, so
+  a pallet costs roughly a pallet's worth of money at any tier: **what standing
+  buys is access to grade, not a bigger load**, and the payoff is on the far side
+  in what the raw cooks into. Don't "fix" the flat price curve.
+- Both halves are **content**. A new crop is an item tagged `crop`; a new precursor
+  is an item tagged `raw_drug` with a `cook_tier`. Neither needs a code change.
+
+#### Ordering — the counter is a vendor shelf
+
+**The ledger IS the shop panel.** Amos carries `flags.trust_flag: 'bm_trust'` and a
+`min_trust` on every `vendor_inventory` entry, so `getVendorStock` (`vendor.js:140`)
+switches off the random `vendor_stock` shelf and serves the whole catalogue filtered
+per player — **a sealed rung simply isn't on the shelf.** That's the ladder rendered
+by the ordinary GUI panel with no client work at all. Quantity on the panel is the
+pallet count; entry `price` is priced **per pallet**
+(`value × ORDER_MARKUP(1.4) × units`). Sully charges ×2 because he runs a MULE for
+you; here you fly it yourself. His `raws_list` dialogue node fires `OPEN_SHOP`.
+
+- **`trust_per_buy` is 0 on the counter, deliberately.** Standing is earned by
+  FLYING pallets home (`deliverFenceDrop`), never by paying for them. Leave it at
+  the engine default and a rich player buys their way up the ladder without ever
+  running the customs risk, which guts the progression.
+- **A pallet must never land in a pocket**, so the counter claims the engine's
+  **purchase-delivery seam** (`registerPurchaseDelivery`, `vendor.js`) — keyed on the
+  **`raws_counter` NPC flag**, not on the goods, because Sully's fence sells the same
+  raws through the same seam and would otherwise collide. It runs inside the sale
+  transaction *in place of* the inventory insert, writes the `cargo_drops` rows, and
+  returns the receipt line naming the cache. `'!reason'` aborts and rolls the sale
+  back, so the pallet cap refuses without taking the money; **`null` means "not
+  mine"**, which is how Amos still sells a shotgun across the desk normally.
+- **`raws`** (the verb) survives as the text surface, and it shows what the panel
+  can't: lead time remaining and what's already out there. Amos's dialogue teaches
+  it with `teachVerb` per the house convention.
+- His existing back-room stock (guns, taser, hack deck) shares the shelf at
+  `min_trust: 0` — as a trust vendor **every** entry needs one, or it vanishes.
+- **The counter is content-addressed**: `raws` looks for a live NPC in the room
+  with `flags.raws_counter`, so a second quartermaster anywhere else is content.
+  Amos is deliberately off the night-commute schedule, so the counter never shuts.
+- **`raws` is invisible outside the trade.** No counter present *and* no unlock →
+  the command falls through as though unregistered, so a player who was never let
+  in never learns the surface exists. Unlocked, it answers anywhere and points you
+  at him — otherwise learning the verb at the Layover and typing it in Coldwater
+  reads as a bug.
+- **Lead time is derived, not ticked.** An order isn't out there for
+  `ORDER_LEAD_S` (180s) — somebody has to drive it into the waste. `waitingDropsAt`
+  filters on `created_at + lead`, so there is **no scheduler and no extra column**,
+  and a restart can't lose it. `openOrders` reports the remaining seconds.
+- **Amos is the tracker.** `FENCE_CACHE_REPORT` reads `openOrders()` and emits the
+  line through `out()` — deliberately *not* node text, because node text is
+  authored content and this is live state.
+
+#### Getting it home
+
+- **A pallet is `CACHE_KG` (150kg)**, one `cargo_drops` row per pallet, all pallets
+  of one order in the **same** cache so there's one place to fly. It only ever
+  exists as a row — there is no ground item, so it cannot be hand-carried.
+- Landing at any field that isn't `airfield_lawless` runs the customs scan:
+  Deception vs `3 + maxCookTier + (pallets−1) − (smuggler's hold ? 2 : 0)`. Buzzard
+  Field is lawless, which is what makes the Reach a base rather than a target.
+- **Legal crop is exempt and is scanned separately from the rest.** Clean pallets
+  deliver before the scan runs; the difficulty is then computed over the
+  **contraband pallets only**, on their own worst tier and their own count — so
+  hiding one crate of Blacktar behind four bales of tobacco doesn't lower it.
+- Delivery pays `bm_trust` (`deliverFenceDrop`), which is the same currency the
+  ladder is measured in — **you climb it by flying it**. A contraband pallet is
+  worth 3–5; legal crop hits the floor of 1, which is what lets a newly-vouched
+  pilot climb off the legal rung at all.
+
+**Content is authored by `scripts/reach-dead-drops.mjs`** (idempotent; writes the
+DB *and* the content files, because `content:import` is additive and can't rewrite
+the existing zone/NPC rows). It's a **clamp, not a converging script**, so it is
+deliberately *not* in `oneshots.bat` — **run it by hand, once per environment.**
+The crop items and cure recipes are ordinary additive content and ride the import.
+The cache ids in that script and in `FENCE_CACHES` must stay in step: the flight
+regress suite fails if a cache names a tile that doesn't exist or isn't landable.
 
 **Ground combat** (`combat.js`). `tickCombat()` each airborne tick: AA sites in
 range fire on low/slow overflights (altitude, speed, `evade`, and a piloting jink

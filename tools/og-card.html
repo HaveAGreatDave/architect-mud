@@ -1,0 +1,184 @@
+<!doctype html>
+<!--
+  Source art for the social link-preview card (client/game/assets/og-image.png).
+
+  This is the editable original — the PNG is a render of it, so restyle here and
+  re-render rather than editing the bitmap. Colours are copied from the "dark"/
+  Void theme :root in client/game/styles.css; keep them in sync by hand (this
+  file is rendered standalone, so it deliberately does not <link> that stylesheet
+  — an external CSS load would race the screenshot).
+
+  Re-render (Windows):
+    & "C:\Program Files\Google\Chrome\Application\chrome.exe" --headless=new ^
+      --disable-gpu --hide-scrollbars --force-device-scale-factor=1 ^
+      --window-size=1200,630 ^
+      --screenshot="client\game\assets\og-image.png" ^
+      "file:///<abs-path>/tools/og-card.html"
+
+  The board is exactly 1200x630 because that is the aspect ratio every major
+  crawler crops to (og:image:width/height in index.html must match). Keep the
+  output under ~300KB: Discord and Slack re-encode larger images and the text
+  goes soft.
+-->
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>ARCHITECT — og card</title>
+		<style>
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				background: #05050a;
+			}
+			.card {
+				position: relative;
+				width: 1200px;
+				height: 630px;
+				overflow: hidden;
+				background: #05050a;
+				box-sizing: border-box;
+				border: 2px solid #23233a;
+				font-family: "Courier New", Courier, monospace;
+			}
+			/* Glow washes — kept low-contrast. Big smooth gradients are what
+			   blows up the PNG size, so these are the only two. */
+			.card::before {
+				content: "";
+				position: absolute;
+				inset: 0;
+				background:
+					radial-gradient(
+						620px 520px at 18% 118%,
+						rgba(255, 46, 196, 0.22),
+						transparent 70%
+					),
+					radial-gradient(
+						560px 460px at 90% -12%,
+						rgba(40, 229, 255, 0.16),
+						transparent 70%
+					);
+			}
+			/* Faint 60px grid */
+			.grid {
+				position: absolute;
+				inset: 0;
+				background-image:
+					repeating-linear-gradient(
+						to right,
+						rgba(42, 42, 64, 0.5) 0 1px,
+						transparent 1px 60px
+					),
+					repeating-linear-gradient(
+						to bottom,
+						rgba(42, 42, 64, 0.5) 0 1px,
+						transparent 1px 60px
+					);
+			}
+			.rule {
+				position: absolute;
+				top: 0;
+				left: 0;
+				right: 0;
+				height: 5px;
+				background: linear-gradient(
+					to right,
+					#ff2ec4,
+					#b86bff 50%,
+					#28e5ff
+				);
+			}
+			.body {
+				position: relative;
+				padding: 0 88px;
+			}
+			.kicker {
+				position: absolute;
+				top: 176px;
+				left: 88px;
+				font-size: 22px;
+				font-weight: 500;
+				letter-spacing: 6px;
+				color: #39ff8f;
+			}
+			.wordmark {
+				position: absolute;
+				top: 214px;
+				left: 88px;
+				font-size: 128px;
+				font-weight: 700;
+				letter-spacing: 14px;
+				color: #fff;
+				text-shadow: 0 0 38px rgba(255, 46, 196, 0.55);
+				white-space: nowrap;
+			}
+			.cursor {
+				display: inline-block;
+				width: 44px;
+				height: 94px;
+				background: #ff2ec4;
+				vertical-align: -14px;
+				margin-left: -4px;
+			}
+			.tagline {
+				position: absolute;
+				top: 378px;
+				left: 88px;
+				font-size: 36px;
+				letter-spacing: 2px;
+				color: #e8e8f5;
+			}
+			.divider {
+				position: absolute;
+				top: 466px;
+				left: 88px;
+				right: 88px;
+				height: 1px;
+				background: #2a2a40;
+			}
+			.domain {
+				position: absolute;
+				top: 504px;
+				left: 88px;
+				font-size: 30px;
+				font-weight: 700;
+				letter-spacing: 4px;
+				color: #ff2ec4;
+			}
+			.meta {
+				position: absolute;
+				top: 510px;
+				right: 88px;
+				font-size: 21px;
+				letter-spacing: 3px;
+				color: #8888a8;
+			}
+			/* CRT scanlines. Uniform horizontal bands compress well in PNG —
+			   unlike noise, which would double the file size. */
+			.scan {
+				position: absolute;
+				inset: 0;
+				background: repeating-linear-gradient(
+					to bottom,
+					rgba(0, 0, 0, 0.16) 0 2px,
+					transparent 2px 4px
+				);
+			}
+		</style>
+	</head>
+	<body>
+		<div class="card">
+			<div class="grid"></div>
+			<div class="rule"></div>
+			<div class="body">
+				<div class="kicker">COLDWATER BASIN // POST-SINGULARITY</div>
+				<div class="wordmark">ARCHITECT<span class="cursor"></span></div>
+				<div class="tagline">The AI won. You survived. Probably.</div>
+				<div class="divider"></div>
+				<div class="domain">architectgame.net</div>
+				<div class="meta">REAL-TIME TEXT MUD &middot; FREE &middot; NO INSTALL</div>
+			</div>
+			<div class="scan"></div>
+		</div>
+	</body>
+</html>

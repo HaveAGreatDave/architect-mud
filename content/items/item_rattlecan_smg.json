@@ -1,8 +1,8 @@
 {
-  "description": "A machine pistol held together with spray-paint and spite. Empties a mag before it decides to jam.",
+  "description": "A machine pistol held together with spray-paint and spite. Everstock sold these by the pallet alongside drums of cooking oil, and the manual calls the jamming \"a cadence feature\". Empties a mag before it decides to agree.",
   "flags": {},
   "id": "item_rattlecan_smg",
-  "name": "rattlecan SMG",
+  "name": "Everstock Rattlecan machine pistol",
   "tags": {
     "__own": {
       "damage": {
@@ -10,7 +10,10 @@
         "min": 10
       },
       "damage_type": "kinetic",
-      "description": "A machine pistol held together with spray-paint and spite. Empties a mag before it decides to jam."
+      "description": "A machine pistol held together with spray-paint and spite. Everstock sold these by the pallet alongside drums of cooking oil, and the manual calls the jamming \"a cadence feature\". Empties a mag before it decides to agree.",
+      "min_skill": {
+        "firearms": 5
+      }
     },
     "__super": [
       "weapon_firearms"
@@ -20,12 +23,15 @@
       "min": 10
     },
     "damage_type": "kinetic",
-    "description": "A machine pistol held together with spray-paint and spite. Empties a mag before it decides to jam.",
+    "description": "A machine pistol held together with spray-paint and spite. Everstock sold these by the pallet alongside drums of cooking oil, and the manual calls the jamming \"a cadence feature\". Empties a mag before it decides to agree.",
     "slot": "weapon_hand",
     "weapon": true,
-    "weapon_skill": "firearms"
+    "weapon_skill": "firearms",
+    "min_skill": {
+      "firearms": 5
+    }
   },
   "type": "weapon",
-  "value": 700,
+  "value": 2460,
   "weight": 2600
 }

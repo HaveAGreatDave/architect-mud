@@ -19,7 +19,7 @@
 // players who have opted into MIS (the maturity slider); everyone else sees the
 // tamer version of the same beat.
 
-import { getZone, getZoneNpcs, getZonePlayers, getMinimapData, world } from '../../server/engine/world.js';
+import { getZone, getZoneNpcs, getZonePlayers, getMinimapData, world, streetExitFrom, isStreetLanding } from '../../server/engine/world.js';
 import { sendToPlayer, sendToZone, getBroadcast } from '../../server/engine/messaging.js';
 import { isMisActive } from '../../server/engine/mis.js';
 import { adjustCredits } from '../../server/engine/economy.js';
@@ -305,20 +305,25 @@ const BOUNCER_EJECT = [
 const BOUNCER_EJECT_ROOM = (b, who) => `${b.name} hauls ${who} off their feet and carries them bodily to the door.`;
 const pickB = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-// The fallback eject target: the first exit that leaves the club floor. Used when
-// the bouncer NPC has no flags.bouncer_eject_zone set.
+// Where the bouncer puts you. The prose above promises "cold air, wet pavement" and
+// a door already shut, so the destination has to be the STREET — this used to take
+// the first exit off the club floor, which is just as likely to be the VIP room, the
+// office or a cupboard, and could be a facade tile (which forwards you into the
+// building next door — see streetExitFrom in server/engine/world.js).
+//
+// An authored `bouncer_eject_zone` still wins, because a club with a specific alley
+// out the back should use it — but it's validated the same way, so a hand-authored
+// facade or interior can't strand someone indoors either.
 function fallbackEjectZone(zoneId) {
-  const zone = getZone(zoneId);
-  const exits = zone?.exits || {};
-  for (const dir of Object.keys(exits)) {
-    const t = typeof exits[dir] === 'string' ? exits[dir] : exits[dir]?.target;
-    if (t && t !== zoneId) return t;
-  }
-  return null;
+  return streetExitFrom(zoneId);
 }
 
+// An authored destination is honoured only if a player can actually stand there —
+// same predicate the search uses, so the two can't disagree.
+const ejectableZone = (zoneId) => (zoneId && isStreetLanding(zoneId) ? zoneId : null);
+
 async function bouncerEject(player, bouncer, zoneId) {
-  const dest = bouncer.flags?.bouncer_eject_zone || fallbackEjectZone(zoneId);
+  const dest = ejectableZone(bouncer.flags?.bouncer_eject_zone) || fallbackEjectZone(zoneId);
   const bc = getBroadcast();
   bc?.(zoneId, { type: 'zone_event', message: BOUNCER_EJECT_ROOM(bouncer, player.handle) }, player.id);
   if (dest) {

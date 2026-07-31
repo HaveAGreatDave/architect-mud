@@ -1,0 +1,18 @@
+{
+  "description": "Deep, heavy and warm-walled. Holds the heat long enough to matter and burns your fingers for the privilege.",
+  "flags": {},
+  "id": "item_soup_bowl",
+  "name": "soup bowl",
+  "tags": {
+    "container": 1400,
+    "description": "Deep, heavy and warm-walled. Holds the heat long enough to matter and burns your fingers for the privilege.",
+    "heat_distribution": 0.3,
+    "heat_retention": 0.4,
+    "unique": true,
+    "vessel": true,
+    "vessel_kind": "bowl"
+  },
+  "type": "misc",
+  "value": 7,
+  "weight": 450
+}

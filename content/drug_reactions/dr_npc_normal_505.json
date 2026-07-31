@@ -1,0 +1,10 @@
+{
+  "id": "dr_npc_normal_505",
+  "drug_id": null,
+  "source": "npc",
+  "tone": "normal",
+  "relation": "known",
+  "npc_type": null,
+  "self_line": "{npc} says your name, twice, in the voice people use for it.",
+  "room_line": "{npc} says {player}’s name twice, in the voice people use for it."
+}

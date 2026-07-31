@@ -1,5 +1,5 @@
 {
-  "description": "A recessed ceiling panel throwing flat institutional light across the lobby. One corner has gone dead and never been replaced.",
+  "description": "A cyan LED cove runs the whole decagon at shoulder height, washing the mirror facets in cool even light. No fixture is visible anywhere — the wall simply glows along its seam.",
   "flags": {
     "interactions": [
       "switch"
@@ -9,8 +9,8 @@
   "hp_max": null,
   "id": "furn_light_zone_mq_chrome_lobby",
   "light_type": "overhead",
-  "lumen_output": 1400,
-  "name": "lobby ceiling panel",
+  "lumen_output": 1800,
+  "name": "atrium cove band",
   "object_type": "light",
   "power_draw_kw": null,
   "price": 40,

@@ -1,0 +1,19 @@
+{
+  "description": "A beige box that hums like it's grinding its teeth. The compressor cycles every four minutes whether anything's inside or not, and the door seal gave up its ambitions years ago — held shut now by a strip of gaffer tape and pure spite. No logo, no serial plate, no warranty. Just cold, allegedly.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ]
+  },
+  "id": "item_furn_fridge_coldbox",
+  "name": "Coldbox Refrigeration Unit",
+  "tags": {
+    "appliance_grade": "consumer",
+    "container": 15000,
+    "description": "A beige box that hums like it's grinding its teeth. The compressor cycles every four minutes whether anything's inside or not, and the door seal gave up its ambitions years ago — held shut now by a strip of gaffer tape and pure spite. No logo, no serial plate, no warranty. Just cold, allegedly.",
+    "preserves": "refrigerated"
+  },
+  "type": "furniture",
+  "value": 400,
+  "weight": 22000
+}

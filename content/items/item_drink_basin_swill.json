@@ -6,6 +6,8 @@
   "tags": {
     "consumable": true,
     "description": "House drink. Nobody has ever asked what's in it twice.",
+    "food_noun": "water",
+    "food_profile": "liquid",
     "hydrating": true,
     "restore_sanity": 3,
     "restore_thirst": 40,

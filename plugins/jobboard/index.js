@@ -23,6 +23,7 @@ import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { getFlag, setFlag, clearFlag } from '../../server/engine/flags.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 import { getZone } from '../../server/engine/world.js';
+import { on } from '../../server/engine/events.js';
 
 const DEFAULT_PERIOD = 21600; // 6h
 
@@ -338,6 +339,25 @@ registerMoveGate(async ({ player, from }) => {
   sendToZone(from.id, { type: 'zone_event', message: `${who} throws up a hand and hollers at ${player.handle}.` }, player.id);
   return { block: true, html: true, message: `${who} steps into your path, one hand up. <span class="ambient">"${line}"</span>` };
 }, 'jobboard:greeter');
+
+// --- Lifetime gig counter ----------------------------------------------------
+// A running tally of job-board gigs a player has handed in, kept as a player flag
+// so other systems can gate on "has done real work" without knowing what a gig is
+// (plugins/work gates `clock in` on it). Counted off the quests plugin's
+// `quest.turned_in` event rather than claimJob() so EVERY hand-in path — the chat
+// verb, Tablet OS, Marta's dialogue node — lands on the same funnel.
+export const GIGS_DONE_FLAG = 'gigs_completed';
+
+export async function gigsCompleted(player) {
+  if (!player) return 0;
+  const n = parseInt(await getFlag('player', GIGS_DONE_FLAG, player), 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+on('quest.turned_in', async ({ actor, quest_id }) => {
+  if (!actor || !(await isJobBoardQuest(quest_id))) return;
+  await setFlag('player', GIGS_DONE_FLAG, String((await gigsCompleted(actor)) + 1), actor);
+});
 
 // --- Dev CRUD (devpanel Job Boards authoring) ------------------------------
 

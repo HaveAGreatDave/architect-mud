@@ -37,6 +37,42 @@ third dimension**:
 Each ideology JSON also carries a cosmetic `flags.values` array of five flavour
 words (reader copy, not mechanical axes).
 
+## Standing is maintained, not banked (as built)
+
+Reputation **slides back toward a resting point** over time. Two consequences, both deliberate:
+
+- **Positive standing decays.** Being Trusted is something you keep being, not something you did once. Stop showing up for an order and you drift back to being nobody in particular.
+- **Negative standing also decays.** A grudge is not a life sentence; the street forgets. You can burn a bridge and, given long enough, walk back across it — which is what stops a bad early decision from permanently closing off a quarter of the game's content.
+
+**Half-life: 30 real days**, applied to the *distance from the resting point*, so it asymptotes and never crosses.
+
+### The exception: a major ideological difference
+
+If you are genuinely, ideologically opposed to an order, the drift stops short of neutral at a **floor of −200** (the top of Hostile / bottom of Unknown). They stop actively hating you; they never forget what you are. It's a floor, not a sentence — you can still climb out by acting, the world just won't do the climbing for you.
+
+"Opposed" requires **both halves** (`restingRep`), and this is the load-bearing bit:
+
+| Player vs. order | Resting point |
+|---|---|
+| opposite stance (\|stance\| ≥ 50 the other way) **and** a different path | **−200** |
+| opposite stance only | 0 |
+| different path only | 0 |
+| lukewarm opposition (\|stance\| < 50) | 0 |
+| no position taken yet | 0 |
+
+Either half alone is a *disagreement*. Both together is being a different kind of thing.
+
+### How it's computed
+
+**Lazily, with no sweep tick** — the same treatment relations gets. `player_ideology_rep.updated_at` stamps the last real change; every reader ages the stored value forward to now (`decayRep`). The stored number is a *checkpoint, not the truth*.
+
+- `adjustReputation` decays **before** applying the delta — otherwise a player who's been away has their stale standing resurrected by earning one more point — and the write restarts the clock with the already-decayed value, so drift is never double-counted.
+- `getIdeologyDiscount` / `isIdeologyHostile` / `getPlayerIdeologyRep` all read the decayed value. An order that wanted you dead a season ago has cooled to merely not liking you, with no job run to make that true.
+- The player's own position (`stance_axis` + strongest `path_*`) is **hydrated at login** onto the live player, because `restingRep` is consulted on every vendor price lookup and five flag round trips there would be indefensible. `ADJUST_STANCE` / `ADJUST_PATH` re-hydrate it so the cache stays coherent — the flag write is the only way it moves.
+- An offline player costs nothing and comes back to standing that has cooled on its own.
+
+A row that was never stamped (pre-existing rows before this shipped) is **left alone** until something touches it — no retroactive mass decay on deploy.
+
 ### The four canonical ideologies (owner-less `orgs`, `is_npc=1`)
 
 | Ideology | id | Stance | Path |
@@ -70,8 +106,12 @@ win the lean): `ideology_prometheans`, `ideology_synthesis`, `ideology_null`,
 - **`ideologies`** (alias **`rep`**), `cmdIdeologies` — standing per order (tier +
   rep), a stance slider, strongest path, and the leaned ideology via
   `classifyLean`.
-- **Tablet "Ideology" app** (`plugins/tablet/ideology-app.js`, id `ideology`,
-  icon ◆) — a paged read-only reader (Overview / one page per order / the Field).
+- **Tablet CODEX app, "Orders" section** (`plugins/tablet/codex/section-orders.js`,
+  app id `codex`, section id `orders`) — a paged read-only reader (Overview / one
+  page per order / the Field). **This was the standalone "Ideology" app** (id
+  `ideology`, `plugins/tablet/ideology-app.js`) until it was folded into the CODEX
+  shelf alongside the lore volumes; the payload and every client renderer are
+  unchanged, only the doorway moved. See [systems-codex.md](systems-codex.md).
   The rich copy lives in each order's `flags.reader` object (`motto`, `experience`,
   `pull`, `tenets[]`, `path_text`, `relnote`). Horizontal swipe paging + the
   two-axis alignment field chart render in `client/game/js/panels/tablet-os.js`.

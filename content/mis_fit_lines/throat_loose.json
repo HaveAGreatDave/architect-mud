@@ -1,0 +1,15 @@
+{
+  "actor_lines": [
+    "You go in easily. {target} takes you with [ROOM LEFT OVER]."
+  ],
+  "band": "loose",
+  "hole": "throat",
+  "id": "throat:loose",
+  "target_lines": [
+    "{actor} slides in with [LITTLE EFFORT]. It is [ADJECTIVE], if not [ADJECTIVE]."
+  ],
+  "updated_at": "1785158642",
+  "zone_lines": [
+    "{actor} enters {target} without much [NOUN]."
+  ]
+}

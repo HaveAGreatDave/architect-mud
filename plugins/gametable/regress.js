@@ -20,7 +20,7 @@ export default async function regress({ check }) {
 
   // Off-shift gate: `call dealer` / `summon` must not haul scheduled staff out of
   // bed, because their own commute graph would walk them straight back out again.
-  // Unscheduled staff (the Neon Vig back room, covert dealers) are never gated.
+  // Unscheduled staff (the Lucky Bastard back room, covert dealers) are never gated.
   // Built against the live GAME clock (not wall time) so the assertions hold at
   // whatever hour the suite happens to run.
   const gameHour = getEnvironmentState().hour;

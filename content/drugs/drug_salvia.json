@@ -1,0 +1,56 @@
+{
+  "addiction_chance": 0,
+  "description": "Dried leaf, faintly minty, that removes you from the category of \"person\" for about a minute.",
+  "duration_seconds": 90,
+  "effects": {
+    "comeon_message": "<span class=\"msg-system\">You hold the smoke. Nothing. Nothing. Then the room takes a step to the left.</span>",
+    "hallucination": {
+      "mode": "dreamzone",
+      "duration_seconds": 70,
+      "intensity": 1,
+      "palette": "green",
+      "events": [
+        {
+          "atSec": 8,
+          "text": "[trip]The room hinges open along a line that was always there.[/trip]"
+        },
+        {
+          "atSec": 20,
+          "text": "[trip]You are being turned. You have edges now, and someone is checking them.[/trip]"
+        },
+        {
+          "atSec": 34,
+          "text": "[trip]You have been here before, in this exact wrongness, and you had forgotten completely.[/trip]"
+        },
+        {
+          "atSec": 50,
+          "text": "[trip]Something enormous is politely folding you back into the shape of a person.[/trip]"
+        },
+        {
+          "atSec": 64,
+          "text": "[trip]You come back all at once, with the taste of mint and the certainty that you have just been somewhere.[/trip]"
+        }
+      ]
+    },
+    "instant": {
+      "sanity": -8
+    },
+    "onset_message": "<span class=\"msg-system\">You are not a person any more. You are a surface, or an edge, or a length of something, and you are being turned.</span>",
+    "onset_seconds": 4,
+    "overdose": {
+      "lethal": false,
+      "message": "You take far too much and spend a bad four minutes convinced you are a garden fence. It passes. It always passes."
+    },
+    "take_line": "You pack a bowl of {name} and burn it hot.",
+    "tolerance": {
+      "gain_per_dose": 0,
+      "max_reduction": 0
+    }
+  },
+  "flags": {},
+  "id": "drug_salvia",
+  "item_id": "item_salvia",
+  "name": "salvia",
+  "overdose_threshold": 8,
+  "withdrawal_effects": {}
+}

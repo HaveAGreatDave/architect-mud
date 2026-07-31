@@ -22,12 +22,13 @@ import {
 } from "./net.js";
 import { handleServerMsg } from "./dispatch.js";
 import { state } from "./state.js";
-import { initInput } from "./input.js";
+import { initInput, handleClientCommand } from "./input.js";
 import { initTradePanel } from "./panels/trade.js";
 import { initRecipesPanel } from "./panels/recipes.js";
 import { initStatsPanel } from "./panels/stats.js";
 import { initSkillsPanel } from "./panels/skills.js";
 import { initContainerPanel } from "./panels/container.js";
+import { initWardrobePanel } from "./panels/wardrobe.js";
 import { initLootPanel } from "./panels/loot.js";
 import { initDialogue } from "./panels/dialogue.js";
 import { initForecast } from "./panels/forecast.js";
@@ -40,6 +41,7 @@ import { mountCustomPanels } from "./panels/custom/manager.js";
 import { initCustomPanelButton } from "./panels/custom/builder.js";
 import { refreshTempDisplay } from "./panels/environment.js";
 import { initWeatherFx, setWeatherFxEnabled } from "./panels/weather-fx.js";
+import { setMapOverlay } from "./panels/minimap.js";
 import { initAtmPanel } from "./panels/atm.js";
 import { initInsurancePanel } from "./panels/insurance.js";
 import { initWantedHud } from "./panels/wanted.js";
@@ -54,15 +56,23 @@ import { isHangarBayWalkActive } from "./panels/hangar-bay.js";
 
 // Settings
 const settings = loadSettings();
-const _isMobile =
+// Touch device, at ANY width — a phone, a tablet, a handset held sideways. This
+// half of the test never changes after load.
+const _isTouch =
 	/Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-	window.innerWidth < 720;
-if (!localStorage.getItem(SETTINGS_KEY) && _isMobile) {
+	(globalThis.matchMedia?.("(pointer: coarse)")?.matches ?? false);
+const _isMobile = () => _isTouch || window.innerWidth < 720;
+if (!localStorage.getItem(SETTINGS_KEY) && _isMobile()) {
 	settings.fontSize = "19";
 }
 // Display density (desktop/mobile layout) is not a player setting — it's fixed
-// to the device on every load, full stop.
-settings.density = _isMobile ? "compact" : "comfortable";
+// to the device, full stop. It is also THE authority for the phone chrome: the
+// stylesheet's chrome rules key off html[data-density="compact"] rather than a
+// viewport query, precisely so a touch device wider than 720px gets all of it
+// instead of half. Recomputed on resize/orientationchange because a window
+// dragged past 720px, or a phone rotated, has genuinely changed device class —
+// computing it once at load left the flag lying for the rest of the session.
+settings.density = _isMobile() ? "compact" : "comfortable";
 // Smart UI (the contextual per-room action bar, panels/smartbar.js) is always on
 // now, every device — applySettings pins data-smart-ui="on" — so there's no
 // per-player default to seed here anymore.
@@ -81,20 +91,44 @@ function applyMobileScale() {
 // applySettings() so its initial enable/disable is honoured, then start it.
 initWeatherFx();
 window._applyWeatherFx = setWeatherFxEnabled;
+// Minimap tile-overlay mode (Settings → Layout → Map Labels). Same deal: hook
+// registered before the first applySettings() so the saved mode is honoured.
+window._applyMapOverlay = setMapOverlay;
 
 applySettings(settings);
 // Mobile vs. desktop layout is auto-detected per device at launch — there is no
 // user toggle for that (data-density above). The Smart bar (#smart-bar,
 // data-smart-ui) is always on, every device — applySettings pins it.
 applyMobileScale();
-window.addEventListener("resize", applyMobileScale);
+
+// Keep the density flag honest as the window changes shape. Only re-applies when
+// the class actually flips, so an ordinary resize doesn't churn the whole
+// stylesheet — and applySettings is what writes data-density, so this is the one
+// call that has to happen.
+function syncDensity() {
+	const want = _isMobile() ? "compact" : "comfortable";
+	if (settings.density !== want) {
+		settings.density = want;
+		applySettings(settings);
+		if (want === "compact") setupMobilePane();
+	}
+	applyMobileScale();
+}
+window.addEventListener("resize", syncDensity);
+window.addEventListener("orientationchange", syncDensity);
 
 // Load any dev-panel overrides for the interface/game SFX catalog (the poker
 // table + the hacking/lock minigames) so tuned cues take effect. Fire-and-forget;
 // if it fails the built-in defaults from /shared/sfx-catalog.js stand.
 fetch("/api/audio/interface-sfx")
 	.then((r) => (r.ok ? r.json() : []))
-	.then((rows) => window.SFXCatalog?.applyOverrides(Array.isArray(rows) ? rows : []))
+	.then((rows) => {
+		const list = Array.isArray(rows) ? rows : [];
+		window.SFXCatalog?.applyOverrides(list);
+		// The procedural tables ride the same override rows under reserved ids,
+		// so tuning a material in the dev panel reaches the live generators.
+		window.ProceduralSFX?.applyOverrides(list);
+	})
 	.catch(() => {});
 
 // The district legend (regional-map tint, legend swatches, tile tooltip) comes off
@@ -110,7 +144,15 @@ fetch("/api/districts")
 
 // Mobile area-pane: always starts collapsed. The resize-handle bar is always
 // visible and hosts the toggle button (▼/▲). No auto-open on content update.
-if (_isMobile) {
+//
+// Wired once, the first time the layout is compact — at load for a phone, or on
+// the resize that flips a desktop window into the compact class (syncDensity
+// calls this). Without that second entry point the handle would appear with the
+// chrome but do nothing until a refresh.
+let _mobilePaneWired = false;
+function setupMobilePane() {
+	if (_mobilePaneWired) return;
+	_mobilePaneWired = true;
 	const _areaPane = document.getElementById("area-pane");
 	const _toggleBar = document.getElementById("area-toggle-bar");
 	const _toggleBtn = document.getElementById("area-pane-toggle");
@@ -170,6 +212,7 @@ if (_isMobile) {
 		});
 	}
 }
+if (_isMobile()) setupMobilePane();
 
 listenForSettingsChanges((s) => {
 	applySettings(s);
@@ -444,6 +487,7 @@ initRecipesPanel();
 initStatsPanel();
 initSkillsPanel();
 initContainerPanel();
+initWardrobePanel();
 initLootPanel();
 initDialogue();
 initForecast();
@@ -516,6 +560,13 @@ document.getElementById("signout-btn").addEventListener("click", () => {
 document.querySelectorAll(".qcmd[data-cmd]").forEach((btn) => {
 	btn.addEventListener("click", () => sendCmd(btn.dataset.cmd));
 });
+
+// Wake button — the sleep bar's only control. Sends the verb like any other
+// button; the server's sleep_state reply is what hides the bar again, so the
+// button never has to guess whether it worked.
+document
+	.getElementById("sleep-wake-btn")
+	?.addEventListener("click", () => sendCmd("wake"));
 document
 	.querySelector(".qcmd[data-open-equip]")
 	?.addEventListener("click", () => {
@@ -738,10 +789,31 @@ document.getElementById("area-content")?.addEventListener("click", (e) => {
 	);
 }
 
+// Raw directions the server's `go` understands as a leading disambiguator.
+const RAW_DIRS = ["north", "south", "east", "west", "up", "down", "in", "out", "exit"];
+
 // Output / area pane: click .action-link nodes to auto-run command
 function handleActionLinkClick(e) {
 	const el = e.target.closest(".action-link");
 	if (!el) return;
+	// Client-side links: answered HERE, never sent to the server. This is the
+	// difference between a clickable "Yes" and a broken one — a y/n prompt like
+	// auto-walk's is consumed by handleClientCommand BEFORE the socket, so a link
+	// that used sendCmd would sail straight past the pending prompt and hand the
+	// server a bare "y" to be confused by.
+	if (el.dataset.clientCmd) {
+		handleClientCommand(el.dataset.clientCmd, {});
+		// The prompt is one-shot: once answered, retire every button in the pair so
+		// a second click can't re-answer a question that is no longer being asked.
+		const group = el.dataset.clientGroup;
+		if (group) {
+			for (const n of document.querySelectorAll(`[data-client-group="${CSS.escape(group)}"]`)) {
+				n.classList.add("prompt-link-spent");
+				delete n.dataset.clientCmd;
+			}
+		}
+		return;
+	}
 	// Verbatim-command links (SIFT picks, RENT prompt, …) bypass the
 	// action+target verb construction below and send the raw text as-is.
 	if (el.dataset.rawCmd) {
@@ -765,8 +837,13 @@ function handleActionLinkClick(e) {
 	// exactly that one — the only way to reach the second of two same-named enemies
 	// (the typed "attack <name>" path can only ever hit the FATE default).
 	const instanceId = el.dataset.instanceId;
+	// Send the drawn direction alongside the name: the server resolves the name
+	// within that direction, and falls back to plain movement if it can't.
+	const destDir = dest && action === "go" && RAW_DIRS.includes((target || "").toLowerCase())
+		? `${target.toLowerCase()} `
+		: "";
 	const cmd = dest
-		? `go ${dest.toLowerCase()}`
+		? `go ${destDir}${dest.toLowerCase()}`
 		: instanceId
 			? `${action} ${instanceId}`
 			: `${action} ${target.toLowerCase()}`;

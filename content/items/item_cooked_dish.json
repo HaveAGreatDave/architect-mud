@@ -1,0 +1,17 @@
+{
+  "description": "A plated meal, still steaming. Whatever it was an hour ago, it is this now.",
+  "flags": {},
+  "id": "item_cooked_dish",
+  "name": "plated dish",
+  "tags": {
+    "consumable": true,
+    "description": "A plated meal, still steaming. Whatever it was an hour ago, it is this now.",
+    "perishable": true,
+    "restore_hp": 6,
+    "restore_hunger": 30,
+    "spoil_rate": "fast"
+  },
+  "type": "consumable",
+  "value": 40,
+  "weight": 400
+}

@@ -196,6 +196,29 @@ const _bcNodeDefs = {
       ${_bField('Duration (s)', `<input data-vine-field="data.duration" data-vine-type="number" type="number" min="1" step="1" value="${n.data.duration||10}" style="${_BS}">`)}`,
   },
 
+  gameshow_round: {
+    label: 'Game-Show Round',
+    color: '#2b7a5c',
+    defaultData: { format: 'price', roundIndex: 0, purse: 40 },
+    renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${_escB(n.data.format||'price')} · ${n.data.purse||40}₵</div>`,
+    getOutPorts: () => [{ key:'next', label:'next' }],
+    renderProperties: (n, ed, id) => `
+      ${_bHelp(id,'Opens a game-show round: from here until the matching Game-Show Reveal, anyone standing in the studio can answer with the <code>guess</code> verb, and their answer is televised by the studio camera relay.<br><br>This node takes NO time of its own — the guess window is however long the host\'s patter between the two nodes runs. Put the prompt and stall lines in between; those are the clock.<br><br>A <code>gameshow</code>-type broadcast assembles these automatically from its ::lines pools and the live item catalog, so you rarely place one by hand.')}
+      ${_bField('Format', _bSelect('data.format', [['price','Closest without going over'],['overunder','Over or under'],['lot','Order the lot'],['showcase','The Showcase']], n.data.format||'price'))}
+      ${_bField('Purse (credits)', `<input data-vine-field="data.purse" data-vine-type="number" type="number" min="0" step="5" value="${n.data.purse||40}" style="${_BS}">`)}`,
+  },
+
+  gameshow_reveal: {
+    label: 'Game-Show Reveal',
+    color: '#2b7a5c',
+    defaultData: { roundIndex: 0 },
+    renderBody: () => `<div style="font-size:11px;color:var(--text-dim);letter-spacing:1px">— REVEAL —</div>`,
+    getOutPorts: () => [{ key:'next', label:'next' }],
+    renderProperties: (n, ed, id) => `
+      ${_bHelp(id,'Closes the open round, scores it and pays any winner. Instantaneous — the lines AFTER it read the outcome out through the <code>{winner}</code>, <code>{verdict}</code>, <code>{guesses}</code>, <code>{contestant}</code> and <code>{guess}</code> tokens.<br><br>Idempotent: scoring twice never pays twice. Safe off-round too — a viewer who tunes in mid-episode gets neutral token text rather than a half-scored round.')}
+      <div style="color:var(--text-dim);font-size:12px">No properties. Connect output to the reveal lines.</div>`,
+  },
+
   break: {
     label: 'Break',
     color: '#444444',

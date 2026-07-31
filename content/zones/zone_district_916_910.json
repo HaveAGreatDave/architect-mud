@@ -4,13 +4,13 @@
   "bg_color": "#26221a",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "A narrow pawnshop with a grille over every pane and a window crammed floor-to-ceiling with other people's worst days — dead men's watches, hocked tools, a wedding band on a nail. A buzzing sign reads THE HOCK SHOP · WE BUY · WE HOLD · WE DON'T REMEMBER. The security shutter is up a hopeful eighteen inches. Something inside is always quietly appraising you.",
+  "description": "A narrow pawnshop with a grille over every pane and a window crammed floor-to-ceiling with other people's worst days — dead men's watches, hocked tools, a wedding band on a nail. A buzzing sign reads IN HOCK WE TRUST · WE BUY · WE HOLD · WE DON'T REMEMBER. The security shutter is up a hopeful eighteen inches. Something inside is always quietly appraising you.",
   "exits": {
     "north": "zone_district_916_909",
     "south": "zone_hock_pawn"
   },
   "flags": {
-    "building_name": "The Hock Shop",
+    "building_name": "In Hock We Trust",
     "building_type": "fence",
     "district": "wasteland",
     "entrance": "north",
@@ -26,7 +26,7 @@
   "id": "zone_district_916_910",
   "map_id": "map_world",
   "marker": "HK",
-  "name": "The Hock Shop",
+  "name": "In Hock We Trust",
   "parent_zone": null,
   "updated_at": "1784500000"
 }

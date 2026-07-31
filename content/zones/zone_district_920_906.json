@@ -4,13 +4,13 @@
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "The face of Mercy Row — a walk-in clinic behind reinforced glass, a green cross guttering above the door. The queue started before dawn. Ironside Street runs off to the west.",
+  "description": "The face of Stitch 'n' Bitch — a walk-in clinic behind reinforced glass, a green cross guttering above the door. The queue started before dawn. Ironside Street runs off to the west.",
   "exits": {
     "east": "zone_clinic_interior",
     "west": "zone_district_919_906"
   },
   "flags": {
-    "building_name": "Mercy Row Clinic",
+    "building_name": "Stitch 'n' Bitch",
     "building_type": "clinic",
     "district": "wasteland",
     "entrance": "west",
@@ -27,7 +27,7 @@
   "id": "zone_district_920_906",
   "map_id": "map_world",
   "marker": "MR",
-  "name": "Mercy Row Clinic",
+  "name": "Stitch 'n' Bitch",
   "parent_zone": null,
   "updated_at": "1783739474"
 }

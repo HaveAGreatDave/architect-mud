@@ -1,0 +1,10 @@
+{
+  "id": "dr_npc_normal_510",
+  "drug_id": null,
+  "source": "npc",
+  "tone": "normal",
+  "relation": "close",
+  "npc_type": null,
+  "self_line": "{npc} puts a drink of water in front of you and says nothing about it.",
+  "room_line": "{npc} puts a glass of water in front of {player} and says nothing."
+}

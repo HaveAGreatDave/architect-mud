@@ -1,0 +1,10 @@
+{
+  "id": "dr_npc_normal_513",
+  "drug_id": null,
+  "source": "npc",
+  "tone": "normal",
+  "relation": "hostile",
+  "npc_type": null,
+  "self_line": "{npc} watches you with an interest you do not like the shape of.",
+  "room_line": "{npc} watches {player} with an interest that has plans in it."
+}

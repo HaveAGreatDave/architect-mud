@@ -21,11 +21,9 @@
 
 EVENT FADE_IN
 
-TITLE_CARD architect_SVG
+TITLE architect_svg
 
-MUSIC chrome_circumstance_theme
 ♪ A loud synthwave theme pulses with neon energy. ♪
-MUSIC_END
 
 TICKER
 CORPORATION DENIES REPLACING EMPLOYEES WITH CHEAPER EMPLOYEES • CYBER EYES NOW INCLUDE ADS DURING BLINKS • CITY PARKING METERS ACHIEVE SENTIENCE •
@@ -186,9 +184,7 @@ SHOT
 The camera slowly pulls away from the apartment as the endless receipt continues unspooling into the skyline, while HELPBOT politely apologizes for the inconvenience without ever stopping.
 SHOT_END
 
-MUSIC chrome_circumstance_theme
 ♪ The synthwave theme returns over the closing credits. ♪
-MUSIC_END
 
 EVENT FADE_OUT
 

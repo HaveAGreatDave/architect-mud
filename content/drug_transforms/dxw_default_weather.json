@@ -1,0 +1,16 @@
+{
+  "id": "dxw_default_weather",
+  "drug_id": null,
+  "matches": null,
+  "scope": "weather",
+  "name": "the weather, off",
+  "description": "The weather is very slightly wrong.",
+  "looks": [
+    "It is falling a fraction too slowly, and correcting when you look at it directly.",
+    "The wind changes direction to stay behind you.",
+    "It has stopped, briefly, everywhere except immediately around you."
+  ],
+  "says": [],
+  "fx": "ash",
+  "fx_intensity": 0.35
+}

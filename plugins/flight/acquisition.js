@@ -7,6 +7,10 @@ import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { getZone, liveAircraft, persist, pushHud, sendToPlayer, REFUEL_PRICE_PER_UNIT, effStats, fieldFor as fieldOf, inHangarInterior, rentalOpFee, vtolOnlyField, acquirableTypes } from './state.js';
 import { allExits } from '../../server/engine/exits.js';
+import { getMinimapData, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
+import { describeZone } from '../../server/engine/commands/describe.js';
+import { emit } from '../../server/engine/events.js';
+import { sendToZone } from '../../server/engine/messaging.js';
 // `buy` belongs to commerce (shopping); flight wins it by load order (manifest
 // `after`) and delegates back unless you're buying an aircraft at a dealer field.
 import { commands as commerceCommands } from '../commerce/index.js';
@@ -64,19 +68,47 @@ function hangarEntryDir(field) {
   return null;
 }
 
+// Walk the player off the ramp and up to the desk inside the walk-in hangar.
+// A plain teleport with its own flavour rather than the TELEPORT action's
+// "vanishes/appears" pair — this is a few paces across the apron, not a warp.
+// Returns false when there's nothing to walk into (no interior zone loaded).
+async function walkIntoHangar(player, field) {
+  const dest = getZone(field.flags.hangar_interior_zone);
+  if (!dest) return false;
+  const from = player.current_zone;
+  if (from) {
+    removePlayerFromZone(player.id, from);
+    sendToZone(from, { type: 'zone_event', message: `${player.handle} walks off toward the hangar.`, refresh: true }, player.id);
+  }
+  addPlayerToZone(player.id, dest.id);
+  player.current_zone = dest.id;
+  await query('UPDATE players SET current_zone=$1 WHERE id=$2', [dest.id, player.id]);
+  sendToZone(dest.id, { type: 'zone_event', message: `${player.handle} comes in off the ramp.`, refresh: true }, player.id);
+  emit('zone.entered', { actor: player, zone: dest.id, from });
+  sendToPlayer(player.id, { type: 'move', message: await describeZone(dest, player), zone: dest.id,
+    minimap: getMinimapData(dest.id, 8, player) });
+  sendToPlayer(player.id, { type: 'output', message: '<span class="text-dim">You cross the apron and step in out of the wind, up to the desk.</span>' });
+  return true;
+}
+
 async function acquire(args, raw, player, kind) {
   const field = fieldOf(player);
   const flagKey = kind === 'buy' ? 'airfield_dealer' : 'airfield_rental';
   if (!field || !field.flags[flagKey])
     return { type: 'emote', message: `There's no ${kind === 'buy' ? 'aircraft dealer' : 'rental desk'} here.` };
-  // The desk is INSIDE the hangar — you can't order a machine from out on the ramp.
+  // The desk is INSIDE the hangar. Rather than refuse someone standing out on the
+  // ramp (which is exactly where you are after a landing rollout, and where the
+  // hangar-bay panel's own Buy/Rent buttons fire from), walk them in and serve
+  // them. Refusing here was a dead end you could only escape by guessing a
+  // compass step; the counter is a few paces away either way.
   if (field.flags.hangar_interior_zone && !inHangarInterior(player)) {
-    // Name the ACTUAL way in. `in` doesn't resolve on a multi-exit ramp, so the
-    // old "step in" nudge stranded the player on the tarmac; the hangar is a
-    // cardinal step (its facade is a pass-through straight to the desk).
-    const dir = hangarEntryDir(field);
-    const how = dir ? `head <b>${dir}</b> into the hangar` : `step into the hangar off the ramp`;
-    return { type: 'emote', message: `The ${kind === 'buy' ? 'dealer' : 'rental'} desk is inside — ${how} to ${kind === 'buy' ? 'buy' : 'rent'} an aircraft.` };
+    // Strapped into a cockpit is the one case we can't walk them out of.
+    if (player.aircraftId) {
+      const dir = hangarEntryDir(field);
+      const how = dir ? `head <b>${dir}</b> into the hangar` : `step into the hangar off the ramp`;
+      return { type: 'emote', message: `The ${kind === 'buy' ? 'dealer' : 'rental'} desk is inside — <b>disembark</b> and ${how}.` };
+    }
+    await walkIntoHangar(player, field);
   }
 
   const types = await listTypes(kind, field);

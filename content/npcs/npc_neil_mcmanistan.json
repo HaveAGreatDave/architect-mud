@@ -23,7 +23,8 @@
   "dialogue_tree": {},
   "faction": null,
   "flags": {
-    "studio_npc": true
+    "studio_npc": true,
+    "booze_habit": "embassy reserve"
   },
   "home_activities": [],
   "home_zone": "zone_studio_1782953094650",

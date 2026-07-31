@@ -1,0 +1,33 @@
+{
+  "id": "dt_salvia_the_stack",
+  "name": "The Stack",
+  "description": "Everything that exists is stacked in flat layers and you are between two of them, being slid. There is a mechanism doing this. It has no opinion. It has been running the whole time and you have only just been included.",
+  "cause": "drug",
+  "drug_id": "drug_salvia",
+  "objects": [
+    {
+      "name": "the layers",
+      "looks": [
+        "Flat, and stacked, and every one of them is a whole world seen edge-on.",
+        "You slide between two. Neither notices.",
+        "One of them is the room you took the drug in. It is very thin."
+      ]
+    },
+    {
+      "name": "the mechanism",
+      "looks": [
+        "Doing its job. It has always been doing its job.",
+        "Not cruel. Not anything. Operating.",
+        "You can hear it and the sound is a colour."
+      ]
+    }
+  ],
+  "ambient": [
+    "You are advanced by one layer.",
+    "The mechanism completes a cycle and immediately begins another.",
+    "For a moment you are two layers at once, and it is not comfortable."
+  ],
+  "weather": "Each layer has its own weather and you pass through all of them and feel none.",
+  "fx": "rain",
+  "fx_intensity": 0.8
+}

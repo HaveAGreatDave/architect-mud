@@ -5,5 +5,5 @@
   "id": "CitadelFinancial",
   "min_faction_rep": -200,
   "name": "Citadel Financial",
-  "withdrawal_limit": 500
+  "withdrawal_limit": 2500
 }

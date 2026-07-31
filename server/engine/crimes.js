@@ -11,9 +11,11 @@
  */
 import { query } from '../models/db.js';
 
-// key → { label, stars, description }. `witness` marks how the act is caught:
-//   'camera'  — only a live surveillance camera counts (a bystander won't do)
-//   'any'     — any witness: camera, on-duty cop, or another player in the room
+// key → { label, stars, description }. `witness` marks how the act is caught.
+// Two things catch a crime: a live camera, and a cop on the scene. Bystanders no
+// longer report (another player watching isn't the law watching). So:
+//   'camera'  — only a live surveillance camera counts (a cop's eyeball won't do)
+//   'any'     — either witness: a live camera, or an on-scene `flags.police` NPC
 //   'always'  — self-reporting; heat applies even with nobody watching
 export const CRIME_DEFAULTS = {
   drug_use:            { label: 'Illegal drug use (on camera)', stars: 0.5, witness: 'camera', description: 'Using a controlled substance in view of a camera.' },
@@ -25,6 +27,7 @@ export const CRIME_DEFAULTS = {
   hacking:             { label: 'Hacking',                      stars: 2,   witness: 'any',    description: 'Breaching a device or terminal.' },
   murder:              { label: 'Murder',                       stars: 5,   witness: 'always', description: 'Killing another player outright.' },
   theft:               { label: 'Theft',                        stars: 1.5, witness: 'any',    description: 'Pickpocketing or stealing a personal item.' },
+  shoplifting:         { label: 'Shoplifting',                   stars: 1,   witness: 'any',    description: "Walking out of a shop with goods off the shelf you never paid for. The clerk is right there and the ceiling camera is pointed at the door — but a quiet lift on a busy floor still slips sometimes." },
   robbery:             { label: 'Robbery',                      stars: 2.5, witness: 'any',    description: 'Forcibly robbing another player at gunpoint.' },
   atm_robbery:         { label: 'ATM robbery',                  stars: 2,   witness: 'always', description: "Draining a compromised ATM's cash reserve." },
   burglary:            { label: 'Burglary',                     stars: 2,   witness: 'any',    description: 'Breaking into a private residence.' },

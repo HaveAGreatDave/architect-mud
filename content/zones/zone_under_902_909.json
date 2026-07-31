@@ -8,7 +8,7 @@
   "bg_color": "#141b19",
   "color": "#8fae9a",
   "created_by": "sewer-grid",
-  "description": "The sewer beneath Cinder Lane + Voss Avenue is all crumbling grade and standing filth, the kind of dark that has never once been disturbed by anyone with a reason to be here.",
+  "description": "The sewer beneath Cinder Lane + Voss Avenue is all crumbling grade and standing filth, the kind of dark that has never once been disturbed by anyone with a reason to be here. East, a rusted grate is wedged fast behind a wall of fallen brick.",
   "exits": {
     "east": "zone_under_903_909",
     "north": "zone_under_902_908",

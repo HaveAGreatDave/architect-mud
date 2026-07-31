@@ -62,7 +62,8 @@ export const TYPES = {
     engineLag: 1.3,       // throttle→rpm time constant (s); turbines will be larger
     pitchStable: 0.9,     // self-level rate when elevator released (seeks stability)
     rollStable: 1.1,      // wings-level rate when aileron released
-    dragP: 0.00100,       // parasitic drag coeff (∝ airspeed²) — low, so it holds speed climbing
+    dragP: 0.000889,      // parasitic drag coeff (∝ airspeed²) — low, so it holds speed climbing. Trimmed from 0.00100 when real induced drag arrived: the fleet's dragP values were fitted to hit each type's authored top end WITHOUT an induced term, so adding one cost everyone 3–5% of top speed, climb and cruise. Each type's dragP was re-solved to put its level top speed back exactly where it was — the polar gained a back side without the fleet getting slower
+
     flapDrag: 0.55,       // extra drag per unit flap
     flapLift: 0.35,       // extra lift per unit flap
     flapVs: 0.18,         // stall-speed reduction per unit flap
@@ -75,7 +76,8 @@ export const TYPES = {
     vsGain: 1600,         // how hard excess lift converts to vertical speed
     vsTau: 1.0,           // vertical inertia (s) — vs eases toward its target; lower = climbs out off the ground faster
     ceiling: 12500,       // service ceiling (ft) — climb performance fades to zero here (thin air)
-    bestGlide: 49,        // best-glide (max-range) speed (kt) — the yoke light glows BLUE here in a dead-stick glide
+    ldMax: 7.4,           // best glide RATIO — sets the induced-drag coefficient, and `bestGlide` (the BLUE yoke light) is derived from it
+    gLimit: 4.4,          // structural g limit — exceed it and the model fires an `overg` event
   },
 
   // ── Phase 3 fixed-wing fleet ────────────────────────────────────────────────
@@ -89,9 +91,9 @@ export const TYPES = {
   mule: {
     name: 'Mule', mass: 2.8, thrustMax: 36, vr: 65, vs0: 46, vne: 185, cruise: 165,
     pitchRate: 9, pitchTau: 0.8, rollRate: 40, rollTau: 0.7, engineLag: 1.7,
-    pitchStable: 0.88, rollStable: 1.0, dragP: 0.00090, flapDrag: 0.65, flapLift: 0.5, flapVs: 0.24,
+    pitchStable: 0.88, rollStable: 1.0, dragP: 0.000828, flapDrag: 0.65, flapLift: 0.5, flapVs: 0.24,
     rollFric: 1.4, aoaCrit: 18, liftScale: 1.0, vsMax: 1800, vsGain: 1800, vsTau: 0.95,
-    brake: 6.0, groundSteer: 26, ceiling: 17000, bestGlide: 65,
+    brake: 6.0, groundSteer: 26, ceiling: 17000, ldMax: 7.6, gLimit: 3.8,
   },
   // Leviathan — 4-engine heavy-lift freighter, an ANTONOV AN-124 RUSLAN analogue: HEAVY first —
   // ponderous to accelerate and steer, a long roll, an unremarkable level cruise (no faster
@@ -114,14 +116,15 @@ export const TYPES = {
     //    ponderous to react (you fly her well ahead of the aircraft).
     name: 'Leviathan', mass: 5.0, thrustMax: 120, vr: 95, vs0: 64, vne: 200, cruise: 155,
     pitchRate: 5, pitchTau: 1.3, rollRate: 18, rollTau: 1.45, engineLag: 2.6,
-    pitchStable: 0.58, rollStable: 0.7, dragP: 0.0034, flapDrag: 0.7, flapLift: 0.45, flapVs: 0.2,
+    pitchStable: 0.58, rollStable: 0.7, dragP: 0.00321, flapDrag: 0.7, flapLift: 0.45, flapVs: 0.2,
     // Climb performance unchanged (she must still climb away from the field once rolling); the
     // faster top speed is gone but the field performance is not.
     rollFric: 1.2, aoaCrit: 16, liftScale: 1.0, vsMax: 2700, vsGain: 2500, vsTau: 1.05,
     brake: 8.0, groundSteer: 16, ceiling: 23000,   // cruises high, above the weather — the fleet's highest ceiling
-    // A touch of dead-stick induced drag keeps the engine-out glide believable for a heavy
-    // (no albatross float) without touching powered cruise or climb. Best glide ~89 kt.
-    glideDrag: 0.0019, bestGlide: 89,
+    // She glides like the brick she is (no albatross float). This used to need a bespoke
+    // rpm-gated `glideDrag` patch because the shared polar had no induced drag at all; now
+    // it's just the fleet's lowest ldMax, and best glide (~76 kt) falls out of the polar.
+    ldMax: 2.4, gLimit: 2.5,
   },
   // Reaper — a Fairchild A-10 WARTHOG analogue: the gun IS the plane. NOT a fighter —
   // slow, draggy and heavy, but a rock-stable low-level platform that loiters over the
@@ -141,9 +144,9 @@ export const TYPES = {
     // thrust-to-mass keeps takeoff punch intact despite the extra weight.
     name: 'Reaper', mass: 3.4, thrustMax: 92, vr: 54, vs0: 39, vne: 270, cruise: 165,
     pitchRate: 10, pitchTau: 0.7, rollRate: 58, rollTau: 0.6, engineLag: 1.0,
-    pitchStable: 1.1, rollStable: 1.3, dragP: 0.00140, flapDrag: 0.6, flapLift: 0.42, flapVs: 0.2,
+    pitchStable: 1.1, rollStable: 1.3, dragP: 0.00130, flapDrag: 0.6, flapLift: 0.42, flapVs: 0.2,
     rollFric: 1.5, aoaCrit: 21, liftScale: 1.0, vsMax: 3600, vsGain: 3000, vsTau: 0.85,
-    brake: 7.5, groundSteer: 28, ceiling: 17000, bestGlide: 76,
+    brake: 7.5, groundSteer: 28, ceiling: 17000, ldMax: 7.6, gLimit: 6.0,
     // COVERS GROUND FAST (per author direction): the strike platform eats distance between targets.
     // A pure world-travel multiplier — the terrain scrolls past ~1.7× for the same airspeed, so she
     // gets across the map without touching handling/stall/energy (read in the sim's world-translate).
@@ -201,9 +204,9 @@ export const TYPES = {
   carcass: {
     name: 'Carcass', mass: 1.4, thrustMax: 14, vr: 44, vs0: 28, vne: 115, cruise: 72,
     pitchRate: 11, pitchTau: 0.5, rollRate: 50, rollTau: 0.5, engineLag: 1.5,
-    pitchStable: 0.7, rollStable: 0.8, dragP: 0.00120, flapDrag: 0.55, flapLift: 0.32, flapVs: 0.17,
+    pitchStable: 0.7, rollStable: 0.8, dragP: 0.00107, flapDrag: 0.55, flapLift: 0.32, flapVs: 0.17,
     rollFric: 1.7, aoaCrit: 17, liftScale: 0.95, vsMax: 900, vsGain: 1650, vsTau: 1.0,
-    brake: 5.0, groundSteer: 30, ceiling: 11000, bestGlide: 45,
+    brake: 5.0, groundSteer: 30, ceiling: 11000, ldMax: 7.4, gLimit: 3.2,   // salvaged airframe: the weakest structure in the fleet
   },
   // Grasshopper — a PIPER L-4 analogue: a featherweight tandem liaison taildragger. Docile and
   // SLOW: floats off in a few yards, very stall-resistant, gentle rates — the forgiving scout you
@@ -211,9 +214,9 @@ export const TYPES = {
   grasshopper: {
     name: 'Grasshopper', mass: 0.85, thrustMax: 9.5, vr: 34, vs0: 21, vne: 105, cruise: 68,
     pitchRate: 11, pitchTau: 0.62, rollRate: 44, rollTau: 0.6, engineLag: 1.35,
-    pitchStable: 1.0, rollStable: 1.2, dragP: 0.00120, flapDrag: 0.5, flapLift: 0.32, flapVs: 0.16,
+    pitchStable: 1.0, rollStable: 1.2, dragP: 0.00107, flapDrag: 0.5, flapLift: 0.32, flapVs: 0.16,
     rollFric: 1.7, aoaCrit: 20, liftScale: 1.0, vsMax: 480, vsGain: 1500, vsTau: 1.0,
-    brake: 5.2, groundSteer: 32, ceiling: 11000, bestGlide: 44,
+    brake: 5.2, groundSteer: 32, ceiling: 11000, ldMax: 6.7, gLimit: 4.0,
     groundPitch: 11,   // taildragger 3-point sit (deg nose-up): rests on the tailwheel; push forward to raise the tail on the roll
   },
   // Locust — a low-wing CROP-DUSTER / ag-plane (Air Tractor analogue): a heavy, honest low-and-slow
@@ -223,9 +226,9 @@ export const TYPES = {
   locust: {
     name: 'Locust', mass: 1.35, thrustMax: 13, vr: 44, vs0: 30, vne: 125, cruise: 92,
     pitchRate: 9, pitchTau: 0.65, rollRate: 42, rollTau: 0.62, engineLag: 1.4,
-    pitchStable: 1.05, rollStable: 1.25, dragP: 0.00150, flapDrag: 0.55, flapLift: 0.4, flapVs: 0.2,
+    pitchStable: 1.05, rollStable: 1.25, dragP: 0.00139, flapDrag: 0.55, flapLift: 0.4, flapVs: 0.2,
     rollFric: 1.7, aoaCrit: 20, liftScale: 1.0, vsMax: 750, vsGain: 1550, vsTau: 1.0,
-    brake: 5.5, groundSteer: 30, ceiling: 9500, bestGlide: 55,
+    brake: 5.5, groundSteer: 30, ceiling: 9500, ldMax: 4.9, gLimit: 4.4,   // big draggy ag wing — she does not glide far
     groundPitch: 10,   // taildragger 3-point sit (deg nose-up): rests on the tailwheel
   },
 };
@@ -234,13 +237,66 @@ export const TYPES = {
 // They anchor both the weight the wing carries (weightOf) and the AoA the wing needs to hold 1g
 // at a given speed (the flight-path energy model in step §7).
 const CL0 = 0.28, CL_ALPHA = 0.09;
-const STALL_HOLD = 1.9;   // seconds below stall speed before lift actually collapses (raised: a slow flare has more grace before it lets go, so you can bleed to touchdown speed without stalling)
+
+// ── Stall constants — the wing lets go on ANGLE OF ATTACK, never on airspeed ──
+// This is the load-bearing change of the 2026-07 realism pass. Before it, the stall
+// triggered on `airspeed < stallSpeed` with AoA used only as a sign test, which made an
+// ACCELERATED stall (a hard pull at a perfectly healthy speed) literally impossible and
+// left `aoaCrit` doing nothing but anchoring weightOf(). Now `s.aoa` is the single state
+// variable: it feeds lift, drag, the stall, the buffet and the g-meter, and the stall
+// speed falls OUT of the model (a wing at 2g reaches aoaCrit at √2 × Vs on its own)
+// instead of being computed with a fudged load factor.
+const CL_COLLAPSE = 0.42;    // fraction of max CL a fully-developed stall destroys — this, not a scripted vs clamp, is what makes a stalled aircraft fall
+const POST_STALL_BAND = 14;  // deg past aoaCrit over which the collapse completes (a deep stall is worse than a nibble)
+const REATTACH = 3.5;        // deg BELOW aoaCrit the AoA must fall before flow reattaches — real aerodynamic hysteresis, and what replaces the old stallTimer grace
+const STALL_ARM = 0.12;      // s above aoaCrit before the break commits — kills single-frame AoA spikes, nothing more
+const BUFFET_BAND = 4.5;     // deg before aoaCrit where the burble starts shaking the airframe
+const MUSH_DEG = 40;         // deg the flight path droops per unit of lift DEFICIT — the mush is now unbounded (§7) instead of saturating at aoaCrit
+const SPIN_YAW = 46;         // deg/s autorotative yaw in a fully-developed, held stall
+const STALL_ROLL = 50;       // deg/s wing-drop in the same
+const G_LIMIT_DEFAULT = 4.4; // structural limit (g) if a type doesn't state one
 
 // Weight the model holds up. Anchored at the STALL point — at the clean stall speed
 // the wing at its max lift coefficient just holds the aircraft up. This makes the
 // envelope self-consistent: you can fly (barely) at Vr just above the stall, cruise
 // sits at a low trim AoA, and lift falls below weight only when you're too slow.
 function weightOf(p) { return 0.5 * p.vs0 * p.vs0 * (CL0 + CL_ALPHA * p.aoaCrit) * p.liftScale; }
+
+// The lift coefficient the wing ACTUALLY makes at this AoA — linear up to the critical
+// angle, then a collapse once the flow has separated. `stalled` gates the collapse so the
+// brief STALL_ARM window sits at peak CL (the wing is on the edge, not yet let go).
+function clOf(p, aoa, flapLiftF, stalled) {
+  const clMax = (CL0 + CL_ALPHA * p.aoaCrit) * flapLiftF;
+  if (aoa <= p.aoaCrit || !stalled) return clamp((CL0 + CL_ALPHA * aoa) * flapLiftF, 0, clMax);
+  return clMax * (1 - CL_COLLAPSE * clamp((aoa - p.aoaCrit) / POST_STALL_BAND, 0, 1));
+}
+
+// Per-airframe derived tuning, memoised on the params object (non-enumerable so the tuning
+// harnesses' `{...p, override}` clones get a FRESH derivation instead of a stale one).
+//
+// INDUCED DRAG. The old polar had no honest low-speed drag rise: a `max(0,aoa)²·V` term
+// (linear in V — not induced drag, which goes as 1/V²) plus a `glideDrag` 1/V² term that
+// existed on the Leviathan alone and only below 0.4 rpm. So six of eight airframes had no
+// back side to the power curve at all, and the one that needed one got a hand-fitted patch.
+// Now every type carries a proper CDi = kInd·CL², and because CL rises with a pull it also
+// replaces the aoa² term (a hard turn bleeds speed for the right reason).
+//
+// kInd is DERIVED, not authored: `ldMax` (the best glide ratio the airframe should manage)
+// plus dragP fixes where parasitic drag equals induced drag, which is by definition the
+// best-glide point — so `bestGlide` is now a measured consequence of the polar rather than
+// a number typed next to it. In the sim's units the glide ratio is mass·G_KT / drag, and at
+// best glide drag = 2·dragP·V², giving V_bg² = mass·G_KT/(2·dragP·ldMax).
+function tuning(p) {
+  if (p._tune) return p._tune;
+  const weight = weightOf(p);
+  const vbg2 = (p.mass * G_KT) / (2 * p.dragP * (p.ldMax || 7));
+  const t = { weight, kInd: 0.25 * p.dragP * vbg2 * vbg2 / (weight * weight), bestGlide: Math.sqrt(vbg2) };
+  try { Object.defineProperty(p, '_tune', { value: t, enumerable: false, configurable: true }); } catch { /* frozen params: recompute each call */ }
+  return t;
+}
+// Publish the derived best-glide speed onto each fixed-wing type — the cockpit's blue
+// yoke light reads `p.bestGlide`, and it should point at the real peak of the polar.
+for (const p of Object.values(TYPES)) if (!p.heli) p.bestGlide = Math.round(tuning(p).bestGlide);
 
 export function createState(p) {
   return {
@@ -251,6 +307,11 @@ export function createState(p) {
     elevEff: 0,            // the yoke's built-up pitch effect (lags the raw input)
     rollEff: 0,            // the yoke's built-up roll effect (lags the raw input)
     aoa: 0, stallMargin: 1, stalled: false, stallTimer: 0, stallDir: 0,
+    stallDepth: 0,         // 0..1 — how far past the critical angle the wing is (drives the CL collapse, the wing-drop and the sink)
+    buffet: 0,             // 0..1 — pre-stall burble; the cockpit shakes on it
+    g: 1,                  // load factor — real, derived from the AoA the wing is actually at (§6a)
+    overG: false,          // latched so the airframe groans ONCE per excursion past gLimit, not every frame
+
     slip: 0,               // forward-slip intensity (0..1), eased from crossed-control input
     onGround: true, groundSpeed: 0,
     // last-frame events the audio/feedback layers read (cleared each step)
@@ -391,7 +452,7 @@ function stepHeli(state, input, p, dt) {
   else { s.vs += (vsTarget - s.vs) * Math.min(1, dt / p.vsTau); s.altitude += (s.vs / 60) * dt; }
 
   // 6. Warnings the HUD/horn read: low rotor RPM + settling. No aerodynamic stall on a heli.
-  s.aoa = 0; s.stalled = false;
+  s.aoa = 0; s.stalled = false; s.stallDepth = 0; s.buffet = 0; s.g = 1;
   s.autorot = !powered && !s.onGround;               // engine-out: flying it down on the freewheeling rotor
   s.lowNr = !s.onGround && Nr < 0.6;
   s.vrs = vrs > 0.25;
@@ -420,7 +481,6 @@ export function step(state, input, p, dt) {
   const throttle = clamp(input.throttle || 0, 0, 1);
   const flaps = clamp(input.flaps || 0, 0, 1);
   const pedal = clamp(input.pedal || 0, -1, 1);   // rudder: yaws the nose (flat/skidding turn) airborne, steers the nosewheel on the ground
-  const weight = weightOf(p);
 
   // Battle damage: sheared structural surfaces (from the server, via input.dmgSurf = {leftWing,
   // rightWing,tail,rudder} where 0 = gone). A missing wing makes no lift on its side, so she rolls
@@ -485,7 +545,10 @@ export function step(state, input, p, dt) {
   } else {
     s.rollEff += (aileron - s.rollEff) * Math.min(1, dt / p.rollTau);
     const rollResist = 1 - 0.4 * Math.abs(s.bank) / 70;
-    const rollCmd = s.rollEff * p.rollRate * auth * rollResist;
+    // A separated wing barely answers the ailerons — and the down-going aileron on the
+    // dropping wing only drives it DEEPER into the stall (see §6c). This is why "pick the
+    // wing up with aileron" is the wrong instinct and rudder is the recovery input.
+    const rollCmd = s.rollEff * p.rollRate * auth * rollResist * (1 - 0.75 * s.stallDepth);
     s.bank += (rollCmd - p.rollStable * s.bank * (1 - Math.abs(s.rollEff))) * dt;
     if (oneWing) s.bank += wingDead * WING_ROLL * dt;   // the lift-less side drops away — hold full opposite aileron to keep her level
     s.bank = clamp(s.bank, oneWing ? -85 : -70, oneWing ? 85 : 70);
@@ -520,62 +583,93 @@ export function step(state, input, p, dt) {
     ? clamp(Math.min(Math.abs(s.bank) / 22, 1) * Math.abs(pedal), 0, 1) : 0;
   s.slip += (slipCross - s.slip) * Math.min(1, dt / 0.5);
 
-  // 6. Angle of attack from the current flight path (uses last frame's vs — fine at
-  //    small dt). Pitch up faster than the plane can climb → AoA rises → toward stall.
-  //    Vertical speed is ft/min; 1 kt = 101.33 ft/min, so vs/101.33 is the vertical
-  //    component in knots against the horizontal airspeed.
+  // 6. ANGLE OF ATTACK — the one state variable the whole wing model runs on.
+  //    α = pitch − γ, where γ is the actual flight-path angle (from vs and airspeed). It is
+  //    a definition, not an approximation, and it is now the SAME number that sets lift (§7),
+  //    drag (§8), the stall (§6b), the buffet and the g-meter — the old model carried two
+  //    unreconciled AoAs (this one for drag, a separately-solved `aoaTrim` for lift) which is
+  //    why the stall could never be tested against `aoaCrit`.
+  //    The dynamics come free: γ chases the nose with the vertical inertia `vsTau`, so a fast
+  //    pull outruns the flight path and α SPIKES — which is exactly an accelerated stall.
+  //    Vertical speed is ft/min; 1 kt = 101.33 ft/min.
+  const flapLiftF = 1 + flaps * p.flapLift;                       // flaps buy lift → less AoA to stay up → fly slower with the nose lower (eases the approach)
+  const wingLiftMult = bothWings ? 0.15 : (oneWing ? 0.55 : 1);   // a sheared wing gives up half the lift budget → she sinks and stalls sooner; both gone = a brick
   const gamma = Math.atan2(s.vs / 101.33, Math.max(1, s.airspeed)) * R2D;
-  s.aoa = clamp(s.pitch - gamma, -25, 45);
+  s.aoa = clamp(s.pitch - gamma, -25, 60);
 
-  // 6b. Stall requires a SUSTAINED hold below the (loaded, flap-adjusted) stall speed.
-  //     A momentary over-pull just mushes; you must hold a full pull (~5s) to stall.
-  //     The timer builds while too slow and recovers fast the instant you ease off.
-  // A banked turn only loads the wing (raising the stall speed) to the extent you're pulling
-  // to hold/gain altitude. Geometric level-turn load is 1/cos(bank); we scale the EXTRA load
-  // above 1g by how hard you're actually hauling back (elevEff). Hands-off or nose-down — i.e.
-  // NOT climbing — the turn stays nearly unloaded, so you can crank it around near the stall
-  // speed without dropping out of the sky; only a sustained climbing turn bites like before.
-  const pull = clamp(s.elevEff, 0, 1);
-  const loadFactor = 1 + (1 / Math.max(0.35, Math.cos(s.bank * D2R)) - 1) * (0.3 + 0.7 * pull);
-  const stallSpeed = p.vs0 * Math.sqrt(loadFactor) / (1 + flaps * p.flapVs);
-  s.stallMargin = clamp((s.airspeed / stallSpeed - 1) / 0.3, 0, 1);
+  // 6a. LOAD FACTOR — real, and derived from how much MORE lift the wing's actual α buys than
+  //     holding 1g at this speed costs. 1.0 in level cruise; a level 60° bank settles at 2g on
+  //     its own, because holding the nose up in the bank is what raises α, and 1/cos 60° = 2
+  //     falls straight out. Nothing fudges it and nothing needs to: the old
+  //     `1 + (1/cos φ − 1)·(0.3+0.7·pull)` produced exactly 1.0 for a wings-level pull, which
+  //     is why a hard yank could never stall anything.
+  //     It is NOT raw lift/weight. This is an arcade lift model whose trim α floors at 0, so a
+  //     wing in fast level flight still shows CL0 and raw lift/weight reads ~2g in a perfectly
+  //     level cruise. So g is assembled from the two things that genuinely load the wing: the
+  //     bank's own demand (clNeed/clLevel, i.e. 1/cos φ), plus whatever α the pilot is pulling
+  //     ABOVE the trim α. Exact in all four regimes — level cruise 1g, a level 60° bank 2g, a
+  //     wings-level haul >1g, and a bank steeper than the wing can hold reads the g it is being
+  //     ASKED for while §7 drops the aircraft out of it.
+  const T = tuning(p), weight = T.weight;
+  const dynBank = 0.5 * s.airspeed * s.airspeed * p.liftScale * Math.cos(s.bank * D2R) * wingLiftMult;   // vertical dynamic-pressure budget (a bank spills it; battle damage steals it)
+  const clNeed = weight / Math.max(20, dynBank);             // lift coefficient the wing must make to hold 1g in THIS bank
+  const clLevel = weight / Math.max(20, 0.5 * s.airspeed * s.airspeed * p.liftScale * wingLiftMult);   // …and wings-level, the 1g reference
+  const aoaTrim = clamp((clNeed / flapLiftF - CL0) / CL_ALPHA, 0, p.aoaCrit);   // AoA that buys it, up to the critical angle
+  const clNow = clOf(p, s.aoa, flapLiftF, s.stalled);
+  s.g = (clNeed + Math.max(0, clNow - clOf(p, aoaTrim, flapLiftF, false))) / Math.max(0.05, clLevel);
+  const gLimit = p.gLimit ?? G_LIMIT_DEFAULT;
+  if (s.g > gLimit && !s.onGround) { if (!s.overG) { s.events.push({ type: 'overg', g: s.g }); s.overG = true; } }
+  else if (s.g < gLimit * 0.9) s.overG = false;
+
+  // 6b. THE STALL — α past the critical angle, full stop. No speed threshold, no fudged load
+  //     factor, no multi-second timer: the stall speed is now an OUTPUT (a wing pulling 2g
+  //     reaches aoaCrit at √2 × Vs by itself) and an accelerated stall at cruise speed is
+  //     possible for the first time. STALL_ARM only rejects single-frame α spikes.
+  //     Recovery is REATTACH degrees of genuine hysteresis — a real separated wing does not
+  //     re-fly the instant α dips back under the critical angle, and that hysteresis is what
+  //     the old 1.9 s `STALL_HOLD` grace was standing in for.
+  s.buffet = s.onGround ? 0 : clamp((s.aoa - (p.aoaCrit - BUFFET_BAND)) / BUFFET_BAND, 0, 1);
+  s.stallMargin = s.onGround ? 1 : clamp((p.aoaCrit - s.aoa) / (BUFFET_BAND * 2), 0, 1);
   const wasStalled = s.stalled;
-  // Stall needs slow AND high AoA (nose up). Nosing DOWN drops the AoA, so a dive
-  // always builds speed and recovers — it can never stall.
-  // HYSTERESIS so she breaks crisply AT the stall speed instead of far below it: as the wing bleeds
-  // toward Vs it mushes and sinks, and that sink builds speed back over Vs (§8) — which kept nudging
-  // airspeed a hair above the threshold and RESETTING the timer, so the break only ever committed
-  // once energy was truly gone (~½ Vs, a long parachuting mush). Once she first dips below Vs at high
-  // AoA the break ARMS and stays armed through that mush jitter; it only disarms when speed genuinely
-  // recovers (>1.08·Vs) or the nose drops (AoA < 4). Net: a clean wing-drop right at the stall speed.
-  // FLARE = flaps out or in ground effect: keep the ORIGINAL forgiving behaviour untouched (plain
-  // threshold, the long STALL_HOLD grace) so you can bleed to touchdown speed without letting go.
-  // The crisp break + hysteresis apply ONLY up high & clean — that's where the classic wing-drop lives.
-  const flareRegime = flaps > 0.2 || s.altitude < GROUND_EFFECT_FT;
-  const armSpeed = flareRegime ? stallSpeed : (s.stallTimer > 0 ? stallSpeed * 1.08 : stallSpeed * 1.04);
-  const preStall = !s.onGround && s.airspeed < armSpeed && s.aoa > 4;
-  // Recovers FAST the instant you unload — level out with power (speed climbs back over
-  // the stall speed) or nose down (AoA drops below 4) and the timer bleeds off quickly.
-  const stallHold = flareRegime ? STALL_HOLD : 0.5;
-  s.stallTimer = preStall ? s.stallTimer + dt : Math.max(0, s.stallTimer - dt * 6);
-  s.stalled = s.stallTimer >= stallHold;
+  if (s.onGround) { s.stalled = false; s.stallTimer = 0; }
+  else if (!s.stalled) {
+    s.stallTimer = s.aoa > p.aoaCrit ? s.stallTimer + dt : 0;
+    if (s.stallTimer >= STALL_ARM) s.stalled = true;
+  } else if (s.aoa < p.aoaCrit - REATTACH) { s.stalled = false; s.stallTimer = 0; }
+  s.stallDepth = s.stalled ? clamp((s.aoa - p.aoaCrit) / POST_STALL_BAND, 0.15, 1) : 0;
   if (s.stalled && !wasStalled) {
     s.events.push({ type: 'stall' });
     // Which wing lets go first — follow any existing bank/aileron, else drop the left. Held for this stall.
     s.stallDir = Math.abs(s.bank) > 1 ? Math.sign(s.bank) : (aileron !== 0 ? Math.sign(aileron) : -1);
   }
-  // A stalled wing quits flying: the nose falls and a wing drops. KEEP hauling back and it
-  // deepens into a wing-over / incipient spin (rolls off and yaws around). EASE OFF or push
-  // and it just noses into a dive; once speed rebuilds the stall breaks and it self-levels.
-  if (s.stalled && !s.onGround) {
-    const held = s.elevEff > 0.3;
-    s.pitch = Math.max(held ? -55 : -35, s.pitch - (held ? 22 : 34) * dt);
-    if (held) {
-      s.bank = clamp(s.bank + s.stallDir * 52 * dt, -85, 85);       // a wing drops, rolls off
-      s.heading = wrap360(s.heading + s.stallDir * 42 * dt);         // yaws around the wing-over
-    } else {
-      s.bank += s.stallDir * 9 * dt;                                 // mild wing drop into the recovery dive
-    }
+
+  // 6c. POST-STALL DEPARTURE. The SINK is no longer scripted — it falls out of the CL collapse
+  //     in §7, so it now scales with speed, weight, bank and flap instead of being a fixed
+  //     multiple of vsMax. What stays authored here is the pitching MOMENT (the tail still
+  //     flies, so a stalled wing drops its nose) and the autorotation, because this is an
+  //     energy model with no moment arms. The two things that changed:
+  //       • RUDDER RECOVERS IT. The old wing-over marched heading at a flat 42°/s while the
+  //         pedal was worth 4–18°/s, so opposite rudder — the actual spin-recovery input —
+  //         was mathematically unable to stop it. Now the departure scales with stall DEPTH
+  //         and the pedal gets extra authority against it, so the real drill works: neutralise
+  //         the ailerons, opposite rudder, unload, and she comes back.
+  //       • AILERON MAKES IT WORSE. Fighting the drop with the stick (§4 already halves its
+  //         authority) drives the down-going wing deeper — the classic trap.
+  if (s.stalled) {
+    const held = clamp(s.elevEff, 0, 1);
+    const depth = s.stallDepth;
+    s.pitch -= (10 + 26 * (1 - held)) * depth * dt;                   // let go of the stick and she noses over hard into her own recovery
+    s.bank += s.stallDir * STALL_ROLL * depth * (0.18 + 0.82 * held) * dt;
+    if (aileron * s.stallDir < 0) s.bank += s.stallDir * 11 * depth * Math.abs(aileron) * dt;   // picking the wing up with aileron deepens the drop
+    // The pedal's anti-spin authority scales with the DEPTH it's fighting rather than with the
+    // airframe's cruise rudder power alone — otherwise the lazy rudder of a heavy (the Leviathan's
+    // is worth 6.7°/s) could never touch a 46°/s departure and the recovery drill would be a lie
+    // on exactly the aircraft that most needs it.
+    let spin = s.stallDir * SPIN_YAW * depth * held;
+    if (!rudderGone) spin += pedal * (rudderYaw * 1.2 + SPIN_YAW * 0.75 * depth);
+    s.heading = wrap360(s.heading + spin * dt);
+    s.pitch = clamp(s.pitch, -60, 48);
+    s.bank = clamp(s.bank, -85, 85);
   }
 
   // 7. Vertical motion — a FLIGHT-PATH ENERGY model (the rollercoaster). The velocity vector
@@ -590,16 +684,19 @@ export function step(state, input, p, dt) {
   //    the energy runs out, and a dive builds speed you can zoom back into height — the coaster:
   //    energy sloshes between altitude and airspeed instead of appearing out of the yoke. Hands-off
   //    the nose self-levels toward pitch 0 (§3) → γ→0 → she holds altitude, no ballooning term needed.
-  const flapLiftF = 1 + flaps * p.flapLift;                  // flaps buy lift → less AoA to stay up → fly slower with the nose lower (eases the approach)
-  const wingLiftMult = bothWings ? 0.15 : (oneWing ? 0.55 : 1);   // a sheared wing gives up half the lift budget → she sinks and stalls sooner; both gone = a brick
-  const dynBank = 0.5 * s.airspeed * s.airspeed * p.liftScale * Math.cos(s.bank * D2R) * wingLiftMult;   // vertical dynamic-pressure budget (a bank spills it; battle damage steals it)
-  const clNeed = weight / Math.max(20, dynBank);             // lift coefficient the wing must make to hold 1g
-  const aoaTrim = clamp((clNeed / flapLiftF - CL0) / CL_ALPHA, 0, p.aoaCrit);   // AoA that buys it; saturates at the critical angle → mush/sink
-  let vsTarget = s.airspeed * 101.33 * Math.sin((s.pitch - aoaTrim) * D2R);     // ft/min along the commanded flight path (1 kt = 101.33 ft/min)
+  let gammaCmd = s.pitch - aoaTrim;   // dynBank / clNeed / aoaTrim are computed once in §6a and shared with the g-meter
+  // THE MUSH IS NO LONGER CAPPED. `aoaTrim` saturating at aoaCrit used to throw the lift
+  // DEFICIT away at the clamp, so once the wing couldn't hold 1g the sink stopped deepening —
+  // slow, heavy, dirty and stalled configurations all under-sank, and the stall had to be
+  // faked back in with a fixed `-vsMax × 1.4` clamp. Now the shortfall between the CL the wing
+  // needs and the most it can make droops the flight path in proportion, and because
+  // `clMaxNow` carries the post-stall CL COLLAPSE, the falling-out-of-the-sky sink of a real
+  // stall is the SAME term — which is why it now scales with speed, weight, bank and flap.
+  const clMaxNow = (CL0 + CL_ALPHA * p.aoaCrit) * flapLiftF
+    * (s.stalled ? 1 - CL_COLLAPSE * clamp((s.aoa - p.aoaCrit) / POST_STALL_BAND, 0, 1) : 1);
+  if (clNeed > clMaxNow) gammaCmd -= MUSH_DEG * clamp(clNeed / clMaxNow - 1, 0, 2.5);
+  let vsTarget = s.airspeed * 101.33 * Math.sin(Math.max(-85, gammaCmd) * D2R);   // ft/min along the commanded flight path (1 kt = 101.33 ft/min)
   vsTarget -= s.slip * SLIP_SINK * s.airspeed;   // forward slip spills lift → an extra sink (energy-proportional, so a slow plane isn't over-sunk) you can plant on final (§5b); ground effect still cushions it below
-  // A real, sustained stall dumps the wing: the path collapses well past even the mushing sink so
-  // the eye-height drops away (the "falling out of the sky" feel). A held stall sinks hardest.
-  if (s.stalled) vsTarget = Math.min(vsTarget, -p.vsMax * (s.elevEff > 0.3 ? 2.4 : 1.4));
   // Service ceiling: climb authority fades to zero as the air thins toward p.ceiling (descent is
   // untouched). A brief zoom can still trade speed for height above it — you just can't SUSTAIN a climb.
   const ceil = p.ceiling || 20000;
@@ -637,9 +734,9 @@ export function step(state, input, p, dt) {
   const gearExt = clamp(input.gear || 0, 0, 1);
   const drag = (p.dragP + flaps * p.flapDrag * 0.0022) * s.airspeed * s.airspeed * (1 - diveShed * diveClean)  // parasitic drag ∝ V² (a dive sheds `diveShed` of it → gravity-along-γ does the rest of the work). Flap drag term raised so extending flaps bleeds speed decisively on final — you can get slow for the touchdown zone instead of floating past it (overshoot)
              + gearExt * (p.gearDragFrac ?? 0.35) * p.dragP * s.airspeed * s.airspeed                     // gear-down parasitic drag (retractable craft only)
-             + Math.max(0, s.aoa) ** 2 * 0.0016 * s.airspeed                    // profile-drag rise with a hard PULL only — a nose-down push (negative AoA) doesn't load the wing, so it never penalises a dive
+             + T.kInd * clNow * clNow * s.airspeed * s.airspeed                  // INDUCED DRAG, CDi = kInd·CL², for every airframe. Replaces BOTH the old `aoa²·V` fudge (wrong exponent on V, so it wasn't induced drag) and the Leviathan-only, rpm-gated `glideDrag` patch. Because CL rises with a pull it still penalises a hard haul-back — harder, in fact, since CL² is where the g goes — and because it goes as 1/V² at a fixed load it finally gives the whole fleet a back side to the power curve: slow down past best glide and the sink gets WORSE, which is the "region of reversed command" a low, slow approach is supposed to fear. A nose-down push unloads the wing (low CL), so it still never penalises a dive. kInd is derived per type from `ldMax` — see tuning().
              + s.slip * (p.slipDrag ?? SLIP_DRAG) * s.airspeed * s.airspeed      // forward slip (§5b): the sideways fuselage adds big drag → you SINK without the descent building speed
-             + (p.glideDrag || 0) * Math.max(0, 1 - s.rpm / 0.4) * (weight * weight) / (s.airspeed * s.airspeed + 40);   // DEAD-STICK induced drag (∝ 1/V²): engages only as the powerplant winds down toward idle (rpm below ~0.4), full at a stopped/windmilling engine. It penalises the SLOW end of a glide, so best-glide sits at a sensible speed with a realistic ratio instead of floating forever just above the stall — and because it's gated to low rpm it leaves ALL powered cruise/climb untouched. Per-type; unset ⇒ 0 (legacy floaty glide).
+             + s.stallDepth * 0.9 * p.dragP * s.airspeed * s.airspeed;           // separated flow is a barn door — a developed stall bleeds energy on top of the CL collapse
   // Gravity accelerates the airframe along its actual VELOCITY VECTOR (the flight-path angle γ),
   // not along where the NOSE points. Fast/powered/diving the wing carries its weight at a low AoA
   // so γ≈pitch and this is identical to before (cruise, climb, top speed, dive all untouched). They
@@ -647,7 +744,9 @@ export function step(state, input, p, dt) {
   // steeply — and that steep descent must build speed back. Crediting pitch instead of γ there made
   // the sink "free" energy loss, so a shallow glide bled off into a stall instead of settling; using
   // γ closes the energy loop, so a slightly-nose-down attitude self-trims to a stable glide speed.
-  const grav = G_KT * Math.sin(gamma * D2R);
+  // Uses the flight path as it stands AFTER §7's update, not the previous frame's — the stale
+  // read cost a step of energy closure, which matters when the harness steps at a coarse dt.
+  const grav = G_KT * Math.sin(Math.atan2(s.vs / 101.33, Math.max(1, s.airspeed)));
   // Ground friction: idle rolling drag, plus wheel brakes from FORWARD pressure (push the
   // yoke, elevator < 0). Pushing also pins the nose to the runway, so braking never fights
   // the back-pressure you use to rotate and lift off — they're opposite gestures.
@@ -661,7 +760,10 @@ export function step(state, input, p, dt) {
   // 9. Ground contact. Liftoff is emergent: once lift ≥ weight at rotation, altitude
   //    climbs off zero. Coming back down, a hard arrival is flagged by sink rate.
   if (s.altitude <= 0) {
-    if (!s.onGround && s.vs < -300) s.events.push({ type: 'touchdown', severity: s.vs < -700 ? 'hard' : 'firm', vs: s.vs });
+    // Arrival severity scales with the airframe: a flat absolute fpm judged a Grasshopper and a
+    // 5.0-mass freighter identically, when the gear that carries the freighter is built for it.
+    const firmVs = -300 * (0.8 + 0.2 * (p.mass || 1)), hardVs = -700 * (0.8 + 0.2 * (p.mass || 1));
+    if (!s.onGround && s.vs < firmVs) s.events.push({ type: 'touchdown', severity: s.vs < hardVs ? 'hard' : 'firm', vs: s.vs });
     s.altitude = 0;
     s.onGround = true;
     s.vs = Math.max(0, s.vs);
@@ -685,6 +787,9 @@ export function readout(s, p) {
     aoa: +s.aoa.toFixed(1),
     stallMargin: +s.stallMargin.toFixed(2),
     stalled: s.stalled,
+    buffet: +(s.buffet || 0).toFixed(2),
+    g: +(s.g ?? 1).toFixed(2),
+    aoaCrit: p.aoaCrit,
     slip: +s.slip.toFixed(2),
     onGround: s.onGround,
     vr: p.vr, vs0: p.vs0, vne: p.vne,

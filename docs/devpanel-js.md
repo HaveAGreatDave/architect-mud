@@ -190,6 +190,17 @@ The NPC/world script graph editor.
 - `saveScript(existing)`.
 - Holds `_scriptGraph`, `SCRIPT_NODE_TYPES`.
 
+### `script-triggers.js`
+The event→script binding editor (Triggers panel). Server side is
+`server/engine/script-triggers.js`; see
+[scripting.md](scripting.md#script-triggers--event--script-bindings).
+
+- `triggerEditForm(rec, isNew)` — **async** (fetches `/scripts` for the script picker).
+- `saveScriptTrigger(existing)`, `triggerActorHint()`.
+- Holds `TRIGGER_EVENT_CATALOG` (grouped datalist of every event emitted anywhere in
+  `server/`+`plugins/` — a discoverability aid, not a whitelist; the field is free text)
+  and `ACTORLESS_EVENTS` (events with no player in the payload, which warn in the form).
+
 ### `maps.js`
 The map overview editor and the shared big-map grid renderer used by both the Maps panel and the Power panel.
 
@@ -265,7 +276,8 @@ The 24-hour daily broadcast schedule editor — a zoomable horizontal timeline f
 - **Panel render**: `renderSchedulePanel()`, `_schedRenderSidebar()`, `_schedRenderContent()`, `_schedChBody()`, `_schedBuildTimeline()`.
 - **Timeline math**: `_schedScale()`, `_schedW()`, `_schedToX()`, `_schedToSec()`, `_schedClamp()`, `_schedZoom()`, `_schedZoomLabel()`, `_schedFmtTime()`, `_schedUpdateNowLine()`.
 - **Channels/items**: `_schedToggleNewCh()`, `_schedCreateChannel()`, `_schedLoadItems()`, `_schedSaveChMeta()`, `_schedMarkDirty()`, `_schedUpdateSaveBtn()`.
-- State globals: `_schedChannels`, `_schedBroadcasts`, `_schedNpcs`.
+- **Day scope** (the weekday-override editor — see [systems-broadcast.md](systems-broadcast.md#weekday-overrides--one-schedule-not-two-modes)): `_schedBuildDayBar()`, `_schedScopeHint()`, `_schedSetDay()`, `_schedOverrideGhost()`, `_schedDayChips()`, `_schedToggleDay()`, `_schedSetAllDays()`, and the mask helpers `_schedDayMask()`/`_schedDayBit()`/`_schedDayLabel()`/`_schedInScope()`/`_schedIsGhost()`/`_schedScopeMask()`. `_schedDay` = 0 (base grid) or 1–7 (that weekday's exceptions); it filters what the timeline draws and stamps `days` on anything created. Slot markup lives in `_schedItemHtml()`/`_schedGhostHtml()`, shared by the full build and the partial re-render.
+- State globals: `_schedChannels`, `_schedBroadcasts`, `_schedNpcs`, `_schedDay`.
 
 ### `broadcast-themes.js`
 The Broadcast Themes panel — create/edit CSS-variable overrides for the TV panel, with live preview and color pickers. Colors can be derived from a UI theme (`_broadcastColorsFromTheme`).
@@ -379,3 +391,34 @@ Ghost Mode — an in-panel floating dialog that opens a dedicated WebSocket tagg
 - `document.addEventListener('DOMContentLoaded', ...)` — wires up the settings panel controls (theme select, font size buttons, density buttons).
 - The password-field `keydown` listener (Enter → `devLogin()`).
 - The auto-auth IIFE — checks `sessionStorage` for a token passed from the game client and skips the login screen if valid.
+- **The ops-mode block** — sets `window.OPS_MODE` when the page was served at `/admin`, then prunes the nav to entries carrying `data-ops="1"` (and drops sections left empty), marks `data-ops-ro` survivors as read-only, adds `body.ops-mode`, and relabels the header.
+
+### Ops mode (`/admin`) — one file, two views
+
+`server/index.js` serves the *same* `client/devpanel/index.html` at `/dev` and `/admin`, and — when `CONTENT_READONLY` is set (production) — 302s the **bare** `/dev` path to `/admin`. Assets stay under `/dev/js/*` and are never redirected, which is what lets both views share one file and never drift.
+
+Ops mode is a **UI affordance, not a security boundary**: the boundary is `contentReadonlyBlocks()` in `server/api/routes.js`, which already default-denies every content write on prod. Ops mode just stops the panel offering buttons that would 403. Three places must agree when a panel changes side:
+
+- `data-ops="1"` on the nav entry in `index.html`
+- the `OPS_PANELS` set in `js/core/panels.js` (`showPanel()` bounces anything else to Dashboard, so a bookmark can't get in)
+- the server's `OPS_ROUTES` / `ENV_OPS_ROUTES` allowlists — the actual authority
+
+Panels that mix ops and content read `window.OPS_MODE` directly: `panels/bank.js` hides ATM *networks*, terminal creation, and unit delete (all content writes) while keeping fill/repair/rename/settings (`/atm/units`, allowlisted).
+
+#### Read-only panels (`data-ops-ro`)
+
+A content panel can be kept on `/admin` purely to **look at** — worth seeing on prod even though nothing in it can be saved, because it answers the questions a live bug actually raises. Four so far: **Zones** (why can't they get out of this room), **NPCs** (where is she, what's her schedule), **Items** (what does this really do), **Broadcasts** (which channel owns which studio, what's on air).
+
+Adding one is four lines in four places:
+
+- `data-ops="1" data-ops-ro="1"` on the nav entry in `index.html` — `data-ops` keeps it through the prune, `data-ops-ro` makes bootstrap suffix the label with `·ro` and a tooltip.
+- add it to **both** `OPS_PANELS` and `OPS_READONLY_PANELS` in `js/core/panels.js`.
+- add its route prefix to `OPS_READONLY_PREFIXES` in `js/core/api.js`.
+
+What that buys:
+
+- Writes are refused **client-side** by `opsReadonlyBlocks()` (checked by both `API` and `directAPI`), so a save returns a sentence explaining that content is edited locally and ships via CODEX — not a bare 403. Watch for a panel that writes to a *different* prefix than its own; that path needs listing too.
+- `OPS_READONLY_EXCEPTIONS` carves the live-ops actions back out — spawning a live enemy (`/zones/:id/live-enemies`), restocking a vendor (`/npcs/:id/restock`). These are runtime state, allowlisted server-side in `OPS_ROUTES`, and are part of why these panels are worth having on prod. Keep the two lists in step.
+- `loadPanel()` raises the shared `#ops-ro-banner` (one wording for every read-only panel, so they can't drift), hides **+ New**, and sets `body.ops-ro-panel`, which hides every `.js-save-btn` / `.js-delete-btn` in `styles.css`.
+
+Still not a security boundary — `contentReadonlyBlocks()` on the server remains the authority. This only changes what the panel *offers* and what it *says* when you try.

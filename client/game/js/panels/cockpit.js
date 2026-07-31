@@ -8,14 +8,15 @@
 // requestAnimationFrame loop, not just snapped on each server tick. Engine drone,
 // slipstream, and airframe creaks come from engine-audio.js.
 //
-// Decks (focused overlays, server-authoritative): openTakeoff / openGlideslope /
-// openTargeting report { won } → the server resolve command decides the outcome.
+// Deck (focused overlay, server-authoritative): openTargeting reports { won } → the
+// server resolve command decides the outcome. Takeoff and landing are NOT decks — they
+// are flown in the continuous cockpit below.
 
 import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, visorFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx } from './engine-audio.js';
-import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFt, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup } from './windshield.js';
+import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
 import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
@@ -236,7 +237,19 @@ export function closeCockpit() {
 // `cockpit_close` the landing/disembark flow already sends (closeCockpit → stopEngineAudio).
 export function cabinAudio(s) {
   if (isFlightSimActive() || isCockpitHudActive()) return;   // the pilot's cockpit / an open window overlay already owns the bus
-  updateEngineAudio(s || {});
+  // Forced to the 'cabin' perspective: whoever is listening is back in a room, not at the controls,
+  // so the engines arrive muffled through the structure. Set here rather than trusted from the
+  // server payload, because this entry point is BY DEFINITION the walking-the-cabin one.
+  // The start-up / shut-down arc is a ONE-SHOT on an edge, so it's fired here and not left to the
+  // steady-state loop — you hear the engines spin up from the cabin the way the pilot does, just
+  // through a bulkhead.
+  const sp = s?.spool;
+  if (sp === 'up') { try { spoolUp(s.class); } catch {} }
+  else if (sp === 'down') { try { spoolDown(s.class); } catch {} }
+  // Wheels leaving / wheels arriving. The touchdown chirp is the single most legible cue that the
+  // flight is over when you can't see out — you feel the aeroplane arrive before anyone announces it.
+  if (s?.thump) { try { groundFx(s.thump); } catch {} }
+  updateEngineAudio({ ...(s || {}), perspective: 'cabin' });
 }
 
 // ── The per-frame animation loop ──────────────────────────────────────────────
@@ -366,6 +379,7 @@ function paintWindow(id, a, s) {
   paintWindshield(id, {
     pitch: a.pitch, bank: a.roll, height: a.height ?? 0, speed: speedFrac,
     hour: s.sky?.hour, weather: s.sky?.weather, wind: s.sky?.wind, heading: a.hdg,
+    event: s.sky?.event,   // named hero event — outranks `weather` for the canopy grade
     wxField: s.sky?.field, acX: a.fx, acY: a.fy,   // spatial weather cells + our world position
     // Both scenes' data are passed unconditionally (falling back to the last real values
     // once the server's own payload has moved on) — `worldBlend` above decides how much
@@ -903,41 +917,7 @@ function ensureMgStyles() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 2. TAKEOFF — run-up → roll → V-speeds → rotate → gear up
-// ══════════════════════════════════════════════════════════════════════════════
-// Lever + big-message styling for the takeoff deck (injected once).
-function ensureTakeoffStyles() {
-  if (document.getElementById('cockpit-takeoff-styles')) return;
-  const s = document.createElement('style'); s.id = 'cockpit-takeoff-styles';
-  s.textContent = `
-    #cockpit-overlay .ck-scr-wrap { position:relative; }
-    #cockpit-overlay .ck-bigmsg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;
-      font-weight:bold; letter-spacing:2px; font-size:22px; text-align:center; text-shadow:0 0 12px currentColor, 0 2px 4px #000; }
-    #cockpit-overlay .ck-levers { display:flex; gap:10px; margin-top:10px; align-items:stretch; }
-    #cockpit-overlay .ck-lever { position:relative; flex:1; height:140px; border-radius:8px; cursor:grab; touch-action:none; user-select:none;
-      background:linear-gradient(180deg,#0c1826,#050b12); border:1px solid #2b4a60; box-shadow:inset 0 0 14px rgba(0,0,0,0.8); }
-    #cockpit-overlay .ck-lever.ck-grab { cursor:grabbing; }
-    #cockpit-overlay .ck-lever-fill { position:absolute; left:0; right:0; bottom:0; height:0%; border-radius:0 0 8px 8px; background:linear-gradient(180deg,rgba(79,184,224,0.35),rgba(79,184,224,0.12)); }
-    #cockpit-overlay .ck-lever-knob { position:absolute; left:4px; right:4px; height:20px; border-radius:5px; background:linear-gradient(180deg,#d6e8f5,#7f9bb0);
-      box-shadow:0 2px 4px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.5); }
-    #cockpit-overlay .ck-lever-mid { position:absolute; left:0; right:0; top:50%; height:1px; background:#2b4a60; }
-    #cockpit-overlay .ck-lever-v1 { position:absolute; left:0; right:0; height:2px; background:#46e05a; box-shadow:0 0 6px #46e05a; }
-    #cockpit-overlay .ck-lever-lbl { position:absolute; top:4px; left:0; right:0; text-align:center; font-size:9px; letter-spacing:2px; color:#7f93a4; pointer-events:none; }
-    #cockpit-overlay .ck-lever-lbl b { display:block; color:#4fb8e0; font-size:14px; margin-top:2px; }
-    #cockpit-overlay .ck-deck-canopy { height:72px; margin:2px 0 6px; }
-    #cockpit-overlay .ck-deck-canopy .ws-wrap { height:100%; min-height:0; }
-  `;
-  document.head.appendChild(s);
-}
-
-// TAKEOFF — a hand-flown departure on two controls: a THROTTLE lever (drag to set
-// 0–100%, holds where you leave it) and a CONTROL COLUMN (drag up = push forward =
-// pitch down; drag down = pull back = pitch up; holds). Roll begins once the
-// throttle's up; at 80% of runway with ≥60% throttle you get V1 — ROTATE, and a
-// GENTLE pull-back (≈20–30%) lifts you off. Over-rotate → STALL (level out or
-// crash); nose-down → crash nose-first; no rotation before the end → overrun.
-// ══════════════════════════════════════════════════════════════════════════════
-// 2.5. THE CONTINUOUS COCKPIT (client-sim + server-reconcile)  — Phase 1 slice
+// 1.5. THE CONTINUOUS COCKPIT (client-sim + server-reconcile)  — Phase 1 slice
 // ══════════════════════════════════════════════════════════════════════════════
 // A persistent, always-live cockpit that runs the real flight-model.js physics at
 // 60fps in the area pane. Draggable yoke/throttle/flaps (Pointer Events, mouse +
@@ -1194,12 +1174,17 @@ function stepShots(F, now, dt, s) {
 // shared source of truth is the FLOOR COUNT, not the render's world-z: the renderer extrudes floors
 // into a stylised world-z (bldgStretch etc.) and the camera eye-height rises as a √-compressed
 // function of altitude, so world-z can't be both visually pretty AND linear in real feet. So the
-// collision works in real feet off the floors (buildingRoofFt in windshield.js) — a shop tops out
-// ~12 ft, a 22-storey tower ~264 ft — instead of the old flat hz·600 that put a 3-storey's roof at
-// 353 ft and made you CFIT with wide-open air out the window. Shallow clip = damage; deep = write-off.
-// Building collision half-width = the SAME footprint the windshield draws (BUILDING_FOOT),
-// scaled by the live bldgFoot knob, so a plane hits a tower's visible mass — not a tiny box
-// at the tile centre. (Was a fixed 0.12 back when buildings drew as thin spikes.)
+// collision works in real feet off the floors — a shop tops out ~12 ft, a 22-storey tower ~264 ft —
+// instead of the old flat hz·600 that put a 3-storey's roof at 353 ft and made you CFIT with
+// wide-open air out the window. Shallow clip = damage; deep = write-off.
+//
+// SHAPE, not a square. It used to test one axis-aligned box of half-width BUILDING_FOOT with its
+// roof at floors × 12, and the models draw nothing like that — the per-model height multipliers
+// (office 1.7×, Halcyon 2.9×, Solenne 3.31×) never reached the sim at all, so the tallest towers in
+// the city were flyable through their top two thirds, while the bank's stylobate is wider than the
+// square and its attic narrower. buildingRoofFtAt now answers per POINT from the same captured
+// segments the renderer draws, so what you hit is what you can see — including, for the first time,
+// the gap between a tower and its low wing on the same tile, which returns 0 and is flown through.
 const CFIT_CRASH_PEN = 110;   // ft below the roofline that means you're INTO the structure → crash
 const CFIT_SWEEP = 4;         // sub-samples along the frame's ground track (anti-tunnel for fast craft)
 
@@ -1212,16 +1197,22 @@ function buildingCollisionAt(F, s) {
   const prev = F.cfitPrev || { x: F.pos.x, y: F.pos.y };
   const hd = (s.heading || 0) * Math.PI / 180, sinh = Math.sin(hd), cosh = Math.cos(hd);
   const height = Math.min(1, Math.sqrt(Math.max(0, s.altitude) / 3000));   // matches windshield's v.height
-  const foot = BUILDING_FOOT * (RENDER_TUNE.bldgFoot || 1);   // collision footprint tracks the drawn one
+  // Cheap reject only. The real containment test is per SEGMENT inside buildingRoofFtAt, which knows
+  // the building's actual shape — so this outer box just has to be generous enough never to reject a
+  // point some part of the model still occupies.
+  const foot = MODEL_MAX_EXTENT * (RENDER_TUNE.bldgFoot || 1);
   let worst = null;
   for (let i = 1; i <= CFIT_SWEEP; i++) {
     const t = i / CFIT_SWEEP;
     const px = prev.x + (F.pos.x - prev.x) * t, py = prev.y + (F.pos.y - prev.y) * t;
     const wx = Math.round(px), wy = Math.round(py);   // one building per tile, at integer coords
-    if (Math.abs(px - wx) > foot || Math.abs(py - wy) > foot) continue;   // outside the footprint
+    if (Math.abs(px - wx) > foot || Math.abs(py - wy) > foot) continue;   // nowhere near this tile's building
     const rx = Math.round(wx - mc.x + R), ry = Math.round(wy - mc.y + R);
     if (ry < 0 || ry >= map.length || rx < 0 || rx >= map[ry].length) continue;
-    const roofFt = buildingRoofFt(wx, wy, map[ry][rx]);   // roof altitude in real feet (floors × storey)
+    // Roof altitude in real feet AT THIS POINT — the tallest captured segment actually under the
+    // aircraft, not the tile's single storey-stack roof. A miss between a tower and its low wing
+    // returns 0 and is flown through, which is the point.
+    const roofFt = buildingRoofFtAt(wx, wy, map[ry][rx], px, py);
     if (roofFt <= 0) continue;
     const dx = wx - px, dy = wy - py, f = dx * sinh - dy * cosh, lat = dx * cosh + dy * sinh;
     // Must be inside the renderer's own near/far visibility window — a building the windshield
@@ -1256,8 +1247,22 @@ const FSIM_TUNE = [
   ['climbLift', 'Climb lift', 0, 20, 0.5],
   ['tile', 'Floor tiles', 0.1, 3, 0.05],
   ['pixel', 'Pixel size', 1, 10, 1],
+  ['perfDS', 'Adaptive chunk', 0, 1, 1],   // 0 pins 'Pixel size' — under load the ground stays crisp and the frame rate takes the hit instead
   ['fog', 'Fog (N64)', 0, 1, 0.05],
   ['vlight', 'Vertex light', 0, 1.5, 0.05],
+  // Performance dials. These existed in RENDER_TUNE but had no slider, which meant the three
+  // cheapest experiments in the renderer (is the cost texturing? fog overfill? face count?) could
+  // only be run by editing source. Profiling put ~54% of the frame in the building face flush, so
+  // they earn their place in the panel.
+  ['occlude', 'Occlusion cull', 0, 1, 1],
+  ['shapeShadow', 'Shape shadows', 0, 1, 1],
+  ['shapeWire', 'Shape wire', 0, 1, 1],
+  ['lodAdorn', 'LOD lights', 0, 2, 1],
+  ['lodNear', 'LOD start', 0, 40, 1],
+  ['lodFar', 'LOD full', 4, 60, 1],
+  ['wallLodPx', 'Wall LOD (px)', 0, 400, 10],
+  ['decoFar', 'Deco distance', 0, 40, 1],
+  ['shadowFar', 'Shadow distance', 0, 40, 1],
   ['coastWarp', 'Coast wobble', 0, 1.5, 0.05],
   ['bldgH', 'Bldg height', 0.05, 3, 0.05],
   ['bldgStretch', 'Vert stretch', 1, 15, 0.5],
@@ -1335,8 +1340,16 @@ function ensureFlightSimStyles() {
     .fsim-lamp{ position:absolute; top:8px; left:50%; transform:translateX(-50%); font:11px/1 monospace; letter-spacing:2px; z-index:3;
       color:#ff5a5b; background:rgba(40,4,6,.7); border:1px solid #ff5a5b; border-radius:5px; padding:3px 9px; opacity:0; transition:opacity .12s; }
     /* transient action toast (flap/gear/jettison confirmations) */
-    .fsim-toast{ position:absolute; top:38%; left:50%; transform:translateX(-50%); font:11px/1 monospace; letter-spacing:2px; z-index:5;
-      color:var(--cy); background:rgba(6,12,18,.82); border:1px solid var(--cy); border-radius:5px; padding:4px 11px; opacity:0; transition:opacity .18s; pointer-events:none; white-space:nowrap; }
+    /* The TEXT is deliberately near-white and does NOT use --cy. --cy resolves to the app-wide
+       --accent, which is whatever the player's UI theme happens to be — on a dark accent that put
+       dark grey lettering on an almost-black cockpit and the message was unreadable. The accent
+       still themes the box (border + glow), where a low-contrast colour is decorative rather than
+       load-bearing; legibility rides on the white and the near-opaque backing instead. */
+    .fsim-toast{ position:absolute; top:38%; left:50%; transform:translateX(-50%); font:bold 12px/1.25 monospace; letter-spacing:1.6px; z-index:5;
+      color:#f2f8ff; text-shadow:0 0 6px rgba(0,0,0,.95), 0 1px 2px rgba(0,0,0,.9);
+      background:rgba(4,9,14,.94); border:1px solid var(--cy,#8fd0ff); border-radius:5px;
+      box-shadow:0 0 12px rgba(0,0,0,.75), inset 0 0 10px rgba(0,0,0,.6);
+      padding:6px 13px; opacity:0; transition:opacity .18s; pointer-events:none; white-space:nowrap; }
     .fsim-toast.show{ opacity:1; }
     /* CHECKRIDE guidance card — the persistent instruction panel during a checkride. Sits
        top-left (clear of the centre rings), stays up the whole stage, and re-pulses on a
@@ -1411,7 +1424,7 @@ function ensureFlightSimStyles() {
     .fsim-card.crash .fsim-card-grade{ color:#ff4a5a; }
     /* look-direction tag (Q/E/S hold-to-look) */
     .fsim-viewtag{ position:absolute; bottom:8px; left:50%; transform:translateX(-50%); font:10px/1 monospace; letter-spacing:2px; z-index:5;
-      color:var(--cy); background:rgba(6,12,18,.7); border:1px solid #16303f; border-radius:4px; padding:2px 8px; opacity:0; transition:opacity .12s; pointer-events:none; }
+      color:#e8f3ff; text-shadow:0 1px 2px rgba(0,0,0,.9); background:rgba(4,9,14,.86); border:1px solid #16303f; border-radius:4px; padding:2px 8px; opacity:0; transition:opacity .12s; pointer-events:none; }   /* same reasoning as .fsim-toast: a message overlay must not take its legibility from --accent */
     .fsim-viewtag.show{ opacity:.9; }
     /* fuel chip (always shown) + a REFUEL button that appears only when parked on a fuelled strip */
     .fsim-fuel{ position:absolute; left:8px; top:22px; z-index:6; display:flex; align-items:center; gap:5px;
@@ -1595,6 +1608,10 @@ function ensureFlightSimStyles() {
     .fsim-climbmark::after{ content:'BEST CLIMB'; position:absolute; right:1px; top:-9px; font-size:7px; letter-spacing:1px; color:var(--gr); }
     .fsim-throttle{ position:relative; flex:0 0 56px; background:linear-gradient(180deg,#0c141c,#080e14); border:1px solid #16303f;
       border-radius:10px; touch-action:none; cursor:ns-resize; overflow:hidden; }
+    /* Throttle baulked by the cargo-nose interlock: the lever won't leave idle, so say so on the
+       quadrant itself rather than letting it feel like the control has broken. */
+    .fsim-throttle.baulked{ border-color:#7a2a22; box-shadow:inset 0 0 12px rgba(255,70,60,.16); cursor:not-allowed; }
+    .fsim-throttle.baulked .fsim-thr-grip{ filter:saturate(.35) brightness(.7); }
     .fsim-thr-slot{ position:absolute; left:50%; top:12px; bottom:22px; width:8px; margin-left:-4px; background:#04080c; border:1px solid #16303f; border-radius:4px; box-shadow:inset 0 0 4px #000; }
     .fsim-thr-notch{ position:absolute; left:8px; width:7px; height:1px; background:rgba(120,150,175,.4); }
     .fsim-thr-lever{ position:absolute; left:6px; right:6px; height:20px; }
@@ -1769,14 +1786,33 @@ function ensureFlightSimStyles() {
     .fsim-extg-lbl{ color:var(--cy); font-size:13px; letter-spacing:2px; }
     .fsim-extg-row b{ color:#e8f4ff; font-size:38px; line-height:1; font-variant-numeric:tabular-nums; min-width:92px; text-align:right; }
     .fsim-extg-u{ color:#6f8fa4; font-size:13px; }
-    .fsim-tune{ position:absolute; top:32px; right:8px; z-index:4; width:186px; max-height:72vh; overflow-y:auto; overscroll-behavior:contain; background:rgba(8,14,20,.94); border:1px solid #14212d; border-radius:8px; padding:8px; }
-    .fsim-tune-drag{ font-size:9px; letter-spacing:1px; color:var(--cy); background:rgba(20,33,45,.98); border:1px solid #16303f; border-radius:5px; padding:4px 6px; margin:-2px 0 6px; cursor:move; user-select:none; touch-action:none; position:sticky; top:-8px; z-index:1; }
-    .fsim-tune .thdr{ font-size:9px; letter-spacing:1px; color:var(--cy); border-bottom:1px solid #16303f; padding-bottom:3px; margin:2px 0 6px; position:sticky; top:-8px; background:rgba(8,14,20,.98); }
-    .fsim-tune .thdr:not(:first-child){ margin-top:9px; }
-    .fsim-tune .trow{ display:flex; align-items:center; gap:5px; margin-bottom:5px; font-size:9px; }
-    .fsim-tune .trow label{ flex:0 0 64px; color:#6f8698; letter-spacing:.5px; }
+    /* Tuning panel. Was 186px wide at 9px type with all ~60 controls in one scroll — unreadable,
+       and you hunted for a slider by scrolling past forty others. Now: legible type, real hit
+       targets, sections that COLLAPSE (state remembered), and a panel you can resize. */
+    .fsim-tune{ position:absolute; top:32px; right:8px; z-index:4; width:min(312px, 88vw); max-height:80vh; overflow-y:auto; overscroll-behavior:contain;
+      background:rgba(8,14,20,.96); border:1px solid #1d3242; border-radius:10px; padding:10px; resize:horizontal; box-shadow:0 10px 30px rgba(0,0,0,.6); }
+    .fsim-tune-drag{ font-size:11px; letter-spacing:1px; color:var(--cy); background:rgba(20,33,45,.98); border:1px solid #1d3f52; border-radius:6px; padding:7px 9px; margin:-3px 0 8px; cursor:move; user-select:none; touch-action:none; position:sticky; top:-10px; z-index:2; }
+    /* Section header doubles as the collapse toggle. */
+    .fsim-tune .thdr{ font-size:11px; letter-spacing:1px; color:var(--cy); border-bottom:1px solid #1d3f52; padding:6px 5px; margin:2px 0 7px; position:sticky; top:-10px;
+      background:rgba(10,18,26,.99); z-index:1; cursor:pointer; user-select:none; display:flex; align-items:center; gap:7px; border-radius:6px 6px 0 0; }
+    .fsim-tune .thdr:hover{ background:rgba(24,42,56,.99); }
+    .fsim-tune .tsec + .thdr{ margin-top:12px; }   /* gap only BETWEEN sections, not above the first */
+    .fsim-tune .thdr .car{ flex:0 0 9px; transition:transform .12s; font-size:9px; }
+    .fsim-tune .thdr.collapsed .car{ transform:rotate(-90deg); }
+    .fsim-tune .thdr .cnt{ margin-left:auto; color:#5f7c91; font-size:10px; letter-spacing:0; }
+    .fsim-tune .tsec.collapsed{ display:none; }
+    .fsim-tune .trow{ display:flex; align-items:center; gap:8px; margin-bottom:7px; font-size:11px; }
+    .fsim-tune .trow label{ flex:0 0 98px; color:#8fa6b8; letter-spacing:.3px; line-height:1.25; }
     .fsim-tune .trow input{ flex:1; min-width:0; }
-    .fsim-tune .tv{ flex:0 0 34px; text-align:right; color:var(--cy); font-variant-numeric:tabular-nums; }
+    .fsim-tune .tv{ flex:0 0 48px; text-align:right; color:var(--cy); font-variant-numeric:tabular-nums; font-size:11px; }
+    /* Fatter track + a thumb you can actually grab (the 9px default was a coin-flip on a trackpad). */
+    .fsim-tune input[type=range]{ -webkit-appearance:none; appearance:none; height:18px; background:transparent; cursor:pointer; }
+    .fsim-tune input[type=range]::-webkit-slider-runnable-track{ height:5px; border-radius:3px; background:#1d3242; }
+    .fsim-tune input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:15px; height:15px; margin-top:-5px; border-radius:50%; background:var(--cy); border:1px solid #0a1119; }
+    .fsim-tune input[type=range]::-webkit-slider-thumb:hover{ filter:brightness(1.25); }
+    .fsim-tune input[type=range]::-moz-range-track{ height:5px; border-radius:3px; background:#1d3242; }
+    .fsim-tune input[type=range]::-moz-range-thumb{ width:14px; height:14px; border-radius:50%; background:var(--cy); border:1px solid #0a1119; }
+    .fsim-tune input[type=color]{ height:22px; padding:0; border:1px solid #1d3f52; border-radius:4px; background:transparent; cursor:pointer; }
 
     /* ══ PAINTED DASHBOARD — when the craft has a paint job, the whole instrument-panel
        surround takes the interior CABIN / UPHOLSTERY colour, overriding the per-craft
@@ -2448,6 +2484,7 @@ export function openFlightSim(opts = {}) {
           <button class="fsim-engbtn" id="fsim-eng" title="engine master">⏻</button>
           <button class="fsim-nightsw" id="fsim-nightsw" title="instrument panel lights (needs engine power)" tabindex="-1"><span class="fsim-nightsw-led"></span>PANEL</button>
           <button class="fsim-nightsw" id="fsim-landsw" title="exterior landing / taxi lights (needs engine power)" tabindex="-1"><span class="fsim-nightsw-led"></span>LIGHTS</button>
+          <button class="fsim-nightsw" id="fsim-visorsw" title="CARGO NOSE — raise the visor to load. Only on the ground, and she will not roll with it open." tabindex="-1" style="display:none"><span class="fsim-nightsw-led"></span>NOSE</button>
           <div class="fsim-ft-row">
             ${buildFlapHtml(flapStyle)}
             <div class="fsim-trim" id="fsim-trim" title="ELEVATOR TRIM — drag or roll the wheel; up = NOSE DOWN, down = NOSE UP">
@@ -2841,6 +2878,23 @@ export function openFlightSim(opts = {}) {
     if (landSw) { landSw.classList.toggle('on', F.landingLight); landSw.classList.toggle('nopwr', !F.engineOn); }
   };
 
+  // CARGO NOSE switch — the manual answer to "how do I open the nose". The automatic behaviour
+  // (shut down on the ramp → she yawns open; power up → she closes) still runs and is still the
+  // normal path; this is for opening the hold with the engines live, which is what you actually want
+  // when loading. Ground-only, and the existing thrust interlock means an open nose still can't
+  // taxi, so the switch can't be used to do anything unsafe.
+  const visorBtn = q('#fsim-visorsw');
+  if (visorBtn) {
+    if (F.hasVisor === undefined) F.hasVisor = !!visorSpecFor(F.cls);
+    if (F.hasVisor) visorBtn.style.display = '';   // hidden entirely on an airframe with no visor
+    add(visorBtn, 'click', () => {
+      if (!F.hasVisor) return;
+      if (F.reportedAirborne || F.rolling) { if (F.toast) F.toast('NOSE — only on the ground, stopped.'); return; }
+      F.visorWant = (F.visorWant ?? ((F.noseVisor ?? 0) > 0.5 ? 1 : 0)) > 0.5 ? 0 : 1;
+      try { visorFx(F.visorWant ? 'open' : 'close'); } catch {}
+      if (F.toast) F.toast(F.visorWant ? 'NOSE OPENING — cargo visor coming up.' : 'NOSE CLOSING — ~5s to the lock.');
+    });
+  }
   const engBtn = q('#fsim-eng');
   if (F.engineOn) engBtn.classList.add('on');
   add(engBtn, 'click', () => {
@@ -2851,7 +2905,14 @@ export function openFlightSim(opts = {}) {
       // input.throttle each frame, so zeroing it here also drops the lever to idle).
       F.input.throttle = 0; F.throttleKey = 0;
       try { spoolUp(F.cls); } catch {}
-      if (F.hasVisor && F.noseVisor > 0.02) { try { visorFx('close'); } catch {} }   // nose visor lowers home under power
+      // Nose visor lowers home under power. SAY SO: she boards cold with the cargo nose standing
+      // wide open and no thrust reaches the ground until it's locked forward, so a pilot who isn't
+      // told simply sits there with the engines running wondering why she won't roll. The close is
+      // the answer to "how do I shut the nose" — you don't, the start-up does, and you wait for it.
+      if (F.hasVisor && F.noseVisor > 0.02) {
+        try { visorFx('close'); } catch {}
+        if (F.toast) F.toast('NOSE OPEN — cargo visor lowering, ~5s. No taxi until it locks.');
+      }
       sendCmdSilent('flightevent engineon');
       syncLights();   // power restored — switches come live again (lights stay off until switched on)
     } else if (s.onGround && s.airspeed < 5) {
@@ -2953,11 +3014,31 @@ export function openFlightSim(opts = {}) {
   ];
   const colRow = ([k, lbl]) =>
     `<div class="trow"><label>${lbl}</label><input type="color" data-ck="${k}" value="${RENDER_TUNE[k]}"><span class="tv"></span></div>`;
+  // Collapsible sections. With ~60 controls stacked in one scroll, finding a slider meant paging
+  // past forty you didn't want — so each section folds, and which ones you left open is remembered
+  // across flights. Aircraft feel and the colour pickers start closed; world render is the one
+  // people actually came for.
+  const SEC_LS = 'fsimTuneSections';
+  let secOpen = {};
+  try { secOpen = JSON.parse(localStorage.getItem(SEC_LS) || '{}') || {}; } catch { secOpen = {}; }
+  const isOpen = (id, dflt) => (typeof secOpen[id] === 'boolean' ? secOpen[id] : dflt);
+  const section = (id, title, rows, dflt) => {
+    const open = isOpen(id, dflt), cl = open ? '' : ' collapsed';
+    return `<div class="thdr${cl}" data-sec="${id}"><span class="car">▼</span><span>${title}</span><span class="cnt">${rows.length}</span></div>`
+      + `<div class="tsec${cl}" data-secbody="${id}">${rows.join('')}</div>`;
+  };
   tunePanel.innerHTML =
-    `<div class="fsim-tune-drag" id="fsim-tune-drag">⠿ TUNING — drag to move</div>` +
-    `<div class="thdr">✈ ${esc(F.P.name || 'AIRCRAFT')} · FEEL</div>` + PHYS_TUNE.map(physRow).join('') +
-    `<div class="thdr">▦ WORLD RENDER</div>` + FSIM_TUNE.map(rndRow).join('') +
-    `<div class="thdr">◧ VERTEX LIGHT COLOURS</div>` + VLIGHT_COLORS.map(colRow).join('');
+    `<div class="fsim-tune-drag" id="fsim-tune-drag">⠿ TUNING — drag to move · edge to resize</div>` +
+    section('phys', `✈ ${esc(F.P.name || 'AIRCRAFT')} · FEEL`, PHYS_TUNE.map(physRow), false) +
+    section('world', '▦ WORLD RENDER', FSIM_TUNE.map(rndRow), true) +
+    section('vlight', '◧ VERTEX LIGHT COLOURS', VLIGHT_COLORS.map(colRow), false);
+  tunePanel.querySelectorAll('.thdr[data-sec]').forEach((h) => add(h, 'click', () => {
+    const id = h.dataset.sec, body = tunePanel.querySelector(`[data-secbody="${id}"]`);
+    const nowOpen = h.classList.contains('collapsed');
+    h.classList.toggle('collapsed', !nowOpen); if (body) body.classList.toggle('collapsed', !nowOpen);
+    secOpen[id] = nowOpen;
+    try { localStorage.setItem(SEC_LS, JSON.stringify(secOpen)); } catch { /* private mode — folding still works, just isn't remembered */ }
+  }));
   // Drag the tuning window by its header. Switches to left/top positioning (relative to the
   // view) on first grab so it can move anywhere; the sliders below keep their own pointer events.
   const dragH = q('#fsim-tune-drag');
@@ -3458,6 +3539,15 @@ function fsimFrame(now) {
   // landed". Hold the last deck-cam frame (she's on the pad, rotors stopped) until closeFlightSim.
   if (F.landed) { F.raf = requestAnimationFrame(fsimFrame); return; }
 
+  // Frame profiling (off by default, free when off — see the profiler block in windshield.js).
+  // `frame` is the WHOLE rAF handler from here down: the first profile run measured
+  // paintWindshield at 25.7ms while the sim ran at 13fps (~77ms/frame), so two thirds of the
+  // frame was somewhere nobody had looked. These phases exist to find it.
+  //
+  // Opened AFTER the three cinematic early-returns above deliberately — a perfBegin before them
+  // would leak an unclosed stack entry every cinematic frame and quietly corrupt the table.
+  perfBegin('frame');
+
   // Yoke springs to centre when released.
   if (!F.yokeDrag) { input.elevator = lerpN(input.elevator, 0, Math.min(1, dt * 6)); input.aileron = lerpN(input.aileron, 0, Math.min(1, dt * 6)); }
   // External-view orbit LOCKS wherever you left it (no spring-back). The ⟲ reset SWINGS it home:
@@ -3482,10 +3572,20 @@ function fsimFrame(now) {
   // down (or you ABORT for a tow). This is the punishment for raising the gear parked/rolling.
   const bellyDown = s.onGround && F.gearRetract && F.gearUp;
   // Visor lock: the Leviathan can't ROLL until its cargo nose is closed and locked forward. The
-  // engines still light, spool and rev while it's open (the lock only severs the thrust force via
-  // `noThrust` below) — you start up, run the ~5s close, and only then can you taxi. (No visor →
-  // always "locked".)
+  // engines still light and idle while it's open, but the THROTTLE IS BAULKED at idle — a real
+  // interlock holds the levers, it doesn't let you firewall them into a load of thrust that quietly
+  // goes nowhere. (Severing thrust alone, which is what `noThrust` does below, left the lever free
+  // to sit at 100% doing nothing, which reads as a broken aeroplane rather than a locked one.)
+  // `noThrust` stays as the backstop. No visor → always "locked".
   const visorLocked = !F.hasVisor || (F.noseVisor ?? 0) <= 0.02;
+  if (!visorLocked) {
+    if ((input.throttle > 0.02 || F.throttleKey > 0) && !(F.visorBaulkT > 0)) {
+      F.visorBaulkT = 2.5;                       // one nudge, then quiet — this fires off a held key
+      if (F.toast) F.toast('THROTTLE BAULKED — cargo nose is open.');
+    }
+    input.throttle = 0; F.throttleKey = 0;       // levers held at idle until the nose locks forward
+  }
+  if (F.visorBaulkT > 0) F.visorBaulkT = Math.max(0, F.visorBaulkT - dt);
   // Effective throttle: the lever always moves, but there's no thrust unless the
   // engine master switch is on and the tank isn't dry (dead stick) — and never on the belly.
   const thr = (F.engineOn && !F.deadStick && !bellyDown) ? input.throttle : 0;
@@ -3504,6 +3604,7 @@ function fsimFrame(now) {
   const FIXED = 1 / 60;
   F.acc = Math.min((F.acc || 0) + dt, 0.5);
   let nSteps = 0;
+  perfBegin('sim:physics');
   while (F.acc >= FIXED && nSteps < 8) {
     const h = FIXED;
     // gear: extended fraction of RETRACTABLE gear (1 = down/locked, 0 = up) — feeds the model's
@@ -3513,6 +3614,14 @@ function fsimFrame(now) {
     // engine dead (power=false), so a rotor-out descent is flyable to a flared touchdown. Fixed-wing
     // ignores both. power gates on engine master / dead-stick / belly (same conditions that gate thr).
     step(s, { elevator: input.elevator, aileron: input.aileron, throttle: thr, collRaw: input.throttle, power: (F.engineOn && !F.deadStick && !bellyDown), noThrust: !visorLocked, flaps: input.flaps, pedal: input.pedal, trim: input.trim, gear: F.gearRetract ? (F.gearAnim ?? 1) : 0, dmgSurf: F.surfaces || null }, P, h);
+
+    // Model events. OVER-G: the airframe groans and the master lamp calls it — the flight model
+    // now derives a real load factor from the angle of attack (flight-model.js §6a), so hauling
+    // the wings off her is finally something you can do, and hear.
+    for (const ev of (s.events || [])) {
+      if (ev.type === 'overg') { creak('stress'); F.overGLamp = 1.4; F.shake = Math.max(F.shake, 5); }
+    }
+    if (F.overGLamp > 0) F.overGLamp = Math.max(0, F.overGLamp - h);
 
     // Turbulence: the air disturbs the AIRCRAFT (you correct it), it never cheats the physics.
     // Deterministic summed-sine "noise" (no RNG) rolls/pitches you and bumps lift, ∝ severity.
@@ -3546,6 +3655,7 @@ function fsimFrame(now) {
     }
     F.acc -= FIXED; nSteps++;
   }
+  perfEnd();   // sim:physics
 
   // Gear position eases toward its target (0 = up/stowed, 1 = down/locked) over ~1.6s so the
   // external view shows it swinging out and tucking away, not snapping.
@@ -3559,10 +3669,26 @@ function fsimFrame(now) {
   // ease-out that finishes early. Only the heavy (Leviathan) mesh has a visor.
   if (F.hasVisor === undefined) F.hasVisor = !!visorSpecFor(F.cls);
   if (F.hasVisor) {
-    const tgt = (!F.engineOn && s.onGround && s.airspeed < 5) ? 1 : 0;
+    // Target: the manual switch wins while she's stopped on the ground, otherwise the automatic rule
+    // (cold and parked ⇒ open). Any movement drops the override, so a nose left open by the switch
+    // closes itself the moment you roll rather than latching open forever.
+    const parked = s.onGround && s.airspeed < 5;
+    if (!parked) F.visorWant = null;
+    const tgt = (parked && F.visorWant != null) ? F.visorWant : ((!F.engineOn && parked) ? 1 : 0);
     if (F.noseVisor === undefined) F.noseVisor = tgt;   // already raised if you board her cold — no start-up sweep
     const stepV = dt / 5;                               // 0→1 (or 1→0) in five seconds flat
+    const wasOpen = F.noseVisor > 0.02;
     F.noseVisor = F.noseVisor < tgt ? Math.min(tgt, F.noseVisor + stepV) : Math.max(tgt, F.noseVisor - stepV);
+    // The moment the lock takes is the moment thrust reaches the ground, so it gets its own call —
+    // otherwise the five seconds end in silence and you're left guessing whether you may roll.
+    if (wasOpen && F.noseVisor <= 0.02) { if (F.toast) F.toast('NOSE LOCKED — cleared to taxi.'); }
+    // Switch LED follows the actual visor, not the request, so it reads as a state lamp during the
+    // five-second travel rather than snapping the moment you press it. Element cached — this runs
+    // every frame.
+    if (F._visorBtn === undefined) F._visorBtn = document.getElementById('fsim-visorsw');
+    if (F._visorBtn) F._visorBtn.classList.toggle('on', F.noseVisor > 0.02);
+    if (F._thrBox === undefined) F._thrBox = document.getElementById('fsim-thr');
+    if (F._thrBox) F._thrBox.classList.toggle('baulked', F.noseVisor > 0.02);
   }
 
   // ── Building collision (CFIT) — flying into a tower you can see out the glass ─────
@@ -3570,6 +3696,7 @@ function fsimFrame(now) {
   // the windshield is drawing. A deep/fast hit writes her off (crash cfit); a shallow clip of
   // the roofline is a hard jolt + real hull damage you fly out of (clip). Debounced so one
   // rooftop doesn't bill every frame; suppressed once she's already gone in.
+  perfBegin('sim:cfit');
   if (!s.onGround && !(F.cfitCd > 0)) {
     const hit = buildingCollisionAt(F, s);
     if (hit && hit.severe) {
@@ -3592,6 +3719,13 @@ function fsimFrame(now) {
   }
   if (F.cfitCd > 0 && F.cfitCd < 9999) F.cfitCd = Math.max(0, F.cfitCd - dt);
   F.cfitPrev = { x: F.pos.x, y: F.pos.y };
+  perfEnd();   // sim:cfit
+  // Everything between collision and the repaint: transitions, autopilot/guidance, targeting,
+  // engine audio, gauge smoothing and the instrument DOM writes. ~400 lines that nothing had ever
+  // timed, and the largest un-phased block in the handler — so if the missing two thirds of the
+  // frame is anywhere, the arithmetic says look here first. (No early returns in this range, so
+  // the phase always closes.)
+  perfBegin('sim:systems');
 
   // Transitions → tell the server. Track descent rate while airborne so touchdown knows
   // how hard the arrival was (soft squeak vs firm thump).
@@ -3748,8 +3882,11 @@ function fsimFrame(now) {
     // Extra panel furniture (annunciator strip · secondary bar gauges · reaper gun/stores):
     craft: F.craftType, engineOn: F.engineOn, airborne: F.reportedAirborne, prpm: F.rpms[0] || 0,
     gear: F.gearRetract ? (F.gearUp ? 'up' : 'down') : 'fixed',
+    hasVisor: !!F.hasVisor, noseVisor: F.noseVisor ?? 0,   // cargo-nose annunciator (Leviathan): lit until the visor locks forward
+
     hardpoints: F.hardpoints, armed: F.armed, weapon: F.weapon, msl: F.msl,
     gunRounds: F.gunRounds, gunCap: F.gunCap,
+    avionicsOut: !!F.avionicsOut,   // EMP — the whole panel is dark
   });
 
   // Full yoke: roll with aileron + a 3-D pull toward/away with elevator (capped so it
@@ -3988,9 +4125,14 @@ function fsimFrame(now) {
     : 0;
   const propTgt = F.engineOn ? 0.20 + 0.80 * clampNum(s.rpm, 0, 1) : windmill;
   F.propSpin = lerpN(F.propSpin || 0, propTgt, Math.min(1, dt * (propTgt > (F.propSpin || 0) ? 2.2 : 1.0)));
+  // The lerp only ever ASYMPTOTES toward zero, so without a deadband the blades creep forever and
+  // the prop never actually parks. Snap the last sliver to a dead stop, and freeze the angle there.
+  if (propTgt <= 0 && F.propSpin < 0.02) F.propSpin = 0;
   F.propPhase = (F.propPhase || 0) + dt * F.propSpin * 34;   // rev rate ∝ spool → frozen at rest
   const propDisc = clampNum((d.rpm - 0.12) / 0.45, 0, 1);    // no disc at idle; fully in by ~57% rpm
 
+  perfEnd();   // sim:systems
+  perfBegin('sim:paint');
   paintWindshield('fsim-ws', {
     gates: gateView,
     pitch: d.pitch, bank: d.bank,
@@ -4083,16 +4225,22 @@ function fsimFrame(now) {
     // she's about to take you. Cleared during the deck-cam cinematic (that view draws its own).
     padDome: (F.heli && F.reportedAirborne && !F.deckCine) ? { armed: !!F.onYacht } : null,
   });
+  perfEnd();   // sim:paint
 
   // Drug/booze impairment: warp the out-the-window view if the pilot is flying loaded.
+  perfBegin('sim:drugfx');
   applyFlightDrugFx(root.querySelector('.fsim-view'), document.getElementById('fsim-ws'), dt);
+  perfEnd();
 
-  // Stream state to the server while flying AND during the ground roll-out — the server
-  // needs the fresh onGround flag to suppress overfly noise / airspace rules as we taxi.
+  // Stream state to the server while flying AND during any ground roll — the landing
+  // roll-out (F.rolling) and, just as importantly, the PRE-TAKEOFF taxi: without this the
+  // plane rolls across the apron on screen while the server still has her sat at the gate,
+  // so taxiing never moved her (and other pilots never saw the ground contact).
   // Cadence tightens to ~3 Hz when traffic is close (the dogfight bubble), 1.2s otherwise.
+  const taxiing = s.onGround && F.engineOn;
   const syncEvery = contactNear <= FAST_SYNC_RANGE ? 0.33 : 1.2;
   F.syncAcc += dt; F.audioAcc += dt;
-  if ((F.reportedAirborne || F.rolling) && F.syncAcc >= syncEvery) {
+  if ((F.reportedAirborne || F.rolling || taxiing) && F.syncAcc >= syncEvery) {
     F.syncAcc = 0;
     sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} ${Math.round(s.altitude)} ${Math.round(s.airspeed)} ${Math.round(s.heading)} ${Math.round(thr * 100)} ${Math.round(s.vs)} ${s.onGround ? 1 : 0} ${s.stalled ? 1 : 0} ${Math.round(s.bank || 0)} ${Math.round(s.pitch || 0)}`);
     // NB: mapCenter is NOT advanced here — it stays paired with the map the server sends back
@@ -4120,13 +4268,21 @@ function fsimFrame(now) {
 
   // Impact screen-shake — a decaying jitter on the whole panel, kicked by the sink rate at
   // touchdown (or a crash/clip). Bigger arrival = bigger jolt; settles in ~0.15s.
-  if (F.shake > 0.2) {
-    const m = F.shake;
+  // STALL BUFFET rides the same channel but SUSTAINED, not decaying: as the angle of attack
+  // comes up on the critical angle the separating flow burbles over the tail and the airframe
+  // shakes. It's the warning you feel before the horn — the old model had nothing at all
+  // between "flying fine" and "a wing just dropped", which is why the break came as a surprise.
+  const buffet = (F.s && !F.s.onGround) ? (F.s.buffet || 0) : 0;
+  const shakeAmt = Math.max(F.shake || 0, buffet * 2.8);
+  if (shakeAmt > 0.2) {
+    const m = shakeAmt;
     root.style.transform = `translate(${(Math.random() * 2 - 1) * m}px, ${(Math.random() * 2 - 1) * m}px)`;
     F.shake *= Math.exp(-dt * 9);
     F.shakeOn = true;
   } else if (F.shakeOn) { root.style.transform = ''; F.shake = 0; F.shakeOn = false; }
 
+  perfEnd();    // frame
+  perfTick();   // prints + resets on a 2s window
   F.raf = requestAnimationFrame(fsimFrame);
 }
 
@@ -4144,7 +4300,8 @@ function fsimHorn(F, dt) {
     return;
   }
   if (s.stalled) { lamp.textContent = '⚠ STALL'; lamp.style.opacity = 1; stallHorn(0.6); }
-  else if (s.stallMargin < 0.35) { F.hornBeat = (F.hornBeat + dt * (2 + (0.35 - s.stallMargin) * 10)) % 1; const on = F.hornBeat < 0.5; lamp.style.opacity = on ? 1 : 0; stallHorn(on ? 0.4 : 0); }
+  else if (F.overGLamp > 0) { lamp.textContent = '⚠ OVER G'; lamp.style.opacity = 1; stallHorn(0); }
+  else if (s.stallMargin < 0.35) { lamp.textContent = '⚠ STALL'; F.hornBeat = (F.hornBeat + dt * (2 + (0.35 - s.stallMargin) * 10)) % 1; const on = F.hornBeat < 0.5; lamp.style.opacity = on ? 1 : 0; stallHorn(on ? 0.4 : 0); }
   else { lamp.style.opacity = 0; stallHorn(0); }
 }
 
@@ -4424,12 +4581,30 @@ function paintGauges(cv, g) {
       { lbl: 'GEN', on: g.battery < 20, col: '#ff5a5b' },
       { lbl: 'STALL', on: !!g.stall, col: '#ff5a5b' },
     ];
+    // NOSE lamp — only on an airframe that HAS a cargo visor, and lit for exactly as long as the
+    // nose is off its lock. It's a red lamp because while it's lit the aeroplane cannot move.
+    if (g.hasVisor) tiles.push({ lbl: 'NOSE', on: (g.noseVisor || 0) > 0.02, col: '#ff5a5b' });
     if (eng === 'heli') tiles.push({ lbl: 'AUTO', on: !!g.autorot, col: '#ffb23e' }, { lbl: 'LO NR', on: !!g.lowNr, col: '#ff5a5b' }, { lbl: 'VRS', on: !!g.vrs, col: '#ff5a5b' });
     if (g.hardpoints > 0 && !gun) tiles.push({ lbl: 'ARM', on: !!g.armed, col: '#ff5a3a' });
     if (gun) { gunStores(ctx, koR, innerR, H * 0.10, H * 0.52, g); annunTiles(ctx, koR, H * 0.58, innerR, H * 0.9, tiles); }
     else annunTiles(ctx, koR, H * 0.14, innerR, H * 0.86, tiles);
   }
   if (g.night) nightGlow(ctx, W, H);
+  // EMP: the dials are drawn and then buried. Painting them first and covering
+  // them is deliberate — a faint ghost of the needles behind dead glass reads as
+  // hardware that has lost power, where an empty canvas would just look broken.
+  if (g.avionicsOut) {
+    ctx.fillStyle = 'rgba(4,7,10,0.93)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#ff5a5b';
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('AVIONICS OUT', W / 2, H / 2 - 7);
+    ctx.fillStyle = 'rgba(255,90,91,0.55)';
+    ctx.font = '9px monospace';
+    ctx.fillText('FLY THE AIRCRAFT', W / 2, H / 2 + 8);
+    ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+  }
   ctx.restore();
 }
 
@@ -4544,6 +4719,7 @@ export function flightSimContext(msg) {
   if (msg.occupants) { F.occupants = msg.occupants; if (msg.seats) F.seats = msg.seats; renderSeats(F); }   // cabin readout keeps pace with boarding
   if ('cargo' in msg) F.cargoKg = msg.cargo;   // current hold weight (drives the J jettison bind)
   if (msg.sky) F.sky = msg.sky;
+  if ('avionicsOut' in msg) F.avionicsOut = !!msg.avionicsOut;   // EMP pulse — the panel is dead until the boards reboot
   if ('biomeBelow' in msg) F.biomeBelow = msg.biomeBelow;
   if ('surface' in msg) { F.surface = msg.surface; const tEl = document.getElementById('fsim-tile'); if (tEl) tEl.textContent = (msg.surface || '—').toUpperCase(); }
   if (typeof msg.hull === 'number') F.hull = msg.hull;   // authoritative hull for the cockpit readout
@@ -4740,347 +4916,8 @@ export function closeFlightSim() {
   suppressWeatherFx(false);   // back to the room view — let the outdoor overlay resume
 }
 
-export function openTakeoff(opts = {}) {
-  if (opts.vtol) return openVtolLift(opts, 'takeoff');   // helicopters lift vertically
-  ensureMgStyles(); ensureChassisStyles(); ensureTakeoffStyles(); ensureWindshieldStyles();
-  const o = { skill: 4, difficulty: 5, vtol: false, deviceName: 'CRAFT', onResult: null, ...opts };
-  const edge = o.skill - o.difficulty;
-  const ROLL = clampNum(0.16 + edge * 0.01, 0.10, 0.24);   // runway consumed per sec at full speed
-  const STALL_BAND = clampNum(0.58 - edge * 0.02, 0.46, 0.66);   // stick past this = stall (skill widens margin)
-
-  let throttle = 0, stick = 0, pitch = 0, speed = 0, roll = 0, alt = 0;
-  let airborne = false, v1 = false, over = false, stallT = 0, raf = 0, last = 0, dash = 0;
-  const listeners = [];
-  const add = (t, ty, fn, op) => { t.addEventListener(ty, fn, op); listeners.push([t, ty, fn, op]); };
-
-  // Side-view attitude: sky/ground, a scrolling runway, the aircraft pitching +
-  // climbing, and a runway-remaining bar with a V1 gate.
-  const scr = `<svg viewBox="0 0 300 170" preserveAspectRatio="xMidYMid meet">
-    <defs>
-      <linearGradient id="ck-to-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0e4c78"/><stop offset="1" stop-color="#1a6fa8"/></linearGradient>
-      <linearGradient id="ck-to-gnd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f3a20"/><stop offset="1" stop-color="#161c10"/></linearGradient>
-    </defs>
-    <rect x="0" y="0" width="300" height="128" fill="url(#ck-to-sky)"/>
-    <rect x="0" y="128" width="300" height="42" fill="url(#ck-to-gnd)"/>
-    <rect x="0" y="122" width="300" height="10" fill="#3a4a2a"/>
-    <line id="ck-to-rwline" x1="-40" y1="127" x2="340" y2="127" stroke="#cfe8d6" stroke-width="2" stroke-dasharray="16 14"/>
-    <g id="ck-to-plane" transform="translate(96 118)">
-      <path d="M-16,2 L10,-1 L16,2 L10,5 L-16,3 Z M-4,-2 L2,-9 L4,-2 Z M-16,3 L-20,-3 L-13,0 Z" fill="#eaf6ff" stroke="#4fb8e0" stroke-width="0.8"/>
-    </g>
-    <rect x="24" y="150" width="252" height="10" rx="3" fill="#0a1620" stroke="#2b4a60"/>
-    <rect id="ck-to-rwrem" x="26" y="152" width="248" height="6" rx="2" fill="#2f6d4a"/>
-    <line x1="${26 + 248 * 0.8}" y1="148" x2="${26 + 248 * 0.8}" y2="162" stroke="#46e05a" stroke-width="2"/>
-    <text x="${26 + 248 * 0.8}" y="147" fill="#46e05a" font-size="7" text-anchor="middle" font-family="monospace">V1</text>
-  </svg>`;
-
-  const html = `<div class="ck-panel mg-chassis">
-    ${deviceHeader('&#9992;', o.vtol ? 'LIFT-OFF' : 'TAKEOFF', 'DEPARTURE &middot; ' + esc(o.deviceName).toUpperCase())}
-    <div class="ck-deck-canopy">${windshieldHTML('ck-ws-to', 'FWD VIEW')}</div>
-    <div class="ck-hud2"><span>ASPD <b id="ck-to-asi">0</b></span><span>PITCH <b id="ck-to-pit">0°</b></span><span>GEAR <b id="ck-gear">DOWN</b></span>
-      <span class="ck-asi-wrap">THR <span class="ck-asi-bar"><span class="ck-asi-fill" id="ck-to-thrbar" style="background:linear-gradient(90deg,#7a5310,#ffb23e)"></span></span></span></div>
-    <div class="mg-bezel">${bezelScrews()}<div class="ck-scr-wrap"><div class="ck-scr mg-screen" style="--mg-sweep-h:170px">${scr}${crtOverlays()}</div><div class="ck-bigmsg" id="ck-bigmsg"></div></div></div>
-    ${deckStrip('CONTROL BUS', 'RWY USED')}
-    <div class="ck-status2" id="ck-status"><span class="ck-hint">Drag the <b>THROTTLE</b> up to roll. At <b>V1</b>, gently pull the <b>COLUMN</b> back to rotate.</span></div>
-    <div class="ck-levers">
-      <div class="ck-lever" id="ck-thr"><div class="ck-lever-fill" id="ck-thr-fill"></div><div class="ck-lever-v1" style="bottom:60%"></div><div class="ck-lever-knob" id="ck-thr-knob" style="bottom:0%"></div><div class="ck-lever-lbl">THROTTLE<b id="ck-thr-val">0%</b></div></div>
-      <div class="ck-lever" id="ck-col"><div class="ck-lever-mid"></div><div class="ck-lever-knob" id="ck-col-knob" style="bottom:50%"></div><div class="ck-lever-lbl">COLUMN<b id="ck-col-val">NEUTRAL</b></div></div>
-    </div>
-    <div class="ck-actions"><button class="ck-btn ck-btn-abort">Abort</button></div>
-  </div>`;
-
-  const mounted = mountOverlay({ id: 'cockpit-overlay', html, closeOnBackdrop: false,
-    onClose: () => { if (raf) cancelAnimationFrame(raf); for (const [t, ty, fn, op] of listeners) t.removeEventListener(ty, fn, op); } });
-  const overlay = mounted.overlay; const q = (s) => overlay.querySelector(s);
-  const setStatus = (h) => { const el = q('#ck-status'); if (el) el.innerHTML = h; };
-  const big = (h, color) => { const el = q('#ck-bigmsg'); if (el) { el.innerHTML = h || ''; el.style.color = color || '#ffcf3e'; } };
-
-  const finish = (won, why) => {
-    if (over) return; over = true; if (raf) cancelAnimationFrame(raf); raf = 0;
-    csfx(won ? 'flight-rotate' : 'flight-crash', won ? 'hololock-win' : 'hololock-lose');
-    disposeWindshield('ck-ws-to');
-    if (!won) creak('stress');
-    big(won ? '◇ AIRBORNE' : '✕ ' + (why || 'CRASH'), won ? '#46e05a' : '#ff5b5b');
-    setStatus(won ? '<span class="ck-win">◇ POSITIVE RATE — gear up, climbing out.</span>' : `<span class="ck-lose">✕ ${why || 'CRASH'}.</span>`);
-    setTimeout(() => { mounted.close(); if (o.onResult) o.onResult({ won }); }, 1150);
-  };
-
-  // ── Drag a lever; sets a 0..1 fraction from the pointer's Y within the track ──
-  function bindLever(id, onFrac) {
-    const el = q('#' + id); if (!el) return;
-    let dragging = false;
-    const setFromY = (clientY) => { const r = el.getBoundingClientRect(); onFrac(clampNum(1 - (clientY - r.top) / r.height, 0, 1)); };
-    add(el, 'pointerdown', (e) => { dragging = true; el.classList.add('ck-grab'); try { el.setPointerCapture(e.pointerId); } catch {} setFromY(e.clientY); });
-    add(el, 'pointermove', (e) => { if (dragging) setFromY(e.clientY); });
-    const end = () => { dragging = false; el.classList.remove('ck-grab'); };
-    add(el, 'pointerup', end); add(el, 'pointercancel', end);
-  }
-  bindLever('ck-thr', (f) => { throttle = f; q('#ck-thr-knob').style.bottom = `${f * 100}%`; q('#ck-thr-fill').style.height = `${f * 100}%`; const v = q('#ck-thr-val'); if (v) { v.textContent = `${Math.round(f * 100)}%`; v.style.color = f >= 0.6 ? '#46e05a' : '#4fb8e0'; } });
-  bindLever('ck-col', (f) => { stick = (f - 0.5) * 2; q('#ck-col-knob').style.bottom = `${f * 100}%`; const v = q('#ck-col-val'); if (v) v.textContent = stick > 0.1 ? `BACK ${Math.round(stick * 100)}%` : stick < -0.1 ? `FWD ${Math.round(-stick * 100)}%` : 'NEUTRAL'; });
-
-  const tick = (t) => {
-    if (over) return; const dt = Math.min(0.05, (t - last) / 1000 || 0); last = t;
-    // Airspeed builds toward the throttle setting; roll eats runway while grounded.
-    speed = clampNum(speed + (throttle - speed) * dt * 1.1, 0, 1);
-    if (!airborne && throttle > 0) roll = clampNum(roll + speed * ROLL * dt, 0, 1);
-    pitch += (stick - pitch) * Math.min(1, dt * 7);
-
-    if (!v1 && roll >= 0.8 && throttle >= 0.6) { v1 = true; big('V1 — ROTATE!', '#ffcf3e'); csfx('flight-lock'); }
-
-    if (!airborne) {
-      if (roll >= 1 && !v1) { finish(false, 'OVERRUN — off the end of the strip'); return; }
-      if (v1 && stick > 0.12) {
-        if (stick > STALL_BAND) { big('⚠ OVER-ROTATE — EASE OFF', '#ff5b5b'); stallT += dt; if (stallT > 1.2) { finish(false, 'STALL on rotation'); return; } }
-        else { airborne = true; stallT = 0; big('POSITIVE RATE — CLIMB', '#46e05a'); gearFx('retract'); q('#ck-gear').textContent = 'UP'; q('#ck-gear').style.color = '#46e05a'; }
-      } else if (roll > 0.9 && stick < -0.15) { finish(false, 'NOSE-FIRST — you drove it into the ground'); return; }
-      else if (stallT > 0 && stick <= STALL_BAND) { stallT = 0; big(v1 ? 'V1 — ROTATE!' : ''); }
-    } else {
-      // Airborne: hold gentle back-pressure to climb out.
-      if (stick > STALL_BAND) { big('STALL! LEVEL OUT', '#ff5b5b'); stallT += dt; alt = clampNum(alt - 0.4 * dt, 0, 1); if (stallT > 1.4 || alt <= 0) { finish(false, 'STALL — you dropped it'); return; } }
-      else if (stick < -0.05 && alt < 0.65) { big('NOSE DOWN — PULL UP', '#ff8a3e'); alt = clampNum(alt - 0.55 * dt, 0, 1); if (alt <= 0) { finish(false, 'NOSE-FIRST into the deck'); return; } }
-      else { stallT = 0; if (alt < 1) big('CLIMB', '#46e05a'); alt = clampNum(alt + clampNum(stick, -0.15, 0.55) * 0.55 * dt, 0, 1); }
-      if (alt >= 1) { finish(true); return; }
-    }
-
-    // Render.
-    dash = (dash + speed * 220 * dt) % 30;
-    q('#ck-to-rwline').setAttribute('stroke-dashoffset', `${dash}`);
-    const px = 96, py = 118 - alt * 92;
-    q('#ck-to-plane').setAttribute('transform', `translate(${px} ${py}) rotate(${-pitch * 22})`);
-    q('#ck-to-rwrem').setAttribute('width', `${248 * (1 - roll)}`);
-    q('#ck-to-rwrem').setAttribute('fill', roll > 0.85 ? '#ff5b5b' : roll > 0.6 ? '#ffb23e' : '#2f6d4a');
-    q('#ck-to-asi').textContent = Math.round(speed * 160);
-    q('#ck-to-pit').textContent = `${Math.round(pitch * 22)}°`;
-    q('#ck-to-thrbar').style.width = `${Math.round(throttle * 100)}%`;
-    setDeckLevel(overlay, roll);
-    paintWindshield('ck-ws-to', { pitch: pitch * 22, bank: 0, height: alt, speed, hour: _target?.sky?.hour, weather: _target?.sky?.weather, wind: _target?.sky?.wind, phase: 'takeoff', airport: o.airport || _target?.ground?.theme, helipad: o.helipad ?? _target?.ground?.helipad });
-    raf = requestAnimationFrame(tick);
-  };
-
-  q('.mg-close').addEventListener('click', () => finish(false, 'ABORT'));
-  q('.ck-btn-abort').addEventListener('click', () => finish(false, 'ABORT'));
-  window.AudioEngine?.init?.(); csfx('flight-roll', 'hololock-entry');
-  last = performance.now(); raf = requestAnimationFrame(tick);
-}
-
-// Shared vertical-lever drag: sets a 0..1 fraction from the pointer's Y in the track.
-function levDrag(overlay, add, id, onFrac) {
-  const el = overlay.querySelector('#' + id); if (!el) return;
-  let dragging = false;
-  const setY = (cy) => { const r = el.getBoundingClientRect(); onFrac(clampNum(1 - (cy - r.top) / r.height, 0, 1)); };
-  add(el, 'pointerdown', (e) => { dragging = true; el.classList.add('ck-grab'); try { el.setPointerCapture(e.pointerId); } catch {} setY(e.clientY); });
-  add(el, 'pointermove', (e) => { if (dragging) setY(e.clientY); });
-  const end = () => { dragging = false; el.classList.remove('ck-grab'); };
-  add(el, 'pointerup', end); add(el, 'pointercancel', end);
-}
-
 // ══════════════════════════════════════════════════════════════════════════════
-// VTOL LIFT — the helicopter/Dragonfly minigame (collective + cyclic). mode
-// 'takeoff' climbs off the pad to altitude; 'landing' settles gently back onto it.
-// Raise/lower the COLLECTIVE for vertical rate; nudge ◀ ▶ (cyclic) to hold station
-// over the pad against wind. Drift off the pad, or thump it down too hard, and you
-// wreck it.
-// ══════════════════════════════════════════════════════════════════════════════
-export function openVtolLift(opts, mode) {
-  ensureMgStyles(); ensureChassisStyles(); ensureTakeoffStyles(); ensureWindshieldStyles();
-  const o = { skill: 4, difficulty: 5, deviceName: 'PAD', onResult: null, ...opts };
-  const edge = o.skill - o.difficulty;
-  const wind = clampNum(0.28 + o.difficulty * 0.05 - o.skill * 0.02, 0.12, 0.8);
-  const HOVER = 0.5, takeoff = mode === 'takeoff';
-  let coll = takeoff ? 0 : HOVER, cyc = 0, drift = 0, driftV = 0, alt = takeoff ? 0 : 1, vs = 0, over = false, raf = 0, last = 0;
-  const listeners = [];
-  const add = (t, ty, fn, op) => { t.addEventListener(ty, fn, op); listeners.push([t, ty, fn, op]); };
-
-  const scr = `<svg viewBox="0 0 300 200" preserveAspectRatio="xMidYMid meet">
-    <rect x="0" y="0" width="300" height="200" fill="#04121c"/>
-    <line x1="150" y1="18" x2="150" y2="184" stroke="#153040" stroke-width="1" stroke-dasharray="3 6"/>
-    <ellipse cx="150" cy="180" rx="46" ry="9" fill="#0c1a12" stroke="#3f8a5c" stroke-width="1.5"/>
-    <text x="150" y="183" fill="#3f8a5c" font-size="9" text-anchor="middle" font-family="monospace">H</text>
-    <rect x="150" y="${takeoff ? 24 : 172}" width="0" height="8" x2="0"/>
-    <line x1="118" y1="${takeoff ? 28 : 176}" x2="182" y2="${takeoff ? 28 : 176}" stroke="#46e05a" stroke-width="1.5" stroke-dasharray="4 4"/>
-    <text x="186" y="${takeoff ? 31 : 179}" fill="#46e05a" font-size="7" font-family="monospace">${takeoff ? 'ALT' : 'PAD'}</text>
-    <g id="ck-vt-craft"><circle cx="0" cy="0" r="7" fill="none" stroke="#4fe0a0" stroke-width="2"/><line x1="-12" y1="0" x2="12" y2="0" stroke="#4fe0a0" stroke-width="2"/><line x1="0" y1="-9" x2="0" y2="5" stroke="#4fe0a0" stroke-width="2"/></g>
-    <rect x="284" y="20" width="8" height="160" rx="3" fill="#0a1620" stroke="#2b4a60"/>
-    <rect id="ck-vt-tape" x="286" y="180" width="4" height="0" fill="#4fe0a0"/>
-  </svg>`;
-
-  const html = `<div class="ck-panel mg-chassis">
-    ${deviceHeader('&#128757;', takeoff ? 'VERTICAL LIFT' : 'VERTICAL LANDING', 'VTOL &middot; ' + esc(o.deviceName).toUpperCase())}
-    <div class="ck-deck-canopy">${windshieldHTML('ck-ws-vt', 'FWD VIEW')}</div>
-    <div class="ck-hud2"><span>ALT <b id="ck-vt-altn">0%</b></span><span>DRIFT <b id="ck-vt-drift">0</b></span><span>V/S <b id="ck-vt-vs">0</b></span></div>
-    <div class="mg-bezel">${bezelScrews()}<div class="ck-scr-wrap"><div class="ck-scr mg-screen" style="--mg-sweep-h:200px">${scr}${crtOverlays()}</div><div class="ck-bigmsg" id="ck-bigmsg"></div></div></div>
-    ${deckStrip('ROTOR BUS', 'DRIFT')}
-    <div class="ck-status2" id="ck-status"><span class="ck-hint">${takeoff ? 'Raise the <b>COLLECTIVE</b> to lift off; hold it over the pad (◀ ▶) and climb out.' : 'Ease the <b>COLLECTIVE</b> down to settle gently onto the pad; stay centred (◀ ▶).'}</span></div>
-    <div class="ck-levers">
-      <button class="ck-btn ck-btn-l" style="flex:0.5">◀</button>
-      <div class="ck-lever" id="ck-coll"><div class="ck-lever-fill" id="ck-coll-fill" style="height:${coll * 100}%"></div><div class="ck-lever-v1" style="bottom:50%"></div><div class="ck-lever-knob" id="ck-coll-knob" style="bottom:${coll * 100}%"></div><div class="ck-lever-lbl">COLLECTIVE<b id="ck-coll-val">${Math.round(coll * 100)}%</b></div></div>
-      <button class="ck-btn ck-btn-r" style="flex:0.5">▶</button>
-    </div>
-    <div class="ck-actions"><button class="ck-btn ck-btn-abort">Abort</button></div>
-  </div>`;
-
-  const mounted = mountOverlay({ id: 'cockpit-overlay', html, closeOnBackdrop: false,
-    onClose: () => { if (raf) cancelAnimationFrame(raf); for (const [t, ty, fn, op] of listeners) t.removeEventListener(ty, fn, op); } });
-  const overlay = mounted.overlay; const q = (s) => overlay.querySelector(s);
-  const setStatus = (h) => { const el = q('#ck-status'); if (el) el.innerHTML = h; };
-  const big = (h, c) => { const el = q('#ck-bigmsg'); if (el) { el.innerHTML = h || ''; el.style.color = c || '#ffcf3e'; } };
-
-  const finish = (won, why) => {
-    if (over) return; over = true; if (raf) cancelAnimationFrame(raf); raf = 0;
-    csfx(won ? (takeoff ? 'flight-rotate' : 'flight-touchdown') : 'flight-crash', won ? 'hololock-win' : 'hololock-lose');
-    disposeWindshield('ck-ws-vt');
-    if (!won) creak('stress'); else creak('gear');
-    big(won ? (takeoff ? '◇ AIRBORNE' : '◇ ON THE PAD') : '✕ ' + (why || 'CRASH'), won ? '#46e05a' : '#ff5b5b');
-    setStatus(won ? `<span class="ck-win">◇ ${takeoff ? 'Clean lift-off — climbing away.' : 'Soft touchdown — skids down.'}</span>` : `<span class="ck-lose">✕ ${why || 'CRASH'}.</span>`);
-    setTimeout(() => { mounted.close(); if (o.onResult) o.onResult({ won }); }, 1100);
-  };
-
-  levDrag(overlay, add, 'ck-coll', (f) => { coll = f; q('#ck-coll-knob').style.bottom = `${f * 100}%`; q('#ck-coll-fill').style.height = `${f * 100}%`; const v = q('#ck-coll-val'); if (v) v.textContent = `${Math.round(f * 100)}%`; });
-  const lb = q('.ck-btn-l'), rb = q('.ck-btn-r');
-  add(lb, 'pointerdown', (e) => { e.preventDefault(); cyc = -1; }); add(lb, 'pointerup', () => cyc = 0);
-  add(rb, 'pointerdown', (e) => { e.preventDefault(); cyc = 1; }); add(rb, 'pointerup', () => cyc = 0);
-  add(window, 'keydown', (e) => { const k = e.key.toLowerCase(); if (k === 'a' || k === 'arrowleft') cyc = -1; else if (k === 'd' || k === 'arrowright') cyc = 1; });
-  add(window, 'keyup', (e) => { const k = e.key.toLowerCase(); if (['a', 'd', 'arrowleft', 'arrowright'].includes(k)) cyc = 0; });
-  q('.mg-close').addEventListener('click', () => finish(false, 'ABORT'));
-  q('.ck-btn-abort').addEventListener('click', () => finish(false, 'ABORT'));
-
-  const tick = (t) => {
-    if (over) return; const dt = Math.min(0.05, (t - last) / 1000 || 0); last = t;
-    driftV += ((Math.random() - 0.5) * wind - cyc * 1.5) * dt; driftV *= 0.9; drift = clampNum(drift + driftV * dt, -1, 1);
-    vs = (coll - HOVER) * 1.3;
-    alt = clampNum(alt + vs * dt, 0, 1.05);
-    if (Math.abs(drift) >= 1) { finish(false, takeoff ? 'DRIFTED OFF — clipped something' : 'DRIFTED OFF the pad'); return; }
-    if (Math.abs(drift) > 0.55) big('DRIFTING — CENTRE IT', '#ff8a3e');
-    else if (!takeoff && alt < 0.25 && vs < -0.24) big('TOO FAST — RAISE COLLECTIVE', '#ff5b5b');
-    else big(takeoff ? (alt > 0.05 ? 'CLIMB' : '') : 'EASE IT DOWN', takeoff ? '#46e05a' : '#8fd0ff');
-    if (takeoff && alt >= 1) { finish(Math.abs(drift) < 0.5); return; }
-    if (!takeoff && alt <= 0.02) { finish(Math.abs(vs) < 0.2 && Math.abs(drift) < 0.4, Math.abs(vs) >= 0.2 ? 'HARD LANDING — dropped it on the pad' : 'OFF THE PAD'); return; }
-    // render
-    q('#ck-vt-craft').setAttribute('transform', `translate(${150 + drift * 90} ${180 - alt * 150})`);
-    q('#ck-vt-tape').setAttribute('height', `${alt * 158}`); q('#ck-vt-tape').setAttribute('y', `${180 - alt * 158}`);
-    q('#ck-vt-altn').textContent = `${Math.round(alt * 100)}%`;
-    q('#ck-vt-drift').textContent = Math.abs(drift) < 0.1 ? 'CTR' : (drift < 0 ? '◀' : '▶') + Math.round(Math.abs(drift) * 100);
-    q('#ck-vt-vs').textContent = (vs >= 0 ? '+' : '') + Math.round(vs * 500);
-    setDeckLevel(overlay, Math.abs(drift));
-    paintWindshield('ck-ws-vt', { pitch: vs * 30, bank: -drift * 10, height: alt, speed: 0.12, drift, hour: _target?.sky?.hour, weather: _target?.sky?.weather, wind: _target?.sky?.wind, phase: 'vtol' });
-    raf = requestAnimationFrame(tick);
-  };
-  window.AudioEngine?.init?.(); csfx(takeoff ? 'flight-roll' : 'flight-approach', 'hololock-entry');
-  last = performance.now(); raf = requestAnimationFrame(tick);
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// 3. APPROACH — unified with takeoff: THROTTLE lever + CONTROL COLUMN, then flare
-// ══════════════════════════════════════════════════════════════════════════════
-export function openGlideslope(opts = {}) {
-  if (opts.vtol) return openVtolLift(opts, 'landing');   // helicopters set down vertically
-  ensureMgStyles(); ensureChassisStyles(); ensureTakeoffStyles(); ensureWindshieldStyles();
-  const o = { skill: 4, difficulty: 5, emergency: false, deviceName: 'FIELD', onResult: null, ...opts };
-  const edge = o.skill - o.difficulty;
-  const STALL_BAND = clampNum(0.58 - edge * 0.02, 0.46, 0.66);
-  const descentRate = o.emergency ? 0.10 : 0.075;    // approach clock 0→1
-  const gustF = clampNum(0.3 + o.difficulty * 0.04 - o.skill * 0.02 + (o.emergency ? 0.25 : 0), 0.1, 0.9);
-
-  let throttle = o.emergency ? 0 : 0.4, stick = 0, pitch = 0, height = 1, descent = 0, sink = 0.1, over = false, raf = 0, last = 0, dash = 0, flared = false;
-  const listeners = [];
-  const add = (t, ty, fn, op) => { t.addEventListener(ty, fn, op); listeners.push([t, ty, fn, op]); };
-
-  const scr = `<svg viewBox="0 0 300 170" preserveAspectRatio="xMidYMid meet">
-    <defs>
-      <linearGradient id="ck-la-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0e4c78"/><stop offset="1" stop-color="#1a6fa8"/></linearGradient>
-      <linearGradient id="ck-la-gnd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f3a20"/><stop offset="1" stop-color="#161c10"/></linearGradient>
-    </defs>
-    <rect x="0" y="0" width="300" height="128" fill="url(#ck-la-sky)"/>
-    <rect x="0" y="128" width="300" height="42" fill="url(#ck-la-gnd)"/>
-    <polygon id="ck-la-rw" points="120,168 180,168 165,132 135,132" fill="#2a3420" stroke="#3f8a5c" stroke-width="1"/>
-    <line id="ck-la-cl" x1="150" y1="168" x2="150" y2="132" stroke="#cfe8d6" stroke-width="1.5" stroke-dasharray="8 8"/>
-    <!-- glideslope scale (right): keep the diamond centred -->
-    <line x1="284" y1="20" x2="284" y2="150" stroke="#2b4a60" stroke-width="1.5"/>
-    ${[20, 52, 85, 118, 150].map(y => `<circle cx="284" cy="${y}" r="3" fill="none" stroke="#5f8fa8" stroke-width="1"/>`).join('')}
-    <polygon id="ck-la-gs" points="284,78 290,85 284,92 278,85" fill="#4fb8e0"/>
-    <text x="284" y="14" fill="#5f8fa8" font-size="7" text-anchor="middle" font-family="monospace">G/S</text>
-    <g id="ck-la-plane" transform="translate(70 40)"><path d="M-16,2 L10,-1 L16,2 L10,5 L-16,3 Z M-4,-2 L2,-9 L4,-2 Z M-16,3 L-20,-3 L-13,0 Z" fill="#eaf6ff" stroke="#4fb8e0" stroke-width="0.8"/></g>
-  </svg>`;
-
-  const html = `<div class="ck-panel mg-chassis">
-    ${deviceHeader('&#128758;', o.emergency ? 'DEAD STICK' : 'APPROACH', 'LANDING &middot; ' + esc(o.deviceName).toUpperCase())}
-    <div class="ck-deck-canopy">${windshieldHTML('ck-ws-la', 'FWD VIEW')}</div>
-    <div class="ck-hud2"><span>ALT <b id="ck-la-alt">—</b></span><span>SINK <b id="ck-la-sink">0</b></span><span>G/S <b id="ck-la-gsr">—</b></span>
-      <span class="ck-asi-wrap">THR <span class="ck-asi-bar"><span class="ck-asi-fill" id="ck-la-thrbar" style="background:linear-gradient(90deg,#7a5310,#ffb23e)"></span></span></span></div>
-    <div class="mg-bezel">${bezelScrews()}<div class="ck-scr-wrap"><div class="ck-scr mg-screen" style="--mg-sweep-h:170px">${scr}${crtOverlays()}</div><div class="ck-bigmsg" id="ck-bigmsg"></div></div></div>
-    ${deckStrip('CONTROL BUS', 'DEVIATION')}
-    <div class="ck-status2" id="ck-status"><span class="ck-hint">${o.emergency ? 'No power — glide it down on the COLUMN.' : 'THROTTLE for energy, COLUMN for pitch. Hold the glidepath; FLARE at the threshold.'}</span></div>
-    <div class="ck-levers">
-      <div class="ck-lever" id="ck-la-thr"><div class="ck-lever-fill" id="ck-la-thrfill" style="height:${throttle * 100}%"></div><div class="ck-lever-knob" id="ck-la-thrknob" style="bottom:${throttle * 100}%"></div><div class="ck-lever-lbl">THROTTLE<b id="ck-la-thrval">${Math.round(throttle * 100)}%</b></div></div>
-      <div class="ck-lever" id="ck-la-col"><div class="ck-lever-mid"></div><div class="ck-lever-knob" id="ck-la-colknob" style="bottom:50%"></div><div class="ck-lever-lbl">COLUMN<b id="ck-la-colval">NEUTRAL</b></div></div>
-    </div>
-    <div class="ck-actions"><button class="ck-btn ck-btn-abort">${o.emergency ? 'Bail' : 'Go Around'}</button></div>
-  </div>`;
-
-  const mounted = mountOverlay({ id: 'cockpit-overlay', html, closeOnBackdrop: false,
-    onClose: () => { if (raf) cancelAnimationFrame(raf); for (const [t, ty, fn, op] of listeners) t.removeEventListener(ty, fn, op); } });
-  const overlay = mounted.overlay; const q = (s) => overlay.querySelector(s);
-  gearFx('extend');   // gear comes down as the approach begins
-  const setStatus = (h) => { const el = q('#ck-status'); if (el) el.innerHTML = h; };
-  const big = (h, c) => { const el = q('#ck-bigmsg'); if (el) { el.innerHTML = h || ''; el.style.color = c || '#ffcf3e'; } };
-
-  const finish = (won, why) => {
-    if (over) return; over = true; if (raf) cancelAnimationFrame(raf); raf = 0;
-    csfx(won ? 'flight-touchdown' : 'flight-crash', won ? 'hololock-win' : 'hololock-lose');
-    disposeWindshield('ck-ws-la');
-    if (!won) creak('stress');
-    big(won ? '◇ TOUCHDOWN' : '✕ ' + (why || 'CRASH'), won ? '#46e05a' : '#ff5b5b');
-    setStatus(won ? '<span class="ck-win">◇ Mains, nose, brakes — down safe.</span>' : `<span class="ck-lose">✕ ${why || 'CRASH'}.</span>`);
-    setTimeout(() => { mounted.close(); if (o.onResult) o.onResult({ won }); }, 1150);
-  };
-
-  levDrag(overlay, add, 'ck-la-thr', (f) => { throttle = f; q('#ck-la-thrknob').style.bottom = `${f * 100}%`; q('#ck-la-thrfill').style.height = `${f * 100}%`; const v = q('#ck-la-thrval'); if (v) v.textContent = `${Math.round(f * 100)}%`; });
-  levDrag(overlay, add, 'ck-la-col', (f) => { stick = (f - 0.5) * 2; q('#ck-la-colknob').style.bottom = `${f * 100}%`; const v = q('#ck-la-colval'); if (v) v.textContent = stick > 0.1 ? `BACK ${Math.round(stick * 100)}%` : stick < -0.1 ? `FWD ${Math.round(-stick * 100)}%` : 'NEUTRAL'; });
-  q('.mg-close').addEventListener('click', () => finish(false, 'GO-AROUND'));
-  q('.ck-btn-abort').addEventListener('click', () => finish(false, 'GO-AROUND'));
-
-  const tick = (t) => {
-    if (over) return; const dt = Math.min(0.05, (t - last) / 1000 || 0); last = t;
-    pitch += (stick - pitch) * Math.min(1, dt * 7);
-    descent = clampNum(descent + descentRate * dt, 0, 1.05);
-    // Sink rate: pull back (pitch up) + power reduce it; nose-down + idle steepen it.
-    sink = clampNum(0.12 - stick * 0.10 - (throttle - 0.45) * 0.06 + (Math.random() - 0.5) * gustF * 0.03, 0, 0.30);
-    height = clampNum(height - sink * dt, 0, 1);
-    const dev = height - (1 - descent);   // >0 HIGH, <0 LOW
-    // Fail modes.
-    if (stick > STALL_BAND && throttle < 0.4) { big('STALL — NOSE DOWN, ADD POWER', '#ff5b5b'); if (height <= 0.5) { finish(false, 'STALL on final'); return; } }
-    else if (stick < -0.25 && height < 0.22) { big('NOSE DOWN — PULL UP', '#ff8a3e'); if (height <= 0.03) { finish(false, 'NOSE-FIRST into the threshold'); return; } }
-    else if (descent >= 0.85) { flared = flared || stick > 0.12; big('FLARE — EASE IT ON', '#ffcf3e'); }
-    else if (dev > 0.18) big('HIGH — reduce power / nose down', '#ffb23e');
-    else if (dev < -0.18) big('LOW — add power / nose up', '#ffb23e');
-    else big('ON GLIDEPATH', '#46e05a');
-    // Touchdown.
-    if (height <= 0.02 || descent >= 1) {
-      if (descent < 0.8) { finish(false, 'landed short — you dropped it in early'); return; }
-      const onGs = Math.abs(dev) < 0.16, soft = sink < 0.14, gentle = stick > 0.05 && stick <= STALL_BAND;
-      finish(onGs && soft && gentle && flared, !soft ? 'HARD LANDING — too much sink' : !onGs ? 'off the glidepath at the threshold' : 'you forgot to flare');
-      return;
-    }
-    // Render.
-    dash = (dash + (1 - descent) * 60 * dt) % 16;
-    const g = Math.min(1, descent), half = 15 + g * 40, topY = 132 - g * 24, cx = 150;
-    q('#ck-la-rw').setAttribute('points', `${cx - half},168 ${cx + half},168 ${cx + half * 0.55},${topY} ${cx - half * 0.55},${topY}`);
-    q('#ck-la-cl').setAttribute('y2', `${topY}`); q('#ck-la-cl').setAttribute('stroke-dashoffset', `${dash}`);
-    q('#ck-la-plane').setAttribute('transform', `translate(70 ${40 + (1 - height) * 78}) rotate(${-pitch * 20})`);
-    const gy = clampNum(85 - dev * 260, 20, 150); const gs = q('#ck-la-gs'); gs.setAttribute('points', `284,${gy - 7} 290,${gy} 284,${gy + 7} 278,${gy}`); gs.setAttribute('fill', Math.abs(dev) < 0.16 ? '#46e05a' : '#ff8a3e');
-    q('#ck-la-alt').textContent = `${Math.round(height * (o.emergency ? 300 : 600))}ft`;
-    q('#ck-la-sink').textContent = `-${Math.round(sink * 900)}`;
-    q('#ck-la-gsr').textContent = Math.abs(dev) < 0.16 ? 'ON' : dev > 0 ? 'HIGH' : 'LOW';
-    q('#ck-la-thrbar').style.width = `${Math.round(throttle * 100)}%`;
-    setDeckLevel(overlay, Math.min(1, Math.abs(dev) / 0.3));
-    paintWindshield('ck-ws-la', { pitch: pitch * 20, bank: 0, height, speed: 0.32 + throttle * 0.4, hour: _target?.sky?.hour, weather: _target?.sky?.weather, phase: 'landing', airport: o.airport, helipad: o.helipad ?? _target?.ground?.helipad });
-    raf = requestAnimationFrame(tick);
-  };
-  window.AudioEngine?.init?.(); csfx('flight-approach', 'hololock-entry');
-  last = performance.now(); raf = requestAnimationFrame(tick);
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// 4. TARGETING — the gun-pass reticle deck
+// 2. TARGETING — the gun-pass reticle deck
 // ══════════════════════════════════════════════════════════════════════════════
 export function openTargeting(opts = {}) {
   ensureMgStyles(); ensureChassisStyles();

@@ -1,0 +1,7 @@
+{
+  "name": "hackrig",
+  "version": "1.0.0",
+  "description": "Practice rigs — legal, low-difficulty hackable furniture with nothing behind it but skill gain. Somewhere to learn Hacking that doesn't cost wanted stars or a lethal shock, so the only price of a failure is what it does to your deck.",
+  "commands": ["hackrigresolve"],
+  "specializedActions": ["hack"]
+}

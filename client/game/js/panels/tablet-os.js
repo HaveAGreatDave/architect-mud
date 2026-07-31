@@ -18,6 +18,7 @@ import { sfx, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews,
 import { sendCmdSilent } from '../net.js';
 import { toggleAutoWalk, isAutoWalking, isRunning, onRunStateChange, setGpsRoute, routeBetween, getTracePath, setMapOpener, FUNC_LEGEND, POI_LEGEND, isWorldWaterVoid, districtCoord, WATER_VOID_FILL, crossingInnerHtml, isOnCrossing } from './minimap.js';
 import { state } from '../state.js';
+import { maybeTabletTour } from './tour.js';
 import { loadSettings, saveSettings, applySettings, openThemeEditor, probeBuiltinThemeColors, DARK_THEMES, LIGHT_THEMES, DEFAULT_AUDIO_SETTINGS } from '/shared/settings.js';
 import { getChatTabs, getChatMessages, sendChatMessage, markChatRead, onChatUpdate, getOnlinePlayers, refreshOnlinePlayers, ensureChatConversation, leaveChatConversation, removeCorpChannels, getClosedChatTabs, reopenChatTab, getMotdHtml } from './whisper.js';
 import { showPromptDialog, showConfirmDialog, showSelectDialog } from './confirm.js';
@@ -140,33 +141,37 @@ let _tosCorpSel = null; // Corp Territory Map: selected zone id (client-side, no
 let _tosCorpPage = 0; // Corp dashboard: current page (Overview/Operatives/Territory/Diplomacy), client-side
 let _tosIdeoPage = 0; // Ideology reader: current page (Overview / per-order / Field), client-side
 let _tosMapSel = null; // Map app: tapped/destination zone id (client-side, drives the GPS route)
-let _tosMapLabels = false; // Map app: label mode — stamp a two-letter code on each building tile (client-side)
+// Map app: label mode — stamp a two-letter code on each building tile instead of
+// its icon. This is NOT its own state: it reads and writes the same `mapOverlay`
+// setting the sidebar minimap runs on, so the two surfaces can never disagree.
+// It used to be a module-local boolean defaulting to false, which is why the Map
+// app opened in icon mode no matter what the saved setting said, and why its
+// Labels chip never reached the minimap.
+const mapLabelsOn = () => {
+  try { return (loadSettings().mapOverlay || 'labels') === 'labels'; } catch { return true; }
+};
 // Void survey zoom: the off-grid "journey" map has no server tile-window ladder (it's
 // drawn purely from the minimap nodes), so its −/+ is a client-only scale on the trail.
 // Default sits large per the brief ("show the route big, zoom out from there").
 let _tosVoidZoom = 1.35;
 const VOID_ZMIN = 0.55, VOID_ZMAX = 2.3, VOID_ZSTEP = 0.35;
 
-// ── Void reception ("pan the tablet to find a signal") ─────────────────────────
-// Out in the void the tablet is off the grid. There's one SMALL signal pocket that
-// sits still, then jumps to a new spot every ~9–20s; the closer the tablet's centre
-// sits to it, the better your reception — so on desktop you drag the tablet around
-// hunting for it, and re-hunting each time it moves. Reception drives the bar count,
-// the screen static/flicker, and which apps reach the grid: below the revive
-// threshold the network apps flicker out to a "D/C" badge; find the pocket and they
-// flicker back on. Lose the signal while inside a network app and you're booted home.
-const VOID_OFFLINE_APPS = new Set(['map', 'frontier', 'settings', 'music', 'help']); // work off-grid, always
-const RX_REVIVE = 0.55;  // smoothed reception at/above this → network apps launch / revive
-const RX_KICK   = 0.30;  // in a network app, drop below this → booted back to the home screen (hysteresis vs REVIVE)
-const RX_NOSVC  = 0.14;  // below this → zero bars, "NO SVC"
-const SPOT_SIGMA = 0.13; // sweet-spot radius as a fraction of the smaller viewport axis — small/precise
-let _voidRxTimer = null;   // the reception/flicker loop (runs while the tablet is open)
-let _voidRxSmooth = 0;     // eased reception 0..1 (drives bars + app gating — stable)
-let _voidRxActive = false; // are we currently in the off-grid reception state?
-let _voidSpot = null;      // { x, y } — the single small reception pocket, in screen px
-let _voidSpotMoveAt = 0;   // Date.now() ms when the pocket next jumps to a new spot
-let _voidAppsAlive;        // last known network-app availability (undefined until first paint) — drives flicker on change
-let _voidKickedDrop = false; // latch so a single reception drop kicks you out of an app exactly once
+// ── Void boot + signal: a one-time ritual, not a running mechanic ─────────────
+// Out in the void the tablet can't reach ArchitectOS at all. The FIRST time you
+// bring it up on a given crossing it cold-starts on its own on-board firmware
+// (runVoidFirmwareBoot): a terminal boot that tries the grid handshake, fails it,
+// and comes up in VOIDLINK LOCAL instead. It then sits in a SEARCHING state — the
+// screen's TEXT flickers (never the whole panel) and the header reads "NO SIGNAL ·
+// SEARCHING" — until you physically move the tablet, which locks a weak carrier:
+// one soft brightness swell, "WEAK SIGNAL · OFF GRID", and the flicker is done for
+// the rest of the crossing no matter where you drag it afterwards. No app gating at
+// any point; void theming (.tos-void-mode) rides along while isOnCrossing() holds.
+let _voidTripPrimed = false;    // has the firmware boot already played for the CURRENT crossing?
+let _voidSearching = false;     // in the pre-lock "no signal, searching" state?
+let _voidLocked = false;        // has the weak carrier been locked this crossing? (sticky)
+let _wasOnCrossingWatch = false; // last isOnCrossing() reading, polled independently of the tablet being open
+let _voidIntro = null;          // { cancel() } while the firmware boot is live, else null
+let _voidHunt = null;           // { cancel() } while the drag-to-lock listeners are armed, else null
 // Map app zoom: one unified axis. The −/+ buttons walk the server's zoom ladder
 // (movement.js MAP_ZOOM_HALVES) — each step grows the tile window and, at the far
 // end, becomes the whole-region view — instead of just resizing pixels. This array
@@ -185,6 +190,16 @@ setMapOpener(openTabletToMap);
 onRunStateChange((running) => {
   _overlay?.querySelector('[data-map-run]')?.classList.toggle('active', running);
 });
+// Watch for crossing entry independently of whether the tablet is even open, so a
+// trip started/finished with the tablet closed still primes/unprimes the intro
+// correctly the next time it's opened. Cheap — one cached-state read a second.
+setInterval(() => {
+  const on = isOnCrossing();
+  // Stepped into a fresh crossing — the firmware boot and the signal hunt both
+  // arm again (the lock is per-crossing, not per-session).
+  if (on && !_wasOnCrossingWatch) { _voidTripPrimed = false; _voidLocked = false; _voidSearching = false; }
+  _wasOnCrossingWatch = on;
+}, 1000);
 let _gearLayer = 2; // Gear app: displayed body layer (0 skin / 1 clothes / 2 armor), client-side
 let _gearTab = 'inventory';  // Gear app primary tab: 'inventory' (full paged pack) or 'loadout' (paperdoll)
 let _gearTrayPage = 0;       // Gear app: current page of the loadout carried tray
@@ -200,9 +215,8 @@ let _keepNewsScroll = false; // one-shot: preserve scroll when the News weather 
 let _newsWeatherOpen = false; // News app: is the weather widget's 7-day forecast expanded?
 let _newsStories = [];  // News app: the current headline feed, so a tapped headline can open its full story
 let _newsWin = null;    // News app: the open "browser window" story popup element, if any
-let _backReturn = null; // { appId, screen }: the list/board a detail was drilled into from, so Back
-                        // returns there (e.g. Quests → Job Board → posting → Back = Job Board) instead
-                        // of the app root. Set on item-open; cleared by any other explicit nav/home.
+// (A drill-in's "return here" used to be tracked separately; the nav history below
+//  covers it — see the Back stack.)
 
 function ensureStyles() {
   if (document.getElementById('tablet-os-styles')) return;
@@ -238,7 +252,24 @@ function ensureStyles() {
        as a physical device sitting over the game instead of blending into a
        dark backdrop: a raised bevel edge, an embossed inset/outset shadow
        stack, and a diagonal gloss sweep + fine grain texture via ::after/::before. */
-    #tablet-os-overlay .tos-panel { width:min(760px,96vw); height:680px; max-height:90vh; display:flex; flex-direction:column;
+    /* 820, not 680: four rows of tiles + the toolbar + a couple of widget cards has
+       to fit without the home screen scrolling, which is the whole promise of a
+       fixed-shape grid. max-height keeps it inside a short viewport, and the mobile
+       block near the bottom of this sheet takes over on a compact layout. */
+    /* The height is CONSTANT whether or not the cards are on. Widgets are off by
+       default, so the common case was ~110px reserved for a dashboard that isn't there
+       — a band of empty screen under the toolbar. That space now goes to the tiles
+       (see the .tos-no-widgets block further down) rather than coming off the chassis:
+       a shorter panel still left the grid huddled at the top, and the apps are what the
+       home screen is FOR. The .tos-no-widgets class is set from widgetsEnabled()
+       (_applyWidgetChrome), so turning cards on in Settings shrinks the tiles back in
+       the same gesture that adds the dashboard.
+       NB: this whole sheet is a TEMPLATE LITERAL — never put a backtick in a comment
+       here. One in this very block closed the string early, the rest of the sheet
+       parsed as JavaScript, and ensureStyles threw "no is not defined" at runtime.
+       A node --check passes anyway, because the result is still valid JS — so the only
+       symptom is the tablet silently refusing to open. */
+    #tablet-os-overlay .tos-panel { width:min(760px,96vw); height:820px; max-height:94vh; display:flex; flex-direction:column;
       position:relative; overflow:hidden; color:var(--mg-accent); transform-origin:center center;
       background:
         linear-gradient(160deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.02) 14%, transparent 30%),
@@ -279,11 +310,47 @@ function ensureStyles() {
     /* While a drag-scroll gesture is live, show the grabbing hand and kill text
        selection so dragging pans the screen instead of highlighting content. */
     #tablet-os-overlay .tos-scroll.tos-drag-scrolling { cursor:grabbing; user-select:none; }
-    #tablet-os-overlay .tos-scroll::-webkit-scrollbar { width:6px; }
-    #tablet-os-overlay .tos-scroll::-webkit-scrollbar-track { background:var(--bg2); }
-    #tablet-os-overlay .tos-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
-    #tablet-os-overlay .tos-scroll { scrollbar-width:thin; scrollbar-color:var(--border) var(--bg2); }
+    /* Scrollbars inside the tablet answer to the TABLET's palette, not the
+       terminal's. The device has its own surface and accent (--tos-*, --mg-accent)
+       and a bar drawn in the game's --border reads as the room's chrome leaking
+       through the screen. Scoped to every descendant because WebKit won't inherit
+       the pseudo-elements; the per-app bars below are more specific and still win. */
+    #tablet-os-overlay * { scrollbar-width:thin;
+      scrollbar-color:color-mix(in srgb, var(--mg-accent) 40%, transparent) transparent; }
+    #tablet-os-overlay *::-webkit-scrollbar { width:6px; height:6px; }
+    #tablet-os-overlay *::-webkit-scrollbar-track { background:rgba(0,0,0,.32); border-radius:3px; }
+    #tablet-os-overlay *::-webkit-scrollbar-thumb {
+      background:color-mix(in srgb, var(--mg-accent) 40%, transparent); border-radius:3px; }
+    #tablet-os-overlay *::-webkit-scrollbar-thumb:hover {
+      background:color-mix(in srgb, var(--mg-accent) 68%, transparent); }
+    #tablet-os-overlay *::-webkit-scrollbar-corner { background:transparent; }
     #tablet-os-overlay .tos-body { padding:14px 13px; font-size:13.5px; }
+    /* ── Sticky chrome ───────────────────────────────────────────────────────
+       The status row (location · clock) and the breadcrumb (Back) live INSIDE
+       the scrolling body, so on any long screen they scrolled away — you lost
+       the clock and had to scroll back up to find Back. Pinning them costs no
+       markup change, so every app screen gets it at once.
+
+       Two stops, not one: the crumb sits directly under the status row rather
+       than on top of it. --tos-hdr-h is that offset in one place so the two can
+       never drift apart. The backgrounds are opaque because content scrolls
+       UNDER them, and the negative margins + padding let each bar span the full
+       panel width while the body keeps its 13px gutter. */
+    #tablet-os-overlay { --tos-hdr-h:25px; }
+    #tablet-os-overlay .tos-hdr {
+      position:sticky; top:0; z-index:8;
+      background:var(--bg, #0c1114);
+      margin:-14px -13px 8px; padding:14px 13px 5px;
+    }
+    #tablet-os-overlay .tos-crumb {
+      position:sticky; top:var(--tos-hdr-h); z-index:7;
+      background:var(--bg, #0c1114);
+      margin:0 -13px 9px; padding:5px 13px 7px;
+      border-bottom:1px solid var(--tos-line, var(--border));
+    }
+    /* The clock is the one thing that must never go — it is the tablet telling
+       you the time, which is half of why anyone opens it. */
+    #tablet-os-overlay .tos-hdr-right { position:relative; z-index:9; }
 
     /* Boot screen: logo + "ARCHITECT OS" hold for ~1s once the CRT has
        expanded, before the real Home/app screen renders underneath it. */
@@ -302,68 +369,125 @@ function ensureStyles() {
     /* Header strip: time / location, persistent regardless of screen */
     #tablet-os-overlay .tos-hdr { display:flex; justify-content:space-between; font-size:11px; letter-spacing:1px; color:var(--tos-fg-dim); margin-bottom:8px; text-transform:uppercase; }
     #tablet-os-overlay .tos-hdr b { color:var(--mg-accent); }
-    #tablet-os-overlay .tos-hdr-right { display:inline-flex; align-items:center; gap:7px; }
-    /* Cell-signal bars: four ascending accent bars, bottom-aligned. */
+    #tablet-os-overlay .tos-hdr-right { display:inline-flex; align-items:center; gap:9px; }
+    #tablet-os-overlay .tos-hdr-left, #tablet-os-overlay .tos-hdr-loc { align-self:center; }
+    /* The clock. Sized well above the rest of the bar so it reads at a glance, and
+       tabular so the minute ticking over doesn't shift the signal bars sideways.
+       It's a button because it opens the Alarm app — styled back down to look like
+       part of the bar rather than a control. */
+    #tablet-os-overlay .tos-hdr-clock {
+      font: inherit; font-size:17px; line-height:1; letter-spacing:.5px;
+      font-variant-numeric:tabular-nums; color:var(--mg-accent);
+      background:none; border:0; padding:0 1px; margin:0; cursor:pointer;
+      transition:opacity .15s linear, text-shadow .15s linear;
+    }
+    #tablet-os-overlay .tos-hdr-clock:hover { text-shadow:0 0 8px var(--mg-accent); }
+    #tablet-os-overlay .tos-hdr-clock:focus-visible { outline:1px solid var(--mg-accent); outline-offset:2px; }
+    /* Cell-signal bars: four ascending accent bars, bottom-aligned. On the grid only —
+       off the grid the header shows the void badge below instead. */
     #tablet-os-overlay .tos-signal { display:inline-flex; align-items:center; gap:4px; height:9px; position:relative; }
     #tablet-os-overlay .tos-sig-bars { display:inline-flex; align-items:flex-end; gap:1.5px; height:9px; position:relative; }
     #tablet-os-overlay .tos-signal .tos-sig-bar { width:2.5px; border-radius:1px; background:var(--mg-accent); opacity:.22; transition:opacity .18s linear; }
     #tablet-os-overlay .tos-signal .tos-sig-bar.on { opacity:1; }
-    /* No service (off the grid): bars die to red stubs, a slash strikes through them,
-       and a flickering "NO SVC" label spells it out — no missing it out in the void. */
-    #tablet-os-overlay .tos-signal-none .tos-sig-bar { background:color-mix(in srgb, var(--red) 45%, transparent); opacity:.6; }
-    #tablet-os-overlay .tos-sig-slash { position:absolute; left:-1px; right:-1px; top:50%; height:1.5px; border-radius:1px;
-      background:var(--red); box-shadow:0 0 4px color-mix(in srgb, var(--red) 70%, transparent); transform:rotate(-38deg); }
-    #tablet-os-overlay .tos-sig-label { font-family:var(--font-mono,monospace); font-size:8.5px; font-weight:700; letter-spacing:1px;
-      color:var(--red); text-shadow:0 0 5px color-mix(in srgb, var(--red) 45%, transparent); animation:tos-nosvc-flicker 2.4s steps(1) infinite; }
-    @keyframes tos-nosvc-flicker { 0%,88%,100%{opacity:1} 90%{opacity:.25} 93%{opacity:1} 96%{opacity:.4} }
-    [data-motion="off"] #tablet-os-overlay .tos-sig-label { animation:none; }
 
-    /* ── Void reception: screen static + flicker, dead app tiles, no-signal sheet ──
-       In the void the tablet is off the grid. A single small signal pocket that jumps
-       occasionally sets your reception (voidReceptionRaw, driven by where you've
-       dragged the tablet); the loop (tickReception) paints a static haze whose opacity
-       tracks how weak the signal is, plus rare hard flickers, so you pan around
-       chasing clean bars — and re-chasing each time the pocket moves. */
-    #tablet-os-overlay .tos-rx-static { position:absolute; inset:0; z-index:5; pointer-events:none; opacity:0; mix-blend-mode:screen;
-      background:
-        repeating-linear-gradient(0deg, rgba(255,255,255,.10) 0 1px, transparent 1px 3px),
-        repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 2px, transparent 2px 5px);
-      animation:tos-rx-roll .45s steps(3) infinite; transition:opacity .12s linear; }
-    @keyframes tos-rx-roll { from{background-position:0 0,0 0} to{background-position:0 6px,4px 0} }
-    [data-motion="off"] #tablet-os-overlay .tos-rx-static { animation:none; }
-    /* Hard flicker: a momentary brightness/contrast crush + jolt on the whole screen. */
-    #tablet-os-overlay .tos-panel.tos-rx-blip .tos-screen { filter:brightness(.32) contrast(1.5); transform:translate(1px,-1px); }
-    [data-motion="off"] #tablet-os-overlay .tos-panel.tos-rx-blip .tos-screen { filter:none; transform:none; }
-    /* Dead app tiles (out of signal): greyed, dimmed, with a red "D/C" (disconnected)
-       badge over the icon. They flicker OUT when the grid drops and flicker back IN
-       when a pocket returns; the resting state settles at .34 opacity / greyscale. */
-    #tablet-os-overlay .tos-tile.tos-tile-dead { opacity:.34; filter:grayscale(.85); transition:opacity .2s ease, filter .2s ease; }
-    #tablet-os-overlay .tos-tile.tos-tile-dead .tos-icon { color:var(--tos-fg-dim); }
-    #tablet-os-overlay .tos-tile-dc { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:3; pointer-events:none;
-      font-family:var(--font-mono,monospace); font-size:9.5px; font-weight:700; letter-spacing:1px; color:var(--red);
-      padding:1px 4px; border:1px solid var(--red); border-radius:3px; background:color-mix(in srgb, var(--bg,#0c1114) 78%, transparent);
-      text-shadow:0 0 5px color-mix(in srgb, var(--red) 45%, transparent); box-shadow:0 0 6px color-mix(in srgb, var(--red) 30%, transparent);
-      animation:tos-nosvc-flicker 2.4s steps(1) infinite; }
-    [data-motion="off"] #tablet-os-overlay .tos-tile-dc { animation:none; }
-    #tablet-os-overlay .tos-tile-flick-out { animation:tos-tile-flick-out .5s steps(1) 1 both; }
-    #tablet-os-overlay .tos-tile-flick-in  { animation:tos-tile-flick-in  .5s steps(1) 1 both; }
-    @keyframes tos-tile-flick-out { 0%{opacity:1} 15%{opacity:.15} 25%{opacity:.85} 45%{opacity:.1} 60%{opacity:.55} 78%{opacity:.2} 100%{opacity:.34} }
-    @keyframes tos-tile-flick-in  { 0%{opacity:.34} 20%{opacity:.9} 35%{opacity:.25} 55%{opacity:1} 72%{opacity:.4} 100%{opacity:1} }
-    [data-motion="off"] #tablet-os-overlay .tos-tile-flick-out,
-    [data-motion="off"] #tablet-os-overlay .tos-tile-flick-in { animation:none; }
-    #tablet-os-overlay .tos-tile.tos-tile-shake { animation:tos-tile-shake .34s ease; }
-    @keyframes tos-tile-shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 40%{transform:translateX(4px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(2px)} }
-    [data-motion="off"] #tablet-os-overlay .tos-tile.tos-tile-shake { animation:none; }
-    /* No-signal sheet (tapping a dead app): a dark static card over the screen. */
-    #tablet-os-overlay .tos-nosig-card { display:flex; flex-direction:column; align-items:center; text-align:center; }
-    #tablet-os-overlay .tos-nosig-glyph { font-size:34px; color:var(--red); letter-spacing:2px; text-shadow:0 0 10px color-mix(in srgb, var(--red) 45%, transparent);
-      animation:tos-nosvc-flicker 1.8s steps(1) infinite; }
-    [data-motion="off"] #tablet-os-overlay .tos-nosig-glyph { animation:none; }
-    #tablet-os-overlay .tos-nosig-title { font-size:15px; font-weight:700; letter-spacing:3px; color:var(--red); margin:6px 0 4px; }
-    #tablet-os-overlay .tos-nosig-body { font-size:12px; line-height:1.55; color:var(--tos-fg-dim); max-width:34ch; }
-    #tablet-os-overlay .tos-nosig-close { margin-top:14px; padding:7px 18px; font-family:var(--font-mono,monospace); font-size:11px; letter-spacing:1px;
-      background:var(--tos-surface-lo); color:var(--tos-fg); border:1px solid var(--tos-border); border-radius:6px; cursor:pointer; }
-    #tablet-os-overlay .tos-nosig-close:hover { border-color:var(--mg-accent); color:var(--mg-accent); }
+    /* ── Void badge: the header's off-grid indicator, header strip only. Two states:
+       SEARCHING (before you've found a position — the badge text flickers along with
+       the rest of the screen text) and, once locked, a steady WEAK SIGNAL · OFF GRID
+       that stays put for the rest of the crossing. No gating either way. */
+    #tablet-os-overlay .tos-void-badge { display:inline-flex; align-items:center; gap:5px; font-family:var(--font-mono,monospace);
+      font-size:9px; font-weight:700; letter-spacing:1.5px; color:var(--mg-accent); text-transform:uppercase; }
+    #tablet-os-overlay .tos-void-badge.searching { color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-void-badge-dot { width:6px; height:6px; border-radius:50%; background:var(--mg-accent);
+      box-shadow:0 0 6px color-mix(in srgb, var(--mg-accent) 70%, transparent); animation:tos-void-badge-pulse 2.6s ease-in-out infinite; }
+    #tablet-os-overlay .tos-void-badge.searching .tos-void-badge-dot { background:var(--tos-fg-dim); box-shadow:none;
+      animation:tos-void-badge-pulse 1s ease-in-out infinite; }
+    @keyframes tos-void-badge-pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+    /* DEADHEAD live-aircraft marker: a slow radar ping under the aeroplane while she's actually
+       moving, so a glance tells you airborne from parked without reading the status line. */
+    @keyframes tos-dh-ping { 0%{transform:scale(.6);opacity:.85} 100%{transform:scale(1.7);opacity:0} }
+    [data-motion="off"] #tablet-os-overlay .tos-void-badge-dot { animation:none; }
+
+    /* ── Void firmware boot: the one-shot cold start on the first tablet open of a
+       crossing ───────────────────────────────────────────────────────────────────
+       Out here the tablet can't reach ArchitectOS at all, so it falls back to its own
+       on-board firmware: a slow terminal cold-start that tries the grid handshake,
+       fails it, and boots into VOIDLINK LOCAL instead. Lines type in one at a time
+       (JS-driven, see runVoidFirmwareBoot) — no whole-screen strobing anywhere. */
+    #tablet-os-overlay .tos-void-boot { position:absolute; inset:0; z-index:6; display:flex; flex-direction:column;
+      justify-content:center; gap:2px; padding:16px 18px; background:var(--bg, #0c1114);
+      font-family:var(--font-mono,monospace); font-size:10.5px; letter-spacing:.6px; }
+    #tablet-os-overlay .tos-void-boot-hd { color:var(--mg-accent); font-size:11.5px; letter-spacing:2.5px; font-weight:700;
+      text-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 55%, transparent); margin-bottom:2px; }
+    #tablet-os-overlay .tos-void-boot-rule { border-top:1px solid color-mix(in srgb, var(--mg-accent) 35%, transparent); margin:2px 0 6px; }
+    #tablet-os-overlay .tos-void-bootline { color:var(--tos-fg-dim); white-space:pre; overflow:hidden; text-overflow:ellipsis;
+      animation:tos-void-linein .22s ease-out; }
+    @keyframes tos-void-linein { from{opacity:0} to{opacity:1} }
+    [data-motion="off"] #tablet-os-overlay .tos-void-bootline { animation:none; }
+    #tablet-os-overlay .tos-void-bootline.ok b { color:var(--mg-accent); }
+    #tablet-os-overlay .tos-void-bootline.fail { color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-void-bootline.fail b { color:#ff5c6b; }
+    #tablet-os-overlay .tos-void-bootline.hero { color:var(--mg-accent); font-weight:700; letter-spacing:2px; margin-top:6px;
+      text-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 50%, transparent); }
+    #tablet-os-overlay .tos-void-bootcur { display:inline-block; width:.6em; background:var(--mg-accent);
+      animation:tos-void-cursor 1s steps(2) infinite; }
+    @keyframes tos-void-cursor { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+    [data-motion="off"] #tablet-os-overlay .tos-void-bootcur { animation:none; }
+
+    /* Signal lock: a short, soft brightness swell the instant the antenna locks —
+       a settle, not a strobe. */
+    #tablet-os-overlay .tos-panel.tos-void-lock .tos-screen { animation:tos-void-lock-flash .7s ease-out; }
+    @keyframes tos-void-lock-flash { 0%{filter:brightness(1.45)} 100%{filter:brightness(1)} }
+    [data-motion="off"] #tablet-os-overlay .tos-panel.tos-void-lock .tos-screen { animation:none; }
+
+    /* ── Searching for signal: the screen's TEXT flickers (the whole panel never
+       does — no strobing chassis), exactly like a set hunting for a carrier. Ends
+       for good the moment the antenna locks; never comes back this crossing. */
+    #tablet-os-overlay .tos-panel.tos-void-searching .tos-scroll { animation:tos-void-textflicker 2.6s steps(1,end) infinite; }
+    @keyframes tos-void-textflicker {
+      0%,100%{opacity:1} 6%{opacity:.32} 9%{opacity:1} 34%{opacity:1} 36%{opacity:.42} 38%{opacity:1}
+      63%{opacity:1} 65%{opacity:.25} 67%{opacity:.85} 69%{opacity:1} 88%{opacity:1} 90%{opacity:.5} 92%{opacity:1} }
+    [data-motion="off"] #tablet-os-overlay .tos-panel.tos-void-searching .tos-scroll { animation:none; opacity:.85; }
+    #tablet-os-overlay .tos-void-hunt { position:absolute; left:0; right:0; bottom:0; z-index:7; pointer-events:none;
+      padding:5px 0 6px; text-align:center; font-family:var(--font-mono,monospace); font-size:9px; letter-spacing:2px;
+      text-transform:uppercase; color:var(--tos-fg-dim);
+      background:linear-gradient(to top, color-mix(in srgb, var(--bg, #0c1114) 92%, transparent), transparent); }
+    #tablet-os-overlay .tos-panel:not(.tos-void-searching) .tos-void-hunt { display:none; }
+
+    /* ── Void mode: persistent off-grid theming for the rest of the crossing (post-
+       boot). Purely cosmetic — no app gating, no ongoing hunt. A scanline haze, a
+       slow drifting interference band, and an accent-tinted vignette pulse, so every
+       screen still reads as "off the grid" without ever interrupting play. */
+    #tablet-os-overlay .tos-void-static { position:absolute; inset:0; z-index:5; pointer-events:none; opacity:0;
+      mix-blend-mode:screen; transition:opacity .4s ease;
+      background:repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 1px, transparent 1px 3px); }
+    #tablet-os-overlay .tos-panel.tos-void-mode .tos-void-static { opacity:.16; }
+    /* A single wide, very faint band that drifts down the screen forever — the tell
+       that the picture is being carried by something that barely reaches you. */
+    #tablet-os-overlay .tos-panel.tos-void-mode .tos-void-static::after { content:''; position:absolute; left:0; right:0; height:22%;
+      background:linear-gradient(to bottom, transparent, rgba(255,255,255,.07), transparent);
+      animation:tos-void-band 9s linear infinite; }
+    @keyframes tos-void-band { from{top:-25%} to{top:105%} }
+    [data-motion="off"] #tablet-os-overlay .tos-panel.tos-void-mode .tos-void-static::after { animation:none; opacity:0; }
+    #tablet-os-overlay .tos-panel.tos-void-mode .tos-screen::after { content:''; position:absolute; inset:0; z-index:4; pointer-events:none;
+      box-shadow:inset 0 0 46px color-mix(in srgb, var(--mg-accent) 20%, transparent); animation:tos-void-vignette 5s ease-in-out infinite; }
+    @keyframes tos-void-vignette { 0%,100%{opacity:.55} 50%{opacity:1} }
+    [data-motion="off"] #tablet-os-overlay .tos-panel.tos-void-mode .tos-screen::after { animation:none; opacity:.75; }
+    /* Off-grid the device stops calling itself ARCHITECT OS — the chassis header and
+       the home-screen wordmark both read VOIDLINK (set in JS; this just tints it). */
+    #tablet-os-overlay .tos-panel.tos-void-mode .mg-head { color:var(--mg-accent); }
+
+    /* TV app, off the grid: no station reaches out here, so the set shows dead air
+       instead of a tuner (see renderTv). */
+    #tablet-os-overlay .tos-tv-dead { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+      min-height:210px; margin:6px 0; border:1px solid var(--tos-border); border-radius:10px;
+      background:repeating-linear-gradient(0deg, rgba(255,255,255,.045) 0 1px, transparent 1px 3px), #05070a; }
+    #tablet-os-overlay .tos-tv-dead-bars { display:flex; gap:0; width:76%; height:46px; border-radius:3px; overflow:hidden; opacity:.5; }
+    #tablet-os-overlay .tos-tv-dead-bars i { flex:1; }
+    #tablet-os-overlay .tos-tv-dead-t { font-family:var(--font-mono,monospace); font-size:12px; font-weight:700; letter-spacing:4px;
+      color:var(--mg-accent); text-transform:uppercase; animation:tos-void-textflicker 2.6s steps(1,end) infinite; }
+    [data-motion="off"] #tablet-os-overlay .tos-tv-dead-t { animation:none; }
+    #tablet-os-overlay .tos-tv-dead-s { font-family:var(--font-mono,monospace); font-size:9.5px; letter-spacing:2px;
+      color:var(--tos-fg-dim); text-transform:uppercase; }
 
     /* Player summary strip: persistent across every screen. Pseudo-3D raised
        bevel: light-accent gradient + inset highlight/shadow + a soft drop
@@ -424,13 +548,381 @@ function ensureStyles() {
       border-color:color-mix(in srgb, var(--mg-accent) 30%, transparent); box-shadow:none; opacity:.72; }
     #tablet-os-overlay .tos-tile-add:hover { opacity:1; box-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 22%, transparent); }
     #tablet-os-overlay .tos-tile-add .tos-icon { color:var(--mg-accent); }
+    /* ── App groups ────────────────────────────────────────────────────────────
+       A coloured box drawn around a sub-grid of tiles, with a small inline label
+       as its FIRST ROW — inset within the border, not a tab notched above it, so
+       forming a group never costs the box any extra outer space (a group sits in
+       the flow exactly like a tile run does; see the JS "grouping is in place"
+       comment). The group's colour rides one custom property (--tos-grp) set
+       inline per box, so every edge/fill/glow below derives from the single
+       swatch the player picked. */
+    #tablet-os-overlay .tos-home-apps { position:relative; padding-bottom:34px; }
+    /* The home grid packs DENSE so a small tile backfills any hole a wide box
+       leaves — which is what stops a group from pushing the rest of the screen
+       around instead of just sitting in it.
+       It also RESERVES ALL FOUR ROWS whether or not they're full: rows are a fixed
+       height and the grid keeps a four-row min-height, so the toolbar and the widget
+       cards sit at the same place on every page and with any number of apps. Sized
+       rows (not 1fr) are the point — 1fr rows collapse when a page is half empty,
+       which slid everything below them up and made the furniture move. */
+    #tablet-os-overlay { --tos-tile-h:66px; }
+    #tablet-os-overlay .tos-homegrid { grid-auto-flow:row dense;
+      grid-auto-rows:var(--tos-tile-h); align-content:start;
+      min-height:calc(var(--tos-tile-h) * 4 + 8px * 3); }
+    /* A box is a grid ITEM spanning exactly the cells its members occupied. A 2×2
+       selection stays a 2×2 square with tiles beside it; a row of four is a row of
+       four. The old full-width band is what flattened every shape into a line. */
+    /* The wrapper itself draws NOTHING — no border, no fill. It only reserves the
+       cells and positions the label. The region's look lives on the member TILES
+       (below), which is what lets the outline conform to the apps: a group of five
+       in a 2-wide box fills 5 of 6 cells and the sixth is simply a space, instead of
+       an empty cell fenced inside a rectangle. A single element is always a
+       rectangle; a set of tiles can be an L. */
+    #tablet-os-overlay .tos-appgroup { position:relative; padding:0; min-width:0;
+      grid-column:span var(--grp-cols, 4); grid-row:span var(--grp-rows, 1);
+      display:flex; flex-direction:column; background:none; border:none; box-shadow:none; }
+    /* Label: a thin strip INSIDE the box's own footprint, so grouping never asks the
+       grid for extra height. The member tiles give up those few pixels, not the page. */
+    #tablet-os-overlay .tos-appgroup-tab { flex:0 0 auto; display:flex; align-items:center; gap:5px; cursor:grab;
+      padding:1px 3px 3px; font-size:8px; letter-spacing:1.1px; text-transform:uppercase; min-width:0; }
+    #tablet-os-overlay .tos-appgroup-tab:active { cursor:grabbing; }
+    /* Inner grid: as many columns as the box is wide, filling the rest of the box.
+       Members sit flush (gap:0) so the tint reads as ONE region rather than five
+       separately-boxed tiles — the exterior-edge classes below draw the outline. */
+    #tablet-os-overlay .tos-grp-inner { flex:1; min-height:0;
+      grid-template-columns:repeat(var(--grp-cols, 4), minmax(0, 1fr)); gap:0; }
+    #tablet-os-overlay .tos-grp-inner .tos-tile { padding:4px 3px; border-radius:0;
+      background:color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 11%, var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 20%, transparent);
+      box-shadow:none; }
+    #tablet-os-overlay .tos-grp-inner .tos-tile:hover {
+      background:color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 20%, var(--tos-surface-hi)); filter:none; }
+    /* Exterior edges — computed per member at render time (renderHomeApps knows each
+       one's row/col and whether a neighbour exists), so the outline traces the actual
+       occupied cells including the notch left by a short last row. */
+    #tablet-os-overlay .tos-grp-inner .ge-t { border-top-color:color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 62%, transparent); }
+    #tablet-os-overlay .tos-grp-inner .ge-r { border-right-color:color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 62%, transparent); }
+    #tablet-os-overlay .tos-grp-inner .ge-b { border-bottom-color:color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 62%, transparent); }
+    #tablet-os-overlay .tos-grp-inner .ge-l { border-left-color:color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 62%, transparent); }
+    /* Rounded only where two exterior edges actually meet — the region's real corners. */
+    #tablet-os-overlay .tos-grp-inner .ge-t.ge-l { border-top-left-radius:7px; }
+    #tablet-os-overlay .tos-grp-inner .ge-t.ge-r { border-top-right-radius:7px; }
+    #tablet-os-overlay .tos-grp-inner .ge-b.ge-l { border-bottom-left-radius:7px; }
+    #tablet-os-overlay .tos-grp-inner .ge-b.ge-r { border-bottom-right-radius:7px; }
+    #tablet-os-overlay .tos-grp-inner .tos-tile .tos-icon { font-size:17px; margin-bottom:2px; }
+    #tablet-os-overlay .tos-grp-inner .tos-tile .tos-icon svg { width:18px; height:18px; }
+    #tablet-os-overlay .tos-grp-inner .tos-tile .tos-name { font-size:8.5px; letter-spacing:.2px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
+    #tablet-os-overlay .tos-appgroup-swatch { width:6px; height:6px; border-radius:50%; flex:0 0 auto;
+      background:var(--tos-grp, var(--mg-accent)); box-shadow:0 0 4px color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 70%, transparent); }
+    #tablet-os-overlay .tos-appgroup-nm { flex:1; min-width:0; color:var(--tos-fg-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #tablet-os-overlay .tos-appgroup-tab:hover .tos-appgroup-nm { color:var(--tos-fg); }
+    #tablet-os-overlay .tos-appgroup-n { color:var(--tos-fg-dim2); }
+    /* Lifted for a whole-group drag: the box left behind dims, same grammar as a
+       single lifted tile (.tos-tile-ghost). */
+    #tablet-os-overlay .tos-appgroup-ghost { opacity:.32; }
+    /* DROP INDICATOR. Nothing rearranges while you drag — the grid holds still and the
+       target is marked, applied once on release. Live reflow meant every tile you
+       dragged past jumped out of the way, so the layout you were aiming at kept
+       changing under the pointer.
+       A TILE swap outlines the tile it will trade places with; a whole GROUP box still
+       inserts (swapping a 2x3 box with one tile has no sensible meaning), so it keeps
+       the before/after bar. */
+    #tablet-os-overlay .tos-drop-swap { outline:2px dashed var(--mg-accent); outline-offset:-3px;
+      box-shadow:0 0 14px color-mix(in srgb, var(--mg-accent) 45%, transparent) !important; }
+    #tablet-os-overlay .tos-drop-before, #tablet-os-overlay .tos-drop-after { position:relative; }
+    #tablet-os-overlay .tos-drop-before::after, #tablet-os-overlay .tos-drop-after::after {
+      content:''; position:absolute; top:-2px; bottom:-2px; width:3px; border-radius:2px; z-index:5;
+      background:var(--mg-accent); box-shadow:0 0 8px color-mix(in srgb, var(--mg-accent) 75%, transparent); }
+    #tablet-os-overlay .tos-drop-before::after { left:-6px; }
+    #tablet-os-overlay .tos-drop-after::after { right:-6px; }
+    /* The floating clone under the finger while a whole group is being dragged —
+       a compact chip rather than a scaled copy of the box, since dragging a full
+       grid of tiles under the pointer would be both heavy and illegible. Same
+       fixed/unscoped placement as .tos-tile-drag. */
+    .tos-group-drag { position:fixed; z-index:9300; pointer-events:none; display:flex; align-items:center; gap:6px;
+      padding:6px 12px; border-radius:7px; font-size:10.5px; letter-spacing:.6px; text-transform:uppercase;
+      color:var(--tos-fg, #eee); background:color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 22%, #14181b);
+      border:1px solid var(--tos-grp, var(--mg-accent)); box-shadow:0 8px 22px rgba(0,0,0,.5); }
+    .tos-group-drag .tos-appgroup-swatch { background:var(--tos-grp, var(--mg-accent)); }
+    .tos-group-drag.tos-tile-removing { opacity:.7; border-color:var(--red,#e0413a) !important;
+      box-shadow:0 8px 22px rgba(0,0,0,.5), 0 0 16px color-mix(in srgb, var(--red,#e0413a) 60%, transparent); }
+    .tos-group-drag.tos-tile-removing::after { content:'✕'; color:var(--red,#e0413a); }
+    /* Marquee band — drag on empty home-screen space to lasso tiles. Global (it's
+       appended to <body> so its fixed coords are plain viewport pixels). */
+    .tos-marquee { position:fixed; z-index:9290; pointer-events:none; border-radius:3px;
+      border:1px dashed var(--mg-accent, #3fd0d8); background:color-mix(in srgb, var(--mg-accent, #3fd0d8) 14%, transparent); }
+    #tablet-os-overlay .tos-tile-sel { border-color:var(--mg-accent) !important;
+      box-shadow:0 0 0 2px color-mix(in srgb, var(--mg-accent) 55%, transparent),
+                 0 0 14px color-mix(in srgb, var(--mg-accent) 40%, transparent) !important; }
+    /* ── Animated wallpaper ────────────────────────────────────────────────────
+       The live sky behind the Home grid. Sits under .tos-scroll (z-index 2) and
+       over nothing, so every screen's own content still paints on top; the CRT
+       overlays and void-mode haze layer above it unchanged. */
+    /* Strength comes from --wall-strength (set by startWallpaper) and only applies
+       while the .on class is present — that pairing is what makes turning it OFF
+       work. An inline opacity here would outrank the class and strand the canvas
+       visible over every app screen, which is exactly the bug this replaced. */
+    #tablet-os-overlay .tos-wall { position:absolute; inset:0; z-index:1; pointer-events:none;
+      opacity:0; transition:opacity .5s ease; }
+    #tablet-os-overlay .tos-wall.on { opacity:var(--wall-strength, .4); }
+    /* Home content gets a soft scrim so the wallpaper can't eat the text under it. */
+    #tablet-os-overlay .tos-body .tos-summary, #tablet-os-overlay .tos-widgets { position:relative; }
+
+    /* ── Home widgets ──────────────────────────────────────────────────────────
+       Cards under the app grid, one per app that opted in (buildWidget). Same
+       raised-surface idiom as a tile, wider and quieter — these are read, not
+       pressed, even though tapping one opens its app. */
+    #tablet-os-overlay .tos-widgets { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:14px; }
+    #tablet-os-overlay .tos-widget { cursor:pointer; padding:9px 10px 10px; border-radius:8px; min-width:0;
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--mg-accent) 26%, transparent);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), 0 2px 5px rgba(0,0,0,.22);
+      transition:filter .12s, box-shadow .12s; }
+    #tablet-os-overlay .tos-widget:hover { filter:brightness(1.1);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), 0 3px 9px rgba(0,0,0,.3); }
+    #tablet-os-overlay .tos-wg-title { font-size:8.5px; letter-spacing:1.6px; text-transform:uppercase;
+      color:var(--tos-fg-dim2); margin-bottom:7px; }
+    /* meters */
+    #tablet-os-overlay .tos-wg-meter { display:grid; grid-template-columns:1fr auto; gap:2px 6px; margin-bottom:6px; }
+    #tablet-os-overlay .tos-wg-mlabel { font-size:9.5px; letter-spacing:.4px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-wg-mnote { grid-column:2; grid-row:1; font-size:8.5px; color:var(--tos-fg-dim2);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:96px; text-align:right; }
+    #tablet-os-overlay .tos-wg-mbar { grid-column:1 / -1; height:4px; border-radius:2px; overflow:hidden;
+      background:rgba(0,0,0,.45); box-shadow:inset 0 1px 2px rgba(0,0,0,.6); }
+    #tablet-os-overlay .tos-wg-mfill { display:block; height:100%; border-radius:2px; background:var(--mg-accent); transition:width .3s ease; }
+    #tablet-os-overlay .tos-wg-mfill.band-warn { background:var(--yellow, #d8c23f); }
+    #tablet-os-overlay .tos-wg-mfill.band-bad  { background:var(--orange, #e08a3a); }
+    #tablet-os-overlay .tos-wg-mfill.band-crit { background:var(--red, #e0413a); }
+    /* Glyph-led lines: a big mark carries the meaning, the words confirm it. */
+    #tablet-os-overlay .tos-wg-glyphed { display:flex; align-items:center; gap:9px; min-width:0; }
+    #tablet-os-overlay .tos-wg-glyph { flex:0 0 auto; font-size:24px; line-height:1; opacity:.9;
+      filter:drop-shadow(0 0 6px color-mix(in srgb, var(--mg-accent) 45%, transparent)); }
+    #tablet-os-overlay .tos-wg-lstack { flex:1; min-width:0; }
+    #tablet-os-overlay .tos-wg-line.lead { font-size:12.5px; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-wg-line.lead + .tos-wg-line { font-size:9.5px; color:var(--tos-fg-dim); }
+    /* bar: a stacked proportion + a keyed legend. */
+    #tablet-os-overlay .tos-wg-track { display:flex; height:9px; border-radius:5px; overflow:hidden; gap:1px;
+      background:rgba(0,0,0,.45); box-shadow:inset 0 1px 2px rgba(0,0,0,.6); }
+    #tablet-os-overlay .tos-wg-seg { display:block; min-width:2px; transition:flex .4s ease; }
+    #tablet-os-overlay .tos-wg-seg.tone-good { background:var(--mg-accent); }
+    #tablet-os-overlay .tos-wg-seg.tone-warn { background:var(--yellow, #d8c23f); }
+    #tablet-os-overlay .tos-wg-seg.tone-bad  { background:var(--red, #e0413a); }
+    #tablet-os-overlay .tos-wg-legend { display:flex; flex-wrap:wrap; gap:3px 10px; margin-top:7px; }
+    #tablet-os-overlay .tos-wg-key { display:inline-flex; align-items:center; gap:4px; font-size:9px;
+      letter-spacing:.3px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-wg-swatch { width:7px; height:7px; border-radius:2px; flex:0 0 auto; }
+    #tablet-os-overlay .tos-wg-swatch.tone-good { background:var(--mg-accent); }
+    #tablet-os-overlay .tos-wg-swatch.tone-warn { background:var(--yellow, #d8c23f); }
+    #tablet-os-overlay .tos-wg-swatch.tone-bad  { background:var(--red, #e0413a); }
+    /* stat */
+    #tablet-os-overlay .tos-wg-stat { display:flex; align-items:baseline; gap:7px; min-width:0; }
+    #tablet-os-overlay .tos-wg-icon { font-size:22px; line-height:1;
+      filter:drop-shadow(0 0 6px color-mix(in srgb, var(--mg-accent) 40%, transparent)); }
+    #tablet-os-overlay .tos-wg-big { font-size:19px; font-weight:bold; color:var(--tos-fg); letter-spacing:.5px; }
+    #tablet-os-overlay .tos-wg-sub { flex:1; min-width:0; font-size:9.5px; color:var(--tos-fg-dim);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-transform:capitalize; }
+    #tablet-os-overlay .tos-wg-stat.tone-warn .tos-wg-big { color:var(--yellow, #d8c23f); }
+    #tablet-os-overlay .tos-wg-stat.tone-bad .tos-wg-big { color:var(--red, #e0413a); }
+    #tablet-os-overlay .tos-wg-note { margin-top:6px; font-size:8.5px; letter-spacing:.3px; color:var(--tos-fg-dim2);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* lines */
+    #tablet-os-overlay .tos-wg-line { display:flex; gap:6px; justify-content:space-between; font-size:10px;
+      color:var(--tos-fg); margin-bottom:4px; min-width:0; }
+    #tablet-os-overlay .tos-wg-line > span:first-child { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #tablet-os-overlay .tos-wg-lsub { color:var(--tos-fg-dim2); white-space:nowrap; }
+
+    /* ── Home toolbar ──────────────────────────────────────────────────────────
+       One short strip under the grid holding the tools that used to be tiles, so
+       they stop eating app slots. It shares the space below the grid with the
+       widget cards, hence the compact height: icon over a 7px label, four of them
+       on one line at any tablet width. */
+    #tablet-os-overlay .tos-hbar { display:flex; align-items:center; gap:6px; margin-top:12px; }
+    #tablet-os-overlay .tos-hbar-btn { flex:1 1 0; min-width:0; display:flex; flex-direction:column;
+      align-items:center; gap:2px; cursor:pointer; padding:5px 4px 4px; border-radius:6px; font:inherit;
+      color:var(--tos-fg-dim); background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi); transition:filter .12s, color .12s; }
+    #tablet-os-overlay .tos-hbar-btn:hover { filter:brightness(1.16); color:var(--tos-fg); }
+    #tablet-os-overlay .tos-hbar-btn:active { transform:translateY(1px); }
+    /* A toggle that's ON wears the accent, so the strip doubles as a status line. */
+    #tablet-os-overlay .tos-hbar-btn.on { color:var(--mg-accent);
+      border-color:color-mix(in srgb, var(--mg-accent) 55%, transparent);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), 0 0 10px color-mix(in srgb, var(--mg-accent) 20%, transparent); }
+    #tablet-os-overlay .tos-hbar-ic { font-size:14px; line-height:1; }
+    #tablet-os-overlay .tos-hbar-ic.srch { color:var(--mg-accent); padding:0 2px 0 4px; }
+    #tablet-os-overlay .tos-hbar-lb { font-size:7.5px; letter-spacing:.8px; text-transform:uppercase;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+    /* Find field — takes the whole strip while it's open; Done gives the row back. */
+    #tablet-os-overlay .tos-hbar-input { flex:1 1 auto; min-width:0; padding:5px 8px; font:inherit; font-size:12px;
+      color:var(--tos-fg); background:var(--bg, #0c1114); border-radius:6px;
+      border:1px solid color-mix(in srgb, var(--mg-accent) 34%, transparent); }
+    #tablet-os-overlay .tos-hbar.searching .tos-hbar-btn { flex:0 0 auto; min-width:52px; }
+    /* A stashed app turning up in a search result: dimmed, dashed, tap to restore. */
+    #tablet-os-overlay .tos-tile-stashed { opacity:.5; border-style:dashed; box-shadow:none; }
+    #tablet-os-overlay .tos-tile-stashed:hover { opacity:.85; }
+
+    /* ── Mobile / short-viewport safety ────────────────────────────────────────
+       The tablet is the half of the game you cannot reach by typing, so it has to
+       work on a phone. Two independent triggers, because they are different
+       problems: data-density="compact" is the client's own mobile layout (set by
+       main.js and used by the rest of this sheet), while the max-height query
+       catches a laptop in a short window, where a fixed 820px chassis would push
+       the toolbar off the bottom.
+
+       Everything here only SHRINKS — same four columns, same shapes, same code
+       paths. A phone must not get a different grid geometry, or a group's saved
+       cols (a 2×2 stays 2×2) would mean something different on each device. */
+    html[data-density="compact"] #tablet-os-overlay .tos-panel {
+      width:min(760px,100vw); height:100dvh; max-height:100dvh; border-width:1px; border-radius:0; }
+    html[data-density="compact"] #tablet-os-overlay .tos-anchor { left:0; top:0; transform:none; width:100vw; }
+    /* Tighter tiles: the icon carries the recognition, the label just confirms it.
+       The row height shrinks with them so the reserved four-row block still fits. */
+    html[data-density="compact"] #tablet-os-overlay { --tos-tile-h:56px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-homegrid { min-height:calc(var(--tos-tile-h) * 4 + 6px * 3); }
+    html[data-density="compact"] #tablet-os-overlay .tos-grid { gap:6px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-tile { padding:7px 3px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-tile .tos-icon { font-size:18px; margin-bottom:3px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-tile .tos-icon svg { width:19px; height:19px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-tile .tos-name { font-size:9px; letter-spacing:.2px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
+    html[data-density="compact"] #tablet-os-overlay .tos-grp-inner { gap:3px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-grp-inner .tos-tile { padding:3px 2px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-grp-inner .tos-tile .tos-icon { font-size:15px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-grp-inner .tos-tile .tos-icon svg { width:16px; height:16px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-grp-inner .tos-tile .tos-name { font-size:7.5px; }
+    /* Toolbar keeps its labels (they are what make the icons legible to a newcomer)
+       but gives up padding; the widget cards go single-file so nothing is squeezed
+       to an unreadable width. */
+    html[data-density="compact"] #tablet-os-overlay .tos-hbar-btn { padding:4px 2px 3px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-hbar-lb { font-size:7px; letter-spacing:.4px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-widgets { grid-template-columns:1fr; gap:6px; }
+    /* Touch targets: the page dots are 6px of paint, so they keep their generous
+       invisible padding and gain a little more room to be thumbed. */
+    html[data-density="compact"] #tablet-os-overlay .tos-page-dot { padding:8px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-page-arrow { padding:4px 10px; font-size:17px; }
+    /* No cards: SPEND the widget space on the tiles instead of shrinking the chassis.
+       Shrinking was the first answer and it was the wrong one — the panel got shorter
+       but the grid still sat in the top two-thirds with a band of nothing under it, so
+       the device read as half-empty either way. The apps are the reason the home screen
+       exists; with nothing else competing for the room they get to be a proper
+       thumb-sized target. The grid is four fixed rows, so this is the one place bigger
+       tiles cost nothing. */
+    /* The knob is --tos-tile-h, NOT padding. The home grid runs on fixed-height rows
+       (grid-auto-rows, see the --tos-tile-h block above) so the furniture below it can't
+       move when a page is half empty — which means growing a tile's PADDING just pushes
+       its label out of a 66px row, where the next row clips it. Raise the row and the
+       tile fills it. 116px ≈ the leftover once the header, summary, pager and toolbar
+       have taken theirs, so four rows genuinely use the screen instead of leaving a
+       band of nothing under the toolbar. min-height follows automatically: it's a calc
+       on this same variable. */
+    #tablet-os-overlay.tos-no-widgets { --tos-tile-h:116px; }
+    /* Centre the icon+label in the taller row rather than letting them sit at the top
+       with the growth all below them. */
+    #tablet-os-overlay.tos-no-widgets .tos-tile { display:flex; flex-direction:column;
+      align-items:center; justify-content:center; padding:8px 6px; border-radius:9px; }
+    #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon { font-size:30px; margin-bottom:9px; }
+    #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon svg { width:31px; height:31px; }
+    #tablet-os-overlay.tos-no-widgets .tos-tile .tos-name { font-size:11.5px; letter-spacing:.6px; }
+    #tablet-os-overlay.tos-no-widgets .tos-grid { gap:10px; }
+    /* Groups keep their proportions inside the bigger grid rather than inheriting the
+       full tile size (a group is a sub-grid — its tiles are meant to read as smaller). */
+    #tablet-os-overlay.tos-no-widgets .tos-grp-inner .tos-tile { padding:7px 4px; }
+    #tablet-os-overlay.tos-no-widgets .tos-grp-inner .tos-tile .tos-icon { font-size:20px; margin-bottom:3px; }
+    #tablet-os-overlay.tos-no-widgets .tos-grp-inner .tos-tile .tos-icon svg { width:21px; height:21px; }
+    #tablet-os-overlay.tos-no-widgets .tos-grp-inner .tos-tile .tos-name { font-size:9.5px; }
+    /* A short window (not a phone) — just don't let the chassis exceed the viewport. */
+    @media (max-height:860px) {
+      #tablet-os-overlay .tos-panel { height:94vh; }
+    }
+    /* Shorter windows get shorter rows, in steps, so four rows always fit without the
+       home screen scrolling — the whole promise of a fixed-shape grid. Only the row
+       height moves; the tile keeps its centred layout at every size, so a label can
+       never end up clipped the way it did when this scaled padding instead. */
+    @media (max-height:760px) {
+      #tablet-os-overlay.tos-no-widgets { --tos-tile-h:96px; }
+      #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon { font-size:26px; margin-bottom:7px; }
+      #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon svg { width:27px; height:27px; }
+    }
+    @media (max-height:660px) {
+      #tablet-os-overlay.tos-no-widgets { --tos-tile-h:78px; }
+      #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon { font-size:22px; margin-bottom:5px; }
+      #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon svg { width:23px; height:23px; }
+      #tablet-os-overlay.tos-no-widgets .tos-tile .tos-name { font-size:10px; }
+    }
+    @media (max-height:620px) {
+      #tablet-os-overlay .tos-tile { padding:6px 3px; }
+      #tablet-os-overlay .tos-tile .tos-icon { font-size:18px; margin-bottom:2px; }
+      #tablet-os-overlay .tos-tile .tos-name { font-size:9.5px; }
+    }
+
+    /* Page dots — only rendered past one page, so a small home screen looks exactly
+       as it did before paging existed. Dots are drop targets as well as buttons
+       (drag a tile onto one to send the app to that page), hence the generous hit
+       padding on something that draws as a 6px dot. */
+    #tablet-os-overlay .tos-home-pager { display:flex; align-items:center; justify-content:center; gap:4px; margin-top:12px; }
+    #tablet-os-overlay .tos-page-dot { width:6px; height:6px; border-radius:50%; cursor:pointer;
+      box-sizing:content-box; padding:6px; background-clip:content-box;
+      background-color:color-mix(in srgb, var(--tos-fg) 28%, transparent); transition:background-color .15s, transform .1s; }
+    #tablet-os-overlay .tos-page-dot:hover { background-color:color-mix(in srgb, var(--mg-accent) 60%, transparent); transform:scale(1.2); }
+    #tablet-os-overlay .tos-page-dot.on { background-color:var(--mg-accent);
+      box-shadow:0 0 8px color-mix(in srgb, var(--mg-accent) 55%, transparent); }
+    #tablet-os-overlay .tos-page-arrow { cursor:pointer; padding:2px 7px; font-size:15px; line-height:1;
+      color:var(--tos-fg-dim); user-select:none; }
+    #tablet-os-overlay .tos-page-arrow:hover { color:var(--mg-accent); }
+    #tablet-os-overlay .tos-page-arrow.off { opacity:.25; pointer-events:none; }
+    /* Mid-drag, the dots read as the targets they are. */
+    #tablet-os-overlay .tos-grid-arranging .tos-page-dot { background-color:color-mix(in srgb, var(--mg-accent) 45%, transparent);
+      outline:1px dashed color-mix(in srgb, var(--mg-accent) 45%, transparent); outline-offset:-2px; }
+
+    /* Selection mode (armed by the ⧉ tile): tiles pick instead of open, and a bar
+       along the bottom of the grid holds the count and the commit. */
+    #tablet-os-overlay .tos-selecting { user-select:none; }
+    #tablet-os-overlay .tos-selecting .tos-tile { cursor:copy; }
+    #tablet-os-overlay .tos-selecting .tos-tile:active { transform:none; }
+    #tablet-os-overlay .tos-selbar { position:sticky; bottom:0; z-index:5; display:flex; align-items:center; gap:8px;
+      margin-top:12px; padding:8px 10px; border-radius:8px;
+      border:1px solid color-mix(in srgb, var(--mg-accent) 34%, transparent);
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      box-shadow:0 -4px 16px rgba(0,0,0,.35), inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-selbar-n { flex:1; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-selbar-n b { color:var(--mg-accent); font-size:12.5px; }
+    /* Group sheet (name + colour), reusing the add-apps card chrome below. */
+    #tablet-os-overlay .tos-grp-input { width:100%; box-sizing:border-box; padding:7px 9px; margin-bottom:12px;
+      font:inherit; font-size:12.5px; color:var(--tos-fg); background:var(--bg, #0c1114);
+      border:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent); border-radius:6px; }
+    #tablet-os-overlay .tos-grp-swatches { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+    #tablet-os-overlay .tos-grp-sw { width:24px; height:24px; border-radius:50%; cursor:pointer;
+      border:2px solid transparent; box-shadow:0 1px 4px rgba(0,0,0,.45); transition:transform .1s; }
+    #tablet-os-overlay .tos-grp-sw.on { border-color:var(--tos-fg); transform:scale(1.14); }
+    #tablet-os-overlay .tos-grp-btns { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+    #tablet-os-overlay .tos-grp-btn { cursor:pointer; padding:6px 13px; border-radius:6px; font-size:11px;
+      letter-spacing:.7px; text-transform:uppercase; color:var(--tos-fg);
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-grp-btn:hover { filter:brightness(1.15); }
+    #tablet-os-overlay .tos-grp-btn.danger { color:var(--red, #e0413a);
+      border-color:color-mix(in srgb, var(--red, #e0413a) 45%, transparent); }
     /* Add-apps sheet: a scrim + card over the home screen, listing removed apps. */
     #tablet-os-overlay .tos-addsheet { position:absolute; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
-      padding:18px; background:color-mix(in srgb, var(--bg,#030806) 72%, transparent); backdrop-filter:blur(2px); }
-    #tablet-os-overlay .tos-addsheet-card { width:100%; max-width:340px; max-height:88%; overflow:auto; padding:14px;
+      padding:9px; background:color-mix(in srgb, var(--bg,#030806) 72%, transparent); backdrop-filter:blur(2px); }
+    #tablet-os-overlay .tos-addsheet-card { width:100%; max-width:340px; max-height:94%; overflow:auto; padding:14px;
       border-radius:10px; border:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent);
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); box-shadow:0 12px 34px rgba(0,0,0,.55); }
-    #tablet-os-overlay .tos-addsheet-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;
+    /* The stash listing takes the whole screen: with the default sixteen out, there
+       are ~20 apps in here, and at the home grid's 4 columns that is five rows of
+       full-size tiles — guaranteed to scroll. So this card is as wide as the tablet
+       and its tiles are denser, which fits the whole stash in view. The group-naming
+       sheet keeps the narrow default; only this one opts in. */
+    #tablet-os-overlay .tos-addsheet-card.wide { max-width:100%; padding:11px; }
+    #tablet-os-overlay .tos-addsheet-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(62px,1fr)); gap:6px; }
+    #tablet-os-overlay .tos-addsheet-grid .tos-tile { padding:6px 3px; border-radius:6px; }
+    #tablet-os-overlay .tos-addsheet-grid .tos-tile .tos-icon { font-size:17px; margin-bottom:3px; }
+    #tablet-os-overlay .tos-addsheet-grid .tos-tile .tos-icon svg { width:18px; height:18px; }
+    #tablet-os-overlay .tos-addsheet-grid .tos-tile .tos-name { font-size:9px; letter-spacing:.2px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
+    #tablet-os-overlay .tos-addsheet-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;
       font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-addsheet-x { cursor:pointer; color:var(--mg-accent); font-size:14px; padding:0 4px; }
     #tablet-os-overlay .tos-addsheet-x:hover { filter:brightness(1.2); }
@@ -488,9 +980,24 @@ function ensureStyles() {
     #tablet-os-overlay .tos-cal-cell.tos-cal-today { color:var(--tos-fg); border-color:var(--mg-accent);
       box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--mg-accent) 55%, transparent); }
     #tablet-os-overlay .tos-cal-num { line-height:1; }
-    #tablet-os-overlay .tos-cal-dots { position:absolute; bottom:4px; left:0; right:0; display:flex; gap:2px; justify-content:center; }
-    #tablet-os-overlay .tos-cal-dot { width:4px; height:4px; border-radius:50%; background:var(--mg-accent); }
-    #tablet-os-overlay .tos-cal-dot-rent { background:var(--tos-fg-dim); }
+    /* Event text in the cell. The day number stays top-centre; this sits under it,
+       centred, clipped to the cell. Two lines max — a month cell is barely two words
+       wide, so shortEventText() does the heavy lifting server-side of the ellipsis. */
+    #tablet-os-overlay .tos-cal-ev { position:absolute; left:2px; right:2px; top:52%;
+      font-size:7.5px; line-height:1.15; letter-spacing:.1px; text-align:center; color:var(--tos-fg-dim);
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    #tablet-os-overlay .tos-cal-has .tos-cal-ev { color:var(--tos-fg); }
+    #tablet-os-overlay .tos-cal-more { color:var(--mg-accent); margin-left:2px; font-weight:bold; }
+    /* Dots move to the TOP-RIGHT corner so the text below has the cell to itself, and
+       they are twice the size with a glow — a 4px dot on a dark cell was invisible at
+       a glance, which is the one thing a calendar marker has to be. */
+    #tablet-os-overlay .tos-cal-dots { position:absolute; top:3px; right:3px; left:auto; display:flex; gap:2px; justify-content:flex-end; }
+    #tablet-os-overlay .tos-cal-dot { width:7px; height:7px; border-radius:50%; background:var(--mg-accent);
+      box-shadow:0 0 6px color-mix(in srgb, var(--mg-accent) 85%, transparent), 0 0 0 1px rgba(0,0,0,.45); }
+    #tablet-os-overlay .tos-cal-dot-rent { background:var(--yellow, #d8c23f);
+      box-shadow:0 0 6px color-mix(in srgb, var(--yellow, #d8c23f) 85%, transparent), 0 0 0 1px rgba(0,0,0,.45); }
+    /* A day with something on it earns a tinted cell, not just a marker. */
+    #tablet-os-overlay .tos-cal-cell.tos-cal-has { background:color-mix(in srgb, var(--mg-accent) 9%, var(--tos-surface-lo)); }
     /* Per-quest action log (client-only), foot of a quest's detail screen. */
     #tablet-os-overlay .tos-qlog { margin-top:14px; padding-top:10px; border-top:1px solid var(--tos-border); }
     #tablet-os-overlay .tos-qlog-hdr { font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-bottom:6px; }
@@ -501,6 +1008,176 @@ function ensureStyles() {
     /* Detail view */
     #tablet-os-overlay .tos-detail-name { font-size:18px; color:var(--tos-fg); margin-bottom:4px; }
     #tablet-os-overlay .tos-detail-desc { font-size:12.5px; color:var(--tos-fg-dim); margin-bottom:11px; line-height:1.5; }
+    /* Long-form reading. Wider leading and a capped measure — a chapter set at the
+       panel's full width is a wall, and nobody finishes a wall. */
+    #tablet-os-overlay .tos-detail-body { font-size:13.5px; line-height:1.72; color:var(--tos-fg); max-width:62ch; margin-bottom:12px; }
+    #tablet-os-overlay .tos-detail-body p { margin:0 0 0.95em; }
+
+    /* ── The book (library chapters) ────────────────────────────────────────────
+       These are pre-collapse artifacts, and they should read like one: aged paper,
+       a serif face, an illuminated initial, and the shadow of a spine down the left
+       edge. All of it derives from the theme — the paper is the theme's own surface
+       warmed toward parchment, so a green terminal gets a green-tinged vellum rather
+       than a beige rectangle nobody asked for. */
+    #tablet-os-overlay .tos-book { position:relative; max-width:60ch; padding:20px 22px 18px 30px;
+      border-radius:3px 8px 8px 3px; font-size:14px; line-height:1.78; letter-spacing:.1px;
+      font-family:Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
+      color:color-mix(in srgb, var(--tos-fg) 92%, #d9c39a);
+      background:
+        /* the faintest foxing, so the page isn't a flat fill */
+        radial-gradient(120% 80% at 12% 8%, color-mix(in srgb, #d9c39a 9%, transparent), transparent 60%),
+        radial-gradient(90% 70% at 88% 92%, color-mix(in srgb, #a8875a 8%, transparent), transparent 55%),
+        linear-gradient(100deg, color-mix(in srgb, var(--tos-surface-hi) 82%, #c9ab7d),
+                                color-mix(in srgb, var(--tos-surface-lo) 88%, #b9975f));
+      border:1px solid color-mix(in srgb, #6b5433 40%, var(--tos-border));
+      box-shadow:inset 22px 0 26px -22px rgba(0,0,0,.55),   /* the gutter, page curving into the spine */
+                 inset 0 0 40px color-mix(in srgb, #4a3a22 16%, transparent),
+                 0 3px 12px rgba(0,0,0,.35); }
+    /* The spine itself: a dark band down the binding edge. */
+    #tablet-os-overlay .tos-book::before { content:''; position:absolute; left:0; top:0; bottom:0; width:7px;
+      border-radius:3px 0 0 3px; pointer-events:none;
+      background:linear-gradient(90deg, color-mix(in srgb, #4a3a22 55%, transparent), transparent); }
+    /* ILLUMINATED INITIAL, via ::first-letter — no markup, no extra element. That
+       matters: the narration splits this text into character-aligned sentence spans
+       and the glossary matches word runs, so inserting a <span> for the capital would
+       shift both. ::first-letter styles the glyph where it already is. */
+    #tablet-os-overlay .tos-book p:first-of-type::first-letter {
+      float:left; font-size:3.5em; line-height:.82; margin:2px 8px 0 0; padding:4px 8px 2px;
+      font-family:'Trajan Pro', Georgia, serif; font-weight:bold;
+      color:color-mix(in srgb, var(--mg-accent) 70%, #7a5c2a);
+      background:linear-gradient(160deg, color-mix(in srgb, var(--mg-accent) 15%, transparent), transparent);
+      border:1px solid color-mix(in srgb, var(--mg-accent) 34%, transparent);
+      text-shadow:0 1px 0 rgba(255,255,255,.14); }
+    /* Book paragraphs indent and close up, the way a set page does — the blank line
+       between paragraphs is a screen convention, not a book one. The first one after
+       an illuminated capital is never indented. */
+    #tablet-os-overlay .tos-book p { margin:0 0 .35em; text-indent:1.6em; }
+    #tablet-os-overlay .tos-book p:first-of-type { text-indent:0; }
+    /* Narration highlight and glossed words have to survive the serif setting. */
+    #tablet-os-overlay .tos-book .tos-gloss { border-bottom-color:color-mix(in srgb, var(--mg-accent) 55%, transparent); }
+    /* The title above a chapter reads as a title page, not a UI label. */
+    #tablet-os-overlay .tos-book-title { font-family:Georgia, 'Palatino Linotype', serif;
+      font-size:16px; letter-spacing:2px; text-transform:none; }
+    /* ── The shelf, a cover, a table of contents ────────────────────────────────
+       Every colour here is derived: --bk-hue comes from a hash of the book's id
+       (see bookHue), and the cloth mixes that hue into the THEME's own surface, so
+       a green-terminal tablet gets eight distinguishable bindings rather than eight
+       stock jacket colours fighting the palette. */
+    #tablet-os-overlay .tos-lib-shelf { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:10px; }
+    /* The board the row stands on — a lit edge and a shadow under it, nothing more. */
+    #tablet-os-overlay .tos-lib-board { height:9px; margin:2px 0 12px; border-radius:2px;
+      background:linear-gradient(180deg, color-mix(in srgb, var(--tos-border) 80%, transparent), transparent);
+      box-shadow:0 6px 14px -6px rgba(0,0,0,.6); }
+    #tablet-os-overlay .tos-lib-card { display:flex; gap:11px; align-items:center; cursor:pointer;
+      padding:9px 11px 9px 9px; border-radius:4px; border:1px solid var(--tos-border);
+      background:linear-gradient(180deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      transition:transform .14s ease, border-color .14s ease, box-shadow .14s ease; }
+    /* A book you pull out tilts up off the shelf. */
+    #tablet-os-overlay .tos-lib-card:hover { transform:translateY(-2px);
+      border-color:color-mix(in srgb, var(--mg-accent) 45%, var(--tos-border));
+      box-shadow:0 6px 16px -8px rgba(0,0,0,.7); }
+    #tablet-os-overlay .tos-lib-card-txt { min-width:0; flex:1; }
+    #tablet-os-overlay .tos-lib-card-title { font-family:Georgia,'Palatino Linotype',serif; font-size:13.5px;
+      color:var(--tos-fg); line-height:1.25; }
+    #tablet-os-overlay .tos-lib-card-by { font-size:11px; color:var(--tos-fg-dim); margin-top:2px; font-style:italic; }
+    #tablet-os-overlay .tos-lib-card-meta { font-size:10.5px; color:var(--tos-fg-dim); margin-top:3px; opacity:.8; }
+
+    /* The plate. Cloth, a foil rule, a stamped monogram, and the spine's shadow. */
+    #tablet-os-overlay .tos-lib-plate { position:relative; flex:none; border-radius:2px 4px 4px 2px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px;
+      background:
+        linear-gradient(150deg, hsl(var(--bk-hue) 34% 34% / .85), hsl(var(--bk-hue) 40% 18% / .92)),
+        linear-gradient(180deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid hsl(var(--bk-hue) 30% 12% / .8);
+      box-shadow:inset 0 0 18px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.45); }
+    #tablet-os-overlay .tos-lib-plate-sm { width:44px; height:62px; }
+    #tablet-os-overlay .tos-lib-plate-lg { width:104px; height:148px; gap:9px; }
+    #tablet-os-overlay .tos-lib-plate-spine { position:absolute; left:0; top:0; bottom:0; width:6px;
+      border-radius:2px 0 0 2px; background:linear-gradient(90deg, rgba(0,0,0,.5), transparent); }
+    #tablet-os-overlay .tos-lib-plate-mono { font-family:'Trajan Pro', Georgia, serif; font-weight:bold;
+      letter-spacing:1px; font-size:14px; color:color-mix(in srgb, var(--mg-accent) 62%, #e8d8ae);
+      text-shadow:0 1px 0 rgba(0,0,0,.5); }
+    #tablet-os-overlay .tos-lib-plate-lg .tos-lib-plate-mono { font-size:28px; letter-spacing:2px; }
+    #tablet-os-overlay .tos-lib-plate-rule { width:56%; height:1px;
+      background:color-mix(in srgb, var(--mg-accent) 45%, transparent); }
+    #tablet-os-overlay .tos-lib-plate-year { font-size:8.5px; letter-spacing:1.5px;
+      color:color-mix(in srgb, #e8d8ae 55%, transparent); }
+    #tablet-os-overlay .tos-lib-plate-lg .tos-lib-plate-year { font-size:11px; }
+
+    /* Progress. Thin, accent-coloured, and only ever drawn for a book you started —
+       an empty bar on every unopened title reads as a chore list. */
+    #tablet-os-overlay .tos-lib-bar { height:3px; margin-top:5px; border-radius:2px; overflow:hidden;
+      background:color-mix(in srgb, var(--tos-border) 70%, transparent); }
+    #tablet-os-overlay .tos-lib-bar span { display:block; height:100%;
+      background:linear-gradient(90deg, color-mix(in srgb, var(--mg-accent) 55%, transparent), var(--mg-accent)); }
+    #tablet-os-overlay .tos-lib-bar-wide { margin:10px 0 0; height:4px; }
+
+    /* Cover page: the plate beside the blurb, set on the same parchment as a page. */
+    #tablet-os-overlay .tos-lib-cover { display:flex; gap:16px; align-items:flex-start; margin-bottom:12px; }
+    #tablet-os-overlay .tos-lib-cover-txt { min-width:0; flex:1; }
+    #tablet-os-overlay .tos-lib-cover-title { font-family:Georgia,'Palatino Linotype',serif; font-size:18px;
+      color:var(--tos-fg); line-height:1.2; }
+    #tablet-os-overlay .tos-lib-cover-by { font-size:12px; font-style:italic; color:var(--tos-fg-dim); margin-top:3px; }
+    #tablet-os-overlay .tos-lib-blurb { margin-top:9px; font-size:13px; line-height:1.66; max-width:56ch;
+      font-family:Georgia,'Palatino Linotype',serif;
+      color:color-mix(in srgb, var(--tos-fg) 92%, #d9c39a);
+      padding:11px 13px; border-radius:3px 6px 6px 3px;
+      background:linear-gradient(100deg, color-mix(in srgb, var(--tos-surface-hi) 82%, #c9ab7d),
+                                         color-mix(in srgb, var(--tos-surface-lo) 88%, #b9975f));
+      border:1px solid color-mix(in srgb, #6b5433 40%, var(--tos-border)); }
+    #tablet-os-overlay .tos-lib-facts { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:9px;
+      font-size:11px; letter-spacing:.4px; color:var(--tos-fg-dim); text-transform:uppercase; }
+    #tablet-os-overlay .tos-lib-prov { margin-top:8px; font-size:10.5px; line-height:1.5; opacity:.65;
+      color:var(--tos-fg-dim); max-width:56ch; }
+
+    /* Table of contents: leader dots out to a reading time, the way a printed one
+       runs out to a page number. Chapters behind the bookmark dim; the bookmark
+       itself gets the ribbon. */
+    #tablet-os-overlay .tos-lib-toc { margin-bottom:12px; }
+    #tablet-os-overlay .tos-lib-toc-head { font-family:Georgia,'Palatino Linotype',serif; font-size:12px;
+      letter-spacing:3px; text-transform:uppercase; color:var(--tos-fg-dim);
+      padding-bottom:6px; margin-bottom:4px; border-bottom:1px solid var(--tos-border); }
+    #tablet-os-overlay .tos-lib-toc-row { display:flex; align-items:baseline; gap:8px; cursor:pointer;
+      padding:7px 8px; border-radius:3px; border-left:2px solid transparent;
+      font-family:Georgia,'Palatino Linotype',serif; font-size:13px; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-lib-toc-row:hover { background:color-mix(in srgb, var(--mg-accent) 12%, transparent);
+      border-left-color:color-mix(in srgb, var(--mg-accent) 60%, transparent); }
+    #tablet-os-overlay .tos-lib-toc-n { flex:none; width:2.1em; text-align:right; font-size:11px;
+      color:var(--tos-fg-dim); font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-lib-toc-t { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60%; }
+    /* The leaders. A repeating dot gradient rather than a row of literal periods,
+       so it stretches to whatever space is left instead of wrapping. */
+    #tablet-os-overlay .tos-lib-toc-dots { flex:1; min-width:12px; height:1em; align-self:flex-end;
+      background-image:radial-gradient(circle, color-mix(in srgb, var(--tos-fg-dim) 55%, transparent) 1px, transparent 1px);
+      background-size:5px 5px; background-position:0 .72em; background-repeat:repeat-x; opacity:.6; }
+    #tablet-os-overlay .tos-lib-toc-len { flex:none; font-size:10.5px; color:var(--tos-fg-dim);
+      font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-lib-toc-read { opacity:.55; }
+    #tablet-os-overlay .tos-lib-toc-at { border-left-color:var(--mg-accent);
+      background:color-mix(in srgb, var(--mg-accent) 10%, transparent); }
+    #tablet-os-overlay .tos-lib-toc-at .tos-lib-toc-t::after { content:' ⌖'; color:var(--mg-accent); }
+    html[data-density="compact"] #tablet-os-overlay .tos-lib-shelf { grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); }
+    html[data-density="compact"] #tablet-os-overlay .tos-lib-plate-lg { width:82px; height:118px; }
+
+    html[data-density="compact"] #tablet-os-overlay .tos-book { padding:14px 14px 12px 20px; font-size:13.5px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-book p:first-of-type::first-letter { font-size:3em; }
+    /* The sentence the voice is on. Background rather than colour, so the
+       highlight survives every theme without fighting the palette. */
+    #tablet-os-overlay .tos-narr-s { transition:background-color .18s ease; border-radius:2px; }
+    #tablet-os-overlay .tos-narr-on { background:color-mix(in srgb, var(--mg-accent) 26%, transparent); box-shadow:0 0 0 2px color-mix(in srgb, var(--mg-accent) 26%, transparent); }
+    /* Glossed word: a dotted underline, not a colour — a chapter with forty
+       highlighted words reads like a ransom note. */
+    #tablet-os-overlay .tos-gloss { font-weight:inherit; border-bottom:1px dotted color-mix(in srgb, var(--mg-accent) 65%, transparent); cursor:help; position:relative; }
+    #tablet-os-overlay .tos-gloss-open::after {
+      content:attr(data-gloss); position:absolute; left:0; top:1.55em; z-index:5;
+      width:max-content; max-width:min(30ch,70vw); padding:6px 9px;
+      background:var(--bg); border:1px solid var(--mg-accent); border-radius:4px;
+      font-size:11.5px; font-weight:400; line-height:1.45; color:var(--tos-fg);
+      box-shadow:0 4px 14px rgba(0,0,0,.5); white-space:normal;
+    }
+    #tablet-os-overlay .tos-narrate { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 10px; }
+    #tablet-os-overlay .tos-narrate-hint { font-size:11px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-narrate-min[disabled] { opacity:.4; cursor:default; }
     #tablet-os-overlay .tos-row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 12%, transparent); font-size:13px; }
     #tablet-os-overlay .tos-row span:first-child { color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-row span:last-child { color:var(--tos-fg); }
@@ -558,6 +1235,96 @@ function ensureStyles() {
     #tablet-os-overlay .tos-color-hex { font-family:'Courier New',monospace; font-size:13px; letter-spacing:1px; color:var(--tos-fg); }
     #tablet-os-overlay .tos-color-hint { flex:1 1 100%; font-size:11px; color:var(--tos-fg-dim2); }
 
+    /* ── Codex ───────────────────────────────────────────────────────────────
+       A reading surface, so it deliberately breaks the tablet's instrument look:
+       a measured column, generous leading, a serif face for prose only. The
+       chrome around it (shelf, contents, locks) stays in the tablet's own
+       monospace/caps idiom so the app still reads as part of the device. */
+    #tablet-os-overlay .tos-cx-root { --cx-serif: Georgia,'Times New Roman',serif; animation:tos-fade .28s ease; }
+    #tablet-os-overlay .tos-cx-hero { text-align:center; padding:16px 0 20px; border-bottom:1px solid var(--tos-border); margin-bottom:16px; }
+    #tablet-os-overlay .tos-cx-hero-eyebrow { font-size:10px; letter-spacing:3px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-cx-hero-title { font-size:31px; letter-spacing:12px; margin:7px 0 5px; color:var(--tos-fg); text-indent:12px;
+      text-shadow:0 0 22px color-mix(in srgb,var(--mg-accent) 40%,transparent); }
+    #tablet-os-overlay .tos-cx-hero-title.small { font-size:20px; letter-spacing:5px; text-indent:5px; }
+    #tablet-os-overlay .tos-cx-hero-sub { font-family:var(--cx-serif); font-style:italic; font-size:13px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-cx-shelf { display:flex; flex-direction:column; gap:9px; }
+    #tablet-os-overlay .tos-cx-shelf-row { display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 13px; border-radius:7px;
+      border:1px solid var(--tos-border); background:linear-gradient(165deg,var(--tos-surface-hi),var(--tos-surface-lo));
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi),inset 0 -2px 3px var(--tos-bevel-lo); transition:border-color .16s,transform .16s; }
+    #tablet-os-overlay .tos-cx-shelf-row:hover { border-color:color-mix(in srgb,var(--mg-accent) 55%,transparent); transform:translateX(2px); }
+    #tablet-os-overlay .tos-cx-glyph { font-size:21px; color:var(--mg-accent); text-shadow:0 0 12px color-mix(in srgb,var(--mg-accent) 55%,transparent); }
+    #tablet-os-overlay .tos-cx-shelf-txt { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+    #tablet-os-overlay .tos-cx-shelf-title { font-size:14px; letter-spacing:1.6px; text-transform:uppercase; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-cx-shelf-sub { font-family:var(--cx-serif); font-size:12.5px; font-style:italic; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-cx-shelf-meta { font-size:10.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--tos-fg-dim2); white-space:nowrap; }
+    #tablet-os-overlay .tos-cx-shelf-meta b { color:var(--mg-accent); margin-left:8px; font-size:14px; }
+    #tablet-os-overlay .tos-cx-prog { display:block; height:2px; margin-top:4px; background:var(--tos-surface-lo); border-radius:2px; overflow:hidden; max-width:190px; }
+    #tablet-os-overlay .tos-cx-prog.wide { max-width:none; flex:1; height:3px; }
+    #tablet-os-overlay .tos-cx-prog i { display:block; height:100%; background:var(--mg-accent); box-shadow:0 0 8px var(--mg-accent); }
+    #tablet-os-overlay .tos-cx-foot { font-family:var(--cx-serif); font-style:italic; font-size:12px; color:var(--tos-fg-dim2); text-align:center; margin:18px 0 4px; }
+    /* Volume contents */
+    #tablet-os-overlay .tos-cx-volhead { padding-bottom:13px; border-bottom:1px solid var(--tos-border); margin-bottom:13px; text-align:center; }
+    #tablet-os-overlay .tos-cx-note { font-family:var(--cx-serif); font-style:italic; font-size:12px; color:var(--tos-fg-dim2); max-width:44ch; margin:0 auto; }
+    #tablet-os-overlay .tos-cx-progline { display:flex; align-items:center; gap:9px; margin-top:11px; font-size:10.5px; letter-spacing:1.4px;
+      text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-cx-progline b { color:var(--mg-accent); }
+    #tablet-os-overlay .tos-cx-index { display:flex; flex-direction:column; }
+    #tablet-os-overlay .tos-cx-entry { display:flex; align-items:flex-start; gap:13px; padding:13px 4px; border-bottom:1px solid var(--tos-border); cursor:pointer; }
+    #tablet-os-overlay .tos-cx-entry:hover:not(.locked) .tos-cx-etitle { color:var(--mg-accent); }
+    #tablet-os-overlay .tos-cx-entry.locked { cursor:default; opacity:.72; }
+    #tablet-os-overlay .tos-cx-n { font-family:var(--cx-serif); font-size:16px; color:var(--tos-fg-dim2); min-width:30px; text-align:right; padding-top:1px; }
+    #tablet-os-overlay .tos-cx-etxt { flex:1; min-width:0; display:flex; flex-direction:column; gap:5px; }
+    #tablet-os-overlay .tos-cx-etitle { font-size:14px; letter-spacing:1.2px; color:var(--tos-fg); transition:color .16s; }
+    #tablet-os-overlay .tos-cx-elede { font-family:var(--cx-serif); font-size:12.5px; font-style:italic; color:var(--tos-fg-dim); line-height:1.45; }
+    /* A sealed entry shows its shape and nothing else — bars, not text. The body
+       never leaves the server for a locked chapter, so this is honest, not a mask. */
+    #tablet-os-overlay .tos-cx-redact { display:flex; flex-direction:column; gap:4px; margin:1px 0 2px; }
+    #tablet-os-overlay .tos-cx-redact i { display:block; height:7px; border-radius:2px; background:repeating-linear-gradient(90deg,
+      color-mix(in srgb,var(--tos-fg) 22%,transparent) 0 9px, transparent 9px 13px); }
+    #tablet-os-overlay .tos-cx-hint { font-family:var(--cx-serif); font-size:12px; font-style:italic; color:color-mix(in srgb,var(--mg-accent) 70%,var(--tos-fg-dim2)); }
+    #tablet-os-overlay .tos-cx-lock { font-size:9.5px; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim2);
+      border:1px solid var(--tos-border); border-radius:3px; padding:3px 6px; white-space:nowrap; }
+    #tablet-os-overlay .tos-cx-open { font-size:10px; letter-spacing:1.6px; text-transform:uppercase; color:var(--mg-accent); white-space:nowrap; padding-top:2px; }
+    /* The read */
+    #tablet-os-overlay .tos-cx-readbar { margin-bottom:9px; }
+    #tablet-os-overlay .tos-cx-back { cursor:pointer; font-size:10.5px; letter-spacing:1.6px; text-transform:uppercase; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-cx-back:hover { color:var(--mg-accent); }
+    #tablet-os-overlay .tos-cx-read { max-width:60ch; margin:0 auto; padding:6px 2px 4px; }
+    #tablet-os-overlay .tos-cx-num { font-family:var(--cx-serif); font-size:13px; letter-spacing:5px; color:var(--mg-accent); text-align:center; }
+    #tablet-os-overlay .tos-cx-eyebrow { font-size:9.5px; letter-spacing:3px; text-transform:uppercase; color:var(--tos-fg-dim2); text-align:center; margin-top:7px; }
+    #tablet-os-overlay .tos-cx-title { font-family:var(--cx-serif); font-size:27px; font-weight:400; line-height:1.15; text-align:center;
+      margin:9px 0 11px; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-cx-lede { font-family:var(--cx-serif); font-style:italic; font-size:14px; line-height:1.6; text-align:center;
+      color:var(--tos-fg-dim); margin:0 auto; max-width:46ch; }
+    #tablet-os-overlay .tos-cx-rule { text-align:center; letter-spacing:9px; font-size:8px; color:var(--tos-fg-dim2); margin:19px 0; }
+    #tablet-os-overlay .tos-cx-rule.top { margin:17px 0 15px; }
+    #tablet-os-overlay .tos-cx-p { font-family:var(--cx-serif); font-size:15px; line-height:1.72; color:var(--tos-fg); margin:0 0 15px; }
+    #tablet-os-overlay .tos-cx-drop { float:left; font-size:44px; line-height:.86; padding:3px 9px 0 0; color:var(--mg-accent);
+      text-shadow:0 0 18px color-mix(in srgb,var(--mg-accent) 45%,transparent); }
+    #tablet-os-overlay .tos-cx-pull { font-family:var(--cx-serif); font-size:17px; font-style:italic; line-height:1.5; text-align:center;
+      color:var(--mg-accent); margin:22px 0; padding:14px 12px; border-top:1px solid color-mix(in srgb,var(--mg-accent) 30%,transparent);
+      border-bottom:1px solid color-mix(in srgb,var(--mg-accent) 30%,transparent);
+      text-shadow:0 0 20px color-mix(in srgb,var(--mg-accent) 30%,transparent); }
+    #tablet-os-overlay .tos-cx-end { text-align:center; font-size:13px; color:var(--tos-fg-dim2); margin:6px 0 2px; }
+    #tablet-os-overlay .tos-cx-nav { display:flex; justify-content:space-between; gap:10px; margin-top:15px; padding-top:13px; border-top:1px solid var(--tos-border); }
+    #tablet-os-overlay .tos-cx-step { cursor:pointer; font-size:10.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--tos-fg-dim);
+      max-width:46%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #tablet-os-overlay .tos-cx-step:hover { color:var(--mg-accent); }
+    #tablet-os-overlay .tos-cx-step.off { opacity:.35; cursor:default; }
+    /* The chapter nav and the back link are 10.5px text with no box of their own —
+       a mouse target, not a thumb one. Under a coarse pointer they get real height
+       via padding, pulled back out with a matching negative margin so the reader's
+       spacing is unchanged; only the hit area grows. */
+    @media (hover:none), (pointer:coarse) {
+      #tablet-os-overlay .tos-cx-step { padding:12px 2px; margin:-12px 0; }
+      #tablet-os-overlay .tos-cx-back { display:inline-block; padding:11px 8px; margin:-11px -8px; }
+    }
+    @media (max-width:560px) {
+      #tablet-os-overlay .tos-cx-hero-title { font-size:25px; letter-spacing:8px; }
+      #tablet-os-overlay .tos-cx-title { font-size:22px; }
+      #tablet-os-overlay .tos-cx-p { font-size:14.5px; }
+    }
+
     /* ── Ideology reader ─────────────────────────────────────────────────────
        Paged: a tab strip + one page at a time (Overview / per-order / Field).
        Beveled panels + glow, per-order identity colour carried in --ic. */
@@ -570,8 +1337,15 @@ function ensureStyles() {
       --tos-fg-dim2: color-mix(in srgb, var(--tos-fg, var(--mg-accent)) 60%, var(--bg2, #12181b)); }
     #tablet-os-overlay .tos-ideo-sticky { position:sticky; top:0; z-index:6; margin:0 -13px; padding:6px 13px 0;
       background:var(--bg, #0c1114); box-shadow:0 7px 11px -7px rgba(0,0,0,0.6); }
-    #tablet-os-overlay .tos-ideo-nav { display:flex; gap:5px; overflow-x:auto; scrollbar-width:none; padding-bottom:9px; margin-bottom:11px; border-bottom:1px solid var(--tos-border); }
-    #tablet-os-overlay .tos-ideo-nav::-webkit-scrollbar { display:none; }
+    /* The order strip overflows past ~5 tabs — give it a visible themed rail so
+       it reads as scrollable instead of needing a middle-mouse drag. */
+    #tablet-os-overlay .tos-ideo-nav { display:flex; gap:5px; overflow-x:auto; overflow-y:hidden; padding-bottom:7px; margin-bottom:11px; border-bottom:1px solid var(--tos-border);
+      scrollbar-width:thin; scrollbar-color:color-mix(in srgb,var(--ic,var(--mg-accent)) 45%,transparent) transparent; }
+    #tablet-os-overlay .tos-ideo-nav::-webkit-scrollbar { height:7px; }
+    #tablet-os-overlay .tos-ideo-nav::-webkit-scrollbar-track { background:rgba(0,0,0,.35); border-radius:4px; }
+    #tablet-os-overlay .tos-ideo-nav::-webkit-scrollbar-thumb { background:color-mix(in srgb,var(--ic,var(--mg-accent)) 40%,transparent); border-radius:4px;
+      box-shadow:0 0 7px color-mix(in srgb,var(--ic,var(--mg-accent)) 25%,transparent); }
+    #tablet-os-overlay .tos-ideo-nav::-webkit-scrollbar-thumb:hover { background:color-mix(in srgb,var(--ic,var(--mg-accent)) 65%,transparent); }
     #tablet-os-overlay .tos-ideo-navsep { flex:0 0 auto; align-self:stretch; width:1px; margin:2px 6px 0; background:linear-gradient(180deg,transparent,var(--tos-border) 30%,var(--tos-border) 70%,transparent); }
     #tablet-os-overlay .tos-ideo-tab { flex:0 0 auto; cursor:pointer; user-select:none; font-size:11px; letter-spacing:1.3px; text-transform:uppercase;
       color:var(--tos-fg-dim); padding:6px 9px; border-radius:6px; white-space:nowrap; border:1px solid var(--tos-border);
@@ -751,6 +1525,29 @@ function ensureStyles() {
     #tablet-os-overlay .tos-opt:active { transform:translateY(1px); box-shadow:inset 0 2px 3px var(--tos-bevel-lo); }
     #tablet-os-overlay .tos-opt.selected { border-color:var(--mg-accent); color:var(--mg-accent); font-weight:bold; box-shadow:0 0 8px color-mix(in srgb, var(--mg-accent) 35%, transparent), inset 0 1px 0 var(--tos-bevel-hi); }
     #tablet-os-overlay .tos-slider { width:160px; max-width:46vw; accent-color:var(--mg-accent); cursor:pointer; }
+    /* About page — a centered colophon: wordmark, byline, then the support link.
+       Deliberately airy (no .tos-set-row dividers) so it reads as a title card
+       rather than another list of controls. */
+    #tablet-os-overlay .tos-about { display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:14px; text-align:center; padding:26px 14px 22px; }
+    #tablet-os-overlay .tos-about-mark { font-size:26px; letter-spacing:6px; text-transform:uppercase; font-weight:bold;
+      color:var(--mg-accent); text-shadow:0 0 14px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
+    #tablet-os-overlay .tos-about-rule { width:132px; height:1px; background:linear-gradient(90deg, transparent, var(--mg-accent), transparent); opacity:.7; }
+    #tablet-os-overlay .tos-about-by { font-size:11px; letter-spacing:2.5px; text-transform:uppercase; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-about-names { font-size:14px; line-height:1.7; color:var(--tos-fg); }
+    /* Was a one-line italic tagline (a quote about the city); it now carries the
+       support ask, which is body copy rather than a quotation — so no italic,
+       and a little more width to breathe over two or three lines. */
+    #tablet-os-overlay .tos-about-tag { font-size:11px; color:var(--tos-fg-dim); max-width:300px; line-height:1.65; }
+    #tablet-os-overlay .tos-about-bmc { display:inline-flex; align-items:center; gap:9px; margin-top:4px; cursor:pointer;
+      padding:9px 16px; border-radius:7px; font-size:12.5px; letter-spacing:.6px; text-decoration:none; color:var(--tos-fg);
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--mg-accent) 34%, transparent);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 2px var(--tos-bevel-lo), 0 2px 6px rgba(0,0,0,.25);
+      transition:filter .12s, box-shadow .12s, transform .05s; }
+    #tablet-os-overlay .tos-about-bmc:hover { filter:brightness(1.15); box-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 38%, transparent), inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-about-bmc:active { transform:translateY(1px); }
+    #tablet-os-overlay .tos-about-bmc .tos-about-cup { font-size:16px; line-height:1; }
     #tablet-os-overlay input.tos-color { width:34px; height:26px; padding:0; border:1px solid color-mix(in srgb, var(--mg-accent) 30%, transparent); border-radius:4px; background:none; cursor:pointer; vertical-align:middle; }
     /* Smaller secondary buttons (Full Theme Editor…, Tablet Theme…) so they sit
        under a section without the full accent-fill weight of a .tos-btn. */
@@ -869,14 +1666,21 @@ function ensureStyles() {
        Default (female) matches femsil (500×708); .male matches paperdoll (242×540). */
     /* Height-driven so the whole figure (incl. the feet box at 94%) always fits the
        screen without scrolling — width derives from the aspect. */
-    #tablet-os-overlay .tos-doll { position:relative; height:min(46vh, 336px); width:auto; max-width:46vw; margin:0 auto; aspect-ratio:500 / 708; }
+    /* A little taller than it was (46vh/336px): the crowding is vertical — seven boxes
+       sharing one figure — and height is the cheapest room there is. The aspect ratio is
+       unchanged, so the silhouette keeps its shape and every anchor stays on its body
+       part; there's simply more space between them. */
+    #tablet-os-overlay .tos-doll { position:relative; height:min(52vh, 392px); width:auto; max-width:46vw; margin:0 auto; aspect-ratio:500 / 708; }
     #tablet-os-overlay .tos-doll.male { aspect-ratio:242 / 540; }
     /* Loadout: inventory list on the LEFT (col 1), the layer selector + paperdoll
        centred in the middle (col 2), an empty right spacer (col 3) balancing the left
        so the doll stays centred. Both list and doll are on one screen for drag/drop;
        the whole left column is the unequip drop-zone. */
     #tablet-os-overlay .tos-gload { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); gap:10px; align-items:start; margin-top:2px; }
-    #tablet-os-overlay .tos-gload-side { grid-column:1; justify-self:start; width:100%; max-width:186px; min-width:0; display:flex; flex-direction:column; gap:7px; }
+    /* 186px cut "nyra synthleather jacket" in half. 230 fits the long tail of real
+       item names on one line and still leaves the doll its centred column, since the
+       right-hand readout cluster is narrower than the tray. */
+    #tablet-os-overlay .tos-gload-side { grid-column:1; justify-self:start; width:100%; max-width:230px; min-width:0; display:flex; flex-direction:column; gap:7px; }
     #tablet-os-overlay .tos-gload-doll { grid-column:2; display:flex; flex-direction:column; align-items:center; gap:4px; }
     /* Below-feet feedback line (equip errors), accent, hidden until it has a message. */
     #tablet-os-overlay .tos-gload-fb { min-height:15px; font-size:11px; letter-spacing:.4px; text-align:center; color:var(--mg-accent); opacity:0; transition:opacity .15s; text-shadow:0 0 6px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
@@ -914,7 +1718,10 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gbrk-ico { display:inline-flex; flex:0 0 auto; }
     #tablet-os-overlay .tos-gbrk-ico svg { width:19px; height:19px; }
     #tablet-os-overlay .tos-gbrk-name { flex:1; }
-    #tablet-os-overlay .tos-gbrk-val { font-size:15px; font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-gbrk-val { font-size:15px; font-variant-numeric:tabular-nums; display:flex; align-items:baseline; gap:6px; }
+    /* The weakest slot, beside the total. A big total hides a bare head, and the bare
+       head is what actually kills you. */
+    #tablet-os-overlay .tos-gbrk-worst { font-style:normal; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-gbrk-foot { margin-top:8px; font-size:10.5px; color:color-mix(in srgb, var(--mg-accent) 62%, transparent); }
     #tablet-os-overlay .tos-doll-fig { position:absolute; inset:0; background:var(--mg-accent);
       -webkit-mask:url('/assets/femsil-mask.png') center / contain no-repeat;
@@ -924,29 +1731,52 @@ function ensureStyles() {
       -webkit-mask-image:url('/assets/paperdoll-mask.png');
       mask-image:url('/assets/paperdoll-mask.png'); }
 
-    #tablet-os-overlay .tos-gslot { position:absolute; z-index:2; display:flex; flex-direction:column; gap:1px; padding:4px 6px; min-width:56px; max-width:47%; border-radius:5px; user-select:none; touch-action:none;
+    /* Sized for real item names ("hooded acid slicker", "cyber track pants") without
+       the boxes colliding. The earlier 88px/64% was too greedy in BOTH axes: hands and
+       weapon are anchored to opposite edges of the same row, so 2 × 88px met in the
+       middle of the figure, and a wrapped two-line name grew the box downward into the
+       row beneath it. 76px/44% keeps a pair clear of each other with the stage's width
+       to spare, and the wrap is capped at two lines (below). */
+    #tablet-os-overlay .tos-gslot { position:absolute; z-index:2; display:flex; flex-direction:column; gap:0; padding:3px 6px; min-width:76px; max-width:44%; border-radius:5px; user-select:none; touch-action:none;
       background:color-mix(in srgb, var(--tos-surface-lo) 88%, transparent); border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo), 0 2px 6px rgba(0,0,0,0.35); backdrop-filter:blur(1px); transition:border-color .15s, box-shadow .15s; }
     #tablet-os-overlay .tos-gslot-label { font-size:8px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
-    #tablet-os-overlay .tos-gslot-item { font-size:10.5px; color:var(--tos-fg-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* Two lines before it gives up, so a long name wraps instead of vanishing. */
+    #tablet-os-overlay .tos-gslot-item { font-size:10px; line-height:1.2; color:var(--tos-fg-dim);
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
+    /* An EMPTY slot is just a label — the em-dash placeholder was making every bare
+       box as tall as a filled one, which is most of the crowding on a half-dressed
+       body. Collapse it to the label alone; the box still reads as a slot and is still
+       the same drop target. */
+    #tablet-os-overlay .tos-gslot:not(.filled) .tos-gslot-item { display:none; }
+    #tablet-os-overlay .tos-gslot:not(.filled) { min-width:62px; opacity:.72; }
     #tablet-os-overlay .tos-gslot.filled { border-color:color-mix(in srgb, var(--mg-accent) 50%, transparent); box-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 22%, transparent), inset 0 1px 0 var(--tos-bevel-hi), 0 2px 6px rgba(0,0,0,0.35); }
     #tablet-os-overlay .tos-gslot.filled .tos-gslot-item { color:var(--tos-fg); }
     #tablet-os-overlay .tos-gslot.filled .tos-gslot-label { color:var(--mg-accent); }
+    /* Worn, but not on the layer you're looking at: faded and un-glowed, so the doll
+       shows at a glance which boxes are actually the layer you selected. Still fully
+       interactive (tap = unequip) — dimmed means elsewhere, not disabled — and it
+       brightens on hover to say so. */
+    #tablet-os-overlay .tos-gslot.off-layer { opacity:.46; box-shadow:inset 0 1px 0 var(--tos-bevel-hi), 0 2px 6px rgba(0,0,0,0.35);
+      border-color:color-mix(in srgb, var(--mg-accent) 22%, transparent); border-style:dashed; }
+    #tablet-os-overlay .tos-gslot.off-layer:hover { opacity:.92; }
     /* Anchor each box over its body part (percentages of the doll stage). */
-    #tablet-os-overlay .tos-gslot--head { left:50%; top:8%; transform:translate(-50%,-50%); text-align:center; }
-    #tablet-os-overlay .tos-gslot--torso { left:50%; top:33%; transform:translate(-50%,-50%); text-align:center; }
-    #tablet-os-overlay .tos-gslot--legs { left:50%; top:64%; transform:translate(-50%,-50%); text-align:center; }
-    #tablet-os-overlay .tos-gslot--feet { left:50%; top:96%; transform:translate(-50%,-50%); text-align:center; }
-    #tablet-os-overlay .tos-gslot--hands { left:0; top:55%; transform:translateY(-50%); text-align:left; }
-    #tablet-os-overlay .tos-gslot--weapon_hand { right:0; top:55%; transform:translateY(-50%); text-align:right; }
-    #tablet-os-overlay .tos-gslot--accessory { right:-56px; top:20%; transform:translateY(-50%); text-align:right; }
+    /* Anchors re-spaced to stop the boxes stacking on each other. The three centred
+       ones (head/torso/legs/feet) each own a band of the figure, and the hands/weapon
+       pair sits in the GAP between torso and legs rather than level with the top of the
+       legs box — which is what put three boxes in one horizontal strip. */
+    #tablet-os-overlay .tos-gslot--head { left:50%; top:7%; transform:translate(-50%,-50%); text-align:center; }
+    #tablet-os-overlay .tos-gslot--torso { left:50%; top:31%; transform:translate(-50%,-50%); text-align:center; }
+    #tablet-os-overlay .tos-gslot--legs { left:50%; top:69%; transform:translate(-50%,-50%); text-align:center; }
+    #tablet-os-overlay .tos-gslot--feet { left:50%; top:97%; transform:translate(-50%,-50%); text-align:center; }
+    #tablet-os-overlay .tos-gslot--hands { left:0; top:50%; transform:translateY(-50%); text-align:left; }
+    #tablet-os-overlay .tos-gslot--weapon_hand { right:0; top:50%; transform:translateY(-50%); text-align:right; }
+    /* Inside the stage, not hanging off it: at right:-56px this overlapped whatever sat
+       in the next grid column, which on a narrow panel is the readout cluster. */
+    #tablet-os-overlay .tos-gslot--accessory { right:0; top:16%; transform:translateY(-50%); text-align:right; }
     /* Filled boxes are tap-to-unequip; every box is a drag-to-equip target. */
     #tablet-os-overlay .tos-gslot.filled { cursor:pointer; }
     #tablet-os-overlay .tos-gslot.filled:hover { border-color:var(--mg-accent); }
-    /* Sub-line under a slot box's item: names the layer when the shown piece isn't on
-       the layer currently selected (so a filled box that fell back to another layer's
-       gear still reads clearly). */
-    #tablet-os-overlay .tos-gslot-sub { font-size:8px; letter-spacing:.5px; text-transform:uppercase; color:color-mix(in srgb, var(--mg-accent) 58%, transparent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     #tablet-os-overlay .tos-gslot-over { border-color:var(--mg-accent) !important; box-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 55%, transparent) !important; }
 
     #tablet-os-overlay .tos-gear-stats { display:flex; flex-direction:column; gap:5px; }
@@ -960,8 +1790,10 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gear-fx span { font-size:11px; padding:3px 10px; border-radius:11px; color:var(--tos-fg); background:color-mix(in srgb, var(--mg-accent) 14%, transparent); border:1px solid color-mix(in srgb, var(--mg-accent) 30%, transparent); }
     #tablet-os-overlay .tos-gear-fx.empty { color:var(--tos-fg-dim2); font-size:11.5px; }
 
-    /* Carried tray + drop-off zone. Cards drag onto the doll (equip) or the drop
-       zone (drop); the ⤓ button drops directly. */
+    /* Carried tray + the drag-to-ground zone. Cards drag onto the doll to equip or
+       onto the zone to drop; the per-card ⤓ button moved to the Inventory tab
+       (.tos-ginv-drop), so .tos-gcard-drop below is now unused by the tray and kept
+       only so a card rendered with one still styles correctly. */
     #tablet-os-overlay .tos-gtray { display:flex; flex-direction:column; gap:5px; min-height:72px; padding:4px; border-radius:6px; border:1px dashed color-mix(in srgb, var(--mg-accent) 16%, transparent); }
     #tablet-os-overlay .tos-gtray-empty { color:var(--tos-fg-dim2); font-size:11.5px; padding:4px 2px; display:flex; align-items:center; justify-content:center; min-height:60px; text-align:center; }
     #tablet-os-overlay .tos-gcard { display:flex; align-items:center; gap:8px; padding:6px 9px; border-radius:5px; user-select:none; touch-action:none;
@@ -970,7 +1802,10 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gcard.equippable { cursor:pointer; }
     #tablet-os-overlay .tos-gcard.equippable:hover { border-color:color-mix(in srgb, var(--mg-accent) 50%, transparent); filter:brightness(1.08); }
     #tablet-os-overlay .tos-gcard.dragging { opacity:.45; }
-    #tablet-os-overlay .tos-gcard-name { flex:1; min-width:0; font-size:12.5px; color:var(--tos-fg); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* Wraps to two lines rather than ellipsising — the tray is a column, so vertical
+       room is the one thing it has plenty of. */
+    #tablet-os-overlay .tos-gcard-name { flex:1; min-width:0; font-size:12.5px; line-height:1.3; color:var(--tos-fg);
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
     #tablet-os-overlay .tos-gcard-meta { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); white-space:nowrap; }
     #tablet-os-overlay .tos-gcard-drop { flex:0 0 auto; cursor:pointer; font-size:14px; line-height:1; color:color-mix(in srgb, var(--mg-accent) 60%, transparent); background:transparent; border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); border-radius:4px; padding:2px 7px; transition:color .12s, border-color .12s, background .12s; }
     #tablet-os-overlay .tos-gcard-drop:hover { color:var(--mg-accent); border-color:var(--mg-accent); background:color-mix(in srgb, var(--mg-accent) 20%, transparent); }
@@ -1002,8 +1837,64 @@ function ensureStyles() {
     #tablet-os-overlay .tos-ginv-row:hover { border-color:color-mix(in srgb, var(--mg-accent) 48%, transparent); filter:brightness(1.08); }
     #tablet-os-overlay .tos-ginv-name { flex:1; min-width:0; font-size:12.5px; color:var(--tos-fg); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     #tablet-os-overlay .tos-ginv-slot { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); white-space:nowrap; }
+    /* Per-row weight — tabular so the column reads as a column, and dim enough that
+       the name still wins the row. */
+    #tablet-os-overlay .tos-ginv-wt { flex:0 0 auto; font-size:10px; font-variant-numeric:tabular-nums; color:var(--tos-fg-dim2); white-space:nowrap; }
+    /* ⤓, moved here off the Gear tab. Sits quiet until the row is hovered so a list of
+       twenty things isn't twenty invitations to throw them away. */
+    #tablet-os-overlay .tos-ginv-drop { flex:0 0 auto; cursor:pointer; font-size:13px; line-height:1; padding:2px 6px; border-radius:4px;
+      color:color-mix(in srgb, var(--mg-accent) 42%, transparent); background:transparent;
+      border:1px solid color-mix(in srgb, var(--mg-accent) 16%, transparent); opacity:.5; transition:opacity .12s, color .12s, border-color .12s, background .12s; }
+    #tablet-os-overlay .tos-ginv-row:hover .tos-ginv-drop { opacity:1; }
+    #tablet-os-overlay .tos-ginv-drop:hover { color:var(--mg-accent); border-color:var(--mg-accent); background:color-mix(in srgb, var(--mg-accent) 20%, transparent); }
+    /* ⇧ wear/wield · ⇩ take off. Brighter than ⤓ and always legible rather than
+       hover-revealed, because putting kit ON is the thing you came to this list to do —
+       dropping it is the destructive one that should stay quiet. */
+    #tablet-os-overlay .tos-ginv-eqbtn { flex:0 0 auto; cursor:pointer; font-size:13px; line-height:1; padding:2px 6px; border-radius:4px;
+      color:color-mix(in srgb, var(--mg-accent) 82%, #fff); background:color-mix(in srgb, var(--mg-accent) 10%, transparent);
+      border:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent); transition:color .12s, border-color .12s, background .12s; }
+    #tablet-os-overlay .tos-ginv-eqbtn:hover { border-color:var(--mg-accent); background:color-mix(in srgb, var(--mg-accent) 26%, transparent); }
+    /* Taking something off is the quieter half of the same control. */
+    #tablet-os-overlay .tos-ginv-eqbtn.off { color:var(--tos-fg-dim); background:transparent; border-color:color-mix(in srgb, var(--mg-accent) 18%, transparent); }
+    #tablet-os-overlay .tos-ginv-eqbtn.off:hover { color:var(--mg-accent); border-color:color-mix(in srgb, var(--mg-accent) 45%, transparent); }
     #tablet-os-overlay .tos-ginv-eq { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--mg-accent); white-space:nowrap; }
+    /* ── What's in your hand ────────────────────────────────────────────────────
+       The wielded weapon, pinned above the paged list. It gets a real block with a
+       label rather than just being sorted first, because an unlabelled pinned row
+       reads as a sorting bug. Its badge is brighter and heavier than "equipped" —
+       in a fight this is the one line on the screen you're looking for. */
+    #tablet-os-overlay .tos-ginv-hand { margin:6px 0 2px; padding:6px 7px 4px; border-radius:6px;
+      background:color-mix(in srgb, var(--mg-accent) 7%, transparent);
+      border:1px solid color-mix(in srgb, var(--mg-accent) 24%, transparent); }
+    #tablet-os-overlay .tos-ginv-handlab { font-size:8.5px; letter-spacing:1.6px; text-transform:uppercase;
+      color:color-mix(in srgb, var(--mg-accent) 66%, transparent); margin-bottom:4px; }
+    /* The row itself, held: a lit left edge so it reads as "active" at a glance even
+       with the badge text unread. */
+    #tablet-os-overlay .tos-ginv-row.wielding { border-color:color-mix(in srgb, var(--mg-accent) 55%, transparent);
+      box-shadow:inset 3px 0 0 var(--mg-accent), 0 0 10px color-mix(in srgb, var(--mg-accent) 14%, transparent); }
+    #tablet-os-overlay .tos-ginv-row.wielding .tos-ginv-name { color:color-mix(in srgb, var(--mg-accent) 30%, var(--tos-fg)); font-weight:bold; }
+    #tablet-os-overlay .tos-ginv-eq.wielding { font-weight:bold;
+      color:color-mix(in srgb, var(--mg-accent) 80%, #fff);
+      text-shadow:0 0 7px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
     #tablet-os-overlay .tos-ginv-chev { flex:0 0 auto; font-size:15px; color:var(--tos-fg-dim2); }
+    /* The primary-verb chip: the one thing this item is FOR (Use / Read / Eat / …),
+       shown on the row itself and tappable straight through, so a player never has
+       to guess which verb an object wants. It shimmers on a slow loop — the same
+       "this is the next move" language as the prose's .verb-teach. */
+    #tablet-os-overlay .tos-ginv-verb { flex:0 0 auto; cursor:pointer; font-size:9px; letter-spacing:1.5px; text-transform:uppercase;
+      padding:3px 9px; border-radius:3px; white-space:nowrap; color:var(--mg-accent); position:relative; overflow:hidden;
+      background:color-mix(in srgb, var(--mg-accent) 14%, transparent);
+      border:1px solid color-mix(in srgb, var(--mg-accent) 45%, transparent); }
+    #tablet-os-overlay .tos-ginv-verb:hover { background:color-mix(in srgb, var(--mg-accent) 30%, transparent); }
+    #tablet-os-overlay .tos-ginv-verb::after, #tablet-os-overlay .tos-idp-verb.primary::after {
+      content:''; position:absolute; inset:0; pointer-events:none;
+      background:linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--mg-accent) 55%, transparent) 50%, transparent 65%);
+      transform:translateX(-120%); animation:tos-verb-shimmer 3.4s ease-in-out infinite; }
+    #tablet-os-overlay .tos-idp-verb.primary { position:relative; overflow:hidden;
+      border-color:color-mix(in srgb, var(--mg-accent) 85%, transparent); }
+    @keyframes tos-verb-shimmer { 0%{transform:translateX(-120%)} 55%,100%{transform:translateX(120%)} }
+    [data-motion="off"] #tablet-os-overlay .tos-ginv-verb::after,
+    [data-motion="off"] #tablet-os-overlay .tos-idp-verb.primary::after { animation:none; opacity:0; }
     /* Collapsible Clothing group header on the Inventory tab. */
     #tablet-os-overlay .tos-ginv-grouphead { display:flex; align-items:center; gap:8px; cursor:pointer; margin-top:8px; padding:7px 10px;
       border-radius:5px; background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
@@ -1330,12 +2221,14 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile.terr-redrock { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23431c10' stroke-opacity='0.42' stroke-width='0.9'><path d='M0 9l7 3 6-4 5 4 6-2'/><path d='M4 24l3-8 6 2 4-6'/></g><g fill='%233a170c' fill-opacity='0.45'><circle cx='3' cy='19' r='1.2'/><circle cx='15' cy='7' r='1'/><circle cx='20' cy='18' r='0.9'/><circle cx='9' cy='4' r='0.7'/><circle cx='22' cy='3' r='0.6'/></g></svg>"); }
     #tablet-os-overlay .tos-map-tile.terr-ash { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='%23cfcac4' fill-opacity='0.35'><circle cx='4' cy='6' r='0.8'/><circle cx='12' cy='10' r='0.7'/><circle cx='19' cy='5' r='0.9'/><circle cx='8' cy='17' r='0.7'/><circle cx='16' cy='19' r='0.8'/><circle cx='21' cy='14' r='0.6'/></g><path d='M2 21q6 -3 11 0t9 -1' fill='none' stroke='%23b8b2ac' stroke-opacity='0.2' stroke-width='0.8'/></svg>"); }
     #tablet-os-overlay .tos-map-tile.terr-marsh { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23aeca7e' stroke-opacity='0.28' stroke-width='1' stroke-linecap='round'><path d='M0 8q6 -3 12 0t12 0'/><path d='M0 16q6 -3 12 0t12 0'/></g><g fill='none' stroke='%236f8a3e' stroke-opacity='0.5' stroke-width='0.9' stroke-linecap='round'><path d='M7 20v-7M9 20l-1-6'/><path d='M18 21v-8'/></g></svg>"); }
-    /* Entrance arrow — amber triangle on the edge the building's door faces. */
-    #tablet-os-overlay .tos-map-tile .tos-ent { position:absolute; width:0; height:0; z-index:4; pointer-events:none; filter:drop-shadow(0 0 1px rgba(0,0,0,0.95)); }
-    #tablet-os-overlay .tos-map-tile .tos-ent-north { top:1px; left:50%; transform:translateX(-50%); border-left:4px solid transparent; border-right:4px solid transparent; border-bottom:5px solid #ffb454; }
-    #tablet-os-overlay .tos-map-tile .tos-ent-south { bottom:1px; left:50%; transform:translateX(-50%); border-left:4px solid transparent; border-right:4px solid transparent; border-top:5px solid #ffb454; }
-    #tablet-os-overlay .tos-map-tile .tos-ent-east { right:1px; top:50%; transform:translateY(-50%); border-top:4px solid transparent; border-bottom:4px solid transparent; border-left:5px solid #ffb454; }
-    #tablet-os-overlay .tos-map-tile .tos-ent-west { left:1px; top:50%; transform:translateY(-50%); border-top:4px solid transparent; border-bottom:4px solid transparent; border-right:5px solid #ffb454; }
+    /* Edge-line door style — hairline per side of an interior room: green open, red wall. */
+    #tablet-os-overlay .tos-map-tile .tos-edge { position:absolute; z-index:4; pointer-events:none; border-radius:1px; }
+    #tablet-os-overlay .tos-map-tile .tos-edge.open { background:#3fd07a; }
+    #tablet-os-overlay .tos-map-tile .tos-edge.shut { background:#d0453f; opacity:0.55; }
+    #tablet-os-overlay .tos-map-tile .tos-edge-north { top:0; left:20%; right:20%; height:2px; }
+    #tablet-os-overlay .tos-map-tile .tos-edge-south { bottom:0; left:20%; right:20%; height:2px; }
+    #tablet-os-overlay .tos-map-tile .tos-edge-east { right:0; top:20%; bottom:20%; width:2px; }
+    #tablet-os-overlay .tos-map-tile .tos-edge-west { left:0; top:20%; bottom:20%; width:2px; }
     #tablet-os-overlay .tos-map-link { display:flex; align-items:center; justify-content:center; color:color-mix(in srgb,var(--mg-accent) 40%,transparent); font-size:12px; line-height:1; pointer-events:none; }
     #tablet-os-overlay .tos-map-link.art { color:#c9a24a; font-weight:bold; text-shadow:0 0 6px rgba(201,162,74,.55); }
     #tablet-os-overlay .tos-map-legend { display:flex; flex-wrap:wrap; gap:5px 12px; margin:9px 0 4px; font-size:10px; color:var(--tos-fg-dim); }
@@ -1380,16 +2273,283 @@ function ensureStyles() {
        every theme without a palette of its own. Entry copy is 13.5px roman, NOT
        italic: Courier has no true italic and the browser's synthetic oblique
        smears badly at small sizes, which is what made the first pass unreadable. */
+    /* B.L.I.S.S. — deliberately cold and catalogue-like. Monochrome like the rest
+       of the tablet; the only warmth in the whole app is the ♡ on its tile. */
+    #tablet-os-overlay .tos-bliss-head { display:flex; align-items:flex-end; justify-content:space-between;
+      gap:12px; padding-bottom:8px; border-bottom:1px solid var(--tos-line); margin-bottom:10px; }
+    #tablet-os-overlay .tos-bliss-app { font-size:1.35em; letter-spacing:.18em; font-weight:700; }
+    #tablet-os-overlay .tos-bliss-expand { font-size:.78em; opacity:.75; letter-spacing:.04em; margin-top:2px; }
+    #tablet-os-overlay .tos-bliss-sub { font-size:.85em; opacity:.87; white-space:nowrap; }
+    #tablet-os-overlay .tos-bliss-strap { font-size:.78em; opacity:.72; font-style:italic; margin-bottom:10px; }
+    #tablet-os-overlay .tos-bliss-notice { font-size:.85em; padding:7px 9px; margin-bottom:10px;
+      border:1px solid var(--tos-line); background:rgba(255,255,255,.04); }
+    #tablet-os-overlay .tos-bliss-grid { display:flex; flex-direction:column; gap:9px; }
+    #tablet-os-overlay .tos-bliss-card { border:1px solid var(--tos-line); padding:9px 11px; cursor:pointer; }
+    #tablet-os-overlay .tos-bliss-card:hover { background:rgba(255,255,255,.05); }
+    #tablet-os-overlay .tos-bliss-who + .tos-bliss-who { margin-top:8px; padding-top:8px;
+      border-top:1px dashed var(--tos-line); }
+    #tablet-os-overlay .tos-bliss-name { font-weight:700; letter-spacing:.05em; }
+    #tablet-os-overlay .tos-bliss-name .sex { opacity:.72; font-weight:400; margin-left:3px; }
+    #tablet-os-overlay .tos-bliss-name .dim,
+    #tablet-os-overlay .tos-bliss-card .dim,
+    #tablet-os-overlay .tos-actions .dim { opacity:.72; font-weight:400; font-size:.85em; }
+    #tablet-os-overlay .tos-bliss-says { font-size:.86em; opacity:.95; font-style:italic; margin-top:2px; }
+    #tablet-os-overlay .tos-bliss-phys { font-size:.8em; opacity:.75; margin-top:3px; }
+    #tablet-os-overlay .tos-bliss-note { font-size:.78em; opacity:.75; margin-top:4px; }
+    #tablet-os-overlay .tos-bliss-rate { text-align:right; margin-top:6px; font-size:.85em; }
+    #tablet-os-overlay .tos-bliss-pairtag { font-size:.74em; letter-spacing:.14em; text-transform:uppercase;
+      opacity:.87; margin-bottom:5px; }
+    #tablet-os-overlay .tos-bliss-pairbox { border:1px solid var(--tos-line); padding:9px 11px; margin-bottom:10px;
+      font-size:.86em; background:rgba(255,255,255,.03); }
+    #tablet-os-overlay .tos-bliss-detailwho { border:1px solid var(--tos-line); padding:9px 11px; }
+    #tablet-os-overlay .tos-bliss-spec { width:100%; border-collapse:collapse; margin-top:7px; font-size:.8em; }
+    #tablet-os-overlay .tos-bliss-spec th { text-align:left; opacity:.72; font-weight:400; width:5.5em;
+      vertical-align:top; padding:2px 8px 2px 0; }
+    #tablet-os-overlay .tos-bliss-spec td { padding:2px 0; opacity:.95; }
+    #tablet-os-overlay .tos-bliss-proj { width:100%; border-collapse:collapse; font-size:.76em; margin-top:6px; }
+    #tablet-os-overlay .tos-bliss-proj th { text-align:left; opacity:.72; font-weight:400; padding:3px 0;
+      border-bottom:1px solid var(--tos-line); }
+    #tablet-os-overlay .tos-bliss-proj td { padding:3px 0; opacity:.95; }
+    #tablet-os-overlay .tos-bliss-secthead { font-size:.7em; letter-spacing:.16em; text-transform:uppercase;
+      opacity:.78; margin:14px 0 4px; }
+    #tablet-os-overlay .tos-bliss-housetag { font-size:.68em; letter-spacing:.14em; text-transform:uppercase;
+      padding:2px 6px; margin-left:6px; border:1px solid var(--tos-line); border-radius:10px;
+      color:var(--mg-accent); vertical-align:1px; }
+    #tablet-os-overlay .tos-bliss-held.house { border-left:2px solid var(--mg-accent); padding-left:9px; }
+    #tablet-os-overlay .tos-bliss-blocked { font-size:.85em; opacity:.84; padding:10px; border:1px dashed var(--tos-line); }
+    #tablet-os-overlay .tos-bliss-held { border:1px solid var(--tos-line); padding:9px 11px; }
+    #tablet-os-overlay .tos-bliss-heldline { display:flex; justify-content:space-between; gap:10px;
+      font-size:.8em; opacity:.85; margin-top:3px; }
+    #tablet-os-overlay .tos-bliss-heldline .save { opacity:.6; }
+    #tablet-os-overlay .tos-bliss-warn { font-size:.75em; color:var(--yellow); margin-top:5px; }
+
+    /* ── Vitals app ──────────────────────────────────────────────────────────
+       Bars first, words second. The four bands are the only colour vocabulary
+       in the app; everything (meters, drug load, affliction rails) reuses them,
+       so "red" always means the same thing wherever it appears on the screen. */
+    #tablet-os-overlay .tos-vt-sect { font-size:10.5px; letter-spacing:1.8px; text-transform:uppercase;
+      color:var(--tos-fg-dim); font-weight:bold; margin:14px 0 7px; }
+    #tablet-os-overlay .tos-vt-sect:first-child { margin-top:4px; }
+    #tablet-os-overlay .tos-vt-notice { font-size:12.5px; color:var(--tos-fg); font-weight:bold; line-height:1.5;
+      border:1px solid var(--border); border-left:3px solid var(--mg-accent); padding:9px 11px; margin-bottom:12px;
+      background:var(--tos-surface-lo); white-space:pre-line; }
+    #tablet-os-overlay .tos-vt-meters { display:grid; grid-template-columns:repeat(auto-fit,minmax(165px,1fr)); gap:11px 16px; }
+    /* Word readouts (hunger/thirst) — a phrase, not a track. Same label idiom as a
+       meter so they read as part of the same instrument, with no bar to play. */
+    #tablet-os-overlay .tos-vt-readouts { display:grid; grid-template-columns:repeat(auto-fit,minmax(165px,1fr));
+      gap:9px 16px; margin-top:12px; }
+    #tablet-os-overlay .tos-vt-readout { display:flex; flex-direction:column; gap:2px; min-width:0; }
+    #tablet-os-overlay .tos-vt-rlbl { font-size:8.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-vt-rval { font-size:12.5px; color:var(--tos-fg); line-height:1.35; }
+    #tablet-os-overlay .tos-vt-rval.warn { color:var(--yellow, #d8c23f); }
+    #tablet-os-overlay .tos-vt-rval.bad { color:var(--orange, #e08a3a); }
+    #tablet-os-overlay .tos-vt-rval.crit { color:var(--red, #e0413a); font-weight:bold; }
+    /* Vitals tab: body column beside the readings column. The doll is tall and
+       narrow, the meters short and wide — stacked, the doll wasted a panel-wide
+       strip of empty box and shoved the numbers off screen. */
+    #tablet-os-overlay .tos-vt-cols { display:grid; grid-template-columns:minmax(150px,0.75fr) minmax(0,2fr);
+      gap:0 18px; align-items:start; }
+    #tablet-os-overlay .tos-vt-cols .tos-vt-sect:first-child { margin-top:4px; }
+    /* In-column the doll stacks: figure, then its detail line under it. */
+    #tablet-os-overlay .tos-vt-cols .tos-vt-doll { flex-direction:column; align-items:center; gap:9px;
+      padding:12px 10px; }
+    #tablet-os-overlay .tos-vt-cols .tos-vt-dollstage { width:100%; max-width:158px; }
+    #tablet-os-overlay .tos-vt-cols .tos-vt-dolldet { flex:0 0 auto; width:100%; text-align:center; font-size:11.5px; }
+    @media (max-width:620px) {
+      #tablet-os-overlay .tos-vt-cols { grid-template-columns:minmax(0,1fr); gap:0; }
+      #tablet-os-overlay .tos-vt-cols .tos-vt-doll { flex-direction:row; align-items:center; gap:16px; padding:6px 4px 10px; }
+      #tablet-os-overlay .tos-vt-cols .tos-vt-dollstage { width:104px; }
+      #tablet-os-overlay .tos-vt-cols .tos-vt-dolldet { flex:1 1 auto; text-align:left; }
+    }
+    #tablet-os-overlay .tos-vt-mlbl { display:flex; justify-content:space-between; align-items:baseline; gap:8px;
+      font-size:10.5px; letter-spacing:1.6px; text-transform:uppercase; color:var(--tos-fg-dim); font-weight:bold; margin-bottom:5px; }
+    #tablet-os-overlay .tos-vt-mlbl .v { letter-spacing:.6px; text-transform:none; font-variant-numeric:tabular-nums;
+      white-space:nowrap; opacity:.9; }
+    #tablet-os-overlay .tos-vt-track { height:10px; position:relative; overflow:hidden; background:var(--tos-surface-lo);
+      border:1px solid var(--border); box-shadow:inset 0 1px 3px var(--tos-bevel-lo); }
+    #tablet-os-overlay .tos-vt-track.sm { height:7px; margin-top:8px; }
+    #tablet-os-overlay .tos-vt-fill { position:absolute; left:0; top:0; bottom:0; transition:width .2s linear; }
+    #tablet-os-overlay .tos-vt-fill.good { background:linear-gradient(180deg,#8fe39a,#4fae63); box-shadow:0 0 9px rgba(79,174,99,.5); }
+    #tablet-os-overlay .tos-vt-fill.warn { background:linear-gradient(180deg,#f4dd8a,#d3a72e); box-shadow:0 0 9px rgba(211,167,46,.45); }
+    #tablet-os-overlay .tos-vt-fill.bad  { background:linear-gradient(180deg,#f0a870,#d16a25); box-shadow:0 0 9px rgba(209,106,37,.45); }
+    #tablet-os-overlay .tos-vt-fill.crit { background:linear-gradient(180deg,#f08c8c,#c0342e); box-shadow:0 0 11px rgba(192,52,46,.6); }
+    #tablet-os-overlay .tos-vt-quickbar { margin-bottom:4px; }
+    #tablet-os-overlay .tos-vt-quickrow { display:flex; flex-wrap:wrap; gap:8px; }
+    #tablet-os-overlay .tos-vt-quick { display:flex; flex-direction:column; align-items:flex-start; gap:3px;
+      padding:8px 13px; cursor:pointer; font:inherit; text-align:left;
+      background:linear-gradient(180deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid var(--border); border-left:3px solid var(--mg-accent); color:var(--tos-fg);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 4px var(--tos-bevel-lo); }
+    #tablet-os-overlay .tos-vt-quick:hover { border-color:var(--mg-accent); }
+    #tablet-os-overlay .tos-vt-quick .act { font-size:13px; font-weight:bold; letter-spacing:.4px; }
+    #tablet-os-overlay .tos-vt-quick .itm { font-size:10.5px; letter-spacing:1.2px; color:var(--tos-fg-dim); font-weight:bold; }
+    #tablet-os-overlay .tos-vt-affs { display:flex; flex-direction:column; gap:7px; }
+    #tablet-os-overlay .tos-vt-aff { position:relative; padding:8px 11px 8px 14px; border:1px solid var(--border);
+      background:linear-gradient(180deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-vt-aff::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:#d3a72e; }
+    #tablet-os-overlay .tos-vt-aff.good::before { background:#4fae63; }
+    #tablet-os-overlay .tos-vt-aff.bad::before  { background:#c0342e; }
+    #tablet-os-overlay .tos-vt-aff.drug::before { background:#8f6fd0; }
+    #tablet-os-overlay .tos-vt-affname { font-size:13px; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
+    #tablet-os-overlay .tos-vt-affdet { font-size:11.5px; color:var(--tos-fg-dim); font-weight:bold; margin-top:3px; line-height:1.5; }
+    /* Paper doll. The figure is deliberately crude — it is a diagnostic readout
+       on a cheap medical suite, not an anatomy plate. Colour carries everything. */
+    #tablet-os-overlay .tos-vt-doll { display:flex; align-items:center; gap:16px; padding:6px 4px 10px;
+      border:1px solid var(--border); background:var(--tos-surface-lo); margin-bottom:10px; }
+    #tablet-os-overlay .tos-vt-dollsvg { width:104px; height:auto; flex:0 0 auto; overflow:visible; }
+    /* The scan ghost: the same two alpha masks the Gear and wardrobe dolls use,
+       so one character is one body across all three screens. Sits behind the
+       schematic at low opacity and never takes a pointer event, so every part
+       stays clickable exactly as before. */
+    /* ── Alarm ──
+       Everything here is drawn from tokens the OS already defines — --tos-fg,
+       --tos-surface-hi, --mg-accent, --border — so the clock changes colour with
+       the tablet theme instead of pinning its own. The only bespoke thing is the
+       shape: a readout, two reels, and a selection band across them. */
+    #tablet-os-overlay .tos-alarm { padding:4px 6px 12px; }
+    #tablet-os-overlay .tos-al-face { text-align:center; padding:6px 0 10px; }
+    #tablet-os-overlay .tos-al-now { font-family:var(--font-mono,monospace); font-size:44px; line-height:1;
+      letter-spacing:3px; color:var(--tos-fg); text-shadow:0 0 18px color-mix(in srgb, var(--mg-accent) 55%, transparent); }
+    #tablet-os-overlay .tos-al-nowlab { font-size:9px; letter-spacing:2px; text-transform:uppercase;
+      color:var(--tos-fg-dim,var(--text-dim)); margin-top:3px; }
+
+    /* The setter. Fixed height with the band pinned across the middle — the reels
+       scroll UNDER it, which is the whole illusion. */
+    /* Police Blotter — newsprint incident column. Warrants read hotter than
+       incidents because one is a live problem and the other is a closed one. */
+    #tablet-os-overlay .tos-blotter { display:flex; flex-direction:column; gap:0; }
+    #tablet-os-overlay .tos-blot-row { display:flex; align-items:baseline; gap:7px;
+      padding:5px 2px; border-bottom:1px dotted var(--border); font-size:12px; line-height:1.45; }
+    #tablet-os-overlay .tos-blot-row:last-child { border-bottom:none; }
+    #tablet-os-overlay .tos-blot-body { flex:1; }
+    #tablet-os-overlay .tos-blot-mark { color:var(--tos-fg-dim,var(--text-dim)); opacity:.7; }
+    #tablet-os-overlay .tos-blot-when { font-size:10px; color:var(--tos-fg-dim,var(--text-dim)); opacity:.75; flex:0 0 auto; }
+    #tablet-os-overlay .tos-blot-row.warrant { background:rgba(255,59,92,0.06); }
+    #tablet-os-overlay .tos-blot-stars { color:var(--red,#ff3b5c); letter-spacing:1px; flex:0 0 auto; }
+    #tablet-os-overlay .tos-blot-quiet { padding:12px 4px; font-style:italic;
+      color:var(--tos-fg-dim,var(--text-dim)); }
+    #tablet-os-overlay .tos-al-setter { position:relative; display:flex; align-items:stretch; justify-content:center;
+      gap:4px; height:132px; margin:2px 0 8px;
+      background:linear-gradient(180deg, rgba(0,0,0,0.34), rgba(0,0,0,0.08) 30%, rgba(0,0,0,0.08) 70%, rgba(0,0,0,0.34));
+      border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+    #tablet-os-overlay .tos-al-band { position:absolute; left:6px; right:6px; top:50%; height:38px;
+      transform:translateY(-50%); border-top:1px solid color-mix(in srgb, var(--mg-accent) 60%, transparent);
+      border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 60%, transparent);
+      background:color-mix(in srgb, var(--mg-accent) 10%, transparent); pointer-events:none; z-index:2; }
+    #tablet-os-overlay .tos-al-reel { flex:0 0 78px; overflow-y:auto; scroll-snap-type:y mandatory;
+      scrollbar-width:none; -ms-overflow-style:none; cursor:grab;
+      /* A mouse drag scrubs the reel (see the pointer handlers) — tell the browser
+         not to also start a text selection or a native pan from the same gesture. */
+      touch-action:pan-y; }
+    #tablet-os-overlay .tos-al-reel::-webkit-scrollbar { display:none; }
+    /* While a drag is live the snap has to come OFF, or every scrollTop we write is
+       yanked back to the nearest cell and the band judders instead of tracking the
+       hand. It goes back on at pointerup, which is what lands the reel on a value. */
+    #tablet-os-overlay .tos-al-reel.dragging { scroll-snap-type:none; cursor:grabbing;
+      scroll-behavior:auto; }
+    #tablet-os-overlay .tos-al-reel.dragging .tos-al-cell { cursor:grabbing; transition:none; }
+    #tablet-os-overlay .tos-al-pad { height:47px; }
+    #tablet-os-overlay .tos-al-cell { height:38px; line-height:38px; text-align:center; scroll-snap-align:center;
+      font-family:var(--font-mono,monospace); font-size:26px; letter-spacing:2px;
+      color:var(--tos-fg-dim,var(--text-dim)); opacity:0.45; cursor:pointer; user-select:none;
+      transition:opacity 0.12s ease, color 0.12s ease, text-shadow 0.12s ease; }
+    #tablet-os-overlay .tos-al-cell:hover { opacity:0.8; }
+    #tablet-os-overlay .tos-al-cell.sel { opacity:1; color:var(--tos-fg);
+      text-shadow:0 0 14px color-mix(in srgb, var(--mg-accent) 60%, transparent); }
+    #tablet-os-overlay .tos-al-cell:focus { outline:none; }
+    #tablet-os-overlay .tos-al-colon { align-self:center; font-family:var(--font-mono,monospace); font-size:26px;
+      color:var(--tos-fg); opacity:0.7; z-index:3; }
+
+    #tablet-os-overlay .tos-al-preview { text-align:center; font-size:12px; color:var(--tos-fg-dim,var(--text-dim)); }
+    #tablet-os-overlay .tos-al-preview b { font-family:var(--font-mono,monospace); font-size:15px; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-al-btns { display:flex; gap:8px; justify-content:center; margin:10px 0 6px; }
+    #tablet-os-overlay .tos-al-status { text-align:center; font-size:11px; color:var(--tos-fg); opacity:0.85; }
+    #tablet-os-overlay .tos-al-status-off { opacity:0.55; }
+    #tablet-os-overlay .tos-al-note { margin-top:8px; text-align:center; font-size:10px; line-height:1.5;
+      color:var(--tos-fg-dim,var(--text-dim)); opacity:0.6; }
+    @media (prefers-reduced-motion: reduce) {
+      #tablet-os-overlay .tos-al-cell { transition:none; }
+    }
+    #tablet-os-overlay .tos-vt-dollstage { position:relative; flex:0 0 auto; width:104px; }
+    #tablet-os-overlay .tos-vt-dollstage .tos-vt-dollsvg { position:relative; z-index:1; width:100%; display:block; }
+    /* The figure itself — no longer a ghost under a schematic, so it carries the
+       readable weight instead of hinting at it from behind one. */
+    #tablet-os-overlay .tos-vt-dollsil { position:absolute; inset:0; opacity:0.55; pointer-events:none;
+      background:var(--tos-fg);
+      -webkit-mask:url('/assets/paperdoll-mask.png') center / contain no-repeat;
+      mask:url('/assets/paperdoll-mask.png') center / contain no-repeat; }
+    #tablet-os-overlay .tos-vt-sil-female .tos-vt-dollsil {
+      -webkit-mask-image:url('/assets/femsil-mask.png'); mask-image:url('/assets/femsil-mask.png'); }
+    /* A wound, painted THROUGH the same mask and clipped to its region — so the
+       shape that lights up is the limb, not a box drawn where the limb is. */
+    #tablet-os-overlay .tos-vt-dollhurt { position:absolute; inset:0; pointer-events:none;
+      -webkit-mask:url('/assets/paperdoll-mask.png') center / contain no-repeat;
+      mask:url('/assets/paperdoll-mask.png') center / contain no-repeat;
+      transition:opacity .18s linear; }
+    #tablet-os-overlay .tos-vt-sil-female .tos-vt-dollhurt {
+      -webkit-mask-image:url('/assets/femsil-mask.png'); mask-image:url('/assets/femsil-mask.png'); }
+    #tablet-os-overlay .tos-vt-dollhurt.warn { background:#d3a72e; opacity:0.62; }
+    #tablet-os-overlay .tos-vt-dollhurt.bad  { background:#d16a25; opacity:0.78; }
+    #tablet-os-overlay .tos-vt-dollhurt.crit { background:#c0342e; opacity:0.92;
+      filter:drop-shadow(0 0 6px rgba(192,52,46,.7)); animation:tos-doll-pulse 1.9s ease-in-out infinite; }
+    /* The primitives are HIT-AREAS now, not artwork: invisible, still clickable.
+       pointer-events:all is load-bearing here — an SVG shape with no fill takes
+       no pointer events without it, which would make every region untappable. */
+    #tablet-os-overlay .tos-vt-doll-part { cursor:pointer; }
+    #tablet-os-overlay .tos-vt-doll-part > * { fill:none; stroke:none; pointer-events:all;
+      transition:stroke .18s linear; }
+    /* Only a Maimed part pulses. If everything moves, nothing reads as urgent.
+       Driven on the tinted layer now, since the region shape is what pulses. */
+    @keyframes tos-doll-pulse { 0%,100% { opacity:1; } 50% { opacity:.62; } }
+    /* Selection is a soft wash over the region, not an outline. A 2px stroke
+       around a rounded rect would put the boxes-and-circles mannequin straight
+       back on screen the moment anybody tapped it. */
+    #tablet-os-overlay .tos-vt-doll-part.sel > * { fill:var(--tos-fg); fill-opacity:.13; }
+    #tablet-os-overlay .tos-vt-doll-part:focus { outline:none; }
+    #tablet-os-overlay .tos-vt-doll-part:focus > * { fill:var(--tos-fg); fill-opacity:.13; }
+    #tablet-os-overlay .tos-vt-dolldet { flex:1 1 auto; min-width:0; font-size:12px; font-weight:bold;
+      line-height:1.6; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-vt-clear { padding:26px 8px; text-align:center; font-size:14px; color:var(--tos-fg);
+      font-weight:bold; line-height:1.8; }
+    #tablet-os-overlay .tos-vt-clear span { color:var(--tos-fg-dim); font-size:12.5px; }
+    #tablet-os-overlay .tos-vt-item { display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:9px 11px; margin-bottom:7px; border:1px solid var(--border);
+      background:linear-gradient(180deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-vt-itemtxt { min-width:0; }
+    #tablet-os-overlay .tos-vt-itemname { font-size:13.5px; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
+    #tablet-os-overlay .tos-vt-itemname .qty { color:var(--tos-fg-dim); margin-left:6px; font-size:11.5px; }
+    #tablet-os-overlay .tos-vt-itemeff { font-size:11.5px; color:var(--tos-fg-dim); font-weight:bold; margin-top:3px; line-height:1.5; }
+    #tablet-os-overlay .tos-vt-flag { display:inline-block; margin-left:7px; padding:1px 6px; font-size:9.5px;
+      letter-spacing:1.2px; text-transform:uppercase; border:1px solid var(--border); color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-vt-flag.bad { color:#e08a84; border-color:#8d3c37; }
+    #tablet-os-overlay .tos-vt-sub { padding:11px 12px; margin-bottom:8px; border:1px solid var(--border);
+      background:linear-gradient(180deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-vt-subhead { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+    #tablet-os-overlay .tos-vt-subhead .n { font-size:14px; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
+    #tablet-os-overlay .tos-vt-subgrid { display:grid; grid-template-columns:auto 1fr auto 1fr; gap:3px 10px; margin-top:8px;
+      font-size:11px; letter-spacing:1.1px; color:var(--tos-fg-dim); font-weight:bold; }
+    #tablet-os-overlay .tos-vt-subgrid b { color:var(--tos-fg); font-variant-numeric:tabular-nums; letter-spacing:.4px; }
+    #tablet-os-overlay .tos-vt-subload { font-size:10.5px; letter-spacing:1.1px; color:var(--tos-fg-dim);
+      font-weight:bold; margin-top:5px; }
+    #tablet-os-overlay .tos-vt-subwd { font-size:11.5px; color:var(--tos-fg-dim); font-weight:bold; margin-top:7px; }
+    #tablet-os-overlay .tos-vt-subwd.bad { color:#e08a84; }
+    @media (max-width:520px) {
+      #tablet-os-overlay .tos-vt-subgrid { grid-template-columns:auto 1fr; }
+    }
+
     #tablet-os-overlay .tos-acc-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
       padding-bottom:11px; border-bottom:1px solid var(--border); }
     #tablet-os-overlay .tos-acc-app { font-size:16px; letter-spacing:5px; text-transform:uppercase; color:var(--tos-fg); font-weight:bold; }
-    #tablet-os-overlay .tos-acc-sub { font-size:10.5px; letter-spacing:1.6px; color:var(--tos-fg-dim2); margin-top:3px; }
-    #tablet-os-overlay .tos-acc-count { font-size:10px; letter-spacing:1.4px; color:var(--tos-fg-dim);
+    #tablet-os-overlay .tos-acc-sub { font-size:11px; letter-spacing:1.6px; color:var(--tos-fg-dim); font-weight:bold; margin-top:3px; }
+    #tablet-os-overlay .tos-acc-count { font-size:10.5px; letter-spacing:1.4px; color:var(--tos-fg-dim); font-weight:bold;
       text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
     #tablet-os-overlay .tos-acc-count b { display:block; font-size:23px; color:var(--mg-accent); letter-spacing:1px; }
     #tablet-os-overlay .tos-acc-meter { margin:13px 0 15px; }
     #tablet-os-overlay .tos-acc-meter-lbl { display:flex; justify-content:space-between; align-items:baseline;
-      font-size:10px; letter-spacing:1.8px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-bottom:6px; }
+      font-size:10.5px; letter-spacing:1.8px; text-transform:uppercase; color:var(--tos-fg-dim); font-weight:bold; margin-bottom:6px; }
     #tablet-os-overlay .tos-acc-meter-lbl .v { color:var(--tos-fg-dim); letter-spacing:1px; font-variant-numeric:tabular-nums; }
     #tablet-os-overlay .tos-acc-track { height:11px; position:relative; overflow:hidden; background:var(--tos-surface-lo);
       border:1px solid var(--border); box-shadow:inset 0 1px 3px var(--tos-bevel-lo); }
@@ -1405,14 +2565,14 @@ function ensureStyles() {
       background:var(--mg-accent); opacity:.5; }
     #tablet-os-overlay .tos-acc-row.first::before { opacity:1; box-shadow:0 0 9px var(--mg-accent); }
     #tablet-os-overlay .tos-acc-title { font-size:15px; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
-    #tablet-os-overlay .tos-acc-line { font-size:13.5px; color:var(--tos-fg-dim); margin-top:5px; line-height:1.58; max-width:54ch; }
+    #tablet-os-overlay .tos-acc-line { font-size:14px; color:var(--tos-fg); font-weight:bold; margin-top:5px; line-height:1.6; max-width:54ch; }
     #tablet-os-overlay .tos-acc-foot { display:flex; justify-content:space-between; align-items:baseline; margin-top:9px;
-      font-size:10px; letter-spacing:1.4px; color:var(--tos-fg-dim2); font-variant-numeric:tabular-nums; }
+      font-size:10.5px; letter-spacing:1.4px; color:var(--tos-fg-dim); font-weight:bold; font-variant-numeric:tabular-nums; }
     #tablet-os-overlay .tos-acc-foot .xp { color:var(--mg-accent); }
-    #tablet-os-overlay .tos-acc-empty { padding:26px 8px; text-align:center; font-size:13.5px; color:var(--tos-fg-dim); line-height:1.8; }
-    #tablet-os-overlay .tos-acc-empty span { color:var(--tos-fg-dim2); font-size:12px; }
+    #tablet-os-overlay .tos-acc-empty { padding:26px 8px; text-align:center; font-size:14px; color:var(--tos-fg); font-weight:bold; line-height:1.8; }
+    #tablet-os-overlay .tos-acc-empty span { color:var(--tos-fg-dim); font-size:12.5px; }
     #tablet-os-overlay .tos-acc-endfile { margin-top:13px; padding-top:11px; border-top:1px dashed var(--border);
-      font-size:10px; letter-spacing:1.6px; color:var(--tos-fg-dim2); text-align:center; }
+      font-size:10.5px; letter-spacing:1.6px; color:var(--tos-fg-dim); font-weight:bold; text-align:center; }
 
     /* ── News app — "The Coldwater Sentinel" ────────────────────────────────────
        The feed is dressed as a newsprint sheet. The paper look is done by
@@ -1498,6 +2658,11 @@ function ensureStyles() {
       border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 9%, transparent); }
     #tablet-os-overlay .tos-wx-day:last-child { border-bottom:none; }
     #tablet-os-overlay .tos-wx-day:first-child { color:var(--mg-accent); }
+    /* Scheduled hero event (acid rain, ion storm) — outranks the first-child
+       accent, because the day that kills you matters more than today. */
+    #tablet-os-overlay .tos-wx-day.tos-wx-hero,
+    #tablet-os-overlay .tos-wx-day.tos-wx-hero:first-child { color:var(--red, #e05252); font-weight:600;
+      background:color-mix(in srgb, var(--red, #e05252) 8%, transparent); }
     #tablet-os-overlay .tos-wx-dow { color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-wx-dico { text-align:center; }
     #tablet-os-overlay .tos-wx-dcond { text-transform:capitalize; color:var(--tos-fg-dim); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -1966,10 +3131,287 @@ function applyTabletTheme() {
   _overlay.style.setProperty('--tos-shub', bgLuminance((bg || '').trim()) > 0.6 ? '#0a7d43' : '#39ff9e');
 }
 
-function nav(appId, screenLabel, params) {
-  _backReturn = null; // any explicit navigation invalidates a pending drill-in return
-  _tosCorpPage = 0;   // land on the corp Overview page on any server-side navigation
-  _tosIdeoPage = 0;   // land on the Ideology Overview page on any server-side navigation
+// ── Narration ────────────────────────────────────────────────────────────────
+// Reading a book aloud, using the same formant synth the TV uses
+// (AudioEngine.speak / cancelSpeech, gated on the same TV-voice setting — if you
+// muted the televisions you don't want a novel talking at you either).
+//
+// The synth has NO completion callback: TV drives it by pushing a line whenever
+// one arrives and passing a `budget` so the voice fits the window. A book has no
+// such external clock, so narration has to keep its own — split the chapter into
+// sentences, estimate each one's duration from its word count, and schedule the
+// next off a timer. `budget` is passed too, so the synth compresses rather than
+// overrunning into the following sentence.
+//
+// A chapter can be 25k characters, which is why this never hands the whole text
+// to speak() at once — one sentence per utterance keeps each one legible and
+// makes Stop instant.
+const NARRATE_WPS = 2.6;          // words/sec — matches the synth's natural pace
+let _narrate = null;              // { parts, i, timer, seed, title }
+let _narrateKeepOnClose = false;  // set by Minimize, consumed by close()
+
+// The ONE place a chapter is cut into utterances. The renderer wraps each part in
+// a span carrying its index and the narrator walks the same array, so the
+// highlight can never drift out of step with the voice — two separate splits
+// would desynchronise the moment either regex changed.
+function narrateSplit(text) {
+  return String(text || '')
+    .replace(/\s+/g, ' ')
+    .split(/(?<=[.!?])\s+/)
+    // A Victorian clause-pile can run 400 characters; break those on commas so no
+    // single utterance is a 40-second sprint.
+    .flatMap(s => s.length > 220 ? s.split(/(?<=,)\s+/) : [s])
+    .map(s => s.trim())
+    .filter(s => /[a-z0-9]/i.test(s));
+}
+
+function narrateStop() {
+  if (_narrate?.timer) clearTimeout(_narrate.timer);
+  _narrate = null;
+  try { window.AudioEngine?.cancelSpeech?.(); } catch { /* audio may not be up */ }
+  clearNarrateHighlight();
+  syncNarrateBar();
+  syncNarratePill();
+}
+
+// `onEnd` — an optional callback returning `{ text, title }` for whatever comes
+// after this chapter, or nothing to stop. It is captured on the narration state
+// for the same reason the lexicon is: narration outlives a minimize, and by then
+// _data is null, so anything read at speak time would be gone.
+function narrateStart(text, seed, title, lex, onEnd) {
+  narrateStop();
+  // `text` may be a pre-split array of utterances. A caller that has already
+  // NUMBERED its spans must hand over that exact array — see codexNarrationParts
+  // for why re-splitting a rejoined string can silently shift every index.
+  const parts = Array.isArray(text) ? text.slice() : narrateSplit(text);
+  if (!parts.length) return;
+  // The lexicon is captured HERE rather than read from _data at speak time:
+  // narration deliberately outlives a minimize, by which point _data is null.
+  _narrate = { parts, i: 0, timer: null, seed: seed || 'library', title: title || 'Reading', lex: lex || null, onEnd: onEnd || null };
+  narrateNext();
+  syncNarrateBar();
+}
+
+function clearNarrateHighlight() {
+  _overlay?.querySelectorAll('.tos-narr-on').forEach(el => el.classList.remove('tos-narr-on'));
+}
+
+function narrateNext() {
+  if (!_narrate) return;
+  const { parts, i, seed } = _narrate;
+  if (i >= parts.length) {
+    // End of the chapter. If the reader supplied a way on, take it rather than
+    // going silent — being made to walk back to the tablet and press play every
+    // few minutes is the thing that stops anyone finishing a book. Deliberately
+    // asked for LAZILY (a callback, not a precomputed next) so it sees the state
+    // as it is now, and can decline by returning nothing at the end of a volume.
+    const advance = _narrate.onEnd;
+    if (advance) {
+      const nextUp = advance();
+      if (nextUp?.text) {
+        // A beat longer than the between-sentence pause: a chapter break should
+        // be audible as a break.
+        const { text, title } = nextUp;
+        _narrate.timer = setTimeout(() => {
+          if (!_narrate) return;                  // stopped during the gap
+          narrateStart(text, _narrate.seed, title || _narrate.title, _narrate.lex, advance);
+        }, 1000);
+        return;
+      }
+    }
+    narrateStop();
+    return;
+  }
+  const line = parts[i];
+  const words = line.split(/\s+/).length;
+  const budget = Math.max(1.0, words / NARRATE_WPS);
+  // RP for the library. The shelf is Forster, Wells, Swift, London and two
+  // translations into Edwardian English — an American newsreader voice reading
+  // "The Machine Stops" fights the prose. Non-rhotic is the whole trick.
+  // speak() reports what it actually scheduled. Pacing off that instead of the
+  // word-count estimate removes the dead air a generous guess used to leave
+  // between sentences — the reason the old delivery dragged.
+  let spoken = 0;
+  try {
+    const r = window.AudioEngine?.speak?.(line, { seed, budget, accent: 'rp', lex: _narrate.lex });
+    spoken = Number(r?.duration) || 0;
+  } catch { /* keep reading */ }
+
+  // Follow the voice. Guarded on _overlay because narration deliberately outlives
+  // a minimize — with the tablet closed there is simply nothing to light up.
+  clearNarrateHighlight();
+  const span = _overlay?.querySelector(`.tos-narr-s[data-s="${i}"]`);
+  if (span) {
+    span.classList.add('tos-narr-on');
+    // Keep the spoken line on screen, but only nudge — `center` would yank the
+    // page on every sentence and make it unreadable for anyone following along.
+    try { span.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch { /* older engines */ }
+  }
+
+  _narrate.i = i + 1;
+  syncNarratePill();
+  // A beat of air between sentences, so it reads rather than gabbles. Measured
+  // from the real length where we have it (muted voice → 0 → fall back to the
+  // estimate, so a silent read still turns the page).
+  const NARRATE_GAP_MS = 200;
+  _narrate.timer = setTimeout(narrateNext, (spoken || budget) * 1000 + NARRATE_GAP_MS);
+}
+
+// Body prose with every utterance individually addressable, so the narrator can
+// light the sentence it's on. Indices come from narrateSplit — the SAME call the
+// voice walks — so span N is always the text of utterance N.
+//
+// Paragraphs are preserved by splitting on blank lines first and only then
+// numbering sentences continuously across them; numbering per-paragraph would
+// restart the index and break the mapping.
+function renderNarratableBody(body, glossary) {
+  let n = 0;
+  return String(body).split(/\n{2,}/).map(para => {
+    const spans = narrateSplit(para).map(s =>
+      `<span class="tos-narr-s" data-s="${n++}">${glossWords(esc(s), glossary)}</span>`).join(' ');
+    // A paragraph with no speakable sentence (a rule, a row of asterisks) still
+    // has to render, or the page silently loses it.
+    return `<p>${spans || glossWords(esc(para), glossary)}</p>`;
+  }).join('');
+}
+
+// Underline the archaic words this chapter actually contains. Runs AFTER esc(),
+// on already-escaped text, and only ever matches [A-Za-z'-] runs — so it cannot
+// land inside an entity (`&amp;`) or invent a tag. The gloss itself goes in a
+// data- attribute rather than the markup, so nothing user-visible changes length
+// and the narration split above stays character-aligned.
+function glossWords(escaped, glossary) {
+  if (!glossary) return escaped;
+  return escaped.replace(/[A-Za-z][A-Za-z'-]*/g, (w) => {
+    const g = glossary[w.toLowerCase()];
+    if (!g) return w;
+    return `<b class="tos-gloss" data-gloss="${esc(g)}" data-term="${esc(w)}">${w}</b>`;
+  });
+}
+
+function renderNarrateBar() {
+  const on = !!_narrate;
+  return `<div class="tos-narrate">
+    <button class="tos-btn tos-narrate-btn" data-narrate="${on ? 'stop' : 'start'}">${on ? '■ Stop' : '▶ Read Aloud'}</button>
+    <button class="tos-btn tos-narrate-min" data-narrate="min"${on ? '' : ' disabled'}>▾ Minimize</button>
+    <span class="tos-narrate-hint">${on ? 'Narrating…' : 'Uses the TV voice setting'}</span>
+  </div>`;
+}
+
+// Reflect narration state without a re-render — a full redraw would scroll the
+// reader back to the top mid-paragraph and lose the highlight.
+function syncNarrateBar() {
+  const btn = _overlay?.querySelector('.tos-narrate-btn');
+  if (!btn) return;
+  const on = !!_narrate;
+  btn.setAttribute('data-narrate', on ? 'stop' : 'start');
+  btn.textContent = on ? '■ Stop' : '▶ Read Aloud';
+  const min = _overlay.querySelector('.tos-narrate-min');
+  if (min) min.disabled = !on;
+  const hint = _overlay.querySelector('.tos-narrate-hint');
+  if (hint) hint.textContent = on ? 'Narrating…' : 'Uses the TV voice setting';
+}
+
+// ── The minimized pill ───────────────────────────────────────────────────────
+// Narration outliving the tablet needs a visible owner — something that says what
+// is talking and can stop it without reopening the app. Lives outside the overlay
+// entirely, because the overlay is exactly what just went away.
+function syncNarratePill() {
+  let pill = document.getElementById('tos-narrate-pill');
+  const showing = !!_narrate && !_overlay;
+  if (!showing) { pill?.remove(); return; }
+  if (!pill) {
+    pill = document.createElement('div');
+    pill.id = 'tos-narrate-pill';
+    pill.innerHTML = `<span class="tnp-title"></span><span class="tnp-prog"></span>
+      <button class="tnp-stop" title="Stop narration">■</button>`;
+    pill.querySelector('.tnp-stop').addEventListener('click', () => narrateStop());
+    // Tapping the pill itself reopens the tablet where you left off.
+    pill.addEventListener('click', (e) => {
+      if (e.target.closest('.tnp-stop')) return;
+      sendCmdSilent('tablet');
+    });
+    document.body.appendChild(pill);
+  }
+  pill.querySelector('.tnp-title').textContent = `▶ ${_narrate.title}`;
+  pill.querySelector('.tnp-prog').textContent = `${Math.min(_narrate.i, _narrate.parts.length)}/${_narrate.parts.length}`;
+}
+
+// ── Back stack ───────────────────────────────────────────────────────────────
+// Back used to be computed from the breadcrumb, which could only ever answer
+// "app root or Home" — so three levels into an app it skipped the level you came
+// from. This is a real history instead: every nav() records the screen you were
+// ON before it moved you, and Back pops one entry. Home clears it.
+//
+// Entries are the nav ARGUMENTS (appId/screen/params), not the rendered payload,
+// because those are the only thing that can be replayed to the server verbatim.
+// `null` is a legal entry and means the home screen.
+//
+// Some screens are reached by an ACTION rather than a nav (a Job Board posting, a
+// bliss listing, a reel) — those can't be replayed as `tabletnav`, so they aren't
+// stack entries. Instead we count how many action-screens deep we've gone since the
+// last real nav (_actDepth, incremented in render() when an action actually changed
+// the screen) and Back returns to that nav rather than popping past it. Without this
+// an action-reached screen popped a level it never occupied — from an app root, Home.
+const NAV_STACK_MAX = 24;   // a back stack, not an audit log
+let _navStack = [];
+let _navHere = null;        // the nav that produced the current screen (null = home)
+let _navSig = null;         // signature of the screen currently rendered
+let _lastWasAct = false;    // the pending round trip was an action, not a nav
+let _actDepth = 0;          // action-driven screen changes since the last nav
+
+// Identity of a rendered screen, used only to notice that an action moved us.
+function screenSig(d) {
+  if (!d) return null;
+  return [d.appId || '', d.view || '', (d.breadcrumb || []).join('>'),
+          d.focusId || d.quest?.id || d.detail?.id || ''].join('|');
+}
+
+const navSame = (a, b) =>
+  (a === null || b === null) ? a === b
+    : a.appId === b.appId && a.screen === b.screen && a.params === b.params;
+
+// Replay a recorded entry WITHOUT pushing it back onto the stack.
+function navTo(entry) {
+  if (!entry) { home(); return; }
+  narrateStop();
+  _lastWasAct = false; _actDepth = 0;
+  _tosCorpPage = 0; _tosIdeoPage = 0; _tosCodexCh = null;
+  sfx(TOS_SELECT_DEF);
+  _navHere = entry;
+  const parts = ['tabletnav', entry.appId];
+  if (entry.screen != null) parts.push(screenToken(entry.screen));
+  if (entry.params) parts.push(entry.params);
+  sendCmdSilent(parts.join(' '));
+}
+
+// One level up. Falls back to Home when there's nothing left to pop.
+function navBack() {
+  // Standing on an action-reached screen: step back onto the nav that led here
+  // (collapsing any chain of actions), without consuming a stack entry.
+  if (_actDepth > 0) { _actDepth = 0; navTo(_navHere); return; }
+  if (!_navStack.length) { home(); return; }
+  navTo(_navStack.pop());
+}
+
+// `replace` swaps the current history entry instead of pushing a new one. Used by
+// the in-app tab strip: tabs are lateral moves within one screen, not a drill-in,
+// so Back must leave the app the way it came rather than walking the tabs you tried.
+function nav(appId, screenLabel, params, replace) {
+  narrateStop();   // turning the page stops the previous page reading
+  _tosSelectMode = false;  // leaving Home disarms the home-grid selection mode
+  // Remember where we were, unless it's where we're already going (re-navving the
+  // same screen — the surveillance poller does this every 5s — must not stack up).
+  const next = { appId, screen: screenLabel ?? null, params: params ?? null };
+  if (!replace && !navSame(_navHere, next)) {
+    _navStack.push(_navHere);
+    if (_navStack.length > NAV_STACK_MAX) _navStack.shift();
+  }
+  _navHere = next;
+  _lastWasAct = false; _actDepth = 0; // a real nav is the new floor for action depth
+  _tosCorpPage = 0;  // land on the corp Overview page on any server-side navigation
+  _tosIdeoPage = 0;   // land on the Orders Overview page on any server-side navigation
+  _tosCodexCh = null; // …and on a volume's contents, not whatever was last read
   sfx(TOS_SELECT_DEF);
   const parts = ['tabletnav', appId];
   if (screenLabel != null) parts.push(screenToken(screenLabel));
@@ -1978,6 +3420,9 @@ function nav(appId, screenLabel, params) {
 }
 
 function act(appId, actionId, params) {
+  narrateStop();   // Next/Back/Contents all leave this page
+  // If this action turns out to change the screen, render() counts it as a level.
+  _lastWasAct = true;
   sfx(TOS_SELECT_DEF);
   const parts = ['tabletaction', appId, actionId];
   if (params) parts.push(params);
@@ -1985,7 +3430,9 @@ function act(appId, actionId, params) {
 }
 
 function home() {
-  _backReturn = null;
+  _lastWasAct = false; _actDepth = 0;
+  _navStack = [];    // home is the floor — nothing above it to go back to
+  _navHere = null;
   sfx(TOS_ENTRY_DEF);
   sendCmdSilent('tablet');
 }
@@ -2004,6 +3451,20 @@ function pollSurveillance() {
   if (screen != null) parts.push(screenToken(screen));
   if (_data.focusId) parts.push(_data.focusId);
   sendCmdSilent(parts.join(' '));
+}
+
+// DEADHEAD live tracking: while she's actually moving, re-pull the app so the aeroplane marker
+// walks the map instead of freezing wherever it was when you opened it. Same silent re-nav as
+// pollSurveillance. 2s is deliberately slower than the crew tick (2.5s) is fast — the CSS transition
+// on the marker covers the gap between pushes, so this buys smooth motion without a chatty poll.
+// Self-cancelling: the moment the view changes or she stops moving, the timer tears itself down.
+let _dhTimer = null;
+function pollDeadhead() {
+  if (!_overlay || !_data || _data.view !== 'deadhead' || !_data.deadhead?.moving) {
+    if (_dhTimer) { clearInterval(_dhTimer); _dhTimer = null; }
+    return;
+  }
+  sendCmdSilent('tabletnav deadhead');
 }
 
 // Live-refresh the Quests app when the server signals a quest changed state
@@ -2044,175 +3505,158 @@ function renderSummary(p) {
   </div>`;
 }
 
-// Drop the single reception pocket at a fresh random spot (kept off the extreme
-// edges so it's always reachable) and schedule its next jump. The pocket sits
-// still, then relocates occasionally — so a signal you'd found suddenly craters.
-function relocateSpot() {
-  if (typeof window === 'undefined') return;
-  const W = window.innerWidth, H = window.innerHeight;
-  _voidSpot = { x: W * (0.14 + 0.72 * Math.random()), y: H * (0.16 + 0.68 * Math.random()) };
-  _voidSpotMoveAt = Date.now() + 9000 + Math.random() * 11000; // holds ~9–20s, then jumps
-}
-
-// Raw reception at the tablet's current on-screen position: a single SMALL signal
-// pocket (Gaussian falloff from _voidSpot). Pan the tablet's centre onto the
-// pocket to climb toward 1; it's tight, so it takes real aim.
-function voidReceptionRaw() {
-  const anchor = _overlay?.querySelector('.tos-anchor');
-  if (!anchor || !_voidSpot || typeof window === 'undefined') return 0;
-  const r = anchor.getBoundingClientRect();
-  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-  const sigma = Math.min(window.innerWidth, window.innerHeight) * SPOT_SIGMA;
-  const d2 = (cx - _voidSpot.x) ** 2 + (cy - _voidSpot.y) ** 2;
-  return Math.max(0, Math.min(1, Math.exp(-d2 / (2 * sigma * sigma))));
-}
-
-// A cell-signal indicator in the header. Full bars on the grid; out in the void
-// it shows live reception — a partial bar count that rises/falls as you hunt for
-// signal, dropping to a flickering "NO SVC" when the pocket drifts away.
-function buildSignal(level, noService) {
-  const filled = noService ? 0 : Math.max(1, Math.round(Math.max(0, Math.min(1, level)) * 4));
-  const bars = [1, 2, 3, 4].map(i =>
-    `<span class="tos-sig-bar${!noService && i <= filled ? ' on' : ''}" style="height:${i * 2 + 1}px"></span>`).join('');
-  return `<span class="tos-signal${noService ? ' tos-signal-none' : ''}" id="tos-signal-live" title="${noService ? 'No Service — off the grid' : 'Signal'}">`
-    + `<span class="tos-sig-bars">${bars}${noService ? '<span class="tos-sig-slash"></span>' : ''}</span>`
-    + `${noService ? '<span class="tos-sig-label">NO SVC</span>' : ''}</span>`;
+// A cell-signal indicator in the header. Full bars on the grid; a steady "VOIDLINK"
+// badge once out on a crossing — see the module banner above, this no longer tracks
+// live hunting state, just whether you're currently off the grid at all.
+function buildSignal() {
+  const bars = [1, 2, 3, 4].map(i => `<span class="tos-sig-bar on" style="height:${i * 2 + 1}px"></span>`).join('');
+  return `<span class="tos-signal" id="tos-signal-live" title="Signal"><span class="tos-sig-bars">${bars}</span></span>`;
 }
 function renderSignal() {
-  if (!isOnCrossing()) return buildSignal(1, false);         // on the grid: full bars
-  if (!_voidRxActive) _voidRxSmooth = voidReceptionRaw();     // seed before the loop's first tick (no 0-bar flash)
-  return buildSignal(_voidRxSmooth, _voidRxSmooth < RX_NOSVC);
-}
-
-// The reception loop: while the tablet is open, once per ~110ms it re-reads
-// reception at the tablet's position and paints the bars, the screen static, the
-// occasional hard flicker, and which app tiles are "dead" (out of signal). Runs
-// only when off-grid; on the grid it clears any leftover void state and idles.
-function startReceptionLoop() {
-  if (_voidRxTimer) return;
-  _voidRxTimer = setInterval(tickReception, 110);
-}
-function stopReceptionLoop() {
-  if (_voidRxTimer) { clearInterval(_voidRxTimer); _voidRxTimer = null; }
-  clearVoidVisuals();
-  _voidRxActive = false;
-}
-function clearVoidVisuals() {
-  if (!_overlay) return;
-  _overlay.querySelector('.tos-panel')?.classList.remove('tos-rx-blip');
-  const stat = _overlay.querySelector('#tos-rx-static'); if (stat) stat.style.opacity = '0';
-  _overlay.querySelectorAll('.tos-tile-dead, .tos-tile-flick-out, .tos-tile-flick-in')
-    .forEach(el => el.classList.remove('tos-tile-dead', 'tos-tile-flick-out', 'tos-tile-flick-in'));
-  _overlay.querySelectorAll('.tos-tile-dc').forEach(el => el.remove());
-  _voidSpot = null; _voidAppsAlive = undefined; _voidKickedDrop = false;
-}
-function tickReception() {
-  if (!_overlay || !_overlay.isConnected) { stopReceptionLoop(); return; }
-  if (!isOnCrossing()) { if (_voidRxActive) { clearVoidVisuals(); _voidRxActive = false; } return; }
-  if (!_voidRxActive) {                                       // just went off-grid
-    _voidRxActive = true;
-    if (!_voidSpot) relocateSpot();
-    _voidRxSmooth = voidReceptionRaw();
+  if (!isOnCrossing()) return buildSignal();
+  if (_voidSearching) {
+    return `<span class="tos-void-badge searching" id="tos-signal-live" title="No signal — move the tablet to search">`
+      + `<span class="tos-void-badge-dot"></span>No signal · searching</span>`;
   }
-  if (Date.now() >= _voidSpotMoveAt) relocateSpot();         // the pocket jumps occasionally
-  const motionOff = document.documentElement.getAttribute('data-motion') === 'off';
-  const raw = voidReceptionRaw();
-  _voidRxSmooth += (raw - _voidRxSmooth) * 0.28;             // ease so bars/gating don't jitter
-  const weak = 1 - _voidRxSmooth;
-
-  // In a network app when the signal craters → boot back to the home screen (once
-  // per drop; re-arms when you recover). Offline apps and the home screen stay put.
-  if (_voidRxSmooth >= RX_REVIVE) _voidKickedDrop = false;
-  else if (!_voidKickedDrop && _voidRxSmooth < RX_KICK && _data && _data.appId
-           && _data.screen !== 'home' && !VOID_OFFLINE_APPS.has(_data.appId)) {
-    _voidKickedDrop = true;
-    _overlay.querySelector('.tos-nosig-sheet')?.remove();   // any open no-signal card goes with it
-    home();                                                 // signal lost mid-app → back to the launcher
-    return;
-  }
-  // Momentary dropout spike — this is the "flickers here and there": more frequent
-  // and deeper the weaker the signal. Suppressed when the user asked for no motion.
-  const spike = (!motionOff && Math.random() < (0.08 + 0.30 * weak)) ? Math.random() * weak : 0;
-
-  const sig = _overlay.querySelector('#tos-signal-live');
-  if (sig) sig.outerHTML = buildSignal(_voidRxSmooth, _voidRxSmooth < RX_NOSVC);
-
-  const stat = _overlay.querySelector('#tos-rx-static');
-  if (stat) stat.style.opacity = (motionOff ? Math.min(0.35, weak * 0.35) : Math.min(0.92, weak * 0.5 + spike * 1.3)).toFixed(2);
-
-  if (!motionOff && Math.random() < (0.04 + 0.10 * weak)) {  // rare hard flicker
-    const panel = _overlay.querySelector('.tos-panel');
-    if (panel) { panel.classList.add('tos-rx-blip'); setTimeout(() => panel.classList.remove('tos-rx-blip'), 60 + Math.random() * 80); }
-  }
-  updateDeadTiles();
+  return `<span class="tos-void-badge" id="tos-signal-live" title="Weak carrier — voidlink, off the grid">`
+    + `<span class="tos-void-badge-dot"></span>Weak signal · off grid</span>`;
 }
-// Drive the home-grid tiles' signal state. Network app tiles flicker out and show
-// a "D/C" (disconnected) badge when the grid drops below the revive threshold, and
-// flicker back on when it returns — the flicker only plays on the transition, so a
-// steady state doesn't strobe. Offline apps never die.
-function updateDeadTiles() {
-  if (!_overlay) return;
-  const alive = _voidRxSmooth >= RX_REVIVE;
-  const changed = alive !== _voidAppsAlive;   // availability just flipped this tick
-  _voidAppsAlive = alive;
-  _overlay.querySelectorAll('.tos-tile[data-nav-app]').forEach(t => {
-    const id = t.getAttribute('data-nav-app');
-    if (VOID_OFFLINE_APPS.has(id)) { setTileDead(t, false, false); return; }
-    setTileDead(t, !alive, changed);
-  });
+
+// Persistent off-grid theming for the rest of a crossing, reapplied on every render
+// (cheap: classList toggles). Purely cosmetic — the CSS (.tos-void-mode) drives the
+// scanline haze, drift band and vignette pulse, and .tos-void-searching drives the
+// text-only flicker before the carrier locks; nothing here gates an app.
+function applyVoidMode() {
+  const on = isOnCrossing();
+  const panel = _overlay?.querySelector('.tos-panel');
+  if (!panel) return;
+  panel.classList.toggle('tos-void-mode', on);
+  panel.classList.toggle('tos-void-searching', on && _voidSearching);
+  // Off the grid the device isn't ArchitectOS any more — it's running its own
+  // firmware, and the chassis header says so.
+  const title = _overlay.querySelector('.mg-head .mg-brand-name');
+  if (title) title.textContent = on ? 'VOIDLINK' : 'ARCHITECT OS';
+  const sub = _overlay.querySelector('.mg-head .mg-subtitle');
+  if (sub) sub.textContent = on ? 'Local Firmware · Off Grid' : 'Tablet Interface';
+  if (on && _voidSearching) armVoidHunt();
 }
-// Put one tile into (or out of) the disconnected state. `animate` plays the
-// flicker only when the state actually changed, so re-renders/steady ticks are quiet.
-function setTileDead(tile, dead, animate) {
-  const already = tile.classList.contains('tos-tile-dead');
-  if (dead) {
-    if (!tile.querySelector('.tos-tile-dc')) {
-      const b = document.createElement('span');
-      b.className = 'tos-tile-dc'; b.textContent = 'D/C';
-      tile.appendChild(b);
+
+// The one-shot void cold start: swaps the normal ARCHITECT OS boot screen for the
+// tablet's own firmware terminal, which fails the grid handshake and falls back to
+// VOIDLINK LOCAL, then hands off to the SEARCHING state. Only ever called once per
+// crossing (see _voidTripPrimed / openTabletPanel).
+const VOID_BOOT_LINES = [
+  { cls: 'hd', text: 'VOIDLINK FIRMWARE 3.1.7-w' },
+  { cls: 'rule' },
+  { text: 'cold start ................. ', tail: 'OK', ok: true },
+  { text: 'antenna array .............. ', tail: 'OK', ok: true },
+  { text: 'uplink architectOS ......... ', tail: 'NO CARRIER', fail: true, wait: 700 },
+  { text: 'retry 1/2 .................. ', tail: 'NO CARRIER', fail: true, wait: 620 },
+  { text: 'retry 2/2 .................. ', tail: 'NO CARRIER', fail: true, wait: 620 },
+  { text: 'grid services .............. ', tail: 'UNREACHABLE', fail: true },
+  { text: 'fallback ................... ', tail: 'VOIDLINK LOCAL', ok: true, wait: 500 },
+  { text: 'mounting cached apps ....... ', tail: 'OK', ok: true },
+  { cls: 'hero', text: '◈ VOIDLINK LOCAL — NO GRID', wait: 900 },
+];
+const VOID_BOOT_STEP_MS = 260;
+function runVoidFirmwareBoot() {
+  const boot = _overlay?.querySelector('#tos-boot');
+  if (!boot) { finishVoidBoot(); return; }
+  boot.outerHTML = `<div class="tos-void-boot" id="tos-boot"></div>`;
+  const host = _overlay.querySelector('#tos-boot');
+  let i = 0, timer = null;
+  const step = () => {
+    if (!host?.isConnected) { cleanup(); return; }
+    if (i >= VOID_BOOT_LINES.length) { cleanup(); finishVoidBoot(); return; }
+    const l = VOID_BOOT_LINES[i++];
+    if (l.cls === 'rule') host.insertAdjacentHTML('beforeend', `<div class="tos-void-boot-rule"></div>`);
+    else if (l.cls === 'hd') host.insertAdjacentHTML('beforeend', `<div class="tos-void-boot-hd">${esc(l.text)}</div>`);
+    else if (l.cls === 'hero') host.insertAdjacentHTML('beforeend', `<div class="tos-void-bootline hero">${esc(l.text)}<span class="tos-void-bootcur"></span></div>`);
+    else {
+      host.insertAdjacentHTML('beforeend',
+        `<div class="tos-void-bootline ${l.fail ? 'fail' : 'ok'}">&gt; ${esc(l.text)}<b>${esc(l.tail)}</b></div>`);
+      window.AudioEngine?.playSfx(l.fail ? VOID_CRACKLE_DEF : VOID_BOOT_TICK_DEF, TABLET_SFX_GAIN);
     }
-    tile.classList.add('tos-tile-dead');
-    if (animate && !already) flickerTile(tile, 'out');
-  } else {
-    tile.querySelector('.tos-tile-dc')?.remove();
-    tile.classList.remove('tos-tile-dead');
-    if (animate && already) flickerTile(tile, 'in');
-  }
-}
-// Restart the flicker-out / flicker-in animation on a tile (skipped for no-motion).
-function flickerTile(tile, dir) {
-  if (document.documentElement.getAttribute('data-motion') === 'off') return;
-  const cls = dir === 'out' ? 'tos-tile-flick-out' : 'tos-tile-flick-in';
-  tile.classList.remove('tos-tile-flick-out', 'tos-tile-flick-in');
-  void tile.offsetWidth; // reflow so the animation re-triggers
-  tile.classList.add(cls);
-  setTimeout(() => tile.classList.remove(cls), 520);
-}
-// Blocked-app feedback: a sheet over the screen explaining the app can't reach the
-// grid, nudging the player to pan for signal. Auto-updating bars aren't needed —
-// the header meter is already live behind it.
-function showNoSignal(appName) {
-  const screen = _overlay?.querySelector('#tos-screen-inner');
-  if (!screen) return;
-  screen.querySelector('.tos-nosig-sheet')?.remove();
-  const sheet = document.createElement('div');
-  sheet.className = 'tos-addsheet tos-nosig-sheet';
-  sheet.innerHTML = `<div class="tos-addsheet-card tos-nosig-card">
-    <div class="tos-nosig-glyph">▚</div>
-    <div class="tos-nosig-title">NO SIGNAL</div>
-    <div class="tos-nosig-body"><b>${esc(appName || 'This app')}</b> can't reach the grid out here in the void.<br>Drag the tablet around to find a pocket of reception, then try again.</div>
-    <button class="tos-nosig-close" data-nosig-close>Dismiss</button>
-  </div>`;
-  screen.appendChild(sheet);
-  sfx(TOS_SELECT_DEF);
-  const close = () => sheet.remove();
-  sheet.addEventListener('click', (e) => { if (e.target === sheet) close(); });
-  sheet.querySelector('[data-nosig-close]')?.addEventListener('click', close);
+    timer = setTimeout(step, l.wait || VOID_BOOT_STEP_MS);
+  };
+  function cleanup() { clearTimeout(timer); _voidIntro = null; }
+  _voidIntro = { cancel: cleanup };
+  timer = setTimeout(step, 220);
 }
 
+// Firmware boot done → the OS comes up in the SEARCHING state (unless this crossing
+// already locked a carrier), which renders the real screen with flickering text and
+// arms the drag-to-lock hunt.
+function finishVoidBoot() {
+  if (!_voidLocked) _voidSearching = true;
+  render();
+}
+
+// "Move the tablet into the right position": while SEARCHING, actually dragging the
+// tablet (not merely grabbing it) is what finds the carrier. One real drag locks it
+// for the rest of the crossing — moving it again afterwards changes nothing.
+const VOID_HUNT_PX = 60; // drag distance that counts as having found the position
+function armVoidHunt() {
+  if (_voidHunt || !_overlay) return;
+  const head = _overlay.querySelector('.mg-head');
+  if (!head) return;
+  let from = null;
+  const pt = e => (e.touches?.[0] || e);
+  const down = (e) => { if (e.target.closest('button')) return; const p = pt(e); from = { x: p.clientX, y: p.clientY }; };
+  const move = (e) => {
+    if (!from) return;
+    const p = pt(e);
+    if (Math.hypot(p.clientX - from.x, p.clientY - from.y) >= VOID_HUNT_PX) lockVoidSignal();
+  };
+  const up = () => { from = null; };
+  head.addEventListener('mousedown', down);
+  head.addEventListener('touchstart', down, { passive: true });
+  document.addEventListener('mousemove', move);
+  document.addEventListener('touchmove', move, { passive: true });
+  document.addEventListener('mouseup', up);
+  document.addEventListener('touchend', up);
+  const cancel = () => {
+    head.removeEventListener('mousedown', down);
+    head.removeEventListener('touchstart', down);
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('touchmove', move);
+    document.removeEventListener('mouseup', up);
+    document.removeEventListener('touchend', up);
+    _voidHunt = null;
+  };
+  _voidHunt = { cancel };
+}
+
+function lockVoidSignal() {
+  if (_voidLocked) return;
+  _voidLocked = true;
+  _voidSearching = false;
+  _voidHunt?.cancel();
+  const panel = _overlay?.querySelector('.tos-panel');
+  window.AudioEngine?.playSfx(VOID_SIGNAL_FOUND_DEF, TABLET_SFX_GAIN);
+  panel?.classList.add('tos-void-lock');
+  setTimeout(() => panel?.classList.remove('tos-void-lock'), 720);
+  render();
+}
+
+// Header: date and place on the left, then the CLOCK and the signal bars together
+// on the right — the corner every phone has trained people to look at for the time.
+// The clock is deliberately the largest thing in the bar; it was previously the same
+// 11px as everything else and got lost next to the location string.
+//
+// It also opens the Alarm app, because a clock you can't set an alarm on is just a
+// label. The generic [data-nav-app] handler does the navigation, so this needs no
+// wiring of its own.
 function renderHeader(d) {
-  return `<div class="tos-hdr"><span>${esc(d.time?.date || '')} <b>${esc(d.time?.time || '')}</b></span>`
-    + `<span class="tos-hdr-right"><span>${esc(d.location || '')}</span>${renderSignal()}</span></div>`;
+  const time = esc(d.time?.time || '');
+  return `<div class="tos-hdr">`
+    + `<span class="tos-hdr-left">${esc(d.time?.date || '')}</span>`
+    + `<span class="tos-hdr-right">`
+      + `<span class="tos-hdr-loc">${esc(d.location || '')}</span>`
+      + `<button type="button" class="tos-hdr-clock" data-nav-app="alarm"`
+      + ` title="${time} — set an alarm">${time}</button>`
+      + renderSignal()
+    + `</span></div>`;
 }
 
 /* Theme-aware app icons, keyed by app id. Primary strokes use currentColor (inherits
@@ -2235,8 +3679,22 @@ const TOS_APP_ICONS = {
   // News = "The Coldwater Sentinel" newsprint sheet: a folded broadsheet with a
   // masthead band and columns, monochrome like the rest so it drops the 📰 emoji.
   news: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M4 4h16v16l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2z" fill="currentColor" fill-opacity=".2" stroke="none"/><path d="M4 4h16v16l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2z"/><path d="M7 7h10"/><path d="M7 10.5h4.5v4H7z"/><path d="M13.5 10.5H17M13.5 13H17M7 16.5h10"/></svg>`,
+  // Codex = an open record: two leaves off a centre spine, ruled text on the
+  // left, and on the right the crosshair-and-marker of the Orders compass — the
+  // two halves of the app in one mark (the world, and where you stand in it).
+  // Monochrome, same stroke weight and .dim fill convention as the rest.
+  // Mixology (app id is still 'bar'). Without this the tile fell through to the
+  // app's own `icon: '🥃'` — a colour emoji, which cannot take `currentColor` and
+  // so ignored the theme entirely while every other tile re-skinned around it.
+  bar: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M5.6 6.6h12.8L12 13.9z" fill="currentColor" fill-opacity=".16" stroke="none"/><path d="M4.2 5.4h15.6L12 14.4z"/><path d="M12 14.4v5"/><path d="M8.3 19.8h7.4"/><path d="M15.6 3.1l-2.2 4.4" stroke-opacity=".55"/><circle cx="13.4" cy="7.5" r="1.15" fill="currentColor" stroke="none"/></svg>`,
+  // Sports. A trophy would read as "achievements"; a pennant on a staff is
+  // unambiguously a league table, and it holds its shape at tile size.
+  sports: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M7 4.4h12.2l-3.4 3.5 3.4 3.5H7z" fill="currentColor" fill-opacity=".16" stroke="none"/><path d="M7 4.4h12.2l-3.4 3.5 3.4 3.5H7z"/><path d="M7 2.8v18.4"/><path d="M4.6 21.2h4.8"/><path d="M10.4 7.9h4.2" stroke-opacity=".5"/></svg>`,
+  codex: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 6.2C10.2 4.6 7.6 4 3.5 4.4v14C7.6 18 10.2 18.6 12 20.2c1.8-1.6 4.4-2.2 8.5-1.8v-14C16.4 4 13.8 4.6 12 6.2z" fill="currentColor" fill-opacity=".16" stroke="none"/><path d="M12 6.2C10.2 4.6 7.6 4 3.5 4.4v14C7.6 18 10.2 18.6 12 20.2c1.8-1.6 4.4-2.2 8.5-1.8v-14C16.4 4 13.8 4.6 12 6.2z"/><path d="M12 6.2v14"/><path d="M6 8.4h3.5M6 11.2h3.5M6 14h2.4" stroke-opacity=".75"/><circle cx="16.4" cy="11.4" r="3.1" stroke-opacity=".8"/><path d="M16.4 8.3v6.2M13.3 11.4h6.2" stroke-opacity=".45"/><circle cx="17.7" cy="10.1" r="1.15" fill="currentColor" stroke="none"/></svg>`,
   // Ideology = an alignment compass: crosshair axes + a plotted marker, the same
   // "where you stand" motif the app's charts use. Monochrome like the rest.
+  // (Kept: the Ideology reader now lives as the Codex's Orders section, but this
+  // mark still fronts it in any surface that keys off the old id.)
   ideology: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="12" r="9" fill="currentColor" fill-opacity=".14" stroke="none"/><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18" stroke-opacity=".55"/><circle cx="15" cy="9" r="2.4" fill="currentColor" stroke="none"/></svg>`,
   // Not an SVG glyph — the circled-"A" ARCHITECT logo (same mark as the tablet's
   // own boot screen, .tos-boot-logo), so the tile reads as the game itself.
@@ -2259,6 +3717,28 @@ const TOS_APP_ICONS = {
   // DEADHEAD = an aircraft in a dashed holding orbit — the crew flying/loitering your base.
   // Monochrome (currentColor) like the rest, so it drops the off-palette ✈ emoji.
   deadhead: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><ellipse class="dim" cx="12" cy="13" rx="10" ry="6.2" fill="currentColor" fill-opacity=".12" stroke="none"/><ellipse cx="12" cy="13" rx="10" ry="6.2" stroke-opacity=".5" stroke-dasharray="2.4 2.6"/><path d="M12 4.6l1.05 5.7 4.9 2.5-4.9.7v2.2l1.7 1.6-2.75-.85-2.75.85 1.7-1.6v-2.2l-4.9-.7 4.9-2.5z" fill="currentColor" stroke="none"/></svg>`,
+  // Vitals = a heart with the trace running through it: the app is meters, and
+  // the meter everything else hangs off is whether you're still beating.
+  health: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 20.5S3.5 15 3.5 9.2A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.5 2.8c0 5.8-8.5 11.3-8.5 11.3z" fill="currentColor" fill-opacity=".18" stroke="none"/><path d="M12 20.5S3.5 15 3.5 9.2A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.5 2.8c0 5.8-8.5 11.3-8.5 11.3z"/><path d="M4.6 12.4h3l1.6-3.2 2.2 5.4 1.7-3.4 1.2 1.2h4.1"/></svg>`,
+  // Library = shelved spines, deliberately NOT the Codex's open book: the Codex is
+  // one record you read, the Library is a shelf you choose from.
+  library: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M4 5h4v14H4zM9 5h4v14H9z" fill="currentColor" fill-opacity=".2" stroke="none"/><path d="M4 5h4v14H4zM9 5h4v14H9z"/><path d="M14.4 6.3l4 1-2.6 11.4-4-1z"/><path d="M5 8.6h2M10 8.6h2"/><path d="M3 21h18"/></svg>`,
+  // TV = the set, not the screen content: a CRT box with rabbit ears, matching the
+  // broadcast system's own deliberately obsolete hardware.
+  tv: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path d="M8.4 7L5 3M15.6 7L19 3"/><rect x="2.5" y="7" width="19" height="12" rx="1.4"/><path class="dim" d="M4.5 9h11.5v8H4.5z" fill="currentColor" fill-opacity=".24" stroke="none"/><path d="M4.5 9h11.5v8H4.5z"/><path d="M18.6 11v.01M18.6 14.4v.01" stroke-linecap="round" stroke-width="2"/><path d="M7 21h10"/></svg>`,
+  // Cookbook = the pan, which is the part of cooking the app is actually about.
+  cookbook: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M3 11h13v3.5a5.5 5.5 0 0 1-11 0z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M3 11h13v3.5a5.5 5.5 0 0 1-11 0z"/><path d="M16 12.4h4.5"/><path d="M7 8.2c0-1.4 1.4-1.4 1.4-2.8S7 2.6 7 2.6M11.5 8.2c0-1.4 1.4-1.4 1.4-2.8s-1.4-2.8-1.4-2.8" stroke-opacity=".55"/></svg>`,
+  // Storefront = the awning and the shutter: a shop seen from the pavement, which
+  // is how a player meets one.
+  storefront: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M2.5 4.5h19L20 10H4z" fill="currentColor" fill-opacity=".24" stroke="none"/><path d="M2.5 4.5h19L20 10H4z"/><path d="M4 10v10.5h16V10"/><path d="M8.5 20.5V14h7v6.5"/><path d="M8.5 4.5L8 10M15.5 4.5l.5 5.5" stroke-opacity=".5"/></svg>`,
+  // Alarm = the twin-bell clock, the one shape that reads as "wakes you up" at 22px.
+  alarm: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="13.5" r="7.5" fill="currentColor" fill-opacity=".16" stroke="none"/><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.6 1.7"/><path d="M4.6 4.2A4 4 0 0 0 3 7.4M19.4 4.2A4 4 0 0 1 21 7.4"/><path d="M6.2 19.8L4.6 21.6M17.8 19.8l1.6 1.8"/></svg>`,
+  // Accolades = a rosette: award ribbon with a struck centre. Replaces the ▓ block,
+  // which was monochrome but carried no meaning.
+  accolades: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="9" r="6" fill="currentColor" fill-opacity=".2" stroke="none"/><circle cx="12" cy="9" r="6"/><path d="M12 6.2l1.15 2.35 2.6.38-1.88 1.83.44 2.58L12 12.1l-2.31 1.22.44-2.58L8.25 8.9l2.6-.38z" fill="currentColor" stroke="none"/><path d="M8.4 14.3L7 21.5l5-2.4 5 2.4-1.4-7.2"/></svg>`,
+  // BLISS = the heart, kept from the ♡ it replaces, redrawn at the same stroke
+  // weight as every other tile so it stops reading as a text character.
+  bliss: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 20.5S3.5 15 3.5 9.2A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.5 2.8c0 5.8-8.5 11.3-8.5 11.3z" fill="currentColor" fill-opacity=".28" stroke="none"/><path d="M12 20.5S3.5 15 3.5 9.2A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.5 2.8c0 5.8-8.5 11.3-8.5 11.3z"/><path d="M7.6 9.4a2.6 2.6 0 0 1 2.3-1.7" stroke-opacity=".55"/></svg>`,
 };
 
 // Client-only tablet apps — appended to the server-registered roster. Unlike the
@@ -2274,7 +3754,50 @@ const TABLET_APP_ORDER_KEY = 'architect_tablet_app_order';
 // Apps the player has flung off the home grid. Client-only, like the order — a list
 // of ids; anything here is dropped from the grid and offered back under the ⊕ tile.
 const TABLET_APP_HIDDEN_KEY = 'architect_tablet_hidden_apps';
+// The out-of-the-box home screen: three rows of four, then the ⧉/⊕ tiles. Every
+// OTHER registered app starts stashed under ⊕ — a fresh tablet shows 30-odd tiles
+// otherwise, and the ones you reach for hourly (where am I, what am I wearing, am
+// I dying, how wanted am I) get lost among the ones you open twice a character.
+//
+// The bar for a slot here is "you open it without being prompted to". Apps that
+// only matter once you OWN something (properties, storefront, vehicles, corp) or
+// once you're DOING something specific (crafting, cookbook, bar, frontier, sports,
+// arcade, specter) are one tap away under ⊕ and stay put once added.
+//
+// SIXTEEN IS ONE PAGE — four rows of four (see paginateHome). It isn't a ceiling:
+// a seventeenth app simply starts page 2, and a player can keep as many out as they
+// like. But the DEFAULT should land on a single page, so a first login isn't handed
+// a home screen it has to swipe. Adding one here means dropping one, or accepting a
+// page 2 with a single tile on it.
+// ORDER IS THE POINT, not just the membership: reading order, most-reached-for
+// first. Row 1 is the four you open without thinking (where am I, what am I
+// carrying, how am I, what am I doing). Row 2 is the day's business — people,
+// money, heat, progress. Row 3 is the things you do when you have a minute. Row 4
+// is reference and housekeeping, the stuff you open on purpose and rarely.
+const TABLET_DEFAULT_HOME_APPS = [
+  'map', 'gear', 'health', 'quests',
+  'chat', 'bank', 'crime', 'skills',
+  'crafting', 'news', 'music', 'calendar',
+  'tv', 'codex', 'help', 'settings',
+];
+// Bump when TABLET_DEFAULT_HOME_APPS changes. A device that seeded its stash under
+// an older default set re-seeds ONCE to the new one — without this, a player who
+// first logged in when the default was twelve apps keeps that twelve forever, plus
+// whatever registered afterwards, and reports (correctly) that the home screen
+// doesn't match the default at all. Re-seeding does discard a custom arrangement,
+// which is why it's tied to a deliberate version bump and not to the list's length.
+const TABLET_HOME_SEED_VERSION = 2;
+const TABLET_HOME_SEED_KEY = 'architect_tablet_home_seed_v';
 let _suppressTileClick = false; // swallow the click that fires right after a drag-drop
+// Home-grid selection mode (armed by the ⧉ tile). While it's on, a tile tap picks
+// rather than opens, a drag anywhere over the grid lassoes, and the long-press
+// reorder stands down — so nothing is competing for the same gesture.
+let _tosSelectMode = false;
+// True from the moment a home tile is LIFTED for reorder until the next press. The
+// page-swipe handler checks it: a tile dragged sideways across the grid is a
+// reorder that happens to move horizontally, not a request to turn the page, and
+// the two listeners are on the same element with no other way to tell them apart.
+let _homeDragLifted = false;
 
 function loadAppOrder() {
   try { const a = JSON.parse(localStorage.getItem(TABLET_APP_ORDER_KEY)); return Array.isArray(a) ? a : []; }
@@ -2287,6 +3810,25 @@ function loadHiddenApps() {
   try { const a = JSON.parse(localStorage.getItem(TABLET_APP_HIDDEN_KEY)); return Array.isArray(a) ? a : []; }
   catch { return []; }
 }
+// Stash everything outside the default set and write it down — on first run, and
+// again once whenever TABLET_HOME_SEED_VERSION moves. Materializing it rather than
+// deriving it on every render is what makes a LATER-registered app appear on the
+// home grid instead of silently landing in the stash: it isn't in the saved list,
+// so it shows up at the end of the last page.
+function seedDefaultHiddenApps(all) {
+  if (!all.length) return;   // roster not in yet — don't seed an empty default
+  let seeded = null;
+  try { seeded = localStorage.getItem(TABLET_HOME_SEED_KEY); } catch { return; }
+  // Devices from before the version key existed: treat a stash with no version as
+  // version 1, so they re-seed to the current default exactly once.
+  if (seeded !== null && Number(seeded) >= TABLET_HOME_SEED_VERSION) return;
+  saveHiddenApps(all.filter(a => !TABLET_DEFAULT_HOME_APPS.includes(a.id)).map(a => a.id));
+  // Seed the order too, so the sixteen land in the reading order above rather than
+  // in whatever order the plugins happened to register.
+  saveAppOrder(TABLET_DEFAULT_HOME_APPS.filter(id => all.some(a => a.id === id)));
+  saveAppGroups([]);   // a re-seed can't leave a box holding apps that are now stashed
+  try { localStorage.setItem(TABLET_HOME_SEED_KEY, String(TABLET_HOME_SEED_VERSION)); } catch {}
+}
 function saveHiddenApps(ids) {
   try { localStorage.setItem(TABLET_APP_HIDDEN_KEY, JSON.stringify(ids || [])); } catch {}
 }
@@ -2296,6 +3838,74 @@ function hideApp(id) {
 }
 function unhideApp(id) {
   saveHiddenApps(loadHiddenApps().filter(x => x !== id));
+  saveAppGroups(loadAppGroups().map(g => ({ ...g, apps: g.apps.filter(x => x !== id) })));
+}
+
+// Home-grid app groups — the same client-only, per-device preference shape as the
+// order and hidden lists above: `[{ id, name, color, apps:[appId] }]`. A group is
+// purely presentational (a coloured box with a name tab around a sub-grid); it
+// never changes what an app IS, so the server neither knows nor cares about it.
+const TABLET_APP_GROUPS_KEY = 'architect_tablet_app_groups';
+// Swatches offered when naming a group. Picked to stay legible against the tab's
+// dark text on every tablet theme (all are mid-to-bright, none near-black).
+const TOS_GROUP_COLORS = ['#3fd0d8', '#5ad07a', '#d8c23f', '#e08a3a', '#e0413a', '#c76ad8', '#6a8fe0', '#a9b4bd'];
+function loadAppGroups() {
+  try {
+    const a = JSON.parse(localStorage.getItem(TABLET_APP_GROUPS_KEY));
+    return Array.isArray(a) ? a.filter(g => g && g.id && Array.isArray(g.apps)) : [];
+  } catch { return []; }
+}
+function saveAppGroups(groups) {
+  // Drop emptied groups on the way out — a box with nothing in it renders as a
+  // floating tab and can never be repopulated except by lassoing into it.
+  try { localStorage.setItem(TABLET_APP_GROUPS_KEY, JSON.stringify((groups || []).filter(g => g.apps.length))); } catch {}
+}
+// Put `ids` in a group, taking them out of whatever group they were in before —
+// an app belongs to exactly one box. Pass a null groupId to create a new one.
+//
+// `cols` is THE SHAPE YOU SELECTED, and it is the whole point. Lasso a 2×2 square
+// of apps and the box is 2 wide and 2 tall, sitting in those four cells; lasso a row
+// of four and it's 4×1. The box was previously always full-width, which flattened
+// every selection into a line — a 2×2 pick came back as 1×4, shoved the row above it
+// into a ragged half-row, and pushed apps off the page. A box now spans exactly the
+// cells its members occupied.
+function assignAppsToGroup(ids, name, color, groupId, cols) {
+  const set = new Set(ids);
+  const groups = loadAppGroups().map(g => ({ ...g, apps: g.apps.filter(x => !set.has(x)) }));
+  const existing = groupId ? groups.find(g => g.id === groupId) : null;
+  if (existing) {
+    existing.name = name; existing.color = color;
+    existing.apps = [...existing.apps, ...ids];
+    if (cols) existing.cols = cols;
+  } else {
+    groups.push({ id: 'g' + Date.now().toString(36), name, color, apps: [...ids], cols: cols || Math.min(HOME_COLS, ids.length) });
+  }
+  saveAppGroups(groups);
+}
+
+// How many columns a box should be, clamped to what the grid actually has.
+//
+// A group saved before shapes existed has no `cols`, and the fallback is SQUARE-ISH
+// (ceil√n) rather than full-width: four apps become 2×2, six become 3×2, nine 3×3.
+// Full-width would faithfully reproduce the old look, but the old look is the bug
+// being fixed — a legacy group would keep rendering as a line until the player
+// deleted and re-made it, which is a fix nobody can find. A deliberately-picked row
+// of four still records cols:4 at creation and stays a row.
+function groupCols(g) {
+  const n = (g.apps || []).length || 1;
+  const want = Number(g.cols) || Math.ceil(Math.sqrt(n));
+  return Math.max(1, Math.min(HOME_COLS, want));
+}
+
+// The column count a SELECTION occupied on screen, read off the tiles' own geometry
+// (distinct x-centres, snapped to tolerate sub-pixel grid maths). This is what makes
+// the box remember the shape you drew rather than a shape we chose for you.
+function selectionCols(tiles) {
+  const xs = new Set(tiles.map(t => {
+    const b = t.getBoundingClientRect();
+    return Math.round((b.left + b.width / 2) / 8);   // 8px buckets — a column is far wider
+  }));
+  return Math.max(1, Math.min(HOME_COLS, xs.size));
 }
 
 // Reorder apps to the cached arrangement: saved-order apps first (in saved order),
@@ -2310,25 +3920,291 @@ function applyAppOrder(apps) {
   return ordered;
 }
 
+// One home-screen tile. `stashed` is only ever true in search results — an app you
+// removed still turns up when you look for it by name, dimmed, and tapping it puts
+// it back rather than pretending it isn't there.
+function homeTile(a, stashed, extra) {
+  const svg = TOS_APP_ICONS[a.id];
+  const icon = svg ? svg : esc(a.icon || '▫');
+  // A positive `notify` count (e.g. SPECTER reels waiting to be clipped) lights a
+  // red badge on the tile.
+  const n = Number(a.notify) || 0;
+  const badge = n > 0 ? `<span class="tos-tile-badge">${n > 9 ? '9+' : n}</span>` : '';
+  const glow = (a.id === 'frontier' && isOnCrossing()) ? ' tos-tile-glow' : '';
+  const attr = stashed ? `data-search-restore="${esc(a.id)}"` : `data-nav-app="${esc(a.id)}"`;
+  return `<div class="tos-tile${glow}${stashed ? ' tos-tile-stashed' : ''}${extra ? ' ' + extra : ''}" ${attr}`
+    + `${stashed ? ' title="Stashed — tap to put it back"' : ''}>`
+    + `${badge}<span class="tos-icon">${icon}</span><span class="tos-name">${esc(a.name)}</span></div>`;
+}
+
 function renderHomeApps(apps) {
+  const roster = [...(apps || []), ...CLIENT_APPS];
+  seedDefaultHiddenApps(roster);
   const hidden = new Set(loadHiddenApps());
-  const all = applyAppOrder([...(apps || []), ...CLIENT_APPS]).filter(a => !hidden.has(a.id));
+  const all = applyAppOrder(roster).filter(a => !hidden.has(a.id));
   if (!all.length && !hidden.size) return '<div class="tos-empty">No applications registered.</div>';
-  const onJourney = isOnCrossing(); // Frontier glows while you're out on a crossing
-  const tiles = all.map(a => {
-    const svg = TOS_APP_ICONS[a.id];
-    const icon = svg ? svg : esc(a.icon || '▫');
-    // A positive `notify` count (e.g. SPECTER reels waiting to be clipped) lights a
-    // red badge on the tile.
-    const n = Number(a.notify) || 0;
-    const badge = n > 0 ? `<span class="tos-tile-badge">${n > 9 ? '9+' : n}</span>` : '';
-    const glow = (a.id === 'frontier' && onJourney) ? ' tos-tile-glow' : '';
-    return `<div class="tos-tile${glow}" data-nav-app="${esc(a.id)}">${badge}<span class="tos-icon">${icon}</span><span class="tos-name">${esc(a.name)}</span></div>`;
+  // Searching flattens everything: no pages, no boxes, no arranging — just the apps
+  // that match, in order. With thirty-odd registered, typing three letters is faster
+  // than remembering which page you put a thing on.
+  if (_homeSearchOpen) {
+    const q = _homeSearch.trim().toLowerCase();
+    const hits = [...all, ...[...hidden].map(id => roster.find(a => a.id === id)).filter(Boolean)]
+      .filter(a => !q || String(a.name).toLowerCase().includes(q) || a.id.includes(q));
+    const grid = hits.length
+      ? `<div class="tos-grid">${hits.map(a => homeTile(a, hidden.has(a.id))).join('')}</div>`
+      : `<div class="tos-empty">Nothing matches “${esc(_homeSearch.trim())}”.</div>`;
+    return `<div class="tos-home-apps tos-searching">${grid}${renderHomeToolbar(true)}</div>`;
+  }
+  const tile = (a) => homeTile(a, false);
+  // Grouping draws a box around apps WHERE THEY ALREADY ARE — it never moves them.
+  // Walk the saved order once; the moment we meet any member of a group we haven't
+  // drawn yet, draw the whole box right there (using the members' own relative
+  // order) and skip the rest of its members when we reach them later. So a group's
+  // position is simply wherever its earliest member already sat — never the top of
+  // the screen, never anywhere the player didn't put an app. Membership is by id,
+  // so an app the server stopped registering (or one the player stashed under ⊕)
+  // just drops out of its box.
+  const groupOf = new Map();
+  for (const g of loadAppGroups()) for (const id of g.apps) if (!groupOf.has(id)) groupOf.set(id, g);
+  const drawn = new Set();
+  const blocks = [];
+  for (const a of all) {
+    const g = groupOf.get(a.id);
+    if (!g) { blocks.push({ kind: 'tile', app: a }); continue; }
+    if (drawn.has(g.id)) continue;              // a later member of an already-drawn group
+    drawn.add(g.id);
+    const members = all.filter(x => groupOf.get(x.id)?.id === g.id);
+    if (members.length) blocks.push({ kind: 'group', g, members });
+  }
+
+  const pages = paginateHome(blocks);
+  if (_homePage >= pages.length) _homePage = pages.length - 1;   // pages shrank under us
+  if (_homePage < 0) _homePage = 0;
+  const page = pages[_homePage] || { blocks: [] };
+
+  // ONE grid holds everything. A group box is a grid ITEM that spans the cells its
+  // members occupied (cols × rows), sitting inline among the tiles — not a
+  // full-width band between them. That's what keeps a 2×2 selection a 2×2 square
+  // with two loose tiles beside it, instead of flattening it into a line and
+  // reflowing the whole screen around the break.
+  const body = page.blocks.map(b => {
+    if (b.kind === 'tile') return tile(b.app);
+    const { g, members } = b;
+    const color = /^#[0-9a-f]{3,8}$/i.test(g.color || '') ? g.color : TOS_GROUP_COLORS[0];
+    const cols = groupCols(g);
+    const n = members.length;
+    const rows = Math.ceil(n / cols);
+    // Which of each member's four sides is on the OUTSIDE of the region. A cell's
+    // right edge is exterior if it's in the last column OR nothing follows it; its
+    // bottom edge is exterior if it's in the last row OR the cell below is past the
+    // end. That second clause is what traces the notch of a short final row, so the
+    // outline hugs the apps and the leftover cell reads as a space.
+    const inner = members.map((a, i) => {
+      const col = i % cols, row = Math.floor(i / cols);
+      const edges = [
+        row === 0 ? 'ge-t' : '',
+        (col === cols - 1 || i === n - 1) ? 'ge-r' : '',
+        (row === rows - 1 || i + cols >= n) ? 'ge-b' : '',
+        col === 0 ? 'ge-l' : '',
+      ].filter(Boolean).join(' ');
+      return homeTile(a, false, edges);
+    }).join('');
+    return `<div class="tos-appgroup" data-group-id="${esc(g.id)}"`
+      + ` style="--tos-grp:${esc(color)};--grp-cols:${cols};--grp-rows:${rows}">`
+      + `<div class="tos-appgroup-tab" data-group-menu="${esc(g.id)}" title="Hold to move the group · tap to edit it">`
+      + `<span class="tos-appgroup-swatch"></span><span class="tos-appgroup-nm">${esc(g.name || 'Group')}</span></div>`
+      + `<div class="tos-grid tos-appgrid tos-grp-inner" data-group-grid="${esc(g.id)}">${inner}</div></div>`;
   }).join('');
-  // The ⊕ tile — always last, opens the "add removed apps" sheet. Excluded from the
-  // drag-reorder / drag-off machinery (it isn't a real app).
-  const add = `<div class="tos-tile tos-tile-add" data-tos-addapps="1" title="Add apps"><span class="tos-icon">⊕</span><span class="tos-name">Add</span></div>`;
-  return `<div class="tos-grid">${tiles}${add}</div>`;
+  // Selection mode: tiles toggle instead of opening, dragging anywhere lassoes, and
+  // a bar along the bottom holds the count and the commit.
+  const bar = _tosSelectMode ? `<div class="tos-selbar">
+      <span class="tos-selbar-n"><b data-sel-count>0</b> selected</span>
+      <button type="button" class="tos-grp-btn" data-sel-cancel>Cancel</button>
+      <button type="button" class="tos-grp-btn" data-sel-group>Group</button>
+    </div>` : '';
+  return `<div class="tos-home-apps${_tosSelectMode ? ' tos-selecting' : ''}" data-home-page-now="${_homePage}">`
+    + `<div class="tos-grid tos-appgrid tos-homegrid" data-group-grid="">${body}</div>`
+    + renderHomePager(pages.length)
+    + renderHomeToolbar(false)
+    + `${bar}</div>`;
+}
+
+// ── The home toolbar ─────────────────────────────────────────────────────────
+// Select and Add used to be tiles, which cost two app slots and made the grid read
+// as fifteen-of-sixteen. They're not apps — they're tools for arranging apps — so
+// they live in one short strip under the grid instead, sharing that space with the
+// widget cards below it. Everything here is an icon with a label, sized to sit on
+// one line at tablet width.
+//
+// Search earns its place at thirty-odd registered apps: typing three letters beats
+// remembering which page you put a thing on, and it looks in the stash too.
+let _homeSearchOpen = false;   // is the find field showing
+let _homeSearch = '';          // what's typed in it
+function renderHomeToolbar(searching) {
+  const btn = (attr, icon, label, title, on) =>
+    `<button type="button" class="tos-hbar-btn${on ? ' on' : ''}" ${attr} title="${esc(title)}">`
+    + `<span class="tos-hbar-ic">${icon}</span><span class="tos-hbar-lb">${esc(label)}</span></button>`;
+  if (searching) {
+    return `<div class="tos-hbar searching">
+      <span class="tos-hbar-ic srch">⌕</span>
+      <input class="tos-hbar-input" data-home-search-input value="${esc(_homeSearch)}" placeholder="Find an app…" spellcheck="false">
+      ${btn('data-home-search-clear="1"', '✕', 'Done', 'Stop searching')}
+    </div>`;
+  }
+  if (_tosSelectMode) return '';   // the selection bar owns the strip while picking
+  return `<div class="tos-hbar">
+    ${btn('data-tos-select="1"', '⧉', 'Select', 'Select apps to group')}
+    ${btn('data-tos-addapps="1"', '⊕', 'Add', 'Add a stashed app back')}
+    ${btn('data-home-search="1"', '⌕', 'Find', 'Search your apps')}
+    ${btn('data-toggle-widgets="1"', '▤', 'Cards', 'Show or hide the home widgets', widgetsEnabled())}
+  </div>`;
+}
+
+// ── Home paging ──────────────────────────────────────────────────────────────
+// The grid is a fixed 4 rows of 4 — sixteen tiles to a page. Past that it doesn't
+// grow, it pages, so the screen keeps one shape however many apps you keep out and
+// there is no ceiling on how many that is.
+//
+// Packing is by whole ROWS, not by tile: a group box occupies the rows it needs
+// (its label is its own first row, costing nothing extra beyond that), and loose
+// tiles fill what's left, splitting across the page break wherever they land. A
+// group too tall for one page gets its own and is allowed to run over — clamping
+// it would silently hide apps, which is the one outcome worse than an odd page.
+//
+// Nothing here is stored: pages are derived from the saved order + groups every
+// render, so reordering re-flows them the way a phone home screen does. `blocks`
+// arrives already interleaved in reading order (see renderHomeApps) — a group and
+// a run of loose tiles alternate exactly as the player's own arrangement has them;
+// this function only decides where the PAGE BREAKS fall across that sequence.
+//
+// Select and Add are NOT in here at all — they're in the toolbar under the grid
+// (renderHomeToolbar), which is what lets a page hold a full sixteen apps. As tiles
+// they ate two slots and the default set read as fifteen-of-sixteen.
+const HOME_COLS = 4;
+const HOME_ROWS = 4;
+const HOME_SLOTS = HOME_COLS * HOME_ROWS;   // 16
+let _homePage = 0;   // which page is showing; survives re-renders, reset on close
+
+// Accounting is in CELLS, and can be again now that a group box is an inline grid
+// item rather than a full-width band: a tile costs 1, a box costs the block of cells
+// it spans (cols × rows). The earlier fractional-row maths existed only to pay for a
+// band's forced line break and its label row — neither of which happens any more, so
+// the honest simple count is back. The grid packs `dense`, so a small tile backfills
+// any hole a wide box leaves, which keeps the visual and this count in step.
+function paginateHome(blocks) {
+  const pages = [];
+  let cur = { blocks: [], left: HOME_SLOTS };
+  const push = () => { pages.push(cur); cur = { blocks: [], left: HOME_SLOTS }; };
+
+  for (const b of blocks) {
+    const cost = b.kind === 'group'
+      ? groupCols(b.g) * Math.ceil(b.members.length / groupCols(b.g))
+      : 1;
+    // A box too big for a page of its own still gets one and is allowed to run over —
+    // clamping it would silently hide apps, which is worse than an odd-looking page.
+    if (cost > cur.left && cur.blocks.length) push();
+    cur.blocks.push(b);
+    cur.left = Math.max(0, cur.left - cost);
+  }
+  pages.push(cur);   // the trailing page (empty when there are no apps at all)
+  return pages;
+}
+
+// The page dots. Hidden entirely at one page — a lone dot is noise, and the whole
+// point is that a twelve-app home screen looks exactly as it did before paging
+// existed. Dots are also drop targets: drag a tile onto one to send it to that
+// page, which is the only way to move an app between pages.
+function renderHomePager(count) {
+  if (count <= 1) return '';
+  const dots = Array.from({ length: count }, (_, i) =>
+    `<span class="tos-page-dot${i === _homePage ? ' on' : ''}" data-home-page="${i}" title="Page ${i + 1}"></span>`).join('');
+  return `<div class="tos-home-pager">
+    <span class="tos-page-arrow${_homePage === 0 ? ' off' : ''}" data-home-page="${Math.max(0, _homePage - 1)}">‹</span>
+    ${dots}
+    <span class="tos-page-arrow${_homePage >= count - 1 ? ' off' : ''}" data-home-page="${Math.min(count - 1, _homePage + 1)}">›</span>
+  </div>`;
+}
+
+// ── Home widgets ─────────────────────────────────────────────────────────────
+// Cards under the app grid, contributed by the apps themselves (buildWidget on the
+// server appDef — see the contract in plugins/tablet/index.js). Three kinds, and a
+// card whose kind this client doesn't know is skipped rather than drawn wrong, so
+// an older client meeting a newer widget degrades quietly.
+// Home widgets are opt-in, per device, and OFF by default — the home screen is a
+// launcher first, and a fresh player should meet a grid of apps, not a dashboard.
+// Turned on under Settings → Layout → Home Widgets. Off means off: even the Wanted
+// alarm stays down, because a feature you switched off should not be switchable
+// back on by the game.
+const TABLET_WIDGETS_KEY = 'architect_tablet_widgets';
+function widgetsEnabled() {
+  try { return localStorage.getItem(TABLET_WIDGETS_KEY) === 'on'; } catch { return false; }
+}
+function setWidgetsEnabled(on) {
+  try { localStorage.setItem(TABLET_WIDGETS_KEY, on ? 'on' : 'off'); } catch {}
+  _applyWidgetChrome();
+}
+
+// The chassis is sized for what's actually on the home screen: with cards off it
+// sheds the height it was only holding for them. Called on open and on every toggle,
+// so the device resizes in the same gesture that switches the cards.
+function _applyWidgetChrome() {
+  if (!_overlay) return;
+  _overlay.classList.toggle('tos-no-widgets', !widgetsEnabled());
+}
+
+function renderHomeWidgets(widgets) {
+  if (!widgetsEnabled()) return '';
+  // A card belongs to its app: stash the app under ⊕ and its card goes with it,
+  // add the app back and the card returns. The home screen you arranged is the one
+  // you get. (This runs after renderHomeApps in the same template, so the first-run
+  // default stash is already seeded by the time we read it.)
+  //
+  // The exception is a card that declares `alwaysOn` — an ALARM, whose entire job
+  // is to appear uninvited. The app it opens may well be stashed; that's the point.
+  // The server owns that call (see the buildWidget contract), not this list.
+  const hidden = new Set(loadHiddenApps());
+  const cards = (widgets || []).filter(w => w.alwaysOn || !hidden.has(w.nav)).map(w => {
+    let body = '';
+    if (w.kind === 'meters') {
+      body = (w.rows || []).map(r => `<div class="tos-wg-meter">
+        <span class="tos-wg-mlabel">${esc(r.label)}</span>
+        <span class="tos-wg-mbar"><span class="tos-wg-mfill band-${esc(r.band || 'good')}" style="width:${Math.max(0, Math.min(100, Number(r.pct) || 0))}%"></span></span>
+        <span class="tos-wg-mnote">${esc(r.note || '')}</span>
+      </div>`).join('');
+    } else if (w.kind === 'stat') {
+      body = `<div class="tos-wg-stat${w.tone ? ' tone-' + esc(w.tone) : ''}">
+        ${w.icon ? `<span class="tos-wg-icon">${esc(w.icon)}</span>` : ''}
+        <span class="tos-wg-big">${esc(w.big ?? '')}</span>
+        <span class="tos-wg-sub">${esc(w.sub || '')}</span>
+      </div>${w.note ? `<div class="tos-wg-note">${esc(w.note)}</div>` : ''}`;
+    } else if (w.kind === 'lines') {
+      // A card should be readable at a GLANCE, so an optional glyph carries the
+      // meaning and the text just confirms it. The first line is promoted to a
+      // headline; the rest are quiet supporting detail.
+      const ls = w.lines || [];
+      const rows = ls.map((l, i) => `<div class="tos-wg-line${i === 0 ? ' lead' : ''}">`
+        + `<span>${esc(l.text)}</span>${l.sub ? `<span class="tos-wg-lsub">${esc(l.sub)}</span>` : ''}</div>`).join('');
+      body = w.icon
+        ? `<div class="tos-wg-glyphed"><span class="tos-wg-glyph">${esc(w.icon)}</span><div class="tos-wg-lstack">${rows}</div></div>`
+        : rows;
+    } else if (w.kind === 'bar') {
+      // A proportion, drawn. One stacked bar plus a small keyed legend — the shape
+      // of the split lands before you've read a single number, which is the whole
+      // reason to draw it instead of printing two figures.
+      const segs = (w.segments || []).filter(s => Number(s.pct) > 0);
+      const legend = (w.segments || []).map(s => `<span class="tos-wg-key">`
+        + `<i class="tos-wg-swatch tone-${esc(s.tone || 'good')}"></i>${esc(s.label || '')}</span>`).join('');
+      body = `<div class="tos-wg-track">${segs.map(s =>
+        `<span class="tos-wg-seg tone-${esc(s.tone || 'good')}" style="flex:${Math.max(0.001, Number(s.pct) || 0)}"></span>`).join('')}</div>`
+        + `<div class="tos-wg-legend">${legend}</div>`
+        + (w.note ? `<div class="tos-wg-note">${esc(w.note)}</div>` : '');
+    } else {
+      return '';   // unknown kind — say nothing rather than something wrong
+    }
+    const nav = w.nav ? ` data-widget-nav="${esc(w.nav)}"` : '';
+    return `<div class="tos-widget"${nav}><div class="tos-wg-title">${esc(w.title || '')}</div>${body}</div>`;
+  }).filter(Boolean).join('');
+  return cards ? `<div class="tos-widgets">${cards}</div>` : '';
 }
 
 // The "add removed apps" sheet — a client-side card over the home screen listing every
@@ -2340,18 +4216,23 @@ function openAddAppsSheet() {
   screen.querySelector('.tos-addsheet')?.remove();
   const hidden = loadHiddenApps();
   const byId = new Map([...(_data?.apps || []), ...CLIENT_APPS].map(a => [a.id, a]));
-  const apps = hidden.map(id => byId.get(id)).filter(Boolean);
+  // Alphabetical, not stash order: this list is 20-odd tiles on a fresh tablet
+  // (everything outside the default sixteen), so it's a thing you scan by name.
+  const apps = hidden.map(id => byId.get(id)).filter(Boolean)
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  // Its own denser grid (.tos-addsheet-grid), not the home screen's 4-column one —
+  // that's what keeps the whole stash on screen without a scrollbar.
   const body = apps.length
-    ? `<div class="tos-grid">${apps.map(a => {
+    ? `<div class="tos-addsheet-grid">${apps.map(a => {
         const svg = TOS_APP_ICONS[a.id];
         const icon = svg ? svg : esc(a.icon || '▫');
-        return `<div class="tos-tile" data-readd-app="${esc(a.id)}"><span class="tos-icon">${icon}</span><span class="tos-name">${esc(a.name)}</span></div>`;
+        return `<div class="tos-tile" data-readd-app="${esc(a.id)}" title="${esc(a.name)}"><span class="tos-icon">${icon}</span><span class="tos-name">${esc(a.name)}</span></div>`;
       }).join('')}</div>`
-    : '<div class="tos-empty">Nothing removed. Drag an app off the tablet to stash it here.</div>';
+    : '<div class="tos-empty">Everything is on your home screen. Drag an app off the tablet to stash it here.</div>';
   const sheet = document.createElement('div');
   sheet.className = 'tos-addsheet';
-  sheet.innerHTML = `<div class="tos-addsheet-card">
-    <div class="tos-addsheet-hdr"><span>Add apps</span><span class="tos-addsheet-x" data-addsheet-close title="Close">✕</span></div>
+  sheet.innerHTML = `<div class="tos-addsheet-card wide">
+    <div class="tos-addsheet-hdr"><span>Add apps · ${apps.length}</span><span class="tos-addsheet-x" data-addsheet-close title="Close">✕</span></div>
     ${body}
   </div>`;
   screen.appendChild(sheet);
@@ -2370,29 +4251,39 @@ function openAddAppsSheet() {
 // metaphor, so it works with touch and mouse and never fights a tap-to-open or a
 // scroll-swipe). Wired fresh on each home render; window listeners live only for
 // the duration of a press, so re-wiring can't leak them.
-function wireAppGridDrag(grid) {
+function wireAppGridDrag(container) {
   const LIFT_MS = 300;   // hold this long (finger still) to pick a tile up
   const CANCEL_MOVE = 10; // moving more than this before the lift = a tap/scroll, not a pickup
   let press = null; // { tile, x, y, timer }
   let drag = null;  // { tile, clone, offX, offY }
 
-  const reflow = (px, py) => {
-    // Pick the single closest tile to the pointer — INCLUDING the dragged tile's
-    // own placeholder. When the finger is over that placeholder it wins, so we
-    // don't move; this hysteresis is what stops the tile snapping back and forth
-    // between two neighbouring slots (each insert reflowed the grid and flipped
-    // which neighbour was "nearest"). Swap past whichever real tile is closest,
-    // on the side it sits relative to the drag tile in DOM order.
-    const tiles = [...grid.querySelectorAll('.tos-tile:not(.tos-tile-add)')];
+  // AIM, don't rearrange. This only marks where the tile WOULD land; the actual
+  // insert happens once, on release (see `end`). Live reflow made every tile you
+  // dragged past leap out of the way, so the arrangement you were aiming at kept
+  // changing under the pointer — and each insert re-flowed the grid, which flipped
+  // which neighbour was "nearest" and made the placeholder flicker between slots.
+  const clearDropMark = () => {
+    container.querySelectorAll('.tos-drop-before, .tos-drop-after, .tos-drop-swap')
+      .forEach(n => n.classList.remove('tos-drop-before', 'tos-drop-after', 'tos-drop-swap'));
+  };
+  const aim = (px, py) => {
+    // The sweep spans EVERY app grid on the home screen (the outer one plus one per
+    // group box), which is what lets a tile be aimed into or out of a group.
+    const tiles = [...container.querySelectorAll('.tos-appgrid .tos-tile:not(.tos-tile-add)')];
     let target = null, best = Infinity;
     for (const t of tiles) {
+      if (t === drag.tile) continue;
       const b = t.getBoundingClientRect();
       const d = Math.hypot(px - (b.left + b.width / 2), py - (b.top + b.height / 2));
       if (d < best) { best = d; target = t; }
     }
-    if (!target || target === drag.tile) return;
-    const targetAfterDrag = drag.tile.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING;
-    grid.insertBefore(drag.tile, targetAfterDrag ? target.nextSibling : target);
+    clearDropMark();
+    drag.dropTarget = target || null;
+    // A SWAP, not an insert — so there's no "which side" to read. The tile you drop
+    // on takes the slot you dragged from, and nothing else on the screen moves.
+    // Inserting shuffled every tile after the drop point along by one, which is why
+    // a small correction rearranged half the grid.
+    if (target) target.classList.add('tos-drop-swap');
   };
 
   const begin = () => {
@@ -2408,8 +4299,9 @@ function wireAppGridDrag(grid) {
     Object.assign(clone.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
     document.body.appendChild(clone);
     tile.classList.add('tos-tile-ghost');
-    grid.classList.add('tos-grid-arranging');
-    drag = { tile, clone, offX: press.x - r.left, offY: press.y - r.top };
+    container.classList.add('tos-grid-arranging');
+    _homeDragLifted = true;   // this gesture belongs to the reorder, not to the pager
+    drag = { tile, clone, offX: press.x - r.left, offY: press.y - r.top, fromGrid: tile.parentElement };
     press = null;
     sfx(TOS_SELECT_DEF);
   };
@@ -2431,7 +4323,7 @@ function wireAppGridDrag(grid) {
       drag.lastX = e.clientX; drag.lastY = e.clientY;
       const off = offTablet(e.clientX, e.clientY);
       drag.clone.classList.toggle('tos-tile-removing', off);
-      if (!off) reflow(e.clientX, e.clientY); // only reshuffle while still over the grid
+      if (off) { clearDropMark(); drag.dropTarget = null; } else aim(e.clientX, e.clientY);
       return;
     }
     if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > CANCEL_MOVE) {
@@ -2449,7 +4341,7 @@ function wireAppGridDrag(grid) {
       const appId = drag.tile.getAttribute('data-nav-app');
       drag.clone.remove();
       drag.tile.classList.remove('tos-tile-ghost');
-      grid.classList.remove('tos-grid-arranging');
+      container.classList.remove('tos-grid-arranging');
       _suppressTileClick = true;                       // the drop's trailing click must not open an app
       setTimeout(() => { _suppressTileClick = false; }, 0);
       if (dropOff && appId) {
@@ -2459,19 +4351,397 @@ function wireAppGridDrag(grid) {
         render();
         return;
       }
-      saveAppOrder([...grid.querySelectorAll('.tos-tile')].map(t => t.getAttribute('data-nav-app')).filter(Boolean));
+      // Dropped on a page dot → send the app to that page. Pages are derived from
+      // the flat order, so "moving to page N" means splicing the id to the front of
+      // the run of ids that page starts with — and since the drop point is a dot,
+      // not a slot, this is the one gesture that can cross a page boundary.
+      const dot = document.elementFromPoint(drag.lastX, drag.lastY)?.closest?.('[data-home-page]');
+      if (dot && appId) {
+        drag = null;
+        moveAppToPage(container, appId, Number(dot.getAttribute('data-home-page')) || 0);
+        return;
+      }
+      // THE ONE AND ONLY MOVE, and it's a straight SWAP: the two tiles trade places
+      // and nothing else on the screen budges. Done with a marker so it's safe when
+      // the two are already neighbours (the naive two-insert version collapses in
+      // that case). Swapping rather than inserting is what stops a one-slot
+      // correction from shunting every tile after it along by one.
+      const target = drag.dropTarget;
+      clearDropMark();
+      if (target && target !== drag.tile) {
+        const marker = document.createElement('span');
+        drag.tile.parentElement.insertBefore(marker, drag.tile);
+        target.parentElement.insertBefore(drag.tile, target);
+        marker.parentElement.insertBefore(target, marker);
+        marker.remove();
+      }
+      const movedBox = drag.tile.parentElement !== drag.fromGrid;
       drag = null;
+      persistHomeArrangement(container);
+      // Crossing between a group box and the outer grid changes a box's membership
+      // (and can empty one out of existence), so that drop needs a real rebuild.
+      if (movedBox) render();
     }
   };
 
-  grid.addEventListener('pointerdown', (e) => {
-    if (e.button > 0) return;
+  container.addEventListener('pointerdown', (e) => {
+    if (e.button > 0 || _tosSelectMode) return;                   // selection mode owns the gesture
     const tile = e.target.closest('.tos-tile');
-    if (!tile || tile.classList.contains('tos-tile-add')) return; // ⊕ tile isn't draggable
+    if (!tile || tile.classList.contains('tos-tile-add')) return; // ⧉/⊕ tiles aren't draggable
     press = { tile, x: e.clientX, y: e.clientY, timer: setTimeout(begin, LIFT_MS) };
     window.addEventListener('pointermove', onMove, { passive: false });
     window.addEventListener('pointerup', end);
     window.addEventListener('pointercancel', end);
+  });
+}
+
+// Whole-group drag: press-hold a group's LABEL (never a member tile) to lift the
+// entire box and set it down next to another top-level block — another group, or a
+// run of loose tiles — on the same page. A member tile keeps its own ordinary
+// per-tile drag (wireAppGridDrag, above); this is a second, independent gesture
+// bound to a different element, so the two can never compete for the same press.
+//
+// Precision is ITEM-level: the box lands beside another item in the home grid — a
+// loose tile or another box — never inside one, because dropping "into" another
+// group would mean picking a merge behaviour nobody asked for. Like the tile drag,
+// nothing moves until you let go. Reuses persistHomeArrangement to save, because
+// once the box has been moved among its DOM siblings that function's document-order
+// read already sees it there.
+function wireGroupDrag(container) {
+  const LIFT_MS = 300;
+  const CANCEL_MOVE = 10;
+  let press = null;   // { box, x, y, timer }
+  let drag = null;    // { box, clone, offX, offY, lastX, lastY, dropTarget, dropAfter }
+
+  // Candidate neighbours: the home grid's own children — top-level tiles and other
+  // boxes. Scoped to that one grid, so a tile living INSIDE another group is never a
+  // target (that would be a merge, not a move).
+  const siblings = () => {
+    const grid = container.querySelector('.tos-homegrid');
+    return grid ? [...grid.children].filter(el => el !== drag.box) : [];
+  };
+
+  const clearDropMark = () => {
+    container.querySelectorAll('.tos-drop-before, .tos-drop-after, .tos-drop-swap')
+      .forEach(n => n.classList.remove('tos-drop-before', 'tos-drop-after', 'tos-drop-swap'));
+  };
+  const aim = (px, py) => {
+    let target = null, best = Infinity;
+    for (const el of siblings()) {
+      const b = el.getBoundingClientRect();
+      const d = Math.hypot(px - (b.left + b.width / 2), py - (b.top + b.height / 2));
+      if (d < best) { best = d; target = el; }
+    }
+    clearDropMark();
+    drag.dropTarget = target || null;
+    if (!target) { drag.dropAfter = false; return; }
+    const b = target.getBoundingClientRect();
+    drag.dropAfter = px > b.left + b.width / 2;
+    target.classList.add(drag.dropAfter ? 'tos-drop-after' : 'tos-drop-before');
+  };
+
+  const begin = () => {
+    const box = press.box;
+    const r = box.getBoundingClientRect();
+    const tab = box.querySelector('.tos-appgroup-tab');
+    const clone = document.createElement('div');
+    clone.className = 'tos-group-drag';
+    clone.style.setProperty('--tos-grp', box.style.getPropertyValue('--tos-grp'));
+    clone.innerHTML = `<span class="tos-appgroup-swatch"></span>`
+      + `<span>${esc(tab?.querySelector('.tos-appgroup-nm')?.textContent || 'Group')}</span>`
+      + `<span class="tos-appgroup-n">${esc(tab?.querySelector('.tos-appgroup-n')?.textContent || '')}</span>`;
+    Object.assign(clone.style, { left: r.left + 'px', top: r.top + 'px' });
+    document.body.appendChild(clone);
+    box.classList.add('tos-appgroup-ghost');
+    container.classList.add('tos-grid-arranging');
+    drag = { box, clone, offX: press.x - r.left, offY: press.y - r.top };
+    press = null;
+    sfx(TOS_SELECT_DEF);
+  };
+
+  // Same "flung off the screen" test as the tile drag — dropping the box past the
+  // tablet's edge stashes every app in it.
+  const offTablet = (x, y) => {
+    const screen = _overlay?.querySelector('#tos-screen-inner');
+    if (!screen) return false;
+    const b = screen.getBoundingClientRect();
+    return x < b.left || x > b.right || y < b.top || y > b.bottom;
+  };
+
+  const onMove = (e) => {
+    if (drag) {
+      e.preventDefault();
+      drag.clone.style.left = (e.clientX - drag.offX) + 'px';
+      drag.clone.style.top = (e.clientY - drag.offY) + 'px';
+      drag.lastX = e.clientX; drag.lastY = e.clientY;
+      const off = offTablet(e.clientX, e.clientY);
+      drag.clone.classList.toggle('tos-tile-removing', off);
+      if (off) { clearDropMark(); drag.dropTarget = null; } else aim(e.clientX, e.clientY);
+      return;
+    }
+    if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > CANCEL_MOVE) {
+      clearTimeout(press.timer); press = null;
+    }
+  };
+
+  const end = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+    if (press) { clearTimeout(press.timer); press = null; }
+    if (drag) {
+      const dropOff = offTablet(drag.lastX, drag.lastY);
+      const groupId = drag.box.getAttribute('data-group-id');
+      drag.clone.remove();
+      drag.box.classList.remove('tos-appgroup-ghost');
+      container.classList.remove('tos-grid-arranging');
+      _suppressTileClick = true;   // the drop's trailing click must not open the edit sheet
+      setTimeout(() => { _suppressTileClick = false; }, 0);
+      const group = groupId ? loadAppGroups().find(x => x.id === groupId) : null;
+      if (dropOff && group) {
+        // Flung the whole box off the tablet → stash every member. The group
+        // definition itself is left alone (it's pruned once empty, same as a
+        // single app's last member leaving), so a re-added app can rejoin it.
+        group.apps.forEach(hideApp);
+        drag = null;
+        render();
+        return;
+      }
+      const dot = document.elementFromPoint(drag.lastX, drag.lastY)?.closest?.('[data-home-page]');
+      if (dot && group) {
+        drag = null;
+        moveGroupToPage(container, group.apps, Number(dot.getAttribute('data-home-page')) || 0);
+        return;
+      }
+      // The single move, on release — same contract as the tile drag.
+      const target = drag.dropTarget;
+      clearDropMark();
+      if (target && target !== drag.box) {
+        target.parentElement.insertBefore(drag.box, drag.dropAfter ? target.nextSibling : target);
+      }
+      drag = null;
+      persistHomeArrangement(container);   // the box's new sibling position IS the new order
+    }
+  };
+
+  container.addEventListener('pointerdown', (e) => {
+    if (e.button > 0 || _tosSelectMode) return;
+    const tab = e.target.closest('.tos-appgroup-tab');
+    const box = tab?.closest('.tos-appgroup');
+    if (!box) return;   // a press anywhere else (a member tile, empty space) isn't this gesture
+    press = { box, x: e.clientX, y: e.clientY, timer: setTimeout(begin, LIFT_MS) };
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  });
+}
+
+// Read the home screen back out of the DOM and cache it: one flat display order
+// across every grid, plus each box's membership. Called after any drop, so the
+// arrangement the player sees is exactly the one that survives a re-render.
+function persistHomeArrangement(container) {
+  // Direct children only, so a box's members are read from the box (below) and not
+  // counted twice by the outer grid's sweep.
+  const idsOf = (grid) => [...grid.children]
+    .filter(el => el.classList.contains('tos-tile'))
+    .map(t => t.getAttribute('data-nav-app')).filter(Boolean);
+  const grids = [...container.querySelectorAll('.tos-appgrid')];
+  // Reading order across the whole page: walk the home grid's children in order, and
+  // where a child is a box, splice its members in at that point. That's what makes a
+  // group's saved position "wherever it sits", which is what the renderer reads back.
+  const home = container.querySelector('.tos-homegrid');
+  const visible = [];
+  for (const el of (home ? [...home.children] : [])) {
+    if (el.classList.contains('tos-tile')) {
+      const id = el.getAttribute('data-nav-app');
+      if (id) visible.push(id);
+    } else if (el.classList.contains('tos-appgroup')) {
+      const inner = el.querySelector('.tos-grp-inner');
+      if (inner) visible.push(...idsOf(inner));
+    }
+  }
+
+  // ONLY THE CURRENT PAGE IS IN THE DOM. Saving the visible ids as the whole order
+  // would erase every app on every other page, so splice them back into the saved
+  // order at the position the page already occupied instead of replacing it.
+  const prev = loadAppOrder();
+  if (prev.length) {
+    const vis = new Set(visible);
+    const at = prev.findIndex(id => vis.has(id));
+    const rest = prev.filter(id => !vis.has(id));
+    const cut = at < 0 ? rest.length : Math.min(at, rest.length);
+    saveAppOrder([...rest.slice(0, cut), ...visible, ...rest.slice(cut)]);
+  } else {
+    saveAppOrder(visible);
+  }
+  // Group membership: only boxes actually on screen can have changed.
+  const live = new Map(grids.map(g => [g.getAttribute('data-group-grid'), idsOf(g)]));
+  saveAppGroups(loadAppGroups().map(g => live.has(g.id) ? { ...g, apps: live.get(g.id) } : g));
+}
+
+// Currently-picked tiles, and the live count on the selection bar.
+function selectedAppTiles(container) {
+  return [...(container || _overlay || document).querySelectorAll('.tos-tile-sel')];
+}
+function refreshSelCount(container) {
+  const n = selectedAppTiles(container).length;
+  const el = container.querySelector('[data-sel-count]');
+  if (el) el.textContent = String(n);
+}
+// Leave selection mode and rebuild the home screen (which puts ⧉/⊕ back and drops
+// the bar). Every exit route — Cancel, committing a group, navigating away — goes
+// through here so the mode can never outlive the screen that shows it.
+function exitAppSelectMode() {
+  if (!_tosSelectMode) return;
+  _tosSelectMode = false;
+  render();
+}
+
+// Shared splice for both page-dot drops below: pull `ids` (in their existing
+// relative order) out of the saved order and reinsert them as one run at the
+// boundary the target page starts on. `HOME_SLOTS * targetPage` is an
+// APPROXIMATION of where that boundary actually falls once groups are interleaved
+// (a group can push the real boundary earlier or later) — close enough that the
+// drop lands on the right page, and any further nudge is an ordinary drag from there.
+function moveIdsToPage(container, ids, targetPage) {
+  const order = [...container.querySelectorAll('.tos-appgrid .tos-tile')]
+    .map(t => t.getAttribute('data-nav-app')).filter(Boolean);
+  // The DOM only holds the CURRENT page, so start from the saved order (which spans
+  // all of them) and fall back to the visible one if nothing has been saved yet.
+  const full = loadAppOrder().length ? loadAppOrder() : order;
+  const set = new Set(ids);
+  const moving = full.filter(id => set.has(id));   // preserve their relative order
+  const rest = full.filter(id => !set.has(id));
+  const at = Math.max(0, Math.min(rest.length, targetPage * HOME_SLOTS));
+  saveAppOrder([...rest.slice(0, at), ...moving, ...rest.slice(at)]);
+}
+
+// Send one app to another page. Grouped apps leave their group in the process — a
+// box is laid out as a unit and can't straddle a page, so the lone app has to come
+// out of it first (see moveGroupToPage for moving the whole box instead).
+function moveAppToPage(container, appId, targetPage) {
+  moveIdsToPage(container, [appId], targetPage);
+  saveAppGroups(loadAppGroups().map(g => ({ ...g, apps: g.apps.filter(x => x !== appId) })));
+  _homePage = targetPage;
+  render();
+}
+
+// Send an entire GROUP to another page — every member moves together and is still
+// a group when it lands, which is the whole point of dragging the box.
+function moveGroupToPage(container, ids, targetPage) {
+  moveIdsToPage(container, ids, targetPage);
+  _homePage = targetPage;
+  render();
+}
+
+// Rectangular lasso, live only while selection mode is armed: drag anywhere over
+// the grid — including across tiles — and every tile the band touches joins the
+// picture. It's additive, so several sweeps build one selection, and a plain tap
+// toggles a single tile. Nothing here competes with the long-press reorder,
+// because that stands down entirely while the mode is on.
+function wireAppMarquee(container) {
+  const ENGAGE = 6; // pixels of travel before a press becomes a lasso
+  let sel = null;   // { x, y, band, base:Set }
+
+  const paint = (x, y) => {
+    const left = Math.min(sel.x, x), top = Math.min(sel.y, y);
+    const w = Math.abs(x - sel.x), h = Math.abs(y - sel.y);
+    Object.assign(sel.band.style, { left: left + 'px', top: top + 'px', width: w + 'px', height: h + 'px' });
+    for (const t of container.querySelectorAll('.tos-appgrid .tos-tile:not(.tos-tile-add)')) {
+      const b = t.getBoundingClientRect();
+      const hit = b.right > left && b.left < left + w && b.bottom > top && b.top < top + h;
+      t.classList.toggle('tos-tile-sel', hit || sel.base.has(t));
+    }
+    refreshSelCount(container);
+  };
+
+  const onMove = (e) => {
+    if (!sel.band) {
+      if (Math.hypot(e.clientX - sel.x, e.clientY - sel.y) < ENGAGE) return;
+      sel.band = document.createElement('div');
+      sel.band.className = 'tos-marquee';
+      // The band lives on <body> (like the drag clone) so its fixed coordinates are
+      // plain viewport pixels; the accent is copied across from the themed overlay.
+      sel.band.style.setProperty('--mg-accent', getComputedStyle(container).getPropertyValue('--mg-accent') || '#3fd0d8');
+      document.body.appendChild(sel.band);
+    }
+    e.preventDefault();
+    paint(e.clientX, e.clientY);
+  };
+
+  const end = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+    const band = sel?.band;
+    sel = null;
+    if (!band) return;               // never engaged — that press was a plain tap
+    band.remove();
+    _suppressTileClick = true;       // the lasso's trailing click must not toggle a tile
+    setTimeout(() => { _suppressTileClick = false; }, 0);
+    refreshSelCount(container);
+  };
+
+  container.addEventListener('pointerdown', (e) => {
+    if (e.button > 0 || !_tosSelectMode) return;
+    if (e.target.closest('.tos-selbar')) return;  // the bar's own buttons
+    sel = { x: e.clientX, y: e.clientY, band: null, base: new Set(selectedAppTiles(container)) };
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  });
+}
+
+// The group sheet — name + colour for a new box (`{ ids }`) or an existing one
+// (`{ groupId }`, which also offers Ungroup). Same scrim/card chrome as the ⊕
+// add-apps sheet, and like it, purely client-side.
+function openGroupSheet({ ids = null, groupId = null, cols = 0 }) {
+  if (!_overlay) return;
+  const screen = _overlay.querySelector('#tos-screen-inner');
+  if (!screen) return;
+  screen.querySelector('.tos-addsheet')?.remove();
+  const existing = groupId ? loadAppGroups().find(g => g.id === groupId) : null;
+  if (groupId && !existing) return;
+  let color = existing?.color || TOS_GROUP_COLORS[0];
+  const count = existing ? existing.apps.length : ids.length;
+
+  const sheet = document.createElement('div');
+  sheet.className = 'tos-addsheet';
+  sheet.innerHTML = `<div class="tos-addsheet-card">
+    <div class="tos-addsheet-hdr"><span>${existing ? 'Edit group' : `New group · ${count} app${count === 1 ? '' : 's'}`}</span><span class="tos-addsheet-x" data-addsheet-close title="Close">✕</span></div>
+    <input class="tos-grp-input" data-grp-name maxlength="24" placeholder="Group name" value="${esc(existing?.name || '')}">
+    <div class="tos-grp-swatches">${TOS_GROUP_COLORS.map(c =>
+      `<div class="tos-grp-sw${c === color ? ' on' : ''}" data-grp-color="${c}" style="background:${c}"></div>`).join('')}</div>
+    <div class="tos-grp-btns">
+      ${existing ? '<button type="button" class="tos-grp-btn danger" data-grp-ungroup>Ungroup</button>' : ''}
+      <button type="button" class="tos-grp-btn" data-addsheet-close>Cancel</button>
+      <button type="button" class="tos-grp-btn" data-grp-save>${existing ? 'Save' : 'Create'}</button>
+    </div>
+  </div>`;
+  screen.appendChild(sheet);
+  sfx(TOS_SELECT_DEF);
+  const close = () => sheet.remove();
+  sheet.addEventListener('click', (e) => { if (e.target === sheet) close(); });
+  sheet.querySelectorAll('[data-addsheet-close]').forEach(el => el.addEventListener('click', close));
+  sheet.querySelectorAll('[data-grp-color]').forEach(el => el.addEventListener('click', () => {
+    color = el.getAttribute('data-grp-color');
+    sheet.querySelectorAll('[data-grp-color]').forEach(s => s.classList.toggle('on', s === el));
+  }));
+  const input = sheet.querySelector('[data-grp-name]');
+  input?.focus();
+  const save = () => {
+    const name = (input?.value || '').trim() || 'Group';
+    assignAppsToGroup(existing ? [] : ids, name, color, existing ? existing.id : null, cols);
+    close();
+    _tosSelectMode = false;   // the pick is spent; the rebuild below drops the bar
+    render();
+  };
+  sheet.querySelector('[data-grp-save]')?.addEventListener('click', save);
+  input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
+  sheet.querySelector('[data-grp-ungroup]')?.addEventListener('click', () => {
+    saveAppGroups(loadAppGroups().filter(g => g.id !== existing.id));
+    close();
+    render();  // the freed apps fall back into the loose grid in their saved order
   });
 }
 
@@ -2485,10 +4755,16 @@ function wireDragScroll(scroll) {
   const THRESH = 6;      // px of movement before a press becomes a gesture (below = a tap)
   const SWIPE_MIN = 45;  // px of horizontal travel to commit a page change
   let start = null;      // { x, y, top, dragging, axis, dx }
-  const ideoActive = () => _data?.view === 'ideology'; // horizontal swipe pages the reader
+  // Horizontal swipe pages the alignment reader — now reached as the Codex's
+  // Orders section, so the test is the section kind, not the view name.
+  const ideoActive = () => _data?.view === 'codex' && _data?.sectionKind === 'orders';
 
+  // `.tos-al-reel` is here because the alarm reels run their OWN grab-and-pull
+  // (see the alarm wiring). Without this the same press would scrub the reel and
+  // pan the screen behind it at once, and the time you let go on wouldn't be the
+  // time you dragged to.
   const isInteractive = (el) =>
-    el.closest('input, textarea, select, button, [contenteditable], .tos-tile, .tos-color, input[type=range]');
+    el.closest('input, textarea, select, button, [contenteditable], .tos-tile, .tos-color, input[type=range], .tos-al-reel');
 
   const onMove = (e) => {
     if (!start) return;
@@ -2528,6 +4804,9 @@ function wireDragScroll(scroll) {
     const canPan = scroll.scrollHeight > scroll.clientHeight; // vertical pan needs overflow
     if (!canPan && !ideoActive()) return;                     // nothing to pan and no swipe target
     if (isInteractive(e.target)) return;                      // let controls/tiles handle it
+    // While the home grid is in selection mode the lasso owns every press over it;
+    // out of that mode the pan works exactly as it always did.
+    if (_tosSelectMode && e.target.closest('.tos-home-apps')) return;
     start = { x: e.clientX, y: e.clientY, top: scroll.scrollTop, dragging: false, axis: null, dx: 0 };
     window.addEventListener('pointermove', onMove, { passive: false });
     window.addEventListener('pointerup', end);
@@ -2576,6 +4855,20 @@ function renderList(items) {
 // weeks from the server's monthGrid — with a marker dot on any day that carries an
 // event and a native multi-line tooltip listing them. The prev/next arrows re-nav
 // the app with screenId 'month' + a 'YYYY-MM' token (wired in wireBody).
+// Squeeze an event title into a calendar cell. A month cell is barely wider than
+// two words, so this drops the noise words a scheduled thing always carries ("rent
+// due at…", "shift starts"), keeps the part that identifies it, and hard-truncates
+// what's left. The untouched text is still in the cell's hover title.
+function shortEventText(s) {
+  let t = String(s || '').trim()
+    .replace(/^(rent|payment)\s+(due|owed)\s*(at|for|on)?\s*/i, '')   // "Rent due at The Kettle" → "The Kettle"
+    .replace(/\s+(starts|begins|opens|due|scheduled)\b.*$/i, '')      // trailing verb clauses
+    .replace(/^the\s+/i, '')
+    .replace(/\s+/g, ' ');
+  if (!t) t = String(s || '').trim();
+  return t.length > 13 ? t.slice(0, 12).trimEnd() + '…' : t;
+}
+
 function renderCalendar(d) {
   const dow = (d.weekdays || []).map(w => `<div class="tos-cal-dow">${esc(w)}</div>`).join('');
   const cells = (d.weeks || []).map(week => week.map(cell => {
@@ -2587,10 +4880,17 @@ function renderCalendar(d) {
     const tip = evs.map(e => `${e.kind === 'rent' ? '🏠 ' : '• '}${esc(e.text)}${e.detail ? ` (${esc(e.detail)})` : ''}`).join('&#10;');
     const kinds = [...new Set(evs.map(e => e.kind))];
     const dots = has ? `<div class="tos-cal-dots">${kinds.map(k => `<span class="tos-cal-dot tos-cal-dot-${esc(k)}"></span>`).join('')}</div>` : '';
+    // A dot alone only ever said "something happens" — you had to hover to find out
+    // what, which a touch screen can't do at all. So the first event's text rides in
+    // the cell, shortened to fit, with a +N when the day holds more. The full list
+    // stays in the hover title.
+    const label = has
+      ? `<span class="tos-cal-ev">${esc(shortEventText(evs[0].text))}${evs.length > 1 ? `<span class="tos-cal-more">+${evs.length - 1}</span>` : ''}</span>`
+      : '';
     const cls = ['tos-cal-cell'];
     if (cell.isToday) cls.push('tos-cal-today');
     if (has) cls.push('tos-cal-has');
-    return `<div class="${cls.join(' ')}"${has ? ` title="${tip}"` : ''}><span class="tos-cal-num">${cell.day}</span>${dots}</div>`;
+    return `<div class="${cls.join(' ')}"${has ? ` title="${tip}"` : ''}><span class="tos-cal-num">${cell.day}</span>${label}${dots}</div>`;
   }).join('')).join('');
   return `<div class="tos-cal">
     <div class="tos-cal-head">
@@ -2599,6 +4899,102 @@ function renderCalendar(d) {
       <span class="tos-cal-nav" data-cal-month="${esc(d.nextMonth || '')}" title="Next month">&#8594;</span>
     </div>
     <div class="tos-cal-grid">${dow}${cells}</div>
+  </div>`;
+}
+
+// ── Library: the shelf, a cover, a table of contents ─────────────────────────
+// The chapter READER was already set as a book (.tos-book); these are the three
+// screens that lead to it, and they used to be the generic list/detail furniture —
+// eight identical grey rows for eight objects that are meant to be the most
+// physical things on the tablet. A shelf should look like a shelf.
+//
+// Every cover is generated from the book's own id: one hash, one hue. No art to
+// author, no asset to ship, and the same book is always the same colour, which is
+// what lets you find it by colour on the second visit.
+function bookHue(id) {
+  let h = 0;
+  for (let i = 0; i < String(id).length; i++) h = (h * 31 + String(id).charCodeAt(i)) % 360;
+  return h;
+}
+
+// The cloth-and-foil plate a book is represented by. `size` picks the shelf tile
+// or the bigger one on the cover page; both are the same object at two scales.
+function renderBookPlate(b, size) {
+  const hue = bookHue(b.id);
+  // Initials rather than a truncated title: at shelf size a title wraps to mush,
+  // and a stamped monogram is what a real spine does with the same problem.
+  const initials = String(b.title || '?').replace(/[^A-Za-z ]/g, '').split(/\s+/)
+    .filter(w => w && !/^(a|an|the|of|and|to)$/i.test(w)).slice(0, 3).map(w => w[0].toUpperCase()).join('');
+  return `<div class="tos-lib-plate tos-lib-plate-${size}" style="--bk-hue:${hue}">
+    <div class="tos-lib-plate-spine"></div>
+    <div class="tos-lib-plate-mono">${esc(initials || '§')}</div>
+    <div class="tos-lib-plate-rule"></div>
+    <div class="tos-lib-plate-year">${esc(String(b.year || ''))}</div>
+  </div>`;
+}
+
+function renderLibraryShelf(d) {
+  const books = d.books || [];
+  if (!books.length) return '<div class="tos-empty">Nothing here.</div>';
+  const cards = books.map(b => {
+    const total = b.chapters || 0;
+    // Progress is deliberately the bookmark, not "chapters finished" — there is no
+    // finished flag, and pretending otherwise would show 100% on a book you opened
+    // to its last chapter and bounced off.
+    const pct = total > 1 ? Math.round((b.at / (total - 1)) * 100) : (b.at ? 100 : 0);
+    const started = b.at > 0;
+    return `<div class="tos-lib-card" data-open-item="${esc(b.id)}">
+      ${renderBookPlate(b, 'sm')}
+      <div class="tos-lib-card-txt">
+        <div class="tos-lib-card-title">${esc(b.title)}</div>
+        <div class="tos-lib-card-by">${esc(b.author)}</div>
+        <div class="tos-lib-card-meta">${total} chapter${total === 1 ? '' : 's'}${started ? ` · ${pct}%` : ''}</div>
+        ${started ? `<div class="tos-lib-bar"><span style="width:${Math.max(3, pct)}%"></span></div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  // The shelf board under the row of books. Pure decoration, and worth it — it is
+  // the thing that says "these are objects" before you read a single title.
+  return `<div class="tos-lib-shelf">${cards}</div><div class="tos-lib-board"></div>`;
+}
+
+function renderLibraryCover(d) {
+  const b = d.book || {};
+  const total = b.chapters || 0;
+  const pct = total > 1 ? Math.round((b.at / (total - 1)) * 100) : (b.at ? 100 : 0);
+  return `<div class="tos-lib-cover">
+    <div class="tos-lib-cover-plate">${renderBookPlate(b, 'lg')}</div>
+    <div class="tos-lib-cover-txt">
+      <div class="tos-lib-cover-title">${esc(b.title || '')}</div>
+      <div class="tos-lib-cover-by">${esc(b.author || '')} · ${esc(String(b.year || ''))}</div>
+      <div class="tos-lib-blurb">${esc(b.blurb || '')}</div>
+      <div class="tos-lib-facts">
+        <span>${total} chapter${total === 1 ? '' : 's'}</span>
+        <span>${b.at > 0 ? `Bookmarked at ${b.at + 1} of ${total}` : 'Unopened'}</span>
+      </div>
+      ${b.at > 0 ? `<div class="tos-lib-bar tos-lib-bar-wide"><span style="width:${Math.max(3, pct)}%"></span></div>` : ''}
+      ${b.source ? `<div class="tos-lib-prov">${esc(b.source)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderLibraryContents(d) {
+  const chs = d.chapters || [];
+  const at = d.at || 0;
+  const rows = chs.map((c, i) => {
+    const cls = ['tos-lib-toc-row'];
+    if (i < at) cls.push('tos-lib-toc-read');
+    if (i === at) cls.push('tos-lib-toc-at');
+    return `<div class="${cls.join(' ')}" data-open-item="${esc(c.id)}">
+      <span class="tos-lib-toc-n">${i + 1}</span>
+      <span class="tos-lib-toc-t">${esc(c.title)}</span>
+      <span class="tos-lib-toc-dots"></span>
+      <span class="tos-lib-toc-len">${c.mins} min</span>
+    </div>`;
+  }).join('');
+  return `<div class="tos-lib-toc">
+    <div class="tos-lib-toc-head">Contents</div>
+    ${rows || '<div class="tos-empty">No chapters.</div>'}
   </div>`;
 }
 
@@ -2672,6 +5068,11 @@ const TOS_OPT_GROUPS = [
     { v: 'small', t: 'Small', g: 'S' }, { v: 'medium', t: 'Medium', g: 'M' }, { v: 'large', t: 'Large', g: 'L' } ] },
   { key: 'tempUnit', label: 'Temp Units', opts: [
     { v: 'C', t: 'Celsius', g: 'C°' }, { v: 'F', t: 'Fahrenheit', g: 'F°' } ] },
+  // Sidebar minimap tile overlay — panels/minimap.js reads this via the
+  // window._applyMapOverlay hook in applySettings and re-renders in place.
+  { key: 'mapOverlay', label: 'Map Labels', opts: [
+    { v: 'labels', t: 'Lettering — the building’s 2-letter code', g: 'AB', s: 'font-size:11px;letter-spacing:1px' },
+    { v: 'none', t: 'Plain tiles — no lettering', g: '▫' } ] },
 ];
 const TOS_AUDIO_TOGGLES = [
   { key: 'music', label: 'Music', on: '🎵', off: '🔇' },
@@ -2794,6 +5195,15 @@ function renderTabletSettings() {
     <input type="color" class="tos-color" data-set-poker-color="1" value="${esc(s.pokerFeltColor || '#1a4a1a')}" title="Pick a custom felt colour">
   </div></div>`;
 
+  // Extra Lore — reuse the first-visit lore feature, but show a zone's intro block
+  // every visit instead of only the first. Server-side preference; the pill just
+  // mirrors it into `lorealways on|off` (pushed again at login, see dispatch.js).
+  const loreOn = (s.extraLore || 'off') === 'on';
+  const loreRow = `<div class="tos-set-row"><span class="tos-set-label">Extra Lore<span class="tos-set-val">Show zone lore every visit</span></span><div class="tos-opts">
+    <div class="tos-opt${loreOn ? ' selected' : ''}" data-set-lore="on" title="Lore on every visit">On</div>
+    <div class="tos-opt${!loreOn ? ' selected' : ''}" data-set-lore="off" title="Lore on first visit only">Off</div>
+  </div></div>`;
+
   const soundOn = !!audio.enabled;
   const soundRow = `<div class="tos-set-row"><span class="tos-set-label">Sound</span><div class="tos-opts">
     <div class="tos-opt${soundOn ? ' selected' : ''}" data-set-sound="on" title="Sound On">🔊 On</div>
@@ -2825,23 +5235,40 @@ function renderTabletSettings() {
   // Grouped pages so Settings isn't one long scroll — same buckets as the game
   // settings panel (General / Layout / Sound). Poker felt + MIS live under
   // General now that the standalone Game tab is gone.
+  // Wallpaper lives beside the theme, because it IS part of the theme — every option
+  // derives its colours from the active one. Default None; the rest are opt-in.
+  const wpNow = loadWallpaper();
+  const wallpaperRow = `<div class="tos-set-row"><span class="tos-set-label">Wallpaper<span class="tos-set-val">Behind the home screen</span></span><div class="tos-opts">
+    ${TABLET_WALLPAPERS.map(wp => `<div class="tos-opt${wp.id === wpNow ? ' selected' : ''}" data-set-wallpaper="${esc(wp.id)}" title="${esc(wp.label)}">${esc(wp.label)}</div>`).join('')}
+  </div></div>`;
+
   const pages = {
     General:
       themeSection +
+      wallpaperRow +
       `<div class="tos-set-row"><span class="tos-set-label">Contrast <span class="tos-set-val" data-contrast-label="1">${contrast === 0 ? 'Base' : '+' + contrast + '%'}</span></span>
         <span><input type="range" class="tos-slider" data-set-contrast="1" min="0" max="100" step="1" value="${contrast}">
         <span class="tos-btn-sub" data-contrast-reset="1" style="margin:0 0 0 8px;padding:4px 9px">Reset</span></span></div>` +
       fontRow +
       feltRow +
+      loreRow +
       renderMisSection(),
     Layout: (layoutRows || '') +
+      // Home widgets are OFF until you ask for them. The home screen's job is to
+      // launch apps; cards under the grid are a second thing it does, and a first
+      // login shouldn't have to read them to find the tile it wants.
+      `<div class="tos-set-row"><span class="tos-set-label">Home Widgets<span class="tos-set-val">Info cards under the app grid</span></span><div class="tos-opts">
+        <div class="tos-opt${widgetsEnabled() ? ' selected' : ''}" data-set-widgets="on" title="Show home widgets">On</div>
+        <div class="tos-opt${!widgetsEnabled() ? ' selected' : ''}" data-set-widgets="off" title="Hide home widgets">Off</div>
+      </div></div>` +
       `<div class="tos-set-row"><span class="tos-set-label">Sidebar Order<span class="tos-set-val">Drag order &amp; hidden panels</span></span>
         <span class="tos-btn-sub" data-reset-sidebar="1" style="margin:0">Reset to Default</span></div>` +
-      `<div class="tos-set-row"><span class="tos-set-label">Home App Layout<span class="tos-set-val">Tile order + restore removed apps</span></span>
+      `<div class="tos-set-row"><span class="tos-set-label">Home App Layout<span class="tos-set-val">Tile order, groups &amp; stashed apps</span></span>
         <span class="tos-btn-sub" data-reset-apps="1" style="margin:0">Reset to Default</span></div>`,
     Sound: soundRow + audioToggleRows + volRows +
       `<div class="tos-set-row"><span class="tos-set-label">Sound Settings<span class="tos-set-val">Toggles &amp; volumes</span></span>
         <span class="tos-btn-sub" data-reset-sound="1" style="margin:0">Reset to Default</span></div>`,
+    About: renderAboutPage(),
   };
   const pageNames = Object.keys(pages);
   if (!pageNames.includes(_tosSetPage)) _tosSetPage = pageNames[0];
@@ -2849,6 +5276,27 @@ function renderTabletSettings() {
     `<div class="tos-set-tab${n === _tosSetPage ? ' sel' : ''}" data-set-page="${esc(n)}">${esc(n)}</div>`).join('');
 
   return `<div class="tos-set-tabs">${tabs}</div><div class="tos-set-page">${pages[_tosSetPage]}</div>`;
+}
+
+// About — the colophon page. Static markup: wordmark, byline, and the support
+// link (same URL the login screen carries, kept in sync by hand — there's only
+// the one). The line above the button still says exactly what a donation buys —
+// server bills, and the time not spent earning them — because the honest ask is
+// the only one worth making. It just says it in the game's voice and in half the
+// words; a paragraph of earnest explanation was reading like a charity mailer in
+// the middle of a city that would mug you. Opens in a new tab, so no wiring.
+function renderAboutPage() {
+  return `<div class="tos-about">
+    <div class="tos-about-mark">Architect</div>
+    <div class="tos-about-rule"></div>
+    <div class="tos-about-by">Built by</div>
+    <div class="tos-about-names">David Lacey<br>John Akerson</div>
+    <div class="tos-about-rule"></div>
+    <div class="tos-about-tag">We build this because we want to. The servers just insist on being paid. Chip in if you feel like it — thanks either way.</div>
+    <a class="tos-about-bmc" href="https://buymeacoffee.com/haveagreatdave" target="_blank" rel="noopener noreferrer" title="Support Us">
+      <span class="tos-about-cup">☕</span><span>Support Us</span>
+    </a>
+  </div>`;
 }
 
 // Mature Content (MIS) — server-authoritative, so it reads live off state.player
@@ -3089,7 +5537,180 @@ function _mapTileSym(t) {
   return ''; // bare tile — no marker glyph (#, ⸪., …)
 }
 
-// ── Ideology app (native view: 'ideology') ────────────────────────────────
+// ── Codex app (native view: 'codex') ─────────────────────────────────────────
+// A shelf of sections. Two kinds render here — 'chapters' (a lore volume: an
+// index of entries, then one entry read full-bleed) — while kind 'orders' falls
+// through to the alignment reader below, which is the same instrument it always
+// was, just reached through the Codex now.
+//
+// Reading state is client-side (_tosCodexCh), like the ideology paging: the whole
+// volume rides in one payload, so opening a chapter is not a round trip.
+let _tosCodexCh = null;   // chapter id currently being read, or null for the index
+
+function renderCodexShelf(d) {
+  const tiles = (d.sections || []).map(s => {
+    const prog = s.progress
+      ? `<span class="tos-cx-prog"><i style="width:${s.progress.total ? Math.round(s.progress.have / s.progress.total * 100) : 0}%"></i></span>`
+      : '';
+    return `<div class="tos-cx-shelf-row" data-codex-section="${esc(s.id)}">
+      <span class="tos-cx-glyph">${esc(s.glyph || '◆')}</span>
+      <span class="tos-cx-shelf-txt">
+        <span class="tos-cx-shelf-title">${esc(s.title)}</span>
+        <span class="tos-cx-shelf-sub">${esc(s.subtitle || '')}</span>
+        ${prog}
+      </span>
+      <span class="tos-cx-shelf-meta">${esc(s.line || '')}<b>›</b></span>
+    </div>`;
+  }).join('');
+  return `<div class="tos-cx-root">
+    <div class="tos-cx-hero">
+      <div class="tos-cx-hero-eyebrow">Architect Public Record</div>
+      <div class="tos-cx-hero-title">CODEX</div>
+      <div class="tos-cx-hero-sub">What the world is. What you are becoming in it.</div>
+    </div>
+    <div class="tos-cx-shelf">${tiles}</div>
+    <p class="tos-cx-foot">Entries accrue as you learn them. The record is not complete, and has never claimed to be.</p>
+  </div>`;
+}
+
+// One chapter's prose. `body` is the authored array: strings are paragraphs,
+// { pull } is a pull quote, { break: true } is a rule. A locked chapter never
+// ships a body at all (see codex/section-chapters.js), so this can't leak one.
+// The chapter's speakable prose as UTTERANCES, in reading order — paragraphs and
+// pull quotes, never the rules.
+//
+// It returns the split array rather than a joined string on purpose. Joining and
+// re-splitting is not lossless: a block that doesn't end in sentence punctuation
+// (a pull quote, a fragment) would fuse with the first sentence of the next block
+// on the re-split, while the renderer — which splits block by block — would keep
+// them apart. One extra span, every index after it off by one, and the highlight
+// silently follows the wrong line for the rest of the chapter. Splitting once, in
+// the order the renderer walks, makes that impossible.
+function codexNarrationParts(body) {
+  return (body || [])
+    .map(p => (typeof p === 'string' ? p : (p?.pull || '')))
+    .filter(Boolean)
+    .flatMap(s => narrateSplit(s));
+}
+
+function renderCodexBody(body, narratable) {
+  // When narration is available the prose is rendered sentence-addressably, so
+  // the voice can light the line it's on — the same treatment the Library gets.
+  // The running index must span the WHOLE chapter (not restart per paragraph),
+  // and must count exactly the blocks codexNarrationParts contributes, in order.
+  let n = 0;
+  const speak = (s) => narratable
+    ? narrateSplit(s).map(t => `<span class="tos-narr-s" data-s="${n++}">${esc(t)}</span>`).join(' ')
+    : esc(s);
+  return (body || []).map((p, i) => {
+    if (typeof p === 'string') {
+      // Drop cap on the opening paragraph only — the reader's one flourish. The
+      // cap is peeled off the raw string BEFORE the sentence split so the split
+      // still sees whole sentences and the indices stay aligned with the voice.
+      if (i === 0 && !narratable) return `<p class="tos-cx-p"><span class="tos-cx-drop">${esc(p.charAt(0))}</span>${esc(p.slice(1))}</p>`;
+      return `<p class="tos-cx-p">${speak(p)}</p>`;
+    }
+    if (p?.pull) return `<blockquote class="tos-cx-pull">${speak(p.pull)}</blockquote>`;
+    if (p?.break) return `<div class="tos-cx-rule" aria-hidden="true">◆ ◆ ◆</div>`;
+    return '';
+  }).join('');
+}
+
+// Read a Codex chapter aloud, and keep going into the next UNLOCKED one.
+//
+// Sealed chapters ship no body at all (the server never sends one), so they are
+// skipped rather than read as silence — and when the volume runs out the narrator
+// simply stops. The whole volume already rides in one payload, which is why this
+// can walk it without a round trip.
+//
+// The on-screen chapter is NOT turned as the voice moves on: `_tosCodexCh` is
+// left alone deliberately, because auto-advance exists precisely for when you are
+// not looking at the tablet. The pill title says which chapter is being read.
+function narrateCodexFrom(chapterId) {
+  const chapters = _data?.chapters || [];
+  const startAt = chapters.findIndex(c => c.id === chapterId && c.unlocked);
+  if (startAt < 0) return;
+  const volume = _data?.sectionTitle || _data?.appName || 'CODEX';
+  const titleOf = (c) => `${volume} — ${c.title || ''}`.trim();
+
+  let cursor = startAt;
+  // Lazy: re-read the payload each time, so a chapter unlocked mid-read counts.
+  const advance = () => {
+    const list = _data?.chapters || chapters;
+    for (let k = cursor + 1; k < list.length; k++) {
+      const c = list[k];
+      if (!c?.unlocked) continue;                  // sealed prose was never sent
+      const parts = codexNarrationParts(c.body);
+      if (!parts.length) continue;                 // nothing speakable — skip, don't stall
+      cursor = k;
+      return { text: parts, title: titleOf(c) };
+    }
+    return null;                                   // end of the record
+  };
+
+  const first = chapters[startAt];
+  const parts = codexNarrationParts(first.body);
+  if (!parts.length) return;
+  // Seed on the VOLUME so one narrator reads the whole record, exactly as the
+  // Library seeds on the book rather than the chapter.
+  narrateStart(parts, volume, titleOf(first), _data?.lex, advance);
+}
+
+function renderCodexVolume(d) {
+  const chapters = d.chapters || [];
+  const reading = _tosCodexCh ? chapters.find(c => c.id === _tosCodexCh && c.unlocked) : null;
+
+  if (reading) {
+    const idx = chapters.indexOf(reading);
+    const prev = chapters.slice(0, idx).reverse().find(c => c.unlocked);
+    const next = chapters.slice(idx + 1).find(c => c.unlocked);
+    const step = (c, label, dir) => c
+      ? `<span class="tos-cx-step" data-codex-ch="${esc(c.id)}">${dir < 0 ? '‹ ' : ''}${esc(label)}${dir > 0 ? ' ›' : ''}</span>`
+      : `<span class="tos-cx-step off">${dir < 0 ? '‹ ' : ''}${esc(label)}${dir > 0 ? ' ›' : ''}</span>`;
+    return `<div class="tos-cx-root">
+      <div class="tos-cx-readbar"><span class="tos-cx-back" data-codex-ch="">‹ ${esc(d.sectionTitle || 'Contents')}</span></div>
+      <article class="tos-cx-read">
+        <div class="tos-cx-num">${esc(reading.n || '')}</div>
+        <div class="tos-cx-eyebrow">${esc(reading.eyebrow || '')}</div>
+        <h1 class="tos-cx-title">${esc(reading.title)}</h1>
+        <p class="tos-cx-lede">${esc(reading.lede || '')}</p>
+        <div class="tos-cx-rule top" aria-hidden="true">◆ ◆ ◆</div>
+        ${renderCodexBody(reading.body, true)}
+        <div class="tos-cx-end" aria-hidden="true">◈</div>
+      </article>
+      ${renderNarrateBar()}
+      <div class="tos-cx-nav">${step(prev, prev ? prev.title : 'Beginning', -1)}${step(next, next ? next.title : 'End of record', 1)}</div>
+    </div>`;
+  }
+
+  const rows = chapters.map(c => c.unlocked
+    ? `<div class="tos-cx-entry" data-codex-ch="${esc(c.id)}">
+         <span class="tos-cx-n">${esc(c.n || '')}</span>
+         <span class="tos-cx-etxt"><span class="tos-cx-etitle">${esc(c.title)}</span><span class="tos-cx-elede">${esc(c.lede || '')}</span></span>
+         <span class="tos-cx-open">read ›</span>
+       </div>`
+    : `<div class="tos-cx-entry locked">
+         <span class="tos-cx-n">${esc(c.n || '')}</span>
+         <span class="tos-cx-etxt">
+           <span class="tos-cx-etitle">${esc(c.title)}</span>
+           <span class="tos-cx-redact" aria-hidden="true"><i style="width:94%"></i><i style="width:71%"></i><i style="width:86%"></i></span>
+           <span class="tos-cx-hint">${esc(c.hint || 'Not yet recovered.')}</span>
+         </span>
+         <span class="tos-cx-lock">sealed</span>
+       </div>`).join('');
+
+  const p = d.progress || { have: 0, total: chapters.length };
+  return `<div class="tos-cx-root">
+    <div class="tos-cx-volhead">
+      <div class="tos-cx-hero-title small">${esc(d.sectionTitle || '')}</div>
+      <div class="tos-cx-note">${esc(d.note || '')}</div>
+      <div class="tos-cx-progline"><span class="tos-cx-prog wide"><i style="width:${p.total ? Math.round(p.have / p.total * 100) : 0}%"></i></span><b>${p.have}/${p.total}</b> recovered</div>
+    </div>
+    <div class="tos-cx-index">${rows}</div>
+  </div>`;
+}
+
+// ── Ideology reader (Codex section 'orders') ──────────────────────────────
 // Paged reader: Overview (radial 4-path field + ranked standing), one deep-dive
 // page per order (lore/creed/path/standing ladder/relations/agents), and the
 // Field (two-axis compass). All data rides in one payload; pages switch
@@ -3321,7 +5942,7 @@ function renderIdeoFieldPage(d, accent) {
 // Step the reader one page (−1 prev / +1 next), clamped. Shared by the tab
 // strip, the horizontal swipe/drag, and the trackpad horizontal wheel.
 function changeIdeoPage(dir) {
-  if (!_data || _data.view !== 'ideology') return;
+  if (!_data || _data.view !== 'codex' || _data.sectionKind !== 'orders') return;
   const count = (_data.orders?.length || 0) + 2; // Overview + orders + Field
   const next = Math.min(count - 1, Math.max(0, _tosIdeoPage + dir));
   if (next === _tosIdeoPage) return;
@@ -3342,6 +5963,370 @@ function changeIdeoPage(dir) {
  *     is a dozen strong. That is the answer to "what is 1 XP actually worth",
  *     drawn precisely and left without comment.
  */
+// ── Vitals ────────────────────────────────────────────────────────────────────
+// A cheap medical suite's read-out of the body. Three tabs, all server-built
+// (plugins/tablet/health-app.js): the meters + what's dragging on you, the
+// medical subset of your inventory with one-tap use, and the substance ledger.
+//
+// The colour is the whole interface: a player should be able to open this, see
+// one red bar, and close it again without reading a word. Bands come from the
+// server (good/warn/bad/crit) so the client never decides what "bad" means.
+
+function renderHealthMeter(m) {
+  return `
+    <div class="tos-vt-meter">
+      <div class="tos-vt-mlbl">
+        <span>${esc(m.label)}</span>
+        <span class="v">${esc(String(m.note || ''))}</span>
+      </div>
+      <div class="tos-vt-track"><div class="tos-vt-fill ${esc(m.band)}" style="width:${Math.max(0, Math.min(100, m.pct || 0))}%"></div></div>
+    </div>`;
+}
+
+// Readouts — the vitals the body reports in WORDS. Hunger and thirst come through
+// here rather than as bars: a bar invites you to play the number (top up at 80%,
+// panic at 30%), and you don't know your hydration as a fraction, you know you're
+// thirsty. Band still carries the colour; there is deliberately no track and no
+// figure. The server owns the phrasing (health-app buildReadouts).
+function renderHealthReadouts(readouts) {
+  if (!readouts?.length) return '';
+  return `<div class="tos-vt-readouts">${readouts.map(r => `
+    <div class="tos-vt-readout">
+      <span class="tos-vt-rlbl">${esc(r.label)}</span>
+      <span class="tos-vt-rval ${esc(r.band || 'good')}">${esc(r.text || '')}</span>
+    </div>`).join('')}</div>`;
+}
+
+// ── The paper doll ───────────────────────────────────────────────────────────
+//
+// Injuries are the first data in this game that is genuinely SPATIAL, and a list
+// of seven wounds is worse than a picture of a body in every way. Bands come off
+// the server like every other colour here, so this decides nothing — it only
+// draws. Absent `d.body` (nothing wrong, or the injury plugin disabled) it
+// renders nothing at all and Vitals is exactly the screen it always was.
+//
+// Sides are drawn from the VIEWER's perspective — your left arm is on the left —
+// because this is a HUD, not an anatomical chart.
+// Injury hotspots, drawn IN THE SILHOUETTE'S OWN COORDINATE SPACE — one set per
+// body, each viewBox matching its mask's pixel dimensions exactly (male
+// 242×540, female 500×708). That is what makes the registration exact rather
+// than approximate: the mask is `contain`-fitted into a box of its own aspect,
+// so an SVG unit here IS a mask pixel, and a rect over the left arm is over the
+// left arm on both figures.
+//
+// The old single 120×178 set was a compromise between two very differently
+// proportioned bodies and therefore fitted neither — noticeably so on the male
+// figure, which is far narrower relative to its height (0.45 vs 0.71).
+const DOLL_GEOM = {
+  male: {
+    viewBox: '0 0 242 540',
+    shapes: {
+      head:      '<circle cx="121" cy="40" r="26"/>',
+      torso:     '<rect x="74" y="76" width="94" height="212" rx="24"/>',
+      left_arm:  '<rect x="36" y="84" width="32" height="208" rx="16"/>',
+      right_arm: '<rect x="174" y="84" width="32" height="208" rx="16"/>',
+      left_leg:  '<rect x="83" y="288" width="37" height="214" rx="17"/>',
+      right_leg: '<rect x="122" y="288" width="37" height="214" rx="17"/>',
+      feet:      '<rect x="78" y="500" width="42" height="28" rx="12"/><rect x="122" y="500" width="42" height="28" rx="12"/>',
+    },
+  },
+  female: {
+    viewBox: '0 0 500 708',
+    shapes: {
+      head:      '<circle cx="250" cy="62" r="45"/>',
+      torso:     '<rect x="184" y="116" width="132" height="248" rx="36"/>',
+      left_arm:  '<rect x="118" y="128" width="54" height="238" rx="26"/>',
+      right_arm: '<rect x="328" y="128" width="54" height="238" rx="26"/>',
+      left_leg:  '<rect x="190" y="364" width="58" height="278" rx="27"/>',
+      right_leg: '<rect x="252" y="364" width="58" height="278" rx="27"/>',
+      feet:      '<rect x="176" y="634" width="66" height="36" rx="15"/><rect x="258" y="634" width="66" height="36" rx="15"/>',
+    },
+  },
+};
+
+// ── Alarm ────────────────────────────────────────────────────────────────────
+// A digital clock you set by rolling digits, the way a phone does — replacing a
+// text prompt that asked you to type "0730" and parsed three formats to be kind
+// about it. Parsing input is not the same as offering a control.
+//
+// Two scroll-snap reels (hours, minutes) over the OS's own palette: the readout
+// borrows the seven-segment cast the rest of the tablet uses for live numbers,
+// and the selection band is the same accent that marks selection everywhere
+// else. No new colours, no new type — the theming is entirely inherited.
+//
+// The reels are plain overflow-scroll with `scroll-snap-type: y mandatory`, so
+// touch flick, trackpad, wheel and keyboard all work for free.
+//
+// A MOUSE, though, gets none of that: you can't drag a scroll container with a
+// pointer, so on desktop the reel could only be clicked or wheeled, and grabbing
+// a band and pulling it — the obvious thing to try — did nothing. So the pointer
+// drag is added by hand, and ONLY for mouse/pen: touch already has native
+// momentum and taking it over would be strictly worse. See the handlers in the
+// wiring pass for why the snap has to be switched off mid-drag.
+let _alarmPick = null;   // { h, m } while the player is choosing
+
+function alarmReel(kind, values, selected) {
+  const cells = values.map(v => {
+    const label = String(v).padStart(2, '0');
+    return `<div class="tos-al-cell${v === selected ? ' sel' : ''}" data-al-${kind}="${v}" role="option"
+      aria-selected="${v === selected}" tabindex="0">${label}</div>`;
+  }).join('');
+  return `<div class="tos-al-reel" data-al-reel="${kind}" role="listbox" aria-label="${kind}">
+    <div class="tos-al-pad"></div>${cells}<div class="tos-al-pad"></div>
+  </div>`;
+}
+
+function renderAlarm(d) {
+  const set = d.alarmMins != null;
+  const pick = _alarmPick || (set
+    ? { h: Math.floor(d.alarmMins / 60), m: d.alarmMins % 60 }
+    // Default to an hour ahead of the game clock rather than to midnight: a
+    // fresh alarm should open somewhere you might plausibly want it.
+    : { h: (Math.floor(d.nowMins / 60) + 1) % 24, m: 0 });
+
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const mins = Array.from({ length: 12 }, (_, i) => i * 5);   // 5-min steps: a nap is not a stopwatch
+  const pad = n => String(n).padStart(2, '0');
+
+  return `
+    <div class="tos-alarm">
+      <div class="tos-al-face">
+        <div class="tos-al-now">${esc(d.nowLabel)}</div>
+        <div class="tos-al-nowlab">Local time</div>
+      </div>
+
+      <div class="tos-al-setter">
+        <div class="tos-al-band" aria-hidden="true"></div>
+        ${alarmReel('h', hours, pick.h)}
+        <div class="tos-al-colon">:</div>
+        ${alarmReel('m', mins, pick.m)}
+      </div>
+
+      <div class="tos-al-preview">Alarm at <b>${pad(pick.h)}:${pad(pick.m)}</b></div>
+
+      <div class="tos-al-btns">
+        <button class="tos-btn tos-al-set" data-al-commit="1">${set ? 'Change alarm' : 'Set alarm'}</button>
+        ${set ? `<button class="tos-btn tos-al-clear" data-al-clear="1">Clear</button>` : ''}
+      </div>
+
+      ${set ? `<div class="tos-al-status">Ringing in ${esc(d.untilLabel || '')}</div>`
+            : `<div class="tos-al-status tos-al-status-off">${esc(d.subtitle || '')}</div>`}
+
+      <div class="tos-al-note">${esc(d.body || '').split('\n').join(' ')}</div>
+    </div>`;
+}
+
+function renderHealthDoll(d) {
+  if (!d.body?.length) return '';
+  const geom = DOLL_GEOM[d.sex === 'female' ? 'female' : 'male'];
+  const DOLL_SHAPES = geom.shapes;
+  const parts = d.body.map(p => `
+    <g class="tos-vt-doll-part ${esc(p.band)}${p.severity > 0 ? ' hurt' : ''}"
+       data-doll-part="${esc(p.part)}"
+       data-doll-detail="${esc(p.detail || `${p.partLabel}: no injury.`)}"
+       role="button" tabindex="0"
+       aria-label="${esc(p.partLabel)}${p.name ? `: ${esc(p.name)}` : ''}"
+       title="${esc(p.detail || `${p.partLabel} — fine.`)}">
+      ${DOLL_SHAPES[p.part] || ''}
+    </g>`).join('');
+
+  const worst = d.body.filter(p => p.severity > 0).sort((a, b) => b.severity - a.severity)[0];
+  const sil = (d.sex === 'female' || d.sex === 'male') ? d.sex : 'male';
+
+  // THE SILHOUETTE IS THE BODY. It used to be a 16%-opacity ghost with a
+  // boxes-and-circles schematic stacked on top, so you read a crude mannequin
+  // sitting over a good figure — two bodies, neither of them convincing.
+  //
+  // Now there is one. The primitives stay, because each is a click target and a
+  // named region, but they are INVISIBLE: hit-areas, not artwork. A wound is
+  // painted by re-using the silhouette's own mask in the injury colour and
+  // clipping it to that region's box — so what lights up is the shape of the
+  // arm, not a rectangle where the arm is.
+  const wounded = d.body.filter(p => p.severity > 0).map(p => {
+    const box = regionInset(DOLL_SHAPES[p.part], geom.viewBox);
+    return box ? `<div class="tos-vt-dollhurt ${esc(p.band)}" aria-hidden="true" style="clip-path:${box};-webkit-clip-path:${box}"></div>` : '';
+  }).join('');
+
+  return `
+    <div class="tos-vt-sect">Body</div>
+    <div class="tos-vt-doll">
+      <div class="tos-vt-dollstage tos-vt-sil-${sil}">
+        <div class="tos-vt-dollsil" aria-hidden="true"></div>
+        ${wounded}
+        <svg viewBox="${geom.viewBox}" class="tos-vt-dollsvg" aria-label="Body diagram">${parts}</svg>
+      </div>
+      <div class="tos-vt-dolldet" data-doll-detail-slot>${esc(worst?.detail || 'No injuries. Tap a part for detail.')}</div>
+    </div>`;
+}
+
+// The bounding box of a region's primitives, as a CSS `inset()` in percentages of
+// the viewBox — which is what lets an injury tint be clipped to "the left arm"
+// while still being drawn through the silhouette mask.
+//
+// Measured off the SAME shape strings the hit-areas use rather than authored
+// separately, so moving a limb can never leave its wound colour behind.
+function regionInset(shapeStr, viewBox) {
+  if (!shapeStr) return null;
+  const [, , vw, vh] = String(viewBox).split(/\s+/).map(Number);
+  if (!(vw > 0) || !(vh > 0)) return null;
+  const num = (s, k) => { const m = s.match(new RegExp(`${k}="(-?[\\d.]+)"`)); return m ? parseFloat(m[1]) : null; };
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+
+  for (const tag of shapeStr.match(/<(rect|circle)[^>]*>/g) || []) {
+    if (tag.startsWith('<rect')) {
+      const x = num(tag, 'x'), y = num(tag, 'y'), w = num(tag, 'width'), h = num(tag, 'height');
+      if (x == null || y == null) continue;
+      x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + w); y1 = Math.max(y1, y + h);
+    } else {
+      const cx = num(tag, 'cx'), cy = num(tag, 'cy'), r = num(tag, 'r');
+      if (cx == null || cy == null || r == null) continue;
+      x0 = Math.min(x0, cx - r); y0 = Math.min(y0, cy - r); x1 = Math.max(x1, cx + r); y1 = Math.max(y1, cy + r);
+    }
+  }
+  if (!isFinite(x0)) return null;
+  // A hair of bleed so neighbouring regions meet instead of leaving a seam of
+  // untinted body between a wounded arm and the torso beside it.
+  const pad = 0.6;
+  const pc = (v) => `${Math.max(0, Math.min(100, v)).toFixed(2)}%`;
+  return `inset(${pc(y0 / vh * 100 - pad)} ${pc(100 - x1 / vw * 100 - pad)} ${pc(100 - y1 / vh * 100 - pad)} ${pc(x0 / vw * 100 - pad)})`;
+}
+
+function renderHealthQuick(d) {
+  if (!d.quick?.length) return '';
+  const btns = d.quick.map(q => `
+    <button class="tos-vt-quick" data-act-id="use" data-act-app="health" data-act-params="${esc(d.tab)} ${esc(q.id)}">
+      <span class="act">${esc(q.label)}</span>
+      <span class="itm">${esc(q.name)}${q.qty > 1 ? ` ×${q.qty}` : ''}</span>
+    </button>`).join('');
+  return `<div class="tos-vt-quickbar"><div class="tos-vt-sect">Immediate</div><div class="tos-vt-quickrow">${btns}</div></div>`;
+}
+
+function renderHealthAfflictions(list) {
+  if (!list?.length) {
+    return `<div class="tos-vt-clear">Nothing is currently wrong with you.<br><span>Enjoy it.</span></div>`;
+  }
+  return list.map(a => `
+    <div class="tos-vt-aff ${esc(a.tone || 'warn')}">
+      <div class="tos-vt-affname">${esc(a.label)}</div>
+      <div class="tos-vt-affdet">${esc(a.detail || '')}</div>
+    </div>`).join('');
+}
+
+function renderHealthApothecary(d) {
+  const items = d.remedies || [];
+  if (!items.length) {
+    return `<div class="tos-vt-clear">You are carrying nothing medicinal.<br><span>The city does not hand it out.</span></div>`;
+  }
+  const SECTIONS = [
+    ['medical', 'Medical'],
+    ['compound', 'Compounds'],
+    ['sustenance', 'Food &amp; water'],
+  ];
+  return SECTIONS.map(([kind, title]) => {
+    const rows = items.filter(i => i.kind === kind).map(i => `
+      <div class="tos-vt-item">
+        <div class="tos-vt-itemtxt">
+          <div class="tos-vt-itemname">${esc(i.name)}${i.qty > 1 ? `<span class="qty">×${i.qty}</span>` : ''}${
+            i.addictive ? `<span class="tos-vt-flag">${esc(i.drugClass || 'habit-forming')}</span>` : ''}</div>
+          <div class="tos-vt-itemeff">${esc(i.effect)}</div>
+        </div>
+        <button class="tos-btn" data-act-id="use" data-act-app="health" data-act-params="apothecary ${esc(i.id)}">Use</button>
+      </div>`).join('');
+    return rows ? `<div class="tos-vt-sect">${title}</div>${rows}` : '';
+  }).join('');
+}
+
+// What you have learned about a compound, and how. Only facts the SERVER has
+// already decided you know arrive here — an unlearned value is null, never a
+// number the client is trusted to hide.
+function renderLearned(l) {
+  if (!l || !l.mask) return '<div class="tos-vt-subload">You took it. You could not tell you what it did.</div>';
+  const rows = [];
+  if (l.effects && Object.keys(l.effects).length) {
+    const mods = Object.entries(l.effects)
+      .filter(([, v]) => typeof v === 'number' && v !== 0)
+      .map(([k, v]) => `${esc(k.replace(/^stat_/, '').replace(/_/g, ' '))} ${v > 0 ? '+' : ''}${v}`);
+    if (mods.length) rows.push(['What it does', mods.join(', ')]);
+  }
+  if (l.durationSeconds != null) rows.push(['How long', `${Math.round(l.durationSeconds / 60)} min`]);
+  if (l.overdoseCeiling != null) rows.push(['Too much is', `${l.overdoseCeiling} doses`]);
+  if (l.addictive) rows.push(['Hooks', 'It gets them in.']);
+  if (!rows.length) return '<div class="tos-vt-subload">You know how it feels. Nothing else, yet.</div>';
+  return `<div class="tos-vt-subgrid">${rows.map(([k, v]) => `<span>${esc(k)}</span><b>${esc(v)}</b>`).join('')}</div>`;
+}
+
+function renderHealthOnHand(list) {
+  if (!list?.length) return '';
+  const rows = list.map(o => `
+    <div class="tos-vt-item">
+      <div class="tos-vt-itemtxt"><b>${esc(o.name)}</b>${o.qty > 1 ? ` <span class="text-dim">×${o.qty}</span>` : ''}</div>
+      <span class="tos-vt-flag${o.known ? '' : ' bad'}">${o.known ? 'known' : 'unidentified'}</span>
+    </div>`).join('');
+  return `<div class="tos-vt-sect">On hand</div>${rows}`;
+}
+
+function renderHealthSubstances(d) {
+  const subs = d.substances || [];
+  const onHand = renderHealthOnHand(d.onHand);
+  if (!subs.length) {
+    return `${onHand}<div class="tos-vt-clear">Your bloodwork is boring.<br><span>No compound has ever been through you.</span></div>`;
+  }
+  return `${onHand}<div class="tos-vt-sect">Experience</div>` + subs.map(s => {
+    const flags = [];
+    if (s.addicted) flags.push('<span class="tos-vt-flag bad">dependent</span>');
+    if (s.substituted) flags.push('<span class="tos-vt-flag">substituted</span>');
+    const wd = s.withdrawalPct > 0
+      ? `<div class="tos-vt-subwd bad">Withdrawal biting at ${s.withdrawalPct}%.</div>`
+      : s.withdrawalIn
+        ? `<div class="tos-vt-subwd">Starts asking in about ${esc(s.withdrawalIn)}.</div>`
+        : '';
+    const loadBand = s.loadPct >= 75 ? 'crit' : s.loadPct >= 50 ? 'bad' : s.loadPct >= 25 ? 'warn' : 'good';
+    return `
+      <div class="tos-vt-sub">
+        <div class="tos-vt-subhead">
+          <span class="n">${esc(s.name)}</span>
+          <span class="f">${flags.join('')}</span>
+        </div>
+        <div class="tos-vt-subgrid">
+          <span>Tolerance</span><b>${s.tolerancePct}%</b>
+          <span>Doses in system</span><b>${s.doses} / ${s.ceiling}</b>
+          <span>Times used</span><b>${s.timesUsed}</b>
+          <span>Last dose</span><b>${esc(s.lastUse || '—')}</b>
+        </div>
+        <div class="tos-vt-track sm"><div class="tos-vt-fill ${loadBand}" style="width:${Math.max(0, Math.min(100, s.loadPct))}%"></div></div>
+        <div class="tos-vt-subload">System load against this compound's overdose ceiling.</div>
+        ${renderLearned(s.learned)}
+        ${wd}
+      </div>`;
+  }).join('');
+}
+
+function renderHealth(d) {
+  const notice = d.notice ? `<div class="tos-vt-notice">${esc(d.notice)}</div>` : '';
+  if (d.tab === 'apothecary') return `${notice}${renderHealthApothecary(d)}`;
+  if (d.tab === 'substances') return `${notice}${renderHealthSubstances(d)}`;
+  // Two columns where there's room: the body is a tall narrow thing and the
+  // readings are a stack of short wide ones, so side by side they finish at
+  // roughly the same depth. Stacked (the old layout) the doll left a
+  // panel-wide band of empty box beside it and pushed every meter below the
+  // fold. Below 620px the grid collapses back to one column.
+  const readings = `
+    <div class="tos-vt-sect">Readings</div>
+    <div class="tos-vt-meters">${(d.meters || []).map(renderHealthMeter).join('')}</div>
+    ${renderHealthReadouts(d.readouts)}
+    <div class="tos-vt-sect">Presenting</div>
+    <div class="tos-vt-affs">${renderHealthAfflictions(d.afflictions)}</div>`;
+  const doll = renderHealthDoll(d);
+  if (!doll) return `${notice}${renderHealthQuick(d)}${readings}`;
+  return `
+    ${notice}
+    ${renderHealthQuick(d)}
+    <div class="tos-vt-cols">
+      <div class="tos-vt-col-body">${doll}</div>
+      <div class="tos-vt-col-read">${readings}</div>
+    </div>`;
+}
+
 function renderAccolades(d) {
   const rows = (d.entries || []).map((e, i) => `
     <div class="tos-acc-row${i === (d.entries.length - 1) ? ' first' : ''}">
@@ -3370,6 +6355,132 @@ function renderAccolades(d) {
     <div class="tos-acc-rows">${rows || empty}</div>
     ${rows ? `<div class="tos-acc-endfile">&#9642; End of file &#9642; Further entries at our discretion</div>` : ''}
   `;
+}
+
+// ── B.L.I.S.S. ────────────────────────────────────────────────────────────────
+// Bonded Live-In Intimacy Subscription Service. The app is MIS-gated server-side
+// (the tile doesn't exist without MIS on), so these renderers never run for a
+// player who hasn't opted in. Three screens: the rotating catalogue, one
+// placement in full, and whatever you currently keep.
+//
+// The voice throughout is the Syndicate's — procedural, clinical, entirely
+// untroubled by what it's selling. That contrast IS the joke; don't warm it up.
+
+function blissChrome(sub) {
+  return `<div class="tos-bliss-head">
+    <div>
+      <div class="tos-bliss-app">B.L.I.S.S.</div>
+      <div class="tos-bliss-expand">Bonded Live-In Intimacy Subscription Service</div>
+    </div>
+    <div class="tos-bliss-sub">${esc(sub || '')}</div>
+  </div>`;
+}
+
+function renderBlissListings(d) {
+  const cards = (d.listings || []).map(l => {
+    const pairTag = l.pairing
+      ? `<div class="tos-bliss-pairtag">${esc(l.pairing.label)} &middot; non-severable</div>` : '';
+    const who = (l.members || []).map(m => `
+      <div class="tos-bliss-who">
+        <div class="tos-bliss-name">${esc(m.name)} <span class="sex">${m.sex === 'male' ? '♂' : '♀'}</span></div>
+        <div class="tos-bliss-says">${esc(m.says)}</div>
+        <div class="tos-bliss-phys">${esc(m.summary)}</div>
+      </div>`).join('');
+    return `<div class="tos-bliss-card" data-act-id="open" data-act-app="bliss" data-act-params="${esc(l.id)}">
+      ${pairTag}${who}
+      <div class="tos-bliss-rate"><b>${l.rate}c</b> / day</div>
+    </div>`;
+  }).join('');
+
+  const rr = d.reroll || {};
+  const rerollBtn = rr.ready
+    ? `<button class="tos-btn" data-act-id="reroll" data-act-app="bliss" data-act-params="">↻ Refresh the register</button>`
+    : `<button class="tos-btn disabled" disabled>↻ Refreshes in ${esc(rr.remainingLabel || '')}</button>`;
+
+  return `
+    ${blissChrome(`${(d.listings || []).length} placements available`)}
+    <div class="tos-bliss-strap">${esc(d.smallprint || '')}</div>
+    <div class="tos-bliss-grid">${cards}</div>
+    <div class="tos-actions">
+      ${rerollBtn}
+      <button class="tos-btn" data-act-id="arrangement" data-act-app="bliss" data-act-params="">Your arrangement${d.heldCount ? ` (${d.heldCount})` : ''}</button>
+    </div>`;
+}
+
+function renderBlissDetail(d) {
+  const l = d.listing || {};
+  const who = (l.members || []).map(m => `
+    <div class="tos-bliss-detailwho">
+      <div class="tos-bliss-name">${esc(m.name)} <span class="sex">${m.sex === 'male' ? '♂' : '♀'}</span></div>
+      <div class="tos-bliss-says">${esc(m.says)}</div>
+      <div class="tos-bliss-note">${esc(m.note)}</div>
+      <table class="tos-bliss-spec">${(m.physical || []).map(([k, v]) =>
+        `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>
+    </div>`).join('');
+
+  const pair = l.pairing ? `<div class="tos-bliss-pairbox">
+      <div class="tos-bliss-pairtag">${esc(l.pairing.label)}</div>
+      <div>${esc(l.pairing.blurb)}</div>
+      <div class="tos-bliss-note">${esc(l.pairing.note)}</div>
+    </div>` : '';
+
+  const proj = `<table class="tos-bliss-proj"><tr><th>Tenure</th><th>Rate</th><th></th></tr>
+    ${(l.projection || []).map(p =>
+      `<tr><td>${p.days} days</td><td><b>${p.rate}c</b></td><td>${esc(p.label)}</td></tr>`).join('')}</table>`;
+
+  // Where to put them. No private address on file → no placement.
+  const places = d.blocked
+    ? `<div class="tos-bliss-blocked">${esc(d.blocked)}</div>`
+    : `<div class="tos-actions">${(d.spaces || []).map(s =>
+        `<button class="tos-btn" data-act-id="place" data-act-app="bliss" data-act-params="${esc(l.id)}|${esc(s.id)}"
+           data-act-confirm="Place at ${esc(s.name)}? The first day's retainer of ${l.rate}c is drawn immediately.">
+           ${esc(s.name)} <span class="dim">${esc(s.label)}</span></button>`).join('')}</div>`;
+
+  return `
+    ${blissChrome(`${l.rate}c / day`)}
+    ${pair}
+    <div class="tos-bliss-grid detail">${who}</div>
+    <div class="tos-bliss-secthead">Retainer &amp; tenure</div>
+    <div class="tos-bliss-note">The rate falls the longer a placement stays. Loyalty is cheaper than novelty.</div>
+    ${proj}
+    <div class="tos-bliss-secthead">Deliver to</div>
+    ${places}
+    <div class="tos-actions"><button class="tos-btn" data-act-id="listings" data-act-app="bliss" data-act-params="">← Back to the register</button></div>`;
+}
+
+function renderBlissArrangement(d) {
+  if (d.empty) {
+    return `${blissChrome('No active placement')}
+      <div class="tos-bliss-blocked">You keep nobody. The Syndicate notes this without judgement and with some disappointment.</div>
+      <div class="tos-actions"><button class="tos-btn" data-act-id="listings" data-act-app="bliss" data-act-params="">Browse the register</button></div>`;
+  }
+  // A HOUSE placement is somebody's own staff, not a Syndicate rental: it is
+  // listed exactly like the rest (that's the point — they're yours and should be
+  // on your account), but it bills nothing, has no tenure ladder to climb, and
+  // shows no Release button, because B.L.I.S.S. cannot collect what it never placed.
+  const rows = (d.entries || []).map(e => `
+    <div class="tos-bliss-held${e.house ? ' house' : ''}">
+      <div class="tos-bliss-name">${esc(e.names.join(' &amp; '))}${e.pairing ? ` <span class="dim">${esc(e.pairing)}</span>` : ''}${e.house ? ' <span class="tos-bliss-housetag">House</span>' : ''}</div>
+      ${e.house ? `
+      <div class="tos-bliss-heldline">
+        <span>Retained by the house</span>
+        <span><b>No retainer</b></span>
+      </div>
+      <div class="tos-bliss-note">Yours outright. The Syndicate bills nothing and arranges nothing.</div>`
+      : `
+      <div class="tos-bliss-heldline">
+        <span>${e.daysKept} day${e.daysKept === 1 ? '' : 's'} &middot; ${esc(e.tier.label)}</span>
+        <span><b>${e.todayRate}c</b>/day${e.saving ? ` <span class="save">(−${e.saving}c)</span>` : ''}</span>
+      </div>
+      <div class="tos-bliss-note">${esc(e.tier.note)}</div>
+      ${e.missed ? `<div class="tos-bliss-warn">${e.missed} missed payment — one more and the placement is collected.</div>` : ''}
+      <div class="tos-actions"><button class="tos-btn" data-act-id="release" data-act-app="bliss" data-act-params="${esc(e.id)}"
+        data-act-confirm="Release ${esc(e.names.join(' and '))}? ${e.names.length > 1 ? 'A matched pair goes together. ' : ''}This cannot be undone.">Release</button></div>`}
+    </div>`).join('');
+
+  return `${blissChrome(`${d.dailyTotal}c / day total`)}
+    <div class="tos-bliss-grid held">${rows}</div>
+    <div class="tos-actions"><button class="tos-btn" data-act-id="listings" data-act-app="bliss" data-act-params="">Browse the register</button></div>`;
 }
 
 // Entry timestamps are epoch seconds from the DB; the file wants a date, not a clock.
@@ -3561,10 +6672,19 @@ function renderMap(d) {
     }
     const badges = (t.isCurrent ? '<span class="mt-you">◉</span>' : '')
       + (t.id === dest && !t.isCurrent ? '<span class="mt-dest">⚑</span>' : '');
-    // Entrance arrow — small amber triangle on the edge the building's door faces.
-    const ent = ['north', 'south', 'east', 'west'].includes(t.entrance) ? `<span class="tos-ent tos-ent-${t.entrance}"></span>` : '';
-    // Interior exit arrows — same triangle, one per way out of the building (exit_dirs).
-    const exits = Array.isArray(t.exit_dirs) ? t.exit_dirs.map(dr => `<span class="tos-ent tos-ent-${dr}"></span>`).join('') : '';
+    // Doors as edge lines: an interior room gets a hairline on all four sides — green
+    // where it opens through, red where it's wall (server `open_dirs`); a facade out on
+    // the street gets the green door edge alone, no red.
+    let ent = '', exits = '';
+    if (Array.isArray(t.open_dirs)) {
+      exits = ['north', 'south', 'east', 'west'].map(dr =>
+        `<span class="tos-edge tos-edge-${dr} ${t.open_dirs.includes(dr) ? 'open' : 'shut'}"></span>`).join('');
+    } else {
+      // Out on the street: the door edge goes green and the other three stay bare. The
+      // red "wall" half is a floorplan idea — outside it would just outline everything.
+      ent = ['north', 'south', 'east', 'west'].includes(t.entrance)
+        ? `<span class="tos-edge tos-edge-${t.entrance} open"></span>` : '';
+    }
     // Perimeter wall (mirrors the sidebar minimap): gate tiles get a highlighted
     // opening, other curtain tiles a shimmer-edge, the glacis kill-zone a hazard tint.
     if (t.perimeter_gate) cls.push('tos-gate');
@@ -3618,7 +6738,7 @@ function renderMapCtl(d) {
     <span class="tos-map-mini${auto}" data-map-autotoggle title="Toggle auto-walk to the plotted route">➤ Auto</span>
     <span class="tos-map-mini" data-map-recenter title="Recenter on you">◎ Center</span>
     <span class="tos-map-mini${noRoute}" data-map-clear title="Clear the plotted GPS route">🧭 Clear</span>
-    <span class="tos-map-mini${_tosMapLabels ? ' active' : ''}" data-map-labels title="Toggle two-letter building labels">🏷 Labels</span>
+    <span class="tos-map-mini${mapLabelsOn() ? ' active' : ''}" data-map-labels title="Toggle two-letter building labels — also switches the sidebar minimap">🏷 Labels</span>
     <span class="tos-map-zoom">
       <button class="tos-mz" data-map-zoom="out" title="Zoom out"${zoutOff}>−</button>
       <button class="tos-mz" data-map-zoom="in" title="Zoom in"${zinOff}>+</button>
@@ -3795,6 +6915,12 @@ const GEAR_LAYER_DEFS = [{ n: 1, label: 'Under' }, { n: 2, label: 'Over' }, { n:
 const GEAR_SLOT_LABEL = { head: 'Head', torso: 'Torso', hands: 'Hands', legs: 'Legs', feet: 'Feet', weapon_hand: 'Weapon', accessory: 'Accessory' };
 const GEAR_DMG = ['kinetic', 'edged', 'energy', 'fire', 'radiation'];
 const GEAR_ARMOR_SLOTS = ['head', 'torso', 'hands', 'legs', 'feet'];
+// Slots that fold into the Inventory tab's two WORN groups (Clothing / Armour). The
+// body slots plus accessories — deliberately not weapon_hand, which stays in the main
+// list where you can see it next to the rest of your kit. Kept separate from
+// GEAR_ARMOR_SLOTS because that one drives the paperdoll and the soak table, where an
+// accessory has no body region to protect.
+const WORN_GROUP_SLOTS = [...GEAR_ARMOR_SLOTS, 'accessory'];
 // Monochrome line icons (stroke = currentColor → tinted to the theme accent) for
 // the far-right loadout readouts: total worn armor + insulation temperature.
 const GEAR_SHIELD_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 2.5v5.6c0 4.4-3 7.4-7 9.4-4-2-7-5-7-9.4V5.5z"/></svg>`;
@@ -3809,6 +6935,10 @@ const GEAR_DMG_ICON = {
   radiation: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><circle cx="12" cy="12" r="2.1"/><path d="M12 9.6 16.4 4 7.6 4Z"/><path d="M13.5 12.8 18.4 15.8 15.4 20.5Z"/><path d="M10.5 12.8 8.6 20.5 5.6 15.8Z"/></svg>`,
 };
 
+// Insulation is a fractional °C offset (a t-shirt is 0.5), so rounding it to whole
+// degrees turned three light layers into "2°" and a scarf into nothing at all.
+const round1 = (n) => Math.round((Number(n) || 0) * 10) / 10;
+
 function gearWeight(g) {
   g = Number(g) || 0;
   return g < 1000 ? `${Math.round(g)}g` : `${(Math.round(g / 100) / 10)}kg`;
@@ -3819,6 +6949,27 @@ function gearWeight(g) {
 // takes when the piece's layer matches the chosen one). Mirrors the engine's LAYERS.
 const GEAR_LAYER_N = { underwear: 1, outerwear: 2, armor: 3 };
 const GEAR_VERB_LABELS = { eat: 'Eat', drink: 'Drink', use: 'Use', open: 'Open', read: 'Read' };
+// The verb an item most wants, in priority order. Equip/unequip/drop are excluded
+// deliberately — the doll and the Drop button already teach those; this is for the
+// verbs a player would otherwise have to guess at (a holocaster is for USING).
+const GEAR_PRIMARY_VERBS = ['use', 'read', 'eat', 'drink', 'smoke', 'open', 'play', 'light'];
+function primaryVerb(it) {
+  const acts = it?.actions || [];
+  return GEAR_PRIMARY_VERBS.find(v => acts.includes(v)) || null;
+}
+// What you DO with a piece, named off its slot. "Equip" is engine vocabulary; a
+// player wears a coat, wields a bat and puts on a ring, and the tooltip on a
+// one-tap control is the only place the game gets to say which.
+function wearVerb(it) {
+  const slot = it?.tags?.slot;
+  if (slot === 'weapon_hand') return 'Wield';
+  if (slot === 'accessory') return 'Put on';
+  return 'Wear';
+}
+function takeOffVerb(it) {
+  return it?.tags?.slot === 'weapon_hand' ? 'Put away' : 'Take off';
+}
+
 const GEAR_TRAY_PAGE = 6;   // loadout carried-tray page size
 const GEAR_INV_PAGE = 8;    // Inventory-tab page size
 const gcap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -3843,27 +6994,31 @@ function gearPager(kind, page, pages) {
     <button class="tos-gpg" data-gpg="next"${page >= pages - 1 ? ' disabled' : ''}>▸</button></div>`;
 }
 
-// A draggable carried-item card for the loadout tray. Equippable cards drag onto
-// their body slot (or tap) to equip; the ⤓ button — or dragging off the tray —
-// drops a piece on the ground.
+// A draggable carried-item card for the Gear tab's tray. Equippable cards drag onto
+// their body slot (or tap) to equip.
+//
+// No ⤓ here any more. The Gear tab is the KIT-BUILDING screen — its whole job is
+// getting things onto the body — and a drop-on-the-ground button one thumb-width from
+// the equip target is a way to lose a jacket, not a feature. Dropping lives on the
+// Inventory tab, next to everything else you can do to a thing you're carrying.
 function gearCard(it) {
   const slot = it.tags?.slot || '';
   const qty = it.quantity > 1 ? ` ×${it.quantity}` : '';
   const meta = slot ? esc(slot.replace('_', ' ')) : (it.tags?.container != null ? 'container' : '');
   return `<div class="tos-gcard${slot ? ' equippable' : ''}" data-gid="${it.id}" data-gslot="${slot}">` +
     `<span class="tos-gcard-name">${esc(it.name)}${qty}</span>` +
-    (meta ? `<span class="tos-gcard-meta">${meta}</span>` : '') +
-    `<button class="tos-gcard-drop" data-gdrop="${it.id}" title="Drop on ground">⤓</button></div>`;
+    (meta ? `<span class="tos-gcard-meta">${meta}</span>` : '') + `</div>`;
 }
 
-// The Gear app is two tabs: Inventory (the full paged pack, the primary tab,
-// mirroring the game's inventory — tap a row for the detail sheet with its actions)
-// and Loadout (the paperdoll + carried tray).
+// The KIT app is two tabs: Inventory (the full paged pack, the primary tab, mirroring
+// the game's inventory — tap a row for the detail sheet with its actions) and Gear (the
+// paperdoll + carried tray). The tab KEY is still `loadout` — it's persisted in
+// `_gearTab` and referenced by wireGear's `data-gtab` handler; only the label changed.
 function renderGear(d) {
   const tabs =
     `<div class="tos-gtabs">
        <button class="tos-gtab${_gearTab === 'inventory' ? ' active' : ''}" data-gtab="inventory">Inventory</button>
-       <button class="tos-gtab${_gearTab === 'loadout' ? ' active' : ''}" data-gtab="loadout">Loadout</button>
+       <button class="tos-gtab${_gearTab === 'loadout' ? ' active' : ''}" data-gtab="loadout">Gear</button>
      </div>`;
   return `<div class="tos-gear">${tabs}${_gearTab === 'inventory' ? renderGearInventory(d) : renderGearLoadout(d)}</div>`;
 }
@@ -3890,23 +7045,27 @@ function renderGearLoadout(d) {
   // empty but the slot has gear on ANOTHER layer, it falls back to the outermost worn
   // piece so an equipped item ALWAYS reads as a filled panel on the body. Either way a
   // filled box is a drop target (equip) AND a drag/tap-to-unequip source (data-geq),
-  // so any layer's piece can be taken off straight into the carried list. A small
-  // sub-line names the layer when the shown piece isn't on the one currently selected.
+  // so any layer's piece can be taken off straight into the carried list.
   const box = (slot, it) => {
-    let sub = '';
+    // Whether what's in this box belongs to the layer you're looking at. A fallback
+    // piece from another layer is drawn DIMMED (.off-layer) — without that the doll
+    // read as if every box were on the selected layer, so switching Under/Over/Armor
+    // appeared to do nothing and you couldn't tell what you were actually looking at.
+    // The dimming is the WHOLE signal: this used to also stamp the layer name and a
+    // "+N" hidden count in 8px under the item, which read as a stat on a box that is
+    // otherwise all stats. Still a live unequip target, just visibly not-here.
+    let offLayer = false;
     if (!it) {
       const hidden = hiddenPieces(slot);
       if (hidden.length) {
         it = hidden[0];
-        const idx = GEAR_LAYER_DEFS.findIndex(l => l.n === (it.layer || 1));
-        const more = hidden.length > 1 ? ` +${hidden.length - 1}` : '';
-        sub = `<span class="tos-gslot-sub">${esc(GEAR_LAYER_DEFS[idx]?.label || '')}${more}</span>`;
+        offLayer = true;
       }
     }
-    return `<div class="tos-gslot tos-gslot--${slot}${it ? ' filled' : ''}" data-gslot="${slot}"` +
+    return `<div class="tos-gslot tos-gslot--${slot}${it ? ' filled' : ''}${offLayer ? ' off-layer' : ''}" data-gslot="${slot}"` +
       `${it ? ` data-geq="${it.id}"` : ''}>` +
       `<span class="tos-gslot-label">${esc(GEAR_SLOT_LABEL[slot] || slot)}</span>` +
-      `<span class="tos-gslot-item">${it ? esc(it.name) : '—'}</span>${sub}</div>`;
+      `<span class="tos-gslot-item">${it ? esc(it.name) : '—'}</span></div>`;
   };
 
   const acc = equipped.filter(i => i.slot === 'accessory').sort((a, b) => (a.layer || 0) - (b.layer || 0))[0];
@@ -3932,15 +7091,12 @@ function renderGearLoadout(d) {
        <span class="tos-gear-carry-txt">${gearWeight(d.weight)} / ${gearWeight(d.capacity)}</span>
      </div>`;
 
-  // Per-region soak, summed across worn layers.
-  const slotSoak = (slot) => {
-    const t = {};
-    for (const p of equipped.filter(i => occupies(i, slot))) {
-      const soak = p.tags?.armor_soak || {};
-      for (const dt of GEAR_DMG) t[dt] = (t[dt] || 0) + (Number(soak[dt]) || 0);
-    }
-    return t;
-  };
+  // Per-region soak — READ, not derived. `d.soak` is the server's `player.soak`,
+  // the same structure combat routes a hit through, so what this table says is what
+  // a swing actually meets. Summing `tags.armor_soak` here instead (which is what
+  // this did) silently missed a `covers` garment's extra slots and every armor
+  // contributor that isn't a worn item at all, e.g. subdermal plating.
+  const slotSoak = (slot) => d.soak?.[slot]?.soak || {};
   let soak = `<table class="tos-gear-soak"><thead><tr><th></th>${GEAR_DMG.map(t => `<th>${esc(gcap(t).slice(0, 3))}</th>`).join('')}</tr></thead><tbody>`;
   for (const slot of GEAR_ARMOR_SLOTS) {
     const t = slotSoak(slot);
@@ -3961,20 +7117,29 @@ function renderGearLoadout(d) {
 
   // Top-right cluster: layer selector, carry weight, then the cumulative-soak (shield)
   // + insulation (thermometer) readouts. All monochrome; icons stroke in the accent.
-  const totalSoak = equipped.reduce((s, i) =>
-    s + Object.values(i.tags?.armor_soak || {}).reduce((a, v) => a + (Number(v) || 0), 0), 0);
+  // Same source as the table: every slot's typed soak, added up. A hit only ever
+  // meets ONE slot's share of this, which is what the title says and what the
+  // breakdown popup shows per damage type.
+  const totalSoak = GEAR_ARMOR_SLOTS.reduce((s, slot) =>
+    s + Object.values(slotSoak(slot)).reduce((a, v) => a + (Number(v) || 0), 0), 0);
   const far =
     `<div class="tos-gload-far">
        <div class="tos-gl-group">${layers}</div>
        ${carry}
-       <div class="tos-gstat tos-gstat-armor" data-armor-break title="Total soak — click for the per-type breakdown">${GEAR_SHIELD_SVG}<span>${totalSoak}</span></div>
-       <div class="tos-gstat" title="Insulation">${GEAR_THERMO_SVG}<span>${Math.round(fx.insulation || 0)}°</span></div>
+       <div class="tos-gstat tos-gstat-armor" data-armor-break title="Soak across all five body slots. A hit only meets its own slot's share — click for the per-type breakdown, and see the Protection table for where you're bare.">${GEAR_SHIELD_SVG}<span>${totalSoak}</span></div>
+       <div class="tos-gstat" title="Insulation from what you're wearing: +${round1(fx.insulation || 0)}°C of effective ambient, dry. This is NOT your body temperature — that's in Vitals — and soaked clothing keeps far less of it.">${GEAR_THERMO_SVG}<span>+${round1(fx.insulation || 0)}° insul</span></div>
      </div>`;
 
   // Carried-item tray, paged. Only equippable pieces (a `slot` tag) — this is the
-  // kit-building drag source, so loose non-gear (food, etc.) stays out (it's still
-  // on the Inventory tab). Drag a card onto a slot to equip, a filled slot onto this
-  // tray to unequip; the ⤓ button / dragging off drops on the ground.
+  // kit-building drag source, so loose non-gear (food, etc.) stays out (it's still on
+  // the Inventory tab). Drag a card onto a slot to equip, a filled slot onto this tray
+  // to unequip, or a card onto the zone below to leave it on the ground.
+  //
+  // The per-card ⤓ BUTTON is what moved to the Inventory tab — a one-tap discard
+  // sitting a thumb-width from the equip target is how you lose a jacket. The drag
+  // ZONE stays: it takes a deliberate press-and-drag across the panel, it's the only
+  // way to get a piece out of a full tray without leaving the screen, and it costs the
+  // tray nothing (it sits under the pager, so no card is any narrower for it).
   const tray = (d.inventory || []).filter(i => !i.is_equipped && i.tags?.slot);
   const pages = Math.max(1, Math.ceil(tray.length / GEAR_TRAY_PAGE));
   _gearTrayPage = Math.min(Math.max(0, _gearTrayPage), pages - 1);
@@ -3982,7 +7147,7 @@ function renderGearLoadout(d) {
   const trayHtml =
     `<div class="tos-gtray">${slice.length ? slice.map(gearCard).join('') : '<div class="tos-gtray-empty">Nothing loose in your pack.</div>'}</div>
      ${gearPager('tray', _gearTrayPage, pages)}
-     <div class="tos-gear-drop" data-gdropzone title="Drop an item here to leave it on the ground">⤓ Drop to ground</div>`;
+     <div class="tos-gear-drop" data-gdropzone title="Drag an item here to leave it on the ground">⤓ Drop to ground</div>`;
 
   // Inventory list left, big centred doll in the middle, controls/readouts top-right.
   // The whole left column is the unequip drop-zone. A feedback line sits below the
@@ -4004,14 +7169,37 @@ function renderGearInventory(d) {
   // Worn body-slot gear folds into two collapsed-by-default groups so the pack
   // list isn't buried: Clothing (underwear/outerwear) and Armour (the `armor`
   // layer). Weapons, accessories, and loose gear stay in the main paged list.
-  const isArmor = (it) => GEAR_ARMOR_SLOTS.includes(it.tags?.slot) && (it.tags?.layer || 'outerwear') === 'armor';
-  const isClothing = (it) => GEAR_ARMOR_SLOTS.includes(it.tags?.slot) && !isArmor(it);
+  // Armour means PROTECTIVE, not "worn on the armor layer". Grouping by layer put a
+  // kevlar raincoat, a padded jacket and steel-toe boots under Clothing and left the
+  // Armour group missing entirely, so a player wearing real protection was told they
+  // had none. Layer still decides where a piece sits on the doll; here what matters is
+  // whether it stops anything. `armor_soak` is the only armor mechanism (see
+  // docs/items.md), so it's the only honest test.
+  const hasSoak = (it) => Object.values(it.tags?.armor_soak || {}).some(v => (Number(v) || 0) > 0);
+  // Armour is a BODY-slot piece that stops something. Accessories are excluded on
+  // purpose even when they carry soak (the cobalt scarf does): a scarf is something you
+  // wear, not armour you kit up in, and putting it under Armour makes that group a lie
+  // about how protected you are.
+  const isArmor = (it) => GEAR_ARMOR_SLOTS.includes(it.tags?.slot) && hasSoak(it);
+  // ...and accessories group WITH clothing. They were falling through to the main paged
+  // list, which is the loose-kit list — a ring sitting between a ration and a crowbar.
+  // Everything you wear belongs in the two worn groups; the main list is for everything
+  // else you're carrying.
+  const isClothing = (it) => WORN_GROUP_SLOTS.includes(it.tags?.slot) && !isArmor(it);
   const clothing = all.filter(isClothing);
   const armor = all.filter(isArmor);
   const main = all.filter(it => !isClothing(it) && !isArmor(it));
-  const pages = Math.max(1, Math.ceil(main.length / GEAR_INV_PAGE));
+  // What you're actually holding, PINNED above the paged list and outside the paging.
+  // A wielded weapon used to be an ordinary row wearing the same small "equipped" badge
+  // as a sock, eight rows to a page — so the one question this screen gets asked in a
+  // fight ("what am I swinging?") needed a page-hunt to answer. Now it's the first thing
+  // on the tab, it can never be paged away, and it says WIELDED rather than equipped.
+  const isWeapon = (it) => it.tags?.slot === 'weapon_hand';
+  const wielded = main.filter(it => it.is_equipped && isWeapon(it));
+  const loose = main.filter(it => !(it.is_equipped && isWeapon(it)));
+  const pages = Math.max(1, Math.ceil(loose.length / GEAR_INV_PAGE));
   _gearInvPage = Math.min(Math.max(0, _gearInvPage), pages - 1);
-  const slice = main.slice(_gearInvPage * GEAR_INV_PAGE, _gearInvPage * GEAR_INV_PAGE + GEAR_INV_PAGE);
+  const slice = loose.slice(_gearInvPage * GEAR_INV_PAGE, _gearInvPage * GEAR_INV_PAGE + GEAR_INV_PAGE);
   const wPct = d.capacity ? Math.min(100, Math.round((d.weight / d.capacity) * 100)) : 0;
   const head =
     `<div class="tos-gear-head">
@@ -4024,15 +7212,51 @@ function renderGearInventory(d) {
   const row = (it) => {
     const qty = it.quantity > 1 ? ` ×${it.quantity}` : '';
     const slot = it.tags?.slot || '';
-    const badge = it.is_equipped ? '<span class="tos-ginv-eq">equipped</span>'
+    // A held weapon says WIELDED, not "equipped" — it's the one piece of kit whose state
+    // you need to read at a glance, and "equipped" is what the socks say too.
+    const badge = it.is_equipped
+      ? (isWeapon(it) ? '<span class="tos-ginv-eq wielding">⚔ wielded</span>' : '<span class="tos-ginv-eq">equipped</span>')
       : (slot ? `<span class="tos-ginv-slot">${esc(slot.replace('_', ' '))}</span>` : '');
-    return `<div class="tos-ginv-row" data-ginv="${it.id}">
-      <span class="tos-ginv-name">${esc(it.name)}${qty}</span>${badge}
+    const pv = primaryVerb(it);
+    const verbChip = pv
+      ? `<span class="tos-ginv-verb" data-ginv-verb="${esc(pv)}" title="${esc(GEAR_VERB_LABELS[pv] || gcap(pv))} ${esc(it.name)}">${esc(GEAR_VERB_LABELS[pv] || gcap(pv))}</span>`
+      : '';
+    // Weight on the row, not two taps down in the detail sheet. Carry capacity is a
+    // live constraint — the whole reason you open this list is to decide what to leave
+    // behind — and you can't make that call against a bar that only shows the total.
+    // ×quantity, because a row is what it actually costs you: 5 rations weigh 5.
+    const w = Number(it.weight) || 0;
+    const wt = w ? `<span class="tos-ginv-wt" title="${esc(gearWeight(w))} each">${esc(gearWeight(w * (it.quantity || 1)))}</span>` : '';
+    // ⤓ moved here off the Gear tab (see gearCard). Equipped pieces don't get one —
+    // dropping what you're wearing is a two-step on purpose.
+    const drop = it.is_equipped ? ''
+      : `<button class="tos-ginv-drop" data-gdrop="${it.id}" title="Drop ${esc(it.name)} on the ground">⤓</button>`;
+    // ⇧ / ⇩ — put it on, take it off, from the list. Anything with a `slot` tag is
+    // wearable or wieldable, and the whole point of the Inventory tab is that it's the
+    // list you're already looking at: making the player cross to the Gear tab and drag
+    // a doll to put a hat on is a chore, not a decision. The verb NAMES itself off the
+    // slot (wield a weapon, wear everything else) rather than saying "equip", because
+    // nobody equips a jacket. Same one-round-trip action the doll uses, so the
+    // paperdoll, the tray and this list can't disagree about what's worn.
+    const body = it.tags?.slot
+      ? (it.is_equipped
+        ? `<button class="tos-ginv-eqbtn off" data-gunequip="${it.id}" title="${esc(takeOffVerb(it))} ${esc(it.name)}">⇩</button>`
+        : `<button class="tos-ginv-eqbtn" data-gequip="${it.id}" title="${esc(wearVerb(it))} ${esc(it.name)}">⇧</button>`)
+      : '';
+    const held = it.is_equipped && isWeapon(it) ? ' wielding' : '';
+    return `<div class="tos-ginv-row${held}" data-ginv="${it.id}">
+      <span class="tos-ginv-name">${esc(it.name)}${qty}</span>${badge}${wt}${verbChip}${body}${drop}
       <span class="tos-ginv-chev">›</span></div>`;
   };
-  const list = main.length
+  // The pinned in-hand block. Labelled, because an unlabelled pinned row just looks like
+  // the list is badly sorted. Absent entirely when your hands are empty — a "Nothing
+  // wielded" placeholder would cost a line on every screen to say nothing.
+  const inHand = wielded.length
+    ? `<div class="tos-ginv-hand"><div class="tos-ginv-handlab">In hand</div>${wielded.map(row).join('')}</div>`
+    : '';
+  const list = loose.length
     ? `<div class="tos-ginv-list">${slice.map(row).join('')}</div>`
-    : ((clothing.length || armor.length) ? '' : '<div class="tos-gtray-empty">Your pack is empty.</div>');
+    : ((clothing.length || armor.length || wielded.length) ? '' : '<div class="tos-gtray-empty">Your pack is empty.</div>');
   // A collapsible group: header with count + expanded row list. `key` is the
   // data attribute the click handler toggles.
   const group = (items, label, key, open) => items.length
@@ -4045,7 +7269,7 @@ function renderGearInventory(d) {
     : '';
   const groups = group(clothing, 'Clothing', 'gclothing', _gearClothingOpen)
     + group(armor, 'Armour', 'garmor', _gearArmorOpen);
-  return `${head}${list}${gearPager('inv', _gearInvPage, pages)}${groups}`;
+  return `${head}${inHand}${list}${gearPager('inv', _gearInvPage, pages)}${groups}`;
 }
 
 // A tablet-native item-detail sheet — the tap target from the Inventory tab. Shows
@@ -4074,11 +7298,12 @@ function showGearItemDetail(it) {
   }
 
   const verbs = [];
+  const pv = primaryVerb(it);
   if (t.slot && !it.is_equipped) verbs.push({ label: 'Equip', kind: 'equip' });
   if (t.slot && it.is_equipped) verbs.push({ label: 'Unequip', kind: 'unequip' });
   for (const v of (it.actions || [])) {
     if (['drop', 'equip', 'unequip', 'wear', 'wield'].includes(v)) continue;
-    verbs.push({ label: GEAR_VERB_LABELS[v] || gcap(v), kind: 'verb', verb: v });
+    verbs.push({ label: GEAR_VERB_LABELS[v] || gcap(v), kind: 'verb', verb: v, primary: v === pv });
   }
   verbs.push({ label: 'Drop', kind: 'drop' });
 
@@ -4089,7 +7314,7 @@ function showGearItemDetail(it) {
       <button class="tos-idp-x" title="Close">✕</button></div>
     ${t.description ? `<div class="tos-idp-desc">${esc(t.description)}</div>` : ''}
     <div class="tos-idp-stats">${rows.map(([k, v]) => `<div class="tos-idp-stat"><span>${esc(k)}</span><span>${esc(v)}</span></div>`).join('')}</div>
-    <div class="tos-idp-verbs">${verbs.map((v, i) => `<button class="tos-idp-verb${v.kind === 'drop' ? ' danger' : ''}" data-vi="${i}">${esc(v.label)}</button>`).join('')}</div>
+    <div class="tos-idp-verbs">${verbs.map((v, i) => `<button class="tos-idp-verb${v.kind === 'drop' ? ' danger' : ''}${v.primary ? ' primary' : ''}" data-vi="${i}">${esc(v.label)}</button>`).join('')}</div>
   </div>`;
   el.addEventListener('click', (e) => { if (e.target === el) closeGearItemDetail(); });
   el.querySelector('.tos-idp-x').addEventListener('click', closeGearItemDetail);
@@ -4187,14 +7412,25 @@ function gearFeedback(msg) {
 // as coverage.
 function showArmorBreakdown() {
   closeGearItemDetail();
-  const equipped = (_data?.items || []).filter(i => i.is_equipped);
-  const soak = {}; for (const k of GEAR_DMG) soak[k] = 0;
-  for (const it of equipped) {
-    const s = it.tags?.armor_soak || {};
-    for (const k of GEAR_DMG) soak[k] += Number(s[k]) || 0;
+  // Read from the server's per-slot soak (see slotSoak in renderGearLoadout) rather
+  // than re-summing item tags, so a `covers` garment and a soak-granting augment both
+  // show up here. Per type: the total, and the WEAKEST slot — the number that decides
+  // whether a hit hurts, since a hit lands somewhere specific.
+  const bySlot = _data?.soak || {};
+  const soak = {}; const worst = {};
+  for (const k of GEAR_DMG) {
+    soak[k] = 0;
+    worst[k] = Infinity;
+    for (const slot of GEAR_ARMOR_SLOTS) {
+      const v = Number(bySlot[slot]?.soak?.[k]) || 0;
+      soak[k] += v;
+      worst[k] = Math.min(worst[k], v);
+    }
   }
   const rows = GEAR_DMG.map(k =>
-    `<div class="tos-gbrk-row${soak[k] ? '' : ' zero'}"><span class="tos-gbrk-ico">${GEAR_DMG_ICON[k]}</span><span class="tos-gbrk-name">${esc(gcap(k))}</span><span class="tos-gbrk-val">${soak[k]}</span></div>`).join('');
+    `<div class="tos-gbrk-row${soak[k] ? '' : ' zero'}"><span class="tos-gbrk-ico">${GEAR_DMG_ICON[k]}</span><span class="tos-gbrk-name">${esc(gcap(k))}</span>` +
+    `<span class="tos-gbrk-val" title="Total across the five body slots; weakest slot stops ${worst[k] === Infinity ? 0 : worst[k]}">${soak[k]}` +
+    `<i class="tos-gbrk-worst">min ${worst[k] === Infinity ? 0 : worst[k]}</i></span></div>`).join('');
   const el = document.createElement('div');
   el.className = 'tos-idp-overlay';
   el.innerHTML = `<div class="tos-idp tos-gbrk">
@@ -4284,11 +7520,15 @@ function wireGear() {
     });
   });
 
-  // Inventory-tab rows → item-detail sheet.
+  // Inventory-tab rows → item-detail sheet. The shimmering verb chip on the row
+  // short-circuits that: one tap fires the verb, no sheet, no guessing.
   _overlay.querySelectorAll('[data-ginv]').forEach(el => {
-    el.addEventListener('click', () => {
+    el.addEventListener('click', (e) => {
       const it = gearTrayItem(el.getAttribute('data-ginv'));
-      if (it) showGearItemDetail(it);
+      if (!it) return;
+      const chip = e.target.closest?.('[data-ginv-verb]');
+      if (chip) { e.stopPropagation(); hideGearTip(); gearVerb(chip.getAttribute('data-ginv-verb'), it.name); return; }
+      showGearItemDetail(it);
     });
   });
 
@@ -4342,6 +7582,18 @@ function wireGear() {
   // Per-card ⤓ → drop on the ground.
   _overlay.querySelectorAll('[data-gdrop]').forEach(el => {
     el.addEventListener('click', (e) => { e.stopPropagation(); gearDrop(gearTrayItem(el.getAttribute('data-gdrop'))); });
+  });
+
+  // Inventory-row ⇧ / ⇩ → wear/wield it, or take it off. stopPropagation because the
+  // row itself opens the item-detail sheet, and a quick-equip that also popped a modal
+  // would make the fast path slower than the slow one. gearAct is the same
+  // mutate-and-return-the-screen round trip the paperdoll uses, so the list, the tray
+  // and the doll all redraw from one authoritative payload.
+  _overlay.querySelectorAll('[data-gequip]').forEach(el => {
+    el.addEventListener('click', (e) => { e.stopPropagation(); gearAct('equip', el.getAttribute('data-gequip')); });
+  });
+  _overlay.querySelectorAll('[data-gunequip]').forEach(el => {
+    el.addEventListener('click', (e) => { e.stopPropagation(); gearAct('unequip', el.getAttribute('data-gunequip')); });
   });
 
   // ── Drag/drop (pointer-based) ──────────────────────────────────────────────
@@ -4502,6 +7754,9 @@ function renderSurveillance(d) {
         { id: 'record', label: focus.recording ? 'Stop Recording' : 'Record' },
         { id: 'clip', label: 'Clip → Reel', disabled: !hasBuffer },
         { id: 'clear', label: 'Clear', disabled: !hasBuffer, confirm: 'Discard this buffer without saving a reel?' },
+        // Only offered when there is a consumer deck in the room to take the feed —
+        // the app never advertises an output that isn't plugged in.
+        ...(d.deckHere ? [{ id: 'cast', label: d.deckCam === focus.id ? `Unpatch ${d.deckHere}` : `Patch → ${d.deckHere}` }] : []),
         { id: 'destruct', label: 'Self-Destruct', confirm: 'Fry this device where it sits? It is destroyed, not recovered.' },
       ], focus.id)}
     </div>` : '';
@@ -4804,8 +8059,36 @@ function newsWidget(sec) {
     case 'weather': return renderWeatherWidget(sec);
     case 'headlines': return renderHeadlinesWidget(sec.stories);
     case 'standings': return renderStandingsWidget(sec.teams);
+    case 'blotter': return renderBlotterWidget(sec);
     default: return '<div class="tos-empty" style="padding:12px 4px">This section is unavailable.</div>';
   }
+}
+
+// The Police Blotter. Two kinds of line, deliberately styled apart: a WARRANT is
+// live and about someone who is still out there, an INCIDENT already happened.
+// Stars are drawn rather than counted, because "★★★" reads at a glance and
+// "3 stars" has to be parsed.
+function renderBlotterWidget(sec) {
+  if (sec.quiet && !(sec.entries || []).length) {
+    return `<div class="tos-blotter"><div class="tos-blot-quiet">${esc(sec.quiet)}</div></div>`;
+  }
+  const rows = (sec.entries || []).map(e => {
+    if (e.kind === 'warrant') {
+      const stars = '★'.repeat(Math.max(1, Math.min(5, e.stars || 1)));
+      return `<div class="tos-blot-row warrant">
+        <span class="tos-blot-stars" title="${esc(String(e.stars || 0))} star">${stars}</span>
+        <span class="tos-blot-body"><b>${esc(e.who)}</b> — wanted for ${esc(e.what)}</span>
+      </div>`;
+    }
+    const where = e.where ? ` at ${esc(e.where)}` : '';
+    const when = e.when ? `<span class="tos-blot-when">${esc(e.when)}</span>` : '';
+    return `<div class="tos-blot-row">
+      <span class="tos-blot-mark" aria-hidden="true">†</span>
+      <span class="tos-blot-body"><b>${esc(e.who)}</b> — ${esc(e.what)}${where}</span>
+      ${when}
+    </div>`;
+  }).join('');
+  return `<div class="tos-blotter">${rows}</div>`;
 }
 
 // Weather widget — today's conditions as a tappable card; tapping expands the
@@ -4830,10 +8113,12 @@ function renderWeatherWidget(sec) {
     <div class="tos-wx-toggle">7-day ${open ? '▾' : '▸'}</div>
   </div>`;
   if (!open) return now;
-  const days = (sec.days || []).map(f => `<div class="tos-wx-day">
+  // A hero-event day is flagged so it can't be skimmed past — this widget is
+  // where most players will actually see the week's warning.
+  const days = (sec.days || []).map(f => `<div class="tos-wx-day${f.heroEvent ? ' tos-wx-hero' : ''}">
     <span class="tos-wx-dow">${esc(dayLabel(f))}</span>
     <span class="tos-wx-dico">${esc(f.icon || '')}</span>
-    <span class="tos-wx-dcond">${esc(f.weatherType || '')}</span>
+    <span class="tos-wx-dcond">${esc(f.weatherType || '')}${f.heroEvent ? ' ⚠⚠' : ''}</span>
     <span class="tos-wx-dtemp">${f.tempC}°C</span>
     <span class="tos-wx-dwind">${f.windKph}kph</span>
     <span class="tos-wx-dhum">${f.humidityPct}%</span>
@@ -4940,12 +8225,47 @@ function renderActions(appId, actions, params) {
 // itself (id tos-dh-map) is wired to fire a 'loiter' action at the tapped tile — see the binding
 // in the render-events pass. _dhBox stashes the last bounding box so that click can invert to a tile.
 let _dhBox = null;
+let _dhRegions = false;   // DEADHEAD map: is the labelled region overlay drawn over the terrain?
+// Terrain palette for the DEADHEAD world map, keyed by the one-char codes worldTerrainMap() packs.
+// Muted and low-contrast on purpose: this is the GROUND the markers sit on, and the moment it
+// competes with the airfield pips or the aircraft it stops being a map and becomes wallpaper.
+const TOS_DH_TERRAIN = {
+  '.': [10, 15, 20, 255],     // unmapped — the void beyond the grid
+  w: [26, 52, 78, 255],       // water
+  g: [46, 66, 44, 255],       // grass
+  f: [32, 54, 36, 255],       // forest
+  s: [82, 74, 52, 255],       // sand
+  k: [62, 60, 58, 255],       // rock
+  n: [110, 118, 126, 255],    // snow
+  x: [58, 50, 42, 255],       // wasteland
+  u: [64, 64, 72, 255],       // urban
+  i: [70, 58, 48, 255],       // industrial
+  r: [58, 60, 66, 255],       // residential
+  a: [58, 56, 60, 255],       // airport apron
+  B: [92, 92, 102, 255],      // buildings — the city reads as a lighter mass
+  R: [120, 112, 96, 255],     // roads/runways — brightest, so the arteries are the shape you read
+  A: [242, 176, 30, 255],     // airfields, in the app's own accent
+};
 function renderDeadhead(d) {
   const dh = d.deadhead || {};
   if (dh.none) return `<div style="padding:26px 16px;text-align:center;color:var(--tos-dim,#8aa)">Board a <b>Leviathan</b> to run its crew from here.</div>`;
   const fields = (dh.fields || []).slice().sort((a, b) => a.dist - b.dist);
   const loiter = dh.charted?.loiter ? { gx: dh.charted.tx, gy: dh.charted.ty } : null;
-  const pts = [{ gx: dh.gx, gy: dh.gy }, ...fields, ...(loiter ? [loiter] : [])];
+  const acX = dh.fx ?? dh.gx, acY = dh.fy ?? dh.gy;   // fractional live position (see buildDeadhead)
+  // REGION mode zooms out from "airfields I can reach" to "places there are". It's a client-side
+  // toggle — the region rectangles ride every push — so switching is instant and costs no round trip.
+  const regions = dh.regions || [];
+  const regionMode = _dhRegions && regions.length > 0;
+  const world = dh.world || null;
+  // ONE frame for everything. With a real terrain map underneath, the extent has to be the WORLD —
+  // terrain, regions, airfields and the ship all have to agree on the same coordinate box or the
+  // painted ground slides out from under the markers on it. (Before the terrain existed the box was
+  // fitted to whatever was being shown, which is why the two modes used to normalise differently.)
+  const pts = world
+    ? [{ gx: world.x0, gy: world.y0 }, { gx: world.x0 + world.w * world.cell - 1, gy: world.y0 + world.h * world.cell - 1 }]
+    : regionMode
+      ? [{ gx: acX, gy: acY }, ...regions.flatMap(r => [{ gx: r.minX, gy: r.minY }, { gx: r.maxX, gy: r.maxY }])]
+      : [{ gx: acX, gy: acY }, ...fields, ...(loiter ? [loiter] : [])];
   let minX = Math.min(...pts.map(p => p.gx)), maxX = Math.max(...pts.map(p => p.gx));
   let minY = Math.min(...pts.map(p => p.gy)), maxY = Math.max(...pts.map(p => p.gy));
   if (maxX === minX) { minX -= 1; maxX += 1; }
@@ -4953,6 +8273,24 @@ function renderDeadhead(d) {
   _dhBox = { minX, maxX, minY, maxY };
   const P = 0.1, nx = (g) => (P + (1 - 2 * P) * (g - minX) / (maxX - minX)) * 100, ny = (g) => (P + (1 - 2 * P) * (g - minY) / (maxY - minY)) * 100;
   const acc = 'var(--tos-accent,#f2b01e)';
+  // Region rectangles: a translucent box per region with its name in the corner. Deliberately plain —
+  // this is the "where in the world am I" view, not a second tactical map, so no terrain art, no
+  // per-tile detail. Tapping one holds over its centre, reusing the same loiter dispatch a bare-tile
+  // tap already uses, so the zoomed-out view is dispatchable rather than decorative.
+  const REG_HUE = ['#5ad1ff', '#7dffb0', '#ffb43a', '#ff8ad1', '#b48aff', '#59e0d0'];
+  const boxes = !regionMode ? '' : regions.map((r, i) => {
+    const col = REG_HUE[i % REG_HUE.length];
+    const x0 = Math.min(nx(r.minX), nx(r.maxX)), x1 = Math.max(nx(r.minX), nx(r.maxX));
+    const y0 = Math.min(ny(r.minY), ny(r.maxY)), y1 = Math.max(ny(r.minY), ny(r.maxY));
+    return `<button type="button" title="${esc(r.name)} — hold over it"
+      data-act-id="loiter" data-act-app="deadhead" data-act-params="${Math.round(r.cx)} ${Math.round(r.cy)}"
+      style="position:absolute;left:${x0.toFixed(1)}%;top:${y0.toFixed(1)}%;width:${Math.max(1.5, x1 - x0).toFixed(1)}%;height:${Math.max(1.5, y1 - y0).toFixed(1)}%;
+        background:${col}14;border:1px solid ${col}66;border-radius:4px;cursor:pointer;padding:0;font-family:inherit;text-align:left">
+      <span style="position:absolute;left:4px;top:2px;font-size:8.5px;letter-spacing:.4px;color:${col};text-shadow:0 1px 2px #000;white-space:nowrap;max-width:96%;overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</span>
+    </button>`;
+  }).join('');
+  // Airfield pips stay visible in BOTH modes — the request was to combine the two maps, not to swap
+  // between them, and a region overlay you can't see your destinations through is half a map.
   const dots = fields.map(f => {
     const charted = !dh.charted?.loiter && dh.charted?.id === f.id;
     return `<button type="button" style="position:absolute;left:${nx(f.gx).toFixed(1)}%;top:${ny(f.gy).toFixed(1)}%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:1px;background:none;border:none;cursor:pointer;padding:2px;font-family:inherit"
@@ -4962,7 +8300,16 @@ function renderDeadhead(d) {
     </button>`;
   }).join('');
   const loiterMk = loiter ? `<div style="position:absolute;left:${nx(loiter.gx).toFixed(1)}%;top:${ny(loiter.gy).toFixed(1)}%;transform:translate(-50%,-50%);color:#7dffb0;font-size:15px;line-height:1;text-shadow:0 0 7px #2f8;pointer-events:none" title="hold point">◎</div>` : '';
-  const here = `<div style="position:absolute;left:${nx(dh.gx).toFixed(1)}%;top:${ny(dh.gy).toFixed(1)}%;transform:translate(-50%,-50%);color:#ff5a6a;font-size:15px;line-height:1;text-shadow:0 0 6px #ff5a6a;pointer-events:none" title="the Leviathan is here">◆</div>`;
+  // THE SHIP HERSELF — an aeroplane, nose pointed down her heading, sitting on the live fractional
+  // position. The glyph ✈ is drawn pointing north-EAST, so the rotation carries a −45° correction;
+  // without it every heading reads 45° off, which is just close enough to look right and be wrong.
+  // A CSS transition on the transform smooths the step between server pushes so she glides rather
+  // than jumping, and a soft ring underneath keeps her findable against the airfield dots.
+  const hdg = ((dh.hdg || 0) % 360 + 360) % 360;
+  const here = `<div style="position:absolute;left:${nx(acX).toFixed(2)}%;top:${ny(acY).toFixed(2)}%;transform:translate(-50%,-50%);pointer-events:none;transition:left .9s linear,top .9s linear" title="${esc(dh.name || 'your aircraft')} — heading ${Math.round(hdg)}°">
+    <div style="position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;border:1px solid rgba(255,90,106,.45);box-shadow:0 0 8px rgba(255,90,106,.35)${dh.moving ? ';animation:tos-dh-ping 2s ease-out infinite' : ''}"></div>
+    <div style="transform:rotate(${(hdg - 45).toFixed(1)}deg);transition:transform .9s linear;color:#ff5a6a;font-size:17px;line-height:1;text-shadow:0 0 7px #ff5a6a">✈</div>
+  </div>`;
   const st = dh.status || {};
   const stateColor = st.state === 'crew' ? '#5ad1ff' : st.state === 'parked' ? 'var(--tos-dim,#9ab)' : acc;
   const fuel = typeof dh.fuel === 'number' ? `<span style="font-size:11px;color:${dh.fuel < 25 ? '#ff7a86' : 'var(--tos-dim,#9ab)'}">⛽ ${dh.fuel}%</span>` : '';
@@ -4974,11 +8321,16 @@ function renderDeadhead(d) {
   const charted = dh.charted
     ? (dh.charted.loiter
       ? `<div style="margin-top:8px;font-size:12px">Holding over <b style="color:#7dffb0">${esc(dh.charted.name)}</b> until bingo fuel, then divert to land ${clearBtn}</div>`
-      : `<div style="margin-top:8px;font-size:12px">${dh.remote ? 'Bound for' : 'Course set:'} <b style="color:#7dffb0">${esc(dh.charted.name)}</b> ${dh.remote ? '' : clearBtn}</div>`)
+      : `<div style="margin-top:8px;font-size:12px">${dh.remote ? 'Bound for' : 'Course set:'} <b style="color:#7dffb0">${esc(dh.charted.name)}</b>${(!dh.remote && !dh.airborne && !dh.crew && dh.seat !== 'pilot') ? ' <span style="color:var(--tos-dim,#8aa)">— hit <b>Depart</b> and the crew take her up.</span>' : ''} ${dh.remote ? '' : clearBtn}</div>`)
     : `<div style="margin-top:8px;font-size:12px;color:var(--tos-dim,#8aa)">${hint}</div>`;
   const btns = [];
   if (dh.remote) btns.push(`<button type="button" class="tos-btn" data-act-id="circlehere" data-act-app="deadhead" data-act-params="" title="send the crew to hold a lazy orbit over her current spot">Circle here</button>`);
   else if (dh.crew || (dh.seat === 'pilot' && dh.airborne)) btns.push(`<button type="button" class="tos-btn" data-act-id="circlehere" data-act-app="deadhead" data-act-params="" title="hold a gentle orbit over her current position">Circle here</button>`);
+  // DEPART — the go button. Aboard, parked, not at the controls, with a course charted: this is the
+  // step that was missing, and without it charting from the cabin set a destination nothing acted on.
+  if (!dh.remote && !dh.airborne && !dh.crew && dh.seat !== 'pilot' && dh.charted) {
+    btns.push(`<button type="button" class="tos-btn" data-act-id="depart" data-act-app="deadhead" data-act-params="" style="border-color:#7dffb0;color:#7dffb0" title="the crew spin her up and fly the charted course">▶ Depart</button>`);
+  }
   if (!dh.remote && dh.seat === 'pilot') btns.push(`<button type="button" class="tos-btn" data-act-id="hand" data-act-app="deadhead" data-act-params="">Hand off to the crew</button>`);
   else if (!dh.remote && dh.atDeck && !dh.airborne && !dh.crew) btns.push(`<button type="button" class="tos-btn" data-act-id="take" data-act-app="deadhead" data-act-params="">Take the controls</button>`);
   const controls = btns.length ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">${btns.join('')}</div>` : '';
@@ -4988,7 +8340,13 @@ function renderDeadhead(d) {
       <span style="display:flex;gap:10px;align-items:baseline"><span style="font-size:12px;color:${stateColor}">${esc(st.text || '')}</span>${fuel}</span>
     </div>
     ${notice}
-    <div id="tos-dh-map" style="position:relative;height:210px;margin:10px 0;border:1px solid var(--border,#2a3a44);border-radius:9px;cursor:crosshair;background:repeating-linear-gradient(0deg,transparent,transparent 23px,rgba(255,255,255,.03) 24px),repeating-linear-gradient(90deg,transparent,transparent 23px,rgba(255,255,255,.03) 24px),radial-gradient(circle at 50% 50%,rgba(90,120,150,.10),transparent 70%);overflow:hidden">${dots}${loiterMk}${here}</div>
+    ${regions.length ? `<div style="display:flex;gap:6px;margin:10px 0 -4px;align-items:center">
+      <button type="button" class="tos-btn" data-dh-view="${regionMode ? 'fields' : 'regions'}" style="padding:1px 9px;font-size:11px;${regionMode ? `border-color:${acc};color:${acc}` : ''}" title="overlay the named regions on the map">▦ REGIONS</button>
+      <span style="font-size:10px;color:var(--tos-dim,#8aa)">${regionMode ? 'tap a region to hold over it' : 'tap a field to chart · anywhere to hold'}</span>
+    </div>` : ''}
+    <div id="tos-dh-map" style="position:relative;height:210px;margin:10px 0;border:1px solid var(--border,#2a3a44);border-radius:9px;cursor:crosshair;background:${world ? '#0a0f14' : 'repeating-linear-gradient(0deg,transparent,transparent 23px,rgba(255,255,255,.03) 24px),repeating-linear-gradient(90deg,transparent,transparent 23px,rgba(255,255,255,.03) 24px),radial-gradient(circle at 50% 50%,rgba(90,120,150,.10),transparent 70%)'};overflow:hidden">
+      ${world ? `<canvas id="tos-dh-canvas" style="position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;opacity:.92"></canvas>` : ''}
+      ${boxes}${dots}${loiterMk}${here}</div>
     ${charted}
     ${controls}
   </div>`;
@@ -5003,6 +8361,18 @@ function renderDeadhead(d) {
 let _tvView = null;
 
 function renderTv(d) {
+  // Off the grid there is no broadcast to receive at all — no station, no tuner,
+  // just dead air. Short-circuits before the shared TV view is ever built, so
+  // mountTabletTv finds no .tos-tv-set and never opens a portable tuner out here.
+  if (isOnCrossing()) {
+    const bars = ['#c0c0c0', '#c8c800', '#00c8c8', '#00c800', '#c800c8', '#c80000', '#0000c8', '#101010']
+      .map(c => `<i style="background:${c}"></i>`).join('');
+    return `<div class="tos-tv-dead">
+      <div class="tos-tv-dead-bars">${bars}</div>
+      <div class="tos-tv-dead-t">No signal</div>
+      <div class="tos-tv-dead-s">No broadcast reaches the void</div>
+    </div>`;
+  }
   const channels = Array.isArray(d.channels) ? d.channels : [];
   const chips = channels.length
     ? channels.map(c =>
@@ -5115,7 +8485,7 @@ function renderBody() {
   const summary = renderSummary(d.player);
 
   if (d.screen === 'home' || !d.appId) {
-    return `<div class="tos-body">${hdr}${summary}${renderHomeApps(d.apps)}</div>`;
+    return `<div class="tos-body">${hdr}${summary}${renderHomeApps(d.apps)}${renderHomeWidgets(d.widgets)}</div>`;
   }
 
   // App screen. view: categories | list | detail | corp | tablet_settings | error
@@ -5158,15 +8528,48 @@ function renderBody() {
       ${renderSurveillance(d)}
     </div>`;
   }
-  if (d.view === 'ideology') {
+  if (d.view === 'codex') {
     const crumb = renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName]);
-    return `<div class="tos-body">${hdr}${summary}
-      ${renderIdeology(d, crumb)}
+    // The Orders section keeps its own sticky tab strip (it carries the crumb
+    // itself); every other surface takes the ordinary breadcrumb above the body.
+    if (d.sectionKind === 'orders') {
+      return `<div class="tos-body">${hdr}${summary}${renderIdeology(d, crumb)}</div>`;
+    }
+    return `<div class="tos-body">${hdr}${summary}${crumb}
+      ${d.section ? renderCodexVolume(d) : renderCodexShelf(d)}
+    </div>`;
+  }
+  if (d.view === 'library') {
+    const body = d.libKind === 'cover' ? renderLibraryCover(d)
+               : d.libKind === 'contents' ? renderLibraryContents(d)
+               : renderLibraryShelf(d);
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+      ${body}
+      ${renderActions(d.appId, d.actions, d.book?.id || '')}
+    </div>`;
+  }
+  if (d.view === 'alarm') {
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+      ${renderAlarm(d)}
+    </div>`;
+  }
+  if (d.view === 'health') {
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}${renderTosTabs(d)}
+      ${renderHealth(d)}
     </div>`;
   }
   if (d.view === 'accolades') {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
       ${renderAccolades(d)}
+    </div>`;
+  }
+  if (d.view === 'bliss_listings' || d.view === 'bliss_detail' || d.view === 'bliss_arrangement') {
+    const body = d.view === 'bliss_detail' ? renderBlissDetail(d)
+               : d.view === 'bliss_arrangement' ? renderBlissArrangement(d)
+               : renderBlissListings(d);
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+      ${d.notice ? `<div class="tos-bliss-notice">${esc(d.notice)}</div>` : ''}
+      ${body}
     </div>`;
   }
   if (d.view === 'reel') {
@@ -5213,7 +8616,12 @@ function renderBody() {
   }
   if (d.view === 'list') {
     const pageNav = d.page ? renderPageNav(d.appId, d.breadcrumb, d.page) : '';
-    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderList(d.items)}${pageNav}${renderActions(d.appId, d.actions, '')}</div>`;
+    // Tabs and rows were `detail`-only, which silently swallowed both on any list
+    // screen that sent them: the Sports app's league tabs never drew (so Cluster
+    // Puck was unreachable — there was no second tab to press) and its leader
+    // races vanished with them. Both renderers no-op on a payload that omits
+    // them, so every existing list screen is unaffected.
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderTosTabs(d)}${renderList(d.items)}${d.rows ? `<div class="tos-detail-rows">${renderDetailRows(d.rows)}</div>` : ''}${pageNav}${renderActions(d.appId, d.actions, '')}</div>`;
   }
   if (d.view === 'detail') {
     const det = d.detail || d.quest || {};
@@ -5221,11 +8629,18 @@ function renderBody() {
     // A quest's detail carries its own action log — the narrative of what you did
     // on this quest, built from the server's structured quest_log beats.
     const qlog = d.appId === 'quests' && det.id ? renderQuestActivityLog(det.id) : '';
+    // A library chapter is set as a BOOK — aged paper, serif, an illuminated initial.
+    // These are pre-collapse artifacts (docs/systems-library.md: the bar is US public
+    // domain), and reading one on a scavenged tablet should feel like handling
+    // something much older than the tablet.
+    const isBook = d.appId === 'library';
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderTosTabs(d)}
       ${d.notice ? `<div class="tos-error" style="text-align:left;padding:0 0 10px">${esc(d.notice)}</div>` : ''}
-      <div class="tos-detail-name">${esc(det.name || '')}</div>
+      <div class="tos-detail-name${isBook ? ' tos-book-title' : ''}">${esc(det.name || '')}</div>
       ${det.desc ? `<div class="tos-detail-desc">${esc(det.desc)}</div>` : ''}
       ${renderObjectives(d.quest?.objectives)}
+      ${d.narratable ? renderNarrateBar() : ''}
+      ${det.body ? `<div class="tos-detail-body${isBook ? ' tos-book' : ''}">${d.narratable ? renderNarratableBody(det.body, d.glossary) : `<p>${esc(det.body).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>`}</div>` : ''}
       ${renderDetailRows(det.rows)}
       ${renderActions(d.appId, d.actions, params)}
       ${qlog}
@@ -5235,6 +8650,205 @@ function renderBody() {
 }
 
 function wireBody() {
+  // Read Aloud / Stop. The text comes off the payload rather than the DOM so the
+  // synth gets clean prose, not the paragraph markup we just wrapped it in.
+  _overlay.querySelectorAll('[data-narrate]').forEach(el => {
+    el.addEventListener('click', () => {
+      sfx(TOS_SELECT_DEF);
+      const mode = el.getAttribute('data-narrate');
+      if (mode === 'stop') { narrateStop(); return; }
+      if (mode === 'min') {
+        // Close the shell but let the voice run on. The flag is consumed by
+        // close(), which otherwise stops narration like any other teardown.
+        if (_narrate) { _narrateKeepOnClose = true; close(); syncNarratePill(); }
+        return;
+      }
+      // CODEX renders its own reader (view 'codex'), so its prose lives on the
+      // chapter rather than on `detail`. Same narrator, same bar, same minimize.
+      if (_data?.view === 'codex') { narrateCodexFrom(_tosCodexCh); return; }
+      const det = _data?.detail || {};
+      // Seed on the BOOK, not the chapter, so a novel keeps one narrator's voice
+      // the whole way through instead of recasting every page.
+      const book = (_data?.breadcrumb && _data.breadcrumb[0]) || _data?.appName || 'library';
+      // Auto-advance through the book: at the end of a chapter, read the next.
+      // Resolved lazily off the live payload, so a chapter that hasn't loaded (or
+      // the last one) simply stops.
+      // SNAPSHOT the shelf and our place in it, right now, and walk that.
+      //
+      // This used to read `_data` inside advance(), which broke it twice over.
+      // Minimize calls close(), and close() nulls `_data` — so the moment you
+      // minimized, the next chapter resolved to null and the book stopped dead at
+      // the end of the one you were on, which is the whole thing minimize exists to
+      // prevent. And with the tablet OPEN it was no better: `_data.detail.id` is the
+      // chapter you pressed play on and never moves, so every advance re-derived the
+      // same index and handed back chapter N+1 for ever.
+      //
+      // Capturing the list and holding our own cursor fixes both — the reader walks
+      // forward on its own and needs nothing from a screen that may be long gone.
+      const chapterList = _data?.detail?.chapters || _data?.chapters || null;
+      let atIdx = Array.isArray(chapterList)
+        ? chapterList.findIndex(c => (c.id ?? c) === (_data?.detail?.id))
+        : -1;
+      const advance = () => {
+        if (!Array.isArray(chapterList) || atIdx < 0) return null;
+        const nxt = chapterList[++atIdx];
+        return nxt?.body ? { text: nxt.body, title: `${book} — ${nxt.name || nxt.title || ''}`.trim() } : null;
+      };
+      narrateStart(det.body || '', book, `${book} — ${det.name || ''}`.trim(), _data?.lex, advance);
+    });
+  });
+
+  // Glossed words. Tap-to-reveal rather than hover-only, because the tablet is
+  // used on touch as much as with a mouse and `title=` never fires there.
+  _overlay.querySelectorAll('.tos-gloss').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();   // don't let a gloss double as a page tap
+      const open = _overlay.querySelector('.tos-gloss-open');
+      if (open && open !== el) open.classList.remove('tos-gloss-open');
+      el.classList.toggle('tos-gloss-open');
+    });
+  });
+
+  // Paper-doll parts. Tap-to-reveal for the same reason the glosses above are:
+  // `title=` never fires on touch, and this tablet is used with a thumb as often
+  // as a mouse. Purely local — no round trip, the detail is already on the payload.
+
+  // ── Alarm reels ──
+  // Tap a digit or flick the reel; the centre band is the selection. Scroll is
+  // debounced into a snap read so a flick lands on whatever it settles over,
+  // which is what makes it feel like a phone rather than a listbox.
+  const alarmReels = _overlay.querySelectorAll('[data-al-reel]');
+  if (alarmReels.length) {
+    const pickFrom = (el) => ({
+      h: Number(_overlay.querySelector('[data-al-reel="h"] .tos-al-cell.sel')?.getAttribute('data-al-h') ?? 0),
+      m: Number(_overlay.querySelector('[data-al-reel="m"] .tos-al-cell.sel')?.getAttribute('data-al-m') ?? 0),
+    });
+    const syncPreview = () => {
+      const p = pickFrom();
+      _alarmPick = p;
+      const out = _overlay.querySelector('.tos-al-preview b');
+      if (out) out.textContent = `${String(p.h).padStart(2, '0')}:${String(p.m).padStart(2, '0')}`;
+    };
+    const select = (cell, reel) => {
+      reel.querySelectorAll('.tos-al-cell.sel').forEach(o => { o.classList.remove('sel'); o.setAttribute('aria-selected', 'false'); });
+      cell.classList.add('sel');
+      cell.setAttribute('aria-selected', 'true');
+      cell.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      sfx(TOS_SELECT_DEF);
+      syncPreview();
+    };
+    for (const reel of alarmReels) {
+      // Centre the current selection on first paint, so the reel opens showing
+      // the value it holds instead of scrolled to midnight.
+      const cur = reel.querySelector('.tos-al-cell.sel');
+      if (cur) cur.scrollIntoView({ block: 'center', behavior: 'instant' });
+
+      reel.addEventListener('click', (e) => {
+        // A drag ends in a click on whatever cell the pointer came to rest over.
+        // Honouring it would yank the reel to that cell and undo the drag, so the
+        // first click after a real drag is swallowed.
+        if (reel._alDragged) { reel._alDragged = false; return; }
+        const cell = e.target.closest('.tos-al-cell');
+        if (cell) select(cell, reel);
+      });
+
+      // ── Grab and pull the band ──
+      // Mouse/pen only (touch already scrolls natively, with better momentum than
+      // anything reimplemented here). The snap comes off for the duration, because
+      // with `scroll-snap-type: y mandatory` live every scrollTop we write is
+      // immediately re-snapped and the reel fights the hand instead of following
+      // it. Releasing puts snap back and throws the reel a little further along its
+      // last velocity — the browser's own snap catches it and lands it on a value,
+      // so there's no easing curve of ours to get wrong.
+      let dragY = 0, dragTop = 0, lastY = 0, lastT = 0, vel = 0, dragging = false;
+      reel.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'touch' || e.button !== 0) return;
+        dragging = true; reel._alDragged = false;
+        dragY = lastY = e.clientY; dragTop = reel.scrollTop;
+        lastT = e.timeStamp; vel = 0;
+        reel.classList.add('dragging');
+        reel.setPointerCapture(e.pointerId);
+        e.preventDefault();          // no text selection dragged out of the cells
+      });
+      reel.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        const dy = e.clientY - dragY;
+        // 3px of slop, so a click with a shaky hand is still a click.
+        if (!reel._alDragged && Math.abs(dy) > 3) reel._alDragged = true;
+        reel.scrollTop = dragTop - dy;
+        const dt = e.timeStamp - lastT;
+        if (dt > 0) vel = (e.clientY - lastY) / dt;   // px per ms, sign = drag direction
+        lastY = e.clientY; lastT = e.timeStamp;
+      });
+      const endDrag = (e) => {
+        if (!dragging) return;
+        dragging = false;
+        reel.classList.remove('dragging');
+        if (reel.hasPointerCapture?.(e.pointerId)) reel.releasePointerCapture(e.pointerId);
+        // A stale velocity from a drag that stopped and held shouldn't fling.
+        const idle = e.timeStamp - lastT > 90;
+        const throw_ = (idle || !reel._alDragged) ? 0 : Math.max(-220, Math.min(220, -vel * 110));
+        reel.scrollTo({ top: reel.scrollTop + throw_, behavior: 'smooth' });
+      };
+      reel.addEventListener('pointerup', endDrag);
+      reel.addEventListener('pointercancel', endDrag);
+      reel.addEventListener('keydown', (e) => {
+        const cell = e.target.closest('.tos-al-cell');
+        if (!cell) return;
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(cell, reel); }
+        if (e.key === 'ArrowDown' && cell.nextElementSibling?.classList.contains('tos-al-cell')) {
+          e.preventDefault(); cell.nextElementSibling.focus(); select(cell.nextElementSibling, reel);
+        }
+        if (e.key === 'ArrowUp' && cell.previousElementSibling?.classList.contains('tos-al-cell')) {
+          e.preventDefault(); cell.previousElementSibling.focus(); select(cell.previousElementSibling, reel);
+        }
+      });
+      // Free-scroll: whatever ends up under the band wins.
+      let t = null;
+      reel.addEventListener('scroll', () => {
+        clearTimeout(t);
+        t = setTimeout(() => {
+          const box = reel.getBoundingClientRect();
+          const midY = box.top + box.height / 2;
+          let best = null, bestD = Infinity;
+          for (const c of reel.querySelectorAll('.tos-al-cell')) {
+            const r = c.getBoundingClientRect();
+            const d2 = Math.abs((r.top + r.height / 2) - midY);
+            if (d2 < bestD) { bestD = d2; best = c; }
+          }
+          if (best && !best.classList.contains('sel')) {
+            reel.querySelectorAll('.tos-al-cell.sel').forEach(o => { o.classList.remove('sel'); o.setAttribute('aria-selected', 'false'); });
+            best.classList.add('sel');
+            best.setAttribute('aria-selected', 'true');
+            syncPreview();
+          }
+        }, 90);
+      }, { passive: true });
+    }
+    const commit = _overlay.querySelector('[data-al-commit]');
+    if (commit) commit.addEventListener('click', () => {
+      const p = pickFrom();
+      _alarmPick = null;   // the server's answer becomes the truth again
+      act('alarm', 'set', `${String(p.h).padStart(2, '0')}${String(p.m).padStart(2, '0')}`);
+    });
+    const clear = _overlay.querySelector('[data-al-clear]');
+    if (clear) clear.addEventListener('click', () => { _alarmPick = null; act('alarm', 'clear'); });
+  }
+
+  _overlay.querySelectorAll('[data-doll-part]').forEach(el => {
+    const show = () => {
+      sfx(TOS_SELECT_DEF);
+      _overlay.querySelectorAll('.tos-vt-doll-part.sel').forEach(o => o.classList.remove('sel'));
+      el.classList.add('sel');
+      const slot = _overlay.querySelector('[data-doll-detail-slot]');
+      if (slot) slot.textContent = el.getAttribute('data-doll-detail') || '';
+    };
+    el.addEventListener('click', show);
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(); }
+    });
+  });
+
   // TV channel chips — jump the dial straight to a station. The renderer picks the
   // change up through the `tv_panel` echo, same as the +/- sweep buttons.
   _overlay.querySelectorAll('[data-tv-ch]').forEach(el => {
@@ -5247,19 +8861,19 @@ function wireBody() {
   _overlay.querySelectorAll('[data-nav-app]').forEach(el => {
     el.addEventListener('click', () => {
       if (_suppressTileClick) return; // a drag-reorder just ended; don't also open the app
+      // Selection mode: a tap picks the tile instead of opening it.
+      if (_tosSelectMode && el.classList.contains('tos-tile')) {
+        el.classList.toggle('tos-tile-sel');
+        const home = _overlay.querySelector('.tos-home-apps');
+        if (home) refreshSelCount(home);
+        sfx(TOS_SELECT_DEF);
+        return;
+      }
       const appId = el.getAttribute('data-nav-app');
       // Music is a native overlay (AMP walkman), not an in-tablet screen. It opens
       // over the still-running tablet (its z-index sits above the chassis — see
       // #musicplayer-panel in styles.css), so the tablet stays put behind it.
       if (appId === 'music') { sfx(TOS_SELECT_DEF); openMusicPlayerPanel(); return; }
-      // Off the grid in the void, network apps can't reach a server — they only work
-      // once you've panned the tablet into a strong-enough reception pocket. Offline
-      // apps (map survey, frontier, settings, music, help) always open.
-      if (isOnCrossing() && !VOID_OFFLINE_APPS.has(appId) && _voidRxSmooth < RX_REVIVE) {
-        el.classList.remove('tos-tile-shake'); void el.offsetWidth; el.classList.add('tos-tile-shake');
-        showNoSignal(el.querySelector('.tos-name')?.textContent);
-        return;
-      }
       // Map renders inside the tablet again — the standalone bigmap popup is retired,
       // so the Map app IS the city map (one surface, shared with the minimap
       // double-click, which opens the tablet here too — see openTabletToMap).
@@ -5267,27 +8881,128 @@ function wireBody() {
       nav(appId, null, null);
     });
   });
-  // Home-grid tiles are drag-reorderable (order cached locally, never sent up).
-  const appGrid = _overlay.querySelector('.tos-grid');
-  if (appGrid) wireAppGridDrag(appGrid);
+  // Home-grid tiles are drag-reorderable, and empty space lassoes them into groups
+  // (order, membership and colours all cached locally — never sent up).
+  const appHome = _overlay.querySelector('.tos-home-apps');
+  // A search result is a FILTERED, flattened view — arranging it would splice a
+  // partial list back over the saved order and lose apps, so the drag machinery
+  // stays out of it entirely.
+  if (appHome && !_homeSearchOpen) { wireAppGridDrag(appHome); wireGroupDrag(appHome); wireAppMarquee(appHome); }
+  _overlay.querySelectorAll('[data-group-menu]').forEach(el => {
+    el.addEventListener('click', () => {
+      if (_suppressTileClick || _tosSelectMode) return; // a drag/lasso just ended, or we're picking
+      openGroupSheet({ groupId: el.getAttribute('data-group-menu') });
+    });
+  });
+  // ⧉ arms selection mode; the bar it puts up commits or backs out.
+  _overlay.querySelector('[data-tos-select]')?.addEventListener('click', () => {
+    if (_suppressTileClick) return;
+    _tosSelectMode = true;
+    sfx(TOS_SELECT_DEF);
+    render();
+  });
+  _overlay.querySelector('[data-sel-cancel]')?.addEventListener('click', () => exitAppSelectMode());
+  _overlay.querySelector('[data-sel-group]')?.addEventListener('click', () => {
+    const picked = selectedAppTiles(appHome);
+    const ids = picked.map(t => t.getAttribute('data-nav-app')).filter(Boolean);
+    if (!ids.length) return;   // nothing picked yet — the bar stays up
+    // Read the SHAPE off the tiles while they're still on screen — a 2×2 selection
+    // has to come back as a 2×2 box, and after the re-render the geometry is gone.
+    openGroupSheet({ ids, cols: selectionCols(picked) });
+  });
+  // Page dots + arrows. Also the drop target that moves an app between pages (see
+  // the drag `end` handler), which is why they're live in selection mode too.
+  _overlay.querySelectorAll('[data-home-page]').forEach(el => {
+    el.addEventListener('click', () => {
+      if (_suppressTileClick) return;
+      const n = Number(el.getAttribute('data-home-page')) || 0;
+      if (n === _homePage) return;
+      _homePage = n;
+      sfx(TOS_SELECT_DEF);
+      render();
+    });
+  });
+  // Horizontal swipe over the grid turns the page — the gesture a paged home screen
+  // trains you to expect. Vertical movement wins the tie so this can't hijack a
+  // scroll, and a long-press lift (drag-reorder) claims the press before it starts.
+  if (appHome) {
+    let sw = null;
+    appHome.addEventListener('pointerdown', (e) => {
+      if (e.button > 0 || _tosSelectMode) return;
+      _homeDragLifted = false;
+      sw = { x: e.clientX, y: e.clientY, t: Date.now() };
+    });
+    appHome.addEventListener('pointerup', (e) => {
+      if (!sw) return;
+      const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
+      const fast = Date.now() - sw.t < 600;
+      const lifted = _homeDragLifted;
+      sw = null;
+      if (lifted) return;   // a tile is being rearranged; the pager keeps out of it
+      if (!fast || Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.6) return;
+      const dots = _overlay.querySelectorAll('.tos-page-dot').length;
+      const next = Math.max(0, Math.min(dots - 1, _homePage + (dx < 0 ? 1 : -1)));
+      if (next === _homePage || !dots) return;
+      _homePage = next;
+      sfx(TOS_SELECT_DEF);
+      render();
+    });
+  }
+  // A home widget is a shortcut into the app that contributed it.
+  _overlay.querySelectorAll('[data-widget-nav]').forEach(el => {
+    el.addEventListener('click', () => nav(el.getAttribute('data-widget-nav'), null, null));
+  });
   _overlay.querySelector('[data-tos-addapps]')?.addEventListener('click', () => {
     if (_suppressTileClick) return; // a drag just ended; don't also open the sheet
     openAddAppsSheet();
   });
-  _overlay.querySelectorAll('[data-back]').forEach(el => {
-    el.addEventListener('click', () => {
-      const appId = el.getAttribute('data-back');
-      const crumb = _data?.breadcrumb || [];
-      // Drilled into a detail/reel from a specific list (e.g. Job Board, Microreels)
-      // -> return to that list screen, not the app root.
-      if (_backReturn && (_data?.view === 'detail' || _data?.view === 'reel') && _backReturn.appId === appId) {
-        nav(appId, _backReturn.screen, null);
-      }
-      // More than one crumb level deep -> go up one level (root of this app).
-      // At the root already (or on home) -> go all the way back to Home.
-      else if (appId && crumb.length > 1) nav(appId, null, null);
-      else home();
+  // Toolbar: find, the widgets toggle, and restoring a stashed app straight out of
+  // a search result.
+  _overlay.querySelector('[data-home-search]')?.addEventListener('click', () => {
+    _homeSearchOpen = true;
+    _homeSearch = '';
+    sfx(TOS_SELECT_DEF);
+    render();
+    _overlay.querySelector('[data-home-search-input]')?.focus();
+  });
+  _overlay.querySelector('[data-home-search-clear]')?.addEventListener('click', () => {
+    _homeSearchOpen = false; _homeSearch = '';
+    sfx(TOS_SELECT_DEF);
+    render();
+  });
+  const searchInput = _overlay.querySelector('[data-home-search-input]');
+  if (searchInput) {
+    // Re-render per keystroke (the grid is small and this is all local), keeping the
+    // caret because render() rebuilds the node underneath us.
+    searchInput.addEventListener('input', () => {
+      _homeSearch = searchInput.value || '';
+      const pos = searchInput.selectionStart;
+      render();
+      const again = _overlay.querySelector('[data-home-search-input]');
+      if (again) { again.focus(); try { again.setSelectionRange(pos, pos); } catch {} }
     });
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { _homeSearchOpen = false; _homeSearch = ''; render(); }
+    });
+  }
+  _overlay.querySelector('[data-toggle-widgets]')?.addEventListener('click', () => {
+    setWidgetsEnabled(!widgetsEnabled());
+    sfx(TOS_SELECT_DEF);
+    render();
+  });
+  _overlay.querySelectorAll('[data-search-restore]').forEach(el => {
+    el.addEventListener('click', () => {
+      unhideApp(el.getAttribute('data-search-restore'));
+      _homeSearch = '';
+      sfx(TOS_SELECT_DEF);
+      render();
+    });
+  });
+  _overlay.querySelectorAll('[data-back]').forEach(el => {
+    // Exactly one level up the history, whatever that was. This is what stops a
+    // third-level screen throwing you back to the app root (or, from the root, to
+    // Home) instead of to the screen you actually came from.
+    el.addEventListener('click', () => navBack());
   });
   _overlay.querySelectorAll('[data-open-cat]').forEach(el => {
     el.addEventListener('click', () => nav(_data.appId, el.getAttribute('data-open-cat'), null));
@@ -5296,7 +9011,9 @@ function wireBody() {
   _overlay.querySelectorAll('[data-tos-tab]').forEach(el => {
     el.addEventListener('click', () => {
       const id = el.getAttribute('data-tos-tab');
-      if (id !== _data?.activeTab) nav(_data.appId, id, null);
+      // Replace, don't push: a tab is a lateral move inside the same screen, so
+      // Back should exit the app, not rewind through the tabs you flipped through.
+      if (id !== _data?.activeTab) nav(_data.appId, id, null, true);
     });
   });
   // Calendar month arrows: re-nav the app to a specific 'YYYY-MM' via screenId 'month'.
@@ -5313,12 +9030,10 @@ function wireBody() {
       const id = el.getAttribute('data-open-item');
       const currentScreen = (_data.breadcrumb && _data.breadcrumb.length) ? _data.breadcrumb[_data.breadcrumb.length - 1] : null;
       const appId = _data.appId;
+      // nav() records the list/board we drilled in from, so Back returns THERE and
+      // not to the app root — the detail's own breadcrumb is rebuilt from the quest's
+      // category and no longer reflects a Job Board / Pilot Contracts origin.
       nav(appId, currentScreen, id);
-      // Remember the list/board we drilled in from so Back returns here rather than
-      // the app root — the detail's own breadcrumb is rebuilt from the quest's
-      // category and no longer reflects a Job Board / Pilot Contracts origin. (nav()
-      // above just cleared _backReturn, so this set sticks for the detail render.)
-      if (currentScreen) _backReturn = { appId, screen: currentScreen };
     });
   });
   _overlay.querySelectorAll('[data-page-nav]').forEach(el => {
@@ -5335,6 +9050,21 @@ function wireBody() {
       _tosCorpPage = parseInt(el.getAttribute('data-corp-page'), 10) || 0;
       sfx(TOS_SELECT_DEF);
       render();
+    });
+  });
+  // Codex — opening a section is a nav (each volume is its own payload); opening
+  // a chapter is not (the whole volume already arrived), so it's a local switch.
+  _overlay.querySelectorAll('[data-codex-section]').forEach(el => {
+    el.addEventListener('click', () => nav(_data.appId, el.getAttribute('data-codex-section')));
+  });
+  _overlay.querySelectorAll('[data-codex-ch]').forEach(el => {
+    el.addEventListener('click', () => {
+      _tosCodexCh = el.getAttribute('data-codex-ch') || null;
+      sfx(TOS_SELECT_DEF);
+      render();
+      // A chapter is a page of prose: start it at the top, not wherever the
+      // contents list happened to be scrolled to.
+      _overlay.querySelector('.tos-body')?.scrollTo?.({ top: 0 });
     });
   });
   // Ideology reader paging — client-side (all pages ride in one payload): tab
@@ -5383,6 +9113,32 @@ function wireBody() {
       openNewsStory(_newsStories[+el.getAttribute('data-news-idx')]);
     });
   });
+  // DEADHEAD terrain: paint the coarse world grid into the canvas underlay. Drawn at ONE PIXEL PER
+  // CELL and stretched by CSS (image-rendering:pixelated) — the browser's own scaler does the work,
+  // so this stays a few thousand putImageData bytes instead of a few thousand fillRect calls on a
+  // 2s poll. The 10% padding matches nx()/ny() so the painted ground lines up with the markers.
+  const dhCv = _overlay.querySelector('#tos-dh-canvas');
+  if (dhCv && _data?.deadhead?.world) {
+    const W = _data.deadhead.world, P = 0.1;
+    // Pad the buffer so the map occupies the same inset box the markers are positioned into.
+    const pad = (n) => Math.max(1, Math.round(n * P / (1 - 2 * P)));
+    const px = pad(W.w), py = pad(W.h);
+    dhCv.width = W.w + px * 2; dhCv.height = W.h + py * 2;
+    const g = dhCv.getContext('2d');
+    const img = g.createImageData(dhCv.width, dhCv.height);
+    const put = (x, y, [r, gg, b, a]) => { const i = (y * dhCv.width + x) * 4; img.data[i] = r; img.data[i + 1] = gg; img.data[i + 2] = b; img.data[i + 3] = a; };
+    for (let y = 0; y < W.h; y++) {
+      const row = W.rows[y] || '';
+      for (let x = 0; x < W.w; x++) put(x + px, y + py, TOS_DH_TERRAIN[row[x]] || TOS_DH_TERRAIN['.']);
+    }
+    g.putImageData(img, 0, 0);
+  }
+  // DEADHEAD FIELDS/REGIONS toggle — purely local: the region rectangles are already in the payload,
+  // so this flips a flag and re-renders rather than round-tripping to the server for a view change.
+  _overlay.querySelectorAll('[data-dh-view]').forEach(el => el.addEventListener('click', () => {
+    _dhRegions = el.getAttribute('data-dh-view') === 'regions';
+    sfx(TOS_SELECT_DEF); render();
+  }));
   // DEADHEAD map — tapping empty space sets a hold point (airfield pips fire their own 'chart'
   // action and are skipped here). Invert the click position back to a world tile via _dhBox.
   const dhMap = _overlay.querySelector('#tos-dh-map');
@@ -5545,7 +9301,16 @@ function wireMap() {
   _overlay.querySelector('[data-map-run]')?.addEventListener('click', () => sendCmdSilent('run'));
   _overlay.querySelector('[data-map-autotoggle]')?.addEventListener('click', () => { toggleAutoWalk(); rebuildMap(); });
   _overlay.querySelector('[data-map-recenter]')?.addEventListener('click', centerMapOnPlayer);
-  _overlay.querySelector('[data-map-labels]')?.addEventListener('click', () => { _tosMapLabels = !_tosMapLabels; rebuildMap(); });
+  // Writes the shared `mapOverlay` setting rather than a local flag: applySettings
+  // drives window._applyMapOverlay, so the sidebar minimap re-renders in the same
+  // beat and the choice survives a reload.
+  _overlay.querySelector('[data-map-labels]')?.addEventListener('click', () => {
+    const s = loadSettings();
+    s.mapOverlay = mapLabelsOn() ? 'none' : 'labels';
+    saveSettings(s);
+    applySettings(s);
+    rebuildMap();
+  });
   _overlay.querySelectorAll('[data-map-zoom]').forEach((b) => b.addEventListener('click', () => {
     const arg = _mapZoomArg(_data, b.getAttribute('data-map-zoom') === 'in' ? 1 : -1);
     if (arg) nav('map', arg, null);
@@ -5683,6 +9448,37 @@ function wireTabletSettings() {
       sfx(TOS_SELECT_DEF);
       saveTabletTheme({ ...loadTabletTheme(), theme: el.getAttribute('data-tablet-theme-pick') });
       _keepThemeScroll = true;
+      render();
+    });
+  });
+  // Extra Lore — local pref + a silent push to the server, which owns the actual
+  // per-player flag the lore plugin reads.
+  // Wallpaper choice — per device, on the tablet theme record. Re-renders, which is
+  // what restarts the canvas with the new mode and the theme's current colours.
+  _overlay.querySelectorAll('[data-set-wallpaper]').forEach(el => {
+    el.addEventListener('click', () => {
+      sfx(TOS_SELECT_DEF);
+      saveWallpaper(el.getAttribute('data-set-wallpaper'));
+      render();
+    });
+  });
+  // Home widgets on/off — a per-device preference like the tile order, not a
+  // server setting, so it commits to localStorage and re-renders in place.
+  _overlay.querySelectorAll('[data-set-widgets]').forEach(el => {
+    el.addEventListener('click', () => {
+      sfx(TOS_SELECT_DEF);
+      setWidgetsEnabled(el.getAttribute('data-set-widgets') === 'on');
+      render();
+    });
+  });
+  _overlay.querySelectorAll('[data-set-lore]').forEach(el => {
+    el.addEventListener('click', () => {
+      sfx(TOS_SELECT_DEF);
+      const val = el.getAttribute('data-set-lore');
+      const s = loadSettings();
+      s.extraLore = val;
+      commit(s);
+      sendCmdSilent(`lorealways ${val}`);
       render();
     });
   });
@@ -5857,12 +9653,18 @@ function wireTabletSettings() {
     render();
   });
 
-  // Reset the local home-grid arrangement — clears the cached drag order so the
-  // Home screen falls back to default (registration) order. Client-only; brief
-  // in-place confirmation rather than a re-render (the grid isn't on this screen).
+  // Reset the local home-grid arrangement — clears the cached order, groups and
+  // stash, so the Home screen re-seeds to the default twelve on its next render.
+  // Client-only; brief in-place confirmation rather than a re-render (the grid
+  // isn't on this screen).
   _overlay.querySelector('[data-reset-apps]')?.addEventListener('click', (e) => {
     sfx(TOS_SELECT_DEF);
-    try { localStorage.removeItem(TABLET_APP_ORDER_KEY); localStorage.removeItem(TABLET_APP_HIDDEN_KEY); } catch {}
+    try {
+      localStorage.removeItem(TABLET_APP_ORDER_KEY);
+      localStorage.removeItem(TABLET_APP_HIDDEN_KEY);
+      localStorage.removeItem(TABLET_APP_GROUPS_KEY);
+      localStorage.removeItem(TABLET_HOME_SEED_KEY);   // …so the next render re-seeds the default set
+    } catch {}
     const btn = e.currentTarget;
     btn.textContent = '✓ Reset';
     setTimeout(() => { if (btn.isConnected) btn.textContent = 'Reset to Default'; }, 1400);
@@ -5990,6 +9792,28 @@ const CRT_POWER_OFF_DEF = {
 };
 const TABLET_SFX_GAIN = 0.55; // soft — a register-blip, not a chime you'd notice repeatedly
 
+// Void-trip boot cues — only ever heard on the first tablet open of a crossing
+// (runVoidFindingSignal / openTabletPanel). VOID_POWER_ON is the "weird different"
+// power-on: heavier noise, a slower/uglier sweep than the normal CRT_POWER_ON.
+const VOID_POWER_ON_DEF = {
+  id: 'tablet_void_power_on', category: 'sfx', priority: 3,
+  config: { waveform: 'sawtooth', freq: 44, duration: 0.6, noiseMix: 0.55, pitchBend: { to: 260, time: 0.5 }, filter: { type: 'lowpass', freq: 1800, q: 1.4 }, adsr: { a: 0.01, d: 0.3, s: 0.3, r: 0.28 } },
+};
+const VOID_CRACKLE_DEF = { // a short noisy burst, timed at random through FINDING SIGNAL
+  id: 'tablet_void_crackle', category: 'sfx', priority: 3,
+  config: { duration: 0.13, noiseMix: 0.85, waveform: 'square', freq: 220, filter: { type: 'bandpass', freq: 1200, q: 1.4 }, adsr: { a: 0.002, d: 0.05, s: 0.05, r: 0.05 }, gain: 0.09 },
+};
+const VOID_BOOT_TICK_DEF = { // a dry click per firmware boot line that didn't fail
+  id: 'tablet_void_boot_tick', category: 'sfx', priority: 2,
+  config: { duration: 0.05, waveform: 'square', freq: 180, noiseMix: 0.3, filter: { type: 'bandpass', freq: 900, q: 1.1 }, adsr: { a: 0.001, d: 0.02, s: 0.02, r: 0.02 }, gain: 0.05 },
+};
+const VOID_SIGNAL_FOUND_DEF = { // the "lock" chime the instant the weak carrier locks
+  id: 'tablet_void_signal_found', category: 'sfx', priority: 4,
+  config: { duration: 0.24, layers: [
+    { waveform: 'sine', freq: 340, pitchBend: { to: 880, time: 0.16 }, filter: { type: 'lowpass', freq: 2600, q: 0.7 }, adsr: { a: 0.005, d: 0.15, s: 0.1, r: 0.09 }, gain: 0.09 },
+  ] },
+};
+
 // Selection/navigation clicks. Tablet screens reused the shared hololock-set/
 // hololock-entry catalog cues (tuned sharp on purpose for that hacking
 // minigame's tension) for every pill click, tab switch, and zone tap — which
@@ -6084,6 +9908,18 @@ export function openTabletPanel(msg) {
   // Consume the one-shot boot-skip flag on every open so it can't leak into a
   // later normal open (it only actually changes anything on a first/fresh open).
   const skip = _skipBoot; _skipBoot = false;
+  // First tablet open of a void crossing gets the FINDING SIGNAL ritual instead of
+  // the normal boot-and-done; every later open this same crossing (or any open
+  // while already on the grid) is a normal open. Consumed unconditionally the
+  // moment we're off-grid — even a skip-open "arrives" and uses up the trip's intro,
+  // so a later full open doesn't suddenly surprise-fire it mid-crossing.
+  const voidIntro = !skip && isOnCrossing() && !_voidTripPrimed;
+  if (isOnCrossing()) {
+    _voidTripPrimed = true;
+    // Off-grid and no carrier locked yet (fresh crossing, or a skip-open that never
+    // played the firmware boot) → the OS comes up SEARCHING until you move it.
+    if (!_voidLocked) _voidSearching = true;
+  }
 
   // Keep the Settings screen's MIS toggle in step with the server (player_update
   // dispatches mis_state_update). Bound once; harmless when Settings isn't shown.
@@ -6105,11 +9941,13 @@ export function openTabletPanel(msg) {
     const html = `<div class="tos-anchor"><div class="tos-panel mg-chassis${skip ? '' : ' tos-powering-on'}">
       ${deviceHeader('&#9635;', 'ARCHITECT OS', 'Tablet Interface')}
       <div class="tos-bezel mg-bezel">${bezelScrews()}<div class="tos-screen mg-screen" style="--mg-sweep-h:420px" id="tos-screen-inner">
+        <canvas class="tos-wall" id="tos-wall"></canvas>
         <div class="tos-scroll" id="tos-scroll">
           ${skip ? '' : '<div class="tos-boot" id="tos-boot"><div class="tos-boot-logo">A</div><div class="tos-boot-title">ARCHITECT OS</div><div class="tos-boot-sub">Booting Tablet Interface&hellip;</div></div>'}
         </div>
         ${crtOverlays()}
-        <div class="tos-rx-static" id="tos-rx-static"></div>
+        <div class="tos-void-static"></div>
+        <div class="tos-void-hunt">◈ Searching for signal — move the tablet</div>
       </div></div>
     </div></div>`;
     // onClose runs whenever the overlay is torn down by ANY path (including
@@ -6123,9 +9961,15 @@ export function openTabletPanel(msg) {
     makeDraggable(_overlay.querySelector('.tos-anchor'), _overlay.querySelector('.mg-head'));
     wireDragScroll(_overlay.querySelector('#tos-scroll'));
     applyTabletTheme();
+    _applyWidgetChrome();
     window.AudioEngine?.init?.();
     if (skip) {
       render(); // straight to content, no boot ceremony
+    } else if (voidIntro) {
+      // Weird, harsher power-on this once, then straight into FINDING SIGNAL
+      // instead of the usual boot-and-done — see runVoidFindingSignal.
+      window.AudioEngine?.playSfx(VOID_POWER_ON_DEF);
+      setTimeout(runVoidFirmwareBoot, CRT_ANIM_MS);
     } else {
       window.AudioEngine?.playSfx(CRT_POWER_ON_DEF);
       // CRT expands (0.6s), "ARCHITECT OS" holds for ~1s, then the real screen
@@ -6678,8 +10522,16 @@ function render() {
   const scroll = _overlay.querySelector('#tos-scroll');
   if (!scroll) return;
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+  if (_dhTimer) { clearInterval(_dhTimer); _dhTimer = null; }   // DEADHEAD live tracking must never outlive the overlay
   if (_fakeTimer) { clearInterval(_fakeTimer); _fakeTimer = null; } // fakeplay remounts its own ticker
   if (_reelTimer) { clearInterval(_reelTimer); _reelTimer = null; _reelPlaying = false; } // leaving/re-rendering stops reel playback
+
+  // An action that actually landed us on a different screen counts as a level for
+  // Back (see the Back stack). One that just toggled something in place does not.
+  const sig = screenSig(_data);
+  if (_lastWasAct && sig !== _navSig) _actDepth++;
+  _lastWasAct = false;
+  _navSig = sig;
 
   const survLive = _data.view === 'surveillance' && !!_data.live;
   const isChat = _data.view === 'chat';
@@ -6738,13 +10590,370 @@ function render() {
   }
 
   if (survLive) _pollTimer = setInterval(pollSurveillance, 5000);
+  if (_dhTimer) { clearInterval(_dhTimer); _dhTimer = null; }
+  if (_data?.view === 'deadhead' && _data.deadhead?.moving) _dhTimer = setInterval(pollDeadhead, 2000);
 
-  // Void reception hunt: keep the loop alive for the tablet's lifetime (it self-
-  // gates on isOnCrossing each tick, so walking into/out of the void with the
-  // tablet open is handled), and paint the current state now so a freshly rendered
-  // home grid shows dead tiles / partial bars without a 110ms flash of full signal.
-  startReceptionLoop();
-  if (isOnCrossing()) tickReception();
+  applyVoidMode(); // cosmetic off-grid theming, re-applied on every render
+  // The home screen shows the live sky behind the grid; every other screen is a
+  // document and gets the flat background it always had.
+  if (_data.screen === 'home' || !_data.appId) startWallpaper(_data.sky); else stopWallpaper();
+
+  // First home screen a player ever sees gets the short tablet walkthrough. It
+  // no-ops on every subsequent open (localStorage), and it waits for the boot to
+  // settle, so this costs one flag read per render.
+  if (_data.screen === 'home' || !_data.appId) maybeTabletTour();
+}
+
+// ── Animated wallpaper ───────────────────────────────────────────────────────
+// The home screen's backdrop: the sky as it actually is outside, drawn from the
+// `sky` snapshot the home payload carries (in-memory engine state — see
+// buildHomePayload). Sun/moon position comes from the game clock, the palette from
+// the time phase, and the particles from the live weather, so opening the tablet
+// during an acid storm at 3am looks nothing like opening it at noon.
+//
+// It is deliberately cheap and deliberately optional: one canvas, no images, a
+// single rAF that only runs while Home is on screen, and with motion off it paints
+// exactly one static frame. Indoors it dims right down — you can't see the weather
+// through a wall, but the device still knows the hour.
+let _wallRaf = null;
+let _wallState = null;   // { sky, drops:[], stars:[], w, h }
+
+// ── The wallpaper catalog ────────────────────────────────────────────────────
+// OFF BY DEFAULT. A wallpaper is a thing you choose, not a thing the device does
+// at you — and the home screen's job is to launch apps, so the honest default is
+// a flat themed screen. Chosen under Settings → General → Wallpaper; the choice
+// lives on the tablet theme record (per device, like the theme itself).
+//
+// EVERY ONE IS DERIVED FROM THE THEME. Nothing here hardcodes a colour: each
+// painter is handed `st.c` — the live --bg / --bg2 / --mg-accent / --tos-fg read
+// off the overlay — and mixes from those, so switching theme moves the wallpaper
+// with it instead of leaving a blue sky over a green terminal. The sky's
+// time-of-day tone is a *cast* blended into the theme's own background rather
+// than a palette of its own, which is what keeps it recognisably your theme at
+// 3am and at noon.
+//
+// And they stay QUIET: contrast is capped in CSS (.tos-wall.on), the accent is
+// used at single-digit alpha, and every painter is a no-op with motion off after
+// its first static frame. If you can read the tile labels without effort, it's
+// working.
+const TABLET_WALLPAPERS = [
+  { id: 'none',     label: 'None' },
+  { id: 'sky',      label: 'Sky' },       // live weather + game clock
+  { id: 'grid',     label: 'Grid' },      // drifting blueprint lattice
+  { id: 'contours', label: 'Contours' },  // slow interference lines
+  { id: 'drift',    label: 'Drift' },     // sparse floating motes
+  { id: 'scan',     label: 'Scan' },      // a single slow radar sweep
+];
+const TABLET_WALLPAPER_DEFAULT = 'none';
+function loadWallpaper() {
+  const t = loadTabletTheme();
+  const id = t?.wallpaper;
+  return TABLET_WALLPAPERS.some(w => w.id === id) ? id : TABLET_WALLPAPER_DEFAULT;
+}
+function saveWallpaper(id) {
+  const t = loadTabletTheme() || {};
+  t.wallpaper = TABLET_WALLPAPERS.some(w => w.id === id) ? id : TABLET_WALLPAPER_DEFAULT;
+  saveTabletTheme(t);
+}
+
+// The theme's live colours, resolved once per start (cheap, and they only change
+// on a re-render, which restarts the wallpaper anyway).
+function wallColors(el) {
+  const cs = getComputedStyle(el);
+  const pick = (v, fb) => (cs.getPropertyValue(v) || '').trim() || fb;
+  return {
+    bg: pick('--bg', '#0c1114'),
+    bg2: pick('--bg2', '#1a2226'),
+    accent: pick('--mg-accent', pick('--accent', '#3fd0d8')),
+    fg: pick('--tos-fg', '#dfe9f5'),
+  };
+}
+
+// A time-of-day CAST, expressed as an accent-independent tint plus a weight. The
+// painter blends this INTO the theme background, so the result is the player's own
+// palette leaning warm at dusk and cold at 3am — not a stock blue sky.
+const WALL_CASTS = {
+  night:   ['#0a1020', 0.55],
+  dawn:    ['#6a4250', 0.30],
+  morning: ['#5b7f95', 0.22],
+  day:     ['#7d9fb2', 0.26],
+  evening: ['#8a5246', 0.30],
+  dusk:    ['#3a2c4a', 0.42],
+};
+function wallPhase(sky) {
+  const m = sky?.minutes ?? 720;
+  return m < 270 ? 'night' : m < 390 ? 'dawn' : m < 630 ? 'morning'
+    : m < 1020 ? 'day' : m < 1140 ? 'evening' : m < 1290 ? 'dusk' : 'night';
+}
+// Mix two CSS colours the cheap way — through a canvas-friendly rgb tuple. Only
+// hex and rgb() ever reach this (theme vars are one or the other); anything else
+// falls back to the base so a wallpaper can never render as transparent nothing.
+function wallRgb(c) {
+  const s = String(c || '').trim();
+  let m = /^#([0-9a-f]{3})$/i.exec(s);
+  if (m) return m[1].split('').map(h => parseInt(h + h, 16));
+  m = /^#([0-9a-f]{6})$/i.exec(s);
+  if (m) return [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16));
+  m = /^rgba?\(([^)]+)\)$/i.exec(s);
+  if (m) return m[1].split(',').slice(0, 3).map(n => Math.max(0, Math.min(255, parseFloat(n) || 0)));
+  return null;
+}
+function wallMix(a, b, t) {
+  const A = wallRgb(a), B = wallRgb(b);
+  if (!A) return b; if (!B) return a;
+  const k = Math.max(0, Math.min(1, t));
+  return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * k)).join(',')})`;
+}
+function wallAlpha(c, a) {
+  const A = wallRgb(c);
+  return A ? `rgba(${A[0]},${A[1]},${A[2]},${a})` : c;
+}
+// Which particle system the weather calls for. Anything unrecognised falls through
+// to 'none', so a new weather type degrades to a plain sky rather than an error.
+function wallPrecip(type) {
+  const t = String(type || '').toLowerCase();
+  if (t.includes('acid')) return 'acid';
+  if (t.includes('snow') || t.includes('sleet') || t.includes('hail')) return 'snow';
+  if (t.includes('rain') || t.includes('storm') || t.includes('drizzle')) return 'rain';
+  if (t.includes('fog') || t.includes('mist') || t.includes('smog')) return 'fog';
+  if (t.includes('dust') || t.includes('sand') || t.includes('ash')) return 'dust';
+  return 'none';
+}
+
+function initWallState(sky, w, h, mode, c) {
+  const precip = wallPrecip(sky?.weather);
+  const heavy = /heavy|torrential|severe/i.test(sky?.intensity || '');
+  const n = precip === 'none' || precip === 'fog' ? 0
+    : Math.round((precip === 'snow' || precip === 'dust' ? 40 : 70) * (heavy ? 1.6 : 1));
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  return {
+    sky, w, h, precip, mode, c,
+    // Drift's motes. Sparse on purpose — 26 across a whole screen reads as air, not
+    // as snow; a dozen more and it becomes weather you didn't ask for.
+    motes: Array.from({ length: 26 }, () => ({
+      x: rnd(0, w), y: rnd(0, h), v: rnd(.08, .28), r: rnd(.8, 2.1), o: rnd(.2, .6), big: Math.random() < 0.25,
+    })),
+    // Wind shears the fall; a still day drops straight down.
+    shear: Math.max(-1.4, Math.min(1.4, (sky?.windKph || 0) / 40)),
+    drops: Array.from({ length: n }, () => ({ x: rnd(0, w), y: rnd(0, h), v: rnd(.5, 1.4), len: rnd(4, 14), o: rnd(.25, .8) })),
+    // Stars only exist at night and only outdoors; drawn once into the state so
+    // they don't twinkle their way across the sky between frames.
+    stars: Array.from({ length: 46 }, () => ({ x: Math.random(), y: Math.random() * .62, r: rnd(.4, 1.1), o: rnd(.2, .9) })),
+  };
+}
+
+// Each wallpaper is one painter, all handed the same state. `st.c` is the LIVE
+// theme (see wallColors) — no painter may hardcode a colour, which is what makes
+// every one of these follow the theme instead of sitting on top of it.
+const WALL_PAINTERS = {
+  // ── Sky: the live weather and the game clock, cast over your theme ──────────
+  sky(ctx, st, t) {
+    const { w, h, sky, c } = st;
+    const [castCol, castW] = WALL_CASTS[wallPhase(sky)] || WALL_CASTS.day;
+    // The theme's own two backgrounds, leaned toward the hour. Your palette at 3am
+    // and your palette at noon — never a stock blue over a green terminal.
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, wallMix(c.bg, castCol, castW));
+    g.addColorStop(1, wallMix(c.bg2, castCol, castW * 0.72));
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+
+    const m = sky?.minutes ?? 720;
+    const night = m < 330 || m > 1200;
+
+    if (night) {
+      ctx.fillStyle = wallAlpha(c.fg, 0.55);
+      for (const s2 of st.stars) {
+        ctx.globalAlpha = s2.o * (0.6 + 0.4 * Math.sin(t / 900 + s2.x * 40));
+        ctx.beginPath(); ctx.arc(s2.x * w, s2.y * h, s2.r, 0, 6.284); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Sun/moon: a straight arc from 06:00 to 18:00, mirrored overnight. The disc is
+    // the theme's foreground at night and its accent by day — even the sun is yours.
+    const dayFrac = night ? ((m + 360) % 1440) / 720 : (m - 360) / 720;
+    const cx = w * Math.max(-0.1, Math.min(1.1, dayFrac));
+    const cy = h * (0.78 - 0.52 * Math.sin(Math.PI * Math.max(0, Math.min(1, dayFrac))));
+    ctx.globalAlpha = night ? 0.42 : 0.34;
+    ctx.fillStyle = night ? c.fg : c.accent;
+    ctx.beginPath(); ctx.arc(cx, cy, night ? 9 : 13, 0, 6.284); ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Skyline: deterministic (seeded off x, not random) so it doesn't reshuffle every
+    // re-render. A darkening of the theme, not a black cut-out over it.
+    const silhouette = wallMix(c.bg, '#000000', 0.45);
+    const lit = wallAlpha(c.accent, 0.5);
+    ctx.fillStyle = silhouette;
+    const base = h * 0.82;
+    for (let x = -10; x < w + 10; x += 17) {
+      const sd = Math.abs(Math.sin(x * 0.7) * 43758.5453) % 1;
+      const bh = 16 + sd * 62;
+      ctx.fillRect(x, base - bh, 15, bh + 30);
+      // A few lit windows, same seed, so the city looks inhabited without a texture.
+      if (!night && sd < 0.5) continue;
+      ctx.fillStyle = lit;
+      for (let wy = base - bh + 6; wy < base - 6; wy += 11) {
+        if ((Math.abs(Math.sin((x + wy) * 1.3) * 4375.54)) % 1 > 0.62) ctx.fillRect(x + 4, wy, 3, 4);
+      }
+      ctx.fillStyle = silhouette;
+    }
+
+    if (st.precip === 'fog') {
+      ctx.fillStyle = wallAlpha(c.fg, 0.09);
+      for (let i = 0; i < 3; i++) ctx.fillRect(0, h * (0.35 + i * 0.2) + Math.sin(t / 2600 + i) * 8, w, 26);
+    } else if (st.drops.length) {
+      const flake = st.precip === 'snow' || st.precip === 'dust';
+      // Acid rain is the one case that earns a hue of its own — it's a warning, and a
+      // warning that matched the wallpaper would not be one.
+      ctx.strokeStyle = st.precip === 'acid' ? 'rgba(150,220,110,.7)' : wallAlpha(c.fg, 0.5);
+      ctx.fillStyle = wallAlpha(c.fg, 0.6);
+      ctx.lineWidth = 1;
+      for (const d of st.drops) {
+        d.y += d.v * (flake ? 1.1 : 5.2);
+        d.x += st.shear * (flake ? 1.1 : 2.2) + (flake ? Math.sin((t + d.y * 9) / 700) * 0.6 : 0);
+        if (d.y > h) { d.y = -10; d.x = Math.random() * w; }
+        if (d.x < -12) d.x = w + 6; else if (d.x > w + 12) d.x = -6;
+        ctx.globalAlpha = d.o;
+        if (flake) { ctx.beginPath(); ctx.arc(d.x, d.y, 1.3, 0, 6.284); ctx.fill(); }
+        else { ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + st.shear * d.len, d.y + d.len); ctx.stroke(); }
+      }
+      ctx.globalAlpha = 1;
+    }
+  },
+
+  // ── Grid: a blueprint lattice, drifting one slow direction ─────────────────
+  grid(ctx, st, t) {
+    const { w, h, c } = st;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = wallMix(c.bg, c.bg2, 0.5);
+    ctx.fillRect(0, 0, w, h);
+    const step = 34;
+    const drift = (t / 90) % step;
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = wallAlpha(c.accent, 0.16);
+    ctx.beginPath();
+    for (let x = -step + drift; x < w + step; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+    for (let y = -step + drift; y < h + step; y += step) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+    ctx.stroke();
+    // Every fourth line heavier — gives the lattice a scale without more lines.
+    ctx.strokeStyle = wallAlpha(c.accent, 0.26);
+    ctx.beginPath();
+    for (let x = -step * 4 + drift; x < w + step * 4; x += step * 4) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+    for (let y = -step * 4 + drift; y < h + step * 4; y += step * 4) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+    ctx.stroke();
+  },
+
+  // ── Contours: slow interference lines, a depth map breathing ───────────────
+  contours(ctx, st, t) {
+    const { w, h, c } = st;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = wallMix(c.bg, c.bg2, 0.35);
+    ctx.fillRect(0, 0, w, h);
+    ctx.lineWidth = 1;
+    const bands = 9;
+    for (let i = 0; i < bands; i++) {
+      const phase = t / 5200 + i * 0.55;
+      ctx.strokeStyle = wallAlpha(c.accent, 0.07 + (i / bands) * 0.1);
+      ctx.beginPath();
+      for (let x = 0; x <= w; x += 8) {
+        const k = x / w;
+        const y = h * (0.12 + (i / bands) * 0.82)
+          + Math.sin(phase + k * 5.2) * 11 + Math.sin(phase * 1.7 + k * 2.1) * 7;
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  },
+
+  // ── Drift: sparse motes rising. The quietest of the set. ───────────────────
+  drift(ctx, st, t) {
+    const { w, h, c } = st;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = wallMix(c.bg, c.bg2, 0.28);
+    ctx.fillRect(0, 0, w, h);
+    for (const d of st.motes) {
+      d.y -= d.v;
+      d.x += Math.sin((t + d.y * 6) / 1400) * 0.25;
+      if (d.y < -6) { d.y = h + 6; d.x = Math.random() * w; }
+      ctx.globalAlpha = d.o * (0.55 + 0.45 * Math.sin(t / 1600 + d.x));
+      ctx.fillStyle = d.big ? wallAlpha(c.accent, 0.7) : wallAlpha(c.fg, 0.5);
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 6.284); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  },
+
+  // ── Scan: static rings, one slow sweep. Only one thing moves. ─────────────
+  scan(ctx, st, t) {
+    const { w, h, c } = st;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = wallMix(c.bg, c.bg2, 0.35);
+    ctx.fillRect(0, 0, w, h);
+    const cx = w * 0.5, cy = h * 0.62, maxR = Math.hypot(w, h) * 0.55;
+    ctx.strokeStyle = wallAlpha(c.accent, 0.1);
+    ctx.lineWidth = 1;
+    for (let i = 1; i <= 4; i++) { ctx.beginPath(); ctx.arc(cx, cy, (maxR / 4) * i, 0, 6.284); ctx.stroke(); }
+    const ang = ((t / 4200) % 1) * 6.283 - 1.571;   // ~4s a revolution
+    const grad = ctx.createLinearGradient(cx, cy, cx + Math.cos(ang) * maxR, cy + Math.sin(ang) * maxR);
+    grad.addColorStop(0, wallAlpha(c.accent, 0.24));
+    grad.addColorStop(1, wallAlpha(c.accent, 0));
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(ang) * maxR, cy + Math.sin(ang) * maxR); ctx.stroke();
+  },
+};
+
+function paintWall(ctx, st, t) {
+  (WALL_PAINTERS[st.mode] || WALL_PAINTERS.sky)(ctx, st, t);
+}
+
+function startWallpaper(sky) {
+  const cv = _overlay?.querySelector('#tos-wall');
+  if (!cv) return;
+  stopWallpaper();
+  const mode = loadWallpaper();
+  if (mode === 'none') return;   // the default: a flat themed screen, nothing drawn
+  const box = cv.parentElement.getBoundingClientRect();
+  const w = Math.max(1, Math.round(box.width)), h = Math.max(1, Math.round(box.height));
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // Strength rides a CUSTOM PROPERTY, never inline `opacity`. It used to set opacity
+  // directly, which beat the `.on` class in the cascade — so stopWallpaper's class
+  // removal did nothing and the sky stayed painted over every app screen for the
+  // rest of the session. The var only takes effect while `.on` is present.
+  //
+  // The patterns sit lower than the sky: the sky IS a picture and can carry itself,
+  // whereas a lattice or a sweep at the same strength stops being a backdrop and
+  // starts competing with the tile labels. Indoors knocks the sky back again —
+  // you can't see the weather through a wall, though the hour still reads.
+  const strength = mode === 'sky' ? (sky?.indoors ? 0.26 : 0.5) : 0.34;
+  cv.style.setProperty('--wall-strength', String(strength));
+  cv.classList.add('on');
+  _wallState = initWallState(sky, w, h, mode, wallColors(_overlay));
+  paintWall(ctx, _wallState, 0);
+  if (document.documentElement.getAttribute('data-motion') === 'off') return; // one static frame and stop
+  const loop = (t) => {
+    if (!_wallState || !cv.isConnected) return;
+    paintWall(ctx, _wallState, t);
+    _wallRaf = requestAnimationFrame(loop);
+  };
+  _wallRaf = requestAnimationFrame(loop);
+}
+
+function stopWallpaper() {
+  if (_wallRaf) { cancelAnimationFrame(_wallRaf); _wallRaf = null; }
+  _wallState = null;
+  const cv = _overlay?.querySelector('#tos-wall');
+  if (!cv) return;
+  cv.classList.remove('on');
+  // Belt and braces: drop the strength var too, so nothing an older build (or a
+  // future edit) left inline can keep the canvas visible off the home screen.
+  cv.style.removeProperty('--wall-strength');
+  cv.style.removeProperty('opacity');
 }
 
 export function closeTabletPanel() { shutdownTablet(); }
@@ -6754,14 +10963,31 @@ export function closeTabletPanel() { shutdownTablet(); }
 window.addEventListener('game-disconnect', () => { if (_overlay) close(); });
 
 function close() {
+  // Narration normally dies with the shell — closing the tablet should silence it.
+  // The one exception is an explicit Minimize, which sets this flag precisely so
+  // the book keeps reading while you go and do something else.
+  if (_narrateKeepOnClose) _narrateKeepOnClose = false;
+  else narrateStop();
   purgeCompletedQuestLogs(); // finished quests' action logs clear once you close the tablet
-  stopReceptionLoop();
+  if (_voidIntro) { _voidIntro.cancel(); _voidIntro = null; } // torn down mid-firmware-boot — don't let its timers outlive the overlay
+  if (_voidHunt) { _voidHunt.cancel(); } // drag-to-lock listeners are document-level; never leave them behind
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+  if (_dhTimer) { clearInterval(_dhTimer); _dhTimer = null; }   // DEADHEAD live tracking must never outlive the overlay
   if (_fakeTimer) { clearInterval(_fakeTimer); _fakeTimer = null; }
   if (_reelTimer) { clearInterval(_reelTimer); _reelTimer = null; _reelPlaying = false; }
   if (_chatUnsub) { _chatUnsub(); _chatUnsub = null; }
+  _homePage = 0;     // the tablet always opens on the first page of the home screen
+  _tosSelectMode = false;
+  _homeSearchOpen = false; _homeSearch = '';
+  stopWallpaper();   // the rAF must never outlive the overlay it draws into
   unmountTabletTv();
   _wasSurvLive = false;
+  // The back stack dies with the shell. A tablet reopened later starts at Home,
+  // so a stale history from the last session must not make Back walk backwards
+  // into screens the player has since left.
+  _navStack = [];
+  _navHere = null;
+  _navSig = null; _lastWasAct = false; _actDepth = 0;
   document.querySelectorAll('.tos-tile-drag').forEach(el => el.remove()); // stray lift clone, if torn down mid-drag
   if (_close) { _close(); _close = null; }
   _overlay = null;

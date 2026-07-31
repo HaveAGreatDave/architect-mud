@@ -7,7 +7,19 @@
 // duplicated here rather than the query.
 import { query } from '../../server/models/db.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
+import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { registerTabletApp } from './registry.js';
+
+// Flight Display — the text-only preference for BOTH seats: riding as a passenger
+// (plugins/flight/textmode.js) and flying as a pilot (plugins/flight/textpilot.js).
+// One switch, because "I don't want the 3D layer" is one preference, not two.
+// It lives here rather than in the Settings app because Settings is entirely
+// client-side localStorage (see settings-app.js) and this has to be server state:
+// the flight plugin reads it at board time, on the server, to decide whether to
+// push a graphical panel at all. Persisted in player_flags through the mandated funnel.
+const TEXT_TRAVEL_FLAG = 'flight_text_only';
+const textTravelOn = async (player) =>
+  String(await getFlag('player', TEXT_TRAVEL_FLAG, player).catch(() => undefined)) === 'true';
 
 async function myAircraft(playerId) {
   const { rows } = await query(
@@ -70,6 +82,7 @@ async function buildScreen(player, screenId, params) {
   // server restart) — unsellable and unmanageable until it's grounded. Offer a
   // one-tap recovery when the fleet has any craft aloft.
   const stuckAloft = list.filter(v => v.airborne).length;
+  const textOnly = await textTravelOn(player);
   return {
     // A non-empty breadcrumb matters beyond display here: the client's list-item
     // click handler resends the CURRENT breadcrumb's last entry as the screenId
@@ -80,11 +93,16 @@ async function buildScreen(player, screenId, params) {
     view: 'list',
     breadcrumb: ['Fleet'],
     items: list.map(v => ({ id: v.id, label: v.tail, sub: `${v.typeName} · Hull ${v.hullPct}% · Fuel ${v.fuelPct}% · ${v.location}` })),
-    actions: stuckAloft ? [{
-      id: 'flush_airborne',
-      label: `Flush Airborne Aircraft (${stuckAloft})`,
-      confirm: `Ground ${stuckAloft} aircraft still flagged airborne with nobody aboard? Use this if a plane is stuck showing "Airborne" and won't sell.`,
-    }] : [],
+    actions: [
+      ...(stuckAloft ? [{
+        id: 'flush_airborne',
+        label: `Flush Airborne Aircraft (${stuckAloft})`,
+        confirm: `Ground ${stuckAloft} aircraft still flagged airborne with nobody aboard? Use this if a plane is stuck showing "Airborne" and won't sell.`,
+      }] : []),
+      // Shown whether or not you own anything — you can ride as a passenger with an
+      // empty fleet, and that's exactly the player this setting is for.
+      { id: 'cabin_view', label: `Flight Display: ${textOnly ? 'Text only' : 'Graphical'}` },
+    ],
   };
 }
 
@@ -95,6 +113,22 @@ async function buildScreen(player, screenId, params) {
 // "call this function with an id." Bottom-pane message either way, then stay on
 // this vehicle's screen on failure or fall back to the fleet list once she's gone.
 async function handleAction(player, actionId, params) {
+  // Flight Display — board any aircraft, in either seat, without the client ever
+  // mounting a graphical panel. Takes effect from the next boarding; anyone already
+  // aboard keeps what they boarded with (the flight plugin latches it at board time).
+  if (actionId === 'cabin_view') {
+    const next = !(await textTravelOn(player));
+    await setFlag('player', TEXT_TRAVEL_FLAG, next ? 'true' : 'false', player);
+    sendToPlayer(player.id, { type: 'output', message: `<span class="msg-system">${next
+      ? 'Flight display set to <b>TEXT ONLY</b>.<br>'
+        + '· As a <b>passenger</b>: you ride on description alone — <b>window</b> mid-flight looks out anyway.<br>'
+        + '· As a <b>pilot</b>: no cockpit opens. You fly her by command from a character-drawn instrument panel — '
+        + '<b>startup</b>, <b>throttle 100</b>, <b>takeoff</b>, then <b>climb to 2000</b> / <b>turn to heading 090</b> / <b>land</b>. '
+        + '<b>status</b> reads the gauges any time.'
+      : 'Flight display set to <b>GRAPHICAL</b> — the cabin window and the 3D cockpit are back.'}</span>` });
+    return buildScreen(player, null, '');
+  }
+
   // Fleet-level recovery: ground any of the player's aircraft stranded airborne.
   if (actionId === 'flush_airborne') {
     const { flushAirborne } = await import('../flight/hangars.js');

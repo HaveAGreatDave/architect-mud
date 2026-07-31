@@ -1,0 +1,20 @@
+{
+  "description": "Sweet, dark and faintly medicinal. The formula has been reverse-engineered so many times that nobody is sure which version is the original.",
+  "flags": {},
+  "id": "item_arcline_cola",
+  "name": "can of Arcline cola",
+  "tags": {
+    "consumable": true,
+    "description": "Sweet, dark and faintly medicinal. The formula has been reverse-engineered so many times that nobody is sure which version is the original.",
+    "drink_noun": "cola",
+    "drink_profile": "mixer",
+    "hydrating": true,
+    "pour_units": 3,
+    "restore_sanity": 6,
+    "restore_thirst": 40,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 5,
+  "weight": 380
+}

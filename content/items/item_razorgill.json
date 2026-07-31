@@ -6,6 +6,9 @@
   "tags": {
     "consumable": true,
     "description": "A palm-sized silver fish with gill plates honed to little blades. It'll nick your fingers going into the bucket, but it fries up clean and quick.",
+    "food_noun": "razorgill",
+    "food_profile": "dense_meat",
+    "needs_cooking": true,
     "restore_hunger": 14,
     "stackable": true,
     "well_fed": true

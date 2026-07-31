@@ -177,8 +177,61 @@
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,
-  "vendor_inventory": [],
-  "vendor_restock_rate": 1,
+  "vendor_inventory": [
+    {
+      "item_id": "item_furn_payphone_husk",
+      "price": 35
+    },
+    {
+      "item_id": "item_furn_barstool_wreck",
+      "price": 50
+    },
+    {
+      "item_id": "item_furn_pipe_railing",
+      "price": 65
+    },
+    {
+      "item_id": "item_furn_mil_surplus_cot",
+      "price": 80
+    },
+    {
+      "item_id": "item_furn_busted_sofa",
+      "price": 100
+    },
+    {
+      "item_id": "item_furn_corpcore_bench",
+      "price": 150
+    },
+    {
+      "item_id": "item_furn_vidicron_tv",
+      "price": 185
+    },
+    {
+      "item_id": "item_furn_crt_relic",
+      "price": 235
+    },
+    {
+      "item_id": "item_furn_stove_hobline",
+      "price": 255
+    },
+    {
+      "item_id": "item_furn_pneumatic_stool",
+      "price": 270
+    },
+    {
+      "item_id": "item_furn_fridge_coldbox",
+      "price": 340
+    },
+    {
+      "item_id": "item_furn_diner_booth",
+      "price": 550
+    },
+    {
+      "item_id": "item_furn_counter_slab",
+      "price": 660
+    }
+  ],
+  "vendor_restock_rate": 2,
   "vendor_schedule": {
     "fri": [
       {
@@ -223,8 +276,8 @@
       }
     ]
   },
-  "vendor_shop_name": "Velk's Pre-Owned Furnishings",
-  "vendor_stock_size": 10,
+  "vendor_shop_name": "Formerly Someone's",
+  "vendor_stock_size": 13,
   "wander_zones": [],
   "wanders": 0,
   "work_zone_id": "zone_velk_shop"

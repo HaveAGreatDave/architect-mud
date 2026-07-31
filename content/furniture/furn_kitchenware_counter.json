@@ -1,0 +1,18 @@
+{
+  "description": "A zinc-topped counter, scarred to a dull shine and cold to the touch. An artillery shell casing stands at one end bristling with ladles, tongs and spoons, handles out, arranged by length.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_kitchenware_counter",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "zinc counter",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_kitchenware"
+}

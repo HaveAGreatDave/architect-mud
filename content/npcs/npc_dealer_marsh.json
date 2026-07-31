@@ -41,7 +41,7 @@
     "\"Buy something or hold up a wall somewhere else.\"",
     "sizes you up like a fight she hasn't started yet."
   ],
-  "description": "Gita Marsh holds down the end of the bar like she paid for it — forearms scarred, knuckles worse, a grin that's mostly threat. She watches the door more than the room and greets trouble by name. Whatever she's moving, she isn't shy about who she is; only about what.",
+  "description": "Gita Halvard holds down the end of the bar like she paid for it — forearms scarred, knuckles worse, a grin that's mostly threat. She watches the door more than the room and greets trouble by name. Whatever she's moving, she isn't shy about who she is; only about what.",
   "dialogue_tree": {},
   "faction": null,
   "flags": {
@@ -63,11 +63,16 @@
   "hp": 40,
   "hp_max": 40,
   "id": "npc_dealer_marsh",
-  "name": "Gita Marsh",
+  "name": "Gita Halvard",
   "npc_type": "dealer",
   "sex": "female",
   "studio_zone_id": null,
   "vendor_inventory": [
+    {
+      "item_id": "item_nitrous",
+      "min_trust": 0,
+      "price": 25
+    },
     {
       "item_id": "item_amyls",
       "min_trust": 0,
@@ -79,6 +84,11 @@
       "price": 45
     },
     {
+      "item_id": "item_dxm",
+      "min_trust": 0,
+      "price": 50
+    },
+    {
       "item_id": "item_laughers",
       "min_trust": 25,
       "price": 120
@@ -87,6 +97,11 @@
       "item_id": "item_screamers",
       "min_trust": 25,
       "price": 145
+    },
+    {
+      "item_id": "item_salvia",
+      "min_trust": 45,
+      "price": 105
     },
     {
       "item_id": "item_redline",
@@ -119,10 +134,10 @@
       "price": 500
     }
   ],
-  "vendor_restock_rate": 1,
+  "vendor_restock_rate": 6,
   "vendor_schedule": {},
   "vendor_shop_name": null,
-  "vendor_stock_size": 0,
+  "vendor_stock_size": 40,
   "wander_zones": [
     "zone_mq_pigeon_bar",
     "zone_mq_cherry_floor",
@@ -130,5 +145,5 @@
     "zone_mq_sump_bar"
   ],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_yards_tenement_u3_1"
 }

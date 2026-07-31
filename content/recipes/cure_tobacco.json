@@ -1,0 +1,22 @@
+{
+  "base_difficulty": 2,
+  "base_output": {
+    "item_id": "item_loose_tobacco",
+    "quantity": 4
+  },
+  "category": "goods",
+  "description": "Hang, dry and cure a bale of green tobacco leaf down into loose smoking tobacco. Legal work, start to finish — deliberately a fabrication recipe, not a chemistry cook, so it lives under CRAFT and never touches the felony bench.",
+  "id": "cure_tobacco",
+  "ingredients": [
+    {
+      "item_id": "item_raw_tobacco_crop",
+      "quantity": 1
+    }
+  ],
+  "name": "Cure Tobacco Leaf",
+  "requires_station": null,
+  "skill_id": "fabrication",
+  "skill_req": {
+    "fabrication": 0
+  }
+}

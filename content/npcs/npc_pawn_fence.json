@@ -97,20 +97,20 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_pawn_watch",
-      "price": 40
+      "item_id": "item_duct_tape",
+      "price": 8
     },
     {
       "item_id": "item_pawn_radio",
       "price": 35
     },
     {
-      "item_id": "item_pipe_wrench",
-      "price": 22
+      "item_id": "item_pawn_watch",
+      "price": 40
     },
     {
-      "item_id": "item_duct_tape",
-      "price": 8
+      "item_id": "item_pipe_wrench",
+      "price": 125
     }
   ],
   "vendor_restock_rate": 1,
@@ -158,7 +158,7 @@
       }
     ]
   },
-  "vendor_shop_name": "The Hock Shop",
+  "vendor_shop_name": "In Hock We Trust",
   "vendor_stock_size": 24,
   "wander_zones": [],
   "wanders": 0,

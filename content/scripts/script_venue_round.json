@@ -1,0 +1,17 @@
+{
+  "description": "Increments bar_${venue}_rounds. Bound to vendor.purchase, zone-filtered per venue. Counts rounds, not credits — a script node cannot see the event payload.",
+  "graph": {
+    "nodes": {
+      "bump": {
+        "delta": 1,
+        "flag": "bar_${venue}_rounds",
+        "scope": "player",
+        "type": "counter"
+      }
+    },
+    "start": "bump"
+  },
+  "id": "script_venue_round",
+  "name": "Venue — Round bought (shared)",
+  "updated_at": "1785110400"
+}

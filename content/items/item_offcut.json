@@ -1,0 +1,23 @@
+{
+  "description": "The bits left when the good cuts were taken: sinew, odd angles, a bit of bone. Vat-grown beef, three grades down from anything a menu would name. Cheap for a reason, excellent for another one, if you have the hours.",
+  "flags": {},
+  "id": "item_offcut",
+  "name": "beef offcut",
+  "tags": {
+    "consumable": true,
+    "description": "The bits left when the good cuts were taken: sinew, odd angles, a bit of bone. Vat-grown beef, three grades down from anything a menu would name. Cheap for a reason, excellent for another one, if you have the hours.",
+    "food_noun": "beef",
+    "food_profile": "dense_meat",
+    "needs_cooking": true,
+    "perishable": true,
+    "restore_hunger": 16,
+    "spoil_rate": "fast",
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.45
+    }
+  },
+  "type": "consumable",
+  "value": 6,
+  "weight": 350
+}

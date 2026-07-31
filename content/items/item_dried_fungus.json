@@ -1,0 +1,20 @@
+{
+  "description": "A bag of black shrivelled caps, light as paper, that smell of soil and old wood. A pinch does what a pound of anything fresh cannot.",
+  "flags": {},
+  "id": "item_dried_fungus",
+  "name": "dried fungus",
+  "tags": {
+    "consumable": true,
+    "description": "A bag of black shrivelled caps, light as paper, that smell of soil and old wood. A pinch does what a pound of anything fresh cannot.",
+    "food_noun": "fungus",
+    "food_profile": "aromatic",
+    "restore_hunger": 3,
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.2
+    }
+  },
+  "type": "consumable",
+  "value": 12,
+  "weight": 30
+}

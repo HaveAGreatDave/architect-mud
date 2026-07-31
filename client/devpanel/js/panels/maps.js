@@ -38,6 +38,11 @@ function mapScaleControlHtml() {
   </div>`;
 }
 
+// Pin the map editor's sub-tabs + toolbar to the top of the scrolling #list-panel.
+function stickyHeadHtml(inner) {
+  return `<div class="panel-sticky-head">${inner}</div>`;
+}
+
 function wrapMapScale(gridHtml) {
   return `<div class="map-scale-viewport"><div class="map-scale-inner">${gridHtml}</div></div>`;
 }
@@ -1923,7 +1928,10 @@ function renderMapOverview() {
     <button onclick="switchMapTab('interior')" style="flex:1;padding:7px;background:${mapViewTab==='interior'?'var(--bg2)':'transparent'};border:none;border-bottom:2px solid ${mapViewTab==='interior'?'var(--accent)':'transparent'};color:${mapViewTab==='interior'?'var(--accent)':'var(--text-dim)'};cursor:pointer;font-size:12px;font-weight:600;letter-spacing:0.5px">Interior</button>
   </div>`;
 
-  // Toolbar
+  // Toolbar. Sub-tabs + toolbar are collected into `head` so they can be pinned
+  // to the top of the scrolling panel — on a tall map you'd otherwise scroll the
+  // zoom/floor/paint controls off screen right when you want them.
+  let head = '';
   // The Studio (npm run studio) is the file-authoring map tool — it edits
   // content/ directly, so what it draws is what ships. This panel edits the LIVE
   // DATABASE and the save-hook mirrors each edit into a file afterwards. Both
@@ -1935,13 +1943,12 @@ function renderMapOverview() {
       The Studio (<code>npm run studio</code>) edits <code>content/</code> files and previews with the build's own derive pass.
       Paint there and this panel stays stale until <code>npm run content:import</code>; paint here and the file is written for you.
       Don't run both on the same tiles in one sitting.
-    </div>` + subTabHtml;
+    </div>`;
   if (mapViewTab === 'interior' && !mapSelectedInteriorId) {
-    html += `<div style="padding:32px 24px;color:var(--text-dim);font-size:13px">
+    panel.innerHTML = stickyHeadHtml(subTabHtml) + `<div style="padding:32px 24px;color:var(--text-dim);font-size:13px">
       No interior maps yet.<br><br>
       Switch to <strong>Exterior</strong>, then drag an <strong>Unplaced Interior Zone</strong> from the tray onto any exterior zone tile to link it and create an interior map.
     </div>`;
-    panel.innerHTML = html;
     return;
   }
 
@@ -1956,7 +1963,7 @@ function renderMapOverview() {
     const intOpts = allIntOpts.length
       ? allIntOpts.join('')
       : `<option value="">— no interiors yet —</option>`;
-    html += `<div class="map-toolbar">
+    head += `<div class="map-toolbar">
       <label>Interior</label>
       <select onchange="switchInteriorMap(this.value)">${intOpts}</select>
       <button class="action-btn danger" style="font-size:10px;padding:2px 8px" onclick="mapDeleteInterior()" title="Delete this interior map and all its zones">Delete Map</button>
@@ -1978,7 +1985,7 @@ function renderMapOverview() {
     const regionSelector = (selectedRegionId && regionOpts)
       ? `<select class="settings-select" style="width:auto;padding:3px 26px 3px 8px;font-size:13px;font-weight:600;color:var(--text-bright)" onchange="selectEditRegion(this.value)" title="Switch which region you're editing">${regionOpts}</select>`
       : `<span style="color:var(--text-bright);font-weight:600;font-size:13px">${exteriorLabel}</span>`;
-    html += `<div class="map-toolbar">
+    head += `<div class="map-toolbar">
       ${regionSelector}
       <button class="action-btn${mapSafeZoneMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:12px${mapSafeZoneMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleSafeZoneMode()" title="Paint zones as Safe (police cameras present) or not">${mapSafeZoneMode ? '✓ Painting Safe Zones' : 'Paint Safe Zones'}</button>
       <button class="action-btn${mapTerrainMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapTerrainMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleTerrainMode()" title="Paint ground terrain (road auto-tiles into junctions; water, grass, asphalt, dock…) — writes flags.terrain">${mapTerrainMode ? '✓ Painting Terrain' : '🌍 Terrain'}</button>
@@ -2320,7 +2327,7 @@ function renderMapOverview() {
   const prevGridLeft = prevGrid?.scrollLeft || 0, prevGridTop = prevGrid?.scrollTop || 0;
   const prevVp = prevGrid?.querySelector('.map-scale-viewport');
   const prevVpLeft = prevVp?.scrollLeft || 0, prevVpTop = prevVp?.scrollTop || 0;
-  panel.innerHTML = html;
+  panel.innerHTML = stickyHeadHtml(subTabHtml + head) + html;
   panel.scrollTop = prevPanelTop;
   panel.scrollLeft = prevPanelLeft;
   const newGrid = document.getElementById('bigmap-grid-scroll');

@@ -19,9 +19,9 @@
       "zone": "zone_district_912_912"
     },
     {
-      "desc": "Residential Area",
+      "desc": "Kessler Street + Marrow Street",
       "emotes": [
-        "{who} pokes through Residential Area cache, tallying like their life depends on getting the same number twice.",
+        "{who} pokes through the cache on the Kessler Street corner, tallying like their life depends on getting the same number twice.",
         "{who} digs through scrap at the cache, muttering a running total.",
         "{who} eyeballs the pile and rounds the number up, generously."
       ],
@@ -30,7 +30,7 @@
         "o0"
       ],
       "type": "visit",
-      "zone": "zone_district_921_913"
+      "zone": "zone_district_922_909"
     }
   ],
   "quest_type": "standard",

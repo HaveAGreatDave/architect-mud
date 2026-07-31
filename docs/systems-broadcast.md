@@ -33,7 +33,7 @@ name TEXT
 description TEXT
 category TEXT             — general | news | advertisement | entertainment | emergency | …
 tags JSONB                — []
-playback_mode TEXT        — scripted | dynamic_news | live_camera | recorded | weather | sports | news | talkshow | morning
+playback_mode TEXT        — scripted | film | sermon | dynamic_news | live_camera | recorded | weather | sports | news | talkshow | morning | gameshow
                             (getCurrentMessage branches on weather/sports/news/talkshow/morning,
                             each assembling a fresh graph from its *_pools column — see
                             Live-Assembled Shows below; anything else plays its stored
@@ -80,10 +80,46 @@ channel_id TEXT FK
 broadcast_id TEXT FK
 start_time INTEGER        — seconds from loop/day start
 duration_override REAL    — overrides computed duration for this slot only
-priority INTEGER          — higher wins when slots overlap (default 0)
+priority INTEGER          — manual tiebreak; higher wins when slots overlap (default 0)
 conditions JSONB          — gate object, e.g. { npc_staff: [npcId,…] } (default [])
 slot_type TEXT            — 'broadcast' | 'commercial' | … (default 'broadcast')
+days SMALLINT             — weekday mask, bit 0 = Mon … bit 6 = Sun (default 127 = every
+                            day). See Weekday Overrides below
 ```
+
+### Weekday Overrides — one schedule, not two modes
+
+A daily channel has **one** running order, authored once, that repeats every day.
+`days` is what lets a single day differ from it without a second schedule existing.
+
+- A slot with `days = 127` (the default, and what every pre-existing row carries) plays
+  all seven days. That is the **base grid**.
+- A slot with a narrower mask is an **override**. Where two slots both cover the current
+  second, the runner picks the **most specific** one — fewest days set. So a Thursday-only
+  slot at 20:00 replaces the base grid's 20:00 slot on Thursday, and the other six days
+  keep playing the base grid untouched. No gap has to be cut, and nothing is duplicated.
+- Overrides layer coarse-to-fine: a weekend slot (2 days) beats the base grid but loses
+  to a Saturday-only slot (1 day).
+- `priority` is the manual escape hatch and outranks specificity. Equal on both, the later
+  `start_time` wins.
+- A `0` or missing mask reads as every day, never as "airs on no day" — a bad write can't
+  silently black out a channel.
+
+Every daily-schedule read goes through **`_pickDailySlot()`** in `plugins/broadcast/index.js`
+— the runner (`getCurrentMessage`), the NPC shift checker (`registerNpcScheduleChecker`),
+the dev panel's "what's on now" (`nowBroadcastingFor`) and the viewer's TV guide
+(`sendTvSchedule`). Add a new consumer through it, never with a fresh `.find()`, or the
+four will disagree about which slot won.
+
+The viewer's TV guide lists **today's** running order: slots that don't air today are absent,
+and a base slot replaced by an override is shown only as its replacement.
+
+**Authoring** (dev panel → Schedule tab): the day bar above the timeline picks the scope.
+*Every day* edits the base grid; a weekday tab edits that day's exceptions on their own lane,
+above a ghosted read-only copy of the base grid — click a ghost to lift it onto that day as an
+editable override. Clear and Auto-schedule are scoped to the tab you're on, so wiping
+Thursday's exceptions never touches the other six days. A slot's mask is also editable
+directly from its popover (the M T W T F S S chips + ALL).
 
 ### `media_cameras`
 
@@ -137,6 +173,23 @@ Every tick (1 s):
 3. For each tuned channel, calls `getCurrentMessage(state, nowMs)` (via `_resolveTickMessage`, which gives a pirated/loaded media deck first refusal).
 4. If no result (or duplicate key): checks `state.wasActive`. If it was active last tick, fires a one-time `off_air` signal to all watching players (includes offline graphic content and type if set), then sets `state.wasActive = false`. Continues to next channel.
 5. If a result arrived: formats via `formatMessage(text, deviceType, zone, style)` and **splits the zone's players** — active TV watchers on that channel get `{ type: 'broadcast', message, channel, style, duration, programName }` (music lines also push `audio_music`; overlays push `tv_overlay`); everyone else gets a `broadcast_ambient` only when the line carries `speech` and the 30-second ambient throttle allows (see Passive vs Active below); media-deck preview watchers separately get `deck_broadcast`. Sets `state.wasActive = true`.
+6. Records the beat on `state.lastBeat` (plus `lastScorebug`/`lastGameday` and their timestamps) for catch-up, below.
+
+### Catch-up on tune (`sendCatchUp`)
+
+A channel only pushes when its graph produces the **next** beat, and a beat holds for as
+long as its line takes to read — up to ~30 s for a `say`, longer for a title card or a
+theme. So a viewer who tuned in a moment after one landed sat in front of a blank set
+until the next one, which reads as *"the channel didn't come up — change to it again"*.
+
+`tv.watch` / `tablet_tv.watch` therefore replay `state.lastBeat` to that player alone.
+The replay carries **`catchUp: true`**: the client renders it exactly like a live beat
+but does **not** re-narrate it (`dispatch.js` skips `v.speak`), because that line's
+read-aloud is already part-way through airing to everyone else. Tickers, overlays and
+`live_relay` beats are not replayed (a transition or a scroller, not a picture), and
+`state.lastBeat` is nulled whenever a channel drops to `wasActive = false` so a dead
+channel replays nothing. The persistent score-bug / gameday overlays ride along only
+while they're **fresher than 90 s** — a stale bug must never sit over a talk show.
 
 ### `getCurrentMessage()`
 
@@ -195,7 +248,11 @@ program lands mid-broadcast instead of restarting from the top.
 
 **Phase 1 — Normal**: the walker follows the graph normally. When it hits an `npc_anchor` node, it checks whether that NPC is physically present in `state.studioZoneId`. If absent and `studioZoneId` is configured, it sets `bb.hostAbsent = true` and `bb.absentDetectedAt = nowMs`.
 
-**Phase 2 — Show-delay card (until the cast arrives)**: once `hostAbsent` is true, the walker short-circuits each tick and returns a clean, centred **`text_card` overlay** (`style: 'overlay'`) that names exactly who's missing — `_absentCastNames(graph, studioZoneId)` scans the graph's `npc_anchor` nodes and lists any not currently in the studio: *"PLEASE STAND BY — Tonight's programme is delayed — `<name(s)>` `has/have` not yet arrived in the studio. We apologise for the inconvenience…"*. This is deliberately **not** the technical-difficulties fallback (which reads as "signal lost") and **not** the old empty-studio camera spam — the viewer is told what's happening. The card holds (`duration: 0`, no auto-dismiss) and is re-emitted on a 5-second slot so late-tuners pick it up. The walker recovers automatically — clearing `hostAbsent` and resuming the graph — the instant `_absentCastNames` comes back empty (every scheduled anchor is back on the studio floor).
+**Phase 2 — Show-delay card (until the cast arrives)**: `hostAbsent` now means an **empty
+stage** — *no* scheduled cast member is on the studio floor (`_anyCastPresent`), i.e. a show
+that cannot start. A partially-absent cast does **not** raise the card: the show goes ahead
+short-handed and the missing actor's lines simply never air (see
+[Live realism](#live-realism-the-broadcast-is-the-studio)). Once `hostAbsent` is true, the walker short-circuits each tick and returns a clean, centred **`text_card` overlay** (`style: 'overlay'`) that names exactly who's missing — `_absentCastNames(graph, studioZoneId)` scans the graph's `npc_anchor` nodes and lists any not currently in the studio: *"PLEASE STAND BY — Tonight's programme is delayed — `<name(s)>` `has/have` not yet arrived in the studio. We apologise for the inconvenience…"*. This is deliberately **not** the technical-difficulties fallback (which reads as "signal lost") and **not** the old empty-studio camera spam — the viewer is told what's happening. The card holds (`duration: 0`, no auto-dismiss) and is re-emitted on a 5-second slot so late-tuners pick it up. The walker recovers automatically — clearing `hostAbsent` and resuming the graph — the instant `_absentCastNames` comes back empty (every scheduled anchor is back on the studio floor).
 
 Technical-difficulties (`bb.techDiffMode`, a rotating line from `state.currentFallbackMessages`, default `'[TECHNICAL DIFFICULTIES] Please stand by.'`) is still reachable, but only for genuine signal failures — an explicit `tech_difficulties` node, a downed studio camera (`camera_cut` with the studio feed off/damaged), or a graph-walk error — never for a merely-late cast member.
 
@@ -208,7 +265,7 @@ Technical-difficulties (`bb.techDiffMode`, a rotating line from `state.currentFa
 | `music` | Looks up `data.song` against `audio_songs` (via `getSongDefByName` in `plugins/audio/index.js`). If found, returns `{ text, song, key, style: 'music' }` and holds for 8s; if the channel is `live` with a `studioZoneId`, also `sendToZone`s the song there directly. If not found, falls back to `{ text, key, style: 'raw' }` (or is skipped if `text` is also empty). See [Music Cues](#music-cues). |
 | `wait` | Set `waitUntil = nowMs + data.seconds * 1000`. Block until elapsed. |
 | `npc_anchor` | Set `bb.npcAnchor`. Check NPC presence against `studioZoneId`. Advance. |
-| `camera_cut` | Return `[CAM: label] <zone snapshot>`. |
+| `camera_cut` | Assign a **real** working `media_cameras` unit in the target zone (`_pickCamera`, round-robin per channel) and return `[<Camera N> — label] <zone snapshot>`. No working camera in that zone ⇒ the shot has no source: the studio's own feed falling over is tech-difficulties, a remote feed falling over just kills that cut. See [Live realism](#live-realism-the-broadcast-is-the-studio). |
 | `inject_news` | Pull one item from `newsQueue` by category, or emit `fallback_text`. |
 | `break` | Drain one item from `newsQueue`; if empty, continue graph. |
 | `condition` | Branch `ifTrue` / `ifFalse` synchronously. |
@@ -226,6 +283,43 @@ Technical-difficulties (`bb.techDiffMode`, a rotating line from `state.currentFa
 Guards against cycles: max 50 hops per tick before early exit.
 
 ---
+
+## Live Realism — the broadcast IS the studio
+
+For an **acted-live** graph (`liveActed` — a `live` channel or any `_requireHost` graph), the
+broadcast is a literal readout of what is physically happening on the studio floor. The graph is
+a *shooting plan*, not a guarantee of what airs. Four rules, all in `tickBroadcastGraph`:
+
+**1. Cameras are objects, not instructions.** `zoneCameras: Map<zoneId, [{id, direction, label}]>`
+holds the **working** (`is_powered && !is_damaged`) `media_cameras` rows per zone, rebuilt beside
+`cameraZoneStatus` in `loadChannelRuntimes`. A `camera_cut` is executed by a specific unit picked
+round-robin (`_pickCamera`, `state._camSeq`), and the cut is **acted out where it happens**: the
+studio sees *"Camera 3 swings around and takes the couch; its tally light blinks red,"* and a
+remote zone being cut to sees its own lens pivot. On air the shot is labelled with the real unit.
+A live channel whose studio has **no** working camera has no picture at all — a per-tick blackout
+gate raises tech-difficulties (`bb.cameraBlackout`) and lifts it by itself when a unit comes back.
+
+**2. Room authority — a line belongs to whoever is standing there.** `npc_anchor` records
+`bb.anchorPresent`. If that actor has walked off set, their `say`/`npc_action` beats are **dropped,
+not deferred** — dead air, and the show moves on. Only a completely empty stage falls back to the
+stand-by card.
+
+**3. Every line is attempted live; the actor's condition decides what lands.** `_actorImpairment(npcId)`
+reads the performer's real state — the dose on their AI blackboard (`npc._ai.dose` from
+[`plugins/npc-drugs`](../plugins/npc-drugs/README.md): `loose`/`wired`/`paranoid`/`out`) and any
+`npc.intoxication` — and `_garbleLine` degrades the delivery in the Paul Masson register: repeated
+words, fumbled clause starts, softened consonants, and past ~0.55 the line doesn't survive to its
+own full stop (*"…I can't read this. Who wrote this?"*). An `out`-cold actor can't perform at all:
+the studio sees them fold, and the air gets nothing. Above the floor the mangling is **never** a
+silent no-op. This is the payoff of `flags.preshow_habit` — Akerson dosing before the cameras roll
+now audibly changes the broadcast.
+
+**4. The audience seam.** The studio-floor relay (`zone.broadcast` → `server/index.js:134`) puts
+**untagged** room events out on air whenever the channel is acting a show there and the room has a
+working camera — so a player can walk into shot, heckle the host, or break something and the city
+sees it. It reaches zone-tuned sets, deck previews, and tablet tuners alike. The show's own
+performance is exempt: every line the acting layer puts in the room goes through `_stageLine`,
+which tags it `_fromBroadcast` so the relay can't pick the performance back up and re-air it.
 
 ## Music Cues
 
@@ -254,15 +348,222 @@ on('flag.set', …)     → enqueueNews('martial_law', 'EMERGENCY ALERT: …',  
 
 ---
 
-## Live-Assembled Shows (`weather` / `sports` / `news` / `talkshow` / `morning`)
+## Live-Assembled Shows (`weather` / `sports` / `news` / `talkshow` / `morning` / `gameshow`)
 
-Five `playback_mode`s store a **line library** (`::lines` pools) instead of a baked graph, and assemble a fresh VINE graph on each airing rather than replaying stored content. They're authored as `.bsm` files (`@type weather|sports|news|talkshow|morning`) — see [docs/bsm-format.md](bsm-format.md) — and stored in dedicated JSONB columns (`weather_pools` / `sports_pools` / `news_pools` / `talkshow_pools` / `morning_pools`). `getCurrentMessage` routes each `playback_mode` to its `assemble*Graph()` builder (cached per refresh bucket), then feeds the result to the same `tickBroadcastGraph` walker as any other graph.
+Six `playback_mode`s store a **line library** (`::lines` pools) instead of a baked graph, and assemble a fresh VINE graph on each airing rather than replaying stored content. They're authored as `.bsm` files (`@type weather|sports|news|talkshow|morning|gameshow`) — see [docs/bsm-format.md](bsm-format.md) — and stored in dedicated JSONB columns (`weather_pools` / `sports_pools` / `news_pools` / `talkshow_pools` / `morning_pools` / `gameshow_pools`). `getCurrentMessage` routes each `playback_mode` to its `assemble*Graph()` builder (cached per refresh bucket), then feeds the result to the same `tickBroadcastGraph` walker as any other graph.
+
+There is **no show-type registry** — a type is a `playback_mode` string branched on in ~9 places (`scanChannelDay`, `broadcastDuration`, the `loadChannelRuntimes` SELECT + item mapping, the `npcStaff` exemption, both `getCurrentMessage` branches, `_scriptedTokens`, the walker switch, `recalculateNpcSchedules`). Adding a type means touching each; mirror the nearest existing one.
 
 - **`weather`** reads the live 7-day forecast; **`sports`** simulates a fresh game; **`news`** pulls from the news generator, which assembles **live → wire → tabloid**: live event-sourced stories, then date-seeded canonical-lore "wire" stories (the Long Watch framed as terrorists, the Ascendants as establishment, the Architect as "the Machine"; fixed outlet bylines like Coldwater Sentinel / Basin Civic Wire), padded with tabloid filler. Their announcers/anchors are **name strings** — no NPC is spawned.
 - **Title-card / theme sync**: when a `news`/`talkshow`/`morning` script declares both `@titlecard` and `@theme`, the assembler folds the theme onto the `title_card` node (`{ type: 'title_card', theme }`) instead of emitting a separate `music` node after it. The intro song then starts as the card appears and the card holds for the theme's length, so the first anchor/cold-open line doesn't step on the intro. With a theme but no title card, it still plays as a standalone `music` node.
-- **`sports`** is keyed to an absolute airing time-window so a re-simmed same-slot game produces the same `gameId`. While a game airs, the plugin **emits a `sports.game` event every 60s** with payload `{ channelId, gameId, away, home, awayScore, homeScore, winner, endsAtMs }` — consumed by the **sportsbet**, **sportsleague**, and **gossip** plugins (they read `winner`; there is no `result` field). Score-bug and standings overlays ride `tv_overlay`; the World Series takeover pulls standings back through the `sportsleague.getStandings`/`getSeason` actions.
+- **`sports`** is keyed to an absolute airing time-window so a re-simmed same-slot game produces the same `gameId`. While a game airs, the plugin **emits a `sports.game` event every 60s** with payload `{ channelId, gameId, sport, away, home, awayScore, homeScore, winner, endsAtMs }` — consumed by the **sportsbet**, **sportsleague**, and **gossip** plugins (they read `winner`; there is no `result` field). Score-bug and standings overlays ride `tv_overlay`; a postseason takeover pulls standings back through the `sportsleague.getStandings`/`getSeason` actions. **Each channel simulates its own game** and the `gameId` is keyed to the broadcast as well as the slot — with two sports sharing a channel, one result broadcast to every channel would settle a hockey wager against a ballgame's score. See [Sports — two codes, one pipeline](#sports--two-codes-one-pipeline).
 - **`morning`** is the talk show's daytime cousin — also **acted live**, by two resident host NPCs on the studio couch, but its variable is the WORLD rather than a guest: every segment reads something live (the clock, the forecast, `news.getStories`, the `martial_law`/`nuclear_event` flags, the power map), and the ticker is assembled from those facts rather than authored. Every pool is a `host >> cohost` exchange pair, so the couch's back-and-forth survives the shuffle. Airtime is just its daily playlist slot — no separate gate. See [Morning Shows](bsm-format.md#morning-shows-type-morning).
-- **`talkshow`** is the odd one out: it's **acted live by real cast NPCs**. A resident host + sidekick commute in on schedule, and ONE reusable guest NPC is renamed to a new persona each in-game day, appears in a random unobserved zone, walks across the map to the studio, performs, and vanishes backstage afterward (engine AI actions `TALKSHOW_APPEAR`/`TALKSHOW_HIDE`, plus `talkshowHeartbeat` for the nightly rename). The assembled graph sets `_requireHost`, so it presence-gates on any channel — no cast on-stage ⇒ camera-idle → technical difficulties. See [Talk-Show Broadcasts](bsm-format.md#talk-show-broadcasts-type-talkshow).
+- **`gameshow`** is the only broadcast type a **player can be inside**. Its variable is the ITEM CATALOG: each round is a question about what something is worth, dealt from `items.value` via the boot-loaded item cache (so question generation costs **zero queries**, and every item added later becomes a prize with no authoring). Four rounds — over-or-under, closest-without-going-over, order-three-lots, and a ±20% Showcase — all answered by the single `guess` verb. **Anyone standing in the channel's `studio_zone_id` when a round opens is a contestant**, and the existing studio relay televises their spoken answer citywide; with nobody there the contestants are name-only strings and the show plays out identically. Round control is a pair of *instantaneous* side-effect nodes (`gameshow_round` / `gameshow_reveal`) — **the guess window is the host's patter between them**, not a timer — and the outcome reaches air through the `{winner}`/`{verdict}`/`{guesses}` tokens rather than by graph branching (the `FLAG_SET` broadcast condition is a stub that always returns `false`). Wins pay credits gated by a 6-hour `player_flags.gameshow_win_cooldown`; the Showcase also grants the actual lot. Lives in the sibling module [plugins/broadcast/gameshow.js](../plugins/broadcast/gameshow.js). See [Game Shows](bsm-format.md#game-shows-type-gameshow).
+- **`sermon`** is the news type’s Sunday cousin: the SAME live news feed, read as scripture instead of reported. Dynamic but **not acted** — celebrants are display names, so nothing spawns and it never presence-gates. Variety comes from three axes rolled per service (which celebrant reads, a random interpretive LENS per reading, and which optional beats happen at all), which is why twelve services off identical headlines come out twelve distinct. Re-rolls per in-game DAY, not per news bucket — a 15-minute liturgy re-rolling mid-service would cut itself off. Weekly via `@airday`, which rides the playlist’s existing 7-bit day mask. See [Sermons](bsm-format.md#sermons-type-sermon).
+- **`film`** is the exception to this whole section: it is **linear**, not assembled. A feature stores an ordinary baked `broadcast_graph` like a `scripted` broadcast, and `film_meta` holds only what a chain cannot — pre-roll card copy, the display-name cast, and the `airSlots` screening block. It spawns no NPCs and never presence-gates (a film is a *recording*, so its `SPEAKER:` lines compile to pre-rendered `verbatim` says with no anchor). The one thing it needs from the runner is a **real-time seek**: daily slots elapse on the in-game clock but a picture is authored in real minutes, so the film branch divides `segElapsed` by `timeScale` before seeking — which is what lets a late viewer join the reel already running instead of restarting it. See [Films](bsm-format.md#films-type-film).
+- **`talkshow`** is the odd one out: it's **acted live by real cast NPCs**. A resident host + sidekick commute in on schedule, and ONE reusable guest NPC is renamed to a new persona each in-game day, appears in a random unobserved zone, walks across the map to the studio, performs, and vanishes backstage afterward (engine AI actions `TALKSHOW_APPEAR`/`TALKSHOW_HIDE`, plus `talkshowHeartbeat` for the nightly rename). The assembled graph sets `_requireHost`, so it presence-gates on any channel — no cast on-stage ⇒ camera-idle → technical difficulties. **`_requireHost` is not enough on its own, and the reason is worth carrying to any acted show:** it only fires when the studio is *empty*, so a segment built around ONE absent actor — while the rest of the cast works — degrades silently instead. The say-node room-authority rule drops that actor's lines without a trace, and what airs is a host interviewing furniture. A talk show therefore does two more things: the guest gets a **call time** (staffed a slot before airtime, since it's the only one with a journey to make), and the interview sits behind a **chair gate** — an `NPC_IN_STUDIO` condition evaluated at air time, with an authored `guest_noshow` cover on the other branch. See [the chair gate](bsm-format.md#the-chair-gate) and [Talk-Show Broadcasts](bsm-format.md#talk-show-broadcasts-type-talkshow).
+
+---
+
+## Sports — two codes, one pipeline
+
+Two shows share the `sports` pipeline: **DEADBALL** (baseball, `bc_1783289744953`) and
+**CLUSTER PUCK** (CPhL hockey, `bc_cluster_puck`). Both live on KSAB-TV at 18:00 —
+Deadball Mon/Wed/Fri/Sun, Cluster Puck **Tue + Thu**, The Open Signal Saturday. A
+script declares its code with `@sport`, and **that is the only thing that selects a
+sport module**; nothing else in the pipeline may branch on it.
+
+### The sport registry
+
+`SPORTS = { baseball, hockey }` in [plugins/broadcast/index.js](../plugins/broadcast/index.js),
+each entry a module under [plugins/broadcast/sports/](../plugins/broadcast/sports/). A
+module is **pure and seeded**: `simGame(matchup, players, rand)` with the same three
+arguments returns the same game forever, on every server and every TV, writing nothing.
+`matchup.teams` carries the whole club list, because a sport whose rosters belong to the
+league can't derive them from two names.
+
+| Export | What it is |
+| --- | --- |
+| `simGame` | the sim; returns `{ away, home, awayScore, homeScore, beats, … }` |
+| `playDesc(beat)` | neutral factual label for the play card (distinct from the announcer's line) |
+| `synthDetail(seed, kind, side)` | cosmetic keyframes for the sub-screen (pitches / possession) |
+| `season` | how a game folds into a league table — see below |
+| `narrate(ctx)` | **optional.** Its presence is what hands this sport the middle of the broadcast |
+| `defaultNames`, `section`, `ordinal` | naming/labelling |
+
+### The `narrate` seam
+
+`assembleSportsGraph()` keeps everything sport-agnostic — the node chain, `say`/`pick`,
+the recap reel, the pacing, the graph — and hands the middle to `sportMod.narrate(ctx)`
+when the module exports one. **Baseball has no `narrate`**, so its body (halves, bases,
+RBI, extra innings) runs untouched on the original path; the diff that added the seam is
+the seam and nothing else. A third sport touches `index.js` nowhere but the registry.
+
+`ctx` supplies `{ script, game, gs, slot, ws, announcer, pools, nrng, sport, add, say,
+pick, abbr, recordOf, standings, lastId }`. `recordOf` is **bound to that sport's table**
+so a narrator cannot read the other league's records.
+
+### Hockey specifics (as built)
+
+- **The atomic beat is a scoring chance**, not an at-bat: ~34/game at ~10–11% conversion,
+  landing on **~6.4 goals on ~64 shots**.
+- **Violence has consequences.** An injured man is *not replaced* — his side finishes
+  short. A fight loser serves five and the **winner's** team gets the power play.
+- **Sudden death is literal**: overtime ends on the first goal *or* the first fatality,
+  then a shootout. **Never a tie.**
+- **Faceoffs are real beats at the nine real dots.** Centre ice **only** after a goal or
+  to start a period; the offending team's end after a penalty; the defending end after a
+  frozen puck or an injury; neutral zone after a fight or scrum. The dot alone tells a
+  reader what just happened, which is why it is simulated rather than sprinkled.
+- **A man belongs to one club.** `rosterFor(team, teams, players)` deals each club a
+  stable, disjoint six by sorting the league and shuffling the pool with a fixed seed —
+  a pure function of the *league*, not the game, stored nowhere. The pool must hold at
+  least `clubs × 6` names (regress asserts it); below that it degrades to sharing men.
+- **Clubs differ.** `clubProfile(name)` derives shooting / goaltending / discipline /
+  violence + a colour pair from the club NAME, then **nudges by keyword** — a club called
+  the Goons cannot come out as the league's gentlest side because its name hashed low.
+  Measured over 480 games: the most-penalised club takes ~341 to the least's ~121, with
+  goals/game holding at ~6.4.
+- **Every club has exactly one rival**, `rivalOf(team, teams)`, derived from the league
+  (sort → seeded shuffle → pair adjacent) so nothing is authored and a new club arrives
+  with a rival. A rivalry is **not a caption**: fights and boards run ×1.7 and penalties
+  ×1.45, which measures out at **7.9 penalties and 2.1 fights** a night against 6.4 and
+  1.4 normally. It's highlighted everywhere it's true — its own intro/matchup pools, a
+  red `hockeyrivalry` pre-game card, and a persistent chip on both the score bug and the
+  rink header, so someone joining in the second period can see why the penalty count
+  looks like that.
+- **Barn colour.** Booth chatter looks for `chatter.<first word of the home club>` and
+  falls back to the general `chatter` pool — authoring a building is optional, and a club
+  with nothing written behaves exactly as before. Ashway, Docks and Longwatch have one.
+- **Every barn's horn is its own.** The goal horn is seeded from a hash of the scoring
+  club's name (`hornSeed` on the payload) through the soundset's existing `variant()`,
+  so no per-club audio is authored and a barn sounds like itself forever.
+- **Injuries persist, and that is the hard part.** A man carried off is gone for
+  **2–16 slots**; a death is permanent. This makes game N depend on the games before it
+  — the one thing this league's determinism forbids — so nothing is stored: the schedule
+  is deterministic, therefore **the injury ledger is also a pure function of the slot**.
+  `ledgerAt()` folds the season's games forward in order carrying who is hurt and until
+  when, memoised and *advanced* (a normal slot roll costs one extra sim, a cold start
+  rebuilds the window). **`computeStandings` walks the identical chain**, so the table
+  and the broadcast can never disagree about who was playing. A depleted club **calls up**
+  from the reserve — the slack between the player pool and `clubs × 6`, which is why the
+  pool should run comfortably past the minimum — and a club can never ice fewer than six;
+  with the reserve exhausted the injured man plays hurt. Tuned to hold the league at
+  **~13% unavailable** (peak 21 of 96, reserve never dry): at the first pass, 40% of the
+  league was hurt at once, which makes "their best man is out" meaningless. Deaths reset
+  with the season when the chain re-anchors — which is exactly right for a league whose
+  own lore says there are no records and no office to keep them.
+- **Intermissions.** Between periods the broadcast reads the period back: scoring
+  summary, shot clock, penalties, casualties. Every number is counted from beats already
+  aired, so an intermission can't disagree with the game. **No intermission in overtime.**
+
+### Leagues (`sportsleague`)
+
+One season **per sport**. `sports_season` carries a `sport` column with a
+`(sport, season_no)` key, so both leagues number their own seasons from 1. Standings stay
+a **zero-write computed fold** over the deterministic schedule, but *what* a game folds
+into belongs to the sport module (`SEASON` in `sports/<name>.js`):
+
+| | Deadball | Cluster Puck |
+| --- | --- | --- |
+| Table | W · L · PCT · RDIF | W · L · **OTL** · **PTS** · GD |
+| Points | — | 2 for a win, **1 for losing past sixty** |
+| Extras | — | scoring race + season casualty/death count |
+| Final | World Series (`worldseries`) | **Coldwater Cup** (`cup`) |
+
+A postseason takeover applies **only to its own sport** (`overrideFor(script)`) —
+handing the World Series' finalists to the hockey sim would put two ballclubs on the ice.
+
+### The rink sub-screen
+
+[client/game/js/panels/gameday-rink.js](../client/game/js/panels/gameday-rink.js) is the
+hockey analogue of the Deadball diamond, with the identical
+`{ apply, clear, setCaption, showIdle, showCard }` interface — which is the only reason
+tv.js can pick a view by `gd.sport` and change nothing else. Both TV surfaces (CRT and
+tablet) get it, since both drive the same `createTvView`.
+
+Two facts fell out of the sim and the whole view is built on them: the possession
+keyframes are already in rink coordinates, and **a goal's final keyframe (x≈0.955) is
+past the goal line the view draws (0.925)** — so the puck visibly crosses, *then* reaches
+the mesh at 0.975, which bulges. Regress asserts every simulated goal crosses. The goalie
+is an articulated SVG (mask, chest, blocker, trapper, two pads, stick) with a pose per
+save type, because every save in the sim is a *different* save.
+
+Branding lives in [cphl-brand.js](../client/game/js/panels/cphl-brand.js) — one mark,
+drawn by the score bug, the full-screen graphics, the rink header and the idle screen.
+
+### Sound banks
+
+`sfx-catalog.js` folds in **banks**: a separate file authoring a themed preset set in the
+catalog's own shape (`client/shared/hockey-sfx.js`, 29 CPhL presets under group `hockey`).
+Folding them in is what makes them dev-panel editable and `interface_sfx`-overridable.
+**Load-order contract: a bank's `<script>` must come BEFORE `sfx-catalog.js`** in both
+`client/game/index.html` and `client/devpanel/index.html` — otherwise the bank still
+plays but the dev panel can't see it.
+
+### Reading the league from outside (`broadcast.getNextOnAir`)
+
+Two read Actions serve anything that wants league data without touching the sim:
+`broadcast.getTeamCard` (a club's form + when they're next on) and
+**`broadcast.getNextOnAir`** — *the one game the schedule puts on next*, optionally
+narrowed by `{ sport }` or `{ team }`. It walks forward from the current slot over
+every channel's sports playlist items, clearing **both** gates a real airing clears
+(the script's `airSlots` hour **and** the item's day mask, with day-of-week advanced
+per slot), and returns the first match. Query-free — grids, season and clock are all
+in memory — and only the matching slot is ever simulated, which is what makes it
+safe on the tablet's home screen (the Sports home widget is its only consumer).
+
+**Both obey the spoiler rule, and it is the load-bearing constraint here.** Every
+game is a pure function of its slot, so a future fixture's final score is already
+computable. An upcoming game therefore returns matchup + airtime with `awayScore`/
+`homeScore` **null**; a game currently on air returns the score *as far as the
+play-by-play has been called* (indexed off the same shared clock the graph walker
+seeks by, over `SPORTS_GAME_FILL` of the slot); past that point it's `FINAL`. If you
+add another consumer, keep this — the whole sports system exists to make watching
+the broadcast worth doing.
+
+### Rebuilding the show from its script
+
+`data/scripts/hockey.bsm` is the source of the show. `node scripts/content/build-cluster-puck.mjs`
+recompiles it into the broadcast, graphic and playlist rows under `content/`, so the file
+in git and the shipped row can't drift. The one thing it can't do — handing Deadball's two
+nights back — is `scripts/cluster-puck-schedule.mjs`, an idempotent one-shot per database.
+
+---
+
+## Studio Audience Door
+
+A channel with a `studio_zone_id` is a room players can walk into, and while one of the
+**acted** modes (`talkshow` / `gameshow` / `morning`) is airing, that room is a set with a
+house in it. [plugins/broadcast/audience.js](../plugins/broadcast/audience.js) ticketizes it.
+
+**The gate is a person, not a law.** It's a `registerMoveGate` (`broadcast:audience-door`)
+that only bites when an NPC carrying `flags.audience_door` is standing on the tile *outside*
+the studio, alive, and on shift (**08:00–02:00**). Dead, absent, or off-shift ⇒ no check at
+all. That's the designed out, not a hole. It also only fires on the way in from outside
+(`from.map_id !== to.map_id`), so moving between the studio's own interior rooms is free.
+
+**A pass is a dated document.** The playlist has no day-of-week, so the date rides on the
+ticket instead of the schedule. The box office stamps `player_inventory.custom_data.show_pass`
+= `{ channel, broadcast, name, slot, date, time }`, where `slot` is the **absolute** airtime
+index (in-game day × `SPORTS_GAMES_PER_DAY` + block) and is therefore self-dating. The doorman
+admits you iff `show_pass.slot === sportsSlotIndex()`. Yesterday's pass is a souvenir, and he
+says so. The pass is **not consumed** — step out and the same one walks you back in until the
+showing ends.
+
+**Off air there is no house.** With nothing acted airing, the doorman turns everyone away and
+the box office sells for the **next** taping rather than the current one.
+
+Selling is the engine seam `registerPurchaseStamp(itemId, fn)` in
+[server/engine/vendor.js](../server/engine/vendor.js) — a per-purchase sibling of the static
+`flags.prefill`. The stamper runs before credits move (so a refusal is free), returns a
+`custom_data` bag or a string to refuse the sale with, and may carry a `_line` for the receipt.
+A stamped unit **never** merges into an existing stack; `show_pass` is registered in
+`INSTANCE_KEYS` + `NOT_INSTANCED_SQL` so pickUp/give/drop honour that too — two passes to two
+different nights must never collapse into one row carrying the wrong date.
+
+As built at KSAB-TV: **Orsino Tull** (`npc_ksab_doorman`) on the facade `zone_district_913_911`,
+**Dovie Deeb** (`npc_ksab_boxoffice`) selling `item_holo_ticket` at 25₵ from the same tile.
 
 ---
 
@@ -358,6 +659,83 @@ Implemented in `plugins/broadcast/index.js` (search `Media Deck`).
 - Cassette items are `items` rows with a deterministic id `item_cassette_<showname>` (broadcast name, slugified) and `tags.media_cassette = true` / `tags.broadcast_id`. The same id convention is used both by the dev-panel BSM import flow (`POST /broadcast/cassette`) and by `eject`, so the two paths always converge on one item definition per broadcast rather than creating duplicates. Only one cassette can exist per broadcast — if a *different* broadcast's name slugifies to the same id, `_ensureCassetteItem` throws (`CASSETTE_NAME_COLLISION`) instead of overwriting; `POST /broadcast/cassette` returns `409` and `eject`'s fallback-create path returns an in-game error.
 - The media deck panel (`client/game/js/panels/mediadeck.js`, markup in `client/game/index.html`) shows a cartridge "slot" that slides a cartridge graphic into view when a cassette is active, a scrollable library list (click a row to `selectcassette`), a read-only schedule preview, and a LOAD / EJECT button row (LOAD sends `load cassette`, EJECT sends `eject`).
 
+### Small-format players (`flags.mini_deck`) — the betamax
+
+A **tape player** is a media deck scoped to one room and one set: a squat top-loading box
+that sits on a television and plays whatever is in it, on a loop, until somebody stops it.
+First example: `furn_betamax_zone_grindhouse_interior` in the Grind House.
+
+It is **the same `object_type: 'media_deck'`**, and that is the whole design. Reusing the deck
+gets `load` / `eject` / `selectcassette`, the examine panel with its LIVE/LOAD dots, and the
+zone-scoped channel override for nothing — and `_playDeckItem` **already loops a flat list on
+its own duration**, so "plays until stopped" required no playback code at all. `mini_deck` is
+a marker for the physical thing (one tape, one receiver), not a second mechanism.
+
+**How the television "tunes to" it: it doesn't.** `_zoneDeck(zoneId, channelId)` finds decks in
+the *same zone* and prefers the one whose `flags.channel_id` matches the channel the viewer's
+set is on. The set stays on its channel; the deck **substitutes what that channel shows, for
+that room only**. So the linkage between player and TV is simply that both furniture rows carry
+the same `channel_id` — there is no pairing table and no cable.
+
+**Channel 0 is the VCR input** (`ch_0_vcr`, name `VCR`), exactly as every television that ever
+had a tape deck under it. Tape players carry `channel_id: 'ch_0_vcr'`; **KSAB-TV on 7 is
+independent**, so putting a tape on no longer hijacks the station in that room — you change
+input, the way you would in life.
+
+That required freeing `0`, which used to mean *off*. **Powering down is the power button, not a
+dial position**: in `client/game/js/panels/tv.js` a **tap** closes the view and leaves the set on,
+a **450 ms hold** sends `tv_poweroff` and switches it off room-wide. `_applyTuning` now takes an
+explicit **`TV_OFF`** sentinel, and both `tune` and `tablettune` accept the word `off`. The two
+dials are deliberately identical — a tablet standing in a room with a deck in it watches the tape
+on 0 like anything else.
+
+**Small-format cassettes** carry `tags.beta_cassette` alongside the usual `media_cassette` +
+`broadcast_id`. A full-size deck reads them perfectly well; the tag exists so the little players
+can refuse the big deck cassettes, which physically would not fit. It has no playback behaviour.
+
+### The spare input: a SPECTER camera instead of a tape (`flags.deck_cam_source`)
+
+A consumer deck has one input, and with SPECTER on your tablet it can be one of **your own
+sticky cams** rather than a cassette. Patch a feed in and the set in that room shows the camera,
+live, refreshed every 5 s. `patch <cam>` / `patch off`, or the **Patch →** action on a focused cam
+in the tablet's SPECTER app, or the `IN` row at the top of the deck panel's library list.
+
+- The flag is `flags.deck_cam_source = { deviceId, label, zoneId }`, and the input is
+  **exclusive**: `_getDeckMessage` checks it *before* the cassette path, and loading or selecting a
+  tape clears it (the tape stays in `deck_cassettes`, so pulling the jack resumes where it was).
+  `_miniDeckPlayback` counts a patched cam as loaded, so the panel and the examine readout say
+  `▶ PLAYING: LIVE FEED — <zone>` rather than "nothing loaded" — the set still has to be on the
+  deck's channel, same rule as a tape.
+- **Deliberately `mini_deck` only.** A domestic deck transmits nothing, so this puts the feed on
+  *your* wall and nowhere else. Putting a spy cam on a city channel stays the piracy route
+  (`pirate` → `air live`), which is a crime and should keep costing what it costs. A station deck
+  refuses `patch` and says so.
+- **Jam, spoof, battery and damage are not re-decided here.** The frame comes from surveillance's
+  `camPatchFrame(deviceId, ownerId)`, the one sanctioned way for another plugin to turn a device id
+  into a frame; a spoofed cam plays its clean empty-room lie on your TV exactly as it does in the
+  hub, and a jammed one reads `▓ JAMMED`. Both that helper and `camSourcesFor(ownerId)` run off
+  surveillance's 4 s device cache, and the deck memoizes the resolved frame for 4 s
+  (`_camPatchCache`), so **a patched deck adds no query per tick**.
+- A cam that dies for good (24 h burnout, smashed, retrieved) makes the next frame drop the patch
+  itself — lazy cleanup, so nothing has to know to come and tidy up after a device.
+- The cross-plugin seam is two exports on broadcast: `miniDeckHere(zoneId)` (is there a deck to
+  take a feed — cache read, no query) and `patchCamToDeck(player, deviceId)` (patch/unpatch by id).
+  Every gate lives in broadcast; the SPECTER app only asks.
+
+**One fix this needed:** `canOperateDeck` now returns true for any `mini_deck`. A consumer deck is
+an appliance, not a transmitter — there is no frequency to seize — and until this, a resident
+could not put a tape in the machine in their own flat.
+
+### The proprietor puts their tape back on
+
+A deck may name `flags.deck_owner_npc` and `flags.deck_default`. Anyone can stop it or tune the
+set to a real station — and while that NPC is in the room, they will put it back on the next
+`tick.minute`, with a line about it. Two flags, no bespoke code per shop.
+
+Scoped to zones that currently contain a **player**: a tape reverting in an empty room is both
+unobservable and a pointless write, and sweeping ~5,800 zones a minute to find out would cost
+more than the feature is worth. (This is the broadcast plugin's only engine hook.)
+
 ## Game Client — Passive vs Active
 
 The **server** (`broadcastTick`) decides who gets what: it splits the players in a tuned
@@ -449,6 +827,12 @@ the tablet needed its own path:
   so every pass records what it resolved into a per-tick `tickResults` map, and the tablet pass
   **reuses** that beat rather than re-resolving. It only resolves fresh for a channel nothing else
   drove (and then claims it in `activeChannels`). Getting this wrong makes viewers skip lines.
+- **One player, two surfaces, one copy of each beat.** `tvWatchers` and `tabletTuners` are separate
+  registrations on purpose, but `dispatch.js` fans a `broadcast` message out to *every* view on that
+  channel — so if both passes send the same beat to the same player, each screen renders it twice,
+  plays the music twice, and stacks the overlays. `broadcastTick` records `"<playerId>:<channelId>"`
+  in a per-tick `servedThisTick` set as the zone pass delivers, and `_tabletBroadcastPass` skips
+  anyone already in it. The studio-floor relay does the same with its own `sentTv` set.
 - Off-air, score-bug/gameday/standings/sports-FX overlays, `audio_music`/`audio_sample` and the
   per-line `duration` all reach tablet tuners identically. There's no `broadcast_ambient` — a tablet
   has no room to leak into. Formatting is always `tv` (no `[Radio]`/`[FEED]` prefix).
@@ -682,7 +1066,19 @@ All broadcast routes use `directAPI`:
 ## Operational Notes
 
 - **Tick cadence**: 1 second (`BROADCAST_TICK_MS`), separate `setInterval` in the plugin (not the world scheduler). The tick is the re-evaluation granularity, not the reading pace — node holds (`nodeHoldMs`) are honored at tick granularity (a node advances on the first tick past its hold), so a fine tick lets the text-scaled holds land close to target without ever skipping messages.
-- **Spoken-line pacing scales with text**: for `say`/`ticker`/`camera_cut` nodes, `nodeHoldMs` returns `min(chars × 110ms, 20s) + 1s` (a small floor for readability), sized so the read-aloud formant voice reads each line at its natural pace — never speeding up, nothing cut off — with a 1 s gap before the next line. The `say` result carries this window as `duration` so the client uses it as the exact speech budget (falling back to the measured inter-line gap when absent). `110 ms/char` is calibrated to the synth's ~94 ms/char average, the margin covering slower per-narrator voices.
+- **Spoken-line pacing scales with text**: for `say`/`ticker`/`camera_cut` nodes, `nodeHoldMs` returns `max(2.2s, min(chars × 75ms, 30s) + 900ms)`, sized so the read-aloud formant voice reads each line at its natural pace — never speeding up, nothing cut off — with a 1 s gap before the next line. **The voice never compresses to fit**: `AudioEngine.speak` used to scale a long line's speed by up to 2× to land inside its window, which made long lines gabble while short ones strolled, so the window is the thing that stretches. That makes the 30 s cap the only thing that can now clip a read, which is why it sits past any sane line. The `say` result still carries the window as `duration` (the client takes it as information, falling back to the measured inter-line gap when absent). `110 ms/char` is calibrated to the synth's ~94 ms/char average (re-measured at 92.2 after the stress/reduction work — see [systems-library.md](systems-library.md)), the margin covering slower per-narrator voices.
+- **The client CHAINS spoken lines; the hold is a ceiling, not a metronome** (`tv.js`, `_speakNow`/`_pump`). `nodeHoldMs` is a text-length *estimate*, and measured across the `.bsm` corpus the voice finishes inside it on essentially every line of dialogue — averaging ~1.9 s early. Playing on arrival therefore left the set silent between every line, and on an overrun the next arrival called `AudioEngine.speak`, whose first act is `cancel()`, truncating the previous line **mid-word**. So arriving lines queue and are spoken the moment the previous utterance ends, driven by the real `duration` speak() hands back rather than by a second estimate. An overrun now delays the next line instead of amputating this one.
+  - **Long lines are split** to ≤220 chars on sentence → clause → word boundaries (three cascading levels, because the corpus contains a 585-char crawl punctuated only with middots that the first two don't touch). This is internal to the voice — the caption is still one message. Note it bounds the *utterance*, *not* the total: splitting does not make a long line take less time to read, so it does not by itself fix an overrun.
+  - **A line over 273 chars cannot fit its hold by construction**, since `nodeHoldMs` caps at 30 s while speech keeps growing. 19 lines in the corpus are over it; they are crawl/ticker copy that the read-aloud style filter doesn't voice anyway.
+  - **The coefficient is FITTED, and it can only be fitted because `estimateDuration` is honest.** 110 ms/char dated from when that function ignored the stress, pre-boundary and aspiration factors and so under-reported the real read length — the coefficient was covering an error rather than a voice, which is why lines began landing on top of the speech. With it corrected, 75 ms/char + 900 ms was fitted against every line in the `.bsm` corpus read by the **slowest possible narrator** (the speed-range floor, 1.24 — the average voice is not what has to fit). That leaves ~0.5 % of lines overrunning, essentially all of them the >273-char crawl copy the read-aloud filter never voices. Below ~70 the overrun rate climbs sharply (2 %, 4 %, 10 %) for progressively less dead air, so this sits just above the knee.
+  - A small overrun is **safe** now: the client queue delays the next line rather than cutting the current one mid-word. That's what allows a fitted coefficient instead of a defensive one.
+  - Measured across the corpus: 65–77 ms/char depending on the voice, 0.2–0.6 % overruns, 1.8–2.3 s dead air per line. The remaining dead air is mostly the ±9 % per-voice speed spread (the hold must cover the slowest) plus up to 1 s of rounding to the broadcast tick.
+  - **A spoken line is not DISPLAYED until the voice is free to read it.** Caption and audio are delivered together, so the text can never run ahead of the speech. `_deliverQ` holds whole messages; `_pumpDeliver` releases the head once the voice falls silent, then renders and speaks it.
+    - **Order is preserved absolutely.** Once anything is waiting, *everything* queues behind it — including a title card or ticker that has nothing to say — or the picture would overtake the line it belongs to.
+    - **With the voice off, nothing waits.** `_voiceLive` tracks whether the engine actually produced sound (it returns nothing when muted, disabled, or blocked by autoplay policy). The moment a read comes back silent, every held caption is released and display reverts to the server's own timing. A muted set never sits waiting on a voice that will never speak.
+    - `catchUp` — the beat already on air when you tuned in — is shown but never narrated, so it never waits either.
+    - A `DELIVER_MAX_WAIT_MS` backstop (20 s) shows an old message regardless, so a stuck voice can't leave the screen dead. Normal operation never reaches it.
+  - **Drift is bounded at scene beats only.** The client now paces off its own voice while the graph runs on the server clock for every viewer at once, so it can fall behind. If the oldest unspoken line has waited more than `RESYNC_MS` (2.5 s), the queue sheds down to the freshest line — but *only* on a non-spoken message (title card, ticker, overlay), because that's where the picture changes and where a lost beat is invisible. Never mid-scene, never mid-word. In the measured corpus the threshold is not reached; it exists to bound worst-case drift, not to run normally.
 - **In-memory only**: `channelRuntime`, `zoneTunings`, `newsQueue`, `graphicsCache` — all rebuilt on server restart from DB. News queue starts empty on restart.
 - **Graphics cache**: holds `id`, `name`, `type`, `content`. `type` is used by `title_card` and `off_air` to set the correct wire style (`'svg'` vs `'ascii_art'`), which the client uses to pick `innerHTML` vs `textContent` rendering.
 - **VINE vs flat list**: runtime prefers `broadcastGraph` when present. Both are saved independently.

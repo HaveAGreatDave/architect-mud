@@ -39,6 +39,10 @@
     "root": {
       "options": [
         {
+          "label": "Patch me up.",
+          "next": "treat"
+        },
+        {
           "label": "Let me see the stock.",
           "next": "shop"
         }
@@ -59,6 +63,27 @@
         }
       ],
       "text": "\"Take a look. Cash only, no refunds, no tears.\""
+    },
+    "treat": {
+      "actions": [
+        {
+          "action": "CLINIC_TREAT",
+          "bleed_fee": 30,
+          "minimum": 15,
+          "rate": 3
+        }
+      ],
+      "options": [
+        {
+          "label": "Thanks.",
+          "next": "root"
+        },
+        {
+          "label": "Let me see the stock.",
+          "next": "shop"
+        }
+      ],
+      "text": "\"Sit. Sleeve up.\" She does not ask what happened, and she does not stop moving until it is done."
     }
   },
   "faction": null,
@@ -151,7 +176,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Mercy Row Clinic",
+  "vendor_shop_name": "Stitch 'n' Bitch",
   "vendor_stock_size": 12,
   "wander_zones": [],
   "wanders": 0,

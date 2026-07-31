@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Voice Lab — Architect</title>
+<link rel="stylesheet" href="/shared/themes.css">
+<style>
+  body { font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; margin: 0;
+         background: var(--bg, #0e1117); color: var(--text, #cfd6e4); }
+  header { padding: 14px 18px; border-bottom: 1px solid var(--border, #2a3346); }
+  h1 { font-size: 15px; margin: 0 0 4px; letter-spacing: .04em; }
+  .sub { color: var(--text-dim, #7c88a1); font-size: 12px; }
+  main { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(300px, 420px);
+         gap: 18px; padding: 18px; align-items: start; }
+  @media (max-width: 820px) { main { grid-template-columns: 1fr; } }
+  fieldset { border: 1px solid var(--border, #2a3346); border-radius: 6px; margin: 0 0 14px; padding: 12px 14px; }
+  legend { color: var(--accent, #35e0d6); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; padding: 0 6px; }
+  textarea, input[type=text] { width: 100%; box-sizing: border-box; background: #0a0e16;
+    color: inherit; border: 1px solid var(--border, #2a3346); border-radius: 4px; padding: 8px; font: inherit; }
+  textarea { height: 88px; resize: vertical; }
+  button { background: var(--accent, #35e0d6); color: #06232b; border: 0; border-radius: 4px;
+           padding: 8px 14px; font: inherit; font-weight: 700; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--text-dim, #7c88a1); border: 1px solid var(--border, #2a3346); font-weight: 400; }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+  .knob { display: grid; grid-template-columns: 108px 1fr 58px; gap: 8px; align-items: center; margin: 7px 0; }
+  .knob label { color: var(--text-dim, #7c88a1); font-size: 12px; }
+  .knob output { text-align: right; font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent, #35e0d6); }
+  .phon { background: #0a0e16; border: 1px solid var(--border, #2a3346); border-radius: 4px;
+          padding: 8px; word-break: break-word; color: var(--accent, #35e0d6); min-height: 20px; }
+  .phon b { color: #ffd166; }
+  .phon i { color: #ff8fa3; font-style: normal; }
+  .note { color: var(--text-dim, #7c88a1); font-size: 11.5px; margin-top: 8px; }
+  .preset { font-size: 11.5px; padding: 5px 9px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>VOICE LAB</h1>
+  <div class="sub">Turn the formant synth by ear. Changes apply to the next line spoken — nothing is persisted.</div>
+</header>
+
+<main>
+  <div>
+    <fieldset>
+      <legend>Line</legend>
+      <textarea id="text">Good evening, and welcome to the Coldwater evening report. Acid rain after midnight, so stay indoors — and it is GONE if you leave it out.</textarea>
+      <div class="row">
+        <input type="text" id="seed" placeholder="voice seed (a narrator's name)" value="Dex Rime" style="flex:1 1 180px">
+        <button id="say">Speak</button>
+        <button id="stop" class="ghost">Stop</button>
+      </div>
+      <div class="row">
+        <button class="ghost preset" data-t="Good evening. Stay tuned.">short</button>
+        <button class="ghost preset" data-t="{batter} turns on one and it is GONE! A solo shot, no doubt about it.">emphasis</button>
+        <button class="ghost preset" data-t="You're not going into the water, are you?">question</button>
+        <button class="ghost preset" data-t="We had bread, water, salt, and nothing else at all.">commas</button>
+        <button class="ghost preset" data-t="The man in the moon named Emma an unmown lawn.">nasals</button>
+        <button class="ghost preset" data-t="She sells sixty-six shining thistle sticks.">sibilants</button>
+      </div>
+      <div class="note">Duration of the last read: <span id="dur">—</span></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Phonemes</legend>
+      <div class="phon" id="phon">—</div>
+      <div class="note"><b style="color:#ffd166">*</b> lexical stress &nbsp; <i style="color:#ff8fa3">!</i> emphasis &nbsp;
+        <code>_</code> word gap &nbsp; <code>_C</code> continuation &nbsp; <code>__</code> terminal &nbsp; <code>AX</code> schwa</div>
+    </fieldset>
+  </div>
+
+  <div>
+    <fieldset>
+      <legend>Tuning</legend>
+      <div id="knobs"></div>
+      <div class="row">
+        <button id="reset" class="ghost">Reset all</button>
+        <button id="dump" class="ghost">Copy values</button>
+      </div>
+      <div class="note" id="dumped"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Notes</legend>
+      <div class="note">
+        <b>rate</b> is the master pace — lower is slower. Broadcast's <code>nodeHoldMs</code>
+        (75&nbsp;ms/char + 900) is fitted to it, so if you move this far, the hold wants refitting
+        or lines will land on top of the voice.<br><br>
+        <b>breath</b> is the only noise that runs continuously, so it drives the general
+        impression of hiss more than its level suggests — turn it first if the voice sounds noisy.<br><br>
+        <b>sibilance</b> / <b>friction</b> split the fricatives: S&nbsp;Z&nbsp;SH&nbsp;ZH&nbsp;CH&nbsp;JH
+        versus F&nbsp;V&nbsp;TH&nbsp;DH. If consonants go mushy, raise <i>friction</i> before touching presence.<br><br>
+        <b>creak</b> is phrase-final vocal fry. 0 disables it.
+      </div>
+    </fieldset>
+  </div>
+</main>
+
+<script src="/shared/settings.js"></script>
+<script src="/shared/formant-cmudict.js"></script>
+<script src="/shared/audio-engine.js"></script>
+<script>
+(function () {
+  const T = () => window.AudioEngine && window.AudioEngine.voiceTuning;
+  const el = id => document.getElementById(id);
+
+  // [key, label, min, max, step]
+  const KNOBS = [
+    ['rate',       'rate',        0.55, 1.20, 0.01],
+    ['breath',     'breath',      0,    3,    0.05],
+    ['sibilance',  'sibilance',   0,    2.5,  0.05],
+    ['friction',   'friction',    0,    2.5,  0.05],
+    ['aspiration', 'aspiration',  0,    2.5,  0.05],
+    ['presenceDb', 'presence dB', -6,   12,   0.5 ],
+    ['tiltPlain',  'tilt plain',  2500, 9000, 100 ],
+    ['tiltStress', 'tilt stress', 2500, 9000, 100 ],
+    ['tiltEmph',   'tilt emph',   2500, 9000, 100 ],
+    ['emphasis',   'emphasis',    0,    2.5,  0.05],
+    ['creak',      'creak',       0,    2,    0.05],
+    ['finalTaper', 'final taper', 0.1,  1,    0.05],
+    ['lineGapMs',  'line gap ms', 0,    900,  10  ],
+  ];
+
+  let DEFAULTS = null;
+
+  function build() {
+    const t = T();
+    if (!t) { el('knobs').textContent = 'AudioEngine not loaded.'; return; }
+    DEFAULTS = Object.assign({}, t);
+    el('knobs').innerHTML = '';
+    for (const [key, label, min, max, step] of KNOBS) {
+      const wrap = document.createElement('div');
+      wrap.className = 'knob';
+      wrap.innerHTML = '<label for="k_' + key + '">' + label + '</label>' +
+        '<input type="range" id="k_' + key + '" min="' + min + '" max="' + max + '" step="' + step + '">' +
+        '<output id="o_' + key + '"></output>';
+      el('knobs').appendChild(wrap);
+      const input = wrap.querySelector('input');
+      input.value = t[key];
+      wrap.querySelector('output').textContent = t[key];
+      input.addEventListener('input', () => {
+        const v = parseFloat(input.value);
+        T()[key] = v;
+        el('o_' + key).textContent = v;
+      });
+    }
+  }
+
+  function speak() {
+    const engine = window.AudioEngine;
+    if (!engine) return;
+    // The lab is the one place the TV-voice setting must not gate playback — you are
+    // here to hear it. Force both switches on for this page only.
+    if (engine.applyVolumeSettings) {
+      try { engine.applyVolumeSettings({ enabled: true, tv: true, master: 1, tvVolume: 1 }); } catch (e) { /* older signature */ }
+    }
+    const res = engine.speak(el('text').value, { seed: el('seed').value || 'broadcast' });
+    el('dur').textContent = res && res.duration ? res.duration.toFixed(2) + ' s' : 'not spoken (audio blocked or muted)';
+    render();
+  }
+
+  // Phoneme view. The synth doesn't export textToPhonemes, and shouldn't just for
+  // this, so the run is shown only when a debug hook happens to be present.
+  function render() {
+    const f = window.AudioEngine && window.AudioEngine._phonemesFor;
+    if (!f) { el('phon').textContent = '(phoneme view needs AudioEngine._phonemesFor)'; return; }
+    const seq = f(el('text').value);
+    el('phon').innerHTML = seq.map(p =>
+      p === '*' ? '<b>*</b>' : p === '!' ? '<i>!</i>' : p
+    ).join(' ');
+  }
+
+  el('say').addEventListener('click', speak);
+  el('stop').addEventListener('click', () => window.AudioEngine && window.AudioEngine.cancelSpeech());
+  el('reset').addEventListener('click', () => { Object.assign(T(), DEFAULTS); build(); });
+  el('dump').addEventListener('click', () => {
+    const t = T(), out = {};
+    for (const [k] of KNOBS) if (t[k] !== DEFAULTS[k]) out[k] = t[k];
+    const s = Object.keys(out).length ? JSON.stringify(out, null, 2) : '(unchanged from defaults)';
+    el('dumped').textContent = s;
+    if (navigator.clipboard) navigator.clipboard.writeText(s).catch(() => {});
+  });
+  document.querySelectorAll('.preset').forEach(b =>
+    b.addEventListener('click', () => { el('text').value = b.dataset.t; speak(); }));
+  el('text').addEventListener('input', render);
+
+  build();
+  render();
+})();
+</script>
+</body>
+</html>

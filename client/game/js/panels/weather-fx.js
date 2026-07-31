@@ -55,6 +55,9 @@ function updateTransition(dt) {
 // wash). Driven by the `weather_event` WS message. `phase` scales intensity.
 let eventFx = { type: null, phase: null };
 let flashA = 0;   // current ion-storm flash alpha, decays each frame
+let arcs = [];    // live ion-storm discharges — { pts, a }
+let etches = [];  // live acid-rain etch marks — { x, y, r, a }
+let etchTimer = 0;
 
 // Admin fireworks: a soft, slowly hue-drifting colour wash over the top of the pane for the
 // show's duration — the glow of the display lighting up the sky. On its own channel (not
@@ -280,6 +283,24 @@ function drawEventOverlay(dt, w, h) {
   if (eventFx.type === 'acid_rain') {
     ctx.fillStyle = `rgba(150,200,40,${0.05 + 0.06 * m})`;   // caustic yellow-green wash
     ctx.fillRect(0, 0, w, h);
+    // Etch marks: short-lived bright pits where a drop has just landed and started
+    // eating something. The wash alone reads as a colour grade; these read as the
+    // rain doing damage, which is the whole point of the event.
+    etchTimer -= dt;
+    if (etchTimer <= 0) {
+      etchTimer = 0.05 / m;
+      etches.push({ x: rand(0, w), y: rand(0, h), r: rand(1, 2.6), a: 0.55 * m });
+      if (etches.length > 70) etches.shift();
+    }
+    for (let i = etches.length - 1; i >= 0; i--) {
+      const e = etches[i];
+      e.a -= dt * 1.4;
+      if (e.a <= 0) { etches.splice(i, 1); continue; }
+      ctx.fillStyle = `rgba(220,255,120,${e.a})`;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
     return;
   }
   if (eventFx.type === 'ion_storm') {
@@ -289,8 +310,39 @@ function drawEventOverlay(dt, w, h) {
     // scale with phase). dt-scaled so frequency is frame-rate independent.
     flashA = Math.max(0, flashA - dt * 4);
     const flashesPerSec = eventFx.phase === 'peak' ? 0.7 : 0.28;
-    if (Math.random() < flashesPerSec * dt) flashA = 0.3 + 0.4 * m;
+    if (Math.random() < flashesPerSec * dt) { flashA = 0.3 + 0.4 * m; spawnArc(w, h, m); }
     if (flashA > 0.01) { ctx.fillStyle = `rgba(215,255,230,${flashA})`; ctx.fillRect(0, 0, w, h); }
+    drawArcs(dt);
+  }
+}
+
+// Ion arcs: a jagged discharge crawling down the pane, drawn on top of the flash.
+// A full-pane white fill says "something bright happened somewhere"; a visible
+// bolt says the air itself is conducting, which is what an ion storm IS.
+function spawnArc(w, h, m) {
+  const pts = [];
+  let x = rand(w * 0.15, w * 0.85);
+  let y = -4;
+  const step = h / 9;
+  while (y < h) {
+    pts.push({ x, y });
+    y += step;
+    x += rand(-28, 28);
+  }
+  arcs.push({ pts, a: 0.5 + 0.4 * m });
+}
+
+function drawArcs(dt) {
+  for (let i = arcs.length - 1; i >= 0; i--) {
+    const arc = arcs[i];
+    arc.a -= dt * 3.2;
+    if (arc.a <= 0) { arcs.splice(i, 1); continue; }
+    ctx.strokeStyle = `rgba(200,255,225,${arc.a})`;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(arc.pts[0].x, arc.pts[0].y);
+    for (const p of arc.pts) ctx.lineTo(p.x, p.y);
+    ctx.stroke();
   }
 }
 
@@ -476,6 +528,8 @@ export function setWeatherFx({ effect, intensity, windKph }) {
 export function setWeatherEventFx(type, phase) {
   eventFx = { type: type || null, phase: phase || null };
   if (type) flashA = 0;
+  // Never carry one event's live geometry into the next (or into no event at all).
+  arcs = []; etches = []; etchTimer = 0;
   if (!shouldRun()) { stopLoop(); return; }
   startLoop();
 }

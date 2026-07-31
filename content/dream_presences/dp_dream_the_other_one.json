@@ -1,0 +1,22 @@
+{
+  "id": "dp_dream_the_other_one",
+  "name": "someone else",
+  "cause": "dream",
+  "drug_id": null,
+  "arrivals": [
+    "Somebody comes in behind you and does not go out again.",
+    "You are not alone in here, and you have not been for a moment or two.",
+    "There is somebody here now. They came in the way people come into a room they know."
+  ],
+  "departures": [
+    "Whoever it was is not here now. You did not see them leave.",
+    "The room is yours again, and it is worse.",
+    "They have gone through to the next one, ahead of you."
+  ],
+  "looks": [
+    "Somebody you know. You will have the name in a moment.",
+    "They are facing slightly away and are about to turn round.",
+    "They are doing something ordinary with enormous care and will not be interrupted.",
+    "It is you, from behind, and neither of you is going to mention it."
+  ]
+}

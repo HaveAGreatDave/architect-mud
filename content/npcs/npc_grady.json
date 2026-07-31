@@ -130,11 +130,17 @@
     "\"Big scores get you killed. A working flashlight gets you home.\"",
     "\"Prices are honest. Out here that counts as a miracle.\"",
     "\"Buy a bandage now or buy a coffin later. I don’t sell coffins.\"",
-    "\"Got rods in, and worms to go on ’em. Docks are lousy with fish — and fish don’t shoot back.\""
+    "\"Got rods in, and worms to go on ’em. Docks are lousy with fish — and fish don’t shoot back.\"",
+    "\"That rig on the wall's a dead lock and a dartboard scoreboard. Practise on it all you like. Costs you nothing but whatever your deck's got left in it.\"",
+    "\"I stock the cheap decks, and I'll tell you straight: they're bad. Two, three bad nights and it's slag. That's the price of learning on something that isn't an ATM.\""
   ],
   "description": "A broad, unhurried man in a patched vendor’s apron, planted behind a counter of scavenged crates in the cramped front room of his shop. Flashlights and coils of spare cells hang off every nail within reach. He watches the door the way a fisherman watches a net — patient, and already pricing whoever walks through it.",
   "dialogue_tree": {
     "accepted": {
+      "_vine": {
+        "x": 680,
+        "y": 240
+      },
       "actions": [
         {
           "action": "START_QUEST",
@@ -158,11 +164,57 @@
       ],
       "text": "\"Good. There’s a green line on your map now — that’s the way. East, into the alley. Try not to die out there; the paperwork on a fresh clone is murder.\""
     },
+    "aim_lesson": {
+      "_vine": {
+        "x": 360,
+        "y": 1680
+      },
+      "actions": [
+        {
+          "action": "TEACH_AIM"
+        }
+      ],
+      "options": [
+        {
+          "label": "And if I do put the hours in?",
+          "next": "aim_lesson_trained"
+        },
+        {
+          "label": "Centre mass it is.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Where do you hit them.\" He says it flat, like it is not a question worth the breath. \"Same place everyone hits them, is where. The middle. It is the biggest part of a person and it is the part that is always facing you.\"\nHe sets down the crate he was holding.\n\"Now — you *can* pick a spot. Head, knee, the hand holding the thing you do not want held. It works. It works about as well as your hands do, which right now is not very. A man who calls a head shot he cannot make has not made a head shot, he has made a miss, and out here a miss is a whole second of your life you handed to somebody else.\""
+    },
+    "aim_lesson_trained": {
+      "_vine": {
+        "x": 680,
+        "y": 1680
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then it stops being a gamble and starts being a decision.\" He shrugs. \"That is the entire difference between the two of us and whatever is out in that alley. It is not the gun. Anyone can hold the gun. It is that you get to choose where it goes and they do not.\"\nHe goes back to the crate.\n\"Come ask me again when you have been swinging a while. I will tell you the same thing and it will be worth more.\""
+    },
     "bye": {
+      "_vine": {
+        "x": 680,
+        "y": 60
+      },
+      "actions": [],
       "options": [],
       "text": "\"Mind the alley. And the sky. And the water. Actually — mind everything.\" He goes back to watching the doors."
     },
     "deep_tip": {
+      "_vine": {
+        "x": 360,
+        "y": 1140
+      },
+      "actions": [],
       "options": [
         {
           "label": "How deep are we talking?",
@@ -172,6 +224,11 @@
       "text": "\"More work? Down there, always.\" He doesn't look thrilled about it. \"You thinned the shallows. But the Under goes down a long way past where you were, and it gets meaner every level. Word is there's an old scavenger who's dug in about as deep as anyone can and lived — works a walled cistern off a crossroads they call the Throat, east and down. Dredge, they call her. She pays real credits for the ugly work she can't do herself anymore.\" He shrugs. \"Push past the pocket, keep that light charged, and go find her. Just don't go dark down there. You go dark, you stay.\""
     },
     "hiring_tip": {
+      "_vine": {
+        "x": 360,
+        "y": 1320
+      },
+      "actions": [],
       "options": [
         {
           "label": "Names?",
@@ -182,27 +239,42 @@
           "next": "bye"
         }
       ],
-      "text": "\"Hiring?\" He snorts. \"Everyone's hiring, nobody's advertising. That's the whole town.\" He leans on the crates. \"Look — Marta's board is fine for bus fare. But there's a class of people round here who've got a problem they can't be seen solving themselves, and a drawer they can pay you out of. Those are the ones worth walking to. They don't post. You knock.\""
+      "text": "\"Hiring?\" He snorts. \"Everyone's hiring, nobody's advertising. That's the whole town.\" He leans on the crates. \"Look — Delia's board is fine for bus fare. But there's a class of people round here who've got a problem they can't be seen solving themselves, and a drawer they can pay you out of. Those are the ones worth walking to. They don't post. You knock.\""
     },
     "hiring_tip_names": {
+      "_vine": {
+        "x": 680,
+        "y": 600
+      },
+      "actions": [],
       "options": [
         {
           "label": "I'll pay them a visit.",
           "next": "bye"
         }
       ],
-      "text": "\"Two worth your time, and both of ’em keep office hours where you can actually reach them.\" He counts on thick fingers. \"Precinct Nine lobby, out east past the Vig — there's a records clerk they call the Registrar, and an Assemblyman named Croll who’s usually in there leaning on somebody. Both have got wastes-work they’d rather not sign their name to. Registrar pays a hundred and change; Croll better than that.\" He shrugs. \"And if you get ambitious, Consul Reyes holds court in the Halcyon lobby. Pays double what I do and asks twice as much. Don’t go to any of them broke and unarmed — they can smell it, and the price of your help drops accordingly.\""
+      "text": "\"Two worth your time, and both of ’em keep office hours where you can actually reach them.\" He counts on thick fingers. \"Precinct Nine lobby, out east past the Lucky Bastard — there's a records clerk they call the Registrar, and an Assemblyman named Croll who’s usually in there leaning on somebody. Both have got wastes-work they’d rather not sign their name to. Registrar pays a hundred and change; Croll better than that.\" He shrugs. \"And if you get ambitious, Consul Alcaraz holds court in the Halcyon lobby. Pays double what I do and asks twice as much. Don’t go to any of them broke and unarmed — they can smell it, and the price of your help drops accordingly.\""
     },
     "lore": {
+      "_vine": {
+        "x": 360,
+        "y": 240
+      },
+      "actions": [],
       "options": [
         {
           "label": "Noted.",
           "next": "root"
         }
       ],
-      "text": "He taps a scratched flashlight hanging off his belt. \"Two cells. That’s all this old thing ever needed. Everyone out here’s hunting some big score, some perfect gun. Me, I found the one tool that never quit on me and I stopped looking. Learn that before something out there teaches it to you the hard way.\""
+      "text": "He taps a scratched flashlight hanging off his belt. \n“Two cells. That’s all this old thing ever needed. Everyone out here’s hunting some big score, some perfect gun. Me? I learned early that seeing trouble before it sees you is worth more than most things you can carry. Learn that before you head into the Under. Down there, knowing what’s three feet in front of you can be the difference between a bad day and a very short one.”"
     },
     "quest_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 420
+      },
+      "actions": [],
       "options": [
         {
           "label": "I’ll clear them out.",
@@ -213,22 +285,35 @@
           "next": "bye"
         }
       ],
-      "text": "\"Funny you should say it. There’s a crew of clonejackers working the strip south of here — down past the Embassy, on Ironside. They wait for sprats like you to wobble out of the vats, then lift everything you’ve got before you know you had it. Bad for you. Worse for me: dead customers don’t spend.\" He pulls a battered bat off the crate and holds it out. \"Put two of them down, bring back the cells they boosted off me, and I’ll make it worth your while. Take the loaner. Bring it back or don’t — I’ve a crate of ’em.\""
+      "text": "\"Fresh clone, huh?\"\nHe glances at the vat-slick sheen on your skin, then at the empty space where your belongings presumably ought to be.\n\"Well, you're in luck. I've got work for people with no experience, no equipment, no money, and absolutely no idea what they're doing.\"\n\"There's a crew of clonejackers creeping around somewhere nearby. They wait for fresh clones to wobble out of the vats, then take everything they own. Take care of them for me and I’ll see what else I can find for you.\""
     },
     "regular": {
+      "_vine": {
+        "x": 360,
+        "y": 1500
+      },
+      "actions": [],
       "options": [
         {
           "label": "Show me the crates.",
           "next": "shop"
         },
         {
+          "label": "Where do you hit them, exactly?",
+          "next": "aim_lesson"
+        },
+        {
           "label": "Just passing.",
           "next": "bye"
         }
       ],
-      "text": "\"Back for more, regular? Good. You keep breathing, I keep selling. Beautiful arrangement, this.\""
+      "text": "\"Back for more? Good. You keep breathing, I keep selling. Beautiful arrangement, this.\""
     },
     "reported": {
+      "_vine": {
+        "x": 360,
+        "y": 600
+      },
       "actions": [
         {
           "action": "REMOVE_ITEM",
@@ -249,6 +334,11 @@
       "text": "He weighs the recovered cells in one hand and, for the first time, actually smiles. \"Well. Look at you — upright AND useful. Rare combination round here.\" He unclips the scratched flashlight from his belt and folds your fingers around it. \"This one’s mine. Was. Never once left me in the dark. Graduation gift. Consider yourself a regular.\""
     },
     "root": {
+      "_vine": {
+        "x": 40,
+        "y": 60
+      },
+      "actions": [],
       "options": [
         {
           "label": "What are you selling?",
@@ -257,6 +347,10 @@
         {
           "label": "\"Two-Cell?\"",
           "next": "lore"
+        },
+        {
+          "label": "Where do you hit them, exactly?",
+          "next": "aim_lesson"
         },
         {
           "conditions": [
@@ -352,9 +446,13 @@
           "next": "regular"
         }
       ],
-      "text": "The broad man clocks you the instant you’re upright. \"There it is. Another fresh one, blinking in the light.\" He spreads his hands over the crates. \"Name’s Grady. Folks call me Two-Cell. I sell the things that keep you breathing long enough to become a repeat customer.\""
+      "text": "\"Name’s Grady. Folks call me Two-Cell. I sell the things that keep you breathing long enough to become a repeat customer.\""
     },
     "sewer_accepted": {
+      "_vine": {
+        "x": 680,
+        "y": 420
+      },
       "actions": [
         {
           "action": "START_QUEST",
@@ -370,6 +468,11 @@
       "text": "\"Good. Green line’s on your map — walks you right to the drain. Keep that light charged; I sell cells if you run dry, and don’t be too proud to buy them. Six of the buggers. Then home.\""
     },
     "sewer_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 780
+      },
+      "actions": [],
       "options": [
         {
           "label": "Point me at it.",
@@ -383,6 +486,10 @@
       "text": "\"Earn? Same way I do — off what nobody else’ll touch.\" He jerks a thumb at the floor. \"That storm drain out on Ironside, the one with the grate kicked off — it drops into the Under. Old sewers. Something’s breeding down there and it’s working its way up toward my vats. Rats. Roaches. Worse.\" He taps the flashlight he gave you. \"You’ve got the light now. Go down, thin ’em out — call it six of the things — and come tell me it’s done. The dark’s the only thing down there that’ll kill you, and you’re carrying the cure.\""
     },
     "sewer_reported": {
+      "_vine": {
+        "x": 360,
+        "y": 960
+      },
       "actions": [
         {
           "action": "TURN_IN",
@@ -398,6 +505,10 @@
       "text": "He hears the count and nods, slow. \"Six. And you walked back up under your own power — that's the part most don't manage.\" He counts the pay out first, deliberately, so you see it land. Then a separate handful of cells goes on top. \"Pay's the pay. The cells are what you burned getting there — I'm not so crooked I'll charge a man for the light I sent him down with.\" He taps the flashlight in your hand. \"A dead one's just a club, and you're better than a club now. Barely. Keep it fed.\""
     },
     "shop": {
+      "_vine": {
+        "x": 360,
+        "y": 60
+      },
       "actions": [
         {
           "action": "OPEN_SHOP",
@@ -420,7 +531,10 @@
       "a padded work jacket gone shiny at the elbows",
       "a faded thermal shirt and boxers"
     ],
-    "personality": "vendor"
+    "personality": "vendor",
+    "purchase_remarks": {
+      "item_pry_deck": "slides the deck across the crates and does not quite let go of it. \"Now. I'm legally obliged to tell you that's for authorised diagnostic work only.\" He lets go. \"And there's a rig on that wall behind you that isn't attached to anything, isn't owned by anybody, and doesn't call the police. Purely decorative. Terrible waste, really — a man could learn a lot off a thing like that and nobody the wiser.\" He goes back to sorting cells. \"Anyway. Don't go near the cash machines till you're good. They bite.\""
+    }
   },
   "home_activities": [],
   "home_zone": "zone_twocell_interior",
@@ -433,54 +547,9 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_flashlight",
-      "price": 55,
-      "stock": 10
-    },
-    {
-      "item_id": "item_battery",
-      "price": 12,
-      "stock": 40
-    },
-    {
-      "item_id": "item_bat",
-      "price": 45,
-      "stock": 8
-    },
-    {
-      "item_id": "item_tire_iron",
-      "price": 28,
-      "stock": 6
-    },
-    {
-      "item_id": "item_scrap_shiv",
-      "price": 12,
-      "stock": 10
-    },
-    {
-      "item_id": "item_padded_jacket",
-      "price": 60,
-      "stock": 6
-    },
-    {
-      "item_id": "item_bump_cap",
-      "price": 30,
-      "stock": 8
-    },
-    {
-      "item_id": "item_work_gloves",
-      "price": 10,
-      "stock": 10
-    },
-    {
-      "item_id": "item_steel_toe_boots",
-      "price": 40,
-      "stock": 6
-    },
-    {
-      "item_id": "item_basic_pants",
-      "price": 10,
-      "stock": 10
+      "item_id": "item_water_bottle",
+      "price": 5,
+      "stock": 30
     },
     {
       "item_id": "item_rag_bandage",
@@ -488,29 +557,14 @@
       "stock": 30
     },
     {
-      "item_id": "item_bandage",
-      "price": 12,
-      "stock": 20
-    },
-    {
-      "item_id": "item_pain_pills",
-      "price": 16,
-      "stock": 15
-    },
-    {
-      "item_id": "item_medkit",
-      "price": 60,
-      "stock": 4
-    },
-    {
-      "item_id": "item_beef_jerky",
-      "price": 9,
-      "stock": 25
-    },
-    {
       "item_id": "item_bar_jerky",
       "price": 6,
       "stock": 20
+    },
+    {
+      "item_id": "item_bloodworm_bait",
+      "price": 6,
+      "stock": 30
     },
     {
       "item_id": "item_energy_drink",
@@ -518,13 +572,43 @@
       "stock": 25
     },
     {
-      "item_id": "item_water_bottle",
-      "price": 5,
+      "item_id": "item_beef_jerky",
+      "price": 9,
+      "stock": 25
+    },
+    {
+      "item_id": "item_foam_earplugs",
+      "price": 9,
       "stock": 30
+    },
+    {
+      "item_id": "item_work_gloves",
+      "price": 10,
+      "stock": 10
+    },
+    {
+      "item_id": "item_basic_pants",
+      "price": 10,
+      "stock": 10
     },
     {
       "item_id": "item_ration",
       "price": 10,
+      "stock": 20
+    },
+    {
+      "item_id": "item_nose_plugs",
+      "price": 11,
+      "stock": 30
+    },
+    {
+      "item_id": "item_battery",
+      "price": 12,
+      "stock": 40
+    },
+    {
+      "item_id": "item_bandage",
+      "price": 12,
       "stock": 20
     },
     {
@@ -533,14 +617,73 @@
       "stock": 20
     },
     {
+      "item_id": "item_pain_pills",
+      "price": 16,
+      "stock": 15
+    },
+    {
+      "item_id": "item_bump_cap",
+      "price": 30,
+      "stock": 8
+    },
+    {
+      "item_id": "item_gun_oil_kit",
+      "price": 30
+    },
+    {
+      "item_id": "item_steel_toe_boots",
+      "price": 40,
+      "stock": 6
+    },
+    {
+      "item_id": "item_scrap_shiv",
+      "price": 50,
+      "stock": 10
+    },
+    {
       "item_id": "item_fishing_rod",
       "price": 50,
       "stock": 5
     },
     {
-      "item_id": "item_bloodworm_bait",
-      "price": 6,
-      "stock": 30
+      "item_id": "item_flashlight",
+      "price": 55,
+      "stock": 10
+    },
+    {
+      "item_id": "item_mining_pick",
+      "price": 55,
+      "stock": 4
+    },
+    {
+      "item_id": "item_ear_defenders",
+      "price": 55,
+      "stock": 6
+    },
+    {
+      "item_id": "item_padded_jacket",
+      "price": 60,
+      "stock": 6
+    },
+    {
+      "item_id": "item_medkit",
+      "price": 60,
+      "stock": 4
+    },
+    {
+      "item_id": "item_respirator_mask",
+      "price": 70,
+      "stock": 5
+    },
+    {
+      "item_id": "item_pry_deck",
+      "price": 95,
+      "stock": 3
+    },
+    {
+      "item_id": "item_tire_iron",
+      "price": 120,
+      "stock": 6
     },
     {
       "item_id": "item_jerry_can_full",
@@ -548,9 +691,14 @@
       "stock": 2
     },
     {
-      "item_id": "item_mining_pick",
-      "price": 55,
-      "stock": 4
+      "item_id": "item_kevlar_raincoat",
+      "price": 180,
+      "stock": 3
+    },
+    {
+      "item_id": "item_bat",
+      "price": 190,
+      "stock": 8
     }
   ],
   "vendor_restock_rate": 1,

@@ -1,0 +1,18 @@
+{
+  "description": "A records-office press, older than the bank ones and prouder about it. A hand-lettered card taped to the housing reads A CARD IS A RECORD. THE RECORD IS PERMANENT. Somebody has added, in pen, SO ARE YOU.",
+  "flags": {
+    "card_mint": true,
+    "interactions": [],
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cardmint_records",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "archival mint press",
+  "object_type": "terminal",
+  "power_draw_kw": 1.2,
+  "price": 0,
+  "zone_id": "zone_records_reading"
+}

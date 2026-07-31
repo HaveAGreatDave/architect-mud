@@ -8,9 +8,9 @@
  * Players opt in via the hidden Maturity Slider in client settings.
  */
 import { query } from '../../server/models/db.js';
-import { isMisActive, isAttractedTo } from '../../server/engine/mis.js';
+import { isMisActive, isAttractedTo, isMisServerEnabled } from '../../server/engine/mis.js';
 import {
-  addHorniness, washEjaculate, MIS_TUTORIAL,
+  addHorniness, hornySustainLine, hornyCoolingLine, washEjaculate, MIS_TUTORIAL,
   startMisEvent, stopMisEvent, hasMisEvent, getMisEventMeta,
   triggerClimax, triggerGroundClimax,
   erectionVisibilityNote, breastVisibilityNote, femaleChestNote,
@@ -18,6 +18,7 @@ import {
   MASTURBATE_EVENT_SELF_MALE, MASTURBATE_EVENT_SELF_FEMALE,
   NPC_WITNESS_AROUSED, NPC_WITNESS_DISGUST,
   FUCK_EVENT_MSGS, FUCK_EVENT_PLAYER_MSGS, FUCK_EVENT_TARGET_MSGS, EJACULATE_ZONE_MSGS,
+  overflowLine, receivedLine,
   SERVICE_EVENTS, SERVICE_CLIMAX_ZONE, SERVICE_CLIMAX_ACTOR, triggerServiceClimax,
   NPC_AROUSAL_MSGS, NPC_CLIMAX_MSGS, THREESOME_JOIN_MSGS, THREESOME_CLIMAX_MSGS,
 } from './mis-system.js';
@@ -26,12 +27,33 @@ import { stainZone, stainClothing } from '../../server/engine/bodily.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { isNpcMisWilling, getNpcMisLine, npcMisAttacks } from '../../server/engine/npc-personality.js';
 import { registerInputMatcher } from '../../server/engine/plugins.js';
+import { registerAction } from '../../server/engine/actions.js';
+import { adjustCredits } from '../../server/engine/economy.js';
 import { on, emit } from '../../server/engine/events.js';
+import { clearEffect } from '../../server/engine/effects.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { recomputeEquipped } from '../../server/engine/commands/inventory.js';
 import { describeGenitals, ejaculateDescription, describeBodyPart } from '../../server/engine/appearance.js';
 import { getEnvironmentState, getZonePrecip } from '../../server/engine/environment.js';
+import { markWashed } from '../../server/engine/hygiene.js';
+import { depositIntoVessel } from '../../server/engine/bodily.js';
+import { useDrug, getDrugCache } from '../../server/engine/drugs.js';
+import { loadFitLines, allFitLines, saveFitLines, fitLine, HOLES,
+  loadFitVocab, allFitVocab, saveFitVocab, previewFitLine } from './fit-lines.js';
+import { resolveInventoryItem } from '../../server/engine/inventory.js';
+import { adjustRelation, getRelation, relationAtLeast } from '../../server/engine/relations.js';
+import {
+  hasConsent, hydrateConsents, forgetSession, refusal,
+  grant, revoke, revokeAll, grantedBy, grantedTo, canAsk, markAsked,
+  openAll, isOpenAll,
+} from './consent.js';
+import {
+  exert, COLLAPSE_MSGS, isInfected, infect, npcInfected, takeProtection, transmits,
+  refreshSymptoms, symptomDue, strainLine, strainLabel, stiOf, cureSti,
+  markReceived, volumeOf, volumeBand, recordAmpouleDose, burnOf, BURN_SYMPTOMS,
+  fitOf, applyStretch, FIT_BANDS,
+} from './mis-body.js';
 
 function misGate(player, raw) {
   if (!isMisActive(player)) {
@@ -179,6 +201,54 @@ async function tickThreesome(joiner, live, targetId, targetName, broadcast, { cl
   }
 }
 
+// ── Doing it where people can see ────────────────────────────────────────────
+//
+// Nothing used to care WHERE an act happened — a bar floor and a rented room were
+// the same room. A zone is private if it says so (a rented unit, a VIP room, a
+// motel room); everything else is the street as far as the law is concerned.
+//
+// We don't re-derive witnessing: `mis.publicAct` goes out and the surveillance
+// plugin runs it through the same raiseCrime path as every other offence, which
+// already handles lawless zones, cameras, cops and the debounce. Privacy is now
+// something you rent rather than something the parser enforces.
+function zoneIsPrivate(zoneId) {
+  const f = getZone(zoneId)?.flags || {};
+  return !!(f.private || f.mis_private || f.apartment || f.apartment_unit
+    || f.housing_unit || f.rentable || f.vip);
+}
+
+function reportPublicAct(player) {
+  if (!player?.current_zone || zoneIsPrivate(player.current_zone)) return;
+  emit('mis.publicAct', { player, zoneId: player.current_zone });
+}
+
+// ── Exposure ─────────────────────────────────────────────────────────────────
+//
+// Penetrative acts only — the honest scope, and it keeps the check off every
+// kiss. Protection is one carried item tagged `condom`, consumed here; it drops
+// transmission to near zero but never to zero, because "it broke" is a story and
+// a guarantee isn't. Runs once at the START of an act, never on the beat.
+//
+// Both directions: you can catch it and you can give it. An NPC's status is
+// deterministic per NPC (see npcInfected), so asking around about someone could
+// one day be a real play.
+async function exposureCheck(player, partner, broadcast, { npc = false } = {}) {
+  const usedProtection = await takeProtection(player);
+  if (usedProtection) {
+    broadcast(null, { type: 'output', message: `<span class="text-dim">(You use protection.)</span>` }, null, player.id);
+  }
+
+  const partnerInfected = npc ? npcInfected(partner) : isInfected(partner);
+  if (partnerInfected && !isInfected(player) && transmits(usedProtection)) {
+    // No message. You don't find out tonight — that's what incubation is for.
+    await infect(player);
+  }
+  if (!npc && isInfected(player) && !isInfected(partner) && transmits(usedProtection)) {
+    await infect(partner, stiOf(player)?.strain);
+  }
+  if (npc && isInfected(player) && !partnerInfected) partner._misSti = true;
+}
+
 // Shared NPC MIS reaction handler. verb is the action name for actor message copy.
 // opts.isStrip = true broadcasts a clothing strip message (for penetrative commands).
 async function handleNpcMis(player, npc, verb, broadcast, opts = {}) {
@@ -186,6 +256,7 @@ async function handleNpcMis(player, npc, verb, broadcast, opts = {}) {
   // (e.g. the strip club bouncer) react to it — they filter on npc.flags/zone
   // themselves; the MIS system stays ignorant of who's watching.
   emit('mis.npc_act', { player, npc, verb, zoneId: player.current_zone });
+  reportPublicAct(player);
 
   // Zone-gated consent: an NPC with flags.mis_requires_zone_flag only accepts
   // MIS in a room carrying that flag (e.g. a club dancer who'll only play in the
@@ -195,6 +266,16 @@ async function handleNpcMis(player, npc, verb, broadcast, opts = {}) {
   if (refusal) return refusal;
 
   const willing = isNpcMisWilling(npc);
+
+  // Being willing in principle isn't being willing with YOU. An NPC whose
+  // willingness comes from their personality wants to know you first; one whose
+  // `flags.mis_willing` says yes explicitly is professional company and doesn't
+  // (that flag is how the consort/stripper content buys its way past this).
+  if (willing && typeof npc.flags?.mis_willing !== 'boolean'
+      && !relationAtLeast(getRelation(player, npc.id), 'known')) {
+    broadcastNpcMisLine(npc, false, player.current_zone, broadcast);
+    return { type: 'output', message: `${npc.name} doesn't know you well enough for that. Try talking to them first.` };
+  }
 
   if (opts.isStrip) {
     broadcastMis(player.current_zone, {
@@ -211,6 +292,10 @@ async function handleNpcMis(player, npc, verb, broadcast, opts = {}) {
     // The NPC gets aroused too (transient) — a one-shot act nudges them toward
     // their own climax, which lands on a later act once they cross the edge.
     await addNpcArousal(npc, 15, broadcast, player.current_zone);
+    // And they remember it. Sex is the fastest familiarity in the game and a
+    // real (if smaller) warmth move — the relationship substrate is what makes
+    // an NPC who has been to bed with you treat you differently tomorrow.
+    adjustRelation(player, npc.id, { familiarity: 3, warmth: 4, reason: 'mis' });
     const actorLines = {
       touch:         `You touch ${npc.name}. They don't stop you.`,
       squeeze:       `You squeeze ${npc.name}. They let you.`,
@@ -282,7 +367,13 @@ function resolveTargetMis(nameStr, player, verb) {
     return { error: `Multiple people match — be more specific.` };
   }
   const target = r.candidate;
-  if (!isMisActive(target)) return { error: `${target.handle} hasn't enabled MIS.` };
+  // The two gates that matter, answering with ONE string. MIS-enabled is an
+  // opt-in to the surface and belongs to whoever flipped it; consent is the
+  // separate question of whether THIS person permits THIS actor. A distinct
+  // message per case would let anyone probe who has MIS on, so both fail alike.
+  if (!isMisActive(target) || !hasConsent(player.id, target.id)) {
+    return { error: refusal(target.handle) };
+  }
   return { res: { type: 'player', target } };
 }
 
@@ -364,6 +455,7 @@ async function actHandler({ player, broadcast, rawArgs, defaultPart, selfMessage
   }
   if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs }, null, player.id);
   broadcastMis(player.current_zone, { type:'zone_event', message: `${player.handle} and ${name} are getting intimate.` }, broadcast, player.id, res.target.id);
+  reportPublicAct(player);
   return { type:'output', message: pickMsg(targetMessages || selfMessages, { part, actor: player.handle, name }) };
 }
 
@@ -382,9 +474,22 @@ async function startServiceEvent(player, target, broadcast, opts) {
     const live = getLivePlayer(playerId);
     if (!live || !isMisActive(live)) { stopMisEvent(playerId); return; }
     const liveTarget = getLivePlayer(targetId);
-    if (!liveTarget || !isMisActive(liveTarget)) {
+    // Walking out of the room ends it, same as the NPC path — otherwise a partner
+    // who leaves keeps taking arousal ticks (and climaxes) from across the map.
+    // Consent is re-checked EVERY beat, not just at the start: a grant pulled
+    // mid-scene has to stop the scene, and `revoke` is the one thing here that
+    // must not have to wait for anything.
+    if (!liveTarget || !isMisActive(liveTarget) || liveTarget.current_zone !== live.current_zone
+        || !hasConsent(playerId, targetId)) {
       stopMisEvent(playerId);
       broadcast(null, { type: 'output', message: `${name} isn't available anymore.` }, null, playerId);
+      return;
+    }
+
+    // Sex is work. Costs land in memory and ride the existing gameLoop save.
+    if (exert(live).collapsed) {
+      stopMisEvent(playerId);
+      broadcast(null, { type: 'output', message: pickMsg(COLLAPSE_MSGS, {}) }, null, playerId);
       return;
     }
 
@@ -440,7 +545,9 @@ async function startServiceEvent(player, target, broadcast, opts) {
 
     const actorMsgs = await addHorniness(live, opts.actorGain, broadcast);
     if (actorMsgs.length) broadcast(null, { type: 'resource_tick', messages: actorMsgs, player_update: { horniness: live.horniness, erect: live.erect } }, null, playerId);
-  }, 8000, { action: opts.action, target: name });
+    // targetId rides in the meta so `revoke` can find and stop this event from
+    // the RECEIVER's side — they don't own the interval, the actor does.
+  }, 8000, { action: opts.action, target: name, targetId });
 }
 
 // Shared prologue for the service acts (finger/handjob/suck/eat out): gate,
@@ -485,6 +592,13 @@ async function startServiceEventNpc(player, npc, broadcast, opts) {
     if (!liveNpc || liveNpc._dead || liveNpc.zone_id !== live.current_zone || !isNpcMisWilling(liveNpc)) {
       stopMisEvent(playerId);
       broadcast(null, { type: 'output', message: `${name} isn't available anymore.` }, null, playerId);
+      return;
+    }
+
+    // Sex is work. Costs land in memory and ride the existing gameLoop save.
+    if (exert(live).collapsed) {
+      stopMisEvent(playerId);
+      broadcast(null, { type: 'output', message: pickMsg(COLLAPSE_MSGS, {}) }, null, playerId);
       return;
     }
 
@@ -767,6 +881,12 @@ async function cmdSlap(args, raw, player, broadcast) {
     return { type:'output', message: formatSelectionPage({ allCandidates: sr.candidates, visibleIndex: 0, pageSize: 5 }) };
   }
   const target = sr.candidate;
+  // This is the MIS-tier slap (a body part named on a consenting partner), NOT
+  // the ordinary comedy slap above — it resolves with the raw resolver, so the
+  // consent gate has to be applied here by hand rather than inherited.
+  if (!isMisActive(target) || !hasConsent(player.id, target.id)) {
+    return { type:'error', message: refusal(target.handle) };
+  }
   const name = target.handle;
 
   const actorMsgs = [
@@ -873,6 +993,13 @@ async function cmdMasturbate(args, raw, player, broadcast) {
     const live = getLivePlayer(playerId);
     if (!live || !isMisActive(live)) { stopMisEvent(playerId); return; }
 
+    // Sex is work. Costs land in memory and ride the existing gameLoop save.
+    if (exert(live, 0.6).collapsed) {
+      stopMisEvent(playerId);
+      broadcast(null, { type: 'output', message: pickMsg(COLLAPSE_MSGS, {}) }, null, playerId);
+      return;
+    }
+
     if (live.horniness >= 100) {
       stopMisEvent(playerId);
       const covered = await legsCovered(live);
@@ -922,6 +1049,8 @@ async function cmdMasturbate(args, raw, player, broadcast) {
   const msgs = await addHorniness(player, 10, broadcast);
   if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs, player_update: { horniness: player.horniness } }, null, player.id);
 
+  // The textbook version of the charge, and the one players will meet first.
+  reportPublicAct(player);
   npcWitnessMis(player.current_zone, broadcast, 0.5);
 
   return { type:'output', message: startMsg };
@@ -1058,6 +1187,7 @@ async function startFuckEventNpc(player, npc, broadcast, location) {
   if (msgs.length) broadcast(null, { type: 'resource_tick', messages: msgs, player_update: { horniness: player.horniness, erect: player.erect } }, null, player.id);
 
   broadcastMis(player.current_zone, { type: 'zone_event', message: `${player.handle} starts fucking ${name}.` }, broadcast, player.id);
+  await exposureCheck(player, npc, broadcast, { npc: true });
   npcWitnessMis(player.current_zone, broadcast, 0.5);
   await addNpcArousal(npc, 15, broadcast, player.current_zone);
 
@@ -1075,6 +1205,13 @@ async function startFuckEventNpc(player, npc, broadcast, location) {
     if (!liveNpc || liveNpc._dead || liveNpc.zone_id !== live.current_zone || !isNpcMisWilling(liveNpc)) {
       stopMisEvent(playerId);
       broadcast(null, { type: 'output', message: `${name} isn't available anymore.` }, null, playerId);
+      return;
+    }
+
+    // Sex is work. Costs land in memory and ride the existing gameLoop save.
+    if (exert(live).collapsed) {
+      stopMisEvent(playerId);
+      broadcast(null, { type: 'output', message: pickMsg(COLLAPSE_MSGS, {}) }, null, playerId);
       return;
     }
 
@@ -1222,6 +1359,8 @@ async function cmdFuck(args, raw, player, broadcast) {
 
   if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs, player_update: { horniness: player.horniness } }, null, player.id);
   broadcastMis(player.current_zone, { type:'zone_event', message: `${player.handle} and ${name} start having sex.` }, broadcast, player.id, res.target.id);
+  reportPublicAct(player);
+  if (res.type === 'player') await exposureCheck(player, res.target, broadcast);
   npcWitnessMis(player.current_zone, broadcast, 0.5);
 
   // Start ongoing event
@@ -1237,17 +1376,42 @@ async function cmdFuck(args, raw, player, broadcast) {
     const live = getLivePlayer(playerId);
     if (!live || !isMisActive(live)) { stopMisEvent(playerId); return; }
 
+    // Walking out of the room ends it, same as the NPC path — otherwise a partner
+    // who leaves keeps taking arousal ticks (and climaxes) from across the map.
+    if (targetId) {
+      // Consent re-checked every beat — see the service loop for why.
+      const stillHere = getLivePlayer(targetId);
+      if (!stillHere || !isMisActive(stillHere) || stillHere.current_zone !== live.current_zone
+          || !hasConsent(playerId, targetId)) {
+        stopMisEvent(playerId);
+        broadcast(null, { type: 'output', message: `${name} isn't available anymore.` }, null, playerId);
+        return;
+      }
+    }
+
+    // Sex is work. Costs land in memory and ride the existing gameLoop save.
+    if (exert(live).collapsed) {
+      stopMisEvent(playerId);
+      broadcast(null, { type: 'output', message: pickMsg(COLLAPSE_MSGS, {}) }, null, playerId);
+      return;
+    }
+
     if (live.horniness >= 100) {
       stopMisEvent(playerId);
       const climaxMsgs = await triggerClimax(live, broadcast, ejacPart);
       const ejacZonePool = EJACULATE_ZONE_MSGS.into_player;
+      // Volume is read AFTER triggerClimax, off the state it just wrote — that's
+      // the number the room and the receiver both react to.
+      const vol = live.appearance_data?.ejaculate_state?.volume ?? 0.5;
       const ejacText = ejacZonePool[Math.floor(Math.random() * ejacZonePool.length)]
         .replace(/\{name\}/g, live.handle)
         .replace(/\{target\}/g, name)
-        .replace(/\{part\}/g, ejacPart);
+        .replace(/\{part\}/g, ejacPart)
+        + overflowLine(ejacPart, vol, { name: live.handle, target: name });
       broadcastMis(live.current_zone, { type: 'zone_event', message: ejacText }, broadcast, live.id, targetId);
       await tickThreesome(joiner, live, targetId, name, broadcast, { climax: true });
-      npcWitnessMis(live.current_zone, broadcast, 0.7);
+      // A big one is harder to ignore: the witness roll scales with it.
+      npcWitnessMis(live.current_zone, broadcast, vol >= 0.6 ? 0.95 : 0.7);
       broadcast(null, {
         type: 'resource_tick',
         messages: climaxMsgs,
@@ -1256,10 +1420,15 @@ async function cmdFuck(args, raw, player, broadcast) {
       if (targetId) {
         const liveTarget = getLivePlayer(targetId);
         if (liveTarget && isMisActive(liveTarget)) {
+          // The receiver's private half — banded by volume AND by which part, so
+          // being finished inside reads differently depending on both.
           broadcast(null, {
             type: 'output',
-            message: `${live.handle} finishes inside your ${ejacPart}.`,
+            message: `${live.handle} finishes inside your ${ejacPart}. ${receivedLine(ejacPart, vol)}`,
           }, null, targetId);
+          // And it lands ON them: their own fluid state, so the room smells it on
+          // the receiver too and they're the ones who have to go and wash.
+          await markReceived(liveTarget, ejacPart, vol);
         }
       }
       return;
@@ -1306,7 +1475,9 @@ async function cmdFuck(args, raw, player, broadcast) {
         }
       }
     }
-  }, 8000, { action: 'fuck', target: name, location });
+    // targetId in the meta — see startServiceEvent. Null for an NPC partner,
+    // which is what keeps `revoke` from ever touching the NPC loops.
+  }, 8000, { action: 'fuck', target: name, location, targetId });
 
   return { type:'output', message: actorMsg };
 }
@@ -1336,6 +1507,34 @@ async function cmdEjaculate(args, raw, player, broadcast) {
   }
 
   stopMisEvent(player.id); // cancel any ongoing event
+
+  // "in <vessel>" — into something you're carrying. Checked before the body-part
+  // parse below, because a bowl in your hands beats a reading of "in" that hunts
+  // for an orifice. Produces the same ingredient item the bodily verbs produce.
+  {
+    const vName = str.replace(/^(?:in|into|on)\s+(?:the\s+|my\s+)?/i, '').trim();
+    const vessel = vName && /^(?:in|into)\s/i.test(str)
+      ? await resolveInventoryItem(player, { tag: 'vessel', name: vName, topLevel: true })
+      : null;
+    if (vessel) {
+      const volume = volumeOf(player);
+      const msgs = await triggerClimax(player, broadcast);
+      await depositIntoVessel(player, vessel, 'ejaculate', {
+        volume,
+        // Whatever the donor is carrying rides along with it. The infection is
+        // the reason `disease_risk` exists on the eating side.
+        infected: isInfected(player) ? (stiOf(player)?.strain || true) : false,
+      });
+      broadcastMis(player.current_zone, { type: 'zone_event',
+        message: `${player.handle} finishes into a ${vessel.name}, then looks at it.` }, broadcast, player.id);
+      npcWitnessMis(player.current_zone, broadcast, 0.6);
+      broadcast(null, { type: 'resource_tick', messages: msgs,
+        player_update: { horniness: player.horniness, erect: player.erect, sanity: player.sanity } }, null, player.id);
+      return { type: 'output', message: volume >= 0.6
+        ? `You empty into the ${vessel.name}. There is a genuinely impressive amount of it in there now.`
+        : `You finish into the ${vessel.name}. It settles at the bottom, cloudy and unbothered.` };
+    }
+  }
 
   // "in <target>'s <hole>" — finish INSIDE (cum in X's mouth / pussy / ass).
   // Distinct from "on <target>'s <part>" below, which marks the surface.
@@ -1670,6 +1869,21 @@ async function cmdHandjob(args, raw, player, broadcast) {
   });
 }
 
+// Consume one carried item tagged `soap`. A DB touch, but `wash` is a deliberate
+// verb a player types, never a tick or a beat.
+async function useSoap(player) {
+  const { rows } = await query(
+    `SELECT pi.id, pi.quantity FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id = $1 AND jsonb_exists(i.tags, 'soap') LIMIT 1`,
+    [player.id]
+  );
+  if (!rows.length) return false;
+  const row = rows[0];
+  if (row.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [row.id]);
+  else await query('DELETE FROM player_inventory WHERE id=$1', [row.id]);
+  return true;
+}
+
 async function cmdWashHands(player) {
   const { rows } = await query(
     `SELECT id FROM furniture WHERE zone_id=$1 AND (object_type='sink' OR jsonb_exists(flags,'water_source')) LIMIT 1`,
@@ -1724,13 +1938,25 @@ async function cmdWash(args, raw, player) {
     await query('UPDATE players SET covered_in_blood=0 WHERE id=$1', [player.id]);
     bloodWashed = true;
   }
-  if (!washed && !bloodWashed) return { type:'output', message:`You're already clean.` };
+  // Acid residue keeps eating you well after you've found shelter — rinsing it
+  // off is the cure, and is on its own a reason to wash.
+  const acidWashed = clearEffect(player, 'corroding');
+  // Soap is what makes this a WASH rather than a rinse. Without it you get the
+  // visible filth off and nothing else — the grime clock keeps running, which is
+  // why a 4₵ block of soap is one of the better purchases in the game.
+  const soaped = await useSoap(player);
+  if (soaped) await markWashed(player);
+
+  if (!washed && !bloodWashed && !acidWashed) return { type:'output', message:`You're already clean.` };
 
   if (waterRow) {
     if (waterRow.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [waterRow.id]);
     else await query('DELETE FROM player_inventory WHERE id=$1', [waterRow.id]);
   }
 
+  if (acidWashed) {
+    return { type:'output', message: `You sluice the acid off, skin stinging raw where it sat. The burning stops.` };
+  }
   const msg = inRain
     ? (bloodWashed
         ? `You stand out in the rain and let it scrub the blood off. Better.`
@@ -1738,7 +1964,10 @@ async function cmdWash(args, raw, player) {
     : (bloodWashed
         ? `You use the water to scrub the blood off. Better.`
         : `You use the water to clean yourself off. Better.`);
-  return { type:'output', message: msg };
+  const soapNote = soaped
+    ? ` <span class="text-dim">(A block of soap, well spent.)</span>`
+    : ` <span class="text-dim">(No soap — you got the worst off, nothing more.)</span>`;
+  return { type:'output', message: msg + soapNote };
 }
 
 // Detailed body-part examination: `examine <target>'s <part>`. Routed here by an
@@ -1791,7 +2020,11 @@ async function cmdExaminePart(args, raw, player, broadcast) {
     return { type: 'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
   }
   const target = r.candidate;
-  if (!isMisActive(target)) return { type: 'error', message: `${target.handle} hasn't enabled MIS.` };
+  // Looking closely at someone's body is an act on them, so it takes a grant
+  // like the rest. Raw resolver here too — the check can't be inherited.
+  if (!isMisActive(target) || !hasConsent(player.id, target.id)) {
+    return { type: 'error', message: refusal(target.handle) };
+  }
   if (isAttractedTo(player, target) && broadcast) {
     const am = await addHorniness(player, 3, broadcast);
     if (am.length) broadcast(null, { type: 'resource_tick', messages: am, player_update: { horniness: player.horniness } }, null, player.id);
@@ -1818,7 +2051,12 @@ function stripNpc(player, npc, broadcast) {
 }
 
 async function stripPlayer(player, target, broadcast) {
-  if (!isMisActive(target)) return { type: 'error', message: `${target.handle} isn't in the mood — nothing happens.` };
+  // Taking someone's clothes off is the least deniable act in the plugin, and
+  // it resolves through raw SIFT rather than resolveTargetMis — so the grant is
+  // checked right here. Same string as everywhere else: no probing.
+  if (!isMisActive(target) || !hasConsent(player.id, target.id)) {
+    return { type: 'error', message: refusal(target.handle) };
+  }
   await query(
     `UPDATE player_inventory SET is_equipped=0, slot=NULL, layer=NULL, equipped_at=NULL
       WHERE player_id=$1 AND is_equipped=1 AND slot IS DISTINCT FROM 'weapon_hand'`,
@@ -1853,8 +2091,133 @@ async function cmdStrip(args, raw, player, broadcast) {
   return { type: 'error', message: `There's no "${nameStr}" here to strip.` };
 }
 
+// ── consent / revoke ─────────────────────────────────────────────────────────
+//
+// The third gate's player surface. Both verbs sit behind misGate like every
+// other MIS verb, so someone who never opted in types `consent` and gets
+// `Unknown command` — they don't learn the surface exists by looking for a way
+// to protect themselves from it, because for them it isn't there.
+//
+// Only the person being acted on can move their own state. There is no accept
+// step for the ASKER to exploit: `consent ask` sends one line and nothing else.
+
+// Resolve a player anywhere online by handle — you can revoke someone who has
+// walked out of the room, which is precisely when you most want to.
+function resolveAnyPlayer(nameStr, player) {
+  const others = getAllLivePlayers().filter(p => p.id !== player.id);
+  const r = siftResolve(nameStr, others.map(p => ({ ...p, name: p.handle })));
+  return r.type === 'match' ? r.candidate : null;
+}
+
+async function cmdConsent(args, raw, player, broadcast) {
+  const gate = misGate(player, raw); if (gate) return gate;
+  const sub = (args[0] || '').toLowerCase();
+
+  // Bare `consent` — the ledger, both directions.
+  if (!sub) {
+    const mine = grantedBy(player.id).map(id => getLivePlayer(id)?.handle || id);
+    const theirs = grantedTo(player.id).map(id => getLivePlayer(id)?.handle || id);
+    const open = isOpenAll(player.id);
+    const lines = [
+      open
+        ? `<span class="text-yellow">Your door is OPEN</span> <span class="text-dim">— you are accepting advances from anyone.</span>${mine.length ? ` <span class="text-dim">Named:</span> ${mine.join(', ')}` : ''}`
+        : `<span class="text-dim">You have consented to:</span> ${mine.length ? mine.join(', ') : 'nobody'}`,
+      `<span class="text-dim">Consented to you:</span> ${theirs.length ? theirs.join(', ') : 'nobody'}`,
+      `<span class="text-dim">consent &lt;player&gt; · consent all · consent ask &lt;player&gt; · revoke &lt;player&gt; · revoke all</span>`,
+    ];
+    return { type: 'output', message: lines.join('\n') };
+  }
+
+  // `consent all` — the open door. Deliberately spelled out rather than offered as
+  // a toggle: it is the widest thing a player can say here, and it should read
+  // like a sentence they meant to type. Any named revoke shuts it again.
+  if (sub === 'all') {
+    const fresh = await openAll(player.id);
+    return { type: 'output', message: fresh
+      ? `<span class="text-yellow">Your door is open.</span> Anyone may make an advance. <span class="text-dim">Shut it with</span> revoke all<span class="text-dim">, or turn one person away with</span> revoke &lt;player&gt;<span class="text-dim"> — which shuts it too.</span>`
+      : `Your door is already open.` };
+  }
+
+  if (sub === 'ask') {
+    const nameStr = args.slice(1).join(' ').trim();
+    if (!nameStr) return { type: 'error', message: `Ask whom? (consent ask <player>)` };
+    const target = resolveAnyPlayer(nameStr, player);
+    if (!target) return { type: 'error', message: `You don't see "${nameStr}" here.` };
+    // One answer for every refusal — cooldown, already-granted, and revoked all
+    // read the same. A distinct "they've blocked you" would tell the asker their
+    // ask landed somewhere, which is the harassment vector we're closing.
+    if (!isMisActive(target) || !canAsk(player.id, target.id)) {
+      return { type: 'output', message: `Asked. Whether they answer is up to them.` };
+    }
+    markAsked(player.id, target.id);
+    sendToPlayer(target.id, { type: 'output',
+      message: `<span class="text-dim">${player.handle} is asking for your consent. Type</span> consent ${player.handle} <span class="text-dim">if you want to — ignoring this is a complete answer.</span>` });
+    return { type: 'output', message: `Asked. Whether they answer is up to them.` };
+  }
+
+  const nameStr = args.join(' ').trim();
+  const target = resolveAnyPlayer(nameStr, player);
+  if (!target) return { type: 'error', message: `You don't see "${nameStr}" here.` };
+  const fresh = await grant(player.id, target.id);
+  if (!fresh) return { type: 'output', message: `${target.handle} already has your consent.` };
+  sendToPlayer(target.id, { type: 'output',
+    message: `<span class="text-dim">${player.handle} has consented to you.</span>` });
+  return { type: 'output',
+    message: `You consent to ${target.handle}. <span class="text-dim">Take it back any time with</span> revoke ${target.handle}<span class="text-dim">.</span>` };
+}
+
+async function cmdRevoke(args, raw, player, broadcast) {
+  const gate = misGate(player, raw); if (gate) return gate;
+  const nameStr = (args || []).join(' ').trim();
+  if (!nameStr) return { type: 'error', message: `Revoke whom? (revoke <player> · revoke all)` };
+
+  // `revoke all` — the panic button. Everything goes, and anything running stops.
+  if (nameStr.toLowerCase() === 'all') {
+    const { n, wasOpen } = await revokeAll(player.id);
+    stopAnyActOn(player.id);
+    const door = wasOpen ? `<span class="text-yellow">Your door is shut.</span> ` : '';
+    return { type: 'output', message: n
+      ? `${door}Consent withdrawn from everyone (${n}). Anything in progress has stopped.`
+      : wasOpen
+        ? `${door}Anything in progress has stopped.`
+        : `You hadn't consented to anyone.` };
+  }
+
+  const target = resolveAnyPlayer(nameStr, player);
+  if (!target) return { type: 'error', message: `You don't see "${nameStr}" here.` };
+  const { had, wasOpen } = await revoke(player.id, target.id);
+  stopAnyActOn(player.id, target.id);
+  // Turning ONE person away closes an open door. Say so plainly — the player made
+  // a wider change than they typed, and silently narrowing their access later
+  // (when the session-only block is lost on restart) would be the worse failure.
+  if (wasOpen) return { type: 'output',
+    message: `${target.handle} is turned away, and <span class="text-yellow">your door is shut</span> — you are no longer accepting advances from anyone. Anything in progress has stopped.` };
+  return { type: 'output', message: had
+    ? `Consent withdrawn from ${target.handle}. Anything in progress has stopped.`
+    : `${target.handle} didn't have your consent.` };
+}
+
+/**
+ * Stop any MIS event being run AT `targetId` (optionally only by `byId`).
+ * The per-beat guard would catch this within 8 seconds on its own; this makes
+ * it immediate, which is the only acceptable latency for withdrawing consent.
+ */
+function stopAnyActOn(targetId, byId = null) {
+  for (const p of getAllLivePlayers()) {
+    if (byId && p.id !== byId) continue;
+    if (p.id === targetId) continue;
+    const meta = getMisEventMeta(p.id);
+    if (meta?.targetId === targetId) {
+      stopMisEvent(p.id);
+      sendToPlayer(p.id, { type: 'output', message: `It stops.` });
+    }
+  }
+}
+
 export const commands = {
   mis:          (args, raw, player, broadcast) => cmdMis(args, player, broadcast),
+  consent:      (args, raw, player, broadcast) => cmdConsent(args, raw, player, broadcast),
+  revoke:       (args, raw, player, broadcast) => cmdRevoke(args, raw, player, broadcast),
   strip:        (args, raw, player, broadcast) => cmdStrip(args, raw, player, broadcast),
   finger:       (args, raw, player, broadcast) => cmdFinger(args, raw, player, broadcast),
   touch:        (args, raw, player, broadcast) => cmdTouch(args, raw, player, broadcast),
@@ -1903,6 +2266,13 @@ on('player.stop', ({ player, stopped }) => {
   stopped.push(meta?.action ? `${meta.action}ing${meta.target ? ` ${meta.target}` : ''}` : 'what you were doing');
 });
 
+// Consent hydration. One query at login pulls both directions of this player's
+// grants into RAM; every check thereafter is sync and query-free (the contract
+// in consent.js). Logout drops only the session-scoped bookkeeping — the grants
+// themselves live in the table and come back at next login.
+on('player.login', ({ id }) => { if (id) hydrateConsents(id).catch(() => {}); });
+on('player.logout', ({ id }) => { if (id) forgetSession(id); });
+
 // The WS-level Maturity Slider toggle (server/index.js) emits this after
 // flipping the player's fields; the plugin owns the consequences.
 on('mis.toggled', ({ player, enabled }) => {
@@ -1912,6 +2282,15 @@ on('mis.toggled', ({ player, enabled }) => {
     stopMisEvent(player.id);
     sendToPlayer(player.id, { type: 'output', message: 'MIS disabled.' });
   }
+});
+
+// The grey ampoule. MIS counts the doses because MIS is what pays for them —
+// the drugs plugin knows nothing about any of this, and the drug's own content
+// file carries only the `volume_boost` flag, never the cost.
+on('player.drugUsed', async ({ player, drug }) => {
+  if (!drug?.flags?.volume_boost || !player?.id) return;
+  await recordAmpouleDose(player);
+  // No message. Learning this the hard way is the entire design.
 });
 
 // ── Watersports (bodily → MIS) ────────────────────────────────────────────────
@@ -1943,14 +2322,58 @@ on('bodily.pissedOnCreature', async ({ actor, target, zoneId }) => {
 // Horniness decay — only starts 5 minutes after the last increase.
 // (Moved from gameLoop's minute tick.)
 schedule('1m', async () => {
+  // Decay in memory for everyone, then persist as ONE statement. Postgres is
+  // remote in prod, so an awaited UPDATE per player here is N sequential round
+  // trips every single minute, scaling with concurrent players.
+  const dirty = [];
   for (const player of getAllLivePlayers()) {
+    // Infection first — it isn't gated on arousal, and the symptom badge has to
+    // stay lit whether or not anything else about this player is happening.
+    // Whatever the ampoule took, it complains about occasionally. Never named.
+    if (burnOf(player) > 0.15 && Math.random() < 0.04) {
+      sendToPlayer(player.id, { type: 'resource_tick',
+        messages: [BURN_SYMPTOMS[Math.floor(Math.random() * BURN_SYMPTOMS.length)]] });
+    }
+    if (isInfected(player)) {
+      refreshSymptoms(player);
+      // Once it's out of incubation it speaks up occasionally, unprompted.
+      if (symptomDue(player) && Math.random() < 0.08) {
+        sendToPlayer(player.id, {
+          type: 'resource_tick',
+          messages: [`<span style="color:var(--red)">${strainLine(stiOf(player)?.strain)}</span>`],
+        });
+      }
+    }
     if ((player.horniness || 0) <= 0) continue;
     const lastIncrease = player.horniness_last_increased || 0;
     const decayDelayMs = 5 * 60 * 1000;
+
+    // SUSTAIN. Held high but not yet decaying. The tier messages only ever fired on the way
+    // UP, which was fine while a bar carried the state between crossings — with the bar gone,
+    // a body at 92 and a body at 50 both read as silence. Runs BEFORE the decay gate, because
+    // the five-minute hold is exactly where a player spends most of their time.
+    const sustained = hornySustainLine(player, 1);
+    if (sustained) sendToPlayer(player.id, { type: 'resource_tick', messages: [sustained] });
+
     if (lastIncrease && (Date.now() - lastIncrease) < decayDelayMs) continue;
+    const prevHorny = player.horniness;
     player.horniness = Math.max(0, player.horniness - 1);
-    await query('UPDATE players SET horniness=$1 WHERE id=$2', [player.horniness, player.id]);
-    sendToPlayer(player.id, { type: 'resource_tick', messages: [], player_update: { horniness: player.horniness, mis_enabled: player.mis_enabled } });
+    dirty.push([player.id, player.horniness]);
+    // …and falling back through a tier is an event. Without it, decaying from 95 to nothing
+    // is twenty silent minutes, indistinguishable from never having been aroused at all.
+    const cooled = hornyCoolingLine(player, prevHorny);
+    sendToPlayer(player.id, { type: 'resource_tick', messages: cooled ? [cooled] : [], player_update: { horniness: player.horniness, mis_enabled: player.mis_enabled } });
+  }
+  if (dirty.length) {
+    // Both columns cast explicitly — a bare VALUES list gives Postgres nothing
+    // to infer parameter types from.
+    const vals = dirty.map((_, i) => `($${i * 2 + 1}::text, $${i * 2 + 2}::int)`).join(',');
+    await query(
+      `UPDATE players p SET horniness = v.h
+         FROM (VALUES ${vals}) AS v(id, h)
+        WHERE p.id = v.id`,
+      dirty.flat()
+    );
   }
 
   // Transient NPC arousal cools off once nobody's touched them for a while — it's
@@ -2043,8 +2466,233 @@ async function appearanceMisNotes({ target, viewer, isSelf, broadcast, naked, by
   return notes || undefined;
 }
 
+// ── The cure ─────────────────────────────────────────────────────────────────
+//
+// A dialogue Action rather than a verb, for the same reason clinic treatment is
+// one: the price is a negotiation with a person. MIS owns it (not clinic) because
+// clinic has no business knowing the flag key. Params arrive FLAT off the VINE
+// node, so a back-alley chemist and a corporate clinic price it differently.
+registerAction({
+  type: 'MIS_CURE_STI',
+  handler: async ({ actor, params = {} }) => {
+    if (!actor) return { type: 'error', message: `Nobody to treat.` };
+    if (!isInfected(actor)) {
+      return { type: 'output', message: params.clean_line || `"Nothing on you I'd write a script for. You're clean."` };
+    }
+    const cost = Number(params.cost ?? 60);
+    if ((actor.credits || 0) < cost) {
+      return { type: 'output', message: params.broke_line || `"${cost}₵ for the course. Come back when you have it."` };
+    }
+    if (cost > 0) await adjustCredits(actor, -cost, undefined, 'clinic:sti');
+    const strain = strainLabel(stiOf(actor)?.strain);
+    await cureSti(actor);
+    return {
+      type: 'output',
+      message: params.cured_line
+        || `Two shots, one in each hip, and a bag of pills with the label scratched off. "${strain}. You'll be clear in a day. Try being more careful, or at least more selective."${cost ? ` (-${cost}₵)` : ''}`,
+      player_update: { credits: actor.credits },
+    };
+  },
+});
+
 export const hooks = {
   'player.appearanceMisNotes': appearanceMisNotes,
 };
 
+// Declaration-only entry (handler: null): `wash` stays the ordinary plugin command
+// above — it also accepts falling rain and a carried water item, and cleans blood
+// and acid residue whether or not MIS is on — but this row makes a sink (anything
+// tagged `water_source`) advertise WASH in its examine Actions. Without it the verb
+// worked and nothing in the world ever mentioned it.
+export const specializedActions = [
+  { verb: 'wash', requiredTag: 'water_source', handler: null },
+];
+
 console.log('[mis] Plugin loaded.');
+
+// ── INJECT ───────────────────────────────────────────────────────────────────
+//
+// A syringe is never eaten, drunk or `use`d: its item carries no `consumable`
+// tag and its drug row has a null `item_id`, so no other path in the game can
+// reach it. This verb is the only door, and it is site-gated.
+//
+// `flags.requires_site` on the drug names where it has to go. Put it anywhere
+// else and the dose is spent for nothing — no effect, no refund, one wasted
+// syringe and a line that tells you only that nothing happened. Working out
+// where it goes is the same discovery loop as working out what it costs.
+const INJECT_SITES = {
+  testicles: /\b(balls?|testicles?|sack|nuts|nut sack|scrotum)\b/i,
+  arm:       /\b(arm|vein|elbow)\b/i,
+  neck:      /\b(neck|throat|jugular)\b/i,
+  gut:       /\b(gut|stomach|belly|abdomen)\b/i,
+  thigh:     /\b(thigh|leg)\b/i,
+};
+
+function siteFrom(str) {
+  for (const [site, re] of Object.entries(INJECT_SITES)) if (re.test(str)) return site;
+  return null;
+}
+
+async function cmdInject(args, raw, player, broadcast) {
+  const str = args.join(' ').trim();
+  const nameStr = str.replace(/\s*(?:in|into|to)\s+(?:my\s+|the\s+)?.*$/i, '').trim() || str;
+
+  const syringe = await resolveInventoryItem(player, { tag: 'syringe', name: nameStr, topLevel: true });
+  if (!syringe) return undefined;   // not ours — fall through
+
+  const drug = Object.values(getDrugCache()).find(d => d.flags?.syringe_item === syringe.item_id
+    || d.item_id === syringe.item_id
+    || d.id === syringe.item_id.replace(/^item_/, 'drug_'));
+  if (!drug) return { type: 'error', message: `The ${syringe.name} is empty.` };
+
+  const wanted = drug.flags?.requires_site || null;
+  const given = siteFrom(str);
+
+  // No site named at all: refuse rather than waste it. The player hasn't made a
+  // choice yet, so we don't punish them for one.
+  if (wanted && !given) {
+    return { type: 'error', message: `Inject it where? The needle is long and the choice appears to matter.` };
+  }
+
+  const consume = async () => {
+    if (syringe.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [syringe.inv_id]);
+    else await query('DELETE FROM player_inventory WHERE id=$1', [syringe.inv_id]);
+  };
+
+  // Right needle, wrong place. The dose is gone and it did nothing — which is
+  // the only feedback the player ever gets that placement was the variable.
+  if (wanted && given !== wanted) {
+    await consume();
+    return { type: 'output', message: `You put the needle into your ${given} and push the plunger. It stings, it bruises, and then… nothing. Whatever that was for, it wasn't that.` };
+  }
+
+  // Anatomy check for a site that needs one — no line about what it's FOR.
+  if (wanted === 'testicles' && player.biological_sex !== 'male') {
+    await consume();
+    return { type: 'output', message: `You look for somewhere to put it, find nothing that matches, and settle for your thigh. Nothing comes of it.` };
+  }
+
+  await consume();
+  const res = await useDrug(player, drug.id, broadcast, { route: 'inject' });
+
+  // The two effects that need forcing rather than accruing.
+  if (drug.flags?.forced_erection && player.biological_sex === 'male') {
+    player.erect = 1;
+    await query('UPDATE players SET erect=1 WHERE id=$1', [player.id]).catch(() => {});
+  }
+
+  broadcastMis(player.current_zone, { type: 'zone_event',
+    message: `${player.handle} injects something into themselves, in a place that makes it hard to keep watching.` }, broadcast, player.id);
+
+  return {
+    type: 'output',
+    message: `${res?.message || ''} <span class="text-dim">You are going to be uncomfortable for a while.</span>`.trim(),
+    player_update: { erect: player.erect },
+  };
+}
+
+commands.inject = cmdInject;
+commands.jab = cmdInject;
+
+// ── Dev-panel API (MIS Fit tab) ──────────────────────────────────────────────
+//
+// The fit model's prose is content, so it gets a dev-panel editor like every
+// other content type. Routes live in the plugin rather than server/api/routes.js
+// because nothing outside MIS reads this table (the leaf test).
+export const routeHandler = async (path, method, body, auth) => {
+  if (!path.startsWith('/mis-fit')) return null;
+
+  // Two gates, and the ORDER matters. With MIS off server-wide this answers 404
+  // — not 403 — so the endpoint is indistinguishable from one that was never
+  // built. A 403 would confirm something is there to be found, which is exactly
+  // what we're avoiding: the whole surface is supposed to be invisible until
+  // somebody deliberately turns it on.
+  if (!isMisServerEnabled()) return { status: 404, body: { error: 'Not found' } };
+  if (!auth?.role || !['admin', 'dev'].includes(auth.role)) {
+    return { status: 403, body: { error: 'Dev access required' } };
+  }
+
+  if (method === 'GET') {
+    // Every (hole, band) pair, authored or not, so the editor can show the whole
+    // grid rather than only the rows that happen to exist.
+    const authored = new Map(allFitLines().map(r => [r.id, r]));
+    const rows = [];
+    for (const hole of HOLES) {
+      for (const band of FIT_BANDS) {
+        rows.push(authored.get(`${hole}:${band}`)
+          || { id: `${hole}:${band}`, hole, band, actor_lines: [], target_lines: [], zone_lines: [] });
+      }
+    }
+    return { status: 200, body: { rows, holes: HOLES, bands: FIT_BANDS, vocab: allFitVocab() } };
+  }
+
+  if (method === 'PUT') {
+    const { hole, band, actor_lines, target_lines, zone_lines } = body || {};
+    if (!HOLES.includes(hole) || !FIT_BANDS.includes(band)) {
+      return { status: 400, body: { error: 'Unknown hole or band' } };
+    }
+    const clean = (v) => (Array.isArray(v) ? v : String(v || '').split('\n'))
+      .map(s => String(s).trim()).filter(Boolean);
+    const id = await saveFitLines(hole, band, {
+      actor_lines: clean(actor_lines), target_lines: clean(target_lines), zone_lines: clean(zone_lines),
+    });
+    return { status: 200, body: { ok: true, id } };
+  }
+
+  // Vocabulary — the bulk-authoring layer. One dictionary for the whole tab.
+  if (method === 'POST' && path === '/mis-fit/vocab') {
+    const n = await saveFitVocab(body?.vocab || {});
+    return { status: 200, body: { ok: true, terms: n, vocab: allFitVocab() } };
+  }
+
+  // Bulk apply — write ONE set of pools across many (hole, band) pairs at once.
+  // The whole point of the vocabulary is that bands often want the same template
+  // with different words, so applying to a dozen cells has to be one action.
+  if (method === 'POST' && path === '/mis-fit/bulk') {
+    const targets = Array.isArray(body?.targets) ? body.targets : [];
+    const clean = (v) => (Array.isArray(v) ? v : String(v || '').split('\n'))
+      .map(s => String(s).trim()).filter(Boolean);
+    const pools = {
+      actor_lines: clean(body?.actor_lines),
+      target_lines: clean(body?.target_lines),
+      zone_lines: clean(body?.zone_lines),
+    };
+    let written = 0;
+    for (const t of targets) {
+      if (!HOLES.includes(t?.hole) || !FIT_BANDS.includes(t?.band)) continue;
+      // `merge` APPENDS rather than replaces, so a bulk pass can add one more
+      // variant to every band without wiping bespoke lines written for one of them.
+      if (body?.merge) {
+        const existing = allFitLines().find(r => r.id === `${t.hole}:${t.band}`) || {};
+        await saveFitLines(t.hole, t.band, {
+          actor_lines:  [...(existing.actor_lines  || []), ...pools.actor_lines],
+          target_lines: [...(existing.target_lines || []), ...pools.target_lines],
+          zone_lines:   [...(existing.zone_lines   || []), ...pools.zone_lines],
+        });
+      } else {
+        await saveFitLines(t.hole, t.band, pools);
+      }
+      written++;
+    }
+    return { status: 200, body: { ok: true, written } };
+  }
+
+  // Preview — run a template through the vocabulary a few times so an author can
+  // see the spread it actually produces before committing to it.
+  if (method === 'POST' && path === '/mis-fit/preview') {
+    return {
+      status: 200,
+      body: {
+        samples: previewFitLine(body?.text || '', {
+          actor: 'Kesh', target: 'Vale', part: 'pussy', size: '17', capacity: '14',
+        }, 5),
+      },
+    };
+  }
+
+  return null;
+};
+
+// Warm the fit-line cache at boot — one query, then memory forever.
+await loadFitLines();
+await loadFitVocab();

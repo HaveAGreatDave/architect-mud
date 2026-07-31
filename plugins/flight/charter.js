@@ -21,6 +21,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { getZoneNpcs, getAllZones, getNpcsByFlag, moveNpcToZone } from '../../server/engine/world.js';
 import { regionalTiles } from '../../server/engine/commands/movement.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
@@ -32,6 +33,7 @@ import {
 } from './state.js';
 import { removePlayerFromZone } from '../../server/engine/world.js';
 import { pushHangarBay } from './hangars.js';
+import { prefersTextTravel } from './textmode.js';
 
 const SHIFT_HOURS = 8;
 const AUTO_DISEMBARK_MS = 20000;
@@ -398,6 +400,13 @@ export async function embarkCharter(player, ch) {
   // and walks them for the whole ride, instead of the synthesized cabin-window HUD. Any
   // other craft: pulled out of the zone and strapped into the flying-posture HUD as before.
   if (p) {
+    // Text-only travel: latched here for the same reason boardFound latches it — one
+    // flag read per boarding, so the tick's pushHud can skip this rider synchronously.
+    // A walkable cabin is ALREADY graphics-free (real rooms), and its occupants get a
+    // slim engine-audio feed rather than a panel — text mode has nothing to opt out of
+    // there, and latching it would only cost them the sound. Mirrors boardFound, where
+    // the walkable branch returns before the latch.
+    p.textTravel = !isWalkableCabin(live) && await prefersTextTravel(p);
     if (isWalkableCabin(live)) { const look = await boardCabin(p, live); if (look) sendToPlayer(p.id, look); }
     else { getZone(p.current_zone)?.players.delete(p.id); setPosture(p, 'flying'); }
   }
@@ -582,7 +591,7 @@ async function charterTick() {
     }
   } finally { ticking = false; }
 }
-setInterval(() => charterTick().catch(e => console.error('[flight/charter] tick error:', e.message)), CHARTER_TICK_MS);
+schedule('2.5s', () => charterTick().catch(e => console.error('[flight/charter] tick error:', e.message)));   // CHARTER_TICK_MS
 
 // Wheels touch down — grounds the aircraft and lands the passenger's location, then
 // starts a braking roll-out (LANDING_ROLL_MS) before the "arrived" narration, mirroring

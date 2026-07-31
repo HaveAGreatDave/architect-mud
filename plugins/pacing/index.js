@@ -48,7 +48,6 @@ import { on } from '../../server/engine/events.js';
 import { sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { getLivePlayer, getZone, renderOf } from '../../server/engine/world.js';
 import { cmdMove } from '../../server/engine/commands/movement.js';
-import { query } from '../../server/models/db.js';
 
 const WALK_COOLDOWN_MS   = 900;   // spam throttle; normal reading pace never hits it
 const RUN_COOLDOWN_MS    = 700;   // player.running cadence — must stay under the client's
@@ -114,11 +113,29 @@ function scheduleDrain(player) {
   player._moveTimer = setTimeout(() => { drainOne(player).catch(() => {}); }, wait);
 }
 
+// A queued step is intent about ONE room: "from where I am now, go north." The
+// queue is only still valid if the player is where the last step left them. Any
+// other way of arriving somewhere — waking out of a dream, a jail booking, a
+// respawn, an admin teleport — makes every remaining step a walk somebody never
+// asked for, in a room they were not standing in when they asked.
+function dropQueue(player) {
+  player._moveQueue = [];
+  player._moveQueueZone = null;
+}
+
 async function drainOne(player) {
   player._moveTimer = null;
   if (!player._moveQueue?.length) return;
   // Drop the queue if the player is gone or downed — never sleepwalk a corpse.
-  if (getLivePlayer(player.id) !== player || (player.hp ?? 1) <= 0) { player._moveQueue = []; return; }
+  if (getLivePlayer(player.id) !== player || (player.hp ?? 1) <= 0) { dropQueue(player); return; }
+  // …and never sleepwalk a SLEEPER. A mind that is not in the room does not get to
+  // walk it: queue steps, lie down (or get pulled into a dreamscape) and these
+  // would have marched the body out of its own bed.
+  if (player.sleeping || player._dissociating) { dropQueue(player); return; }
+  // Displaced since the queue was built — see dropQueue. The dream case is the one
+  // that motivated this: walk a dreamscape, `wake` before the timer fires, and the
+  // steps you took in the dream came true in the waking room.
+  if (player._moveQueueZone && player.current_zone !== player._moveQueueZone) { dropQueue(player); return; }
 
   const wait = nextReadyAt(player) - Date.now();
   if (wait > 0) { player._moveTimer = setTimeout(() => { drainOne(player).catch(() => {}); }, wait); return; }
@@ -130,8 +147,11 @@ async function drainOne(player) {
   try { result = await cmdMove(next.direction, player, getBroadcast(), opts); } catch { /* swallow */ }
   if (result) sendToPlayer(player.id, result);
   // A wall (locked door, encumbered, no exit) ends the run — drop the rest.
-  if (result?.type === 'error') { player._moveQueue = []; return; }
+  if (result?.type === 'error') { dropQueue(player); return; }
+  // Wherever that step landed us is where the NEXT one is expected to start from.
+  player._moveQueueZone = player.current_zone;
   if (player._moveQueue.length) scheduleDrain(player);
+  else player._moveQueueZone = null;
 }
 
 // --- Layer 1: walk cadence — queue a too-fast step instead of rejecting it ---
@@ -144,6 +164,9 @@ export function cadenceGate({ player, direction, opts }) {
   if (player._moveQueue.length >= MAX_QUEUE) {
     return { block: true, message: `You're moving as fast as your legs will carry you. (${MAX_QUEUE} steps already queued)` };
   }
+  // Stamp the room this queue belongs to as it opens, so the drain can tell
+  // "I walked here" from "something moved me".
+  if (!player._moveQueue.length) player._moveQueueZone = player.current_zone;
   player._moveQueue.push({ direction, opts: opts ? { ...opts } : {} });
   scheduleDrain(player);
   return { block: true, silent: true };               // deferred — no error line now
@@ -167,7 +190,13 @@ on('zone.entered', async ({ actor: player, opts }) => {
     messages.push('Your lungs are burning — you drop back to a walk, chest heaving.');
   }
   sendToPlayer(player.id, { type: 'resource_tick', messages, player_update: { stamina: player.stamina } });
-  await query('UPDATE players SET stamina=$1 WHERE id=$2', [player.stamina, player.id]).catch(() => {});
+  // Stamina is CHECKPOINT-tier, not write-through (see cmdMove in
+  // engine/commands/movement.js): live value is authoritative in RAM, and
+  // flushDirtyPositions already persists `stamina` alongside `current_zone` in
+  // one batched UPDATE for every dirty player. Writing it here too was both a
+  // round trip on the hottest path in the game AND redundant with that flush —
+  // marking dirty is all this needs to do.
+  player._posDirty = true;
 });
 
 // --- The sprint toggle ---
@@ -199,10 +228,11 @@ export const commands = { sprint };
 
 export const _test = {
   WALK_COOLDOWN_MS, SPRINT_COOLDOWN_MS, SPRINT_COST, SPRINT_FLOOR, WINDED_RECOVER, MAX_QUEUE,
-  ROAD_SPEEDUP, roadSpeedFactor,
+  ROAD_SPEEDUP, roadSpeedFactor, drainOne,
   // Cancel any armed drain + clear the queue (regress hygiene — no real timers left running).
   cancelQueue(player) {
     if (player._moveTimer) { clearTimeout(player._moveTimer); player._moveTimer = null; }
     player._moveQueue = [];
+    player._moveQueueZone = null;
   },
 };

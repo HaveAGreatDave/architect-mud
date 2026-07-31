@@ -1,7 +1,9 @@
 // Elevator plugin regression suite (harness-only, never loaded in production).
 import { _test } from './index.js';
-import { getZone } from '../../server/engine/world.js';
+import { getZone, removePlayerFromZone } from '../../server/engine/world.js';
+import { allExits } from '../../server/engine/exits.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
+import { emit } from '../../server/engine/events.js';
 
 export default async function regress({ run, check, getPlayer }) {
   // Verb routes and self-gates: pin the player to a definitely-non-elevator zone
@@ -29,6 +31,13 @@ export default async function regress({ run, check, getPlayer }) {
   const panel = _test.buildPanel(floors);
   check('panel lists floor 50+', panel.includes('floor 54') && panel.includes('floor 50'), panel);
   check('panel buttons are clickable', panel.includes('data-raw-cmd="floor 54"'), panel);
+  check('idle panel has no out exit-link', !panel.includes('exit-link'), panel);
+
+  // Parked on a floor, the panel carries a real exit-link for `out` — that markup
+  // is what the client reads to light the d-pad `out` button.
+  const parked = _test.buildPanel(floors, { n: 54, zone: 'z_b', label: 'Executive' });
+  check('parked panel emits an out exit-link', /class="action-link exit-link"[^>]*data-target="out"/.test(parked), parked);
+  check('parked panel marks the current floor', parked.includes('▶'), parked);
 
   // Non-elevator zone gets no panel.
   check('non-elevator has no panel', !_test.describeRoom({ flags: {} }), 'panel leaked into a normal room');
@@ -43,6 +52,9 @@ export default async function regress({ run, check, getPlayer }) {
   const dirOut = _test.matchElevatorDir([], 'up', p, () => {});
   check('up falls through outside a car', dirOut === undefined, `got ${dirOut?.type}`);
 
+  const outOutside = await _test.matchElevatorOut([], 'out', p, () => {});
+  check('out falls through outside a car', outOutside === undefined, `got ${outOutside?.type}`);
+
   // Confirm the driven pipeline agrees: `up` in a non-elevator is NOT claimed by
   // the elevator redirect — it falls through to normal movement handling.
   const upDriven = await run('up');
@@ -56,6 +68,59 @@ export default async function regress({ run, check, getPlayer }) {
     const dirIn = _test.matchElevatorDir([], 'up', p, () => {});
     check('up in a car reprints the panel', dirIn?.type === 'output' && /floor/i.test(dirIn.message), dirIn?.message);
     check('panel redirect never rides', !p._elevator, 'a redirect started a ride');
+
+    // Boarding parks the car at the floor you stepped off — walking in from Floor N
+    // must leave the doors open on Floor N, not drop the car to the lobby.
+    const boardFrom = car.flags.elevator_floors?.find((f) => getZone(f.zone));
+    if (boardFrom) {
+      delete p._elevatorAt;
+      emit('zone.entered', { actor: p, zone: car.id, from: boardFrom.zone });
+      const parkedOnBoard = _test.parkedAt(car, p);
+      check('boarding parks the car where you got on', parkedOnBoard?.zone === boardFrom.zone,
+        JSON.stringify(parkedOnBoard) + ` (wanted ${boardFrom.zone})`);
+      delete p._elevatorAt;
+    }
+
+    // Stepping out for real: the narration must read as a lift, not a staircase.
+    // Every floor hangs off the car's shared `up` exit, so without the narrateDir
+    // override this said "You head up to …". Driven end to end, then walked back.
+    const outFloor = car.flags.elevator_floors?.find((f) => getZone(f.zone) && allExits(car).some((e) => e.target === f.zone));
+    if (outFloor) {
+      p.current_zone = car.id;
+      p._elevatorAt = { n: outFloor.n, zone: outFloor.zone, car: car.id, label: outFloor.label };
+      const stepped = await run('out');
+      check('out steps onto the parked floor', p.current_zone === outFloor.zone, `${p.current_zone} vs ${outFloor.zone}`);
+      check('stepping out reads as a lift, not stairs',
+        /You head out to/i.test(stepped?.narration || '') && !/head up to/i.test(stepped?.narration || ''),
+        stepped?.narration);
+      // Put the fake player back in the car by hand — walking back would be a
+      // second step inside one tick and the pacing plugin would queue it, leaving
+      // a live timer behind for later suites.
+      removePlayerFromZone(p.id, p.current_zone);
+      delete p._elevatorAt;
+      p.current_zone = car.id;
+    }
+
+    // `out` in an unparked car is NOT claimed — it falls through to the car's
+    // ordinary `out` exit (the lobby), which is the pre-ride behaviour.
+    delete p._elevatorAt;
+    const outIdle = await _test.matchElevatorOut([], 'out', p, () => {});
+    check('out falls through in an unparked car', outIdle === undefined, `got ${outIdle?.type}`);
+
+    // Parked on a floor, the room panel for THIS player carries the out exit-link
+    // and `out` is claimed by the plugin (no move driven here — the claim and the
+    // in-flight guard are what's under test).
+    const floorZ = car.flags.elevator_floors?.find((f) => getZone(f.zone));
+    if (floorZ) {
+      p._elevatorAt = { n: floorZ.n, zone: floorZ.zone, car: car.id, label: floorZ.label };
+      check('parked floor resolves', _test.parkedAt(car, p)?.n === floorZ.n, JSON.stringify(_test.parkedAt(car, p)));
+      check('describeRoom shows the open doors', /data-target="out"/.test(_test.describeRoom(car, p) || ''), 'no out link while parked');
+      p._elevator = { floor: floorZ, carZone: car.id, timers: [] };
+      const midRide = await _test.matchElevatorOut([], 'out', p, () => {});
+      check('out refused while the car is moving', midRide?.type === 'error', midRide?.message);
+      p._elevator = null;
+      delete p._elevatorAt;
+    }
 
     // A bare number routes to the floor picker; an off-panel number is refused
     // cleanly (no teleport), proving the number reached cmdFloor.

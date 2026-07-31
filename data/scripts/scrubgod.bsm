@@ -1,0 +1,59 @@
+@broadcast "ScrubGod 9000 - But Wait, There's More"
+@category commercial
+@length 30
+@type commercial
+
+::actors
+@actor npc_host
+@alias npc_host HOST
+::endactors
+
+::scene TITLE
+
+ROOM kitchen_disaster
+
+EVENT FADE_IN
+
+TITLE scrubgod_logo
+
+♪ An upbeat, slightly too-loud synth sting, the kind that plays under people yelling about savings. ♪
+
+::scene COMMERCIAL
+
+CAM 1 WIDE kitchen_disaster
+
+NPC npc_host
+
+HOST:
+Are YOU tired of scrubbing?!
+
+ACTION npc_host holds up a rag stained with something best left undescribed
+
+HOST:
+Introducing ScrubGod 9000!
+
+CAM 2 CLOSEUP demo_surface
+
+SHOT
+One wipe drags a clean streak across the counter, the dirty half and the spotless half glaringly, impossibly different.
+SHOT_END
+
+HOST:
+One pass removes blood, rust, and most forms of regret.
+
+OVERLAY
+BUT WAIT — THERE'S MORE
+
+CALL NOW AND WE'LL DOUBLE YOUR ORDER FOR THE SAME EXPOSURE RISK
+OVERLAY_END
+
+HOST:
+ScrubGod 9000. Because someone has to clean it up, and it's not going to be them.
+
+TICKER
+Stains are not removed, only relocated to a molecular level you can no longer see · Radiation reduction is cosmetic only and has not been evaluated by anyone qualified to evaluate it · Do not use ScrubGod 9000 near open flame, standing water, or your own reflection · Second bottle ships in 6-8 lifetimes
+TICKER_END
+
+EVENT FADE_OUT
+
+END

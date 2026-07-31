@@ -1,0 +1,21 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_snowsuit",
+  "name": "one-piece thermal snowsuit",
+  "tags": {
+    "bulkiness": 4,
+    "covers": [
+      "legs"
+    ],
+    "description": "Quilted synthetic fill in a sealed ripstop shell, one zip from ankle to throat, cuffs that actually close. It is enormous, it rustles, and it makes you look like a filing cabinet with a face. It is also the difference between the long walk and the short one, and everybody who laughs at it is indoors.",
+    "hydrophobic": true,
+    "insulation": 9,
+    "layer": "outerwear",
+    "slot": "torso",
+    "windproof": true
+  },
+  "type": "clothing",
+  "value": 620,
+  "weight": 3400
+}

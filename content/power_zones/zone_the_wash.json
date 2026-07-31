@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 4000,
+  "flags": {},
+  "generator_id": "gen_wash_junction",
+  "id": "zone_the_wash",
+  "max_capacity_kw": 4000,
+  "name": "The Wash — Coin Laundry",
+  "source_type": "junction_box"
+}

@@ -1,0 +1,12 @@
+{
+  "name": "laundry",
+  "version": "1.0.0",
+  "description": "Coin laundry — WASH your clothes at a washing machine. The other half of hygiene: a shower cleans the body, this cleans what you put back on.",
+  "hooks": [],
+  "commands": ["launder", "laundry"],
+  "specializedActions": ["launder"],
+  "objectGatedCommands": {
+    "launder": { "discoverVia": "washing_machine", "exposed": true, "note": "Tag-gated specialized action on washing_machine furniture — a machine advertises LAUNDER on examine and the handler self-resolves it." },
+    "laundry": { "discoverVia": "washing_machine", "exposed": false, "note": "Alias of launder; the same machine surfaces the primary verb." }
+  }
+}

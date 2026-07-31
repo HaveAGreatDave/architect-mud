@@ -1,0 +1,10 @@
+{
+  "id": "dr_object_normal_022",
+  "drug_id": null,
+  "source": "object",
+  "tone": "normal",
+  "self_line": "I think you dropped something back there.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

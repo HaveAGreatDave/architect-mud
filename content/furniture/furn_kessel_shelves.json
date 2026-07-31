@@ -1,0 +1,14 @@
+{
+  "description": "Shelves to the ceiling on both sides of a single aisle, tins at the front with the labels sun-bleached off and their contents written on in marker by a hopeful hand.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_kessel_shelves",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "stacked shelves",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_kessel_shop"
+}

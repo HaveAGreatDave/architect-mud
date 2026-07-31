@@ -994,10 +994,25 @@ export class GameTable {
       seats: this.seats.filter(s => s && !s.isBot), // bots are transient (see constructor)
       game: this.game ? this.game.toJSON() : null,
     };
+    const json = JSON.stringify(state);
+
+    // Skip the write when nothing actually changed. maybePersist() fires every
+    // 10 s per table for as long as the server is up, and an empty table's state
+    // is byte-identical forever — that was ~18 pointless UPDATEs a minute on a
+    // world where nobody was playing cards, each one keeping Neon's compute from
+    // suspending. The row already holds exactly what we were about to write, so
+    // not writing it changes nothing on restart.
+    if (json === this._persistedJson && this.phase === this._persistedPhase) {
+      this._lastPersist = Date.now();
+      return;
+    }
+
     await query(
       'UPDATE game_tables SET state=$1, phase=$2, updated_at=NOW() WHERE id=$3',
-      [JSON.stringify(state), this.phase, this.id]
+      [json, this.phase, this.id]
     ).catch(e => console.error('[gametable] persist error:', e.message));
+    this._persistedJson = json;
+    this._persistedPhase = this.phase;
     this._lastPersist = Date.now();
   }
 

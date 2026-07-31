@@ -25,6 +25,10 @@ nothing, silently; wire a reader first.
 | `airfield_rental` | flight | self-fly rental desk (`rent`). **Independent of `airfield_charter`** — a field can offer the NPC ride without a hire counter (Buzzard Field) |
 | `charter_vtol_only` | flight | charter pad is VTOL Dragonfly-only, off-airfield drops, no rental desk (Echelon helipad) |
 | `airfield_vtol_only` | flight | helipad — buy/rent/charter restricted to VTOL/rotorcraft; fixed-wings hidden from every roster (Threshold Helipad) |
+| `airfield_residents_only` | flight | a PRIVATE field: set to a building name, only that building's residents resolve a field here at all (`fieldFor` → null for everyone else — no bay, no hangar rent/store, no fuel). Solenne Sky Pad |
+| `residents_only` | residency | interior tile only enterable by a player holding a unit in the named building — walked in OR ridden to by lift (the lift runs the gate chain too) |
+| `residents_only_deny` | residency | optional refusal line for `residents_only`, in the building's voice |
+| `private_billet_owner` | consort | handle of the player who **holds** this zone as a private space. Makes a bespoke room (a yacht boudoir, a safehouse) a legal B.L.I.S.S. delivery address without the consort plugin having to know what a yacht is — apartments you control and premises you own already qualify without this |
 | `yacht` / `echelon` | yacht | marks an Echelon zone (the yacht) |
 | `echelon_bridge` | yacht | the bridge — every `helm`/`sail`/`stop`/`dock` verb gates on this flag |
 | `echelon_suite` | yacht/consort | Cyd's private quarters — owner-gated behind the suite hatch; hosts the MIS-gated dancers |
@@ -33,7 +37,7 @@ nothing, silently; wire a reader first.
 | `echelon_helipad` | consort/flight | stern landing pad — a VTOL Dragonfly can set down here to embark/disembark |
 | `engine_ambience` | movement (client yacht-ambience) | engine-room rumble plays here, swelling while she makes way (`yacht_underway`) |
 | `heading` | yacht | **RUNTIME-only**: the vessel's last steered course in degrees (0=N). Injected onto the live Echelon exterior zone from the persisted world flag — never authored in content; catalogued so it survives the zone-flags sweep |
-| `vessel` | movement | this water tile is a boat you can embark/disembark from the water (needs an `in` exit to the vessel interior) |
+| `vessel` | swimming | this zone is a boat sitting on the map: swimmers can't enter the water tile it shares coordinates with (the `swimming:vessel-hull` gate), and `embark` from any tile alongside climbs aboard it. Needs an `in` exit to the vessel interior |
 | `naval_ambience` | yacht | naval ambient-event pool (Echelon exterior) |
 | `pier` | terrain | pier tile → inferred `dock` surface by `zoneTerrain()` when no authored `terrain` |
 | `airfield_dealer` | flight | aircraft dealer here |
@@ -78,6 +82,7 @@ nothing, silently; wire a reader first.
 | `hide_exits` | describe (engine) | suppress the player-facing exit/room/building list in the room description; graph (movement, NPC pathfinding, minimap) is untouched. Used by elevator cars so the floor panel is the sole exit UI |
 | `fishing_table_id` | fishing | scavenging-table id used for fishing here |
 | `gov_enclave` | checkpoint | inside the government enclave — consumed only as a `checkpoint_cfg.insideFlag` value (the gate is generic, not special-cased) |
+| `citadel_public` | checkpoint | the public floor of Citadel Financial (the Marble Hall); the security vestibule's `checkpoint_cfg.fromFlag`, so the scan runs on the way in and not on the way back out |
 | `greeter` | jobboard | greeter NPC gate zone |
 | `hangar_interior` | flight | inside a hangar |
 | `hangar_interior_zone` | flight | link from ramp to hangar interior |
@@ -88,6 +93,10 @@ nothing, silently; wire a reader first.
 | `gps_suggest` | lore plugin | destination zone id; first entry to this tile plots a one-off GPS route there (pre-quest nudge) |
 | `gps_suggest_label` | lore plugin | optional hint text for the `gps_suggest` route line |
 | `is_apartment` | housing | rentable apartment zone |
+| `is_storefront` | storefront | vacant retail unit a player can buy (`buyshop`). Terms are `shop_price`/`shop_term`/`shop_upkeep`; the deed itself is player data in the `storefronts` table, never content |
+| `shop_price` | storefront | **authored** total asking price for an `is_storefront` unit; the instalment is price ÷ `shop_term`. Omit for the 6000₵ default |
+| `shop_term` | storefront | **authored** number of 7-game-day instalments that clear the mortgage. Omit for the 8-cycle default |
+| `shop_upkeep` | storefront | **authored** per-cycle charge once the mortgage clears, so an abandoned shop still lapses. Omit for the 40₵ default |
 | `rent_cost` | housing | **authored** weekly rent for this apartment unit (needs `is_apartment`); read by `authoredRentCost` in `apartments.js`. Omit for the 100₵ default. Tenancy itself is player data in the `apartments` table, never content |
 | `is_building` | power/world | groups interior zones into one building (junction-box scope) |
 | `is_interior` | environment | indoors (weather/temperature/lighting model) |
@@ -97,7 +106,7 @@ nothing, silently; wire a reader first.
 | `floors` | flight | explicit storey count for the flight-sim skyline, overriding the per-building-type default so a landmark tower stands taller |
 | `region_id` | world (World Editor) | spatial region membership — the `regions.id` this tile belongs to. **Distinct from `district`** (land-use); see [reference/land-taxonomy.md](reference/land-taxonomy.md) |
 | `underwater` | props (preset) | **OVERRIDE**, `tristate`. Submerged tile below a surface water tile (link up/down): always submerged (a boat doesn't help), colder and dark; starts the breath timer that drowns you. **Preset by the `underwater` TERRAIN** since 2026-07-30 — the 82 tiles that carried this as a raw flag were migrated. Read as `propsOf(id).underwater` |
-| `water_temp_c` | swimming | override the temperature a submerged swimmer here drifts toward (default 12 °C surface / 7 °C underwater) |
+| `water_temp_c` | swimming | override the temperature a submerged swimmer here drifts toward. Default is **seasonal**: `clamp(4 + climate monthly mean × 0.5, 2, 24)`, underwater 5 °C colder (cap 12) — ~5 °C in January, ~15 °C in July |
 | `lawless` | surveillance | crimes here raise no heat/wanted |
 | `safehouse` | surveillance | launders wanted heat: unseen time bleeds a wanted star 3× as fast as lying low on the street. Pair with `unsurveilled`/`sanctuary` for a true refuge |
 | `mining_table_id` | mining | scavenging-table id used for mining here |
@@ -123,7 +132,7 @@ nothing, silently; wire a reader first.
 | `buildable` | props (preset) | **OVERRIDE**, `tristate`. The dev-panel builder may place/move a building here. Authoring-only |
 | ~~`water`~~ | **REMOVED 2026-07-30** | there is no water flag. Water is `flags.terrain = 'water'`, tested `zoneTerrain(zone) === 'water'`. The boolean was migrated away 2026-07-21 but its readers were left behind, so every water check in GPS/pathfinding/building-placement silently passed — routes crossed the basin. Readers converted and the key deleted |
 | `world_exit_zone` | movement | exterior seam zone for this building |
-| `work_venue` | work | Steady Work shift venue: `{ role, wage, employer?, name?, pool? }`. XP-gated players `clock in` here. `pool` selects the event set (`'diner'` default, `'bar'` = Brawn/Cool-leaning); venues: Meltwater Diner, Voltage |
+| `work_venue` | work | Steady Work shift venue: `{ role, wage, employer?, name?, pool?, boss?, employer_npc?, clock_in_line? }`. `pool` selects the event set (`'diner'` default, `'bar'` = Brawn/Cool-leaning, `'bench'` = Brains-leaning repair-shop work). `boss` names who pays you (defaults 'Gus'); `employer_npc` is an NPC id — finishing a shift raises your standing with them, which discounts what they charge you ([systems-durability.md](systems-durability.md)); `clock_in_line` overrides the zone-event line ( substitutes). Venues: Meltwater Diner, Voltage, Brownout Municipal Turbine Hall (Watts's bench) |
 | `work_fence_blacklist` (player) | work | Set `'true'` when a player burns a hot courier run (cracked the parcel). Hides the fence's hot-job dialogue option (`OFFER_COURIER_HOT`) from then on |
 
 ## npcs.flags
@@ -131,16 +140,26 @@ nothing, silently; wire a reader first.
 | key | owner | meaning |
 |---|---|---|
 | `aa_engineer` | aa-sites | bunker engineer who repairs a strafed AA battery; value = the owning `aa_sites.id` |
+| `bank_teller` | atm | a bank counter clerk — `deposit`/`withdraw <amount> from <them>` bypasses the terminal entirely (no cap, no fee, no power gate). Presence alone does NOT lift the cap; they must be addressed |
+| `audience_door` | broadcast | studio doorman — while alive, present on the tile outside a channel's `studio_zone_id`, and on shift (08:00–02:00), the way in needs a `custom_data.show_pass` stamped for the showing airing right now. Kill him, wait him out, or catch him off shift and the door is just a door (see [systems-broadcast.md](systems-broadcast.md#studio-audience-door)) |
 | `battle_cries` | combat | lines shouted in combat |
+| `repairman` | wear | bench repair — standing in this NPC's zone turns `repair <item>` from a capped field patch into full restoration, priced off item value and discounted by your standing with them ([systems-durability.md](systems-durability.md)) |
 | `bouncer` | strippers | bouncer NPC — enforces club ejection |
 | `bouncer_eject_zone` | strippers | where this bouncer throws you (optional; falls back to a derived zone) |
 | `charter_pilot` | flight | offers charter flights |
+| `mule_counter` | smuggle | the ground fence's back room — claims the engine purchase-delivery seam, so buying raw off his `shelf: 'back_room'` catalogue books a `smuggle_orders` MULE drop at the Scald instead of handing anything over. Pairs with `trust_flag: 'bm_trust'` + per-entry `min_trust` for the tiers, replacing the old per-raw dialogue fan-out. Sully at the Pigeon Bar |
+| `raws_counter` | flight | the raws order counter — `raws` only works while this NPC is alive and in the room, and each order is run out to one of the dead-drop caches ([systems-flight.md](systems-flight.md#raw-drug-dead-drops--the-air-smuggling-run)). Amos Dune at the Layover; a second quartermaster elsewhere is content, not code |
 | `clothing_layers` | npc-clothing | descriptive outfit model (see npc-clothing.md) |
-| `consort` | consort | an Echelon kept companion — hidden in the boudoir until the keeper `beckon`s them |
+| `consort` | consort | a kept companion — stays in their billet until the keeper `beckon`s them |
 | `devoted_to` | consort | handle of the keeper this consort is devoted to |
+| `consort_archetype` | consort | **which of the 12 sub-personalities they are** (`strategist`, `romantic`, `feral`, `devout`, `brat`, `ghost`, `wit`, `scholar`, `ice`, `starlet`, `soldier`, `stray`). Every spoken line resolves off this — never off the NPC's name |
+| `consort_sex` | consort | `female` \| `male` — drives pronoun resolution in every rendered line |
+| `consort_pairing` | consort | shared key marking two consorts as an inseparable **pairing** (placed and released together; the only consorts that run two-hander scenes). An authored PAIRINGS key, or a uuid for a B.L.I.S.S. placement |
+| `consort_ledger` | consort | set on B.L.I.S.S. placements — marks a live-only consort spawned from `player_consorts` rather than an authored NPC |
 | `covert` | vendor/drugwar | covert dealer (passphrase-gated) |
 | `deal_from` / `deal_to` | drugwar | dealing hours window |
 | `drug_buyer` | drugwar | buys drugs from players |
+| `food_buyer` | cooking | pays the specialist rate (70% vs 40%) for plated meals, and the quality band scales the payout — a masterful plate is worth ~7.5x a poor one |
 | `essential` | — | **no reader.** Nothing checks it; unkillability is `no_attack` (`combat.js:705`). Setting `essential` protects nobody |
 | `faction_guard` | — | **no reader.** There is no `factions` plugin (reworked into ideologies) and no code consumes this key, though ~5 content NPCs still carry it |
 | `gift_trade` | trade | accepts gifts |
@@ -153,6 +172,7 @@ nothing, silently; wire a reader first.
 | `no_banter` | npc-banter/gossip | opt this NPC out of ambient banter (dev panel exposes it as a "joins ambient banter" checkbox) |
 | `passphrases` | vendor | covert-dealer passphrases |
 | `personality` | npc-personality | personality archetype (drives outfit/banter) |
+| `purchase_remarks` | commerce | `{ "<item_id>": "line" }` — what this vendor says as you pocket that specific item, in their own voice. For the one thing in their crates that needs explaining (Grady points a fresh deck buyer at his practice rig). Fires **once per player per item**; author `{ "text": "…", "repeat": true }` for every-purchase. Costs nothing unless the item bought has a remark authored |
 | `poker_bankroll` / `poker_persona` / `poker_player` | gametable | NPC poker player config |
 | `police` | jail/surveillance | police unit (arrest powers) |
 | `preshow_habit` | npc-drugs | drug name this NPC rarely self-doses on at home when watched (e.g. Akerson's "Neural Overclock" pre-show ritual) |
@@ -161,6 +181,7 @@ nothing, silently; wire a reader first.
 | `table_id` | gametable | which game table the NPC sits at |
 | `trust_flag` / `trust_max` / `trust_per_buy` | vendor | per-player trust meter unlocking stock |
 | `uses_drugs` | npc-drugs | NPC willingly accepts a drug `slip`-ped to them (addict-economy seam) |
+| `card_quote` / `card_note` / `card_rarity` / `card_standing` / `card_exclude` | cards | optional hand-tuning for this NPC's trading card — a spoken line, the prose block, an explicit rank (default is derived from role), the big number, or "never card this row". **All optional**: an NPC with none of them still produces a readable Common, which is what makes full-roster coverage free |
 
 ## furniture.flags
 
@@ -174,12 +195,17 @@ nothing, silently; wire a reader first.
 | `camera_id` | broadcast | media_cameras row this camera feeds |
 | `channel_id` | broadcast | channel a deck/TV is tuned to |
 | `chargen` | prologue | character-generation terminal |
-| `concealed` | surveillance | planted device concealment state |
+| `concealed` | surveillance / concealment | hidden from the room's furniture list entirely (`commands/describe.js`). A planted spy device sets it at plant time; a concealment cabinet flips it on the piece it hides |
+| `conceal_hides` / `conceal_code` / `conceal_brand` | concealment | on the DISGUISE piece: the id of the furniture it hides (same zone), the passcode (factory `1234`), and the brand shown on the keypad |
+| `backstock` | commerce | container id a `vendor_stock` case refills from (stockroom → shop floor) before minting a delivery |
+| `backstock_depth` | commerce | on the STOCKROOM container: how many deliveries' worth of each sourced item to keep in reserve, as a multiple of the catalogue entry's `restockToQty` (default 2). Set 0 to leave a back room deliberately bare |
+| `checkout` | commerce | vendor id whose till this counter is — enables `checkout` here |
 | `container` | inventory | holds items |
 | `corp_poster` / `hero_poster` / `poster_key` | corps/events | wall poster identity |
 | `cosmetic_machine` | appearance | morphex/biosculpt station |
 | `crafting_station` | crafting | crafting station |
 | `deck_active` / `deck_cassettes` / `deck_ejected_slots` | broadcast | media deck state |
+| `deck_cam_source` | broadcast | on a `mini_deck` only: the SPECTER camera patched into its spare input instead of a tape — `{ deviceId, label, zoneId }`. Exclusive with `deck_active`; cleared lazily when the camera dies. See [systems-broadcast.md](systems-broadcast.md) |
 | `emergency_deck` | broadcast | the Echelon's emergency MediaDeck — overrides every tuned TV in the city |
 | `tuned_channel` | broadcast | channel **number** a TV/receiver is tuned to (joined against `media_channels.number`) — distinct from `channel_id` |
 | `charge_sheet` | jail | the booking form clipped to the cell bars — `read <sheet>` prints the reader's own detention record (charge, stars, time remaining, held property) |
@@ -187,7 +213,8 @@ nothing, silently; wire a reader first.
 | `device_id` | surveillance | security_devices row this furniture mirrors |
 | `game_table_id` | gametable | game_tables row (poker) |
 | `generator_id` | power | generators row this furniture mirrors. Auto-built junction boxes use a **deterministic** id `gen_<zoneId>` (converges on re-run; see `installGenerator` in environment.js); city plants and player units (`pgen_<uuid>`) do not. |
-| `hack_difficulty` | hacking | difficulty to hack this object |
+| `hack_difficulty` | hacking | difficulty to hack this object. The deck's own `tags.hack_penalty` is added on top at arm time (`server/engine/hack-gear.js`) — a junk deck reads every target harder |
+| `hack_rig` | hackrig | practice lock rig: a legal, low-difficulty `hack` target with nothing behind it. No credits, no crime, no shock, and a failure still burns deck condition. Scores on the shared skill-vs-difficulty margin like every other hack target, so it teaches a beginner brilliantly and a professional nothing — the rig retires itself around Hacking 3–4. Defaults to `hack_difficulty` 2 |
 | `interactions` | engine (tags.js) | verb list surfaced as tags (`['switch','sit']`) |
 | `is_light` / `light_type` | environment | legacy light markers (see furniture columns) |
 | `job_board` | jobboard | job board |
@@ -205,9 +232,20 @@ nothing, silently; wire a reader first.
 | `trash_bin` | scavenging | searchable trash |
 | `tv` / `tv_dial_freq` / `tv_skin` | broadcast | television set config |
 | `vends` / `vend_line` / `vend_cooldown_s` | vending | dispenser machine: item id to dispense (required), flavour line, per-machine throttle in seconds (default 20; 0 = off) |
+| `vends_packs` | cards | card-pack machine (value = series number). Renders its own lit product window through `zone.furniturePanel`; author with `power_draw_kw` so a blackout takes it dark |
+| `card_mint` | cards | mint terminal — `mint` previews here for free and strikes for ₵2,500; `scrap` eats duplicates here too |
 | `fuel_source` | fillable | a fuel point in this zone that `fill` draws from |
-| `woven` | describe (engine) | fold this furniture into the room prose instead of listing it separately |
+| `woven` | describe (engine) | fold this furniture into the room prose instead of listing it separately (the LIVE tier) |
+| `notable` | describe (engine) | force this piece to stay in the `Furniture:` list even when the classifier would demote it to the scenery clause. The override for a stub-described prop that actually matters |
+| `mundane` | describe (engine) | force this piece into the trailing scenery clause even when it affords verbs. The opposite override; wins over `notable` |
 | `vendor_npc_id` | vendor | vendor NPC whose shop this furniture belongs to |
+| `shop_unpaid` | storefront | *(player_inventory custom_data)* the shop zone this row was lifted from and not yet paid for; `buyware` clears it, carrying it out of the shop is `shoplifting` |
+| `shop_display` | storefront | marks the display counter in a player-owned shop. Prose/affordance anchor only — listings are zone-scoped, not stored in this piece |
+| `shop_vault` | storefront | holds a player-owned shop's till; `hack`able via VAULT CRACK (`hack_difficulty`, default 6) |
 | `vendor_safe` | vendor-safe | crackable vendor safe |
 | `vendor_schedule_board` | vendor | shop-hours board |
+| `vendor_stock` | commerce | vendor id owning this container's contents — a self-service display case. Goods pulled out are marked `custom_data.unpaid` until `checkout`; carrying them out of the shop is `shoplifting` |
+| `wardrobe` | wardrobe | this container opens the wardrobe/outfits panel (pair with `container`) |
+| `lending_terminal` | library | `scan` here unlocks the tablet's LIBRARY app (`library_unlocked` flag) and prints the one-time intro; examining it teaches the verb ([systems-library.md](systems-library.md)) |
+| `cleaning_tool` | cleaning | a fixed sink/basin — `clean`/`mop` in this room clears the whole floor rather than one patch. Also valid as an **item** tag ([systems-cleaning.md](systems-cleaning.md)) |
 | `water_source` | water plugin | drink/wash here |

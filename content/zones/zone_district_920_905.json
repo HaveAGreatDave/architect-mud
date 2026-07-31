@@ -4,13 +4,13 @@
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "The face of Ironside Arms — a low blockhouse of riveted plate with a slit window and a door like a bank vault. A board over it reads: YOU BREAK THE GLASS, YOU MEET THE OWNER. Ironside Street runs off to the west.",
+  "description": "The face of Second Amendment Superstore — a low blockhouse of riveted plate with a slit window and a door like a bank vault. A board over it reads: YOU BREAK THE GLASS, YOU MEET THE OWNER. Ironside Street runs off to the west.",
   "exits": {
     "east": "zone_gunshop_interior",
     "west": "zone_district_919_905"
   },
   "flags": {
-    "building_name": "Ironside Arms",
+    "building_name": "Second Amendment Superstore",
     "building_type": "gun_shop",
     "district": "wasteland",
     "entrance": "west",
@@ -27,7 +27,7 @@
   "id": "zone_district_920_905",
   "map_id": "map_world",
   "marker": "GN",
-  "name": "Ironside Arms",
+  "name": "Second Amendment Superstore",
   "parent_zone": null,
   "updated_at": "1783739474"
 }

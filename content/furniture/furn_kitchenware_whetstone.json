@@ -1,0 +1,14 @@
+{
+  "description": "A water-cooled whetstone bench worn into a shallow saddle down the middle, with a rag, an oilcan and a boning knife somebody left mid-job. The floor beneath it glitters with a decade of steel dust.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_kitchenware_whetstone",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "whetstone bench",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_kitchenware_util"
+}

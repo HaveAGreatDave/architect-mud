@@ -1,0 +1,18 @@
+{
+  "description": "A long wooden bench polished to a shine by decades of men in no hurry whatsoever.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_soak_bench",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "waiting bench",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_soak_front"
+}

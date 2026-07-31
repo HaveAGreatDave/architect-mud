@@ -1,0 +1,14 @@
+{
+  "description": "A single slab of marble running the width of the hall with no gap, no hatch and no window in it anywhere. Nothing passes over this counter. It is a wall that has been persuaded to look like furniture.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_citadel_counter",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "marble teller counter",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_citadel_hall"
+}

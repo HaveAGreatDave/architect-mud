@@ -6,6 +6,7 @@
   "tags": {
     "bulkiness": 1,
     "description": "A snug knit cap threaded with heat-wick filament that pulls warmth up from your collar and pins it to your scalp — where, the packaging insists, forty percent of it was getting away.",
+    "hydrophobic": true,
     "insulation": 2,
     "layer": "outerwear",
     "slot": "head"

@@ -10,6 +10,83 @@ let shopState = null; // { msg, mode, sort, sel, qty }
 // repaints the room with a zone id, so this one check covers all of them.
 let dialogueZone = null;
 
+// ── Conversation presentation ────────────────────────────────────────────────
+// Three things make the panel read as an interaction rather than a dialog box:
+// the speaker's line is TYPED rather than pasted, the options only appear once
+// they've finished speaking, and the NPC takes a beat to think before answering.
+// All three are timing, not decoration — see the notes on each below.
+
+// Conversation SFX sit under speech and ambience; these fire constantly so they
+// have to be felt more than heard.
+const DIALOGUE_SFX_GAIN = 0.5;
+function dsfx(cue) {
+  const def = window.SFXCatalog?.get('dialogue-' + cue);
+  if (def) window.AudioEngine?.playSfx(def, DIALOGUE_SFX_GAIN);
+}
+
+// Typewriter: characters per second, but capped in total so a long speech doesn't
+// hold the player hostage — the rate scales up instead of the wait growing.
+const TYPE_CPS = 90;
+const TYPE_MAX_MS = 2200;
+let typeRaf = null;      // in-flight reveal (cancelled on skip / next node)
+let typeFinish = null;   // completes the current reveal immediately
+
+// The NPC "thinks" before replying. Server round-trip latency counts toward this,
+// so on a fast local connection this is the whole beat and on a slow one it costs
+// nothing extra — the reply just never lands *instantly*, which is what made the
+// old panel feel like a form submit.
+const THINK_MS = 160;
+let thinkingUntil = 0;
+let thinkTimer = null;
+
+// Reveal `#dialogue-text` a character at a time. Works over the node's HTML (the
+// server sends spans — item grants, coloured names), so it walks the text nodes
+// and refills them progressively instead of retyping a string; markup therefore
+// never flashes half-written. `onDone` runs on natural completion AND on skip.
+function typeOut(el, onDone) {
+  cancelType();
+  const nodes = [];
+  const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  for (let n = walk.nextNode(); n; n = walk.nextNode()) nodes.push({ node: n, full: n.nodeValue });
+  const total = nodes.reduce((n, t) => n + t.full.length, 0);
+  for (const t of nodes) t.node.nodeValue = '';
+  if (!total) { onDone?.(); return; }
+
+  const durMs = Math.min(TYPE_MAX_MS, (total / TYPE_CPS) * 1000);
+  const start = performance.now();
+  const finish = () => {
+    cancelType();
+    for (const t of nodes) t.node.nodeValue = t.full;
+    onDone?.();
+  };
+  typeFinish = finish;
+  const step = (now) => {
+    const shown = Math.round(total * Math.min(1, (now - start) / durMs));
+    let left = shown;
+    for (const t of nodes) {
+      const take = Math.max(0, Math.min(t.full.length, left));
+      if (t.node.nodeValue.length !== take) t.node.nodeValue = t.full.slice(0, take);
+      left -= take;
+    }
+    if (shown >= total) finish();
+    else typeRaf = requestAnimationFrame(step);
+  };
+  typeRaf = requestAnimationFrame(step);
+}
+
+function cancelType() {
+  if (typeRaf) cancelAnimationFrame(typeRaf);
+  typeRaf = null;
+  typeFinish = null;
+}
+
+// Click or key while a line is still typing lands the rest of it at once, so the
+// reveal is never a tax on a player who reads faster than 90cps.
+export function skipDialogueTyping() {
+  if (typeFinish) { typeFinish(); return true; }
+  return false;
+}
+
 const SORTS = [
   { key: 'alpha', label: 'A–Z' },
   { key: 'value', label: 'Price' },
@@ -71,16 +148,83 @@ function formatOptionLabel(raw) {
   return { label: stripped, gated: wasGated };
 }
 
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Server-tagged option destinations (`_kind`, set in server/engine/dialogue.js) →
+// the glyph that says where the option goes before you click it.
+const OPT_KIND_ICON = {
+  hostile: { icon: '⚠', title: 'This one turns violent' },
+  shop:   { icon: '🛒', title: 'Opens their shop' },
+  quest:  { icon: '❗', title: 'Takes on a job' },
+  turnin: { icon: '✅', title: 'Hands in a job' },
+  leave:  { icon: '🚪', title: 'Ends the conversation' },
+};
+
+function optionIconHtml(opt) {
+  // A locked turn-in already wears a padlock (.dialogue-opt-locked::before) — one
+  // status glyph per option, so don't stack ✅ on top of 🔒.
+  if (opt._turninDisabled) return '';
+  const k = OPT_KIND_ICON[opt._kind];
+  // An author-assigned glyph (`icon`, set in the VINE play view) wins over the
+  // derived one. A hostile option keeps its red styling and its stakes line
+  // regardless — the warning is the colour and the hint, not the glyph.
+  const icon = opt.icon || k?.icon;
+  if (!icon) return '';
+  const title = opt.icon ? (k?.title || '') : k.title;
+  return `<span class="dialogue-opt-icon"${title ? ` title="${escHtml(title)}"` : ''}>${escHtml(icon)}</span>`;
+}
+
+// A reply is held until the NPC's thinking beat has elapsed (see THINK_MS). The
+// wait is measured from the click, so server latency is spent inside it.
 export function openDialogue(msg) {
+  if (thinkTimer) { clearTimeout(thinkTimer); thinkTimer = null; }
+  const wait = Math.max(0, thinkingUntil - performance.now());
+  if (wait > 0) {
+    thinkTimer = setTimeout(() => { thinkTimer = null; renderDialogue(msg); }, wait);
+    return;
+  }
+  renderDialogue(msg);
+}
+
+function renderDialogue(msg) {
+  const panel = document.getElementById('dialogue-panel');
+  const box = document.getElementById('dialogue-box');
+  const fresh = !panel.classList.contains('active');
   state.currentNpcId = msg.npcId;
   dialogueZone = state.currentZone;
   shopState = null;
-  document.getElementById('dialogue-panel').classList.remove('shop-mode');
-  document.getElementById('dialogue-box').classList.remove('shop-mode');
+  panel.classList.remove('shop-mode', 'closing');
+  box.classList.remove('shop-mode');
   document.getElementById('dialogue-npc-name').textContent = msg.npcName;
-  document.getElementById('dialogue-text').innerHTML = msg.text;
+  // Mood only arrives on the moments it can have changed (arrival, and any line
+  // that moved reputation) — so keep the last one through the middle of a tree,
+  // and clear it when a NEW conversation opens without one.
+  if (msg.mood) box.dataset.mood = msg.mood;
+  else if (fresh) delete box.dataset.mood;
+
+  const stageEl = document.getElementById('dialogue-stage');
+  stageEl.textContent = msg.stage || '';
+  stageEl.classList.toggle('on', !!msg.stage);
+  const hintEl = document.getElementById('dialogue-hint');
+  hintEl.textContent = '';
+  hintEl.classList.remove('danger');
+
+  const textEl = document.getElementById('dialogue-text');
+  textEl.innerHTML = msg.text;
   const opts = document.getElementById('dialogue-options');
   opts.innerHTML = '';
+  // Options are built now but stay veiled (CSS: faded, not clickable) until the
+  // speaker has finished — the eye can't jump to the buttons mid-sentence.
+  opts.classList.add('veiled');
+  stageEl.classList.add('veiled');
+  panel.classList.add('active');
+  dsfx(fresh ? 'open' : 'line');
+  typeOut(textEl, () => {
+    opts.classList.remove('veiled');
+    stageEl.classList.remove('veiled');
+  });
   for (let i = 0; i < (msg.options || []).length; i++) {
     const opt = msg.options[i];
     if (!opt.next && !opt.cmd) continue;
@@ -88,8 +232,17 @@ export function openDialogue(msg) {
     const { label, gated } = formatOptionLabel(rawLabel);
     const btn = document.createElement('button');
     btn.className = 'dialogue-opt';
-    if (gated) {
-      btn.innerHTML = `<span class="dialogue-opt-branch">↳</span>${label}`;
+    // The server tags an option that starts violence / gets you charged / burns
+    // standing; it gets red edging and its own stakes line, so an irreversible
+    // choice never looks like every other choice.
+    if (opt._kind === 'hostile') btn.classList.add('dialogue-opt-hostile');
+    // Stakes footer: hover or keyboard-focus an option and the band under the
+    // speech says where it goes, before the click.
+    if (opt._hint) bindHint(btn, opt._hint, opt._kind === 'hostile');
+    const branch = gated ? '<span class="dialogue-opt-branch">↳</span>' : '';
+    const icon = optionIconHtml(opt);
+    if (branch || icon) {
+      btn.innerHTML = `${branch}${icon}${escHtml(label)}`;
     } else {
       btn.textContent = label;
     }
@@ -109,14 +262,52 @@ export function openDialogue(msg) {
     // another UI (Tablet OS) instead of the next dialogue screen — close this
     // panel and run the command like any other action-link, rather than
     // round-tripping through sendDialogue.
-    btn.onclick = opt.cmd ? () => { closeDialogue(); sendCmd(opt.cmd, label); } : () => sendDialogue(state.currentNpcId, opt.next, i);
+    btn.onclick = opt.cmd
+      ? () => { dsfx('opt'); closeDialogue(); sendCmd(opt.cmd, label); }
+      : () => { dsfx('opt'); beginThinking(); sendDialogue(state.currentNpcId, opt.next, i); };
     opts.appendChild(btn);
   }
-  document.getElementById('dialogue-panel').classList.add('active');
+}
+
+// Start the NPC's thinking beat and show it: the speech goes to an ellipsis so the
+// panel visibly waits on them, rather than sitting on the line they already said.
+function beginThinking() {
+  cancelType();
+  thinkingUntil = performance.now() + THINK_MS;
+  const textEl = document.getElementById('dialogue-text');
+  textEl.innerHTML = '<span class="dialogue-thinking">…</span>';
+  document.getElementById('dialogue-options').classList.add('veiled');
+  const hintEl = document.getElementById('dialogue-hint');
+  hintEl.textContent = '';
+  hintEl.classList.remove('danger');
+}
+
+function bindHint(btn, hint, danger) {
+  const set = (t) => {
+    const el = document.getElementById('dialogue-hint');
+    el.textContent = t;
+    el.classList.toggle('danger', !!t && !!danger);
+  };
+  btn.addEventListener('mouseenter', () => set(hint));
+  btn.addEventListener('focus', () => set(hint));
+  btn.addEventListener('mouseleave', () => set(''));
+  btn.addEventListener('blur', () => set(''));
 }
 
 export function closeDialogue() {
-  document.getElementById('dialogue-panel').classList.remove('active', 'shop-mode');
+  cancelType();
+  if (thinkTimer) { clearTimeout(thinkTimer); thinkTimer = null; }
+  thinkingUntil = 0;
+  const panel = document.getElementById('dialogue-panel');
+  // Exit animation: the box eases out on `.closing`, then the panel goes away.
+  // Everything else tears down now, so a re-open mid-animation is still correct.
+  if (panel.classList.contains('active')) {
+    dsfx('close');
+    panel.classList.add('closing');
+    setTimeout(() => {
+      if (panel.classList.contains('closing')) panel.classList.remove('active', 'closing', 'shop-mode');
+    }, 150);
+  }
   document.getElementById('dialogue-box').classList.remove('shop-mode');
   if (shopState) sendRaw({ type: 'shop_close' });
   if (creditTween) { clearInterval(creditTween); creditTween = null; }
@@ -163,7 +354,14 @@ export function openShop(msg) {
   // refresh keeps the prior baseline so the counter rolls to the new balance.
   if (!msg.buyResult && !msg.sellResult) lastShownCredits = null;
   shopState = { msg, mode, sort, sel: shopState?.sel ?? null, qty: 1 };
+  // The shop is a dense terminal, not a conversation: no typewriter, no veil, no
+  // stage direction. Clear anything the dialogue side left behind.
+  cancelType();
+  document.getElementById('dialogue-options').classList.remove('veiled');
+  document.getElementById('dialogue-stage').classList.remove('on', 'veiled');
+  document.getElementById('dialogue-hint').textContent = '';
   document.getElementById('dialogue-npc-name').textContent = msg.npcName;
+  document.getElementById('dialogue-panel').classList.remove('closing');
   document.getElementById('dialogue-panel').classList.add('active', 'shop-mode');
   document.getElementById('dialogue-box').classList.add('shop-mode');
   renderShop();
@@ -305,7 +503,17 @@ function wireShopEvents() {
 export function initDialogue() {
   document.getElementById('dialogue-close').addEventListener('click', closeDialogue);
   document.getElementById('dialogue-panel').addEventListener('click', (e) => {
-    if (e.target === document.getElementById('dialogue-panel')) closeDialogue();
+    if (e.target === document.getElementById('dialogue-panel')) { closeDialogue(); return; }
+    // Click anywhere in the speech while it's typing = land the rest now.
+    if (e.target.closest('#dialogue-text')) skipDialogueTyping();
+  });
+  // Keyboard: Escape leaves, anything else lands a line that's still typing. Never
+  // swallows the key — the command bar keeps working with a conversation open.
+  document.addEventListener('keydown', (e) => {
+    const panel = document.getElementById('dialogue-panel');
+    if (!panel.classList.contains('active') || panel.classList.contains('shop-mode')) return;
+    if (e.key === 'Escape') closeDialogue();
+    else skipDialogueTyping();
   });
   document.querySelectorAll('#dialogue-panel .dialogue-opt').forEach(btn => {
     if (btn.textContent.trim().includes('Leave')) btn.addEventListener('click', closeDialogue);

@@ -86,9 +86,45 @@ Full model + the fallback table: [docs/npc-clothing.md](../../../docs/npc-clothi
 **Enemy:**
 - [ ] A zone spawn entry (`zones/<id>/spawns`) — an enemy with no spawn ships nothing
 - [ ] Loot table items exist
+- [ ] **Any NEW body part gets its rules written in the same build.** A part the
+      humanoid set doesn't already cover (`gills`, `fluke`, `tendril`, `venom_sac`,
+      `sensor_cluster`) is inert unless you say what it does — see below.
 - [ ] **Butcher yield decided, not defaulted.** Should the corpse be carvable? If yes, populate `butcher_table` (entries `{item, qty:[min,max]}`) and set `butcher_difficulty`; the yield items must exist as `items` rows. If no, leave `butcher_table: []`. A new enemy defaults to an *empty* table = non-butcherable — decide deliberately (see below).
 - [ ] Behaviour graph (or default AI is acceptable — say which)
 - [ ] Danger rating of the target zone matches enemy lethality
+
+### New body parts — write the rules, or the part is scenery
+
+`body_parts` is free-form: a creature can declare `gills`, `coils`, a `venom_sac`,
+a `sensor_cluster`. The injury system will happily wound any of them. But a part
+only DOES something if you say so, and the failure is silent — the part reads
+beautifully in `examine` and changes nothing about the fight.
+
+**Whenever you invent a part the humanoid set doesn't cover, decide two things
+in the same build:**
+
+1. **Its role.** `role: 'attack'` (wounding it degrades the creature's to-hit,
+   and these STACK — six arms means six bites at that) or `role: 'mobility'`
+   (degrades its flee roll, worst-of rather than stacking) or `role: 'none'`
+   (deliberately inert — flavour anatomy, which is a legitimate choice).
+   Omit `role` and it is INFERRED from the name against a hint list
+   (`arm/claw/maw/jaw/tendril/stinger…`, `leg/fin/coil/fluke/tail/rotor…`).
+   Inference is a convenience, not a contract: `fin` and `tendril` were missing
+   from those lists for a while and a harbour lurker's fins were pure decoration.
+   **If the name is at all unusual, state the role rather than hoping.**
+
+2. **What it GRANTS**, if anything — `grants: { component, dodge, capability }`.
+   This is what makes a part worth aiming at for a reason other than damage:
+   - `component: <n>` — that index of the creature's `weapon` array stops firing
+     when the part is Maimed. Two parts granting the same index behave as a pair
+     (it survives until both are gone). A creature always keeps one attack.
+   - `dodge: <n>` — evasion the part provides, lost when it is destroyed.
+   - `capability: '<name>'` — a named string other systems can gate on.
+
+`content:lint` fails on a bad `role`, an unknown `grants` key, a non-integer
+component index, and an index pointing past the end of the weapon array — because
+every one of those is otherwise silently inert. Full reference:
+[docs/combat.md](../../../docs/combat.md#what-a-part-gives--body_partsgrants).
 
 ### Butcherable enemies — `butcher_table` + `butcher_difficulty`
 
@@ -146,7 +182,8 @@ Lumens are **summed per zone**, so a room lit by several fixtures adds them up �
 - [ ] Run the world validator after creation
 
 **Building (a `map_world` zone with `flags.building_type`) — author BOTH representations in the same build, never backfill:**
-- [ ] **Map icon** — a `client/game/assets/zone-icons/bldg_<type>.svg` (24×24, `fill="none" stroke="currentColor"`), registered in `BUILDING_TYPE_ICON` (`server/engine/world.js`) **and** a glyph in `BUILDING_ICON` (`client/game/js/panels/minimap.js`). Both lookups are **`facade`-gated**, so the building must be a real enterable facade (tag `facade` + an interior zone + a `content/maps/map_int_*.json` record) — a non-facade "solid frontage" renders blank on the map. `marker` is NOT read by the map; don't rely on it.
+- [ ] **Map icon** — a `client/game/assets/zone-icons/bldg_<type>.svg` (24×24, `fill="none" stroke="currentColor"`), registered in `BUILDING_TYPE_ICON` (`server/engine/world.js`). The lookup is **`facade`-gated**, so the building must be a real enterable facade (tag `facade` + an interior zone + a `content/maps/map_int_*.json` record) — a non-facade "solid frontage" renders blank on the map.
+- [ ] **`marker`** — the authored 2-letter code. It IS read by the map: it's what the *Map Labels* overlay draws (the default mode), and nothing derives one for you, so a building without a marker shows a bare tile. Keep it unique — the map audit flags collisions.
 - [ ] **Flight 3D model** — a `drawTypeModel` case + `ty_*` palette + `TYPE_MODEL` entry in `client/game/js/panels/windshield.js`, keyed off the same `building_type` (see `docs/reference/world-rendering.md`).
 - [ ] Facades are **non-standable revolving doors** (`resolveFacadeTransit`) — put vendors/NPCs and any `claimable_asset`/stand-on-tile mechanic **inside the interior**, not on the facade tile.
 

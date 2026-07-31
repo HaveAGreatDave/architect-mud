@@ -1,0 +1,7 @@
+{
+  "name": "appliances",
+  "version": "1.0.0",
+  "description": "Generic `flags.plugged_in` gate for any powered furniture (power_draw_kw set) — owns `unplug <name>` plus a shared 'looks broken' examine hook when unplugged; the inverse `plug <name>` arrives via the generator plugin's fallback to togglePluggedByName(). Absent flag = plugged in, for backward compatibility. Consumed by vending and preservation.",
+  "hooks": ["furniture.describe"],
+  "commands": ["unplug"]
+}

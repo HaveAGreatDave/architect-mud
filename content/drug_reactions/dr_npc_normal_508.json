@@ -1,0 +1,10 @@
+{
+  "id": "dr_npc_normal_508",
+  "drug_id": null,
+  "source": "npc",
+  "tone": "normal",
+  "relation": "familiar",
+  "npc_type": null,
+  "self_line": "{npc} takes you by the elbow and steers you to a chair without discussing it.",
+  "room_line": "{npc} takes {player} by the elbow and steers them into a chair."
+}

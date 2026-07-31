@@ -1,0 +1,18 @@
+{
+  "description": "Enamelled cast iron with a lid that fits properly. Weighs as much as a small crime and will outlive everyone who uses it.",
+  "flags": {},
+  "id": "item_casserole_pot",
+  "name": "casserole pot",
+  "tags": {
+    "container": 5000,
+    "description": "Enamelled cast iron with a lid that fits properly. Weighs as much as a small crime and will outlive everyone who uses it.",
+    "heat_distribution": 0.65,
+    "heat_retention": 0.95,
+    "unique": true,
+    "vessel": true,
+    "vessel_kind": "pot"
+  },
+  "type": "misc",
+  "value": 34,
+  "weight": 3200
+}

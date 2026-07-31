@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { formatTemp, formatTempPrecise } from '/shared/settings.js';
+import { formatTemp } from '/shared/settings.js';
 import { setWeatherFx } from './weather-fx.js';
 
 const DAY_PHASES_CLIENT = [
@@ -46,7 +46,31 @@ let fxPrecipType = 'none';       // active precip taxonomy (rain/snow/sleet/...)
 let fxPrecipRate = 0;            // 0..1 local precip intensity
 const WIND_FX_KPH = 40;          // gust streaks only show in genuinely windy weather
 
+// ── Dream / hallucination FX override ───────────────────────────────────────
+//
+// A dream or a trip drives the particle field directly, ignoring the real
+// weather and the indoor gate entirely. Ash falling in a windowless corridor is
+// exactly the point — the room is not obeying the rules, and the cheapest way to
+// SHOW that (rather than describe it) is to run weather where weather cannot be.
+//
+// Held here rather than pushed straight at weather-fx.js because environment
+// re-resolves on every tick and would otherwise stamp the override out within a
+// second.
+let dreamFx = null;   // { effect, intensity } | null
+
+export function setDreamFx(fx) {
+  dreamFx = fx && fx.effect && fx.effect !== 'none'
+    ? { effect: fx.effect, intensity: Math.max(0, Math.min(1, Number(fx.intensity) || 0.5)) }
+    : null;
+  refreshWeatherFx();
+}
+
 function resolveWeatherFx() {
+  // Wins over everything, including the indoor gate.
+  if (dreamFx) return { effect: dreamFx.effect, intensity: dreamFx.intensity, windKph: 0 };
+  // Real weather cannot fall in an unreal room. A scripted override (dreamFx, above)
+  // still can — that's a thing the corridor is DOING, not the city leaking in.
+  if (envUnreal) return { effect: 'none', intensity: 0, windKph: 0 };
   if (fxIndoor) return { effect: 'none', intensity: 0, windKph: envWindKph || 0 };
   const pt = fxPrecipType;
   if (pt === 'rain' || pt === 'sleet' || pt === 'thunderstorm' || pt === 'storm' || pt === 'acid')
@@ -76,10 +100,50 @@ function bodyFeelLabel(tempC) {
   return 'Overheating';
 }
 
+// ── The unreal environment (the prologue's corridor) ────────────────────────
+//
+// The Inbetween is not a place with weather in it. A HUD reading "☁ 14°C, light
+// rain" over a room with no floor is the single loudest immersion break in the
+// whole prologue — it tells a brand-new player that the metaphysical corridor
+// they're standing in is really just a room in Coldwater. So while the server
+// says the zone is unreal (`env_unreal`, pushed by plugins/prologue off
+// `flags.prologue`), the weather rows come off entirely and the clock stops
+// telling the truth: time doesn't run here either.
+//
+// Driven by a push rather than read off the zone because the client is never
+// told a zone's flags — same seam, and for the same reason, as `tablet_access`.
+let envUnreal = false;
+const UNREAL_GLYPHS = ['?', '–', '∅', '8', '0'];
+
+export function setEnvUnreal(on) {
+  const next = !!on;
+  if (next === envUnreal) return;
+  envUnreal = next;
+  // The weather rows and the temperature come off outright; the clock stays,
+  // scrambled, because a missing clock reads as a broken HUD where a wrong one
+  // reads as a wrong world.
+  const hide = envUnreal ? 'none' : '';
+  for (const el of document.querySelectorAll('#env-hud-sidebar .env-hud-weather')) el.style.display = hide;
+  for (const id of ['env-temp', 'env-temp-m', 'env-weather-icon-m']) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = hide;
+  }
+  renderEnvironmentHUD();   // repaints the clock and the weather rows
+  refreshWeatherFx();       // and stops any rain that was already falling
+}
+
+export function isEnvUnreal() { return envUnreal; }
+
+// A clock that means nothing, and means something different every tick.
+function unrealClockStr() {
+  const g = () => UNREAL_GLYPHS[Math.floor(Math.random() * UNREAL_GLYPHS.length)];
+  return `${g()}${g()}:${g()}${g()}`;
+}
+
 function renderEnvironmentHUD() {
   if (clientMinutes === null) return;
-  const timeStr = formatHHMM(clientMinutes);
-  const timeIcon = timeIconForMinutes(clientMinutes);
+  const timeStr = envUnreal ? unrealClockStr() : formatHHMM(clientMinutes);
+  const timeIcon = envUnreal ? '∞' : timeIconForMinutes(clientMinutes);
   const tempStr = envTempC !== null ? formatTemp(envTempC) : '—';
   const feelStr = bodyFeelLabel(envTempC);
   const precipLabel = envCurrentPrecipIntensity && envCurrentPrecipIntensity !== 'none'
@@ -91,21 +155,17 @@ function renderEnvironmentHUD() {
     const t  = document.getElementById(`env-time-icon${suffix}`);
     const p  = document.getElementById(`env-temp${suffix}`);
     const bf = document.getElementById(`env-body-feel${suffix}`);
-    const bt = document.getElementById(`env-body-temp${suffix}`);
     const pl = document.getElementById(`env-precip-intensity${suffix}`);
     if (w)  w.textContent  = envWeatherIcon;
     if (c)  c.textContent  = timeStr;
     if (t)  t.textContent  = timeIcon;
     if (p)  p.textContent  = tempStr;
+    // `bf` is how the AIR feels and stays — that's the world describing itself.
+    // Your own core temperature does NOT appear here any more: it is one of the
+    // things you are meant to feel through prose (shivering, sweating, the
+    // hypothermia lines) rather than read off a gauge to two decimal places.
+    // The value is still tracked and still drives everything it drove before.
     if (bf) bf.textContent = feelStr;
-    if (bt) {
-      if (envBodyTempC !== null) {
-        bt.textContent = `🌡 ${formatTempPrecise(envBodyTempC)}`;
-        bt.style.display = '';
-      } else {
-        bt.style.display = 'none';
-      }
-    }
     if (pl) pl.textContent = precipLabel;
   }
 }
@@ -136,9 +196,7 @@ export function refreshTempDisplay() {
   if (tempStr === null) return;
   for (const suffix of ['', '-m']) {
     const p  = document.getElementById(`env-temp${suffix}`);
-    const bt = document.getElementById(`env-body-temp${suffix}`);
     if (p) p.textContent = tempStr;
-    if (bt && envBodyTempC !== null) bt.textContent = `🌡 ${formatTempPrecise(envBodyTempC)}`;
   }
 }
 

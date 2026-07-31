@@ -1,0 +1,16 @@
+{
+  "description": "Ground fine and vacuum-packed by someone who cared. It smells better than anything else you own.",
+  "flags": {},
+  "id": "item_coffee_grounds",
+  "name": "coffee grounds",
+  "tags": {
+    "description": "Ground fine and vacuum-packed by someone who cared. It smells better than anything else you own.",
+    "drink_noun": "coffee",
+    "drink_profile": "coffee_base",
+    "pour_units": 12,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 10,
+  "weight": 350
+}

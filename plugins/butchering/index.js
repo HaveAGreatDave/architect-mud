@@ -13,9 +13,9 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getLivePlayer, getAllLivePlayers, getCorpse, getZoneCorpses, removeCorpse } from '../../server/engine/world.js';
+import { getLivePlayer, getCorpse, getZoneCorpses, removeCorpse } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
-import { schedule } from '../../server/engine/scheduler.js';
+import { registerActivity } from '../../server/engine/activity-tick.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { isStackable } from '../../server/engine/tags.js';
@@ -23,8 +23,18 @@ import { stainClothing } from '../../server/engine/bodily.js';
 import { on } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { setPosture } from '../../server/engine/posture.js';
+import { escAttr } from '../../server/engine/text.js';
 
 const BUTCHER_MS = 5000;
+
+// The creature a corpse came from, for naming what you carve off it. Corpses are
+// named `<Enemy>'s corpse` (plugins/weapon) or `<handle>'s corpse` (gameLoop);
+// either way the possessive is the part we want, lowercased to match item style.
+function creatureFrom(corpseName) {
+	const m = String(corpseName || "").match(/^(.*?)(?:'s)?\s+corpse$/i);
+	const name = (m ? m[1] : "").trim().toLowerCase();
+	return name && name.length <= 40 ? name : null;
+}
 
 // Resolve a corpse in the player's current zone by id (preferred, from a click
 // or the loot router) or by a substring of its name (typed command).
@@ -121,7 +131,19 @@ async function resolveButcher(player) {
 				? Math.floor(Math.random() * (entry.qty[1] - entry.qty[0] + 1)) +
 					entry.qty[0]
 				: entry.qty || 1;
-			const { rows: existing } = isStackable(meta)
+			// Meat remembers what it came off. Anything with a food_profile is
+			// stamped with the creature, so it reads as "feral dog meat" in the
+			// pack and cooks into "feral dog and potato stew" — the cooking
+			// system prefers a per-instance food_noun over the class one.
+			const creature = creatureFrom(corpse.name);
+			const stamp = (creature && meta?.tags?.food_profile)
+				? { name: `${creature} meat`, food_noun: creature }
+				: null;
+			const carvedName = stamp?.name || itemName;
+
+			// Named meat must never stack-merge across species: a dog haunch and
+			// a sewer rat are not interchangeable rows.
+			const { rows: existing } = (isStackable(meta) && !stamp)
 				? await query(
 						"SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND container_id IS NULL LIMIT 1",
 						[player.id, entry.item],
@@ -134,13 +156,13 @@ async function resolveButcher(player) {
 				);
 			} else {
 				await query(
-					"INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,$4,1.0)",
-					[randomUUID(), player.id, entry.item, qty],
+					"INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,custom_data) VALUES ($1,$2,$3,$4,1.0,$5)",
+					[randomUUID(), player.id, entry.item, qty, stamp ? JSON.stringify(stamp) : null],
 				);
 			}
-			const label = qty > 1 ? `${qty}x ${itemName}` : itemName;
+			const label = qty > 1 ? `${qty}x ${carvedName}` : carvedName;
 			carved.push(
-				`<span class="action-link room-item" data-action="examine" data-target="${itemName}" title="Examine ${itemName}">${label}</span>`,
+				`<span class="action-link room-item" data-action="examine" data-target="${escAttr(itemName)}" title="Examine ${escAttr(itemName)}">${label}</span>`,
 			);
 		} else {
 			ruined.push(itemName);
@@ -174,27 +196,15 @@ async function resolveButcher(player) {
 
 // ── Butchering tick: completes the 5s action, or cleans up if interrupted
 // (force-stood by movement/combat) — mirrors the scavenging plugin's tick.
-let butcherTicking = false;
-async function butcherTick() {
-	if (butcherTicking) return;
-	butcherTicking = true;
-	try {
-		const nowMs = Date.now();
-		for (const player of getAllLivePlayers()) {
-			const st = player.butcherState;
-			if (player.posture === "butchering") {
-				if (!st) continue;
-				if (nowMs >= st.completeAt) await resolveButcher(player);
-			} else if (st) {
-				clearButcher(player, "You stop butchering.");
-			}
-		}
-	} finally {
-		butcherTicking = false;
-	}
-}
+registerActivity({
+	posture: "butchering",
+	stateKey: "butcherState",
+	onTick: async (player, st, nowMs) => {
+		if (nowMs >= st.completeAt) await resolveButcher(player);
+	},
+	onAbandon: (player) => clearButcher(player, "You stop butchering."),
+});
 
-schedule('1s', () => butcherTick().catch((e) => console.error("[butchering] tick error:", e.message)));
 
 // The unified STOP command halts butchering like any other repeating action.
 on("player.stop", ({ player, stopped }) => {

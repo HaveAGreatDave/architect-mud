@@ -1,0 +1,17 @@
+{
+  "id": "dx_blotter_door_recursive",
+  "drug_id": "drug_blotter",
+  "matches": "door",
+  "name": "a door that opens onto the idea of doors",
+  "description": "A door, correct in every particular, occurring several times in the same place.",
+  "looks": [
+    "Opening it would open all of them, in order, quite slowly.",
+    "The handle is at four heights and each is the right one.",
+    "Behind it is this room, one iteration in."
+  ],
+  "says": [
+    "Through, or through, or through?",
+    "I go where you have already been. Sorry."
+  ],
+  "scope": "object"
+}

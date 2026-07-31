@@ -86,11 +86,6 @@
       "stock": 15
     },
     {
-      "item_id": "item_combat_knife",
-      "price": 77,
-      "stock": 10
-    },
-    {
       "item_id": "item_ballistic_helm",
       "price": 126,
       "stock": 6
@@ -101,9 +96,29 @@
       "stock": 5
     },
     {
-      "item_id": "item_riot_shotgun",
-      "price": 224,
+      "item_id": "item_kettleman_no4",
+      "price": 210,
+      "stock": 5
+    },
+    {
+      "item_id": "item_combat_knife",
+      "price": 230,
+      "stock": 10
+    },
+    {
+      "item_id": "item_tidewell_diving_knife",
+      "price": 266,
       "stock": 4
+    },
+    {
+      "item_id": "item_riot_shotgun",
+      "price": 925,
+      "stock": 4
+    },
+    {
+      "item_id": "item_ferris_model9",
+      "price": 965,
+      "stock": 6
     }
   ],
   "vendor_restock_rate": 1,
@@ -151,7 +166,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Ironside Arms",
+  "vendor_shop_name": "Second Amendment Superstore",
   "vendor_stock_size": 12,
   "wander_zones": [],
   "wanders": 0,

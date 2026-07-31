@@ -27,6 +27,36 @@
    client/shared/themes.css (linked after this file). The "dark"/Void default
    above IS this client's base theme. Add new themes there, not here. */
 
+/* ── Scrollbars, everywhere ───────────────────────────────────────────────────
+   The OS scrollbar is the one piece of chrome that ignores the theme, and a
+   chunky grey Windows bar down the side of a neon terminal wrecks it instantly.
+   Scroll containers used to be themed one id at a time (#output, #area-pane,
+   #map-box, the theme editor's panes…), which meant every NEW scrolling element
+   shipped with the default until somebody noticed. This is the baseline for all
+   of them, off the theme vars, so a scroll area is themed by default and the
+   bespoke rules further down still win on specificity where they want something
+   different (the sidebar's fade-in-on-hover bar, the wardrobe's brass).
+
+   `*` rather than `html`: WebKit does not inherit scrollbar pseudo-elements to
+   descendants, so an inner div would otherwise keep the grey one. */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--border) transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+	background: var(--border);
+	border-radius: 4px;
+	/* An inset border keeps the thumb off the track edges — a hairline bar
+	   floating in the gutter rather than a slab filling it. */
+	border: 2px solid transparent;
+	background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); background-clip: content-box; }
+/* Where two scrollbars meet. Left unstyled it is a light grey square. */
+*::-webkit-scrollbar-corner { background: transparent; }
+
 /* Theme swatch picker (settings) — replaces the flat theme <select> */
 .theme-grid-wrap { max-height: 300px; overflow-y: auto; }
 /* Theme-editor scroll areas honour the active theme instead of the OS default */
@@ -190,102 +220,102 @@ textarea {
 	border-right: 1px solid var(--border);
 }
 
-[data-density="compact"] #main {
-	grid-template-columns: 1fr;
+/* THE PHONE CHROME. One authority, and it is the data-density flag rather than a
+ viewport query, because the flag is also true for a touch device that happens to
+ be WIDER than 720px (a tablet, a handset in landscape). Those used to get the
+ collapsed layout from the twinned rules below while missing everything that only
+ existed in the media query — half a phone UI on a wide screen. Panel-level
+ layout (map, wardrobe, shop, TV) deliberately stays on real viewport queries:
+ that IS a question about available pixels, and a 1024px tablet should get the
+ wide version. main.js keeps the flag live on resize/orientationchange. */
+html[data-density="compact"] body {
+	height: 100dvh;
 }
-
-[data-density="compact"] #sidebar {
+html[data-density="compact"] #main {
+	grid-template-columns: 1fr;
+	grid-template-rows: 1fr;
+	overflow: hidden;
+}
+html[data-density="compact"] #output-container {
+	border-right: none;
+}
+html[data-density="compact"] #sidebar {
 	display: none;
 }
 
-/* Narrow viewport — hide sidebar, keep full-height layout in viewport */
-@media (max-width: 720px) {
-	body {
-		height: 100dvh;
-	}
-	#main {
-		grid-template-columns: 1fr;
-		grid-template-rows: 1fr;
-		overflow: hidden;
-	}
-	#output-container {
-		border-right: none;
-	}
-	#sidebar {
-		display: none;
-	}
+/* Header: compress so all items fit on one line */
+html[data-density="compact"] #header {
+	padding: 4px 8px;
+	gap: 6px;
+	flex-wrap: nowrap;
+	overflow: hidden;
+}
+html[data-density="compact"] #header .logo {
+	font-size: 11px;
+	letter-spacing: 1px;
+	flex-shrink: 0;
+}
+html[data-density="compact"] #header .conn-status {
+	font-size: 10px;
+	flex-shrink: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+html[data-density="compact"] #header .handle-display {
+	font-size: 11px;
+	flex-shrink: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	margin-left: auto;
+}
+html[data-density="compact"] #header .credits-display {
+	font-size: 11px;
+	padding: 1px 5px;
+	flex-shrink: 0;
+}
+html[data-density="compact"] #settings-btn,
+html[data-density="compact"] #signout-btn {
+	font-size: 13px;
+	width: 24px;
+	height: 24px;
+	flex-shrink: 0;
+}
 
-	/* Header: compress so all items fit on one line */
-	#header {
-		padding: 4px 8px;
-		gap: 6px;
-		flex-wrap: nowrap;
-		overflow: hidden;
-	}
-	#header .logo {
-		font-size: 11px;
-		letter-spacing: 1px;
-		flex-shrink: 0;
-	}
-	#header .conn-status {
-		font-size: 10px;
-		flex-shrink: 1;
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	#header .handle-display {
-		font-size: 11px;
-		flex-shrink: 1;
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		margin-left: auto;
-	}
-	#header .credits-display {
-		font-size: 11px;
-		padding: 1px 5px;
-		flex-shrink: 0;
-	}
-	#settings-btn,
-	#signout-btn {
-		font-size: 13px;
-		width: 24px;
-		height: 24px;
-		flex-shrink: 0;
-	}
-
-	#quick-cmds {
-		overflow-x: auto;
-		flex-wrap: nowrap;
-		padding: 6px 10px;
-		gap: 6px;
-	}
-	.qcmd {
-		font-size: 13px;
-		padding: 8px 14px;
-		min-height: 36px;
-		flex-shrink: 0;
-	}
-	#cmd-input {
-		font-size: 16px; /* prevents iOS viewport zoom on focus */
-	}
-	#look-resize-handle {
-		display: none;
-	}
-	#auth-box {
-		width: 95vw;
-		padding: 18px 14px 24px;
-	}
-	#auth-ascii {
-		font-size: 9px;
-	}
-	#auth-title {
-		font-size: 7px;
-		letter-spacing: 0;
-	}
+html[data-density="compact"] #quick-cmds {
+	overflow-x: auto;
+	flex-wrap: nowrap;
+	padding: 6px 10px;
+	gap: 6px;
+}
+html[data-density="compact"] .qcmd {
+	font-size: 13px;
+	padding: 8px 14px;
+	min-height: 36px;
+	flex-shrink: 0;
+}
+html[data-density="compact"] #cmd-input {
+	font-size: 16px; /* prevents iOS viewport zoom on focus */
+}
+/* NOTE: do NOT hide #look-resize-handle under compact. It is not just a resize
+   grip on mobile — it is the room-name bar, the ▼/▲ toggle AND the only tap
+   target that reopens the look pane (main.js `setupMobilePane` starts the pane
+   collapsed). Hiding it took the room description off the phone with no way
+   back, and silently killed the `#area-pane-toggle { display:block }` rule
+   below, whose element lives inside it. */
+html[data-density="compact"] #auth-box {
+	width: 95vw;
+	padding: 18px 14px 24px;
+}
+html[data-density="compact"] #auth-ascii {
+	font-size: 9px;
+}
+html[data-density="compact"] #auth-title {
+	font-size: 7px;
+	letter-spacing: 0;
 }
 
 /* Auth screen — compact/mobile overrides */
@@ -638,6 +668,92 @@ body.fsim-external #look-resize-handle { display: none; }
 	80%  { -webkit-text-fill-color: transparent; background-position: -50% 0;  text-shadow: 0 0 8px var(--accent-dim); }
 	100% { -webkit-text-fill-color: var(--text); background-position: -50% 0;  text-shadow: none; }
 }
+
+/* Verb teaching (server `teachVerb()` in messaging.js) — THE STANDARD for the
+   first mention of any verb a player hasn't been taught yet. The verb is
+   highlighted like the accent link it is and a specular band sweeps across it
+   three times, then it comes to rest as an ordinary (still clickable) link.
+   Same legibility safety as .intro-lore: the transparent fill only exists inside
+   the keyframes, so with animations off the word is a plain accent link. */
+.verb-teach {
+	font-weight: 700;
+	letter-spacing: 0.4px;
+	background: linear-gradient(100deg,
+		var(--accent) 0%, var(--accent) 34%,
+		var(--text-bright) 50%,
+		var(--accent) 66%, var(--accent) 100%);
+	background-size: 300% 100%;
+	background-position: 150% 0;
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: var(--accent);
+	color: var(--accent);
+	animation: verb-teach-shimmer 1.8s ease-in-out 3 both;
+}
+@keyframes verb-teach-shimmer {
+	0%   { -webkit-text-fill-color: transparent; background-position: 150% 0; text-shadow: 0 0 8px var(--accent-dim); }
+	60%  { -webkit-text-fill-color: transparent; background-position: -50% 0; text-shadow: 0 0 12px var(--accent); }
+	100% { -webkit-text-fill-color: var(--accent); background-position: -50% 0; text-shadow: none; }
+}
+
+/* Pointing at a room-pane link (server `pointAt()`): rings ripple out of the
+   thing the player should click. Cosmetic only — the ::after ring is the whole
+   effect and the class is stripped when it finishes. */
+.point-ripple {
+	position: relative;
+}
+.point-ripple::after {
+	content: "";
+	position: absolute;
+	inset: -2px -4px;
+	border-radius: 6px;
+	pointer-events: none;
+	border: 1px solid var(--accent);
+	animation: point-ripple-out 1.1s ease-out 3;
+}
+@keyframes point-ripple-out {
+	0%   { opacity: 0.9; transform: scale(1);    box-shadow: 0 0 0 0 var(--accent-dim); }
+	100% { opacity: 0;   transform: scale(1.55); box-shadow: 0 0 12px 6px transparent; }
+}
+
+/* The sticky counterpart to .point-ripple: the object the tutorial is currently
+   steering you toward keeps a slow shimmer until the server says it's done with
+   it. .point-ripple fires once and is gone; a beacon has to survive every room
+   re-render (render.js reapplies it), because "what do I do next" is a question
+   a lost player asks minutes after the prose scrolled away. */
+.point-beacon {
+	position: relative;
+	font-weight: 700;
+	background: linear-gradient(100deg,
+		var(--accent) 0%, var(--accent) 38%,
+		var(--text-bright) 50%,
+		var(--accent) 62%, var(--accent) 100%);
+	background-size: 300% 100%;
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+	animation: point-beacon-sweep 2.8s ease-in-out infinite;
+}
+.point-beacon::after {
+	content: "";
+	position: absolute;
+	inset: -2px -4px;
+	border-radius: 6px;
+	pointer-events: none;
+	border: 1px solid var(--accent-dim);
+	animation: point-beacon-halo 2.8s ease-in-out infinite;
+}
+@keyframes point-beacon-sweep {
+	0%, 100% { background-position: 150% 0; text-shadow: 0 0 6px var(--accent-dim); }
+	50%      { background-position: -50% 0; text-shadow: 0 0 13px var(--accent); }
+}
+@keyframes point-beacon-halo {
+	0%, 100% { opacity: 0.15; box-shadow: 0 0 0 0 transparent; }
+	50%      { opacity: 0.75; box-shadow: 0 0 10px 1px var(--accent-dim); }
+}
+/* Motion off: keep the emphasis, drop the movement. */
+[data-motion="off"] .point-beacon { animation: none; -webkit-text-fill-color: var(--accent); }
+[data-motion="off"] .point-beacon::after { animation: none; opacity: 0.6; }
 
 /* Hero-poster mural reveal (posters plugin): hanging all seven sheets in one
    room spells a word the prose describes as "gleaming" — so it gleams on
@@ -1304,6 +1420,19 @@ body.fsim-external #look-resize-handle { display: none; }
 .forecast-day-row .fd-warn {
 	color: var(--warning, #e8a13a);
 	cursor: help;
+}
+/* A named hero event (ion storm, acid rain) outranks the ordinary amber band —
+   red, and it keeps its colour on the icon too, so the week's killer day is the
+   first thing the eye lands on in the list. */
+.forecast-day-row.fd-hero .fd-weather,
+.forecast-day-row.fd-hero .fd-icon {
+	color: var(--red, #e05252);
+	font-weight: 600;
+}
+.forecast-day-row .fd-hero-warn {
+	color: var(--red, #e05252);
+	cursor: help;
+	letter-spacing: -1px;
 }
 /* Sky-wide named weather-event announcements (ion storm, acid rain). */
 .weather-event {
@@ -2053,6 +2182,43 @@ body.fsim-external #look-resize-handle { display: none; }
 .furniture-link {
 	color: var(--orange);
 }
+/* Per-kind furniture tints. Every one is DERIVED from the active theme's
+   --orange by mixing a little of another theme colour in, so the whole set
+   reads as one family and follows a theme swap automatically — never a
+   hardcoded hex. `data-ftype` is the row's object_type (describe.js). Plain
+   `furniture` deliberately has no rule: it keeps the base orange. */
+.furniture-link[data-ftype="light"] {
+	color: color-mix(in oklab, var(--orange) 40%, var(--yellow, #f5e642));
+}
+.furniture-link[data-ftype="container"] {
+	color: color-mix(in oklab, var(--orange) 74%, var(--yellow, #f5e642));
+}
+.furniture-link[data-ftype="decoration"] {
+	color: color-mix(in oklab, var(--orange) 70%, var(--purple, #b86bff));
+}
+/* Plumbing and built-ins — dull pewter-amber, the least eye-catching of the set. */
+.furniture-link[data-ftype="fixture"],
+.furniture-link[data-ftype="sink"],
+.furniture-link[data-ftype="shower"],
+.furniture-link[data-ftype="toilet"] {
+	color: color-mix(in oklab, var(--orange) 62%, var(--text-dim, #8888a8));
+}
+/* Machines you operate or that watch you — cooled toward the theme's cyan. */
+.furniture-link[data-ftype="terminal"],
+.furniture-link[data-ftype="cosmetic_machine"],
+.furniture-link[data-ftype="security_device"],
+.furniture-link[data-ftype="broadcast_camera"] {
+	color: color-mix(in oklab, var(--orange) 58%, var(--cyan, #28e5ff));
+}
+.furniture-link[data-ftype="window"] {
+	color: color-mix(in oklab, var(--orange) 66%, var(--cyan, #28e5ff));
+}
+/* Power infrastructure — ember/rust, hot end of the range. */
+.furniture-link[data-ftype="generator"],
+.furniture-link[data-ftype="generator_portable"],
+.furniture-link[data-ftype="junction_box"] {
+	color: color-mix(in oklab, var(--orange) 68%, var(--red, #ff3b5c));
+}
 /* Furniture woven into the room prose (flags.woven): reads as body text, not a
    bright link. Stays clickable — a faint dotted underline surfaces on hover. */
 .action-link.furniture-woven {
@@ -2403,7 +2569,14 @@ body.fsim-external #look-resize-handle { display: none; }
 }
 /* Player "you are here" beacon — a glowing accent core plus a pulsing locator
    ring. Replaces the old () glyph, which was hard to read at small sizes. Shared
-   by the sidebar/HUD/mobile minimaps, the full map, and the legend swatches. */
+   by the sidebar/HUD/mobile minimaps, the full map, and the legend swatches.
+
+   LAYERING (the beacon must never hide information):
+     terrain fill / road connector / icon / label   z-index auto — the tile's own content
+     the beacon core + ping ring                    z-index 2
+     door, exit and entrance marks, GPS route       z-index 3 (.mm-edge/.mm-gps-svg)
+   So the beacon reads on top of the ground and any glyph, but every connector
+   line stays drawn over it — those are the bits you navigate by. */
 .mm-current, .map-current { position: relative; overflow: visible; z-index: 2; }
 .mm-current::before, .map-current::before {
 	content: '';
@@ -2416,7 +2589,7 @@ body.fsim-external #look-resize-handle { display: none; }
 	border-radius: 50%;
 	background: var(--accent);
 	box-shadow: 0 0 0 1.5px var(--bg), 0 0 7px 1px var(--accent);
-	z-index: 1;
+	z-index: 2;
 }
 .mm-current::after, .map-current::after {
 	content: '';
@@ -2429,6 +2602,7 @@ body.fsim-external #look-resize-handle { display: none; }
 	border-radius: 50%;
 	border: 1.5px solid var(--accent);
 	animation: you-ping 1.7s ease-out infinite;
+	z-index: 2;
 }
 @keyframes you-ping {
 	0%   { opacity: 0.7; transform: translate(-50%, -50%) scale(0.75); }
@@ -2850,29 +3024,21 @@ body.fsim-external #look-resize-handle { display: none; }
 	background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23aeca7e' stroke-opacity='0.28' stroke-width='1' stroke-linecap='round'><path d='M0 8q6 -3 12 0t12 0'/><path d='M0 16q6 -3 12 0t12 0'/></g><g fill='none' stroke='%236f8a3e' stroke-opacity='0.5' stroke-width='0.9' stroke-linecap='round'><path d='M7 20v-7M9 20l-1-6'/><path d='M18 21v-8'/></g></svg>");
 }
 
-/* Entrance arrow — a small amber triangle on the edge of a building tile pointing to
-   the side the door faces (server `entrance` field). CSS triangle so it stays crisp
-   at any tile size; a dark halo keeps it readable over a rooftop footprint. Shared by
-   the sidebar minimap (.mm-*) and the full-map popup (.map-*). */
-.mm-entrance, .map-entrance { position: absolute; width: 0; height: 0; z-index: 3; pointer-events: none; filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.95)); }
-.mm-ent-north, .map-ent-north { top: 0; left: 50%; transform: translateX(-50%); border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 6px solid var(--accent); }
-.mm-ent-south, .map-ent-south { bottom: 0; left: 50%; transform: translateX(-50%); border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid var(--accent); }
-.mm-ent-east, .map-ent-east { right: 0; top: 50%; transform: translateY(-50%); border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid var(--accent); }
-.mm-ent-west, .map-ent-west { left: 0; top: 50%; transform: translateY(-50%); border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-right: 6px solid var(--accent); }
+/* Edge-line door style — the only door style. Each interior tile gets a hairline down all four sides: green
+   where the room opens through, red where it's wall. Deliberately thin and inset a
+   little from the corners so a block of rooms reads as a floorplan rather than a grid
+   of boxes. Shared by the sidebar minimap (.mm-*) and the full-map popup (.map-*). */
+.mm-edge, .map-edge { position: absolute; z-index: 3; pointer-events: none; border-radius: 1px; }
+.mm-edge.open, .map-edge.open { background: #3fd07a; }
+.mm-edge.shut, .map-edge.shut { background: #d0453f; opacity: 0.55; }
+.mm-edge-north, .map-edge-north { top: 0; left: 20%; right: 20%; height: 2px; }
+.mm-edge-south, .map-edge-south { bottom: 0; left: 20%; right: 20%; height: 2px; }
+.mm-edge-east, .map-edge-east { right: 0; top: 20%; bottom: 20%; width: 2px; }
+.mm-edge-west, .map-edge-west { left: 0; top: 20%; bottom: 20%; width: 2px; }
 
-/* Overlay slider: None / Icons / Labels — a segmented control with a sliding
-   highlight, sitting in the map header next to the Avenue View toggle. */
-.map-overlay-slider { display: inline-flex; position: relative; border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
-  border-radius: 12px; overflow: hidden; margin-left: 6px; vertical-align: middle;
-  background: linear-gradient(165deg, var(--map-surface-lo), color-mix(in srgb, var(--bg2) 60%, #000 40%));
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5); }
-.map-overlay-slider .mo-seg { width: 46px; text-align: center; background: transparent; border: none;
-  color: var(--text-dim); font: inherit; font-size: 11px; padding: 3px 0; cursor: pointer; position: relative; z-index: 1; }
-.map-overlay-slider .mo-seg.active { color: var(--bg, #0a0f12); }
-.map-overlay-slider::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 46px;
-  background: var(--cyan); border-radius: 11px; transition: left .15s ease; z-index: 0; }
-.map-overlay-slider[data-ov="icons"]::before  { left: 46px; }
-.map-overlay-slider[data-ov="labels"]::before { left: 92px; }
+/* (The None / Icons / Labels segmented slider that used to sit in the retired
+   full-screen map header is gone with it — the mode is a Settings pill now, and
+   Icons isn't a mode any more. Nothing rendered .map-overlay-slider.) */
 
 /* Mobile: the header packs the title, level tabs, GPS/territory icons and the
    overlay slider into one row, and the body's viewport is a fixed 374px — wider
@@ -2884,7 +3050,6 @@ body.fsim-external #look-resize-handle { display: none; }
   #map-header { flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
   #map-header h2 { flex: 1 1 100%; margin-bottom: 2px; }
   #map-tabs { justify-content: flex-start; flex: 1 1 auto; }
-  .map-overlay-slider { margin-left: 0; }
   #map-body { flex-direction: column; align-items: center; gap: 14px; }
   #map-viewport, #map-grid { --map-room: 28px; }
   #map-legend { width: 100%; }
@@ -3792,6 +3957,252 @@ body.fsim-external #look-resize-handle { display: none; }
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
+	position: relative;
+	overflow: hidden;
+	/* Own stacking context, so the light-spill layer (z-index -1) paints above
+	   the panel's background instead of vanishing behind it. */
+	isolation: isolate;
+	transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+/* Cold-appliance theming — applied only when the opened container (or its
+   paired box) carries a `preserves` tag, i.e. an actual fridge/freezer, not
+   a crate/bag/trash bin. Two grades per the fridge/freezer redesign:
+   consumer (frosted glass, apartment units) vs. commercial (brushed
+   industrial steel, Ration Nine's Ironchill line). */
+#container-box.ctr-theme-consumer {
+	/* A domestic unit is finished in the player's own palette: every colour
+	   below derives from the theme's cool channel (--cyan), so a Void fridge
+	   is icy blue and an Ember one is warm brass without a second ruleset.
+	   Only genuine light — speculars, condensation, the interior lamp — stays
+	   white, because light isn't a finish. Commercial steel is deliberately
+	   NOT themed: Ironchill is a brand, and it looks the same in every kitchen.
+
+	   The unit's FINISH is the theme colour, undiluted — door face, casing,
+	   handle metal, shelf lips, LEDs, the light it throws. Blue-white is kept
+	   for the things that are physically blue-white whatever the cabinet is
+	   painted: frost and ice crystals, condensation beads, speculars. */
+	--ctr-cold: var(--cyan);
+	--ctr-accent: var(--cyan);
+	--ctr-frost: #cfeeff;
+	--ctr-shelf-lip: color-mix(in srgb, var(--ctr-cold) 55%, transparent);
+	--ctr-card-bg: linear-gradient(180deg, color-mix(in srgb, var(--ctr-cold) 9%, transparent), rgba(6, 14, 20, 0.44));
+	--ctr-card-border: color-mix(in srgb, var(--ctr-cold) 24%, transparent);
+	background:
+		radial-gradient(120% 60% at 50% -10%, color-mix(in srgb, var(--ctr-cold) 20%, transparent), transparent 70%),
+		linear-gradient(165deg, color-mix(in srgb, var(--ctr-cold) 12%, var(--bg2)), var(--bg2) 55%, color-mix(in srgb, var(--ctr-cold) 5%, var(--bg2)));
+	border: 1px solid color-mix(in srgb, var(--ctr-cold) 55%, var(--border));
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, white 25%, transparent),
+		0 0 28px color-mix(in srgb, var(--ctr-cold) 16%, transparent);
+}
+#container-box.ctr-theme-consumer #container-header h2,
+#container-box.ctr-theme-consumer .container-section-label {
+	color: var(--ctr-cold);
+	text-shadow: 0 0 6px color-mix(in srgb, var(--ctr-cold) 50%, transparent);
+}
+
+#container-box.ctr-theme-commercial {
+	--ctr-steel-hi: #6b7176;
+	--ctr-steel-lo: #24272a;
+	--ctr-hazard: #e8b84b;
+	--ctr-accent: #e8b84b;
+	--ctr-frost: #cfeeff;
+	--ctr-shelf-lip: rgba(222, 230, 235, 0.42);
+	--ctr-card-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(0, 0, 0, 0.4));
+	--ctr-card-border: rgba(214, 220, 224, 0.2);
+	background:
+		repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.025) 0 2px, transparent 2px 6px),
+		linear-gradient(160deg, color-mix(in srgb, var(--ctr-steel-hi) 35%, var(--bg2)), var(--bg2) 55%, var(--ctr-steel-lo));
+	border: 2px solid var(--ctr-steel-hi);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.08),
+		inset 0 0 0 1px rgba(0, 0, 0, 0.5),
+		0 10px 30px rgba(0, 0, 0, 0.5);
+}
+#container-box.ctr-theme-commercial #container-header h2 {
+	color: var(--ctr-hazard);
+	letter-spacing: 3px;
+	text-shadow: none;
+}
+#container-box.ctr-theme-commercial .container-section-label {
+	color: color-mix(in srgb, var(--ctr-hazard) 55%, var(--text-dim));
+}
+#container-box.ctr-theme-commercial #container-inv-col {
+	border-right-color: var(--ctr-steel-hi);
+}
+
+/* Freezer sub-box: its own smaller door within the appliance body, layered
+   on top of whichever grade theme the panel is in — a freezer reads icy
+   regardless of whether the unit around it is domestic or industrial. */
+.ctr-subbox.ctr-frost {
+	position: relative;
+	padding-left: 20px;
+	border-radius: 10px;
+	border: none;
+	background:
+		linear-gradient(178deg,
+			color-mix(in srgb, var(--ctr-cold, #bfe9ff) 12%, transparent),
+			transparent 40%,
+			rgba(0, 0, 0, 0.22));
+	box-shadow:
+		/* the same machined ring as the cabinet, one size down */
+		0 1px 0 1px color-mix(in srgb, var(--ctr-cold, #bfe9ff) 40%, #ffffff),
+		0 0 0 2px color-mix(in srgb, var(--ctr-cold, #bfe9ff) 40%, #262c31),
+		0 2px 0 2px rgba(0, 0, 0, 0.45),
+		inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+		inset 0 2px 14px rgba(0, 0, 0, 0.5),
+		0 8px 20px -10px rgba(0, 0, 0, 0.7);
+}
+.ctr-subbox.ctr-frost .container-section-label {
+	color: color-mix(in srgb, var(--ctr-cold, #bfe9ff) 75%, #ffffff);
+	text-shadow: 0 0 7px color-mix(in srgb, var(--ctr-cold, #bfe9ff) 55%, transparent);
+}
+/* Its own touch rail, matching the cabinet's — no handle, no hardware. */
+.ctr-subbox.ctr-frost::before {
+	content: "";
+	position: absolute;
+	left: 7px;
+	top: 12px;
+	bottom: 12px;
+	width: 3px;
+	border-radius: 2px;
+	background:
+		linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.85) 45% 55%, transparent) no-repeat,
+		linear-gradient(180deg,
+			color-mix(in srgb, var(--ctr-cold, #bfe9ff) 25%, transparent),
+			var(--ctr-cold, #bfe9ff) 28% 72%,
+			color-mix(in srgb, var(--ctr-cold, #bfe9ff) 25%, transparent));
+	background-size: 100% 20%, auto;
+	background-position: 0 -30%, 0 0;
+	box-shadow:
+		0 0 9px color-mix(in srgb, var(--ctr-cold, #bfe9ff) 55%, transparent),
+		inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+	animation: ctr-glint 9s ease-in-out infinite;
+	z-index: 2;
+}
+/* A highlight sliding the length of a chrome tube, with long dead time between
+   passes so it reads as ambient, not as a loading bar. */
+@keyframes ctr-glint {
+	0%, 62% { background-position: 0 -30%, 0 0; }
+	88%, 100% { background-position: 0 130%, 0 0; }
+}
+/* Rime creeping in from the corners — irregular blooms plus a few crystal
+   spurs, densest at the corners and thinning toward the middle. */
+.ctr-subbox.ctr-frost::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	border-radius: 10px;
+	background-image:
+		/* corner blooms */
+		radial-gradient(ellipse 46px 26px at 100% 0%, rgba(238, 250, 255, 0.34), transparent 72%),
+		radial-gradient(ellipse 34px 20px at 0% 100%, rgba(238, 250, 255, 0.26), transparent 72%),
+		radial-gradient(ellipse 26px 16px at 100% 100%, rgba(238, 250, 255, 0.2), transparent 74%),
+		/* scattered crystal clusters */
+		radial-gradient(circle at 86% 30%, rgba(255, 255, 255, 0.42) 0 1.3px, transparent 2.4px),
+		radial-gradient(circle at 92% 52%, rgba(255, 255, 255, 0.34) 0 1px, transparent 2px),
+		radial-gradient(circle at 78% 12%, rgba(255, 255, 255, 0.46) 0 1.6px, transparent 2.8px),
+		radial-gradient(circle at 12% 84%, rgba(255, 255, 255, 0.36) 0 1.2px, transparent 2.2px),
+		radial-gradient(circle at 5% 62%, rgba(255, 255, 255, 0.3) 0 1px, transparent 1.9px),
+		radial-gradient(circle at 66% 92%, rgba(255, 255, 255, 0.28) 0 1.1px, transparent 2px),
+		/* crystal spurs feathering off the top edge */
+		linear-gradient(200deg, rgba(255, 255, 255, 0.3), transparent 55%),
+		linear-gradient(160deg, rgba(255, 255, 255, 0.24), transparent 50%);
+	background-size:
+		auto, auto, auto,
+		auto, auto, auto, auto, auto, auto,
+		3px 11px, 3px 8px;
+	background-position:
+		0 0, 0 0, 0 0,
+		0 0, 0 0, 0 0, 0 0, 0 0, 0 0,
+		72% 0, 89% 0;
+	background-repeat: no-repeat;
+	/* Rime grows and gives back a little, on a long cycle — the cabinet
+	   cycling its compressor, not a pulsing UI element. */
+	animation: ctr-rime-creep 14s ease-in-out infinite;
+}
+@keyframes ctr-rime-creep {
+	0%, 100% { opacity: 0.82; transform: scale(1); }
+	50% { opacity: 1; transform: scale(1.015); }
+}
+
+/* ── The unit's own light ────────────────────────────────────────────────
+   A cold appliance lights the room around it rather than lighting itself
+   from inside: a soft bloom anchored on the door, breathing on the same slow
+   compressor cycle as the frost and the sweat. It sits below every child
+   (z-index -1) so it washes the panel, never the text on it. */
+#container-glow {
+	display: none;
+	position: absolute;
+	inset: -12%;
+	pointer-events: none;
+	z-index: -1;
+}
+/* Deliberately static. A breathing glow costs a repaint every frame and
+   reads as nothing — a fridge's light doesn't throb. The budget went into
+   the compartment light bars and the contact shadows under the items. */
+#container-box.ctr-theme-consumer #container-glow,
+#container-box.ctr-theme-commercial #container-glow {
+	display: block;
+}
+#container-box.ctr-theme-consumer #container-glow {
+	background:
+		radial-gradient(66% 62% at 76% 52%, color-mix(in srgb, var(--ctr-cold) 52%, transparent), transparent 72%),
+		radial-gradient(42% 32% at 70% 18%, color-mix(in srgb, var(--ctr-cold) 30%, transparent), transparent 78%);
+}
+/* Industrial units throw a dimmer, colder spill with a hazard cast to it. */
+#container-box.ctr-theme-commercial #container-glow {
+	background:
+		radial-gradient(66% 62% at 76% 52%, rgba(198, 210, 218, 0.26), transparent 72%),
+		radial-gradient(38% 26% at 72% 20%, color-mix(in srgb, var(--ctr-hazard) 22%, transparent), transparent 78%);
+}
+/* Brief cold-fog flourish on open — the whole panel reads as fogged-over
+   glass that clears, like a fridge door held open a second too long. A
+   straight fade, no pulse/brightening, and no center-focused glow. */
+#container-box {
+	--ctr-fx-tint: 205, 232, 245;
+}
+#container-box.ctr-theme-commercial {
+	--ctr-fx-tint: 198, 210, 218;
+}
+#container-cold-fx {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	opacity: 0;
+	background:
+		linear-gradient(165deg, rgba(var(--ctr-fx-tint), 0.5), rgba(var(--ctr-fx-tint), 0.32) 55%, rgba(var(--ctr-fx-tint), 0.18));
+	z-index: 5;
+}
+#container-cold-fx.play {
+	animation: ctr-cold-clear 1.5s ease-out forwards;
+}
+@keyframes ctr-cold-clear {
+	0% { opacity: 1; transform: translateY(0) scale(1.04); }
+	100% { opacity: 0; transform: translateY(14px) scale(1); }
+}
+
+/* Every animation here is ambience — it all stops dead when the player has
+   motion turned off (or the OS asks for reduced motion). */
+[data-motion="off"] .ctr-door-fx i,
+[data-motion="off"] .ctr-temp::before,
+[data-motion="off"] .ctr-subbox.ctr-frost::before,
+[data-motion="off"] .ctr-subbox.ctr-frost::after,
+[data-motion="off"] #container-contents-col::before {
+	animation: none;
+}
+[data-motion="off"] .ctr-door-fx i { display: none; }
+@media (prefers-reduced-motion: reduce) {
+	.ctr-door-fx i,
+	.ctr-temp::before,
+	.ctr-subbox.ctr-frost::before,
+	.ctr-subbox.ctr-frost::after,
+	#container-contents-col::before {
+		animation: none;
+	}
+	.ctr-door-fx i { display: none; }
 }
 #container-header {
 	display: flex;
@@ -3819,9 +4230,30 @@ body.fsim-external #look-resize-handle { display: none; }
 	color: var(--red);
 }
 #container-capacity {
+	font-family: var(--font-mono, monospace);
 	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.6px;
 	color: var(--text-dim);
 	text-align: center;
+}
+/* Load gauge under each capacity readout — `--fill` is set from JS as the
+   used/total percentage; 0% simply draws an empty track. */
+#container-capacity::after,
+.ctr-subbox-capacity::after {
+	content: "";
+	display: block;
+	height: 2px;
+	margin: 4px auto 0;
+	max-width: 220px;
+	border-radius: 1px;
+	background:
+		linear-gradient(90deg, var(--ctr-accent, var(--cyan)) var(--fill, 0%), rgba(255, 255, 255, 0.09) var(--fill, 0%));
+	box-shadow: 0 0 6px color-mix(in srgb, var(--ctr-accent, var(--cyan)) 25%, transparent);
+	transition: background 0.25s;
+}
+.ctr-subbox-capacity::after {
+	margin-left: 0;
 }
 #container-notify {
 	font-size: 11px;
@@ -3849,6 +4281,498 @@ body.fsim-external #look-resize-handle { display: none; }
 #container-contents-col {
 	padding-left: 14px;
 }
+/* ── The appliance body — a frameless glass cabinet ──────────────────────
+   No hinges, no pull handle: this is a sealed slab of smoked glass in a
+   machined trim ring, opened by a capacitive touch rail down the inner edge.
+   The shell reuses the vocabulary the TV flatscreen skin settled on — a
+   layered directional box-shadow for the bezel, plus a screen-blended
+   specular that drifts across the pane — retuned to the appliance's own
+   palette. Only when a cold theme is active; crates and bags are untouched. */
+#container-box.ctr-theme-consumer #container-contents-col,
+#container-box.ctr-theme-commercial #container-contents-col {
+	position: relative;
+	margin: 5px 6px 5px 10px;
+	padding: 14px 14px 14px 24px;
+	border-radius: 14px;
+	background-repeat: no-repeat;
+}
+#container-box.ctr-theme-consumer #container-contents-col {
+	border: none;
+	background-color: rgba(4, 9, 13, 0.35);
+	background-image:
+		/* ambient glare over the top-left of the pane (static — it belongs to
+		   the room's light, and nothing about it needs to move) */
+		radial-gradient(120% 85% at 12% 0%, rgba(205, 224, 238, 0.09), transparent 55%),
+		/* smoked pane, clearest where the cabinet light hits it */
+		linear-gradient(178deg, color-mix(in srgb, var(--ctr-cold) 13%, transparent), transparent 34%, rgba(0, 0, 0, 0.26)),
+		/* the unit's own light pooling behind the glass */
+		radial-gradient(125% 62% at 50% 0%, color-mix(in srgb, var(--ctr-cold) 20%, transparent), transparent 64%);
+	box-shadow:
+		/* machined trim ring — top-lit, shadowed underneath, so it reads as a
+		   real bevel rather than a drawn outline */
+		0 1px 0 1px color-mix(in srgb, var(--ctr-cold) 45%, #ffffff),
+		0 0 0 2px color-mix(in srgb, var(--ctr-cold) 45%, #262c31),
+		0 2px 0 2px rgba(0, 0, 0, 0.5),
+		0 0 0 4px color-mix(in srgb, var(--ctr-cold) 14%, #101418),
+		/* the unit standing off the panel */
+		0 16px 38px -14px rgba(0, 0, 0, 0.8),
+		/* pane seated into the ring */
+		inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+		inset 0 2px 18px rgba(0, 0, 0, 0.55),
+		inset 0 0 60px rgba(0, 0, 0, 0.38);
+}
+#container-box.ctr-theme-commercial #container-contents-col {
+	border: none;
+	background-color: rgba(0, 0, 0, 0.32);
+	background-image:
+		radial-gradient(120% 85% at 12% 0%, rgba(205, 224, 238, 0.08), transparent 55%),
+		linear-gradient(178deg, rgba(216, 224, 230, 0.09), transparent 34%, rgba(0, 0, 0, 0.3)),
+		radial-gradient(125% 62% at 50% 0%, rgba(216, 224, 230, 0.1), transparent 64%),
+		repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 3px);
+	box-shadow:
+		0 1px 0 1px #aab1b7,
+		0 0 0 2px var(--ctr-steel-hi),
+		0 2px 0 2px rgba(0, 0, 0, 0.6),
+		0 0 0 4px #14171a,
+		0 16px 38px -14px rgba(0, 0, 0, 0.85),
+		inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+		inset 0 2px 18px rgba(0, 0, 0, 0.6),
+		inset 0 0 60px rgba(0, 0, 0, 0.45);
+}
+/* The touch rail — a lit capacitive strip sunk into the inner edge. It does
+   the job the pull handle used to do, without any moving hardware. */
+#container-box.ctr-theme-consumer #container-contents-col::before,
+#container-box.ctr-theme-commercial #container-contents-col::before {
+	content: "";
+	position: absolute;
+	left: 9px;
+	top: 20px;
+	bottom: 20px;
+	width: 3px;
+	border-radius: 2px;
+	z-index: 3;
+	background-repeat: no-repeat;
+	background-size: 100% 20%, auto;
+	background-position: 0 -30%, 0 0;
+	animation: ctr-glint 11s ease-in-out infinite;
+}
+#container-box.ctr-theme-consumer #container-contents-col::before {
+	background-image:
+		linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.85) 45% 55%, transparent),
+		linear-gradient(180deg,
+			color-mix(in srgb, var(--ctr-cold) 25%, transparent),
+			var(--ctr-cold) 28% 72%,
+			color-mix(in srgb, var(--ctr-cold) 25%, transparent));
+	box-shadow:
+		0 0 10px color-mix(in srgb, var(--ctr-cold) 60%, transparent),
+		inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+#container-box.ctr-theme-commercial #container-contents-col::before {
+	background-image:
+		linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.7) 45% 55%, transparent),
+		linear-gradient(180deg,
+			color-mix(in srgb, var(--ctr-hazard) 20%, transparent),
+			var(--ctr-hazard) 28% 72%,
+			color-mix(in srgb, var(--ctr-hazard) 20%, transparent));
+	box-shadow:
+		0 0 9px color-mix(in srgb, var(--ctr-hazard) 45%, transparent),
+		inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+/* The touch rail is absolutely positioned; lift the real
+   content above it and the pooled light. */
+#container-box.ctr-theme-consumer #container-contents-col > *,
+#container-box.ctr-theme-commercial #container-contents-col > *,
+.ctr-subbox.ctr-frost > * {
+	position: relative;
+	z-index: 1;
+}
+
+/* ── Behind the glass ────────────────────────────────────────────────────
+   Condensation on the inner face of the pane, under the contents (z-index 0
+   against their 1) so it never fights the item text. Domestic units only —
+   an industrial cabinet runs its pane dry. */
+.ctr-door-fx {
+	display: none;
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	pointer-events: none;
+	border-radius: 14px;
+}
+#container-box.ctr-theme-consumer #container-contents-col > .ctr-door-fx {
+	display: block;
+	z-index: 0;
+}
+/* The hairline where the slab meets the cabinet — the only seam on the unit,
+   with the interior light bleeding through it. */
+.ctr-door-fx::before {
+	content: "";
+	position: absolute;
+	top: 10%;
+	bottom: 10%;
+	right: 9px;
+	width: 1px;
+	background: linear-gradient(180deg,
+		transparent,
+		color-mix(in srgb, var(--ctr-cold, #bfe9ff) 60%, transparent) 18% 82%,
+		transparent);
+	box-shadow: 0 0 6px color-mix(in srgb, var(--ctr-cold, #bfe9ff) 35%, transparent);
+}
+/* Beads that gather and run, each on its own long cycle so two rarely fall
+   together. They track down the gutters, clear of the shelves. */
+.ctr-door-fx i {
+	position: absolute;
+	top: 6%;
+	width: 3px;
+	height: 3px;
+	border-radius: 50%;
+	opacity: 0;
+	background: radial-gradient(circle at 35% 30%, #ffffff, rgba(200, 238, 255, 0.4));
+	box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
+	/* Travels by transform, in viewport units against a panel that is itself
+	   sized in vh — same reason as the pane above: animating `top` repaints
+	   the layer, and this one sits under the item cards. */
+	animation: ctr-drip 13s linear infinite;
+}
+.ctr-door-fx i:nth-child(1) { right: 4px; animation-duration: 13s; }
+.ctr-door-fx i:nth-child(2) { right: 14px; animation-duration: 19s; animation-delay: -7s; }
+.ctr-door-fx i:nth-child(3) { left: 16px; animation-duration: 23s; animation-delay: -14s; }
+@keyframes ctr-drip {
+	0% { transform: translateY(0); opacity: 0; }
+	5% { opacity: 0.9; }
+	8% { transform: translateY(1vh); }   /* hangs a moment before it lets go */
+	60% { opacity: 0.75; }
+	72% { transform: translateY(56vh); opacity: 0; }
+	100% { transform: translateY(56vh); opacity: 0; }
+}
+
+/* Compartment header row: label on the left, temperature readout right. */
+.ctr-shelf-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	flex-shrink: 0;
+	margin-bottom: 8px;
+}
+.ctr-shelf-head .container-section-label,
+.ctr-subbox .ctr-shelf-head .container-section-label {
+	margin-bottom: 0;
+}
+/* Small LED-style temperature readout. Empty (and hidden) unless the panel
+   is themed cold and the compartment reports a preservation tier. */
+.ctr-temp {
+	display: none;
+	align-items: baseline;
+	gap: 6px;
+	font-family: var(--font-mono, monospace);
+	line-height: 1;
+	padding: 5px 9px 5px 8px;
+	border-radius: 4px;
+	font-variant-numeric: tabular-nums;
+	background: linear-gradient(180deg, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.48));
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	box-shadow:
+		inset 0 1px 3px rgba(0, 0, 0, 0.75),
+		inset 0 0 12px color-mix(in srgb, currentColor 16%, transparent),
+		0 1px 0 rgba(255, 255, 255, 0.05);
+	flex-shrink: 0;
+}
+.ctr-temp.active {
+	display: inline-flex;
+}
+/* The setpoint name, set small and wide against the large numerals — the
+   contrast between the two is what makes a readout look engineered rather
+   than merely small. */
+.ctr-temp-mode {
+	font-size: 8px;
+	letter-spacing: 1.6px;
+	text-transform: uppercase;
+	opacity: 0.62;
+	align-self: center;
+	padding-right: 7px;
+	border-right: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+}
+.ctr-temp-val {
+	font-size: 15px;
+	font-weight: 700;
+	letter-spacing: 0.5px;
+}
+.ctr-temp-unit {
+	font-size: 9px;
+	letter-spacing: 0.5px;
+	opacity: 0.8;
+}
+/* Compressor-status pip, breathing slowly beside the reading. */
+.ctr-temp::before {
+	content: "";
+	width: 5px;
+	height: 5px;
+	flex-shrink: 0;
+	align-self: center;
+	border-radius: 50%;
+	background: currentColor;
+	box-shadow: 0 0 5px currentColor;
+	animation: ctr-temp-pip 3.2s ease-in-out infinite;
+}
+@keyframes ctr-temp-pip {
+	0%, 100% { opacity: 0.85; }
+	50% { opacity: 0.25; }
+}
+#container-box.ctr-theme-consumer .ctr-temp {
+	color: #bfe9ff;
+	text-shadow: 0 0 6px rgba(159, 216, 255, 0.75);
+	border-color: rgba(159, 216, 255, 0.3);
+}
+#container-box.ctr-theme-commercial .ctr-temp {
+	color: var(--ctr-hazard);
+	text-shadow: 0 0 6px rgba(232, 184, 75, 0.6);
+	border-color: rgba(232, 184, 75, 0.28);
+}
+.ctr-temp.ctr-temp-frozen {
+	color: color-mix(in srgb, var(--ctr-frost, #cfeeff) 70%, #ffffff) !important;
+	text-shadow: 0 0 7px color-mix(in srgb, var(--ctr-frost, #cfeeff) 85%, transparent) !important;
+	border-color: color-mix(in srgb, var(--ctr-frost, #cfeeff) 38%, transparent) !important;
+}
+
+/* ── Compartment interiors ───────────────────────────────────────────────
+   A lit well: interior light washing down from the top, darkness pooling at
+   the bottom. The shelves themselves are drawn per item card (below) rather
+   than at a fixed pitch here — a repeating background can't know where the
+   variable-height cards are, so its lines sliced through them. */
+#container-box.ctr-theme-consumer #container-contents-list,
+#container-box.ctr-theme-commercial #container-contents-list,
+#container-box.ctr-theme-consumer #container-freezer-list,
+#container-box.ctr-theme-commercial #container-freezer-list {
+	position: relative;
+	border-radius: 4px;
+	padding: 12px 6px 10px;
+	background-repeat: no-repeat;
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in srgb, var(--ctr-accent) 45%, transparent) transparent;
+}
+#container-box.ctr-theme-consumer #container-contents-list,
+#container-box.ctr-theme-consumer #container-freezer-list {
+	background-image:
+		linear-gradient(180deg, color-mix(in srgb, var(--ctr-cold) 9%, transparent), transparent 40%),
+		radial-gradient(120% 40% at 50% 100%, rgba(0, 0, 0, 0.3), transparent 70%);
+	box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.3);
+}
+#container-box.ctr-theme-commercial #container-contents-list,
+#container-box.ctr-theme-commercial #container-freezer-list {
+	background-image:
+		linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 38%),
+		radial-gradient(120% 40% at 50% 100%, rgba(0, 0, 0, 0.4), transparent 70%);
+	box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.42);
+}
+/* The light bar — actual hardware at the top of each compartment, blazing at
+   its centre and falling off to nothing at the ends, throwing a wide soft
+   spill down into the well. This is where the light in here comes FROM;
+   before, the wells were lit by a gradient with no source. */
+#container-box.ctr-theme-consumer #container-contents-list::before,
+#container-box.ctr-theme-consumer #container-freezer-list::before,
+#container-box.ctr-theme-commercial #container-contents-list::before,
+#container-box.ctr-theme-commercial #container-freezer-list::before {
+	content: "";
+	position: absolute;
+	top: 4px;
+	left: 12%;
+	right: 12%;
+	height: 3px;
+	border-radius: 2px;
+	pointer-events: none;
+}
+#container-box.ctr-theme-consumer #container-contents-list::before,
+#container-box.ctr-theme-consumer #container-freezer-list::before {
+	background: linear-gradient(90deg,
+		transparent,
+		color-mix(in srgb, var(--ctr-cold) 70%, transparent) 14%,
+		#ffffff 50%,
+		color-mix(in srgb, var(--ctr-cold) 70%, transparent) 86%,
+		transparent);
+	box-shadow:
+		0 0 12px color-mix(in srgb, var(--ctr-cold) 70%, transparent),
+		0 10px 34px -6px color-mix(in srgb, var(--ctr-cold) 40%, transparent);
+}
+#container-box.ctr-theme-commercial #container-contents-list::before,
+#container-box.ctr-theme-commercial #container-freezer-list::before {
+	background: linear-gradient(90deg, transparent, rgba(226, 235, 244, 0.65) 14%, #ffffff 50%, rgba(226, 235, 244, 0.65) 86%, transparent);
+	box-shadow:
+		0 0 12px rgba(226, 235, 244, 0.5),
+		0 10px 34px -6px rgba(226, 235, 244, 0.22);
+}
+
+/* An empty compartment has no cards to hang shelves off, and a bare well that
+   tall reads as a bug. Draw the empty shelf run instead — nothing is standing
+   on them, so a fixed pitch is exactly right here. */
+#container-box.ctr-theme-consumer #container-contents-list:empty,
+#container-box.ctr-theme-consumer #container-freezer-list:empty,
+#container-box.ctr-theme-commercial #container-contents-list:empty,
+#container-box.ctr-theme-commercial #container-freezer-list:empty {
+	background-repeat: no-repeat, no-repeat, repeat-y;
+	background-size: 100% 100%, 100% 100%, 100% 62px;
+	background-position: 0 0, 0 0, 0 24px;
+}
+#container-box.ctr-theme-consumer #container-contents-list:empty,
+#container-box.ctr-theme-consumer #container-freezer-list:empty {
+	background-image:
+		linear-gradient(180deg, color-mix(in srgb, var(--ctr-cold) 9%, transparent), transparent 40%),
+		radial-gradient(120% 40% at 50% 100%, rgba(0, 0, 0, 0.3), transparent 70%),
+		linear-gradient(180deg,
+			transparent 0 58px,
+			var(--ctr-shelf-lip) 58px 59px,
+			rgba(0, 0, 0, 0.5) 59px 61px,
+			transparent 61px 62px);
+}
+#container-box.ctr-theme-commercial #container-contents-list:empty,
+#container-box.ctr-theme-commercial #container-freezer-list:empty {
+	background-image:
+		linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 38%),
+		radial-gradient(120% 40% at 50% 100%, rgba(0, 0, 0, 0.4), transparent 70%),
+		linear-gradient(180deg,
+			transparent 0 58px,
+			var(--ctr-shelf-lip) 58px 59px,
+			rgba(0, 0, 0, 0.5) 59px 61px,
+			transparent 61px 62px);
+}
+
+/* Every card stands on its own shelf lip — a lit edge over its shadow, drawn
+   in the gutter under the card so shelf and contents always line up. */
+/* Only the cards actually inside the appliance are chilled — the inventory
+   column is your pockets, and keeps the standard card look. */
+#container-box.ctr-theme-consumer #container-contents-list .ctr-item-card,
+#container-box.ctr-theme-consumer #container-freezer-list .ctr-item-card,
+#container-box.ctr-theme-commercial #container-contents-list .ctr-item-card,
+#container-box.ctr-theme-commercial #container-freezer-list .ctr-item-card {
+	position: relative;
+	background: var(--ctr-card-bg);
+	border-color: var(--ctr-card-border);
+	/* A contact shadow, so the item is standing ON the shelf rather than
+	   floating in front of it. Cheap, static, and does more for the sense of
+	   depth in here than any amount of animation. */
+	box-shadow:
+		0 6px 10px -6px rgba(0, 0, 0, 0.8),
+		inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+/* Light bouncing off the shelf beneath the item — a soft smear the width of
+   the card, tucked under it and above the shelf lip. */
+#container-box.ctr-theme-consumer #container-contents-list .ctr-item-card::before,
+#container-box.ctr-theme-consumer #container-freezer-list .ctr-item-card::before,
+#container-box.ctr-theme-commercial #container-contents-list .ctr-item-card::before,
+#container-box.ctr-theme-commercial #container-freezer-list .ctr-item-card::before {
+	content: "";
+	position: absolute;
+	left: 10%;
+	right: 10%;
+	bottom: -6px;
+	height: 6px;
+	border-radius: 50%;
+	pointer-events: none;
+	filter: blur(2px);
+	background: radial-gradient(ellipse at 50% 0%, var(--ctr-shelf-lip), transparent 72%);
+	opacity: 0.5;
+}
+#container-box.ctr-theme-consumer #container-contents-list .ctr-item-card::after,
+#container-box.ctr-theme-consumer #container-freezer-list .ctr-item-card::after,
+#container-box.ctr-theme-commercial #container-contents-list .ctr-item-card::after,
+#container-box.ctr-theme-commercial #container-freezer-list .ctr-item-card::after {
+	content: "";
+	position: absolute;
+	left: -6px;
+	right: -6px;
+	bottom: -6px;
+	height: 3px;
+	border-radius: 1px;
+	pointer-events: none;
+	background: linear-gradient(180deg, var(--ctr-shelf-lip) 0 1px, rgba(0, 0, 0, 0.55) 1px);
+}
+#container-box.ctr-theme-consumer .ctr-item-card:hover,
+#container-box.ctr-theme-commercial .ctr-item-card:hover,
+#container-box.ctr-theme-consumer #container-contents-list .ctr-item-card:hover,
+#container-box.ctr-theme-consumer #container-freezer-list .ctr-item-card:hover,
+#container-box.ctr-theme-commercial #container-contents-list .ctr-item-card:hover,
+#container-box.ctr-theme-commercial #container-freezer-list .ctr-item-card:hover {
+	border-color: var(--ctr-accent);
+	box-shadow:
+		0 6px 10px -6px rgba(0, 0, 0, 0.8),
+		inset 0 1px 0 rgba(255, 255, 255, 0.06),
+		0 0 12px color-mix(in srgb, var(--ctr-accent) 25%, transparent);
+}
+#container-box.ctr-theme-consumer .ctr-action-btn:hover,
+#container-box.ctr-theme-commercial .ctr-action-btn:hover {
+	border-color: var(--ctr-accent);
+	color: var(--ctr-accent);
+}
+#container-box.ctr-theme-consumer .ctr-drag-over,
+#container-box.ctr-theme-commercial .ctr-drag-over {
+	border-color: var(--ctr-accent);
+	background-color: color-mix(in srgb, var(--ctr-accent) 8%, transparent);
+}
+/* The "(empty)" line reads as a label inside a lit, empty interior. */
+#container-box.ctr-theme-consumer #container-contents-list:empty::after,
+#container-box.ctr-theme-consumer #container-freezer-list:empty::after,
+#container-box.ctr-theme-commercial #container-contents-list:empty::after,
+#container-box.ctr-theme-commercial #container-freezer-list:empty::after {
+	margin: auto;
+	font-family: var(--font-mono, monospace);
+	font-style: normal;
+	font-size: 10px;
+	letter-spacing: 3.5px;
+	text-indent: 3.5px;                  /* balance the trailing letter-space */
+	text-transform: uppercase;
+	opacity: 0.5;
+}
+/* Freezer sub-box: shown only when the opened container has a paired box
+   (e.g. a fridge's separate freezer compartment) — a smaller drop zone
+   stacked above the main contents list, same panel, no second `open`. */
+.ctr-subbox {
+	display: none;
+	flex-direction: column;
+	flex-shrink: 0;
+	max-height: 35%;
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	padding: 8px;
+	margin-bottom: 10px;
+	background: rgba(255, 255, 255, 0.02);
+}
+.ctr-subbox.active {
+	display: flex;
+}
+.ctr-subbox .container-section-label {
+	margin-bottom: 2px;
+}
+.ctr-subbox-capacity {
+	font-family: var(--font-mono, monospace);
+	font-size: 10px;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.5px;
+	color: var(--text-dim);
+	margin-bottom: 6px;
+}
+#container-freezer-list {
+	flex: 1;
+	overflow-y: auto;
+	min-height: 40px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 4px;
+	border: 1px dashed transparent;
+	border-radius: 3px;
+	transition: border-color 0.15s, background 0.15s;
+}
+#container-freezer-list.ctr-drag-over {
+	border-color: var(--cyan);
+	background: rgba(40, 229, 255, 0.05);
+}
+#container-freezer-list:empty::after {
+	content: "(empty)";
+	color: var(--text-dim);
+	font-style: italic;
+	font-size: 11px;
+	padding: 4px;
+}
 #container-divider {
 	flex-shrink: 0;
 	display: flex;
@@ -3858,12 +4782,16 @@ body.fsim-external #look-resize-handle { display: none; }
 	padding: 0 4px;
 }
 .container-section-label {
-	font-size: 9px;
+	font-size: 10px;
+	font-weight: 600;
 	text-transform: uppercase;
-	letter-spacing: 2px;
+	letter-spacing: 2.2px;
 	color: var(--text-dim);
 	margin-bottom: 8px;
 	flex-shrink: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 #container-inv-list,
 #container-contents-list {
@@ -3896,14 +4824,14 @@ body.fsim-external #look-resize-handle { display: none; }
 .ctr-item-card {
 	background: var(--bg3);
 	border: 1px solid var(--border);
-	border-radius: 3px;
-	padding: 8px;
+	border-radius: 4px;
+	padding: 9px 10px;
+	min-height: 38px;
 	cursor: grab;
-	font-size: 11px;
-	transition: border-color 0.15s;
+	transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s;
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	gap: 8px;
 }
 .ctr-item-card:hover {
 	border-color: var(--cyan);
@@ -3911,13 +4839,41 @@ body.fsim-external #look-resize-handle { display: none; }
 .ctr-item-card.dragging {
 	opacity: 0.4;
 }
+/* Type hierarchy on a card: the name carries it at a readable size, the
+   quantity is a badge, and the weight is small tabular mono hard against the
+   right edge so a column of cards lines up as a table would. */
 .ctr-name {
 	color: var(--text-bright);
 	flex: 1;
+	min-width: 0;
+	font-size: 12.5px;
+	line-height: 1.3;
+	letter-spacing: 0.2px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.ctr-qty {
+	flex-shrink: 0;
+	font-family: var(--font-mono, monospace);
+	font-size: 10px;
+	font-weight: 700;
+	line-height: 1;
+	padding: 3px 5px;
+	border-radius: 3px;
+	color: var(--text);
+	background: rgba(255, 255, 255, 0.07);
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
 }
 .ctr-meta {
+	flex-shrink: 0;
 	color: var(--text-dim);
-	font-size: 10px;
+	font-family: var(--font-mono, monospace);
+	font-size: 10.5px;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.3px;
+	min-width: 46px;
+	text-align: right;
 }
 .ctr-action-btn {
 	display: none;
@@ -3925,19 +4881,45 @@ body.fsim-external #look-resize-handle { display: none; }
 	border: 1px solid var(--border);
 	color: var(--text-dim);
 	font-size: 9px;
-	letter-spacing: 1px;
+	letter-spacing: 1.4px;
 	text-transform: uppercase;
-	padding: 2px 6px;
+	padding: 4px 8px;
 	cursor: pointer;
-	border-radius: 2px;
+	border-radius: 3px;
 	flex-shrink: 0;
 }
 .ctr-action-btn:hover {
 	border-color: var(--cyan);
 	color: var(--cyan);
 }
-.ctr-item-card:hover .ctr-action-btn {
+/* The button holds its space and fades in, rather than appearing and shoving
+   the name and weight sideways on every hover. */
+.ctr-item-card .ctr-action-btn {
 	display: block;
+	opacity: 0;
+	pointer-events: none;
+	transform: translateX(3px);
+	transition: opacity 0.15s, transform 0.15s, border-color 0.15s, color 0.15s;
+}
+.ctr-item-card:hover .ctr-action-btn,
+.ctr-action-btn:focus-visible {
+	opacity: 1;
+	pointer-events: auto;
+	transform: none;
+}
+/* On a touch device there is no hover to reveal it with — and HTML5 drag fires
+   no events on touch either, so hiding this button behind :hover left the
+   container, corpse and wardrobe panels with NO way to move an item at all.
+   Keyed off pointer capability rather than width: a narrow desktop window
+   still has a cursor and keeps the fade. */
+@media (hover: none), (pointer: coarse) {
+	.ctr-item-card .ctr-action-btn {
+		opacity: 1;
+		pointer-events: auto;
+		transform: none;
+	}
+	/* Nothing is being dragged on touch, so drop the grab affordance. */
+	.ctr-item-card { cursor: pointer; }
 }
 
 /* Quantity split dialog */
@@ -4018,24 +5000,37 @@ body.fsim-external #look-resize-handle { display: none; }
 .qty-dialog-ok:hover { border-color: var(--cyan, #0ff); color: var(--cyan, #0ff); }
 .qty-dialog-cancel:hover { border-color: var(--red, #f44); color: var(--red, #f44); }
 
-@media (max-width: 600px) {
-	#container-body {
+/* Container + corpse on a phone — the two columns become one scroll. The
+   breakpoint is the client's own 720px (it was 600px here, which left the
+   601–720px band showing a desktop two-column split inside a 720px box), and
+   the loot panel rides along: it is the same two-column body under a
+   different id. Drag/drop is dead on touch, but every card carries its own
+   stow/take/loot button, so the panel stays fully operable. */
+@media (max-width: 720px) {
+	#container-body,
+	#loot-body {
 		flex-direction: column;
 		overflow-y: auto;
 	}
-	#container-inv-col {
+	#container-inv-col,
+	#loot-inv-col {
 		border-right: none;
 		padding-right: 0;
 		border-bottom: 1px solid var(--border);
 		padding-bottom: 12px;
 		margin-bottom: 4px;
 	}
-	#container-contents-col {
+	#container-contents-col,
+	#loot-contents-col {
 		padding-left: 0;
 	}
-	#container-divider {
+	#container-divider,
+	#loot-divider {
 		display: none;
 	}
+	/* Thumb-sized action buttons — on touch these are the ONLY way to move an
+	   item, so they get a real target rather than the desktop's 9px chip. */
+	.ctr-action-btn { padding: 7px 12px; font-size: 10px; }
 }
 
 #map-close {
@@ -4068,20 +5063,54 @@ body.fsim-external #look-resize-handle { display: none; }
 	inset: 0;
 	background: transparent;
 	z-index: 100;
-	align-items: center;
+	/* Anchored low and wide rather than dead-centre: a centred rectangle reads as
+	   an OS dialog no matter how big it gets, while a low band leaves the room
+	   above it visible and reads as the world being talked over. */
+	align-items: flex-end;
 	justify-content: center;
+	/* Lifted off the floor of the screen. At 4vh the box sat on the bottom edge and
+	   the option list ran right into the smartbar; this puts a clear band under it
+	   without going back to a dead-centre OS-dialog read. */
+	/* Clamped, not raw vh: on a short window 13vh is fine, but the band must not
+	   grow so far on a tall one that the box loses more room than it needs. */
+	padding-bottom: clamp(48px, 13vh, 120px);
+	box-sizing: border-box;
 }
 #dialogue-panel.active {
 	display: flex;
 }
 
+/* The panel takes the floor: rises into place rather than popping. Exit is the
+   same move reversed, driven by `.closing` (see closeDialogue in dialogue.js). */
+@keyframes dlg-in {
+	from { opacity: 0; transform: translateY(22px) scale(0.985); }
+	to   { opacity: 1; transform: none; }
+}
+@keyframes dlg-out {
+	from { opacity: 1; transform: none; }
+	to   { opacity: 0; transform: translateY(14px) scale(0.99); }
+}
+#dialogue-panel.active #dialogue-box {
+	animation: dlg-in 0.18s ease-out;
+}
+#dialogue-panel.closing #dialogue-box {
+	animation: dlg-out 0.15s ease-in forwards;
+}
+
 #dialogue-box {
 	background: var(--bg2);
 	border: 1px solid var(--accent);
-	padding: 16px 18px;
-	width: 480px;
-	min-height: 360px;
-	max-height: 70vh;
+	padding: 22px 26px;
+	width: 760px;
+	max-width: 92vw;
+	/* FIXED height, not min-height. A box that grew with the line length moved the
+	   option list every single beat, so you re-aimed the mouse on every reply. The
+	   speech area absorbs the variation instead (it scrolls), and the options stay
+	   nailed to the same place for the whole conversation. The height is capped
+	   against the viewport as well, so a short window gets a shorter box rather
+	   than one whose contents spill out past its own border. */
+	height: 460px;
+	max-height: calc(100vh - clamp(48px, 13vh, 120px) - 16px);
 	border-radius: 2px;
 	display: flex;
 	flex-direction: column;
@@ -4089,20 +5118,30 @@ body.fsim-external #look-resize-handle { display: none; }
 }
 #dialogue-header {
 	display: flex;
-	align-items: center;
+	align-items: flex-end;
 	justify-content: space-between;
-	margin-bottom: 6px;
+	/* Pulled down over the top edge of the recessed speech area below, so the name
+	   reads as a legend cut into it rather than a caption floating above it. */
+	margin-bottom: -11px;
+	padding: 0 4px;
+	position: relative;
+	z-index: 1;
 	flex-shrink: 0;
 }
 #dialogue-npc-name {
 	color: var(--accent);
 	font-weight: bold;
-	font-size: 13px;
+	font-size: clamp(15px, 1.8vh, 21px);
 	text-transform: uppercase;
-	letter-spacing: 1px;
+	letter-spacing: 2px;
+	/* The box's own background, so the name punches a gap in the recess border. */
+	background: var(--bg2);
+	padding: 0 10px 0 6px;
+	line-height: 1.05;
 }
 #dialogue-close {
-	background: none;
+	/* Solid, not transparent — it sits on the recess border too. */
+	background: var(--bg2);
 	border: 1px solid var(--border);
 	color: var(--text-dim);
 	font-family: var(--font-mono);
@@ -4117,22 +5156,132 @@ body.fsim-external #look-resize-handle { display: none; }
 	border-color: var(--accent);
 	color: var(--accent);
 }
+/* The speech well — what the NPC is saying, sunk into the panel face so it reads as
+   a separate surface being spoken from rather than more of the same card. Darker
+   than the box, with an inset shadow doing the bevel; the name overlaps its top-left
+   corner (see #dialogue-header) like a legend stamped on the plate. */
 #dialogue-text {
 	color: var(--text-bright);
-	margin-bottom: 8px;
-	font-size: 13px;
-	line-height: 1.45;
+	margin-bottom: 14px;
+	font-size: clamp(15px, 1.9vh, 20px);
+	line-height: 1.5;
 	white-space: pre-wrap;
 	overflow-y: auto;
-	flex: 1;
-	min-height: 120px;
+	/* The well is the part that gives: it can shrink to its floor (and scroll) so a
+	   long option list still fits inside the box instead of pushing out of it. */
+	flex: 1 1 auto;
+	min-height: 84px;
+	background: var(--bg);
+	border: 1px solid var(--border);
+	border-radius: 3px;
+	padding: 18px 20px 16px;
+	box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.75), inset 0 0 0 1px rgba(0, 0, 0, 0.4);
 }
+/* Shop mode reuses #dialogue-text as its two-pane container — keep that dense, and
+   drop the well treatment: the panes bring their own chrome. */
+#dialogue-box.shop-mode #dialogue-text {
+	font-size: 13px;
+	background: none;
+	border: none;
+	padding: 0;
+	box-shadow: none;
+}
+#dialogue-box.shop-mode #dialogue-header { margin-bottom: 6px; }
+/* The speaker still talking. Sits in place of the line while the NPC takes their
+   beat (THINK_MS in dialogue.js) so the panel visibly waits on them. */
+.dialogue-thinking {
+	color: var(--text-dim);
+	letter-spacing: 4px;
+	animation: dlg-think 0.9s ease-in-out infinite;
+}
+@keyframes dlg-think {
+	0%, 100% { opacity: 0.25; }
+	50%      { opacity: 0.8; }
+}
+
+/* Stage direction — what the speaker's body is doing, and what changed in their
+   manner when a line of yours moved reputation. Server-authored (`stage` on the
+   dialogue message); italic and dim so it never reads as speech. */
+#dialogue-stage {
+	display: none;
+	font-style: italic;
+	color: var(--text-dim);
+	font-size: clamp(12px, 1.4vh, 16px);
+	line-height: 1.4;
+	margin-bottom: 10px;
+	flex-shrink: 0;
+}
+#dialogue-stage.on {
+	display: block;
+}
+
+/* Stakes band — one line saying where the hovered/focused option goes. Holds its
+   height always so the option column never shifts as the pointer moves. */
+#dialogue-hint {
+	min-height: 1.5em;
+	font-size: 14px;
+	line-height: 1.5;
+	color: var(--cyan);
+	opacity: 0.8;
+	margin-bottom: 6px;
+	flex-shrink: 0;
+}
+/* The stakes of an irreversible option are stated in its own colour. */
+#dialogue-hint.danger {
+	color: var(--red);
+	opacity: 1;
+}
+
 #dialogue-options {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
-	flex-shrink: 0;
+	gap: 7px;
+	/* An NPC with six replies plus a shop line and a Leave used to run straight out
+	   the bottom of the box, because the column refused to shrink. It keeps its
+	   priority over the speech well (that shrinks first), but past the point where
+	   even a squeezed well can't pay for it, the column scrolls. */
+	flex: 0 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+	/* Room for the scrollbar when it appears, so options never reflow sideways. */
+	scrollbar-gutter: stable;
 }
+/* Veiled = built but not yet offered: the options (and the stage line) hold their
+   space while the speaker is still talking, so nothing reflows when they land. */
+#dialogue-options.veiled,
+#dialogue-stage.veiled {
+	opacity: 0;
+	pointer-events: none;
+}
+#dialogue-options,
+#dialogue-stage {
+	transition: opacity 0.22s ease;
+}
+
+/* Shop mode is a dense terminal — the conversation bands don't belong in it. */
+#dialogue-box.shop-mode #dialogue-stage,
+#dialogue-box.shop-mode #dialogue-hint {
+	display: none;
+}
+
+/* Speaker mood, from your standing with the org they belong to (`mood` on the
+   dialogue message). Text-only: it tints and names the plate, nothing else. */
+#dialogue-box[data-mood='hostile'] #dialogue-npc-name { color: var(--red); }
+#dialogue-box[data-mood='cold'] #dialogue-npc-name { color: var(--text-dim); }
+#dialogue-box[data-mood='warm'] #dialogue-npc-name { color: var(--green); }
+#dialogue-box[data-mood='devoted'] #dialogue-npc-name { color: var(--purple); }
+#dialogue-box[data-mood] #dialogue-npc-name::after {
+	font-size: 13px;
+	font-weight: normal;
+	letter-spacing: 1px;
+	opacity: 0.65;
+	margin-left: 10px;
+}
+#dialogue-box[data-mood='hostile'] #dialogue-npc-name::after { content: '· will not forget you'; }
+#dialogue-box[data-mood='cold'] #dialogue-npc-name::after { content: '· does not know you'; }
+#dialogue-box[data-mood='warm'] #dialogue-npc-name::after { content: '· knows your face'; }
+#dialogue-box[data-mood='devoted'] #dialogue-npc-name::after { content: '· one of theirs'; }
 .dialogue-opt {
 	background: var(--bg3);
 	border: 1px solid var(--border);
@@ -4145,15 +5294,47 @@ body.fsim-external #look-resize-handle { display: none; }
 	border-radius: 2px;
 	transition: all 0.1s;
 }
+#dialogue-box:not(.shop-mode) .dialogue-opt {
+	font-size: clamp(13px, 1.55vh, 17px);
+	padding: clamp(6px, 0.9vh, 10px) 14px;
+	flex-shrink: 0;
+}
 .dialogue-opt:hover {
 	border-color: var(--accent);
 	color: var(--accent);
 }
+/* An option you can't walk back — starts violence, gets you charged, burns
+   standing (server tags it `_kind: 'hostile'`). Red edging plus its own stakes
+   line in #dialogue-hint; it must not look like every other choice. */
+.dialogue-opt-hostile {
+	border-color: var(--red);
+	color: var(--red);
+	box-shadow: inset 2px 0 0 var(--red);
+}
+.dialogue-opt-hostile:hover {
+	border-color: var(--red);
+	color: #fff;
+	background: rgba(255, 59, 92, 0.14);
+}
+
 .dialogue-opt-branch {
 	color: var(--accent);
 	margin-right: 4px;
 	font-style: normal;
 }
+/* Destination glyph on an option that opens a shop / takes or hands in a job /
+   ends the conversation. Server tags the option (`_kind`); the icon sits ahead of
+   the label so the column of options reads down its left edge. */
+.dialogue-opt-icon {
+	margin-right: 5px;
+	font-size: 12px;
+	opacity: 0.85;
+}
+#dialogue-box:not(.shop-mode) .dialogue-opt-icon {
+	margin-right: 8px;
+	font-size: 16px;
+}
+
 /* A turn-in option for a quest that's accepted but not yet finished: looks
    dimmed/locked, but is still tappable — it routes to the Tablet quest screen. */
 .dialogue-opt-locked {
@@ -4458,6 +5639,57 @@ body.fsim-external #look-resize-handle { display: none; }
 .shop-sellall:active { transform: translateY(1px) scale(0.99); }
 .shop2 .noafford { color: var(--red); }
 
+/* ── Shop on a phone — the two panes become two decks ─────────────────────
+   The fixed 300px examine card would leave the list a sliver on a handset, so
+   below the client's mobile breakpoint the grid stacks: the list takes the
+   space that's left and the card sits under it as a shelf. The card's height
+   is bounded by capping the description rather than the card itself — a
+   percentage max-height on an `auto` grid row resolves cyclically. Tap
+   targets on the row, the stepper and the execute button all grow to thumb
+   size at the same time. */
+@media (max-width: 720px) {
+	#dialogue-box.shop-mode {
+		width: 96vw;
+		max-width: 96vw;
+		height: 88vh;
+		max-height: 88vh;
+	}
+	/* Buy/Sell keeps the first line; sort + credits share the second. */
+	.shop-bar { flex-wrap: wrap; gap: 6px 12px; }
+	.shop-bar-right { flex: 1 0 100%; justify-content: space-between; gap: 10px; }
+	.shop-sort { letter-spacing: 0.06em; gap: 4px; }
+	.shop-sort > span { display: none; }
+	.shop-sort button { padding: 4px 8px; }
+	.shop-result { min-height: 1.7em; padding-top: 4px; }
+
+	.shop-2pane {
+		grid-template-columns: 1fr;
+		grid-template-rows: minmax(80px, 1fr) auto;
+		margin-top: 6px;
+	}
+	.shop-list {
+		border-right: none;
+		border-bottom: 1px dashed var(--accent-dim);
+		padding-right: 0;
+		padding-bottom: 4px;
+	}
+	.shop-card { padding-left: 0; padding-top: 8px; }
+	.shop-card-inner { padding: 10px 12px; }
+	.shop-card-inner hr { margin: 8px 0; }
+	.shop-card-desc { max-height: 5.5em; flex: 0 1 auto; }
+	.shop-card-empty { padding: 12px; }
+
+	/* Thumb-sized controls. */
+	/* A 420px floor against a 78vh ceiling overflows a phone held sideways. */
+	#dialogue-box { min-height: 0; padding: 16px 14px; }
+	.shop-row { padding: 11px 8px; }
+	.shop-qty button { width: 38px; height: 38px; }
+	.shop-qty span { min-width: 40px; }
+	.shop-max { height: 38px; }
+	.shop-exec { padding: 13px 18px; }
+	.shop-sellall { padding: 13px 10px; }
+}
+
 /* Auth screen */
 #auth-screen {
 	position: fixed;
@@ -4696,11 +5928,21 @@ body.fsim-external #look-resize-handle { display: none; }
 	50%       { opacity: 0; }
 }
 
-/* ─── MOBILE HUD STRIP ─── */
+/* ─── MOBILE TOP CHROME ───
+   Two bands stacked under the header: the vitals strip, then the minimap +
+   d-pad row. The d-pad moved up here (it used to sit beside the input) so the
+   bottom bars can run the full width of the screen; see #bottom-input-wrap.
+
+   Why vitals get their own full-width band: the default loadout is TWO bars
+   (see DEFAULT_HIDDEN_VITALS in render.js — hunger/thirst/sanity/horny are
+   hidden unless you re-add them). Stacked in a column beside the map that read
+   as a mostly-empty gutter. Laid across the width they are legible at a glance
+   and cost ~16px, and the flex-wrap means a player who re-adds all of them —
+   or picks up radiation — simply gets a second line instead of a broken row. */
 #mobile-hud {
 	display: none;
 	align-items: stretch;
-	gap: 6px;
+	gap: 8px;
 	padding: 4px 8px;
 	background: var(--bg2);
 	border-bottom: 1px solid var(--border);
@@ -4717,18 +5959,47 @@ body.fsim-external #look-resize-handle { display: none; }
 	}
 }
 
-#mobile-vitals {
+/* The map takes whatever the d-pad doesn't. min-width:0 is load-bearing — the
+   grid is wide content and without it the d-pad gets squeezed off the edge. */
+#mob-hud-map {
 	display: flex;
-	flex-direction: column;
-	gap: 2px;
+	align-items: center;
+	justify-content: flex-start;
 	flex: 1;
 	min-width: 0;
+	overflow: hidden;
 }
 
+/* ─── MOBILE VITALS STRIP ─── */
+#mobile-vitals {
+	display: none;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 3px 8px;
+	padding: 3px 8px;
+	background: var(--bg2);
+	border-bottom: 1px solid var(--border);
+	flex-shrink: 0;
+}
+
+[data-density="compact"] #mobile-vitals {
+	display: flex;
+}
+
+@media (max-width: 720px) {
+	#mobile-vitals {
+		display: flex;
+	}
+}
+
+/* Each vital is an equal share of the line. flex-basis 0 (not auto) so two
+   bars split the width evenly rather than sizing to their labels. */
 .mob-bar-row {
 	display: flex;
 	align-items: center;
 	gap: 3px;
+	flex: 1 1 0;
+	min-width: 96px;
 }
 
 .mob-bar-label {
@@ -4767,15 +6038,6 @@ body.fsim-external #look-resize-handle { display: none; }
 	font-weight: bold;
 }
 
-/* ─── HUD RIGHT COLUMN (chat button + minimap, map on the right) ─── */
-#mob-hud-right {
-	display: flex;
-	flex-direction: row;
-	align-items: center;
-	gap: 4px;
-	flex-shrink: 0;
-}
-
 /* Compact HUD minimap — same edge-to-edge grid, smaller tiles. */
 #minimap-grid-hud {
 	--mm-room: 1.4em;
@@ -4812,11 +6074,6 @@ body.fsim-external #look-resize-handle { display: none; }
 	line-height: 1;
 }
 
-.mob-hud-bodytemp {
-	color: var(--orange);
-	font-size: 9px;
-	line-height: 1;
-}
 
 #mobile-chat-btn {
 	display: none; /* lives in the input row; mobile/compact only */
@@ -4890,14 +6147,68 @@ body.fsim-external #look-resize-handle { display: none; }
 	flex-direction: column;
 	min-width: 0;
 }
+/* The bottom wrap stays a COLUMN on mobile. It used to flip to a row so the
+   d-pad could occupy a full-height strip down the right — which squeezed the
+   weather bar, the command input and the smartbar into whatever was left.
+   The d-pad now lives in the top chrome (#mobile-hud), so every bar down here
+   runs the full width of the screen. */
 @media (max-width: 720px) {
-	#bottom-input-wrap { flex-direction: row; align-items: stretch; }
-	#bottom-stack { flex: 1; }
-	#bottom-input-wrap #mob-dpad { border-left: 1px solid var(--border); }
+	#bottom-stack { flex: 1; min-width: 0; }
 }
-[data-density="compact"] #bottom-input-wrap { flex-direction: row; align-items: stretch; }
-[data-density="compact"] #bottom-stack { flex: 1; }
-[data-density="compact"] #bottom-input-wrap #mob-dpad { border-left: 1px solid var(--border); }
+[data-density="compact"] #bottom-stack { flex: 1; min-width: 0; }
+
+/* ─── SLEEP BAR ───
+   Only on screen while asleep. Sits directly above the quick-cmds so the way out
+   is next to the input the player is already looking at. `hidden` does the
+   hiding; this never sets display when the attribute is present. */
+#sleep-bar {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 5px 10px;
+	border-top: 1px solid var(--border);
+	background: color-mix(in srgb, var(--cyan) 8%, transparent);
+	font-size: 0.85rem;
+	min-width: 0;
+}
+#sleep-bar[hidden] { display: none; }
+#sleep-bar-label {
+	color: var(--cyan);
+	opacity: 0.85;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+#sleep-wake-btn {
+	margin-left: auto;
+	flex: none;
+	padding: 3px 12px;
+	cursor: pointer;
+	color: var(--cyan);
+	background: transparent;
+	border: 1px solid var(--cyan);
+	border-radius: 3px;
+	font: inherit;
+	letter-spacing: 0.04em;
+}
+#sleep-wake-btn:hover { background: var(--cyan); color: var(--bg); }
+
+/* ─── ASLEEP (dreamless) ───
+   Eyes shut. The server already refuses to deliver the room to a sleeper, so
+   the log behind you is stale — this makes it look it, unreadable rather than
+   merely faded. Scoped to the two panes that carry room awareness; the sleep
+   bar (your way out) and the sidebar (your own body) stay crisp on purpose.
+   A dreamer never gets this class — a dream is meant to be read. */
+body.asleep #area-pane,
+body.asleep #output {
+	filter: blur(4px) brightness(0.35) saturate(0.4);
+	opacity: 0.5;
+	pointer-events: none;
+	user-select: none;
+	transition: filter 0.9s ease, opacity 0.9s ease;
+}
+body.asleep #area-pane { opacity: 0.25; }
+#area-pane, #output { transition: filter 0.5s ease, opacity 0.5s ease; }
 
 /* ─── BOTTOM BAR (quick-cmds + dpad) ─── */
 #bottom-bar {
@@ -4964,7 +6275,6 @@ body.fsim-external #look-resize-handle { display: none; }
 }
 #bottom-weather .mob-hud-weather { font-size: 16px; }
 #bottom-weather .mob-hud-temp,
-#bottom-weather .mob-hud-bodytemp { font-size: 11px; }
 
 /* Mobile: command list becomes a fan-out popup above the bar, triggered by
    #cmd-fan-btn; #bottom-left (button + weather) takes its place inline.
@@ -5003,6 +6313,19 @@ body.fsim-external #look-resize-handle { display: none; }
 [data-density="compact"] #quick-cmds.open { display: flex; }
 
 /* ─── MOBILE DPAD ─── */
+/* The four immersive fullscreen modes fold the d-pad away. This used to be free:
+   the d-pad lived inside #bottom-input-wrap, which each of those modes already
+   hides. Now that it sits in the top chrome it has to be named explicitly, or a
+   walking compass hangs over the cockpit while you are flying — where the
+   directions do not even mean anything. Keep this list in step with the
+   `#bottom-input-wrap { display:none }` rules further up. */
+body.fsim-fullscreen #mob-dpad,
+body.helm-fullscreen #mob-dpad,
+body.hb-fullscreen #mob-dpad,
+body.ck-fullscreen #mob-dpad {
+	display: none !important;
+}
+
 #mob-dpad {
 	display: none;
 	flex-direction: column;
@@ -5011,6 +6334,12 @@ body.fsim-external #look-resize-handle { display: none; }
 	gap: 1px;
 	flex-shrink: 0;
 	padding: 4px 4px;
+}
+
+/* Separator against the minimap it now sits beside. */
+#mobile-hud #mob-dpad {
+	border-left: 1px solid var(--border);
+	padding-left: 8px;
 }
 
 @media (max-width: 720px) {
@@ -5268,6 +6597,49 @@ body.fsim-external #look-resize-handle { display: none; }
 	background: var(--stop-color);
 	color: var(--bg);
 }
+/* The tablet-issued chip — the one button in the bar that has to be noticed. Pinned
+   leftmost, brighter than the accent anchors, and it BOBS: a slow nudge upward with a
+   halo behind it, which reads as "tap me" in peripheral vision the way a static glow
+   doesn't. It exists for 25 seconds (smartbar.js), so it's allowed to be loud.
+   Motion off ⇒ no movement, no sweep: it keeps the halo and stays put. */
+.smart-btn-tablet-offer {
+	background: color-mix(in srgb, var(--accent) 34%, var(--bg3));
+	border-color: color-mix(in srgb, var(--accent) 100%, white 45%);
+	color: color-mix(in srgb, var(--accent) 100%, white 60%);
+	font-weight: bold;
+	position: relative;
+	overflow: hidden;
+	animation: smart-offer-bob 1.6s ease-in-out infinite;
+}
+.smart-btn-tablet-offer:active {
+	background: var(--accent);
+	color: var(--bg);
+}
+/* The pass of light across the chip — a screen waking up, which is what just
+   happened in the fiction. */
+.smart-btn-tablet-offer::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--accent) 55%, white) 50%, transparent 65%);
+	transform: translateX(-120%);
+	animation: smart-offer-sweep 2.4s ease-in-out infinite;
+	pointer-events: none;
+}
+@keyframes smart-offer-bob {
+	0%, 100% { transform: translateY(0); box-shadow: 0 0 6px 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+	50% { transform: translateY(-3px); box-shadow: 0 4px 14px 2px color-mix(in srgb, var(--accent) 60%, transparent); }
+}
+@keyframes smart-offer-sweep {
+	0% { transform: translateX(-120%); }
+	55%, 100% { transform: translateX(120%); }
+}
+[data-motion="off"] .smart-btn-tablet-offer {
+	animation: none;
+	box-shadow: 0 0 10px 1px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+[data-motion="off"] .smart-btn-tablet-offer::after { display: none; }
+
 @keyframes smart-stop-pulse {
 	0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--stop-color) 55%, transparent); }
 	50% { box-shadow: 0 0 6px 1px color-mix(in srgb, var(--stop-color) 45%, transparent); }
@@ -6012,7 +7384,11 @@ body.fsim-external #look-resize-handle { display: none; }
    render as genuinely different machines. */
 #atm-box {
 	--atm-accent: #00ff88;
+	/* A fixed 340px chassis reads right on anything from a 360px handset up,
+	   but overflows a 320px screen — clamp it rather than reflow it, since the
+	   whole point of the panel is that it looks like a physical machine. */
 	width: 340px;
+	max-width: 94vw;
 	background: linear-gradient(180deg, #2a2f33 0%, #1c2023 7%, #14181b 12%, #0d1013 100%);
 	border: 1px solid #05070a;
 	border-radius: 20px;
@@ -7346,6 +8722,276 @@ body.fsim-external #look-resize-handle { display: none; }
 	padding: 16px 0;
 }
 
+/* ── Consumer deck chassis (#mediadeck-box.consumer) ────────────────────────────
+   A branded home unit is not a studio deck and must not read as one. The rack
+   deck above is deliberately fixed magenta/cyan — it belongs to the station. This
+   variant is the opposite on every axis: brushed titanium instead of a glowing
+   chassis, square-cornered and narrow (a slab "no bigger than a hardback"), no
+   vents, no reels, no glass, and no neon bloom. Every colour here is a THEME
+   variable, so it sits in whatever palette the player is running.
+
+   The class is applied from panels/mediadeck.js when the server sends a `brand`
+   (from the furniture's `deck_brand` flag), so an unbranded deck is untouched. ── */
+#mediadeck-box.consumer {
+	background:
+		/* brushed metal: fine vertical grain over a cool horizontal sheen */
+		repeating-linear-gradient(90deg, rgba(255,255,255,0.028) 0 1px, transparent 1px 3px),
+		linear-gradient(178deg, var(--bg3) 0%, var(--bg2) 52%, var(--bg) 100%);
+	border: 1px solid var(--border);
+	border-top-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+	border-radius: 3px;
+	box-shadow:
+		inset 0 1px 0 rgba(255,255,255,0.07),
+		inset 0 -1px 0 rgba(0,0,0,0.5),
+		0 14px 34px rgba(0,0,0,0.62);
+	color: var(--text);
+	min-width: 320px;
+	max-width: 372px;
+	padding: 16px 18px 14px;
+	clip-path: none;
+}
+/* Machined slab: no cooling grille, no cut corners, no station glow. */
+#mediadeck-box.consumer .mediadeck-vents { display: none; }
+#mediadeck-box.consumer #mediadeck-close {
+	border-color: var(--border);
+	color: var(--text-dim);
+	text-shadow: none;
+	border-radius: 2px;
+}
+#mediadeck-box.consumer #mediadeck-close:hover { color: var(--accent); border-color: var(--accent); }
+#mediadeck-box.consumer #mediadeck-header {
+	text-align: left;
+	border-bottom: 1px solid var(--border);
+	margin-bottom: 12px;
+	padding-bottom: 10px;
+}
+#mediadeck-box.consumer #mediadeck-name {
+	font-size: 13px;
+	font-weight: normal;
+	letter-spacing: 1.5px;
+	color: var(--text);
+	text-shadow: none;
+}
+#mediadeck-box.consumer #mediadeck-channel { color: var(--text-dim); }
+
+/* Maker's mark: etched into the faceplate, not lit up. Inherits the theme accent
+   through currentColor, which is exactly why the SVG carries no colours. */
+.mediadeck-brandplate {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	opacity: 1;
+	margin-bottom: 6px;
+	color: var(--accent);
+}
+.mediadeck-brandmark { width: 15px; height: 15px; flex: none; }
+.mediadeck-brandname {
+	font-size: 11px;
+	letter-spacing: 5px;
+	text-transform: uppercase;
+	color: var(--accent);
+}
+
+/* The loading door replaces the reel transport entirely. */
+#mediadeck-door { display: none; }
+#mediadeck-box.consumer #mediadeck-slot { display: none; }
+#mediadeck-box.consumer #mediadeck-cartridge { display: none; }
+#mediadeck-box.consumer .atm-status-row { display: none; }
+#mediadeck-box.consumer #mediadeck-door { display: block; margin: 4px 0 12px; }
+.mediadeck-door-mouth {
+	position: relative;
+	height: 26px;
+	border-radius: 2px;
+	overflow: hidden;
+	background: linear-gradient(180deg, var(--bg) 0%, #000 60%, var(--bg) 100%);
+	border: 1px solid var(--border);
+	box-shadow: inset 0 3px 7px rgba(0,0,0,0.9);
+}
+/* The catchless lip — a hairline of machined edge, no button, no flap. */
+.mediadeck-door-lip {
+	position: absolute;
+	left: 8px; right: 8px; top: 50%;
+	height: 1px;
+	background: linear-gradient(90deg, transparent, var(--border) 12%, var(--text-dim) 50%, var(--border) 88%, transparent);
+	opacity: 0.75;
+}
+/* The cassette itself, only visible while it is being taken or handed back. */
+.mediadeck-door-tape {
+	position: absolute;
+	left: 12%; right: 12%;
+	top: -30px;
+	height: 26px;
+	border-radius: 1px;
+	background: linear-gradient(180deg, var(--bg3), var(--bg2));
+	border: 1px solid var(--border);
+	opacity: 0;
+}
+/* Four seconds, no easing drama, no bounce: it just takes it from you. */
+#mediadeck-door.drawing .mediadeck-door-tape {
+	animation: mediadeck-draw-in 4s linear forwards;
+}
+#mediadeck-door.ejecting .mediadeck-door-tape {
+	animation: mediadeck-hand-back 2.2s linear forwards;
+}
+@keyframes mediadeck-draw-in {
+	0%   { top: -26px; opacity: 1; }
+	92%  { top: 2px;   opacity: 1; }
+	100% { top: 6px;   opacity: 0; }
+}
+@keyframes mediadeck-hand-back {
+	0%   { top: 4px;   opacity: 0; }
+	12%  { top: 2px;   opacity: 1; }
+	100% { top: -26px; opacity: 1; }
+}
+
+/* The single amber bar — the entire readout. */
+.mediadeck-amber {
+	height: 3px;
+	margin: 9px 2px 0;
+	background: var(--bg);
+	border: 1px solid var(--border);
+	border-radius: 1px;
+	overflow: hidden;
+}
+.mediadeck-amber-fill { display: block; height: 100%; width: 100%; }
+.mediadeck-amber-idle { background: transparent; }
+.mediadeck-amber-run {
+	background: linear-gradient(90deg, transparent, var(--orange), transparent);
+	box-shadow: 0 0 7px var(--orange);
+}
+/* Loaded but held: the bar breathes rather than burns — it is waiting on the set. */
+.mediadeck-amber-wait {
+	background: var(--orange);
+	opacity: 0.4;
+	animation: mediadeck-amber-breathe 2.6s ease-in-out infinite;
+}
+@keyframes mediadeck-amber-breathe {
+	0%, 100% { opacity: 0.16; }
+	50%      { opacity: 0.55; }
+}
+.mediadeck-door-caption {
+	margin-top: 7px;
+	font-size: 9px;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: var(--text-dim);
+	text-align: right;
+}
+
+/* Flat labelled controls, not lit piano keys. */
+#mediadeck-box.consumer .mediadeck-transport-btn {
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	border-radius: 2px;
+	color: var(--text-dim);
+	box-shadow: none;
+	text-shadow: none;
+	letter-spacing: 2px;
+}
+#mediadeck-box.consumer .mediadeck-transport-btn:hover {
+	color: var(--accent);
+	border-color: var(--accent);
+	background: var(--bg2);
+}
+#mediadeck-box.consumer .atm-divider { color: var(--text-dim); }
+/* The little monitor is a recessed window in the plate, not a station CRT. */
+#mediadeck-box.consumer #mediadeck-preview {
+	border-color: var(--border);
+	background: var(--bg);
+	box-shadow: inset 0 0 14px rgba(0,0,0,0.75);
+}
+#mediadeck-box.consumer #mediadeck-preview-header { border-bottom-color: var(--border); }
+#mediadeck-box.consumer .mediadeck-preview-header-scripted { color: var(--orange); }
+#mediadeck-box.consumer #mediadeck-no-broadcast {
+	color: var(--text-dim);
+	text-shadow: none;
+	background: rgba(0,0,0,0.82);
+	animation: none;
+}
+#mediadeck-box.consumer .mediadeck-cassette-row.active { color: var(--accent); }
+
+/* ── Budget consumer cabinet (#mediadeck-box.consumer.style-keys) ───────────────
+   Same consumer chassis, opposite machine. Where the slab is machined, tight and
+   silent, this is a squat top-loader in scratched steel: heavier border, wider
+   body, a lid rather than a slot, three chunky piano keys, and a tape counter
+   nobody has reset. Cabinet style is content (`deck_style`), and noise is a
+   separate flag (`deck_silent`) — which is how a cheap deck stays loud. ── */
+#mediadeck-box.consumer.style-keys {
+	background:
+		/* scuffs: short bright scratches at a shallow angle over dull steel */
+		repeating-linear-gradient(102deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 9px),
+		repeating-linear-gradient(96deg, rgba(0,0,0,0.22) 0 1px, transparent 1px 5px),
+		linear-gradient(172deg, var(--bg3) 0%, var(--bg2) 70%, var(--bg) 100%);
+	border-width: 2px;
+	border-top-color: var(--border);
+	border-radius: 2px;
+	max-width: 404px;
+	box-shadow:
+		inset 0 1px 0 rgba(255,255,255,0.05),
+		inset 0 -2px 0 rgba(0,0,0,0.6),
+		0 10px 22px rgba(0,0,0,0.6);
+}
+/* Stamped, not etched: the budget mark is bigger, duller and slightly off-square. */
+#mediadeck-box.consumer.style-keys .mediadeck-brandplate { color: var(--text-dim); }
+#mediadeck-box.consumer.style-keys .mediadeck-brandname {
+	color: var(--text-dim);
+	letter-spacing: 3px;
+	font-weight: bold;
+}
+#mediadeck-box.consumer.style-keys .mediadeck-brandmark { width: 17px; height: 17px; }
+/* A top-loading lid: the tape drops in from above and the mouth is a shallow
+   recess, not a mail slot. */
+#mediadeck-box.consumer.style-keys .mediadeck-door-mouth {
+	height: 34px;
+	border-radius: 1px;
+	background: linear-gradient(180deg, var(--bg2) 0%, var(--bg) 45%, #000 100%);
+	border-width: 2px;
+}
+#mediadeck-box.consumer.style-keys .mediadeck-door-lip {
+	top: 26%;
+	left: 4px; right: 4px;
+	height: 2px;
+	opacity: 0.5;
+}
+/* The three chunky keys — LOAD, PLAY, STOP — which is the whole control surface
+   on a machine like this. Decorative: the real controls are the buttons below. */
+.mediadeck-keys { display: none; }
+#mediadeck-box.consumer.style-keys .mediadeck-keys {
+	display: flex;
+	gap: 3px;
+	margin-top: 8px;
+}
+.mediadeck-key {
+	flex: 1;
+	font-size: 8px;
+	letter-spacing: 1px;
+	text-align: center;
+	padding: 5px 0 7px;
+	color: var(--text-dim);
+	background: linear-gradient(180deg, var(--bg3), var(--bg));
+	border: 1px solid var(--border);
+	border-bottom-width: 3px;
+	border-radius: 1px 1px 2px 2px;
+}
+/* The counter, mechanical and unhelpful. */
+#mediadeck-box.consumer.style-keys .mediadeck-door-caption {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+.mediadeck-counter {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	letter-spacing: 3px;
+	color: var(--text);
+	padding: 1px 5px;
+	background: #000;
+	border: 1px solid var(--border);
+	border-radius: 1px;
+	box-shadow: inset 0 1px 3px rgba(0,0,0,0.9);
+}
+.mediadeck-counter:empty { display: none; }
+
 /* ── TV Panel ── */
 #tv-panel {
 	display: none;
@@ -7450,64 +9096,131 @@ body.fsim-external #look-resize-handle { display: none; }
    skins below re-shape that chassis. Placed after the themes so the chassis
    overrides (background-image, box-shadow) win on selector-specificity ties. */
 #tv-window[data-skin="flatscreen"] {
-	/* High-gloss piano-black set seated in a machined-chrome trim ring — flat
-	   glass, no CRT scanlines/vignette. The layered box-shadow builds the metal
-	   ring: a bright top-lit edge grading down to a shadowed underside so the
-	   chrome reads as a real bevel catching light from above, then the whole set
-	   floats on a deep contact shadow. */
-	border: 2px solid #23262b;
-	border-radius: 12px;
+	/* A modern bezel-less OLED panel: the set is almost all glass. The old look
+	   was a mirror-chrome trim ring (a 2000s plasma); this is the current idiom —
+	   a hairline graphite frame a few pixels wide, a deep contact shadow that does
+	   the "expensive object in a room" work instead of specular metal, and a
+	   theme-tinted bias light behind the panel. Everything reads darker and
+	   quieter so the picture is the only bright thing on screen. */
+	border: 1px solid #0b0c0e;
+	border-radius: 16px;
 	outline: none;
 	box-shadow:
-		/* machined-chrome trim — directional so the top edge is lit, base shadowed */
-		0 1px 0 3px #f4f7fa,
-		0 0 0 4px #ccd3da,
-		0 0 0 6px #8b9199,
-		0 2px 0 6px #565b62,
-		0 0 0 9px #2a2d32,
-		0 0 0 12px #0c0d0f,
-		/* theme-colored ambient bias-light — a soft backlit halo that picks up the
-		   channel's accent, like the glow behind a premium set */
-		0 0 52px 1px color-mix(in srgb, var(--tv-header-color) 24%, transparent),
-		/* the set floating in the room */
-		0 28px 72px -14px rgba(0, 0, 0, 0.88),
-		0 10px 26px rgba(0, 0, 0, 0.6),
-		/* glass seated into the bezel — bright hairline lip + inner shade */
-		inset 0 0 0 1px rgba(255, 255, 255, 0.07),
-		inset 0 2px 20px rgba(0, 0, 0, 0.72),
-		inset 0 0 75px rgba(0, 0, 0, 0.5);
+		/* hairline frame: one lit edge, one dark rail, then the graphite body */
+		0 0 0 1px rgba(180, 195, 210, 0.14),
+		0 0 0 4px #17191d,
+		0 0 0 5px #0a0b0d,
+		/* theme-colored bias light washing the wall behind the set */
+		0 10px 64px 4px color-mix(in srgb, var(--tv-header-color) 18%, transparent),
+		/* contact shadow — the set standing off the wall */
+		0 34px 84px -18px rgba(0, 0, 0, 0.9),
+		0 12px 30px -8px rgba(0, 0, 0, 0.65),
+		/* glass seated into the frame */
+		inset 0 0 0 1px rgba(255, 255, 255, 0.045),
+		inset 0 1px 14px rgba(0, 0, 0, 0.6),
+		inset 0 0 90px rgba(0, 0, 0, 0.42);
 	background-image:
-		linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 10%),
-		radial-gradient(ellipse at 50% 42%, transparent 60%, rgba(0, 0, 0, 0.55) 100%);
+		linear-gradient(180deg, rgba(255, 255, 255, 0.028), transparent 8%),
+		radial-gradient(ellipse at 50% 40%, transparent 66%, rgba(0, 0, 0, 0.45) 100%);
 }
-/* Chrome bezel catches a cool specular highlight along the top rails */
+/* Header/footer are glass rails, not metal: near-black translucency, a hairline
+   top light, and a separator that carries a whisper of the channel accent rather
+   than the full themed border. */
 #tv-window[data-skin="flatscreen"] #tv-header {
-	background: linear-gradient(180deg, rgba(226, 235, 244, 0.15), rgba(255, 255, 255, 0.02) 42%, rgba(0, 0, 0, 0.4));
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13);
+	background: linear-gradient(180deg, rgba(16, 20, 24, 0.82), rgba(8, 10, 13, 0.72));
+	border-bottom-color: color-mix(in srgb, var(--tv-header-color) 22%, rgba(255, 255, 255, 0.06));
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+	backdrop-filter: blur(6px);
+	padding: 9px 16px;
 }
 #tv-window[data-skin="flatscreen"] #tv-footer {
-	background: linear-gradient(0deg, rgba(226, 235, 244, 0.07), rgba(0, 0, 0, 0.5));
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09);
+	background: linear-gradient(0deg, rgba(10, 13, 16, 0.86), rgba(8, 10, 13, 0.66));
+	border-top-color: color-mix(in srgb, var(--tv-header-color) 18%, rgba(255, 255, 255, 0.05));
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+	backdrop-filter: blur(6px);
 }
-/* Ceiling-light strip — a soft reflected light bar across the top of the glass,
-   the hallmark of a glossy flatscreen. Kept short and low-opacity so it reads as
-   a reflection without hurting the readability of the top text lines. */
+/* Typography: the station block gets the wide-tracked confidence of a modern
+   channel ident; the secondary bits step down in weight rather than shouting. */
+#tv-window[data-skin="flatscreen"] #tv-station-name {
+	font-size: 11.5px;
+	letter-spacing: 3.2px;
+	text-shadow: 0 0 14px color-mix(in srgb, var(--tv-header-color) 55%, transparent);
+}
+#tv-window[data-skin="flatscreen"] #tv-channel-num {
+	font-size: 10px;
+	letter-spacing: 1.4px;
+	padding: 2px 6px;
+	border-radius: 5px;
+	color: color-mix(in srgb, var(--tv-header-color) 78%, #ffffff);
+	background: color-mix(in srgb, var(--tv-header-color) 12%, transparent);
+	font-variant-numeric: tabular-nums;
+}
+#tv-window[data-skin="flatscreen"] #tv-program-name {
+	font-style: normal;
+	letter-spacing: 0.4px;
+	opacity: 0.85;
+}
+/* LIVE reads as a pill, the way every modern broadcast UI marks it */
+#tv-window[data-skin="flatscreen"] #tv-live-badge {
+	padding: 2.5px 8px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--tv-live-color) 16%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tv-live-color) 40%, transparent);
+	letter-spacing: 1.6px;
+}
+/* Chassis buttons become soft-square glass chips instead of ringed portholes —
+   flat fill, hairline edge, and the accent carried by fill rather than a halo. */
+#tv-window[data-skin="flatscreen"] #tv-close-btn,
+#tv-window[data-skin="flatscreen"] #tv-read-btn,
+#tv-window[data-skin="flatscreen"] #tv-schedule-btn,
+#tv-window[data-skin="flatscreen"] #tv-gameday-btn,
+#tv-window[data-skin="flatscreen"] #tv-standings-btn {
+	border: none;
+	border-radius: 8px;
+	width: 26px;
+	height: 26px;
+	background: rgba(255, 255, 255, 0.055);
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+	color: rgba(226, 240, 236, 0.55);
+}
+#tv-window[data-skin="flatscreen"] #tv-read-btn:hover,
+#tv-window[data-skin="flatscreen"] #tv-schedule-btn:hover,
+#tv-window[data-skin="flatscreen"] #tv-gameday-btn:hover,
+#tv-window[data-skin="flatscreen"] #tv-standings-btn:hover {
+	background: rgba(255, 255, 255, 0.1);
+	color: #fff;
+}
+#tv-window[data-skin="flatscreen"] #tv-read-btn.on,
+#tv-window[data-skin="flatscreen"] #tv-schedule-btn.on,
+#tv-window[data-skin="flatscreen"] #tv-gameday-btn.on,
+#tv-window[data-skin="flatscreen"] #tv-standings-btn.on {
+	background: color-mix(in srgb, var(--tv-header-color) 22%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tv-header-color) 55%, transparent);
+	color: #fff;
+}
+#tv-window[data-skin="flatscreen"] #tv-close-btn:hover {
+	background: rgba(210, 40, 20, 0.28);
+	box-shadow: inset 0 0 0 1px rgba(255, 90, 60, 0.5);
+	color: #fff;
+}
+/* Ceiling-light strip — a soft reflected light bar across the top of the glass.
+   Halved in strength from the gloss-era version: a modern matte-coated panel
+   diffuses room light rather than mirroring it. */
 #tv-window[data-skin="flatscreen"]::before {
 	content: "";
 	position: absolute;
 	top: 45px;
-	left: 3px;
-	right: 3px;
-	height: 78px;
+	left: 2px;
+	right: 2px;
+	height: 92px;
 	pointer-events: none;
 	z-index: 41;
-	border-radius: 3px 3px 50% 50% / 3px 3px 34px 34px;
-	background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.025) 45%, transparent 100%);
+	border-radius: 2px 2px 50% 50% / 2px 2px 46px 46px;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.042) 0%, rgba(255, 255, 255, 0.014) 50%, transparent 100%);
 	mix-blend-mode: screen;
 }
-/* Glass reflection — layered specular over the screen glass, not just the bezel
-   shell. A crisp diagonal light streak slowly drifts across the surface (living
-   glass), over a soft top-left ambient glare. Screen-blended so it only ever
+/* Glass reflection — a wide, soft sheen that drifts across the panel rather than
+   the hard mirror streak the gloss set had. Screen-blended so it only ever
    brightens; the corner darkening lives on the window background above. Scoped to
    the screen area (clear of the ~45px header and 72px footer) so text stays
    legible. pointer-events:none; z-index sits above content/static but below the
@@ -7517,19 +9230,19 @@ body.fsim-external #look-resize-handle { display: none; }
 	position: absolute;
 	top: 45px;
 	bottom: 72px;
-	left: 3px;
-	right: 3px;
+	left: 2px;
+	right: 2px;
 	pointer-events: none;
 	z-index: 40;
-	border-radius: 3px;
+	border-radius: 2px;
 	background:
-		linear-gradient(118deg, transparent 32%, rgba(255, 255, 255, 0.06) 45%, rgba(255, 255, 255, 0.16) 50%, rgba(255, 255, 255, 0.05) 55%, transparent 68%),
-		radial-gradient(120% 85% at 12% 0%, rgba(205, 224, 238, 0.11), transparent 55%);
+		linear-gradient(118deg, transparent 26%, rgba(255, 255, 255, 0.028) 42%, rgba(255, 255, 255, 0.075) 50%, rgba(255, 255, 255, 0.025) 58%, transparent 74%),
+		radial-gradient(130% 90% at 10% -6%, rgba(198, 219, 236, 0.065), transparent 58%);
 	background-size: 300% 100%, 100% 100%;
 	background-position: -40% 0, 0 0;
 	background-repeat: no-repeat;
 	mix-blend-mode: screen;
-	animation: tv-glass-drift 15s ease-in-out infinite alternate;
+	animation: tv-glass-drift 22s ease-in-out infinite alternate;
 }
 @keyframes tv-glass-drift {
 	from { background-position: -40% 0, 0 0; }
@@ -8430,6 +10143,236 @@ body.fsim-external #look-resize-handle { display: none; }
 	to   { opacity: 1; transform: translateX(0); }
 }
 
+/* ── CPhL brand furniture ──────────────────────────────────────────────────────
+   The mark and lockup from cphl-brand.js, styled once. Every surface that shows
+   Cluster Puck — the corner bug, the full-screen graphics, the rink header, the
+   idle screen — draws the same element at a different size, which is the only
+   reason they read as one channel. */
+.cphl-mark { display: block; flex: 0 0 auto; overflow: visible; }
+.cphl-mark-disc { fill: #070d14; stroke: #4fd2ff; stroke-width: 3.5; }
+.cphl-mark-inner { fill: none; stroke: rgba(79, 210, 255, 0.35); stroke-width: 1.6; }
+.cphl-mark-slash { stroke: #e0342c; stroke-width: 8; stroke-linecap: round; }
+.cphl-mark-cp { fill: #eaf6ff; font-family: var(--font-mono); font-size: 26px; font-weight: 900; letter-spacing: 0.5px; }
+/* On gold surfaces (the Cup, a champion card) the mark goes gold with it rather
+   than sitting on the card as a foreign blue object. */
+.tv-fx-champ .cphl-mark-disc, .tv-fx-cup .cphl-mark-disc { stroke: #ffd24a; }
+.tv-fx-champ .cphl-mark-cp, .tv-fx-cup .cphl-mark-cp { fill: #fff3cf; }
+
+.cphl-lockup { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.cphl-lockup-word {
+	font-family: var(--font-mono); font-weight: 900; font-size: clamp(18px, 4.4vw, 34px);
+	letter-spacing: 4px; color: #eaf6ff; line-height: 1; text-shadow: 0 0 16px rgba(79, 210, 255, 0.45);
+}
+.cphl-lockup-word i { font-style: normal; color: #ff6b5e; margin-left: 6px; }
+.cphl-lockup-sub { font-family: var(--font-mono); font-size: 10px; letter-spacing: 5px; text-transform: uppercase; color: #8fbcd8; }
+
+.cphl-bug { display: flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; color: rgba(159, 228, 255, 0.75); }
+
+/* Mark placement on the full-screen graphics — top-centre, above the headline. */
+.tv-fx-brand { position: relative; margin-bottom: 2px; opacity: 0; animation: gdr-brand-in 0.45s ease-out 0.12s forwards; }
+.tv-fx-brand.big { margin-bottom: 6px; }
+@keyframes gdr-brand-in { from { opacity: 0; transform: translateY(-8px) scale(0.8); } to { opacity: 0.95; transform: none; } }
+.tv-fx-matchup.cphl .tv-fx-mu-teams { margin-top: 4px; }
+/* The score-bug mark: quiet, left of the scores, never louder than the numbers. */
+.tv-sb-brand { display: flex; align-items: center; padding: 0 7px; opacity: 0.8; border-right: 1px solid rgba(255, 255, 255, 0.08); }
+
+/* ── Gameday · Rink (CPhL) ─────────────────────────────────────────────────────
+   The hockey sub-screen. Deliberately a COLD sheet against Deadball's warm green
+   field: the two sports share the panel and the set, so the palette is the fastest
+   way for a viewer to know which one they're looking at before reading a word. */
+.gdr-wrap { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 6px; padding: 6px; min-height: 0; }
+.gdr-head {
+	flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 4px 10px;
+	background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(120, 200, 240, 0.28); border-radius: 3px;
+	font-family: var(--font-mono); font-size: 11px; color: rgba(210, 232, 246, 0.85);
+}
+.gdr-head-badge { display: flex; align-items: center; gap: 5px; font-weight: 900; letter-spacing: 3px; color: #7fd4ff; text-shadow: 0 0 10px rgba(79, 210, 255, 0.6); }
+.gdr-head-badge i { font-style: normal; }
+.gdr-head-score { flex: 1 1 auto; letter-spacing: 1px; }
+.gdr-head-score b { color: #fff; font-variant-numeric: tabular-nums; font-size: 14px; }
+.gdr-head-clock { font-variant-numeric: tabular-nums; letter-spacing: 1px; color: #9fe4ff; }
+.gdr-head-str { font-weight: 900; letter-spacing: 1px; padding: 0 4px; border-radius: 2px; background: rgba(79,210,255,0.16); color: #9fe4ff; border: 1px solid rgba(79,210,255,0.45); }
+.gdr-head-str.sh { background: rgba(255,190,60,0.16); color: #ffd27a; border-color: rgba(255,190,60,0.45); }
+.gdr-head-str.en { background: rgba(255,60,70,0.18); color: #ff9aa2; border-color: rgba(255,60,70,0.5); }
+
+/* The sheet. 2:1-ish so the zones keep their real proportions. */
+.gdr-rink {
+	position: relative; flex: 1 1 auto; min-height: 0; align-self: center;
+	width: 100%; aspect-ratio: 100 / 52; max-height: 100%;
+	border-radius: 7px; overflow: hidden;
+	box-shadow: inset 0 0 34px rgba(0, 10, 20, 0.55), 0 0 18px rgba(0, 0, 0, 0.5);
+}
+.gdr-ice { position: absolute; inset: 0; width: 100%; height: 100%; }
+.gdr-ice-bed { fill: #e8f2fa; }
+/* The two attacking zones sit a shade colder than the neutral zone — real sheets
+   read this way under arena light and it makes the blue lines legible at a glance. */
+.gdr-zone-att { fill: rgba(150, 195, 225, 0.13); }
+.gdr-crease { fill: rgba(90, 170, 225, 0.30); stroke: #2f7fd0; stroke-width: 0.4; vector-effect: non-scaling-stroke; }
+.gdr-boards { fill: none; stroke: rgba(30, 60, 85, 0.75); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+.gdr-line { vector-effect: non-scaling-stroke; }
+.gdr-line.blue { stroke: #2f6fd0; stroke-width: 2.6; }
+.gdr-line.red { stroke: #d02f3f; stroke-width: 2.6; }
+.gdr-line.goal { stroke: #d02f3f; stroke-width: 1.1; }
+.gdr-line.blue.lit { stroke: #7fd4ff; filter: drop-shadow(0 0 4px #4fd2ff); transition: stroke 0.12s; }
+/* The moment of crossing. The goal line itself flares — the puck's position is the
+   fact, and this is the fact being READ, which is what a video review is. */
+.gdr-line.goal.crossed { stroke: #ff3b4a; stroke-width: 2.4; filter: drop-shadow(0 0 6px #ff3b4a); }
+
+.gdr-dot-spot { fill: #d02f3f; }
+.gdr-dot-ring { fill: none; stroke: #d02f3f; stroke-width: 0.9; vector-effect: non-scaling-stroke; opacity: 0.75; }
+.gdr-dot.neutral .gdr-dot-spot { fill: #2f6fd0; }
+.gdr-dot.live .gdr-dot-ring { stroke: #ff3b4a; stroke-width: 1.8; animation: gdr-dot-live 0.6s ease-out 3; }
+.gdr-dot.live .gdr-dot-spot { fill: #ff3b4a; }
+@keyframes gdr-dot-live { 0% { opacity: 1; } 60% { opacity: 0.35; } 100% { opacity: 1; } }
+
+/* ── the cage ────────────────────────────────────────────────────────────────
+   Frame, mesh, posts, lamp. The mesh is its own group so a goal can deform it. */
+.gdr-net-frame { fill: none; stroke: #b8281f; stroke-width: 1.6; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.gdr-net-post-cap { fill: #e03a2c; }
+.gdr-net-mesh line { stroke: rgba(255, 255, 255, 0.85); stroke-width: 0.5; vector-effect: non-scaling-stroke; }
+.gdr-net-mesh { transform-box: fill-box; transform-origin: center; transition: transform 0.18s ease-out; }
+/* The bulge: the mesh takes the puck, stretches away from the line, and settles.
+   Every other cue on a goal is decoration; this one is the puck's actual arrival. */
+.gdr-net-mesh.bulge { animation: gdr-bulge 0.72s cubic-bezier(.2, 1.6, .3, 1); }
+@keyframes gdr-bulge {
+	0%   { transform: scale(1, 1); }
+	18%  { transform: scale(1.55, 1.28); }
+	46%  { transform: scale(0.94, 1.06); }
+	72%  { transform: scale(1.12, 1.01); }
+	100% { transform: scale(1, 1); }
+}
+.gdr-net.rang .gdr-net-frame { stroke: #ffd24a; animation: gdr-clang 0.5s ease-out 2; }
+@keyframes gdr-clang { 0%, 100% { stroke-width: 1.6; } 50% { stroke-width: 3.4; } }
+.gdr-net-lamp circle { fill: rgba(120, 30, 30, 0.5); }
+.gdr-net.scored .gdr-net-lamp circle { fill: #ff2b3a; filter: drop-shadow(0 0 5px #ff2b3a); animation: gdr-lamp 0.5s steps(1) 5; }
+@keyframes gdr-lamp { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.35; } }
+
+/* ── tokens ──────────────────────────────────────────────────────────────────── */
+.gdr-fx, .gdr-skaters { position: absolute; inset: 0; pointer-events: none; }
+.gdr-skater, .gdr-puck, .gdr-goalie { position: absolute; transform: translate(-50%, -50%); }
+.gdr-skater {
+	width: 2.6%; aspect-ratio: 1; border-radius: 50%;
+	background: radial-gradient(circle at 35% 30%, #fff, #b9d6ea 60%, #6f9dbd);
+	border: 1px solid rgba(10, 30, 50, 0.7);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+.gdr-skater.att { background: radial-gradient(circle at 35% 30%, #ffe9a8, #e8a83c 60%, #a86f18); }
+.gdr-skater.def { background: radial-gradient(circle at 35% 30%, #cfe6ff, #5f9ed6 60%, #2c5f92); }
+/* A club with its own colours wears them — the trim ring is what keeps two clubs
+   with similar primaries still telling apart at this size. */
+.gdr-skater.clubbed {
+	background: radial-gradient(circle at 35% 30%, var(--gdr-trim), var(--gdr-jersey) 62%, var(--gdr-jersey));
+	border-color: var(--gdr-jersey);
+	box-shadow: 0 0 0 1px var(--gdr-trim), 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+.gdr-skater.shooting { animation: gdr-wind 0.4s ease-out; }
+@keyframes gdr-wind { 0% { transform: translate(-50%,-50%) scale(1); } 45% { transform: translate(-50%,-50%) scale(1.42); } 100% { transform: translate(-50%,-50%) scale(1); } }
+.gdr-skater.fighting { box-shadow: 0 0 8px rgba(255, 70, 70, 0.8); }
+.gdr-skater.swing { animation: gdr-swing 0.12s ease-out; }
+@keyframes gdr-swing { 50% { transform: translate(-50%,-50%) scale(1.3) rotate(12deg); } }
+.gdr-skater.hit { animation: gdr-hit 0.15s ease-out; }
+@keyframes gdr-hit { 50% { transform: translate(-42%,-56%) scale(0.86); } }
+
+.gdr-puck {
+	width: 1.5%; aspect-ratio: 1; border-radius: 50%;
+	background: radial-gradient(circle at 36% 30%, #4a4a4a, #050505 70%);
+	box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 1px 4px rgba(0, 0, 0, 0.7);
+	z-index: 4;
+}
+.gdr-puck.caught { opacity: 0; transition: opacity 0.1s; }
+
+/* ── the goalie ──────────────────────────────────────────────────────────────
+   Placed by his centre; the right-hand net's man is mirrored so both face the play.
+   Each pose moves ONE limb — that's what makes the save types distinguishable. */
+.gdr-goalie { width: 7.5%; aspect-ratio: 40 / 48; z-index: 3; }
+.gdr-goalie.right { transform: translate(-50%, -50%) scaleX(-1); }
+.gdr-g-svg { width: 100%; height: 100%; overflow: visible; }
+.gdr-g-body > * { transition: transform 0.16s cubic-bezier(.2, 1.4, .3, 1); transform-box: fill-box; transform-origin: center; }
+.gdr-g-chest { fill: #2b3d52; stroke: #16222f; stroke-width: 0.6; }
+.gdr-g-pad rect { fill: #f2f5f8; stroke: #2b3d52; stroke-width: 0.7; }
+.gdr-g-pad-strap { stroke: #b9c6d2; stroke-width: 0.6; }
+.gdr-g-blocker rect { fill: #e8edf2; stroke: #2b3d52; stroke-width: 0.7; }
+.gdr-g-glove path { fill: #e8edf2; stroke: #2b3d52; stroke-width: 0.7; }
+.gdr-g-glove-web { fill: none; stroke: #9fb0c0; stroke-width: 0.5; }
+.gdr-g-stick path { fill: none; stroke: #d8a24a; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.gdr-g-head ellipse { fill: #f2f5f8; stroke: #16222f; stroke-width: 0.7; }
+.gdr-g-cage { fill: none; stroke: #55697d; stroke-width: 0.5; }
+
+/* Ready: a live crouch, always slightly moving. A still goalie is a dead sprite. */
+.pose-ready .gdr-g-body { animation: gdr-g-breathe 1.9s ease-in-out infinite; }
+@keyframes gdr-g-breathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.965); } }
+/* Tracking: square to the puck, weight shifted, no limb committed yet. */
+.pose-track .gdr-g-body { transform: scaleY(0.97); }
+/* Butterfly: both pads splay outward and the body drops. The default save. */
+.pose-chest .gdr-g-pad.left { transform: rotate(-52deg) translate(-2px, 4px); }
+.pose-chest .gdr-g-pad.right { transform: rotate(52deg) translate(2px, 4px); }
+.pose-chest .gdr-g-body { transform: scaleY(0.9); }
+/* Glove: the trapper alone snaps up and shut. Nothing else moves — that's the tell. */
+.pose-glove .gdr-g-glove { transform: translate(-2.5px, -7px) rotate(-26deg) scale(1.22); }
+.pose-glove .gdr-g-pad.left { transform: rotate(-30deg) translate(-1px, 3px); }
+/* Pad: one leg kicks out hard, the other stays under him. */
+.pose-pad .gdr-g-pad.right { transform: rotate(84deg) translate(6px, 3px); }
+.pose-pad .gdr-g-body { transform: scaleY(0.92) rotate(-4deg); }
+/* Poke check: the stick extends at the puck carrier — the breakaway answer. */
+.pose-poke .gdr-g-stick { transform: translate(-9px, 6px) rotate(-34deg); }
+.pose-poke .gdr-g-body { transform: translateY(2px) scaleY(0.94); }
+/* Iron. He was beaten — he committed and the puck went past him — and the post is
+   the only reason it isn't a goal. So he's caught mid-sprawl but not all the way
+   down: the difference between this and `beaten` is half an inch, which is exactly
+   what the announcer says. */
+.pose-beat .gdr-g-body { transform: rotate(-13deg) translate(-1px, 2px) scaleY(0.9); }
+.pose-beat .gdr-g-pad.left { transform: rotate(-46deg) translate(-2px, 4px); }
+.pose-beat .gdr-g-glove { transform: translate(-2px, 2px) rotate(14deg); }
+/* Beat: sprawled the wrong way, everything committed, nothing where the puck went. */
+.pose-beaten .gdr-g-body { transform: rotate(-24deg) translate(-3px, 4px) scaleY(0.86); }
+.pose-beaten .gdr-g-pad.left { transform: rotate(-70deg) translate(-4px, 6px); }
+.pose-beaten .gdr-g-glove { transform: translate(-4px, 5px) rotate(30deg); }
+
+/* ── transient effects ───────────────────────────────────────────────────────── */
+.gdr-trail, .gdr-spray, .gdr-block, .gdr-hit, .gdr-whistle { position: absolute; transform: translate(-50%, -50%); pointer-events: none; }
+.gdr-trail { width: 0.9%; aspect-ratio: 1; border-radius: 50%; background: rgba(40, 60, 80, 0.5); animation: gdr-fade 0.42s ease-out forwards; }
+@keyframes gdr-fade { to { opacity: 0; transform: translate(-50%, -50%) scale(0.4); } }
+.gdr-spray { width: 6%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,0.9), transparent 70%); animation: gdr-spray 0.7s ease-out forwards; }
+@keyframes gdr-spray { to { opacity: 0; transform: translate(-50%, -50%) scale(2.2); } }
+.gdr-block { width: 4%; aspect-ratio: 1; border-radius: 50%; border: 2px solid rgba(40, 70, 100, 0.9); animation: gdr-ring 0.6s ease-out forwards; }
+@keyframes gdr-ring { to { opacity: 0; transform: translate(-50%, -50%) scale(2.6); } }
+.gdr-hit { width: 5%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(255,70,70,0.85), transparent 68%); animation: gdr-spray 0.3s ease-out forwards; }
+.gdr-whistle { width: 3.4%; aspect-ratio: 1; border-radius: 50%; background: #ffd24a; box-shadow: 0 0 10px rgba(255,210,74,0.9); animation: gdr-fade 0.9s ease-out forwards; }
+
+.gdr-strip {
+	flex: 0 0 auto; display: flex; align-items: baseline; gap: 10px; padding: 3px 10px;
+	background: rgba(0, 0, 0, 0.42); border: 1px solid rgba(120, 200, 240, 0.2); border-radius: 3px;
+	font-family: var(--font-mono); font-size: 11px;
+}
+.gdr-strip-desc { font-weight: 900; letter-spacing: 2px; color: #9fe4ff; text-transform: uppercase; }
+.gdr-strip-names { flex: 1 1 auto; color: rgba(210, 232, 246, 0.62); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.gdr-cap { flex: 0 0 auto; min-height: 30px; padding: 4px 10px; background: rgba(0,0,0,0.5); border-left: 2px solid #4fd2ff; border-radius: 2px; }
+.gdr-cap-text { font-size: 12.5px; line-height: 1.45; color: var(--tv-text, #dceaf4); }
+.gdr-cap-text.in { animation: gd-cap-in 0.3s ease-out; }
+
+.gdr-jumbo {
+	position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);
+	padding: 12px 26px; text-align: center; opacity: 0; pointer-events: none; z-index: 8;
+	background: rgba(0, 8, 16, 0.86); border: 1px solid rgba(120, 200, 240, 0.5); border-radius: 4px;
+	font-family: var(--font-mono);
+}
+.gdr-jumbo.in { opacity: 1; animation: gd-jumbo-in 0.45s cubic-bezier(0.2,1.3,0.4,1); }
+.gdr-jumbo-brand { display: flex; justify-content: center; margin-bottom: 6px; opacity: 0.9; }
+.gdr-jumbo-title { font-size: 26px; font-weight: 900; letter-spacing: 4px; color: #7fd4ff; text-shadow: 0 0 14px currentColor; line-height: 1.1; }
+.gdr-jumbo-sub { font-size: 10px; letter-spacing: 2.5px; text-transform: uppercase; color: rgba(210,232,246,0.75); margin-top: 4px; }
+.gdr-jumbo.hot { border-color: #ffd23e; box-shadow: 0 0 26px rgba(255,210,62,0.5); }
+.gdr-jumbo.hot .gdr-jumbo-title { color: #ffd23e; }
+.gdr-jumbo.out { border-color: #ff4a5b; box-shadow: 0 0 22px rgba(255,74,91,0.45); }
+.gdr-jumbo.out .gdr-jumbo-title { color: #ff5a6b; }
+.gdr-jumbo.dead { border-color: rgba(200,215,230,0.5); box-shadow: none; }
+.gdr-jumbo.dead .gdr-jumbo-title { color: #dfe9f2; text-shadow: none; letter-spacing: 7px; }
+.gdr-jumbo.final .gdr-jumbo-title { color: #fff; }
+
+.gdr-idle { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.gdr-idle .cphl-mark { animation: gd-idle-pulse 2.4s ease-in-out infinite; }
+.gdr-idle-sub { font-family: var(--font-mono); font-size: 11px; letter-spacing: 3px; color: rgba(210,232,246,0.45); }
+
 /* ── Sports graphics (full-screen FX) ──────────────────────────────────────────
    Home-run trajectory call-out, final-score card, extra-innings hype. They take
    over the screen area (below header, above footer) for a few seconds, above the
@@ -8650,6 +10593,161 @@ body.fsim-external #look-resize-handle { display: none; }
 	100% { transform: scale(1) rotate(0); }
 }
 
+/* ── CPhL hockey cards ────────────────────────────────────────────────────────
+   Deadball's palette is the channel's header colour; hockey's is rink white on a
+   cold blue, so the two sports read as different broadcasts on the same set even
+   when the same TV is tuned to both in a night. */
+.tv-fx-goal {
+	position: absolute; inset: 0; display: flex; flex-direction: column;
+	align-items: center; justify-content: center; gap: 5px; overflow: hidden;
+	background: radial-gradient(ellipse at center, rgba(0, 22, 44, 0.5), rgba(0, 0, 0, 0.86));
+	opacity: 0; animation: tv-fx-hold 3.6s ease-out forwards;
+}
+/* The goal lamp: the light behind the net, which in this league is the only part
+   of the building that has never once failed. */
+.tv-fx-goal-lamp {
+	position: absolute; left: 50%; top: 46%; width: 180%; aspect-ratio: 1;
+	transform: translate(-50%, -50%);
+	background: radial-gradient(circle, rgba(255, 40, 60, 0.55) 0%, rgba(255, 40, 60, 0.12) 34%, transparent 62%);
+	animation: tv-goal-lamp 0.62s ease-out 3 both;
+}
+.tv-fx-goal-title {
+	position: relative; font-family: var(--font-mono); font-weight: 900;
+	font-size: clamp(30px, 9vw, 68px); letter-spacing: 8px; color: #fff;
+	text-shadow: 0 0 24px #4fd2ff, 0 3px 0 rgba(0, 0, 0, 0.55);
+	animation: tv-final-pop 0.45s cubic-bezier(.2, 1.5, .3, 1) 0.06s both;
+}
+.tv-fx-goal-title.hat { color: #ffe066; text-shadow: 0 0 24px #ffb300, 0 3px 0 rgba(0, 0, 0, 0.55); }
+.tv-fx-goal-tag {
+	position: relative; font-family: var(--font-mono); font-size: 12px; letter-spacing: 5px;
+	text-transform: uppercase; color: #4fd2ff;
+}
+.tv-fx-goal-sub { position: relative; font-family: var(--font-mono); font-size: 13px; letter-spacing: 2px; color: #fff; }
+.tv-fx-goal-score { position: relative; font-family: var(--font-mono); font-size: 13px; letter-spacing: 2px; color: rgba(200, 226, 240, 0.8); font-variant-numeric: tabular-nums; }
+@keyframes tv-goal-lamp {
+	0%   { opacity: 0; }
+	22%  { opacity: 1; }
+	100% { opacity: 0; }
+}
+
+.tv-fx-fight {
+	position: absolute; inset: 0; display: flex; flex-direction: column;
+	align-items: center; justify-content: center; gap: 6px;
+	background: radial-gradient(ellipse at center, rgba(30, 0, 0, 0.5), rgba(0, 0, 0, 0.86));
+	opacity: 0; animation: tv-fx-hold 3.4s ease-out forwards;
+}
+.tv-fx-fight-title {
+	font-family: var(--font-mono); font-weight: 900; font-size: clamp(24px, 7vw, 52px);
+	letter-spacing: 5px; color: #fff; text-shadow: 0 0 18px #ff4b4b;
+	animation: tv-dp-pop 0.45s cubic-bezier(.2, 1.5, .3, 1) 0.1s both;
+}
+.tv-fx-fight-names { display: flex; align-items: baseline; gap: 12px; font-family: var(--font-mono); }
+.tv-fx-fight-names .win { font-weight: 900; font-size: clamp(16px, 4vw, 28px); color: #fff; }
+.tv-fx-fight-names .lose { font-size: clamp(14px, 3.4vw, 24px); color: rgba(230, 200, 200, 0.6); text-decoration: line-through; }
+.tv-fx-fight-names .vs { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #ff6b6b; }
+.tv-fx-fight-sub { font-family: var(--font-mono); font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: rgba(230, 200, 200, 0.65); }
+
+/* Sudden death. No rays, no bounce, no colour — a card that refuses to celebrate. */
+.tv-fx-death {
+	position: absolute; inset: 0; display: flex; flex-direction: column;
+	align-items: center; justify-content: center; gap: 8px;
+	background: rgba(0, 0, 0, 0.9);
+	opacity: 0; animation: tv-fx-hold 4.6s linear forwards;
+}
+.tv-fx-death-rule { width: min(60%, 320px); height: 1px; background: rgba(220, 230, 240, 0.35); }
+.tv-fx-death-title {
+	font-family: var(--font-mono); font-size: clamp(14px, 3.4vw, 22px); letter-spacing: 9px;
+	text-transform: uppercase; color: rgba(220, 232, 244, 0.75);
+}
+.tv-fx-death-name { font-family: var(--font-mono); font-weight: 900; font-size: clamp(22px, 6vw, 44px); color: #fff; letter-spacing: 2px; }
+.tv-fx-death-sub { font-family: var(--font-mono); font-size: 11px; letter-spacing: 4px; text-transform: uppercase; color: rgba(200, 216, 230, 0.5); }
+
+/* The Cup pre-game reuses the World Series card's geometry, cold instead of gold. */
+.tv-fx-cup { background: radial-gradient(ellipse at center, rgba(0, 20, 40, 0.55), rgba(0, 0, 0, 0.85)); }
+.tv-fx-cup .tv-fx-ws-banner { color: #cfe9ff; text-shadow: 0 0 22px #4fd2ff, 0 3px 0 rgba(0, 0, 0, 0.5); }
+.tv-fx-cup .tv-fx-ws-sub { color: #8fd0ee; }
+.tv-fx-cup .tv-fx-mu-team .nm { text-shadow: 0 0 12px #4fd2ff; }
+.tv-fx-cup .tv-fx-mu-team .rec { color: #8fd0ee; }
+
+/* ── Rivalry night ────────────────────────────────────────────────────────────
+   Red where the CPhL's palette is cold blue, everywhere it appears: the pre-game
+   card, the persistent bug, the rink header. The point is that a viewer can tell
+   at any moment in the night, not just at the opening face-off. */
+.tv-fx-matchup.rival { background: radial-gradient(ellipse at center, rgba(40, 0, 4, 0.6), rgba(0, 0, 0, 0.88)); }
+.tv-fx-rival-banner {
+	font-family: var(--font-mono); font-weight: 900; font-size: clamp(20px, 5.5vw, 40px);
+	letter-spacing: 7px; color: #ff5a4a; text-shadow: 0 0 20px rgba(255, 60, 50, 0.75), 0 3px 0 rgba(0, 0, 0, 0.5);
+	transform: scale(0.9); animation: tv-final-pop 0.5s cubic-bezier(.2, 1.4, .3, 1) 0.1s forwards;
+}
+.tv-fx-rival-sub { font-family: var(--font-mono); font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: rgba(255, 170, 160, 0.8); }
+.tv-fx-matchup.rival .tv-fx-mu-team .nm { text-shadow: 0 0 12px rgba(255, 70, 60, 0.8); }
+.tv-fx-matchup.rival .cphl-mark-disc { stroke: #ff5a4a; }
+.tv-sb-rival {
+	font-family: var(--font-mono); font-size: 8px; font-weight: 900; letter-spacing: 1px;
+	padding: 1px 4px; border-radius: 2px; line-height: 1.4;
+	background: rgba(255, 60, 50, 0.18); color: #ff9a90; border: 1px solid rgba(255, 60, 50, 0.5);
+	animation: gdr-rival-pulse 2.6s ease-in-out infinite;
+}
+.gdr-head-rival {
+	font-weight: 900; letter-spacing: 1px; padding: 0 4px; border-radius: 2px;
+	background: rgba(255, 60, 50, 0.18); color: #ff9a90; border: 1px solid rgba(255, 60, 50, 0.5);
+	animation: gdr-rival-pulse 2.6s ease-in-out infinite;
+}
+@keyframes gdr-rival-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+/* Shots on goal, stacked away-over-home to match the score rows beside it. */
+.tv-sb-sog {
+	display: flex; flex-direction: column; align-items: center; line-height: 1.15;
+	font-family: var(--font-mono); font-size: 9px; font-variant-numeric: tabular-nums;
+	padding-left: 6px; margin-left: 2px; border-left: 1px solid rgba(255, 255, 255, 0.08);
+	color: rgba(210, 232, 246, 0.85);
+}
+.tv-sb-sog i { font-style: normal; font-size: 7px; letter-spacing: 1px; color: rgba(159, 228, 255, 0.6); }
+
+/* ── Rink intermission board ──────────────────────────────────────────────── */
+.gdri { flex: 1 1 auto; display: flex; gap: 8px; min-height: 0; }
+.gdri-main {
+	flex: 1 1 auto; display: flex; flex-direction: column; gap: 5px; min-width: 0;
+	padding: 10px 12px; background: rgba(0, 10, 20, 0.5);
+	border: 1px solid rgba(120, 200, 240, 0.22); border-radius: 4px; font-family: var(--font-mono);
+}
+.gdri-title { font-size: 15px; font-weight: 900; letter-spacing: 4px; color: #9fe4ff; }
+.gdri-sub { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: rgba(210, 232, 246, 0.45); }
+.gdri-goals { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; min-height: 0; }
+.gdri-goal { display: flex; gap: 8px; align-items: baseline; font-size: 11.5px; color: #dceaf4; }
+.gdri-goal .t { color: #9fe4ff; font-variant-numeric: tabular-nums; min-width: 42px; }
+.gdri-goal .n { font-weight: 900; }
+.gdri-goal .a { color: rgba(210, 232, 246, 0.55); }
+.gdri-goal .c { margin-left: auto; color: rgba(210, 232, 246, 0.7); }
+.gdri-goal .s { color: #ffd27a; font-size: 9px; letter-spacing: 1px; }
+.gdri-none { font-size: 11.5px; color: rgba(210, 232, 246, 0.5); font-style: italic; }
+.gdri-cas { font-size: 10.5px; color: #ff9aa2; }
+.gdri-stats { display: flex; flex-wrap: wrap; gap: 12px; margin-top: auto; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.07); font-size: 10.5px; color: #dceaf4; font-variant-numeric: tabular-nums; }
+.gdri-stats i { font-style: normal; font-size: 8px; letter-spacing: 1.5px; color: rgba(159, 228, 255, 0.6); margin-right: 3px; }
+.gdri-next { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: rgba(210, 232, 246, 0.4); }
+
+.gdri-stand {
+	flex: 0 0 auto; width: 168px; display: flex; flex-direction: column; gap: 1px;
+	padding: 8px; background: rgba(0, 10, 20, 0.5);
+	border: 1px solid rgba(120, 200, 240, 0.22); border-radius: 4px; font-family: var(--font-mono);
+}
+.gdri-stand-head { font-size: 8px; letter-spacing: 2px; color: rgba(159, 228, 255, 0.6); margin-bottom: 3px; }
+.gdri-stand-row { display: flex; gap: 5px; align-items: baseline; font-size: 10px; color: rgba(210, 232, 246, 0.72); }
+.gdri-stand-row .r { width: 12px; color: rgba(210, 232, 246, 0.35); }
+.gdri-stand-row .t { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gdri-stand-row .p { font-variant-numeric: tabular-nums; color: #9fe4ff; }
+.gdri-stand-row.me { color: #fff; }
+.gdri-stand-row.me .t { font-weight: 900; }
+
+/* Score-bug strength chip — hockey's answer to the diamond. */
+.tv-sb-strength {
+	font-family: var(--font-mono); font-size: 9px; font-weight: 900; letter-spacing: 1px;
+	padding: 1px 4px; border-radius: 2px; line-height: 1.4;
+	background: rgba(79, 210, 255, 0.16); color: #9fe4ff; border: 1px solid rgba(79, 210, 255, 0.45);
+}
+.tv-sb-strength.sh { background: rgba(255, 190, 60, 0.16); color: #ffd27a; border-color: rgba(255, 190, 60, 0.45); }
+.tv-sb-strength.en { background: rgba(255, 60, 70, 0.18); color: #ff9aa2; border-color: rgba(255, 60, 70, 0.5); }
+
 /* Lower-third nameplate */
 .tv-overlay-text-card {
 	text-align: center;
@@ -8665,6 +10763,97 @@ body.fsim-external #look-resize-handle { display: none; }
 	max-width: 80%;
 	animation: tv-lt-slide-in 0.3s ease-out;
 }
+
+/* ── Film layers (@type film) ─────────────────────────────────────────────────
+   A picture is not a bulletin. The act card is the only full-screen card that gets
+   to be quiet — no border, no station colour, just the plate on black. */
+.tv-overlay-act-card {
+	text-align: center;
+	background: #000;
+	color: #e8e2d4;
+	padding: 34px 44px;
+	max-width: 82%;
+	animation: tv-film-card-in 1.1s ease-out;
+}
+.tv-act-title {
+	font-size: 17px;
+	font-weight: 600;
+	letter-spacing: 0.42em;
+	text-transform: uppercase;
+	text-indent: 0.42em; /* balance the trailing letter-space */
+}
+.tv-act-sub {
+	margin-top: 12px;
+	font-size: 12px;
+	letter-spacing: 0.22em;
+	text-transform: uppercase;
+	opacity: 0.6;
+}
+.tv-overlay-intermission {
+	text-align: center;
+	background: #0b0906;
+	color: #d8c9a2;
+	border: 1px solid rgba(216, 201, 162, 0.35);
+	padding: 40px 56px;
+	max-width: 82%;
+}
+.tv-intermission-title {
+	font-size: 22px;
+	font-weight: 700;
+	letter-spacing: 0.34em;
+	text-indent: 0.34em;
+}
+.tv-intermission-sub {
+	margin-top: 14px;
+	font-size: 11px;
+	letter-spacing: 0.18em;
+	opacity: 0.65;
+}
+@keyframes tv-film-card-in {
+	0%   { opacity: 0; }
+	35%  { opacity: 1; }
+	100% { opacity: 1; }
+}
+
+/* The matte. Persistent while the feature runs — switched on/off by the picture,
+   never on a timer. pointer-events:none so the bars never eat a click on the set. */
+#tv-letterbox {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 700ms ease;
+	z-index: 6;
+}
+#tv-letterbox.tv-letterbox-on { opacity: 1; }
+#tv-letterbox::before,
+#tv-letterbox::after {
+	content: '';
+	position: absolute;
+	left: 0; right: 0;
+	height: 11%;
+	background: #000;
+}
+#tv-letterbox::before { top: 0; box-shadow: 0 1px 0 rgba(0,0,0,0.9); }
+#tv-letterbox::after  { bottom: 0; box-shadow: 0 -1px 0 rgba(0,0,0,0.9); }
+
+/* Grain + a warmer, softer image while a film is framed: a Basin broadcast of a
+   pre-Collapse feature is a copy of a copy, and it should not look like the news. */
+.tv-filmic #tv-content {
+	filter: sepia(0.16) contrast(1.06) saturate(0.88);
+}
+
+/* One-shot optical transition. Duration is set inline by the picture. */
+#tv-fade {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background: #000;
+	opacity: 0;
+	transition: opacity 3000ms ease;
+	z-index: 7;
+}
+#tv-fade.tv-fade-black { opacity: 1; }
 
 .tv-overlay-lower-third {
 	position: absolute;
@@ -8848,7 +11037,11 @@ body.fsim-external #look-resize-handle { display: none; }
 }
 
 /* ── TV panel: mobile overrides ─────────────────────────────────────────────── */
-@media (max-width: 600px) {
+/* 720px, not 600 — the client is already in its mobile layout (sidebar gone,
+   mobile vitals up) from 720 down, and a 601–720px handset was getting a
+   desktop-scaled TV set inside it. The sports sub-screens (gameday, the rink)
+   render into #tv-content, so this is also what keeps them legible. */
+@media (max-width: 720px) {
 	#tv-window {
 		/* Square-ish: fills most of the viewport width, height matches */
 		width: min(96vw, 96vh);
@@ -11065,40 +13258,83 @@ input.trade-qty { width: 56px; }
 .trade-btn.on { border-color: var(--green, #5fbf5f); color: var(--green, #5fbf5f); }
 .trade-btn.trade-cancel:hover { border-color: var(--red); color: var(--red); }
 
-/* ── Voidwalk staging overlay (voidwalking muster) ─────────────────────────── */
+/* ── Voidwalking muster overlay ──────────────────────────────────────────────
+   The last screen before the map ends. Dressed as the VOIDLINK firmware rather
+   than ArchitectOS (out past the edge the grid doesn't reach you) — cold slate,
+   scanline haze, survey-bracket corners, and a title that sits under a hairline
+   rule stamped with the terms of the walk. */
 .vwstage-overlay {
 	position: fixed; inset: 0; z-index: 9000;
 	display: flex; align-items: center; justify-content: center;
-	background: radial-gradient(ellipse at center, rgba(5,5,10,0.82), rgba(5,5,10,0.96));
+	background: radial-gradient(ellipse at 50% 35%, rgba(10,14,20,0.80), rgba(2,3,6,0.97));
 	backdrop-filter: blur(3px);
 	font-family: var(--font-mono);
 }
+/* A slow drifting interference band over the whole overlay — the void's own weather. */
+.vwstage-overlay::after {
+	content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+	background: repeating-linear-gradient(0deg, rgba(255,255,255,0.022) 0 1px, transparent 1px 3px);
+}
 .vwstage-panel {
-	width: min(620px, 94vw); max-height: 92vh; overflow-y: auto;
-	background: linear-gradient(160deg, var(--bg2), var(--bg));
+	position: relative; z-index: 2;
+	width: min(640px, 94vw); max-height: 92vh; overflow-y: auto;
+	background:
+		linear-gradient(180deg, rgba(40,229,255,0.05), transparent 22%),
+		linear-gradient(160deg, var(--bg2), var(--bg));
 	border: 1px solid var(--border);
-	border-radius: 14px;
-	box-shadow: 0 0 0 1px rgba(40,229,255,0.12), 0 18px 60px rgba(0,0,0,0.7), 0 0 40px rgba(255,46,196,0.08);
+	border-radius: 4px;
+	box-shadow: 0 0 0 1px rgba(40,229,255,0.10), 0 22px 70px rgba(0,0,0,0.78), 0 0 60px rgba(40,229,255,0.06);
 	color: var(--text);
 	padding: 0 0 14px;
 }
+/* Survey brackets at the four corners — the instrument framing the void map uses. */
+.vwstage-corner {
+	position: absolute; width: 14px; height: 14px; pointer-events: none;
+	border: 1px solid var(--cyan); opacity: 0.55;
+}
+.vwstage-corner.tl { top: 6px; left: 6px; border-right: 0; border-bottom: 0; }
+.vwstage-corner.tr { top: 6px; right: 6px; border-left: 0; border-bottom: 0; }
+.vwstage-corner.bl { bottom: 6px; left: 6px; border-right: 0; border-top: 0; }
+.vwstage-corner.br { bottom: 6px; right: 6px; border-left: 0; border-top: 0; }
 .vwstage-topbar {
 	display: flex; justify-content: space-between; align-items: center;
 	padding: 8px 14px; border-bottom: 1px solid var(--border);
-	font-size: 0.68rem; letter-spacing: 2px; color: var(--text-dim);
-	background: rgba(40,229,255,0.04);
+	font-size: 0.64rem; letter-spacing: 3px; color: var(--text-dim);
+	background: rgba(40,229,255,0.05);
 }
-.vwstage-os { color: var(--cyan); }
-.vwstage-mode { color: var(--accent); }
-.vwstage-head { padding: 16px 18px 6px; }
+.vwstage-os { color: var(--cyan); font-weight: 700; }
+.vwstage-mode { color: var(--text-dim); }
+.vwstage-head { padding: 18px 18px 4px; }
 .vwstage-title {
-	font-size: 1.7rem; font-weight: 700; letter-spacing: 1px; color: var(--text-bright);
-	text-shadow: 0 0 18px rgba(255,46,196,0.4);
+	position: relative;
+	font-size: 2.05rem; font-weight: 700; letter-spacing: 9px; color: var(--text-bright);
+	text-transform: uppercase; line-height: 1.05;
+	text-shadow: 0 0 26px rgba(40,229,255,0.35), 0 0 60px rgba(255,46,196,0.18);
 }
-.vwstage-route { margin-top: 3px; color: var(--cyan); font-size: 0.86rem; letter-spacing: 1px; }
+/* Chromatic-split ghost of the wordmark — the signal isn't clean out here. */
+.vwstage-title::before {
+	content: attr(data-text); position: absolute; inset: 0;
+	color: var(--accent); opacity: 0.35; transform: translate(-2px, 1px);
+	pointer-events: none;
+}
+.vwstage-route {
+	margin-top: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+	font-size: 0.8rem; letter-spacing: 2px; text-transform: uppercase;
+}
+.vwstage-from { color: var(--text-dim); }
+.vwstage-arrow { color: var(--accent); letter-spacing: 0; opacity: 0.75; }
+.vwstage-to { color: var(--cyan); }
+.vwstage-rule {
+	margin-top: 12px; border-top: 1px solid var(--border); position: relative; height: 1px;
+}
+.vwstage-rule-tag {
+	position: absolute; top: -0.55em; left: 0; padding-right: 10px;
+	background: var(--bg2); color: var(--text-dim);
+	font-size: 0.58rem; letter-spacing: 3px;
+}
 .vwstage-lore {
-	margin: 10px 18px; padding: 12px 14px;
-	border-left: 2px solid var(--accent); background: rgba(255,46,196,0.05);
+	margin: 14px 18px 10px; padding: 12px 14px;
+	border-left: 2px solid var(--cyan); background: rgba(40,229,255,0.04);
 	color: var(--text); font-size: 0.88rem; line-height: 1.6; font-style: italic;
 }
 .vwstage-cols { display: flex; gap: 12px; padding: 6px 18px; }
@@ -11278,6 +13514,11 @@ input.trade-qty { width: 56px; }
 .accolade-foot .accolade-xp { color: var(--accent); font-variant-numeric: tabular-nums; }
 .accolade-foot .accolade-dismiss { color: var(--text-dim); opacity: 0; transition: opacity 140ms ease; }
 .accolade-card:hover .accolade-dismiss { opacity: 1; }
+/* No hover on touch — the card still times itself out, but the dismiss would
+   be permanently invisible, so show it outright. */
+@media (hover: none), (pointer: coarse) {
+	.accolade-foot .accolade-dismiss { opacity: 1; }
+}
 
 /* Life bar — also the hover-pause tell. Duration comes from --accolade-hold, set
    on the card by accolades-banner.js from its own HOLD_MS, so the bar and the timer
@@ -11294,4 +13535,1649 @@ input.trade-qty { width: 56px; }
 @media (prefers-reduced-motion: reduce) {
 	.accolade-card, .accolade-card::before, .accolade-card::after { animation-duration: 1ms; }
 	.accolade-title { animation: none; -webkit-text-fill-color: var(--text); }
+}
+
+/* ── WARDROBE PANEL ────────────────────────────────────────────────────────
+   Container furniture flagged `wardrobe` opens here instead of the box panel:
+   saved outfits, a paper doll of drop pads, and the wardrobe's stock. Themed as
+   a lacquered cabinet — warm brass over the usual terminal cyan, so it reads as
+   a piece of furniture rather than another equipment list. */
+#wardrobe-panel {
+	display: none;
+	position: fixed;
+	inset: 0;
+	background: transparent;
+	z-index: 150;
+	align-items: center;
+	justify-content: center;
+}
+#wardrobe-panel.active { display: flex; }
+#wardrobe-box {
+	position: relative;
+	background:
+		linear-gradient(180deg, rgba(60, 40, 24, 0.22), rgba(0, 0, 0, 0) 60%),
+		var(--bg2);
+	border: 1px solid #b98b4a;
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6) inset, 0 18px 50px rgba(0, 0, 0, 0.55);
+	padding: 20px;
+	width: 96%;
+	max-width: 900px;
+	height: 82vh;
+	max-height: 90vh;
+	border-radius: 3px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+/* Centre seam of the double doors, standing open. */
+#wardrobe-box::before {
+	content: '';
+	position: absolute;
+	inset: 6px;
+	border: 1px solid rgba(185, 139, 74, 0.22);
+	border-radius: 2px;
+	pointer-events: none;
+}
+#wardrobe-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+#wardrobe-header {
+	padding-bottom: 8px;
+	border-bottom: 1px solid rgba(185, 139, 74, 0.22);
+}
+#wardrobe-header h2 {
+	color: #e0b978;
+	font-size: 14px;
+	letter-spacing: 3px;
+	text-transform: uppercase;
+	margin: 0;
+	text-shadow: 0 0 12px rgba(224, 185, 120, 0.28);
+}
+#wardrobe-close {
+	background: transparent;
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	width: 26px;
+	height: 26px;
+	cursor: pointer;
+	border-radius: 2px;
+}
+#wardrobe-close:hover { border-color: #e0b978; color: #e0b978; }
+/* The status line — now a pill rather than loose text, because it is answering a
+   gesture you just made ("Combat plate → Plate, replacing work shirt") and needs
+   to look like a reply. It reserves its own height whether or not it has content,
+   so the doll never jumps a row when a message arrives; :empty only drops the
+   chrome, never the space. */
+#wardrobe-notify {
+	align-self: center;
+	max-width: 100%;
+	padding: 3px 12px;
+	min-height: 20px;
+	box-sizing: border-box;
+	font-size: 11px;
+	letter-spacing: 0.3px;
+	text-align: center;
+	color: #e8c88e;
+	border: 1px solid rgba(185, 139, 74, 0.34);
+	border-radius: 10px;
+	background: rgba(185, 139, 74, 0.1);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	transition: opacity .18s;
+}
+#wardrobe-notify:empty { border-color: transparent; background: none; }
+#wardrobe-body {
+	display: flex;
+	gap: 14px;
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+}
+.wdr-col {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-height: 0;
+	min-width: 0;
+}
+/* Two columns: the figure, and the rails it draws from. The doll column carries
+   only a RIGHT edge — it's the leftmost column, so a left border would draw a
+   line down the inside of the cabinet wall with nothing on the far side of it. */
+#wardrobe-doll-col { flex: 1.25; border-right: 1px solid rgba(185, 139, 74, 0.2); padding-right: 14px; }
+#wardrobe-stock-col { flex: 1; }
+#wardrobe-outfit-list,
+#wardrobe-hanging-list,
+#wardrobe-carried-list,
+#wardrobe-worn-list {
+	flex: 1;
+	overflow-y: auto;
+	min-height: 60px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 4px;
+	border: 1px dashed transparent;
+	border-radius: 3px;
+}
+/* A slim brass scrollbar, so a full rail doesn't hand the cabinet the OS's grey
+   one. Firefox takes the two-value form; WebKit needs the pseudo-elements. */
+#wardrobe-box *::-webkit-scrollbar { width: 6px; }
+#wardrobe-box *::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.25); }
+#wardrobe-box *::-webkit-scrollbar-thumb {
+	background: rgba(185, 139, 74, 0.42);
+	border-radius: 3px;
+}
+#wardrobe-box *::-webkit-scrollbar-thumb:hover { background: rgba(224, 185, 120, 0.66); }
+#wardrobe-box * { scrollbar-width: thin; scrollbar-color: rgba(185, 139, 74, 0.42) rgba(0, 0, 0, 0.25); }
+.wdr-empty {
+	font-size: 11px;
+	color: var(--text-dim);
+	opacity: 0.7;
+	padding: 6px 4px;
+	font-style: italic;
+}
+
+/* --- Saved outfits ---
+   A card is a hanger tag: brass spine on the left, the look's name, its pieces
+   as chips. The spine goes grey when a piece is out of reach, so an outfit you
+   can't actually assemble is legible as a state of the card rather than only as
+   a struck-through chip somewhere inside it. */
+.wdr-outfit {
+	border: 1px solid var(--border);
+	border-left: 2px solid #b98b4a;
+	border-radius: 3px;
+	padding: 6px 8px;
+	cursor: pointer;
+	background: linear-gradient(180deg, rgba(185, 139, 74, 0.07), rgba(0, 0, 0, 0.22));
+	transition: border-color .15s, background .15s, transform .12s;
+}
+.wdr-outfit:hover {
+	border-color: #e0b978;
+	background: linear-gradient(180deg, rgba(185, 139, 74, 0.16), rgba(0, 0, 0, 0.2));
+	transform: translateX(1px);
+}
+.wdr-outfit:active { transform: translateX(1px) translateY(1px); }
+.wdr-outfit-incomplete { border-left-color: var(--text-dim); opacity: 0.82; }
+.wdr-outfit-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 6px;
+}
+.wdr-outfit-name {
+	color: #e0b978;
+	font-size: 12px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+}
+.wdr-outfit-btns { display: flex; gap: 4px; flex-shrink: 0; }
+.wdr-outfit-pieces {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-top: 4px;
+}
+.wdr-piece {
+	font-size: 10px;
+	color: var(--text-dim);
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	padding: 0 6px;
+}
+/* A piece that is neither on you nor in this wardrobe — the outfit won't
+   assemble fully, and the panel says so before you click wear. */
+.wdr-piece-missing {
+	color: var(--red, #ff5555);
+	border-color: rgba(255, 85, 85, 0.4);
+	text-decoration: line-through;
+}
+
+/* --- Paper doll ---
+   Was a 2×4 CSS grid of pads with three grey blocks behind it at 9% opacity
+   standing in for a body. It read as a form, not a person. Now it is the REAL
+   silhouette — the same two alpha masks the tablet's Gear doll uses — with the
+   slot pads anchored to where those things actually sit ON that body.
+
+   Height-driven (width derives from the aspect) so the whole figure including
+   the feet pad at 96% always fits without scrolling — the same sizing rule as
+   .tos-doll in tablet-os.js.
+
+   EACH SEX GETS ITS OWN ASPECT RATIO, and they are genuinely different shapes:
+   femsil is 500×708, paperdoll is 242×540. The mask is `contain`, so a male
+   figure in a female-shaped box doesn't stretch — it letterboxes, and every
+   anatomical percentage below then points at empty space instead of at the
+   body. A stray second copy of this block once forced male to 500/708 and did
+   exactly that: the pads floated off a small centred figure. */
+#wardrobe-doll {
+	position: relative;
+	height: min(46vh, 336px);
+	width: auto;
+	max-width: 46vw;
+	margin: 0 auto;
+	flex: 0 0 auto;
+	overflow: visible;
+	padding: 0;
+	aspect-ratio: 500 / 708;
+}
+#wardrobe-doll.wdr-doll-female { aspect-ratio: 500 / 708; }
+#wardrobe-doll.wdr-doll-male   { aspect-ratio: 242 / 540; }
+
+/* The body. One image, tinted by CSS, so it serves every character — and it is
+   a mask rather than an <img> so the brass palette carries onto it instead of
+   sitting next to it. The gradient runs light at the shoulders to dark at the
+   feet, which is what stops the figure reading as a flat cut-out. */
+.wdr-figure {
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(180deg, #e8c88e 0%, #b98b4a 55%, #7d5a2c 100%);
+	opacity: 0.8;
+	filter: drop-shadow(0 0 8px rgba(224, 185, 120, 0.34));
+	pointer-events: none;
+	-webkit-mask: url('/assets/femsil-mask.png') center / contain no-repeat;
+	mask: url('/assets/femsil-mask.png') center / contain no-repeat;
+}
+.wdr-doll-male .wdr-figure {
+	-webkit-mask-image: url('/assets/paperdoll-mask.png');
+	mask-image: url('/assets/paperdoll-mask.png');
+}
+/* A pool of light under the figure — the cabinet's own lamp. Purely atmospheric,
+   sits behind the pads (z-index 2) and takes no pointer events. */
+#wardrobe-doll::before {
+	content: '';
+	position: absolute;
+	left: 50%; bottom: -4%;
+	width: 78%; height: 12%;
+	transform: translateX(-50%);
+	border-radius: 50%;
+	background: radial-gradient(ellipse at center, rgba(224, 185, 120, 0.22), rgba(224, 185, 120, 0) 70%);
+	pointer-events: none;
+}
+
+/* Pads sit ON the silhouette at anatomical anchors — the SAME geometry as the
+   Gear app's loadout doll (.tos-gslot in tablet-os.js), down to the percentages.
+   Two screens showing the same body should place the same slot in the same spot;
+   anything else makes you re-learn the layout every time you switch. */
+
+/* The slot box — .tos-gslot's shape, in the wardrobe's brass. */
+.wdr-pad {
+	position: absolute; z-index: 2;
+	/* Box metrics copied from .tos-gslot, not re-invented — same reason as the
+	   anchors below: a pad has to occupy the same footprint on both screens. */
+	display: flex; flex-direction: column; gap: 0;
+	padding: 3px 6px; min-width: 76px; max-width: 44%;
+	border-radius: 5px; user-select: none; touch-action: none;
+	background: rgba(10, 8, 6, .88);
+	border: 1px solid rgba(185, 139, 74, .34);
+	box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 2px 6px rgba(0,0,0,.35);
+	backdrop-filter: blur(1px);
+	transition: border-color .15s, box-shadow .15s;
+	cursor: pointer;
+}
+.wdr-pad-label { font-size: 8px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); }
+.wdr-pad-item { font-size: 10px; line-height: 1.2; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wdr-pad-sub { font-size: 8px; letter-spacing: .5px; text-transform: uppercase;
+	color: rgba(224,185,120,.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wdr-pad.filled { border-color: rgba(224,185,120,.6);
+	box-shadow: 0 0 10px rgba(224,185,120,.22), inset 0 1px 0 rgba(255,255,255,.05), 0 2px 6px rgba(0,0,0,.35); }
+.wdr-pad.filled .wdr-pad-item { color: var(--text); }
+.wdr-pad.filled .wdr-pad-label { color: #e0b978; }
+/* The accessory pad lists every accessory, one row each, and each row is its own
+   remove target. Safe to grow where a body pad isn't: it's anchored off the side
+   of the figure (right: -56px), so extra rows expand into empty space rather
+   than over the silhouette. */
+.wdr-acc-row {
+	cursor: pointer;
+	border-radius: 2px;
+	padding: 0 3px;
+	margin: 0 -3px;
+	transition: color .12s, background .12s;
+}
+.wdr-acc-row:hover { color: var(--red); background: rgba(255, 59, 92, 0.1); }
+
+/* A pad showing a piece from a layer other than the selected one. Dimmer and
+   dashed: it's a pointer to somewhere else, and clicking it goes there rather
+   than taking the piece off. */
+.wdr-pad.wdr-pad-fallback { border-style: dashed; opacity: 0.78; }
+
+/* The layer selector — Under / Over / Armor, the Gear app's control in brass.
+   It sits OUTSIDE the doll stage on purpose. An earlier attempt put the three
+   layers on the pads themselves as a strip of pips; it read fine but the pads
+   are centred on their anchors, so anything that grows one expands it outward in
+   every direction and walks it over the figure. Layers belong beside the body,
+   not on it. */
+#wardrobe-layers {
+	display: flex;
+	gap: 4px;
+	justify-content: center;
+	flex-shrink: 0;
+	margin-bottom: 2px;
+}
+.wdr-layer-btn {
+	position: relative;
+	flex: 0 0 auto;
+	padding: 3px 12px;
+	font-family: inherit;
+	font-size: 9px;
+	letter-spacing: 1.5px;
+	text-transform: uppercase;
+	color: var(--text-dim);
+	background: rgba(0, 0, 0, 0.3);
+	border: 1px solid rgba(185, 139, 74, 0.28);
+	border-radius: 3px;
+	cursor: pointer;
+	transition: color .15s, border-color .15s, background .15s;
+}
+.wdr-layer-btn:hover { color: #e8c88e; border-color: rgba(224, 185, 120, 0.5); }
+.wdr-layer-btn.active {
+	color: #0a0a0a;
+	background: #e0b978;
+	border-color: #e0b978;
+	box-shadow: 0 0 10px rgba(224, 185, 120, 0.3);
+}
+/* How many pieces sit on a layer you're NOT looking at — the one thing a
+   single-layer doll can't show you, and the reason you'd click the button. */
+.wdr-layer-count {
+	margin-left: 5px;
+	font-size: 8px;
+	opacity: 0.75;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Anchors — the SAME percentages as the Gear doll's .tos-gslot--<slot>
+   (tablet-os.js), which is the point: the two screens draw the same body, so a
+   slot has to sit in the same place on both. They had drifted (torso 33 vs 31,
+   legs 64 vs 69, hands 55 vs 50) under a comment claiming they matched. If Gear's
+   anchors move, these move with them.
+   The one deliberate difference is accessory's horizontal offset: this pad lists
+   every accessory as its own removable row, so it hangs off the side of the
+   figure where extra rows grow into empty space instead of over the silhouette.
+   Its vertical anchor still matches Gear's. */
+.wdr-pad-head      { left: 50%; top: 7%;  transform: translate(-50%,-50%); text-align: center; }
+.wdr-pad-torso     { left: 50%; top: 31%; transform: translate(-50%,-50%); text-align: center; }
+.wdr-pad-legs      { left: 50%; top: 69%; transform: translate(-50%,-50%); text-align: center; }
+.wdr-pad-feet      { left: 50%; top: 97%; transform: translate(-50%,-50%); text-align: center; }
+.wdr-pad-hands     { left: 0;  top: 50%; transform: translateY(-50%); text-align: left; }
+.wdr-pad-accessory { right: -56px; top: 16%; transform: translateY(-50%); text-align: right; }
+
+.wdr-pad-eligible { border-color: #e0b978 !important;
+	box-shadow: 0 0 12px rgba(224,185,120,.55) !important; }
+.wdr-pad.ctr-drag-over { border-color: var(--green) !important;
+	box-shadow: 0 0 12px rgba(0,255,136,.5) !important; }
+/* The armed garment — picked up, waiting on a pad. */
+.wdr-garment.wdr-armed {
+	border-color: #e0b978;
+	background: rgba(185, 139, 74, 0.14);
+	box-shadow: 0 0 0 1px rgba(185, 139, 74, 0.35);
+}
+
+/* Narration pill — shown when a book is being read aloud with the tablet closed.
+   Deliberately lives here rather than in tablet-os.js's injected style block:
+   that block is scoped to #tablet-os-overlay and goes away with the shell, which
+   is exactly the moment this element needs to be visible. */
+#tos-narrate-pill {
+	position: fixed;
+	left: 50%;
+	bottom: 14px;
+	transform: translateX(-50%);
+	z-index: 9996;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	max-width: min(92vw, 460px);
+	padding: 7px 10px 7px 14px;
+	background: var(--bg2);
+	border: 1px solid var(--accent);
+	border-radius: 999px;
+	box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
+	font-family: var(--font-mono);
+	font-size: 12px;
+	color: var(--text);
+	cursor: pointer;
+}
+#tos-narrate-pill .tnp-title {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+#tos-narrate-pill .tnp-prog {
+	color: var(--text-dim);
+	flex-shrink: 0;
+}
+#tos-narrate-pill .tnp-stop {
+	flex-shrink: 0;
+	background: none;
+	border: 1px solid var(--border);
+	border-radius: 50%;
+	width: 22px;
+	height: 22px;
+	line-height: 1;
+	color: var(--accent);
+	cursor: pointer;
+	font-size: 10px;
+}
+#tos-narrate-pill .tnp-stop:hover {
+	border-color: var(--accent);
+}
+
+#wardrobe-doll-actions {
+	display: flex;
+	gap: 6px;
+	flex-shrink: 0;
+	/* Five controls now (Wear Now/name/Save/Clear/Wearing/Undress) — wrap to a
+	   second row on a narrow panel instead of crushing the name field to nothing. */
+	flex-wrap: wrap;
+}
+/* Wear Now is the doll's actual verb — everything else here manages the
+   wardrobe's memory of a look, this one puts it on. Filled brass rather than an
+   outline, so it doesn't read as one option among five equal buttons. */
+.wdr-wear-now {
+	border-color: #e0b978;
+	background: linear-gradient(180deg, #e8c88e, #b98b4a);
+	color: #0a0a0a;
+	font-weight: 600;
+}
+.wdr-wear-now:hover:not(:disabled) {
+	background: linear-gradient(180deg, #f0d49c, #c89858);
+	box-shadow: 0 0 10px rgba(224, 185, 120, 0.4);
+}
+.wdr-wear-now:disabled {
+	background: rgba(0, 0, 0, 0.25);
+	border-color: var(--border);
+	color: var(--text-dim);
+	opacity: 0.55;
+	cursor: default;
+}
+/* Undress moves real garments; Clear only wipes the doll. Warm it slightly so the
+   destructive-looking one isn't visually identical to the harmless one. */
+#wardrobe-undress {
+	border-color: var(--orange);
+	color: var(--orange);
+}
+#wardrobe-outfit-name {
+	flex: 1;
+	min-width: 0;
+	background: rgba(0, 0, 0, 0.4);
+	border: 1px solid var(--border);
+	color: var(--text);
+	font-family: inherit;
+	font-size: 12px;
+	padding: 4px 6px;
+	border-radius: 2px;
+}
+#wardrobe-outfit-name::placeholder { color: var(--text-dim); opacity: 0.6; font-style: italic; }
+#wardrobe-outfit-name:focus {
+	outline: none;
+	border-color: #e0b978;
+	background: rgba(185, 139, 74, 0.1);
+	box-shadow: 0 0 0 1px rgba(224, 185, 120, 0.22);
+}
+
+/* --- Stock lists --- */
+.wdr-garment {
+	border-left: 2px solid rgba(185, 139, 74, 0.55);
+	transition: border-color .15s, background .15s;
+}
+.wdr-garment:hover { border-color: #e0b978; background: rgba(185, 139, 74, 0.09); }
+/* The drag ghost is .ctr-item-card.dragging, shared with the container panel. */
+.wdr-slot-tag {
+	font-size: 9px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: var(--text-dim);
+}
+/* --- The rails ---
+   The stock column borrows the fridge's structural language (an inset interior
+   with a lit lip above each shelf) but not its temperature: a wardrobe is warm
+   brass and timber where the chiller is cold steel, so the two read as the same
+   KIND of object without reading as the same object. The lip is a hanging rail
+   here rather than a shelf edge, which is the one detail that sells it. */
+#wardrobe-stock-col {
+	background:
+		linear-gradient(180deg, rgba(0, 0, 0, 0.34), rgba(0, 0, 0, 0.14)),
+		repeating-linear-gradient(90deg, rgba(120, 84, 40, 0.05) 0 6px, transparent 6px 13px);
+	border-radius: 4px;
+	box-shadow: inset 0 2px 14px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(185, 139, 74, 0.14);
+	padding: 6px 8px 8px;
+}
+.wdr-rail-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	margin: 6px 0 0;
+}
+.wdr-rail-note {
+	font-size: 9px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: var(--text-dim);
+	opacity: 0.7;
+}
+/* The rail itself: a lit metal bar the garments hang from. */
+.wdr-rail {
+	position: relative;
+	padding-top: 9px;
+}
+.wdr-rail::before {
+	content: '';
+	position: absolute;
+	left: 2px;
+	right: 2px;
+	top: 2px;
+	height: 2px;
+	border-radius: 2px;
+	background: linear-gradient(90deg, rgba(185, 139, 74, 0.15), rgba(232, 200, 142, 0.75), rgba(185, 139, 74, 0.15));
+	box-shadow: 0 1px 5px rgba(224, 185, 120, 0.28);
+}
+/* Each garment gets a hook onto that rail — a two-pixel detail doing the entire
+   job of explaining why the list is a rail and not another inventory box. */
+.wdr-rail .wdr-garment { position: relative; margin-top: 7px; }
+.wdr-rail .wdr-garment::before {
+	content: '';
+	position: absolute;
+	left: 13px;
+	top: -7px;
+	width: 7px;
+	height: 7px;
+	border: 1.5px solid rgba(200, 158, 96, 0.8);
+	border-bottom: none;
+	border-radius: 4px 4px 0 0;
+	pointer-events: none;
+}
+.wdr-rail .wdr-empty { margin-top: 8px; }
+/* The far rail, lit while a garment is in hand — the JS has toggled this class
+   since the rails became drop targets, but nothing drew it, so "you can throw
+   this over there" was a rule the interface knew and never told anyone. Dashed,
+   not solid: it is an invitation, not a boundary. */
+.wdr-rail-eligible {
+	border: 1px dashed rgba(224, 185, 120, 0.5) !important;
+	background: rgba(185, 139, 74, 0.06);
+}
+.wdr-rail.ctr-drag-over {
+	border: 1px dashed var(--green) !important;
+	background: rgba(57, 255, 143, 0.07);
+}
+/* Worn garments read as ON the body rather than in stock: a cooler edge, and no
+   action button, because the only thing you can do with them here is dress the
+   doll. Dimmed a shade so the two rails above still read as the live inventory. */
+.wdr-garment-worn {
+	border-left-color: rgba(120, 190, 200, 0.6);
+	opacity: 0.9;
+}
+.wdr-garment-worn .wdr-slot-tag { color: rgba(140, 200, 210, 0.75); }
+.wdr-outfits-head { margin-top: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+	.wdr-pad { transition: none; }
+}
+
+#wardrobe-footer {
+	display: flex;
+	justify-content: flex-end;
+	flex-shrink: 0;
+}
+
+/* ── Wardrobe on a phone — three columns become one scroll ────────────────
+   Three side-by-side columns leave about 110px each on a handset, and the
+   doll then splits ITS column into two again. Below the breakpoint the body
+   scrolls vertically instead, doll first (that's the work surface), then the
+   clothes it draws from, with the saved looks last. The lists stop being
+   flex:1 — in a scrolling column that would collapse them — and take a
+   bounded height of their own. */
+@media (max-width: 720px) {
+	#wardrobe-box { width: 96vw; height: 88vh; max-height: 90vh; padding: 14px; }
+	#wardrobe-body {
+		flex-direction: column;
+		overflow-y: auto;
+		gap: 10px;
+	}
+	.wdr-col { flex: 0 0 auto; }
+	#wardrobe-doll-col {
+		order: 1;
+		border-left: none;
+		border-right: none;
+		border-bottom: 1px solid rgba(185, 139, 74, 0.2);
+		padding: 0 0 10px;
+	}
+	#wardrobe-stock-col { order: 2; }
+	/* The doll shrinks on a handset: at min(46vh) it eats the screen, and the
+	   rails below it are then a scroll away from the pads they feed. */
+	#wardrobe-doll { flex: 0 0 auto; overflow: visible; height: min(38vh, 300px); }
+	#wardrobe-outfit-list,
+	#wardrobe-hanging-list,
+	#wardrobe-carried-list,
+	#wardrobe-worn-list {
+		flex: 0 0 auto;
+		max-height: 34vh;
+	}
+	/* Thumb-sized: the pads are drop targets AND tap targets now. The layer bars
+	   get real height too — a 3px bar is a mouse target, not a thumb one — but
+	   they stay absolutely positioned, so this costs the pad nothing. */
+	.wdr-pad { min-height: 54px; padding: 6px 8px; }
+	.wdr-layer-btn { padding: 6px 14px; font-size: 10px; }
+	#wardrobe-outfit-name { padding: 8px 6px; }
+}
+
+/* ── Interface tour (client/game/js/panels/tour.js) ───────────────────────────
+   The one out-of-fiction onboarding surface: offered once to players new to
+   text games, replayable with `tutorial`. A transparent cutout box carries a
+   9999px outer shadow — that shadow IS the dimming, so whatever is spotlighted
+   underneath stays perfectly legible — and the spotlighted region itself gets
+   the same accent-glow grammar as .verb-teach / .point-ripple. */
+#tour-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 9700; /* above the confirm window (9600) and the Tablet OS (9200) */
+	pointer-events: auto;
+}
+#tour-hole {
+	position: absolute;
+	border-radius: 6px;
+	border: 1px solid var(--accent);
+	box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.72), 0 0 18px 2px var(--accent-dim);
+	transition: left 0.28s ease, top 0.28s ease, width 0.28s ease, height 0.28s ease;
+	pointer-events: none;
+}
+/* End of tour: the lights come up.
+   The hole closes and the overlay flattens to a plain dim, so nothing brightens
+   from the middle outward, and the two main panes then fade up in sequence
+   underneath it (see endTour). */
+#tour-overlay.tour-lights-up #tour-hole { opacity: 0; transition: opacity 0.35s ease; }
+#tour-overlay.tour-lights-up { transition: opacity 0.45s ease; opacity: 0; }
+/* A pane waiting for its turn. Dimmed, but never all the way out — a black
+   rectangle reads as broken, where a dim one reads as not-yet. */
+.tour-dimmed {
+	filter: brightness(0.18) saturate(0.5);
+	transition: filter 1.4s cubic-bezier(0.33, 0.9, 0.3, 1);
+}
+.tour-dimmed.tour-lit-up { filter: brightness(1) saturate(1); }
+@media (prefers-reduced-motion: reduce) {
+	.tour-dimmed { transition: none; filter: none; }
+	#tour-overlay.tour-lights-up { transition: none; }
+}
+
+/* The spotlighted region pulses once so the eye lands on it, not just off it. */
+.tour-lit {
+	animation: tour-lit-pulse 1.6s ease-in-out 2;
+}
+@keyframes tour-lit-pulse {
+	0%, 100% { filter: none; }
+	50%      { filter: brightness(1.25) saturate(1.15); }
+}
+
+.tour-card {
+	position: fixed;
+	z-index: 9750;
+	width: 360px;
+	max-width: 92vw;
+	background: var(--bg2);
+	border: 1px solid var(--accent);
+	box-shadow: 0 4px 32px rgba(0, 0, 0, 0.7);
+	font-family: var(--font-mono);
+	padding: 12px 14px 10px;
+	animation: dlg-in 0.18s ease-out;
+}
+/* The opening question is centred like a modal; tour steps are positioned in JS. */
+.tour-offer {
+	top: 28%;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 9760;
+}
+/* THE QUESTION IS THE ONLY THING ON SCREEN.
+   It lands the instant the cold open lets go, and a brand-new player who has
+   never seen a MUD is looking at eleven panels of unexplained interface for the
+   first time in their life. Dimming all of it to near-black leaves exactly one
+   lit object and exactly one decision — and since the arrival prose is now held
+   back until this is answered (plugins/prologue/index.js), there is nothing
+   behind the veil worth reading yet anyway. Comes up over a second and a half so
+   it reads as the lights going down, not as a modal slamming shut. */
+#tour-offer-veil {
+	position: fixed;
+	inset: 0;
+	z-index: 9755;
+	background: rgba(0, 0, 0, 0.86);
+	backdrop-filter: blur(2px);
+	pointer-events: auto;   /* swallows clicks: nothing else is answerable yet */
+	opacity: 0;
+	animation: tour-veil-in 1500ms ease forwards;
+}
+#tour-offer-veil.closing { animation: tour-veil-out 700ms ease forwards; }
+@keyframes tour-veil-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tour-veil-out { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+	#tour-offer-veil { animation-duration: 200ms; }
+	#tour-offer-veil.closing { animation-duration: 200ms; }
+}
+.tour-card-step {
+	font-size: 10px;
+	letter-spacing: 1px;
+	color: var(--text-dim);
+	margin-bottom: 4px;
+}
+.tour-card-title {
+	color: var(--accent);
+	font-weight: 700;
+	letter-spacing: 0.5px;
+	margin-bottom: 6px;
+}
+.tour-card-body {
+	color: var(--text);
+	font-size: 13px;
+	line-height: 1.5;
+}
+.tour-card-body b { color: var(--text-bright); }
+.tour-card-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 12px;
+}
+.tour-btn {
+	font-family: var(--font-mono);
+	font-size: 12px;
+	padding: 5px 12px;
+	cursor: pointer;
+	background: var(--accent);
+	color: var(--bg);
+	border: 1px solid var(--accent);
+}
+.tour-btn:hover { filter: brightness(1.12); }
+.tour-btn-ghost {
+	background: transparent;
+	color: var(--text-dim);
+	border-color: var(--border);
+}
+.tour-btn-ghost:hover { color: var(--text); border-color: var(--accent); }
+.tour-btn-ghost[disabled] { opacity: 0.35; cursor: default; }
+
+@media (max-width: 700px) {
+	.tour-card { width: 300px; font-size: 12px; }
+}
+
+/* ── Inline yes/no prompts ──────────────────────────────────────────────────
+   A question asked in the LOG that can be clicked as well as typed — the
+   auto-walk offer, the clone-vat advert's "show me the way". Styled as buttons
+   rather than as the usual bare action-link because they are a decision, not a
+   noun: a new player scanning the log needs to see that something is waiting on
+   them. The typed answer always still works; these never replace it.
+
+   `.prompt-link-spent` is what a one-shot prompt looks like after it's been
+   answered — visibly dead, so a second click reads as a no-op rather than as a
+   broken button. */
+.prompt-link {
+	display: inline-block;
+	border: 1px solid var(--accent);
+	border-radius: 3px;
+	padding: 1px 9px;
+	margin: 0 2px;
+	font-weight: 700;
+	line-height: 1.5;
+	text-decoration: none;
+	background: color-mix(in srgb, var(--accent) 14%, transparent);
+	transition: background 0.15s ease, color 0.15s ease;
+}
+.prompt-link:hover {
+	background: var(--accent);
+	color: var(--bg1, #05080a);
+}
+.prompt-link-ghost {
+	border-color: var(--text-dim);
+	color: var(--text-dim);
+	background: transparent;
+	font-weight: 400;
+}
+.prompt-link-ghost:hover {
+	background: var(--text-dim);
+	color: var(--bg1, #05080a);
+}
+.prompt-link.prompt-link-spent,
+.prompt-link.prompt-link-spent:hover {
+	opacity: 0.32;
+	cursor: default;
+	background: transparent;
+	color: var(--text-dim);
+	border-color: var(--text-dim);
+	text-decoration: line-through;
+}
+
+/* ── Intro cinematic ────────────────────────────────────────────────────────
+   The cold open (client/game/js/panels/intro-cinematic.js). Full-viewport, above
+   everything, and deliberately NOT themed: this plays before the player has a
+   world, so it uses black and the accent only. The canvas carries the motion;
+   these rules carry the typography and the two fades. */
+body.intro-cine-open { overflow: hidden; }
+#intro-cinematic {
+	position: fixed;
+	inset: 0;
+	z-index: 100000;
+	background: #000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	animation: intro-cine-fadein 900ms ease both;
+	cursor: default;
+}
+/* The natural ending is a long dissolve, because the wordmark is sitting on
+   screen through it and should melt into the game rather than be cut away. A
+   SKIP is the opposite: the player asked for this to stop, so it stops. */
+#intro-cinematic.closing { animation: intro-cine-fadeout 1500ms ease both; }
+#intro-cinematic.closing.fast { animation-duration: 380ms; }
+@keyframes intro-cine-fadein  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes intro-cine-fadeout { from { opacity: 1; } to { opacity: 0; } }
+#intro-cine-cv { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* Vignette: keeps the canvas off the text and hides the frame edges. */
+.intro-cine-vig {
+	position: absolute;
+	inset: 0;
+	background:
+		radial-gradient(ellipse at center, rgba(0,0,0,0) 28%, rgba(0,0,0,0.72) 78%, rgba(0,0,0,0.94) 100%);
+	pointer-events: none;
+}
+.intro-cine-stage {
+	position: relative;
+	width: min(760px, 88vw);
+	min-height: 5.6em;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	pointer-events: none;
+}
+/* Was Georgia — a book serif, and the only place in the game that used one. The
+   cold open is the first thing a new player ever sees, so it should be speaking
+   in ARCHITECT's voice from the first frame, not in a typeface it never uses
+   again. Mono with open tracking reads as the record being played back, which is
+   what these lines are.
+
+   The fade is also slower and symmetric now: a line breathes IN over 1.2s and
+   OUT over the same, and the schedule leaves a real gap between beats so it can
+   finish leaving before the next one arrives. Previously the gap was ~100ms
+   against a 900ms fade, so lines crossed over each other and it read as a cut
+   rather than a dissolve. */
+.intro-cine-line {
+	font-family: var(--font-mono, 'Courier New', monospace);
+	font-size: clamp(17px, 2.6vw, 27px);
+	line-height: 1.7;
+	letter-spacing: 1.1px;
+	color: #eef4f3;
+	text-shadow: 0 0 30px rgba(0,0,0,0.95), 0 2px 18px rgba(0,0,0,0.9);
+	opacity: 0;
+	transform: translateY(7px);
+	transition: opacity 1200ms ease, transform 1600ms ease;
+}
+.intro-cine-line.in { opacity: 1; transform: translateY(0); }
+.intro-cine-line.big { font-size: clamp(22px, 3.5vw, 37px); }
+/* "Silence." — the one beat with no drone under it, so it gets no glow either. */
+.intro-cine-line.silence {
+	font-size: clamp(26px, 4.6vw, 48px);
+	letter-spacing: 0.22em;
+	color: #8a9a98;
+	transition: opacity 1500ms ease;
+}
+/* The card title. Monospace + wide tracking: the only line that is the game
+   talking rather than the record. */
+.intro-cine-line.title {
+	font-family: var(--font-mono, 'Courier New', monospace);
+	font-size: clamp(24px, 4.6vw, 50px);
+	letter-spacing: 0.34em;
+	text-indent: 0.34em;
+	color: var(--accent, #35e0c8);
+	text-shadow: 0 0 44px color-mix(in srgb, var(--accent, #35e0c8) 55%, transparent);
+}
+/* The start gate. Nothing about the cold open runs until this is dismissed —
+   it exists so the AudioContext is created on the far side of a real user
+   gesture, which is the only way browsers will let the sequence make a sound.
+   Styled as the quietest thing in the game: black, one accent rule, no motion
+   beyond a slow breath on the button. */
+.intro-cine-gate {
+	position: absolute;
+	inset: 0;
+	z-index: 4;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #000;
+	cursor: pointer;
+	transition: opacity 500ms ease;
+}
+.intro-cine-gate.gone { opacity: 0; pointer-events: none; }
+/* ── The gate as hardware ────────────────────────────────────────────────────
+   The card is a CHASSIS: a bezel with a bevelled edge, a status strip across the
+   top, and the copy sitting behind glass in a recessed screen. Deliberately the
+   same visual language as the Tablet OS shell (tos-panel) and the devpanel's float
+   cards — the first object the game shows you should be made of the same stuff as
+   the object you're about to be issued, so the cold open reads as a machine
+   addressing you rather than a web page asking to play a video.
+   Everything here is a border, a gradient and a mask: no images, no fonts. */
+.intro-cine-gate-card {
+	position: relative;
+	text-align: center;
+	max-width: 560px;
+	width: min(560px, calc(100vw - 32px));
+	padding: 0;
+	overflow: hidden;
+	border-radius: 10px;
+	font-family: var(--font-mono, 'Courier New', monospace);
+	background:
+		linear-gradient(180deg, rgba(255,255,255,0.05), transparent 22%),
+		linear-gradient(168deg, #0e1414, #060909 62%, #0b1111);
+	border: 1px solid color-mix(in srgb, var(--accent, #35e0c8) 26%, transparent);
+	box-shadow:
+		inset 0 1px 0 rgba(255,255,255,0.07),
+		inset 0 -1px 2px rgba(0,0,0,0.7),
+		0 24px 70px rgba(0,0,0,0.85),
+		0 0 60px color-mix(in srgb, var(--accent, #35e0c8) 12%, transparent);
+	animation: intro-cine-gate-in 900ms ease-out both;
+}
+/* Corner brackets — the cheapest possible "this is an instrument". Drawn as two
+   gradients per corner on a pseudo-element so they cost no DOM. */
+.intro-cine-gate-card::before {
+	content: '';
+	position: absolute;
+	inset: 7px;
+	border-radius: 6px;
+	pointer-events: none;
+	background:
+		linear-gradient(var(--accent, #35e0c8), var(--accent, #35e0c8)) left top / 14px 1px no-repeat,
+		linear-gradient(var(--accent, #35e0c8), var(--accent, #35e0c8)) left top / 1px 14px no-repeat,
+		linear-gradient(var(--accent, #35e0c8), var(--accent, #35e0c8)) right top / 14px 1px no-repeat,
+		linear-gradient(var(--accent, #35e0c8), var(--accent, #35e0c8)) right top / 1px 14px no-repeat,
+		linear-gradient(var(--accent, #35e0c8), var(--accent, #35e0c8)) left bottom / 14px 1px no-repeat,
+		linear-gradient(var(--accent, #35e0c8), var(--accent, #35e0c8)) left bottom / 1px 14px no-repeat,
+		linear-gradient(var(--accent, #35e0c8), var(--accent, #35e0c8)) right bottom / 14px 1px no-repeat,
+		linear-gradient(var(--accent, #35e0c8), var(--accent, #35e0c8)) right bottom / 1px 14px no-repeat;
+	opacity: 0.34;
+}
+@keyframes intro-cine-gate-in { from { opacity: 0; transform: translateY(10px) scale(0.985); } to { opacity: 1; transform: none; } }
+
+/* Status strip. Reads like a device label: who owns the machine, and its version.
+   Same joke the vat wall makes — the city has printed this ten million times. */
+.intro-cine-gate-bar {
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	padding: 9px 14px;
+	border-bottom: 1px solid color-mix(in srgb, var(--accent, #35e0c8) 16%, transparent);
+	background: linear-gradient(180deg, color-mix(in srgb, var(--accent, #35e0c8) 9%, transparent), transparent);
+	font-size: 9px;
+	letter-spacing: 0.2em;
+	text-transform: uppercase;
+	color: color-mix(in srgb, var(--accent, #35e0c8) 62%, transparent);
+	text-align: left;
+}
+.intro-cine-gate-dev { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.intro-cine-gate-ver { opacity: 0.5; }
+/* The ready lamp. A terminal with a live lamp is a terminal that is WAITING for
+   you, which is the whole posture of this screen. */
+.intro-cine-gate-lamp {
+	flex: 0 0 auto;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--accent, #35e0c8);
+	box-shadow: 0 0 8px 1px color-mix(in srgb, var(--accent, #35e0c8) 70%, transparent);
+	animation: intro-cine-lamp 2.6s ease-in-out infinite;
+}
+@keyframes intro-cine-lamp { 0%, 100% { opacity: 1; } 55% { opacity: 0.28; } }
+
+/* The screen itself: recessed, with a hairline scanline field over it. */
+.intro-cine-gate-screen {
+	position: relative;
+	padding: 30px 26px 26px;
+	background:
+		radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--accent, #35e0c8) 7%, transparent), transparent 70%),
+		#050808;
+	box-shadow: inset 0 2px 10px rgba(0,0,0,0.8);
+}
+.intro-cine-gate-screen::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background: repeating-linear-gradient(180deg, rgba(255,255,255,0.028) 0 1px, transparent 1px 3px);
+}
+/* The auto-begin countdown, along the bottom edge of the chassis. Empties left to
+   right over AUTO_BEGIN_MS (duration set inline from the constant, in
+   intro-cinematic.js) — the machine showing you it will proceed regardless. */
+.intro-cine-gate-wait {
+	height: 2px;
+	background: color-mix(in srgb, var(--accent, #35e0c8) 10%, transparent);
+	overflow: hidden;
+}
+.intro-cine-gate-wait i {
+	display: block;
+	height: 100%;
+	width: 100%;
+	transform-origin: left center;
+	background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent, #35e0c8) 75%, transparent));
+	box-shadow: 0 0 10px color-mix(in srgb, var(--accent, #35e0c8) 45%, transparent);
+	animation: intro-cine-gate-drain linear both;
+	animation-duration: 20s;   /* overwritten inline; this is only a safety net */
+}
+@keyframes intro-cine-gate-drain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+.intro-cine-gate-eyebrow {
+	font-size: 11px;
+	letter-spacing: 0.62em;
+	text-indent: 0.62em;
+	text-transform: uppercase;
+	color: var(--accent, #35e0c8);
+	opacity: 0.75;
+	text-shadow: 0 0 14px color-mix(in srgb, var(--accent, #35e0c8) 45%, transparent);
+}
+.intro-cine-gate-title {
+	margin-top: 18px;
+	font-size: clamp(20px, 3.4vw, 34px);
+	letter-spacing: 0.16em;
+	text-indent: 0.16em;
+	color: rgba(235,245,244,0.95);
+}
+.intro-cine-gate-sub {
+	margin-top: 14px;
+	font-size: 13px;
+	line-height: 1.7;
+	letter-spacing: 0.04em;
+	color: rgba(235,245,244,0.42);
+}
+/* The optional sound toggle, above Begin. Deliberately quieter than the Begin
+   button — it's an offer, not a step, and the one thing on this card that must
+   read as primary is the button that starts the film. */
+.intro-cine-gate-sound {
+	display: block;
+	margin: 26px auto 0;
+	font-family: inherit;
+	font-size: 11px;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: rgba(235,245,244,0.42);
+	background: transparent;
+	border: 1px solid rgba(235,245,244,0.16);
+	border-radius: 4px;
+	padding: 9px 18px;
+	cursor: pointer;
+	transition: color 260ms ease, border-color 260ms ease, background 260ms ease;
+}
+.intro-cine-gate-sound:hover {
+	color: rgba(235,245,244,0.78);
+	border-color: rgba(235,245,244,0.34);
+}
+.intro-cine-gate-sound.on {
+	color: color-mix(in srgb, var(--accent, #35e0c8) 78%, #fff);
+	border-color: color-mix(in srgb, var(--accent, #35e0c8) 34%, transparent);
+	background: color-mix(in srgb, var(--accent, #35e0c8) 6%, transparent);
+}
+.intro-cine-gate-btn {
+	display: block;
+	margin: 18px auto 0;
+	font-family: inherit;
+	font-size: 13px;
+	letter-spacing: 0.34em;
+	text-indent: 0.34em;
+	text-transform: uppercase;
+	color: var(--accent, #35e0c8);
+	background: color-mix(in srgb, var(--accent, #35e0c8) 8%, transparent);
+	border: 1px solid color-mix(in srgb, var(--accent, #35e0c8) 45%, transparent);
+	border-radius: 4px;
+	padding: 13px 34px;
+	cursor: pointer;
+	transition: color 300ms ease, border-color 300ms ease, background 300ms ease;
+	animation: intro-cine-gate-breathe 3.4s ease-in-out infinite;
+}
+.intro-cine-gate-btn span { opacity: 0.7; margin-left: 2px; }
+.intro-cine-gate-btn:hover {
+	color: #fff;
+	border-color: var(--accent, #35e0c8);
+	background: color-mix(in srgb, var(--accent, #35e0c8) 20%, transparent);
+}
+@keyframes intro-cine-gate-breathe {
+	0%, 100% { box-shadow: 0 0 0 0 transparent; }
+	50%      { box-shadow: 0 0 22px 1px color-mix(in srgb, var(--accent, #35e0c8) 26%, transparent); }
+}
+.intro-cine-gate-fine {
+	margin-top: 22px;
+	font-size: 12.5px;
+	line-height: 1.5;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	color: rgba(235,245,244,0.62);
+}
+[data-motion="off"] .intro-cine-gate-card,
+[data-motion="off"] .intro-cine-gate-lamp,
+[data-motion="off"] .intro-cine-gate-wait i,
+[data-motion="off"] .intro-cine-gate-btn { animation: none; }
+/* No bar rather than a frozen full one — a static countdown reads as a stuck load. */
+[data-motion="off"] .intro-cine-gate-wait { opacity: 0; }
+/* The chassis keeps its shape on a phone; only the padding gives. */
+@media (max-width: 520px) {
+	.intro-cine-gate-screen { padding: 22px 16px 20px; }
+	.intro-cine-gate-bar { font-size: 8px; letter-spacing: 0.14em; }
+	.intro-cine-gate-ver { display: none; }
+}
+
+.intro-cine-skip {
+	position: absolute;
+	z-index: 5;   /* above .intro-cine-gate — skippable from the start gate too */
+	right: clamp(14px, 3vw, 34px);
+	bottom: clamp(14px, 3vw, 30px);
+	font-family: var(--font-mono, 'Courier New', monospace);
+	font-size: 12px;
+	letter-spacing: 2.4px;
+	text-transform: uppercase;
+	color: rgba(235,245,244,0.34);
+	background: transparent;
+	border: 1px solid rgba(235,245,244,0.16);
+	border-radius: 4px;
+	padding: 7px 14px;
+	cursor: pointer;
+	transition: color 500ms ease, border-color 500ms ease, background 500ms ease, opacity 500ms ease;
+}
+.intro-cine-skip span { opacity: 0.7; margin-left: 3px; }
+.intro-cine-skip:hover { color: #fff; border-color: rgba(235,245,244,0.55); }
+/* Loud for the first six seconds, then it recedes without ever leaving. */
+.intro-cine-skip.show {
+	color: #fff;
+	border-color: rgba(235,245,244,0.7);
+	background: rgba(255,255,255,0.06);
+}
+/* On a phone the skip is the ONLY way out — there is no Escape key — so it keeps
+   a thumb-sized target even though the label shrinks. */
+@media (max-width: 700px) {
+	.intro-cine-skip {
+		font-size: 11px;
+		padding: 0 16px;
+		min-height: 44px;
+		min-width: 88px;
+	}
+}
+
+/* ── The wordmark ───────────────────────────────────────────────────────────
+   The last eight seconds of the cold open. It sits over the city (which keeps
+   running underneath) behind its own radial scrim, so the skyline is still
+   faintly there — the brand is standing in front of the thing it built.
+
+   Every part arrives on its own beat: the scrim, then the A drawing itself on
+   stroke by stroke, then its nodes, then the wordmark's tracking closing from
+   wide to set, then the rule wiping out from the middle, then the welcome, then
+   the small print. Sequenced with delays rather than one fade, because a logo
+   that assembles reads as designed and a logo that fades in reads as an image. */
+.intro-cine-logo {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0;
+	opacity: 0;
+	pointer-events: none;
+	color: var(--accent, #35e0c8);
+	background: radial-gradient(ellipse at center, rgba(0,0,0,0.86) 0%, rgba(0,0,0,0.80) 46%, rgba(0,0,0,0.92) 100%);
+	transition: opacity 1400ms ease;
+}
+.intro-cine-logo.in { opacity: 1; }
+.intro-cine-markwrap {
+	position: relative;
+	width: clamp(84px, 11vw, 132px);
+	margin-bottom: clamp(16px, 2.4vw, 26px);
+	overflow: hidden;          /* clips the scan bar to the mark */
+	line-height: 0;
+}
+.intro-cine-mark {
+	width: 100%;
+	height: auto;
+	filter: drop-shadow(0 0 26px color-mix(in srgb, var(--accent, #35e0c8) 42%, transparent));
+}
+/* The mark never settles completely — a slow breath on the glow, running for as
+   long as it's on screen. A logo that stops moving is a logo that is finished;
+   this one should read as switched ON. */
+.intro-cine-logo.in .intro-cine-mark { animation: icm-breathe 4200ms ease-in-out 2200ms infinite; }
+@keyframes icm-breathe {
+	0%, 100% { filter: drop-shadow(0 0 22px color-mix(in srgb, var(--accent, #35e0c8) 34%, transparent)); }
+	50%      { filter: drop-shadow(0 0 40px color-mix(in srgb, var(--accent, #35e0c8) 62%, transparent)); }
+}
+
+/* Containment frame — first thing in, thin and cold. */
+.intro-cine-logo .icm-frame path { stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0.55; }
+.intro-cine-logo.in .icm-frame path { animation: icm-draw 700ms cubic-bezier(.2,.8,.2,1) both; }
+.intro-cine-logo.in .icm-frame path:nth-child(1) { animation-delay: 120ms; }
+.intro-cine-logo.in .icm-frame path:nth-child(2) { animation-delay: 190ms; }
+.intro-cine-logo.in .icm-frame path:nth-child(3) { animation-delay: 260ms; }
+.intro-cine-logo.in .icm-frame path:nth-child(4) { animation-delay: 330ms; }
+
+/* Chromatic split. Faint, offset, and pulled back to almost-registered as the
+   mark finishes — the press correcting itself. */
+.intro-cine-logo .icm-ghost { opacity: 0; mix-blend-mode: screen; }
+.intro-cine-logo .icm-ghost path { stroke-dasharray: 1; stroke-dashoffset: 1; }
+.intro-cine-logo.in .icm-ghost path { animation: icm-draw 1250ms cubic-bezier(.22,.7,.25,1) 480ms both; }
+.intro-cine-logo.in .icm-ghost-a { animation: icm-ghost-a 2600ms ease 480ms both; }
+.intro-cine-logo.in .icm-ghost-b { animation: icm-ghost-b 2600ms ease 480ms both; }
+@keyframes icm-ghost-a {
+	0%   { opacity: 0;    transform: translateX(-3.5px); }
+	35%  { opacity: 0.42; transform: translateX(-3.5px); }
+	100% { opacity: 0.16; transform: translateX(-1px); }
+}
+@keyframes icm-ghost-b {
+	0%   { opacity: 0;    transform: translateX(3.5px); }
+	35%  { opacity: 0.42; transform: translateX(3.5px); }
+	100% { opacity: 0.16; transform: translateX(1px); }
+}
+
+/* The scan: read, logged, filed. */
+.icm-scan {
+	position: absolute;
+	left: -10%;
+	width: 120%;
+	height: 26%;
+	top: -30%;
+	opacity: 0;
+	pointer-events: none;
+	background: linear-gradient(180deg,
+		transparent,
+		color-mix(in srgb, var(--accent, #35e0c8) 34%, transparent) 45%,
+		color-mix(in srgb, var(--accent, #35e0c8) 72%, transparent) 52%,
+		transparent);
+}
+.intro-cine-logo.in .icm-scan { animation: icm-scan 1300ms cubic-bezier(.4,0,.5,1) 1750ms both; }
+@keyframes icm-scan {
+	0%   { top: -30%; opacity: 0; }
+	12%  { opacity: 1; }
+	88%  { opacity: 1; }
+	100% { top: 104%; opacity: 0; }
+}
+
+/* One ring out from the middle as the last node lands. */
+.intro-cine-logo .icm-pulse { opacity: 0; transform-box: fill-box; transform-origin: center; }
+.intro-cine-logo.in .icm-pulse { animation: icm-ring 1500ms cubic-bezier(.15,.75,.3,1) 1980ms both; }
+@keyframes icm-ring {
+	0%   { opacity: 0.75; transform: scale(0.12); }
+	100% { opacity: 0;    transform: scale(1.75); }
+}
+.intro-cine-logo .icm-strokes path {
+	stroke-dasharray: 1;
+	stroke-dashoffset: 1;
+}
+/* transform-box/origin: without these an SVG scale() pivots on the viewBox
+   origin, so the nodes would slide in from the top-left instead of popping. */
+.intro-cine-logo .icm-nodes circle {
+	opacity: 0;
+	transform-box: fill-box;
+	transform-origin: center;
+}
+.intro-cine-logo.in .icm-leg   { animation: icm-draw 1250ms cubic-bezier(.22,.7,.25,1) 320ms both; }
+.intro-cine-logo.in .icm-bar   { animation: icm-draw 620ms cubic-bezier(.22,.7,.25,1) 1250ms both; }
+.intro-cine-logo.in .icm-spine { animation: icm-draw 900ms ease 1500ms both; }
+.intro-cine-logo.in .icm-nodes circle { animation: icm-node 700ms ease both; }
+.intro-cine-logo.in .icm-nodes circle:nth-child(1) { animation-delay: 1500ms; }
+.intro-cine-logo.in .icm-nodes circle:nth-child(2) { animation-delay: 1600ms; }
+.intro-cine-logo.in .icm-nodes circle:nth-child(3) { animation-delay: 1660ms; }
+.intro-cine-logo.in .icm-nodes circle:nth-child(4) { animation-delay: 1760ms; }
+.intro-cine-logo.in .icm-nodes circle:nth-child(5) { animation-delay: 1820ms; }
+.intro-cine-logo.in .icm-nodes circle:nth-child(6) { animation-delay: 1900ms; }
+@keyframes icm-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes icm-node { from { opacity: 0; transform: scale(0.2); } to { opacity: 1; transform: scale(1); } }
+
+.intro-cine-word {
+	font-family: var(--font-mono, 'Courier New', monospace);
+	font-size: clamp(26px, 5.4vw, 62px);
+	font-weight: 400;
+	color: #f2f8f7;
+	letter-spacing: 0.62em;
+	text-indent: 0.62em;    /* balances the trailing letter-space so it stays centred */
+	opacity: 0;
+	text-shadow: 0 0 40px rgba(0,0,0,0.9);
+	line-height: 1.1;
+}
+/* Two movements at once: the tracking closes from wide to set (the word being
+   COMPOSED), and a hard-edged wipe uncovers it left to right (the word being
+   PRINTED). Either alone is a fade; together it reads as manufacture. */
+.intro-cine-logo.in .intro-cine-word { animation: icm-word 1900ms cubic-bezier(.16,.8,.24,1) 1650ms both; }
+@keyframes icm-word {
+	from { opacity: 0; letter-spacing: 0.95em; text-indent: 0.95em; filter: blur(3px); clip-path: inset(0 100% 0 0); }
+	60%  { opacity: 1; }
+	to   { opacity: 1; letter-spacing: 0.32em; text-indent: 0.32em; filter: blur(0); clip-path: inset(0 0 0 0); }
+}
+/* The trademark. Last thing on screen, smallest thing on screen, and the single
+   most corporate object in the entire cold open. */
+.icm-tm {
+	font-size: 0.26em;
+	letter-spacing: 0;
+	vertical-align: super;
+	margin-left: -0.22em;
+	opacity: 0;
+	color: var(--accent, #35e0c8);
+}
+.intro-cine-logo.in .icm-tm { animation: icm-rise 900ms ease 3450ms both; }
+
+/* The rule fills rather than fading — a bar reaching 100%, which is a progress
+   meter, which is a thing being APPROVED. */
+.intro-cine-rule {
+	position: relative;
+	width: min(380px, 54vw);
+	height: 1px;
+	margin: clamp(14px, 2vw, 22px) 0 clamp(12px, 1.8vw, 18px);
+	background: rgba(200, 214, 212, 0.14);
+	overflow: hidden;
+}
+.intro-cine-rule i {
+	position: absolute;
+	inset: 0;
+	display: block;
+	transform: scaleX(0);
+	transform-origin: left center;
+	background: linear-gradient(90deg,
+		transparent,
+		color-mix(in srgb, var(--accent, #35e0c8) 85%, transparent) 45%,
+		color-mix(in srgb, var(--accent, #35e0c8) 85%, transparent) 55%,
+		transparent);
+}
+.intro-cine-logo.in .intro-cine-rule i { animation: icm-rule 1200ms cubic-bezier(.3,.8,.3,1) 2900ms both; }
+@keyframes icm-rule { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.intro-cine-welcome {
+	font-family: var(--font-mono, 'Courier New', monospace);
+	font-size: clamp(12px, 1.7vw, 18px);
+	letter-spacing: 0.26em;
+	text-indent: 0.26em;
+	color: rgba(238,244,243,0.86);
+	opacity: 0;
+}
+/* The small print. Uppercase, tiny, and dim — the tone of a thing that has
+   already decided on your behalf and filed the paperwork. */
+.intro-cine-fine {
+	position: relative;
+	font-family: var(--font-mono, 'Courier New', monospace);
+	font-size: clamp(8.5px, 1vw, 10.5px);
+	letter-spacing: 0.22em;
+	margin-top: clamp(12px, 1.8vw, 18px);
+	color: rgba(200,214,212,0.30);
+	opacity: 0;
+	text-align: center;
+	padding: 0 6vw;
+}
+/* The two small-print lines are stacked exactly on top of each other, so the
+   swap is a swap and not a reflow. B is on screen for about a fifth of a second
+   and reads slightly hotter, which is the only tell that it happened at all. */
+.intro-cine-fine .icm-fine-b {
+	position: absolute;
+	left: 0; right: 0; top: 0;
+	padding: 0 6vw;
+	color: color-mix(in srgb, var(--accent, #35e0c8) 62%, #fff);
+	opacity: 0;
+}
+.intro-cine-logo.in .icm-fine-a { animation: icm-fine-a 2600ms steps(1, end) 4300ms both; }
+.intro-cine-logo.in .icm-fine-b { animation: icm-fine-b 2600ms steps(1, end) 4300ms both; }
+@keyframes icm-fine-a { 0%, 43% { opacity: 1; } 44%, 49% { opacity: 0; } 50%, 100% { opacity: 1; } }
+@keyframes icm-fine-b { 0%, 43% { opacity: 0; } 44%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+.intro-cine-logo.in .intro-cine-welcome { animation: icm-rise 1200ms ease 3200ms both; }
+.intro-cine-logo.in .intro-cine-fine    { animation: icm-rise 1400ms ease 4100ms both; }
+@keyframes icm-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (max-width: 700px) {
+	.intro-cine-word { font-size: clamp(22px, 8vw, 34px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	#intro-cinematic, #intro-cinematic.closing { animation-duration: 300ms; }
+	.intro-cine-line { transition: opacity 500ms ease; transform: none; }
+	/* The logo arrives whole: no draw-on, no wipe, no scan, no chromatic split,
+	   no glitch. Everything that MOVES is dropped; everything that says something
+	   is kept, including the mask-slip line — it just never comes back (the
+	   honest version is the one left standing, which is arguably better). */
+	.intro-cine-logo.in .icm-leg,
+	.intro-cine-logo.in .icm-bar,
+	.intro-cine-logo.in .icm-spine,
+	.intro-cine-logo.in .icm-frame path { animation: none; stroke-dashoffset: 0; }
+	.intro-cine-logo.in .intro-cine-mark { animation: none; }
+	.intro-cine-logo.in .icm-ghost { animation: none; opacity: 0; }
+	.intro-cine-logo.in .icm-scan,
+	.intro-cine-logo.in .icm-pulse { animation: none; opacity: 0; }
+	.intro-cine-logo.in .icm-nodes circle { animation: none; opacity: 1; }
+	.intro-cine-logo.in .intro-cine-word {
+		animation: none; opacity: 1; letter-spacing: 0.32em; text-indent: 0.32em; clip-path: none;
+	}
+	.intro-cine-logo.in .icm-tm { animation: none; opacity: 1; }
+	.intro-cine-logo.in .intro-cine-rule i { animation: none; transform: scaleX(1); }
+	.intro-cine-logo.in .intro-cine-welcome,
+	.intro-cine-logo.in .intro-cine-fine { animation: none; opacity: 1; transform: none; }
+	.intro-cine-logo.in .icm-fine-a { animation: none; opacity: 1; }
+	.intro-cine-logo.in .icm-fine-b { animation: none; opacity: 0; }
+}
+
+/* ── Container item action menu ──────────────────────────────────────────────
+   Clicking an item in a container (or a wardrobe rail) opens what you can do
+   with it, anchored to its own card. Built from the item's tags, so it never
+   offers a verb the server would refuse. */
+.ctr-item-card { position: relative; }
+.ctr-actions-pop {
+	position: absolute;
+	top: calc(100% + 2px);
+	left: 0;
+	min-width: 148px;
+	z-index: 40;
+	background: var(--bg2);
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+	padding: 3px;
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+}
+.ctr-actions-head {
+	font-size: 9px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: var(--text-dim);
+	padding: 3px 6px 4px;
+	border-bottom: 1px solid var(--border);
+	margin-bottom: 2px;
+}
+.ctr-actions-item {
+	background: none;
+	border: none;
+	text-align: left;
+	font-family: inherit;
+	font-size: 12px;
+	color: var(--text);
+	padding: 4px 7px;
+	border-radius: 3px;
+	cursor: pointer;
+}
+.ctr-actions-item:hover { background: rgba(185, 139, 74, 0.16); color: var(--text-bright); }
+
+/* ── Message colour utilities ────────────────────────────────────────────────
+   These class names are used by nine plugins (aa-sites, flight, atm, mis, jail,
+   surveillance and friends) and were defined in NO stylesheet, so every one of
+   those lines has been rendering as plain body text. Defining them here is the
+   fix; the names are kept exactly as the plugins already write them. */
+.text-green  { color: var(--green); }
+.text-red    { color: var(--red); }
+.text-cyan   { color: var(--cyan); }
+.text-yellow { color: var(--yellow); }
+.text-amber  { color: var(--orange); }
+.text-orange { color: var(--orange); }
+.text-purple { color: var(--purple); }
+
+/* ── Firmware readout ────────────────────────────────────────────────────────
+   Old municipal hardware talking to itself: monospace, phosphor, and a faint
+   bloom so it reads as a screen rather than as prose. Used by the library
+   lending terminal's transfer; any other ancient device can reuse it. */
+.fw {
+	font-family: var(--font-mono);
+	color: var(--green);
+	letter-spacing: 0.5px;
+	text-shadow: 0 0 6px color-mix(in srgb, var(--green) 45%, transparent);
+}
+.fw-dim {
+	font-family: var(--font-mono);
+	color: var(--green);
+	opacity: 0.45;
+	letter-spacing: 0.5px;
+}
+.fw-ok {
+	font-family: var(--font-mono);
+	color: var(--green);
+	font-weight: bold;
+	text-shadow: 0 0 9px color-mix(in srgb, var(--green) 65%, transparent);
+}
+/* A warning the machine prints and then ignores — the joke only lands if it
+   looks like it mattered. */
+.fw-warn {
+	font-family: var(--font-mono);
+	color: var(--orange);
+	letter-spacing: 0.5px;
+	text-shadow: 0 0 6px color-mix(in srgb, var(--orange) 45%, transparent);
+}
+
+
+/* ═══ TRADING CARDS (plugins/cards) ═══════════════════════════════════════════
+   Three surfaces: the machine's room panel, a rendered card face, and the pack
+   opening. The opening is the product — the reveal is sorted worst-to-best
+   server-side, so all the CSS has to do is stagger it and let the last one land
+   hardest. Everything collapses to final state under reduced-motion, because the
+   ORDER is information and only the motion is decoration. */
+
+.cardmach {
+	display: block;
+	margin: 8px 0;
+	border: 1px solid var(--border);
+	background: linear-gradient(180deg, #101018, #07070d);
+	max-width: 340px;
+}
+.cardmach-top {
+	display: flex;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 7px 11px;
+	border-bottom: 1px solid var(--border);
+	background: linear-gradient(90deg, var(--accent-dim), #1a0c1a);
+	font-size: 0.78em;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: var(--text);
+}
+.cardmach-mint .cardmach-top { background: linear-gradient(90deg, #1a1206, #0d0a04); color: var(--yellow); }
+.cardmach-pwr { color: var(--green); }
+.cardmach-dead .cardmach-pwr { color: #4a2a2a; }
+.cardmach-win {
+	display: block;
+	margin: 10px 11px;
+	padding: 9px 10px;
+	border: 1px solid var(--border);
+	background: #04040a;
+	color: var(--green);
+	font-size: 0.85em;
+	line-height: 1.65;
+	white-space: pre-line;
+}
+.cardmach-mint .cardmach-win { color: var(--yellow); }
+.cardmach-off { color: #44445c; text-align: center; }
+.cardmach-buy {
+	display: block;
+	margin: 0 11px 11px;
+	padding: 8px;
+	text-align: center;
+	font-size: 0.8em;
+	letter-spacing: 0.18em;
+	background: var(--accent);
+	color: var(--accent-ink);
+	border-radius: 2px;
+}
+.cardmach-mint .cardmach-buy { background: var(--yellow); }
+.cardmach-buy:hover { filter: brightness(1.15); }
+
+/* A card face, rendered as text. Rarity tints the frame and nothing else —
+   the writing is the card. */
+.card-face {
+	display: block;
+	margin: 6px 0;
+	padding: 11px 13px;
+	max-width: 460px;
+	border: 1px solid var(--border);
+	border-left-width: 3px;
+	background: linear-gradient(180deg, var(--bg2), #07070d);
+}
+.card-uncommon { border-left-color: var(--green); }
+.card-rare { border-left-color: var(--cyan); }
+.card-epic { border-left-color: var(--purple); }
+.card-legendary { border-left-color: var(--orange); }
+.card-architect { border-left-color: var(--yellow); box-shadow: 0 0 22px -8px var(--yellow); }
+.card-serial { display: block; font-size: 0.72em; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-dim); }
+.card-handle { display: block; font-size: 1.5em; font-weight: 700; letter-spacing: 0.05em; margin: 2px 0 1px; }
+.card-sub { display: block; font-size: 0.78em; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
+.card-block { display: block; margin-top: 9px; font-size: 0.92em; }
+.card-lbl { display: block; font-size: 0.72em; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 3px; }
+.card-quote { display: block; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); color: var(--yellow); }
+.card-power { display: block; margin-top: 9px; font-size: 0.75em; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-dim); }
+.card-power b { color: var(--yellow); font-size: 1.5em; letter-spacing: 0; }
+.card-rank { font-weight: 700; }
+.card-r-uncommon { color: var(--green); }
+.card-r-rare { color: var(--cyan); }
+.card-r-epic { color: var(--purple); }
+.card-r-legendary { color: var(--orange); }
+.card-r-architect { color: var(--yellow); }
+.card-shelf-head { display: block; font-size: 0.8em; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+.card-shelf-row { display: block; margin: 2px 0; }
+
+/* THE OPENING. Each pull flips in on a stagger; the last one is the hit and
+   gets both a longer beat and a bloom. Delays are per-position because the
+   server already sorted the sleeve — position IS rarity order. */
+.card-sleeve { display: block; margin: 6px 0; }
+.card-tear {
+	display: block;
+	font-size: 0.85em;
+	letter-spacing: 0.1em;
+	color: var(--text-dim);
+	margin-bottom: 6px;
+	animation: cardTear 0.34s ease-out backwards;
+}
+@keyframes cardTear { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.card-pull {
+	display: block;
+	padding: 4px 0;
+	border-bottom: 1px dotted var(--border);
+	animation: cardFlip 0.34s cubic-bezier(0.2, 0.9, 0.3, 1.2) backwards;
+}
+@keyframes cardFlip {
+	from { opacity: 0; transform: perspective(400px) rotateX(-82deg); filter: brightness(2.4); }
+	to { opacity: 1; transform: none; filter: none; }
+}
+.card-pull:nth-child(2) { animation-delay: 0.45s; }
+.card-pull:nth-child(3) { animation-delay: 0.85s; }
+.card-pull:nth-child(4) { animation-delay: 1.25s; }
+.card-pull:nth-child(5) { animation-delay: 1.65s; }
+.card-pull:nth-child(6) { animation-delay: 2.05s; }
+.card-pull:nth-child(7) { animation-delay: 2.45s; }
+.card-pull:nth-child(8) { animation-delay: 2.85s; }
+.card-pull:nth-child(9) { animation-delay: 3.25s; }
+.card-pull:nth-child(10) { animation-delay: 3.65s; }
+.card-pull-name { color: var(--text); letter-spacing: 0.04em; }
+/* The hit: an extra beat before it turns, then a bloom. The pause is the tell. */
+.card-pull-hit {
+	margin-top: 3px;
+	padding: 7px 9px;
+	border-bottom: 1px solid currentColor;
+	animation-delay: inherit;
+}
+.card-pull-hit.card-pull-uncommon { color: var(--green); background: linear-gradient(90deg, color-mix(in srgb, var(--green) 13%, transparent), transparent); }
+.card-pull-hit.card-pull-rare { color: var(--cyan); background: linear-gradient(90deg, color-mix(in srgb, var(--cyan) 13%, transparent), transparent); }
+.card-pull-hit.card-pull-epic { color: var(--purple); background: linear-gradient(90deg, color-mix(in srgb, var(--purple) 15%, transparent), transparent); }
+.card-pull-hit.card-pull-legendary { color: var(--orange); background: linear-gradient(90deg, color-mix(in srgb, var(--orange) 16%, transparent), transparent); }
+.card-pull-hit .card-pull-name { font-weight: 700; color: currentColor; }
+.card-dupe {
+	font-size: 0.72em;
+	letter-spacing: 0.1em;
+	color: var(--orange);
+	border: 1px solid var(--orange);
+	border-radius: 2px;
+	padding: 0 4px;
+	margin-left: 5px;
+}
+.card-preview { display: block; opacity: 0.92; }
+
+@media (prefers-reduced-motion: reduce) {
+	.card-pull, .card-tear { animation: none !important; }
 }

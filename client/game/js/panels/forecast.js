@@ -1,6 +1,6 @@
 import { appendMsg } from '../render.js';
-import { formatTemp, formatTempPrecise } from '/shared/settings.js';
-import { getEnvSnapshot } from './environment.js';
+import { formatTemp } from '/shared/settings.js';
+import { getEnvSnapshot, isEnvUnreal } from './environment.js';
 
 // A forecast day at or above this severity shows a ⚠ warning. Deliberately a
 // boolean band, not the raw number — the telegraph warns "severe conditions
@@ -18,6 +18,13 @@ function windLabel(kph) {
 }
 
 export function openForecast() {
+  // No weather here, and no week to have weather in — see setEnvUnreal in
+  // environment.js. Answering in fiction rather than opening a panel full of
+  // Coldwater's forecast at someone standing in the prologue's corridor.
+  if (isEnvUnreal()) {
+    appendMsg('There is no sky here to read, and no tomorrow to read it for.', 'ambient');
+    return;
+  }
   renderForecastToday();
   document.getElementById('forecast-panel').classList.add('active');
   fetch('/api/environment/forecast')
@@ -49,8 +56,7 @@ function renderForecastToday() {
     ${env.windKph != null ? `<div class="ft-row"><span class="ft-label">Wind</span><span class="ft-val">\u{1F4A8} ${env.windKph} km/h · ${windLabel(env.windKph)}</span></div>` : ''}
     ${env.humidityPct != null ? `<div class="ft-row"><span class="ft-label">Humidity</span><span class="ft-val">\u{1F4A7} ${env.humidityPct}%</span></div>` : ''}
     ${env.bodyFeel ? `<div class="ft-row"><span class="ft-label">Feels</span><span class="ft-val">${env.bodyFeel}</span></div>` : ''}
-    ${precipStr ? `<div class="ft-row"><span class="ft-label">Precip</span><span class="ft-val ft-precip">${precipStr}</span></div>` : ''}
-    ${env.bodyTempC !== null ? `<div class="ft-row"><span class="ft-label">Body</span><span class="ft-val">\u{1F321} ${formatTempPrecise(env.bodyTempC)}</span></div>` : ''}
+    ${precipStr ? `<div class="ft-row"><span class="ft-label">Precip</span><span class="ft-val ft-precip">${precipStr}</span></div>` : ''}
   `;
 }
 
@@ -59,11 +65,17 @@ function renderForecastDays(forecast) {
   if (!el) return;
   el.innerHTML = (forecast || []).map((f, i) => {
     const severe = (f.severity ?? 0) >= SEVERE_THRESHOLD;
+    // A hero day outranks an ordinary severe day and has to LOOK it: its own
+    // icon, its own row class, and a named warning instead of the vague band.
+    // This is the week of notice the acid/EMP teeth are balanced against.
+    const hero = f.heroEvent ? { icon: f.heroEventIcon || '⚠', label: f.heroEventLabel || f.heroEvent.replace(/_/g, ' ') } : null;
     return `
-    <div class="forecast-day-row ${i === 0 ? 'fd-today' : ''} ${severe ? 'fd-severe' : ''}">
+    <div class="forecast-day-row ${i === 0 ? 'fd-today' : ''} ${severe ? 'fd-severe' : ''} ${hero ? 'fd-hero' : ''}">
       <span class="fd-label">${i === 0 ? 'Today' : (f.date || '').slice(5) || `+${i}`}</span>
-      <span class="fd-icon">${f.icon || ''}</span>
-      <span class="fd-weather">${(f.weatherType || '').replace('_', ' ')}${severe ? ' <span class="fd-warn" title="Severe conditions likely — gear up before heading out">⚠</span>' : ''}</span>
+      <span class="fd-icon">${hero ? hero.icon : (f.icon || '')}</span>
+      <span class="fd-weather">${hero ? hero.label : (f.weatherType || '').replace('_', ' ')}${hero
+        ? ` <span class="fd-hero-warn" title="${hero.label} forecast for this day — this one kills people who go out unprepared">⚠⚠</span>`
+        : (severe ? ' <span class="fd-warn" title="Severe conditions likely — gear up before heading out">⚠</span>' : '')}</span>
       ${f.humidityPct != null ? `<span class="fd-humid" title="Humidity">\u{1F4A7} ${f.humidityPct}%</span>` : ''}
       ${f.windKph != null ? `<span class="fd-wind" title="${windLabel(f.windKph)}">\u{1F4A8} ${f.windKph}</span>` : ''}
       <span class="fd-temp">${formatTemp(f.tempC)}</span>

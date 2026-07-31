@@ -1,30 +1,37 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
+  "ambient_events": [
+    "Warm air rolls out of the doorway, soap-smelling, and is gone the moment the wind turns.",
+    "The window throws a long pale rectangle across the kerb — the only clean light on this stretch."
+  ],
+  "ambient_theme": "city",
+  "bg_color": "#2e4450",
+  "color": "#cfe9f5",
   "created_by": "zone-planner",
-  "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "description": "A single-storey shopfront that is almost entirely window, wedged between the grass verge and the road. Blue-white light comes through it hard enough to lay a clean rectangle over the broken kerb, and the sign above the door — THE WASH, in cold tube neon, one letter flickering on a bad night — is the only thing on this stretch of Ironside that has been maintained on purpose. Through the glass: rows of machines, a bench, and usually somebody sitting on it doing nothing in particular. The door is on the <b>east</b> face, and it is never locked.",
   "exits": {
     "east": "zone_district_919_905",
     "north": "zone_district_918_904",
-    "south": "zone_district_918_906",
-    "west": "zone_district_917_905"
+    "west": "zone_the_wash"
   },
   "flags": {
+    "building_name": "The Wash",
+    "building_type": "laundromat",
     "district": "wasteland",
+    "entrance": "east",
+    "facade": true,
+    "intro_lore": "The Wash keeps its lights on all night and its door unlocked, which on Ironside makes it either a charity or a trap, and the basin has never quite settled which. It is, in fact, a laundry. Coin machines, hot water, a bench, a kettle. The card taped to the middle machine says pay when you can and — improbably, stubbornly — that is how it has been run for years. Fresh clones find it first because it is the only warm room on this street nobody charges you to stand in.",
+    "is_building": true,
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_919_905"
   },
   "grid_x": 918,
   "grid_y": 905,
   "grid_z": 0,
   "id": "zone_district_918_905",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "WA",
+  "name": "The Wash",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1785000000"
 }

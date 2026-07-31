@@ -1,0 +1,17 @@
+{
+  "id": "dx_psilocybin_wall_grown",
+  "drug_id": "drug_psilocybin",
+  "matches": "wall",
+  "name": "a wall grown from a description of walls",
+  "description": "It has been grown to the idea of a wall by something that had only ever had walls described to it. It is a very good try.",
+  "looks": [
+    "The grain runs the way a corridor runs, all the way down.",
+    "Where it has been longest, the building has agreed with it.",
+    "Under the paint, the paint is only paint over more paint."
+  ],
+  "says": [
+    "I got most of it right.",
+    "There was a plan. I improved on the plan."
+  ],
+  "scope": "object"
+}

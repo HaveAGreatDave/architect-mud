@@ -6,6 +6,8 @@
   "tags": {
     "consumable": true,
     "description": "Aged in what used to be a wine cellar and is now mostly intact. The only drink in the basin served with a paper umbrella, against everyone's better judgment.",
+    "food_noun": "wine",
+    "food_profile": "liquid",
     "hydrating": true,
     "laced_drug": "drug_alcohol",
     "laced_potency": 1.3,

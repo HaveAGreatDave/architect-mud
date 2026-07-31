@@ -1,0 +1,18 @@
+{
+  "description": "Two tapered wads of grey filter foam on a cord, so you don't lose the pair when you pull them out. They do not seal and they were never meant to. They take the edge off, and taking the edge off is sometimes the whole job.",
+  "flags": {},
+  "id": "item_nose_plugs",
+  "name": "nose plugs",
+  "tags": {
+    "description": "Two tapered wads of grey filter foam on a cord, so you don't lose the pair when you pull them out. They do not seal and they were never meant to. They take the edge off, and taking the edge off is sometimes the whole job.",
+    "misc": true,
+    "sense_damp": {
+      "smell": -1
+    },
+    "slot": "accessory",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 8,
+  "weight": 20
+}

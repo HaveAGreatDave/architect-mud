@@ -4,7 +4,7 @@
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
   "created_by": "zone-planner",
-  "description": "A blunt windowless slab of soundstage, KSAB's call letters bolted twelve feet tall across the crete in channel-lit violet — one letter's ballast is dead, so it buzzes KS·B to anyone counting. A quilted loading roll-door stands dented beside the personnel entrance; a hand-lettered card taped inside the glass reads NO AUDIENCE THIS SIDE — GATE'S NORTH. A red ON AIR bulb over the door glows whether or not a soul is inside.",
+  "description": "A blunt windowless slab of soundstage, KSAB's call letters bolted twelve feet tall across the crete in channel-lit violet — one letter's ballast is dead, so it buzzes KS·B to anyone counting. A quilted loading roll-door stands dented beside the personnel entrance; a box-office window is cut into the crete beside it, lit from below, with a hand-lettered card taped inside the glass: TICKETS HERE — PAGES GO NORTH TO THE WRITERS' WING. A red ON AIR bulb over the door glows whether or not a soul is inside.",
   "exits": {
     "east": "zone_studio_1782953094650",
     "west": "zone_district_912_911"

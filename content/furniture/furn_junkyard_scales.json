@@ -1,0 +1,14 @@
+{
+  "description": "Brass-faced scales on a hook, needle drifting a hair past zero with nothing in the pan — which is either forty years of wear or forty years of policy. A card taped beneath reads WEIGHT IS WHAT I SAY IT IS in the same hand as everything else in here.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_junkyard_scales",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "hanging scales",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_junkyard_shack"
+}

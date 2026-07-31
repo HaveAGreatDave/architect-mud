@@ -18,6 +18,9 @@ import { query } from './db.js';
 // AND edit SCHEMA_SQL here to match — the export will then stay in sync
 // automatically.
 
+// WARNING: this is a TEMPLATE LITERAL. NEVER use backticks anywhere inside it,
+// not even in a SQL comment — a stray one terminates the string and the whole
+// server stops parsing. Quote identifiers with single quotes instead.
 export const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS players (
     id TEXT PRIMARY KEY,
@@ -381,9 +384,9 @@ export const SCHEMA_SQL = `
   -- opted-in street zones (flags.street_life) feel lived-in — kids playing,
   -- delivery drones, buskers, traffic, dogs, etc. Each row is gated by day-phase,
   -- ambient_theme, weather, and/or an explicit zone allowlist, and holds an ordered
-  -- \`lines\` array (one entry = a one-shot; several = a paced vignette). loudness>0
+  -- \'lines\' array (one entry = a one-shot; several = a paced vignette). loudness>0
   -- makes an audible routine bleed to neighbouring rooms via sound propagation;
-  -- \`interactive\` ('tip'|'order') arms a short-lived clickable opportunity.
+  -- \'interactive\' ('tip'|'order') arms a short-lived clickable opportunity.
   CREATE TABLE IF NOT EXISTS ambient_routines (
     id TEXT PRIMARY KEY,
     category TEXT NOT NULL,
@@ -554,6 +557,10 @@ export const SCHEMA_SQL = `
     tier TEXT DEFAULT 'unknown',
     PRIMARY KEY (player_id, ideology_id)
   );
+  -- Standing is maintained, not banked: reputation slides back toward its
+  -- resting point over time (server/engine/ideologies.js). This stamp is what
+  -- makes that decay LAZY — computed from elapsed time on read, no sweep tick.
+  ALTER TABLE player_ideology_rep ADD COLUMN IF NOT EXISTS updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW());
 
   CREATE TABLE IF NOT EXISTS loot_tables (
     id TEXT PRIMARY KEY,
@@ -638,6 +645,88 @@ export const SCHEMA_SQL = `
   ALTER TABLE doors ADD COLUMN IF NOT EXISTS forcefield_locked INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS home_zone TEXT DEFAULT NULL;
 
+  -- Player-owned shops (plugins/storefront). PLAYER data, never content — same law
+  -- as 'apartments': the authored side (asking price, term, upkeep, the vacancy
+  -- itself) lives on the zone as flags.is_storefront/shop_price/shop_term/
+  -- shop_upkeep, and this table is a pure deed-and-mortgage ledger that must not
+  -- round-trip through git. Listed stock is NOT here: it stays as real
+  -- player_inventory rows owned by the synthetic handle '_shopstock_<zoneId>', so
+  -- an item's condition/custom_data survives being put on the shelf.
+  CREATE TABLE IF NOT EXISTS storefronts (
+    zone_id TEXT PRIMARY KEY REFERENCES zones(id),
+    owner_id TEXT,
+    owner_handle TEXT,
+    shop_name TEXT,
+    purchased_at BIGINT,
+    price INTEGER NOT NULL DEFAULT 0,          -- total agreed purchase price
+    weekly_payment INTEGER NOT NULL DEFAULT 0, -- instalment per billing cycle
+    payments_made INTEGER NOT NULL DEFAULT 0,
+    payments_total INTEGER NOT NULL DEFAULT 0, -- term length in cycles
+    upkeep INTEGER NOT NULL DEFAULT 0,         -- charged per cycle AFTER payoff
+    paid_off INTEGER NOT NULL DEFAULT 0,
+    missed INTEGER NOT NULL DEFAULT 0,         -- consecutive missed payments
+    due_date DATE,                             -- GAME calendar, like apartments.rent_due_date
+    till_credits INTEGER NOT NULL DEFAULT 0    -- takings sitting in the shop vault
+  );
+  CREATE INDEX IF NOT EXISTS idx_storefronts_owner ON storefronts(owner_id);
+  -- Durable shutter state. Door lock_state is runtime-only (world.doors resets to
+  -- authored state on reboot), so — exactly like apartments.is_locked — the deed
+  -- holds the truth and the plugin re-applies it to the physical door at boot.
+  ALTER TABLE storefronts ADD COLUMN IF NOT EXISTS shutters_closed INTEGER NOT NULL DEFAULT 0;
+
+  -- Hired shop staff (plugins/storefront). One row per role per shop; PLAYER data
+  -- for the same reason the deed is. 'npc_id' points at a real NPC standing in the
+  -- shop, spawned on hire and despawned on fire.
+  CREATE TABLE IF NOT EXISTS storefront_staff (
+    zone_id TEXT NOT NULL REFERENCES zones(id),
+    role TEXT NOT NULL,                        -- 'clerk' | 'guard'
+    npc_id TEXT,
+    name TEXT,
+    wage INTEGER NOT NULL DEFAULT 0,           -- charged per billing cycle, from the till
+    hired_at BIGINT,
+    PRIMARY KEY (zone_id, role)
+  );
+
+  -- Standing buy orders: what a shop pays for, so people can sell INTO it while
+  -- the owner is offline. Funded from the till.
+  CREATE TABLE IF NOT EXISTS storefront_orders (
+    id TEXT PRIMARY KEY,
+    zone_id TEXT NOT NULL REFERENCES zones(id),
+    item_id TEXT NOT NULL,
+    price INTEGER NOT NULL,                    -- paid per unit, out of the till
+    wanted INTEGER NOT NULL DEFAULT 1,         -- units still sought
+    created_at BIGINT
+  );
+  CREATE INDEX IF NOT EXISTS idx_storefront_orders_zone ON storefront_orders(zone_id);
+
+  -- Kept companions on retainer (plugins/consort — the B.L.I.S.S. app). PLAYER data
+  -- for exactly the same reason the shop deed is: the arrangement belongs to one
+  -- player and must never round-trip through git. The consort herself is NOT an
+  -- npcs row — she's spawned into world.npcs from this ledger at boot and on
+  -- order, and despawned on release, so she can never export as world content.
+  -- Everything authored about her lives in the plugin's archetype registry; this
+  -- table holds only which one, in whose name, at what rate, for how long.
+  CREATE TABLE IF NOT EXISTS player_consorts (
+    id TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL,
+    owner_handle TEXT NOT NULL,                -- the devoted_to handle on the live NPC
+    name TEXT NOT NULL,
+    archetype TEXT NOT NULL,                   -- sub-personality key (archetypes.js)
+    body TEXT NOT NULL,                        -- build key (appearance.js BUILDS)
+    sex TEXT NOT NULL DEFAULT 'female',        -- 'female' | 'male' — consorts come in both
+    seed TEXT,                                 -- appearance seed (regenerates the whole look)
+    pairing_id TEXT,                           -- non-null = one half of an inseparable pair
+    home_zone TEXT,                            -- the private space she was placed in
+    daily_rate INTEGER NOT NULL DEFAULT 0,     -- base rate before the loyalty discount
+    days_kept INTEGER NOT NULL DEFAULT 0,      -- tenure, drives the loyalty discount
+    missed INTEGER NOT NULL DEFAULT 0,         -- consecutive unpaid days
+    hired_at BIGINT,
+    last_seen_at BIGINT,                       -- ms the keeper was last in the room with her
+    next_due DATE                              -- GAME calendar, like apartments.rent_due_date
+  );
+  CREATE INDEX IF NOT EXISTS idx_player_consorts_owner ON player_consorts(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_player_consorts_pairing ON player_consorts(pairing_id);
+
   -- NPC home occupancy — a SEPARATE tracker from the player apartments ledger.
   -- One row per apartment unit an NPC calls home; the housing rent flow treats a
   -- unit listed here as occupied (un-rentable) without ever writing to apartments.
@@ -660,8 +749,13 @@ export const SCHEMA_SQL = `
     ingredients JSONB DEFAULT '[]',
     base_output JSONB NOT NULL,
     skill_id TEXT NOT NULL,
-    base_difficulty INTEGER DEFAULT 3,
-    craft_time INTEGER DEFAULT 3
+    base_difficulty INTEGER DEFAULT 3
+    -- No craft_time column. A craft's duration is DERIVED from difficulty,
+    -- skill gate and ingredient bulk (craftSeconds() in engine/crafting.js).
+    -- The column was here for years, unread, with 35 of 36 rows still on its
+    -- default of 3 — the standing proof that a per-recipe number with no
+    -- mechanical effect never gets authored. Existing databases keep the dead
+    -- column until server/models/temp/drop-craft-time.js is run against them.
   );
 
   CREATE TABLE IF NOT EXISTS drugs (
@@ -689,6 +783,7 @@ export const SCHEMA_SQL = `
     is_addicted INTEGER DEFAULT 0,
     last_used_at BIGINT,
     tolerance REAL DEFAULT 0,
+    tolerance_lethal REAL DEFAULT 0,
     addiction REAL DEFAULT 0,
     -- Inline-drug payload. Spliced compounds have no drugs row, so the withdrawal
     -- tick has nothing to look up; their composed effects blob is stored here at use
@@ -822,6 +917,19 @@ export const SCHEMA_SQL = `
   -- Drug tolerance + addiction accumulation (phased-effect drug system)
   ALTER TABLE player_drug_state ADD COLUMN IF NOT EXISTS tolerance REAL DEFAULT 0;
   ALTER TABLE player_drug_state ADD COLUMN IF NOT EXISTS addiction REAL DEFAULT 0;
+  -- Differential tolerance. 'tolerance' is the FELT one (dulls the high); this is
+  -- the LETHAL one (raises the overdose ceiling), and it builds slower and fades
+  -- slower. The gap between them is what kills long-term users. Existing rows
+  -- start at 0, which is the safe direction: a veteran's ceiling drops to novice
+  -- level until they use again, rather than silently inheriting free headroom.
+  ALTER TABLE player_drug_state ADD COLUMN IF NOT EXISTS tolerance_lethal REAL DEFAULT 0;
+  -- What this player has LEARNED about this compound, as a bitmask (see
+  -- DRUG_FACTS in server/engine/drugs.js). Knowledge is earned by CONSEQUENCE,
+  -- not by a use counter: you learn the overdose ceiling by overdosing, the
+  -- addiction risk by getting hooked, and what withdrawal feels like by going
+  -- through it. Lives here rather than on the players table because it is
+  -- inherently per-player-per-drug, which is exactly what this table already is.
+  ALTER TABLE player_drug_state ADD COLUMN IF NOT EXISTS known_facts INTEGER DEFAULT 0;
   -- Composed effects for inline (spliced-compound) drugs, which have no drugs row.
   ALTER TABLE player_drug_state ADD COLUMN IF NOT EXISTS effects JSONB;
 
@@ -882,6 +990,12 @@ export const SCHEMA_SQL = `
   ALTER TABLE players ADD COLUMN IF NOT EXISTS erect INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS digestive_load REAL DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS hydration_load REAL DEFAULT 0;
+  -- Fatigue is DERIVED from this, not stored: how long since you last properly
+  -- slept. One column, written only when you sleep, rather than a meter the
+  -- resource tick has to persist every minute for every player. It also survives
+  -- logout for free — time spent logged off still counts as time awake, unless
+  -- you had the sense to log off in a bed.
+  ALTER TABLE players ADD COLUMN IF NOT EXISTS last_slept_at BIGINT;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS appearance_data JSONB DEFAULT '{}';
   ALTER TABLE players ADD COLUMN IF NOT EXISTS clothing_contamination JSONB DEFAULT '{}';
   ALTER TABLE players ADD COLUMN IF NOT EXISTS sexuality TEXT DEFAULT 'Male';
@@ -999,6 +1113,36 @@ export const SCHEMA_SQL = `
     updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
 
+  -- ── Player↔NPC relationships (server/engine/relations.js) ─────────────────
+  -- One row per (player, NPC) the player has actually MET — rows are created on
+  -- first contact, never pre-seeded, so the row count is bounded by who you've
+  -- talked to (tens), not by the NPC roster. That bound is what makes the whole
+  -- set safe to hydrate into memory at login and answer every later read from
+  -- the live player object with zero queries (docs/architecture.md read tiers).
+  --
+  -- "familiarity" is how well they know you (0..100, only ever grows through
+  -- contact); "warmth" is how they feel about you (-100..100, signed). Both are
+  -- REAL because decay is fractional and rounding it to int would let a slow
+  -- decay never actually land. Decay is computed LAZILY from "last_seen_at" at
+  -- hydrate time — there is deliberately no sweep tick, so an offline player
+  -- costs nothing and comes back to a cast that has correctly cooled.
+  --
+  -- FK to players CASCADE, same as player_achievements: a write for a
+  -- non-existent player is a hard failure rather than an orphan row, which is
+  -- what keeps the regress harness's fake player from accumulating junk.
+  -- npc_id is deliberately NOT an FK — content is re-imported and NPC rows come
+  -- and go; a stale relation to a deleted NPC is harmless and simply never read.
+  CREATE TABLE IF NOT EXISTS player_npc_relations (
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    npc_id TEXT NOT NULL,
+    familiarity REAL NOT NULL DEFAULT 0,
+    warmth REAL NOT NULL DEFAULT 0,
+    met_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    last_seen_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    PRIMARY KEY (player_id, npc_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_pnr_player ON player_npc_relations(player_id);
+
   -- ── Accolades (plugins/accolades) ─────────────────────────────────────────
   -- One row per (player, entry) the moment an entry is first observed. The
   -- composite PK is the whole unlock guard: a re-trigger is an ON CONFLICT DO
@@ -1021,6 +1165,22 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_player_achievements_player
     ON player_achievements (player_id, unlocked_at DESC);
 
+  -- ── Wardrobe outfits (plugins/wardrobe) ───────────────────────────────────
+  -- A saved look: an ordered list of ITEM TEMPLATE ids (not inventory row ids),
+  -- so an outfit survives the piece being stowed, re-bought, or replaced by an
+  -- identical one. Scoped to the wardrobe furniture it was composed in — your
+  -- apartment's wardrobe and a hotel's are separate closets, which is also why
+  -- there is no FK on furniture_id: a demolished wardrobe simply orphans rows
+  -- nothing reads. The composite PK is the rename/overwrite guard.
+  CREATE TABLE IF NOT EXISTS player_outfits (
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    furniture_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    item_ids JSONB NOT NULL DEFAULT '[]',
+    created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    PRIMARY KEY (player_id, furniture_id, name)
+  );
+
   -- Reusable Script graph assets. The 'graph' JSONB is the exact node format the
   -- shared graph runtime (server/engine/graph.js) executes — hand-authorable, and
   -- edited by the devpanel node editor. Dialogue stays on npcs.dialogue_tree; both
@@ -1032,6 +1192,55 @@ export const SCHEMA_SQL = `
     graph JSONB NOT NULL DEFAULT '{}',
     updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
+
+  -- Event → Script bindings (server/engine/script-triggers.js). One row means
+  -- "when this bus event fires and these filters pass, run that script graph".
+  -- Authored content: the engine ships the channel, never a binding.
+  --   event             — an events.js name (zone.entered, item.equipped, …)
+  --   zone_id           — optional zone filter; NULL = anywhere
+  --   conditions        — flag-condition array, ANDed (see engine/flags.js)
+  --   cooldown_seconds  — per-player (per-world if no actor) re-fire floor
+  --   chance            — 0..1 roll, checked before conditions
+  --   once              — 1 = fire at most once per player (player-flag guard)
+  --   params            — bag interpolated into the graph's \${tokens}; this is
+  --                       what lets one authored graph serve many instances
+  --                       (one "venue regular" script, one row per bar)
+  CREATE TABLE IF NOT EXISTS script_triggers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    event TEXT NOT NULL,
+    script_id TEXT NOT NULL,
+    zone_id TEXT,
+    conditions JSONB NOT NULL DEFAULT '[]',
+    params JSONB NOT NULL DEFAULT '{}',
+    cooldown_seconds INTEGER NOT NULL DEFAULT 0,
+    chance REAL NOT NULL DEFAULT 1,
+    once INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+  ALTER TABLE script_triggers ADD COLUMN IF NOT EXISTS params JSONB NOT NULL DEFAULT '{}';
+
+  -- Pending long wait-node continuations (server/engine/graph.js). A short wait is
+  -- a bare setTimeout; anything at or past GRAPH_DURABLE_WAIT_S is parked here so
+  -- a restart doesn't eat it, which is what makes a multi-day consequence
+  -- authorable. RUNTIME state — accumulated at play time, never authored, never
+  -- shipped. Rows are deleted the moment they run.
+  --   player_id NULL = an actorless wait (world-scope work); runs when due.
+  --   Otherwise the row waits for that player to be online, so a consequence
+  --   lands where they can see it instead of firing into an empty socket.
+  CREATE TABLE IF NOT EXISTS script_waits (
+    id TEXT PRIMARY KEY,
+    script_id TEXT,
+    graph JSONB NOT NULL,
+    node_id TEXT NOT NULL,
+    player_id TEXT,
+    params JSONB NOT NULL DEFAULT '{}',
+    due_at BIGINT NOT NULL,
+    created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+  CREATE INDEX IF NOT EXISTS idx_script_waits_due ON script_waits (due_at);
 
   -- ── Quests (Phase 5: quest plugin) ─────────────────────────────────────────
   -- A Quest is a goal whose objectives advance by the quest plugin subscribing to
@@ -1319,8 +1528,24 @@ export const SCHEMA_SQL = `
   ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS talkshow_pools JSONB;
   -- Morning shows (playback_mode='morning') store a line library + the two resident hosts here: { host, cohost, pools:{key:[…]}, title, theme }. A fresh episode is assembled each in-game day from the LIVE world — forecast, news feed, world alerts, the clock — and ACTED on the studio couch by the two host NPCs.
   ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS morning_pools JSONB;
+  -- Game shows (playback_mode='gameshow') store a line library + real cast + contestant names here: { host, sidekick, contestants:[…], pools:{key:[…]}, title, theme, airSlots, rounds }. A fresh episode is assembled each in-game day from the LIVE item catalog — contestants guess what things are worth — and ACTED on the studio floor by the host (+ optional sidekick). Any player standing in the studio can play; with none, the contestants are name-only strangers.
+  ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS gameshow_pools JSONB;
+  -- Films (playback_mode='film') are the one non-library addition: the picture itself is an ordinary linear broadcast_graph, and this column holds only what a chain can't carry — { presents, rating, director, cast:[{label,name,role}], title, theme, airSlots, runtime }. The cast are DISPLAY NAMES, never npc_ ids: a film is a recording, so it spawns no studio NPCs and never presence-gates. airSlots pins the screening to a fixed in-game block, which is also what makes a late viewer join the reel already running.
+  ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS film_meta JSONB;
+  -- Sermons (playback_mode='sermon') store a line library + the celebrant roster here: { celebrants:[{name,title,tag}], verger, pools:{key:[…]}, title, theme, airSlots, airDays }. A fresh service is assembled each in-game day from the LIVE news feed and preached through the celebrants — dynamic, but NOT acted: the celebrants are display NAMES, so no studio NPC is ever spawned and it never presence-gates.
+  ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS sermon_pools JSONB;
   ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS commercial_pool JSONB DEFAULT '[]';
   ALTER TABLE media_channel_playlist ADD COLUMN IF NOT EXISTS slot_type TEXT DEFAULT 'broadcast';
+
+  -- Which days of the week this slot airs on: a 7-bit mask, bit 0 = Monday …
+  -- bit 6 = Sunday (matching world_clock.day_of_week, 1=Mon..7=Sun). 127 = every
+  -- day, which is the default and the shape every pre-existing slot keeps — so a
+  -- channel authored once still plays the same grid seven days a week.
+  -- A slot restricted to fewer days OVERRIDES an everyday slot it overlaps: the
+  -- runner picks the most specific slot covering the current time (fewest days
+  -- set), so "Thursday at 20:00 it's the fight instead" is one extra row, not a
+  -- second schedule. See _pickDailySlot() in plugins/broadcast/index.js.
+  ALTER TABLE media_channel_playlist ADD COLUMN IF NOT EXISTS days SMALLINT NOT NULL DEFAULT 127;
 
   -- media_broadcasts.channel_id ↔ media_channels.idle_broadcast_id form a FK cycle.
   -- Immediate checking makes them un-restorable (no insert order satisfies both), so
@@ -1566,6 +1791,204 @@ export const SCHEMA_SQL = `
   -- shared across many zones without them sharing a stock pool.
   -- messages: nullable JSONB { "player": [...], "broadcast": [...] } — empty/absent
   -- keys fall back to the plugin's built-in default pools.
+  -- MIS fit lines — authored prose for each (hole, band) pair of the fit model
+  -- (plugins/mis/mis-body.js fitOf). Content, not code: the engine computes the
+  -- band, this decides what the room reads. An absent row falls back to the
+  -- ordinary act text, so the model works with this table empty.
+  CREATE TABLE IF NOT EXISTS mis_fit_lines (
+    id TEXT PRIMARY KEY,
+    hole TEXT NOT NULL,
+    band TEXT NOT NULL,
+    actor_lines JSONB DEFAULT '[]',
+    target_lines JSONB DEFAULT '[]',
+    zone_lines JSONB DEFAULT '[]',
+    updated_at BIGINT
+  );
+
+  -- MIS per-player consent (plugins/mis/consent.js). A row is one DIRECTED grant:
+  -- granter_id permits grantee_id to aim MIS verbs at them. The server setting and
+  -- players.mis_enabled are opt-ins to the SURFACE — both belong to the actor and
+  -- neither is consent from the person on the other end; this table is that third
+  -- gate. Directed, never symmetric: two people acting on each other need two rows.
+  -- Hydrated once at login into a RAM Map and read from memory thereafter (every
+  -- MIS act path is effectively a hot path), so this table is written on the
+  -- explicit consent/revoke verbs only and otherwise never touched at runtime.
+  CREATE TABLE IF NOT EXISTS mis_consents (
+    granter_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    grantee_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    granted_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    PRIMARY KEY (granter_id, grantee_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_mis_consents_grantee ON mis_consents(grantee_id);
+
+  -- Full public-domain texts, readable from the tablet's Library app.
+  -- DELIBERATELY NOT BOOT-LOADED: a deploy already cold-reloads the world from
+  -- Neon (~36MB), and these rows are hundreds of KB each. Classified readTier
+  -- 'cold' in content-registry.js and read one chapter at a time on an explicit
+  -- page turn, so the text never rides the boot path or a single WS frame.
+  CREATE TABLE IF NOT EXISTS books (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    author TEXT,
+    year INTEGER,
+    blurb TEXT,                                -- shelf copy, in the game's voice
+    source TEXT,                               -- provenance: which PD edition this is
+    chapters JSONB NOT NULL DEFAULT '[]',      -- [{ title, text }] in reading order
+    -- Per-book pronunciation overrides for the narrator: { word: "AA R P AH" }.
+    -- CMUDICT is General American and knows none of Zamyatin's Russian, Voltaire's
+    -- French, or De Quincey's Latin, so those words come out mangled without this.
+    pronunciation JSONB NOT NULL DEFAULT '{}'
+  );
+
+  -- The books table shipped before pronunciation existed, so CREATE TABLE IF NOT
+  -- EXISTS above is a no-op on any database that already has it. Additive DDL for
+  -- an existing table always needs its own idempotent ALTER (docs/architecture.md).
+  -- NB: no backticks in this string — SCHEMA_SQL is a JS template literal.
+  ALTER TABLE books ADD COLUMN IF NOT EXISTS pronunciation JSONB NOT NULL DEFAULT '{}';
+
+  -- Archaic vocabulary glossed inline in the Library reader. Small enough to sit
+  -- in memory (a few hundred short rows), unlike the book text it annotates.
+  CREATE TABLE IF NOT EXISTS glossary (
+    id TEXT PRIMARY KEY,
+    term TEXT NOT NULL,
+    gloss TEXT NOT NULL,                       -- one short line, plain modern English
+    aliases JSONB NOT NULL DEFAULT '[]'        -- inflections/spellings that map to this term
+  );
+
+  -- Rooms for the experiences you can be put inside: a sleep dreamscape or a drug
+  -- hallucination. A template is NOT a zone — it has no coordinates, no exits and
+  -- no place on any map. buildDreamscape draws from here and wires a fresh, private,
+  -- RAM-only instance per sleep or per trip. See docs/systems-dreams.md.
+  CREATE TABLE IF NOT EXISTS dream_templates (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,                        -- the room's title, e.g. "A Corridor"
+    description TEXT NOT NULL,
+    -- 'dream' (sleep) or 'drug'. Mutually exclusive on purpose: a room written for
+    -- the K-hole must never surface in an ordinary night's sleep.
+    cause TEXT NOT NULL DEFAULT 'dream',
+    -- Which drug, when cause='drug'. NULL is the DEFAULT DRUG SET — the fallback
+    -- used by any hallucinogen with no templates of its own. Always NULL for dreams.
+    drug_id TEXT,
+    -- [{ name, looks: [..] }] — a look is picked per instance, so the same object
+    -- reads differently between trips. An object that reads identically twice is
+    -- furniture.
+    objects JSONB NOT NULL DEFAULT '[]',
+    -- Atmospheric lines emitted on a timer while the player is in this room.
+    ambient JSONB NOT NULL DEFAULT '[]'
+  );
+  CREATE INDEX IF NOT EXISTS idx_dream_templates_cause ON dream_templates (cause, drug_id);
+
+  -- The things that move through an experience. Kept separate from the rooms
+  -- because a presence wanders the whole instance rather than belonging to one
+  -- room, and because the pools are authored independently.
+  -- What a dream borrows from your actual life.
+  --
+  -- The room prose is fixed; this is the sentence appended to it that makes the
+  -- dream YOURS. Kinds are the fact it needs: 'none' is a purely surreal line with
+  -- no personal hook at all, and exists so a dream is not relentlessly about you --
+  -- a dream that is always personal becomes as predictable as one that never is.
+  -- Everything else substitutes {value} from live player state.
+  --
+  --   none   no hook; pure surreality
+  --   zone   the room your body is actually lying in
+  --   npc    somebody you know (read from the in-memory relations map)
+  --   item   something you are carrying
+  --   death  how you last died
+  CREATE TABLE IF NOT EXISTS dream_tethers (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL DEFAULT 'none',
+    line TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_dream_tethers_kind ON dream_tethers (kind);
+
+  CREATE TABLE IF NOT EXISTS dream_presences (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,                        -- what the look/examine pass calls it
+    cause TEXT NOT NULL DEFAULT 'dream',
+    drug_id TEXT,
+    -- Lines shown when it enters the room you are in, and when it leaves.
+    arrivals JSONB NOT NULL DEFAULT '[]',
+    departures JSONB NOT NULL DEFAULT '[]',
+    -- Answers to examining it. Several, picked per look — it never resolves.
+    looks JSONB NOT NULL DEFAULT '[]'
+  );
+  CREATE INDEX IF NOT EXISTS idx_dream_presences_cause ON dream_presences (cause, drug_id);
+
+  -- What a psychedelic turns the furniture around you INTO. The other half of the
+  -- phantom law: a phantom adds something that is not there, a transform makes
+  -- something that IS there read as something else, for one viewer only. Lives in
+  -- the live world rather than a dreamscape on purpose -- the uncanny needs a
+  -- baseline to violate, and your own kitchen is a baseline.
+  CREATE TABLE IF NOT EXISTS drug_transforms (
+    id TEXT PRIMARY KEY,
+    drug_id TEXT,                              -- NULL = the default transform set
+    -- Optional narrowing: only applies to furniture whose name matches this
+    -- (case-insensitive substring). NULL applies to any piece in the room.
+    matches TEXT,
+    name TEXT NOT NULL,                        -- what the piece is called while you are high
+    description TEXT NOT NULL,                 -- its line in the room description
+    looks JSONB NOT NULL DEFAULT '[]',         -- answers to examining it; picked per look
+    says JSONB NOT NULL DEFAULT '[]'           -- what it says to you, unprompted
+  );
+  CREATE INDEX IF NOT EXISTS idx_drug_transforms_drug ON drug_transforms (drug_id);
+
+  -- Added after drug_transforms shipped, so it needs its own idempotent ALTER --
+  -- the create statement is a no-op on a database that already has the table.
+  -- (Do not write the create-if-not-exists phrase in a comment: the registry
+  -- sweep in regress scrapes table names out of this string and would classify
+  -- the next word as a table.)
+  --   'object' — re-reads a piece of furniture (the original behaviour)
+  --   'room'   — re-reads the ROOM ITSELF. Always applied, furniture or not, so a
+  --              psychedelic on a bare street corner is still a psychedelic.
+  --   'spawn'  — a thing that is not there at all, conjured as a phantom object
+  --              when the room has too little furniture to work with.
+  ALTER TABLE dream_templates ADD COLUMN IF NOT EXISTS weather TEXT;
+  -- Particle field for the client FX canvas while you are in this room:
+  -- rain | snow | ash | fog | wind | none, plus a 0-1 intensity. Ignores the real
+  -- weather AND the indoor gate, because a dream room running weather it cannot
+  -- possibly have is the cheapest way to SHOW the rules are off rather than say it.
+  ALTER TABLE dream_templates ADD COLUMN IF NOT EXISTS fx TEXT;
+  ALTER TABLE dream_templates ADD COLUMN IF NOT EXISTS fx_intensity REAL DEFAULT 0.5;
+  ALTER TABLE drug_transforms ADD COLUMN IF NOT EXISTS fx TEXT;
+  ALTER TABLE drug_transforms ADD COLUMN IF NOT EXISTS fx_intensity REAL DEFAULT 0.5;
+  ALTER TABLE drug_transforms ADD COLUMN IF NOT EXISTS scope TEXT NOT NULL DEFAULT 'object';
+
+  -- The shared line pool for anything that speaks to you during a hallucination.
+  -- Authored rather than hardcoded because the whole effect lives in the WRITING,
+  -- and because a per-transform says[] list means every chair on blotter says the
+  -- same three things forever.
+  --
+  --   source 'object' — a transformed or conjured thing talking to you
+  --   source 'npc'    — a person in the room reacting to how you look
+  --
+  --   tone 'surreal'  — it half-participates in what you are experiencing
+  --   tone 'normal'   — and then, sometimes, something completely mundane. This
+  --                     is the load-bearing half: a chair asking whether you ever
+  --                     sorted the bins is far worse than a chair being cosmic,
+  --                     because you cannot tell whether that one was real.
+  --
+  -- Tokens {npc} and {player} are substituted at runtime. room_line may be blank
+  -- for objects — nobody else hears the furniture.
+  CREATE TABLE IF NOT EXISTS drug_reactions (
+    id TEXT PRIMARY KEY,
+    drug_id TEXT,                              -- NULL = fits any hallucinogen
+    source TEXT NOT NULL DEFAULT 'object',
+    tone TEXT NOT NULL DEFAULT 'surreal',
+    self_line TEXT NOT NULL,                   -- what the tripper is told
+    room_line TEXT NOT NULL DEFAULT ''         -- what everyone else is told
+  );
+  CREATE INDEX IF NOT EXISTS idx_drug_reactions_pool ON drug_reactions (source, drug_id, tone);
+
+  -- Who says it, and to whom. Both NULL = fits anybody, which is what most lines
+  -- are; a scoped line is a specialisation layered on top rather than a
+  -- replacement, so a rare combination never leaves an NPC with nothing to say.
+  --   relation   a player_npc_relations tier -- stranger | known | familiar |
+  --              close | wary | hostile. A friend seeing you gone should not
+  --              sound like a stranger seeing you gone.
+  --   npc_type   the NPC's npc_type ('cop', 'medic', 'dealer', 'bartender'...).
+  ALTER TABLE drug_reactions ADD COLUMN IF NOT EXISTS relation TEXT;
+  ALTER TABLE drug_reactions ADD COLUMN IF NOT EXISTS npc_type TEXT;
+
   CREATE TABLE IF NOT EXISTS scavenging_tables (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -1844,6 +2267,12 @@ export const SCHEMA_SQL = `
   ALTER TABLE sports_season ADD COLUMN IF NOT EXISTS start_date TEXT;
   ALTER TABLE sports_season ADD COLUMN IF NOT EXISTS start_slot BIGINT;
   ALTER TABLE sports_season ADD COLUMN IF NOT EXISTS ws_slot BIGINT;
+  -- A season belongs to ONE sport. Deadball's seasons predate the column, so the
+  -- default backfills them correctly and the key widens to (sport, season_no) —
+  -- Cluster Puck then numbers its own seasons from 1 without colliding.
+  ALTER TABLE sports_season ADD COLUMN IF NOT EXISTS sport TEXT NOT NULL DEFAULT 'baseball';
+  ALTER TABLE sports_season DROP CONSTRAINT IF EXISTS sports_season_pkey;
+  ALTER TABLE sports_season ADD CONSTRAINT sports_season_pkey PRIMARY KEY (sport, season_no);
 
   -- Staging for aired games so they book into the standings at END of their airing
   -- window (resolve_at), not at air-start. The game_id primary key makes booking
@@ -2127,6 +2556,38 @@ export const SCHEMA_SQL = `
     atm_cash BIGINT NOT NULL,
     created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
+
+  -- TRADING CARDS (plugins/cards). A card is a frozen snapshot of somebody —
+  -- a player who minted themselves, or an NPC/enemy struck from world content
+  -- when a series opened. text_blocks holds the RENDERED strings, never a
+  -- recipe: an item renamed in content later must not rewrite an old card.
+  -- pool_weight 0 = never appears in a pack (the admin-only 'architect' rank).
+  CREATE TABLE IF NOT EXISTS cards (
+    id           SERIAL PRIMARY KEY,
+    series       INTEGER NOT NULL DEFAULT 1,
+    serial       INTEGER NOT NULL,
+    subject_type TEXT NOT NULL,
+    subject_ref  TEXT NOT NULL,
+    subject_name TEXT NOT NULL,
+    body         TEXT,
+    spec         JSONB NOT NULL DEFAULT '{}',
+    text_blocks  JSONB NOT NULL DEFAULT '{}',
+    rarity       TEXT NOT NULL DEFAULT 'common',
+    power        INTEGER NOT NULL DEFAULT 0,
+    zone_id      TEXT,
+    pool_weight  REAL NOT NULL DEFAULT 0,
+    minted_at    BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    UNIQUE (series, serial)
+  );
+  CREATE TABLE IF NOT EXISTS card_holdings (
+    player_id  TEXT NOT NULL,          -- players.id is TEXT
+    card_id    INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+    qty        INTEGER NOT NULL DEFAULT 1,
+    first_got  BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    PRIMARY KEY (player_id, card_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_cards_pool ON cards(series, pool_weight);
+  CREATE INDEX IF NOT EXISTS idx_cards_subject ON cards(subject_type, subject_ref);
 
   -- Hot-path indexes: per-zone entity fetches (room render), container lookups,
   -- and jsonb tag gates. Kept at the end of the script — some indexed columns

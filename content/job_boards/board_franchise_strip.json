@@ -1,5 +1,5 @@
 {
-  "description": "Take a tab, run the errand, bring it back to Marta at the window. It won't make you rich. It'll make you fed.",
+  "description": "Take a tab, run the errand, bring it back to Delia at the window. It won't make you rich. It'll make you fed.",
   "id": "board_franchise_strip",
   "name": "Franchise Strip — Day Work",
   "quest_pool": [
@@ -13,5 +13,5 @@
   "rotation_period": "21600",
   "rotation_size": 3,
   "updated_at": "1783369742",
-  "zone_id": "zone_district_919_904"
+  "zone_id": "zone_district_919_908"
 }

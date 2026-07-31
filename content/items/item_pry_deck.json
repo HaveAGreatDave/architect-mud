@@ -1,0 +1,17 @@
+{
+  "description": "A hobbyist breach kit assembled out of whatever the last owner had lying around — a cracked tablet shell, a spool of hand-soldered leads, and a fan that starts screaming the moment you ask it for anything. The seller's label, stuck on crooked, reads TWO-CELL SUPPLY — SOLD AS SEEN. It gets a signal in. It will not enjoy doing it.",
+  "flags": {},
+  "id": "item_pry_deck",
+  "name": "Kessel Pry-Bar",
+  "tags": {
+    "description": "A hobbyist breach kit assembled out of whatever the last owner had lying around — a cracked tablet shell, a spool of hand-soldered leads, and a fan that starts screaming the moment you ask it for anything. The seller's label, stuck on crooked, reads TWO-CELL SUPPLY — SOLD AS SEEN. It gets a signal in. It will not enjoy doing it.",
+    "hack_device": true,
+    "hack_fail_damage": 0.45,
+    "hack_penalty": 2,
+    "misc": true,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 85,
+  "weight": 600
+}

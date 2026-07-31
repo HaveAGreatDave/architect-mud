@@ -1,0 +1,26 @@
+{
+  "base_difficulty": 3,
+  "base_output": {
+    "item_id": "item_nitrous",
+    "quantity": 1
+  },
+  "category": "synthesis",
+  "description": "Cook Whippet from catering gas cylinder + industrial solvent.",
+  "id": "cook_nitrous",
+  "ingredients": [
+    {
+      "item_id": "item_raw_nitrous",
+      "quantity": 1
+    },
+    {
+      "item_id": "item_reagent_solvent",
+      "quantity": 1
+    }
+  ],
+  "name": "Cook Whippet",
+  "requires_station": "chem_lab",
+  "skill_id": "chemistry",
+  "skill_req": {
+    "chemistry": 1
+  }
+}

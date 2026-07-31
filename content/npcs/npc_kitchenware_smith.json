@@ -1,0 +1,193 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "chat": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "wait",
+        "type": "action"
+      },
+      "look": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "wait",
+        "ifTrue": "chat",
+        "type": "condition"
+      },
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "look",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Thin pan, thin cook. Buy iron once and be done.\"",
+    "She rings a skillet with a knuckle and listens to it the way other people listen to a doctor.",
+    "\"Everything on that wall outlived the kitchen it came out of. Bear that in mind.\"",
+    "\"You can have cheap, or you can have a pan. Not both, not from me.\""
+  ],
+  "description": "A short, thick-forearmed woman with grey cropped to the scalp and two fingertips gone to the first knuckle on her left hand. She handles every piece that comes over the counter twice — once to weigh it, once to ring it — and prices it on the sound.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "She goes back to the rail, straightening handles that were already straight."
+    },
+    "iron": {
+      "options": [
+        {
+          "label": "So what should I buy?",
+          "next": "shop"
+        }
+      ],
+      "text": "\"Heat's the whole job. Thin steel takes the flame and hands it straight to your food in one spot — that's how you get a black middle and a raw edge. Iron takes its time and gives it back even.\" She taps the skillet. \"Costs more. Weighs more. Outlives you.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Show me what you've got.",
+          "next": "shop"
+        },
+        {
+          "label": "Why's the iron cost four times the steel?",
+          "next": "iron"
+        }
+      ],
+      "text": "\"Look with your eyes first.\" She doesn't stop what she's doing. \"If you want it down off the rail, say so.\""
+    },
+    "shop": {
+      "actions": [
+        {
+          "action": "OPEN_SHOP",
+          "npcId": "npc_kitchenware_smith"
+        }
+      ],
+      "options": [
+        {
+          "label": "(look it over)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Rail's the pans, casing's the small stuff. Range is there if you want to hear a pan before you pay for it.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a scorched leather shop apron, stiff as board",
+      "a slate-grey work shirt with the sleeves cut off at the shoulder",
+      "a plain cotton bra and briefs"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_kitchenware",
+  "hp": 55,
+  "hp_max": 55,
+  "id": "npc_kitchenware_smith",
+  "name": "Tove Adaska",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_frying_pan",
+      "price": 55,
+      "stock": 6
+    },
+    {
+      "item_id": "item_steel_saucepan",
+      "price": 46,
+      "stock": 6
+    },
+    {
+      "item_id": "item_stock_pot",
+      "price": 84,
+      "stock": 4
+    },
+    {
+      "item_id": "item_cast_iron_skillet",
+      "price": 165,
+      "stock": 2
+    },
+    {
+      "item_id": "item_spatula",
+      "price": 14,
+      "stock": 8
+    },
+    {
+      "item_id": "item_kitchen_tongs",
+      "price": 19,
+      "stock": 8
+    },
+    {
+      "item_id": "item_wooden_spoon",
+      "price": 9,
+      "stock": 8
+    },
+    {
+      "item_id": "item_ladle",
+      "price": 17,
+      "stock": 6
+    },
+    {
+      "item_id": "item_wire_whisk",
+      "price": 13,
+      "stock": 6
+    },
+    {
+      "item_id": "item_kitchen_knife",
+      "price": 48,
+      "stock": 4
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "mon": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 14
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "tue": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "wed": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

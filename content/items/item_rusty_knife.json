@@ -10,7 +10,7 @@
         "max": 7,
         "min": 3
       },
-      "damage_type": "kinetic",
+      "damage_type": "edged",
       "description": "A kitchen knife that has seen things."
     },
     "__super": [
@@ -21,13 +21,13 @@
       "max": 7,
       "min": 3
     },
-    "damage_type": "kinetic",
+    "damage_type": "edged",
     "description": "A kitchen knife that has seen things.",
     "slot": "weapon_hand",
     "weapon": true,
     "weapon_skill": "blades"
   },
   "type": "weapon",
-  "value": 15,
+  "value": 45,
   "weight": 400
 }

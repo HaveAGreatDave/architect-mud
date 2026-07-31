@@ -264,7 +264,7 @@ Each map/minimap node carries four additive rendering fields, all derived server
   which the zone-planner stamps at export — a continuous dashed street network with real
   T-junctions. Runways use `runway_ns`/`runway_ew`.
 - **`building_type`** (`buildingTypeOf`) — the facade tile's type, `null` for streets/water/interiors.
-  Drives the **labels/icons overlay** and the flight-sim 3-D shape.
+  Drives the rooftop footprint lookup and the flight-sim 3-D shape.
 - **`entrance`** (`buildingEntranceDir`) — which edge (`north`/`south`/`east`/`west`) the door faces,
   reverse-derived from the *real* exit graph (the street tile whose exit leads INTO the facade), **not**
   from the `flags.world_exit_zone` planner hint. Cached, invalidated on any exit mutation. Drives the
@@ -282,8 +282,11 @@ Each map/minimap node carries four additive rendering fields, all derived server
 
 The client (game sidebar minimap, full-map popup, tablet bigmap in
 [minimap.js](../client/game/js/panels/minimap.js) / [tablet-os.js](../client/game/js/panels/tablet-os.js))
-shares a **None / Labels / Icons overlay** setting: all modes draw the SVG tile base; *labels* adds a
-2-letter building acronym; *icons* draws the full building-type glyph. The you-are-here marker is
+shares a **Labels / None overlay** setting (Tablet OS → Settings → Layout → *Map Labels*, stored as
+`mapOverlay` in the shared settings object): both modes draw the SVG tile base; *labels* adds the
+authored 2-letter building acronym (`zones.marker`) on top. A third *icons* mode, which stamped a
+building-type emoji over the rooftop footprint, was removed — it fought the tile art and said less
+than the acronym. The you-are-here marker is
 transparent so the current tile shows through. The full-map popup uses fixed square tiles that fill its
 374px window; the regional view scales tiles to fit the whole district with no panning.
 
@@ -409,6 +412,34 @@ scheduled job: that defeats the gate.
 - `generateAppearance()` — returns a random appearance object: `{ hair_style, hair_length, hair_color, eye_color, height, weight, biological_sex }`. Hair length is constrained by style (mohawks can't be very long, etc.).
 - `describeAppearance(player)` — builds a prose description string from the stored appearance fields for use in `look <player>` output.
 
+### Being put out — `streetExitFrom` (as built)
+
+When something ejects a player from a business — closing time
+([commerce](../plugins/commerce/index.js) `closingSweep`), a club bouncer
+([strippers](../plugins/strippers/index.js) `bouncerEject`) — the destination comes from
+**`streetExitFrom(zoneId)`** ([world.js](../server/engine/world.js)). One law: *an ejection lands
+outdoors, on a tile a player can stand on, and never on a facade.* Breadth-first out through interiors
+(bounded, `EJECT_MAX_HOPS`), so a back room three doors deep still finds the pavement.
+
+**Why a facade is the worst possible answer:** `resolveLanding` forwards a landing on an enterable
+facade into that building's interior entry zone. So an "eject" onto a facade tile puts the player
+*inside the shop next door*. Every ejector used to pick its own destination and each picked wrong
+differently — the bouncer took the first exit it found (which can be the VIP room or an office),
+closing time preferred a non-interior tile (which **includes** a facade). `isStreetLanding(zoneId)` is
+the shared predicate (outdoors, not a facade, not water), exported so a hand-authored destination
+(`flags.bouncer_eject_zone`) is validated by the same rule the search uses.
+
+`streetExitFrom` returns `null` when there is genuinely no way out. **Callers must treat `null` as
+"leave them where they are"** rather than inventing a fallback: leaving someone inside is recoverable,
+teleporting them into a wall is not. Guarded by an invariant test over the live world in
+[plugins/commerce/regress.js](../plugins/commerce/regress.js) — the failure mode is a *content* shape
+(a shop whose only exit is a facade), which a hand-built fixture would never contain.
+
+**Residents are exempt.** Coldwater is mixed-use: shops sit under flats. The closing-time gate and the
+closing sweep both skip anyone who `isResidentOf` the building, so the hours lock the door to
+*customers* and nobody is ever swept out of the building they live in. After hours a mixed-use building
+simply belongs to its residents.
+
 ## Locks
 
 [locks.js](../server/engine/locks.js) — extensible lock type registry. Separates lock *type* definitions from the *auth logic* that resolves whether a player can open a given lock.
@@ -418,6 +449,28 @@ scheduled job: that defeats the gate.
 - `getAllLockTypes()` — used by the dev panel's door editor to populate the lock type dropdown.
 
 Lock type definitions live in the doors plugin ([plugins/doors/index.js](../plugins/doors/index.js)); the lock registry in `locks.js` is the extensibility seam, not the implementation.
+
+### A resident is never locked out of their own home (as built)
+
+**`checkLockAuth`** ([commands/doors.js](../server/engine/commands/doors.js)) — the single funnel used by
+the `engine:door-lock` move gate, open/close/lock/unlock, `hackDoor` and the describe pane's `data-lock="owned"`
+marker — authorises a player on **any** lock hanging on a door that touches a residence they control
+(`playerControlsApt`, either side of the door), before consulting the per-lock-type registry at all.
+
+This sits above the registry because the registry is where the lockouts were hiding: each lock type
+authored its auth in isolation and only the hololock knew what an apartment was.
+
+| Lock | Its own rule | The lockout it caused |
+|---|---|---|
+| `keycardlock` | inventory holds `keycard_<doorId>` | `cmdInstallLock` mints exactly ONE card — dropped, lost to a corpse or stolen and the deed holder is out of their own unit **forever** |
+| `privacylock` | "am I standing on the private side" | any visitor could throw the bolt and shut the owner out from the street; not hackable either (`hackDoor` is hololock-only) |
+| any | — | an NPC arriving at `home_zone` locks whatever door it just used ([ai-behaviour.js](../server/engine/ai-behaviour.js)), so a roommate NPC could bolt a player's own door |
+
+It grants **auth, not passage**: `lockTypePassesWhileLocked` is a separate question, so a manual bolt
+still has to be physically undone — the resident can always *unlock* it, and can never be left with no
+way in. That's what keeps a privacy latch meaningful. Covered in
+[plugins/doors/regress.js](../plugins/doors/regress.js), which asserts both layers: the raw registry
+still refuses, and `checkLockAuth` grants anyway.
 
 ### Privacy lock (`privacylock`)
 

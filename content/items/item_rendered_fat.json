@@ -1,0 +1,22 @@
+{
+  "description": "A tub of pale solid fat with a skin on it, saved off somebody else's roast. Smells like the best part of a meal you were not invited to. Cheaper than oil and better.",
+  "flags": {},
+  "id": "item_rendered_fat",
+  "name": "rendered fat",
+  "tags": {
+    "consumable": true,
+    "description": "A tub of pale solid fat with a skin on it, saved off somebody else's roast. Smells like the best part of a meal you were not invited to. Cheaper than oil and better.",
+    "food_noun": "dripping",
+    "food_profile": "fat_or_oil",
+    "perishable": true,
+    "restore_hunger": 8,
+    "spoil_rate": "slow",
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.3
+    }
+  },
+  "type": "consumable",
+  "value": 6,
+  "weight": 300
+}

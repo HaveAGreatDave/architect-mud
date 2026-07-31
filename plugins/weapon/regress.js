@@ -6,7 +6,7 @@
 import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
 import { getStance, swingInterval, STANCES, isDodging } from '../../server/engine/stance.js';
 import { setCooldown, isOnCooldown, getCooldownRemaining, hasPowerQueued, toughestAttacker } from '../../server/engine/combat.js';
-import { world, removeEnemyInstance } from '../../server/engine/world.js';
+import { world, removeEnemyInstance, getZone } from '../../server/engine/world.js';
 
 export default async function regress({ run, check, getPlayer }) {
   // Typed with the `@` admin sigil (stripped by the dispatcher). Non-admins get
@@ -132,10 +132,18 @@ export default async function regress({ run, check, getPlayer }) {
 
     // On attack cooldown, the gate defers: the move is blocked silently and an
     // intent is armed for the gameLoop to retry.
+    //
+    // The direction must be a REAL exit of whatever zone the harness picked — it
+    // only guarantees *some* passable exit, not a northerly one. Hardcoding
+    // `north` made this fixture pass or fail on world content: a zone without one
+    // rejects the move before any move gate is consulted, which left the block
+    // check passing for the wrong reason and the intent check failing.
     setCooldown(p.id, 'attack', 60000);
     const zoneBefore = p.current_zone;
-    await run('north');
-    check('move blocked while under attack', p.current_zone === zoneBefore, `${zoneBefore} -> ${p.current_zone}`);
+    const dir = Object.keys(getZone(zoneBefore)?.exits || {})[0];
+    check('the harness zone has an exit to flee toward', !!dir, `${zoneBefore} exits: ${JSON.stringify(getZone(zoneBefore)?.exits)}`);
+    await run(dir);
+    check('move blocked while under attack', p.current_zone === zoneBefore, `${zoneBefore} -(${dir})-> ${p.current_zone}`);
     check('flee intent armed', !!p._fleeIntent, JSON.stringify(p._fleeIntent));
 
     // `stop` abandons the attempt rather than leaving the loop retrying it.

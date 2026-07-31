@@ -40,7 +40,7 @@
         }
       ],
       "intensity": 0.7,
-      "mode": "overlay",
+      "mode": "transform",
       "palette": "gold"
     },
     "instant": {

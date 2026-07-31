@@ -192,7 +192,7 @@
           "next": "bye"
         }
       ],
-      "text": "Voss looks up from a manifest he plainly wrote himself. \"Freight, salvage, or a favour? I do all three, and only one of them's on the books.\""
+      "text": "Dolan looks up from a manifest he plainly wrote himself. \"Freight, salvage, or a favour? I do all three, and only one of them's on the books.\""
     }
   },
   "faction": null,
@@ -209,7 +209,7 @@
   "hp": 24,
   "hp_max": 24,
   "id": "npc_yardmaster",
-  "name": "Voss",
+  "name": "Dolan",
   "npc_type": "vendor",
   "sex": "male",
   "studio_zone_id": null,
@@ -280,7 +280,7 @@
       }
     ]
   },
-  "vendor_shop_name": "The Railhead Office",
+  "vendor_shop_name": "Track Marks Freight",
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,

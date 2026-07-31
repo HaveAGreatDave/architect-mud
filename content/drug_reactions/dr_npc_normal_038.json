@@ -1,0 +1,10 @@
+{
+  "id": "dr_npc_normal_038",
+  "drug_id": null,
+  "source": "npc",
+  "tone": "normal",
+  "self_line": "{npc} asks whether you have got the time. You look at your wrist for a while.",
+  "room_line": "{npc} asks {player} the time and gets a very long silence.",
+  "relation": null,
+  "npc_type": null
+}

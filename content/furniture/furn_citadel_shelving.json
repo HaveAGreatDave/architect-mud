@@ -1,0 +1,14 @@
+{
+  "description": "Plain grey industrial racking, the cheapest thing in the room by a factor of ten thousand, holding strapped scrip, crested ingots and sleeved bearer paper in the tidy rows of an institution that has never once had to rush.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_citadel_shelving",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "vault shelving",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_citadel_vault"
+}

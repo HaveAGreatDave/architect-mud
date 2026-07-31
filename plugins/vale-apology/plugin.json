@@ -1,9 +1,0 @@
-{
-  "name": "vale-apology",
-  "version": "1.0.0",
-  "description": "One-time narrative beat: Sergeant Vale was squatting in Akerson's Embassy unit (Unit 2A) while she got back on her feet. The first time Akerson shares a room with her after she's found her own place, she apologises, thanks him, presses ₵200 into his hand, and finally moves out to her own home (Unit 3B). Fires once, ever — guarded by a persistent world flag.",
-  "commands": [],
-  "events": {
-    "consumes": ["zone.entered"]
-  }
-}

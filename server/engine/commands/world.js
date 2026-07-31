@@ -1,5 +1,6 @@
 import { query, logActivity } from '../../models/db.js';
-import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, doorOnLink, getZoneDoors, spawnEnemySync, world, getApartment, updateFurniture } from '../world.js';
+import { setFlags, evictPlayerFlags } from '../flags.js';
+import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, doorOnLink, getZoneDoors, spawnEnemySync, world, getApartment, updateFurniture, getZoneFurniture } from '../world.js';
 import { getLockTagPublic } from './doors.js';
 import { isApartmentZone, getBuildingName, releaseApartment, findNearestVacantApartment, rehomeNpc, clearNpcResidence } from '../apartments.js';
 import { sendToPlayer } from '../messaging.js';
@@ -8,16 +9,28 @@ import { getPlayerSkills, SKILLS } from '../skills.js';
 import { describeZone } from './describe.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone, removeLivePlayer, resolveLanding } from '../world.js';
 import { allExits, exitTargets } from '../exits.js';
+import { isDreamZone, dreamObjectsAt, presenceAt, bodyTell, markObjectSeen, noteDreamProgress } from '../dreamscape.js';
+import { getTransform } from '../phantoms.js';
+import { getSoundReach, isNoisy } from '../sounds.js';
+import { conditionLine } from '../durability.js';
 import { statCost, raiseStat, RAISABLE_STATS, getNetXp, maxHpForEndurance } from '../ip.js';
 import { ensureTunables } from '../tunables.js';
 import { physicalDescription, soilDescription, randomAppearance } from '../appearance.js';
 import { isMisActive } from '../mis.js';
 import { availableActions } from '../specializedActions.js';
+import { getHelpTopic, listHelpTopics } from '../help.js';
+import '../help-topics.js';
+import '../help-senses.js';
 import { genericFurnitureLinks, furnitureVerbs, verbTarget } from '../furnitureActions.js';
-import { statusLabels } from '../effects.js';
+import { escAttr } from '../text.js';
+import { statusLabels, applyEffect } from '../effects.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 import { carryCapacity, formatWeight } from './inventory.js';
-import { fireHook } from '../plugins.js';
+import { fireHook, gatherHook } from '../plugins.js';
+import { zoneAir } from '../bodily.js';
+import { conditionReport } from '../condition.js';
+import { acuityFor, perceptionBand, perceive, acuityNote, wouldOverload, EXTREME, OVERLOAD_STATUS, overloadText, SENSES, DOMINANT_FLAG, SECOND_FLAG } from '../senses.js';
+import { creatureFilthSmells, bodyOdourSelf } from '../hygiene.js';
 
 // Naked body descriptions shown when every clothing layer is peeled. Split by sex
 // and gated by the viewer's MIS opt-in: MIS-off gets a plain "they're naked" line,
@@ -113,6 +126,16 @@ export async function cmdStats(player) {
   if (player.wellFedUntil && Date.now() < player.wellFedUntil) statusFlags.push('Well-Fed');
   if (player.hydratedUntil && Date.now() < player.hydratedUntil) statusFlags.push('Hydrated');
   if (p.covered_in_blood) statusFlags.push('Covered in blood');
+  // Condition penalties are invisible otherwise: a player whose sheet says REF 6
+  // and who is rolling at 4 deserves to be told which part of being cold, hungry
+  // or parched is doing it to them.
+  for (const c of conditionReport(player)) {
+    // A non-stat impairment (a refused run, slowed recovery) carries a label
+    // instead of a stat, and has no number to show.
+    statusFlags.push(c.stat
+      ? `${STAT_ABBR[c.stat] || c.stat} −${c.penalty} (${c.why})`
+      : `${c.label} (${c.why})`);
+  }
   statusFlags.push(...statusLabels(player));
 
   return {
@@ -439,7 +462,7 @@ async function cmdExamine(targetStr, player, broadcast) {
     return { type:'examine', message: await describePlayerAppearance(player, true, player, broadcast) };
   }
 
-  const { rows } = await query(`SELECT pi.id AS inv_id, pi.custom_data, pi.is_equipped, i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
+  const { rows } = await query(`SELECT pi.id AS inv_id, pi.custom_data, pi.is_equipped, pi.container_id, i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
   if (rows.length) {
     const it = rows[0];
     let msg = `<span class="zone-name">${it.name}</span>\n${it.tags?.description ?? it.description}`;
@@ -450,10 +473,54 @@ async function cmdExamine(targetStr, player, broadcast) {
     if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'fillable')) {
       msg += `\n${describeFill(it.custom_data, it.tags.fillable)}`;
     }
+    // A cooking vessel is more than a bag of things: what's in it is at some
+    // stage, the pan itself may be carrying fond, and the whole lot is on its
+    // way to being some particular dish. All derived, nothing written.
+    if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'vessel')) {
+      const vessel = await fireHook('item.describeVessel', { ...it, id: it.inv_id }, player);
+      if (vessel) msg += `\n${vessel}`;
+    }
+    if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'perishable')) {
+      const fresh = await fireHook('item.checkFreshness', { ...it, id: it.inv_id }, player);
+      if (fresh) msg += `\n<span class="text-dim">It looks ${fresh.state}.</span>`;
+    }
+    // How worn it is, and what's been done to it before. Derived, no query, and
+    // deliberately SILENT for a pristine never-mended thing — the overwhelming
+    // majority of items read exactly as they did before durability existed.
+    const condLine = conditionLine({ ...it, id: it.inv_id });
+    if (condLine) msg += `\n${condLine}`;
+    if (it.custom_data?.cooking) {
+      // Shown whether or not it reads as `done`: a profiled cook stays on the
+      // heat after it's ready, and "perfect, but not for much longer" is the
+      // entire telegraph telling you to go and plate it.
+      const cooking = await fireHook('item.checkCooking', { ...it, id: it.inv_id }, player);
+      if (cooking) msg += `\n<span class="text-dim">It's ${cooking.text}.</span>`;
+    } else if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'needs_cooking')) {
+      msg += `\n<span class="text-dim">It's ${it.custom_data?.cooked ? 'cooked through' : 'raw — probably not safe to eat like this'}.</span>`;
+    }
+    // What's been done to it before the heat: scored, beaten out, sitting in a
+    // marinade. A marinade is a timer the player is meant to read, so it has to
+    // surface somewhere the same way resting does.
+    if (!it.custom_data?.cooking && !it.custom_data?.cooked) {
+      const prep = await fireHook('cooking.prepText', it.custom_data, player);
+      if (prep) msg += `\n<span class="text-dim">It's ${prep}.</span>`;
+    }
+    // How well it was cooked, once plated — otherwise a Masterful steak looks
+    // exactly like a Poor one sitting in your pack. Independent of needs_cooking:
+    // food that's fine raw (a tomato) can still be cooked well or badly.
+    if (it.custom_data?.cook_quality) {
+      const q = it.custom_data.cook_quality;
+      msg += `\n<span class="text-dim">Cooked ${q === 'masterful' ? 'to a masterful turn' : q}.</span>`;
+      // A plated cut carries on changing after it leaves the pan. Resting is
+      // worth a quarter of the meal, and this is the only way to know when it's
+      // there — without it the timer exists but nobody can read it.
+      const rest = await fireHook('cooking.restText', it.custom_data, player);
+      if (rest) msg += `\n<span class="text-dim">It's ${rest}.</span>`;
+    }
     const acts = itemActionVerbs(it);
     if (acts.length) {
       const links = acts.map(v =>
-        `<span class="action-link" data-action="${v}" data-target="${it.name}">${v}</span>`
+        `<span class="action-link" data-action="${v}" data-target="${escAttr(it.name)}">${v}</span>`
       ).join('  ');
       msg += `\n<span class="text-dim">Actions:</span> ${links}`;
     }
@@ -472,29 +539,41 @@ async function cmdExamine(targetStr, player, broadcast) {
       }
       if (fr.type === 'match') f = fr.candidate;
     }
+    // A psychedelic can have made this piece into something else, for this viewer
+    // only. Applied here rather than at the query because this row came straight
+    // from the DB, not the cache — but the same rule holds: never mutate, copy.
+    const tf = getTransform(player.id, f.id);
+    if (tf) {
+      const look = tf.looks?.length ? tf.looks[Math.floor(Math.random() * tf.looks.length)] : null;
+      f = { ...f, name: tf.name || f.name, description: look || tf.description || f.description };
+    }
     let msg = `<span class="zone-name">${f.name}</span>\n${f.description}`;
     const furnitureExtra = await fireHook('furniture.describe', f, player);
     if (furnitureExtra) msg += `\n${furnitureExtra}`;
     const interactions = f.flags?.interactions || [];
+    // Structural action links a type-branch renders itself (state-dependent, like
+    // a light's on/off switch), plus the verbs it therefore wants held back from
+    // the generic list. Both are drained into ONE Actions line at the end of the
+    // furniture block — no branch can forget to emit the piece's own affordances.
+    const structural = [];
+    const excludeVerbs = [];
     if (f.object_type === 'light') {
       if (f.light_type === 'streetlight') {
         msg += `\n<span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">Currently ${f.light_on ? 'lit' : 'dark'} — city-grid controlled, no switch out here.</span>`;
       } else {
         msg += `\n<span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">Currently ${f.light_on ? 'on' : 'off'}.</span>`;
-        const acts = [];
         if (interactions.includes('switch')) {
           const n = f.name.toLowerCase();
           const stateDir = f.light_on ? 'off' : 'on';
-          acts.push(`<span class="action-link" data-action="switch" data-target="${stateDir} ${n}">switch ${stateDir}</span>`);
-          acts.push(`<span class="action-link" data-action="turn" data-target="${stateDir} ${n}">turn ${stateDir}</span>`);
+          structural.push(`<span class="action-link" data-action="switch" data-target="${stateDir} ${escAttr(n)}">switch ${stateDir}</span>`);
+          structural.push(`<span class="action-link" data-action="turn" data-target="${stateDir} ${escAttr(n)}">turn ${stateDir}</span>`);
+          excludeVerbs.push('switch', 'flip', 'turn');
         }
-        acts.push(...genericFurnitureLinks(f, ['switch', 'flip', 'turn']));
-        if (acts.length) msg += `\n<span class="text-dim">Actions:</span> ${acts.join('  ')}`;
       }
     } else if (f.object_type === 'container') {
       const n = f.name.toLowerCase();
-      const acts = [`<span class="action-link" data-action="open" data-target="${n}">open</span>`, ...genericFurnitureLinks(f, ['open'])];
-      msg += `\n<span class="text-dim">Actions:</span> ${acts.join('  ')}`;
+      structural.push(`<span class="action-link" data-action="open" data-target="${escAttr(n)}">open</span>`);
+      excludeVerbs.push('open');
     } else if (f.object_type === 'media_deck' || f.flags?.media_deck) {
       const flags = f.flags || {};
       const channelId = flags.channel_id;
@@ -515,8 +594,35 @@ async function cmdExamine(targetStr, player, broadcast) {
         liveCount = camRows[0]?.cnt || 0;
       }
 
-      const isLoad = !!deckActive;
-      const isLive = !isLoad && liveCount > 0;
+      // A camera patched into a consumer deck's spare input counts as loaded: the
+      // deck is feeding the set, just not off a tape. Same rule the panel uses
+      // (_miniDeckPlayback in plugins/broadcast/index.js) — keep the two in step.
+      const camPatch = flags.deck_cam_source?.deviceId ? flags.deck_cam_source : null;
+      const isLoad = !!deckActive || !!camPatch;
+      // A consumer tape player is not a studio deck and should not pretend to be
+      // one. It has no cameras and no transmitter, so LIVE is meaningless on it —
+      // the only question it can answer is whether the tape is running, and that
+      // needs the SET as well as the tape: a machine loaded and ready is still
+      // not playing if the television above it is showing a station.
+      const isMini = !!flags.mini_deck;
+      let miniPlaying = false, miniWhyNot = 'nothing loaded';
+      if (isMini) {
+        let deckNumber = null;
+        if (channelId) {
+          const { rows } = await query('SELECT number FROM media_channels WHERE id=$1', [channelId]);
+          deckNumber = rows[0]?.number ?? null;
+        }
+        // The receiver this unit feeds — same room, the deck override is zone-scoped.
+        const tuned = getZoneFurniture(f.zone_id)
+          .map(x => Number(x.flags?.tuned_channel))
+          .filter(n => Number.isFinite(n));
+        const onInput = deckNumber != null && tuned.includes(deckNumber);
+        miniPlaying = isLoad && onInput;
+        if (!isLoad) miniWhyNot = 'nothing loaded';
+        else if (!tuned.length) miniWhyNot = 'the set is off';
+        else if (!onInput) miniWhyNot = `the set is on channel ${tuned[0]}`;
+      }
+      const isLive = !isMini && !isLoad && liveCount > 0;
 
       const liveDot  = isLive
         ? `<span style="color:var(--red);font-weight:bold;letter-spacing:1px">⬤ LIVE</span>`
@@ -526,7 +632,15 @@ async function cmdExamine(targetStr, player, broadcast) {
         : `<span style="color:var(--border)">○ LOAD</span>`;
 
       let statusLine;
-      if (isLive) {
+      if (isMini) {
+        const { rows: bcRows } = (deckActive && !camPatch)
+          ? await query('SELECT name FROM media_broadcasts WHERE id=$1', [deckActive])
+          : { rows: [] };
+        const bcName = camPatch ? `LIVE FEED — ${camPatch.label || 'camera'}` : (bcRows[0]?.name || deckActive);
+        statusLine = miniPlaying
+          ? `<span style="color:var(--cyan)">▶ PLAYING:</span> <span style="color:var(--text)">${bcName}</span>`
+          : `<span style="color:var(--border)">■ NOT PLAYING</span> <span style="color:var(--text-dim)">— ${miniWhyNot}</span>`;
+      } else if (isLive) {
         const camTag = `<span style="color:var(--text-dim)">${liveCount} cam${liveCount !== 1 ? 's' : ''} online</span>`;
         const chTag  = channelLabel ? `<span style="color:var(--text-dim)">${channelLabel}</span>` : '';
         statusLine = `<span style="color:var(--red)">▶ TRANSMITTING LIVE</span>  ${[chTag, camTag].filter(Boolean).join('  ·  ')}`;
@@ -572,11 +686,40 @@ async function cmdExamine(targetStr, player, broadcast) {
         cassetteList = '\n  <span style="color:var(--border)">— empty —</span>';
       }
 
-      const useLink  = `<span class="action-link" data-action="use" data-target="${f.name.toLowerCase()}">use</span>`;
-      const ejectLink = deckActive ? `  <span class="action-link" data-action="eject" data-target="">eject</span>` : '';
-      const deckExtra = genericFurnitureLinks(f, ['use', 'eject']);
-      const deckExtraStr = deckExtra.length ? `  ${deckExtra.join('  ')}` : '';
-      msg += `\n<span style="display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0">${liveDot}${loadDot}</span>\n${statusLine}${cassetteList}\n<span class="text-dim">Actions:</span> ${useLink}${ejectLink}${deckExtraStr}`;
+      structural.push(`<span class="action-link" data-action="use" data-target="${escAttr(f.name.toLowerCase())}">use</span>`);
+      if (deckActive) structural.push(`<span class="action-link" data-action="eject" data-target="">eject</span>`);
+      excludeVerbs.push('use', 'eject');
+      // A consumer unit shows ONE lamp, and it is smaller: no LIVE (it transmits
+      // nothing), tighter padding, and every colour comes from the player's own
+      // theme variables so it sits in whatever palette they are running rather
+      // than in the studio's.
+      const lamps = isMini
+        ? `<span style="color:${miniPlaying ? 'var(--cyan)' : 'var(--border)'};font-weight:bold;letter-spacing:1px">${miniPlaying ? '⬤' : '○'} PLAY</span>`
+        : `${liveDot}${loadDot}`;
+      const chrome = isMini
+        ? 'display:inline-flex;gap:10px;padding:3px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:3px 0;font-size:0.92em'
+        : 'display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0';
+      // A branded consumer unit gets a faceplate rather than a rack lamp strip:
+      // maker's badge on the left, a loading slot that reports the tape, and the
+      // one transport lamp on the right. Brand is content (`flags.deck_brand`), so
+      // an unbranded machine keeps the plain strip and nothing here is hardcoded.
+      const brand = isMini && typeof flags.deck_brand === 'string' ? flags.deck_brand.trim() : '';
+      if (brand) {
+        const mark = escAttr(String(flags.deck_mark || '✦'));
+        const badge = `<span style="color:var(--accent);font-weight:bold;letter-spacing:2px">${mark} ${escAttr(brand.toUpperCase())}</span>`;
+        const rule = `<span style="color:var(--border)">│</span>`;
+        // The door is the only part that moves: dark when empty, lit amber with the
+        // cassette in it — the amber bar the description promises.
+        const slot = isLoad
+          ? `<span style="color:var(--yellow);letter-spacing:1px">▮▮▮▮▮▮</span>`
+          : `<span style="color:var(--border);letter-spacing:1px">▭▭▭▭▭▭</span>`;
+        const face = 'display:inline-flex;align-items:center;gap:10px;padding:4px 10px;background:var(--bg2);'
+          + 'border:1px solid var(--border);border-top-color:var(--accent);border-radius:5px;'
+          + 'margin:3px 0;font-size:0.92em';
+        msg += `\n<span style="${face}">${badge}${rule}${slot}${rule}${lamps}</span>\n${statusLine}${cassetteList}`;
+      } else {
+        msg += `\n<span style="${chrome}">${lamps}</span>\n${statusLine}${cassetteList}`;
+      }
     } else if (f.object_type === 'broadcast_camera') {
       const flags = f.flags || {};
       const camId = flags.camera_id;
@@ -603,8 +746,12 @@ async function cmdExamine(targetStr, player, broadcast) {
             : `<span style="color:var(--border)">○ REC</span>`;
           camStatus = `\n<span style="display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0">${streamDot}${recDot}</span>`;
           if (chLabel) camStatus += `\n<span style="color:var(--text-dim)">→ ${chLabel}</span>`;
-          const camExtra = genericFurnitureLinks(f, ['record', 'stream']);
-          camStatus += `\n<span class="action-link" data-action="record" data-target="${f.name.toLowerCase()}">record</span>  <span class="action-link" data-action="stream" data-target="${f.name.toLowerCase()}">stream</span>${camExtra.length ? `  ${camExtra.join('  ')}` : ''}`;
+          // Only claim record/stream when the camera row actually backs them; a
+          // furniture piece with a dangling camera_id still gets its generic
+          // affordances from the shared Actions line below.
+          structural.push(`<span class="action-link" data-action="record" data-target="${escAttr(f.name.toLowerCase())}">record</span>`);
+          structural.push(`<span class="action-link" data-action="stream" data-target="${escAttr(f.name.toLowerCase())}">stream</span>`);
+          excludeVerbs.push('record', 'stream');
         }
       }
       msg += camStatus;
@@ -633,18 +780,17 @@ async function cmdExamine(targetStr, player, broadcast) {
         ? '<span style="color:var(--red)">WRECKED — offline</span>'
         : online ? '<span style="color:var(--green)">Online</span>'
                  : '<span style="color:var(--yellow)">No power</span>';
-      const attackLink = `<span class="action-link" data-action="attack" data-target="${n}">attack</span>`;
-      const repairLink = destroyed ? `  <span class="action-link" data-action="repair" data-target="${n}">repair</span>` : '';
-      const genExtra = genericFurnitureLinks(f, ['attack', 'repair']);
-      const genExtraStr = genExtra.length ? `  ${genExtra.join('  ')}` : '';
-      msg += `\n<span class="text-dim">Status:</span> ${stateLbl} · integrity ${integrityPct}%\n<span class="text-dim">Actions:</span> ${attackLink}${repairLink}${genExtraStr}`;
-    } else {
-      // Generic furniture: every affordance the piece declares, from one source
-      // of truth — flags.interactions (sit/lie/lean → "on <name>") plus the
-      // tag-gated specialized-action registry (read/drink → "<name>").
-      const links = genericFurnitureLinks(f);
-      if (links.length) msg += `\n<span class="text-dim">Actions:</span> ${links.join('  ')}`;
+      structural.push(`<span class="action-link" data-action="attack" data-target="${escAttr(n)}">attack</span>`);
+      if (destroyed) structural.push(`<span class="action-link" data-action="repair" data-target="${escAttr(n)}">repair</span>`);
+      excludeVerbs.push('attack', 'repair');
+      msg += `\n<span class="text-dim">Status:</span> ${stateLbl} · integrity ${integrityPct}%`;
     }
+    // The single Actions render point for every piece of furniture, whatever its
+    // object_type: what the branch drew structurally, then every affordance the
+    // piece declares — flags.interactions (sit/lie/lean → "on <name>") plus the
+    // gated specialized-action registry (read/drink/scrub → "<name>").
+    const acts = [...structural, ...genericFurnitureLinks(f, excludeVerbs, player)];
+    if (acts.length) msg += `\n<span class="text-dim">Actions:</span> ${acts.join('  ')}`;
     return { type:'examine', message: msg };
   }
   const matchAnyGenerator = /generator/i.test(targetStr);
@@ -666,6 +812,28 @@ async function cmdExamine(targetStr, player, broadcast) {
     if (totalLoad > gen.capacity_kw) msg += `\n<span class="generator-overload">⚠ OVERLOADED — drawing more than rated capacity.</span>`;
     return { type:'examine', message: msg };
   }
+  // Inside a dream or a hallucination, the room's own objects and its wandering
+  // figure answer first. They aren't furniture, NPCs or items — they exist only on
+  // the transient zone — so nothing further down would ever match them. (Authored
+  // since the dreamscape shipped and unreachable until now: `dreamObjectsAt` had no
+  // caller, so a dream's "things to poke at" could not in fact be poked at.)
+  if (isDreamZone(player.current_zone)) {
+    const t = targetStr.toLowerCase();
+    const obj = dreamObjectsAt(player.current_zone).find(o => o.name.toLowerCase().includes(t));
+    if (obj) {
+      // Looking at the last unseen thing in the last unseen room finishes the
+      // dream — it comes apart around you rather than ejecting you. See
+      // beginDissolve; the wake itself is the caller's, not this module's.
+      noteDreamProgress(player, markObjectSeen(player.current_zone, obj.name), broadcast);
+      return { type: 'examine', message: `${titleCaseName(obj.name)}\n${obj.look}` };
+    }
+    const figure = presenceAt(player.current_zone);
+    if (figure && figure.name.toLowerCase().includes(t)) {
+      const look = figure.looks.length ? figure.looks[Math.floor(Math.random() * figure.looks.length)] : 'You cannot afterwards say what it was.';
+      return { type: 'examine', message: `${titleCaseName(figure.name)}\n${look}` };
+    }
+  }
+
   // Zone entities: enemies, NPCs, live players — combined SIFT pool
   const enemies = getZoneEnemies(player.current_zone);
   const npcs = getZoneNpcs(player.current_zone);
@@ -683,8 +851,14 @@ async function cmdExamine(targetStr, player, broadcast) {
   if (er.type === 'match') {
     const c = er.candidate;
     if (c._examType === 'enemy') {
-      const attackLink = `<span class="action-link" data-action="attack" data-target="${c.name}" title="Attack ${c.name}">attack</span>`;
-      return { type:'examine', message:`${c.name}\n${c.description}\nHP: ${c.hp}/${c.hp_max}\n<span class="text-dim">Actions:</span> ${attackLink}` };
+      const attackLink = `<span class="action-link" data-action="attack" data-target="${escAttr(c.name)}" title="Attack ${escAttr(c.name)}">attack</span>`;
+      // What's visibly wrong with it. Without this a player aiming at a limb is
+      // working blind — the wound would exist and change the fight, but nothing
+      // would ever say so. Mirrors `player.appearanceNotes`; absent the injury
+      // plugin, this is empty and the line is exactly what it always was.
+      const notes = await fireHook('enemy.appearanceNotes', { target: c, viewer: player });
+      const wounds = notes ? `\n<span class="text-dim">${notes}</span>` : '';
+      return { type:'examine', message:`${c.name}\n${c.description}\nHP: ${c.hp}/${c.hp_max}${wounds}\n<span class="text-dim">Actions:</span> ${attackLink}` };
     }
     if (c._examType === 'npc') {
       let postureLine = '';
@@ -695,14 +869,31 @@ async function cmdExamine(targetStr, player, broadcast) {
         const where = c.sittingOn ? `the ${c.sittingOn}` : 'the floor';
         postureLine = `\n<span class="text-dim">${c.name} is lying on ${where}.</span>`;
       }
-      const talkLink   = `<span class="action-link" data-action="talk" data-target="${c.name}" title="Talk to ${c.name}">talk</span>`;
-      const attackLink = `<span class="action-link" data-action="attack" data-target="${c.name}" title="Attack ${c.name}">attack</span>`;
+      const talkLink   = `<span class="action-link" data-action="talk" data-target="${escAttr(c.name)}" title="Talk to ${escAttr(c.name)}">talk</span>`;
+      const attackLink = `<span class="action-link" data-action="attack" data-target="${escAttr(c.name)}" title="Attack ${escAttr(c.name)}">attack</span>`;
       return { type:'examine', message:`${c.name}\n${c.description}${postureLine}${npcClothingLine(c, player)}\n<span class="text-dim">Actions:</span> ${talkLink}  ${attackLink}` };
     }
     if (c._examType === 'player') {
       const app = await describePlayerAppearance(c, false, player, broadcast);
-      const stealLink  = `<span class="action-link" data-action="steal" data-target="${c.handle}" title="Steal from ${c.handle}">steal</span>`;
-      const attackLink = `<span class="action-link" data-action="attack" data-target="${c.handle}" title="Attack ${c.handle}">attack</span>`;
+      const stealLink  = `<span class="action-link" data-action="steal" data-target="${escAttr(c.handle)}" title="Steal from ${escAttr(c.handle)}">steal</span>`;
+      const attackLink = `<span class="action-link" data-action="attack" data-target="${escAttr(c.handle)}" title="Attack ${escAttr(c.handle)}">attack</span>`;
+      // An ONLINE sleeper. The offline-sleeper branch further down already says
+      // this and offers the loot, but a live sleeping body fell through to here
+      // and read as an ordinary person standing about. Same shape as the NPC
+      // branch above. `loot` opens their real inventory — cmdLootCorpse resolves
+      // live players and gates on `.sleeping` — so the action has to be offered
+      // or the only way to find it is to guess the verb.
+      // Absent body — asleep, or awake but somewhere else entirely on a
+      // dissociative. Either way they're standing here and can be gone through.
+      const tell = bodyTell(c, player.current_zone);
+      if (tell) {
+        const where = c.sittingOn ? `the ${c.sittingOn}` : 'the floor';
+        const line = tell === 'sleeping'
+          ? `${c.handle} is asleep on ${where}.`
+          : `${c.handle} is upright and not here. The eyes are open and pointed at nothing, and whatever they are seeing, it is not this room.`;
+        const lootLink = `<span class="action-link" data-action="loot" data-target="${escAttr(c.handle)}" title="Loot ${escAttr(c.handle)}">loot</span>`;
+        return { type:'examine', message: app + `\n<span class="text-dim">(${line})</span>\n<span class="text-dim">Actions:</span> ${lootLink}  ${stealLink}  ${attackLink}` };
+      }
       return { type:'examine', message: app + `\n<span class="text-dim">Actions:</span> ${stealLink}  ${attackLink}` };
     }
   }
@@ -714,9 +905,9 @@ async function cmdExamine(targetStr, player, broadcast) {
   if (sleepers.length) {
     const s = sleepers[0];
     const app = await describePlayerAppearance(s, false, player, broadcast);
-    const lootLink   = `<span class="action-link" data-action="loot"  data-target="${s.handle}" title="Loot ${s.handle}">loot</span>`;
-    const attackLink = `<span class="action-link" data-action="attack" data-target="${s.handle}" title="Attack ${s.handle}">attack</span>`;
-    const pinchLink  = `<span class="action-link" data-action="pinch" data-target="${s.handle}" title="Pinch ${s.handle} awake">pinch</span>`;
+    const lootLink   = `<span class="action-link" data-action="loot"  data-target="${escAttr(s.handle)}" title="Loot ${escAttr(s.handle)}">loot</span>`;
+    const attackLink = `<span class="action-link" data-action="attack" data-target="${escAttr(s.handle)}" title="Attack ${escAttr(s.handle)}">attack</span>`;
+    const pinchLink  = `<span class="action-link" data-action="pinch" data-target="${escAttr(s.handle)}" title="Pinch ${escAttr(s.handle)} awake">pinch</span>`;
     return { type:'examine', message: app + `\n<span class="text-dim">(${s.handle} is asleep.)</span>\n<span class="text-dim">Actions:</span> ${lootLink}  ${attackLink}  ${pinchLink}` };
   }
 
@@ -850,14 +1041,9 @@ const REINCARNATE_WIPE_TABLES = [
 ];
 const REINCARNATE_WIPE_OWNER_TABLES = ['insurance_policies', 'insurance_claims', 'cargo_drops'];
 
-async function cmdReincarnate(args, player) {
-  if (player.role !== 'admin') return { type:'error', message:"You don't have the clearance for that." };
-  const [handle] = args;
-  if (!handle) return { type:'error', message:'Usage: reincarnate <player>' };
-  const { rows } = await query('SELECT id, handle FROM players WHERE LOWER(handle)=$1 LIMIT 1', [handle.toLowerCase()]);
-  if (!rows.length) return { type:'error', message:`No player "${handle}".` };
-  const target = rows[0];
-
+// The wipe itself, factored out so the dev panel's Server Wipe can reuse it
+// (server/api/routes.js). Takes an already-resolved { id, handle } row.
+export async function reincarnatePlayer(target) {
   // Release owned property back to unowned stock.
   await query('UPDATE aircraft SET owner_id=NULL, hangar_id=NULL WHERE owner_id=$1', [target.id]);
   await query('DELETE FROM hangars WHERE owner_id=$1', [target.id]);
@@ -865,6 +1051,11 @@ async function cmdReincarnate(args, player) {
 
   // Wipe every other per-player table — progress AND history.
   for (const t of REINCARNATE_WIPE_TABLES) await query(`DELETE FROM ${t} WHERE player_id=$1`, [target.id]).catch(() => {});
+  // That sweep DELETEs player_flags wholesale — the one shape the flag funnel
+  // deliberately has no API for — so any cached Map for this player is now a lie.
+  // Unconditional: a no-op for an offline target, and the online one is kicked
+  // below and re-hydrates from the (now empty) table on reconnect.
+  evictPlayerFlags(target.id);
   for (const t of REINCARNATE_WIPE_OWNER_TABLES) await query(`DELETE FROM ${t} WHERE owner_id=$1`, [target.id]).catch(() => {});
 
   // Reset the players row itself to exactly what a fresh registration produces
@@ -901,8 +1092,21 @@ async function cmdReincarnate(args, player) {
     removeLivePlayer(target.id);
   }
 
+  return { wasOnline: !!live };
+}
+
+async function cmdReincarnate(args, player) {
+  if (player.role !== 'admin') return { type:'error', message:"You don't have the clearance for that." };
+  const [handle] = args;
+  if (!handle) return { type:'error', message:'Usage: reincarnate <player>' };
+  const { rows } = await query('SELECT id, handle FROM players WHERE LOWER(handle)=$1 LIMIT 1', [handle.toLowerCase()]);
+  if (!rows.length) return { type:'error', message:`No player "${handle}".` };
+  const target = rows[0];
+
+  const { wasOnline } = await reincarnatePlayer(target);
+
   logActivity('admin_cmd', player.handle, null, `reincarnate ${target.handle}`);
-  return { type:'output', message:`${target.handle} has been reincarnated — wiped to a fresh account, waiting in The Inbetween.${live ? ' (was online — kicked to reconnect clean)' : ''}` };
+  return { type:'output', message:`${target.handle} has been reincarnated — wiped to a fresh account, waiting in The Inbetween.${wasOnline ? ' (was online — kicked to reconnect clean)' : ''}` };
 }
 
 // Admin eviction. Turns a PLAYER out of every personal rental they hold, or an NPC
@@ -1119,6 +1323,7 @@ export const HELP_GROUPS = [
   { cat: 'FORAGING',   text: 'scavenge (junk, anywhere)  |  fish (rod required, at water)  |  mine (pick required, at a deposit)' },
   { cat: 'CONTAINERS', text: 'look in <container>  |  stow <item> in <container>  |  pull <item> from <container>' },
   { cat: 'CRAFTING',   text: 'recipes  |  craft <recipe_id>' },
+  { cat: 'COOKING',    text: 'cook <food|vessel>  |  flip / stir  |  stove <low|mid|high>  |  doneness <food> <target>  |  plate' },
   { cat: 'TRADING',    text: 'shop <npc>  |  buy <item>  |  sell <item>' },
   { cat: 'ECONOMY',    text: 'balance  |  deposit <amt/all>  |  withdraw <amt/all>  (ATM required)  |  steal <player>' },
   { cat: 'PROPERTY',   text: 'rent  |  lock  |  unlock  |  pick  |  upgrade lock  |  sleep' },
@@ -1145,7 +1350,7 @@ async function cmdTargetHelp(targetStr, player) {
     }
     msg += `\n<span class="text-dim">Things you can do:</span>\n`;
     msg += entries.map(e =>
-      `  <span class="action-link" data-action="${e.verb}" data-target="${e.target}">${e.verb} ${e.target}</span>`
+      `  <span class="action-link" data-action="${e.verb}" data-target="${escAttr(e.target)}">${e.verb} ${e.target}</span>`
     ).join('\n');
     return { type: 'help', message: msg };
   };
@@ -1167,7 +1372,7 @@ async function cmdTargetHelp(targetStr, player) {
   if (fr.length) {
     const f = fr[0];
     const n = f.name.toLowerCase();
-    return render(f.name, furnitureVerbs(f).map(v => ({ verb: v, target: verbTarget(v, n) })));
+    return render(f.name, furnitureVerbs(f, player).map(v => ({ verb: v, target: verbTarget(v, n) })));
   }
   return null;
 }
@@ -1175,6 +1380,13 @@ async function cmdTargetHelp(targetStr, player) {
 async function cmdHelp(args, player) {
   const target = (args || []).join(' ').trim();
   if (target) {
+    // A registered SYSTEM topic wins, but only on an exact name — otherwise
+    // `help cooking oil` would be shadowed by the `cooking` topic instead of
+    // reaching the bottle in your pack.
+    const topic = getHelpTopic(target);
+    if (topic) {
+      return { type: 'help', message: `<span class="help-header">${topic.name.toUpperCase()}</span>\n${topic.build(player)}` };
+    }
     const specific = await cmdTargetHelp(target, player);
     if (specific) return specific;
     // Nothing in reach matched — fall through to the general command reference.
@@ -1186,6 +1398,10 @@ async function cmdHelp(args, player) {
     msg += `\n<span class="help-category">${g.cat}</span>${pad}${escLt(g.text)}`;
   }
   msg += `\n<span class="help-category">HELP</span>      help &lt;item/furniture&gt;   <span class="text-dim">— what you can do with a specific thing</span>`;
+  const topics = listHelpTopics();
+  if (topics.length) {
+    msg += `\n<span class="help-category">GUIDES</span>    ${topics.map(t => `help ${t.name}`).join('  |  ')}`;
+  }
   if (player?.role === 'admin') {
     msg += `\n<span class="help-category">ADMIN</span>      @admin   <span class="text-dim">— open the admin command reference (@ = admin · / = player · . = bookkeeping)</span>`;
   }
@@ -1232,7 +1448,351 @@ async function cmdRaise(args, player) {
 }
 
 
+// `smell` — the room-level sense.
+//
+// Deliberately NOT a second `examine`. Looking needs you to name a thing;
+// tasting needs you to be holding it. Smell is the only channel that reaches the
+// whole room at once and works on things that aren't yours — someone else's pan
+// burning, a floor somebody pissed on, whatever is hanging in the air. That's
+// its entire niche, and it's why it's vague on purpose: it never reports a
+// quality band or a seasoning level, because those belong to the senses that
+// cost you something to use.
+//
+// The engine owns the SENSE and the two substrates it reads (stains, air taint).
+// Everything else that has a smell contributes through `zone.smells`, which is a
+// gather hook precisely because a kitchen can stink of three things at once.
+// `source` is what a sense verb quotes back when this is the thing that
+// overwhelmed you — see `overloadText`. A contribution without one still works
+// and falls through to the generic line.
+const STAIN_SMELLS = {
+  feces:  { text: 'the flat, sweet reek of shit', strength: 9, source: 'feces' },
+  urine:  { text: 'the sharp ammoniac bite of piss', strength: 8, source: 'urine' },
+  vomit:  { text: 'sour vomit, going stale', strength: 8, source: 'vomit' },
+  blood:  { text: 'the wet penny smell of blood', strength: 6, source: 'blood' },
+  grease: { text: 'old grease, gone tacky', strength: 4, source: 'burning' },
+  // MIS and butchering both stain floors that nothing could smell until now.
+  ejaculate: { text: 'the flat bleach note of somebody\'s good time', strength: 5, source: 'sex', misOnly: true },
+  chem:   { text: 'spilled solvent, still evaporating', strength: 6, source: 'chem' },
+  fish:   { text: 'fish guts, warming', strength: 6, source: 'fish' },
+};
+
+const AIR_SMELLS = {
+  fart:  { source: 'feces', lines: ['a fart, recent and unclaimed', 'somebody has farted, and not subtly', 'a wall of flatulence that has not finished with the room'] },
+  smoke: { source: 'burning', lines: ['smoke', 'smoke, thick enough to taste', 'enough smoke to sting'] },
+};
+
+// BODIES. The reason a sharpened sense is worth having rather than merely
+// atmospheric: a creature is a smell source, and smell does not care whether you
+// can see it. In an unlit room, behind a door, or when something is keeping out
+// of sight, this is the channel that still reports it — which is exactly the
+// question `look` cannot answer.
+//
+// Baseline gets the overwhelming stuff only: someone who has soiled themselves,
+// a crowd, the sheer animal reek of something big and unwashed. Acuity is what
+// turns "somebody has been in here" into "three people, one of them bleeding".
+function creatureSmells(zone, player, acuity) {
+  const out = [];
+  const others = getZonePlayers(zone.id).filter(p => p.id !== player.id);
+  const npcs = getZoneNpcs(zone.id) || [];
+  const enemies = getZoneEnemies(zone.id) || [];
+
+  // Anyone in a state they cannot hide. Strong enough that a normal nose gets it.
+  for (const c of [...others, ...npcs]) {
+    const ap = c.appearance_data || {};
+    if (ap.soiled_state) {
+      out.push({ text: `somebody here has had an accident and is standing in it`, strength: 9, source: 'feces' });
+      break;
+    }
+  }
+  for (const c of [...others, ...npcs]) {
+    if (c.covered_in_blood || (c.hp != null && c.hp_max && c.hp / c.hp_max < 0.35)) {
+      out.push({ text: acuity >= 2 ? `blood, fresh, and it is coming off somebody standing here` : `blood somewhere close`, strength: 6, source: 'blood' });
+      break;
+    }
+  }
+
+  // Everything ELSE that's on a body — filth worked into clothing, sweat, and
+  // plain unwashedness. The hygiene substrate owns the table; this just asks.
+  // Deduped across the room, so a crowd of filthy people is one report, loudest
+  // wins (`perceive` would otherwise spend the whole band on identical lines).
+  out.push(...creatureFilthSmells([...others, ...npcs], player, acuity));
+
+  // Bodies as bodies. The count only resolves for a sense sharp enough to pick
+  // individuals out of a crowd — otherwise it's just "people".
+  const bodies = others.length + npcs.length;
+  if (bodies > 0) {
+    out.push({
+      text: acuity >= 1 && bodies > 1
+        ? `${bodies} people, close enough to tell apart`
+        : bodies > 3 ? `a press of unwashed bodies` : `somebody else is in here`,
+      // A crowd is obvious; one quiet person is not, and that's the gap acuity fills.
+      strength: bodies > 3 ? 6 : 3,
+      source: 'bodies',
+    });
+  }
+
+  // THE DEAD. The one thing in the game that reaches the top of the scale, and
+  // the reason there's no acuity gate on overload: a room with bodies piled in
+  // it takes an ordinary nose apart, never mind a sharpened one. One is grim;
+  // four is an event you don't walk into twice.
+  const dead = zone.corpses?.size || 0;
+  if (dead) {
+    out.push({
+      text: dead >= 4 ? `the dead, and a great many of them` : dead > 1 ? `the sweet thick smell of bodies going off` : `something dead in here`,
+      // A pile of bodies sits ABOVE the ordinary-person threshold, not level
+      // with it — so it takes everyone, and shrugging it off needs a real seal
+      // rather than a token one.
+      strength: dead >= 4 ? EXTREME + 2 : dead > 1 ? 9 : 7,
+      source: 'corpses',
+    });
+  }
+
+  // Something that isn't a person. This is the tactical payoff — it fires in the
+  // dark, and it fires before whatever it is has decided to be seen.
+  if (enemies.length) {
+    out.push({
+      text: acuity >= 2 && enemies.length === 1
+        ? `something that is not a person, and it is close — ${enemies[0].name}`
+        : enemies.length > 2 ? `rank animal musk, several of them, and this is their room` : `something rank and alive that is not a person`,
+      strength: 4 + Math.min(3, enemies.length),
+    });
+  }
+  return out;
+}
+
+async function cmdSmell(args, raw, player) {
+  const zone = getZone(player.current_zone);
+  if (!zone) return { type: 'error', message: `You can't smell anything here.` };
+
+  const acuity = await acuityFor(player, 'smell');
+  const band = perceptionBand(acuity);
+  const found = creatureSmells(zone, player, acuity);
+
+  // Stains on the floor. More of them is worse, and it says so.
+  for (const [type, count] of Object.entries(zone.stains || {})) {
+    const s = STAIN_SMELLS[type];
+    if (!s || !count) continue;
+    // A MIS-shaped smell is withheld from anyone who hasn't opted in — it would
+    // otherwise be the tell that the whole surface exists.
+    if (s.misOnly && !isMisActive(player)) continue;
+    found.push({
+      text: count > 2 ? `${s.text} — more than one incident's worth` : s.text,
+      strength: s.strength + Math.min(2, count - 1),
+      source: s.source,
+    });
+  }
+
+  // Whatever's hanging in the air, fading as it goes.
+  for (const { type, n, age } of zoneAir(player.current_zone)) {
+    const air = AIR_SMELLS[type];
+    if (!air) continue;
+    found.push({
+      text: age > 0.6 ? `${air.lines[0]}, mostly faded now` : air.lines[Math.min(n, air.lines.length) - 1],
+      strength: 7 + n - Math.round(age * 3),
+      source: air.source,
+    });
+  }
+
+  // Everything else in the game that has an opinion about how the room smells.
+  const contributed = await gatherHook('zone.smells', zone, player);
+  for (const c of contributed) {
+    if (typeof c === 'string') found.push({ text: c, strength: 5 });
+    else if (c?.text) found.push({ text: c.text, strength: Number(c.strength) || 5, source: c.source || null });
+  }
+
+  // ACUITY decides the floor and the cap — not whether contributors ran. Every
+  // faint thing above was generated either way; a normal nose simply throws it
+  // away. That's what makes a sharpened sense deepen content that already
+  // exists instead of needing its own.
+  const top = perceive(found, band);
+  const note = acuityNote(acuity, 'sense of smell');
+
+  if (!top.length) {
+    return { type: 'output', message: acuity < 0
+      ? `You breathe in and get almost nothing. Something is wrong with your nose.`
+      : `You breathe in. Nothing worth reporting — which around here counts as good news.` };
+  }
+
+  const lines = top.map(s => `  ${s.text[0].toUpperCase()}${s.text.slice(1)}.`);
+  if (note) lines.push(`  <span class="text-dim">${note}</span>`);
+
+  // The cost. A sharp nose can't look away from something foul, and saturating
+  // it leaves you perceiving LESS than an ordinary person for a while. This is
+  // the counter to the build, and it fires on the way in — you don't get the
+  // information and then decide whether to pay.
+  // ...and it names what did it. A keen nose is the character who knows the
+  // difference between a corpse and a blocked drain, so the moment their sense
+  // fails is the worst possible moment to go vague about the cause.
+  if (wouldOverload(acuity, top[0]?.strength)) {
+    applyEffect(player, OVERLOAD_STATUS, 20);
+    lines.push(`  <span style="color:var(--red)">${overloadText('smell', top[0]?.source)}</span>`);
+  }
+
+  // And the one contributor the room pass deliberately skipped: you. Always last,
+  // always reported regardless of acuity — you don't need a good nose to know.
+  const own = bodyOdourSelf(player);
+  if (own) lines.push(`  <span class="text-dim">${own}</span>`);
+
+  return { type: 'output', message: `You breathe in.\n${lines.join('\n')}` };
+}
+
+// `listen` — the sense that reaches through walls.
+//
+// Smell answers "what is in this room that I can't see". Hearing answers the
+// question neither smell nor sight can: WHAT IS HAPPENING SOMEWHERE ELSE. That's
+// its whole reason to exist as a separate verb, and it's why acuity buys RANGE
+// here rather than only sensitivity — a sharp ear hears the fight one room over
+// and knows which way to run.
+//
+// The propagation is not reinvented: `getSoundReach` already walks zone exits
+// with inverse-square falloff and door muffling, and has been doing it for
+// overflying aircraft since before this existed. A closed door genuinely
+// deadens what you hear through it.
+const LISTEN_BASE_LOUDNESS = 3;   // ~1 room out for an ordinary ear
+
+// Hard cap on how many zones a single `listen` will interrogate.
+//
+// `getSoundReach` is honest about distance, and in an open district at high
+// acuity it legitimately returns 42 zones. Multiply that by a `gatherHook` fan
+// out to every plugin and you have built a fan-out with no ceiling on an
+// uncooldowned verb — which is precisely the shape of the query-per-sniff bug
+// this system already had once.
+//
+// So: nearest N only. Beyond that the sounds are too faint to have survived the
+// perception floor anyway, so the cap costs nothing real.
+//
+// THE CONTRACT FOR `zone.sounds` CONTRIBUTORS: in-memory only. No queries, no
+// awaits on IO. You are being called up to LISTEN_MAX_ZONES times per verb, and
+// the cooking contributor is the model — it reads a Map the plugin already keeps
+// for its own purposes. Same rule as `zone.smells`.
+const LISTEN_MAX_ZONES = 12;
+
+// Which way a heard zone lies, so a sound is actionable rather than ambient.
+function bearingTo(zone, targetId) {
+  for (const { dir, target } of allExits(zone)) if (target === targetId) return dir;
+  return null;
+}
+
+export async function cmdListen(args, raw, player) {
+  const zone = getZone(player.current_zone);
+  if (!zone) return { type: 'error', message: `You can't hear anything here.` };
+
+  const acuity = await acuityFor(player, 'hearing');
+  const band = perceptionBand(acuity);
+  // Each point of acuity is worth real distance, not just sensitivity.
+  const reach = getSoundReach(player.current_zone, LISTEN_BASE_LOUDNESS + acuity * 2);
+
+  // Nearest first, then capped — so the cap drops the faintest, most distant
+  // rooms rather than whichever ones the traversal happened to visit last.
+  const audible = [...reach.entries()].sort((a, b) => a[1] - b[1]).slice(0, LISTEN_MAX_ZONES);
+
+  const found = [];
+  for (const [zoneId, dist] of audible) {
+    const there = getZone(zoneId);
+    if (!there) continue;
+    const here = zoneId === player.current_zone;
+
+    // Bodies make noise. In your own room that's barely worth saying; through a
+    // wall it is the single most useful thing you can learn.
+    const bodies = getZonePlayers(zoneId).filter(p => p.id !== player.id).length + (getZoneNpcs(zoneId) || []).length;
+    const beasts = (getZoneEnemies(zoneId) || []).length;
+    if (bodies) found.push({ zoneId, dist, strength: (bodies > 3 ? 7 : 4) - dist,
+      text: bodies > 3 ? `a lot of people moving about` : bodies > 1 ? `people talking, more than one` : `somebody moving quietly` });
+    if (beasts) found.push({ zoneId, dist, strength: 6 - dist, source: 'beast',
+      text: beasts > 2 ? `several things moving that do not move like people` : `something moving wrong — too heavy, too low` });
+
+    // THE CHEAP QUERY. Bodies are already in memory, so those are free above —
+    // but asking every plugin what a zone sounds like is a fan-out, and paying
+    // it for a dozen zones when eleven of them are empty rooms is the waste.
+    // Sources of ongoing noise register their zone (sounds.js), so this is an
+    // O(1) Map hit that skips the hook entirely for anywhere silent. A listen in
+    // a quiet street now costs zero hook calls; next to a kitchen it costs one.
+    if (!isNoisy(zoneId)) continue;
+
+    const contributed = await gatherHook('zone.sounds', there, player, { distance: dist, here });
+    for (const c of contributed) {
+      if (typeof c === 'string') found.push({ zoneId, dist, text: c, strength: 5 - dist });
+      else if (c?.text) found.push({ zoneId, dist, text: c.text, strength: (Number(c.strength) || 5) - dist, source: c.source || null });
+    }
+  }
+
+  const top = perceive(found, band);
+  const note = acuityNote(acuity, 'hearing');
+
+  if (!top.length) {
+    return { type: 'output', message: acuity < 0
+      ? `You listen, and the world arrives muffled and far away. Nothing useful in it.`
+      : `You listen. Nothing but the sound of the place itself.` };
+  }
+
+  const lines = top.map(s => {
+    if (s.zoneId === player.current_zone) return `  ${s.text[0].toUpperCase()}${s.text.slice(1)}.`;
+    const dir = bearingTo(zone, s.zoneId);
+    // Only a sharp ear resolves a direction; everyone else knows it's not here.
+    const where = dir && acuity >= 1 ? ` — ${dir} of here` : s.dist > 1 ? ` — somewhere further off` : ` — through the wall`;
+    return `  ${s.text[0].toUpperCase()}${s.text.slice(1)}${where}.`;
+  });
+  if (note) lines.push(`  <span class="text-dim">${note}</span>`);
+
+  if (wouldOverload(acuity, top[0]?.strength)) {
+    applyEffect(player, OVERLOAD_STATUS, 20);
+    lines.push(`  <span style="color:var(--red)">${overloadText('hearing', top[0]?.source)}</span>`);
+  }
+  return { type: 'output', message: `You stop, and listen.\n${lines.join('\n')}` };
+}
+
+// `attune <sense>` — which sense is yours.
+//
+// The stat makes you sharp; this decides what you are sharp AT. Free the first
+// time, because a player crossing the threshold shouldn't have to know the
+// system exists to benefit from it. Changing it afterwards is surgery, and needs
+// a clinic — the choice is meant to be an identity, not a loadout.
+function atClinic(player) {
+  const zone = getZone(player.current_zone);
+  if (zone?.flags?.clinic || zone?.flags?.surgery) return true;
+  // Name-matched as well as flagged, the same way `isToilet` works — content
+  // routinely ships a clinic without anyone remembering to tag it.
+  return getZoneFurniture(player.current_zone)
+    .some(f => f.flags?.clinic || f.flags?.surgery || /\b(surgery|operating table|autodoc|medbay)\b/i.test(f.name || ''));
+}
+
+async function cmdAttune(args, raw, player) {
+  const want = (args[0] || '').toLowerCase();
+  const stat = Number(player.stat_senses) || 0;
+  const current = player._senseDominant || null;
+
+  if (!want) {
+    return { type: 'output', message: current
+      ? `Your ${current} is the sense you live through${player._senseSecond ? `, with your ${player._senseSecond} a distant second` : ''}. (attune <${SENSES.join('|')}>)`
+      : `Nothing about you is sharper than anything else. (attune <${SENSES.join('|')}>)` };
+  }
+  if (!SENSES.includes(want)) {
+    return { type: 'error', message: `That isn't a sense. Try: ${SENSES.join(', ')}.` };
+  }
+  if (stat < 3) {
+    return { type: 'error', message: `You're an ordinary animal with ordinary equipment. Raise your senses and come back.` };
+  }
+  if (want === current) return { type: 'error', message: `That's already the one.` };
+  if (current && !atClinic(player)) {
+    return { type: 'error', message: `You can't rewire what your own head pays attention to by deciding to. That's a clinic job.` };
+  }
+
+  // Second is whatever the dominant WAS — you don't lose the old one entirely,
+  // it just stops being the one you live through.
+  const second = current || null;
+  player._senseDominant = want;
+  player._senseSecond = second;
+  await setFlags(player, [[DOMINANT_FLAG, want], [SECOND_FLAG, second || '']]);
+  return { type: 'output', message: current
+    ? `It takes a while, and it is not pleasant. When it clears, your ${want} is the loud one and your ${second} has stepped back.`
+    : `You stop trying to notice everything, and start noticing one thing. Your ${want} comes forward.` };
+}
+
 export const handlers = {
+  smell:    (args, raw, player) => cmdSmell(args, raw, player),
+  listen:   (args, raw, player) => cmdListen(args, raw, player),
+  attune:   (args, raw, player) => cmdAttune(args, raw, player),
+  sniff:    (args, raw, player) => cmdSmell(args, raw, player),
   examine:  (args, raw, player, broadcast) => cmdExamine(args.join(' '), player, broadcast),
   stats:    (args, raw, player) => cmdStats(player),
   skills:   (args, raw, player) => cmdSkills(player),
@@ -1251,3 +1811,7 @@ export const handlers = {
 // Lighting controls are owned by the lighting plugin (registered as specialized
 // actions); exported here so that plugin can delegate to the engine logic.
 export { cmdSwitch, cmdTurn };
+
+// Exported for plugins that want to alias a verb onto examine for one object
+// (the prologue's `read holosign`) rather than re-describing it themselves.
+export { cmdExamine };

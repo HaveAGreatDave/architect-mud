@@ -169,22 +169,70 @@ Represents one NPC beat: what the NPC says, what options the player can pick, an
   options: [
     {
       text: string,      // player-facing choice label
+      icon: string,      // OPTIONAL author-assigned glyph; blank = engine's derived one
       enabled: boolean,
       conditions: [],    // flag/stat conditions (JSON, checked at runtime)
       actions: [],       // actions that fire when this option is chosen
       // 'next' is NOT stored here — it's a VINE edge
     }
   ],
-  actions: []            // actions that fire when this node is entered
+  actions: [],           // actions that fire when this node is entered
+  text_by_relation: {}   // OPTIONAL warmth-specific variants — see below
 }
 ```
+
+**`text_by_relation`** keys node text by relationship tier (`stranger` `known` `familiar` `close`
+`wary` `hostile` — see [systems-relationships.md](systems-relationships.md)). Each value is a string
+or an array of interchangeable lines, exactly like `text`.
+
+```js
+text: "State your business.",
+text_by_relation: { known: "You again. Sit.", close: ["Door's always open for you."] }
+```
+
+**Nothing is required and everything falls back.** An unauthored node, an unauthored tier, or a
+player this NPC has never met all land on the node's ordinary `text` — which is why the substrate
+shipped across every existing NPC without editing one tree. A missing tier walks *toward neutral*
+and takes the first authored line on the way, so a `close`-only NPC still reads as authored at
+`familiar`, and a hostile player never inherits the line written for a friend.
+
+**Gating an option on a relationship** needs no editor change — the conditions field is raw JSON:
+`[{ "relation": "known" }]`. `npc` defaults to whoever is speaking.
 
 **Out ports:** one port per option (`opt_0`, `opt_1`, …). If there are no options, a single `fallthrough` port is shown.
 
 **Properties panel:** fully visual form editor:
 - NPC Text — textarea with live preview on the node card
-- Options — card list with text input, enabled toggle, per-option actions picker, conditions JSON
+- Options — card list with text input, icon field, enabled toggle, per-option actions picker, conditions JSON
 - Node Actions — action type picker with dynamic param fields
+
+### Play view (`vine-dialogue-preview.js`)
+
+The writing surface for conversations, opened from the graph header (`🎮 Play view`) or
+from any dialogue node's properties panel. Two panes over the same graph objects:
+
+- **Conversation tree** (left) — the whole conversation flattened depth-first over the
+  option wiring, parent → children, with an edit box on every NPC beat and every player
+  response. A node already shown earlier in the walk appears as a `↩ loops back` leaf
+  (dialogue trees routinely return to `root`), and anything unreachable from the entry
+  node is listed at the bottom under **Unreachable**. Per-response icon picker; `+ response`
+  on a beat; `+ beat` on an unwired response mints the next node and wires the edge.
+- **Play view card** (right) — the single beat as the player sees it. Clicking an option
+  walks the card into that option's target.
+
+Both panes edit the same objects, so a keystroke in one updates the other's field **in
+place** — never by re-render, which would eat the caret.
+
+Opening it on an **empty graph** seeds the entry beat (`root` — the id the engine looks
+for; `addNode()` only mints `nodeN`), so a brand-new NPC's dialogue can be written
+start-to-finish here without touching the canvas. Edits land in the open graph; the
+normal 💾 Save & Close is still what persists them.
+
+The option-glyph rules mirror `dialogueOptionKind()` in `server/engine/dialogue.js`
+(including the `hostile` tag) so the author sees the player's glyph while writing —
+**keep the two rule lists in step.** An author-assigned `icon` overrides the derived
+glyph in the game client, but a hostile option keeps its red styling and stakes line
+regardless: the warning is the colour and the hint, not the glyph.
 
 ### Conversion helpers
 
@@ -206,9 +254,19 @@ The `_vine: { x, y }` key is embedded in each tree node to preserve layout posit
 | `action` | Blue | `next` | Run a single action (from VineActionTypes) |
 | `setflag` | Amber | `next` | Set or clear a player/world flag |
 | `condition` | Red | `ifTrue`, `ifFalse` | Branch on a flag condition |
+| `broadcast` | Teal | `next` | Line to the **whole room**, not just the actor |
+| `spawn` | Crimson | `next` | Put an enemy instance or a ground item into a zone |
+| `random` | Violet | `out0…outN` (**dynamic**) | Weighted pick of one branch |
+| `counter` | Bronze | `next`, or `ifTrue`/`ifFalse` (**dynamic**) | Bump a numeric flag, optionally branch on a threshold |
 | `say` | Green | `next` | Output text to the player |
 | `wait` | Steel | `next` | Pause execution N seconds |
 | `script` | Purple | `next` | Run another script by ID |
+
+`random` and `counter` are the two node types whose **out ports depend on their own data** —
+`getOutPorts(n)` reads `n.data`. Adding an outcome to a `random` node grows its port list; typing a
+threshold into a `counter` swaps its single `next` port for `ifTrue`/`ifFalse`. A `random` node's
+branch targets live in edges (`out<i>` → `outcomes[i].next`), never in `data` — the converters fold
+them in and out so there is exactly one source of truth for where an outcome goes.
 
 ### Conversion helpers
 
@@ -242,6 +300,14 @@ The full list of action types: `GRANT_ITEM`, `REMOVE_ITEM`, `START_QUEST`, `COMP
 AI behaviour nodes come from a **separate** pair of catalogues (`AI_CONDITIONS`/`AI_ACTIONS` in `vine-schema-ai.js`) — see [ai-behaviour.md](ai-behaviour.md) for what each does at runtime.
 
 Plugins also register dialogue actions via `registerAction` that the editor catalog (`vine-action-types.js`) doesn't yet list, so they're authored by hand in the JSON. Notably **`GPS_TO`** (from the **gps** plugin, `params.zone`) plots a route onto the player's map and pushes a `gps_route` independently of the dialogue text — an NPC can send you somewhere (e.g. `npc_claude_merrin`). No-ops when you're already at the destination.
+
+An action that returns `{ type: 'dialogue_line', text }` has its text **appended to the node's authored
+text**, and the client sets that with `innerHTML` — so a plugin action is how an NPC's spoken line
+carries live markup (a `teachVerb` shimmer, a clickable listing) that authored prose can't. **`TEACH_AIM`**
+(from the **injury** plugin, no params) is the reference example: Grady teaches the `aim` verb, and the
+action words the lesson against the player's *current* weapon skill so the same node reads "not yet" to a
+novice and "you have the hands for it now" when they come back. Prefer this over baking a verb name into
+the prose — a mentioned verb is a verb the player has to retype from memory.
 
 ---
 
@@ -319,8 +385,15 @@ Node types for the visual broadcast script editor. Saved to `media_broadcasts.br
 The node-type catalogue (20+ types — say/ticker/npc_anchor/npc_action/inject_news/camera_cut/
 title_card/music/overlay/credits/tech_difficulties/…) is **owned by
 [systems-broadcast.md](systems-broadcast.md)**, which documents what each one does at
-air time. Conditions available here: `IS_DAYTIME`, `VIEWERS_PRESENT`, `NEWS_AVAILABLE`,
-`HOUR_RANGE`, `RANDOM_CHANCE`.
+air time. Conditions available here: `IS_DAYTIME`, `VIEWERS_PRESENT`, `OTHER_VIEWERS_PRESENT`,
+`NEWS_AVAILABLE`, `HOUR_RANGE`, `RANDOM_CHANCE`, `NPC_IN_STUDIO`.
+
+`NPC_IN_STUDIO { npc_id }` asks whether an actor is **actually standing on the studio floor**
+right now. Use it before any segment built around one person: the say-node room-authority rule
+already refuses to put words in an absent mouth, but it does so *silently*, so a segment that
+assumes someone is there degrades into the rest of the cast talking to an empty chair. Ask
+first and play something else instead — see [the chair gate](bsm-format.md#the-chair-gate).
+A channel with no `studio_zone_id` answers **true**, so it never cuts a segment on a technicality.
 
 ### Conversion helpers
 

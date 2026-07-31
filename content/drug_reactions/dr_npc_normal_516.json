@@ -1,0 +1,10 @@
+{
+  "id": "dr_npc_normal_516",
+  "drug_id": null,
+  "source": "npc",
+  "tone": "normal",
+  "relation": null,
+  "npc_type": "cop",
+  "self_line": "{npc} asks you to move along, in the tone that is not a request.",
+  "room_line": "{npc} tells {player} to move along, in the tone that is not a request."
+}

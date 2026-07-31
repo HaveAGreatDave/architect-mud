@@ -1,0 +1,14 @@
+{
+  "description": "Rails of coveralls and jackets by chest size, in black, industrial orange, and a grey that used to be one of the other two.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_secondskin_rails",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "workwear rails",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_secondskin_floor"
+}

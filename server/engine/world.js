@@ -266,6 +266,20 @@ export function interiorExitDirs(zone) {
   return dirs.length ? dirs : null;
 }
 
+// Every cardinal direction an interior room can actually be left by (any exit, not
+// just the ones leaving the building). Drives the alternative "edge lines" door style
+// on the maps: an open side gets a green edge, a walled side a red one. Deliberately
+// null for exteriors and facades — out on the street nearly every tile is open on all
+// four sides, so the mode would paint the whole map green and say nothing.
+export function interiorOpenDirs(zone) {
+  if (!zone || isEnterableFacade(zone)) return null;
+  if (!(zone.flags?.is_interior || zone.flags?.is_apartment || zone.flags?.is_building)) return null;
+  // An empty array is a real answer here (a room whose only way out is a legacy
+  // in/out exit is walled on all four sides), so this returns [] rather than null —
+  // null means "not an interior tile, don't draw edges at all".
+  return Object.keys(primaryExits(zone)).filter(d => INTERIOR_EXIT_DIRS.has(d));
+}
+
 // Terrain class for the map/minimap surfaces: 'road' | 'water' | 'grass' | null.
 // Drives the client's tileable water/grass fill and the grey-asphalt / yellow-markings
 // road recolour. Grass = parkland, detected by an authored green surface colour (the
@@ -331,6 +345,63 @@ export function resolveLanding(zoneId) {
   const z = world.zones.get(zoneId);
   if (z && isEnterableFacade(z)) return getMapByParentZone(z.id).entry_zone_id;
   return zoneId;
+}
+
+// ── Where you land when something PUTS YOU OUT ────────────────────────────────
+// Being thrown out of a business (closing time, a bouncer, a shutter coming down)
+// has one correct destination: the street. Every ejector used to pick its own, and
+// each picked wrong in its own way — the bouncer took the first exit it found
+// (which can be a back office), closing time preferred a non-interior tile (which
+// includes a FACADE), and a facade is the worst possible answer, because
+// `resolveLanding` forwards a landing on a facade straight into that building's
+// interior. Thrown out of a bar, you'd be standing in the shop next door.
+//
+// So: one helper, and one law — an ejection lands OUTDOORS, on a tile a player can
+// legitimately stand on, and never on a facade. Breadth-first from the room you're
+// being removed from, so a back room three doors deep still finds the pavement,
+// with a bounded sweep because this runs on a scheduler tick.
+//
+// Returns null when there is genuinely no way out (a sealed test zone, a dreamscape).
+// Callers must treat null as "don't move them" rather than inventing a fallback —
+// leaving someone inside is recoverable; teleporting them into a wall is not.
+// Is this a tile you can be PUT OUT onto? Outdoors, standable, not a facade, not
+// water. Exported so a hand-authored eject destination (a club's own back alley,
+// flags.bouncer_eject_zone) is validated by the same rule the search uses — an
+// authored facade would otherwise walk the player straight back indoors.
+export function isStreetLanding(zoneId) {
+  const z = world.zones.get(zoneId);
+  if (!z) return false;
+  if (z.flags?.is_interior) return false;
+  if (isEnterableFacade(z)) return false;
+  if (z.flags?.terrain === 'water' || z.flags?.underwater) return false;
+  return true;
+}
+
+const EJECT_MAX_HOPS = 4;
+export function streetExitFrom(zoneId) {
+  const start = world.zones.get(zoneId);
+  if (!start) return null;
+  const seen = new Set([zoneId]);
+  let frontier = [start];
+  for (let hop = 0; hop < EJECT_MAX_HOPS && frontier.length; hop++) {
+    const next = [];
+    for (const z of frontier) {
+      for (const target of Object.values(z.exits || {})) {
+        if (!target || seen.has(target)) continue;
+        seen.add(target);
+        const t = world.zones.get(target);
+        if (!t) continue;
+        // Standable pavement? Done. (isStreetLanding rejects facades and water: a
+        // facade forwards you back indoors, and the harbour is a drowning.)
+        if (isStreetLanding(target)) return target;
+        // Otherwise keep walking out through interiors, but never THROUGH a facade
+        // or into water.
+        if (t.flags?.is_interior) next.push(t);
+      }
+    }
+    frontier = next;
+  }
+  return null;
 }
 
 export async function loadPlayerCorpses() {
@@ -933,6 +1004,49 @@ export function removeTransientZone(id) {
 
 export function isTransientZone(id) { return world.transientZones.has(id); }
 
+/**
+ * The zone id it is SAFE to write to `players.current_zone`.
+ *
+ * A transient zone (a void crossing room, a dreamscape room) exists only in this
+ * process's RAM and has no `zones` row. Persisting one strands the player in a
+ * room that cannot exist after a restart — and the disconnect checkpoint in
+ * server/index.js does exactly that today for anyone who drops mid-crossing or
+ * mid-dream, because it writes `player.current_zone` unconditionally.
+ *
+ * Rather than ask ~90 assignment sites to remember the rule, every writer of the
+ * COLUMN goes through here: a transient id falls back to the sleeper's real body
+ * zone, then the anchor, then the start zone. RAM position is unaffected — the
+ * player stays exactly where they are for the rest of the session; this only
+ * decides what the durable row says if the session ends there.
+ *
+ * A system that genuinely needs to restore a transient location across a relog
+ * must stash it itself (voidwalking's `crossing_room` player flag is the model).
+ */
+/**
+ * The room the player's BODY is standing (or lying) in, right now.
+ *
+ * Not the same question as `persistableZone`, which is about what's safe to write to
+ * `players.current_zone` and falls back to an anchor when it can't tell. This one is for
+ * PHYSICS — weather, temperature, precipitation — and so it must never guess: a dreamer's
+ * `current_zone` is a dreamscape with no sky, but the body it belongs to is lying in a room
+ * that may well be in a blizzard. Returns null when there's genuinely no body zone, so a
+ * caller can skip rather than silently apply the weather of somewhere else.
+ */
+export function bodyZoneOf(player) {
+  return player?.sleeping?.bodyZone || player?._bodyZone || player?.current_zone || null;
+}
+
+export function persistableZone(player) {
+  const zid = player?.current_zone;
+  if (zid && !isTransientZone(zid)) return zid;
+  // Where the body really is while the mind is elsewhere. `sleeping.bodyZone` is
+  // the sleep path; `_bodyZone` is the same idea for a drug trip, which has no
+  // `sleeping` object. Both are set on entry and cleared on exit.
+  const body = player?.sleeping?.bodyZone || player?._bodyZone;
+  if (body && !isTransientZone(body)) return body;
+  return player?.anchor_zone || 'zone_start';
+}
+
 // Build a small graph snapshot for the minimap: current zone + everything
 // reachable within `depth` hops, with enough info to render an ASCII grid.
 // Per-viewer minimap node filters. A plugin registers fn(zone, viewer) → boolean;
@@ -1020,7 +1134,7 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       const t = world.zones.get(target);
       if (t?.flags?.is_building) buildings.push(t.flags.building_name || t.name);
     }
-    nodes.push({
+    const node = {
       id: zone.id,
       name: zone.name,
       buildings,
@@ -1045,6 +1159,7 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       building_type: buildingTypeOf(zone), // facade tile's type — drives the sidebar/full-map labels/icons overlay
       entrance: buildingEntranceDir(zone), // which edge the door faces — drives the map entrance arrow
       exit_dirs: interiorExitDirs(zone), // interior room's ways out — drives the interior map's exit arrows
+      open_dirs: interiorOpenDirs(zone), // every cardinal side that's open — drives the "edge lines" door style
       terrain: zoneTerrain(zone), // 'road' | 'water' | 'grass' | null — tileable terrain styling
       district: (() => { const d = districtFor(zone); return { key: d.key, name: d.name, color: d.color }; })(),
       artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),
@@ -1057,7 +1172,17 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       is_current: zone.id === centerZoneId,
       reachable: visited.has(zone.id),
       player_count: zone.players.size,
-    });
+    };
+    // Drop the nulls before it goes on the wire. Most of the flags above are
+    // `x ? true : null` — a road tile carries nine explicit `null`s and their key
+    // names, re-serialized for every node, on every step. Absent and null read
+    // identically to every consumer (all of them test truthiness; verified across
+    // minimap.js, tablet-os.js and dispatch.js — none use `in`, `hasOwnProperty`
+    // or `=== null`), so omitting them changes nothing but the byte count.
+    // Booleans that are meaningfully `false` (is_current, reachable, sanctuary,
+    // enterable) are kept — only null is dropped.
+    for (const k of Object.keys(node)) if (node[k] === null) delete node[k];
+    nodes.push(node);
   }
   return nodes;
 }
@@ -1117,6 +1242,45 @@ export function getZonePlayers(zoneId) {
   return [...z.players].map(id => world.players.get(id)).filter(Boolean);
 }
 
+/**
+ * Repair any drift between `player.current_zone` and the `zone.players` sets.
+ *
+ * Zone broadcasts are delivered by walking `zone.players` (see broadcast() in
+ * server/index.js) rather than scanning every connected client, which is what
+ * turns room chatter from O(players) per message into O(occupants). That trade
+ * is only safe if the set is right — and a player who is missing from it stops
+ * hearing their room with **no error and no obvious symptom**.
+ *
+ * Every path in the engine pairs `current_zone = X` with `addPlayerToZone`, and
+ * the plugins that mutate the set directly (flight, charter) keep it consistent
+ * too. But there are ~90 assignment sites across plugins, and "we checked them
+ * all once" is not a guarantee that survives the next feature.
+ *
+ * So this sweep exists: it treats `current_zone` as the truth, fixes the sets,
+ * and — importantly — LOGS what it fixed. Drift becomes a bounded blip with a
+ * name attached, instead of a player quietly going deaf forever. Returns the
+ * number of repairs so a caller (or a test) can assert on it.
+ */
+export function reconcileZoneMembership({ quiet = false } = {}) {
+  let repaired = 0;
+  for (const [pid, p] of world.players) {
+    const zid = p?.current_zone;
+    if (!zid) continue;
+    const zone = world.zones.get(zid);
+    if (!zone) continue;                 // transient/void zone — not a DB room
+    if (zone.players.has(pid)) continue;
+    // A player aboard an airborne aircraft is deliberately absent from the
+    // ground zone's set (flight removes them on take-off) — not drift.
+    if (p.posture === 'flying') continue;
+    zone.players.add(pid);
+    repaired++;
+    if (!quiet) {
+      console.warn(`[world] zone membership drift repaired: ${p.handle || pid} was in ${zid} but missing from its player set — some path set current_zone without addPlayerToZone()`);
+    }
+  }
+  return repaired;
+}
+
 export function addPlayerToZone(pid, zid) { world.zones.get(zid)?.players.add(pid); }
 export function removePlayerFromZone(pid, zid) { world.zones.get(zid)?.players.delete(pid); }
 export function setLivePlayer(pid, data) { world.players.set(pid, data); }
@@ -1169,7 +1333,7 @@ const SPAWN_MESSAGES = [
   n => `A ${n} peels away from the wall.`,
 ];
 
-function pickSpawnMessage(name) {
+export function pickSpawnMessage(name) {
   return SPAWN_MESSAGES[Math.floor(Math.random() * SPAWN_MESSAGES.length)](name);
 }
 

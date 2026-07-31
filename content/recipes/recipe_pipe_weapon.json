@@ -5,7 +5,6 @@
     "quantity": 1
   },
   "category": "weapons",
-  "craft_time": 3,
   "description": "Combine scrap metal into a crude but effective blunt weapon.",
   "id": "recipe_pipe_weapon",
   "ingredients": [

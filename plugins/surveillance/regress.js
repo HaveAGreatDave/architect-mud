@@ -1,7 +1,8 @@
 // Surveillance plugin regression suite — run by tests/regress.js (never loaded
 // in production). Verb routing plus the crime→star registry defaults/cap.
 import { CRIME_DEFAULTS, getCrimeStars, getCrimeList } from '../../server/engine/crimes.js';
-import { visFactorForCategory, isSpecterInstalled, cameraBufferLines, microreelList, deleteMicroreel, isWitnessed, witnessRoll, __refreshRecordingCams, __captureZoneLine, __cameraFrames, __cameraFull, selfDestructDevice, __expireStickyCams, __stickyCamTtl } from './index.js';
+import { visFactorForCategory, isSpecterInstalled, cameraBufferLines, microreelList, deleteMicroreel, isWitnessed, witnessRoll, __refreshRecordingCams, __captureZoneLine, __cameraFrames, __cameraFull, selfDestructDevice, __expireStickyCams, __stickyCamTtl, __isSelfDefence } from './index.js';
+import { emit } from '../../server/engine/events.js';
 import { getTimeScale } from '../../server/engine/gametime.js';
 import { query } from '../../server/models/db.js';
 import { setFlag } from '../../server/engine/flags.js';
@@ -19,6 +20,22 @@ export default async function regress({ run, check, getPlayer }) {
   const ar2 = await run('apprehendresolve run');
   check('apprehendresolve run no-ops with no prompt', ar2?.type === 'noop', ar2?.type);
 
+  // Self-defence: only the instigator wears the assault charge. An NPC throwing the
+  // first punch (gameLoop's `npc.aggressed`) buys the victim a pass to swing back at
+  // THAT foe — and nobody else.
+  {
+    const p = getPlayer();
+    check('no self-defence claim before anyone swings', !__isSelfDefence(p.id, 'npc:npc_regress_thug'));
+    emit('npc.aggressed', { npc: { id: 'npc_regress_thug' }, target: p });
+    check('NPC throwing the first punch makes the player a defender',
+      __isSelfDefence(p.id, 'npc:npc_regress_thug'));
+    check('the pass is per-foe — it does not cover a bystander',
+      !__isSelfDefence(p.id, 'npc:npc_regress_bystander'));
+    emit('player.attacked', { attacker: { id: 'attacker_regress', handle: 'Regress', current_zone: null }, target: p });
+    check('being attacked by a player makes the victim a defender against them',
+      __isSelfDefence(p.id, 'player:attacker_regress'));
+  }
+
   // collect physicalizes an auto-banked evidence clip; with none on record for
   // the fake player it must report cleanly rather than throw.
   const col = await run('collect');
@@ -27,6 +44,21 @@ export default async function regress({ run, check, getPlayer }) {
   // clip needs a deployed device; the fake player owns none.
   const clip = await run('clip');
   check('clip with no device errors cleanly', clip?.type === 'error' && /no deployed device/i.test(clip?.message || ''), clip?.message);
+
+  // `hijack` now needs a carried `hack_device`, same as the ATM, the hololock, both
+  // vaults and the practice rig — breaching a camera is the same act as breaching a
+  // safe. The gate deliberately sits BELOW the device-exists check so a mistyped name
+  // still answers "there's no X here" (the useful error) rather than lecturing about
+  // hardware, which is exactly what these two assertions pin: no args → the usage
+  // error, a name that matches nothing → the not-here error, neither mentioning a
+  // device. The empty-handed refusal itself needs a real security_device in the room
+  // and is covered by manual QA.
+  const hjNone = await run('hijack');
+  check('hijack with no args asks what', hjNone?.type === 'error' && /hijack what/i.test(hjNone?.message || ''), hjNone?.message);
+  const hjGhost = await run('hijack ghostcam_xyz');
+  check('hijack of a device that is not here says so, not "you need a device"',
+    hjGhost?.type === 'error' && /no "ghostcam_xyz" here/i.test(hjGhost?.message || '') && !/hacking device/i.test(hjGhost?.message || ''),
+    hjGhost?.message);
 
   // purge is admin-only: a normal player gets the generic unknown-command reply
   // (the verb stays hidden); an admin runs it clean with no police in the room.
@@ -52,11 +84,18 @@ export default async function regress({ run, check, getPlayer }) {
   // short-circuits to "unseen" BEFORE anything else — even a forced 'always'
   // witness. Prove it against a normal zone (always ⇒ seen) vs the bunker.
   const anyZone = (await query('SELECT id FROM zones WHERE (flags->>\'unsurveilled\') IS DISTINCT FROM \'true\' LIMIT 1')).rows[0]?.id;
-  check('witnessRoll honors a forced always-witness in a normal zone', (await witnessRoll(anyZone, 'always', false, 0)) === true, anyZone);
+  // witnessRoll returns the witness SOURCE ('camera' | 'cop' | 'always' | false).
+  check('witnessRoll honors a forced always-witness in a normal zone', (await witnessRoll(anyZone, 'always', false, 0)) === 'always', anyZone);
   const bunker = getZone('zone_lw_commons');
   check('bunker zone carries the unsurveilled flag', bunker?.flags?.unsurveilled === true, JSON.stringify(bunker?.flags)?.slice(0, 90));
   check('unsurveilled zone: even an always-witness is unseen', (await witnessRoll('zone_lw_commons', 'always', false, 0)) === false);
   check('unsurveilled zone: isWitnessed is false', (await isWitnessed('zone_lw_commons')) === false);
+  // A `camera`-witnessed crime is caught by a lens or not at all — no cop eyeball,
+  // no bystander, whoever is standing there. (`any` also accepts an on-scene cop,
+  // so it isn't deterministic here and isn't asserted.)
+  check('no camera, no witness (camera-only crime)', (await witnessRoll(anyZone, 'camera', false, 1)) === false, anyZone);
+  // camChance 100 so the visibility scalar (never below 0.1×) can't make this flaky.
+  check('a live camera at full odds does witness', (await witnessRoll(anyZone, 'any', true, 100)) === 'camera', anyZone);
 
   const list = getCrimeList();
   check('crime list covers all defaults', list.length === Object.keys(CRIME_DEFAULTS).length, list.length);

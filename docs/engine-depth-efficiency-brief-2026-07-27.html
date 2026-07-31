@@ -1,0 +1,354 @@
+<title>Architect MUD — Depth & Efficiency Brief</title>
+<style>
+  :root {
+    --paper: #edeff1;
+    --panel: #e3e6e9;
+    --ink: #10151c;
+    --ink-2: #47515e;
+    --ink-3: #7d8794;
+    --rule: #c3c8ce;
+    --hair: #d6dade;
+    --blue: #1d5c8c;
+    --teal: #17756b;
+    --amber: #a86a10;
+    --grid: rgba(16,21,28,.07);
+
+    --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "DejaVu Sans Mono", monospace;
+    --sans: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0e1116; --panel: #141920; --ink: #d7dde4; --ink-2: #98a3b0;
+      --ink-3: #69727d; --rule: #262d36; --hair: #1d232b;
+      --blue: #62a9d8; --teal: #46b5a6; --amber: #d9a244; --grid: rgba(215,221,228,.06);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0e1116; --panel: #141920; --ink: #d7dde4; --ink-2: #98a3b0;
+    --ink-3: #69727d; --rule: #262d36; --hair: #1d232b;
+    --blue: #62a9d8; --teal: #46b5a6; --amber: #d9a244; --grid: rgba(215,221,228,.06);
+  }
+  :root[data-theme="light"] {
+    --paper: #edeff1; --panel: #e3e6e9; --ink: #10151c; --ink-2: #47515e;
+    --ink-3: #7d8794; --rule: #c3c8ce; --hair: #d6dade;
+    --blue: #1d5c8c; --teal: #17756b; --amber: #a86a10; --grid: rgba(16,21,28,.07);
+  }
+
+  body {
+    background: var(--paper); color: var(--ink);
+    font-family: var(--sans); font-size: 16px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .sheet { max-width: 900px; margin: 0 auto; padding: 0 22px 90px; }
+  p { max-width: 68ch; color: var(--ink-2); }
+  strong { color: var(--ink); font-weight: 600; }
+  code { font-family: var(--mono); font-size: .88em; color: var(--ink); }
+
+  /* header */
+  .head { padding: 44px 0 18px; border-bottom: 1px solid var(--ink); margin-bottom: 40px; }
+  .slug {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .2em;
+    text-transform: uppercase; color: var(--blue);
+    display: flex; flex-wrap: wrap; gap: 5px 16px; margin-bottom: 24px;
+  }
+  .slug span:not(:first-child) { color: var(--ink-3); }
+  h1 {
+    font-family: var(--mono); font-weight: 500;
+    font-size: clamp(27px, 5vw, 46px); line-height: 1.1;
+    letter-spacing: -.02em; margin: 0 0 16px; text-wrap: balance; color: var(--ink);
+  }
+  h1 span { color: var(--blue); }
+  .sub { font-size: 17.5px; max-width: 62ch; margin: 0; }
+
+  /* sections */
+  section { margin-top: 62px; }
+  h2 {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .2em;
+    text-transform: uppercase; color: var(--ink);
+    display: flex; align-items: baseline; gap: 12px; margin: 0 0 8px;
+  }
+  h2::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+  h2 em { font-style: normal; color: var(--blue); font-size: 11px; }
+  .lede { font-size: 17px; margin: 0 0 26px; }
+  h3 {
+    font-family: var(--mono); font-size: 14px; letter-spacing: .02em;
+    color: var(--ink); margin: 34px 0 6px; font-weight: 600;
+  }
+
+  /* measurement rows */
+  .measures { border-top: 1px solid var(--rule); margin: 26px 0; }
+  .m {
+    display: grid; grid-template-columns: 1fr auto; gap: 6px 20px;
+    align-items: baseline; padding: 11px 0; border-bottom: 1px solid var(--hair);
+  }
+  .m .lbl { font-size: 14.5px; color: var(--ink-2); }
+  .m .lbl b { color: var(--ink); font-weight: 600; }
+  .m .val {
+    font-family: var(--mono); font-size: 15px; color: var(--blue);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .m .val.zero { color: var(--teal); }
+  .m .val.warn { color: var(--amber); }
+  .m .note {
+    grid-column: 1 / -1; font-size: 13px; color: var(--ink-3);
+    font-family: var(--mono); line-height: 1.55;
+  }
+
+  /* callout */
+  .call {
+    background: var(--panel); border-left: 2px solid var(--blue);
+    padding: 18px 22px; margin: 28px 0; font-size: 14.5px; color: var(--ink-2);
+  }
+  .call b { color: var(--ink); font-weight: 600; }
+  .call.warn { border-left-color: var(--amber); }
+
+  /* bars */
+  figure { margin: 30px 0; }
+  figcaption {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--ink-3);
+    padding-bottom: 7px; border-bottom: 1px solid var(--rule); margin-bottom: 15px;
+  }
+  .bars { display: grid; gap: 8px; }
+  .bar { display: grid; grid-template-columns: 132px 1fr 78px; gap: 12px; align-items: center; }
+  .bar .k { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+  .bar .track { height: 14px; background: var(--grid); }
+  .bar .fill { height: 100%; background: var(--blue); }
+  .bar .fill.t { background: var(--teal); }
+  .bar .fill.a { background: var(--amber); }
+  .bar .v {
+    font-family: var(--mono); font-size: 12px; text-align: right;
+    font-variant-numeric: tabular-nums; color: var(--ink);
+  }
+  @media (max-width: 620px) {
+    .bar { grid-template-columns: 96px 1fr 62px; gap: 8px; }
+    .bar .k, .bar .v { font-size: 11px; }
+  }
+
+  /* stack diagram */
+  .stack { display: grid; gap: 3px; margin: 26px 0; }
+  .layer {
+    border: 1px solid var(--rule); background: var(--panel);
+    padding: 12px 16px; display: grid; grid-template-columns: 1fr auto; gap: 12px;
+    align-items: center;
+  }
+  .layer .n { font-family: var(--mono); font-size: 13.5px; color: var(--ink); }
+  .layer .d { font-size: 13px; color: var(--ink-3); grid-column: 1 / -1; }
+  .layer .q { font-family: var(--mono); font-size: 12px; color: var(--teal); white-space: nowrap; }
+  .layer .q.warn { color: var(--amber); }
+
+  .tw { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 520px; font-family: var(--mono); font-size: 12.5px; }
+  th, td { text-align: left; padding: 8px 14px 8px 0; border-bottom: 1px solid var(--hair); vertical-align: top; }
+  th {
+    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink-3); border-bottom: 1px solid var(--rule);
+  }
+  td.n { font-variant-numeric: tabular-nums; text-align: right; }
+
+  ul { max-width: 68ch; padding-left: 18px; color: var(--ink-2); }
+  li { margin-bottom: 8px; }
+
+  .foot {
+    margin-top: 70px; border-top: 1px solid var(--ink); padding-top: 14px;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink-3);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  }
+</style>
+
+<div class="sheet">
+
+  <header class="head">
+    <div class="slug">
+      <span>Engineering Brief</span>
+      <span>Architect MUD</span>
+      <span>27 Jul 2026</span>
+      <span>HEAD 3d951b37</span>
+    </div>
+    <h1>Depth without<br>cost: <span>where the<br>two disciplines meet</span></h1>
+    <p class="sub">Two things this project does unusually well, measured rather than asserted. The systems go deeper than their surface suggests, and the engine pays almost nothing to run them — because the depth was put in memory and the database was told to stay out of the way.</p>
+  </header>
+
+  <section>
+    <h2>I · The read-tier discipline <em>measured</em></h2>
+    <p class="lede">The single most consequential rule in this codebase is that <strong>every content table declares where it is read from</strong> before anything is allowed to read it. Not a convention — a registry entry, validated by regress.</p>
+
+    <div class="measures">
+      <div class="m">
+        <span class="lbl">Content tables in the registry</span>
+        <span class="val">56</span>
+      </div>
+      <div class="m">
+        <span class="lbl"><b>…carrying an explicit read tier</b></span>
+        <span class="val zero">56 / 100%</span>
+        <span class="note">no content table in this repo is read from an undeclared tier</span>
+      </div>
+      <div class="m">
+        <span class="lbl">Loaded once at boot, served from RAM forever</span>
+        <span class="val">36</span>
+      </div>
+      <div class="m">
+        <span class="lbl">Cold — queried on demand, never boot-loaded</span>
+        <span class="val">12</span>
+      </div>
+      <div class="m">
+        <span class="lbl">Fresh / TTL — deliberately re-read</span>
+        <span class="val">6</span>
+      </div>
+      <div class="m">
+        <span class="lbl">Annotated dead — zero runtime readers, on purpose</span>
+        <span class="val warn">2</span>
+      </div>
+    </div>
+
+    <p>The 36 boot-tier tables are why the world is a set of in-memory Maps rather than a query surface. The 12 cold ones are the counterweight and the more interesting decision: <code>books</code> is cold and never boot-loaded, which is the entire reason a library of eight full novels is affordable to ship at all. A table's tier is a budget, and the budget is written down.</p>
+
+    <figure>
+      <figcaption>Content tables by read tier · 56 total</figcaption>
+      <div class="bars">
+        <div class="bar"><span class="k">boot</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="v">36</span></div>
+        <div class="bar"><span class="k">cold</span><span class="track"><span class="fill t" style="width:33.3%"></span></span><span class="v">12</span></div>
+        <div class="bar"><span class="k">fresh</span><span class="track"><span class="fill t" style="width:13.9%"></span></span><span class="v">5</span></div>
+        <div class="bar"><span class="k">dead</span><span class="track"><span class="fill a" style="width:5.6%"></span></span><span class="v">2</span></div>
+        <div class="bar"><span class="k">ttl</span><span class="track"><span class="fill a" style="width:2.8%"></span></span><span class="v">1</span></div>
+      </div>
+    </figure>
+
+    <div class="call">
+      <b>Why this is the load-bearing rule.</b> Production Postgres is remote. Latency lives in round-trip <em>count</em>, not query cost — so a feature that adds one awaited query to a per-move path costs more than a feature that adds a thousand rows to a boot-loaded table. Tiering makes that tradeoff explicit at design time instead of discoverable at 3am.
+    </div>
+  </section>
+
+  <section>
+    <h2>II · Sync by contract <em>the hot path</em></h2>
+    <p class="lede">Five substrates in this engine are <strong>synchronous and query-free by contract</strong> — not "currently fast", but structurally incapable of a round trip, because a `await` in them would be a bug the contract forbids.</p>
+
+    <div class="stack">
+      <div class="layer">
+        <span class="n">condition.js</span><span class="q">0 queries</span>
+        <span class="d">Hunger, thirst, temperature and fatigue → the stats you act with. Sits under <code>skillStatBonus</code>, so it reaches every skill check in the game without a call site knowing it exists.</span>
+      </div>
+      <div class="layer">
+        <span class="n">hygiene.js</span><span class="q">0 queries</span>
+        <span class="d">Filth on a body. Called from the smell pass and from NPC reaction paths — both places where a query would be per-look and per-tick.</span>
+      </div>
+      <div class="layer">
+        <span class="n">zone-filth.js</span><span class="q">0 queries</span>
+        <span class="d">Filth on a floor. RAM is the source of truth for stains; the 7-day cadence is stateless, derived from the game date, so a restart can't reset the city's mess.</span>
+      </div>
+      <div class="layer">
+        <span class="n">relations.js</span><span class="q">2 (hydrate + flush)</span>
+        <span class="d">What an NPC remembers about you. Hydrated once at login, read from memory thereafter — <code>getRelation</code> is sync by contract. Time-decay is lazy with no tick at all.</span>
+      </div>
+      <div class="layer">
+        <span class="n">durability.js</span><span class="q">3 (flush only)</span>
+        <span class="d">Gear wearing out. <code>wear()</code> is sync by contract because it is called from the combat swing; accrual is in memory, flushed coalesced.</span>
+      </div>
+    </div>
+
+    <p>The measurable consequence is on the two hottest paths in the game. A combat swing and a player move — the things that happen thousands of times an hour — carry almost no awaited database work between them:</p>
+
+    <div class="measures">
+      <div class="m">
+        <span class="lbl"><b>combat.js</b> — the per-swing path</span>
+        <span class="val zero">2 awaited queries</span>
+      </div>
+      <div class="m">
+        <span class="lbl"><b>movement.js</b> — the per-move path</span>
+        <span class="val zero">3 awaited queries</span>
+        <span class="note">both files are thousands of lines; the queries are flushes, not reads</span>
+      </div>
+      <div class="m">
+        <span class="lbl">Coalescing flush functions across the engine</span>
+        <span class="val">6</span>
+        <span class="note">flushDirtyResources · flushWear · flushAllWear · flushRelations · flushAllRelations · flushDirtyPositions</span>
+      </div>
+      <div class="m">
+        <span class="lbl">Idle-gate call sites (<code>hasActivePlayers</code>)</span>
+        <span class="val">17</span>
+      </div>
+      <div class="m">
+        <span class="lbl">Scheduled ticks routed through <code>scheduler.js</code></span>
+        <span class="val">69</span>
+        <span class="note">one clock, not 69 setIntervals racing each other</span>
+      </div>
+    </div>
+
+    <div class="call">
+      <b>The pattern generalises.</b> Every one of those five substrates followed the same route: put the state in the live player or zone object, make the read synchronous, accrue in memory, and flush coalesced on a boundary that already exists (logout, tick, zone change). None of them added a tick of their own. Relationships added <em>zero</em> — decay is computed lazily from a timestamp when you next look.
+    </div>
+  </section>
+
+  <section>
+    <h2>III · Systems depth <em>the vertical</em></h2>
+    <p class="lede">Depth here means a system that keeps rewarding attention after you understand it. The proxy is decomposition: a system with one file has one idea, and a system with thirteen has been taken seriously.</p>
+
+    <figure>
+      <figcaption>Module count per plugin, excluding regress · top 8</figcaption>
+      <div class="bars">
+        <div class="bar"><span class="k">tablet</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="v">29</span></div>
+        <div class="bar"><span class="k">flight</span><span class="track"><span class="fill" style="width:44.8%"></span></span><span class="v">13</span></div>
+        <div class="bar"><span class="k">cooking</span><span class="track"><span class="fill" style="width:44.8%"></span></span><span class="v">13</span></div>
+        <div class="bar"><span class="k">gametable</span><span class="track"><span class="fill t" style="width:20.7%"></span></span><span class="v">6</span></div>
+        <div class="bar"><span class="k">consort</span><span class="track"><span class="fill t" style="width:20.7%"></span></span><span class="v">6</span></div>
+        <div class="bar"><span class="k">mis</span><span class="track"><span class="fill t" style="width:13.8%"></span></span><span class="v">4</span></div>
+        <div class="bar"><span class="k">broadcast</span><span class="track"><span class="fill t" style="width:13.8%"></span></span><span class="v">4</span></div>
+        <div class="bar"><span class="k">preservation</span><span class="track"><span class="fill t" style="width:10.3%"></span></span><span class="v">3</span></div>
+      </div>
+    </figure>
+
+    <h3>Cooking as the worked example</h3>
+    <p>Thirteen modules, each a distinct question the system asks about a single piece of food: <code>profiles</code> (what kind of thing is this), <code>prep</code> (what did you do before heat), <code>portions</code> (how big is it), <code>cook</code> (the clock), <code>fond</code> (what the pan kept), <code>quality</code> (how did it go), <code>taste</code> (what it's like to eat), <code>knowledge</code> (what you've learned), <code>dishes</code>, <code>interact</code>, <code>help</code>, <code>config</code>, <code>index</code>.</p>
+
+    <div class="measures">
+      <div class="m"><span class="lbl">Ingredient profiles (dense meat, soft vegetable, …)</span><span class="val">12</span></div>
+      <div class="m"><span class="lbl">Quality bands from poor to masterful</span><span class="val">9</span></div>
+      <div class="m"><span class="lbl">Independent inputs to one dish's final score</span><span class="val">9</span>
+        <span class="note">doneness · prep ceiling · vessel · heat tier · timing window · fond · skill margin · mince penalty · profile targets</span></div>
+      <div class="m"><span class="lbl">Skills in the game, each governed by two stats</span><span class="val">23</span></div>
+      <div class="m"><span class="lbl">Engine modules behind it all</span><span class="val">85</span></div>
+      <div class="m"><span class="lbl">Engine hook fire sites — the plugin seam</span><span class="val">40</span></div>
+    </div>
+
+    <p>The tell for real depth is that the trades are <em>reciprocal</em>. Mincing cooks in a third of the time and permanently costs a quality band — fast food that can never be good food. Chopping buys speed and costs yield, and since today it follows <code>m^(2/3)</code> rather than mass, it buys less speed than it looks like it should. None of these are bonuses; each is a question with a wrong answer available.</p>
+
+    <div class="call">
+      <b>Depth is cheap when it lives in RAM.</b> Everything above — 12 profiles, 9 bands, 9 scoring inputs, a fond model — costs the database nothing. A cook session is state on a live object with a timestamp; the quality evaluation is arithmetic. This is the actual thesis of the codebase: <em>simulation depth and query count are independent variables, and most engines conflate them.</em>
+    </div>
+  </section>
+
+  <section>
+    <h2>IV · Where the discipline is thinnest</h2>
+    <p class="lede">Two honest qualifications, because a brief that only flatters is marketing.</p>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Observation</th><th class="n">Measure</th><th>Reading</th></tr></thead>
+        <tbody>
+          <tr><td>world.js awaited queries</td><td class="n">34</td><td>By far the heaviest engine module. Mostly boot and zone-load paths rather than per-move, but it's the one file where the tier discipline is enforced by care rather than by structure</td></tr>
+          <tr><td>gameLoop.js awaited queries</td><td class="n">17</td><td>The per-second tick. Coalesced and idle-gated, but it's the place where a careless addition would be most expensive</td></tr>
+          <tr><td>Plugins without a regress suite</td><td class="n">18</td><td>The depth above is defended by 3,083 checks; these 18 are defended by care</td></tr>
+          <tr><td>Uncached tables, deliberately</td><td class="n">2</td><td><code>furniture</code> and <code>npcs</code> — a cache is only as safe as its write funnel, and theirs has too many writers</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>The last row is the one worth dwelling on, because it is the discipline working correctly rather than failing. Both tables are hot and both would benefit from a cache; both were left uncached because someone grepped the writers first and found too many. Choosing not to optimise, and writing down why, is the same skill as optimising.</p>
+  </section>
+
+  <section>
+    <h2>V · The through-line</h2>
+    <p class="lede">These two hallmarks are not independent. They are the same decision seen from two angles.</p>
+    <p>A system gets deep when adding another layer is cheap. Adding another layer is cheap when the layer costs no round trip. So the read-tier discipline isn't a performance concern that sits <em>beside</em> the simulation work — it is the thing that makes the simulation work affordable. Relationships could add a six-rung memory ladder for every NPC because it cost zero queries and zero ticks. Hygiene could add a contaminant table because <code>hygieneOf</code> is sync. Cooking could add a ninth scoring input because the eighth was free.</p>
+    <p>The failure mode this avoids is the common one: a game that is deep in design documents and shallow in play, because every interesting interaction turned out to cost a database call and got cut in review. Here the interesting interactions were made structurally free first, and the depth followed.</p>
+    <div class="call">
+      <b>The rule, stated once:</b> put the state where the read happens, make the read synchronous, accrue in memory, flush on a boundary that already exists, and write down which tier you chose. Every substrate in section II is that sentence applied to a different noun.
+    </div>
+  </section>
+
+  <div class="foot">
+    <span>Architect MUD · Depth &amp; Efficiency Brief</span>
+    <span>All figures measured at 3d951b37</span>
+  </div>
+</div>

@@ -82,6 +82,8 @@ Moves carried credits → bank. Checks:
 
 Deposit increases `atm_units.cash_stock` up to `cash_max`. The machine fills as cash flows in.
 
+Deposits are capped by the same `withdrawal_limit` as withdrawals — the ceiling is per **transaction**, both directions, because the machine has to physically swallow the notes. `deposit all` clamps down to the cap and says so; an explicit over-cap amount is refused outright rather than quietly shaved.
+
 ### `withdraw <amount|all>`
 
 Moves bank credits → carried. Checks (in order):
@@ -95,6 +97,21 @@ Moves bank credits → carried. Checks (in order):
 Fee calculation: `fee = ceil(amount × fee_rate)`. The fee is deducted from bank alongside the withdrawal amount; only the raw amount reaches the player's carried credits. The fee evaporates (no faction receives it — it's a network tax).
 
 After a successful withdrawal, `cash_stock` decreases by `amount` (not including the fee).
+
+### The transaction cap and the teller bypass
+
+`atm_networks.withdrawal_limit` is the per-transaction ceiling at a **physical machine**, applied to `deposit` and `withdraw` alike. Citadel Financial sits at **2500c**. An ATM on no network falls back to `DEFAULT_TXN_CAP` (2500) — an unlinked terminal is capped, never uncapped.
+
+The cap is a door, not a wall: **addressing an NPC flagged `flags.bank_teller` lifts it entirely.** `withdraw 9000 from teller` moves any sum in one motion, with no ceiling, no fee, no power gate and no cash-drum limit — the counter path bypasses the terminal completely.
+
+**Being in the same room as a teller is deliberately not enough.** A machine is always capped, including the terminals inside the bank hall — a terminal in a bank is still a terminal. You have to address the teller by name (`from teller`, `from robo`, `to robo teller`; the leading `from`/`to`/`with`/`at` is optional, and the bare word `teller` works when exactly one is present). Targeting uses SIFT scoring and errors on ambiguity rather than opening the disambiguation UI, per the complex-arg exception in [commands.md](commands.md) — replaying with only a candidate name would drop the amount.
+
+Two consequences worth knowing:
+
+- The teller path works **in a room with no ATM furniture at all**, and there a bare `deposit`/`withdraw` falls to the counter automatically — nothing else it could mean.
+- `zone_citadel_hall` holds both the Citadel terminals *and* Robo Teller (`npc_citadel_teller`). `withdraw 9000` there is refused by the machine; `withdraw 9000 from teller` succeeds. The over-cap refusal quotes the working phrasing whenever a teller is in the room.
+
+The client ATM panel receives the live ceiling as `txnCap` (null at a teller) and both clamps its MAX button to it and prints it under the amount field, so the rule is visible before you type a number rather than after.
 
 ### `jack` / `jackresolve`
 
@@ -217,9 +234,9 @@ All write routes require dev/admin/builder/designer role. Reads are open (GET).
 
 ## Legacy fallback
 
-Commands also handle zones that have only `zone.flags.has_atm` set (no furniture, no `atm_units` row). In this mode:
+Commands also handle zones that have only `zone.flags.has_atm` set (no furniture, no `atm_units` row) — and, by the same branch, rooms whose only banking presence is a `bank_teller` NPC. In this mode:
 
-- No power check, no faction check, no withdrawal limit, no fee, no cash stock.
+- No power check, no faction check, no transaction cap, no fee, no cash stock.
 - `deposit`/`withdraw` use `transferCredits()` directly.
 - `atm` returns a simple text summary instead of an `atm_panel` message.
 

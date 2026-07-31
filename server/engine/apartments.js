@@ -12,6 +12,13 @@ import { exitTargets, neighborZoneIds } from "./exits.js";
 import { emit } from "./events.js";
 import { fireHook } from "./plugins.js";
 import { getEnvironmentState } from "./environment.js";
+import { fatigueOf, sleepRecoveryPerMinute } from "./condition.js";
+import { gameMinutes, minutesUntil, hhmm } from "./clock.js";
+import { applyEffect } from "./effects.js";
+import { getFlag } from "./flags.js";
+import { rollDream } from "./dreams.js";
+import { buildDreamscape, wakeFromDream, pushDreamFx } from "./dreamscape.js";
+import { addPlayerToZone } from "./world.js";
 
 // ── Rent runs on the GAME calendar ──────────────────────────────────────────
 // Rent is billed every RENT_PERIOD_DAYS *game* days, so it scales with the
@@ -289,6 +296,20 @@ export function getBuildingName(zone) {
   return null;
 }
 
+// Does this player hold a unit in the named building? Reads the in-memory
+// apartments cache (world.apartments) and the same getBuildingName() every other
+// caller uses, so it's a pure sync query — safe on a move gate or in the flight
+// field resolver. Backs `flags.residents_only` (the residency plugin's law) and
+// the private-pad gate on a building's own airfield.
+export function isResidentOf(player, buildingName) {
+	if (!player || !buildingName) return false;
+	for (const [zoneId, apt] of world.apartments) {
+		if (!playerControlsApt(player, apt)) continue;
+		if (getBuildingName(getZone(zoneId)) === buildingName) return true;
+	}
+	return false;
+}
+
 // Picking a lock gets harder the more the owner has invested in it.
 // Difficulty is a flat number compared against a d10 + rank + stat-bonus roll
 // (see skills.js:skillCheck) — same shape as every other check in the game.
@@ -321,7 +342,17 @@ const SLEEP_RESTORE_SAFE_ZONE = { hp: 0.08, sanity: 0.05, stamina: 0.35 };
 // otherwise imply nothing was happening. Per minute of sleep.
 const SLEEP_HUNGER_DRAIN = 1;
 const SLEEP_THIRST_DRAIN = 1;
-const SLEEP_MAX_MINUTES = 30; // auto-wake safety cap, even if fully rested already
+// Auto-wake BACKSTOP, in game minutes — not the length of a sleep. It used to be
+// 30, which was the finish line back when hitting "fully rested" ended the sleep
+// anyway; now that being rested is only a notice (see tickSleep), a player bedding
+// down to skip a night has to be able to stay in bed. Hunger/thirst are the real
+// bound long before this — they drain 1/minute and wake you at 5 — so this only
+// catches a sleeper who went to bed stuffed and never came back.
+const SLEEP_MAX_MINUTES = 180;
+// Well Rested runs on the 1s effects tick, so this is half an hour of play for
+// about five minutes in a bed. Deliberately generous: the buff is what makes
+// sleeping worth doing, and it should comfortably outlast the errand.
+const WELL_RESTED_TICKS = 1800;
 
 export function isApartmentZone(zone) {
 	return !!zone?.flags?.is_apartment;
@@ -724,7 +755,36 @@ export function getSleepEligibility(player, zone) {
 	return { canSleep: false, reason: "unsafe" };
 }
 
-export async function cmdSleep(player, broadcastFn) {
+// DOZE — the light-sleep option, and the one that makes resting a decision.
+//
+// Proper sleep is unconditionally safe at home and unconditionally stupid
+// anywhere else: you are helpless, and you perceive nothing. Dozing recovers at
+// half the rate but leaves your senses running — you still hear the room, still
+// smell what comes in, and anything that would have crept up on you doesn't.
+//
+// So the choice is real: commit and recover fast where it's safe, or doze
+// slowly with one eye open where it isn't. It reuses the whole sleep path;
+// `light` is the only difference, and it's read wherever recovery is applied.
+export async function cmdDoze(player, broadcastFn) {
+	if (player.sleeping) {
+		return { type: 'error', message: 'You are already down. (Send any other command to get up.)' };
+	}
+	const res = await cmdSleep(player, broadcastFn, { light: true });
+	if (player.sleeping) {
+		player.sleeping.light = true;
+		// A dozer is NOT a sleeper for the purposes of perceiving the room. This
+		// is the whole point of the verb.
+		player.sleeping.perceives = true;
+	}
+	return res;
+}
+
+export async function cmdSleep(player, broadcastFn, opts = {}) {
+	// The alarm the tablet set, if any. Loaded here so every entry point into
+	// sleep honours it without having to know it exists.
+	const alarmRaw = await getFlag('player', 'alarm_at', player).catch(() => null);
+	const alarmAt = Number.isFinite(Number(alarmRaw)) && String(alarmRaw).trim() !== ''
+		? Number(alarmRaw) % 1440 : null;
 	if (player.sleeping)
 		return {
 			type: "error",
@@ -774,6 +834,14 @@ export async function cmdSleep(player, broadcastFn) {
 		restore: elig.restore,
 		reason: elig.reason,
 		minutesSlept: 0,
+		// Where the body actually is. A dreamscape moves the player's zone, so
+		// waking has to know where to put them back — and anything looking for
+		// their sleeping body (a burglar, a killer) uses this, not current_zone.
+		bodyZone: player.current_zone,
+		// Snapped at lie-down. An alarm you set after closing your eyes isn't one.
+		// Read straight from the flag the tablet writes — the engine owns the
+		// clock, and reading a player flag is not a plugin dependency.
+		alarmAt: opts.alarmAt ?? alarmAt,
 	};
 	setPosture(player, 'lying');
 
@@ -830,7 +898,7 @@ export async function cmdSleep(player, broadcastFn) {
 
 	return {
 		type: "sleep",
-		message: `${selfMsg}\n\nYou'll rest gradually while you're out — send any command to wake up early.${extra}`,
+		message: `${selfMsg}\n\nYou'll rest gradually while you're out — hit <strong>wake up</strong> when you've had enough.${extra}`,
 	};
 }
 
@@ -859,11 +927,11 @@ export async function tickSleep(player, broadcastFn) {
 	const staminaMax = player.stamina_max ?? 100;
 	player.stamina = player.stamina ?? staminaMax;
 
-	const hpGain = Math.ceil((player.hp_max - player.hp) * restore.hp);
-	const sanGain = Math.ceil(
-		(player.sanity_max - player.sanity) * restore.sanity,
-	);
-	const stamGain = Math.ceil((staminaMax - player.stamina) * (restore.stamina ?? 0));
+	// A doze recovers at half rate — the price of keeping your ears open.
+	const rate = player.sleeping.light ? 0.5 : 1;
+	const hpGain = Math.ceil((player.hp_max - player.hp) * restore.hp * rate);
+	const sanGain = Math.ceil((player.sanity_max - player.sanity) * restore.sanity * rate);
+	const stamGain = Math.ceil((staminaMax - player.stamina) * (restore.stamina ?? 0) * rate);
 	player.hp = Math.min(player.hp_max, player.hp + hpGain);
 	player.sanity = Math.min(player.sanity_max, player.sanity + sanGain);
 	player.stamina = Math.min(staminaMax, player.stamina + stamGain);
@@ -871,9 +939,18 @@ export async function tickSleep(player, broadcastFn) {
 	player.thirst = Math.max(0, player.thirst - SLEEP_THIRST_DRAIN);
 	player.sleeping.minutesSlept++;
 
+	// FATIGUE. Sleep is the only thing that undoes it, and it undoes it in real
+	// time: last_slept_at walks forward, so clearing a heavy fatigue is a genuine
+	// few minutes in a bed rather than a button. Capped at now — you cannot bank
+	// sleep for later. Sleeping it off also clears any stimulant debt, which is
+	// the one honest way out of a bender: you paid for the bed instead.
+	const recovered = sleepRecoveryPerMinute() * (player.sleeping.light ? 0.5 : 1);
+	player.last_slept_at = Math.min(Date.now(), (Number(player.last_slept_at) || Date.now()) + recovered);
+	player._fatigueDebtMs = 0;
+
 	await query(
-		"UPDATE players SET hp=$1, sanity=$2, stamina=$3, hunger=$4, thirst=$5 WHERE id=$6",
-		[player.hp, player.sanity, player.stamina, player.hunger, player.thirst, player.id],
+		"UPDATE players SET hp=$1, sanity=$2, stamina=$3, hunger=$4, thirst=$5, last_slept_at=$6 WHERE id=$7",
+		[player.hp, player.sanity, player.stamina, player.hunger, player.thirst, player.last_slept_at, player.id],
 	);
 
 	if (Math.random() < 0.25) {
@@ -882,16 +959,117 @@ export async function tickSleep(player, broadcastFn) {
 		broadcastFn(player.current_zone, { type: 'zone_event', message: `<em>${noise.room(player.handle)}</em>` }, player.id);
 	}
 
+	// DREAMS. Sleep is no longer optional, so it had better not be dead time.
+	// Private to the sleeper — the room hears snoring, you get the dream — and
+	// the content is driven by sanity and by what your body went to bed needing,
+	// which makes it a second, stranger readout of your own condition.
+	const dream = await rollDream(player);
+	if (dream) {
+		broadcastFn(null, { type: 'output', message: `<span class="text-dim"><em>${dream}</em></span>` }, null, player.id);
+	}
+
+	// THE DEEP END. Occasionally you don't dream ABOUT somewhere, you go there.
+	// Rare on purpose — being pulled somewhere is a strong beat and stops being
+	// one if it's nightly — and likelier the more frayed the mind, which makes
+	// low sanity qualitatively different rather than merely worse.
+	if (!player.sleeping.light && !player.sleeping.inDream && player.sleeping.minutesSlept >= 2) {
+		const sanityPct = player.sanity_max ? (player.sanity / player.sanity_max) * 100 : 100;
+		const odds = sanityPct <= 25 ? 0.22 : sanityPct <= 55 ? 0.12 : 0.06;
+		if (Math.random() < odds) {
+			// Null when nobody has authored any 'dream' templates — no dreamscape
+			// tonight, and the ordinary sleep carries on untouched.
+			const entry = await buildDreamscape(player.id, {
+				size: 3 + Math.floor(Math.random() * 2),
+				tether: { zone: getZone(player.sleeping.bodyZone)?.name },
+				cause: 'dream',
+				broadcast: broadcastFn,
+				player,   // lets the rooms borrow from this sleeper's actual life
+			});
+			if (entry) {
+			player.sleeping.inDream = true;
+			// THE BODY STAYS PUT. The mind's zone moves; the sleeper does NOT leave
+			// the room's occupant set, so `look` still shows them lying there and a
+			// burglar or a killer can still find them in their bed — which is what
+			// `bodyZone` always promised and what removing them from the set quietly
+			// broke. Nothing leaks the other way: `receivesZoneMessage` rejects them
+			// on BOTH counts (current_zone is the dream, and they're asleep), so the
+			// dreamer hears none of the room they're lying in.
+			player.current_zone = entry;
+			addPlayerToZone(player.id, entry);
+			broadcastFn(null, {
+				type: 'output',
+				message: `<span style="color:var(--cyan)">The room you were in stops being the room you are in.</span>\n<span class="text-dim">You can move. You are fairly sure you are asleep. (Look around. You will wake when you wake.)</span>`,
+			}, null, player.id);
+			broadcastFn(null, { type: 'sleep_state', sleeping: true, dreaming: true }, null, player.id);
+			pushDreamFx(player, broadcastFn);
+			broadcastFn(null, { type: 'force_look' }, null, player.id);
+			}
+		}
+	}
+
+	// "Rested" now means RESTED, not merely healed — otherwise a player at full
+	// HP could never sleep off having been awake for nine hours.
 	const fullyRested =
 		player.hp >= player.hp_max &&
 		player.sanity >= player.sanity_max &&
-		player.stamina >= staminaMax;
+		player.stamina >= staminaMax &&
+		fatigueOf(player) <= 0;
 	const runningOnEmpty = player.hunger <= 5 || player.thirst <= 5;
 	const tooLong = player.sleeping.minutesSlept >= SLEEP_MAX_MINUTES;
 
-	if (fullyRested || runningOnEmpty || tooLong) {
-		const reason = fullyRested
-			? "You wake up fully rested."
+	// EXPOSURE. The body drifts toward the room's temperature while you sleep (gameLoop's
+	// driftBodyTemperature runs for sleepers too), so lying down in a blizzard is no longer a
+	// way to opt out of one. It shouldn't be a silent death either: cold wakes a real body long
+	// before it kills it, so this fires at the top of the "cold" band (34°C) — a full four
+	// degrees clear of the <30°C lethal threshold, leaving plenty of room to do something about
+	// it. Same courtesy hunger and thirst already extend. Heat gets the mirror at 40°C.
+	// Deliberately NOT a one-way trip: sleep again in the same spot and it will wake you again.
+	const tempC = player.body_temp_c ?? 37.0;
+	const frozeOut = tempC <= 34;
+	const bakedOut = tempC >= 40;
+
+	// THE ALARM. Set on the tablet before lying down; wakes you at that time
+	// whether or not your body is finished, which is the entire point — it turns
+	// sleep from an open-ended commitment into a nap you planned.
+	//
+	// It fires within a minute of the target because this tick IS once a game
+	// minute; storing the target rather than a countdown means it survives a
+	// restart and a relog for free.
+	let alarmRang = false;
+	if (player.sleeping.alarmAt != null) {
+		const nowMins = gameMinutes();
+		// Within the minute, allowing for the tick landing slightly past it.
+		if (minutesUntil(nowMins, player.sleeping.alarmAt) >= 1439) alarmRang = true;
+	}
+
+	// BEING FINISHED IS A NOTICE, NOT AN EJECTION. Hitting full HP/sanity/stamina
+	// with no fatigue left used to end the sleep on the spot, which meant the game
+	// decided for you: a player bedding down to skip a night, wait out a storm, or
+	// let an alarm carry them to morning got thrown out of bed the moment their
+	// body topped up. So the milestone announces itself — once per sleep — and the
+	// sleep continues until something that genuinely should end it does (wake up,
+	// the alarm, hunger, the cap, the cold). The reward for going all the way is
+	// granted HERE, the moment it's earned, rather than on the way out the door.
+	if (fullyRested && !player.sleeping.restedNotified) {
+		player.sleeping.restedNotified = true;
+		applyEffect(player, 'rested', WELL_RESTED_TICKS);
+		broadcastFn(null, {
+			type: 'output',
+			message: '<span style="color:var(--green)">◈ You are fully rested — healed, clear-headed, and out of fatigue.</span>\n'
+				+ '<span class="text-dim">You are still asleep. <strong>wake up</strong> whenever you like.</span>',
+		}, null, player.id);
+	}
+
+	if (runningOnEmpty || tooLong || alarmRang || frozeOut || bakedOut) {
+		// Out of the dream and back into your own body. Shared helper because
+		// there are five ways for sleep to end and every one has to do this.
+		wakeFromDream(player);
+		const reason = frozeOut
+			? `<span style="color:var(--cyan)">You wake up shivering hard enough to hurt. You cannot feel your hands. Whatever you were sleeping in, it is not enough.</span>`
+			: bakedOut
+			? `<span style="color:var(--orange)">You wake up soaked in sweat, heart going like a hammer. It is far too hot to be lying here.</span>`
+			: alarmRang
+			? `<span style="color:var(--yellow)">⏰ Your tablet chimes. ${hhmm(player.sleeping.alarmAt)}. You get up.</span>`
 			: runningOnEmpty
 				? "Your stomach and throat wake you up before you starve in your sleep."
 				: "You wake up, having slept as long as your body will allow in one go.";

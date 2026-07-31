@@ -1,0 +1,20 @@
+{
+  "description": "A squat bottle of juniper spirit, cloudy at the shoulder where something botanical refused to dissolve. Tastes like a pine forest that owes money. Drinkable neat if you've had a day; better in a pan, where the alcohol boils off and leaves the perfume behind.",
+  "flags": {},
+  "id": "item_gin",
+  "name": "bottle of gin",
+  "tags": {
+    "consumable": true,
+    "description": "A squat bottle of juniper spirit, cloudy at the shoulder where something botanical refused to dissolve. Tastes like a pine forest that owes money. Drinkable neat if you've had a day; better in a pan, where the alcohol boils off and leaves the perfume behind.",
+    "food_noun": "gin",
+    "food_profile": "liquid",
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1.6,
+    "restore_sanity": 12,
+    "restore_thirst": 6,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 64,
+  "weight": 400
+}

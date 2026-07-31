@@ -1,0 +1,20 @@
+{
+  "description": "A shaker of coarse red-brown dust — salt, sugar, paprika and a long tail of things the label calls spices. Dust it on heavy enough that it stops looking like meat.",
+  "flags": {},
+  "id": "item_bbq_rub",
+  "name": "bbq rub",
+  "tags": {
+    "consumable": true,
+    "description": "A shaker of coarse red-brown dust — salt, sugar, paprika and a long tail of things the label calls spices. Dust it on heavy enough that it stops looking like meat.",
+    "food_noun": "rubbed",
+    "food_profile": "aromatic",
+    "restore_hunger": 1,
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.05
+    }
+  },
+  "type": "consumable",
+  "value": 17,
+  "weight": 220
+}

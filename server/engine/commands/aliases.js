@@ -39,6 +39,7 @@ export const ALIAS_DEFAULTS = {
   remove: 'unequip',
   put: 'stow',
   throw: 'stow',
+  add: 'stow',
   // Info screens
   st: 'stats',
   status: 'stats',
@@ -52,6 +53,7 @@ export const ALIAS_DEFAULTS = {
   shout: 'yell',
   // Housing / misc
   scav: 'scavenge',
+  heat: 'cook', // `heat` was the food verb before `cook` was shared with synthesis
   tp: 'teleport',
   vacate: 'unrent',
   picklock: 'pick',

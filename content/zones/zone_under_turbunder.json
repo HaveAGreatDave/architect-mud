@@ -8,7 +8,7 @@
   "bg_color": "#1a1512",
   "color": "#b08a6a",
   "created_by": "the-under",
-  "description": "The underflow beneath the Coldwater Power Plant's turbine hall, where the station's warm cooling discharge bleeds into the sewer and keeps this whole deep quarter a few precious degrees above freezing. The warmth is why everything down here is bigger than it should be. The trunk continues south past the vault.",
+  "description": "The underflow beneath the Brownout Municipal's turbine hall, where the station's warm cooling discharge bleeds into the sewer and keeps this whole deep quarter a few precious degrees above freezing. The warmth is why everything down here is bigger than it should be. The trunk continues south past the vault.",
   "exits": {
     "south": "zone_under_conduitvlt",
     "west": "zone_under_machsump"

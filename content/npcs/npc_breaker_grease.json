@@ -6,7 +6,70 @@
     "\"Keep walking or start paying. Toll's whatever I say it is.\""
   ],
   "description": "Grease earned the name honestly — he's slick with it head to boot, and it never quite washes off. He guards the Lane's mouth, chewing something that used to be gum, cataloguing everyone who walks in by how much trouble they'll be.",
-  "dialogue_tree": {},
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Keep walking.\" He is already cataloguing the next one."
+    },
+    "codex_arm": {
+      "actions": [
+        {
+          "action": "CODEX_UNLOCK",
+          "chapter": "flesh"
+        }
+      ],
+      "options": [
+        {
+          "label": "And the Wildblood think that’s good news.",
+          "next": "codex_road"
+        },
+        {
+          "label": "(step back)",
+          "next": "bye"
+        }
+      ],
+      "text": "He holds it up without being asked. The plates of it are not chrome. They are him — thickened, ridged, wrong in a way that is unmistakably grown rather than fitted.\n\n\"Three winters out past the rim.\" He says it like a résumé. \"City calls it a mutation. Calls me a mutant, puts a surcharge on my groceries, makes me carry a card.\" He flexes the hand; something in it creaks. \"Here's what the card doesn't say. Fallout kills you. It doesn't do this. Not this fast, not this many of us, not in ways that work better.\" A slow grin, mostly teeth. \"Something was in the water long before the bombs. We just got the dose that made it obvious.\""
+    },
+    "codex_lane": {
+      "options": [
+        {
+          "label": "What happened to your arm?",
+          "next": "codex_arm"
+        },
+        {
+          "label": "(move on)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Freight's where the outside comes in.\" He shifts the gum. \"Everything the Basin eats crosses this lane, and everything that crosses this lane came from out there, where the rain isn't clean. Funny how nobody wants to talk about the second half.\""
+    },
+    "codex_road": {
+      "options": [
+        {
+          "label": "(go)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"We think it's the road.\" He spits, missing your boot by the usual margin. \"Their doctor up the hill will sell you an arm that came off a shelf and burns the change right out of you — no more mutating, ever, congratulations, you're finished. I'm not finished.\" He settles back against the wall. \"It's not a wound, meat. It's the only part of us that's still moving.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What happened to your arm?",
+          "next": "codex_arm"
+        },
+        {
+          "label": "What is a Breaker doing on a freight lane?",
+          "next": "codex_lane"
+        },
+        {
+          "label": "(pay and move on)",
+          "next": "bye"
+        }
+      ],
+      "text": "He looks you over the way a man reads a weight chart. \"Toll,\" he says. \"Or a reason.\""
+    }
+  },
   "faction": "ideology_wildblood",
   "flags": {
     "clothing_layers": [

@@ -1,0 +1,12 @@
+{
+  "description": "A bottle of cough syrup drunk for entirely the wrong reason. Cheap, legal, and a long way down.",
+  "flags": {},
+  "id": "item_dxm",
+  "name": "robo",
+  "tags": {
+    "drug": true
+  },
+  "type": "consumable",
+  "value": 35,
+  "weight": 20
+}

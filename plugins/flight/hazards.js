@@ -10,7 +10,20 @@
 
 import { query } from '../../server/models/db.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
-import { getZoneSeverity } from '../../server/engine/environment.js';
+import { getZoneSeverity, getZonePrecip } from '../../server/engine/environment.js';
+import { on } from '../../server/engine/events.js';
+import { fireSpecializedAction } from '../../server/engine/specializedActions.js';
+
+// The ion storm's peak, mirrored locally off the weather-event signal so the
+// hazard roll never has to reach into the weather plugin. `weather.event` fires
+// once per phase transition, so this is three assignments an event, not a poll.
+let empUntil = 0;
+const EMP_WINDOW_MS = 90_000;
+on('weather.event', ({ type, phase }) => {
+  if (type === 'ion_storm' && phase === 'peak') empUntil = Date.now() + EMP_WINDOW_MS;
+  else if (phase !== 'peak') empUntil = 0;
+});
+function empActive() { return Date.now() < empUntil; }
 import {
   liveAircraft, surfaceAt, pilotOf, persist, crash, toOccupants, out, sendToZone,
   BANDS, effStats, getLivePlayer, detach, getZone,
@@ -71,6 +84,34 @@ export async function rollHazards(live) {
     }
   }
 
+  // ACID RAIN — flying through the caustic downpour eats the airframe from the
+  // outside in. Unlike buffeting there is no skill check to pass: you cannot
+  // hand-fly your way out of chemistry. The only answers are altitude (get above
+  // the cell), speed (get out of it), or the ground. It bleeds hull steadily
+  // rather than spiking, so a short transit is survivable and loitering is not.
+  const overflown = below ? getZonePrecip(below.id) : null;
+  if (overflown?.precipType === 'acid' && overflown.precipRate > 0) {
+    a.damage = Math.min(1, a.damage + 0.02 * overflown.precipRate);
+    a.engine_temp += 3;
+    if (!live._acidTicks || live._acidTicks % 4 === 0) {
+      toOccupants(live, '<span class="text-amber">☣ The rain out here is EATING the aircraft — paint blistering off the leading edges, the airframe hissing where it lands.</span>');
+    }
+    live._acidTicks = (live._acidTicks || 0) + 1;
+    if (a.damage >= 1) { await crash(live, 'acid'); return; }
+  } else {
+    live._acidTicks = 0;
+  }
+
+  // ION STORM — the pulse takes the avionics with it. This is deliberately NOT
+  // damage: nothing about it will bring the aircraft down on its own. It takes
+  // the instruments away and hands you the aircraft, which for most pilots is
+  // considerably worse. Self-clearing, so it ends without a verb.
+  if (!live.hazard && empActive() && Math.random() < 0.5) {
+    live.hazard = { type: 'EMP', stage: 0 };
+    toOccupants(live, '<span class="text-red">⚡ Every panel in the cockpit dies at once. Gauges, radio, nav — black. You are flying this thing by eye and by feel.</span>');
+    return;
+  }
+
   // BIRD STRIKE — low, slow, over inhabited ground.
   if (a.altitude_band === 'low' && below && a.throttle < 70 && Math.random() < 0.05) {
     a.damage = Math.min(1, a.damage + 0.08);
@@ -105,8 +146,20 @@ async function escalate(live) {
     a.damage = Math.min(1, a.damage + 0.18);
     if (a.damage >= 1) { await crash(live, 'fire'); return; }
     toOccupants(live, `<span class="text-red">🔥 The fire spreads — hull ${Math.round((1 - a.damage) * 100)}%. <b>extinguish</b> / <b>cut fuel</b>!</span>`);
+    return;
+  }
+  // EMP counts DOWN instead of up: the avionics come back on their own once the
+  // boards finish rebooting. It's the one hazard you survive by waiting.
+  if (h.type === 'EMP') {
+    h.stage++;
+    if (h.stage < EMP_HAZARD_TICKS) return;
+    live.hazard = null;
+    toOccupants(live, '<span class="text-cyan">The panels flicker, stutter, and come back one by one. You have instruments again.</span>');
   }
 }
+
+// ~3s per flight tick, so this is the better part of a minute flying blind.
+const EMP_HAZARD_TICKS = 18;
 
 // ── Emergency verbs ───────────────────────────────────────────────────────────
 // (No `recover` verb — a stall is recovered by flying: nose down, unload, add power, and the
@@ -338,6 +391,19 @@ async function cmdSquawk(args, raw, player) {
   return { type: 'emote', message: `Transponder set, squawking <b>${code}</b>. You read as legal traffic.` };
 }
 
+// `scan` also belongs to the library's lending terminal (a tag-gated specialized
+// action). A plugin command beats a specialized action in dispatch order, so flight
+// would otherwise eat the verb on the ground and answer "not aboard an aircraft" at
+// a terminal. Same hand-back contract as `eject` above: when you're not flying, this
+// isn't flight's verb — offer it to the specialized actions before refusing.
+async function cmdScanVerb(args, raw, player, broadcast) {
+  if (!player.aircraftId || !liveAircraft.get(player.aircraftId)) {
+    const handed = await fireSpecializedAction('scan', args, raw, player, broadcast);
+    if (handed !== undefined) return handed;
+  }
+  return cmdSpot(args, raw, player, broadcast);
+}
+
 export const commands = {
   extinguish: cmdExtinguish,
   eject: cmdEject,
@@ -345,7 +411,7 @@ export const commands = {
   preflight: cmdPreflight,
   hover: cmdHover,
   spot: cmdSpot,
-  scan: cmdSpot,
+  scan: cmdScanVerb,
   spray: cmdSpray,
   loadhopper: cmdLoadHopper,
   chart: cmdChart,

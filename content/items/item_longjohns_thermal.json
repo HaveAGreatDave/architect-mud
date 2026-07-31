@@ -6,6 +6,7 @@
   "tags": {
     "bulkiness": 1,
     "description": "Waffle-knit thermal underwear in a defeated shade of oatmeal. Deeply unsexy and quietly the best decision you will make all winter. The trapdoor flap actually works.",
+    "hydrophobic": true,
     "insulation": 2,
     "layer": "underwear",
     "slot": "legs"

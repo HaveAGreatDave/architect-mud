@@ -1,6 +1,12 @@
 const SETTINGS_KEY = 'architect_settings';
-export const DEFAULT_AUDIO_SETTINGS = { enabled: false, music: true, sfx: true, tv: true, welcome: true, masterVolume: 0.60, musicVolume: 0.40, sfxVolume: 0.25, ambientVolume: 0.25, tvVolume: 0.25, muteWhenHidden: true };
-const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', audio: DEFAULT_AUDIO_SETTINGS };
+export const DEFAULT_AUDIO_SETTINGS = { enabled: true, music: true, sfx: true, tv: true, welcome: true, masterVolume: 0.40, musicVolume: 0.40, sfxVolume: 0.25, ambientVolume: 0.25, tvVolume: 0.25, muteWhenHidden: true };
+// `iron` is the out-of-the-box theme — the one a player who never opens Settings
+// plays the whole game in, and therefore the one the cold open, the wireframe city
+// and every accent-coloured surface are composed against. Changing it changes the
+// default look of the product; keep it in step with the inline boot script in
+// client/game/index.html, which sets the same value before any module loads so the
+// first paint isn't a different colour from the second.
+const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', audio: DEFAULT_AUDIO_SETTINGS };
 
 const DEFAULT_FELT_GREEN = '#1a4a1a';
 
@@ -136,12 +142,34 @@ function _boostContrast(colors, level) {
   return result;
 }
 
+// Minimap overlay mode, with the retired third mode folded away. 'icons' drew a
+// building-type emoji over the rooftop footprint; it's been removed from the client,
+// so any browser still carrying it reads as lettering rather than rendering nothing.
+function _mapOverlayMode(settings) {
+  const m = settings.mapOverlay;
+  return m === 'none' ? 'none' : 'labels';
+}
+
+// How a room's ways in/out are drawn: 'edges' (a thin green line on every open side,
+// red on every wall) or 'arrows' (the amber triangles that came first).
+//
+// Door style used to be a setting (arrows vs edge lines). It isn't any more: edge
+// lines are the only style. The arrows only rendered where `exit_dirs` is set — ways
+// out of the BUILDING — which is 72 of 500 interior tiles, so they drew nothing in
+// 86% of rooms and read as a broken feature. Edges render wherever `open_dirs` is
+// set: 372 of those same tiles. A stale `mapDoors` key in an old saved blob is
+// simply ignored.
+
 export function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return { ...DEFAULT_SETTINGS, audio: { ...DEFAULT_AUDIO_SETTINGS } };
     const stored = JSON.parse(raw);
-    return { ...DEFAULT_SETTINGS, ...stored, audio: { ...DEFAULT_AUDIO_SETTINGS, ...(stored.audio || {}) } };
+    const merged = { ...DEFAULT_SETTINGS, ...stored, audio: { ...DEFAULT_AUDIO_SETTINGS, ...(stored.audio || {}) } };
+    // Normalise here rather than at each reader, so the Settings pills highlight the
+    // mode a retired value now maps to instead of showing nothing selected.
+    merged.mapOverlay = _mapOverlayMode(merged);
+    return merged;
   } catch {
     return { ...DEFAULT_SETTINGS, audio: { ...DEFAULT_AUDIO_SETTINGS } };
   }
@@ -329,6 +357,11 @@ export function applySettings(settings) {
   // Weather FX overlay gate — off if the setting is off OR Motion is off (the FX
   // is animation). The game client registers the hook; other clients ignore it.
   window._applyWeatherFx?.((settings.weatherFx || 'off') !== 'off' && (settings.motion || 'on') !== 'off');
+
+  // Minimap tile-overlay mode (labels | none). Same hook pattern as the weather FX
+  // gate — panels/minimap.js registers it and re-renders in place, so the pill takes
+  // effect without a move. Other clients have no minimap and skip it.
+  window._applyMapOverlay?.(_mapOverlayMode(settings));
 
   const audio = settings.audio || DEFAULT_AUDIO_SETTINGS;
   window.AudioEngine?.applyVolumeSettings(audio);

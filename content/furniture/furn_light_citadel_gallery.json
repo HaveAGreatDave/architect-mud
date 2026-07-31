@@ -1,0 +1,18 @@
+{
+  "description": "Green-shaded lamps run the length of both tiers, warm on the brass and mean everywhere else. The one over the viewing table is angled away from the ceiling camera, which somebody in marketing decided counted as discretion.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_citadel_gallery",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "brass row lamps",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 220,
+  "zone_id": "zone_citadel_gallery"
+}

@@ -1,8 +1,8 @@
 {
-  "description": "Corporate-issue stun weapon.",
+  "description": "Corporate-issue stun weapon. A cheerful decal on the grip reads GREAT DAYS START WITH COOPERATION, above a diagram of a man cooperating on the floor.",
   "flags": {},
   "id": "item_taser",
-  "name": "custodian taser",
+  "name": "Halcyon ComplyMate CM-2 taser",
   "tags": {
     "__own": {
       "damage": {
@@ -10,10 +10,11 @@
         "min": 5
       },
       "damage_type": "kinetic",
-      "description": "Corporate-issue stun weapon.",
+      "description": "Corporate-issue stun weapon. A cheerful decal on the grip reads GREAT DAYS START WITH COOPERATION, above a diagram of a man cooperating on the floor.",
       "status_chance": {
         "stunned": 0.3
-      }
+      },
+      "water_shock": true
     },
     "__super": [
       "weapon_science"
@@ -23,15 +24,16 @@
       "min": 5
     },
     "damage_type": "kinetic",
-    "description": "Corporate-issue stun weapon.",
+    "description": "Corporate-issue stun weapon. A cheerful decal on the grip reads GREAT DAYS START WITH COOPERATION, above a diagram of a man cooperating on the floor.",
     "slot": "weapon_hand",
     "status_chance": {
       "stunned": 0.3
     },
     "weapon": true,
-    "weapon_skill": "science"
+    "weapon_skill": "science",
+    "water_shock": true
   },
   "type": "weapon",
-  "value": 65,
+  "value": 195,
   "weight": 600
 }

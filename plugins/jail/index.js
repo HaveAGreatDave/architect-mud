@@ -1,12 +1,16 @@
-// Jail — get downed while WANTED and the cops scrape you up instead of the
-// cloning vat. You wake in Precinct 9's holding cell, gear confiscated, and do
+// Jail — get downed while WANTED and the resurrection grid reroutes you: an open
+// file outranks the civic queue, so your pattern is pulled off the clone facility
+// mid-print and finished in Precinct 9's own custodial vat
+// (furn_precinct_clone_vat, in the holding cell). You come up in custody, gear
+// confiscated, and do
 // 1 base-minute per wanted star, scaled up by the world clock (so at 3× a 5★
 // stretch is 15 real minutes). A guard then walks you out to the lobby and hands
 // back your legal property; contraband (weapons/drugs/hacking decks) is logged to
 // a shared police evidence locker and never returned. The cell door is an
-// unhackable police hololock: booking engages it, the guard disengages it at
-// release. Leaving through it any other way is a jailbreak (heat comes back) and
-// forfeits everything the police were holding.
+// unhackable detention lock that stays engaged and reads your record instead of a
+// key: no wanted stars and no sentence left to serve and it opens for you,
+// otherwise it doesn't. Leaving the block any other way is a jailbreak (heat comes
+// back) and forfeits everything the police were holding.
 //
 // Integration seams (no engine coupling beyond the hook):
 //   - engine `player.respawnZone` hook: diverts respawn to the cell + skips the
@@ -21,10 +25,11 @@ import { query } from '../../server/models/db.js';
 import { world, getZone, getLivePlayer, getMinimapData, getDoorById, getZoneDoors, setDoorCache } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { hasTag } from '../../server/engine/tags.js';
-import { getFlag } from '../../server/engine/flags.js';
+import { getFlag, setFlag, setFlagById } from '../../server/engine/flags.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { on, emit } from '../../server/engine/events.js';
 import { dispatchAction, registerAction } from '../../server/engine/actions.js';
+import { registerLockType } from '../../server/engine/locks.js';
 import { getBroadcast, sendToPlayer } from '../../server/engine/messaging.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
@@ -79,6 +84,30 @@ const RELEASE_LINES = [
 
 const timers = new Map();       // playerId -> release setTimeout handle
 const releasing = new Set();    // playerIds mid-release (suppress escape detection)
+
+// ── Prisoner roster: a NEGATIVE cache for the escape check ───────────────────
+// The escape detector runs on zone.entered — i.e. on every step every player
+// takes — and used to ask Postgres "is this player doing time?" every single
+// time, to hear "no" for essentially everyone forever. That's a remote round
+// trip on the hottest path in the game (docs/architecture.md → Read Tiers).
+//
+// Deliberately a NEGATIVE cache, not a source of truth: absence from the Set is
+// trusted (skip the query), presence only means "maybe — go ask". That asymmetry
+// is what makes it safe despite jail_prisoners having a writer OUTSIDE this
+// plugin (reincarnatePlayer's REINCARNATE_WIPE_TABLES sweep). A missed DELETE
+// leaves a stale positive, which costs one query and then self-corrects; only a
+// missed INSERT could cause a wrong answer, and the sole INSERT is in booking
+// below. The 1-minute sweep re-seeds the whole Set anyway, bounding any drift.
+const imprisoned = new Set();
+let rosterReady = false;        // until boot seeds it, fall back to querying
+
+function markImprisoned(playerId) { imprisoned.add(playerId); }
+function markFreed(playerId) { imprisoned.delete(playerId); }
+function reseedRoster(rows) {
+  imprisoned.clear();
+  for (const r of rows) imprisoned.add(r.player_id);
+  rosterReady = true;
+}
 
 // ── Confiscation ─────────────────────────────────────────────────────────────
 // An item is contraband if it's a weapon, a drug, or a hacking deck. Quest items
@@ -278,10 +307,16 @@ async function bookIntoCell(player, { teleport = false } = {}) {
        stars=$5, held_items=$6, held_credits=$7, fine=$8, charge=$9, created_at=NOW()`,
     [player.id, CELL_ZONE, RELEASE_ZONE, String(ms), stars, JSON.stringify(held), heldCredits, fine, charge]
   );
+  markImprisoned(player.id);   // the one INSERT — the roster's only hard requirement
+  // Jail's half of the permanent record (surveillance keeps the priors tally).
+  // `jail_prisoners` is the CURRENT stint only — the row is deleted on release —
+  // so a lifetime count of collars has to be kept somewhere that outlives it.
+  await setFlag('player', 'crime_arrests', (Number(await getFlag('player', 'crime_arrests', player).catch(() => 0)) || 0) + 1, player)
+    .catch(() => {});
   scheduleRelease(player.id, ms);
-  // Engage the hololock behind the new prisoner. The door ships locked in content
-  // and re-locks here on every booking, so a release (which leaves it disengaged)
-  // or an admin poking at it can't leave the next stretch servable by walking out.
+  // Engage the detention lock behind the new prisoner. The door ships locked in
+  // content and re-locks here on every booking, so an admin poking at it can't
+  // leave the next stretch servable by walking out.
   await secureCellDoor().catch(() => {});
 
   // Label the sentence in the real minutes actually served (base stars × the
@@ -301,7 +336,7 @@ async function bookIntoCell(player, { teleport = false } = {}) {
 
   const message = teleport
     ? `<span class="clone-vat-message">The cuffs bite in and a knee folds you down — then the cold steel bench of Precinct 9's holding block. Pockets empty, a charge sheet taped to the bars. "${mins}," the desk sergeant says, not looking up. Anything the law calls contraband has been logged to evidence; you won't be seeing that again.</span>`
-    : `<span class="clone-vat-message">You come to on a steel bench in Precinct 9's holding block — wrists zip-tied, pockets empty, a charge sheet taped to the bars. The desk sergeant doesn't look up: "${mins}. Sit tight." Anything the law calls contraband has been logged to evidence; you won't be seeing that again.</span>`;
+    : `<span class="clone-vat-message">The dark takes you, and the grid catches you — but the print never reaches the civic hall. An open file outranks the queue: your pattern is pulled mid-decant and finished in Precinct 9's custodial vat, and you come up choking warm fluid onto the drain grate of the holding cell. Pockets empty, a charge sheet taped to the bars. The desk sergeant doesn't look up: "${mins}. Sit tight." Anything the law calls contraband has been logged to evidence; you won't be seeing that again.</span>`;
 
   if (teleport) {
     // No death occurred, so nothing has moved them or cleared their heat — do both.
@@ -431,6 +466,16 @@ async function finishArrest(playerId) {
 
 on('player.logout', ({ id }) => clearConceal(id));
 
+// TAKEN ALIVE at 4-5 stars. The manhunt unit beat them unconscious rather than
+// killing them (gameLoop, via enemy._takesAlive), so no player.death fires and
+// the respawn hook never runs -- book them here instead. This is what stops
+// maximum heat being the one way to skip jail entirely.
+on('police.tookAlive', ({ player }) => {
+  if (!player?.id) return;
+  if (getZone(player.current_zone)?.flags?.lawless) return;   // no precinct out here
+  bookIntoCell(player, { teleport: true }).catch(e => console.error('[jail] takedown booking:', e.message));
+});
+
 // Cross-plugin seam: the surveillance apprehend engine books a *live* suspect (no
 // death) once they submit to a ≤3.5★ arrest. If they're carrying open palmable
 // contraband, the scan-sweep palm runs first; booking follows the client reply.
@@ -445,6 +490,58 @@ registerAction({
   },
 });
 
+// ── The permanent record (jail's half) ───────────────────────────────────────
+// Lifetime totals that a deleted `jail_prisoners` row can no longer answer for:
+//
+//   crime_arrests     collars, incremented at booking
+//   crime_fines       ₵ actually kept as fines, summed at release
+//   crime_served_min  minutes actually served, summed at release
+//
+// Two flag writes per release — a release is a once-per-stretch event, never a
+// tick — and read back sync off the flag cache by the tablet's Crime app.
+async function recordStint(playerId, rec) {
+  const p = getLivePlayer(playerId);
+  const bump = async (key, add) => {
+    if (!add) return;
+    const cur = Number(p ? await getFlag('player', key, p) : 0) || 0;
+    // Offline: setFlagById writes without a cached read, so the running total can
+    // only be trusted for a live player. An offline release still records the
+    // stint; it just adds to whatever the DB last held via the same read path.
+    if (p) await setFlag('player', key, cur + add, p);
+    else {
+      const { rows } = await query('SELECT flag_value FROM player_flags WHERE player_id=$1 AND flag_key=$2', [playerId, key]);
+      await setFlagById(playerId, key, (Number(rows[0]?.flag_value) || 0) + add);
+    }
+  };
+  const served = rec.created_at && rec.release_at
+    ? Math.max(0, Math.round((new Date(rec.release_at) - new Date(rec.created_at)) / 60000))
+    : 0;
+  // Only what the desk actually kept — a fine larger than the cash you were
+  // carrying still charges in full, which is the point of the debt.
+  await bump('crime_fines', Math.max(0, Number(rec.fine) || 0));
+  await bump('crime_served_min', served);
+}
+
+// The current stint, or null. One query, and only on the screen that asks for it —
+// the tablet's Crime app reads this rather than touching jail's table itself.
+export async function custodyOf(playerId) {
+  if (!playerId) return null;
+  const { rows } = await query(
+    'SELECT cell_zone, release_at, stars, fine, held_credits, charge, created_at FROM jail_prisoners WHERE player_id=$1',
+    [playerId],
+  );
+  const r = rows[0];
+  if (!r) return null;
+  return {
+    cellZone: r.cell_zone,
+    charge: r.charge || null,
+    stars: Number(r.stars) || 0,
+    fine: Number(r.fine) || 0,
+    held: Number(r.held_credits) || 0,
+    minutesLeft: Math.max(0, Math.ceil((new Date(r.release_at) - Date.now()) / 60000)),
+  };
+}
+
 // ── Release (guard walks you out) ────────────────────────────────────────────
 async function release(playerId) {
   const { rows } = await query('SELECT * FROM jail_prisoners WHERE player_id = $1', [playerId]);
@@ -454,6 +551,11 @@ async function release(playerId) {
   releasing.add(playerId);
   try {
     await query('DELETE FROM jail_prisoners WHERE player_id = $1', [playerId]);
+    markFreed(playerId);
+    // File the stint before the row is gone from memory: fine actually paid and
+    // minutes actually served. setFlagById works for an offline release (the
+    // boot-time sweep frees prisoners whose deadline passed while they were away).
+    await recordStint(playerId, rec).catch(() => {});
     await restoreHeld(playerId, rec.held_items);
 
     // Return the cash the desk was holding, minus the booking fine. A fine larger
@@ -472,16 +574,15 @@ async function release(playerId) {
       const officer = world.npcs.get(onDutyOfficerId());
       const officerName = officer?.name || 'The duty officer';
       const line = RELEASE_LINES[Math.floor(Math.random() * RELEASE_LINES.length)];
-      // Serving your time genuinely opens the way out: the hololock disengages and
-      // STAYS disengaged until the next booking re-secures it. A door that only
-      // ever opens for a timer is a door nobody can trust, so the tradeoff is
-      // deliberate — a cellmate who strolls through it is still an escape().
-      await releaseCellDoor().catch(() => {});
+      // The lock stays engaged — it doesn't need to open for anyone. Your record
+      // is clear the moment the row is deleted above, and the detention lock reads
+      // records, so the door simply stops refusing *you*. A cellmate still doing
+      // time gets no such courtesy.
       // Clear the countdown HUD — you walk out clean.
       sendToPlayer(playerId, { type: 'wanted_level', stars: 0 });
       bc?.(rec.cell_zone, {
         type: 'zone_event',
-        message: `<span class="text-yellow">${officerName} steps into the cell, keys jangling. "${player.handle}. ${line}"</span> The hololock drops with a heavy clunk and stays dark as ${player.handle} is walked out.`,
+        message: `<span class="text-yellow">${officerName} steps into the cell, keys jangling. "${player.handle}. ${line}"</span> The lock reads ${player.handle}'s file, finds it closed, and lets them through.`,
       }, playerId);
       await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: rec.release_zone }, context: { broadcast: bc } });
       const zone = getZone(rec.release_zone);
@@ -564,6 +665,7 @@ async function escape(player) {
   if (!rec) return;
   clearTimer(player.id);
   await query('DELETE FROM jail_prisoners WHERE player_id = $1', [player.id]);
+  markFreed(player.id);
   // Skipped processing — the legal gear the desk was holding gets bagged into
   // evidence too. Nothing comes back.
   await lockUp(Array.isArray(rec.held_items) ? rec.held_items : [], player.handle);
@@ -574,7 +676,7 @@ async function escape(player) {
 }
 
 // The cell block is everything a prisoner may walk to WITHOUT it being a breakout:
-// the cell itself plus any room behind the same hololock (the wash block, the
+// the cell itself plus any room behind the same lock (the wash block, the
 // exercise room). Membership is authored on the zone as `flags.cell_block`, not
 // listed here, so adding another room to the block is a content change and never
 // a code one — and a room that forgets the flag fails safe as an escape, which is
@@ -585,15 +687,58 @@ function inCellBlock(zoneId) {
 
 on('zone.entered', async ({ actor, zone }) => {
   if (!actor?.id || releasing.has(actor.id) || inCellBlock(zone)) return;
+  // The free exit for ~every step ever taken: nobody who isn't on the roster is
+  // escaping, so there is nothing to ask the database. Until the roster is
+  // seeded at boot we fail safe by querying, exactly as before.
+  if (rosterReady && !imprisoned.has(actor.id)) return;
   const { rows } = await query('SELECT 1 FROM jail_prisoners WHERE player_id = $1', [actor.id]);
-  if (rows.length) await escape(actor).catch(e => console.error('[jail] escape error:', e.message));
+  if (!rows.length) { markFreed(actor.id); return; }   // stale positive — self-correct
+  await escape(actor).catch(e => console.error('[jail] escape error:', e.message));
+});
+
+// ── The detention lock: a door that reads your file, not your keys ───────────
+// The cell block's lock stays engaged permanently. What it checks isn't a
+// credential — it's your record: **clean walks, wanted stays**. Anyone with no
+// outstanding stars and no sentence still to serve (a visitor, a lawyer, a
+// prisoner the desk has just released) passes straight through; a suspect with
+// heat on them, or a prisoner mid-stretch, gets the flat refusal. Not hackable —
+// there's no deck bypass and never was.
+//
+// Two reads, both only on an actual attempt to walk the block's one door:
+//   - live wanted stars (surveillance's WANTED_STARS, falling back to the flag)
+//   - an open `jail_prisoners` row (doing time is its own gate)
+async function detentionAuth(lockTag, door, player) {
+  if (!player?.id) return false;
+  let stars = 0;
+  try {
+    const r = await dispatchAction({ type: 'WANTED_STARS', actor: player });
+    if (typeof r?.stars === 'number') stars = r.stars;
+  } catch { /* surveillance not loaded */ }
+  if (!stars) stars = parseFloat(await getFlag('player', 'wanted', player) || '0') || 0;
+  if (stars > 0) return false;
+  const { rows } = await query('SELECT 1 FROM jail_prisoners WHERE player_id = $1', [player.id]).catch(() => ({ rows: [] }));
+  return rows.length === 0;
+}
+
+registerLockType('detentionlock', {
+  tagType: 'lock:detentionlock',
+  kitTag:  'lockkit:detentionlock',
+  defaults: {
+    canHack: false,
+    messages: {
+      lock:   'The detention lock seats itself with a heavy magnetic clunk.',
+      unlock: 'The detention lock disengages.',
+      denied: 'The detention lock reads your file, finds it open, and does not move.',
+    },
+  },
+  authFn: detentionAuth,
 });
 
 // ── Fail-safe: re-lock the cell behind an admin ──────────────────────────────
-// An admin can pop the holding-cell hololock (to fish someone out, or just testing).
+// An admin can pop the holding-cell detention lock (to fish someone out, or just testing).
 // If they wander off and forget to re-lock it, the block sits wide open and any prisoner
 // strolls free. So: track an admin from the moment they step INTO the cell, and the moment
-// they step back OUT, slam the hololock shut + closed behind them. Only admins trip this —
+// they step back OUT, slam the lock shut + closed behind them. Only admins trip this —
 // prisoners/guards run their own (escape / walk-out) paths, untouched.
 const ADMIN_ROLES = new Set(['admin', 'dev', 'builder', 'designer']);
 const CELL_DOOR = 'door_precinct_cell';
@@ -609,25 +754,13 @@ async function secureCellDoor() {
   return true;
 }
 
-// The other half of the pair: the guard drops the lock at the end of a sentence.
-// Door state is RAM-only (world.doors; runtime never writes it back), so this is
-// a cache mutation like every other open/close/lock in the game.
-async function releaseCellDoor() {
-  const door = getDoorById(CELL_DOOR) || getZoneDoors(CELL_ZONE)[0];
-  if (!door || door.lock_state !== 'locked') return false;
-  door.lock_state = 'unlocked';
-  setDoorCache(door.id, door);
-  emit('door.toggled', { zoneId: door.zone_id, targetZoneId: door.target_zone });
-  return true;
-}
-
 on('zone.entered', async ({ actor, zone }) => {
   if (!actor?.id || !ADMIN_ROLES.has(actor.role)) return;
   if (inCellBlock(zone)) { adminInCell.add(actor.id); return; }   // block-wide: stepping to the showers isn't leaving
   if (!adminInCell.delete(actor.id)) return;   // this admin wasn't in the cell
   if (await secureCellDoor().catch(() => false)) {
-    sendToPlayer(actor.id, { type: 'output', message: '<span class="text-dim">The cell hololock re-engages behind you.</span>' });
-    getBroadcast()?.(CELL_ZONE, { type: 'zone_event', message: 'The cell hololock slams shut with a heavy magnetic clunk.', refresh: true }, actor.id);
+    sendToPlayer(actor.id, { type: 'output', message: '<span class="text-dim">The cell detention lock re-engages behind you.</span>' });
+    getBroadcast()?.(CELL_ZONE, { type: 'zone_event', message: 'The cell detention lock slams shut with a heavy magnetic clunk.', refresh: true }, actor.id);
   }
 });
 
@@ -636,9 +769,29 @@ on('zone.entered', async ({ actor, zone }) => {
 // still left to serve (ceil of the remaining time), so it visibly declines and
 // hits zero right as the officer walks you out. Purely a HUD countdown — your
 // actual street heat was cleared on arrest.
+// How long an empty jail may go without re-reading the table. The sweep exists
+// to push each prisoner's HUD countdown and to re-seed the roster from truth; an
+// empty roster has no countdown to push, so all that's left is the re-seed, and
+// that only needs to be often enough to notice a prisoner booked by the one
+// writer outside this plugin. Five minutes of a cosmetic HUD lag is a fair trade
+// for not asking an empty table the same question every minute forever.
+const EMPTY_ROSTER_RESEED_MS = 5 * 60_000;
+let lastRosterRead = 0;
+
 schedule('1m', async () => {
   syncShift();
-  const { rows } = await query('SELECT player_id, release_at, stars FROM jail_prisoners').catch(() => ({ rows: [] }));
+  // Nobody is inside and the roster is trustworthy — skip the round trip, but
+  // never for longer than the re-seed window (an outside INSERT must surface).
+  if (rosterReady && imprisoned.size === 0 && Date.now() - lastRosterRead < EMPTY_ROSTER_RESEED_MS) return;
+  const { rows } = await query('SELECT player_id, release_at, stars FROM jail_prisoners').catch(() => ({ rows: null }));
+  if (!rows) return;   // a failed read must not be mistaken for an empty jail
+  lastRosterRead = Date.now();
+  // Free re-seed: this sweep already reads the whole table, so the roster is
+  // rebuilt from truth — every minute while anyone is inside, and every
+  // EMPTY_ROSTER_RESEED_MS while the jail is empty. That's what bounds drift
+  // from the one writer outside this plugin (reincarnatePlayer) — and a stale
+  // entry only ever costs a query, never a false escape.
+  reseedRoster(rows);
   const now = Date.now();
   for (const r of rows) {
     if (!getLivePlayer(r.player_id)) continue;
@@ -658,7 +811,9 @@ schedule('1h', () => purgeEvidence());
 // ── Boot: reschedule / catch up on any prisoners across a restart ────────────
 (async () => {
   const { rows } = await query('SELECT player_id, release_at FROM jail_prisoners').catch(() => ({ rows: null }));
-  if (!rows) return;   // table not migrated yet — jailing will surface it
+  if (!rows) return;   // table not migrated yet — jailing will surface it (roster stays unready → we keep querying)
+  lastRosterRead = Date.now();   // the sweep's re-seed clock starts from this read
+  reseedRoster(rows);  // seed BEFORE the release loop below, which prunes as it goes
   for (const r of rows) {
     const ms = new Date(r.release_at).getTime() - Date.now();
     if (ms <= 0) await release(r.player_id).catch(e => console.error('[jail] boot release error:', e.message));
@@ -683,6 +838,6 @@ export const specializedActions = [
 export const hooks = { 'player.respawnZone': onRespawnZone };
 
 // Exposed for the regression harness.
-export const _test = { confiscate, restoreHeld, release, escape, onRespawnZone, isContraband, onDutyOfficerId, inCellBlock, secureCellDoor, releaseCellDoor, CELL_DOOR, OFFICERS, CELL_ZONE, RELEASE_ZONE, BUNK_ZONE };
+export const _test = { confiscate, restoreHeld, release, escape, onRespawnZone, isContraband, onDutyOfficerId, inCellBlock, secureCellDoor, detentionAuth, CELL_DOOR, OFFICERS, CELL_ZONE, RELEASE_ZONE, BUNK_ZONE };
 
 console.log('[jail] Plugin loaded.');

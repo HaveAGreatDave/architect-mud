@@ -110,8 +110,8 @@
     },
     {
       "credits": [
-        10,
-        26
+        25,
+        55
       ],
       "item": "item_credit_chip",
       "qty": [
@@ -119,6 +119,19 @@
         1
       ],
       "weight": 18
+    },
+    {
+      "credits": [
+        70,
+        180
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 3,
+      "super": true
     }
   ],
   "name": "bloated mutant",

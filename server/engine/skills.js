@@ -1,5 +1,6 @@
 import { query } from '../models/db.js';
 import { awardIp, getSkillIp } from './ip.js';
+import { effectiveStat } from './condition.js';
 import { sendToPlayer } from './messaging.js';
 
 export const SKILLS = {
@@ -33,10 +34,14 @@ export const SKILLS = {
 
 // Floored average of a skill's governing stats — the bonus that stacks on top
 // of the IP-derived level to form total (effective) skill.
+// Reads EFFECTIVE stats, not raw ones — so being cold, starving or parched is
+// felt everywhere a stat is felt (to-hit, dodge, every skill check) rather than
+// only in a warning message. This is the single funnel every skill goes through;
+// see condition.js for why the edge lives here and nowhere else.
 export function skillStatBonus(player, skillId) {
   const skill = SKILLS[skillId];
   if (!skill) return 0;
-  return Math.floor(skill.stats.reduce((sum, s) => sum + (player[s] || 0), 0) / skill.stats.length);
+  return Math.floor(skill.stats.reduce((sum, s) => sum + effectiveStat(player, s), 0) / skill.stats.length);
 }
 
 // skill level (floor(ip/100), 0–10) + floored average of governing stats. Can exceed 10.

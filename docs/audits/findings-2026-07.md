@@ -159,11 +159,17 @@ almost everything around it is a half-finished extraction. Findings below, corre
 - ➖ **`hack <full-direction>` works and disambiguates; `hack s` does not** — `resolveDoor` matches full
   words only (`doors.js:13,33`) and alias expansion is first-word-only (`aliases.js`). Widen `DIRECTIONS`
   or expand abbreviations in `resolveDoor` to match movement.
-- ➖ **Skill is client-only; IP award is a damped constant.** No server skill roll; `skill`/`difficulty`
-  only tune the minigame. Success awards `awardSkillUse('hacking', 2)` with a **hardcoded** margin
-  (`doors.js:402`, atm:350, vendor-safe:139), so nail-biters and walkovers raise skill identically;
-  failure grants nothing. NPCs can open/lock their own home/shop doors via `moveEntity` but **cannot hack**
-  and have no VINE door action node.
+- ✅ **~~IP award is a damped constant.~~ FIXED.** Was: success awarded `awardSkillUse('hacking', 2)`
+  with a **hardcoded** margin at every breach site, so nail-biters and walkovers raised skill
+  identically and no target ever stopped being worth grinding. All six sites (doors, atm, vendor-safe,
+  storefront, surveillance-hijack, broadcast-piracy) now call `breachMargin()`
+  (`server/engine/hack-gear.js`) — `|effectiveSkill − difficulty|`, deck penalty included — so hacking
+  runs on the same learn-at-the-edge curve as every other skill. Regress-locked in
+  `plugins/hackrig/regress.js`.
+- ➖ **Skill is still client-only.** No server skill roll; `skill`/`difficulty` only tune the minigame,
+  and a *failed* breach still grants nothing (the margin above is computed on success). NPCs can
+  open/lock their own home/shop doors via `moveEntity` but **cannot hack** and have no VINE door
+  action node.
 
 ---
 

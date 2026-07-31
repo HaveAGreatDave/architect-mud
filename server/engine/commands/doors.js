@@ -9,10 +9,12 @@ import { emit } from '../events.js';
 import { effectiveSkill, awardSkillUse } from '../skills.js';
 import { getEquippedWeapon } from '../inventory.js';
 import { getZoneProtection } from '../protection.js';
-import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
+import { doorGuardsOnlyUnownedApartment, playerControlsApt } from '../apartments.js';
 import { gameMsToReal } from '../gametime.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage, getSelectionState } from '../sift.js';
 import { registerAction } from '../actions.js';
+import { hasHackDeck, hackDifficulty, damageHackDeck, breachMargin } from '../hack-gear.js';
+import { escAttr } from '../text.js';
 
 const DIRECTIONS = ['north','south','east','west','up','down','in','out'];
 const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
@@ -94,9 +96,46 @@ function getLockTag(door) {
 }
 export { getLockTag as getLockTagPublic };
 
+// ── A resident is never locked out of their own home ─────────────────────────
+// The law: if a door touches a residence this player controls, they are authorised
+// on it, whatever kind of lock is hanging there. This sits ABOVE the per-lock-type
+// registry on purpose, because the registry is where the ways to be shut out of your
+// own flat were hiding — each lock type authored its own auth in isolation and only
+// the hololock happened to know what an apartment was:
+//
+//   • `keycardlock` authorised on INVENTORY alone, so being robbed of (or dropping,
+//     or losing to a corpse) `keycard_<doorId>` locked the deed holder out of a unit
+//     they own, permanently — cmdInstallLock mints exactly one card.
+//   • `privacylock` authorised on "am I standing on the private side", so any
+//     visitor could throw the bolt and shut the owner out of their own home from
+//     the street. Not hackable either (hackDoor is hololock-only).
+//   • An NPC arriving home locks whatever door it just used (ai-behaviour.js), so a
+//     roommate NPC in a keycard/privacy unit could bolt a player's own door.
+//
+// Deliberately NOT in locks.js: that module is a pure registry with no world
+// knowledge, and this is a housing rule. checkLockAuth is the single funnel every
+// caller already uses (the move gate, open/close/lock/unlock, hackDoor, and the
+// describe pane's "owned" marker), so one check here covers all of them — including
+// making the door render as yours.
+//
+// This grants AUTH, not passage: a manual bolt still has to be physically undone
+// (lockTypePassesWhileLocked is a separate question, see the engine:door-lock gate),
+// which is what keeps a privacy latch meaningful. It means the resident can always
+// UNLOCK it — they can never be left with no way in.
+function controlsEitherSide(player, door) {
+  if (!player || !door) return false;
+  const sides = [door.zone_id, door.target_zone, ...exitTargets(door)].filter(Boolean);
+  for (const zid of new Set(sides)) {
+    const apt = getApartment(zid);
+    if (apt && playerControlsApt(player, apt)) return true;
+  }
+  return false;
+}
+
 // Returns true if player is authorised to operate this lock.
 // Dispatches to the registered handler for lockTag.type (see locks.js).
 export async function checkLockAuth(lockTag, door, player) {
+  if (controlsEitherSide(player, door)) return true;
   return resolveLockAuth(lockTag, door, player);
 }
 
@@ -115,7 +154,7 @@ async function updateDoor(door, changes) {
 // via the door-lock-tag command instead, so both fields stay consistent whichever
 // path was used. A door touches up to two zones (its own and its exit target);
 // sync whichever side is an apartment.
-async function syncApartmentLock(door, lockState) {
+export async function syncApartmentLock(door, lockState) {
   const isLocked = lockState === 'locked' ? 1 : 0;
   const zone = getZone(door.zone_id);
   const farIds = door.target_zone ? [door.target_zone] : exitTargets(zone, door.exit_dir);
@@ -333,16 +372,10 @@ const HACK_PENDING_TTL_MS = 180 * 1000;
 const hackLockout = new Map();  // playerId -> lockout-until ts
 const pendingHack = new Map();  // playerId -> { doorId, expires }
 
-// Any item tagged `hack_device` (see tagCatalog.js) is a valid deck — the gate
-// is the capability tag, not a specific item id.
-async function hasHackDevice(playerId) {
-  const { rows } = await query(
-    `SELECT 1 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'hack_device') LIMIT 1`,
-    [playerId]
-  );
-  return rows.length > 0;
-}
+// The gate is the capability tag (`hack_device`), not a specific item id, and
+// WHICH deck answers decides how hard the lock reads and what a failure costs —
+// see server/engine/hack-gear.js.
+const hasHackDevice = hasHackDeck;
 
 // The zone the door protects — whichever side is an apartment. Used for the
 // forcefield gate (a sleeping owner's quantum shield makes the lock unhackable).
@@ -445,7 +478,7 @@ async function hackDoor(door, player, broadcast) {
     doorId: door.id,
     deviceName: door.name || 'hololock',
     skill: await effectiveSkill(player, 'hacking'),
-    difficulty: lockTag.difficulty ?? 5,
+    difficulty: await hackDifficulty(player.id, lockTag.difficulty),
     resolveCmd: 'hackresolve',
   };
 }
@@ -485,11 +518,12 @@ async function cmdHackResolve(args, raw, player, broadcast) {
     // to real ms via the game-speed knob. (The pending-hack TTL above stays real:
     // it's the player's live minigame-completion window, not a world duration.)
     hackLockout.set(player.id, Date.now() + gameMsToReal(HACK_LOCKOUT_MS));
-    return { type:'error', message:"The hololock's key sequence resets mid-spoof. Your deck is flagged — five-minute lockout." };
+    const deckMsg = await damageHackDeck(player.id);
+    return { type:'error', message:`The hololock's key sequence resets mid-spoof. Your deck is flagged — five-minute lockout.${deckMsg}` };
   }
 
   await updateDoor(door, { lock_state: 'unlocked' });
-  await awardSkillUse(player.id, 'hacking', 2);
+  await awardSkillUse(player.id, 'hacking', await breachMargin(player, lockTag.difficulty));
   broadcast(player.current_zone, { type:'zone_event', message:'The hololock chirps and disengages.', refresh: true }, player.id);
 
   // Attribute the break-in to whoever actually owns the place (from the table,
@@ -555,7 +589,7 @@ async function cmdInstallLock(args, raw, player, broadcast) {
       const choiceDoor = resolveDoor(args, player);
       const dir = choiceDoor && choiceDoor !== 'ambiguous' ? choiceDoor.exit_dir : '';
       const links = carrying.map(t =>
-        `<span class="action-link" data-action="install" data-target="${t.name}${dir ? ' ' + dir : ''}">${t.name}</span>`
+        `<span class="action-link" data-action="install" data-target="${escAttr(t.name)}${dir ? ' ' + dir : ''}">${t.name}</span>`
       ).join('  ');
       return { type: 'output', message: `What do you want to install?\n${links}` };
     }

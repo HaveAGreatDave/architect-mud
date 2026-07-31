@@ -19,6 +19,7 @@
 //   to soak. Because margin = attackerHit − defenderDodge and crit is margin >= 8,
 //   defense also reduces the rate at which you get critted.
 import { emit } from './events.js';
+import { impairmentOf } from './impairment.js';
 
 // The base player swing, before any stance modifier. combat.js seeds
 // COOLDOWNS.attack from this so the number lives in exactly one place.
@@ -93,7 +94,10 @@ export function setStance(player, stance) {
 
 // Added to a PLAYER ATTACKER's to-hit margin.
 export function hitBonus(player) {
-  return mods(player).hit;
+  // Stance is the intended modifier here; impairment rides alongside it because
+  // this is the single place every to-hit margin is assembled. A wounded arm is
+  // an arm that swings worse, and there is nowhere else to say so.
+  return mods(player).hit + impairmentOf(player).hitMod;
 }
 
 // Added to a PLAYER DEFENDER's dodge term. The single place the stance defense

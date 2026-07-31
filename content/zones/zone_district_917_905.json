@@ -6,7 +6,6 @@
   "created_by": "zone-planner",
   "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
   "exits": {
-    "east": "zone_district_918_905",
     "north": "zone_district_917_904",
     "south": "zone_district_917_906",
     "west": "zone_district_916_905"

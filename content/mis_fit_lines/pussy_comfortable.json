@@ -1,0 +1,15 @@
+{
+  "actor_lines": [
+    "You fit {target} [ADVERB] — [DESCRIPTION OF GOOD FIT]."
+  ],
+  "band": "comfortable",
+  "hole": "pussy",
+  "id": "pussy:comfortable",
+  "target_lines": [
+    "{actor} fills you [ADVERB]. It is [POSITIVE ADJECTIVE]."
+  ],
+  "updated_at": "1785158642",
+  "zone_lines": [
+    "{actor} and {target} find a rhythm [ADVERB]."
+  ]
+}

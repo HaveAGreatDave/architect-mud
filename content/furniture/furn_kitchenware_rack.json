@@ -1,0 +1,18 @@
+{
+  "description": "Pegboard and hooks, every piece hung at an angle chosen by somebody with strong feelings about pegboard.",
+  "flags": {
+    "dish_cabinet": true,
+    "container": 60000,
+    "aliases": "rack,display,pegboard"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_kitchenware_rack",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "display rack",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_kitchenware"
+}

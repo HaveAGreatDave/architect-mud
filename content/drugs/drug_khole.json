@@ -5,7 +5,6 @@
   "effects": {
     "comeon_message": "<span class=\"msg-system\">You take the dust and wait, already feeling further away than you were.</span>",
     "hallucination": {
-      "dreamzone_id": "zone_dream_khole",
       "duration_seconds": 200,
       "events": [
         {

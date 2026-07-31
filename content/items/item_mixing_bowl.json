@@ -1,0 +1,18 @@
+{
+  "description": "A wide shallow bowl of grey composite, scarred white where a thousand knives have crossed it. Nothing about it holds heat, and it does not need to.",
+  "flags": {},
+  "id": "item_mixing_bowl",
+  "name": "mixing bowl",
+  "tags": {
+    "container": 3000,
+    "description": "A wide shallow bowl of grey composite, scarred white where a thousand knives have crossed it. Nothing about it holds heat, and it does not need to.",
+    "heat_distribution": 0.3,
+    "heat_retention": 0.25,
+    "unique": true,
+    "vessel": true,
+    "vessel_kind": "bowl"
+  },
+  "type": "misc",
+  "value": 18,
+  "weight": 600
+}

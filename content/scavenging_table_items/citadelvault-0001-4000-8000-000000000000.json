@@ -1,0 +1,8 @@
+{
+  "difficulty": 6,
+  "id": "citadelvault-0001-4000-8000-000000000000",
+  "item_id": "item_citadel_bullion",
+  "max_qty": 1,
+  "table_id": "scav_citadel_vault",
+  "weight": 5
+}

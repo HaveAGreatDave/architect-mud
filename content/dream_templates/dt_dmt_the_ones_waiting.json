@@ -1,0 +1,33 @@
+{
+  "id": "dt_dmt_the_ones_waiting",
+  "name": "The Ones Who Were Expecting You",
+  "description": "There are things here and they are delighted. Not menacing — delighted, and busy, and in the middle of showing you something enormous at a speed you cannot follow. They know you. You have the strong sense that you knew them, before, and agreed to this.",
+  "cause": "drug",
+  "drug_id": "drug_dmt",
+  "objects": [
+    {
+      "name": "the ones here",
+      "looks": [
+        "Delighted. Genuinely. It is almost embarrassing.",
+        "They have too many parts and all of them are being used well.",
+        "One of them checks you are keeping up and carries on regardless."
+      ]
+    },
+    {
+      "name": "what they are showing you",
+      "looks": [
+        "Enormous, obvious, and going past far too fast.",
+        "You understand it perfectly and will not be permitted to keep it.",
+        "It is about you, mostly, and you are not the important part."
+      ]
+    }
+  ],
+  "ambient": [
+    "They show you another thing, quickly, before there is no time.",
+    "Something is decided about you and everyone is pleased.",
+    "The pace picks up. They are trying to fit it all in."
+  ],
+  "weather": "It is warm here, and the warmth is coming from the activity rather than from anywhere.",
+  "fx": "snow",
+  "fx_intensity": 1
+}

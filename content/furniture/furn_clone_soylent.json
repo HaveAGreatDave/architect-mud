@@ -1,9 +1,10 @@
 {
-  "description": "A wall-mounted nutrient dispenser in clone-facility beige, bolted at chest height by the door. A cracked label reads NUTRITION IS A RIGHT, NOT A PRIVILEGE; someone has scratched 'lol' beneath it. A dented steel tray waits under the nozzle, stained the colour of everything it has ever served. A worn button reads VEND.",
+  "description": "A wall-mounted nutrient dispenser in clone-facility beige, bolted at chest height by the door. A cracked label reads NUTRITION IS A RIGHT, NOT A PRIVILEGE; someone has scratched 'lol' beneath it. A dented steel tray waits under the nozzle, stained the colour of everything it has ever served. The display is dark, the VEND button unlit, and its power cord hangs loose from the wall socket behind it.",
   "flags": {
     "interactions": [
       "vend"
     ],
+    "plugged_in": false,
     "vend_cooldown_s": 20,
     "vend_line": "The dispenser shudders, gargles, and drops a cold foil pouch into the tray with an institutional sigh, the little sun on its label grinning up at you.",
     "vends": "item_soylent"
@@ -15,7 +16,7 @@
   "lumen_output": null,
   "name": "soylent dispenser",
   "object_type": "fixture",
-  "power_draw_kw": null,
+  "power_draw_kw": 0.1,
   "price": 0,
   "zone_id": "zone_start"
 }

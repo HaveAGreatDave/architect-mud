@@ -1,0 +1,18 @@
+{
+  "description": "Glazed stoneware with two stubby handles you cannot get a mitt around. Holds heat like a grudge.",
+  "flags": {},
+  "id": "item_baking_dish",
+  "name": "baking dish",
+  "tags": {
+    "container": 3500,
+    "description": "Glazed stoneware with two stubby handles you cannot get a mitt around. Holds heat like a grudge.",
+    "heat_distribution": 0.5,
+    "heat_retention": 0.7,
+    "unique": true,
+    "vessel": true,
+    "vessel_kind": "tray"
+  },
+  "type": "misc",
+  "value": 16,
+  "weight": 1500
+}

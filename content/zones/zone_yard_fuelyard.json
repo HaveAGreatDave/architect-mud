@@ -9,7 +9,7 @@
     "south": "zone_district_923_907"
   },
   "flags": {
-    "building_name": "Pallet & Fuel Yard",
+    "building_name": "Flash Point Fuel & Pallet",
     "building_type": "fuel_yard",
     "is_building": true,
     "is_interior": true,
@@ -20,7 +20,7 @@
   "grid_z": 0,
   "id": "zone_yard_fuelyard",
   "map_id": "map_int_yard_fuelyard",
-  "name": "Pallet & Fuel Yard",
+  "name": "Flash Point Fuel & Pallet",
   "parent_zone": "zone_district_923_907",
   "updated_at": "1783739474"
 }

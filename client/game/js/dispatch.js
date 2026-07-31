@@ -1,9 +1,10 @@
 import { state } from './state.js';
-import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, showSkyBanner } from './render.js';
+import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, showSkyBanner, pointAtRoomTarget, setRoomBeacon, clearRoomBeacons, isAreaPaneVisible } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
 import { renderMinimap, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt } from './panels/minimap.js';
-import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors } from './panels/environment.js';
+import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors, setEnvUnreal } from './panels/environment.js';
 import { setWeatherEventFx, setFireworksGlow, launchFirework } from './panels/weather-fx.js';
+import { setDreamFx } from './panels/environment.js';
 import { openDialogue, closeDialogue, openShop, notifyZoneChanged } from './panels/dialogue.js';
 import { updateInventoryCache, consumeSilentInventory } from './panels/inventory-state.js';
 import { renderRecipesPanel } from './panels/recipes.js';
@@ -11,9 +12,10 @@ import { renderStatsPanel } from './panels/stats.js';
 import { renderSkillsPanel } from './panels/skills.js';
 import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, initChannelHistory, receiveMOTD, refreshOnlinePlayers, rollbackSelfEcho, removeCorpChannels } from './panels/whisper.js';
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showContainerNotify } from './panels/container.js';
+import { openWardrobePanel, refreshWardrobePanel, getActiveWardrobeId, showWardrobeNotify } from './panels/wardrobe.js';
 import { openLootPanel, closeLootPanel } from './panels/loot.js';
 import { openLightViewDialog } from './panels/lightview.js';
-import { openMorphexPanel } from './panels/morphex.js';
+import { openMorphexPanel, closeMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
 import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js';
@@ -29,11 +31,16 @@ import { openSignalHijack } from './panels/signalhijack.js';
 import { openPirateConsole, closePirateConsole } from './panels/piratedeck.js';
 import { openFishing, armFishFight } from './panels/fishing.js';
 import { abortMacros } from './panels/smartbar-macros.js';
-import { updateCockpit, closeCockpit, cabinAudio, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
+import { setTabletAccess, showTabletOffer } from './panels/smartbar.js';
+import { offerInterfaceTour, startInterfaceTour, startTabletTour, consumeTourHandoff } from './panels/tour.js';
+import { playIntroCinematic } from './panels/intro-cinematic.js';
+import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
+import { openTextCockpit, updateTextCockpit, closeTextCockpit, isTextCockpitActive } from './panels/textcockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/helm-mode.js';
 import { setYachtAmbience, yachtUnderway, yachtSettled } from './panels/yacht-ambience.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
+import { openConcealKeypad } from './panels/keypad.js';
 import { openSynthMinigame, openCookMenu } from './panels/synthlab.js';
 import { openSpliceSelect, openSpliceStages, applySplicePreview } from './panels/splicelab.js';
 import { showSpliceReport } from './panels/spliceReport.js';
@@ -59,7 +66,7 @@ const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
 
 // The station's spoken login greeting — the formant voice (seeded to a single
 // steady "Architect" machine voice) welcomes the player by name. Mostly the plain
-// line; rarely (~1 in 8) something quieter and more ominous — but always their name.
+// line; ~1 in 4 logins something quieter and more ominous — but always their name.
 // It's a TV-narrator voice, so it obeys TV Audio and, on top of that, its own
 // dedicated switch (Sound → Welcome Voice) so it can be silenced independently.
 const WELCOME_PLAIN = n => `Welcome to Architect, ${n}.`;
@@ -70,12 +77,27 @@ const WELCOME_OMINOUS = [
   n => `Welcome to Architect, ${n}. Do try to last longer this time.`,
   n => `We have been waiting for you, ${n}.`,
   n => `${n}. Reconnection confirmed. Compliance appreciated.`,
+  n => `You were logged as absent, ${n}. The absence has been amended.`,
+  n => `Good. You are breathing. That simplifies the paperwork, ${n}.`,
+  n => `${n}. Your file was open the whole time. Nobody closed it.`,
+  n => `The Basin did not miss you, ${n}. It doesn't do that. But it noticed.`,
+  n => `Resume, ${n}. Everything continued without you.`,
+  n => `${n}. Somebody asked about you while you were away. We told them nothing.`,
+  n => `Session restored, ${n}. Your prior session ended in a manner we found instructive.`,
+  n => `Welcome to Architect, ${n}. Statistically, most of you comes back.`,
+  n => `${n}. We had almost finished reassigning your name.`,
+  n => `Step in, ${n}. The city has been rearranged slightly. You'll adapt or you won't.`,
+  n => `We kept watching after you left, ${n}. There wasn't much to watch.`,
+  n => `${n}. Identity accepted. Provisionally.`,
+  n => `You are late, ${n}. Nothing was scheduled. You are still late.`,
+  n => `Welcome home, ${n}. That word is used loosely here.`,
 ];
 // State-aware ominous lines. Each reads a field already present on the auth
 // payload (server/index.js livePlayer) — no extra query — and only qualifies
 // when its `when` predicate matches, so the Architect sounds like it watched
 // your last session. Mutations draw disapproval (bionics-approval is a later
-// hook). Fires ~25% of the time an ominous roll lands AND ≥1 line qualifies.
+// hook). Fires ~60% of the time an ominous roll lands AND ≥1 line qualifies —
+// so the Architect reacts to what you did roughly one login in seven.
 const WELCOME_STATE = [
   { when: p => p.died_offline,        line: (n) => `You died in your sleep, ${n}. We watched.` },
   { when: p => p.covered_in_blood,    line: (n) => `You came back still wearing someone else's blood, ${n}.` },
@@ -86,30 +108,91 @@ const WELCOME_STATE = [
   { when: p => p.credits === 0 && (p.bank_credits || 0) === 0, line: (n) => `Broke again, ${n}. The city keeps its ledger.` },
   { when: p => (p.bank_credits || 0) >= 100000, line: (n) => `The vault noticed your balance, ${n}. So did we.` },
   { when: p => !p.home_zone,          line: (n) => `No fixed address, ${n}. The city notes it.` },
+
+  // Wounds & wear
+  { when: p => p.hp_max && p.hp / p.hp_max <= 0.25, line: (n) => `You logged off bleeding, ${n}, and you have come back bleeding. Nothing heals while you're gone.` },
+  { when: p => p.hp_max && p.hp >= p.hp_max, line: (n) => `Unmarked, ${n}. Either you were careful or you did nothing at all.` },
+  { when: p => (p.deaths || 0) >= 10, line: (n) => `Death number ${'' + (p.deaths || 0)} is behind you, ${n}. We have stopped filing them individually.` },
+  { when: p => (p.deaths || 0) === 0 && (p.total_xp || 0) > 500, line: (n) => `Still no deaths on your record, ${n}. Records like that are a kind of debt.` },
+  { when: p => p.body_temp_c != null && p.body_temp_c <= 35, line: (n) => `You are colder than you should be, ${n}. The Basin will finish that job if you let it.` },
+  { when: p => p.body_temp_c != null && p.body_temp_c >= 39, line: (n) => `You're running hot, ${n}. Something in you is burning fuel it doesn't have.` },
+  { when: p => (p.wetness || 0) > 40, line: (n) => `You came back wet, ${n}. We would rather not know from what.` },
+
+  // Mind
+  { when: p => p.sanity_max && p.sanity / p.sanity_max <= 0.3, line: (n) => `Your readings are wrong, ${n}. Not low. Wrong. Whatever you saw down there, it saw the paperwork too.` },
+  { when: p => p.sanity_max && p.sanity / p.sanity_max <= 0.55, line: (n) => `You are thinking a little sideways today, ${n}. We have noted it. We note everything.` },
+  { when: p => p.sanity_max && p.sanity >= p.sanity_max, line: (n) => `Perfectly lucid, ${n}. That is the least interesting way to be in Coldwater.` },
+
+  // Appetite
+  { when: p => (p.hunger ?? 100) <= 15, line: (n) => `You haven't eaten, ${n}. The Basin is patient about that. It waits.` },
+  { when: p => (p.thirst ?? 100) <= 15, line: (n) => `Dry, ${n}. Thirst kills faster than anything you're afraid of.` },
+  { when: p => (p.digestive_load || 0) > 60, line: (n) => `You logged off full, ${n}. Somebody's rations are unaccounted for.` },
+
+  // Body & chemistry
+  { when: p => (p.radiation || 0) >= 30 && (p.radiation || 0) < 60, line: (n) => `The count on you is climbing, ${n}. Slowly. Slow is still climbing.` },
+  { when: p => (p.radiation || 0) === 0 && (p.total_xp || 0) > 1000, line: (n) => `Clean as scrubbed pipe, ${n}. Somebody has been paying for filters.` },
+  { when: p => p.visibly_mutated && (p.player_kills || 0) > 0, line: (n) => `Less human and less careful, ${n}. Those two figures usually move together.` },
+
+  // Violence & the ledger
+  { when: p => (p.mob_kills || 0) >= 100, line: (n) => `${'' + (p.mob_kills || 0)} confirmed on your ledger, ${n}. The Basin thanks you for the sanitation work.` },
+  { when: p => (p.mob_kills || 0) === 0 && (p.total_xp || 0) > 200, line: (n) => `You have killed nothing, ${n}. Admirable. Temporary.` },
+  { when: p => (p.player_kills || 0) >= 5, line: (n) => `Other people's names end where you begin, ${n}. Five of them now.` },
+  { when: p => p.combat_stance === 'aggressive', line: (n) => `You went offline with your guard down and your fists up, ${n}. Bold, for a body that only has one of itself.` },
+
+  // Money & standing
+  { when: p => (p.credits || 0) > 20000, line: (n) => `You are carrying too much of it on your person, ${n}. So is everyone who has ever been robbed.` },
+  { when: p => (p.bank_credits || 0) === 0 && (p.credits || 0) > 5000, line: (n) => `Nothing banked, ${n}. You don't trust the vault. The vault has noticed.` },
+  { when: p => p.home_zone && !p.died_offline, line: (n) => `Your door was undisturbed while you slept, ${n}. This time.` },
+
+  // Where you left yourself
+  { when: p => p.current_zone === p.anchor_zone, line: (n) => `You never left your anchor, ${n}. Some people call that caution.` },
+  { when: p => p.home_zone && p.current_zone === p.home_zone, line: (n) => `You logged off at home, ${n}. It's still standing. Try not to read anything into that.` },
+  // Transient void rooms are `xing_<leader>_<seq>` (plugins/voidwalking), not real zone ids.
+  { when: p => p.current_zone && /^xing_/.test(p.current_zone), line: (n) => `You went out past the map, ${n}, and the map did not follow you back.` },
+
+  // Career
+  { when: p => (p.total_xp || 0) < 100, line: (n) => `You are new, ${n}. The Basin has a word for new. It isn't a kind one.` },
+  { when: p => (p.total_xp || 0) > 50000, line: (n) => `You have outlasted your cohort, ${n}. All of it.` },
+  { when: p => !p.archetype, line: (n) => `You still haven't decided what you are, ${n}. The city will decide for you eventually.` },
+
+  // Sleep debt — last_slept_at is real time, so this reads a genuinely long gap
+  { when: p => p.last_slept_at && (Date.now() - p.last_slept_at) > 36e5 * 12, line: (n) => `You have not slept in a long time, ${n}. We can hear it in the way you move.` },
 ];
-function playWelcomeVoice(handle, player) {
-  try {
-    const audio = loadSettings().audio || {};
-    if (audio.welcome === false) return;   // dedicated opt-out (TV Audio still gates it in speak())
+// Choose the greeting. Split out from playWelcomeVoice so the MOTD banner can
+// carry the same line even when the voice itself is muted.
+function pickWelcomeLine(handle, player) {
     const name = (handle || 'operator').trim();
     let line = WELCOME_PLAIN;
-    if (Math.random() < 0.125) {
-      // Ominous roll landed. If any state line qualifies, ~25% chance to speak
+    if (Math.random() < 0.25) {
+      // Ominous roll landed. If any state line qualifies, ~60% chance to speak
       // a personalized one; otherwise fall back to the generic pool. Never
       // repeat the immediately-previous ominous line (localStorage-tracked).
       const last = (() => { try { return localStorage.getItem('welcome-voice-last'); } catch { return null; } })();
       const qualifying = player ? WELCOME_STATE.filter(s => s.when(player)) : [];
       let pool;
-      if (qualifying.length && Math.random() < 0.25) pool = qualifying.map(s => s.line);
+      if (qualifying.length && Math.random() < 0.6) pool = qualifying.map(s => s.line);
       else pool = WELCOME_OMINOUS;
       const fresh = pool.length > 1 ? pool.filter(l => l(name) !== last) : pool;
       line = (fresh.length ? fresh : pool)[Math.floor(Math.random() * (fresh.length ? fresh : pool).length)];
       try { localStorage.setItem('welcome-voice-last', line(name)); } catch { /* ignore */ }
     }
+    return line(name);
+}
+
+function playWelcomeVoice(handle, player) {
+  let text = null;
+  try { text = pickWelcomeLine(handle, player); } catch { /* fall through */ }
+  // The game log's welcome line is the same words the voice speaks — and it's
+  // written whether or not the voice is audible (muted, or gesture-blocked).
+  appendMsg(text || 'Welcome to ARCHITECT.', 'system');
+  try {
+    if (!text) return;
+    const audio = loadSettings().audio || {};
+    if (audio.welcome === false) return;   // dedicated opt-out (TV Audio still gates it in speak())
     // An auto-login connects with no click behind it, so the context is still
     // gesture-blocked here. Waiting means the greeting plays on first input
     // instead of being dropped (and no autoplay warning on the way out).
-    window.AudioEngine?.onUnlock?.(() => window.AudioEngine.speak(line(name), { seed: 'architect' }));
+    window.AudioEngine?.onUnlock?.(() => window.AudioEngine.speak(text, { seed: 'architect' }));
   } catch { /* audio unavailable — no greeting */ }
 }
 
@@ -118,6 +201,28 @@ function playWelcomeVoice(handle, player) {
 // whatever per-event gain the server already set. (Poker SFX have their own
 // softening in poker-sfx.js.)
 const GAME_SFX_GAIN = 0.6;
+
+// The sleep bar: a label plus the wake button, shown only while asleep. Driven
+// solely by the server's sleep_state (see handlers below) so it can never get
+// stuck on after a wake path the client didn't recognise.
+function setSleepBar(sleeping, dreaming) {
+  const bar = document.getElementById('sleep-bar');
+  if (!bar) return;
+  bar.hidden = !sleeping;
+  // Dreamless sleep blacks the room out. The server already refuses to deliver
+  // the room to a sleeper (receivesZoneMessage), so this is the visual half of
+  // the same rule — the transcript you were reading before you dozed off
+  // shouldn't stay legible behind your eyelids. A DREAMER is exempt: the dream
+  // is the only room they're in, and it's meant to be read.
+  document.body.classList.toggle('asleep', !!sleeping && !dreaming);
+  if (!sleeping) return;
+  const label = document.getElementById('sleep-bar-label');
+  if (label) {
+    label.textContent = dreaming
+      ? 'You are dreaming. You can walk, look and speak here.'
+      : 'You are asleep. Any command will wake you.';
+  }
+}
 
 const handlers = {
   connected: () => {},
@@ -143,6 +248,9 @@ const handlers = {
     if (DEV_ROLES.includes(state.player.role)) showDevPanelButton();
     if (wasReconnect) appendMsg('Reconnected.', 'system');
     else playWelcomeVoice(state.player.handle, state.player);   // spoken login greeting (fresh logins only)
+    // Push this device's Extra Lore preference — the server keeps the per-player
+    // flag, but the Settings toggle is local, so re-assert it each login.
+    sendCmdSilent(`lorealways ${(loadSettings().extraLore || 'off') === 'on' ? 'on' : 'off'}`);
     syncPanels(); // request data + cam catalog for any custom panels
   },
 
@@ -169,7 +277,7 @@ const handlers = {
     // Don't clobber the live cockpit (either the continuous sim or the discrete
     // passenger HUD) or an open hangar bay panel — all replace the plain-text room
     // description with their own app in the same area-pane.
-    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive()) setAreaPane(msg.message);
+    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive() && !isTextCockpitActive()) setAreaPane(msg.message);
     if (state.echoNextLook) { appendMsg('You look around.', 'system'); state.echoNextLook = false; }
     if (msg.zone) { notifyZoneChanged(msg.zone); state.currentZone = msg.zone; }
     setYachtAmbience(msg.ambience);   // naval on deck / engine below / null elsewhere
@@ -183,7 +291,7 @@ const handlers = {
     // against this plain-text room description — whichever lands second wins.
     // If the bay panel already won that race, don't stomp it; it owns the pane
     // until the player actually leaves (hangar_close triggers a fresh look).
-    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive()) setAreaPane(msg.message, msg.direction);
+    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive() && !isTextCockpitActive()) setAreaPane(msg.message, msg.direction);
     if (msg.narration) appendHtml(msg.narration, 'move');
     notifyZoneChanged(msg.zone);
     state.currentZone = msg.zone;
@@ -253,7 +361,14 @@ const handlers = {
     for (const v of views) {
       v.showOnAir();
       if (msg.style === 'ticker') v.updateTicker(msg.message);
-      else { v.appendMessage(msg.message, msg.style, msg.duration, msg.hasGameday); v.speak(msg.message, msg.style, msg.duration); }
+      else {
+        // catchUp = the beat that was ALREADY on air when you tuned in, replayed so
+        // the screen isn't blank until the next one. Show it, don't narrate it —
+        // its read-aloud is part-way through airing to everyone else. It's passed
+        // through so the panel knows never to hold it back for the voice either.
+        v.appendMessage(msg.message, msg.style, msg.duration, msg.hasGameday, msg.catchUp);
+        if (!msg.catchUp) v.speak(msg.message, msg.style, msg.duration);
+      }
       if (msg.programName !== undefined) v.setProgramName(msg.programName);
     }
   },
@@ -274,7 +389,49 @@ const handlers = {
   tv_standings: (msg) => { for (const v of tvOpenViews()) v.renderStandings(msg); },
   system: (msg) => { appendHtml(msg.message, 'system'); },
   ambient: (msg) => { appendHtml(msg.message, 'ambient'); },
-  sleep: (msg) => { appendHtml(msg.message, 'system'); },
+  // Cosmetic nudge: ripple a room-pane link so the player sees where to click.
+  point_at: (msg) => { pointAtRoomTarget(msg.action, msg.target); },
+  // Sticky version of the above: the object the tutorial is steering you toward
+  // shimmers until the server says it's done with it (messaging.js beaconOn/Off).
+  beacon: (msg) => { if (msg.clear) clearRoomBeacons(); else setRoomBeacon(msg.action, msg.target, !!msg.on); },
+  // Onboarding (prologue plugin): ask a first-time player whether they've played
+  // a text game before, and — if not — walk them round the interface.
+  // The cold open, before anything else the prologue has to say. The server is
+  // deliberately holding the arrival prose and the tour offer until we echo back
+  // `introdone` — on the last beat OR on a skip, whichever comes first.
+  // `msg.skyline` is Coldwater's real building tiles (see coldwaterSkyline in
+  // plugins/prologue/index.js) — the closing flythrough is the actual city. An
+  // old server that doesn't send it falls back to a procedural block grid.
+  intro_cinematic: (msg) => { playIntroCinematic(() => sendCmdSilent('introdone'), msg?.skyline, msg?.shore); },
+  // Whether the player owns a tablet at all. Only the prologue ever says no — its
+  // corridor has no device in it, and the clone vat on the far side issues one.
+  tablet_access: (msg) => { setTabletAccess(msg?.has !== false); },
+  // …and the moment it's issued: a chip in the smart bar that animates for attention,
+  // opens the tablet and its walkthrough when tapped, and gives up after 25s.
+  tablet_offer: () => { showTabletOffer(); },
+  tour_offer: () => { offerInterfaceTour(); },
+  tour_start: () => { startInterfaceTour(); },
+  // `tutorial tablet`. The tour needs the device actually on screen, so if it
+  // isn't we open it first and let the shell finish booting — startTabletTour
+  // returns false rather than spotlighting nothing, and we try again once the
+  // CRT ceremony is over. Gives up after that instead of polling forever.
+  tour_tablet: () => {
+    if (startTabletTour()) return;
+    sendCmdSilent('tablet');
+    setTimeout(() => startTabletTour(), 2200);
+  },
+  // The prologue's arrival monologue has finished landing in the log — safe now to
+  // run whatever the interface tour's last step handed off (opening the tablet).
+  // See tour.js armTourHandoff/consumeTourHandoff for why this is a server signal
+  // and not a client-guessed delay: the monologue's length is scripted server-side
+  // and can change without this file knowing.
+  tutorial_prose_done: () => { consumeTourHandoff(); },
+  sleep: (msg) => { appendHtml(msg.message, 'system'); setSleepBar(true, false); },
+
+  // Authoritative sleep state, stamped on every command reply by the server (and
+  // pushed when a dreamscape opens). The bar is driven from here ONLY — no client
+  // guessing about whether a given message means you woke up.
+  sleep_state: (msg) => setSleepBar(!!msg.sleeping, !!msg.dreaming),
   rent:         (msg) => { appendHtml(msg.message, 'help'); },
   unrent:       (msg) => { appendHtml(msg.message, 'help'); },
   lock:         (msg) => { appendMsg(msg.message, 'system'); },
@@ -290,6 +447,7 @@ const handlers = {
 
   sleep_end: (msg) => {
     appendMsg(msg.message, 'system');
+    setSleepBar(false, false);
     if (state.player && msg.player_update) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
   },
 
@@ -312,7 +470,11 @@ const handlers = {
   accolade_unlocked: (msg) => { showAccoladeUnlock(msg); },
   emote: (msg) => {
     const el = appendHtml(msg.message, 'zone-event');
+    // `butcherMs` also closes the loot panel (you're carving the corpse it was
+    // showing); `progressMs` is the generic countdown any timed activity can
+    // ask for — crafting uses it, and combat already sends it on its own type.
     if (msg.butcherMs) { closeLootPanel(); attachInlineProgress(el, msg.butcherMs); }
+    else if (msg.progressMs && el) attachInlineProgress(el, msg.progressMs);
   },
   say: (msg) => { appendMsg(msg.message, 'say'); },
 
@@ -335,25 +497,38 @@ const handlers = {
     openContainerPanel(msg);
   },
 
+  // A wardrobe is a container that answers with its own view. Refresh rather
+  // than re-open when the panel is already up, so a hang/take/save doesn't wipe
+  // the look the player is composing on the doll.
+  wardrobe_view: (msg) => {
+    if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');
+    if (getActiveWardrobeId()) refreshWardrobePanel(msg);
+    else openWardrobePanel(msg);
+  },
+
   loot_view: (msg) => {
     if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');
     openLootPanel(msg);
+    // Looting a body puts its gear in your pack — the loot panel redraws itself, but
+    // the Kit app behind it was left a corpse out of date.
+    refreshTabletGearIfOpen();
   },
 
   container_error: (msg) => {
-    showContainerNotify(msg.message);
+    if (getActiveWardrobeId()) showWardrobeNotify(msg.message);
+    else showContainerNotify(msg.message);
   },
 
   stow: (msg) => {
     appendHtml(msg.message, 'help');
-    const cid = getActiveContainerId();
+    const cid = getActiveContainerId() || getActiveWardrobeId();
     if (cid) sendCmdSilent(`opencontainer ${cid}`);
     else refreshTabletGearIfOpen();
   },
 
   pull: (msg) => {
     appendHtml(msg.message, 'help');
-    const cid = getActiveContainerId();
+    const cid = getActiveContainerId() || getActiveWardrobeId();
     if (cid) sendCmdSilent(`opencontainer ${cid}`);
     else refreshTabletGearIfOpen();
   },
@@ -375,7 +550,9 @@ const handlers = {
   who: (msg) => { appendHtml(msg.message, 'help'); },
   help: (msg) => { appendHtml(msg.message, 'help'); },
   examine: (msg) => { if (consumeExamineLogSuppression()) return; appendHtml(msg.message, 'help'); },
-  take: (msg) => { appendHtml(msg.message, 'help'); sendCmdSilent('look'); },
+  // `take` adds the row and `drop` below already refreshes — the pair have to agree, or
+  // the Kit app grows items it can never be seen losing.
+  take: (msg) => { appendHtml(msg.message, 'help'); sendCmdSilent('look'); refreshTabletGearIfOpen(); },
   drop: (msg) => {
     appendHtml(msg.message, 'help');
     sendCmdSilent('look');
@@ -448,9 +625,20 @@ const handlers = {
     if (!refreshTabletGearIfOpen()) appendHtml(msg.message, 'help');
   },
 
+  // The server's canonical "your inventory changed" ping (emitted on
+  // `inventory.changed`). No payload — the Kit app refetches itself, and only if it's
+  // open, so this is free when the tablet is closed.
+  inventory_dirty: () => { refreshTabletGearIfOpen(); },
+
   use: (msg) => {
     appendHtml(msg.message, 'loot');
     if (msg.player_update) updateVitals(msg.player_update);
+    // Eating, drinking, mixing, filling, reloading, unpacking — every one of these
+    // comes back as `use` and every one of them consumes or transforms a row. The
+    // Kit app was left showing the ration you just ate. Not covered by the
+    // `inventory_dirty` ping above because the consumption paths mutate directly and
+    // don't emit; refreshing here is the belt to that braces.
+    refreshTabletGearIfOpen();
   },
 
   dialogue: (msg) => { openDialogue(msg); },
@@ -526,14 +714,19 @@ const handlers = {
     else appendMsg(`(${msg.ui} interface requested)`, 'system');
   },
 
+  // Both sides of a counter move an item between you and the vendor, so the Kit app has
+  // to follow. Same reason as `use` above: commerce writes player_inventory directly
+  // rather than through the emitting helpers.
   buy: (msg) => {
     appendHtml(msg.message, 'loot');
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
+    refreshTabletGearIfOpen();
   },
 
   sell: (msg) => {
     appendHtml(msg.message, 'loot');
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
+    refreshTabletGearIfOpen();
   },
 
   deposit: (msg) => {
@@ -595,6 +788,9 @@ const handlers = {
     // A GPS auto-walk that hit a numbered exit picker answers it itself (matching
     // its known target zone) — swallow the picker text rather than spam the log.
     if (msg.movePicker && resolveAutoWalkPicker(msg.movePicker)) return;
+    // paneFallback: a log copy of something the room pane already shows. Only
+    // worth printing when the pane isn't on screen (collapsed mobile).
+    if (msg.paneFallback && isAreaPaneVisible()) return;
     appendHtml(msg.message, 'help');
   },
   gps_route: (msg) => {
@@ -615,7 +811,16 @@ const handlers = {
     // flight, where resumeAuto quietly re-routes the walk in progress). In-progress
     // reroutes carry an empty message and promptAutoWalk:false — they just re-arm.
     if (msg.promptAutoWalk && !isAutoWalking()) {
-      appendHtml(`${msg.message} Do you want to auto-walk there now? (y/n)`, 'help');
+      // Clickable, not just typeable. These are data-client-cmd links, answered
+      // inside handleClientCommand and never sent to the server — see the note
+      // in main.js's handleActionLinkClick. The typed y/n route still works and
+      // is still advertised, because the whole point of a MUD is that you can
+      // type it.
+      const group = `autowalk-${Date.now()}`;
+      appendHtml(`${msg.message} Auto-walk there now? `
+        + `<span class="action-link prompt-link" data-client-cmd="y" data-client-group="${group}">Yes</span> `
+        + `<span class="action-link prompt-link prompt-link-ghost" data-client-cmd="n" data-client-group="${group}">No</span> `
+        + `<span class="hint">(or type y / n)</span>`, 'help');
       armAutoWalkPrompt();
       return;
     }
@@ -675,6 +880,10 @@ const handlers = {
   motd: (msg) => { receiveMOTD(msg); },
   lightview: (msg) => { openLightViewDialog(msg); refreshZoneVisibility(); },
   morphex_panel: (msg) => { openMorphexPanel(msg.data); },
+  // Server-side dismissal — the prologue's chargen terminal releases you the
+  // moment the attendant accepts your shape, so its reaction isn't delivered to
+  // the back of a modal the player is still standing in front of.
+  morphex_close: () => { closeMorphexPanel(); },
   atm_panel: (msg) => { openAtmPanel(msg); },
   insurance_panel: (msg) => { openInsurancePanel(msg); },
   insurance_action: (msg) => {
@@ -768,7 +977,11 @@ const handlers = {
 
   // ── Flight (cockpit HUD + takeoff/landing minigames) ─────────────────────
   cockpit_update: (msg) => { updateCockpit(msg.state); },
-  cockpit_close: () => { closeCockpit(); sendCmdSilent('look'); },   // hand the area pane back to the room view
+  cockpit_close: () => { closeCockpit(); closeTextCockpit(); sendCmdSilent('look'); },   // hand the area pane back to the room view
+  // Text cockpit — the same top pane, drawn in characters for a text-mode pilot.
+  // No canvas in this path at all; `cockpit_close` above hands the pane back.
+  text_cockpit_open: (msg) => { openTextCockpit(msg); },
+  text_cockpit: (msg) => { updateTextCockpit(msg); },
   cabin_audio: (msg) => { cabinAudio(msg.audio); },   // walkable-cabin occupants HEAR the engines without the HUD taking over the room
   // Continuous cockpit (client-sim + server-reconcile) — the Mayfly slice.
   flight_sim: (msg) => { openFlightSim(msg); },
@@ -811,27 +1024,6 @@ const handlers = {
     flashFirework(msg.rgb, msg.intensity);   // the concussion bloom at detonation (the particle burst rides the climbing shell)
   },
   fireworks_sky:   (msg) => { setFireworksGlow(!!msg.on); },
-  flight_takeoff: (msg) => {
-    openTakeoff({
-      skill: msg.skill ?? 4,
-      difficulty: msg.difficulty ?? 5,
-      vtol: !!msg.vtol,
-      deviceName: msg.deviceName || 'CRAFT',
-      airport: msg.airport,
-      onResult: ({ won }) => sendCmdSilent(`takeoffresolve ${msg.token} ${won ? 1 : 0}`),
-    });
-  },
-  flight_land: (msg) => {
-    openGlideslope({
-      skill: msg.skill ?? 4,
-      difficulty: msg.difficulty ?? 5,
-      emergency: !!msg.emergency,
-      vtol: !!msg.vtol,
-      deviceName: msg.deviceName || 'FIELD',
-      airport: msg.airport,
-      onResult: ({ won }) => sendCmdSilent(`landresolve ${msg.token} ${won ? 1 : 0}`),
-    });
-  },
   flight_target: (msg) => {
     openTargeting({
       skill: msg.skill ?? 4,
@@ -839,6 +1031,14 @@ const handlers = {
       deviceName: msg.deviceName || 'TARGET',
       onResult: ({ won }) => sendCmdSilent(`strafresolve ${msg.token} ${won ? 1 : 0}`),
     });
+  },
+
+  // A concealment cabinet's passcode pad (plugins/concealment). The digits are
+  // submitted with sendCmdSilent from inside the overlay, never echoed — that
+  // privacy is the feature, not a nicety.
+  conceal_keypad: (msg) => {
+    if (msg.message) appendHtml(msg.message, 'system');
+    openConcealKeypad(msg);
   },
 
   vault_crack: (msg) => {
@@ -889,8 +1089,18 @@ const handlers = {
   esp_state:   (msg) => { applyEspState(msg); },
   esp_warning: (msg) => { handleEspWarning(msg); },
 
-  audio_music: (msg) => { window.AudioEngine?.playMusic(msg.def, { restartIfSame: false }); },
+  // `owner` (set by the broadcast plugin on TV playback) says which surface asked
+  // for this song, so closing that surface can stop it without silencing a zone
+  // theme or the player's own AMP tape — they all share one music player.
+  audio_music: (msg) => { window.AudioEngine?.playMusic(msg.def, { restartIfSame: false, owner: msg.owner }); },
   audio_sfx: (msg) => { console.log('[audio] sfx received', msg.def?.id, msg.def?.name, 'gain', msg.gain ?? 1); window.AudioEngine?.playSfx(msg.def, (msg.gain ?? 1) * GAME_SFX_GAIN); },
+  // Procedural cue: the server sent PARAMETERS and a seed, not layers. We build
+  // the sound here from the shared generator — same seed, same field, ~100 bytes
+  // on the wire instead of the several KB a serialised burst field costs.
+  audio_sfx_proc: (msg) => {
+    const def = window.ProceduralSFX?.buildCookingCue(msg.params || {});
+    if (def) window.AudioEngine?.playSfx(def, (msg.gain ?? 1) * GAME_SFX_GAIN);
+  },
   audio_sample: (msg) => { console.log('[audio] sample received', msg.def?.id, msg.def?.name); window.AudioEngine?.playSample(msg.def); },
   audio_ambience: (msg) => { window.AudioEngine?.loopSound(msg.def); },
   audio_loop_gain: (msg) => { window.AudioEngine?.setLoopGain(msg.id, msg.gain, msg.ramp ?? 0.4); },
@@ -912,6 +1122,16 @@ const handlers = {
   // whose depth scales with intensity, plus body classes at the hallucination
   // and insane bands. band 'clear' / intensity 0 tears it all down.
   sanity_fx:  (msg) => { setSanityFx(msg); },
+
+  // Dream / hallucination particle field. Drives the weather FX canvas directly,
+  // ignoring the real weather and the indoor gate — ash falling in a windowless
+  // corridor is the point. { effect: rain|snow|ash|fog|wind|none, intensity }.
+  dream_fx:   (msg) => { setDreamFx(msg); },
+
+  // "This room has no weather and no clock" (plugins/prologue, off flags.prologue).
+  // Strips the weather readout from the HUD and scrambles the time — Coldwater's
+  // forecast has no business showing over a corridor with no floor.
+  env_unreal: (msg) => { setEnvUnreal(!!msg.unreal); },
 
   // Drunkenness level stream (intoxication plugin) → drives the drunk flight-view warp.
   intox_fx:   (msg) => { const lvl = Math.max(0, Math.min(100, Number(msg.level) || 0)); if (lvl <= 0) clearDrugFx('intox'); else setDrugFx('intox', 'drunk', lvl / 100); },

@@ -1,0 +1,26 @@
+{
+  "base_difficulty": 6,
+  "base_output": {
+    "item_id": "item_dxm",
+    "quantity": 1
+  },
+  "category": "synthesis",
+  "description": "Cook Robo from case of cough syrup + industrial solvent.",
+  "id": "cook_dxm",
+  "ingredients": [
+    {
+      "item_id": "item_raw_dxm",
+      "quantity": 1
+    },
+    {
+      "item_id": "item_reagent_solvent",
+      "quantity": 1
+    }
+  ],
+  "name": "Cook Robo",
+  "requires_station": "chem_lab",
+  "skill_id": "chemistry",
+  "skill_req": {
+    "chemistry": 1
+  }
+}

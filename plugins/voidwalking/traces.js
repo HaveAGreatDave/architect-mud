@@ -8,7 +8,7 @@
 // room in everyone's instance.
 //
 // A corpse can carry a `pack` (the dead's item ids) and a `claimed` flag — the
-// first crosser to sift it takes it, globally (async scarcity = the claim ledger).
+// first crosser to loot it takes it, globally (async scarcity = the claim ledger).
 //
 // Near-zero DB: one INSERT per scrawl/death (rare events, never a hot path), reads
 // served from a per-(void, window) RAM cache, stale windows purged as they rotate.

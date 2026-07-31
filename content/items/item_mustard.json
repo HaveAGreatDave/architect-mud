@@ -1,0 +1,23 @@
+{
+  "description": "Sharp, grainy, and violently yellow. Half the city puts it on everything; the other half uses it to make rub stick to meat, which is the only correct answer.",
+  "flags": {},
+  "id": "item_mustard",
+  "name": "jar of mustard",
+  "tags": {
+    "consumable": true,
+    "description": "Sharp, grainy, and violently yellow. Half the city puts it on everything; the other half uses it to make rub stick to meat, which is the only correct answer.",
+    "food_also": "liquid",
+    "food_noun": "mustard",
+    "food_profile": "aromatic",
+    "perishable": true,
+    "restore_hunger": 2,
+    "spoil_rate": "slow",
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.1
+    }
+  },
+  "type": "consumable",
+  "value": 8,
+  "weight": 250
+}

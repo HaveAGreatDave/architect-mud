@@ -1,0 +1,38 @@
+{
+  "description": "A chainsaw married to a sword by somebody who had seen a picture of one. The Blackvane signature under the grip is a decal. It does not cut so much as worry at a thing until the thing stops, and the counterfeiters got the ONE part right that matters: it is enormously, stupidly loud, and people run.",
+  "flags": {},
+  "id": "item_blackvane_ripsaw",
+  "name": "Blackvane Ripsaw chainblade",
+  "tags": {
+    "__own": {
+      "damage": {
+        "min": 10,
+        "max": 19
+      },
+      "damage_type": "kinetic",
+      "weapon_skill": "blades",
+      "min_skill": {
+        "blades": 6
+      },
+      "description": "A chainsaw married to a sword by somebody who had seen a picture of one. The Blackvane signature under the grip is a decal. It does not cut so much as worry at a thing until the thing stops, and the counterfeiters got the ONE part right that matters: it is enormously, stupidly loud, and people run."
+    },
+    "__super": [
+      "weapon_blades"
+    ],
+    "damage": {
+      "min": 10,
+      "max": 19
+    },
+    "damage_type": "kinetic",
+    "weapon_skill": "blades",
+    "min_skill": {
+      "blades": 6
+    },
+    "description": "A chainsaw married to a sword by somebody who had seen a picture of one. The Blackvane signature under the grip is a decal. It does not cut so much as worry at a thing until the thing stops, and the counterfeiters got the ONE part right that matters: it is enormously, stupidly loud, and people run.",
+    "slot": "weapon_hand",
+    "weapon": true
+  },
+  "type": "weapon",
+  "value": 1440,
+  "weight": 4400
+}

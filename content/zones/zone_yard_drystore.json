@@ -9,7 +9,7 @@
     "north": "zone_district_924_909"
   },
   "flags": {
-    "building_name": "Dry Store 12",
+    "building_name": "Shelf Life",
     "building_type": "warehouse",
     "claimable_asset": "warehouse",
     "is_building": true,
@@ -21,7 +21,7 @@
   "grid_z": 0,
   "id": "zone_yard_drystore",
   "map_id": "map_int_yard_drystore",
-  "name": "Dry Store 12",
+  "name": "Shelf Life",
   "parent_zone": "zone_district_924_909",
   "updated_at": "1783739474"
 }

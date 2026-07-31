@@ -14,3 +14,14 @@
 export function titleCaseName(name) {
   return String(name || '').replace(/(^|\s)([a-z])/g, (_, sp, ch) => sp + ch.toUpperCase());
 }
+
+// Attribute-safe text. MANDATORY for any name interpolated into an action-link's
+// data-target/title: a name with a double quote in it (an NPC nickname like
+// Grady "Two-Cell" Okonkwo, and so his floor safe) closes the attribute early,
+// and the browser then reads data-target as the truncated fragment before the
+// quote — Grady's safe silently became `examine grady`, which SIFT resolved to
+// something else entirely. Escaping keeps the real name in the attribute, so the
+// click sends the whole thing and lands on the piece the player tapped.
+export function escAttr(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+}

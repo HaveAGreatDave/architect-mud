@@ -24,11 +24,16 @@ read at runtime:
   every plugin↔plugin verb collision at boot).
 - `"critical": true` — a load failure aborts boot instead of logging and skipping. Use for plugins
   the game is unplayable without (weapon).
-- `"objectGatedCommands": { "<verb>": { "discoverVia": "<tag>", "exposed": false, "note": "…" } }` —
+- `"objectGatedCommands": { "<verb>": { "discoverVia": "<tag-or-flag>", "exposed": false, "note": "…" } }` —
   verbs that only work near a specific world object. **The regression harness enforces this**
   (layer 1b): the verb must be in `commands[]`, and unless `exposed:false` marks it a logged gap, a
-  specialized action registered under the `discoverVia` tag must surface it on that object's examine.
-  A verb the player can't find is invisible content.
+  specialized action registered under the `discoverVia` **tag or flag** must surface it on that
+  object's examine. A verb the player can't find is invisible content.
+  For a verb that stays an ordinary command-map verb (its handler self-resolves the object), close the
+  loop with a **declaration-only** specialized action — `{ verb, requiredFlag: "<flags key>", handler: null }`.
+  It registers nothing at dispatch; it exists purely so `availableActions()` advertises the verb on
+  every object carrying that flag. `requiredTag` works the same way and is preferred where the object
+  is already tagged.
 
 Optional declarative fields make a plugin's full surface inspectable without reading its code, and
 let READMEs be generated:
@@ -94,12 +99,24 @@ A plugin's recurring work shares one small connection pool with every player com
 Postgres is remote, so each `query()` is a full network round trip holding a pool slot. Rules for any
 scheduled work:
 
-- **Register through `scheduler.js`** (`schedule('1m', fn)`), never your own `setInterval`, for any
-  timer that touches the DB. The scheduler jitters cadence phase and staggers same-cadence
-  subscribers so tick convoys can't starve the pool at a minute boundary — **and it idle-gates every
-  callback by default** (below). A raw `setInterval` that awaits `query()` bypasses both and is the
-  bug class that pinned Neon's compute awake 24/7 (surveillance's camera refresh). Raw `setInterval`
-  is reserved for pure in-memory hot loops that never hit the DB (the 1 s combat/gameplay ticks).
+- **Register EVERY recurring tick through `scheduler.js`** (`schedule('1m', fn)`), never your own
+  `setInterval` — **not just the ones that touch the DB.** The scheduler jitters cadence phase and
+  staggers same-cadence subscribers so tick convoys can't starve the pool at a minute boundary —
+  **and it idle-gates every callback by default** (below). A raw `setInterval` that awaits `query()`
+  bypasses both and is the bug class that pinned Neon's compute awake 24/7 (surveillance's camera
+  refresh).
+  **This rule is swept by `npm run test:regress`** (layer 1) — a raw `setInterval` anywhere under
+  `plugins/` fails the build.
+  The "only if it touches the DB" carve-out used to be the wording here, and it is exactly how this
+  drifted: thirteen plugin ticks were raw `setInterval`s judged DB-free at the time, six of them
+  hand-rolling the idle guard and seven with no guard at all — each one live-ammo for the day someone
+  adds a `query()` inside it. Whether a tick queries today is not a property you can rely on
+  tomorrow, so the rule no longer depends on it.
+  **The only exemption is a timer tied to the lifetime of ONE object** — a player's trip, a card
+  table's shuffle loop — created and cleared with that object, where idle-gating is meaningless.
+  Those keep a raw `setInterval` and must be listed in `SESSION_TIMER_FILES` in `tests/regress.js`
+  with a reason. (The engine additionally exempts the 1 s combat tick and the WS/keepalive
+  infrastructure timers, which must run on an empty world; both are documented at their call sites.)
 - **Idle-gate is automatic — the scheduler skips your callback entirely when `hasActivePlayers()` is
   false.** The guard is not yours to type — forgetting it is safe. This exists because a clock-driven
   `query()` on an empty world keeps a pool connection alive inside its idle window, so Neon's compute

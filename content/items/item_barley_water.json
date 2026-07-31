@@ -1,0 +1,20 @@
+{
+  "description": "Cloudy, faintly sweet, and drunk mostly by people who have been told to drink something.",
+  "flags": {},
+  "id": "item_barley_water",
+  "name": "barley water",
+  "tags": {
+    "consumable": true,
+    "description": "Cloudy, faintly sweet, and drunk mostly by people who have been told to drink something.",
+    "drink_noun": "barley",
+    "drink_profile": "mixer",
+    "hydrating": true,
+    "pour_units": 4,
+    "restore_sanity": 4,
+    "restore_thirst": 45,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 4,
+  "weight": 420
+}

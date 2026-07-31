@@ -81,6 +81,10 @@ async function initEmailVerifyToggle() {
   try {
     const data = await API('/email-verification/status');
     toggle.checked = !!data.enabled;
+    // A gate with no mailer behind it is a locked door with no key — flag it here.
+    if (data.enabled && data.mailerConfigured === false) {
+      toast(`Email verification is ON but the mailer is ${data.mailerProblem} — new accounts can't verify`, true);
+    }
   } catch(e) { /* non-fatal */ }
   toggle.addEventListener('change', async () => {
     try {

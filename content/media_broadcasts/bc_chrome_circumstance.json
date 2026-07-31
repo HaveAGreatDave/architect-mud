@@ -1,0 +1,825 @@
+{
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "next": "bsm_1",
+        "type": "start"
+      },
+      "bsm_1": {
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
+        "event_type": "FADE_IN",
+        "next": "bsm_2",
+        "type": "event"
+      },
+      "bsm_10": {
+        "_vine": {
+          "x": 80,
+          "y": 400
+        },
+        "next": "bsm_11",
+        "npc_id": "npc_vic",
+        "type": "npc_anchor"
+      },
+      "bsm_11": {
+        "_vine": {
+          "x": 300,
+          "y": 400
+        },
+        "next": "bsm_12",
+        "style": "raw",
+        "text": "Morning.",
+        "type": "say"
+      },
+      "bsm_12": {
+        "_vine": {
+          "x": 520,
+          "y": 400
+        },
+        "next": "bsm_13",
+        "npc_id": "npc_lex",
+        "type": "npc_anchor"
+      },
+      "bsm_13": {
+        "_vine": {
+          "x": 740,
+          "y": 400
+        },
+        "next": "bsm_14",
+        "style": "raw",
+        "text": "It's three in the afternoon.",
+        "type": "say"
+      },
+      "bsm_14": {
+        "_vine": {
+          "x": 960,
+          "y": 400
+        },
+        "next": "bsm_15",
+        "npc_id": "npc_vic",
+        "type": "npc_anchor"
+      },
+      "bsm_15": {
+        "_vine": {
+          "x": 80,
+          "y": 560
+        },
+        "next": "bsm_16",
+        "style": "raw",
+        "text": "Then why am I awake?",
+        "type": "say"
+      },
+      "bsm_16": {
+        "_vine": {
+          "x": 300,
+          "y": 560
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_17",
+        "type": "event"
+      },
+      "bsm_17": {
+        "_vine": {
+          "x": 520,
+          "y": 560
+        },
+        "next": "bsm_18",
+        "npc_id": "npc_lex",
+        "type": "npc_anchor"
+      },
+      "bsm_18": {
+        "_vine": {
+          "x": 740,
+          "y": 560
+        },
+        "next": "bsm_19",
+        "style": "raw",
+        "text": "Your neural implant downloaded an update.",
+        "type": "say"
+      },
+      "bsm_19": {
+        "_vine": {
+          "x": 960,
+          "y": 560
+        },
+        "next": "bsm_20",
+        "npc_id": "npc_vic",
+        "type": "npc_anchor"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "next": "bsm_3",
+        "song": "chrome_circumstance_theme",
+        "text": "♪ A loud synthwave theme pulses with neon energy. ♪",
+        "type": "music"
+      },
+      "bsm_20": {
+        "_vine": {
+          "x": 80,
+          "y": 720
+        },
+        "next": "bsm_21",
+        "style": "raw",
+        "text": "Again?",
+        "type": "say"
+      },
+      "bsm_21": {
+        "_vine": {
+          "x": 300,
+          "y": 720
+        },
+        "next": "bsm_22",
+        "npc_id": "npc_lex",
+        "type": "npc_anchor"
+      },
+      "bsm_22": {
+        "_vine": {
+          "x": 520,
+          "y": 720
+        },
+        "next": "bsm_23",
+        "style": "raw",
+        "text": "Apparently you agreed to automatic optimism.",
+        "type": "say"
+      },
+      "bsm_23": {
+        "_vine": {
+          "x": 740,
+          "y": 720
+        },
+        "next": "bsm_24",
+        "npc_id": "npc_vic",
+        "type": "npc_anchor"
+      },
+      "bsm_24": {
+        "_vine": {
+          "x": 960,
+          "y": 720
+        },
+        "next": "bsm_25",
+        "style": "raw",
+        "text": "Can I uninstall that?",
+        "type": "say"
+      },
+      "bsm_25": {
+        "_vine": {
+          "x": 80,
+          "y": 880
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_26",
+        "type": "event"
+      },
+      "bsm_26": {
+        "_vine": {
+          "x": 300,
+          "y": 880
+        },
+        "label": "CAM — 2 — MEDIUM",
+        "next": "bsm_27",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_27": {
+        "_vine": {
+          "x": 520,
+          "y": 880
+        },
+        "next": "bsm_28",
+        "style": "narration",
+        "text": "Vic blinks. A bright holographic advertisement appears directly in front of his face.",
+        "type": "say"
+      },
+      "bsm_28": {
+        "_vine": {
+          "x": 740,
+          "y": 880
+        },
+        "next": "bsm_29",
+        "style": "raw",
+        "text": "Why am I seeing ads?",
+        "type": "say"
+      },
+      "bsm_29": {
+        "_vine": {
+          "x": 960,
+          "y": 880
+        },
+        "next": "bsm_30",
+        "npc_id": "npc_lex",
+        "type": "npc_anchor"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "next": "bsm_4",
+        "text": "CORPORATION DENIES REPLACING EMPLOYEES WITH CHEAPER EMPLOYEES • CYBER EYES NOW INCLUDE ADS DURING BLINKS • CITY PARKING METERS ACHIEVE SENTIENCE •",
+        "type": "ticker"
+      },
+      "bsm_30": {
+        "_vine": {
+          "x": 80,
+          "y": 1040
+        },
+        "next": "bsm_31",
+        "style": "raw",
+        "text": "Premium Vision expired.",
+        "type": "say"
+      },
+      "bsm_31": {
+        "_vine": {
+          "x": 300,
+          "y": 1040
+        },
+        "next": "bsm_32",
+        "npc_id": "npc_vic",
+        "type": "npc_anchor"
+      },
+      "bsm_32": {
+        "_vine": {
+          "x": 520,
+          "y": 1040
+        },
+        "next": "bsm_33",
+        "style": "raw",
+        "text": "I paid for lifetime access.",
+        "type": "say"
+      },
+      "bsm_33": {
+        "_vine": {
+          "x": 740,
+          "y": 1040
+        },
+        "next": "bsm_34",
+        "npc_id": "npc_lex",
+        "type": "npc_anchor"
+      },
+      "bsm_34": {
+        "_vine": {
+          "x": 960,
+          "y": 1040
+        },
+        "next": "bsm_35",
+        "style": "raw",
+        "text": "You did.",
+        "type": "say"
+      },
+      "bsm_35": {
+        "_vine": {
+          "x": 80,
+          "y": 1200
+        },
+        "next": "bsm_36",
+        "style": "raw",
+        "text": "Your lifetime subscription ended yesterday.",
+        "type": "say"
+      },
+      "bsm_36": {
+        "_vine": {
+          "x": 300,
+          "y": 1200
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_37",
+        "type": "event"
+      },
+      "bsm_37": {
+        "_vine": {
+          "x": 520,
+          "y": 1200
+        },
+        "next": "bsm_38",
+        "npc_id": "npc_helpbot",
+        "type": "npc_anchor"
+      },
+      "bsm_38": {
+        "_vine": {
+          "x": 740,
+          "y": 1200
+        },
+        "message": "enters the frame.",
+        "next": "bsm_39",
+        "type": "npc_action"
+      },
+      "bsm_39": {
+        "_vine": {
+          "x": 960,
+          "y": 1200
+        },
+        "label": "CAM — 3 — CLOSEUP helpbot",
+        "next": "bsm_40",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "event_type": "DISSOLVE",
+        "next": "bsm_5",
+        "type": "event"
+      },
+      "bsm_40": {
+        "_vine": {
+          "x": 80,
+          "y": 1360
+        },
+        "next": "bsm_41",
+        "style": "narration",
+        "text": "A cheerful customer service drone floats into the apartment carrying complimentary paperwork.",
+        "type": "say"
+      },
+      "bsm_41": {
+        "_vine": {
+          "x": 300,
+          "y": 1360
+        },
+        "next": "bsm_42",
+        "style": "raw",
+        "text": "Congratulations!",
+        "type": "say"
+      },
+      "bsm_42": {
+        "_vine": {
+          "x": 520,
+          "y": 1360
+        },
+        "next": "bsm_43",
+        "style": "raw",
+        "text": "You've been selected for mandatory customer satisfaction.",
+        "type": "say"
+      },
+      "bsm_43": {
+        "_vine": {
+          "x": 740,
+          "y": 1360
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_44",
+        "type": "event"
+      },
+      "bsm_44": {
+        "_vine": {
+          "x": 960,
+          "y": 1360
+        },
+        "next": "bsm_45",
+        "npc_id": "npc_vic",
+        "type": "npc_anchor"
+      },
+      "bsm_45": {
+        "_vine": {
+          "x": 80,
+          "y": 1520
+        },
+        "next": "bsm_46",
+        "style": "raw",
+        "text": "I'm not satisfied.",
+        "type": "say"
+      },
+      "bsm_46": {
+        "_vine": {
+          "x": 300,
+          "y": 1520
+        },
+        "next": "bsm_47",
+        "npc_id": "npc_helpbot",
+        "type": "npc_anchor"
+      },
+      "bsm_47": {
+        "_vine": {
+          "x": 520,
+          "y": 1520
+        },
+        "next": "bsm_48",
+        "style": "raw",
+        "text": "Response recorded as \"extremely satisfied.\"",
+        "type": "say"
+      },
+      "bsm_48": {
+        "_vine": {
+          "x": 740,
+          "y": 1520
+        },
+        "event_type": "APPLAUSE",
+        "next": "bsm_49",
+        "type": "event"
+      },
+      "bsm_49": {
+        "_vine": {
+          "x": 960,
+          "y": 1520
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_50",
+        "type": "event"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "label": "CAM — 1 — WIDE",
+        "next": "bsm_6",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_50": {
+        "_vine": {
+          "x": 80,
+          "y": 1680
+        },
+        "label": "CAM — 4 — MEDIUM",
+        "next": "bsm_51",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_51": {
+        "_vine": {
+          "x": 300,
+          "y": 1680
+        },
+        "next": "bsm_52",
+        "style": "narration",
+        "text": "The drone projects an enormous holographic troubleshooting menu containing thousands of tiny buttons.",
+        "type": "say"
+      },
+      "bsm_52": {
+        "_vine": {
+          "x": 520,
+          "y": 1680
+        },
+        "next": "bsm_53",
+        "style": "raw",
+        "text": "Please describe your issue.",
+        "type": "say"
+      },
+      "bsm_53": {
+        "_vine": {
+          "x": 740,
+          "y": 1680
+        },
+        "next": "bsm_54",
+        "npc_id": "npc_vic",
+        "type": "npc_anchor"
+      },
+      "bsm_54": {
+        "_vine": {
+          "x": 960,
+          "y": 1680
+        },
+        "next": "bsm_55",
+        "style": "raw",
+        "text": "Memory problems.",
+        "type": "say"
+      },
+      "bsm_55": {
+        "_vine": {
+          "x": 80,
+          "y": 1840
+        },
+        "next": "bsm_56",
+        "npc_id": "npc_helpbot",
+        "type": "npc_anchor"
+      },
+      "bsm_56": {
+        "_vine": {
+          "x": 300,
+          "y": 1840
+        },
+        "next": "bsm_57",
+        "style": "raw",
+        "text": "Wonderful.",
+        "type": "say"
+      },
+      "bsm_57": {
+        "_vine": {
+          "x": 520,
+          "y": 1840
+        },
+        "next": "bsm_58",
+        "style": "raw",
+        "text": "Would you like to forget your memory problems?",
+        "type": "say"
+      },
+      "bsm_58": {
+        "_vine": {
+          "x": 740,
+          "y": 1840
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_59",
+        "type": "event"
+      },
+      "bsm_59": {
+        "_vine": {
+          "x": 960,
+          "y": 1840
+        },
+        "next": "bsm_60",
+        "npc_id": "npc_vic",
+        "type": "npc_anchor"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "next": "bsm_7",
+        "style": "narration",
+        "text": "A tiny apartment sits twenty stories above a sea of neon. Every appliance hums louder than necessary, and the refrigerator occasionally thanks someone for their loyalty.",
+        "type": "say"
+      },
+      "bsm_60": {
+        "_vine": {
+          "x": 80,
+          "y": 2000
+        },
+        "next": "bsm_61",
+        "style": "raw",
+        "text": "No!",
+        "type": "say"
+      },
+      "bsm_61": {
+        "_vine": {
+          "x": 300,
+          "y": 2000
+        },
+        "next": "bsm_62",
+        "npc_id": "npc_helpbot",
+        "type": "npc_anchor"
+      },
+      "bsm_62": {
+        "_vine": {
+          "x": 520,
+          "y": 2000
+        },
+        "next": "bsm_63",
+        "style": "raw",
+        "text": "Issue resolved.",
+        "type": "say"
+      },
+      "bsm_63": {
+        "_vine": {
+          "x": 740,
+          "y": 2000
+        },
+        "message": "begins printing a receipt that never seems to end.",
+        "next": "bsm_64",
+        "type": "npc_action"
+      },
+      "bsm_64": {
+        "_vine": {
+          "x": 960,
+          "y": 2000
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_65",
+        "type": "event"
+      },
+      "bsm_65": {
+        "_vine": {
+          "x": 80,
+          "y": 2160
+        },
+        "label": "CAM — 1 — WIDE",
+        "next": "bsm_66",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_66": {
+        "_vine": {
+          "x": 300,
+          "y": 2160
+        },
+        "next": "bsm_67",
+        "style": "narration",
+        "text": "The receipt coils across the apartment floor, wraps around the furniture, and disappears out the window into the neon streets below.",
+        "type": "say"
+      },
+      "bsm_67": {
+        "_vine": {
+          "x": 520,
+          "y": 2160
+        },
+        "next": "bsm_68",
+        "npc_id": "npc_lex",
+        "type": "npc_anchor"
+      },
+      "bsm_68": {
+        "_vine": {
+          "x": 740,
+          "y": 2160
+        },
+        "next": "bsm_69",
+        "style": "raw",
+        "text": "At least it's free paper.",
+        "type": "say"
+      },
+      "bsm_69": {
+        "_vine": {
+          "x": 960,
+          "y": 2160
+        },
+        "next": "bsm_70",
+        "npc_id": "npc_vic",
+        "type": "npc_anchor"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "next": "bsm_8",
+        "npc_id": "npc_vic",
+        "type": "npc_anchor"
+      },
+      "bsm_70": {
+        "_vine": {
+          "x": 80,
+          "y": 2320
+        },
+        "next": "bsm_71",
+        "style": "raw",
+        "text": "It's a digital receipt.",
+        "type": "say"
+      },
+      "bsm_71": {
+        "_vine": {
+          "x": 300,
+          "y": 2320
+        },
+        "next": "bsm_72",
+        "npc_id": "npc_lex",
+        "type": "npc_anchor"
+      },
+      "bsm_72": {
+        "_vine": {
+          "x": 520,
+          "y": 2320
+        },
+        "next": "bsm_73",
+        "style": "raw",
+        "text": "...",
+        "type": "say"
+      },
+      "bsm_73": {
+        "_vine": {
+          "x": 740,
+          "y": 2320
+        },
+        "next": "bsm_74",
+        "style": "raw",
+        "text": "That's somehow worse.",
+        "type": "say"
+      },
+      "bsm_74": {
+        "_vine": {
+          "x": 960,
+          "y": 2320
+        },
+        "event_type": "APPLAUSE",
+        "next": "bsm_75",
+        "type": "event"
+      },
+      "bsm_75": {
+        "_vine": {
+          "x": 80,
+          "y": 2480
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_76",
+        "type": "event"
+      },
+      "bsm_76": {
+        "_vine": {
+          "x": 300,
+          "y": 2480
+        },
+        "label": "CAM — 2 — WIDE",
+        "next": "bsm_77",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_77": {
+        "_vine": {
+          "x": 520,
+          "y": 2480
+        },
+        "next": "bsm_78",
+        "style": "narration",
+        "text": "The camera slowly pulls away from the apartment as the endless receipt continues unspooling into the skyline, while HELPBOT politely apologizes for the inconvenience without ever stopping.",
+        "type": "say"
+      },
+      "bsm_78": {
+        "_vine": {
+          "x": 740,
+          "y": 2480
+        },
+        "next": "bsm_79",
+        "song": "chrome_circumstance_theme",
+        "text": "♪ The synthwave theme returns over the closing credits. ♪",
+        "type": "music"
+      },
+      "bsm_79": {
+        "_vine": {
+          "x": 960,
+          "y": 2480
+        },
+        "event_type": "FADE_OUT",
+        "type": "event"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "next": "bsm_9",
+        "npc_id": "npc_lex",
+        "type": "npc_anchor"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "event_type": "APPLAUSE",
+        "next": "bsm_10",
+        "type": "event"
+      }
+    }
+  },
+  "category": "comedy",
+  "channel_id": "ch_7_1782953079593",
+  "created_by": "author",
+  "description": "",
+  "enabled": 1,
+  "fallback_messages": [],
+  "film_meta": null,
+  "gameshow_pools": null,
+  "id": "bc_chrome_circumstance",
+  "loop": 1,
+  "message_interval": 5,
+  "messages": [
+    "CORPORATION DENIES REPLACING EMPLOYEES WITH CHEAPER EMPLOYEES • CYBER EYES NOW INCLUDE ADS DURING BLINKS • CITY PARKING METERS ACHIEVE SENTIENCE •",
+    "A tiny apartment sits twenty stories above a sea of neon. Every appliance hums louder than necessary, and the refrigerator occasionally thanks someone for their loyalty.",
+    "Morning.",
+    "It's three in the afternoon.",
+    "Then why am I awake?",
+    "Your neural implant downloaded an update.",
+    "Again?",
+    "Apparently you agreed to automatic optimism.",
+    "Can I uninstall that?",
+    "Vic blinks. A bright holographic advertisement appears directly in front of his face.",
+    "Why am I seeing ads?",
+    "Premium Vision expired.",
+    "I paid for lifetime access.",
+    "You did.",
+    "Your lifetime subscription ended yesterday.",
+    "A cheerful customer service drone floats into the apartment carrying complimentary paperwork.",
+    "Congratulations!",
+    "You've been selected for mandatory customer satisfaction.",
+    "I'm not satisfied.",
+    "Response recorded as \"extremely satisfied.\"",
+    "The drone projects an enormous holographic troubleshooting menu containing thousands of tiny buttons.",
+    "Please describe your issue.",
+    "Memory problems.",
+    "Wonderful.",
+    "Would you like to forget your memory problems?",
+    "No!",
+    "Issue resolved.",
+    "The receipt coils across the apartment floor, wraps around the furniture, and disappears out the window into the neon streets below.",
+    "At least it's free paper.",
+    "It's a digital receipt.",
+    "...",
+    "That's somehow worse.",
+    "The camera slowly pulls away from the apartment as the endless receipt continues unspooling into the skyline, while HELPBOT politely apologizes for the inconvenience without ever stopping."
+  ],
+  "morning_pools": null,
+  "name": "Chrome & Circumstance - Episode 3: Memory Leak",
+  "news_pools": null,
+  "override_duration": 180,
+  "playback_mode": "scripted",
+  "sermon_pools": null,
+  "sports_pools": null,
+  "tags": [
+    "comedy",
+    "episodic"
+  ],
+  "talkshow_pools": null,
+  "updated_at": "1783960000",
+  "weather_pools": null
+}

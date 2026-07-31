@@ -141,7 +141,7 @@
           "next": "bye"
         }
       ],
-      "text": "Pell drops his end of a crate and wipes his hands. \"You lost, or just in the way?\""
+      "text": "Ballard drops his end of a crate and wipes his hands. \"You lost, or just in the way?\""
     }
   },
   "faction": null,
@@ -158,7 +158,7 @@
   "hp": 16,
   "hp_max": 16,
   "id": "npc_dockhand",
-  "name": "Pell",
+  "name": "Ballard",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

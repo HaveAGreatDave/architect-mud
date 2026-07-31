@@ -1,0 +1,33 @@
+{
+  "id": "dream_the_queue",
+  "name": "The Queue",
+  "description": "A line of people, patient and enormous, going out of the door and around a corner that the building does not have. Nobody is talking. Everyone has brought a form. You have not brought a form, and you understand with total certainty that this will be dealt with when you reach the front. The front is not visible.",
+  "cause": "dream",
+  "drug_id": null,
+  "objects": [
+    {
+      "name": "the form",
+      "looks": [
+        "Everyone else’s is filled in. The boxes are in a language of boxes.",
+        "You are holding one after all. It has your handwriting on it and none of your words.",
+        "It asks the same question forty times, and the fortieth time it is a different question."
+      ]
+    },
+    {
+      "name": "the person ahead of you",
+      "looks": [
+        "They have been waiting long enough to have grown into the carpet a little.",
+        "They turn to say something reassuring, and keep turning.",
+        "The back of their head is familiar the way a smell is familiar."
+      ]
+    }
+  ],
+  "ambient": [
+    "The queue advances by one person. You do not move.",
+    "Somewhere near the front a stamp comes down, and everyone relaxes slightly.",
+    "Someone joins the line behind you and sighs the sigh of a person settling in for years."
+  ],
+  "weather": "It is the temperature of a corridor. There is no weather here and there never was, and nobody has remarked on it.",
+  "fx": "fog",
+  "fx_intensity": 0.45
+}

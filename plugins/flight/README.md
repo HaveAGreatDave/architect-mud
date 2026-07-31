@@ -32,7 +32,7 @@ startup / takeoff / landing and widens the minigame safe bands.
 - **Combat:** `arm` · `safe` · `evade` · `strafe`/`fire`
 - **Contracts:** `contracts`/`jobs` · `accept` · `manifest`
 - **Ownership:** `hangar` · `repair` · `salvage` · `rebuild` · `tune`
-- **Silent resolvers:** `takeoffresolve` · `landresolve` · `strafresolve`
+- **Silent resolvers:** `strafresolve` · `flightsync` · `flightevent`
 
 Bare compass verbs (`n`/`north`/…) are intercepted by an **input matcher** only while
 airborne (set heading); otherwise they fall through to the ground mover.
@@ -60,9 +60,10 @@ Schema lives in `SCHEMA_SQL` (apply via `npm run db:schema`); content via
 ## Client
 
 [`client/game/js/panels/cockpit.js`](../../client/game/js/panels/cockpit.js) —
-area-pane gauge HUD + the rolling-takeoff and glideslope-landing minigames.
+area-pane gauge HUD + the continuous 60fps flight sim (takeoff and landing are flown,
+not commanded).
 Routed in `client/game/js/dispatch.js` (`cockpit_update` / `cockpit_close` /
-`flight_takeoff` / `flight_land`). All display-only; the server is authoritative.
+`flight_sim` / `flight_ctx`). All display-only; the server is authoritative.
 
 ## Follow-on
 

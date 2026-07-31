@@ -1,0 +1,10 @@
+{
+  "id": "dr_npc_normal_514",
+  "drug_id": null,
+  "source": "npc",
+  "tone": "normal",
+  "relation": "wary",
+  "npc_type": null,
+  "self_line": "{npc} makes a point of noticing what state you are in.",
+  "room_line": "{npc} makes a show of noticing exactly what state {player} is in."
+}

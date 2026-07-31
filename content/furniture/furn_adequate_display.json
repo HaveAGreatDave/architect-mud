@@ -1,0 +1,18 @@
+{
+  "description": "A dining table laid for four with plates nobody will eat off and plastic stems in a vase. The chairs are real enough to sit in, and people do — quietly, for a minute, and then they get up and go back to their lives.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_adequate_display",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "display dining set",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_adequate_upper"
+}

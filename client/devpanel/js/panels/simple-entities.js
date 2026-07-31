@@ -108,7 +108,7 @@ function drugEditForm(rec, isNew) {
         • <code>tolerance</code>: {gain_per_dose, recovery_per_sec, max_reduction} — repeated use lowers potency; recovers over time.<br>
         • <code>withdrawal</code>: {onset_seconds, mods, message, addiction_per_dose, addiction_recovery_per_sec} — bites after time without a dose once addicted.<br>
         • <code>overdose</code>: {lethal:true, message} — exceeding Overdose Threshold doses kills the player.<br>
-        • <code>hallucination</code>: {mode:"overlay"|"dreamzone", intensity, palette, duration_seconds, events:[{atSec,text}] or eventPool+eventEverySec, dreamzone_id}. Palettes: green/purple/red/gold/cyan/magenta/blue. Use [trip]...[/trip] in text for melting FX.
+        • <code>hallucination</code>: {mode:"overlay"|"dreamzone", intensity, palette, duration_seconds, events:[{atSec,text}] or eventPool+eventEverySec}. <b>dreamzone</b> builds a private throwaway dreamscape for that one tripper — it names no room. Palettes: green/purple/red/gold/cyan/magenta/blue. Use [trip]...[/trip] in text for melting FX.
       </div>
       <textarea id="f-effects" rows="6">${JSON.stringify(effects, null, 2)}</textarea></div>
     <div class="field"><label>Overdose Effects (JSON — applied on top of normal effects when overdosed)</label><textarea id="f-withdrawal_effects" rows="3">${JSON.stringify(withdrawal.overdose ? withdrawal : {overdose:{}}, null, 2)}</textarea></div>

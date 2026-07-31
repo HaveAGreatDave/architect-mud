@@ -1,5 +1,5 @@
 {
-  "description": "A dented industrial lockbox riveted to a steel upright, painted over more times than anyone can count, the dial stiff with grime.",
+  "description": "A marine deck box, brass-cornered and salt-pitted, chained to the radiator pipe under the window. It is the only thing in the flat that was built to last and it knows it.",
   "flags": {
     "hack_difficulty": 5,
     "vendor_npc_id": "npc_shipwright",
@@ -14,5 +14,5 @@
   "object_type": "fixture",
   "power_draw_kw": null,
   "price": 600,
-  "zone_id": "zone_coldwater_turbine_hall"
+  "zone_id": "zone_yards_tenement_u5_3"
 }

@@ -1,0 +1,5 @@
+{
+  "id": "dtt_npc_031",
+  "kind": "npc",
+  "line": "Somebody has just left. You know from the room that it was {value}."
+}

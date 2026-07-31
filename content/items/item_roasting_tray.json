@@ -1,0 +1,18 @@
+{
+  "description": "A shallow steel tray, buckled slightly in the middle from too many cycles too hot. Blackened in the corners where things have caught. Holds a whole meal flat.",
+  "flags": {},
+  "id": "item_roasting_tray",
+  "name": "roasting tray",
+  "tags": {
+    "container": 5000,
+    "description": "A shallow steel tray, buckled slightly in the middle from too many cycles too hot. Blackened in the corners where things have caught. Holds a whole meal flat.",
+    "heat_distribution": 0.8,
+    "heat_retention": 0.45,
+    "unique": true,
+    "vessel": true,
+    "vessel_kind": "tray"
+  },
+  "type": "misc",
+  "value": 55,
+  "weight": 1100
+}

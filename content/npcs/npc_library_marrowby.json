@@ -1,0 +1,44 @@
+{
+  "banter": [],
+  "behaviour_graph": null,
+  "chitchat": [
+    "\"Take it. Bring it back if you're able. If you're not, I'd rather you had it than the shelf did.\"",
+    "He taps the brass terminal without looking up. \"Scan it. Costs nothing, weighs nothing, and nobody can burn a copy that isn't paper.\"",
+    "\"People ask me what the point is. Ask me again in a hundred years, when somebody wants to know what we were like.\"",
+    "\"The records out front say what the city OWNED. These say what it was AFRAID of. Guess which the council funded.\"",
+    "\"Start with the short one. Forster. Twelve thousand words and it'll ruin your relationship with your own ceiling.\"",
+    "\"Zamyatin wrote his in a country that then spent sixty years pretending he hadn't. That's a review, that is.\"",
+    "\"London's is the angry one. He was right about most of it, which is the trouble with the angry ones.\"",
+    "\"No fines. Never had fines. Fines are for places that think the book is the valuable part.\""
+  ],
+  "description": "A narrow, elderly man in a cardigan that has been darned in colours that do not match and were never going to. He moves along the shelves the way other people move through a room they grew up in — no hesitation, no looking. His hands are stained at the fingertips from decades of repair work, and there is a jeweller's loupe pushed up on his forehead that he has evidently forgotten about. He does not ask what you want. He watches what you pick up, and forms an opinion, and does not share it unless asked.",
+  "dialogue_tree": null,
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a cardigan darned in four unmatched colours",
+      "a collarless shirt, soft with age",
+      "corduroy trousers gone smooth at the knee",
+      "carpet slippers he has never once apologised for"
+    ],
+    "mis_never": true,
+    "personality": "quiet"
+  },
+  "home_activities": [],
+  "home_zone": "zone_records_library",
+  "hp": 18,
+  "hp_max": 18,
+  "id": "npc_library_marrowby",
+  "name": "Silas Marrowby",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": null,
+  "vendor_restock_rate": null,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": null,
+  "wanders": 0,
+  "work_zone_id": "zone_records_library"
+}

@@ -1,0 +1,22 @@
+{
+  "description": "A split length of bone with the soft grey-pink centre exposed. Roast it and it goes to liquid gold. The richest thing you can get out of an animal.",
+  "flags": {},
+  "id": "item_bone_marrow",
+  "name": "bone marrow",
+  "tags": {
+    "consumable": true,
+    "description": "A split length of bone with the soft grey-pink centre exposed. Roast it and it goes to liquid gold. The richest thing you can get out of an animal.",
+    "food_noun": "marrow",
+    "food_profile": "fat_or_oil",
+    "perishable": true,
+    "restore_hunger": 12,
+    "spoil_rate": "fast",
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.35
+    }
+  },
+  "type": "consumable",
+  "value": 16,
+  "weight": 250
+}

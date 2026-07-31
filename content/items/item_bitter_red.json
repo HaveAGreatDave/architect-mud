@@ -1,0 +1,17 @@
+{
+  "description": "Violently red and unapologetically bitter. Half the people who order it are lying about liking it, and the other half genuinely do.",
+  "flags": {},
+  "id": "item_bitter_red",
+  "name": "red bitter",
+  "tags": {
+    "abv": 24,
+    "description": "Violently red and unapologetically bitter. Half the people who order it are lying about liking it, and the other half genuinely do.",
+    "drink_noun": "bitter",
+    "drink_profile": "liqueur",
+    "pour_units": 12,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 28,
+  "weight": 850
+}

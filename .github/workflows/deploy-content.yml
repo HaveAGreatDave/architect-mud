@@ -12,21 +12,49 @@
 # Catastrophic: Neon instant-restore prod's default branch from the
 # `predeploy-<run>-<sha>` snapshot branch created before the damaging run.
 #
-# ── DEBOUNCE: pushes validate, the schedule deploys ──
-# Each deploy reboots Render, which cold-reloads the WHOLE world from Neon
-# (~36MB egress: SELECT * over zones + audio_songs + power_zones + furniture +
-# npcs + items). Deploying one-for-one on every content push — 25 in a day
-# during an active session — cold-reloaded the world 25 times and blew the free
-# plan's 5GB/month transfer cap on reboots alone (July 2026).
+# ── THE ONLY PATH TO PROD (single trigger, 2026-07-26) ──
+# Render's own auto-deploy is OFF (dashboard + `autoDeploy: false` in render.yaml),
+# so this workflow's POST to RENDER_DEPLOY_HOOK_URL is the only thing that ever
+# ships code OR content to production. That makes the "Restart Render service"
+# step load-bearing, so it fails the job outright rather than warning.
 #
-# So a content push no longer deploys. It runs the regress gate (validation,
-# against a throwaway local Postgres — zero Neon egress) and then STOPS. The
-# actual deploy is debounced onto a schedule, which collapses a burst of commits
-# into one reboot. Two escape hatches force an immediate deploy when you want the
-# change live now:
+# On the free instance a missed reboot is partly self-healing by luck: the service
+# spins down when idle, and the next player's cold start reloads the fresh content
+# from Neon. Do NOT rely on it — that rescue disappears the moment this moves to a
+# paid instance, which never spins down, and a missed reboot then means prod serves
+# a stale world until somebody notices by hand.
+#
+# Previously Render ALSO watched the repo and rebuilt on every server/plugins/
+# client push — ~1,078 code-touching commits a month, peaking at 122 in a day,
+# against the Hobby plan's 500 build minutes, each build disconnecting every
+# player. Two independent triggers rebooting one service; `buildFilter` existed
+# only to stop them fighting.
+#
+# ── DEBOUNCE: pushes validate, the schedule deploys ──
+# Each deploy reboots Render, which cold-reloads the whole world from Neon
+# (~4.7MB now that prod serves the six audio tables from the git checkout; it was
+# ~36MB when deploying per-push blew the 5GB/month transfer cap in July 2026).
+#
+# So a push never deploys. It runs the regress gate — against a throwaway local
+# Postgres, zero Neon egress — and STOPS. The deploy is debounced onto a
+# schedule, collapsing a burst of commits into one reboot (~150 builds/month).
+# Two escape hatches force an immediate deploy:
 #   • put `[deploy]` anywhere in the commit message, or
 #   • run this workflow by hand (Actions tab → deploy-content → Run workflow).
 # See the `gate` job for the exact decision.
+#
+# `paths:` below covers code as well as content, which buys two things beyond
+# batching: code pushes finally get a regress gate (they previously had NO checks
+# at all), and `[deploy]` now works on a code-only commit. That last one used to
+# fail SILENTLY — the token is read by the gate job, so a commit touching no
+# `paths:` entry started no run and the token was never evaluated.
+#
+# ⚠ Still true: `git commit --allow-empty -m '… [deploy]'` touches nothing, so it
+# starts no run and deploys nothing. Use the Run workflow button for that.
+#
+# Note the schedule ignores `paths:` entirely — a scheduled run deploys whatever
+# is on main, judged only by sha, so code changes reach prod on the 2-hourly
+# window whether or not they matched a path filter.
 #
 # Required repo secrets:
 #   PROD_DATABASE_URL        — Neon connection string. Use the DIRECT (unpooled)
@@ -48,19 +76,33 @@ on:
     - cron: '0 */2 * * *'  # debounced batch deploy, every 2 hours
   push:
     branches: [main]
-    # Content-affecting pushes trigger a run so regress validates them, but the
-    # gate job only lets the deploy through on a schedule / force (see header).
-    # Code/docs/client-only pushes don't run this at all.
+    # Pushes trigger a run so regress validates them; the gate job only lets the
+    # deploy through on a schedule / force (see header). Code paths are included
+    # so code pushes get a regress gate and can carry a `[deploy]` token — Render
+    # no longer watches the repo, so nothing else validates or ships them.
     paths:
       - 'content/**'
-      - 'server/models/schema.js'
-      - 'server/models/content-registry.js'
+      - 'server/**'
+      - 'plugins/**'
+      - 'client/**'
+      - 'package.json'
+      - 'package-lock.json'
       - 'scripts/content/**'
       - '.github/workflows/deploy-content.yml'
 
+# Two different jobs with opposite needs, so the group is chosen per run:
+#   • a run that WILL deploy (schedule / dispatch / `[deploy]` push) joins the
+#     serialized group and is never cancelled — never kill a half-applied deploy.
+#   • a plain validation push is disposable: a newer push supersedes it, since its
+#     tree is a superset. Without this, a 122-commit day would queue ~9-minute
+#     regress runs back-to-back and the backlog would run for hours.
 concurrency:
-  group: prod-content-deploy
-  cancel-in-progress: false    # serialize both devs' pushes; never kill a half-applied deploy
+  group: >-
+    ${{ (github.event_name == 'push' && !contains(github.event.head_commit.message, '[deploy]'))
+        && format('content-validate-{0}', github.ref)
+        || 'prod-content-deploy' }}
+  cancel-in-progress: >-
+    ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[deploy]') }}
 
 jobs:
   regress:
@@ -101,7 +143,8 @@ jobs:
   #   push with [deploy] → deploy now (force from a commit)
   #   workflow_dispatch  → deploy now (force button)
   #   schedule           → deploy the batch, UNLESS HEAD is already the live sha
-  #                        (idle window — skip the pointless ~36MB reboot)
+  #                        (idle window — skip the pointless ~4.7MB reboot)
+  # The sha comparison is content-agnostic, so this batches code changes too.
   gate:
     needs: regress
     runs-on: ubuntu-latest
@@ -243,6 +286,27 @@ jobs:
         env:
           PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
         run: node scripts/content/check-dangling.mjs --prod --yes
+      # Restart BEFORE recording. The `deployments` row is what the gate's idle
+      # check reads, so recording first meant a failed reboot still stamped the sha
+      # as deployed: the run went red, prod kept a stale world, and every later
+      # scheduled run skipped with "HEAD already deployed" — no retry, ever. That
+      # is exactly what happened on 2026-07-26, when a dead deploy-hook URL 404'd
+      # after the row was already written. Recording last makes it self-healing:
+      # no row, so the next scheduled run re-deploys (the import is idempotent
+      # upserts, so replaying it is free).
+      - name: Restart Render service (fresh world cache)
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::error::RENDER_DEPLOY_HOOK_URL is not set. Render auto-deploy is off, so this hook is the ONLY way code or content reaches prod — without it the live server serves a stale world indefinitely."
+            exit 1
+          fi
+          if ! curl -fsS -X POST "$HOOK" > /dev/null; then
+            echo "::error::Deploy hook POST failed. Content is already in Neon, but the live server has NOT rebooted onto it. Check the hook URL against Render → architect-mud-live → Settings → Deploy Hook (a 404 means it points at a deleted service)."
+            exit 1
+          fi
+          echo "Render restart triggered."
       - name: Record deployment
         env:
           PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
@@ -258,15 +322,6 @@ jobs:
           await c.end();
           console.log('deployments row recorded');
           "
-      - name: Restart Render service (fresh world cache)
-        env:
-          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-        run: |
-          if [ -n "$HOOK" ]; then
-            curl -fsS -X POST "$HOOK" > /dev/null && echo "Render restart triggered."
-          else
-            echo "::warning::RENDER_DEPLOY_HOOK_URL not set — the live server keeps its old in-memory world until its next restart."
-          fi
 
   # A failed deploy is silent: the run goes red on a page nobody has open, and prod
   # simply stops moving. Four consecutive failures went unnoticed in July 2026 while

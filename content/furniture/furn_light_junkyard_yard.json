@@ -1,0 +1,18 @@
+{
+  "description": "A flood on a scaffold pole lashed to the end of the first row, aimed down the aisles rather than at anything in particular. Moths that should not exist this far out have found it anyway.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_junkyard_yard",
+  "light_type": "streetlight",
+  "lumen_output": 6000,
+  "name": "yard floodlight",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 90,
+  "zone_id": "zone_junkyard_yard"
+}

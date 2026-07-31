@@ -1,37 +1,18 @@
 import { query, withTransaction } from '../../server/models/db.js';
-import { getZone, updateFurniture, deleteFurniture } from '../../server/engine/world.js';
+import { getZone, getZoneNpcs, updateFurniture, deleteFurniture } from '../../server/engine/world.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { transferCredits } from '../../server/engine/economy.js';
 import { awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 import { getPowerMap } from '../../server/engine/environment.js';
 import { emit } from '../../server/engine/events.js';
+import { getReputation } from '../../server/engine/ideologies.js';
 import { gameMsToReal } from '../../server/engine/gametime.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-// Jacking a terminal requires physically carrying this item — no skill roll
-// gates the attempt anymore, just possession of the tool.
-// Any item tagged `hack_device` (see tagCatalog.js) is a valid deck — the gate
-// is the capability tag, not a specific item id.
-async function hasHackDevice(playerId) {
-  return !!(await resolveInventoryItem(playerId, { tag: 'hack_device' }));
-}
-
-// A failed breach fries the deck a little — five failures and it's slag.
-// Marked `unique` on the item so multiple decks don't share one condition.
-const HACK_DEVICE_DAMAGE_PER_FAIL = 0.2;
-async function damageHackDevice(playerId) {
-  const dev = await resolveInventoryItem(playerId, { tag: 'hack_device' });
-  if (!dev) return '';
-  const newCond = Math.max(0, (dev.condition ?? 1) - HACK_DEVICE_DAMAGE_PER_FAIL);
-  if (newCond <= 0) {
-    await query('DELETE FROM player_inventory WHERE id=$1', [dev.inv_id]);
-    return ' Your hack deck fries, sparks, and crumbles to slag in your hands.';
-  }
-  await query('UPDATE player_inventory SET condition=$1 WHERE id=$2', [newCond, dev.inv_id]);
-  return ` Your hack deck takes damage (${Math.round(newCond * 100)}% integrity).`;
-}
+import { resolve as siftResolve } from '../../server/engine/sift.js';
+// Jacking a terminal requires physically carrying a deck — no skill roll gates
+// the attempt, just possession of the tool. Which deck now matters: see
+// server/engine/hack-gear.js for the penalty/fragility contract.
+import { hasHackDeck, hackDifficulty, damageHackDeck, breachMargin } from '../../server/engine/hack-gear.js';
 
 // Tablet OS Bank app: a minimal deposit ledger (bank_transactions). Written
 // from every successful deposit, whichever path it came through (ATM's own
@@ -74,6 +55,76 @@ async function findAtmInZone(zoneId, nameHint) {
   return rows[0] || null;
 }
 
+// ── The counter vs. the machine ──────────────────────────────────────────────
+// A cash terminal is a hole in the wall with a drum of notes in it: it will move
+// pocket money and nothing more. The network's `withdrawal_limit` is the per-
+// transaction ceiling on BOTH directions at a physical ATM — deposits too, since
+// the machine has to physically eat the notes. Anything bigger is a conversation
+// with a human (or, in Citadel's case, TELLER UNIT 04), which is the whole point:
+// big money has to walk into a bank and be looked at by something that can testify.
+//
+// A teller is any live NPC flagged `bank_teller`. Being in the same ROOM as one is
+// deliberately not enough — the Citadel hall holds both the teller and its own
+// terminals, and a machine there is still just a machine. You have to address the
+// teller: `withdraw 9000 from teller`. Only then does the cap lift.
+//
+// The one convenience: in a room with a teller and NO ATM furniture, a bare
+// `deposit`/`withdraw` goes to the counter, because there is nothing else it could
+// possibly mean.
+export const DEFAULT_TXN_CAP = 2500;
+
+function tellersInZone(zoneId) {
+  return getZoneNpcs(zoneId).filter(n => n?.flags?.bank_teller);
+}
+
+// Strip a trailing `[from|to|with|at] <name>` off a deposit/withdraw and resolve it
+// against the tellers standing in the room. This is a complex-arg command (the
+// amount rides along with the target), so per docs/commands.md it uses SIFT scoring
+// but errors on ambiguity rather than opening the disambiguation UI — replaying it
+// with only a candidate name would drop the amount.
+//
+// Returns { teller, named, error }:
+//   named=false → the player addressed nobody
+//   error       → they named someone who isn't a teller here (or an ambiguous one)
+function resolveTeller(args, zoneId) {
+  const rest = args.slice(1).filter(Boolean);
+  const words = ['from', 'to', 'with', 'at'].includes((rest[0] || '').toLowerCase())
+    ? rest.slice(1) : rest;
+  const q = words.join(' ').trim();
+  if (!q) return { teller: null, named: false, error: null };
+
+  const tellers = tellersInZone(zoneId);
+  const nobody = { teller: null, named: true, error: `There's nobody here called "${q}" to bank with.` };
+  if (!tellers.length) return nobody;
+
+  // "teller" is the generic — accept it when exactly one is standing here.
+  if (/^(the )?teller$/i.test(q) && tellers.length === 1) return { teller: tellers[0], named: true, error: null };
+
+  const r = siftResolve(q, tellers);
+  if (r.type === 'ambiguous') return { teller: null, named: true, error: 'More than one teller matches — be more specific.' };
+  if (r.type !== 'match' || !r.candidate) return nobody;
+  return { teller: r.candidate, named: true, error: null };
+}
+
+// Per-transaction ceiling for this transaction: null (uncapped) when a teller is
+// being addressed, else the machine's network limit.
+export function txnCap(atm, teller) {
+  if (teller) return null;
+  return atm?.withdrawal_limit ?? DEFAULT_TXN_CAP;
+}
+
+// The refusal a machine gives when you ask it for more than it will move. Names the
+// way out, so the player learns the cap is a door and not a dead end — and when a
+// teller is standing right there, quotes the exact phrasing that works.
+export function overCapMessage(kind, amount, cap, atm, teller) {
+  const verb = kind === 'deposit' ? 'accept' : 'dispense';
+  const net = atm?.network_name || 'This terminal';
+  const out = teller
+    ? `Try "${kind} ${amount} from ${String(teller.name || 'teller').split(' ')[0].toLowerCase()}".`
+    : `For a sum like that you'll have to walk it into a bank and speak to a teller.`;
+  return `${net} won't ${verb} more than ${cap}c in one transaction — you asked for ${amount}c. ${out}`;
+}
+
 function isZonePowered(zoneId) {
   const map = getPowerMap();
   const z = map.find(e => e.zoneId === zoneId);
@@ -83,11 +134,10 @@ function isZonePowered(zoneId) {
 
 async function checkFactionAccess(player, atm) {
   if (!atm.faction_id || atm.min_faction_rep == null || atm.min_faction_rep <= -200) return true;
-  const { rows } = await query(
-    'SELECT reputation FROM player_ideology_rep WHERE player_id=$1 AND ideology_id=$2',
-    [player.id, atm.faction_id]
-  );
-  return (rows[0]?.reputation ?? 0) >= atm.min_faction_rep;
+  // getReputation, not a raw SELECT — standing decays toward its resting point,
+  // and a gate reading the stored checkpoint would lock you out over a grudge
+  // the rest of the game has already let go of.
+  return (await getReputation(player.id, atm.faction_id)) >= atm.min_faction_rep;
 }
 
 async function buildAtmPanel(atm, player, powered) {
@@ -100,15 +150,22 @@ async function buildAtmPanel(atm, player, powered) {
       name: atm.network_name || 'UNLINKED',
       color: atm.color || '#00ff88',
       fee_rate: parseFloat(atm.fee_rate) || 0,
-      withdrawal_limit: atm.withdrawal_limit ?? 5000,
+      withdrawal_limit: atm.withdrawal_limit ?? DEFAULT_TXN_CAP,
     },
+    // Per-transaction ceiling at this machine. A machine is ALWAYS capped — the
+    // bypass is addressing a teller, not standing near one, so a terminal in the
+    // bank hall is still just a terminal. Drives the panel's MAX button so it
+    // never proposes an amount the machine will refuse.
+    txnCap: txnCap(atm, null),
     cashStock: atm.cash_stock ?? 5000,
     cashMax: atm.cash_max ?? 5000,
     powered,
     isBroken: !!atm.is_broken,
-    hackDifficulty: atm.hack_difficulty ?? 5,
+    // Shown on the terminal readout, so it must be the number the minigame will
+    // actually run — deck penalty included.
+    hackDifficulty: await hackDifficulty(player.id, atm.hack_difficulty),
     hackingSkill: await effectiveSkill(player, 'hacking'),
-    hasHackDevice: await hasHackDevice(player.id),
+    hasHackDevice: await hasHackDeck(player.id),
     maintenanceUnlocked: hasMaintenanceAccess(atm.id, player.id),
     player: { credits: player.credits || 0, bank_credits: player.bank_credits || 0 },
   };
@@ -147,23 +204,39 @@ async function cmdDeposit(args, raw, player) {
   const amountStr = args[0];
   const zone = getZone(player.current_zone);
   const atm = await findAtmInZone(player.current_zone);
+  const addressed = resolveTeller(args, player.current_zone);
+  if (addressed.error) return { type: 'error', message: addressed.error };
+  // A bare command in a machineless room still falls to the counter — nothing else it could mean.
+  const teller = addressed.teller || (!atm ? tellersInZone(player.current_zone)[0] || null : null);
 
-  // Legacy zone-flag fallback (no ATM furniture)
-  if (!atm) {
-    if (!zone?.flags?.has_atm) return { type: 'error', message: "There's no ATM here." };
+  // The counter path: a teller you addressed, or a room with no machine in it. Bypasses
+  // the terminal entirely — no power gate, no cash drum, no network fee, no cap.
+  if (teller || !atm) {
+    if (!teller && !zone?.flags?.has_atm) return { type: 'error', message: "There's no ATM here." };
     const amount = amountStr === 'all' ? (player.credits || 0) : parseInt(amountStr, 10);
     if (!amount || amount <= 0) return { type: 'error', message: 'Deposit how much? Try "deposit 50" or "deposit all".' };
     if (!await transferCredits(player, amount, 'deposit')) return { type: 'error', message: `You only have ${player.credits || 0}c on you.` };
     await logBankTx(player.id, 'deposit', amount, player.bank_credits);
-    return { type: 'deposit', message: `You deposit ${amount}c. Carried: ${player.credits}c · Banked: ${player.bank_credits}c`, player_update: { credits: player.credits, bank_credits: player.bank_credits } };
+    const at = teller ? ` ${teller.name} counts it twice and does not comment on where it came from.` : '';
+    return { type: 'deposit', message: `You deposit ${amount}c.${at} Carried: ${player.credits}c · Banked: ${player.bank_credits}c`, player_update: { credits: player.credits, bank_credits: player.bank_credits } };
   }
 
   if (atm.is_broken) return { type: 'error', message: 'The ATM is damaged. Try another terminal.' };
   if (!isZonePowered(player.current_zone)) return { type: 'error', message: 'The ATM screen is dark — no power.' };
   if (!await checkFactionAccess(player, atm)) return { type: 'error', message: `${atm.network_name || 'This network'} requires higher standing to access.` };
 
-  const amount = amountStr === 'all' ? (player.credits || 0) : parseInt(amountStr, 10);
+  // The machine's per-transaction ceiling (lifted at a teller's counter). `all`
+  // clamps down to it and says so; an explicit over-cap amount is refused outright
+  // rather than quietly shaved, so nobody moves less money than they meant to.
+  const cap = txnCap(atm, null);
+  let amount = amountStr === 'all' ? (player.credits || 0) : parseInt(amountStr, 10);
   if (!amount || amount <= 0) return { type: 'error', message: 'Deposit how much? Try "deposit 50" or "deposit all".' };
+  let capNote = '';
+  if (cap != null && amount > cap) {
+    if (amountStr !== 'all') return { type: 'error', message: overCapMessage('deposit', amount, cap, atm, tellersInZone(player.current_zone)[0]) };
+    amount = cap;
+    capNote = ` The slot takes ${cap}c and stops — that's all it will swallow at once.`;
+  }
 
   // Move the credits and fill the machine as one atomic unit.
   const newStock = Math.min((atm.cash_max ?? 5000), (atm.cash_stock ?? 0) + amount);
@@ -177,7 +250,7 @@ async function cmdDeposit(args, raw, player) {
 
   return {
     type: 'deposit',
-    message: `You deposit ${amount}c. Carried: ${player.credits}c · Banked: ${player.bank_credits}c`,
+    message: `You deposit ${amount}c.${capNote} Carried: ${player.credits}c · Banked: ${player.bank_credits}c`,
     player_update: { credits: player.credits, bank_credits: player.bank_credits },
     atm_cash_stock: newStock,
   };
@@ -187,38 +260,51 @@ async function cmdWithdraw(args, raw, player) {
   const amountStr = args[0];
   const zone = getZone(player.current_zone);
   const atm = await findAtmInZone(player.current_zone);
+  const addressed = resolveTeller(args, player.current_zone);
+  if (addressed.error) return { type: 'error', message: addressed.error };
+  const teller = addressed.teller || (!atm ? tellersInZone(player.current_zone)[0] || null : null);
 
-  // Legacy zone-flag fallback
-  if (!atm) {
-    if (!zone?.flags?.has_atm) return { type: 'error', message: "There's no ATM here." };
+  // The counter path: a teller you addressed, or a room with no machine in it. Bypasses
+  // the terminal entirely — no power gate, no cash drum, no network fee, no cap.
+  if (teller || !atm) {
+    if (!teller && !zone?.flags?.has_atm) return { type: 'error', message: "There's no ATM here." };
     const amount = amountStr === 'all' ? (player.bank_credits || 0) : parseInt(amountStr, 10);
     if (!amount || amount <= 0) return { type: 'error', message: 'Withdraw how much? Try "withdraw 50" or "withdraw all".' };
     if (!await transferCredits(player, amount, 'withdraw')) return { type: 'error', message: `You only have ${player.bank_credits || 0}c banked.` };
-    return { type: 'withdraw', message: `You withdraw ${amount}c. Carried: ${player.credits}c · Banked: ${player.bank_credits}c`, player_update: { credits: player.credits, bank_credits: player.bank_credits } };
+    const at = teller ? ` ${teller.name} counts it out in banded notes, unhurried, and slides them under the glass.` : '';
+    return { type: 'withdraw', message: `You withdraw ${amount}c.${at} Carried: ${player.credits}c · Banked: ${player.bank_credits}c`, player_update: { credits: player.credits, bank_credits: player.bank_credits } };
   }
 
   if (atm.is_broken) return { type: 'error', message: 'The ATM is damaged. Try another terminal.' };
   if (!isZonePowered(player.current_zone)) return { type: 'error', message: 'The ATM screen is dark — no power.' };
   if (!await checkFactionAccess(player, atm)) return { type: 'error', message: `${atm.network_name || 'This network'} requires higher standing to access.` };
 
-  // A physical ATM has NO per-transaction cap (the network's `withdrawal_limit` only bounds the
-  // tablet 'atm app' / remote banking). At the machine you're limited only by the cash it's holding
-  // and what you have banked — walk up and empty your account if the drum's got the notes for it.
+  // A physical ATM caps every transaction at the network's `withdrawal_limit` — the drum only
+  // holds so many notes and the machine only counts so fast. Bigger sums go to a teller (see
+  // txnCap), where the ceiling lifts. Beyond the cap you're still bounded by the machine's cash
+  // stock and what you have banked.
   const cashAvail = atm.cash_stock ?? 0;
   const banked = player.bank_credits || 0;
   const feeRate = parseFloat(atm.fee_rate) || 0;
+  const cap = txnCap(atm, null);
 
   let rawAmount;
+  let capNote = '';
   if (amountStr === 'all') {
     // Max the cash stock can dispense and the balance can cover after the fee.
     // fee is on top: banked >= rawAmount + ceil(rawAmount * feeRate) ⇒ rawAmount <= banked/(1+feeRate)
     const maxByFunds = feeRate > 0 ? Math.floor(banked / (1 + feeRate)) : banked;
     rawAmount = Math.min(cashAvail, maxByFunds);
+    if (cap != null && rawAmount > cap) {
+      rawAmount = cap;
+      capNote = ` The drum stops at ${cap}c — that's this terminal's limit in one go.`;
+    }
   } else {
     rawAmount = parseInt(amountStr, 10);
   }
 
   if (!rawAmount || rawAmount <= 0) return { type: 'error', message: 'Withdraw how much? Try "withdraw 50" or "withdraw all".' };
+  if (cap != null && rawAmount > cap) return { type: 'error', message: overCapMessage('withdraw', rawAmount, cap, atm, tellersInZone(player.current_zone)[0]) };
   if (rawAmount > cashAvail) return { type: 'error', message: `ATM is low on cash. Max available: ${cashAvail}c.` };
 
   const fee = feeRate > 0 ? Math.ceil(rawAmount * feeRate) : 0;
@@ -248,7 +334,7 @@ async function cmdWithdraw(args, raw, player) {
   const feeMsg = fee > 0 ? ` (−${fee}c ${atm.network_name || 'network'} fee)` : '';
   return {
     type: 'withdraw',
-    message: `You withdraw ${rawAmount}c${feeMsg}. Carried: ${player.credits}c · Banked: ${player.bank_credits}c`,
+    message: `You withdraw ${rawAmount}c${feeMsg}.${capNote} Carried: ${player.credits}c · Banked: ${player.bank_credits}c`,
     player_update: { credits: player.credits, bank_credits: player.bank_credits },
     atm_cash_stock: newStock,
   };
@@ -285,7 +371,7 @@ async function cmdJack(args, raw, player) {
   if (atm.is_broken) return { type: 'error', message: 'This terminal is already dead.' };
   if (!isZonePowered(player.current_zone)) return { type: 'error', message: "The ATM is powered down — nothing to jack." };
   if (!atm.cash_stock || atm.cash_stock <= 0) return { type: 'error', message: "Cash reserves empty. Not worth the risk." };
-  if (!(await hasHackDevice(player.id))) return { type: 'error', message: "You need a hacking device to breach this terminal." };
+  if (!(await hasHackDeck(player.id))) return { type: 'error', message: "You need a hacking device to breach this terminal." };
 
   const lockedUntil = jackLockout.get(player.id) || 0;
   if (Date.now() < lockedUntil) {
@@ -303,7 +389,7 @@ async function cmdJack(args, raw, player) {
     deviceId: atm.id,
     deviceName: atm.name,
     skill: await effectiveSkill(player, 'hacking'),
-    difficulty: atm.hack_difficulty ?? 5,
+    difficulty: await hackDifficulty(player.id, atm.hack_difficulty),
     resolveCmd: 'jackresolve',
   };
 }
@@ -322,7 +408,7 @@ async function cmdJackResolve(args, raw, player, broadcast) {
   if (!atm || atm.zone_id !== player.current_zone) return { type: 'noop' };
   if (atm.is_broken) return { type: 'error', message: 'This terminal is already dead.' };
   if (!isZonePowered(player.current_zone)) return { type: 'error', message: 'The ATM is powered down.' };
-  if (!(await hasHackDevice(player.id))) return { type: 'error', message: 'You need a hacking device to breach this terminal.' };
+  if (!(await hasHackDeck(player.id))) return { type: 'error', message: 'You need a hacking device to breach this terminal.' };
 
   // The jacked-in session is over (win or lose) — stop the ongoing-crime roll
   // that started at `jack`.
@@ -330,7 +416,7 @@ async function cmdJackResolve(args, raw, player, broadcast) {
 
   if (!win) {
     jackLockout.set(player.id, Date.now() + 5 * 60 * 1000);
-    const deviceMsg = await damageHackDevice(player.id);
+    const deviceMsg = await damageHackDeck(player.id);
 
     const shockDmg = JACK_SHOCK_MIN + Math.floor(Math.random() * JACK_SHOCK_RANGE);
     const hp = Math.max(0, (player.hp || 0) - shockDmg);
@@ -355,7 +441,7 @@ async function cmdJackResolve(args, raw, player, broadcast) {
     };
   }
 
-  await awardSkillUse(player.id, 'hacking', 2);
+  await awardSkillUse(player.id, 'hacking', await breachMargin(player, atm.hack_difficulty));
   grantMaintenanceAccess(atm.id, player.id);
   // The hacking crime is no longer charged on success — it's now rolled over the
   // whole jacked-in session that began at `jack` (see the atm.jacked handler in
@@ -416,17 +502,20 @@ async function replenishTick() {
     `SELECT id, cash_max, replenish_interval_hours, last_replenish
      FROM atm_units WHERE cash_stock < cash_max AND is_broken = 0`
   );
-  for (const atm of rows) {
-    // Authored in game-hours — convert to the real seconds to actually wait via
-    // the game-speed knob so refills track the sped-up day.
+  // Which units are actually due. The interval is authored in GAME hours and
+  // converted through the game-speed knob, so the decision stays in JS — but the
+  // write does not have to. Every due unit gets the IDENTICAL update
+  // (`cash_stock=cash_max`, same timestamp), so this is one statement, not one
+  // round trip per drained cash machine every 5 minutes.
+  const due = rows.filter(atm => {
     const intervalSec = gameMsToReal((atm.replenish_interval_hours || 6) * 3600 * 1000) / 1000;
-    if (nowSec - (atm.last_replenish || 0) >= intervalSec) {
-      await query(
-        'UPDATE atm_units SET cash_stock=cash_max, last_replenish=$1 WHERE id=$2',
-        [nowSec, atm.id]
-      );
-    }
-  }
+    return nowSec - (atm.last_replenish || 0) >= intervalSec;
+  });
+  if (!due.length) return;
+  await query(
+    'UPDATE atm_units SET cash_stock=cash_max, last_replenish=$1 WHERE id = ANY($2)',
+    [nowSec, due.map(a => a.id)]
+  );
 }
 
 schedule('5m', () => replenishTick().catch(e => console.error('[atm] replenish error:', e.message)));

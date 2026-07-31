@@ -1,0 +1,21 @@
+{
+  "description": "A bag of seasoned crumb, half of it stale bread and half of it something engineered to crisp. Cling it to anything, put it in fat, and it will come out golden and lying about what it covers.",
+  "flags": {},
+  "id": "item_crumb_coat",
+  "name": "crumb coating",
+  "tags": {
+    "consumable": true,
+    "description": "A bag of seasoned crumb, half of it stale bread and half of it something engineered to crisp. Cling it to anything, put it in fat, and it will come out golden and lying about what it covers.",
+    "food_noun": "crumbed",
+    "food_profile": "batter",
+    "needs_cooking": true,
+    "restore_hunger": 8,
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.2
+    }
+  },
+  "type": "consumable",
+  "value": 6,
+  "weight": 200
+}

@@ -76,7 +76,33 @@
   "hit": 4,
   "hp_max": 42,
   "id": "enemy_wanted_patrol_officer",
-  "loot_table": [],
+  "loot_table": [
+    {
+      "credits": [
+        25,
+        60
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 20
+    },
+    {
+      "credits": [
+        100,
+        255
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 3,
+      "super": true
+    }
+  ],
   "name": "SPECTER-PD Patrol Officer",
   "weapon": [
     {

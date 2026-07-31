@@ -1,0 +1,16 @@
+{
+  "description": "Long, oval, and far too optimistic about how many people you are feeding.",
+  "flags": {},
+  "id": "item_serving_platter",
+  "name": "serving platter",
+  "tags": {
+    "container": 2500,
+    "description": "Long, oval, and far too optimistic about how many people you are feeding.",
+    "dishware": true,
+    "dishware_kind": "plate",
+    "unique": true
+  },
+  "type": "misc",
+  "value": 14,
+  "weight": 900
+}

@@ -42,6 +42,10 @@ export function biomeOf(zone) {
   // sea — so its ground must read as WATER, not dark tarmac. Check this before the airfield case, or
   // the floor paints a dark "oil slick" airport-apron square under the hull.
   if (zone.flags?.yacht) return 'water';
+  // A ROOFTOP pad — a BUILDING tile that also carries an airfield_id (the Solenne's
+  // private sky pad) — is still a city block at street level. Keep its district biome
+  // or the ground under the tower paints as a dark apron square.
+  if (zone.flags?.airfield_id && (zone.flags?.building_type || zone.flags?.is_building)) return districtBiome(zone);
   if (zone.flags?.airfield_id) return 'airport';
   return districtBiome(zone);
 }

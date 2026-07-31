@@ -1,0 +1,10 @@
+{
+  "name": "library",
+  "version": "1.0.0",
+  "description": "The acquisition point for the tablet's LIBRARY app. The books live in the `books` table and are read through plugins/tablet/library-app.js; this plugin exists so the app ARRIVES rather than simply being there. SCAN at furniture tagged `lending_terminal` sets the `library_unlocked` player flag, which is the only thing library-app.js's `visible` gate checks — before that the app is not on the home screen at all. The first scan prints an intro covering narration, minimize-and-keep-reading, the tap-to-gloss vocabulary layer, and per-book bookmarks; later scans are a gentle no-op. Examining a terminal teaches the verb once via the house shimmer convention. Leaf plugin: no table, no tick.",
+  "hooks": ["furniture.describe"],
+  "specializedActions": ["scan"],
+  "extensionPoints": [
+    "furniture.flags.lending_terminal"
+  ]
+}

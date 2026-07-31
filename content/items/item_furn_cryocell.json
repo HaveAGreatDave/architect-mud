@@ -1,0 +1,18 @@
+{
+  "description": "A slab of matte ceramic composite, no bigger than a footlocker, with a padded harness folded flat against the back so you can shoulder the thing. It radiates real cold you can feel through your jacket before you've even touched it. The lid seals with a soft magnetic sigh and a status ring that glows a steady, satisfied blue. Stamped along the seam: ZENITH ENTERPRISES — CRYOCELL, PORTABLE THERMAL SOLUTIONS. No plumbing, no bolted mounts, no permit, no grid draw at all — just sling it on and walk, and whatever's inside stays hard-frozen the whole way.",
+  "flags": {},
+  "id": "item_furn_cryocell",
+  "name": "Zenith Cryocell",
+  "tags": {
+    "appliance_grade": "consumer",
+    "bulkiness": 4,
+    "container": 20000,
+    "description": "A slab of matte ceramic composite, no bigger than a footlocker, with a padded harness folded flat against the back so you can shoulder the thing. It radiates real cold you can feel through your jacket before you've even touched it. The lid seals with a soft magnetic sigh and a status ring that glows a steady, satisfied blue. Stamped along the seam: ZENITH ENTERPRISES — CRYOCELL, PORTABLE THERMAL SOLUTIONS. No plumbing, no bolted mounts, no permit, no grid draw at all — just sling it on and walk, and whatever's inside stays hard-frozen the whole way.",
+    "misc": true,
+    "preserves": "frozen",
+    "slot": "accessory"
+  },
+  "type": "misc",
+  "value": 9200,
+  "weight": 9000
+}

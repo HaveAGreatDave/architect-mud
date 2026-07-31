@@ -179,6 +179,22 @@ The whole system's dropped on us at once. {wind} km/h and climbing.
 {day}: storm-force everything. Tie down what you love.
 ::endlines
 
+# ── Hero events ────────────────────────────────────────────────────────────
+# Named events (acid rain, ion storm) aren't weather types — they're scheduled
+# days the forecast knows about a week out. Dex names them plainly, because the
+# whole reason they're on the forecast at all is so people can prepare.
+::lines sky.acid
+Acid. Not rain with a bad attitude — acid, and it will go through a coat and then through you.
+{day} runs caustic. Sealed rainwear or four walls. There is no third answer.
+The sky's gone yellow and it means it. {precip}% chance of the worst kind of wet.
+::endlines
+
+::lines sky.ion
+Ion storm. The air itself goes conductive and every circuit in the city holds its breath.
+{day}: the grid drops. Not "may drop" — drops. Charge nothing, trust nothing with a battery in it.
+Static's building to a scream. If it's got a chip in it, it's already living on borrowed time.
+::endlines
+
 # ── Temperature bands ──────────────────────────────────────────────────────
 ::lines temp.frigid
 {temp} degrees. Your extremities are officially on their own out there.
@@ -266,6 +282,18 @@ And {humidity}% humidity — the air's basically soup. You won't so much breathe
 ::lines warn.storm
 ⚠ Storm warning for {day}. Lightning, wind, and a grid that may not hold. Stay in.
 ⚠ {day} brings the whole storm. Charge what you can now — power's not promised.
+::endlines
+
+::lines warn.acid
+⚠⚠ ACID WARNING for {day}. This is the one that takes skin off. Sealed rainwear, or you stay in.
+⚠⚠ {day} rains acid. I'm not being colourful. Cover every inch or don't go out at all.
+⚠⚠ Caustic front {day} — it eats coats, it eats gear, and then it starts on you. You've had a week's notice.
+::endlines
+
+::lines warn.ion
+⚠⚠ ION STORM {day}. The grid goes down and stays down. Anything electronic on you gets cooked.
+⚠⚠ {day}: pulse warning. Leave the deck at home, leave the tablet in a shielded bag, and if you're chromed — sit down first.
+⚠⚠ Hard warning for {day}. Lights out citywide. Have a torch that doesn't need a circuit and a room you trust.
 ::endlines
 
 ::lines warn.generic

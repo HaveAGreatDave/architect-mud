@@ -60,7 +60,7 @@ function pushContacts(live) {
   const contacts = contactsNear(live).map(n => airContact(n.live));
   for (const pid of live.occupants) {
     const p = getLivePlayer(pid);
-    if (p && p.seat === 'pilot') sendToPlayer(pid, { type: 'flight_contacts', contacts });
+    if (p && p.seat === 'pilot' && !p.textPilot) sendToPlayer(pid, { type: 'flight_contacts', contacts });
   }
 }
 
@@ -107,7 +107,7 @@ async function pushAASites(live) {
     .map(s => ({ x: s.grid_x, y: s.grid_y, name: s.name }));
   for (const pid of live.occupants) {
     const p = getLivePlayer(pid);
-    if (p && p.seat === 'pilot') sendToPlayer(pid, { type: 'flight_aasites', sites });
+    if (p && p.seat === 'pilot' && !p.textPilot) sendToPlayer(pid, { type: 'flight_aasites', sites });
   }
 }
 
@@ -130,17 +130,28 @@ async function applyAirDamage(targetLive, amount, byPlayer, reason = 'shotdown',
     : (message || `<span class="text-red">⚠ TAKING FIRE — cannon rounds rake the airframe. Hull ${hullPct}%.</span>`));
   for (const pid of targetLive.occupants) {
     const p = getLivePlayer(pid);
-    if (p && p.seat === 'pilot') sendToPlayer(pid, { type: 'air_hit', role: 'taken', hullPct, dmg, sheared: sheared || null, by: byPlayer?.handle || null });
+    // The hit itself is already narrated to every occupant by the toOccupants above;
+    // this is the cockpit's damage-flash payload, which a text pilot has nothing to show.
+    if (p && p.seat === 'pilot' && !p.textPilot) sendToPlayer(pid, { type: 'air_hit', role: 'taken', hullPct, dmg, sheared: sheared || null, by: byPlayer?.handle || null });
   }
   if (isContinuous(targetLive)) pushContext(targetLive);   // refresh their hull gauge + surfaces now, not next tick
   return false;
 }
 
 // RWR push to a craft's pilot: cockpit lock/missile/clear warnings (Phase C).
+// A text pilot has no RWR strip to light up, but being locked up is not something they
+// may simply fail to notice — so the same warning arrives as a line of text instead.
+const RWR_TEXT = {
+  lock: '<span class="text-amber">⚠ RWR — someone has you locked up.</span>',
+  missile: '<span class="text-red">⚠⚠ MISSILE IN THE AIR — break and flare.</span>',
+  clear: '<span class="text-dim">RWR clear — the lock is broken.</span>',
+};
 function airThreatTo(live, payload) {
   for (const pid of live.occupants) {
     const p = getLivePlayer(pid);
-    if (p && p.seat === 'pilot') sendToPlayer(pid, { type: 'air_threat', ...payload });
+    if (!p || p.seat !== 'pilot') continue;
+    if (p.textPilot) { const t = RWR_TEXT[payload?.kind]; if (t) out(pid, t); continue; }
+    sendToPlayer(pid, { type: 'air_threat', ...payload });
   }
 }
 
@@ -472,7 +483,7 @@ function sendAaTracer(live, site, bearing, dist, hit) {
   const near = 1 - Math.max(0, Math.min(1, dist / Math.max(1, site.range)));
   for (const pid of live.occupants) {
     const p = getLivePlayer(pid);
-    if (p && p.seat === 'pilot') sendToPlayer(pid, { type: 'aa_tracer', bearing, near, by: site.name, x: site.grid_x, y: site.grid_y, hit: !!hit });
+    if (p && p.seat === 'pilot' && !p.textPilot) sendToPlayer(pid, { type: 'aa_tracer', bearing, near, by: site.name, x: site.grid_x, y: site.grid_y, hit: !!hit });
   }
 }
 

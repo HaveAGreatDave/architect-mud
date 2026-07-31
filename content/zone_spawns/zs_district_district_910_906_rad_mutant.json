@@ -1,8 +1,0 @@
-{
-  "enemy_id": "enemy_rad_mutant",
-  "id": "zs_district_district_910_906_rad_mutant",
-  "max_count": 1,
-  "respawn_seconds": 340,
-  "spawn_weight": 40,
-  "zone_id": "zone_district_910_906"
-}

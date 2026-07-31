@@ -145,7 +145,7 @@ Captain Nguyen:
 What the fuck are you talking about and get to the point!
 
 SHOT
-The Captain Nguyen delivers this in a frantic whisper from somewhere just off-camera. It is not a quiet whisper.
+Captain Nguyen delivers this in a frantic whisper from somewhere just off-camera. It is not a quiet whisper.
 SHOT_END
 
 Neil Mcmanistan:
@@ -173,11 +173,11 @@ And now a word from our sponsor:
 CAM 3 SWING to the far corner of the basement
 
 SHOT
-The camera drifts wide to catch the far corner of the basement. Perched on a barstool, just at the edge of the visible set, is an old Vietnamese man. He is holding a small brown paper bag. He has been there the entire time.
+The camera drifts wide to catch the far corner of the basement. Perched on a barstool, just at the edge of the visible set, is Captain Nguyen. He is holding a small brown paper bag. He has been there the entire time.
 SHOT_END
 
 Captain Nguyen:
-Who the hell is that?!
+Neil. Neil. That's ME. I've been sat here the whole goddamn show.
 
 Neil Mcmanistan:
 Thats fuckin, nguyen, man, hey nguyen say hi.
@@ -198,7 +198,7 @@ Captain Nguyen:
 NEIL WE HAVE TO THANK THE SPONSORS SAY AND NOW A WORD FROM OUR SPONSORS!
 
 SHOT
-The Captain Nguyen shouts this at a volume that could be heard in the laundromat upstairs.
+Captain Nguyen shouts this at a volume that could be heard in the laundromat upstairs.
 SHOT_END
 
 Neil Mcmanistan:
@@ -359,7 +359,7 @@ PRESS THE RED BUTTON NGUYEN!
 
 CAM 3 SWING to Nguyen in the corner
 
-ACTION npc_nguyen reaches out and presses the large red button mounted to the wall beside his barstool.
+ACTION npc_captain_nguyen reaches out and presses the large red button mounted to the wall beside his barstool.
 
 SHOT
 From a speaker of indeterminate location, a single word is announced at considerable volume.
@@ -395,7 +395,7 @@ WELL LOOK NO FURTHER THAN Captain Nguyen'S MAGIC ROOT! AVAILABLE VIA PAYPAL —
 
 CAM 1 SNAPS to Nguyen's midsection
 
-ACTION npc_nguyen reaches into his trousers and produces a strange, gnarled red root, which he holds aloft with quiet dignity.
+ACTION npc_captain_nguyen reaches into his trousers and produces a strange, gnarled red root, which he holds aloft with quiet dignity.
 
 Captain Nguyen:
 THAT'S ENOUGH! I'VE HAD ENOUGH! I'M PULLING THE PLUG —
@@ -497,7 +497,7 @@ SHOT_END
 Neil Mcmanistan:
 Who makes an ad like that? That's like three antisemitic self-burns in a row. He looks like Jude Süss up there. This is egregious! I'm too riled up to continue. Nguyen, roll the credits!
 
-ACTION npc_nguyen rises from his barstool and produces a large flip chart from behind him with the calm efficiency of a man who was prepared for this.
+ACTION npc_captain_nguyen rises from his barstool and produces a large flip chart from behind him with the calm efficiency of a man who was prepared for this.
 
 CREDITS 45
 
@@ -536,12 +536,12 @@ Neil Mcmanistan:
 Oh fuck off!
 
 Captain Nguyen:
-YOU CAN'T JUST CREDIT Captain Nguyen AS THE Captain Nguyen! I'M THE Captain Nguyen!
+YOU CAN'T JUST CREDIT YOURSELF AS BIG GUY! I PRODUCE THIS SHOW! I AM THE CAPTAIN!
 
-ACTION npc_nguyen flips to the next page of the flip chart.
+ACTION npc_captain_nguyen flips to the next page of the flip chart.
 
 Captain Nguyen:
-Real mature, man. Real mature. Your buddy Nguyen couldn't captain a rowboat — whipping out his root on live television, what the fuck was that?! She was right to leave you, man.
+Real mature, man. Real mature. She was right to leave you, man.
 
 Neil Mcmanistan:
 ... fair observation...

@@ -1,0 +1,18 @@
+{
+  "description": "A deep, heavy-bottomed pot, dented at the rim and dull with use. Slow to come up to heat and stubborn about letting it go — which is the whole point.",
+  "flags": {},
+  "id": "item_stock_pot",
+  "name": "stock pot",
+  "tags": {
+    "container": 4000,
+    "description": "A deep, heavy-bottomed pot, dented at the rim and dull with use. Slow to come up to heat and stubborn about letting it go — which is the whole point.",
+    "heat_distribution": 0.6,
+    "heat_retention": 0.85,
+    "unique": true,
+    "vessel": true,
+    "vessel_kind": "pot"
+  },
+  "type": "misc",
+  "value": 70,
+  "weight": 2400
+}

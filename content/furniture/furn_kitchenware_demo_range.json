@@ -1,0 +1,19 @@
+{
+  "description": "A two-ring demonstration range bolted to the end of the counter, kept scrupulously clean and lit off a spur from the batten light. A card wired to the guard rail reads TRY BEFORE YOU BUY — ONE ITEM — I AM WATCHING.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ],
+    "stove_tier": "mid"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_kitchenware_demo_range",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "demonstration range",
+  "object_type": "fixture",
+  "power_draw_kw": 3,
+  "price": 0,
+  "zone_id": "zone_kitchenware"
+}

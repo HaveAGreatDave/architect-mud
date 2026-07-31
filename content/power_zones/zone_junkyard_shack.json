@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_junkyard_util",
+  "id": "zone_junkyard_shack",
+  "max_capacity_kw": 1000,
+  "name": "Salvage Rites — Shack",
+  "source_type": "junction_box"
+}

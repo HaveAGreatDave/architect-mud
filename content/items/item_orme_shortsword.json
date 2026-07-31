@@ -1,0 +1,38 @@
+{
+  "description": "The Trueline is Vessa Orme's own pattern: a straight, honest, slightly overweight shortsword with nothing clever about it anywhere. She makes about one a week and will not be hurried. The circle worn flat on one side is the house mark and goes on all of them — the signature under the guard does not. That one she cuts by hand, and only into the ones that came out the way she wanted.",
+  "flags": {},
+  "id": "item_orme_shortsword",
+  "name": "Orme Trueline signature shortsword",
+  "tags": {
+    "__own": {
+      "damage": {
+        "min": 6,
+        "max": 13
+      },
+      "damage_type": "edged",
+      "weapon_skill": "blades",
+      "min_skill": {
+        "blades": 2
+      },
+      "description": "The Trueline is Vessa Orme's own pattern: a straight, honest, slightly overweight shortsword with nothing clever about it anywhere. She makes about one a week and will not be hurried. The circle worn flat on one side is the house mark and goes on all of them — the signature under the guard does not. That one she cuts by hand, and only into the ones that came out the way she wanted."
+    },
+    "__super": [
+      "weapon_blades"
+    ],
+    "damage": {
+      "min": 6,
+      "max": 13
+    },
+    "damage_type": "edged",
+    "weapon_skill": "blades",
+    "min_skill": {
+      "blades": 2
+    },
+    "description": "The Trueline is Vessa Orme's own pattern: a straight, honest, slightly overweight shortsword with nothing clever about it anywhere. She makes about one a week and will not be hurried. The circle worn flat on one side is the house mark and goes on all of them — the signature under the guard does not. That one she cuts by hand, and only into the ones that came out the way she wanted.",
+    "slot": "weapon_hand",
+    "weapon": true
+  },
+  "type": "weapon",
+  "value": 450,
+  "weight": 2200
+}

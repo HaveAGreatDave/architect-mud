@@ -14,6 +14,8 @@
 import { sendCmdSilent, sendRaw } from '../net.js';
 import { renderMarkup } from '../markup.js';
 import { createGamedayView } from './gameday.js';
+import { createRinkView } from './gameday-rink.js';
+import { cphlMark, cphlLockup } from './cphl-brand.js';
 
 // Render an NPC say line in screenplay style: the speaker's name (in the TV
 // accent color) on its own line, their speech directly beneath it — no gap.
@@ -106,6 +108,7 @@ export function createTvView(root, opts = {}) {
   let _standingsTimer = null;
   let _fxTimer = null;
   let _gamedayView = null;
+  let _gamedaySport = null;   // which sport the mounted sub-screen renders
   let _gamedayOpen = false;
   let _lastGameday = null;
   let _scheduleOpen = false;
@@ -140,10 +143,186 @@ export function createTvView(root, opts = {}) {
   // to SEED the voice, so each host sounds consistent; narration with no speaker
   // falls back to the station name as the seed.
   function speak(rawText, style, windowSec) {
+    // appendMessage ran a moment ago for this same message and queued it — the
+    // delivery will speak it when the voice frees. Coupled to dispatch's call order
+    // (append then speak), which is why the flag is cleared on every append.
+    if (_deferredLast) { _deferredLast = false; return; }
     // While the Gameday view is open it owns Chip's voice, starting it exactly when
     // his caption is displayed (a play-by-play line waits for the hit to land).
     if (_gamedayOpen && _gamedayView) return;
     _speakNow(rawText, style, windowSec);
+  }
+
+  // ── speech queue ──────────────────────────────────────────────────────────
+  // Lines arrive on the SERVER's clock: broadcast sets bb.waitUntil from
+  // nodeHoldMs, a text-length ESTIMATE (110ms/char + 1s, rounded to the 1s tick).
+  // The voice reads at its own pace and — measured across all 27 .bsm scripts —
+  // finishes inside that hold on every genuine line of dialogue, averaging 2.3s
+  // early. Speaking on arrival therefore left the set silent for a couple of
+  // seconds between every line, and on the rare overrun the next arrival called
+  // AudioEngine.speak, whose first act is cancel() — truncating mid-word.
+  //
+  // So lines QUEUE instead. A line is spoken the moment the previous one ends,
+  // which closes the dead air, and an overrun delays the next line rather than
+  // amputating this one. speak() hands back the true duration, so the chain is
+  // driven by what the voice actually did, not by another estimate.
+  //
+  // The cost is DRIFT: the client now paces off its own voice while the server
+  // graph runs on its clock for every viewer at once. See _sceneBeat().
+  const MAX_UTTERANCE = 220;   // chars
+  // Breath between chained lines. Lives in the synth's tunables so it can be turned
+  // by ear in the voice lab alongside every other pacing number, rather than being a
+  // second timing constant in a different file that quietly disagrees with them.
+  const lineGap = () => window.AudioEngine?.voiceTuning?.lineGapMs ?? 180;
+  const RESYNC_MS     = 2500;  // backlog past which we shed at the next scene beat
+  let _speechQ = [];           // [{ speech, seed, at }] — utterance pieces
+  let _deliverQ = [];          // [{ text, style, … }]   — whole messages awaiting the voice
+  let _busyUntil = 0;          // performance.now() when the current utterance ends
+  let _pumpTimer = null;
+  let _deliverTimer = null;
+  let _deferredLast = false;   // the message just handed to appendMessage was queued
+  let _voiceLive = true;       // does the engine actually make sound? see _pump()
+  // A message cannot wait forever. If the voice somehow stops finishing — a bug, a
+  // suspended context, a line that outruns everything — the screen must not go dead,
+  // so an old delivery is shown regardless. Generous, because normal operation never
+  // reaches it: a line finishes in seconds, not tens of them.
+  const DELIVER_MAX_WAIT_MS = 20000;
+  // A CARD IS NOT A LINE. A title card starts no utterance, so it pushed _busyUntil
+  // nowhere — and the drain below, having nothing to wait for, rendered the card and
+  // the message after it in the same pass. The logo appeared and was cleared in the
+  // same frame (see _clearAfterTitleCard), which is what made every commercial's
+  // title card flash and vanish. A picture therefore holds the queue on its own
+  // account, for its own duration, exactly as a spoken line does.
+  let _cardUntil = 0;          // performance.now() until which a card owns the screen
+  const CARD_MIN_MS = 2600;    // floor; mirrors CARD_MIN_HOLD_MS in plugins/broadcast
+  const CARD_MAX_MS = 9000;    // a long credits crawl must not stall the whole queue
+  const CARD_STYLES = new Set(['svg', 'ascii_art', 'credits']);
+  const _cardHoldMs = (style, duration) => {
+    if (!CARD_STYLES.has(style)) return 0;
+    const authored = duration != null ? duration * 1000 : CARD_MIN_MS;
+    return Math.min(CARD_MAX_MS, Math.max(CARD_MIN_MS, authored));
+  };
+
+  // A line longer than 273 characters CANNOT fit its hold, whatever the voice
+  // does — nodeHoldMs caps at 30s while speech keeps growing. That is the only
+  // structural source of backlog in the corpus (one 585-char legal crawl), so
+  // long lines are split into separate utterances on sentence then comma
+  // boundaries, exactly as the library reader does. This is internal to the
+  // voice: the caption is still displayed as one message.
+  // Three cascading levels, because the bound has to actually BE a bound: the
+  // 585-char crawl in the_last_lot.bsm is punctuated only with middots, so neither
+  // sentence nor comma splitting touches it and a two-level version still emitted a
+  // 520-char utterance. The word-level wrap is the floor that can't be fallen through.
+  function _splitUtterance(text) {
+    if (text.length <= MAX_UTTERANCE) return [text];
+    const pack = (atoms) => {
+      const out = []; let buf = '';
+      for (const at of atoms) {
+        if (buf && (buf + ' ' + at).length > MAX_UTTERANCE) { out.push(buf); buf = at; }
+        else buf = buf ? buf + ' ' + at : at;
+      }
+      if (buf) out.push(buf);
+      return out;
+    };
+    const under = p => p.length <= MAX_UTTERANCE;
+    let parts = pack(text.split(/(?<=[.!?])\s+/));                              // sentences
+    parts = parts.flatMap(p => under(p) ? [p] : pack(p.split(/(?<=[,;:·—])\s+/)));  // clauses
+    parts = parts.flatMap(p => under(p) ? [p] : pack(p.split(/\s+/)));          // words
+    return parts.filter(Boolean);
+  }
+
+  function _clearSpeech() {
+    _speechQ = [];
+    _flushDeliveries();
+    _busyUntil = 0;
+    // A purge (channel change, power off): nothing owns the screen, and anything the
+    // flush put back behind a card goes with it rather than landing on the next channel.
+    _deliverQ = [];
+    if (_deliverTimer) { clearTimeout(_deliverTimer); _deliverTimer = null; }
+    _cardUntil = 0;
+    if (_pumpTimer) { clearTimeout(_pumpTimer); _pumpTimer = null; }
+  }
+
+  function _pump() {
+    if (_pumpTimer) { clearTimeout(_pumpTimer); _pumpTimer = null; }
+    if (!_speechQ.length) { _pumpDeliver(); return; }
+    const now = performance.now();
+    if (now < _busyUntil) { _pumpTimer = setTimeout(_pump, _busyUntil - now); return; }
+    const item = _speechQ.shift();
+    // A muted or disabled engine returns nothing; treat it as a zero-length read
+    // so the queue drains immediately instead of stalling forever on a dead voice.
+    const res = window.AudioEngine?.speak(item.speech, { seed: item.seed, budget: item.budget });
+    const spoke = !!(res && res.duration > 0);
+    // The authority on whether there is a voice to wait for. If the engine produced
+    // nothing, every queued caption is released at once and display goes back to the
+    // server's timing — otherwise a muted set would hold its lines forever.
+    if (_voiceLive !== spoke) { _voiceLive = spoke; if (!spoke) _flushDeliveries(); }
+    const dur = spoke ? res.duration * 1000 : 0;
+    _busyUntil = now + dur + lineGap();
+    _pumpTimer = setTimeout(_pump, dur + lineGap());
+  }
+
+  // Show the next waiting message once the voice has fallen silent, then speak it —
+  // caption and audio start together, which is the whole point.
+  function _pumpDeliver() {
+    if (_deliverTimer) { clearTimeout(_deliverTimer); _deliverTimer = null; }
+    if (!_deliverQ.length) return;
+    const now = performance.now();
+    const waited = now - _deliverQ[0].at;
+    const busyUntil = Math.max(_busyUntil, _cardUntil);
+    if ((_speechQ.length || now < busyUntil) && waited < DELIVER_MAX_WAIT_MS) {
+      _deliverTimer = setTimeout(_pumpDeliver, Math.max(30, busyUntil - now));
+      return;
+    }
+    const m = _deliverQ.shift();
+    _renderMessage(m.text, m.style, m.duration, m.hasGameday);
+    // The picture that just went up owns the screen for its own hold — the next
+    // message waits for it the way it waits for a voice.
+    const cardMs = _cardHoldMs(m.style, m.duration);
+    if (cardMs) _cardUntil = now + cardMs;
+    // A card or ticker that queued only to keep its place in the order has nothing
+    // to say. And while Gameday is open it owns Chip's voice and starts it with the
+    // caption, so firing here as well would speak the line twice.
+    if (m.spoken && !m.catchUp && !(_gamedayOpen && _gamedayView)) _speakNow(m.text, m.style, m.duration);
+    if (_deliverQ.length) _pumpDeliver();
+  }
+
+  function _flushDeliveries() {
+    const pending = _deliverQ; _deliverQ = [];
+    if (_deliverTimer) { clearTimeout(_deliverTimer); _deliverTimer = null; }
+    for (let i = 0; i < pending.length; i++) {
+      const m = pending[i];
+      _renderMessage(m.text, m.style, m.duration, m.hasGameday);
+      const cardMs = _cardHoldMs(m.style, m.duration);
+      if (!cardMs) continue;
+      // A card even in a dump keeps its hold — emptying the rest of the queue on top
+      // of it would wipe it in the same frame, which is the bug this pacing exists to
+      // stop. Whatever follows the card goes back in the queue and waits for it.
+      _cardUntil = performance.now() + cardMs;
+      _deliverQ = pending.slice(i + 1);
+      _pumpDeliver();
+      return;
+    }
+  }
+
+  // How long the oldest unspoken line has been waiting — i.e. how far the voice
+  // has fallen behind the server's timeline.
+  function _backlogMs() {
+    if (_deliverQ.length) return performance.now() - _deliverQ[0].at;
+    return _speechQ.length ? performance.now() - _speechQ[0].at : 0;
+  }
+
+  // A scene beat: a title card, ticker, overlay or any other non-spoken message.
+  // Drift is only a problem when spoken lines start landing against the wrong
+  // picture, and a beat is where that becomes visible — so it is also the only
+  // safe place to resync. Shedding here costs a whole line at a natural break
+  // instead of a random line mid-scene or half a word mid-vowel. In the measured
+  // corpus the backlog never reaches the threshold, so this should not fire;
+  // it exists to BOUND worst-case drift, not to run in normal operation.
+  function _sceneBeat() {
+    if (_backlogMs() <= RESYNC_MS) return;
+    _speechQ = [];
+    _deliverQ = _deliverQ.slice(-1);   // keep only the freshest, drop the stale ones
   }
 
   function _speakNow(rawText, style, windowSec) {
@@ -161,10 +340,12 @@ export function createTvView(root, opts = {}) {
     const gap = (now - _lastSpeakAt) / 1000;
     if (_lastSpeakAt && gap > 1 && gap < 30) _speakWindow = _speakWindow * 0.5 + gap * 0.5;
     _lastSpeakAt = now;
-    // Prefer the server's per-line window (the text-scaled hold), sized so the voice
-    // reads at its natural pace without compressing. Fall back to the measured gap.
+    // The server's per-line window (the text-scaled hold), falling back to the
+    // measured gap. Passed for information only — the voice always reads at its own
+    // pace and never compresses to fit (see AudioEngine.speak).
     const budget = windowSec > 0.5 ? windowSec : _speakWindow;
-    window.AudioEngine?.speak(speech, { seed, budget });
+    for (const piece of _splitUtterance(speech)) _speechQ.push({ speech: piece, seed, budget, at: now });
+    _pump();
   }
 
   // ── open / close ──────────────────────────────────────────────────────────
@@ -196,7 +377,7 @@ export function createTvView(root, opts = {}) {
     }
 
     const _channelChanged = (data.channelId || null) !== _tvActiveChannelId;
-    if (_channelChanged) { _clearScorebug(); _clearStandings(); _clearSportsFx(); _clearGameday(); _clearStandingsPanel(); }
+    if (_channelChanged) { _clearScorebug(); _clearStandings(); _clearSportsFx(); _clearGameday(); _clearStandingsPanel(); _clearFilmLayers(); }
     _tvActiveChannelId = data.channelId || null;
     // Keep the TV guide open across a channel change, but refresh it for the new station.
     if (_channelChanged && _scheduleOpen) _requestSchedule();
@@ -397,7 +578,7 @@ export function createTvView(root, opts = {}) {
   }
 
   function close() {
-    if (_speechOwner === view) { window.AudioEngine?.cancelSpeech(); _speechOwner = null; }
+    if (_speechOwner === view) { window.AudioEngine?.cancelSpeech(); _clearSpeech(); _speechOwner = null; }
     _tvOpen = false;
     _tvShuttingDown = false;
     _tvPoweredOff = false;
@@ -415,6 +596,7 @@ export function createTvView(root, opts = {}) {
     _clearGameday();
     _clearSchedule();
     _clearStandingsPanel();
+    _clearFilmLayers();
     const win = el('window');
     if (win) {
       win.classList.remove('tv-shutting-off');
@@ -428,6 +610,10 @@ export function createTvView(root, opts = {}) {
     root.classList.remove('active');
     window.AudioEngine?.stopLoop(_humDef.id);
     window.AudioEngine?.stopLoop(_staticDef.id);
+    // Kill the show's music too. Owner-scoped, because the one music player is
+    // shared: if the zone theme or the player's own AMP tape is what's currently
+    // playing, this is a no-op and their music keeps going.
+    window.AudioEngine?.stopMusicOwnedBy('tv');
     opts.onClose?.();
   }
 
@@ -436,7 +622,7 @@ export function createTvView(root, opts = {}) {
     // The tablet app has no CRT to collapse — it just closes (the tablet shell
     // itself owns the leaving animation).
     if (!isCrt) { close(); return; }
-    if (_speechOwner === view) { window.AudioEngine?.cancelSpeech(); _speechOwner = null; }
+    if (_speechOwner === view) { window.AudioEngine?.cancelSpeech(); _clearSpeech(); _speechOwner = null; }
     _tvShuttingDown = true;
     if (_tuneTimer) { clearTimeout(_tuneTimer); _tuneTimer = null; }
 
@@ -465,6 +651,11 @@ export function createTvView(root, opts = {}) {
     if (overlay && overlay.overlayType === 'scorebug') { _applyScorebug(overlay); return; }
     if (overlay && overlay.overlayType === 'gameday') { _handleGameday(overlay); return; }
     if (overlay && overlay.overlayType === 'standings') { _applyStandingsBug(overlay); return; }
+    // Film layers. Letterbox is persistent — a matte the picture switches on and off,
+    // never a timed card — and the fade is a one-shot transition that paints over
+    // everything, so neither may go through the transient overlay container.
+    if (overlay && overlay.overlayType === 'letterbox') { _applyLetterbox(!!overlay.on); return; }
+    if (overlay && overlay.overlayType === 'fade') { _applyFade(overlay.fade || 'out', overlay.duration || 3); return; }
     // Sports "jumbotron" FX. While the Gameday sub-screen is open, render it Gameday-
     // native (a compact card over the field) instead of taking over the whole screen.
     if (overlay && overlay.overlayType === 'sportsfx') {
@@ -488,6 +679,23 @@ export function createTvView(root, opts = {}) {
       node.innerHTML =
         `<div class="tv-overlay-lt-name">${_esc(overlay.text)}</div>` +
         (overlay.subtext ? `<div class="tv-overlay-lt-sub">${_esc(overlay.subtext)}</div>` : '');
+    } else if (overlay.overlayType === 'act_card') {
+      // Chapter/pre-roll card — the distributor plate, the certificate, the act break.
+      _clearTvMessages();
+      node = document.createElement('div');
+      node.className = 'tv-overlay-act-card';
+      node.innerHTML =
+        `<div class="tv-act-title">${_esc(overlay.text)}</div>` +
+        (overlay.subtext ? `<div class="tv-act-sub">${_esc(overlay.subtext)}</div>` : '');
+    } else if (overlay.overlayType === 'intermission') {
+      // The reel change. Holds the house card for its full duration, so somebody who
+      // tunes in during one sees an intermission, exactly as they would have.
+      _clearTvMessages();
+      node = document.createElement('div');
+      node.className = 'tv-overlay-intermission';
+      node.innerHTML =
+        `<div class="tv-intermission-title">${_esc(overlay.text || 'INTERMISSION')}</div>` +
+        `<div class="tv-intermission-sub">The picture will continue.</div>`;
     } else if (overlay.overlayType === 'alert_flash') {
       node = document.createElement('div');
       node.className = 'tv-overlay-alert';
@@ -502,6 +710,30 @@ export function createTvView(root, opts = {}) {
         _overlayTimer = setTimeout(_clearOverlay, overlay.duration * 1000);
       }
     }
+  }
+
+  // ── film layers ───────────────────────────────────────────────────────────
+  // The matte a picture frames itself with. Persistent by design: it is switched on
+  // at the head of the feature and off before the credit crawl, and survives every
+  // transient card in between. Also carries the grain — a film on a Basin set is a
+  // recording of a recording, and it should not look like the news.
+  function _applyLetterbox(on) {
+    const host = el('letterbox');
+    if (!host) return;
+    host.classList.toggle('tv-letterbox-on', !!on);
+    const win = el('window');
+    if (win) win.classList.toggle('tv-filmic', !!on);
+  }
+
+  // One-shot optical transition. `out` dips to black and holds there; `in` starts
+  // black and lifts. Both are pure CSS — nothing is queued, so a late tuner who lands
+  // mid-fade simply sees the shot that follows it.
+  function _applyFade(dir, seconds) {
+    const host = el('fade');
+    if (!host) return;
+    const ms = Math.max(0.2, Number(seconds) || 3) * 1000;
+    host.style.transitionDuration = `${ms}ms`;
+    host.classList.toggle('tv-fade-black', dir !== 'in');
   }
 
   function _clearOverlay() {
@@ -533,6 +765,21 @@ export function createTvView(root, opts = {}) {
         `<rect class="tv-sb-base ${b1 ? 'on' : ''}" x="20" y="12" width="10" height="10" transform="rotate(45 25 17)"/>` +
         `</svg>`;
     }
+    // Hockey's equivalent of the diamond: live strength. Only rendered while it's
+    // actually true — the server omits `strength` at even strength, so the chip
+    // appears exactly for the seconds a man is in the box or a net is empty.
+    let strength = '';
+    if (sb.strength) {
+      const label = { pp: 'PP', sh: 'SH', en: 'EN' }[sb.strength] || String(sb.strength).toUpperCase();
+      strength = `<div class="tv-sb-strength ${_esc(sb.strength)}">${_esc(label)}</div>`;
+    }
+    // Shots on goal — hockey's second scoreboard. A 1-0 game reads completely
+    // differently at 9 shots than at 40, and this is where a viewer looks for it.
+    let sog = '';
+    if (sb.shotsAway != null || sb.shotsHome != null) {
+      sog = `<div class="tv-sb-sog" aria-label="shots on goal">` +
+        `<i>SOG</i><span>${sb.shotsAway | 0}</span><span>${sb.shotsHome | 0}</span></div>`;
+    }
     let outs = '';
     if (sb.outs != null) {
       const o = Math.max(0, Math.min(3, sb.outs | 0));
@@ -540,17 +787,28 @@ export function createTvView(root, opts = {}) {
         [0, 1, 2].map(i => `<span class="tv-sb-out ${i < o ? 'on' : ''}"></span>`).join('') + `</div>`;
     }
 
+    // A branded sport puts its mark on the persistent bug — the small always-on
+    // identifier that tells a viewer joining mid-period what they've tuned into.
+    const brand = sb.sport === 'hockey' ? `<div class="tv-sb-brand">${cphlMark('15px')}</div>` : '';
+    // A rivalry stays flagged all night, not just at the face-off — someone joining in
+    // the second period should be able to see why the penalty count looks like that.
+    const rivalChip = sb.rivalry ? `<div class="tv-sb-rival" title="Rivalry night">RIVALRY</div>` : '';
     host.innerHTML =
+      brand +
       `<div class="tv-sb-scores">` +
         `<div class="tv-sb-row ${aLead ? 'lead' : ''}"><span class="tv-sb-team">${away}</span><span class="tv-sb-num">${aScore}</span></div>` +
         `<div class="tv-sb-row ${hLead ? 'lead' : ''}"><span class="tv-sb-team">${home}</span><span class="tv-sb-num">${hScore}</span></div>` +
       `</div>` +
-      `<div class="tv-sb-state">${diamond}<div class="tv-sb-status">${_esc(sb.status || '')}</div>${outs}</div>`;
+      `<div class="tv-sb-state">${diamond}${strength}${rivalChip}<div class="tv-sb-status">${_esc(sb.status || '')}</div>${outs}${sog}</div>`;
     host.classList.add('on');
     // A score-bug means a game is on air — that's when the standings button is worth
     // offering. Same reveal pattern as the Gameday toggle.
     el('standings-btn')?.classList.add('avail');
   }
+
+  // A matte and a dip-to-black belong to the picture that raised them — a channel
+  // change or a power-off must not leave the next station framed in black bars.
+  function _clearFilmLayers() { _applyLetterbox(false); _applyFade('in', 0.2); }
 
   function _clearScorebug() {
     const host = el('scorebug');
@@ -563,14 +821,25 @@ export function createTvView(root, opts = {}) {
   // it open (it covers the play-by-play), but we always cache the latest so opening
   // mid-game lands on the current play. The view is placement-agnostic (gameday.js),
   // which is what lets the tablet mount the identical sub-screen.
+  // One sub-screen per sport, chosen by the payload's own `sport` and nothing else —
+  // the two views share an interface precisely so this is the only line that knows
+  // there's more than one. Switching sports (a hockey game following a ballgame on
+  // the same channel) tears the old view down rather than feeding it a payload it
+  // can't read.
+  function _gamedayViewFor(gd, hostEl) {
+    const want = gd && gd.sport === 'hockey' ? 'hockey' : 'baseball';
+    if (_gamedayView && _gamedaySport === want) return _gamedayView;
+    _gamedayView?.clear();
+    _gamedaySport = want;
+    _gamedayView = want === 'hockey' ? createRinkView(hostEl) : createGamedayView(hostEl);
+    return _gamedayView;
+  }
+
   function _handleGameday(gd) {
     _lastGameday = gd;
     const btn = el('gameday-btn');
     if (btn) btn.classList.add('avail');
-    if (_gamedayOpen) {
-      if (!_gamedayView) _gamedayView = createGamedayView(el('gameday'));
-      _gamedayView.apply(gd);
-    }
+    if (_gamedayOpen) _gamedayViewFor(gd, el('gameday')).apply(gd);
   }
 
   function _toggleGameday() {
@@ -581,9 +850,9 @@ export function createTvView(root, opts = {}) {
     host.classList.toggle('on', _gamedayOpen);
     btn?.classList.toggle('on', _gamedayOpen);
     if (_gamedayOpen) {
-      if (!_gamedayView) _gamedayView = createGamedayView(host);
-      if (_lastGameday) _gamedayView.apply(_lastGameday);
-      else _gamedayView.showIdle();   // opened before an at-bat arrived — never blank
+      const view = _gamedayViewFor(_lastGameday, host);
+      if (_lastGameday) view.apply(_lastGameday);
+      else view.showIdle();   // opened before a play arrived — never blank
     }
   }
 
@@ -593,6 +862,7 @@ export function createTvView(root, opts = {}) {
     _gamedayOpen = false;
     _lastGameday = null;
     _gamedayView?.clear();
+    _gamedayView = null; _gamedaySport = null;   // next sport mounts its own view
     el('gameday')?.classList.remove('on');
     el('gameday-btn')?.classList.remove('on', 'avail');
   }
@@ -743,16 +1013,25 @@ export function createTvView(root, opts = {}) {
     if (!host) return;
     const rows = Array.isArray(sb.rows) ? sb.rows : [];
     if (!rows.length) return;
+    // Hockey's last column is POINTS, not a differential — a table that ranks on points
+    // but prints goal-difference beside it looks mis-sorted, because the eye reads the
+    // last number as the reason for the order. The record carries the OT losses for the
+    // same reason: they're where the points came from.
+    const hockey = sb.sport === 'hockey';
     const body = rows.map((r, i) => {
-      const rd = (r.rd > 0 ? '+' : '') + (Number.isFinite(r.rd) ? r.rd : 0);
+      const tail = hockey
+        ? String(r.points ?? 0)
+        : (r.rd > 0 ? '+' : '') + (Number.isFinite(r.rd) ? r.rd : 0);
+      const rec = hockey ? `${r.wins}-${r.losses}-${r.otl || 0}` : `${r.wins}-${r.losses}`;
       return `<div class="tv-st-row">` +
         `<span class="tv-st-rank">${i + 1}</span>` +
         `<span class="tv-st-team">${_esc(r.team)}</span>` +
-        `<span class="tv-st-rec">${r.wins}-${r.losses}</span>` +
-        `<span class="tv-st-rd">${rd}</span>` +
+        `<span class="tv-st-rec">${rec}</span>` +
+        `<span class="tv-st-rd">${tail}</span>` +
       `</div>`;
     }).join('');
-    host.innerHTML = `<div class="tv-st-title">${_esc(sb.title || 'STANDINGS')}</div>${body}`;
+    host.innerHTML =
+      `<div class="tv-st-title">${hockey ? cphlMark('14px') : ''}${_esc(sb.title || 'STANDINGS')}</div>${body}`;
     host.classList.add('on');
     // Reserve the bug's top-right corner in the text layer so the play-by-play wraps
     // around it instead of running underneath. Measure after layout, then flow the
@@ -853,9 +1132,75 @@ export function createTvView(root, opts = {}) {
         `</div>`;
     } else if (fx.kind === 'matchup') {
       const rec = (r) => r && r !== '0-0' ? `<span class="rec">${_esc(r)}</span>` : '';
+      // A branded show puts its lockup on the card; Deadball keeps the plain label it
+      // has always had, so this stays additive rather than a restyle of the ballgame.
       inner =
-        `<div class="tv-fx-matchup">` +
-          `<div class="tv-fx-mu-label">Tonight on DEADBALL</div>` +
+        `<div class="tv-fx-matchup${fx.brand === 'cphl' ? ' cphl' : ''}">` +
+          (fx.brand === 'cphl'
+            ? cphlLockup('Tonight in the CPhL', '34px')
+            : `<div class="tv-fx-mu-label">Tonight on ${_esc(fx.show || 'DEADBALL')}</div>`) +
+          `<div class="tv-fx-mu-teams">` +
+            `<div class="tv-fx-mu-team away"><span class="nm">${_esc(fx.away)}</span>${rec(fx.awayRecord)}</div>` +
+            `<div class="tv-fx-mu-vs">vs</div>` +
+            `<div class="tv-fx-mu-team home"><span class="nm">${_esc(fx.home)}</span>${rec(fx.homeRecord)}</div>` +
+          `</div>` +
+        `</div>`;
+    // ── CPhL. Same contract as the baseball cards: markup only, animated by CSS,
+    // auto-dismissed on fx.duration. The goal card leans on the strength the sim
+    // already decided, so a shorthander announces itself without a special case.
+    } else if (fx.kind === 'hockeygoal') {
+      const tag = { pp: 'POWER PLAY', sh: 'SHORTHANDED', en: 'EMPTY NET' }[fx.strength] || '';
+      const sub = [fx.shooter, fx.assist ? `assist ${fx.assist}` : '', fx.team].filter(Boolean).join(' · ');
+      inner =
+        `<div class="tv-fx-goal">` +
+          `<div class="tv-fx-goal-lamp"></div>` +
+          `<div class="tv-fx-brand">${cphlMark('26px')}</div>` +
+          `<div class="tv-fx-goal-title${fx.hattrick ? ' hat' : ''}">${fx.hattrick ? 'HAT TRICK' : 'GOAL'}</div>` +
+          (tag ? `<div class="tv-fx-goal-tag">${tag}</div>` : '') +
+          (sub ? `<div class="tv-fx-goal-sub">${_esc(sub)}</div>` : '') +
+          `<div class="tv-fx-goal-score">${_esc(fx.away)} ${fx.awayScore} — ${fx.homeScore} ${_esc(fx.home)}</div>` +
+        `</div>`;
+    } else if (fx.kind === 'hockeyfight') {
+      inner =
+        `<div class="tv-fx-fight">` +
+          `<div class="tv-fx-brand">${cphlMark('26px')}</div>` +
+          `<div class="tv-fx-fight-title">GLOVES OFF</div>` +
+          `<div class="tv-fx-fight-names"><span class="win">${_esc(fx.winner)}</span><span class="vs">def.</span><span class="lose">${_esc(fx.loser)}</span></div>` +
+          `<div class="tv-fx-fight-sub">Five for the loser · ${_esc(fx.team)} on the power play</div>` +
+        `</div>`;
+    } else if (fx.kind === 'hockeydeath') {
+      // Sudden death, literally. Deliberately the quietest card on the channel —
+      // no rays, no bounce; the league does not celebrate this, it just continues.
+      inner =
+        `<div class="tv-fx-death">` +
+          `<div class="tv-fx-death-rule"></div>` +
+          `<div class="tv-fx-death-title">SUDDEN DEATH</div>` +
+          `<div class="tv-fx-death-name">${_esc(fx.player)}</div>` +
+          (fx.winner ? `<div class="tv-fx-death-sub">${_esc(fx.winner)} advance</div>` : '') +
+        `</div>`;
+    } else if (fx.kind === 'hockeyrivalry') {
+      // A grudge match gets its own pre-game card. Red where the ordinary matchup card
+      // is cold blue, because the one thing a viewer needs to know is that tonight is
+      // not an ordinary night — and the sim has genuinely made it a nastier game.
+      const rec = (r) => r && r !== '0-0' && r !== '0-0-0' ? `<span class="rec">${_esc(r)}</span>` : '';
+      inner =
+        `<div class="tv-fx-matchup cphl rival">` +
+          `<div class="tv-fx-brand">${cphlMark('26px')}</div>` +
+          `<div class="tv-fx-rival-banner">RIVALRY NIGHT</div>` +
+          `<div class="tv-fx-mu-teams">` +
+            `<div class="tv-fx-mu-team away"><span class="nm">${_esc(fx.away)}</span>${rec(fx.awayRecord)}</div>` +
+            `<div class="tv-fx-mu-vs">vs</div>` +
+            `<div class="tv-fx-mu-team home"><span class="nm">${_esc(fx.home)}</span>${rec(fx.homeRecord)}</div>` +
+          `</div>` +
+          `<div class="tv-fx-rival-sub">No trophy. No records. They will bleed for it anyway.</div>` +
+        `</div>`;
+    } else if (fx.kind === 'hockeycup') {
+      const rec = (r) => r && r !== '0-0' ? `<span class="rec">${_esc(r)}</span>` : '';
+      inner =
+        `<div class="tv-fx-ws tv-fx-cup">` +
+          `<div class="tv-fx-brand big">${cphlMark('40px')}</div>` +
+          `<div class="tv-fx-ws-banner">COLDWATER CUP</div>` +
+          `<div class="tv-fx-ws-sub">One Game. One Trophy. No Records.</div>` +
           `<div class="tv-fx-mu-teams">` +
             `<div class="tv-fx-mu-team away"><span class="nm">${_esc(fx.away)}</span>${rec(fx.awayRecord)}</div>` +
             `<div class="tv-fx-mu-vs">vs</div>` +
@@ -886,7 +1231,7 @@ export function createTvView(root, opts = {}) {
           `<div class="tv-fx-champ-rays"></div>` +
           `<div class="tv-fx-champ-trophy">🏆</div>` +
           `<div class="tv-fx-champ-team">${_esc(fx.winner)}</div>` +
-          `<div class="tv-fx-champ-label">World Series Champions</div>` +
+          `<div class="tv-fx-champ-label">${_esc(fx.label || 'World Series Champions')}</div>` +
           `<div class="tv-fx-champ-score">${_esc(fx.winner)} ${fx.winScore} — ${fx.loseScore} ${_esc(fx.loser)}</div>` +
         `</div>`;
     } else return;
@@ -904,7 +1249,9 @@ export function createTvView(root, opts = {}) {
 
   // ── tuning ────────────────────────────────────────────────────────────────
   function _tvTuneTo(num) {
-    window.AudioEngine?.cancelSpeech();
+    // A tune abandons the old channel's timeline outright — anything still queued
+    // belongs to a programme you are no longer watching.
+    window.AudioEngine?.cancelSpeech(); _clearSpeech();
     _speechOwner = view;   // the surface being tuned takes the voice
     if (_sweepRaf) { cancelAnimationFrame(_sweepRaf); _sweepRaf = null; }
     _wheelTarget = null;
@@ -1058,11 +1405,50 @@ export function createTvView(root, opts = {}) {
   }
 
   // ── content ───────────────────────────────────────────────────────────────
-  function appendMessage(text, style, duration, hasGameday) {
+  // A spoken line is not DISPLAYED until the voice is free to read it. Previously
+  // the caption appeared the moment the server sent it while the speech queued
+  // behind whatever was still talking, so on any overrun the text ran ahead of the
+  // voice. Now the whole message — caption and audio together — waits.
+  //
+  // With the voice OFF this must not apply at all: nothing is going to finish, so
+  // lines fall straight through and pace on the server's own hold, exactly as they
+  // always did. `_voiceLive` tracks whether the engine is actually producing sound
+  // (it returns nothing when muted, disabled, or blocked by the browser's autoplay
+  // policy), so a muted set never sits waiting on a voice that will never speak.
+  function appendMessage(text, style, duration, hasGameday, catchUp) {
+    _deferredLast = false;
+    const spoken = !style || style === 'raw' || style === 'emote' || style === 'narrate' || style === 'system';
+    // catchUp is the beat already on air when you tuned in — deliberately shown but
+    // not narrated, so it never waits on the voice.
+    const holdForVoice = spoken && !catchUp && _readAloud && _voiceLive
+      && (_speechQ.length || performance.now() < _busyUntil);
+    // ORDER FIRST. Anything already waiting means this message must wait too, even a
+    // title card that has nothing to say — otherwise the picture overtakes the line
+    // it belongs to and a card appears before the dialogue that sets it up. A card
+    // still on its own hold counts as something to wait for, whatever the voice is
+    // doing: it isn't finished being looked at yet.
+    if (holdForVoice || performance.now() < _cardUntil || _deliverQ.length) {
+      _deliverQ.push({ text, style, duration, hasGameday, spoken, catchUp, at: performance.now() });
+      _deferredLast = spoken && !catchUp;
+      _pumpDeliver();
+      return;
+    }
+    _renderMessage(text, style, duration, hasGameday);
+    const cardMs = _cardHoldMs(style, duration);
+    if (cardMs) _cardUntil = performance.now() + cardMs;
+  }
+
+  function _renderMessage(text, style, duration, hasGameday) {
     const container = el('messages');
     if (!container) return;
 
     const isTitleCard = style === 'svg' || style === 'ascii_art' || style === 'credits';
+
+    // Anything that isn't dialogue is a scene beat — a card, a ticker, an overlay.
+    // That's the picture changing, so it's where drift would become visible and the
+    // only place the speech queue is allowed to resync. See _sceneBeat().
+    const spoken = !style || style === 'raw' || style === 'emote' || style === 'narrate' || style === 'system';
+    if (!spoken) _sceneBeat();
 
     // Clear before title cards, and after them on the next message
     if (isTitleCard || _clearAfterTitleCard) {
@@ -1311,7 +1697,8 @@ export function createTvView(root, opts = {}) {
       _readAloud = !_readAloud;
       localStorage.setItem('tvReadAloud', _readAloud ? '1' : '0');
       syncReadBtn();
-      if (!_readAloud) window.AudioEngine?.cancelSpeech();
+      if (!_readAloud) { window.AudioEngine?.cancelSpeech(); _clearSpeech(); }
+      else _voiceLive = true;   // give the voice the benefit of the doubt again
     });
 
     // Gameday toggle: reveals the animated at-bat sub-screen. Hidden until a sports
@@ -1448,7 +1835,7 @@ export function openTvPanel(data)            { panel()?.open(data); }
 export function closeTvPanel()               { panel()?.close(); }
 export function shutdownTvPanel()            { panel()?.shutdown(); }
 export function applyTvOverlay(overlay)      { panel()?.applyOverlay(overlay); }
-export function appendTvMessage(t, s, d, g)  { panel()?.appendMessage(t, s, d, g); }
+export function appendTvMessage(t, s, d, g, c)  { panel()?.appendMessage(t, s, d, g, c); }
 export function updateTvTicker(text)         { panel()?.updateTicker(text); }
 export function showTvOffAir(content, type)  { panel()?.showOffAir(content, type); }
 export function showTvOnAir()                { panel()?.showOnAir(); }

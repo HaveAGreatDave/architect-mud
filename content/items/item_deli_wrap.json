@@ -1,0 +1,18 @@
+{
+  "description": "A shrink-wrapped sandwich from the register cooler, curling at the corners. The label promises TURKEY-STYLE. It does not promise turkey.",
+  "flags": {},
+  "id": "item_deli_wrap",
+  "name": "deli wrap",
+  "tags": {
+    "consumable": true,
+    "description": "A shrink-wrapped sandwich from the register cooler, curling at the corners. The label promises TURKEY-STYLE. It does not promise turkey.",
+    "perishable": true,
+    "restore_hunger": 20,
+    "spoil_rate": "normal",
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 12,
+  "weight": 300
+}

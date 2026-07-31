@@ -1,21 +1,17 @@
 {
   "ambient_events": [
-    "Wind hisses through the scrub, carrying grit and the far-off drone of a plane that isn't coming here.",
-    "Something small breaks cover and bolts through the brush, gone before you can place it.",
-    "Heat-shimmer wobbles the horizon; for a moment the town looks like it's underwater.",
-    "A dust-devil spins up out of nowhere, staggers a few yards across the hardpan, and collapses.",
-    "Out in the flats a loose sheet of metal bangs, over and over, in a wind that never fully quits.",
-    "The scrub ticks and rustles as the day's heat bleeds slowly out of it.",
-    "A buzzard rides the thermals in a wide, patient circle, in no hurry at all.",
-    "Grit stings your cheek. The wind out here doesn't stop — it just changes its mind.",
-    "Tire-ruts and bootprints cross the hardpan and vanish into the brush, going nowhere good.",
-    "The light goes long and copper, and the whole waste seems to hold its breath."
+    "Something inside the trailer shifts as the metal cools, one long groan, then nothing.",
+    "Wind combs through the wreck and comes out the far side whistling on a note the scrub can't make.",
+    "Sand hisses steadily up against the hauler's flank, filling in the last set of ruts.",
+    "A buzzard lands on the cab roof, looks at you for a while, and decides you aren't dead enough.",
+    "Grit ticks against the rusted panels like the start of a rain that never comes.",
+    "Far off, an engine drones and fades. Nothing appears on the horizon."
   ],
   "ambient_theme": "wasteland",
   "bg_color": null,
   "color": null,
   "created_by": null,
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "A cargo hauler died out here long enough ago that the scrub has grown up through its ribs. The cab is a gutted shell, doors gone, the windscreen a white crust of crazed glass; the trailer behind it has collapsed onto its axles in a long spill of rust. Wind has drifted sand halfway up the near side. Under the trailer bed, where the shadow never moves, the hardpan has been dug out and filled in again — the fill is a shade darker than the ground around it, and tyre-ruts come and go from the north and stop dead at the wreck.",
   "exits": {
     "east": "zone_the_reach_866_1951",
     "north": "zone_the_reach_865_1950",
@@ -23,8 +19,8 @@
     "west": "zone_the_reach_864_1951"
   },
   "flags": {
+    "fence_cache": true,
     "lawless": true,
-    "planner": "world_editor",
     "region_id": "region_the_reach",
     "terrain": "scrub"
   },
@@ -33,7 +29,8 @@
   "grid_z": 0,
   "id": "zone_the_reach_865_1951",
   "map_id": "map_world",
-  "name": "The Reach 865,1951",
+  "marker": "drop",
+  "name": "The Bonepile",
   "parent_zone": null,
   "updated_at": "1784533788"
 }

@@ -11,7 +11,35 @@ function getEntityType(path) {
   return null;
 }
 
+// ── Ops-mode read-only panels ────────────────────────────────────────────────
+// A few content panels are useful to LOOK at on production (what's on air right
+// now, which channel owns which studio) even though production accepts no content
+// writes — git is the only writer (CONTENT_READONLY, see server/api/routes.js).
+// Those panels are kept in the /admin nav and their writes are refused HERE, with
+// a sentence that says where to make the edit, rather than letting the button fire
+// and come back as a bare 403.
+// '/spawns' rides with '/enemies': zone_spawns is authored content too, and the
+// Spawn Map's clickable tiles post to it.
+const OPS_READONLY_PREFIXES = ['/broadcast', '/zones', '/npcs', '/items', '/enemies', '/spawns'];
+// …except the live-ops actions that live INSIDE those panels and are allowlisted
+// server-side (OPS_ROUTES in server/api/routes.js). Spawning a live enemy or
+// restocking a vendor is runtime state, not authored content — it's the reason
+// some of these panels are worth having on prod at all. Keep in step with the
+// server list; this is the UI half of the same rule.
+const OPS_READONLY_EXCEPTIONS = [
+  /^\/zones\/[^/]+\/live-enemies$/,
+  /^\/npcs\/[^/]+\/(restock|place-safe)$/,
+];
+function opsReadonlyBlocks(path, method) {
+  if (!window.OPS_MODE) return false;
+  if (method === 'GET' || method === 'HEAD') return false;
+  if (OPS_READONLY_EXCEPTIONS.some(re => re.test(path))) return false;
+  return OPS_READONLY_PREFIXES.some(p => path === p || path.startsWith(p + '/'));
+}
+const OPS_READONLY_ERROR = 'Read-only on production. World content is edited locally and ships through the CODEX deploy (push to main) — nothing saved here would survive the next deploy anyway.';
+
 const API = async (path, method = 'GET', body = null) => {
+  if (opsReadonlyBlocks(path, method)) return { error: OPS_READONLY_ERROR };
   const authHeaders = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
 
   // Intercept entity writes and route them to staging.
@@ -72,6 +100,7 @@ const API = async (path, method = 'GET', body = null) => {
 
 // Direct API call that bypasses the staging pipeline — for immediate live-world actions.
 const directAPI = (path, method = 'GET', body = null) => {
+  if (opsReadonlyBlocks(path, method)) return Promise.resolve({ error: OPS_READONLY_ERROR });
   const opts = { method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } };
   if (body) opts.body = JSON.stringify(body);
   return fetch(`/api${path}`, opts)

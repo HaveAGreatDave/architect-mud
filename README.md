@@ -2,7 +2,7 @@
 
 **Post-singularity browser MUD. The AI won. You survived. Probably.**
 
-[**Play now → architect-mud.onrender.com**](https://architect-mud.onrender.com)
+[**Play now → architectgame.net**](https://www.architectgame.net)
 
 ---
 
@@ -63,7 +63,6 @@ The world runs a live environmental simulation around the clock: a 30-minute day
 
 ## What's Next
 
-- Quest editor in the dev panel (quests are authored via API today — no visual editor yet)
 - Zone node graph view
 - Player crews / guilds
 - Sanity effects (hallucinated room text)

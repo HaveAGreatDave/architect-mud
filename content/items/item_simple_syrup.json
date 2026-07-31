@@ -1,0 +1,16 @@
+{
+  "description": "Sugar and water, boiled together until they stop pretending to be separate. Keeps forever and fixes almost anything.",
+  "flags": {},
+  "id": "item_simple_syrup",
+  "name": "simple syrup",
+  "tags": {
+    "description": "Sugar and water, boiled together until they stop pretending to be separate. Keeps forever and fixes almost anything.",
+    "drink_noun": "sugar",
+    "drink_profile": "syrup",
+    "pour_units": 10,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 4,
+  "weight": 500
+}

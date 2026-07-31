@@ -16,6 +16,7 @@
  * Tiers: hostile → unknown → neutral → known → trusted → inner_circle
  */
 import { query } from '../models/db.js';
+import { getLivePlayer } from './world.js';
 
 export const REP_TIERS = [
   { id: 'hostile',      min: -1000, max: -200, label: 'Hostile',      color: '#e05555' },
@@ -30,7 +31,7 @@ export const REP_TIERS = [
 export const PATHS = ['machine', 'flesh', 'mind', 'human'];
 export const STANCE_DIR = { redeem: 1, renounce: -1 };
 
-function getTier(rep) {
+export function getTier(rep) {
   for (let i = REP_TIERS.length - 1; i >= 0; i--) {
     if (rep >= REP_TIERS[i].min) return REP_TIERS[i];
   }
@@ -83,6 +84,100 @@ export function classifyLean(stance, pathAff, ideologies) {
   return best;
 }
 
+// ── Standing is maintained, not banked ───────────────────────────────────────
+//
+// Reputation slides back toward a RESTING POINT over time. Two consequences,
+// both deliberate:
+//
+//   • Positive standing decays. Being Trusted is something you keep being, not
+//     something you did once. Stop showing up for an order and you drift back
+//     to being nobody in particular.
+//   • Negative standing ALSO decays. A grudge is not a life sentence; the
+//     street forgets. You can burn a bridge and, given long enough, walk back
+//     across it — which is what keeps a bad early decision from permanently
+//     closing off a quarter of the game's content.
+//
+// The exception is the one the fiction demands: if you are MAJORLY, IDEOLOGICALLY
+// opposed to an order — you've taken the opposite side of the stance axis AND
+// committed to a different path — the drift stops short of neutral. They don't
+// hate you personally forever, but they never forget what you are. That's a
+// floor, not a sentence: you can still climb out of it by acting, the world just
+// won't do the climbing for you.
+//
+// Lazy, like relations.js: computed from `updated_at` on read, no sweep tick.
+// An offline player costs nothing and comes back to standing that has cooled.
+const REP_HALFLIFE_DAYS = 30;
+const OPPOSED_FLOOR = -200;      // the top of Hostile / bottom of Unknown
+const OPPOSED_STANCE_MIN = 50;   // how committed you have to be for it to count
+const DAY_MS = 86_400_000;
+
+/**
+ * Where this player's standing with this order settles if nothing else happens.
+ * Pure. `playerProfile` is `{ stance, path }` — an unknown profile always rests
+ * at neutral, so the default behaviour without any player commitment is "slides
+ * back to zero", which is the normal case.
+ */
+export function restingRep(orgProfile, playerProfile) {
+  if (!orgProfile || !playerProfile) return 0;
+  const dir = STANCE_DIR[orgProfile.stance] || 0;
+  const stance = Number(playerProfile.stance) || 0;
+  // Opposed on the axis: you're committed, and committed the OTHER way.
+  const stanceOpposed = dir !== 0 && Math.abs(stance) >= OPPOSED_STANCE_MIN && Math.sign(stance) === -dir;
+  // ...and you've picked a different answer to what we should become. Either
+  // alone is a disagreement; both together is being a different kind of thing.
+  const pathOpposed = !!playerProfile.path && playerProfile.path !== orgProfile.path;
+  return (stanceOpposed && pathOpposed) ? OPPOSED_FLOOR : 0;
+}
+
+/** Pure. Move `rep` toward `resting` by elapsed time. Never crosses it. */
+export function decayRep(rep, updatedAtSec, resting = 0, now = Date.now()) {
+  const value = Number(rep) || 0;
+  const last = (Number(updatedAtSec) || 0) * 1000;
+  if (!last) return value;                       // never stamped — leave it alone
+  const days = Math.max(0, (now - last) / DAY_MS);
+  if (days < 1) return value;                    // sub-day drift is noise
+  return resting + (value - resting) * Math.pow(0.5, days / REP_HALFLIFE_DAYS);
+}
+
+// The player's own position, hydrated once at login and read from the live
+// object thereafter — the same read-tier treatment relations.js gets, and for
+// the same reason: `restingRep` is consulted on every vendor price lookup, and
+// five flag round trips there would be indefensible.
+const PROFILE_FLAGS = ['stance_axis', ...PATHS.map((p) => `path_${p}`)];
+
+export async function hydrateIdeologyProfile(player) {
+  player._ideologyProfile = { stance: 0, path: null };
+  if (!player?.id) return;
+  try {
+    const { rows } = await query(
+      'SELECT flag_key, flag_value FROM player_flags WHERE player_id = $1 AND flag_key = ANY($2)',
+      [player.id, PROFILE_FLAGS]
+    );
+    const byKey = Object.fromEntries(rows.map((r) => [r.flag_key, Number(r.flag_value) || 0]));
+    let path = null, best = 0;
+    for (const p of PATHS) if ((byKey[`path_${p}`] || 0) > best) { best = byKey[`path_${p}`]; path = p; }
+    player._ideologyProfile = { stance: byKey.stance_axis || 0, path };
+  } catch (err) {
+    // Standing that can't read your position rests at neutral — degraded, never
+    // broken, and never a reason to fail a login.
+    console.error(`[ideologies] profile hydrate failed for ${player.id}: ${err.message}`);
+  }
+}
+
+// Sync. Falls back to "no position taken" for an offline player, which rests
+// everything at neutral — the normal case, and a safe one.
+function ideologyProfile(playerId) {
+  return getLivePlayer(playerId)?._ideologyProfile || { stance: 0, path: null };
+}
+
+// Decay one stored row. Shared by the three single-order readers below, each of
+// which JOINs `orgs` so the profile comes back in the same round trip.
+function currentRep_(row, playerId) {
+  if (!row) return 0;
+  const resting = restingRep(profileFromFlags(row.flags), ideologyProfile(playerId));
+  return decayRep(row.reputation || 0, row.updated_at, resting);
+}
+
 export async function getPlayerIdeologyRep(playerId) {
   // Ideologies live in the unified orgs table as NPC (is_npc=1) rows. All are
   // returned so the Ideology app can show the whole landscape, but each is
@@ -98,10 +193,14 @@ export async function getPlayerIdeologyRep(playerId) {
     'SELECT * FROM player_ideology_rep WHERE player_id = $1', [playerId]
   );
   const repMap = {};
-  for (const r of reps) repMap[r.ideology_id] = r.reputation;
+  for (const r of reps) repMap[r.ideology_id] = r;
 
+  const profile = ideologyProfile(playerId);
   return ideologies.map(f => {
-    const rep = repMap[f.id] || 0;
+    // What the row says, aged forward to now. The stored number is a checkpoint,
+    // not the truth — see the decay note above.
+    const row = repMap[f.id];
+    const rep = row ? Math.round(decayRep(row.reputation || 0, row.updated_at, restingRep(profileFromFlags(f.flags), profile))) : 0;
     const tier = getTier(rep);
     return {
       id: f.id, name: f.name, description: f.description,
@@ -114,20 +213,28 @@ export async function getPlayerIdeologyRep(playerId) {
 }
 
 export async function adjustReputation(playerId, ideologyId, delta, reason = '') {
+  // JOIN the order so decay can be applied in the same round trip the read
+  // already costs. Decay must land BEFORE the delta, or a player who's been away
+  // has their stale standing resurrected by the act of earning one more point.
   const { rows } = await query(
-    'SELECT reputation FROM player_ideology_rep WHERE player_id = $1 AND ideology_id = $2',
+    `SELECT r.reputation, r.updated_at, o.flags
+       FROM player_ideology_rep r LEFT JOIN orgs o ON o.id = r.ideology_id
+      WHERE r.player_id = $1 AND r.ideology_id = $2`,
     [playerId, ideologyId]
   );
 
-  const currentRep = rows[0]?.reputation || 0;
+  const currentRep = Math.round(currentRep_(rows[0], playerId));
   const newRep = Math.max(-1000, Math.min(9999, currentRep + delta));
   const oldTier = getTier(currentRep);
   const newTier = getTier(newRep);
 
+  // The write is also the decay checkpoint: `updated_at` restarts the clock, and
+  // the value it stamps is the already-decayed one, so drift is never double-counted.
   await query(
-    `INSERT INTO player_ideology_rep (player_id, ideology_id, reputation, tier)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT (player_id, ideology_id) DO UPDATE SET reputation = $3, tier = $4`,
+    `INSERT INTO player_ideology_rep (player_id, ideology_id, reputation, tier, updated_at)
+     VALUES ($1, $2, $3, $4, EXTRACT(EPOCH FROM NOW()))
+     ON CONFLICT (player_id, ideology_id) DO UPDATE
+       SET reputation = $3, tier = $4, updated_at = EXTRACT(EPOCH FROM NOW())`,
     [playerId, ideologyId, newRep, newTier.id]
   );
 
@@ -143,22 +250,48 @@ export async function adjustReputation(playerId, ideologyId, delta, reason = '')
 }
 
 // Rep effects on gameplay
-export async function getIdeologyDiscount(playerId, ideologyId) {
+/**
+ * The player's CURRENT standing with one order — decayed to now.
+ *
+ * Use this, never a raw `SELECT reputation`: the stored number is a checkpoint,
+ * not the truth, and a reader that skips the decay is a split source (a door
+ * that stays shut for standing the ideology app already shows as recovered).
+ */
+export async function getReputation(playerId, ideologyId, { nullIfUnknown = false } = {}) {
   const { rows } = await query(
-    'SELECT reputation FROM player_ideology_rep WHERE player_id = $1 AND ideology_id = $2',
+    `SELECT r.reputation, r.updated_at, o.flags
+       FROM player_ideology_rep r LEFT JOIN orgs o ON o.id = r.ideology_id
+      WHERE r.player_id = $1 AND r.ideology_id = $2`,
     [playerId, ideologyId]
   );
-  const rep = rows[0]?.reputation || 0;
-  const tier = getTier(rep);
+  // `nullIfUnknown` distinguishes "no history with this order" from "history that
+  // nets to zero" — dialogue mood uses it to stay untinted rather than render a
+  // neutral badge at every faction NPC you've never dealt with.
+  if (!rows.length && nullIfUnknown) return null;
+  return Math.round(currentRep_(rows[0], playerId));
+}
+
+export async function getIdeologyDiscount(playerId, ideologyId) {
+  const { rows } = await query(
+    `SELECT r.reputation, r.updated_at, o.flags
+       FROM player_ideology_rep r LEFT JOIN orgs o ON o.id = r.ideology_id
+      WHERE r.player_id = $1 AND r.ideology_id = $2`,
+    [playerId, ideologyId]
+  );
+  const tier = getTier(currentRep_(rows[0], playerId));
   const discounts = { hostile: -0.2, unknown: 0, neutral: 0, known: 0.05, trusted: 0.15, inner_circle: 0.25 };
   return discounts[tier.id] || 0;
 }
 
 export async function isIdeologyHostile(playerId, ideologyId) {
   const { rows } = await query(
-    'SELECT reputation FROM player_ideology_rep WHERE player_id = $1 AND ideology_id = $2',
+    `SELECT r.reputation, r.updated_at, o.flags
+       FROM player_ideology_rep r LEFT JOIN orgs o ON o.id = r.ideology_id
+      WHERE r.player_id = $1 AND r.ideology_id = $2`,
     [playerId, ideologyId]
   );
-  const rep = rows[0]?.reputation || 0;
-  return getTier(rep).id === 'hostile';
+  // Reads the DECAYED value, which is the whole point: an order that wanted you
+  // dead a season ago has cooled to merely not liking you, without anyone
+  // running a job to make that true.
+  return getTier(currentRep_(rows[0], playerId)).id === 'hostile';
 }

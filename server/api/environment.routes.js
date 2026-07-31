@@ -31,7 +31,29 @@ function requireDevAuth(auth) {
 // handleApiRequest falls through to its own routes.
 export async function handleEnvironmentApi(path, method, body, auth) {
   if (path === '/environment/state' && method === 'GET') {
-    return { status: 200, body: env.getEnvironmentState() };
+    // WITHOUT powerMap — and the omission is the whole point of this route.
+    //
+    // getEnvironmentState() carries `powerMap` as a lazy, enumerable getter:
+    // one object per powered zone, materialised only if something asks. On prod
+    // that is ~5,200 zones, 1.1 MB, and serialising the snapshot here asked for
+    // it on EVERY call — defeating the laziness at exactly the boundary where
+    // it mattered most. The game client fetches this on every page load and the
+    // dev panel hits it from seven places; not one of them reads powerMap. The
+    // dev panel's power view has its own /environment/power/map endpoint, which
+    // is where that payload belongs and where it already comes from.
+    //
+    // Object.keys does NOT invoke getters, so skipping the key here means the
+    // power model is never built for this request at all — the saving is the
+    // compute as well as the bytes. `forecast` is kept: it is ~1.4 KB and the
+    // weather widgets do read it.
+    const snap = env.getEnvironmentState();
+    const out = {};
+    for (const k of Object.keys(snap)) { if (k !== 'powerMap') out[k] = snap[k]; }
+    // Whether a hero event (acid rain / ion storm) is running right now, so the
+    // dev panel's trigger can report its own result instead of firing into the
+    // dark. One small object or null — nothing like the payload we just removed.
+    out.heroEventActive = env.activeWeatherEvent?.() || null;
+    return { status: 200, body: out };
   }
 
   if (path === '/environment/forecast' && method === 'GET') {

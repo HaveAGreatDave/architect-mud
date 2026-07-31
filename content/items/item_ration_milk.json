@@ -1,0 +1,21 @@
+{
+  "description": "A waxed carton labeled MILK-ANALOG in block letters, sourced from something the label declines to specify. Drinkable. Cold, if you're quick about it.",
+  "flags": {},
+  "id": "item_ration_milk",
+  "name": "carton of milk-analog",
+  "tags": {
+    "consumable": true,
+    "description": "A waxed carton labeled MILK-ANALOG in block letters, sourced from something the label declines to specify. Drinkable. Cold, if you're quick about it.",
+    "food_also": "dairy",
+    "food_noun": "milk",
+    "food_profile": "liquid",
+    "perishable": true,
+    "restore_hunger": 6,
+    "restore_thirst": 10,
+    "spoil_rate": "normal",
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 5,
+  "weight": 500
+}

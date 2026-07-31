@@ -6,6 +6,8 @@
   "tags": {
     "consumable": true,
     "description": "Aggressively filtered water.",
+    "food_noun": "water",
+    "food_profile": "liquid",
     "hydrating": true,
     "restore_thirst": 40,
     "stackable": true

@@ -26,11 +26,10 @@ export function initNet(messageHandler) {
         // Silent reconnect — token validated server-side; auth_success or auth_fail follows
         _connection.send({ type: 'auth_reconnect', token: reconnectToken });
       } else {
+        // No greeting here — pre-auth we don't know who you are yet. The log's
+        // welcome line is written on auth_success (dispatch.js) using the exact
+        // words the Architect's welcome voice speaks.
         if (state.player) appendMsg(`Connected to ARCHITECT as ${state.player.handle}.`, 'system');
-        else if (!sessionStorage.getItem('welcome-shown')) {
-          sessionStorage.setItem('welcome-shown', '1');
-          appendMsg('Welcome to ARCHITECT.', 'system');
-        }
         const switchToken = sessionStorage.getItem('game-switch-token');
         if (switchToken && !state.player) {
           sessionStorage.removeItem('game-switch-token');
@@ -81,8 +80,26 @@ export function initNet(messageHandler) {
 
 export function setWhoModalHandler(fn) { _whoModalHandler = fn; }
 
+// ── Dropped-while-disconnected notice ────────────────────────────────────────
+// Both senders below return silently when the socket is shut, which is correct (there
+// is nowhere to send it) but reads as the FEATURE being broken: clicking Tablet or Kit
+// does nothing at all, no error, no console line, and the natural conclusion is that
+// the tablet is broken rather than that you're disconnected. Say so instead — once per
+// window, because sendCmdSilent also carries the post-move look refresh and a
+// disconnected player would otherwise get a wall of identical lines.
+// The connection indicator (● / ◌ in the header) is the standing signal; this is the
+// nudge for the moment you actually try to do something.
+let _dropNoticeAt = 0;
+const DROP_NOTICE_MS = 12000;
+function noticeDropped() {
+  const now = Date.now();
+  if (now - _dropNoticeAt < DROP_NOTICE_MS) return;
+  _dropNoticeAt = now;
+  appendMsg('Not connected — that did nothing. Reconnecting… (if it sticks, reload the page.)', 'system');
+}
+
 export function sendCmd(cmd, displayText) {
-  if (!_connection?.isOpen()) return;
+  if (!_connection?.isOpen()) { noticeDropped(); return; }
   if (cmd.trim().toLowerCase() === 'who' && _whoModalHandler) { _whoModalHandler(); return; }
   // Explicit user look should echo the room description into the scrolling log,
   // not just refresh the top area pane. Silent looks (combat/move refresh) use
@@ -93,7 +110,7 @@ export function sendCmd(cmd, displayText) {
 }
 
 export function sendCmdSilent(cmd) {
-  if (!_connection?.isOpen()) return;
+  if (!_connection?.isOpen()) { noticeDropped(); return; }
   // silent: client automation (post-move look refresh, tablet re-nav polls) —
   // the server excludes these from idle-logoff activity stamping.
   _connection.send({ type: 'command', command: cmd, silent: true });
@@ -206,7 +223,9 @@ export function doAuth() {
         return;
       }
       if (data.needsVerification) {
-        showVerifyScreen(email, 'Account created. Check your email for a verification link before logging in.');
+        showVerifyScreen(email, data.emailError
+          ? `${data.emailError} Try "Resend" below once mail is working.`
+          : 'Account created. Check your email for a verification link before logging in.');
         return;
       }
       _connection.send({ type: 'auth', username, password });
@@ -262,6 +281,9 @@ export async function doResendVerification() {
 
 export async function doForgotPassword() {
   const email = state.send_password;
+  // Send the username too — it's unique, so the server can pick the right
+  // account when several characters share one email address.
+  const username = document.getElementById('forgot-username').value.trim();
   const msgEl = document.getElementById('forgot-message');
   const btn   = document.getElementById('forgot-submit');
   if (!email) { msgEl.textContent = 'That email address is not associated with that username.'; msgEl.style.color = 'var(--red)'; return; }
@@ -271,7 +293,7 @@ export async function doForgotPassword() {
     const data = await fetch('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, username }),
     }).then(r => r.json());
     if (data.error) {
       msgEl.textContent = data.error;

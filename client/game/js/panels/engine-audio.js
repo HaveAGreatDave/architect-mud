@@ -145,7 +145,15 @@ function updateFlightEngine(s) {
   const load = _c01(0.4 + (s.vs || 0) / 1600 + (thr - spdFrac) * 0.3);   // climb ⇒ loaded (darker/heavier); descent ⇒ light
   const dop = s.doppler || 1;
   const ext = s.perspective === 'exterior';
-  const windMul = ext ? 1.0 : 0.4, highsMul = ext ? 1.0 : 0.5, lowsMul = ext ? 1.0 : 1.2;
+  // CABIN: you're walking a room somewhere aft, not sitting at the controls, with a pressure
+  // bulkhead and a hold between you and four engines slung out on the wing. What reaches you is
+  // almost entirely low end — the highs are the first thing structure eats — so this is a hard
+  // lowpass plus a level trim rather than just a volume cut. Quiet-and-full-range sounds like the
+  // engines moved away; muffled-and-present sounds like you moved INSIDE something.
+  const cabin = s.perspective === 'cabin';
+  const windMul = ext ? 1.0 : (cabin ? 0.22 : 0.4);
+  const highsMul = ext ? 1.0 : (cabin ? 0.18 : 0.5);
+  const lowsMul = ext ? 1.0 : (cabin ? 1.45 : 1.2);   // lows come THROUGH the airframe — lean on them
   const dist = _c01(s.distance || 0);
 
   set(N.core.osc.frequency, (V.coreB + rpm * V.coreS) * dop, 0.12);
@@ -165,7 +173,18 @@ function updateFlightEngine(s) {
   set(N.wind.gain.gain, spdN * 0.12 * windMul * (1 + flaps * 0.5), 0.30);         // wind ∝ airspeed (+ flaps); interior reduces
   set(N.wind.bp.frequency, 500 + spdN * 700, 0.30);
   set(N.roll.gate.gain, s.onGround ? _cl(0.1 + (s.groundSpeed || 0) / 60, 0, 0.4) : 0, 0.20);
-  set(N.toneFilter.frequency, Math.max(400, (ext ? 9000 : 2600) * (1 - dist * 0.6)), 0.25);   // interior/exterior + distance
+  // Tone: exterior is wide open, the cockpit is already damped, the CABIN is muffled hard — 340 Hz
+  // keeps the core rumble and the blade pulse (the parts you feel) and throws away the whine.
+  set(N.toneFilter.frequency, Math.max(cabin ? 300 : 400, (ext ? 9000 : cabin ? 340 : 2600) * (1 - dist * 0.6)), 0.25);
+  // …and back the whole bus off a little, so it sits UNDER the room rather than over it. Still
+  // plainly audible: this is a trim, not a mute — a Leviathan is never quiet.
+  // Written ONLY when the cabin state actually flips. `master.gain` also carries the start-up swell
+  // (a linearRamp scheduled at create time), and a setTargetAtTime on it every frame would override
+  // that ramp and make every aircraft in the fleet snap to full volume instead of spooling in.
+  if (N._cabinOn !== cabin) {
+    N._cabinOn = cabin;
+    set(N.master.gain, (N.voice?.mas ?? 0.5) * (cabin ? 0.62 : 1), 0.30);
+  }
   // Enrichment layers
   set(N.core2.frequency, (V.coreB + rpm * V.coreS) * dop * V.det, 0.12);          // detuned unison beats against the core
   set(N.crackle.level.gain, rpm * 0.03 * V.crk * (ext ? 1.6 : 1), 0.15);          // exhaust crackle louder at power / outside

@@ -19,6 +19,7 @@ import { formatChitchat } from '../../server/engine/ai-behaviour.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerInputMatcher } from '../../server/engine/plugins.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
+import { getRelation, relationAtLeast } from '../../server/engine/relations.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { getPowerMap } from '../../server/engine/environment.js';
@@ -381,7 +382,11 @@ registerAction({
     const npcId = context?.npc?.id;
     const key = `${actor?.id}:${npcId}`;
     const now = Date.now();
-    if (npcId && now < (tellCooldowns.get(key) || 0)) {
+    // Someone who actually knows you doesn't make you wait your turn for the
+    // word — the cooldown is what a stranger gets. Zero-query check against the
+    // hydrated relations Map (server/engine/relations.js).
+    const trusted = npcId && relationAtLeast(getRelation(actor, npcId), 'familiar');
+    if (npcId && !trusted && now < (tellCooldowns.get(key) || 0)) {
       return { type: 'dialogue_line', text: pickDry() };
     }
     const [item] = pool.recall(actor?.current_zone, { n: 1, distanceFn: hopDistance });

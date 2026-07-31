@@ -1,0 +1,21 @@
+{
+  "description": "Four bays of dented steel shelving down the middle of the shop, stacked to eye level with everything that does not need to be kept cold. The pricing gun has been used on some of it twice.",
+  "flags": {
+    "aliases": "shelves, shelf, shelving, aisle, dry goods, racks",
+    "container": 160000,
+    "interactions": [
+      "lean"
+    ],
+    "vendor_stock": "npc_ration_cook"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_ration9_shelves",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Dry Goods Shelving",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_grocery"
+}

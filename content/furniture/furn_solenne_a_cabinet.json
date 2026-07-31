@@ -1,0 +1,18 @@
+{
+  "description": "Soft-close doors above the counter, holding whatever the last tenant did not take with them.",
+  "flags": {
+    "dish_cabinet": true,
+    "container": 60000,
+    "aliases": "cabinet,cupboard"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_a_cabinet",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "wall cabinet",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_a"
+}

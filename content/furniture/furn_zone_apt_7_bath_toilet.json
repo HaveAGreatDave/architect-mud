@@ -1,0 +1,14 @@
+{
+  "description": "A stained porcelain toilet with no lid and a cistern that never stops trickling. It flushes on the second try.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_zone_apt_7_bath_toilet",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "toilet",
+  "object_type": "toilet",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_7_bath"
+}

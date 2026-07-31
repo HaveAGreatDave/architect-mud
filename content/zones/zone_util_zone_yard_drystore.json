@@ -18,7 +18,7 @@
   "grid_z": -1,
   "id": "zone_util_zone_yard_drystore",
   "map_id": "map_int_yard_drystore",
-  "name": "Dry Store 12 — Utility Room",
+  "name": "Shelf Life — Utility Room",
   "parent_zone": "zone_district_924_909",
   "updated_at": "1784348804"
 }

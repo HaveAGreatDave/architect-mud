@@ -1,0 +1,15 @@
+{
+  "actor_lines": [
+    "{target} can barely take you. Every [MOVEMENT NOUN] is [ADJECTIVE] and you can feel them [VERB]ing."
+  ],
+  "band": "straining",
+  "hole": "ass",
+  "id": "ass:straining",
+  "target_lines": [
+    "{actor} is [TOO MUCH ADJECTIVE]. You [REACTION VERB], trying to [VERB] around them."
+  ],
+  "updated_at": "1785158642",
+  "zone_lines": [
+    "{target} makes a sound that is [DESCRIPTION] as {actor} pushes in."
+  ]
+}

@@ -12,7 +12,12 @@
  *   withdrawal    — { onset_seconds, mods, message, addiction_per_dose,
  *                     addiction_recovery_per_sec }
  *   overdose      — { lethal, message, mods }
- *   hallucination — { mode, intensity, palette, duration_seconds, events, dreamzone_id }
+ *   hallucination — { mode, intensity, palette, duration_seconds, events }
+ *                     mode 'dreamzone' takes the MIND out of the room into a
+ *                     private generated dreamscape (the body stays put). It
+ *                     names no destination: the authored, SHARED dreamzones and
+ *                     their `dreamzone_id` are retired, because two people on
+ *                     the same drug used to meet inside the hallucination.
  *
  * Back-compat: a drug whose `effects` has none of the structured keys above
  * is treated as a flat `instant` block, so pre-existing drugs run untouched.
@@ -23,6 +28,7 @@ import { applyMods, reverseMods } from './statmods.js';
 import { fireHook } from './plugins.js';
 import { emit } from './events.js';
 import { getTimeScale } from './gametime.js';
+import { STIM_FATIGUE_RELIEF, STIM_FATIGUE_INTEREST } from './condition.js';
 import { sendToPlayer } from './messaging.js';
 
 let DRUG_CACHE = {};
@@ -38,6 +44,106 @@ const REGEN_RE = /_regen_per_sec$/;
 // stop a clean heart. The corollary is the point — abstinence burns tolerance away,
 // so the habit dose you walked away from is the one that kills you on the way back.
 const OD_TOLERANCE_BONUS = 1.5;      // +150% overdose headroom at full tolerance
+
+// ── What you know about a compound, and how you found out ────────────────────
+//
+// Knowledge is earned by CONSEQUENCE, not by a use counter. Reading "you have
+// taken this 6 times, here is its overdose ceiling" is a database telling you a
+// number; learning that ceiling because you went past it and your body revolted
+// is the game teaching you something. So each fact has exactly one way in, and
+// it is the experience that fact describes:
+//
+//   FELT       you took it and lived — what it feels like, the prose you saw
+//   EFFECTS    you rode a full peak — what it actually does to you
+//   DURATION   you rode one out to the end — how long it holds you
+//   OVERDOSE   you took too much — where the ceiling is
+//   ADDICTION  it got its hooks in — that it can
+//   WITHDRAWAL you came off it badly — what that costs
+//
+// Stored as a bitmask on player_drug_state.known_facts, which is already the
+// per-player-per-drug table. Never decays: you do not un-learn what a bad night
+// taught you.
+export const DRUG_FACTS = {
+  FELT:       1,
+  EFFECTS:    2,
+  DURATION:   4,
+  OVERDOSE:   8,
+  ADDICTION: 16,
+  WITHDRAWAL:32,
+};
+
+/**
+ * Record that this player now knows `bit` about `drugId`.
+ *
+ * Fire-and-forget and idempotent — a bitwise OR, so re-learning is a no-op and
+ * two ticks racing cannot lose a fact. Never awaited on a hot path: knowing
+ * something a second late costs nothing, and a failed write must not interrupt
+ * a drug tick.
+ */
+export function learnDrugFact(playerId, drugId, bit) {
+  if (!playerId || !drugId || !bit) return;
+  query(
+    `UPDATE player_drug_state SET known_facts = COALESCE(known_facts,0) | $3
+       WHERE player_id=$1 AND drug_id=$2 AND (COALESCE(known_facts,0) & $3) = 0`,
+    [playerId, drugId, bit]
+  ).catch(() => {});
+}
+
+// How fast an UNDECLARED tolerance burns off, per second of GAME time (every
+// caller multiplies elapsed real time by getTimeScale()).
+//
+// This was `1/3600` — a full tolerance shed in one game hour — which quietly made
+// tolerance meaningless for every drug that didn't override it: you could never
+// hold one long enough to feel the dulled high, and the relapse law (the habit
+// dose that kills you once you're clean) had nothing to take away because you
+// were clean again by morning. Real tolerance is a days-to-weeks phenomenon.
+//
+// Scaled rather than literal: three GAME days to shed a full habit puts it on the
+// same axis as the fatigue curve (FATIGUE_FULL_HOURS = 72), which is the longest
+// span the body simulation asks a player to think in. A night off the stuff makes
+// a real dent; a week clean puts you back to a lethal first dose. Drugs that
+// should shed faster say so on their own row — the uppers do, at ~1 game day,
+// because a stimulant habit is supposed to be reachable inside one bender.
+const TOLERANCE_RECOVERY_PER_SEC = 1 / (72 * 3600);
+
+// Dependency outlasts tolerance — that gap is the trap. Twice the span, so a
+// player whose tolerance has burned off (and whose ceiling has dropped with it)
+// is still being pulled back toward the dose that will now kill them.
+const ADDICTION_RECOVERY_PER_SEC = 1 / (144 * 3600);
+
+// DIFFERENTIAL TOLERANCE — the thing that actually kills long-term users.
+//
+// Tolerance was one number doing two jobs: it dulled the high AND raised the
+// overdose ceiling, in lockstep. That made a habit pure upside — less effect, but
+// proportionally more headroom — so the safe play was to build one and stay there.
+//
+// Real tolerance is differential. You stop feeling the euphoria fairly quickly;
+// your brainstem never stops caring, so tolerance to respiratory depression builds
+// slowly and never fully. The user chases the high they remember while the dose
+// that stops their breathing has barely moved, and the margin between "enough to
+// feel it" and "enough to kill me" closes over a career.
+//
+// So `tolerance` is now the FELT one (drives potency) and `tolerance_lethal` the
+// one that raises the ceiling. It gains at a FRACTION of the felt rate and fades
+// at a fraction of the felt rate — slow in, slow out, which is what makes a deep
+// habit precarious rather than comfortable, and what makes the relapse law bite
+// from both ends.
+//
+// Per-drug override: `tolerance.lethal_gain_ratio` / `tolerance.lethal_recovery_ratio`.
+// A psychedelic that can't stop your breathing should set the gain ratio to 0 —
+// it has no meaningful lethal tolerance, which is also true of the real ones.
+const LETHAL_TOLERANCE_GAIN_RATIO = 0.4;      // lethal tolerance builds at 40% of felt
+const LETHAL_TOLERANCE_RECOVERY_RATIO = 0.5;  // ...and fades at 50% of felt's rate
+
+/** The pair of tolerances a row currently carries, both lazily decayed. */
+function decayTolerances(row, tol, elapsedSec) {
+  const rec = tol?.recovery_per_sec ?? TOLERANCE_RECOVERY_PER_SEC;
+  const shed = rec * elapsedSec * getTimeScale();
+  const felt = Math.max(0, Math.min(1, (row?.tolerance || 0) - shed));
+  const lethal = Math.max(0, Math.min(1, (row?.tolerance_lethal || 0)
+    - shed * (tol?.lethal_recovery_ratio ?? LETHAL_TOLERANCE_RECOVERY_RATIO)));
+  return { felt, lethal };
+}
 
 // Route of administration. `onset` scales the come-up delay; `intensity` scales the
 // felt strength AND the dose's weight against the overdose ceiling. `requires` gates
@@ -125,7 +231,10 @@ function substitutionRelief(rows, excludeKey, drugClass, now) {
 }
 
 // The strongest same-class tolerance a player carries, at CROSS_TOLERANCE credit.
-function crossTolerance(rows, excludeKey, drugClass, now) {
+// Returns BOTH halves: a career opioid user meets a new synthetic with a dulled
+// high AND some of the raised ceiling, and the two travel at their own rates.
+// `which` selects a half for the callers that only want one.
+function crossTolerance(rows, excludeKey, drugClass, now, which = 'felt') {
   if (!drugClass) return 0;
   let best = 0;
   for (const r of rows) {
@@ -133,9 +242,8 @@ function crossTolerance(rows, excludeKey, drugClass, now) {
     const other = DRUG_CACHE[r.drug_id];
     if (!other || other.flags?.drug_class !== drugClass) continue;
     // Decay it the same lazy way its own row would be decayed on use.
-    const rec = other.effects?.tolerance?.recovery_per_sec ?? (1 / 3600);
     const elapsed = Math.max(0, now - (r.last_used_at || now));
-    const tol = Math.max(0, Math.min(1, (r.tolerance || 0) - rec * elapsed * getTimeScale()));
+    const tol = decayTolerances(r, other.effects?.tolerance, elapsed)[which];
     if (tol > best) best = tol;
   }
   return best * CROSS_TOLERANCE;
@@ -184,8 +292,22 @@ export function visibleIntoxication(player) {
 // Exported so the sleep command can ask the drug system a question instead of
 // growing its own opinion about pharmacology.
 export function isWired(player) {
-  return (player?.activeDrugs || []).some(a =>
-    DRUG_CACHE[String(a.drugId).replace(/:.*$/, '')]?.flags?.drug_class === 'stimulant');
+  return stimulantPotency(player) > 0;
+}
+
+// ...and HOW HARD it's driving them, 0 when nothing is. Potency is already
+// `1 − tolerance × max_reduction`, so this is the seam through which tolerance
+// reaches the fatigue clock: a habit doesn't just dull the high, it stops the
+// drug holding your eyes open. Without it a saturated user got a barely-there
+// buff and the FULL night of wakefulness, which is the wrong way round — the
+// third day of a bender is supposed to be the expensive one.
+export function stimulantPotency(player) {
+  let best = 0;
+  for (const a of player?.activeDrugs || []) {
+    if (DRUG_CACHE[String(a.drugId).replace(/:.*$/, '')]?.flags?.drug_class !== 'stimulant') continue;
+    best = Math.max(best, Number(a.potency) || 0);
+  }
+  return best;
 }
 
 // What the player's OTHER same-class drugs are already doing to them; the caller
@@ -200,7 +322,10 @@ function classBurden(rows, excludeKey, drugClass) {
     if (!other || other.flags?.drug_class !== drugClass) continue;
     const doses = r.doses_in_system || 0;
     if (!doses) continue;
-    const ceiling = Math.max(1, Math.round((other.overdose_threshold ?? 3) * (1 + (r.tolerance || 0) * OD_TOLERANCE_BONUS)));
+    // The cousin's own ceiling, off its LETHAL tolerance — this is a question about
+    // what the body survives, not about what it still feels, so the felt half would
+    // be the wrong number here in exactly the way it was wrong in odCeiling.
+    const ceiling = Math.max(1, Math.round((other.overdose_threshold ?? 3) * (1 + (r.tolerance_lethal || 0) * OD_TOLERANCE_BONUS)));
     burden += doses / ceiling;
   }
   return burden;
@@ -334,20 +459,26 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   // Potency is locked to tolerance BEFORE this dose's gain is added.
   // Recovery rates are authored per real-world second at 1× — scale the elapsed
   // span by the game-speed knob so tolerance/addiction fade over game time.
-  const recPerSec = tol.recovery_per_sec ?? (1 / 3600);
-  let tolerance = Math.max(0, Math.min(1, (state?.tolerance || 0) - recPerSec * elapsed * getTimeScale()));
+  let { felt: tolerance, lethal: toleranceLethal } = decayTolerances(state, tol, elapsed);
   // Cross-tolerance: a career opioid user does not meet their first gelcap of
   // synthetic morphine like a virgin. Only the DERIVED numbers below use this —
   // the drug's own stored tolerance is what gets written back, so a cousin habit
   // is never laundered into this drug's row.
   const effTolerance = Math.max(tolerance,
-    crossTolerance(rows, stateKey, drug.flags?.drug_class, now));
+    crossTolerance(rows, stateKey, drug.flags?.drug_class, now, 'felt'));
+  const effToleranceLethal = Math.max(toleranceLethal,
+    crossTolerance(rows, stateKey, drug.flags?.drug_class, now, 'lethal'));
   const potency = Math.max(0, 1 - effTolerance * (tol.max_reduction ?? 0.7));
-  // Relapse law: the overdose ceiling rides on the tolerance carried into this dose
-  // (pre-gain, post-decay), so the same habit dose that was routine at peak tolerance
-  // becomes lethal once time clean has burned that tolerance off.
-  const effOdThreshold = Math.max(1, Math.round(odThreshold * (1 + effTolerance * OD_TOLERANCE_BONUS)));
-  tolerance = Math.min(1, tolerance + (tol.gain_per_dose ?? 0));
+  // Relapse law: the overdose ceiling rides on the LETHAL tolerance carried into
+  // this dose (pre-gain, post-decay), so the same habit dose that was routine at
+  // peak tolerance becomes lethal once time clean has burned it off. Reading the
+  // lethal half rather than the felt one is what makes a deep habit dangerous
+  // instead of comfortable: the high fades faster than the protection does not.
+  const effOdThreshold = Math.max(1, Math.round(odThreshold * (1 + effToleranceLethal * OD_TOLERANCE_BONUS)));
+  const feltGain = tol.gain_per_dose ?? 0;
+  tolerance = Math.min(1, tolerance + feltGain);
+  toleranceLethal = Math.min(1, toleranceLethal
+    + feltGain * (tol.lethal_gain_ratio ?? LETHAL_TOLERANCE_GAIN_RATIO));
 
   // A stronger dose counts for more in the system — higher potency, or a route that
   // delivers it harder, means fewer doses to overdose.
@@ -367,7 +498,7 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   const overdosed = burden >= CLASS_BURDEN_LIMIT;
 
   // Addiction: lazy decay since last use, then accumulate this dose.
-  const addRec = wd.addiction_recovery_per_sec ?? (1 / 86400);
+  const addRec = wd.addiction_recovery_per_sec ?? ADDICTION_RECOVERY_PER_SEC;
   let addiction = Math.max(0, (state?.addiction || 0) - addRec * elapsed * getTimeScale());
   addiction = Math.min(1, addiction + (wd.addiction_per_dose ?? drug.addiction_chance ?? 0));
   let justAddicted = false;
@@ -380,12 +511,18 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   // state row — otherwise the withdrawal tick has nothing to resolve and a player
   // can latch is_addicted forever with no debuff and no message.
   await query(
-    `INSERT INTO player_drug_state (player_id, drug_id, active_until, doses_in_system, times_used, is_addicted, last_used_at, tolerance, addiction, effects)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-     ON CONFLICT (player_id, drug_id) DO UPDATE SET active_until=$3, doses_in_system=$4, times_used=$5, is_addicted=$6, last_used_at=$7, tolerance=$8, addiction=$9, effects=$10`,
+    `INSERT INTO player_drug_state (player_id, drug_id, active_until, doses_in_system, times_used, is_addicted, last_used_at, tolerance, addiction, effects, tolerance_lethal)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+     ON CONFLICT (player_id, drug_id) DO UPDATE SET active_until=$3, doses_in_system=$4, times_used=$5, is_addicted=$6, last_used_at=$7, tolerance=$8, addiction=$9, effects=$10, tolerance_lethal=$11`,
     [player.id, stateKey, now + durationSeconds, dosesInSystem, timesUsed, isAddicted ? 1 : 0, now, tolerance, addiction,
-     opts.inlineEffects ? JSON.stringify(eff) : null]
+     opts.inlineEffects ? JSON.stringify(eff) : null, toleranceLethal]
   );
+
+  // You have taken it and you are still here: you know what it feels like.
+  // Everything past this has to be earned the hard way.
+  learnDrugFact(player.id, stateKey, DRUG_FACTS.FELT);
+  if (overdosed) learnDrugFact(player.id, stateKey, DRUG_FACTS.OVERDOSE);
+  if (justAddicted) learnDrugFact(player.id, stateKey, DRUG_FACTS.ADDICTION);
 
   // Re-dosing clears any active withdrawal for this drug.
   reverseMods(player, `withdrawal:${stateKey}`);
@@ -663,6 +800,9 @@ export function tickDrugs(player) {
     if (elapsed >= total) {
       reverseMods(player, source);
       if (entry.messages.end) messages.push(entry.messages.end);
+      // You rode it all the way out, so you now know how long it holds you.
+      // Someone who tops up before the end never finds out.
+      learnDrugFact(player.id, entry.drugId, DRUG_FACTS.DURATION);
       return false;
     }
 
@@ -676,6 +816,10 @@ export function tickDrugs(player) {
       applyMods(player, source, scaleMods(buffModsOf(entry.peak_mods), scale * entry.potency));
       const m = phase === 'peak' ? entry.messages.peak : phase === 'comedown' ? entry.messages.comedown : null;
       if (m) messages.push(m);
+      // A full peak is where the compound actually shows you what it does — the
+      // come-up is scaled down and the comedown is it leaving. Reach the peak and
+      // the stat effects stop being a mystery.
+      if (phase === 'peak') learnDrugFact(player.id, entry.drugId, DRUG_FACTS.EFFECTS);
     }
 
     // Drip regen (sanity_regen_per_sec, hp_regen_per_sec, ...).
@@ -695,6 +839,34 @@ export function tickDrugs(player) {
     }
     return true;
   });
+
+  // UPPERS AND THE FATIGUE CLOCK. See condition.js for the shape: while wired the
+  // clock runs backwards at STIM_FATIGUE_RELIEF, every millisecond of that is
+  // banked, and the bank is emptied with interest the moment nothing is holding
+  // you up any more. The filter above has already dropped expired entries, so
+  // isWired here reads the state the player is in AFTER this tick resolved.
+  //
+  // In memory only, deliberately: a bender doesn't survive a logout because
+  // logging out sleeps you (server/index.js), which would have cleared the debt
+  // anyway. One rule, not two.
+  // This is the ONE-SECOND loop, so the relief is measured off elapsed real time
+  // rather than assumed per call — clamped so a stalled or resumed loop can't
+  // hand a player an hour of free wakefulness in a single tick.
+  const lastAt = player._stimClockAt || now;
+  player._stimClockAt = now;
+  const dt = Math.max(0, Math.min(5000, now - lastAt));
+
+  const wiredAt = stimulantPotency(player);
+  if (wiredAt > 0) {
+    const before = Number(player.last_slept_at) || now;
+    player.last_slept_at = Math.min(now, before + dt * STIM_FATIGUE_RELIEF * wiredAt);
+    player._fatigueDebtMs = (player._fatigueDebtMs || 0) + (player.last_slept_at - before);
+  } else if (player._fatigueDebtMs > 0) {
+    // The crash. Everything the drug held off, plus what it cost to hold it off.
+    player.last_slept_at = (Number(player.last_slept_at) || now) - player._fatigueDebtMs * STIM_FATIGUE_INTEREST;
+    player._fatigueDebtMs = 0;
+    messages.push('<span class="msg-system">Whatever was holding you upright lets go, and the whole night arrives at once.</span>');
+  }
 
   return messages;
 }
@@ -739,7 +911,7 @@ function applyWithdrawal(player, states, now, writes, allRows = states) {
     if (!eff) continue;
     const wd = eff.withdrawal || {};
     const onset = wd.onset_seconds ?? 3600;
-    const addRec = wd.addiction_recovery_per_sec ?? (1 / 86400);
+    const addRec = wd.addiction_recovery_per_sec ?? ADDICTION_RECOVERY_PER_SEC;
     const elapsed = Math.max(0, now - (state.last_used_at || now));
     const source = `withdrawal:${state.drug_id}`;
 
@@ -775,6 +947,10 @@ function applyWithdrawal(player, states, now, writes, allRows = states) {
         const first = !player._withdrawalActive.has(state.drug_id);
         player._withdrawalActive.set(state.drug_id, sig);
         if (first && wd.message) messages.push(`<span class="withdrawal-warning">${wd.message}</span>`);
+        // Withdrawal has actually started biting — mods applied, not merely a
+        // clock passing onset. You now know what coming off this costs, and
+        // that is knowledge nobody could have handed you.
+        if (first) learnDrugFact(player.id, state.drug_id, DRUG_FACTS.WITHDRAWAL);
       }
       // `*_regen_per_sec` keys are a per-second drip, not a ledger buff. The phases
       // engine has always honoured them; withdrawal silently dropped them into
@@ -868,6 +1044,8 @@ export const _test = {
   resolveRoute, withdrawalSeverity, scaleMods, classBurden, CLASS_BURDEN_LIMIT,
   crossTolerance, substitutionRelief, CROSS_TOLERANCE, SUBSTITUTION_FLOOR, WD_DEPTH_FLOOR,
   ROUTES, ADDICT_LATCH, ADDICT_RELEASE, OD_TOLERANCE_BONUS, DOSE_CLEARANCE_FRACTION,
+  TOLERANCE_RECOVERY_PER_SEC, ADDICTION_RECOVERY_PER_SEC,
+  decayTolerances, LETHAL_TOLERANCE_GAIN_RATIO, LETHAL_TOLERANCE_RECOVERY_RATIO,
   odCeiling: (base, tolerance) => Math.max(1, Math.round(base * (1 + tolerance * OD_TOLERANCE_BONUS))),
   clearanceStep: (doses) => Math.max(0, doses - Math.ceil(doses * DOSE_CLEARANCE_FRACTION)),
 };
@@ -896,17 +1074,33 @@ export async function getDrugStatus(player) {
     const elapsed = Math.max(0, now - (s.last_used_at || now));
 
     // Same lazy decay useDrug and the withdrawal tick apply.
-    const tolerance = Math.max(0, Math.min(1,
-      (s.tolerance || 0) - (tol.recovery_per_sec ?? (1 / 3600)) * elapsed * getTimeScale()));
+    const { felt: tolerance, lethal: toleranceLethal } = decayTolerances(s, tol, elapsed);
     const addiction = Math.max(0,
-      (s.addiction || 0) - (wd.addiction_recovery_per_sec ?? (1 / 86400)) * elapsed * getTimeScale());
+      (s.addiction || 0) - (wd.addiction_recovery_per_sec ?? ADDICTION_RECOVERY_PER_SEC) * elapsed * getTimeScale());
     const addicted = addiction >= (s.is_addicted ? ADDICT_RELEASE : ADDICT_LATCH);
     const onset = wd.onset_seconds ?? 3600;
     const biting = addicted && elapsed > onset && !!wd.mods;
 
+    // What this player has EARNED the right to be told, and the facts themselves.
+    // Gating happens here rather than in the client so an unlearned number never
+    // leaves the server — a payload you could read in devtools is not a secret.
+    const known = s.known_facts || 0;
+    const phases = eff.phases || {};
+    const learned = {
+      mask: known,
+      effects: (known & DRUG_FACTS.EFFECTS) ? (phases.peak_mods || {}) : null,
+      durationSeconds: (known & DRUG_FACTS.DURATION) ? (drug?.duration_seconds ?? null) : null,
+      overdoseCeiling: (known & DRUG_FACTS.OVERDOSE)
+        ? Math.max(1, Math.round((drug?.overdose_threshold ?? 3) * (1 + toleranceLethal * OD_TOLERANCE_BONUS)))
+        : null,
+      addictive: (known & DRUG_FACTS.ADDICTION) ? true : null,
+      withdrawal: (known & DRUG_FACTS.WITHDRAWAL) ? (wd.message || 'It takes something back.') : null,
+    };
+
     return {
       drugId: s.drug_id,
       name: drug?.name || String(s.drug_id).replace(/^drug_/, '').replace(/:.*$/, ' compound'),
+      learned,
       timesUsed: s.times_used,
       tolerance,
       addicted,
@@ -925,7 +1119,15 @@ export async function getDrugStatus(player) {
       // Seconds of grace left before it starts asking (0 if already biting or clean).
       withdrawalIn: addicted && !biting && wd.mods ? Math.max(0, onset - elapsed) : 0,
       dosesInSystem: s.doses_in_system || 0,
-      odCeiling: Math.max(1, Math.round((drug?.overdose_threshold ?? 3) * (1 + tolerance * OD_TOLERANCE_BONUS))),
+      odCeiling: Math.max(1, Math.round((drug?.overdose_threshold ?? 3) * (1 + toleranceLethal * OD_TOLERANCE_BONUS))),
+      toleranceLethal,
+      // THE MARGIN — how far the felt tolerance has outrun the lethal one. This is
+      // the whole mechanic made legible, and it has to be, because a habit that
+      // silently narrows the gap between "enough to feel it" and "enough to kill
+      // me" is a trap rather than a system. 0 = the two are level (or the drug has
+      // no lethal tolerance at all, like the psychedelics); climbing = you now need
+      // more than your body has learned to survive.
+      toleranceGap: Math.max(0, tolerance - toleranceLethal),
     };
   });
 }
@@ -963,4 +1165,10 @@ export function clearActiveDrugBuffs(player) {
   player.pendingOnsets = [];
   player._visibleDrug = null;      // a fresh clone doesn't wear the last one's pupils
   player._withdrawalActive?.clear?.();
+  // Banked stimulant relief dies with the body/session too. tickDrugs returns
+  // early when activeDrugs is empty, so a debt left behind here would sit unpaid
+  // until the player's next dose and then land on them for a bender they don't
+  // remember — the crash has to belong to the run that borrowed it.
+  player._fatigueDebtMs = 0;
+  player._stimClockAt = 0;
 }

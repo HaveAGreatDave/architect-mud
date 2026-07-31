@@ -1,0 +1,16 @@
+{
+  "description": "A boxy set bolted to a bracket high in the corner, angled down at the counter so Vessa can watch it while she works. The colour has drifted hard toward orange, which suits what she plays on it.",
+  "flags": {
+    "is_tv": true,
+    "channel_id": "ch_7_1782953079593",
+    "tv_on": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_tv_zone_grindhouse_interior",
+  "name": "a corner television",
+  "object_type": "tv",
+  "power_draw_kw": 0.08,
+  "price": null,
+  "zone_id": "zone_grindhouse_interior"
+}

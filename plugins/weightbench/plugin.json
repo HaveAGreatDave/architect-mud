@@ -1,6 +1,6 @@
 {
   "name": "weightbench",
-  "version": "1.0.0",
-  "description": "Weight bench — a posture-based workout on furniture flagged \"lift\". Lie back on a bench, then `lift` to grind out sets; enough reps slowly raise Brawn, with a rising cost per point and a soft cap. Gains are free of the XP economy (compensated into bonus_xp).",
-  "commands": ["lift"]
+  "version": "1.1.0",
+  "description": "The gym — posture-based workouts on furniture flagged with a station key. Three stations, one loop: `lift` a bench (Brawn), `spar` a rebound wall (Reflexes), `drill` a conditioning circuit (Endurance). Enough sets grant a point, with a rising rep cost per level; the point is paid straight out of Net XP, so reps are the time-gate and XP is the real one. Stations are data in stations.js.",
+  "commands": ["lift", "spar", "drill"]
 }

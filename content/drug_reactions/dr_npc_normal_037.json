@@ -1,0 +1,10 @@
+{
+  "id": "dr_npc_normal_037",
+  "drug_id": null,
+  "source": "npc",
+  "tone": "normal",
+  "self_line": "{npc} asks if you are all right. You are asked twice before you notice.",
+  "room_line": "{npc} asks {player} if they are all right. It takes a while to land.",
+  "relation": null,
+  "npc_type": null
+}

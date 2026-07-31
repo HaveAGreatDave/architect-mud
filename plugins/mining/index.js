@@ -19,13 +19,14 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, getAllLivePlayers, getLivePlayer } from '../../server/engine/world.js';
+import { getZone, getLivePlayer } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
-import { schedule } from '../../server/engine/scheduler.js';
+import { registerActivity } from '../../server/engine/activity-tick.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
+import { escAttr } from '../../server/engine/text.js';
 
 const ATTEMPT_MS = 3800;   // per-swing cadence — a touch slower than scavenging; stone is stubborn
 const MAX_SWING = 14;      // best possible 2d8-2d8 roll — reachability ceiling
@@ -247,7 +248,7 @@ async function runAttempt(player, st, nowMs) {
       'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)',
       [randomUUID(), player.id, target.item_id]
     );
-    const link = `<span class="action-link item-link" data-action="examine" data-target="${target.name}" title="Examine ${target.name}">${target.name}</span>`;
+    const link = `<span class="action-link item-link" data-action="examine" data-target="${escAttr(target.name)}" title="Examine ${escAttr(target.name)}">${target.name}</span>`;
     out(player.id, `${flavor}\n<span class="item-grant">You break out ${link} and pocket it.</span>`);
     if (totalStock - 1 === 0)
       out(player.id, 'That was the last of it — this deposit is worked out.');
@@ -267,31 +268,21 @@ async function runAttempt(player, st, nowMs) {
 
 // ── Tick ──────────────────────────────────────────────────────────────────────
 
-let ticking = false;
-async function mineTick() {
-  if (ticking) return;
-  ticking = true;
-  try {
-    const nowMs = Date.now();
-    for (const player of getAllLivePlayers()) {
-      const st = player.mineState;
-      if (player.posture === 'mining') {
-        if (!st) continue;
-        if (nowMs - st.lastAttempt < ATTEMPT_MS) continue;
-        await runAttempt(player, st, nowMs);
-      } else if (st) {
-        // Posture was cleared out from under us (moved / attacked / stood). Clean up.
-        const cur = getLivePlayer(player.id);
-        if (cur) delete cur.mineState;
-        out(player.id, 'You stop mining.');
-      }
-    }
-  } finally {
-    ticking = false;
-  }
-}
+registerActivity({
+  posture: 'mining',
+  stateKey: 'mineState',
+  onTick: async (player, st, nowMs) => {
+    if (nowMs - st.lastAttempt < ATTEMPT_MS) return;
+    await runAttempt(player, st, nowMs);
+  },
+  // Posture was cleared out from under us (moved / attacked / stood). Clean up.
+  onAbandon: (player) => {
+    const cur = getLivePlayer(player.id);
+    if (cur) delete cur.mineState;
+    out(player.id, 'You stop mining.');
+  },
+});
 
-schedule('1s', () => mineTick().catch(e => console.error('[mining] tick error:', e.message)));
 
 // The unified STOP command halts mining like any other repeating action.
 on('player.stop', ({ player, stopped }) => {

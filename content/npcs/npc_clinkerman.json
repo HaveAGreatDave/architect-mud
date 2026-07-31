@@ -172,12 +172,12 @@
       "price": 8
     },
     {
-      "item_id": "item_cracked_capacitor",
-      "price": 14
-    },
-    {
       "item_id": "item_ration",
       "price": 10
+    },
+    {
+      "item_id": "item_cracked_capacitor",
+      "price": 14
     },
     {
       "item_id": "canteen",
@@ -185,7 +185,7 @@
     },
     {
       "item_id": "item_rusty_knife",
-      "price": 28
+      "price": 65
     }
   ],
   "vendor_restock_rate": 1,
@@ -233,7 +233,7 @@
       }
     ]
   },
-  "vendor_shop_name": "The Clinkerman's Cart",
+  "vendor_shop_name": "Slag & Wares",
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,

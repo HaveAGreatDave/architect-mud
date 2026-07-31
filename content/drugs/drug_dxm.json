@@ -1,0 +1,67 @@
+{
+  "addiction_chance": 0.1,
+  "description": "A bottle of cough syrup drunk for entirely the wrong reason. Cheap, legal, and a long way down.",
+  "duration_seconds": 900,
+  "effects": {
+    "comeon_message": "<span class=\"msg-system\">Syrup-thick and cloying. You sit down to wait, which takes a surprisingly long time.</span>",
+    "hallucination": {
+      "mode": "dreamzone",
+      "duration_seconds": 700,
+      "intensity": 0.75,
+      "palette": "cyan",
+      "events": [
+        {
+          "atSec": 40,
+          "text": "[trip]Your limbs get heavy and slightly further away than they were.[/trip]"
+        },
+        {
+          "atSec": 110,
+          "text": "[trip]You stand up and your body follows the plan a moment late, like a bad dub.[/trip]"
+        },
+        {
+          "atSec": 220,
+          "text": "[trip]The plateau. Everything is very far off and none of it is urgent.[/trip]"
+        },
+        {
+          "atSec": 360,
+          "text": "[trip]Sound arrives in slabs. You have been listening to the same second for a while.[/trip]"
+        },
+        {
+          "atSec": 520,
+          "text": "[trip]Something in the room has been waiting for you to notice it and is being patient.[/trip]"
+        },
+        {
+          "atSec": 650,
+          "text": "[trip]You start the long walk back up. It takes most of an evening.[/trip]"
+        }
+      ]
+    },
+    "instant": {
+      "sanity": -8
+    },
+    "onset_message": "<span class=\"msg-system\">Your legs report in from a great distance. Everything you do arrives a half-second after you decide to do it.</span>",
+    "onset_seconds": 45,
+    "overdose": {
+      "lethal": true,
+      "message": "Your heart goes somewhere fast and your breathing goes somewhere slow, and the two of them do not meet again."
+    },
+    "take_line": "You drink the whole bottle of {name}, gagging on the sweetness.",
+    "tolerance": {
+      "gain_per_dose": 0.25,
+      "max_reduction": 0.7
+    },
+    "withdrawal": {
+      "message": "Everything is too sharp and too close and moving at the wrong speed. You want the distance back.",
+      "mods": {
+        "stat_brains": -2
+      },
+      "onset_seconds": 1800
+    }
+  },
+  "flags": {},
+  "id": "drug_dxm",
+  "item_id": "item_dxm",
+  "name": "robo",
+  "overdose_threshold": 3,
+  "withdrawal_effects": {}
+}

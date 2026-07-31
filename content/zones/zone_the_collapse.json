@@ -22,7 +22,7 @@
   "grid_y": 4,
   "grid_z": 0,
   "id": "zone_the_collapse",
-  "map_id": null,
+  "map_id": "map_prologue",
   "name": "The Collapse",
   "parent_zone": null,
   "updated_at": "1783364988"

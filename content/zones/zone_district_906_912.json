@@ -10,7 +10,7 @@
     "west": "zone_stimcafe"
   },
   "flags": {
-    "building_name": "Jitter",
+    "building_name": "Battery Acid Coffee Co.",
     "building_type": "shop",
     "district": "wasteland",
     "entrance": "east",
@@ -26,7 +26,7 @@
   "id": "zone_district_906_912",
   "map_id": "map_world",
   "marker": "JT",
-  "name": "Jitter",
+  "name": "Battery Acid Coffee Co.",
   "parent_zone": null,
   "updated_at": "1784600000"
 }

@@ -1,0 +1,26 @@
+{
+  "description": "Not a wardrobe so much as a small room that happens to have doors. Two walls of it: mirrored, back-lit, rails on silent runners that bring a section of your life forward when you touch the brass. The air inside is cedar and cold money. The plate is engraved rather than stamped — VALET BY POLARIS, BESPOKE SERIES — and somewhere behind the panelling something quietly maintains a record of everything you have ever chosen to be seen in.",
+  "flags": {
+    "aliases": [
+      "wardrobe",
+      "closet",
+      "valet",
+      "dressing room"
+    ],
+    "container": 400000,
+    "interactions": [
+      "lean"
+    ],
+    "wardrobe": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_wardrobe_penthouse",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Polaris Bespoke Dressing Wall",
+  "object_type": "container",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

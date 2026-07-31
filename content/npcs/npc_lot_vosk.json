@@ -1,0 +1,53 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "n_start",
+    "nodes": {
+      "n_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "n_loop",
+        "type": "action"
+      },
+      "n_loop": {
+        "next": "n_start",
+        "type": "loop"
+      },
+      "n_start": {
+        "next": "n_life",
+        "type": "start"
+      }
+    }
+  },
+  "chitchat": [],
+  "description": "The host of The Last Lot, and the only man in the building who thinks it is still a shopping channel. He has priced everything that has come through this stage for eleven years and has never once been wrong by more than forty credits. He does not look at the contestants. He looks at the object.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a mustard dinner jacket with a shine at both elbows",
+      "a dress shirt gone the colour of weak tea",
+      "a clip-on bow tie, clipped on crooked",
+      "pressed slacks",
+      "an undershirt"
+    ],
+    "personality": "tv_host",
+    "studio_npc": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_studio_1782953094650",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_lot_vosk",
+  "name": "Emory Vosk",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_studio_1782953094650",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_studio_1782953094650"
+}

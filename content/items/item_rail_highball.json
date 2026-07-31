@@ -4,9 +4,15 @@
   "id": "item_rail_highball",
   "name": "rail highball",
   "tags": {
+    "abv": 20,
     "consumable": true,
     "description": "Well liquor, flat mixer, one apologetic ice cube. It does the job it was hired for.",
+    "drink_noun": "well liquor",
+    "drink_profile": "base_spirit",
     "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1,
+    "pour_units": 3,
     "restore_sanity": 8,
     "restore_thirst": 40
   },

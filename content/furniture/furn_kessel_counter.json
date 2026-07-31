@@ -1,0 +1,14 @@
+{
+  "description": "A chest freezer with a board laid across it serving as the counter. Taped to the till: TAB AVAILABLE — ASK — DON'T ASK TWICE.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_kessel_counter",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "freezer counter",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_kessel_shop"
+}

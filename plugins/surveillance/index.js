@@ -15,11 +15,12 @@ import { exitTargets, neighborZoneIds } from '../../server/engine/exits.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { skillCheck, awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
+import { hackDifficulty, breachMargin, hasHackDeck, damageHackDeck } from '../../server/engine/hack-gear.js';
 import { visibleIntoxication } from '../../server/engine/drugs.js';
 import { getPowerMap, getZoneVisibility, LIGHT_LADDER } from '../../server/engine/environment.js';
 import { sendToPlayer, sendToZone, getBroadcast } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
-import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { getFlag, setFlag, updateFlagById } from '../../server/engine/flags.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { getTunable } from '../../server/engine/tunables.js';
 import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js';
@@ -133,6 +134,7 @@ async function cmdPlant(args, raw, player) {
     [id, player.id, kind, player.current_zone, direction, tier, concealment,
      batteryMax, wired, hackDiff, nowSec]
   );
+  invalidateDeviceCache();
 
   await insertFurniture({
     id, zone_id: player.current_zone, name: gear.name,
@@ -171,6 +173,7 @@ async function cmdRetrieve(args, raw, player) {
 
   const itemId = furn.flags?.security_item_id;
   await query('DELETE FROM security_devices WHERE id=$1', [furn.id]);
+  invalidateDeviceCache();
   await deleteFurniture(furn.id);
   cameraBuffers.delete(furn.id);   // drop any in-memory rolling buffer for the pulled device
 
@@ -274,13 +277,42 @@ const CAM_KINDS = new Set(['sticky_cam', 'drone']);
 // Jammers/spoofers create per-zone interference. Cheap 4s cache so we don't
 // re-query for every tile/feed lookup within a tick.
 let _fxCache = { ts: 0, jammed: new Set(), spoofed: new Set() };
+// ── The device snapshot ───────────────────────────────────────────────────────
+//
+// security_devices is small (tens of rows) and read constantly: the 5s tick used
+// to fire one SELECT for recording cams, one for motion sensors, one for
+// interference zones, and then one MORE per occupied zone to ask "is a camera
+// watching here?" — measured at ~97 round trips per 75 s on an idle server with
+// a single player standing still, 45% of all its database traffic.
+//
+// So read the whole table once and answer all four questions from that. The 4 s
+// freshness window is the one getInterferenceZones already ran on, so this adds
+// no staleness class the file didn't already accept — it just stops paying for
+// the same rows six times a tick.
+//
+// Deliberately a short TTL rather than a write-through cache: every runtime
+// writer lives in this file, but regress and the offline scripts write the table
+// directly, and a TTL self-heals where a write-through cache would silently
+// serve stale rows forever.
+let _devCache = { ts: 0, rows: [] };
+async function allDevices(force = false) {
+  const now = Date.now();
+  if (!force && now - _devCache.ts < 4000) return _devCache.rows;
+  const { rows } = await query('SELECT * FROM security_devices').catch(() => ({ rows: null }));
+  // A failed read must not be cached as "no devices" — that would silently
+  // switch surveillance off for 4 s. Keep the last good snapshot instead.
+  if (rows) _devCache = { ts: now, rows };
+  return _devCache.rows;
+}
+// Called by anything in this file that changes the table and needs its own next
+// read to see the change (placing a camera, then immediately looking at it).
+function invalidateDeviceCache() { _devCache = { ts: 0, rows: _devCache.rows }; }
+
 async function getInterferenceZones() {
   const now = Date.now();
   if (now - _fxCache.ts < 4000) return _fxCache;
-  const { rows } = await query(
-    `SELECT DISTINCT zone_id, device_kind FROM security_devices
-      WHERE device_kind IN ('jammer','spoofer','relay') AND is_powered=1 AND is_damaged=0`
-  );
+  const rows = (await allDevices()).filter(d =>
+    ['jammer', 'spoofer', 'relay'].includes(d.device_kind) && d.is_powered === 1 && d.is_damaged === 0);
   const jammed = new Set(), spoofed = new Set(), relayed = new Set();
   for (const r of rows) {
     if (r.device_kind === 'jammer') jammed.add(r.zone_id);
@@ -315,10 +347,7 @@ function getAlerts(ownerId) {
 // Poll motion sensors each tick: alert when a player or enemy newly enters a
 // watched zone. (No engine movement event exists, so occupancy diffing it is.)
 async function pollSensors() {
-  const { rows } = await query(
-    `SELECT d.id, d.owner_id, d.zone_id, d.device_kind, d.battery, d.battery_max, d.wired, d.is_damaged
-       FROM security_devices d WHERE d.device_kind = 'motion_sensor'`
-  );
+  const rows = (await allDevices()).filter(d => d.device_kind === 'motion_sensor');
   const zoneName = id => getZone(id)?.name || id;
   for (const d of rows) {
     if (!devicePowered(d)) { sensorMemory.delete(d.id); continue; }
@@ -502,10 +531,16 @@ async function surveillanceTick() {
   await refreshRecordingCams();
   await pollSensors();
   await scanActiveCrimes();
-  for (const playerId of hubViewers) {
-    const { rows } = await query('SELECT id, handle FROM players WHERE id=$1', [playerId]);
-    if (!rows.length) { hubViewers.delete(playerId); continue; }
-    sendToPlayer(playerId, await buildHubPayload(rows[0], false));
+  // buildHubPayload only ever reads `id` and `handle`, both of which are already
+  // on the live player object — so this used to be one round trip PER OPEN HUB,
+  // every 5 s, to re-fetch two columns we were holding in memory. The live lookup
+  // is also the stricter existence check: the old query asked whether a row
+  // existed in `players`, which stays true after logout, so a viewer whose
+  // logout hook didn't fire was pushed to forever.
+  for (const playerId of [...hubViewers]) {
+    const viewer = getLivePlayer(playerId);
+    if (!viewer) { hubViewers.delete(playerId); continue; }
+    sendToPlayer(playerId, await buildHubPayload(viewer, false));
   }
   for (const playerId of panelWatchers.keys()) await pushPanelFeeds(playerId);
 }
@@ -653,11 +688,8 @@ function stripTags(s) { return String(s || '').replace(/<[^>]*>/g, '').replace(/
 // keep every live buffer's rolling limit in step with the devpanel tunable.
 // Cameras no longer snapshot the room on a timer — they log real zone activity
 // (speech, arrivals, exits, emotes, actions) as it happens, via zone.broadcast.
-async function refreshRecordingCams() {
-  const { rows } = await query(
-    `SELECT id, device_kind, zone_id, owner_id, battery, battery_max, wired, is_damaged, status_flags
-       FROM security_devices WHERE is_recording = 1`
-  );
+async function refreshRecordingCams(force = false) {
+  const rows = (await allDevices(force)).filter(d => d.is_recording === 1);
   const fx = await getInterferenceZones();
   const map = new Map();
   const limit = currentBufferLimit();
@@ -705,7 +737,7 @@ on('zone.broadcast', ({ zoneId, msg }) => captureZoneLine(zoneId, msg));
 
 // Regress-only seams (nothing else calls these in production): drive a cam-index
 // refresh + a synthetic zone line, and read a device's rolling buffer.
-export async function __refreshRecordingCams() { return refreshRecordingCams(); }
+export async function __refreshRecordingCams() { return refreshRecordingCams(true); }
 export function __captureZoneLine(zoneId, msg) { return captureZoneLine(zoneId, msg); }
 export function __cameraFrames(deviceId) { return (cameraBuffers.get(deviceId)?.frames || []).slice(); }
 export function __cameraFull(deviceId) { return !!cameraBuffers.get(deviceId)?.full; }
@@ -746,6 +778,7 @@ async function cmdRecord(args, raw, player) {
   // keeps players off org devices today; this is defence in depth.
   if (next && dev.is_police) return { type: 'error', message: 'Recording capability unavailable on this network.' };
   await query('UPDATE security_devices SET is_recording=$1 WHERE id=$2', [next, dev.id]);
+  invalidateDeviceCache();
   return { type: 'output', message: next
     ? `<span class="text-red">●REC</span> ${dev.name} is now recording.`
     : `Recording stopped on ${dev.name}.` };
@@ -944,6 +977,7 @@ async function cmdSmash(args, raw, player) {
   if (!dev) return { type: 'error', message: `There's no "${nameHint}" here to smash. Try "sweep" first.` };
   tamperPing(dev.owner_id, player.id, dev.name, dev.zone_name || dev.zone_id, 'was destroyed.');
   await query('DELETE FROM security_devices WHERE id=$1', [dev.id]);
+  invalidateDeviceCache();
   await deleteFurniture(dev.id);
   cameraBuffers.delete(dev.id);    // drop any in-memory rolling buffer for the smashed device
   if (dev.is_police) {
@@ -973,6 +1007,14 @@ async function cmdHijack(args, raw, player) {
   const dev = rows[0];
   if (!dev) return { type: 'error', message: `There's no "${nameHint}" here. Try "sweep" first.` };
   if (dev.owner_id === player.id) return { type: 'error', message: `You already control the ${dev.name}.` };
+  // Same rule as every other breach in the game: no deck, no hack. A camera is a
+  // smaller prize than a vault but it is the same act — and `hack_difficulty` is read
+  // off the deck you're carrying two lines below, so without one there was nothing for
+  // it to read. After the device-exists check so the failure message is the useful one
+  // ("there's no X here" beats "you need a device" when you mistyped the name).
+  if (!(await hasHackDeck(player.id))) {
+    return { type: 'error', message: `The ${dev.name} has a port under its housing and nothing you're carrying speaks to it. You need a hacking device.` };
+  }
   const fx = await getInterferenceZones();
   const status = deviceStatus(dev, fx);
   if (status !== 'ok' && status !== 'spoofed') {
@@ -980,7 +1022,8 @@ async function cmdHijack(args, raw, player) {
   }
   const skill = await effectiveSkill(player, 'hacking');
   pendingHijack.set(player.id, { deviceId: dev.id, ts: Date.now() });
-  return { type: 'circuit_hack', deviceId: dev.id, deviceName: dev.name, skill, difficulty: dev.hack_difficulty ?? 5 };
+  return { type: 'circuit_hack', deviceId: dev.id, deviceName: dev.name, skill,
+    difficulty: await hackDifficulty(player.id, dev.hack_difficulty) };
 }
 
 // hijackresolve <deviceId> <1|0> — silent; the Circuit Breach overlay fires this.
@@ -992,7 +1035,7 @@ async function cmdHijackResolve(args, raw, player) {
   if (!pending || pending.deviceId !== deviceId || Date.now() - pending.ts > 180000) return { type: 'noop' };
 
   const { rows } = await query(
-    `SELECT d.owner_id, d.zone_id, f.name, z.name AS zone_name, n.is_police FROM security_devices d
+    `SELECT d.owner_id, d.zone_id, d.hack_difficulty, f.name, z.name AS zone_name, n.is_police FROM security_devices d
        JOIN furniture f ON f.id = d.id LEFT JOIN zones z ON z.id = d.zone_id
        LEFT JOIN security_networks n ON n.id = d.network_id WHERE d.id = $1`,
     [deviceId]
@@ -1008,7 +1051,8 @@ async function cmdHijackResolve(args, raw, player) {
         WHERE id = $2`,
       [player.id, deviceId]
     );
-    await awardSkillUse(player.id, 'hacking', 2);
+    invalidateDeviceCache();
+    await awardSkillUse(player.id, 'hacking', await breachMargin(player, dev.hack_difficulty));
     tamperPing(dev.owner_id, player.id, dev.name, dev.zone_name || dev.zone_id, 'was HIJACKED — you no longer control it.');
     // Breaching any live device is hacking (charged via the crimes registry if
     // witnessed); a PD unit also puts patrols on you regardless.
@@ -1017,6 +1061,10 @@ async function cmdHijackResolve(args, raw, player) {
     return { type: 'output', message: `<span class="ip-gain">BREACH SUCCESSFUL.</span> The ${dev.name} answers to you now. Pull up your hub.` };
   }
   hijackLockout.set(player.id, Date.now() + 5 * 60 * 1000);
+  // Countermeasures cost the deck condition, as they do on the ATM and the hololock.
+  // The message already said they "traced your rig"; now the rig actually feels it,
+  // which is what makes a cheap deck's higher `hack_fail_damage` a real trade.
+  await damageHackDeck(player.id);
   tamperPing(dev.owner_id, player.id, dev.name, dev.zone_name || dev.zone_id, 'repelled an intrusion attempt.');
   return { type: 'error', message: 'Handshake collapsed. Countermeasures traced your rig. Lockout: 5 minutes.' };
 }
@@ -1048,6 +1096,7 @@ async function cmdPilot(args, raw, player) {
 
   const chk = await skillCheck(player, 'drone_ops', 3);
   await query('UPDATE security_devices SET zone_id=$1 WHERE id=$2', [target, drone.id]);
+  invalidateDeviceCache();
   await updateFurniture(drone.id, { zone_id: target });
 
   const originName = zone?.name || drone.zone_id;
@@ -1077,10 +1126,23 @@ async function getPoliceCamZones() {
   return _policeCache.zones;
 }
 
+// The PD network id is fixed content — one row that never changes at runtime —
+// but it was re-read on every evidence clip, which is once per witnessed crime
+// per tick. Resolve it once and hold it.
+let _policeNetId;
+async function policeNetworkId() {
+  if (_policeNetId !== undefined) return _policeNetId;
+  const { rows } = await query(`SELECT id FROM security_networks WHERE is_police=1 LIMIT 1`)
+    .catch(() => ({ rows: [] }));
+  // Only latch a real answer. If the row isn't there yet (fresh DB mid-seed),
+  // stay unresolved and look again next time rather than caching "no PD" forever.
+  if (rows[0]?.id) _policeNetId = rows[0].id;
+  return rows[0]?.id || null;
+}
+
 async function logPoliceEvidence(zoneId, tags, suspect) {
   const zoneName = getZone(zoneId)?.name || zoneId;
-  const { rows } = await query(`SELECT id FROM security_networks WHERE is_police=1 LIMIT 1`);
-  const net = rows[0]?.id || null;
+  const net = await policeNetworkId();
   const frame = { t: clock(), ts: Date.now(), text: `${suspect || 'Unknown'} — ${tags.join('/')} witnessed in ${zoneName}.` };
   await query(
     `INSERT INTO security_clips (id, device_id, zone_id, owner_id, frames, captured_at, crime_tags)
@@ -1176,17 +1238,16 @@ function despawnHunters(s) {
   s.hunters.clear();
 }
 
-// A crime counts only if someone's watching: a live PD cam, an on-duty cop, or
-// another player in the room.
+// A crime counts if a LENS or a BADGE is watching: a live (un-jammed) camera, or an
+// on-scene `flags.police` NPC. Bystanders were dropped — another player in the room
+// is not a witness the law hears from.
 export async function isWitnessed(zoneId) {
   if (!zoneId) return false;
   if (getZone(zoneId)?.flags?.unsurveilled) return false;   // off the Architect's grid (Long Watch bunker &c.) — no eyes reach here
-  const cams = await getPoliceCamZones();
+  if (copInZone(zoneId)) return true;
   const fx = await getInterferenceZones();
-  if (cams.has(zoneId) && !fx.jammed.has(zoneId)) return true;
-  if ((getZoneNpcs(zoneId) || []).some(n => n.flags?.police)) return true;
-  if ((getZonePlayers(zoneId) || []).length > 1) return true;   // a bystander could report
-  return false;
+  if (fx.jammed.has(zoneId)) return false;
+  return await cameraLiveInZone(zoneId);
 }
 
 async function raiseWanted(player, amount, reason, zoneId) {
@@ -1258,6 +1319,34 @@ registerAction({
 
 // Cross-plugin seam: read the CURRENT (decayed) wanted level — used by the flight plugin so
 // ground AA only opens up on wanted pilots (criminals), not law-abiding overflights.
+// Everyone currently carrying stars, for the Sentinel's police blotter.
+//
+// Reads the in-memory wanted runtime — there is no warrants TABLE, because a
+// warrant is live state that decays, and persisting it would mean writing on
+// every crime tick. That also makes this free: no query, just a walk of a Map
+// that is already in RAM, which is why a newspaper section can afford to call it.
+//
+// Handles only, and only for players actually online — a blotter is what the
+// street knows, not a database dump.
+registerAction({
+  type: 'WANTED_LIST',
+  handler: () => {
+    const out = [];
+    for (const [id, s] of wantedRuntime) {
+      if (!s?.stars) continue;
+      const p = getLivePlayer(id);
+      if (!p) continue;
+      out.push({
+        handle: p.handle,
+        stars: s.stars,
+        charges: [...new Set(s.charges || [])].slice(0, 3),
+      });
+    }
+    out.sort((a, b) => b.stars - a.stars || a.handle.localeCompare(b.handle));
+    return { type: 'wanted_list', wanted: out };
+  },
+});
+
 registerAction({
   type: 'WANTED_STARS',
   handler: ({ actor }) => ({ type: 'wanted', stars: wantedRuntime.get(actor?.id)?.stars || 0 }),
@@ -1492,11 +1581,9 @@ const CRIME_DEBOUNCE_MS = 12000;
 // player-owned — any lens counts for the red-flash callout.)
 async function cameraLiveInZone(zoneId) {
   if (!zoneId) return false;
-  const { rows } = await query(
-    `SELECT zone_id, battery, wired, is_damaged FROM security_devices
-      WHERE zone_id=$1 AND device_kind IN ('sticky_cam','drone') AND is_damaged=0`,
-    [zoneId]
-  ).catch(() => ({ rows: [] }));
+  // Was one SELECT per occupied zone per tick; now a filter over the snapshot.
+  const rows = (await allDevices()).filter(d =>
+    d.zone_id === zoneId && CAM_KINDS.has(d.device_kind) && d.is_damaged === 0);
   if (!rows.length) return false;
   const fx = await getInterferenceZones();
   if (fx.jammed.has(zoneId)) return false;
@@ -1511,6 +1598,21 @@ function flashCamera(zoneId, suspectName, crimeLabel) {
     message: `<span class="camera-alert">⚠ A surveillance camera swivels, its lens flaring red — locking focus on ${suspectName}.</span>`,
   });
   sendToZone(zoneId, { type: 'camera_flash', suspect: suspectName, crime: crimeLabel });
+}
+
+// A COP catching a crime is a different beast entirely — no lens, no red flare, just
+// an officer who was standing there and saw it. Same red callout line for the room,
+// named to the officer; the full-screen camera flash is deliberately NOT sent (the
+// client treats that overlay as "a camera made you", and this wasn't one).
+const COP_SPOT_LINES = [
+  (o, s) => `${o} stops mid-step, eyes fixed on ${s}. "Hey. HEY." A hand goes to the shoulder mic.`,
+  (o, s) => `${o} saw the whole thing. No camera needed — just a cop and a bad sense of timing on ${s}'s part.`,
+  (o, s) => `${o} watches ${s} do it, unhurried, and starts reciting into the mic like they're reading a shopping list.`,
+  (o, s) => `${o}'s head comes round. ${s} is looking straight down the barrel of an eyewitness with a badge.`,
+];
+function flashCop(zoneId, officerName, suspectName) {
+  const line = COP_SPOT_LINES[Math.floor(Math.random() * COP_SPOT_LINES.length)](officerName, suspectName);
+  sendToZone(zoneId, { type: 'zone_event', message: `<span class="camera-alert">⚠ ${line}</span>` });
 }
 
 // A soft, low-level "something's wrong nearby" cue — a faint red pulse plus a
@@ -1578,6 +1680,57 @@ function logActiveCrime(player, key, zoneId, label) {
   });
 }
 
+// ── The permanent record ─────────────────────────────────────────────────────
+// crimeBoard/crimeHistory above are the LIVE police board: in memory, global,
+// capped, and gone on restart — right for a dispatcher's screen, useless as a rap
+// sheet. So a charge also files a lifetime tally against the player, in flags:
+//
+//   crime_priors    JSON { crimeKey: count }   — one flag, not one per offence
+//   crime_first_at  epoch seconds of the first charge ever
+//   crime_last_at   epoch seconds of the most recent
+//
+// One coalesced write per charge, and charges are rare and player-caused, so this
+// never lands on a hot path. Read back through crimeRecordOf() below — off the
+// hydrated flag cache, no query — which is what lets the tablet's Crime app show
+// it on a screen the player opens constantly. Arrests/fines/time-served are the
+// jail plugin's half of the same record (it owns those numbers).
+export function parsePriors(raw) {
+  try { const o = JSON.parse(raw || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }
+  catch { return {}; }
+}
+async function recordPrior(player, key) {
+  try {
+    const priors = parsePriors(await getFlag('player', 'crime_priors', player));
+    priors[key] = (Number(priors[key]) || 0) + 1;
+    const now = Math.floor(Date.now() / 1000);
+    const first = await getFlag('player', 'crime_first_at', player);
+    await setFlag('player', 'crime_priors', JSON.stringify(priors), player);
+    await setFlag('player', 'crime_last_at', now, player);
+    if (!first) await setFlag('player', 'crime_first_at', now, player);
+  } catch { /* a record that won't file must never block the charge itself */ }
+}
+
+// The player's own slice of the live board + history, plus their lifetime tally.
+// In-memory and flag-cache only. Used by the tablet Crime app.
+export async function crimeRecordOf(player) {
+  const id = player?.id;
+  if (!id) return null;
+  const priors = parsePriors(await getFlag('player', 'crime_priors', player).catch(() => '{}'));
+  return {
+    wanted: wantedSnapshot(id),
+    active: crimeBoard.filter(c => c.playerId === id)
+      .map(({ crimeKey, crime, zone, wanted, ts }) => ({ crimeKey, crime, zone, wanted, ts }))
+      .reverse(),
+    history: crimeHistory.filter(c => c.playerId === id)
+      .slice(0, 20)
+      .map(({ crimeKey, crime, zone, ts, clearedTs, outcome }) => ({ crimeKey, crime, zone, ts, clearedTs, outcome })),
+    priors,
+    priorsTotal: Object.values(priors).reduce((s, n) => s + (Number(n) || 0), 0),
+    firstAt: Number(await getFlag('player', 'crime_first_at', player).catch(() => 0)) || null,
+    lastAt: Number(await getFlag('player', 'crime_last_at', player).catch(() => 0)) || null,
+  };
+}
+
 // Move all of a suspect's active crimes to history. Called from every wanted-clear
 // path so a cleared perpetrator's rap sheet leaves the live board.
 function flushCrimesToHistory(playerId, outcome) {
@@ -1602,10 +1755,12 @@ async function raiseCrime(player, key, zoneId, suspectName, forced = false) {
 
   const onCamera = await cameraLiveInZone(zoneId);
   const pdCamera = (await getPoliceCamZones()).has(zoneId);
+  const cop = copInZone(zoneId);
   const witness = getCrimeWitness(key);
   // Nobody catches a crime with certainty anymore: a camera rolls a (flat, for a
-  // one-shot act) catch chance, an on-scene cop is very likely to make you, and a
-  // bystander only rarely bothers to phone it in. `forced` still short-circuits.
+  // one-shot act) catch chance and an on-scene cop is very likely to make you.
+  // `forced` still short-circuits. Truthy result is the witness SOURCE ('camera' /
+  // 'cop' / 'always'), which picks the callout below.
   const seen = forced ? true : await witnessRoll(zoneId, witness, onCamera, CAM_CATCH_BASE);
   if (!seen) return;
 
@@ -1617,18 +1772,28 @@ async function raiseCrime(player, key, zoneId, suspectName, forced = false) {
   const label = getCrimeLabel(key);
   // Single-sourced witness gate: gossip listens here rather than re-deriving it.
   emit('crime.witnessed', { player: { id: player.id, handle: player.handle }, key, zoneId, label });
-  if (onCamera) flashCamera(zoneId, suspectName || player.handle, label);
+  // Who made you decides what the room sees. A cop's eyeball gets the officer named
+  // (no lens flare, no full-screen flash); otherwise the camera callout stands. A
+  // `forced` charge with no live camera and a cop on scene is the cop's collar too —
+  // that's the ongoing-crime scan and the guaranteed-witness paths (a witnessed
+  // attack, a vendor catching you at their safe).
+  const byCop = seen === 'cop' || (!onCamera && !!cop);
+  if (byCop) flashCop(zoneId, cop?.name || 'An officer', suspectName || player.handle);
+  else if (onCamera) flashCamera(zoneId, suspectName || player.handle, label);
   logCrime(zoneId, key);
   await raiseWanted(player, stars, label.toLowerCase(), zoneId);
   await addHeat(player, stars * HEAT_PER_STAR, `${label.toLowerCase()} on the wire`);
   logActiveCrime(player, key, zoneId, label);
+  await recordPrior(player, key);   // the permanent tally, not just the live board
   await logPoliceEvidence(zoneId, [key], player.handle);
   if (stars >= 1) {  // no sirens over a half-star puff
     // ATM robbery is witness:'always', so this fires on every single drain —
     // right on top of the ATM's own drain sfx. That reads as a broken echo
     // (quiet drain clatter, then ~1s later a loud siren) rather than a layered
     // effect, so skip just the tone; the visual alert + wanted stars still fire.
-    crimeAlert(zoneId, pdCamera ? SFX_PD_ALERT : SFX_CRIME_ALERT, { silent: key === 'atm_robbery' });
+    // A cop's collar gets the same crisp dispatch ping a PD camera does — it went
+    // straight onto the police net either way.
+    crimeAlert(zoneId, (pdCamera || byCop) ? SFX_PD_ALERT : SFX_CRIME_ALERT, { silent: key === 'atm_robbery' });
     dispatchPolice(zoneId, label, player.handle);
   }
 }
@@ -1640,13 +1805,61 @@ async function raiseCrime(player, key, zoneId, suspectName, forced = false) {
 // not the probabilistic camera roll the other crimes run. `isWitnessed` is the
 // deterministic gate, and we force the charge past raiseCrime's own roll. Off-camera,
 // unseen violence still slips; and the lawless-zone gate inside raiseCrime means none
+// ── Self-defence ─────────────────────────────────────────────────────────────
+// Only the INSTIGATOR wears an assault charge. A camera that sees a fight sees who
+// swung first, and hitting back at the person (or NPC) who opened on you is not a
+// crime. `defenderOf` remembers, per victim, who aggressed them and until when;
+// swinging at that specific foe inside the window is free. It does NOT launder
+// violence against anyone else in the room — the pass is per-foe, not per-player.
+const SELF_DEFENCE_MS = 5 * 60 * 1000;
+const defenderOf = new Map();   // victimPlayerId → Map(foeKey → expiryTs)
+
+function markAggression(victimId, foeKey) {
+  if (!victimId || !foeKey) return;
+  let m = defenderOf.get(victimId);
+  if (!m) { m = new Map(); defenderOf.set(victimId, m); }
+  m.set(foeKey, Date.now() + SELF_DEFENCE_MS);
+}
+
+// Is `playerId` currently defending themselves against `foeKey`? Lazily expires;
+// no tick, no query — this sits on the combat path and must stay sync and cheap.
+function isSelfDefence(playerId, foeKey) {
+  const m = defenderOf.get(playerId);
+  if (!m) return false;
+  const until = m.get(foeKey);
+  if (!until) return false;
+  if (until <= Date.now()) { m.delete(foeKey); if (!m.size) defenderOf.delete(playerId); return false; }
+  return true;
+}
+
+export const __isSelfDefence = (playerId, foeKey) => isSelfDefence(playerId, foeKey);   // regress only
+
+// An NPC opening on a player (gameLoop, once per fight) makes that player a defender.
+on('npc.aggressed', ({ npc, target }) => {
+  if (target?.id && npc?.id) markAggression(target.id, `npc:${npc.id}`);
+});
+
+// Combat (weapon plugin) and drug (engine) fire these; we charge the matching
+// crime. Witness-gating + debounce live in raiseCrime.
+// Attacks are special: raising a hand where ANY witness can see it (a live PD cam,
+// an on-scene cop, or a bystander player) is an immediate, guaranteed 4-star crime —
+// not the probabilistic camera roll the other crimes run. `isWitnessed` is the
+// deterministic gate, and we force the charge past raiseCrime's own roll. Off-camera,
+// unseen violence still slips; and the lawless-zone gate inside raiseCrime means none
 // of this fires outside city limits.
-on('player.attacked', async ({ attacker }) => {
-  if (attacker?.id && await isWitnessed(attacker.current_zone))
+on('player.attacked', async ({ attacker, target }) => {
+  if (!attacker?.id) return;
+  // The victim becomes a defender against this attacker, so their swings back are
+  // free for the window — including a fresh `attack` after the engagement lapsed.
+  if (target?.id) markAggression(target.id, `player:${attacker.id}`);
+  if (target?.id && isSelfDefence(attacker.id, `player:${target.id}`)) return;
+  if (await isWitnessed(attacker.current_zone))
     raiseCrime(attacker, 'attack_player', attacker.current_zone, attacker.handle, true);
 });
-on('npc.attacked', async ({ actor }) => {
-  if (actor?.id && await isWitnessed(actor.current_zone))
+on('npc.attacked', async ({ actor, npc }) => {
+  if (!actor?.id) return;
+  if (npc?.id && isSelfDefence(actor.id, `npc:${npc.id}`)) return;
+  if (await isWitnessed(actor.current_zone))
     raiseCrime(actor, 'attack_npc', actor.current_zone, actor.handle, true);
 });
 on('npc.killed', ({ actor, npc }) => {
@@ -1666,6 +1879,24 @@ on('item.given', async ({ actor, item }) => {
 });
 on('player.drugUsed', ({ player, illegal, zoneId }) => {
   if (player?.id && illegal) raiseCrime(player, 'drug_use', zoneId || player.current_zone, player.handle);
+});
+// Coshing somebody. Charged on the ATTEMPT, not the result — a camera does not
+// care whether you connected, and a missed swing at the back of a head is the
+// same footage. Camera-witnessed like drug_use: creeping up on somebody in an
+// unlit alley genuinely should not raise stars, and that makes lens coverage
+// something worth casing a place for.
+on('knockout.attempted', ({ player, zoneId }) => {
+  if (player?.id) raiseCrime(player, 'assault_knockout', zoneId || player.current_zone, player.handle);
+});
+// EXECUTION. Killing somebody who was already out cold is not a fight — there was
+// nothing they could do about it. Charged far heavier than a killing in combat,
+// which is what makes leaving a body breathing the cheap option and finishing it
+// a decision with a price. Fires off the ordinary death path, so it costs the
+// knockout system nothing to enforce.
+on('player.death', ({ player, killer, cause }) => {
+  if (!killer?.id || !player) return;
+  if (!player._koUntil || player._koUntil <= Date.now()) return;
+  raiseCrime(killer, 'execution', player.current_zone, killer.handle, true);
 });
 // Public intoxication: not the ACT of using (that's drug_use, camera-only above)
 // but the STATE — walking the street obviously off your head. Anyone can phone it
@@ -1692,6 +1923,12 @@ on('atm.drained', ({ player, zoneId }) => {
 on('theft.caught', ({ player, zoneId }) => {
   if (player?.id) raiseCrime(player, 'theft', zoneId || player.current_zone, player.handle);
 });
+// Commerce fires this when you carry unpaid shop stock out the door. Charged at
+// the SHOP's zone, not the street you stepped onto — the clerk and the shop's
+// camera are the witnesses, and the normal 'any' roll decides if they made you.
+on('shoplifting.caught', ({ player, zoneId }) => {
+  if (player?.id) raiseCrime(player, 'shoplifting', zoneId || player.current_zone, player.handle);
+});
 on('hololock.breached', ({ player, zoneId }) => {
   // Breaching a lock is only a burglary charge here if a camera/cop/bystander
   // witnesses it (the generic 'any' gate). A resident NPC who hears you no
@@ -1709,11 +1946,26 @@ on('burglary.reported', ({ player, zoneId }) => {
 on('vendor.safeHackWitnessed', ({ player, zoneId }) => {
   if (player?.id) raiseCrime(player, 'hacking', zoneId || player.current_zone, player.handle, true);
 });
+// Hired shop staff (plugins/storefront) who see you lift stock or work the vault
+// are the same guaranteed witness a present vendor is — that deterrent IS what the
+// wage buys. `crime` names which charge; anything unrecognised falls back to theft
+// rather than silently charging nothing.
+on('storefront.staffWitnessed', ({ player, zoneId, crime }) => {
+  if (!player?.id) return;
+  const key = ['shoplifting', 'hacking', 'burglary'].includes(crime) ? crime : 'theft';
+  raiseCrime(player, key, zoneId || player.current_zone, player.handle, true);
+});
 on('player.death', ({ killer }) => {
   if (killer?.id && killer?.handle) raiseCrime(killer, 'murder', killer.current_zone, killer.handle);
 });
 // Relieving yourself anywhere but a toilet (bodily plugin) — indecent exposure.
 on('bodily.publicRelief', ({ player, zoneId }) => {
+  if (player?.id) raiseCrime(player, 'indecent_exposure', zoneId || player.current_zone, player.handle);
+});
+// A MIS act outside a private room (mis plugin) — the same charge. The mis plugin
+// decides what counts as private; everything after that is the ordinary witness
+// roll, so a lawless zone and an empty street still cost you nothing.
+on('mis.publicAct', ({ player, zoneId }) => {
   if (player?.id) raiseCrime(player, 'indecent_exposure', zoneId || player.current_zone, player.handle);
 });
 // Bulk drug-making chemical buys are a quiet tell — SPECTER-PD data-mines the
@@ -1738,7 +1990,6 @@ const CAM_CATCH_MAX = 0.9;        // ceiling, no matter how long it runs
 const CAM_CATCH_RAMP_MS = 30000;  // reaches the ceiling after ~30s of offending
 const ATM_JACK_MAX_MS = 180000;   // safety cap: drop an abandoned ATM session
 const COP_CATCH = 0.9;            // an on-scene cop is very likely to make you
-const BYSTANDER_REPORT = 0.12;    // another player rarely bothers to phone it in
 
 function camCatchChance(elapsedMs) {
   const t = Math.min(1, Math.max(0, elapsedMs) / CAM_CATCH_RAMP_MS);
@@ -1766,20 +2017,30 @@ export function visFactorForCategory(category) {
 }
 const cameraVisibilityFactor = (zoneId) => visFactorForCategory(getZoneVisibility(zoneId)?.category);
 
-// The single probabilistic witness gate for every crime. A live camera rolls
-// `camChance` (flat for a one-shot act; time-ramped for an ongoing one). For an
-// `any`-witnessed crime an on-scene cop is very likely to catch it, while a mere
-// bystander only rarely reports. `camera`-only crimes ignore cops/bystanders;
-// `always` crimes are self-reporting.
+// The single probabilistic witness gate for every crime. Two things catch you: a
+// live camera, which rolls `camChance` (flat for a one-shot act, time-ramped for an
+// ongoing one), and **a cop standing right there**, who makes you at `COP_CATCH` —
+// eyes on the scene are the one thing as good as a lens. `camera`-only crimes ignore
+// the cop; `always` crimes are self-reporting. Bystanders no longer report — a
+// passer-by seeing it isn't the law seeing it.
+//
+// Returns the WITNESS SOURCE, not a plain bool: `'camera'` | `'cop'` | `'always'` |
+// false. Every caller still reads it as truthy/falsy; raiseCrime uses the source to
+// pick the callout — an officer clocking you reads nothing like a lens flaring red.
 export async function witnessRoll(zoneId, witness, onCamera, camChance) {
   if (!zoneId) return false;
   if (getZone(zoneId)?.flags?.unsurveilled) return false;   // un-surveilled sanctuary: nothing witnessed, not even a forced 'always'
-  if (witness === 'always') return true;
-  if (onCamera && Math.random() < camChance * cameraVisibilityFactor(zoneId)) return true;
+  if (witness === 'always') return 'always';
+  if (onCamera && Math.random() < camChance * cameraVisibilityFactor(zoneId)) return 'camera';
   if (witness === 'camera') return false;
-  if ((getZoneNpcs(zoneId) || []).some(n => n.flags?.police) && Math.random() < COP_CATCH) return true;
-  if ((getZonePlayers(zoneId) || []).length > 1 && Math.random() < BYSTANDER_REPORT) return true;
+  if (copInZone(zoneId) && Math.random() < COP_CATCH) return 'cop';
   return false;
+}
+
+// The on-scene officer, if any — the witness with a badge, and the one named in the
+// callout when they're the one who makes you.
+function copInZone(zoneId) {
+  return (getZoneNpcs(zoneId) || []).find(n => n.flags?.police && !n._dead) || null;
 }
 
 // playerId -> Map(crimeKey -> { zoneId, startTs, cap })
@@ -1805,30 +2066,68 @@ on('atm.jackResolved', ({ player }) => { if (player?.id) endActiveCrime(player.i
 on('atm.drained', ({ player }) => { if (player?.id) endActiveCrime(player.id, 'hacking'); });
 
 // Which of these player ids are naked — nothing equipped on torso AND legs?
-async function nakedAmong(playerIds) {
-  if (!playerIds.length) return new Set();
-  const { rows } = await query(
-    `SELECT DISTINCT pi.player_id FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-      WHERE pi.player_id = ANY($1) AND pi.is_equipped = 1 AND (i.tags->>'slot') IN ('torso','legs')`,
-    [playerIds]
-  ).catch(() => ({ rows: [] }));
-  const covered = new Set(rows.map(r => r.player_id));
-  return new Set(playerIds.filter(id => !covered.has(id)));
+// Both crime scans want a different fact about the same inventory rows of the
+// same players in the same tick, so ask once. Two DISTINCT scans over
+// player_inventory every 5 s was ~30 round trips per 75 s on an idle server —
+// the same table walked twice for no reason.
+// Per-player, because the answer only changes when that player's inventory does
+// — and a player standing under a camera doing nothing was being re-scanned
+// every 5 s forever. `inventory.changed` drops their entry so a real change is
+// picked up on the very next sweep; the TTL is the backstop, because only some
+// of the many player_inventory writers emit that event and a purely
+// event-driven cache would go stale silently and permanently.
+const carriedCache = new Map();   // playerId -> { covered, raw, ts }
+const CARRIED_TTL_MS = 60_000;
+on('inventory.changed', ({ actor }) => { if (actor?.id) carriedCache.delete(actor.id); });
+// Bounded like the plugin's other per-player maps — a logout drops the entry so
+// this can't grow for the lifetime of the process.
+on('player.logout', ({ id }) => carriedCache.delete(id));
+
+async function scanCarried(playerIds) {
+  const empty = { naked: new Set(), raw: new Set() };
+  if (!playerIds.length) return empty;
+
+  const now = Date.now();
+  const stale = playerIds.filter(id => {
+    const e = carriedCache.get(id);
+    return !e || now - e.ts > CARRIED_TTL_MS;
+  });
+
+  if (stale.length) {
+    const { rows } = await query(
+      `SELECT pi.player_id,
+              BOOL_OR(pi.is_equipped = 1 AND (i.tags->>'slot') IN ('torso','legs')) AS covered,
+              BOOL_OR(pi.container_id IS NULL AND jsonb_exists(i.tags, 'raw_drug')) AS raw
+         FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+        WHERE pi.player_id = ANY($1)
+        GROUP BY pi.player_id`,
+      [stale]
+    ).catch(() => ({ rows: null }));
+    if (!rows) return empty;   // failed read → judge nobody this tick
+    const byId = new Map(rows.map(r => [r.player_id, r]));
+    // A player with NO inventory rows at all has no group in the result — that
+    // is the naked-and-carrying-nothing case, and it must still be cached or
+    // they'd be re-queried every sweep.
+    for (const id of stale) {
+      const r = byId.get(id);
+      carriedCache.set(id, { covered: !!r?.covered, raw: !!r?.raw, ts: now });
+    }
+  }
+
+  const naked = new Set(), raw = new Set();
+  for (const id of playerIds) {
+    const e = carriedCache.get(id);
+    if (!e) continue;
+    if (!e.covered) naked.add(id);
+    if (e.raw) raw.add(id);
+  }
+  return { naked, raw };
 }
 
 // Players carrying any raw drug material (precursors / feedstock / seeds — tags.raw_drug)
 // out in the open. Raw stashed inside a container (container_id set) is hidden from a
 // street camera or a cop's eyeball — a bag beats a glance. The Scald→city checkpoint
 // scanner (smuggle plugin) is not so easily fooled: it sees bagged raw too.
-async function rawAmong(playerIds) {
-  if (!playerIds.length) return new Set();
-  const { rows } = await query(
-    `SELECT DISTINCT pi.player_id FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-      WHERE pi.player_id = ANY($1) AND pi.container_id IS NULL AND jsonb_exists(i.tags, 'raw_drug')`,
-    [playerIds]
-  ).catch(() => ({ rows: [] }));
-  return new Set(rows.map(r => r.player_id));
-}
 
 // Each tick: refresh the naked-in-view offences, then roll a witness catch on
 // every active offence, the camera odds ramping with how long it's been running.
@@ -1844,11 +2143,12 @@ async function scanActiveCrimes() {
   }
   const candidates = [];   // { id, zone }
   for (const [zoneId, ps] of byZone) {
-    const cop = (getZoneNpcs(zoneId) || []).some(n => n.flags?.police);
+    const cop = copInZone(zoneId);
     if (!cop && !await cameraLiveInZone(zoneId)) continue;
     for (const p of ps) candidates.push({ id: p.id, zone: zoneId });
   }
-  const naked = await nakedAmong(candidates.map(c => c.id));
+  const carried = await scanCarried(candidates.map(c => c.id));
+  const naked = carried.naked;
   const nakedNow = new Set();
   for (const c of candidates) {
     if (!naked.has(c.id)) continue;
@@ -1861,7 +2161,7 @@ async function scanActiveCrimes() {
   }
 
   // 1b. Manufacturing: players carrying raw drug material where a witness could see them.
-  const rawSet = await rawAmong(candidates.map(c => c.id));
+  const rawSet = carried.raw;
   const rawNow = new Set();
   for (const c of candidates) {
     if (!rawSet.has(c.id)) continue;
@@ -1917,7 +2217,7 @@ async function clearWanted(playerId, reason) {
     sendWantedHud(playerId, 0);
     if (reason) sendToPlayer(playerId, { type: 'system', message: `<span class="text-dim">Wanted level cleared — ${reason}.</span>` });
   } else {
-    await query(`UPDATE player_flags SET flag_value='0' WHERE player_id=$1 AND flag_key='wanted'`, [playerId]).catch(() => {});
+    await updateFlagById(playerId, 'wanted', 0).catch(() => {});
   }
 }
 
@@ -1946,6 +2246,28 @@ function huntStep(e, targetZone, bc) {
     if (nbrs.length) dest = nbrs[Math.floor(Math.random() * nbrs.length)];
   }
   if (dest && dest !== e.zoneId && bc) moveEntity(e, dest, bc, query);
+}
+
+// Every badge is a badge: any NPC flagged `police` — a street cop, a desk
+// sergeant, a Precinct 9 detention officer — makes a wanted suspect standing in
+// front of them on sight. Cameras originate charges; police act on the heat
+// that's already on your file. No dispatch delay applies: they're already here.
+// At ≤3.5★ the officer detains (the same submit/run prompt a hunting unit runs);
+// above that a lone officer radios it in rather than tackling a manhunt target.
+const COP_RADIO_MS = 30000;      // one call-in per suspect per 30s, not per tick
+async function policeSpot(suspect, s) {
+  if (!suspect?.current_zone || isAirborne(suspect)) return false;
+  const cop = copInZone(suspect.current_zone);
+  if (!cop) return false;
+  s.lastSeenTs = Date.now();   // eyes on you — heat doesn't bleed off in front of a cop
+  if (s.stars <= APPREHEND_MAX) {
+    await startApprehension(suspect, s, cop).catch(e => console.error('[surveillance] cop apprehend error:', e.message));
+  } else if (Date.now() - (s.copCalledTs || 0) > COP_RADIO_MS) {
+    s.copCalledTs = Date.now();
+    sendToZone(suspect.current_zone, { type: 'ambient', message: `${cop.name} clocks ${suspect.handle}, steps back, and talks fast into a shoulder mic.` });
+    dispatchPolice(suspect.current_zone, 'a wanted suspect sighted', suspect.handle);
+  }
+  return true;
 }
 
 // Deploy from the crime scene, then hunt: each tick a unit either engages (same
@@ -2003,8 +2325,17 @@ async function searchAndPursue(suspectId, s) {
         e.aggroedAt = null;
         startApprehension(suspect, s, e).catch(err => console.error('[surveillance] apprehend error:', err.message));
       } else {
-        e.targetId = suspectId;   // full manhunt (≥4★): attack on sight.
+        // FULL MANHUNT (≥4★). They still come at you hard — but a manhunt unit
+        // that gets you down takes you ALIVE rather than leaving a corpse.
+        //
+        // This used to be the one route that skipped jail entirely: run maximum
+        // heat and the police simply killed you, so Precinct 9, the evidence
+        // locker and the hackable cell door were only ever reachable at LOW heat.
+        // Getting battered unconscious and waking up booked is both the better
+        // story and the harsher outcome — you keep the sentence and the fine.
+        e.targetId = suspectId;
         if (!e.aggroedAt) e.aggroedAt = Date.now();
+        e._takesAlive = true;
       }
     }
   }
@@ -2022,6 +2353,11 @@ async function wantedTick() {
     if (s.offline) { s.offline = false; s.lastSeenTs = Date.now(); s.pursuitStartTs = Date.now(); }
 
     if (await isWitnessed(suspect.current_zone)) s.lastSeenTs = Date.now();
+
+    // Any cop in the room makes you on sight — before the dispatch clock, before
+    // any unit deploys. This is what gives every police NPC (detention officers
+    // included) real arrest powers rather than decoration.
+    await policeSpot(suspect, s);
 
     // A safehouse (the Long Watch bunker) actively launders heat: unseen time
     // bleeds a star three times as fast as just lying low on the street.
@@ -2148,12 +2484,19 @@ async function batteryTick() {
   const { rows } = await query(
     'SELECT id, device_kind, wired, battery, is_powered, is_damaged, zone_id FROM security_devices'
   );
+  // The diff-gates below decide WHETHER a device is written exactly as before;
+  // the writes are collected and flushed as at most two statements instead of one
+  // awaited round trip per device. A draining battery trips its gate every tick by
+  // definition, so this is one guaranteed write per battery device per 5 minutes —
+  // it scales with how many players have deployed cameras, not with anything bounded.
+  const wPowered = [];  // [id, is_powered]        — wired devices
+  const wBattery = [];  // [id, battery, is_powered] — battery devices
   for (const d of rows) {
     if (d.wired) {
       // Wired devices track their zone's power, which rarely flips — only write
       // is_powered when it actually changed, not every 5-minute tick.
       const powered = isZonePowered(d.zone_id) && !d.is_damaged ? 1 : 0;
-      if (powered !== d.is_powered) await query('UPDATE security_devices SET is_powered=$1 WHERE id=$2', [powered, d.id]);
+      if (powered !== d.is_powered) wPowered.push([d.id, powered]);
     } else {
       const drain = DRAIN[d.device_kind] ?? 1;
       const battery = Math.max(0, (d.battery || 0) - drain);
@@ -2161,9 +2504,31 @@ async function batteryTick() {
       // A fully-drained device holds at battery=0/is_powered=0 — skip the write
       // once nothing moves; only persist while battery is actually draining.
       if (battery !== d.battery || powered !== d.is_powered)
-        await query('UPDATE security_devices SET battery=$1, is_powered=$2 WHERE id=$3', [battery, powered, d.id]);
+        wBattery.push([d.id, battery, powered]);
     }
   }
+  // The two shapes stay separate on purpose: the wired branch must NOT touch
+  // battery. Columns are cast explicitly — a bare VALUES list gives Postgres
+  // nothing to infer parameter types from.
+  if (wPowered.length) {
+    const vals = wPowered.map((_, i) => `($${i*2+1}::text, $${i*2+2}::int)`).join(',');
+    await query(
+      `UPDATE security_devices d SET is_powered = v.powered
+         FROM (VALUES ${vals}) AS v(id, powered)
+        WHERE d.id = v.id`,
+      wPowered.flat()
+    );
+  }
+  if (wBattery.length) {
+    const vals = wBattery.map((_, i) => `($${i*3+1}::text, $${i*3+2}::int, $${i*3+3}::int)`).join(',');
+    await query(
+      `UPDATE security_devices d SET battery = v.battery, is_powered = v.powered
+         FROM (VALUES ${vals}) AS v(id, battery, powered)
+        WHERE d.id = v.id`,
+      wBattery.flat()
+    );
+  }
+  if (wPowered.length || wBattery.length) invalidateDeviceCache();
 }
 
 schedule('5m', () => batteryTick().catch(e => console.error('[surveillance] battery tick error:', e.message)));
@@ -2174,6 +2539,7 @@ schedule('5m', () => batteryTick().catch(e => console.error('[surveillance] batt
 // destruction, not a `retrieve`.
 async function destroyDevice(id) {
   await query('DELETE FROM security_devices WHERE id=$1', [id]);
+  invalidateDeviceCache();
   await deleteFurniture(id);
   cameraBuffers.delete(id);
 }
@@ -2284,6 +2650,20 @@ export async function hubDataFor(player) {
   return { net: p.net, tiles: p.tiles, alerts: p.alerts };
 }
 export function hasSpyDeck(playerId) { return playerHasSpyDeck(playerId); }
+
+// Your current heat, straight off the in-memory wanted runtime — no query, so the
+// tablet's home screen can read it on every render. Returns nulls-free zeros when
+// you're clean, which is the common case and the one that has to be free.
+export function wantedSnapshot(playerId) {
+  const s = wantedRuntime.get(playerId);
+  if (!s || !s.stars) return { stars: 0, bar: starBar(0), charges: [], hunted: false };
+  return {
+    stars: s.stars,
+    bar: starBar(s.stars),
+    charges: [...new Set(s.charges || [])].slice(-3),
+    hunted: s.hunters.size > 0,
+  };
+}
 
 // The rolling event-line buffer for one of the player's own cameras — what the
 // tablet shows in the focused-cam pane so you can read what's recorded before you
@@ -2408,6 +2788,44 @@ export async function wipeCameraBuffer(player, deviceId) {
   return true;
 }
 
+// ── Patching a feed into a domestic screen ───────────────────────────────────
+// A consumer tape deck can take a SPECTER camera as its input instead of a
+// cassette (see docs/systems-broadcast.md). Both helpers below serve that path,
+// which means they run off the 4s device cache and the interference cache and
+// add NO query of their own — the deck's frame builder is on the 5s channel tick
+// and cannot afford one. They are the only sanctioned way for another plugin to
+// turn a device id into a frame: jam/spoof/battery/damage all stay decided here.
+
+// The player's own cameras, as pickable inputs. Cams only — a motion sensor has
+// nothing to put on a screen.
+export async function camSourcesFor(ownerId) {
+  const devs = (await allDevices()).filter(d =>
+    d.owner_id === ownerId && CAM_KINDS.has(d.device_kind) && !d.is_damaged);
+  return devs.map(d => ({
+    deviceId: d.id,
+    zoneId: d.zone_id,
+    kind: d.device_kind,
+    label: getZone(d.zone_id)?.name || d.zone_id,
+  }));
+}
+
+// One frame from one of the owner's cameras, with its status. Returns null when the
+// device is gone (burnt out, smashed, retrieved) so the caller can drop the patch;
+// `frame: null` with a status means the device exists but is showing nothing.
+export async function camPatchFrame(deviceId, ownerId) {
+  const dev = (await allDevices()).find(d => d.id === deviceId);
+  if (!dev || (ownerId && dev.owner_id !== ownerId)) return null;
+  if (!CAM_KINDS.has(dev.device_kind)) return null;
+  const status = deviceStatus(dev, await getInterferenceZones());
+  return {
+    deviceId,
+    zoneId: dev.zone_id,
+    label: getZone(dev.zone_id)?.name || dev.zone_id,
+    status,
+    frame: deviceFrame(dev, status),
+  };
+}
+
 export const commands = {
   plant: cmdPlant,
   retrieve: cmdRetrieve,
@@ -2457,6 +2875,9 @@ export const specializedActions = [
   { verb: 'use', requiredTag: 'spy_deck', handler: doUseSpyDeck },
   { verb: 'use', requiredTag: 'security_console', handler: doUseConsole },
   { verb: 'use', requiredTag: 'datachip', handler: doUseDatachip },
+  // Declaration-only: `scrub` stays a plain command (cmdScrub self-resolves the
+  // terminal), this entry just makes the terminal advertise it on examine.
+  { verb: 'scrub', requiredFlag: 'police_terminal', handler: null },
 ];
 
 // ── Dev route: live crime log for the Emergency panel ─────────────────────────
@@ -2538,7 +2959,7 @@ export const routeHandler = async (path, method, body, auth) => {
       await setFlag('player', 'heat', 0, p);
       sendHeatHud(playerId, 0);
     } else {
-      await query(`UPDATE player_flags SET flag_value='0' WHERE player_id=$1 AND flag_key='heat'`, [playerId]).catch(() => {});
+      await updateFlagById(playerId, 'heat', 0).catch(() => {});
     }
     return { status: 200, body: { ok: true } };
   }

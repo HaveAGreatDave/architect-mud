@@ -24,6 +24,7 @@
 // later slices; this slice is "boardable and secure."
 
 import { query } from '../../server/models/db.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { getZone, getLivePlayer, world, addExitOverride, removeExitOverride, registerMinimapNodeFilter, getMinimapData } from '../../server/engine/world.js';
 import { sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
@@ -168,9 +169,16 @@ registerLockType('yachtlock', {
 // Only fires on the crossing FROM a non-yacht tile — moving between yacht rooms
 // once you're legitimately aboard never re-queries. Teleports skip move gates, so
 // the smite backstop below covers that path.
+//
+// Her weather deck (the `vessel` tile) is the one place an uninvited body can end up,
+// and only by ONE route: swimming out and climbing the hull (the swimming plugin's
+// VESSEL_EMBARK, which teleports and so never reaches a move gate). The gangway still
+// refuses them on the way up from the pier, and the hatch off the deck into her rooms
+// is a real boarding — so the deck counts as OUTSIDE when leaving it inward.
+const isOpenDeck = (z) => !!z?.flags?.vessel;
 registerMoveGate(async ({ player, from, to }) => {
-  if (!to?.flags?.yacht) return;           // not boarding the yacht
-  if (from?.flags?.yacht) return;          // already aboard — internal move
+  if (!to?.flags?.yacht) return;                        // not boarding the yacht
+  if (from?.flags?.yacht && !isOpenDeck(from)) return;  // already aboard — internal move
   if (await isInvited(player)) return;
   return { block: true, message: 'An unseen checkpoint holds you at the gangway. The Echelon does not know you.' };
 }, 'yacht:board');
@@ -184,6 +192,9 @@ on('zone.entered', async ({ actor, zone }) => {
   if (!getLivePlayer(actor.id)) return;          // only real, online players — never NPCs
   const z = getZone(zone);
   if (!z?.flags?.yacht) return;
+  // The weather deck is reachable from the water by anyone (see the move gate above),
+  // so the backstop must not erase a swimmer for standing on it — it guards her ROOMS.
+  if (isOpenDeck(z)) return;
   if (await isInvited(actor)) return;
   const bc = getBroadcast();
   bc?.(zone, { type: 'zone_event', message: `${actor.handle} sets foot aboard the Echelon — and is gone in a flash of white light.` }, actor.id);
@@ -491,7 +502,7 @@ function pushHelmLive() {
     if (sky) sendToPlayer(pid, { type: 'helm_sky', sky });
   }
 }
-setInterval(pushHelmLive, 15_000);
+schedule('15s', pushHelmLive);
 
 // Planes over the Basin: stream airborne craft near the Echelon to every open helm so the chase
 // view paints them (charter + player aircraft), refreshed briskly since they move. Only while
@@ -502,7 +513,7 @@ function pushHelmContacts() {
   const contacts = flightStateMod?.aircraftNearCoord?.(ext.grid_x, ext.grid_y) || [];
   for (const pid of helmViewers) sendToPlayer(pid, { type: 'helm_contacts', contacts });
 }
-setInterval(pushHelmContacts, 2000);
+schedule('2s', pushHelmContacts);
 
 // Walking off the bridge closes the helm at once (you can only steer from the bridge) — don't wait
 // for the 15s prune. The client `helm_close` hands the pane back to the room view.

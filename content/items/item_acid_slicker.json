@@ -1,0 +1,24 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_acid_slicker",
+  "name": "hooded acid slicker",
+  "tags": {
+    "bulkiness": 3,
+    "covers": [
+      "legs",
+      "head"
+    ],
+    "description": "A one-piece hooded coverall in chalky grey polymer, seams heat-welded rather than stitched because thread wicks and wicking is how the acid gets in. The hood cinches down to a slot you see out of. It is hot, it rustles like a crisp packet, and every rainy season it is the difference between a bad afternoon and a burn ward. Wear the waders with it or your feet will make the argument for you.",
+    "gets_wet": true,
+    "hydrophobic": true,
+    "insulation": 2,
+    "layer": "armor",
+    "slot": "torso",
+    "waterproof": true,
+    "windproof": true
+  },
+  "type": "clothing",
+  "value": 340,
+  "weight": 1400
+}

@@ -1,0 +1,22 @@
+{
+  "id": "dp_khole_the_still_thing",
+  "name": "something being still",
+  "cause": "drug",
+  "drug_id": "drug_khole",
+  "arrivals": [
+    "Something has arrived and it has arrived by being still.",
+    "There is something here now. It came without approaching.",
+    "The stillness in the room acquires a shape."
+  ],
+  "departures": [
+    "The stillness goes back to being ordinary stillness.",
+    "It is elsewhere, being still there.",
+    "It has withdrawn, unhurried, and taken the quiet with it."
+  ],
+  "looks": [
+    "Still. Extremely still. It is very good at this.",
+    "It is not looking at you. It has no obvious front.",
+    "It is the size of a person and the shape of a decision.",
+    "It has been here longer than you have and did not mind waiting."
+  ]
+}

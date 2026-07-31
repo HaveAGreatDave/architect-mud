@@ -1,0 +1,17 @@
+{
+  "description": "A shallow bowl on a stem. Spills if you walk with it, which is the point — you are meant to be sitting down.",
+  "flags": {},
+  "id": "item_coupe_glass",
+  "name": "coupe",
+  "tags": {
+    "description": "A shallow bowl on a stem. Spills if you walk with it, which is the point — you are meant to be sitting down.",
+    "drinkware": true,
+    "drinkware_kind": "coupe",
+    "fillable": 2,
+    "fragile": true,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 12,
+  "weight": 200
+}

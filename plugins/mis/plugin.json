@@ -1,15 +1,63 @@
 {
   "name": "mis",
   "version": "1.0.0",
-  "description": "Mature Interaction System — opt-in sexual interaction verbs, horniness/arousal, climax events, wash, MIS-gated appearance notes. The engine keeps only the consent flag (server/engine/mis.js).",
-  "hooks": ["player.appearanceMisNotes"],
+  "description": "Mature Interaction System — opt-in sexual interaction verbs, horniness/arousal, climax events, wash, MIS-gated appearance notes. The engine keeps only the opt-in flag (server/engine/mis.js); PER-PLAYER CONSENT is the plugin's own third gate (consent.js + the mis_consents table): the server setting and players.mis_enabled both belong to the actor, so an act on another PLAYER additionally requires that they granted this actor with `consent`. NPCs and self-verbs are unaffected.",
+  "hooks": [
+    "player.appearanceMisNotes"
+  ],
   "commands": [
-    "mis", "strip", "touch", "grope", "squeeze", "kiss", "lick", "fondle", "slap",
-    "stroke", "masturbate", "jerkoff", "jackoff", "rubself", "fingerself",
-    "finger", "suck", "fuck", "sex", "screw", "rail", "bang", "breed",
-    "blowjob", "bj", "handjob", "hj", "ejaculate", "cum", "come", "wash"
+    "mis",
+    "consent",
+    "revoke",
+    "strip",
+    "touch",
+    "grope",
+    "squeeze",
+    "kiss",
+    "lick",
+    "fondle",
+    "slap",
+    "stroke",
+    "masturbate",
+    "jerkoff",
+    "jackoff",
+    "rubself",
+    "fingerself",
+    "finger",
+    "suck",
+    "fuck",
+    "sex",
+    "screw",
+    "rail",
+    "bang",
+    "breed",
+    "blowjob",
+    "bj",
+    "handjob",
+    "hj",
+    "ejaculate",
+    "cum",
+    "come",
+    "wash",
+    "inject",
+    "jab"
   ],
   "objectGatedCommands": {
-    "wash": { "discoverVia": "furniture:water_source", "exposed": false, "note": "KNOWN GAP: gated on a sink/water_source furniture in zone (or a water item in inventory as fallback). cmdWash/cmdWashHands error 'You need a sink or water...' with neither. Not on any sink Actions: block; a specializedAction on water_source furniture (as the water plugin does for drink) would make it discoverable." }
-  }
+    "wash": {
+      "discoverVia": "water_source",
+      "exposed": true,
+      "note": "Declaration-only specializedAction on water_source furniture, so a sink advertises WASH on examine. The verb stays an ordinary plugin command because it accepts more than furniture (falling rain, a carried water item) and does more than MIS cleanup (blood, acid residue) — the registry row exists purely for discoverability."
+    },
+    "inject": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "KNOWN GAP: gated on a carried item tagged , not on anything in the room, so there is nothing to hang an examine hint off. Discovered via the item description and the refusal line when no site is named."
+    },
+    "jab": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "Alias of inject."
+    }
+  },
+  "routePrefix": "/mis-fit"
 }

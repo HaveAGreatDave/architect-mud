@@ -80,6 +80,11 @@
       "price": 100
     },
     {
+      "item_id": "item_salvia",
+      "min_trust": 25,
+      "price": 90
+    },
+    {
       "item_id": "item_static",
       "min_trust": 25,
       "price": 140
@@ -105,6 +110,11 @@
       "price": 250
     },
     {
+      "item_id": "item_dmt",
+      "min_trust": 70,
+      "price": 280
+    },
+    {
       "item_id": "item_memhack",
       "min_trust": 70,
       "price": 300
@@ -118,12 +128,17 @@
       "item_id": "item_overclock",
       "min_trust": 90,
       "price": 500
+    },
+    {
+      "item_id": "item_ibogaine",
+      "min_trust": 90,
+      "price": 520
     }
   ],
-  "vendor_restock_rate": 1,
+  "vendor_restock_rate": 6,
   "vendor_schedule": {},
   "vendor_shop_name": null,
-  "vendor_stock_size": 0,
+  "vendor_stock_size": 40,
   "wander_zones": [
     "zone_district_908_908",
     "zone_district_916_909",
@@ -132,5 +147,5 @@
     "zone_district_925_903"
   ],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_yards_tenement_u3_2"
 }

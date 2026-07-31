@@ -68,7 +68,8 @@ mechanism is never disclosed. Furniture: `furn_echelon_closet_embassy` / `furn_e
 - `zone.entered` — if an online player who is not approved (not Cyd, not on the list) lands in a
   `flags.yacht` zone (forced, teleported, glitched past the move gate, or flown in), they are smitten
   via `handlePlayerDeath`. The backstop the move gate can't cover, since `TELEPORT` and flight
-  arrivals bypass move gates by design.
+  arrivals bypass move gates by design. **Exception: her weather deck** (the `flags.vessel` exterior
+  tile) — see the waterline below. Standing on open deck is not a trespass; being in her rooms is.
 
 ## Dependencies
 
@@ -83,3 +84,20 @@ mechanism is never disclosed. Furniture: `furn_echelon_closet_embassy` / `furn_e
 
 Three layers, in the order a body gets aboard: `yachtlock` (interior doors) → `yacht:board` (the
 gangway) → `zone.entered` smite (the backstop). Owner: Cyd (an admin).
+
+### The waterline
+
+Her exterior tile is flagged `vessel`, which makes it boardable **from the water by anyone** — swim
+out to a tile alongside and `embark` (the mechanic is generic and lives in `plugins/swimming/`; see
+[systems-swimming.md](../../docs/systems-swimming.md)). That is deliberate: the gangway is her front
+door and has a bouncer, but the waterline is the back of the boat and is meant to be a real way on.
+What it does NOT do is open her up —
+
+- the deck counts as **outside** on the way in, so the hatch to the foyer runs `yacht:board` in full
+  and refuses an uninvited swimmer;
+- the smite skips the deck only (every interior zone is unchanged), so a boarder is turned away, not
+  erased;
+- walking aboard from a **pier** is still refused — the swim route reaches the deck by `TELEPORT`,
+  which never sees a move gate;
+- the water tile under her hull is **closed to swimmers** (`swimming:vessel-hull`) — you stop at her
+  waterline and climb, you don't swim under her.

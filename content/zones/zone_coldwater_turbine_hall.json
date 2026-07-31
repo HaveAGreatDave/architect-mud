@@ -12,6 +12,14 @@
     "building_type": "power",
     "is_building": true,
     "is_interior": true,
+    "work_venue": {
+      "boss": "Watts",
+      "clock_in_line": "$HANDLE pulls a stool up to the spare bench and starts working the ticket pile.",
+      "employer_npc": "npc_repairman_watts",
+      "pool": "bench",
+      "role": "bench hand",
+      "wage": 80
+    },
     "world_exit_zone": "zone_district_924_911"
   },
   "grid_x": 0,
@@ -19,7 +27,7 @@
   "grid_z": 0,
   "id": "zone_coldwater_turbine_hall",
   "map_id": "map_int_coldwater_power",
-  "name": "Coldwater Power Plant — Turbine Hall",
+  "name": "Brownout Municipal — Turbine Hall",
   "parent_zone": "zone_district_924_911",
   "updated_at": "1782940278"
 }

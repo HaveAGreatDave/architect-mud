@@ -1,0 +1,19 @@
+{
+  "description": "A squat ceramic block on a wire frame, with a handle and a dial nobody trusts.",
+  "flags": {
+    "interactions": [
+      "lift"
+    ],
+    "heater_target_c": 20,
+    "heater_battery_min": 720,
+    "power_draw_kw": 0.8
+  },
+  "id": "item_space_heater",
+  "name": "battery-backed space heater",
+  "tags": {
+    "description": "A squat ceramic block on a wire frame, with a handle, a dial nobody trusts, and a sealed cell in the base that holds about twelve hours. Plugged in it runs off the wall and quietly tops itself up. When the grid goes - and the grid goes - it keeps going, which is the entire reason to own one and the entire reason they cost what they cost."
+  },
+  "type": "furniture",
+  "value": 480,
+  "weight": 5200
+}

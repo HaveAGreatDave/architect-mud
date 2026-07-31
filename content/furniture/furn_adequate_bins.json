@@ -1,0 +1,14 @@
+{
+  "description": "Wire bins of sock bundles, offcut fabric and unlabelled cable, sold by weight under a hand-lettered card reading EVERYTHING IN THIS BIN: YES.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_adequate_bins",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "sale bins",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_adequate_floor"
+}

@@ -82,6 +82,11 @@ const ROOM_STUMBLE = [
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const bandIndex = (lvl) => { let i = 0; for (let b = 0; b < BANDS.length; b++) if (lvl >= BANDS[b].at) i = b; return i; };
 
+// The band name for a meter level, for anything that wants to READ the state
+// rather than change it (the tablet Vitals app). Exported so a read-out can't
+// grow its own thresholds and drift from the narration above.
+export function intoxBand(level) { return BANDS[bandIndex(Math.round(level || 0))].name; }
+
 // --- meter ingestion ---------------------------------------------------------
 
 function addIntoxication(player, amount) {

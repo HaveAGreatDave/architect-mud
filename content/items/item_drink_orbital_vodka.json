@@ -6,6 +6,8 @@
   "tags": {
     "consumable": true,
     "description": "Orbital-distilled vodka, run through a hundred passes of vacuum until there's nothing left but cold and clarity. Tasteless, odourless, and lethally smooth.",
+    "food_noun": "vodka",
+    "food_profile": "liquid",
     "hydrating": true,
     "laced_drug": "drug_alcohol",
     "laced_potency": 1.9,

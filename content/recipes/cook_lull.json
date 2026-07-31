@@ -5,7 +5,6 @@
     "quantity": 1
   },
   "category": "synthesis",
-  "craft_time": 3,
   "description": "Cook Lull from crude Lull + industrial solvent.",
   "id": "cook_lull",
   "ingredients": [

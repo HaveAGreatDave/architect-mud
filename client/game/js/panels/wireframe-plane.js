@@ -2,7 +2,7 @@
 // insurance) that want a schematic read rather than the realistic shaded 3D
 // model those screens deliberately don't use (see aircraft3d.js — the hangar
 // floor/bench's "real" turntable render, left untouched by this file on purpose).
-import { aircraftFaces, groundPitchFor } from './aircraft3d.js';
+import { aircraftFaces, groundPitchFor, visorHidden } from './aircraft3d.js';
 
 // Canvas fillStyle/strokeStyle can't resolve CSS custom properties itself (var()
 // is a CSSOM-cascade feature, not something the 2D context parses) — so any CRT
@@ -27,7 +27,10 @@ export function drawWireframe3D(ctx, { cls, armed = false, w, h, accent = '#39ff
   const gp = groundPitchFor(cls, armed) * Math.PI / 180, cgp = Math.cos(gp), sgp = Math.sin(gp);
   const E = 0.42, cosE = Math.cos(E), sinE = Math.sin(E);
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
-  const camDist = 3.5, focal = Math.min(w, h) * 1.5, ox = w / 2, oy = h * 0.54;
+  // The armed heli (Viper) is authored double-size, so at the stock focal she
+  // overflows the schematic viewport. Back the camera off for her alone — still
+  // visibly the biggest airframe on the lot, just fully in frame.
+  const camDist = 3.5, focal = Math.min(w, h) * (armed ? 0.95 : 1.5), ox = w / 2, oy = h * 0.54;
   const proj = (f0, g, h0) => {
     const f = gp ? f0 * cgp - h0 * sgp : f0, hh = gp ? f0 * sgp + h0 * cgp : h0;   // nose-up ground tilt
     const fx = f * cy - g * sy, gy = f * sy + g * cy, hz = hh;
@@ -42,6 +45,7 @@ export function drawWireframe3D(ctx, { cls, armed = false, w, h, accent = '#39ff
   const edges = [];
   let zMin = Infinity, zMax = -Infinity;
   for (const face of faces) {
+    if (visorHidden(face)) continue;   // the dealer schematic draws her buttoned up: no cargo hold, no dangling ramp
     const P = face.p.map(v => proj(v[0], v[1], v[2]));
     if (P.some(q => q.z <= 0.15)) continue;
     let avgZ = 0; for (const q of P) avgZ += q.z;

@@ -1,0 +1,20 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_acid_waders",
+  "name": "chemical waders",
+  "tags": {
+    "bulkiness": 3,
+    "description": "Thigh-high boots in the same chalky polymer as the slicker, soles thick enough to stand in a running gutter of the stuff and think about something else. Sold as a pair with a warning label nobody reads and a second, handwritten one from the shop — CHECK THE SOLES — that everybody does.",
+    "gets_wet": true,
+    "hydrophobic": true,
+    "insulation": 2,
+    "layer": "armor",
+    "slot": "feet",
+    "waterproof": true,
+    "windproof": true
+  },
+  "type": "clothing",
+  "value": 180,
+  "weight": 1100
+}

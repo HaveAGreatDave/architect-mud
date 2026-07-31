@@ -1,0 +1,61 @@
+@broadcast "Hungry Man's Just Meats - She Can't Control You Anymore, King"
+@category commercial
+@length 30
+@type commercial
+
+::actors
+@actor npc_narrator
+@alias npc_narrator NARRATOR
+::endactors
+
+::scene TITLE
+
+ROOM gym_parking_lot
+
+EVENT FADE_IN
+
+TITLE hungry_man_just_meats_logo
+
+♪ A jingle built entirely from grunts and one bass note, repeated with total confidence. ♪
+
+::scene COMMERCIAL
+
+CAM 1 WIDE gym_parking_lot
+
+NPC npc_narrator
+
+SHOT
+A man in a tactical vest opens a family-size tub of an unidentified meat product from his truck bed.
+SHOT_END
+
+NARRATOR:
+She left. The alimony hurts. But you know what never leaves?
+
+NARRATOR:
+Protein.
+
+ACTION npc_narrator flexes at the tub of meats, unprompted
+
+NARRATOR:
+Hungry Man's Just Meats. No sauces. No vegetables. No accountability.
+
+CAM 2 CLOSEUP product_tub
+
+NARRATOR:
+Just the meats, king.
+
+LOWER_THIRD
+NOW WITH 12% MORE MEAT-ADJACENT MATERIAL
+SHE CAN'T CONTROL YOU ANYMORE, KING
+LOWER_THIRD_END
+
+NARRATOR:
+I ate nothing but Just Meats for a month and now my landlord is afraid of me.
+
+TICKER
+"Meat" legally redefined for labeling purposes only · Sourcing information available upon request from a lawyer, not from us · No refunds, no substitutions, no judgment (some judgment) · Alimony not included but we're working on it
+TICKER_END
+
+EVENT FADE_OUT
+
+END

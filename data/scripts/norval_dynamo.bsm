@@ -1,0 +1,542 @@
+@broadcast "Norval Dynamo"
+@channel 7
+@category movie
+@type film
+@length 2760
+@airtime 16
+@airday sunday
+@presents "Ashway Community Reel"
+@rating "GENERAL — CONTAINS DANCING"
+@director "Merl Prewitt"
+@titlecard norval_dynamo_title
+
+# NORVAL DYNAMO — a KSAB afternoon feature, Sunday 16:00 block.
+#
+# In-universe: a small, dry, extremely slow comedy about a teenager in the Ashway
+# who is not good at anything except the two things nobody scores. Shot on one
+# camera that never moves by a man who owned one camera. It was screened once at
+# the Ashway community hall in 2081 and then not again for nine years.
+#
+# The joke is never explained and nobody in it knows they are funny. Every scene is
+# held four seconds too long on purpose. That is the picture.
+#
+# A film is a RECORDING — the cast are DISPLAY NAMES in ::cast, never npc_ ids, so
+# nothing here spawns a studio NPC and nothing presence-gates.
+# See docs/bsm-format.md.
+
+::cast
+NORVAL | Norval Dynamo | has a lot of skills
+KIPP | Kipp Dynamo | is training to be a cage fighter
+DUTCH | Uncle Dutch | threw it in '71
+GRAN | Gran Dynamo | out on the tailings
+TEO | Teo Sandoval | new
+DEB | Debra Wick | keychains, portraits
+CLAW | Claw Vance | Vance Combat Systems
+LAFONDA | LaFonda | on the relay
+SUMMER | Summer Ostrand | current Block Steward
+DON | Don Grebe | shoves people
+COACH | Warden Peale | runs the hall
+TINA | Tina | a goat, mostly
+::endcast
+
+::asset norval_dynamo_title
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" font-family="'Segoe UI',Helvetica,Arial,sans-serif">
+  <defs>
+    <linearGradient id="ndsky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c9b98d"/>
+      <stop offset="0.62" stop-color="#a9986e"/>
+      <stop offset="1" stop-color="#6e6248"/>
+    </linearGradient>
+    <linearGradient id="ndground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a7a56"/><stop offset="1" stop-color="#4a4130"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="360" fill="url(#ndsky)"/>
+
+  <!-- ash haze -->
+  <g fill="#d8cba6" opacity="0.35">
+    <ellipse cx="120" cy="150" rx="150" ry="18"/><ellipse cx="480" cy="128" rx="180" ry="14"/>
+  </g>
+
+  <!-- flat nothing, a fence, one pole -->
+  <rect x="0" y="228" width="640" height="132" fill="url(#ndground)"/>
+  <g stroke="#5c5238" stroke-width="3" opacity="0.9">
+    <line x1="0" y1="236" x2="640" y2="236"/>
+    <line x1="0" y1="248" x2="640" y2="248"/>
+  </g>
+  <g fill="#5c5238">
+    <rect x="36" y="206" width="6" height="44"/><rect x="148" y="206" width="6" height="44"/>
+    <rect x="262" y="206" width="6" height="44"/><rect x="376" y="206" width="6" height="44"/>
+    <rect x="492" y="206" width="6" height="44"/><rect x="602" y="206" width="6" height="44"/>
+  </g>
+
+  <!-- the pole-ball pole. bent. -->
+  <path d="M556 232 L552 120 Q551 108 562 106" fill="none" stroke="#3f3828" stroke-width="6" stroke-linecap="round"/>
+  <line x1="560" y1="108" x2="576" y2="158" stroke="#3f3828" stroke-width="1.6"/>
+  <circle cx="577" cy="164" r="9" fill="#7a3a24" stroke="#2b2418" stroke-width="2"/>
+
+  <!-- a scooter leaned on nothing -->
+  <g transform="translate(96,214)" stroke="#3f3828" stroke-width="3" fill="none">
+    <circle cx="0" cy="18" r="13"/><circle cx="46" cy="18" r="13"/>
+    <path d="M0 18 L14 2 L34 2 L46 18"/><path d="M14 2 L10 -12 L22 -12"/>
+    <rect x="26" y="-8" width="18" height="8" rx="2" fill="#3f3828"/>
+  </g>
+
+  <!-- title -->
+  <text x="42" y="112" font-size="66" font-weight="700" fill="#2b2418" letter-spacing="2">NORVAL</text>
+  <text x="42" y="172" font-size="66" font-weight="700" fill="#2b2418" letter-spacing="2">DYNAMO</text>
+  <rect x="46" y="186" width="240" height="4" fill="#7a3a24"/>
+  <text x="46" y="308" font-size="13" fill="#2b2418" opacity="0.75" letter-spacing="4">ASHWAY COMMUNITY REEL</text>
+  <text x="598" y="308" text-anchor="end" font-size="11" fill="#2b2418" opacity="0.6" letter-spacing="3">RUNS 46 MINUTES</text>
+</svg>
+::endasset
+
+LETTERBOX on
+
+TITLE norval_dynamo_title
+
+SHOT
+A dirt yard. Grey ash over everything, the way frost lies. Nothing happens for a while. A goat walks left to right and exits.
+SHOT_END
+
+NARRATOR:
+The Ashway is eleven blocks of prefab and tailings, forty minutes from anything, and it has produced in its entire history one thing of note. This is a picture about him, and he would like that sentence removed.
+
+FADE out 2
+
+ACT 1 — Skills
+SLUG THE ASHWAY — RATION LINE 4 | MORNING
+
+A queue of nineteen people in front of a shuttered window. Ash on the shoulders of every coat.
+
+NORVAL DYNAMO is sixteen, six foot one, and constructed entirely of elbows. He wears a respirator on a lanyard that he does not put on. He is holding a folded piece of paper.
+
+DON GREBE, behind him, shoves him forward six inches for no reason.
+
+DON:
+Move up.
+
+NORVAL:
+There's nowhere to move up to, Don. There's a wall.
+
+DON:
+Move up to the wall then.
+
+Norval moves up to the wall. He stands against the wall. He waits there for a while.
+
+NORVAL:
+Gosh.
+
+SLUG THE ASHWAY — DYNAMO HOUSE | LATER
+
+A kitchen. One window, taped. KIPP DYNAMO, thirty-two, sits at a relay terminal with a headset and does not turn around.
+
+NORVAL:
+Kipp. There's no nuggets.
+
+KIPP:
+I ate the nuggets.
+
+NORVAL:
+You ate all of them?
+
+KIPP:
+I'm carb-loading. I'm training to be a cage fighter.
+
+NORVAL:
+You've been training to be a cage fighter for four years.
+
+KIPP:
+And I'm gonna keep training until I'm a cage fighter, Norval. That's how training works.
+
+Norval takes a jar of grey paste from a shelf, looks at it, and puts it back.
+
+NORVAL:
+Who're you even talking to all day.
+
+KIPP:
+Her name's LaFonda and she's from the Yards and it's none of your dang business.
+
+SLUG THE ASHWAY — CIVIC HALL, CLASSROOM 2 | AFTERNOON
+
+Twelve teenagers. WARDEN PEALE at the front, out of enthusiasm.
+
+Norval unfolds his paper on the desk. It is a drawing, in pencil, done with enormous care.
+
+DEBRA WICK, sixteen, side-braid, leans over.
+
+DEB:
+What's that.
+
+NORVAL:
+A ligerat.
+
+DEB:
+A what.
+
+NORVAL:
+It's pretty much my favourite animal. It's like a lion and a rat mixed. Bred for its skills in scavenging.
+
+DEB:
+Does it exist?
+
+NORVAL:
+Not yet.
+
+A long pause. Deb looks at the drawing. It is genuinely quite good.
+
+DEB:
+I do braided wire keychains. A credit fifty. And portrait exposures, but the light's broken.
+
+NORVAL:
+I'll take a keychain.
+
+DEB:
+You don't have to.
+
+NORVAL:
+I know I don't have to.
+
+He buys a keychain. Neither of them says anything else for the rest of the scene.
+
+FADE out 2
+
+ACT 2 — Uncle Dutch
+SLUG THE ASHWAY — TAILINGS ROAD | DUSK
+
+A scrap quad crosses the frame far away, going too fast. It goes out of shot. There is a distant, unremarkable crunch.
+
+NARRATOR:
+Gran Dynamo broke her hip on the tailings on a Tuesday, which meant somebody had to come and mind the boys.
+
+SLUG DYNAMO HOUSE — YARD | MORNING
+
+A hauler pulls in. UNCLE DUTCH gets out. Forty-nine. A jacket he has owned since before the Handoff. He looks at the house like a man appraising a property he has already decided against.
+
+DUTCH:
+Norval. Kipp. Your gran's in the clinic in Coldwater and I'm here till she's out.
+
+KIPP:
+How long's that.
+
+DUTCH:
+Depends how she heals. Hips are funny.
+
+He unloads a folding chair and a crate. He sets the chair up in the yard facing the road, sits in it, and looks at the road.
+
+NORVAL:
+What're you doing.
+
+DUTCH:
+Thinking.
+
+NORVAL:
+About what.
+
+DUTCH:
+Seventy-one.
+
+SLUG DYNAMO HOUSE — YARD | LATER
+
+Dutch has not moved. Norval is standing near him because there is nowhere else to stand.
+
+DUTCH:
+You know they ran evac convoys out of the Basin that year. Nine of 'em. I was this close to being on the seventh.
+
+NORVAL:
+How close.
+
+DUTCH:
+They needed one more hand to load and they picked Rolly Beck. Rolly Beck. Couldn't carry a bag of ration flour without sitting down halfway.
+
+NORVAL:
+So?
+
+DUTCH:
+So if they'd picked me I'd be in the Meridian arcology right now, eating real fruit, with a woman.
+
+NORVAL:
+But they didn't pick you.
+
+DUTCH:
+No.
+
+NORVAL:
+So you're here.
+
+DUTCH:
+Norval, I could throw a crate forty feet in 2071. Forty feet. Ask anybody.
+
+Norval walks away. Dutch stays in the chair. The shot holds on him for a long time after Norval has gone.
+
+SLUG THE ASHWAY — BLOCK ROAD | DAY
+
+A scooter comes down the road at a very moderate speed. It stops. TEO SANDOVAL, sixteen, gets off. He is calm in a way nobody in the Ashway is calm.
+
+Norval is on the roadside. He looks at the scooter for a while.
+
+NORVAL:
+That yours?
+
+TEO:
+Yes.
+
+NORVAL:
+That's a sweet scooter.
+
+TEO:
+Thank you.
+
+NORVAL:
+I'm Norval.
+
+TEO:
+Teo.
+
+They stand there. A hauler goes past. The ash settles again.
+
+NORVAL:
+You wanna see a drawing of a ligerat.
+
+TEO:
+Okay.
+
+FADE out 2
+
+ACT 3 — Vance Combat Systems
+SLUG THE ASHWAY — CONTAINER 9 | EVENING
+
+A shipping container with a hand-painted sign: VANCE COMBAT SYSTEMS — FIRST SESSION FREE. Inside, CLAW VANCE, forty, in a sleeveless vest, addresses six people.
+
+CLAW:
+Bow to your sensei. Bow to your sensei.
+
+Nobody bows. Claw continues anyway.
+
+CLAW:
+Now. A man comes at you with a pipe. What do you do. Kipp.
+
+KIPP:
+Uh. Run?
+
+CLAW:
+Wrong. You break the pipe. You break the arm holding the pipe. Then you go and find where he got the pipe and you break that too. That's Vance. That's the system.
+
+KIPP:
+How much is the full course.
+
+CLAW:
+Ninety credits and you sign a waiver that I wrote.
+
+Kipp signs the waiver. Dutch, at the back, is watching Claw the way a man watches money.
+
+SLUG DYNAMO HOUSE — KITCHEN | NIGHT
+
+Dutch has a crate open on the table. Inside are small unlabelled tubs.
+
+DUTCH:
+Everlast. Augment cream. Genuine.
+
+KIPP:
+That's not what genuine Everlast looks like.
+
+DUTCH:
+It's the same cream, Kipp. It's out of the same vat. It just hasn't got the little foil on it.
+
+KIPP:
+What's it do.
+
+DUTCH:
+Whatever they need it to do. You knock, you smile, you say "a diamond is forever, now so is she", and you let them work the rest out themselves.
+
+KIPP:
+And we split it.
+
+DUTCH:
+Sixty forty.
+
+KIPP:
+Which way.
+
+DUTCH:
+Kipp.
+
+FADE out 2
+
+ACT 4 — Vote Teo
+SLUG THE ASHWAY — CIVIC HALL | DAY
+
+A noticeboard. A sheet: BLOCK STEWARD — NOMINATIONS. One name on it: SUMMER OSTRAND.
+
+Teo reads it. Norval reads it.
+
+NORVAL:
+Summer Ostrand's been Block Steward two years and all she's done is get the good water rota for her own row.
+
+TEO:
+Can anybody nominate.
+
+NORVAL:
+Anybody who lives here.
+
+Teo takes the pencil off the string and writes TEO SANDOVAL underneath.
+
+TEO:
+Okay.
+
+NORVAL:
+That's it? You just wrote it?
+
+TEO:
+You said anybody.
+
+SLUG THE ASHWAY — DYNAMO HOUSE, NORVAL'S ROOM | NIGHT
+
+Norval, on the floor, with a tin of paint and a stack of salvaged card, making posters. Each one says VOTE TEO in careful hand-drawn letters. He has done nineteen of them. He is not tired.
+
+NARRATOR:
+He made ninety-one posters over four nights. Nobody asked him to.
+
+SLUG THE ASHWAY — BLOCK ROAD | DAY
+
+Summer Ostrand hands out ration chits with her name printed on them. A small crowd takes the chits.
+
+SUMMER:
+It's not a bribe, it's a sample.
+
+Norval, across the road, silently puts up another poster.
+
+FADE out 2
+
+ACT 5 — The Skit
+SLUG THE ASHWAY — CIVIC HALL | DAY
+
+Rows of chairs. Warden Peale at a lectern with a clipboard.
+
+COACH:
+Both candidates give a statement, then both candidates give a skit. That's the format, it's always been the format, don't argue with me about the format.
+
+Summer gives her statement. It is eleven minutes long and about her mother.
+
+Teo stands up. He is holding nothing.
+
+TEO:
+If you vote for me, all your wildest dreams will come true.
+
+He sits down.
+
+A silence of a quality rarely achieved indoors.
+
+COACH:
+And the skit.
+
+Teo looks at Norval. Norval looks at Teo. Teo has not prepared a skit. Neither has Norval.
+
+NORVAL:
+I've got it.
+
+SLUG THE ASHWAY — CIVIC HALL | CONTINUOUS
+
+Norval walks to the deck at the side of the stage. He takes a cassette out of his jacket. It is scuffed to the point of illegibility. He puts it in and presses the key.
+
+A track starts. It is thin and it is old and the tape has stretched.
+
+Norval walks to the middle of the stage and stands there long enough that two people start to leave.
+
+Then he dances.
+
+SHOT
+He is extremely good. Nobody in the hall knew, because he has never done it in front of anybody. The camera does not move, because the man holding it has forgotten he is holding it.
+SHOT_END
+
+NARRATOR:
+Forty-one seconds. One take. The reel was never cut because there was nothing to cut it with.
+
+The track ends. Norval walks off the stage and out the side door and does not come back in.
+
+The hall does not react for a long moment. Then it does.
+
+FADE out 3
+
+ACT 6 — After
+SLUG THE ASHWAY — CIVIC HALL, NOTICEBOARD | NEXT DAY
+
+The result sheet. TEO SANDOVAL — 88. SUMMER OSTRAND — 31.
+
+Teo looks at it. Norval looks at it.
+
+TEO:
+Thank you.
+
+NORVAL:
+It's a democracy, Teo. I didn't do anything.
+
+TEO:
+Okay.
+
+SLUG DYNAMO HOUSE — YARD | DAY
+
+Gran's quad comes up the road, slow, with Gran on it, one leg braced.
+
+Dutch is folding his chair before she has stopped moving.
+
+GRAN:
+Dutch.
+
+DUTCH:
+Ma.
+
+GRAN:
+Go home.
+
+DUTCH:
+I'm going.
+
+He puts the chair in the hauler. He stands with the door open, looking at the road again.
+
+DUTCH:
+Forty feet, Norval. Ask anybody.
+
+NORVAL:
+I believe you, Uncle Dutch.
+
+Dutch looks at him to see whether that was a joke. It was not. He drives off.
+
+SLUG THE ASHWAY — POLE-BALL POST | LATE AFTERNOON
+
+A bent rebar post with a ball on a wire. Norval is hitting it, alone, competently.
+
+Deb comes up the road with her keychain box.
+
+DEB:
+Is that a game?
+
+NORVAL:
+Pole-ball.
+
+DEB:
+Are you good at it?
+
+NORVAL:
+Yes.
+
+DEB:
+Is anyone else good at it?
+
+NORVAL:
+No.
+
+She puts the box down. He serves. She hits it back. They play.
+
+SHOT
+The camera holds on the two of them from thirty feet away for a very long time. Neither of them says anything. The ash comes down like it always does. That is the end of the picture.
+SHOT_END
+
+FADE out 4
+
+NARRATOR:
+Norval Dynamo lived in the Ashway his whole life and never left it, and when they asked him for this picture he said he'd rather not, and then he did it anyway, because they asked.
+
+TITLE norval_dynamo_title
+
+END

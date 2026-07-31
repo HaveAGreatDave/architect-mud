@@ -1,0 +1,59 @@
+{
+  "addiction_chance": 0.08,
+  "description": "A steel bulb of nitrous oxide. Forty seconds, and then you are just a person in a room again.",
+  "duration_seconds": 50,
+  "effects": {
+    "comeon_message": "<span class=\"msg-system\">Cold on the teeth, sweet at the back of the throat.</span>",
+    "hallucination": {
+      "mode": "dreamzone",
+      "duration_seconds": 40,
+      "intensity": 0.85,
+      "palette": "yellow",
+      "events": [
+        {
+          "atSec": 4,
+          "text": "[trip]WAH. WAH. WAH. The whole room is on the beat.[/trip]"
+        },
+        {
+          "atSec": 14,
+          "text": "[trip]You are laughing and the laugh arrives in slices.[/trip]"
+        },
+        {
+          "atSec": 26,
+          "text": "[trip]The beat slows. Something almost gets explained.[/trip]"
+        },
+        {
+          "atSec": 38,
+          "text": "[trip]Gone. You are standing in a room holding a balloon, and it is a bit embarrassing.[/trip]"
+        }
+      ]
+    },
+    "instant": {
+      "sanity": -2
+    },
+    "onset_message": "<span class=\"msg-system\">Everything becomes a throb with a beat to it, and the beat is very funny, and the room agrees.</span>",
+    "onset_seconds": 2,
+    "overdose": {
+      "lethal": true,
+      "message": "You breathe nothing but the gas for too long, and the part of you that was supposed to notice has gone out."
+    },
+    "take_line": "You crack the {name} into a balloon and breathe it back in.",
+    "tolerance": {
+      "gain_per_dose": 0.05,
+      "max_reduction": 0.3
+    },
+    "withdrawal": {
+      "message": "Your hands and feet are buzzing and have been for days. It is not the good buzzing.",
+      "mods": {
+        "stat_reflexes": -2
+      },
+      "onset_seconds": 1800
+    }
+  },
+  "flags": {},
+  "id": "drug_nitrous",
+  "item_id": "item_nitrous",
+  "name": "whippet",
+  "overdose_threshold": 6,
+  "withdrawal_effects": {}
+}

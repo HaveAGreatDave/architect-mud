@@ -1,0 +1,140 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "attack",
+        "type": "condition"
+      },
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "weight": 10,
+      "soak": {
+        "kinetic": 0
+      }
+    },
+    {
+      "part": "torso",
+      "weight": 26,
+      "soak": {
+        "kinetic": 1
+      }
+    },
+    {
+      "part": "left_arm",
+      "weight": 10,
+      "soak": {
+        "kinetic": 0
+      },
+      "role": "attack"
+    },
+    {
+      "part": "right_arm",
+      "weight": 10,
+      "soak": {
+        "kinetic": 0
+      },
+      "role": "attack"
+    },
+    {
+      "part": "left_leg",
+      "weight": 22,
+      "soak": {
+        "kinetic": 0
+      },
+      "role": "mobility"
+    },
+    {
+      "part": "right_leg",
+      "weight": 22,
+      "soak": {
+        "kinetic": 0
+      },
+      "role": "mobility"
+    }
+  ],
+  "butcher_difficulty": 4,
+  "butcher_table": [],
+  "death_message": "The stilt-legged mutant folds up in three places at once and comes down in a heap of angles.",
+  "description": "Something that used to be a person, drawn out. Its legs are half again too long and fold the wrong way at the knee, and it moves in fast silent scissoring steps that carry it out of reach before you have finished swinging. Everything above the hips is unchanged, which is the part that stays with you.",
+  "dodge": 4,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": true,
+    "battle_cries": [
+      "$enemy scissors sideways out of the dark at $player.",
+      "$enemy is suddenly much closer to $player than it was."
+    ],
+    "first_strike_delay_ms": 6000
+  },
+  "hit": 3,
+  "hp_max": 26,
+  "id": "enemy_stilt_mutant",
+  "loot_table": [
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 18
+    },
+    {
+      "credits": [
+        15,
+        55
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 14
+    },
+    {
+      "credits": [
+        60,
+        160
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 3,
+      "super": true
+    }
+  ],
+  "name": "stilt-legged mutant",
+  "weapon": [
+    {
+      "type": "kinetic",
+      "min": 2,
+      "max": 4
+    }
+  ]
+}

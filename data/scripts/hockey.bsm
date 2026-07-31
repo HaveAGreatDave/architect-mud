@@ -1,0 +1,711 @@
+@broadcast "Cluster Puck — CPhL Coldwater Hockey"
+@channel 7
+@category sport
+@type sports
+@sport hockey
+@announcer "Tug Brennan"
+@airtime 18
+@length 300
+@titlecard cphl_title
+
+# =============================================================================
+# CLUSTER PUCK — the CPhL line library, called by Tug Brennan.
+#
+# There is no game in the world. Every airing the sports runner SIMULATES a fresh
+# sixty minutes (plugins/broadcast/sports/hockey.js) — picks two clubs below,
+# deals lineups, and plays out scoring chances while tracking the score, the
+# penalty boxes, the injuries and the bodies. Then it assembles the play-by-play
+# from these pools, one random line per beat, {tokens} filled from live game
+# state. Different clubs, different score, every single time.
+#
+# THE LEAGUE. Nobody founded the CPhL. "Cluster" is what the pre-Handoff
+# operators called the machine, and the machine is still running — some
+# Architect-adjacent scheduler has emitted matchups on a fixed cycle since before
+# anyone alive was born. No commissioner, no league office, no records. The clubs
+# receive their pairing and turn up. The lowercase h in CPhL is a letterhead typo
+# and there is no surviving authority competent to correct it.
+#
+# THE HOCKEY. Not the NHL. Hits maim, penalties are casualties, an injured man is
+# NOT replaced so his side finishes short, a fight loser serves five and the
+# winner's team gets the power play, and overtime is called sudden death because
+# it ends on the first goal OR the first fatality, whichever arrives first.
+#
+# TEXT PARITY IS THE RULE. Every beat the sim emits has a pool here — including
+# the boards hits, the scrums, the injuries, the fatalities and the pulled
+# goalie. Nothing may exist only as an animation on the Gameday screen; a player
+# reading the text must get the whole game. The announcer is a NAME, not an NPC.
+# See docs/bsm-format.md#sports-broadcasts-type-sports.
+# =============================================================================
+
+::asset cphl_title
+<!--
+  THE OPEN. Title-card SVGs are parsed into live DOM by tv.js (not dropped into an
+  <img>), so a <style> block inside the asset really runs — which is why this is an
+  animated broadcast open and not a poster. It plays once, on air, in about 4 seconds:
+  the sheet wipes in from the left, the mark lands with a shockwave, the wordmark
+  clip-reveals behind a moving light bar, the goal lamp fires twice, and the strapline
+  types itself under it. Everything is declarative CSS on a single timeline — no JS
+  reaches into this, so it renders identically on every TV in the world.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" font-family="'Segoe UI',Helvetica,Arial,sans-serif">
+  <defs>
+    <linearGradient id="cpsky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#101c2a"/><stop offset="0.55" stop-color="#0a1018"/><stop offset="1" stop-color="#04070b"/>
+    </linearGradient>
+    <linearGradient id="cpice" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7d99b8"/><stop offset="0.55" stop-color="#c3d6e8"/><stop offset="1" stop-color="#eef5fb"/>
+    </linearGradient>
+    <linearGradient id="cpsteel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="0.42" stop-color="#cfe4f4"/>
+      <stop offset="0.52" stop-color="#7fa8c8"/><stop offset="1" stop-color="#e8f3fb"/>
+    </linearGradient>
+    <linearGradient id="cpsweep" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4fd2ff" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#bdefff" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#4fd2ff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="cplamp" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ff5a4a" stop-opacity="0.9"/><stop offset="1" stop-color="#ff2b3a" stop-opacity="0"/>
+    </radialGradient>
+    <!-- The wipes ARE these two rects: the animation runs on the clip rect itself
+         (SVG2 geometry properties are CSS-animatable), so the artwork underneath is
+         plain static SVG and only the mask moves. -->
+    <clipPath id="cpwordclip"><rect class="cp-word-rect" x="46" y="120" width="0" height="92"/></clipPath>
+    <clipPath id="cpsheetclip"><rect class="cp-sheet-rect" x="0" y="228" width="0" height="132"/></clipPath>
+    <style><![CDATA[
+      .cp-sheet-rect { animation: cpWipe 0.62s cubic-bezier(.16,.9,.3,1) 0.1s both; }
+      .cp-word-rect  { animation: cpWipe 0.72s cubic-bezier(.16,.9,.3,1) 0.62s both; }
+      @keyframes cpWipe { from { width: 0; } to { width: 640px; } }
+      .cp-sweep  { animation: cpSweep 1.05s cubic-bezier(.3,.1,.2,1) 0.58s both; }
+      @keyframes cpSweep { from { transform: translateX(-260px); opacity: 0; } 12% { opacity: 1; } to { transform: translateX(660px); opacity: 0; } }
+      .cp-mark   { transform-origin: 92px 168px; animation: cpMark 0.5s cubic-bezier(.2,1.7,.35,1) 0.34s both; }
+      @keyframes cpMark { from { transform: scale(2.6) rotate(-24deg); opacity: 0; } 70% { opacity: 1; } to { transform: scale(1) rotate(0); opacity: 1; } }
+      .cp-shock  { transform-origin: 92px 168px; animation: cpShock 0.8s ease-out 0.6s both; }
+      @keyframes cpShock { from { transform: scale(0.2); opacity: 0.9; } to { transform: scale(3.4); opacity: 0; } }
+      .cp-rule   { transform-origin: left center; animation: cpRule 0.5s cubic-bezier(.16,.9,.3,1) 1.15s both; }
+      @keyframes cpRule { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+      .cp-sub    { animation: cpFade 0.7s ease-out 1.35s both; }
+      .cp-foot   { animation: cpFade 0.8s ease-out 1.75s both; }
+      @keyframes cpFade { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+      .cp-lamp   { animation: cpLamp 0.34s steps(1) 1.5s 4 both; }
+      @keyframes cpLamp { 0%,49% { opacity: 0.95; } 50%,100% { opacity: 0.12; } }
+      .cp-scan   { animation: cpScan 3.4s linear 0s infinite; }
+      @keyframes cpScan { from { transform: translateY(-14px); } to { transform: translateY(374px); } }
+      .cp-puck   { animation: cpPuck 0.85s cubic-bezier(.1,.7,.2,1) 0.5s both; }
+      @keyframes cpPuck { from { transform: translateX(360px); } to { transform: translateX(0); } }
+    ]]></style>
+  </defs>
+
+  <rect width="640" height="360" fill="url(#cpsky)"/>
+
+  <!-- upper bowl: crowd as a dark texture, not as faces. Nobody in this league has a face. -->
+  <g opacity="0.55">
+    <rect x="0" y="0" width="640" height="86" fill="#070c12"/>
+    <g fill="#1d2a38">
+      <rect x="0" y="58" width="640" height="4"/><rect x="0" y="70" width="640" height="3"/>
+    </g>
+    <g fill="#2b3a4c" opacity="0.85">
+      <circle cx="34" cy="26" r="4"/><circle cx="88" cy="40" r="4"/><circle cx="142" cy="20" r="4"/>
+      <circle cx="204" cy="38" r="4"/><circle cx="266" cy="24" r="4"/><circle cx="330" cy="42" r="4"/>
+      <circle cx="392" cy="22" r="4"/><circle cx="454" cy="40" r="4"/><circle cx="516" cy="26" r="4"/>
+      <circle cx="582" cy="42" r="4"/>
+    </g>
+  </g>
+
+  <!-- the sheet, wiped in from the left -->
+  <g clip-path="url(#cpsheetclip)">
+    <rect x="0" y="228" width="640" height="132" fill="url(#cpice)"/>
+    <path d="M0 262 L640 262" stroke="#2f6fd0" stroke-width="4" opacity="0.8"/>
+    <path d="M0 316 L640 316" stroke="#c8382f" stroke-width="3" opacity="0.85"/>
+    <g stroke="#8fb0cc" stroke-width="1.6" opacity="0.4">
+      <path d="M60 348 L128 300"/><path d="M186 352 L246 306"/><path d="M330 300 L402 346"/>
+      <path d="M448 296 L512 340"/><path d="M120 286 L176 268"/><path d="M470 272 L528 290"/>
+    </g>
+    <!-- what else gets left on it -->
+    <g fill="#a8121c" opacity="0.75">
+      <ellipse cx="286" cy="336" rx="13" ry="4"/><ellipse cx="303" cy="344" rx="7" ry="2.5"/>
+      <ellipse cx="270" cy="329" rx="4" ry="1.8"/>
+    </g>
+    <g class="cp-puck">
+      <ellipse cx="524" cy="330" rx="14" ry="6" fill="#04070a"/>
+      <ellipse cx="524" cy="326" rx="14" ry="6" fill="#1b2026" stroke="#39424c" stroke-width="1"/>
+    </g>
+  </g>
+
+  <!-- the mark: a puck struck through by the league's one straight line -->
+  <g class="cp-shock"><circle cx="92" cy="168" r="26" fill="none" stroke="#4fd2ff" stroke-width="3"/></g>
+  <g class="cp-mark">
+    <circle cx="92" cy="168" r="34" fill="#080d14" stroke="#4fd2ff" stroke-width="2.5"/>
+    <circle cx="92" cy="168" r="26" fill="none" stroke="#1d4a63" stroke-width="1.2"/>
+    <path d="M64 186 L120 150" stroke="#c8382f" stroke-width="7" stroke-linecap="round"/>
+    <text x="92" y="177" text-anchor="middle" font-size="27" font-weight="700" fill="#e9f5ff" letter-spacing="1">CP</text>
+  </g>
+
+  <!-- wordmark, revealed behind a moving light bar -->
+  <g clip-path="url(#cpwordclip)">
+    <text x="146" y="176" font-size="62" font-weight="700" fill="url(#cpsteel)" letter-spacing="2">CLUSTER</text>
+    <text x="146" y="176" font-size="62" font-weight="700" fill="none" stroke="#0a1018" stroke-width="0.8" letter-spacing="2">CLUSTER</text>
+    <text x="404" y="176" font-size="62" font-weight="700" fill="#c8382f" letter-spacing="2">PUCK</text>
+  </g>
+  <rect class="cp-sweep" x="0" y="118" width="150" height="96" fill="url(#cpsweep)" opacity="0"/>
+
+  <rect class="cp-rule" x="146" y="192" width="404" height="4" fill="#4fd2ff"/>
+
+  <!-- the goal lamp, top right, doing the one thing it has never failed to do -->
+  <g class="cp-lamp">
+    <circle cx="596" cy="128" r="26" fill="url(#cplamp)"/>
+    <circle cx="596" cy="128" r="8" fill="#ff3b4a"/>
+  </g>
+
+  <text class="cp-sub" x="146" y="218" font-size="14" fill="#8fbcd8" letter-spacing="8">CPhL &#183; COLDWATER HOCKEY</text>
+  <text class="cp-foot" x="24" y="350" font-size="11" fill="#54616e" letter-spacing="3">NO OFFICE &#183; NO OWNERS &#183; NO RECORDS</text>
+  <text class="cp-foot" x="616" y="350" text-anchor="end" font-size="11" fill="#8fbcd8" letter-spacing="3">with TUG BRENNAN</text>
+
+  <!-- broadcast scanline, running forever: this is a transmission, not a picture -->
+  <rect class="cp-scan" x="0" y="0" width="640" height="14" fill="#7fd4ff" opacity="0.045"/>
+  <rect x="0" y="0" width="640" height="360" fill="none" stroke="#4fd2ff" stroke-width="2" opacity="0.28"/>
+</svg>
+::endasset
+
+# --- The sixteen. Fourteen are real Coldwater districts; Bayside and Sewerline --
+# --- are neighbourhood-scale inventions in the same register. ------------------
+::teams
+North City Icebreakers
+Government Whips
+Civic Center Wardens
+Marquee Snipers
+Media District Jammers
+Docks Boarders
+Bayside Slush
+Industrial Flats Smelters
+Slaglands Slashers
+Ashway Zambonis
+Sprawl Grinders
+Redline Muckers
+Wastes Drifters
+Sewerline Benders
+Yards Icehaulers
+Longwatch Goons
+::endteams
+
+# --- Surnames. Dealt into season rosters by rosterFor() (sports/hockey.js), so a
+# --- man belongs to ONE club permanently and the scoring race means something.
+# --- SIXTEEN CLUBS x SIX MEN = 96 MINIMUM. Below that the deal starts sharing
+# --- skaters between clubs — it degrades rather than crashing, and regress asserts
+# --- the pool is big enough, so add names in sixes if you add a club. -----------
+::players
+Vasko
+Halstrom
+Deschamps
+"Meat" Prieto
+Kolar
+Bergqvist
+"Stitch" Rennie
+Ozawa
+Tvardovsky
+Mullane
+"Cinderblock" Ferro
+Nyquist
+Sandoval
+Compound Fracture Ng
+Posthumous Gray
+Okonkwo
+Load-Bearing Krupp
+Petrosyan
+"Doc" Lindqvist
+Achterberg
+Antifreeze Wilkins
+Asbestos McQuaid
+"Sunday" Wicks
+Delacroix
+Bhandari
+Osei
+Tremblay
+"Hammer" Nowak
+Concussion Petrelli
+Sepulveda
+Yablonsky
+Uninsured Delgado
+Nonrefundable Bix
+Aitkenhead
+Marchetti
+"Padlock" Ruiz
+Sixfinger Dawes
+Danilenko
+Oyelaran
+Obadiah Flense
+Kuznetsov
+"Chapel" Frye
+Malinowski
+Arceneaux
+Toivonen
+Hargreaves
+Baptiste
+Szabo
+"Tin" Mulvaney
+Cordero
+Ganguly
+Vetrov
+Lindgren
+Abernathy
+"Bottle" Kozak
+Nakamura
+Fitzhugh
+Draganov
+Espinoza
+Torvaltus Grimsby
+Tarasenko
+"Sledge" Ó Briain
+Halloran
+Ozymandias Fung
+Adebayo
+Pankratov
+Cifuentes
+"Compress" Duguay
+Novikov
+Tetanus Vaal
+Bellwether
+Ferreira
+Zielinski
+"Dockside" Marsh
+Okafor
+Rautio
+Villanueva
+Grimaldi
+Polyester Grubb
+"Gasket" Trent
+Amankwah
+Pribyl
+Castellanos
+Insurance Klaim Petrov
+Ibarra
+"Second-Hand" Mbeki
+Radzinsky
+Unlicensed Kowalczyk
+Alferov
+Quintavius Hoak
+Guzman
+"Elbow" Threlfall
+Sorokin
+Barrientos
+Rembrandt Sludge
+Onyekwere
+Pilkington
+"Chainlink" Vidal
+Plumb Bob Kasprzak
+Kalinowski
+Hemlock Brasseur
+Dequarius Bland
+Zephariah Crump
+"Winch" Odom
+Ambulance Nkemelu
+Thaddeus Brine
+Brennan-Wale
+Steve
+::endplayers
+
+::lines intro
+Good evening from Coldwater and welcome to CLUSTER PUCK. I'm Tug Brennan, nobody made me do this, and we are under way.
+CPhL hockey tonight, brought to you by whoever is still paying, and I have been told not to name them on air.
+Evening. Tug Brennan with you. The scheduler says these two are playing, so these two are playing.
+Welcome in. The ice is down, the lights are on, and the insurance has lapsed. Let's go.
+::endlines
+
+::lines matchup
+Tonight the {away} come to town to face the {home}.
+It's the {away} against the {home}, and one of these buildings empties out happy.
+{away} at {home}. Somebody's night gets worse in the next hour.
+The {away} in from out of district to meet the {home}. Sixty minutes, whatever's left of it.
+::endlines
+
+# ── rivalry night ─────────────────────────────────────────────────────────────
+# Every club has exactly one rival (derived from the league in sports/hockey.js).
+# The sim really does make these games nastier — more penalties, more fights — so
+# these lines are reporting a fact, not selling a storyline.
+::lines rivalry.intro
+Evening. Tug Brennan, and you know what tonight is. These two do not like each other and they have never needed a reason.
+Welcome in. It's one of THOSE nights — the scheduler put these two together again and the building knew before I did.
+Good evening from Coldwater, where the ice is down and both of these clubs turned up early to stand around looking at each other.
+::endlines
+
+::lines rivalry.matchup
+{away} at {home}, and this one has history nobody wrote down. Bring a bucket.
+The {away} and the {home}. There is no trophy for this and they will both bleed for it anyway.
+It's {away}–{home}. Whatever this is, it started before the records did, and the records don't exist.
+{away} into {home}'s barn. Last time these two met the officials went home early.
+::endlines
+
+::lines matchup.records
+The {away}, {awayRecord} on the season, into the barn against the {home} at {homeRecord}.
+On the marquee: {away} ({awayRecord}) versus {home} ({homeRecord}). Somebody's record gets worse tonight.
+{away} bring {awayRecord} in here. {home} sit at {homeRecord}. The scheduler does not care.
+::endlines
+
+# ── the injury report ─────────────────────────────────────────────────────────
+# Injuries PERSIST. A man carried off is gone for a stretch of games, and his club
+# dresses somebody up from the reserve until he's back — so this is read before the
+# opening face-off whenever anyone is missing. {missing} are the absent, {callups}
+# the men in their sweaters tonight, {count} how many.
+::lines injury.report
+Before we drop it: {count} out of the lineup tonight. {missing} — all still on the shelf from what was done to them, and up from the reserve, {callups}.
+The injury list, and it's long: {missing}. Dressing instead — {callups}. Best of luck to them, sincerely, they'll need it.
+{missing} not in the building tonight, or not in a state to be. {callups} get the sweaters. Nobody has asked them if they want them.
+No {player} tonight — still out, and the club brings up {callup}. This league does not do get-well cards.
+{count} missing between these two. That's the CPhL in the back half of a season: eventually everybody is somebody's replacement.
+::endlines
+
+# ── periods ───────────────────────────────────────────────────────────────────
+::lines section.start
+Here we go with the {sectionOrd}. {away} attacking twice, {home} once more after that.
+{sectionOrd} period under way. Two blasts from the official and the puck is down.
+Fresh sheet, {sectionOrd} period. It won't stay fresh.
+::endlines
+
+::lines section.end
+That's the {sectionOrd}. {home} {homeScore}, {away} {awayScore}.
+Horn goes on the {sectionOrd}. {away} {awayScore}, {home} {homeScore}, and the Zamboni comes out to hide the evidence.
+End of the {sectionOrd}. They'll resurface it, which is optimistic.
+::endlines
+
+# ── the drop ──────────────────────────────────────────────────────────────────
+# There are nine dots on the sheet and the sim picks the one the RULE picks, so
+# these three pools are not interchangeable — a centre-ice draw means somebody
+# just scored or a period just started, an end-zone draw means the puck died in
+# that end, and a neutral-zone draw is everything else. {winner} took it, {loser}
+# lost it, {winTeam} has the puck, {zone} is where in plain English.
+::lines faceoff.center
+Back to centre ice. {winner} takes the draw from {loser} and the {winTeam} have it.
+Centre-ice draw — {winner} wins it clean. {winTeam} puck.
+They line it up at centre. {winner} beats {loser} to it and away we go.
+Puck's down at centre. {winTeam} come away with it.
+::endlines
+
+::lines faceoff.zone
+Draw in the {zone}. {winner} wins it back for the {winTeam}.
+Down in the {zone}, and {winner} takes it off {loser}.
+They set up in the {zone}. {winner} gets a stick on it first and it's {winTeam} possession.
+{winner} wins the draw deep. That's {foAway}–{foHome} on the dot tonight, if anybody's counting. Nobody is.
+::endlines
+
+::lines faceoff.neutral
+Neutral-zone draw. {winner} ties up {loser} and the {winTeam} come away with it.
+Dropped outside the line, and {winner} wins it.
+{winner} takes the neutral-zone draw. Nothing much happens here and that's the point.
+::endlines
+
+::lines faceoff
+Puck's down at the dot.
+Clean draw, and away we go.
+Won back cleanly, and the {winTeam} have it.
+::endlines
+
+# ── the intermission ──────────────────────────────────────────────────────────
+# Fifteen minutes of dead ice between periods, and a broadcast that skips them cuts
+# from a horn straight into a faceoff. Tug reads the period back: the scoring
+# summary first (the only part somebody who left the room needs), then the shot
+# clock and the penalty count, then whatever is left of whoever went off.
+# {shotsAway}/{shotsHome}/{shots}, {penalties}, {fights}, {hits} are that PERIOD's
+# numbers, counted from the beats — never the whole game's.
+::lines intermission.intro
+End of the {sectionOrd}, and they'll be fifteen minutes resurfacing what's left of it. Let's go back through it.
+That's the horn. While they scrape it, here's your {sectionOrd} period.
+Intermission. {away} {awayScore}, {home} {homeScore}, and here's how we got there.
+::endlines
+
+::lines intermission.summary
+Scoring summary, {sectionOrd} period:
+Your goals in the {sectionOrd}:
+Here's the scoring:
+::endlines
+
+# One line PER GOAL, in the order they went in.
+::lines intermission.goal
+  {clock} — {shooter}, {team}. Assist: {assist}.
+  {team}, {shooter} at {clock}, set up by {assist}.
+  {shooter} for the {team}, {clock} on the clock. {assist} with the helper.
+::endlines
+
+::lines intermission.scoreless
+No goals in the {sectionOrd}. Forty minutes of hockey between two clubs and nothing to show anyone for it.
+Scoreless period. Both goaltenders held up, which in this league mostly means both of them are still conscious.
+Nobody scored. I'd call it a goaltending duel but I watched it and it wasn't.
+::endlines
+
+::lines intermission.stats
+Shots in the period: {away} {shotsAway}, {home} {shotsHome}. {penalties} minor infractions called, which is fewer than were committed.
+{shots} shots between them in that period — {shotsAway} for the {away}, {shotsHome} for the {home}. The officials found {penalties} penalties in there somewhere.
+By the numbers: {shotsAway}–{shotsHome} on goal, {penalties} to the box, {hits} hits that I'd describe as deliberate.
+Shot clock says {away} {shotsAway}, {home} {shotsHome}. There were {fights} fights, which is under the league average, which is a sentence I hate saying.
+::endlines
+
+::lines intermission.casualties
+Off the ice this period and not coming back: {casualties}. Their side plays the rest of this short — that's the rule and nobody's ever changed it.
+{count} man off in that period. {player} in particular is not going to be right for a while.
+We lost {casualties} in there. No replacements. That's how a game gets away from a club in this league.
+::endlines
+
+::lines intermission.outro
+Back in a moment for the {nextOrd}. Don't go anywhere — statistically, something's about to happen to somebody.
+That's your intermission. They'll be out shortly, most of them.
+We'll take a break. When we come back there'll be fresh ice and the same problems.
+::endlines
+
+# ── chances ───────────────────────────────────────────────────────────────────
+::lines shot.save
+{goalie} takes it in the chest and holds on.
+{shooter} tests him and {goalie} says no.
+Shot away — {goalie} has it. Nothing doing.
+Straight into the logo. {goalie} barely moved.
+::endlines
+
+::lines shot.glove
+{goalie} SNAPS the glove shut on it. He didn't need to look.
+Glove save, {goalie}, and he holds it up like he's proud of it. He should be.
+{shooter} picks a corner and {goalie} picks it right out of the air.
+::endlines
+
+::lines shot.pad
+Off the pad and into the corner. {goalie} kicks it away.
+{goalie} gets a leg on it. That's all it takes.
+Pad save. {shooter} will want that one again.
+::endlines
+
+::lines shot.blocked
+Blocked. Somebody in a {team} sweater is going to feel that in the morning.
+Down goes a defender in front and it never gets through.
+{shooter} winds up and a shin gets in the way. That's the job.
+::endlines
+
+::lines shot.wide
+Wide, and it rings around the boards.
+{shooter} misses the net entirely. The glass takes it.
+Off the mark. That one's going in the third row.
+::endlines
+
+::lines shot.post
+IRON! {shooter} rings it off the post and the whole building makes a noise I'd describe as grief.
+OFF THE POST. Half an inch. Half an inch, and {goalie} knows it.
+CLANG. That's the sound of a man's night changing and not changing at the same time.
+::endlines
+
+::lines shot.breakaway
+{shooter} is GONE — nothing between him and {goalie} — and {goalie} stones him.
+Breakaway! {shooter} in alone, and he can't finish it.
+Loose in the neutral zone, {shooter} is away, one on one, and {goalie} wins it.
+::endlines
+
+# ── goals ─────────────────────────────────────────────────────────────────────
+::lines goal
+{shooter} SCORES. {team} lead the noise, {home} {homeScore}, {away} {awayScore}.
+IN. {shooter} beats {goalie}, and the horn does what the horn does.
+{shooter} buries it. {assist} with the pass, and this building has come apart.
+He shoots — HE SCORES. {shooter}, from {assist}, and {goalie} never had it.
+::endlines
+
+::lines goal.pp
+On the power play, {shooter} makes them pay for it. Man advantage, man in the net.
+{team} cash the power play. {shooter} with the finish. That penalty cost exactly what penalties cost.
+Extra man, extra goal. {shooter}, and {goalie} was hung out to dry.
+::endlines
+
+::lines goal.sh
+SHORTHANDED! Down a man and {shooter} goes the other way and scores. Someone is getting shouted at.
+A shorthanded goal. The {team} are a man DOWN and they've just gone ahead on it.
+{shooter} scores while his teammate sits in the box. That's the most embarrassing goal in hockey.
+::endlines
+
+::lines goal.en
+Empty net, and {shooter} buries it from his own blue line. {home} {homeScore}, {away} {awayScore}. Turn the lights off on your way out.
+Into the empty cage. {shooter}. That's the gamble, and it did not pay.
+{shooter} finds the empty net. The goalie is on the bench watching it happen from sixty feet.
+::endlines
+
+::lines hattrick
+That's THREE for {player}. A hat trick in the CPhL, and nobody in this building owns a hat.
+{player} completes the hat trick. Whatever they throw on the ice tonight, do not touch it.
+Three goals, {player}. Remember the name, because at this rate he may not be with us long.
+::endlines
+
+::lines score.update
+{home} {homeScore}, {away} {awayScore}.
+That makes it {away} {awayScore}, {home} {homeScore}.
+Scoreboard: {home} {homeScore}, {away} {awayScore}, {clock} left in the {sectionOrd}.
+Your score, {away} {awayScore} and {home} {homeScore}.
+::endlines
+
+# ── officials ─────────────────────────────────────────────────────────────────
+::lines penalty
+{player} goes for {infraction}. {penaltyMin} minutes, and the {team} are down a man.
+Arm's up — {infraction} on {player}. {penaltyMin} in the box.
+That's {penaltyMin} for {infraction}. {player} has a sit down and a think.
+{player} caught for {infraction}. The officials noticed that one, which is not guaranteed.
+::endlines
+
+::lines penalty.major
+{penaltyMin} minutes for {infraction}. That's a major, and {player} is done thinking about it.
+A five for {infraction} on {player}. Even these officials couldn't let that go.
+{player} gets {penaltyMin} for {infraction}. He knew what he was doing and he did it anyway.
+::endlines
+
+::lines powerplay.start
+{team} go to the power play.
+Man advantage {team} for the next two minutes. Let's see if they can do anything with it.
+Power play, {team}. This is where games get decided and hearts get broken.
+::endlines
+
+::lines powerplay.kill
+Killed it off. Back to even strength.
+Penalty killed, and the {team} bench is very pleased with itself.
+They survive it. Back to five a side.
+::endlines
+
+# ── violence ──────────────────────────────────────────────────────────────────
+::lines penalty.fight
+Gloves off — {fighters} have decided the scoreboard isn't settling this. Linesmen are giving it a count of five before they pretend to care.
+And they go. {fighters}, right at centre ice, and nobody is in a hurry to stop it.
+Here it is. {fighters}, sweaters up over the heads, and the building is on its feet.
+::endlines
+
+::lines fight.result
+{winner} takes it. {loser} takes five, and the {winnerTeam} go on the power play for winning a fistfight, which is the CPhL rulebook in one sentence.
+It's {winner}. {loser} is helped up and sent away, and his team pays for it with a man.
+{winner} wins the fight and wins his side the man advantage. Whoever wrote these rules was not well.
+::endlines
+
+::lines boards
+{hitter} finishes {victim} into the boards and the glass takes the rest.
+RIDDEN INTO THE BOARDS. {hitter} on {victim}, and that whole pane is still moving.
+{victim} gets caught with his head down and {hitter} puts him through the dasher.
+Big hit — {hitter}. {victim} will get up from that one. Probably.
+::endlines
+
+::lines scrum
+Bodies in front now, sticks up, everybody shoving and nobody swinging.
+It's a scrum in the corner. Four men, one puck, no dignity.
+They're all in there kicking at it. This is most of hockey, if we're honest.
+::endlines
+
+::lines injury
+{player} is not getting up. He's helped off, and the {teamName} are down to {remaining} skaters — no replacement, that's the rule, and they wear it for the rest of the night.
+That's {player}'s evening finished. {teamName} play the rest of this short.
+{player} goes down the tunnel under his own power, barely. {remaining} left on the bench and nobody coming over the boards to help.
+::endlines
+
+::lines death
+{player} IS DEAD. That's the game — sudden death, and the CPhL has never pretended it meant anything else. {winnerTeam} win it.
+He's gone. {player}, on the ice, in overtime, and that is how this league ends a tie.
+{player} does not get up, and he is not going to. {winnerTeam} take it. Somebody call his people.
+::endlines
+
+# ── late game ─────────────────────────────────────────────────────────────────
+::lines pull
+{teamName} pull the goalie. Down {down}, six on five, and the net is empty behind them.
+Here comes the goalie to the bench. {teamName} going for it with the extra attacker.
+Empty net at the far end — {teamName} are down {down} and out of patience.
+::endlines
+
+::lines ot.intro
+Level after sixty. SUDDEN DEATH — and in this league that is not a figure of speech.
+We go to overtime. First goal wins it. So does the first body.
+Sixty minutes settled nothing, so now we find out the other way.
+::endlines
+
+::lines shootout.intro
+Nobody died and nobody scored, so we're going to the shootout. Frankly it's a let-down.
+To the shootout. One at a time, one on one, and the crowd hates it.
+::endlines
+
+::lines shootout.score
+{shooter} scores. {soAway}–{soHome} in the shootout.
+Buries it. {shooter} makes no mistake.
+::endlines
+
+::lines shootout.miss
+{goalie} turns aside {shooter}. Still {soAway}–{soHome}.
+No good. {shooter} tries to be clever and isn't.
+::endlines
+
+::lines shootout.winner
+{winner} take the shootout {soAway}–{soHome} and the two points.
+It's over. {winner} win it in the skills competition, which counts, apparently.
+::endlines
+
+# ── colour ────────────────────────────────────────────────────────────────────
+::lines chatter
+The ice in here hasn't been resurfaced since the ownership change, and you can tell — {team} are skating through what I'd generously call a puddle with ambition.
+Goal judge's been in that booth thirty years. Nobody's checked on him in twelve. Light still works.
+{goalie} has the thousand-yard stare of a man watching his own future arrive on a two-on-one.
+The Zamboni runs on something the league will not disclose and the driver wears a respirator. Draw your own conclusions.
+Nobody founded this league. The scheduler just started sending pairings one morning and the clubs turned up. Forty years later here we all are.
+That's the third time tonight someone's gone head first into the boards and the third time the officials have looked at their shoes.
+They sell a hot dog here that is legally not a hot dog. There's a sign. Nobody reads the sign.
+I'm told the trophy is a pre-Handoff vessel of unknown industrial purpose. They fill it. They drink from it. Champions do tend to die.
+The {team} bench is quiet. Then again half of them are hurt and one of them is, I believe, technically deceased.
+There's a man in section nine who has come to every home game for nineteen years and has never once cheered.
+Attendance tonight is announced as capacity, which it always is, because nobody counts.
+Somewhere in this building is a room with all the league's records in it. Nobody has ever found the door.
+The glass behind that net has been replaced four times this season. Same pane. Same corner. Same reason.
+{shooter} came up through the Ashway. You can tell by the way he skates like the ice owes him money.
+It is fourteen below out there and colder in here, which is a choice somebody made deliberately.
+The CPhL does not have a commissioner. It has a scheduler, and the scheduler has never once been late.
+::endlines
+
+# ── the barns ─────────────────────────────────────────────────────────────────
+# Booth colour for a specific HOME building. The narrator looks for
+# `chatter.<first word of the home club's name>` and falls back to the general
+# `chatter` pool, so authoring a barn is entirely optional — a club with nothing
+# written for it behaves exactly as it did before. Add more as clubs earn them.
+::lines chatter.ashway
+The Zamboni here is the only one in the league that has never broken down, and the driver will not let anyone else touch it or look directly at it.
+They resurface this ice four times a night at Ashway. Nobody has ever explained why four.
+This building smells of diesel and it is not a rink that has ever had a diesel engine in it.
+Ashway's clock has been eleven seconds fast since the ownership change. Both clubs know. Neither has complained, because both have won on it.
+::endlines
+
+::lines chatter.docks
+You can hear the cranes through the roof here. Third period, low tide, the whole building hums.
+The Docks barn floods twice a winter. They play through it. There is a line painted on the wall showing how high, and it is above my head.
+Half this crowd came straight off a shift and half of them are still wearing the hard hats. The hats are not for the hockey.
+::endlines
+
+::lines chatter.longwatch
+Longwatch is the only club with a barn OUTSIDE the wall. Away sides travel in convoy and they do not stop for anything on the road.
+There's a gun rack in the lobby here. Coats and firearms, same counter, same attendant, one ticket.
+The crowd here doesn't cheer, it just gets quieter. That is worse and every visiting club will tell you so.
+::endlines
+
+::lines final
+FINAL from Coldwater: {home} {homeScore}, {away} {awayScore}. {leader} take it.
+That's the game. {leader} win it, {homeScore} to {awayScore}, and everyone still standing gets to go home.
+Final score, {away} {awayScore} and {home} {homeScore}. {leader} with the win.
+Horn goes. {leader} take it {homeScore}–{awayScore}, and the cleanup crew earn theirs tonight.
+::endlines
+
+::lines outro
+That's CLUSTER PUCK. I'm Tug Brennan. Mind how you go, and mind what's on the ice.
+For the CPhL, I'm Tug Brennan. There's another one tomorrow, because there is always another one.
+Tug Brennan, saying goodnight from Coldwater. Nobody won anything permanent.
+::endlines
+
+# ── the Coldwater Cup ─────────────────────────────────────────────────────────
+::lines cup.intro
+This is it. The Coldwater Cup. Nobody can produce a record of who commissioned it and nobody has ever asked twice.
+Cup final tonight. One game, one trophy, and a trophy nobody can explain.
+::endlines
+
+::lines cup.matchup
+For the Coldwater Cup: the {away} against the {home}.
+{away} and {home}, for the Cup. Whatever it originally held, it holds champagne tonight.
+::endlines
+
+::lines cup.final
+THE {leader} HAVE WON THE COLDWATER CUP. {home} {homeScore}, {away} {awayScore}. They will drink out of it, because that is the tradition, and we will see who's still here next season.
+IT'S OVER. The {leader} are your Coldwater Cup champions. Carve it into whatever's still standing.
+::endlines
+
+::lines cup.outro
+Coldwater Cup champions, the {leader}. Enjoy it. Historically, that has been the advice.
+The {leader} take the Cup. I'm Tug Brennan, and I'd let it air out before you drink from it.
+::endlines
+
+END

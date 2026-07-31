@@ -1,0 +1,19 @@
+{
+  "description": "A boxy four-burner range in municipal grey, EMBER 300 stamped on a control panel that's outlived three kitchens' worth of grease. Even heat, even temper, exactly as advertised on the sticker nobody's peeled off.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ],
+    "stove_tier": "mid"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_stove_b",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Ember 300 Range",
+  "object_type": "fixture",
+  "power_draw_kw": 0.3,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_b"
+}

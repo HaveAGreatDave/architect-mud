@@ -1,0 +1,10 @@
+{
+  "id": "dr_object_normal_025",
+  "drug_id": "drug_blotter",
+  "source": "object",
+  "tone": "normal",
+  "self_line": "Is that clock right?",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

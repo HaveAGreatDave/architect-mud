@@ -1,0 +1,20 @@
+{
+  "description": "Bright, sharp and gone in ninety seconds. The can holds its cold badly and nobody minds.",
+  "flags": {},
+  "id": "item_lemon_soda",
+  "name": "lemon soda",
+  "tags": {
+    "consumable": true,
+    "description": "Bright, sharp and gone in ninety seconds. The can holds its cold badly and nobody minds.",
+    "drink_noun": "lemon soda",
+    "drink_profile": "mixer",
+    "hydrating": true,
+    "pour_units": 3,
+    "restore_sanity": 4,
+    "restore_thirst": 42,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 5,
+  "weight": 380
+}

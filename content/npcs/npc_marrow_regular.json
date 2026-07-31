@@ -1,0 +1,71 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "emote",
+        "seconds": 90,
+        "type": "wait"
+      },
+      "emote": {
+        "action_type": "EMOTE",
+        "next": "wait",
+        "type": "action",
+        "params": {
+          "message": "stands in the steam off the noodle counter with his eyes shut, and looks, for a moment, completely content."
+        }
+      }
+    }
+  },
+  "chitchat": [
+    "Georgi nods at you like you are expected, which is unsettling the first time.",
+    "\"Steam's good today,\" he says, to nobody. \"Steam's good.\"",
+    "He greets a passing woman by name. She greets him back without breaking stride, and both of them look better for it."
+  ],
+  "description": "A man who has stood outside the noodle counter every day for as long as anyone can remember, eating nothing, waiting for nobody in particular, and greeting most of the street by name. He is not lost and he is not begging. He simply decided some years ago that this is where he would be.",
+  "dialogue_tree": {
+    "root": {
+      "text": "\"Morning.\" Georgi says it whatever the hour. \"Nine stools in there and I've never once sat on one. Never needed to. It's the smell that does it.\"",
+      "options": [
+        {
+          "label": "Take care.",
+          "next": "bye"
+        }
+      ]
+    },
+    "bye": {
+      "text": "He goes back to watching the steam.",
+      "options": []
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a long coat gone shapeless at the shoulders",
+      "two jumpers, one over the other",
+      "soft trousers and plain shorts"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_district_917_909",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_marrow_regular",
+  "name": "Georgi Bloom",
+  "npc_type": "civilian",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": null,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_917_909"
+}

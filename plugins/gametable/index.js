@@ -2,6 +2,7 @@
 // Exports commands; manages table lifecycle, dealer NPC chitchat, and persistence tick.
 
 import { query } from '../../server/models/db.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getLivePlayer, setLivePlayer, getZone, world, hasActivePlayers } from '../../server/engine/world.js';
 import { GameTable, activeTables, MAX_SEATS } from './game-table.js';
@@ -15,6 +16,7 @@ import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { textModePlayers, isTextMode } from './text-mode.js';
 import { isVendorWorkTime } from '../../server/engine/ai-behaviour.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
+import { escAttr } from '../../server/engine/text.js';
 
 // ── Boot ───────────────────────────────────────────────────────────────────────
 
@@ -434,7 +436,7 @@ function findAssignedDealer(t) {
 // A scheduled dealer who's currently off the clock. Without this, `call dealer`
 // would haul a sleeping dealer out of bed and his own commute graph (GO_HOME)
 // would immediately start walking him back — he'd abandon the table mid-hand.
-// Dealers with no vendor_schedule (the Neon Vig back room, the covert dealers)
+// Dealers with no vendor_schedule (the Lucky Bastard back room, the covert dealers)
 // are always available and never gated.
 function isOffShift(npc) {
   if (!npc?.vendor_schedule || !Object.keys(npc.vendor_schedule).length) return false;
@@ -666,7 +668,7 @@ function renderTablePanel(t, furniture) {
   const dealerBit = dealer ? ` <span class="text-dim">— dealt by ${dealer}</span>` : '';
 
   const link = (action, target, label, title) =>
-    `<span class="action-link furniture-link" data-action="${action}" data-target="${target}" title="${title}">${label}</span>`;
+    `<span class="action-link furniture-link" data-action="${action}" data-target="${escAttr(target)}" title="${escAttr(title)}">${label}</span>`;
 
   // Per-seat breakdown: empty seats are click-to-sit, taken seats show the handle.
   const seatBits = t.seats.map((s, i) =>
@@ -704,8 +706,8 @@ let ticking = false;
 async function tableTick() {
   // Idle-gate: a game table needs seated players; on an empty world there's
   // nothing to advance, and maybePersist()'s UPDATE would otherwise keep Neon's
-  // compute awake. This tick is a raw 1s setInterval (hot-path pacing), so it
-  // carries the gate the scheduler would apply automatically.
+  // compute awake. Registered on the scheduler's '1s' cadence, which applies this
+  // gate by default — the explicit check is kept as a guard for any direct call.
   if (!hasActivePlayers()) return;
   if (ticking) return;
   ticking = true;
@@ -741,7 +743,7 @@ async function tableTick() {
   }
 }
 
-setInterval(() => tableTick().catch(e => console.error('[gametable] tick:', e.message)), 1000);
+schedule('1s', () => tableTick().catch(e => console.error('[gametable] tick:', e.message)));
 
 console.log('[gametable] Plugin loaded.');
 

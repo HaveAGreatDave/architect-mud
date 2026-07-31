@@ -179,7 +179,7 @@
           "next": "root"
         }
       ],
-      "text": "Cassius glances past you, then talks low."
+      "text": "Roscoe glances past you, then talks low."
     },
     "root": {
       "options": [
@@ -204,7 +204,7 @@
           "next": "gossip"
         }
       ],
-      "text": "Cassius Drum looks you up and down with professional interest. \"Okay. Okay. I see what we're working with. Don't worry — I've dressed worse.\""
+      "text": "Roscoe Drum looks you up and down with professional interest. \"Okay. Okay. I see what we're working with. Don't worry — I've dressed worse.\""
     }
   },
   "faction": null,
@@ -230,7 +230,7 @@
   "hp": 25,
   "hp_max": 25,
   "id": "npc_cassius_drum",
-  "name": "Cassius Drum",
+  "name": "Roscoe Drum",
   "npc_type": "vendor",
   "sex": "male",
   "studio_zone_id": null,

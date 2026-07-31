@@ -1,0 +1,83 @@
+@broadcast "Halcyon ComplyMate CM-2 — Great Days Start With Cooperation"
+@category commercial
+@length 30
+@type commercial
+
+::asset complymate_logo
+
+ ██████╗ ██████╗ ███╗   ███╗██████╗ ██╗  ██╗   ██╗
+██╔════╝██╔═══██╗████╗ ████║██╔══██╗██║  ╚██╗ ██╔╝
+██║     ██║   ██║██╔████╔██║██████╔╝██║   ╚████╔╝
+██║     ██║   ██║██║╚██╔╝██║██╔═══╝ ██║    ╚██╔╝
+╚██████╗╚██████╔╝██║ ╚═╝ ██║██║     ███████╗██║
+ ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚══════╝╚═╝
+
+        H A L C Y O N   C o m p l y M a t e   CM-2
+       "Great Days Start With Cooperation."
+
+::endasset
+
+::scene TITLE
+
+ROOM studio_stage
+
+EVENT FADE_IN
+
+TITLE complymate_logo
+
+♪ Soft corporate onboarding music, the sort that plays under a slideshow about fire exits. ♪
+
+::scene COMMERCIAL
+
+CAM 1 MEDIUM
+
+SHOT
+An office. Two colleagues in matching lanyards. One is smiling. The other is on the carpet, cooperating.
+SHOT_END
+
+NARRATOR:
+Disagreements happen. At Halcyon, we believe every one of them can be resolved.
+
+NARRATOR:
+Introducing the ComplyMate CM-2, from Halcyon Workplace Harmony.
+
+CAM 2 CLOSEUP complymate_grip
+
+SHOT
+A cheerful decal on the grip: GREAT DAYS START WITH COOPERATION, above a small diagram of a man cooperating on the floor.
+SHOT_END
+
+NARRATOR:
+Non-lethal. Non-negotiable. Non-refundable.
+
+OVERLAY
+HALCYON WORKPLACE HARMONY
+
+A DIVISION OF HALCYON
+
+WHICH IS ALSO A DIVISION OF HALCYON
+OVERLAY_END
+
+SHOT
+The footage cuts abruptly to a legal card, held on screen for slightly too long by somebody who has been told to hold it on screen for slightly too long.
+SHOT_END
+
+NARRATOR:
+Halcyon is required to disclose the following.
+
+3s
+
+NARRATOR:
+Do not deploy the ComplyMate in standing water. In water, the ComplyMate resolves the disagreement of everyone present.
+
+NARRATOR:
+Including yours.
+
+3s
+
+NARRATOR:
+Halcyon. Great days start with cooperation.
+
+EVENT FADE_OUT
+
+END

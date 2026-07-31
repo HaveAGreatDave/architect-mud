@@ -4,18 +4,20 @@ let containerDraggedId = null;
 let containerDragSource = null; // 'inv' or 'contents'
 let containerDraggedQty = 1;
 let dragHandled = false;
-let activeContainerId = null;
+let activeContainerId = null;   // the id used for `closecontainer` on close (whichever box was opened)
+let fridgeBoxId = null;         // stow target for the main contents list (== activeContainerId unless paired)
+let freezerBoxId = null;        // stow target for the freezer sub-box, null when this container has no pair
 
 export function openContainerPanel(data) {
   activeContainerId = data.containerId;
-  renderContainerPanel(data);
+  renderContainerPanel(data, { isOpen: true });
   document.getElementById('container-panel').classList.add('active');
 }
 
 export function refreshContainerPanel(data) {
   if (!document.getElementById('container-panel').classList.contains('active')) return;
   activeContainerId = data.containerId;
-  renderContainerPanel(data);
+  renderContainerPanel(data, { isOpen: false });
 }
 
 export function closeContainerPanel() {
@@ -37,6 +39,39 @@ function formatWeight(g) {
   g = Number(g) || 0;
   if (g < 1000) return `${Math.round(g)}g`;
   return `${(Math.round(g / 100) / 10).toString()}kg`;
+}
+
+// Holding temperature shown on a compartment's little LED readout, keyed by
+// the `preserves` tier the server reports for that box. A compartment with no
+// tier (an ordinary crate) shows nothing at all.
+// The reading is split into digits + unit so the display can size them
+// separately — big tabular numerals, small unit — the way an appliance panel
+// does it. `mode` names the setpoint the way the unit's own controls would.
+const TIER_TEMP = {
+  refrigerated: { value: '4', unit: '°C', mode: 'chill' },
+  frozen: { value: '-18', unit: '°C', mode: 'freeze' },
+};
+
+function setTemp(elId, preserves) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const t = TIER_TEMP[preserves];
+  el.innerHTML = t
+    ? `<span class="ctr-temp-mode">${t.mode}</span>` +
+      `<span class="ctr-temp-val">${t.value}</span>` +
+      `<span class="ctr-temp-unit">${t.unit}</span>`
+    : '';
+  el.classList.toggle('active', !!t);
+  el.classList.toggle('ctr-temp-frozen', preserves === 'frozen');
+}
+
+// Capacity readout + its load gauge (the `--fill` the CSS bar draws to).
+function setCapacity(elId, used, capacity) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.textContent = `Capacity: ${formatWeight(used)} / ${formatWeight(capacity)}`;
+  const pct = capacity > 0 ? Math.min(100, Math.round((used / capacity) * 100)) : 0;
+  el.style.setProperty('--fill', `${pct}%`);
 }
 
 function promptQty(max, action) {
@@ -71,22 +106,147 @@ function promptQty(max, action) {
   });
 }
 
-function renderContainerPanel(data) {
-  document.getElementById('container-title').textContent = data.containerName;
-  document.getElementById('container-contents-label').textContent = data.containerName;
-  document.getElementById('container-capacity').textContent =
-    `Capacity: ${formatWeight(data.usedWeight)} / ${formatWeight(data.capacity)}`;
+function renderContainerPanel(data, { isOpen = false } = {}) {
+  // A paired container (e.g. a fridge with a separate freezer box) surfaces
+  // both boxes in this ONE view — role is decided by `preserves`, not by
+  // which one was actually opened, so the layout never swaps sides depending
+  // on which box a stow/pull last refreshed.
+  const primary = { containerId: data.containerId, name: data.containerName, capacity: data.capacity, usedWeight: data.usedWeight, items: data.containerItems || [], preserves: data.preserves, applianceGrade: data.applianceGrade };
+  const secondary = data.secondary ? { containerId: data.secondary.containerId, name: data.secondary.containerName, capacity: data.secondary.capacity, usedWeight: data.secondary.usedWeight, items: data.secondary.containerItems || [], preserves: data.secondary.preserves, applianceGrade: data.secondary.applianceGrade } : null;
+
+  let fridge = primary, freezer = null;
+  if (secondary) {
+    if (primary.preserves === 'frozen' && secondary.preserves !== 'frozen') { freezer = primary; fridge = secondary; }
+    else if (secondary.preserves === 'frozen') { freezer = secondary; fridge = primary; }
+  }
+
+  // Cold-appliance theming: only for an actual preserving fridge/freezer, not
+  // a normal crate/bag. Grade comes from whichever box has one set.
+  const isCold = !!(fridge.preserves || (freezer && freezer.preserves));
+  const grade = fridge.applianceGrade || (freezer && freezer.applianceGrade) || null;
+  const box = document.getElementById('container-box');
+  box.classList.toggle('ctr-theme-consumer', isCold && grade === 'consumer');
+  box.classList.toggle('ctr-theme-commercial', isCold && grade === 'commercial');
+  setTemp('container-temp', isCold ? fridge.preserves : null);
+  setTemp('container-freezer-temp', freezer ? freezer.preserves : null);
+  const fx = document.getElementById('container-cold-fx');
+  if (isOpen && isCold) {
+    fx.classList.remove('play');
+    void fx.offsetWidth; // restart the animation even if replayed back-to-back
+    fx.classList.add('play');
+  } else if (!isOpen) {
+    fx.classList.remove('play');
+  }
+
+  document.getElementById('container-title').textContent = fridge.name;
+  // The unit's name is already the panel title; repeating it over every
+  // compartment just reads as noise. Inside a cold cabinet the compartments
+  // name themselves, the way the labels on a real appliance do. Ordinary
+  // containers keep the server-supplied name.
+  document.getElementById('container-contents-label').textContent =
+    isCold ? (fridge.preserves === 'frozen' ? 'Freezer' : 'Fresh Food') : fridge.name;
+  setCapacity('container-capacity', fridge.usedWeight, fridge.capacity);
   const notify = document.getElementById('container-notify');
   if (notify) notify.textContent = data.notify || '';
 
-  const invItems = (data.invItems || []).filter(i => i.id !== data.containerId);
-  const containerItems = (data.containerItems || []).filter(i => i.id !== data.containerId);
+  fridgeBoxId = fridge.containerId;
+  freezerBoxId = freezer ? freezer.containerId : null;
 
-  renderList('container-inv-list', invItems, 'inv', data.containerId);
-  renderList('container-contents-list', containerItems, 'contents', data.containerId);
+  const invItems = (data.invItems || []).filter(i => i.id !== data.containerId && i.id !== data.secondary?.containerId);
+  const fridgeItems = fridge.items.filter(i => i.id !== fridge.containerId);
+  renderList('container-inv-list', invItems, 'inv', fridge.containerId);
+  renderList('container-contents-list', fridgeItems, 'contents', fridge.containerId);
 
-  document.getElementById('container-stow-all').style.display = invItems.length ? '' : 'none';
-  document.getElementById('container-take-all').style.display = containerItems.length ? '' : 'none';
+  const freezerBox = document.getElementById('container-freezer-box');
+  if (freezer) {
+    freezerBox.classList.add('active', 'ctr-frost');
+    document.getElementById('container-freezer-label').textContent =
+      isCold ? 'Freezer' : freezer.name;
+    setCapacity('container-freezer-capacity', freezer.usedWeight, freezer.capacity);
+    const freezerItems = freezer.items.filter(i => i.id !== freezer.containerId);
+    renderList('container-freezer-list', freezerItems, 'contents', freezer.containerId);
+  } else {
+    freezerBox.classList.remove('active', 'ctr-frost');
+    document.getElementById('container-freezer-list').innerHTML = '';
+  }
+
+  const allContentsCount = fridgeItems.length + (freezer ? freezer.items.length : 0);
+  document.getElementById('container-stow-all').style.display = (invItems.length && !freezer) ? '' : 'none'; // ambiguous target when paired — use per-item stow or drag instead
+  document.getElementById('container-take-all').style.display = allContentsCount ? '' : 'none';
+}
+
+// ── The item action menu ─────────────────────────────────────────────────────
+// What you can do with the thing you just clicked, derived from its TAGS rather
+// than from a hardcoded list — the same tags the engine gates its specialized
+// actions on, so the menu can't offer a verb the server will refuse, and a new
+// tagged item type gets its verb here for free.
+//
+// Everything routes through ordinary commands. This is a shortcut to typing, not
+// a second implementation of anything, which is why an unknown item still gets
+// Examine and Drop and nothing is ever unreachable.
+const ITEM_ACTIONS = [
+  // tag            label        command builder                 needs to be held?
+  { tag: 'consumable', label: 'Eat',      cmd: (n) => `eat ${n}`,      held: true },
+  { tag: 'drug',       label: 'Use',      cmd: (n) => `use ${n}`,      held: true },
+  { tag: 'drinkware',  label: 'Drink',    cmd: (n) => `drink ${n}`,    held: true },
+  { tag: 'fillable',   label: 'Fill',     cmd: (n) => `fill ${n}`,     held: true },
+  { tag: 'slot',       label: 'Wear',     cmd: (n) => `wear ${n}`,     held: true },
+  { tag: 'readable',   label: 'Read',     cmd: (n) => `read ${n}`,     held: false },
+  { tag: 'container',  label: 'Open',     cmd: (n) => `open ${n}`,     held: false },
+];
+
+function closeItemActions() {
+  document.querySelector('.ctr-actions-pop')?.remove();
+  document.removeEventListener('click', onDocCloseActions, true);
+}
+function onDocCloseActions(e) {
+  if (e.target.closest('.ctr-actions-pop') || e.target.closest('.ctr-item-card')) return;
+  closeItemActions();
+}
+
+function openItemActions(item, source, containerId, anchor) {
+  closeItemActions();
+  const tags = item.tags || {};
+  const inBox = source !== 'inv';
+  const name = item.name;
+
+  const rows = [];
+  // Move first: it is what the panel is for, and it is what most clicks want.
+  rows.push(inBox
+    ? { label: 'Take out', run: async () => {
+        const q = await promptQty(item.quantity, 'Take');
+        if (q != null) sendCmdSilent(`pullid ${item.id}${item.quantity > 1 ? ` ${q}` : ''}`);
+      } }
+    : { label: 'Put in', run: async () => {
+        const q = await promptQty(item.quantity, 'Stow');
+        if (q != null) sendCmdSilent(`stowid ${item.id} ${containerId}${item.quantity > 1 ? ` ${q}` : ''}`);
+      } });
+
+  for (const a of ITEM_ACTIONS) {
+    if (!tags[a.tag]) continue;
+    // A verb that acts on something you're HOLDING can't reach into the box, so
+    // it takes the item out first and then acts. Stating that in the label beats
+    // offering a button that quietly does nothing.
+    rows.push(a.held && inBox
+      ? { label: `${a.label} (take out first)`, run: () => { sendCmdSilent(`pullid ${item.id}`); setTimeout(() => sendCmdSilent(a.cmd(name)), 120); } }
+      : { label: a.label, run: () => sendCmdSilent(a.cmd(name)) });
+  }
+  rows.push({ label: 'Examine', run: () => sendCmdSilent(`examine ${name}`) });
+  if (!inBox) rows.push({ label: 'Drop', run: () => sendCmdSilent(`drop ${name}`) });
+
+  const pop = document.createElement('div');
+  pop.className = 'ctr-actions-pop';
+  pop.innerHTML = `<div class="ctr-actions-head">${name}</div>`;
+  for (const r of rows) {
+    const b = document.createElement('button');
+    b.className = 'ctr-actions-item';
+    b.textContent = r.label;
+    b.onclick = (e) => { e.stopPropagation(); closeItemActions(); r.run(); };
+    pop.appendChild(b);
+  }
+  anchor.appendChild(pop);
+  // Deferred, or the click that opened this menu closes it on the way back up.
+  setTimeout(() => document.addEventListener('click', onDocCloseActions, true), 0);
 }
 
 function renderList(listId, items, source, containerId) {
@@ -98,9 +258,11 @@ function renderList(listId, items, source, containerId) {
     card.setAttribute('draggable', 'true');
     card.setAttribute('data-id', item.id);
     card.setAttribute('data-source', source);
-    const qty = item.quantity > 1 ? ` x${item.quantity}` : '';
-    const wt = item.weight != null ? ` ${formatWeight(item.weight)}` : '';
-    card.innerHTML = `<span class="ctr-name">${item.name}${qty}</span><span class="ctr-meta">${wt}</span>`;
+    // Quantity is its own badge rather than inline text, so a stack reads at a
+    // glance and the name keeps a single clean baseline.
+    const qty = item.quantity > 1 ? `<span class="ctr-qty">×${item.quantity}</span>` : '';
+    const wt = item.weight != null ? `<span class="ctr-meta">${formatWeight(item.weight)}</span>` : '';
+    card.innerHTML = `<span class="ctr-name">${item.name}</span>${qty}${wt}`;
 
     if (source === 'inv') {
       const btn = document.createElement('button');
@@ -132,6 +294,15 @@ function renderList(listId, items, source, containerId) {
       card.appendChild(btn);
     }
 
+    // Clicking the item itself opens what you can DO with it. A container panel
+    // that only knows "stow" and "take" makes you close it, type `examine`, and
+    // open it again to do anything real — so the box became a filing cabinet
+    // instead of a place your things live.
+    card.onclick = (e) => {
+      if (e.target.closest('.ctr-action-btn')) return;   // the move button owns its own click
+      openItemActions(item, source, containerId, card);
+    };
+
     card.ondragstart = (e) => {
       containerDraggedId = item.id;
       containerDragSource = source;
@@ -153,44 +324,53 @@ export function initContainerPanel() {
   });
 
   document.getElementById('container-stow-all').addEventListener('click', () => {
-    if (!activeContainerId) return;
+    if (!fridgeBoxId) return;
     const cards = document.getElementById('container-inv-list').querySelectorAll('.ctr-item-card');
     for (const card of cards) {
-      sendCmdSilent(`stowid ${card.getAttribute('data-id')} ${activeContainerId}`);
+      sendCmdSilent(`stowid ${card.getAttribute('data-id')} ${fridgeBoxId}`);
     }
   });
 
   document.getElementById('container-take-all').addEventListener('click', () => {
-    if (!activeContainerId) return;
-    const cards = document.getElementById('container-contents-list').querySelectorAll('.ctr-item-card');
-    for (const card of cards) {
-      sendCmdSilent(`pullid ${card.getAttribute('data-id')}`);
+    const lists = ['container-contents-list', 'container-freezer-list'];
+    for (const listId of lists) {
+      const cards = document.getElementById(listId).querySelectorAll('.ctr-item-card');
+      for (const card of cards) sendCmdSilent(`pullid ${card.getAttribute('data-id')}`);
     }
   });
 
   const invList = document.getElementById('container-inv-list');
   const contentsList = document.getElementById('container-contents-list');
+  const freezerList = document.getElementById('container-freezer-list');
 
-  contentsList.addEventListener('dragover', (e) => e.preventDefault());
-  contentsList.addEventListener('dragenter', () => contentsList.classList.add('ctr-drag-over'));
-  contentsList.addEventListener('dragleave', () => contentsList.classList.remove('ctr-drag-over'));
-  contentsList.addEventListener('drop', async (e) => {
-    e.preventDefault();
-    contentsList.classList.remove('ctr-drag-over');
-    dragHandled = true;
-    if (containerDraggedId && containerDragSource === 'inv' && activeContainerId) {
-      const dragId = containerDraggedId;
-      const dragQty = containerDraggedQty;
-      containerDraggedId = null;
-      const qty = await promptQty(dragQty, 'Stow');
-      if (qty != null) {
-        const qtyPart = dragQty > 1 ? ` ${qty}` : '';
-        sendCmdSilent(`stowid ${dragId} ${activeContainerId}${qtyPart}`);
+  // Dropping an inventory item into a contents box stows it in THAT box
+  // specifically (fridge vs. freezer) — `getTargetId` is read live at drop
+  // time so it always reflects whichever box is currently rendered there.
+  function wireStowDropZone(listEl, getTargetId) {
+    listEl.addEventListener('dragover', (e) => e.preventDefault());
+    listEl.addEventListener('dragenter', () => listEl.classList.add('ctr-drag-over'));
+    listEl.addEventListener('dragleave', () => listEl.classList.remove('ctr-drag-over'));
+    listEl.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      listEl.classList.remove('ctr-drag-over');
+      dragHandled = true;
+      const targetId = getTargetId();
+      if (containerDraggedId && containerDragSource === 'inv' && targetId) {
+        const dragId = containerDraggedId;
+        const dragQty = containerDraggedQty;
+        containerDraggedId = null;
+        const qty = await promptQty(dragQty, 'Stow');
+        if (qty != null) {
+          const qtyPart = dragQty > 1 ? ` ${qty}` : '';
+          sendCmdSilent(`stowid ${dragId} ${targetId}${qtyPart}`);
+        }
+      } else {
+        containerDraggedId = null;
       }
-    } else {
-      containerDraggedId = null;
-    }
-  });
+    });
+  }
+  wireStowDropZone(contentsList, () => fridgeBoxId);
+  wireStowDropZone(freezerList, () => freezerBoxId);
 
   invList.addEventListener('dragover', (e) => e.preventDefault());
   invList.addEventListener('dragenter', () => invList.classList.add('ctr-drag-over'));

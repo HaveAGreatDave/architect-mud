@@ -1,0 +1,16 @@
+{
+  "description": "Waxed paper, one seam, and a structural honesty about how long it intends to last.",
+  "flags": {},
+  "id": "item_paper_cup",
+  "name": "paper cup",
+  "tags": {
+    "description": "Waxed paper, one seam, and a structural honesty about how long it intends to last.",
+    "drinkware": true,
+    "drinkware_kind": "cup",
+    "fillable": 2,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 1,
+  "weight": 40
+}

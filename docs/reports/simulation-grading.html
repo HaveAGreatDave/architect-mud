@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARCHITECT // Simulation Grading Report</title>
+<style>
+:root{
+  --bg:#06080b; --bg2:#0b0f14; --panel:#0d1319; --line:#1d2a33;
+  --fg:#c8d6d3; --dim:#6c8079; --green:#39ff9e; --amber:#ffb347;
+  --mag:#ff4d6d; --cyan:#4dd2ff; --violet:#b07dff;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:
+    radial-gradient(ellipse at 50% -10%, #0f2a22 0%, transparent 60%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.014) 0 1px, transparent 1px 3px),
+    var(--bg);
+  color:var(--fg);
+  font:15px/1.65 "Consolas","DejaVu Sans Mono",ui-monospace,monospace;
+  padding:0 0 6rem;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:0 1.25rem}
+header{
+  border-bottom:1px solid var(--line);
+  padding:3.5rem 0 2rem;margin-bottom:2.5rem;
+  background:linear-gradient(180deg, rgba(57,255,158,.045), transparent);
+}
+h1{
+  font-size:clamp(1.9rem,5vw,3.1rem);margin:0 0 .2rem;letter-spacing:.14em;
+  color:var(--green);text-shadow:0 0 22px rgba(57,255,158,.35);font-weight:700;
+}
+h1 small{display:block;font-size:.30em;letter-spacing:.5em;color:var(--dim);margin-top:.8rem;text-shadow:none}
+h2{
+  font-size:1.35rem;letter-spacing:.08em;color:var(--cyan);margin:3.5rem 0 .35rem;
+  border-left:3px solid var(--cyan);padding-left:.7rem;
+}
+h2::before{content:"▚ ";color:var(--line)}
+h3{font-size:1.02rem;color:var(--amber);letter-spacing:.05em;margin:2rem 0 .4rem}
+p{margin:.7rem 0}
+a{color:var(--cyan)}
+.lede{color:var(--dim);font-style:italic;margin:.2rem 0 1.6rem;padding-left:1rem;border-left:1px dotted var(--line)}
+.haiku{
+  margin:2rem 0;padding:1.1rem 1.4rem;border:1px solid var(--line);
+  border-left:3px solid var(--violet);background:linear-gradient(90deg,rgba(176,125,255,.06),transparent);
+  color:var(--violet);white-space:pre-line;font-style:italic;letter-spacing:.02em;line-height:1.9;
+}
+.haiku b{display:block;font-style:normal;color:var(--dim);font-size:.72rem;letter-spacing:.28em;margin-bottom:.5rem;font-weight:400}
+.panel{border:1px solid var(--line);background:var(--panel);padding:1.2rem 1.4rem;margin:1.4rem 0;border-radius:2px}
+.grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));margin:1.5rem 0}
+.stat{border:1px solid var(--line);background:var(--panel);padding:.9rem 1rem;border-radius:2px}
+.stat b{display:block;font-size:1.85rem;color:var(--green);line-height:1.1;text-shadow:0 0 14px rgba(57,255,158,.28)}
+.stat span{color:var(--dim);font-size:.74rem;letter-spacing:.16em;text-transform:uppercase}
+table{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.87rem}
+th,td{text-align:left;padding:.5rem .6rem;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--dim);font-weight:400;letter-spacing:.14em;text-transform:uppercase;font-size:.68rem}
+td.g{font-weight:700;white-space:nowrap}
+.A{color:var(--green)} .B{color:var(--cyan)} .C{color:var(--amber)} .D{color:var(--mag)}
+.tag{display:inline-block;border:1px solid var(--line);color:var(--dim);padding:.05rem .45rem;border-radius:2px;font-size:.7rem;letter-spacing:.1em;margin-right:.3rem}
+.scroll{overflow-x:auto}
+figure{margin:1.8rem 0;border:1px solid var(--line);background:var(--bg2);padding:1.2rem;border-radius:2px}
+figcaption{color:var(--dim);font-size:.76rem;letter-spacing:.1em;margin-top:.9rem;text-transform:uppercase}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.legend{display:flex;flex-wrap:wrap;gap:.9rem;margin-top:.9rem;font-size:.75rem;color:var(--dim)}
+.legend i{display:inline-block;width:10px;height:10px;margin-right:.35rem;vertical-align:middle}
+ul{padding-left:1.15rem}
+li{margin:.35rem 0}
+.rule{height:1px;background:linear-gradient(90deg,var(--line),transparent);margin:3rem 0}
+footer{color:var(--dim);font-size:.78rem;border-top:1px solid var(--line);margin-top:4rem;padding-top:1.4rem;letter-spacing:.06em}
+.verdict{border:1px solid var(--green);background:rgba(57,255,158,.05);padding:1.3rem 1.5rem;margin:2rem 0}
+.verdict b{color:var(--green);letter-spacing:.2em;font-size:.75rem;display:block;margin-bottom:.5rem}
+mark{background:none;color:var(--amber)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>SIMULATION GRADING REPORT
+    <small>ARCHITECT MUD · 2026-07-29 · internal assessment</small>
+  </h1>
+  <p class="lede">A survey of every simulated system in the codebase, graded on depth, coupling and cost; benchmarked against the games that share its ambitions; and an honest account of what is genuinely unlike anything else running.</p>
+</header>
+
+<div class="haiku"><b>PROLOGUE</b>The Architect hums.
+Nobody asks why the lights
+still work. They just work.</div>
+
+<h2>Scale of the thing</h2>
+<div class="grid">
+  <div class="stat"><b>113</b><span>plugins</span></div>
+  <div class="stat"><b>246k</b><span>lines of JS</span></div>
+  <div class="stat"><b>5,839</b><span>authored zones</span></div>
+  <div class="stat"><b>1,009</b><span>furniture pieces</span></div>
+  <div class="stat"><b>574</b><span>items</span></div>
+  <div class="stat"><b>177</b><span>NPCs</span></div>
+  <div class="stat"><b>1,798</b><span>power-zone rows</span></div>
+  <div class="stat"><b>57</b><span>system docs</span></div>
+</div>
+<p>No build step. No ORM. No engine. 246,000 lines of hand-written JavaScript over raw WebSockets and one <code>query()</code> helper, delivering a real-time simulation to a browser that renders it as text — plus a 3D flight sim nobody asked for.</p>
+
+<figure>
+  <svg id="loc" viewBox="0 0 900 150" role="img" aria-label="Code distribution"></svg>
+  <figcaption>Fig. 1 — where the code lives. Plugins outweigh the engine 2:1, which is the architecture working as designed.</figcaption>
+  <div class="legend">
+    <span><i style="background:var(--green)"></i>plugins 96.9k</span>
+    <span><i style="background:var(--cyan)"></i>client 103.2k</span>
+    <span><i style="background:var(--amber)"></i>server/engine 46.3k</span>
+  </div>
+</figure>
+
+<h2>The grades</h2>
+<p class="lede">Graded on four axes — <b>depth</b> (how far the model goes), <b>coupling</b> (does it feed other systems or sit alone), <b>legibility</b> (can a player perceive it), <b>cost</b> (does it stay cheap under load). A system that simulates beautifully and touches nothing else is capped at B.</p>
+
+<div class="scroll">
+<table>
+<thead><tr><th>System</th><th>Grade</th><th>Depth</th><th>Reads as</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td>Broadcast &amp; media</td><td class="g A">A+</td><td>96</td><td>Live-assembled TV/radio: 5 show modes, VINE-scripted hosts, NPC anchors, camera feeds, two full sport pipelines</td><td>The most over-built system here and the best. Nothing in the genre is close.</td></tr>
+<tr><td>Substances (drugs / drinks / cooking)</td><td class="g A">A+</td><td>95</td><td>36 drugs, 63 reactions, 27 transforms, synthesis, cooking, mixology on profiles not grams</td><td>Alcohol is <em>derived</em> from abv×pours onto the ordinary drug path — a mixed drink and a bottled one get drunk identically.</td></tr>
+<tr><td>Survival &amp; body</td><td class="g A">A</td><td>92</td><td>Hunger, thirst, radiation, mutation, temperature, fatigue, sleep, hygiene, wetness, injury</td><td>Hygiene as a first-class substrate — contaminant→smell, a sweat meter — is a rare commitment.</td></tr>
+<tr><td>Weather (extreme)</td><td class="g A">A</td><td>90</td><td>Severity scalar, gear-gated lethal channels, <mark>no indoor safe haven</mark>, forecast band, named hero events</td><td>Acid rain and the EMP/ion storm ship. Weather that kills through a roof is the design's spine.</td></tr>
+<tr><td>World, space &amp; senses</td><td class="g A">A</td><td>89</td><td>Terrain SSOT, lighting + power grid, sound propagation, smell/listen/sight acuity, transient void rim</td><td>Senses as an engine substrate with an in-memory-only contributor contract — cheap, and it shows.</td></tr>
+<tr><td>Flight simulation</td><td class="g A">A−</td><td>88</td><td>Continuous client-sim / server-reconcile, energy model, stalls with teeth, air combat, ~83 building models</td><td>An entire genre bolted to a MUD, and it holds. Shapes-as-data drives LOD, culling, shadows and CFIT from one source.</td></tr>
+<tr><td>Mind (sanity / dreams / phantoms)</td><td class="g B">B+</td><td>87</td><td>Sanity, madness, hallucination, private per-sleep dreamscapes + shared drug dreamzones</td><td>The mind/body split (mind elsewhere, body lootable in the room) is the good kind of dangerous.</td></tr>
+<tr><td>Crime, law &amp; stealth</td><td class="g B">B+</td><td>85</td><td>Witnessed-crime wanted stars, SPECTER spy networks, per-observer notice rolls, jail with evidence locker</td><td>Stealth is assembled from senses/visibility/impairment/posture rather than built — the right call.</td></tr>
+<tr><td>Durability &amp; gear</td><td class="g B">B+</td><td>84</td><td>Condition as HP, capacity derived from value, wear on use never on the clock, repair that can reinforce</td><td>Zero per-item authoring cost. Repairs that make an item likelier to break outright is a genuinely good curve.</td></tr>
+<tr><td>NPC life &amp; memory</td><td class="g B">B</td><td>80</td><td>Familiarity/warmth → six tiers, lazy decay, banter threads, commutes, ambient routines, clothing personalities</td><td>Hydrated once at login, zero runtime queries. Held back by breadth of authoring, not by the model.</td></tr>
+<tr><td>Combat</td><td class="g B">B</td><td>78</td><td>To-hit, body parts, typed soak, cooldowns, enemy behaviour trees, loot</td><td>Solid and readable, but the least differentiated thing in the build. It is HellMOO's combat, done cleanly.</td></tr>
+<tr><td>Economy &amp; labour</td><td class="g C">B−</td><td>76</td><td>Banking, vendors, crafting, storefronts, corps with influence levers, housing + rent, job board</td><td>All the parts exist; the loops don't yet pressure each other. Corp espionage and NPC corp AI remain design.</td></tr>
+<tr><td>Sport simulation</td><td class="g C">C+</td><td>74</td><td>Deadball (baseball) + Cluster Puck (hockey) leagues under a <code>@sport</code> registry with a narrate seam</td><td>Impressive that it exists; the sims themselves are shallow relative to their presentation layer.</td></tr>
+<tr><td>Casino &amp; table games</td><td class="g C">C+</td><td>70</td><td>Slots plugin, poker over <code>gametable</code>, per-player visual/text view switch</td><td>Correct, contained, unambitious. Fine.</td></tr>
+<tr><td>Mature layer (MIS)</td><td class="g B">B</td><td>79</td><td>Two-switch consent gate, sexuality where <em>None</em> is a real answer, horniness→climax as a sanity valve</td><td>The gating discipline (unopted players see <code>Unknown command</code>) is better engineered than the content depth.</td></tr>
+</tbody>
+</table>
+</div>
+
+<figure>
+  <svg id="radar" viewBox="0 0 640 560" role="img" aria-label="Simulation depth radar"></svg>
+  <figcaption>Fig. 2 — simulation depth by domain. The silhouette is lopsided on purpose: this is a body-and-world sim with a television station attached, not a combat game.</figcaption>
+</figure>
+
+<div class="haiku"><b>ON SURVIVAL</b>Wet coat, falling sun.
+The roof does not save you here.
+Neither does the sky.</div>
+
+<h2>How it compares</h2>
+<p class="lede">Benchmarked against the games occupying the same ambitions. Scores are relative depth in that domain, not overall quality — Dwarf Fortress is a better simulation than this by every measure that matters, and also cannot show you a weather forecast on a phone.</p>
+
+<figure>
+  <svg id="cmp" viewBox="0 0 900 420" role="img" aria-label="Comparison bars"></svg>
+  <figcaption>Fig. 3 — domain-by-domain against the field.</figcaption>
+  <div class="legend">
+    <span><i style="background:var(--green)"></i>Architect</span>
+    <span><i style="background:var(--cyan)"></i>HellMOO</span>
+    <span><i style="background:var(--amber)"></i>Project Zomboid</span>
+    <span><i style="background:var(--violet)"></i>Dwarf Fortress</span>
+    <span><i style="background:var(--mag)"></i>Kenshi</span>
+  </div>
+</figure>
+
+<div class="scroll">
+<table>
+<thead><tr><th>Game</th><th>Shares</th><th>Beats us at</th><th>We beat it at</th></tr></thead>
+<tbody>
+<tr><td><b>HellMOO</b></td><td>Direct ancestor: tone, brutality, text-first cruelty, drugs, crime</td><td>Two decades of accreted player culture; sharper combat metagame; a real PvP economy</td><td>Weather, media, flight, senses, hygiene, relationships, dreams, procedural audio — and a client from this century</td></tr>
+<tr><td><b>Project Zomboid</b></td><td>The body sim: temperature, wetness, hunger, injury, gear condition</td><td>Body simulation legibility and moment-to-moment tension; wounds you can feel</td><td>Social simulation, media, economy, ideology, anything involving another mind</td></tr>
+<tr><td><b>Dwarf Fortress</b></td><td>The maximalist instinct — simulate it because it should exist</td><td>Everything about depth, emergence, and the number of things modelled at once</td><td>Being <em>legible</em>. Every system here has a player-facing surface and a doc that says how it reads</td></tr>
+<tr><td><b>Kenshi</b></td><td>Indifferent world; you are nobody; the map has opinions about you</td><td>Faction warfare at scale; the sense of an economy grinding on without you</td><td>Weather, media, substances, body detail, NPC memory of <em>you</em> specifically</td></tr>
+<tr><td><b>RimWorld</b></td><td>Needs, mood, drugs, relationships, sanity</td><td>Storyteller pacing; the way its systems collide into narrative unprompted</td><td>First-person embodiment; place; broadcast; weather with teeth</td></tr>
+<tr><td><b>Armageddon / Sindome</b></td><td>Text-MUD roleplay depth, permadeath economies</td><td>Human-run staff-driven narrative and enforced RP culture</td><td>Systemic depth per staff-hour. Almost none of this needs a human in the loop</td></tr>
+<tr><td><b>EVE Online</b></td><td>Corps, treasuries, territory, influence tug-of-war</td><td>Player-driven economy at a scale that produces news stories</td><td>Anything below the spreadsheet: bodies, weather, smell, a room</td></tr>
+<tr><td><b>Cyberpunk 2077</b></td><td>Setting, drugs, augments, media saturation</td><td>Budget</td><td>Its radio is a playlist. Ours assembles a show, live, with hosts who react.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="haiku"><b>ON THE ANCESTOR</b>Twenty years of blood
+in a green terminal glow —
+we took the good parts.</div>
+
+<h2>What is genuinely unique</h2>
+<p class="lede">Not "rare". Not "well done". These are things that, to the best of this assessment, no other shipping game does in this shape.</p>
+
+<h3>1 — Live-assembled broadcast as a first-class world system</h3>
+<p>Other games have in-world radio and TV; they play authored recordings. Here a channel <em>assembles a show at runtime</em>: five show modes, an NPC host with a dialogue graph, camera feeds pointed at actual rooms, playlists, and two sport leagues that play themselves and get narrated through a <code>narrate</code> seam. The evening news can report a thing that happened to you. Nothing else in the genre commits at this level.</p>
+
+<h3>2 — Procedural audio from action + material + intensity</h3>
+<p>Sound is not a library of assets keyed to things. It is generated from what happened, to what material, how hard — with a parameters-and-seed wire format, so the server describes the sound and the client synthesises it. New content makes new sounds for free. This is normal in music tooling and vanishingly rare in a game world sim.</p>
+
+<h3>3 — Weather with no indoor safe haven</h3>
+<p>The near-universal convention is that shelter ends weather. Here severity is a scalar feeding gear-gated lethal channels that a roof does not switch off. It reframes clothing from flavour to infrastructure, and it is the single decision that most changes how the world feels.</p>
+
+<h3>4 — A flight simulator inside a text MUD, sharing its world</h3>
+<p>Not a minigame — the same tiles. Building geometry records itself into a shape sink, and those recorded shapes then drive distance LOD, occlusion culling, ground shadows, per-point terrain collision and the cold open's skyline. One source of truth for "what does this building look like", consumed by five consumers. The genre crossover alone is unique; the data discipline is what makes it survivable.</p>
+
+<h3>5 — Smell as a real substrate, with hygiene feeding it</h3>
+<p>Smell exists in roguelikes as an AI input. Here it is a player sense with acuity, overload, and a contributor contract — and the thing contributing to it is a body model tracking contaminants, sweat and days-since-washed. You can smell that someone has been in the sewer. That closes a loop most games never open.</p>
+
+<h3>6 — The sleeping mind/body split</h3>
+<p><code>current_zone</code> (where your mind is) versus <code>zone.players</code> (where your body is). Sleep moves you into a generated private dreamscape while your body stays in the room — lootable, killable. Drug dreamzones are the same trick but <em>shared</em> and permanent. Games do dream sequences; they do not usually leave your body on the floor for other players.</p>
+
+<h3>7 — Repair that can reinforce, and durability with zero authoring</h3>
+<p>Condition capacity is derived from item value, so no item ever needs a durability field. Each repair raises the odds of outright destruction — except a masterful hand repair, which makes the item <em>tougher</em> and forgives accrued fatigue, something a workbench can never do. A repair economy with an actual skill ceiling, for free.</p>
+
+<h3>8 — A public-domain library that glosses its own vocabulary</h3>
+<p>Eight real books, readable in-world, narrated with the spoken line highlighted, minimizable, with a tap-to-gloss vocabulary layer over prose that is <em>never rewritten</em>. Cold-tier storage so it costs nothing when unread. It is a literacy feature in a game about a dead world, and it is the sort of thing only this project would build.</p>
+
+<div class="haiku"><b>ON THE UNIQUE THINGS</b>Smell of the sewer
+still on him at the party.
+The room remembers.</div>
+
+<figure>
+  <svg id="scatter" viewBox="0 0 900 460" role="img" aria-label="Uniqueness versus depth"></svg>
+  <figcaption>Fig. 4 — depth against rarity. Top-right is the moat; bottom-right is competent table stakes; top-left would be wasted effort (there isn't any).</figcaption>
+</figure>
+
+<h2>Where it's weak</h2>
+<ul>
+  <li><b>Combat is the least distinguished system</b> and it is the one players touch most. Everything around it is more inventive than it is. Typed soak and body parts are fine; nothing about a fight is memorable in the way a storm is.</li>
+  <li><b>The economy has parts, not pressure.</b> Banking, vendors, crafting, rent, corps and storefronts all exist and all work. They do not yet squeeze each other. Rent should hurt; scarcity should bite; corps should compete without a player driving them. Espionage and NPC corp AI are still design docs.</li>
+  <li><b>Authoring throughput is the ceiling now, not engineering.</b> 5,839 zones and 177 NPCs against 113 plugins means the systems are running ahead of the content that would make them visible. Relationships, banter, gossip and quests all reward density the world doesn't have yet.</li>
+  <li><b>Sport sims are presentation-heavy.</b> The broadcast pipeline around Deadball and Cluster Puck is stronger than the games it narrates.</li>
+  <li><b>The dirty tree.</b> ~100 modified files spanning ten entangled projects is a real operational risk — it makes bisecting a regression and shipping a single feature harder than the code deserves.</li>
+  <li><b>Systems that never meet.</b> Ideologies and weather don't interact. Corps and crime barely do. The best emergence in this build will come from wiring existing systems to each other, not from a 114th plugin.</li>
+</ul>
+
+<h2>Verdict</h2>
+<div class="verdict">
+  <b>OVERALL GRADE — A−</b>
+  <p style="margin-top:.4rem">As a <em>simulation</em>, this is in the top tier of anything running in a browser and comfortably ahead of every MUD it descends from. Its distinguishing quality isn't any single system — it's that fifteen deep systems share substrates instead of duplicating them, and every one of them is documented as-built. Weather, senses, substances, hygiene, durability and broadcast are genuinely excellent. Combat and the economy are the drag.</p>
+  <p>The gap between this and an A+ is not more systems. It is <b>pressure and density</b>: make the economy hurt, make the world crowded enough that relationships and gossip have material to work with, and wire the systems that currently ignore each other. The engineering is done. The world isn't full yet.</p>
+</div>
+
+<div class="haiku"><b>EPILOGUE</b>Fifteen good systems
+waiting in an empty street
+for someone to walk.</div>
+
+<footer>
+  ARCHITECT MUD · simulation grading report · generated 2026-07-29 · grades are internal assessment against the as-built docs in <code>docs/</code> · comparison scores are relative domain depth, not review scores.
+</footer>
+
+</div>
+
+<script>
+const C={green:'#39ff9e',cyan:'#4dd2ff',amber:'#ffb347',mag:'#ff4d6d',violet:'#b07dff',dim:'#6c8079',line:'#1d2a33'};
+const NS='http://www.w3.org/2000/svg';
+function el(t,a){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e}
+function txt(x,y,s,o={}){const t=el('text',{x,y,fill:o.fill||C.dim,'font-size':o.size||11,'font-family':'Consolas,monospace','text-anchor':o.anchor||'start','letter-spacing':o.ls||0});t.textContent=s;return t}
+
+/* Fig 1 — stacked LOC */
+(function(){
+  const s=document.getElementById('loc');
+  const d=[{n:'client',v:103241,c:C.cyan},{n:'plugins',v:96919,c:C.green},{n:'server',v:46283,c:C.amber}];
+  const tot=d.reduce((a,b)=>a+b.v,0); let x=0;
+  d.forEach(o=>{const w=o.v/tot*880;
+    s.appendChild(el('rect',{x:x+10,y:40,width:w-3,height:44,fill:o.c,opacity:.75}));
+    s.appendChild(txt(x+18,68,o.n+' '+(o.v/1000).toFixed(1)+'k',{fill:'#06080b',size:13}));
+    s.appendChild(txt(x+18,104,(o.v/tot*100).toFixed(0)+'%',{fill:o.c,size:11,ls:2}));
+    x+=w;});
+  s.appendChild(txt(10,24,'246,443 LINES OF JAVASCRIPT · NO BUILD STEP · NO FRAMEWORK',{size:11,ls:2}));
+})();
+
+/* Fig 2 — radar */
+(function(){
+  const s=document.getElementById('radar');
+  const D=[['Broadcast',96],['Substances',95],['Survival',92],['Weather',90],['World/Senses',89],['Flight',88],['Mind',87],['Crime/Stealth',85],['Durability',84],['NPC life',80],['Combat',78],['Economy',76]];
+  const cx=320,cy=270,R=195,n=D.length;
+  [25,50,75,100].forEach(r=>{
+    const pts=D.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/n,rr=R*r/100;return (cx+Math.cos(a)*rr)+','+(cy+Math.sin(a)*rr)}).join(' ');
+    s.appendChild(el('polygon',{points:pts,fill:'none',stroke:C.line,'stroke-width':1}));
+  });
+  D.forEach((d,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;
+    s.appendChild(el('line',{x1:cx,y1:cy,x2:cx+Math.cos(a)*R,y2:cy+Math.sin(a)*R,stroke:C.line}));
+    const lx=cx+Math.cos(a)*(R+30),ly=cy+Math.sin(a)*(R+30);
+    const an=Math.abs(Math.cos(a))<0.25?'middle':(Math.cos(a)>0?'start':'end');
+    s.appendChild(txt(lx,ly+4,d[0],{fill:C.dim,size:11,anchor:an}));
+    s.appendChild(txt(lx,ly+18,d[1],{fill:C.green,size:10,anchor:an}));
+  });
+  const pts=D.map((d,i)=>{const a=-Math.PI/2+i*2*Math.PI/n,rr=R*d[1]/100;return (cx+Math.cos(a)*rr)+','+(cy+Math.sin(a)*rr)}).join(' ');
+  s.appendChild(el('polygon',{points:pts,fill:'rgba(57,255,158,.16)',stroke:C.green,'stroke-width':2}));
+  D.forEach((d,i)=>{const a=-Math.PI/2+i*2*Math.PI/n,rr=R*d[1]/100;
+    s.appendChild(el('circle',{cx:cx+Math.cos(a)*rr,cy:cy+Math.sin(a)*rr,r:3.5,fill:C.green}));});
+  s.appendChild(txt(320,30,'SIMULATION DEPTH · 0–100',{size:11,ls:3,anchor:'middle'}));
+})();
+
+/* Fig 3 — grouped comparison */
+(function(){
+  const s=document.getElementById('cmp');
+  const games=[['Architect',C.green],['HellMOO',C.cyan],['Zomboid',C.amber],['Dwarf Fort.',C.violet],['Kenshi',C.mag]];
+  const rows=[
+    ['Body / survival',[92,62,95,88,55]],
+    ['Weather',       [90,25,72,80,40]],
+    ['Substances',    [95,74,45,60,20]],
+    ['Media / broadcast',[96,20,18,10,5]],
+    ['Social memory', [80,35,20,90,45]],
+    ['Combat',        [78,84,70,86,72]],
+    ['Economy',       [76,72,48,88,70]],
+    ['Sense sim',     [89,30,40,70,25]],
+  ];
+  const x0=150,W=690,top=40,rh=44,bh=6,gap=1.5;
+  rows.forEach((r,ri)=>{
+    const y=top+ri*rh;
+    s.appendChild(txt(x0-12,y+22,r[0],{anchor:'end',size:11,fill:C.dim}));
+    s.appendChild(el('line',{x1:x0,y1:y+38,x2:x0+W,y2:y+38,stroke:C.line}));
+    r[1].forEach((v,gi)=>{
+      s.appendChild(el('rect',{x:x0,y:y+gi*(bh+gap),width:v/100*W,height:bh,fill:games[gi][1],opacity:gi===0?.95:.5}));
+    });
+    s.appendChild(txt(x0+r[1][0]/100*W+6,y+6,r[1][0],{size:9,fill:C.green}));
+  });
+  s.appendChild(txt(x0,26,'RELATIVE DOMAIN DEPTH — 0 ————————————————————————————— 100',{size:10,ls:1}));
+})();
+
+/* Fig 4 — scatter */
+(function(){
+  const s=document.getElementById('scatter');
+  const P=[
+    ['Broadcast',96,95],['Procedural audio',82,97],['Weather (no haven)',90,93],
+    ['Flight-in-MUD',88,96],['Senses + hygiene',89,90],['Dream mind/body',87,88],
+    ['Durability/repair',84,80],['Library + gloss',70,92],['Substances',95,70],
+    ['Crime / stealth',85,45],['NPC relations',80,55],['Combat',78,18],
+    ['Economy / corps',76,30],['Sport sims',74,60],['Casino',70,12]
+  ];
+  const x0=70,y0=390,W=780,H=330;
+  s.appendChild(el('rect',{x:x0,y:y0-H,width:W,height:H,fill:'rgba(57,255,158,.02)',stroke:C.line}));
+  for(let i=1;i<4;i++){
+    s.appendChild(el('line',{x1:x0+W*i/4,y1:y0-H,x2:x0+W*i/4,y2:y0,stroke:C.line,'stroke-dasharray':'2 4'}));
+    s.appendChild(el('line',{x1:x0,y1:y0-H*i/4,x2:x0+W,y2:y0-H*i/4,stroke:C.line,'stroke-dasharray':'2 4'}));
+  }
+  const sx=v=>x0+((v-60)/45)*W, sy=v=>y0-((v-5)/95)*H;
+  P.forEach(p=>{
+    const x=sx(p[1]),y=sy(p[2]);
+    const hot=p[2]>=80&&p[1]>=80;
+    s.appendChild(el('circle',{cx:x,cy:y,r:hot?7:5,fill:hot?C.green:C.cyan,opacity:hot?.9:.55}));
+    if(hot)s.appendChild(el('circle',{cx:x,cy:y,r:13,fill:'none',stroke:C.green,opacity:.3}));
+    s.appendChild(txt(x+12,y+4,p[0],{size:10,fill:hot?C.green:C.dim}));
+  });
+  s.appendChild(txt(x0+W/2,y0+34,'SIMULATION DEPTH →',{size:10,ls:2,anchor:'middle'}));
+  const t=txt(0,0,'← RARITY IN THE FIELD',{size:10,ls:2,anchor:'middle'});
+  t.setAttribute('transform','translate(28,'+(y0-H/2)+') rotate(-90)');s.appendChild(t);
+  s.appendChild(txt(x0+W-8,y0-H+18,'THE MOAT',{size:10,ls:3,fill:C.green,anchor:'end'}));
+  s.appendChild(txt(x0+W-8,y0-14,'TABLE STAKES',{size:10,ls:3,fill:C.dim,anchor:'end'}));
+})();
+</script>
+</body>
+</html>

@@ -6,9 +6,11 @@ import { readPalette } from '../../scripts/content/lib.mjs';
 import { writeDerived } from '../../scripts/content/derive-write.mjs';
 import { templateForType, BUILD_DIR_OFF } from '../../tools/lib/building-templates.mjs';
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
+import { reincarnatePlayer } from '../engine/commands/world.js';
 import { allExits } from '../engine/exits.js';
 import { detectBathroomSide } from '../engine/commands/doors.js';
 import { loadRecipes } from '../engine/crafting.js';
+import { loadScriptTriggers } from '../engine/script-triggers.js';
 import { loadDrugs } from '../engine/drugs.js';
 import { getCrimeList, reloadCrimes, CRIME_DEFAULTS } from '../engine/crimes.js';
 import { getAliasList, reloadAliases, ALIAS_DEFAULTS } from '../engine/commands/aliases.js';
@@ -19,7 +21,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { CORE_SEAM_FILES, coreIntensityTier, gitAuthorKey } from '../engine/dev-history.js';
 import vm from 'vm';
-import { sendPasswordResetEmail, sendVerificationEmail } from '../mailer.js';
+import { sendPasswordResetEmail, sendVerificationEmail, isMailerConfigured, mailerConfigProblem } from '../mailer.js';
 import { isEmailVerificationEnabled, setEmailVerificationEnabled } from '../engine/emailVerification.js';
 import { randomAppearance } from '../engine/appearance.js';
 import { DEFAULT_CHITCHAT_LINES, isVendorWorkTime } from '../engine/ai-behaviour.js';
@@ -29,6 +31,11 @@ import { decideSex } from '../engine/npc-sex.js';
 import { loadBanterLibrary } from '../engine/npc-banter.js';
 import { OPPOSITE } from '../engine/directions.js';
 import { DISTRICTS, DISTRICT_PREFIX } from '../engine/districts.js';
+
+// Base URL for links we mail out (verification, password reset). CLIENT_BASE_URL
+// wins where it's set; otherwise prod gets the live domain and dev gets localhost.
+const clientBaseUrl = () => process.env.CLIENT_BASE_URL
+  || (process.env.NODE_ENV === 'production' ? 'https://architect.net' : 'http://localhost:3000');
 
 function formatScheduleBoard(npc) {
   const LABELS = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
@@ -99,6 +106,8 @@ export function setBroadcast(fn) { broadcastFn = fn; }
 let storeGhostTokenFn = null;
 export function setGhostTokenStore(fn) { storeGhostTokenFn = fn; }
 
+let lastCountPurge = 0;
+
 // Record active player count every minute for the dashboard graph.
 // Deduplicate by email so multi-account users only count once.
 schedule('1m', async () => {
@@ -113,7 +122,13 @@ schedule('1m', async () => {
   }
   await query(`INSERT INTO player_count_log (count) VALUES ($1)`, [count]);
   // Retain ~1 year so the dashboard's 30-day / All-Time ranges have data to show.
-  await query(`DELETE FROM player_count_log WHERE recorded_at < NOW() - INTERVAL '1 year'`);
+  // The purge used to run on every sample, doubling this tick's round trips to
+  // delete nothing 99.9% of the time — a row only becomes eligible once a year.
+  // Once an hour is far more often than the retention window can be crossed.
+  if (Date.now() - lastCountPurge > 60 * 60_000) {
+    lastCountPurge = Date.now();
+    await query(`DELETE FROM player_count_log WHERE recorded_at < NOW() - INTERVAL '1 year'`);
+  }
 });
 
 function verifyToken(headers) {
@@ -230,7 +245,7 @@ async function dispatchApiRequest(url, method, body, headers) {
   }
   if (path==='/email-verification/status' && method==='GET') {
     if (!auth || !['dev','admin','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Dev access required'} };
-    return { status:200, body:{ enabled: isEmailVerificationEnabled() } };
+    return { status:200, body:{ enabled: isEmailVerificationEnabled(), mailerConfigured: isMailerConfigured(), mailerProblem: mailerConfigProblem() } };
   }
   if (path==='/email-verification/toggle' && method==='POST') {
     if (!auth || !['dev','admin','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Dev access required'} };
@@ -296,6 +311,7 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path.startsWith('/zones/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteZone(_zoneId(path)));
   if (path.startsWith('/zones/') && method==='PUT')    return requireDev(auth,   ()=>apiUpdateZone(_zoneId(path),body));
   if (path.startsWith('/zones/') && method==='GET')    return apiGetZone(_zoneId(path));
+  if (path==='/spawns' && method==='GET') return requireDev(auth, apiGetAllSpawns);
   if (path==='/spawns' && method==='POST') return requireDev(auth, ()=>apiCreateSpawn(body));
   if (path.startsWith('/spawns/') && method==='PUT')    return requireDev(auth, ()=>apiUpdateSpawn(path.split('/')[2],body));
   if (path.startsWith('/spawns/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteZoneSpawn(path.split('/')[2]));
@@ -350,6 +366,10 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path.startsWith('/scavenging-tables/') && method==='GET') return requireDev(auth, ()=>apiGetScavengingTable(path.split('/')[2]));
   if (path.startsWith('/scavenging-tables/') && method==='PUT') return requireDev(auth, ()=>apiUpdateScavengingTable(path.split('/')[2],body));
   if (path.startsWith('/scavenging-tables/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteScavengingTable(path.split('/')[2]));
+  if (path==='/script-triggers' && method==='GET') return requireDev(auth, apiGetScriptTriggers);
+  if (path==='/script-triggers' && method==='POST') return requireDev(auth, ()=>apiCreateScriptTrigger(body));
+  if (path.startsWith('/script-triggers/') && method==='PUT') return requireDev(auth, ()=>apiUpdateScriptTrigger(path.split('/')[2],body));
+  if (path.startsWith('/script-triggers/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteScriptTrigger(path.split('/')[2]));
   if (path==='/scripts' && method==='GET') return requireDev(auth, apiGetScripts);
   if (path==='/scripts' && method==='POST') return requireDev(auth, ()=>apiCreateScript(body));
   if (path.startsWith('/scripts/') && method==='PUT') return requireDev(auth, ()=>apiUpdateScript(path.split('/')[2],body));
@@ -373,6 +393,19 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path==='/mutations' && method==='POST') return requireDev(auth, ()=>apiCreateMutation(body));
   if (path.startsWith('/mutations/') && method==='PUT') return requireDev(auth, ()=>apiUpdateMutation(path.split('/')[2],body));
   if (path.startsWith('/mutations/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteMutation(path.split('/')[2]));
+  if (path==='/dream-templates' && method==='GET') return requireDev(auth, apiGetDreamTemplates);
+  if (path==='/dream-templates' && method==='POST') return requireDev(auth, ()=>apiCreateDreamTemplate(body));
+  if (path.startsWith('/dream-templates/') && method==='PUT') return requireDev(auth, ()=>apiUpdateDreamTemplate(decodeURIComponent(path.split('/')[2]),body));
+  if (path.startsWith('/dream-templates/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteDreamTemplate(decodeURIComponent(path.split('/')[2])));
+  if (path==='/dream-presences' && method==='GET') return requireDev(auth, apiGetDreamPresences);
+  if (path==='/dream-presences' && method==='POST') return requireDev(auth, ()=>apiCreateDreamPresence(body));
+  if (path.startsWith('/dream-presences/') && method==='PUT') return requireDev(auth, ()=>apiUpdateDreamPresence(decodeURIComponent(path.split('/')[2]),body));
+  if (path.startsWith('/dream-presences/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteDreamPresence(decodeURIComponent(path.split('/')[2])));
+  if (path==='/drug-transforms' && method==='GET') return requireDev(auth, apiGetDrugTransforms);
+  if (path==='/drug-transforms' && method==='POST') return requireDev(auth, ()=>apiCreateDrugTransform(body));
+  if (path.startsWith('/drug-transforms/') && method==='PUT') return requireDev(auth, ()=>apiUpdateDrugTransform(decodeURIComponent(path.split('/')[2]),body));
+  if (path.startsWith('/drug-transforms/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteDrugTransform(decodeURIComponent(path.split('/')[2])));
+  if (path==='/dream-preview' && method==='POST') return requireDev(auth, ()=>apiPreviewDream(body));
   if (path==='/windows' && method==='GET') return requireDev(auth, ()=>apiGetWindows(url));
   if (path==='/windows' && method==='POST') return requireDev(auth, ()=>apiCreateWindow(body));
   if (path.startsWith('/windows/') && method==='PUT') return requireDev(auth, ()=>apiUpdateWindow(path.split('/')[2],body));
@@ -435,6 +468,7 @@ async function dispatchApiRequest(url, method, body, headers) {
   }
   if (path==='/players/me/profile' && method==='PUT') return apiUpdateOwnProfile(auth, body);
   if (path==='/players' && method==='GET') return requireAdmin(auth, apiGetPlayers);
+  if (path==='/players/wipe-all' && method==='POST') return requireAdmin(auth, ()=>apiServerWipe(auth));
   if (path.startsWith('/players/') && method==='PUT' && !path.endsWith('/role') && !path.endsWith('/kick') && !path.endsWith('/teleport')) return requireAdmin(auth, ()=>apiUpdatePlayer(path.split('/')[2], body));
   if (path.startsWith('/players/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeletePlayer(path.split('/')[2]));
   if (path.startsWith('/players/') && path.endsWith('/progression') && method==='GET') return requireAdmin(auth, ()=>apiGetPlayerProgression(path.split('/')[2]));
@@ -498,9 +532,17 @@ async function apiRegister(body) {
         'INSERT INTO email_verification_tokens (player_id, token, expires_at) VALUES ($1,$2,$3)',
         [id, verifyToken, Date.now() + 24 * 60 * 60 * 1000]
       );
-      const verifyUrl = `${process.env.CLIENT_BASE_URL || 'http://localhost:3000'}/game?verify_token=${verifyToken}`;
-      sendVerificationEmail(email.toLowerCase().trim(), verifyUrl).catch(e => console.error('[register] verification email failed:', e.message));
-      return {status:201,body:{needsVerification:true}};
+      const verifyUrl = `${clientBaseUrl()}/game?verify_token=${verifyToken}`;
+      // Awaited on purpose: fire-and-forget meant a dead mailer still told the
+      // player "check your email", stranding an account that can never log in.
+      // The token stays valid either way, so a later resend recovers it.
+      try {
+        await sendVerificationEmail(email.toLowerCase().trim(), verifyUrl);
+        return {status:201,body:{needsVerification:true}};
+      } catch (e) {
+        console.error('[register] verification email failed:', e.message);
+        return {status:201,body:{needsVerification:true,emailError:`Account created, but the verification email could not be sent: ${e.message}`}};
+      }
     }
     await query('UPDATE players SET email_verified=TRUE WHERE id=$1', [id]);
     return {status:201,body:{token:makeToken(id,'player'),playerId:id,handle,role:'player'}};
@@ -540,15 +582,28 @@ async function apiVerifyEmail(body) {
 async function apiResendVerification(body) {
   const { email } = body||{};
   if (!email) return { status:400, body:{ error:'email required' } };
-  const { rows } = await query('SELECT id, email, email_verified FROM players WHERE email=$1', [email.toLowerCase().trim()]);
+  // players.email is NOT unique — one person's several characters share an
+  // address. Picking rows[0] meant an older *verified* character answered for a
+  // brand-new unverified one, which is where the bogus "already verified" came
+  // from. Sort unverified first so the resend targets the account that needs it,
+  // and only report "already verified" when every account on the address is.
+  const { rows } = await query(
+    'SELECT id, email, email_verified FROM players WHERE email=$1 ORDER BY email_verified ASC, id ASC',
+    [email.toLowerCase().trim()]
+  );
   if (!rows.length) return { status:200, body:{ sent:true } }; // don't reveal if account exists
   const p = rows[0];
-  if (p.email_verified) return { status:400, body:{ error:'This account is already verified.' } };
+  if (p.email_verified) return { status:400, body:{ error:'This account is already verified. You can log in.' } };
   await query('UPDATE email_verification_tokens SET used=TRUE WHERE player_id=$1 AND used=FALSE', [p.id]);
   const token = randomBytes(32).toString('hex');
   await query('INSERT INTO email_verification_tokens (player_id, token, expires_at) VALUES ($1,$2,$3)', [p.id, token, Date.now() + 24 * 60 * 60 * 1000]);
-  const verifyUrl = `${process.env.CLIENT_BASE_URL || 'http://localhost:3000'}/game?verify_token=${token}`;
-  sendVerificationEmail(p.email, verifyUrl).catch(e => console.error('[resend-verification] email failed:', e.message));
+  const verifyUrl = `${clientBaseUrl()}/game?verify_token=${token}`;
+  try {
+    await sendVerificationEmail(p.email, verifyUrl);
+  } catch (e) {
+    console.error('[resend-verification] email failed:', e.message);
+    return { status:502, body:{ error:e.message } };
+  }
   return { status:200, body:{ sent:true } };
 }
 
@@ -563,13 +618,21 @@ async function apiEmailHint(username) {
 }
 
 async function apiForgotPassword(body) {
-  const { email } = body||{};
-  console.log('[forgot-password] request for email:', email);
-  if (!email) return { status:400, body:{ error:'email required' } };
-  const { rows } = await query('SELECT id FROM players WHERE email=$1', [email.toLowerCase().trim()]);
+  const { email, username } = body||{};
+  console.log('[forgot-password] request for', username ? `username: ${username}` : `email: ${email}`);
+  // Prefer the username: it's unique, whereas several characters can share one
+  // email address, and an email-only lookup resets an arbitrary one of them.
+  // The address we mail is then read off that row, never taken from the client.
+  const { rows } = username
+    ? await query('SELECT id, email FROM players WHERE username=$1', [username.toLowerCase().trim()])
+    : email
+      ? await query('SELECT id, email FROM players WHERE email=$1 ORDER BY id ASC', [email.toLowerCase().trim()])
+      : { rows: [] };
+  if (!username && !email) return { status:400, body:{ error:'username or email required' } };
   console.log('[forgot-password] db lookup rows:', rows.length);
-  if (!rows.length) return { status:404, body:{ error:'No account found with that email address.' } };
+  if (!rows.length || !rows[0].email) return { status:404, body:{ error:'No account found with that email address.' } };
   const playerId = rows[0].id;
+  const toEmail = rows[0].email.toLowerCase().trim();
   await query('UPDATE password_reset_tokens SET used=TRUE WHERE player_id=$1 AND used=FALSE', [playerId]);
   const token = randomBytes(32).toString('hex');
   const expiresAt = Date.now() + 60 * 60 * 1000;
@@ -577,12 +640,13 @@ async function apiForgotPassword(body) {
     'INSERT INTO password_reset_tokens (player_id, token, expires_at, used) VALUES ($1,$2,$3,FALSE)',
     [playerId, token, expiresAt]
   );
-  const resetUrl = `${process.env.CLIENT_BASE_URL || 'http://localhost:3000'}/game?reset_token=${token}`;
-  sendPasswordResetEmail(email.toLowerCase().trim(), resetUrl).then(() => {
-    console.log('[forgot-password] email sent OK to:', email.toLowerCase().trim());
-  }).catch(e => {
-    console.error('[forgot-password] email send failed:', e.message, JSON.stringify(e.response || e.responseCode || ''));
-  });
+  const resetUrl = `${clientBaseUrl()}/game?reset_token=${token}`;
+  try {
+    await sendPasswordResetEmail(toEmail, resetUrl);
+  } catch (e) {
+    // Don't claim we sent it when we didn't (the mailer already logged detail).
+    return { status:502, body:{ error:e.message } };
+  }
   return { status:200, body:{ message:'Reset link sent. Check your email.' } };
 }
 
@@ -1732,6 +1796,14 @@ async function apiGetZoneSpawns(zoneId) {
   );
   return { status:200, body:rows };
 }
+// Every spawn in the world in one round trip — the Enemies panel's spawn map
+// needs all of them at once (a per-zone fetch would be hundreds of requests).
+async function apiGetAllSpawns() {
+  const { rows } = await query(
+    `SELECT zs.*, e.name AS enemy_name FROM zone_spawns zs JOIN enemies e ON e.id = zs.enemy_id ORDER BY zs.zone_id, e.name`
+  );
+  return { status:200, body:rows };
+}
 async function apiAddZoneSpawn(zoneId, body) {
   if (!body?.enemy_id) return { status:400, body:{ error:'enemy_id is required' } };
   if (isEnterableFacade(getZone(zoneId))) return { status:400, body:{ error:'That zone is a building facade (players auto-forward through it) — put the spawn in an interior room or on the street instead.' } };
@@ -1912,8 +1984,9 @@ async function apiGetNpcs() {
 // playlist item's conditions.npc_staff during that item's game-time window (see the
 // broadcast plugin's isNpcScheduledNow). This surfaces that same source, read-only,
 // for the NPC editor's Work Schedule grid — the vendor_schedule column is never used
-// for these NPCs, so it stays untouched. Broadcasts loop daily, so the same hour
-// blocks apply to every weekday.
+// for these NPCs, so it stays untouched. The grid has no weekday axis, so a slot
+// restricted to some days (media_channel_playlist.days) still lights its hour block
+// here — read it as "can be on shift at this hour", not "every week at this hour".
 async function apiGetNpcBroadcastSchedule(id) {
   const { rows } = await query(`
     SELECT p.start_time, p.duration_override, p.conditions,
@@ -2639,6 +2712,18 @@ async function apiSmitePlayer(id) {
   return {status:200,body:{smited:true,handle}};
 }
 
+// Server wipe: reincarnate every non-staff player (same blank slate the
+// `reincarnate` command produces). Staff accounts — admin/dev/builder/designer,
+// the panel's "Admins & Staff" section — are left untouched.
+const WIPE_EXEMPT_ROLES = ['admin', 'dev', 'builder', 'designer'];
+
+async function apiServerWipe(auth) {
+  const { rows } = await query('SELECT id, handle FROM players WHERE role IS NULL OR NOT (role = ANY($1))', [WIPE_EXEMPT_ROLES]);
+  for (const row of rows) await reincarnatePlayer(row);
+  logActivity('admin_cmd', auth?.handle || 'admin', null, `server wipe — reincarnated ${rows.length} player(s)`);
+  return { status:200, body:{ wiped: rows.length, handles: rows.map(r=>r.handle) } };
+}
+
 async function apiWhisperPlayer(id, body) {
   const {message}=body||{};
   if (!message) return {status:400,body:{error:'message required'}};
@@ -2876,6 +2961,130 @@ async function apiDeleteMutation(id) {
   catch(e) { return {status:400,body:{error:e.message}}; }
 }
 
+// ── Dream / hallucination authoring ─────────────────────────────────────────
+//
+// Three tables behind one editor, because a dream room and a hallucination room
+// are the same kind of thing. `cause` ('dream'|'drug') plus `drug_id` is what
+// keeps the pools from bleeding into each other — see docs/systems-dreams.md.
+//
+// No cache to invalidate: all three are readTier COLD, queried once per instance
+// when an experience actually fires, so a save takes effect on the next dream
+// with no reload step.
+const asJson = (v, fallback) => JSON.stringify(v ?? fallback);
+// A dream is never scoped to a drug, and a drug row with no id is the DEFAULT
+// SET rather than an error. Normalising here means the editor cannot author a
+// row the fallback chain would silently never select.
+const normCause = (b) => (b.cause === 'drug' ? 'drug' : 'dream');
+const normDrug = (b) => (normCause(b) === 'drug' ? (b.drug_id || null) : null);
+
+async function apiGetDreamTemplates() {
+  const { rows } = await query('SELECT * FROM dream_templates ORDER BY cause, drug_id NULLS FIRST, name');
+  return { status: 200, body: rows };
+}
+async function apiCreateDreamTemplate(body) {
+  const id = body.id || `dt_${Date.now()}`;
+  try {
+    await query(
+      `INSERT INTO dream_templates (id,name,description,cause,drug_id,objects,ambient) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, body.name, body.description || '', normCause(body), normDrug(body), asJson(body.objects, []), asJson(body.ambient, [])]);
+    return { status: 201, body: { id } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+async function apiUpdateDreamTemplate(id, body) {
+  try {
+    await query(
+      `UPDATE dream_templates SET name=$1,description=$2,cause=$3,drug_id=$4,objects=$5,ambient=$6 WHERE id=$7`,
+      [body.name, body.description || '', normCause(body), normDrug(body), asJson(body.objects, []), asJson(body.ambient, []), id]);
+    return { status: 200, body: { id } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+async function apiDeleteDreamTemplate(id) {
+  try { await query('DELETE FROM dream_templates WHERE id=$1', [id]); return { status: 200, body: { message: 'Deleted' } }; }
+  catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+
+async function apiGetDreamPresences() {
+  const { rows } = await query('SELECT * FROM dream_presences ORDER BY cause, drug_id NULLS FIRST, name');
+  return { status: 200, body: rows };
+}
+async function apiCreateDreamPresence(body) {
+  const id = body.id || `dp_${Date.now()}`;
+  try {
+    await query(
+      `INSERT INTO dream_presences (id,name,cause,drug_id,arrivals,departures,looks) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, body.name, normCause(body), normDrug(body), asJson(body.arrivals, []), asJson(body.departures, []), asJson(body.looks, [])]);
+    return { status: 201, body: { id } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+async function apiUpdateDreamPresence(id, body) {
+  try {
+    await query(
+      `UPDATE dream_presences SET name=$1,cause=$2,drug_id=$3,arrivals=$4,departures=$5,looks=$6 WHERE id=$7`,
+      [body.name, normCause(body), normDrug(body), asJson(body.arrivals, []), asJson(body.departures, []), asJson(body.looks, []), id]);
+    return { status: 200, body: { id } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+async function apiDeleteDreamPresence(id) {
+  try { await query('DELETE FROM dream_presences WHERE id=$1', [id]); return { status: 200, body: { message: 'Deleted' } }; }
+  catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+
+async function apiGetDrugTransforms() {
+  const { rows } = await query('SELECT * FROM drug_transforms ORDER BY drug_id NULLS FIRST, name');
+  return { status: 200, body: rows };
+}
+async function apiCreateDrugTransform(body) {
+  const id = body.id || `dx_${Date.now()}`;
+  try {
+    await query(
+      `INSERT INTO drug_transforms (id,drug_id,matches,name,description,looks,says) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, body.drug_id || null, body.matches || null, body.name, body.description || '', asJson(body.looks, []), asJson(body.says, [])]);
+    return { status: 201, body: { id } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+async function apiUpdateDrugTransform(id, body) {
+  try {
+    await query(
+      `UPDATE drug_transforms SET drug_id=$1,matches=$2,name=$3,description=$4,looks=$5,says=$6 WHERE id=$7`,
+      [body.drug_id || null, body.matches || null, body.name, body.description || '', asJson(body.looks, []), asJson(body.says, []), id]);
+    return { status: 200, body: { id } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+async function apiDeleteDrugTransform(id) {
+  try { await query('DELETE FROM drug_transforms WHERE id=$1', [id]); return { status: 200, body: { message: 'Deleted' } }; }
+  catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+
+/**
+ * Roll a throwaway instance from the live templates and return what it built.
+ *
+ * Exists because non-reciprocating exits and per-instance object looks are
+ * impossible to eyeball from a form — the only way to know whether a pool reads
+ * well is to generate one and look at it. Dissolved immediately; it is never
+ * entered by anybody.
+ */
+async function apiPreviewDream(body) {
+  const { buildDreamscape, dissolveDreamscape } = await import('../engine/dreamscape.js');
+  const { world } = await import('../engine/world.js');
+  const pid = `preview_${Date.now()}`;
+  try {
+    const entry = await buildDreamscape(pid, {
+      size: Math.min(6, Math.max(1, +body.size || 3)),
+      cause: body.cause === 'drug' ? 'drug' : 'dream',
+      drugId: body.drug_id || null,
+    });
+    if (!entry) return { status: 200, body: { empty: true, reason: 'No templates match that cause/drug — a real experience would degrade instead.' } };
+    const rooms = [...world.zones.values()]
+      .filter(z => typeof z.id === 'string' && z.id.includes(pid))
+      .map(z => ({ id: z.id, name: z.name, description: z.description, exits: z.exits, objects: z.dreamObjects, ambient: z.ambient_events }));
+    return { status: 200, body: { entry, rooms } };
+  } catch (e) {
+    return { status: 400, body: { error: e.message } };
+  } finally {
+    dissolveDreamscape(pid);
+  }
+}
+
 async function apiGetApartments() {
   const { rows } = await query(`
     SELECT a.*, z.name as zone_name, z.description as zone_description, p.handle as owner_handle
@@ -3097,6 +3306,54 @@ async function apiUpdateScript(id,body) {
 async function apiDeleteScript(id) {
   try {
     await query('DELETE FROM scripts WHERE id=$1',[id]);
+    return {status:200,body:{message:'Deleted'}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+
+// --- Script triggers (event → script bindings; server/engine/script-triggers.js) ---
+// Every write reloads the in-memory registry, which is the only thing the
+// dispatcher reads — a row edited here is live without a restart.
+const TRIGGER_COLS = ['name','description','event','script_id','zone_id','conditions','params','cooldown_seconds','chance','once','enabled'];
+function triggerValues(body) {
+  return [
+    body.name||'Untitled Trigger', body.description||'',
+    body.event||'', body.script_id||'', body.zone_id||null,
+    JSON.stringify(body.conditions||[]),
+    JSON.stringify(body.params||{}),
+    Number(body.cooldown_seconds)||0,
+    body.chance==null?1:Number(body.chance),
+    body.once?1:0,
+    body.enabled===0?0:1,
+  ];
+}
+async function apiGetScriptTriggers() {
+  const {rows}=await query('SELECT * FROM script_triggers ORDER BY event, name');
+  return {status:200,body:rows};
+}
+async function apiCreateScriptTrigger(body) {
+  const id=body.id||`trigger_${Date.now()}`;
+  if(!body.event||!body.script_id) return {status:400,body:{error:'event and script_id are required'}};
+  try {
+    await query(`INSERT INTO script_triggers (id,${TRIGGER_COLS.join(',')},updated_at)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()))`,
+      [id,...triggerValues(body)]);
+    await loadScriptTriggers();
+    return {status:201,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiUpdateScriptTrigger(id,body) {
+  try {
+    await query(`UPDATE script_triggers SET ${TRIGGER_COLS.map((c,i)=>`${c}=$${i+1}`).join(',')},
+                 updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$${TRIGGER_COLS.length+1}`,
+      [...triggerValues(body),id]);
+    await loadScriptTriggers();
+    return {status:200,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiDeleteScriptTrigger(id) {
+  try {
+    await query('DELETE FROM script_triggers WHERE id=$1',[id]);
+    await loadScriptTriggers();
     return {status:200,body:{message:'Deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }

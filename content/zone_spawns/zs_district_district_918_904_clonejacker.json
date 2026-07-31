@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_clonejacker",
+  "id": "zs_district_district_918_904_clonejacker",
+  "max_count": 3,
+  "respawn_seconds": 300,
+  "spawn_weight": 60,
+  "zone_id": "zone_district_918_904"
+}

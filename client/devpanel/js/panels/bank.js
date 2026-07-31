@@ -24,6 +24,10 @@ function _renderBankBody() {
   const panel = document.getElementById('list-panel');
   const units    = _bankUnits;
   const networks = _bankNetworks;
+  // On /admin only the live half of this panel is legal: ATM *units* are on the
+  // server's ops allowlist (fill, repair, rename, settings), while networks and
+  // terminal creation/deletion write content rows that git owns. See bootstrap.js.
+  const ops = !!window.OPS_MODE;
 
   const totalCash = units.reduce((s, u) => s + (u.cash_stock || 0), 0);
   const onlineCt  = units.filter(u => !u.is_broken && u.power_status !== 'offline').length;
@@ -85,7 +89,7 @@ function _renderBankBody() {
         ${u.is_broken ? `<button class="action-btn success" onclick="bankRepairAtm('${u.id}')" style="padding:2px 8px;font-size:10px">Repair</button>` : ''}
         <button class="action-btn" onclick="bankEditUnit('${u.id}')" style="padding:2px 8px;font-size:10px">Edit</button>
         <button class="action-btn" onclick="bankRenameAtm('${u.id}','${(u.atm_name || u.id).replace(/'/g,"\\\'")}')" style="padding:2px 8px;font-size:10px">Rename</button>
-        <button class="action-btn danger" onclick="bankDeleteAtm('${u.id}','${(u.atm_name || u.id).replace(/'/g,"\\\'")}')" style="padding:2px 8px;font-size:10px">Delete</button>
+        ${ops ? '' : `<button class="action-btn danger" onclick="bankDeleteAtm('${u.id}','${(u.atm_name || u.id).replace(/'/g,"\\\'")}')" style="padding:2px 8px;font-size:10px">Delete</button>`}
       </td>
     </tr>`).join('') || `<tr><td colspan="7" style="padding:20px;color:var(--text-dim);text-align:center">No ATM units found. Add furniture with the <code>atm</code> flag and run the schema.</td></tr>`;
 
@@ -120,7 +124,8 @@ function _renderBankBody() {
         ${statCard('⬡', 'Networks', networks.length, 'var(--text-bright)')}
       </div>
 
-      <!-- Networks section -->
+      <!-- Networks section (content — hidden in ops mode) -->
+      ${ops ? '' : `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">ATM Networks</div>
         <button class="action-btn primary" onclick="bankNewNetwork()" style="font-size:11px;padding:4px 12px">+ New Network</button>
@@ -139,13 +144,13 @@ function _renderBankBody() {
           </thead>
           <tbody>${netRows}</tbody>
         </table>
-      </div>
+      </div>`}
 
       <!-- ATM Units section -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">ATM Units</div>
         <div style="display:flex;gap:8px">
-          <button class="action-btn primary" onclick="bankCreateAtm()" style="font-size:11px;padding:4px 12px">+ Create ATM Terminal</button>
+          ${ops ? '' : '<button class="action-btn primary" onclick="bankCreateAtm()" style="font-size:11px;padding:4px 12px">+ Create ATM Terminal</button>'}
           <button class="action-btn" onclick="bankReplenishAll()" style="font-size:11px;padding:4px 12px">↻ Replenish All</button>
           <button class="action-btn" onclick="renderBankPanel()" style="font-size:11px;padding:4px 12px">⟳ Refresh</button>
         </div>

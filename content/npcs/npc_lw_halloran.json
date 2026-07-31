@@ -432,20 +432,24 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_duct_tape",
-      "price": 10
+      "item_id": "item_scrap_metal",
+      "price": 4
     },
     {
       "item_id": "item_tangled_wire",
       "price": 6
     },
     {
-      "item_id": "item_scrap_metal",
-      "price": 4
+      "item_id": "item_rag_bandage",
+      "price": 8
     },
     {
-      "item_id": "item_pipe_wrench",
-      "price": 30
+      "item_id": "item_beef_jerky",
+      "price": 9
+    },
+    {
+      "item_id": "item_duct_tape",
+      "price": 10
     },
     {
       "item_id": "item_rusty_pipe",
@@ -456,12 +460,8 @@
       "price": 18
     },
     {
-      "item_id": "item_rag_bandage",
-      "price": 8
-    },
-    {
-      "item_id": "item_beef_jerky",
-      "price": 9
+      "item_id": "item_pipe_wrench",
+      "price": 125
     }
   ],
   "vendor_restock_rate": 1,
@@ -509,7 +509,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Halloran's Fix-It",
+  "vendor_shop_name": "Percussive Maintenance",
   "vendor_stock_size": 8,
   "wander_zones": [],
   "wanders": 0,

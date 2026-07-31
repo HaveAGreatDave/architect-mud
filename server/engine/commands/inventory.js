@@ -3,6 +3,7 @@ import { query, withTransaction } from '../../models/db.js';
 import { useDrug, getDrugCache } from '../drugs.js';
 import { hasTag, tagValue, hasFlag, isStackable, TAG_CATALOG } from '../tags.js';
 import { foodLoad, applyThirst } from '../bodily.js';
+import { satiationLine, slakeLine, portionLine } from '../appetite.js';
 import { dispatchAction, getRegisteredActions } from '../actions.js';
 import { burnCharge, rowIsInstanced, NOT_INSTANCED_SQL } from '../inventory.js';
 import { getZonePlayers, getZoneNpcs } from '../world.js';
@@ -13,6 +14,9 @@ import { computeSellUnitPrice } from '../vendor.js';
 import { resolveCorpseOrPlayer, buildLootView } from './combat.js';
 import { titleCaseName } from '../text.js';
 import { getItem } from '../items-cache.js';
+import { fireHook } from '../plugins.js';
+import { applyEffect } from '../effects.js';
+import { sendToPlayer } from '../messaging.js';
 
 // Throttle: only broadcast "rummages in container" once per 30s per player.
 const _ctrBroadcastTs = new Map();
@@ -96,38 +100,126 @@ export async function recomputeArmor(player, rows = null) {
   player.soak = bySlot;
 }
 
+// The slots acid rain can actually land on. Hands are omitted deliberately —
+// gloves are common enough that including them would make full cover trivial.
+const ACID_SLOTS = ['head', 'torso', 'legs', 'feet'];
+
+// How much of the wind chill each covered slot is worth giving back. Torso dominates for the
+// same reason it dominates the exposure penalty — it's the surface the body defends hardest —
+// and the two together are the whole of it, so a coat and trousers in a windproof shell
+// cancel the chill entirely. Sums to 1.
+const WINDPROOF_WEIGHTS = { torso: 0.65, legs: 0.35 };
+
+// The extremities frostbite actually takes. Core slots are excluded on purpose: a frozen
+// torso is hypothermia, which the core-temperature model already owns — this is the
+// peripheral injury that happens to a body whose core is still being defended successfully.
+const EXTREMITY_SLOTS = ['hands', 'feet', 'head'];
+
 export async function recomputeInsulation(player, rows = null) {
   if (!rows) ({ rows } = await query(`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]));
   let total = 0;
+  let wetKept = 0;
   let sealed = false;
   const covered = new Set();
+  const shed = new Set();
+  const blocked = new Set();
   for (const r of rows) {
-    total += tagValue(r, 'insulation', 0) || 0;
+    const ins = tagValue(r, 'insulation', 0) || 0;
+    total += ins;
+    // Wool, neoprene, sealed shells and wicking synthetics keep their warmth when soaked;
+    // cotton, denim and padding do not. Tracked as a SECOND sum rather than a per-item
+    // wetness because `player.wetness` is already an average over the whole outfit — this
+    // is the share of your insulation that average can't touch.
+    if (hasTag(r, 'hydrophobic')) wetKept += ins;
     if (hasTag(r, 'sealed')) sealed = true;   // respirator/mask — blocks ash choking
     const slot = tagValue(r, 'slot');
     if (slot) covered.add(slot);
     // A `covers` garment (e.g. a jumpsuit) counts its extra slots as clothed too.
     const covers = tagValue(r, 'covers');
     if (Array.isArray(covers)) for (const c of covers) covered.add(c);
+    // Acid protection is COVERAGE-based, not any-one-item like `sealed`: a
+    // waterproof garment only shields the skin it actually sits over.
+    if (hasTag(r, 'waterproof')) {
+      if (slot) shed.add(slot);
+      if (Array.isArray(covers)) for (const c of covers) shed.add(c);
+    }
+    // Windproofing is coverage-based for the same reason, and deliberately a SEPARATE tag
+    // from waterproof: oilskin sheds rain and flaps in a gale, a windbreaker does the
+    // opposite. A garment that does both simply carries both tags.
+    if (hasTag(r, 'windproof')) {
+      if (slot) blocked.add(slot);
+      if (Array.isArray(covers)) for (const c of covers) blocked.add(c);
+    }
   }
   player.insulation = total;
+  // The part of that total that survives a soaking. The body-temp tick interpolates between
+  // the two on `player.wetness`, so a wet hoodie is nearly worthless and a wet wool scarf is
+  // not. Never greater than the total.
+  player.insulationWet = Math.min(total, wetKept);
   // Whether any equipped item seals the airway (gas mask / respirator). Read by the
   // ashfall breathing hazard in gameLoop's resourceTick. See systems-weather-extreme.md.
   player.sealed = sealed;
+  // Fraction of the exposed body shielded from falling acid (0..1). Full cover is
+  // immunity; anything less scales the burn. Read by the acid-rain hazard in
+  // gameLoop's resourceTick. See systems-weather-extreme.md.
+  player.acidCover = ACID_SLOTS.reduce((n, s) => n + (shed.has(s) ? 1 : 0), 0) / ACID_SLOTS.length;
   // Bare core skin sheds heat fast, so nakedness makes the cold genuinely bite.
   // Torso dominates (the body defends the core hardest); legs are secondary.
   // Applied only to the cooling side of the body-temp tick (see gameLoop.js) —
   // going shirtless in the heat is a relief, not a penalty.
   player.exposurePenalty = (covered.has('torso') ? 0 : 10) + (covered.has('legs') ? 0 : 5);
+  // Fraction of the wind chill a shell keeps off you (0..1). Read by the body-temp tick,
+  // which gives back that share of `windChillDelta`. Only counts a slot that is windproof
+  // AND actually clothed — a shell you aren't wearing over anything is still a shell, but
+  // the bookkeeping stays honest if a future garment is windproof without occupying a slot.
+  player.windproof = Object.entries(WINDPROOF_WEIGHTS)
+    .reduce((n, [slot, w]) => n + (blocked.has(slot) && covered.has(slot) ? w : 0), 0);
+  // Fraction of the EXTREMITIES left bare (0..1) — hands, feet, head. Drives frostbite,
+  // which is a peripheral injury and so cares about exactly the slots the core model
+  // ignores. Owned here so the frostbite plugin needs no inventory read of its own.
+  player.extremityExposure =
+    EXTREMITY_SLOTS.reduce((n, s) => n + (covered.has(s) ? 0 : 1), 0) / EXTREMITY_SLOTS.length;
 }
 
 // Armor and insulation derive from the same equipped-rows set and are always
 // needed together — one fetch feeding both, instead of the identical query
 // issued back-to-back at every equip/unequip/undress/login.
+// Gear that DULLS a sense, cached on the live player the same way armor and
+// insulation are. `smell` is a spammable verb and acuity is read on every use,
+// so this can never be a query in that path — it's recomputed here, on the one
+// funnel every equip/unequip already goes through.
+//
+// The trade is the entire point. A respirator can't be worn to be safe for free:
+// it raises the strength something needs to blow your nose out, and it lowers
+// what you can perceive by exactly the same amount. Protection and perception
+// are the same dial turned opposite ways.
+export function recomputeSenseDamp(player, rows) {
+  const damp = {};
+  for (const r of rows) {
+    const map = r?.tags?.sense_damp;
+    if (!map || typeof map !== 'object') continue;
+    for (const [sense, v] of Object.entries(map)) {
+      const n = Number(v);
+      if (Number.isFinite(n) && n) damp[sense] = (damp[sense] || 0) + n;
+    }
+  }
+  player._senseDamp = Object.keys(damp).length ? damp : null;
+}
+
 export async function recomputeEquipped(player) {
-  const { rows } = await query(`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]);
+  // `pi.id`/`pi.slot`/`pi.condition` ride along on a query that already runs, so
+  // combat can wear the struck piece from memory instead of looking it up per
+  // hit (server/engine/durability.js — wear is on the hot path and cannot query).
+  const { rows } = await query(
+    `SELECT i.tags, i.value, i.name, pi.id AS inv_id, pi.slot, pi.condition, pi.item_id
+       FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+      WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]);
+  // Slot -> the worn row occupying it. Rebuilt on every equip/unequip, which is
+  // the only way the set can change, so it can never go stale behind our back.
+  player._wornRows = new Map(rows.filter(r => r.slot).map(r => [r.slot, r]));
   await recomputeArmor(player, rows);
   await recomputeInsulation(player, rows);
+  recomputeSenseDamp(player, rows);
 }
 
 async function cmdInventory(player) {
@@ -192,6 +284,7 @@ async function cmdGear(player) {
   const effects = {
     insulation: player.insulation || 0,
     sealed: !!player.sealed,
+    acidCover: player.acidCover || 0,
     exposurePenalty: player.exposurePenalty || 0,
     stat_bonus: {},
   };
@@ -249,6 +342,19 @@ export function carryCapacity(player) {
 // weight is benign: encumbrance is a soft gate, and the value self-corrects.
 const CARRIED_WEIGHT_TTL_MS = 5000;
 on('inventory.changed', ({ actor }) => { if (actor) delete actor._carriedWeight; });
+
+// …and tell the client, so an open tablet Kit app isn't showing a pack you no longer
+// have. `inventory.changed` is the canonical mutation signal (actions.js TAKE/DROP/
+// GIVE/EQUIP/UNEQUIP, durability wear, and the plugins that emit it), and this is the
+// one place it needs to leave the server. Deliberately a bare "it changed" ping and
+// not a payload: the client refetches ONLY if the Kit app is actually on screen
+// (refreshTabletGearIfOpen), so the common case — a closed tablet — costs one tiny
+// frame and no query. Plugins that mutate player_inventory with raw SQL and never
+// emit are still invisible to this; that's an argument for emitting, not for the
+// client polling.
+on('inventory.changed', ({ actor }) => {
+  if (actor?.id) sendToPlayer(actor.id, { type: 'inventory_dirty' });
+});
 export async function computeCarriedWeight(player) {
   const cached = player._carriedWeight;
   if (cached && Date.now() - cached.at < CARRIED_WEIGHT_TTL_MS) return cached.value;
@@ -301,7 +407,7 @@ async function cmdDrop(targetStr, player, broadcast) {
   const lower = targetStr.trim().toLowerCase();
   // Pool includes equipped gear (no is_equipped filter) so "drop all" can shed it.
   const { rows } = await query(
-    `SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND NOT jsonb_exists(i.tags,'quest_item')`,
+    `SELECT pi.*,i.name,i.type,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND NOT jsonb_exists(i.tags,'quest_item')`,
     [player.id]
   );
   if (!rows.length) return { type:'error', message:`You don't have anything to drop.` };
@@ -321,7 +427,7 @@ async function cmdDrop(targetStr, player, broadcast) {
   // "drop all <filter>" — drop every SIFT match, no prompt.
   if (lower.startsWith('all ')) {
     const filter = targetStr.trim().slice(4).trim();
-    const matches = siftMatchAll(filter, rows);
+    const matches = matchAllFilter(filter, rows);
     if (!matches.length) return { type:'error', message:`You don't have any "${filter}" to drop.` };
     return dropRows(matches, player, broadcast);
   }
@@ -553,7 +659,9 @@ async function cmdUse(targetStr, player, broadcast, route = 'use') {
 
   // `consumable` (food/drugs) OR an explicit `use_message` (a non-food usable, e.g. a credit chip
   // banked with `use` — currency isn't eaten). Both funnel through the same payout/effect path below.
-  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND (i.name ILIKE $2 OR i.id ILIKE $3) AND (jsonb_exists(i.tags,'consumable') OR jsonb_exists(i.tags,'use_message')) LIMIT 1`, [player.id, `%${targetStr}%`, targetStr]);
+  // Match the instance's custom name too (same as the drug lookup above): a credit chip is *shown*
+  // as "credit chip (₵100)" from custom_data.name, so without this the displayed name never resolves.
+  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND (i.name ILIKE $2 OR pi.custom_data->>'name' ILIKE $2 OR i.id ILIKE $3) AND (jsonb_exists(i.tags,'consumable') OR jsonb_exists(i.tags,'use_message')) LIMIT 1`, [player.id, `%${targetStr}%`, targetStr]);
   if (!rows.length) return cmdUseFurniture(targetStr, player, broadcast);
   const item = rows[0];
   const t = item.tags || {};
@@ -579,21 +687,83 @@ function isSlowDrinkItem(tags) {
 // `use` path and the timed-drink finish. `opts.skipThirstRestore` lets the consume
 // plugin credit a laced drink's thirst sip-by-sip without this double-counting it;
 // `opts.takeLine` overrides the opening flavour line.
+// Cooked-quality payoff. The cooking plugin stamps `custom_data.cook_quality`
+// on a plated meal; this is the only place it is spent. Keep the middle band at
+// exactly 1.0 — an ordinary cook must feel like the baseline, not a penalty.
+const COOK_QUALITY_MULT = {
+  poor: 0.5, grim: 0.75, acceptable: 1.0, decent: 1.08, good: 1.15,
+  'very good': 1.25, excellent: 1.35, superb: 1.48, masterful: 1.6,
+};
+
 export async function applyItemUse(player, item, broadcast, opts = {}) {
   const t = item.tags || {};
   const cd = parseCustomData(item.custom_data);
   // An item can carry its own flavour line for the act of consuming it
   // (tags.use_message); otherwise fall back to the plain default.
   const messages = [opts.takeLine || t.use_message || `You use ${item.name}.`];
-  if (t.restore_hp) { player.hp = Math.min(player.hp_max, player.hp+t.restore_hp); messages.push(`+${t.restore_hp} HP.`); }
-  if (t.restore_hunger) {
-    player.hunger = Math.min(100, player.hunger+t.restore_hunger);
-    messages.push(`+${t.restore_hunger} Hunger.`);
-    player.digestive_load = Math.min(120, (player.digestive_load || 0) + foodLoad(t.restore_hunger));
+
+  // Undercooked takes priority over spoiled (both are checked lazily right
+  // here, at the moment it matters most) — either one skips every normal
+  // restore/buff below in favor of a food-poisoning debuff; the item is still
+  // consumed, it just gives you nothing good.
+  const undercooked = t.needs_cooking && !(item.custom_data || {}).cooked;
+  let spoiled = false;
+  if (!undercooked && t.perishable) {
+    const fresh = await fireHook('item.checkFreshness', item, player);
+    spoiled = fresh?.state === 'spoiled';
+  }
+  const sick = undercooked || spoiled;
+
+  if (sick) {
+    messages[0] = undercooked
+      ? `${item.name} is still raw in the middle — you eat it anyway and immediately regret it.`
+      : `${item.name} is spoiled — you eat it anyway and immediately regret it.`;
+  } else {
+  // How well it was cooked scales what it gives back. Absent (every item that
+  // isn't a plated profiled meal) is 1.0, so nothing that existed before this
+  // changes. Applies to the nourishment restores only — not credits, not radiation.
+  // Portions conserve. Half an onion feeds you half an onion's worth, and a dish
+  // made from halves feeds you proportionally less — otherwise a knife would be
+  // a way to make four dinners out of one.
+  const portion = (Number(cd?.portion) > 0 && Number(cd.portion) < 1) ? Number(cd.portion) : 1;
+  const dishYield = (Number(cd?.yield) > 0 && Number(cd.yield) < 1) ? Number(cd.yield) : 1;
+  // Carry-over: a plated cut eaten straight off the heat hasn't settled, and one
+  // left to go cold has lost something. The cooking plugin owns the curve; this
+  // is only where it's spent.
+  const rest = cd?.rests ? (await fireHook('cooking.restMultiplier', cd, player)) || 1 : 1;
+  const qm = (COOK_QUALITY_MULT[cd?.cook_quality] ?? 1) * portion * dishYield * rest;
+  if (cd?.cook_quality) {
+    // Nine quality bands are only worth having if a player can FEEL the
+    // difference between two of them. The cooking plugin turns what's stamped on
+    // the plate into what it's like in the mouth.
+    const flavour = (await fireHook('cooking.flavour', cd, player)) || [];
+    for (const line of flavour) messages.push(`<span class="text-dim">${line}</span>`);
+    if (!flavour.length) {
+      messages.push(`<span class="text-dim">${cd.cook_quality[0].toUpperCase()}${cd.cook_quality.slice(1)}, this one.</span>`);
+    }
+  }
+  const hp = Math.round((t.restore_hp || 0) * qm);
+  const hunger = Math.round((t.restore_hunger || 0) * qm);
+  if (hp) { player.hp = Math.min(player.hp_max, player.hp+hp); messages.push(`+${hp} HP.`); }
+  if (hunger) {
+    const before = player.hunger;
+    player.hunger = Math.min(100, player.hunger+hunger);
+    player.digestive_load = Math.min(120, (player.digestive_load || 0) + foodLoad(hunger));
+    // WHERE YOU ENDED UP, not what you ate. `+12 Hunger.` is a receipt for a number the
+    // player can no longer see, and it never said the one thing a bar cannot: how FULL you
+    // are. Read after the restore lands so it describes the body, not the item.
+    //
+    // The amount rides ALONGSIDE that, and it is the amount ACTUALLY ABSORBED, not
+    // the number stamped on the tin — eat a banquet on a full stomach and most of
+    // it is wasted. That gap is the whole lesson about portion sizes, and quoting
+    // the tin instead would hide exactly the case worth learning from.
+    messages.push(`${satiationLine(player)}${portionLine('hunger', player.hunger - before, hunger)}`);
   }
   if (t.restore_thirst && !opts.skipThirstRestore) {
+    const before = player.thirst || 0;
     applyThirst(player, t.restore_thirst);
-    messages.push(`+${t.restore_thirst} Thirst.`);
+    // Same reasoning as the hunger line above: where you ended up, not what you poured.
+    messages.push(`${slakeLine(player)}${portionLine('thirst', (player.thirst || 0) - before, t.restore_thirst)}`);
   }
   if (t.restore_radiation) { player.radiation = Math.max(0, player.radiation+t.restore_radiation); messages.push(`${t.restore_radiation} Radiation.`); }
   if (t.restore_sanity) { player.sanity = Math.min(player.sanity_max, Math.max(0, player.sanity+t.restore_sanity)); messages.push(`${t.restore_sanity>0?'+':''}${t.restore_sanity} Sanity.`); }
@@ -609,13 +779,77 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
     player.healOverTime.push({ perTick, ticksRemaining: ticks });
     messages.push(`Bleeding slows. You'll recover ${amount} HP over the next ${Math.round(duration_seconds/60)} minute(s).`);
   }
-  if (t.well_fed) {
-    player.wellFedUntil = Date.now() + 10 * 60 * 1000;
-    messages.push(`Well-fed: HP regen is faster for a while.`);
+  // Well-fed is GRADED by how well the thing was cooked, not a masterful-only
+  // cliff — otherwise the eight rungs below the top change nothing that happens
+  // to you. The duration table lives with the cooking system; this spends it.
+  const wellFedMs = cd?.cook_quality
+    ? ((await fireHook('cooking.wellFedMs', cd, player)) || 0)
+    : (t.well_fed ? 10 * 60 * 1000 : 0);
+  if (wellFedMs > 0) {
+    player.wellFedUntil = Date.now() + wellFedMs;
+    messages.push(`Well-fed: HP regen is faster for the next ${Math.round(wellFedMs / 60000)} minute(s).`);
   }
   if (t.hydrating) {
     player.hydratedUntil = Date.now() + 10 * 60 * 1000;
     messages.push(`Hydrated: radiation clears faster for a while.`);
+  }
+  // Anything else a consumable does that the engine has no business knowing
+  // about. Injuries are the first user (a splint sets a fracture); the handler
+  // reads whatever tag it owns off `t` and returns a line to show, or nothing.
+  const consumedNote = await fireHook('item.consumed', player, t);
+  if (consumedNote) messages.push(consumedNote);
+  }
+
+  let madeIll = false;
+  if (sick) {
+    applyEffect(player, 'food_poisoning', 90);
+    messages.push('Your stomach churns immediately.');
+    madeIll = true;
+  } else if (cd?.doneness) {
+    // Doneness has a consequence, or it's just a label. Food deliberately pulled
+    // rare carries a real chance of making you ill — which is what stops "blue"
+    // from being a free way to skip most of the cook. The risk lives on the
+    // profile (plugins/cooking/profiles.js); this is only where it's paid.
+    const risk = await fireHook('cooking.donenessRisk', cd, player);
+    if (risk > 0 && Math.random() < risk) {
+      applyEffect(player, 'food_poisoning', 60);
+      messages.push('It was pinker in the middle than it should have been. You feel it almost at once.');
+      madeIll = true;
+    }
+  }
+
+  // AMBIENT RISK — a shelf-stable good that was simply off.
+  //
+  // food_poisoning already has four paths (see plugins/preservation/index.js):
+  // spoiled, raw, deliberately rare, and a botched cook. This is the fifth, and
+  // it is deliberately confined to what those four CANNOT reach.
+  //
+  //   needs_cooking → EXCLUDED. Its authored rate describes eating the thing
+  //     RAW, which `sick` above already owns. Rolling it after a successful cook
+  //     would mean a properly cooked steak still poisoned you 60% of the time,
+  //     i.e. cooking barely helping — which is how this was first written, and
+  //     it was wrong.
+  //   perishable  → EXCLUDED. Spoilage is modelled properly by freshness, and a
+  //     FRESH onion carrying a 10% poisoning chance is not a risk model, it is
+  //     noise on top of one that already works.
+  //
+  // What is left is the genuinely uncovered case: preserved goods that can be
+  // neither raw nor spoiled — a tin, salt fish, dried fungus, a jar of rub. Old
+  // stock in a city with no inspectors is exactly the thing nothing else models.
+  //
+  // Skipped when something already made you ill: poisoned twice by one mouthful
+  // is a bug, not a gradient.
+  const shelfStable = !t.needs_cooking && !t.perishable;
+  if (!madeIll && shelfStable && t.status_chance && typeof t.status_chance === 'object') {
+    for (const [effect, chance] of Object.entries(t.status_chance)) {
+      const p = Number(chance);
+      if (!(p > 0) || Math.random() >= p) continue;
+      applyEffect(player, effect, effect === 'food_poisoning' ? 60 : 30);
+      messages.push(effect === 'food_poisoning'
+        ? 'That was not right. You knew it going down, and you swallowed anyway.'
+        : 'Something about that disagrees with you.');
+      break;   // one affliction per mouthful
+    }
   }
   // Apply the item's effects and consume it as one atomic unit, so a failure
   // between the two can't grant the effect (incl. credits) without spending the item.
@@ -804,7 +1038,7 @@ async function resolveContainer(nameStr, player) {
 // the ground, or a furniture container in the player's current zone. Returns a
 // normalized { id, name, tags, kind, isTrash } (tags = item tags or furniture
 // flags, so tagValue/hasTag work the same way), or null.
-async function loadContainerById(id, player) {
+export async function loadContainerById(id, player) {
   const { rows } = await query(
     `SELECT pi.id,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id
      WHERE pi.id=$1 AND pi.player_id IN ($2,$3) AND pi.container_id IS NULL AND jsonb_exists(i.tags,'container')`,
@@ -812,12 +1046,29 @@ async function loadContainerById(id, player) {
   );
   if (rows.length) return { id: rows[0].id, name: rows[0].name, tags: rows[0].tags, kind: 'item', isTrash: false };
   const { rows: fRows } = await query(
-    `SELECT id,name,flags FROM furniture WHERE id=$1 AND zone_id=$2 AND object_type='container'`,
+    `SELECT id,name,flags,power_draw_kw FROM furniture WHERE id=$1 AND zone_id=$2 AND object_type='container'`,
     [id, player.current_zone]
   );
-  if (fRows.length) return { id: fRows[0].id, name: fRows[0].name, tags: fRows[0].flags, kind: 'furniture', isTrash: fRows[0].flags?.trash_bin === true };
+  if (fRows.length) return { id: fRows[0].id, name: fRows[0].name, tags: fRows[0].flags, power_draw_kw: fRows[0].power_draw_kw, kind: 'furniture', isTrash: fRows[0].flags?.trash_bin === true };
   return null;
 }
+
+// ── Shop stock: unpaid goods ─────────────────────────────────────────────────
+// A furniture container flagged `vendor_stock: <npcId>` is a shop's display unit —
+// a cooler on the sales floor, not a private fridge. Its contents are the vendor's
+// until you settle up, so anything lifted out leaves marked `custom_data.unpaid`
+// with the owning vendor's id. `checkout` (commerce) clears the mark; carrying it
+// out of the shop is shoplifting. Returns the vendor id, or null for a normal
+// container (which behaves exactly as it always has).
+const vendorStockOwner = container =>
+  (container?.kind === 'furniture' && container?.tags?.vendor_stock) || null;
+
+// SQL fragment stamping the mark; expects the vendor id as the LAST bound param.
+const UNPAID_SET_SQL = `, custom_data = COALESCE(custom_data,'{}'::jsonb) || jsonb_build_object('unpaid', $3::text)`;
+// And the fragment that clears it, for putting stock back where it came from.
+const UNPAID_CLEAR_SQL = `, custom_data = COALESCE(custom_data,'{}'::jsonb) - 'unpaid'`;
+const unpaidNote = name =>
+  `<span class="text-dim">The ${name} isn't yours yet — pay at the counter (<b>checkout</b>) before you leave.</span>`;
 
 // Container capacity in grams. Furniture containers default to 60000 (60kg) when unset.
 function containerCapacity(container) {
@@ -862,17 +1113,42 @@ async function restockContainer(container) {
   }
 }
 
-async function buildContainerView(containerId, player) {
-  const container = await loadContainerById(containerId, player);
-  if (!container) return { type:'error', message:'Container not found.' };
+// One box's { capacity, usedWeight, containerItems } — shared by the primary
+// container and its optional paired one (e.g. a fridge's freezer box).
+async function loadBoxContents(container) {
   await restockContainer(container);
   const cap = containerCapacity(container);
   const used = await containerContentsWeight(container.id);
-  const { rows: invItems } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 ORDER BY i.name`, [player.id]);
   const { rows: containerItems } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
-  for (const r of invItems) r.name = titleCaseName(r.name);       // list display — Title Case
   for (const r of containerItems) r.name = titleCaseName(r.name);
-  return { type:'container_view', containerId: container.id, containerName: titleCaseName(container.name), capacity: cap, usedWeight: round1(used), invItems, containerItems };
+  return { capacity: cap, usedWeight: round1(used), containerItems, preserves: container.tags?.preserves ?? null, applianceGrade: container.tags?.appliance_grade ?? null };
+}
+
+async function buildContainerView(containerId, player) {
+  const container = await loadContainerById(containerId, player);
+  if (!container) return { type:'error', message:'Container not found.' };
+  const { rows: invItems } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 ORDER BY i.name`, [player.id]);
+  for (const r of invItems) r.name = titleCaseName(r.name);       // list display — Title Case
+
+  const box = await loadBoxContents(container);
+  const view = { type:'container_view', containerId: container.id, containerName: titleCaseName(container.name), ...box, invItems };
+
+  // Paired container (e.g. a fridge's separate freezer box, same appliance,
+  // linked via flags.paired_container on each side): surface it as a second
+  // box in the SAME view so opening one opens both — no second `open` needed.
+  const pairedId = container.kind === 'furniture' ? container.tags?.paired_container : null;
+  if (pairedId && pairedId !== container.id) {
+    const paired = await loadContainerById(pairedId, player);
+    if (paired) {
+      const pairedBox = await loadBoxContents(paired);
+      view.secondary = { containerId: paired.id, containerName: titleCaseName(paired.name), ...pairedBox };
+    }
+  }
+  // A container furniture can be more than a box — a wardrobe layers saved
+  // outfits over the same storage. Handlers mutate `view` in place (retyping it
+  // and hanging their own block off it); an unhooked container is untouched.
+  await fireHook('container.view', { view, container, player });
+  return view;
 }
 
 async function cmdOpenContainer(nameStr, player, broadcast) {
@@ -882,7 +1158,7 @@ async function cmdOpenContainer(nameStr, player, broadcast) {
   if (!container) {
     // No item container matched — try a furniture container in this zone.
     const { rows } = await query(
-      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND name ILIKE $2 LIMIT 1`,
+      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND (name ILIKE $2 OR flags->>'aliases' ILIKE $2) LIMIT 1`,
       [player.current_zone, `%${nameStr}%`]
     );
     if (!rows.length) return null;
@@ -962,6 +1238,7 @@ async function cmdStowById(argStr, player, broadcast) {
     view.mainMsg = `You drop ${item.name} on ${corpse.name}.`;
     return view;
   }
+  if (item.tags?.perishable) await fireHook('item.checkFreshness', item, player);
   if (item.id === container.id) return { type:'container_error', message:`Can't put ${container.name} inside itself.` };
   if (hasTag(item, 'container') && !container.isTrash) {
     const { rows: innerItems } = await query('SELECT 1 FROM player_inventory WHERE container_id=$1 LIMIT 1', [item.id]);
@@ -1029,7 +1306,8 @@ async function cmdStowById(argStr, player, broadcast) {
       return view1;
     }
   }
-  await query('UPDATE player_inventory SET container_id=$1, is_equipped=0, slot=NULL WHERE id=$2', [container.id, item.id]);
+  // Putting shop stock back clears the unpaid mark (see vendorStockOwner).
+  await query(`UPDATE player_inventory SET container_id=$1, is_equipped=0, slot=NULL${vendorStockOwner(container) ? UNPAID_CLEAR_SQL : ''} WHERE id=$2`, [container.id, item.id]);
   const echoed2 = throttledContainerBroadcast(player, broadcast, container.name);
   const view2 = await buildContainerView(container.id, player);
   if (echoed2) view2.mainMsg = `You rummage through ${withArticle(container.name)}.`;
@@ -1044,25 +1322,32 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
 
   const container = await loadContainerById(containerId, player);
   if (!container) return { type:'container_error', message:'Not your container.' };
+  if (item.tags?.perishable) await fireHook('item.checkFreshness', item, player);
 
   // Partial pull: only move the requested qty when less than the full stack
   const reqQty = qtyStr && /^\d+$/.test(qtyStr) ? parseInt(qtyStr, 10) : null;
   const takeQty = (reqQty && reqQty > 0 && reqQty < item.quantity) ? reqQty : null;
+  // Shop stock keeps its own row (never merges into what you already carry) so the
+  // unpaid mark survives the trip to the counter — see vendorStockOwner.
+  const vendorId = vendorStockOwner(container);
   if (takeQty && isStackable(item) && !rowIsInstanced(item)) {
-    const { rows: exPull } = await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [player.id, item.item_id]);
+    const { rows: exPull } = vendorId ? { rows: [] }
+      : await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [player.id, item.item_id]);
     if (exPull.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [takeQty, exPull[0].id]);
     } else {
-      await query('INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,$4,1.0)', [randomUUID(), player.id, item.item_id, takeQty]);
+      await query('INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,custom_data) VALUES ($1,$2,$3,$4,1.0,$5)',
+        [randomUUID(), player.id, item.item_id, takeQty, JSON.stringify(vendorId ? { unpaid: vendorId } : {})]);
     }
     await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [takeQty, item.id]);
     const pePart = throttledContainerBroadcast(player, broadcast, container.name);
     const pvPart = await buildContainerView(containerId, player);
     if (pePart) pvPart.mainMsg = `You rummage through ${withArticle(container.name)}.`;
+    if (vendorId) pvPart.mainMsg = unpaidNote(item.name);
     return pvPart;
   }
 
-  if (isStackable(item) && !rowIsInstanced(item)) {
+  if (!vendorId && isStackable(item) && !rowIsInstanced(item)) {
     const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [player.id, item.item_id]);
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
@@ -1073,17 +1358,55 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
       return pv1;
     }
   }
-  await query('UPDATE player_inventory SET container_id=NULL, player_id=$1 WHERE id=$2', [player.id, item.id]);
+  await query(`UPDATE player_inventory SET container_id=NULL, player_id=$1${vendorId ? UNPAID_SET_SQL : ''} WHERE id=$2`,
+    vendorId ? [player.id, item.id, vendorId] : [player.id, item.id]);
   const pe2 = throttledContainerBroadcast(player, broadcast, container.name);
   const pv2 = await buildContainerView(containerId, player);
   if (pe2) pv2.mainMsg = `You rummage through ${withArticle(container.name)}.`;
+  if (vendorId) pv2.mainMsg = unpaidNote(item.name);
   return pv2;
+}
+
+// "all" / "all <filter>" — the bulk form shared by drop and stow. Returns null
+// when the argument isn't a bulk form at all.
+function parseAllArg(argStr) {
+  const lower = argStr.trim().toLowerCase();
+  if (lower === 'all') return { filter: '' };
+  if (lower.startsWith('all ')) return { filter: argStr.trim().slice(4).trim() };
+  return null;
+}
+
+// SIFT matches on NAME only, which is right for a single target but too narrow
+// for a bulk sweep: "drop all utensils" names a CATEGORY, not an item. Fall back
+// to the item's type or one of its tags (singular or plural) when no name hits,
+// so a player can clear a category without knowing every item in it.
+function matchAllFilter(filter, rows) {
+  const byName = siftMatchAll(filter, rows);
+  if (byName.length) return byName;
+  const f = filter.trim().toLowerCase().replace(/s$/, '');
+  if (!f) return [];
+  const norm = s => String(s || '').toLowerCase().replace(/s$/, '');
+  return rows.filter(r =>
+    norm(r.type) === f || Object.keys(r.tags || {}).some(t => norm(t) === f));
+}
+
+// Carried, unequipped, non-quest rows — the pool a bulk stow draws from.
+// Equipped gear is deliberately excluded: unlike "drop all" (which prompts
+// before stripping you), stowing shouldn't silently undress you.
+async function bulkStowPool(player) {
+  const { rows } = await query(
+    `SELECT pi.*,i.name,i.type,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 AND NOT jsonb_exists(i.tags,'quest_item')`,
+    [player.id]
+  );
+  return rows;
 }
 
 async function cmdStow(argStr, player) {
   if (!argStr) return { type:'error', message:'Stow what?' };
   const [itemPart, containerPart] = splitOn(argStr, ' in ');
   if (!itemPart) return { type:'error', message:'Stow what?' };
+  const bulk = parseAllArg(itemPart);
 
   // Check for trash bin furniture before normal container resolution.
   if (containerPart) {
@@ -1092,6 +1415,17 @@ async function cmdStow(argStr, player) {
       [player.current_zone, `%${containerPart}%`]
     );
     if (trashRows.length) {
+      if (bulk) {
+        const pool = await bulkStowPool(player);
+        const doomed = bulk.filter ? matchAllFilter(bulk.filter, pool) : pool;
+        if (!doomed.length) {
+          return { type:'error', message: bulk.filter ? `You don't have any "${bulk.filter}".` : `You aren't carrying anything to throw out.` };
+        }
+        const ids = doomed.map(r => r.id);
+        await query('DELETE FROM player_inventory WHERE container_id = ANY($1)', [ids]);
+        await query('DELETE FROM player_inventory WHERE id = ANY($1)', [ids]);
+        return { type:'stow', message:`You throw ${doomed.map(r => r.name).join(', ')} in the ${trashRows[0].name}. Gone.` };
+      }
       const { rows: itemRows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${itemPart}%`]);
       if (!itemRows.length) return { type:'error', message:`You don't have "${itemPart}".` };
       await query('DELETE FROM player_inventory WHERE container_id=$1', [itemRows[0].id]);
@@ -1105,16 +1439,38 @@ async function cmdStow(argStr, player) {
   if (!container && containerPart) {
     // No item/ground container matched — fall through to a furniture container in this zone.
     const { rows: fRows } = await query(
-      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND name ILIKE $2 LIMIT 1`,
+      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND (name ILIKE $2 OR flags->>'aliases' ILIKE $2) LIMIT 1`,
       [player.current_zone, `%${containerPart}%`]
     );
     if (fRows.length) container = await loadContainerById(fRows[0].id, player);
   }
   if (!container) return { type:'error', message:`You don't see a container${containerPart?` matching "${containerPart}"`:''} here.` };
 
+  if (bulk) {
+    const pool = await bulkStowPool(player);
+    const matches = (bulk.filter ? matchAllFilter(bulk.filter, pool) : pool)
+      .filter(r => r.id !== container.id);   // never the bag inside itself
+    if (!matches.length) {
+      return { type:'error', message: bulk.filter ? `You don't have any "${bulk.filter}" to stow.` : `You aren't carrying anything to stow.` };
+    }
+    const messages = [];
+    for (const row of matches) {
+      const r = await stowOne(row, container, player);
+      messages.push(r.message);
+    }
+    return { type:'stow', message: messages.join('\n') };
+  }
+
   const { rows } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${itemPart}%`]);
   if (!rows.length) return { type:'error', message:`You don't have "${itemPart}" to stow.` };
-  const item = rows[0];
+  return stowOne(rows[0], container, player);
+}
+
+// Move one carried row into an open container. Every failure is a per-item
+// message rather than a throw, so a bulk stow can report "the bag filled up"
+// against the item that didn't fit and keep going.
+async function stowOne(item, container, player) {
+  if (item.tags?.perishable) await fireHook('item.checkFreshness', item, player);
   if (item.id === container.id) return { type:'error', message:`You can't put ${container.name} inside itself.` };
   if (hasTag(item, 'container')) {
     const { rows: innerItems } = await query('SELECT 1 FROM player_inventory WHERE container_id=$1 LIMIT 1', [item.id]);
@@ -1134,7 +1490,9 @@ async function cmdStow(argStr, player) {
       return { type:'stow', message:`You stow ${item.name} in ${container.name}.` };
     }
   }
-  await query('UPDATE player_inventory SET container_id=$1, is_equipped=0, slot=NULL WHERE id=$2', [container.id, item.id]);
+  // Putting shop stock back on the shelf un-marks it — changing your mind at the
+  // cooler is not a crime, and the row rejoins the vendor's sellable stock.
+  await query(`UPDATE player_inventory SET container_id=$1, is_equipped=0, slot=NULL${vendorStockOwner(container) ? UNPAID_CLEAR_SQL : ''} WHERE id=$2`, [container.id, item.id]);
   return { type:'stow', message:`You stow ${item.name} in ${container.name}.` };
 }
 
@@ -1142,15 +1500,29 @@ async function cmdPull(argStr, player) {
   if (!argStr) return { type:'error', message:'Pull what?' };
   const [itemPart, containerPart] = splitOn(argStr, ' from ');
   if (!itemPart) return { type:'error', message:'Pull what?' };
-  const container = await resolveContainer(containerPart, player);
+  let container = await resolveContainer(containerPart, player);
   if (container === 'ambiguous') return { type:'error', message:`Which container? Try "pull <item> from <name>".` };
+  if (!container && containerPart) {
+    // No item/ground container matched — fall through to a furniture container in
+    // this zone, same as `stow` does. Without this the text path could never reach
+    // a shop cooler or any other furniture container; only the GUI `pullid` could.
+    const { rows: fRows } = await query(
+      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND (name ILIKE $2 OR flags->>'aliases' ILIKE $2) LIMIT 1`,
+      [player.current_zone, `%${containerPart}%`]
+    );
+    if (fRows.length) container = await loadContainerById(fRows[0].id, player);
+  }
   if (!container) return { type:'error', message:`You don't see a container${containerPart?` matching "${containerPart}"`:''} here.` };
 
   const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 AND i.name ILIKE $2 LIMIT 1`, [container.id, `%${itemPart}%`]);
   if (!rows.length) return { type:'error', message:`There's no "${itemPart}" in ${container.name}.` };
   const item = rows[0];
+  if (item.tags?.perishable) await fireHook('item.checkFreshness', item, player);
 
-  if (isStackable(item) && !rowIsInstanced(item)) {
+  const vendorId = vendorStockOwner(container);
+  // Shop stock never merges into what you already carry — it has to stay a
+  // distinct, markable row so the counter (and the door) can tell it apart.
+  if (!vendorId && isStackable(item) && !rowIsInstanced(item)) {
     const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [player.id, item.item_id]);
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
@@ -1158,7 +1530,8 @@ async function cmdPull(argStr, player) {
       return { type:'pull', message:`You pull ${item.name} from ${container.name}.` };
     }
   }
-  await query('UPDATE player_inventory SET container_id=NULL, player_id=$1 WHERE id=$2', [player.id, item.id]);
+  await query(`UPDATE player_inventory SET container_id=NULL, player_id=$1${vendorId ? UNPAID_SET_SQL : ''} WHERE id=$2`, vendorId ? [player.id, item.id, vendorId] : [player.id, item.id]);
+  if (vendorId) return { type:'pull', message:`You take ${item.name} from ${container.name}. ${unpaidNote(item.name)}` };
   return { type:'pull', message:`You pull ${item.name} from ${container.name}.` };
 }
 
@@ -1193,4 +1566,8 @@ export const handlers = {
 };
 
 export { cmdLookInContainer, describeContainer, cmdOpenContainer, cmdUse, cmdGear,
-  cmdInventory, cmdEquipById, cmdUnequipById, cmdDropById };
+  cmdInventory, cmdEquipById, cmdUnequipById, cmdDropById, buildContainerView,
+  // Exported for the wardrobe plugin: it overrides `undress` to add a container
+  // target and delegates the untargeted case straight back here, so the bulk-strip
+  // behaviour can never drift between the two.
+  cmdUndress, containerCapacity, containerContentsWeight };

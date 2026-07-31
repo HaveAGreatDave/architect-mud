@@ -10,12 +10,29 @@ have to source it off the black market, through a **fence**, and sneak it in.
    reach his **inner circle** (max trust). He names the fence and sets the
    `dealer_inner_circle` flag — the vouch that opens the back room. *(Street
    dealing is the on-ramp to manufacturing.)*
-2. **Order through dialogue.** `talk` to **Sully** (`npc_barkeep`, the Pigeon Bar).
-   Once vouched, a quiet option opens his **back-room list**: pick a raw, then how
-   many crates. The list is **trust-gated** — hard, high-`cook_tier` precursors
-   only appear once your standing with him (`bm_trust`) is high enough. Placing an
-   order fires the `PLACE_SMUGGLE_ORDER` action (debits credits; if you're short,
-   the conversation drops to a "come back with cash" node and nothing is charged).
+2. **Order off the back-room shelf.** `talk` to **Sully** (`npc_barkeep`, the Pigeon
+   Bar). Once vouched, a quiet option opens his **back room** — the ordinary GUI shop
+   panel, pointed at a **named shelf**. Pick a raw, set the crate count on the
+   stepper. The list is **trust-gated**: he carries `trust_flag: 'bm_trust'` and a
+   `min_trust` per entry, so hard, high-`cook_tier` precursors simply aren't on the
+   shelf until your standing is high enough (his old tiers, unchanged —
+   `{1:0, 2:2, 3:4, 4:7, 5:10}`).
+   - His **bar list is the front counter** (entries with no `shelf`) and never shows
+     contraband; the back room is reachable only through the `OPEN_SHOP` that names
+     it, and `buyFromVendor` re-checks the shelf, so a bar patron can't buy precursor
+     by item id.
+   - **`trust_per_buy` is 0.** Standing is earned running crates through a gate
+     (step 4), never by paying.
+   - This **replaced a generated dialogue fan-out** — one node per raw plus three
+     quantity nodes under each (~22 nodes), authored by `add-blackmarket-fence.js`,
+     which existed only to collect "which raw" and "how many". A shop panel already
+     is an item list and a quantity stepper.
+   - `PLACE_SMUGGLE_ORDER` still exists for any tree authored the old way, but the
+     shelf is the live path.
+   Delivery is claimed by the engine's **purchase-delivery seam**
+   (`registerPurchaseDelivery('mule_counter', …)`): the vendor takes the money, and
+   the handler books the `smuggle_orders` row **inside the same transaction** instead
+   of putting anything in your pockets. A crate is not handed across a bar.
 3. **Retrieve.** After ~3 minutes a **MULE drone** drops a **cipher-locked crate**
    (`item_mule_crate`) at **the Scald** (`zone_waste_scald`, a lawless Redline
    airstrip). Travel out, `get` it (only the buyer can — it's owner-locked), and

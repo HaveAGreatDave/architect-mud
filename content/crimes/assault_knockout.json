@@ -1,0 +1,7 @@
+{
+  "id": "assault_knockout",
+  "label": "Assault (knockout)",
+  "stars": 2,
+  "enabled": true,
+  "description": "Creeping up behind somebody and putting them on the floor. Charged whether or not you connected -- a camera does not care that you missed."
+}

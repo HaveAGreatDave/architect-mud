@@ -1,0 +1,34 @@
+{
+  "ambient_events": [
+    "The bar fire ticks as it cools, then comes back on with a small thump.",
+    "Something in the yard settles, and a long way down the stack, something else answers.",
+    "The scales swing gently on their hook, weighing nothing, for no reason.",
+    "A page turns in the ledger. Nobody turned it."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#3a3026",
+  "color": null,
+  "created_by": null,
+  "description": "A site shack raised on blocks, panelled in whatever was flattest that week and heated well past comfortable by a bar fire nobody is allowed to touch. The counter is a slab of scaffold board on two oil drums, worn pale in one spot where forty years of elbows have landed. Behind it: a wall of pigeonholes, each labelled in marker with a part name and a price that has been crossed out and rewritten at least twice. A set of hanging scales. A ledger, open, in handwriting that gets worse toward the bottom of every page. The window looks <b>west</b> over the yard. Out <b>east</b> to the gate.",
+  "exits": {
+    "east": "zone_district_918_906",
+    "north": "zone_util_junkyard",
+    "west": "zone_junkyard_yard"
+  },
+  "flags": {
+    "building_name": "Salvage Rites",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_919_906"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_junkyard_shack",
+  "map_id": "map_int_junkyard",
+  "marker": null,
+  "name": "Salvage Rites",
+  "parent_zone": "zone_district_918_906",
+  "updated_at": "1784600000"
+}

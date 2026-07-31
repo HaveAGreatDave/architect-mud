@@ -1,0 +1,25 @@
+{
+  "description": "There is no polite word for what is in here. It has a heat of its own and it is not done producing smells. Cooking it will not fix this. Nothing will fix this.",
+  "flags": {},
+  "id": "item_vessel_filth",
+  "name": "measure of filth",
+  "tags": {
+    "bodily_filth": true,
+    "consumable": true,
+    "description": "There is no polite word for what is in here. It has a heat of its own and it is not done producing smells. Cooking it will not fix this. Nothing will fix this.",
+    "disease_risk": true,
+    "food_noun": "filth",
+    "food_profile": "liquid",
+    "needs_cooking": true,
+    "perishable": true,
+    "restore_hunger": 1,
+    "spoil_rate": "fast",
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.9
+    }
+  },
+  "type": "consumable",
+  "value": 0,
+  "weight": 80
+}

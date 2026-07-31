@@ -5,9 +5,46 @@
 // as its own row (the instanced-merge guard on pull). The cook/splice minigames
 // themselves are driven client-side and covered by their own client flow.
 import { query } from '../../server/models/db.js';
-import { hooks } from './index.js';
+import { hooks, _test } from './index.js';
 
 export default async function regress({ run, check, getPlayer }) {
+  // ── Splicing a hallucination ────────────────────────────────────────────────
+  // `mode: 'dreamzone'` is infectious — splice something that takes you out of
+  // the room into something that doesn't, and the result takes you out of the
+  // room. What it must NOT do any more is carry a destination: the authored
+  // SHARED dreamzones are retired (two people on the same drug used to meet
+  // inside the hallucination), and the trip plugin now BUILDS a private one.
+  {
+    const { composeSplice } = _test;
+    const overlay  = { eff: { hallucination: { mode: 'overlay', intensity: 0.4, palette: 'green' } }, form: 'pill', color: '#00ff00', qty: 1 };
+    const dreamzed = { eff: { hallucination: { mode: 'dreamzone', intensity: 0.8, palette: 'cyan' } }, form: 'pill', color: '#00ffff', qty: 1 };
+
+    // composeSplice returns { effects, difficulty, … } — read the blend, not the wrapper.
+    const hallOf = (r) => r.effects?.hallucination;
+
+    const spliced = hallOf(composeSplice([overlay, dreamzed]));
+    check('the splice actually produced a hallucination to inspect', !!spliced, JSON.stringify(spliced));
+    check('splicing a dreamzone trip into an overlay yields a dreamzone trip',
+      spliced?.mode === 'dreamzone', spliced?.mode);
+    check('a spliced dreamzone trip names no room to send anyone to',
+      !!spliced && !('dreamzone_id' in spliced), JSON.stringify(spliced));
+
+    // Order must not matter — the dreamzone input was second above, first here.
+    const flipped = hallOf(composeSplice([dreamzed, overlay]));
+    check('dreamzone infects regardless of input order', flipped?.mode === 'dreamzone', flipped?.mode);
+
+    // A legacy drug row can still carry the retired field; the splice must strip
+    // it rather than propagate a destination nothing will ever read.
+    const legacy = { eff: { hallucination: { mode: 'dreamzone', intensity: 0.5, dreamzone_id: 'zone_dream_khole' } }, form: 'pill', color: '#0000ff', qty: 1 };
+    const cleaned = hallOf(composeSplice([legacy, overlay]));
+    check('a legacy dreamzone_id is stripped, not carried through the splice',
+      !!cleaned && !('dreamzone_id' in cleaned), JSON.stringify(cleaned));
+
+    // Two overlays stay an overlay — the infection needs an actual source.
+    const both = hallOf(composeSplice([overlay, { ...overlay, color: '#ff0000' }]));
+    check('splicing two overlays stays an overlay', (both?.mode || 'overlay') === 'overlay', both?.mode);
+  }
+
   // reclaim needs a chem lab — the fake player has none, so it must error cleanly.
   const r = await run('reclaim nonexistent');
   check('reclaim without a lab errors cleanly', r?.type === 'error', r?.type);

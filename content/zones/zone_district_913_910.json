@@ -4,13 +4,13 @@
   "bg_color": "#241f2e",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "A glass-fronted annex grafted onto the flank of the KSAB tower, its holo-marquee stuttering AUDIENCE ENTRANCE • TAPING IN PROGRESS in tired violet. A velvet-and-steel queue rope switchbacks toward a turnstile; one lane of it is roped off and dark, the floor beneath scuffed to bare crete. A sponsor loop murmurs from a speaker nobody can find.",
+  "description": "A glass-fronted annex grafted onto the flank of the KSAB tower, its holo-marquee stuttering WRITERS' WING • SCRIPT LOCKED 04:00 in tired violet. Through the tint you can see the story floor's whiteboards standing in rows like headstones, and one desk lamp burning at an hour when nothing should be burning. A speaker nobody can find murmurs the network's own feed back at itself.",
   "exits": {
     "north": "zone_district_913_909",
     "south": "zone_ksab_lobby"
   },
   "flags": {
-    "building_name": "KSAB Audience Gate",
+    "building_name": "KSAB Writers' Wing",
     "building_type": "studio",
     "district": "wasteland",
     "entrance": "north",
@@ -26,8 +26,8 @@
   "grid_z": 0,
   "id": "zone_district_913_910",
   "map_id": "map_world",
-  "marker": "AG",
-  "name": "KSAB Audience Gate",
+  "marker": "KW",
+  "name": "KSAB Writers' Wing",
   "parent_zone": null,
   "updated_at": "1784500000"
 }

@@ -16,7 +16,10 @@ import {
 	getZoneVisibility,
 	getWindowsForZone,
 	getWeatherDescription,
+	shiftVisibility,
 } from "../environment.js";
+import { acuitySync } from "../senses.js";
+import { isHiddenFrom } from "../stealth.js";
 import { getCustodianOutcastResponse } from "../mutations.js";
 import { allExits } from "../exits.js";
 import { districtFor } from "../districts.js";
@@ -30,10 +33,11 @@ import { isStackable } from "../tags.js";
 import { getZoneRadiation, isSanctuary } from "../zone-tags.js";
 import { zoneDanger } from "../danger.js";
 import { furnitureVerbs } from "../furnitureActions.js";
-import { titleCaseName } from "../text.js";
+import { titleCaseName, escAttr } from "../text.js";
 import { getLockTagPublic, checkLockAuth } from "./doors.js";
 import { getItem } from "../items-cache.js";
-import { getPhantomsInZone } from "../phantoms.js";
+import { getPhantomsInZone, applyTransforms, getRoomTransform, getWeatherWarp } from "../phantoms.js";
+import { bodyTell } from "../dreamscape.js";
 
 // Emits a `data-lock` attribute the client dpad reads to colour the direction:
 // "owned" (the player controls this lock), "locked" (engaged, not theirs), or
@@ -172,37 +176,318 @@ function firstSentence(text) {
 	return (t.match(/[^.!?]+[.!?]+(\s|$)/)?.[0] || t).trim();
 }
 function pluralName(name) {
-	return /s$/i.test(name) ? name : `${name}s`;
+	if (/s$/i.test(name)) return name;
+	// "lockbox" -> "lockboxes", not "lockboxs"; "gantry" -> "gantries".
+	if (/(x|z|ch|sh)$/i.test(name)) return `${name}es`;
+	if (/[^aeiou]y$/i.test(name)) return `${name.slice(0, -1)}ies`;
+	return `${name}s`;
 }
-function escAttr(s) {
-	return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+
+// Grouping of last resort. Exact-name grouping almost never fires on authored
+// content — nobody places four rows called "bar stool", they write Dolan's
+// lockbox, Keel's lockbox, Ma Cinder's lockbox — so a room can still print eight
+// near-identical nouns. When enough pieces of one object_type share a head noun,
+// they collapse to "eight Lockboxes". The floor is deliberately high: three slot
+// machines with real names stay listed, because at three you can still read them.
+const KIND_GROUP_MIN = 4;
+function headNoun(name) {
+	const w =
+		String(name || "")
+			.toLowerCase()
+			.replace(/[^a-z0-9\s']/g, " ")
+			.trim()
+			.split(/\s+/)
+			.pop() || "";
+	return w.replace(/'s$/, "").replace(/s$/, "");
+}
+// Second pass over already-name-grouped entries. Order is preserved: a collapsed
+// kind takes the slot of its first member, so the object_type clustering the
+// caller sorted by still holds.
+function collapseByKind(entries) {
+	const buckets = new Map();
+	const kindOf = (e) => `${e.f.object_type || "furniture"}|${headNoun(e.f.name)}`;
+	for (const e of entries) {
+		const k = kindOf(e);
+		if (!buckets.has(k)) buckets.set(k, []);
+		buckets.get(k).push(e);
+	}
+	const done = new Set();
+	const out = [];
+	for (const e of entries) {
+		const k = kindOf(e);
+		const bucket = buckets.get(k);
+		const total = bucket.reduce((a, x) => a + x.qty, 0);
+		// Needs both several distinct names AND enough total pieces to be worth
+		// hiding — a single row that happens to be named plurally is not a crowd.
+		if (bucket.length < 2 || total < KIND_GROUP_MIN) {
+			out.push(e);
+			continue;
+		}
+		if (done.has(k)) continue;
+		done.add(k);
+		out.push({ f: bucket[0].f, qty: total, kind: headNoun(bucket[0].f.name) });
+	}
+	return out;
+}
+
+// Cluster order for the plain Furniture list. Things you sit on and things you
+// use lead; scenery and lights (which carry their own (on)/(off) tag and so read
+// as a group anyway) trail. The type is never shown to the player — this is only
+// a sort key, so an unknown object_type falls through to the tail rank.
+const FURNITURE_SORT_ORDER = [
+	"furniture",
+	"container",
+	"appliance",
+	"terminal",
+	"fixture",
+	"sink",
+	"shower",
+	"toilet",
+	"decoration",
+	"light",
+];
+function furnitureSortRank(f) {
+	const i = FURNITURE_SORT_ORDER.indexOf(f.object_type || "furniture");
+	return i === -1 ? FURNITURE_SORT_ORDER.length : i;
+}
+
+// PRESENTATION TIERS. A densely furnished room used to print every piece as one
+// more comma-separated noun, so a bar with eighteen rows read as an inventory
+// manifest rather than a place. Three tiers instead:
+//
+//   LIVE     — prose sentences in the room body: something is happening here
+//              (flags.woven, or a seat with somebody in it)
+//   STANDING — the `Furniture:` line, grouped and counted: things you would use
+//   SCENERY  — one closing clause on the room paragraph: merely present
+//
+// The tier is DERIVED, per viewer, from what a piece affords, so it can never
+// take an affordance away — demotion is presentation only, and a scenery piece
+// is still a full examine/SIFT target with its verbs on the smart bar. Because
+// `furnitureVerbs` is viewer-aware (see visibleFor in specializedActions.js), a
+// piece can legitimately be STANDING for the room's owner and SCENERY for a
+// guest. `flags.notable` / `flags.mundane` are the author overrides for the
+// cases the derivation gets wrong; unflagged content needs no authoring pass.
+
+// Types that hold things, and so are never scenery even when they afford no
+// verbs: `open`/`close` are STRUCTURAL in furnitureActions.js and never come
+// back from `furnitureVerbs`, so without this floor an empty-verbed lootable
+// chest would silently demote into the scenery clause and get skimmed past.
+const HOLDS_THINGS = new Set([
+	"container",
+	"terminal",
+	"appliance",
+	"sink",
+	"shower",
+	"toilet",
+]);
+
+function isSceneryPiece(f, viewer) {
+	if (f.flags?.mundane) return true;
+	if (f.flags?.notable) return false;
+	// Lights ALWAYS go to prose, whether or not they afford a verb — otherwise
+	// half the fixtures in the world sit in the list and half in the sentence
+	// depending on an invisible switchability detail. They don't lose their
+	// state doing it: the scenery renderer gives lights their own clause and
+	// says lit/dark in words, which is what the (on)/(off) tag was for. In the
+	// DARK the caller suppresses scenery entirely, so lights stay in the list
+	// where they're the only thing you can see and the only thing you want.
+	if (f.object_type === "light") return true;
+	if (furnitureVerbs(f, viewer).length) return false;
+	if (f.flags?.container || HOLDS_THINGS.has(f.object_type)) return false;
+	// An author who wrote more than one sentence about a thing was making a
+	// point about it. Free proxy for flags.notable, which is what lets this ship
+	// without anyone flagging a single existing row.
+	const d = String(f.description || "").trim();
+	return d === firstSentence(d);
+}
+
+// Identical pieces collapse into one counted entry. The key carries everything
+// a render can SHOW — name, kind, and light state — so a lit lamp never merges
+// with an unlit one and the (on)/(off) tag can't lie. Anything in `soloIds`
+// refuses to group at all, which is how an occupied seat keeps its own line.
+// Map iteration is insertion-ordered, so a pre-sorted input stays sorted.
+function groupPieces(pieces, soloIds) {
+	const groups = new Map();
+	for (const f of pieces) {
+		const key = soloIds?.has(f.id)
+			? `#${f.id}`
+			: `${(f.name || "").toLowerCase()}|${f.object_type || "furniture"}|${f.light_on ? 1 : 0}`;
+		const g = groups.get(key);
+		if (g) g.qty++;
+		else groups.set(key, { f, qty: 1 });
+	}
+	return [...groups.values()];
+}
+
+// The clickable wrapper every tier shares: examine on click, the full affordance
+// set in data-actions so the mobile smart bar can offer sit/switch/watch.
+function furnitureSpan(f, viewer, body, cls) {
+	const verbs = furnitureVerbs(f, viewer);
+	const actionsAttr = verbs.length ? ` data-actions="${verbs.join(" ")}"` : "";
+	const target = escAttr(f.name);
+	return `<span class="action-link ${cls}" data-action="examine" data-target="${target}"${actionsAttr} title="Examine ${target}">${body}</span>`;
 }
 
 // Furniture flagged `flags.woven` is folded into the room prose (the PD-camera
 // pattern generalized) instead of the plain Furniture list: its description's
 // first sentence, kept clickable so examine/sit/etc. still work and the smart
-// bar reads its verbs. Identical pieces (same name) collapse into one counted
-// sentence so four chairs don't spawn four lines.
-function weaveFurniture(pieces) {
+// bar reads its verbs. Identical pieces collapse into one counted sentence so
+// four chairs don't spawn four lines.
+function weaveFurniture(pieces, viewer) {
 	if (!pieces.length) return "";
-	const groups = new Map();
-	for (const f of pieces) {
-		const key = f.name.toLowerCase();
-		const g = groups.get(key);
-		if (g) g.qty++;
-		else groups.set(key, { f, qty: 1 });
+	return groupPieces(pieces)
+		.map(({ f, qty }) =>
+			furnitureSpan(
+				f,
+				viewer,
+				qty === 1
+					? firstSentence(f.description)
+					: `${countWord(qty)} ${pluralName(f.name)} are here.`,
+				"furniture-link furniture-woven",
+			),
+		)
+		.join(" ");
+}
+
+// Seats with somebody in them get a sentence rather than a list entry. Who is
+// sitting where is the liveliest thing a furnished room can tell you, and it
+// reads as noise when it's a parenthetical buried in a comma list of eighteen
+// nouns. The free pieces of the same kind still count off in the list, so a bar
+// says "The booth is taken (Ryn, Marla)" above "one Booth".
+function weaveOccupied(entries, viewer) {
+	if (!entries.length) return "";
+	return entries
+		.map(({ f, occ }) => {
+			const raw = (f.name || "").toLowerCase();
+			// Names are authored freely: some already carry their article ("the
+			// embassy lounge bar"), some are plural ("cracked vinyl stools"). Both
+			// have to be handled or you get "The the embassy lounge bar is taken".
+			const bare = raw.replace(/^the\s+/, "");
+			const subject = furnitureSpan(
+				f,
+				viewer,
+				`The ${bare}`,
+				"furniture-link furniture-woven",
+			);
+			// Sitting on it yourself is worth saying directly — "The stools is taken
+			// (you)" is a strange way to tell somebody where they are.
+			if (occ.length === 1 && occ[0] === "you")
+				return `You're on ${furnitureSpan(f, viewer, `the ${bare}`, "furniture-link furniture-woven")}.`;
+			const verb = /s$/i.test(bare) ? "are" : "is";
+			return `${subject} ${verb} taken <span class="text-dim">(${occ.join(", ")})</span>.`;
+		})
+		.join(" ");
+}
+
+// Closing clause for the scenery sentence. Picked by zone id, never at random:
+// a closer that rerolls on every look makes a room feel unstable, one that
+// varies across rooms makes the world feel written.
+// [plural, singular] — a one-row scenery list is common ("a recessed ceiling
+// wash rounds out the room"), so every closer carries both conjugations rather
+// than assuming the list has more than one thing in it.
+const SCENERY_CLOSERS = [
+	["round out the room", "rounds out the room"],
+	["complete the place", "completes the place"],
+	["fill out the corners", "fills out the corners"],
+	["make up the rest of it", "makes up the rest of it"],
+	["finish the room off", "finishes the room off"],
+];
+function sceneryCloser(zoneId) {
+	const s = String(zoneId);
+	let h = 0;
+	for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+	return SCENERY_CLOSERS[h % SCENERY_CLOSERS.length];
+}
+function oxfordJoin(parts) {
+	if (parts.length <= 1) return parts[0] || "";
+	return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
+// The SCENERY tier: one sentence, names only, each noun phrase individually
+// clickable. Styled `furniture-woven` — body text that reveals a dotted
+// underline on hover — so the paragraph reads as prose and the bright orange
+// `Furniture:` line keeps its meaning as "things worth your attention".
+// Appended to the room paragraph AFTER light truncation by the caller, never
+// concatenated onto zone.description beforehand: a dim room slices that string
+// by sentence, and the ferns must not survive at the real description's expense.
+function sceneryProse(pieces, viewer, zoneId) {
+	if (!pieces.length) return "";
+	// Lights get their own clause: "(on)"/"(off)" is the one bit of furniture
+	// state a room can't afford to drop, so it's said in words instead. Lit and
+	// unlit are separated so each clause conjugates cleanly and a dark fixture
+	// reads as the job it is.
+	const lights = pieces.filter((f) => f.object_type === "light");
+	const rest = pieces.filter((f) => f.object_type !== "light");
+	const out = [];
+	if (rest.length) {
+		const parts = phrasesFor(rest, viewer);
+		const plural = parts.length > 1 || parts[0].plural;
+		out.push(
+			`${oxfordJoin(parts.map((p) => p.html))} ${sceneryCloser(zoneId)[plural ? 0 : 1]}.`,
+		);
 	}
-	const sentences = [...groups.values()].map(({ f, qty }) => {
-		const verbs = furnitureVerbs(f);
-		const actionsAttr = verbs.length ? ` data-actions="${verbs.join(" ")}"` : "";
-		const target = escAttr(f.name);
+	for (const [lit, verbs] of [
+		[true, ["are lit", "is lit"]],
+		[false, ["are dark", "is dark"]],
+	]) {
+		const set = lights.filter((f) => !!f.light_on === lit);
+		if (!set.length) continue;
+		const parts = phrasesFor(set, viewer);
+		const plural = parts.length > 1 || parts[0].plural;
+		out.push(
+			`${oxfordJoin(parts.map((p) => p.html))} ${verbs[plural ? 0 : 1]}.`,
+		);
+	}
+	// Capitalize each sentence's opening word, which lives INSIDE the first
+	// clickable span — so this has to reach past the tag to the first character
+	// of body text.
+	return out
+		.map((s) => s.replace(/>([a-z])/, (_m, c) => `>${c.toUpperCase()}`))
+		.join(" ");
+}
+
+// Counted, article-correct noun phrases for a set of furniture. A single row can
+// still be grammatically plural — plenty of furniture is authored with a plural
+// name ("overhead floods", "fluorescent strips") — and such a row takes no
+// article and conjugates plural, or you get "An overhead floods complete the
+// place." Returns the number alongside so the caller can pick its verb.
+function phrasesFor(pieces, viewer) {
+	return groupPieces(pieces).map(({ f, qty }) => {
+		const n = (f.name || "").toLowerCase();
+		const namePlural = /s$/i.test(n);
 		const body =
-			qty === 1
-				? firstSentence(f.description)
-				: `${countWord(qty)} ${pluralName(f.name)} are here.`;
-		return `<span class="action-link furniture-link furniture-woven" data-action="examine" data-target="${target}"${actionsAttr} title="Examine ${target}">${body}</span>`;
+			qty > 1
+				? `${countWord(qty).toLowerCase()} ${pluralName(n)}`
+				: namePlural
+					? n
+					: `${/^[aeiou]/i.test(n) ? "an" : "a"} ${n}`;
+		return {
+			html: furnitureSpan(f, viewer, body, "furniture-link furniture-woven"),
+			plural: qty > 1 || namePlural,
+		};
 	});
-	return sentences.join(" ");
+}
+
+// A fridge and its drop-freezer box are one appliance wearing two furniture rows
+// (linked both ways by flags.paired_container). Opening either already opens both
+// in the same container panel — see buildContainerView in commands/inventory.js —
+// so listing both in the room is redundant clutter. Returns the ids of the
+// sub-boxes to hide: the SMALLER `container` capacity of each mutually-paired
+// couple, which is always the compartment set into the main body. Requires the
+// partner to be present and to point back, so a pair split across rooms, or a
+// dangling id, leaves both halves listed rather than silently vanishing one.
+function subBoxIds(pieces) {
+	const byId = new Map(pieces.map((f) => [f.id, f]));
+	const hidden = new Set();
+	for (const f of pieces) {
+		const partner = byId.get(f.flags?.paired_container);
+		if (!partner || partner.flags?.paired_container !== f.id) continue;
+		const mine = Number(f.flags?.container) || 0;
+		const theirs = Number(partner.flags?.container) || 0;
+		// Tie-break on id so equal-capacity halves still hide exactly one side.
+		if (mine < theirs || (mine === theirs && f.id > partner.id)) hidden.add(f.id);
+	}
+	return hidden;
 }
 
 const DIRECTION_PHRASE = {
@@ -297,14 +582,21 @@ function describeBuildingDiscovery(buildings) {
 	return " " + sentences.join(" ");
 }
 
-export function resolveNamedDestination(zone, typedNameRaw) {
+// dirFilter narrows the candidate set to exits leading a given way — the click
+// path passes the direction it drew the link under, so a name shared by several
+// exits ("Runway", "Runway", …) still resolves to the one you actually clicked.
+export function resolveNamedDestination(zone, typedNameRaw, dirFilter) {
 	const typed = (typedNameRaw || "").trim().toLowerCase();
 	if (!typed) return { type: "none" };
 	// Every named connected destination is resolvable — buildings, interior rooms,
 	// and plain exits with a zone name (so clicking "[North] Meridian Ave", or a
 	// specific one of several exits sharing a direction, lands there by name).
 	const { buildings, rooms, plain } = getConnectedDestinations(zone);
-	const candidates = [...buildings, ...rooms, ...plain.filter((p) => p.name)];
+	let candidates = [...buildings, ...rooms, ...plain.filter((p) => p.name)];
+	if (dirFilter) {
+		const narrowed = candidates.filter((c) => c.direction === dirFilter);
+		if (narrowed.length) candidates = narrowed;
+	}
 	if (!candidates.length) return { type: "none" };
 
 	const exact = candidates.filter((c) => c.name.toLowerCase() === typed);
@@ -398,6 +690,19 @@ export async function describeZone(zone, player, out = {}) {
 		vis.category = perceived.category;
 		vis.visibility = perceived.visibility;
 	}
+	// SIGHT ACUITY, applied after the light-source hook rather than inside it —
+	// `fireHook` keeps only the last handler's answer, so a keen-eyed player
+	// holding a flashlight would otherwise get one or the other. Applied here it
+	// is a relative shift on whatever the light already achieved, so the two
+	// compose: the torch raises the room, the eye raises it one further.
+	//
+	// Read synchronously on purpose. This is the every-move path.
+	const sight = acuitySync(player, "sight");
+	if (sight) {
+		const shifted = shiftVisibility(vis, Math.round(sight));
+		vis.category = shifted.category;
+		vis.visibility = shifted.visibility;
+	}
 	out.vis = vis;
 	if (vis.category === "pitch_dark") {
 		const windows = getWindowsForZone(zone.id);
@@ -453,17 +758,29 @@ export async function describeZone(zone, player, out = {}) {
 	// blind one. Split by kind: people join "NPCs here:", beasts join "Hostiles:".
 	const phantoms = isDark || gate.hideNpcs ? [] : getPhantomsInZone(player.id, zone.id);
 	const phantomPeople = phantoms.filter((p) => p.kind === "person");
-	const phantomBeasts = phantoms.filter((p) => p.kind !== "person");
+	// Conjured OBJECTS get their own line rather than joining the hostiles: a
+	// psychedelic turns the room strange, it does not populate it with monsters.
+	// These exist so a room with nothing to transform still transforms.
+	const phantomObjects = phantoms.filter((p) => p.kind === "object");
+	const phantomBeasts = phantoms.filter((p) => p.kind !== "person" && p.kind !== "object");
+	// Sneakers this viewer has not clocked are simply not in the room as far as
+	// they are concerned — per viewer, so the same crouched player can be listed
+	// for one person and absent for another. One Set lookup, no query.
 	const others = isDark
 		? []
-		: getZonePlayers(zone.id).filter((p) => p.id !== player.id);
+		: getZonePlayers(zone.id).filter(
+				(p) => p.id !== player.id && !isHiddenFrom(p, player.id),
+			);
 
 	// These are mutually independent, so they issue together rather than
 	// serially: each query() is its own pool checkout and round trip, and hosted
 	// the RTT dominates. zoneGens is consumed ~200 lines down (Installed: list).
 	// Furniture comes from the world cache (write-funneled in world.js), so this
 	// per-look/per-move hot path costs no furniture round trip.
-	const furniture = getZoneFurniture(zone.id);
+	// Per-viewer object transforms (a psychedelic making the room misbehave). A
+	// no-op for anyone not tripping, and it returns COPIES — the rows out of
+	// getZoneFurniture are shared by everyone in the room.
+	const furniture = applyTransforms(player.id, getZoneFurniture(zone.id));
 	const [
 		{ rows: sleepingBodies },
 		{ rows: groundItems },
@@ -524,14 +841,67 @@ export async function describeZone(zone, player, out = {}) {
 		? furniture.filter((f) => f.object_type === "light")
 		: furniture
 	).filter((f) => !furnitureSuppress.has(f.id) && !f.flags?.concealed);
-	const wovenPieces = visibleFurniture.filter(
-		(f) => f.flags?.woven && f.object_type !== "security_device",
+	const pairedSubBoxes = subBoxIds(visibleFurniture);
+	// Everything eligible for a tier: cameras have their own aside, and the
+	// smaller half of a mutually-paired appliance (a fridge's freezer box) is
+	// redundant with the half that's listed.
+	const tierable = visibleFurniture.filter(
+		(f) => f.object_type !== "security_device" && !pairedSubBoxes.has(f.id),
 	);
-	// The plain list excludes cameras (their own aside) and woven pieces (prose).
-	const plainFurniture = visibleFurniture.filter(
-		(f) => f.object_type !== "security_device" && !f.flags?.woven,
+	// Occupancy is resolved by NAME (furnitureOccupants matches sittingOn against
+	// the name), so with four identical stools and one sitter every row would
+	// claim the same occupant. Attribute the occupants to the FIRST row of each
+	// name and let the remainder group as free — one taken plus three free still
+	// counts to four, and it beats printing the same sitter four times.
+	const seatedHere = getZonePlayers(zone.id);
+	const occupiedIds = new Set();
+	const occupiedEntries = [];
+	const occNamed = new Set();
+	for (const f of tierable) {
+		const key = (f.name || "").toLowerCase();
+		if (occNamed.has(key)) continue;
+		const occ = furnitureOccupants(f.name, seatedHere, npcs, player);
+		if (!occ.length) continue;
+		occNamed.add(key);
+		occupiedIds.add(f.id);
+		occupiedEntries.push({ f, occ });
+	}
+	const wovenPieces = tierable.filter(
+		(f) => f.flags?.woven && !occupiedIds.has(f.id),
 	);
-	const furnitureAside = weaveFurniture(wovenPieces);
+	const untiered = tierable.filter(
+		(f) => !f.flags?.woven && !occupiedIds.has(f.id),
+	);
+	// SCENERY. Suppressed in the dark, where visibleFurniture is lights only and
+	// a verbless lamp is the one thing you actually need to find.
+	const sceneryPieces = isDark
+		? []
+		: untiered.filter((f) => isSceneryPiece(f, player));
+	const sceneryIds = new Set(sceneryPieces.map((f) => f.id));
+	// STANDING. Clustered by object_type, then alphabetical inside each cluster.
+	// The type itself is never printed — this only stops the line reading as a
+	// random jumble (furniture rows come out of the world cache in DB insertion
+	// order, which isn't even stable across a content rewrite). Unlisted types
+	// sort after the known ones, alphabetically by type, so a new object_type
+	// slots in somewhere sane without touching this table.
+	const plainFurniture = untiered
+		.filter((f) => !sceneryIds.has(f.id))
+		.sort((a, b) => {
+			const ra = furnitureSortRank(a);
+			const rb = furnitureSortRank(b);
+			if (ra !== rb) return ra - rb;
+			const ta = a.object_type || "furniture";
+			const tb = b.object_type || "furniture";
+			if (ta !== tb) return ta.localeCompare(tb);
+			return (a.name || "").localeCompare(b.name || "");
+		});
+	const furnitureAside = [
+		weaveFurniture(wovenPieces, player),
+		weaveOccupied(occupiedEntries, player),
+	]
+		.filter(Boolean)
+		.join(" ");
+	const sceneryLine = sceneryProse(sceneryPieces, player, zone.id);
 
 	// Header line: name and the danger tag sit together so the [SAFE]/[LETHAL]
 	// chip reads as a label on the room rather than a separate line.
@@ -552,7 +922,9 @@ export async function describeZone(zone, player, out = {}) {
 	if (gate.line) {
 		desc += `\n<span class="light-level ${gate.line[0]}">${gate.line[1]}</span>`;
 	}
-	const roomDesc = await fireHook("zone.describeRoom", zone);
+	// (zone, player) — the viewer is passed so a hook can render a per-player
+	// panel (the elevator car's floor readout depends on who's riding it).
+	const roomDesc = await fireHook("zone.describeRoom", zone, player);
 	if (roomDesc) desc += `\n${roomDesc}`;
 	// Truncate description based on light level — less light, fewer details.
 	const sentences = zone.description.match(/[^.!?]+[.!?]+(\s|$)/g) || [
@@ -564,9 +936,27 @@ export async function describeZone(zone, player, out = {}) {
 			? sentences.slice(0, 2).join(" ").trim()
 			: zone.description;
 	let weatherLine = "";
-	if (!isInteriorZone(zone) && vis.category !== "pitch_dark") {
+	// WEATHER IN AN UNREAL PLACE. Two cases the ordinary rule cannot serve:
+	//
+	//  1. A dream room is flagged interior, so it never got weather at all — and
+	//     weather is most of what sells a place as somewhere. A dreamscape's is
+	//     authored per template and is deliberately impossible: rain indoors,
+	//     light with no source, a sky where there is no sky.
+	//  2. Standing outside on a psychedelic, the weather is REAL and doing
+	//     something it should not. Warping the line rather than replacing it keeps
+	//     the actual conditions legible — you are still in the rain, the rain has
+	//     simply stopped behaving.
+	//
+	// Both are per-viewer, and both are pure description: nothing here touches the
+	// weather sim, so gear, temperature and hazard channels are unaffected.
+	if (zone.dreamWeather) {
+		weatherLine = ` <span class="msg-ambient">${zone.dreamWeather}</span>`;
+	} else if (!isInteriorZone(zone) && vis.category !== "pitch_dark") {
 		const wd = getWeatherDescription();
-		if (wd) weatherLine = ` ${wd}`;
+		if (wd) {
+			const warp = getWeatherWarp(player.id, zone.id);
+			weatherLine = warp ? ` ${wd} <span class="msg-ambient">${warp}</span>` : ` ${wd}`;
+		}
 	}
 	// Skyline landmark: a fixed compass for the district. Outdoor + lit only (you
 	// can't sight a landmark indoors or in the dark), and not when you're standing
@@ -583,8 +973,21 @@ export async function describeZone(zone, player, out = {}) {
 			if (dir) skylineLine = ` <span class="text-dim">To the ${dir}, ${district.skyline}.</span>`;
 		}
 	}
+	// A psychedelic re-reads the ROOM ITSELF, for this viewer only. Appended rather
+	// than replacing the authored prose: the place is still the place, it is simply
+	// also doing something it should not. Applied regardless of what furniture is
+	// here, which is what makes a trip on a bare street corner still a trip.
+	const roomWarp = getRoomTransform(player.id, zone.id);
+	const warpLine = roomWarp ? ` <span class="msg-ambient">${roomWarp}</span>` : "";
 	// Prose paragraph wrapped so the client can collapse/expand it independently.
-	desc += `\n<span class="room-desc">${zoneDesc}${weatherLine}${skylineLine}${describeBuildingDiscovery(buildings)}</span>`;
+	// The scenery clause closes the authored paragraph rather than trailing the
+	// whole block: static furnishings belong with the static description, which
+	// leaves the woven paragraph below as a clean "here is what's happening"
+	// beat. Appended to the already-truncated zoneDesc, never to zone.description
+	// (see sceneryProse). Sits before the weather so the room finishes describing
+	// itself before it looks up at the sky.
+	const scenerySuffix = sceneryLine ? ` ${sceneryLine}` : "";
+	desc += `\n<span class="room-desc">${zoneDesc}${scenerySuffix}${weatherLine}${skylineLine}${warpLine}${describeBuildingDiscovery(buildings)}</span>`;
 	// Woven-object prose (furniture + PD cams) lives in its own paragraph after the
 	// room description — a natural second beat rather than a tail on the authored
 	// prose. Sits outside room-desc so it stays visible when that collapses.
@@ -644,6 +1047,10 @@ export async function describeZone(zone, player, out = {}) {
 				n > 1
 					? `There are dried white stains on the floor. Several of them.`
 					: `There's a dried white stain on the floor.`,
+			vomit: (n) =>
+				n > 1
+					? `Somebody has been very sick in here, more than once. The smell gets into your throat.`
+					: `There's a splash of sick against the wall and across the floor.`,
 		};
 		for (const [type, count] of stainEntries) {
 			const fn = ZONE_STAIN_DESCS[type];
@@ -677,7 +1084,7 @@ export async function describeZone(zone, player, out = {}) {
 			const itemMentions = mentions.map(({ item, qty }) => {
 				const disp = titleCaseName(item.name);
 				const label = qty > 1 ? `${qty}x ${disp}` : disp;
-				return `<span class="action-link room-item" data-action="take" data-target="${item.name}" title="Take ${disp}">${label}</span>`;
+				return `<span class="action-link room-item" data-action="take" data-target="${escAttr(item.name)}" title="Take ${escAttr(disp)}">${label}</span>`;
 			});
 			desc += `\n<span class="items-label">Lying here:</span> ${itemMentions.join(", ")}`;
 		}
@@ -686,21 +1093,31 @@ export async function describeZone(zone, player, out = {}) {
 	// Furniture list — cameras and woven pieces already dropped out in the shared
 	// partition above (plainFurniture); the panel/suppress were computed there too.
 	if (plainFurniture.length) {
-		const seatedHere = getZonePlayers(zone.id);
-		const furnitureLinks = plainFurniture.map((f) => {
+		// Grouped: four identical stools are one entry, and light state is in the
+		// grouping key so an (on) lamp never merges with an (off) one. Occupancy
+		// isn't here any more — an occupied piece was promoted to prose above.
+		const furnitureLinks = collapseByKind(groupPieces(plainFurniture)).map(({ f, qty, kind }) => {
 			const stateTag =
 				f.object_type === "light"
 					? ` <span class="light-state ${f.light_on ? "light-on" : "light-off"}">(${f.light_on ? "on" : "off"})</span>`
 					: "";
-			const occ = furnitureOccupants(f.name, seatedHere, npcs, player);
-			const occTag = occ.length
-				? ` <span class="text-dim">(${occ.join(", ")})</span>`
-				: "";
 			// Ship each piece's full affordance set so the mobile smart bar can
 			// surface exactly the verbs it supports (sit/switch/watch/…).
-			const verbs = furnitureVerbs(f);
+			const verbs = furnitureVerbs(f, player);
 			const actionsAttr = verbs.length ? ` data-actions="${verbs.join(" ")}"` : "";
-			return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}"${actionsAttr} title="Examine ${f.name}">${titleCaseName(f.name)}</span>${stateTag}${occTag}`;
+			// data-target stays the SINGULAR name even on a counted group — the
+			// label is a display convenience, the command still targets the piece.
+			// A kind-collapsed entry labels by its head noun ("eight Lockboxes")
+			// but still targets the first member, so a click examines a real row
+			// and SIFT's ambiguity prompt lists the rest by name.
+			const label = kind
+				? `${countWord(qty).toLowerCase()} ${titleCaseName(pluralName(kind))}`
+				: qty === 1
+					? titleCaseName(f.name)
+					: `${countWord(qty).toLowerCase()} ${titleCaseName(pluralName(f.name))}`;
+			// data-ftype carries the row's object_type through to CSS so each kind of
+			// thing gets its own tint (see .furniture-link[data-ftype=…] in styles.css).
+			return `<span class="action-link furniture-link" data-ftype="${f.object_type || "furniture"}" data-action="examine" data-target="${escAttr(f.name)}"${actionsAttr} title="Examine ${escAttr(f.name)}">${label}</span>${stateTag}`;
 		});
 		desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(", ")}`;
 	}
@@ -709,7 +1126,7 @@ export async function describeZone(zone, player, out = {}) {
 		if (zoneGens.length) {
 			const genLinks = zoneGens.map(
 				(g) =>
-					`<span class="furniture-link">${titleCaseName(g.name) || "Junction Box"}</span> <span class="text-dim">(${g.status})</span>`,
+					`<span class="furniture-link" data-ftype="junction_box">${titleCaseName(g.name) || "Junction Box"}</span> <span class="text-dim">(${g.status})</span>`,
 			);
 			desc += `\n<span class="furniture-label">Installed:</span> ${genLinks.join(", ")}`;
 		}
@@ -723,22 +1140,26 @@ export async function describeZone(zone, player, out = {}) {
 				w.glass_state === "broken"
 					? ' <span style="color:var(--red)">(broken)</span>'
 					: "";
-			return `<span class="action-link furniture-link" data-action="look" data-target="through ${w.name}" title="Look through ${w.name}">${titleCaseName(w.name)}</span>${curtainTag}${glassTag}`;
+			return `<span class="action-link furniture-link" data-ftype="window" data-action="look" data-target="through ${escAttr(w.name)}" title="Look through ${escAttr(w.name)}">${titleCaseName(w.name)}</span>${curtainTag}${glassTag}`;
 		});
 		desc += `\n<span class="furniture-label">Windows:</span> ${windowLinks.join(", ")}`;
 	}
 
 	if (others.length) {
+		// A sleeper reads as one. `sleepingBodies` below is the OFFLINE list (a DB
+		// query on offline_sleeping), so without this an online sleeper — dreaming
+		// or not — stood in the room looking wide awake, and nothing in the room
+		// description hinted that they were lootable.
 		const playerLinks = others.map(
 			(p) =>
-				`<span class="action-link player-link" data-action="examine" data-target="${p.handle}" title="Look at ${p.handle}">${p.handle}</span>`,
+				`<span class="action-link player-link" data-action="examine" data-target="${escAttr(p.handle)}" title="Look at ${escAttr(p.handle)}">${p.handle}${bodyTell(p, zone.id) ? ` <span class="text-dim">(${bodyTell(p, zone.id)})</span>` : ''}</span>`,
 		);
 		desc += `\n<span class="players-label">Also here:</span> ${playerLinks.join(", ")}`;
 	}
 	if (sleepingBodies.length) {
 		const bodyLinks = sleepingBodies.map(
 			(p) =>
-				`<span class="action-link player-link" data-action="examine" data-target="${p.handle}" title="Look at ${p.handle}">${p.handle} <span class="text-dim">(sleeping)</span></span>`,
+				`<span class="action-link player-link" data-action="examine" data-target="${escAttr(p.handle)}" title="Look at ${escAttr(p.handle)}">${p.handle} <span class="text-dim">(sleeping)</span></span>`,
 		);
 		desc += `\n<span class="players-label">Sleeping here:</span> ${bodyLinks.join(", ")}`;
 	}
@@ -753,12 +1174,12 @@ export async function describeZone(zone, player, out = {}) {
 					: n.posture === 'lying'
 						? ` <span class="text-dim">(lying down)</span>`
 						: '';
-				return `<span class="action-link npc-link" data-action="talk" data-target="${n.name}" title="Talk to ${n.name}">${n.name}</span>${postureTag}`;
+				return `<span class="action-link npc-link" data-action="talk" data-target="${escAttr(n.name)}" title="Talk to ${escAttr(n.name)}">${n.name}</span>${postureTag}`;
 			};
 			// A phantom person wears the exact same markup as a real NPC — the
 			// only "tell" is that talking to it or touching it doesn't behave.
 			const phantomLink = (p) =>
-				`<span class="action-link npc-link" data-action="talk" data-target="${p.name}" title="Talk to ${p.name}">${p.name}</span>`;
+				`<span class="action-link npc-link" data-action="talk" data-target="${escAttr(p.name)}" title="Talk to ${escAttr(p.name)}">${p.name}</span>`;
 			// Vendors get their own section — but covert/trust-gated dealers stay
 			// camouflaged among the regular NPCs so their storefront isn't outed.
 			const isVendor = (n) =>
@@ -779,18 +1200,27 @@ export async function describeZone(zone, player, out = {}) {
 	if (enemies.length || phantomBeasts.length) {
 		const enemyLinks = enemies.map(
 			(e) =>
-				`<span class="action-link enemy-link" data-action="attack" data-target="${e.name}" data-instance-id="${e.instanceId}" title="Attack ${e.name}">${e.name}</span> (${e.hp}/${e.hp_max}HP)`,
+				`<span class="action-link enemy-link" data-action="attack" data-target="${escAttr(e.name)}" data-instance-id="${e.instanceId}" title="Attack ${escAttr(e.name)}">${e.name}</span> (${e.hp}/${e.hp_max}HP)`,
 		);
 		const phantomBeastLinks = phantomBeasts.map(
 			(p) =>
-				`<span class="action-link enemy-link" data-action="attack" data-target="${p.name}" title="Attack ${p.name}">${p.name}</span> (${p.hp}/${p.hp_max}HP)`,
+				`<span class="action-link enemy-link" data-action="attack" data-target="${escAttr(p.name)}" title="Attack ${escAttr(p.name)}">${p.name}</span> (${p.hp}/${p.hp_max}HP)`,
 		);
 		desc += `\n<span class="enemies-label">Hostiles:</span> ${[...enemyLinks, ...phantomBeastLinks].join(", ")}`;
+	}
+	// Conjured objects sit with the furniture, not the monsters — they read as
+	// things that are simply in the room, which is the whole trick.
+	if (phantomObjects.length) {
+		const objLinks = phantomObjects.map(
+			(p) =>
+				`<span class="action-link furniture-link" data-action="examine" data-target="${escAttr(p.name)}" title="Examine ${escAttr(p.name)}">${p.name}</span>`,
+		);
+		desc += `\n<span class="furniture-label">Also here:</span> ${objLinks.join(", ")}`;
 	}
 	if (corpses.length) {
 		const corpseLinks = corpses.map(
 			(c) =>
-				`<span class="action-link corpse-link" data-action="loot" data-target="${c.id}" data-label="${c.name}" title="Loot ${c.name}">${c.name}</span>`,
+				`<span class="action-link corpse-link" data-action="loot" data-target="${c.id}" data-label="${escAttr(c.name)}" title="Loot ${escAttr(c.name)}">${c.name}</span>`,
 		);
 		desc += `\n<span class="corpses-label">Corpses:</span> ${corpseLinks.join(", ")}`;
 	}

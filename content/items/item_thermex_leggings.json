@@ -6,6 +6,7 @@
   "tags": {
     "bulkiness": 1,
     "description": "Matching thermex base-layer leggings. Seamless, static-clingy, and frequently the only thing standing between your legs and a hypothermic diagnosis.",
+    "hydrophobic": true,
     "insulation": 2,
     "layer": "outerwear",
     "slot": "legs"

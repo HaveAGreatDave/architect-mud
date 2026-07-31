@@ -1,0 +1,18 @@
+{
+  "description": "A camera recessed into the marble cornice, sweeping the hall in a slow arc and pausing, fractionally, on anyone who stops walking.",
+  "flags": {
+    "concealed": false,
+    "device_id": "secdev_citadel_hall",
+    "security_device": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "secdev_citadel_hall",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Citadel security camera",
+  "object_type": "security_device",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_citadel_hall"
+}

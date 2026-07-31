@@ -5,7 +5,6 @@
     "quantity": 1
   },
   "category": "synthesis",
-  "craft_time": 3,
   "description": "Cook Amyls from crude Amyls + industrial solvent.",
   "id": "cook_amyls",
   "ingredients": [

@@ -19,9 +19,36 @@ document.addEventListener('input', e => {
   if (e.target.id === 'f-name') _autoFillIdFromName();
 });
 
+// --- Sticky panel headers ---------------------------------------------------
+// Any panel can pin its top controls by wrapping them in `.panel-sticky-head`.
+// Table headers are sticky too, so they need to park *below* that block rather
+// than under it — this measures the head and publishes its height as
+// --sticky-head-h on #list-panel, which the `th` rule reads. A MutationObserver
+// keeps it right across the innerHTML rebuilds every panel does.
+function syncStickyHeads() {
+  const panel = document.getElementById('list-panel');
+  if (!panel) return;
+  const head = panel.querySelector(':scope > .panel-sticky-head, :scope > * > .panel-sticky-head');
+  panel.style.setProperty('--sticky-head-h', head ? `${head.offsetHeight}px` : '0px');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const panel = document.getElementById('list-panel');
+  if (!panel) return;
+  new MutationObserver(() => syncStickyHeads()).observe(panel, { childList: true, subtree: true });
+  window.addEventListener('resize', syncStickyHeads);
+  syncStickyHeads();
+});
+
 function renderTable(columns, records, noEdit = false) {
   const panel = document.getElementById('list-panel');
-  if (!records.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No records found.</div>'; return; }
+  // Optional panel-owned block above the table (PANELS[x].beforeList → HTML
+  // string). For tools that belong with a list rather than with one record —
+  // the dream roll-a-preview is the first, since a template pool can only be
+  // judged by generating from it. Rendered even when the list is empty, because
+  // "nothing here yet" is exactly when you want the tool.
+  const before = PANELS[currentPanel]?.beforeList?.() || '';
+  if (!records.length) { panel.innerHTML = before + '<div style="padding:24px;color:var(--text-dim)">No records found.</div>'; return; }
 
   let sorted = records;
   if (sortState.key) {
@@ -49,14 +76,17 @@ function renderTable(columns, records, noEdit = false) {
     html += `<tr onclick="${rowClick}">`;
     for (const col of columns) {
       const raw = rec[col.key];
-      const val = col.render ? col.render(raw) : (raw ?? '—');
+      // The whole record is passed as a second argument so a column can render
+      // from more than its own key (e.g. a cause badge that needs both `cause`
+      // and `drug_id`). Every existing render takes one argument and ignores it.
+      const val = col.render ? col.render(raw, rec) : (raw ?? '—');
       html += `<td>${val}</td>`;
     }
     if (!noEdit) html += `<td><button class="action-btn" onclick="event.stopPropagation();editRecord('${rec.id}')">Edit</button></td>`;
     html += '</tr>';
   }
   html += '</tbody></table>';
-  panel.innerHTML = html;
+  panel.innerHTML = before + html;
 }
 
 // The Zones list is a furniture-panel-style accordion (see renderZonesTable in

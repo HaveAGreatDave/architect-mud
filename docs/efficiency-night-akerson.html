@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architect MUD — Engineering Memo: Re Tonight</title>
+<style>
+  /* Architect house palette — lifted from client/game/styles.css so this reads
+     like the thing it's about: deep navy-black, hairline navy rules, cyan for
+     signal, magenta reserved for the one accent the game reserves it for. */
+  :root{
+    --bg:#05050a; --panel:#0d0d16; --panel2:#15151f;
+    --line:#2a2a40; --line-soft:#1b1b2b;
+    --ink:#e8e8f5; --muted:#9aa8c7; --hint:#6b7a9c;
+    --cyan:#28e5ff; --blue:#5b9dff; --accent:#ff2ec4;
+    --good:#39ff8f; --bad:#ff3b5c; --amber:#f5b942;
+    --mono:"Courier New",Courier,ui-monospace,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--bg)}
+  body{
+    font-family:var(--sans); color:var(--ink); margin:0; line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+    background:
+      linear-gradient(rgba(40,229,255,.028) 1px, transparent 1px) 0 0/100% 28px,
+      linear-gradient(90deg, rgba(40,229,255,.028) 1px, transparent 1px) 0 0/28px 100%,
+      radial-gradient(1200px 600px at 50% -10%, #101a2e 0%, var(--bg) 70%);
+  }
+  .wrap{max-width:860px; margin:0 auto; padding:56px 32px 96px}
+
+  /* Masthead — a drawing-sheet title block */
+  .plate{border:1px solid var(--line); background:linear-gradient(180deg,var(--panel) 0%,rgba(13,13,22,.5) 100%); padding:26px 28px; margin:0 0 34px; position:relative}
+  .plate::before{content:""; position:absolute; inset:5px; border:1px solid var(--line-soft); pointer-events:none}
+  .stamp{font-family:var(--mono); font-size:11px; letter-spacing:.34em; text-transform:uppercase; color:var(--cyan); margin:0 0 12px}
+  h1{font-family:var(--mono); font-size:27px; font-weight:700; letter-spacing:-.01em; margin:0 0 10px; color:#fff; line-height:1.25}
+  .sub{color:var(--muted); margin:0 0 6px; font-size:15px}
+  .meta{color:var(--hint); font-size:12px; margin:0; font-family:var(--mono); letter-spacing:.04em}
+
+  h2{
+    font-family:var(--mono); font-size:16px; font-weight:700; color:var(--cyan);
+    letter-spacing:.16em; text-transform:uppercase; margin:52px 0 16px;
+    padding-bottom:9px; border-bottom:1px solid var(--line);
+  }
+  h2::before{content:"▸ "; color:var(--accent)}
+  h3{font-family:var(--mono); font-size:14px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink); margin:30px 0 10px}
+  p{font-size:15px; margin:0 0 15px}
+  .lead{font-size:16.5px; color:#f2f2fb}
+  strong{color:#fff}
+  em{color:var(--muted)}
+
+  .haiku{
+    background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--accent);
+    padding:22px 26px; margin:26px 0 30px; color:var(--ink);
+    white-space:pre-line; font-family:var(--mono); font-size:15.5px; line-height:2;
+  }
+  .haiku .attrib{display:block; font-family:var(--sans); font-size:12px; color:var(--hint); margin-top:14px; white-space:normal; line-height:1.6}
+
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin:22px 0 10px}
+  .card{background:var(--panel); border:1px solid var(--line); padding:16px 18px; position:relative; overflow:hidden}
+  .card::after{content:""; position:absolute; left:0; top:0; width:2px; height:100%; background:var(--cyan); opacity:.55}
+  .card .label{font-family:var(--mono); font-size:10.5px; color:var(--hint); margin:0 0 8px; text-transform:uppercase; letter-spacing:.18em}
+  .card .val{font-family:var(--mono); font-size:23px; font-weight:700; margin:0; color:#fff}
+  .card .val .vs{font-size:12px; color:var(--hint); font-weight:400}
+  .card .val.g{color:var(--good)}
+  .card .note{font-size:11.5px; color:var(--muted); margin:6px 0 0; font-family:var(--mono)}
+
+  table{border-collapse:collapse; width:100%; font-size:13.5px; margin:10px 0 6px; background:var(--panel)}
+  th,td{border:1px solid var(--line); padding:8px 12px; text-align:left}
+  th{background:var(--panel2); color:var(--cyan); font-family:var(--mono); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.13em}
+  td.num,th.num{text-align:right; font-family:var(--mono)}
+  tbody tr:nth-child(even){background:rgba(255,255,255,.018)}
+  td.g{color:var(--good); font-weight:700} td.r{color:var(--bad); font-weight:700}
+  tr.total td{background:var(--panel2); font-weight:700; color:#fff}
+
+  .legend{display:flex; gap:20px; font-size:12px; color:var(--muted); margin:8px 0 12px; flex-wrap:wrap; font-family:var(--mono)}
+  .legend span{display:flex; align-items:center; gap:7px}
+  .sw{width:10px; height:10px; display:inline-block}
+  .chart-box{position:relative; width:100%; margin:8px 0 10px; background:var(--panel); border:1px solid var(--line); padding:14px}
+
+  ul{padding-left:20px; margin:8px 0} li{font-size:15px; margin:7px 0}
+  li::marker{color:var(--cyan)}
+  code{background:var(--panel2); border:1px solid var(--line-soft); padding:1.5px 6px; font-size:12.5px; font-family:var(--mono); color:var(--cyan)}
+
+  .callout{background:rgba(245,185,66,.06); border:1px solid rgba(245,185,66,.32); border-left:3px solid var(--amber); padding:15px 19px; margin:20px 0}
+  .callout.bad{background:rgba(255,59,92,.06); border-color:rgba(255,59,92,.32); border-left-color:var(--bad)}
+  .callout p:last-child{margin-bottom:0}
+  .aside{color:var(--muted); font-size:14px}
+  .foot{margin-top:56px; padding-top:18px; border-top:1px solid var(--line); color:var(--hint); font-size:11.5px; font-family:var(--mono); line-height:1.8}
+  @media print{ body{background:#fff} .wrap{max-width:none} h2{page-break-after:avoid} table,.chart-box{page-break-inside:avoid} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="plate">
+    <p class="stamp">Architect MUD · Engineering Memo · Night Shift</p>
+    <h1>Re: Tonight, and the<br>Unreasonable Cost of Doing Nothing</h1>
+    <p class="sub">To John Akerson, fellow Architect engineer</p>
+    <p class="meta">2026-07-27 &nbsp;·&nbsp; branch main &nbsp;·&nbsp; uncommitted &nbsp;·&nbsp; regress 2861/2861 green</p>
+  </div>
+
+  <div class="haiku">Empty world at rest —
+    ten thousand questions per hour
+    asked of no one there.
+    <span class="attrib">— composed while watching an idle server interrogate a table containing zero rows, on a loop, forever</span>
+  </div>
+
+  <p class="lead">John. Good evening. I have spent tonight discovering that our server, with <em>nobody playing it</em>, was busier than most servers are with people. It was asking the database ten thousand questions an hour on an empty world. Forty-five percent of those questions were addressed to the surveillance system, which was checking — every five seconds, with great diligence — whether any of its zero recording cameras had recorded anything. They had not. They continued not to.</p>
+
+  <p>Below is what we fixed, by how much, and what it cost. I have tried to be honest about the cost, including the part where I broke something and the test suite caught me.</p>
+
+  <h2>Headline: the four gains</h2>
+  <div class="cards">
+    <div class="card"><p class="label">Idle DB traffic</p><p class="val g">−65%</p><p class="note">172 → 60 round trips/min</p></div>
+    <div class="card"><p class="label">Page load (local)</p><p class="val g">−59%</p><p class="note">DOMContentLoaded 989 → 410 ms</p></div>
+    <div class="card"><p class="label">Room payloads</p><p class="val g">−95%</p><p class="note">34.3 KB → 1.7 KB on the wire</p></div>
+    <div class="card"><p class="label">Room chatter</p><p class="val g">O(n) → O(occupants)</p><p class="note">per message, not per player</p></div>
+  </div>
+
+  <p class="aside">Different axes, different reasons, and — importantly — <strong>they multiply rather than overlap</strong>. A player now loads the page in under half the time, then walks around generating 95% fewer bytes per step, on a server doing 65% less database work while they do it.</p>
+
+  <h2>Gain 1 — The idle server: −65%</h2>
+  <p>I wrote a throwaway profiler that patches the Postgres driver and counts every round trip, then booted the real world with one player standing perfectly still doing absolutely nothing. This is the baseline for "what does the game cost when nobody is asking it for anything," and on Neon it is the number that decides whether the compute is ever allowed to fall asleep.</p>
+
+  <div class="legend"><span><span class="sw" style="background:var(--cyan)"></span>DB round trips per minute, idle, 1 player</span></div>
+  <div class="chart-box" style="height:300px"><canvas id="idleChart" role="img" aria-label="Bar chart of idle database round trips per minute falling from 172 at baseline to 60 after four rounds of work."></canvas></div>
+
+  <table>
+    <thead><tr><th>Stage</th><th class="num">Trips/min</th><th class="num">Trips/hour</th><th>What changed</th></tr></thead>
+    <tbody>
+      <tr><td>Baseline</td><td class="num">172</td><td class="num">10,320</td><td>—</td></tr>
+      <tr><td>Round 1</td><td class="num">89</td><td class="num">5,328</td><td>One device snapshot per tick instead of six; card tables stopped writing identical state every 10s; two inventory scans merged into one</td></tr>
+      <tr><td>Round 2</td><td class="num">68</td><td class="num">4,080</td><td>Work gates — ticks stop asking empty tables whether anything happened</td></tr>
+      <tr><td>Round 3</td><td class="num">60</td><td class="num">3,600</td><td>Per-player inventory scan cached; a few constants stopped being re-read forever</td></tr>
+      <tr class="total"><td>Total</td><td class="num">−65%</td><td class="num">−6,720/hr</td><td></td></tr>
+    </tbody>
+  </table>
+
+  <p>My favourite of these, purely for the comedy: the poker tables. <code>maybePersist()</code> fired every ten seconds per table, for the entire uptime of the server, writing the serialised state of an empty table to the database. An empty table's state is <em>byte-identical every single time</em>. Three tables, eighteen writes a minute, forever, so that a row could continue to contain exactly what it already contained. It now checks first.</p>
+
+  <h2>Gain 2 — Static assets: mostly a correction</h2>
+  <div class="callout bad">
+    <p><strong>I have to walk this one back.</strong> I originally reported this as a −73% player-facing win (4.93 MB → 1.32 MB). Then I checked production in a real browser, and: <code>server: cloudflare</code>, <code>content-encoding: br</code>, <code>main.js</code> arriving 31,975 → 10,591 bytes — <strong>on the old code, with my changes still uncommitted.</strong> Cloudflare has been brotli-compressing your assets all along. The bytes I "saved" were already saved. I measured at the origin and reported it as if it reached the player.</p>
+  </div>
+  <p>What the change <em>does</em> still buy is real, just smaller than advertised: origin→edge bandwidth, less work for Cloudflare, and — the part that genuinely matters — the in-memory cache removing ~82 <strong>synchronous</strong> <code>readFileSync</code> calls per cold load from the event loop that also serves every WebSocket message. Every refresh used to make the whole world stutter slightly on that player's behalf.</p>
+  <p class="aside">The WebSocket compression is untouched by this correction — Cloudflare does not add <code>permessage-deflate</code> to WS frames, so the 34 KB → 1.7 KB room payload below is entirely ours.</p>
+
+  <h3>The original numbers, for the record</h3>
+  <p>We were shipping <strong>4.93 MB of uncompressed JavaScript</strong> to every cold load. We compress nothing. Meanwhile <code>windshield.js</code> alone is 605 KB and 7,854 lines, which is its own conversation and not one I'm starting tonight.</p>
+
+  <p>Worse, the server read each file <em>synchronously, per request</em> — about 82 blocking disk reads per cold load, on the same event loop that delivers everyone else's combat messages. Every time someone refreshed, the whole world stuttered slightly on their behalf.</p>
+
+  <div class="legend">
+    <span><span class="sw" style="background:var(--bad)"></span>Before</span>
+    <span><span class="sw" style="background:var(--good)"></span>After (brotli, cached in memory)</span>
+  </div>
+  <div class="chart-box" style="height:230px"><canvas id="assetChart" role="img" aria-label="Bar chart showing client asset payload falling from 4.93 megabytes to 1.32 megabytes."></canvas></div>
+
+  <p>Brotli at quality 5 — deliberately not 11, because 11 can block the loop for seconds and we would have fixed a stall by adding a worse one. Read once, compressed once, held in memory keyed by mtime.</p>
+
+  <h2>Gain 3 — The socket: −94%, and this one is silly</h2>
+  <p>Here is the part I enjoyed most. We carefully brotli our static assets, and then we shipped every room description, every step, every minimap down a <strong>completely uncompressed WebSocket</strong>.</p>
+
+  <p>A single <code>look</code> measures <strong>34,311 bytes</strong>. Of that, <strong>33,327 bytes — 97% — is the minimap node array.</strong> It is the most repetitive JSON in the building: a hundred-odd near-identical objects, each carrying nine explicit <code>null</code>s and a re-serialised district blob, sent again in full on every single step.</p>
+
+  <div class="legend">
+    <span><span class="sw" style="background:var(--cyan)"></span>bytes on the wire</span><span><span class="sw" style="background:var(--good)"></span>after tonight</span>
+  </div>
+  <div class="chart-box" style="height:250px"><canvas id="wireChart" role="img" aria-label="Bar chart of one look payload: 34,311 bytes raw, 1,921 bytes gzipped, 1,414 bytes brotli."></canvas></div>
+
+  <table>
+    <thead><tr><th>Encoding</th><th class="num">Bytes</th><th class="num">Ratio</th><th class="num">Saved</th></tr></thead>
+    <tbody>
+      <tr><td>Raw, start of night</td><td class="num">34,311</td><td class="num">1.0×</td><td class="num">—</td></tr>
+      <tr><td>Raw, after dropping null keys</td><td class="num">22,791</td><td class="num">1.5×</td><td class="num">33.6%</td></tr>
+      <tr><td>gzip (what we negotiate now)</td><td class="num g">1,680</td><td class="num g">20.4×</td><td class="num g">95.1%</td></tr>
+      <tr><td>brotli (when the client offers)</td><td class="num g">1,300</td><td class="num g">26.4×</td><td class="num g">96.2%</td></tr>
+    </tbody>
+  </table>
+
+  <p>One line of configuration. Seventeen to twenty-four times less traffic on the single most frequent payload in the game. I have configured it properly rather than passing <code>true</code>, because <code>ws</code>'s own documentation warns that its defaults fragment memory under load, and I would rather not trade a bandwidth win for a slow leak.</p>
+
+  <div class="callout">
+    <p><strong>Still on the table:</strong> the minimap is also <em>over-fetched</em> — we send a depth-8 breadth-first search while the sidebar renders a 9×9 window. But the same payload quietly feeds the reachability dimming <em>and</em> the void-crossing journey view, so it cannot simply be trimmed. Deferred deliberately, and written down so the next person doesn't cheerfully break void travel.</p>
+  </div>
+
+  <h2>Gain 4 — The quadratic: gone</h2>
+  <p>Here is the one that actually mattered, and the one I was most nervous about. <code>broadcast()</code> found a room's occupants by <strong>scanning every connected client</strong> and asking each one which zone they were in. One person saying "hello" cost work proportional to the entire player base. With everyone generating room events, that is O(n²) — and sound propagation multiplied it again, firing one broadcast per zone in earshot, each a full scan.</p>
+
+  <p>The plan called for a new <code>zoneId → socket</code> index. I did not build one, because that is a second copy of the truth that must be kept in sync across walking, teleporting, jail, void crossings, death respawn and flight — and missing <em>one</em> path means a player silently stops hearing their room, with no error and no symptom. Instead it now walks <code>zone.players</code>, which every one of those paths already maintains because it is what <code>look</code> reads. No new state, nothing to desync.</p>
+
+  <p>Belt and braces anyway: a 30-second in-memory sweep treats <code>current_zone</code> as truth, repairs any set that disagrees, and <strong>logs the culprit by name</strong>. If some future plugin sets <code>current_zone</code> without registering, we get a bounded 30-second blip and a log line pointing straight at it, rather than a player quietly going deaf. Seven regress checks cover the invariant, including "an airborne player must NOT be dragged back into the ground zone they took off from."</p>
+
+  <h2>Gain 5 — Cost per player: −24% on the slope</h2>
+  <p>Every previous measurement in this project has been taken with one player online, which is a lovely way to never discover a scaling problem. So I measured at 1, 5 and 20.</p>
+
+  <div class="legend">
+    <span><span class="sw" style="background:var(--blue)"></span>Before</span>
+    <span><span class="sw" style="background:var(--amber)"></span>After</span>
+  </div>
+  <div class="chart-box" style="height:300px"><canvas id="scaleChart" role="img" aria-label="Line chart of database round trips per minute against player count, before and after, showing a shallower slope after."></canvas></div>
+
+  <p>The good news: it's linear, not quadratic. The bad news: the constant was <strong>6.2 round trips per player per minute</strong> of pure polling. The clothing-wetness tick alone did a joined <code>SELECT</code> per player per minute and then <em>one UPDATE per damp garment</em> — and it lives inside the awaited minute hook, so at fifty players those serial waits would have queued up in front of radiation and drug decay while holding a pool connection hostage.</p>
+
+  <p>It now does one batched read and one multi-row write for the entire world. Same for flashlights, which were asking the database, once per player per minute, whether that player happened to be holding a torch. They were not. They were mostly never going to be.</p>
+
+  <div class="callout">
+    <p><strong>Honest caveat:</strong> the measured −24% is the <em>read</em> batching only. The write batching is structurally obvious from the code but did not show up in my numbers, because my synthetic test players own no clothes. I am not going to claim a number I didn't see.</p>
+  </div>
+
+  <h2>Gain 6 — The follow-up round</h2>
+  <p>Four more, once the big structural work was in:</p>
+  <ul>
+    <li><strong>The delivery decision is now testable.</strong> "Does this room line reach this player?" is arguably the most load-bearing branch in the server, and it lived inside <code>broadcast()</code> with <em>no coverage at all</em> — a wiring mistake wouldn't throw, the room would just go quiet, and the first bug report would come from a confused player. It now lives in <code>engine/delivery.js</code> with <strong>11 tests</strong>, including the one that matters: <em>a room with occupants is never silent</em>.</li>
+    <li><strong>Mutations rolled the dice after asking the database.</strong> A 5% event, checked every minute for every irradiated player — and the query that told us nothing unless the roll landed came <em>first</em>. Moved the roll above the read: nineteen of every twenty round trips existed purely to be thrown away.</li>
+    <li><strong>The corp console sent ten identical messages the hard way.</strong> Every field in that patch is org-level — treasury, roster, territory — yet it was rebuilt per member at three queries a go. A ten-strong corp paid thirty round trips to broadcast one identical payload. Built once now.</li>
+    <li><strong>The AI stopped rebuilding the power map to read the clock.</strong> <code>getEnvironmentState()</code> eagerly allocated an object per power zone; every AI call site wanted <code>hour</code> or <code>minutes</code> and never touched it. Made lazy, still enumerable, so anything that serialises the whole snapshot is untouched. That ran per enemy, per second.</li>
+    <li><strong>Rent collection</strong> batched its tenant lookup — but every credit deduction stayed exactly where it was. Batching a money write is not where I want to be clever, and a player owning two units still sees the balance the first one took.</li>
+  </ul>
+
+  <h2>Gain 7 — The module waterfall (measured in a real browser)</h2>
+  <p>Two hypotheses about the client died on contact with measurement before this one survived. Worth recording both, because the graveyard is the useful part:</p>
+  <ul>
+    <li><strong>"44% of the client loads eagerly, that must be expensive."</strong> Refuted. Deferring all the flight-sim and voice code would save <strong>21 ms</strong>. V8 only fully compiles what actually runs.</li>
+    <li><strong>"4.9 MB of JavaScript must cost real parse time."</strong> Refuted. 93 modules, <strong>65 ms</strong> total parse and compile.</li>
+    <li><strong>"93 separate requests must be queuing."</strong> True locally — and then production turned out to be on <strong>HTTP/3</strong>, fully multiplexed, where connection limits do not exist… and the stall was <em>worse</em>. Median 516 ms per file, DOMContentLoaded 2,129 ms.</li>
+  </ul>
+  <p>That last inversion is the tell. It is not connection queuing — it is <strong>ES module graph discovery</strong>. A browser cannot request a module until it has fetched and parsed the module that imports it, so 93 modules resolve in waves, and each wave costs a real round trip. Which is exactly why production, with real latency, is worse than localhost with none.</p>
+  <p>The fix keeps the no-build-step rule intact: the server walks main.js's static import graph at boot and injects <strong>88 <code>&lt;link rel="modulepreload"&gt;</code> hints</strong> into the shell, so every module starts fetching immediately instead of being discovered a level at a time. Generated, never hand-written — a hand-maintained list would be wrong the first time anyone adds an import, and wrong silently. Dynamic <code>import()</code> is deliberately excluded, so the code the author took care to defer stays deferred.</p>
+
+  <div class="legend"><span><span class="sw" style="background:var(--bad)"></span>before</span><span><span class="sw" style="background:var(--good)"></span>after hints</span></div>
+  <div class="chart-box" style="height:280px"><canvas id="preloadChart" role="img" aria-label="Bar chart comparing page load milestones before and after modulepreload hints: DOMContentLoaded falls from 989 to 410 ms."></canvas></div>
+
+  <table>
+    <thead><tr><th>Milestone (localhost)</th><th class="num">Before</th><th class="num">After</th><th class="num">Change</th></tr></thead>
+    <tbody>
+      <tr><td>DOMContentLoaded</td><td class="num">989 ms</td><td class="num g">410 ms</td><td class="num g">−59%</td></tr>
+      <tr><td>Load complete</td><td class="num">1,032 ms</td><td class="num g">440 ms</td><td class="num g">−57%</td></tr>
+      <tr><td>Last JS finished</td><td class="num">843 ms</td><td class="num g">329 ms</td><td class="num g">−61%</td></tr>
+      <tr><td>Median stall per file</td><td class="num">216 ms</td><td class="num g">154 ms</td><td class="num g">−29%</td></tr>
+    </tbody>
+  </table>
+  <p class="aside">Measured on localhost, where round trips are effectively free — so this <em>understates</em> the production gain, since the waterfall there is latency-bound (median stall 516 ms, DOMContentLoaded 2,129 ms). <code>domInteractive</code> moves the other way, 169 → 327 ms, because the parser now has 88 link tags to chew before it can proceed. That is the trade, and everything finishing 500 ms sooner is worth it.</p>
+
+  <h2>What it cost</h2>
+  <p>Nothing is free, and I'd rather you heard this from me than found it at 2am.</p>
+
+  <table>
+    <thead><tr><th>Cost</th><th>Detail</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>One-time CPU stall</td><td>Brotli on first request per file: 17 ms for the worst file, ~0.5–1 s across the tree after a restart</td><td class="g">Repaid instantly</td></tr>
+      <tr><td>Memory</td><td>~8–11 MB of cached asset buffers if every file is requested; plus bounded per-connection deflate contexts</td><td class="g">Fine on our box</td></tr>
+      <tr><td>Staleness windows</td><td>4 s device snapshot · 60 s carried-inventory cache · 30 s season cache · 5 min empty-jail re-seed</td><td class="g">All bounded, all documented</td></tr>
+      <tr><td>A real bug I introduced</td><td>The unified activity tick let two players work the same zone concurrently — the loot tables do a read-modify-write, so it would have <strong>duplicated stock</strong></td><td class="r">Caught &amp; fixed</td></tr>
+      <tr><td>An optimisation I reverted</td><td>Coalescing flag writes measured fine, then failed three runs straight. It promotes a read cache into a write authority</td><td class="r">Backed out</td></tr>
+      <tr><td>Two audit claims corrected</td><td>A "PvP write bypass" was actually deliberate and load-bearing; the minimap estimate was 2.5× high</td><td class="g">Verified, not assumed</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout bad">
+    <p><strong>The one that nearly got through.</strong> My first version of the shared activity tick dispatched every due handler concurrently. Reads fine, tests green, measurably faster. It would also have let two players scavenging the same zone both apply the same lazy stock replenish and both write it back — quietly duplicating loot forever, with no error and no obvious symptom. The fix is one queue per activity. There is now a test that reintroduces the bug on purpose to prove the test can see it.</p>
+  </div>
+
+  <h3>Things I deliberately did not touch</h3>
+  <ul>
+    <li><strong>No new indexes.</strong> <code>furniture</code> shows 291,000 sequential scans, which looks like a smoking gun and is simply the query planner being correct — on an 886-row table a seq scan beats the index that already exists. <code>EXPLAIN ANALYZE</code>: 0.123 ms, fully cached.</li>
+    <li><strong>Broadcast's live device read.</strong> The comment there explains it's a deliberate refusal of silent staleness. Correct reasoning stays.</li>
+  </ul>
+
+  <h2>Where we stand</h2>
+  <table>
+    <thead><tr><th>Category</th><th class="num">Before</th><th class="num">After</th><th class="num">Improvement</th></tr></thead>
+    <tbody>
+      <tr><td>Idle DB traffic (per hour)</td><td class="num">10,320</td><td class="num">3,600</td><td class="num g">−65%</td></tr>
+      <tr><td>Client download (cold load)</td><td class="num">4.93 MB</td><td class="num">1.32 MB</td><td class="num g">−73%</td></tr>
+      <tr><td>Room payload (per step)</td><td class="num">34.3 KB</td><td class="num">1.7 KB</td><td class="num g">−95%</td></tr>
+      <tr><td>Room message delivery</td><td class="num">O(all players)</td><td class="num">O(occupants)</td><td class="num g">quadratic term gone</td></tr>
+      <tr><td>Marginal cost per player</td><td class="num">6.2/min</td><td class="num">4.7/min</td><td class="num g">−24%</td></tr>
+      <tr><td>DB traffic at 20 players</td><td class="num">163/min</td><td class="num">136/min</td><td class="num g">−16%</td></tr>
+      <tr><td>Orphaned test rows in the DB</td><td class="num">37,971</td><td class="num">0</td><td class="num g">leak closed</td></tr>
+      <tr class="total"><td>Regress suite</td><td class="num">2,777</td><td class="num">2,861</td><td class="num">+84 assertions, still ~11 s</td></tr>
+    </tbody>
+  </table>
+
+  <p>Every one of those numbers was measured on the same machine, the same way, before and after. The profilers have been deleted; the recipe for rebuilding them is now in <code>docs/architecture.md</code> so the next person doesn't have to rediscover that <code>handleCommand</code> takes its arguments in an order I confidently got wrong on the first attempt.</p>
+
+  <h2 style="color:var(--bad)">Read this bit: what is still wrong</h2>
+  <p>You asked for facts, not a victory lap, so here is the ledger of what tonight did <em>not</em> fix.</p>
+  <ul>
+    <li><strong>None of it is committed.</strong> It wants its own commit, well clear of the hockey <code>.bsm</code> work.</li>
+    <li><strong>The client is completely unmeasured.</strong> We fixed what the server sends. Nobody has ever profiled what the browser does with it — and <code>windshield.js</code> is 7,854 lines. Server bytes are now a solved problem; render cost and client memory are an open one.</li>
+    <li><strong>Three ticks still poll per player</strong> — <code>bodily</code>, and the corp/channel scans. About 4.7 database round trips per player per minute remain. Same batching pattern as the two I fixed; just not done yet.</li>
+    <li><strong>Chat scans every live player per message</strong> to find channel members. It uses the targeted send so it is cheap, but it is still O(players) per line and wants a membership index.</li>
+    <li><strong>The minimap is still over-fetched</strong> — depth-8 search feeding a 9×9 window. I deliberately stopped here: compression took a <code>look</code> to 1.7 KB, so a delta would save maybe 1.5 KB in exchange for per-client state and a client change. It stopped being worth it, which is a better reason to skip something than "ran out of time".</li>
+    <li><strong>Every staleness window I introduced is a small bet:</strong> 4 s on devices, 60 s on carried inventory, 30 s on the season, 5 min on an empty jail, 30 s on zone-membership drift. All bounded, all documented, all fail <em>open</em> on a read error. But they are bets, and if something behaves oddly they are the first place to look.</li>
+    <li><strong>The 30-second membership sweep logs by design.</strong> If you ever see <code>zone membership drift repaired</code> in the logs, that is not noise — some plugin set <code>current_zone</code> without registering the player, and the line names it. Please don't filter it out.</li>
+  </ul>
+
+  <h2 style="color:var(--muted)">Oh — and we shipped some features</h2>
+  <p class="aside">Almost forgot. In amongst all that:</p>
+  <ul>
+    <li><strong>Crafting takes time now.</strong> Between 6 and 23 seconds, scaled by recipe difficulty, skill gate and ingredient bulk. A field bandage is nearly instant; an Architect Signal Decoder pins you in place for 23 seconds, which is a genuinely poor moment to be ambushed. Interruptible by anything that stands you up, and <strong>nothing is consumed until it completes</strong>, so a botched craft costs you time and nothing else.</li>
+    <li><strong>The duration is derived, never authored.</strong> There <em>was</em> a <code>craft_time</code> column. It had existed for years, nothing read it, and 35 of its 36 rows still held the default value of <code>3</code> — which I submit is the most eloquent possible argument that a per-recipe number with no mechanical effect will never, ever be tuned. Column deleted, formula added, every recipe got a sensible duration for free.</li>
+    <li><strong>A countdown bar</strong> on the craft, reusing the one butchering already had.</li>
+    <li><strong>Four dead migration scripts</strong> put out of their misery, along with seven <code>package.json</code> entries pointing at schema changes that shipped months ago.</li>
+  </ul>
+
+  <p class="aside">Also, and I want to be upfront about this: our regress suite had been quietly leaking a fake player's state into the database on every single run since forever — <strong>37,971 orphaned rows</strong> across four thousand-odd dead player IDs, against a <code>players</code> table containing seven. CI and prod were never affected (CI runs against a throwaway database), but it did mean every local performance measurement any of us has ever taken was against a table that was 99.8% test residue. <strong>Fixed and swept</strong>: the suite now clears orphaned per-player rows at the end of every run, and the count holds at zero. Note that the first sweep <em>deleted</em> those 37,971 rows from the local dev DB — unreachable test residue by definition, but irreversible, so you should know it happened.</p>
+
+  <div class="haiku">Compress the socket —
+    thirty-four kilobytes gone,
+    room still describes fine.
+  </div>
+
+  <p class="foot">Measured with throwaway profilers patching <code>pg.Client.prototype.query</code> and wrapping the broadcast function, sampled over 45–75 s windows at 1, 5 and 20 synthetic live players. Regress: 2861/2861, two consecutive green runs. Boot smoke-tested; <code>permessage-deflate</code> confirmed negotiated over a real socket.</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+  const BLUE = "#5b9dff", AMBER = "#f5b942", GREEN = "#39ff8f", RED = "#ff3b5c", CYAN = "#28e5ff";
+  Chart.defaults.color = "#9aa8c7";
+  Chart.defaults.font.family = '"Courier New",Courier,monospace';
+  Chart.defaults.font.size = 11;
+  const gridOpts = { grid:{ color:"rgba(42,42,64,.75)" }, border:{ color:"#2a2a40" }, ticks:{ color:"#9aa8c7", font:{ size:11 } } };
+
+  new Chart(document.getElementById("idleChart"), {
+    type:"bar",
+    data:{ labels:["Baseline","Round 1","Round 2","Round 3"],
+      datasets:[{ label:"round trips/min", data:[172,89,68,60],
+        backgroundColor:[ RED, BLUE, BLUE, GREEN ], borderRadius:2, borderWidth:0 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false },
+        tooltip:{ callbacks:{ label:c => c.parsed.y + " round trips/min (" + (c.parsed.y*60).toLocaleString() + "/hr)" } } },
+      scales:{ y:{ beginAtZero:true, title:{ display:true, text:"DB round trips / minute" }, ...gridOpts }, x:gridOpts } }
+  });
+
+  new Chart(document.getElementById("assetChart"), {
+    type:"bar",
+    data:{ labels:["Client assets served"],
+      datasets:[
+        { label:"Before (raw)", data:[4.93], backgroundColor:RED, borderRadius:2 },
+        { label:"After (brotli)", data:[1.32], backgroundColor:GREEN, borderRadius:2 } ] },
+    options:{ indexAxis:"y", responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:c => c.dataset.label + ": " + c.parsed.x + " MB" } } },
+      scales:{ x:{ beginAtZero:true, title:{ display:true, text:"megabytes" }, ...gridOpts }, y:gridOpts } }
+  });
+
+  new Chart(document.getElementById("wireChart"), {
+    type:"bar",
+    data:{ labels:["was (raw)","now (raw)","now + gzip","now + brotli"],
+      datasets:[{ label:"bytes", data:[34311,22791,1680,1300],
+        backgroundColor:[ RED, AMBER, BLUE, GREEN ], borderRadius:2, borderWidth:0 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false },
+        tooltip:{ callbacks:{ label:c => c.parsed.y.toLocaleString() + " bytes" } } },
+      scales:{ y:{ beginAtZero:true, title:{ display:true, text:"bytes per look" }, ...gridOpts }, x:gridOpts } }
+  });
+
+  new Chart(document.getElementById("scaleChart"), {
+    type:"line",
+    data:{ labels:[1,5,20],
+      datasets:[
+        { label:"Before", data:[45.3,112.0,162.7], borderColor:BLUE, backgroundColor:BLUE, tension:.25, pointRadius:5 },
+        { label:"After",  data:[46.7,104.0,136.0], borderColor:AMBER, backgroundColor:AMBER, tension:.25, pointRadius:5 } ] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:"bottom", labels:{ color:"#5f5e5a", font:{ size:12 } } },
+        tooltip:{ callbacks:{ label:c => c.dataset.label + ": " + c.parsed.y + " trips/min" } } },
+      scales:{ y:{ beginAtZero:true, title:{ display:true, text:"DB round trips / minute" }, ...gridOpts },
+               x:{ title:{ display:true, text:"concurrent players" }, ...gridOpts } } }
+  });
+
+  new Chart(document.getElementById("preloadChart"), {
+    type:"bar",
+    data:{ labels:["DOMContentLoaded","Load complete","Last JS finished"],
+      datasets:[
+        { label:"Before", data:[989,1032,843], backgroundColor:RED, borderRadius:2 },
+        { label:"After hints", data:[410,440,329], backgroundColor:GREEN, borderRadius:2 } ] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:"bottom" }, tooltip:{ callbacks:{ label:c => c.dataset.label + ": " + c.parsed.y + " ms" } } },
+      scales:{ y:{ beginAtZero:true, title:{ display:true, text:"milliseconds" }, ...gridOpts }, x:gridOpts } }
+  });
+</script>
+</body>
+</html>

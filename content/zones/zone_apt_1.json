@@ -8,6 +8,7 @@
   "created_by": null,
   "description": "A small studio with a mattress, a hot plate, and a window that doesn't open. It's not much, but the door locks, and around here that's everything.",
   "exits": {
+    "in": "zone_apt_1_bath",
     "south": "zone_embassy_floor_2nd"
   },
   "flags": {

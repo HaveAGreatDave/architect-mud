@@ -1,0 +1,22 @@
+{
+  "description": "Six identical squares in a paper sleeve, each one a colour that does not occur in dairy. Ration issue, and the sleeve says PROCESSED CHEESE FOOD PRODUCT rather than risk the word cheese on its own. It melts faster and more completely than the real thing, which is either its one virtue or the most damning fact about it.",
+  "flags": {},
+  "id": "item_ration_cheese",
+  "name": "ration cheese",
+  "tags": {
+    "consumable": true,
+    "description": "Six identical squares in a paper sleeve, each one a colour that does not occur in dairy. Ration issue, and the sleeve says PROCESSED CHEESE FOOD PRODUCT rather than risk the word cheese on its own. It melts faster and more completely than the real thing, which is either its one virtue or the most damning fact about it.",
+    "food_noun": "ration cheese",
+    "food_profile": "dairy",
+    "perishable": true,
+    "restore_hunger": 9,
+    "spoil_rate": "slow",
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.05
+    }
+  },
+  "type": "consumable",
+  "value": 4,
+  "weight": 70
+}

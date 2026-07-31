@@ -1,0 +1,10 @@
+{
+  "id": "dr_npc_normal_521",
+  "drug_id": null,
+  "source": "npc",
+  "tone": "normal",
+  "relation": null,
+  "npc_type": "dealer",
+  "self_line": "{npc} asks if you want the usual, which is somehow the worst question.",
+  "room_line": "{npc} asks {player} if they want the usual."
+}

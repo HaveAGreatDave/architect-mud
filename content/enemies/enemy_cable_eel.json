@@ -95,6 +95,23 @@
         1
       ],
       "weight": 40
+    },
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 30
+    },
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        2,
+        3
+      ],
+      "weight": 3,
+      "super": true
     }
   ],
   "name": "Cable Eel",

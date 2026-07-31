@@ -126,7 +126,7 @@ function renderFurniturePanel(data) {
     </div>`;
   }).join('');
 
-  const streetlightsToolbar = `<div style="padding:8px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+  const streetlightsToolbar = `<div class="panel-sticky-head" style="padding:8px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
     <button class="action-btn" onclick="bulkAddStreetlights()" title="Add a Street Light to every outdoor city zone that doesn't have one yet">🔦 Add Street Lights to All City Tiles</button>
     <span id="streetlights-result" style="font-size:11px;color:var(--text-dim)"></span>
   </div>`;

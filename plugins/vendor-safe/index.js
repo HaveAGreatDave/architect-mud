@@ -18,6 +18,7 @@ import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { emit } from '../../server/engine/events.js';
 import { holdVendorGrudge } from '../../server/engine/vendor-grudge.js';
+import { hackDifficulty, damageHackDeck, breachMargin, hasHackDeck } from '../../server/engine/hack-gear.js';
 
 // Per-player lockout: Map<playerId, timestampMs>
 const _lockout = new Map();
@@ -59,6 +60,19 @@ async function cmdHack(args, raw, player, broadcast) {
   const npcId = flags.vendor_npc_id;
   if (!npcId) return { type: 'error', message: "The safe isn't linked to a vendor. Nothing to steal." };
 
+  // You need a deck. This gate was missing, which made the vendor safe the one
+  // strongbox in the city you could open with your bare hands — while the ATM
+  // (plugins/atm cmdJack), the hololock (commands/doors hackDoor) and even the
+  // PRACTICE rig all demanded hardware. It also made `hack_penalty` /
+  // `hack_fail_damage` meaningless here: WHICH deck you carry is supposed to decide
+  // how hard the safe reads and what a bungled attempt costs you, and with no deck
+  // there was nothing to read from and nothing to damage. Placed after the
+  // `return undefined` self-gate above so other `hack` targets still get their turn,
+  // and before the lockout so an empty-handed attempt can't burn five minutes.
+  if (!(await hasHackDeck(player.id))) {
+    return { type: 'error', message: `The ${safe.name} has a keypad, a comm port and no sense of humour. You need a hacking device to get into it.` };
+  }
+
   // Lockout check
   const lockedUntil = _lockout.get(player.id) || 0;
   if (Date.now() < lockedUntil) {
@@ -97,7 +111,7 @@ async function cmdHack(args, raw, player, broadcast) {
     safeId: safe.id,
     deviceName: safe.name,
     skill: await effectiveSkill(player, 'hacking'),
-    difficulty: flags.hack_difficulty ?? 5,
+    difficulty: await hackDifficulty(player.id, flags.hack_difficulty),
     resolveCmd: 'safecrackresolve',
   };
 }
@@ -122,7 +136,10 @@ async function cmdSafeCrackResolve(args, raw, player) {
 
   if (!win) {
     _lockout.set(player.id, Date.now() + LOCKOUT_MS);
-    return { type: 'error', message: `The combination re-seats mid-spin and the tamper sensor logs the attempt. Your rig is flagged — five-minute lockout.` };
+    // The deck eats the tamper response, same as a botched ATM jack — one rule
+    // for what a failed breach costs your gear, wherever you failed it.
+    const deckMsg = await damageHackDeck(player.id);
+    return { type: 'error', message: `The combination re-seats mid-spin and the tamper sensor logs the attempt. Your rig is flagged — five-minute lockout.${deckMsg}` };
   }
 
   const npc = world.npcs.get(npcId);
@@ -134,7 +151,7 @@ async function cmdSafeCrackResolve(args, raw, player) {
   const stolen = npc.vendor_credits;
   await adjustCredits(player, stolen, undefined, 'vendorsafe:loot');
   await updateNpc(npcId, { vendor_credits: 0 });
-  await awardSkillUse(player.id, 'hacking', 2);
+  await awardSkillUse(player.id, 'hacking', await breachMargin(player, (safe.flags || {}).hack_difficulty));
   // Robbed blind — the vendor holds a grudge even if they never caught you in
   // the act (they come back to a drained safe and know exactly who to blame).
   await holdVendorGrudge(player, npcId);

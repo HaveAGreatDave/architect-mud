@@ -10,7 +10,7 @@
     "west": "zone_district_921_904"
   },
   "flags": {
-    "building_name": "Meltwater Freight Office",
+    "building_name": "Shipping & Handling",
     "building_type": "freight_office",
     "district": "yards",
     "entrance": "west",
@@ -26,7 +26,7 @@
   "id": "zone_district_922_904",
   "map_id": "map_world",
   "marker": "FO",
-  "name": "Meltwater Freight Office",
+  "name": "Shipping & Handling",
   "parent_zone": null,
   "updated_at": "1784100000"
 }

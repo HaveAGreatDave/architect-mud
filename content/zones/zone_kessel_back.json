@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#272420",
+  "color": null,
+  "created_by": "marrow-infill",
+  "description": "A back room that is nine-tenths stock and one-tenth life: crates to the ceiling, a kettle, a chair, and a radio permanently tuned to whatever is being broadcast rather than whatever anyone wants. A ledger sits open on a crate, and the handwriting in it goes back further than the shop's paint.",
+  "exits": {
+    "east": "zone_kessel_shop"
+  },
+  "flags": {
+    "building_name": "Bodega Vu",
+    "building_type": "bodega",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_918_911"
+  },
+  "grid_x": -1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_kessel_back",
+  "map_id": "map_int_kessel",
+  "marker": null,
+  "name": "Bodega Vu — Back Room",
+  "parent_zone": "zone_district_918_911",
+  "updated_at": "1785200000"
+}

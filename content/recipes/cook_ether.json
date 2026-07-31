@@ -5,7 +5,6 @@
     "quantity": 1
   },
   "category": "synthesis",
-  "craft_time": 3,
   "description": "Cook Ether from crude Ether + industrial solvent.",
   "id": "cook_ether",
   "ingredients": [

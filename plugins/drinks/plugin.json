@@ -1,0 +1,64 @@
+{
+  "name": "drinks",
+  "version": "1.0.0",
+  "description": "Mixology and hot drinks. `mix` builds a drink in a REUSABLE vessel (tags.drinkware) out of ingredient PROFILES, never item ids; `brew` needs a hot-water appliance (furniture flags.brew_tier). A finished drink lives on the vessel's custom_data as a serving count and a quality band — you carry it, drink it down, decant it, and rinse it out. Alcohol is DERIVED from the ingredients' tags.abv and lands through the existing drug_alcohol laced path on each swallow, so intoxication behaves exactly as it does for a bottled cocktail. Cold mixing needs only a vessel in hand.",
+  "commands": [
+    "mix",
+    "brew",
+    "rinse",
+    "recipes"
+  ],
+  "hooks": [
+    "item.describeVessel"
+  ],
+  "actions": {
+    "registers": [
+      "drinks.finishServing"
+    ],
+    "consumes": [
+      "consume.begin",
+      "bodily.drinkContaminated"
+    ],
+    "tagGated": [
+      {
+        "verb": "drink",
+        "requiredTag": "drinkware"
+      },
+      {
+        "verb": "pour",
+        "requiredTag": "drinkware"
+      }
+    ]
+  },
+  "objectGatedCommands": {
+    "mix": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "Ungated on purpose — a vessel in hand is the whole requirement for a cold drink. Discovered through the drinkware item description."
+    },
+    "brew": {
+      "discoverVia": "brew_tier",
+      "exposed": true,
+      "note": "Hot drinks only. A declaration-only specializedAction row makes a kettle or coffee machine advertise BREW on examine."
+    },
+    "rinse": {
+      "discoverVia": "furniture:flags.water_source",
+      "exposed": false,
+      "note": "Needs a sink. The 'could do with a rinse' line on the last swallow is the teaching moment."
+    }
+  },
+  "dependencies": [
+    "fillable",
+    "consume",
+    "appliances"
+  ],
+  "extensionPoints": [
+    "A new ingredient needs only tags.drink_profile + tags.pour_units (+ tags.abv if alcoholic) to work in every recipe its profile fits — no edit to this plugin.",
+    "A new appliance tier is one entry in config.js BREW_TIERS plus the furniture flag.",
+    "Drinkware is tags.drinkware + tags.drinkware_kind + tags.fillable (capacity in servings)."
+  ],
+  "notes": [
+    "LOAD ORDER IS LOAD-BEARING: specialized actions fire in registration order, and `drinks` must claim `drink` before `fillable` so a cup holding a poured drink isn't treated as plain water. Alphabetical ordering already does this (d < f); the belt to that braces is the holdsDrink() guard inside plugins/fillable, which does not depend on ordering.",
+    "A vessel drink deliberately does NOT pass through applyItemUse, so it inherits none of well_fed / restore_hp / freshness / the item.consumed hook. finishServing implements thirst, sanity and alcohol only."
+  ]
+}

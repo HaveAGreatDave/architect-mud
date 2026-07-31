@@ -1,7 +1,8 @@
 // Tablet OS — Bank app. Remote banking from anywhere, but throttled: a single
 // transfer moves at most REMOTE_CAP credits in either direction. Bulk cash
 // movement stays at the physical ATM (a terminal you have to be standing at,
-// with a much higher network withdrawal_limit). Reuses the engine's
+// with a much higher network withdrawal_limit) — and past THAT ceiling, at a
+// bank counter with a `bank_teller` NPC, which is uncapped. Reuses the engine's
 // transferCredits (server/engine/economy.js) — the exact function the ATM
 // plugin's own deposit/withdraw commands call — and logs through atm's
 // logBankTx so both paths share one ledger.
@@ -39,6 +40,34 @@ function fmtWait(sec) {
 async function buildHome(player) {
   const { rows } = await query('SELECT credits, bank_credits FROM players WHERE id=$1', [player.id]);
   return { credits: rows[0]?.credits ?? 0, bank_credits: rows[0]?.bank_credits ?? 0 };
+}
+
+// ── Home widget: what's in your pocket, and the thing nobody tells you ───────
+// The numbers are already on the live player object, so this costs nothing (the
+// buildWidget contract in index.js forbids a query here). What earns it a slot is
+// the SECOND line: cash on hand is what a mugging, a booking or a death takes off
+// you, and banked cash isn't. That is the single most expensive thing a new player
+// learns the hard way.
+function buildWidget(player) {
+  const cash = Number(player.credits) || 0;
+  const banked = Number(player.bank_credits) || 0;
+  const total = cash + banked;
+  const exposed = cash >= 500;
+  // DRAWN, not listed. The bar makes the point the two figures never did: how much
+  // of your money is walking around with you. A wide red band is a warning you read
+  // before you've read a number — which is the whole reason to draw it.
+  return {
+    id: 'pocket',
+    title: 'Pocket',
+    kind: 'bar',
+    segments: [
+      { pct: total ? (cash / total) * 100 : 0, tone: exposed ? 'bad' : 'warn', label: `₵${cash.toLocaleString()} on you` },
+      { pct: total ? (banked / total) * 100 : 100, tone: 'good', label: `₵${banked.toLocaleString()} banked` },
+    ],
+    note: total === 0 ? 'Broke. The job board pays.'
+      : exposed ? 'Carried credits are lost if you are robbed, booked or killed.'
+      : 'Banked credits survive anything. An ATM does it in one command.',
+  };
 }
 
 async function buildScreen(player, screenId, params) {
@@ -117,5 +146,5 @@ async function handleAction(player, actionId, params) {
 
 registerTabletApp({
   id: 'bank', name: 'Bank', icon: '🏦', category: 'Finance',
-  buildHome, buildScreen, handleAction,
+  buildHome, buildScreen, handleAction, buildWidget,
 });

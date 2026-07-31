@@ -1,4 +1,4 @@
-import { world, getEnemyInstance, removeEnemyInstance, getLivePlayer, getZonePlayers, getZoneEnemies, getZoneNpcs, tryBattleCry } from './world.js';
+import { world, getEnemyInstance, removeEnemyInstance, getLivePlayer, getZone, getZonePlayers, getZoneEnemies, getZoneNpcs, tryBattleCry, zoneTerrain } from './world.js';
 import { getNpcCombatLine } from './npc-personality.js';
 import { effectiveSkill, awardSkillUse } from './skills.js';
 import { ensureTunables, getTunable } from './tunables.js';
@@ -7,7 +7,12 @@ import { fireHook } from './plugins.js';
 import { getZoneProtection } from './protection.js';
 import { query } from '../models/db.js';
 import { getEquippedWeapon } from './inventory.js';
+import { wear, WEAR_EVENTS, conditionPenalty, announceWear } from './durability.js';
+import { fireDamageToPlayer, fireDamageToEnemy, dominantDamageType } from './damage-events.js';
 import { BASE_ATTACK_MS, hitBonus, defenseBonus, swingInterval, consumeDodge, swingVerb, missLine } from './stance.js';
+import { knockOut, isOut } from './unconscious.js';
+import { applyEffect } from './effects.js';
+import { sendToPlayer } from './messaging.js';
 
 // A power attack (`pow`) multiplies the rolled damage after crit and before the
 // head bonus and soak, and costs 1.5x the stance's swing time.
@@ -137,9 +142,71 @@ export async function playerFleeRoll(player, attackerHit) {
 
 // The mob half. Enemies use their flat `dodge` rating (or an explicit
 // flags.flee_skill override, which the old FLEE node already honoured).
+// ── Stun ─────────────────────────────────────────────────────────────────────
+//
+// Being stunned means you cannot swing. Rather than invent a turn-skip mechanic,
+// this reuses the one `dodge` already proved: lock the attack cooldown, and
+// `cmdAttack` refuses with its existing "still recovering" line while every
+// auto-attack loop skips on its own. No new guard in the tick.
+//
+// Two targets, two shapes, because a player and a mob keep their readiness in
+// different places:
+//   PLAYER — the cooldown map, plus a named status so it shows on the status line
+//   ENEMY  — `_stunnedUntil`, checked by enemyAttackPlayer beside the isOut guard
+//
+// NPCs are deliberately not covered: they have no status list and no equivalent
+// readiness field, so a stun would be silent. Better absent than pretend.
+const STUN_MS = 4000;
+
+export function applyStun(target, ms = STUN_MS) {
+  if (!target) return false;
+  if (target.instanceId) {                 // a live enemy instance
+    target._stunnedUntil = Math.max(target._stunnedUntil || 0, Date.now() + ms);
+    return true;
+  }
+  if (target.id && target.hp_max != null) { // a player
+    setCooldown(target.id, 'attack', ms);
+    applyEffect(target, 'stunned', Math.ceil(ms / 1000));
+    return true;
+  }
+  return false;
+}
+
+export function isStunned(entity) {
+  return !!entity?._stunnedUntil && Date.now() < entity._stunnedUntil;
+}
+
+/**
+ * Roll a weapon's authored `status_chance` against whatever it just hit.
+ *
+ * The tag has existed on items for a long time with exactly one reader, which
+ * copied it into a variable nobody consumed — so the taser's 30% stun has never
+ * once fired. This is that reader.
+ */
+function rollWeaponStatus(weaponStats, target) {
+  const table = weaponStats?.status_chance;
+  if (!table || typeof table !== 'object') return null;
+  for (const [effect, chance] of Object.entries(table)) {
+    const p = Number(chance);
+    if (!(p > 0) || Math.random() >= p) continue;
+    if (effect === 'stunned') return applyStun(target) ? 'stunned' : null;
+    // Anything else only lands on something with a status list — a mob has none.
+    if (target?.hp_max != null && !target.instanceId) {
+      applyEffect(target, effect, 20);
+      return effect;
+    }
+  }
+  return null;
+}
+
 export function mobFleeRoll(entity, attackerHit) {
   const rating = Number(entity?.flags?.flee_skill ?? entity?.dodge ?? entity?.flags?.dodge ?? 1);
-  return rollFleeContest(rating, attackerHit) >= 0;
+  // A mob with ruined legs is worse at breaking contact. `_injuryFleeMod` is a
+  // plain field the injury plugin maintains on the instance (see the aim note
+  // above for why the engine reads a field rather than importing the plugin);
+  // absent it, this is exactly the roll it always was.
+  const hurt = Number(entity?._injuryFleeMod) || 0;
+  return rollFleeContest(rating + hurt, attackerHit) >= 0;
 }
 
 // The player (if any) currently pressing an attack on this enemy/NPC — the
@@ -211,9 +278,20 @@ function takePower(player) {
 // Outside a crit, the plain verb is the stance's own (strike / tear into /
 // jab at / …) — the spans around it are byte-identical across stances, so the
 // client CSS and the `combat` dispatch handler need no stance awareness at all.
-function playerHitLine(player, targetName, partLabel, damage, damageType, critical, power) {
+function playerHitLine(player, targetName, partLabel, damage, damageType, critical, power, execution) {
   const part = `<span class="hit-part">${partLabel}</span>`;
   const dmg = `<span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>`;
+  // A called shot that lands is the rarest thing a player can do on purpose, and
+  // it should never be mistaken for an ordinary crit.
+  if (execution === 'kill') {
+    return `<span class="crit-tag">EXECUTION</span> Your shot goes exactly where you sent it. ${targetName}'s ${part} comes apart — ${dmg}`;
+  }
+  if (execution === 'knockout') {
+    return `<span class="crit-tag">KNOCKOUT</span> You bring it down flat on ${targetName}'s ${part}. They fold up and do not get back up`;
+  }
+  if (execution === 'maim') {
+    return `<span class="crit-tag">CALLED SHOT</span> You put it through ${targetName}'s ${part} — ${dmg}. Not enough to finish it, but it will never be right again`;
+  }
   if (critical) {
     return `<span class="crit-tag">${power ? 'CRITICAL POWER' : 'CRITICAL HIT'}</span> to the ${part}! You deal ${dmg} to ${targetName}`;
   }
@@ -268,6 +346,169 @@ const PART_LABELS = {
   feet: 'feet',
 };
 
+// Anatomy is data, so a part name can be anything a creature authors —
+// `upper_left_arm`, `venom_sac`, `fluke`. It must never reach a player with the
+// underscores still in it. The humanoid labels win where they exist; everything
+// else is humanised.
+export function partLabelOf(part) {
+  return PART_LABELS[part] || String(part || '').replace(/_/g, ' ');
+}
+
+// ── Wielding something you have no business wielding ─────────────────────────
+//
+// Top-tier weapons carry `min_skill` ({ blades: 6 }). A vendor will not SELL you
+// one under that bar — see vendor.js — but nothing stops you looting one off a
+// corpse, and nothing should. You just cannot use it properly.
+//
+// Deliberately a soft gate rather than an equip refusal: "you may not hold this"
+// is a rule, whereas "you are visibly terrible with this" is a story, and it
+// leaves the looted-a-great-sword-too-early moment intact instead of deleting it.
+const UNDERSKILL_DAMAGE_STEP = 0.15;   // per level short
+const UNDERSKILL_DAMAGE_FLOOR = 0.25;  // never worse than a quarter of the blow
+
+export function weaponSkillRequirement(weaponStats) {
+  const req = weaponStats?.min_skill;
+  if (!req || typeof req !== 'object') return null;
+  const [skillId, level] = Object.entries(req)[0] || [];
+  const need = Number(level) || 0;
+  return skillId && need > 0 ? { skillId, need } : null;
+}
+
+/** null when you are up to it, otherwise how badly you are fumbling it. */
+export function underskilledPenalty(weaponStats, skill = 0) {
+  const req = weaponSkillRequirement(weaponStats);
+  if (!req) return null;
+  const deficit = req.need - (Number(skill) || 0);
+  if (deficit <= 0) return null;
+  return {
+    ...req,
+    deficit,
+    hitMod: -deficit,
+    damageScale: Math.max(UNDERSKILL_DAMAGE_FLOOR, 1 - UNDERSKILL_DAMAGE_STEP * deficit),
+  };
+}
+
+// ── Fighting in water ────────────────────────────────────────────────────────
+//
+// Read straight off the zone (same test the swimming plugin uses — terrain,
+// `flags.water`, `flags.underwater`), so the engine needs no plugin import and
+// this holds on every attack path including the auto-attack tick.
+function isWaterZone(zone) {
+  return !!zone && (zoneTerrain(zone) === 'water' || !!zone.flags?.water || !!zone.flags?.underwater);
+}
+
+// Mastery is what buys it back. Below `WATER_SKILL_FLOOR` you are flailing; by
+// `WATER_SKILL_CAP` you fight in water nearly as well as out of it. A weapon
+// tagged `waterproof` ignores all of this — that is the "unless designed for it".
+const WATER_SKILL_FLOOR = 8;
+const WATER_SKILL_CAP = 18;
+const WATER_MIN_DAMAGE_SCALE = 0.15;   // almost nothing, unskilled
+const WATER_MAX_SWING_PENALTY_MS = 1800;
+
+/**
+ * null when it doesn't apply, otherwise how badly water is ruining this swing.
+ *
+ *   { blocked }        — a firearm. Wet powder; it simply does not fire.
+ *   { damageScale,     — melee. Water eats the swing: you cannot get any speed
+ *     swingExtraMs }     behind a bat, and a blade has nothing to bite.
+ */
+// Size matters more than anything else down here. A knife is a thrust — water
+// barely argues with it — whereas a big sword is a SWING, and a swing is exactly
+// the motion water refuses to let you make. Weight is the proxy (grams), because
+// every weapon already carries one and it needs no new authoring.
+//
+//   <= 1000g  a knife, a shiv          — almost unaffected
+//   ~2200g    a shortsword             — awkward
+//   >= 4000g  a chainblade, a sledge   — hopeless until you are very good
+const WATER_LIGHT_G = 1000;
+const WATER_HEAVY_G = 4000;
+
+function waterBulk(weaponStats) {
+  const g = Number(weaponStats?.weight);
+  if (!(g > 0)) return 0.5;                       // unknown: treat as middling
+  if (g <= WATER_LIGHT_G) return 0;
+  if (g >= WATER_HEAVY_G) return 1;
+  return (g - WATER_LIGHT_G) / (WATER_HEAVY_G - WATER_LIGHT_G);
+}
+
+export function waterCombatPenalty(zone, weaponStats, skill = 0) {
+  if (!isWaterZone(zone)) return null;
+  if (weaponStats?.waterproof) return null;
+
+  // An electrical weapon in water works perfectly. That is the problem: the
+  // water is the circuit, so it works on the whole room and on you.
+  if (weaponStats?.water_shock) {
+    return { blocked: false, discharge: true, damageScale: 1, swingExtraMs: 0, mastery: 1 };
+  }
+
+  const skillId = weaponStats?.weapon_skill || 'fists';
+  if (skillId === 'firearms') {
+    return { blocked: true, reason: 'firearm' };
+  }
+
+  const span = WATER_SKILL_CAP - WATER_SKILL_FLOOR;
+  const mastery = Math.min(1, Math.max(0, ((Number(skill) || 0) - WATER_SKILL_FLOOR) / span));
+  const bulk = waterBulk(weaponStats);
+
+  // Two independent outs: be good, or carry something small. A novice with a
+  // knife fights nearly normally; a master with a chainblade manages; a novice
+  // with a chainblade is worse off than unarmed and should feel it.
+  const relief = Math.max(mastery, 1 - bulk);
+  return {
+    blocked: false,
+    bulk,
+    damageScale: WATER_MIN_DAMAGE_SCALE + (1 - WATER_MIN_DAMAGE_SCALE) * relief,
+    swingExtraMs: Math.round(WATER_MAX_SWING_PENALTY_MS * bulk * (1 - mastery)),
+    mastery,
+  };
+}
+
+// ── Fighting something that is off the ground ────────────────────────────────
+//
+// `flags.flies` has been authored since the Architect Scout Drone was written and
+// read by nothing, so a drone hovering out of arm's reach was punched exactly as
+// easily as a man standing in front of you. This is the reader, and it is the
+// mirror image of the water rule above: water punishes the LONG weapon (a swing
+// is the motion water refuses to let you make), air punishes the SHORT one (you
+// simply cannot reach). Same `weight` proxy, opposite sign — no new authoring.
+//
+// Ranged is the intended answer. Shoot the thing down.
+const FLIGHT_SKILL_FLOOR = 8;
+const FLIGHT_SKILL_CAP = 20;
+const FLIGHT_MAX_HIT_PENALTY = -7;   // an unskilled fist at a hovering drone
+const FLIGHT_REACH_G = 3500;         // a polearm-length weapon; reaches on its own
+
+function flightReach(weaponStats) {
+  const g = Number(weaponStats?.weight);
+  if (!(g > 0)) return 0;                          // unknown, and bare hands: none
+  return Math.min(1, g / FLIGHT_REACH_G);
+}
+
+/**
+ * null when it doesn't apply, otherwise `{ hitMod, reach, mastery }`.
+ *
+ * A STUNNED flier is a GROUNDED flier — the penalty lifts entirely for those few
+ * seconds. That is the whole loop this is here to create: you cannot reach it, so
+ * you drop it (a taser's `status_chance`, an unaimed head crit), and then you get
+ * to use the weapon you actually brought. It is also why this takes the live
+ * enemy instance rather than the template.
+ */
+export function flightCombatPenalty(enemy, weaponStats, skill = 0) {
+  if (!enemy?.flags?.flies) return null;
+  if (isStunned(enemy)) return null;               // knocked out of the air
+
+  const skillId = weaponStats?.weapon_skill || 'fists';
+  if (skillId === 'firearms' || skillId === 'thrown') return null;
+
+  const span = FLIGHT_SKILL_CAP - FLIGHT_SKILL_FLOOR;
+  const mastery = Math.min(1, Math.max(0, ((Number(skill) || 0) - FLIGHT_SKILL_FLOOR) / span));
+  const reach = flightReach(weaponStats);
+  // Two independent outs, exactly as in water: be good, or carry something that
+  // gets there. Timing a swing at a hovering thing is a skill like any other.
+  const relief = Math.max(mastery, reach);
+  return { hitMod: Math.round(FLIGHT_MAX_HIT_PENALTY * (1 - relief)), reach, mastery };
+}
+
 // ── Inline combat markup ──────────────────────────────────────────────
 // Combat lines render via innerHTML on the client, so we wrap the variable
 // bits in semantic spans (styled in client/game/styles.css). The text HP bar
@@ -294,6 +535,165 @@ function enemyHpTag(enemy) {
 function selfHpTag(hp, max) {
   const { bar, tier, hp: shown, max: cap } = hpBar(hp, max);
   return ` <span class="hpbar hp-${tier}">[${bar}]</span> <span class="hp-count">${shown}/${cap}</span>`;
+}
+
+// ── Aim: opt-in manual body targeting ────────────────────────────────────────
+//
+// `player._aimPart` is a plain field on the live player object, armed by the
+// injury plugin's `aim` verb and consumed here. That is the same one-way shape
+// `_powQueued` already uses: the engine never imports the plugin, and with
+// nothing aiming the maths below is skipped entirely, so combat is unchanged for
+// every player who ignores this.
+//
+// Aim BIASES the existing weighted roll rather than adding a second targeting
+// path. A missed aim still lands somewhere, so there is no "aimed shot" branch
+// to keep in sync — and a creature that has no such part simply falls through to
+// its ordinary spread.
+const AIM_FOCUS = 0.70;      // aimed part's share of the new weight pool
+const AIM_RESIDUAL = 0.25;   // everything else keeps a quarter of its weight
+
+// To-hit cost of aiming, in margin units (the 2d8−2d8 swing spans −14..+14, and
+// an even matchup hits on 54%). Deliberately STEEP: an unskilled called shot is
+// a real gamble, not a small tax.
+//
+//   unskilled hit chance — head 5%, feet 8%, limbs 12%, centre mass 54%
+//
+// Centre mass is free, and is the only free one: aiming there is what the
+// weighted roll already favours, so charging for it would be charging for
+// nothing.
+export const AIM_PENALTY = {
+  head: -8, torso: 0, feet: -7,
+  left_arm: -6, right_arm: -6, left_leg: -6, right_leg: -6,
+};
+
+// Skill buys precision back — "master characters are precise, not lucky" — but
+// never all of it. Every called shot bottoms out at AIM_FLOOR, so aiming is
+// never strictly free and nobody can just leave it switched on.
+//
+// The floor is shared, which gives one legible rule: a novice pays the full
+// anatomy cost, a master pays 2 for any shot they call. Head goes 5% → 38% over
+// a career, so mastery is worth a great deal without ever becoming automatic.
+const AIM_FLOOR = -2;
+
+export function aimHitPenalty(player, skill = 0) {
+  const part = player?._aimPart;
+  if (!part) return 0;
+  const base = AIM_PENALTY[part] ?? 0;
+  if (base === 0) return 0;
+  const relief = Math.min(Math.abs(base) + AIM_FLOOR, Math.floor((Number(skill) || 0) / 2));
+  return base + relief;
+}
+
+// Bias a weight map toward the aimed part. Returns the map unchanged when the
+// player is not aiming, or when the target has no such part to aim at.
+// Exported for the regress suite — the identity-on-no-aim property is the one
+// that guarantees this feature is free for players who ignore it.
+export function aimedWeights(player, base) {
+  const part = player?._aimPart;
+  if (!part) return base;
+  // `base` is null for anything using the global spread (players, and mobs with
+  // no authored body_parts). Resolve it here rather than returning null, or aim
+  // would silently do nothing against the majority of targets in the game.
+  const src = base || getTunable('body_part_weights', DEFAULT_BODY_PART_WEIGHTS);
+  if (!(part in src)) return base;          // this creature has no such part
+  const total = Object.values(src).reduce((s, v) => s + (Number(v) || 0), 0);
+  if (!(total > 0)) return base;
+  const out = {};
+  for (const k of Object.keys(src)) out[k] = (Number(src[k]) || 0) * AIM_RESIDUAL;
+  out[part] = total * AIM_FOCUS;
+  return out;
+}
+
+// ── Buckshot: one blast, several impacts ─────────────────────────────────────
+//
+// A weapon tagged `spread: N` lands as N separate pellet groups instead of one
+// slug. Each group rolls its OWN body part and is soaked SEPARATELY against the
+// armour covering it, then the whole lot is summed for HP.
+//
+// This exists because a single 18–34 roll against a 40 HP body saturated the
+// injury curve: it cleared the Maimed bar on essentially every hit, at every
+// armour tier, so armour stopped mattering and the three-severity ladder
+// collapsed to one rung. Splitting the same damage produces several ordinary
+// wounds rather than one guaranteed catastrophe, which is both what buckshot
+// actually does and what the injury system can model.
+//
+// The knock-on is the point: per-group soak means armour is MUCH better against
+// a shotgun than against a slug, because it subtracts once per pellet group.
+// That is the mechanic doing its job — it hands armour back the relevance the
+// single-roll version took away.
+const MAX_SPREAD = 4;
+
+export function spreadGroups(weaponStats) {
+  const n = Math.floor(Number(weaponStats?.spread) || 1);
+  return Math.max(1, Math.min(MAX_SPREAD, n));
+}
+
+// Split a damage total into `groups` near-even shares. Remainder goes to the
+// earliest groups, so a 3-way split of 10 is 4/3/3 and never 3/3/3-and-lose-1.
+export function splitSpread(total, groups) {
+  if (groups <= 1) return [total];
+  const base = Math.floor(total / groups);
+  const rem = total - base * groups;
+  const out = [];
+  for (let i = 0; i < groups; i++) {
+    const share = base + (i < rem ? 1 : 0);
+    if (share > 0) out.push(share);
+  }
+  return out.length ? out : [total];
+}
+
+// ── The execution shot ───────────────────────────────────────────────────────
+//
+// A called head shot that finds its mark can kill outright. Three conditions,
+// all of which the attacker had to choose or earn:
+//
+//   1. they DELIBERATELY aimed at the head (`_aimPart === 'head'`)
+//   2. the blow actually landed on the head
+//   3. it was a critical
+//
+// The rarity is emergent, not a hidden dice roll. Aiming high costs −8 to hit,
+// so a novice's margin **cannot arithmetically reach** the +8 crit threshold —
+// this is 0% until you train, not merely unlikely. Measured per swing: skill 1–3
+// is 0.0%, skill 6 is 3.9% against a weak mob, skill 15 is 62.8% against a weak
+// mob and 12.8% against an elite. Mastery is the whole gate.
+//
+// Because enemies never set `_aimPart`, a mob can NEVER execute a player. This
+// is always something a player chose to do, never something that happens to
+// them — the same principle the stealth system uses for knockouts.
+const EXECUTION_MIN_FRACTION = 0.25;
+
+// Blunt and unarmed take a skull without opening it. This is the stealth
+// system's rule verbatim (systems-stealth.md): "swinging a blade at a skull is
+// not a knockout attempt however quietly you crept up, it is a killing." Reusing
+// it means the two ways to knock somebody out agree, and it needs no new verb —
+// you chose this outcome when you picked up a bat instead of a knife.
+const KO_SKILLS = new Set(['clubs', 'fists']);
+
+/**
+ * 'kill' | 'knockout' | 'maim' | null.
+ *
+ * The damage floor is what stops "one hit" meaning "one hit on anything": the
+ * blow must be worth a quarter of the target's max HP AFTER soak, so a 600 HP
+ * boss would need 150 damage in a single strike and simply cannot be cheesed.
+ * It also hands the `head` armour slot a real job — a helmet that soaks enough
+ * pushes the attacker under the floor, which is the counterplay.
+ *
+ * Falling short is not nothing: a called crit to an armoured skull still ruins
+ * it. That keeps the shot worth attempting against big targets.
+ *
+ * The knockout branch does NOT violate "combat is to the death, and stays that
+ * way" — that rule forbids a RANDOM knockout mid-fight, for two stated reasons.
+ * Neither applies here: this is never random (it needs a deliberate called shot
+ * AND a blunt weapon, both chosen in advance), and the invisibility problem is
+ * solved separately by disengaging the attacker and teaching the auto-attack
+ * loops to leave an unconscious body alone.
+ */
+export function executionShot(attacker, { part, damage, critical, targetHpMax, weaponSkill }) {
+  if (part !== 'head' || !critical) return null;
+  if (attacker?._aimPart !== 'head') return null;
+  const frac = damage / Math.max(1, Number(targetHpMax) || 1);
+  if (frac < EXECUTION_MIN_FRACTION) return 'maim';
+  return KO_SKILLS.has(weaponSkill) ? 'knockout' : 'kill';
 }
 
 // Weighted pick of a struck body part. Pass explicit weights (e.g. a monster's
@@ -323,9 +723,46 @@ function resolveSoak(soakMap, damageType) {
 
 // Total soak for a player on the struck part: typed armor_soak on that slot.
 function playerPartSoak(player, part, damageType) {
-  const entry = player.soak?.[PART_TO_SLOT[part]];
+  const slot = PART_TO_SLOT[part];
+  const entry = player.soak?.[slot];
   if (!entry) return 0;
-  return resolveSoak(entry.soak, damageType);
+  // Condition is what makes wearing out MATTER: battered armour soaks less and
+  // broken armour soaks nothing. Read from the worn row the live player already
+  // caches — zero queries, same hot path as the wear accrual above.
+  const worn = player._wornRows?.get(slot);
+  const scale = worn ? conditionPenalty({ ...worn, _wearPending: player._wearPending?.get(worn.inv_id) }) : 1;
+  return Math.floor(resolveSoak(entry.soak, damageType) * scale);
+}
+
+// ── Wear (server/engine/durability.js) ───────────────────────────────────────
+//
+// Both helpers are SYNCHRONOUS and query-free by contract: they read rows the
+// live player already caches (`_wornRows` from recomputeEquipped, `_equippedWeapon`
+// from getEquippedWeapon) and accrue into an in-memory map the game loop flushes.
+// A band change is announced ONCE, here, rather than every swing.
+// (announceWear now lives in durability.js — acid rain announces the same way.)
+
+// The armour that actually absorbed the blow — not every worn piece. Getting hit
+// in the leg does nothing to your helmet.
+function wearStruckArmor(player, part) {
+  const row = player?._wornRows?.get(PART_TO_SLOT[part]);
+  if (!row) return;
+  announceWear(player, row, wear(player, row, WEAR_EVENTS.taken, 'combat:taken'));
+}
+
+// The weapon that landed the blow. Fists have no row, so unarmed costs nothing.
+// A battered weapon hits softer; a broken one is no better than your fists.
+// Same cached row the wear accrual uses — no query.
+function weaponScale(player) {
+  const row = player?._equippedWeapon?.row;
+  if (!row) return 1;
+  return conditionPenalty({ ...row, _wearPending: player._wearPending?.get(row.inv_id) });
+}
+
+function wearHeldWeapon(player) {
+  const row = player?._equippedWeapon?.row;
+  if (!row) return;
+  announceWear(player, row, wear(player, row, WEAR_EVENTS.swing, 'combat:swing'));
 }
 
 // Per-part hit weights from a monster's body_parts (array of {part,weight,soak}).
@@ -355,7 +792,19 @@ function enemyPartSoak(enemy, part, damageType) {
 // Monsters with no weapon array fall back to an unarmed strike.
 function enemyWeaponComponents(enemy) {
   if (Array.isArray(enemy.weapon) && enemy.weapon.length) {
-    return enemy.weapon.map(c => ({
+    // A body part may OWN a damage component (body_parts[].grants.component).
+    // Ruin every part that grants it and that component stops firing — the arc
+    // goes out, the bite stops. `_lostComponents` is maintained by the injury
+    // plugin; absent it, this is exactly the list it always was.
+    const lost = enemy._lostComponents;
+    const live = lost
+      ? enemy.weapon.filter((_, i) => !lost.has(i))
+      : enemy.weapon;
+    // Never leave a creature with NO attack at all — something that cannot
+    // strike is a corpse that hasn't been told, and it would stand there being
+    // hit forever. The last component always survives.
+    const use = live.length ? live : [enemy.weapon[enemy.weapon.length - 1]];
+    return use.map(c => ({
       type: c.type || 'kinetic',
       min: Number(c.min) || 0,
       max: Number(c.max) || 0,
@@ -383,12 +832,31 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
   // attacking it, so by then this has always been stamped by a real swing.
   player._lastAttackSkill = attackSkill;
 
+  // Water ruins a fight. A firearm does not fire at all; everything else swings
+  // slow and lands soft until you are genuinely good at this.
+  const water = waterCombatPenalty(getZone(player.current_zone), weaponStats, attackSkill);
+  if (water?.blocked) {
+    return { success: false, message: 'Your weapon is full of water. It coughs, and does nothing at all.' };
+  }
+
   const power = takePower(player);
-  const enemyDodge = enemy.dodge ?? 1;
-  const margin = (attackSkill + hitBonus(player) - enemyDodge) + rollSwing() + await darknessHitPenalty(enemy.zoneId, player);
+  // Ruined fins, wings or legs cost a creature its evasion — the injury plugin
+  // maintains `_injuryDodgeMod` from `grants.dodge` on the parts that provide it.
+  // Floored at 0: a wrecked thing is easy to hit, never impossible to miss.
+  const enemyDodge = Math.max(0, (enemy.dodge ?? 1) + (Number(enemy._injuryDodgeMod) || 0));
+  // Calling your shot costs accuracy, and skill buys most of it back.
+  const aimCost = aimHitPenalty(player, attackSkill);
+  // A weapon well above your grade swings wide as well as soft.
+  const unskilled = underskilledPenalty(weaponStats, attackSkill);
+  // It is in the air and you are not. Ranged ignores this; so does a stunned
+  // flier, because a stunned flier is on the floor.
+  const flight = flightCombatPenalty(enemy, weaponStats, attackSkill);
+  const margin = (attackSkill + hitBonus(player) - enemyDodge) + aimCost + (unskilled?.hitMod || 0)
+    + (flight?.hitMod || 0) + rollSwing() + await darknessHitPenalty(enemy.zoneId, player);
   const hit = margin >= 0;
 
-  setCooldown(player.id, 'attack', swingInterval(player));
+  // Water drags the swing out on top of the stance interval.
+  setCooldown(player.id, 'attack', swingInterval(player) + (water?.swingExtraMs || 0));
 
   if (!hit) {
     return {
@@ -396,13 +864,16 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
       hit: false,
       margin,
       power,
-      message: playerMissLine(player, enemy.name, power),
+      // Say WHY, or a run of misses reads as bad luck instead of a wrong tool.
+      message: playerMissLine(player, enemy.name, power)
+        + (flight?.hitMod < 0 ? ` <span class="dmg-type">It is above you. You need reach, or something that shoots.</span>` : ''),
       enemyId: enemyInstanceId,
       enemyHp: enemy.hp,
       enemyHpMax: enemy.hp_max,
     };
   }
 
+  wearHeldWeapon(player);   // the swing landed — the weapon that landed it wears
   const critThreshold = getTunable('crit_threshold', 8);
   const critMultiplier = getTunable('crit_multiplier', 1.5);
   const critical = margin >= critThreshold;
@@ -411,13 +882,115 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
   const damage_max = weaponStats?.damage_max || 5;
   const damageType = weaponStats?.damage_type || 'kinetic';
   let damage = randInt(damage_min, damage_max);
+  damage = Math.max(1, Math.round(damage * weaponScale(player)));
+  // Water eats the blow before it lands — you cannot get speed behind a bat and
+  // a blade has nothing to bite. Applied to the ROLL, before crit and the head
+  // multiplier, so a critical underwater is still a bad critical.
+  if (unskilled) damage = Math.max(1, Math.round(damage * unskilled.damageScale));
+  if (water) damage = Math.max(1, Math.round(damage * water.damageScale));
   if (critical) damage = Math.floor(damage * critMultiplier);
   if (power) damage = Math.floor(damage * POW_DAMAGE_MULT);
 
-  const part = rollBodyPart(enemyBodyPartWeights(enemy));
-  if (part === 'head') damage = Math.floor(damage * getTunable('head_damage_multiplier', 1.5));
-  damage = Math.max(1, damage - enemyPartSoak(enemy, part, damageType));
-  const partLabel = PART_LABELS[part] || part;
+  // Buckshot lands as several impacts; everything else is a single one, which
+  // is the same code path with a one-element list.
+  const groups = spreadGroups(weaponStats);
+  const headMultiplier = getTunable('head_damage_multiplier', 1.5);
+  const weights = enemyBodyPartWeights(enemy);
+  const impacts = [];
+  let landedTotal = 0;
+
+  for (const share of splitSpread(damage, groups)) {
+    const p = rollBodyPart(aimedWeights(player, weights));
+    let amt = share;
+    if (p === 'head') amt = Math.floor(amt * headMultiplier);
+    const soak = enemyPartSoak(enemy, p, damageType);
+    // A single-impact weapon always does at least 1 (unchanged). A pellet group
+    // may be stopped outright — that is what makes armour meaningful against a
+    // spread weapon — but the blast as a whole still floors at 1 below.
+    const landed = Math.max(groups > 1 ? 0 : 1, amt - soak);
+    landedTotal += landed;
+    impacts.push({ part: p, damage: landed, baseDamage: Math.max(0, share - soak) });
+  }
+
+  damage = Math.max(1, landedTotal);
+  const part = impacts[0].part;
+  const partLabel = impacts.length > 1
+    ? impacts.map(i => partLabelOf(i.part)).filter((v, i, a) => a.indexOf(v) === i).join(' and ')
+    : (partLabelOf(part));
+
+  // A called head shot. With a spread weapon the heaviest pellet group in the
+  // skull is the one that decides it.
+  const headImpact = impacts.filter(i => i.part === 'head').sort((a, b) => b.damage - a.damage)[0];
+  const execution = headImpact
+    ? executionShot(player, {
+        part: 'head', damage: headImpact.damage, critical,
+        targetHpMax: enemy.hp_max, weaponSkill: weaponSkillId,
+      })
+    : null;
+  if (execution === 'kill') damage = Math.max(damage, enemy.hp);
+  if (execution === 'knockout') {
+    // HP is pinned at 1, never 0 — an enemy at zero is simply dead, so a
+    // knockout that killed would be a killing with extra steps. Same pin the
+    // sneak plugin uses.
+    damage = Math.max(0, Math.min(damage, (enemy.hp ?? enemy.hp_max) - 1));
+    knockOut(enemy, { by: player.id });
+    // Disengage, or the 1s auto-attack loop finishes the body next tick and
+    // nobody ever sees the knockout happen. This is reason (1) the stealth doc
+    // gives for banning random mid-fight KOs; a deliberate one has to answer it.
+    player.combatTargetId = null;
+    enemy.targetId = null;
+  }
+
+  // §8b — the enemy gets wounded too. In-memory on the instance, so it dies with
+  // the mob and costs nothing to store. Fired BEFORE the kill check so the last
+  // blow still reads as a wound to anything watching. One event PER IMPACT, so a
+  // shotgun spreads several ordinary wounds instead of one catastrophic one.
+  for (const im of impacts) {
+    if (im.damage <= 0) continue;
+    fireDamageToEnemy(enemy, {
+      part: im.part, damage: im.damage, baseDamage: im.baseDamage,
+      type: damageType, critical, source: 'player', attacker: player,
+      // A called crit that couldn't kill still ruins the skull.
+      forceSeverity: (execution === 'maim' && im === headImpact) ? 3 : undefined,
+    });
+  }
+
+  // A `water_shock` weapon fired in water earths through everything present —
+  // every other player and every other enemy in the zone, and the idiot holding
+  // it. Resolved here rather than in a plugin because it is the same blow, not a
+  // second attack: no extra cooldown, no second to-hit roll.
+  if (water?.discharge) {
+    const jolt = Math.max(1, Math.round(damage * 0.6));
+    for (const other of getZoneEnemies(player.current_zone) || []) {
+      if (other.instanceId === enemy.instanceId) continue;
+      other.hp -= jolt;
+      other.targetId = player.id;
+    }
+    for (const bystander of getZonePlayers(player.current_zone) || []) {
+      const live = getLivePlayer(bystander.id) || bystander;
+      if (!live || live.hp == null) continue;
+      live.hp = Math.max(1, live.hp - jolt);   // humiliating, never lethal
+      live._resDirty = true;
+      if (live.id !== player.id) {
+        sendToPlayer(live.id, { type: 'output', message: `The water lights up. <span class="dmg-taken">${jolt}</span> — you are standing in it too.` });
+      }
+    }
+    player.hp = Math.max(1, (player.hp ?? player.hp_max) - jolt);
+    player._resDirty = true;
+  }
+
+  // The weapon's authored status_chance, finally read. A taser that stuns is the
+  // whole reason that tag was ever written down.
+  let statusHit = rollWeaponStatus(weaponStats, enemy);
+
+  // HEAD CRIT → STUN, as the consolation for a crit that landed on the skull by
+  // luck rather than design. Deliberately gated to an UNAIMED crit: a called
+  // head shot already pays out as an execution or a knockout, and stacking a
+  // stun on top would be two rewards for one event. So aiming buys the bigger
+  // outcome, and not aiming still makes a lucky head crit worth something.
+  if (!statusHit && execution === null && part === 'head' && critical && player._aimPart !== 'head') {
+    if (applyStun(enemy)) statusHit = 'stunned';
+  }
 
   enemy.hp -= damage;
   enemy.targetId = player.id;
@@ -435,7 +1008,7 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
       damage,
       margin,
       power,
-      message: `${playerHitLine(player, enemy.name, partLabel, damage, damageType, critical, power)}. ${enemy.death_message}`,
+      message: `${playerHitLine(player, enemy.name, partLabel, damage, damageType, critical, power, execution)}. ${enemy.death_message}`,
       loot,
       enemyId: enemyInstanceId,
       butcher_table: enemy.butcher_table || [],
@@ -451,7 +1024,7 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
     damage,
     margin,
     power,
-    message: `${playerHitLine(player, enemy.name, partLabel, damage, damageType, critical, power)}${critical ? '!' : '.'}${enemyHpTag(enemy)}`,
+    message: `${playerHitLine(player, enemy.name, partLabel, damage, damageType, critical, power, execution)}${critical ? '!' : '.'}${statusHit === 'stunned' ? (enemy.flags?.flies ? ' <span class="crit-tag">GROUNDED</span>' : ' <span class="crit-tag">STUNNED</span>') : ''}${enemyHpTag(enemy)}`,
     enemyId: enemyInstanceId,
     enemyHp: enemy.hp,
     enemyHpMax: enemy.hp_max,
@@ -460,6 +1033,11 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
 
 // Enemy attacks player — returns damage result (async: needs effectiveSkill for player dodge)
 export async function enemyAttackPlayer(enemy, player) {
+  // An unconscious thing does not swing. Without this a knocked-out mob keeps
+  // fighting, which makes the knockout meaningless and reads as a bug.
+  if (isOut(enemy)) return null;
+  // A stunned mob does not swing either. Same reasoning as isOut above.
+  if (isStunned(enemy)) return null;
   // A quantum forcefield shields its zone from all hostile touch — the same law
   // that stops a player's swing (getZoneProtection) stops an enemy's. The claws
   // wash off the blue field, harmless. No cooldown burn: it's as if no swing landed.
@@ -471,7 +1049,9 @@ export async function enemyAttackPlayer(enemy, player) {
   const isFirstStrike = enemy.lastAttack === 0;
   enemy.lastAttack = now;
 
-  const enemyHit = enemy.hit ?? 1;
+  // Wounded arms degrade a mob's swing exactly as they degrade a player's — the
+  // half of §8b that makes aiming at a limb a TACTIC rather than just flavour.
+  const enemyHit = (enemy.hit ?? 1) + (Number(enemy._injuryHitMod) || 0);
   const { dodgeTerm, dodged } = await playerDefence(player);
   const margin = (enemyHit - dodgeTerm) + rollSwing() + await darknessHitPenalty(enemy.zoneId);
   const hit = margin >= 0;
@@ -496,29 +1076,99 @@ export async function enemyAttackPlayer(enemy, player) {
   // to every component before its own soak.
   const components = enemyWeaponComponents(enemy);
   const damageTypes = [...new Set(components.map(c => c.type))].join('/');
-  const part = rollBodyPart();
-  const headMult = part === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
-  // TODO(phase5): head crit-to-stun once a turn-skip mechanic exists.
+  // Buckshot on the enemy side. Enemies carry a component list rather than item
+  // tags, so the authoring surface is `flags.spread` on the enemy rather than a
+  // weapon tag — same mechanic, same helper, different place to write it down.
+  const groups = spreadGroups({ spread: enemy.flags?.spread });
+  // Each component is rolled ONCE and its damage split across the groups, rather
+  // than re-rolled per group — otherwise a spread weapon would quietly deal more
+  // total damage than the same weapon firing a slug.
+  const rolls = components.map(c => ({ c, shares: splitSpread(randInt(c.min, c.max), groups) }));
+
+  // The old TODO here wanted head-crit-to-stun "once a turn-skip mechanic
+  // exists". It exists now (applyStun) — and it is deliberately NOT used on this
+  // path. This is the ENEMY hitting the PLAYER, and a mob stunning you is the
+  // same agency theft the knockout rules already refuse: combat is to the death,
+  // and nothing a mob rolls should take your turn away. Head crits still hurt
+  // more here (head_damage_multiplier) and still wound harder. The stun lives on
+  // the player's own swing instead — see playerAttackEnemy.
   let total = 0;
-  for (const c of components) {
-    let amt = randInt(c.min, c.max);
-    if (critical) amt = Math.floor(amt * critMultiplier);
-    amt = Math.floor(amt * headMult);
-    total += Math.max(0, amt - playerPartSoak(player, part, c.type));
+  let baseTotal = 0;
+  const impacts = [];
+
+  for (let g = 0; g < groups; g++) {
+    const p = rollBodyPart();
+    const hm = p === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
+    // Post-soak contribution per component, so the damage-events seam can name
+    // the type that actually did the work rather than whichever was listed first.
+    const contributions = [];
+    let gTotal = 0;
+    let gBase = 0;
+
+    for (const { c, shares } of rolls) {
+      const raw = shares[g] ?? 0;
+      if (raw <= 0) continue;
+      let amt = raw;
+      if (critical) amt = Math.floor(amt * critMultiplier);
+      amt = Math.floor(amt * hm);
+      const soaked = playerPartSoak(player, p, c.type);
+      const landed = Math.max(0, amt - soaked);
+      contributions.push({ type: c.type, amount: landed });
+      gTotal += landed;
+      // The same roll, soaked, WITHOUT the crit and head multipliers — what the
+      // injury seam scores. Crit and a head hit already express themselves as
+      // threshold modifiers there, and letting them also inflate the measured
+      // damage made both count twice (see injury-system.md §11).
+      gBase += Math.max(0, raw - soaked);
+    }
+
+    wearStruckArmor(player, p);
+    total += gTotal;
+    baseTotal += gBase;
+    impacts.push({ part: p, damage: gTotal, baseDamage: gBase, type: dominantDamageType(contributions) });
   }
+
   const damage = Math.max(1, total);
-  const partLabel = PART_LABELS[part] || part;
+  for (const im of impacts) {
+    if (im.damage <= 0) continue;
+    fireDamageToPlayer(player, {
+      part: im.part, damage: im.damage, baseDamage: im.baseDamage,
+      type: im.type, critical, source: 'enemy',
+    });
+  }
+
+  // A RADIATING creature dopes you just by getting close enough to land a blow.
+  // `flags.radiates` + `flags.radiation_damage` have been authored on the Rad
+  // Mutant and the Redline horror since before anything read them; this is that
+  // reader. It costs nothing new — `player.radiation` and the `irradiated`
+  // status effect both already exist — and it gives those two a real identity:
+  // you can win the fight and still walk away carrying something.
+  let radDose = 0;
+  if (enemy.flags?.radiates) {
+    radDose = Math.max(1, Number(enemy.flags.radiation_damage) || 1);
+    player.radiation = Math.min(100, (player.radiation || 0) + radDose);
+    player._resDirty = true;
+  }
+
+  const part = impacts[0].part;
+  const partLabel = impacts.length > 1
+    ? impacts.map(i => partLabelOf(i.part)).filter((v, i, a) => a.indexOf(v) === i).join(' and ')
+    : (partLabelOf(part));
   // player.hp is still pre-damage here; gameLoop decrements it after this
   // returns, so the bar reflects the same value the client receives as `hp`.
   const selfHp = selfHpTag(player.hp - damage, player.hp_max);
+  // Said out loud, or it is a number moving on a screen nobody has open.
+  const radTag = radDose
+    ? ` <span class="dmg-type">The air around it is wrong. (+${radDose} rad)</span>`
+    : '';
 
   return {
     hit: true,
     damage,
     critical,
     message: critical
-      ? `${cry}<span class="crit-tag-in">CRITICAL!</span> ${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${dodged ? DODGE_BROKEN : ''}${selfHp}`
-      : `${cry}${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${dodged ? DODGE_BROKEN : ''}${selfHp}`,
+      ? `${cry}<span class="crit-tag-in">CRITICAL!</span> ${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${dodged ? DODGE_BROKEN : ''}${radTag}${selfHp}`
+      : `${cry}${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${dodged ? DODGE_BROKEN : ''}${radTag}${selfHp}`,
   };
 }
 
@@ -599,13 +1249,20 @@ export async function flushDirtyResources() {
 export async function applyStrikeToPlayer(player, { min, max, damageType = 'kinetic' }) {
   await ensureTunables();
   const part = rollBodyPart();
-  let damage = randInt(min, max);
+  const raw = randInt(min, max);
+  const soaked = playerPartSoak(player, part, damageType);
+  let damage = raw;
   if (part === 'head') damage = Math.floor(damage * getTunable('head_damage_multiplier', 1.5));
-  damage = Math.max(1, damage - playerPartSoak(player, part, damageType));
+  damage = Math.max(1, damage - soaked);
+  wearStruckArmor(player, part);
+  fireDamageToPlayer(player, {
+    part, damage, baseDamage: Math.max(1, raw - soaked),
+    type: damageType, critical: false, source: 'strike',
+  });
   const before = player.hp ?? player.hp_max ?? 100;
   player.hp = Math.max(0, before - damage);
   player._resDirty = true; // coalesced into the 1s flushDirtyResources write
-  return { damage, part, partLabel: PART_LABELS[part] || part, killed: player.hp <= 0 };
+  return { damage, part, partLabel: partLabelOf(part), killed: player.hp <= 0 };
 }
 
 function resolveEnemyLoot(enemy) {
@@ -650,7 +1307,11 @@ export async function pvpSwing(attacker, defender) {
 
   const attackSkill = await effectiveSkill(attacker, weaponSkill);
   const { dodgeTerm, dodged } = await playerDefence(defender);
-  const margin = (attackSkill + hitBonus(attacker) - dodgeTerm) + rollSwing() + await darknessHitPenalty(attacker.current_zone, attacker);
+  // Aiming costs the same in PvP as it does against a mob. Without this the
+  // penalty applied only to `playerAttackEnemy`, so calling a head shot at
+  // another player was free — all of the payoff, none of the price.
+  const aimCost = aimHitPenalty(attacker, attackSkill);
+  const margin = (attackSkill + hitBonus(attacker) - dodgeTerm) + aimCost + rollSwing() + await darknessHitPenalty(attacker.current_zone, attacker);
   const hit = margin >= 0;
 
   if (!hit) {
@@ -665,15 +1326,74 @@ export async function pvpSwing(attacker, defender) {
   }
 
   const critical = margin >= getTunable('crit_threshold', 8);
-  const part = rollBodyPart();
-  const partLabel = PART_LABELS[part] || part;
-  const headMult = part === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
+  const part = rollBodyPart(aimedWeights(attacker, null));
 
-  let damage = randInt(damage_min, damage_max);
+  const rawRoll = Math.max(1, Math.round(randInt(damage_min, damage_max) * weaponScale(attacker)));
+  let damage = rawRoll;
   if (critical) damage = Math.floor(damage * getTunable('crit_multiplier', 1.5));
   if (power) damage = Math.floor(damage * POW_DAMAGE_MULT);
-  damage = Math.floor(damage * headMult);
-  damage = Math.max(1, damage - playerPartSoak(defender, part, damageType));
+
+  // `pow` is a deliberate act and DOES feed the injury check — aiming a haymaker
+  // at a knee should break it. Only the incidental multipliers (crit, head) are
+  // withheld, because those already move the threshold.
+  const pvpBase = power ? Math.floor(rawRoll * POW_DAMAGE_MULT) : rawRoll;
+
+  // Buckshot spreads across the defender exactly as it does across a mob.
+  const groups = spreadGroups({ spread: equipped?.tags?.spread });
+  const headMultiplier = getTunable('head_damage_multiplier', 1.5);
+  const impacts = [];
+  let landedTotal = 0;
+  const baseShares = splitSpread(pvpBase, groups);
+
+  splitSpread(damage, groups).forEach((share, i) => {
+    const p = groups > 1 ? rollBodyPart(aimedWeights(attacker, null)) : part;
+    let amt = share;
+    if (p === 'head') amt = Math.floor(amt * headMultiplier);
+    const soak = playerPartSoak(defender, p, damageType);
+    const landed = Math.max(groups > 1 ? 0 : 1, amt - soak);
+    landedTotal += landed;
+    impacts.push({ part: p, damage: landed, baseDamage: Math.max(0, (baseShares[i] ?? 0) - soak) });
+    wearStruckArmor(defender, p);
+  });
+
+  damage = Math.max(1, landedTotal);
+  const partLabel = impacts.length > 1
+    ? impacts.map(i => partLabelOf(i.part)).filter((v, i, a) => a.indexOf(v) === i).join(' and ')
+    : (partLabelOf(part));
+
+  // Executions are symmetric — a called head shot kills a player exactly as it
+  // kills a mob. This is what makes a helmet worth wearing in PvP: head soak is
+  // the only thing that pushes an attacker under the damage floor.
+  const defHpMaxForExec = defender.hp_max ?? 100;
+  const headImpact = impacts.filter(i => i.part === 'head').sort((a, b) => b.damage - a.damage)[0];
+  const execution = headImpact
+    ? executionShot(attacker, {
+        part: 'head', damage: headImpact.damage, critical,
+        targetHpMax: defHpMaxForExec, weaponSkill,
+      })
+    : null;
+  if (execution === 'kill') damage = Math.max(damage, defender.hp ?? defHpMaxForExec);
+  if (execution === 'knockout') {
+    damage = Math.max(0, Math.min(damage, (defender.hp ?? defHpMaxForExec) - 1));
+    knockOut(defender, { by: attacker.id });
+    // Same disengage as the mob path — taking someone alive has to survive the
+    // next tick, and finishing them must stay a thing you choose to type.
+    attacker.pvpTargetId = null;
+    attacker.combatTargetId = null;
+  }
+
+  for (const im of impacts) {
+    if (im.damage <= 0) continue;
+    fireDamageToPlayer(defender, {
+      part: im.part, damage: im.damage, baseDamage: im.baseDamage,
+      type: damageType, critical, source: 'pvp',
+      forceSeverity: (execution === 'maim' && im === headImpact) ? 3 : undefined,
+    });
+  }
+  // Same roll against a player. A stun here locks their attack cooldown, which
+  // every path already respects — so it works in PvP with no new guard.
+  rollWeaponStatus({ status_chance: equipped?.tags?.status_chance }, defender);
+  wearHeldWeapon(attacker);
 
   const defHpBefore = defender.hp ?? defender.hp_max ?? 100;
   defender.hp = Math.max(0, defHpBefore - damage);
@@ -683,7 +1403,7 @@ export async function pvpSwing(attacker, defender) {
   const killed = defender.hp <= 0;
   const defHpTag = killed ? '' : selfHpTag(defender.hp, defHpMax);
 
-  const attackerMsg = `${playerHitLine(attacker, defender.handle, partLabel, damage, damageType, critical, power)}${critical ? '!' : '.'}`;
+  const attackerMsg = `${playerHitLine(attacker, defender.handle, partLabel, damage, damageType, critical, power, execution)}${critical ? '!' : '.'}`;
   const defenderMsg = critical
     ? `<span class="crit-tag-in">CRITICAL!</span> ${attacker.handle} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageType}</span>!${dodged ? DODGE_BROKEN : ''}${defHpTag}`
     : `${attacker.handle} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageType}</span>.${dodged ? DODGE_BROKEN : ''}${defHpTag}`;
@@ -715,7 +1435,10 @@ export async function playerAttackNpc(player, npcId, weaponStats) {
   player._lastAttackSkill = attackSkill;
   const power = takePower(player);
   const npcDodge = npc.flags?.dodge ?? 1;
-  const margin = (attackSkill + hitBonus(player) - npcDodge) + rollSwing() + await darknessHitPenalty(npc.zone_id, player);
+  // Aim costs the same here as everywhere else. Without this the penalty applied
+  // to mobs and players but not NPCs, so `aim head` was free against a person.
+  const aimCost = aimHitPenalty(player, attackSkill);
+  const margin = (attackSkill + hitBonus(player) - npcDodge) + aimCost + rollSwing() + await darknessHitPenalty(npc.zone_id, player);
   const hit = margin >= 0;
   setCooldown(player.id, 'attack', swingInterval(player));
 
@@ -730,10 +1453,25 @@ export async function playerAttackNpc(player, npcId, weaponStats) {
   let damage = randInt(damage_min, damage_max);
   if (critical) damage = Math.floor(damage * getTunable('crit_multiplier', 1.5));
   if (power) damage = Math.floor(damage * POW_DAMAGE_MULT);
-  const part = rollBodyPart(null);
+  const part = rollBodyPart(aimedWeights(player, null));
   if (part === 'head') damage = Math.floor(damage * getTunable('head_damage_multiplier', 1.5));
   damage = Math.max(1, damage);
-  const partLabel = PART_LABELS[part] || part;
+  const partLabel = partLabelOf(part);
+
+  // NPCs have no typed soak, so a called head crit here is measured against the
+  // raw blow. Same rule, same floor.
+  const npcHpMax = npc.hp_max ?? 20;
+  const execution = executionShot(player, {
+    part, damage, critical, targetHpMax: npcHpMax, weaponSkill: weaponSkillId,
+  });
+  if (execution === 'kill') damage = Math.max(damage, npc.hp ?? npcHpMax);
+  if (execution === 'knockout') {
+    // NPC death is `hp <= 0`, so the pin at 1 is load-bearing here, not cosmetic.
+    damage = Math.max(0, Math.min(damage, (npc.hp ?? npcHpMax) - 1));
+    knockOut(npc, { by: player.id });
+    player.combatTargetId = null;
+    npc._combatTargetId = null;
+  }
 
   npc.hp = Math.max(0, (npc.hp ?? npc.hp_max ?? 20) - damage);
   npc._combatTargetId = player.id;
@@ -747,7 +1485,7 @@ export async function playerAttackNpc(player, npcId, weaponStats) {
     if (zone) zone.npcs.delete(npcId);
     return {
       success: true, hit: true, killed: true, critical, damage, margin, npcId, npcSpeech, power,
-      message: `${playerHitLine(player, npc.name, partLabel, damage, damageType, critical, power)}. They crumple.`,
+      message: `${playerHitLine(player, npc.name, partLabel, damage, damageType, critical, power, execution)}. They crumple.`,
     };
   }
 
@@ -756,7 +1494,7 @@ export async function playerAttackNpc(player, npcId, weaponStats) {
   return {
     success: true, hit: true, killed: false, critical, damage, margin, npcId, npcSpeech, power,
     npcHp: npc.hp, npcHpMax: npc.hp_max ?? 20,
-    message: `${playerHitLine(player, npc.name, partLabel, damage, damageType, critical, power)}${critical ? '!' : '.'}${hpTag}`,
+    message: `${playerHitLine(player, npc.name, partLabel, damage, damageType, critical, power, execution)}${critical ? '!' : '.'}${hpTag}`,
   };
 }
 
@@ -787,7 +1525,7 @@ export async function enemyAttackNpc(enemy, npc) {
     total += Math.floor(amt * headMult);
   }
   const damage = Math.max(1, total);
-  const partLabel = PART_LABELS[part] || part;
+  const partLabel = partLabelOf(part);
 
   npc.hp = Math.max(0, (npc.hp ?? npc.hp_max ?? 20) - damage);
   npc._combatTargetId = enemy.instanceId;
@@ -836,7 +1574,7 @@ export async function enemyAttackEnemy(attacker, defender) {
     total += Math.floor(amt * headMult);
   }
   const damage = Math.max(1, total);
-  const partLabel = PART_LABELS[part] || part;
+  const partLabel = partLabelOf(part);
 
   defender.hp = Math.max(0, (defender.hp ?? defender.hp_max ?? 20) - damage);
   const killed = defender.hp <= 0;
@@ -889,13 +1627,82 @@ export async function npcAttackPlayer(npc, player) {
     total += Math.max(0, Math.floor(amt * headMult) - playerPartSoak(player, part, c.type));
   }
   const damage = Math.max(1, total);
-  const partLabel = PART_LABELS[part] || part;
+  const partLabel = partLabelOf(part);
 
   return {
     hit: true, damage, critical,
     message: critical
       ? `<span class="crit-tag-in">CRITICAL!</span> ${npc.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${dodged ? DODGE_BROKEN : ''}${selfHpTag(player.hp - damage, player.hp_max)}`
       : `${npc.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${dodged ? DODGE_BROKEN : ''}${selfHpTag(player.hp - damage, player.hp_max)}`,
+  };
+}
+
+// NPC swings at another NPC. The missing corner of the matrix: enemy→player,
+// enemy→npc, enemy→enemy and npc→player all existed; two NPCs could never fight
+// each other, so a bar brawl had to be faked with flavour text and direct HP.
+//
+// Deliberately built from `npcAttackPlayer`'s numbers (flags.hit, flags.weapon,
+// the same crit threshold and body-part roll) rather than a new formula, so a
+// given NPC hits exactly as hard whoever they swing at. The defender side is
+// modelled on `enemyAttackNpc`: NPCs have `flags.dodge` and no typed soak, so
+// there is no armour lookup to do.
+//
+// LETHAL BY DEFAULT, like every other swing in this file. Callers that want a
+// scuffle rather than a killing pass `{ floorHp }` — damage then stops at that
+// floor and `killed` can never come back true. That keeps "two drunks scrapping"
+// and "an NPC murdering another NPC" as the same code path with one honest knob,
+// instead of two systems that drift.
+export async function npcAttackNpc(attacker, defender, { floorHp = 0 } = {}) {
+  if (!attacker || !defender || attacker._dead || defender._dead) return null;
+  if (attacker.id === defender.id) return null;
+  if (getZoneProtection(defender.zone_id)) return null;   // forcefield stops this too
+  const now = Date.now();
+  await ensureTunables();
+  const attackInterval = getTunable('enemy_attack_interval_ms', 4000);
+  if (now - (attacker._lastAttack || 0) < attackInterval) return null;
+  attacker._lastAttack = now;
+
+  const margin = ((attacker.flags?.hit ?? 1) - (defender.flags?.dodge ?? 1))
+    + rollSwing() + await darknessHitPenalty(defender.zone_id);
+  if (margin < 0) {
+    return { hit: false, killed: false, npcId: defender.id,
+      message: `${attacker.name} swings at ${defender.name} and misses.` };
+  }
+
+  const critical = margin >= getTunable('crit_threshold', 8);
+  const weaponArr = Array.isArray(attacker.flags?.weapon) && attacker.flags.weapon.length
+    ? attacker.flags.weapon
+    : [{ type: 'kinetic', min: 1, max: 3 }];
+  const damageTypes = [...new Set(weaponArr.map(c => c.type))].join('/');
+  const part = rollBodyPart();
+  const headMult = part === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
+  let total = 0;
+  for (const c of weaponArr) {
+    let amt = randInt(Number(c.min) || 1, Number(c.max) || 3);
+    if (critical) amt = Math.floor(amt * getTunable('crit_multiplier', 1.5));
+    total += Math.floor(amt * headMult);
+  }
+  const startHp = defender.hp ?? defender.hp_max ?? 20;
+  // Floor first, THEN damage — so a capped swing can bruise but never finish.
+  const damage = Math.max(1, Math.min(total, Math.max(0, startHp - floorHp)));
+  defender.hp = Math.max(floorHp, startHp - damage);
+  // Hitting someone makes it mutual: the defender turns on their attacker, which
+  // is what turns one thrown punch into a fight without any brawl state machine.
+  if (!defender._combatTargetId) defender._combatTargetId = attacker.id;
+
+  const killed = defender.hp <= 0;
+  if (killed) {
+    defender._dead = true;
+    defender._respawnAt = Date.now() + 60000;
+    const zone = world.zones.get(defender.zone_id);
+    if (zone) zone.npcs.delete(defender.id);
+  }
+  const partLabel = partLabelOf(part);
+  return {
+    hit: true, damage, critical, killed, npcId: defender.id,
+    message: critical
+      ? `<span class="crit-tag">CRITICAL HIT</span> ${attacker.name} hits ${defender.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${killed ? ' They go down.' : ''}`
+      : `${attacker.name} hits ${defender.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${killed ? ' They go down.' : ''}`,
   };
 }
 
@@ -918,7 +1725,7 @@ export async function pvpSwingSleeping(attacker, defender) {
 
   const critical = Math.random() < 0.1;
   const part = rollBodyPart();
-  const partLabel = PART_LABELS[part] || part;
+  const partLabel = partLabelOf(part);
   const headMult = part === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
 
   let damage = randInt(damage_min, damage_max);

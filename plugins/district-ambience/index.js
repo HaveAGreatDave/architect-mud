@@ -41,10 +41,28 @@ function describeAmbient(zone) {
   return pickLine(districtFor(zone)) || undefined;
 }
 
+// zone.smells handler. The ambient tick shows a district line 35% of the time
+// and only when it feels like it; `smell` is the player deliberately asking, so
+// it always answers — no dice roll, no abstaining. Weak on purpose: the
+// neighbourhood is the background a room's real smells sit on top of, and it
+// should never crowd out the pan that's burning.
+//
+// Same outdoor gate as the ambient line, for the same reason: you cannot smell
+// the Slaglands from inside a sealed room.
+function districtSmell(zone) {
+  if (!isOutdoor(zone)) return undefined;
+  const line = pickLine(districtFor(zone));
+  // Sits exactly ON the baseline floor: outdoors, a deliberate sniff always
+  // gets the neighbourhood, but it's the weakest thing in the room and drops off
+  // the moment three realer smells are competing with it.
+  return line ? { text: `under it all, ${line.replace(/\.$/, '')}`, strength: 5 } : undefined;
+}
+
 export const hooks = {
   'zone.describeAmbient': describeAmbient,
+  'zone.smells': districtSmell,
 };
 
-export const _test = { describeAmbient, isOutdoor, pickLine };
+export const _test = { describeAmbient, isOutdoor, pickLine, districtSmell };
 
 console.log('[district-ambience] Plugin loaded.');

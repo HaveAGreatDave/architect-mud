@@ -12,13 +12,13 @@
   "lock_state": "locked",
   "name": "reinforced cell door",
   "tags": {
-    "lock:hololock": {
+    "lock:detentionlock": {
       "canHack": false,
       "difficulty": 10,
       "messages": {
-        "denied": "The cell hololock flatly refuses your credentials. You are not going anywhere.",
-        "lock": "The cell hololock slams shut with a heavy magnetic clunk.",
-        "unlock": "The cell hololock disengages."
+        "denied": "The detention lock pulls your file, finds it open, and flatly refuses. You are not going anywhere.",
+        "lock": "The cell detention lock slams shut with a heavy magnetic clunk.",
+        "unlock": "The cell detention lock disengages."
       }
     },
     "unbreakable": true

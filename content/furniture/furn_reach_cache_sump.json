@@ -1,0 +1,14 @@
+{
+  "description": "Under the slab the old cistern is dry, dark, and cool, and the frontier has been using it as a pantry: a shelf of stacked block, a bald tarp, rope scars worn into the lip where loads get hauled up. A pallet out of here comes up cold and stays cold most of the way home.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reach_cache_sump",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "the capped cistern",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_the_reach_879_1963"
+}

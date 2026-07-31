@@ -1,0 +1,2155 @@
+{
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "next": "bsm_pre_0",
+        "type": "start"
+      },
+      "bsm_1": {
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
+        "duration_s": 0,
+        "next": "bsm_2",
+        "on": true,
+        "overlayType": "letterbox",
+        "text": "",
+        "type": "overlay"
+      },
+      "bsm_10": {
+        "_vine": {
+          "x": 80,
+          "y": 400
+        },
+        "next": "bsm_11",
+        "style": "narration",
+        "text": "DON GREBE, behind him, shoves him forward six inches for no reason.",
+        "type": "say"
+      },
+      "bsm_100": {
+        "_vine": {
+          "x": 80,
+          "y": 3280
+        },
+        "next": "bsm_101",
+        "style": "verbatim",
+        "text": "Uncle Dutch says, \"Whatever they need it to do. You knock, you smile, you say \"a diamond is forever, now so is she\", and you let them work the rest out themselves.\"",
+        "type": "say"
+      },
+      "bsm_101": {
+        "_vine": {
+          "x": 300,
+          "y": 3280
+        },
+        "next": "bsm_102",
+        "style": "verbatim",
+        "text": "Kipp Dynamo says, \"And we split it.\"",
+        "type": "say"
+      },
+      "bsm_102": {
+        "_vine": {
+          "x": 520,
+          "y": 3280
+        },
+        "next": "bsm_103",
+        "style": "verbatim",
+        "text": "Uncle Dutch says, \"Sixty forty.\"",
+        "type": "say"
+      },
+      "bsm_103": {
+        "_vine": {
+          "x": 740,
+          "y": 3280
+        },
+        "next": "bsm_104",
+        "style": "verbatim",
+        "text": "Kipp Dynamo says, \"Which way.\"",
+        "type": "say"
+      },
+      "bsm_104": {
+        "_vine": {
+          "x": 960,
+          "y": 3280
+        },
+        "next": "bsm_105",
+        "style": "verbatim",
+        "text": "Uncle Dutch says, \"Kipp.\"",
+        "type": "say"
+      },
+      "bsm_105": {
+        "_vine": {
+          "x": 80,
+          "y": 3440
+        },
+        "duration_s": 2,
+        "fade": "out",
+        "next": "bsm_106",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
+      },
+      "bsm_106": {
+        "_vine": {
+          "x": 300,
+          "y": 3440
+        },
+        "duration_s": 8,
+        "next": "bsm_107",
+        "overlayType": "act_card",
+        "subtext": "Vote Teo",
+        "text": "ACT 4",
+        "type": "overlay"
+      },
+      "bsm_107": {
+        "_vine": {
+          "x": 520,
+          "y": 3440
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_108",
+        "overlayType": "lower_third",
+        "subtext": "DAY",
+        "text": "THE ASHWAY — CIVIC HALL",
+        "type": "overlay"
+      },
+      "bsm_108": {
+        "_vine": {
+          "x": 740,
+          "y": 3440
+        },
+        "next": "bsm_109",
+        "style": "narration",
+        "text": "A noticeboard. A sheet: BLOCK STEWARD — NOMINATIONS. One name on it: SUMMER OSTRAND.",
+        "type": "say"
+      },
+      "bsm_109": {
+        "_vine": {
+          "x": 960,
+          "y": 3440
+        },
+        "next": "bsm_110",
+        "style": "narration",
+        "text": "Teo reads it. Norval reads it.",
+        "type": "say"
+      },
+      "bsm_11": {
+        "_vine": {
+          "x": 300,
+          "y": 400
+        },
+        "next": "bsm_12",
+        "style": "verbatim",
+        "text": "Don Grebe says, \"Move up.\"",
+        "type": "say"
+      },
+      "bsm_110": {
+        "_vine": {
+          "x": 80,
+          "y": 3600
+        },
+        "next": "bsm_111",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"Summer Ostrand's been Block Steward two years and all she's done is get the good water rota for her own row.\"",
+        "type": "say"
+      },
+      "bsm_111": {
+        "_vine": {
+          "x": 300,
+          "y": 3600
+        },
+        "next": "bsm_112",
+        "style": "verbatim",
+        "text": "Teo Sandoval says, \"Can anybody nominate.\"",
+        "type": "say"
+      },
+      "bsm_112": {
+        "_vine": {
+          "x": 520,
+          "y": 3600
+        },
+        "next": "bsm_113",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"Anybody who lives here.\"",
+        "type": "say"
+      },
+      "bsm_113": {
+        "_vine": {
+          "x": 740,
+          "y": 3600
+        },
+        "next": "bsm_114",
+        "style": "narration",
+        "text": "Teo takes the pencil off the string and writes TEO SANDOVAL underneath.",
+        "type": "say"
+      },
+      "bsm_114": {
+        "_vine": {
+          "x": 960,
+          "y": 3600
+        },
+        "next": "bsm_115",
+        "style": "verbatim",
+        "text": "Teo Sandoval says, \"Okay.\"",
+        "type": "say"
+      },
+      "bsm_115": {
+        "_vine": {
+          "x": 80,
+          "y": 3760
+        },
+        "next": "bsm_116",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"That's it? You just wrote it?\"",
+        "type": "say"
+      },
+      "bsm_116": {
+        "_vine": {
+          "x": 300,
+          "y": 3760
+        },
+        "next": "bsm_117",
+        "style": "verbatim",
+        "text": "Teo Sandoval says, \"You said anybody.\"",
+        "type": "say"
+      },
+      "bsm_117": {
+        "_vine": {
+          "x": 520,
+          "y": 3760
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_118",
+        "overlayType": "lower_third",
+        "subtext": "NIGHT",
+        "text": "THE ASHWAY — DYNAMO HOUSE, NORVAL'S ROOM",
+        "type": "overlay"
+      },
+      "bsm_118": {
+        "_vine": {
+          "x": 740,
+          "y": 3760
+        },
+        "next": "bsm_119",
+        "style": "narration",
+        "text": "Norval, on the floor, with a tin of paint and a stack of salvaged card, making posters. Each one says VOTE TEO in careful hand-drawn letters. He has done nineteen of them. He is not tired.",
+        "type": "say"
+      },
+      "bsm_119": {
+        "_vine": {
+          "x": 960,
+          "y": 3760
+        },
+        "next": "bsm_120",
+        "style": "narration",
+        "text": "He made ninety-one posters over four nights. Nobody asked him to.",
+        "type": "say"
+      },
+      "bsm_12": {
+        "_vine": {
+          "x": 520,
+          "y": 400
+        },
+        "next": "bsm_13",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"There's nowhere to move up to, Don. There's a wall.\"",
+        "type": "say"
+      },
+      "bsm_120": {
+        "_vine": {
+          "x": 80,
+          "y": 3920
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_121",
+        "overlayType": "lower_third",
+        "subtext": "DAY",
+        "text": "THE ASHWAY — BLOCK ROAD",
+        "type": "overlay"
+      },
+      "bsm_121": {
+        "_vine": {
+          "x": 300,
+          "y": 3920
+        },
+        "next": "bsm_122",
+        "style": "narration",
+        "text": "Summer Ostrand hands out ration chits with her name printed on them. A small crowd takes the chits.",
+        "type": "say"
+      },
+      "bsm_122": {
+        "_vine": {
+          "x": 520,
+          "y": 3920
+        },
+        "next": "bsm_123",
+        "style": "verbatim",
+        "text": "Summer Ostrand says, \"It's not a bribe, it's a sample.\"",
+        "type": "say"
+      },
+      "bsm_123": {
+        "_vine": {
+          "x": 740,
+          "y": 3920
+        },
+        "next": "bsm_124",
+        "style": "narration",
+        "text": "Norval, across the road, silently puts up another poster.",
+        "type": "say"
+      },
+      "bsm_124": {
+        "_vine": {
+          "x": 960,
+          "y": 3920
+        },
+        "duration_s": 2,
+        "fade": "out",
+        "next": "bsm_125",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
+      },
+      "bsm_125": {
+        "_vine": {
+          "x": 80,
+          "y": 4080
+        },
+        "duration_s": 8,
+        "next": "bsm_126",
+        "overlayType": "act_card",
+        "subtext": "The Skit",
+        "text": "ACT 5",
+        "type": "overlay"
+      },
+      "bsm_126": {
+        "_vine": {
+          "x": 300,
+          "y": 4080
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_127",
+        "overlayType": "lower_third",
+        "subtext": "DAY",
+        "text": "THE ASHWAY — CIVIC HALL",
+        "type": "overlay"
+      },
+      "bsm_127": {
+        "_vine": {
+          "x": 520,
+          "y": 4080
+        },
+        "next": "bsm_128",
+        "style": "narration",
+        "text": "Rows of chairs. Warden Peale at a lectern with a clipboard.",
+        "type": "say"
+      },
+      "bsm_128": {
+        "_vine": {
+          "x": 740,
+          "y": 4080
+        },
+        "next": "bsm_129",
+        "style": "verbatim",
+        "text": "Warden Peale says, \"Both candidates give a statement, then both candidates give a skit. That's the format, it's always been the format, don't argue with me about the format.\"",
+        "type": "say"
+      },
+      "bsm_129": {
+        "_vine": {
+          "x": 960,
+          "y": 4080
+        },
+        "next": "bsm_130",
+        "style": "narration",
+        "text": "Summer gives her statement. It is eleven minutes long and about her mother.",
+        "type": "say"
+      },
+      "bsm_13": {
+        "_vine": {
+          "x": 740,
+          "y": 400
+        },
+        "next": "bsm_14",
+        "style": "verbatim",
+        "text": "Don Grebe says, \"Move up to the wall then.\"",
+        "type": "say"
+      },
+      "bsm_130": {
+        "_vine": {
+          "x": 80,
+          "y": 4240
+        },
+        "next": "bsm_131",
+        "style": "narration",
+        "text": "Teo stands up. He is holding nothing.",
+        "type": "say"
+      },
+      "bsm_131": {
+        "_vine": {
+          "x": 300,
+          "y": 4240
+        },
+        "next": "bsm_132",
+        "style": "verbatim",
+        "text": "Teo Sandoval says, \"If you vote for me, all your wildest dreams will come true.\"",
+        "type": "say"
+      },
+      "bsm_132": {
+        "_vine": {
+          "x": 520,
+          "y": 4240
+        },
+        "next": "bsm_133",
+        "style": "narration",
+        "text": "He sits down.",
+        "type": "say"
+      },
+      "bsm_133": {
+        "_vine": {
+          "x": 740,
+          "y": 4240
+        },
+        "next": "bsm_134",
+        "style": "narration",
+        "text": "A silence of a quality rarely achieved indoors.",
+        "type": "say"
+      },
+      "bsm_134": {
+        "_vine": {
+          "x": 960,
+          "y": 4240
+        },
+        "next": "bsm_135",
+        "style": "verbatim",
+        "text": "Warden Peale says, \"And the skit.\"",
+        "type": "say"
+      },
+      "bsm_135": {
+        "_vine": {
+          "x": 80,
+          "y": 4400
+        },
+        "next": "bsm_136",
+        "style": "narration",
+        "text": "Teo looks at Norval. Norval looks at Teo. Teo has not prepared a skit. Neither has Norval.",
+        "type": "say"
+      },
+      "bsm_136": {
+        "_vine": {
+          "x": 300,
+          "y": 4400
+        },
+        "next": "bsm_137",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"I've got it.\"",
+        "type": "say"
+      },
+      "bsm_137": {
+        "_vine": {
+          "x": 520,
+          "y": 4400
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_138",
+        "overlayType": "lower_third",
+        "subtext": "CONTINUOUS",
+        "text": "THE ASHWAY — CIVIC HALL",
+        "type": "overlay"
+      },
+      "bsm_138": {
+        "_vine": {
+          "x": 740,
+          "y": 4400
+        },
+        "next": "bsm_139",
+        "style": "narration",
+        "text": "Norval walks to the deck at the side of the stage. He takes a cassette out of his jacket. It is scuffed to the point of illegibility. He puts it in and presses the key.",
+        "type": "say"
+      },
+      "bsm_139": {
+        "_vine": {
+          "x": 960,
+          "y": 4400
+        },
+        "next": "bsm_140",
+        "style": "narration",
+        "text": "A track starts. It is thin and it is old and the tape has stretched.",
+        "type": "say"
+      },
+      "bsm_14": {
+        "_vine": {
+          "x": 960,
+          "y": 400
+        },
+        "next": "bsm_15",
+        "style": "narration",
+        "text": "Norval moves up to the wall. He stands against the wall. He waits there for a while.",
+        "type": "say"
+      },
+      "bsm_140": {
+        "_vine": {
+          "x": 80,
+          "y": 4560
+        },
+        "next": "bsm_141",
+        "style": "narration",
+        "text": "Norval walks to the middle of the stage and stands there long enough that two people start to leave.",
+        "type": "say"
+      },
+      "bsm_141": {
+        "_vine": {
+          "x": 300,
+          "y": 4560
+        },
+        "next": "bsm_142",
+        "style": "narration",
+        "text": "Then he dances.",
+        "type": "say"
+      },
+      "bsm_142": {
+        "_vine": {
+          "x": 520,
+          "y": 4560
+        },
+        "next": "bsm_143",
+        "style": "narration",
+        "text": "He is extremely good. Nobody in the hall knew, because he has never done it in front of anybody. The camera does not move, because the man holding it has forgotten he is holding it.",
+        "type": "say"
+      },
+      "bsm_143": {
+        "_vine": {
+          "x": 740,
+          "y": 4560
+        },
+        "next": "bsm_144",
+        "style": "narration",
+        "text": "Forty-one seconds. One take. The reel was never cut because there was nothing to cut it with.",
+        "type": "say"
+      },
+      "bsm_144": {
+        "_vine": {
+          "x": 960,
+          "y": 4560
+        },
+        "next": "bsm_145",
+        "style": "narration",
+        "text": "The track ends. Norval walks off the stage and out the side door and does not come back in.",
+        "type": "say"
+      },
+      "bsm_145": {
+        "_vine": {
+          "x": 80,
+          "y": 4720
+        },
+        "next": "bsm_146",
+        "style": "narration",
+        "text": "The hall does not react for a long moment. Then it does.",
+        "type": "say"
+      },
+      "bsm_146": {
+        "_vine": {
+          "x": 300,
+          "y": 4720
+        },
+        "duration_s": 3,
+        "fade": "out",
+        "next": "bsm_147",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
+      },
+      "bsm_147": {
+        "_vine": {
+          "x": 520,
+          "y": 4720
+        },
+        "duration_s": 8,
+        "next": "bsm_148",
+        "overlayType": "act_card",
+        "subtext": "After",
+        "text": "ACT 6",
+        "type": "overlay"
+      },
+      "bsm_148": {
+        "_vine": {
+          "x": 740,
+          "y": 4720
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_149",
+        "overlayType": "lower_third",
+        "subtext": "NEXT DAY",
+        "text": "THE ASHWAY — CIVIC HALL, NOTICEBOARD",
+        "type": "overlay"
+      },
+      "bsm_149": {
+        "_vine": {
+          "x": 960,
+          "y": 4720
+        },
+        "next": "bsm_150",
+        "style": "narration",
+        "text": "The result sheet. TEO SANDOVAL — 88. SUMMER OSTRAND — 31.",
+        "type": "say"
+      },
+      "bsm_15": {
+        "_vine": {
+          "x": 80,
+          "y": 560
+        },
+        "next": "bsm_16",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"Gosh.\"",
+        "type": "say"
+      },
+      "bsm_150": {
+        "_vine": {
+          "x": 80,
+          "y": 4880
+        },
+        "next": "bsm_151",
+        "style": "narration",
+        "text": "Teo looks at it. Norval looks at it.",
+        "type": "say"
+      },
+      "bsm_151": {
+        "_vine": {
+          "x": 300,
+          "y": 4880
+        },
+        "next": "bsm_152",
+        "style": "verbatim",
+        "text": "Teo Sandoval says, \"Thank you.\"",
+        "type": "say"
+      },
+      "bsm_152": {
+        "_vine": {
+          "x": 520,
+          "y": 4880
+        },
+        "next": "bsm_153",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"It's a democracy, Teo. I didn't do anything.\"",
+        "type": "say"
+      },
+      "bsm_153": {
+        "_vine": {
+          "x": 740,
+          "y": 4880
+        },
+        "next": "bsm_154",
+        "style": "verbatim",
+        "text": "Teo Sandoval says, \"Okay.\"",
+        "type": "say"
+      },
+      "bsm_154": {
+        "_vine": {
+          "x": 960,
+          "y": 4880
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_155",
+        "overlayType": "lower_third",
+        "subtext": "DAY",
+        "text": "DYNAMO HOUSE — YARD",
+        "type": "overlay"
+      },
+      "bsm_155": {
+        "_vine": {
+          "x": 80,
+          "y": 5040
+        },
+        "next": "bsm_156",
+        "style": "narration",
+        "text": "Gran's quad comes up the road, slow, with Gran on it, one leg braced.",
+        "type": "say"
+      },
+      "bsm_156": {
+        "_vine": {
+          "x": 300,
+          "y": 5040
+        },
+        "next": "bsm_157",
+        "style": "narration",
+        "text": "Dutch is folding his chair before she has stopped moving.",
+        "type": "say"
+      },
+      "bsm_157": {
+        "_vine": {
+          "x": 520,
+          "y": 5040
+        },
+        "next": "bsm_158",
+        "style": "verbatim",
+        "text": "Gran Dynamo says, \"Dutch.\"",
+        "type": "say"
+      },
+      "bsm_158": {
+        "_vine": {
+          "x": 740,
+          "y": 5040
+        },
+        "next": "bsm_159",
+        "style": "verbatim",
+        "text": "Uncle Dutch says, \"Ma.\"",
+        "type": "say"
+      },
+      "bsm_159": {
+        "_vine": {
+          "x": 960,
+          "y": 5040
+        },
+        "next": "bsm_160",
+        "style": "verbatim",
+        "text": "Gran Dynamo says, \"Go home.\"",
+        "type": "say"
+      },
+      "bsm_16": {
+        "_vine": {
+          "x": 300,
+          "y": 560
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_17",
+        "overlayType": "lower_third",
+        "subtext": "LATER",
+        "text": "THE ASHWAY — DYNAMO HOUSE",
+        "type": "overlay"
+      },
+      "bsm_160": {
+        "_vine": {
+          "x": 80,
+          "y": 5200
+        },
+        "next": "bsm_161",
+        "style": "verbatim",
+        "text": "Uncle Dutch says, \"I'm going.\"",
+        "type": "say"
+      },
+      "bsm_161": {
+        "_vine": {
+          "x": 300,
+          "y": 5200
+        },
+        "next": "bsm_162",
+        "style": "narration",
+        "text": "He puts the chair in the hauler. He stands with the door open, looking at the road again.",
+        "type": "say"
+      },
+      "bsm_162": {
+        "_vine": {
+          "x": 520,
+          "y": 5200
+        },
+        "next": "bsm_163",
+        "style": "verbatim",
+        "text": "Uncle Dutch says, \"Forty feet, Norval. Ask anybody.\"",
+        "type": "say"
+      },
+      "bsm_163": {
+        "_vine": {
+          "x": 740,
+          "y": 5200
+        },
+        "next": "bsm_164",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"I believe you, Uncle Dutch.\"",
+        "type": "say"
+      },
+      "bsm_164": {
+        "_vine": {
+          "x": 960,
+          "y": 5200
+        },
+        "next": "bsm_165",
+        "style": "narration",
+        "text": "Dutch looks at him to see whether that was a joke. It was not. He drives off.",
+        "type": "say"
+      },
+      "bsm_165": {
+        "_vine": {
+          "x": 80,
+          "y": 5360
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_166",
+        "overlayType": "lower_third",
+        "subtext": "LATE AFTERNOON",
+        "text": "THE ASHWAY — POLE-BALL POST",
+        "type": "overlay"
+      },
+      "bsm_166": {
+        "_vine": {
+          "x": 300,
+          "y": 5360
+        },
+        "next": "bsm_167",
+        "style": "narration",
+        "text": "A bent rebar post with a ball on a wire. Norval is hitting it, alone, competently.",
+        "type": "say"
+      },
+      "bsm_167": {
+        "_vine": {
+          "x": 520,
+          "y": 5360
+        },
+        "next": "bsm_168",
+        "style": "narration",
+        "text": "Deb comes up the road with her keychain box.",
+        "type": "say"
+      },
+      "bsm_168": {
+        "_vine": {
+          "x": 740,
+          "y": 5360
+        },
+        "next": "bsm_169",
+        "style": "verbatim",
+        "text": "Debra Wick says, \"Is that a game?\"",
+        "type": "say"
+      },
+      "bsm_169": {
+        "_vine": {
+          "x": 960,
+          "y": 5360
+        },
+        "next": "bsm_170",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"Pole-ball.\"",
+        "type": "say"
+      },
+      "bsm_17": {
+        "_vine": {
+          "x": 520,
+          "y": 560
+        },
+        "next": "bsm_18",
+        "style": "narration",
+        "text": "A kitchen. One window, taped. KIPP DYNAMO, thirty-two, sits at a relay terminal with a headset and does not turn around.",
+        "type": "say"
+      },
+      "bsm_170": {
+        "_vine": {
+          "x": 80,
+          "y": 5520
+        },
+        "next": "bsm_171",
+        "style": "verbatim",
+        "text": "Debra Wick says, \"Are you good at it?\"",
+        "type": "say"
+      },
+      "bsm_171": {
+        "_vine": {
+          "x": 300,
+          "y": 5520
+        },
+        "next": "bsm_172",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"Yes.\"",
+        "type": "say"
+      },
+      "bsm_172": {
+        "_vine": {
+          "x": 520,
+          "y": 5520
+        },
+        "next": "bsm_173",
+        "style": "verbatim",
+        "text": "Debra Wick says, \"Is anyone else good at it?\"",
+        "type": "say"
+      },
+      "bsm_173": {
+        "_vine": {
+          "x": 740,
+          "y": 5520
+        },
+        "next": "bsm_174",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"No.\"",
+        "type": "say"
+      },
+      "bsm_174": {
+        "_vine": {
+          "x": 960,
+          "y": 5520
+        },
+        "next": "bsm_175",
+        "style": "narration",
+        "text": "She puts the box down. He serves. She hits it back. They play.",
+        "type": "say"
+      },
+      "bsm_175": {
+        "_vine": {
+          "x": 80,
+          "y": 5680
+        },
+        "next": "bsm_176",
+        "style": "narration",
+        "text": "The camera holds on the two of them from thirty feet away for a very long time. Neither of them says anything. The ash comes down like it always does. That is the end of the picture.",
+        "type": "say"
+      },
+      "bsm_176": {
+        "_vine": {
+          "x": 300,
+          "y": 5680
+        },
+        "duration_s": 4,
+        "fade": "out",
+        "next": "bsm_177",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
+      },
+      "bsm_177": {
+        "_vine": {
+          "x": 520,
+          "y": 5680
+        },
+        "next": "bsm_178",
+        "style": "narration",
+        "text": "Norval Dynamo lived in the Ashway his whole life and never left it, and when they asked him for this picture he said he'd rather not, and then he did it anyway, because they asked.",
+        "type": "say"
+      },
+      "bsm_178": {
+        "_vine": {
+          "x": 740,
+          "y": 5680
+        },
+        "graphic_id": "norval_dynamo_title",
+        "type": "title_card"
+      },
+      "bsm_18": {
+        "_vine": {
+          "x": 740,
+          "y": 560
+        },
+        "next": "bsm_19",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"Kipp. There's no nuggets.\"",
+        "type": "say"
+      },
+      "bsm_19": {
+        "_vine": {
+          "x": 960,
+          "y": 560
+        },
+        "next": "bsm_20",
+        "style": "verbatim",
+        "text": "Kipp Dynamo says, \"I ate the nuggets.\"",
+        "type": "say"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "graphic_id": "norval_dynamo_title",
+        "next": "bsm_3",
+        "type": "title_card"
+      },
+      "bsm_20": {
+        "_vine": {
+          "x": 80,
+          "y": 720
+        },
+        "next": "bsm_21",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"You ate all of them?\"",
+        "type": "say"
+      },
+      "bsm_21": {
+        "_vine": {
+          "x": 300,
+          "y": 720
+        },
+        "next": "bsm_22",
+        "style": "verbatim",
+        "text": "Kipp Dynamo says, \"I'm carb-loading. I'm training to be a cage fighter.\"",
+        "type": "say"
+      },
+      "bsm_22": {
+        "_vine": {
+          "x": 520,
+          "y": 720
+        },
+        "next": "bsm_23",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"You've been training to be a cage fighter for four years.\"",
+        "type": "say"
+      },
+      "bsm_23": {
+        "_vine": {
+          "x": 740,
+          "y": 720
+        },
+        "next": "bsm_24",
+        "style": "verbatim",
+        "text": "Kipp Dynamo says, \"And I'm gonna keep training until I'm a cage fighter, Norval. That's how training works.\"",
+        "type": "say"
+      },
+      "bsm_24": {
+        "_vine": {
+          "x": 960,
+          "y": 720
+        },
+        "next": "bsm_25",
+        "style": "narration",
+        "text": "Norval takes a jar of grey paste from a shelf, looks at it, and puts it back.",
+        "type": "say"
+      },
+      "bsm_25": {
+        "_vine": {
+          "x": 80,
+          "y": 880
+        },
+        "next": "bsm_26",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"Who're you even talking to all day.\"",
+        "type": "say"
+      },
+      "bsm_26": {
+        "_vine": {
+          "x": 300,
+          "y": 880
+        },
+        "next": "bsm_27",
+        "style": "verbatim",
+        "text": "Kipp Dynamo says, \"Her name's LaFonda and she's from the Yards and it's none of your dang business.\"",
+        "type": "say"
+      },
+      "bsm_27": {
+        "_vine": {
+          "x": 520,
+          "y": 880
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_28",
+        "overlayType": "lower_third",
+        "subtext": "AFTERNOON",
+        "text": "THE ASHWAY — CIVIC HALL, CLASSROOM 2",
+        "type": "overlay"
+      },
+      "bsm_28": {
+        "_vine": {
+          "x": 740,
+          "y": 880
+        },
+        "next": "bsm_29",
+        "style": "narration",
+        "text": "Twelve teenagers. WARDEN PEALE at the front, out of enthusiasm.",
+        "type": "say"
+      },
+      "bsm_29": {
+        "_vine": {
+          "x": 960,
+          "y": 880
+        },
+        "next": "bsm_30",
+        "style": "narration",
+        "text": "Norval unfolds his paper on the desk. It is a drawing, in pencil, done with enormous care.",
+        "type": "say"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "next": "bsm_4",
+        "style": "narration",
+        "text": "A dirt yard. Grey ash over everything, the way frost lies. Nothing happens for a while. A goat walks left to right and exits.",
+        "type": "say"
+      },
+      "bsm_30": {
+        "_vine": {
+          "x": 80,
+          "y": 1040
+        },
+        "next": "bsm_31",
+        "style": "narration",
+        "text": "DEBRA WICK, sixteen, side-braid, leans over.",
+        "type": "say"
+      },
+      "bsm_31": {
+        "_vine": {
+          "x": 300,
+          "y": 1040
+        },
+        "next": "bsm_32",
+        "style": "verbatim",
+        "text": "Debra Wick says, \"What's that.\"",
+        "type": "say"
+      },
+      "bsm_32": {
+        "_vine": {
+          "x": 520,
+          "y": 1040
+        },
+        "next": "bsm_33",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"A ligerat.\"",
+        "type": "say"
+      },
+      "bsm_33": {
+        "_vine": {
+          "x": 740,
+          "y": 1040
+        },
+        "next": "bsm_34",
+        "style": "verbatim",
+        "text": "Debra Wick says, \"A what.\"",
+        "type": "say"
+      },
+      "bsm_34": {
+        "_vine": {
+          "x": 960,
+          "y": 1040
+        },
+        "next": "bsm_35",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"It's pretty much my favourite animal. It's like a lion and a rat mixed. Bred for its skills in scavenging.\"",
+        "type": "say"
+      },
+      "bsm_35": {
+        "_vine": {
+          "x": 80,
+          "y": 1200
+        },
+        "next": "bsm_36",
+        "style": "verbatim",
+        "text": "Debra Wick says, \"Does it exist?\"",
+        "type": "say"
+      },
+      "bsm_36": {
+        "_vine": {
+          "x": 300,
+          "y": 1200
+        },
+        "next": "bsm_37",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"Not yet.\"",
+        "type": "say"
+      },
+      "bsm_37": {
+        "_vine": {
+          "x": 520,
+          "y": 1200
+        },
+        "next": "bsm_38",
+        "style": "narration",
+        "text": "A long pause. Deb looks at the drawing. It is genuinely quite good.",
+        "type": "say"
+      },
+      "bsm_38": {
+        "_vine": {
+          "x": 740,
+          "y": 1200
+        },
+        "next": "bsm_39",
+        "style": "verbatim",
+        "text": "Debra Wick says, \"I do braided wire keychains. A credit fifty. And portrait exposures, but the light's broken.\"",
+        "type": "say"
+      },
+      "bsm_39": {
+        "_vine": {
+          "x": 960,
+          "y": 1200
+        },
+        "next": "bsm_40",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"I'll take a keychain.\"",
+        "type": "say"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "next": "bsm_5",
+        "style": "narration",
+        "text": "The Ashway is eleven blocks of prefab and tailings, forty minutes from anything, and it has produced in its entire history one thing of note. This is a picture about him, and he would like that sentence removed.",
+        "type": "say"
+      },
+      "bsm_40": {
+        "_vine": {
+          "x": 80,
+          "y": 1360
+        },
+        "next": "bsm_41",
+        "style": "verbatim",
+        "text": "Debra Wick says, \"You don't have to.\"",
+        "type": "say"
+      },
+      "bsm_41": {
+        "_vine": {
+          "x": 300,
+          "y": 1360
+        },
+        "next": "bsm_42",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"I know I don't have to.\"",
+        "type": "say"
+      },
+      "bsm_42": {
+        "_vine": {
+          "x": 520,
+          "y": 1360
+        },
+        "next": "bsm_43",
+        "style": "narration",
+        "text": "He buys a keychain. Neither of them says anything else for the rest of the scene.",
+        "type": "say"
+      },
+      "bsm_43": {
+        "_vine": {
+          "x": 740,
+          "y": 1360
+        },
+        "duration_s": 2,
+        "fade": "out",
+        "next": "bsm_44",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
+      },
+      "bsm_44": {
+        "_vine": {
+          "x": 960,
+          "y": 1360
+        },
+        "duration_s": 8,
+        "next": "bsm_45",
+        "overlayType": "act_card",
+        "subtext": "Uncle Dutch",
+        "text": "ACT 2",
+        "type": "overlay"
+      },
+      "bsm_45": {
+        "_vine": {
+          "x": 80,
+          "y": 1520
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_46",
+        "overlayType": "lower_third",
+        "subtext": "DUSK",
+        "text": "THE ASHWAY — TAILINGS ROAD",
+        "type": "overlay"
+      },
+      "bsm_46": {
+        "_vine": {
+          "x": 300,
+          "y": 1520
+        },
+        "next": "bsm_47",
+        "style": "narration",
+        "text": "A scrap quad crosses the frame far away, going too fast. It goes out of shot. There is a distant, unremarkable crunch.",
+        "type": "say"
+      },
+      "bsm_47": {
+        "_vine": {
+          "x": 520,
+          "y": 1520
+        },
+        "next": "bsm_48",
+        "style": "narration",
+        "text": "Gran Dynamo broke her hip on the tailings on a Tuesday, which meant somebody had to come and mind the boys.",
+        "type": "say"
+      },
+      "bsm_48": {
+        "_vine": {
+          "x": 740,
+          "y": 1520
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_49",
+        "overlayType": "lower_third",
+        "subtext": "MORNING",
+        "text": "DYNAMO HOUSE — YARD",
+        "type": "overlay"
+      },
+      "bsm_49": {
+        "_vine": {
+          "x": 960,
+          "y": 1520
+        },
+        "next": "bsm_50",
+        "style": "narration",
+        "text": "A hauler pulls in. UNCLE DUTCH gets out. Forty-nine. A jacket he has owned since before the Handoff. He looks at the house like a man appraising a property he has already decided against.",
+        "type": "say"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "duration_s": 2,
+        "fade": "out",
+        "next": "bsm_6",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
+      },
+      "bsm_50": {
+        "_vine": {
+          "x": 80,
+          "y": 1680
+        },
+        "next": "bsm_51",
+        "style": "verbatim",
+        "text": "Uncle Dutch says, \"Norval. Kipp. Your gran's in the clinic in Coldwater and I'm here till she's out.\"",
+        "type": "say"
+      },
+      "bsm_51": {
+        "_vine": {
+          "x": 300,
+          "y": 1680
+        },
+        "next": "bsm_52",
+        "style": "verbatim",
+        "text": "Kipp Dynamo says, \"How long's that.\"",
+        "type": "say"
+      },
+      "bsm_52": {
+        "_vine": {
+          "x": 520,
+          "y": 1680
+        },
+        "next": "bsm_53",
+        "style": "verbatim",
+        "text": "Uncle Dutch says, \"Depends how she heals. Hips are funny.\"",
+        "type": "say"
+      },
+      "bsm_53": {
+        "_vine": {
+          "x": 740,
+          "y": 1680
+        },
+        "next": "bsm_54",
+        "style": "narration",
+        "text": "He unloads a folding chair and a crate. He sets the chair up in the yard facing the road, sits in it, and looks at the road.",
+        "type": "say"
+      },
+      "bsm_54": {
+        "_vine": {
+          "x": 960,
+          "y": 1680
+        },
+        "next": "bsm_55",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"What're you doing.\"",
+        "type": "say"
+      },
+      "bsm_55": {
+        "_vine": {
+          "x": 80,
+          "y": 1840
+        },
+        "next": "bsm_56",
+        "style": "verbatim",
+        "text": "Uncle Dutch says, \"Thinking.\"",
+        "type": "say"
+      },
+      "bsm_56": {
+        "_vine": {
+          "x": 300,
+          "y": 1840
+        },
+        "next": "bsm_57",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"About what.\"",
+        "type": "say"
+      },
+      "bsm_57": {
+        "_vine": {
+          "x": 520,
+          "y": 1840
+        },
+        "next": "bsm_58",
+        "style": "verbatim",
+        "text": "Uncle Dutch says, \"Seventy-one.\"",
+        "type": "say"
+      },
+      "bsm_58": {
+        "_vine": {
+          "x": 740,
+          "y": 1840
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_59",
+        "overlayType": "lower_third",
+        "subtext": "LATER",
+        "text": "DYNAMO HOUSE — YARD",
+        "type": "overlay"
+      },
+      "bsm_59": {
+        "_vine": {
+          "x": 960,
+          "y": 1840
+        },
+        "next": "bsm_60",
+        "style": "narration",
+        "text": "Dutch has not moved. Norval is standing near him because there is nowhere else to stand.",
+        "type": "say"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "duration_s": 8,
+        "next": "bsm_7",
+        "overlayType": "act_card",
+        "subtext": "Skills",
+        "text": "ACT 1",
+        "type": "overlay"
+      },
+      "bsm_60": {
+        "_vine": {
+          "x": 80,
+          "y": 2000
+        },
+        "next": "bsm_61",
+        "style": "verbatim",
+        "text": "Uncle Dutch says, \"You know they ran evac convoys out of the Basin that year. Nine of 'em. I was this close to being on the seventh.\"",
+        "type": "say"
+      },
+      "bsm_61": {
+        "_vine": {
+          "x": 300,
+          "y": 2000
+        },
+        "next": "bsm_62",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"How close.\"",
+        "type": "say"
+      },
+      "bsm_62": {
+        "_vine": {
+          "x": 520,
+          "y": 2000
+        },
+        "next": "bsm_63",
+        "style": "verbatim",
+        "text": "Uncle Dutch says, \"They needed one more hand to load and they picked Rolly Beck. Rolly Beck. Couldn't carry a bag of ration flour without sitting down halfway.\"",
+        "type": "say"
+      },
+      "bsm_63": {
+        "_vine": {
+          "x": 740,
+          "y": 2000
+        },
+        "next": "bsm_64",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"So?\"",
+        "type": "say"
+      },
+      "bsm_64": {
+        "_vine": {
+          "x": 960,
+          "y": 2000
+        },
+        "next": "bsm_65",
+        "style": "verbatim",
+        "text": "Uncle Dutch says, \"So if they'd picked me I'd be in the Meridian arcology right now, eating real fruit, with a woman.\"",
+        "type": "say"
+      },
+      "bsm_65": {
+        "_vine": {
+          "x": 80,
+          "y": 2160
+        },
+        "next": "bsm_66",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"But they didn't pick you.\"",
+        "type": "say"
+      },
+      "bsm_66": {
+        "_vine": {
+          "x": 300,
+          "y": 2160
+        },
+        "next": "bsm_67",
+        "style": "verbatim",
+        "text": "Uncle Dutch says, \"No.\"",
+        "type": "say"
+      },
+      "bsm_67": {
+        "_vine": {
+          "x": 520,
+          "y": 2160
+        },
+        "next": "bsm_68",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"So you're here.\"",
+        "type": "say"
+      },
+      "bsm_68": {
+        "_vine": {
+          "x": 740,
+          "y": 2160
+        },
+        "next": "bsm_69",
+        "style": "verbatim",
+        "text": "Uncle Dutch says, \"Norval, I could throw a crate forty feet in 2071. Forty feet. Ask anybody.\"",
+        "type": "say"
+      },
+      "bsm_69": {
+        "_vine": {
+          "x": 960,
+          "y": 2160
+        },
+        "next": "bsm_70",
+        "style": "narration",
+        "text": "Norval walks away. Dutch stays in the chair. The shot holds on him for a long time after Norval has gone.",
+        "type": "say"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_8",
+        "overlayType": "lower_third",
+        "subtext": "MORNING",
+        "text": "THE ASHWAY — RATION LINE 4",
+        "type": "overlay"
+      },
+      "bsm_70": {
+        "_vine": {
+          "x": 80,
+          "y": 2320
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_71",
+        "overlayType": "lower_third",
+        "subtext": "DAY",
+        "text": "THE ASHWAY — BLOCK ROAD",
+        "type": "overlay"
+      },
+      "bsm_71": {
+        "_vine": {
+          "x": 300,
+          "y": 2320
+        },
+        "next": "bsm_72",
+        "style": "narration",
+        "text": "A scooter comes down the road at a very moderate speed. It stops. TEO SANDOVAL, sixteen, gets off. He is calm in a way nobody in the Ashway is calm.",
+        "type": "say"
+      },
+      "bsm_72": {
+        "_vine": {
+          "x": 520,
+          "y": 2320
+        },
+        "next": "bsm_73",
+        "style": "narration",
+        "text": "Norval is on the roadside. He looks at the scooter for a while.",
+        "type": "say"
+      },
+      "bsm_73": {
+        "_vine": {
+          "x": 740,
+          "y": 2320
+        },
+        "next": "bsm_74",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"That yours?\"",
+        "type": "say"
+      },
+      "bsm_74": {
+        "_vine": {
+          "x": 960,
+          "y": 2320
+        },
+        "next": "bsm_75",
+        "style": "verbatim",
+        "text": "Teo Sandoval says, \"Yes.\"",
+        "type": "say"
+      },
+      "bsm_75": {
+        "_vine": {
+          "x": 80,
+          "y": 2480
+        },
+        "next": "bsm_76",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"That's a sweet scooter.\"",
+        "type": "say"
+      },
+      "bsm_76": {
+        "_vine": {
+          "x": 300,
+          "y": 2480
+        },
+        "next": "bsm_77",
+        "style": "verbatim",
+        "text": "Teo Sandoval says, \"Thank you.\"",
+        "type": "say"
+      },
+      "bsm_77": {
+        "_vine": {
+          "x": 520,
+          "y": 2480
+        },
+        "next": "bsm_78",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"I'm Norval.\"",
+        "type": "say"
+      },
+      "bsm_78": {
+        "_vine": {
+          "x": 740,
+          "y": 2480
+        },
+        "next": "bsm_79",
+        "style": "verbatim",
+        "text": "Teo Sandoval says, \"Teo.\"",
+        "type": "say"
+      },
+      "bsm_79": {
+        "_vine": {
+          "x": 960,
+          "y": 2480
+        },
+        "next": "bsm_80",
+        "style": "narration",
+        "text": "They stand there. A hauler goes past. The ash settles again.",
+        "type": "say"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "next": "bsm_9",
+        "style": "narration",
+        "text": "A queue of nineteen people in front of a shuttered window. Ash on the shoulders of every coat.",
+        "type": "say"
+      },
+      "bsm_80": {
+        "_vine": {
+          "x": 80,
+          "y": 2640
+        },
+        "next": "bsm_81",
+        "style": "verbatim",
+        "text": "Norval Dynamo says, \"You wanna see a drawing of a ligerat.\"",
+        "type": "say"
+      },
+      "bsm_81": {
+        "_vine": {
+          "x": 300,
+          "y": 2640
+        },
+        "next": "bsm_82",
+        "style": "verbatim",
+        "text": "Teo Sandoval says, \"Okay.\"",
+        "type": "say"
+      },
+      "bsm_82": {
+        "_vine": {
+          "x": 520,
+          "y": 2640
+        },
+        "duration_s": 2,
+        "fade": "out",
+        "next": "bsm_83",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
+      },
+      "bsm_83": {
+        "_vine": {
+          "x": 740,
+          "y": 2640
+        },
+        "duration_s": 8,
+        "next": "bsm_84",
+        "overlayType": "act_card",
+        "subtext": "Vance Combat Systems",
+        "text": "ACT 3",
+        "type": "overlay"
+      },
+      "bsm_84": {
+        "_vine": {
+          "x": 960,
+          "y": 2640
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_85",
+        "overlayType": "lower_third",
+        "subtext": "EVENING",
+        "text": "THE ASHWAY — CONTAINER 9",
+        "type": "overlay"
+      },
+      "bsm_85": {
+        "_vine": {
+          "x": 80,
+          "y": 2800
+        },
+        "next": "bsm_86",
+        "style": "narration",
+        "text": "A shipping container with a hand-painted sign: VANCE COMBAT SYSTEMS — FIRST SESSION FREE. Inside, CLAW VANCE, forty, in a sleeveless vest, addresses six people.",
+        "type": "say"
+      },
+      "bsm_86": {
+        "_vine": {
+          "x": 300,
+          "y": 2800
+        },
+        "next": "bsm_87",
+        "style": "verbatim",
+        "text": "Claw Vance says, \"Bow to your sensei. Bow to your sensei.\"",
+        "type": "say"
+      },
+      "bsm_87": {
+        "_vine": {
+          "x": 520,
+          "y": 2800
+        },
+        "next": "bsm_88",
+        "style": "narration",
+        "text": "Nobody bows. Claw continues anyway.",
+        "type": "say"
+      },
+      "bsm_88": {
+        "_vine": {
+          "x": 740,
+          "y": 2800
+        },
+        "next": "bsm_89",
+        "style": "verbatim",
+        "text": "Claw Vance says, \"Now. A man comes at you with a pipe. What do you do. Kipp.\"",
+        "type": "say"
+      },
+      "bsm_89": {
+        "_vine": {
+          "x": 960,
+          "y": 2800
+        },
+        "next": "bsm_90",
+        "style": "verbatim",
+        "text": "Kipp Dynamo says, \"Uh. Run?\"",
+        "type": "say"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "next": "bsm_10",
+        "style": "narration",
+        "text": "NORVAL DYNAMO is sixteen, six foot one, and constructed entirely of elbows. He wears a respirator on a lanyard that he does not put on. He is holding a folded piece of paper.",
+        "type": "say"
+      },
+      "bsm_90": {
+        "_vine": {
+          "x": 80,
+          "y": 2960
+        },
+        "next": "bsm_91",
+        "style": "verbatim",
+        "text": "Claw Vance says, \"Wrong. You break the pipe. You break the arm holding the pipe. Then you go and find where he got the pipe and you break that too. That's Vance. That's the system.\"",
+        "type": "say"
+      },
+      "bsm_91": {
+        "_vine": {
+          "x": 300,
+          "y": 2960
+        },
+        "next": "bsm_92",
+        "style": "verbatim",
+        "text": "Kipp Dynamo says, \"How much is the full course.\"",
+        "type": "say"
+      },
+      "bsm_92": {
+        "_vine": {
+          "x": 520,
+          "y": 2960
+        },
+        "next": "bsm_93",
+        "style": "verbatim",
+        "text": "Claw Vance says, \"Ninety credits and you sign a waiver that I wrote.\"",
+        "type": "say"
+      },
+      "bsm_93": {
+        "_vine": {
+          "x": 740,
+          "y": 2960
+        },
+        "next": "bsm_94",
+        "style": "narration",
+        "text": "Kipp signs the waiver. Dutch, at the back, is watching Claw the way a man watches money.",
+        "type": "say"
+      },
+      "bsm_94": {
+        "_vine": {
+          "x": 960,
+          "y": 2960
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_95",
+        "overlayType": "lower_third",
+        "subtext": "NIGHT",
+        "text": "DYNAMO HOUSE — KITCHEN",
+        "type": "overlay"
+      },
+      "bsm_95": {
+        "_vine": {
+          "x": 80,
+          "y": 3120
+        },
+        "next": "bsm_96",
+        "style": "narration",
+        "text": "Dutch has a crate open on the table. Inside are small unlabelled tubs.",
+        "type": "say"
+      },
+      "bsm_96": {
+        "_vine": {
+          "x": 300,
+          "y": 3120
+        },
+        "next": "bsm_97",
+        "style": "verbatim",
+        "text": "Uncle Dutch says, \"Everlast. Augment cream. Genuine.\"",
+        "type": "say"
+      },
+      "bsm_97": {
+        "_vine": {
+          "x": 520,
+          "y": 3120
+        },
+        "next": "bsm_98",
+        "style": "verbatim",
+        "text": "Kipp Dynamo says, \"That's not what genuine Everlast looks like.\"",
+        "type": "say"
+      },
+      "bsm_98": {
+        "_vine": {
+          "x": 740,
+          "y": 3120
+        },
+        "next": "bsm_99",
+        "style": "verbatim",
+        "text": "Uncle Dutch says, \"It's the same cream, Kipp. It's out of the same vat. It just hasn't got the little foil on it.\"",
+        "type": "say"
+      },
+      "bsm_99": {
+        "_vine": {
+          "x": 960,
+          "y": 3120
+        },
+        "next": "bsm_100",
+        "style": "verbatim",
+        "text": "Kipp Dynamo says, \"What's it do.\"",
+        "type": "say"
+      },
+      "bsm_pre_0": {
+        "_vine": {
+          "x": 80,
+          "y": -120
+        },
+        "duration_s": 5,
+        "next": "bsm_pre_1",
+        "overlayType": "act_card",
+        "subtext": "presents",
+        "text": "ASHWAY COMMUNITY REEL",
+        "type": "overlay"
+      },
+      "bsm_pre_1": {
+        "_vine": {
+          "x": 300,
+          "y": -120
+        },
+        "duration_s": 5,
+        "next": "bsm_pre_2",
+        "overlayType": "act_card",
+        "subtext": "BASIN BROADCAST STANDARDS BOARD",
+        "text": "GENERAL — CONTAINS DANCING",
+        "type": "overlay"
+      },
+      "bsm_pre_2": {
+        "_vine": {
+          "x": 520,
+          "y": -120
+        },
+        "duration_s": 5,
+        "next": "bsm_1",
+        "overlayType": "act_card",
+        "subtext": "",
+        "text": "A film by Merl Prewitt",
+        "type": "overlay"
+      }
+    }
+  },
+  "category": "movie",
+  "channel_id": "ch_7_1782953079593",
+  "created_by": "author",
+  "description": "NORVAL DYNAMO — an Ashway Community Reel picture. A teenager who is not good at anything except the two things nobody scores. Shot on one camera that never moves. Screened once at the Ashway community hall in 2081 and then not again for nine years.",
+  "enabled": 1,
+  "fallback_messages": [],
+  "film_meta": {
+    "airDays": [
+      7
+    ],
+    "airSlots": [
+      5
+    ],
+    "cast": [
+      {
+        "label": "NORVAL",
+        "name": "Norval Dynamo",
+        "role": "has a lot of skills"
+      },
+      {
+        "label": "KIPP",
+        "name": "Kipp Dynamo",
+        "role": "is training to be a cage fighter"
+      },
+      {
+        "label": "DUTCH",
+        "name": "Uncle Dutch",
+        "role": "threw it in '71"
+      },
+      {
+        "label": "GRAN",
+        "name": "Gran Dynamo",
+        "role": "out on the tailings"
+      },
+      {
+        "label": "TEO",
+        "name": "Teo Sandoval",
+        "role": "new"
+      },
+      {
+        "label": "DEB",
+        "name": "Debra Wick",
+        "role": "keychains, portraits"
+      },
+      {
+        "label": "CLAW",
+        "name": "Claw Vance",
+        "role": "Vance Combat Systems"
+      },
+      {
+        "label": "LAFONDA",
+        "name": "LaFonda",
+        "role": "on the relay"
+      },
+      {
+        "label": "SUMMER",
+        "name": "Summer Ostrand",
+        "role": "current Block Steward"
+      },
+      {
+        "label": "DON",
+        "name": "Don Grebe",
+        "role": "shoves people"
+      },
+      {
+        "label": "COACH",
+        "name": "Warden Peale",
+        "role": "runs the hall"
+      },
+      {
+        "label": "TINA",
+        "name": "Tina",
+        "role": "a goat, mostly"
+      }
+    ],
+    "director": "Merl Prewitt",
+    "presents": "Ashway Community Reel",
+    "rating": "GENERAL — CONTAINS DANCING",
+    "runtime": 2760,
+    "theme": "",
+    "title": "norval_dynamo_title"
+  },
+  "gameshow_pools": null,
+  "id": "bc_norval_dynamo",
+  "loop": 1,
+  "message_interval": 19,
+  "messages": [
+    "A dirt yard. Grey ash over everything, the way frost lies. Nothing happens for a while. A goat walks left to right and exits.",
+    "The Ashway is eleven blocks of prefab and tailings, forty minutes from anything, and it has produced in its entire history one thing of note. This is a picture about him, and he would like that sentence removed.",
+    "A queue of nineteen people in front of a shuttered window. Ash on the shoulders of every coat.",
+    "NORVAL DYNAMO is sixteen, six foot one, and constructed entirely of elbows. He wears a respirator on a lanyard that he does not put on. He is holding a folded piece of paper.",
+    "DON GREBE, behind him, shoves him forward six inches for no reason.",
+    "Don Grebe says, \"Move up.\"",
+    "Norval Dynamo says, \"There's nowhere to move up to, Don. There's a wall.\"",
+    "Don Grebe says, \"Move up to the wall then.\"",
+    "Norval moves up to the wall. He stands against the wall. He waits there for a while.",
+    "Norval Dynamo says, \"Gosh.\"",
+    "A kitchen. One window, taped. KIPP DYNAMO, thirty-two, sits at a relay terminal with a headset and does not turn around.",
+    "Norval Dynamo says, \"Kipp. There's no nuggets.\"",
+    "Kipp Dynamo says, \"I ate the nuggets.\"",
+    "Norval Dynamo says, \"You ate all of them?\"",
+    "Kipp Dynamo says, \"I'm carb-loading. I'm training to be a cage fighter.\"",
+    "Norval Dynamo says, \"You've been training to be a cage fighter for four years.\"",
+    "Kipp Dynamo says, \"And I'm gonna keep training until I'm a cage fighter, Norval. That's how training works.\"",
+    "Norval takes a jar of grey paste from a shelf, looks at it, and puts it back.",
+    "Norval Dynamo says, \"Who're you even talking to all day.\"",
+    "Kipp Dynamo says, \"Her name's LaFonda and she's from the Yards and it's none of your dang business.\"",
+    "Twelve teenagers. WARDEN PEALE at the front, out of enthusiasm.",
+    "Norval unfolds his paper on the desk. It is a drawing, in pencil, done with enormous care.",
+    "DEBRA WICK, sixteen, side-braid, leans over.",
+    "Debra Wick says, \"What's that.\"",
+    "Norval Dynamo says, \"A ligerat.\"",
+    "Debra Wick says, \"A what.\"",
+    "Norval Dynamo says, \"It's pretty much my favourite animal. It's like a lion and a rat mixed. Bred for its skills in scavenging.\"",
+    "Debra Wick says, \"Does it exist?\"",
+    "Norval Dynamo says, \"Not yet.\"",
+    "A long pause. Deb looks at the drawing. It is genuinely quite good.",
+    "Debra Wick says, \"I do braided wire keychains. A credit fifty. And portrait exposures, but the light's broken.\"",
+    "Norval Dynamo says, \"I'll take a keychain.\"",
+    "Debra Wick says, \"You don't have to.\"",
+    "Norval Dynamo says, \"I know I don't have to.\"",
+    "He buys a keychain. Neither of them says anything else for the rest of the scene.",
+    "A scrap quad crosses the frame far away, going too fast. It goes out of shot. There is a distant, unremarkable crunch.",
+    "Gran Dynamo broke her hip on the tailings on a Tuesday, which meant somebody had to come and mind the boys.",
+    "A hauler pulls in. UNCLE DUTCH gets out. Forty-nine. A jacket he has owned since before the Handoff. He looks at the house like a man appraising a property he has already decided against.",
+    "Uncle Dutch says, \"Norval. Kipp. Your gran's in the clinic in Coldwater and I'm here till she's out.\"",
+    "Kipp Dynamo says, \"How long's that.\"",
+    "Uncle Dutch says, \"Depends how she heals. Hips are funny.\"",
+    "He unloads a folding chair and a crate. He sets the chair up in the yard facing the road, sits in it, and looks at the road.",
+    "Norval Dynamo says, \"What're you doing.\"",
+    "Uncle Dutch says, \"Thinking.\"",
+    "Norval Dynamo says, \"About what.\"",
+    "Uncle Dutch says, \"Seventy-one.\"",
+    "Dutch has not moved. Norval is standing near him because there is nowhere else to stand.",
+    "Uncle Dutch says, \"You know they ran evac convoys out of the Basin that year. Nine of 'em. I was this close to being on the seventh.\"",
+    "Norval Dynamo says, \"How close.\"",
+    "Uncle Dutch says, \"They needed one more hand to load and they picked Rolly Beck. Rolly Beck. Couldn't carry a bag of ration flour without sitting down halfway.\"",
+    "Norval Dynamo says, \"So?\"",
+    "Uncle Dutch says, \"So if they'd picked me I'd be in the Meridian arcology right now, eating real fruit, with a woman.\"",
+    "Norval Dynamo says, \"But they didn't pick you.\"",
+    "Uncle Dutch says, \"No.\"",
+    "Norval Dynamo says, \"So you're here.\"",
+    "Uncle Dutch says, \"Norval, I could throw a crate forty feet in 2071. Forty feet. Ask anybody.\"",
+    "Norval walks away. Dutch stays in the chair. The shot holds on him for a long time after Norval has gone.",
+    "A scooter comes down the road at a very moderate speed. It stops. TEO SANDOVAL, sixteen, gets off. He is calm in a way nobody in the Ashway is calm.",
+    "Norval is on the roadside. He looks at the scooter for a while.",
+    "Norval Dynamo says, \"That yours?\"",
+    "Teo Sandoval says, \"Yes.\"",
+    "Norval Dynamo says, \"That's a sweet scooter.\"",
+    "Teo Sandoval says, \"Thank you.\"",
+    "Norval Dynamo says, \"I'm Norval.\"",
+    "Teo Sandoval says, \"Teo.\"",
+    "They stand there. A hauler goes past. The ash settles again.",
+    "Norval Dynamo says, \"You wanna see a drawing of a ligerat.\"",
+    "Teo Sandoval says, \"Okay.\"",
+    "A shipping container with a hand-painted sign: VANCE COMBAT SYSTEMS — FIRST SESSION FREE. Inside, CLAW VANCE, forty, in a sleeveless vest, addresses six people.",
+    "Claw Vance says, \"Bow to your sensei. Bow to your sensei.\"",
+    "Nobody bows. Claw continues anyway.",
+    "Claw Vance says, \"Now. A man comes at you with a pipe. What do you do. Kipp.\"",
+    "Kipp Dynamo says, \"Uh. Run?\"",
+    "Claw Vance says, \"Wrong. You break the pipe. You break the arm holding the pipe. Then you go and find where he got the pipe and you break that too. That's Vance. That's the system.\"",
+    "Kipp Dynamo says, \"How much is the full course.\"",
+    "Claw Vance says, \"Ninety credits and you sign a waiver that I wrote.\"",
+    "Kipp signs the waiver. Dutch, at the back, is watching Claw the way a man watches money.",
+    "Dutch has a crate open on the table. Inside are small unlabelled tubs.",
+    "Uncle Dutch says, \"Everlast. Augment cream. Genuine.\"",
+    "Kipp Dynamo says, \"That's not what genuine Everlast looks like.\"",
+    "Uncle Dutch says, \"It's the same cream, Kipp. It's out of the same vat. It just hasn't got the little foil on it.\"",
+    "Kipp Dynamo says, \"What's it do.\"",
+    "Uncle Dutch says, \"Whatever they need it to do. You knock, you smile, you say \"a diamond is forever, now so is she\", and you let them work the rest out themselves.\"",
+    "Kipp Dynamo says, \"And we split it.\"",
+    "Uncle Dutch says, \"Sixty forty.\"",
+    "Kipp Dynamo says, \"Which way.\"",
+    "Uncle Dutch says, \"Kipp.\"",
+    "A noticeboard. A sheet: BLOCK STEWARD — NOMINATIONS. One name on it: SUMMER OSTRAND.",
+    "Teo reads it. Norval reads it.",
+    "Norval Dynamo says, \"Summer Ostrand's been Block Steward two years and all she's done is get the good water rota for her own row.\"",
+    "Teo Sandoval says, \"Can anybody nominate.\"",
+    "Norval Dynamo says, \"Anybody who lives here.\"",
+    "Teo takes the pencil off the string and writes TEO SANDOVAL underneath.",
+    "Teo Sandoval says, \"Okay.\"",
+    "Norval Dynamo says, \"That's it? You just wrote it?\"",
+    "Teo Sandoval says, \"You said anybody.\"",
+    "Norval, on the floor, with a tin of paint and a stack of salvaged card, making posters. Each one says VOTE TEO in careful hand-drawn letters. He has done nineteen of them. He is not tired.",
+    "He made ninety-one posters over four nights. Nobody asked him to.",
+    "Summer Ostrand hands out ration chits with her name printed on them. A small crowd takes the chits.",
+    "Summer Ostrand says, \"It's not a bribe, it's a sample.\"",
+    "Norval, across the road, silently puts up another poster.",
+    "Rows of chairs. Warden Peale at a lectern with a clipboard.",
+    "Warden Peale says, \"Both candidates give a statement, then both candidates give a skit. That's the format, it's always been the format, don't argue with me about the format.\"",
+    "Summer gives her statement. It is eleven minutes long and about her mother.",
+    "Teo stands up. He is holding nothing.",
+    "Teo Sandoval says, \"If you vote for me, all your wildest dreams will come true.\"",
+    "He sits down.",
+    "A silence of a quality rarely achieved indoors.",
+    "Warden Peale says, \"And the skit.\"",
+    "Teo looks at Norval. Norval looks at Teo. Teo has not prepared a skit. Neither has Norval.",
+    "Norval Dynamo says, \"I've got it.\"",
+    "Norval walks to the deck at the side of the stage. He takes a cassette out of his jacket. It is scuffed to the point of illegibility. He puts it in and presses the key.",
+    "A track starts. It is thin and it is old and the tape has stretched.",
+    "Norval walks to the middle of the stage and stands there long enough that two people start to leave.",
+    "Then he dances.",
+    "He is extremely good. Nobody in the hall knew, because he has never done it in front of anybody. The camera does not move, because the man holding it has forgotten he is holding it.",
+    "Forty-one seconds. One take. The reel was never cut because there was nothing to cut it with.",
+    "The track ends. Norval walks off the stage and out the side door and does not come back in.",
+    "The hall does not react for a long moment. Then it does.",
+    "The result sheet. TEO SANDOVAL — 88. SUMMER OSTRAND — 31.",
+    "Teo looks at it. Norval looks at it.",
+    "Teo Sandoval says, \"Thank you.\"",
+    "Norval Dynamo says, \"It's a democracy, Teo. I didn't do anything.\"",
+    "Teo Sandoval says, \"Okay.\"",
+    "Gran's quad comes up the road, slow, with Gran on it, one leg braced.",
+    "Dutch is folding his chair before she has stopped moving.",
+    "Gran Dynamo says, \"Dutch.\"",
+    "Uncle Dutch says, \"Ma.\"",
+    "Gran Dynamo says, \"Go home.\"",
+    "Uncle Dutch says, \"I'm going.\"",
+    "He puts the chair in the hauler. He stands with the door open, looking at the road again.",
+    "Uncle Dutch says, \"Forty feet, Norval. Ask anybody.\"",
+    "Norval Dynamo says, \"I believe you, Uncle Dutch.\"",
+    "Dutch looks at him to see whether that was a joke. It was not. He drives off.",
+    "A bent rebar post with a ball on a wire. Norval is hitting it, alone, competently.",
+    "Deb comes up the road with her keychain box.",
+    "Debra Wick says, \"Is that a game?\"",
+    "Norval Dynamo says, \"Pole-ball.\"",
+    "Debra Wick says, \"Are you good at it?\"",
+    "Norval Dynamo says, \"Yes.\"",
+    "Debra Wick says, \"Is anyone else good at it?\"",
+    "Norval Dynamo says, \"No.\"",
+    "She puts the box down. He serves. She hits it back. They play.",
+    "The camera holds on the two of them from thirty feet away for a very long time. Neither of them says anything. The ash comes down like it always does. That is the end of the picture.",
+    "Norval Dynamo lived in the Ashway his whole life and never left it, and when they asked him for this picture he said he'd rather not, and then he did it anyway, because they asked."
+  ],
+  "morning_pools": null,
+  "name": "Norval Dynamo",
+  "news_pools": null,
+  "override_duration": 2760,
+  "playback_mode": "film",
+  "sermon_pools": null,
+  "sports_pools": null,
+  "tags": [
+    "movie",
+    "comedy",
+    "feature"
+  ],
+  "talkshow_pools": null,
+  "updated_at": "1783960000",
+  "weather_pools": null
+}

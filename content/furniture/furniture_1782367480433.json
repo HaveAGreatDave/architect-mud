@@ -13,5 +13,5 @@
   "object_type": "toilet",
   "power_draw_kw": 5,
   "price": 90,
-  "zone_id": "zone_clone_facility_bathroom"
+  "zone_id": "zone_embassy_lobby_bathroom"
 }

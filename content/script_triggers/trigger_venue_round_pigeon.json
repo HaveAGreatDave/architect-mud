@@ -1,0 +1,17 @@
+{
+  "chance": 1,
+  "conditions": [],
+  "cooldown_seconds": 0,
+  "description": "Counts purchases made at The Dead Pigeon into bar_pigeon_rounds, for content that wants to know if you drink here or just stand here.",
+  "enabled": 1,
+  "event": "vendor.purchase",
+  "id": "trigger_venue_round_pigeon",
+  "name": "The Dead Pigeon — rounds bought",
+  "once": 0,
+  "params": {
+    "venue": "pigeon"
+  },
+  "script_id": "script_venue_round",
+  "updated_at": "1785110400",
+  "zone_id": "zone_mq_pigeon_bar"
+}

@@ -1,5 +1,6 @@
 import { createServer } from "http";
 import { readFileSync, existsSync, statSync } from "fs";
+import { brotliCompressSync, gzipSync, constants } from "zlib";
 import { join, extname, dirname } from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
@@ -14,6 +15,8 @@ import {
 	removeLivePlayer,
 	getZone,
 	getMinimapData,
+	persistableZone,
+	isTransientZone,
 	world,
 } from "./engine/world.js";
 import {
@@ -23,9 +26,11 @@ import {
 	recomputeEquipped,
 } from "./engine/commands/index.js";
 import { startGameLoop } from "./engine/gameLoop.js";
+import { zoneAudience } from "./engine/delivery.js";
+import { modulePreloadTags } from "./modulegraph.js";
 import { loadPlugins, fireHook } from "./engine/plugins.js";
 import { emit } from "./engine/events.js";
-import { getNetXp, maxHpForEndurance } from "./engine/ip.js";
+import { getNetXp, maxHpForEndurance, maxStaminaForEndurance } from "./engine/ip.js";
 import { dispatchAction } from "./engine/actions.js";
 // Side-effect imports: register the Flag store and graph-engine Actions
 // (SET_FLAG, CLEAR_FLAG, GRANT_ITEM, TELEPORT, EXECUTE_SCRIPT, …) at boot.
@@ -38,6 +43,7 @@ import { reloadCrimes } from "./engine/crimes.js";
 import { reloadAliases } from "./engine/commands/aliases.js";
 import { loadMutations } from "./engine/mutations.js";
 import { loadBanterLibrary } from "./engine/npc-banter.js";
+import { loadScriptTriggers } from "./engine/script-triggers.js";
 import {
 	handleApiRequest,
 	setBroadcast,
@@ -46,6 +52,7 @@ import {
 } from "./api/routes.js";
 import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt, cmdGhostPowerDrain, makeGhostBroadcast } from "./engine/commands/ghost.js";
 import { activateForcefield, deactivateForcefield, reconcileApartmentDoorLocks, reconcileNpcHomesVsOwnership } from "./engine/apartments.js";
+import { wakeFromDream } from "./engine/dreamscape.js";
 import { startKeepalive } from "./keepalive.js";
 import { startUsageLog } from "./usage-log.js";
 import { setBroadcast as setMessagingBroadcast } from "./engine/messaging.js";
@@ -53,13 +60,17 @@ import { handlePanelData, sendPanelCatalog } from "./engine/panels.js";
 import pool, { query, logActivity } from "./models/db.js";
 import { loadMisSettings, isMisServerEnabled } from "./engine/mis.js";
 import { loadEmailVerificationSetting, isEmailVerificationEnabled } from "./engine/emailVerification.js";
+import { mailerConfigProblem, mailerSender } from "./mailer.js";
 
 import { initEnvironment, getHUDPayload, getZoneTemperature } from "./engine/environment.js";
 import { getPlayerChannels, getChannelHistory } from "./engine/channels.js";
 import { getMotd } from "./engine/motd.js";
 import { openShopSession, closeShopSession } from "./engine/vendor-session.js";
 import { getSoundReach } from "./engine/sounds.js";
-import { getFlag } from "./engine/flags.js";
+import { getFlag, hydratePlayerFlags, evictPlayerFlags } from "./engine/flags.js";
+import { hydrateRelations, flushRelations } from "./engine/relations.js";
+import { hydrateIdeologyProfile } from "./engine/ideologies.js";
+import { DOMINANT_FLAG, SECOND_FLAG } from "./engine/senses.js";
 import { DEFAULT_STANCE } from "./engine/stance.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -67,6 +78,10 @@ const PORT = process.env.PORT || 3000;
 
 const clients = new Map(); // ws -> session
 const playerSockets = new Map(); // playerId -> ws
+// Ghost sessions watch a zone without standing in it, so they never appear in
+// zone.players. Kept as their own small set so the zone broadcast fast path can
+// serve them without falling back to scanning every connected client.
+const ghostSockets = new Set();
 const reconnectTokens = new Map(); // token -> { playerId, expires }
 const ghostTokens = new Map(); // token -> { playerId, zoneId, expires }
 
@@ -110,25 +125,43 @@ function broadcast(
 		if (ws?.readyState === 1) ws.send(payload);
 		return;
 	}
-	for (const [ws, session] of clients) {
-		if (ws.readyState !== 1) continue;
-		if (excludePlayerId && session.playerId === excludePlayerId) continue;
-		if (excludePlayerId2 && session.playerId === excludePlayerId2) continue;
-		if (excludeSet && excludeSet.has(session.playerId)) continue;
-		if (session.isGhost) {
-			// Ghost only receives broadcasts for its watched zone; skip global ones
-			if (!zoneId || session.ghostZoneId !== zoneId) continue;
-		} else if (zoneId) {
-			const p = getLivePlayer(session.playerId);
-			if (!p || p.current_zone !== zoneId) continue;
-			// Asleep players don't perceive the room around them — no actions, speech, or ambience.
-			if (p.sleeping) continue;
-			// Aboard an airborne aircraft the player is up in the sky, not in the stale ground
-			// zone they took off from — ground ambience (overfly noise, banter, vendors, weather)
-			// must not leak into the cockpit. Their own game messages arrive targeted.
-			if (p.posture === 'flying') continue;
-		}
+
+	// Shared recipient filter — identical predicates whichever way we got here, so
+	// the zone fast path below can never diverge from the global scan.
+	const deliver = (ws, session) => {
+		if (!ws || ws.readyState !== 1) return;
+		if (excludePlayerId && session.playerId === excludePlayerId) return;
+		if (excludePlayerId2 && session.playerId === excludePlayerId2) return;
+		if (excludeSet && excludeSet.has(session.playerId)) return;
 		ws.send(payload);
+	};
+
+	if (zoneId) {
+		// ── Zone fast path ────────────────────────────────────────────────────
+		// WHO receives this lives in engine/delivery.js so it can be tested; this
+		// keeps only the part that needs sockets. See that file for why delivery
+		// walks zone.players rather than scanning every connected client, and why
+		// there is deliberately no parallel zoneId->socket index.
+		for (const pid of zoneAudience(zoneId, {
+			exclude: [excludePlayerId, excludePlayerId2],
+			excludeSet,
+		})) {
+			const ws = playerSockets.get(pid);
+			if (ws) deliver(ws, clients.get(ws) || { playerId: pid });
+		}
+		// Ghosts watch a zone without standing in it, so they are not in
+		// zone.players. There are only ever a handful (a dev tool), tracked in
+		// their own set so this stays proportional to ghosts, not to players.
+		for (const ws of ghostSockets) {
+			const session = clients.get(ws);
+			if (session?.ghostZoneId === zoneId) deliver(ws, session);
+		}
+	} else {
+		// Global message: everyone except ghosts, who only ever watch one zone.
+		for (const [ws, session] of clients) {
+			if (session.isGhost) continue;
+			deliver(ws, session);
+		}
 	}
 	// Notify studio camera relay (broadcast plugin listens to this)
 	if (zoneId && !targetPlayerId) emit('zone.broadcast', { zoneId, msg: message });
@@ -141,7 +174,112 @@ const MIME = {
 	".json": "application/json; charset=utf-8",
 	".png": "image/png",
 	".svg": "image/svg+xml",
+	// Unlisted extensions fall through to text/plain below. That was fine while
+	// everything served was HTML/JS/CSS, but favicon.ico and sitemap.xml are
+	// both rejected by some clients when mislabelled — robots.txt only worked
+	// by accident, because text/plain is genuinely its correct type.
+	".ico": "image/x-icon",
+	".txt": "text/plain; charset=utf-8",
+	".xml": "application/xml; charset=utf-8",
 };
+
+// ── Static asset cache + compression ──────────────────────────────────────────
+//
+// Two problems this solves, both on the path that also serves every WebSocket
+// message:
+//
+//  1. Nothing was compressed. A cold load pulls ~5 MB of client JS/CSS/HTML off
+//     this server raw. Text compresses 4-6x, and zlib ships with Node, so this
+//     costs no dependency and changes no behaviour — only the bytes on the wire.
+//  2. Every request did a synchronous readFileSync + statSync. Sync disk I/O
+//     blocks the event loop, and that is the SAME loop delivering combat messages
+//     and room descriptions to everyone already playing. ~82 assets per cold
+//     load meant ~82 micro-stalls for the whole world every time someone
+//     refreshed.
+//
+// So: read + compress once, keep the buffers in memory, key on mtime so an
+// edited file is picked up without a restart (node --watch restarts anyway, but
+// the devpanel and a bare `npm start` do not). Compression is CPU work we do
+// exactly once per file version, not per request.
+//
+// Only text types are compressed — .png/.ico are already compressed formats and
+// running deflate over them burns CPU to make them marginally bigger.
+const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".svg", ".txt", ".xml"]);
+// Below ~1 KB the framing overhead and the CPU round trip cost more than the
+// handful of bytes saved.
+const COMPRESS_MIN_BYTES = 1024;
+
+// filePath -> { mtime, raw, br, gzip, type }
+const assetCache = new Map();
+
+// See server/modulegraph.js for why these hints exist and why they are generated
+// rather than written by hand. Computed lazily on first use and memoised for the
+// process — the import graph is source, and source doesn't change under a running
+// server (a dev restart re-walks it; `node --watch` restarts on every edit).
+const MODULEPRELOAD_MARKER = "<!--MODULEPRELOAD-->";
+let _preloadBlock = null;
+function modulePreloadBlock() {
+	if (_preloadBlock !== null) return _preloadBlock;
+	const gameRoot = join(__dirname, "../client/game");
+	try {
+		_preloadBlock = modulePreloadTags(join(gameRoot, "js/main.js"), gameRoot);
+		const n = (_preloadBlock.match(/rel="modulepreload"/g) || []).length;
+		console.log(`  ⇢ ${n} modulepreload hint(s) generated for the game client`);
+	} catch (err) {
+		// A broken graph walk must never take the page down — worst case we serve
+		// the shell without hints and the browser discovers modules the slow way.
+		console.error(`[modulepreload] graph walk failed, serving without hints: ${err.message}`);
+		_preloadBlock = "";
+	}
+	return _preloadBlock;
+}
+
+function getAsset(filePath) {
+	const mtimeMs = statSync(filePath).mtimeMs;
+	const hit = assetCache.get(filePath);
+	if (hit && hit.mtimeMs === mtimeMs) return hit;
+
+	const ext = extname(filePath);
+	let raw = readFileSync(filePath);
+
+	// Inject the modulepreload hints into the game shell. Done here, inside the
+	// cache fill, so the graph is walked once per mtime rather than per request —
+	// and so the compressed buffers below are built from the final bytes.
+	if (ext === ".html" && raw.includes(MODULEPRELOAD_MARKER)) {
+		raw = Buffer.from(
+			raw.toString("utf8").replace(MODULEPRELOAD_MARKER, modulePreloadBlock()),
+			"utf8",
+		);
+	}
+
+	const entry = {
+		mtimeMs,
+		lastMod: new Date(mtimeMs).toUTCString(),
+		type: MIME[ext] || "text/plain",
+		raw,
+		br: null,
+		gzip: null,
+	};
+	if (COMPRESSIBLE.has(ext) && raw.length >= COMPRESS_MIN_BYTES) {
+		// Quality 5 (not the default 11): 11 is for build-time asset pipelines and
+		// can take seconds on a large file, which would stall the loop we are
+		// trying to protect. 5 lands within a few percent of 11 on JS for a
+		// fraction of the time, and it only ever runs once per file version.
+		try {
+			entry.br = brotliCompressSync(raw, {
+				params: {
+					[constants.BROTLI_PARAM_QUALITY]: 5,
+					[constants.BROTLI_PARAM_SIZE_HINT]: raw.length,
+				},
+			});
+		} catch { /* fall through to gzip */ }
+		try {
+			entry.gzip = gzipSync(raw, { level: 6 });
+		} catch { /* fall through to raw */ }
+	}
+	assetCache.set(filePath, entry);
+	return entry;
+}
 
 const httpServer = createServer(async (req, res) => {
 	const url = req.url || "/";
@@ -199,8 +337,24 @@ const httpServer = createServer(async (req, res) => {
 		return;
 	}
 
+	// Worldbuilding is a local-only activity: content ships to prod through the
+	// CODEX git pipeline, and CONTENT_READONLY default-denies every content write
+	// on the server. So on prod the full builder panel is nothing but a wall of
+	// 403 traps — send the bare /dev navigation to the ops-only /admin view
+	// instead. Bare path ONLY: redirecting the whole /dev prefix would 302 every
+	// /dev/js/*.js asset and break the panel that /admin itself is built from.
+	if (process.env.CONTENT_READONLY && (url === "/dev" || url === "/dev/")) {
+		res.writeHead(302, { Location: "/admin" });
+		res.end();
+		return;
+	}
+
 	let filePath;
-	if (url.startsWith("/dev")) {
+	if (url === "/admin" || url === "/admin/") {
+		// Same app, same file — the client reads location.pathname and prunes
+		// itself to the ops panels. One HTML file means the two views can't drift.
+		filePath = join(__dirname, "../client/devpanel", "index.html");
+	} else if (url.startsWith("/dev")) {
 		filePath = join(
 			__dirname,
 			"../client/devpanel",
@@ -242,26 +396,69 @@ const httpServer = createServer(async (req, res) => {
 		// round trip per file on every load, which dominated load time. A deploy is
 		// at most max-age seconds stale for an already-open page.
 		const ext = extname(filePath);
-		const lastMod = statSync(filePath).mtime.toUTCString();
-		if (req.headers["if-modified-since"] === lastMod) {
+		const asset = getAsset(filePath);
+		if (req.headers["if-modified-since"] === asset.lastMod) {
 			res.writeHead(304);
 			res.end();
 			return;
 		}
-		const data = readFileSync(filePath);
+		// Pick the best encoding the client actually advertised. Vary tells any
+		// cache between us and the player that the body depends on this header —
+		// without it, a shared proxy could hand a brotli body to a client that
+		// never asked for one.
+		const accepts = String(req.headers["accept-encoding"] || "");
+		let body = asset.raw;
+		let encoding = null;
+		if (asset.br && /\bbr\b/.test(accepts)) { body = asset.br; encoding = "br"; }
+		else if (asset.gzip && /\bgzip\b/.test(accepts)) { body = asset.gzip; encoding = "gzip"; }
+
 		res.writeHead(200, {
-			"Content-Type": MIME[ext] || "text/plain",
+			"Content-Type": asset.type,
 			"Cache-Control": ext === ".html" ? "no-cache" : "public, max-age=60",
-			"Last-Modified": lastMod,
+			"Last-Modified": asset.lastMod,
+			"Content-Length": body.length,
+			// Vary goes on anything we *could* have compressed, not just what we
+			// did — otherwise a shared cache that stored the raw copy would keep
+			// serving it, and a proxy that stored a compressed copy could hand it
+			// to a client that never advertised support.
+			...(COMPRESSIBLE.has(ext) ? { "Vary": "Accept-Encoding" } : {}),
+			...(encoding ? { "Content-Encoding": encoding } : {}),
 		});
-		res.end(data);
+		res.end(body);
 	} catch {
 		res.writeHead(404);
 		res.end("Not found");
 	}
 });
 
-const wss = new WebSocketServer({ server: httpServer });
+// Compress the socket. Measured on a real room payload: a `look` is ~34 KB, of
+// which ~33 KB is the minimap node array — highly repetitive JSON that gzips
+// 17.9x and brotlis 24x. Static assets were already compressed; the socket that
+// carries every room description and every step was still going out raw.
+//
+// Configured rather than `perMessageDeflate: true`, because ws's own docs warn
+// that the defaults fragment memory badly under load:
+//   threshold        — frames under this skip deflate entirely. Most traffic is
+//                      small status/vitals ticks where framing overhead would
+//                      cost more than it saves; the big room payloads clear it.
+//   memLevel 7       — below zlib's default 8; materially less memory per
+//                      connection for a few percent of ratio.
+//   concurrencyLimit — caps simultaneous zlib jobs so a burst of moves can't
+//                      pile compression work onto the event loop the game runs on.
+//   clientNoContextTakeover — do not hold a per-connection compression context
+//                      open for inbound frames; clients send tiny commands, so
+//                      the context buys nothing and costs memory per player.
+const wss = new WebSocketServer({
+	server: httpServer,
+	perMessageDeflate: {
+		threshold: 1024,
+		concurrencyLimit: 10,
+		clientNoContextTakeover: true,
+		serverNoContextTakeover: false,   // keep server-side context: consecutive
+		                                  // minimaps share ~90% of their bytes
+		zlibDeflateOptions: { level: 6, memLevel: 7 },
+	},
+});
 
 // Message types that count as deliberate player input for idle tracking —
 // things a player typed or clicked, not the client keeping itself alive.
@@ -390,6 +587,13 @@ wss.on("connection", (ws) => {
 			const player = getLivePlayer(session.playerId);
 			if (isActiveSocket) {
 				if (player) {
+					// Disconnecting is a wake path, and it was the one nobody counted.
+					// Without this the dreamscape is never dissolved (leaking its rooms
+					// for the life of the process) and current_zone stays a dream id —
+					// so a reconnect BEFORE a restart put the player back inside the
+					// dream, awake, with the sleeping state gone. Idempotent, and a
+					// no-op for anyone who wasn't dreaming.
+					wakeFromDream(player);
 					removePlayerFromZone(session.playerId, player.current_zone);
 					broadcast(
 						player.current_zone,
@@ -410,7 +614,10 @@ wss.on("connection", (ws) => {
 					clearActiveDrugBuffs(player);
 					await query(
 						"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), current_zone=$1, hp=$2, stamina=$3, offline_sleeping=TRUE WHERE id=$4",
-						[player.current_zone, player.hp, player.stamina, session.playerId],
+						// persistableZone, not current_zone — dropping mid-dream or
+						// mid-void-crossing would otherwise checkpoint a RAM-only zone id
+						// into the row and strand the player somewhere that stops existing.
+						[persistableZone(player), player.hp, player.stamina, session.playerId],
 					).catch(() => {});
 					player._posDirty = false; // authoritative clean-exit checkpoint for position (see cmdMove)
 					player._resDirty = false; // ...and for hp/stamina (see flushDirtyResources) — closes the combat-log window on a graceful logout
@@ -421,6 +628,13 @@ wss.on("connection", (ws) => {
 					).catch(() => {});
 				}
 				closeShopSession(session.playerId);
+				// Last chance to persist whatever the session changed about who
+				// knows this player — the live object (and its Map) is discarded
+				// by removeLivePlayer a few lines down.
+				if (player) await flushRelations(player).catch(() => {});
+				// Flags are write-through (no dirty set to flush) — just drop the
+				// cache so the module registry stops pinning a dead player object.
+				evictPlayerFlags(session.playerId);
 				emit('player.logout', { id: session.playerId, handle: session.handle });
 				logActivity('disconnect', session.handle);
 				broadcast(null, { type: 'online_change' });
@@ -429,6 +643,7 @@ wss.on("connection", (ws) => {
 			}
 		}
 		clients.delete(ws);
+		ghostSockets.delete(ws);
 	});
 
 	ws.send(
@@ -495,6 +710,7 @@ async function handleGhostAuth(ws, session, msg) {
 		return;
 	}
 	session.isGhost = true;
+	ghostSockets.add(ws);
 	session.ghostZoneId = entry.zoneId;
 	session.playerId = entry.playerId;
 	session.handle = rows[0].handle;
@@ -722,15 +938,22 @@ async function finishAuth(ws, session, player) {
 	session.role = player.role;
 	playerSockets.set(player.id, ws);
 
-	// Keep max HP in sync with endurance. Self-heals pre-existing characters
-	// whose stored hp_max predates endurance-scaled HP (no migration script).
+	// Keep max HP and max stamina in sync with endurance. Self-heals pre-existing
+	// characters whose stored maxima predate endurance scaling (no migration
+	// script) — which is also how every character already in the world picks up
+	// endurance-scaled stamina, on their next login.
 	const correctHpMax = maxHpForEndurance(player.stat_endurance);
-	if (player.hp_max !== correctHpMax) {
+	const correctStamMax = maxStaminaForEndurance(player.stat_endurance);
+	if (player.hp_max !== correctHpMax || player.stamina_max !== correctStamMax) {
 		player.hp_max = correctHpMax;
 		player.hp = Math.min(player.hp, correctHpMax);
-		await query("UPDATE players SET hp_max=$1, hp=$2 WHERE id=$3", [
+		player.stamina_max = correctStamMax;
+		player.stamina = Math.min(player.stamina ?? correctStamMax, correctStamMax);
+		await query("UPDATE players SET hp_max=$1, hp=$2, stamina_max=$3, stamina=$4 WHERE id=$5", [
 			player.hp_max,
 			player.hp,
+			player.stamina_max,
+			player.stamina,
 			player.id,
 		]);
 	}
@@ -742,6 +965,10 @@ async function finishAuth(ws, session, player) {
 		origin_fragment: player.origin_fragment || '',
 		archetype: player.archetype || null,
 		visibly_mutated: player.visibly_mutated || 0,
+		// Fatigue is derived from this, so it must ride the live object. A player
+		// who has never slept reads as fresh rather than as eight hours awake —
+		// nobody should log in for the first time already wrecked.
+		last_slept_at: Number(player.last_slept_at) || Date.now(),
 		covered_in_blood: player.covered_in_blood || 0,
 		current_zone: player.current_zone || "zone_start",
 		anchor_zone: player.anchor_zone || "zone_start",
@@ -799,6 +1026,33 @@ async function finishAuth(ws, session, player) {
 	// LIVE object on every to-hit roll — getFlag is a DB round trip and can never
 	// live in that hot path. Login is the one place it's fetched.
 	livePlayer.combat_stance = (await getFlag('player', 'combat_stance', livePlayer)) || DEFAULT_STANCE;
+	// Sense attunement, for exactly the same reason: `smell` is a spammable verb
+	// and acuity is read on every use, so the flags are hydrated once here and
+	// answered from the live object thereafter (docs/architecture.md read tiers).
+	livePlayer._senseDominant = (await getFlag('player', DOMINANT_FLAG, livePlayer)) || null;
+	livePlayer._senseSecond   = (await getFlag('player', SECOND_FLAG, livePlayer)) || null;
+	// Who this player has met, and how it went. ONE indexed query here is the
+	// entire DB cost of the relationship system for the whole session — every
+	// later read (dialogue gates, greetings, vendor manner) is answered from the
+	// Map this builds. See the read-tier note at the top of engine/relations.js.
+	//
+	// On a RECONNECT there may still be a live object from the old session whose
+	// Map holds unflushed conversations. Flush it BEFORE reading, or the fresh
+	// hydrate races it and the last few minutes of knowing someone are lost.
+	const priorSession = getLivePlayer(player.id);
+	if (priorSession) await flushRelations(priorSession).catch(() => {});
+	// Independent reads — one round trip's latency, not two.
+	// The ideology profile (stance + strongest path) is hydrated for the same
+	// reason: reputation decay consults it on every vendor price lookup, and five
+	// flag round trips there would be indefensible.
+	// player_flags joins the same batch: it's the mandated home for per-player
+	// scalar state, so it's read constantly at runtime (~70 call sites) and was
+	// costing a round trip every time. One query here, Map lookups thereafter.
+	await Promise.all([
+		hydrateRelations(livePlayer),
+		hydrateIdeologyProfile(livePlayer),
+		hydratePlayerFlags(livePlayer),
+	]);
 	// Seed the resource diff-gate stamp (Phase 6) from the freshly-loaded row so
 	// the first resourceTick after login doesn't write values that never changed.
 	livePlayer._lastSavedResources = {
@@ -823,9 +1077,17 @@ async function finishAuth(ws, session, player) {
 	addPlayerToZone(player.id, livePlayer.current_zone);
 	const diedOffline = player.died_offline;
 	await query(
-		"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), offline_sleeping=FALSE, died_offline=FALSE WHERE id=$1",
+		// Logging off asleep in a bed is a legitimate way to spend the night: you
+		// wake rested rather than having to sit and watch the clock. That is the
+		// escape valve that keeps fatigue from becoming a chore.
+		"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), last_slept_at=CASE WHEN offline_sleeping THEN EXTRACT(EPOCH FROM NOW())*1000 ELSE last_slept_at END, offline_sleeping=FALSE, died_offline=FALSE WHERE id=$1",
 		[player.id],
 	);
+	// ...and mirror that onto the live object. livePlayer was built from the
+	// PRE-update row, and fatigueOf() reads the live object — without this the
+	// session right after a logout plays at the fatigue you logged off with and
+	// only reads as rested on the NEXT login.
+	if (player.offline_sleeping) livePlayer.last_slept_at = Date.now();
 
 	broadcast(
 		livePlayer.current_zone,
@@ -889,60 +1151,62 @@ async function finishAuth(ws, session, player) {
 
 	const bodyTempLoginMsg = loginBodyTempMessage(livePlayer.body_temp_c);
 	let zone = getZone(livePlayer.current_zone);
-	// Dreamzone rescue: a trip is in-memory only, so a player caught mid-trip by
-	// a server restart would otherwise wake inside an isolated hallucination zone.
-	// Bounce them back to their anchor.
-	if (zone?.flags?.is_dreamzone) {
+	// ── Login rescue: you must not wake up somewhere you can't be ──────────────
+	//
+	// Three ways the stored zone is not a place to log in to, all with the same
+	// remedy, so they're one branch rather than the flag-shaped special case this
+	// used to be:
+	//
+	//   1. A LEGACY authored drug dreamzone (`flags.is_dreamzone`). Those shared
+	//      rooms are retired — every trip is instanced now — but a database that
+	//      predates the retirement can still hold one, and a stored `current_zone`
+	//      pointing into it must not be logged in to.
+	//   2. A TRANSIENT id — a dreamscape room or a void crossing. `persistableZone`
+	//      stops these being written now, but rows already corrupted by the old
+	//      disconnect checkpoint are still out there, and this repairs them on the
+	//      next login. It is also what will catch instanced drug trips, which have
+	//      no DB row at all and so would silently fall through to the branch below.
+	//   3. A zone that no longer resolves — deleted while they were offline.
+	//
+	// All three go to the ANCHOR, not `zone_start`. The old deleted-zone fallback
+	// dumped players at world start even when they had a perfectly good anchor;
+	// zone_start is now only the last resort when the anchor is gone too.
+	// A zone that simply vanished gets the void-teleport narration on arrival; being
+	// pulled out of a dream or a crossing does not, because you didn't travel — you
+	// just stopped being somewhere that wasn't real.
+	const zoneWasDeleted = !zone;
+	const zoneIsUninhabitable =
+		!zone || zone.flags?.is_dreamzone || isTransientZone(livePlayer.current_zone);
+	if (zoneIsUninhabitable) {
 		const anchor = livePlayer.anchor_zone || "zone_start";
+		const rescued = getZone(anchor) ? anchor : "zone_start";
 		removePlayerFromZone(player.id, livePlayer.current_zone);
-		livePlayer.current_zone = anchor;
-		addPlayerToZone(player.id, anchor);
-		await query("UPDATE players SET current_zone=$1 WHERE id=$2", [anchor, player.id]);
-		zone = getZone(anchor);
+		livePlayer.current_zone = rescued;
+		addPlayerToZone(player.id, rescued);
+		await query("UPDATE players SET current_zone=$1 WHERE id=$2", [rescued, player.id]);
+		zone = getZone(rescued);
 	}
 	if (zone) {
 		ws.send(
 			JSON.stringify({
 				type: "look",
-				message: await describeZone(zone, livePlayer),
+				message: (zoneWasDeleted ? describeVoidTeleport() : "") + await describeZone(zone, livePlayer),
 				zone: zone.id,
 				minimap: getMinimapData(zone.id, 8, livePlayer),
 			}),
 		);
+		if (zoneWasDeleted) {
+			broadcast(zone.id, { type: "zone_event", message: `${player.handle} flickers into existence out of nowhere.` }, player.id);
+		}
 		if (bodyTempLoginMsg) ws.send(JSON.stringify({ type: 'system', message: bodyTempLoginMsg }));
 		if (diedOffline) ws.send(JSON.stringify({ type: 'player_death', message: `\n<span class="death-message">☠ You were murdered in your sleep. You wake up somewhere else, someone else's problem.</span>\n<span class="clone-vat-message">A vending-machine-shaped cloning vat hums, dispenses a fresh you, and prints a receipt nobody asked for. Everything you knew, you still know. Everything that hurt, doesn't anymore.</span>` }));
 	} else {
-		// Their stored zone was deleted while they were offline — the live
-		// rescue in routes.js only catches players connected at deletion time,
-		// so this is the equivalent safety net for everyone else.
-		livePlayer.current_zone = "zone_start";
-		addPlayerToZone(player.id, "zone_start");
-		await query("UPDATE players SET current_zone=$1 WHERE id=$2", [
-			"zone_start",
-			player.id,
-		]);
-		const startZone = getZone("zone_start");
-		if (startZone) {
-			ws.send(
-				JSON.stringify({
-					type: "move",
-					message:
-						describeVoidTeleport() +
-						(await describeZone(startZone, livePlayer)),
-					zone: "zone_start",
-					minimap: getMinimapData("zone_start", 8, livePlayer),
-				}),
-			);
-			broadcast(
-				"zone_start",
-				{
-					type: "zone_event",
-					message: `${player.handle} flickers into existence out of nowhere.`,
-				},
-				player.id,
-			);
-			if (bodyTempLoginMsg) ws.send(JSON.stringify({ type: 'system', message: bodyTempLoginMsg }));
-		}
+		// Unreachable in a healthy world: the rescue above already fell back to the
+		// anchor and then to zone_start, so getting here means `zone_start` itself
+		// doesn't resolve — a broken or half-imported world, not a player problem.
+		// Say so out loud rather than dropping them into silence with no room.
+		console.error(`[login] no habitable zone for ${player.handle}: stored=${livePlayer.current_zone}, anchor=${livePlayer.anchor_zone}, and zone_start is missing`);
+		ws.send(JSON.stringify({ type: 'system', message: 'The world is still loading. Try again in a moment.' }));
 	}
 	emit('player.login', { id: player.id, handle: player.handle, role: player.role });
 }
@@ -1023,6 +1287,13 @@ async function handleGameCommand(ws, session, msg) {
 		return;
 	}
 	const result = await handleCommand(msg.command, player, broadcast);
+	// SLEEP STATE RIDES EVERY REPLY. There are six ways sleep can end (waking,
+	// `wake`, any command, the loop, two flavours of being attacked in your bed)
+	// and no single funnel that clears `player.sleeping`. Rather than teach all
+	// six to notify the client — the exact mistake that left wakeFromDream
+	// uncalled on half of them — the truth is stamped on whatever we were already
+	// about to send. One site, and it cannot drift out of sync with the server.
+	ws.send(JSON.stringify({ type: 'sleep_state', sleeping: !!player.sleeping, dreaming: !!player.sleeping?.inDream }));
 	if (result) {
 		ws.send(JSON.stringify(result));
 		if (result.player_update)
@@ -1109,8 +1380,11 @@ async function handleDialogue(ws, session, msg) {
 	// clobbering the shop that just opened. (This is why a vendor's authored shop
 	// option looked like it "didn't open the shop".)
 	const targetNode = (npc.dialogue_tree || {})[msg.choice];
-	if (targetNode?.actions?.some((a) => a?.action === "OPEN_SHOP")) {
-		await openNpcShop(ws, session, npc);
+	const openShopAction = (targetNode?.actions || []).find((a) => a?.action === "OPEN_SHOP");
+	if (openShopAction) {
+		// A node may name a SHELF (params.shelf) — that is the only way a back-room
+		// catalogue is ever reachable, so the covert half of a vendor stays covert.
+		await openNpcShop(ws, session, npc, openShopAction.params?.shelf || openShopAction.shelf || null);
 		return;
 	}
 
@@ -1140,6 +1414,8 @@ async function handleDialogue(ws, session, msg) {
 			node: msg.choice,
 			text: appendMessage ? rendered.text + appendMessage : rendered.text,
 			options: rendered.options,
+			stage: rendered.stage,
+			mood: rendered.mood,
 		}),
 	);
 }
@@ -1148,10 +1424,10 @@ async function handleDialogue(ws, session, msg) {
 // shop session, and push the GUI panel. The single clean shop-open path shared by
 // the implicit "__shop__" option and any dialogue node authored with an OPEN_SHOP
 // action — so the two can't drift on guards or payload.
-async function openNpcShop(ws, session, npc) {
+async function openNpcShop(ws, session, npc, shelf = null) {
 	const player = getLivePlayer(session.playerId);
 	if (!player) return;
-	if (!npc.vendor_inventory?.length) {
+	if (!(npc.vendor_inventory || []).some((e) => (e.shelf || null) === (shelf || null))) {
 		ws.send(JSON.stringify({ type: "error", message: `${npc.name} has nothing to sell.` }));
 		return;
 	}
@@ -1160,7 +1436,7 @@ async function openNpcShop(ws, session, npc) {
 		ws.send(JSON.stringify({ type: "error", message: vendorClosedLine(npc) }));
 		return;
 	}
-	openShopSession(session.playerId, npc.id);
+	openShopSession(session.playerId, npc.id, shelf);
 	await sendShopPanel(ws, npc, session.playerId);
 }
 
@@ -1170,7 +1446,8 @@ async function sendShopPanel(ws, npc, playerId, extra = {}) {
 	const player = getLivePlayer(playerId);
 	if (!player) return;
 	const { getVendorStock, getSellableInventory } = await import("./engine/vendor.js");
-	const stock = await getVendorStock(npc, playerId);
+	const { getShopShelf } = await import("./engine/vendor-session.js");
+	const stock = await getVendorStock(npc, playerId, getShopShelf(playerId));
 	const inventory = await getSellableInventory(player, npc);
 	ws.send(JSON.stringify({
 		type: "dialogue_shop",
@@ -1210,7 +1487,8 @@ async function handleBuyFromNpc(ws, session, msg) {
 	// unique into one over-counted row.
 	let qty = Math.max(1, Math.min(99, Number(msg.quantity) || 1));
 	if (boughtItem && !isStackable(boughtItem)) qty = 1;
-	const result = await buyFromVendor(player, npc, msg.itemId, qty);
+	const { getShopShelf } = await import("./engine/vendor-session.js");
+	const result = await buyFromVendor(player, npc, msg.itemId, qty, getShopShelf(session.playerId));
 	await sendShopPanel(ws, npc, session.playerId, { buyResult: result.message, buySuccess: result.success });
 	if (result.success) {
 		ws.send(JSON.stringify({ type: "player_update", credits: player.credits }));
@@ -1271,6 +1549,16 @@ async function boot() {
 	setMessagingBroadcast(broadcast);
 	await loadMisSettings();
 	await loadEmailVerificationSetting();
+	// A verification gate with no working mailer locks every new account out, so
+	// say so at boot rather than letting registrations quietly strand.
+	if (isEmailVerificationEnabled() && mailerConfigProblem()) {
+		console.error(`[boot] WARNING: email verification is ON but the mailer is ${mailerConfigProblem()} — new accounts cannot receive verification links.`);
+	} else if (isEmailVerificationEnabled()) {
+		// Print the sender this process actually resolved. Without it, a dashboard
+		// env edit that landed on the wrong service (or never restarted anything)
+		// is indistinguishable from one that took effect.
+		console.log(`[boot] mailer ready — sender ${mailerSender()}`);
+	}
 	await initWorld();
 	// Door lock state isn't persisted (world.doors resets to authored state); re-apply
 	// each locked apartment's durable lock onto its door(s) in RAM.
@@ -1294,6 +1582,9 @@ async function boot() {
 	await reloadAliases();
 	await loadMutations();
 	await loadBanterLibrary();
+	// Subscribes one dispatcher per bound event name — must run before any
+	// player is connected, but is order-independent w.r.t. plugin event emitters.
+	await loadScriptTriggers();
 	await loadPlugins();
 	try {
 		await initEnvironment({

@@ -1,0 +1,33 @@
+{
+  "ambient_events": [
+    "A page turns somewhere behind you. When you look, there is nobody there and no book open.",
+    "The radiator knocks twice, considers a third, and thinks better of it.",
+    "Dust moves through the lamplight in a slow, unbothered spiral.",
+    "Somewhere in the shelves, a spine settles with a sound like someone clearing their throat."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#1e1c18",
+  "color": "#d6c9a4",
+  "created_by": null,
+  "description": "Past the last aisle of deeds, the shelving stops being municipal and starts being personal. Somebody has spent years quietly rehousing the things the Hall was never funded to keep: novels, pamphlets, three shelves of translated foreign misery, a run of periodicals nobody has claimed since the Collapse. The labels here are handwritten rather than stamped. There are two armchairs whose stuffing has been repaired more than once, a reading lamp with a burn mark on the shade, and a hand-lettered card taped to the end of the nearest shelf that says TAKE WHAT YOU NEED. BRING IT BACK IF YOU CAN. NO FINES. WE ARE PAST FINES.\n\nA squat brass terminal sits on a side table with a slot for a tablet and a note beside it reading SCAN, DON'T STEAL — IT'S FASTER AND I'LL KNOW.",
+  "exits": {
+    "south": "zone_records_stacks"
+  },
+  "flags": {
+    "always_lit": true,
+    "building_name": "Hall of Records",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_922_910"
+  },
+  "grid_x": 0,
+  "grid_y": -2,
+  "grid_z": 0,
+  "id": "zone_records_library",
+  "map_id": "map_int_records_hall",
+  "marker": null,
+  "name": "The Lending Library",
+  "parent_zone": "zone_district_922_910",
+  "updated_at": "1785110000"
+}

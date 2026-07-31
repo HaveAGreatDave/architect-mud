@@ -17,6 +17,7 @@ import { isOnCooldown, setCooldown, getCooldownRemaining } from '../combat.js';
 import { hasTag, tagValue } from '../tags.js';
 import { recomputePower } from '../environment.js';
 import { updateFurniture } from '../world.js';
+import { emit } from '../events.js';
 
 // Tunable per object_type. Playtest and adjust freely — HP lives on the row,
 // soak/gate live here.
@@ -62,7 +63,17 @@ export async function cmdAttackDestructible(targetStr, player, broadcast) {
     return { type: 'error', message: `You're still recovering. (${(getCooldownRemaining(player.id, 'attack') / 1000).toFixed(1)}s)` };
   setCooldown(player.id, 'attack');
 
-  const dmg  = equipped ? (tagValue(equipped, 'damage', {}) || {}) : {};
+  // A demolition tool's anti-MACHINERY damage is a separate number from its
+  // anti-personnel damage, and deliberately much larger. A sledgehammer is
+  // clumsy against someone who is dodging and devastating against a static steel
+  // casing; keeping one number for both meant the sledgehammer had to roll 40-70
+  // to get through this soak wall, which made it a one-shot against a 40 HP
+  // player. `demolition_damage` lets the casing stay tough without the weapon
+  // being absurd in a fight. Falls back to `damage`, so every other item and
+  // every unarmed swing behaves exactly as before.
+  const dmg  = equipped
+    ? (tagValue(equipped, 'demolition_damage', null) || tagValue(equipped, 'damage', {}) || {})
+    : {};
   const dmin = dmg.min ?? (equipped ? 3 : 2);
   const dmax = dmg.max ?? (equipped ? 8 : 4);
   const raw  = Math.floor(Math.random() * (dmax - dmin + 1)) + dmin;
@@ -99,6 +110,12 @@ async function destroyDevice(f, player, broadcast, damage) {
 
   // Recompute power now so dependent zones go dark immediately (not next tick).
   await recomputePower().catch(() => {});
+
+  // Announced so systems that care what a wrecked plant MEANS can react without
+  // this file knowing about them — the weather plugin turns a downed city plant
+  // into an ion storm, which is what makes blowing the turbine hall a thing a
+  // player might do deliberately rather than vandalism with a power bill.
+  emit('generator.destroyed', { generatorId: genId, generatorType: f.object_type, furniture: f, by: player });
 
   return { type: 'combat', message:
     `You smash the ${f.name} apart! (${damage} damage) It sparks, dies, and the power drops.` };

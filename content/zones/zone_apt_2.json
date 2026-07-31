@@ -8,6 +8,7 @@
   "created_by": null,
   "description": "A corner unit with two windows, both boarded. Someone before you left a faded poster on the wall — a beach, somewhere, once.",
   "exits": {
+    "in": "zone_apt_2_bath",
     "north": "zone_embassy_floor_2nd"
   },
   "flags": {

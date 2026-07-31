@@ -41,6 +41,10 @@
     "root": {
       "options": [
         {
+          "label": "Patch me up.",
+          "next": "treat"
+        },
+        {
           "label": "What have you got?",
           "next": "stock"
         },
@@ -61,7 +65,16 @@
           "next": "gossip"
         }
       ],
-      "text": "Sister Adler looks up, already assessing. \"Walk-in. Good — the ones who get carried in are a worse day for everyone.\" She wipes her hands. \"We patch, we don't ask. You want supplies to take with you, or are you bleeding on my vinyl right now?\""
+      "text": "Sister Adler looks up, already assessing. \"Walk-in. Good — the ones who get carried in are a worse day for everyone.\" She wipes her hands. \"We patch, we don't ask. You want supplies to take with you, or are you bleeding on my vinyl right now?\"",
+      "text_by_relation": {
+        "close": [
+          "\"There you are.\" She sounds, for half a second, relieved — then it is gone and she is all business. \"Sit down. Let me look at you.\"",
+          "She jerks her chin at the table without breaking stride. \"You know the drill. And you are late.\""
+        ],
+        "familiar": "She looks up before you have finished coming through the door. \"Where is it this time.\" Not a question. The gloves are already on.",
+        "known": "\"You again.\" She does not stop what she is doing, but she does move a chair out with her foot. \"Sit. Bleed on the vinyl.\"",
+        "wary": "\"You.\" The gloves go on slower than usual. \"Credit up front. Do not make it a conversation.\""
+      }
     },
     "stock": {
       "options": [
@@ -75,6 +88,27 @@
         }
       ],
       "text": "\"Medkit if you're serious, bandages if you're cheap, a splint for when something's pointing the wrong way.\" She ticks them off on gloved fingers. \"Anti-rad tablets, because out here you'll want them and you'll always want them too late. Buy ahead. The version of you that needs this won't be in a state to shop.\""
+    },
+    "treat": {
+      "actions": [
+        {
+          "action": "CLINIC_TREAT",
+          "bleed_fee": 25,
+          "minimum": 10,
+          "rate": 2
+        }
+      ],
+      "options": [
+        {
+          "label": "Obliged.",
+          "next": "root"
+        },
+        {
+          "label": "Sell me something for next time.",
+          "next": "__shop__"
+        }
+      ],
+      "text": "\"On the table. Breathe out when I say.\" She works fast and talks less, and asks exactly none of the questions the wounds are begging for."
     }
   },
   "faction": null,
@@ -91,7 +125,7 @@
   "hp": 40,
   "hp_max": 40,
   "id": "npc_clinic_medic",
-  "name": "Sister Wren Adler",
+  "name": "Sister Ida Adler",
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,
@@ -162,7 +196,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Meltwater Walk-In",
+  "vendor_shop_name": "Co-Pay & Pray",
   "vendor_stock_size": 30,
   "wander_zones": [],
   "wanders": 0,
