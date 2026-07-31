@@ -486,6 +486,41 @@ export default async function regress({ run, check, getPlayer }) {
     const freed = await getFurnitureById(STOVE);
     check('burning off the heat frees the stove too', !freed.flags?.busy_until, freed.flags);
 
+    // ── Mince → bowl: the working board ──────────────────────────────────────
+    //
+    // A minced cut is renamed in custom_data ONLY, and `inventory` prints that
+    // name — so the name the player was shown was the one name `stow` could not
+    // resolve, and mince could never be put in a vessel. The second half is
+    // worse: merging a minced row into a plain stack keeps the TARGET's
+    // custom_data, so a successful stow would have silently un-minced it.
+    await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, STEAK]);
+    const minceId = randomUUID();
+    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [minceId, player.id, STEAK]);
+    r = await run('mince test steak');
+    check('mincing a cut works with a knife in hand', r?.type === 'output', JSON.stringify(r));
+    let mRow = (await query('SELECT custom_data FROM player_inventory WHERE id=$1', [minceId])).rows[0];
+    check('mince stamps the row and renames it in custom_data',
+      mRow.custom_data?.minced === true && /mince/.test(mRow.custom_data?.name || ''), mRow.custom_data);
+
+    // A plain cut already in the pan — the merge target that used to eat it.
+    const plainStackId = randomUUID();
+    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,container_id) VALUES ($1,$2,$3,1,1.0,$4)`, [plainStackId, player.id, STEAK, panId]);
+
+    r = await run(`put ${mRow.custom_data.name} in test pan`);
+    check('mince stows into a vessel under the name you were shown', r?.type === 'stow', JSON.stringify(r));
+    mRow = (await query('SELECT container_id, custom_data FROM player_inventory WHERE id=$1', [minceId])).rows[0];
+    check('the minced row survives the stow — it never merges away', !!mRow, 'row gone');
+    check('mince lands in the vessel', mRow?.container_id === panId, mRow?.container_id);
+    check('mince is still mince after being put in the pan', mRow?.custom_data?.minced === true, mRow?.custom_data);
+    check('the plain cut it stowed beside is untouched',
+      (await query('SELECT id FROM player_inventory WHERE id=$1', [plainStackId])).rows.length === 1);
+
+    // The board itself: one command that says what is in play and where.
+    r = await run('mise');
+    check('mise reports the vessel', r?.type === 'output' && /test pan/.test(r.message), JSON.stringify(r));
+    check('mise names the mince inside it', /mince/.test(r?.message || ''), r?.message);
+    check('prep reaches the same board', (await run('prep'))?.message === r.message);
+
     // ── The shared `cook` verb ───────────────────────────────────────────────
     await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, STEAK]);
     check('a room with only a stove offers one kind of cooking',

@@ -104,6 +104,11 @@ const cookSfx = (player, params) =>
 
 const nounOf = row => nounFor(row, tagValue);
 
+// The name the PLAYER has been shown. A per-instance `custom_data.name` is what
+// `inventory` prints — butchered "feral dog meat", a minced cut — so anything
+// reading the catalog name back at them is naming a different thing.
+const shownName = row => row?.custom_data?.name || row?.name;
+
 const DISH_ITEM = 'item_cooked_dish';
 
 function stovesInZone(zoneId) {
@@ -1147,6 +1152,107 @@ async function cmdScour(args, raw, player) {
   return { type: 'output', message: `You scour the ${vessel.name} back to bare metal. It takes a while.` };
 }
 
+// `mise` — the whole board in one look: every ingredient you have in play, the
+// vessel it's sitting in, and how far along it is.
+//
+// Cooking scatters its state on purpose. Prep lives on the ingredient, heat
+// lives on the appliance, the dish-in-progress lives in whichever pan you
+// happen to be holding, and the burner setting lives inside a session nobody
+// can see. All of it was already readable — with the right examine, on the
+// right object, if you remembered the object was there. Nothing here is new
+// state; this is those same reads, gathered, so the answer to "what am I
+// actually doing" costs one command instead of five.
+//
+// Strictly DERIVED: no writes, no clock, no session of its own. Checking the
+// board twenty times costs exactly what checking it once costs.
+async function cmdMise(args, raw, player) {
+  const { rows } = await query(
+    `SELECT pi.id, pi.item_id, pi.quantity, pi.custom_data, pi.container_id,
+            i.name, i.weight, i.tags
+       FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id = $1`,
+    [player.id]
+  );
+
+  const isFood = r => !!(profileNameFor(r) || hasTag(r, 'needs_cooking') || r.custom_data?.cooking || r.custom_data?.dish);
+  const vessels = rows.filter(r => hasTag(r, 'vessel'));
+  const vesselIds = new Set(vessels.map(v => v.id));
+
+  // Where a vessel IS, which is the thing you most want to know and the one
+  // thing no examine tells you. The appliance holding it is in-memory furniture,
+  // so this costs nothing.
+  const appliances = [...stovesInZone(player.current_zone), ...microwavesInZone(player.current_zone)];
+  const placeOf = (v) => {
+    const on = appliances.find(f => f.flags?.vessel_id === v.id);
+    if (on) {
+      // The burner setting lives in the session's heat log, not on the stove.
+      const live = cooksOnAppliances([on.id])[0];
+      const heats = live?.session?.heats;
+      const tier = Array.isArray(heats) && heats.length ? heats[heats.length - 1].tier : null;
+      return `on the ${on.name}${tier ? `, burner ${tier}` : ''}`;
+    }
+    if (v.container_id) return 'stowed in your pack';
+    return 'in hand';
+  };
+
+  const out = [];
+  for (const v of vessels) {
+    const inside = await describeVessel(v, player);
+    out.push(`<span class="text-bright">${shownName(v)}</span> <span class="text-dim">— ${placeOf(v)}</span>`);
+    out.push(inside || `  <span class="text-dim">empty</span>`);
+  }
+
+  // Ingredients that aren't in anything yet. This is the half of the board the
+  // game never showed: a minced cut in your pack looked identical to a whole one
+  // everywhere except its name.
+  const loose = rows.filter(r => isFood(r) && !vesselIds.has(r.container_id));
+  if (loose.length) {
+    if (out.length) out.push('');
+    out.push(`<span class="text-bright">On you</span>`);
+    for (const r of loose) {
+      const cd = r.custom_data || {};
+      const state = cd.cooking ? checkCooking(r)?.text
+        : cd.dish ? 'a finished dish'
+        : cd.cooked ? 'cooked'
+        : 'raw, and not in anything yet';
+      const notes = [];
+      if (cd.minced) notes.push('minced');
+      if (cd.portion) notes.push(portionName(cd.portion));
+      const prep = prepText(cd);
+      if (prep) notes.push(prep);
+      out.push(`  ${shownName(r)}${r.quantity > 1 ? ` x${r.quantity}` : ''} — ${state}${notes.length ? `, ${notes.join(', ')}` : ''}`);
+    }
+  }
+
+  // A kitchen's own pots, via the same `fromNearby` seam the cooking verbs use:
+  // a pan you left on the counter is still your problem. Only ones with
+  // something in them — an empty cabinet is not news.
+  const { rows: near } = await query(
+    `SELECT pi.id, pi.item_id, pi.custom_data, pi.container_id, i.name, i.tags, f.name AS from_nearby
+       FROM player_inventory pi
+       JOIN items i ON i.id = pi.item_id
+       JOIN furniture f ON f.id = pi.container_id
+      WHERE f.zone_id = $1 AND f.object_type = 'container'
+        AND jsonb_exists(f.flags, 'dish_cabinet')
+        AND jsonb_exists(i.tags, 'vessel')`,
+    [player.current_zone]
+  );
+  const nearLines = [];
+  for (const v of near) {
+    const inside = await describeVessel(v, player);
+    if (!inside) continue;
+    nearLines.push(`<span class="text-bright">${shownName(v)}</span> <span class="text-dim">— in the ${v.from_nearby}</span>`);
+    nearLines.push(inside);
+  }
+  if (nearLines.length) {
+    if (out.length) out.push('');
+    out.push(...nearLines);
+  }
+
+  if (!out.length) return { type: 'output', message: `<span class="text-dim">Nothing in play. No pans, no ingredients, nothing on the heat.</span>` };
+  return { type: 'output', message: out.join('\n') };
+}
+
 // `doneness <food> <target>` — say how you want it. Moves the peak window along
 // the cook, so rare opens (and closes) earlier than well done. Settable any time
 // before your window opens; after that the food has already passed the point.
@@ -1503,6 +1609,9 @@ export const commands = {
   deglaze: cmdDeglaze,
   scour: cmdScour,
   doneness: cmdDoneness,
+  mise: cmdMise,
+  // Nobody who hasn't worked a kitchen says "mise". Both words reach it.
+  prep: cmdMise,
   stove: cmdStove,
   flip: (args, raw, player) => handleInteraction('flip', args, player),
   stir: (args, raw, player) => handleInteraction('stir', args, player),
@@ -1518,13 +1627,13 @@ async function describeVessel(vesselRow, player) {
   const cooking = contents.filter(r => r.custom_data?.cooking);
   for (const row of cooking) {
     const state = checkCooking(row);
-    if (state) lines.push(`  ${row.name} — ${state.text}`);
+    if (state) lines.push(`  ${shownName(row)} — ${state.text}`);
   }
   const idle = contents.filter(r => !r.custom_data?.cooking && profileNameFor(r));
   for (const row of idle) {
     const prep = prepText(row.custom_data || {});
     const state = isModifier(row) ? 'seasoning, not on the heat' : 'in, but not cooking yet';
-    lines.push(`  ${row.name} — ${state}${prep ? `, ${prep}` : ''}`);
+    lines.push(`  ${shownName(row)} — ${state}${prep ? `, ${prep}` : ''}`);
   }
 
   const fondLine = fondText(vesselRow.custom_data?.fond);
