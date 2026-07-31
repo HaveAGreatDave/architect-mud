@@ -7,7 +7,6 @@
     "The wind comes through the aisles and plays the whole yard like a bad flute."
   ],
   "ambient_theme": "city",
-  "audio_theme_id": null,
   "bg_color": "#3d3128",
   "color": null,
   "created_by": null,
@@ -26,7 +25,6 @@
   "grid_z": 0,
   "id": "zone_junkyard_yard",
   "map_id": "map_int_junkyard",
-  "marker": null,
   "name": "The Rows",
   "parent_zone": "zone_junkyard_shack",
   "updated_at": "1784600000"

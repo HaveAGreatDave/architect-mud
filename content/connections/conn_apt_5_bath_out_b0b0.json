@@ -1,0 +1,9 @@
+{
+  "a": "zone_apt_5_bath",
+  "b": "zone_apt_5",
+  "blocked": false,
+  "dir": "out",
+  "id": "conn_apt_5_bath_out_b0b0",
+  "lockable": true,
+  "one_way": false
+}

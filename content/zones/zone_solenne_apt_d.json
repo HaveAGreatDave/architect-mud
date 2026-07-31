@@ -1,7 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
   "created_by": null,
@@ -22,7 +21,6 @@
   "grid_z": 6,
   "id": "zone_solenne_apt_d",
   "map_id": "map_int_solenne",
-  "marker": null,
   "name": "Solenne Residence 34-D",
   "parent_zone": "zone_district_914_908",
   "updated_at": "1784900000"

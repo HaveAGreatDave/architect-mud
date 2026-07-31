@@ -1,15 +1,14 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2a2620",
   "color": null,
   "created_by": "marrow-infill",
   "description": "One aisle wide and stacked to the ceiling on both sides: tins with the labels sun-bleached off, sacks of grey rice, batteries in blister packs, a rack of cigarettes behind wire. The counter is a chest freezer with a board across it. A hand-written card taped to the till reads TAB AVAILABLE — ASK — DON'T ASK TWICE. Half the street's names are on the list behind it.",
   "exits": {
+    "down": "zone_util_zone_kessel_shop",
     "east": "zone_district_918_911",
-    "west": "zone_kessel_back",
-    "down": "zone_util_zone_kessel_shop"
+    "west": "zone_kessel_back"
   },
   "flags": {
     "building_name": "Bodega Vu",
@@ -23,7 +22,6 @@
   "grid_z": 0,
   "id": "zone_kessel_shop",
   "map_id": "map_int_kessel",
-  "marker": null,
   "name": "Bodega Vu — Shop",
   "parent_zone": "zone_district_918_911",
   "updated_at": "1785200000"

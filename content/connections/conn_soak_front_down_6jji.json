@@ -1,0 +1,9 @@
+{
+  "a": "zone_soak_front",
+  "b": "zone_util_zone_soak_front",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_soak_front_down_6jji",
+  "lockable": false,
+  "one_way": false
+}

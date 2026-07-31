@@ -6,7 +6,6 @@
     "Wind scours straight across the open deck and off into the dark."
   ],
   "ambient_theme": "urban",
-  "audio_theme_id": null,
   "bg_color": "#1c242c",
   "color": "#cfd8e0",
   "created_by": null,
@@ -36,7 +35,6 @@
   "grid_z": 7,
   "id": "zone_solenne_helipad",
   "map_id": "map_int_solenne",
-  "marker": null,
   "name": "Solenne Sky Pad",
   "parent_zone": "zone_district_914_908",
   "updated_at": "1784900000"

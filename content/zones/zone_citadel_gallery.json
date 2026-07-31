@@ -8,7 +8,6 @@
     "The camera at the end of the row does not sweep. It simply looks at the stairwell, always."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#302b26",
   "color": "#c9b98e",
   "created_by": null,
@@ -27,7 +26,6 @@
   "grid_z": 0,
   "id": "zone_citadel_gallery",
   "map_id": "map_int_citadel",
-  "marker": null,
   "name": "Citadel Financial — Safe Deposit Gallery",
   "parent_zone": "zone_district_921_911",
   "updated_at": "1785110400"

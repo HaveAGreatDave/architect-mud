@@ -1,0 +1,9 @@
+{
+  "a": "zone_kessel_shop",
+  "b": "zone_util_zone_kessel_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_kessel_shop_down_zp11",
+  "lockable": false,
+  "one_way": false
+}

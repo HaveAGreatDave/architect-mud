@@ -1,0 +1,9 @@
+{
+  "a": "zone_apt_6_bath",
+  "b": "zone_apt_6",
+  "blocked": false,
+  "dir": "out",
+  "id": "conn_apt_6_bath_out_ophf",
+  "lockable": true,
+  "one_way": false
+}

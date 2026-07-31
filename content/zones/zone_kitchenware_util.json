@@ -1,7 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#4a4038",
   "color": null,
   "created_by": null,
@@ -17,7 +16,6 @@
   "grid_z": 0,
   "id": "zone_kitchenware_util",
   "map_id": "map_int_kitchenware",
-  "marker": null,
   "name": "Tine & Temper — Back Room",
   "parent_zone": "zone_kitchenware",
   "updated_at": "1785001794"

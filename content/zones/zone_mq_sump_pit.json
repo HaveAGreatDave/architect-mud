@@ -9,7 +9,6 @@
     "Somewhere under the floor the drain accepts another contribution without comment."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#55603f",
   "color": null,
   "created_by": null,
@@ -26,7 +25,6 @@
   "grid_z": 0,
   "id": "zone_mq_sump_pit",
   "map_id": "map_int_mq_sump",
-  "marker": null,
   "name": "The Pit",
   "parent_zone": "zone_mq_sump_bar",
   "updated_at": "1784600000"

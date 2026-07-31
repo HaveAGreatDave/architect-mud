@@ -1,7 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#272420",
   "color": null,
   "created_by": "marrow-infill",
@@ -21,7 +20,6 @@
   "grid_z": 0,
   "id": "zone_kessel_back",
   "map_id": "map_int_kessel",
-  "marker": null,
   "name": "Bodega Vu — Back Room",
   "parent_zone": "zone_district_918_911",
   "updated_at": "1785200000"

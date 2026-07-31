@@ -6,7 +6,6 @@
     "Someone in the flats opposite pulls a curtain, considers the street, and lets it fall."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2b2b33",
   "color": null,
   "created_by": null,
@@ -30,7 +29,6 @@
   "grid_z": 0,
   "id": "zone_sf_kessler3",
   "map_id": "map_int_sf_kessler3",
-  "marker": null,
   "name": "Unit 3, Kessler Street",
   "parent_zone": "zone_district_921_913",
   "updated_at": "1784800000"

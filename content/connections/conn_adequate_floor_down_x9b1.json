@@ -1,0 +1,9 @@
+{
+  "a": "zone_adequate_floor",
+  "b": "zone_util_zone_adequate_floor",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_adequate_floor_down_x9b1",
+  "lockable": false,
+  "one_way": false
+}

@@ -8,7 +8,6 @@
     "You can hear your own pulse in here. Citadel presumably considers that a feature."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#24262a",
   "color": "#b9c0c6",
   "created_by": null,
@@ -27,7 +26,6 @@
   "grid_z": -1,
   "id": "zone_citadel_vault",
   "map_id": "map_int_citadel",
-  "marker": null,
   "name": "Citadel Financial — The Vault",
   "parent_zone": "zone_district_921_911",
   "updated_at": "1785110400"

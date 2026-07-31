@@ -3,7 +3,6 @@
     "The cabinet hums, drops a note, and picks it back up."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#332b22",
   "color": null,
   "created_by": null,
@@ -19,7 +18,6 @@
   "grid_z": 0,
   "id": "zone_util_junkyard",
   "map_id": "map_int_junkyard",
-  "marker": null,
   "name": "Utility Nook",
   "parent_zone": "zone_junkyard_shack",
   "updated_at": "1784600000"

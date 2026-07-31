@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_citadel_vestibule_north_h59p",
   "door_type": "reinforced",
   "exit_dir": "north",
   "flags": {},

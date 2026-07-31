@@ -1,0 +1,9 @@
+{
+  "a": "zone_solenne_residences_34",
+  "b": "zone_solenne_elevator",
+  "blocked": false,
+  "dir": "in",
+  "id": "conn_solenne_residences_34_in_yobg",
+  "lockable": false,
+  "one_way": true
+}

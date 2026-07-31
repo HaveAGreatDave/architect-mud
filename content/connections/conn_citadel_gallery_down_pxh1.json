@@ -1,0 +1,9 @@
+{
+  "a": "zone_citadel_gallery",
+  "b": "zone_citadel_vault",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_citadel_gallery_down_pxh1",
+  "lockable": true,
+  "one_way": false
+}

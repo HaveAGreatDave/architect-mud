@@ -6,7 +6,6 @@
     "A draught comes through the broken pane and turns over a leaf of old receipt paper."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2b2b33",
   "color": null,
   "created_by": null,
@@ -30,7 +29,6 @@
   "grid_z": 0,
   "id": "zone_sf_voss7",
   "map_id": "map_int_sf_voss7",
-  "marker": null,
   "name": "Unit 7, Voss Avenue",
   "parent_zone": "zone_district_904_910",
   "updated_at": "1784800000"

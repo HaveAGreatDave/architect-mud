@@ -1,7 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#c9a884",
   "color": null,
   "created_by": "add-ensuite-bathroom",
@@ -17,7 +16,6 @@
   "grid_z": 0,
   "id": "zone_apt_2_bath",
   "map_id": null,
-  "marker": null,
   "name": "Unit 2B — Bathroom",
   "parent_zone": "zone_apt_2",
   "updated_at": "1785157992"

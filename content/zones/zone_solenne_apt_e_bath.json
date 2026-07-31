@@ -1,7 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
   "created_by": "add-ensuite-bathroom",
@@ -17,7 +16,6 @@
   "grid_z": 0,
   "id": "zone_solenne_apt_e_bath",
   "map_id": null,
-  "marker": null,
   "name": "Residence 34-E — Ensuite",
   "parent_zone": "zone_solenne_apt_e",
   "updated_at": "1784900000"

@@ -8,7 +8,6 @@
     "The floor here is rubber, not marble. Easier to hose down."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#33302c",
   "color": "#d2c8b4",
   "created_by": null,
@@ -36,7 +35,6 @@
   "grid_z": 0,
   "id": "zone_citadel_vestibule",
   "map_id": "map_int_citadel",
-  "marker": null,
   "name": "Citadel Financial — Security Vestibule",
   "parent_zone": "zone_district_921_911",
   "updated_at": "1785110400"

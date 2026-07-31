@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_918_910",
+  "b": "zone_secondskin_floor",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_918_910_south_0ir1",
+  "lockable": true,
+  "one_way": false
+}

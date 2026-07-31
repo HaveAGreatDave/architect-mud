@@ -6,7 +6,6 @@
     "Somewhere in the shelves, a spine settles with a sound like someone clearing their throat."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#1e1c18",
   "color": "#d6c9a4",
   "created_by": null,
@@ -26,7 +25,6 @@
   "grid_z": 0,
   "id": "zone_records_library",
   "map_id": "map_int_records_hall",
-  "marker": null,
   "name": "The Lending Library",
   "parent_zone": "zone_district_922_910",
   "updated_at": "1785110000"

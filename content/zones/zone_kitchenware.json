@@ -6,7 +6,6 @@
     "A price tag, string-tied, spins slowly on a lid handle."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#4a4038",
   "color": null,
   "created_by": null,
@@ -27,7 +26,6 @@
   "grid_z": 0,
   "id": "zone_kitchenware",
   "map_id": "map_int_kitchenware",
-  "marker": null,
   "name": "Tine & Temper",
   "parent_zone": "zone_district_918_907",
   "updated_at": "1785001794"

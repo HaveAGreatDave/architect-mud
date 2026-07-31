@@ -1,7 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2a2420",
   "color": null,
   "created_by": "marrow-infill",
@@ -21,7 +20,6 @@
   "grid_z": 0,
   "id": "zone_broth_galley",
   "map_id": "map_int_broth",
-  "marker": null,
   "name": "Oyelaran's — Galley",
   "parent_zone": "zone_district_917_908",
   "updated_at": "1785200000"

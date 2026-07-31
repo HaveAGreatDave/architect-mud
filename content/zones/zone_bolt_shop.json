@@ -1,15 +1,14 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2a2721",
   "color": null,
   "created_by": "marrow-infill",
   "description": "Floor to ceiling in small drawers, each one hand-labelled in a script that stopped being legible around the letter M. Rope on spools, blades under glass, a wall of hand tools hung on pegs in size order. The whole room smells of oil and hot metal, and there is a running argument in chalk on the back wall about whether a thing counts as fixed if it only works when you hold it.",
   "exits": {
-    "south": "zone_district_915_908",
+    "down": "zone_util_zone_bolt_shop",
     "east": "zone_bolt_yard",
-    "down": "zone_util_zone_bolt_shop"
+    "south": "zone_district_915_908"
   },
   "flags": {
     "building_name": "Nuts to That",
@@ -23,7 +22,6 @@
   "grid_z": 0,
   "id": "zone_bolt_shop",
   "map_id": "map_int_bolt",
-  "marker": null,
   "name": "Nuts to That — Shop",
   "parent_zone": "zone_district_915_908",
   "updated_at": "1785200000"

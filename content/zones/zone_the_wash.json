@@ -8,7 +8,6 @@
     "Rain finds the window and runs down it in long warm streaks. In here it doesn't matter."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2e4450",
   "color": "#cfe9f5",
   "created_by": null,
@@ -30,7 +29,6 @@
   "grid_z": 0,
   "id": "zone_the_wash",
   "map_id": "map_int_the_wash",
-  "marker": null,
   "name": "The Wash",
   "parent_zone": "zone_district_918_905",
   "updated_at": "1785000000"

@@ -1,9 +1,9 @@
 {
-  "a": "zone_clone_facility_bathroom",
+  "a": "zone_embassy_lobby_bathroom",
   "b": "zone_start",
   "blocked": false,
   "dir": "east",
-  "id": "conn_clone_facility_bathroom_east_dglm",
+  "id": "conn_embassy_lobby_bathroom_east_i4of",
   "lockable": true,
   "one_way": false
 }

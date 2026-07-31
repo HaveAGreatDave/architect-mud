@@ -1,0 +1,9 @@
+{
+  "a": "zone_kitchenware",
+  "b": "zone_district_918_907",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_kitchenware_east_u5bt",
+  "lockable": false,
+  "one_way": true
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_916_908",
+  "b": "zone_soak_front",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_district_916_908_north_2k6w",
+  "lockable": true,
+  "one_way": false
+}

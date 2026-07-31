@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_apt_12_bath_out_gwst",
   "door_type": "basic",
   "exit_dir": "out",
   "flags": {},

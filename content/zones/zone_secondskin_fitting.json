@@ -1,7 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#232320",
   "color": null,
   "created_by": "marrow-infill",
@@ -21,7 +20,6 @@
   "grid_z": 0,
   "id": "zone_secondskin_fitting",
   "map_id": "map_int_secondskin",
-  "marker": null,
   "name": "Layers — Fitting Room",
   "parent_zone": "zone_district_918_910",
   "updated_at": "1785200000"
