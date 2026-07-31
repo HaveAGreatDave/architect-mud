@@ -215,6 +215,35 @@ fiddly, the escape hatch is: pick either side, import, re-make your change in
 the dev panel, re-export. `content:lint` in the pre-push hook catches botched
 resolutions before they reach main.
 
+That holds for two devs editing one entity. It does **not** hold across a
+long-lived branch, where a mechanical pass touches thousands of files: the
+derive work removed `"marker": null` and `"audio_theme_id": null` from 5,788
+zone files, and every one of those became a conflict with any commit on `main`
+that edited a neighbouring line. Merging 133 `main` commits into
+`studio-manager` produced 93 content conflicts of which only 11 were real
+disagreements.
+
+So `content/**/*.json` is merged **by key, not by line**, through
+[`scripts/content/merge-json.mjs`](../scripts/content/merge-json.mjs). Canonical
+serialization is what makes this safe — key order is `Object.keys().sort()`, not
+authorial intent, so line adjacency carries no meaning to preserve. The driver
+applies the ordinary three-way rule per key, recurses into objects, compares
+arrays whole (order is meaning in `exits`), treats `null` and an omitted key as
+the same statement per the absent-by-default contract, and emits through
+`canonicalJson` so a merge lands byte-identical to an export. Anything both
+sides genuinely changed is left as a normal conflict, with the key named on
+stderr.
+
+`.gitattributes` names the driver; **each clone must supply the command once**:
+
+```bash
+git config merge.contentjson.driver "node scripts/content/merge-json.mjs %O %A %B %P"
+```
+
+Without it git warns and falls back to the text merge — noisier, never wrong.
+Turning on `git config rerere.enabled true` is worth it on the same day: the
+handful of real conflicts recur on every subsequent merge of the same branches.
+
 ## Schema changes
 
 Edit `SCHEMA_SQL` (idempotent DDL) as always. `content:import` applies it

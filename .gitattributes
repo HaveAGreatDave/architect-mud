@@ -15,5 +15,15 @@ db/audio-seed.sql text eol=lf -diff
 # byte-identity across machines is what makes exports and merge conflicts sane,
 # so never let autocrlf touch them. audio_samples carry one-line base64 blobs —
 # same -diff treatment as audio-seed.sql.
-content/**/*.json text eol=lf
-content/audio_samples/*.json text eol=lf -diff
+#
+# merge=contentjson routes these through scripts/content/merge-json.mjs, which
+# merges by KEY instead of by line. These files are canonically serialized, so
+# line adjacency is an artifact of Object.keys().sort() and means nothing — two
+# authors editing unrelated fields land on neighbouring lines and git's text
+# merge calls it a conflict. Merging main into studio-manager produced 93 such
+# conflicts; 82 of them were edits that compose perfectly. The driver has to be
+# registered per clone (git config supplies the command, this file only names
+# it) — see the header of merge-json.mjs for the two lines. A clone that hasn't
+# registered it falls back to the text merge, which is noisier but never wrong.
+content/**/*.json text eol=lf merge=contentjson
+content/audio_samples/*.json text eol=lf -diff merge=contentjson
