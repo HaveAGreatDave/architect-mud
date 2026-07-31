@@ -766,7 +766,10 @@ function mapTile(zone, x, y, placed, currentId) {
     exit_dirs: interiorExitDirs(zone), // interior room's ways out — drives the interior map's exit arrows
     terrain: zoneTerrain(zone), // 'road' | 'water' | 'grass' | null — tileable terrain styling
 
-    water: zoneTerrain(zone) === 'water', // open water — the client refuses to route onto it
+    // `water:` used to ride here, described as "the client refuses to route onto it".
+    // No client code ever read it — the minimap styles water off `terrain` and the
+    // auto-walker follows the server's own route. Routability is a server decision
+    // (propsOf().routable, honoured in pathfinding), so the payload doesn't restate it.
 
     curtain: zone.flags?.curtain ? true : null, // the Architect's perimeter wall edge
     perimeter_gate: zone.flags?.perimeter_gate ? true : null, // the one break in the Curtain

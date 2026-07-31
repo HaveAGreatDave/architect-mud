@@ -330,6 +330,7 @@ function deriveItemName(id) {
 function tagValueError(def, v) {
   switch (def.shape) {
     case 'flag':    return v === true ? null : 'should be a flag';
+    case 'tristate': return typeof v === 'boolean' ? null : 'should be true or false (omit to inherit)';
     case 'int':
     case 'number':  return _isNum(v) ? null : 'should be a number';
     case 'ref':     return (typeof v === 'string' && v) ? null : 'should be an id string';

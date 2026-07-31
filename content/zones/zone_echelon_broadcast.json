@@ -16,7 +16,6 @@
     "always_lit": true,
     "building_name": "The Echelon",
     "echelon": true,
-    "echelon_broadcast": true,
     "is_building": true,
     "is_interior": true,
     "world_exit_zone": "zone_echelon_exterior",

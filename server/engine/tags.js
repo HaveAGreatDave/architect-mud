@@ -71,6 +71,14 @@ export function shapeError(key, def, value) {
         // hasTag — presence is the signal, not the boolean.
         if (typeof value !== 'boolean' && value !== 1) badShape.push(`${key} (flag: expected true)`);
         break;
+      // TRI-STATE: unset / true / false, and unlike `flag` the false is LOAD-BEARING.
+      // A terrain-preset property (docs/proposals/terrain-property-presets.md) needs
+      // to say "explicitly not this" — a frozen bay is terrain:'water' with
+      // swimmable:false — which `flag` cannot express, because there absence and
+      // false are the same signal. Here they are not: absent means inherit.
+      case 'tristate':
+        if (typeof value !== 'boolean') badShape.push(`${key} (tristate: expected true or false — omit the key to inherit)`);
+        break;
       // 'int' collapsed into 'number' (spec §3.1.4) — still accepted so a catalog
       // edited back to the old name validates instead of silently going unchecked.
       case 'int':

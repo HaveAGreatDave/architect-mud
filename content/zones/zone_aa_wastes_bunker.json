@@ -13,7 +13,6 @@
     "up": "zone_district_891_907"
   },
   "flags": {
-    "aa_bunker": "aa_wastes_gun",
     "is_interior": true,
     "world_exit_zone": "zone_district_891_907"
   },

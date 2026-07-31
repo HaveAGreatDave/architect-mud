@@ -122,8 +122,8 @@ now the Coldwater **region**, but that is the region layer's business, not the p
 - **`flags.region_id` ≠ `flags.district`.** The first is spatial region membership; the second is a
   land-use override. Both exist on the same tile and mean unrelated things.
 - **Water is marked ONE way: `flags.terrain = 'water'`,** and **tested one way:
-  `zoneTerrain(zone) === 'water'`, never a raw flag.** The legacy `flags.water` marker is on no zone;
-  the `zoneTerrain()` line that still reads it survives only for hand-authored legacy content. See
+  `zoneTerrain(zone) === 'water'`, never a raw flag.** The legacy `flags.water` marker and the
+  `zoneTerrain()` rung that read it were both deleted 2026-07-30 — there is no second way to say it. See
   [systems-terrain.md § Water is terrain, not a flag](../systems-terrain.md#water-is-terrain-not-a-flag).
 - **Terrain ≠ biome.** Terrain is the authored surface SSOT (`flags.terrain`, gameplay-adjacent).
   Biome is a flight-render-only derivation that *reads* terrain among other things.

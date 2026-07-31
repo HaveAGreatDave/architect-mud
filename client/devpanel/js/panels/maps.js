@@ -1052,7 +1052,7 @@ const RUNWAY_COLOR = '#f5d400', RUNWAY_BG = '#2b2b2b';
 const isRunwayKey = k => !!RUNWAY_KEYS[k];
 // Brush-preview fills only — what a swatch looks like and what a tile turns into
 // the instant you paint it, before the derive pass has run. The AUTHORITY for what
-// a tile looks like is its spec (zone_render), which the editor reads directly.
+// a tile looks like is its spec (zone_derived), which the editor reads directly.
 let TERRAIN_FILL_BY_KEY = Object.fromEntries(Object.keys(RUNWAY_KEYS).map(k => [k, RUNWAY_COLOR]));
 function rebuildTerrainFillIndex() {
   TERRAIN_FILL_BY_KEY = Object.fromEntries([
@@ -1113,7 +1113,6 @@ function selectEditRegion(id) { window.worldSelectedRegionId = id || null; rende
 function mapZoneTerrain(z) {
   if (!z) return null;
   if (z.flags?.terrain) return z.flags.terrain;
-  if (z.flags?.water) return 'water';
   if (z.flags?.pier) return 'dock';
   if (/^(road_|runway_)/.test(z.flags?.icon || '')) return 'road';
   // Green-dominant bg = parkland/grass (same test as server zoneTerrain).
@@ -1170,7 +1169,7 @@ function _terrainTileVisual(z, byCoord) {
 // those verbatim: no server read-merge-write, and no other flags are dropped. The staging
 // queue coalesces repeated edits to the same zone into one pending change.
 // A paint changes what a tile LOOKS like, and what a tile looks like now comes
-// from zone_render — which only a derive pass writes. Without this the painter
+// from zone_derived — which only a derive pass writes. Without this the painter
 // would stage a change nobody could see until the next deploy, which is a painter
 // nobody would use. Debounced, because a drag stroke is dozens of saves and derive
 // is whole-map by design (spec §7.2).

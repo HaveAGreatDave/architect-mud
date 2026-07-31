@@ -10,7 +10,6 @@
   },
   "flags": {
     "always_lit": true,
-    "architect_uplink": true,
     "is_building": true,
     "is_interior": true,
     "world_exit_zone": "zone_district_892_907"

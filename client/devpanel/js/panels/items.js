@@ -2,6 +2,13 @@ function itemTagWidget(name, value) {
   const def = TAG_CATALOG[name];
   switch (def.shape) {
     case 'flag': return '';
+    // Tri-state: blank inherits the terrain preset, the other two are overrides.
+    // A checkbox can't express "explicitly no" — see terrain-property-presets.md.
+    case 'tristate': {
+      const sel = value === undefined || value === null ? '' : (value ? 'true' : 'false');
+      return `<select class="tag-input">${[['', '— inherit'], ['true', 'Yes (override)'], ['false', 'No (override)']]
+        .map(([v, l]) => `<option value="${v}"${sel === v ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+    }
     // 'int' collapsed into 'number' (map-pipeline-spec §3.1.4); still matched so a
     // catalog that hasn't been re-saved keeps its spinner instead of silently
     // degrading to a JSON textarea.
@@ -85,6 +92,9 @@ function readItemTag(rowEl) {
   const inputs = [...rowEl.querySelectorAll('.tag-input')];
   switch (def.shape) {
     case 'flag': return true;
+    // '' (inherit) returns undefined so the caller deletes the key; the explicit
+    // false must survive as a boolean.
+    case 'tristate': return inputs[0].value === '' ? undefined : inputs[0].value === 'true';
     case 'int': case 'number': return +inputs[0].value || 0;
     case 'ref': return inputs[0].value.trim();
     case 'enum': return inputs[0].value;

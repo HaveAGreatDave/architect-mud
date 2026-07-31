@@ -13,7 +13,6 @@
     "up": "zone_district_891_903"
   },
   "flags": {
-    "aa_bunker": "aa_redline_sam",
     "is_interior": true,
     "world_exit_zone": "zone_district_891_903"
   },

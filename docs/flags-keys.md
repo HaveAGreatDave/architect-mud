@@ -31,7 +31,6 @@ nothing, silently; wire a reader first.
 | `echelon_sundeck` | consort | open-air top-deck lounge (jacuzzi); beckoned consorts suntan/soak/lounge here |
 | `echelon_view` | consort | a deck you can LOOK out across the Basin from (stern lounge, stair landing) |
 | `echelon_helipad` | consort/flight | stern landing pad — a VTOL Dragonfly can set down here to embark/disembark |
-| `echelon_broadcast` | broadcast | lower-deck studio housing the emergency MediaDeck that overrides every tuned TV in the city |
 | `engine_ambience` | movement (client yacht-ambience) | engine-room rumble plays here, swelling while she makes way (`yacht_underway`) |
 | `heading` | yacht | **RUNTIME-only**: the vessel's last steered course in degrees (0=N). Injected onto the live Echelon exterior zone from the persisted world flag — never authored in content; catalogued so it survives the zone-flags sweep |
 | `vessel` | movement | this water tile is a boat you can embark/disembark from the water (needs an `in` exit to the vessel interior) |
@@ -47,12 +46,10 @@ nothing, silently; wire a reader first.
 | `airfield_theme` | flight (zone-planner) | overrides the airport backdrop painted out the canopy (`city\|docks\|yards\|slag\|wastes\|default`); inferred from the zone id when unset |
 | `runway` | flight (zone-planner) | runway tile: `ns`/`ew` is the centreline orientation the flight sim aligns its drawn runway to; `pad` is the surrounding asphalt |
 | `aircraft_cabin` | flight | interior cabin room of a **walkable** aircraft; value = the craft-type id (e.g. `leviathan`). Binds these coordinate-free rooms to the live aircraft; the move gate seals world exits while airborne |
-| `cabin_entry` | flight | the cabin room boarders arrive in (and are set down near on deplane). One per cabin; mirrors the cabin map's `entry_zone_id` |
 | `cabin_window` | flight | cabin room with windows — `window` opens the through-hull moving-world view from here |
 | `flightdeck` | flight | cockpit room of a walkable aircraft: home of TAKE CONTROLS / HAND OFF and the NAV console |
-| `home_slots` | flight | authored decor anchors a walkable-base room offers, each `{ id, kind, label }`. The shell defines the anchors; per-owner choices are runtime overlays (`custom_data.home.slots`), never zone edits |
+| `home_slots` | — (not yet) | authored decor anchors a walkable-base room offers, each `{ id, kind, label }`. **No reader yet** — the anchors are authored AHEAD of the decor feature ([proposals/leviathan-flying-base.md](proposals/leviathan-flying-base.md)). Deliberate, not residue: don't strip it |
 | `aa_site` | aa-sites | this surface tile is an AA emplacement's exposed gun deck — drives the map AA POI (`⌖` / "AA battery") |
-| `aa_bunker` | — | **no reader.** Catalogued and authored on bunker zones, but nothing consumes it: the aa-sites repair loop finds its engineer by the NPC's `flags.aa_engineer` instead. Don't gate new behaviour on it without wiring it first |
 | `airspace_restricted` | flight | AA-gated airspace over this zone |
 | `always_lit` | environment | never dark regardless of power/time |
 | `light_beacon` | environment | floods this tile + its 8 grid-neighbours to full brightness, overriding night/power/weather |
@@ -67,12 +64,10 @@ nothing, silently; wire a reader first.
 | `glacis` | engine minimap + flight; checkpoint | outward-facing turret killing-ground just beyond a `perimeter_gate`. Also usable as a `checkpoint_cfg.fromFlag` predicate |
 | `ascendant_campus` | ascendant | world tile is part of the Ascendant stronghold campus (western frontier) — ambience + faction framing |
 | `ascension_gate` | ascendant | the gated entrance tile into the Ascendant campus |
-| `ascendant_inner` | ascendant | the Spire sanctum — deepest Ascendant interior, reserved for the highest standing |
 | `ascendant_registry` | augments | the Vats registry desk — intake/enrolment room |
 | `ascendant_vats` | augments | the cloning/regrowth hall within The Vats |
 | `augment_clinic` | augments | room where cybernetic augments can be installed (Chrome Clinic) |
 | `assurance_policy` | augments | desk selling prepaid cortical-backup restores (the secret Halcyon front); enables the `policy` verb |
-| `architect_uplink` | — | **no reader.** The Architect Shrine uplink chamber; catalogued and authored, but nothing gates on it yet |
 | `claimable` | corps | territory override: force claimable (absent = derived from inferred danger) |
 | `claimable_asset` | corps | this building is a claimable corporate income asset (Corporate Assets Phase A); `corps/ventures.js` reads it for `corp asset claim` |
 | `danger` | danger | manual danger override (`safe/low/medium/high/lethal`) — normally inferred from spawns + radiation (`engine/danger.js`) |
@@ -82,7 +77,6 @@ nothing, silently; wire a reader first.
 | `elevator_floors` | movement | floor list for the elevator (Floor 1 / lobby is implicit — synthesized from the car's `out` exit) |
 | `hide_exits` | describe (engine) | suppress the player-facing exit/room/building list in the room description; graph (movement, NPC pathfinding, minimap) is untouched. Used by elevator cars so the floor panel is the sole exit UI |
 | `fishing_table_id` | fishing | scavenging-table id used for fishing here |
-| `gov_checkpoint` | — | **no reader.** There is no `govgate` plugin; checkpoints are configured entirely through `checkpoint_cfg` |
 | `gov_enclave` | checkpoint | inside the government enclave — consumed only as a `checkpoint_cfg.insideFlag` value (the gate is generic, not special-cased) |
 | `greeter` | jobboard | greeter NPC gate zone |
 | `hangar_interior` | flight | inside a hangar |
@@ -102,7 +96,7 @@ nothing, silently; wire a reader first.
 | `icon` | world (minimap/flight) | name of an SVG in `client/game/assets/zone-icons/` (without `.svg`) drawn on the minimap tile in place of the marker glyph. Flight also pattern-matches it (`road_*`, `runway_*`, `statue*`) |
 | `floors` | flight | explicit storey count for the flight-sim skyline, overriding the per-building-type default so a landmark tower stands taller |
 | `region_id` | world (World Editor) | spatial region membership — the `regions.id` this tile belongs to. **Distinct from `district`** (land-use); see [reference/land-taxonomy.md](reference/land-taxonomy.md) |
-| `underwater` | swimming | submerged tile below a surface water tile (link up/down). Always submerged (a boat doesn't help), colder and dark; starts the breath timer that drowns you |
+| `underwater` | props (preset) | **OVERRIDE**, `tristate`. Submerged tile below a surface water tile (link up/down): always submerged (a boat doesn't help), colder and dark; starts the breath timer that drowns you. **Preset by the `underwater` TERRAIN** since 2026-07-30 — the 82 tiles that carried this as a raw flag were migrated. Read as `propsOf(id).underwater` |
 | `water_temp_c` | swimming | override the temperature a submerged swimmer here drifts toward (default 12 °C surface / 7 °C underwater) |
 | `lawless` | surveillance | crimes here raise no heat/wanted |
 | `safehouse` | surveillance | launders wanted heat: unseen time bleeds a wanted star 3× as fast as lying low on the street. Pair with `unsurveilled`/`sanctuary` for a true refuge |
@@ -121,7 +115,13 @@ nothing, silently; wire a reader first.
 | `terrain` | map/minimap/flight | authored ground surface (`water\|road\|asphalt\|concrete\|grass\|park\|dirt\|sand\|gravel\|dock\|scrub\|redrock\|ash\|marsh`; `park` = manicured green w/ its own flight biome; last four = post-apoc wildlands, keep their glyph) — the SSOT `zoneTerrain()` prefers over inference; drives minimap/tablet fills + flight ground tint. Painted in dev panel Maps → Terrain mode. Road tiles auto-tile their connector from adjacent road terrain (`roadConnector` in `world.js`) |
 | `unsurveilled` | surveillance | off the Architect's grid — the witness roll (cameras/cops/bystanders) short-circuits to unseen, so no crime is witnessed and no heat earned. The Long Watch bunker uses this |
 | `utility_room` | power | building utility room (junction box lives here) |
-| `water` | movement | water zone (needs a `boat`-tagged item) |
+| `liquid` | props (preset) | **OVERRIDE of a terrain preset**, `tristate`. You are IN the tile, not ON it — fishing casts into it, the void rim doesn't exist here. Read as `propsOf(id).liquid`, never as a raw flag. Absent on almost every tile BY DESIGN: water presets it |
+| `frontage` | props (preset) | **OVERRIDE**, `tristate`. A street a building's front door may face onto — the map builder prefers a neighbour carrying it. Preset by `road` only |
+| `speed_mult` | props (preset) | **OVERRIDE**, `number` (not tristate — a number already tells absent from set). Movement pacing; 2 = half the time. Preset by `road`/`dirt_road`. Moved off `spec` 2026-07-30 |
+| `swimmable` | props (preset) | **OVERRIDE**, `tristate`. Stamina, wetness, drowning, hypothermia. `false` on a water tile is the frozen bay; `true` on concrete is the flooded basement |
+| `routable` | props (preset) | **OVERRIDE**, `tristate`. GPS/pathfinding may cross. Water presets it FALSE — this is what keeps routes off the basin |
+| `buildable` | props (preset) | **OVERRIDE**, `tristate`. The dev-panel builder may place/move a building here. Authoring-only |
+| ~~`water`~~ | **REMOVED 2026-07-30** | there is no water flag. Water is `flags.terrain = 'water'`, tested `zoneTerrain(zone) === 'water'`. The boolean was migrated away 2026-07-21 but its readers were left behind, so every water check in GPS/pathfinding/building-placement silently passed — routes crossed the basin. Readers converted and the key deleted |
 | `world_exit_zone` | movement | exterior seam zone for this building |
 | `work_venue` | work | Steady Work shift venue: `{ role, wage, employer?, name?, pool? }`. XP-gated players `clock in` here. `pool` selects the event set (`'diner'` default, `'bar'` = Brawn/Cool-leaning); venues: Meltwater Diner, Voltage |
 | `work_fence_blacklist` (player) | work | Set `'true'` when a player burns a hot courier run (cracked the parcel). Hides the fence's hot-job dialogue option (`OFFER_COURIER_HOT`) from then on |

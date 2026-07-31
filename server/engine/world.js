@@ -7,7 +7,7 @@ import { isSanctuary, getZoneRadiation } from './zone-tags.js';
 import { hasTag } from './tags.js';
 import { registerProtectionProvider } from './protection.js';
 import { zoneDanger, enemyThreat, bucketThreat } from './danger.js';
-import { resolveTerrain, resolveDefault, buildingIconSvg, BUILDING_TYPE_ICON } from '../../scripts/content/derive.mjs';
+import { resolveTerrain, resolveDefault, buildingIconSvg, BUILDING_TYPE_ICON, PROP_DEFAULTS } from '../../scripts/content/derive.mjs';
 
 // In-memory world state — same as before, DB is source of truth
 const world = {
@@ -28,7 +28,7 @@ const world = {
   furniture: new Map(),  // id -> furniture row (write funnel below keeps it in sync; DB stays SoT)
   regions: new Map(),    // regionId -> regions row (spatial world-map places; member zones carry flags.region_id)
   transientZones: new Set(), // ids of synthetic (non-DB) zones injected at runtime — see registerTransientZone
-  render: new Map(),     // zoneId -> zone_render row (GENERATED presentation; see below)
+  render: new Map(),     // zoneId -> zone_derived row (GENERATED presentation; see below)
   connections: new Map(),// connectionId -> connections row (AUTHORED; see getDoorForEdge)
 };
 
@@ -112,27 +112,35 @@ async function loadDistrictRegistry() {
   // with the unloaded placeholder, which reads in-game as a district with no name.
   if (!n) console.warn('⚠ no districts loaded — run npm run content:import (or db:schema for the table)');
 }
-// ── Generated presentation (zone_render) ────────────────────────────────────
+// ── Everything the build resolved (zone_derived) ────────────────────────────
 // Built by content:import's derive pass, never authored. Cached in RAM because
 // every minimap frame and every map payload reads it — a per-tile query would be
 // the worst kind of hot path. It only changes when a build runs, and the two
 // things that run a build (content:import, POST /map/derive) both refresh this.
 async function loadZoneRender() {
-  const { rows } = await query('SELECT * FROM zone_render').catch(() => ({ rows: [] }));
+  const { rows } = await query('SELECT * FROM zone_derived').catch(() => ({ rows: [] }));
   world.render.clear();
   for (const row of rows) world.render.set(row.zone_id, row);
   if (!rows.length) {
-    console.warn('[world] zone_render is empty — run `npm run map:derive`. Tiles will render with no fill.');
+    console.warn('[world] zone_derived is empty — run `npm run map:derive`. Tiles will render with no fill.');
   }
 }
 export { loadZoneRender };
 
-// The generated presentation for a tile. Renderers read THIS and nothing else:
-// falling back to zones.marker here is how a map ends up drawing a marker nobody
-// authored (commit 36f1b8f3). Returns null for a transient/synthetic zone, which
-// has no row by construction.
+// The derived row for a tile. Renderers read THIS and nothing else: falling back
+// to zones.marker here is how a map ends up drawing a marker nobody authored
+// (commit 36f1b8f3). Returns null for a transient/synthetic zone, which has no
+// row by construction.
 export function renderOf(zoneId) { return world.render.get(zoneId) || null; }
 export function specOf(zoneId) { return world.render.get(zoneId)?.spec || null; }
+
+// The tile's resolved GAMEPLAY properties (terrain preset ∪ tile-flag override) —
+// see docs/proposals/terrain-property-presets.md. Gameplay asks the capability it
+// means (`propsOf(id).swimmable`), never what the tile is painted.
+//
+// Falls back to the DEFAULTS rather than `{}` so a tile with no derived row reads
+// as ordinary solid ground instead of as every-property-undefined.
+export function propsOf(zoneId) { return world.render.get(zoneId)?.props || PROP_DEFAULTS; }
 
 export function getRegion(id) { return world.regions.get(id) || null; }
 export function getAllRegions() { return [...world.regions.values()]; }
@@ -264,10 +272,10 @@ export function interiorExitDirs(zone) {
 // way parks are painted). Buildings and ordinary street tiles return null.
 export function zoneTerrain(zone) {
   // Moved to scripts/content/derive.mjs so the BUILD resolves terrain exactly the
-  // way the engine always has — there is one rule, and the generated zone_render
+  // way the engine always has — there is one rule, and the generated zone_derived
   // rows and any runtime caller cannot disagree about what a tile is standing on.
-  // The legacy inferences (flags.water, flags.pier, road icons, a green authored
-  // surface = parkland) moved with it, comments and all.
+  // The legacy inferences (flags.pier, road icons, a green authored surface =
+  // parkland) moved with it, comments and all.
   return resolveTerrain(zone);
 }
 
@@ -284,7 +292,7 @@ export function isRoadTerrain(t) { return t === 'road' || t === 'dirt_road'; }
 // callers did it, on every send) and then re-derived a value the build already knew.
 // `deriveFeature` in scripts/content/derive.mjs owns the precedence now — authored
 // flags.icon, then building rooftop, then the auto-tiled connector — so this reads
-// `zone_render.spec.feature` and the Studio's preview is the shipped string rather
+// `zone_derived.spec.feature` and the Studio's preview is the shipped string rather
 // than an approximation of it.
 //
 // A transient zone (a waste-crossing room) has no derived row by construction, so it
@@ -1025,7 +1033,7 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       exits: primaryExits(zone),
       map_id: zone.map_id || null,
       grid_x: zone.grid_x, grid_y: zone.grid_y, grid_z: zone.grid_z,
-      // spec is the GENERATED presentation (zone_render.spec) and the only thing a
+      // spec is the GENERATED presentation (zone_derived.spec) and the only thing a
       // renderer should colour a tile from. marker/color/bg_color stay in the
       // payload for the tooltip and for a transient zone, which has no derived row.
       // The tile's footprint SVG and its map code are spec.feature / spec.label now.

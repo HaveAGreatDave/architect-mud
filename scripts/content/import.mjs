@@ -367,7 +367,7 @@ try {
       const { rows: derived, edges } = await writeDerived(client, {
         zones: zoneRows.rows, regions: regionRows.rows, connections: connRows.rows, palette,
       });
-      console.log(`  ${'zone_render (derived)'.padEnd(26)} ${derived} rows${palette ? '' : '  ⚠ no content/map/terrain.json — palette rung empty'}`);
+      console.log(`  ${'zone_derived (derived)'.padEnd(26)} ${derived} rows${palette ? '' : '  ⚠ no content/map/terrain.json — palette rung empty'}`);
       console.log(`  ${'zone_edges (derived)'.padEnd(26)} ${edges} rows (${connRows.rows.length} connections)`);
     }
 

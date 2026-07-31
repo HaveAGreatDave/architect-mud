@@ -1045,6 +1045,18 @@ function fieldHtml(key, def, value, kind) {
     case 'flag':
       return `<div class="flagrow"><input type="checkbox" id="${id}" data-k="${esc(key)}" data-kind="${kind}" data-shape="flag" ${value ? 'checked' : ''}>
               <span class="k" title="${esc(def.help || '')}">${esc(def.label || key)}</span></div>`;
+    // TRI-STATE: a three-way select, because a checkbox cannot say "explicitly no".
+    // Blank = inherit the terrain preset; the other two are deliberate overrides.
+    // `def.preset` names where the inherited value comes from, so the row reads as
+    // an override of something rather than as a bare boolean.
+    case 'tristate': {
+      const sel = value === undefined || value === null ? '' : (value ? 'true' : 'false');
+      const from = def.presetFrom ? ` (from ${esc(def.presetFrom)})` : '';
+      const opts = [['', `— inherit${from}`], ['true', 'Yes (override)'], ['false', 'No (override)']]
+        .map(([v, l]) => `<option value="${v}"${sel === v ? ' selected' : ''}>${l}</option>`).join('');
+      input = `<select id="${id}" data-k="${esc(key)}" data-kind="${kind}" data-shape="tristate">${opts}</select>`;
+      break;
+    }
     case 'enum': {
       const opts = ['', ...(def.options || [])]
         .map(o => `<option value="${esc(o)}"${String(value ?? '') === o ? ' selected' : ''}>${o || '—'}</option>`).join('');
@@ -1207,7 +1219,7 @@ function renderInspector(spec, prov) {
   $('#addflag').onchange = (e) => {
     const k = e.target.value; if (!k) return;
     const def = flags[k];
-    editing.flags = { ...(editing.flags || {}), [k]: def.shape === 'flag' ? true : (def.options?.[0] ?? '') };
+    editing.flags = { ...(editing.flags || {}), [k]: (def.shape === 'flag' || def.shape === 'tristate') ? true : (def.options?.[0] ?? '') };
     // Same prov: adding an empty flag row changes nothing derived until you save.
     renderInspector(spec, prov);
   };
@@ -1224,6 +1236,9 @@ function collect() {
     const k = el.dataset.k, kind = el.dataset.kind, shape = el.dataset.shape;
     let v;
     if (shape === 'flag') v = el.checked ? true : undefined;
+    // '' = inherit, and undefined is what deletes the key below. The explicit
+    // 'false' MUST survive as a boolean — it is the whole point of the shape.
+    else if (shape === 'tristate') v = el.value === '' ? undefined : el.value === 'true';
     else if (shape === 'number') v = el.value === '' ? null : Number(el.value);
     else if (shape === 'json') {
       if (el.value.trim() === '') v = null;

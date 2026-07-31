@@ -6,7 +6,7 @@
 // content:import runs this same pass as step 3 of its transaction, so a normal
 // deploy never needs it. It exists for the case the deploy can't cover: a one-shot
 // script that rewrites tiles directly (a terrain backfill, a data migration) leaves
-// zone_render describing the world as it was. Run this after one, or the map draws
+// zone_derived describing the world as it was. Run this after one, or the map draws
 // yesterday.
 import 'dotenv/config';
 import { connectTarget, readPalette } from './lib.mjs';
@@ -31,7 +31,7 @@ try {
     zones: zones.rows, regions: regions.rows, connections: connections.rows, palette,
   });
   await client.query('COMMIT');
-  console.log(`✓ rebuilt on ${host}: zone_render ${rows} rows, zone_edges ${edges} rows`
+  console.log(`✓ rebuilt on ${host}: zone_derived ${rows} rows, zone_edges ${edges} rows`
     + ` (${zones.rowCount} zones, ${connections.rowCount} connections).`);
 } catch (e) {
   await client.query('ROLLBACK').catch(() => {});

@@ -2,22 +2,36 @@
 
 Terrain is the **ground surface** of a zone tile (road, concrete, grass, water,
 dock…). It is authored per-zone in `flags.terrain` (a single string) and painted
-through a dev-panel Maps mode. It is **presentation + pacing, not passability** —
-no terrain value blocks a step. Water is entered as a *swim*
-([plugins/swimming](../plugins/swimming/index.js)); the only engine move gate on
-weight/terrain is encumbrance ([movement.js:76](../server/engine/commands/movement.js)).
+through a dev-panel Maps mode. Terrain still blocks no step — water is entered as a
+*swim* ([plugins/swimming](../plugins/swimming/index.js)), and the only engine move
+gate on weight/terrain is encumbrance
+([movement.js:76](../server/engine/commands/movement.js)).
+
+Since 2026-07-30 terrain is **presentation + a preset set of gameplay properties**
+that a tile can override — see [Terrain presets GAMEPLAY
+properties](#terrain-presets-gameplay-properties-2026-07-30) below, which is the part
+gameplay code actually reads.
 
 ## Water is terrain, not a flag
 
-Mark open water with **`flags.terrain = 'water'`** and nothing else, and read it back with
-**`zoneTerrain(zone) === 'water'`** — never a raw flag. That single predicate is what swimming,
-fishing, GPS route-blocking and the flight biome classifier all use.
+Mark open water with **`flags.terrain = 'water'`** and nothing else (submerged tiles
+below it are `terrain:'underwater'`). Gameplay does **not** read it back with
+`zoneTerrain()` any more — swimming, fishing, GPS route-blocking, the void rim and
+the building placer all ask for the resolved *property* they mean
+(`propsOf(id).swimmable`, `.liquid`, `.routable`, `.buildable`), so one stretch of
+water can behave differently without lying about what it is. Only the flight biome
+classifier still reads `flags.terrain` directly, deliberately.
 
-The trap: `flags.water` was a second, parallel water marker that shared **zero tiles** with
-`terrain:'water'`, so every consumer that picked one disagreed with the others. It is on no zone
-now; the `zoneTerrain()` fallback that still reads it
-([world.js:216](../server/engine/world.js)) is kept only so hand-authored legacy content keeps
-working. Don't reintroduce it. See [reference/land-taxonomy.md](reference/land-taxonomy.md).
+The trap, now closed: `flags.water` was a second, parallel water marker that shared **zero tiles**
+with `terrain:'water'`. The 2026-07-21 migration emptied the flag but left its READERS in place —
+so `if (f.water)` in pathfinding, GPS, and the building placer became a silent no-op, and routes
+were plotted straight across a 945-tile basin that every check believed it was avoiding. On
+2026-07-30 the readers were converted to `zoneTerrain()`, the flag was deleted from the catalog,
+and the `resolveTerrain()` fallback rung was removed. There is exactly one marker now. Don't
+reintroduce it. See [reference/land-taxonomy.md](reference/land-taxonomy.md).
+
+The lesson worth keeping: **retiring a flag means deleting its readers in the same change.** An
+emptied flag whose `if` survives doesn't fail loudly — it quietly answers "no" forever.
 
 ## `flags.terrain` — the SSOT
 
@@ -29,7 +43,7 @@ on 2,996 tiles the map an author painted was not the map a player saw. All three
 
 **Nothing reads the palette at runtime.** `content:import` feeds it to `deriveWorld`
 ([scripts/content/derive.mjs](../scripts/content/derive.mjs)), which resolves every tile into a
-`zone_render` row; every renderer paints from `spec` and computes nothing. Fills below are the file's
+`zone_derived` row; every renderer paints from `spec` and computes nothing. Fills below are the file's
 current values — the file is authoritative, this table is a convenience.
 
 | key | label | fill |
@@ -45,6 +59,7 @@ current values — the file is authoritative, this table is a convenience.
 | `gravel` | Gravel | `#7d7a73` |
 | `dock` | Dock | `#6e5636` wooden decking |
 | `water` | Water | `#3f7fb0` |
+| `underwater` | Underwater | `#3f7fb0` — deliberately IDENTICAL to water; the difference is behavioural (breath timer, colder, dark), not visual |
 | `scrub` | Scrubland | `#6f7248` dry brush tufts (wildlands) |
 | `redrock` | Red Rock | `#6f3524` rust mesa facets (wildlands) |
 | `ash` | Ash | `#4f4b47` burnt-grey flecks (wildlands) |
@@ -83,18 +98,57 @@ Authored value wins; otherwise the surface is **inferred** so un-backfilled DBs
 (prod) still render sensibly:
 
 1. `flags.terrain` (SSOT) →
-2. `flags.water` → `water`
-3. `flags.pier` → `dock`
-4. `flags.icon` matching `/^(road_|runway_)/` → `road`
-5. a building footprint (`buildingIconSvg` truthy) → `null` (not terrain)
-6. green-dominant `bg_color` → `grass`
-7. else `null`
+2. `flags.pier` → `dock`
+3. `flags.icon` matching `/^(road_|runway_)/` → `road`
+4. a building footprint (`buildingIconSvg` truthy) → `null` (not terrain)
+5. green-dominant `bg_color` → `grass`
+6. else `null`
+
+(`flags.water` was rung 2 until 2026-07-30. It is gone — see the trap above.)
 
 Companions in `world.js`: `roadConnector()` auto-tiles a road tile's connector
 SVG from orthogonal road neighbours; `tileIconSvg()` returns an authored
 icon/rooftop first, else the road connector for `terrain==='road'`. The `terrain`
 string is emitted on every map/minimap node ([world.js:921](../server/engine/world.js), inside
 `getMinimapData`) and the movement/look payload ([movement.js:773](../server/engine/commands/movement.js)).
+
+## Terrain presets GAMEPLAY properties (2026-07-30)
+
+Terrain is no longer only presentation + pacing. A terrain type **presets a set of
+gameplay properties**, and a tile **overrides any one of them** with a flag of the
+same name — so a frozen bay is `terrain:'water'` + `swimmable:false, routable:true`:
+still blue on the map, walked across, no new terrain type invented. Full design in
+[proposals/terrain-property-presets.md](proposals/terrain-property-presets.md).
+
+| property | default | means | asked by |
+|---|---|---|---|
+| `liquid` | `false` | you are **in** the tile, not **on** it | fishing, voidwalking (no rim) |
+| `swimmable` | `false` | stamina, wetness, drowning, hypothermia | swimming |
+| `underwater` | `false` | submerged below a surface tile: breath timer, colder, dark | swimming, `waterTemperature` |
+| `routable` | `true` | GPS/pathfinding may cross it | pathfinding, GPS |
+| `buildable` | `true` | the dev-panel builder may place here | the map API |
+| `frontage` | `false` | a street a building's front door may face onto | the map API |
+| `speed_mult` | `1` | movement pacing multiplier | pacing |
+
+Only `water`, `underwater`, `road` and `dirt_road` diverge from the defaults, so
+they are the only terrains carrying a `props` block — silence means "all defaults".
+**Gameplay never asks what a tile is painted**; it asks `propsOf(zone.id).swimmable`.
+`zoneTerrain()` now has exactly two callers, both of them map payload. The one
+deliberate exception is the flight sim, which keeps reading `flags.terrain` directly
+(biomes, windshield road auto-tiling).
+
+Boolean overrides are `shape: 'tristate'` in the catalog, not `flag`, because the
+override has to be able to say **no** — with `flag`, absent and false are the same
+signal and the frozen bay is unauthorable. `speed_mult` is `shape: 'number'`: a
+number already tells absent from set, so the tri-state problem is a boolean problem
+only. Every property is typed by its default in `PROP_DEFAULTS` (`derive.mjs`), and
+that type is enforced at both the palette (`content:lint`) and the resolver.
+
+**`underwater` is a terrain, not a flag** (since 2026-07-30). It paints identically
+to `water` — same fill, same minimap class — because the difference is what it does
+to you, not what it looks like. The 82 tiles that used to carry `terrain:'water'`
+*plus* an `underwater` flag were migrated to `terrain:'underwater'`: two facts saying
+one thing is the exact shape of the `flags.water` bug above.
 
 ## Dev-panel Maps editor
 

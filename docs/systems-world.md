@@ -272,7 +272,7 @@ Each map/minimap node carries four additive rendering fields, all derived server
 - **`terrain`** (`zoneTerrain`) — the tileable ground surface. The authoritative source is the
   authored **`flags.terrain`** field (`water | road | asphalt | concrete | grass | dirt | sand |
   gravel | dock`), painted in the dev panel **Maps → Terrain mode**; when unset, `zoneTerrain`
-  falls back to inference (`flags.water`, a `road_`/`runway_` icon, or a green `bg_color` → grass).
+  falls back to inference (`flags.pier` → dock, a `road_`/`runway_` icon, or a green `bg_color` → grass).
   Consumed by the minimap/tablet fills and the flight-sim ground tint (`biomes.js` maps each type
   to a ground biome). **Smart roads:** a `road` tile with no authored icon has its connector piece
   (`road_ns`, `road_nesw`, …) auto-tiled live from adjacent road terrain by `roadConnector` in

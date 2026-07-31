@@ -190,7 +190,7 @@ on('player.logout', ({ id }) => {
 });
 
 // A tile's theme, RESOLVED AT BUILD TIME. Step 1 of the map pipeline called
-// resolveDefault here, at the call site, because zone_render didn't exist yet;
+// resolveDefault here, at the call site, because zone_derived didn't exist yet;
 // step 3 built the table and this is the loan being repaid. The resolution order
 // is unchanged — same function, run by the build instead of by the request — so
 // nothing about what plays changed when it moved.

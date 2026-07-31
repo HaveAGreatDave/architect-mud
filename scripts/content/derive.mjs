@@ -9,7 +9,7 @@
 //
 // `resolveDefault` is the primitive every other derivation calls (§7.3 "Build
 // this first"). `deriveWorld` is the whole-map pass the build runs, producing the
-// `zone_render` rows renderers read INSTEAD of computing anything themselves.
+// `zone_derived` rows renderers read INSTEAD of computing anything themselves.
 //
 // Not here yet: `content/map/index.json` (§2.4).
 
@@ -39,8 +39,11 @@ export function resolveTerrain(zone) {
   const f = zone?.flags || {};
   if (f.terrain) return f.terrain;
   // DEPRECATED fallbacks, kept verbatim so hand-authored legacy content still
-  // reads right. Nothing carries flags.water any more (migrated 2026-07-21).
-  if (f.water) return 'water';
+  // reads right. (`flags.water` was the last rung here; it was migrated away
+  // 2026-07-21, and because it sat on no row every `flags.water` test in the
+  // engine had silently become a no-op — GPS and pathfinding were routing across
+  // the basin. Removed with its readers 2026-07-30; water is `terrain: 'water'`,
+  // full stop, and there is no second way to say it.)
   if (f.pier) return 'dock';
   if (/^(road_|runway_)/.test(f.icon || '')) return 'road';
   // A building footprint is not ground. (buildingIconSvg's condition: the facade
@@ -53,6 +56,71 @@ export function resolveTerrain(zone) {
     if (g > r && g - b >= 15 && g >= 45) return 'grass';
   }
   return null;
+}
+
+/**
+ * GAMEPLAY PROPERTIES — the terrain-preset / tile-override resolution.
+ * docs/proposals/terrain-property-presets.md
+ *
+ * A terrain type presets a set of properties; a tile overrides any one of them
+ * with a flag of the same name. Gameplay then asks for the CAPABILITY it means
+ * (`propsOf(id).swimmable`) instead of asking what the tile is painted — so a
+ * frozen bay is `terrain:'water'` + `swimmable:false, routable:true`, still blue
+ * on the map and walked across, without inventing a terrain type.
+ *
+ * Defaults describe ordinary solid ground, so an unpainted tile and a terrain
+ * with no `props` block both land somewhere sane.
+ */
+// The TYPE of each default is also its contract: a boolean property coerces to a
+// boolean, a numeric one to a finite number. Adding a key here is what makes it
+// resolvable, lintable and overridable — there is no second list.
+export const PROP_DEFAULTS = Object.freeze({
+  liquid: false,      // you are IN this tile, not ON it
+  swimmable: false,   // entering costs stamina; wetness, drowning, hypothermia
+  underwater: false,  // submerged BELOW a surface tile: breath timer, colder, dark
+  routable: true,     // GPS and pathfinding may cross it
+  buildable: true,    // the dev-panel builder may place/move a building here
+  frontage: false,    // a street a building's front door can face onto
+  speed_mult: 1,      // movement pacing multiplier (road = 2)
+});
+
+/**
+ * tile flag  →  terrain preset  →  global default.
+ *
+ * `key in flags`, NOT `flags[key]` — and that distinction is the whole reason the
+ * override rung is a flag rather than a nullable column. resolveDefault below
+ * documents the hole it cannot close: "absent and none are the same bytes". For a
+ * boolean that is fatal — you could never mark one water tile non-swimmable. JSON
+ * tells absent from `false`, so `{ "swimmable": false }` is an explicit no and a
+ * missing key is "no opinion, inherit".
+ *
+ * No region rung. "This district sounds like neon rain" is a real authorial
+ * statement; "this district is swimmable" is not. If one is ever wanted it slots
+ * in between the two rungs below, unchanged.
+ */
+export function resolveProps(zone, palette) {
+  const flags = zone?.flags || {};
+  const terrain = resolveTerrain(zone);
+  const preset = (terrain && palette?.terrains?.[terrain]?.props) || {};
+  const out = { ...PROP_DEFAULTS, ...preset };
+  for (const key of Object.keys(PROP_DEFAULTS)) {
+    if (!(key in flags)) continue;
+    out[key] = coerceProp(key, flags[key]);
+  }
+  return out;
+}
+
+// Coerce an override to the type its default declares. A numeric property must not
+// silently become `true` (the boolean path's `!!` would have done exactly that to
+// `speed_mult: 2`), and a garbage value falls back to the resolved default rather
+// than poisoning a movement multiplier with NaN. content:lint rejects both cases at
+// author time; this is the runtime floor under it.
+function coerceProp(key, value) {
+  if (typeof PROP_DEFAULTS[key] === 'number') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : PROP_DEFAULTS[key];
+  }
+  return !!value;
 }
 
 /**
@@ -744,7 +812,9 @@ export function buildRenderSpec(zone, palette, resolved, ctx = {}) {
     text: resolved.color,
     minimap_class: entry?.minimap_class ?? null,
     terrain: resolveTerrain(zone),
-    speed_mult: entry?.speed_mult ?? 1,
+    // `speed_mult` used to sit here. It is gameplay, not presentation, so it moved to
+    // the props payload on 2026-07-30 — where a tile can also override it. Nothing
+    // renders from it; pacing reads props.speed_mult.
   };
   // `glyph: resolved.marker` used to sit here. It had exactly one consumer in the
   // repo — the Studio's inspector debug line — because the map reads the AUTHORED
@@ -842,6 +912,7 @@ export function deriveWorld({ zones = [], regions = [], connections = [], palett
       ambient_theme: resolved.ambient_theme,
       audio_theme_id: resolved.audio_theme_id,
       spec,
+      props: resolveProps(zone, palette),
     });
   }
 
