@@ -125,8 +125,9 @@ is already showing you the tile in place, so the three coordinate columns are no
 rendered as number boxes — the same fact typed twice, and *typed* was the problem: a
 spinner invites a nudge, and a nudge moves a tile with none of what moving a tile needs
 (the neighbours it auto-tiles with, the cell it might land on top of, the seams
-pointing at it). That is a structural operation this tool doesn't do yet, and it should
-not be reachable with an arrow key. The Geometry group says so where the fields were.
+pointing at it). Moving a building is a real operation now — see [Picking a building
+up](#picking-a-building-up) — and it lives in the Geometry group where the fields
+were, because that is the question this group is about. It is still not an arrow key.
 This is the only place the inspector suppresses a catalogued column; the values still
 round-trip untouched, so a save is still a byte-for-byte no-op.
 
@@ -294,6 +295,71 @@ other and a click could only ever reach the ground floor — which also meant th
 13 seams landing below ground had nowhere visible to land. Following one switches
 floors for you.
 
+## Picking a building up
+
+A building is one facade tile on the world map plus a whole interior **map** hanging
+off it, and about a dozen other rows naming that facade — the front door, the utility
+generator, every interior tile's anchor. So neither of these is a coordinate edit, and
+the rules for both live in
+[`scripts/content/transform.mjs`](../../scripts/content/transform.mjs) rather than in
+this tool, for the same reason the palette does: `npm run test:regress` drives them
+with no server in the room.
+
+**Turning it is about the door.** Select a building and the Geometry group offers the
+four **door sides**, with the ones it cannot reach disabled and saying why. Not a
+↺/↻ pair: 30 of the 62 buildings have exactly *one* alternative side their door can
+open onto, and for some of those it is the opposite one — a half turn that a pair of
+90° arrows could only reach through an illegal intermediate.
+
+**It turns whole.** `flags.entrance`, the facade's exits, every interior tile's
+coordinates (about `(0,0)` — all 68 interior maps put their entry zone there), every
+exit key inside it including the diagonals, every connection direction, the front door
+and any camera. Turning the door alone is the tempting version and it is wrong: the
+interior's way-out faces the door by convention, so a quarter turn drops it on top of
+whatever room holds that cardinal. Turning the interior with it is collision-free by
+construction — the room that was north is now east. **Prose is not turned**, and a room
+that says *"the north wall"* is listed for you to go and fix rather than silently
+rewritten.
+
+**Moving it is an identity swap, not a coordinate swap.** The **Move** tool picks a
+building up, tints every cell it cannot land on, and drops it with a plan you confirm.
+No `grid_x` ever changes: the destination row *becomes* the building and the old
+facade row becomes ground. That is not squeamishness about writing a number — a
+world-map zone id encodes its own position (`zone_district_<x>_<y>`, 58 of the 62), and
+map-audit **GEO-1** calls a coord/id disagreement *"the signature of a botched move"*,
+then refuses to run its other fixers over the tile. Swapping coordinates would brand
+two tiles per move. `power_zones` is deliberately left alone throughout: its id **is**
+the zone id and its row says which grid feeds that cell, so it belongs to the ground,
+not to what is standing on it.
+
+**The hole heals from a neighbour.** The vacated cell has to be *something* —
+`name` and `description` are NOT NULL — and `content/map/terrain.json` refuses a
+palette-wide default on purpose, so there is nothing to fall back to. It copies the
+commonest plain ground beside it instead, and the plan names the donor with a picker
+to choose another. A building in the grasslands leaves Grasslands behind and one on
+Ironside Street leaves Ironside Street. No prose is invented, because inventing prose
+is the one opinion about content this tool must not hold.
+
+**The door does not move itself.** Move preserves `flags.entrance` and refuses a
+destination with no street on that side, naming the sides that would work so you turn
+it first. `flags.entrance` was made authored precisely to stop a door relocating as a
+side effect — [world.js:190](../../server/engine/world.js) records that while it was
+inferred, painting a dirt track west of Pawn & Pity moved its door off Marrow Street.
+Both shipped tools that place buildings still auto-pick a door at the destination.
+This one does not.
+
+**What it refuses, and why each is a refusal rather than a warning:**
+
+| it says | because |
+|---|---|
+| *…is already a building* | the swap would leave two interior maps on one facade — the dup-map state `test:regress` hard-fails, and which one is reachable is then down to a linear scan |
+| *…has N thing(s) standing on it* | a facade is not standable, so a streetlight or a spawn point on that cell is sealed inside a building nobody can enter |
+| *the door faces north and there is no street north of…* | a facade opens at `flags.entrance` and nowhere else, so a door pointed at a wall is a building with no way in that still looks enterable |
+| *would open the city↔wilds curtain onto…* | the facade rule was excusing that frontier adjacency; as ground it needs an authored wall, and this tool does not create files — it hands you `mint-curtain-walls.mjs` |
+
+Water and a consumed road lane are **warnings**: visible, recoverable, and sometimes
+what you meant.
+
 ## Taking it back
 
 **Ctrl+Z**, or the **Undo** button under History. Ctrl+Shift+Z (or Ctrl+Y) puts it
@@ -344,14 +410,26 @@ push.
 
 ## What it does not do yet
 
-This is increment 3 of spec §11 step 8. It views any map, edits every authored field
-of a tile, paints terrain, owns the map-level properties above, and walks the map
-tree through its seams. It does **not**
-yet do New Building, Move Building,
-the region planner, connection editing, or multi-tile structural operations — those
-stay in the dev panel and in
+This is increment 4 of spec §11 step 8. It views any map, edits every authored field
+of a tile, paints terrain, owns the map-level properties above, walks the map tree
+through its seams, and moves and turns a building. It does **not** yet do New
+Building, the region planner, connection editing, or structural operations on
+anything that is not a building — those stay in the dev panel and in
 [`scripts/place-building.mjs`](../../scripts/place-building.mjs) until the next
 increment moves them.
+
+Two known edges of Move and Turn, both shown rather than hidden:
+
+- **A connection's id can go stale as a name.** `conn_asc_vats_registry_north_skyh`
+  still says `north` after that door turns west. Ids are opaque to everything that
+  reads them, and renaming one means creating and deleting a file, which this tool
+  does not do.
+- **The Echelon cannot be turned**, because she sails: `plugins/yacht/index.js`
+  writes her `flags.entrance` as she docks, so an authored turn would be overwritten
+  by the next docking. Neither can Halloran's Fix-It, whose interior has a second seam
+  out to `zone_under_terminus` — turning it would swing a door whose far side does not
+  turn. Both are computed from the tree, not listed, so a third one authored tomorrow
+  is caught the same way.
 
 The dev panel's Maps tab now carries a banner saying which side of the fence it is
 on. Both tools work; what does not work is assuming they can see each other. Paint

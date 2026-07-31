@@ -48,6 +48,12 @@ const state = {
   districtById: new Map(),
   district: null,     // the selected district id, or '' for the eraser
   districtStats: null,
+  // ── Moving a building ──────────────────────────────────────────────────────
+  // `arm` is the CHEAP half of the refusals, fetched once when a building is
+  // picked up, so the ghost can be honest while the cursor moves instead of one
+  // request per hovered cell. The authoritative answer is still the server's plan,
+  // on click — this only decides what the overlay tints red.
+  move: { arm: null, hover: null, plan: null },
 };
 
 const canvas = $('#c');
@@ -607,6 +613,40 @@ function draw() {
     const seams = state.portals[z.id];
     if (seams && c >= 5) drawPortal(x, y, c, seams, authoredDoor);
   }
+  // MOVING A BUILDING. Two things are drawn and neither is a decision this file
+  // makes: the cells the server said are already built on or already have something
+  // standing on them, and a ghost of the building under the cursor. The ghost wears
+  // the door on the side the building's own `flags.entrance` says, because that side
+  // does not move — it is the whole of why a destination gets refused, and seeing it
+  // land on a wall is quicker than reading that it did.
+  const arm = state.view === 'tiles' ? state.move.arm : null;
+  if (arm) {
+    for (const z of state.zones) {
+      if (!onFloor(z) || z.id === arm.facade) continue;
+      if (!arm.built.has(z.id) && !arm.occupied.has(z.id)) continue;
+      const x = sx(z.grid_x), y = sy(z.grid_y);
+      if (x + c < 0 || y + c < 0 || x > canvas.width || y > canvas.height) continue;
+      ctx.fillStyle = chrome('--bad'); ctx.globalAlpha = 0.28;
+      ctx.fillRect(x, y, c, c);
+      ctx.globalAlpha = 1;
+    }
+    const held = state.byId.get(arm.facade);
+    if (held && onFloor(held)) {
+      ctx.strokeStyle = chrome('--accent'); ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(sx(held.grid_x) - 1, sy(held.grid_y) - 1, c + 1, c + 1);
+      ctx.setLineDash([]);
+    }
+    const over = state.move.hover && state.byId.get(state.move.hover);
+    if (over && onFloor(over) && over.id !== arm.facade) {
+      const bad = arm.built.has(over.id) || arm.occupied.has(over.id);
+      const x = sx(over.grid_x), y = sy(over.grid_y);
+      ctx.strokeStyle = chrome(bad ? '--bad' : '--accent'); ctx.lineWidth = 2;
+      ctx.strokeRect(x + 1, y + 1, c - 2, c - 2);
+      if (arm.entrance && c >= 8) edgeBar(x, y, c, arm.entrance, chrome('--entrance'));
+    }
+  }
+
   if (state.selected) {
     const z = state.byId.get(state.selected);
     if (z && onFloor(z)) {
@@ -637,6 +677,7 @@ canvas.addEventListener('mousedown', (e) => {
   }
   if (state.tool === 'pick') { state.terrain = z.spec?.terrain || null; setTool('paint'); paintSwatches(); return; }
   if (state.tool === 'paint') { painting = true; stroke.clear(); stroke.add(z.id); return; }
+  if (state.tool === 'move') { moveClick(z); return; }
   select(z.id);
 });
 canvas.addEventListener('mousemove', (e) => {
@@ -659,6 +700,10 @@ canvas.addEventListener('mousemove', (e) => {
     ? `${z.name || '(unnamed)'} · ${z.id} · ${z.grid_x},${z.grid_y} · ${dis || z.spec?.terrain || 'no terrain'}${seam ? ` · ${seam} — double-click to follow` : ''}`
     : '—';
   if (painting && z) { stroke.add(z.id); }
+  if (state.tool === 'move' && state.move.arm) {
+    const id = z?.id ?? null;
+    if (id !== state.move.hover) { state.move.hover = id; draw(); }
+  }
 });
 
 // Following a seam is the whole point of marking it: the map list is 71 entries
@@ -690,12 +735,18 @@ canvas.addEventListener('wheel', (e) => {
 
 function setTool(t) {
   state.tool = t;
-  for (const k of ['select', 'paint', 'pick']) $(`#t-${k}`).classList.toggle('on', k === t);
+  for (const k of ['select', 'paint', 'pick', 'move']) $(`#t-${k}`).classList.toggle('on', k === t);
+  $('#pane-move').style.display = (t === 'move' && state.view === 'tiles') ? '' : 'none';
+  // Putting the tool down puts the building down with it. A building held across a
+  // switch to Paint would be a pickup nothing on screen was still showing.
+  if (t !== 'move') disarmMove();
 }
 $('#m-props').onclick = showMapProps;
 $('#t-select').onclick = () => setTool('select');
 $('#t-paint').onclick = () => setTool('paint');
 $('#t-pick').onclick = () => setTool('pick');
+$('#t-move').onclick = () => setTool('move');
+$('#m-cancel').onclick = () => { disarmMove(); if (state.selected) select(state.selected); else showMapProps(); };
 $('#t-clear').onclick = () => { state.terrain = null; setTool('paint'); paintSwatches(); };
 function setOverlay(o) {
   state.overlay = o;
@@ -890,6 +941,156 @@ async function paint(ids) {
   draw();
   refreshLint();
   if (state.selected && ids.includes(state.selected)) select(state.selected);
+}
+
+// ── Moving a building ───────────────────────────────────────────────────────
+// Two clicks and a review. Pick the building up, drop it on a cell, read what the
+// write would be, confirm. The review is not decoration: a move rewrites the two
+// cells, the interior's anchor, the front door and every row that named the old
+// facade — a dozen files for a small building and eighty for the Yards tenement —
+// and the list comes from the SAME call that performs it, so it cannot describe
+// something other than what lands.
+function disarmMove() {
+  if (!state.move.arm && !state.move.plan) return;
+  state.move = { arm: null, hover: null, plan: null };
+  $('#movewho').textContent = 'Click a building to pick it up.';
+  $('#m-cancel').disabled = true;
+  draw();
+}
+
+async function armMove(id) {
+  const { ok, body } = await api(`/api/move-arm/${encodeURIComponent(id)}`);
+  if (!ok) { $('#status').textContent = body.error || 'not a building'; return; }
+  state.move = {
+    arm: { ...body, built: new Set(body.built), occupied: new Set(body.occupied) },
+    hover: null, plan: null,
+  };
+  $('#movewho').innerHTML = `Holding <b>${esc(body.name || id)}</b><br>
+    <span class="muted">door faces ${esc(body.entrance || '—')} · ${body.interior} interior tile(s)</span>`;
+  $('#m-cancel').disabled = false;
+  $('#status').textContent = `Holding ${body.name || id}. Click where it should stand.`;
+  draw();
+}
+
+async function moveClick(z) {
+  if (!state.move.arm) return armMove(z.id);
+  if (z.id === state.move.arm.facade) return disarmMove();
+  const { body } = await api('/api/move-plan', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ facadeId: state.move.arm.facade, toX: z.grid_x, toY: z.grid_y }),
+  });
+  state.move.plan = { ...body, toX: z.grid_x, toY: z.grid_y, donorId: body.donor?.id ?? null };
+  state.selected = null;
+  renderMovePlan();
+}
+
+function renderMovePlan() {
+  const p = state.move.plan;
+  if (!p) return;
+  const arm = state.move.arm;
+  const donorOpts = (p.donorOptions || []).map(d =>
+    `<option value="${esc(d.id)}"${d.id === p.donorId ? ' selected' : ''}>${esc(d.name || d.id)}${d.terrain ? ` · ${esc(d.terrain)}` : ''}</option>`).join('');
+
+  $('#inspector').innerHTML = `
+    <div class="row" style="justify-content:space-between">
+      <b>${esc(arm?.name || 'building')}</b><span class="pill">move</span>
+    </div>
+    <div class="help">→ ${p.toX}, ${p.toY} · door stays ${esc(arm?.entrance || '—')}</div>
+    ${p.errors.length
+      ? `<div id="errs">${p.errors.map(esc).join('\n\n')}</div>`
+      : `<div class="warn">${p.warnings.map(esc).join('\n') || ''}</div>`}
+    ${p.errors.length ? '' : `
+      <div class="grp"><div class="t">The hole heals to</div>
+        <select id="mv-donor">${donorOpts}</select>
+        <div class="help">The cell it leaves has to be something. It copies a neighbour
+          rather than inventing a name and a description — a building in the grasslands
+          leaves Grasslands behind, one on Ironside Street leaves Ironside Street.</div>
+      </div>
+      <div class="grp"><div class="t">Would write ${p.files.length} file(s)</div>
+        <div class="files">${p.files.map(esc).join('<br>')}</div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button id="mv-go">Move it</button><button id="mv-no">Cancel</button>
+      </div>`}
+    ${p.errors.length ? '<div class="row" style="margin-top:12px"><button id="mv-no">Cancel</button></div>' : ''}`;
+
+  const no = $('#mv-no');
+  if (no) no.onclick = () => { disarmMove(); showMapProps(); };
+  const donor = $('#mv-donor');
+  // Re-plan rather than patch: the donor changes what the backfill row says, and the
+  // file list has to be the one the commit would produce.
+  if (donor) donor.onchange = async () => {
+    const { body } = await api('/api/move-plan', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ facadeId: arm.facade, toX: p.toX, toY: p.toY, donorId: donor.value }),
+    });
+    state.move.plan = { ...body, toX: p.toX, toY: p.toY, donorId: donor.value };
+    renderMovePlan();
+  };
+  const go = $('#mv-go');
+  if (go) go.onclick = commitMove;
+}
+
+async function commitMove() {
+  const p = state.move.plan, arm = state.move.arm;
+  const { ok, body } = await api('/api/move', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ facadeId: arm.facade, toX: p.toX, toY: p.toY, donorId: p.donorId }),
+  });
+  if (!ok) { $('#errs').textContent = (body.errors || [body.error]).join('\n'); return; }
+  const landed = body.facadeId;
+  renderJournal(body.journal);
+  disarmMove();
+  // The whole map is re-read rather than patched, exactly as an undo does: a move
+  // changes what the neighbours auto-tile into and what the building's rooftop is
+  // derived from, and derive is whole-map by contract.
+  await reloadOpenMap();
+  setTool('select');
+  await select(landed);
+  $('#status').textContent = `Moved · ${body.files.length} file(s) rewritten. Ctrl+Z takes it back.`;
+  refreshLint();
+}
+
+// ── Turning a building ──────────────────────────────────────────────────────
+// The door is the reason this exists, so the control is the four door SIDES rather
+// than a pair of ±90° arrows. Measured on the shipped world: 30 of the 62 buildings
+// have exactly ONE alternative side their door can open onto, and for some of those
+// it is the opposite one — reachable only as a half turn. A ↺/↻ pair would make that
+// building's only legal door two clicks through an illegal intermediate, which the
+// tool would have to refuse.
+async function renderTurnControls(id) {
+  const box = $('#turnbox');
+  if (!box) return;
+  const { ok, body } = await api(`/api/turn-options/${encodeURIComponent(id)}`);
+  if (!ok) { box.innerHTML = `<div class="help">${esc(body.error || 'cannot turn this')}</div>`; return; }
+  const sides = [{ k: 0, to: body.entrance, ok: false, why: 'the door is already on this side' }, ...body.sides]
+    .sort((a, b) => ['north', 'east', 'south', 'west'].indexOf(a.to) - ['north', 'east', 'south', 'west'].indexOf(b.to));
+  box.innerHTML = `<label>Door side</label>
+    <div class="turn">${sides.map(s => `
+      <button data-k="${s.k}" ${s.ok ? '' : 'disabled'} class="${s.k === 0 ? 'now' : ''}"
+        title="${esc(s.why || `turn the whole building so the door faces ${s.to}`)}">${esc(s.to || '—')}</button>`).join('')}</div>
+    <div class="help">Turns the whole building: the door, the facade's exits, the
+      interior grid, every exit inside it, the front door and any camera. Prose is not
+      turned — a room that says "the north wall" still says it.</div>`;
+  box.onclick = (e) => {
+    const b = e.target.closest('button[data-k]');
+    if (b && !b.disabled) turnBuilding(id, Number(b.dataset.k));
+  };
+}
+
+async function turnBuilding(id, k) {
+  const { ok, body } = await api('/api/rotate', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ facadeId: id, k }),
+  });
+  if (!ok) { $('#errs').textContent = (body.errors || [body.error]).join('\n'); return; }
+  renderJournal(body.journal);
+  await reloadOpenMap();
+  await select(id);
+  $('#status').textContent = `Door ${body.from} → ${body.to} · ${body.files.length} file(s) rewritten`
+    + (body.warnings?.length ? ` · ${body.warnings.length} thing(s) to read` : '');
+  if (body.warnings?.length) alert(body.warnings.join('\n'));
+  refreshLint();
 }
 
 // ── Inspector: generated from the field catalog ─────────────────────────────
@@ -1191,8 +1392,18 @@ function renderInspector(spec, prov) {
   if (cols.grid_x) {
     push(cols.grid_x.group || 'Zone', `<div class="help">Coordinates
       <b>${esc(editing.grid_x)},${esc(editing.grid_y)},${esc(editing.grid_z ?? 0)}</b>
-      (x, y, floor) — in the corner above, and on the canvas. Moving a tile is a
-      structural change the Studio does not make.</div>`);
+      (x, y, floor) — in the corner above, and on the canvas. A tile's position is not
+      a number box: a nudge would move it with none of what moving a tile needs.</div>`);
+    // The structural operations live where the coordinates would have been, because
+    // that is the question this group is about. Only a facade has them — a building
+    // is the only thing here that can be picked up or turned, and it is picked up
+    // and turned WHOLE, interior and all.
+    if (editing.flags?.facade) {
+      push(cols.grid_x.group || 'Zone', `<div id="turnbox"><div class="help">…</div></div>
+        <div class="help" style="margin-top:6px">Pick this building up with the
+        <b>Move</b> tool to stand it somewhere else. Its door does not move with it —
+        turn it here first if the new spot needs a different side.</div>`);
+    }
   }
 
   $('#inspector').innerHTML = `
@@ -1225,6 +1436,7 @@ function renderInspector(spec, prov) {
   };
   $('#revert').onclick = () => select(editing.id);
   $('#save').onclick = save;
+  if (editing.flags?.facade) renderTurnControls(editing.id);
   const jump = $('#d-jump');
   if (jump) jump.onclick = () => { setView('districts'); selectDistrict(jump.dataset.d || ''); };
   wireSeams(seams);
