@@ -1347,29 +1347,47 @@ async function execAction(node, entity, ctx) {
         //
         // Searching by link finds it wherever it is, and the zone check below
         // makes the physical journey the requirement instead of a config field.
+        // Owner's own box, or a SHARED one they're named on the staff list of.
+        //
+        // A shop can be more than one person. Ration Nine has three — one of them
+        // sells and two of them cut meat — and the till they all feed is one box
+        // under one counter. So a safe names an owner (`vendor_npc_id`, whose
+        // `vendor_credits` IS the till) and may name `vendor_staff`: other workers
+        // who draw wages out of the same box. Without this a shop with staff
+        // needed a safe each, and the two who never take money would stand at
+        // empty boxes forever.
         const { rows: safeRows } = await query(
-          `SELECT id, flags, zone_id FROM furniture WHERE flags @> $1 LIMIT 1`,
-          [JSON.stringify({ vendor_safe: true, vendor_npc_id: entity.id })]
+          `SELECT id, flags, zone_id FROM furniture
+           WHERE flags @> '{"vendor_safe":true}'
+             AND (flags->>'vendor_npc_id' = $1 OR jsonb_exists(flags->'vendor_staff', $1))
+           LIMIT 1`,
+          [entity.id]
         );
         if (!safeRows.length) break;
         // You have to actually be standing at it. This is what turns "collect the
         // takings" into a thing the player can witness, intercept, or beat you to.
         if (safeRows[0].zone_id && entity.zone_id !== safeRows[0].zone_id) break;
 
-        // entity IS the live world.npcs entry — the write funnel keeps its
-        // vendor_credits in sync, so no fresh SELECT needed.
-        const total = entity.vendor_credits || 0;
+        // Whose money is in the box. For an owner that's their own live row (the
+        // write funnel keeps `vendor_credits` in sync, so no fresh SELECT); for
+        // staff it's the owner's, because the staff member never took any.
+        const ownerId = safeRows[0].flags?.vendor_npc_id || entity.id;
+        const till = ownerId === entity.id ? entity : world.npcs.get(ownerId);
+        if (!till) break;
+
+        const total = till.vendor_credits || 0;
         if (!total) break;
-        const amount = Math.floor(total * 0.25);
+        // The owner takes an owner's quarter; a hired hand takes a wage.
+        const amount = Math.floor(total * (ownerId === entity.id ? 0.25 : 0.1));
         if (amount <= 0) break;
 
-        await updateNpc(entity.id, { vendor_credits: total - amount });
+        await updateNpc(till.id, { vendor_credits: total - amount });
         ai.vendor_carrying = amount;
         ai.vendor_atm_zone = null; // reset so VENDOR_GO_TO_ATM re-queries
 
         broadcast(workZone, {
           type: 'output',
-          message: `<span style="color:var(--text-dim);font-style:italic">${entity.name} opens the safe, counts out their cut, and closes it again.</span>`,
+          message: `<span style="color:var(--text-dim);font-style:italic">${entity.name} opens the safe, counts out ${ownerId === entity.id ? 'their cut' : 'their wages'}, and closes it again.</span>`,
         });
       } catch (e) {
         // Non-fatal — continue graph even if safe interaction fails

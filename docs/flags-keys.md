@@ -232,7 +232,7 @@ nothing, silently; wire a reader first.
 | `trash_bin` | scavenging | searchable trash |
 | `tv` / `tv_dial_freq` / `tv_skin` | broadcast | television set config |
 | `vends` / `vend_line` / `vend_cooldown_s` | vending | dispenser machine: item id to dispense (required), flavour line, per-machine throttle in seconds (default 20; 0 = off) |
-| `vends_packs` | cards | card-pack machine (value = series number). Renders its own lit product window through `zone.furniturePanel`; author with `power_draw_kw` so a blackout takes it dark |
+| `vends_packs` | cards | card-pack machine (value = series number). Renders its own lit product window on `examine` (`furniture.describe`), not in the room description; author with `power_draw_kw` so a blackout takes it dark |
 | `card_mint` | cards | mint terminal — `mint` previews here for free and strikes for ₵2,500; `scrap` eats duplicates here too |
 | `fuel_source` | fillable | a fuel point in this zone that `fill` draws from |
 | `woven` | describe (engine) | fold this furniture into the room prose instead of listing it separately (the LIVE tier) |
@@ -242,7 +242,8 @@ nothing, silently; wire a reader first.
 | `shop_unpaid` | storefront | *(player_inventory custom_data)* the shop zone this row was lifted from and not yet paid for; `buyware` clears it, carrying it out of the shop is `shoplifting` |
 | `shop_display` | storefront | marks the display counter in a player-owned shop. Prose/affordance anchor only — listings are zone-scoped, not stored in this piece |
 | `shop_vault` | storefront | holds a player-owned shop's till; `hack`able via VAULT CRACK (`hack_difficulty`, default 6) |
-| `vendor_safe` | vendor-safe | crackable vendor safe |
+| `vendor_safe` | vendor-safe | crackable vendor safe / shop till. `vendor_npc_id` names the OWNER, and the owner's `vendor_credits` IS the money in the box |
+| `vendor_staff` | vendor-safe | optional array of other NPC ids who draw wages from the same box — a shop that is more than one person keeps one till, not one each (Ration Nine: three workers, one cashbox). Owner takes 25% per collection, a staff member 10%, both out of the owner's `vendor_credits` |
 | `vendor_schedule_board` | vendor | shop-hours board |
 | `vendor_stock` | commerce | vendor id owning this container's contents — a self-service display case. Goods pulled out are marked `custom_data.unpaid` until `checkout`; carrying them out of the shop is `shoplifting` |
 | `wardrobe` | wardrobe | this container opens the wardrobe/outfits panel (pair with `container`) |

@@ -110,7 +110,7 @@ on('tv.watch',   ({ playerId, channelId }) => { tvWatchers.set(playerId, channel
 // A quick tap closes the panel — you stop watching, but the set keeps playing and the
 // room keeps overhearing it (ambient continues). So a plain unwatch just drops you as a
 // viewer; it does NOT switch the set off.
-on('tv.unwatch', ({ playerId }) => { tvWatchers.delete(playerId); });
+on('tv.unwatch', ({ playerId }) => { tvWatchers.delete(playerId); catchUpSent.delete(playerId); });
 
 // The TV-guide button asks for the tuned channel's running order + the current time.
 on('tv.schedule', ({ playerId, channelId }) => { sendTvSchedule(playerId, channelId); });
@@ -179,9 +179,9 @@ on('deck.unwatch', ({ playerId })            => deckWatchers.delete(playerId));
 // The Tablet TV app registering/dropping its portable tuner. No furniture, no zone —
 // the tablet streams wherever the player is.
 on('tablet_tv.watch',   ({ playerId, channelId }) => { if (channelId) { tabletTuners.set(playerId, channelId); sendCatchUp(playerId, channelId); } });
-on('tablet_tv.unwatch', ({ playerId })            => { tabletTuners.delete(playerId); });
+on('tablet_tv.unwatch', ({ playerId })            => { tabletTuners.delete(playerId); catchUpSent.delete(playerId); });
 
-on('player.logout', ({ id })              => { tvWatchers.delete(id); deckWatchers.delete(id); tabletTuners.delete(id); gameshowForgetPlayer(id); });
+on('player.logout', ({ id })              => { tvWatchers.delete(id); deckWatchers.delete(id); tabletTuners.delete(id); catchUpSent.delete(id); gameshowForgetPlayer(id); });
 
 // studioZoneIndex.get(studioZoneId) = channelId
 // Enables O(1) lookup in zone.broadcast relay listener.
@@ -4010,6 +4010,15 @@ function _recordBeat(state, result, programName, scorebugOverlay, gamedayOverlay
 
 const CATCHUP_BUG_MAX_AGE_MS = 90_000;   // a score-bug older than this is last night's
 
+// One user gesture registers a viewer more than once: the client's lock check races
+// the server echo (so two or three `tune`s go out), and every `tv_panel` echo makes
+// the panel re-send its watch. Each of those is a `tv.watch`, and each used to replay
+// the same beat — the line appearing three times before the next tick moved things on.
+// So remember which beat was last replayed to each viewer and skip a repeat. The
+// channel is part of the key, so surfing away and back still repaints the picture
+// even if that station is still on the same beat.
+const catchUpSent = new Map();   // playerId → { channelId, beat }
+
 function sendCatchUp(playerId, channelId) {
   const state = channelRuntime.get(channelId);
   const beat = state?.lastBeat;
@@ -4017,6 +4026,9 @@ function sendCatchUp(playerId, channelId) {
   // Tickers scroll their own text and off-air/overlay beats are transitions, not a
   // picture — replaying either would be noise.
   if (beat.style === 'ticker' || beat.style === 'overlay' || beat.style === 'live_relay') return;
+  const sent = catchUpSent.get(playerId);
+  if (sent && sent.channelId === channelId && sent.beat === beat) return;
+  catchUpSent.set(playerId, { channelId, beat });
   // Both surfaces that can tune are `tv` devices, so no [Radio]/[FEED] prefix.
   const formatted = formatMessage(beat.text, 'tv', null, beat.style);
   if (formatted) {

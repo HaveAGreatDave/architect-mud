@@ -346,9 +346,21 @@ async function cmdCheckout(player) {
     `SELECT id, name, flags->>'checkout' AS vendor_id FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'checkout')`,
     [player.current_zone]
   );
-  if (!counters.length) return { type:'error', message:'There\'s no counter here to pay at. Take it to the till.' };
 
-  const counter = counters.find(c => unpaid.some(u => u.vendor_id === c.vendor_id)) || counters[0];
+  // Failing that, the person is the till. You should be able to hand a shopkeeper
+  // money while standing in front of them, and a counter is furniture that may not
+  // exist (a stall, a market barrow) or may not be the room you cornered them in.
+  // Only a vendor who is owed something here counts, so this can't turn a passing
+  // NPC into somebody else's cashier.
+  const zoneNpcs = counters.length ? [] : getZoneNpcs(player.current_zone)
+    .filter(n => unpaid.some(u => u.vendor_id === n.id));
+  if (!counters.length && !zoneNpcs.length) {
+    return { type:'error', message:'There\'s nobody here to pay, and no counter to pay at. Take it to the till.' };
+  }
+
+  const counter = counters.length
+    ? (counters.find(c => unpaid.some(u => u.vendor_id === c.vendor_id)) || counters[0])
+    : { name: zoneNpcs[0].name, vendor_id: zoneNpcs[0].id, _isPerson: true };
   const vendor = world.npcs.get(counter.vendor_id);
   if (!vendor) return { type:'error', message:`Nobody's working the ${counter.name}.` };
   if (isVendorClosed(vendor)) return { type:'error', message: vendorClosedLine(vendor) };
@@ -387,7 +399,7 @@ async function cmdCheckout(player) {
   const lines = priced.map(r => `  ${r.quantity > 1 ? `${r.quantity}x ` : ''}${r.name} — ${r.price}c`).join('\n');
   return {
     type: 'buy',
-    message: `${vendor.name} rings you up at the ${counter.name}.\n${lines}\n<b>Total: ${total}c</b>`,
+    message: `${vendor.name} ${counter._isPerson ? 'takes the lot off you and totals it up' : `rings you up at the ${counter.name}`}.\n${lines}\n<b>Total: ${total}c</b>`,
     player_update: { credits: player.credits },
   };
 }

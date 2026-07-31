@@ -120,6 +120,27 @@ export default async function regress({ run, check, getPlayer }) {
     }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id');
 
     player.current_zone = Z;
+
+    // ── the machine's window: on examine, not welded into the room ───────────
+    // Both halves matter. A room description carrying a block of cabinet art is
+    // the clutter this moved to fix; and the control has to be a `cmd` link,
+    // because the click handler bails on an empty data-target and the BUY button
+    // silently did nothing for as long as it was one.
+    const look = await run('look');
+    check('the machine does not paint a panel into the room description',
+      !/cardmach/.test(look?.message || ''), (look?.message || '').slice(0, 160));
+
+    r = await run('examine test card machine');
+    check('examining the machine opens its product window',
+      /cardmach-win/.test(r?.message || ''), JSON.stringify(r)?.slice(0, 200));
+    check('the BUY control sends a verb, not an empty target',
+      /data-action="cmd"\s+data-cmd="buypack"/.test(r?.message || '') &&
+      !/data-target=""/.test(r?.message || ''), (r?.message || '').slice(0, 300));
+
+    r = await run('examine test mint');
+    check('examining the mint offers PREVIEW as a cmd link',
+      /data-action="cmd"\s+data-cmd="mint"/.test(r?.message || ''), (r?.message || '').slice(0, 300));
+
     r = await run('mint');
     check('mint previews before charging anything', r?.type === 'output' && /mint confirm/i.test(r.message || ''),
       JSON.stringify(r)?.slice(0, 160));

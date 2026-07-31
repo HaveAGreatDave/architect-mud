@@ -673,6 +673,36 @@
       "price": 8,
       "restockToQty": 12,
       "sourceContainer": "furn_ration9_case_chiller"
+    },
+    {
+      "item_id": "item_ration",
+      "price": 10,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_shelves"
+    },
+    {
+      "item_id": "item_fishing_rod",
+      "price": 45,
+      "restockToQty": 3,
+      "sourceContainer": "furn_ration9_shelves"
+    },
+    {
+      "item_id": "item_wetsuit",
+      "price": 300,
+      "restockToQty": 2,
+      "sourceContainer": "furn_ration9_shelves"
+    },
+    {
+      "item_id": "item_rebreather",
+      "price": 420,
+      "restockToQty": 2,
+      "sourceContainer": "furn_ration9_shelves"
+    },
+    {
+      "item_id": "item_bloodworm_bait",
+      "price": 6,
+      "restockToQty": 10,
+      "sourceContainer": "furn_ration9_case_chiller"
     }
   ],
   "vendor_restock_rate": 1,

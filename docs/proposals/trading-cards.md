@@ -261,15 +261,23 @@ refurbishing the corpse.
 ### The interface
 
 Vending is text-only today, and the vending README calls out the discovery gap itself: `flags.vends`
-is a flag-value gate, so `availableActions` can't surface it and the machine has to cue itself in
-prose. A card machine deserves better, and the seam already exists — **`zone.furniturePanel`**
-(`server/engine/commands/describe.js:802-806`, appended at `:1091`). Its only current consumer is
-`plugins/gametable/index.js:694-701`, which collapses four poker chairs into one clickable panel;
-that is the structural model to copy.
+is a flag-value gate and the machine has to cue itself in prose. A card machine deserves better.
 
-So the machine renders as a **panel in the room**: a lit product window with its rows and prices, a
-credit readout, and a BUY control. Unpowered, the same panel renders dark with the glass reflecting
-the room back — the machine is visibly present and visibly useless, rather than silently absent.
+**As built, the window opens on `examine` — it is not in the room description.** It shipped on
+`zone.furniturePanel`, welded into the room prose with gametable's poker-chair panel as the model,
+and that was the wrong seam for this object. A poker table collapses four furniture rows into one
+control and earns its space; a vending machine is a thing you walk up to, and a block of cabinet art
+in every look at every shop that owns one is clutter the player can't dismiss. So the machine lists
+as ordinary furniture, and **`furniture.describe`** renders the lit product window — rows, prices,
+a BUY control — when you examine it. Unpowered, the same block renders dark with the glass
+reflecting the room back: visibly present and visibly useless, rather than silently absent.
+
+The control sends its verb through `data-action="cmd" data-cmd="buypack"`. The first cut used
+`data-action="buypack" data-target=""`, and the empty target was fatal — `handleActionLinkClick`
+bails on `!action || !target`, so the sole control the panel advertised was the one route that could
+never fire. Discovery is no longer panel-only either: `buypack`/`mint`/`scrap` are registered as
+**declaration-only specialized actions** under `requiredFlag`, so examine's Actions row and the
+mobile smart bar list them like any other affordance.
 
 **You never ask for anything.** There is no verb that requests a subject type, a rarity, or a named
 card. You buy a sleeve and the sleeve decides. This is not a shop with a catalogue — the whole

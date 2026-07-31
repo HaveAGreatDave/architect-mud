@@ -341,40 +341,46 @@ export async function issueArchitect({ handle, epithet, lastSeen, origin, quote 
   return { ok: true, ...struck };
 }
 
-// ── the machine's panel in the room ────────────────────────────────────────────
-// zone.furniturePanel — the seam gametable already uses. Powered, it's a lit
-// product window; unpowered, the same panel renders dark, so the machine is
-// visibly present and visibly useless rather than silently absent.
-async function furniturePanel(zone, furniture) {
-  const machine = furniture.find(f => f.flags?.vends_packs);
-  const mint = furniture.find(f => f.flags?.card_mint);
-  if (!machine && !mint) return undefined;
-  const suppressIds = [];
-  const html = [];
+// ── the machine's panel, on examine ────────────────────────────────────────────
+// `furniture.describe`, not `zone.furniturePanel`: the lit product window used to
+// be welded into the room description, which meant every look at a shop with a
+// machine in it paid for a block of cabinet art nobody asked for. A machine is a
+// thing you walk up to. So it lists as ordinary furniture like everything else,
+// and the window only opens when you examine it.
+//
+// Powered, it's a lit window with a working control; unpowered, the same block
+// renders dark, so the machine is visibly present and visibly useless rather
+// than silently absent.
+//
+// The control is `data-action="cmd" data-cmd="…"`, which sends the verb verbatim.
+// It used to be `data-action="buypack" data-target=""`, and the empty target was
+// fatal: the click handler bails on `!action || !target`, so the button did
+// nothing at all — the one route the panel advertised was the one that couldn't work.
+function cardFurnitureDescribe(f) {
+  const isMachine = !!f?.flags?.vends_packs;
+  const isMint = !!f?.flags?.card_mint;
+  if (!isMachine && !isMint) return undefined;
+  const live = isPluggedIn(f);
 
-  if (machine) {
-    suppressIds.push(machine.id);
-    const live = isPluggedIn(machine);
-    html.push(`<span class="cardmach${live ? '' : ' cardmach-dead'}">`
-      + `<span class="cardmach-top">${machine.name} <span class="cardmach-pwr">${live ? '● PWR' : '○ DARK'}</span></span>`
-      + (live
-        ? `<span class="cardmach-win">A1 · Foil sleeve <b>₵${PACK_PRICE}</b>\nA2 · Foil sleeve <b>₵${PACK_PRICE}</b>\nA3 · <span class="text-dim">SOLD OUT</span></span>`
-          + `<span class="action-link cardmach-buy" data-action="buypack" data-target="" title="Buy a sleeve">BUY A SLEEVE · ₵${PACK_PRICE}</span>`
-        : `<span class="cardmach-win cardmach-off">— no power —\nthe glass just shows you the room</span>`)
-      + `</span>`);
+  if (!live) {
+    return `<span class="cardmach cardmach-dead${isMint ? ' cardmach-mint' : ''}">`
+      + `<span class="cardmach-top"><span class="cardmach-pwr">○ DARK</span></span>`
+      + `<span class="cardmach-win cardmach-off">— no power —${isMachine ? '\nthe glass just shows you the room' : ''}</span>`
+      + `</span>`;
   }
-  if (mint) {
-    suppressIds.push(mint.id);
-    const live = isPluggedIn(mint);
-    html.push(`<span class="cardmach cardmach-mint${live ? '' : ' cardmach-dead'}">`
-      + `<span class="cardmach-top">${mint.name} <span class="cardmach-pwr">${live ? '● READY' : '○ DARK'}</span></span>`
-      + (live
-        ? `<span class="cardmach-win">Strike your own card — ₵${MINT_FEE}\nOne every 7 days. Frozen at the moment you pay.</span>`
-          + `<span class="action-link cardmach-buy" data-action="mint" data-target="" title="Preview your card">PREVIEW · FREE</span>`
-        : `<span class="cardmach-win cardmach-off">— no power —</span>`)
-      + `</span>`);
+
+  if (isMachine) {
+    return `<span class="cardmach">`
+      + `<span class="cardmach-top"><span class="cardmach-pwr">● PWR</span></span>`
+      + `<span class="cardmach-win">A1 · Foil sleeve <b>₵${PACK_PRICE}</b>\nA2 · Foil sleeve <b>₵${PACK_PRICE}</b>\nA3 · <span class="text-dim">SOLD OUT</span></span>`
+      + `<span class="action-link cardmach-buy" data-action="cmd" data-cmd="buypack" title="Buy a sleeve">BUY A SLEEVE · ₵${PACK_PRICE}</span>`
+      + `</span>`;
   }
-  return { suppressIds, html: html.join('') };
+  return `<span class="cardmach cardmach-mint">`
+    + `<span class="cardmach-top"><span class="cardmach-pwr">● READY</span></span>`
+    + `<span class="cardmach-win">Strike your own card — ₵${MINT_FEE}\nOne every 7 days. Frozen at the moment you pay.</span>`
+    + `<span class="action-link cardmach-buy" data-action="cmd" data-cmd="mint" title="Preview your card">PREVIEW · FREE</span>`
+    + `</span>`;
 }
 
 // ── dev-panel API ──────────────────────────────────────────────────────────────
@@ -465,8 +471,19 @@ export async function routeHandler(path, method, body, auth) {
 
 export const hooks = {
   'player.say': onSay,
-  'zone.furniturePanel': furniturePanel,
+  'furniture.describe': cardFurnitureDescribe,
 };
+
+// Declaration-only (handler: null) — the verbs are registered as ordinary
+// commands above; these entries exist so examine's Actions row and the mobile
+// smart bar know a machine affords them. A flag-VALUE gate is exactly what
+// requiredFlag does, so the note that availableActions couldn't surface these
+// no longer holds.
+export const specializedActions = [
+  { verb: 'buypack', requiredFlag: 'vends_packs', handler: null },
+  { verb: 'mint',    requiredFlag: 'card_mint',   handler: null },
+  { verb: 'scrap',   requiredFlag: 'card_mint',   handler: null },
+];
 
 export const commands = {
   mint: cmdMint,

@@ -98,6 +98,11 @@ export function createTvView(root, opts = {}) {
   let _tvShuttingDown = false;
   let _tvPoweredOff = false;
   let _tvActiveChannelId = null;
+  // The channel number of a tune already sent but not yet echoed back. The lock check
+  // below runs every animation frame, and _tvActiveChannelId only updates when the
+  // server's echo lands — so without this a single knob gesture fires the same tune
+  // two or three times while the round trip is in flight.
+  let _tvPendingTune = null;
   let _tvOffAir = false;
   const _tvHistory = [];
   let _clearAfterTitleCard = false;
@@ -382,6 +387,7 @@ export function createTvView(root, opts = {}) {
     // has to come off the glass when you tune away or it hangs over the next station.
     if (_channelChanged) { _clearOverlay(); _clearScorebug(); _clearStandings(); _clearSportsFx(); _clearGameday(); _clearStandingsPanel(); _clearFilmLayers(); }
     _tvActiveChannelId = data.channelId || null;
+    _tvPendingTune = null;   // the round trip is home; the lock check can arm again
     // Keep the TV guide open across a channel change, but refresh it for the new station.
     if (_channelChanged && _scheduleOpen) _requestSchedule();
     _tvOpen = true;
@@ -1261,6 +1267,7 @@ export function createTvView(root, opts = {}) {
     _tvFrequency = num;
     _dialRaw = num;
     _updateKnobRotation();
+    _tvPendingTune = num;
     sendCmdSilent(`${tuneCmd} ${num}`);
   }
 
@@ -1355,7 +1362,7 @@ export function createTvView(root, opts = {}) {
     // Channel number only visible when exactly on an active channel
     setAll('channel-num', (dist < 0.01) ? `CH ${nearest.number}` : '——');
 
-    if (dist < LOCK_RANGE && nearest.channelId !== _tvActiveChannelId) {
+    if (dist < LOCK_RANGE && nearest.channelId !== _tvActiveChannelId && nearest.number !== _tvPendingTune) {
       _tvTuneTo(nearest.number);
     }
   }

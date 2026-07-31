@@ -105,7 +105,17 @@ steak that has been sitting in the cooler keeps its own freshness/cooked state r
 
 Flag that container `vendor_stock: <npcId>` and the player can work it themselves: open it, take goods
 out (marked `custom_data.unpaid`), carry them to a `checkout: <npcId>` counter to pay — or out the door,
-which is `shoplifting`. That whole half lives in **commerce**; see [plugins.md](plugins.md).
+which is `shoplifting`. **Failing a counter, the person is the till:** if the room has no `checkout`
+furniture, `checkout` settles with a vendor standing in it who is owed something, because you should be
+able to hand a shopkeeper money while looking at them, and a stall or a market barrow may have no
+counter to flag. That whole half lives in **commerce**; see [plugins.md](plugins.md).
+
+**A shop can be more than one person.** Ration Nine is the worked example: Dell Fry sells everything
+and the Butcher and Brack the Fishmonger do the cutting, so there is exactly one catalogue, one
+`checkout` counter, and one till — `furn_safe_npc_ration_cook`, flagged `vendor_staff` with the other
+two. The owner's `vendor_credits` is the money in the box; the owner draws 25% per collection and a
+staff member 10%, and all three walk it to an ATM themselves. Before this a shop with staff needed a
+safe each, and the workers who never handle money stood at empty boxes forever.
 
 **The cold chain.** A shop-floor case flagged `backstock: <containerId>` is refilled from that
 stockroom container first — real rows walked forward, keeping whatever freshness they've accrued — and
