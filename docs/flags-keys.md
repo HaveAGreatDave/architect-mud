@@ -202,6 +202,7 @@ nothing, silently; wire a reader first.
 | `checkout` | commerce | vendor id whose till this counter is — enables `checkout` here |
 | `container` | inventory | holds items |
 | `corp_poster` / `hero_poster` / `poster_key` | corps/events | wall poster identity |
+| `compartment_of` / `compartment_label` / `compartment_index` | engine (commands/inventory.js) | **one piece of furniture that stores things in more than one place** — a cabinet with three shelves, a desk with drawers. Each compartment is a whole `object_type: 'container'` row of its own (own name, own `container` capacity, own contents), so every storage path treats it as the ordinary container it is; `compartment_of` names the PARENT furniture id and buys exactly three things: tabs in the container panel, ONE entry in the room description (`subBoxIds` in describe.js), and a shelf list on `look in`. The parent needs no flag and always leads. `compartment_label` is the tab text (falls back to the row's name), `compartment_index` orders the shelves (falls back to name order). A compartment keeps whatever else it wants — give every shelf `dish_cabinet` and the kitchen finds a pot on any of them. Generalises `paired_container` past two and past temperature |
 | `cosmetic_machine` | appearance | morphex/biosculpt station |
 | `crafting_station` | crafting | crafting station |
 | `deck_active` / `deck_cassettes` / `deck_ejected_slots` | broadcast | media deck state |

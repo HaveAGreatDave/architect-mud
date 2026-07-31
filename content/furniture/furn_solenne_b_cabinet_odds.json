@@ -1,0 +1,21 @@
+{
+  "description": "The top shelf of the wall cabinet, high enough that you have to commit to reaching it. This is where things go to be dealt with later.",
+  "flags": {
+    "dish_cabinet": true,
+    "container": 16000,
+    "compartment_of": "furn_solenne_b_cabinet",
+    "compartment_label": "Odds & Ends",
+    "compartment_index": 2,
+    "aliases": "odds,odds and ends,top shelf"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_b_cabinet_odds",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "top shelf",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_b"
+}

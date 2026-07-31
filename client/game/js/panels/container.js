@@ -106,6 +106,28 @@ function promptQty(max, action) {
   });
 }
 
+// One tab per compartment of the piece of furniture you have open. The server
+// sends the whole set with `active` marked; there is no client-side selection
+// state, because switching just re-opens and the next payload is the truth.
+function renderCompartmentTabs(compartments) {
+  const strip = document.getElementById('container-tabs');
+  if (!strip) return;
+  strip.innerHTML = '';
+  const tabs = compartments || [];
+  strip.classList.toggle('active', tabs.length > 1);
+  if (tabs.length < 2) return;
+  for (const c of tabs) {
+    const b = document.createElement('button');
+    b.className = 'ctr-tab' + (c.active ? ' active' : '');
+    b.textContent = c.label;
+    b.title = c.name;
+    // Re-opening the shelf you're already on would just re-render the same
+    // thing over the network; ignore it.
+    if (!c.active) b.onclick = () => sendCmdSilent(`opencontainer ${c.id}`);
+    strip.appendChild(b);
+  }
+}
+
 function renderContainerPanel(data, { isOpen = false } = {}) {
   // A paired container (e.g. a fridge with a separate freezer box) surfaces
   // both boxes in this ONE view — role is decided by `preserves`, not by
@@ -138,13 +160,24 @@ function renderContainerPanel(data, { isOpen = false } = {}) {
     fx.classList.remove('play');
   }
 
-  document.getElementById('container-title').textContent = fridge.name;
+  // Compartments — the shelves of one cabinet, one tab each. Switching is an
+  // ordinary `opencontainer`, the same round trip every stow already makes, so
+  // there is no second state to keep in sync: whatever comes back IS the view.
+  const tabs = data.compartments || [];
+  renderCompartmentTabs(tabs);
+
+  // Title the PIECE, not the shelf: the parent is always the first tab, so a
+  // cabinet stays "Wall Cabinet" whichever shelf you're looking at, and the
+  // shelf names itself on its tab and over its list.
+  document.getElementById('container-title').textContent = tabs.length ? tabs[0].name : fridge.name;
   // The unit's name is already the panel title; repeating it over every
   // compartment just reads as noise. Inside a cold cabinet the compartments
   // name themselves, the way the labels on a real appliance do. Ordinary
   // containers keep the server-supplied name.
   document.getElementById('container-contents-label').textContent =
-    isCold ? (fridge.preserves === 'frozen' ? 'Freezer' : 'Fresh Food') : fridge.name;
+    tabs.length ? (tabs.find(t => t.active)?.label || fridge.name)
+    : isCold ? (fridge.preserves === 'frozen' ? 'Freezer' : 'Fresh Food')
+    : fridge.name;
   setCapacity('container-capacity', fridge.usedWeight, fridge.capacity);
   const notify = document.getElementById('container-notify');
   if (notify) notify.textContent = data.notify || '';

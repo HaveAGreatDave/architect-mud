@@ -6,7 +6,7 @@ import { foodLoad, applyThirst } from '../bodily.js';
 import { satiationLine, slakeLine, portionLine } from '../appetite.js';
 import { dispatchAction, getRegisteredActions } from '../actions.js';
 import { burnCharge, rowIsInstanced, NOT_INSTANCED_SQL } from '../inventory.js';
-import { getZonePlayers, getZoneNpcs } from '../world.js';
+import { getZonePlayers, getZoneNpcs, getZoneFurniture } from '../world.js';
 import { emit, on } from '../events.js';
 import { resolve as siftResolve, matchAll as siftMatchAll, createSelectionState, formatSelectionPage } from '../sift.js';
 import { fireSpecializedAction, availableActions } from '../specializedActions.js';
@@ -1075,20 +1075,82 @@ function containerCapacity(container) {
   return tagValue(container, 'container', container.kind === 'furniture' ? 60000 : 0);
 }
 
+// ── Compartments ─────────────────────────────────────────────────────────────
+//
+// One piece of furniture that stores things in more than one place: a cabinet
+// with three shelves, a desk with drawers. Generalises `paired_container` (a
+// fridge and its freezer box) past two, and past the assumption that the two
+// halves differ by temperature.
+//
+// A compartment is a whole CONTAINER ROW of its own — own name, own capacity,
+// own contents — carrying `flags.compartment_of: <parent furniture id>`. So
+// stow, pull, weight accounting, restock, vendor stock, the dish-cabinet lookup
+// and every drag in the panel keep working with no idea the feature exists. The
+// flags buy exactly three things: tabs in the panel, ONE entry in the room
+// description (see subBoxIds in describe.js), and a shelf list on `look in`.
+//
+// The alternative — stamping a compartment name onto each stored row and
+// filtering the view — was rejected. It would put a second meaning inside
+// custom_data that every stack-merge path could silently rewrite (see
+// INSTANCE_KEYS in engine/inventory.js), and capacity would have to be
+// re-derived per compartment instead of simply being what the row already says.
+//
+// Authoring: the parent needs nothing and is the compartment `open <name>`
+// lands on. Each additional one is a container row with `compartment_of`, plus
+// optional `compartment_label` (the tab text, falling back to the row's name)
+// and `compartment_index` (tab order, falling back to name order). A
+// compartment keeps whatever else it wants — give all three shelves
+// `dish_cabinet` and the kitchen finds a pot on any of them.
+const compartmentIndex = f => Number.isFinite(Number(f.flags?.compartment_index))
+  ? Number(f.flags.compartment_index) : Number.MAX_SAFE_INTEGER;
+
+// The set this container belongs to, in tab order — [] when it isn't in one.
+// Served from the in-memory furniture Map, so a cabinet costs no extra round
+// trip however many shelves it has.
+function compartmentsOf(container, zoneId) {
+  if (container?.kind !== 'furniture') return [];
+  const parentId = container.tags?.compartment_of || container.id;
+  const pieces = getZoneFurniture(zoneId) || [];
+  const parent = pieces.find(f => f.id === parentId);
+  if (!parent) return [];
+  // The parent leads, always — it is the piece itself, the one `open <name>`
+  // lands on, and it needs no authoring to be first. Only the shelves hung off
+  // it are sorted, by index then name.
+  const children = pieces.filter(f => f.flags?.compartment_of === parentId && f.id !== parentId);
+  if (!children.length) return [];
+  children.sort((a, b) => (compartmentIndex(a) - compartmentIndex(b)) || String(a.name).localeCompare(String(b.name)));
+  const set = [parent, ...children];
+  // `name` rides along so the panel can title itself after the PIECE (the
+  // parent is always first) rather than after whichever shelf happens to be
+  // open — "wall cabinet", with the shelf named on its tab.
+  return set.map(f => ({
+    id: f.id,
+    name: titleCaseName(f.name),
+    label: f.flags?.compartment_label || titleCaseName(f.name),
+    active: f.id === container.id,
+  }));
+}
+
 async function cmdLookInContainer(nameStr, player) {
   const container = await resolveContainer(nameStr, player);
   if (container === 'ambiguous') return { type:'error', message:`Which container? Try "look in <name>".` };
   if (!container) return { type:'error', message:`You don't see a container${nameStr?` matching "${nameStr}"`:''} here.` };
-  return { type:'examine', message: await describeContainer(container) };
+  return { type:'examine', message: await describeContainer(container, player) };
 }
 
-async function describeContainer(container) {
+async function describeContainer(container, player) {
   const cap = tagValue(container, 'container', 0);
   const { rows } = await query(`SELECT pi.quantity,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
   const used = await containerContentsWeight(container.id);
   let msg = `${container.name} (Capacity: ${formatWeight(used)}/${formatWeight(cap)})`;
-  if (!rows.length) { msg += `\n  It's empty.`; return msg; }
-  for (const r of rows) msg += `\n  ${r.name}${r.quantity>1?` x${r.quantity}`:''}`;
+  if (!rows.length) msg += `\n  It's empty.`;
+  else for (const r of rows) msg += `\n  ${r.name}${r.quantity>1?` x${r.quantity}`:''}`;
+  // Only one shelf is in front of you. Say what the others are called, or a
+  // text-only player has no way to learn the cabinet has any.
+  const others = player
+    ? compartmentsOf(container, player.current_zone).filter(c => !c.active)
+    : [];
+  if (others.length) msg += `\n  <span class="text-dim">Also in here: ${others.map(c => c.label).join(', ')}.</span>`;
   return msg;
 }
 
@@ -1144,6 +1206,14 @@ async function buildContainerView(containerId, player) {
       view.secondary = { containerId: paired.id, containerName: titleCaseName(paired.name), ...pairedBox };
     }
   }
+
+  // Shelves of one cabinet: a tab strip, one tab per compartment. Only the open
+  // one is loaded — a nine-drawer desk costs the same as a box, and switching
+  // tabs is an ordinary `opencontainer`, which is the same round trip the panel
+  // already makes after every stow. A container in no set gets no key at all,
+  // so the panel renders exactly what it rendered before this shipped.
+  const tabs = compartmentsOf(container, player.current_zone);
+  if (tabs.length > 1) view.compartments = tabs;
   // A container furniture can be more than a box — a wardrobe layers saved
   // outfits over the same storage. Handlers mutate `view` in place (retyping it
   // and hanging their own block off it); an unhooked container is untouched.

@@ -27,7 +27,7 @@ import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlay
 import { moveEntity } from '../server/engine/ai-behaviour.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
 import { cmdMove, dragFollowers } from '../server/engine/commands/movement.js';
-import { resolveNamedDestination } from '../server/engine/commands/describe.js';
+import { resolveNamedDestination, _test as describeTest } from '../server/engine/commands/describe.js';
 import { tickOnsets } from '../server/engine/drugs.js';
 import { getSelectionState, clearSelectionState } from '../server/engine/sift.js';
 import { loadPlugins, getLoadedPlugins, getRegisteredCommands, getRegisteredHooks } from '../server/engine/plugins.js';
@@ -1373,6 +1373,74 @@ check('gear returns a gear payload', r?.type === 'gear' && Array.isArray(r.items
     await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [getPlayer().id, RITEM]).catch(() => {});
     await deleteFurniture(RFURN).catch(() => {});
     await query('DELETE FROM items WHERE id=$1', [RITEM]).catch(() => {});
+    getPlayer().current_zone = savedZone;
+  }
+}
+
+// Compartments (engine law in buildContainerView + describe's subBoxIds): one
+// piece of furniture that stores things in more than one place. Each shelf is a
+// whole container row, so what's under test is that they present as ONE piece —
+// tabs in order, the parent first, one room entry — while every storage path
+// keeps treating them as the ordinary containers they are.
+{
+  const savedZone = getPlayer().current_zone;
+  const CZ = 'zone_compartment_regress';
+  const CTOP = 'furn_compartment_regress', CMID = 'furn_compartment_regress_b', CBOT = 'furn_compartment_regress_c';
+  try {
+    for (const [id, name, flags] of [
+      [CTOP, 'test cabinet', { container: 20000 }],
+      // Deliberately out of index order in the room, and the LAST one authored
+      // sorts FIRST of the children — so a passing order proves the sort ran.
+      [CBOT, 'test bottom shelf', { container: 8000, compartment_of: CTOP, compartment_label: 'Bottom', compartment_index: 2 }],
+      [CMID, 'test middle shelf', { container: 12000, compartment_of: CTOP, compartment_label: 'Middle', compartment_index: 1 }],
+    ]) {
+      await insertFurniture({
+        id, name, description: name, object_type: 'container',
+        zone_id: CZ, flags: JSON.stringify(flags),
+      }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id, name=EXCLUDED.name');
+    }
+    getPlayer().current_zone = CZ;
+
+    const rc = await run(`opencontainer ${CTOP}`);
+    const tabs = rc?.compartments || [];
+    check('opening a compartmented piece returns its whole set', tabs.length === 3, JSON.stringify(tabs));
+    check('the parent is always the first tab', tabs[0]?.id === CTOP, tabs[0]?.id);
+    check('tabs follow compartment_index, not authoring order',
+      tabs.map(t => t.id).join(',') === `${CTOP},${CMID},${CBOT}`, tabs.map(t => t.id).join(','));
+    check('the shelf you opened is the active one',
+      tabs.filter(t => t.active).length === 1 && tabs[0].active, JSON.stringify(tabs.map(t => t.active)));
+    check('a compartment_label names the tab', tabs[1]?.label === 'Middle', tabs[1]?.label);
+    check('a shelf with no label falls back to its own name', tabs[0]?.label === 'Test Cabinet', tabs[0]?.label);
+
+    // Switching is an ordinary open of the shelf: same set, different active.
+    const rm = await run(`opencontainer ${CMID}`);
+    check('opening a shelf directly still reports the whole piece', (rm?.compartments || []).length === 3, JSON.stringify(rm?.compartments));
+    check('switching moves the active marker', rm?.compartments?.[1]?.active === true && rm.compartments[0].active === false,
+      JSON.stringify(rm?.compartments?.map(t => t.active)));
+    check('each shelf keeps its OWN capacity', rm?.capacity === 12000, rm?.capacity);
+
+    // An ordinary container is untouched — no key, so the panel is unchanged.
+    const solo = await run(`opencontainer ${CBOT}`);
+    check('a shelf can be opened on its own', solo?.type === 'container_view', solo?.type);
+
+    // The room names the PIECE once. Opening it reaches every shelf, so listing
+    // each shelf as its own furniture would be the same cabinet three times.
+    const pieces = [
+      { id: CTOP, name: 'test cabinet', flags: { container: 20000 } },
+      { id: CMID, name: 'test middle shelf', flags: { compartment_of: CTOP } },
+      { id: CBOT, name: 'test bottom shelf', flags: { compartment_of: CTOP } },
+    ];
+    const hidden = describeTest.subBoxIds(pieces);
+    check('the room lists the cabinet, not its shelves',
+      !hidden.has(CTOP) && hidden.has(CMID) && hidden.has(CBOT), [...hidden].join(','));
+    // A shelf whose parent isn't in the room stays listed — a dangling id must
+    // never make a container nobody can then reach.
+    const orphanHidden = describeTest.subBoxIds([{ id: CMID, name: 'orphan shelf', flags: { compartment_of: 'furn_not_here' } }]);
+    check('an orphaned shelf is still listed', orphanHidden.size === 0, [...orphanHidden].join(','));
+
+    getPlayer().current_zone = savedZone;
+  } finally {
+    for (const id of [CBOT, CMID, CTOP]) await deleteFurniture(id).catch(() => {});
     getPlayer().current_zone = savedZone;
   }
 }
