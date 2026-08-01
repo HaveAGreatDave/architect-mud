@@ -1358,6 +1358,16 @@ body.fsim-external #look-resize-handle { display: none; }
 	color: var(--cyan);
 	margin-left: auto;
 }
+#env-hud-sidebar .env-date {
+	color: var(--text-dim);
+	font-size: 11px;
+	margin-left: auto;
+	letter-spacing: 0.3px;
+}
+#env-hud-sidebar .env-wet-label {
+	color: var(--blue);
+	font-size: 11px;
+}
 #env-hud-sidebar .env-weather-label {
 	color: var(--text);
 	font-size: 11px;
@@ -4930,6 +4940,15 @@ body.fsim-external #look-resize-handle { display: none; }
 	font-size: 11px;
 	padding: 4px;
 }
+/* Shelf header inside a container column. Same visual weight as the shop panel's
+   section rule — a divider, not a label competing with the contents. */
+.ctr-section {
+	font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+	color: var(--text-dim); opacity: 0.75;
+	margin: 9px 2px 3px; padding-bottom: 3px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.ctr-section:first-child { margin-top: 0; }
 .ctr-item-card {
 	background: var(--bg3);
 	border: 1px solid var(--border);
@@ -5621,6 +5640,15 @@ body.fsim-external #look-resize-handle { display: none; }
 }
 .shop-row .pr.noafford { color: var(--red); }
 .shop-empty { color: var(--text-dim); text-align: center; padding: 20px; font-size: 12px; }
+/* Shelf section header. Sits between rows as a divider rather than a heavy label —
+   it's there to break the list up, not to compete with the stock for attention. */
+.shop-section {
+  font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--text-dim); opacity: 0.75;
+  margin: 10px 0 3px; padding-bottom: 3px;
+  border-bottom: 1px solid rgba(40, 229, 255, 0.15);
+}
+.shop-section:first-child { margin-top: 0; }
 .shop-card { padding-left: 14px; min-height: 0; display: flex; }
 .shop-card-empty {
 	color: var(--text-dim);
@@ -6099,6 +6127,40 @@ body.fsim-external #look-resize-handle { display: none; }
 	overflow: hidden;
 }
 
+/* Environment HUD in the mobile chrome — a narrow column wedged between the map
+   and the d-pad. It never grows: the map takes the slack, so a long date string
+   wraps to its own line rather than shoving the d-pad off-screen. */
+#mob-hud-env {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: 1px;
+	flex-shrink: 0;
+	max-width: 40vw;
+	font-size: 10px;
+	line-height: 1.15;
+	color: var(--text);
+	cursor: pointer;
+}
+#mob-hud-env .env-hud-row {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	white-space: nowrap;
+}
+#mob-hud-env .env-hud-row:empty { display: none; }
+#mob-hud-env .env-icon { font-size: 12px; }
+#mob-hud-env .env-clock {
+	color: var(--text-bright);
+	font-weight: bold;
+	font-size: 12px;
+	letter-spacing: 0.5px;
+}
+#mob-hud-env .env-date { color: var(--text-dim); }
+#mob-hud-env .env-temp { color: var(--cyan); }
+#mob-hud-env .env-precip-label { color: var(--blue); }
+#mob-hud-env .env-wet-label { color: var(--blue); }
+
 /* ─── MOBILE VITALS STRIP ─── */
 #mobile-vitals {
 	display: none;
@@ -6129,6 +6191,26 @@ body.fsim-external #look-resize-handle { display: none; }
 	gap: 3px;
 	flex: 1 1 0;
 	min-width: 96px;
+}
+
+/* Credits + wanted stars. `flex: 0 0 auto` keeps it out of the bar-width share-out
+   — it's text, not a meter, and letting it stretch would squeeze a real vital. */
+.mob-status-row {
+	flex: 0 0 auto;
+	min-width: 0;
+	gap: 8px;
+	font-size: 10px;
+	line-height: 1;
+}
+#mob-credits { color: var(--yellow); }
+/* The weapon name is the only variable-length thing in the strip — let it
+   ellipsis rather than push the row into a second line. */
+#mob-weapon {
+	color: var(--text-dim);
+	max-width: 30vw;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .mob-bar-label {
@@ -6190,19 +6272,6 @@ body.fsim-external #look-resize-handle { display: none; }
 	gap: 2px;
 	justify-content: space-between;
 }
-
-.mob-hud-weather {
-	font-size: 13px;
-	line-height: 1;
-	text-align: center;
-}
-
-.mob-hud-temp {
-	color: var(--cyan);
-	font-size: 9px;
-	line-height: 1;
-}
-
 
 #mobile-chat-btn {
 	display: none; /* lives in the input row; mobile/compact only */
@@ -6415,24 +6484,14 @@ body.asleep.dreaming-line #output {
 
 /* The quick-cmds bar and its mobile ≡ fan trigger are retired from the player UI
    — the always-on Smart bar (Tablet + room verbs) is the command surface now.
-   Hidden rather than deleted so it's trivially restorable; #bottom-weather still
-   shows on mobile since it's a sibling of #cmd-fan-btn, not inside #quick-cmds. */
+   Hidden rather than deleted so it's trivially restorable. */
 #quick-cmds,
 #cmd-fan-btn {
 	display: none !important;
 }
 
-#bottom-weather {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	min-width: 0;
-}
-#bottom-weather .mob-hud-weather { font-size: 16px; }
-#bottom-weather .mob-hud-temp,
-
 /* Mobile: command list becomes a fan-out popup above the bar, triggered by
-   #cmd-fan-btn; #bottom-left (button + weather) takes its place inline.
+   #cmd-fan-btn; #bottom-left takes its place inline.
    The popup styling is shared by the width media query and compact mode. */
 @media (max-width: 720px) {
 	#bottom-left { display: flex; }
@@ -6477,7 +6536,11 @@ body.asleep.dreaming-line #output {
 body.fsim-fullscreen #mob-dpad,
 body.helm-fullscreen #mob-dpad,
 body.hb-fullscreen #mob-dpad,
-body.ck-fullscreen #mob-dpad {
+body.ck-fullscreen #mob-dpad,
+body.fsim-fullscreen #mob-hud-env,
+body.helm-fullscreen #mob-hud-env,
+body.hb-fullscreen #mob-hud-env,
+body.ck-fullscreen #mob-hud-env {
 	display: none !important;
 }
 
@@ -7825,6 +7888,9 @@ body.ck-fullscreen #mob-dpad {
 }
 .atm-confirm-danger:hover:not(:disabled) { box-shadow: 0 0 14px rgba(255,59,92,0.4), inset 0 -2px 0 rgba(0,0,0,0.4); }
 .atm-scr-fee { font-size: 9px; letter-spacing: 1px; opacity: 0.5; margin-bottom: 6px; }
+/* An exhausted 24h allowance is a refusal the player needs to read, not fine
+   print — it comes up out of the fee-line grey and warms. */
+.atm-scr-spent { opacity: 0.95; color: #ffb454; }
 .atm-scr-reserve { margin-top: 4px; }
 .atm-scr-reserve-lbl { font-size: 9px; letter-spacing: 2px; opacity: 0.55; margin-bottom: 5px; }
 .atm-scr-reserve-val { font-size: 9px; letter-spacing: 1px; opacity: 0.7; margin-top: 5px; text-align: right; }

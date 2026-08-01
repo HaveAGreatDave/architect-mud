@@ -72,6 +72,11 @@ Two plugins and one client panel.
 Owns the `workspace` verb (alias `bench`), the provider gather, payload assembly, and —
 from phase 2 — action dispatch. Knows nothing about food, heat, or vessels.
 
+A domain verb may also BE the way in: a bare **`cook`** in a room with a stove (and no
+chem lab) opens the kitchen HUD instead of answering "Cook what?", by calling the exported
+`cmdWorkspace` with the `kitchen` provider. Naming a food station — `cook stove` — does the
+same. `cook <thing>` is untouched, and a bare `cook` at a lab still routes to synthesis.
+
 **As built**, a provider is contributed through the `workspace.provider` gather-hook
 rather than an imported registry function, so neither plugin depends on the other loading:
 

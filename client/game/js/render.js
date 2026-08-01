@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { updateBodyTempHUD } from './panels/environment.js';
+import { updateBodyTempHUD, refreshWetnessHUD } from './panels/environment.js';
 import { refreshCustomPanels } from './panels/custom/manager.js';
 import { registerList, mountScopeToggle, hiddenKeys } from './panels/list-reorder.js';
 import { renderSmartBar } from './panels/smartbar.js';
@@ -343,6 +343,7 @@ export function updateVitals(p) {
   setBar('thi', p.thirst, 100);
   setBar('sta', p.stamina, p.stamina_max || 100);
   setBar('rad', p.radiation, 100, true);
+  refreshWetnessHUD();   // wetness rides the environment HUD, not the vitals bars
   // Mobile hunger/thirst mirror whatever the sidebar is hiding. The compact bars carry no
   // `data-lr-key`, so list-reorder cannot manage them; hiding them here keeps one decision
   // driving both layouts instead of letting the phone disagree with the desktop.
@@ -383,6 +384,8 @@ export function updateVitals(p) {
   if (p.credits !== undefined) {
     const el = document.getElementById('header-credits-val');
     if (el) el.textContent = p.credits;
+    const m = document.getElementById('mob-credits');
+    if (m) m.textContent = `₵ ${p.credits}`;
   }
   // Horniness bar — MIS-gated AND hidden by default like the other body meters. It is a
   // feeling, not a dial: the mis plugin narrates it in bands on the way up, holds a cadence

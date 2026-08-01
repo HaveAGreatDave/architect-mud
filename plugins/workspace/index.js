@@ -69,7 +69,9 @@ export async function buildWorkspaceView(player, providerKey = null) {
   return view;
 }
 
-async function cmdWorkspace(args, raw, player) {
+// Exported because a domain verb can BE the way into its own workspace — a bare
+// `cook` at a stove opens the kitchen HUD rather than answering "Cook what?".
+export async function cmdWorkspace(args, raw, player) {
   const view = await buildWorkspaceView(player, args?.[0]?.toLowerCase() || null);
   if (!view) {
     return {

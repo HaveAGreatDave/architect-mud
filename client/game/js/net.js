@@ -180,7 +180,7 @@ export function doAuth() {
     return;
   }
   if (!_connection?.isOpen()) {
-    errEl.textContent = 'Not connected. Server may be waking up (free tier cold start ~60s) — reconnecting automatically.';
+    errEl.textContent = 'Not connected. The server may still be waking up (up to a minute) — reconnecting automatically.';
     errEl.style.color = 'var(--red)';
     return;
   }
@@ -355,12 +355,13 @@ export function setConnStatus(stateStr) {
 }
 
 function showColdStart(opts = {}) {
-  // Two flavours: the Render dyno cold start (~60s, connection-level) and the
-  // lighter Neon DB compute wake ({ db: true }, ~a few seconds) signalled by
-  // the server's "waking" message.
+  // Two flavours: the connection-level cold start (~60s) and the lighter DB
+  // compute wake ({ db: true }, ~a few seconds) signalled by the server's
+  // "waking" message. Neither names the hosting tier — that's our plumbing,
+  // not something a player can act on.
   const body = opts.db
     ? '<div style="color:var(--text-dim);font-size:12px;line-height:1.6">Waking the world.<br><span style="color:var(--text);font-size:11px">Just a moment...</span></div>'
-    : '<div style="color:var(--text-dim);font-size:12px;line-height:1.6">Server is waking up.<br>Free tier cold start — about 60 seconds.<br><span style="color:var(--text);font-size:11px">Reconnecting automatically...</span></div>';
+    : '<div style="color:var(--text-dim);font-size:12px;line-height:1.6">Connecting to the world.<br>This can take up to a minute.<br><span style="color:var(--text);font-size:11px">Reconnecting automatically...</span></div>';
   let el = document.getElementById('cold-start-notice');
   if (!el) {
     el = document.createElement('div');
@@ -368,8 +369,21 @@ function showColdStart(opts = {}) {
     el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg2);border:1px solid var(--accent);padding:24px;text-align:center;z-index:300;border-radius:2px;max-width:320px';
     document.body.appendChild(el);
   }
-  el.innerHTML = '<div style="color:var(--accent);font-size:13px;letter-spacing:2px;margin-bottom:8px">ARCHITECT</div>' + body;
+  // The button doesn't replace the automatic retry, it just skips the wait —
+  // the backoff has usually grown to 15s by the time anyone is impatient enough
+  // to look for it.
+  const btn = '<button id="cold-start-retry" style="margin-top:14px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:inherit;font-size:11px;letter-spacing:1px;padding:6px 16px;cursor:pointer;border-radius:2px">RECONNECT NOW</button>';
+  el.innerHTML = '<div style="color:var(--accent);font-size:13px;letter-spacing:2px;margin-bottom:8px">ARCHITECT</div>' + body + btn;
   el.style.display = 'block';
+  el.querySelector('#cold-start-retry').onclick = (e) => {
+    const b = e.currentTarget;
+    b.disabled = true;
+    b.textContent = 'DIALLING...';
+    _connection?.retryNow?.();
+    // Re-arm rather than leave it dead: if this attempt fails, the overlay stays
+    // up and the player gets another go.
+    setTimeout(() => { b.disabled = false; b.textContent = 'RECONNECT NOW'; }, 3000);
+  };
 }
 
 function hideColdStart() {

@@ -560,7 +560,8 @@ export default async function regress({ run, check, getPlayer }) {
       new Set(cookTest2.cookStations(Z).map(s => s._cookKind)).size === 1, cookTest2.cookStations(Z).map(s => s.name));
 
     r = await run('cook');
-    check('bare cook at a stove alone asks what, not which', r?.type === 'error' && /Cook what/.test(r.message), JSON.stringify(r));
+    check('bare cook at a stove alone opens the kitchen workspace, not a prompt',
+      r?.type === 'workspace_view' && r.provider === 'kitchen', JSON.stringify(r));
 
     await insertFurniture({
       id: LAB, name: 'test chem bench', description: 'a test chem bench', object_type: 'fixture',

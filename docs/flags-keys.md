@@ -158,6 +158,7 @@ nothing, silently; wire a reader first.
 | `consort_ledger` | consort | set on B.L.I.S.S. placements — marks a live-only consort spawned from `player_consorts` rather than an authored NPC |
 | `covert` | vendor/drugwar | covert dealer (passphrase-gated) |
 | `deal_from` / `deal_to` | drugwar | dealing hours window |
+| `shop_axis` | engine (vendor) | OVERRIDE for which axis this vendor's shelf sections by (`class`/`storage`/`profile`/`slot`). Rarely needed — the axis is chosen from the stock itself, and an axis that splits nothing is ignored anyway. See [reference/item-facets.md](reference/item-facets.md) |
 | `drug_buyer` | drugwar | buys drugs from players |
 | `food_buyer` | cooking | pays the specialist rate (70% vs 40%) for plated meals, and the quality band scales the payout — a masterful plate is worth ~7.5x a poor one |
 | `essential` | — | **no reader.** Nothing checks it; unkillability is `no_attack` (`combat.js:705`). Setting `essential` protects nobody |

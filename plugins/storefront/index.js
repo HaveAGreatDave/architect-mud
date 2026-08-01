@@ -62,6 +62,7 @@ import { resolve as siftResolve, createSelectionState, formatSelectionPage } fro
 import { registerAction } from '../../server/engine/actions.js';
 import { on, emit } from '../../server/engine/events.js';
 import { fireHook } from '../../server/engine/plugins.js';
+import { sectionize } from '../../server/engine/classify.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { hackDifficulty, breachMargin, hasHackDeck, damageHackDeck } from '../../server/engine/hack-gear.js';
 import { getBroadcast, sendToPlayer } from '../../server/engine/messaging.js';
@@ -376,7 +377,7 @@ async function takeBackListing(listing, player) {
 function waresBoard(zone, deed, listings) {
   const title = shopDisplayName(zone, deed);
   if (!listings.length) return `<span style="color:var(--accent)">${title}</span>\n<span class="text-dim">The display is bare.</span>`;
-  const lines = listings.map(l => {
+  const renderLine = (l) => {
     const cd = l.custom_data || {};
     // What the buyer is actually looking at: a plated meal carries its own name
     // ("beef and potato stew") and the band it was cooked to. Listing every one
@@ -388,7 +389,14 @@ function waresBoard(zone, deed, listings) {
     return `  <span class="action-link" data-raw-cmd="buyware ${shown}" title="Buy ${shown}">${shown}</span>${band}` +
       `${l.quantity > 1 ? ` <span class="text-dim">x${l.quantity}</span>` : ''}` +
       ` — <span style="color:var(--yellow)">${l.price}c</span>${state}`;
-  });
+  };
+  // Same sectioning rule as an NPC vendor's shelf (server/engine/classify.js), so a
+  // player shop that grows into a real grocery reads like one. A player has no
+  // authored axis to override with — the stock they chose to put out IS the
+  // configuration, which is rather the point of the whole approach. A small or
+  // uniform display stays a flat list.
+  const lines = sectionize(listings, { itemOf: (l) => ({ tags: l.tags }) })
+    .flatMap(s => (s.group ? [`<span class="text-dim">${s.group}</span>`] : []).concat(s.items.map(renderLine)));
   return `<span style="color:var(--accent)">${title}</span>\n${lines.join('\n')}`;
 }
 

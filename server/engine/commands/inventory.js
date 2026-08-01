@@ -17,6 +17,7 @@ import { getItem } from '../items-cache.js';
 import { fireHook } from '../plugins.js';
 import { applyEffect } from '../effects.js';
 import { sendToPlayer } from '../messaging.js';
+import { sectionize } from '../classify.js';
 
 // Throttle: only broadcast "rummages in container" once per 30s per player.
 const _ctrBroadcastTs = new Map();
@@ -1140,11 +1141,20 @@ async function cmdLookInContainer(nameStr, player) {
 
 async function describeContainer(container, player) {
   const cap = tagValue(container, 'container', 0);
-  const { rows } = await query(`SELECT pi.quantity,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
+  const { rows } = await query(`SELECT pi.quantity,i.name,i.tags,i.type FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
   const used = await containerContentsWeight(container.id);
   let msg = `${container.name} (Capacity: ${formatWeight(used)}/${formatWeight(cap)})`;
   if (!rows.length) msg += `\n  It's empty.`;
-  else for (const r of rows) msg += `\n  ${r.name}${r.quantity>1?` x${r.quantity}`:''}`;
+  else {
+    // A box sorts itself into shelves by the same rule a shop's stock does
+    // (server/engine/classify.js): a footlocker reads by type, a chest freezer by
+    // storage, a spice rack by ingredient class — and none of them were told
+    // which. A small or uniform box stays the flat list it has always been.
+    for (const s of sectionize(rows)) {
+      if (s.group) msg += `\n  <span class="text-dim">${s.group}</span>`;
+      for (const r of s.items) msg += `\n  ${s.group ? '  ' : ''}${r.name}${r.quantity>1?` x${r.quantity}`:''}`;
+    }
+  }
   // Only one shelf is in front of you. Say what the others are called, or a
   // text-only player has no way to learn the cabinet has any.
   const others = player
@@ -1183,6 +1193,12 @@ async function loadBoxContents(container) {
   const used = await containerContentsWeight(container.id);
   const { rows: containerItems } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
   for (const r of containerItems) r.name = titleCaseName(r.name);
+  // Stamp `group` for the panel. The rows already carry tags, so this costs
+  // nothing; the client starts a new section wherever `group` changes, and rows
+  // arrive in section order. An ungrouped box leaves `group` unset throughout.
+  const grouped = sectionize(containerItems).flatMap(s => s.items);
+  containerItems.length = 0;
+  containerItems.push(...grouped);
   return { capacity: cap, usedWeight: round1(used), containerItems, preserves: container.tags?.preserves ?? null, applianceGrade: container.tags?.appliance_grade ?? null };
 }
 

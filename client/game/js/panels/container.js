@@ -291,7 +291,19 @@ function openItemActions(item, source, containerId, anchor) {
 function renderList(listId, items, source, containerId) {
   const list = document.getElementById(listId);
   list.innerHTML = '';
+  let lastGroup = null;
   for (const item of items) {
+    // Shelf headers, the same convention the shop panel uses: the server decides
+    // whether a box sections and sends the rows already in section order
+    // (server/engine/classify.js), so all the client does is notice the change.
+    // An ungrouped box has no `group` anywhere and emits no headers at all.
+    if (item.group && item.group !== lastGroup) {
+      const h = document.createElement('div');
+      h.className = 'ctr-section';
+      h.textContent = item.group;
+      list.appendChild(h);
+    }
+    lastGroup = item.group || null;
     const card = document.createElement('div');
     card.className = 'ctr-item-card';
     card.setAttribute('draggable', 'true');

@@ -2553,21 +2553,25 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     resolveDefault('audio_theme_id', bare, region, palette) === resolveDefault('audio_theme_id', bare, region, palette));
 
   // The authored world, as loaded. Not a fixture: these are the real region rows.
-  const themed = getAllZones().filter(z => z.flags?.region_id && !z.audio_theme_id);
-  const withTheme = themed.filter(z => resolveDefault('audio_theme_id', z, regionForZone(z)));
-  check('region defaults reach the tiles that inherit them',
-    themed.length > 0 && withTheme.length === themed.length,
-    `${withTheme.length}/${themed.length} region tiles resolve a theme`);
-  check('a tile outside every region resolves no theme',
-    getAllZones().filter(z => !z.flags?.region_id)
-      .every(z => resolveDefault('audio_theme_id', z, regionForZone(z)) === null));
+  // DELIBERATE: walking around does not play music. Region themes were tried and
+  // pulled — a song starting because you crossed an invisible region boundary read
+  // as a bug to the player, and the music slot belongs to things you can point at
+  // (a radio, a TV, the broadcast plugin). The mechanism above stays pinned because
+  // a tile-level theme is still a legitimate thing to author for one room; what is
+  // asserted here is that no REGION carries one.
+  check('no region paints its tiles with a music theme',
+    getAllZones().every(z => resolveDefault('audio_theme_id', z, regionForZone(z)) === null),
+    getAllZones().filter(z => resolveDefault('audio_theme_id', z, regionForZone(z)))
+      .slice(0, 3).map(z => z.id).join(', '));
   // Every authored default must name a song that EXISTS. content:lint checks this
   // against the file tree; this checks the database the world actually booted from,
   // because a JSONB value has no foreign key to break loudly.
   const wanted = [...world.regions.values()].map(r => r.defaults?.audio_theme_id).filter(Boolean);
   const known = new Set((await query('SELECT id FROM audio_songs')).rows.map(r => r.id));
   const badDefaults = wanted.filter(id => !known.has(id));
-  check('every region default names a real song', wanted.length > 0 && badDefaults.length === 0,
+  // Vacuous while no region authors a theme (see above) — kept because the day one
+  // does, a typo'd song id must fail here rather than play silence.
+  check('every region default names a real song', badDefaults.length === 0,
     badDefaults.length ? badDefaults.join(', ') : `${wanted.length} authored`);
 }
 
@@ -4043,6 +4047,108 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   p = { hp: 10, hp_max: 10 };
   applyMods(p, 'brutal', { hp_max: -999 });
   check('the ledger clamp can never kill (floors at 1)', p.hp === 1, JSON.stringify(p));
+}
+
+// ── Item facets: the shelf-sectioning substrate ──────────────────────────────
+// server/engine/classify.js decides whether a list of items sections itself and
+// along which axis. Pure functions over tags, so this is fixture-driven — no DB,
+// no world. The failure modes it exists to prevent are all "the list got worse":
+// sections nobody asked for, a section per item, or items quietly lost.
+{
+  const { classFacet, storageFacet, pickAxis, scoreAxis, sectionize, assignGroups,
+          MIN_ITEMS_TO_GROUP, OTHER_LABEL } = await import('../server/engine/classify.js');
+
+  const food = (name, tags) => ({ name, tags });
+
+  // The motivating case: a grocer's stock is uniformly `Consumables` on the class
+  // axis, so that axis must LOSE and storage must win. If class ever wins here,
+  // Ration Nine renders one section called "Consumables" holding everything —
+  // strictly worse than the flat list it replaced.
+  const grocery = [
+    food('rat loaf',    { consumable: true, food_profile: 'dense_meat', perishable: true, spoil_rate: 'fast' }),
+    food('grey mince',  { consumable: true, food_profile: 'dense_meat', perishable: true, spoil_rate: 'fast' }),
+    food('block ice',   { consumable: true, storage_tier: 'frozen' }),
+    food('frozen fish', { consumable: true, storage_tier: 'frozen' }),
+    food('dry noodle',  { consumable: true, food_profile: 'dry_starch' }),
+    food('tin beans',   { consumable: true, food_profile: 'preserved' }),
+    food('salt',        { consumable: true, food_profile: 'aromatic' }),
+  ];
+  check('a grocer sections by storage, not by type', pickAxis(grocery) === 'storage', String(pickAxis(grocery)));
+  check('the useless axis scores zero, it is not merely outranked',
+    scoreAxis(grocery, 'class') === 0, String(scoreAxis(grocery, 'class')));
+
+  // The reverse case, on the same code path and with no configuration anywhere.
+  const gunsmith = [
+    food('pipe rifle',  { weapon: true, damage: { min: 4, max: 9 } }),
+    food('scrap knife', { weapon: true, damage: { min: 2, max: 4 } }),
+    food('slug pistol', { weapon: true, damage: { min: 3, max: 7 } }),
+    food('flak vest',   { armor_soak: { ballistic: 4 }, slot: 'torso' }),
+    food('plate rig',   { armor_soak: { ballistic: 7 }, slot: 'torso' }),
+    food('ammo box',    { material: true }),
+    food('cleaning kit',{ material: true }),
+  ];
+  check('a gunsmith sections by type', pickAxis(gunsmith) === 'class', String(pickAxis(gunsmith)));
+
+  // Three ways an axis is useless, all of which must produce a FLAT list.
+  const tiny = grocery.slice(0, 3);
+  check('a short list is never sectioned', pickAxis(tiny) === null, String(pickAxis(tiny)));
+  check('the flat-list floor is a real threshold', MIN_ITEMS_TO_GROUP > 1, String(MIN_ITEMS_TO_GROUP));
+
+  const uniform = Array.from({ length: 10 }, (_, i) =>
+    food(`ration ${i}`, { consumable: true, food_profile: 'dry_starch' }));
+  check('a uniform list is never sectioned', pickAxis(uniform) === null, String(pickAxis(uniform)));
+
+  const allDistinct = ['head', 'torso', 'hands', 'legs', 'feet', 'accessory']
+    .map((s, i) => food(`piece ${i}`, { slot: s }));
+  check('one item per bucket is a header list, not sections',
+    scoreAxis(allDistinct, 'slot') === 0, String(scoreAxis(allDistinct, 'slot')));
+
+  // Nothing may be lost. This is the bug that would be hardest to spot by eye:
+  // an axis that answers for most of a list silently dropping the rest.
+  const mixed = [...grocery, food('crowbar', { weapon: true }), food('rope', { material: true })];
+  const sections = sectionize(mixed);
+  const seen = sections.flatMap(s => s.items);
+  check('sectioning loses no item', seen.length === mixed.length, `${seen.length}/${mixed.length}`);
+  check('items an axis cannot answer for land in one trailing bucket',
+    sections[sections.length - 1].group === OTHER_LABEL, JSON.stringify(sections.map(s => s.group)));
+
+  // Section order is declared, not alphabetical — a fridge reads cold to ambient.
+  const order = sectionize(grocery).map(s => s.group);
+  check('storage sections read cold → ambient',
+    order.indexOf('Frozen') < order.indexOf('Refrigerated') && order.indexOf('Refrigerated') < order.indexOf('Dry Goods'),
+    JSON.stringify(order));
+
+  // Frozen can only come from the author override — nothing in a spoil rate says
+  // a fillet is sold frozen rather than fresh.
+  check('frozen is authored, never derived',
+    storageFacet({ perishable: true, spoil_rate: 'fast' }) === 'Refrigerated' &&
+    storageFacet({ perishable: true, spoil_rate: 'fast', storage_tier: 'frozen' }) === 'Frozen');
+  check('non-food is off the storage axis entirely',
+    storageFacet({ weapon: true }) === null, String(storageFacet({ weapon: true })));
+
+  // The author override is honoured whenever it splits at all — a looser bar than
+  // auto-selection on purpose, because the quality heuristics exist to stop the
+  // AUTOMATIC choice making a list worse, and an author naming an axis has already
+  // made that call. `profile` would lose the auto contest on this stock (too many
+  // thin buckets), which is exactly why it's the useful test of the override.
+  check('an author override wins when it splits', pickAxis(grocery, 'profile') === 'profile', String(pickAxis(grocery, 'profile')));
+  check('the overridden axis would have lost the auto contest',
+    scoreAxis(grocery, 'profile') === 0 && pickAxis(grocery) === 'storage', String(scoreAxis(grocery, 'profile')));
+  // Splitting nothing is still refused: one section named after the whole shelf is
+  // never what anybody meant, so the override falls back to the scored winner.
+  check('an override that splits nothing is ignored', pickAxis(gunsmith, 'storage') === 'class', String(pickAxis(gunsmith, 'storage')));
+
+  // A flat list must leave `group` unset, or the client renders a header for it.
+  const flat = uniform.map(u => ({ ...u }));
+  check('a flat list stamps no group', assignGroups(flat) === null && flat.every(f => f.group === undefined));
+
+  // vendorCategory still speaks singular for the examine pane, off the same rules.
+  const { vendorCategory } = await import('../server/engine/vendor.js');
+  check('vendorCategory stays singular', vendorCategory({ weapon: true }) === 'Weapon', vendorCategory({ weapon: true }));
+  check('vendorCategory depluralises -ies correctly',
+    vendorCategory({ slot: 'accessory' }) === 'Accessory', vendorCategory({ slot: 'accessory' }));
+  check('vendorCategory leaves Goods alone', vendorCategory({}) === 'Goods', vendorCategory({}));
+  check('the section header is the plural of it', classFacet({ weapon: true }) === 'Weapons', classFacet({ weapon: true }));
 }
 
 // ── Vendor sourced-container stock ───────────────────────────────────────────

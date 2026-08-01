@@ -6,7 +6,7 @@ import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalP
 import { setWeatherEventFx, setFireworksGlow, launchFirework } from './panels/weather-fx.js';
 import { setDreamFx } from './panels/environment.js';
 import { openDialogue, closeDialogue, openShop, notifyZoneChanged } from './panels/dialogue.js';
-import { updateInventoryCache, consumeSilentInventory } from './panels/inventory-state.js';
+import { updateInventoryCache, consumeSilentInventory, refreshWeaponChip } from './panels/inventory-state.js';
 import { renderRecipesPanel } from './panels/recipes.js';
 import { renderStatsPanel } from './panels/stats.js';
 import { renderSkillsPanel } from './panels/skills.js';
@@ -247,6 +247,7 @@ const handlers = {
     if (bmcBtn) bmcBtn.style.display = 'none';
     document.getElementById('handle-display').textContent = state.player.handle;
     updateVitals(state.player);
+    refreshWeaponChip();   // seed the mobile weapon chip; no-op on desktop
     if (msg.env) updateEnvironmentHUD(msg.env);
     else fetch('/api/environment/state').then(r => r.json()).then(updateEnvironmentHUD).catch(() => {});
     if (msg.apiToken) sessionStorage.setItem('devpanel-token', msg.apiToken);
@@ -653,12 +654,13 @@ const handlers = {
     // Desktop inventory/gear popups are retired. If the tablet Gear app is open,
     // refresh it so the change shows on the paperdoll; otherwise print the feedback.
     if (!refreshTabletGearIfOpen()) appendHtml(msg.message, 'help');
+    refreshWeaponChip();
   },
 
   // The server's canonical "your inventory changed" ping (emitted on
   // `inventory.changed`). No payload — the Kit app refetches itself, and only if it's
   // open, so this is free when the tablet is closed.
-  inventory_dirty: () => { refreshTabletGearIfOpen(); },
+  inventory_dirty: () => { refreshTabletGearIfOpen(); refreshWeaponChip(); },
 
   use: (msg) => {
     appendHtml(msg.message, 'loot');
@@ -762,13 +764,13 @@ const handlers = {
   deposit: (msg) => {
     appendHtml(msg.message, 'loot');
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
-    if (msg.atm_cash_stock != null) updateAtmPanel({ cashStock: msg.atm_cash_stock, ...msg.player_update });
+    if (msg.atm_cash_stock != null) updateAtmPanel({ cashStock: msg.atm_cash_stock, allowance: msg.atm_allowance, ...msg.player_update });
   },
 
   withdraw: (msg) => {
     appendHtml(msg.message, 'loot');
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
-    if (msg.atm_cash_stock != null) updateAtmPanel({ cashStock: msg.atm_cash_stock, ...msg.player_update });
+    if (msg.atm_cash_stock != null) updateAtmPanel({ cashStock: msg.atm_cash_stock, allowance: msg.atm_allowance, ...msg.player_update });
   },
 
   jack: (msg) => {

@@ -56,6 +56,24 @@ export function updateAtmPanel(patch) {
   if (patch.bank_credits != null) atmData.player.bank_credits = patch.bank_credits;
   if (patch.maintenanceUnlocked != null) atmData.maintenanceUnlocked = patch.maintenanceUnlocked;
   if (patch.hasHackDevice != null) atmData.hasHackDevice = patch.hasHackDevice;
+  // A transaction returns only the direction it spent, and only its new
+  // `remaining` — merge per-direction so the untouched bucket keeps its figures,
+  // and derive `spent` locally so the "X of Y left" line is right immediately
+  // rather than one panel-open behind.
+  if (patch.allowance && atmData.allowance) {
+    for (const dir of ['deposit', 'withdraw']) {
+      const left = patch.allowance[dir];
+      if (left == null) continue;
+      const cur = atmData.allowance[dir] || { remaining: 0, spent: 0, resetsIn: 0 };
+      atmData.allowance[dir] = {
+        remaining: left,
+        spent: Math.max(0, (atmData.txnCap ?? 0) - left),
+        // The window now starts at this transaction unless an older one is still
+        // inside it, so the existing wait is the floor, never shorter.
+        resetsIn: cur.resetsIn > 0 ? cur.resetsIn : 24 * 3600,
+      };
+    }
+  }
   renderAtmPanel();
 }
 
@@ -136,15 +154,35 @@ function renderHome(data) {
     </div>`;
 }
 
+// "3h 20m" until a spent allowance starts coming back. Mirrors the server's
+// fmtWindowWait; the value is a snapshot from the last payload, not a live clock.
+function fmtWait(sec) {
+  if (!sec || sec <= 0) return 'shortly';
+  const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${Math.max(1, m)}m`;
+}
+
 function renderTx(data, mode) {
   const { player, network, txnCap } = data;
   const isDep = mode === 'deposit';
   const avail = isDep ? `Carried: ${formatC(player.credits)}` : `Banked: ${formatC(player.bank_credits)}`;
   const feeLine = (!isDep && network.fee_rate > 0)
     ? `<div class="atm-scr-fee">Network fee: ${Math.round(network.fee_rate * 100)}% on withdrawal</div>` : '';
-  // State the ceiling up front rather than letting the machine refuse after the fact.
-  const capLine = txnCap != null
-    ? `<div class="atm-scr-fee">Per-transaction limit: ${formatC(txnCap)} — larger sums, see a teller</div>` : '';
+  // State the ceiling up front rather than letting the machine refuse after the
+  // fact — and once any of it is spent, show what's LEFT, because that's the only
+  // number the player can act on. The allowance is a rolling 24h window per
+  // network, so an exhausted one names the wait rather than reading as a dead end.
+  const allow = data.allowance?.[mode];
+  let capLine = '';
+  if (txnCap != null) {
+    if (!allow || allow.spent <= 0) {
+      capLine = `<div class="atm-scr-fee">24h limit: ${formatC(txnCap)} — larger sums, see a teller</div>`;
+    } else if (allow.remaining > 0) {
+      capLine = `<div class="atm-scr-fee">24h limit: ${formatC(allow.remaining)} of ${formatC(txnCap)} left — resets in ${fmtWait(allow.resetsIn)}</div>`;
+    } else {
+      capLine = `<div class="atm-scr-fee atm-scr-spent">24h limit reached — ${formatC(txnCap)} moved. Resets in ${fmtWait(allow.resetsIn)}, or see a teller</div>`;
+    }
+  }
   return `
     <div class="atm-scr-top">
       <button class="atm-back" data-nav="home">‹ BACK</button>
@@ -230,10 +268,12 @@ function doAction(act) {
     if (field && amt !== 'all') field.value = '';
   } else if (act === 'max') {
     // Deposit caps at carried cash; withdraw caps at the machine's cash stock and what the bank
-    // balance covers after the fee. Both are then clamped to the machine's per-transaction
-    // ceiling (server-supplied `txnCap`, null at a teller's counter) — bigger sums have to be
-    // walked into the bank, so MAX must never propose an amount the terminal will refuse.
+    // balance covers after the fee. Both are then clamped to what's LEFT of this direction's
+    // rolling 24h allowance (server-supplied, null at a teller's counter) — bigger sums have to
+    // be walked into the bank, so MAX must never propose an amount the terminal will refuse.
+    // Clamping to `txnCap` alone would over-propose the moment any of it has been spent.
     const { player, network, cashStock, txnCap } = atmData;
+    const allowLeft = atmData.allowance?.[screen]?.remaining;
     let max;
     if (screen === 'deposit') {
       max = player.credits || 0;
@@ -242,7 +282,7 @@ function doAction(act) {
       const maxByFunds = feeRate > 0 ? Math.floor((player.bank_credits || 0) / (1 + feeRate)) : (player.bank_credits || 0);
       max = Math.min(cashStock, maxByFunds);
     }
-    if (txnCap != null) max = Math.min(max, txnCap);
+    if (txnCap != null) max = Math.min(max, allowLeft != null ? allowLeft : txnCap);
     if (field) field.value = Math.max(0, max);
   } else if (act === 'jack') {
     // JACK → Circuit Breach minigame overlay. There is no server-side skill

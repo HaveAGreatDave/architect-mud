@@ -6,12 +6,14 @@ export function connectWS(url, { onOpen, onClose, onRetry, onColdStart, onMessag
   let coldStartTimer = null;
   let pingInterval = null;
   let permanent = false;
+  let retryTimer = null;
 
   function connect() {
     ws = new WebSocket(url);
 
     ws.onopen = () => {
       reconnectDelay = 1000;
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
       if (coldStartTimer) { clearTimeout(coldStartTimer); coldStartTimer = null; }
       if (pingInterval) clearInterval(pingInterval);
       pingInterval = setInterval(() => {
@@ -26,7 +28,7 @@ export function connectWS(url, { onOpen, onClose, onRetry, onColdStart, onMessag
       reconnectDelay = Math.min(reconnectDelay * 1.5, 15000);
       onClose?.();
       onRetry?.();
-      setTimeout(connect, reconnectDelay);
+      retryTimer = setTimeout(connect, reconnectDelay);
     };
 
     ws.onmessage = (e) => {
@@ -40,6 +42,17 @@ export function connectWS(url, { onOpen, onClose, onRetry, onColdStart, onMessag
     send: (obj) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj)); },
     isOpen: () => ws?.readyState === WebSocket.OPEN,
     isConnecting: () => ws?.readyState === WebSocket.CONNECTING,
+    // Skip the remaining backoff and dial immediately — what the overlay's
+    // Reconnect button does. A no-op while a socket is already up or dialling,
+    // so an impatient click can never open a second one.
+    retryNow: () => {
+      if (permanent) return false;
+      if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) return false;
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+      reconnectDelay = 1000;
+      connect();
+      return true;
+    },
     close: () => { permanent = true; ws?.close(); },
   };
 }

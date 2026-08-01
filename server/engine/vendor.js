@@ -18,6 +18,7 @@
  * restockSourcedContainers(), run alongside the normal 24h restock tick.
  */
 import { query, withTransaction } from '../models/db.js';
+import { classFacet, sectionize } from './classify.js';
 import { getIdeologyDiscount } from './ideologies.js';
 import { adjustCredits } from './economy.js';
 import { randomUUID } from 'crypto';
@@ -130,18 +131,12 @@ export async function vendorDiscount(playerId, npc) {
 // more `type` routing — see items.md). Body-slot armor/apparel vs. weapon vs.
 // consumable etc. `type` is only consulted for furniture, which the cache still
 // carries as a column.
+// Kept as the examine pane's singular label ("Weapon", not "Weapons") — the
+// classifier owns the logic now and speaks in plural section headers, so this
+// depluralises rather than forking a second copy of the rules that would drift.
 export function vendorCategory(tags = {}, type) {
-  if (tags.weapon) return 'Weapon';
-  if (tags.armor_soak) return 'Armor';
-  const BODY = ['head', 'torso', 'hands', 'legs', 'feet'];
-  if (BODY.includes(tags.slot)) return 'Apparel';
-  if (tags.slot === 'accessory') return 'Accessory';
-  if (tags.drug) return 'Drug';
-  if (tags.consumable) return 'Consumable';
-  if (tags.container) return 'Container';
-  if (type === 'furniture') return 'Furniture';
-  if (tags.material) return 'Material';
-  return 'Goods';
+  const c = classFacet(tags, type);
+  return c === 'Goods' ? c : c.replace(/(ie)?s$/, m => (m === 'ies' ? 'y' : ''));
 }
 
 // Display-ready gameplay stat lines for the examine pane. Derived purely from
@@ -222,6 +217,10 @@ export async function getVendorStock(npc, playerId, shelfKey = null) {
       type: item.type,
       category: vendorCategory(item.tags, item.type),
       stats: vendorStatLines(item.tags),
+      // Carried so the grouper can read the item's facets without a second lookup,
+      // and so a `shop.stock` handler can classify too. Stripped again below —
+      // it must never reach the client.
+      _tags: item.tags || {},
       stackable: isStackable(item),
       weight: item.weight,
       stock: realStock,
@@ -235,7 +234,25 @@ export async function getVendorStock(npc, playerId, shelfKey = null) {
   // only half a list. Handlers mutate entries in place (setting `wanted`); an
   // unhooked shelf is byte-identical to what it was before this existed.
   await fireHook('shop.stock', { stock, npc, playerId });
-  return stock;
+
+  // Shelf sections. The axis is chosen from the stock itself, so a grocer sections
+  // by storage and a gunsmith by type without either being configured; a shelf
+  // that doesn't partition usefully stays flat rather than growing noise. Runs
+  // AFTER the hook so a handler that adds entries is sectioned along with the rest.
+  // `flags.shop_axis` is an author override for the rare case the scorer picks
+  // something daft — not the intended route.
+  const sections = sectionize(stock, {
+    preferred: npc.flags?.shop_axis || null,
+    itemOf: (e) => ({ tags: e._tags, type: e.type }),
+  });
+  // Returned already IN section order, rather than with the axis attached: the
+  // stock is an array, so an `axis` property on it would be silently dropped by
+  // JSON. The client starts a new section wherever `group` changes, which means it
+  // needs no knowledge of the axes at all — and a shelf left flat has no `group`
+  // on any entry and renders exactly as it always did.
+  const ordered = sections.flatMap(s => s.items);
+  for (const e of ordered) delete e._tags;
+  return ordered;
 }
 
 // ─── Buy ─────────────────────────────────────────────────────────────────────
@@ -489,7 +506,7 @@ export async function getSellableInventory(player, npc) {
   const discount = await vendorDiscount(player.id, npc);
   const isDrugBuyer = !!npc.flags?.drug_buyer;
   const isFoodBuyer = !!npc.flags?.food_buyer;
-  return rows
+  const sellable = rows
     .filter(r => !r.tags?.quest_item)
     .map(r => {
       const cd = typeof r.custom_data === 'string' ? (() => { try { return JSON.parse(r.custom_data); } catch { return {}; } })() : (r.custom_data || {});
@@ -502,8 +519,17 @@ export async function getSellableInventory(player, npc) {
         stats: vendorStatLines(r.tags),
         weight: r.weight,
         price: computeSellUnitPrice(r.value, r.stat_cool, discount, { potency: Number(cd?.potency) || 1, drugBuyer: isDrugBuyer && !!r.tags?.drug, cookQuality: cd?.cook_quality || null, foodBuyer: isFoodBuyer && !!cd?.cook_quality, portion: (Number(cd?.portion) || 1) * (Number(cd?.yield) || 1) }),
+        _tags: r.tags || {},
       };
     });
+
+  // The Sell tab sections by the same rule as the Buy tab — it's the same panel and
+  // the same renderer, and a pack full of scavenged junk is exactly the pile that
+  // benefits. The axis is chosen from what you're CARRYING, so it needn't agree
+  // with the shelf's; no override here, because a backpack has no author.
+  const ordered = sectionize(sellable, { itemOf: (e) => ({ tags: e._tags }) }).flatMap(s => s.items);
+  for (const e of ordered) delete e._tags;
+  return ordered;
 }
 
 export async function sellToVendor(player, npc, inventoryId, quantity = 1) {

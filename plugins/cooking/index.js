@@ -46,6 +46,7 @@ import { rewardFor, restMultiplier, restText, RESTS_WELL, REST_PEAK_MS, REST_COL
 import { tasteNotes, flavourLines } from './taste.js';
 import { canMarinate, prepText } from './prep.js';
 import { workspaceProvider } from './workspace.js';
+import { cmdWorkspace } from '../workspace/index.js';
 
 // Which phase of resting a plate is in, for the flavour line on eating.
 const restPhase = cd => {
@@ -198,9 +199,12 @@ async function cmdCook(args, raw, player, broadcast) {
         message: `Cook on which?\n${formatSelectionPage({ allCandidates: stations, visibleIndex: 0, pageSize: 5 })}`,
       };
     }
-    return kinds.has('drug') && hasSynthesis()
-      ? toDrugs(player, null, broadcast)
-      : { type: 'error', message: 'Cook what?' };
+    // A bare `cook` at a stove is a request to SEE the kitchen, not a mis-typed
+    // command: "Cook what?" answered a question nobody was asking. The HUD lists
+    // what's out, what's stored and what's on the heat, and every action on it is
+    // a verb you could have typed — so this is a shortcut, not a second surface.
+    if (kinds.has('drug') && hasSynthesis()) return toDrugs(player, null, broadcast);
+    return (await cmdWorkspace(['kitchen'], '', player)) || { type: 'error', message: 'Cook what?' };
   }
 
   // Named a station directly ("cook on the range" / "cook stove")? Honour it.
@@ -208,7 +212,9 @@ async function cmdCook(args, raw, player, broadcast) {
   if (stations.length > 1) {
     const s = siftResolve(nameStr, stations);
     if (s.type === 'match' && s.candidate._cookKind === 'drug' && hasSynthesis()) return toDrugs(player, null, broadcast);
-    if (s.type === 'match' && s.candidate._cookKind === 'food') return { type: 'error', message: 'Cook what?' };
+    if (s.type === 'match' && s.candidate._cookKind === 'food') {
+      return (await cmdWorkspace(['kitchen'], '', player)) || { type: 'error', message: 'Cook what?' };
+    }
   }
 
   // Carrying something by that name that can actually be cooked → it's food.

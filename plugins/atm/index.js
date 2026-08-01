@@ -14,14 +14,19 @@ import { resolve as siftResolve } from '../../server/engine/sift.js';
 // server/engine/hack-gear.js for the penalty/fragility contract.
 import { hasHackDeck, hackDifficulty, damageHackDeck, breachMargin } from '../../server/engine/hack-gear.js';
 
-// Tablet OS Bank app: a minimal deposit ledger (bank_transactions). Written
-// from every successful deposit, whichever path it came through (ATM's own
-// `deposit` command or Tablet's "Deposit All"/"Transfer to Bank" actions), so
-// the app's Transaction History screen has one consistent source.
-export async function logBankTx(playerId, type, amount, balanceAfter) {
+// The banking ledger (bank_transactions). Written from every successful move in
+// either direction, whichever path it came through (the ATM's own `deposit`/
+// `withdraw` or Tablet's remote transfers), so the Bank app's Transaction
+// History has one consistent source.
+//
+// This is no longer display-only: the 24-hour allowance below is a SUM over this
+// table, so an ATM transaction that isn't logged here is one that never counted.
+// `networkId` is what scopes the allowance — pass null for anything that should
+// spend nobody's allowance (a teller counter, a remote tablet transfer).
+export async function logBankTx(playerId, type, amount, balanceAfter, networkId = null) {
   await query(
-    'INSERT INTO bank_transactions (player_id, type, amount, balance_after) VALUES ($1,$2,$3,$4)',
-    [playerId, type, amount, balanceAfter]
+    'INSERT INTO bank_transactions (player_id, type, amount, balance_after, network_id) VALUES ($1,$2,$3,$4,$5)',
+    [playerId, type, amount, balanceAfter, networkId]
   );
 }
 
@@ -57,11 +62,16 @@ async function findAtmInZone(zoneId, nameHint) {
 
 // ── The counter vs. the machine ──────────────────────────────────────────────
 // A cash terminal is a hole in the wall with a drum of notes in it: it will move
-// pocket money and nothing more. The network's `withdrawal_limit` is the per-
-// transaction ceiling on BOTH directions at a physical ATM — deposits too, since
-// the machine has to physically eat the notes. Anything bigger is a conversation
-// with a human (or, in Citadel's case, TELLER UNIT 04), which is the whole point:
-// big money has to walk into a bank and be looked at by something that can testify.
+// pocket money and nothing more. The network's `withdrawal_limit` is what it will
+// move for you IN A ROLLING 24 HOURS, in BOTH directions at a physical ATM —
+// deposits too, since the machine has to physically eat the notes. Anything
+// bigger is a conversation with a human (or, in Citadel's case, TELLER UNIT 04),
+// which is the whole point: big money has to walk into a bank and be looked at by
+// something that can testify.
+//
+// It used to be a PER-TRANSACTION ceiling, which meant it wasn't a limit at all —
+// you stood at the machine and ran the same maximum deposit until you'd moved
+// everything you owned. A window is the only shape that actually bites.
 //
 // A teller is any live NPC flagged `bank_teller`. Being in the same ROOM as one is
 // deliberately not enough — the Citadel hall holds both the teller and its own
@@ -106,23 +116,81 @@ function resolveTeller(args, zoneId) {
   return { teller: r.candidate, named: true, error: null };
 }
 
-// Per-transaction ceiling for this transaction: null (uncapped) when a teller is
-// being addressed, else the machine's network limit.
+// The size of the allowance: null (uncapped) when a teller is being addressed,
+// else the machine's network limit. The number is unchanged — what changed is
+// that it now covers a 24-hour window rather than a single transaction.
 export function txnCap(atm, teller) {
   if (teller) return null;
   return atm?.withdrawal_limit ?? DEFAULT_TXN_CAP;
 }
 
-// The refusal a machine gives when you ask it for more than it will move. Names the
-// way out, so the player learns the cap is a door and not a dead end — and when a
-// teller is standing right there, quotes the exact phrasing that works.
-export function overCapMessage(kind, amount, cap, atm, teller) {
+// ── The 24-hour allowance ────────────────────────────────────────────────────
+// Rolling, not a daily reset: the window is always "the last 24 hours from right
+// now", summed at check time off bank_transactions. No counter to store, nothing
+// to reset on a tick, no drift if the server restarts, and no midnight at which
+// everyone's limit refills at once.
+//
+// Scoped PER NETWORK — hitting Citadel's ceiling leaves a rival's terminals open,
+// which is what finally gives atm_units.network_id a job. An unlinked terminal
+// keys off its own furniture id so it can't be used as a limitless side door.
+//
+// The two directions are SEPARATE buckets: banking a day's earnings must not stop
+// you drawing walking-around money back out.
+export const ALLOWANCE_WINDOW_SEC = 24 * 60 * 60;
+
+// The allowance key for a terminal. Never call this for a teller — the counter
+// has no allowance and logs network_id null.
+export function networkKey(atm) {
+  return atm?.network_id || `atm:${atm?.id}`;
+}
+
+// What's left of the allowance right now, plus when the oldest transaction still
+// inside the window ages out — which is the moment some of it comes back, and the
+// only honest thing to tell a player who has hit the ceiling.
+// Returns { cap, spent, remaining, resetsInSec }.
+export async function allowanceFor(playerId, atm, type) {
+  const cap = txnCap(atm, null);
+  if (cap == null) return { cap: null, spent: 0, remaining: Infinity, resetsInSec: 0 };
+  const netKey = networkKey(atm);
+  const cutoff = Math.floor(Date.now() / 1000) - ALLOWANCE_WINDOW_SEC;
+  const { rows } = await query(
+    `SELECT COALESCE(SUM(amount), 0)::int AS spent, MIN(created_at) AS oldest
+       FROM bank_transactions
+      WHERE player_id = $1 AND network_id = $2 AND type = $3 AND created_at > $4`,
+    [playerId, netKey, type, cutoff]
+  );
+  const spent = rows[0]?.spent || 0;
+  const oldest = rows[0]?.oldest != null ? Number(rows[0].oldest) : null;
+  return {
+    cap,
+    spent,
+    remaining: Math.max(0, cap - spent),
+    resetsInSec: oldest == null ? 0 : Math.max(0, oldest + ALLOWANCE_WINDOW_SEC - Math.floor(Date.now() / 1000)),
+  };
+}
+
+// "3h 20m" / "18m" — the wait until the window gives something back.
+export function fmtWindowWait(sec) {
+  if (sec <= 0) return 'shortly';
+  const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${Math.max(1, m)}m`;
+}
+
+// The refusal a machine gives when you ask it for more than it will still move
+// today. Names the way out, so the player learns the cap is a door and not a dead
+// end — a teller if one is standing there, otherwise the clock. Says what's left
+// rather than only what the ceiling is, because after the first transaction those
+// are different numbers and only one of them is actionable.
+export function overCapMessage(kind, amount, allowance, atm, teller) {
   const verb = kind === 'deposit' ? 'accept' : 'dispense';
   const net = atm?.network_name || 'This terminal';
   const out = teller
     ? `Try "${kind} ${amount} from ${String(teller.name || 'teller').split(' ')[0].toLowerCase()}".`
-    : `For a sum like that you'll have to walk it into a bank and speak to a teller.`;
-  return `${net} won't ${verb} more than ${cap}c in one transaction — you asked for ${amount}c. ${out}`;
+    : `Walk it into a bank and speak to a teller, or come back in ${fmtWindowWait(allowance.resetsInSec)}.`;
+  const spent = allowance.spent > 0
+    ? ` You've already moved ${allowance.spent}c through it in the last 24 hours, leaving ${allowance.remaining}c.`
+    : '';
+  return `${net} won't ${verb} more than ${allowance.cap}c in any 24 hours — you asked for ${amount}c.${spent} ${out}`;
 }
 
 function isZonePowered(zoneId) {
@@ -141,6 +209,12 @@ async function checkFactionAccess(player, atm) {
 }
 
 async function buildAtmPanel(atm, player, powered) {
+  // Two independent buckets, so two reads — the screen has to show both before
+  // the player commits to a direction. Independent, so they go together.
+  const [dep, wd] = await Promise.all([
+    allowanceFor(player.id, atm, 'deposit'),
+    allowanceFor(player.id, atm, 'withdraw'),
+  ]);
   return {
     type: 'atm_panel',
     atmId: atm.id,
@@ -152,11 +226,17 @@ async function buildAtmPanel(atm, player, powered) {
       fee_rate: parseFloat(atm.fee_rate) || 0,
       withdrawal_limit: atm.withdrawal_limit ?? DEFAULT_TXN_CAP,
     },
-    // Per-transaction ceiling at this machine. A machine is ALWAYS capped — the
-    // bypass is addressing a teller, not standing near one, so a terminal in the
-    // bank hall is still just a terminal. Drives the panel's MAX button so it
-    // never proposes an amount the machine will refuse.
+    // The 24h allowance at this machine. A machine is ALWAYS capped — the bypass
+    // is addressing a teller, not standing near one, so a terminal in the bank
+    // hall is still just a terminal.
     txnCap: txnCap(atm, null),
+    // What's actually left in each direction, which is what the MAX button clamps
+    // to — it must never propose an amount the machine will refuse. `resetsIn` is
+    // seconds until the window gives some back, 0 when nothing has been spent.
+    allowance: {
+      deposit:  { remaining: dep.remaining, spent: dep.spent, resetsIn: dep.resetsInSec },
+      withdraw: { remaining: wd.remaining,  spent: wd.spent,  resetsIn: wd.resetsInSec },
+    },
     cashStock: atm.cash_stock ?? 5000,
     cashMax: atm.cash_max ?? 5000,
     powered,
@@ -225,17 +305,23 @@ async function cmdDeposit(args, raw, player) {
   if (!isZonePowered(player.current_zone)) return { type: 'error', message: 'The ATM screen is dark — no power.' };
   if (!await checkFactionAccess(player, atm)) return { type: 'error', message: `${atm.network_name || 'This network'} requires higher standing to access.` };
 
-  // The machine's per-transaction ceiling (lifted at a teller's counter). `all`
-  // clamps down to it and says so; an explicit over-cap amount is refused outright
-  // rather than quietly shaved, so nobody moves less money than they meant to.
-  const cap = txnCap(atm, null);
+  // What this network will still take from you inside the rolling 24h window
+  // (lifted at a teller's counter). `all` clamps down to what's left and says so;
+  // an explicit over-allowance amount is refused outright rather than quietly
+  // shaved, so nobody moves less money than they meant to.
+  const allowance = await allowanceFor(player.id, atm, 'deposit');
   let amount = amountStr === 'all' ? (player.credits || 0) : parseInt(amountStr, 10);
   if (!amount || amount <= 0) return { type: 'error', message: 'Deposit how much? Try "deposit 50" or "deposit all".' };
+  // Exhausted allowance is its own refusal — clamping `all` to zero would
+  // otherwise fall through as a nonsense "deposit 0c".
+  if (allowance.cap != null && allowance.remaining <= 0) {
+    return { type: 'error', message: `${atm.network_name || 'This terminal'} has taken its ${allowance.cap}c from you for today. The slot won't open again for ${fmtWindowWait(allowance.resetsInSec)} — a teller has no such limit.` };
+  }
   let capNote = '';
-  if (cap != null && amount > cap) {
-    if (amountStr !== 'all') return { type: 'error', message: overCapMessage('deposit', amount, cap, atm, tellersInZone(player.current_zone)[0]) };
-    amount = cap;
-    capNote = ` The slot takes ${cap}c and stops — that's all it will swallow at once.`;
+  if (allowance.cap != null && amount > allowance.remaining) {
+    if (amountStr !== 'all') return { type: 'error', message: overCapMessage('deposit', amount, allowance, atm, tellersInZone(player.current_zone)[0]) };
+    amount = allowance.remaining;
+    capNote = ` The slot takes ${amount}c and stops — that's the rest of what it'll swallow today.`;
   }
 
   // Move the credits and fill the machine as one atomic unit.
@@ -246,13 +332,16 @@ async function cmdDeposit(args, raw, player) {
     return true;
   });
   if (!moved) return { type: 'error', message: `You only have ${player.credits || 0}c on you.` };
-  await logBankTx(player.id, 'deposit', amount, player.bank_credits);
+  // Must carry the network key — an unlogged move is a move that never counted
+  // against the allowance.
+  await logBankTx(player.id, 'deposit', amount, player.bank_credits, networkKey(atm));
 
   return {
     type: 'deposit',
     message: `You deposit ${amount}c.${capNote} Carried: ${player.credits}c · Banked: ${player.bank_credits}c`,
     player_update: { credits: player.credits, bank_credits: player.bank_credits },
     atm_cash_stock: newStock,
+    atm_allowance: { deposit: Math.max(0, allowance.remaining - amount) },
   };
 }
 
@@ -279,14 +368,22 @@ async function cmdWithdraw(args, raw, player) {
   if (!isZonePowered(player.current_zone)) return { type: 'error', message: 'The ATM screen is dark — no power.' };
   if (!await checkFactionAccess(player, atm)) return { type: 'error', message: `${atm.network_name || 'This network'} requires higher standing to access.` };
 
-  // A physical ATM caps every transaction at the network's `withdrawal_limit` — the drum only
-  // holds so many notes and the machine only counts so fast. Bigger sums go to a teller (see
-  // txnCap), where the ceiling lifts. Beyond the cap you're still bounded by the machine's cash
-  // stock and what you have banked.
+  // A network dispenses at most its `withdrawal_limit` to you in any rolling 24
+  // hours — the drum only holds so many notes and a face that keeps coming back
+  // gets remembered. Bigger sums go to a teller (see txnCap), where the ceiling
+  // lifts. Inside the allowance you're still bounded by the machine's cash stock
+  // and what you have banked.
+  //
+  // The allowance is spent by the amount DISPENSED, not the amount debited: the
+  // network's own fee should not eat into what it will hand you.
   const cashAvail = atm.cash_stock ?? 0;
   const banked = player.bank_credits || 0;
   const feeRate = parseFloat(atm.fee_rate) || 0;
-  const cap = txnCap(atm, null);
+  const allowance = await allowanceFor(player.id, atm, 'withdraw');
+
+  if (allowance.cap != null && allowance.remaining <= 0) {
+    return { type: 'error', message: `${atm.network_name || 'This terminal'} has dispensed its ${allowance.cap}c to you for today. The drum stays shut for another ${fmtWindowWait(allowance.resetsInSec)} — a teller has no such limit.` };
+  }
 
   let rawAmount;
   let capNote = '';
@@ -295,16 +392,16 @@ async function cmdWithdraw(args, raw, player) {
     // fee is on top: banked >= rawAmount + ceil(rawAmount * feeRate) ⇒ rawAmount <= banked/(1+feeRate)
     const maxByFunds = feeRate > 0 ? Math.floor(banked / (1 + feeRate)) : banked;
     rawAmount = Math.min(cashAvail, maxByFunds);
-    if (cap != null && rawAmount > cap) {
-      rawAmount = cap;
-      capNote = ` The drum stops at ${cap}c — that's this terminal's limit in one go.`;
+    if (allowance.cap != null && rawAmount > allowance.remaining) {
+      rawAmount = allowance.remaining;
+      capNote = ` The drum stops at ${rawAmount}c — that's the rest of this network's day.`;
     }
   } else {
     rawAmount = parseInt(amountStr, 10);
   }
 
   if (!rawAmount || rawAmount <= 0) return { type: 'error', message: 'Withdraw how much? Try "withdraw 50" or "withdraw all".' };
-  if (cap != null && rawAmount > cap) return { type: 'error', message: overCapMessage('withdraw', rawAmount, cap, atm, tellersInZone(player.current_zone)[0]) };
+  if (allowance.cap != null && rawAmount > allowance.remaining) return { type: 'error', message: overCapMessage('withdraw', rawAmount, allowance, atm, tellersInZone(player.current_zone)[0]) };
   if (rawAmount > cashAvail) return { type: 'error', message: `ATM is low on cash. Max available: ${cashAvail}c.` };
 
   const fee = feeRate > 0 ? Math.ceil(rawAmount * feeRate) : 0;
@@ -330,6 +427,9 @@ async function cmdWithdraw(args, raw, player) {
     return true;
   });
   if (!dispensed) return { type: 'error', message: `Need ${totalDebited}c but you only have ${player.bank_credits || 0}c banked.` };
+  // Withdrawals were historically unlogged — the ledger was deposits-only. They
+  // must be logged now or the withdrawal allowance can never be spent.
+  await logBankTx(player.id, 'withdraw', rawAmount, player.bank_credits, networkKey(atm));
 
   const feeMsg = fee > 0 ? ` (−${fee}c ${atm.network_name || 'network'} fee)` : '';
   return {
@@ -337,6 +437,7 @@ async function cmdWithdraw(args, raw, player) {
     message: `You withdraw ${rawAmount}c${feeMsg}.${capNote} Carried: ${player.credits}c · Banked: ${player.bank_credits}c`,
     player_update: { credits: player.credits, bank_credits: player.bank_credits },
     atm_cash_stock: newStock,
+    atm_allowance: { withdraw: Math.max(0, allowance.remaining - rawAmount) },
   };
 }
 

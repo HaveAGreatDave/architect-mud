@@ -101,6 +101,27 @@ function sortItems(list, sort) {
   return sorted;
 }
 
+// Shelf sections. The server decides IF a shelf sections and what the sections
+// are (server/engine/classify.js) — it arrives already in section order, and the
+// client's whole job is to notice where `group` changes. That's deliberate: the
+// axis depends on the stock, and the client doesn't have the tags to work it out.
+//
+// Sorting stays INSIDE a section. Sorting across them would dissolve the sections
+// entirely, which is the obvious way to break this. A flat shelf has no `group` on
+// any entry and falls through to a single unlabelled section, so nothing about the
+// ungrouped path changed.
+function sectionItems(list, sort) {
+  const sections = [];
+  const byGroup = new Map();
+  for (const it of list) {
+    const g = it.group || null;
+    if (!byGroup.has(g)) { byGroup.set(g, []); sections.push(g); }
+    byGroup.get(g).push(it);
+  }
+  if (sections.length <= 1 && !sections[0]) return [{ group: null, items: sortItems(list, sort) }];
+  return sections.map(g => ({ group: g, items: sortItems(byGroup.get(g), sort) }));
+}
+
 function formatWeight(g) {
   if (g == null) return '';
   if (g < 1000) return `${Math.round(g)}g`;
@@ -371,7 +392,8 @@ function renderShop() {
   if (!shopState) return;
   const { msg, mode, sort } = shopState;
   const credits = msg.credits ?? 0;
-  const list = sortItems(mode === 'sell' ? (msg.inventory || []) : (msg.stock || []), sort);
+  const sections = sectionItems(mode === 'sell' ? (msg.inventory || []) : (msg.stock || []), sort);
+  const list = sections.flatMap(s => s.items);
 
   // Drop a stale selection (e.g. the last of a stack was just sold).
   if (shopState.sel && !list.some(it => shopUid(it) === shopState.sel)) shopState.sel = null;
@@ -392,17 +414,24 @@ function renderShop() {
     + `<div class="shop-cred">Credits <b>${credits}</b>₵</div>`
     + `</div></div>`;
 
-  const rows = list.length ? list.map(it => {
+  const renderRow = (it) => {
     const uid = shopUid(it);
     const unaff = mode === 'buy' && it.price > credits;
     const qtyTxt = it.quantity > 1 ? ` ×${it.quantity}` : '';
     // `wanted` is set by the shop.stock hook: this is on your shopping list and
     // you haven't got it yet. Marked in the gutter rather than recoloured, so a
-    // shelf of forty things reads as a list with three picked out of it.
+    // shelf of forty things reads as a list with three picked out of it. It stays
+    // orthogonal to sections — a wanted item is marked wherever it lands, and
+    // never collected into a "Wanted" section of its own.
     return `<div class="shop-row${shopState.sel === uid ? ' sel' : ''}${it.wanted ? ' shop-wanted' : ''}" data-uid="${uid}">`
       + `<span class="nm">${it.wanted ? '<span class="shop-mark" title="on your shopping list">▸</span>' : ''}${it.name}${qtyTxt} <span class="wg">(${formatWeight(it.weight)})</span></span>`
       + `<span class="pr${unaff ? ' noafford' : ''}">${it.price}₵</span></div>`;
-  }).join('') : `<div class="shop-empty">${mode === 'sell' ? 'Nothing to sell.' : 'Nothing in stock.'}</div>`;
+  };
+  const rows = list.length
+    ? sections.map(s =>
+        (s.group ? `<div class="shop-section">${s.group}</div>` : '') + s.items.map(renderRow).join('')
+      ).join('')
+    : `<div class="shop-empty">${mode === 'sell' ? 'Nothing to sell.' : 'Nothing in stock.'}</div>`;
 
   let card;
   if (!selItem) {

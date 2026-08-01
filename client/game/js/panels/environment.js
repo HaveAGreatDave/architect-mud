@@ -27,7 +27,37 @@ function formatHHMM(m) {
   return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
+const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// "Thu 14 Jul 2087" from the server's `YYYY-MM-DD` game date + 1..7 day index.
+// The day index comes off the payload rather than being derived here so the HUD
+// can never disagree with the scheduler about what day it is.
+function formatGameDate(dateStr, dow) {
+  if (!dateStr) return '';
+  const [y, m, d] = String(dateStr).slice(0, 10).split('-').map(Number);
+  if (!y || !m || !d) return '';
+  const day = DAY_NAMES[(dow || 0) - 1];
+  return `${day ? day + ' ' : ''}${d} ${MONTH_NAMES[m - 1]} ${y}`;
+}
+
+// Mirrors WETNESS_LABELS in markup.js — the same ladder the `$wet` token uses,
+// so the HUD and the prose never describe the same soaking differently.
+const WETNESS_BANDS = [
+  [85, 'Sopping'],
+  [70, 'Drenched'],
+  [50, 'Soaked'],
+  [30, 'Wet'],
+  [10, 'Damp'],
+];
+
+function wetnessLabel(v) {
+  for (const [floor, label] of WETNESS_BANDS) if (v >= floor) return label;
+  return '';   // bone dry — the row comes off entirely
+}
+
 let clientMinutes = null;
+let envDateStr = '';
 let envWeatherIcon = '—';
 let envTempC = null;
 let envCurrentWeatherType = null;
@@ -123,11 +153,8 @@ export function setEnvUnreal(on) {
   // scrambled, because a missing clock reads as a broken HUD where a wrong one
   // reads as a wrong world.
   const hide = envUnreal ? 'none' : '';
-  for (const el of document.querySelectorAll('#env-hud-sidebar .env-hud-weather')) el.style.display = hide;
-  for (const id of ['env-temp', 'env-temp-m', 'env-weather-icon-m']) {
-    const el = document.getElementById(id);
-    if (el) el.style.display = hide;
-  }
+  for (const el of document.querySelectorAll('#env-hud-sidebar .env-hud-weather, #mob-hud-env .env-hud-weather'))
+    el.style.display = hide;
   renderEnvironmentHUD();   // repaints the clock and the weather rows
   refreshWeatherFx();       // and stops any rain that was already falling
 }
@@ -158,6 +185,10 @@ function renderEnvironmentHUD() {
     const pl = document.getElementById(`env-precip-intensity${suffix}`);
     if (w)  w.textContent  = envWeatherIcon;
     if (c)  c.textContent  = timeStr;
+    // The date goes with the clock: the corridor has no calendar either, so it
+    // comes off outright rather than being scrambled (a garbled date reads as a bug).
+    const dt = document.getElementById(`env-date${suffix}`);
+    if (dt) dt.textContent = envUnreal ? '' : envDateStr;
     if (t)  t.textContent  = timeIcon;
     if (p)  p.textContent  = tempStr;
     // `bf` is how the AIR feels and stays — that's the world describing itself.
@@ -168,13 +199,37 @@ function renderEnvironmentHUD() {
     if (bf) bf.textContent = feelStr;
     if (pl) pl.textContent = precipLabel;
   }
+  // The mobile precip line has a row to itself (the sidebar shares one with the
+  // light readout), so an empty label has to take the row with it or it leaves a
+  // gap in a column where every pixel is contested.
+  const mPrecipRow = document.getElementById('env-precip-intensity-m')?.parentElement;
+  if (mPrecipRow && !envUnreal) mPrecipRow.style.display = precipLabel ? '' : 'none';
+  renderWetnessRow();
 }
+
+// Your own soaking, read straight off the live player object — the wetness tick
+// already pushes `player_update: { wetness }`, so there is nothing new on the wire.
+// Bone dry shows nothing at all: an always-present "Dry" row is a line of HUD that
+// tells you nothing 95% of the time.
+function renderWetnessRow() {
+  const label = envUnreal ? '' : wetnessLabel(Math.round(state.player?.wetness ?? 0));
+  for (const suffix of ['', '-m']) {
+    const row = document.getElementById(`env-wet-row${suffix}`);
+    const el  = document.getElementById(`env-wetness${suffix}`);
+    if (el) el.textContent = label;
+    if (row) row.style.display = label ? '' : 'none';
+  }
+}
+
+// Called when the player object changes (resource ticks carry wetness).
+export function refreshWetnessHUD() { renderWetnessRow(); }
 
 let _lastServerTick = 0;
 
 export function updateEnvironmentHUD(env) {
   if (!env) return;
   if (env.time) clientMinutes = parseHHMM(env.time);
+  if (env.date !== undefined) envDateStr = formatGameDate(env.date, env.dayOfWeek);
   if (clientMinutes === null) return; // not ready yet
   if (env.weatherIcon !== undefined) envWeatherIcon = env.weatherIcon || '—';
   if (env.tempC !== undefined) envTempC = env.tempC;
@@ -378,10 +433,12 @@ export function refreshZoneVisibility(preloaded) {
       }
 
       const lc = LIGHT_CATS[v.category] || LIGHT_CATS.clear;
-      const iconEl = document.getElementById('env-light-icon');
-      const labelEl = document.getElementById('env-light-label');
-      if (iconEl) iconEl.style.color = lc.color;
-      if (labelEl) { labelEl.textContent = lc.label; labelEl.style.color = lc.color; }
+      for (const suffix of ['', '-m']) {
+        const iconEl = document.getElementById(`env-light-icon${suffix}`);
+        const labelEl = document.getElementById(`env-light-label${suffix}`);
+        if (iconEl) iconEl.style.color = lc.color;
+        if (labelEl) { labelEl.textContent = lc.label; labelEl.style.color = lc.color; }
+      }
   };
 
   if (preloaded) { apply(preloaded); return; }

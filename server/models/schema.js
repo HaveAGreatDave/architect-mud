@@ -1316,10 +1316,19 @@ export const SCHEMA_SQL = `
   -- driving the existing gps_route push (plugins/quests routeToObjective).
   ALTER TABLE players ADD COLUMN IF NOT EXISTS tracked_quest_id TEXT;
 
-  -- Tablet OS Bank app: a minimal deposit ledger. ATM deposits are otherwise
-  -- immediate and unlogged; this table exists purely to back the app's
-  -- Transaction History screen. Written from the same deposit path the ATM
-  -- plugin and the Tablet Bank app both call.
+  -- Tablet OS Bank app: the banking ledger. It began as a display-only history
+  -- for the app's Transaction History screen, but it is now LOAD-BEARING: the
+  -- ATM's 24-hour rolling allowance is computed by summing this table, so a
+  -- machine transaction that fails to log here is a transaction that never
+  -- counted against the limit. Written from the ATM plugin and the Tablet Bank
+  -- app, both through logBankTx().
+  --
+  -- network_id scopes the allowance. It is the atm_networks id for a linked
+  -- terminal, "atm:<furniture id>" for an unlinked one, and NULL for anything
+  -- that deliberately does not consume an allowance (teller counters, remote
+  -- tablet transfers) — the window SUM filters on an equality, so NULLs are
+  -- excluded for free. Deliberately NOT a foreign key: the unlinked-terminal
+  -- key has no row to point at.
   CREATE TABLE IF NOT EXISTS bank_transactions (
     id BIGSERIAL PRIMARY KEY,
     player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
@@ -1328,7 +1337,10 @@ export const SCHEMA_SQL = `
     balance_after INTEGER NOT NULL,
     created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())
   );
+  ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS network_id TEXT;
   CREATE INDEX IF NOT EXISTS idx_bank_transactions_player ON bank_transactions(player_id, created_at DESC);
+  -- The allowance query: one player, one network, one type, last 24h.
+  CREATE INDEX IF NOT EXISTS idx_bank_transactions_window ON bank_transactions(player_id, network_id, type, created_at DESC);
 
   -- Channel chat history (arcnet etc). Runtime data: schema is exported, rows are not.
   -- Only the most recent messages per channel are retained; older rows are pruned.
@@ -1613,6 +1625,9 @@ export const SCHEMA_SQL = `
   -- ── ATM system ──────────────────────────────────────────────────────────────
   -- ATM networks define the banking faction: fee rates, withdrawal limits,
   -- faction rep gates, and UI accent color.
+  -- withdrawal_limit is a ROLLING 24-HOUR ALLOWANCE, not a per-transaction cap,
+  -- and each direction gets its own full allowance. Spent totals are summed off
+  -- bank_transactions; see the allowance section in plugins/atm/index.js.
   CREATE TABLE IF NOT EXISTS atm_networks (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,

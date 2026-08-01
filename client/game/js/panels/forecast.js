@@ -56,7 +56,7 @@ function renderForecastToday() {
     ${env.windKph != null ? `<div class="ft-row"><span class="ft-label">Wind</span><span class="ft-val">\u{1F4A8} ${env.windKph} km/h · ${windLabel(env.windKph)}</span></div>` : ''}
     ${env.humidityPct != null ? `<div class="ft-row"><span class="ft-label">Humidity</span><span class="ft-val">\u{1F4A7} ${env.humidityPct}%</span></div>` : ''}
     ${env.bodyFeel ? `<div class="ft-row"><span class="ft-label">Feels</span><span class="ft-val">${env.bodyFeel}</span></div>` : ''}
-    ${precipStr ? `<div class="ft-row"><span class="ft-label">Precip</span><span class="ft-val ft-precip">${precipStr}</span></div>` : ''}
+    ${precipStr ? `<div class="ft-row"><span class="ft-label">Precip</span><span class="ft-val ft-precip">${precipStr}</span></div>` : ''}
   `;
 }
 
@@ -92,6 +92,7 @@ export function initForecast() {
     if (e.target.id === 'forecast-panel') closeForecast();
   });
   document.getElementById('env-hud-sidebar').addEventListener('click', openForecast);
+  document.getElementById('mob-hud-env')?.addEventListener('click', openForecast);
   // Wire static close button inside forecast-panel
   document.querySelectorAll('#forecast-panel .dialogue-opt').forEach(btn => {
     if (btn.textContent.trim().includes('Close')) btn.addEventListener('click', closeForecast);
