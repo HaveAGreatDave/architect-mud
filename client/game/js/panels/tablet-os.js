@@ -6696,7 +6696,7 @@ function renderMap(d) {
     const _lb = _mapLabel(t);
     const body = _lb?.kind === 'art'
       ? sym + `<span class="mt-code mt-art">${esc(_lb.text)}</span>`
-      : (_tosMapLabels && _lb ? `<span class="mt-code">${esc(_lb.text)}</span>` : sym);
+      : (mapLabelsOn() && _lb ? `<span class="mt-code">${esc(_lb.text)}</span>` : sym);
     grid += `<div class="${cls.join(' ')}" style="${style}" data-map-zone="${esc(t.id)}" title="${esc(t.name)}">${badges}${body}${ent}${exits}</div>`;
   }
   // GPS route line: an accent polyline through route tile centres, laid over the grid
