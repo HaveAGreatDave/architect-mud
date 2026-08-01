@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A crawlspace under the cabin deck, low enough that standing is a negotiation. Cable looms run the length of the airframe in bundled arteries, strapped to the ribs and warm to the touch. The ship's breaker panel is bolted to the forward bulkhead, humming to itself in the dark.",
+  "exits": {
+    "up": "zone_leviathan_cabin"
+  },
+  "flags": {
+    "is_interior": true,
+    "utility_room": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_util_zone_leviathan_cabin",
+  "map_id": "map_aircraft_leviathan",
+  "name": "Main Cabin — Utility Room",
+  "parent_zone": null
+}
+

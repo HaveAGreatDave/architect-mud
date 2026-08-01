@@ -1,0 +1,10 @@
+{
+  "a": "zone_util_zone_aurelia_floor",
+  "b": "zone_aurelia_floor",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_aurelia_floor_up_8vpd",
+  "lockable": false,
+  "one_way": true
+}
+
