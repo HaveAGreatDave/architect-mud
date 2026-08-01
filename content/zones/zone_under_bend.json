@@ -22,7 +22,6 @@
   "grid_z": -1,
   "id": "zone_under_bend",
   "map_id": "map_world",
-  "marker": "◜",
   "name": "Dripping Bend",
   "parent_zone": null
 }

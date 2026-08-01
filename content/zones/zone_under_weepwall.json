@@ -23,7 +23,6 @@
   "grid_z": -1,
   "id": "zone_under_weepwall",
   "map_id": "map_world",
-  "marker": "▚",
   "name": "Weeping Wall",
   "parent_zone": null
 }

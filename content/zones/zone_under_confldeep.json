@@ -23,7 +23,6 @@
   "grid_z": -1,
   "id": "zone_under_confldeep",
   "map_id": "map_world",
-  "marker": "╳",
   "name": "Deep Confluence",
   "parent_zone": null
 }

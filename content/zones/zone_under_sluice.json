@@ -23,7 +23,6 @@
   "grid_z": -1,
   "id": "zone_under_sluice",
   "map_id": "map_world",
-  "marker": "╪",
   "name": "Sluice Gate",
   "parent_zone": null
 }

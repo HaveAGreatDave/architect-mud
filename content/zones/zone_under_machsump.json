@@ -24,7 +24,6 @@
   "grid_z": -1,
   "id": "zone_under_machsump",
   "map_id": "map_world",
-  "marker": "⚙",
   "name": "Machine Sump",
   "parent_zone": null
 }

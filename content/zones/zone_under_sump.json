@@ -25,7 +25,6 @@
   "grid_z": -1,
   "id": "zone_under_sump",
   "map_id": "map_world",
-  "marker": "▽",
   "name": "Storm Drain Sump",
   "parent_zone": null
 }

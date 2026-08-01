@@ -24,7 +24,6 @@
   "grid_z": -1,
   "id": "zone_under_throat",
   "map_id": "map_world",
-  "marker": "◍",
   "name": "The Throat",
   "parent_zone": null
 }

@@ -21,7 +21,6 @@
   "grid_z": -1,
   "id": "zone_under_alcove",
   "map_id": "map_world",
-  "marker": "⌂",
   "name": "Utility Alcove",
   "parent_zone": null
 }

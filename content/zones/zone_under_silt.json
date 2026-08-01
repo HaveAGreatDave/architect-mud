@@ -24,7 +24,6 @@
   "grid_z": -1,
   "id": "zone_under_silt",
   "map_id": "map_world",
-  "marker": "░",
   "name": "Silt Gallery",
   "parent_zone": null
 }

@@ -21,7 +21,6 @@
   "grid_z": -1,
   "id": "zone_under_door",
   "map_id": "map_world",
-  "marker": "▤",
   "name": "Sealed Maintenance Door",
   "parent_zone": null
 }

@@ -22,7 +22,6 @@
   "grid_z": -1,
   "id": "zone_under_watchthresh",
   "map_id": "map_world",
-  "marker": "▣",
   "name": "The Watch Threshold",
   "parent_zone": null
 }

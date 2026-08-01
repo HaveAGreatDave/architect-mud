@@ -23,7 +23,6 @@
   "grid_z": -1,
   "id": "zone_under_junction",
   "map_id": "map_world",
-  "marker": "╬",
   "name": "Trunk Junction",
   "parent_zone": null
 }

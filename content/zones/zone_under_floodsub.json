@@ -22,7 +22,6 @@
   "grid_z": -1,
   "id": "zone_under_floodsub",
   "map_id": "map_world",
-  "marker": "≈",
   "name": "Flooded Sublevel",
   "parent_zone": null
 }

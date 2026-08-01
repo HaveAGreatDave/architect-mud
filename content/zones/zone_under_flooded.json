@@ -23,7 +23,6 @@
   "grid_z": -1,
   "id": "zone_under_flooded",
   "map_id": "map_world",
-  "marker": "≋",
   "name": "Flooded Run",
   "parent_zone": null
 }

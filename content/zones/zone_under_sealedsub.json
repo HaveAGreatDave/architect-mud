@@ -21,7 +21,6 @@
   "grid_z": -1,
   "id": "zone_under_sealedsub",
   "map_id": "map_world",
-  "marker": "▧",
   "name": "Sealed Sublevel",
   "parent_zone": null
 }
