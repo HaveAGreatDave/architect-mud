@@ -15,6 +15,7 @@
     "south": "zone_echelon_landing"
   },
   "flags": {
+    "allow_sleep": true,
     "always_lit": true,
     "building_name": "The Echelon",
     "echelon": true,

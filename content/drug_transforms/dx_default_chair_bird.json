@@ -1,0 +1,29 @@
+{
+  "id": "dx_default_chair_bird",
+  "drug_id": null,
+  "matches": "chair",
+  "scope": "object",
+  "name": "a heron standing very still",
+  "description": "A grey heron stands exactly where the chair was, folded up on one leg, neck kinked back, holding a stillness so complete that you keep checking whether it is real.",
+  "looks": [
+    "Every feather is lying exactly where it was put. The eye is yellow and entirely without sympathy.",
+    "The one visible leg is thin as a rail and jointed the wrong way, and it is not shaking at all.",
+    "It has not blinked. You have blinked eleven times."
+  ],
+  "says": [
+    "I can stand here longer than you can watch.",
+    "There is water under this building. I can hear it.",
+    "Do not sit down suddenly."
+  ],
+  "emotes": [
+    "{it} unfolds its neck to full length, holds it, and folds it back.",
+    "{it} takes one enormous slow step and is somehow not any nearer.",
+    "{it} opens its wings halfway — the room is briefly much smaller — and closes them.",
+    "{it} turns its head so one yellow eye has you entirely."
+  ],
+  "asks": [
+    "Is there water in this building?",
+    "Are you going to move, or shall I?",
+    "What is under the floor here?"
+  ]
+}

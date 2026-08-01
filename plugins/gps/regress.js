@@ -242,6 +242,41 @@ export default async function regress({ run, check, getPlayer }) {
     }
   }
 
+  // Elevator hops. A car wires every floor as `up` for graph connectivity, but the
+  // car REFUSES `up` — the timed ride is the only way between floors. So the one hop
+  // on a route that isn't a direction is the ride, and it must come down as the
+  // literal `floor <n>` button press instead. Before this, the walker sent `up`, got
+  // told to enter a number, made no progress and gave up standing in the lift.
+  {
+    const car = getAllZones().find(z => z.flags?.elevator && Array.isArray(z.flags?.elevator_floors) && z.flags.elevator_floors.length);
+    if (car) {
+      const floor = car.flags.elevator_floors.find(f => getZone(f.zone));
+      const savedGps = p.current_zone;
+      p.current_zone = car.id;
+      const r = await run(`gps ${floor.zone}`);
+      const k = r?.path?.indexOf(car.id);
+      check(
+        'gps route through a lift presses the floor button, never `up`',
+        r?.type === 'gps_route' && k >= 0 && r.dirs?.[k] === `floor ${floor.n}`,
+        `dirs=${JSON.stringify(r?.dirs)} path=${JSON.stringify(r?.path)} want="floor ${floor.n}"`,
+      );
+      // And the ride down: the lobby is the car's `out` exit and has no authored
+      // floor row, so it only routes correctly if the implicit Floor 1 is honoured —
+      // otherwise `out` drops you back on whichever floor you boarded from.
+      const lobbyId = getZone(car.id)?.exits?.out;
+      if (lobbyId && getZone(lobbyId)) {
+        const rd = await run(`gps ${lobbyId}`);
+        const kd = rd?.path?.indexOf(car.id);
+        check(
+          'gps route down to the lobby presses Floor 1',
+          rd?.type === 'gps_route' && kd >= 0 && rd.dirs?.[kd] === 'floor 1',
+          `dirs=${JSON.stringify(rd?.dirs)} path=${JSON.stringify(rd?.path)}`,
+        );
+      }
+      p.current_zone = savedGps;
+    }
+  }
+
   // Run mode: a bare `run` toggles player.running; `run on/off` and `walk` are explicit.
   const savedRunning = p.running;
   p.running = false;

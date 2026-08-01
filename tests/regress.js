@@ -24,7 +24,7 @@ import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone } from '../server/engine/world.js';
-import { moveEntity } from '../server/engine/ai-behaviour.js';
+import { moveEntity, disturbSleeper, isNpcAsleep, wakeNpc, initBlackboard } from '../server/engine/ai-behaviour.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
 import { cmdMove, dragFollowers } from '../server/engine/commands/movement.js';
 import { resolveNamedDestination, _test as describeTest } from '../server/engine/commands/describe.js';
@@ -1052,6 +1052,39 @@ const getPlayer = () => getLivePlayer(P.id);
 console.log('— layer 2: engine core —');
 let r = await run('look');
 check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice(0, 120));
+
+// ── Room pane: attached satellites and light clicks ──────────────────────────
+// Two rules about how the `Furniture:` line CLICKS, both easy to break silently
+// because nothing throws when a link points at the wrong verb.
+{
+  const saved = getPlayer().current_zone;
+  // A room with a television and a Betamax deck under it. The deck keeps its own
+  // furniture row and its own panel, but reads as part of the set: never its own
+  // entry in the list while the television it hangs off is there.
+  getPlayer().current_zone = 'zone_solenne_apt_b';
+  const body = (await run('look'))?.message || '';
+  const deckLinks = [...body.matchAll(/<span class="action-link[^"]*"[^>]*data-ftype="media_deck"[^>]*>/g)].map(([m]) => m);
+  check('the deck is in the room exactly once', deckLinks.length === 1, body.slice(0, 900));
+  check('the deck hangs off its television rather than standing alone',
+    deckLinks.every((m) => /furniture-attached/.test(m)), deckLinks.join('\n'));
+  check('the deck clicks through to its own panel',
+    deckLinks.every((m) => /data-action="use"/.test(m)), deckLinks.join('\n'));
+  check('the television keeps its own entry', /data-target="wall-mounted flatscreen"/.test(body), body.slice(0, 900));
+
+  // A switchable light clicks to its own switch rather than to examine, and the
+  // tooltip says which way it will go — the pane already prints the state, so the
+  // click a player reaches for is the flip.
+  getPlayer().current_zone = 'zone_apt_12';
+  const lampBody = (await run('look'))?.message || '';
+  const lamp = lampBody.match(/<span class="action-link[^>]*data-target="(?:on|off) portable lamp"[^>]*>/)?.[0] || '';
+  check('a switchable light clicks to its switch', /data-action="switch"/.test(lamp), lampBody.slice(0, 900));
+  check('…and the tooltip says which way', /title="Turn (?:on|off) portable lamp"/.test(lamp), lamp);
+  const lampRow = getZone('zone_apt_12') && world.furniture?.get('furn_apt12_lamp');
+  const want = lampRow ? (lampRow.light_on ? 'off' : 'on') : null;
+  check('…in the direction opposite its current state',
+    !want || new RegExp(`data-target="${want} portable lamp"`).test(lamp), `light_on=${lampRow?.light_on} link=${lamp}`);
+  getPlayer().current_zone = saved;
+}
 
 r = await run('zzznotacommand');
 check('unknown verb → error', r?.type === 'error' && /Unknown command/.test(r.message), r?.message);
@@ -2259,6 +2292,55 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   deleteDoorCache(doorId);
   world.zones.delete(hallId);
   world.zones.delete(homeId);
+}
+
+// Disturbing a sleeping NPC: the roll, the wake-up state, and the escalation that
+// stops a sleeper being a locked door. All in-memory on a synthetic NPC — no zone,
+// no DB, no broadcast (disturbSleeper takes a null broadcast and still returns the
+// line, which is what the verb answers the actor with).
+{
+  const mkSleeper = (dose = null) => {
+    const npc = { id: 'npc_rg_sleeper_' + process.pid, name: 'Sleeper', zone_id: null, posture: 'lying' };
+    npc._ai = initBlackboard();
+    npc._ai.homeSleeping = true;
+    npc._ai.sleepStartedAt = Date.now();
+    npc._ai.dose = dose;
+    return npc;
+  };
+
+  check('an awake NPC is not disturbable', disturbSleeper({ _ai: initBlackboard() }) === null);
+  check('isNpcAsleep reads the sleep flag', isNpcAsleep(mkSleeper()) === true && isNpcAsleep({}) === false);
+
+  // Every disturbance answers with a line, and the outcome is one of the two.
+  const one = disturbSleeper(mkSleeper());
+  check('a disturbance always produces a broadcastable line',
+    !!one && typeof one.message === 'string' && one.message.includes('Sleeper'), JSON.stringify(one));
+  check('a sleeper who stays under has no mood; one who wakes has one',
+    one.woke ? (one.mood === 'annoyed' || one.mood === 'confused') : one.mood === null, JSON.stringify(one));
+
+  // Persistence works: each attempt erodes the chance, so a bounded number of
+  // tries always wakes them. Five is well past the 0.2-per-disturbance decay.
+  const stubborn = mkSleeper({ loose: true });     // deepest sleeper there is
+  let woke = false;
+  for (let i = 0; i < 8 && !woke; i++) woke = !!disturbSleeper(stubborn)?.woke;
+  check('repeated disturbance always eventually wakes even a doped sleeper', woke === true);
+  check('waking clears the sleep state', !isNpcAsleep(stubborn) && stubborn.posture === 'standing',
+    `asleep=${isNpcAsleep(stubborn)} posture=${stubborn.posture}`);
+  check('waking restarts the graph and holds them awake',
+    stubborn._ai.currentNode === null && stubborn._ai.waitUntil === null && stubborn._ai.wokenUntil > Date.now(),
+    `node=${stubborn._ai.currentNode} wait=${stubborn._ai.waitUntil}`);
+  check('waking records the mood the passive home-life ticker reads',
+    !!stubborn._ai.wokeMood && ['annoyed', 'confused'].includes(stubborn._ai.wokeMood.mood));
+  check('a woken NPC is no longer disturbable', disturbSleeper(stubborn) === null);
+
+  // force skips the roll — being hit wakes you, no dice.
+  const hit = mkSleeper({ loose: true });
+  const forced = disturbSleeper(hit, { force: true });
+  check('force wakes on the first try, no roll', forced.woke === true && !isNpcAsleep(hit));
+
+  // wakeNpc is idempotent enough to call from any wake path without side damage.
+  wakeNpc(hit);
+  check('wakeNpc on an already-awake NPC is harmless', !isNpcAsleep(hit) && hit.posture === 'standing');
 }
 
 // LAW: no NPC may be homed in a PLAYER-OWNED apartment (the "someone's in Akerson's

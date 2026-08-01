@@ -71,6 +71,147 @@ export default async function regress({ run, check, getPlayer }) {
   check('bare look is a room look, not a phantom intercept', r?.type === 'look', JSON.stringify(r)?.slice(0, 80));
 
   clearPhantoms(p.id);
+
+  // ── A transformed thing is the ONLY thing there ─────────────────────────────
+  //
+  // If the bed is a sleeping lion, `examine lion` must work and `examine bed`
+  // must not — a bed that still answers is a bed the player can prove is there,
+  // which is the entire trick, gone.
+  const { addTransform, clearTransforms, findTransformByName, isTransformed, getTransforms } =
+    await import('../../server/engine/phantoms.js');
+  const { getZoneFurniture, world } = await import('../../server/engine/world.js');
+  // The test zone is usually bare, so borrow a real room that has a piece in it
+  // — the resolution rule is what is under test, not the geography.
+  const piece = (getZoneFurniture(p.current_zone) || [])[0]
+    || [...world.furniture.values()].find(f => f.zone_id && f.name);
+  const homeZone = p.current_zone;
+  if (piece) {
+    p.current_zone = piece.zone_id;
+    clearTransforms(p.id);
+    addTransform(p.id, piece.id, {
+      name: 'a sleeping lion',
+      description: 'A lion is asleep across the room, flanks rising and falling.',
+      looks: ['One ear tracks you around the room. Nothing else moves.'],
+      says: ['Lie down if you are going to.'],
+      emotes: ['{it} yawns, jaw cracking, and resettles.'],
+      asks: ['Are you getting in or not?'],
+    });
+    check('the new name resolves', findTransformByName(p.id, 'lion')?.furnitureId === piece.id);
+    check('...and so does a word inside it', findTransformByName(p.id, 'sleeping')?.furnitureId === piece.id);
+    check('...and the piece reads as transformed', isTransformed(p.id, piece.id) === true);
+
+    r = await run('examine lion');
+    check('examine finds it under the name you can SEE',
+      /One ear tracks you/.test(r?.message || ''), JSON.stringify(r?.message)?.slice(0, 140));
+
+    // The real name must NOT come back — not the transform, and not the bed.
+    const realWord = String(piece.name).split(/\s+/).pop();
+    r = await run(`examine ${realWord}`);
+    check('...while the thing it used to be is not there any more',
+      !new RegExp(piece.description?.slice(0, 25) || '__none__').test(r?.message || ''),
+      JSON.stringify(r?.message)?.slice(0, 140));
+
+    // The forgery has to wear the SAME markup a real NPC's speech wears — same
+    // check the sanity plugin's voices make, and for the same reason.
+    const { _speechLine, _fillTokens, _theOf } = await import('./index.js');
+    const line = _speechLine('a sleeping lion', 'says', 'Lie down if you are going to.');
+    check('a thing speaks in the same wrapper an NPC does', /^<span class="speech-line">/.test(line), line);
+    check('...with the standard attribution and quotes',
+      /A sleeping lion says, "Lie down if you are going to\."/.test(line), line);
+    check('...and never announces itself as a hallucination',
+      !/without a mouth|hallucinat|pretend/i.test(line), line);
+    check('{it} fills with the subject form of the new name',
+      _fillTokens('{it} yawns.', { it: _theOf('a sleeping lion') }) === 'The sleeping lion yawns.');
+    check('...from any article', _theOf('an enormous tree') === 'The enormous tree');
+
+    clearTransforms(p.id);
+    check('coming down puts the room back', getTransforms(p.id).length === 0);
+    r = await run('examine lion');
+    check('...and the lion is not there any more',
+      !/One ear tracks you/.test(r?.message || ''), JSON.stringify(r?.message)?.slice(0, 120));
+    p.current_zone = homeZone;
+  } else {
+    check('transform resolution (no furniture in test zone)', true, 'skipped');
+  }
+
+  // ── Talking to it is a CONVERSATION ─────────────────────────────────────────
+  //
+  // One line back was never a conversation. `talk <shape>` opens the ordinary
+  // dialogue panel against something with no npcs row behind it, routed through
+  // the engine's dialogue.synthetic seam.
+  if (piece) {
+    p.current_zone = piece.zone_id;
+    clearTransforms(p.id);
+    addTransform(p.id, piece.id, {
+      name: 'a sleeping lion',
+      description: 'A lion is asleep across the room.',
+      looks: ['One ear tracks you around the room.'],
+      says: ['Lie down if you are going to.'],
+      emotes: ['{it} yawns and resettles.'],
+      asks: ['Are you getting in or not?'],
+    });
+    const trip = await import('./index.js');
+    r = await run('talk lion');
+    check('talking to it opens a dialogue panel', r?.type === 'dialogue', JSON.stringify(r)?.slice(0, 120));
+    check('...named after the shape, not the furniture',
+      /lion/i.test(r?.npcName || '') && !/bed|chair/i.test(r?.npcName || ''), r?.npcName);
+    check('...under an id no NPC row could own', String(r?.npcId || '').startsWith('trip:'), r?.npcId);
+    check('...offering things you can only say to a hallucination',
+      (r?.options || []).some(o => /isn't real/i.test(o.label)), JSON.stringify(r?.options));
+
+    const conv = r;
+    // Every branch has to answer — an empty pool would silently end the talk.
+    for (const opt of conv.options.filter(o => o.next !== '__end__')) {
+      const next = await trip.hooks['dialogue.synthetic']({ player: p, npcId: conv.npcId, choice: opt.next });
+      check(`"${opt.label}" gets an answer`, !!next && (next.type === 'dialogue' || next.type === 'dialogue_end'),
+        JSON.stringify(next)?.slice(0, 120));
+      check(`..."${opt.label}" answers with words`, !!(next?.text || next?.message),
+        JSON.stringify(next)?.slice(0, 120));
+    }
+
+    // It runs out of conversation rather than looping forever.
+    let frame = await trip.hooks['dialogue.synthetic']({ player: p, npcId: conv.npcId, choice: 'answer' });
+    let guard = 0;
+    while (frame?.type === 'dialogue' && guard++ < 20) {
+      frame = await trip.hooks['dialogue.synthetic']({ player: p, npcId: conv.npcId, choice: 'answer' });
+    }
+    check('the conversation winds down instead of looping', frame?.type === 'dialogue_end', `frames=${guard}`);
+
+    // ...and the shape going away ends it rather than stranding an open panel.
+    r = await run('talk lion');
+    clearTransforms(p.id);
+    const orphan = await trip.hooks['dialogue.synthetic']({ player: p, npcId: r.npcId, choice: 'answer' });
+    check('coming down ends a conversation in progress', orphan?.type === 'dialogue_end',
+      JSON.stringify(orphan)?.slice(0, 120));
+
+    // A synthetic id belonging to nobody must not be claimed.
+    const foreign = await trip.hooks['dialogue.synthetic']({ player: p, npcId: 'someotherplugin:xyz', choice: 'root' });
+    check('another plugin\'s synthetic speaker is left alone', foreign === undefined, JSON.stringify(foreign));
+
+    p.current_zone = homeZone;
+  }
+
+  // Every shared pool the beat draws on must actually have lines in it — an
+  // empty pool degrades silently to nothing being said at all.
+  {
+    const { query: q3 } = await import('../../server/models/db.js');
+    for (const src of ['object', 'object_emote', 'object_ask',
+                       'object_reply_answer', 'object_reply_identity',
+                       'object_reply_denial', 'object_reply_farewell']) {
+      const { rows } = await q3(`SELECT COUNT(*)::int AS c FROM drug_reactions WHERE source=$1`, [src]);
+      check(`the ${src} pool has lines`, rows[0].c >= 8, `count=${rows[0].c}`);
+    }
+    const { rows: sc } = await q3(`SELECT scope, COUNT(*)::int AS c FROM drug_transforms GROUP BY scope`);
+    const byScope = Object.fromEntries(sc.map(r => [r.scope, r.c]));
+    for (const s of ['object', 'room', 'spawn', 'person', 'weather']) {
+      check(`there are ${s} transforms authored`, (byScope[s] || 0) > 0, JSON.stringify(byScope));
+    }
+    const { rows: hedged } = await q3(
+      `SELECT id FROM drug_transforms WHERE name ILIKE '%pretend%' OR name ILIKE '%something that%'`);
+    check('no transform hedges about what it is', hedged.length === 0,
+      hedged.map(h => h.id).join('|'));
+  }
+
   // ── Social reactions: who says it, and to whom ──────────────────────────────
   const { _scopeToNpc, _npcMaySpeak, _rememberSaid, _forgetSaid } = await import('./index.js');
   const { query: q2 } = await import('../../server/models/db.js');

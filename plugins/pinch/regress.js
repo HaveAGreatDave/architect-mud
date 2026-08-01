@@ -34,11 +34,28 @@ export default async function regress({ run, check, getPlayer }) {
     r = await run('home');
     check('home away from home routes to the walk, not a re-bind', p.home_zone === aptId && /path home/i.test(r?.message || ''), r?.message);
 
-    // A repeat press while walking cancels — the pinch-style toggle.
-    p.goingHome = true;
+    // A walk that CAN find a path steps on the movement clock, not the 5s sleeper
+    // tick it used to share — one room per five seconds was slower than walking the
+    // same rooms by hand. Wire the two test zones together, start the walk, and
+    // assert the armed step lands within a plausible cadence (walk 900ms, halved on
+    // a road, faster still running) rather than five seconds away. Cancelled
+    // immediately so no timer survives into later suites.
+    world.zones.get(awayId).exits = { north: aptId };
+    world.zones.get(aptId).exits = { south: awayId };
+    p.goingHome = false; p.current_zone = awayId;
+    r = await run('home');
+    const armed = !!p._homeWalkTimer;
+    const ms = armed ? Math.max(0, (p._homeWalkTimer._idleTimeout ?? 0)) : -1;
+    check('home starts a walk when a path exists', p.goingHome === true && armed, `going=${p.goingHome} armed=${armed}`);
+    check('the walk steps on the movement cadence, not the 5s sleeper tick', ms > 0 && ms <= 1000, `${ms}ms`);
+
+    // A repeat press while walking cancels — the pinch-style toggle — and the armed
+    // step must go with it, or the walk carries on after you called it off.
     r = await run('home');
     check('home again cancels the walk', /cancel/i.test(r?.message || '') && !p.goingHome, r?.message);
+    check('cancelling disarms the pending step', !p._homeWalkTimer, 'a step timer outlived the walk');
   } finally {
+    if (p._homeWalkTimer) { clearTimeout(p._homeWalkTimer); p._homeWalkTimer = null; }
     p.current_zone = savedZone; p.home_zone = savedHome; p.goingHome = savedGoing;
     world.apartments.delete(aptId);
     if (hadApt) world.zones.set(aptId, hadApt); else world.zones.delete(aptId);

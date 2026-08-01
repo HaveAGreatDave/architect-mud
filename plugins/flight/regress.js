@@ -25,7 +25,7 @@ import { buyFromVendor } from '../../server/engine/vendor.js';
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 import { prefersTextTravel, textTravelTick, TEXT_TRAVEL_FLAG } from './textmode.js';
-import { startTextPilot, stopTextPilot, textPilotTick, landingGrade, statusLines, panelPayload, _test as tpTest } from './textpilot.js';
+import { startTextPilot, stopTextPilot, textPilotTick, landingGrade, statusLines, panelPayload, cmdTextLand, _test as tpTest } from './textpilot.js';
 import { query } from '../../server/models/db.js';
 import { TYPES as FM_TYPES, createState as fmCreate, step as fmStep } from '../../client/game/js/panels/flight-model.js';
 
@@ -818,6 +818,34 @@ export default async function regress({ run, check, getPlayer }) {
   // not a bug; what matters is that it never takes the 340° way round.
   check('heading error takes the short way round',
     tpTest.headingError(350, 10) === 20 && tpTest.headingError(10, 350) === -20 && Math.abs(tpTest.headingError(0, 180)) === 180);
+  // ── A helicopter's service ceiling is REAL ───────────────────────────────────
+  // The heli branch used to ignore `p.ceiling` outright: an authored number no rotorcraft
+  // code read, so a helicopter climbed at a constant rate to any altitude you had the
+  // patience for and editing the figure in TYPES changed nothing. These pin the fade down
+  // so it can't quietly go inert again.
+  {
+    const vip = FM_TYPES.viper;
+    const climbAt = (alt) => {
+      const s = fmCreate(vip); s.onGround = false; s.altitude = alt; s.rpm = 1; s.airspeed = 0;
+      for (let t = 0; t < 120; t += FM_DT) fmStep(s, fmIn({ throttle: 0.7 }), vip, FM_DT);
+      return s.vs;
+    };
+    const low = climbAt(500), mid = climbAt(vip.ceiling * 0.5), top = climbAt(vip.ceiling);
+    check('a helicopter climbs willingly down low', low > 300, `${Math.round(low)} fpm`);
+    check('...climbs worse in thin air (the ceiling fade is wired to the heli branch at all)',
+      mid < low * 0.75, `${Math.round(mid)} fpm at half ceiling vs ${Math.round(low)} on the deck`);
+    check('...and has nothing left at the authored ceiling', Math.abs(top) < 60, `${Math.round(top)} fpm`);
+    // Thin air must never stop you coming DOWN — sink is deliberately outside the fade.
+    const sink = fmCreate(vip); sink.onGround = false; sink.altitude = vip.ceiling; sink.rpm = 1;
+    for (let t = 0; t < 20; t += FM_DT) fmStep(sink, fmIn({ throttle: 0 }), vip, FM_DT);
+    check('...but can still descend from up there (the fade is climb-only)', sink.vs < -400, `${Math.round(sink.vs)} fpm`);
+    // Full collective is NOT best rate — it droops the rotor. Guards the droop knee.
+    const rocAt = (c) => { const s = fmCreate(vip); s.onGround = false; s.altitude = 500; s.rpm = 1;
+      for (let t = 0; t < 120; t += FM_DT) fmStep(s, fmIn({ throttle: c }), vip, FM_DT); return s.vs; };
+    check('best rate sits at the droop knee, not at full collective', rocAt(0.7) > rocAt(1.0) * 1.5,
+      `${Math.round(rocAt(0.7))} fpm at 0.7 vs ${Math.round(rocAt(1.0))} at full`);
+  }
+
   check('every continuous airframe has a physics profile to fly in text',
     [...CONTINUOUS_TYPES].every(id => !!tpTest.fmTypeOf({ type: { id } })), 'a continuous type with no flight-model entry would silently fall back to the 3D sim');
 
@@ -873,6 +901,37 @@ export default async function regress({ run, check, getPlayer }) {
       ['alt', 'ias', 'hdg', 'vs', 'pitch', 'bank', 'throttle', 'vr', 'vs0', 'fuelPct', 'hull', 'x', 'y']
         .every(k => Number.isFinite(panel[k])), JSON.stringify(panel && Object.keys(panel)));
     check('the panel carries the map data the ASCII minimap rasterizes', panel && 'minimap' in panel && 'surface' in panel);
+    check('the panel carries a chart radius and the airframe landing rule the HUD prints',
+      panel && Number.isFinite(panel.mapR) && panel.mapR > 3 && ['vtol', 'stol', 'strip'].includes(panel.landMode), panel && `${panel.mapR}/${panel.landMode}`);
+
+    // `land` is three verbs wearing one name, keyed off takeoff_mode — the check that stops
+    // every airframe from landing identically, which is what it used to do.
+    p.aircraftId = tpId; p.seat = 'pilot';   // the verb resolves the craft off the seated player, as dispatch would
+    tpLive.row.airborne = 1;                 // the takeoff edge routes through cmdFlightEvent, which isn't wired in the harness
+    const stolType = tpLive.type;
+    // The Mayfly is STOL: rough-field rated, so she'll go in anywhere — but only once she's slow.
+    const tooFast = cmdTextLand([], p);
+    check('a rough-field craft still refuses to be set down at flying speed',
+      /too fast/i.test(tooFast?.message || ''), tooFast?.message);
+    tpLive.fmState.airspeed = 4;   // well under the Mayfly's stall — the approach gate opens
+    tpLive.textTargets.altitude = 900;
+    const slowEnough = cmdTextLand([], p);
+    check('...and takes the order once she is slow, configuring her for the approach',
+      tpLive.textTargets.gear === 1 && tpLive.textTargets.flaps === 100 && tpLive.textTargets.altitude === 0, slowEnough?.message);
+    // The same aircraft rated for tarmac only: now the SAME order out over the city is refused
+    // for want of a runway, however slow she is.
+    try {
+      tpLive.type = { ...stolType, takeoff_mode: 'strip' };
+      tpLive.row.grid_x = 940; tpLive.row.grid_y = 940;
+      const offStrip = cmdTextLand([], p);
+      check('a strip-rated craft refuses a land order with no runway under her',
+        /needs a runway/i.test(offStrip?.message || ''), offStrip?.message);
+      check('...and names the nearest strip instead of just saying no',
+        /nearest strip/i.test(offStrip?.message || '') || !nearestAirfield(940, 940, { needsRunway: true }), offStrip?.message);
+      tpLive.row.grid_x = 925; tpLive.row.grid_y = 903;
+      const onStrip = cmdTextLand([], p);
+      check('...but takes it with a runway under her', /final/i.test(onStrip?.message || ''), onStrip?.message);
+    } finally { tpLive.type = stolType; }
 
     stopTextPilot(tpLive);
     check('stopTextPilot tears the sim down', !tpLive.textPilot && !tpLive.fmState);

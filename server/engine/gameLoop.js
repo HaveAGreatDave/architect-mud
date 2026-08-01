@@ -922,11 +922,13 @@ async function stormTick() {
 // become fatal" true, rather than depleting from 100 inside one hour.
 // Thirst depletes faster than hunger, matching real survival pacing and
 // the brief's explicit ordering.
-const THIRST_DECAY_INTERVAL_MIN = 3;  // 1 point per 3 min → 100 pts / 5 hours
-const HUNGER_DECAY_INTERVAL_MIN = 4;  // 1 point per 4 min → 100 pts / ~6.7 hours
-// Diff-gate tripwire (Phase 6): thirst forces a write every 3 active game-minutes,
+// Slowed 4× (2026-08-01): survival upkeep was a constant drumbeat rather than a
+// background pressure — the meters now empty over a day-ish, not an afternoon.
+const THIRST_DECAY_INTERVAL_MIN = 12; // 1 point per 12 min → 100 pts / 20 hours
+const HUNGER_DECAY_INTERVAL_MIN = 16; // 1 point per 16 min → 100 pts / ~26.7 hours
+// Diff-gate tripwire (Phase 6): thirst forces a write every 12 active game-minutes,
 // so this many consecutive game-time-elapsing ticks with no write is anomalous.
-const RESOURCE_NOWRITE_TRIPWIRE_TICKS = 6;
+const RESOURCE_NOWRITE_TRIPWIRE_TICKS = 24;
 
 // Returns a multiplier (0.0–1.0) for stamina regen based on body temperature.
 // Comfortable range (36–38°C) = full regen; further from it = reduced regen.

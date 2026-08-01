@@ -17,6 +17,7 @@ import { query } from '../../server/models/db.js';
 import { DISHES, ingredientLine, methodLines, estimateCookMs } from '../cooking/dishes.js';
 import { PROFILES } from '../cooking/profiles.js';
 import { cookbookState, UNTRIED } from '../cooking/knowledge.js';
+import { getList, holdings, answer, addShortfall } from '../cooking/shoplist.js';
 import { DISCOVERY_ATTEMPTS, COOK_SECONDS_PER_KG } from '../cooking/config.js';
 import { registerTabletApp } from './registry.js';
 
@@ -52,6 +53,36 @@ async function carriedProfiles(playerId) {
 async function buildScreen(player, screenId, params) {
   const id = (params || '').trim();
   const { known, progress } = await cookbookState(player.id);
+
+  // SHOPPING LIST — what you still have to go and buy.
+  //
+  // Every line is ANSWERED against your inventory at the moment you look, never
+  // stored as "bought". So walking out of a shop with the onion ticks the box on
+  // its own, with nothing having to fire when you bought it.
+  if (id === '__shop') {
+    const list = await getList(player.id);
+    if (!list.length) {
+      return {
+        view: 'list', breadcrumb: ['Cookbook', 'Shopping List'],
+        items: [{
+          id: '', label: 'Nothing on it',
+          sub: 'Open a recipe and add what you\'re short of, or type "shoplist add <recipe>".',
+          badge: 'missing',
+        }],
+      };
+    }
+    const rows = answer(list, await holdings(player.id));
+    const items = rows.map((e, i) => ({
+      id: '',
+      label: `${e.done ? '☑' : '☐'} ${e.label}`,
+      sub: e.for ? `for ${e.for}${e.done ? ' · in hand' : ''}` : (e.done ? 'in hand' : ''),
+      badge: e.done ? 'ready' : 'missing',
+      _sort: e.done ? 1 : 0,
+    })).sort((a, b) => a._sort - b._sort);
+    const got = rows.filter(e => e.done).length;
+    items.push({ id: '', label: `${got} of ${rows.length} in hand`, sub: '"shoplist tidy" crosses those off for good.', badge: got === rows.length ? 'ready' : 'missing' });
+    return { view: 'list', breadcrumb: ['Cookbook', 'Shopping List'], items };
+  }
 
   // DETAIL
   if (id) {
@@ -99,6 +130,21 @@ async function buildScreen(player, screenId, params) {
         badge: 'missing',
       }],
     };
+  }
+
+  // The list sits at the top of the book, where a shopping list belongs.
+  {
+    const rows = answer(await getList(player.id), await holdings(player.id));
+    const outstanding = rows.filter(e => !e.done).length;
+    items.unshift({
+      id: '__shop',
+      label: `🛒 Shopping List${rows.length ? ` (${outstanding})` : ''}`,
+      sub: rows.length
+        ? (outstanding ? `${outstanding} still to buy` : 'everything on it is in hand')
+        : 'nothing on it yet',
+      badge: rows.length && !outstanding ? 'ready' : 'missing',
+      _sort: -1,
+    });
   }
 
   items.push({
@@ -154,11 +200,27 @@ async function recipeDetail(player, key, band) {
     view: 'detail',
     breadcrumb: ['Cookbook', titleFor(key)],
     detail: { id: key, name: titleFor(key), desc: d.blurb || '', rows },
-    actions: [],
+    // The one action a recipe card should have: write down what you're short of.
+    actions: [{ id: `shop:${key}`, label: 'Add missing to shopping list' }],
+  };
+}
+
+// Adding to the list from a recipe card. It calls the same `addShortfall` the
+// `shoplist add` verb does, so the app and the verb can't drift.
+async function handleAction(player, actionId) {
+  if (!String(actionId || '').startsWith('shop:')) return null;
+  const key = actionId.slice(5);
+  const d = DISHES[key];
+  if (!d) return { message: `That isn't a recipe.` };
+  const r = await addShortfall(player.id, d, { label: key.replace(/_/g, ' ') });
+  return {
+    message: r.added.length
+      ? `Added ${r.added.length} to your shopping list.`
+      : `You've already got everything that wants.`,
   };
 }
 
 registerTabletApp({
   id: 'cookbook', name: 'Cookbook', icon: '🍳', category: 'General',
-  buildScreen,
+  buildScreen, handleAction,
 });

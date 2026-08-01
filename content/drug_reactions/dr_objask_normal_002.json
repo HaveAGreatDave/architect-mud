@@ -1,0 +1,10 @@
+{
+  "id": "dr_objask_normal_002",
+  "drug_id": null,
+  "source": "object_ask",
+  "tone": "normal",
+  "self_line": "Did you lock the door behind you?",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

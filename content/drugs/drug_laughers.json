@@ -63,7 +63,9 @@
       "max_reduction": 0.8
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "psychedelic"
+  },
   "id": "drug_laughers",
   "item_id": "item_laughers",
   "name": "laughers",

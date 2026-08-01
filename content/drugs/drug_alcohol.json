@@ -19,6 +19,7 @@
   "flags": {
     "alcoholic": true,
     "drug_class": "depressant",
+    "drug_family": "depressant",
     "intox_per_dose": 22,
     "legal": true
   },

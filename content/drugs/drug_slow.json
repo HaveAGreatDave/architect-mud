@@ -49,7 +49,8 @@
     }
   },
   "flags": {
-    "drug_class": "depressant"
+    "drug_class": "depressant",
+    "drug_family": "depressant"
   },
   "id": "drug_slow",
   "item_id": "item_drug_slow",

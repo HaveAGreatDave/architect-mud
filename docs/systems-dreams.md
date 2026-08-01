@@ -250,6 +250,17 @@ button above the quick-cmds, shown only while asleep.
 `wakeFromDream` uncalled on half of them. Stamping the truth on whatever reply was already going out
 is one site that cannot drift.
 
+**Dreamless sleep blurs the log** (`body.asleep`, styles.css) — the transcript you were reading before
+you dozed off should not stay legible behind your eyelids, and the server already refuses to deliver the
+room to a sleeper. A **dreamer** never gets the class at all, because the dream is the only room they are
+in and it is meant to be read.
+
+That left one hole: an ordinary in-bed dream line (`rollDream`) is printed to a sleeper whose log is
+blurred, so the one thing sleep exists to show you was the one thing you could not read. It now goes out
+as its own `sleep_dream` message, which lifts the blur off `#output` for as long as the dream is on
+screen (`body.dreaming-line`, 14s, cleared on waking) and leaves the room pane dark — you are still not
+in the room.
+
 ---
 
 ## 2. Drug hallucinations *(plugins/trip)*
@@ -284,11 +295,31 @@ The room stays and misbehaves. **Three layers, and the first always fires** (`sc
 | `room` | a warp line appended to the room description. **Always applied** — a psychedelic on a bare street corner must still be a psychedelic, which the furniture-only first version was not. |
 | `object` | two or three pieces of real furniture become something else. Never the whole room: the pieces that stay ordinary are what make the changed ones land. |
 | `spawn` | objects CONJURED where there was too little to work with — real phantoms with `kind: 'object'`, rendered on their own line rather than joining the Hostiles. A psychedelic makes the room strange; it does not populate it with monsters. |
+| `person` | one of the PEOPLE in the room (rarely two) becomes something else. A room that changes while its occupants stay ordinary reads as a bug in the furniture. |
 | `weather` | appended to the REAL weather line outdoors, so the actual conditions stay legible — you are still in the rain, the rain has simply stopped behaving. |
 
 The trip follows you: each new room is re-dressed as you walk, and transformed objects say things at you
 unprompted. Applied at the two `getZoneFurniture` seams — the room render in `describe.js` and the
 examine branch in `commands/world.js`.
+
+#### It transforms. It does not *pretend*.
+
+**There is no bed. There is a lion.** The rule every transform row is written to: the name and the
+description say what the thing IS now, never what it used to be and never that it is standing in for
+something. "A large animal pretending to be a bed" hands the player the trick and the bed back in the
+same sentence; a regress check fails any row whose name hedges (`pretend`, `something that…`).
+
+That rule decides target resolution too. **The new name is the only name a transformed piece answers
+to** — `examine lion` works, `examine bed` finds no bed, because the room has not been showing you one
+(`findTransformByName` / `isTransformed`, engine `phantoms.js`). `sit`/`lie` follow the same rule, and
+what the ROOM is told still uses the real name, so one player's hallucination never reaches anybody
+else's log.
+
+**People are the exception, deliberately.** A transformed NPC answers to *both* names: you have known
+Marla for weeks, and a hallucination that stopped you talking to her would take gameplay away rather
+than add strangeness. `talk` (commands/social.js) and `attack` (plugins/weapon) both fall back to the
+transformed name and resolve it to the real person; the room's NPC links keep the real name as their
+target and show the transformed one as the label.
 
 > ⚠ **`applyTransforms` returns COPIES and must never mutate.** `getZoneFurniture` serves rows straight
 > out of the world cache, and those objects are **shared by every player in the room**. Mutating one
@@ -301,8 +332,9 @@ Transform content falls back the same way rooms do: this drug's transforms → t
 
 ### Everything that speaks
 
-`drug_reactions` is one shared pool with two consumers (`source`: `object` for a transformed or conjured
-thing, `npc` for a person reacting to how you look) and two registers (`tone`):
+`drug_reactions` is one shared pool with four consumers (`source`: `object` for a transformed or conjured
+thing speaking, `object_emote` for one ACTING, `object_ask` for one putting a question to you, and `npc`
+for a person reacting to how you look) and two registers (`tone`):
 
 - **`surreal`** — it half-participates in what you are experiencing.
 - **`normal`** — **the load-bearing half.** A chair asking whether you ever sorted the bins is far worse
@@ -313,6 +345,47 @@ thing, `npc` for a person reacting to how you look) and two registers (`tone`):
 one list — otherwise adding surreal content would quietly dilute the mundane out of existence. A
 transform's own `says[]` wins 40% of the time when authored, so a specific thing keeps a specific voice,
 but nothing is ever mute for want of one. You can `talk` to any of it, and it answers from the same pool.
+
+**Three registers, and it is weighted toward doing rather than talking** (40% emote / 30% question / 30%
+statement). A thing that only ever talks is a talking chair, and a talking chair is a joke; something
+that moves while you watch and asks you questions about its own shape is a presence. Rows carry
+`emotes[]` and `asks[]` alongside `says[]`, with `{it}` standing in for the subject form of the new name
+("The sleeping lion"), so one shared line fits whatever the room turned into.
+
+> **It is rendered as an NPC, exactly.** Speech goes out in the same
+> `<span class="speech-line">Name says, "…"</span>` wrapper `ai-behaviour.js` and the sanity plugin's
+> voices use, so the client paints the quotes in the dialogue colour and the log reads back
+> indistinguishable from a real person talking. Actions go out as per-player `zone_event`s — the same
+> channel real room ambience arrives on. The old `says, without a mouth:` framing is gone: it announced
+> both that there was still a chair and that this was a special case.
+
+**`talk <shape>` opens a real conversation**, in the ordinary dialogue panel — same panel, same speaker
+name, same option list a person gets. There is no `npcs` row behind it, so it rides a new engine seam:
+`handleDialogue` (server/index.js) routes any `npcId` containing a `:` through the **`dialogue.synthetic`**
+hook, and a plugin answers with the next frame. The trip plugin claims the `trip:` prefix and refuses
+anything else — another plugin's synthetic speaker is not its business.
+
+The four branches are the content: **answer it**, **ask what it was before this**, **tell it you know it
+isn't real**, **say nothing and let it talk**. Each draws from its own `drug_reactions` source
+(`object_reply_answer` / `_identity` / `_denial` / `_farewell`), so the writing is authored content and
+only the branch structure is code. The denial branch is the one that matters — a thing that has an answer
+for *"you're not real"* is much worse than one that doesn't.
+
+It **winds down rather than looping**: five exchanges and the last thing it does is an action, not a line.
+Every turn re-validates that the shape is still there (the trip can end mid-sentence), and coming down,
+logging out or walking away ends it — you are talking to a chair, and it is a chair.
+
+> A transformed **person** is the one case where the two readings of `talk` diverge on purpose: their real
+> name reaches the person and their dialogue tree, the shape's name reaches the shape.
+
+### The pane plays the change
+
+The room is sent with things named as the tripper sees them, each tagged `data-morph` with what it really
+is — furniture, NPCs, and the **room's own name** (a `room`-scope row's `name` column, which used to go
+unread). `playNameMorph` in `client/game/js/render.js` then comes apart letter by letter and settles into
+the new name, so you *watch* the bed become a lion rather than finding a lion where you left a bed. Played
+once per (from → to) pair per 45s, so a re-look doesn't restage the room every time you pick something up,
+and skipped entirely under `data-motion: off`.
 
 **Social reactions.** Somebody in the room notices what state you are in — from **one** NPC, never the
 whole room, because a chorus reads as a bug and the point is that *somebody* noticed. Only `transform`

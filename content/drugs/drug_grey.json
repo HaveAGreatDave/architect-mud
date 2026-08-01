@@ -43,7 +43,8 @@
     }
   },
   "flags": {
-    "drug_class": "depressant"
+    "drug_class": "depressant",
+    "drug_family": "opioid"
   },
   "id": "drug_grey",
   "item_id": "item_grey",

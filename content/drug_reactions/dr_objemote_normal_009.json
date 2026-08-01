@@ -1,0 +1,10 @@
+{
+  "id": "dr_objemote_normal_009",
+  "drug_id": null,
+  "source": "object_emote",
+  "tone": "normal",
+  "self_line": "{it} taps out a short rhythm, twice, and then does not do it again.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

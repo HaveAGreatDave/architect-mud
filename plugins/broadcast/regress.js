@@ -103,6 +103,34 @@ export default async function regress({ check, run, getPlayer }) {
   // real cast NPCs. Check the assembled graph: it attributes lines to the cast (npc_anchor),
   // fills {host}/{guest}/{title}, is presence-gated (_requireHost), and anchors the guest's
   // answers to the reusable npc_guest.
+  // DEV AID, off by default: TALKSHOW_DUMP=<day-bucket> prints one night of the REAL shipped
+  // show to stdout, cast-attributed and with both gate branches expanded. The pools are the
+  // thing a human reviews and there is no other way to read an episode without a browser, a
+  // database and a television. Costs nothing when the env var is unset.
+  if (process.env.TALKSHOW_DUMP) {
+    const bucket = process.env.TALKSHOW_DUMP;
+    const { rows } = await query(`SELECT talkshow_pools FROM media_broadcasts WHERE talkshow_pools IS NOT NULL LIMIT 1`);
+    const s = rows[0]?.talkshow_pools;
+    if (s) {
+      const g = _test.assembleTalkshowGraph(s, 'bc_dump', bucket, _test.talkshowPersonaFor(s, bucket));
+      const edge = (f, p) => g.edges.find(e => e.fromNode === f && e.fromPort === p)?.toNode;
+      const walk = (at, d) => { let a = at, i = 0, cur = '?';
+        while (a && i++ < 600) { const n = g.nodes[a];
+          if (n.type === 'npc_anchor') cur = n.data?.npc_id || '(ambient)';
+          else if (n.type === 'say') console.log('  '.repeat(d) + cur.padEnd(18) + ' | ' + (n.data?.text || ''));
+          else if (n.type === 'condition') {
+            console.log('  '.repeat(d) + `### GATE: is ${n.data?.params?.npc_id} in the studio?`);
+            console.log('  '.repeat(d) + '--- YES ---'); walk(edge(a, 'ifTrue'), d + 1);
+            console.log('  '.repeat(d) + '--- NO ---');  walk(edge(a, 'ifFalse'), d + 1);
+            return;
+          } else if (n.type !== 'start') console.log('  '.repeat(d) + `[${n.type}]`);
+          a = edge(a, 'next'); } };
+      console.log(`\n=== TALKSHOW DUMP (${bucket}) ===`);
+      walk(g._start ?? Object.keys(g.nodes)[0], 0);
+      console.log('=== END DUMP ===\n');
+    }
+  }
+
   const tsScript = {
     host: 'npc_john_akerson', sidekick: 'npc_graham_mercer', guestNpc: 'npc_guest',
     guests: [{ name: 'Lucky Malone', title: 'a lottery winner', theme: '' }, { name: 'Dr. Vane', title: 'a mad surgeon', theme: '' }],
@@ -194,7 +222,10 @@ export default async function regress({ check, run, getPlayer }) {
   {
     const gScript = { ...tsScript, pools: { ...tsScript.pools, guest_noshow: ['No guest, Graham? >> No guest, {host}.'] } };
     const gg = _test.assembleTalkshowGraph(gScript, 'bc_gate', 'day1', persona);
-    const gate = Object.entries(gg.nodes).find(([, n]) => n.type === 'condition' && n.data?.condition_type === 'NPC_IN_STUDIO');
+    // There are TWO presence gates now — the host gate up front and the chair gate before the
+    // interview — so pick the one that names the guest rather than the first one found.
+    const gates = Object.entries(gg.nodes).filter(([, n]) => n.type === 'condition' && n.data?.condition_type === 'NPC_IN_STUDIO');
+    const gate = gates.find(([, n]) => n.data?.params?.npc_id === 'npc_guest');
     check('talkshow gates the interview on the guest being in the studio', !!gate, gate ? 'gated' : 'NO GATE — answers would be dropped silently');
     check('the chair gate names the guest NPC', gate?.[1]?.data?.params?.npc_id === 'npc_guest', gate?.[1]?.data?.params?.npc_id);
 
@@ -214,6 +245,81 @@ export default async function regress({ check, run, getPlayer }) {
     // The absent-guest cover must never itself be spoken BY the absent guest.
     const noAnchors = (() => { const out = []; let at = no, seen = 0; while (at && seen++ < 200) { if (gg.nodes[at]?.type === 'npc_anchor') out.push(gg.nodes[at].data?.npc_id); at = edgeOf(at, 'next'); } return out; })();
     check('the no-show cover is never anchored to the missing guest', !noAnchors.includes('npc_guest'), noAnchors.join(','));
+  }
+
+  // ── The empty DESK ──────────────────────────────────────────────────────────
+  // A missing guest is a segment. A missing HOST is not a show. The whole episode used to run
+  // regardless — Graham did the open, fed the greeting into silence, introduced a guest to a
+  // host who wasn't there to interview them, and read the goodnight, while the room-authority
+  // rule binned John's every line underneath. It aired as the sidekick hosting. So the host
+  // gets his own gate up front, and the false branch is short, solo, and ends the broadcast.
+  {
+    const hScript = { ...tsScript, pools: { ...tsScript.pools,
+      host_absent: ['HE ISNT HERE.', 'I WONT DO HIS HALF.'], host_absent_signoff: ['GRAHAM-GOODNIGHT'] } };
+    const hg = _test.assembleTalkshowGraph(hScript, 'bc_hostgate', 'day1', persona);
+    const edgeOf = (from, port) => hg.edges.find(e => e.fromNode === from && e.fromPort === port)?.toNode;
+    const hGate = Object.entries(hg.nodes).find(([, n]) =>
+      n.type === 'condition' && n.data?.condition_type === 'NPC_IN_STUDIO' && n.data?.params?.npc_id === 'npc_john_akerson');
+    check('talkshow gates the whole show on the HOST being in the studio', !!hGate,
+      hGate ? 'gated' : 'NO HOST GATE — the sidekick would host it');
+
+    const walk = (from) => { const out = []; let at = from, seen = 0, anchor = null;
+      while (at && seen++ < 400) { const nd = hg.nodes[at];
+        if (nd?.type === 'npc_anchor') anchor = nd.data?.npc_id;
+        if (nd?.type === 'say') out.push({ by: anchor, text: nd.data?.text || '' });
+        at = edgeOf(at, 'next'); } return out; };
+    const absent = walk(edgeOf(hGate?.[0], 'ifFalse'));
+    const present = walk(edgeOf(hGate?.[0], 'ifTrue'));
+    check('the host-absent branch tells the audience rather than faking the show',
+      absent.some(l => l.text === 'HE ISNT HERE.'), absent.map(l => l.text).slice(0, 2).join(' | '));
+    // Everything the announcer cannot do without the host, he does not do.
+    check('the host-absent branch runs no monologue and no guest intro',
+      !absent.some(l => /Traffic was bad|Crime is down|Water is locked up|Welcome /.test(l.text)),
+      absent.map(l => l.text).join(' | ').slice(0, 90));
+    check('the host-absent branch never reads the show\'s own sign-off',
+      !absent.some(l => /Goodnight from/.test(l.text)) && absent.some(l => l.text === 'GRAHAM-GOODNIGHT'),
+      absent.map(l => l.text).slice(-1).join(''));
+    check('nobody speaks for the missing host', !absent.some(l => l.by === 'npc_john_akerson'),
+      [...new Set(absent.map(l => l.by))].join(','));
+    // …and with the host present, nothing about the normal show changed. `walk` follows `next`
+    // and so stops at the chair gate — the greeting, the monologue and the guest intro are all
+    // ahead of it, which is exactly the stretch this asserts on.
+    check('the host-present branch runs the host\'s own monologue and guest intro',
+      present.some(l => l.by === 'npc_john_akerson')
+        && present.some(l => /Traffic was bad|Crime is down|Water is locked up/.test(l.text))
+        && present.some(l => /^Welcome /.test(l.text)),
+      present.map(l => l.text).join(' | ').slice(0, 90));
+
+    // SEGMENT DISCIPLINE. The announcer belongs in the intro, the monologue and the goodnight —
+    // never inside the interview. He used to be sprinkled through the whole hour, which reads
+    // as a co-host rather than a sidekick.
+    const iGate = Object.entries(hg.nodes).find(([, n]) =>
+      n.type === 'condition' && n.data?.condition_type === 'NPC_IN_STUDIO' && n.data?.params?.npc_id === 'npc_guest');
+    const interviewLines = walk(edgeOf(iGate?.[0], 'ifTrue'));
+    check('the show still reaches the host\'s sign-off past the chair gate',
+      interviewLines.some(l => /Goodnight from/.test(l.text) && l.by === 'npc_john_akerson'),
+      interviewLines.map(l => l.text).slice(-2).join(' | '));
+    // Walk only as far as the commercial — past it is the goodnight segment, where he's allowed.
+    const adAt = interviewLines.findIndex(l => l.text === 'Drink Acid Cola.');
+    const seg = adAt < 0 ? interviewLines : interviewLines.slice(0, adAt);
+    check('the sidekick never talks over the interview',
+      !seg.some(l => l.by === 'npc_graham_mercer'), seg.filter(l => l.by === 'npc_graham_mercer').map(l => l.text).join(' | ') || 'clean');
+  }
+
+  // First names. Two men who have shared a desk for nineteen years do not call each other by
+  // their full names across it, and the script used to hardcode "John" into the text — right on
+  // air, wrong the moment the host NPC is renamed. `{host}` stays the marquee name for the
+  // announcer's formal introduction; `{host_first}` is what the conversation uses.
+  {
+    const nScript = { ...tsScript, pools: { ...tsScript.pools,
+      announce_host: ['Ladies and gentlemen, {host}!'],
+      greeting: ['Evening, {sidekick_first}. >> Evening, {host_first}.'] } };
+    const nSays = saysOf(_test.assembleTalkshowGraph(nScript, 'bc_names', 'day1', persona));
+    check('the formal introduction uses the host\'s full name',
+      nSays.some(t => t === 'Ladies and gentlemen, John Akerson!'), nSays.find(t => /Ladies and gentlemen/.test(t)) || 'missing');
+    check('the desk conversation uses first names',
+      nSays.some(t => t === 'Evening, John.') && nSays.some(t => t === 'Evening, Graham.'),
+      nSays.filter(t => /Evening/.test(t)).join(' | ') || 'none');
   }
 
   // Call time: the guest is on shift a slot EARLY (and nobody else is), which is the half of
@@ -1376,6 +1482,41 @@ export default async function regress({ check, run, getPlayer }) {
 
     check('days: slotAirsOn respects the mask',
       _test.slotAirsOn(thu, 4) === true && _test.slotAirsOn(thu, 5) === false, 'mask');
+  }
+
+  // ── The guide names the sport that is actually on ───────────────────────────
+  // KSAB carries both leagues in the SAME 18:00 window on different nights. The
+  // schedule always resolved that correctly, but every surface that DESCRIBED the
+  // slot had the word DEADBALL and Deadball's season written into it, so a Cluster
+  // Puck night was listed as a ballgame — with hockey clubs in the matchup, which is
+  // what made it read as the guide and the set disagreeing. A label built from the
+  // item's own script can't drift from what the runner picked.
+  {
+    const L = _test.sportsSlotLabel;
+    const mkItem = (sport) => ({
+      playback_mode: 'sports',
+      broadcastName: sport === 'hockey' ? 'Cluster Puck — CPhL Coldwater Hockey' : 'Deadball — Coldwater League Baseball',
+      sportsScript: {
+        sport,
+        title: sport === 'hockey' ? 'CLUSTER PUCK' : 'DEADBALL',
+        airSlots: [6],
+        teams: ['Wardens', 'Benders', 'Wolves', 'Mudhens', 'Kings', 'Ravens', 'Hounds', 'Saints'],
+      },
+    });
+
+    const puck = L(mkItem('hockey'));
+    const ball = L(mkItem('baseball'));
+    check('guide: a hockey slot is captioned CLUSTER PUCK, never DEADBALL',
+      /^CLUSTER PUCK — /.test(puck || '') && !/DEADBALL/.test(puck || ''), String(puck));
+    check('guide: a baseball slot is still captioned DEADBALL',
+      /^DEADBALL — /.test(ball || ''), String(ball));
+    check('guide: a non-sports row has no sports label', L({ playback_mode: 'film' }) === null, 'film');
+
+    // The dedicated-channel nightly guide reads the same brand off the same script.
+    const rows = _test.sportsScheduleSlots(mkItem('hockey').sportsScript, _test.sportsSlotIndex());
+    check('guide: the nightly sports listing brands each row by its own sport',
+      Array.isArray(rows) && rows.length > 0 && rows.every(r => !/DEADBALL/.test(r.name)),
+      JSON.stringify((rows || []).map(r => r.name)));
   }
 
   // ── CLUSTER PUCK (CPhL hockey) ──────────────────────────────────────────────

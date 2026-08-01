@@ -1322,6 +1322,23 @@ async function handleGhostJump(ws, session, msg) {
 
 async function handleDialogue(ws, session, msg) {
 	if (!session.playerId) return;
+
+	// A CONVERSATION WITH SOMETHING THAT IS NOT AN NPC ROW.
+	//
+	// The dialogue panel is a perfectly good interface for talking to a thing
+	// that only exists inside one player's head — but there is no `npcs` row
+	// behind it and there never will be. Rather than teach the panel about
+	// hallucinations, the engine offers a seam: any npcId a plugin claims is
+	// routed to it, and whatever it returns is sent as the next dialogue frame.
+	// The engine stays ignorant of what is on the other end (see plugins/trip).
+	if (typeof msg.npcId === 'string' && msg.npcId.includes(':')) {
+		const player = getLivePlayer(session.playerId);
+		const synthetic = await fireHook('dialogue.synthetic', {
+			player, npcId: msg.npcId, choice: msg.choice, optionIndex: msg.optionIndex, broadcast,
+		});
+		if (synthetic) { ws.send(JSON.stringify(synthetic)); return; }
+	}
+
 	// world.npcs is authoritative — every npcs writer funnels through it (see
 	// the npcs write funnel in world.js), so dialogue reads the live entry.
 	const npc = world.npcs.get(msg.npcId);

@@ -13,7 +13,7 @@
 import { registerAction } from '../../server/engine/actions.js';
 import {
   getFlagsMulti, getFlagById, setFlagById, updateFlagById,
-  insertFlagIfAbsentById, clearFlagsIn,
+  insertFlagIfAbsentById, clearFlagsIn, getFlagsByPrefix,
 } from '../../server/engine/flags.js';
 import { DISHES } from './dishes.js';
 import { QUALITY_BANDS, bandIndex } from './profiles.js';
@@ -150,3 +150,90 @@ registerAction({
     };
   },
 });
+
+// ---------------------------------------------------------------------------
+// PLAYER RECIPES — the half of the cookbook you write yourself
+// ---------------------------------------------------------------------------
+//
+// The authored catalog is a fixed 47 dishes and it belongs to the game. This is
+// the other book: what a player worked out on their own, named themselves, and
+// can hand to somebody else. Improvised dishes (improvised.js) are the raw
+// material — you cook something, it turns out well, and you write it down.
+//
+// Storage is the same shape the cookbook already uses: one `player_flags` row
+// per saved recipe, `recipe:<slug>` holding a small JSON blob. No new table and
+// no new `players` column, per the core rule in CLAUDE.md.
+//
+// A saved recipe is IDENTIFIED by its signature — the multiset of profiles that
+// made it, rounded to whole units, plus the vessel (see `recipeSignature`). The
+// NAME is just a label, which is exactly why renaming is free and why two
+// players can call the same combination different things.
+export const SAVED_PREFIX = 'recipe:';
+
+export const slugify = name => String(name || '')
+  .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+
+// Every recipe this player has written down. Zero round trips for a hydrated
+// player, same as `cookbookState`.
+export async function savedRecipes(playerOrId) {
+  const found = await getFlagsByPrefix(playerOrId, SAVED_PREFIX);
+  const out = new Map();
+  for (const [k, v] of found) {
+    let blob = null;
+    try { blob = JSON.parse(v); } catch { continue; }
+    if (blob && blob.sig) out.set(k.slice(SAVED_PREFIX.length), blob);
+  }
+  return out;
+}
+
+// The one this pan would be, if you've written it down. Signature match, never
+// name match — you might have called it anything.
+export function recipeBySignature(saved, sig) {
+  for (const [slug, blob] of saved) if (blob.sig === sig) return { slug, ...blob };
+  return null;
+}
+
+// Write one down. Refuses a duplicate SIGNATURE rather than a duplicate name:
+// the same pot under a second name would be two recipes that can never be told
+// apart, and the second would silently never match.
+export async function saveRecipe(playerOrId, { name, sig, vessel, family, complexity, band, author }) {
+  const playerId = typeof playerOrId === 'string' ? playerOrId : playerOrId?.id;
+  const saved = await savedRecipes(playerId);
+  const already = recipeBySignature(saved, sig);
+  if (already) return { saved: false, reason: 'known', existing: already };
+
+  let slug = slugify(name) || `dish-${saved.size + 1}`;
+  if (saved.has(slug)) slug = `${slug}-${saved.size + 1}`;
+  await setFlagById(playerId, SAVED_PREFIX + slug, JSON.stringify({
+    name: String(name).slice(0, 60), sig, vessel: vessel || null,
+    family: family || null, complexity: complexity || 1,
+    best: band || null, author: author || null,
+  }));
+  return { saved: true, slug };
+}
+
+// Renaming is free and changes nothing mechanical — the signature is the
+// identity, the name is a label. That asymmetry is the whole reason a player can
+// call their stew whatever they like without breaking the match.
+export async function renameRecipe(playerOrId, slug, name) {
+  const playerId = typeof playerOrId === 'string' ? playerOrId : playerOrId?.id;
+  const raw = await getFlagById(playerId, SAVED_PREFIX + slug);
+  if (!raw) return { ok: false };
+  let blob; try { blob = JSON.parse(raw); } catch { return { ok: false }; }
+  blob.name = String(name).slice(0, 60);
+  await setFlagById(playerId, SAVED_PREFIX + slug, JSON.stringify(blob));
+  return { ok: true, name: blob.name };
+}
+
+export async function forgetRecipe(playerOrId, slug) {
+  const playerId = typeof playerOrId === 'string' ? playerOrId : playerOrId?.id;
+  await clearFlagsIn(playerId, [SAVED_PREFIX + slug]);
+  return { ok: true };
+}
+
+// Improve the recorded best band, the same UPDATE-only way `improveRecipe` does
+// for the authored catalog.
+export async function improveSaved(playerOrId, slug, blob, band) {
+  const playerId = typeof playerOrId === 'string' ? playerOrId : playerOrId?.id;
+  await setFlagById(playerId, SAVED_PREFIX + slug, JSON.stringify({ ...blob, best: band }));
+}

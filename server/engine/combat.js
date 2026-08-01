@@ -33,11 +33,11 @@ async function darknessHitPenalty(zoneId, perceiver = null) {
   return lightHitPenalty(vis.category);
 }
 
-// Quoted cry  → speech:  Name says: "..."   (name prepended as speaker)
+// Quoted cry  → speech:  Name says, "..."   (name prepended as speaker)
 // Unquoted cry → emote:   raw text as-is    ($enemy token already substituted in)
 export function formatBattleCry(name, raw) {
   return (raw.startsWith('"') && raw.endsWith('"'))
-    ? `<span style="color:var(--yellow)">${name} says: ${raw}</span>`
+    ? `<span class="speech-line">${name} says, ${raw}</span>`
     : `<span class="battle-cry">${raw}</span>`;
 }
 

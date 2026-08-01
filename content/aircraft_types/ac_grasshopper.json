@@ -1,5 +1,5 @@
 {
-  "altitude_ceiling": 1,
+  "altitude_ceiling": 3,
   "cargo_capacity": 20,
   "class": "grasshopper",
   "cruise_speed": 1,

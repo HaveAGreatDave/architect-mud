@@ -1,0 +1,10 @@
+{
+  "id": "dr_objemote_normal_007",
+  "drug_id": null,
+  "source": "object_emote",
+  "tone": "normal",
+  "self_line": "{it} rocks slightly, finds its balance, and is quiet.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

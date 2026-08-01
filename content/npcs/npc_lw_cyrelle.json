@@ -197,7 +197,8 @@
       "a dark rollneck",
       "utility trousers and quiet boots"
     ],
-    "mis_willing": false
+    "mis_willing": false,
+    "posted": true
   },
   "home_activities": [],
   "home_zone": "zone_lw_ops",

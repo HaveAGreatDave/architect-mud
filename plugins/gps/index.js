@@ -5,16 +5,27 @@ import { resolve as siftResolve, createSelectionState, formatSelectionPage } fro
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { impairmentOf } from '../../server/engine/impairment.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
+import { floorFor } from '../elevator/floors.js';
 
 // The exact direction to step at each hop: dirs[k] is the exit direction from
 // path[k] to path[k+1]. The client auto-walker follows these directly instead of
 // re-deriving the direction from its minimap node — which only carries the FIRST
 // target per direction (primaryExits), so it can't walk a second same-direction
 // exit on its own. Handing it the server's authoritative direction fixes that.
+//
+// One hop isn't a direction at all. An elevator car's floors are all wired as `up`
+// for graph connectivity, but the car REFUSES `up` — the timed ride is the only way
+// between floors. So a car→floor hop is emitted as the literal `floor <n>` button
+// press, and the walker rides it out (see the elevator step in minimap.js): press,
+// wait for the `elevator_doors` signal, then `out`. Without this the walker sent
+// `up`, got "the car only moves to a floor you choose", made no progress twice, and
+// gave up standing in the lift.
 function routeDirs(path) {
   const dirs = [];
   for (let k = 0; k < path.length - 1; k++) {
     const z = getZone(path[k]);
+    const floor = floorFor(z, path[k + 1]);
+    if (floor) { dirs.push(`floor ${floor.n}`); continue; }
     dirs.push(allExits(z).find(e => e.target === path[k + 1])?.dir || null);
   }
   return dirs;

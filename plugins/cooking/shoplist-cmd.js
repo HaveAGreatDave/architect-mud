@@ -1,0 +1,128 @@
+// `shoplist` — the verb over shoplist.js.
+//
+// Everything it prints is DERIVED: the list stores what you want, and whether
+// each line is ticked is answered against your inventory at the moment you look.
+// So there is no "mark as bought" step, and no way for the list to be wrong.
+import { getList, holdings, answer, addShortfall, tidy, clearList, removeAt, catalogTemplate } from './shoplist.js';
+import { savedRecipes } from './knowledge.js';
+import { DISHES } from './dishes.js';
+import { getItem } from '../../server/engine/items-cache.js';
+
+// A saved recipe's signature read back as a `needs` map, so the player's own
+// inventions go on the list exactly like the catalog's do.
+function savedNeeds(blob) {
+  const [, parts] = String(blob.sig || '').split('|');
+  if (!parts) return null;
+  const needs = {};
+  for (const p of parts.split(',')) {
+    const [name, n] = p.split(':');
+    if (name) needs[name] = Number(n) || 1;
+  }
+  return Object.keys(needs).length ? { needs, keyItems: [], vessel: blob.vessel } : null;
+}
+
+export async function cmdShoplist(args, raw, player) {
+  const sub = (args[0] || '').toLowerCase();
+  const rest = String(raw || '').trim().split(/\s+/).slice(2).join(' ').trim();
+
+  if (sub === 'clear') {
+    await clearList(player.id);
+    return { type: 'output', message: `List cleared.` };
+  }
+
+  if (sub === 'tidy') {
+    const r = await tidy(player.id);
+    return {
+      type: 'output',
+      message: r.removed
+        ? `Crossed off ${r.removed} you've already got. ${r.left} left.`
+        : `Nothing on it you've got yet.`,
+    };
+  }
+
+  if (sub === 'drop' || sub === 'remove') {
+    const n = parseInt(rest, 10);
+    if (!Number.isInteger(n)) return { type: 'error', message: `Drop which line? ("shoplist drop 2")` };
+    const r = await removeAt(player.id, n - 1);
+    return r.ok
+      ? { type: 'output', message: `Crossed off ${r.gone.label}.` }
+      : { type: 'error', message: `There's no line ${n}.` };
+  }
+
+  if (sub === 'add') {
+    if (!rest) return { type: 'error', message: `Add what? ("shoplist add stew")` };
+    const hit = catalogTemplate(rest);
+    let template = hit?.template, label = hit ? hit.key.replace(/_/g, ' ') : null;
+    if (!template) {
+      const mine = await savedRecipes(player.id);
+      for (const [, blob] of mine) {
+        if (blob.name.toLowerCase() !== rest.toLowerCase()) continue;
+        template = savedNeeds(blob);
+        label = blob.name;
+        break;
+      }
+    }
+    if (!template) return { type: 'error', message: `"${rest}" isn't a recipe you know.` };
+
+    const r = await addShortfall(player.id, template, { label });
+    return {
+      type: 'output',
+      message: r.added.length
+        ? `Added to the list:\n${r.added.map(e => `  <span class="text-bright">${e.label}</span>`).join('\n')}`
+        : `You've already got everything ${label} wants.`,
+    };
+  }
+
+  // Bare `shoplist` — the list, answered.
+  const list = await getList(player.id);
+  if (!list.length) {
+    return { type: 'output', message: `<span class="text-dim">Nothing on your list. <b>shoplist add &lt;recipe&gt;</b> puts what you're short of on it.</span>` };
+  }
+  const lines = [`<span class="text-bright">Shopping list</span>`];
+  const rows = answer(list, await holdings(player.id));
+  let done = 0;
+  rows.forEach((e, i) => {
+    if (e.done) done++;
+    const mark = e.done ? `<span class="text-dim">[x]</span>` : `[ ]`;
+    const body = e.done ? `<span class="text-dim">${e.label}</span>` : e.label;
+    const forWhat = e.for ? ` <span class="text-dim">— for ${e.for}</span>` : '';
+    lines.push(`  ${mark} ${i + 1}. ${body}${forWhat}`);
+  });
+  lines.push(`<span class="text-dim">${done} of ${rows.length} in hand. <b>shoplist tidy</b> crosses those off for good.</span>`);
+  return { type: 'output', message: lines.join('\n') };
+}
+
+// Everything still outstanding, as a lookup a shop can highlight against. Used
+// by the vendor path — a list you have to hold up against the shelf yourself is
+// only half a list.
+export async function outstanding(player) {
+  const list = await getList(player.id);
+  if (!list.length) return null;
+  const rows = answer(list, await holdings(player.id)).filter(e => !e.done);
+  if (!rows.length) return null;
+  return {
+    profiles: new Set(rows.filter(e => e.k === 'p').map(e => e.v)),
+    items: new Set(rows.filter(e => e.k === 'i').map(e => e.v)),
+  };
+}
+
+// The shelf, marked. A shopping list you have to hold up against the stock
+// yourself is only half a list — this is the other half, and it is the reason
+// the list stores CLASSES rather than item ids: "500g of dense meat" can be
+// satisfied by whatever this particular shop happens to stock, and the mark
+// lands on it without anybody authoring a mapping.
+//
+// Read-only and derived: it sets a flag on entries the shelf already built.
+export async function markShelf({ stock, playerId }) {
+  if (!stock?.length || !playerId) return;
+  const want = await outstanding({ id: playerId });
+  if (!want) return;
+  for (const entry of stock) {
+    const item = getItem(entry.item_id);
+    if (!item) continue;
+    const profile = item.tags?.food_profile || item.tags?.food_also || null;
+    if (want.items.has(entry.item_id) || (profile && want.profiles.has(profile))) {
+      entry.wanted = true;
+    }
+  }
+}

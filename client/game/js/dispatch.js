@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, showSkyBanner, pointAtRoomTarget, setRoomBeacon, clearRoomBeacons, isAreaPaneVisible } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
-import { renderMinimap, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt } from './panels/minimap.js';
+import { renderMinimap, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt, notifyElevatorDoors } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors, setEnvUnreal } from './panels/environment.js';
 import { setWeatherEventFx, setFireworksGlow, launchFirework } from './panels/weather-fx.js';
 import { setDreamFx } from './panels/environment.js';
@@ -14,10 +14,12 @@ import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, initChann
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showContainerNotify } from './panels/container.js';
 import { openWardrobePanel, refreshWardrobePanel, getActiveWardrobeId, showWardrobeNotify } from './panels/wardrobe.js';
 import { openLootPanel, closeLootPanel } from './panels/loot.js';
+import { openWorkspacePanel, refreshWorkspacePanel, isWorkspaceOpen } from './panels/workspace.js';
 import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel, closeMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
+import { openCardMachinePanel, cardMachineVend, openPackReveal } from './panels/cardpack.js';
 import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js';
 import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
 import { openTabletPanel, closeTabletPanel, tabletQuestUpdate, noteQuestLog, openTabletToSpecter, openTabletToReel, openTabletSpecterInstall, refreshTabletGearIfOpen, openTabletToMap, refreshTabletMapIfOpen, openTabletTvPanel } from './panels/tablet-os.js';
@@ -205,6 +207,8 @@ const GAME_SFX_GAIN = 0.6;
 // The sleep bar: a label plus the wake button, shown only while asleep. Driven
 // solely by the server's sleep_state (see handlers below) so it can never get
 // stuck on after a wake path the client didn't recognise.
+let _dreamClearTimer = null;
+
 function setSleepBar(sleeping, dreaming) {
   const bar = document.getElementById('sleep-bar');
   if (!bar) return;
@@ -215,7 +219,11 @@ function setSleepBar(sleeping, dreaming) {
   // shouldn't stay legible behind your eyelids. A DREAMER is exempt: the dream
   // is the only room they're in, and it's meant to be read.
   document.body.classList.toggle('asleep', !!sleeping && !dreaming);
-  if (!sleeping) return;
+  if (!sleeping) {
+    clearTimeout(_dreamClearTimer);
+    document.body.classList.remove('dreaming-line');
+    return;
+  }
   const label = document.getElementById('sleep-bar-label');
   if (label) {
     label.textContent = dreaming
@@ -432,6 +440,16 @@ const handlers = {
   // pushed when a dreamscape opens). The bar is driven from here ONLY — no client
   // guessing about whether a given message means you woke up.
   sleep_state: (msg) => setSleepBar(!!msg.sleeping, !!msg.dreaming),
+
+  // A dream, mid-sleep. The blur exists so the room you dozed off in isn't
+  // readable behind your eyelids — but the dream IS the thing you're meant to
+  // read, so it surfaces the log while it lands and lets it sink back after.
+  sleep_dream: (msg) => {
+    appendHtml(`<span class="dream-line">${msg.message}</span>`, 'system');
+    document.body.classList.add('dreaming-line');
+    clearTimeout(_dreamClearTimer);
+    _dreamClearTimer = setTimeout(() => document.body.classList.remove('dreaming-line'), 14000);
+  },
   rent:         (msg) => { appendHtml(msg.message, 'help'); },
   unrent:       (msg) => { appendHtml(msg.message, 'help'); },
   lock:         (msg) => { appendMsg(msg.message, 'system'); },
@@ -469,7 +487,7 @@ const handlers = {
   // banner is the whole payoff of a system that is otherwise entirely private.
   accolade_unlocked: (msg) => { showAccoladeUnlock(msg); },
   emote: (msg) => {
-    const el = appendHtml(msg.message, 'zone-event');
+    const el = appendHtml(msg.message, 'emote');
     // `butcherMs` also closes the loot panel (you're carving the corpse it was
     // showing); `progressMs` is the generic countdown any timed activity can
     // ask for — crafting uses it, and combat already sends it on its own type.
@@ -477,6 +495,10 @@ const handlers = {
     else if (msg.progressMs && el) attachInlineProgress(el, msg.progressMs);
   },
   say: (msg) => { appendMsg(msg.message, 'say'); },
+  // A player-authored /me. Its own type (not `emote`) purely so it can be tinted
+  // apart — the server sends nothing else different about it. Rendered as TEXT,
+  // never HTML: this is the one emote line whose words come from a player.
+  emote_custom: (msg) => { appendMsg(msg.message, 'emote-me'); },
 
   inventory: (msg) => {
     updateInventoryCache(msg.items || [], msg.weight, msg.capacity);
@@ -504,6 +526,14 @@ const handlers = {
     if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');
     if (getActiveWardrobeId()) refreshWardrobePanel(msg);
     else openWardrobePanel(msg);
+  },
+
+  // The Preparation Workspace. Refresh rather than re-open when it's already
+  // up, so the panel doesn't flicker on every self-issued `workspace`.
+  workspace_view: (msg) => {
+    if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');
+    if (isWorkspaceOpen()) refreshWorkspacePanel(msg);
+    else openWorkspacePanel(msg);
   },
 
   loot_view: (msg) => {
@@ -793,6 +823,11 @@ const handlers = {
     if (msg.paneFallback && isAreaPaneVisible()) return;
     appendHtml(msg.message, 'help');
   },
+  // The lift has come to rest with its doors open on a floor. Nothing to show — the
+  // rider already got the chime, the panel and the prose. This is purely so an
+  // auto-walk riding the car knows the moment to step out.
+  elevator_doors: (msg) => { notifyElevatorDoors(msg); },
+
   gps_route: (msg) => {
     // A background quest re-plot (routeToObjective/routeToTurnIn: continueOnArrival,
     // no prompt, no autostart) must not hijack a manual `gps` walk already in progress.
@@ -885,6 +920,16 @@ const handlers = {
   // the back of a modal the player is still standing in front of.
   morphex_close: () => { closeMorphexPanel(); },
   atm_panel: (msg) => { openAtmPanel(msg); },
+  // The card machine's face, its vend, and the pack-opening cinematic. All three
+  // still echo `message` into the log — the overlay is the show, never the record,
+  // so closing it (or an audio-off client) loses nothing but the presentation.
+  cardmach_panel: (msg) => { openCardMachinePanel(msg); if (msg.message) appendHtml(msg.message, 'system'); },
+  cardmach_vend: (msg) => {
+    cardMachineVend(msg);
+    if (msg.message) appendHtml(msg.message, 'loot');
+    if (msg.credits != null && state.player) { state.player.credits = msg.credits; updateVitals(state.player); }
+  },
+  cardpack_open: (msg) => { openPackReveal(msg); if (msg.message) appendHtml(msg.message, 'loot'); },
   insurance_panel: (msg) => { openInsurancePanel(msg); },
   insurance_action: (msg) => {
     appendHtml(msg.message, 'loot');

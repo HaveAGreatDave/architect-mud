@@ -20,8 +20,8 @@ function bucketForTemp(c) {
   return 'ambient';
 }
 
-function decayMultiplier(tier, spoilRate) {
-  return (TIER_FACTOR[tier] ?? TIER_FACTOR.ambient) * (SPOIL_RATE_FACTOR[spoilRate] ?? 1);
+function decayMultiplier(tier, spoilRate, additive = 1) {
+  return (TIER_FACTOR[tier] ?? TIER_FACTOR.ambient) * (SPOIL_RATE_FACTOR[spoilRate] ?? 1) * additive;
 }
 
 // Resolve the preservation tier an inventory row sits in RIGHT NOW, and whether
@@ -60,10 +60,15 @@ export function computeCheckpoint(freshness, envNow, spoilRate, nowMs) {
   const elapsedMs = Math.max(0, nowMs - freshness.checkpointAt);
   if (elapsedMs <= 0) return { ...freshness };
 
+  // An antioxidant dosed into the item itself (see preserve.js) is a multiplier
+  // on the rate, never a refill of the value — a rancid pie stays rancid, and
+  // BHT stacks with the fridge instead of replacing it.
+  const additive = freshness.additive ?? 1;
+
   let decayAmount;
   if (envNow.delivering || envNow.powerLostAt == null) {
     const tier = envNow.delivering ? envNow.tier : envNow.ambientTier;
-    decayAmount = hoursOf(elapsedMs) * BASE_DECAY_PER_HOUR * decayMultiplier(tier, spoilRate);
+    decayAmount = hoursOf(elapsedMs) * BASE_DECAY_PER_HOUR * decayMultiplier(tier, spoilRate, additive);
   } else {
     const bufferMs = (POWER_LOSS_BUFFER_MIN[envNow.tier] || 0) * 60000;
     const sinceLossMs = Math.max(0, nowMs - envNow.powerLostAt);
@@ -71,8 +76,8 @@ export function computeCheckpoint(freshness, envNow, spoilRate, nowMs) {
     const bufferedMs = Math.min(sinceLossMs, bufferMs);
     const overBufferMs = Math.max(0, sinceLossMs - bufferMs);
     decayAmount =
-      hoursOf(preLossMs + bufferedMs) * BASE_DECAY_PER_HOUR * decayMultiplier(envNow.tier, spoilRate) +
-      hoursOf(overBufferMs) * BASE_DECAY_PER_HOUR * decayMultiplier(envNow.ambientTier, spoilRate);
+      hoursOf(preLossMs + bufferedMs) * BASE_DECAY_PER_HOUR * decayMultiplier(envNow.tier, spoilRate, additive) +
+      hoursOf(overBufferMs) * BASE_DECAY_PER_HOUR * decayMultiplier(envNow.ambientTier, spoilRate, additive);
   }
 
   return {
@@ -80,6 +85,9 @@ export function computeCheckpoint(freshness, envNow, spoilRate, nowMs) {
     checkpointAt: nowMs,
     envBucket: envNow.tier,
     powerLostAt: envNow.powerLostAt,
+    // Carried forward explicitly: every writer of this object replaces it whole,
+    // so a dose left out here would be silently undone by the next checkpoint.
+    ...(freshness.additive != null ? { additive: freshness.additive } : {}),
   };
 }
 

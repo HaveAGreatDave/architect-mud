@@ -310,6 +310,7 @@ export const REGISTRY = [
   { table: 'weather_forecast', class: 'runtime' },
   { table: 'lighting_states', class: 'runtime' },    // fully derived from furniture
   { table: 'zone_exit_overrides', class: 'runtime' }, // play-time exit wiring merged over authored zones.exits at load
+  { table: 'zone_graffiti', class: 'runtime' },       // graffiti plugin — one player-sprayed tag per street tile, ages out on its own
   { table: 'economy_snapshots', class: 'runtime' },  // economy-ledger plugin — daily circulation totals
   { table: 'zone_control', class: 'runtime' },
   { table: 'org_assets', class: 'runtime' },          // player-crew territory assets (extractor/turret)

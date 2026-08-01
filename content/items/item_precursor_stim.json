@@ -1,9 +1,10 @@
 {
-  "description": "A jar of volatile crystalline precursor. Cook feedstock for uppers.",
+  "description": "A jar of pseudoephedrine crystal, still carrying the blister-pack dust of the thousand cold remedies it was punched out of. Clears a sinus; cooks an upper.",
   "flags": {},
   "id": "item_precursor_stim",
-  "name": "stimulant precursor",
+  "name": "jar of pseudoephedrine",
   "tags": {
+    "drug": true,
     "reagent": true
   },
   "type": "chemical",

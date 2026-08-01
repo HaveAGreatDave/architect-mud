@@ -55,7 +55,8 @@
       "a cable-knit jumper the colour of wet slate",
       "canvas trousers and steel-toed boots"
     ],
-    "mis_willing": false
+    "mis_willing": false,
+    "posted": true
   },
   "home_activities": [],
   "home_zone": "zone_lw_entry",

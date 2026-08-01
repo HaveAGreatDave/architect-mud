@@ -69,6 +69,25 @@ the "content is deliberate" rule. Instead:
 - `aircraft_types` table = per-template **content** (Dragonfly, …): tank, burn,
   speed, ceiling, seats, hull, handling, noise, prices. CODEX content
   (`content/aircraft_types/`), dev-panel editable.
+  - **Two different "ceilings", and they are not the same number.** `altitude_ceiling` on
+    the content row is the LEGACY BAND cap (0–3, `computeStats().ceiling`), read only by
+    the banded `climb`/`dive` verbs and the HUD's band index. The real service ceiling for
+    anything on the continuous sim is `ceiling` (feet) in `flight-model.js` `TYPES`. Every
+    airframe was raised a long way in both — the fleet now tops out between 22,000 ft
+    (Locust, the ag-plane that works in the weeds) and 41,000 ft (Mule).
+  - **The helicopter branch used to ignore `ceiling` entirely.** It was an authored number
+    no rotorcraft code read: `stepHeli` had no altitude term at all, so a helicopter climbed
+    at a constant rate to any height you had the patience for, and editing the figure changed
+    nothing. It now fades the **power margin over hover** toward zero as altitude approaches
+    `ceiling` — at the ceiling any collective you pull buys exactly hover and she stops going
+    up. Sink is deliberately outside the fade (same convention as the fixed-wing branch):
+    thin air must never stop you coming DOWN.
+  - **`vsMax` is a clamp, not a climb rate — do not reach for it.** On the heli branch the
+    achievable `vs` comes out of the thrust-deficit formula and never approaches the bound in
+    either direction, so raising it buys nothing. Best rate sits at the **droop knee** (~0.7
+    collective, ~770 fpm); pulling full collective droops Nr to 0.46 and *halves* your climb,
+    which is the intended trap. The ceiling fade governs how high she gets and `vsGain` governs
+    how twitchy the hover is — those are the two real knobs.
 - "Being aboard" is **player state**: `player.aircraftId` + `player.seat`
   (`pilot` | `passenger`). The plugin keeps an in-memory `liveAircraft` registry
   where each craft owns an `occupants` Set (mirrors live-zone membership).
@@ -118,16 +137,52 @@ the "content is deliberate" rule. Instead:
     avoid an import cycle — so parking, cargo delivery, checkride grading, landing IP
     and detaching everyone are shared, not reimplemented. The landing grade comes from
     `landingGrade(fpm)`, the cockpit report card's curve ported server-side.
+  - **`land` is three verbs wearing one name**, keyed off `takeoff_mode`. It used to mean
+    the same thing in every airframe — "descend to zero, right here, right now" — which
+    made a Mule land like a Dragonfly and quietly deleted the one real difference between
+    the aircraft you can buy:
+    - `vtol` — sets down where she's hovering, but only once she's **slow** (under
+      `0.55 × vs0`); a VTOL arriving at cruise speed is still an aeroplane flying into
+      the ground.
+    - `stol` — rough-field rated, still has to arrive slow (`1.35 × vs0`).
+    - `strip` — needs tarmac. Refused outright unless a **runway** field is within
+      `STRIP_FIELD_DIST` tiles (`nearestAirfield(..., { needsRunway: true })`, so a
+      helipad never counts), and the refusal **names the nearest strip** rather than just
+      saying no.
+
+    The gate is on the ORDER, never on the physics: the model still lets you fly her into
+    whatever you like at whatever speed you like. This only refuses to fly the approach
+    FOR you, which is the assist's whole remit. The rule is printed on the panel
+    (`landMode` → the HUD's `LAND_MODE_NOTE`) so it's an instrument reading rather than
+    something you discover by being refused on short final.
   - **The checkride is flyable entirely in text**: `checkGateProximity` tests the ring
     course server-side (the `GATES` list already carried `r`/`altTol`; only the 3D
     client ever tested them), and `startup` fires the `engineon` stage advance the
     cockpit's switch used to.
   - **The live panel** is a `text_cockpit` payload pushed once a tick and drawn by
     `client/game/js/panels/textcockpit.js` in the same top pane as the room description
-    — box-drawing rules, a sliding compass tape, `█░` bars, an ASCII attitude ladder and
-    a character-glyph minimap. **No canvas anywhere in that path.** Most of its content
-    is lifted from `contextPayload`, the same payload feeding the 3D cockpit: one source
-    of truth, two renderers. `cockpit_close` hands the pane back.
+    — box-drawing rules, a sliding compass tape, `█░` bars, a **coloured artificial
+    horizon** and a **coloured moving chart**. **No canvas anywhere in that path.** Most
+    of its content is lifted from `contextPayload`, the same payload feeding the 3D
+    cockpit: one source of truth, two renderers. `cockpit_close` hands the pane back.
+    - **Colour is load-bearing, not decoration.** With no window, the horizon and the
+      chart are the only answers to "which way is up" and "where am I", and neither
+      should have to be decoded character by character. The horizon is a character-cell
+      grid with real background colour — blue sky, brown ground, a white horizon that
+      rolls with bank and slides with pitch, a pitch ladder ruled every 10°, a bank scale
+      with a pointer, and a fixed amber aircraft reference. Its rungs are lines of
+      *constant pitch*, so they roll with the horizon; a hard bank crossing several of
+      them in one screen row is correct, not a glitch. Cells are **run-length encoded
+      into spans** (`paintRow`) — a span per character would be thousands of DOM nodes a
+      second. The chart colours ground/water/road/buildings/airfields and draws the
+      aircraft as an 8-way heading arrow.
+    - **The chart is WIDER than the 3D HUD's inset** (`TEXT_MAP_R = 6` vs the shared
+      payload's radius 3), built in `panelPayload` rather than by widening
+      `contextPayload` — the glass cockpit's minimap sits beside a window you can see
+      out of, so the 3D HUD's per-tick BFS cost stays untouched.
+    - **Airfields on the chart come from the payload's own `fields` list**, not sniffed
+      off the tile: a minimap node carries no `airfield_id`, and guessing one from the
+      tile NAME is how a bar called The Airstrip gets drawn as somewhere you can put down.
   - **Known gaps (v1):** air-to-air GUNS (`cmdAirFire` needs the client reticle's
     `aimQuality`) and lock-dwell timing remain 3D-only. AA and missiles are fully
     available, being server-authoritative dice already. RWR lock/launch warnings reach a
@@ -504,6 +559,13 @@ real players' aircraft fight each other end-to-end, server-authoritatively:
   `GUN_DMG × aim` **cut by the defender's own opposed roll** — a jinking target rolls a
   live `piloting` check, an active `evade` break, and a gunship's armour all shave the
   bite. Guns are infinite; a server-enforced cooldown caps the burst rate.
+  - **Shooting never moves the camera.** Neither arming nor holding the trigger touches
+    the external chase orbit: it stays exactly where you left it and the reticle projects
+    through whatever view you are actually flying, so you aim from any angle. The trigger
+    used to snap the camera dead-astern for the duration of the burst (and re-solve the
+    chase framing with it) — which yanked the target you were tracking out of frame at the
+    exact moment you shot at it. `windshield.js` `extOrbit` and the chase-horizon solve are
+    both **ungated on `v.firing`** now; `v.firing` still places the muzzle flash and tracers.
 - **Missiles** — the MSL select builds a seeker lock by holding the bogey in the reticle;
   `airlock` records it server-side and **trips the target's RWR** (`⚠ RWR — MISSILE
   LOCK`); `airfire missile` launches. The shot rides as an inbound on the *target's* live

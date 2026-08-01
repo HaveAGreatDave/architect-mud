@@ -4,21 +4,41 @@ import { propagateYell } from '../sounds.js';
 import { canAccessChannel, sendToChatChannel } from '../channels.js';
 import { renderDialogueNode } from '../dialogue.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
-import { DEFAULT_CHITCHAT_LINES, formatChitchat } from '../ai-behaviour.js';
+import { DEFAULT_CHITCHAT_LINES, formatChitchat, disturbSleeper } from '../ai-behaviour.js';
 import { getNpcChitchat } from '../npc-personality.js';
 import { fireHook } from '../plugins.js';
 import { emit } from '../events.js';
+import { findNpcTransformByName } from '../phantoms.js';
 
 async function cmdTalk(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Talk to whom?' };
   const npcs = getZoneNpcs(player.current_zone);
-  const r = siftResolve(targetStr, npcs);
+  let r = siftResolve(targetStr, npcs);
+  if (r.type === 'none') {
+    // A psychedelic may be showing this viewer somebody else entirely — the room
+    // has been listing them as "a heron in an apron", so that is the name they
+    // will type. Resolve it back to the real person and hold the conversation
+    // normally: the eyes are lying, the dialogue tree is not.
+    const seen = findNpcTransformByName(player.id, targetStr);
+    const real = seen && npcs.find(n => n.id === seen.npcId);
+    if (real) r = { type: 'match', candidate: real };
+  }
   if (r.type === 'none') return { type:'error', message:`Can't find "${targetStr}" here.` };
   if (r.type === 'ambiguous') {
     createSelectionState(player.id, r.candidates, { verb: 'talk' });
     return { type:'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
   }
   const npc = r.candidate;
+  // Asleep? Talking at an unconscious person is its own outcome, and it happens
+  // BEFORE any plugin gets to claim the conversation — a dealer who is face down
+  // in his own bed is not open for business. They either sleep through it or wake
+  // up (annoyed, or confused), and either way this turn ends here: the wake-up is
+  // the interaction. Talk to them again now they're up.
+  // The room sees it too, but not the actor twice — they get it as their answer.
+  const disturbed = disturbSleeper(npc, {
+    broadcast: broadcast ? (z, m) => broadcast(z, m, player.id) : null,
+  });
+  if (disturbed) return { type: 'output', message: disturbed.message };
   // Let a plugin claim this conversation (e.g. the shadow dealer waving in a
   // returning customer who's already learned the passphrase). Returns undefined
   // to fall through to normal dialogue/shop handling.
@@ -73,8 +93,9 @@ async function cmdSay(text, player, broadcast) {
   const spoken = (await fireHook('speech.transform', { player, text })) ?? text;
   // Echo the speaker's own line first, then let the room hear it — so any NPC
   // reaction below lands *after* the player's say line, never before it.
-  broadcast(null, { type:'say', message:`You say: "${spoken}"` }, null, player.id);
-  broadcast(player.current_zone, { type:'say', message:`${player.handle} says: "${spoken}"` }, player.id);
+  // `says,` not `says:` — a comma reads as prose, a colon reads as a chat log.
+  broadcast(null, { type:'say', message:`You say, "${spoken}"` }, null, player.id);
+  broadcast(player.current_zone, { type:'say', message:`${player.handle} says, "${spoken}"` }, player.id);
   // Let plugins react to speech (e.g. the shadow dealer's passphrase). Fire-and-forget.
   fireHook('player.say', { player, text, zoneId: player.current_zone, broadcast }).catch(() => {});
   // Audible speech is noise — systems keying off sound (e.g. the burglary alarm)
@@ -91,7 +112,27 @@ function cmdYell(text, player, broadcast) {
   if (!text.trim()) return { type:'error', message:'Yell what?' };
   propagateYell(player.current_zone, player.id, player.handle, text.trim(), broadcast);
   emit('player.spoke', { player, zoneId: player.current_zone, loud: true });
-  return { type:'output', message:`<span style="color:var(--yellow);font-weight:bold">You yell: "${text.trim().toUpperCase()}"</span>` };
+  return { type:'output', message:`<span class="speech-line">You yell, "${text.trim().toUpperCase()}"</span>` };
+}
+
+// IRC-style freeform emote: `me leans on the bar`, `/me` and `.me` too (the
+// dispatcher strips a leading slash/dot). It goes out as its own `emote_custom`
+// type rather than `emote` for exactly one reason — so the client can tint it
+// apart from the emotes the engine writes for you. Nothing else about it differs.
+//
+// Any quotes the player puts in the line are coloured as dialogue client-side,
+// which is the whole point of painting speech at render time: `me mutters
+// "not again"` is speech AND an action, and shouldn't have to pick one.
+function cmdMe(text, player, broadcast) {
+  const line = String(text || '').trim();
+  if (!line) return { type:'error', message:'Usage: me <what you do>  —  e.g. me leans on the bar and waits.' };
+  // Leading punctuation ("me's hands shake") joins the handle directly; anything
+  // else gets the space it obviously wants.
+  const body = /^['’,.!?]/.test(line) ? line : ` ${line}`;
+  const message = `${player.handle}${body}`;
+  broadcast(player.current_zone, { type:'emote_custom', message }, player.id);
+  emit('player.emoted', { player, zoneId: player.current_zone, text: line });
+  return { type:'emote_custom', message };
 }
 
 function cmdWhisper(args, raw, player, broadcast) {
@@ -193,6 +234,8 @@ export const handlers = {
   talk:    (args, raw, player, broadcast) => cmdTalk(args.join(' '), player, broadcast),
   say:     (args, raw, player, broadcast) => cmdSay(raw.replace(/^say\s*/i,''), player, broadcast),
   yell:    (args, raw, player, broadcast) => cmdYell(raw.replace(/^yell\s*/i,''), player, broadcast),
+  me:      (args, raw, player, broadcast) => cmdMe(raw.replace(/^me\s*/i,''), player, broadcast),
+  emote:   (args, raw, player, broadcast) => cmdMe(raw.replace(/^emote\s*/i,''), player, broadcast),
   whisper: (args, raw, player, broadcast) => cmdWhisper(args, raw, player, broadcast),
   who:     () => cmdWho(),
   obama:   (args, raw, player, broadcast) => cmdObama(args.join(' '), player, broadcast),

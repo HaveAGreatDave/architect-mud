@@ -34,6 +34,7 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { foodLoad } from '../../server/engine/bodily.js';
 import { commands as stripperCommands } from '../strippers/index.js';
 import { homeLifeTick } from './home-life.js';
+import './intrusion.js';   // registers the zone.entered "someone's in my flat" reaction
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
 const START_CHANCE     = 0.5;             // per eligible zone, per tick

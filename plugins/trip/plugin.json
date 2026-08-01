@@ -2,5 +2,5 @@
   "name": "trip",
   "version": "1.1.0",
   "description": "Drug hallucinations: overlay trips, isolated dream-zone trips with an attackable phantom body, and deliriant phantom-mode trips that populate the real room with per-player fake people/animals. Phantom look/examine/talk/attack intercepts ride as specialized actions so they compose with weapon/flight rather than clobbering them.",
-  "hooks": ["drug.used", "drug.overdose"]
+  "hooks": ["drug.used", "drug.overdose", "dialogue.synthetic"]
 }

@@ -1,6 +1,128 @@
 {
   "banter": [],
-  "behaviour_graph": {},
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "collect_safe",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
   "chitchat": [
     "Bettine reprices a bin of socks without breaking eye contact with you.",
     "\"Aisle four. Whatever it is, try aisle four first.\"",
@@ -8,8 +130,47 @@
   ],
   "description": "The floor manager, in a store tabard she has clearly tailored herself, with a price gun holstered at her hip like she might need it in a hurry. She has worked every department in the building and can tell you which aisle a thing is in without looking up. Nothing she sells is good and she will not pretend otherwise; what she will tell you is exactly how long it will last.",
   "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Aisle four,\" she says, to your back. \"Just in case.\""
+    },
+    "display": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The dining set.\" Something moves behind her face and goes away again. \"Head office sent it down as a display. I've had three people ask to sit at it. I said yes, obviously.\" She reprices another bin. \"There's a man comes in Thursdays, sits, doesn't buy anything, leaves. I'm not going to be the one who stops him.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Everyone on this street comes through here eventually. You learn things by what people stop buying.\""
+    },
+    "quality": {
+      "options": [
+        {
+          "label": "Fair enough.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"No.\" She says it without heat. \"The coats last a winter. The boots last a winter if you're kind to them. The plates last forever because nobody's ever excited enough about a plate to throw one.\" She shrugs. \"You're not buying quality, you're buying not-freezing. That's a real thing to buy.\""
+    },
     "root": {
-      "text": "\"Morning.\" Bettine doesn't stop repricing. \"Everything in here is cheap and most of it is honest about that. You want good, you want the Marquee. You want to be dressed and fed by tonight, you want me.\" She finally looks up. \"So. Dressed, or fed?\"",
       "options": [
         {
           "label": "Show me what you've got.",
@@ -31,47 +192,8 @@
           "label": "Just looking.",
           "next": "bye"
         }
-      ]
-    },
-    "quality": {
-      "text": "\"No.\" She says it without heat. \"The coats last a winter. The boots last a winter if you're kind to them. The plates last forever because nobody's ever excited enough about a plate to throw one.\" She shrugs. \"You're not buying quality, you're buying not-freezing. That's a real thing to buy.\"",
-      "options": [
-        {
-          "label": "Fair enough.",
-          "next": "__shop__"
-        },
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ]
-    },
-    "display": {
-      "text": "\"The dining set.\" Something moves behind her face and goes away again. \"Head office sent it down as a display. I've had three people ask to sit at it. I said yes, obviously.\" She reprices another bin. \"There's a man comes in Thursdays, sits, doesn't buy anything, leaves. I'm not going to be the one who stops him.\"",
-      "options": [
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ]
-    },
-    "gossip": {
-      "actions": [
-        {
-          "action": "GOSSIP_TELL"
-        }
       ],
-      "text": "\"Everyone on this street comes through here eventually. You learn things by what people stop buying.\"",
-      "options": [
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ]
-    },
-    "bye": {
-      "text": "\"Aisle four,\" she says, to your back. \"Just in case.\"",
-      "options": []
+      "text": "\"Morning.\" Bettine doesn't stop repricing. \"Everything in here is cheap and most of it is honest about that. You want good, you want the Marquee. You want to be dressed and fed by tonight, you want me.\" She finally looks up. \"So. Dressed, or fed?\""
     }
   },
   "faction": null,
@@ -84,7 +206,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_adequate_floor",
+  "home_zone": "zone_solenne_apt_e",
   "hp": 40,
   "hp_max": 40,
   "id": "npc_adequate_clerk",
@@ -188,31 +310,13 @@
   ],
   "vendor_restock_rate": 3,
   "vendor_schedule": {
-    "mon": [
-      {
-        "from": 7,
-        "to": 23
-      }
-    ],
-    "tue": [
-      {
-        "from": 7,
-        "to": 23
-      }
-    ],
-    "wed": [
-      {
-        "from": 7,
-        "to": 23
-      }
-    ],
-    "thu": [
-      {
-        "from": 7,
-        "to": 23
-      }
-    ],
     "fri": [
+      {
+        "from": 7,
+        "to": 23
+      }
+    ],
+    "mon": [
       {
         "from": 7,
         "to": 23
@@ -229,11 +333,29 @@
         "from": 7,
         "to": 23
       }
+    ],
+    "thu": [
+      {
+        "from": 7,
+        "to": 23
+      }
+    ],
+    "tue": [
+      {
+        "from": 7,
+        "to": 23
+      }
+    ],
+    "wed": [
+      {
+        "from": 7,
+        "to": 23
+      }
     ]
   },
   "vendor_shop_name": "Adequate!",
   "vendor_stock_size": 36,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_adequate_floor"
 }

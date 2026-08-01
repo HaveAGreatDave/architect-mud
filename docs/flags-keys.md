@@ -99,6 +99,7 @@ nothing, silently; wire a reader first.
 | `gps_suggest` | lore plugin | destination zone id; first entry to this tile plots a one-off GPS route there (pre-quest nudge) |
 | `gps_suggest_label` | lore plugin | optional hint text for the `gps_suggest` route line |
 | `is_apartment` | housing | rentable apartment zone |
+| `is_dwelling` | engine (`zone-tags.js`) | somewhere a person LIVES that nobody rents — a cabin, a penthouse, a bunkroom, a lair. `isDwellingZone()` = `is_apartment \|\| is_dwelling`, and an NPC only performs **home-life activities** in a zone that passes it. **Never put it on a workplace**: most of the cast has their own shop floor or the studio stage as `home_zone`, and flagging those made them tidy the apartment in front of customers |
 | `is_storefront` | storefront | vacant retail unit a player can buy (`buyshop`). Terms are `shop_price`/`shop_term`/`shop_upkeep`; the deed itself is player data in the `storefronts` table, never content |
 | `shop_price` | storefront | **authored** total asking price for an `is_storefront` unit; the instalment is price ÷ `shop_term`. Omit for the 6000₵ default |
 | `shop_term` | storefront | **authored** number of 7-game-day instalments that clear the mortgage. Omit for the 8-cycle default |
@@ -175,7 +176,11 @@ nothing, silently; wire a reader first.
 | `purchase_remarks` | commerce | `{ "<item_id>": "line" }` — what this vendor says as you pocket that specific item, in their own voice. For the one thing in their crates that needs explaining (Grady points a fresh deck buyer at his practice rig). Fires **once per player per item**; author `{ "text": "…", "repeat": true }` for every-purchase. Costs nothing unless the item bought has a remark authored |
 | `poker_bankroll` / `poker_persona` / `poker_player` | gametable | NPC poker player config |
 | `police` | jail/surveillance | police unit (arrest powers) |
-| `preshow_habit` | npc-drugs | drug name this NPC rarely self-doses on at home when watched (e.g. Akerson's "Neural Overclock" pre-show ritual) |
+| `posted` | engine (housing) | **this NPC never goes home — the post IS the life.** Excludes them from the commute build (`scripts/house-posted-npcs.mjs`): no apartment, no derived shift, no `GO_TO_WORK` graph. For fixtures and machines (the Citadel Cashbot, Warden Unit "Threshold"), gate/compound personnel (the South Gate troopers, the Ascendant stronghold cast) and anyone whose workplace is their whole existence. `aa_crew`, `aa_engineer`, `police`, `haunt_zone` and `no_attack` already imply it, so those need nothing extra |
+| `preshow_habit` | npc-drugs | DRUG name this NPC self-doses on before a SHOW — one 10% roll ~2 game-hours before curtain (e.g. Akerson's "Neural Overclock"). Plays a multi-beat ritual, then the drug's own effect for 5–6 game hours |
+| `preshow_drink` | npc-drugs | the DRINK counterpart to `preshow_habit`, same cadence and its own pouring ritual (Neil Mcmanistan's "embassy reserve"). Always sedated, `neverOut`. **Separate from `preshow_habit` on purpose** — a drink's name is authored flavour and is never in the drugs catalogue, so the drug path would classify whisky as a stimulant |
+| `booze_habit` | npc-drugs | drink name for a standing dependency on no schedule but its own (20-min cooldown × 35%/scan). Always sedated, **never** floored — an NPC out cold stops turning up for work |
+| `drug_habit` | npc-drugs | drug name for a standing habit, same cadence as `booze_habit` but with the drug's own classified effect (and it *can* put them under). A stimulant comedown sets `ai.crashSleepy`, which sends them to bed early |
 | `stripper` | strippers | performs at the club |
 | `studio_npc` | broadcast | broadcast-studio actor |
 | `table_id` | gametable | which game table the NPC sits at |
@@ -196,7 +201,9 @@ nothing, silently; wire a reader first.
 | `channel_id` | broadcast | channel a deck/TV is tuned to |
 | `chargen` | prologue | character-generation terminal |
 | `concealed` | surveillance / concealment | hidden from the room's furniture list entirely (`commands/describe.js`). A planted spy device sets it at plant time; a concealment cabinet flips it on the piece it hides |
-| `conceal_hides` / `conceal_code` / `conceal_brand` | concealment | on the DISGUISE piece: the id of the furniture it hides (same zone), the passcode (factory `1234`), and the brand shown on the keypad |
+| `conceal_hides` / `conceal_code` / `conceal_brand` | concealment | on the DISGUISE piece: the id of the furniture it hides (same zone), the passcode (factory `1234`), and the brand shown on the keypad. While the hidden piece is OUT, the disguise drops from the room list entirely and the revealed piece takes its slot (`standIns` in describe.js) — the fiction has one piece of furniture there, so the room never lists both |
+| `conceal_hidden_by` | concealment | on the HIDDEN piece: the id of the disguise that covers it. **Discoverability only** — it's what makes `keypad` advertise itself on the revealed piece (examine's Actions row, the smart bar) once the cabinet has folded away and the pad has nothing else to sit on. Resolution derives the pair from the zone, so a stale or missing back-pointer costs a hint, never access |
+| `attached_to` | engine (commands/describe.js) | on a SATELLITE piece: the furniture id it belongs to. The room prints it hanging off that entry (`↳`) instead of listing it separately, and a click goes straight to the satellite's own `use` — a Betamax deck under a television is one appliance in the room's eye but keeps its own row, its own cassettes and its own panel. **A media deck needs no flag** where the room holds exactly one `broadcast_receiver`: the link is derived. Pin it only in a room with two sets. No parent present ⇒ no attachment, and the piece lists itself as before |
 | `backstock` | commerce | container id a `vendor_stock` case refills from (stockroom → shop floor) before minting a delivery |
 | `backstock_depth` | commerce | on the STOCKROOM container: how many deliveries' worth of each sourced item to keep in reserve, as a multiple of the catalogue entry's `restockToQty` (default 2). Set 0 to leave a back room deliberately bare |
 | `checkout` | commerce | vendor id whose till this counter is — enables `checkout` here |

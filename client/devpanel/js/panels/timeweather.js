@@ -8,6 +8,15 @@ function windLabel(kph) {
   return 'Gale';
 }
 
+// A forecast day is labelled by the weekday it actually lands on, not its offset —
+// the row for Thursday has to still read Thursday tomorrow, when it's +5 away.
+function forecastDayLabel(f, i) {
+  if (i === 0) return 'TODAY';
+  const d = f?.date ? new Date(f.date) : null;
+  if (!d || isNaN(d)) return 'DAY ' + (i + 1);
+  return d.toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase();
+}
+
 // Game-speed control is gated behind a deliberate unlock (below) so the world
 // clock can't be re-rated by a stray click. Re-locks on every panel render.
 let _gameSpeedUnlocked = false;
@@ -42,7 +51,7 @@ function renderTimeWeatherPanel(data) {
     <div title="${(f.weatherType||'?')}${f.tempC!=null?' · '+f.tempC+'°C':''}${f.windKph!=null?' · '+f.windKph+' km/h '+windLabel(f.windKph):''}${f.humidityPct!=null?' · '+f.humidityPct+'% humidity':''}${severe?' · ⚠ severe (severity '+f.severity.toFixed(2)+')':''}${hero?' · ⚠⚠ HERO EVENT: '+hero.label:''}" style="background:var(--bg3);border:1px solid ${edge};border-radius:4px;padding:8px 4px;text-align:center;position:relative">
       ${hero?`<div style="position:absolute;top:4px;right:6px;font-size:11px;color:var(--red)" title="Hero event: ${hero.label}">⚠⚠</div>`
         :severe?`<div style="position:absolute;top:4px;right:6px;font-size:11px" title="Severe conditions">⚠</div>`:''}
-      <div style="font-size:9px;font-weight:600;color:var(--text-dim);letter-spacing:.5px">${i===0?'TODAY':'DAY '+(i+1)}</div>
+      <div style="font-size:9px;font-weight:600;color:var(--text-dim);letter-spacing:.5px">${forecastDayLabel(f,i)}</div>
       <div style="font-size:22px;line-height:1.2;margin:2px 0">${hero?hero.icon:(f.icon||'?')}</div>
       <div style="font-size:10px;color:${hero?'var(--red)':'var(--text)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${hero?hero.label:(f.weatherType||'?')}</div>
       ${f.tempC!=null?`<div style="font-size:12px;color:var(--text-bright);font-weight:600;margin-top:2px">${f.tempC}°</div>`:''}
@@ -201,7 +210,11 @@ function renderTimeWeatherPanel(data) {
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
           <label style="font-size:12px;color:var(--text-dim)">Day<br>
             <select id="tw-sched-day" style="margin-top:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
-              ${forecast.slice(1,7).map((f,i)=>`<option value="${f.forecastDay}">Day ${i+2} (${f.date||''})</option>`).join('')}
+              ${forecast.slice(1,7).map((f,i)=>{
+                const d=f.date?new Date(f.date):null;
+                const name=(d&&!isNaN(d))?d.toLocaleDateString(undefined,{weekday:'long'}):`Day ${i+2}`;
+                return `<option value="${f.forecastDay}">${name} (${f.date||''})</option>`;
+              }).join('')}
             </select>
           </label>
           <label style="font-size:12px;color:var(--text-dim)">Type<br>

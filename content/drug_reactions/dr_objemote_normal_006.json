@@ -1,0 +1,10 @@
+{
+  "id": "dr_objemote_normal_006",
+  "drug_id": null,
+  "source": "object_emote",
+  "tone": "normal",
+  "self_line": "{it} sighs. It is a completely ordinary sigh and that is the worst part.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

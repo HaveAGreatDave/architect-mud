@@ -53,8 +53,35 @@ export default async function regress({ run, check, getPlayer }) {
     const listed = getZoneFurniture(cabinet.zone_id).some((f) => f.id === LAB && !f.flags?.concealed);
     check('open ⇒ the lab is visible furniture', listed === revealed, `open=${revealed} listed=${listed}`);
 
+    if (revealed) {
+      // Open ⇒ the cabinet STANDS ASIDE. The room shows the lab in the slot the
+      // cabinet held, never both — the fiction has one piece of furniture there,
+      // and a room that listed a bar wall AND the lab it folded into would be
+      // telling on you. Phrased as "never both" so the check survives the room
+      // being dark, where the furniture list is lights-only and neither appears.
+      const body = (await run('look'))?.message || '';
+      const named = (f) => new RegExp(f.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(body);
+      check('open ⇒ cabinet and lab are never both listed', !(named(lab) && named(cabinet)), body.slice(0, 400));
+
+      // …and the pad that shuts it again rides on the piece still standing there.
+      // Read off examine's Actions row, not the describe hook — the revealed piece
+      // is a crafting station and its own plugin's furniture.describe wins there.
+      const labDesc = await run(`examine ${lab.name}`);
+      check('open ⇒ the keypad rides on the lab', /data-action="keypad"/.test(labDesc?.message || ''), labDesc?.message);
+      check('open ⇒ the lab resolves as a keypad target', !!(await _test.resolveDisguise(p, lab.name)).furniture,
+        'the lab name did not resolve back to its cabinet');
+      check('the lab back-points at its cabinet', lab.flags?.conceal_hidden_by === CABINET, JSON.stringify(lab.flags));
+      // Re-read the row: updateFurniture REPLACES the cached object rather than
+      // mutating it, so the `lab` captured up top still carries `concealed`.
+      const liveLab = getFurnitureById(LAB);
+      check('open ⇒ the lab advertises the keypad action', availableActions(liveLab, p).includes('keypad'),
+        JSON.stringify(liveLab?.flags));
+    }
+
     await run(`keypad cachet ${code}`);
     check('toggles back to how it started', _test.isOpen(cabinet) === wasOpen, 'left the cabinet in the wrong state');
+    check('sealed ⇒ the lab is not a keypad advert', !availableActions(getFurnitureById(LAB), p).includes('keypad'),
+      'a sealed lab advertised its own keypad');
 
     // While sealed, examine advertises the pad and nothing else.
     const desc = await run('examine cachet vantage 900 cabinet');

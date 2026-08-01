@@ -28,6 +28,7 @@ import { finishConsume, finishConsumeItem } from '../../server/engine/commands/i
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { getAllLivePlayers, isLivePlayer } from '../../server/engine/world.js';
 import { applyThirst, drinkLoad } from '../../server/engine/bodily.js';
+import { slakeLine, portionLine } from '../../server/engine/appetite.js';
 import { query } from '../../server/models/db.js';
 import { on } from '../../server/engine/events.js';
 
@@ -169,17 +170,25 @@ function thirstOf(drug) {
 
 // Credit one sip's worth of thirst mid-drink: bump the meter + bladder in memory,
 // persist (a rare, player-driven write, not a hot path), push the meter to the
-// client, and return a "+N Thirst." note to tack onto the sip line. The full
-// restore is skipped at finish (skipThirstRestore) so this never double-counts.
+// client. The full restore is skipped at finish (skipThirstRestore) so this never
+// double-counts.
+//
+// Returns what the body ABSORBED, which is not what was offered once the meter is
+// near full — the finish line needs the gap to say the portion was wasted. It says
+// nothing per sip: the numbers are deliberately invisible (see appetite.js), and a
+// running "+6 Thirst." receipt was the one place still quoting the hidden scale.
 function creditThirst(player, amount) {
   amount = Math.max(0, Math.round(amount));
-  if (!amount) return '';
+  if (!amount) return 0;
+  const before = player.thirst || 0;
   applyThirst(player, amount);
   query('UPDATE players SET thirst=$1, hydration_load=$2 WHERE id=$3',
     [player.thirst, player.hydration_load, player.id])
     .catch(e => console.error('[consume] sip thirst write failed for', player.id, e.message));
   sendToPlayer(player.id, { type: 'player_update', thirst: player.thirst });
-  return ` +${amount} Thirst.`;
+  const gained = Math.max(0, (player.thirst || 0) - before);
+  if (player._consume) player._consume.thirstGained = (player._consume.thirstGained || 0) + gained;
+  return gained;
 }
 
 // Give back sips already banked on the meter. The item is only consumed at
@@ -202,7 +211,8 @@ function sip(player) {
   if (!c || !c.thirstPer) return '';
   const amount = Math.min(c.thirstPer, c.thirstTotal - c.thirstApplied);
   c.thirstApplied += Math.max(0, amount);
-  return creditThirst(player, amount);
+  creditThirst(player, amount);
+  return '';   // the sip line stays a sip line; the body is described at the finish
 }
 
 // --- lifecycle ---------------------------------------------------------------
@@ -239,7 +249,15 @@ async function finish(player, broadcast) {
   const vessel = c.kind === 'vessel';
   const drink = vessel || c.category === 'drink';
   const finishThirst = drink ? Math.max(0, c.thirstTotal - c.thirstApplied) : 0;
-  const finishNote = finishThirst ? creditThirst(player, finishThirst) : '';
+  // `_consume` is already null above, so the last swallow can't add itself to the
+  // running tally — carry it by hand.
+  const gained = (c.thirstGained || 0) + (finishThirst ? creditThirst(player, finishThirst) : 0);
+  // How the body feels now it is done, and whether the rest of it was wasted —
+  // the same two sentences the instant `use` path prints, said once at the end
+  // rather than metered out per sip.
+  const finishNote = (drink && c.thirstTotal > 0)
+    ? ' ' + slakeLine(player) + portionLine('thirst', gained, c.thirstTotal)
+    : '';
   const finisher = vessel
     ? (p, id, bc, opts) => dispatchAction({
         type: 'drinks.finishServing', actor: p, params: { invId: id, ...opts }, context: { broadcast: bc },

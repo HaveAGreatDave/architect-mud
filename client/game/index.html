@@ -1482,6 +1482,7 @@
 				<div id="container-body">
 					<div class="container-col" id="container-inv-col">
 						<div class="container-section-label">Your Inventory</div>
+						<div id="container-inv-note" class="ctr-inv-note"></div>
 						<div id="container-inv-list"></div>
 					</div>
 					<div id="container-divider">⇄</div>
@@ -1507,6 +1508,23 @@
 					<button id="container-stow-all" class="loot-btn loot-btn-stow-all">Stow All</button>
 					<button id="container-take-all" class="loot-btn loot-btn-take-all">Take All</button>
 					<button id="container-close-btn" class="loot-btn">Close</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- PREPARATION WORKSPACE PANEL (`workspace` / `bench`) — a text HUD over
+		     a working area. Read-only in phase 1: it renders, it does not act. -->
+		<div id="workspace-panel">
+			<div id="workspace-box">
+				<div id="workspace-header">
+					<h2 id="workspace-title">Workspace</h2>
+					<span id="workspace-provider"></span>
+					<button id="workspace-close" aria-label="Close">✕</button>
+				</div>
+				<div id="workspace-body"></div>
+				<div id="workspace-footer">
+					<button id="workspace-refresh" class="loot-btn">Refresh</button>
+					<button id="workspace-close-btn" class="loot-btn">Close</button>
 				</div>
 			</div>
 		</div>

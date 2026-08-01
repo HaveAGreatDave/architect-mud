@@ -5,7 +5,7 @@
     "quantity": 1
   },
   "category": "tech",
-  "description": "Recondition a depleted power cell back to a full charge with an industrial catalyst.",
+  "description": "Recondition a depleted power cell back to a full charge over a palladium-on-carbon catalyst.",
   "id": "recipe_battery_recondition",
   "ingredients": [
     {

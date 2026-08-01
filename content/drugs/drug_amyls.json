@@ -30,7 +30,9 @@
       "max_reduction": 0.7
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "stimulant"
+  },
   "id": "drug_amyls",
   "item_id": "item_amyls",
   "name": "amyls",

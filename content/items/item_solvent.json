@@ -1,9 +1,11 @@
 {
-  "description": "Generic cutting solvent. Cheap, nasty, essential.",
+  "description": "A brown bottle of reagent-grade acetone. Cheap, nasty, essential — it cuts a batch, strips a finish, and takes a bloodstain off a floor faster than any mop, one bottle at a time.",
   "flags": {},
   "id": "item_solvent",
-  "name": "reagent solvent",
+  "name": "bottle of acetone",
   "tags": {
+    "cleaning_tool": true,
+    "consumable_cleaner": true,
     "reagent": true
   },
   "type": "chemical",

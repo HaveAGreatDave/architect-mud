@@ -15,6 +15,7 @@
   },
   "flags": {
     "building_name": "Solenne Residences",
+    "is_dwelling": true,
     "is_interior": true,
     "rest_multiplier": 2
   },

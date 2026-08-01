@@ -2,17 +2,27 @@
   "id": "dx_mescaline_any_significant",
   "drug_id": "drug_mescaline",
   "matches": null,
-  "name": "an object of enormous significance",
-  "description": "An ordinary thing, placed here by someone paying full attention, and it is the most important object you have ever seen.",
+  "scope": "object",
+  "name": "a reliquary of black glass",
+  "description": "A box of black glass the length of a forearm sits exactly in the middle of where it is, catching the light in a single hard line. It is the most important object you have ever seen and you have no idea what it is for.",
   "looks": [
     "Placed. Not left — placed, and every decision about it was correct.",
-    "It has weight the way a word has meaning.",
-    "You move it a centimetre and put it back, ashamed."
+    "It has weight the way a word has meaning. Lifting it would be a whole afternoon.",
+    "There is something inside it, and the glass is exactly dark enough that you will never know what."
   ],
   "says": [
     "I have been here longer than the room.",
-    "Someone stood exactly where you are standing, for a very good reason.",
+    "Somebody stood exactly where you are standing, for a very good reason.",
     "Nothing is required of you. That is the point."
   ],
-  "scope": "object"
+  "emotes": [
+    "The line of light along {it} moves, though nothing in the room has.",
+    "{it} sits in the exact middle of everything, and everything arranges itself around it.",
+    "For a moment {it} is warm to look at, the way a lit window is warm."
+  ],
+  "asks": [
+    "Do you know what I am for? Nobody has, yet.",
+    "Would you move me? I would rather you did not, but you may.",
+    "Who sent you in here?"
+  ]
 }

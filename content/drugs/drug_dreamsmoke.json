@@ -52,7 +52,9 @@
       "max_reduction": 0.7
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "psychedelic"
+  },
   "id": "drug_dreamsmoke",
   "item_id": "item_dreamsmoke",
   "name": "dreamsmoke",

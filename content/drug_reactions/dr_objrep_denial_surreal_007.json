@@ -1,0 +1,10 @@
+{
+  "id": "dr_objrep_denial_surreal_007",
+  "drug_id": null,
+  "source": "object_reply_denial",
+  "tone": "surreal",
+  "self_line": "Fine. I will be over here not existing. Do not knock into me.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

@@ -3,62 +3,122 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "e_ledger": {
+      "atm_emote": {
         "action_type": "EMOTE",
-        "next": "loop",
+        "next": "atm_wait",
         "params": {
-          "message": "licks a thumb, turns a page in the ledger, and writes a number without appearing to look at it."
+          "message": "steps up to the ATM terminal and makes a deposit."
         },
         "type": "action"
       },
-      "e_scales": {
-        "action_type": "EMOTE",
-        "next": "loop",
-        "params": {
-          "message": "lifts something off the counter, hefts it twice, and writes down the second answer."
-        },
+      "atm_wait": {
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "collect_safe",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
         "type": "action"
       },
-      "e_window": {
-        "action_type": "EMOTE",
-        "next": "loop",
-        "params": {
-          "message": "glances out over the rows, counting something only she is keeping track of."
-        },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
         "type": "action"
       },
-      "loop": {
-        "next": "start",
-        "type": "loop"
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
       },
-      "pick": {
-        "branch_0": "loop",
-        "branch_1": "e_ledger",
-        "branch_2": "e_scales",
-        "branch_3": "e_window",
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
         "branches": [
           {
-            "weight": 3
+            "weight": 1
           },
           {
-            "weight": 2
-          },
-          {
-            "weight": 2
-          },
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
           {
             "weight": 1
+          },
+          {
+            "weight": 5
           }
         ],
         "type": "random"
       },
       "start": {
-        "next": "wait",
+        "next": "check_work",
         "type": "start"
       },
-      "wait": {
-        "next": "pick",
-        "seconds": 95,
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
         "type": "wait"
       }
     }
@@ -204,7 +264,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_junkyard_shack",
+  "home_zone": "zone_apt_2",
   "hp": 70,
   "hp_max": 70,
   "id": "npc_junkyard_dray",

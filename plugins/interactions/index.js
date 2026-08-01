@@ -12,10 +12,24 @@ import {
 
 // Furniture reads come from the boot-loaded world.furniture Map (write funnel in
 // world.js) — the sit/lie/lean/watch probes cost no round trips.
-function furnByName(zoneId, name) {
+//
+// `viewer` is optional and only ever ADDS a way to hit: a tripping player sees
+// the bed as a lion and must be able to lie on the lion, because the bed is not
+// a word they can see any more. The row comes back as a COPY carrying `_seenAs`
+// — the world Map's rows are shared by everybody in the room and must never be
+// written to (see engine/phantoms.js). Use `seenName()` for anything the viewer
+// is told and the row's real `name` for anything the ROOM is told; one player's
+// hallucination must never reach somebody else's log.
+function furnByName(zoneId, name, viewer) {
 	const needle = String(name || "").toLowerCase();
-	return getZoneFurniture(zoneId).find((f) => (f.name || "").toLowerCase().includes(needle)) || null;
+	const hit = getZoneFurniture(zoneId).find((f) => (f.name || "").toLowerCase().includes(needle));
+	if (hit) return isTransformed(viewer?.id, hit.id) ? null : hit;
+	const t = viewer && findTransformByName(viewer.id, name);
+	if (!t) return null;
+	const real = getZoneFurniture(zoneId).find((f) => f.id === t.furnitureId);
+	return real ? { ...real, _seenAs: t.name } : null;
 }
+const seenName = (f) => f?._seenAs || f?.name;
 function furnWithInteraction(zoneId, verb) {
 	return getZoneFurniture(zoneId).find((f) => (f.flags?.interactions || []).includes(verb)) || null;
 }
@@ -26,6 +40,7 @@ import {
 } from "../../server/engine/sift.js";
 import { registerAction, dispatchAction } from "../../server/engine/actions.js";
 import { setPosture } from "../../server/engine/posture.js";
+import { findTransformByName, isTransformed } from "../../server/engine/phantoms.js";
 
 // ---------------------------------------------------------------------------
 // Context helpers
@@ -142,7 +157,7 @@ async function cmdSit(args, raw, player, broadcast) {
 	}
 
 	if (target && !floorTarget) {
-		const found = furnByName(player.current_zone, target);
+		const found = furnByName(player.current_zone, target, player);
 		const rows = found ? [found] : [];
 		if (!rows.length)
 			return { type: "emote", message: `There is no ${target} here.` };
@@ -150,16 +165,18 @@ async function cmdSit(args, raw, player, broadcast) {
 		if (!interactions.includes("sit"))
 			return {
 				type: "emote",
-				message: `You can't sit on the ${rows[0].name}.`,
+				message: `You can't sit on the ${seenName(rows[0])}.`,
 			};
 		if (posture(player) === "sitting")
 			return {
 				type: "emote",
-				message: `You are already sitting on the ${rows[0].name}.`,
+				message: `You are already sitting on the ${seenName(rows[0])}.`,
 			};
+		// The POSTURE records the real piece — everyone else's look must read it
+		// the way the room actually is, and the illusion ends when the drug does.
 		setPosture(player, "sitting", { sittingOn: rows[0].name });
 		return doEmote(
-			`You settle onto the ${rows[0].name}${mod}.`,
+			`You settle onto the ${seenName(rows[0])}${mod}.`,
 			`${player.handle} settles onto the ${rows[0].name}.`,
 			player,
 			broadcast,
@@ -198,7 +215,7 @@ async function cmdLie(args, raw, player, broadcast) {
 
 	const target = stripPrep(args, ["on", "down", "in"]);
 	if (target) {
-		const found = furnByName(player.current_zone, target);
+		const found = furnByName(player.current_zone, target, player);
 		const rows = found ? [found] : [];
 		if (!rows.length)
 			return { type: "emote", message: `There is no ${target} here.` };
@@ -206,16 +223,16 @@ async function cmdLie(args, raw, player, broadcast) {
 		if (!interactions.includes("lie"))
 			return {
 				type: "emote",
-				message: `You can't lie on the ${rows[0].name}.`,
+				message: `You can't lie on the ${seenName(rows[0])}.`,
 			};
 		if (posture(player) === "lying")
 			return {
 				type: "emote",
-				message: `You are already lying on the ${rows[0].name}.`,
+				message: `You are already lying on the ${seenName(rows[0])}.`,
 			};
 		setPosture(player, "lying", { sittingOn: rows[0].name });
 		return doEmote(
-			`You lie down on the ${rows[0].name}${mod}.`,
+			`You lie down on the ${seenName(rows[0])}${mod}.`,
 			`${player.handle} lies down on the ${rows[0].name}.`,
 			player,
 			broadcast,

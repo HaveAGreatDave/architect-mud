@@ -8,8 +8,23 @@ Two furniture rows in one zone:
 
 | Row | Flags | What the room sees |
 |---|---|---|
-| the **disguise** | `conceal_hides` = hidden row's id, `conceal_code` = factory code, `conceal_brand` (optional) | an ordinary (expensive) cabinet |
-| the **hidden** piece | `concealed: true` | nothing at all |
+| the **disguise** | `conceal_hides` = hidden row's id, `conceal_code` = factory code, `conceal_brand` (optional) | an ordinary (expensive) cabinet — **while it's shut** |
+| the **hidden** piece | `concealed: true`, `conceal_hidden_by` = disguise's id | nothing at all — **while it's shut** |
+
+**Only ever one of them is in the room.** Sealed, you see the cabinet. Open, the cabinet has folded
+into the wall cavity and the hidden piece is standing *in its slot* — same position in the
+`Furniture:` line, so opening a wall swaps one entry for another instead of reshuffling the room.
+That's `standIns` in `commands/describe.js`, keyed off `conceal_hides` pointing at a piece that is
+currently visible; a room that listed a bar wall *and* the lab it folded into would be telling on
+you. The keypad moves with it: `conceal_hidden_by` is what makes `keypad` advertise on the revealed
+piece, and the pad is how you shut it again. That flag is **discoverability only** — resolution
+derives the pair from the zone, and a hint naming the revealed piece resolves to its cabinet, so a
+missing back-pointer costs a hint and never access.
+
+The revealed piece is usually a crafting station whose own plugin writes a `furniture.describe` line
+(synthesis' `Lab:`), and that hook is last-writer-wins — which is why the keypad reaches it through
+the specialized-action registry (examine's Actions row, the smart bar) rather than the hook, where
+it was silently eaten.
 
 `flags.concealed` is not new — it's the engine's own room-description filter in
 `server/engine/commands/describe.js`, the same one a planted spy camera uses. So the hidden piece

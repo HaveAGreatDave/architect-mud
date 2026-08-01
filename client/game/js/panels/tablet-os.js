@@ -527,6 +527,24 @@ function ensureStyles() {
     #tablet-os-overlay .tos-tile:hover { filter:brightness(1.15);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 3px var(--tos-bevel-lo), 0 3px 8px rgba(0,0,0,0.28), 0 0 14px color-mix(in srgb, var(--mg-accent) 30%, transparent); }
     #tablet-os-overlay .tos-tile:active { transform:translateY(1px); box-shadow:inset 0 2px 4px var(--tos-bevel-lo); }
+    /* Installing — a brand-new app filling to 100% before it can be opened. The
+       ring sits exactly where the icon does and the percentage takes the name's
+       line, so the tile doesn't change size or move its neighbours while it runs. */
+    #tablet-os-overlay .tos-tile-installing { pointer-events:none; cursor:default;
+      border-color:color-mix(in srgb, var(--mg-accent) 60%, transparent);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 3px var(--tos-bevel-lo), 0 0 14px color-mix(in srgb, var(--mg-accent) 28%, transparent); }
+    #tablet-os-overlay .tos-tile-installing .tos-icon { opacity:.18; filter:grayscale(1); }
+    #tablet-os-overlay .tos-tile-installing .tos-name { visibility:hidden; }
+    #tablet-os-overlay .tos-install-ring { position:absolute; left:50%; top:7px; width:32px; height:32px; margin-left:-16px;
+      border-radius:50%; pointer-events:none;
+      background:conic-gradient(var(--mg-accent) calc(var(--ipct,0) * 1%), color-mix(in srgb, var(--mg-accent) 16%, transparent) 0);
+      -webkit-mask:radial-gradient(circle, transparent 11px, #000 12px); mask:radial-gradient(circle, transparent 11px, #000 12px); }
+    #tablet-os-overlay .tos-install-pct { position:absolute; left:0; right:0; bottom:9px; pointer-events:none;
+      font-size:10px; letter-spacing:.5px; color:var(--mg-accent); text-shadow:0 0 6px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
+    /* The one-shot flash when it completes and the tile goes live. */
+    @keyframes tos-installed { 0% { box-shadow:0 0 0 0 color-mix(in srgb, var(--mg-accent) 70%, transparent); }
+      100% { box-shadow:0 0 0 14px transparent; } }
+    #tablet-os-overlay .tos-tile-installed { animation:tos-installed .55s ease-out; }
     /* Drag-reorder states. The lifted tile leaves a dimmed placeholder that
        reflows through the grid; siblings glide to their new slots. */
     #tablet-os-overlay .tos-tile-ghost { opacity:.32; }
@@ -1816,6 +1834,11 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gtray-over { outline:1px dashed var(--mg-accent); outline-offset:3px; border-radius:6px; }
 
     /* Gear tabs (Loadout / Inventory). */
+    /* INV expands its acronym at the top of the app — the title sits on the row above
+       the tabs, which stay flex-end, so it reads as a masthead rather than a heading. */
+    #tablet-os-overlay .tos-inv-title { align-self:flex-start; font-size:11px; letter-spacing:2px; text-transform:uppercase;
+      color:var(--tos-fg-dim); margin-bottom:-6px; }
+    #tablet-os-overlay .tos-inv-title b { color:var(--mg-accent); font-size:15px; letter-spacing:3px; margin-right:8px; }
     #tablet-os-overlay .tos-gtabs { display:inline-flex; align-self:flex-end; border-radius:7px; overflow:hidden; border:1px solid color-mix(in srgb, var(--mg-accent) 26%, transparent); box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
     #tablet-os-overlay .tos-gtab { cursor:pointer; padding:7px 20px; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--tos-fg-dim); background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:none; border-right:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent); }
     #tablet-os-overlay .tos-gtab:last-child { border-right:none; }
@@ -4081,6 +4104,95 @@ const HOME_ROWS = 4;
 const HOME_SLOTS = HOME_COLS * HOME_ROWS;   // 16
 let _homePage = 0;   // which page is showing; survives re-renders, reset on close
 
+// ── Installing a new app ─────────────────────────────────────────────────────
+// An app that ARRIVES — the library scan unlocking LIBRARY, or the player pulling
+// one back out of the ⊕ stash — doesn't just silently appear in the grid the next
+// time you happen to look. The tablet comes up on the page the tile landed on and
+// the tile fills to 100% before it will open, which is the only moment the game has
+// to say "this is new, and it is yours" about a thing that is otherwise just one
+// more square among thirty.
+//
+// The fill is deliberately SLOW for a UI (a few seconds): the point is the ceremony,
+// not the wait, and a bar that snaps to 100% reads as a glitch rather than an event.
+const INSTALL_MS = 3200;
+let _install = null;      // { id, t0 } while a tile is filling
+let _installRaf = 0;
+let _installSeek = 0;     // pages walked looking for the tile — bounds the render loop
+
+// Arm the animation. `unhideApp` first because an install always lands ON the grid:
+// an app unlocked while its id happens to sit in this device's stash (a re-install,
+// or a stash seeded before the app existed) would otherwise animate nothing.
+function beginInstall(appId) {
+  if (!appId) return;
+  unhideApp(appId);
+  cancelInstall();
+  // Search and selection mode both re-shape the grid (search flattens it, select
+  // arms taps to pick rather than open); neither is a state an arriving app should
+  // land in the middle of.
+  _homeSearchOpen = false; _homeSearch = ''; _tosSelectMode = false;
+  _install = { id: appId, t0: 0 };
+  _installSeek = 0;
+}
+
+function cancelInstall() {
+  if (_installRaf) { cancelAnimationFrame(_installRaf); _installRaf = 0; }
+  _install = null;
+}
+
+function installTile() {
+  return _overlay?.querySelector(`.tos-tile[data-nav-app="${CSS.escape(_install.id)}"]`) || null;
+}
+
+// Called after every render while an install is armed. Re-queries the tile each
+// frame rather than holding the node: any re-render (a widget tick, a page turn)
+// replaces it, and a held reference would leave the fill painting into a detached
+// element while the live tile sat there looking finished.
+function tickInstall() {
+  if (!_install || !_overlay) return;
+  let tile = installTile();
+  if (!tile) {
+    // Not on this page. Walk forward — a newly registered app lands at the end of
+    // the last page, so this is usually one hop, and _installSeek stops it dead if
+    // the tile isn't anywhere (an app the client's roster doesn't know).
+    const pages = _overlay.querySelectorAll('.tos-page-dot').length;
+    if (_installSeek < pages && _homePage < pages - 1) { _installSeek++; _homePage++; render(); return; }
+    cancelInstall();
+    return;
+  }
+  if (!tile.classList.contains('tos-tile-installing')) {
+    tile.classList.add('tos-tile-installing');
+    const ring = document.createElement('span'); ring.className = 'tos-install-ring';
+    const pct = document.createElement('span'); pct.className = 'tos-install-pct'; pct.textContent = '0%';
+    tile.append(ring, pct);
+  }
+  if (_installRaf) return;   // already running; the re-render just re-dressed the tile
+  const step = (now) => {
+    _installRaf = 0;
+    if (!_install || !_overlay?.isConnected) { cancelInstall(); return; }
+    if (!_install.t0) _install.t0 = now;
+    const t = Math.min(1, (now - _install.t0) / INSTALL_MS);
+    const live = installTile();
+    if (!live) { tickInstall(); return; }   // re-rendered away — re-dress and carry on
+    if (!live.classList.contains('tos-tile-installing')) { tickInstall(); return; }
+    // Ease out at the end so the last few percent take visibly longer — a machine
+    // finishing, rather than a linear bar hitting the wall.
+    const p = Math.round((1 - Math.pow(1 - t, 1.7)) * 100);
+    live.style.setProperty('--ipct', String(p));
+    const label = live.querySelector('.tos-install-pct');
+    if (label) label.textContent = `${p}%`;
+    if (t < 1) { _installRaf = requestAnimationFrame(step); return; }
+    live.classList.remove('tos-tile-installing');
+    live.style.removeProperty('--ipct');
+    live.querySelector('.tos-install-ring')?.remove();
+    live.querySelector('.tos-install-pct')?.remove();
+    live.classList.add('tos-tile-installed');
+    setTimeout(() => live.classList.remove('tos-tile-installed'), 700);
+    sfx(TOS_ENTRY_DEF);
+    _install = null;
+  };
+  _installRaf = requestAnimationFrame(step);
+}
+
 // Accounting is in CELLS, and can be again now that a group box is an inline grid
 // item rather than a full-width band: a tile costs 1, a box costs the block of cells
 // it spans (cols × rows). The earlier fractional-row maths existed only to pay for a
@@ -4237,7 +4349,10 @@ function openAddAppsSheet() {
   sheet.addEventListener('click', (e) => { if (e.target === sheet) close(); });
   sheet.querySelector('[data-addsheet-close]')?.addEventListener('click', close);
   sheet.querySelectorAll('[data-readd-app]').forEach(el => el.addEventListener('click', () => {
-    unhideApp(el.getAttribute('data-readd-app'));
+    // Same ceremony as an unlocked app: it installs onto the grid rather than
+    // blinking into existence, and the sheet closes so you watch it land. (beginInstall
+    // does the unhide, and pages to wherever it lands.)
+    beginInstall(el.getAttribute('data-readd-app'));
     close();
     render();  // rebuild home from _data with the app restored
   }));
@@ -7023,7 +7138,8 @@ function renderGear(d) {
        <button class="tos-gtab${_gearTab === 'inventory' ? ' active' : ''}" data-gtab="inventory">Inventory</button>
        <button class="tos-gtab${_gearTab === 'loadout' ? ' active' : ''}" data-gtab="loadout">Gear</button>
      </div>`;
-  return `<div class="tos-gear">${tabs}${_gearTab === 'inventory' ? renderGearInventory(d) : renderGearLoadout(d)}</div>`;
+  const title = `<div class="tos-inv-title"><b>INV</b>Inventory: Necessities &amp; Vestments</div>`;
+  return `<div class="tos-gear">${title}${tabs}${_gearTab === 'inventory' ? renderGearInventory(d) : renderGearLoadout(d)}</div>`;
 }
 
 function renderGearLoadout(d) {
@@ -9908,6 +10024,11 @@ export function openTabletPanel(msg) {
   ensureChassisStyles();
   ensureStyles();
   _data = msg;
+  // `install: <appId>` — the server telling us an app just ARRIVED (see
+  // installTabletApp in plugins/tablet/index.js). Arm it before the first render so
+  // the tile is dressed the moment it exists, and page-hunted for if it isn't on
+  // page one. The tablet opening at all is the other half of the announcement.
+  if (msg.install) beginInstall(msg.install);
   // Consume the one-shot boot-skip flag on every open so it can't leak into a
   // later normal open (it only actually changes anything on a first/fresh open).
   const skip = _skipBoot; _skipBoot = false;
@@ -10564,6 +10685,11 @@ function render() {
   wireBody();
   applyTabletTheme();
 
+  // An arriving app fills in on the home grid. Only on Home — navigating into an
+  // app mid-install simply leaves it armed, and it picks up where it left off the
+  // moment the grid is back on screen.
+  if (_install && (_data.screen === 'home' || !_data.appId)) tickInstall();
+
   if (_data.view === 'fakeplay') mountFakePlay();
   if (_data.view === 'reel') wireReel();
   // The TV app mounts the shared broadcast renderer into its viewport (and tears it
@@ -10979,6 +11105,7 @@ function close() {
   if (_fakeTimer) { clearInterval(_fakeTimer); _fakeTimer = null; }
   if (_reelTimer) { clearInterval(_reelTimer); _reelTimer = null; _reelPlaying = false; }
   if (_chatUnsub) { _chatUnsub(); _chatUnsub = null; }
+  cancelInstall();   // the fill's rAF must never outlive the overlay it paints into
   _homePage = 0;     // the tablet always opens on the first page of the home screen
   _tosSelectMode = false;
   _homeSearchOpen = false; _homeSearch = '';

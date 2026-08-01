@@ -21,6 +21,18 @@
 	--font-size-base: 16px;
 	--density-padding: 16px;
 	--density-gap: 8px;
+	/* ── The three voices of the log ──────────────────────────────────────────
+	   Derived from the palette, never hardcoded, so every theme (including the
+	   light ones and custom palettes) gets them for free — they resolve against
+	   whatever --cyan/--purple/--accent the active [data-theme] on <html> sets.
+	     --speech  someone is talking. Any quoted text, anywhere.
+	     --emote   someone is doing something the engine narrated.
+	     --emote-me  someone chose those words themselves (/me).
+	   The last two are neighbours on purpose: a custom emote should read as an
+	   emote first and as "hand-written" second. */
+	--speech: var(--cyan);
+	--emote: var(--purple);
+	--emote-me: color-mix(in srgb, var(--purple) 45%, var(--accent));
 }
 
 /* Theme palettes ([data-theme="…"]) live in the shared single source of truth:
@@ -943,8 +955,47 @@ body.fsim-external #look-resize-handle { display: none; }
 	padding-left: 8px;
 	margin-left: 2px;
 }
+/* Speech and action lift off the page; ambience stays flat behind them. The
+   weight bump is doing as much work as the colour here — in a fast-scrolling
+   log, a person talking or moving should be findable without reading. */
 .msg-say {
-	color: var(--cyan);
+	color: var(--speech);
+	font-weight: 500;
+}
+/* An NPC/enemy/player attribution line the server wrote ("Marla says, …"). The
+   attribution is narration about a person — the same job an emote does — so it
+   wears --emote, and the quotes inside get .speech from the painter. Result:
+   one colour says "somebody did something", another says "somebody said
+   something", and ambience stays dim behind both. */
+.speech-line {
+	color: var(--emote);
+	font-weight: 500;
+}
+.speech-line.yell { font-weight: bold; }
+.speech-line.distant { opacity: 0.7; }
+/* Quoted dialogue, wherever it occurs — painted by paintSpeech() in render.js. */
+.speech {
+	color: var(--speech);
+	font-weight: 500;
+}
+/* An emote the engine wrote (you stand up, you fist bump someone). */
+.msg-emote {
+	color: var(--emote);
+	font-style: italic;
+}
+/* A /me emote — the player wrote these words. Off-colour from .msg-emote and
+   carrying a hairline rail, so a hand-written action is never mistaken for
+   something the game said about you. */
+.msg-emote-me {
+	color: var(--emote-me);
+	font-style: italic;
+	border-left: 2px solid color-mix(in srgb, var(--emote-me) 60%, transparent);
+	padding-left: 7px;
+	margin-left: 1px;
+}
+.msg-emote-me .speech,
+.msg-emote .speech {
+	font-style: normal;
 }
 .msg-zone-event {
 	color: var(--text-dim);
@@ -2209,6 +2260,19 @@ body.fsim-external #look-resize-handle { display: none; }
 .furniture-link[data-ftype="security_device"],
 .furniture-link[data-ftype="broadcast_camera"] {
 	color: color-mix(in oklab, var(--orange) 58%, var(--cyan, #28e5ff));
+}
+/* A satellite piece hanging off its parent's entry — a deck under its television
+   (describe.js `attachedSpan`). Reads as subordinate to the thing above it: the
+   turnstile glyph is unclickable punctuation, the link itself a size down and
+   cooled toward cyan like the other machines you operate. */
+.furniture-attach {
+	color: var(--text-dim, #8888a8);
+	opacity: 0.7;
+	font-size: 0.9em;
+}
+.furniture-link.furniture-attached {
+	font-size: 0.92em;
+	color: color-mix(in oklab, var(--orange) 55%, var(--cyan, #28e5ff));
 }
 .furniture-link[data-ftype="window"] {
 	color: color-mix(in oklab, var(--orange) 66%, var(--cyan, #28e5ff));
@@ -6253,6 +6317,32 @@ body.asleep #output {
 	transition: filter 0.9s ease, opacity 0.9s ease;
 }
 body.asleep #area-pane { opacity: 0.25; }
+
+/* ─── A NAME COMING APART ───
+   Played by playNameMorph() in render.js while a name in the room pane changes
+   into what the tripper is seeing instead. Monospaced mid-flight so the letters
+   don't jitter sideways as the noise glyphs swap in, and lit slightly hot so the
+   change reads as something happening rather than a render glitch. */
+.name-morphing {
+	font-family: var(--font-mono, monospace);
+	color: var(--cyan);
+	text-shadow: 0 0 6px color-mix(in srgb, var(--cyan) 55%, transparent);
+}
+
+/* ─── A DREAM, WHILE ASLEEP ───
+   The blur is there so the room behind your eyelids is unreadable. A dream is
+   the one thing sleep is meant to SHOW you, so while one is on screen the log
+   comes back — the room pane stays gone, because you still aren't in it. */
+body.asleep.dreaming-line #output {
+	filter: none;
+	opacity: 1;
+	pointer-events: auto;
+	user-select: auto;
+}
+.dream-line {
+	color: var(--cyan);
+	font-style: italic;
+}
 #area-pane, #output { transition: filter 0.5s ease, opacity 0.5s ease; }
 
 /* ─── BOTTOM BAR (quick-cmds + dpad) ─── */
@@ -9815,6 +9905,11 @@ body.ck-fullscreen #mob-dpad {
 }
 .tv-sched-title { font-weight: bold; letter-spacing: 1px; color: var(--tv-header-color, #37d67a); font-size: 13px; text-transform: uppercase; }
 .tv-sched-clock { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--tv-text, #b8d4c8); white-space: nowrap; }
+.tv-sched-day-head {
+	flex: 0 0 auto; padding-bottom: 5px; margin-bottom: 3px;
+	font-size: 11.5px; letter-spacing: 0.6px; text-transform: uppercase;
+	color: var(--tv-text, #b8d4c8); opacity: 0.85;
+}
 .tv-sched-list { flex: 1 1 auto; overflow-y: auto; }
 .tv-sched-row {
 	display: flex; align-items: baseline; gap: 10px;
@@ -9830,6 +9925,16 @@ body.ck-fullscreen #mob-dpad {
 .tv-sched-row.now { background: rgba(0, 220, 180, 0.1); }
 .tv-sched-row.now .tv-sched-when { color: var(--tv-header-color, #37d67a); font-weight: bold; }
 .tv-sched-row.now .tv-sched-name { color: #fff; font-weight: bold; }
+/* Day-specific slots sit inline with the everyday grid; amber tells them apart. */
+.tv-sched-row.weekly .tv-sched-when,
+.tv-sched-row.weekly .tv-sched-name { color: #ffb454; }
+.tv-sched-row.now.weekly .tv-sched-name { color: #ffd79a; }
+.tv-sched-day {
+	margin-left: 6px; padding: 0 4px; border-radius: 2px;
+	font-size: 10px; letter-spacing: 0.5px; text-transform: uppercase;
+	color: #241a08; background: #ffb454;
+}
+.tv-sched-key { color: #ffb454; }
 .tv-sched-empty { padding: 20px 8px; text-align: center; color: rgba(220, 240, 235, 0.5); font-size: 12.5px; }
 .tv-sched-foot { flex: 0 0 auto; padding-top: 5px; font-size: 10.5px; color: rgba(220, 240, 235, 0.35); text-align: center; }
 
@@ -15226,3 +15331,198 @@ body.intro-cine-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
 	.card-pull, .card-tear { animation: none !important; }
 }
+
+/* ── Preparation Workspace Panel ──────────────────────────────────────────────
+   An industrial readout, not a web app: monospace throughout, double rules
+   instead of cards, and colour reserved for the two things that are actually
+   changing (a lit burner, a failed utility). Everything else is text on the
+   theme background, which is what makes the dense version readable at all. */
+#workspace-panel {
+	display: none;
+	position: fixed;
+	inset: 0;
+	background: transparent;
+	z-index: 150;
+	align-items: center;
+	justify-content: center;
+}
+#workspace-panel.active { display: flex; }
+#workspace-box {
+	background: var(--bg2);
+	border: 1px solid var(--cyan);
+	padding: 18px 20px;
+	width: 94%;
+	max-width: 760px;
+	max-height: 86vh;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	font-family: var(--font-mono);
+	font-size: 13px;
+	line-height: 1.5;
+}
+#workspace-header {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+	border-bottom: 3px double var(--border);
+	padding-bottom: 8px;
+}
+#workspace-header h2 {
+	color: var(--cyan);
+	font-size: 14px;
+	letter-spacing: 3px;
+	text-transform: uppercase;
+	margin: 0;
+}
+#workspace-provider {
+	color: var(--text-dim);
+	font-size: 11px;
+	letter-spacing: 1px;
+	flex: 1;
+}
+#workspace-close {
+	background: none;
+	border: none;
+	color: var(--text-dim);
+	cursor: pointer;
+	font-family: var(--font-mono);
+	font-size: 14px;
+}
+#workspace-close:hover { color: var(--accent); }
+#workspace-body { overflow-y: auto; flex: 1; }
+
+.wsp-section { margin-bottom: 14px; }
+/* The section rule: a label sitting on a double line that runs the full width.
+   The line is a border rather than a run of ═ so it survives any font. */
+.wsp-rule {
+	border-top: 3px double var(--border);
+	margin-bottom: 4px;
+	padding-top: 4px;
+}
+.wsp-label {
+	color: var(--cyan);
+	text-transform: uppercase;
+	letter-spacing: 2px;
+	font-size: 11px;
+}
+.wsp-row { white-space: pre-wrap; }
+.wsp-name { color: var(--text-bright); }
+.wsp-qty { color: var(--text-dim); }
+.wsp-state { color: var(--text-dim); }
+.wsp-note { color: var(--purple); }
+.wsp-empty { color: var(--text-dim); font-style: italic; }
+.wsp-vessel { margin-top: 4px; }
+.wsp-vessel .wsp-name { color: var(--text); letter-spacing: 1px; }
+/* A pan on the heat, and food mid-cook. The only moving parts on the panel, and
+   the only two things that get colour. */
+.wsp-hot .wsp-name { color: var(--orange); }
+.wsp-live .wsp-name { color: var(--orange); }
+.wsp-heat {
+	color: var(--orange);
+	font-size: 11px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+}
+.wsp-cold {
+	color: var(--cyan);
+	font-size: 11px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+}
+
+.wsp-status {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	gap: 2px 18px;
+}
+.wsp-stat { display: flex; justify-content: space-between; gap: 10px; }
+.wsp-stat-label { color: var(--text-dim); text-transform: uppercase; font-size: 11px; letter-spacing: 1px; }
+.wsp-stat-val { color: var(--text); }
+.wsp-stat-val.wsp-ok { color: var(--green); }
+.wsp-stat-val.wsp-warn { color: var(--yellow); }
+.wsp-stat-val.wsp-off { color: var(--red); }
+
+#workspace-footer {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+	border-top: 3px double var(--border);
+	padding-top: 8px;
+}
+
+/* Action strip — phase 2. Dim until the row is hovered or a button is focused,
+   so a dense panel stays readable and the verbs surface only where you're
+   looking. Keyboard reaches them the same way the mouse does: they are real
+   buttons in document order. */
+.wsp-acts { margin-left: 8px; opacity: 0.35; transition: opacity 120ms ease; }
+.wsp-row:hover .wsp-acts,
+.wsp-acts:focus-within { opacity: 1; }
+.wsp-act {
+	background: none;
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	font-family: var(--font-mono);
+	font-size: 10px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	padding: 0 5px;
+	margin-right: 3px;
+	cursor: pointer;
+	border-radius: 0;
+}
+.wsp-act:hover { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.wsp-act:focus-visible { outline: 1px solid var(--cyan); outline-offset: 1px; }
+/* A command that still needs an object from the player. Marked so it doesn't
+   read as one click away from happening — it fills the input line instead. */
+.wsp-act-partial { border-style: dashed; }
+
+/* Recipe Assistant — phase 3. A completion bar in box-drawing blocks, because a
+   styled div would be the one graphical element on an otherwise textual panel. */
+.wsp-group {
+	color: var(--text-dim);
+	text-transform: uppercase;
+	letter-spacing: 2px;
+	font-size: 10px;
+	margin-top: 6px;
+}
+.wsp-recipe .wsp-name { color: var(--text); }
+.wsp-bar { color: var(--green); letter-spacing: -1px; }
+
+/* A cold box shows only perishables in the stow column; this says so, quietly,
+   so the filtered list doesn't read as an empty pack. */
+.ctr-inv-note {
+	color: var(--text-dim);
+	font-size: 10px;
+	letter-spacing: 1px;
+	margin-bottom: 4px;
+	min-height: 12px;
+}
+
+/* Reading a recipe: the steps under it, and what it would use picked out of the
+   lists above. The marker sits in the gutter so a fridge of twenty things reads
+   as a list with four picked out, rather than twenty subtly different colours. */
+.wsp-recipe { cursor: pointer; }
+.wsp-recipe:hover .wsp-name { color: var(--text-bright); }
+.wsp-recipe.wsp-open .wsp-name { color: var(--cyan); }
+.wsp-step {
+	color: var(--text-dim);
+	padding-left: 16px;
+	font-size: 12px;
+}
+.wsp-mark-note { color: var(--yellow); opacity: .8; }
+.wsp-mark {
+	color: var(--yellow);
+	display: inline-block;
+	width: 12px;
+	margin-left: -12px;
+}
+.wsp-wanted .wsp-name { color: var(--yellow); }
+
+.wsp-pullall { margin-top: 4px; padding-left: 14px; }
+
+/* Shop stock that's on your shopping list and still outstanding (set server-side
+   by the shop.stock hook). Marked in the gutter, not recoloured wholesale — a
+   shelf of forty things should read as a list with three picked out of it. */
+.shop-row.shop-wanted .nm { color: var(--yellow); }
+.shop-mark { color: var(--yellow); margin-right: 3px; }

@@ -1,6 +1,128 @@
 {
   "banter": [],
-  "behaviour_graph": {},
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "collect_safe",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
   "chitchat": [
     "Tomasz adds a line to the ledger, considers it, and crosses it out again.",
     "\"On the tab? Fine. Fine. Don't make a thing of it.\"",
@@ -8,8 +130,34 @@
   ],
   "description": "An old grocer in a cardigan with the elbows gone, who runs a tab for half of Marrow Street and has never once written down what he is actually owed by any of them, on the grounds that the ledger is for the ones who'd be embarrassed to be reminded. He knows what everyone on this street eats, and therefore roughly how they are doing.",
   "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mm.\" The ledger comes back open before you're through the door."
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Corner shop on a corner. Everyone turns here, and everyone says something while they're turning.\""
+    },
+    "ledger": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Tab.\" He puts a hand flat on it. \"Half the street's in there and not one of them's been chased for it. If a man's on the tab it's because a week went badly, and a week goes badly for everyone eventually.\" He shrugs. \"They pay when they can. Mostly they do. The ones who don't, I stop writing down, which is not the same as forgetting.\""
+    },
     "root": {
-      "text": "The old man looks up from a ledger. \"Ah. Someone I don't know.\" He closes it, unhurried. \"Tinned's on the left, dry's on the right, cold's under the board, and I don't stock anything you'd want a drink out of on a Friday. What do you need?\"",
       "options": [
         {
           "label": "Let's see the shelves.",
@@ -31,43 +179,17 @@
           "label": "Nothing, thanks.",
           "next": "bye"
         }
-      ]
-    },
-    "ledger": {
-      "text": "\"Tab.\" He puts a hand flat on it. \"Half the street's in there and not one of them's been chased for it. If a man's on the tab it's because a week went badly, and a week goes badly for everyone eventually.\" He shrugs. \"They pay when they can. Mostly they do. The ones who don't, I stop writing down, which is not the same as forgetting.\"",
-      "options": [
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ]
+      ],
+      "text": "The old man looks up from a ledger. \"Ah. Someone I don't know.\" He closes it, unhurried. \"Tinned's on the left, dry's on the right, cold's under the board, and I don't stock anything you'd want a drink out of on a Friday. What do you need?\""
     },
     "street": {
-      "text": "\"I know what they eat.\" He says it like it's the same thing, and it more or less is. \"Fella stops buying the tinned and starts buying the rice, something's happened. Woman starts buying two of everything, something good's happened. You don't have to ask people anything if you're paying attention at the till.\"",
       "options": [
         {
           "label": "Back.",
           "next": "root"
-        }
-      ]
-    },
-    "gossip": {
-      "actions": [
-        {
-          "action": "GOSSIP_TELL"
         }
       ],
-      "text": "\"Corner shop on a corner. Everyone turns here, and everyone says something while they're turning.\"",
-      "options": [
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ]
-    },
-    "bye": {
-      "text": "\"Mm.\" The ledger comes back open before you're through the door.",
-      "options": []
+      "text": "\"I know what they eat.\" He says it like it's the same thing, and it more or less is. \"Fella stops buying the tinned and starts buying the rice, something's happened. Woman starts buying two of everything, something good's happened. You don't have to ask people anything if you're paying attention at the till.\""
     }
   },
   "faction": null,
@@ -80,7 +202,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_kessel_shop",
+  "home_zone": "zone_meridian_unit_201",
   "hp": 40,
   "hp_max": 40,
   "id": "npc_kessel_grocer",
@@ -172,31 +294,13 @@
   ],
   "vendor_restock_rate": 3,
   "vendor_schedule": {
-    "mon": [
-      {
-        "from": 5,
-        "to": 26
-      }
-    ],
-    "tue": [
-      {
-        "from": 5,
-        "to": 26
-      }
-    ],
-    "wed": [
-      {
-        "from": 5,
-        "to": 26
-      }
-    ],
-    "thu": [
-      {
-        "from": 5,
-        "to": 26
-      }
-    ],
     "fri": [
+      {
+        "from": 5,
+        "to": 26
+      }
+    ],
+    "mon": [
       {
         "from": 5,
         "to": 26
@@ -213,11 +317,29 @@
         "from": 5,
         "to": 26
       }
+    ],
+    "thu": [
+      {
+        "from": 5,
+        "to": 26
+      }
+    ],
+    "tue": [
+      {
+        "from": 5,
+        "to": 26
+      }
+    ],
+    "wed": [
+      {
+        "from": 5,
+        "to": 26
+      }
     ]
   },
   "vendor_shop_name": "Bodega Vu",
   "vendor_stock_size": 26,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_kessel_shop"
 }

@@ -10,6 +10,7 @@
   },
   "flags": {
     "color": "#5a8a3a",
+    "drug_family": "cannabis",
     "form": "leaf",
     "legal": true,
     "sub": "dried"

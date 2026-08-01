@@ -254,6 +254,8 @@ export const hooks = {
 
 `fireHook(name, ...args)` calls all subscribers in load order. If any handler returns a non-undefined value, the last such return is passed back to the caller — hooks can inject content, not just react to events.
 
+`gatherHook(name, ...args)` calls the same subscribers but keeps **every** non-undefined return, flattened one level. Use it wherever the question is "what does everyone have to contribute" rather than "what is this value" — senses, and the room description. `zone.describeRoom` was moved to `gatherHook` on 2026-08-01: seven plugins register it and they can co-occur (a tagged wall on an airfield tile is both things at once), so under `fireHook` the last-loaded plugin silently ate the others' line. The hook table below marks which shape each hook uses.
+
 **2. Commands** — a plugin can own player-typed commands:
 
 ```js
@@ -298,13 +300,14 @@ not hooks: `zone.entered` is emitted on the event bus at `commands/movement.js:4
 | `player.death` | `gameLoop.js:614` | `(player, killer)` | No |
 | `player.respawnZone` | `gameLoop.js:523` | `(player, killer)` | Yes — overrides the respawn zone |
 | `zone.describeAmbient` | `gameLoop.js:632` ambientTick | `(zone)` | Yes — broadcast as ambient text |
-| `zone.describeRoom` | `commands/describe.js:537` | `(zone, player)` | Yes — appended to room description |
+| `zone.describeRoom` | `commands/describe.js:1029` | `(zone, player)` | **GATHERED** — every contributor's line is appended to the room description, newline-joined |
 | `zone.introLore` | `commands/describe.js:568` | `(zone, player)` | Yes |
 | `zone.furniturePanel` | `commands/describe.js:487` | `(zone, furniture, player)` | Yes |
 | `visibility.perceive` | `commands/describe.js:363`, `combat.js:25`, `environment.routes.js:82` | `(perceiver, vis, zone?)` | Yes — the perceiver's effective light |
 | `movement.edge` | `commands/movement.js:356` | `{ player, zone, direction, broadcast, opts }` | Yes |
 | `movement.arriveMessage` | `commands/movement.js:478` | `{ player, fromZone, toZoneId, direction, arrivalDir, defaultMessage }` | Yes |
 | `npc.talk` | `commands/social.js:25` | `{ player, npc, broadcast }` | Yes |
+| `dialogue.synthetic` | `index.js` `handleDialogue` | `{ player, npcId, choice, optionIndex, broadcast }` | Yes — the next dialogue frame, sent verbatim. Fired only for an `npcId` containing `:`, i.e. one no `npcs` row can own, so a plugin can hold a conversation with something that does not exist (see plugins/trip). Claim your own prefix and return `undefined` for anyone else's. |
 | `speech.transform` | `commands/social.js:73` | `{ player, text }` | Yes — replaces the spoken text |
 | `player.say` | `commands/social.js:79` | `{ player, text, zoneId, broadcast }` | No |
 | `player.appearanceNotes` | `commands/world.js:312` | `{ target, viewer, isSelf }` | Yes |

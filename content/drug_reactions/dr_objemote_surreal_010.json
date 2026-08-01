@@ -1,0 +1,10 @@
+{
+  "id": "dr_objemote_surreal_010",
+  "drug_id": null,
+  "source": "object_emote",
+  "tone": "surreal",
+  "self_line": "{it} takes the light for a second and gives it back a shade warmer.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

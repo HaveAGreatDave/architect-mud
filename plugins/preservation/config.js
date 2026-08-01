@@ -31,6 +31,16 @@ export const SPOIL_RATE_FACTOR = {
 // A 'normal' item at 'ambient' tier fully spoils (100 -> 0) in ~48 hours.
 export const BASE_DECAY_PER_HOUR = 100 / 48;
 
+// An antioxidant dosed into the food itself (BHT — see preserve.js) multiplies
+// the decay rate wherever the item happens to be sitting. Roughly "a shelf
+// becomes a cold room", and it stacks with real refrigeration rather than
+// replacing it.
+export const ADDITIVE_FACTOR = 0.3;
+
+// Freshness below this is rot already underway — an antioxidant slows oxidation,
+// it does not undo it, so dosing is refused rather than silently wasted.
+export const ADDITIVE_MIN_FRESHNESS = 25;
+
 // Preservation-tier ranking — a stronger environment satisfies a weaker
 // requirement (a freezer keeps "refrigerated" food fine).
 export const TIER_RANK = { ambient: 0, refrigerated: 1, frozen: 2 };

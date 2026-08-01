@@ -1,6 +1,128 @@
 {
   "banter": [],
-  "behaviour_graph": {},
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "collect_safe",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
   "chitchat": [
     "Odile looks at your shoulders, then your boots, and names a size without asking.",
     "\"Cold doesn't negotiate. Neither do I, but I'm cheaper.\"",
@@ -8,8 +130,47 @@
   ],
   "description": "A small, sharp woman with a tape measure round her neck and a habit of sizing you before you've finished the doorway. She spent a long time working outside and is entirely unsentimental about what that does to a person. She will sell you the cheap coat if you insist. She will also tell you, precisely, what month you will regret it.",
   "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"You're not,\" she says, already re-hanging a parka. \"But you'll find that out.\""
+    },
+    "chart": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Mine. Nineteen years on outside crews.\" She doesn't elaborate on the annotations, and there are a lot of them. \"Every line on that chart is somebody. I don't put the names on because people stop reading it when you put the names on.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Crews come in here before they go out and after they come back. You learn to tell the difference from the doorway.\""
+    },
+    "need": {
+      "options": [
+        {
+          "label": "Start with the gloves.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Boots, gloves, a hood.\" She counts them off. \"Everyone spends their money on the coat because the coat is the bit people see. Then they lose two fingers, because nobody looks at your hands.\" She taps the glove rack. \"Coat last. Always coat last.\""
+    },
     "root": {
-      "text": "Odile looks at your shoulders, then your boots, and has already decided. \"You're dressed for indoors and you don't live indoors.\" The tape measure comes off her neck. \"I can fix that in about four minutes. Or you can browse and be wrong slower.\"",
       "options": [
         {
           "label": "Fix it, then.",
@@ -31,47 +192,8 @@
           "label": "I'm fine as I am.",
           "next": "bye"
         }
-      ]
-    },
-    "need": {
-      "text": "\"Boots, gloves, a hood.\" She counts them off. \"Everyone spends their money on the coat because the coat is the bit people see. Then they lose two fingers, because nobody looks at your hands.\" She taps the glove rack. \"Coat last. Always coat last.\"",
-      "options": [
-        {
-          "label": "Start with the gloves.",
-          "next": "__shop__"
-        },
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ]
-    },
-    "chart": {
-      "text": "\"Mine. Nineteen years on outside crews.\" She doesn't elaborate on the annotations, and there are a lot of them. \"Every line on that chart is somebody. I don't put the names on because people stop reading it when you put the names on.\"",
-      "options": [
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ]
-    },
-    "gossip": {
-      "actions": [
-        {
-          "action": "GOSSIP_TELL"
-        }
       ],
-      "text": "\"Crews come in here before they go out and after they come back. You learn to tell the difference from the doorway.\"",
-      "options": [
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ]
-    },
-    "bye": {
-      "text": "\"You're not,\" she says, already re-hanging a parka. \"But you'll find that out.\"",
-      "options": []
+      "text": "Odile looks at your shoulders, then your boots, and has already decided. \"You're dressed for indoors and you don't live indoors.\" The tape measure comes off her neck. \"I can fix that in about four minutes. Or you can browse and be wrong slower.\""
     }
   },
   "faction": null,
@@ -84,7 +206,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_secondskin_floor",
+  "home_zone": "zone_meridian_unit_401",
   "hp": 40,
   "hp_max": 40,
   "id": "npc_secondskin_fitter",
@@ -204,31 +326,13 @@
   ],
   "vendor_restock_rate": 3,
   "vendor_schedule": {
-    "mon": [
-      {
-        "from": 8,
-        "to": 22
-      }
-    ],
-    "tue": [
-      {
-        "from": 8,
-        "to": 22
-      }
-    ],
-    "wed": [
-      {
-        "from": 8,
-        "to": 22
-      }
-    ],
-    "thu": [
-      {
-        "from": 8,
-        "to": 22
-      }
-    ],
     "fri": [
+      {
+        "from": 8,
+        "to": 22
+      }
+    ],
+    "mon": [
       {
         "from": 8,
         "to": 22
@@ -245,11 +349,29 @@
         "from": 8,
         "to": 22
       }
+    ],
+    "thu": [
+      {
+        "from": 8,
+        "to": 22
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 22
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 22
+      }
     ]
   },
   "vendor_shop_name": "Layers",
   "vendor_stock_size": 38,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_secondskin_floor"
 }

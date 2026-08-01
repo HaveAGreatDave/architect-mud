@@ -68,7 +68,8 @@
       "no garment — the machine is the uniform"
     ],
     "mis_willing": false,
-    "personality": "guard"
+    "personality": "guard",
+    "posted": true
   },
   "home_activities": [],
   "home_zone": "zone_asc_gate_post",

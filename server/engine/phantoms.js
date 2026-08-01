@@ -50,15 +50,20 @@ export function addTransform(playerId, furnitureId, spec) {
 // playerId -> { zoneId, line }
 const roomTransformByPlayer = new Map();
 
-export function setRoomTransform(playerId, zoneId, line) {
-  if (!line) { roomTransformByPlayer.delete(playerId); return null; }
-  const spec = { zoneId, line };
+export function setRoomTransform(playerId, zoneId, line, name) {
+  if (!line && !name) { roomTransformByPlayer.delete(playerId); return null; }
+  const spec = { zoneId, line, name: name || null };
   roomTransformByPlayer.set(playerId, spec);
   return spec;
 }
 export function getRoomTransform(playerId, zoneId) {
   const t = roomTransformByPlayer.get(playerId);
   return t && t.zoneId === zoneId ? t.line : null;
+}
+/** What the ROOM ITSELF is called for this viewer, or null to use its real name. */
+export function getRoomTransformName(playerId, zoneId) {
+  const t = roomTransformByPlayer.get(playerId);
+  return t && t.zoneId === zoneId ? (t.name || null) : null;
 }
 
 // The weather, misbehaving, for one viewer. Kept apart from the room warp
@@ -78,8 +83,58 @@ export function getWeatherWarp(playerId, zoneId) {
   return w && w.zoneId === zoneId ? w.line : null;
 }
 
+// ── People, misbehaving ──────────────────────────────────────────────────────
+//
+// The same law again, pointed at the room's living occupants: for ONE viewer,
+// the bartender is a heron in an apron. Held apart from the furniture map
+// because the resolution rule differs — a person's real name still answers.
+// You have known Marla for weeks; typing her name while your eyes are lying to
+// you must not fail, and a hallucination that BLOCKED talking to a real person
+// would take gameplay away rather than adding weirdness to it.
+//
+// playerId -> Map(npcId -> { name, description, looks[], says[], emotes[], asks[] })
+const npcTransformsByPlayer = new Map();
+
+export function addNpcTransform(playerId, npcId, spec) {
+  if (!npcTransformsByPlayer.has(playerId)) npcTransformsByPlayer.set(playerId, new Map());
+  npcTransformsByPlayer.get(playerId).set(npcId, spec);
+  return spec;
+}
+export function getNpcTransform(playerId, npcId) {
+  return npcTransformsByPlayer.get(playerId)?.get(npcId) ?? null;
+}
+export function getNpcTransforms(playerId) {
+  const m = npcTransformsByPlayer.get(playerId);
+  return m ? [...m.entries()].map(([npcId, spec]) => ({ npcId, ...spec })) : [];
+}
+export function findNpcTransformByName(playerId, target) {
+  const t = String(target || '').toLowerCase().trim();
+  if (!t) return null;
+  return getNpcTransforms(playerId).find(x => {
+    const n = String(x.name || '').toLowerCase();
+    return n.includes(t) || n.split(/[^a-z0-9]+/).some(w => w && w.startsWith(t));
+  }) || null;
+}
+
+/**
+ * Overlay a viewer's people-transforms onto an NPC list.
+ *
+ * ⚠ COPIES, ALWAYS — same rule as applyTransforms: `getZoneNpcs` hands back the
+ * shared world rows. `_realName` rides along so a caller that needs to act on
+ * the actual person (dialogue, relations) can still get at them.
+ */
+export function applyNpcTransforms(playerId, npcs) {
+  const m = npcTransformsByPlayer.get(playerId);
+  if (!m?.size || !Array.isArray(npcs)) return npcs;
+  return npcs.map(n => {
+    const t = m.get(n.id);
+    return t ? { ...n, name: t.name || n.name, _realName: n.name, _transformed: t } : n;
+  });
+}
+
 export function clearTransforms(playerId) {
   transformsByPlayer.delete(playerId);
+  npcTransformsByPlayer.delete(playerId);
   roomTransformByPlayer.delete(playerId);
   weatherWarpByPlayer.delete(playerId);
 }
@@ -90,6 +145,36 @@ export function getTransform(playerId, furnitureId) {
 export function getTransforms(playerId) {
   const m = transformsByPlayer.get(playerId);
   return m ? [...m.entries()].map(([furnitureId, spec]) => ({ furnitureId, ...spec })) : [];
+}
+
+/**
+ * Resolve a target string against what the room LOOKS like to this viewer.
+ *
+ * THE NEW NAME IS THE ONLY NAME. If the bed is a sleeping lion, the player sees
+ * "a sleeping lion" in the room and must type `examine lion` — typing `bed`
+ * would be typing something they cannot see, and would give the trick away by
+ * answering. So callers pair this with `isTransformed` and drop the underlying
+ * row from their own name matching: one furniture id, one name, whichever name
+ * that viewer is being shown.
+ *
+ * Matches the way SIFT does at its loosest — case-insensitive substring on the
+ * whole name and on any word in it — because "lion" must find "a sleeping lion".
+ * Returns { furnitureId, ...spec } or null.
+ */
+export function findTransformByName(playerId, target) {
+  const t = String(target || '').toLowerCase().trim();
+  if (!t) return null;
+  const all = getTransforms(playerId);
+  if (!all.length) return null;
+  return all.find(x => {
+    const n = String(x.name || '').toLowerCase();
+    return n.includes(t) || n.split(/[^a-z0-9]+/).some(w => w && w.startsWith(t));
+  }) || null;
+}
+
+/** Is this particular piece wearing another shape for this viewer? */
+export function isTransformed(playerId, furnitureId) {
+  return !!transformsByPlayer.get(playerId)?.has(furnitureId);
 }
 
 /**
@@ -109,7 +194,10 @@ export function applyTransforms(playerId, furniture) {
   if (!m?.size || !Array.isArray(furniture)) return furniture;
   return furniture.map(f => {
     const t = m.get(f.id);
-    return t ? { ...f, name: t.name || f.name, description: t.description || f.description, _transformed: t } : f;
+    // `_realName` rides along for two callers: the room render, which tells the
+    // client what this thing WAS so the pane can play the change letter by
+    // letter, and anything that has to act on the actual row.
+    return t ? { ...f, name: t.name || f.name, description: t.description || f.description, _realName: f.name, _transformed: t } : f;
   });
 }
 

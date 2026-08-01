@@ -66,7 +66,7 @@ const DOOR_YELL_LINES = [
   name => `${name} pounds on the door: "I've CALLED THE COPS — you hear me?!"`,
   name => `${name} shouts through the door: "Get the hell away from my home!"`,
   name => `${name} snarls through the door: "I know you're out there, you piece of—"`,
-  name => `${name} yells: "Precinct Nine's on the line RIGHT NOW, you're finished!"`,
+  name => `${name} yells, "Precinct Nine's on the line RIGHT NOW, you're finished!"`,
   name => `${name} bangs something heavy against the door: "Try it. TRY it and see."`,
 ];
 // High urgency: the intruder is inside the unit. Terror — screaming for help,

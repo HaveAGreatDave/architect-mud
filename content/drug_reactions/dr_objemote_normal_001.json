@@ -1,0 +1,10 @@
+{
+  "id": "dr_objemote_normal_001",
+  "drug_id": null,
+  "source": "object_emote",
+  "tone": "normal",
+  "self_line": "{it} shifts, and something inside it clicks twice and stops.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

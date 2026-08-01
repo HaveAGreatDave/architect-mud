@@ -422,7 +422,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_lw_shop",
+  "home_zone": "zone_lw_bunk",
   "hp": 26,
   "hp_max": 26,
   "id": "npc_lw_halloran",

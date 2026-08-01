@@ -128,6 +128,15 @@ are now gap-free at `max = 9`.
 Collision deliberately reads the **live** capture rather than the bake, so models whose shape varies
 with the tile seed (rooftop clutter) collide as they are actually drawn on that tile.
 
+**Hitting a building is fatal unless you were barely moving.** The outcome is a SPEED rule, not a
+depth rule (`CFIT_BOUNCE_KT = 18`, cockpit.js): at or below a crawl she **bounces** — shoved back
+along her own track, stopped dead, a scrape's worth of hull — and above it she is written off,
+however shallow the graze. This replaced a penetration-depth test that let a 140kt scrape along a
+roofline count as a survivable "clip" while a helicopter drifting sideways into a wall at 8kt died.
+The bounce is a **positional shove, not a pop up to the roofline**: the old version lifted you to
+`roofFt + 25`, which would throw a heli hovering beside a tower straight up onto its roof. The point
+is to be kept OUT of the structure, not lifted over it.
+
 ## The bake
 
 `client/shared/building-shapes.js` is generated — **never edit it by hand**.

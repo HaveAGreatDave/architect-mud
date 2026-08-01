@@ -5,6 +5,9 @@
 // as its own row (the instanced-merge guard on pull). The cook/splice minigames
 // themselves are driven client-side and covered by their own client flow.
 import { query } from '../../server/models/db.js';
+import { insertFurniture, deleteFurniture } from '../../server/engine/world.js';
+import { getRegisteredCommands } from '../../server/engine/plugins.js';
+import { builtinCommandNames } from '../../server/engine/commands/index.js';
 import { hooks, _test } from './index.js';
 
 export default async function regress({ run, check, getPlayer }) {
@@ -59,6 +62,64 @@ export default async function regress({ run, check, getPlayer }) {
   check('hub hides splice from a non-splicer', !/data-raw-cmd="splice"/.test(hub || ''), hub);
   check('hub ignores non-lab furniture',
     (await hooks['furniture.describe']({ id: 'x', name: 'a chair', flags: {} }, p)) === undefined);
+
+  // ── the `chembench` workspace provider ─────────────────────────────────────
+  //
+  // The point of these is not the chemistry — it's that a SECOND workspace works
+  // through the same seam as the first. Nothing in plugins/workspace or its
+  // client panel knows this domain exists, and none of it changed to add it.
+  {
+    const saved = p.current_zone;
+    const BENCH = 'furn_synth_workspace_regress';
+    const Z = 'zone_synth_workspace_regress';
+    try {
+      await insertFurniture({
+        id: BENCH, name: 'test chem bench', description: 'a test bench', object_type: 'container',
+        zone_id: Z, flags: JSON.stringify({ crafting_station: 'chem_lab', station_quality: 'refined' }),
+      }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id, object_type=EXCLUDED.object_type');
+      p.current_zone = Z;
+
+      let w = await run('workspace');
+      check('a chem lab makes the room a chembench workspace',
+        w?.type === 'workspace_view' && w.provider === 'chembench', JSON.stringify(w?.type ?? w));
+      check('...rendering through the SAME payload the kitchen uses',
+        Array.isArray(w.storage) && Array.isArray(w.area) && Array.isArray(w.status), Object.keys(w).join(','));
+      check('...reporting the bench, its rank gate and the station bonus',
+        w.status.some(s => s.label === 'Bench' && /test chem bench/.test(s.value))
+        && w.status.some(s => s.label === 'Chemistry')
+        && w.status.some(s => s.label === 'Splice'), JSON.stringify(w.status));
+      check('...with the station quality bonus spelled out',
+        w.status.some(s => s.label === 'Station bonus' && s.value === '+2'), JSON.stringify(w.status));
+      check('the bench is the Preparation Area, and offers its own verbs',
+        w.area[0]?.id === BENCH && w.area[0].actions.some(a => a.command === 'synthesize'), JSON.stringify(w.area));
+      check('the Assistant lists what this bench could turn out',
+        !!w.assistant && w.assistant.groups.length > 0, JSON.stringify(w.assistant?.note));
+
+      // The rule holds across domains: every action is still a real verb.
+      const acts = [
+        ...w.area.flatMap(a => a.actions || []),
+        ...w.components.flatMap(c => c.actions || []),
+        ...(w.assistant?.groups || []).flatMap(g => g.recipes.flatMap(x => x.actions || [])),
+      ];
+      const known = new Set([...builtinCommandNames(), ...getRegisteredCommands()]);
+      const bad = acts.map(a => a.command.trim().split(/\s+/)[0]).filter(v => !known.has(v));
+      check('every chembench action is a verb a player could have typed',
+        bad.length === 0, [...new Set(bad)].join(', '));
+
+      // A concealed lab is not a lab you can work at — the same check the cook
+      // path makes, and the one hole that would make the disguise pointless.
+      await insertFurniture({
+        id: BENCH, name: 'test chem bench', description: 'a test bench', object_type: 'container',
+        zone_id: Z, flags: JSON.stringify({ crafting_station: 'chem_lab', concealed: true }),
+      }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags');
+      w = await run('workspace');
+      check('a concealed lab offers no workspace at all',
+        w?.type === 'error', JSON.stringify(w?.type ?? w));
+    } finally {
+      p.current_zone = saved;
+      await deleteFurniture(BENCH).catch(() => {});
+    }
+  }
 
   // ── deposit → shared vault, withdraw keeps distinct-potency batches apart ───
   const zone = p.current_zone;

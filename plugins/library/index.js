@@ -20,6 +20,7 @@ import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { sendToPlayer, teachVerb, pointAt } from '../../server/engine/messaging.js';
 import { hasTag } from '../../server/engine/tags.js';
 import { UNLOCK_FLAG } from '../tablet/library-app.js';
+import { installTabletApp } from '../tablet/index.js';
 
 // Any furniture tagged `lending_terminal` — the tag is the contract, so a second
 // library elsewhere needs no code.
@@ -119,7 +120,13 @@ async function cmdScan(args, raw, player) {
     if (!p) return;                     // left the room — no grant, no payload
     // Unlock at the END. Granting up front would hand the app to someone who
     // wandered off mid-transfer, which makes the whole ceremony a lie.
-    if (await unlock(p)) sendToPlayer(p.id, { type: 'output', message: introText(), refresh: true });
+    if (await unlock(p)) {
+      sendToPlayer(p.id, { type: 'output', message: introText(), refresh: true });
+      // …and let them WATCH it land: the tablet comes up on the page the new tile
+      // is on and fills to 100% before it can be opened. The prose above says the
+      // app is on your tablet; this is the tablet agreeing.
+      installTabletApp(p, 'library');
+    }
   }, SCAN_MS);
 
   return {

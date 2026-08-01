@@ -65,7 +65,7 @@ export default async function regress({ run, check, getPlayer }) {
     // layouts, every `tabletnav gear` call site, the smartbar's Inv/Gear deep links and
     // the client's `_data.appId === 'gear'` refresh check. Renaming it breaks all four.
     const kit = r.apps.find(a => a.id === 'gear');
-    check('the gear app is called Kit but keeps its id', kit?.name === 'Kit', JSON.stringify(kit?.name));
+    check('the gear app is called INV but keeps its id', kit?.name === 'INV', JSON.stringify(kit?.name));
   }
 
   // ── Home widgets + wallpaper sky ─────────────────────────────────────────────

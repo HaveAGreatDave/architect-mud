@@ -1778,6 +1778,9 @@ export const SCHEMA_SQL = `
   --              psychedelic on a bare street corner is still a psychedelic.
   --   'spawn'  — a thing that is not there at all, conjured as a phantom object
   --              when the room has too little furniture to work with.
+  --   'person' — re-reads one of the PEOPLE in the room. The room changing while
+  --              its occupants stay ordinary reads as a bug in the furniture;
+  --              talking to them and hitting them still reaches the real NPC.
   ALTER TABLE dream_templates ADD COLUMN IF NOT EXISTS weather TEXT;
   -- Particle field for the client FX canvas while you are in this room:
   -- rain | snow | ash | fog | wind | none, plus a 0-1 intensity. Ignores the real
@@ -1788,6 +1791,13 @@ export const SCHEMA_SQL = `
   ALTER TABLE drug_transforms ADD COLUMN IF NOT EXISTS fx TEXT;
   ALTER TABLE drug_transforms ADD COLUMN IF NOT EXISTS fx_intensity REAL DEFAULT 0.5;
   ALTER TABLE drug_transforms ADD COLUMN IF NOT EXISTS scope TEXT NOT NULL DEFAULT 'object';
+  -- What it DOES while you watch, and what it wants to know about you. A thing
+  -- that only ever talks is a talking chair; a thing that moves and asks you
+  -- questions about its own shape is a presence. Both render exactly as an NPC's
+  -- ambience and speech do (see plugins/trip) — {it} is the subject form of the
+  -- new name, so one line fits whatever the room turned into.
+  ALTER TABLE drug_transforms ADD COLUMN IF NOT EXISTS emotes JSONB NOT NULL DEFAULT '[]';
+  ALTER TABLE drug_transforms ADD COLUMN IF NOT EXISTS asks JSONB NOT NULL DEFAULT '[]';
 
   -- The shared line pool for anything that speaks to you during a hallucination.
   -- Authored rather than hardcoded because the whole effect lives in the WRITING,
@@ -2362,6 +2372,25 @@ export const SCHEMA_SQL = `
     source TEXT,
     created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
     PRIMARY KEY (zone_id, direction, target_zone)
+  );
+
+  -- Graffiti (graffiti plugin): one tag per street tile, sprayed onto the face of
+  -- a building on an adjacent exit. Keyed on the zone you STAND in rather than the
+  -- facade you paint, because that's the room it gets read from — and it's what
+  -- makes "one per zone" a primary key instead of a rule somebody has to enforce.
+  -- Painting over is an UPSERT, so this table can never exceed one row per street
+  -- tile in the world. day_index is the game-day it went up (zone-filth.js
+  -- gameDayIndex); expiry is derived from it lazily on read, so there is no tick
+  -- and a restart can't wipe the city's walls. Runtime data, never content.
+  CREATE TABLE IF NOT EXISTS zone_graffiti (
+    zone_id TEXT PRIMARY KEY,
+    target_zone_id TEXT,
+    target_name TEXT,
+    author_id TEXT,
+    author_handle TEXT,
+    text TEXT NOT NULL,
+    day_index INTEGER,
+    created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
 
   -- Economy ledger (economy-ledger plugin): append-only record of every credit

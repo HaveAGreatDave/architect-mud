@@ -3,15 +3,24 @@
   "drug_id": "drug_psilocybin",
   "matches": null,
   "scope": "spawn",
-  "name": "a large animal pretending to be furniture",
-  "description": "Something the size and shape of a bench is here, and it is warm, and it is breathing.",
+  "name": "a stag standing in the middle of the room",
+  "description": "A stag stands here with its head up, antlers going most of the way to the ceiling, flanks steaming faintly as though it has come a long way at speed.",
   "looks": [
-    "It has been holding this shape for a while.",
-    "It rises and falls, and the rhythm is not yours yet.",
-    "Sitting on it would be accepted rather than permitted."
+    "The antlers are in velvet, and the velvet is torn on one side and hanging.",
+    "It is steaming. The room is not cold enough for anything to steam.",
+    "It has planted all four feet and is not going to be moved by anything you have on you."
   ],
   "says": [
-    "You can sit. I do not mind the weight.",
-    "Breathe with me. You already are."
+    "I came a long way to stand here.",
+    "Do not get behind me."
+  ],
+  "emotes": [
+    "{it} lowers its head and lifts it again, antlers scraping a line down the ceiling.",
+    "{it} stamps once. The sound arrives a moment late.",
+    "{it} turns an ear towards the door and holds it there."
+  ],
+  "asks": [
+    "Which way is out — the way you came?",
+    "Is it raining out there?"
   ]
 }

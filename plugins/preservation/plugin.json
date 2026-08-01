@@ -1,7 +1,7 @@
 {
   "name": "preservation",
-  "version": "1.0.0",
-  "description": "Lazy, timestamp-based freshness/preservation for perishable food. No global tick — freshness is recomputed on examine/stow/pull/eat via the item.checkFreshness hook. Registers the food_poisoning status effect for spoiled food.",
+  "version": "1.1.0",
+  "description": "Lazy, timestamp-based freshness/preservation for perishable food. No global tick — freshness is recomputed on examine/stow/pull/eat via the item.checkFreshness hook. Also owns `preserve`, which spends a vial of BHT to slow one item's decay rate wherever it sits.",
   "hooks": ["item.checkFreshness"],
-  "commands": []
+  "commands": ["preserve"]
 }

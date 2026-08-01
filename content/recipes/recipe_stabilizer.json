@@ -5,7 +5,7 @@
     "quantity": 1
   },
   "category": "chemical",
-  "description": "Synthesize a compound stabilizer from an industrial catalyst and solvent — master-tier chemistry, and touchy to get right.",
+  "description": "Build butylated hydroxytoluene out of a palladium catalyst and acetone — master-tier chemistry, and touchy to get right. Keeps a splice together; keeps a pie edible.",
   "id": "recipe_stabilizer",
   "ingredients": [
     {
@@ -17,7 +17,7 @@
       "quantity": 1
     }
   ],
-  "name": "Synthesize Compound Stabilizer",
+  "name": "Synthesize BHT Stabilizer",
   "requires_station": null,
   "skill_id": "chemistry",
   "skill_req": {

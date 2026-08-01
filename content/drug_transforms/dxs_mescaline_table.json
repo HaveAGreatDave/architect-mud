@@ -3,8 +3,8 @@
   "drug_id": "drug_mescaline",
   "matches": null,
   "scope": "spawn",
-  "name": "a small table, laid",
-  "description": "A table stands here, laid for one, every object on it in the only place it could be.",
+  "name": "a small table, laid for one",
+  "description": "A table stands here, laid for one, every object on it in the only place it could be, and the chair pulled out at exactly the angle somebody leaves a chair.",
   "looks": [
     "The fold in the cloth has been like that since before the table.",
     "The salt is the whole of the argument, settled.",
@@ -12,5 +12,13 @@
   ],
   "says": [
     "Sit. It has been ready a long time."
+  ],
+  "emotes": [
+    "The glass on {it} rings once and stops.",
+    "The chair at {it} moves out another inch, hospitably."
+  ],
+  "asks": [
+    "Have you eaten today? Truthfully.",
+    "Is somebody coming, or is it just you?"
   ]
 }

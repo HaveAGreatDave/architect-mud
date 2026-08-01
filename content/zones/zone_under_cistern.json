@@ -15,6 +15,7 @@
   },
   "flags": {
     "district": "sewer",
+    "is_dwelling": true,
     "is_interior": true,
     "scavenging_table_id": "scav_deep"
   },

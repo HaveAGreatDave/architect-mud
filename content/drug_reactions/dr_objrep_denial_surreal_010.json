@@ -1,0 +1,10 @@
+{
+  "id": "dr_objrep_denial_surreal_010",
+  "drug_id": null,
+  "source": "object_reply_denial",
+  "tone": "surreal",
+  "self_line": "Then nothing is happening and you are having a lovely quiet evening.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

@@ -26,7 +26,7 @@ import {
 	describeRentStatus,
 	describeDoorForcefield,
 } from "../apartments.js";
-import { fireHook } from "../plugins.js";
+import { fireHook, gatherHook } from "../plugins.js";
 import { isStackable } from "../tags.js";
 import { getZoneRadiation, isSanctuary } from "../zone-tags.js";
 import { zoneDanger } from "../danger.js";
@@ -34,7 +34,7 @@ import { furnitureVerbs } from "../furnitureActions.js";
 import { titleCaseName, escAttr } from "../text.js";
 import { getLockTagPublic, checkLockAuth } from "./doors.js";
 import { getItem } from "../items-cache.js";
-import { getPhantomsInZone, applyTransforms, getRoomTransform, getWeatherWarp } from "../phantoms.js";
+import { getPhantomsInZone, applyTransforms, applyNpcTransforms, getRoomTransform, getRoomTransformName, getWeatherWarp } from "../phantoms.js";
 import { bodyTell } from "../dreamscape.js";
 
 // Emits a `data-lock` attribute the client dpad reads to colour the direction:
@@ -286,13 +286,57 @@ function groupPieces(pieces, soloIds) {
 	return [...groups.values()];
 }
 
-// The clickable wrapper every tier shares: examine on click, the full affordance
-// set in data-actions so the mobile smart bar can offer sit/switch/watch.
+// Clicking a light FLIPS it instead of examining it. A light is the one piece of
+// furniture whose state the room pane already prints — "the ceiling strips are
+// dark" — so the click a player is actually reaching for is the switch, and
+// examine stays a keystroke or a smart-bar tap away. The direction is baked into
+// the target rather than sent as a toggle, so a click can never disagree with the
+// state the pane was showing when it was clicked. A streetlight is city-grid
+// controlled and refuses the verb (commands/world.js), so it never gets the
+// affordance here either — it would be a link that only ever says no.
+function lightClick(f, viewer) {
+	if (f.object_type !== "light" || f.light_type === "streetlight") return null;
+	if (!furnitureVerbs(f, viewer).includes("switch")) return null;
+	const dir = f.light_on ? "off" : "on";
+	return {
+		action: "switch",
+		target: `${dir} ${f.name}`,
+		title: `Turn ${dir} ${f.name}`,
+	};
+}
+
+// `data-piece` is the piece's BARE name, emitted whenever the click target isn't
+// it (a light's target is "off desk lamp"). The smart bar builds every other verb
+// for a piece by pasting it onto data-target, and would otherwise offer you
+// `examine off desk lamp`.
+function pieceAttr(f, click) {
+	return click.action === "examine" ? "" : ` data-piece="${escAttr(f.name)}"`;
+}
+
+// The clickable wrapper every tier shares: examine on click (or the switch, for a
+// light), the full affordance set in data-actions so the mobile smart bar can
+// offer sit/switch/watch.
 function furnitureSpan(f, viewer, body, cls) {
 	const verbs = furnitureVerbs(f, viewer);
 	const actionsAttr = verbs.length ? ` data-actions="${verbs.join(" ")}"` : "";
-	const target = escAttr(f.name);
-	return `<span class="action-link ${cls}" data-action="examine" data-target="${target}"${actionsAttr} title="Examine ${target}">${body}</span>`;
+	const click = lightClick(f, viewer) || {
+		action: "examine",
+		target: f.name,
+		title: `Examine ${f.name}`,
+	};
+	return `<span class="action-link ${cls}" data-action="${click.action}" data-target="${escAttr(click.target)}"${pieceAttr(f, click)}${actionsAttr} title="${escAttr(click.title)}">${body}</span>`;
+}
+
+// The sub-link an attached piece renders as, hanging off its parent's entry. Its
+// click is the thing you'd actually want from it — `use` opens a media deck's own
+// panel — falling back to examine for a satellite that affords nothing.
+function attachedSpan(f, viewer) {
+	const verbs = furnitureVerbs(f, viewer);
+	const actionsAttr = verbs.length ? ` data-actions="${verbs.join(" ")}"` : "";
+	const action = verbs.includes("use") ? "use" : "examine";
+	const verb = action === "use" ? "Use" : "Examine";
+	const name = String(f.name || "").replace(/^(?:a|an|the)\s+/i, "");
+	return ` <span class="furniture-attach">↳</span> <span class="action-link furniture-link furniture-attached" data-ftype="${escAttr(f.object_type || "furniture")}" data-action="${action}" data-target="${escAttr(f.name)}"${actionsAttr} title="${verb} ${escAttr(f.name)}">${titleCaseName(name)}</span>`;
 }
 
 // Furniture flagged `flags.woven` is folded into the room prose (the PD-camera
@@ -466,6 +510,61 @@ function subBoxIds(pieces) {
 		if (mine < theirs || (mine === theirs && f.id > partner.id)) hidden.add(f.id);
 	}
 	return hidden;
+}
+
+// ATTACHED PIECES. A Betamax deck sitting under a flatscreen is one appliance in
+// the room's eye — a satellite of the set, not a second thing to scan past. It
+// keeps its own furniture row (its own cassettes, its own panel); the room simply
+// prints it hanging off the television it belongs to, and clicking it opens that
+// panel directly rather than examining it.
+//
+// The link is DERIVED where it can't be ambiguous — a media deck in a room with
+// exactly one broadcast receiver has only one set it could be under — and can be
+// pinned with `flags.attached_to` (the parent's id) for a room with two. Same
+// safety rule as the paired fridge: no parent present, or more than one candidate,
+// means no attachment, and the deck lists itself as before rather than silently
+// vanishing out of a room nobody could then reach it in.
+function attachChildren(pieces) {
+	const byId = new Map(pieces.map((f) => [f.id, f]));
+	const receivers = pieces.filter(
+		(f) => f.flags?.tv && f.flags?.broadcast_receiver,
+	);
+	const map = new Map();
+	const claimed = new Set();
+	for (const f of pieces) {
+		const isDeck = f.object_type === "media_deck" || !!f.flags?.media_deck;
+		let parent = f.flags?.attached_to ? byId.get(f.flags.attached_to) : null;
+		if (!parent && isDeck && receivers.length === 1) parent = receivers[0];
+		if (!parent || parent.id === f.id) continue;
+		if (!map.has(parent.id)) map.set(parent.id, []);
+		map.get(parent.id).push(f);
+		claimed.add(f.id);
+	}
+	return { map, claimed };
+}
+
+// A concealment cabinet standing OPEN has nothing left to show: its face has
+// pivoted away and the thing it was hiding is out in the room. Listing both reads
+// as two pieces of furniture where the fiction has one, so the revealed piece
+// TAKES THE CABINET'S PLACE — including its place in the list, so the room's
+// furniture doesn't visibly reshuffle the moment a wall opens. The keypad rides
+// along onto the revealed piece (plugins/concealment), which is how it gets shut
+// again. A still-concealed piece never reaches here: `flags.concealed` filtered it
+// out upstream, so the cabinet is only ever hidden while its secret is standing in
+// plain sight.
+function standIns(pieces) {
+	const byId = new Map(pieces.map((f) => [f.id, f]));
+	const hidden = new Set();
+	const standsIn = new Map();
+	for (const f of pieces) {
+		const revealed = f.flags?.conceal_hides
+			? byId.get(f.flags.conceal_hides)
+			: null;
+		if (!revealed || revealed.id === f.id) continue;
+		hidden.add(f.id);
+		standsIn.set(revealed.id, f);
+	}
+	return { hidden, standsIn };
 }
 
 const DIRECTION_PHRASE = {
@@ -728,7 +827,9 @@ export async function describeZone(zone, player, out = {}) {
 
 	const { buildings, rooms, plain } = getConnectedDestinations(zone);
 	const enemies = isDark ? [] : getZoneEnemies(zone.id);
-	const npcs = gate.hideNpcs ? [] : getZoneNpcs(zone.id);
+	// Per-viewer people-transforms ride the same rule as the furniture ones: a
+	// no-op for anybody not tripping, and COPIES, never the shared world rows.
+	const npcs = gate.hideNpcs ? [] : applyNpcTransforms(player.id, getZoneNpcs(zone.id));
 	const corpses = isDark ? [] : getZoneCorpses(zone.id);
 	// Per-viewer hallucinated entities (trip plugin). They render into the real
 	// NPC/Hostile lines so they're indistinguishable from real presences. Hidden
@@ -820,11 +921,16 @@ export async function describeZone(zone, player, out = {}) {
 		: furniture
 	).filter((f) => !furnitureSuppress.has(f.id) && !f.flags?.concealed);
 	const pairedSubBoxes = subBoxIds(visibleFurniture);
-	// Everything eligible for a tier: cameras have their own aside, and the
-	// smaller half of a mutually-paired appliance (a fridge's freezer box) is
-	// redundant with the half that's listed.
+	const { hidden: openDisguises, standsIn } = standIns(visibleFurniture);
+	// Everything eligible for a tier: cameras have their own aside, the smaller
+	// half of a mutually-paired appliance (a fridge's freezer box) is redundant
+	// with the half that's listed, and an open concealment cabinet has stood aside
+	// for the piece it was hiding.
 	const tierable = visibleFurniture.filter(
-		(f) => f.object_type !== "security_device" && !pairedSubBoxes.has(f.id),
+		(f) =>
+			f.object_type !== "security_device" &&
+			!pairedSubBoxes.has(f.id) &&
+			!openDisguises.has(f.id),
 	);
 	// Occupancy is resolved by NAME (furnitureOccupants matches sittingOn against
 	// the name), so with four identical stools and one sitter every row would
@@ -862,16 +968,21 @@ export async function describeZone(zone, player, out = {}) {
 	// order, which isn't even stable across a content rewrite). Unlisted types
 	// sort after the known ones, alphabetically by type, so a new object_type
 	// slots in somewhere sane without touching this table.
+	// A revealed piece sorts as the cabinet it replaced, so opening a wall swaps
+	// one entry for another in place instead of shuffling the whole line.
+	const sortAs = (f) => standsIn.get(f.id) || f;
 	const plainFurniture = untiered
 		.filter((f) => !sceneryIds.has(f.id))
 		.sort((a, b) => {
-			const ra = furnitureSortRank(a);
-			const rb = furnitureSortRank(b);
+			const sa = sortAs(a);
+			const sb = sortAs(b);
+			const ra = furnitureSortRank(sa);
+			const rb = furnitureSortRank(sb);
 			if (ra !== rb) return ra - rb;
-			const ta = a.object_type || "furniture";
-			const tb = b.object_type || "furniture";
+			const ta = sa.object_type || "furniture";
+			const tb = sb.object_type || "furniture";
 			if (ta !== tb) return ta.localeCompare(tb);
-			return (a.name || "").localeCompare(b.name || "");
+			return (sa.name || "").localeCompare(sb.name || "");
 		});
 	const furnitureAside = [
 		weaveFurniture(wovenPieces, player),
@@ -884,8 +995,14 @@ export async function describeZone(zone, player, out = {}) {
 	// Header line: name and the danger tag sit together so the [SAFE]/[LETHAL]
 	// chip reads as a label on the room rather than a separate line.
 	const dangerNow = zoneDanger(zone);
+	// The room's own name, for a viewer whose room is misbehaving. `data-morph`
+	// carries the real one so the pane plays the change rather than printing it.
+	const seenRoomName = getRoomTransformName(player.id, zone.id);
+	const roomNameSpan = seenRoomName
+		? `<span class="zone-name" data-morph="${escAttr(zone.name)}">${seenRoomName.charAt(0).toUpperCase()}${seenRoomName.slice(1)}</span>`
+		: `<span class="zone-name">${zone.name}</span>`;
 	let desc =
-		`<span class="zone-name">${zone.name}</span>` +
+		roomNameSpan +
 		` <span class="zone-danger zone-danger-${dangerNow}">[${dangerNow.toUpperCase()}]</span>`;
 	const zoneRad = getZoneRadiation(zone);
 	if (zoneRad > 0)
@@ -902,8 +1019,15 @@ export async function describeZone(zone, player, out = {}) {
 	}
 	// (zone, player) — the viewer is passed so a hook can render a per-player
 	// panel (the elevator car's floor readout depends on who's riding it).
-	const roomDesc = await fireHook("zone.describeRoom", zone, player);
-	if (roomDesc) desc += `\n${roomDesc}`;
+	//
+	// GATHERED, not fired: a room is not a single fact. Six plugins register this
+	// hook (aa-sites, elevator, flight, graffiti, storefront, voidwalking, yacht)
+	// and they can co-occur — a tagged wall on an airfield tile is both things at
+	// once. Under fireHook the last-loaded plugin silently ATE the others' line;
+	// every contributor already returns undefined outside its own case, so joining
+	// them can't duplicate anything, it can only stop losing text.
+	const roomLines = (await gatherHook("zone.describeRoom", zone, player)).filter(Boolean);
+	if (roomLines.length) desc += `\n${roomLines.join("\n")}`;
 	// Truncate description based on light level — less light, fewer details.
 	const sentences = zone.description.match(/[^.!?]+[.!?]+(\s|$)/g) || [
 		zone.description,
@@ -1074,7 +1198,17 @@ export async function describeZone(zone, player, out = {}) {
 		// Grouped: four identical stools are one entry, and light state is in the
 		// grouping key so an (on) lamp never merges with an (off) one. Occupancy
 		// isn't here any more — an occupied piece was promoted to prose above.
-		const furnitureLinks = collapseByKind(groupPieces(plainFurniture)).map(({ f, qty, kind }) => {
+		// Attachment resolves against the GROUPED list, and only between entries
+		// that stand alone in it: four identical sets collapse to one label, and
+		// there'd be no telling which of them the deck was under. Doing it here
+		// rather than upstream keeps the claim and the render on the same list, so
+		// a satellite can never be dropped from one without appearing in the other.
+		const groups = collapseByKind(groupPieces(plainFurniture));
+		const soloIds = new Set(groups.filter((g) => g.qty === 1 && !g.kind).map((g) => g.f.id));
+		const { map: attachedMap, claimed: attachedIds } = attachChildren(
+			plainFurniture.filter((f) => soloIds.has(f.id)),
+		);
+		const furnitureLinks = groups.filter((g) => !attachedIds.has(g.f.id)).map(({ f, qty, kind }) => {
 			const stateTag =
 				f.object_type === "light"
 					? ` <span class="light-state ${f.light_on ? "light-on" : "light-off"}">(${f.light_on ? "on" : "off"})</span>`
@@ -1088,14 +1222,35 @@ export async function describeZone(zone, player, out = {}) {
 			// A kind-collapsed entry labels by its head noun ("eight Lockboxes")
 			// but still targets the first member, so a click examines a real row
 			// and SIFT's ambiguity prompt lists the rest by name.
+			// A hallucinated piece is named the way a thing in prose is named ("a
+			// sleeping lion"), so the list label drops the article rather than
+			// printing "A Sleeping Lion". Real furniture never carries one.
+			const listName = String(f.name || "").replace(/^(?:a|an|the)\s+/i, "");
 			const label = kind
 				? `${countWord(qty).toLowerCase()} ${titleCaseName(pluralName(kind))}`
 				: qty === 1
-					? titleCaseName(f.name)
+					? titleCaseName(listName)
 					: `${countWord(qty).toLowerCase()} ${titleCaseName(pluralName(f.name))}`;
 			// data-ftype carries the row's object_type through to CSS so each kind of
 			// thing gets its own tint (see .furniture-link[data-ftype=…] in styles.css).
-			return `<span class="action-link furniture-link" data-ftype="${f.object_type || "furniture"}" data-action="examine" data-target="${escAttr(f.name)}"${actionsAttr} title="Examine ${escAttr(f.name)}">${label}</span>${stateTag}`;
+			// What it WAS, for the pane's letter-by-letter morph (render.js). Only
+			// ever present on a piece a psychedelic is re-reading for this viewer.
+			const morphAttr = f._realName
+				? ` data-morph="${escAttr(titleCaseName(String(f._realName).replace(/^(?:a|an|the)\s+/i, "")))}"`
+				: "";
+			// A light clicks through to its own switch rather than to examine — see
+			// lightClick. The (on)/(off) tag beside it is what the click acts on.
+			const click = lightClick(f, player) || {
+				action: "examine",
+				target: f.name,
+				title: `Examine ${f.name}`,
+			};
+			// Satellites (a deck under its television) print hanging off this entry,
+			// clicking through to their own panel.
+			const attached = (attachedMap.get(f.id) || [])
+				.map((c) => attachedSpan(c, player))
+				.join("");
+			return `<span class="action-link furniture-link" data-ftype="${f.object_type || "furniture"}" data-action="${click.action}" data-target="${escAttr(click.target)}"${pieceAttr(f, click)}${actionsAttr}${morphAttr} title="${escAttr(click.title)}">${label}</span>${stateTag}${attached}`;
 		});
 		desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(", ")}`;
 	}
@@ -1152,7 +1307,11 @@ export async function describeZone(zone, player, out = {}) {
 					: n.posture === 'lying'
 						? ` <span class="text-dim">(lying down)</span>`
 						: '';
-				return `<span class="action-link npc-link" data-action="talk" data-target="${escAttr(n.name)}" title="Talk to ${escAttr(n.name)}">${n.name}</span>${postureTag}`;
+				// The LABEL is what this viewer sees (a psychedelic may have made this
+				// person into something else); the target stays the real name, so a
+				// click reaches them however your eyes are behaving.
+				const morphAttr = n._realName ? ` data-morph="${escAttr(n._realName)}"` : "";
+				return `<span class="action-link npc-link" data-action="talk" data-target="${escAttr(n._realName || n.name)}"${morphAttr} title="Talk to ${escAttr(n.name)}">${n.name}</span>${postureTag}`;
 			};
 			// A phantom person wears the exact same markup as a real NPC — the
 			// only "tell" is that talking to it or touching it doesn't behave.

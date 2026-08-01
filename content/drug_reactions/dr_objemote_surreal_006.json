@@ -1,0 +1,10 @@
+{
+  "id": "dr_objemote_surreal_006",
+  "drug_id": null,
+  "source": "object_emote",
+  "tone": "surreal",
+  "self_line": "{it} is closer than it was. Nothing in the room saw it happen.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

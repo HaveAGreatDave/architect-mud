@@ -17,6 +17,7 @@
     "allow_sleep": true,
     "always_lit": true,
     "district": "longwatch",
+    "is_dwelling": true,
     "is_interior": true,
     "safehouse": true,
     "sanctuary": true,

@@ -330,6 +330,13 @@ const KNOWN_BROADCAST_NODES = new Set([
 // start_time wins (the slot that most recently began).
 const DAYS_ALL = 127;
 const DAY_ABBR = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAY_FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+// ISO dayOfWeek (1=Mon…7=Sun) → 'Thursday'. The TV guide only ever lists ONE day,
+// so it has to say which one out loud.
+function _dayName(dayOfWeek) {
+  const d = Number(dayOfWeek);
+  return DAY_FULL[(Number.isFinite(d) && d >= 1 && d <= 7 ? d : 1) - 1];
+}
 
 function _dayMask(days) {
   const n = Number(days);
@@ -2293,8 +2300,11 @@ setTimeout(() => { refreshTalkshowNewsStory().catch(() => {}); }, 8000);
 // the channel falls to camera-idle → technical difficulties, exactly like any live show.
 // Spec: docs/bsm-format.md#talk-show-broadcasts-type-talkshow.
 
-const TALKSHOW_MONOLOGUE = 4;   // base jokes for the monologue (+0..1 more per night); audience
-                                // beats between jokes carry the pacing, so fewer jokes per show
+const TALKSHOW_MONOLOGUE = 6;   // base jokes for the monologue (+0..1 more per night); audience
+                                // beats between jokes carry the pacing. Raised from 4 when the
+                                // sidekick's interjections were pulled back to two segments: the
+                                // monologue is the host's, and it now has to be long enough to
+                                // read as one rather than as a frame around Graham's material.
 const TALKSHOW_INTERVIEW = 3;   // base host-question / guest-answer exchanges (+0..1 more per night)
 // CALL TIME, in slots. The guest is the only cast member who isn't already at the studio when
 // the show starts: it materialises backstage and has to WALK there. Coming on shift at airtime
@@ -2409,10 +2419,20 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   const sidekick = script.sidekick || host;
   const guestNpc = script.guestNpc || 'npc_guest';
   const guestName = persona?.name || "Tonight's Guest";
+  const hostName = (world.npcs.get(host)?.name) || 'the host';
+  const sidekickName = (world.npcs.get(sidekick)?.name) || 'the announcer';
+  // FIRST NAMES ARE A SEPARATE TOKEN. `{host}` is the marquee name — it belongs in the
+  // announcer's formal introduction and nowhere else. Two men who have worked the same desk
+  // for nineteen years do not call each other "John Akerson" and "Graham Mercer" across it,
+  // and every conversational line that did read like a hostage video. The script used to work
+  // around this by typing "John" into the text, which was right on air and broke the moment
+  // the host NPC was renamed. Derive it instead, and let the pools choose which they want.
+  const firstOf = (n) => String(n).trim().split(/\s+/)[0] || n;
   const tok = {
-    guest: guestName, title: persona?.title || 'our special guest',
-    host: (world.npcs.get(host)?.name) || 'the host',
-    sidekick: (world.npcs.get(sidekick)?.name) || 'the announcer',
+    guest: guestName, guest_first: firstOf(guestName),
+    title: persona?.title || 'our special guest',
+    host: hostName, host_first: firstOf(hostName),
+    sidekick: sidekickName, sidekick_first: firstOf(sidekickName),
   };
 
   const nodes = {};
@@ -2482,124 +2502,191 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   if (script.title) add({ type: 'title_card', graphic_id: script.title, theme: script.theme || null });
   else if (script.theme) add({ type: 'music', song: script.theme, text: '♪ The theme plays. ♪' });
 
-  // Cold open — the sidekick/announcer does the "It's the show!" intro + tonight's tease.
-  // Line counts wobble night to night so the open never feels rote.
+  // Cold open — the sidekick/announcer does the "It's the show!" intro + tonight's tease, and
+  // then the traditional introduction: the marquee {host} name, in full, said properly. That
+  // introduction is the ONE place the full name belongs, and it is not optional — it's the
+  // thing an announcer is for. Line counts wobble night to night so the open never feels rote.
   lines(sidekick, talkshowDraw(pools, 'open', 1 + Math.floor(rand() * 2), tok, rand));   // 1–2
   lines(sidekick, talkshowDraw(pools, 'tease', 1 + Math.floor(rand() * 2), tok, rand));  // 1–2
   line(sidekick, talkshowFill(sportsPick(pools, rand, 'announce_host') || "Ladies and gentlemen — {host}!", tok));
   applause();   // the host walks out to applause
-  // …and the first thing John does is talk to Graham. A late-night show opens on the two of
-  // them, not on a monologue — the greeting is the moment the audience learns these two have
-  // known each other a long time. Authored host-first, so it reads as John arriving at the desk.
+
+  // ── THE HOST GATE ────────────────────────────────────────────────────────────────────
+  // Graham has just said John's name to the room. Whether John is IN that room is a fact
+  // about the world at airtime, and everything below this line assumes he is.
+  //
+  // Why this exists: the show used to run its whole shape regardless. Graham did the open,
+  // fed the greeting into silence, waited out a monologue nobody delivered, introduced a
+  // guest to a host who wasn't there to interview them, and read the goodnight — the
+  // room-authority rule silently binning John's every line while Graham's went out on top of
+  // the holes. It aired as a man hosting a show he isn't the host of. A missing GUEST is a
+  // segment (see the chair gate); a missing HOST is not a show, and the honest version — the
+  // announcer telling the audience so and taking KSAB to the break early — is both better
+  // television and the only version that doesn't quietly promote the sidekick.
+  const hostGate = add({ type: 'condition', condition_type: 'NPC_IN_STUDIO', params: { npc_id: host } });
+  prevId = null;   // both branches are wired by hand, below
+
+  // ── THE SHOW, as it runs when the host is at the desk ────────────────────────────────
+  // SEGMENT DISCIPLINE. Graham gets three places in the hour and is silent between them:
+  //   1. the intro      — the open, the announcement, and the greeting at the desk
+  //   2. the monologue  — one heckle and one two-hander, INSIDE John's jokes
+  //   3. the goodnight  — one throwback on the way to the sign-off
+  // He used to be sprinkled through the whole show — a jab after the monologue, banter before
+  // the guest, banter after the desk bit, a throwback out of the interview — and the effect
+  // was a co-host, not a sidekick. It's John's show. The monologue and the interview are his,
+  // and the announcer does not talk over either.
+  // Two greetings drawn on the trunk: [0] opens the show at the desk, [1] is the throwback on
+  // the way to the goodnight. Drawn together so they're never the same line twice in a night.
   const greetDeck = talkshowDraw(pools, 'greeting', 2, tok, rand);
-  if (duet(host, sidekick, greetDeck[0])) react();
+  const show = branch(() => {
+    // The first thing John does is talk to Graham. A late-night show opens on the two of them,
+    // not on a monologue — the greeting is the moment the audience learns these two have known
+    // each other a long time. Authored host-first, so it reads as John arriving at the desk.
+    if (duet(host, sidekick, greetDeck[0])) react();
 
-  // Monologue — the host's opening jokes; 4–5 a night, each landing on an audience beat so the
-  // room breathes between punchlines instead of the jokes running together.
-  const jokes = talkshowDraw(pools, 'monologue', TALKSHOW_MONOLOGUE + Math.floor(rand() * 2), tok, rand);  // 4–5
-  jokes.forEach((joke, i) => {
-    line(host, joke);
-    // A reaction after most jokes (always the last one, as the button into what follows).
-    if (i === jokes.length - 1 || rand() < 0.7) react();
-  });
-  // The night's news bit — the host riffs on ONE real headline from the live feed (a live
-  // story preferred over a wire one; see refreshTalkshowNewsStory). Once per show, folded in
-  // right after the monologue as a second joke beat. Skips cleanly on nights the feed is empty
-  // or the file has no `newsjoke` pool, so it's purely additive to the existing jokes.
-  if (_talkshowNewsStory?.headline) {
-    // Strip trailing punctuation so the authored line supplies its own around {headline}.
-    const newsTok = { ...tok, headline: String(_talkshowNewsStory.headline).replace(/[.\s]+$/, '') };
-    const newsBit = talkshowDraw(pools, 'newsjoke', 1, newsTok, rand);
-    if (newsBit.length) { lines(host, newsBit); react(); }
-  }
-  // Sometimes the sidekick heckles back mid-monologue (~45% of nights) — a one-way jab, no reply.
-  if (rand() < 0.45) { lines(sidekick, talkshowDraw(pools, 'sidekick_aside', 1, tok, rand)); react(); }
-  // A proper back-and-forth most nights (~70%): Graham says something, John has to deal with it.
-  // Authored sidekick-first so John gets the last word, which is the shape of the desk — the
-  // announcer needles, the host recovers. One or two rounds; two only occasionally, so the show
-  // doesn't stall on the two of them before the guest is even out.
-  const banterDeck = talkshowDraw(pools, 'banter', 3, tok, rand);
-  let bIdx = 0;
-  if (rand() < 0.70 && duet(sidekick, host, banterDeck[bIdx++])) react();
-  // Sometimes the host does a desk bit before the guest (~50%).
-  if (rand() < 0.50) { lines(host, talkshowDraw(pools, 'desk_bit', 1, tok, rand)); react(); }
-  if (rand() < 0.30 && duet(sidekick, host, banterDeck[bIdx++])) react();
-
-  // Guest intro + interview — host welcomes tonight's persona (to applause), then 3–4 EXCHANGES.
-  // Each exchange is an authored Q&A pair, so the host's question and the guest's reply belong
-  // together; the night blends a couple of the guest's on-topic signature beats with generic
-  // small-talk, shuffled, so the interview is coherent AND different every night. An audience
-  // beat between exchanges gives the back-and-forth a live rhythm.
-  line(host, talkshowFill(sportsPick(pools, rand, 'guest_intro') || "My next guest is {title}. Please welcome {guest}!", tok));
-  applause();   // the guest takes the stage
-
-  // THE CHAIR GATE. Everything past here depends on somebody actually sitting in it, and that
-  // is a fact about the world at airtime, not about the script — the guest walks in across a
-  // real map and can be late, lost or dead. Asked at showtime rather than assumed at build
-  // time, because the alternative is what used to air: the say-node room-authority rule quietly
-  // binning every answer while the questions went out anyway, and John interviewing furniture.
-  // If the chair's empty the show KNOWS, and John and Graham cover for it, which is a better
-  // three minutes of television than the interview would have been.
-  const gate = add({ type: 'condition', condition_type: 'NPC_IN_STUDIO', params: { npc_id: guestNpc } });
-  prevId = null;   // the gate wires its own two branches by hand, below
-
-  const interview = branch(() => {
-    // 3–4 EXCHANGES. Each is an authored Q&A pair, so the host's question and the guest's reply
-    // belong together; the night blends a couple of the guest's on-topic signature beats with
-    // generic small-talk, shuffled, so the interview is coherent AND different every night. An
-    // audience beat between exchanges gives the back-and-forth a live rhythm.
-    const exN = TALKSHOW_INTERVIEW + Math.floor(rand() * 2);   // 3–4
-    const deck = talkshowExchangeDeck(pools, persona, exN + 1, rand);   // +1 spare for the follow-up
-    // An exchange is normally question-then-answer, but it's read as ALTERNATING turns, so a
-    // beat that needs a follow-up ("Tuesday." / "Which Tuesday?") can be authored as one unit
-    // and keep its timing. Two turns is just the common case of that.
-    const sayExchange = (pair, withBeat) => {
-      const turns = splitTurns(pair);
-      turns.forEach((t, i) => line(i % 2 ? guestNpc : host, talkshowFill(t, tok)));
-      if (withBeat && turns.length) react();   // the crowd reacts before the next question
-    };
-    let ex = 0;
-    const total = Math.min(exN, deck.length);
-    for (; ex < total; ex++) sayExchange(deck[ex], ex < total - 1 && rand() < 0.6);
-    // A second, shorter guest beat some nights (~35%) - one more on-topic exchange.
-    if (rand() < 0.35 && deck[ex]) sayExchange(deck[ex], false);
-    // Host throws back to the announcer on the way out of the segment.
-    if (rand() < 0.5 && duet(host, sidekick, greetDeck[1])) react();
-  });
-
-  // The no-show. Graham is the one who has to explain it, John is the one who has to fill —
-  // so the cover is a two-hander by nature, and the pair carry the segment the guest didn't.
-  const noShow = branch(() => {
-    const cover = talkshowDraw(pools, 'guest_noshow', 3, tok, rand);
-    let did = false;
-    for (let i = 0; i < Math.min(2 + Math.floor(rand() * 2), cover.length); i++) {
-      if (duet(host, sidekick, cover[i])) { did = true; react(); }
+    // ── SEGMENT 2: the monologue. John's, and long enough to feel like it — 6–7 jokes, each
+    // landing on an audience beat so the room breathes between punchlines. Graham's two
+    // interjections live INSIDE this run rather than bracketing it, which is what makes them
+    // read as heckles from the side of the stage instead of as their own segment.
+    const jokes = talkshowDraw(pools, 'monologue', TALKSHOW_MONOLOGUE + Math.floor(rand() * 2), tok, rand);  // 6–7
+    // Where Graham gets in: one heckle and one two-hander, placed at two DIFFERENT joke
+    // boundaries in the middle of the run — never before the first joke (John has to get
+    // going first) and never after the last (the monologue's own button belongs to John).
+    const banterDeck = talkshowDraw(pools, 'banter', 2, tok, rand);
+    // Roll for what he gets, shuffle it, then hand out however many joke-boundaries there are
+    // to give: a short monologue has one slot in the middle and either kind can win it, rather
+    // than the heckle always taking it and the two-hander never airing.
+    const wants = sportsShuffle([
+      ...(rand() < 0.60 ? ['aside'] : []),
+      ...(rand() < 0.75 ? ['banter'] : []),
+    ], rand);
+    const slots = sportsShuffle(jokes.map((_, i) => i).slice(1, -1), rand);
+    const asides = wants.slice(0, slots.length).map((kind, i) => ({ at: slots[i], kind }));
+    jokes.forEach((joke, i) => {
+      line(host, joke);
+      // A reaction after most jokes (always the last one, as the button into what follows).
+      if (i === jokes.length - 1 || rand() < 0.7) react();
+      for (const a of asides.filter(x => x.at === i)) {
+        // A one-way jab, no reply — Graham needles and John carries on.
+        if (a.kind === 'aside') { lines(sidekick, talkshowDraw(pools, 'sidekick_aside', 1, tok, rand)); react(); }
+        // A proper back-and-forth. Authored sidekick-first so John gets the last word, which is
+        // the shape of the desk: the announcer needles, the host recovers.
+        else if (duet(sidekick, host, banterDeck[0])) react();
+      }
+    });
+    // The night's news bit — the host riffs on ONE real headline from the live feed (a live
+    // story preferred over a wire one; see refreshTalkshowNewsStory). Once per show, folded in
+    // at the end of the monologue as a last joke beat. Skips cleanly on nights the feed is
+    // empty or the file has no `newsjoke` pool, so it's purely additive to the existing jokes.
+    if (_talkshowNewsStory?.headline) {
+      // Strip trailing punctuation so the authored line supplies its own around {headline}.
+      const newsTok = { ...tok, headline: String(_talkshowNewsStory.headline).replace(/[.\s]+$/, '') };
+      const newsBit = talkshowDraw(pools, 'newsjoke', 1, newsTok, rand);
+      if (newsBit.length) { lines(host, newsBit); react(); }
     }
-    // Nothing authored to cover with ⇒ the host eats it alone rather than airing silence.
-    if (!did) { line(host, talkshowFill("Well — {guest} isn't here. That's showbusiness, and that's a chair.", tok)); react(); }
+    // Sometimes the host does a desk bit before the guest (~50%). His alone — no reply.
+    if (rand() < 0.50) { lines(host, talkshowDraw(pools, 'desk_bit', 1, tok, rand)); react(); }
+
+    // ── The guest. John introduces, John interviews; Graham is not in this segment at all.
+    line(host, talkshowFill(sportsPick(pools, rand, 'guest_intro') || "My next guest is {title}. Please welcome {guest}!", tok));
+    applause();   // the guest takes the stage
+
+    // THE CHAIR GATE. Everything past here depends on somebody actually sitting in it, and that
+    // is a fact about the world at airtime, not about the script — the guest walks in across a
+    // real map and can be late, lost or dead. Asked at showtime rather than assumed at build
+    // time, because the alternative is what used to air: the say-node room-authority rule
+    // quietly binning every answer while the questions went out anyway, and John interviewing
+    // furniture. If the chair's empty the show KNOWS, and John and Graham cover for it, which
+    // is a better three minutes of television than the interview would have been.
+    const gate = add({ type: 'condition', condition_type: 'NPC_IN_STUDIO', params: { npc_id: guestNpc } });
+    prevId = null;   // the gate wires its own two branches by hand, below
+
+    const interview = branch(() => {
+      // 3–4 EXCHANGES. Each is an authored Q&A pair, so the host's question and the guest's
+      // reply belong together; the night blends a couple of the guest's on-topic signature
+      // beats with generic small-talk, shuffled, so the interview is coherent AND different
+      // every night. An audience beat between exchanges gives the back-and-forth a live rhythm.
+      const exN = TALKSHOW_INTERVIEW + Math.floor(rand() * 2);   // 3–4
+      const deck = talkshowExchangeDeck(pools, persona, exN + 1, rand);   // +1 spare for the follow-up
+      // An exchange is normally question-then-answer, but it's read as ALTERNATING turns, so a
+      // beat that needs a follow-up ("Tuesday." / "Which Tuesday?") can be authored as one unit
+      // and keep its timing. Two turns is just the common case of that.
+      const sayExchange = (pair, withBeat) => {
+        const turns = splitTurns(pair);
+        turns.forEach((t, i) => line(i % 2 ? guestNpc : host, talkshowFill(t, tok)));
+        if (withBeat && turns.length) react();   // the crowd reacts before the next question
+      };
+      let ex = 0;
+      const total = Math.min(exN, deck.length);
+      for (; ex < total; ex++) sayExchange(deck[ex], ex < total - 1 && rand() < 0.6);
+      // A second, shorter guest beat some nights (~35%) - one more on-topic exchange.
+      if (rand() < 0.35 && deck[ex]) sayExchange(deck[ex], false);
+    });
+
+    // The no-show. Graham is the one who has to explain it, John is the one who has to fill —
+    // so the cover is a two-hander by nature, and the pair carry the segment the guest didn't.
+    // This is the one mid-show place the announcer belongs, and it's earned: there is a hole
+    // in the running order and filling it in front of the audience is the job.
+    const noShow = branch(() => {
+      const cover = talkshowDraw(pools, 'guest_noshow', 3, tok, rand);
+      let did = false;
+      for (let i = 0; i < Math.min(2 + Math.floor(rand() * 2), cover.length); i++) {
+        if (duet(host, sidekick, cover[i])) { did = true; react(); }
+      }
+      // Nothing authored to cover with ⇒ the host eats it alone rather than airing silence.
+      if (!did) { line(host, talkshowFill("Well — {guest} isn't here. That's showbusiness, and that's a chair.", tok)); react(); }
+    });
+
+    // ── SEGMENT 3: the goodnight. Commercial, one throwback to Graham, and John's sign-off.
+    // Commercial is a quick sponsor break read as narration over the studio (an ad break, not
+    // the host talking), one line so it doesn't overstay.
+    prevId = null; curAnchor = null;   // the tail is reached from BOTH chair branches; wired below
+    const tailFirst = `ts_${n}`;
+    const ad = talkshowDraw(pools, 'commercial', 1, tok, rand);
+    if (ad.length) { add({ type: 'npc_anchor', npc_id: '' }); curAnchor = ''; ad.forEach(t => add({ type: 'say', text: t, style: 'narration' })); }
+
+    applause();
+    // The throwback. Moved here from the way out of the interview, where it interrupted the
+    // guest segment; on the way to the goodnight it's the bookend to the greeting instead.
+    if (rand() < 0.5 && duet(host, sidekick, greetDeck[1])) react();
+    // Sign-off — host thanks the guest and says goodnight. ONE line, so the show never says
+    // goodnight twice, and it is JOHN'S line: the host closes his own show.
+    lines(host, talkshowDraw(pools, 'signoff', 1, { ...tok }, rand));
+
+    // Wire the chair gate now that the tail exists. An empty branch routes straight to the
+    // tail, so a missing pool can never strand the walker on a dead port mid-show; and if the
+    // tail itself came out empty (no ad, no applause, no signoff authored) every edge is left
+    // undefined, which the walker reads as "the show is over" rather than a dangling node id.
+    const tail = nodes[tailFirst] ? tailFirst : null;
+    nodes[gate].ifTrue  = interview.first || tail;
+    nodes[gate].ifFalse = noShow.first    || tail;
+    if (interview.last) nodes[interview.last].next = tail;
+    if (noShow.last)    nodes[noShow.last].next    = tail;
+    // The branch's own `last` must be the end of the TAIL, not of whichever sub-branch ran —
+    // prevId is already sitting there, because the tail was the last thing built.
   });
 
-  // Commercial — a quick sponsor break read as narration over the studio (an ad break, not the
-  // host talking), one line so it doesn't overstay.
-  prevId = null; curAnchor = null;   // the tail is reached from BOTH branches; wired below
-  const tailFirst = `ts_${n}`;
-  const ad = talkshowDraw(pools, 'commercial', 1, tok, rand);
-  if (ad.length) { add({ type: 'npc_anchor', npc_id: '' }); curAnchor = ''; ad.forEach(t => add({ type: 'say', text: t, style: 'narration' })); }
+  // ── THE HOST NEVER CAME OUT ──────────────────────────────────────────────────────────
+  // Graham alone, and deliberately SHORT: a few solo lines, an apology, and off. No greeting
+  // (nobody to greet), no monologue, no guest intro, no interview, and emphatically not the
+  // show's own sign-off — he gets his own. Everything he can't do without John is a thing he
+  // doesn't do, which is the entire point of the branch.
+  const hostAbsent = branch(() => {
+    // NO audience beats in here. `react()` deals from the laugh deck, and a room "absolutely
+    // losing it" under "I can't say his name to an empty desk" is the wrong three seconds of
+    // television — the crowd is watching the same thing the viewer is. The silence is the beat.
+    const solo = talkshowDraw(pools, 'host_absent', 2 + Math.floor(rand() * 2), tok, rand);   // 2–3
+    if (solo.length) solo.forEach(t => line(sidekick, t));
+    else line(sidekick, talkshowFill("Ladies and gentlemen — {host} isn't here, and I'm not going to do his half badly. We'll be back tomorrow.", tok));
+    const off = talkshowDraw(pools, 'host_absent_signoff', 1, tok, rand);
+    lines(sidekick, off.length ? off : [talkshowFill("That's KSAB, signing off a show that didn't start. Goodnight.", tok)]);
+  });
 
-  // Sign-off — host thanks the guest and says goodnight. ONE line, so the show never says
-  // goodnight twice.
-  applause();
-  lines(host, talkshowDraw(pools, 'signoff', 1, { ...tok }, rand));
-
-  // Wire the gate now that the tail exists. An empty branch routes straight to the tail, so a
-  // missing pool can never strand the walker on a dead port mid-show; and if the tail itself
-  // came out empty (no ad, no applause, no signoff authored) every edge is left undefined,
-  // which the walker reads as "the show is over" rather than as a dangling node id.
-  const tail = nodes[tailFirst] ? tailFirst : null;
-  nodes[gate].ifTrue  = interview.first || tail;
-  nodes[gate].ifFalse = noShow.first    || tail;
-  if (interview.last) nodes[interview.last].next = tail;
-  if (noShow.last)    nodes[noShow.last].next    = tail;
+  // Wire the host gate. Either branch coming out empty leaves the edge undefined, which the
+  // walker reads as "the show is over" — the right answer for a show with no host and no
+  // authored cover, and never a dangling node id.
+  nodes[hostGate].ifTrue  = show.first       || undefined;
+  nodes[hostGate].ifFalse = hostAbsent.first || undefined;
 
   const graph = _normalizeBroadcastGraph({ _start: startId, nodes });
   graph._broadcastId = `${broadcastId}:talkshow:${bucket}`;
@@ -4226,7 +4313,12 @@ function _sportsScheduleSlots(script, cur) {
   const featured = (Array.isArray(script?.airSlots) && script.airSlots.length)
     ? [...new Set(script.airSlots.map((n) => ((n % G) + G) % G))].sort((x, y) => x - y) : null;
   if (!featured) return null;
-  const s = seasonOf('baseball');
+  // THIS script's sport, never a hardcoded one: a hockey-only channel's guide was
+  // reading Deadball's season and captioning every Cluster Puck night "DEADBALL —",
+  // so the listing named the wrong sport for the game that was actually about to air.
+  const mod = sportOf(script);
+  const brand = mod.brand || 'DEADBALL';
+  const s = seasonOf(mod.id);
   const isWs = s.phase === 'worldseries' && s.finalistA && s.finalistB;
   const wsSlot = s.wsSlot != null ? Number(s.wsSlot) : null;
   const curDay = Math.floor(cur / G);
@@ -4237,10 +4329,10 @@ function _sportsScheduleSlots(script, cur) {
     const dayTag = dayDelta <= 0 ? '' : (dayDelta === 1 ? ' — tomorrow' : ` — in ${dayDelta}d`);
     let name;
     if (isWs && wsSlot != null && cand === wsSlot) {
-      name = `⚾ WORLD SERIES — ${s.finalistA} vs ${s.finalistB}`;
+      name = `${mod.finalIcon || '⚾'} ${(mod.season?.finalName || 'World Series').toUpperCase()} — ${s.finalistA} vs ${s.finalistB}`;
     } else {
       const gs = sportsGameForSlot(script, cand, null);
-      name = gs ? `DEADBALL — ${gs.game.away.name} @ ${gs.game.home.name}` : 'DEADBALL — Coldwater League Baseball';
+      name = gs ? `${brand} — ${gs.game.away.name} @ ${gs.game.home.name}` : (script.title || brand);
     }
     return {
       name: name + dayTag,
@@ -4250,21 +4342,37 @@ function _sportsScheduleSlots(script, cur) {
     };
   });
 }
-// On-demand DEADBALL league table for the standings button (both TV surfaces).
+// On-demand league table for the standings button (both TV surfaces). The table is
+// the one for the sport ON THE SET — pulled from the channel this viewer is tuned to,
+// not a hardcoded Deadball. Pressing it during Cluster Puck used to hand back the
+// ballgame's table, with the run differential where a hockey club's points belong.
+// Falls back to baseball only when nothing sporting is on that channel at all.
+function sportOnChannel(channelId) {
+  const state = channelId ? channelRuntime.get(channelId) : null;
+  const dow = getEnvironmentState()?.dayOfWeek;
+  for (const i of state?.playlist || []) {
+    if (i.playback_mode !== 'sports' || !i.sportsScript) continue;
+    if (!sportsAiring(i.sportsScript)) continue;
+    if (dow != null && !_slotAirsOn(i, dow)) continue;
+    return sportOf(i.sportsScript).id;
+  }
+  return null;
+}
 async function sendTvStandings(playerId) {
   const nowMs = Date.now();
-  const rows = await refreshStandings(nowMs).catch(() => []);
-  await refreshSeason(nowMs).catch(() => {});
+  const sport = sportOnChannel(tvWatchers.get(playerId)) || 'baseball';
+  const rows = await refreshStandings(nowMs, sport).catch(() => []);
+  await refreshSeason(nowMs, sport).catch(() => {});
+  const spec = STANDINGS_BUG[sport] || STANDINGS_BUG.baseball;
+  const s = seasonOf(sport);
   sendToPlayer(playerId, {
     type: 'tv_standings',
-    title: seasonOf('baseball').phase === 'worldseries' ? 'DEADBALL — WORLD SERIES' : 'DEADBALL — LEAGUE STANDINGS',
-    phase: seasonOf('baseball').phase || 'regular',
-    rows: (rows || []).map(r => ({
-      team: r.team,
-      wins: r.wins || 0,
-      losses: r.losses || 0,
-      rd: (r.runs_for || 0) - (r.runs_against || 0),
-    })),
+    sport,
+    title: s.phase === 'worldseries'
+      ? `${(SPORTS[sport] || BASEBALL).brand || 'DEADBALL'} — ${((SPORTS[sport] || BASEBALL).season?.finalName || 'World Series').toUpperCase()}`
+      : spec.title,
+    phase: s.phase || 'regular',
+    rows: (rows || []).map(spec.row),
   });
 }
 
@@ -4273,10 +4381,17 @@ async function sendTvStandings(playerId) {
 // does, rather than the generic stored broadcast name. Returns null for any non-sports item.
 function _sportsSlotLabel(item) {
   if (item.playback_mode !== 'sports' || !item.sportsScript) return null;
-  const s = seasonOf('baseball');
-  if (s.phase === 'worldseries' && s.finalistA && s.finalistB) return `⚾ WORLD SERIES — ${s.finalistA} vs ${s.finalistB}`;
+  // Per-item sport. KSAB carries both leagues in the same 18:00 window on different
+  // nights, so a row keyed to Deadball's season would caption the hockey night with a
+  // ballgame — the listing has to name the sport that slot actually airs.
+  const mod = sportOf(item.sportsScript);
+  const brand = mod.brand || 'DEADBALL';
+  const s = seasonOf(mod.id);
+  if (s.phase === 'worldseries' && s.finalistA && s.finalistB) {
+    return `${mod.finalIcon || '⚾'} ${(mod.season?.finalName || 'World Series').toUpperCase()} — ${s.finalistA} vs ${s.finalistB}`;
+  }
   const gs = sportsGameForSlot(item.sportsScript, sportsSlotIndex(), overrideFor(item.sportsScript));
-  return gs ? `DEADBALL — ${gs.game.away.name} @ ${gs.game.home.name}` : (item.broadcastName || 'DEADBALL — Coldwater League Baseball');
+  return gs ? `${brand} — ${gs.game.away.name} @ ${gs.game.home.name}` : (item.broadcastName || brand);
 }
 function sendTvSchedule(playerId, channelId) {
   const state = channelId ? channelRuntime.get(channelId) : null;
@@ -4288,6 +4403,10 @@ function sendTvSchedule(playerId, channelId) {
     channelNumber: state?.number ?? null,
     scheduleMode: state?.scheduleMode === 'daily' ? 'daily' : 'loop',
     nowLabel: _fmtHHMM(nowMin),
+    // The listing is TODAY's and only today's — say which day that is, or a
+    // Thursday-only fight night reads as a permanent fixture.
+    dayLabel: _dayName(getEnvironmentState().dayOfWeek),
+    dateLabel: getEnvironmentState().date || null,
   };
   if (!state || !state.playlist?.length) {
     sendToPlayer(playerId, { ...base, slots: [] });
@@ -4320,11 +4439,17 @@ function sendTvSchedule(playerId, channelId) {
     const onAir = state.playlist.filter(i => _slotAirsOn(i, dow) &&
       _pickDailySlot(state.playlist, i.startTime, dow) === i);
     const nowItem = _pickDailySlot(state.playlist, nowSec, dow);
+    // Everyday and day-specific rows sit in ONE running order — that's what a viewer
+    // actually sees. `everyday` is what the client colours by, and `dayTag` names the
+    // days a restricted slot keeps ('Thu', 'Sat,Sun'), so a weekly show is legible
+    // without being lifted out into a section of its own.
     slots = onAir.sort((a, b) => a.startTime - b.startTime).map(i => ({
       name: nameFor(i),
       todLabel: _fmtHHMM(i.startTime / 60),
       durationSec: i.duration,
       onNow: i === nowItem,
+      everyday: _dayMask(i.days) === DAYS_ALL,
+      dayTag: _dayLabel(i.days) || null,
     }));
   } else {
     // A loop channel has no fixed daily grid, but it's still tied to the wall clock
@@ -6921,12 +7046,17 @@ async function buildMediaDeckPanel(deckId, player) {
   let schedule = [];
   if (channelId) {
     const { rows: plRows } = await query(
-      `SELECT p.start_time, p.duration_override, b.name AS broadcast_name
+      `SELECT p.start_time, p.duration_override, p.days, b.name AS broadcast_name
          FROM media_channel_playlist p LEFT JOIN media_broadcasts b ON b.id = p.broadcast_id
         WHERE p.channel_id=$1 ORDER BY p.start_time`,
       [channelId]
     );
-    schedule = plRows.map(r => ({
+    // TODAY's running order — the whole grid is every day of the week, so a slot that
+    // doesn't air on this weekday has no business in a "today" preview. Without this,
+    // the two shows that share KSAB's 18:00 window both listed every night and the
+    // deck advertised the one that wasn't on.
+    const dow = getEnvironmentState()?.dayOfWeek;
+    schedule = plRows.filter(r => dow == null || _slotAirsOn(r, dow)).map(r => ({
       startTime: r.start_time,
       name: r.broadcast_name || '(untitled)',
     }));
@@ -7487,6 +7617,7 @@ export const _test = {
   adDurationSec: _adDurationSec, adAt: _adAt, graphDurationSec: _graphDurationSec,
   normalizeBroadcastGraph: _normalizeBroadcastGraph, CARD_MIN_HOLD_MS,
   pickDailySlot: _pickDailySlot, dayMask: _dayMask, dayLabel: _dayLabel, slotAirsOn: _slotAirsOn,
+  sportsSlotLabel: _sportsSlotLabel, sportsScheduleSlots: _sportsScheduleSlots,
 };
 
 // ── Route handler (CRUD) ─────────────────────────────────────────────────────

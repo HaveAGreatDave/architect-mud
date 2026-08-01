@@ -214,7 +214,50 @@
   "studio_zone_id": null,
   "vendor_inventory": null,
   "vendor_restock_rate": 1,
-  "vendor_schedule": null,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "sun": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "thu": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ]
+  },
   "vendor_shop_name": null,
   "vendor_stock_size": null,
   "wander_zones": [],

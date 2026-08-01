@@ -376,6 +376,11 @@ export const SEASON = {
 
 export const BASEBALL = {
   id: 'baseball',
+  // How the league names itself on a listing or a table. The TV guide and the
+  // standings button read this rather than the word DEADBALL, which used to be
+  // written into both and put a ballgame's name on a hockey night.
+  brand: 'DEADBALL',
+  finalIcon: '⚾',
   season: SEASON,
   section: 'inning',
   sectionPlural: 'innings',

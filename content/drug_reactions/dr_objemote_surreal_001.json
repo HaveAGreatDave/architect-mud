@@ -1,0 +1,10 @@
+{
+  "id": "dr_objemote_surreal_001",
+  "drug_id": null,
+  "source": "object_emote",
+  "tone": "surreal",
+  "self_line": "{it} turns very slightly, tracking you, and stops when you look straight at it.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

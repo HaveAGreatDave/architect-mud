@@ -326,6 +326,15 @@ their heat restored is grabbed on the spot.
 - **`camera_effectiveness` tunable (default 0.5):** every camera catch-chance is multiplied by this
   dev tunable — cameras run at *half* their base rates by default, on top of the visibility factor
   below. The `CAM_CATCH_BASE` 0.2 numbers quoted in this doc are before this multiplier.
+- **Camera odds scale with the crime's severity (`sevFactor`, 2026-08-01):** a lens is watched by
+  people, and people don't watch all crimes equally hard. Every camera roll — the flat one-shot roll
+  in `raiseCrime` and the time-ramped one in `scanActiveCrimes` — is multiplied by the crime's own
+  star weight (overrides included) over a **2★ pivot**, clamped to **[0.25, 1.6]** and re-capped at
+  `CAM_CATCH_MAX`. So 0.5★ indecent exposure and 0.3★ graffiti roll at a quarter of face value (many
+  sweeps before anyone files it), a 2★ burglary rolls unchanged, and 4★ arson rolls 1.6×. Murder and
+  the other `always` crimes are unaffected — they never touched the camera roll. **Deliberately
+  camera-only:** an on-scene cop still makes you at `COP_CATCH` whatever you're doing, because a
+  badge standing right there isn't triaging a watchlist.
 - **Player kills charge once:** killing a player charges the 5★ `murder` crime (witness `always` —
   self-reporting) via the crime registry. The legacy +2★ "witnessed homicide" bump was removed
   (2026-07-12) — it double-logged evidence and double-dispatched police on top of the murder charge.

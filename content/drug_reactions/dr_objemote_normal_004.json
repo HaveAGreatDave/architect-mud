@@ -1,0 +1,10 @@
+{
+  "id": "dr_objemote_normal_004",
+  "drug_id": null,
+  "source": "object_emote",
+  "tone": "normal",
+  "self_line": "{it} scratches at itself, unbothered, and stops.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

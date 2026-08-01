@@ -1,17 +1,28 @@
 {
   "id": "dx_mescaline_light_shaft",
   "drug_id": "drug_mescaline",
-  "matches": "lamp",
-  "name": "a light that knows what to fall on",
-  "description": "A lamp, doing the one thing it has ever wanted to do, on exactly the right object.",
+  "matches": "light",
+  "scope": "object",
+  "name": "a shaft of desert sun",
+  "description": "A solid column of afternoon light comes down through the ceiling at a slant, thick with turning dust, and lands on one small patch of the floor as though it had been aiming.",
   "looks": [
-    "It moves onto the right thing and settles, and it is right.",
-    "The light is older than the fitting by a very long way.",
-    "It goes round things, and takes its time about it."
+    "The dust in it turns slowly, all in the same direction, and the direction is not the one the air is going.",
+    "It is warm on the back of your hand. It is warm the way a wall is warm at four in the afternoon.",
+    "It moves onto the right thing and settles, and it is right."
   ],
   "says": [
     "There. That one. Look at that one.",
-    "I have been pointing at it all along."
+    "I have been pointing at it all along.",
+    "It is later than it is in here."
   ],
-  "scope": "object"
+  "emotes": [
+    "{it} swings a few degrees and lands on something else, which is immediately the most important thing in the room.",
+    "The dust turning inside {it} slows, stops, and starts going the other way.",
+    "{it} narrows to a stripe and widens again, and the room gets briefly enormous."
+  ],
+  "asks": [
+    "What time do you make it?",
+    "Do you want to stand in this? Most people want to stand in this.",
+    "Have you seen where I am pointing, or shall I move?"
+  ]
 }

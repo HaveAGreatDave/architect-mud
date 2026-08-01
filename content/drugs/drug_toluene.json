@@ -1,0 +1,75 @@
+{
+  "addiction_chance": 0.22,
+  "description": "Toluene fumes off a rag. The same can that thins paint and cuts a batch, breathed straight — cheap, everywhere, and it takes a piece of you every time.",
+  "duration_seconds": 90,
+  "effects": {
+    "comeon_message": "<span class=\"msg-system\">You soak the rag, cup it over your mouth, and pull. The sweetness gets there before the burn does.</span>",
+    "hallucination": {
+      "duration_seconds": 90,
+      "events": [
+        {
+          "atSec": 5,
+          "text": "[trip]The room goes bright and flat, like somebody turned the contrast all the way up.[/trip]"
+        },
+        {
+          "atSec": 30,
+          "text": "[trip]There is a bee in the back of your skull and it has been there for years.[/trip]"
+        },
+        {
+          "atSec": 65,
+          "text": "[trip]You lose the thread of your own sentence. You were not saying it out loud anyway.[/trip]"
+        },
+        {
+          "atSec": 85,
+          "text": "[trip]It lets go all at once and leaves the headache behind as a receipt.[/trip]"
+        }
+      ],
+      "intensity": 0.5,
+      "mode": "overlay",
+      "palette": "amber"
+    },
+    "instant": {
+      "hunger": -4,
+      "sanity": -14,
+      "thirst": 6
+    },
+    "onset_message": "<span class=\"msg-system\">Everything goes woolly and pleasantly stupid.</span>",
+    "onset_seconds": 3,
+    "overdose": {
+      "lethal": true,
+      "message": "You take one pull too many in a room with nothing else in the air. Your heart trips over itself in the dark and doesn't get back up."
+    },
+    "phases": {
+      "comedown_message": "<span class=\"msg-system\">The headache arrives on schedule and settles behind your eyes.</span>",
+      "comedown_scale": 0.4,
+      "comedown_seconds": 60,
+      "comeup_scale": 0.6,
+      "comeup_seconds": 8,
+      "end_message": "<span class=\"msg-system\">You come back with a mouth full of solvent and a little less than you started with.</span>",
+      "peak_mods": {
+        "stat_cool": -2,
+        "stat_reflexes": -2,
+        "stat_smarts": -3
+      },
+      "peak_seconds": 45
+    },
+    "take_line": "You wet a rag from {name} and breathe it in.",
+    "withdrawal": {
+      "message": "Your hands are unsteady and the workshop shelf keeps catching your eye.",
+      "mods": {
+        "stat_cool": -1,
+        "stat_smarts": -1
+      },
+      "onset_seconds": 1200
+    }
+  },
+  "flags": {
+    "drug_class": "depressant",
+    "legal": true
+  },
+  "id": "drug_toluene",
+  "item_id": "item_reagent_solvent",
+  "name": "toluene",
+  "overdose_threshold": 4,
+  "withdrawal_effects": {}
+}

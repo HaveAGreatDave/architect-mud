@@ -24,6 +24,7 @@ import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { allExits } from '../../server/engine/exits.js';
 import { resolveForCommand, resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
+import { findNpcTransformByName } from '../../server/engine/phantoms.js';
 import { awardSkillUse } from '../../server/engine/skills.js';
 import { getEquippedWeapon } from '../../server/engine/inventory.js';
 import { tagValue } from '../../server/engine/tags.js';
@@ -206,7 +207,16 @@ export async function cmdAttack(targetStr, player, broadcast) {
 	const zoneNpcs = getZoneNpcs(player.current_zone).filter(n => !n._dead);
 	if (zoneNpcs.length) {
 		const npcPool = zoneNpcs.map(n => ({ ...n, name: n.name }));
-		const npcr = siftResolve(targetStr, npcPool);
+		let npcr = siftResolve(targetStr, npcPool);
+		if (npcr.type === 'none') {
+			// A hallucinating attacker is swinging at what they can SEE. If a
+			// psychedelic has dressed this person up as something else, the name in
+			// front of them is the transformed one — and swinging at it must land on
+			// the real body, not miss on a technicality.
+			const seen = findNpcTransformByName(player.id, targetStr);
+			const real = seen && npcPool.find(n => n.id === seen.npcId);
+			if (real) npcr = { type: 'match', candidate: real };
+		}
 		if (npcr.type === 'match') {
 			const targetNpc = npcr.candidate;
 			if (isOnCooldown(player.id, 'attack')) {

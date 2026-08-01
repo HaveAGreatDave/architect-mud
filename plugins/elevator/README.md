@@ -48,6 +48,33 @@ by door, with nothing to author here.
 - `/^(up|down)$/i` — the in-car raw-direction redirect (car-only; falls through to movement otherwise).
 - `/^(out|exit)$/i` — step out onto the parked floor (car-only, and only while parked somewhere other than the car's own zone; falls through to normal movement otherwise, which is what makes `out` at the lobby ordinary).
 
+## GPS auto-walk rides the lift
+
+A car's floors are all wired as `up`, and the car **refuses `up`** — which made the lift
+the one thing on the map that GPS auto-walk could not cross. It sent `up`, was told to
+enter a number, made no progress twice, and stopped standing in the car.
+
+The fix splits across two seams and adds no new verb — the walker types what a player
+would type:
+
+- **`plugins/elevator/floors.js`** — the floor table (`floorsOf`, `floorFor`, the implicit
+  Floor 1) lives in a module with **no side effects**, so GPS can ask "which button reaches
+  this zone?" without importing the plugin's registrations. `index.js` imports it too;
+  there is one table.
+- **`routeDirs` in `plugins/gps`** emits the literal **`floor <n>`** for a car→floor hop
+  instead of a direction. Everything else in the route is unchanged.
+- **`elevator_doors`** (`{ floor, zone }`, this rider only) is sent whenever the doors come
+  to rest open on a floor — at the end of a ride, and on pressing the button for the floor
+  you are already parked on. That second case is also why pressing your own floor returns
+  an `output` and **not an `error`**: an error would send the walker off routing *around*
+  the lift.
+- The client (`minimap.js`) rides it: press the button, stop stepping, wait for
+  `elevator_doors`, send `out`. `out` is a real move onto the floor, so the ordinary
+  confirmation path resumes from there. The step watchdog is widened to 12s for a ride,
+  since the car takes up to 5s to climb.
+
+A human rider sees none of this; `elevator_doors` renders nothing.
+
 ## Events emitted
 
 - `zone.entered` — when you step `out` onto a floor (via `cmdMove`, or emitted directly on the teleport fallback), so movement-reactive systems (ambience, weather, quests) treat it like any other move. The ride itself moves nobody and emits nothing.

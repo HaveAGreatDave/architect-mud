@@ -6,6 +6,7 @@ import { adjustCredits } from "./economy.js";
 import { setPosture } from "./posture.js";
 import { registerProtectionProvider } from "./protection.js";
 import { isSanctuary, allowsSleep } from "./zone-tags.js";
+import { ownsZone } from "./zone-filth.js";
 import { isWired } from "./drugs.js";
 import { hasPerm, PERM } from "./org-perms.js";
 import { exitTargets, neighborZoneIds } from "./exits.js";
@@ -712,6 +713,14 @@ export async function cmdPickLock(player) {
 
 // Determine whether the player can sleep here right now, and how well.
 export function getSleepEligibility(player, zone) {
+	// Anywhere you OWN is somewhere you can sleep, at home rate — a rented flat is
+	// only the commonest case of that, not the rule. Asked through the same sync,
+	// query-free ownership seam the filth sweep uses (`registerOwnedZoneProvider`),
+	// so a plugin that already declares a deed (storefronts today) gets this for
+	// free and the engine never learns what a shop is.
+	if (ownsZone(zone?.id, player.id)) {
+		return { canSleep: true, restore: SLEEP_RESTORE_HOME, reason: "home" };
+	}
 	if (isApartmentZone(zone)) {
 		const apt = getApartment(zone.id);
 		if (apt?.owner_id === player.id) {
@@ -961,7 +970,11 @@ export async function tickSleep(player, broadcastFn) {
 	// which makes it a second, stranger readout of your own condition.
 	const dream = await rollDream(player);
 	if (dream) {
-		broadcastFn(null, { type: 'output', message: `<span class="text-dim"><em>${dream}</em></span>` }, null, player.id);
+		// ITS OWN TYPE, so the client can let you READ it. A sleeper's log is blurred
+		// out behind their eyelids (body.asleep in styles.css) — which was also
+		// blurring the one thing sleep is supposed to show you. The dream lifts the
+		// blur for as long as it is on screen and then lets it settle back.
+		broadcastFn(null, { type: 'sleep_dream', message: `<em>${dream}</em>` }, null, player.id);
 	}
 
 	// THE DEEP END. Occasionally you don't dream ABOUT somewhere, you go there.

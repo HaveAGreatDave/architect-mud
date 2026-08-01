@@ -196,15 +196,16 @@ export default async function regress({ run, check, getPlayer }) {
     fatigueOf({ ...WARM, last_slept_at: null }) === 0);
   check('fatigue builds with time awake', fatigueOf(awake(4)) > fatigueOf(awake(1)));
   check('...and is gentler than hunger — a long session before it bites',
-    fatigueOf(awake(12)) < FATIGUE_TIRED, fatigueOf(awake(12)));
+    fatigueOf(awake(48)) < FATIGUE_TIRED, fatigueOf(awake(48)));
   // The curve is written off what a person actually does, so these two are the
-  // load-bearing ones: a hard night has to stay affordable, and it's the second
-  // and third nights that are supposed to hurt.
-  check('twelve hours up costs you nothing mechanical',
-    statPenalty(awake(12), 'stat_brains') === 0 && statPenalty(awake(12), 'stat_reflexes') === 0);
-  check('...and a full day up is unpleasant, not crippling',
-    statPenalty(awake(24), 'stat_brains') <= 1 && statPenalty(awake(24), 'stat_reflexes') === 0);
-  check('...but three days up is ruinous', fatigueOf(awake(72)) >= FATIGUE_RUINED);
+  // load-bearing ones: a hard night has to stay affordable, and it's the later
+  // nights that are supposed to hurt. The hour marks are the original design
+  // (12h / 24h / 72h) stretched 4×, alongside the rest of the biological demands.
+  check('two days up costs you nothing mechanical',
+    statPenalty(awake(48), 'stat_brains') === 0 && statPenalty(awake(48), 'stat_reflexes') === 0);
+  check('...and four days up is unpleasant, not crippling',
+    statPenalty(awake(96), 'stat_brains') <= 1 && statPenalty(awake(96), 'stat_reflexes') === 0);
+  check('...but twelve days up is ruinous', fatigueOf(awake(288)) >= FATIGUE_RUINED);
   check('it caps rather than running away', fatigueOf(awake(1000)) === 100);
   check('exhaustion costs Brains first', statPenalty(awake(FATIGUE_FULL_HOURS), 'stat_brains') > 0);
   check('...and Reflexes only once it is severe',
@@ -246,7 +247,7 @@ export default async function regress({ run, check, getPlayer }) {
     return after < start;
   })());
   check('sleep deprivation bleeds sanity only from the second night on, never before',
-    fatigueOf(awake(24)) < FATIGUE_RUINED && fatigueOf(awake(72)) >= FATIGUE_RUINED);
+    fatigueOf(awake(96)) < FATIGUE_RUINED && fatigueOf(awake(288)) >= FATIGUE_RUINED);
 
   // The reward has to outweigh the penalty — sleeping is optional, so it must be
   // worth doing rather than merely something bad you're avoiding.
@@ -254,10 +255,10 @@ export default async function regress({ run, check, getPlayer }) {
   const restedPlayer = { ...WARM, statuses: [{ name: 'rested', duration: 100 }] };
   check('Well Rested actually raises stats', effectStatBonus(restedPlayer, 'stat_brains') > 0);
   check('...and the reward beats the penalty for skipping sleep',
-    effectStatBonus(restedPlayer, 'stat_brains') >= statPenalty(awake(24), 'stat_brains'));
+    effectStatBonus(restedPlayer, 'stat_brains') >= statPenalty(awake(96), 'stat_brains'));
   check('a rested player is better than a merely-not-tired one',
     effectiveStat(restedPlayer, 'stat_brains') > effectiveStat(WARM, 'stat_brains'));
-  check('being tired is a nudge, not a crippling', statPenalty(awake(48), 'stat_brains') <= 1);
+  check('being tired is a nudge, not a crippling', statPenalty(awake(192), 'stat_brains') <= 1);
 
   // ── Cool ↔ sanity: composure protects, and losing it costs ─────────────────
   const { resistSanityLoss } = await import('../../server/engine/condition.js');

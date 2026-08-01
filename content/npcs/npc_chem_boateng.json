@@ -3,23 +3,121 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "chat": {
-        "action_type": "VENDOR_CHITCHAT",
-        "next": "wait",
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
         "type": "action"
       },
-      "look": {
-        "condition_type": "PLAYER_IN_ZONE",
-        "ifFalse": "wait",
-        "ifTrue": "chat",
+      "atm_wait": {
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "collect_safe",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
         "type": "condition"
       },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
       "start": {
-        "next": "wait",
+        "next": "check_work",
         "type": "start"
       },
-      "wait": {
-        "next": "look",
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
         "seconds": 60,
         "type": "wait"
       }
@@ -36,14 +134,290 @@
       "options": [],
       "text": "They turn back to the counter."
     },
+    "n_cook": {
+      "_vine": {
+        "x": 420,
+        "y": 660
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Teach me something, then.",
+          "next": "n_meatballs"
+        },
+        {
+          "label": "What's in that rub of yours?",
+          "next": "n_rub"
+        },
+        {
+          "label": "Another time.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Cook. Aye.\" He turns the word over like it's been left on his counter without a receipt. \"Whether what I do is cooking is between me and the man upstairs, and he's not returning my calls.\"\n\nHe wipes his hands on the apron. This does not make them cleaner.\n\n\"It's chemistry you're allowed to eat. Same rules — weigh it, don't guess it, and don't open the lid to look at it.\""
+    },
+    "n_meatballs": {
+      "_vine": {
+        "x": 780,
+        "y": 660
+      },
+      "actions": [
+        {
+          "action": "TEACH_RECIPE",
+          "recipe": "meatballs"
+        }
+      ],
+      "options": [
+        {
+          "conditions": [
+            {
+              "relation": "familiar"
+            }
+          ],
+          "label": "What about the shoulder?",
+          "next": "n_more"
+        },
+        {
+          "label": "That's plenty.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Meatballs. Start there. If you cannot roll a meatball you've no business near a smoker.\"\n\n<span class=\"text-dim\">He holds up a hand, thick fingers spread, and counts nothing on it.</span>\n\n\"Meat, egg, crumb. The crumb is not filler — it's the thing that stops it going to rubber, so don't leave it out to feel virtuous about yourself. Work it with your hands until it's one thing. Then stop. Every man I've watched ruin meatballs ruined them by carrying on.\"\n\n\"They're not dinner, mind. That's rather the point of them. They're a thing you've got, for later.\""
+    },
+    "n_more": {
+      "_vine": {
+        "x": 1140,
+        "y": 660
+      },
+      "actions": [
+        {
+          "action": "TEACH_RECIPE",
+          "recipe": "pulled_shoulder"
+        }
+      ],
+      "options": [
+        {
+          "conditions": [
+            {
+              "relation": "close"
+            }
+          ],
+          "label": "What's in the jar with your name on it?",
+          "next": "n_sauce"
+        },
+        {
+          "conditions": [
+            {
+              "op": "below",
+              "relation": "close"
+            }
+          ],
+          "label": "What's in the jar with your name on it?",
+          "next": "n_notyet"
+        },
+        {
+          "label": "Ten hours.",
+          "next": "n_thanks"
+        }
+      ],
+      "text": "\"Right. The shoulder.\" <span class=\"text-dim\">He leans on the counter with both hands, which is the closest thing to enthusiasm the man has in stock.</span>\n\n\"Whole shoulder, bone in. Score the cap, mustard, rub, and be generous — you're seasoning something the size of a wee dog. Then two twenty-five, and then you leave it alone for ten hours. Twelve. Fourteen. It's ready when it's ready and not when you are.\"\n\n\"Somewhere in the middle it'll stop getting hotter and just sit there for hours, sulking at you. That's meant to happen. Every man who's ruined one ruined it right there, by turning the heat up to teach it a lesson.\"\n\n\"It's done when the bone comes out without an argument. Then you pull it apart with your hands and you put the bark back through the middle, so it's not just the one lucky soul getting all the good bit.\""
+    },
+    "n_notyet": {
+      "_vine": {
+        "x": 1500,
+        "y": 900
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "root"
+        }
+      ],
+      "text": "\"That one's not for browsing.\" <span class=\"text-dim\">He puts the jar back behind the till, unhurried, the way you would move a dog off a chair.</span>\n\n\"There's a name on that label. It's not a brand, it's a name. You'll understand the difference or you won't.\""
+    },
+    "n_rub": {
+      "_vine": {
+        "x": 780,
+        "y": 420
+      },
+      "actions": [
+        {
+          "action": "TEACH_RECIPE",
+          "recipe": "spice_rub"
+        }
+      ],
+      "options": [
+        {
+          "label": "That's it?",
+          "next": "n_rub_barb"
+        },
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Salt, pepper, garlic, brown sugar, cayenne, paprika.\" <span class=\"text-dim\">He says it the way other men say a phone number they've never had to look up.</span> \"That's it. That's the whole conspiracy. Every man selling you a secret blend is selling you those six and a story.\"\n\n\"The salt is not the flavour, it's what carries the flavour in. The sugar isn't there to sweeten it — it's there to burn, and the burning is the bark. Cayenne for the argument. Paprika because we eat with our eyes, apparently, which I've always thought was a poor use of them.\"\n\n\"Mix it till it's one colour. If you can still see the salt, you're not finished and you're kidding yourself.\""
+    },
+    "n_rub_barb": {
+      "_vine": {
+        "x": 1140,
+        "y": 420
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Fewer.",
+          "next": "root"
+        }
+      ],
+      "text": "\"That's it.\" <span class=\"text-dim\">He seems entirely unbothered by your disappointment, possibly nourished by it.</span>\n\n\"You were after a secret. There isn't one. There's six things and the ratio, and the ratio you'll get wrong four times before you get it right, and that's the part nobody can hand you.\"\n\n\"I've sold reagents to people who blew a wall out because they wanted the interesting answer instead of the correct one. Cooking's the same trade with fewer funerals.\""
+    },
+    "n_sauce": {
+      "_vine": {
+        "x": 1500,
+        "y": 660
+      },
+      "actions": [],
+      "options": [
+        {
+          "conditions": [
+            {
+              "flag": "angus_sauce_gift",
+              "op": "unset"
+            }
+          ],
+          "label": "Show me the chop.",
+          "next": "n_teach_chop"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "angus_sauce_gift",
+              "op": "set"
+            }
+          ],
+          "label": "Show me the chop.",
+          "next": "n_teach_chop_again"
+        },
+        {
+          "label": "The sauce is enough.",
+          "next": "root"
+        }
+      ],
+      "text": "He fetches the jar down and sets it between you like evidence.\n\n\"Apple butter, chipotle, and a bit of patience. Goes on sweet, then comes back for you about four seconds later, by which time you've committed.\" <span class=\"text-dim\">He taps the tape label once.</span> \"My mother's, near enough. She used treacle, on the grounds that she had treacle and no chipotle. She'd have used the chipotle. I'm betraying nobody.\"\n\n\"There's a chop goes under it. You'll want the chop.\""
+    },
+    "n_stilltocome": {
+      "_vine": {
+        "x": 1860,
+        "y": 1120
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Another day.",
+          "next": "root"
+        }
+      ],
+      "text": "\"There's ribs — three hours, two hours, one hour, and if you cannot hold three numbers in your head you cannot hold anything. And there's a thing I do with chicken and hot sauce that is, technically, a dip. I'll thank you not to look at me like that.\"\n\n<span class=\"text-dim\">He straightens a jar that was already straight.</span>\n\n\"Another day. I've a delivery coming, and it's gas.\""
+    },
+    "n_teach_chop": {
+      "_vine": {
+        "x": 1860,
+        "y": 660
+      },
+      "actions": [
+        {
+          "action": "TEACH_RECIPE",
+          "recipe": "smoked_chop"
+        },
+        {
+          "action": "GRANT_ITEM",
+          "item_id": "item_bbq_sauce",
+          "once": false,
+          "quantity": 1
+        },
+        {
+          "action": "SET_FLAG",
+          "flag": "angus_sauce_gift",
+          "value": "true"
+        }
+      ],
+      "options": [
+        {
+          "label": "Anything else in that book of yours?",
+          "next": "n_stilltocome"
+        },
+        {
+          "label": "Thanks, Angus.",
+          "next": "n_thanks"
+        }
+      ],
+      "text": "\"Inch and a half thick. No less. Thinner than that and you're not cooking it, you're frightening it.\"\n\n<span class=\"text-dim\">He counts it off on his fingers, and the fingers are the only part of him that looks pleased.</span>\n\n\"Score the fat cap in a diamond, quarter inch deep and no deeper. Mustard all over — you'll not taste the mustard, so don't stand there tasting for it. Rub on heavy. Heavier. Then an hour and a half in the smoke at two twenty-five, and here's the hard part: you go away. You do something else with your life. Every time you lift that lid you're adding a quarter hour and removing a reason to live.\"\n\n\"Then the coals as hot as they'll go, sauce on, and leave it until the fat cap chars and crisps. Off at a hundred and fifty. Past that you've made a shoe.\"\n\n<span class=\"text-dim\">He pushes a jar across the counter without ceremony and has turned back to the sheet before you can do anything about it.</span>\n\n\"Take that. No — take it. If you go and buy some other sauce after all that, I'll hear about it, and I'll have to have a think about you.\""
+    },
+    "n_teach_chop_again": {
+      "_vine": {
+        "x": 1860,
+        "y": 900
+      },
+      "actions": [
+        {
+          "action": "TEACH_RECIPE",
+          "recipe": "smoked_chop"
+        }
+      ],
+      "options": [
+        {
+          "label": "Anything else in that book of yours?",
+          "next": "n_stilltocome"
+        },
+        {
+          "label": "Worth asking.",
+          "next": "n_thanks"
+        }
+      ],
+      "text": "\"Again.\" <span class=\"text-dim\">He does not sigh, but the apron does.</span>\n\n\"Inch and a half, scored, mustard, rub, hour and a half in the smoke, sauce, char, off at a hundred and fifty. There. You've had it twice now, which is once more than I got it.\"\n\n\"You're buying your own jar this time.\""
+    },
+    "n_thanks": {
+      "_vine": {
+        "x": 2220,
+        "y": 660
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "I will.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Don't.\" <span class=\"text-dim\">He is already writing something on the sheet that may or may not exist.</span>\n\n\"If it's good you'll know, and if it's bad you'll know sooner. That's the beauty of the thing. Nobody's needing my opinion.\"\n\nA pause. He doesn't look up.\n\n\"Bring me a bit, if it's good.\""
+    },
     "root": {
+      "_vine": {
+        "x": 60,
+        "y": 300
+      },
       "options": [
         {
           "label": "Let me see the stock.",
           "next": "shop"
+        },
+        {
+          "conditions": [
+            {
+              "relation": "known"
+            }
+          ],
+          "label": "About that cooking of yours.",
+          "next": "n_cook"
         }
       ],
-      "text": "\"Bulk's in the back, glass up front, gas is chained by the door. Sign the sheet on your way out.\""
+      "text": "\"Bulk's in the back, glass up front, gas is chained by the door. Sign the sheet on your way out.\"",
+      "text_by_relation": {
+        "close": "<span class=\"text-dim\">He does not look up from the sheet, but the pen stops.</span>\n\n\"There you are. I'd a shoulder on all night and nobody in this building to tell about it.\" He caps the pen. \"That's the state of my life, since you asked. Which you didn't.\"",
+        "familiar": "\"Aye.\" <span class=\"text-dim\">He has the sheet turned round and facing you before you reach the counter.</span>\n\n\"Glass is where it was. Ask if you're after something that isn't.\"",
+        "known": "\"Bulk's in the back, glass up front. You know where the sheet is.\"\n\n<span class=\"text-dim\">He looks at you a moment longer than the transaction requires, and appears to reach a decision he is not pleased about.</span>\n\n\"Here. You've been in enough times that I've stopped counting, and a man buying that much foil is either cooking or he's up to something. I've chosen to believe the first one.\" He puts both hands flat on the counter. \"So. If you want to be taught something, ask. I'll not push it. I've already found this embarrassing.\""
+      }
     },
     "shop": {
       "actions": [
@@ -71,7 +445,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_chemsupply_interior",
+  "home_zone": "zone_meridian_unit_104",
   "hp": 60,
   "hp_max": 60,
   "id": "npc_chem_boateng",
@@ -120,44 +494,44 @@
   "vendor_schedule": {
     "fri": [
       {
-        "from": 0,
-        "to": 24
+        "from": 6,
+        "to": 20
       }
     ],
     "mon": [
       {
-        "from": 0,
-        "to": 24
+        "from": 6,
+        "to": 20
       }
     ],
     "sat": [
       {
-        "from": 0,
-        "to": 24
+        "from": 6,
+        "to": 20
       }
     ],
     "sun": [
       {
-        "from": 0,
-        "to": 24
+        "from": 6,
+        "to": 20
       }
     ],
     "thu": [
       {
-        "from": 0,
-        "to": 24
+        "from": 6,
+        "to": 20
       }
     ],
     "tue": [
       {
-        "from": 0,
-        "to": 24
+        "from": 6,
+        "to": 20
       }
     ],
     "wed": [
       {
-        "from": 0,
-        "to": 24
+        "from": 6,
+        "to": 20
       }
     ]
   },

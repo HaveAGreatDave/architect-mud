@@ -1,0 +1,10 @@
+{
+  "id": "dr_objrep_farewell_normal_004",
+  "drug_id": null,
+  "source": "object_reply_farewell",
+  "tone": "normal",
+  "self_line": "Take care of yourself.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

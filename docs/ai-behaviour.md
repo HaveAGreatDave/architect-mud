@@ -32,6 +32,14 @@ Each entity (enemy or NPC) that has a `behaviour_graph` gets a **blackboard** �
   // Home life
   homeSleeping:    false,    // true while asleep at home (AT_HOME_LIFE)
   lastHomeSay:     0,        // passive home activity cooldown (30s)
+  homeAwakeSince:  0,        // when this stretch of waking home life began (edge-detected on arrival)
+  wokenUntil:      0,        // held awake after being disturbed — no straight back to bed
+  sleepStartedAt:  0,        // when they went under (feeds sleep depth)
+  disturbCount:    0,        // disturbances this sleep; each makes the next likelier to land
+  wokeMood:        null,     // { mood: 'annoyed'|'confused', until } — read by the passive ticker
+  _wasHome:        false,    // edge-detect for arriving home
+  // Set by npc-drugs, read by the engine
+  crashSleepy:     0,        // stimulant comedown — AT_HOME_LIFE raises the sleep chance while set
 }
 ```
 
@@ -157,7 +165,7 @@ Executes one action and stops the tick. The cursor is saved to the `next` port's
 | `VENDOR_COLLECT_SAFE` | — | Find linked vendor-safe furniture in `work_zone_id`, take 25% of `vendor_credits`, broadcast to zone |
 | `VENDOR_GO_TO_ATM` | — | Find nearest non-broken ATM furniture globally (BFS), walk toward it; returns RUNNING until arrived |
 | `VENDOR_DEPOSIT` | — | Add `blackboard.vendor_carrying` to `vendor_bank_credits` in DB; broadcast confirmation |
-| `AT_HOME_LIFE` | — | Owns the sleep cycle only (the random home activities come from the passive home-life ticker in `tickEntityAI`). 15% chance/tick to fall asleep until 1 game-hour before the next `vendor_schedule` shift, or 07:00 game time with no schedule. On sleep it sets a real posture through the engine substrate — `setPosture(entity, 'lying', { sittingOn })` bound to a bed/couch/etc. in the room (floor fallback, `sittingOn=null`) — and back to `standing` on wake. `ai.homeSleeping` is the *asleep* flag; `entity.posture === 'lying'` is the *physical stance*, so they stay separable |
+| `AT_HOME_LIFE` | — | Owns the sleep cycle only (the random home activities come from the passive home-life ticker in `tickEntityAI`). **Three gates before bed is even considered**, so an NPC has an evening as well as a night: 90 game-minutes of waking home life since arriving (`homeAwakeSince`, edge-detected so yesterday's timestamp can't count), not inside the post-wake grace (`wokenUntil`), and the next wake no more than 9 game-hours out — nobody turns in that early, they stay up and keep living. Then a 15%/tick roll (**50% while `ai.crashSleepy` is set** — a stimulant comedown, and the line changes to folding over mid-sentence) to sleep until 1 game-hour before the next `vendor_schedule` shift, or 07:00 game time with no schedule. On sleep it sets a real posture through the engine substrate — `setPosture(entity, 'lying', { sittingOn })` bound to a bed/couch/etc. in the room (floor fallback, `sittingOn=null`). Waking goes through `wakeNpc()`, never a bare `setPosture`. `ai.homeSleeping` is the *asleep* flag; `entity.posture === 'lying'` is the *physical stance*, so they stay separable |
 | `TALKSHOW_APPEAR` | — | Guest lifecycle (broadcast plugin's default guest graph): materialise out of the off-world backstage `home_zone` into a random **unobserved** zone near the studio, so no player sees it pop in. `GO_TO_WORK` then walks it onstage |
 | `TALKSHOW_HIDE` | — | The reverse: vanish back to `home_zone` the moment the current zone has no players and no camera on it; otherwise step toward the studio's exterior and re-check |
 
@@ -210,6 +218,160 @@ Behaviour graphs are authored with `VineAISchema` from the dev panel's Enemies o
 The stored graph lives in `enemies.behaviour_graph` or `npcs.behaviour_graph` (JSONB). The runtime reads it directly from the in-memory world cache (loaded at boot or zone-reload).
 
 ---
+
+## Home life needs a home
+
+`home_zone` had drifted into meaning *"where this NPC is when they're not working"* —
+**110 of 178 NPCs have their own shop floor, the studio stage or a street tile as their
+home_zone**. Home life read off `home_zone` alone, so a shopkeeper tidied her apartment in
+front of customers and eleven studio actors microwaved something questionable on a live set.
+
+The passive ticker now asks **two** questions:
+
+| | test | governs |
+|---|---|---|
+| `atHomeZone` | standing where `home_zone` points | washing (`npcWashAtHome`) and the evening clock — true of anywhere you live, including a bunk behind the counter |
+| `atHome` | ...**and** `isDwellingZone(getZone(home_zone))` | the visible domestic activities |
+
+`isDwellingZone` ([zone-tags.js](../server/engine/zone-tags.js)) = `is_apartment || is_dwelling`.
+A workplace passes neither, on purpose: the NPC still stands there, still sleeps there, still
+talks to you — they just stop performing domestic scenes in public. ambient-life's home
+routines (the cooking/drinking vignettes) use the same gate, so both halves agree.
+
+**`is_dwelling` is the flag for a home nobody rents** — the Reach cabins, Akerson's
+penthouse, the Long Watch bunkroom, Dredge's cistern, the Echelon boudoir. Adding it to a
+workplace is the one way to reintroduce the bug.
+
+### The commute build
+
+The gate above is only half the answer — a home is worth having only if you can leave it.
+[`scripts/house-posted-npcs.mjs`](../scripts/house-posted-npcs.mjs) gives the workplace-homed
+cast all three things at once, because doing fewer is worse than doing none:
+
+1. **Home** — an apartment chosen by real hop distance from their workplace (BFS over
+   `zones.exits`, undirected, capped at 60 hops), packed 2 to a unit (3 every fifth).
+2. **Shift** — a derived `vendor_schedule`. An NPC with no schedule is never *off* shift
+   and therefore never goes home; the day off is derived from their id so a district
+   doesn't shut all at once.
+3. **Commute** — the engine's OWN `buildDefaultVendorGraph` / `buildDefaultStudioGraph`.
+   Adopting the default rather than inventing a graph means the script can never drift
+   from what the engine knows how to run, and anyone who already has `GO_TO_WORK` keeps
+   their authored graph untouched.
+
+Two candidate classes: NPCs homed at their workplace get all three; NPCs who already live
+somewhere real but have a job they can't reach keep their home and get the last two.
+
+**Who is left posted** is a rule, not a list of names:
+
+- **`flags.posted`** — authored "the post is the life". `aa_crew`, `aa_engineer`, `police`,
+  `haunt_zone` and `no_attack` already imply it.
+- **No apartment reachable from their workplace.** This is the load-bearing one: it
+  silently and correctly excludes The Reach, the Long Watch, the Under, the Ascendant
+  compound, the AA emplacements and the Echelon without anyone having to remember they
+  are remote. If a district gets housing later, they house themselves on the next run.
+- A workplace that is itself a dwelling — bad data or a home business; either way not a
+  commute worth building.
+
+Result: **144 of 178 NPCs now live somewhere they could plausibly live**, 34 stay posted.
+The script is file-authoring (git is the source of truth) and dry-run by default.
+
+### Two ways a housing pass leaves someone permanently off work
+
+Both of these shipped, and both are **silent** — no error, no log line, no in-game tell.
+The shop just always has nobody behind the counter. Found 2026-08-01, when Lowry Cormack
+and Angus Malcolm were both missing from their own counters.
+
+**1. The body is left behind (`npcs.zone_id` vs `home_zone`).** `home_zone` is content and
+moves with the housing pass; `zone_id` is runtime, excluded from content files, and does
+not. An NPC whose home is reassigned while their body stands in the old flat no longer
+*owns* that flat's door — so the locked door sealed them in. `GO_TO_WORK` cleared its path,
+returned `RUNNING`, and retried the same impossible hop forever.
+
+Fixed in `moveEntity`: **a lock on a home keeps people out, not in.** Ownership still
+decides who may come *in*; anyone standing inside a dwelling may always walk *out*. The
+test is `isDwellingZone(getZone(oldZoneId))` — deliberately **not** `door.zone_id`, whose
+anchor side is not a reliable "protected side" (an apartment door is anchored inside the
+flat; the regress hall door is anchored in the hall with `target_zone` pointing at the
+flat). Testing the anchor lets a stranger walk *in* through the second kind. Enemies are
+excluded — a locked door is still a wall to something chasing you, from either side.
+
+`ownsThisDoor` alone is also too narrow, because it only knows the two zones either side of
+one doorway. **A door on the building you live or work in opens for you from anywhere
+inside it** — compared by `map_id`, on both the zone being left and the one being entered.
+Halloran is the case that needs it: he sleeps in the Long Watch bunkroom and runs a surface
+shop, so his commute crosses *two* `lock:longwatch` doors — out through the bunker blast
+door, then back up the drain hatch into his own shop's back room. Neither is adjacent to his
+home or work zone, and `lock:longwatch`'s `authFn` reads a **player's** reputation, so it can
+never answer for an NPC at all. The map comparison is guarded on a truthy `map_id`: regress
+uses synthetic zones with none, and `undefined === undefined` would wave every stranger through.
+
+A blocked commute now also logs once per NPC per hour rather than failing silently.
+
+**2. A home but no shift.** `CHECK_VENDOR_WORK` drives everything off `vendor_schedule`.
+An empty one has no blocks and no reference range, so it falls through to `return
+'offWork'` — permanently off duty, `GO_TO_WORK` unreachable. 20 NPCs shipped this way.
+`content:lint` now **fails** on `work_zone_id !== home_zone` with an empty
+`vendor_schedule`. Two exemptions, both meaning "a schedule would decide nothing here":
+NPCs stationed where they live (`work_zone_id === home_zone`, 28 of them), and
+**studio-driven** NPCs whose graph uses `CHECK_WORK` rather than `CHECK_VENDOR_WORK` —
+that node gates on `studio_zone_id` and the broadcast schedule and never reads
+`vendor_schedule`, so a TV host is at the studio when their show is on and home otherwise.
+
+A third failure of the same family is not an NPC problem at all: **a workplace with no way
+in.** Tine & Temper's interior map was parented on `zone_district_918_907`, but that tile was
+never given the `facade` tag, so `isEnterableFacade` was false and the auto-forward seam
+never fired — the shop could be left but never entered, by anyone, including Tove Adaska who
+owns it. Tagging the facade (plus `entrance`, `building_type`, and the exit into the
+interior taking the slot *opposite* the entrance) is what wires a building up; see
+[land-taxonomy](reference/land-taxonomy.md) and the facade invariants `content:lint`
+already checks.
+
+For the residue of past passes, [`scripts/oneshots/reconcile-stranded-npcs.mjs`](../scripts/oneshots/reconcile-stranded-npcs.mjs)
+returns anyone who cannot reach their workplace from where they stand — and deliberately
+refuses to move an NPC whose workplace is unreachable from *home* too, since that is a
+world-connectivity bug that relocating them would only hide.
+
+## Sleeping NPCs, and waking them
+
+`ai.homeSleeping` is the one flag meaning *this NPC is unconscious in their own bed*.
+`AT_HOME_LIFE` sets it; **everything that disturbs a sleeper goes through
+`disturbSleeper()`** ([ai-behaviour.js](../server/engine/ai-behaviour.js)) so the roll,
+the resulting state and the flavour cannot drift across the verbs that can reach a
+sleeping body.
+
+```js
+disturbSleeper(npc, { broadcast, force }) // → null | { woke, mood, message }
+```
+
+- Returns **`null` when the NPC isn't asleep** — callers carry straight on, so adding the
+  check to a verb is one line and changes nothing for an awake NPC.
+- Otherwise it rolls. A sleeper is not a light switch: the usual outcome is that they
+  mumble and stay under, and it *says so*, so the player knows the interaction happened
+  and failed rather than appearing to do nothing.
+- Depth: **0.55** baseline, **0.9** while `loose`/`out` on drink or a downer, **0.15** while
+  `wired`. Each disturbance subtracts **0.2**, so persistence always works and nobody is
+  trapped rolling `talk` at a snoring body.
+- Waking picks a mood — **confused** if they were deep under (dosed, or under an hour of
+  sleep behind them), otherwise usually **annoyed** — which is stored as `ai.wokeMood` and
+  read by the passive home-life ticker for the next 45 game-minutes, so being woken has a
+  visible tail instead of one line and business as usual.
+- `force: true` skips the roll. Being hit wakes you up; a listener on `npc.attacked` in
+  this module does exactly that.
+- `message` is already broadcast to the room (via the `broadcast` you pass, which should
+  exclude the actor) and *also* returned, so the verb can answer the actor with it.
+
+`wakeNpc(npc, { mood })` is the state half, shared with `AT_HOME_LIFE`'s own scheduled
+wake: clears the sleep, `forceStand`s the body, restarts the graph from `_start`, and sets
+`wokenUntil` so they don't lie straight back down on the next tick.
+
+**Wired in at:** `cmdTalk` ([commands/social.js](../server/engine/commands/social.js)) —
+before the `npc.talk` hook, so a plugin can't hold a conversation with an unconscious
+person — and the `npc.attacked` listener. Anything new that touches a sleeping NPC should
+call it rather than poking `homeSleeping` directly.
+
+Consumers that must exclude sleepers: the passive home-life ticker (gated on
+`!ai.homeSleeping`) and ambient-life's home routines (`isBusyBeingUnconscious`, which also
+covers `dosedOut` and `posture === 'lying'`).
 
 ## Pathfinding
 

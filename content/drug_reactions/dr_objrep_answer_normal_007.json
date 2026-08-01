@@ -1,0 +1,10 @@
+{
+  "id": "dr_objrep_answer_normal_007",
+  "drug_id": null,
+  "source": "object_reply_answer",
+  "tone": "normal",
+  "self_line": "That is not as bad as you are making it sound.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

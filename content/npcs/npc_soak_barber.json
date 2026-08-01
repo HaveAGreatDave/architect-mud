@@ -1,6 +1,128 @@
 {
   "banter": [],
-  "behaviour_graph": {},
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "collect_safe",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
   "chitchat": [
     "Nessa strops the razor twice, unhurried, and looks at your hairline like it owes her money.",
     "\"Wash first, then sit. I'm not cutting through that.\"",
@@ -8,8 +130,38 @@
   ],
   "description": "A barber with forearms like a rower's and a straight razor she strops while she talks, which is a conversational technique as much as anything. She has cut hair on this street for twenty years, through two sieges and one very bad winter, and takes the position that a man who has had a shave will make better decisions for at least a day.",
   "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Water's through the back. Take the towel, don't take the jar.\""
+    },
+    "free": {
+      "options": [
+        {
+          "label": "I'll take the shave.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The boiler's on whether you're in it or not. Costs me nothing to let you stand under it.\" She tests the razor's edge against her thumbnail. \"And a man who's been washed buys a shave. A man who hasn't buys nothing and drips on my floor. It's not charity, it's plumbing with a business plan.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"A man with a razor at his throat tells you the truth, and then tells you everyone else's.\""
+    },
     "root": {
-      "text": "\"Baths are through the back and they're free, before you ask — I make my money on the hair, not the water.\" Nessa strops the razor twice. \"Wash yourself, sit yourself down, and I'll make you look like someone who has a reason to be somewhere.\"",
       "options": [
         {
           "label": "What's for sale?",
@@ -31,47 +183,17 @@
           "label": "Maybe later.",
           "next": "bye"
         }
-      ]
-    },
-    "free": {
-      "text": "\"The boiler's on whether you're in it or not. Costs me nothing to let you stand under it.\" She tests the razor's edge against her thumbnail. \"And a man who's been washed buys a shave. A man who hasn't buys nothing and drips on my floor. It's not charity, it's plumbing with a business plan.\"",
-      "options": [
-        {
-          "label": "I'll take the shave.",
-          "next": "__shop__"
-        },
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ]
+      ],
+      "text": "\"Baths are through the back and they're free, before you ask — I make my money on the hair, not the water.\" Nessa strops the razor twice. \"Wash yourself, sit yourself down, and I'll make you look like someone who has a reason to be somewhere.\""
     },
     "street": {
-      "text": "\"When I started, the water came on for two hours a day and there was a queue round to Ironside.\" She shrugs. \"Now it's on all day and the queue's the same length. People don't come for the water.\" A beat. \"They come to be somewhere warm where nobody's asking them for anything.\"",
       "options": [
         {
           "label": "Back.",
           "next": "root"
-        }
-      ]
-    },
-    "gossip": {
-      "actions": [
-        {
-          "action": "GOSSIP_TELL"
         }
       ],
-      "text": "\"A man with a razor at his throat tells you the truth, and then tells you everyone else's.\"",
-      "options": [
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ]
-    },
-    "bye": {
-      "text": "\"Water's through the back. Take the towel, don't take the jar.\"",
-      "options": []
+      "text": "\"When I started, the water came on for two hours a day and there was a queue round to Ironside.\" She shrugs. \"Now it's on all day and the queue's the same length. People don't come for the water.\" A beat. \"They come to be somewhere warm where nobody's asking them for anything.\""
     }
   },
   "faction": null,
@@ -84,7 +206,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_soak_front",
+  "home_zone": "zone_meridian_unit_403",
   "hp": 40,
   "hp_max": 40,
   "id": "npc_soak_barber",
@@ -144,31 +266,13 @@
   ],
   "vendor_restock_rate": 3,
   "vendor_schedule": {
-    "mon": [
-      {
-        "from": 8,
-        "to": 24
-      }
-    ],
-    "tue": [
-      {
-        "from": 8,
-        "to": 24
-      }
-    ],
-    "wed": [
-      {
-        "from": 8,
-        "to": 24
-      }
-    ],
-    "thu": [
-      {
-        "from": 8,
-        "to": 24
-      }
-    ],
     "fri": [
+      {
+        "from": 8,
+        "to": 24
+      }
+    ],
+    "mon": [
       {
         "from": 8,
         "to": 24
@@ -185,11 +289,29 @@
         "from": 8,
         "to": 24
       }
+    ],
+    "thu": [
+      {
+        "from": 8,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 24
+      }
     ]
   },
   "vendor_shop_name": "Lather & Lye",
   "vendor_stock_size": 20,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_soak_front"
 }

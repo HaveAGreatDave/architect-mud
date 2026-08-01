@@ -70,7 +70,9 @@
       "recovery_per_sec": 0.0003
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "psychedelic"
+  },
   "id": "drug_psilocybin",
   "item_id": "item_psilocybin",
   "name": "psilocybin",

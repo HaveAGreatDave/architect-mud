@@ -1189,11 +1189,25 @@ async function loadBoxContents(container) {
 async function buildContainerView(containerId, player) {
   const container = await loadContainerById(containerId, player);
   if (!container) return { type:'error', message:'Container not found.' };
-  const { rows: invItems } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 ORDER BY i.name`, [player.id]);
-  for (const r of invItems) r.name = titleCaseName(r.name);       // list display — Title Case
+  const { rows: allInv } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 ORDER BY i.name`, [player.id]);
+  for (const r of allInv) r.name = titleCaseName(r.name);       // list display — Title Case
 
   const box = await loadBoxContents(container);
+  // A COLD box offers only what belongs in one. A fridge is not a cupboard —
+  // the reason to open it is the food that would otherwise spoil — so the
+  // stow column filters to `perishable`, the preservation plugin's own tag, and
+  // the panel and the decay clock therefore agree about what a fridge is for.
+  //
+  // A FILTER, NOT A LAW. `stow` itself is untouched: you can still put a pistol
+  // in the freezer by typing it, which is a thing people do and not a bug. This
+  // only stops the panel proposing every screwdriver you own as fridge contents.
+  const chilled = !!box.preserves;
+  const invItems = chilled ? allInv.filter(r => hasTag(r, 'perishable')) : allInv;
+
   const view = { type:'container_view', containerId: container.id, containerName: titleCaseName(container.name), ...box, invItems };
+  if (chilled && invItems.length < allInv.length) {
+    view.invNote = `Only what spoils — ${allInv.length - invItems.length} other item${allInv.length - invItems.length === 1 ? '' : 's'} hidden.`;
+  }
 
   // Paired container (e.g. a fridge's separate freezer box, same appliance,
   // linked via flags.paired_container on each side): surface it as a second

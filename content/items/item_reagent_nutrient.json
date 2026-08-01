@@ -1,8 +1,8 @@
 {
-  "description": "A sack of hydroponic growth nutrient and curing salts. For the rooftop-garden crowd — and anyone else who needs to make things grow, or set.",
+  "description": "A sack of potassium nitrate — saltpetre. Feeds a hydroponic bed, cures a side of meat, and is watched a little more closely than either of those explains.",
   "flags": {},
   "id": "item_reagent_nutrient",
-  "name": "growth nutrient",
+  "name": "sack of potassium nitrate",
   "tags": {
     "reagent": true
   },

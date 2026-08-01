@@ -1,0 +1,10 @@
+{
+  "id": "dr_objemote_surreal_007",
+  "drug_id": null,
+  "source": "object_emote",
+  "tone": "surreal",
+  "self_line": "{it} casts two shadows for a moment and then tidies one of them away.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

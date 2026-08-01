@@ -10,7 +10,7 @@ import { describeZone } from './describe.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone, removeLivePlayer, resolveLanding } from '../world.js';
 import { allExits, exitTargets } from '../exits.js';
 import { isDreamZone, dreamObjectsAt, presenceAt, bodyTell, markObjectSeen, noteDreamProgress } from '../dreamscape.js';
-import { getTransform } from '../phantoms.js';
+import { getTransform, findTransformByName, isTransformed, applyNpcTransforms } from '../phantoms.js';
 import { getSoundReach, isNoisy } from '../sounds.js';
 import { conditionLine } from '../durability.js';
 import { statCost, raiseStat, RAISABLE_STATS, getNetXp, maxHpForEndurance } from '../ip.js';
@@ -526,7 +526,17 @@ async function cmdExamine(targetStr, player, broadcast) {
     }
     return { type:'examine', message: msg };
   }
-  const { rows: furnitureRows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2`, [player.current_zone, `%${targetStr}%`]);
+  // WHAT YOU SEE IS WHAT YOU TYPE. A psychedelic may have made a piece in here
+  // into something else for this viewer only — and the room has been listing it
+  // under the new name ever since, so that is the name the player has to reach
+  // for. Resolved BEFORE the real-name query and, below, the real name is struck
+  // out of that query's results: the bed is a sleeping lion, `examine lion`
+  // works, and `examine bed` finds no bed, because there isn't one.
+  const named = findTransformByName(player.id, targetStr);
+  const { rows: furnitureRowsRaw } = named
+    ? await query(`SELECT * FROM furniture WHERE id=$1`, [named.furnitureId])
+    : await query(`SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2`, [player.current_zone, `%${targetStr}%`]);
+  const furnitureRows = named ? furnitureRowsRaw : furnitureRowsRaw.filter(f => !isTransformed(player.id, f.id));
   if (furnitureRows.length) {
     let f = furnitureRows[0];
     if (furnitureRows.length > 1) {
@@ -836,7 +846,11 @@ async function cmdExamine(targetStr, player, broadcast) {
 
   // Zone entities: enemies, NPCs, live players — combined SIFT pool
   const enemies = getZoneEnemies(player.current_zone);
-  const npcs = getZoneNpcs(player.current_zone);
+  // A psychedelic may have dressed somebody in the room as something else for
+  // this viewer. The transformed name is what they can see, so it is what SIFT
+  // must answer to — but `_realName` rides along, and the action links below are
+  // built from it, so clicking `talk`/`attack` still reaches the actual person.
+  const npcs = applyNpcTransforms(player.id, getZoneNpcs(player.current_zone));
   const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);
   const zoneEntities = [
     ...enemies.map(e => ({ ...e, _examType: 'enemy' })),
@@ -861,6 +875,9 @@ async function cmdExamine(targetStr, player, broadcast) {
       return { type:'examine', message:`${c.name}\n${c.description}\nHP: ${c.hp}/${c.hp_max}${wounds}\n<span class="text-dim">Actions:</span> ${attackLink}` };
     }
     if (c._examType === 'npc') {
+      // What they LOOK like to this viewer, which may not be a person at all.
+      const seen = c._transformed;
+      const linkName = c._realName || c.name;
       let postureLine = '';
       if (c._ai?.homeSleeping) {
         const where = c.sittingOn ? `the ${c.sittingOn}` : 'the floor';
@@ -869,8 +886,16 @@ async function cmdExamine(targetStr, player, broadcast) {
         const where = c.sittingOn ? `the ${c.sittingOn}` : 'the floor';
         postureLine = `\n<span class="text-dim">${c.name} is lying on ${where}.</span>`;
       }
-      const talkLink   = `<span class="action-link" data-action="talk" data-target="${escAttr(c.name)}" title="Talk to ${escAttr(c.name)}">talk</span>`;
-      const attackLink = `<span class="action-link" data-action="attack" data-target="${escAttr(c.name)}" title="Attack ${escAttr(c.name)}">attack</span>`;
+      const talkLink   = `<span class="action-link" data-action="talk" data-target="${escAttr(linkName)}" title="Talk to ${escAttr(c.name)}">talk</span>`;
+      const attackLink = `<span class="action-link" data-action="attack" data-target="${escAttr(linkName)}" title="Attack ${escAttr(c.name)}">attack</span>`;
+      // A transformed person answers with the shape, not the biography — no
+      // clothing line, no posture note about a body the viewer cannot see.
+      if (seen) {
+        const look = Array.isArray(seen.looks) && seen.looks.length
+          ? seen.looks[Math.floor(Math.random() * seen.looks.length)]
+          : seen.description;
+        return { type:'examine', message:`${c.name}\n${look || seen.description}\n<span class="text-dim">Actions:</span> ${talkLink}  ${attackLink}` };
+      }
       return { type:'examine', message:`${c.name}\n${c.description}${postureLine}${npcClothingLine(c, player)}\n<span class="text-dim">Actions:</span> ${talkLink}  ${attackLink}` };
     }
     if (c._examType === 'player') {
@@ -1366,12 +1391,17 @@ async function cmdTargetHelp(targetStr, player) {
     const it = rows[0];
     return render(it.name, itemActionVerbs(it).map(v => ({ verb: v, target: it.name })));
   }
-  const { rows: fr } = await query(
-    `SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
-    [player.current_zone, `%${targetStr}%`]
-  );
+  // Same rule as examine: while a piece is wearing another shape for this
+  // viewer, the new name is the one their smart bar has to answer to.
+  const tf = findTransformByName(player.id, targetStr);
+  const { rows: fr } = tf
+    ? await query(`SELECT * FROM furniture WHERE id=$1`, [tf.furnitureId])
+    : await query(
+        `SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
+        [player.current_zone, `%${targetStr}%`]
+      );
   if (fr.length) {
-    const f = fr[0];
+    const f = tf ? { ...fr[0], name: tf.name } : fr[0];
     const n = f.name.toLowerCase();
     return render(f.name, furnitureVerbs(f, player).map(v => ({ verb: v, target: verbTarget(v, n) })));
   }

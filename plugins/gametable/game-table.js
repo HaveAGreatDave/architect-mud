@@ -809,9 +809,9 @@ export class GameTable {
     }, 7000);
     // Echo to the room chat log as the dealer NPC's own speech, matching the
     // engine's standard NPC say format so it reads identically to `Orion Dex
-    // says: "..."`. Import sendToZone lazily to avoid circular dep at load.
+    // says, "..."`. Import sendToZone lazily to avoid circular dep at load.
     import('../../server/engine/messaging.js').then(({ sendToZone }) => {
-      sendToZone(this.zoneId, { type: 'output', message: `<span style="color:var(--yellow)">${npc.name} says: "${text}"</span>` });
+      sendToZone(this.zoneId, { type: 'output', message: `<span class="speech-line">${npc.name} says, "${text}"</span>` });
     });
   }
 
@@ -882,7 +882,7 @@ export class GameTable {
       delete this.chatBubbles[seat.playerId];
       this.pushPaneAll();
     }, 7000);
-    sendToZone(this.zoneId, { type: 'output', message: `<span style="color:var(--yellow)">${seat.handle} says: "${text}"</span>` });
+    sendToZone(this.zoneId, { type: 'output', message: `<span class="speech-line">${seat.handle} says, "${text}"</span>` });
     this.pushPaneAll();
   }
 

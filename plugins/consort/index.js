@@ -810,7 +810,11 @@ function playKeeperScene(zoneId, thread, speakers, keeperId = null, gain = 14) {
     if (i >= thread.length || !getZonePlayers(zoneId).length || !present) { sceneZones.delete(zoneId); return; }
     const [who, tame, hot] = thread[i++];
     const speaker = speakers[who] || speakers.A;
-    tieredZoneLine(zoneId, tame.replaceAll('§', speaker.name), hot.replaceAll('§', speaker.name));
+    // §other is the OTHER member of the cast, not the speaker — resolve through
+    // renderLine so pronouns, verb agreement and both name slots all land.
+    const other = cast.find(n => n && n.id !== speaker.id);
+    const fill = (l) => renderLine(l, speaker, { other: other?.name });
+    tieredZoneLine(zoneId, fill(tame), fill(hot));
     const now = Date.now();
     for (const s of cast) { lastSpoke.set(s.id, now); if (s._ai) s._ai.lastSay = now; }
     const keeper = keeperId ? getLivePlayer(keeperId) : null;

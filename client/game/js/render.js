@@ -41,10 +41,67 @@ export function initVitalsReorder() {
   registerList(body, { scope: 'vitals', key: 'vitals', rowSelector: '.vital', defaultHidden: DEFAULT_HIDDEN_VITALS });
 }
 
+// ── Quoted speech is ONE colour, everywhere ────────────────────────────────
+// Dialogue is dialogue no matter how it reaches the log: a `say`, an NPC line,
+// a battle cry, or a quote buried inside an emote ("Marla shrugs. 'Suit
+// yourself.'"). Rather than asking every writer on the server to tag its own
+// speech — which they'd forget, and which content authors can't do at all —
+// the client paints it at the last possible moment: any run of text between
+// double quotes becomes .speech.
+//
+// Ambient texture is deliberately EXEMPT (see QUIET_CLASSES). What's on the TV
+// or muttered by the room is not somebody talking to you, and if it glowed the
+// same colour the whole point — actions and dialogue standing out from noise —
+// would be lost.
+const QUIET_CLASSES = /^msg-(ambient|broadcast|broadcast-ticker|broadcast-ambient|broadcast-ascii-art|echo)$/;
+const QUOTE_RE = /(["“”])([^"“”]+)(["“”])/g;
+
+// Not every pair of quotes is somebody talking. A nickname or a scare-quoted
+// label — Nine-Fingers "Two-Cell" Marsh, a bar called "The Pit" — is a NAME,
+// and colouring it like dialogue makes the log lie about who's speaking.
+// Speech earns the colour by looking like an utterance: it carries sentence
+// punctuation, or it runs long enough that no name would. Anything shorter and
+// unpunctuated is left plain.
+function isSpeech(inner) {
+  const s = inner.trim();
+  if (/[.!?,;:…]/.test(s)) return true;
+  return s.split(/\s+/).length >= 4;
+}
+
+function paintSpeech(el) {
+  if ([...el.classList].some(c => QUIET_CLASSES.test(c))) return el;
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const targets = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    if (n.parentElement?.closest('.speech')) continue;   // already painted
+    if (n.nodeValue && /["“”]/.test(n.nodeValue)) targets.push(n);
+  }
+  for (const node of targets) {
+    const text = node.nodeValue;
+    QUOTE_RE.lastIndex = 0;
+    let last = 0, m;
+    const frag = document.createDocumentFragment();
+    while ((m = QUOTE_RE.exec(text))) {
+      if (!isSpeech(m[2])) continue;                      // a name in quotes, not a line
+      if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      const span = document.createElement('span');
+      span.className = 'speech';
+      span.textContent = m[0];
+      frag.appendChild(span);
+      last = m.index + m[0].length;
+    }
+    if (!last) continue;                                  // an unpaired quote — leave it be
+    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    node.parentNode.replaceChild(frag, node);
+  }
+  return el;
+}
+
 export function appendMsg(text, cls = '') {
   const el = document.createElement('div');
   el.className = `msg msg-${cls}`;
   el.textContent = text;
+  paintSpeech(el);
   document.getElementById('output').appendChild(el);
   scrollOutput();
   return el;
@@ -54,6 +111,7 @@ export function appendHtml(html, cls = '') {
   const el = document.createElement('div');
   el.className = `msg msg-${cls}`;
   el.innerHTML = html;
+  paintSpeech(el);
   document.getElementById('output').appendChild(el);
   // Hero-poster mural reveal: the CSS burns the glyphs, this puts real fire
   // behind them. Mounted after the node is in the document so it can be measured.
@@ -116,11 +174,67 @@ function applyDescCollapse(el) {
   desc.after(toggle);
 }
 
+// ── Names that are not the name any more ────────────────────────────────────
+//
+// While a psychedelic is running, the server sends the room with things named
+// as the tripper SEES them, and tags each one with what it really is
+// (`data-morph`). The pane plays the change rather than just printing it: the
+// old name comes apart letter by letter and the new one settles in its place,
+// so you watch the bed become a lion instead of finding a lion where you left a
+// bed.
+//
+// Played once per (from → to) pair per MORPH_TTL — a re-look must not restage
+// the whole room every time you pick something up, but stepping back in after
+// the drug re-rolls the room should read as new.
+const MORPH_GLYPHS = '▚▞░▒▓#%&@*+=~/\\|<>—';
+const MORPH_TTL = 45000;
+const morphPlayed = new Map();   // `${from}→${to}` -> timestamp
+
+function playNameMorph(el) {
+  const to = el.textContent;
+  const from = el.dataset.morph || '';
+  if (!from || from === to) return;
+  const key = `${from}→${to}`;
+  const now = Date.now();
+  if (now - (morphPlayed.get(key) || 0) < MORPH_TTL) return;
+  morphPlayed.set(key, now);
+  if (morphPlayed.size > 200) morphPlayed.clear();
+  if (document.documentElement.getAttribute('data-motion') === 'off') return;
+
+  // Each slot settles at its own frame, left to right, and shows noise until it
+  // does. Slots past the end of the old name start as noise rather than blank,
+  // so a longer new name grows into place instead of appearing all at once.
+  const len = Math.max(from.length, to.length);
+  const settleAt = Array.from({ length: len }, (_, i) => 3 + Math.floor(i * 1.4) + Math.floor(Math.random() * 4));
+  const total = Math.max(...settleAt) + 2;
+  const rnd = () => MORPH_GLYPHS[Math.floor(Math.random() * MORPH_GLYPHS.length)];
+  el.classList.add('name-morphing');
+  let frame = 0;
+  const tick = () => {
+    let out = '';
+    for (let i = 0; i < len; i++) {
+      if (frame >= settleAt[i]) out += to[i] ?? '';
+      else if (to[i] === ' ' || (from[i] === ' ' && frame < 3)) out += ' ';
+      else out += rnd();
+    }
+    el.textContent = out;
+    if (frame++ < total) setTimeout(tick, 45);
+    else { el.textContent = to; el.classList.remove('name-morphing'); }
+  };
+  tick();
+}
+
+function playNameMorphs(root) {
+  const els = root.querySelectorAll('[data-morph]');
+  for (const el of els) playNameMorph(el);
+}
+
 export function setAreaPane(html, direction) {
   const el = document.getElementById('area-content');
   el.innerHTML = html;
   applyDescCollapse(el);
   applyBeacons();
+  playNameMorphs(el);
   // Only a location change (move) plays the slide transition. Silent refreshes
   // from kills, loot, look, etc. pass no direction and update in place.
   if (direction && el.animate && document.documentElement.getAttribute('data-motion') !== 'off') {

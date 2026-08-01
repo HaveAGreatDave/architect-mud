@@ -1,0 +1,15 @@
+{
+  "name": "workspace",
+  "version": "0.1.0",
+  "description": "Preparation Workspace — a domain-agnostic text HUD over a working area. `workspace` (alias `bench`) gathers registered providers via the `workspace.provider` hook, builds one payload (storage / preparation area / components / tools / status) and returns it as `workspace_view` for the client panel. Holds NO gameplay logic: it renders state other plugins already own, and every action it will offer resolves to an ordinary verb. `prepare <recipe>` runs a provider-supplied PLAN — an ordered list of ordinary commands, walked one at a time, stopping on the first failure and never answering a disambiguation prompt. Nothing is reserved: re-validating at every step is what makes a soft-lock unnecessary. No writes of its own, no tick, no server-side panel state. The cooking plugin contributes the `kitchen` provider (plugins/cooking/workspace.js); a chem or gunsmith bench would contribute its own without either side importing the other.",
+  "hooks": [],
+  "commands": [
+    "workspace",
+    "bench",
+    "prepare"
+  ],
+  "extensionPoints": [
+    "workspace.provider — gather-hook; return { key, label, priority, build(player), plan?(player, argStr) } or undefined. Highest priority wins a room that is two workspaces at once. `plan` returns { label, steps: [command], vessel } or { error }.",
+    "workspace.view — fired with { view, provider, player } before the payload ships; mutate the view in place to decorate it (same shape as container.view)."
+  ]
+}

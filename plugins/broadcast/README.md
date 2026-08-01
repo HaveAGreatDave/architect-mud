@@ -26,6 +26,20 @@ Almost every verb is furniture-gated and discovered through a panel rather than 
 - `tablettune` needs no furniture at all — the tablet is its own receiver. Sent by the TV app's viewport, never typed.
 - `guess` is inert everywhere except a channel's `studio_zone_id` while a game-show round is open. **The studio floor and the live round are the gate**, not furniture; discovery is the host's on-air invitation, which carries the `teachVerb` shimmer.
 
+## Reading an episode without a television
+A talk show is assembled fresh every in-game night, so the only way to see one used to be to
+boot the server, tune a set and wait. `regress.js` will print one instead:
+
+```bash
+TALKSHOW_DUMP=2026-08-01 node tests/regress.js
+```
+
+It dumps the night for that day-bucket from the **live DB** pools, attributed by cast, with both
+presence gates expanded (host-present / host-absent, guest-present / guest-absent) so all four
+versions of the show are on one page. Off unless the env var is set. Note it reads the database —
+after editing `data/scripts/Tonight_Show.bsm`, run `node scripts/content/build-tonight-show.mjs`
+then `npm run content:import`, or you'll be reading the previous draft.
+
 ## Size note
 At ~8k lines this is the plugin most in need of being split by concern (channels / playlists / show modes / sports). It has the seams available.
 

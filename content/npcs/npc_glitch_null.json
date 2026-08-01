@@ -140,7 +140,7 @@
     "personality": "lowlife"
   },
   "home_activities": [],
-  "home_zone": "zone_mq_sump_bar",
+  "home_zone": "zone_meridian_unit_204",
   "hp": 90,
   "hp_max": 90,
   "id": "npc_glitch_null",
@@ -150,10 +150,48 @@
   "studio_zone_id": null,
   "vendor_inventory": [],
   "vendor_restock_rate": 1,
-  "vendor_schedule": {},
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [],
+    "sat": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sun": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
   "vendor_shop_name": null,
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_mq_sump_bar"
 }

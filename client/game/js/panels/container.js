@@ -188,6 +188,12 @@ function renderContainerPanel(data, { isOpen = false } = {}) {
   const invItems = (data.invItems || []).filter(i => i.id !== data.containerId && i.id !== data.secondary?.containerId);
   const fridgeItems = fridge.items.filter(i => i.id !== fridge.containerId);
   renderList('container-inv-list', invItems, 'inv', fridge.containerId);
+  // A cold box lists only what spoils (the server filters it), so the column
+  // says why rather than reading as an empty pack.
+  const invLabel = document.querySelector('#container-inv-col .container-section-label');
+  if (invLabel) invLabel.textContent = data.invNote ? 'Your Inventory — perishables' : 'Your Inventory';
+  const invNote = document.getElementById('container-inv-note');
+  if (invNote) invNote.textContent = data.invNote || '';
   renderList('container-contents-list', fridgeItems, 'contents', fridge.containerId);
 
   const freezerBox = document.getElementById('container-freezer-box');

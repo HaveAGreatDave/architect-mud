@@ -36,7 +36,7 @@ registerTabletApp({
   id: 'gear',
   // Display name only — the app id stays `gear` (it's in saved home-screen layouts,
   // every `tabletnav gear` call site, and the client's `_data.appId === 'gear'` checks).
-  name: 'Kit',
+  name: 'INV',
   icon: '🧥',
   category: 'General',
   buildScreen(player) {

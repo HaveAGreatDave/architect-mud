@@ -697,6 +697,8 @@ export const SEASON = {
 
 export const HOCKEY = {
   id: 'hockey',
+  brand: 'CLUSTER PUCK',
+  finalIcon: '🏒',
   season: SEASON,
   section: 'period',
   sectionPlural: 'periods',

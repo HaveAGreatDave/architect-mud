@@ -79,6 +79,15 @@ function roadSpeedFactor(zone) {
 // mirroring the client's autoWalkDelay (minimap.js) so both authorities agree.
 const RUN_STEP_STAMINA = 4;   // must match movement.js RUN_STEP_STAMINA
 
+// How long one step takes this player RIGHT NOW — gear (walk/run/sprint) times the
+// tile under their feet. This is the game's step clock, and the only one: exported
+// so anything that walks a player automatically (the `home` walker in plugins/pinch)
+// paces itself off the same number a typed step obeys, rather than inventing a
+// cadence of its own that drifts the moment this is tuned.
+export function stepCadenceMs(player) {
+  return cadenceMs(player);
+}
+
 function cadenceMs(player) {
   // walk < run < sprint. Sprint wins if both flags are set (it's the faster gear).
   const canRun = player.running && staminaOf(player) >= RUN_STEP_STAMINA;

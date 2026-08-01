@@ -1,5 +1,5 @@
 import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone, getZonePlayers, getPlayerMembership, isEnterableFacade, getMapByParentZone, resolveLanding, updateNpc } from './world.js';
-import { isSanctuary } from './zone-tags.js';
+import { isSanctuary, isDwellingZone } from './zone-tags.js';
 import { zoneDanger, DANGER_RANK } from './danger.js';
 import { allExits, neighborZoneIds, exitTargets } from './exits.js';
 import { findPath as findPathRaw, getZonesInRadius } from './pathfinding.js';
@@ -7,12 +7,13 @@ import { enemyAttackPlayer, enemyAttackNpc, enemyAttackEnemy, pressingAttacker, 
 import { getEnvironmentState } from './environment.js';
 import { gameMsToReal } from './gametime.js';
 import { dispatchAction } from './actions.js';
-import { isNpcScheduledNow, getNpcStudioZone, isZoneWatched } from './broadcast-bridge.js';
+import { isNpcScheduledNow, getNpcStudioZone, isZoneWatched, npcNextShiftInMins } from './broadcast-bridge.js';
 import { getShopperForNpc, closeShopSession, didBuyThisSession } from './vendor-session.js';
 import { getNpcChitchat } from './npc-personality.js';
 import { OPPOSITE as OPPOSITE_DIR } from './directions.js';
-import { setPosture } from './posture.js';
+import { setPosture, forceStand } from './posture.js';
 import { npcWashAtHome } from './hygiene.js';
+import { on } from './events.js';
 
 // Breaking contact to flee is a competence check, not a given. An entity's flee
 // skill (`flags.flee_skill`, else its combat `dodge`, else 1) is rolled against a
@@ -172,6 +173,26 @@ const DEFAULT_HOME_ACTIVITIES = [
   'taps at a broken light fixture without fixing it.',
 ];
 
+// What a person is like in the first half-hour after somebody woke them up. Used
+// by the passive home-life ticker instead of the NPC's own activities, so being
+// woken has a visible tail rather than being one line and then business as usual.
+const WOKEN_ACTIVITIES = {
+  annoyed: [
+    'bangs around the kitchen with unnecessary volume, making a point.',
+    'glares at the bed like it personally let them down.',
+    'mutters about people who have no consideration for anyone.',
+    'pours something, drinks it standing up, and glares at nothing.',
+    'rubs their face hard with both hands and audibly gives up on going back to sleep.',
+  ],
+  confused: [
+    'stands in the middle of the room for a moment, working out which day this is.',
+    'checks the time, checks it again, and looks no happier for it.',
+    'blinks slowly, still mostly somewhere else.',
+    'drifts toward the kitchen, forgets why, and stops.',
+    'sits down heavily on the edge of the bed and stares at the floor.',
+  ],
+};
+
 // Returns the real (wall-clock) ms timestamp to wake up before the next scheduled
 // shift, or null. The shift schedule is keyed to GAME day-of-week + game hours —
 // the same clock isVendorWorkTime reads — so the gap is computed in game-minutes
@@ -188,21 +209,169 @@ function getNextShiftWakeMs(entity) {
   // gap = game-minutes from now until the wake moment; convert to a real deadline.
   const realDeadline = (gapGameMin) => Date.now() + gameMsToReal(gapGameMin * 60_000);
 
+  // Broadcast cast are not vendors and have no `vendor_schedule` — their timetable lives in
+  // the channel playlist, reachable only through the broadcast bridge. Without this, a studio
+  // NPC read as "no schedule" and fell through to the 07:00 default: the host of a 22:00 talk
+  // show who dozed off at home in the evening was parked on waitUntil until the next MORNING
+  // and slept through his own taping, while the show aired to an empty desk. Take whichever
+  // wake-up comes first, so an NPC with both a counter shift and a studio call makes both.
+  let soonestGap = null;
+  const consider = (gapGameMin) => {
+    if (gapGameMin > MIN_GAP_MIN && (soonestGap === null || gapGameMin < soonestGap)) soonestGap = gapGameMin;
+  };
+
   if (schedule && Object.keys(schedule).length) {
     for (let dayOffset = 0; dayOffset <= 6; dayOffset++) {
       const blocks = schedule[DAY_KEYS[(todayIdx + dayOffset) % 7]] || [];
       for (const block of blocks) {
         const wakeMin = (block.from ?? 10) * 60 - WAKE_LEAD_MIN;
-        const gap = dayOffset * 1440 + wakeMin - nowMinutes;
-        if (gap > MIN_GAP_MIN) return realDeadline(gap);
+        consider(dayOffset * 1440 + wakeMin - nowMinutes);
       }
     }
   }
-  // No vendor schedule — wake at 07:00 game time (today if still ahead, else tomorrow).
+
+  // Minutes until this NPC is next due on air (0 = on shift right now, null = staffed on
+  // nothing that airs). Sync + in-memory by the bridge's contract, safe on this path.
+  const airGap = npcNextShiftInMins(entity.id);
+  if (airGap != null) consider(airGap - WAKE_LEAD_MIN);
+
+  if (soonestGap !== null) return realDeadline(soonestGap);
+  // Nothing scheduled at all — wake at 07:00 game time (today if still ahead, else tomorrow).
   let gap = 7 * 60 - nowMinutes;
   if (gap <= MIN_GAP_MIN) gap += 1440;
   return realDeadline(gap);
 }
+
+// ── Sleep, and being dragged out of it ────────────────────────────────────────
+//
+// `ai.homeSleeping` is the one flag that means "this NPC is unconscious in their
+// own bed". AT_HOME_LIFE sets it; everything that DISTURBS a sleeper goes through
+// disturbSleeper() below, so the roll, the wake-up state and the flavour can't
+// drift apart across the half-dozen verbs that can reach a sleeping body.
+//
+// Two things shape the design:
+//   • A sleeper is not a light switch. Talking at someone who is out is usually
+//     an anticlimax — they mumble and stay under — and it says so, so the player
+//     knows the interaction happened and failed rather than doing nothing.
+//   • Persistence works. Each disturbance makes the next one likelier to land,
+//     so nobody is trapped rolling `talk` at a snoring body forever.
+
+// How long an NPC stays up doing home things before bed is even a consideration,
+// and the longest stretch they'll sleep for. Both in GAME minutes: an NPC who
+// walks in the door and immediately lies down never has a home life, and one who
+// turns in at four in the afternoon because their shift is tomorrow reads as
+// broken. Between them these carve the evening into a waking half and a sleeping
+// half, which is the entire point.
+const HOME_LIFE_MIN_MINS = 90;
+const MAX_SLEEP_MINS     = 9 * 60;
+// Grace after being woken, so a player who wakes someone gets to talk to them
+// rather than watching them lie straight back down on the next tick.
+const WOKEN_GRACE_MINS   = 45;
+
+const STAY_ASLEEP_LINES = [
+  (n) => `${n} mumbles something shapeless, rolls over, and stays fast asleep.`,
+  (n) => `${n} swats vaguely at the air and does not wake up.`,
+  (n) => `${n} keeps breathing slow and heavy, entirely untroubled by you.`,
+  (n) => `${n} shifts, drags the blanket higher, and sleeps straight through it.`,
+  (n) => `${n} frowns in their sleep, says one word of a conversation you aren't part of, and is gone again.`,
+];
+const WAKE_ANNOYED = [
+  (n) => `${n} jolts awake. "What. WHAT. This had better be extremely good."`,
+  (n) => `${n} sits up glaring, hair flattened on one side. "Do you have any idea what hour it is?"`,
+  (n) => `${n} surfaces with a snarl. "I was ASLEEP. That was the good part of my day and you've had it."`,
+  (n) => `${n} wakes all at once and looks at you with the flat, patient hatred of the recently unconscious.`,
+];
+const WAKE_CONFUSED = [
+  (n) => `${n} blinks awake, focuses on nothing in particular, and asks the room who's there.`,
+  (n) => `${n} half-sits up, staring at you like you might still be part of the dream.`,
+  (n) => `${n} wakes with a start and looks around as if they've forgotten which room this is.`,
+  (n) => `${n} comes up muzzy and slow, mouth working on a sentence that hasn't arrived yet.`,
+];
+
+export function isNpcAsleep(entity) {
+  return !!entity?._ai?.homeSleeping;
+}
+
+// Odds the sleeper stays under. A skinful or a downer makes someone very hard to
+// shift; a stimulant means they were barely asleep to begin with. Repeated
+// disturbance wears it down, which is what stops this being a locked door.
+function stayAsleepChance(entity) {
+  const ai = entity._ai || {};
+  const dose = ai.dose;
+  let chance = 0.55;
+  if (dose?.out || dose?.loose) chance = 0.9;    // drink and downers: dead to the world
+  else if (dose?.wired) chance = 0.15;           // wired: sleeping badly anyway
+  chance -= 0.2 * (ai.disturbCount || 0);
+  return Math.max(0, Math.min(0.95, chance));
+}
+
+/**
+ * Someone has interacted with a sleeping NPC.
+ *
+ * Returns null when the NPC isn't asleep (callers carry on as normal), otherwise
+ * `{ woke, mood, message }` — `message` is already broadcast to the room; it is
+ * returned so a verb can also answer the actor with it.
+ *
+ * `force` skips the roll: being hit wakes you up, no dice involved.
+ */
+export function disturbSleeper(entity, { broadcast = null, force = false } = {}) {
+  if (!isNpcAsleep(entity)) return null;
+  const ai = entity._ai;
+  const zoneId = entityZone(entity);
+  const say = (message) => {
+    if (broadcast) broadcast(zoneId, { type: 'zone_event', message });
+    return message;
+  };
+
+  ai.disturbCount = (ai.disturbCount || 0) + 1;
+  if (!force && Math.random() < stayAsleepChance(entity)) {
+    return { woke: false, mood: null, message: say(pickLine(STAY_ASLEEP_LINES, entity.name)) };
+  }
+
+  // Confused rather than annoyed when they were deep under (a dose, or barely
+  // any sleep behind them) — you don't get straight to angry from there.
+  const deep = !!(ai.dose?.loose || ai.dose?.out)
+    || (Date.now() - (ai.sleepStartedAt || 0)) < gameMsToReal(60 * 60_000);
+  const mood = deep || Math.random() < 0.35 ? 'confused' : 'annoyed';
+
+  wakeNpc(entity, { mood });
+  return {
+    woke: true,
+    mood,
+    message: say(pickLine(mood === 'annoyed' ? WAKE_ANNOYED : WAKE_CONFUSED, entity.name)),
+  };
+}
+
+function pickLine(pool, name) {
+  return pool[Math.floor(Math.random() * pool.length)](name);
+}
+
+// The state half of waking up, shared by disturbSleeper and AT_HOME_LIFE's own
+// scheduled wake. Clears the sleep, stands the body up, restarts the graph from
+// _start, and holds the NPC awake for a while so they don't drop straight back
+// down on the next tick.
+export function wakeNpc(entity, { mood = null } = {}) {
+  const ai = entity._ai;
+  if (!ai) return;
+  const now = Date.now();
+  ai.homeSleeping = false;
+  ai.waitUntil = null;
+  ai.currentNode = null;
+  ai.disturbCount = 0;
+  ai.sleepStartedAt = 0;
+  ai.homeAwakeSince = now;
+  ai.wokenUntil = now + gameMsToReal(WOKEN_GRACE_MINS * 60_000);
+  if (mood) ai.wokeMood = { mood, until: ai.wokenUntil };
+  try { forceStand(entity, 'woken'); } catch { /* posture best-effort */ }
+}
+
+// An assault always wakes the victim — no roll. Lives here rather than in
+// panic.js because this module owns the sleep flag, and panic.js deliberately
+// skips sleepers when it picks WITNESSES (a different question entirely).
+on('npc.attacked', ({ npc }) => {
+  try { if (isNpcAsleep(npc)) wakeNpc(npc, { mood: 'annoyed' }); }
+  catch (e) { console.error('[ai] wake-on-attack:', e.message); }
+});
 
 // Format a chitchat line the same way as enemy battlecries:
 //   "quoted text"  → yellow say bubble    e.g. "You need something?"
@@ -214,7 +383,7 @@ export function formatChitchat(name, line) {
   const t = line.trim();
   const wrapped = t.length >= 2 && t.startsWith('"') && t.endsWith('"');
   if (wrapped && !t.slice(1, -1).includes('"')) {
-    return { type: 'output', message: `<span style="color:var(--yellow)">${name} says: ${t}</span>` };
+    return { type: 'output', message: `<span class="speech-line">${name} says, ${t}</span>` };
   }
   // Emote: prepend the name. Strip a stray outer wrap so an over-quoted action
   // line still reads `Name mutters: "..."` rather than keeping the outer quotes.
@@ -272,6 +441,12 @@ export function initBlackboard() {
     vendor_atm_zone:    null,   // cached nearest ATM zone for deposit run
     homeSleeping:       false,  // true while NPC is asleep at home (AT_HOME_LIFE)
     lastHomeSay:        0,      // timestamp — passive home activity cooldown
+    homeAwakeSince:     0,      // timestamp — when this stretch of waking home life began
+    wokenUntil:         0,      // timestamp — held awake after being disturbed
+    sleepStartedAt:     0,      // timestamp — when they went under (sleep depth)
+    disturbCount:       0,      // disturbances this sleep; each one makes the next likelier to land
+    wokeMood:           null,   // { mood, until } — annoyed/confused after being woken
+    _wasHome:           false,  // edge-detect for arriving home, to stamp homeAwakeSince
   };
 }
 
@@ -373,7 +548,11 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
       if (fd && fd.hp > 0 && fd.lock_state === 'locked') {
         const ownsFrontDoor = !isEnemy(entity) &&
           [entity.home_zone, entity.work_zone_id].some(z => z && (z === oldZoneId || z === finalId || z === facadeZone.id));
-        if (!ownsFrontDoor) return false; // blocked — a locked front door stops NPCs and chasing enemies alike
+        // Same out-not-in rule as the ordinary door gate below: an NPC already
+        // inside the building can always get back out to the street, whether or
+        // not the place belongs to them. Enemies still can't.
+        const leavingBuilding = !isEnemy(entity) && fromInside;
+        if (!ownsFrontDoor && !leavingBuilding) return false; // blocked — a locked front door stops NPCs and chasing enemies alike
       }
       newZoneId = finalId;
       if (oldZoneId === newZoneId) return true;
@@ -401,7 +580,58 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
         const ownsThisDoor = !isEnemy(entity) &&
           (entity.home_zone === oldZoneId || entity.home_zone === newZoneId ||
            entity.work_zone_id === oldZoneId || entity.work_zone_id === newZoneId);
-        if (!ownsThisDoor) return false; // blocked — entity can't pass
+        // A LOCK ON A HOME KEEPS PEOPLE OUT, NOT IN. Ownership answers who may
+        // come IN; anyone standing inside a dwelling may always walk out of it,
+        // because a thumbturn on the inside is how a front door works.
+        //
+        // This is not a nicety. Without it an NPC whose home_zone is reassigned
+        // while their body is left behind — an eviction, a relocation, a housing
+        // rebuild — is sealed in a flat they no longer own. `ownsThisDoor` goes
+        // false, moveEntity returns false, GO_TO_WORK clears its path and returns
+        // RUNNING, and it retries that same blocked hop forever with no error.
+        // Six NPCs (Lowry Cormack, Orion Thale, Prefect Aldous among them) were
+        // found walled into old apartments this way on 2026-08-01, permanently
+        // absent from their own shop counters.
+        //
+        // Keyed on the zone being LEFT being a dwelling, NOT on `door.zone_id`.
+        // The door row's anchor side is not a reliable "protected side": an
+        // apartment door is anchored inside the flat, while the regress hall door
+        // is anchored in the hall with target_zone pointing at the flat. Testing
+        // the anchor let a stranger walk IN through the second kind — which the
+        // "NPC blocked by another's locked door" case caught. The zone's own
+        // nature can't be got backwards. Enemies are excluded: a locked door is
+        // still a wall to something chasing you, from either side.
+        const leavingOwnDwelling = !isEnemy(entity) && isDwellingZone(getZone(oldZoneId));
+
+        // ...and a door on the building you LIVE OR WORK IN opens for you, from
+        // anywhere inside it. `ownsThisDoor` only knows the two zones either side
+        // of this one doorway, which is too narrow for a door that isn't right
+        // outside your own room: Halloran sleeps in the Long Watch bunkroom and
+        // runs a shop on the surface, so his commute crosses the bunker's blast
+        // door two rooms from his bed — and that door is `lock:longwatch`, whose
+        // authFn reads a PLAYER's reputation and so can never answer for an NPC.
+        // He was sealed in the safehouse he lives in. Same map = same building,
+        // which is exactly the "you belong on this side" question being asked.
+        //
+        // Checked on BOTH sides — the building being left and the one being
+        // entered. Halloran's commute crosses two of these locks in opposite
+        // directions: out through the bunker blast door in the morning, then back
+        // UP the drain hatch into his own shop's back room. The second is ingress,
+        // and `ownsThisDoor` misses it for the same reason as the first — his
+        // work_zone_id is the shop floor, not the back room the hatch opens into.
+        //
+        // Guarded on the map id being truthy: the synthetic zones in regress carry
+        // no map_id, and `undefined === undefined` would wave every stranger in.
+        const homeMap = getZone(entity.home_zone)?.map_id;
+        const workMap = getZone(entity.work_zone_id)?.map_id;
+        const belongsTo = (zid) => {
+          const m = getZone(zid)?.map_id;
+          return !!m && (m === homeMap || m === workMap);
+        };
+        const residentOfThisBuilding = !isEnemy(entity) &&
+          (belongsTo(oldZoneId) || belongsTo(newZoneId));
+
+        if (!ownsThisDoor && !leavingOwnDwelling && !residentOfThisBuilding) return false; // blocked — entity can't pass
       }
 
       if (!door.is_open) {
@@ -465,8 +695,13 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
     broadcast(oldZoneId, { type: 'zone_event', message: departMsg, refresh: true, _movement: true });
   }
 
-  // Lock the door when an NPC arrives at their home zone
-  if (!isEnemy(entity) && entity.home_zone && entity.home_zone === newZoneId && departDir) {
+  // Lock the door when an NPC arrives at their home zone — but only if they were
+  // actually OUT. Stepping back out of your own ensuite is not coming home, and
+  // treating it as such bolted the bathroom's privacy lock behind the NPC every
+  // time, quietly making the room unenterable for everyone else.
+  const cameFromOwnSubZone = getZone(oldZoneId)?.parent_zone === entity.home_zone;
+  if (!isEnemy(entity) && entity.home_zone && entity.home_zone === newZoneId && departDir
+      && !cameFromOwnSubZone) {
     const homeDoor = getDoorForExit(newZoneId, OPPOSITE_DIR[departDir], oldZoneId)
                   || getDoorForExit(oldZoneId, departDir, newZoneId)
                   || null;
@@ -509,7 +744,7 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
           if (shopperId) {
             const lines = shopperBought ? VENDOR_CLOSE_HAPPY : VENDOR_CLOSE_WHINE;
             const line = lines[Math.floor(Math.random() * lines.length)];
-            broadcast(oldZoneId, { type: 'output', message: `<span style="color:var(--yellow)">${entity.name} says, "${line}"</span>` });
+            broadcast(oldZoneId, { type: 'output', message: `<span class="speech-line">${entity.name} says, "${line}"</span>` });
           }
         }
       }
@@ -961,7 +1196,7 @@ async function execAction(node, entity, ctx) {
         const line = pickChitchatLine(entity);
         ai.lastSay = Date.now();
         broadcast(zoneId, line
-          ? { type: 'output', message: `<span style="color:var(--yellow)">${entity.name} says: "${line}"</span>` }
+          ? { type: 'output', message: `<span class="speech-line">${entity.name} says, "${line}"</span>` }
           : { type: 'output', message: `<span style="color:var(--text-dim);font-style:italic">${entity.name} smokes a cigarette.</span>` });
         break;
       }
@@ -971,7 +1206,7 @@ async function execAction(node, entity, ctx) {
       ai.lastSay = Date.now();
       broadcast(zoneId, {
         type: 'output',
-        message: `<span style="color:var(--yellow)">${entity.name} says: "${msg}"</span>`,
+        message: `<span class="speech-line">${entity.name} says, "${msg}"</span>`,
       });
       break;
     }
@@ -1049,7 +1284,7 @@ async function execAction(node, entity, ctx) {
       // far from their shop isn't stuck crossing town for half the day.
       if (!ai.patrolPath.length || ai.patrolTarget !== workZone) {
         const path = findPath(zoneId, workZone, entity);
-        if (!path || path.length < 2) return 'RUNNING';
+        if (!path || path.length < 2) { warnCommuteBlocked(entity, zoneId, workZone, 'no path'); return 'RUNNING'; }
         ai.patrolPath = path.slice(1);
         ai.patrolTarget = workZone;
         ai.patrolMode = 'walk';
@@ -1057,7 +1292,7 @@ async function execAction(node, entity, ctx) {
       for (let step = 0; step < COMMUTE_STEPS_PER_TICK && ai.patrolPath.length; step++) {
         const nextZone = ai.patrolPath.shift();
         const moved = moveEntity(entity, nextZone, broadcast, query);
-        if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; break; }
+        if (!moved) { warnCommuteBlocked(entity, zoneId, workZone, `blocked at ${nextZone}`); ai.patrolPath = []; ai.patrolTarget = null; break; }
         if (entityZone(entity) === workZone) break; // arrived — let the graph advance
       }
       return 'RUNNING';
@@ -1295,8 +1530,7 @@ async function execAction(node, entity, ctx) {
 
       // Waking up from sleep — waitUntil was already cleared by the tick
       if (ai.homeSleeping) {
-        ai.homeSleeping = false;
-        setPosture(entity, 'standing');
+        wakeNpc(entity);
         broadcast(zoneId, { type: 'zone_event', message: `${entity.name} stirs and wakes up.` });
         break;
       }
@@ -1304,29 +1538,54 @@ async function execAction(node, entity, ctx) {
       // Activities are handled by the passive home-life ticker in tickEntityAI.
       // This node only manages the sleep cycle so the graph can loop back to check_work.
 
-      // ~15% chance to fall asleep per tick
-      if (Math.random() < 0.15) {
-        const wakeMs = getNextShiftWakeMs(entity);
-        if (wakeMs !== null && wakeMs > now + 120000) {
-          // Find something to sleep on in the zone (prefer furniture, floor fallback)
-          let bedName = null;
-          try {
-            const BED_WORDS = /\b(bed|cot|couch|mattress|sofa|futon|bunk|hammock)\b/i;
-            const { rows: furnRows } = await query(
-              `SELECT name FROM furniture WHERE zone_id=$1 LIMIT 20`, [zoneId]
-            );
-            const bedFurn = furnRows.find(f => BED_WORDS.test(f.name));
-            if (bedFurn) bedName = bedFurn.name;
-          } catch (_) {}
-          const sleepOn = bedName ? `the ${bedName}` : 'the floor';
-          ai.homeSleeping = true;
-          ai.waitUntil = wakeMs;
-          // Real posture, same substrate as players: lying, bound to the furniture
-          // (sittingOn = furniture name, or null for the ground).
-          setPosture(entity, 'lying', { sittingOn: bedName });
-          broadcast(zoneId, { type: 'zone_event', message: `${entity.name} lies down on ${sleepOn} and falls asleep.` });
-          return 'RUNNING';
-        }
+      // ── Is it bedtime? ───────────────────────────────────────────────────────
+      // Three gates, all of which exist because an NPC used to walk through their
+      // own front door and be asleep within a couple of ticks, which meant the
+      // home-life half of their day effectively never ran.
+      //
+      //  1. An evening first. HOME_LIFE_MIN_MINS of waking home life before bed
+      //     is even considered.
+      //  2. Not straight after being woken — a player who shakes someone awake
+      //     gets to have the conversation.
+      //  3. Nobody turns in nine-plus hours early. If the next shift is a long
+      //     way off, they stay up and keep living instead.
+      if (ai.wokenUntil && now < ai.wokenUntil) break;
+      if (!ai.homeAwakeSince) ai.homeAwakeSince = now;
+      if (now - ai.homeAwakeSince < gameMsToReal(HOME_LIFE_MIN_MINS * 60_000)) break;
+
+      const wakeMs = getNextShiftWakeMs(entity);
+      if (wakeMs === null || wakeMs <= now + 120000) break;
+      if (wakeMs - now > gameMsToReal(MAX_SLEEP_MINS * 60_000)) break;
+
+      // A stimulant comedown is the one thing that overrides all of the above
+      // pacing: coming down off a jag, you go to bed and you go hard. Set by the
+      // npc-drugs plugin (`ai.crashSleepy`), read here — the same "plugin owns
+      // the state, engine reads one field" contract as ai.dosedOut.
+      const crashing = ai.crashSleepy && now < ai.crashSleepy;
+      if (Math.random() < (crashing ? 0.5 : 0.15)) {
+        // Find something to sleep on in the zone (prefer furniture, floor fallback)
+        let bedName = null;
+        try {
+          const BED_WORDS = /\b(bed|cot|couch|mattress|sofa|futon|bunk|hammock)\b/i;
+          const { rows: furnRows } = await query(
+            `SELECT name FROM furniture WHERE zone_id=$1 LIMIT 20`, [zoneId]
+          );
+          const bedFurn = furnRows.find(f => BED_WORDS.test(f.name));
+          if (bedFurn) bedName = bedFurn.name;
+        } catch (_) {}
+        const sleepOn = bedName ? `the ${bedName}` : 'the floor';
+        ai.homeSleeping = true;
+        ai.waitUntil = wakeMs;
+        ai.sleepStartedAt = now;
+        ai.disturbCount = 0;
+        ai.wokeMood = null;
+        // Real posture, same substrate as players: lying, bound to the furniture
+        // (sittingOn = furniture name, or null for the ground).
+        setPosture(entity, 'lying', { sittingOn: bedName });
+        broadcast(zoneId, { type: 'zone_event', message: crashing
+          ? `${entity.name} folds onto ${sleepOn} mid-sentence, finally out of whatever was holding them up.`
+          : `${entity.name} lies down on ${sleepOn} and falls asleep.` });
+        return 'RUNNING';
       }
       break;
     }
@@ -1700,6 +1959,21 @@ export function ensureBehaviourGraph(entity, kind) {
 
 const MAX_STEPS = 50;
 
+// A commute that can't complete used to be perfectly silent: GO_TO_WORK returns
+// RUNNING and retries the same impossible hop on every tick, forever, while the
+// shop it belongs to simply has nobody behind the counter. The only way to notice
+// was for a player to walk in and wonder where the vendor went. One line per NPC
+// per hour is enough to make a stranded worker findable in the log without a tick
+// loop spamming it. In memory only — this is diagnostics, never state.
+const _commuteWarned = new Map(); // npc id -> last warn ms
+const COMMUTE_WARN_MS = 60 * 60 * 1000;
+function warnCommuteBlocked(entity, fromZone, workZone, why) {
+  const now = Date.now();
+  if (now - (_commuteWarned.get(entity.id) || 0) < COMMUTE_WARN_MS) return;
+  _commuteWarned.set(entity.id, now);
+  console.warn(`[ai] ${entity.name} (${entity.id}) cannot reach work: ${fromZone} -> ${workZone} (${why}); home_zone=${entity.home_zone}`);
+}
+
 let _espShelterActive = false;
 export function setEspShelter(active) { _espShelterActive = !!active; }
 
@@ -1739,19 +2013,44 @@ export async function tickEntityAI(entity, ctx) {
 
   // Passive home life — any NPC in their home zone does random activities when players are watching.
   // Skipped while homeSleeping (the NPC is visibly asleep; AT_HOME_LIFE owns that state).
-  if (!isEnemy(entity) && !ai.homeSleeping && entity.home_zone && entityZone(entity) === entity.home_zone) {
-    // Being home means washing. Without this an NPC's grime clock starts the
-    // first time anything asks and climbs forever, so given enough uptime every
-    // NPC in the world ends up reeking. In memory only — NPC hygiene is never
-    // persisted, so this is a field reset, not a write.
-    npcWashAtHome(entity);
+  //
+  // TWO questions, deliberately not one:
+  //   atHomeZone — standing where home_zone points. Governs washing and the
+  //                evening clock, both of which are true of anywhere you live,
+  //                including a bunk behind the counter.
+  //   atHome     — ...and that place is somewhere a person could actually LIVE.
+  //                Governs the visible domestic activities. Most of the cast is
+  //                registered as living at their own workplace, and without this
+  //                test a shopkeeper tidies her apartment in front of customers
+  //                and eleven studio actors microwave something questionable on a
+  //                live set. A workplace passes neither dwelling flag, on purpose.
+  const atHomeZone = !isEnemy(entity) && entity.home_zone && entityZone(entity) === entity.home_zone;
+  const atHome = atHomeZone && isDwellingZone(getZone(entity.home_zone));
+  // Edge-detect arriving home, so the "have an evening before bed" clock in
+  // AT_HOME_LIFE measures THIS visit rather than a timestamp left over from
+  // yesterday (which would let them go straight to bed on walking in).
+  if (atHomeZone && !ai._wasHome) { ai._wasHome = true; ai.homeAwakeSince = Date.now(); }
+  else if (!atHomeZone && !ai.homeSleeping) { ai._wasHome = false; ai.homeAwakeSince = 0; }
+
+  // Being home means washing. Without this an NPC's grime clock starts the first
+  // time anything asks and climbs forever, so given enough uptime every NPC in the
+  // world ends up reeking. Keyed to atHomeZone, NOT atHome: someone who lives over
+  // the shop still has a sink. In memory only — NPC hygiene is never persisted, so
+  // this is a field reset, not a write.
+  if (atHomeZone && !ai.homeSleeping) npcWashAtHome(entity);
+
+  if (atHome && !ai.homeSleeping) {
     const now = Date.now();
     if ((now - (ai.lastHomeSay || 0)) > 30000) {
       const playersHere = getZonePlayers(entityZone(entity));
       if (playersHere.length && Math.random() < 0.3) {
         ai.lastHomeSay = now;
-        const pool = (Array.isArray(entity.home_activities) && entity.home_activities.length)
-          ? entity.home_activities : DEFAULT_HOME_ACTIVITIES;
+        // Freshly dragged out of bed, they act like it — for as long as the wake
+        // grace runs, then it's back to ordinary home life.
+        const woke = ai.wokeMood && now < ai.wokeMood.until ? ai.wokeMood.mood : null;
+        const pool = woke ? WOKEN_ACTIVITIES[woke]
+          : (Array.isArray(entity.home_activities) && entity.home_activities.length)
+            ? entity.home_activities : DEFAULT_HOME_ACTIVITIES;
         const act = pool[Math.floor(Math.random() * pool.length)];
         const { type: actType, message: actMsg } = formatChitchat(entity.name, act);
         ctx.broadcast(entityZone(entity), { type: actType, message: actMsg });

@@ -13,14 +13,23 @@
  *                                    take it; consensual, no heat. This is the seam
  *                                    the future addict-customer economy grows into.
  *
- * The EFFECT is derived from the drug's existing data — no drug-content edits:
- *   effects.hallucination            → 'paranoid'  (panic + flee)
- *   stimulant signature (reflexes/stamina up) → 'wired'  (jittery, agitated)
- *   everything else (downers, alcohol, benzos, cannabis) → 'sedated'
+ * The EFFECT comes from `drugs.flags.drug_class` — the same pharmacological field
+ * drugs.js already keys the polydrug ceiling, cross-tolerance and withdrawal
+ * substitution off, so the NPC reaction agrees with the rest of the game rather
+ * than inventing a second taxonomy out of stat deltas:
+ *   stimulant    → 'wired'        jittery, agitated, talks over you
+ *   nootropic    → 'lucid'        unnervingly precise, finished sentences
+ *   cannabis     → 'mellow'       slow, amiable, in no hurry
+ *   psychedelic  → 'tripping'     absorbed, delighted, talking to the room
+ *   dissociative → 'dissociated'  upright and awake but a long way back; graph yielded
+ *   deliriant    → 'paranoid'     the blind-panic flee
+ *   depressant / opioid → 'sedated'
  *     1-4 doses→ 'loose'  (glassy, pacified, blurts candid lines — still upright,
  *                            still running its own graph)
  *     5+ doses→ 'out'     (BLACKOUT: setPosture lying + ai.dosedOut). Deliberately
  *                            far out — drunk and incapacitated are different states.
+ * An unclassed drug (a crafted compound, a legal consumable) falls back to the old
+ * hallucination/reflexes derivation, so nothing without a class regresses.
  *
  * State is runtime-only on the live NPC's AI blackboard (`npc._ai.dose`) — never a
  * DB write (the no-new-npc-columns rule; NPC rows are uncached). A reboot sobers
@@ -59,6 +68,12 @@ const SEDATE_MS     = 90000;   // a downer runs ~90s on an NPC
 const SEDATE_OUT_DOSES = 5;
 const PARANOID_MS   = 60000;   // a bad trip ~60s
 const WIRED_MS      = 60000;   // a stimulant jag ~60s
+// A psychedelic outlasts a line of anything — that is most of what makes it a
+// different decision. A dissociative hole is shorter and much stranger, and being
+// stoned sits somewhere in between and never really ends, it just wears off.
+const TRIPPING_MS     = 180000;
+const DISSOCIATED_MS  = 45000;
+const MELLOW_MS       = 120000;
 const SPIKE_DC      = 6;       // Deception difficulty for a clean covert spike
 
 // ── State ───────────────────────────────────────────────────────────────────
@@ -71,7 +86,44 @@ const out = (message) => ({ type: 'output', message });
 const fleeBroadcast = (zoneId, payload, excludeId) => sendToZone(zoneId, payload, excludeId);
 
 // ── Effect classification (from the drug's own data — no content edits) ────────
-function classify(effects) {
+//
+// `flags.drug_family` is the ANSWER when it's there: what KIND of drug this is,
+// pharmacologically, as authored content.
+//
+// It matters because the derivation below is COARSE — it can only see "does this
+// hallucinate" and "does this raise reflexes", which collapses ketamine, nitrous,
+// mushrooms and a screaming deliriant terror into one bucket called `paranoid`,
+// and everything that isn't an upper into `sedated`. Family lets a dissociative go
+// blank and far away, a psychedelic be absorbed and delighted, and only a genuine
+// deliriant produce the blind-panic flee.
+//
+// ⚠ `drug_family` IS NOT `drug_class`, and conflating them is the trap. `drug_class`
+// means one specific thing — "this kills by ADDITIVE LOAD" — and drives the shared
+// polydrug overdose ceiling, cross-tolerance and withdrawal substitution in
+// drugs.js. Only `depressant` and `stimulant` carry it, and psychedelics are
+// deliberately excluded (docs/systems-survival.md): they are dangerous in other
+// ways but they don't stop your breathing by stacking. Describing the whole
+// pharmacopoeia through that field would silently hand every psychedelic a shared
+// overdose ceiling nobody asked for. So: family DESCRIBES, class KILLS.
+//
+// `drug_class` is still read as a fallback, because a depressant is a depressant
+// and there is no sense making anyone author both.
+const CLASS_KIND = {
+  stimulant:    'wired',
+  nootropic:    'lucid',
+  depressant:   'sedated',
+  opioid:       'sedated',
+  cannabis:     'mellow',
+  psychedelic:  'tripping',
+  dissociative: 'dissociated',
+  deliriant:    'paranoid',
+};
+
+function classify(effects, flags) {
+  const byFamily = CLASS_KIND[flags?.drug_family] || CLASS_KIND[flags?.drug_class];
+  if (byFamily) return byFamily;
+  // No family and no class (a crafted compound, whose effects vary per mix): fall
+  // back to the original derivation so nothing unauthored regresses.
   const eff = effects || {};
   if (eff.hallucination) return 'paranoid';
   const peak = eff.phases?.peak_mods || {};
@@ -87,6 +139,11 @@ const LINE = {
   paranoid: (n) => `${n}'s pupils blow wide; they flinch at nothing and start scanning the room like the walls just moved.`,
   wired:    (n) => `${n}'s jaw starts working overtime, one heel jackhammering the floor, eyes too bright.`,
   belligerent: (n) => `${n}'s eyes go flat and mean. Whatever they were before the drink, this is what was underneath it.`,
+  // The four that used to be crushed into paranoid/sedated for want of a class.
+  mellow:      (n) => `${n} settles about an inch lower into themselves, and stops being in any particular hurry.`,
+  tripping:    (n) => `${n} stops mid-motion, looks at something ordinary as though they have never seen one before, and smiles.`,
+  dissociated: (n) => `${n} goes very still. Whatever is behind their eyes has stepped back a long way from the front.`,
+  lucid:       (n) => `${n}'s gaze sharpens to a point, and they start speaking in complete, finished sentences.`,
 };
 const LOOSE_MUTTER = [
   (n) => `${n} mumbles something they'd never say sober, then loses the thread.`,
@@ -136,10 +193,37 @@ const WIRED_MUTTER = [
   (n) => `${n} grinds their teeth and mutters too fast to follow.`,
   (n) => `${n} paces a tight, twitchy circle, can't seem to stop moving.`,
 ];
+const MELLOW_MUTTER = [
+  (n) => `${n} laughs at something that finished a while ago.`,
+  (n) => `${n} considers the ceiling with enormous patience.`,
+  (n) => `${n} starts a sentence, forgets it, and doesn't mind at all.`,
+  (n) => `${n} announces they are starving, and does nothing whatsoever about it.`,
+];
+const TRIPPING_MUTTER = [
+  (n) => `${n} runs a hand along the wall, watching where their fingers have been.`,
+  (n) => `${n} says something to the room that the room does not answer.`,
+  (n) => `${n} watches the floor breathe, entirely unbothered that it is doing so.`,
+  (n) => `${n} tries to explain something enormous, gets three words in, and gives up laughing.`,
+];
+const DISSOCIATED_MUTTER = [
+  (n) => `${n} is looking at you, but from somewhere considerably further away than this room.`,
+  (n) => `${n} moves one arm slowly, as though it belongs to somebody they used to know.`,
+  (n) => `${n} answers a question nobody asked, about four seconds late.`,
+  (n) => `${n} blinks once, very slowly, and does not seem to arrive at the end of it.`,
+];
+const LUCID_MUTTER = [
+  (n) => `${n} finishes a thought out loud with unnerving precision.`,
+  (n) => `${n} corrects something you didn't say wrong, politely and exactly.`,
+  (n) => `${n} recites a list of something from memory, apparently for their own benefit.`,
+];
 const SOBER = {
-  sedated:  (n) => `${n} drags in a breath, blinks hard, and slowly comes back to themselves.`,
-  paranoid: (n) => `${n} shudders, and whatever they were seeing loses its colour. They're back.`,
-  wired:    (n) => `${n} crashes hard, shoulders sagging as the jitters drain out.`,
+  sedated:     (n) => `${n} drags in a breath, blinks hard, and slowly comes back to themselves.`,
+  paranoid:    (n) => `${n} shudders, and whatever they were seeing loses its colour. They're back.`,
+  wired:       (n) => `${n} crashes hard, shoulders sagging as the jitters drain out.`,
+  mellow:      (n) => `${n} straightens up, rejoins the day, and looks mildly disappointed about it.`,
+  tripping:    (n) => `${n} watches the last of it drain out of the walls, and comes back looking older.`,
+  dissociated: (n) => `${n} arrives back behind their own eyes all at once, and flinches at the distance.`,
+  lucid:       (n) => `${n}'s focus lets go, and the sentences go back to the ordinary shape.`,
 };
 
 // ── The shared core: apply an effect to a live NPC ─────────────────────────────
@@ -158,6 +242,7 @@ function doseNpc(npc, kind, drugName, opts = {}) {
 
   // Reset the sub-flags each dose; set the ones this kind needs.
   d.loose = d.out = d.flee = d.wired = d.belligerent = false;
+  d.mellow = d.tripping = d.dissociated = d.lucid = false;
   d.mutterChance = opts.mutterChance ?? null;
 
   if (kind === 'sedated') {
@@ -189,6 +274,20 @@ function doseNpc(npc, kind, drugName, opts = {}) {
     d.flee = true;
     ai.dosedOut = true;                                // suppress graph; we drive the flee
     sendToZone(npc.zone_id, { type: 'zone_event', message: LINE.paranoid(npc.name) });
+  } else if (kind === 'dissociated') {
+    // Absent rather than asleep. The graph is suppressed — a dissociated NPC does
+    // not run errands — but unlike `out` they are UPRIGHT and awake, so no posture
+    // change and nothing about them says "loot me".
+    d.until = now + (opts.durationMs || DISSOCIATED_MS);
+    d.dissociated = true;
+    ai.dosedOut = true;
+    sendToZone(npc.zone_id, { type: 'zone_event', message: LINE.dissociated(npc.name) });
+  } else if (kind === 'tripping' || kind === 'mellow' || kind === 'lucid') {
+    // All three keep running their own behaviour graph. That is the whole point of
+    // splitting them off `paranoid`: being high is not the same as being seized.
+    d.until = now + (opts.durationMs || (kind === 'mellow' ? MELLOW_MS : TRIPPING_MS));
+    d[kind] = true;
+    sendToZone(npc.zone_id, { type: 'zone_event', message: LINE[kind](npc.name) });
   } else { // wired
     d.until = now + (opts.durationMs || WIRED_MS);
     d.wired = true;
@@ -196,6 +295,53 @@ function doseNpc(npc, kind, drugName, opts = {}) {
   }
   DOSED.add(npc.id);
 }
+
+// ── After ─────────────────────────────────────────────────────────────────────
+//
+// Coming down is not the same as never having taken it, and this is the half that
+// makes an NPC's habit read as a habit rather than a costume they put on for a
+// minute. For a while after the effect ends they are visibly the worse for it,
+// and — for stimulants — they CRASH: `ai.crashSleepy` is a timestamp the engine's
+// AT_HOME_LIFE reads to make going to bed much likelier than usual.
+//
+// That flag is the whole cross-system point. One plugin-owned field, one engine
+// read, same contract as `ai.dosedOut`: the drug taken at eight o'clock is why
+// they're face down at eleven, and you can watch the whole arc.
+const COMEDOWN_MINS      = [45, 90];        // GAME minutes of visible aftermath
+const COMEDOWN_MUTTER    = 0.05;
+const COMEDOWN = new Set();                 // npcIds in the aftermath (drives the same tick)
+
+const COMEDOWN_LINES = {
+  sedated: [
+    (n) => `${n} moves like everything weighs more than it did an hour ago.`,
+    (n) => `${n} winces at the light and swears quietly at nobody.`,
+    (n) => `${n} drinks a lot of water very fast and looks no better for it.`,
+  ],
+  wired: [
+    (n) => `${n}'s hands won't quite settle. They keep finding things to hold.`,
+    (n) => `${n} stops mid-sentence, loses it entirely, and doesn't go back for it.`,
+    (n) => `${n} rubs their jaw, grey around the eyes, running on nothing at all.`,
+  ],
+  paranoid: [
+    (n) => `${n} keeps glancing at the corners of the room, checking they've stayed corners.`,
+    (n) => `${n} flinches at a sound nobody else reacted to, then pretends they didn't.`,
+  ],
+  tripping: [
+    (n) => `${n} keeps catching movement at the edge of things and turning to find nothing.`,
+    (n) => `${n} is quiet in the particular way of someone still sorting out what that was.`,
+  ],
+  dissociated: [
+    (n) => `${n} keeps checking their own hands, as if confirming the arrangement.`,
+    (n) => `${n} loses a couple of seconds mid-sentence and picks it up slightly wrong.`,
+  ],
+  mellow: [
+    (n) => `${n} eats something with total, unhurried attention.`,
+    (n) => `${n} yawns hugely and shows no interest in anything being asked of them.`,
+  ],
+  lucid: [
+    (n) => `${n} rubs their eyes, and the sentences come apart a little at the ends.`,
+  ],
+};
 
 // Return the NPC to its normal AI: clear the effect, stand it up, restart the graph.
 function sober(npc) {
@@ -208,6 +354,13 @@ function sober(npc) {
     ai.dosedOut = false;
     ai.currentNode = null;      // mirror burglary's endAlarm: graph resumes from _start
     ai.waitUntil = 0;
+    // The aftermath. Real ms derived from game minutes, same as every dose length
+    // here, so it can't drift when the world clock is retuned.
+    const gameMins = COMEDOWN_MINS[0] + Math.random() * (COMEDOWN_MINS[1] - COMEDOWN_MINS[0]);
+    const untilMs = Date.now() + (gameMins * 60 * 1000) / Math.max(1, getTimeScale());
+    ai.comedown = { kind, until: untilMs };
+    if (kind === 'wired') ai.crashSleepy = untilMs;   // engine reads this in AT_HOME_LIFE
+    COMEDOWN.add(npc.id);
   }
   if (wasDown) { try { forceStand(npc); } catch { /* best-effort */ } }
   sendToZone(npc.zone_id, { type: 'zone_event', message: (SOBER[kind] || SOBER.sedated)(npc.name) });
@@ -277,8 +430,24 @@ function pickAFight(npc) {
 
 // ── Driver tick: flavour, flee, expiry (self-gates when nobody's dosed) ────────
 function tick() {
-  if (!DOSED.size) return;
+  if (!DOSED.size && !COMEDOWN.size) return;
   const now = Date.now();
+
+  // The aftermath pass — cheap, and separate from DOSED because an NPC on a
+  // comedown is running their own graph normally again; this only adds flavour.
+  for (const id of [...COMEDOWN]) {
+    const npc = world.npcs.get(id);
+    const cd = npc?._ai?.comedown;
+    if (!npc || !cd || now >= cd.until) {
+      COMEDOWN.delete(id);
+      if (npc?._ai) { npc._ai.comedown = null; npc._ai.crashSleepy = 0; }
+      continue;
+    }
+    if (npc._ai.homeSleeping || npc._ai.dosedOut) continue;   // already slept it off / out cold
+    const pool = COMEDOWN_LINES[cd.kind] || COMEDOWN_LINES.sedated;
+    if (Math.random() < COMEDOWN_MUTTER) sendToZone(npc.zone_id, { type: 'zone_event', message: pick(pool)(npc.name) });
+  }
+
   for (const id of [...DOSED]) {
     const npc = world.npcs.get(id);
     if (!npc || !npc._ai?.dose) { DOSED.delete(id); continue; }
@@ -306,8 +475,14 @@ function tick() {
       }
       continue;
     }
-    if (d.loose && Math.random() < (d.mutterChance ?? 0.4)) sendToZone(npc.zone_id, { type: 'zone_event', message: pick(LOOSE_MUTTER)(npc.name) });
-    if (d.wired && Math.random() < (d.mutterChance ?? 0.4)) sendToZone(npc.zone_id, { type: 'zone_event', message: pick(WIRED_MUTTER)(npc.name) });
+    // Everything left runs its own graph and just talks. One table, so adding a
+    // state is a row rather than another branch in here.
+    const pool = d.loose ? LOOSE_MUTTER : d.wired ? WIRED_MUTTER
+      : d.mellow ? MELLOW_MUTTER : d.tripping ? TRIPPING_MUTTER
+      : d.dissociated ? DISSOCIATED_MUTTER : d.lucid ? LUCID_MUTTER : null;
+    if (pool && Math.random() < (d.mutterChance ?? 0.4)) {
+      sendToZone(npc.zone_id, { type: 'zone_event', message: pick(pool)(npc.name) });
+    }
   }
 }
 schedule('4s', () => { try { tick(); } catch (e) { console.error('[npc-drugs] tick error:', e.message); } });
@@ -338,30 +513,103 @@ const PRESHOW_MUTTER_CHANCE = 0.012;
 // was made against, so a 10% chance means one show in ten rather than "10% every
 // forty-five seconds until it happens", which is a certainty wearing a hat.
 const preshowRolled = new Map();            // npcId -> latch key already rolled
-const PRESHOW_LINES = [
-  `checks the countdown feed — "...live in ten" — and racks up a neat line of {drug} with the ease of long habit.`,
-  `dabs a little {drug} onto his gums, blinks twice as the room sharpens to a razor's edge, and grins at his own reflection.`,
-  `"Nobody tunes in for flat," he mutters, tipping a hit of {drug} under his tongue before the cameras roll.`,
-  `does a quick, practised bump off the back of his hand, rolls his shoulders, and shakes out the pre-show nerves.`,
+
+// ── Taking it, as something you can watch ─────────────────────────────────────
+//
+// THE STANDARD, and every NPC habit in the game should go through it: an NPC
+// never simply "is high". They fetch the thing, they prepare it, they take it,
+// and only THEN does the effect land — three or four beats spaced a handful of
+// seconds apart, so a player walking in mid-ritual sees a person making a choice
+// rather than a status effect appearing on a body.
+//
+// Deliberately the same shape as ambient-life's home routines (narrate beats,
+// re-validate before each one, no state, no writes) because it is the same kind
+// of thing: nothing is simulated, and nobody can tell.
+//
+// Pronouns are they/them throughout — these pools are reused by any NPC carrying
+// the flag, and a pool that says "his" is a pool that can only ever fit one man.
+const RITUAL_BEAT_MS = [4500, 8000];
+
+function runRitual(npc, beats, onDone) {
+  const zoneId = npc.zone_id;
+  let i = 0;
+  const step = () => {
+    // Re-validated every beat. Someone who is dragged into a fight, put on the
+    // floor or moved mid-ritual doesn't finish it — and crucially never reaches
+    // onDone, so the dose lands only if the act completed.
+    const live = world.npcs.get(npc.id);
+    if (!live || live._dead || (live.hp != null && live.hp <= 0)
+        || live.zone_id !== zoneId || live._combatTargetId
+        || live._ai?.homeSleeping || live._ai?.dosedOut) return;
+    if (i < beats.length) {
+      sendToZone(zoneId, { type: 'zone_event', message: `${live.name} ${beats[i++]}` });
+      setTimeout(step, RITUAL_BEAT_MS[0] + Math.random() * (RITUAL_BEAT_MS[1] - RITUAL_BEAT_MS[0]));
+      return;
+    }
+    onDone(live);
+  };
+  step();
+}
+
+const PRESHOW_RITUALS = [
+  [`checks the countdown feed — "...live in ten" — and goes very still for a moment.`,
+   `taps out a neat line of {drug} along the back of a hand mirror, with the ease of long habit.`,
+   `takes it in one, blinks twice as the room sharpens to a razor's edge, and grins at their own reflection.`],
+  [`digs a tin out from somewhere it was not supposed to be, and weighs it in one hand.`,
+   `dabs a little {drug} onto their gums and works their jaw, waiting for it.`,
+   `rolls their shoulders as it lands, and the pre-show nerves go out of them all at once.`],
+  [`"Nobody tunes in for flat," they tell the empty room, entirely reasonably.`,
+   `tips a hit of {drug} under their tongue and checks the time again.`,
+   `does a quick, practised bump off the back of a hand, and is suddenly, brightly awake.`],
+];
+
+// The drink version of the same ritual. Somebody steadying themselves before the
+// lights come on is the oldest version of this story, and it needs its own beats:
+// tipping a hit of whisky under your tongue is not a thing anyone does.
+const PRESHOW_DRINK_RITUALS = [
+  [`checks the countdown feed — "...live in ten" — and goes very still for a moment.`,
+   `pours two fingers of {drug} from a bottle that lives behind something else.`,
+   `drinks it off, breathes out slowly, and squares their shoulders at the door.`],
+  [`opens a drawer, considers it, and takes out the {drug} rather than whatever they went in for.`,
+   `pours a measure, tops it up, and drinks it standing.`,
+   `rinses the glass, puts it back exactly where it was, and is ready.`],
+  [`"Nobody tunes in for flat," they tell the empty room, entirely reasonably.`,
+   `knocks back a shot of {drug} and grimaces at their own reflection.`,
+   `works their jaw, finds the smile, and holds it there until it fits.`],
 ];
 
 function kindForNamed(name) {
   const d = Object.values(getDrugCache()).find(x => (x.name || '').toLowerCase() === String(name).toLowerCase());
-  return d ? classify(d.effects) : 'wired';   // pre-show default is an upper
+  return d ? classify(d.effects, d.flags) : 'wired';   // an unrecognised DRUG name is an upper
 }
 
-function preshowScan() {
+/**
+ * One pre-show pass for one flag.
+ *
+ * Two flags, mirroring the standing pair exactly, because the alternative is
+ * guessing: a drink's name is authored flavour ("embassy reserve") and will never
+ * be in the drugs catalogue, so `kindForNamed` would fall through to its
+ * unrecognised-drug default and hand a broadcast anchor a stimulant jag off a
+ * glass of whisky, narrated as a line off a hand mirror.
+ *
+ *   preshow_habit — a DRUG. Effect classified from the drug's own data.
+ *   preshow_drink — a DRINK. Always sedated, and `neverOut`: an anchor who folds
+ *                   before curtain doesn't make the broadcast, which is a
+ *                   different character than the one intended.
+ */
+function preshowScan(flag, { rituals, kindFor, neverOut }) {
   // No longer gated on someone standing in the room — a habit that only happens
   // when watched isn't a habit. Still gated on the server having ANY players: an
   // empty world has nobody to ever see the consequence, and the engine's rule is
   // that scheduled ticks idle out (docs/architecture.md).
   if (!hasActivePlayers()) return;
-  const npcs = getNpcsByFlag('preshow_habit');
+  const npcs = getNpcsByFlag(flag);
   if (!npcs.length) return;
   for (const npc of npcs) {
     if (npc.hp != null && npc.hp <= 0) continue;
     if (DOSED.has(npc.id)) continue;                                   // already high
-    if (!npc.home_zone || npc.zone_id !== npc.home_zone) continue;     // he does this at home
+    if (npc._ai?.homeSleeping) continue;                               // asleep — it waits
+    if (!npc.home_zone || npc.zone_id !== npc.home_zone) continue;     // they do this at home
 
     // How far out is curtain? null = staffed on nothing with a knowable start.
     const mins = npcNextShiftInMins(npc.id);
@@ -377,24 +625,34 @@ function preshowScan() {
     // yields two keys as it crosses a bucket edge, which rolls twice and turns a
     // 10% chance into 19%.
     const { minutes, dayOfWeek } = getEnvironmentState();
-    const key = `${(dayOfWeek || 0) * 1440 + Math.round(minutes || 0) + mins}`;
-    if (preshowRolled.get(npc.id) === key) continue;
-    preshowRolled.set(npc.id, key);
+    // Latch per FLAG as well as per NPC: someone who keeps both a bottle and a
+    // baggie gets one roll each, not one roll shared between them.
+    const key = `${flag}:${(dayOfWeek || 0) * 1440 + Math.round(minutes || 0) + mins}`;
+    if (preshowRolled.get(`${npc.id}:${flag}`) === key) continue;
+    preshowRolled.set(`${npc.id}:${flag}`, key);
     if (Math.random() >= PRESHOW_CHANCE) continue;
 
-    const drugName = (typeof npc.flags.preshow_habit === 'string' && npc.flags.preshow_habit) ? npc.flags.preshow_habit : 'something';
+    const name = (typeof npc.flags[flag] === 'string' && npc.flags[flag]) ? npc.flags[flag] : 'something';
     // Deliberately broadcast whether or not anyone is standing there. An empty
     // room costs nothing, and gating on an audience made the ritual something
     // that only ever happened when watched — which is backwards for a habit.
-    sendToZone(npc.zone_id, { type: 'zone_event', message: `${npc.name} ${pick(PRESHOW_LINES).replace('{drug}', drugName)}` });
     const gameMins = PRESHOW_HIGH_MINS[0] + Math.random() * (PRESHOW_HIGH_MINS[1] - PRESHOW_HIGH_MINS[0]);
-    doseNpc(npc, kindForNamed(drugName), drugName, {
-      durationMs: (gameMins * 60 * 1000) / Math.max(1, getTimeScale()),
-      mutterChance: PRESHOW_MUTTER_CHANCE,
+    runRitual(npc, pick(rituals).map(b => b.replace('{drug}', name)), (live) => {
+      doseNpc(live, kindFor(name), name, {
+        durationMs: (gameMins * 60 * 1000) / Math.max(1, getTimeScale()),
+        mutterChance: PRESHOW_MUTTER_CHANCE,
+        neverOut,
+      });
     });
   }
 }
-schedule('45s', () => { try { preshowScan(); } catch (e) { console.error('[npc-drugs] preshow error:', e.message); } });
+
+schedule('45s', () => {
+  try {
+    preshowScan('preshow_habit', { rituals: PRESHOW_RITUALS,       kindFor: kindForNamed, neverOut: false });
+    preshowScan('preshow_drink', { rituals: PRESHOW_DRINK_RITUALS, kindFor: () => 'sedated', neverOut: true });
+  } catch (e) { console.error('[npc-drugs] preshow error:', e.message); }
+});
 
 // ── The standing habit: an NPC who drinks on no schedule but their own ────────
 //
@@ -410,47 +668,134 @@ schedule('45s', () => { try { preshowScan(); } catch (e) { console.error('[npc-d
 //   • `neverOut` — see doseNpc. He gets loose, never floored, because an NPC who
 //     collapses stops running their graph and stops turning up for work. "Often
 //     drunk, still on air" is the character; "missing, face down at home" is not.
-const BOOZE_COOLDOWN_MS = 20 * 60 * 1000;   // real ms between drinks
-const BOOZE_CHANCE      = 0.35;             // per scan once the cooldown is clear
+// There are two of these, sharing one scanner, because a bottle and a baggie are
+// the same shape of behaviour with different nouns:
+//   flags.booze_habit = "<drink name>"  — always sedated, never floored.
+//   flags.drug_habit  = "<drug name>"   — effect derived from the drug's own data
+//                                          (so a stimulant habit reads as wired),
+//                                          and CAN put them under: a habit on the
+//                                          hard stuff is supposed to be able to
+//                                          cost them the evening.
+const HABIT_COOLDOWN_MS = 20 * 60 * 1000;   // real ms between hits
+const HABIT_CHANCE      = 0.35;             // per scan once the cooldown is clear
 const BOOZE_DRUNK_MINS  = [120, 180];       // 2–3 GAME hours per drink
-const BOOZE_MUTTER_CHANCE = 0.02;           // a slur now and then, not a monologue
-const boozeLast = new Map();                // npcId -> ts of last drink
-const BOOZE_LINES = [
-  `pours a measure of {drug} with the steadiness of a man who has never once considered that it might be a problem.`,
-  `tops up a mug that has not held coffee in some years, and drinks off half of it in one go.`,
-  `cracks the seal on a fresh bottle of {drug}, glances at the door, and pours anyway.`,
-  `drains the last of the {drug}, sets the glass down with exaggerated care, and immediately reaches for more.`,
+const DRUG_HIGH_MINS    = [90, 150];
+const HABIT_MUTTER_CHANCE = 0.02;           // a slur now and then, not a monologue
+const habitLast = new Map();                // `${npcId}:${flag}` -> ts of last hit
+
+const BOOZE_RITUALS = [
+  [`reaches for the {drug} without looking, which tells you where it lives.`,
+   `pours a measure with the steadiness of someone who has never once considered that it might be a problem.`,
+   `drinks it off, breathes out, and pours the next one before the first has landed.`],
+  [`finds a mug that has not held coffee in some years.`,
+   `fills it most of the way with {drug} and drinks off half in one go.`],
+  [`cracks the seal on a fresh bottle of {drug}, glances at the door, and pours anyway.`,
+   `settles back with the glass and the particular calm of a problem deferred.`],
+];
+const DRUG_RITUALS = [
+  [`goes through a drawer with the focus of someone looking for one specific thing.`,
+   `sets out the {drug} and sorts it with small, practised movements.`,
+   `takes it, sits back, and waits for the room to change.`],
+  [`stops what they were doing, all at once, like a thought arrived.`,
+   `measures out a hit of {drug}, hands not quite steady until they've started.`,
+   `takes it and holds very still for a long moment.`],
+  [`checks the door, checks it again, and decides the room is empty enough.`,
+   `does the {drug} quickly, the way you do a thing you'd rather not be watched doing.`],
 ];
 
-function boozeScan() {
+function habitScan(flag, { rituals, mins, kindFor, neverOut }) {
   if (!hasActivePlayers()) return;
-  const npcs = getNpcsByFlag('booze_habit');
+  const npcs = getNpcsByFlag(flag);
   if (!npcs.length) return;
   const now = Date.now();
   for (const npc of npcs) {
     if (npc.hp != null && npc.hp <= 0) continue;
     if (DOSED.has(npc.id)) continue;                                   // still going from the last one
-    if (now - (boozeLast.get(npc.id) || 0) < BOOZE_COOLDOWN_MS) continue;
-    if (Math.random() >= BOOZE_CHANCE) continue;
-    boozeLast.set(npc.id, now);
-    const drinkName = (typeof npc.flags.booze_habit === 'string' && npc.flags.booze_habit) ? npc.flags.booze_habit : 'something';
-    sendToZone(npc.zone_id, { type: 'zone_event', message: `${npc.name} ${pick(BOOZE_LINES).replace('{drug}', drinkName)}` });
-    const gameMins = BOOZE_DRUNK_MINS[0] + Math.random() * (BOOZE_DRUNK_MINS[1] - BOOZE_DRUNK_MINS[0]);
-    doseNpc(npc, 'sedated', drinkName, {
-      durationMs: (gameMins * 60 * 1000) / Math.max(1, getTimeScale()),
-      mutterChance: BOOZE_MUTTER_CHANCE,
-      neverOut: true,
+    if (npc._ai?.homeSleeping) continue;                               // asleep — the habit waits
+    if (npc._ai?.comedown) continue;                                   // still coming off the last one
+    const key = `${npc.id}:${flag}`;
+    if (now - (habitLast.get(key) || 0) < HABIT_COOLDOWN_MS) continue;
+    if (Math.random() >= HABIT_CHANCE) continue;
+    habitLast.set(key, now);
+    const name = (typeof npc.flags[flag] === 'string' && npc.flags[flag]) ? npc.flags[flag] : 'something';
+    const gameMins = mins[0] + Math.random() * (mins[1] - mins[0]);
+    runRitual(npc, pick(rituals).map(b => b.replace('{drug}', name)), (live) => {
+      doseNpc(live, kindFor(name), name, {
+        durationMs: (gameMins * 60 * 1000) / Math.max(1, getTimeScale()),
+        mutterChance: HABIT_MUTTER_CHANCE,
+        neverOut,
+      });
     });
   }
 }
-schedule('45s', () => { try { boozeScan(); } catch (e) { console.error('[npc-drugs] booze error:', e.message); } });
+
+schedule('45s', () => {
+  try {
+    // He gets loose, never floored — an NPC who collapses stops running their
+    // graph and stops turning up for work. "Often drunk, still on air" is the
+    // character; "missing, face down at home" is not.
+    habitScan('booze_habit', { rituals: BOOZE_RITUALS, mins: BOOZE_DRUNK_MINS, kindFor: () => 'sedated', neverOut: true });
+    habitScan('drug_habit',  { rituals: DRUG_RITUALS,  mins: DRUG_HIGH_MINS,   kindFor: kindForNamed, neverOut: false });
+  } catch (e) { console.error('[npc-drugs] habit error:', e.message); }
+});
 
 // A killed/despawned NPC drops its effect so nothing lingers on a stale row.
 on('npc.killed', ({ npc }) => {
-  if (!npc || !DOSED.has(npc.id)) return;
+  if (!npc) return;
   DOSED.delete(npc.id);
-  if (npc._ai) { npc._ai.dose = null; npc._ai.dosedOut = false; }
+  COMEDOWN.delete(npc.id);
+  if (npc._ai) { npc._ai.dose = null; npc._ai.dosedOut = false; npc._ai.comedown = null; npc._ai.crashSleepy = 0; }
 });
+
+// ── Talking to someone who is on something ────────────────────────────────────
+// The other half of "it influences their behaviour from that point on": you can
+// SEE it in the conversation. This never claims the conversation — it emits one
+// tell to the room and returns undefined, so the dialogue tree, the shop and
+// every plugin that wanted this NPC all run exactly as they did before.
+const TALK_TELL = {
+  loose:       (n) => `${n} takes a moment to find your face, and rather longer to find the words.`,
+  belligerent: (n) => `${n} turns on you slowly, looking for something in the question to take badly.`,
+  wired:       (n) => `${n} answers before you've finished, talking over the end of it.`,
+  flee:        (n) => `${n} won't hold eye contact, and keeps checking the space behind you.`,
+  out:         (n) => `${n} doesn't stir.`,
+  comedown:    (n) => `${n} looks at you like conversation is one more thing being asked of them today.`,
+  mellow:      (n) => `${n} takes their time getting round to you, and doesn't seem to think that's a problem.`,
+  tripping:    (n) => `${n} hears you, eventually, from wherever they currently are.`,
+  dissociated: (n) => `${n} turns their head toward you with the unhurried delay of a bad connection.`,
+  lucid:       (n) => `${n} answers before you've finished, precisely, and is already waiting for the next one.`,
+};
+
+// Which single word describes what this NPC is currently on. Pure, and ordered
+// most-incapacitated first so the tell always names the state that matters.
+function doseState(ai, now = Date.now()) {
+  if (!ai) return null;
+  const d = ai.dose;
+  if (d) {
+    if (d.out) return 'out';
+    if (d.flee) return 'flee';
+    if (d.dissociated) return 'dissociated';
+    if (d.belligerent) return 'belligerent';
+    if (d.tripping) return 'tripping';
+    if (d.wired) return 'wired';
+    if (d.loose) return 'loose';
+    if (d.mellow) return 'mellow';
+    if (d.lucid) return 'lucid';
+    return null;
+  }
+  return ai.comedown && now < ai.comedown.until ? 'comedown' : null;
+}
+
+function talkTell({ npc }) {
+  const ai = npc?._ai;
+  const state = doseState(ai);
+  if (!state) return undefined;
+  sendToZone(npc.zone_id, { type: 'zone_event', message: TALK_TELL[state](npc.name) });
+  return undefined;                                  // never claims the conversation
+}
+
+export const hooks = {
+  'npc.talk': (payload) => { try { return talkTell(payload); } catch { return undefined; } },
+};
 
 // ── Verb plumbing ─────────────────────────────────────────────────────────────
 
@@ -469,7 +814,7 @@ async function findCarriedDrug(player, name) {
   const { rows } = await query(
     `SELECT pi.id AS inv_id, pi.quantity, pi.custom_data,
             i.id AS item_id, i.name AS item_name,
-            d.effects, d.name AS drug_name
+            d.effects, d.flags AS drug_flags, d.name AS drug_name
        FROM player_inventory pi
        JOIN items i ON i.id = pi.item_id
        JOIN drugs d ON d.item_id = i.id
@@ -506,7 +851,7 @@ async function setup(args, player, verb) {
   const npc = r.candidate;
   const row = await findCarriedDrug(player, drug);
   if (!row) return { error: err(drug ? `You're not carrying a "${drug}".` : "You're not carrying anything to dose them with.") };
-  return { npc, row, kind: classify(row.effects) };
+  return { npc, row, kind: classify(row.effects, row.drug_flags) };
 }
 
 // spike — covert. Deception vs the room; success = clean dose, failure = caught.
@@ -568,7 +913,7 @@ async function cmdSlip(args, raw, player) {
 
   await consumeDose(row);
   sendToZone(npc.zone_id, { type: 'zone_event', message: `${npc.name} takes the ${name} from ${player.handle} without a second thought.` }, player.id);
-  doseNpc(npc, classify(row.effects), name);
+  doseNpc(npc, classify(row.effects, row.drug_flags), name);
   return out(`You slip ${npc.name} the ${name}. They take it eagerly.`);
 }
 
@@ -579,6 +924,10 @@ export const commands = {
 };
 
 // Exposed for the regression suite (pure helpers — no side effects).
-export const _test = { classify, parseTargetWith };
+export const _test = {
+  classify, parseTargetWith, doseState, TALK_TELL,
+  kindForNamed, PRESHOW_RITUALS, PRESHOW_DRINK_RITUALS, BOOZE_RITUALS, DRUG_RITUALS,
+  LINE, SOBER, CLASS_KIND,
+};
 
 console.log('[npc-drugs] Plugin loaded.');

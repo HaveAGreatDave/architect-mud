@@ -439,6 +439,128 @@
         { waveform: 'sine', freq: 3520, delay: 0.600, adsr: { a: 0.004, d: 0.15, s: 0, r: 0.07 }, gain: 0.011 },
         { waveform: 'sine', freq: 4186, delay: 0.900, adsr: { a: 0.004, d: 0.13, s: 0, r: 0.06 }, gain: 0.009 } ] } },
 
+    // ── Trading cards (machine + pack opening) ───────────────────────────────
+    // The whole point of this set is ESCALATION: a common flips with a dry paper
+    // tick and nothing else, and every rung above it adds a layer rather than
+    // swapping to a different sound. So the ear learns the ladder — you know
+    // you've hit something before you can read the card, which is the only way
+    // the reveal animation has anything to land on.
+    { id: 'cards-vend', name: 'Cards — machine vends a sleeve', group: 'cards', category: 'sfx', priority: 6,
+      config: { duration: 0.5, layers: [
+        // Solenoid clunk, auger turn, then the sleeve hitting the tray flap.
+        { waveform: 'square', freq: 120, pitchBend: { to: 54, time: 0.09 }, filter: { type: 'lowpass', freq: 900, q: 1 }, adsr: { a: 0.001, d: 0.1, s: 0, r: 0.06 }, gain: 0.36 },
+        { waveform: 'noise', noiseMix: 1, delay: 0.06, filter: { type: 'bandpass', freq: 620, q: 1.2 }, adsr: { a: 0.02, d: 0.16, s: 0.2, r: 0.1 }, gain: 0.16 },
+        { waveform: 'triangle', freq: 210, delay: 0.28, pitchBend: { to: 130, time: 0.07 }, adsr: { a: 0.001, d: 0.09, s: 0, r: 0.06 }, gain: 0.26 },
+        { waveform: 'noise', noiseMix: 1, delay: 0.3, filter: { type: 'highpass', freq: 2600, q: 0.8 }, adsr: { a: 0.001, d: 0.07, s: 0, r: 0.05 }, gain: 0.14 } ] } },
+
+    // Foil, not paper: a bright band-passed rip that CLIMBS as the seam runs,
+    // with the crinkle grains riding on top rather than under it.
+    { id: 'cards-tear', name: 'Cards — foil sleeve tears', group: 'cards', category: 'sfx', priority: 8,
+      config: { duration: 0.66, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1800, q: 0.7 }, adsr: { a: 0.01, d: 0.34, s: 0.3, r: 0.2 }, gain: 0.3 },
+        { waveform: 'noise', noiseMix: 1, delay: 0.02, filter: { type: 'highpass', freq: 4200, q: 0.9 }, adsr: { a: 0.02, d: 0.3, s: 0.25, r: 0.22 }, gain: 0.2 },
+        ...Array.from({ length: 9 }, (_, i) => ({
+          waveform: 'noise', noiseMix: 1, delay: 0.03 + i * 0.048,
+          filter: { type: 'bandpass', freq: 3000 + i * 420, q: 4 },
+          adsr: { a: 0.001, d: 0.035, s: 0, r: 0.025 }, gain: 0.11 - i * 0.007,
+        })),
+        // The foil finally giving and the stack shifting inside.
+        { waveform: 'noise', noiseMix: 1, delay: 0.45, filter: { type: 'lowpass', freq: 1500, q: 0.7 }, adsr: { a: 0.005, d: 0.14, s: 0, r: 0.1 }, gain: 0.18 } ] } },
+
+    { id: 'cards-slide', name: 'Cards — card slides off the stack', group: 'cards', category: 'sfx', priority: 4,
+      config: { duration: 0.22, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1250, q: 1.1 }, adsr: { a: 0.012, d: 0.11, s: 0, r: 0.07 }, gain: 0.13 },
+        { waveform: 'noise', noiseMix: 1, delay: 0.05, filter: { type: 'highpass', freq: 3400, q: 0.8 }, adsr: { a: 0.006, d: 0.07, s: 0, r: 0.05 }, gain: 0.07 } ] } },
+
+    // Common — a dry tick and nothing more. This is the floor the ladder is
+    // measured from, so it must be genuinely unexciting.
+    { id: 'cards-flip-common', name: 'Cards — flip (common)', group: 'cards', category: 'sfx', priority: 4,
+      config: { duration: 0.16, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2100, q: 2 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.035 }, gain: 0.15 },
+        { waveform: 'triangle', freq: 300, pitchBend: { to: 190, time: 0.04 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.1 } ] } },
+
+    // Uncommon — the same tick, plus one clean note. First rung.
+    { id: 'cards-flip-uncommon', name: 'Cards — flip (uncommon)', group: 'cards', category: 'sfx', priority: 5,
+      config: { duration: 0.34, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2200, q: 2 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.035 }, gain: 0.14 },
+        { waveform: 'sine', freq: 784, delay: 0.03, adsr: { a: 0.004, d: 0.22, s: 0, r: 0.1 }, gain: 0.075 },
+        { waveform: 'sine', freq: 1568, delay: 0.03, adsr: { a: 0.006, d: 0.15, s: 0, r: 0.08 }, gain: 0.03 } ] } },
+
+    // Rare — a two-note lift with a bell partial over it.
+    { id: 'cards-flip-rare', name: 'Cards — flip (rare)', group: 'cards', category: 'sfx', priority: 6,
+      config: { duration: 0.6, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2400, q: 2 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.035 }, gain: 0.14 },
+        { waveform: 'sine', freq: 784, delay: 0.02, adsr: { a: 0.004, d: 0.26, s: 0, r: 0.12 }, gain: 0.085 },
+        { waveform: 'sine', freq: 1175, delay: 0.13, adsr: { a: 0.004, d: 0.42, s: 0, r: 0.2 }, gain: 0.085 },
+        { waveform: 'sine', freq: 2350, delay: 0.13, adsr: { a: 0.006, d: 0.3, s: 0, r: 0.14 }, gain: 0.035 },
+        { waveform: 'triangle', freq: 3520, delay: 0.15, adsr: { a: 0.005, d: 0.2, s: 0, r: 0.1 }, gain: 0.016 } ] } },
+
+    // Epic — three notes, chorused tail, and a sub under it so it has weight.
+    { id: 'cards-flip-epic', name: 'Cards — flip (epic)', group: 'cards', category: 'sfx', priority: 8,
+      config: { duration: 1.0, layers: [
+        { waveform: 'sine', freq: 196, adsr: { a: 0.006, d: 0.5, s: 0.12, r: 0.3 }, gain: 0.1 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2600, q: 2 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.04 }, gain: 0.13 },
+        { waveform: 'sine', freq: 784, delay: 0.02, adsr: { a: 0.004, d: 0.3, s: 0, r: 0.14 }, gain: 0.085 },
+        { waveform: 'sine', freq: 1175, delay: 0.12, adsr: { a: 0.004, d: 0.34, s: 0, r: 0.16 }, gain: 0.09 },
+        { waveform: 'sine', freq: 1568, delay: 0.24, adsr: { a: 0.004, d: 0.8, s: 0, r: 0.36 }, gain: 0.095 },
+        { waveform: 'sine', freq: 1568, delay: 0.24, detune: 11, adsr: { a: 0.005, d: 0.8, s: 0, r: 0.36 }, gain: 0.05 },
+        { waveform: 'triangle', freq: 3136, delay: 0.26, adsr: { a: 0.006, d: 0.5, s: 0, r: 0.24 }, gain: 0.028 },
+        { waveform: 'sine', freq: 4186, delay: 0.34, adsr: { a: 0.005, d: 0.3, s: 0, r: 0.14 }, gain: 0.013 } ] } },
+
+    // Legendary — a riser that ARRIVES. The 0.42s ramp is the animation's cue to
+    // hold the card back; the chord lands with the card, not before it.
+    { id: 'cards-flip-legendary', name: 'Cards — flip (legendary)', group: 'cards', category: 'sfx', priority: 9,
+      config: { duration: 1.5, layers: [
+        // Riser.
+        { waveform: 'sawtooth', freq: 90, pitchBend: { to: 700, time: 0.42 }, filter: { type: 'lowpass', freq: 2600, q: 2 }, adsr: { a: 0.1, d: 0.3, s: 0.5, r: 0.12 }, gain: 0.11 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 2000, q: 0.8 }, adsr: { a: 0.3, d: 0.14, s: 0, r: 0.1 }, gain: 0.09 },
+        // Impact.
+        { waveform: 'sine', freq: 98, delay: 0.44, adsr: { a: 0.004, d: 0.7, s: 0.1, r: 0.4 }, gain: 0.15 },
+        { waveform: 'noise', noiseMix: 1, delay: 0.44, filter: { type: 'lowpass', freq: 700, q: 1 }, adsr: { a: 0.001, d: 0.16, s: 0, r: 0.12 }, gain: 0.16 },
+        // Chord — root/fifth/octave, chorused, ringing well past the impact.
+        { waveform: 'sine', freq: 587, delay: 0.46, adsr: { a: 0.005, d: 0.95, s: 0, r: 0.42 }, gain: 0.1 },
+        { waveform: 'sine', freq: 880, delay: 0.46, adsr: { a: 0.005, d: 1.0, s: 0, r: 0.45 }, gain: 0.1 },
+        { waveform: 'sine', freq: 880, delay: 0.46, detune: -10, adsr: { a: 0.006, d: 1.0, s: 0, r: 0.45 }, gain: 0.052 },
+        { waveform: 'sine', freq: 1175, delay: 0.48, adsr: { a: 0.005, d: 1.1, s: 0, r: 0.5 }, gain: 0.09 },
+        { waveform: 'triangle', freq: 1760, delay: 0.5, adsr: { a: 0.007, d: 0.7, s: 0, r: 0.34 }, gain: 0.03 },
+        // Glints on the ray sweep.
+        { waveform: 'sine', freq: 3520, delay: 0.62, adsr: { a: 0.004, d: 0.2, s: 0, r: 0.1 }, gain: 0.014 },
+        { waveform: 'sine', freq: 4186, delay: 0.8, adsr: { a: 0.004, d: 0.18, s: 0, r: 0.09 }, gain: 0.012 },
+        { waveform: 'sine', freq: 2794, delay: 1.0, adsr: { a: 0.004, d: 0.16, s: 0, r: 0.08 }, gain: 0.011 } ] } },
+
+    // Architect — admin issue, off the ladder entirely. Reuses the legendary
+    // shape one octave down so it reads as heavier rather than louder.
+    { id: 'cards-flip-architect', name: 'Cards — flip (architect)', group: 'cards', category: 'sfx', priority: 9,
+      config: { duration: 1.6, layers: [
+        { waveform: 'sawtooth', freq: 60, pitchBend: { to: 420, time: 0.5 }, filter: { type: 'lowpass', freq: 1800, q: 2.4 }, adsr: { a: 0.12, d: 0.34, s: 0.5, r: 0.14 }, gain: 0.12 },
+        { waveform: 'sine', freq: 65, delay: 0.52, adsr: { a: 0.004, d: 0.9, s: 0.12, r: 0.5 }, gain: 0.16 },
+        { waveform: 'sine', freq: 294, delay: 0.54, adsr: { a: 0.006, d: 1.2, s: 0, r: 0.55 }, gain: 0.1 },
+        { waveform: 'sine', freq: 440, delay: 0.54, detune: 8, adsr: { a: 0.006, d: 1.2, s: 0, r: 0.55 }, gain: 0.09 },
+        { waveform: 'sine', freq: 587, delay: 0.58, adsr: { a: 0.006, d: 1.3, s: 0, r: 0.6 }, gain: 0.08 },
+        { waveform: 'triangle', freq: 1175, delay: 0.6, adsr: { a: 0.008, d: 0.8, s: 0, r: 0.4 }, gain: 0.026 } ] } },
+
+    // The PLAYER sting — layered ON TOP of whatever rarity flip just fired, never
+    // instead of it. A card with somebody's real handle on it is the rarest thing
+    // the system can hand you regardless of rank, so it gets its own signal.
+    { id: 'cards-player-sting', name: 'Cards — it is a PLAYER card', group: 'cards', category: 'sfx', priority: 9,
+      config: { duration: 0.9, layers: [
+        { waveform: 'sine', freq: 1319, delay: 0.06, adsr: { a: 0.003, d: 0.5, s: 0, r: 0.24 }, gain: 0.055 },
+        { waveform: 'sine', freq: 1976, delay: 0.14, adsr: { a: 0.003, d: 0.6, s: 0, r: 0.28 }, gain: 0.045 },
+        { waveform: 'sine', freq: 2637, delay: 0.22, adsr: { a: 0.003, d: 0.7, s: 0, r: 0.32 }, gain: 0.035 },
+        { waveform: 'triangle', freq: 3951, delay: 0.3, adsr: { a: 0.004, d: 0.4, s: 0, r: 0.2 }, gain: 0.014 } ] } },
+
+    // Dupe — a flat, dead thunk. Deliberately the only unmusical cue in the set.
+    { id: 'cards-dupe', name: 'Cards — duplicate', group: 'cards', category: 'sfx', priority: 4,
+      config: { duration: 0.3, layers: [
+        { waveform: 'sine', freq: 150, pitchBend: { to: 96, time: 0.12 }, adsr: { a: 0.002, d: 0.14, s: 0, r: 0.09 }, gain: 0.12 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 520, q: 0.8 }, adsr: { a: 0.002, d: 0.1, s: 0, r: 0.07 }, gain: 0.08 } ] } },
+
+    { id: 'cards-stack', name: 'Cards — squared off at the end', group: 'cards', category: 'sfx', priority: 5,
+      config: { duration: 0.36, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 900, q: 1.2 }, adsr: { a: 0.002, d: 0.07, s: 0, r: 0.05 }, gain: 0.16 },
+        { waveform: 'noise', noiseMix: 1, delay: 0.09, filter: { type: 'bandpass', freq: 800, q: 1.2 }, adsr: { a: 0.002, d: 0.07, s: 0, r: 0.05 }, gain: 0.13 },
+        { waveform: 'triangle', freq: 170, delay: 0.09, pitchBend: { to: 110, time: 0.05 }, adsr: { a: 0.001, d: 0.08, s: 0, r: 0.05 }, gain: 0.11 } ] } },
+
     // ── Banks ────────────────────────────────────────────────────────────────
     // A BANK is a separate file that authors a themed set of presets in exactly this
     // shape and attaches it to the global. Folding them in here (rather than pasting
@@ -453,7 +575,7 @@
     ...(global.HockeySfx?.BUILTINS || []),
   ];
 
-  const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)', flight: 'Flight (cockpit)', fishing: 'Fishing (cast / reel)', dialogue: 'Dialogue (conversation)', accolades: 'Accolades (entry logged)', procedural: 'Procedural material/action tables', hockey: 'Hockey (Cluster Puck broadcast)' };
+  const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)', flight: 'Flight (cockpit)', fishing: 'Fishing (cast / reel)', dialogue: 'Dialogue (conversation)', accolades: 'Accolades (entry logged)', cards: 'Trading cards (machine / pack opening)', procedural: 'Procedural material/action tables', hockey: 'Hockey (Cluster Puck broadcast)' };
 
   const _builtinById = new Map(BUILTINS.map(d => [d.id, d]));
   let _overrides = new Map(); // id -> { config, priority, enabled, name }

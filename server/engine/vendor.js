@@ -27,13 +27,14 @@ import { getFlag, setFlag } from './flags.js';
 import { emit } from './events.js';
 import { weaponSkillRequirement } from './combat.js';
 import { effectiveSkill } from './skills.js';
+import { fireHook } from './plugins.js';
 import { vendorGrudgeRemaining, grudgeRefusal } from './vendor-grudge.js';
 import { markSessionPurchase } from './vendor-session.js';
 import { vendorBuyReaction } from './vendor-reactions.js';
 import { isVendorClosed, vendorClosedLine } from './ai-behaviour.js';
 import { getItem } from './items-cache.js';
 import { syncNpc, updateNpc, getLivePlayer } from './world.js';
-import { relationHelp } from './relations.js';
+import { relationHelp, recordPurchase } from './relations.js';
 
 // Per-purchase instance stamps. `flags.prefill` on an item template covers STATIC
 // per-instance state (a jerry can sold full), but some goods are only meaningful
@@ -229,6 +230,11 @@ export async function getVendorStock(npc, playerId, shelfKey = null) {
       discounted: discount > 0,
     });
   }
+  // A shelf a plugin may annotate. The cooking plugin uses it to mark what's on
+  // your shopping list — a list you have to hold up against the shelf yourself is
+  // only half a list. Handlers mutate entries in place (setting `wanted`); an
+  // unhooked shelf is byte-identical to what it was before this existed.
+  await fireHook('shop.stock', { stock, npc, playerId });
   return stock;
 }
 
@@ -398,6 +404,15 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1, shelfKey 
   }
 
   markSessionPurchase(player.id); // for the vendor's closing-time farewell line
+
+  // Being a customer is how you come to be known behind a counter — which is the
+  // ladder an authored gate like `{ relation: 'familiar' }` hangs off. The
+  // weights (and the per-sale warmth cap) live in relations.js beside the tier
+  // thresholds they have to stay calibrated against; this is the one call site.
+  //
+  // Sync and query-free by contract (docs/systems-relationships.md), so no round
+  // trip is added to a purchase.
+  if (npc?.id) recordPurchase(player, npc.id, price);
 
   // Trust vendor: each purchase earns trust, unlocking higher tiers. Reaching
   // the cap sets an optional payoff flag (a hook for future content / the "lead").

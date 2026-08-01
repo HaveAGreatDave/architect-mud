@@ -1,6 +1,39 @@
 {
   "banter": [],
-  "behaviour_graph": null,
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "at_work": {
+        "action_type": "AT_WORK",
+        "next": "go_home",
+        "type": "action"
+      },
+      "go_home": {
+        "action_type": "GO_HOME",
+        "next": "home_wait",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "at_work",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "go_to_work",
+        "type": "action"
+      },
+      "home_wait": {
+        "next": "start",
+        "seconds": 60,
+        "type": "wait"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      }
+    }
+  },
   "chitchat": [],
   "description": "A broadcast studio host.",
   "dialogue_tree": {},
@@ -9,7 +42,7 @@
     "studio_npc": true
   },
   "home_activities": [],
-  "home_zone": "zone_studio_1782953094650",
+  "home_zone": "zone_meridian_unit_502",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_stage_assistant",
@@ -67,5 +100,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_studio_1782953094650"
 }

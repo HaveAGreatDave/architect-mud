@@ -3,30 +3,123 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "chat_wait": {
-        "next": "start",
-        "seconds": 90,
-        "type": "wait"
-      },
-      "chitchat": {
-        "action_type": "VENDOR_CHITCHAT",
-        "next": "chat_wait",
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
         "type": "action"
       },
-      "idle_wait": {
-        "next": "start",
-        "seconds": 30,
+      "atm_wait": {
+        "next": "deposit",
+        "seconds": 10,
         "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "collect_safe",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
       },
       "player_check": {
         "condition_type": "PLAYER_IN_ZONE",
-        "ifFalse": "idle_wait",
-        "ifTrue": "chitchat",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
         "type": "condition"
       },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
       "start": {
-        "next": "player_check",
+        "next": "check_work",
         "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
       }
     }
   },
@@ -139,7 +232,7 @@
     "table_id": "gametable_neonvig_oldschool"
   },
   "home_activities": [],
-  "home_zone": "zone_casino_interior",
+  "home_zone": "zone_meridian_unit_402",
   "hp": 30,
   "hp_max": 30,
   "id": "npc_neonvig_backroom_dealer",
@@ -149,7 +242,45 @@
   "studio_zone_id": null,
   "vendor_inventory": [],
   "vendor_restock_rate": 1,
-  "vendor_schedule": {},
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 19,
+        "to": 27
+      }
+    ],
+    "mon": [
+      {
+        "from": 19,
+        "to": 27
+      }
+    ],
+    "sat": [
+      {
+        "from": 19,
+        "to": 27
+      }
+    ],
+    "sun": [
+      {
+        "from": 19,
+        "to": 27
+      }
+    ],
+    "thu": [],
+    "tue": [
+      {
+        "from": 19,
+        "to": 27
+      }
+    ],
+    "wed": [
+      {
+        "from": 19,
+        "to": 27
+      }
+    ]
+  },
   "vendor_shop_name": null,
   "vendor_stock_size": 10,
   "wander_zones": [],

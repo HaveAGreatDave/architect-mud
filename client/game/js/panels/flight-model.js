@@ -75,7 +75,7 @@ export const TYPES = {
     vsMax: 525,           // max sustained climb (ft/min) — scaled ~0.7× the Cessna 172 like our other numbers
     vsGain: 1600,         // how hard excess lift converts to vertical speed
     vsTau: 1.0,           // vertical inertia (s) — vs eases toward its target; lower = climbs out off the ground faster
-    ceiling: 12500,       // service ceiling (ft) — climb performance fades to zero here (thin air)
+    ceiling: 28000,       // service ceiling (ft) — climb performance fades to zero here (thin air)
     ldMax: 7.4,           // best glide RATIO — sets the induced-drag coefficient, and `bestGlide` (the BLUE yoke light) is derived from it
     gLimit: 4.4,          // structural g limit — exceed it and the model fires an `overg` event
   },
@@ -93,7 +93,7 @@ export const TYPES = {
     pitchRate: 9, pitchTau: 0.8, rollRate: 40, rollTau: 0.7, engineLag: 1.7,
     pitchStable: 0.88, rollStable: 1.0, dragP: 0.000828, flapDrag: 0.65, flapLift: 0.5, flapVs: 0.24,
     rollFric: 1.4, aoaCrit: 18, liftScale: 1.0, vsMax: 1800, vsGain: 1800, vsTau: 0.95,
-    brake: 6.0, groundSteer: 26, ceiling: 17000, ldMax: 7.6, gLimit: 3.8,
+    brake: 6.0, groundSteer: 26, ceiling: 34000, ldMax: 7.6, gLimit: 3.8,
   },
   // Leviathan — 4-engine heavy-lift freighter, an ANTONOV AN-124 RUSLAN analogue: HEAVY first —
   // ponderous to accelerate and steer, a long roll, an unremarkable level cruise (no faster
@@ -120,7 +120,7 @@ export const TYPES = {
     // Climb performance unchanged (she must still climb away from the field once rolling); the
     // faster top speed is gone but the field performance is not.
     rollFric: 1.2, aoaCrit: 16, liftScale: 1.0, vsMax: 2700, vsGain: 2500, vsTau: 1.05,
-    brake: 8.0, groundSteer: 16, ceiling: 23000,   // cruises high, above the weather — the fleet's highest ceiling
+    brake: 8.0, groundSteer: 16, ceiling: 41000,   // cruises high, above the weather — the fleet's highest ceiling
     // She glides like the brick she is (no albatross float). This used to need a bespoke
     // rpm-gated `glideDrag` patch because the shared polar had no induced drag at all; now
     // it's just the fleet's lowest ldMax, and best glide (~76 kt) falls out of the polar.
@@ -146,7 +146,7 @@ export const TYPES = {
     pitchRate: 10, pitchTau: 0.7, rollRate: 58, rollTau: 0.6, engineLag: 1.0,
     pitchStable: 1.1, rollStable: 1.3, dragP: 0.00130, flapDrag: 0.6, flapLift: 0.42, flapVs: 0.2,
     rollFric: 1.5, aoaCrit: 21, liftScale: 1.0, vsMax: 3600, vsGain: 3000, vsTau: 0.85,
-    brake: 7.5, groundSteer: 28, ceiling: 17000, ldMax: 7.6, gLimit: 6.0,
+    brake: 7.5, groundSteer: 28, ceiling: 34000, ldMax: 7.6, gLimit: 6.0,
     // COVERS GROUND FAST (per author direction): the strike platform eats distance between targets.
     // A pure world-travel multiplier — the terrain scrolls past ~1.7× for the same airspeed, so she
     // gets across the map without touching handling/stall/energy (read in the sim's world-translate).
@@ -171,10 +171,14 @@ export const TYPES = {
     // Gentle vertical response so the hover isn't twitchy: a small collective error off the
     // hover point gives a modest vs (low vsGain), and vs eases in with real inertia (higher
     // vsTau) instead of snapping to the cap the instant you lift a skid off the ground.
+    // vsMax is a CLAMP, not a climb rate: on the heli branch the achievable vs comes out of the
+    // thrust-deficit formula below (best rate sits at the droop knee, ~0.7 collective) and never
+    // reaches this bound in either direction. Raising it buys nothing — the ceiling fade is the
+    // knob that governs how high she gets, and vsGain the one that governs how twitchy the hover is.
     vsGain: 850, vsMax: 1300, vsTau: 0.9,
     vrsVs: 480,                           // settling-with-power onset (fpm sink) when slow + powered
     rollFric: 11,                         // skid friction on the ground — skids bite and stop her quickly (no long rollout)
-    ceiling: 15000,
+    ceiling: 32000,
   },
   // Viper — the attack helicopter (an Apache reimagined). Flies the SAME heli branch as the
   // Dragonfly (collective + cyclic + pedals) — it is not a fixed-wing — but it's a far bigger,
@@ -194,10 +198,10 @@ export const TYPES = {
     cyclicThrust: 5.0,                    // heavy, powerful disc — real acceleration off a lean
     dragP: 0.00105,                       // slippery armoured body: holds speed, high top end
     liftMax: 2.4, hoverThrust: 1.0,       // strong power margin even loaded on the rails
-    vsGain: 1000, vsMax: 2100, vsTau: 1.0,
+    vsGain: 1000, vsMax: 2100, vsTau: 1.0,   // a clamp the deficit formula never reaches — see the Dragonfly's note
     vrsVs: 620,                           // high disc loading — settles later, then bites harder
     rollFric: 9,                          // wheeled gear, but she stops short (no rollout)
-    ceiling: 16000,
+    ceiling: 34000,
     groundPitch: 7,   // TAILDRAGGER: mains forward, tailwheel on the boom — she squats nose-high parked, flies the tail off first
   },
   // Carcass — salvaged wreck: underpowered, draggy, unstable. A junker you nurse into the air.
@@ -206,7 +210,7 @@ export const TYPES = {
     pitchRate: 11, pitchTau: 0.5, rollRate: 50, rollTau: 0.5, engineLag: 1.5,
     pitchStable: 0.7, rollStable: 0.8, dragP: 0.00107, flapDrag: 0.55, flapLift: 0.32, flapVs: 0.17,
     rollFric: 1.7, aoaCrit: 17, liftScale: 0.95, vsMax: 900, vsGain: 1650, vsTau: 1.0,
-    brake: 5.0, groundSteer: 30, ceiling: 11000, ldMax: 7.4, gLimit: 3.2,   // salvaged airframe: the weakest structure in the fleet
+    brake: 5.0, groundSteer: 30, ceiling: 24000, ldMax: 7.4, gLimit: 3.2,   // salvaged airframe: the weakest structure in the fleet
   },
   // Grasshopper — a PIPER L-4 analogue: a featherweight tandem liaison taildragger. Docile and
   // SLOW: floats off in a few yards, very stall-resistant, gentle rates — the forgiving scout you
@@ -216,7 +220,7 @@ export const TYPES = {
     pitchRate: 11, pitchTau: 0.62, rollRate: 44, rollTau: 0.6, engineLag: 1.35,
     pitchStable: 1.0, rollStable: 1.2, dragP: 0.00107, flapDrag: 0.5, flapLift: 0.32, flapVs: 0.16,
     rollFric: 1.7, aoaCrit: 20, liftScale: 1.0, vsMax: 480, vsGain: 1500, vsTau: 1.0,
-    brake: 5.2, groundSteer: 32, ceiling: 11000, ldMax: 6.7, gLimit: 4.0,
+    brake: 5.2, groundSteer: 32, ceiling: 24000, ldMax: 6.7, gLimit: 4.0,
     groundPitch: 11,   // taildragger 3-point sit (deg nose-up): rests on the tailwheel; push forward to raise the tail on the roll
   },
   // Locust — a low-wing CROP-DUSTER / ag-plane (Air Tractor analogue): a heavy, honest low-and-slow
@@ -228,7 +232,7 @@ export const TYPES = {
     pitchRate: 9, pitchTau: 0.65, rollRate: 42, rollTau: 0.62, engineLag: 1.4,
     pitchStable: 1.05, rollStable: 1.25, dragP: 0.00139, flapDrag: 0.55, flapLift: 0.4, flapVs: 0.2,
     rollFric: 1.7, aoaCrit: 20, liftScale: 1.0, vsMax: 750, vsGain: 1550, vsTau: 1.0,
-    brake: 5.5, groundSteer: 30, ceiling: 9500, ldMax: 4.9, gLimit: 4.4,   // big draggy ag wing — she does not glide far
+    brake: 5.5, groundSteer: 30, ceiling: 22000, ldMax: 4.9, gLimit: 4.4,   // big draggy ag wing — she does not glide far
     groundPitch: 10,   // taildragger 3-point sit (deg nose-up): rests on the tailwheel
   },
 };
@@ -437,9 +441,23 @@ function stepHeli(state, input, p, dt) {
     thrustV = Math.min(thrustV, (p.hoverThrust || 1) * (1 - 0.55 * vrs));
     if (!s.vrsWarn) { s.events.push({ type: 'vrs' }); s.vrsWarn = true; }
   } else s.vrsWarn = false;
+  // Service ceiling. Rotor thrust falls with air density, so the POWER MARGIN over the hover
+  // weight — not the thrust itself — is what thins out with height: at the ceiling any
+  // collective you pull buys exactly hover and nothing more, so she simply stops going up.
+  // Sink is untouched (same convention as the fixed-wing branch §7), because thin air must
+  // never stop you coming DOWN.
+  //
+  // This branch used to ignore `p.ceiling` entirely — it was an authored number no heli code
+  // read, so a helicopter climbed at a constant rate to any altitude you had the patience for,
+  // and raising the figure in TYPES changed nothing at all.
+  const hoverT = p.hoverThrust || 1;
+  if (thrustV > hoverT) {
+    const thin = clamp(1 - s.altitude / (p.ceiling || 20000), 0, 1);   // 1 on the deck → 0 at the ceiling
+    thrustV = hoverT + (thrustV - hoverT) * thin;
+  }
   // Sink HARDER than she climbs — chop the collective (or droop Nr) and the underpowered kit
   // heli drops away in a deep autorotative descent instead of mushing down gently.
-  const deficit = thrustV / (p.hoverThrust || 1) - 1;
+  const deficit = thrustV / hoverT - 1;
   let vsTarget = clamp(deficit * (deficit < 0 ? p.vsGain * 1.9 : p.vsGain), -p.vsMax * 2.6, p.vsMax);
   // Ground cushion (in-ground-effect): within ~a rotor-diameter of the deck the downwash piles
   // into a lift cushion, so a descent SOFTENS as you near the ground — she eases onto the skids

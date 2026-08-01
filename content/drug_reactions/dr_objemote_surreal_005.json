@@ -1,0 +1,10 @@
+{
+  "id": "dr_objemote_surreal_005",
+  "drug_id": null,
+  "source": "object_emote",
+  "tone": "surreal",
+  "self_line": "{it} makes a small sound of settling, like something getting comfortable for a long wait.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

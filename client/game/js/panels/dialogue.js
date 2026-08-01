@@ -396,8 +396,11 @@ function renderShop() {
     const uid = shopUid(it);
     const unaff = mode === 'buy' && it.price > credits;
     const qtyTxt = it.quantity > 1 ? ` ×${it.quantity}` : '';
-    return `<div class="shop-row${shopState.sel === uid ? ' sel' : ''}" data-uid="${uid}">`
-      + `<span class="nm">${it.name}${qtyTxt} <span class="wg">(${formatWeight(it.weight)})</span></span>`
+    // `wanted` is set by the shop.stock hook: this is on your shopping list and
+    // you haven't got it yet. Marked in the gutter rather than recoloured, so a
+    // shelf of forty things reads as a list with three picked out of it.
+    return `<div class="shop-row${shopState.sel === uid ? ' sel' : ''}${it.wanted ? ' shop-wanted' : ''}" data-uid="${uid}">`
+      + `<span class="nm">${it.wanted ? '<span class="shop-mark" title="on your shopping list">▸</span>' : ''}${it.name}${qtyTxt} <span class="wg">(${formatWeight(it.weight)})</span></span>`
       + `<span class="pr${unaff ? ' noafford' : ''}">${it.price}₵</span></div>`;
   }).join('') : `<div class="shop-empty">${mode === 'sell' ? 'Nothing to sell.' : 'Nothing in stock.'}</div>`;
 

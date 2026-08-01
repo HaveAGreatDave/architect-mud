@@ -1,0 +1,10 @@
+{
+  "id": "dr_objask_normal_007",
+  "drug_id": null,
+  "source": "object_ask",
+  "tone": "normal",
+  "self_line": "Are you warm enough? You do not look warm enough.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

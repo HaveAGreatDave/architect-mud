@@ -3,15 +3,24 @@
   "drug_id": "drug_psilocybin",
   "matches": null,
   "scope": "spawn",
-  "name": "something green coming through the ground",
-  "description": "Something patient and green has opened the ground here and is winning, extremely slowly.",
+  "name": "a tree coming up through the floor",
+  "description": "A young tree has come up through the floor here, tiles shouldered aside in a neat ring, and it is going about its business as if it had been given permission.",
   "looks": [
     "It has gone through concrete the way a thought goes through a mood.",
-    "Where it has been longest, the ground has agreed with it.",
+    "Where it has been longest, the floor has agreed with it and closed round the trunk.",
     "It has no opinion about you at all, which is a relief."
   ],
   "says": [
     "I was doing this before you came.",
     "Do not be alarmed. I would not know how."
+  ],
+  "emotes": [
+    "{it} puts out a leaf while you are watching, which takes about four seconds.",
+    "A tile lifts and cracks somewhere near the base of {it}.",
+    "{it} turns very slightly towards the nearest light."
+  ],
+  "asks": [
+    "How long has this building been up?",
+    "Is there a window in here?"
   ]
 }

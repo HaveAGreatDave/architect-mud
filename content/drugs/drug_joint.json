@@ -31,6 +31,7 @@
   },
   "flags": {
     "cannabis": true,
+    "drug_family": "cannabis",
     "high_seconds": 300,
     "legal": true
   },

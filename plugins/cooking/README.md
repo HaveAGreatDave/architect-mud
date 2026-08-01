@@ -110,9 +110,9 @@ a profile that is neither needed nor optional **fails the match** — you cannot
 smuggle a pancake into a stew. Ties are impossible: the template requiring more
 wins, and regress sweeps every signature to prove no two ever score equal.
 
-Unmatched combinations still cook. They resolve to slop capped at `acceptable`,
-which is the failure mode that teaches the system without the catalog having to
-enumerate every bad idea.
+Unmatched combinations still cook — and they are no longer slop. `inferDish`
+names them off a family table (see **Improvised dishes** below); slop is now what
+you get for putting something that isn't food in the pan.
 
 Quality composes: each ingredient is scored by the normal timeline, then the
 dish takes the mean pulled toward the worst (`WORST_PULL`), clamped to the
@@ -131,11 +131,8 @@ bread container; it *is* the bread. So the bread is scored as an ingredient,
 lends its noun to the name, and is consumed by `plate`. Every other vessel is
 equipment and survives the meal.
 
-**It never makes slop.** Every other unmatched combination falls to
-`UNKNOWN_DISH` capped at `acceptable`, because meat and jam in a pot really is a
-mess. Put anything sensible between two slices, though, and you have made a real
-thing — so an unmatched bread vessel falls to `GENERIC_SANDWICH`, which names
-itself from its contents:
+**It never makes slop** — and it was the first vessel that didn't. An unmatched
+bread vessel falls to `GENERIC_SANDWICH`, which names itself from its contents:
 
 ```
 stow rat haunch in flatbread
@@ -145,8 +142,8 @@ plate flatbread            →  "rat meat and onion sandwich"
 
 No recipe for that exists, and making it **creates none** — the generic template
 carries no `key`, and `plate` only records a discovery when the match came back
-with one. That's the point: the sandwich is the one dish the player invents
-rather than discovers. Named sandwiches (`cheese_sandwich`, `club`) are ordinary
+with one. That was once what made the sandwich unique; it is now how every
+improvised dish behaves, and player recipes are where those get written down. Named sandwiches (`cheese_sandwich`, `club`) are ordinary
 `DISHES` entries with `vessel: 'bread'` and beat the generic on the normal
 specificity rule, so a recipe always wins where one exists.
 
@@ -177,6 +174,118 @@ dishes** as well as raw ingredients. A plated dish carries no `food_profile` (al
 instead. The portion arithmetic is identical, so two halves of a sandwich feed you
 exactly one sandwich. Cutting a raw ingredient changes how it cooks; cutting a
 finished dish just shares it, and the message says so.
+
+## Improvised dishes — food makes a dish, non-food makes a mess
+
+The catalog answers 47 combinations. Everything else used to fall to
+`UNKNOWN_DISH` — "a mess", capped at `acceptable` — which was right when the
+alternative was enumerating every bad idea, and stayed right for exactly one
+vessel. Bread already had the better answer: put anything sensible between two
+slices and you have made a real thing, so name it what it is.
+
+`improvised.js` generalises that to every vessel. A pot of stock, rat and turnips
+with no template behind it is not a mess; it's a **turnip and rat stew**. The
+rule that replaced "unmatched ⇒ slop" is one line:
+
+> **Food makes a dish. Non-food makes a mess.**
+
+So the only remaining route to slop is putting something with no `food_profile`
+in the pan — motor oil, mutagen, a spanner. That pot really is incoherent and
+deserves the old answer. Anything made of actual ingredients gets a name.
+
+**Families**, ordered most specific first per vessel kind, first match wins:
+curry beats chowder beats stew beats soup beats broth in a pot; pie beats bake
+beats gratin beats roast in a tray; hash, scramble, sauce, sear, saute in a pan;
+salad, mash, dip in a bowl; grill on a bare stove. A family declares its `lead`
+— the profile whose noun goes in front — which is what makes it "beef stew" and
+"apple pie" rather than a list of contents. A dish is named after the thing it is
+mostly *of*.
+
+### Why this doesn't kill discovery
+
+An improvised dish is capped **below** an authored one. Its ceiling climbs with
+complexity — the number of *different* profiles you balanced, modifiers excluded,
+so piling in five potatoes buys nothing — and stops at `superb`. **`masterful` is
+reachable only through a recipe somebody wrote down.** On top of that,
+`RECIPE_MASTERY_IP` pays a flat bonus for plating a recipe you *know* at
+`excellent` or better, comfortably more than the most complex improvisation
+earns. Inventing is worth something; knowing the real thing is worth more.
+
+Complexity also raises `difficulty`, so a rich improvisation is a genuine risk
+rather than a free ceiling.
+
+## Player recipes — the half of the cookbook you write yourself
+
+An improvised dish carries `custom_data.improv`: its **signature**, the multiset
+of profiles that made it rounded to whole units, plus the vessel. That string is
+the recipe's identity. Hold the plate and `recipe save <name>` writes it down.
+
+```
+recipe                          what you've written down
+recipe save <name>              from the dish in your hands
+recipe rename <a> to <b>        free — the signature is the identity, the name is a label
+recipe forget <name>
+recipe write <name>             copy it onto a card (an ordinary, tradeable object)
+recipe teach <name> to <who>    for when they're standing right there
+```
+
+Storage is one `player_flags` row per recipe, `recipe:<slug>`, holding a small
+JSON blob — the same shape `cookbook:<key>` already uses. No new table, no new
+`players` column.
+
+Three things follow from identity being the **signature** and not the name:
+
+- **Renaming is free and breaks nothing.** Two players can call the same pot
+  different things and both matches still fire.
+- **Saving the same combination twice is refused**, by signature. A second name
+  for one pot would be two recipes that can never be told apart, and the second
+  would silently never match.
+- **Seasoning isn't part of it.** A stew you salted and one you didn't are the
+  same recipe, so a saved one matches both.
+
+Cooking a pot you've written down uses **your** name for it and pays the same
+`KNOWN_RECIPE_BONUS` the authored cookbook does. That is the whole reward for
+writing one down: the game starts calling your invention what you call it, for
+you and for anyone you taught.
+
+**Sharing is two shapes on purpose.** A card (`item_written_recipe`, one blank
+for every recipe anybody ever invents — the same trick that has 48 dishes share
+`item_cooked_dish`) is an *object*: sellable, findable on a corpse, leavable on a
+table, and it travels through the trade system that already exists. `teach` is
+what you do when the other person is right there and neither of you has a pen.
+The **author travels with it** either way, so a recipe three players deep still
+says whose it was.
+
+## The shopping list
+
+A recipe's shortfall was already computed in three places and none of it survived
+leaving the room, so the actual workflow — read what you're missing, walk to the
+market, try to remember it — happened in the player's head.
+
+```
+shoplist                    the list, answered
+shoplist add <recipe>       writes down what you're SHORT of, not the whole recipe
+shoplist tidy               crosses off what you've since got
+shoplist drop <n> | clear
+```
+
+> **The list stores what you WANT, never what you have.**
+
+Whether a line is ticked is **derived at read time** from your inventory. So
+nothing fires when you buy something, there is no "mark as bought" step, and the
+list cannot go stale — buying the onion ticks the box because the box is a
+question, not a record. (A finished dish never counts: buying dinner doesn't
+cross "one soft vegetable" off.)
+
+Entries are ingredient **classes** (`{k:'p', v:'soft_vegetable', n:1}`) rather
+than item ids, because that's what a recipe actually asks for. That is also what
+makes the other half work: the **`shop.stock` hook** marks vendor stock that's on
+your list and still outstanding, so "one soft vegetable" lights up whatever this
+particular shop happens to stock, with no authored mapping anywhere. A keyed
+dish's anchor is the exception and goes on by item id.
+
+Storage is one `player_flags` row (`shoplist`), read by the verb, the Cookbook
+tablet app's list screen, and the shelf marker.
 
 ## Modifiers
 
@@ -371,7 +480,12 @@ discovery into data entry.
 | `portions.js` | **pure** — the fraction arithmetic that keeps chopping honest |
 | `fond.js` | **pure** — what a sear leaves behind and what lifting it is worth |
 | `taste.js` | **pure** — skill-scaled tasting notes, and eating-it prose |
-| `knowledge.js` | the cookbook: what's known, how it's learned, `TEACH_RECIPE` |
+| `improvised.js` | **pure** — the family table, complexity→ceiling, the recipe signature |
+| `shoplist.js` | the shopping list: storage, `holdings`, and the derived `answer` |
+| `shoplist-cmd.js` | the `shoplist` verb, and `markShelf` for the `shop.stock` hook |
+| `recipes.js` | the `recipe` verb: save / rename / forget / write a card / teach |
+| `workspace.js` | the `kitchen` provider for the Preparation Workspace HUD |
+| `knowledge.js` | the cookbook: what's known, how it's learned, `TEACH_RECIPE`, and player recipes |
 | `config.js` | every balance number in the system |
 
 `prep.js`, `portions.js`, `fond.js`, `taste.js` and `quality.js` are all pure

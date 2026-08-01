@@ -1,0 +1,10 @@
+{
+  "id": "dr_objrep_identity_surreal_006",
+  "drug_id": null,
+  "source": "object_reply_identity",
+  "tone": "surreal",
+  "self_line": "Ask the room. The room has been here longer and lies less.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

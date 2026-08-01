@@ -1,0 +1,10 @@
+{
+  "id": "dr_objask_surreal_010",
+  "drug_id": null,
+  "source": "object_ask",
+  "tone": "surreal",
+  "self_line": "Were you looking for something in here, or did you just arrive?",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

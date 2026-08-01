@@ -52,7 +52,9 @@ const PANELS = {
     editForm: cardEditForm,
     save: saveCard,
     delete: id => API(`/cards/${id}`, 'DELETE'),
-    render: () => renderCardsTable(allRecords),
+    // renderCardsTable RETURNS markup (the toolbar/empty-state share it), so the
+    // panel hook has to place it — a render() that only returns leaves an empty body.
+    render: () => { document.getElementById('list-panel').innerHTML = renderCardsTable(allRecords); },
   },
   zones: {
     title: 'Zones',
