@@ -3,7 +3,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "created_by": null,
   "description": "A serene one-bedroom facing the mountains: pale plaster, warm oak, a platform bed beneath a skylight that tracks the weather. A galley kitchen, a soaking tub, a window seat built for watching the storms roll in from somewhere safe and dry. The door seals with a soft magnetic sigh. Leave <b>east</b> to the landing.",
   "exits": {
     "east": "zone_solenne_residences",
@@ -23,6 +22,5 @@
   "map_id": "map_int_solenne",
   "marker": "30",
   "name": "Solenne Residence 30-C",
-  "parent_zone": "zone_district_914_908",
-  "updated_at": "1784600000"
+  "parent_zone": "zone_district_914_908"
 }

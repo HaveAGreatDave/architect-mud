@@ -1,9 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "bg_color": "#31562c",
   "color": "#8fd08a",
-  "created_by": "zone-planner",
   "description": "Soft turf underfoot, the drone of insects, water catching the light in a little ornamental pond. This close to the monument the ground has been talked back into something like a garden.",
   "exits": {
     "east": "zone_district_910_912",
@@ -14,7 +12,6 @@
   "flags": {
     "district": "wasteland",
     "park_feature": "grove",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "street_life": true,
     "terrain": "park"
@@ -24,8 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_909_912",
   "map_id": "map_world",
-  "marker": "❦",
   "name": "Fisherman's Green",
-  "parent_zone": null,
-  "updated_at": "1784600000"
+  "parent_zone": null
 }

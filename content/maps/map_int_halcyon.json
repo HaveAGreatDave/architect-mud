@@ -1,7 +1,5 @@
 {
-  "created_by": null,
   "entry_zone_id": "zone_halcyon_lobby",
   "id": "map_int_halcyon",
-  "parent_zone_id": "zone_district_895_906",
-  "updated_at": "1783316802"
+  "parent_zone_id": "zone_district_895_906"
 }

@@ -1,9 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "bg_color": "#2a1c16",
   "color": "#b5744a",
-  "created_by": "wildlands-expand",
   "description": "Broken mesa shelves step away in ochre and iron-red, cut by dry washes where the wind funnels grit against your teeth.",
   "exits": {
     "east": "zone_district_910_930",
@@ -13,7 +11,6 @@
   },
   "flags": {
     "district": "wilds",
-    "planner": "bp_district",
     "radiation": 32,
     "region_id": "region_coldwater",
     "terrain": "redrock"
@@ -24,6 +21,5 @@
   "id": "zone_district_909_930",
   "map_id": "map_world",
   "name": "Ferric Wash",
-  "parent_zone": null,
-  "updated_at": "1784700000"
+  "parent_zone": null
 }

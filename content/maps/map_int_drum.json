@@ -1,7 +1,5 @@
 {
-  "created_by": null,
   "entry_zone_id": "zone_drum_shop",
   "id": "map_int_drum",
-  "parent_zone_id": "zone_district_901_908",
-  "updated_at": "1782918446"
+  "parent_zone_id": "zone_district_901_908"
 }

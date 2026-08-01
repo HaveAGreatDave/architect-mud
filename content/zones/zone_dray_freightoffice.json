@@ -1,9 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "bg_color": null,
-  "color": null,
-  "created_by": "dray-lane-build",
   "description": "A cramped dispatch floor: a horseshoe of consoles, a wall of pigeonholes stuffed with airway bills, and a coffee machine that has achieved a kind of tar-based sentience. A dispatcher's headset crackles with runs to yards that may not exist anymore.",
   "exits": {
     "down": "zone_util_zone_dray_freightoffice",
@@ -22,6 +19,5 @@
   "id": "zone_dray_freightoffice",
   "map_id": "map_interior_zone_dray_freightoffice",
   "name": "Shipping & Handling",
-  "parent_zone": "zone_district_922_904",
-  "updated_at": "1784100000"
+  "parent_zone": "zone_district_922_904"
 }

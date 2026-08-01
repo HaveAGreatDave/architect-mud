@@ -5,8 +5,6 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#5a5450",
-  "color": null,
-  "created_by": "tenement-gen",
   "description": "A cramped ground-floor lobby: a wall of dented mailboxes, half of them hanging open and empty, a buzzer panel with every wire yanked out, and a concrete stairwell that smells of damp, mildew, and somebody else’s dinner three floors up. A strip light overhead flickers like it’s thinking it over.",
   "exits": {
     "down": "zone_yards_tenement_util",
@@ -26,6 +24,5 @@
   "id": "zone_yards_tenement_lobby",
   "map_id": "map_int_yards_tenement",
   "name": "Lobby",
-  "parent_zone": "zone_district_921_902",
-  "updated_at": "1783970000"
+  "parent_zone": "zone_district_921_902"
 }

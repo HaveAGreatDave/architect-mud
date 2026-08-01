@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#4a8f8a",
-  "color": null,
-  "created_by": null,
   "description": "A decommissioned industrial unit repurposed as a furniture showroom. Exposed concrete, neon tube lighting that flickers on a deliberate schedule. The pieces are arranged in vignettes separated by strips of blue painter's tape on the floor. Price tags are handwritten on recycled cardboard. The air smells of outgassing polymer and burnt coffee from a percolator no one will admit to owning.",
   "exits": {
     "east": "zone_district_901_909",
@@ -19,6 +17,5 @@
   "id": "zone_furniture_store",
   "map_id": "map_int_furniture",
   "name": "Dead Space Interiors",
-  "parent_zone": "zone_district_901_909",
-  "updated_at": "1782933540"
+  "parent_zone": "zone_district_901_909"
 }

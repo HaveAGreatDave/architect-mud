@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#232320",
-  "color": null,
-  "created_by": "marrow-infill",
   "description": "A curtained alcove with a mirror, a stool and a strip of tape on the floor marked off in inches. The mirror is honest in a way mirrors elsewhere in this city have learned not to be. Pinned beside it, a chart of frostbite times against wind speed, annotated by hand, with a line at the bottom that just reads: BUY THE PARKA.",
   "exits": {
     "west": "zone_secondskin_floor"
@@ -21,6 +19,5 @@
   "id": "zone_secondskin_fitting",
   "map_id": "map_int_secondskin",
   "name": "Layers — Fitting Room",
-  "parent_zone": "zone_district_918_910",
-  "updated_at": "1785200000"
+  "parent_zone": "zone_district_918_910"
 }

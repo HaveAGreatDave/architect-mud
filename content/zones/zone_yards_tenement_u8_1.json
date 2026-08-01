@@ -5,8 +5,6 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#5a5450",
-  "color": null,
-  "created_by": "tenement-gen",
   "description": "One room. A steel-frame bed with a mattress that has seen things, a hot plate on an upturned crate, a sink that drips on its own schedule, and a window painted shut over a view of the container stacks. The radiator is cold and the lock is cheap — but the door closes, and in the Yards that is the whole of what a home has to do.",
   "exits": {
     "south": "zone_yards_tenement_f8"
@@ -22,6 +20,5 @@
   "map_id": "map_int_yards_tenement",
   "marker": "8",
   "name": "Unit 801",
-  "parent_zone": "zone_district_921_902",
-  "updated_at": "1783970000"
+  "parent_zone": "zone_district_921_902"
 }

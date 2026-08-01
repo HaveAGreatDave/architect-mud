@@ -5,8 +5,6 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "color": null,
-  "created_by": null,
   "description": "The second-floor landing, one flight up from the bar's warmth and racket. The hotel's carpet runner still holds on up here — threadbare, cigarette-burned, but present, the last floor before it gives out to bare concrete above. Four doors open off the stairwell, brass numbers screwed to each: 2A through 2D. The iron railing is cold under your hand, and the smell of Lowry's grill rises through the boards with the low murmur of the bar.",
   "exits": {
     "down": "zone_residential_lobby",
@@ -26,6 +24,5 @@
   "id": "zone_embassy_floor_2nd",
   "map_id": "map_interior_zone_residential_lobby",
   "name": "Second Floor Landing",
-  "parent_zone": "zone_district_920_904",
-  "updated_at": "1783800000"
+  "parent_zone": "zone_district_920_904"
 }

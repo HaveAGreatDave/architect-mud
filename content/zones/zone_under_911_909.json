@@ -7,7 +7,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "created_by": "sewer-grid",
   "description": "A grimy trunk of storm tunnel under Marrow Street + Meltwater Row, the concrete cracked and weeping, the air thick with the sour breath of the drains.",
   "exits": {
     "east": "zone_under_912_909",
@@ -26,6 +25,5 @@
   "map_id": "map_world",
   "marker": "╠",
   "name": "Drain Junction",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

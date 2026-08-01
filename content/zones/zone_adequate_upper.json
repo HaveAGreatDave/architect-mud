@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#282320",
-  "color": null,
-  "created_by": "marrow-infill",
   "description": "A mezzanine of housewares reached by an escalator that gave up years ago and is now just stairs with opinions. Plates in stacks, kettles in rows, a display bed made up with sheets the colour of weak tea. Someone has arranged a whole fake dining room up here — table laid, chairs pushed in, a vase of plastic stems — and people come up just to stand near it.",
   "exits": {
     "west": "zone_adequate_floor"
@@ -21,6 +19,5 @@
   "id": "zone_adequate_upper",
   "map_id": "map_int_adequate",
   "name": "Adequate! — Housewares",
-  "parent_zone": "zone_district_912_908",
-  "updated_at": "1785200000"
+  "parent_zone": "zone_district_912_908"
 }

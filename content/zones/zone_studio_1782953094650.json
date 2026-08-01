@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#6d3fb5",
-  "color": null,
-  "created_by": null,
   "description": "The soundstage floor: a black-painted expanse ribbed with taped cable runs and pocked with camera marks, hemmed by a horseshoe of studio lamps hanging cold on their grid. A vacant anchor desk waits under a KSAB eyecatch, and the cyclorama behind it can be any skyline in the world — right now it's none, just seamless grey. The air is hot dust and gaffer tape. A tally light on the lead camera pulses red: the deck upstairs is always listening.",
   "exits": {
     "down": "zone_util_1782953094650",
@@ -22,6 +20,5 @@
   "id": "zone_studio_1782953094650",
   "map_id": "map_int_1782953094650",
   "name": "KSAB-TV Studio Stage",
-  "parent_zone": "zone_district_913_911",
-  "updated_at": "1782953095"
+  "parent_zone": "zone_district_913_911"
 }

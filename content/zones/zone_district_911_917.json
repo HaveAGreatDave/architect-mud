@@ -1,9 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "bg_color": "#3f3a34",
-  "color": "#b9a888",
-  "created_by": "zone-planner",
   "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
   "exits": {
     "east": "zone_district_912_917",
@@ -13,7 +10,6 @@
   },
   "flags": {
     "district": "wasteland",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
@@ -24,8 +20,6 @@
   "grid_z": 0,
   "id": "zone_district_911_917",
   "map_id": "map_world",
-  "marker": "⸪.",
   "name": "Meltwater Row",
-  "parent_zone": null,
-  "updated_at": "1784441751"
+  "parent_zone": null
 }

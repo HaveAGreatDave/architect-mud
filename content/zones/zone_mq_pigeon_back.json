@@ -6,8 +6,6 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#8a6a3a",
-  "color": null,
-  "created_by": null,
   "description": "A curtained booth down a short flight of steps, where the deals that keep the Dead Pigeon solvent actually happen. One table, four chairs, a lamp with a scarf thrown over it for mood or for darkness, depending on your business. The walls are soft with old soundproofing foam, so whatever is said here stays a rumor at most.",
   "exits": {
     "north": "zone_mq_pigeon_util",
@@ -22,6 +20,5 @@
   "id": "zone_mq_pigeon_back",
   "map_id": "map_int_mq_pigeon",
   "name": "Back Booth",
-  "parent_zone": "zone_district_905_910",
-  "updated_at": "1782964407"
+  "parent_zone": "zone_district_905_910"
 }

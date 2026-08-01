@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#2b2620",
-  "color": null,
-  "created_by": "marrow-infill",
   "description": "Aisles of everything, none of it good. Strip lights buzz over bins of socks sold by weight, stacked cookware in a beige nobody chose, and a rack of coats in three sizes labelled SMALL, LARGE and REGRET. The tannoy overhead cycles the same four bars of music and the same cheerful announcement about an aisle that no longer exists. It is warm, it is dry, and it is the cheapest place in Coldwater to become a person with things.",
   "exits": {
     "down": "zone_util_zone_adequate_floor",
@@ -23,6 +21,5 @@
   "id": "zone_adequate_floor",
   "map_id": "map_int_adequate",
   "name": "Adequate! — Shop Floor",
-  "parent_zone": "zone_district_912_908",
-  "updated_at": "1785200000"
+  "parent_zone": "zone_district_912_908"
 }

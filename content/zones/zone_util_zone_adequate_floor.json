@@ -1,9 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "bg_color": null,
-  "color": null,
-  "created_by": "marrow-infill",
   "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
   "exits": {
     "up": "zone_adequate_floor"
@@ -19,6 +16,5 @@
   "id": "zone_util_zone_adequate_floor",
   "map_id": "map_int_adequate",
   "name": "Adequate! — Shop Floor — Utility Room",
-  "parent_zone": "zone_district_912_908",
-  "updated_at": "1785200000"
+  "parent_zone": "zone_district_912_908"
 }

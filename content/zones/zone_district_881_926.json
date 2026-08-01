@@ -3,7 +3,6 @@
   "ambient_theme": "wasteland",
   "bg_color": "#1b3040",
   "color": "#5f93b8",
-  "created_by": "wildlands-expand",
   "description": "The river quickens through a gut of red rock and throws up a cold spray that beads on everything you own. Driftwood sits jammed high on both banks — a mark, if you want one, of how big this gets when the melt comes down.",
   "exits": {
     "east": "zone_district_882_926",
@@ -13,7 +12,6 @@
   },
   "flags": {
     "district": "wilds",
-    "planner": "bp_district",
     "radiation": 31,
     "region_id": "region_coldwater",
     "terrain": "water"
@@ -24,6 +22,5 @@
   "id": "zone_district_881_926",
   "map_id": "map_world",
   "name": "The Meltwater",
-  "parent_zone": null,
-  "updated_at": "1784564913"
+  "parent_zone": null
 }

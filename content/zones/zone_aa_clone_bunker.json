@@ -7,7 +7,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#26261f",
   "color": "#c9c4a8",
-  "created_by": "zone-planner",
   "description": "The bunker under the Guardian battery — a low concrete box lit by caged worklights and the green wash of a radar repeater. Belted ammunition snakes up into the feed throat of the gun above; the reload hoist and a wall of spare barrels and coolant bottles crowd one side. This is where the battery is actually kept alive: when a strafing run guts the gun overhead, it's patched, re-armed, and brought back online down here. A steel ladder climbs to the hatch and the open gun deck.",
   "exits": {
     "up": "zone_district_918_901"
@@ -22,6 +21,5 @@
   "id": "zone_aa_clone_bunker",
   "map_id": "map_int_aa_clone",
   "name": "Guardian Battery — Bunker",
-  "parent_zone": "zone_district_918_901",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_district_918_901"
 }

@@ -3,7 +3,6 @@
   "ambient_theme": "urban",
   "bg_color": "#37322a",
   "color": "#cdb489",
-  "created_by": "yards-plan",
   "description": "A working fab shed, its gantry crane crawling on overhead rails, sparks fountaining from a cutting bench. The air tastes of ozone and hot steel. Somebody in here can weld, bend, or fake almost anything you bring them, for the right number.",
   "exits": {
     "north": "zone_district_925_908",
@@ -16,7 +15,6 @@
     "entrance": "north",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_925_908"
   },
@@ -27,6 +25,5 @@
   "map_id": "map_world",
   "marker": "FB",
   "name": "Some Assembly Required",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

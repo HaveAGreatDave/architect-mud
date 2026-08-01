@@ -6,7 +6,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#20303a",
   "color": "#d9e6f2",
-  "created_by": null,
   "description": "A private gym walled in glass, the city laid out grey and glittering forty metres down. Rubberised black flooring, a rack of chromed free-weights polished to a shine, and a bench-press station set beneath a run of full-height mirrors. The air is cool and filtered and smells faintly of eucalyptus. A towel, folded into a swan, waits on every station. Step <b>in</b> to the elevator.",
   "exits": {
     "in": "zone_solenne_elevator"
@@ -22,6 +21,5 @@
   "id": "zone_solenne_gym",
   "map_id": "map_int_solenne",
   "name": "Sweat Equity",
-  "parent_zone": "zone_district_914_908",
-  "updated_at": "1784600000"
+  "parent_zone": "zone_district_914_908"
 }

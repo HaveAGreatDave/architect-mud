@@ -3,7 +3,6 @@
   "ambient_theme": "wasteland",
   "bg_color": "#1f3646",
   "color": "#4f83a8",
-  "created_by": "wildlands-expand",
   "description": "Brackish shallows, warmer than the channel and a great deal less clean, sheeted with a film that turns colours where the light catches it. Reeds have got a foothold. The bank is a slurry of grit and old plastic.",
   "exits": {
     "east": "zone_district_902_938",
@@ -13,7 +12,6 @@
   },
   "flags": {
     "district": "wilds",
-    "planner": "bp_district",
     "radiation": 36,
     "region_id": "region_coldwater",
     "terrain": "water"
@@ -24,6 +22,5 @@
   "id": "zone_district_901_938",
   "map_id": "map_world",
   "name": "The Meltwater Mouth",
-  "parent_zone": null,
-  "updated_at": "1784496296"
+  "parent_zone": null
 }

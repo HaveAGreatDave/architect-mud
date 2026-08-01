@@ -1,9 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "bg_color": null,
-  "color": null,
-  "created_by": null,
   "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
   "exits": {
     "up": "zone_sentinel_bullpen"
@@ -19,6 +16,5 @@
   "id": "zone_util_zone_sentinel_bullpen",
   "map_id": "map_int_sentinel",
   "name": "Coldwater Sentinel — Bullpen — Utility Room",
-  "parent_zone": "zone_district_914_910",
-  "updated_at": "1784348804"
+  "parent_zone": "zone_district_914_910"
 }

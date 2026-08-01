@@ -7,7 +7,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "The deep reach, the furthest the old storm system runs before the outfall — and the threshold of somewhere else. The Watch's marks are unmistakable here, and their tapped cable run threads east along the wall toward the cabling passage. South, the tunnel opens onto a landing where a drain riser climbs back toward the surface.",
   "exits": {
     "east": "zone_under_cablingrun",
@@ -27,6 +26,5 @@
   "map_id": "map_world",
   "marker": "╍",
   "name": "The Deep Reach",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

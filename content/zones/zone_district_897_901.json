@@ -5,9 +5,7 @@
     "Out on the black water, something large and unlit holds its position."
   ],
   "ambient_theme": "coast",
-  "bg_color": "#2a3330",
   "color": "#9fc0b8",
-  "created_by": "zone-planner",
   "description": "A weathered timber jetty runs out from the grass into Coldwater Basin, its planks salt-grey and slick. Mooring cleats stud the edge; the last few metres are reinforced with steel plate, as if something heavy is expected to tie up here. The water beyond (NORTH) is deep and cold. When the right vessel is alongside, a gangway comes down here and not one metre further.",
   "exits": {
     "east": "zone_district_898_901",
@@ -18,7 +16,6 @@
   "flags": {
     "district": "docks",
     "pier": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "concrete"
   },
@@ -27,8 +24,6 @@
   "grid_z": 0,
   "id": "zone_district_897_901",
   "map_id": "map_world",
-  "marker": "⊥",
   "name": "Basin Jetty",
-  "parent_zone": null,
-  "updated_at": "1783740000"
+  "parent_zone": null
 }

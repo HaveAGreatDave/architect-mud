@@ -3,7 +3,6 @@
   "ambient_theme": "forest",
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
   "description": "The face of Pallets & Pals — a chem-supply depot stacked to the roofline with drums and double-bagged sacks, a yellow hazard chevron ringing the door. Ironside Street runs off to the west.",
   "exits": {
     "east": "zone_chemsupply_interior",
@@ -16,7 +15,6 @@
     "entrance": "west",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes",
     "world_exit_zone": "zone_district_919_907"
@@ -28,6 +26,5 @@
   "map_id": "map_world",
   "marker": "BB",
   "name": "Pallets & Pals",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

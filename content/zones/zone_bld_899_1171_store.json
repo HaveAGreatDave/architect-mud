@@ -8,9 +8,6 @@
     "Chalk marks on the crate ends — tallies, initials, one that's been scrubbed at."
   ],
   "ambient_theme": "indoors",
-  "bg_color": null,
-  "color": null,
-  "created_by": "bb1b3a85-e716-4885-8de7-6c12a496086a",
   "description": "Below the floor, past the kegs: crates that never had a manifest, stacked in the cool dark and smelling of yeast, gun-oil, and other people's secrets. What the Reach runs, it runs through rooms like this.",
   "exits": {
     "south": "zone_bld_899_1171_lobby"
@@ -27,6 +24,5 @@
   "id": "zone_bld_899_1171_store",
   "map_id": "map_int_bld_899_1171",
   "name": "The Stash",
-  "parent_zone": "zone_the_reach_872_1954",
-  "updated_at": "1784516450"
+  "parent_zone": "zone_the_reach_872_1954"
 }

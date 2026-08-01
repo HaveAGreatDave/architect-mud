@@ -1,7 +1,6 @@
 {
   "blurb": "They smelt the future here and dump what’s left of the past.",
   "color": "#e5822a",
-  "created_by": "districts-to-content",
   "id": "slaglands",
   "landmark": "slag_flarestack",
   "name": "the Slaglands",
@@ -15,6 +14,5 @@
     "Cinders drift down like a dirty, weightless snow."
   ],
   "skyline": "the Slagworks flarestack burns orange against the clouds",
-  "sort": 110,
-  "updated_at": "1785196800"
+  "sort": 110
 }

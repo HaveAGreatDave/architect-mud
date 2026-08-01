@@ -4,8 +4,6 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#8b9096",
-  "color": null,
-  "created_by": null,
   "description": "Bare walls the color of old teeth, a mattress, and a radiator that either roars or sulks with nothing between. Someone before you left a nail in the wall and the pale ghost of whatever hung on it.",
   "exits": {
     "north": "zone_mq_chrome_f1"
@@ -21,6 +19,5 @@
   "map_id": "map_int_mq_chrome",
   "marker": "1",
   "name": "Unit 103",
-  "parent_zone": "zone_district_895_905",
-  "updated_at": "1782964408"
+  "parent_zone": "zone_district_895_905"
 }

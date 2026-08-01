@@ -1,7 +1,6 @@
 {
   "blurb": "The city gave up out here, and the wind took the rest.",
   "color": "#7c6a4a",
-  "created_by": "districts-to-content",
   "id": "wasteland",
   "landmark": "waste_gantry",
   "name": "the Wastes",
@@ -18,6 +17,5 @@
     "The silence out here has a weight to it, and it leans on you."
   ],
   "skyline": "a skeletal gantry leans on the horizon",
-  "sort": 120,
-  "updated_at": "1785196800"
+  "sort": 120
 }

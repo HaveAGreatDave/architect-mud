@@ -7,7 +7,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#161f1b",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "A wide trunk junction where several storm lines converge under a low brick vault. Painted numbers on the walls have faded to ghosts — a maintenance map for crews that stopped coming a long time ago. From here the system runs deeper and darker in every direction.",
   "exits": {
     "east": "zone_under_eastbend",
@@ -26,6 +25,5 @@
   "map_id": "map_world",
   "marker": "╬",
   "name": "Trunk Junction",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

@@ -7,8 +7,6 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#6a9a4a",
-  "color": null,
-  "created_by": null,
   "description": "A grocery in the loosest post-Collapse sense: three aisles of dented cans, vac-packed protein bricks, and produce grown under lamps somewhere and trucked in still faintly warm. RATION NINE, the sign says, though there is no Ration One through Eight that anyone can name. Fluorescent tubes hum over shelves stocked with the grim staples of survival and, incongruously, a rack of gum by the register. A camera and a clerk track your hands with equal suspicion.",
   "exits": {
     "north": "zone_mq_grocery_stock",
@@ -19,6 +17,7 @@
     "building_type": "grocery",
     "is_building": true,
     "is_interior": true,
+    "terrain": "grass",
     "world_exit_zone": "zone_district_920_908"
   },
   "grid_x": 0,
@@ -27,6 +26,5 @@
   "id": "zone_mq_grocery",
   "map_id": "map_int_mq_grocery",
   "name": "Ration Nine",
-  "parent_zone": "zone_district_920_908",
-  "updated_at": "1782964407"
+  "parent_zone": "zone_district_920_908"
 }

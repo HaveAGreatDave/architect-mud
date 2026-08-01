@@ -15,9 +15,6 @@
     "The light goes long and copper and every building in the Reach throws a shadow twice its height."
   ],
   "ambient_theme": "wasteland",
-  "bg_color": null,
-  "color": null,
-  "created_by": null,
   "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
   "exits": {
     "east": "zone_the_reach_873_1955",
@@ -28,7 +25,6 @@
   "flags": {
     "intro_lore": "So this is it — one dirt street, four buildings that matter, and a horizon with nothing on it in any direction. Everyone here flew in. Every one of them had a reason not to stay wherever they came from, and nobody has ever been rude enough to ask what it was. That is the arrangement, and it is the only law the Reach keeps: the Reach does not care what you did. It cares whether you can be trusted not to bring it back with you.",
     "lawless": true,
-    "planner": "world_editor",
     "region_id": "region_the_reach",
     "terrain": "dirt_road"
   },
@@ -38,6 +34,5 @@
   "id": "zone_the_reach_872_1955",
   "map_id": "map_world",
   "name": "The Reach 872,1955",
-  "parent_zone": null,
-  "updated_at": "1784537903"
+  "parent_zone": null
 }

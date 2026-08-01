@@ -3,7 +3,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "created_by": "ascendant-stronghold",
   "description": "The crown of the Spire, and the answer to that half-memory at the door: the seal is here too, ten metres wide — the calm eye over the city skyline — but rendered now in living chrome, and it is the Ascendant sigil, and it is also, unmistakably, the Halcyon seal. The same eye. It was always watching. Something barely flesh presides here, and it has been expecting you.",
   "exits": {
     "down": "zone_asc_spire_gallery"
@@ -20,6 +19,5 @@
   "id": "zone_asc_spire_sanctum",
   "map_id": "map_int_asc_spire",
   "name": "Executive Sanctum",
-  "parent_zone": "zone_district_892_906",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_district_892_906"
 }

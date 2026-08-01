@@ -1,9 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "bg_color": null,
-  "color": null,
-  "created_by": "utility-room-author",
   "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
   "exits": {
     "up": "zone_bld_899_1171_lobby"
@@ -20,6 +17,5 @@
   "id": "zone_util_zone_bld_899_1171_lobby",
   "map_id": "map_int_bld_899_1171",
   "name": "Barroom — Utility Room",
-  "parent_zone": "zone_the_reach_872_1954",
-  "updated_at": "1784515589"
+  "parent_zone": "zone_the_reach_872_1954"
 }

@@ -1,7 +1,5 @@
 {
-  "created_by": null,
   "entry_zone_id": "zone_aa_redline_bunker",
   "id": "map_int_aa_redline",
-  "parent_zone_id": "zone_district_891_903",
-  "updated_at": "1783740000"
+  "parent_zone_id": "zone_district_891_903"
 }

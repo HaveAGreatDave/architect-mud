@@ -6,7 +6,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#2a2620",
   "color": "#d8c8a0",
-  "created_by": null,
   "description": "A narrow shop behind wire-mesh glass, every shelf crowded with other people's bad weeks. A buzz-lock door, a bulletproof slot in the counter, and a back room whose contents are strictly none of your business.",
   "exits": {
     "north": "zone_district_920_910"
@@ -24,6 +23,5 @@
   "id": "zone_fence_interior",
   "map_id": "map_interior_zone_fence_interior",
   "name": "Pawn & Pity",
-  "parent_zone": "zone_district_920_910",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_district_920_910"
 }

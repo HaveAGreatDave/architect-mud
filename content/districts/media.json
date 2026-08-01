@@ -1,7 +1,6 @@
 {
   "blurb": "The city films itself here and sells the footage back to you.",
   "color": "#8e6fd0",
-  "created_by": "districts-to-content",
   "id": "media",
   "landmark": "studio_1782953094650",
   "name": "the Media District",
@@ -19,6 +18,5 @@
     "Cable runs snake underfoot, gaffer-taped and humming."
   ],
   "skyline": "the KSAB transmission mast blinks red on the skyline",
-  "sort": 70,
-  "updated_at": "1785196800"
+  "sort": 70
 }

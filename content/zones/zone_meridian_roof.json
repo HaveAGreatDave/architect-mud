@@ -2,14 +2,13 @@
   "ambient_events": [],
   "ambient_theme": "outdoors",
   "bg_color": "#8f9a7e",
-  "color": null,
-  "created_by": null,
   "description": "Cracked tar and gravel, hemmed by a low concrete parapet stenciled with emergency contact numbers no one has answered in years. Rusted antenna masts and conduit runs crowd the edges — relics of broadcast infrastructure nobody maintained long enough to matter. The city stretches out in every direction: an unbroken plane of light pollution and industrial haze that could almost pass for a skyline at night if you let your eyes go soft. Up here the building's recycled air ends and the real thing begins — it tastes like ozone and diesel particulate and something faintly sulphuric drifting in from the eastern refineries. Wind cuts across the gravel with nothing to stop it. A heavy-duty junction box is mounted to the stairwell housing near the hatch.",
   "exits": {
     "down": "zone_meridian_floor_6"
   },
   "flags": {
-    "open_sky": true
+    "open_sky": true,
+    "terrain": "grass"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -17,6 +16,5 @@
   "id": "zone_meridian_roof",
   "map_id": "map_int_meridian",
   "name": "The Meridian — Roof",
-  "parent_zone": "zone_district_918_908",
-  "updated_at": "1783112403"
+  "parent_zone": "zone_district_918_908"
 }

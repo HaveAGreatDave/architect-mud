@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#2a2436",
-  "color": null,
-  "created_by": null,
   "description": "The story floor: a bullpen of mismatched desks shoved into a horseshoe around a whiteboard nobody has erased in months, three drafts deep in different hands. Index cards march across a corkboard wall in acts, half of them pinned crooked, one just reading FIX THE ENDING. A wall of muted monitors carries the feed the room is writing for, and the carpet is worn to grey tramlines between the coffee urn and the door. A sign over the board reads FUNNY BY FOUR OR IT AIRS SAD.",
   "exits": {
     "north": "zone_district_913_910",
@@ -22,6 +20,5 @@
   "id": "zone_ksab_lobby",
   "map_id": "map_int_ksab",
   "name": "KSAB Story Floor",
-  "parent_zone": "zone_district_913_910",
-  "updated_at": "1784500000"
+  "parent_zone": "zone_district_913_910"
 }

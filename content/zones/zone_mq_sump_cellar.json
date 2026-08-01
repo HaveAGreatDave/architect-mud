@@ -6,15 +6,14 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#55603f",
-  "color": null,
-  "created_by": null,
   "description": "A brick cellar that predates everything above it, stacked with kegs, crates, and the accumulated evidence of a bar that never throws anything away. A bare bulb on a cord. Damp that has soaked so deep into the mortar the walls sweat. The drain from upstairs terminates somewhere down here, and you'd rather not learn exactly where.",
   "exits": {
     "north": "zone_mq_sump_util",
     "up": "zone_mq_sump_bar"
   },
   "flags": {
-    "is_interior": true
+    "is_interior": true,
+    "terrain": "grass"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -22,6 +21,5 @@
   "id": "zone_mq_sump_cellar",
   "map_id": "map_int_mq_sump",
   "name": "Cellar",
-  "parent_zone": "zone_district_921_914",
-  "updated_at": "1782964407"
+  "parent_zone": "zone_district_921_914"
 }

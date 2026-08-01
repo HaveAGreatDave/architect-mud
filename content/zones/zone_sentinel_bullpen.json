@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#26221c",
-  "color": null,
-  "created_by": null,
   "description": "A bullpen of secondhand terminals and gaffer-taped desks under a big cracked situation-wall that scrolls the city's feeds, its lower third permanently glitched into confetti. Spikes bristle with rejected copy, a printer coughs out a ribbon of dispatches onto the floor, and the whole room smells of hot electronics and cold coffee. A brass plaque insists TRUTH, IF AFFORDABLE.",
   "exits": {
     "east": "zone_sentinel_editor",
@@ -22,6 +20,5 @@
   "id": "zone_sentinel_bullpen",
   "map_id": "map_int_sentinel",
   "name": "Bullpen",
-  "parent_zone": "zone_district_914_910",
-  "updated_at": "1784500000"
+  "parent_zone": "zone_district_914_910"
 }

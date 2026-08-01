@@ -3,7 +3,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "created_by": "zone-planner",
   "description": "The face of Velk's Pre-Owned Furnishings.",
   "exits": {
     "east": "zone_velk_shop",
@@ -16,7 +15,6 @@
     "entrance": "west",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_919_911"
   },
@@ -27,6 +25,5 @@
   "map_id": "map_world",
   "marker": "VP",
   "name": "Velk's Pre-Owned Furnishings",
-  "parent_zone": null,
-  "updated_at": "1784749332"
+  "parent_zone": null
 }

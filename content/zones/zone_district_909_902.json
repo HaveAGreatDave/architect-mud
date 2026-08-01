@@ -1,9 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "waterfront",
-  "bg_color": "#2f2a24",
   "color": "#a98b63",
-  "created_by": "zone-planner",
   "description": "Weathered decking stretches out over the water, wide enough to land a truck, scarred with the drag-marks of cargo that hasn't come through in years. A bollard leans drunkenly at the lip; gulls the size of dogs watch you from the rail and do not move.",
   "exits": {
     "east": "zone_district_910_902",
@@ -14,7 +12,6 @@
   "flags": {
     "district": "docks",
     "fishing_table_id": "fish_coldwater_bay",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "street_life": true,
     "terrain": "concrete"
@@ -24,8 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_909_902",
   "map_id": "map_world",
-  "marker": "▤▤",
   "name": "Pier",
-  "parent_zone": null,
-  "updated_at": "1784318564"
+  "parent_zone": null
 }

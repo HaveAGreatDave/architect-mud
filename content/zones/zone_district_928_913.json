@@ -1,9 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "bg_color": "#2a1c16",
   "color": "#b5744a",
-  "created_by": "wildlands-expand",
   "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows. Along the draw's north wall the hardpan has been cut open — a raw gravel face stepped with old pick-marks, tailings fanned out below it where someone worked and quit.",
   "exits": {
     "east": "zone_district_929_913",
@@ -13,7 +11,6 @@
   "flags": {
     "district": "wilds",
     "mining_table_id": "mine_gravel_pit",
-    "planner": "bp_district",
     "radiation": 26,
     "region_id": "region_coldwater",
     "terrain": "redrock"
@@ -24,6 +21,5 @@
   "id": "zone_district_928_913",
   "map_id": "map_world",
   "name": "Ochre Draw",
-  "parent_zone": null,
-  "updated_at": "1784700000"
+  "parent_zone": null
 }

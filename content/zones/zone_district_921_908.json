@@ -1,9 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "bg_color": "#3f3a34",
-  "color": "#b9a888",
-  "created_by": "zone-planner",
   "description": "Dray Lane gives out here where Marrow Street cuts across, the hardstand going ragged at the join. A delivery bollard leans out of the kerb, sheared off at the base and never replaced. Someone has chalked a rig number and an arrow on the wall of Ration Nine, pointing the way the lane was already going.",
   "exits": {
     "east": "zone_district_922_908",
@@ -12,7 +9,6 @@
   },
   "flags": {
     "district": "yards",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "road"
   },
@@ -21,8 +17,6 @@
   "grid_z": 0,
   "id": "zone_district_921_908",
   "map_id": "map_world",
-  "marker": "#",
   "name": "Dray Lane",
-  "parent_zone": null,
-  "updated_at": "1784749332"
+  "parent_zone": null
 }

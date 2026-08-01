@@ -1,9 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "outdoors",
-  "bg_color": null,
-  "color": null,
-  "created_by": null,
   "description": "A low saloon of welded plate and salvaged neon, a coyote sign buzzing over the door with half its letters dead. Inside there's warmth, liquor, and company that won't ask where you've been — the Reach's parlour, where every deal in town eventually gets a drink poured on it.",
   "exits": {
     "north": "zone_bld_899_1171_lobby",
@@ -16,7 +13,6 @@
     "facade": true,
     "is_building": true,
     "lawless": true,
-    "planner": "world_editor",
     "region_id": "region_the_reach",
     "world_exit_zone": "zone_the_reach_872_1955"
   },
@@ -27,6 +23,5 @@
   "map_id": "map_world",
   "marker": "CO",
   "name": "The Coyote's Rest",
-  "parent_zone": null,
-  "updated_at": "1784533788"
+  "parent_zone": null
 }

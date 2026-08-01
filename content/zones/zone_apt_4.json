@@ -4,8 +4,6 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "color": null,
-  "created_by": null,
   "description": "A larger unit, big enough to actually pace in. The previous tenant left graffiti on the inside of the door: COUNT YOUR DAYS.",
   "exits": {
     "east": "zone_embassy_floor_2nd",
@@ -22,6 +20,5 @@
   "map_id": "map_interior_zone_residential_lobby",
   "marker": "2D",
   "name": "Unit 2D",
-  "parent_zone": "zone_district_920_904",
-  "updated_at": "1783111686"
+  "parent_zone": "zone_district_920_904"
 }

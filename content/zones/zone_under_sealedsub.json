@@ -7,7 +7,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#181513",
   "color": "#b08a6a",
-  "created_by": "the-under",
   "description": "A short dead spur ending at a heavy sealed bulkhead, its rivets sound and its wheel-lock welded fast. Whatever lies beyond it — a lower works, a flooded plant level, something the plant would rather stayed shut — is not opening today. The Watch have left it alone, and they leave very little alone. That should tell you something.",
   "exits": {
     "west": "zone_under_conduitvlt"
@@ -24,6 +23,5 @@
   "map_id": "map_world",
   "marker": "▧",
   "name": "Sealed Sublevel",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

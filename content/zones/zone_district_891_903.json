@@ -7,7 +7,6 @@
   "ambient_theme": "city",
   "bg_color": "#3a3226",
   "color": "#d0a36a",
-  "created_by": "zone-planner",
   "description": "A Redline SAM nest thrown up on the old grassland — sandbags and scavenged plate bermed into a rough horseshoe, the launch rail exposed at the centre with two red-striped missiles nosed at the sky. The nest tracks the haze on a groaning powered mount, the crew lounging at it with the ease of people who charge a toll and mean it. A plate hatch, weighted with a truck spring, drops into the bunker where the reloads and the launch electronics are kept out of the weather.",
   "exits": {
     "down": "zone_aa_redline_bunker",
@@ -20,7 +19,6 @@
     "curtain": true,
     "district": "wasteland",
     "icon": "aa",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "grass"
   },
@@ -29,8 +27,6 @@
   "grid_z": 0,
   "id": "zone_district_891_903",
   "map_id": "map_world",
-  "marker": "AA",
   "name": "Redline SAM Nest",
-  "parent_zone": null,
-  "updated_at": "1783740000"
+  "parent_zone": null
 }

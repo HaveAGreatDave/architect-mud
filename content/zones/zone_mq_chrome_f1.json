@@ -8,7 +8,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#1b232c",
   "color": "#cfe9ff",
-  "created_by": null,
   "description": "The first residential floor: a curved gallery following the decagon's inner wall, mirror steel to waist height and warm pale stone above, the floorplate a touch narrower than the one below where the shaft steps in. The cyan LED band that rings the tower outside carries straight through the glass here as a line of cool light running the corridor's whole arc. Four residences open off it, their doors flush enough that the numbers are the only seam. Where the curve ends, the glass does not — it just becomes the city, the Marquee laid out in pink and cyan below.",
   "exits": {
     "down": "zone_mq_chrome_lobby",
@@ -27,6 +26,5 @@
   "id": "zone_mq_chrome_f1",
   "map_id": "map_int_mq_chrome",
   "name": "Floor 1",
-  "parent_zone": "zone_district_895_905",
-  "updated_at": "1782964408"
+  "parent_zone": "zone_district_895_905"
 }

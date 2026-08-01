@@ -3,7 +3,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "created_by": "ascendant-stronghold",
   "description": "A cold clerical antechamber where a soft-voiced construct confirms the balance of your policy. It speaks of your death the way a teller speaks of an overdraft: a solvable inconvenience, provided your account is paid up.",
   "exits": {
     "in": "zone_asc_vats_hall",
@@ -22,6 +21,5 @@
   "id": "zone_asc_vats_registry",
   "map_id": "map_int_asc_vats",
   "name": "The Registry",
-  "parent_zone": "zone_district_892_905",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_district_892_905"
 }

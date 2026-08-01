@@ -1,9 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "bg_color": null,
-  "color": null,
-  "created_by": null,
   "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
   "exits": {
     "up": "zone_casino_interior"
@@ -18,6 +15,5 @@
   "id": "zone_util_zone_casino_interior",
   "map_id": "map_interior_zone_casino_interior",
   "name": "The Lucky Bastard — Utility Room",
-  "parent_zone": "zone_district_921_910",
-  "updated_at": "1783840662"
+  "parent_zone": "zone_district_921_910"
 }

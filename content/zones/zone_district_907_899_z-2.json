@@ -3,7 +3,6 @@
   "ambient_theme": "city",
   "bg_color": "#0d1a26",
   "color": "#2c5a7a",
-  "created_by": null,
   "description": "Down where the basin keeps the things it doesn't give back. The bottom shelves away into a dark with no floor you can find, and the cold here is a different cold — patient, and faintly interested.",
   "exits": {
     "east": "zone_district_908_899_z-2",
@@ -11,7 +10,6 @@
     "west": "zone_district_906_899_z-2"
   },
   "flags": {
-    "planner": "bp_district",
     "terrain": "underwater"
   },
   "grid_x": 907,
@@ -20,6 +18,5 @@
   "id": "zone_district_907_899_z-2",
   "map_id": "map_world",
   "name": "The Deep Channel",
-  "parent_zone": null,
-  "updated_at": "1784700000"
+  "parent_zone": null
 }

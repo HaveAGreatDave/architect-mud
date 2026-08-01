@@ -1,8 +1,6 @@
 {
-  "created_by": null,
   "entry_zone_id": "zone_sf_voss7",
   "id": "map_int_sf_voss7",
   "name": "Unit 7, Voss Avenue — Interior",
-  "parent_zone_id": "zone_district_904_910",
-  "updated_at": "1784800000"
+  "parent_zone_id": "zone_district_904_910"
 }

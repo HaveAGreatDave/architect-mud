@@ -6,7 +6,6 @@
   "ambient_theme": "urban",
   "bg_color": "#26333f",
   "color": "#cfe0ee",
-  "created_by": "zone-planner",
   "description": "Solenne Residences rises out of the low studio-row roofline like a blade of pale glass — thirty-odd floors of it, tapering to a lit crown you have to lean back to see, and a pad cantilevered off that crown that catches the marker lights of something setting down most evenings. A brass-lettered canopy runs out over the pavement to the kerb, and beyond the revolving door the lobby glows warm and unhurried, the kind of warm that is quietly checking whether you belong in it. Step <b>in</b>.",
   "exits": {
     "north": "zone_solenne_lobby",
@@ -29,7 +28,6 @@
     "facade": true,
     "hangar_interior_zone": "zone_solenne_helipad",
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_914_909"
   },
@@ -40,6 +38,5 @@
   "map_id": "map_world",
   "marker": "SR",
   "name": "Solenne Residences",
-  "parent_zone": null,
-  "updated_at": "1784900000"
+  "parent_zone": null
 }

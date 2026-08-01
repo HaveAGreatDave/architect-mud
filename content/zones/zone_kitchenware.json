@@ -7,8 +7,6 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#4a4038",
-  "color": null,
-  "created_by": null,
   "description": "Every wall is hung with iron. Pans on a rail by size, lids racked like shields, ladles and tongs bristling out of an old shell casing on the counter. The place smells of cold metal, mineral oil and, faintly and inexplicably, onions. Nothing here is new — it has all been through at least one kitchen and probably one fire — but every piece has been cleaned back to bare metal and hung straight, which in this district counts as devotion.",
   "exits": {
     "east": "zone_district_918_907",
@@ -27,6 +25,5 @@
   "id": "zone_kitchenware",
   "map_id": "map_int_kitchenware",
   "name": "Tine & Temper",
-  "parent_zone": "zone_district_918_907",
-  "updated_at": "1785001794"
+  "parent_zone": "zone_district_918_907"
 }

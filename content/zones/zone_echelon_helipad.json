@@ -7,7 +7,6 @@
   "ambient_theme": "coast",
   "bg_color": "#12161a",
   "color": "#cfd8e0",
-  "created_by": "echelon",
   "description": "The helipad: a broad open circle of non-slip deck ringed in recessed landing lights, cantilevered out over the stern and open to the sky. Rotor wash, rain, wind and ash all reach you here — it is outside in every sense but the floor beneath your feet. A Dragonfly sets down on a whisper of turbine and its passengers step straight out onto the deck. A refuelling bowser is lashed to the deck at the pad's edge. Beyond the rail there is only air and the long drop to the Basin. The stair landing lies to the NORTH.",
   "exits": {
     "north": "zone_echelon_landing"
@@ -36,6 +35,5 @@
   "id": "zone_echelon_helipad",
   "map_id": "map_echelon",
   "name": "Echelon — Helipad",
-  "parent_zone": "zone_echelon_exterior",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_echelon_exterior"
 }

@@ -10,7 +10,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#2e4450",
   "color": "#cfe9f5",
-  "created_by": null,
   "description": "Eight machines along the left wall, four dryers facing them, and between the two rows a strip of floor kept warm all night by the pair of them. The window is the whole front of the building — real glass, cleaned often enough to prove someone cares — and the light coming off it spills a long pale rectangle onto Ironside Street outside, which is why people find this place before they know what it is. There's a folding table worn smooth at the edges, a bench along the back with a cushion somebody re-covered by hand, and a kettle on a shelf beside a jar of teabags with <b>TAKE ONE, LEAVE ONE</b> inked on the lid. A hand-lettered card is taped to the middle machine: <i>Broke? Wash anyway. Pay when you can.</i> Nobody has ever been chased out of here for sleeping in the warm. Out <b>east</b> to the street.",
   "exits": {
     "east": "zone_district_918_905"
@@ -30,6 +29,5 @@
   "id": "zone_the_wash",
   "map_id": "map_int_the_wash",
   "name": "The Wash",
-  "parent_zone": "zone_district_918_905",
-  "updated_at": "1785000000"
+  "parent_zone": "zone_district_918_905"
 }

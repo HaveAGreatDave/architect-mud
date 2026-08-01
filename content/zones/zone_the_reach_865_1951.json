@@ -8,9 +8,6 @@
     "Far off, an engine drones and fades. Nothing appears on the horizon."
   ],
   "ambient_theme": "wasteland",
-  "bg_color": null,
-  "color": null,
-  "created_by": null,
   "description": "A cargo hauler died out here long enough ago that the scrub has grown up through its ribs. The cab is a gutted shell, doors gone, the windscreen a white crust of crazed glass; the trailer behind it has collapsed onto its axles in a long spill of rust. Wind has drifted sand halfway up the near side. Under the trailer bed, where the shadow never moves, the hardpan has been dug out and filled in again — the fill is a shade darker than the ground around it, and tyre-ruts come and go from the north and stop dead at the wreck.",
   "exits": {
     "east": "zone_the_reach_866_1951",
@@ -29,8 +26,6 @@
   "grid_z": 0,
   "id": "zone_the_reach_865_1951",
   "map_id": "map_world",
-  "marker": "drop",
   "name": "The Bonepile",
-  "parent_zone": null,
-  "updated_at": "1784533788"
+  "parent_zone": null
 }

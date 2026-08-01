@@ -1,7 +1,6 @@
 {
   "blurb": "Whatever gets butchered in this city, gets butchered here.",
   "color": "#c0392b",
-  "created_by": "districts-to-content",
   "id": "redline",
   "landmark": "red_dreadfurnace",
   "name": "the Redline",
@@ -16,6 +15,5 @@
     "The ground is dark and tacky underfoot, and you try not to look down."
   ],
   "skyline": "the Dread Furnace glows red beyond the fence",
-  "sort": 150,
-  "updated_at": "1785196800"
+  "sort": 150
 }

@@ -3,7 +3,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b2824",
   "color": "#cdb489",
-  "created_by": "yards-plan",
   "description": "The forwarding floor: a counter of pigeonholes and airway-bill stamps, a scale bolted to the deck, and a wall map of routes nobody flies anymore. A dead conveyor runs out through a rubber-flapped hatch toward the aprons.",
   "exits": {
     "west": "zone_district_924_910"
@@ -21,6 +20,5 @@
   "id": "zone_yard_forwarder",
   "map_id": "map_int_yard_forwarder",
   "name": "Airfreight Forwarding",
-  "parent_zone": "zone_district_924_910",
-  "updated_at": "1783739474"
+  "parent_zone": "zone_district_924_910"
 }

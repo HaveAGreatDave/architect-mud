@@ -15,9 +15,6 @@
     "The light goes long and copper and every building in the Reach throws a shadow twice its height."
   ],
   "ambient_theme": "wasteland",
-  "bg_color": "#2b2b2b",
-  "color": "#f5d400",
-  "created_by": null,
   "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
   "exits": {
     "east": "zone_the_reach_870_1956",
@@ -28,7 +25,6 @@
   "flags": {
     "icon": "runway_ns",
     "lawless": true,
-    "planner": "world_editor",
     "region_id": "region_the_reach",
     "runway": "ns",
     "terrain": "dirt_road"
@@ -38,8 +34,6 @@
   "grid_z": 0,
   "id": "zone_the_reach_869_1956",
   "map_id": "map_world",
-  "marker": "┃",
   "name": "The Reach 869,1956",
-  "parent_zone": null,
-  "updated_at": "1784533789"
+  "parent_zone": null
 }

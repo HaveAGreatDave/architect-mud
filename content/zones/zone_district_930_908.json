@@ -3,7 +3,6 @@
   "ambient_theme": "city",
   "bg_color": "#1f3646",
   "color": "#4f83a8",
-  "created_by": null,
   "description": "The water goes wide and slow here, the current losing its grip and setting down whatever it was carrying. Sandbars break the surface in low grey backs. Birds you can't name work the shallows and leave when you get close.",
   "exits": {
     "east": "zone_district_931_908",
@@ -11,7 +10,6 @@
     "west": "zone_district_929_908"
   },
   "flags": {
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "water"
   },
@@ -21,6 +19,5 @@
   "id": "zone_district_930_908",
   "map_id": "map_world",
   "name": "Coldwater Basin",
-  "parent_zone": null,
-  "updated_at": "1784700000"
+  "parent_zone": null
 }

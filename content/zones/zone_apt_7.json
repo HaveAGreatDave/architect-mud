@@ -4,8 +4,6 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "color": null,
-  "created_by": null,
   "description": "Number 2C. Someone painted this one, once — a hopeful yellow now gone the colour of a smoker's teeth, peeling in long tongues off the plaster. A kitchenette with two working burners, a fold-down table, and a bathtub in the main room because the plumbing never reached the back. The window looks onto a brick wall an arm's length away.",
   "exits": {
     "in": "zone_apt_7_bath",
@@ -23,6 +21,5 @@
   "map_id": "map_interior_zone_residential_lobby",
   "marker": "3C",
   "name": "Unit 3C",
-  "parent_zone": "zone_district_920_904",
-  "updated_at": "1783111686"
+  "parent_zone": "zone_district_920_904"
 }

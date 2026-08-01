@@ -7,7 +7,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "created_by": "sewer-grid",
   "description": "A run of domestic storm line under Kessler Street, the walls streaked with a century of household runoff. Somewhere a broken pipe drips with idiot patience.",
   "exits": {
     "east": "zone_under_922_915"
@@ -24,6 +23,5 @@
   "map_id": "map_world",
   "marker": "╞",
   "name": "Drain Sump",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

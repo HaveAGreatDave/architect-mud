@@ -7,7 +7,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#241f19",
   "color": "#d0a36a",
-  "created_by": "zone-planner",
   "description": "The dugout under the Redline nest — a low earth-and-plate bunker reeking of solvent and cordite, strung with red-taped cable and caged worklights. Spare missiles ride a hand-cranked hoist up to the rail above; the launch electronics and the seeker-cooling gear crowd a bench along the back wall. This is where the nest is fed and, when a gun run tears the rail apart, rebuilt. A steel ladder climbs to the sprung hatch and the open deck.",
   "exits": {
     "up": "zone_district_891_903"
@@ -22,6 +21,5 @@
   "id": "zone_aa_redline_bunker",
   "map_id": "map_int_aa_redline",
   "name": "Redline SAM Nest — Bunker",
-  "parent_zone": "zone_district_891_903",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_district_891_903"
 }

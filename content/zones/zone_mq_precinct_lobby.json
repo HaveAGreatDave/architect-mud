@@ -7,8 +7,6 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#3a5a8a",
-  "color": null,
-  "created_by": null,
   "description": "A bulletproof-glass lobby that manages to feel both fortified and abandoned. A duty officer sits behind the glass beneath a corporate charter seal and a laminated list of fees for services that used to be free. Bolted plastic chairs face a wall-screen scrolling WANTED faces and civic reminders. The floor is the specific institutional grey of a place designed to wear you down before you ever reach a desk. It is, however, warm, and no one gets murdered in here, which counts.",
   "exits": {
     "down": "zone_mq_precinct_holding",
@@ -28,6 +26,5 @@
   "id": "zone_mq_precinct_lobby",
   "map_id": "map_int_mq_precinct",
   "name": "Lobby",
-  "parent_zone": "zone_district_922_911",
-  "updated_at": "1782964407"
+  "parent_zone": "zone_district_922_911"
 }

@@ -1,9 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
   "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
   "exits": {
     "east": "zone_district_896_911",
@@ -13,7 +11,6 @@
   },
   "flags": {
     "district": "wasteland",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes",
     "terrain": "grass"
@@ -23,8 +20,6 @@
   "grid_z": 0,
   "id": "zone_district_895_911",
   "map_id": "map_world",
-  "marker": "#",
   "name": "Grasslands",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

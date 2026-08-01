@@ -7,7 +7,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#0d1420",
   "color": "#bfe0ff",
-  "created_by": "echelon",
   "description": "The bridge. A single curved window of smoked glass wraps the bow, the Basin beyond rendered in cold navigational overlays. The helm console sits at the center — a slab of dark glass and one worn brass throttle, the only analogue thing aboard. From here the Echelon is steered, one deliberate move at a time. The foyer lies to the SOUTH.",
   "exits": {
     "south": "zone_echelon_foyer"
@@ -28,6 +27,5 @@
   "id": "zone_echelon_bridge",
   "map_id": "map_echelon",
   "name": "Echelon — Bridge",
-  "parent_zone": "zone_echelon_exterior",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_echelon_exterior"
 }

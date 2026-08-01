@@ -1,9 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "bg_color": "#2b2622",
-  "color": "#a89a86",
-  "created_by": "wildlands",
   "description": "THE GLACIS. Past the gate the ground is scraped to bare, blast-fused red rock — a wide cleared apron with no cover for a hundred metres, sown with the slag of things that tried to cross it. Behind you the Curtain's turret masts sit high on the wall, barrels idling in your direction. Nothing grows here on purpose.",
   "exits": {
     "east": "zone_district_919_920",
@@ -15,7 +12,6 @@
     "danger": "high",
     "district": "wilds",
     "glacis": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "dirt_road"
   },
@@ -24,8 +20,6 @@
   "grid_z": 0,
   "id": "zone_district_918_920",
   "map_id": "map_world",
-  "marker": "×",
   "name": "The Glacis",
-  "parent_zone": null,
-  "updated_at": "1784564533"
+  "parent_zone": null
 }

@@ -3,7 +3,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#2c2340",
   "color": "#eae6f0",
-  "created_by": null,
   "description": "A corner sky-apartment: a little more glass than the others, a fold-away bed, and the whole grey sprawl laid out cold beyond the pane. Engineered calm, and an invoice to match.",
   "exits": {
     "east": "zone_halcyon_residences"
@@ -20,6 +19,5 @@
   "map_id": "map_int_halcyon",
   "marker": "41",
   "name": "Halcyon Residence 41-D",
-  "parent_zone": "zone_district_895_906",
-  "updated_at": "1783356329"
+  "parent_zone": "zone_district_895_906"
 }

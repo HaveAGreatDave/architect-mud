@@ -1,7 +1,5 @@
 {
-  "created_by": null,
   "entry_zone_id": "zone_aa_wastes_bunker",
   "id": "map_int_aa_wastes",
-  "parent_zone_id": "zone_district_891_907",
-  "updated_at": "1783740000"
+  "parent_zone_id": "zone_district_891_907"
 }

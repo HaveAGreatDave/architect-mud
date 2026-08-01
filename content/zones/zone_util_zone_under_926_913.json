@@ -1,9 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "bg_color": null,
-  "color": null,
-  "created_by": null,
   "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
   "exits": {
     "up": "zone_under_926_913"
@@ -18,6 +15,5 @@
   "id": "zone_util_zone_under_926_913",
   "map_id": "map_world",
   "name": "Drain Sump — Utility Room",
-  "parent_zone": null,
-  "updated_at": "1784412685"
+  "parent_zone": null
 }

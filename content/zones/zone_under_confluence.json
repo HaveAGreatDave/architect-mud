@@ -7,7 +7,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c241f",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "A vaulted junction where three brick channels pour into one. Corroded handrails ring a central sump grate that swallows the combined flow with a steady, hungry gurgle. Old maintenance stencils on the walls have rotted to ghost-shapes. West, a channel has caved in on itself; the rest run on into the dark.",
   "exits": {
     "east": "zone_under_sump",
@@ -26,6 +25,5 @@
   "map_id": "map_world",
   "marker": "╬",
   "name": "The Confluence",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

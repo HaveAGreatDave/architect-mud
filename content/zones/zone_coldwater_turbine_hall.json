@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#b0862a",
-  "color": null,
-  "created_by": null,
   "description": "A cavernous hall of throbbing turbines and grimy conduit. The city plant squats at the centre, roaring, its casing scabbed with warning decals and oil. The whole room shudders with the low churn of megawatts.",
   "exits": {
     "west": "zone_district_924_911"
@@ -28,6 +26,5 @@
   "id": "zone_coldwater_turbine_hall",
   "map_id": "map_int_coldwater_power",
   "name": "Brownout Municipal — Turbine Hall",
-  "parent_zone": "zone_district_924_911",
-  "updated_at": "1782940278"
+  "parent_zone": "zone_district_924_911"
 }

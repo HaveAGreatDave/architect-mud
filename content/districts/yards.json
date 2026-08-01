@@ -1,7 +1,6 @@
 {
   "blurb": "Everything the city eats comes through here — in a box, with paperwork.",
   "color": "#7a8fa6",
-  "created_by": "districts-to-content",
   "id": "yards",
   "landmark": null,
   "name": "the Yards",
@@ -13,6 +12,5 @@
     "A tannoy clips a number, a bay, and half a name before it gives up."
   ],
   "skyline": null,
-  "sort": 180,
-  "updated_at": "1785196800"
+  "sort": 180
 }

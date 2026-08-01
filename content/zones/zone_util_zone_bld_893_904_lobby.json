@@ -1,5 +1,4 @@
 {
-  "created_by": "utility-room-author",
   "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
   "exits": {
     "up": "zone_bld_893_904_lobby"

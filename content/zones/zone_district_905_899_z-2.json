@@ -3,7 +3,6 @@
   "ambient_theme": "city",
   "bg_color": "#0d1a26",
   "color": "#2c5a7a",
-  "created_by": null,
   "description": "The deep channel. Silt hangs in slow suspension and the current runs harder at this depth, walking you along the bottom in a direction you didn't pick. Something big enough to move water goes by, well out in the black.",
   "exits": {
     "east": "zone_district_906_899_z-2",
@@ -11,7 +10,6 @@
     "west": "zone_district_904_899_z-2"
   },
   "flags": {
-    "planner": "bp_district",
     "terrain": "underwater"
   },
   "grid_x": 905,
@@ -20,6 +18,5 @@
   "id": "zone_district_905_899_z-2",
   "map_id": "map_world",
   "name": "The Deep Channel",
-  "parent_zone": null,
-  "updated_at": "1784504312"
+  "parent_zone": null
 }

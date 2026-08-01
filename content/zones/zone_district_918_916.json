@@ -1,9 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "bg_color": "#3f3a34",
-  "color": "#b9a888",
-  "created_by": "zone-planner",
   "description": "The Gate Road, patched and repatched, its shoulders crumbling into weeds. Ahead to the south a pale shimmer stands where the sky shouldn't be: the Curtain, humming faintly at the edge of hearing.",
   "exits": {
     "east": "zone_district_919_916",
@@ -16,7 +13,6 @@
       "The Gate Road"
     ],
     "district": "residential",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "road"
   },
@@ -25,8 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_918_916",
   "map_id": "map_world",
-  "marker": "#",
   "name": "The Gate Road",
-  "parent_zone": null,
-  "updated_at": "1784342815"
+  "parent_zone": null
 }

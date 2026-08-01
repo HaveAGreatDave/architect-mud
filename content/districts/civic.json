@@ -1,7 +1,6 @@
 {
   "blurb": "The city keeps its paperwork and its promises here — neither in great repair.",
   "color": "#4bb36a",
-  "created_by": "districts-to-content",
   "id": "civic",
   "landmark": "civ_steps",
   "name": "the Civic Center",
@@ -20,6 +19,5 @@
     "Pigeons argue over the steps in the flat civic light."
   ],
   "skyline": "the broad sweep of the Civic Steps",
-  "sort": 30,
-  "updated_at": "1785196800"
+  "sort": 30
 }

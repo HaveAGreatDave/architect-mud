@@ -1,7 +1,6 @@
 {
   "blurb": "People sleep here, stacked and dreaming, one thin wall apart.",
   "color": "#c9a884",
-  "created_by": "districts-to-content",
   "id": "residential",
   "landmark": null,
   "name": "the Residential Blocks",
@@ -18,6 +17,5 @@
     "Laundry snaps on a line strung between two dead satellite dishes."
   ],
   "skyline": null,
-  "sort": 40,
-  "updated_at": "1785196800"
+  "sort": 40
 }

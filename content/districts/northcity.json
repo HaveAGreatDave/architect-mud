@@ -1,7 +1,6 @@
 {
   "blurb": "Money lives up here, behind glass and clean air.",
   "color": "#d9a83a",
-  "created_by": "districts-to-content",
   "id": "northcity",
   "landmark": "nc_spindle",
   "name": "North City",
@@ -16,6 +15,5 @@
     "Glass towers throw the light back down at you, cold and even."
   ],
   "skyline": "the Spindle needles up into the haze",
-  "sort": 10,
-  "updated_at": "1785196800"
+  "sort": 10
 }

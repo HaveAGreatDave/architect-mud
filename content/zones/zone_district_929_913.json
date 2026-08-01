@@ -1,9 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "bg_color": "#2a1c16",
   "color": "#b5744a",
-  "created_by": "wildlands-expand",
   "description": "A vast rust-stained plain, hammered flat and hard, printed here and there with the tracks of things that crossed it once. A spoil heap breaks the flat — grey pit-gravel hauled up and dumped, the working face behind it still open to the wind.",
   "exits": {
     "east": "zone_district_930_913",
@@ -14,7 +12,6 @@
   "flags": {
     "district": "wilds",
     "mining_table_id": "mine_gravel_pit",
-    "planner": "bp_district",
     "radiation": 26,
     "region_id": "region_coldwater",
     "terrain": "redrock"
@@ -25,6 +22,5 @@
   "id": "zone_district_929_913",
   "map_id": "map_world",
   "name": "Rustwind Flat",
-  "parent_zone": null,
-  "updated_at": "1784700000"
+  "parent_zone": null
 }

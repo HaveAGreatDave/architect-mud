@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#8f9a7e",
-  "color": null,
-  "created_by": null,
   "description": "The ground-floor lobby of The Meridian, a residential tower that survived the Collapse the same way most things survived it: through sheer institutional inertia. Cracked terrazzo floors carry the ghost of a geometric inlay, ground to near-invisibility by foot traffic. A bank of tenant mailboxes lines the east wall — most of them pried open decades ago, doors hanging at odd angles, contents long gone. The security desk sits unmanned, its terminal cycling a screensaver of rolling static. Emergency lighting casts everything in pale amber. Stairs ascend through a fire door to the upper floors.",
   "exits": {
     "down": "zone_util_zone_meridian_lobby",
@@ -14,6 +12,7 @@
     "building_type": "apartment",
     "is_building": true,
     "is_interior": true,
+    "terrain": "grass",
     "world_exit_zone": "zone_district_918_908"
   },
   "grid_x": 0,
@@ -22,6 +21,5 @@
   "id": "zone_meridian_lobby",
   "map_id": "map_int_meridian",
   "name": "The Meridian - Lobby",
-  "parent_zone": "zone_district_918_908",
-  "updated_at": "1783112116"
+  "parent_zone": "zone_district_918_908"
 }

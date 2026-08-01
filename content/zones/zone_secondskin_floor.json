@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#26251f",
-  "color": null,
-  "created_by": "marrow-infill",
   "description": "Rails of workwear in three colours: black, industrial orange and a grey that used to be one of the other two. Coveralls by chest size, boots by the wall in stacked boxes, and a whole rack devoted to cold — parkas, thermals, the sort of hood that turns a face into a rumour. Everything here is heavy in the hand. A hand-lettered card on the counter reads NO REFUNDS ON ANYTHING YOU'VE SWEATED IN.",
   "exits": {
     "down": "zone_util_zone_secondskin_floor",
@@ -23,6 +21,5 @@
   "id": "zone_secondskin_floor",
   "map_id": "map_int_secondskin",
   "name": "Layers — Shop Floor",
-  "parent_zone": "zone_district_918_910",
-  "updated_at": "1785200000"
+  "parent_zone": "zone_district_918_910"
 }

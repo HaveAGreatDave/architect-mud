@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#21292a",
-  "color": null,
-  "created_by": "marrow-infill",
   "description": "Two chairs, one mirror, and a long bench of men waiting who are in no hurry at all. The tiles are green to shoulder height and beyond that the paint has gone soft with steam. Strops hang from the chair arms; a row of jars holds combs in blue fluid that stopped being antiseptic some time ago and is now purely a gesture. Through the arch at the back, the air turns to water.",
   "exits": {
     "down": "zone_util_zone_soak_front",
@@ -23,6 +21,5 @@
   "id": "zone_soak_front",
   "map_id": "map_int_soak",
   "name": "Lather & Lye — Barber Floor",
-  "parent_zone": "zone_district_916_908",
-  "updated_at": "1785200000"
+  "parent_zone": "zone_district_916_908"
 }

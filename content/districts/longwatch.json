@@ -1,7 +1,6 @@
 {
   "blurb": "Somebody still stands the watch out here. Nobody has told them what for.",
   "color": "#7d8a5c",
-  "created_by": "districts-to-content",
   "id": "longwatch",
   "landmark": null,
   "name": "Longwatch",
@@ -13,6 +12,5 @@
     "Cold works its way in at the seams, the way it always has."
   ],
   "skyline": null,
-  "sort": 190,
-  "updated_at": "1785196800"
+  "sort": 190
 }

@@ -7,7 +7,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "created_by": "sewer-grid",
   "description": "The sewer beneath Cinder Lane + Voss Avenue is all crumbling grade and standing filth, the kind of dark that has never once been disturbed by anyone with a reason to be here. East, a rusted grate is wedged fast behind a wall of fallen brick.",
   "exits": {
     "east": "zone_under_903_909",
@@ -26,6 +25,5 @@
   "map_id": "map_world",
   "marker": "╠",
   "name": "Drain Junction",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

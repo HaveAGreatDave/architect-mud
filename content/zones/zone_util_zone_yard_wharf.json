@@ -1,9 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "bg_color": null,
-  "color": null,
-  "created_by": null,
   "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
   "exits": {
     "up": "zone_yard_wharf"
@@ -19,6 +16,5 @@
   "id": "zone_util_zone_yard_wharf",
   "map_id": "map_int_yard_wharf",
   "name": "The Wet Handoff — Utility Room",
-  "parent_zone": "zone_district_926_908",
-  "updated_at": "1784348804"
+  "parent_zone": "zone_district_926_908"
 }

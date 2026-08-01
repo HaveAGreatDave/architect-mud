@@ -1,7 +1,5 @@
 {
-  "created_by": "yards-plan",
   "entry_zone_id": "zone_yard_fuelyard",
   "id": "map_int_yard_fuelyard",
-  "parent_zone_id": "zone_district_923_907",
-  "updated_at": "1783739474"
+  "parent_zone_id": "zone_district_923_907"
 }

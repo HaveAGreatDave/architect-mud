@@ -1,7 +1,6 @@
 {
   "blurb": "The machines that keep the city alive live here, and they are tired.",
   "color": "#9a8a4f",
-  "created_by": "districts-to-content",
   "id": "industrial",
   "landmark": "coldwater_turbine_hall",
   "name": "the Industrial Flats",
@@ -17,6 +16,5 @@
     "The ground carries a faint, ceaseless machine tremor up through your boots."
   ],
   "skyline": "the Coldwater cooling stacks trail steam northward",
-  "sort": 100,
-  "updated_at": "1785196800"
+  "sort": 100
 }

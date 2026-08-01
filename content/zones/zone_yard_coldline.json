@@ -3,7 +3,6 @@
   "ambient_theme": "waterfront",
   "bg_color": "#28302f",
   "color": "#cdb489",
-  "created_by": "yards-plan",
   "description": "Inside the reefer depot: a meat-locker corridor of frosted steel doors, your breath fogging, a clipboard of temperature logs by each. The catch keeps here — and, the manifests hint, things that were never fish.",
   "exits": {
     "down": "zone_util_zone_yard_coldline",
@@ -23,6 +22,5 @@
   "id": "zone_yard_coldline",
   "map_id": "map_int_yard_coldline",
   "name": "Chill Out Logistics",
-  "parent_zone": "zone_district_926_909",
-  "updated_at": "1783739474"
+  "parent_zone": "zone_district_926_909"
 }

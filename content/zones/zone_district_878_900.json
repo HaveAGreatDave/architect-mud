@@ -3,7 +3,6 @@
   "ambient_theme": "city",
   "bg_color": "#1f3646",
   "color": "#4f83a8",
-  "created_by": null,
   "description": "Shoreline water, shallow enough to watch the bottom go from gravel to silt as it deepens, then a slow shelf away into nothing. Something has been rooting along the waterline in the mud, and not recently.",
   "exits": {
     "east": "zone_district_879_900",
@@ -12,7 +11,6 @@
     "west": "zone_district_877_900"
   },
   "flags": {
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "water"
   },
@@ -22,6 +20,5 @@
   "id": "zone_district_878_900",
   "map_id": "map_world",
   "name": "Coldwater Basin",
-  "parent_zone": null,
-  "updated_at": "1784496517"
+  "parent_zone": null
 }

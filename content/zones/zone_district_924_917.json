@@ -3,7 +3,6 @@
   "ambient_theme": "residential",
   "bg_color": "#332e28",
   "color": "#b89a72",
-  "created_by": "zone-planner",
   "description": "A residential stack optimised for maximum tenants per cubic metre and the bare legal minimum of reasons to keep living. Corridors of identical doors, behind each a life the city quietly stopped counting. A cat holds the stairwell; nobody contests the claim.",
   "exits": {
     "east": "zone_district_925_917",
@@ -13,7 +12,6 @@
   },
   "flags": {
     "district": "residential",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_consumer_trash",
     "street_life": true,
@@ -24,8 +22,6 @@
   "grid_z": 0,
   "id": "zone_district_924_917",
   "map_id": "map_world",
-  "marker": "▨",
   "name": "Residential Area",
-  "parent_zone": null,
-  "updated_at": "1784342750"
+  "parent_zone": null
 }

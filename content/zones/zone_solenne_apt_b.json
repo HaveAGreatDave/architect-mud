@@ -3,7 +3,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "created_by": null,
   "description": "A corner residence, glass on two sides, the city turning slowly past the windows as the light shifts. A platform bed, a deep bath cut from a single block of stone, a reading chair angled at the view. The heating is underfoot and the silence is total. This is what money buys when it stops needing to prove anything. Leave <b>west</b> to the landing.",
   "exits": {
     "in": "zone_solenne_apt_b_bath",
@@ -23,6 +22,5 @@
   "map_id": "map_int_solenne",
   "marker": "30",
   "name": "Solenne Residence 30-B",
-  "parent_zone": "zone_district_914_908",
-  "updated_at": "1784600000"
+  "parent_zone": "zone_district_914_908"
 }

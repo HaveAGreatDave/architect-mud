@@ -21,15 +21,30 @@
     "speed_mult        movement pacing. THE fix for a live bug: pacing keyed off",
     "                  flags.icon matching /^road_/, so 55 of 158 painted road",
     "                  tiles carried no speed-up at all.",
-    "authored_bg_wins  a tile's own bg_color beats this fill. LEGACY, and only",
-    "                  true where it already was: water and grass predate the",
-    "                  terrain painter and their authored colours ARE the intended",
-    "                  look. Everywhere else the authored bg_color is the room's",
-    "                  colour identity, not a map fill — 2,923 redrock tiles carry",
-    "                  #2a1c16, a dark interior brown that would black out the map",
-    "                  if it were treated as an override. Retiring this means",
-    "                  deciding what those water/grass tiles should look like, not",
-    "                  deleting a line."
+    "",
+    "EVERY VALUE HERE IS A DEFAULT, and a tile's own marker/color/bg_color beats",
+    "it — always, on every terrain, with no exception list. `authored_bg_wins`",
+    "used to name the three terrains (grass, water, underwater) where a tile was",
+    "allowed to win. It was not protecting a second meaning; it was protecting",
+    "against the pre-terrain bulk fill sitting in the same column, and it cost",
+    "3,484 authored fills. That fill is cleared and the key is gone; see",
+    "scripts/content/tile-override-cleanup.mjs and",
+    "docs/proposals/tile-presentation-overrides.md.",
+    "",
+    "WATER, GRASS AND UNDERWATER ARE WHAT THAT FLIP LEFT BEHIND. The cleanup",
+    "spared their 1,374 fills because those fills were rendering — its warranty",
+    "was zero pixel delta. But 'authored beats palette' then meant the terrain",
+    "painter did nothing visible on the whole bay and every lawn: repaint one and",
+    "the fill would not move, because the tile's own colour was answering. The",
+    "fill each of the three carried is now the palette's, and the tiles carrying",
+    "exactly that value have given the column back (tile-fill-to-palette.mjs).",
+    "Same three warnings apply as to redrock above: these are the values PLAYERS",
+    "see, so they are the ones that are canonical. Water's new #1d3b52 is the same",
+    "value as WATER_VOID_FILL in the game's minimap, which paints the bay BEYOND",
+    "the map's rim — the palette was the only thing in the stack that thought open",
+    "water was #3f7fb0. The shading variants — a second",
+    "blue on 258 water tiles, a pale strand on 66 grass — stayed authored, because",
+    "a colour that differs from its terrain on purpose is what the override is FOR."
   ],
   "_no_default": [
     "There is deliberately no palette-wide default terrain. The spec floated one",
@@ -81,12 +96,11 @@
     },
     "grass": {
       "label": "Grass",
-      "fill": "#5a9e57",
+      "fill": "#2f3a26",
       "text": null,
       "glyph": null,
       "minimap_class": "grass",
-      "auto_tile": false,
-      "authored_bg_wins": true
+      "auto_tile": false
     },
     "park": {
       "label": "Park",
@@ -130,12 +144,11 @@
     },
     "water": {
       "label": "Water",
-      "fill": "#3f7fb0",
+      "fill": "#1d3b52",
       "text": null,
       "glyph": null,
       "minimap_class": "water",
       "auto_tile": false,
-      "authored_bg_wins": true,
       "props": {
         "liquid": true,
         "swimmable": true,
@@ -177,12 +190,11 @@
     },
     "underwater": {
       "label": "Underwater",
-      "fill": "#3f7fb0",
+      "fill": "#14283a",
       "text": null,
       "glyph": null,
       "minimap_class": "water",
       "auto_tile": false,
-      "authored_bg_wins": true,
       "props": {
         "liquid": true,
         "swimmable": true,
@@ -214,7 +226,11 @@
     "inherits everything — which is what most solid ground wants. marsh is deliberately",
     "NOT liquid/swimmable: a marsh is walked, not swum (decision, 2026-07-30).",
     "",
-    "underwater is visually identical to water on purpose — same fill, same minimap",
-    "class. What differs is what it does to you, not what it looks like."
+    "underwater shares water's minimap class and reads as the same substance; its",
+    "fill is a shade darker (#14283a against #1d3b52) because that is what the 82",
+    "tiles have always drawn — depth, seen from above. It used to share water's",
+    "fill exactly and the difference was carried per-tile; adopting the authored",
+    "value moved that distinction into the palette rather than inventing it. What",
+    "REALLY differs is what it does to you, not what it looks like."
   ]
 }

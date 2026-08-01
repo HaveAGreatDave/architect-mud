@@ -1,9 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "bg_color": "#3f3a34",
-  "color": "#b9a888",
-  "created_by": "zone-planner",
   "description": "The road here is more suggestion than surface — compacted gravel, broken kerbstones, a storm drain choked with silt. Somebody dragged a mattress halfway across it and gave up.",
   "exits": {
     "east": "zone_district_895_904",
@@ -13,7 +10,6 @@
   },
   "flags": {
     "district": "wasteland",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
@@ -24,8 +20,6 @@
   "grid_z": 0,
   "id": "zone_district_894_904",
   "map_id": "map_world",
-  "marker": "⸪.",
   "name": "Halcyon Boulevard",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

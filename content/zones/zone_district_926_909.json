@@ -3,7 +3,6 @@
   "ambient_theme": "waterfront",
   "bg_color": "#2f3a3a",
   "color": "#cdb489",
-  "created_by": "yards-plan",
   "description": "A windowless insulated block breathing frost from its door seals, condensers roaring on the roof. COLDLINE REEFER DEPOT. Inside it is a meat-locker cathedral where the docks' catch — and worse things — keep. Your breath fogs just standing near the loading dock.",
   "exits": {
     "north": "zone_yard_coldline",
@@ -16,7 +15,6 @@
     "entrance": "south",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_926_910"
   },
@@ -27,6 +25,5 @@
   "map_id": "map_world",
   "marker": "CS",
   "name": "Chill Out Logistics",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

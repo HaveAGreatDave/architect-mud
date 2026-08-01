@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#2b2b26",
-  "color": null,
-  "created_by": "marrow-infill",
   "description": "A walled yard of long stock: pipe in racks, angle iron, sheet steel leaning in stacks that lean back. A cutting bench sits under a corrugated lean-to, its vice worn shiny. Rain gets in. Everything out here has a skin of rust and works perfectly.",
   "exits": {
     "west": "zone_bolt_shop"
@@ -21,6 +19,5 @@
   "id": "zone_bolt_yard",
   "map_id": "map_int_bolt",
   "name": "Nuts to That — Back Yard",
-  "parent_zone": "zone_district_915_908",
-  "updated_at": "1785200000"
+  "parent_zone": "zone_district_915_908"
 }

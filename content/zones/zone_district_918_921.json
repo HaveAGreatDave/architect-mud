@@ -1,9 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "bg_color": "#2b2622",
-  "color": "#a89a86",
-  "created_by": "wildlands",
   "description": "Open killing ground. Shell-craters pock the red rock, some still glassy at the rim. A scorched ribcage — too big to name — arches out of the stone where something died mid-charge. The wall's guns have a clean line all the way to here.",
   "exits": {
     "east": "zone_district_919_921",
@@ -15,7 +12,6 @@
     "danger": "high",
     "district": "wilds",
     "glacis": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "dirt_road"
   },
@@ -24,8 +20,6 @@
   "grid_z": 0,
   "id": "zone_district_918_921",
   "map_id": "map_world",
-  "marker": "×",
   "name": "The Glacis",
-  "parent_zone": null,
-  "updated_at": "1784564533"
+  "parent_zone": null
 }

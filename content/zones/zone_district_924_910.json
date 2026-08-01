@@ -3,7 +3,6 @@
   "ambient_theme": "urban",
   "bg_color": "#37322a",
   "color": "#cdb489",
-  "created_by": "yards-plan",
   "description": "A low prefab office ringed by roller-shuttered bays, the airfield aprons close enough north that jet-wash rattles the signage. Forwarders here book, bond, and mis-book air cargo all day; clipboards, barcode guns, and a coffee urn that never quite cools. The whole place smells of kerosene and carbon paper.",
   "exits": {
     "east": "zone_yard_forwarder",
@@ -16,7 +15,6 @@
     "entrance": "west",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_923_910"
   },
@@ -27,6 +25,5 @@
   "map_id": "map_world",
   "marker": "AF",
   "name": "Airfreight Forwarding",
-  "parent_zone": null,
-  "updated_at": "1784749332"
+  "parent_zone": null
 }

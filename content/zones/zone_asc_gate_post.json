@@ -3,7 +3,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "created_by": "ascendant-stronghold",
   "description": "A narrow guard post behind the Gate's outer slab, all screens and no chairs. A warden construct stands at a lectern of light, reviewing you against a list you are not on. The turrets' feeds play on the wall — the plaza, the boulevard, your own back.",
   "exits": {
     "east": "zone_district_893_906"
@@ -20,6 +19,5 @@
   "id": "zone_asc_gate_post",
   "map_id": "map_int_asc_gate",
   "name": "The Scanline",
-  "parent_zone": "zone_district_893_906",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_district_893_906"
 }

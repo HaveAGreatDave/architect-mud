@@ -3,7 +3,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "created_by": "ascendant-stronghold",
   "description": "The install theatre: a single reclining chair under a corolla of folded arms, everything mirrored so you can watch what they do. This is where the first chrome goes in — and where, they tell you gently, the flesh-rot of any mutation gets scraped out first, because chrome does not share a body with the old evolution.",
   "exits": {
     "out": "zone_asc_clinic_consult"
@@ -21,6 +20,5 @@
   "id": "zone_asc_clinic_theatre",
   "map_id": "map_int_asc_clinic",
   "name": "The Improvement Suite",
-  "parent_zone": "zone_district_893_905",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_district_893_905"
 }

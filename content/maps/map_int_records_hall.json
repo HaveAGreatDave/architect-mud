@@ -1,7 +1,5 @@
 {
-  "created_by": null,
   "entry_zone_id": "zone_records_reading",
   "id": "map_int_records_hall",
-  "parent_zone_id": "zone_district_922_910",
-  "updated_at": "1783740000"
+  "parent_zone_id": "zone_district_922_910"
 }

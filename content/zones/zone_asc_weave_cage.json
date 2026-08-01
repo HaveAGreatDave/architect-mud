@@ -3,7 +3,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "created_by": "ascendant-stronghold",
   "description": "A caged mezzanine of shelved stock: blank frames, spooled weave, ocular blanks staring in rows. Everything is tagged, counted, and worth more than you.",
   "exits": {
     "out": "zone_asc_weave_line"
@@ -20,6 +19,5 @@
   "id": "zone_asc_weave_cage",
   "map_id": "map_int_asc_weave",
   "name": "Stock Cage",
-  "parent_zone": "zone_district_893_907",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_district_893_907"
 }

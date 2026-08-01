@@ -1,9 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "bg_color": "#241f1a",
   "color": "#c8b48a",
-  "created_by": "wildlands",
   "description": "THE BONE ARCH. A gateway of welded girders and lashed bone straddles the mud path — femurs and machine-ribs and things in between, hung with charms of teeth and circuit-board. Someone has painted a green handprint on the keystone. Past it, the Thornwarren: cook-fires, hide tents, and figures who wear their mutations like medals.",
   "exits": {
     "east": "zone_district_920_924",
@@ -13,7 +11,6 @@
   },
   "flags": {
     "district": "wilds",
-    "planner": "bp_district",
     "radiation": 22,
     "region_id": "region_coldwater",
     "terrain": "scrub"
@@ -23,8 +20,6 @@
   "grid_z": 0,
   "id": "zone_district_919_924",
   "map_id": "map_world",
-  "marker": "∩",
   "name": "The Bone Arch",
-  "parent_zone": null,
-  "updated_at": "1784500000"
+  "parent_zone": null
 }

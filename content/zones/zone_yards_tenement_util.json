@@ -5,8 +5,6 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#5a5450",
-  "color": null,
-  "created_by": "tenement-gen",
   "description": "The tenement’s guts: a low, sweating concrete sub-basement of riser conduits, a long-dead boiler, and a floor drain choked with grit. A single junction box feeds all ten floors and trips if you so much as breathe on it wrong.",
   "exits": {
     "up": "zone_yards_tenement_lobby"
@@ -20,6 +18,5 @@
   "id": "zone_yards_tenement_util",
   "map_id": "map_int_yards_tenement",
   "name": "Sub-basement",
-  "parent_zone": "zone_district_921_902",
-  "updated_at": "1783970000"
+  "parent_zone": "zone_district_921_902"
 }

@@ -1,9 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "waterfront",
-  "bg_color": "#2f2a24",
   "color": "#a98b63",
-  "created_by": "zone-planner",
   "description": "A length of the great pier, its planking grey and split, bolted over a forest of barnacled pilings that vanish into the cold slop below. Mooring cleats the size of anvils stud the edge, most wrenched half out. The whole structure groans when the water shoves it.",
   "exits": {
     "east": "zone_district_910_903",
@@ -14,7 +12,6 @@
   "flags": {
     "district": "docks",
     "fishing_table_id": "fish_coldwater_bay",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "street_life": true,
     "terrain": "concrete"
@@ -24,8 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_909_903",
   "map_id": "map_world",
-  "marker": "▤▤",
   "name": "Pier",
-  "parent_zone": null,
-  "updated_at": "1784318564"
+  "parent_zone": null
 }

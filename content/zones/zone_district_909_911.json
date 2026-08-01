@@ -1,9 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "bg_color": "#2e3a38",
   "color": "#7fb0a0",
-  "created_by": "zone-planner",
   "description": "Cracked paving stones fan out around a monument to someone nobody remembers, but the square around it has been coaxed green — mown lawn, young trees, raked paths. The benches are all bolted flat so you cannot sleep on them. People do anyway.",
   "exits": {
     "east": "zone_district_910_911",
@@ -14,7 +12,6 @@
   "flags": {
     "district": "wasteland",
     "icon": "statue-fisherman",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
@@ -25,8 +22,6 @@
   "grid_z": 0,
   "id": "zone_district_909_911",
   "map_id": "map_world",
-  "marker": "웃",
   "name": "Fisherman Statue",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

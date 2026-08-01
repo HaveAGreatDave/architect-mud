@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#282318",
-  "color": null,
-  "created_by": null,
   "description": "A tight aisle between glass cases and a counter caged in wire mesh, every surface holding somebody's pawned history under a film of dust and fingerprints. A wall of tagged tickets logs what's been left and never redeemed. The light is amber and grudging, the better to make paste look like diamond and to keep the appraiser's face in shadow while he prices your last good thing.",
   "exits": {
     "north": "zone_district_916_910"
@@ -21,6 +19,5 @@
   "id": "zone_hock_pawn",
   "map_id": "map_int_hock",
   "name": "In Hock We Trust",
-  "parent_zone": "zone_district_916_910",
-  "updated_at": "1784500000"
+  "parent_zone": "zone_district_916_910"
 }

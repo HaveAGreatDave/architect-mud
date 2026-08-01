@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#2c2340",
-  "color": null,
-  "created_by": null,
   "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
   "exits": {
     "up": "zone_halcyon_lobby"
@@ -19,6 +17,5 @@
   "id": "zone_util_zone_halcyon_lobby",
   "map_id": "map_int_halcyon",
   "name": "Halcyon Towers — Grand Lobby — Utility Room",
-  "parent_zone": "zone_district_895_906",
-  "updated_at": "1783455595"
+  "parent_zone": "zone_district_895_906"
 }

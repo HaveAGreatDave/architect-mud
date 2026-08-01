@@ -1,8 +1,6 @@
 {
-  "created_by": null,
   "entry_zone_id": "zone_citadel_hall",
   "id": "map_int_citadel",
   "name": "Citadel Financial — Interior",
-  "parent_zone_id": "zone_district_921_911",
-  "updated_at": "1785110400"
+  "parent_zone_id": "zone_district_921_911"
 }

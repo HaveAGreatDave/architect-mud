@@ -1,7 +1,6 @@
 {
   "blurb": "Cargo comes ashore here and asks no questions on the way in.",
   "color": "#1fb5aa",
-  "created_by": "districts-to-content",
   "id": "docks",
   "landmark": "dock_wharf",
   "name": "the Docks",
@@ -15,6 +14,5 @@
     "A foghorn calls once, low and lonely, and gets no answer."
   ],
   "skyline": "the dock cranes stand black over the waterline",
-  "sort": 80,
-  "updated_at": "1785196800"
+  "sort": 80
 }

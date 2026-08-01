@@ -3,7 +3,6 @@
   "ambient_theme": "forest",
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
   "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
   "exits": {
     "east": "zone_voltage_floor",
@@ -16,7 +15,6 @@
     "entrance": "west",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes",
     "world_exit_zone": "zone_district_894_908"
@@ -28,6 +26,5 @@
   "map_id": "map_world",
   "marker": "VO",
   "name": "Voltage",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

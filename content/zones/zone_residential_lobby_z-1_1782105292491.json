@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "color": null,
-  "created_by": "94bb0948-c9cd-4d25-8d24-0a9788e75b6b",
   "description": "Basement of Embassy Hotel & Bar — Lobby.",
   "exits": {
     "up": "zone_residential_lobby"
@@ -18,6 +16,5 @@
   "id": "zone_residential_lobby_z-1_1782105292491",
   "map_id": "map_interior_zone_residential_lobby",
   "name": "Basement",
-  "parent_zone": "zone_district_920_904",
-  "updated_at": "1782110526"
+  "parent_zone": "zone_district_920_904"
 }

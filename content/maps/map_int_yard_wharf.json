@@ -1,7 +1,5 @@
 {
-  "created_by": "yards-plan",
   "entry_zone_id": "zone_yard_wharf",
   "id": "map_int_yard_wharf",
-  "parent_zone_id": "zone_district_926_908",
-  "updated_at": "1783739474"
+  "parent_zone_id": "zone_district_926_908"
 }

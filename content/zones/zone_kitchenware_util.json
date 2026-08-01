@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#4a4038",
-  "color": null,
-  "created_by": null,
   "description": "A back room barely wider than the door, stacked to head height with unsorted iron waiting to be stripped and hung. The junction box is bolted above the whetstone bench, its breakers labelled in a cramped hand, and a small sealed hacking port sits below the latch.",
   "exits": {
     "south": "zone_kitchenware"
@@ -17,6 +15,5 @@
   "id": "zone_kitchenware_util",
   "map_id": "map_int_kitchenware",
   "name": "Tine & Temper — Back Room",
-  "parent_zone": "zone_kitchenware",
-  "updated_at": "1785001794"
+  "parent_zone": "zone_kitchenware"
 }

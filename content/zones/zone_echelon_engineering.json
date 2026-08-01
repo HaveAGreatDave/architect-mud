@@ -7,7 +7,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#0e0f0d",
   "color": "#c8f0c0",
-  "created_by": "echelon",
   "description": "The engineering corridor, a narrow spine of grated deck and exposed conduit running the length of the lower deck. Everything down here is function over form — but even the pipework is machined to a tolerance that whispers money. The staircase climbs (UP) to the foyer. The engine room lies FORWARD (NORTH); the broadcast complex, AFT (SOUTH).",
   "exits": {
     "north": "zone_echelon_engine",
@@ -30,6 +29,5 @@
   "id": "zone_echelon_engineering",
   "map_id": "map_echelon",
   "name": "Echelon — Engineering Corridor",
-  "parent_zone": "zone_echelon_exterior",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_echelon_exterior"
 }

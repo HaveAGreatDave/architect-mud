@@ -4,8 +4,6 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "color": null,
-  "created_by": null,
   "description": "A narrow unit, mostly bed and shelving. Whoever lived here last was tidy, methodical, and is conspicuously not here anymore.",
   "exits": {
     "in": "zone_apt_3_bath",
@@ -21,6 +19,5 @@
   "map_id": "map_interior_zone_residential_lobby",
   "marker": "2C",
   "name": "Unit 2C",
-  "parent_zone": "zone_district_920_904",
-  "updated_at": "1783045464"
+  "parent_zone": "zone_district_920_904"
 }

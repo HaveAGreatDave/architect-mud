@@ -1,7 +1,6 @@
 {
   "blurb": "One long grey road hauls everything the city can’t look at out of sight.",
   "color": "#8b9097",
-  "created_by": "districts-to-content",
   "id": "ashway",
   "landmark": "ashway_road",
   "name": "the Ashway",
@@ -15,6 +14,5 @@
     "Grey light, grey ground, grey sky — the colour got hauled off with everything else."
   ],
   "skyline": "the Ashway's haul road cuts a grey scar toward the hills",
-  "sort": 130,
-  "updated_at": "1785196800"
+  "sort": 130
 }

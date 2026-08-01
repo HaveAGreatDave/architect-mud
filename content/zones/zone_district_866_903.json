@@ -1,9 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "bg_color": "#2a1c16",
   "color": "#b5744a",
-  "created_by": "wildlands-expand",
   "description": "Drifted sand banks deep against every shelf and outcrop and is swept to bare grit between them. The glare comes off it hard enough to squint at.",
   "exits": {
     "east": "zone_district_867_903",
@@ -13,7 +11,6 @@
   },
   "flags": {
     "district": "wilds",
-    "planner": "bp_district",
     "radiation": 40,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_irradiated_salvage",
@@ -25,6 +22,5 @@
   "id": "zone_district_866_903",
   "map_id": "map_world",
   "name": "Cinder Mesa",
-  "parent_zone": null,
-  "updated_at": "1784496517"
+  "parent_zone": null
 }

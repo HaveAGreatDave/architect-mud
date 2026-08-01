@@ -1,9 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "bg_color": "#2a1c16",
   "color": "#b5744a",
-  "created_by": "wildlands-expand",
   "description": "Drifted sand banks deep against every shelf and outcrop and is swept to bare grit between them. The glare comes off it hard enough to squint at.",
   "exits": {
     "north": "zone_district_890_902",
@@ -12,7 +10,6 @@
   },
   "flags": {
     "district": "wilds",
-    "planner": "bp_district",
     "radiation": 26,
     "region_id": "region_coldwater",
     "terrain": "sand"
@@ -23,6 +20,5 @@
   "id": "zone_district_890_903",
   "map_id": "map_world",
   "name": "Ferric Wash",
-  "parent_zone": null,
-  "updated_at": "1784496297"
+  "parent_zone": null
 }

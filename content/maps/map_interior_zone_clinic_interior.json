@@ -1,7 +1,5 @@
 {
-  "created_by": null,
   "entry_zone_id": "zone_clinic_interior",
   "id": "map_interior_zone_clinic_interior",
-  "parent_zone_id": "zone_district_920_906",
-  "updated_at": "1783740000"
+  "parent_zone_id": "zone_district_920_906"
 }

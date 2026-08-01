@@ -3,7 +3,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "created_by": "add-ensuite-bathroom",
   "description": "A serene private head beneath its own small skylight: pale plaster, warm oak, a walk-in shower open to the falling light. A soft-edged basin, a concealed toilet, a fogged pane that carries the weather. The door seals with a soft magnetic sigh.",
   "exits": {
     "out": "zone_solenne_apt_f"
@@ -17,6 +16,5 @@
   "id": "zone_solenne_apt_f_bath",
   "map_id": null,
   "name": "Residence 34-F — Ensuite",
-  "parent_zone": "zone_solenne_apt_f",
-  "updated_at": "1784900000"
+  "parent_zone": "zone_solenne_apt_f"
 }

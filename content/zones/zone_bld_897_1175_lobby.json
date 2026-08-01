@@ -10,9 +10,6 @@
     "A tarp corner lifts in the draught, shows a stencilled crate-mark that isn't any shipping line you know, and settles back down."
   ],
   "ambient_theme": "indoors",
-  "bg_color": null,
-  "color": null,
-  "created_by": "bb1b3a85-e716-4885-8de7-6c12a496086a",
   "description": "Corrugated walls sweating avgas and cold metal, a half-stripped flyer up on jacks, and cargo nobody's labelling stacked under tarps along the back wall. A flight-ops desk faces the apron door, its radio hissing quiet static. Whatever came in on the last plane is still here, and nobody's asking whose it is.",
   "exits": {
     "down": "zone_util_zone_bld_897_1175_lobby",
@@ -33,6 +30,5 @@
   "id": "zone_bld_897_1175_lobby",
   "map_id": "map_int_bld_897_1175",
   "name": "The Hangar Bay",
-  "parent_zone": "zone_the_reach_870_1958",
-  "updated_at": "1784516450"
+  "parent_zone": "zone_the_reach_870_1958"
 }

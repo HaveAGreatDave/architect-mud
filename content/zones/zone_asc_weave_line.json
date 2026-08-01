@@ -3,7 +3,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "created_by": "ascendant-stronghold",
   "description": "The fabrication floor, loud with the patient violence of machines that build bodies. A foreman — more chrome than not — walks the line, and will sell you components off it if he reckons you can be trusted with what they become.",
   "exits": {
     "east": "zone_district_893_907",
@@ -21,6 +20,5 @@
   "id": "zone_asc_weave_line",
   "map_id": "map_int_asc_weave",
   "name": "The Line",
-  "parent_zone": "zone_district_893_907",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_district_893_907"
 }

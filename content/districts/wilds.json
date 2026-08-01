@@ -1,7 +1,6 @@
 {
   "blurb": "The map runs out here. The land never noticed it was on one.",
   "color": "#9c5030",
-  "created_by": "districts-to-content",
   "id": "wilds",
   "landmark": null,
   "name": "the Wilds",
@@ -13,6 +12,5 @@
     "The horizon sits a very long way off, and it is in no hurry."
   ],
   "skyline": null,
-  "sort": 160,
-  "updated_at": "1785196800"
+  "sort": 160
 }

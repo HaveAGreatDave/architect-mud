@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#8a6a3a",
-  "color": null,
-  "created_by": null,
   "description": "A cramped closet off the back booth, walls furred with condensation and old beer-line runs. A grey junction cabinet hums between a stack of empty kegs and a mop bucket, breathing warm ozone into the smell of stale hops. A small sealed hacking port sits below its latch.",
   "exits": {
     "south": "zone_mq_pigeon_back"
@@ -17,6 +15,5 @@
   "id": "zone_mq_pigeon_util",
   "map_id": "map_int_mq_pigeon",
   "name": "Utility Closet",
-  "parent_zone": "zone_district_905_910",
-  "updated_at": "1783023534"
+  "parent_zone": "zone_district_905_910"
 }

@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#221e19",
-  "color": null,
-  "created_by": null,
   "description": "A glassed-in box overlooking the bullpen, wallpapered in pinned clippings and red string that may mean something or may just be the editor's idea of decor. A grimy data-broker rig hums in the corner, its screen a churn of names, timestamps and prices. The chair behind the desk is worth more than the paper, and everyone knows it.",
   "exits": {
     "west": "zone_sentinel_bullpen"
@@ -21,6 +19,5 @@
   "id": "zone_sentinel_editor",
   "map_id": "map_int_sentinel",
   "name": "Editor's Office",
-  "parent_zone": "zone_district_914_910",
-  "updated_at": "1784500000"
+  "parent_zone": "zone_district_914_910"
 }

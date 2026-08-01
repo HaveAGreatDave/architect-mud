@@ -7,8 +7,6 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#3a3026",
-  "color": null,
-  "created_by": null,
   "description": "A site shack raised on blocks, panelled in whatever was flattest that week and heated well past comfortable by a bar fire nobody is allowed to touch. The counter is a slab of scaffold board on two oil drums, worn pale in one spot where forty years of elbows have landed. Behind it: a wall of pigeonholes, each labelled in marker with a part name and a price that has been crossed out and rewritten at least twice. A set of hanging scales. A ledger, open, in handwriting that gets worse toward the bottom of every page. The window looks <b>west</b> over the yard. Out <b>east</b> to the gate.",
   "exits": {
     "east": "zone_district_918_906",
@@ -27,6 +25,5 @@
   "id": "zone_junkyard_shack",
   "map_id": "map_int_junkyard",
   "name": "Salvage Rites",
-  "parent_zone": "zone_district_918_906",
-  "updated_at": "1784600000"
+  "parent_zone": "zone_district_918_906"
 }

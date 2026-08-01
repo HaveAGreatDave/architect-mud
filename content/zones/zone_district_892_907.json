@@ -3,7 +3,6 @@
   "ambient_theme": "city",
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "created_by": "ascendant-stronghold",
   "description": "A cathedral of black glass and cold light stands with its back to the Architect's Curtain — that floor-to-sky sheet of humming hard light — as though leaning against it for warmth. Server racks glow behind the west wall in ranks like votive candles. Of everything out here, this is the only building that faces the Curtain instead of turning away from it.",
   "exits": {
     "north": "zone_asc_shrine_nave",
@@ -28,6 +27,5 @@
   "map_id": "map_world",
   "marker": "AR",
   "name": "Architect Shrine",
-  "parent_zone": null,
-  "updated_at": "1783740000"
+  "parent_zone": null
 }

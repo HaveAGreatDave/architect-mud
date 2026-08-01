@@ -3,7 +3,6 @@
   "ambient_theme": "urban",
   "bg_color": "#2c231c",
   "color": "#8ba36a",
-  "created_by": "marrow-infill",
   "description": "A narrow shopfront with its whole front wall folded open to the street and a counter running the length of it, nine stools, no tables. A steam hood over the range dumps a column of onion-and-bone smell straight into Marrow Street, which is the entire advertising budget. A paper lantern hangs where a sign should be, OYELARAN'S brushed down one side and a 9 on the other.",
   "exits": {
     "north": "zone_broth_counter",
@@ -16,7 +15,6 @@
     "entrance": "south",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_917_909"
   },
@@ -27,6 +25,5 @@
   "map_id": "map_world",
   "marker": "OY",
   "name": "Oyelaran's",
-  "parent_zone": null,
-  "updated_at": "1785200000"
+  "parent_zone": null
 }

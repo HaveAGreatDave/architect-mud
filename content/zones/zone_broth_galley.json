@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#2a2420",
-  "color": null,
-  "created_by": "marrow-infill",
   "description": "A galley barely wide enough to turn around in, dominated by a stockpot the size of a bathtub that has not been allowed to go cold in eleven years. Bundles of dried something hang from the rail. The heat in here is a physical object you have to move past.",
   "exits": {
     "west": "zone_broth_counter"
@@ -21,6 +19,5 @@
   "id": "zone_broth_galley",
   "map_id": "map_int_broth",
   "name": "Oyelaran's — Galley",
-  "parent_zone": "zone_district_917_908",
-  "updated_at": "1785200000"
+  "parent_zone": "zone_district_917_908"
 }

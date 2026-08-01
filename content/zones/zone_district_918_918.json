@@ -1,9 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "bg_color": "#3f3a34",
-  "color": "#b9a888",
-  "created_by": "zone-planner",
   "description": "The Gate Road's last clear stretch before the wall. The Curtain fills the southern sky — a floor-to-heaven sheet of hard light — pierced by the single lit throat of the South Gate just ahead.",
   "exits": {
     "east": "zone_district_919_918",
@@ -16,7 +13,6 @@
       "The Gate Road"
     ],
     "district": "wasteland",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "road"
   },
@@ -25,8 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_918_918",
   "map_id": "map_world",
-  "marker": "#",
   "name": "The Gate Road",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

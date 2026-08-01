@@ -7,7 +7,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "A vertical service shaft where the tunnel steps down a full level, an old iron ladder bolted to one weeping wall. The manhole at the top is welded fast under a street that forgot it. Everything past here is deeper than the maintenance crews ever liked to go — and it feels it.",
   "exits": {
     "north": "zone_under_eastbend",
@@ -26,6 +25,5 @@
   "map_id": "map_world",
   "marker": "╤",
   "name": "Ladder Shaft",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

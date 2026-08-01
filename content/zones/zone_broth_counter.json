@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#2c231c",
-  "color": null,
-  "created_by": "marrow-infill",
   "description": "Nine stools at a wooden counter worn pale where nine pairs of elbows go, and standing room for as many again behind them. Steam comes off the range in sheets. The menu is four items on a board and two of them have been crossed out since the board was made. Everyone eats facing the street, shoulder to shoulder with strangers, and nobody talks, and it is somehow the least lonely room on Marrow Street.",
   "exits": {
     "down": "zone_util_zone_broth_counter",
@@ -23,6 +21,5 @@
   "id": "zone_broth_counter",
   "map_id": "map_int_broth",
   "name": "Oyelaran's — The Counter",
-  "parent_zone": "zone_district_917_908",
-  "updated_at": "1785200000"
+  "parent_zone": "zone_district_917_908"
 }

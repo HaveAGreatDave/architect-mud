@@ -1,7 +1,6 @@
 {
   "blurb": "Every wall here is listening, and most of them file a report.",
   "color": "#b56fbf",
-  "created_by": "districts-to-content",
   "id": "government",
   "landmark": "gov_assembly",
   "name": "the Government District",
@@ -15,6 +14,5 @@
     "The air tastes of toner and old marble."
   ],
   "skyline": "the floodlit dome of the Assembly",
-  "sort": 20,
-  "updated_at": "1785196800"
+  "sort": 20
 }

@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#252a33",
-  "color": null,
-  "created_by": null,
   "description": "A municipal waiting room that has perfected the art of the almost-served: a ticket machine that dispenses a number you'll never hear called, a rank of bolted chairs, and a long counter behind scratched security glass. A cork wall bristles with day-work tabs and a laminated GRIEVANCE PROCEDURE that is, itself, a grievance. The whole room smells of toner and municipal patience.",
   "exits": {
     "east": "zone_district_906_911"
@@ -21,6 +19,5 @@
   "id": "zone_ward_permits",
   "map_id": "map_int_ward",
   "name": "Office of Permitted Suffering",
-  "parent_zone": "zone_district_906_911",
-  "updated_at": "1784500000"
+  "parent_zone": "zone_district_906_911"
 }

@@ -1,9 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "bg_color": "#3f3a34",
-  "color": "#b9a888",
-  "created_by": "zone-planner",
   "description": "Cracked roadway funnels south between rusted stanchions that once held signage. The hum of the Curtain is a low electric note under the wind now, and the grass gives way to bare, over-driven ground.",
   "exits": {
     "east": "zone_district_919_917",
@@ -16,7 +13,6 @@
       "The Gate Road"
     ],
     "district": "residential",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "road"
   },
@@ -25,8 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_918_917",
   "map_id": "map_world",
-  "marker": "#",
   "name": "The Gate Road",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

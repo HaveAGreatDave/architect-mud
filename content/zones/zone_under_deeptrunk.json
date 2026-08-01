@@ -7,7 +7,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "The main deep trunk under the industrial east, a broad low tunnel that gathers every line in this quarter and carries it on toward the outfall. The Watch have marked the walls here in chalk — quiet, disciplined signs for people who know to read them — because this is the last easy stretch before their door. East ties into the conduit vault; south runs on to the deep reach.",
   "exits": {
     "east": "zone_under_conduitvlt",
@@ -27,6 +26,5 @@
   "map_id": "map_world",
   "marker": "║",
   "name": "Deep Trunk",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

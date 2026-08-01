@@ -1,9 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "bg_color": "#2a1c16",
-  "color": "#b5744a",
-  "created_by": "wildlands-expand",
   "description": "A vast rust-stained plain, hammered flat and hard, printed here and there with the tracks of things that crossed it once.",
   "exits": {
     "east": "zone_district_919_928",
@@ -13,7 +10,6 @@
   },
   "flags": {
     "district": "wilds",
-    "planner": "bp_district",
     "radiation": 30,
     "region_id": "region_coldwater",
     "terrain": "dirt_road"
@@ -24,6 +20,5 @@
   "id": "zone_district_918_928",
   "map_id": "map_world",
   "name": "Ferric Wash",
-  "parent_zone": null,
-  "updated_at": "1784564533"
+  "parent_zone": null
 }

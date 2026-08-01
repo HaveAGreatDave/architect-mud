@@ -7,7 +7,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#1a201a",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "A blind pocket off the sluice line where the current dies and everything it was carrying settles out. Years of silt have built a soft bank across the back wall, and the streets above have quietly posted their losses into it the whole time. A patient searcher does well in a dead end like this.",
   "exits": {
     "north": "zone_under_sluice"
@@ -24,6 +23,5 @@
   "map_id": "map_world",
   "marker": "▒",
   "name": "Silt Pocket",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

@@ -2,14 +2,13 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#6a9a4a",
-  "color": null,
-  "created_by": null,
   "description": "A tight service room behind the walk-in freezer, throbbing with compressor drone. Frost creeps up the pipework, and the junction box sits bolted to the one dry wall, breakers labelled in fading grease-pencil for coolers long since scavenged. A small sealed hacking port sits below its latch.",
   "exits": {
     "south": "zone_mq_grocery_stock"
   },
   "flags": {
-    "is_interior": true
+    "is_interior": true,
+    "terrain": "grass"
   },
   "grid_x": 0,
   "grid_y": -2,
@@ -17,6 +16,5 @@
   "id": "zone_mq_grocery_util",
   "map_id": "map_int_mq_grocery",
   "name": "Utility Room",
-  "parent_zone": "zone_district_920_908",
-  "updated_at": "1783023538"
+  "parent_zone": "zone_district_920_908"
 }

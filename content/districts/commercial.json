@@ -1,7 +1,6 @@
 {
   "blurb": "Everything is for sale here, and most of it has been sold before.",
   "color": "#e08a4a",
-  "created_by": "districts-to-content",
   "id": "commercial",
   "landmark": "drum_shop",
   "name": "the Commercial Strip",
@@ -18,6 +17,5 @@
     "Discount holograms stutter in the windows, half their pixels dead."
   ],
   "skyline": "Second Skin's crooked sign leans over Bobbin Cut",
-  "sort": 50,
-  "updated_at": "1785196800"
+  "sort": 50
 }

@@ -4,8 +4,6 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "color": null,
-  "created_by": null,
   "description": "A small studio with a mattress, a hot plate, and a window that doesn't open. It's not much, but the door locks, and around here that's everything.",
   "exits": {
     "in": "zone_apt_1_bath",
@@ -21,6 +19,5 @@
   "map_id": "map_interior_zone_residential_lobby",
   "marker": "2A",
   "name": "Unit 2A",
-  "parent_zone": "zone_district_920_904",
-  "updated_at": "1783045464"
+  "parent_zone": "zone_district_920_904"
 }

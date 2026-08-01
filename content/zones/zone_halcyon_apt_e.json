@@ -3,7 +3,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#2c2340",
   "color": "#eae6f0",
-  "created_by": null,
   "description": "The hall’s top unit, a half-floor above its neighbours: a fold-away bed, a slim galley, and a window that turns the basin into weather you watch from above. Quiet, expensive, and empty until now.",
   "exits": {
     "down": "zone_halcyon_residences"
@@ -20,6 +19,5 @@
   "map_id": "map_int_halcyon",
   "marker": "41",
   "name": "Halcyon Residence 41-E",
-  "parent_zone": "zone_district_895_906",
-  "updated_at": "1783356329"
+  "parent_zone": "zone_district_895_906"
 }

@@ -6,15 +6,14 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#6a9a4a",
-  "color": null,
-  "created_by": null,
   "description": "A cramped stockroom walled with wire shelving and stacked pallets, the cold-store humming behind a heavy insulated door. Inventory sheets curl on a clipboard nobody has updated in weeks. It smells of cardboard, cold, and the sweetish edge of something in the back that turned before it sold. A fire exit is chained shut in flagrant violation of several dead safety codes.",
   "exits": {
     "north": "zone_mq_grocery_util",
     "south": "zone_mq_grocery"
   },
   "flags": {
-    "is_interior": true
+    "is_interior": true,
+    "terrain": "grass"
   },
   "grid_x": 0,
   "grid_y": -1,
@@ -22,6 +21,5 @@
   "id": "zone_mq_grocery_stock",
   "map_id": "map_int_mq_grocery",
   "name": "Stockroom",
-  "parent_zone": "zone_district_920_908",
-  "updated_at": "1782964407"
+  "parent_zone": "zone_district_920_908"
 }

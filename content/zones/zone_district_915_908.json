@@ -3,7 +3,6 @@
   "ambient_theme": "urban",
   "bg_color": "#2a2721",
   "color": "#8ba36a",
-  "created_by": "marrow-infill",
   "description": "A hardware shop with its stock spilling out under the awning: coils of rope, a barrel of rebar offcuts, a pallet of grey buckets. The sign reads NUTS TO THAT — WE HAVE IT, PROBABLY, and someone has amended PROBABLY in a different paint. The doorway smells of cut metal and machine oil from ten feet away.",
   "exits": {
     "north": "zone_bolt_shop",
@@ -16,7 +15,6 @@
     "entrance": "south",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_915_909"
   },
@@ -27,6 +25,5 @@
   "map_id": "map_world",
   "marker": "NT",
   "name": "Nuts to That",
-  "parent_zone": null,
-  "updated_at": "1785200000"
+  "parent_zone": null
 }

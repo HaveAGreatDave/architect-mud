@@ -1,7 +1,6 @@
 {
   "blurb": "The party never ended here; it just stopped being fun.",
   "color": "#e85aa0",
-  "created_by": "districts-to-content",
   "id": "nightlife",
   "landmark": "mq_marquee",
   "name": "the Marquee",
@@ -15,6 +14,5 @@
     "Broken neon buzzes overhead, painting the puddles pink and sick-green."
   ],
   "skyline": "the Marquee's dead neon flickers over the rooftops",
-  "sort": 60,
-  "updated_at": "1785196800"
+  "sort": 60
 }

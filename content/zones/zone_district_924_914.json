@@ -1,9 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "bg_color": "#38322b",
-  "color": "#8f8375",
-  "created_by": "zone-planner",
   "description": "Loose stone crunches underfoot, greyed with dust and old oil. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth. Tyre tracks braid off into the haze.",
   "exits": {
     "east": "zone_district_925_914",
@@ -13,7 +10,6 @@
   },
   "flags": {
     "district": "residential",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
@@ -24,8 +20,6 @@
   "grid_z": 0,
   "id": "zone_district_924_914",
   "map_id": "map_world",
-  "marker": "⳾",
   "name": "Kessler Street",
-  "parent_zone": null,
-  "updated_at": "1784342750"
+  "parent_zone": null
 }

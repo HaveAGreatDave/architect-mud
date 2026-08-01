@@ -3,7 +3,6 @@
   "ambient_theme": "urban",
   "bg_color": "#1c2626",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
   "description": "A walk-in clinic in a converted storefront, a green cross buzzing in the window over a card reader and a sign that promises WE PATCH, WE DON'T ASK. Through the glass: a row of vinyl chairs, a triage counter, and the specific fluorescent pallor of a place that has seen every way a body comes apart. The floor drain by the door is a detail you try not to think about.",
   "exits": {
     "north": "zone_district_915_909",
@@ -16,7 +15,6 @@
     "entrance": "north",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_915_909"
   },
@@ -27,6 +25,5 @@
   "map_id": "map_world",
   "marker": "WC",
   "name": "Co-Pay & Pray",
-  "parent_zone": null,
-  "updated_at": "1784500000"
+  "parent_zone": null
 }

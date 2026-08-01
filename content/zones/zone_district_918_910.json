@@ -3,7 +3,6 @@
   "ambient_theme": "urban",
   "bg_color": "#26251f",
   "color": "#8ba36a",
-  "created_by": "marrow-infill",
   "description": "A workwear outfitter on the Ironside corner, its window filled with coveralls on headless forms and a hand-painted board reading LAYERS — DRESSED FOR THE WEATHER YOU'LL GET, NOT THE ONE YOU WANT. Boots hang in pairs from the awning by their laces, swinging when the wind comes down off the water.",
   "exits": {
     "north": "zone_district_918_909",
@@ -16,7 +15,6 @@
     "entrance": "north",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_918_909"
   },
@@ -27,6 +25,5 @@
   "map_id": "map_world",
   "marker": "LY",
   "name": "Layers",
-  "parent_zone": null,
-  "updated_at": "1785200000"
+  "parent_zone": null
 }

@@ -2,8 +2,6 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#1f2b2b",
-  "color": null,
-  "created_by": null,
   "description": "A bright, over-lit triage room: a padded table under a swing-arm lamp, a glass case of supplies behind a counter, and a mop bucket standing ready by a floor drain. Posters diagram wounds with a cheerfulness the subject doesn't warrant. It's clean the way a place gets clean when it has to be — scrubbed hard, and often, and recently.",
   "exits": {
     "north": "zone_district_915_910"
@@ -21,6 +19,5 @@
   "id": "zone_meltwater_clinic",
   "map_id": "map_int_clinic",
   "name": "Co-Pay & Pray",
-  "parent_zone": "zone_district_915_910",
-  "updated_at": "1784500000"
+  "parent_zone": "zone_district_915_910"
 }

@@ -12,9 +12,6 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "bg_color": null,
-  "color": null,
-  "created_by": null,
   "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
   "exits": {
     "east": "zone_the_reach_875_1959",
@@ -24,7 +21,6 @@
   },
   "flags": {
     "lawless": true,
-    "planner": "world_editor",
     "region_id": "region_the_reach",
     "terrain": "scrub"
   },
@@ -34,6 +30,5 @@
   "id": "zone_the_reach_874_1959",
   "map_id": "map_world",
   "name": "The Reach 874,1959",
-  "parent_zone": null,
-  "updated_at": "1784533789"
+  "parent_zone": null
 }

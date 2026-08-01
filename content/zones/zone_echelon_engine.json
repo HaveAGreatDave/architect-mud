@@ -7,7 +7,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#0c0a08",
   "color": "#ffcf9a",
-  "created_by": "echelon",
   "description": "The engine room. The Echelon's propulsion core fills the space floor to ceiling — a seamless black cylinder ringed in cooling fins, generating both the thrust that moves the vessel and the power that feeds every screen and lock aboard. It runs so quietly that the silence itself is unnerving. The engineering corridor lies to the SOUTH.",
   "exits": {
     "south": "zone_echelon_engineering"
@@ -28,6 +27,5 @@
   "id": "zone_echelon_engine",
   "map_id": "map_echelon",
   "name": "Echelon — Engine Room",
-  "parent_zone": "zone_echelon_exterior",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_echelon_exterior"
 }

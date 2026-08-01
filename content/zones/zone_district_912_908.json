@@ -3,7 +3,6 @@
   "ambient_theme": "urban",
   "bg_color": "#2a241d",
   "color": "#8ba36a",
-  "created_by": "marrow-infill",
   "description": "Four floors of discount department store wearing a banner that just says ADEQUATE! in letters tall enough to read from the water. The ground-floor windows are a wall of mannequins in this season's one coat, each posed mid-shrug. A tannoy leaks out under the doors, announcing a sale that has been running since before the lights went out.",
   "exits": {
     "north": "zone_adequate_floor",
@@ -16,7 +15,6 @@
     "entrance": "south",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_912_909"
   },
@@ -27,6 +25,5 @@
   "map_id": "map_world",
   "marker": "AD",
   "name": "Adequate!",
-  "parent_zone": null,
-  "updated_at": "1785200000"
+  "parent_zone": null
 }

@@ -1,9 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "bg_color": "#1d3b52",
   "color": "#3f7fb0",
-  "created_by": "wildlands-expand",
   "description": "Deep water, and it feels deep — a heaviness under the swell, a temperature that finds its way through whatever you're wearing. Far out, something breaks the surface and is gone before you've finished turning your head.",
   "exits": {
     "east": "zone_district_900_936",
@@ -13,7 +11,6 @@
   },
   "flags": {
     "district": "wilds",
-    "planner": "bp_district",
     "radiation": 35,
     "region_id": "region_coldwater",
     "terrain": "water"
@@ -24,6 +21,5 @@
   "id": "zone_district_899_936",
   "map_id": "map_world",
   "name": "The Meltwater Mouth",
-  "parent_zone": null,
-  "updated_at": "1784496296"
+  "parent_zone": null
 }

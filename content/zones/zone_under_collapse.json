@@ -7,7 +7,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c241f",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "The channel ends in a wall of collapsed masonry — a whole section of roof come down, packed floor to ceiling with broken brick, root, and rebar. Cold air leaks through the cracks, carrying the sound of deeper tunnels running on beyond. There is no way through. Not yet.",
   "exits": {
     "east": "zone_under_confluence"
@@ -24,6 +23,5 @@
   "map_id": "map_world",
   "marker": "▩",
   "name": "Collapsed Tunnel",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

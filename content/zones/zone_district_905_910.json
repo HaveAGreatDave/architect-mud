@@ -3,7 +3,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "created_by": "zone-planner",
   "description": "The face of The Dead Pigeon.",
   "exits": {
     "north": "zone_district_905_909",
@@ -16,7 +15,6 @@
     "entrance": "north",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_905_909"
   },
@@ -27,6 +25,5 @@
   "map_id": "map_world",
   "marker": "TD",
   "name": "The Dead Pigeon",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

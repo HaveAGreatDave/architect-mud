@@ -7,7 +7,6 @@
   "ambient_theme": "indoors",
   "bg_color": "#182420",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "A dead-end overflow chamber, half-drowned, where the storm system dumps its excess and forgets it. Flotsam has collected here for years against the weir — and with it, whatever the current stole from the streets above and carried down. A patient scavenger does well in a room like this.",
   "exits": {
     "east": "zone_under_sluice",
@@ -25,6 +24,5 @@
   "map_id": "map_world",
   "marker": "◌",
   "name": "Overflow Chamber",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

@@ -1,7 +1,6 @@
 {
   "blurb": "Nothing good stays alive out here for long. Neither will you.",
   "color": "#e05555",
-  "created_by": "districts-to-content",
   "id": "hazard",
   "landmark": null,
   "name": "a Hazard Zone",
@@ -13,6 +12,5 @@
     "A hot, oily wind carries a taste you’ll spend the day trying to spit out."
   ],
   "skyline": null,
-  "sort": 200,
-  "updated_at": "1785196800"
+  "sort": 200
 }

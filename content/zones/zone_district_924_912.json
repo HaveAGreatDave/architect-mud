@@ -3,7 +3,6 @@
   "ambient_theme": "residential",
   "bg_color": "#332e28",
   "color": "#b89a72",
-  "created_by": "zone-planner",
   "description": "A narrow shopfront wedged between the modular housing stacks, its window crammed with the honest clutter of a repair trade — dead radios, a wall of salvaged hand tools, a hand-lettered card reading FIX-IT: IF IT RAN ONCE, IT'LL RUN AGAIN. No screens, no terminals, nothing that talks back to the grid. A bell hangs over the door. It smells of solder and machine oil.",
   "exits": {
     "north": "zone_lw_shop",
@@ -16,7 +15,6 @@
     "entrance": "south",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "street_life": true,
     "world_exit_zone": "zone_district_924_913"
@@ -28,6 +26,5 @@
   "map_id": "map_world",
   "marker": "HF",
   "name": "Halloran's Fix-It",
-  "parent_zone": null,
-  "updated_at": "1784342750"
+  "parent_zone": null
 }
