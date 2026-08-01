@@ -34,6 +34,16 @@ export const GLOBAL_DEFAULTS = Object.freeze({
  * ground surface" — an interior room, a building footprint. The spec floated a
  * palette-wide `default` to fill that in; applying one would paint 530 interiors
  * and footprints concrete grey, so there is deliberately no default rung.
+ *
+ * NOTHING HERE READS PRESENTATION. A green-dominant `bg_color` used to resolve to
+ * `grass` — a bridge built when tiles had colours but no terrain painter, and
+ * harmless only for as long as nobody turned `bg_color`. `bg_color` is now the
+ * per-tile map override (§ tile-presentation-overrides), a knob the Studio invites
+ * you to turn, so that rung became a way to reclassify a room by tinting it — and
+ * `flags.terrain` is the SSOT `resolveProps` reads. Cosmetics read from terrain;
+ * they must never write back to it. The 42 tiles that resolved that way say it in
+ * the flag now (scripts/content/tile-override-cleanup.mjs) and the rung is gone.
+ * The rungs below survive because they read FLAGS, not presentation.
  */
 export function resolveTerrain(zone) {
   const f = zone?.flags || {};
@@ -49,12 +59,6 @@ export function resolveTerrain(zone) {
   // A building footprint is not ground. (buildingIconSvg's condition: the facade
   // tag present at all, plus a building_type to pick an icon by.)
   if (Object.prototype.hasOwnProperty.call(f, 'facade') && String(f.building_type || '')) return null;
-  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(zone?.bg_color || '');
-  if (m) {
-    const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
-    // Green-dominant surface = parkland/grass. `g - b >= 15` keeps teal docks out.
-    if (g > r && g - b >= 15 && g >= 45) return 'grass';
-  }
   return null;
 }
 
@@ -165,24 +169,26 @@ export function paletteEntry(zone, palette) {
 }
 
 /**
- * The tile's map colours.
+ * The tile's map colours. AUTHORED BEATS DERIVED, with no exception list.
  *
- * `authored_bg_wins` is the legacy exception, and it is a palette FACT rather
- * than an `if (terrain === 'water' || terrain === 'grass')` repeated in three
- * renderers. Everywhere else a tile's `bg_color` is its room colour identity —
- * 2,923 redrock tiles carry a dark interior brown — so treating it as a map
- * override would black out most of the world. See the palette file's note.
+ * This used to ask the palette FIRST and reach the tile only through an
+ * `authored_bg_wins` flag that was true on three terrains, so 3,484 authored
+ * fills and 150 authored glyph colours were read and thrown away. That guardrail
+ * was not defending a second meaning — nothing renders `zones.bg_color`, every
+ * consumer colours from `spec.fill` — it was defending against the pre-terrain
+ * bulk fill sitting in the same column (2,923 redrock tiles carrying a room
+ * brown). tile-override-cleanup.mjs cleared that fill, on the argument that a
+ * value derive has always discarded cannot be authorship: nobody has ever seen
+ * one work. With the column holding only deliberate overrides, the guardrail has
+ * nothing left to guard and the field means what the Studio always said it did.
+ *
+ * Falling all the way through to contrast means `text` is FINAL — a renderer
+ * never has to decide anything, which is the whole point of §2.3.
  */
 export function deriveColors(zone, palette) {
   const entry = paletteEntry(zone, palette);
-  const bg = entry
-    ? ((entry.authored_bg_wins && zone?.bg_color) ? zone.bg_color : (entry.fill ?? null))
-    : (zone?.bg_color ?? null);
-  // A terrain that dictates its own glyph colour (road markings) wins over the
-  // tile's authored one: the markings ARE the road, not a per-tile decision.
-  // Falling all the way through to contrast means `text` is FINAL — a renderer
-  // never has to decide anything, which is the whole point of §2.3.
-  const color = entry?.text ?? zone?.color ?? contrastText(bg);
+  const bg = zone?.bg_color ?? entry?.fill ?? null;
+  const color = zone?.color ?? entry?.text ?? contrastText(bg);
   return { color, bg_color: bg };
 }
 
@@ -365,10 +371,10 @@ export function assignBuildingMarkers(zones) {
 // building markers this can only be right if something sees the whole map at once.
 // `ctx.byCell` is the coordinate index deriveWorld builds in the same pass.
 //
-// This is the third copy of one rule and the last: world.js `roadConnector` computes
-// it live per map payload, tools/zone-planner `roadIcon` bakes it into `flags.icon`
-// at export, and both answer the same question off the same adjacency. Here it lands
-// in the spec, so a renderer draws the network instead of re-deriving it.
+// This is the second copy of one rule and the last: world.js `roadConnector` computes
+// it live per map payload off the same adjacency (a third, the zone-planner's
+// export-time `roadIcon` bake, died with that tool). Here it lands in the spec, so a
+// renderer draws the network instead of re-deriving it.
 //
 // TWO TILES JOIN WHEN BOTH TERRAINS AUTO-TILE. Today that set is exactly
 // {road, dirt_road}, which reproduces world.js's `isRoadTerrain` deliberately: a
@@ -549,31 +555,33 @@ export function featureProvenance(zone, autoTile = null) {
  *   art       sewer-corridor connectivity art: the tile's own drawing, like a road
  *             connector, so it survives every overlay mode and is never toggled off
  *
- * PAINTED GROUND NEVER CARRIES A LABEL. 870 tiles author a terrain decoration in
- * `zones.marker` (`#` on grass, `≈` on water, six textures on road) and the map has
- * never drawn one — `symFor` letters a building and paints the tile's art everywhere
- * else. Suppressing them here rather than in each renderer is what stopped the Studio
- * lettering the grasslands `# # # #`: it was drawing the spec faithfully, and the
- * spec was describing a tile the game abandoned.
+ * PAINTED GROUND USED TO BE UNLABELLABLE, and that rule is gone. It read
+ * `if (resolveTerrain(zone)) return null`, and it existed because 860 tiles authored
+ * a terrain DECORATION in `zones.marker` (`#` on grass, `≈` on water, six textures on
+ * road) which, drawn, letters the grasslands `# # # #`. Suppressing every marker on
+ * every painted tile was the cheapest way to not draw them — at the cost of the
+ * deliberate per-tile symbol, which is the thing the field is FOR.
  *
- * AND A BUILDING CARRYING TERRAIN IS A CONTENT BUG, NOT A CASE TO HANDLE HERE. Two
- * tiles were in that state — Hall of Records (a poured-concrete civic building
- * flagged `terrain: road`) and Halloran's Fix-It (a shopfront flagged `grass`) — and
- * both had silently lost their navigable codes, on the map and on the tablet, because
- * `resolveTerrain` reads `flags.terrain` before it reads its own "a building
- * footprint is not ground" rung.
+ * The decorations were deleted instead (tile-override-cleanup.mjs), so the rule has
+ * nothing left to suppress and a marker now means what the Studio says it means.
+ * Bare painted ground is still the shipped look: no terrain carries a palette
+ * `glyph`, and that slot — not the tile — is where "grass looks stippled" belongs if
+ * it ever comes back.
  *
- * The first fix attempted here was `&& !isBuildingTile(zone)`, which would have let a
- * building keep its code over painted ground. Two regress laws refused it, correctly:
- * one of those tiles auto-tiles as a ROAD, and a road that wears a label is a road the
- * overlay toggle can stamp letters on. The paint stroke was the defect. It is removed
- * from the two files, `content:lint` now errors on the combination, and the Studio
- * refuses to paint ground onto a building — so the rule below stays one line.
+ * A BUILDING CARRYING TERRAIN IS STILL A CONTENT BUG. Two tiles were in that state —
+ * Hall of Records (a poured-concrete civic building flagged `terrain: road`) and
+ * Halloran's Fix-It (a shopfront flagged `grass`) — and both had silently lost their
+ * navigable codes, because `resolveTerrain` reads `flags.terrain` before it reads its
+ * own "a building footprint is not ground" rung. Removing the rule here does not make
+ * that combination legal: it is removed from the two files, `content:lint` errors on
+ * it, and the Studio refuses to paint ground onto a building. What the old rule did
+ * incidentally — keep a labelled road from being a road the overlay toggle can stamp
+ * letters on — is now held by those three, plus the fact that no road tile authors a
+ * marker any more.
  */
 export function deriveLabel(zone, palette, ctx = {}) {
   const text = deriveMarker(zone, palette, ctx);
   if (!text) return null;
-  if (resolveTerrain(zone)) return null;
   const kind = isBuildingTile(zone) ? 'building' : (isSewerTile(zone) ? 'art' : 'room');
   return { text, kind };
 }

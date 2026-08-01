@@ -726,8 +726,8 @@ export async function apiCreateZone(body,auth,opts={}) {
   const colsErr = zoneColumnsError(body);
   if (colsErr) return { status:400, body:{ error: colsErr } };
   try {
-    await query(`INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,created_by,map_id,grid_x,grid_y,grid_z,marker,color,bg_color,audio_theme_id,parent_zone) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
-      [id,body.name||'Unnamed Zone',body.description||'An empty place.',JSON.stringify(body.exits||{}),JSON.stringify(body.ambient_events||[]),body.ambient_theme||'indoors',JSON.stringify(body.flags||{}),auth?.playerId,body.map_id||null,body.grid_x??null,body.grid_y??null,body.grid_z??0,body.marker||null,body.color||null,body.bg_color||null,body.audio_theme_id||null,body.parent_zone||null]);
+    await query(`INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,map_id,grid_x,grid_y,grid_z,marker,color,bg_color,audio_theme_id,parent_zone) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+      [id,body.name||'Unnamed Zone',body.description||'An empty place.',JSON.stringify(body.exits||{}),JSON.stringify(body.ambient_events||[]),body.ambient_theme||'indoors',JSON.stringify(body.flags||{}),body.map_id||null,body.grid_x??null,body.grid_y??null,body.grid_z??0,body.marker||null,body.color||null,body.bg_color||null,body.audio_theme_id||null,body.parent_zone||null]);
     if (body.flags?.is_apartment) await ensureApartmentRow(id);
     await reloadZone(id);
     // skipHooks: bulk callers (e.g. region_create) insert a batch of tiles whose exits
@@ -758,7 +758,10 @@ export async function apiUpdateZone(id,body) {
   if (body.ambient_events!==undefined) { sets.push(`ambient_events=$${i++}`); vals.push(JSON.stringify(body.ambient_events)); }
   if (body.ambient_theme!==undefined) { sets.push(`ambient_theme=$${i++}`); vals.push(body.ambient_theme); }
   if (body.flags!==undefined) { sets.push(`flags=$${i++}`); vals.push(JSON.stringify(body.flags)); }
-  sets.push(`updated_at=EXTRACT(EPOCH FROM NOW())`);
+  // An empty body used to still produce valid SQL, because `updated_at` was always
+  // appended to `sets`. With that column gone a no-field update would build
+  // `SET  WHERE`, so say nothing-to-do out loud instead of syntax-erroring.
+  if (!sets.length) return { status:200, body:{ id, message:'Nothing to update' } };
   vals.push(id);
   try {
     await query(`UPDATE zones SET ${sets.join(',')} WHERE id=$${i}`,vals);
@@ -784,8 +787,8 @@ export async function apiPatchZoneTag(id, body) {
   }
   try {
     const { rowCount } = clearing
-      ? await query(`UPDATE zones SET flags = flags - $1, updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$2`, [name, id])
-      : await query(`UPDATE zones SET flags = flags || $1::jsonb, updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$2`,
+      ? await query(`UPDATE zones SET flags = flags - $1 WHERE id=$2`, [name, id])
+      : await query(`UPDATE zones SET flags = flags || $1::jsonb WHERE id=$2`,
           [JSON.stringify({ [name]: value }), id]);
     if (!rowCount) return { status:404, body:{ error:`No zone "${id}"` } };
     await reloadZone(id);
@@ -929,10 +932,10 @@ async function apiBuildBuilding(body, auth) {
         [buildingName, facadeDesc, JSON.stringify(facadeExits), JSON.stringify(facadeFlags), facadeId]);
     } else {
       await query(
-        `INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,map_id,grid_x,grid_y,grid_z,parent_zone,created_by)
-         VALUES ($1,$2,$3,$4,'[]','outdoors',$5,$6,$7,$8,$9,NULL,$10)`,
+        `INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,map_id,grid_x,grid_y,grid_z,parent_zone)
+         VALUES ($1,$2,$3,$4,'[]','outdoors',$5,$6,$7,$8,$9,NULL)`,
         [facadeId, buildingName, facadeDesc, JSON.stringify(facadeExits), JSON.stringify(facadeFlags),
-         mapId, toX, toY, toZ, auth?.playerId || null]);
+         mapId, toX, toY, toZ]);
     }
     // Every standable neighbour gets a reciprocal exit INTO the facade (entry from any
     // side + door resolution). A converted ground tile already has these; fill any gaps.
@@ -958,9 +961,9 @@ async function apiBuildBuilding(body, auth) {
 
     // 2) Interior map (facade → lobby).
     await query(
-      `INSERT INTO maps (id, name, parent_zone_id, entry_zone_id, created_by)
-       VALUES ($1,$2,$3,$4,$5) ON CONFLICT (id) DO UPDATE SET parent_zone_id=$3, entry_zone_id=$4`,
-      [interiorMapId, `${buildingName} — Interior`, facadeId, lobbyId, auth?.playerId || null]
+      `INSERT INTO maps (id, name, parent_zone_id, entry_zone_id)
+       VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO UPDATE SET parent_zone_id=$3, entry_zone_id=$4`,
+      [interiorMapId, `${buildingName} — Interior`, facadeId, lobbyId]
     );
 
     // 3) Lobby (entry room) + any template rooms, wired reciprocally. parent_zone=facade
@@ -970,21 +973,21 @@ async function apiBuildBuilding(body, auth) {
     const lobbyExits = { [backDir]: facadeId };
     for (const r of rooms) lobbyExits[r.dir] = r.id;
     await query(
-      `INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,map_id,grid_x,grid_y,grid_z,parent_zone,created_by)
-       VALUES ($1,$2,$3,$4,'[]','indoors',$5,$6,0,0,0,$7,$8)
+      `INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,map_id,grid_x,grid_y,grid_z,parent_zone)
+       VALUES ($1,$2,$3,$4,'[]','indoors',$5,$6,0,0,0,$7)
        ON CONFLICT (id) DO UPDATE SET name=$2, description=$3, exits=$4, flags=$5, map_id=$6, grid_x=0, grid_y=0, grid_z=0, parent_zone=$7`,
       [lobbyId, tmpl.lobbyName || 'Lobby', tmpl.lobbyDesc || 'An interior room.',
-       JSON.stringify(lobbyExits), JSON.stringify(lobbyFlags), interiorMapId, facadeId, auth?.playerId || null]
+       JSON.stringify(lobbyExits), JSON.stringify(lobbyFlags), interiorMapId, facadeId]
     );
     for (const r of rooms) {
       const off = BUILD_DIR_OFF[r.dir];
       await query(
-        `INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,map_id,grid_x,grid_y,grid_z,parent_zone,created_by)
-         VALUES ($1,$2,$3,$4,'[]','indoors',$5,$6,$7,$8,0,$9,$10)
+        `INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,map_id,grid_x,grid_y,grid_z,parent_zone)
+         VALUES ($1,$2,$3,$4,'[]','indoors',$5,$6,$7,$8,0,$9)
          ON CONFLICT (id) DO UPDATE SET name=$2, description=$3, exits=$4, flags=$5, map_id=$6, grid_x=$7, grid_y=$8, parent_zone=$9`,
         [r.id, r.name, r.desc, JSON.stringify({ [OPPOSITE[r.dir]]: lobbyId }),
          JSON.stringify({ is_building: true, is_interior: true, world_exit_zone: facadeId }),
-         interiorMapId, off[0], off[1], facadeId, auth?.playerId || null]
+         interiorMapId, off[0], off[1], facadeId]
       );
     }
 
@@ -1181,8 +1184,8 @@ async function apiLinkInterior(body, auth) {
   } else {
     const mapId = `map_int_${Date.now()}`;
     await query(
-      `INSERT INTO maps (id, name, parent_zone_id, entry_zone_id, created_by) VALUES ($1,$2,$3,$4,$5)`,
-      [mapId, extZone.name + ' — Interior', exteriorZoneId, interiorZoneId, auth?.playerId]
+      `INSERT INTO maps (id, name, parent_zone_id, entry_zone_id) VALUES ($1,$2,$3,$4)`,
+      [mapId, extZone.name + ' — Interior', exteriorZoneId, interiorZoneId]
     );
     const { rows } = await query('SELECT * FROM maps WHERE id=$1', [mapId]);
     interiorMap = rows[0];
@@ -1413,19 +1416,19 @@ async function apiGetSpatialRegions() {
 
 // Add a regions row (used by the staging publisher). Idempotent.
 export async function apiCreateRegion(row) {
-  const { id, name, base_terrain = null, grid_z = 0, created_by = null } = row || {};
+  const { id, name, base_terrain = null, grid_z = 0 } = row || {};
   if (!id || !name) return { status: 400, body: { error: 'region id and name are required.' } };
   try {
     await query(
-      `INSERT INTO regions (id, name, base_terrain, grid_z, created_by, updated_at)
-       VALUES ($1,$2,$3,$4,$5,EXTRACT(EPOCH FROM NOW())) ON CONFLICT (id) DO NOTHING`,
-      [id, name, base_terrain, grid_z, created_by]);
+      `INSERT INTO regions (id, name, base_terrain, grid_z)
+       VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING`,
+      [id, name, base_terrain, grid_z]);
     return { status: 201, body: { id } };
   } catch (e) { return { status: 400, body: { error: e.message } }; }
 }
 
 // Plan a blank region: a width×height rectangle of walkable terrain tiles with
-// reciprocal N/S/E/W exits (the canonical zone-planner ORTHO pattern). Returns
+// reciprocal N/S/E/W exits (the canonical ORTHO pattern). Returns
 // { region, zones } for staging; never writes. Overlap-checked against every
 // placed tile on the target floor (covers other regions + the legacy cluster).
 export async function apiGenerateRegion(body, auth) {
@@ -1479,13 +1482,10 @@ export async function apiGenerateRegion(body, auth) {
       ambient_theme: 'outdoors',
       map_id: 'map_world',
       grid_x: x, grid_y: y, grid_z: gridZ,
-      flags: { terrain, region_id: regionId, planner: 'world_editor' },
+      flags: { terrain, region_id: regionId },
     });
   }
-  const region = {
-    id: regionId, name, base_terrain: terrain, grid_z: gridZ,
-    created_by: auth?.playerId || 'world-editor',
-  };
+  const region = { id: regionId, name, base_terrain: terrain, grid_z: gridZ };
   return { status: 200, body: { region, zones } };
 }
 
@@ -1586,8 +1586,8 @@ async function apiCreateMap(body, auth) {
   if (!body.name) return { status:400, body:{error:'name is required'} };
   try {
     await query(
-      `INSERT INTO maps (id,name,parent_zone_id,entry_zone_id,created_by) VALUES ($1,$2,$3,$4,$5)`,
-      [id, body.name, body.parent_zone_id||null, body.entry_zone_id||null, auth?.playerId]
+      `INSERT INTO maps (id,name,parent_zone_id,entry_zone_id) VALUES ($1,$2,$3,$4)`,
+      [id, body.name, body.parent_zone_id||null, body.entry_zone_id||null]
     );
     return { status:201, body:{ id, message:'Map created' } };
   } catch(e) { return { status:400, body:{error:e.message} }; }
@@ -1626,13 +1626,13 @@ async function apiSaveMapLayout(mapId, body) {
     await client.query('BEGIN');
     for (const p of positions) {
       await client.query(
-        `UPDATE zones SET grid_x=$2, grid_y=$3, grid_z=$4, map_id=COALESCE($5,map_id), updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$1`,
+        `UPDATE zones SET grid_x=$2, grid_y=$3, grid_z=$4, map_id=COALESCE($5,map_id) WHERE id=$1`,
         [p.id, p.grid_x ?? null, p.grid_y ?? null, p.grid_z ?? 0, p.map_id || mapId]
       );
     }
     for (const [zoneId, exits] of Object.entries(exitEdits)) {
       await client.query(
-        `UPDATE zones SET exits=$2, updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$1`,
+        `UPDATE zones SET exits=$2 WHERE id=$1`,
         [zoneId, JSON.stringify(exits || {})]
       );
     }

@@ -594,8 +594,6 @@
       help: 'Destination zone id. The first time a player enters this tile, a one-off GPS route is plotted there (a pre-quest nudge toward a starter NPC/place). Handled by the lore plugin.' },
     gps_suggest_label: { label: 'GPS Suggestion Label', shape: 'text', scope: 'zone', group: 'Zone: Identity',
       help: 'Optional hint text shown with the gps_suggest route line (e.g. why to go there).' },
-    planner: { label: 'Planner Blueprint', shape: 'text', scope: 'zone', group: 'Zone: Identity',
-      help: 'Provenance marker: the blueprint id that generated this zone (tools/zone-planner). Re-running that blueprint may reassert this zone\'s grid position and planner-drawn exits.' },
     region_id: { label: 'Region (spatial)', shape: 'ref', refTable: 'regions', scope: 'zone', group: 'Zone: Identity',
       help: 'Spatial region membership: the regions.id this tile belongs to (dev-panel World Editor). Distinct from "District Override" above (land-use). Selecting/moving a region acts on every zone sharing this id.' },
     // `ref` rather than `text` so the Studio renders a picker of the assets that
@@ -717,8 +715,10 @@
     //
     // Deliberately absent, and regress holds the line on the list: `id` (the
     // frozen pk, spec §4), `flags` (the bag every other entry describes),
-    // `exits` (leaving content, spec §5), `stains` (runtime), and
-    // `created_by`/`updated_at` (provenance, never hand-edited).
+    // `exits` (leaving content, spec §5) and `stains` (runtime). The two
+    // provenance columns that used to sit on this list — `created_by` and
+    // `updated_at` — are no columns at all now: both were write-only, and both
+    // were dropped 2026-08-01 with the zone planner. Git is the record.
     'zone:name': { label: 'Name', shape: 'text', scope: 'zone_column', group: 'Zone: Identity', order: 1,
       help: 'The room title shown at the top of every look.' },
     'zone:description': { label: 'Description', shape: 'text', scope: 'zone_column', group: 'Zone: Identity', order: 2,
@@ -732,12 +732,16 @@
     'zone:ambient_events': { label: 'Ambient Events', shape: 'list', scope: 'zone_column', group: 'Zone: Identity', order: 5,
       help: 'Per-tile ambience lines, e.g. ["A pipe knocks somewhere in the walls."]. Any entry here wins over the global pool the Ambient Theme selects.' },
 
+    // All three BEAT the terrain palette, on every terrain, with no exception list —
+    // and until 2026-08-01 two of them did not, which is why these strings now say
+    // what blank gives you rather than only what the field is. Leave one empty and
+    // the tile derives it; type one and the map obeys.
     'zone:marker': { label: 'Map Marker', shape: 'text', scope: 'zone_column', group: 'Zone: Presentation', order: 1,
-      help: 'Up to 2 characters drawn on the map for this tile. An OVERRIDE of the code the build derives from the building name.' },
+      help: 'Up to 2 characters drawn on the map for this tile. Beats the code the build derives (a building\'s acronym, an apartment\'s floor, a sewer run\'s corridor art). Leave it empty and the tile derives its own; painted ground no longer suppresses it.' },
     'zone:color': { label: 'Marker Colour', shape: 'text', scope: 'zone_column', group: 'Zone: Presentation', order: 2,
-      help: 'CSS colour for the marker glyph. An OVERRIDE of the terrain palette.' },
+      help: 'CSS colour for the marker glyph. Beats the terrain palette. Leave it empty and the tile takes the terrain\'s glyph colour, or a readable contrast against its fill.' },
     'zone:bg_color': { label: 'Tile Colour', shape: 'text', scope: 'zone_column', group: 'Zone: Presentation', order: 3,
-      help: 'CSS fill for the tile. An OVERRIDE of the terrain palette.' },
+      help: 'CSS fill for the tile. Beats the terrain palette. Leave it empty and the tile takes the terrain\'s fill — which is what almost every tile should do; an override is for the one that has earned looking different.' },
 
     'zone:map_id': { label: 'Map', shape: 'ref', refTable: 'maps', scope: 'zone_column', group: 'Zone: Geometry', order: 1,
       help: 'Which map this tile sits on (map_world for the overworld, an interior map for a room).' },

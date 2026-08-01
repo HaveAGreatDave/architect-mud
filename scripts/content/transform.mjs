@@ -464,7 +464,6 @@ export function planMove(tree, facadeId, toX, toY, opts = {}) {
     ambient_theme: facade.ambient_theme,
     ambient_events: facade.ambient_events ?? [],
     audio_theme_id: facade.audio_theme_id ?? null,
-    created_by: facade.created_by ?? null,
     flags: { ...facade.flags, ...cellFlags, entrance: ent, world_exit_zone: street.id },
     exits: { [ent]: street.id },
   };
@@ -491,10 +490,6 @@ export function planMove(tree, facadeId, toX, toY, opts = {}) {
     ambient_theme: donor.ambient_theme,
     ambient_events: [],
     audio_theme_id: donor.audio_theme_id ?? null,
-    // The prose in this row is the donor's, so the byline is too. Leaving the
-    // building's `created_by` on a tile that no longer says anything the building
-    // wrote is a provenance trail pointing at the wrong author.
-    created_by: donor.created_by ?? null,
     flags: groundFlags,
     exits: {},
   };

@@ -66,14 +66,27 @@ export const SCHEMA_SQL = `
     description TEXT NOT NULL,
     ambient_events JSONB DEFAULT '[]',
     exits JSONB DEFAULT '{}',
-    flags JSONB DEFAULT '{}',
-    created_by TEXT,
-    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+    flags JSONB DEFAULT '{}'
   );
   ALTER TABLE zones DROP COLUMN IF EXISTS danger_rating;
   ALTER TABLE zones DROP COLUMN IF EXISTS pvp_enabled;
   ALTER TABLE zones DROP COLUMN IF EXISTS radiation_level;
   ALTER TABLE zones DROP COLUMN IF EXISTS is_safe_zone;
+  -- created_by left zones/maps/regions/districts 2026-08-01. It was write-only
+  -- provenance -- the NAME OF THE TOOL that typed the row (wildlands-expand,
+  -- zone-planner, sewer-grid, a raw player uuid on seven of them) -- and nothing
+  -- ever read it back: not the engine, not the dev panel, not the Studio. Git is
+  -- the authorship record for content now, and it is a better one. Dropped with
+  -- the zone planner, whose flags.planner was the same idea in the flags bag.
+  -- (Each sibling table drops its own copy right after its CREATE, below.)
+  ALTER TABLE zones DROP COLUMN IF EXISTS created_by;
+  -- updated_at went the same way, 2026-08-01, and for the same reason: every
+  -- reference to it on these four tables was a WRITE. Nothing selected it -- not
+  -- a staleness check, not the deploy, not a panel showing when a room last
+  -- changed. Git has the timestamp, per row, with the diff attached. (The
+  -- updated_at on player/rep/broadcast tables is load-bearing and stays: rep
+  -- decay reads it. This drop is scoped to the four content tables.)
+  ALTER TABLE zones DROP COLUMN IF EXISTS updated_at;
 
   -- Maps are grid containers. The world is one map (map_world); each
   -- building interior is its own map, so a building takes a single cell on
@@ -84,10 +97,10 @@ export const SCHEMA_SQL = `
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     parent_zone_id TEXT,
-    entry_zone_id TEXT,
-    created_by TEXT,
-    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+    entry_zone_id TEXT
   );
+  ALTER TABLE maps DROP COLUMN IF EXISTS created_by;
+  ALTER TABLE maps DROP COLUMN IF EXISTS updated_at;
 
   -- Regions are a SPATIAL grouping of map_world zones — a named rectangle of
   -- the global grid, authored via the dev-panel World Editor. Member zones carry
@@ -102,10 +115,10 @@ export const SCHEMA_SQL = `
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     base_terrain TEXT,
-    grid_z INTEGER DEFAULT 0,
-    created_by TEXT,
-    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+    grid_z INTEGER DEFAULT 0
   );
+  ALTER TABLE regions DROP COLUMN IF EXISTS created_by;
+  ALTER TABLE regions DROP COLUMN IF EXISTS updated_at;
   -- Static per-region climate lean read by the weather field sampler:
   -- { temp: <°C offset>, dryness: <0..1 precip/cloud multiplier> }. NULL = baseline.
   ALTER TABLE regions ADD COLUMN IF NOT EXISTS climate_bias JSONB;
@@ -160,10 +173,10 @@ export const SCHEMA_SQL = `
     skyline TEXT,
     signature JSONB,
     prefixes JSONB,
-    sort INTEGER DEFAULT 0,
-    created_by TEXT,
-    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+    sort INTEGER DEFAULT 0
   );
+  ALTER TABLE districts DROP COLUMN IF EXISTS created_by;
+  ALTER TABLE districts DROP COLUMN IF EXISTS updated_at;
 
   -- EVERYTHING THE BUILD RESOLVED, one row per zone. TRUNCATEd and rebuilt by the
   -- derive pass of content:import (docs/proposals/map-pipeline-spec.md §2.1) —

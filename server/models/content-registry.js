@@ -100,10 +100,16 @@ export const REGISTRY = [
     //   audio_theme_id — the song its region supplies (regions.defaults, §1.3)
     //   marker         — the map code deriveMarker computes (§7.4): a building's
     //                    acronym, an apartment's floor, a sewer run's corridor art
-    // color/bg_color stay off this list on purpose: they are the ROOM's colour
-    // identity, read for any tile the palette has nothing to say about, not an
-    // override of a derived fill (see content/map/terrain.json's authored_bg_wins).
-    omitWhenNull: ['audio_theme_id', 'marker'],
+    //   color/bg_color — the fill and glyph colour the terrain palette supplies
+    // color/bg_color JOINED this list on 2026-08-01. They were held off it on the
+    // belief that they were the ROOM's colour identity rather than an override of a
+    // derived fill — but nothing renders `zones.bg_color`, every consumer colours
+    // from `spec.fill`, and what the column actually held was pre-terrain bulk fill
+    // that derive discarded on 3,484 tiles. That fill is cleared and the precedence
+    // is authored-first, so they are overrides like the two above and an absent key
+    // is how a tile says "whatever the palette gives me".
+    // See docs/proposals/tile-presentation-overrides.md.
+    omitWhenNull: ['audio_theme_id', 'marker', 'color', 'bg_color'],
     runtimeInserts: 'environment.js power/junction rooms; broadcast studio builder (dev-gated)',
     note: 'exits/tags are authored content but runtime systems may also wire them (power rooms, studios) — a known, drift-report-visible seam' },
   // `parent_zone_id` is the SINGLE place a map's world anchor is decided; every

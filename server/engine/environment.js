@@ -1894,7 +1894,7 @@ export async function devSetRegionClimateBias(regionId, bias) {
     if (bias.dryness != null && bias.dryness !== '') value.dryness = Math.max(0, Math.min(1, Number(bias.dryness)));
   }
   const { rowCount } = await deps.query(
-    `UPDATE regions SET climate_bias = $2, updated_at = EXTRACT(EPOCH FROM NOW()) WHERE id = $1`,
+    `UPDATE regions SET climate_bias = $2 WHERE id = $1`,
     [regionId, value]
   ).catch(() => ({ rowCount: 0 }));
   if (!rowCount) return { ok: false, error: `Region ${regionId} not found` };

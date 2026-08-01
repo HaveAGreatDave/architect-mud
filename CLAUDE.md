@@ -39,7 +39,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 **World & place**
 
 - [docs/systems-world.md](docs/systems-world.md) — world state, movement, ambience, sound propagation, spawning, minimap, scheduler, tunables (as built)
-- [docs/reference/land-taxonomy.md](docs/reference/land-taxonomy.md) — region vs district vs terrain vs biome vs `bp_district`, one SSOT each. **Read before touching anything "district"/"region"/"terrain"**
+- [docs/reference/land-taxonomy.md](docs/reference/land-taxonomy.md) — region vs district vs terrain vs biome, one SSOT each. **Read before touching anything "district"/"region"/"terrain"**
 - [docs/systems-terrain.md](docs/systems-terrain.md) — `flags.terrain` ground-surface SSOT + the dev-panel Terrain Painter; drives minimap/tablet/pacing, **not passability, not flight** (as built)
 - [docs/systems-overland-void-travel.md](docs/systems-overland-void-travel.md) — transient (non-DB) waste rooms off a region's rim: the `movement.edge` seam + `registerTransientZone`. Read before touching transient zones or the map rim (as built)
 - [docs/reference/world-rendering.md](docs/reference/world-rendering.md) — how a DB tile becomes a building out the cockpit; palettes, decoration helpers, the **three separate "tower" renderers**. Read before "improving a model"

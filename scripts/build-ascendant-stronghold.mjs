@@ -39,7 +39,6 @@ function base(o) {
     audio_theme_id: null,
     bg_color: o.bg_color ?? CHROME_BG,
     color: o.color ?? CHROME_FG,
-    created_by: 'ascendant-stronghold',
     description: o.description,
     exits: o.exits,
     flags: o.flags,

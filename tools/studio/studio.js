@@ -43,11 +43,18 @@ const state = {
   // change — what the tiles are coloured by, what the sidebar lists, and what the
   // brush paints. A district is a property spread across thousands of tiles, so
   // the only honest way to edit it is on the map it covers.
-  view: 'tiles',      // 'tiles' | 'districts'
+  view: 'tiles',      // 'tiles' | 'districts' | 'threat'
   districts: [],      // the list, with tile counts, from /api/districts
   districtById: new Map(),
   district: null,     // the selected district id, or '' for the eraser
   districtStats: null,
+  // ── The threat view ────────────────────────────────────────────────────────
+  // The third view, and the only one that shows something the map does not own:
+  // spawns are authored against zones, and this is where they land on ground.
+  // Read-only — the Studio has no opinion about what a monster is.
+  threat: null,       // the server's rollup for the open map, or null
+  heat: null,         // { byTile: Map(id → threat), peak } under the current filter
+  enemy: null,        // an enemy id to show alone, or null for all of them
   // ── Moving a building ──────────────────────────────────────────────────────
   // `arm` is the CHEAP half of the refusals, fetched once when a building is
   // picked up, so the ghost can be honest while the cursor moves instead of one
@@ -127,9 +134,12 @@ async function reloadOpenMap() {
   const onMapProps = !!state.mapView;
   await loadMapData(state.mapId);
   renderFloors();
+  // A tile that moved took its spawns with it, so the heat is re-asked rather than
+  // left pointing at where the building used to be.
+  if (state.view === 'threat') await loadThreat({ force: true });
   draw();
-  if (keep && state.byId.has(keep)) await select(keep);
-  else if (onMapProps) await showMapProps();
+  if (keep && state.byId.has(keep)) await showTile(keep);
+  else if (onMapProps && state.view !== 'threat') await showMapProps();
 }
 
 // `focus` lands on one tile (following a seam); `restore` puts a remembered view
@@ -146,7 +156,10 @@ async function selectMap(id, { focus = null, restore = null } = {}) {
   renderFloors();
   if (restore) restoreView(restore);
   else if (focus) focusZone(focus);
+  else if (state.view === 'threat') fit();     // the inspector is the threat one
   else { fit(); showMapProps(); }
+  // The heat belongs to a map, so following a seam into a building has to re-ask.
+  if (state.view === 'threat') await loadThreat().then(draw);
   refreshLint();
 }
 
@@ -238,10 +251,12 @@ function renderDistrictInspector() {
       names no district and matches no prefix reads as this one. Editing its prose edits
       what ${state.districtStats?.unassigned ?? 0} unclassified tiles say.</div>` : ''}
     ${[...groups].map(([g, fs]) => `<div class="grp"><div class="t">${esc(g)}</div>${fs.join('')}</div>`).join('')}
-    <div class="row" style="margin-top:12px"><button id="d-save">Save district</button><button id="d-revert">Revert</button></div>
-    <div id="errs"></div><div id="note" class="help"></div>
-    <div class="help" style="margin-top:8px">Writes <code>content/districts/${esc(d.id)}.json</code>.
-      Colour shows on the tablet's regional map; terrain still paints the tile at normal zoom.</div>`;
+    <div class="help" style="margin-top:12px">Writes <code>content/districts/${esc(d.id)}.json</code>.
+      Colour shows on the tablet's regional map; terrain still paints the tile at normal zoom.</div>
+    <div class="actions">
+      <div class="row"><button id="d-save">Save district</button><button id="d-revert">Revert</button></div>
+      <div id="errs"></div><div id="note" class="help"></div>
+    </div>`;
   $('#d-revert').onclick = () => selectDistrict(d.id);
   $('#d-save').onclick = saveDistrict;
 }
@@ -297,18 +312,194 @@ async function assign(ids) {
   refreshLint();
 }
 
+// ── Threat ──────────────────────────────────────────────────────────────────
+// WHERE THE DANGER IS, on the map you are already looking at. A spawn row says
+// "3 clonejackers in zone_district_918_904" and nothing about where that is; the
+// answer to "is the north side of town harder than the docks" was 120 files and a
+// mental picture. So it is drawn: heat on the tiles, hottest enemies in the list.
+//
+// The score is crude on purpose (hp + swing + accuracy, times how many stand up)
+// and the server owns it. Nothing in the game reads it; it exists to make one tile
+// redder than another, and a scale nobody can act on would be worse than none.
+const THREAT_STEPS = [0.15, 0.4, 0.7, 1];
+
+async function loadThreat({ force = false, pickFloor = false } = {}) {
+  if (!state.mapId) return;
+  if (!force && state.threat?.map === state.mapId) { recomputeHeat(); return pickFloor && landOnDanger(); }
+  const { body } = await api(`/api/threat?map=${encodeURIComponent(state.mapId)}`);
+  state.threat = body;
+  // A filter naming an enemy that is not on this map would silently show an empty
+  // map, so switching map lets it go rather than carrying it across.
+  if (state.enemy && !body.enemies.some(e => e.id === state.enemy)) state.enemy = null;
+  recomputeHeat();
+  renderFloors();
+  if (pickFloor) landOnDanger();
+}
+
+// Opening the view on the wrong floor is opening it on a lie: 119 of the world
+// map's 120 spawns are at z=-1, in The Under, beneath streets that hold one. So
+// ENTERING the view lands on the busiest floor. It moves you only on the switch —
+// a floor you pick afterwards is a floor you meant, and nothing here takes it back.
+function landOnDanger() {
+  const by = spawnsByFloor();
+  const best = [...by.entries()].sort((a, b) => b[1] - a[1])[0];
+  if (best && best[1] > 0) setFloor(best[0]);
+}
+
+// How many spawns stand on each floor of the open map. A floor is a separate
+// PLACE here, not a storey — The Under is z=-1 beneath the same streets — so this
+// is the difference between "this town is quiet" and "you are on the wrong floor".
+function spawnsByFloor() {
+  const by = new Map();
+  for (const [id, t] of Object.entries(state.threat?.tiles || {})) {
+    const z = state.byId.get(id);
+    if (!z) continue;
+    const f = z.grid_z ?? 0;
+    by.set(f, (by.get(f) || 0) + t.spawns);
+  }
+  return by;
+}
+
+// The heat, under whatever the list is filtered to. Held rather than recomputed
+// per tile per frame: a pan over map_world is 5,439 tiles × 60fps, and this is the
+// same numbers every time until the filter moves.
+function recomputeHeat() {
+  const byTile = new Map();
+  let peak = 0;
+  for (const [id, t] of Object.entries(state.threat?.tiles || {})) {
+    const sum = state.enemy
+      ? t.entries.reduce((n, e) => n + e.spawns.reduce((m, s) => m + (s.enemy_id === state.enemy ? s.threat : 0), 0), 0)
+      : t.threat;
+    if (sum > 0) { byTile.set(id, sum); peak = Math.max(peak, sum); }
+  }
+  state.heat = { byTile, peak };
+  renderThreatPane();
+}
+
+// How red one tile goes: a sqrt ramp, so a lone weak spawn still reads without
+// washing out the tile with eleven of them on it. 0 means draw no heat at all —
+// a dimmed tile with nothing on it must not look like a tile with something quiet.
+const heatAlpha = (threat) => {
+  const peak = state.heat?.peak || 0;
+  if (!peak || !threat) return 0;
+  return 0.2 + 0.8 * Math.sqrt(threat / peak);
+};
+
+function renderThreatPane() {
+  const t = state.threat;
+  if (!t) return;
+  const { totals } = t;
+  // The count on THIS floor, said separately, because the map only ever draws one
+  // and a headline of 120 over a plan showing 8 is the tool misleading you.
+  const by = spawnsByFloor();
+  const floors = [...by.entries()].filter(([, n]) => n).sort((a, b) => b[1] - a[1]);
+  const elsewhereFloors = floors.filter(([z]) => z !== state.z);
+  $('#threatsum').innerHTML = totals.spawns
+    ? `<b>${by.get(state.z) || 0}</b> spawn${by.get(state.z) === 1 ? '' : 's'} on this floor,
+       <b>${totals.spawns}</b> on the map — ${t.enemies.length} kind${t.enemies.length === 1 ? '' : 's'} of thing.
+       ${elsewhereFloors.length ? `<span class="muted">Also ${elsewhereFloors.map(([z, n]) =>
+         `<a href="#" data-floor="${z}" style="color:var(--accent);text-decoration:none">z=${z}</a> (${n})`).join(', ')}.</span>` : ''}`
+    : `Nothing spawns on this map. <span class="muted">${totals.world} spawn(s) exist in the world.</span>`;
+  $('#threatsum').onclick = (ev) => {
+    const a = ev.target.closest('[data-floor]'); if (!a) return;
+    ev.preventDefault(); setFloor(Number(a.dataset.floor));
+  };
+  $('#heatkey').innerHTML = `<span class="muted" style="margin-right:4px">quiet</span>`
+    + THREAT_STEPS.map(s => `<i><span style="opacity:${(0.2 + 0.8 * s).toFixed(2)}"></span></i>`).join('')
+    + `<span class="muted" style="margin-left:4px">deadly</span>`;
+
+  const top = t.enemies[0]?.threat || 1;
+  const rows = t.enemies.map(e => {
+    const on = state.enemy === e.id;
+    const width = Math.max(2, Math.round(100 * e.threat / top));
+    return `<button data-e="${esc(e.id)}" class="${e.missing ? 'bad ' : ''}${on ? 'on' : ''}">
+      <span class="bar" style="width:${width}%"></span>
+      <span class="nm">${esc(e.name || `${e.id} — no such enemy`)}</span>
+      <span class="n">×${e.heads}</span>
+      <span class="go" data-go="${esc(e.top || '')}" title="fly to where it is thickest">⌖</span>
+    </button>`;
+  }).join('');
+  $('#enemies').innerHTML = rows || '<div class="help">—</div>';
+  $('#enemies').onclick = (ev) => {
+    const go = ev.target.closest('.go');
+    const b = ev.target.closest('button'); if (!b) return;
+    // ⌖ takes you there without changing what you are looking at; the row itself
+    // filters. Two answers to two different impulses, one row.
+    if (go) { if (go.dataset.go) focusZone(go.dataset.go); return; }
+    setEnemyFilter(state.enemy === b.dataset.e ? null : b.dataset.e);
+  };
+
+  // The two things a map of one map cannot show: danger that lives on another map,
+  // and danger that lives nowhere at all.
+  const notes = [];
+  if (totals.elsewhere) notes.push(`${totals.elsewhere} spawn(s) sit on other maps.`);
+  if (t.orphans.length) {
+    notes.push(`<span class="help stale"><b>${t.orphans.length}</b> spawn zone(s) are on no grid at all
+      — they spawn in game and appear on no map:</span> ${t.orphans.slice(0, 6).map(o =>
+        esc(o.zone.name || o.zone.id)).join(', ')}${t.orphans.length > 6 ? '…' : ''}`);
+  }
+  $('#threatnote').innerHTML = notes.join('<br>');
+}
+
+function setEnemyFilter(id) {
+  state.enemy = id;
+  recomputeHeat();
+  draw();
+}
+
+// One tile's spawns, in the inspector: what is on it, what is folded up into it
+// from inside, and how the number was reached. Read-only, and it says so.
+function renderThreatInspector(z) {
+  if (!z) return;
+  const t = state.threat?.tiles?.[z.id];
+  const total = t ? Math.round(t.threat) : 0;
+  const line = (s, from) => `<div class="row" style="justify-content:space-between;gap:8px;margin:2px 0">
+      <span class="${s.missing ? 'help stale' : ''}">${esc(s.name || `${s.enemy_id} — no such enemy`)}
+        <span class="muted">×${s.max_count}</span></span>
+      <span class="muted" style="flex:none">${s.respawn_seconds}s · w${s.spawn_weight} · ${Math.round(s.threat)}</span>
+    </div>${from ? `<div class="help" style="margin:-2px 0 4px">inside: ${esc(from)}</div>` : ''}`;
+  const body = t ? t.entries.map(e =>
+      e.spawns.map(s => line(s, e.zone.inside ? `${e.zone.name} — ${e.zone.mapName}` : '')).join('')).join('')
+    : '<div class="help">Nothing spawns here.</div>';
+  $('#inspector').innerHTML = `
+    <div class="row" style="justify-content:space-between">
+      <b>${esc(z.name || z.id)}</b><span class="pill">threat ${total}</span>
+    </div>
+    <div class="help">${esc(z.id)} · ${z.grid_x},${z.grid_y}${z.grid_z ? `,${z.grid_z}` : ''}</div>
+    <div class="grp" style="margin-top:10px"><div class="t">Spawns</div>${body}</div>
+    <div class="help" style="margin-top:10px">Count, respawn, weight, and this row's share
+      of the tile's score. Spawns are authored in <code>content/zone_spawns/</code> and the
+      monsters themselves in <code>content/enemies/</code> — the Studio reads both and writes
+      neither.</div>`;
+}
+
 function setView(v) {
   state.view = v;
   $('#v-tiles').classList.toggle('on', v === 'tiles');
   $('#v-districts').classList.toggle('on', v === 'districts');
+  $('#v-threat').classList.toggle('on', v === 'threat');
   $('#pane-terrain').style.display = v === 'tiles' ? '' : 'none';
   $('#pane-districts').style.display = v === 'districts' ? '' : 'none';
+  $('#pane-threat').style.display = v === 'threat' ? '' : 'none';
   // The camera, the floor and the open map are deliberately untouched — switching
   // view is a change of question ("what is here?" / "whose is this?"), not a change
   // of place. Only the brush has to be handed over, since the two views paint
   // different fields with the same drag.
   setTool('select');
   if (v === 'districts') { if (state.district === null) state.district = ''; selectDistrict(state.district); }
+  else if (v === 'threat') {
+    // The heat is fetched, so the first frame after the switch is drawn without it
+    // and the second with it. That is one flash of the plain map, which is the
+    // right thing to show while the question is still being answered.
+    state.selected = null;
+    $('#inspector').innerHTML = '<div class="muted">Reading the spawns…</div>';
+    loadThreat({ pickFloor: true }).then(() => {
+      if (state.view !== 'threat') return;
+      if (!state.selected) $('#inspector').innerHTML =
+        '<div class="muted">Click a tile to see what stands on it.</div>';
+      draw();
+    });
+  }
   else if (state.selected) select(state.selected); else showMapProps();
   draw();
 }
@@ -320,8 +511,13 @@ function setView(v) {
 function renderFloors() {
   const wrap = $('#floors');
   wrap.style.display = state.floors.length > 1 ? '' : 'none';
+  // In the threat view a floor with nothing on it is a floor you do not need to
+  // look at, and the one you want is often not the one you are on: the whole of
+  // The Under is z=-1 under the streets. So the buttons carry a dot.
+  const hot = state.view === 'threat' ? spawnsByFloor() : null;
   wrap.innerHTML = state.floors.map(z =>
-    `<button data-z="${z}" class="${z === state.z ? 'on' : ''}">${z > 0 ? `+${z}` : z}</button>`).join('');
+    `<button data-z="${z}" class="${z === state.z ? 'on' : ''}" ${hot?.get(z)
+      ? `title="${hot.get(z)} spawn(s)"` : ''}>${z > 0 ? `+${z}` : z}${hot?.get(z) ? ' •' : ''}</button>`).join('');
   wrap.onclick = (e) => {
     const b = e.target.closest('button'); if (!b) return;
     setFloor(Number(b.dataset.z));
@@ -331,6 +527,8 @@ function setFloor(z) {
   if (z === state.z) return;
   state.z = z;
   renderFloors();
+  // The threat headline counts the floor you are looking at, so it moves with you.
+  if (state.view === 'threat' && state.threat) renderThreatPane();
   draw();
 }
 
@@ -482,6 +680,27 @@ const PROV_WORDS = {
   rooftop: "derived from this building's type",
   auto: 'auto-tiled from the lanes beside it',
 };
+// WHICH RUNG PAINTED THIS TILE. The three Presentation fields are real overrides
+// now — a tile's own marker/colour/fill beats the terrain palette on every terrain
+// (docs/proposals/tile-presentation-overrides.md). Before that flip the palette won
+// almost everywhere and this form said nothing about it, so 3,484 authored fills sat
+// in the inspector looking live while the map ignored every one of them. Attribution
+// is one line and it is the check: a field that says "yours" is on the map, and if it
+// ever stops being, this line is where that shows up instead of nowhere.
+function paintedLine(spec) {
+  const t = spec?.terrain;
+  const from = (own) => (own != null && own !== '')
+    ? 'yours' : (t ? `the ${t} palette` : 'derived');
+  return `<div class="help">painted:
+    fill <b>${esc(spec?.fill || '—')}</b> (${esc(from(editing.bg_color))})
+    · glyph <b>${esc(spec?.text || '—')}</b> (${esc(from(editing.color))})
+    · marker <b>${esc(spec?.label?.text || '—')}</b> (${editing.marker ? 'yours' : 'derived'})
+    · terrain <b>${esc(t || '—')}</b> — <b>Paint</b> over the tile to change it
+    ${t && editing.bg_color ? `<div class="warn" style="font-size:10px">Tile Colour
+      <b>${esc(editing.bg_color)}</b> is shadowing the ${esc(t)} palette: repaint this tile and the
+      fill will not move. Clear it to hand the ground back to its terrain.</div>` : ''}</div>`;
+}
+
 function featureLine(p) {
   if (!p?.name) return '<div class="help">art: none — this tile draws only its ground</div>';
   const stale = p.stale;
@@ -504,6 +723,91 @@ function drawPortal(x, y, c, seams, authoredDoor) {
   ctx.fillStyle = '#8ab4ff'; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.arc(x + m, y + m, q * 0.7, 0, 7);
   if (leaves.way === 'out') ctx.fill(); else ctx.stroke();
+}
+
+// THE DISTRICT BOUNDARY. A wash says which tiles are claimed; it does not say what
+// SHAPE the claim is, and shape is the thing you are editing. So every district is
+// also drawn as an outline: one line on every tile edge whose neighbour is not the
+// same district, which is a boundary derived per tile rather than a polygon traced
+// once. That is deliberate — a district is a property of tiles, not a region, and
+// nothing anywhere requires it to be connected. A neighbourhood split across a
+// river, an orphan tile someone painted three streets away and a doughnut with a
+// hole in it all outline correctly, because each of them is just a set of tiles
+// whose edges happen to face something else.
+//
+// The selected district is drawn bold over a dark casing so the line survives on
+// top of its own wash and on top of whatever ground colour is underneath; the rest
+// are hairlines in their own colour, enough to read the seams between them without
+// competing with the one you are working on. Off-map counts as "not the same
+// district", so the outer rim of the world is a boundary too.
+const DIR4 = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+function districtAt(gx, gy) {
+  return state.byCell.get(`${gx},${gy},${state.z}`)?.district?.id || null;
+}
+function strokeSegs(segs) {
+  ctx.beginPath();
+  for (const s of segs) { ctx.moveTo(s[0], s[1]); ctx.lineTo(s[2], s[3]); }
+  ctx.stroke();
+}
+// A boundary line sits ON the tile edge, centred, never inset inside the tile. Two
+// insets is what makes a line look wrong: a bold edge pushed half its width inward
+// and a hairline pushed half a pixel meet at a corner with a notch between them, and
+// two districts sharing an edge draw two parallel lines with a sliver of ground
+// showing through. Centred, every line is the same line — the widths stack on one
+// axis and the last one drawn wins, which is why the selected district strokes last.
+//
+// `off` is the half-pixel alignment: a canvas line of ODD width centred on an
+// integer coordinate straddles two pixel columns and renders as two grey ones. Tile
+// edges are always integers here (`ox` is rounded, `cell` is whole), so an odd width
+// takes a 0.5 nudge and an even one takes none.
+function edgeSeg(x, y, c, dir, off) {
+  if (dir === 0) return [x, y + off, x + c, y + off];
+  if (dir === 1) return [x + c + off, y, x + c + off, y + c];
+  if (dir === 2) return [x, y + c + off, x + c, y + c + off];
+  return [x + off, y, x + off, y + c];
+}
+function drawDistrictEdges(c) {
+  if (c < 3) return;
+  const sel = state.district || null;
+  // Even widths only: the casing is bold+2 and both must land on the same alignment
+  // as each other, and an even line centred on an integer edge is the crisp case.
+  const bold = Math.max(2, Math.min(6, Math.round(c * 0.22 / 2) * 2));
+  const others = new Map();   // colour → segments, so each district strokes once
+  const mine = [];
+  for (const z of state.zones) {
+    if (!onFloor(z)) continue;
+    const id = z.district?.id;
+    if (!id) continue;
+    const x = sx(z.grid_x), y = sy(z.grid_y);
+    if (x + c < 0 || y + c < 0 || x > canvas.width || y > canvas.height) continue;
+    const owned = id === sel;
+    for (let d = 0; d < 4; d++) {
+      if (districtAt(z.grid_x + DIR4[d][0], z.grid_y + DIR4[d][1]) === id) continue;
+      const seg = edgeSeg(x, y, c, d, owned ? 0 : 0.5);
+      if (owned) { mine.push(seg); continue; }
+      // A tile claiming a district with no file has no colour to outline in, so it
+      // outlines in the same red the wash-less marker uses.
+      const col = state.districtById.get(id)?.color || chrome('--bad');
+      const bucket = others.get(col);
+      if (bucket) bucket.push(seg); else others.set(col, [seg]);
+    }
+  }
+  const cap = ctx.lineCap;
+  ctx.lineCap = 'square';       // square caps close the corners; round ones nick them
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.55;
+  for (const [col, segs] of others) { ctx.strokeStyle = col; strokeSegs(segs); }
+  ctx.globalAlpha = 1;
+  if (mine.length) {
+    ctx.lineWidth = bold + 2;
+    ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+    strokeSegs(mine);
+    ctx.lineWidth = bold;
+    ctx.strokeStyle = state.districtById.get(sel)?.color || chrome('--bad');
+    strokeSegs(mine);
+  }
+  ctx.lineWidth = 1;
+  ctx.lineCap = cap;
 }
 
 function draw() {
@@ -610,9 +914,42 @@ function draw() {
         ctx.strokeRect(x + 0.5, y + 0.5, c - 1, c - 1);
       }
     }
+    // THREAT VIEW. The ground is dimmed rather than replaced — a coastline and a
+    // street grid are how you know *where* the red is, and a monochrome plan drawn
+    // here would be a second map disagreeing with the one next door. So: a scrim
+    // over the tile, then the heat on top of it. The scrim goes over the feature
+    // and the label too, on purpose; in this view the question is not what the
+    // building is called.
+    if (state.view === 'threat') {
+      const threat = state.heat?.byTile.get(z.id) || 0;
+      // Both colours are the page's own chrome, read from the stylesheet like every
+      // other non-map mark here — the scrim is the canvas background and the heat is
+      // --bad, the same red a stale pin and a refused destination wear.
+      ctx.globalAlpha = 0.62;
+      ctx.fillStyle = '#0e0f12';
+      ctx.fillRect(x, y, c, c);
+      ctx.globalAlpha = 1;
+      const a = heatAlpha(threat);
+      if (a) {
+        ctx.globalAlpha = a;
+        ctx.fillStyle = chrome('--bad');
+        ctx.fillRect(x, y, c, c);
+        ctx.globalAlpha = 1;
+        // At a readable zoom the hottest tiles get an outline, because a spawn
+        // point is a place you go to, and "which tile exactly" stops being
+        // answerable by a wash once four of them are adjacent.
+        if (c >= 9 && a > 0.55) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1;
+          ctx.strokeRect(x + 0.5, y + 0.5, c - 1, c - 1);
+        }
+      }
+    }
     const seams = state.portals[z.id];
     if (seams && c >= 5) drawPortal(x, y, c, seams, authoredDoor);
   }
+  // After every tile, never during: a boundary drawn tile-by-tile inside the loop
+  // gets half painted over by the neighbour that comes next.
+  if (state.view === 'districts') drawDistrictEdges(c);
   // MOVING A BUILDING. Two things are drawn and neither is a decision this file
   // makes: the cells the server said are already built on or already have something
   // standing on them, and a ghost of the building under the cursor. The ghost wears
@@ -675,6 +1012,14 @@ canvas.addEventListener('mousedown', (e) => {
     selectDistrict(z.district?.id || '');
     return;
   }
+  // Nothing in this view paints, so every tool is Select and a click is a look.
+  if (state.view === 'threat') {
+    state.selected = z.id;
+    state.mapView = null;
+    draw();
+    renderThreatInspector(z);
+    return;
+  }
   if (state.tool === 'pick') { state.terrain = z.spec?.terrain || null; setTool('paint'); paintSwatches(); return; }
   if (state.tool === 'paint') { painting = true; stroke.clear(); stroke.add(z.id); return; }
   if (state.tool === 'move') { moveClick(z); return; }
@@ -696,8 +1041,16 @@ canvas.addEventListener('mousemove', (e) => {
         ? `${state.districtById.get(z.district.id)?.name || z.district.id} (${SOURCE_WORDS[z.district.source] || z.district.source})`
         : 'no district')
     : null;
+  // And in the threat view, what stands here — the names, not the score, because
+  // the colour has already told you the score and cannot tell you this.
+  const t = z && state.view === 'threat' ? state.threat?.tiles?.[z.id] : null;
+  const danger = z && state.view === 'threat'
+    ? (t ? t.entries.flatMap(e => e.spawns.map(s =>
+          `${s.name || s.enemy_id} ×${s.max_count}${e.zone.inside ? ` (${e.zone.name})` : ''}`)).join(', ')
+         : 'nothing spawns here')
+    : null;
   $('#status').textContent = z
-    ? `${z.name || '(unnamed)'} · ${z.id} · ${z.grid_x},${z.grid_y} · ${dis || z.spec?.terrain || 'no terrain'}${seam ? ` · ${seam} — double-click to follow` : ''}`
+    ? `${z.name || '(unnamed)'} · ${z.id} · ${z.grid_x},${z.grid_y} · ${danger || dis || z.spec?.terrain || 'no terrain'}${seam ? ` · ${seam} — double-click to follow` : ''}`
     : '—';
   if (painting && z) { stroke.add(z.id); }
   if (state.tool === 'move' && state.move.arm) {
@@ -756,10 +1109,9 @@ function setOverlay(o) {
 }
 $('#v-tiles').onclick = () => setView('tiles');
 $('#v-districts').onclick = () => setView('districts');
+$('#v-threat').onclick = () => setView('threat');
 $('#o-art').onclick = () => setOverlay('icons');
 $('#o-labels').onclick = () => setOverlay('labels');
-$('#zoom-in').onclick = () => { state.cell = Math.min(40, state.cell + 2); draw(); };
-$('#zoom-out').onclick = () => { state.cell = Math.max(2, state.cell - 2); draw(); };
 $('#fit').onclick = fit;
 
 // ── Traversal ───────────────────────────────────────────────────────────────
@@ -782,13 +1134,26 @@ function focusZone(id) {
   state.cell = Math.max(state.cell, 14);
   state.ox = Math.round(canvas.width / 2 - (z.grid_x + 0.5) * state.cell);
   state.oy = Math.round(canvas.height / 2 - (z.grid_y + 0.5) * state.cell);
-  select(id);
+  showTile(id);
+}
+
+// Landing on a tile answers the question the CURRENT view is asking. Following a
+// seam in the threat view and being handed the terrain form would be the tool
+// changing the subject at the moment you arrived.
+function showTile(id) {
+  if (state.view !== 'threat') return select(id);
+  state.selected = id;
+  state.mapView = null;
+  draw();
+  renderThreatInspector(state.byId.get(id));
 }
 
 function restoreView(v) {
   state.z = v.z; state.cell = v.cell; state.ox = v.ox; state.oy = v.oy;
   renderFloors();
-  if (v.zone && state.byId.has(v.zone)) select(v.zone); else { state.selected = null; draw(); showMapProps(); }
+  if (v.zone && state.byId.has(v.zone)) showTile(v.zone);
+  else if (state.view === 'threat') { state.selected = null; draw(); }
+  else { state.selected = null; draw(); showMapProps(); }
 }
 
 // A tile on no map has nowhere to open — 12 seams end that way, and the honest
@@ -1171,10 +1536,12 @@ function renderMapInspector() {
          <div class="help">No tile on this map crosses to another one. Players reach it some
          other way — boarding, a dream, a script — or they cannot reach it at all.</div></div>`}
 
-    <div class="row" style="margin-top:12px"><button id="m-save">Save map</button><button id="m-revert">Revert</button></div>
-    <div id="errs"></div><div id="note" class="help"></div>
-    <div class="help" style="margin-top:8px">Writes <code>content/maps/${esc(m.id)}.json</code>
-      and any tile it has to bring back into line.</div>`;
+    <div class="help" style="margin-top:12px">Writes <code>content/maps/${esc(m.id)}.json</code>
+      and any tile it has to bring back into line.</div>
+    <div class="actions">
+      <div class="row"><button id="m-save">Save map</button><button id="m-revert">Revert</button></div>
+      <div id="errs"></div><div id="note" class="help"></div>
+    </div>`;
 
   $('#m-revert').onclick = showMapProps;
   $('#m-save').onclick = saveMapProps;
@@ -1297,9 +1664,9 @@ function fieldHtml(key, def, value, kind) {
 // it. (The server refuses an anchor-violating save too; this is so you find out
 // before you type, not after.)
 function lockedFieldHtml(label, value, why) {
-  return `<label>${esc(label)} <span class="pill">map</span></label>
+  return `<label>${esc(label)}${why ? ' <span class="pill">map</span>' : ''}</label>
           <input type="text" value="${esc(value ?? '')}" disabled>
-          <div class="help">${why}</div>`;
+          ${why ? `<div class="help">${why}</div>` : ''}`;
 }
 
 // Stated in the corner instead of typed in the form — see the note in the loop below.
@@ -1331,11 +1698,56 @@ function districtLine() {
     <button id="d-jump" data-d="${esc(d.id)}">Open →</button></div>`;
 }
 
+// A group's heading is worth reading in the order it is useful, and that order is not
+// alphabetical: a tile that says nothing about aircraft should not put Zone: Aircraft
+// above Zone: Identity for the sake of the letter A. Groups holding an answer keep
+// the catalog's own order and come first; the rest fall to the bottom, shut, counted.
+function groupsHtml(groups) {
+  const live = [], empty = [];
+  for (const entry of groups) (entry[1].set.length ? live : empty).push(entry);
+  const rows = ([g, b]) => {
+    const more = b.unset.length
+      ? `<details class="more" data-keys="${esc(JSON.stringify(b.unset))}">
+           <summary>+ ${b.unset.length} not set</summary><div class="lazy"></div></details>`
+      : '';
+    return b.set.join('') + more;
+  };
+  return live.map(e => `<div class="grp"><div class="t">${esc(e[0])}</div>${rows(e)}</div>`).join('')
+    + empty.map(([g, b]) => `<details class="grp" data-keys="${esc(JSON.stringify(b.unset))}">
+         <summary class="t">${esc(g)} <span class="pill">${b.unset.length}</span></summary>
+         <div class="lazy"></div></details>`).join('');
+}
+
+// The fields are built the first time a section opens and kept after that, so a
+// reopened section does not rebuild a 5,841-option select — and a value typed into
+// one survives being folded away, because folding is `display:none` and not a
+// re-render. They are ordinary rows with ordinary `data-k`, so the moment they exist
+// collect() treats them exactly like a carried flag: filled in, it becomes one;
+// left blank, it deletes nothing because there is nothing there to delete.
+function wireLazyGroups() {
+  for (const d of document.querySelectorAll('#inspector details[data-keys]')) {
+    d.addEventListener('toggle', () => {
+      const box = d.querySelector('.lazy');
+      if (!d.open || !box || box.dataset.built) return;
+      box.dataset.built = '1';
+      const flags = state.catalog.flags;
+      box.innerHTML = JSON.parse(d.dataset.keys)
+        .map(k => `<div class="unset">${fieldHtml(k, flags[k], undefined, 'flag')}</div>`).join('');
+    });
+  }
+}
+
 function renderInspector(spec, prov) {
   if (!editing) return;
   const cols = state.catalog.columns, flags = state.catalog.flags;
+  // Each group holds what this tile SAYS and what it could say: `set` is rendered,
+  // `unset` is a list of keys rendered on demand. See the note above the flag loop.
   const groups = new Map();
-  const push = (g, html) => { if (!groups.has(g)) groups.set(g, []); groups.get(g).push(html); };
+  const bucket = (g) => {
+    if (!groups.has(g)) groups.set(g, { set: [], unset: [] });
+    return groups.get(g);
+  };
+  const push = (g, html) => bucket(g).set.push(html);
 
   const ordered = (o) => Object.entries(o).sort((a, b) =>
     String(a[1].group || '').localeCompare(String(b[1].group || '')) || (a[1].order ?? 99) - (b[1].order ?? 99));
@@ -1354,6 +1766,15 @@ function renderInspector(spec, prov) {
     // the seams that point at it). Moving a tile is a structural operation the
     // Studio does not do yet; it should not be reachable by an arrow key either.
     if (COORDS.has(key)) continue;
+    // Which map a tile is on is the same fact as where it is: a dropdown would drop
+    // the tile onto another map's grid with none of what moving a tile needs (the
+    // cell it might land on top of, the neighbours it leaves, the seams pointing at
+    // it). Shown, not typed — resolved to the map's name, which is what the list says.
+    if (key === 'map_id') {
+      push(def.group || 'Zone',
+        lockedFieldHtml(def.label || key, state.maps.get(editing.map_id)?.name || editing.map_id));
+      continue;
+    }
     if (key === 'parent_zone' && onMap) {
       push(def.group || 'Zone', lockedFieldHtml(def.label || key, editing[key],
         `Owned by map <code>${esc(editing.map_id)}</code> — every tile on it shares one anchor. Change it in the map's properties.`));
@@ -1361,16 +1782,47 @@ function renderInspector(spec, prov) {
     }
     push(def.group || 'Zone', fieldHtml(key, def, editing[key], 'col'));
   }
-  // Only flags the tile CARRIES, plus an add-a-flag picker: 104 checkboxes is a
-  // wall, and a tile's flags are a short list in practice.
+  // EVERY CATALOGUED FLAG, IN ITS GROUP — the ones this tile carries rendered, the
+  // rest offered under the same heading.
+  //
+  // This used to be carried-flags-only plus an alphabetical "Add a flag" dropdown,
+  // on the reasoning that 104 checkboxes is a wall. The wall was never the count: it
+  // was 104 rows FLAT. The catalog already sorts them into ten groups and no group is
+  // bigger than Structure's 25, so grouped they fit — and half of them (Flight 20,
+  // Echelon 11, Ascendant 6, Aircraft 3) are situational enough to stay shut on
+  // almost every tile you will ever select.
+  //
+  // What the dropdown cost is the case that found it: Map Icon is a field you go
+  // looking for BY NAME, and a field you have to know the name of to discover is a
+  // field that does not exist as far as the tool is concerned. Note also why "show
+  // the flags tiles like this one usually carry" is not the fix — `icon` is on 18
+  // tiles out of 5,841, so any frequency rule buries exactly the field that prompted
+  // this. Rare is not the same as irrelevant.
+  //
+  // Unset rows are built ON OPEN, never up front. `world_exit_zone` is a ref to
+  // `zones` and that select is 5,841 options; paying for it on every tile click, on
+  // a field nobody asked for, is the thing that would make this change a regression.
+  // Until a group is opened its fields carry no `data-k`, so collect() cannot see
+  // them and an unopened group can neither add nor remove anything.
   const carried = Object.keys(editing.flags || {}).filter(k => flags[k]);
   for (const key of carried) {
-    // `district` is not typed on a tile any more. It was a free-text box holding a
-    // key that had to match a district exactly, with nothing checking it did — a
-    // typo read as "unclassified" and looked identical to a blank. It is painted
-    // in the district view now, from a list of the districts that exist, and the
-    // tile states which one it landed in (below) with a way over to it.
-    if (key === 'district') continue;
+    // WHAT A BRUSH PAINTS IS NOT A FIELD — `district` and `terrain` both.
+    //
+    // `district` was a free-text box holding a key that had to match a district
+    // exactly, with nothing checking it did: a typo read as "unclassified" and
+    // looked identical to a blank. `terrain` was a dropdown that changed the
+    // tile's gameplay — swimmability, GPS routing, pacing, the minimap class —
+    // through the one seam in the tool with no swatch to show you what you just
+    // did. It was the reported bug: on the 1,374 tiles whose own `bg_color`
+    // shadowed the palette it repainted nothing at all, and it carried none of
+    // the brush's guards (a building is not ground; painting one strips its map
+    // code, which /api/paint refuses and this did not).
+    //
+    // Both are painted now, from a palette of the values that exist, and the
+    // tile STATES what it landed in — the `painted:` line above for terrain, the
+    // district line below with a way over to it. Same rule as the coordinates:
+    // shown, not typed.
+    if (key === 'district' || key === 'terrain') continue;
     // Same rule for the interior tile's copy of the anchor. On a FACADE the flag
     // means the street out front, which is nobody else's business — left alone.
     if (key === 'world_exit_zone' && onMap && !editing.flags?.facade && mapAnchor != null) {
@@ -1383,8 +1835,21 @@ function renderInspector(spec, prov) {
   const uncatalogued = Object.keys(editing.flags || {}).filter(k => !flags[k]);
   const seams = state.portals[editing.id] || [];
 
-  const addable = Object.entries(flags).filter(([k]) => !carried.includes(k))
-    .sort((a, b) => String(a[1].label || a[0]).localeCompare(String(b[1].label || b[0])));
+  // PAINTED IS NOT OFFERED EITHER. Skipping `district`/`terrain` in the loop above
+  // only hid the row on a tile that already carried one; a tile with no terrain would
+  // still have been offered "Terrain" here and handed back the box the loop just took
+  // away — and on an unpainted tile that is the more destructive of the two, since it
+  // is the building footprints and interiors that have no terrain.
+  //
+  // `world_exit_zone` on a mapped interior is the map's anchor, not this tile's
+  // business. Carried, it shows locked (above); unset, it is not offered at all —
+  // an editor should not hand you a field whose only legal value belongs to
+  // somebody else.
+  for (const [key, def] of ordered(flags)) {
+    if (carried.includes(key) || key === 'district' || key === 'terrain') continue;
+    if (key === 'world_exit_zone' && onMap && !editing.flags?.facade && mapAnchor != null) continue;
+    bucket(def.group || 'Flags').unset.push(key);
+  }
 
   // The coordinates left the form, so the group they lived in says where they went.
   // The group NAME comes from the catalog entry rather than being typed here, so it
@@ -1412,28 +1877,19 @@ function renderInspector(spec, prov) {
       <span class="pill" title="x, y, floor">${esc(editing.grid_x)},${esc(editing.grid_y)},${esc(editing.grid_z ?? 0)}</span>
     </div>
     <div class="help">${esc(editing.id)}</div>
-    <div class="help">derived: fill ${esc(spec?.fill || '—')} · terrain ${esc(spec?.terrain || '—')} · label ${esc(spec?.label?.text || '—')}</div>
+    ${paintedLine(spec)}
     ${featureLine(prov)}
     ${districtLine()}
     ${seamsHtml(seams, 'Leads to')}
-    ${[...groups].map(([g, fs]) => `<div class="grp"><div class="t">${esc(g)}</div>${fs.join('')}</div>`).join('')}
+    ${groupsHtml(groups)}
     ${uncatalogued.length ? `<div class="grp"><div class="t" style="color:var(--warn)">Not in the catalog</div>
       <div class="help">${uncatalogued.map(esc).join(', ')} — these fail content:lint. Catalogue them or remove them.</div></div>` : ''}
-    <div class="grp">
-      <div class="t">Add a flag</div>
-      <select id="addflag"><option value="">—</option>${addable.map(([k, d]) =>
-        `<option value="${esc(k)}">${esc(d.label || k)}</option>`).join('')}</select>
-    </div>
-    <div class="row" style="margin-top:12px"><button id="save">Save file</button><button id="revert">Revert</button></div>
-    <div id="errs"></div>`;
+    <div class="actions">
+      <div class="row"><button id="save">Save file</button><button id="revert">Revert</button></div>
+      <div id="errs"></div>
+    </div>`;
 
-  $('#addflag').onchange = (e) => {
-    const k = e.target.value; if (!k) return;
-    const def = flags[k];
-    editing.flags = { ...(editing.flags || {}), [k]: (def.shape === 'flag' || def.shape === 'tristate') ? true : (def.options?.[0] ?? '') };
-    // Same prov: adding an empty flag row changes nothing derived until you save.
-    renderInspector(spec, prov);
-  };
+  wireLazyGroups();
   $('#revert').onclick = () => select(editing.id);
   $('#save').onclick = save;
   if (editing.flags?.facade) renderTurnControls(editing.id);
@@ -1479,8 +1935,31 @@ async function save() {
 }
 
 // ── Lint: the authored half, live (§8.4) ────────────────────────────────────
-async function refreshLint() {
+// COALESCED, because a lint is a whole-tree read (~2s) and this server is one
+// thread. Every mutation asks for one, so a run of strokes used to queue a lint
+// per stroke and each of them sat in front of the NEXT paint request — the tool
+// felt slower the faster you worked. One trailing run after the writes stop says
+// exactly the same thing, and the badge goes stale-marked meanwhile so a pause
+// mid-edit is never read as "lint clean".
+let lintTimer = null, lintRunning = false, lintAgain = false;
+function refreshLint() {
+  const el = $('#lint');
+  if (el && !el.dataset.stale) { el.dataset.stale = '1'; el.style.opacity = '0.55'; }
+  if (lintRunning) { lintAgain = true; return; }
+  clearTimeout(lintTimer);
+  lintTimer = setTimeout(runLint, 500);
+}
+
+async function runLint() {
+  lintRunning = true;
+  try { await lintNow(); } finally { lintRunning = false; }
+  if (lintAgain) { lintAgain = false; refreshLint(); }
+}
+
+async function lintNow() {
   const { ok, body } = await api('/api/lint');
+  const el = $('#lint');
+  if (el) { delete el.dataset.stale; el.style.opacity = ''; }
   // A lint that crashed is not a lint that passed. Reporting `{error}` as zero
   // errors would render the one badge this tool stakes its promise on as
   // "lint clean" at the exact moment nothing was checked.

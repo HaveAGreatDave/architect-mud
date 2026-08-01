@@ -40,7 +40,6 @@ for (const [key, d] of Object.entries(DISTRICTS)) {
   const row = {
     blurb: d.blurb ?? null,
     color: d.color ?? null,
-    created_by: 'districts-to-content',
     id: key,
     landmark: d.landmark ?? null,
     name: d.name,
@@ -48,7 +47,6 @@ for (const [key, d] of Object.entries(DISTRICTS)) {
     signature: d.signature || [],
     skyline: d.skyline ?? null,
     sort: (sort += 10),
-    updated_at: String(Math.floor(Date.parse('2026-07-28T00:00:00Z') / 1000)),
   };
   const path = join(dir, `${key}.json`);
   const json = canonicalJson(row);

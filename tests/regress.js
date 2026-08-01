@@ -50,7 +50,7 @@ import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/cont
 import { SCHEMA_SQL } from '../server/models/schema.js';
 import { handleApiRequest, apiUpdateZone, apiPatchZoneTag } from '../server/api/routes.js';
 import { query } from '../server/models/db.js';
-import { resolveDefault, resolveTerrain, resolveProps, PROP_DEFAULTS, deriveWorld, deriveMarker, assignBuildingMarkers, projectEdges, edgesToExits, OPPOSITE, featureProvenance, buildCellIndex, gridKey } from '../scripts/content/derive.mjs';
+import { resolveDefault, resolveTerrain, resolveProps, PROP_DEFAULTS, deriveWorld, deriveMarker, deriveColors, deriveLabel, assignBuildingMarkers, projectEdges, edgesToExits, OPPOSITE, featureProvenance, buildCellIndex, gridKey } from '../scripts/content/derive.mjs';
 import { ASSET_REFS, assetRefIds, isAssetRef } from '../scripts/content/lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -361,7 +361,7 @@ console.log('— layer 1d: zone tag substrate —');
 
   // Deliberately uncatalogued, with the reason each one is exempt. A new zones
   // column lands here as a failure until somebody decides which side it's on.
-  const NOT_AUTHORED = new Set(['id', 'flags', 'exits', 'stains', 'created_by', 'updated_at']);
+  const NOT_AUTHORED = new Set(['id', 'flags', 'exits', 'stains']);
   const uncatalogued = [...zoneCols].filter(c => !colCat[c] && !NOT_AUTHORED.has(c));
   check('every authored zones column is in the field catalog', uncatalogued.length === 0,
     `${uncatalogued.join(', ')} — catalogue it as zone:<column> or add it to NOT_AUTHORED with a reason`);
@@ -2499,14 +2499,24 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     junctions.length > 0, `${junctions.length}/${autoTiles.length} tiles join two or more sides`);
 
   // ── The tile stack: ground / feature / label (spec §7.7) ──────────────────
-  // The rule the whole redesign rests on: PAINTED GROUND NEVER CARRIES A LABEL. 870
-  // tiles author a terrain decoration in `zones.marker` and the map has never drawn
-  // one; the Studio drew them because the spec still advertised them, which is what
-  // put `#` across the grasslands there and nothing across them in the game.
+  // This used to read PAINTED GROUND NEVER CARRIES A LABEL, and it was a blanket
+  // suppression standing in for a data cleanup: 860 tiles authored a terrain
+  // DECORATION in `zones.marker` (`#` on grass, `≈` on water) which, drawn, letters
+  // the grasslands. Deleting the decorations (tile-override-cleanup.mjs) let the rule
+  // go, because the thing actually worth forbidding is narrower — see
+  // docs/proposals/tile-presentation-overrides.md.
+  //
+  // WHAT REPLACES IT: a label on painted ground must be AUTHORED. A derived code —
+  // a building acronym, an apartment floor, sewer corridor art — landing on ground
+  // is the accident (it means a building or a corridor got painted as a surface, and
+  // that reads as a lane drawn through a building). A human typing two characters
+  // onto one tile is the feature. The old rule could not tell those apart and so
+  // banned both.
   const specs = [...a.render.values()].map(r => r.spec);
   const labelledGround = zonesForDerive.filter(z => specAt(z.id)?.label && specAt(z.id)?.terrain);
-  check('painted ground carries no label', labelledGround.length === 0,
-    labelledGround.slice(0, 3).map(z => z.id).join(', '));
+  const derivedOnGround = labelledGround.filter(z => !String(z.marker ?? '').trim());
+  check('a label on painted ground is authored, never derived', derivedOnGround.length === 0,
+    derivedOnGround.slice(0, 3).map(z => z.id).join(', '));
   // AND THE OTHER SIDE OF THAT RULE: a building must not BE painted ground. The
   // suppression above is by design, so a stray terrain on a building tile silently
   // deletes its navigable code — and a missing label looks exactly like a tile that
@@ -2534,10 +2544,13 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   check(`a label declares what the overlay may do to it (${labels.length} tiles)`,
     labels.length > 0 && labels.every(s => typeof s.label.text === 'string' && s.label.text
       && ['building', 'room', 'art'].includes(s.label.kind)));
-  // The hierarchy, as data: a road tile has no label key, so no overlay mode can
-  // reach it. This is what stops "letters instead of buildings" also blanking roads.
-  const labelledAuto = autoTiles.filter(z => specAt(z.id)?.label);
-  check('an auto-tiled road wears no label, so no overlay mode can toggle it',
+  // The hierarchy, as data: a road tile has no label key the overlay could reach —
+  // which is what stops "letters instead of buildings" also blanking roads. Same
+  // narrowing as above: a road may now wear a label a human deliberately typed, but
+  // it must never DERIVE one, because a derived code on a road means a building was
+  // painted as a lane.
+  const labelledAuto = autoTiles.filter(z => specAt(z.id)?.label && !String(z.marker ?? '').trim());
+  check('an auto-tiled road derives no label, so no overlay mode can toggle it',
     labelledAuto.length === 0, labelledAuto.slice(0, 3).map(z => z.id).join(', '));
   // deriveFeature's precedence, checked against the map rather than against itself.
   const features = specs.filter(s => s.feature);
@@ -2665,19 +2678,31 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     .filter(t => !palette?.terrains?.[t]);
   check('every painted terrain resolves in the palette', unknownTerrain.length === 0, unknownTerrain.join(', '));
 
-  // A painted tile's fill comes from the palette, not from its authored bg_color —
-  // except where the palette says otherwise. Both halves, on real tiles.
+  // AUTHORED BEATS DERIVED, ON EVERY TERRAIN. The palette supplies the fill a tile
+  // has no opinion about, and gets out of the way the moment one does. This used to
+  // be the other way round behind an `authored_bg_wins` exception list, which cost
+  // 3,484 authored fills and 150 glyph colours — see
+  // docs/proposals/tile-presentation-overrides.md. Asserted on synthetic tiles
+  // rather than found ones, because the law has to hold for the terrain nobody has
+  // painted an override onto YET; a found-tile check silently passes when the world
+  // stops containing an example.
   const paintedNoOverride = getAllZones().find(z => z.flags?.terrain === 'redrock');
   if (paintedNoOverride) {
-    check('a painted tile takes the palette fill, not its authored room colour',
+    check('a painted tile with no authored fill takes the palette fill',
       specOf(paintedNoOverride.id).fill === palette.terrains.redrock.fill,
-      `${specOf(paintedNoOverride.id).fill} vs authored ${paintedNoOverride.bg_color}`);
+      `${specOf(paintedNoOverride.id).fill} vs palette ${palette.terrains.redrock.fill}`);
   }
-  const authoredWins = getAllZones().find(z => z.flags?.terrain === 'water' && z.bg_color);
-  if (authoredWins) {
-    check('authored_bg_wins terrain keeps the tile\'s own colour',
-      specOf(authoredWins.id).fill === authoredWins.bg_color);
-  }
+  const pinnedTile = { id: 'synthetic', flags: { terrain: 'redrock' }, bg_color: '#ff00ff', color: '#00ff00' };
+  check('an authored fill beats the palette on a terrain that once ignored it',
+    deriveColors(pinnedTile, palette).bg_color === '#ff00ff',
+    deriveColors(pinnedTile, palette).bg_color);
+  check('an authored glyph colour beats a terrain that dictates its own',
+    deriveColors({ ...pinnedTile, flags: { terrain: 'road' } }, palette).color === '#00ff00',
+    deriveColors({ ...pinnedTile, flags: { terrain: 'road' } }, palette).color);
+  check('an authored marker survives painted ground',
+    deriveLabel({ ...pinnedTile, marker: '⌂' }, palette)?.text === '⌂');
+  check('no terrain hides a tile\'s own fill behind an exception flag',
+    Object.values(palette.terrains).every(t => !('authored_bg_wins' in t)));
 
   // THE PACING BUG (spec §1.2). Pacing keyed off flags.icon matching /^road_/, so a
   // tile painted `road` with no authored icon moved you at walking pace. The painted
@@ -3150,6 +3175,27 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   const tablesDecl = (serve.match(/const TABLES = \[[\s\S]*?\];/) || [''])[0];
   check('the Studio never opens power_zones, so a move cannot take one with it',
     tablesDecl.length > 0 && !/power_zones/.test(tablesDecl));
+
+  // THE THREAT VIEW READS AND NEVER WRITES. It is the one view showing content the
+  // Studio does not edit — spawns and the enemies they name — and the moment it
+  // grows a write path it is authoring monsters through a map editor, with no
+  // field catalog and no validation behind it. Pinned as an absence.
+  const threatFn = (serve.match(/function threatView[\s\S]*?\n\}/) || [''])[0];
+  check('the threat view writes nothing', threatFn.length > 0
+    && !/writeRow|action\(|saveZone/.test(threatFn)
+    && !/'\/api\/threat'[\s\S]{0,400}?writeRow/.test(serve));
+  // A ROOM INSIDE A BUILDING HAS NO TILE. Its spawns are authored against a zone on
+  // an interior map, so on the world map — the map you look at to ask where the
+  // danger is — they would be invisible. They fold up onto the facade you enter
+  // through, walking nested maps, which is the same rule the dev panel's Spawn Map
+  // established and the only reason the world map's heat is honest.
+  check('interior spawns fold onto the tile you enter them through',
+    /function tileFor/.test(serve) && /parent_zone_id/.test(threatFn + serve)
+    && /inside: zoneId !== t\.id/.test(serve));
+  // And the score is one function in one place. Two tools disagreeing about which
+  // end of town is worse is worse than either being wrong.
+  check('the threat score is the server\'s, not a second copy in the client',
+    /function enemyThreat/.test(serve) && !/hp_max/.test(client));
 }
 
 // LAW: a building moves and turns WHOLE, and neither can author what the gate rejects.

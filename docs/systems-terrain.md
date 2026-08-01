@@ -52,14 +52,14 @@ current values — the file is authoritative, this table is a convenience.
 | `dirt_road` | Dirt Road | `#7d6236` — auto-tiles with `road` (`isRoadTerrain`), drawn as a packed-dirt recolour of the same connector piece |
 | `asphalt` | Asphalt | `#45484d` |
 | `concrete` | Concrete | `#8a8d91` |
-| `grass` | Grass | `#5a9e57` |
+| `grass` | Grass | `#2f3a26` |
 | `park` | Park | `#46a24e` manicured green + authored flight-sim dressing |
 | `dirt` | Dirt | `#6b5138` |
 | `sand` | Sand | `#c2b280` |
 | `gravel` | Gravel | `#7d7a73` |
 | `dock` | Dock | `#6e5636` wooden decking |
-| `water` | Water | `#3f7fb0` |
-| `underwater` | Underwater | `#3f7fb0` — deliberately IDENTICAL to water; the difference is behavioural (breath timer, colder, dark), not visual |
+| `water` | Water | `#1d3b52` — the same value as `WATER_VOID_FILL` ([minimap.js:942](../client/game/js/panels/minimap.js:942)), which is what paints the bay BEYOND the map's rim, so the edge of the world is seamless |
+| `underwater` | Underwater | `#14283a` — a shade darker than water: depth, seen from above. Shares water's `minimap_class`, and the difference that matters is still behavioural (breath timer, colder, dark) |
 | `scrub` | Scrubland | `#6f7248` dry brush tufts (wildlands) |
 | `redrock` | Red Rock | `#6f3524` rust mesa facets (wildlands) |
 | `ash` | Ash | `#4f4b47` burnt-grey flecks (wildlands) |

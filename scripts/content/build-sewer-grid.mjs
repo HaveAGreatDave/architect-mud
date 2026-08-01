@@ -107,7 +107,6 @@ for (const rt of roadTiles) {
     audio_theme_id: null,
     bg_color: '#141b19',
     color: '#8fae9a',
-    created_by: 'sewer-grid',
     description: pick(tmpl, rt.grid_x, rt.grid_y).replace('{street}', streetName),
     exits: {},                                  // filled in the linking pass
     flags: { district: 'sewer', is_interior: true, scavenging_table_id: 'scav_sewer' },
@@ -117,7 +116,6 @@ for (const rt of roadTiles) {
     marker: '╬',                           // set precisely after linking
     name: 'Sewer Line',                         // refined after linking (by degree)
     parent_zone: null,
-    updated_at: STAMP,
   };
   zones[id] = z; underByCoord[`${rt.grid_x},${rt.grid_y}`] = z;
   fileOf[id] = `${id}.json`;

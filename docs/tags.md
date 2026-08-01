@@ -130,8 +130,9 @@ until the importer-wide rename is worth doing.
 because a flat map can hold only one `description` and both a flag and a column want that
 name. `validateZoneColumns(row)` checks them with the same `shapeError()` the flag bag uses,
 and `apiCreateZone`/`apiUpdateZone` gate on it exactly like `zoneFlagsError`. Deliberately
-uncatalogued, enforced by regress: `id`, `flags`, `exits`, `stains`, `created_by`,
-`updated_at` — a new zones column fails the suite until somebody picks a side.
+uncatalogued, enforced by regress: `id`, `flags`, `exits`, `stains` — a new
+zones column fails the suite until somebody picks a side. (`created_by` and
+`updated_at` were on this list until both columns were dropped, 2026-08-01.)
 
 **`shape: 'ref'` + `refTable`** marks a value that is an id in another table. None of these
 live in a column with a foreign key — they are JSONB flag values or plain TEXT — so a typo

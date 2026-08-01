@@ -4,7 +4,7 @@
 // and an optional inhabitant NPC. The route stamps the facade + interior map + power
 // (authorUtilityRoom) around this; templates only describe the rooms/props/people.
 //
-// This is authoring scaffolding (like the zone-planner's templates), NOT engine
+// This is authoring scaffolding, NOT engine
 // content — it lives in tools/ so the engine stays content-free. Types without a
 // bespoke entry fall back to GENERIC. Furniture object_type must be one of the valid
 // kinds (furniture/light/fixture/appliance/decoration/terminal/container); NPC

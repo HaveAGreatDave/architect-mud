@@ -137,6 +137,31 @@ group, help text, enum options, `refTable`. There are no hand-written form field
 a column added to the catalog is editable here without touching this tool, and a
 field that is *not* catalogued cannot be typed in by accident.
 
+**Every field is on the form, in its group — set or not.** What a tile carries renders
+under its heading; the rest of that heading's fields sit behind a **+ N not set** fold,
+and a group with nothing set at all (Flight, Echelon, Ascendant, Aircraft on almost
+every tile) is shut with a count. Groups holding an answer come first.
+
+This replaced a carried-flags-only form plus an alphabetical **Add a flag** dropdown,
+and the reason is worth keeping: the wall that dropdown was avoiding was never the
+count of flags, it was 104 of them *flat*. The catalog already sorts them into ten
+groups and the biggest is Structure's 25. What the dropdown cost is the case that found
+it — **Map Icon** is a field you go looking for by name, and a field you must know the
+name of to discover is a field that does not exist as far as the tool is concerned.
+
+Note also what is *not* the fix: showing "the flags tiles like this one usually carry".
+`icon` is on 18 tiles out of 5,841, so any frequency rule buries exactly the field that
+prompted the change. Rare is not the same as irrelevant.
+
+Unset rows are built **when a section opens**, never up front — `world_exit_zone` is a
+`ref` to `zones` and that select is 5,841 options. Until then they carry no `data-k`, so
+an unopened section can neither add a flag nor remove one, and opening one and saving is
+still a byte-for-byte no-op. Two fields are never offered: `district` and `terrain` are
+what the brushes paint (offering "Terrain" on an unpainted tile would hand back the box
+the form deliberately took away, and it is the building footprints and interiors that
+have no terrain), and `world_exit_zone` on a mapped interior belongs to the map's anchor
+— carried, it shows locked; unset, it is not offered at all.
+
 ## What it refuses
 
 Every save runs the same shape checks `content:lint` runs, plus the schema's own
@@ -238,6 +263,49 @@ Two things it shows rather than fixes: a **landmark naming no zone** (all 14 do,
 district composes its "To the north, …" line today) renders red as any dead ref does
 and `content:lint` warns — but the save is not refused, because it ships today and this
 tool must not be stricter than the gate it stands in for.
+
+## The threat view
+
+The third switch at the top of the sidebar, and the same trick as Districts: same
+canvas, same camera, same floor, same open map, one more question — *where would this
+map hurt me?*
+
+Spawns are authored one file at a time in `content/zone_spawns/`, and a spawn row names
+a zone and an enemy and says nothing about **where**. So "is the north side harder than
+the docks" was 120 files and a mental picture. Here it is the picture: the ground dims
+and the danger goes on top of it in red, deepest where the most and the worst of it
+stands up.
+
+| in the view | means |
+|---|---|
+| red wash | how much would meet you here — count × strength, on a sqrt ramp so one weak spawn still reads |
+| white outline | one of the hottest tiles on the floor, so you can tell *which* tile once four are adjacent |
+| enemy list | everything on this map, hottest first, the bar behind each name its share of the whole |
+| **⌖** | flies to where that enemy is thickest, changing floor if that is where it lives |
+| a floor button with **•** | that floor has spawns on it |
+
+**A room inside a building has no tile of its own**, so its spawns fold up onto the
+facade you enter through — walking nested interior maps, so a mutant on the tenement's
+tenth floor reddens the tenement's front door on the world map. The tile inspector lists
+what folded in and from where. Open the interior's own map and the same spawn is a tile
+of its own there; nothing is double-counted, because each map is asked separately.
+
+Two things it says out loud rather than drawing, because it cannot: spawns that resolve
+to a tile on **another map**, and spawn zones that are on **no grid at all** — those
+spawn in game and appear on no map, which is the kind of thing only a map view ever
+notices. It also lands you on the busiest floor when you switch into it, because 119 of
+the world map's 120 spawns are in The Under at `z=-1`, beneath streets that hold one.
+
+The score — hp + swing + accuracy, times how many stand up — is the same one the dev
+panel's Spawn Map uses, and it lives on the server so the two tools cannot come to
+different conclusions about which end of town is worse. **Nothing in the game reads it.**
+It exists to make one tile redder than another.
+
+**It reads and never writes.** The Studio does not author monsters and does not place
+them: no field catalog covers `enemies`, and a map editor quietly writing spawn rows
+would be the one path into this content with no validation behind it. `content/enemies/`
+is opened read-only, for the numbers behind the colour. `npm run test:regress` pins the
+absence.
 
 ## Following a door
 
@@ -412,9 +480,10 @@ push.
 
 This is increment 4 of spec §11 step 8. It views any map, edits every authored field
 of a tile, paints terrain, owns the map-level properties above, walks the map tree
-through its seams, and moves and turns a building. It does **not** yet do New
-Building, the region planner, connection editing, or structural operations on
-anything that is not a building — those stay in the dev panel and in
+through its seams, moves and turns a building, and shows where the danger is. It does
+**not** yet place or edit a spawn (the threat view is read-only, and designing a monster
+is not a map job at all), nor do New Building, the region planner, connection editing,
+or structural operations on anything that is not a building — those stay in the dev panel and in
 [`scripts/place-building.mjs`](../../scripts/place-building.mjs) until the next
 increment moves them.
 

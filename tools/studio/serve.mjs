@@ -83,6 +83,11 @@ const readBody = (req) => new Promise((resolve, reject) => {
 // the end of planMove.
 const TABLES = [
   'zones', 'maps', 'regions', 'connections', 'doors', 'districts',
+  // `enemies` is here to be READ, not written — the threat view needs an enemy's
+  // hp and swing to say how dangerous a tile is, and the Studio does not edit
+  // monsters. It is in the tree rather than read per-request so 120 files are
+  // parsed once instead of on every pan.
+  'enemies',
   'furniture', 'npcs', 'generators', 'security_devices', 'zone_spawns',
   'job_boards', 'media_cameras', 'media_channels', 'npc_residences', 'aa_sites', 'windows',
 ];
@@ -156,6 +161,7 @@ async function writeRow(table, id, obj) {
   // filled once at first use and never invalidated, so the zone picker and the
   // red NOT IN <table> flagging both went stale within a session.
   REF_CACHE.delete(table);
+  REF_ID_CACHE.delete(table);
 }
 
 // ── The action log ───────────────────────────────────────────────────────────
@@ -432,15 +438,42 @@ function refOptions(table) {
   if (REF_CACHE.has(table)) return REF_CACHE.get(table);
   if (table === 'zone_icons') { const o = iconOptions(); REF_CACHE.set(table, o); return o; }
   let out = [];
-  try {
-    const dir = join(CONTENT_DIR, table);
-    out = readdirSync(dir).filter(n => n.endsWith('.json')).map(n => {
-      const row = JSON.parse(readFileSync(join(dir, n), 'utf8'));
-      return { id: row.id, name: row.name ?? row.title ?? null };
-    }).sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
-  } catch { out = []; }
+  // A TABLE THIS SERVER ALREADY HOLDS IS NOT READ OFF DISK AGAIN. `tree` is the
+  // authoritative in-memory copy — writeRow keeps it and the files in step — so
+  // re-globbing content/zones/ here read 5,841 files to answer a question the
+  // process could already answer. It cost ~850ms, and validateZone asks it once
+  // per ref column per tile, which is what made a five-tile stroke take seconds.
+  const held = tree[table];
+  if (held) {
+    out = [...held.values()].map(row => ({ id: row.id, name: row.name ?? row.title ?? null }));
+  } else {
+    try {
+      const dir = join(CONTENT_DIR, table);
+      out = readdirSync(dir).filter(n => n.endsWith('.json')).map(n => {
+        const row = JSON.parse(readFileSync(join(dir, n), 'utf8'));
+        return { id: row.id, name: row.name ?? row.title ?? null };
+      });
+    } catch { out = []; }
+  }
+  out.sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
   REF_CACHE.set(table, out);
   return out;
+}
+
+// Validation asks "does this id exist", never "what are the options" — and the
+// sorted array it used to scan with .some() is the wrong shape for that question
+// at 5,841 rows. Same cache key, same invalidation, one Set built per table.
+const REF_ID_CACHE = new Map();
+function refHas(table, id) {
+  let set = REF_ID_CACHE.get(table);
+  if (!set) {
+    // Straight off the in-memory table where there is one, so a paint stroke —
+    // which drops this cache per tile it writes — does not pay a 5,841-row
+    // localeCompare sort it has no use for.
+    set = tree[table] ? new Set(tree[table].keys()) : new Set(refOptions(table).map(o => o.id));
+    REF_ID_CACHE.set(table, set);
+  }
+  return set.has(id);
 }
 
 // ── Validation: the Studio cannot author what the deploy gate would reject ───
@@ -467,7 +500,7 @@ function validateZone(row, mapForAnchor = undefined) {
   for (const [col, def] of Object.entries(zoneColumnCatalog())) {
     const v = row[col];
     if (v == null || v === '' || !def.refTable) continue;
-    if (!refOptions(def.refTable).some(o => o.id === v)) errors.push(`${col}="${v}" is not a row of ${def.refTable}`);
+    if (!refHas(def.refTable, v)) errors.push(`${col}="${v}" is not a row of ${def.refTable}`);
   }
   // The map owns the anchor. A tile on a map does not get to disagree with it —
   // that is a content:lint ERROR, and the Studio's whole point is that you find
@@ -684,6 +717,122 @@ function districtsView() {
     districts: rows,
     unassigned,
     unknown: [...unknown].map(([id, n]) => ({ id, tiles: n })),
+  };
+}
+
+// ── Threat: where the danger is ─────────────────────────────────────────────
+// A THIRD VIEW OF THE SAME MAP, the way districts are a second one. It answers
+// one question — where would this map hurt me, and how much — and it answers it
+// with content that is authored somewhere else entirely: a spawn row names a zone
+// and an enemy, and nothing about it says *here*. This is the join.
+//
+// Two rules shape what comes back:
+//
+//   1. INTERIORS FOLD ONTO THEIR DOOR. A room inside a building has no tile of its
+//      own — it lives on the building's own map — so its spawns would be invisible
+//      on the world map, which is the map you look at to ask this question. Every
+//      spawn walks up through nested interior maps until it reaches a tile on the
+//      map being drawn, and lands on that tile. A 4th-floor tenement mutant heats
+//      the tenement's facade.
+//   2. THE SCORE IS A ROLLUP, NOT A RANKING. It is deliberately crude — hp, swing,
+//      accuracy, times how many stand up — because its whole job is to make one
+//      tile redder than another. Nothing in the game reads it.
+
+// Rough power of one enemy definition. Mirrors the dev panel's Spawn Map so the
+// two tools do not disagree about which end of town is worse.
+function enemyThreat(e) {
+  if (!e) return 1;
+  const weapon = Array.isArray(e.weapon) ? e.weapon : [];
+  const dmg = weapon.reduce((n, c) => n + ((+c.min || 0) + (+c.max || 0)) / 2, 0);
+  return Math.max(1, (+e.hp_max || 30) / 10 + dmg * 2 + (+e.hit || 0));
+}
+
+// The tile on `mapId` that this zone's spawns belong to, walking up through the
+// maps that hang off buildings. Returns null when the chain leaves this map (the
+// spawn is real, just somewhere else) — `placed` says whether it ever reached a
+// tile at all, which is the difference between elsewhere and nowhere.
+function tileFor(zone, mapId, idx) {
+  const seen = new Set();
+  let z = zone, placed = false;
+  while (z && !seen.has(z.id)) {
+    const onGrid = z.grid_x != null && z.grid_y != null;
+    if (onGrid) placed = true;
+    if (onGrid && z.map_id === mapId) return { tile: z, placed: true };
+    seen.add(z.id);
+    const parent = tree.maps.get(z.map_id)?.parent_zone_id;
+    z = parent ? idx.get(parent) : null;
+  }
+  return { tile: null, placed };
+}
+
+function threatView(mapId) {
+  const idx = zoneIndex();
+  const spawnsByZone = new Map();
+  for (const s of tree.zone_spawns.values()) {
+    if (!spawnsByZone.has(s.zone_id)) spawnsByZone.set(s.zone_id, []);
+    spawnsByZone.get(s.zone_id).push(s);
+  }
+
+  const tiles = {};            // tileId → { threat, spawns, entries[] }
+  const enemies = new Map();   // enemyId → { id, name, threat, heads, spawns, top }
+  const orphans = [];          // spawns on a zone that is nowhere on any grid
+  let elsewhere = 0;           // spawns that resolve to a tile on some OTHER map
+
+  for (const [zoneId, spawns] of spawnsByZone) {
+    const zone = idx.get(zoneId);
+    const where = zone ? tileFor(zone, mapId, idx) : { tile: null, placed: false };
+    const rows = spawns.map(s => {
+      const e = tree.enemies.get(s.enemy_id);
+      const heads = Math.max(1, +s.max_count || 1);
+      return {
+        id: s.id, enemy_id: s.enemy_id,
+        // A spawn naming an enemy that no longer exists spawns nothing in game.
+        // It is listed under the id it names rather than dropped, because a
+        // silent nothing is the state this view exists to make visible.
+        name: e?.name || null, missing: !e,
+        max_count: heads, respawn_seconds: s.respawn_seconds, spawn_weight: s.spawn_weight,
+        threat: enemyThreat(e) * heads,
+      };
+    });
+    if (!where.tile) {
+      if (where.placed) elsewhere += rows.length;
+      else orphans.push({ zone: { id: zoneId, name: zone?.name || null }, spawns: rows });
+      continue;
+    }
+    const t = where.tile;
+    const bucket = tiles[t.id] || (tiles[t.id] = { threat: 0, spawns: 0, entries: [] });
+    bucket.entries.push({
+      zone: {
+        id: zoneId, name: zone.name || zoneId,
+        inside: zoneId !== t.id,          // folded up from an interior, not on the tile
+        map: zone.map_id, mapName: deriveMapName(tree.maps.get(zone.map_id) || {}, idx) || zone.map_id,
+      },
+      spawns: rows,
+    });
+    bucket.spawns += rows.length;
+    bucket.threat += rows.reduce((n, r) => n + r.threat, 0);
+
+    for (const r of rows) {
+      const cur = enemies.get(r.enemy_id)
+        || { id: r.enemy_id, name: r.name, missing: r.missing, threat: 0, heads: 0, spawns: 0, top: null, topThreat: 0 };
+      cur.threat += r.threat; cur.heads += r.max_count; cur.spawns++;
+      // Where this enemy is thickest, so the list can take you there.
+      if (r.threat > cur.topThreat) { cur.topThreat = r.threat; cur.top = t.id; }
+      enemies.set(r.enemy_id, cur);
+    }
+  }
+
+  const peak = Object.values(tiles).reduce((n, t) => Math.max(n, t.threat), 0);
+  return {
+    map: mapId,
+    tiles,
+    enemies: [...enemies.values()].sort((a, b) => b.threat - a.threat || String(a.name).localeCompare(String(b.name))),
+    totals: {
+      tiles: Object.keys(tiles).length,
+      spawns: Object.values(tiles).reduce((n, t) => n + t.spawns, 0),
+      peak, elsewhere, world: tree.zone_spawns.size,
+    },
+    orphans,
   };
 }
 
@@ -948,6 +1097,14 @@ const server = createServer(async (req, res) => {
     // not exist, and tiles claiming nothing at all.
     if (req.method === 'GET' && path === '/api/districts') {
       return json(res, 200, { ...districtsView(), catalog: districtColumnCatalog() });
+    }
+
+    // Every spawn on one map, folded onto the tiles you would meet it through.
+    // Read-only: the Studio places no monsters, it only shows you where they are.
+    if (req.method === 'GET' && path === '/api/threat') {
+      const mapId = url.searchParams.get('map');
+      if (!mapId) return json(res, 400, { error: 'map is required' });
+      return json(res, 200, threatView(mapId));
     }
 
     // One district's authored row. PUT writes content/districts/<id>.json.

@@ -47,8 +47,8 @@ nothing, silently; wire a reader first.
 | `airfield_lawless` | flight | airfield outside city law |
 | `airfield_name` | flight | display name of the airfield |
 | `airfield_surface` | flight | runway surface flavour for a rough strip (e.g. `dust` for a packed-dirt frontier field) |
-| `airfield_theme` | flight (zone-planner) | overrides the airport backdrop painted out the canopy (`city\|docks\|yards\|slag\|wastes\|default`); inferred from the zone id when unset |
-| `runway` | flight (zone-planner) | runway tile: `ns`/`ew` is the centreline orientation the flight sim aligns its drawn runway to; `pad` is the surrounding asphalt |
+| `airfield_theme` | flight | overrides the airport backdrop painted out the canopy (`city\|docks\|yards\|slag\|wastes\|default`); inferred from the zone id when unset |
+| `runway` | flight | runway tile: `ns`/`ew` is the centreline orientation the flight sim aligns its drawn runway to; `pad` is the surrounding asphalt |
 | `aircraft_cabin` | flight | interior cabin room of a **walkable** aircraft; value = the craft-type id (e.g. `leviathan`). Binds these coordinate-free rooms to the live aircraft; the move gate seals world exits while airborne |
 | `cabin_window` | flight | cabin room with windows — `window` opens the through-hull moving-world view from here |
 | `flightdeck` | flight | cockpit room of a walkable aircraft: home of TAKE CONTROLS / HAND OFF and the NAV console |
@@ -114,7 +114,6 @@ nothing, silently; wire a reader first.
 | `no_spawn` | spawning | suppress enemy spawns |
 | `open_sky` | flight + environment | outdoor zone aircraft can overfly/land; on an `is_interior`/`is_building` zone (an open roof/deck) it also makes the zone climatically OUTDOORS — sky light, weather, and outdoor temp — while the raw interior flag keeps it in the power/building network (see `isIndoorZone`) |
 | `park_feature` | flight | on a `terrain:park` tile, forces which flight-sim park dressing draws (`grove\|pond\|benches\|flowerbeds\|path`) so a park lays out symmetrically; unset → tile position hash. Rides the flight cell as `pf` (live stream + baked snapshot) |
-| `planner` | zone-planner | provenance: blueprint id that generated this zone (tools/zone-planner) |
 | `prologue` | prologue | part of the prologue instance |
 | `radiation` | survival | ambient radiation 0–100 (entry gain `floor(v×0.1)`; ≥25/≥40 floors danger to high/lethal). Replaced the `radiation_level` column (legacy 1–5 values rescaled ×10) |
 | `rest_multiplier` | survival/posture | scales both stamina regen and HP knit-back for anyone resting here (`restRegenTick`, gameLoop.js); default 1. Comfort zones raise it — Solenne units 1.5, penthouse 2.0 |

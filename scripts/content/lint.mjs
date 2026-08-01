@@ -290,8 +290,7 @@ export function lintContentTree(baseDir) {
 
   // Facade invariants: a `facade`-tagged zone must have an interior map
   // parented on it with a real entry zone, plus a real world_exit_zone — the
-  // auto-forward seam's dependencies (tools/zone-planner/lint.mjs checks the
-  // live DB; this covers hand-authored content files in CI).
+  // auto-forward seam's dependencies.
   {
     const zoneFiles = entries.find(e => e.entry.table === 'zones')?.files || [];
     const mapFiles = entries.find(e => e.entry.table === 'maps')?.files || [];

@@ -1253,7 +1253,7 @@ const TERRAIN_TILE_DEFAULTS = {
 function _newTerrainTile(id, x, y, z, terr, mapId) {
   const rw = RUNWAY_KEYS[terr];
   const d = TERRAIN_TILE_DEFAULTS[terr] || {};
-  const flags = { planner: 'bp_district' };
+  const flags = {};
   if (rw) { flags.runway = rw.runway; flags.icon = rw.icon; } else { flags.terrain = terr; }
   if (d.wild) { flags.district = 'wilds'; flags.radiation = d.rad; }
   if (mapEditingRegionId) flags.region_id = mapEditingRegionId;  // a conjured tile joins the edited region
