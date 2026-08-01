@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "audio_theme_id": null,
-  "bg_color": "#1d3b52",
   "color": "#3f7fb0",
-  "created_by": null,
   "description": "Out where the bottom stops meaning anything. The surface lies flat and lightless and takes the sky's colour without improving on it. Somewhere below you the water goes on being cold, in the dark, at length.",
   "exits": {
     "east": "zone_district_950_897",
@@ -13,7 +10,6 @@
     "west": "zone_district_948_897"
   },
   "flags": {
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "water"
   },
@@ -22,8 +18,6 @@
   "grid_z": 0,
   "id": "zone_district_949_897",
   "map_id": "map_world",
-  "marker": null,
   "name": "Coldwater Basin",
-  "parent_zone": null,
-  "updated_at": "1784700000"
+  "parent_zone": null
 }

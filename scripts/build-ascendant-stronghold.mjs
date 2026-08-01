@@ -39,7 +39,6 @@ function base(o) {
     audio_theme_id: null,
     bg_color: o.bg_color ?? CHROME_BG,
     color: o.color ?? CHROME_FG,
-    created_by: 'ascendant-stronghold',
     description: o.description,
     exits: o.exits,
     flags: o.flags,
@@ -198,7 +197,7 @@ room({
   id: 'zone_asc_spire_sanctum', mapId: 'map_int_asc_spire', facadeId: 'zone_district_892_906',
   name: 'Executive Sanctum', exits: { down: 'zone_asc_spire_gallery' },
   description: "The crown of the Spire, and the answer to that half-memory at the door: the seal is here too, ten metres wide — the calm eye over the city skyline — but rendered now in living chrome, and it is the Ascendant sigil, and it is also, unmistakably, the Halcyon seal. The same eye. It was always watching. Something barely flesh presides here, and it has been expecting you.",
-  extraFlags: { always_lit: true, ascendant_inner: true },
+  extraFlags: { always_lit: true },
 });
 
 // Clinic — augment_clinic makes `augment install/remove` work here.
@@ -254,7 +253,7 @@ room({
   id: 'zone_asc_shrine_uplink', mapId: 'map_int_asc_shrine', facadeId: 'zone_district_892_907',
   name: 'The Uplink', exits: { out: 'zone_asc_shrine_nave' },
   description: "A single terminal set into the Curtain itself, where hard light meets cold glass. Here, they say, you can speak to the Architect — or to the part of yourself the Ascendants intend to upload into it. The hum is very loud, and very patient.",
-  extraFlags: { always_lit: true, architect_uplink: true },
+  extraFlags: { always_lit: true },
 });
 
 /* ══════════════════════ SEAL THE CAMPUS EDGES (reciprocal trims) ═══════════ */

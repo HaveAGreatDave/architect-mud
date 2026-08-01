@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#26292e",
   "color": "#cdb489",
-  "created_by": "yards-plan",
   "description": "The bonded floor: aisle after aisle of shrink-wrapped pallets under customs seals, a caged clerk's office in one corner, your breath misting in the cold sodium light. Whatever a corp holds here, the city officially cannot see.",
   "exits": {
     "south": "zone_district_922_907"
@@ -22,8 +20,6 @@
   "grid_z": 0,
   "id": "zone_yard_bonded",
   "map_id": "map_int_yard_bonded",
-  "marker": null,
   "name": "Bonded & Bothered",
-  "parent_zone": "zone_district_922_907",
-  "updated_at": "1783739474"
+  "parent_zone": "zone_district_922_907"
 }

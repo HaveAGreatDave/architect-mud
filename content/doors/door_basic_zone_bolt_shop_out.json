@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_bolt_shop_south_fh0e",
   "door_type": "basic",
   "exit_dir": "south",
   "flags": {},

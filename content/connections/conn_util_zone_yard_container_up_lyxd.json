@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_yard_container",
+  "b": "zone_yard_container",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_yard_container_up_lyxd",
+  "lockable": false,
+  "one_way": true
+}

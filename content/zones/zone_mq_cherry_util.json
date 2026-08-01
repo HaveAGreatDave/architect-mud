@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#c0304a",
-  "color": null,
-  "created_by": null,
   "description": "Past a beaded curtain behind the office, a windowless room of dead neon tubes, a cracked mirror-ball, and coils of stage cable. The building's junction box hums against the far wall, its indicator lights winking through the sticky dark like the club never really closes. A small sealed hacking port sits below its latch.",
   "exits": {
     "south": "zone_mq_cherry_office"
@@ -17,8 +14,6 @@
   "grid_z": -1,
   "id": "zone_mq_cherry_util",
   "map_id": "map_int_mq_cherry",
-  "marker": null,
   "name": "Utility Room",
-  "parent_zone": "zone_mq_cherry_office",
-  "updated_at": "1783023535"
+  "parent_zone": "zone_district_901_907"
 }

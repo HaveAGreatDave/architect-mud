@@ -1,0 +1,16 @@
+{
+  "blurb": "Nothing good stays alive out here for long. Neither will you.",
+  "color": "#e05555",
+  "id": "hazard",
+  "landmark": null,
+  "name": "a Hazard Zone",
+  "prefixes": [],
+  "signature": [
+    "The air itself feels wrong — a chemical sharpness that scrapes the lungs.",
+    "A geiger tick you can’t actually hear seems to crawl up your spine anyway.",
+    "Everything here is dead, and it died fast.",
+    "A hot, oily wind carries a taste you’ll spend the day trying to spit out."
+  ],
+  "skyline": null,
+  "sort": 200
+}

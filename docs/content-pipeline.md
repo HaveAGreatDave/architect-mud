@@ -29,6 +29,51 @@ noise; a fresh restore that unlocks every vault is data loss. Regress layer 1a
 fails the build if any table is unclassified or any declared column doesn't
 exist — the "forgot to add scavenging tables to the backup" bug class is dead.
 
+**`content/map/` is authored content that isn't a table.** One file, read whole
+rather than upserted per row: `terrain.json`, the terrain palette. It is git-owned
+like everything else under `content/`, and `NON_TABLE_DIRS` in
+[lib.mjs](../scripts/content/lib.mjs) is what stops the unknown-directory guard
+rejecting it. Nothing reads it at runtime — the build resolves it into
+`zone_derived` and renderers read only that.
+
+**Editing tiles: the Studio.** `npm run studio`, or `npm run dev` which starts it
+alongside the game server ([tools/studio/](../tools/studio/README.md))
+is the file-authoring map tool — it reads and writes `content/` with no database in
+the process, draws every tile from the build's own derive pass, and generates its
+inspector from the field catalog. Saves are validated with the checks `content:lint`
+runs and refused on error, so it cannot author something the deploy gate would
+reject. The dev panel's Maps tab still edits the live DB (with the save-hook writing
+files after); the two do not see each other, so don't paint in both in one sitting.
+
+**`content/connections/` says what geometry cannot.** A tile's neighbours come from
+its grid coordinates, so contiguous walkable ground authors nothing at all. A file
+exists only where that breaks down: a link the grid does not imply (a stairwell, a
+facade's front door, a warp between maps), a link that runs one way, or a **wall** —
+two tiles that touch and are deliberately not connected (`blocked: true`). 283 files
+stand in for 21,203 edges. `content:lint` projects the whole graph and holds it to
+`zones.exits` edge for edge, so an exit added on one side only, or a wall nobody
+declared, fails before it ships. See the [map pipeline spec §1.4/§7.5](proposals/map-pipeline-spec.md).
+
+**omitWhenNull is the opposite case: authored, but absent by default.** Some
+columns are *overrides* — a tile writes one only when it disagrees with what it
+would otherwise inherit (`regions.defaults` → `resolveDefault`, see
+[scripts/content/derive.mjs](../scripts/content/derive.mjs) and the
+[map pipeline spec §1.3](proposals/map-pipeline-spec.md)). Null on such a column
+is not a fact, it's the absence of one, and writing it down anyway is how
+`zones.audio_theme_id` came to say "nobody had an opinion" in 5,785 separate
+files. For a column on this list:
+
+- **export** omits the key when the value is null,
+- **lint** rejects a present-but-null key, so a tool that starts writing them
+  again fails immediately instead of silently refilling the tree,
+- **import** writes an explicit NULL when the key is absent — deleting an
+  override has to *clear* the column, or the old value survives in every database
+  that ever imported it and only a freshly-built one matches the files.
+
+That last point is the difference from every other absent key, where "not in the
+file" means "don't touch". Regress layer 1a checks the same way it checks
+excludeColumns, plus that no column is on both lists.
+
 ## Daily loop
 
 ```
@@ -45,7 +90,18 @@ any time:        npm run content:status   # "do files match my DB?"
 - `content:import` — files → DB. Applies SCHEMA_SQL first, then one
   transaction: registry-order upserts (`ON CONFLICT (pk) DO UPDATE`, no-op when
   identical), then the deletion pass (below). Never drops the DB; player rows
-  are untouched. On a **local** target it then runs `content:seed-runtime`.
+  are untouched. On a **local** target it then runs `content:seed-runtime`. It
+  finishes with a **derive pass**: it reads the zones, regions and connections the
+  transaction just committed plus [content/map/terrain.json](../content/map/terrain.json),
+  and rebuilds `zone_derived` — the generated presentation every renderer paints
+  from — and `zone_edges`, the whole traversal graph (map-pipeline-spec §9). The
+  pass writes only generated tables, never `zones`, so the drift report and the
+  git-diff deletion pass need no changes at all.
+- `map:derive` — the derive pass on its own, against a live database. A normal
+  deploy never needs it; it exists for the case the deploy can't cover, a one-shot
+  script that rewrites tiles directly and leaves the generated tables describing
+  the world as it was. Run it after one, or the map draws yesterday. (The dev
+  panel's terrain painter calls the same pass over `POST /map/derive`.)
 - `content:seed-runtime` — initialises runtime-managed state that `excludeColumns`
   keeps out of files and that therefore starts at its table default on a fresh DB
   (most visibly `npcs.vendor_stock`: every shop empty until the first in-game daily
@@ -158,6 +214,35 @@ editing the *same* entity). Resolve like any git conflict; when the JSON is
 fiddly, the escape hatch is: pick either side, import, re-make your change in
 the dev panel, re-export. `content:lint` in the pre-push hook catches botched
 resolutions before they reach main.
+
+That holds for two devs editing one entity. It does **not** hold across a
+long-lived branch, where a mechanical pass touches thousands of files: the
+derive work removed `"marker": null` and `"audio_theme_id": null` from 5,788
+zone files, and every one of those became a conflict with any commit on `main`
+that edited a neighbouring line. Merging 133 `main` commits into
+`studio-manager` produced 93 content conflicts of which only 11 were real
+disagreements.
+
+So `content/**/*.json` is merged **by key, not by line**, through
+[`scripts/content/merge-json.mjs`](../scripts/content/merge-json.mjs). Canonical
+serialization is what makes this safe — key order is `Object.keys().sort()`, not
+authorial intent, so line adjacency carries no meaning to preserve. The driver
+applies the ordinary three-way rule per key, recurses into objects, compares
+arrays whole (order is meaning in `exits`), treats `null` and an omitted key as
+the same statement per the absent-by-default contract, and emits through
+`canonicalJson` so a merge lands byte-identical to an export. Anything both
+sides genuinely changed is left as a normal conflict, with the key named on
+stderr.
+
+`.gitattributes` names the driver; **each clone must supply the command once**:
+
+```bash
+git config merge.contentjson.driver "node scripts/content/merge-json.mjs %O %A %B %P"
+```
+
+Without it git warns and falls back to the text merge — noisier, never wrong.
+Turning on `git config rerere.enabled true` is worth it on the same day: the
+handful of real conflicts recur on every subsequent merge of the same branches.
 
 ## Schema changes
 

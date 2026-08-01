@@ -3580,8 +3580,10 @@ function draw3DBox(ctx, cam, dx, dy, fh, wz, biome, seed, night, alpha) {
 // shimmer plane standing on the perimeter tile, drawn as ARMS reaching from the tile centre only
 // toward its real Curtain neighbours (`cur`: any of 'n','e','s','w'; see curtainRun). A straight
 // run carries opposite arms → one clean span; a corner carries an L (e.g. 'nw') and NEVER pokes a
-// stray stub into empty air; an endpoint carries a single arm. Purely a landmark; the actual seal
-// is a move-gate on flags.curtain, server-side.
+// stray stub into empty air; an endpoint carries a single arm. Purely a landmark — and `flags.curtain`
+// is ONLY that, on every screen: there is no move gate on it (grep registerMoveGate). The actual seal
+// is 133 authored walls between the frontier tiles (`blocked: true`, named "the Architect's Curtain"),
+// so the wall you can see and the wall you cannot walk through are two separate facts about one place.
 const CURTAIN_H = 0.9;   // world-z — taller than any district building, an imposing barrier
 function drawCurtainWall(ctx, cam, dx, dy, axis, alpha, now) {
   const NEAR = 0.08;

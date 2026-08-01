@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2b251c",
-  "color": null,
-  "created_by": null,
   "description": "A single run of counter and a row of laminate booths, all of it lit like an interrogation and none of it clean. Behind the pass, an auto-griddle sizzles on its own until the cook leans in and overrides it out of spite. A jittering neon menu offers things in quotation marks — the \"eggs,\" the \"melt\" — and a card reader waits at every seat, blinking, patient, hungry.",
   "exits": {
     "north": "zone_district_906_910"
@@ -27,8 +24,6 @@
   "grid_z": 0,
   "id": "zone_meltwater_diner",
   "map_id": "map_int_meltdiner",
-  "marker": null,
   "name": "Grease Expectations",
-  "parent_zone": "zone_district_906_910",
-  "updated_at": "1784500000"
+  "parent_zone": "zone_district_906_910"
 }

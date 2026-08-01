@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "audio_theme_id": null,
   "bg_color": "#1f3646",
   "color": "#4f83a8",
-  "created_by": null,
   "description": "Brackish shallows, warmer than the channel and a great deal less clean, sheeted with a film that turns colours where the light catches it. Reeds have got a foothold. The bank is a slurry of grit and old plastic.",
   "exits": {
     "east": "zone_district_938_905",
@@ -12,7 +10,6 @@
     "west": "zone_district_936_905"
   },
   "flags": {
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "water"
   },
@@ -21,8 +18,6 @@
   "grid_z": 0,
   "id": "zone_district_937_905",
   "map_id": "map_world",
-  "marker": null,
   "name": "Coldwater Basin",
-  "parent_zone": null,
-  "updated_at": "1784700000"
+  "parent_zone": null
 }

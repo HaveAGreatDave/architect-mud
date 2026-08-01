@@ -1,0 +1,9 @@
+{
+  "a": "zone_solenne_helipad",
+  "b": "zone_solenne_elevator",
+  "blocked": false,
+  "dir": "in",
+  "id": "conn_solenne_helipad_in_9551",
+  "lockable": false,
+  "one_way": true
+}

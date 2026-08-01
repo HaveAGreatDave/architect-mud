@@ -1,10 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "audio_theme_id": null,
-  "bg_color": "#241f1a",
-  "color": "#cba05a",
-  "created_by": "wildlands",
   "description": "RINDLE'S LEAN-TO. A trestle of city salvage and stranger wares under a tarp: rad-flora in jars, bone-plate lashings, vials of something that moves on its own. Rindle — lean, grinning, one arm sheathed in chitin — watches you price it all with a scavenger's patience.",
   "exits": {
     "east": "zone_district_919_925",
@@ -14,7 +10,6 @@
   },
   "flags": {
     "district": "wilds",
-    "planner": "bp_district",
     "radiation": 15,
     "region_id": "region_coldwater",
     "terrain": "dirt_road"
@@ -24,8 +19,6 @@
   "grid_z": 0,
   "id": "zone_district_918_925",
   "map_id": "map_world",
-  "marker": "$",
   "name": "Rindle's Lean-to",
-  "parent_zone": null,
-  "updated_at": "1784564533"
+  "parent_zone": null
 }

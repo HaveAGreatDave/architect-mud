@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#1e1a28",
-  "color": null,
-  "created_by": null,
   "description": "The script vault: rolling stacks packed rail to rail with bound shooting drafts, continuity binders and tape logs going back further than anyone upstairs admits the station does. A card index sits by the door in a drawer cabinet the size of a coffin, and a lone reading carrel waits under a lamp with a legal pad already on it. It smells of toner, old plastic and the dust that gets into paper. Somewhere in here is the episode they pulled.",
   "exits": {
     "north": "zone_ksab_lobby"
@@ -21,8 +18,6 @@
   "grid_z": 0,
   "id": "zone_ksab_gallery",
   "map_id": "map_int_ksab",
-  "marker": null,
   "name": "KSAB Script Vault",
-  "parent_zone": "zone_district_913_910",
-  "updated_at": "1784500000"
+  "parent_zone": "zone_district_913_910"
 }

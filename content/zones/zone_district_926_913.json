@@ -1,10 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "audio_theme_id": null,
-  "bg_color": "#38322b",
-  "color": "#8f8375",
-  "created_by": "zone-planner",
   "description": "Loose stone crunches underfoot, greyed with dust and old oil. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth. Tyre tracks braid off into the haze.",
   "exits": {
     "down": "zone_under_926_913",
@@ -15,8 +11,6 @@
   },
   "flags": {
     "district": "residential",
-    "icon": "road_x",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
@@ -27,8 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_926_913",
   "map_id": "map_world",
-  "marker": "⳾",
   "name": "Residential Area",
-  "parent_zone": null,
-  "updated_at": "1784342750"
+  "parent_zone": null
 }

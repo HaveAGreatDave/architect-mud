@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#232019",
-  "color": null,
-  "created_by": null,
   "description": "A standing-room slot of chrome and steam, all counter and no chairs, built to move you through fast and caffeinated. A semi-automated espresso rig does most of the work while a barista babysits it and judges your order. The menu board overhead recalculates its prices with a soft chime that has trained regulars to flinch. It smells of scorched sugar, ozone, and other people's mornings.",
   "exits": {
     "east": "zone_district_906_912"
@@ -21,8 +18,6 @@
   "grid_z": 0,
   "id": "zone_stimcafe",
   "map_id": "map_int_jitter",
-  "marker": null,
   "name": "Battery Acid Coffee Co.",
-  "parent_zone": "zone_district_906_912",
-  "updated_at": "1784500000"
+  "parent_zone": "zone_district_906_912"
 }

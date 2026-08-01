@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#26292e",
   "color": "#cdb489",
-  "created_by": "yards-plan",
   "description": "The dry store's floor: plain steel racking to the roofline, a pallet jack, a swept concrete deck. Cheap, dry, and defensible — the kind of space a young crew cuts its teeth holding.",
   "exits": {
     "north": "zone_district_924_909"
@@ -22,8 +20,6 @@
   "grid_z": 0,
   "id": "zone_yard_drystore",
   "map_id": "map_int_yard_drystore",
-  "marker": null,
   "name": "Shelf Life",
-  "parent_zone": "zone_district_924_909",
-  "updated_at": "1783739474"
+  "parent_zone": "zone_district_924_909"
 }

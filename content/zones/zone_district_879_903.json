@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "audio_theme_id": null,
-  "bg_color": "#2a1c16",
   "color": "#b5744a",
-  "created_by": "wildlands-expand",
   "description": "A vast rust-stained plain, hammered flat and hard, printed here and there with the tracks of things that crossed it once.",
   "exits": {
     "east": "zone_district_880_903",
@@ -14,7 +11,6 @@
   },
   "flags": {
     "district": "wilds",
-    "planner": "bp_district",
     "radiation": 32,
     "region_id": "region_coldwater",
     "terrain": "redrock"
@@ -24,8 +20,6 @@
   "grid_z": 0,
   "id": "zone_district_879_903",
   "map_id": "map_world",
-  "marker": null,
   "name": "Cinder Mesa",
-  "parent_zone": null,
-  "updated_at": "1784496295"
+  "parent_zone": null
 }

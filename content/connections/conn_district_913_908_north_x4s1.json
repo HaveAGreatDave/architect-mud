@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_913_908",
+  "b": "zone_sf_marrow4",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_district_913_908_north_x4s1",
+  "lockable": true,
+  "one_way": false
+}

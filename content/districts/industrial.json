@@ -1,0 +1,20 @@
+{
+  "blurb": "The machines that keep the city alive live here, and they are tired.",
+  "color": "#9a8a4f",
+  "id": "industrial",
+  "landmark": "coldwater_turbine_hall",
+  "name": "the Industrial Flats",
+  "prefixes": [
+    "coldwater",
+    "powerplantnew",
+    "warehouse"
+  ],
+  "signature": [
+    "A turbine’s drone sits under everything, a note the whole flat is tuned to.",
+    "Hot oil, scorched coolant, and the flat metal taste of ozone.",
+    "Steam vents somewhere with a long, exhausted hiss.",
+    "The ground carries a faint, ceaseless machine tremor up through your boots."
+  ],
+  "skyline": "the Coldwater cooling stacks trail steam northward",
+  "sort": 100
+}

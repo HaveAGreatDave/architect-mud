@@ -1,0 +1,9 @@
+{
+  "a": "zone_embassy_lobby_bathroom",
+  "b": "zone_residential_lobby",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_embassy_lobby_bathroom_west_i4of",
+  "lockable": true,
+  "one_way": false
+}

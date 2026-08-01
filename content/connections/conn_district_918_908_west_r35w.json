@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_918_908",
+  "b": "zone_meridian_lobby",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_918_908_west_r35w",
+  "lockable": true,
+  "one_way": false
+}

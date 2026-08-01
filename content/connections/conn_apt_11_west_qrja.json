@@ -1,0 +1,9 @@
+{
+  "a": "zone_apt_11",
+  "b": "zone_embassy_floor3",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_apt_11_west_qrja",
+  "lockable": true,
+  "one_way": false
+}

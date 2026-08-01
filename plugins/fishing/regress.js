@@ -18,11 +18,25 @@ export default async function regress({ run, check, getPlayer }) {
     map_id: 'map_world', grid_x: x, grid_y: y,
     players: new Set(), npcs: new Set(), enemies: new Set(), corpses: new Set() });
   const prevFish = new Map();
-  for (const id of [W, BANK, INLAND, SPECIAL]) prevFish.set(id, world.zones.get(id));
+  const prevRender = new Map();
+  for (const id of [W, BANK, INLAND, SPECIAL]) {
+    prevFish.set(id, world.zones.get(id));
+    prevRender.set(id, world.render.get(id));
+  }
   world.zones.set(W,       mk(W,       4000, 4000, { terrain: 'water' }));
   world.zones.set(BANK,    mk(BANK,    4000, 4001, {}));                       // due south of the water
   world.zones.set(INLAND,  mk(INLAND,  4000, 4003, {}));                       // two tiles off — dry
   world.zones.set(SPECIAL, mk(SPECIAL, 4001, 4000, { fishing_table_id: 'fish_echelon_basin' })); // east of the water
+  // Gameplay properties live on the DERIVED row, not on the flags — fishing asks
+  // `propsOf(id).liquid`, which the build resolves from the terrain preset. A
+  // synthetic tile is not built, so the fixture must supply what the build would:
+  // inject the row it would have produced. Without this the water tile reads as
+  // dry land and every assertion below quietly inverts.
+  const derive = (id, props) => world.render.set(id, { zone_id: id, spec: {}, props });
+  derive(W,       { liquid: true, swimmable: true, routable: false, buildable: false }); // the water
+  derive(BANK,    { ...({ liquid: false, swimmable: false, routable: true, buildable: true }) });
+  derive(INLAND,  { liquid: false, swimmable: false, routable: true, buildable: true });
+  derive(SPECIAL, { liquid: false, swimmable: false, routable: true, buildable: true });
   _test.invalidateWaterIndex();
   try {
     check('a tile bordering water fishes the default table',
@@ -41,6 +55,7 @@ export default async function regress({ run, check, getPlayer }) {
       && _test.bordersWater(world.zones.get(INLAND)) === false);
   } finally {
     for (const [id, z] of prevFish) { if (z) world.zones.set(id, z); else world.zones.delete(id); }
+    for (const [id, r] of prevRender) { if (r) world.render.set(id, r); else world.render.delete(id); }
     _test.invalidateWaterIndex();
   }
 

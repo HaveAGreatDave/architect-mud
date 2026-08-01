@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "urban",
-  "audio_theme_id": null,
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
   "description": "The face of the Basin Cold Store — a fat insulated box sheathed in frosted panelling, its roller door skinned with rime even in summer. Condensers the size of engines hammer away on the roof, dripping a permanent black puddle across the threshold. Dray Lane runs off to the west.",
   "exits": {
     "east": "zone_dray_coldstore",
@@ -17,7 +15,6 @@
     "entrance": "west",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_921_905"
   },
@@ -28,6 +25,5 @@
   "map_id": "map_world",
   "marker": "CS",
   "name": "Absolute Zero Holdings",
-  "parent_zone": null,
-  "updated_at": "1784100000"
+  "parent_zone": null
 }

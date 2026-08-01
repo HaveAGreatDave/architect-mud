@@ -1,0 +1,9 @@
+{
+  "a": "zone_asc_vats_registry",
+  "b": "zone_district_892_905",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_asc_vats_registry_north_skyh",
+  "lockable": true,
+  "one_way": false
+}

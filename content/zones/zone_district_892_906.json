@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "audio_theme_id": null,
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "created_by": "ascendant-stronghold",
   "description": "The Spire twists up out of the plaza in a slow chrome helix, each floor rotated a few degrees off the last so the whole tower seems mid-turn, caught ascending. Its glass throws back a cold blue sky that isn't quite the one overhead. At its foot a ten-metre seal is inlaid in the ground: a calm eye above a city skyline. You have seen that eye before, somewhere, and the memory won't quite surface.",
   "exits": {
     "east": "zone_asc_spire_concourse",
@@ -29,6 +27,5 @@
   "map_id": "map_world",
   "marker": "AS",
   "name": "The Spire",
-  "parent_zone": null,
-  "updated_at": "1783740000"
+  "parent_zone": null
 }

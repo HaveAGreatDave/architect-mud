@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_bld_893_904_lobby",
+  "id": "zone_bld_893_904_lobby",
+  "name": "Shop Floor",
+  "source_type": "junction_box"
+}

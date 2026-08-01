@@ -9,15 +9,15 @@
 //     live-DB self-heal, but it means a utility room born that way is
 //     navigationally orphaned on a fresh prod import (power still works — power_
 //     zones key off zone ids, not exits — but you can't walk `down` into it).
-//   • THIS path is for authored content (the zone planner, backfills). It writes
+//   • THIS path is for authored content (backfills, one-shot builders). It writes
 //     the `down` exit straight into the anchor's `zones.exits` column so the
 //     whole thing survives export → git → prod deploy intact.
 //
 // Everything is keyed on deterministic ids (`zone_util_<anchor>`, `gen_<util>`,
 // `furn_jbox_<util>`, `furn_light_<util>`) so re-running is a safe upsert.
 //
-// deps-free: takes the `query` helper so both the planner (tools/) and one-shot
-// scripts (scripts/) can call it without booting the engine's env deps.
+// deps-free: takes the `query` helper so anything under tools/ or scripts/ can call
+// it without booting the engine's env deps.
 
 // Junction-box furniture HP — matches environment.js UTILITY_JBOX_HP so authored
 // boxes are as damageable as runtime-retrofitted ones.
@@ -106,15 +106,11 @@ async function syncLighting(query, zoneId) {
  *
  * @param query   the db.js query() helper
  * @param opts.anchorId       building interior zone to hang the room under (its "up")
- * @param opts.plannerId      when set, attributes created_by='zone-planner' (optional).
- *                            Deliberately NOT stamped into flags.planner: the planner's
- *                            orphan sweep keys off that flag, and utility rooms live
- *                            outside the blueprint grid, so it would false-flag them.
  * @param opts.capacityKw     junction-box throughput (default 5000)
  * @param opts.cityGeneratorId city plant to feed the box (default: nearest)
  * @returns { utilityRoomId, generatorId, anchorId } or null if anchor missing
  */
-export async function authorUtilityRoom(query, { anchorId, plannerId = null, capacityKw = JB_CAPACITY_KW, cityGeneratorId = null }) {
+export async function authorUtilityRoom(query, { anchorId, capacityKw = JB_CAPACITY_KW, cityGeneratorId = null }) {
   const { rows: aRows } = await query(
     `SELECT id, name, description, map_id, parent_zone, grid_x, grid_y, grid_z, flags, exits
        FROM zones WHERE id=$1`, [anchorId]
@@ -130,14 +126,14 @@ export async function authorUtilityRoom(query, { anchorId, plannerId = null, cap
 
   // 1. The utility room zone (up → anchor). Authored, exportable.
   await query(
-    `INSERT INTO zones (id, name, description, map_id, parent_zone, grid_x, grid_y, grid_z, flags, exits, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    `INSERT INTO zones (id, name, description, map_id, parent_zone, grid_x, grid_y, grid_z, flags, exits)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
      ON CONFLICT (id) DO UPDATE SET map_id=$4, parent_zone=$5, grid_x=$6, grid_y=$7, grid_z=$8, flags=$9`,
     [utilId, `${anchor.name} — Utility Room`,
      'A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.',
      anchor.map_id || null, anchor.parent_zone || null, gx, gy, gz,
      JSON.stringify({ is_interior: true, utility_room: true, ...(worldExit ? { world_exit_zone: worldExit } : {}) }),
-     JSON.stringify({ up: anchor.id }), plannerId ? 'zone-planner' : 'utility-room-author']
+     JSON.stringify({ up: anchor.id })]
   );
 
   // 2. Author the anchor→down→utility exit into zones.exits (NOT a runtime

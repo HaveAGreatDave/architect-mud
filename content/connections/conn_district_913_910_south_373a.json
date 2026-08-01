@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_913_910",
+  "b": "zone_ksab_lobby",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_913_910_south_373a",
+  "lockable": false,
+  "one_way": false
+}

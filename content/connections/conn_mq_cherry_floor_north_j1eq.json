@@ -1,0 +1,9 @@
+{
+  "a": "zone_mq_cherry_floor",
+  "b": "zone_mq_cherry_vip",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_mq_cherry_floor_north_j1eq",
+  "lockable": true,
+  "one_way": false
+}

@@ -1,14 +1,12 @@
 {
   "ambient_events": [],
   "ambient_theme": "urban",
-  "audio_theme_id": null,
   "bg_color": "#20292a",
   "color": "#8ba36a",
-  "created_by": "marrow-infill",
   "description": "A barber's pole turns in a bracket over a doorway breathing steam into the street. The window is tiled halfway up in green and lettered LATHER & LYE — CUT, SHAVE, HOT WATER, with HOT WATER twice the size of the rest, because it is the part that sells. Condensation runs down the inside of the glass in slow, patient lines.",
   "exits": {
-    "south": "zone_district_916_909",
-    "north": "zone_soak_front"
+    "north": "zone_soak_front",
+    "south": "zone_district_916_909"
   },
   "flags": {
     "building_name": "Lather & Lye",
@@ -17,7 +15,6 @@
     "entrance": "south",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_916_909"
   },
@@ -28,6 +25,5 @@
   "map_id": "map_world",
   "marker": "LL",
   "name": "Lather & Lye",
-  "parent_zone": null,
-  "updated_at": "1785200000"
+  "parent_zone": null
 }

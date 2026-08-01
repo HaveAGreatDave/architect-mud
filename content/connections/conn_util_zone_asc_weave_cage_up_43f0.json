@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_asc_weave_cage",
+  "b": "zone_asc_weave_cage",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_asc_weave_cage_up_43f0",
+  "lockable": false,
+  "one_way": true
+}

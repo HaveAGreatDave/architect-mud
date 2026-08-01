@@ -1,8 +1,10 @@
 import { query, logActivity } from '../models/db.js';
 import { syncContentFromRequest, syncZoneDeletion } from './content-sync.js';
-import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, buildingEntranceDir, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere, refreshZoneFurniture, zoneTerrain } from '../engine/world.js';
+import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere, refreshZoneFurniture, propsOf, loadZoneRender, getAllRegions } from '../engine/world.js';
 import { authorUtilityRoom } from '../../tools/lib/utility-room.mjs';
-import { templateForType } from '../../tools/lib/building-templates.mjs';
+import { readPalette } from '../../scripts/content/lib.mjs';
+import { writeDerived } from '../../scripts/content/derive-write.mjs';
+import { templateForType, BUILD_DIR_OFF } from '../../tools/lib/building-templates.mjs';
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
 import { reincarnatePlayer } from '../engine/commands/world.js';
 import { allExits } from '../engine/exits.js';
@@ -23,7 +25,7 @@ import { sendPasswordResetEmail, sendVerificationEmail, isMailerConfigured, mail
 import { isEmailVerificationEnabled, setEmailVerificationEnabled } from '../engine/emailVerification.js';
 import { randomAppearance } from '../engine/appearance.js';
 import { DEFAULT_CHITCHAT_LINES, isVendorWorkTime } from '../engine/ai-behaviour.js';
-import { npcTypeForPersonality, listPersonalityMeta, pickClothingForPersonality } from '../engine/npc-personality.js';
+import { npcTypeForPersonality, listPersonalityMeta, pickClothingForPersonality, DEFAULT_VENDOR_SCHEDULE } from '../engine/npc-personality.js';
 import { vendorSafeRow, vendorHasSafe } from '../engine/vendor-safe-furniture.js';
 import { decideSex } from '../engine/npc-sex.js';
 import { loadBanterLibrary } from '../engine/npc-banter.js';
@@ -34,11 +36,6 @@ import { DISTRICTS, DISTRICT_PREFIX } from '../engine/districts.js';
 // wins where it's set; otherwise prod gets the live domain and dev gets localhost.
 const clientBaseUrl = () => process.env.CLIENT_BASE_URL
   || (process.env.NODE_ENV === 'production' ? 'https://architect.net' : 'http://localhost:3000');
-
-const DEFAULT_VENDOR_SCHEDULE = {
-  mon:[{from:10,to:22}], tue:[{from:10,to:22}], wed:[{from:10,to:22}],
-  thu:[{from:10,to:22}], fri:[{from:10,to:22}], sat:[{from:10,to:22}], sun:[{from:10,to:22}],
-};
 
 function formatScheduleBoard(npc) {
   const LABELS = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
@@ -62,7 +59,7 @@ import { ensureTunables, getTunable, reloadTunables } from '../engine/tunables.j
 import { getNetXp, statSpent, maxHpForEndurance } from '../engine/ip.js';
 import { SKILLS } from '../engine/skills.js';
 import { ownTags } from '../engine/supertags.js';
-import { validateTags } from '../engine/tags.js';
+import { validateTags, validateZoneColumns } from '../engine/tags.js';
 import { getMotd, saveMotd } from '../engine/motd.js';
 import { isMisServerEnabled, setServerMisEnabled } from '../engine/mis.js';
 import { canAccessChannel, sendToChatChannel, getChannelMessagesSince } from '../engine/channels.js';
@@ -296,6 +293,8 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path==='/maps/generate-region' && method==='POST') return requireDev(auth, ()=>apiGenerateRegion(body, auth));
   if (path==='/maps/move-region' && method==='POST') return requireDev(auth, ()=>apiMoveRegion(body));
   if (path==='/maps/regions' && method==='GET') return requireDev(auth, apiGetSpatialRegions);
+  if (path==='/map/palette' && method==='GET') return requireDev(auth, apiGetTerrainPalette);
+  if (path==='/map/derive' && method==='POST') return requireDev(auth, apiDeriveMap);
   if (path==='/maps/flight-snapshot' && method==='POST') return requireDev(auth, ()=>apiFlightSnapshot());
   if (path.startsWith('/maps/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteMap(path.split('/')[2]));
   if (path.startsWith('/maps/') && method==='GET') return requireDev(auth, ()=>apiGetMap(path.split('/')[2]));
@@ -413,7 +412,6 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path.startsWith('/windows/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteWindow(path.split('/')[2]));
   if (path==='/doors' && method==='GET') return requireDev(auth, apiGetDoors);
   if (path==='/doors' && method==='POST') return requireDev(auth, ()=>apiCreateDoor(body));
-  if (path.startsWith('/doors/') && path.endsWith('/keycard') && method==='POST') return requireDev(auth, ()=>apiCreateKeycard(path.split('/')[2], body));
   if (path.startsWith('/doors/') && method==='PUT') return requireDev(auth, ()=>apiUpdateDoor(path.split('/')[2],body));
   if (path.startsWith('/doors/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteDoor(path.split('/')[2]));
   if (path==='/ambient-events' && method==='GET') return requireDev(auth, ()=>apiGetAmbientEvents(url));
@@ -667,13 +665,17 @@ async function apiResetPassword(body) {
 }
 
 async function apiGetZones() { return {status:200,body:getAllZones()}; }
-// Serves the canonical district table (server/engine/districts.js) so the dev
-// panel can group zones by neighborhood without a hand-copied mirror. Only the
-// fields the list UI needs (name + color) plus the id-prefix map for the
-// client-side classifier that mirrors districtFor().
+// Serves the district registry (loaded from the districts content table) so no
+// client has to keep a copy. Two of them used to: the dev panel's zone grouping,
+// and the game's own FUNC_LEGEND — which was hand-maintained and had gone four
+// districts stale, the Wilds among them, so 3,471 tiles drew no colour at all.
+// `label` is what a legend row reads; the dev panel wants `name`; both come off
+// the same row so they cannot disagree.
 async function apiGetDistricts() {
   const districts = Object.fromEntries(
-    Object.entries(DISTRICTS).map(([k, d]) => [k, { name: d.name, color: d.color }]));
+    Object.entries(DISTRICTS).map(([k, d]) => [k, {
+      name: d.name, label: d.name, color: d.color, sort: d.sort ?? 0,
+    }]));
   return { status: 200, body: { districts, prefix: DISTRICT_PREFIX } };
 }
 async function apiGetZone(id) {
@@ -706,13 +708,26 @@ function zoneFlagsError(flags) {
   return `Zone flag validation failed — ${parts.join(' | ')}`;
 }
 
+// The other half of the same gate. Zone COLUMNS were validated by nothing, so an
+// ambient_theme nobody has a pool for, or a grid_x that arrived as a string, went
+// straight into the row. Same catalog, same shape rules, same voice as the flags
+// check (spec §3.2). Only the keys present in the body are judged — a PATCH that
+// doesn't mention a column isn't asserting anything about it.
+function zoneColumnsError(body) {
+  const v = validateZoneColumns(body || {});
+  if (v.ok) return null;
+  return `Zone column validation failed — wrong value shape: ${v.badShape.join('; ')}`;
+}
+
 export async function apiCreateZone(body,auth,opts={}) {
   const id = body.id||`zone_${Date.now()}`;
   const flagsErr = zoneFlagsError(body.flags);
   if (flagsErr) return { status:400, body:{ error: flagsErr } };
+  const colsErr = zoneColumnsError(body);
+  if (colsErr) return { status:400, body:{ error: colsErr } };
   try {
-    await query(`INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,created_by,map_id,grid_x,grid_y,grid_z,marker,color,bg_color,audio_theme_id,parent_zone) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
-      [id,body.name||'Unnamed Zone',body.description||'An empty place.',JSON.stringify(body.exits||{}),JSON.stringify(body.ambient_events||[]),body.ambient_theme||'indoors',JSON.stringify(body.flags||{}),auth?.playerId,body.map_id||null,body.grid_x??null,body.grid_y??null,body.grid_z??0,body.marker||null,body.color||null,body.bg_color||null,body.audio_theme_id||null,body.parent_zone||null]);
+    await query(`INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,map_id,grid_x,grid_y,grid_z,marker,color,bg_color,audio_theme_id,parent_zone) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+      [id,body.name||'Unnamed Zone',body.description||'An empty place.',JSON.stringify(body.exits||{}),JSON.stringify(body.ambient_events||[]),body.ambient_theme||'indoors',JSON.stringify(body.flags||{}),body.map_id||null,body.grid_x??null,body.grid_y??null,body.grid_z??0,body.marker||null,body.color||null,body.bg_color||null,body.audio_theme_id||null,body.parent_zone||null]);
     if (body.flags?.is_apartment) await ensureApartmentRow(id);
     await reloadZone(id);
     // skipHooks: bulk callers (e.g. region_create) insert a batch of tiles whose exits
@@ -728,6 +743,8 @@ export async function apiUpdateZone(id,body) {
     const flagsErr = zoneFlagsError(body.flags);
     if (flagsErr) return { status:400, body:{ error: flagsErr } };
   }
+  const colsErr = zoneColumnsError(body);
+  if (colsErr) return { status:400, body:{ error: colsErr } };
   const sets=[]; const vals=[];
   let i=1;
   const simple=['name','description','map_id','grid_x','grid_y','grid_z','marker','color','bg_color','audio_theme_id','parent_zone'];
@@ -741,7 +758,10 @@ export async function apiUpdateZone(id,body) {
   if (body.ambient_events!==undefined) { sets.push(`ambient_events=$${i++}`); vals.push(JSON.stringify(body.ambient_events)); }
   if (body.ambient_theme!==undefined) { sets.push(`ambient_theme=$${i++}`); vals.push(body.ambient_theme); }
   if (body.flags!==undefined) { sets.push(`flags=$${i++}`); vals.push(JSON.stringify(body.flags)); }
-  sets.push(`updated_at=EXTRACT(EPOCH FROM NOW())`);
+  // An empty body used to still produce valid SQL, because `updated_at` was always
+  // appended to `sets`. With that column gone a no-field update would build
+  // `SET  WHERE`, so say nothing-to-do out loud instead of syntax-erroring.
+  if (!sets.length) return { status:200, body:{ id, message:'Nothing to update' } };
   vals.push(id);
   try {
     await query(`UPDATE zones SET ${sets.join(',')} WHERE id=$${i}`,vals);
@@ -767,8 +787,8 @@ export async function apiPatchZoneTag(id, body) {
   }
   try {
     const { rowCount } = clearing
-      ? await query(`UPDATE zones SET flags = flags - $1, updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$2`, [name, id])
-      : await query(`UPDATE zones SET flags = flags || $1::jsonb, updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$2`,
+      ? await query(`UPDATE zones SET flags = flags - $1 WHERE id=$2`, [name, id])
+      : await query(`UPDATE zones SET flags = flags || $1::jsonb WHERE id=$2`,
           [JSON.stringify({ [name]: value }), id]);
     if (!rowCount) return { status:404, body:{ error:`No zone "${id}"` } };
     await reloadZone(id);
@@ -840,10 +860,6 @@ async function apiAddRoom(parentZoneId, body) {
   } catch(e) { return { status:400, body:{error:e.message} }; }
 }
 
-// Interior-grid offsets for template rooms. Cardinals only — 'down' is reserved for
-// authorUtilityRoom's utility room, 'up' is left free for hand-authored upper floors.
-const BUILD_DIR_OFF = { north: [0, -1, 0], south: [0, 1, 0], east: [1, 0, 0], west: [-1, 0, 0] };
-
 // One-shot building generator (dev panel "New Building"). Converts a ground tile (or
 // fills an empty cell) at (toX,toY,toZ) on map_world into a facade of `building_type`,
 // stamps a templated interior (lobby + rooms + thematic furniture + optional inhabitant
@@ -864,19 +880,19 @@ async function apiBuildBuilding(body, auth) {
 
   // The cell must be empty or a plain ground tile — never an existing building or water.
   const isBuildingish = (t) => !!t && (isEnterableFacade(t) || t.flags?.building_type || t.flags?.is_building || t.flags?.is_interior || t.flags?.is_apartment);
-  if (isBuildingish(target) || target?.flags?.water || (target && zoneTerrain(target) === 'water'))
+  if (isBuildingish(target) || (target && !propsOf(target.id).buildable))
     return { status: 400, body: { error: 'That cell already holds a building or water — pick an empty or ground tile.' } };
 
   // Candidate fronting streets = standable orthogonal neighbours (a building needs a door
   // onto a walkable tile). Prefer a road-terrain neighbour, like move-building.
-  const standable = (t) => !!t && !isBuildingish(t) && !t.flags?.water && zoneTerrain(t) !== 'water';
+  const standable = (t) => !!t && !isBuildingish(t) && propsOf(t.id).buildable;
   const neighbours = [];
   for (const [dir, off] of Object.entries(BUILD_DIR_OFF)) {
     const n = at(toX + off[0], toY + off[1], toZ);
     if (standable(n)) neighbours.push({ dir, n });
   }
   if (!neighbours.length) return { status: 400, body: { error: 'No adjacent street to enter from — place the building next to a walkable ground/road tile.' } };
-  const front = neighbours.find(x => zoneTerrain(x.n) === 'road') || neighbours[0];
+  const front = neighbours.find(x => propsOf(x.n.id).frontage) || neighbours[0];
 
   const tmpl = templateForType(bt);
   const isHangar = bt === 'hangar';
@@ -888,19 +904,23 @@ async function apiBuildBuilding(body, auth) {
   const lobbyId = `zone_bld_${slug}_lobby`;
   const regionId = target?.flags?.region_id || neighbours.map(x => x.n.flags?.region_id).find(Boolean) || null;
 
-  // The lobby's out-exit + template-room directions are allocated AFTER the facade is
-  // wired, off the real door the engine derives (buildingEntranceDir) — so the interior
-  // leaves toward its map entrance arrow (the regress geometry invariant), not a guess.
-  let backDir, rooms, roomIdFor;
+  // The door side is AUTHORED, not derived: flags.entrance is the SSOT (world.js's
+  // buildingEntranceDir is a straight read of it), so the builder must write it rather
+  // than write the facade and ask the engine back. The fronting street's direction IS
+  // the door side, and the interior leaves the SAME way the door faces — the regress
+  // geometry invariant, and how all 61 existing buildings are wired.
+  const entranceDir = front.dir;
+  const backDir = entranceDir;
+  let rooms, roomIdFor;
 
   try {
     // 1) Facade FIRST — convert the ground tile (keeping its street exits) or create it
     //    fresh. It has to exist before the lobby/rooms, which reference it via parent_zone
     //    (a FK). Its own `in`→lobby exit can point ahead (exits is JSONB, no FK).
     const keepFlags = target ? { ...(target.flags || {}) } : {};
-    delete keepFlags.terrain; delete keepFlags.runway; delete keepFlags.pier; delete keepFlags.water;
+    delete keepFlags.terrain; delete keepFlags.runway; delete keepFlags.pier;
     if (/^(runway_|road_)/.test(keepFlags.icon || '')) delete keepFlags.icon;
-    const facadeFlags = { ...keepFlags, is_building: true, facade: true, building_name: buildingName, building_type: bt, world_exit_zone: front.n.id };
+    const facadeFlags = { ...keepFlags, is_building: true, facade: true, building_name: buildingName, building_type: bt, entrance: entranceDir, world_exit_zone: front.n.id };
     if (regionId) facadeFlags.region_id = regionId;
     if (isHangar) facadeFlags.hangar_interior_zone = lobbyId;
     const facadeExits = target ? { ...(target.exits || {}) } : {};
@@ -912,10 +932,10 @@ async function apiBuildBuilding(body, auth) {
         [buildingName, facadeDesc, JSON.stringify(facadeExits), JSON.stringify(facadeFlags), facadeId]);
     } else {
       await query(
-        `INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,map_id,grid_x,grid_y,grid_z,parent_zone,created_by)
-         VALUES ($1,$2,$3,$4,'[]','outdoors',$5,$6,$7,$8,$9,NULL,$10)`,
+        `INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,map_id,grid_x,grid_y,grid_z,parent_zone)
+         VALUES ($1,$2,$3,$4,'[]','outdoors',$5,$6,$7,$8,$9,NULL)`,
         [facadeId, buildingName, facadeDesc, JSON.stringify(facadeExits), JSON.stringify(facadeFlags),
-         mapId, toX, toY, toZ, auth?.playerId || null]);
+         mapId, toX, toY, toZ]);
     }
     // Every standable neighbour gets a reciprocal exit INTO the facade (entry from any
     // side + door resolution). A converted ground tile already has these; fill any gaps.
@@ -927,12 +947,8 @@ async function apiBuildBuilding(body, auth) {
       }
     }
 
-    // Facade + neighbours live now → derive the real door side (buildingEntranceDir reads
-    // the street→facade exit graph). The lobby leaves toward THAT, and template rooms take
-    // the remaining free cardinals. Fallback to OPPOSITE[front.dir] if no door resolves.
-    await reloadZone(facadeId);
-    for (const { n } of neighbours) await reloadZone(n.id);
-    backDir = buildingEntranceDir(getZone(facadeId)) || OPPOSITE[front.dir];
+    // The lobby leaves toward the door (backDir), and template rooms take the remaining
+    // free cardinals. No reload/read-back needed — we authored the door side above.
     const usedDirs = new Set([backDir]);
     rooms = [];
     for (const r of (tmpl.rooms || [])) {
@@ -945,33 +961,33 @@ async function apiBuildBuilding(body, auth) {
 
     // 2) Interior map (facade → lobby).
     await query(
-      `INSERT INTO maps (id, name, parent_zone_id, entry_zone_id, created_by)
-       VALUES ($1,$2,$3,$4,$5) ON CONFLICT (id) DO UPDATE SET parent_zone_id=$3, entry_zone_id=$4`,
-      [interiorMapId, `${buildingName} — Interior`, facadeId, lobbyId, auth?.playerId || null]
+      `INSERT INTO maps (id, name, parent_zone_id, entry_zone_id)
+       VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO UPDATE SET parent_zone_id=$3, entry_zone_id=$4`,
+      [interiorMapId, `${buildingName} — Interior`, facadeId, lobbyId]
     );
 
     // 3) Lobby (entry room) + any template rooms, wired reciprocally. parent_zone=facade
-    //    (now exists). Lobby's exit back out = the compass dir opposite the fronting street.
+    //    (now exists). Lobby's exit back out faces the SAME way as the door (backDir).
     const lobbyFlags = { is_building: true, is_interior: true, world_exit_zone: facadeId };
     if (isHangar) { lobbyFlags.hangar_interior = true; lobbyFlags.hangar_ramp = facadeId; }
     const lobbyExits = { [backDir]: facadeId };
     for (const r of rooms) lobbyExits[r.dir] = r.id;
     await query(
-      `INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,map_id,grid_x,grid_y,grid_z,parent_zone,created_by)
-       VALUES ($1,$2,$3,$4,'[]','indoors',$5,$6,0,0,0,$7,$8)
+      `INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,map_id,grid_x,grid_y,grid_z,parent_zone)
+       VALUES ($1,$2,$3,$4,'[]','indoors',$5,$6,0,0,0,$7)
        ON CONFLICT (id) DO UPDATE SET name=$2, description=$3, exits=$4, flags=$5, map_id=$6, grid_x=0, grid_y=0, grid_z=0, parent_zone=$7`,
       [lobbyId, tmpl.lobbyName || 'Lobby', tmpl.lobbyDesc || 'An interior room.',
-       JSON.stringify(lobbyExits), JSON.stringify(lobbyFlags), interiorMapId, facadeId, auth?.playerId || null]
+       JSON.stringify(lobbyExits), JSON.stringify(lobbyFlags), interiorMapId, facadeId]
     );
     for (const r of rooms) {
       const off = BUILD_DIR_OFF[r.dir];
       await query(
-        `INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,map_id,grid_x,grid_y,grid_z,parent_zone,created_by)
-         VALUES ($1,$2,$3,$4,'[]','indoors',$5,$6,$7,$8,0,$9,$10)
+        `INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,map_id,grid_x,grid_y,grid_z,parent_zone)
+         VALUES ($1,$2,$3,$4,'[]','indoors',$5,$6,$7,$8,0,$9)
          ON CONFLICT (id) DO UPDATE SET name=$2, description=$3, exits=$4, flags=$5, map_id=$6, grid_x=$7, grid_y=$8, parent_zone=$9`,
         [r.id, r.name, r.desc, JSON.stringify({ [OPPOSITE[r.dir]]: lobbyId }),
          JSON.stringify({ is_building: true, is_interior: true, world_exit_zone: facadeId }),
-         interiorMapId, off[0], off[1], facadeId, auth?.playerId || null]
+         interiorMapId, off[0], off[1], facadeId]
       );
     }
 
@@ -1068,9 +1084,14 @@ async function apiDeleteMap(id) {
 async function apiGetMap(id) {
   const { rows: mapRows } = await query('SELECT * FROM maps WHERE id=$1', [id]);
   if (!mapRows.length) return { status:404, body:{error:'Not found'} };
+  // r.spec is the GENERATED presentation. The editor paints from it for the same
+  // reason the game does: an editor that computes its own fills is how the map an
+  // author paints stops being the map a player sees.
   const { rows: zones } = await query(
-    `SELECT id, name, grid_x, grid_y, grid_z, marker, color, bg_color, exits, flags, map_id
-     FROM zones WHERE map_id=$1`, [id]
+    `SELECT z.id, z.name, z.grid_x, z.grid_y, z.grid_z, z.marker, z.color, z.bg_color,
+            z.exits, z.flags, z.map_id, r.spec
+     FROM zones z LEFT JOIN zone_derived r ON r.zone_id = z.id
+     WHERE z.map_id=$1`, [id]
   );
   // Interior maps that hang off any of this map's zones, so the editor can
   // offer a "dive in" affordance per building tile.
@@ -1163,8 +1184,8 @@ async function apiLinkInterior(body, auth) {
   } else {
     const mapId = `map_int_${Date.now()}`;
     await query(
-      `INSERT INTO maps (id, name, parent_zone_id, entry_zone_id, created_by) VALUES ($1,$2,$3,$4,$5)`,
-      [mapId, extZone.name + ' — Interior', exteriorZoneId, interiorZoneId, auth?.playerId]
+      `INSERT INTO maps (id, name, parent_zone_id, entry_zone_id) VALUES ($1,$2,$3,$4)`,
+      [mapId, extZone.name + ' — Interior', exteriorZoneId, interiorZoneId]
     );
     const { rows } = await query('SELECT * FROM maps WHERE id=$1', [mapId]);
     interiorMap = rows[0];
@@ -1235,7 +1256,8 @@ async function apiMoveBuilding(body) {
 
   // A "street" is a placed, walkable exterior tile that can host a front door.
   const isStreet = (t) => !!t && t.grid_x != null && !isEnterableFacade(t)
-    && !t.flags?.is_building && !t.flags?.is_interior && !t.flags?.is_apartment && !t.flags?.water;
+    && !t.flags?.is_building && !t.flags?.is_interior && !t.flags?.is_apartment
+    && propsOf(t.id).buildable;
   // Buildings/interiors are never overwritable; plain walkable ground is.
   const isBuildingish = (t) => !!t && (isEnterableFacade(t) || t.flags?.building_type
     || t.flags?.is_building || t.flags?.is_interior || t.flags?.is_apartment);
@@ -1246,7 +1268,7 @@ async function apiMoveBuilding(body) {
   const occupant = cellAt(toX, toY);
   let swapTile = null;
   if (occupant && occupant.id !== facadeId) {
-    if (isBuildingish(occupant) || occupant.flags?.water || zoneTerrain(occupant) === 'water' || (facade.grid_z ?? 0) !== z)
+    if (isBuildingish(occupant) || !propsOf(occupant.id).buildable || (facade.grid_z ?? 0) !== z)
       return { status: 400, body: { error: `Destination cell is occupied by ${occupant.name}.` } };
     swapTile = occupant; // will move into the facade's vacated cell
   }
@@ -1303,7 +1325,7 @@ async function apiMoveBuilding(body) {
     candidates.push({ dir, nb });
   }
   if (!candidates.length) return { status: 400, body: { error: 'Destination has no adjacent street to host a front door — pick a cell next to a road.' } };
-  const pick = candidates.find(c => zoneTerrain(c.nb) === 'road') || candidates[0];
+  const pick = candidates.find(c => propsOf(c.nb.id).frontage) || candidates[0];
   workExits(facade)[pick.dir] = pick.nb.id;
   workExits(pick.nb)[OPPOSITE[pick.dir]] = facadeId;
   plan.moves.push(`Wire ${facade.name} ↔ ${pick.nb.name} (${pick.dir}) as the new front door`);
@@ -1353,6 +1375,40 @@ function regionSlug(id) {
   return String(id).replace(/^region_/, '').replace(/[^a-z0-9]+/gi, '_').toLowerCase() || 'region';
 }
 
+// The terrain palette, straight off disk. The editor needs the labels and fills to
+// draw its brush swatches; everything a TILE looks like still comes from spec.
+async function apiGetTerrainPalette() {
+  return { status: 200, body: readPalette() || { version: 0, terrains: {} } };
+}
+
+// Rebuild zone_derived from the live world. The derive pass normally runs inside
+// content:import, which is a deploy — but the terrain painter changes what a tile
+// looks like RIGHT NOW, and a painter whose paint doesn't appear until the next
+// deploy is a painter nobody will use. Whole-map, because derive is whole-map by
+// design (spec §7.2); it reads the zones already in RAM, so this costs no queries
+// beyond the writes. Same module the build calls — there is one derive, not two.
+//
+// Deliberately NOT in OPS_ROUTES, so CONTENT_READONLY blocks it on production.
+// Prod's generated tables are built by CI on every deploy; the escape hatch for a
+// one-shot that rewrote tiles directly is `npm run map:derive --prod --yes`, which
+// is a decision somebody makes at a terminal rather than a button in a panel.
+async function apiDeriveMap() {
+  const zones = [...world.zones.values()].map(z => ({
+    id: z.id, name: z.name, marker: z.marker, color: z.color, bg_color: z.bg_color,
+    ambient_theme: z.ambient_theme, audio_theme_id: z.audio_theme_id, flags: z.flags,
+    // Geometry, for projectEdges (§7.5). The painter moves nothing, but derive is
+    // whole-map and rebuilds both generated tables in one pass — handing it a
+    // world with no coordinates would rebuild zone_edges as an empty graph.
+    map_id: z.map_id, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z,
+  }));
+  const connections = (await query('SELECT id, a, b, dir, one_way, blocked FROM connections')).rows;
+  const { rows, edges } = await writeDerived({ query }, {
+    zones, regions: getAllRegions(), connections, palette: readPalette(),
+  });
+  await loadZoneRender();
+  return { status: 200, body: { ok: true, rows, edges } };
+}
+
 async function apiGetSpatialRegions() {
   const { rows } = await query('SELECT * FROM regions ORDER BY name');
   return { status: 200, body: { regions: rows } };
@@ -1360,19 +1416,19 @@ async function apiGetSpatialRegions() {
 
 // Add a regions row (used by the staging publisher). Idempotent.
 export async function apiCreateRegion(row) {
-  const { id, name, base_terrain = null, grid_z = 0, created_by = null } = row || {};
+  const { id, name, base_terrain = null, grid_z = 0 } = row || {};
   if (!id || !name) return { status: 400, body: { error: 'region id and name are required.' } };
   try {
     await query(
-      `INSERT INTO regions (id, name, base_terrain, grid_z, created_by, updated_at)
-       VALUES ($1,$2,$3,$4,$5,EXTRACT(EPOCH FROM NOW())) ON CONFLICT (id) DO NOTHING`,
-      [id, name, base_terrain, grid_z, created_by]);
+      `INSERT INTO regions (id, name, base_terrain, grid_z)
+       VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING`,
+      [id, name, base_terrain, grid_z]);
     return { status: 201, body: { id } };
   } catch (e) { return { status: 400, body: { error: e.message } }; }
 }
 
 // Plan a blank region: a width×height rectangle of walkable terrain tiles with
-// reciprocal N/S/E/W exits (the canonical zone-planner ORTHO pattern). Returns
+// reciprocal N/S/E/W exits (the canonical ORTHO pattern). Returns
 // { region, zones } for staging; never writes. Overlap-checked against every
 // placed tile on the target floor (covers other regions + the legacy cluster).
 export async function apiGenerateRegion(body, auth) {
@@ -1426,13 +1482,10 @@ export async function apiGenerateRegion(body, auth) {
       ambient_theme: 'outdoors',
       map_id: 'map_world',
       grid_x: x, grid_y: y, grid_z: gridZ,
-      flags: { terrain, region_id: regionId, planner: 'world_editor' },
+      flags: { terrain, region_id: regionId },
     });
   }
-  const region = {
-    id: regionId, name, base_terrain: terrain, grid_z: gridZ,
-    created_by: auth?.playerId || 'world-editor',
-  };
+  const region = { id: regionId, name, base_terrain: terrain, grid_z: gridZ };
   return { status: 200, body: { region, zones } };
 }
 
@@ -1533,8 +1586,8 @@ async function apiCreateMap(body, auth) {
   if (!body.name) return { status:400, body:{error:'name is required'} };
   try {
     await query(
-      `INSERT INTO maps (id,name,parent_zone_id,entry_zone_id,created_by) VALUES ($1,$2,$3,$4,$5)`,
-      [id, body.name, body.parent_zone_id||null, body.entry_zone_id||null, auth?.playerId]
+      `INSERT INTO maps (id,name,parent_zone_id,entry_zone_id) VALUES ($1,$2,$3,$4)`,
+      [id, body.name, body.parent_zone_id||null, body.entry_zone_id||null]
     );
     return { status:201, body:{ id, message:'Map created' } };
   } catch(e) { return { status:400, body:{error:e.message} }; }
@@ -1573,13 +1626,13 @@ async function apiSaveMapLayout(mapId, body) {
     await client.query('BEGIN');
     for (const p of positions) {
       await client.query(
-        `UPDATE zones SET grid_x=$2, grid_y=$3, grid_z=$4, map_id=COALESCE($5,map_id), updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$1`,
+        `UPDATE zones SET grid_x=$2, grid_y=$3, grid_z=$4, map_id=COALESCE($5,map_id) WHERE id=$1`,
         [p.id, p.grid_x ?? null, p.grid_y ?? null, p.grid_z ?? 0, p.map_id || mapId]
       );
     }
     for (const [zoneId, exits] of Object.entries(exitEdits)) {
       await client.query(
-        `UPDATE zones SET exits=$2, updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$1`,
+        `UPDATE zones SET exits=$2 WHERE id=$1`,
         [zoneId, JSON.stringify(exits || {})]
       );
     }
@@ -3379,25 +3432,6 @@ async function apiGetZoneDoors(zoneId) {
   return { status:200, body:rows };
 }
 
-async function apiCreateKeycard(doorId, body) {
-  const id = `keycard_${doorId}`;
-  const zoneName = body.zone_name || 'Unknown Room';
-  // Idempotent: if this keycard already exists, return it without recreating
-  const { rows: existing } = await query('SELECT id FROM items WHERE id=$1', [id]);
-  if (existing.length) return { status:200, body:{ id } };
-  const name = `Keycard — ${zoneName}`;
-  const description = `A slim obsidian card, its surface threaded with bioluminescent circuitry that pulses faintly when held. The access signature encoded in its memory is keyed exclusively to the reader on ${zoneName}'s door — swipe it anywhere else and it's just a pretty piece of plastic.`;
-  try {
-    await query(
-      `INSERT INTO items (id, name, description, type, weight, value, tags)
-       VALUES ($1,$2,$3,'key',0.05,0,$4)`,
-      [id, name, description, JSON.stringify({ unique: true })]
-    );
-    await reloadItem(id);
-    return { status:201, body:{ id } };
-  } catch(e) { return { status:400, body:{ error:e.message } }; }
-}
-
 async function apiCreateDoor(body) {
   const { rows: maxRows } = await query(`SELECT COALESCE(MAX(CAST(SUBSTRING(id FROM 6) AS INTEGER)), 0) AS max FROM doors WHERE id ~ '^door_[0-9]+$'`);
   const id = `door_${maxRows[0].max + 1}`;
@@ -3530,7 +3564,15 @@ async function apiGetTagCatalog() {
 
 async function apiPutTagCatalog(body) {
   if (!body || typeof body !== 'object') return { status:400, body:{ error:'Expected catalog object' } };
-  const src = `(function(global){\n  var TAG_CATALOG = ${JSON.stringify(body, null, 2)};\n  global.TAG_CATALOG = TAG_CATALOG;\n})(typeof window !== 'undefined' ? window : globalThis);\n`;
+  // Keep the file's leading doc block. It is where the shape vocabulary, the
+  // scope semantics and the zone:<column> key convention are written down — a
+  // save from the Tags screen used to delete all of it, so the documentation for
+  // the catalog survived exactly until the first person edited a tag through the
+  // tool the catalog exists to drive.
+  const existing = readFileSync(CATALOG_PATH, 'utf8');
+  const header = (existing.match(/^[\s\S]*?(?=\(function)/) || [''])[0];
+  const footer = (existing.match(/\)\(typeof window[^\n]*\n([\s\S]*)$/) || ['', ''])[1];
+  const src = `${header}(function(global){\n  var TAG_CATALOG = ${JSON.stringify(body, null, 2)};\n  global.TAG_CATALOG = TAG_CATALOG;\n})(typeof window !== 'undefined' ? window : globalThis);\n${footer}`;
   writeFileSync(CATALOG_PATH, src, 'utf8');
   globalThis.TAG_CATALOG = body;
   return { status:200, body:{ ok:true } };

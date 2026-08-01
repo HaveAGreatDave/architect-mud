@@ -1,8 +1,5 @@
 {
-  "created_by": null,
   "entry_zone_id": "zone_aa_slag_bunker",
   "id": "map_int_aa_slag",
-  "name": "Slagworks Flak Pit — Bunker",
-  "parent_zone_id": "zone_district_891_905",
-  "updated_at": "1783740000"
+  "parent_zone_id": "zone_district_891_905"
 }

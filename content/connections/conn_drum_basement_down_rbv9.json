@@ -1,0 +1,9 @@
+{
+  "a": "zone_drum_basement",
+  "b": "zone_util_zone_drum_basement",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_drum_basement_down_rbv9",
+  "lockable": false,
+  "one_way": false
+}

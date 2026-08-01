@@ -1,0 +1,9 @@
+{
+  "a": "zone_lw_entry",
+  "b": "zone_under_watchthresh",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_lw_entry_west_2bip",
+  "lockable": true,
+  "one_way": false
+}

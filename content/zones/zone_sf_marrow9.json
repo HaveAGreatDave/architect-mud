@@ -6,10 +6,7 @@
     "Two voices haggle on the pavement outside, too low to make out, too long to be honest."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2b2b33",
-  "color": null,
-  "created_by": null,
   "description": "A square, low-ceilinged shop that used to do nails and then did something else. The mirrors have been taken off the wall and their adhesive has taken the plaster with them. A counter runs across the back, and beside it a strongbox is chained to a steel upright that was clearly put there for the purpose. It smells faintly of acetone and more strongly of damp.",
   "exits": {
     "north": "zone_district_917_910"
@@ -30,8 +27,6 @@
   "grid_z": 0,
   "id": "zone_sf_marrow9",
   "map_id": "map_int_sf_marrow9",
-  "marker": null,
   "name": "Unit 9, Marrow Street",
-  "parent_zone": "zone_district_917_910",
-  "updated_at": "1784800000"
+  "parent_zone": "zone_district_917_910"
 }

@@ -1,8 +1,6 @@
 {
-  "created_by": null,
   "entry_zone_id": "zone_the_wash",
   "id": "map_int_the_wash",
   "name": "The Wash — Interior",
-  "parent_zone_id": "zone_district_918_905",
-  "updated_at": "1785000000"
+  "parent_zone_id": "zone_district_918_905"
 }

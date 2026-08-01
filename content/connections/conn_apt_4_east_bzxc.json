@@ -1,0 +1,9 @@
+{
+  "a": "zone_apt_4",
+  "b": "zone_embassy_floor_2nd",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_apt_4_east_bzxc",
+  "lockable": true,
+  "one_way": false
+}

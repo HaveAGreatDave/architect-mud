@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "audio_theme_id": null,
   "bg_color": "#3a352b",
   "color": "#d8c8a0",
-  "created_by": "zone-planner",
   "description": "The face of Two-Cell Supply — a lean-to storefront of corrugated sheet and stacked crates wedged onto the pasture edge just north of the Embassy. A hand-lettered board over the door reads: IF IT KEEPS YOU BREATHING, WE'VE GOT IT. The door stands open to the east; Ironside Street runs off to the west.",
   "exits": {
     "east": "zone_twocell_interior",
@@ -17,7 +15,6 @@
     "entrance": "west",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_919_903"
   },
@@ -28,6 +25,5 @@
   "map_id": "map_world",
   "marker": "TS",
   "name": "Two-Cell Supply",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

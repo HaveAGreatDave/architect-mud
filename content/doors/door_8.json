@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_residential_lobby_z_1_178210529249_up_k9kz",
   "door_type": "basic",
   "exit_dir": "down",
   "flags": {},
@@ -23,6 +24,6 @@
       }
     }
   },
-  "target_zone": null,
+  "target_zone": "zone_residential_lobby_z-1_1782105292491",
   "zone_id": "zone_residential_lobby"
 }

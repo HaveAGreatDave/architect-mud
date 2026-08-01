@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "Boxes to the ceiling and the sour smell of cardboard. The overflow that never fits out front.",
+  "exits": {
+    "south": "zone_bld_893_904_lobby"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_893_904"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_bld_893_904_back",
+  "map_id": "map_int_bld_893_904",
+  "name": "Stockroom",
+  "parent_zone": "zone_district_893_904"
+}

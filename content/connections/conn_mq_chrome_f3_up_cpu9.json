@@ -1,0 +1,9 @@
+{
+  "a": "zone_mq_chrome_f3",
+  "b": "zone_mq_chrome_roof",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_mq_chrome_f3_up_cpu9",
+  "lockable": false,
+  "one_way": false
+}

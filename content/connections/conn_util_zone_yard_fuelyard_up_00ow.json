@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_yard_fuelyard",
+  "b": "zone_yard_fuelyard",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_yard_fuelyard_up_00ow",
+  "lockable": false,
+  "one_way": true
+}

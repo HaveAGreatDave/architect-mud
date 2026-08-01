@@ -4,10 +4,8 @@
     "The fire-trough gutters and steadies against the rooftop wind."
   ],
   "ambient_theme": "urban",
-  "audio_theme_id": null,
   "bg_color": "#33414d",
   "color": "#d9e6f2",
-  "created_by": null,
   "description": "The rooftop deck, open to a sky the colour of cold pewter. A lap pool runs the length of the parapet, its infinity edge spilling into the drop so the water seems to pour off the roof and into the city itself. Teak loungers, a low fire-trough, and a marble cocktail bar under a cantilevered canopy. The wind up here is clean and constant, and the whole of Coldwater is spread out beneath you like something you might, one day, afford. Step <b>in</b> to the elevator.",
   "exits": {
     "in": "zone_solenne_elevator"
@@ -23,8 +21,6 @@
   "grid_z": 4,
   "id": "zone_solenne_skydeck",
   "map_id": "map_int_solenne",
-  "marker": null,
   "name": "Solenne Sky Deck",
-  "parent_zone": "zone_district_914_908",
-  "updated_at": "1784600000"
+  "parent_zone": "zone_district_914_908"
 }

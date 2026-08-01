@@ -28,7 +28,7 @@ import { schedule } from './scheduler.js';
 import { setTimeScale, getTimeScale } from './gametime.js';
 import { logActivity } from '../models/db.js';
 import { emit } from './events.js';
-import { world, addExitOverride, removeExitOverride, insertFurniture, updateFurniture, updateFurnitureWhere, getZoneFurniture } from './world.js';
+import { world, addExitOverride, removeExitOverride, insertFurniture, updateFurniture, updateFurnitureWhere, getZoneFurniture, propsOf } from './world.js';
 import { neighborZoneIds, allExits, addExit } from './exits.js';
 
 // ---------------------------------------------------------------------------
@@ -1894,7 +1894,7 @@ export async function devSetRegionClimateBias(regionId, bias) {
     if (bias.dryness != null && bias.dryness !== '') value.dryness = Math.max(0, Math.min(1, Number(bias.dryness)));
   }
   const { rowCount } = await deps.query(
-    `UPDATE regions SET climate_bias = $2, updated_at = EXTRACT(EPOCH FROM NOW()) WHERE id = $1`,
+    `UPDATE regions SET climate_bias = $2 WHERE id = $1`,
     [regionId, value]
   ).catch(() => ({ rowCount: 0 }));
   if (!rowCount) return { ok: false, error: `Region ${regionId} not found` };
@@ -2271,7 +2271,11 @@ export function waterTemperature(zoneId) {
   if (Number.isFinite(authored)) return authored;
   const surface = Math.max(WATER_MIN_C, Math.min(WATER_MAX_C,
     WATER_BASE_C + seasonalMeanTempC() * WATER_DAMPING));
-  if (!z?.flags?.underwater) return Math.round(surface * 10) / 10;
+  // `underwater` is a RESOLVED PROPERTY now, preset by the underwater terrain, not a raw
+  // flag — the 82 tiles the comment above found unreadable were migrated to that terrain.
+  // So this asks the build what the tile resolved to, which also means a tile that
+  // overrides the property one way or the other gets the matching temperature for free.
+  if (!propsOf(zoneId).underwater) return Math.round(surface * 10) / 10;
   return Math.round(Math.max(WATER_MIN_C, Math.min(DEEP_WATER_MAX_C, surface - DEEP_WATER_DROP_C)) * 10) / 10;
 }
 

@@ -1,8 +1,5 @@
 {
-  "created_by": null,
   "entry_zone_id": "zone_hangar_outskirts",
   "id": "map_int_hangar_outskirts",
-  "name": "Coldwater Regional — Hangar",
-  "parent_zone_id": "zone_district_924_903",
-  "updated_at": "1783227243"
+  "parent_zone_id": "zone_district_924_903"
 }

@@ -1,0 +1,9 @@
+{
+  "a": "zone_asc_spire_concourse",
+  "b": "zone_asc_spire_gallery",
+  "blocked": false,
+  "dir": "in",
+  "id": "conn_asc_spire_concourse_in_mb0u",
+  "lockable": false,
+  "one_way": true
+}

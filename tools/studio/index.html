@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studio — Architect MUD</title>
+<style>
+  :root {
+    --bg: #0e0f12; --panel: #16181d; --panel2: #1d2027; --line: #2a2e37;
+    --text: #d5d8de; --dim: #838a97; --accent: #6ee7d0; --warn: #e7b96e; --bad: #e77a6e;
+    /* Chrome the canvas also draws with — kept next to the rest of the chrome so
+       the swatch in the key and the outline on the tile cannot drift apart. */
+    --seam: #8ab4ff; --entrance: #ffd479;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text); display: grid; grid-template-columns: 220px 1fr 330px;
+    font: 12px/1.45 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  aside, section { overflow-y: auto; }
+  aside { background: var(--panel); border-right: 1px solid var(--line); padding: 10px; overflow-x: hidden; }
+  section#inspector { background: var(--panel); border-left: 1px solid var(--line); padding: 10px; }
+  main { position: relative; overflow: hidden; }
+  canvas { display: block; cursor: crosshair; }
+  h2 { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
+       margin: 14px 0 6px; font-weight: 600; }
+  h2:first-child { margin-top: 0; }
+  .row { display: flex; gap: 5px; align-items: center; }
+  button { font: inherit; background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+           border-radius: 3px; padding: 4px 8px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.on { background: var(--accent); color: #0e0f12; border-color: var(--accent); }
+  .maplist button { display: block; width: 100%; text-align: left; margin-bottom: 2px; }
+  .maplist .n { color: var(--dim); float: right; }
+  /* The map list fans down. 71 entries open at all times is most of a 190px column
+     spent on a list you use once a session — the summary keeps the answer it was
+     giving (which map is open) and gives the space back to the tools. */
+  details.fan > summary { list-style: none; cursor: pointer; background: var(--panel2);
+    border: 1px solid var(--line); border-radius: 3px; padding: 4px 8px;
+    display: flex; gap: 6px; align-items: center; }
+  details.fan > summary::-webkit-details-marker { display: none; }
+  details.fan > summary:hover { border-color: var(--accent); }
+  details.fan > summary .caret { color: var(--dim); flex: none; }
+  details.fan[open] > summary .caret { color: var(--accent); }
+  details.fan > summary .who { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  details.fan > summary .n { color: var(--dim); flex: none; }
+  details.fan > .maplist { max-height: 40vh; overflow-y: auto; margin-top: 4px;
+    border: 1px solid var(--line); border-radius: 3px; padding: 3px; }
+  /* The view switch: thirds of one control, because they are three ways of
+     looking at the same map rather than three screens. */
+  .viewsw { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; margin-bottom: 10px; }
+  .viewsw button { border-radius: 0; padding: 4px 2px; border-left: 0; }
+  .viewsw button:first-child { border-left: 1px solid var(--line); }
+  .viewsw button:first-child { border-radius: 3px 0 0 3px; }
+  .viewsw button:last-child { border-radius: 0 3px 3px 0; }
+  /* A district in the list: its own colour, its name, how many tiles claim it. */
+  .dlist button { display: flex; width: 100%; text-align: left; margin-bottom: 2px;
+                  gap: 6px; align-items: center; }
+  .dlist .sw { width: 11px; height: 11px; border-radius: 2px; flex: none;
+               border: 1px solid rgba(255,255,255,0.25); }
+  .dlist .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dlist .n { color: var(--dim); flex: none; }
+  .dlist button.on .n { color: inherit; }
+  /* Tiles claiming nothing, and tiles claiming a district that isn't there. Both
+     are states of the map, so they sit in the same list as the districts. */
+  .dlist button.none .sw { background: repeating-linear-gradient(45deg,
+    var(--dim) 0 2px, transparent 2px 4px); }
+  .dlist button.bad { border-color: var(--bad); }
+  /* The enemies standing on the open map, hottest first. Same row as a district —
+     it is the same gesture (pick one, the map answers) against a different fact.
+     The bar behind the name is that enemy's share of the map's whole threat, so
+     the list reads as a chart without being one. */
+  .elist button { display: flex; width: 100%; text-align: left; margin-bottom: 2px;
+                  gap: 6px; align-items: center; position: relative; overflow: hidden; }
+  .elist .bar { position: absolute; inset: 0 auto 0 0; background: var(--bad);
+                opacity: .22; pointer-events: none; }
+  .elist button.on .bar { opacity: .38; }
+  .elist .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+               position: relative; }
+  .elist .n { color: var(--dim); flex: none; position: relative; }
+  .elist button.on .n { color: inherit; }
+  .elist button.bad { border-color: var(--bad); }
+  .elist .go { flex: none; position: relative; color: var(--dim); padding: 0 1px; }
+  .elist button:hover .go { color: var(--accent); }
+  /* The heat ramp, as the canvas lays it down: the same tone under every step, so
+     the key is a swatch of the map rather than a picture of one. */
+  .heatkey { display: flex; gap: 0; align-items: center; margin: 4px 0 2px; }
+  .heatkey i { width: 15px; height: 11px; background: #14161b; display: block; }
+  .heatkey i > span { display: block; width: 100%; height: 100%; background: var(--bad); }
+  /* The action log. An undone entry is still THERE — it is what redo means — so it
+     is dimmed rather than removed, and the line between the two is drawn where the
+     next Ctrl+Z would land. */
+  #log button.undone { opacity: .45; font-style: italic; }
+  #log button.here { border-color: var(--accent); }
+  #log .when { color: var(--dim); float: right; margin-left: 6px; }
+  .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }
+  .sw { height: 26px; border: 1px solid var(--line); border-radius: 3px; cursor: pointer; position: relative; }
+  .sw.on { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .sw span { position: absolute; inset: auto 0 1px 0; text-align: center; font-size: 8px;
+             color: #000; text-shadow: 0 0 3px #fff; }
+  label { display: block; color: var(--dim); margin: 7px 0 2px; font-size: 10.5px;
+          letter-spacing: .04em; text-transform: uppercase; }
+  input[type=text], input[type=number], select, textarea {
+    width: 100%; font: inherit; background: #0b0c0f; color: var(--text);
+    border: 1px solid var(--line); border-radius: 3px; padding: 4px 6px;
+  }
+  textarea { resize: vertical; min-height: 54px; }
+  .help { color: var(--dim); font-size: 10px; margin-top: 2px; }
+  /* A pin that adjacency has moved on beneath — a defect, not a decision, so it
+     reads as one. Matches the red dot the canvas puts on the same tile. */
+  .help.stale { color: var(--bad); }
+  .grp { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 6px; }
+  .grp > .t { color: var(--accent); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+  /* A group with nothing set on this tile, and the unset remainder of one that has
+     something: shut, counted, and one click from open. The heading of an empty group
+     is dim rather than accent — the colour is for a section holding an answer. */
+  details.grp > summary, details.more > summary { cursor: pointer; list-style: none; }
+  details.grp > summary::-webkit-details-marker,
+  details.more > summary::-webkit-details-marker { display: none; }
+  details.grp > summary { color: var(--dim); }
+  details.grp[open] > summary { color: var(--accent); }
+  details.more { margin-top: 6px; }
+  details.more > summary { color: var(--dim); font-size: 10px; }
+  details.more > summary:hover, details.grp > summary:hover { color: var(--accent); }
+  /* Unset fields read as offers, not as values. Anything typed into one stops being
+     dim the moment it is saved, because the row moves out of here. */
+  .unset { opacity: .62; }
+  .unset:focus-within { opacity: 1; }
+  .flagrow { display: flex; gap: 6px; align-items: center; margin: 3px 0; }
+  .flagrow input[type=checkbox] { margin: 0; }
+  .flagrow .k { flex: 1; }
+  /* SAVE IS ALWAYS REACHABLE. A tile's form is taller than the column — the flag
+     groups alone run past the fold on anything with a few of them set — so the two
+     buttons that end the gesture were a scroll away from the field you had just
+     typed into. They ride the bottom of the inspector instead, whatever is above
+     them. The negative `bottom` cancels the panel's own padding so the bar sits on
+     the edge rather than floating a gap above it, and the errors ride WITH it: a
+     refused save that reports itself off-screen is the one message here that must
+     never be missed. */
+  .actions { position: sticky; bottom: -10px; z-index: 2; margin-top: 12px;
+             background: var(--panel); border-top: 1px solid var(--line);
+             padding: 8px 0 10px; }
+  .actions .row { gap: 5px; }
+  #errs { color: var(--bad); white-space: pre-wrap; margin-top: 8px; }
+  #status { position: absolute; left: 8px; bottom: 8px; background: #000a; padding: 4px 8px;
+            border: 1px solid var(--line); border-radius: 3px; pointer-events: none; }
+  #lint { position: absolute; right: 8px; bottom: 8px; background: #000a; padding: 4px 8px;
+          border: 1px solid var(--line); border-radius: 3px; max-width: 46%; }
+  #lint b { color: var(--warn); }
+  .muted { color: var(--dim); }
+  .pill { display: inline-block; border: 1px solid var(--line); border-radius: 9px;
+          padding: 0 6px; color: var(--dim); font-size: 10px; }
+  button:disabled { opacity: .45; cursor: default; border-color: var(--line); }
+  /* Floors ride on the map, not in the sidebar: which storey you are looking at is
+     a fact about the picture, and the picture is where you look when you change it. */
+  #floors { position: absolute; right: 8px; top: 8px; display: flex; flex-direction: column;
+            gap: 3px; background: #000a; padding: 4px; border: 1px solid var(--line);
+            border-radius: 3px; }
+  #floors button { min-width: 34px; }
+  /* A seam, in the inspector: where this tile (or this map) leads. */
+  button.seam { display: block; width: 100%; text-align: left; margin: 3px 0; line-height: 1.35; }
+  button.seam .d { color: var(--seam); display: inline-block; width: 12px; }
+  button.seam .w { color: var(--text); }
+  button.seam .m { display: block; color: var(--dim); font-size: 10px; padding-left: 12px; }
+  .key { display: flex; gap: 6px; align-items: center; color: var(--dim); font-size: 10px; margin-top: 3px; }
+  .key { align-items: flex-start; }
+  .key i { width: 12px; height: 12px; border: 2px solid var(--seam); border-radius: 2px; flex: none; }
+  /* The bar swatches sit on an edge, the way the canvas draws them. */
+  .key i.ent { border: 0; border-bottom: 4px solid var(--entrance); border-radius: 0; }
+  .key i.der { border: 0; border-bottom: 4px solid var(--seam); border-radius: 0; }
+  .key i.dot { border: 0; background: var(--seam); border-radius: 50%; width: 7px; height: 7px; margin: 3px 2px; }
+  /* Hollow means the seam only leads IN — its direction belongs to the tile at the
+     other end, so it is not an edge of this one. The canvas strokes the same arc. */
+  .key i.dot.in { background: none; border: 1.5px solid var(--seam); }
+  /* The pin rides the tile's top-right CORNER, not its middle — a different dot
+     answering a different question: who decided, rather than where you can go. */
+  .key i.pin { border: 0; background: var(--accent); border-radius: 50%; width: 7px; height: 7px; margin: 3px 2px; }
+  .key i.pin.stale { background: var(--bad); }
+  .key i.no { border: 0; border-radius: 2px; background: repeating-linear-gradient(45deg,
+    var(--bad) 0 2px, transparent 2px 5px); }
+  /* The move plan, in the inspector: what would be written, before it is. */
+  #inspector .files { max-height: 26vh; overflow-y: auto; color: var(--dim); font-size: 10px;
+    border: 1px solid var(--line); border-radius: 3px; padding: 4px 6px; margin-top: 4px; }
+  #inspector .warn { color: var(--warn); white-space: pre-wrap; margin-top: 6px; font-size: 10.5px; }
+  /* The door sides a building can turn to. A side it cannot reach stays visible and
+     says why on hover, rather than vanishing and leaving you to guess. */
+  .turn { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-top: 4px; }
+  .turn button.now { background: var(--entrance); color: #0e0f12; border-color: var(--entrance); }
+</style>
+</head>
+<body>
+<aside>
+  <div class="viewsw">
+    <button id="v-tiles" class="on">Tiles</button><button id="v-districts">Districts</button><button id="v-threat">Threat</button>
+  </div>
+
+  <h2>Map</h2>
+  <details class="fan" id="mapfan">
+    <summary><span class="caret">▸</span><span class="who" id="mapwho">…</span><span class="n" id="mapn"></span></summary>
+    <div class="maplist" id="maps"></div>
+  </details>
+  <button id="m-props" style="width:100%;margin-top:5px">Map properties…</button>
+  <button id="back" style="width:100%;margin-top:3px" disabled>← Back</button>
+
+  <h2>Tool</h2>
+  <div class="row">
+    <button id="t-select" class="on">Select</button>
+    <button id="t-paint">Paint</button>
+    <button id="t-pick">Pick</button>
+    <button id="t-move">Move</button>
+  </div>
+
+  <div id="pane-move" style="display:none">
+    <h2>Move a building</h2>
+    <div id="movewho" class="help">Click a building to pick it up.</div>
+    <button id="m-cancel" style="width:100%;margin-top:5px" disabled>Put it down</button>
+    <div class="key" style="margin-top:6px"><i class="no"></i> already built on, or something standing there</div>
+    <div class="help" style="margin-top:5px">The door does not move itself. A destination
+      with no street on the door's side is refused, and says which sides would work —
+      turn the building first, in its own inspector.</div>
+  </div>
+
+  <div id="pane-terrain">
+    <h2>Terrain</h2>
+    <div class="swatches" id="terrains"></div>
+    <button id="t-clear" style="width:100%;margin-top:5px">Clear terrain</button>
+  </div>
+
+  <div id="pane-districts" style="display:none">
+    <h2>Districts</h2>
+    <div class="dlist" id="districts"></div>
+    <div class="help" style="margin-top:6px">Pick one, then paint. A district is the
+      neighbourhood a tile reads as — its name with the room, the line when you cross
+      in, the smells outdoors. <b>Erase</b> hands a tile back to nothing.</div>
+  </div>
+
+  <div id="pane-threat" style="display:none">
+    <h2>Threat</h2>
+    <div id="threatsum" class="help">…</div>
+    <div class="heatkey" id="heatkey"></div>
+    <div class="help">quiet → deadly, by how many stand up and how hard they hit.
+      Tiles with nothing on them keep their own colour, dimmed.</div>
+    <h2>Enemies here</h2>
+    <div class="elist" id="enemies"></div>
+    <div id="threatnote" class="help" style="margin-top:6px"></div>
+    <div class="help" style="margin-top:6px">Pick one to see only its heat. <b>⌖</b> flies
+      to where it is thickest. A room inside a building folds onto the facade you enter
+      through, so a monster four floors up still reddens its own front door.</div>
+  </div>
+
+  <h2>History</h2>
+  <div class="row">
+    <button id="undo" style="flex:1" disabled>↶ Undo</button>
+    <button id="redo" style="flex:1" disabled>↷ Redo</button>
+  </div>
+  <details class="fan" id="logfan" style="margin-top:4px">
+    <summary><span class="caret">▸</span><span class="who" id="logwho">no edits yet</span><span class="n" id="logn"></span></summary>
+    <div class="maplist" id="log"></div>
+  </details>
+
+  <h2>View</h2>
+  <div class="row"><button id="fit" style="flex:1">Fit</button></div>
+  <div class="row" style="margin-top:4px"><button id="o-art" class="on">Art</button><button id="o-labels">Labels</button></div>
+
+  <h2>Key</h2>
+  <div class="key"><i></i> leaves this map — double-click to follow</div>
+  <div class="key"><i class="ent"></i> the authored door side (a facade)</div>
+  <div class="key"><i class="der"></i> the side the seam leaves by</div>
+  <div class="key"><i class="dot"></i> up / down / in / out — no side</div>
+  <div class="key"><i class="dot in"></i> the same, inbound only — it leads here</div>
+  <div class="key"><i class="pin"></i> corner: art pinned by hand, outranking adjacency</div>
+  <div class="key"><i class="pin stale"></i> the same pin, gone stale — lanes moved beneath it</div>
+</aside>
+
+<main>
+  <canvas id="c"></canvas>
+  <div id="floors" style="display:none"></div>
+  <div id="status" class="muted">loading…</div>
+  <div id="lint" class="muted">lint: …</div>
+</main>
+
+<section id="inspector">
+  <div class="muted">Select a tile.</div>
+</section>
+
+<script type="module" src="/studio.js"></script>
+</body>
+</html>

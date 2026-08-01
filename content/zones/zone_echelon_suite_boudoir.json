@@ -5,10 +5,8 @@
     "A faint, expensive perfume hangs close in the small space."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#1a1016",
   "color": "#ffd9e6",
-  "created_by": "echelon",
   "description": "A concealed boudoir folded into the wall behind the owner's suite — no bigger than a large closet, and warmer than anywhere aboard. Layered silks, a heaped daybed, a low lamp that never fully brightens. This is where Roxy and Jolie keep themselves out of sight, waiting on exactly one person; nobody else is supposed to know the room is here. The false panel leads back OUT to the suite.",
   "exits": {
     "out": "zone_echelon_suite"
@@ -31,8 +29,6 @@
   "grid_z": 0,
   "id": "zone_echelon_suite_boudoir",
   "map_id": null,
-  "marker": null,
   "name": "Echelon — Concealed Boudoir",
-  "parent_zone": "zone_echelon_exterior",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_echelon_exterior"
 }

@@ -1,8 +1,6 @@
 {
-  "created_by": "marrow-infill",
   "entry_zone_id": "zone_adequate_floor",
   "id": "map_int_adequate",
   "name": "Adequate! — Interior",
-  "parent_zone_id": "zone_district_912_908",
-  "updated_at": "1785200000"
+  "parent_zone_id": "zone_district_912_908"
 }

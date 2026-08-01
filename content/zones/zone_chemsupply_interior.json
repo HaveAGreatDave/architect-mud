@@ -4,10 +4,8 @@
     "The extractor fans overhead never quite clear the chemical tang."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2a2620",
   "color": "#d8c8a0",
-  "created_by": null,
   "description": "A concrete warehouse-shop stacked to the rafters with drums, glassware and coils of tubing. A forklift idles in the aisle and a clipboard-and-ballpoint sign-out sheet does duty as the entire compliance department.",
   "exits": {
     "west": "zone_district_920_907"
@@ -24,8 +22,6 @@
   "grid_z": 0,
   "id": "zone_chemsupply_interior",
   "map_id": "map_interior_zone_chemsupply_interior",
-  "marker": null,
   "name": "Bulk & Bond Supply",
-  "parent_zone": "zone_district_920_907",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_district_920_907"
 }

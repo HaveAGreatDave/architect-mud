@@ -1,0 +1,9 @@
+{
+  "a": "zone_halcyon_elevator",
+  "b": "zone_halcyon_lobby",
+  "blocked": true,
+  "dir": "south",
+  "id": "conn_halcyon_elevator_south_ye9x",
+  "lockable": false,
+  "one_way": false
+}

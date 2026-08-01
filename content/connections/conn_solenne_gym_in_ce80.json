@@ -1,0 +1,9 @@
+{
+  "a": "zone_solenne_gym",
+  "b": "zone_solenne_elevator",
+  "blocked": false,
+  "dir": "in",
+  "id": "conn_solenne_gym_in_ce80",
+  "lockable": false,
+  "one_way": true
+}

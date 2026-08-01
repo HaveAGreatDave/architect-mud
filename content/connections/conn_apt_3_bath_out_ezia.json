@@ -1,0 +1,9 @@
+{
+  "a": "zone_apt_3_bath",
+  "b": "zone_apt_3",
+  "blocked": false,
+  "dir": "out",
+  "id": "conn_apt_3_bath_out_ezia",
+  "lockable": true,
+  "one_way": false
+}

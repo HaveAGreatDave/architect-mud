@@ -1,20 +1,38 @@
 /**
- * Item Tag Catalog — single source of truth for item behavior.
+ * Field Catalog — single source of truth for what a thing can be given.
  *
- * Every behavioral property an item can have is a tag. This catalog documents
- * what each tag does, what shape its value takes, and how the dev panel should
- * render an editor widget for it. The engine reads behavior from tags; this
- * file is the reference so functionality isn't forgotten as the list grows.
+ * Every behavioral property an item, furniture piece or zone can have is a tag,
+ * and every editable zone COLUMN is catalogued here too. This file documents what
+ * each field does, what shape its value takes, and how an editor should render a
+ * widget for it. The engine reads behavior from tags; this file is the reference
+ * so functionality isn't forgotten as the list grows, and it is what the map
+ * Studio will generate its entire field editor from — one catalog entry and a new
+ * system's flag becomes editable, grouped, labelled, with help text.
+ *
+ * (Still named tagCatalog.js. The honest rename is deferred — see
+ * docs/proposals/map-pipeline-spec.md §3.)
  *
  * Dual-mode by design: the dev panel loads this as a classic <script> (so it
  * can't use a bare `export`), while the Node engine imports it for its side
  * effect and reads the global. Both land on `globalThis.TAG_CATALOG`.
  *
- * shape — drives the dev-panel input widget and serialization:
+ * shape — drives the editor widget, serialization, and validateTags():
  *   text    free text (textarea)
  *   flag    valueless marker (stored as `true`)
- *   int     integer
+ *   tristate unset / true / false, where FALSE IS LOAD-BEARING. For a property a
+ *           terrain presets and a tile overrides: absent = inherit the preset,
+ *           false = explicitly not this. `flag` cannot express the last one —
+ *           there absence and false are the same signal. Editors render a
+ *           three-way select, not a checkbox. See
+ *           docs/proposals/terrain-property-presets.md
+ *   number  any number (integers included — `int` was collapsed into this)
  *   enum    one of `options`
+ *   ref     an id in another table; `refTable` names it. Buys a picker in the
+ *           editor and a resolution check in content:lint, which is the only
+ *           thing standing between a typo and a silently inert reference — none
+ *           of these live in a column, so Postgres has no foreign key to break.
+ *   list    JSON array
+ *   object  JSON object with its own internal shape (checkpoint_cfg, greeter…)
  *   range   { min, max }
  *   hot     heal-over-time { amount, duration_seconds }
  *   statmap JSON object of key -> number (small JSON textarea)
@@ -22,7 +40,15 @@
  * scope — storage semantics for the engine: 'class' tags live on the item
  * template (items.tags); 'instance' tags are presence-only flags on a carried
  * item (player_inventory.custom_data); 'furniture' tags live on a furniture row
- * (furniture.flags). They all surface via tagsOf() the same way.
+ * (furniture.flags); 'zone' tags live in zones.flags. They all surface via
+ * tagsOf() the same way.
+ *
+ * 'zone_column' is the exception: those entries describe a real COLUMN of the
+ * zones table, not a key in a flags bag, and they are keyed `zone:<column>` so a
+ * column can never collide with a flag of the same name (`description` is both).
+ * validateZoneColumns() checks them; tagsOf()/validateTags() never see them.
+ *
+ * order — OPTIONAL number for sorting within a `group`. Absent sorts last.
  *
  * targets — OPTIONAL array controlling which dev-panel editors offer the tag:
  * subset of ['item','furniture']. When present it overrides the default derived
@@ -42,7 +68,7 @@
       help: 'Prevents stacking. Items stack by default; tag an item Unique to keep each as its own row.' },
     no_repair: { label: 'Cannot Be Repaired', shape: 'flag', scope: 'class', group: 'Core',
       help: 'Opt-OUT of repair. Anything that wears (weapon / armour / body-slot apparel / tool) is repairable by default and needs no tag — use this only for the rare thing that genuinely cannot be fixed at a bench (sealed chrome, burned firmware). See docs/systems-durability.md.' },
-    wear_rate: { label: 'Wear Rate', shape: 'int', scope: 'class', group: 'Core',
+    wear_rate: { label: 'Wear Rate', shape: 'number', scope: 'class', group: 'Core',
       help: 'Rarely needed override. Durability is derived from the item\'s value; set this only when that formula is wrong for a specific item. Higher = wears faster.' },
     repair_kit: { label: 'Repair Kit', shape: 'flag', scope: 'class', group: 'Core',
       help: 'Lets the carrier field-repair worn gear (capped at Battered — proper restoration needs a repairman).' },
@@ -83,9 +109,9 @@
       help: 'Body slot this equips to. Presence of this tag is what makes an item equippable.' },
     armor_soak: { label: 'Armor Soak', shape: 'statmap', scope: 'class', group: 'Equipment',
       help: 'Per-damage-type soak, e.g. { "kinetic": 4, "energy": 1 }. Used when this piece covers the struck body part.' },
-    insulation: { label: 'Insulation', shape: 'int', scope: 'class', group: 'Equipment',
+    insulation: { label: 'Insulation', shape: 'number', scope: 'class', group: 'Equipment',
       help: 'Thermal insulation in °C. Added to ambient temperature to determine effective temperature for body heat calculations. Stacks across all equipped clothing.' },
-    bulkiness: { label: 'Bulkiness', shape: 'int', scope: 'class', group: 'Equipment',
+    bulkiness: { label: 'Bulkiness', shape: 'number', scope: 'class', group: 'Equipment',
       help: 'Physical thickness of the garment, 1 (paper-thin underwear) to 5 (rigid plate armor). Determines whether the item fits in a layer alongside others.' },
     layer: { label: 'Layer', shape: 'enum', scope: 'class', group: 'Equipment',
       options: ['underwear', 'outerwear', 'armor'],
@@ -128,23 +154,23 @@
       help: 'Carrying any item with this tag lets you butcher corpses (knives, blades, etc.).' },
     demolition: { label: 'Demolition Tool', shape: 'flag', scope: 'class', group: 'Combat',
       help: 'Marks a heavy tool/weapon (sledgehammer, cutting torch, breaching charge) capable of damaging armoured industrial infrastructure — generators and junction boxes. The main power plant can ONLY be damaged by an equipped item with this tag.' },
-    min_skill: { label: 'Minimum Skill', shape: 'json', scope: 'class', group: 'Combat',
+    min_skill: { label: 'Minimum Skill', shape: 'object', scope: 'class', group: 'Combat',
       help: 'Skill required to handle this weapon, e.g. { "blades": 6 }. TWO different gates: a vendor will REFUSE TO SELL it to anyone under the bar (hard), while actually using one you are short on merely makes you terrible with it — to-hit drops by the shortfall and damage falls up to 75% (soft). That split is deliberate: you can never buy your way past the ladder, but a weapon looted off a corpse is still yours to struggle with. Skill ids are the ones in skills.js (blades, clubs, firearms, science, fists).' },
     waterproof: { label: 'Works In Water', shape: 'flag', scope: 'class', group: 'Combat',
       help: 'Exempts this weapon from the water combat penalty. By default a FIREARM will not fire at all while you are in water (wet powder), and every melee weapon swings slower and lands at a fraction of its damage until high skill claws it back. Tag anything actually designed for it — a speargun, a diving knife — and it fights normally.' },
     water_shock: { label: 'Discharges In Water', shape: 'flag', scope: 'class', group: 'Combat',
       help: 'Using this weapon while in water dumps its charge into the water instead of the target: everyone in the zone takes the hit, INCLUDING the person holding it. For electrical weapons (the ComplyMate taser). Overrides the ordinary water penalty — it works fine, it just works on everybody.' },
-    spread: { label: 'Spread (pellet groups)', shape: 'int', scope: 'class', group: 'Combat',
+    spread: { label: 'Spread (pellet groups)', shape: 'number', scope: 'class', group: 'Combat',
       help: 'Buckshot. The blast lands as this many SEPARATE impacts (2-4), each rolling its own body part and soaked separately by the armour covering it, then summed for HP. Absent or 1 = one impact, the way every weapon has always worked. Use it to make a heavy shotgun frightening without letting it saturate the injury curve: one 18-34 slug cleared the Maimed bar on nearly every hit at every armour tier, while the same damage split three ways lands several ordinary wounds and lets armour matter again (soak is subtracted once per group, so plate is far better against shot than against a slug).' },
-    demolition_damage: { label: 'Demolition Damage', shape: 'json', scope: 'class', group: 'Combat',
+    demolition_damage: { label: 'Demolition Damage', shape: 'range', scope: 'class', group: 'Combat',
       help: 'Damage roll { "min": N, "max": N } used ONLY against destructible infrastructure, in place of `damage`. Exists because industrial soak is brutal (the Coldwater generator absorbs 25 per hit) while people are not: a sledgehammer needs to roll 40-70 to scratch a generator casing, and that same roll one-shot a 40 HP player and maimed on every landed blow. Split the two and each stays sane. Falls back to `damage` when absent, so only demolition tools need it.' },
 
     // --- Cooking ---
     needs_cooking: { label: 'Needs Cooking', shape: 'flag', scope: 'class', group: 'Cooking',
       help: 'Consumable is dangerous raw — eating it before the instance is cooked (see the `cooked` instance flag) applies food poisoning instead of its normal restores. Gates the `cook` verb (plugins/cooking).' },
-    heater_target_c: { label: 'Heater Target (C)', shape: 'int', scope: 'furniture', group: 'Cooking',
+    heater_target_c: { label: 'Heater Target (C)', shape: 'number', scope: 'furniture', group: 'Cooking',
       help: 'This piece HOLDS its room at this temperature. A target, not an offset, so it makes a freezing room habitable and does nothing to a warm one - leaving it on in summer is wasteful, never lethal. Two heaters in a room are not twice as warm; the higher target wins. Needs power: on mains whenever the grid is up, otherwise on its own battery (see heater_battery_min). Read by plugins/warmth via the engine heat-source seam, so the body-temp drift, frostbite and the HUD thermometer all see the same number.' },
-    heater_battery_min: { label: 'Heater Battery (game-min)', shape: 'int', scope: 'furniture', group: 'Cooking',
+    heater_battery_min: { label: 'Heater Battery (game-min)', shape: 'number', scope: 'furniture', group: 'Cooking',
       help: 'How many GAME-minutes the heater runs with no grid behind it (default 720 = 12 in-game hours). Mains recharges it at half the discharge rate, so a full top-up is a day and a heater that carried you through last night is not automatically ready for tonight. This is the whole point of the object: HVAC dies in a blackout and an unheated room bleeds toward outdoor temperature, so the battery is what stands between a cold snap and a body.' },
     microwave: { label: 'Microwave', shape: 'flag', scope: 'furniture', group: 'Cooking',
       help: 'This furniture is a microwave — its own appliance, NOT a stove tier. Fastest cook in the game and far and away the best defroster, but it browns nothing: a hard quality ceiling no skill, prep or vessel can lift, no fond, and no handling at all (the door is shut and it is going round). The right tool for leftovers and thawing, the wrong one for anything you wanted to be proud of. Constants live in plugins/cooking/config.js as MICROWAVE_*.' },
@@ -153,7 +179,7 @@
       help: 'Marks this furniture as a stove and sets its cook-speed multiplier (low 1.0x, mid 1.5x, high 2.5x). See plugins/cooking.' },
     portable_oven: { label: 'Portable Oven', shape: 'flag', scope: 'class', group: 'Cooking',
       help: 'Marks this item as a carried cooking appliance — the `cook` verb uses it when no room stove is available. Carry it uncontained (the fishing_rod/mining_tool tool-gate pattern). Pair with oven_capacity_g.' },
-    oven_capacity_g: { label: 'Oven Capacity (g)', shape: 'int', scope: 'class', group: 'Cooking',
+    oven_capacity_g: { label: 'Oven Capacity (g)', shape: 'number', scope: 'class', group: 'Cooking',
       help: 'Max food weight (grams) a portable_oven can cook at once — heavier food is refused outright ("small amounts only").' },
     food_profile: { label: 'Food Profile', shape: 'enum', scope: 'class', group: 'Cooking',
       options: ['dense_meat', 'starchy_vegetable', 'dry_starch', 'soft_vegetable', 'fruit', 'liquid', 'batter', 'egg', 'preserved', 'fat_or_oil', 'aromatic', 'dairy', 'bread'],
@@ -169,7 +195,7 @@
     food_also: { label: 'Also Counts As', shape: 'enum', scope: 'class', group: 'Cooking',
       options: ['dense_meat', 'starchy_vegetable', 'dry_starch', 'soft_vegetable', 'fruit', 'liquid', 'batter', 'egg', 'preserved', 'fat_or_oil', 'aromatic', 'dairy', 'bread'],
       help: 'A SECOND ingredient class this satisfies in recipes, without being it. Milk is the case: food_profile "liquid" (it cooks like one — one timeline, one set of stage prose) plus food_also "dairy" (a recipe asking for dairy accepts it). A secondary can only ever HELP a match: it satisfies a `needs` entry but never counts toward the allowed-profile check, so adding one can never stop an item matching something it already matched. Contributes the same unit count as the primary, never recounted against its own unitWeight.' },
-    food_noun: { label: 'Food Noun', shape: 'string', scope: 'class', group: 'Cooking',
+    food_noun: { label: 'Food Noun', shape: 'text', scope: 'class', group: 'Cooking',
       help: 'The word this ingredient lends to a derived dish name ("fish" → "fish and potato stew"). Optional: without it the item name is used, minus state words (raw/fresh/frozen/dried). Set it when the item name reads badly in a dish ("fresh catch" → "catch and potato stew").' },
     vessel: { label: 'Cooking Vessel', shape: 'flag', scope: 'class', group: 'Cooking',
       help: 'Marks this container as a pan/pot: `heat <vessel>` puts it and everything in it on the stove. Requires the Container tag for its capacity. Pair with heat_distribution and heat_retention; cooking without a vessel works but cooks worse.' },
@@ -183,7 +209,7 @@
       options: ['base_spirit', 'liqueur', 'fortified', 'wine', 'beer_base', 'mixer', 'juice', 'syrup', 'bitters',
                 'dairy_cream', 'coffee_base', 'tea_base', 'cocoa_base', 'ice', 'garnish', 'hot_water'],
       help: 'What this counts as in a drink recipe. Recipes match on the multiset of CLASSES in the vessel, never on item ids — tag a new bottle with an existing class and every recipe that class fits accepts it immediately, with no code change. syrup/bitters/garnish are MODIFIERS: they season a drink rather than composing it, and are measured in dashes rather than measures.' },
-    drink_noun: { label: 'Drink Noun', shape: 'string', scope: 'class', group: 'Drinks',
+    drink_noun: { label: 'Drink Noun', shape: 'text', scope: 'class', group: 'Drinks',
       help: 'The word this lends to a derived drink name ("gin" → "gin and tonic highball"). Optional: without it the item name is used, minus state words (bottle of / can of / chilled / iced).' },
     pour_units: { label: 'Pours', shape: 'number', scope: 'class', group: 'Drinks',
       help: 'How many 25ml measures one of these rows is. A 700ml bottle is 14; a can of tonic is 2 or 3. This is the unit every drink recipe counts in, and it is also what the recipe card converts back into millilitres. Absent reads as 1, so nothing silently vanishes from a build.' },
@@ -208,7 +234,7 @@
       help: 'This vessel is EATEN as part of what it makes, instead of surviving the meal like a pan does. Bread is the only one: a sandwich is not fillings served in a bread container, it IS the bread. The vessel is scored as an ingredient, lends its noun to the dish name, and is consumed by `plate`. Only meaningful alongside `vessel`.' },
     spreadable: { label: 'Spreadable', shape: 'flag', scope: 'class', group: 'Cooking',
       help: 'Can be spread on food with `butter <food>`. Takes a quarter of the item per spread; buttered food counts as the dish\'s fat and carries a small quality bonus. Butter and anything pretending to be it.' },
-    recipe_card: { label: 'Recipe Card', shape: 'string', scope: 'class', group: 'Cooking',
+    recipe_card: { label: 'Recipe Card', shape: 'text', scope: 'class', group: 'Cooking',
       help: 'Makes this item a readable recipe card teaching one dish. The value is the dish key from plugins/cooking/dishes.js (e.g. "stew", "chowder"). READ it to add the recipe to your Cookbook. Knowing a recipe never gates cooking it — it grants a small quality bonus and records it in the tablet app.' },
     heat_distribution: { label: 'Heat Distribution', shape: 'number', scope: 'class', group: 'Cooking',
       help: 'How evenly a vessel spreads heat, 0..1 (a cheap pan ~0.6, a good one ~0.9). Widens the forgiving band between the peak window and burning. Only meaningful alongside `vessel`.' },
@@ -226,42 +252,42 @@
     // --- Consumable effects ---
     use_message: { label: 'Use Message', shape: 'text', scope: 'class', group: 'Consumable',
       help: 'Flavour line shown when the item is consumed via use / eat / drink; falls back to a plain default.' },
-    restore_hp: { label: 'Restore HP', shape: 'int', scope: 'class', group: 'Consumable',
+    restore_hp: { label: 'Restore HP', shape: 'number', scope: 'class', group: 'Consumable',
       help: 'Instant HP change (can be negative).' },
-    restore_hunger: { label: 'Restore Hunger', shape: 'int', scope: 'class', group: 'Consumable',
+    restore_hunger: { label: 'Restore Hunger', shape: 'number', scope: 'class', group: 'Consumable',
       help: 'Restores the hunger meter (capped at 100).' },
-    restore_thirst: { label: 'Restore Thirst', shape: 'int', scope: 'class', group: 'Consumable',
+    restore_thirst: { label: 'Restore Thirst', shape: 'number', scope: 'class', group: 'Consumable',
       targets: ['item', 'furniture'],
       help: 'Restores the thirst meter (capped at 100). On a water-source furniture, sets how much a drink restores.' },
-    restore_radiation: { label: 'Restore Radiation', shape: 'int', scope: 'class', group: 'Consumable',
+    restore_radiation: { label: 'Restore Radiation', shape: 'number', scope: 'class', group: 'Consumable',
       help: 'Adds/removes radiation (RadAway uses -20).' },
-    restore_sanity: { label: 'Restore Sanity', shape: 'int', scope: 'class', group: 'Consumable',
+    restore_sanity: { label: 'Restore Sanity', shape: 'number', scope: 'class', group: 'Consumable',
       help: 'Adjusts Sanity (drinks restore it; some items drop it).' },
-    grants_credits: { label: 'Grants Credits', shape: 'int', scope: 'class', group: 'Consumable',
+    grants_credits: { label: 'Grants Credits', shape: 'number', scope: 'class', group: 'Consumable',
       help: 'Currency granted on use (credit chips).' },
     heal_over_time: { label: 'Heal Over Time', shape: 'hot', scope: 'class', group: 'Consumable',
       help: 'Gradual heal { amount, duration_seconds }, ticks once/min, stacks if re-used.' },
     well_fed: { label: 'Well-Fed', shape: 'flag', scope: 'class', group: 'Consumable',
       help: 'Grants the Well-Fed buff (faster HP regen) for 10 minutes.' },
-    treat_injury: { label: 'Treat Injury', shape: 'json', scope: 'class', group: 'Consumable',
+    treat_injury: { label: 'Treat Injury', shape: 'object', scope: 'class', group: 'Consumable',
       help: 'Field medicine for wounds (plugins/injury). { steps, floor, types?, all?, chance? } — steps = severity rungs shed; floor 1 = cannot clear a wound outright (only a clinic can); types narrows it to one damage type (a splint sets fractures, does nothing for burns); all treats every eligible wound at once; chance <1 makes improvised gear fail sometimes.' },
-    treat_frostbite: { label: 'Treat Frostbite', shape: 'json', scope: 'class', group: 'Consumable',
+    treat_frostbite: { label: 'Treat Frostbite', shape: 'object', scope: 'class', group: 'Consumable',
       help: 'Field medicine for cold injury (plugins/frostbite). { steps, floor } — steps = stages walked back; floor 1 = cannot clear outright, so the best a kit can do is leave you at frostnip. Only DEEP frostbite actually needs treating (the milder stages thaw on their own), and a deep case is the one injury in the game that never thaws — a kit buys back the use of your hands, a clinic buys back the hands.' },
-    warming: { label: 'Warming', shape: 'json', scope: 'class', group: 'Consumable',
+    warming: { label: 'Warming', shape: 'object', scope: 'class', group: 'Consumable',
       help: 'Takes the edge off the cold for a while. { degrees, minutes } — degrees of effective warmth (the same currency as insulation), tapering linearly to nothing over that many GAME-minutes. Cold side only: a mug of cocoa is thermally negligible against 70kg of body, so this honestly models a defence against cold rather than calories added, and it does nothing in a heatwave. A stronger source refreshes rather than stacks. Hot DRINKS do not use this tag - the drinks plugin scales their warmth by how hot the cup still is.' },
     hydrating: { label: 'Hydrating', shape: 'flag', scope: 'class', group: 'Consumable',
       help: 'Grants the Hydrated buff (faster radiation decay) for 10 minutes.' },
     laced_drug: { label: 'Laced Drug', shape: 'text', scope: 'class', group: 'Consumable',
       help: 'Drug id (e.g. drug_alcohol) this consumable applies as a carrier — the drug\'s onset/effects run, but its own instant restores are skipped in favor of this item\'s restore_* tags.' },
-    laced_potency: { label: 'Laced Potency', shape: 'int', scope: 'class', group: 'Consumable',
+    laced_potency: { label: 'Laced Potency', shape: 'number', scope: 'class', group: 'Consumable',
       help: 'Multiplier applied to the laced drug\'s potency (e.g. 1.6 for a strong pour). Pairs with laced_drug.' },
 
     // --- Container ---
-    container: { label: 'Container Capacity', shape: 'int', scope: 'class', group: 'Container',
+    container: { label: 'Container Capacity', shape: 'number', scope: 'class', group: 'Container',
       help: 'Marks this item as a container. Value is the max total weight it can hold. Contents count at 75% of their weight while carried.' },
     wardrobe: { label: 'Wardrobe', shape: 'flag', scope: 'furniture', group: 'Container',
       help: 'Marks a container furniture as a wardrobe: it stores clothing like any container, but opens the wardrobe panel instead — saved outfits on the left, a drag-and-drop paper doll in the middle. Requires the furniture to also carry a `container` capacity.' },
-    fillable: { label: 'Fillable Capacity', shape: 'int', scope: 'class', group: 'Container',
+    fillable: { label: 'Fillable Capacity', shape: 'number', scope: 'class', group: 'Container',
       help: 'Marks this item as a fillable fluid container. Value is the capacity in fluid units (a neutral volume). Fill at a water source; drink to consume the fluid. How much a fluid restores is a property of the fluid, not the container.' },
 
     // --- Preservation ---
@@ -292,7 +318,7 @@
       help: 'Marks this item as a power cell. Consumed by RELOAD to recharge a flashlight (or other battery-powered device).' },
     hack_device: { label: 'Hacking Device', shape: 'flag', scope: 'class', group: 'Gear',
       help: 'Marks this item as an intrusion deck. Carrying one (in hand, not in a container) is the tool gate for HACK on hololocked doors and for jacking ATM terminals; it is also classed as contraband when jailed. Pair with the Unique tag so each deck keeps its own condition — failed breaches damage it.' },
-    hack_penalty: { label: 'Hack Penalty', shape: 'int', scope: 'class', group: 'Gear',
+    hack_penalty: { label: 'Hack Penalty', shape: 'number', scope: 'class', group: 'Gear',
       help: 'On a Hacking Device: how much this deck ADDS to every target\'s Hack Difficulty. 0 (or unset) is a clean professional deck. 2 is junk — every hololock, ATM and safe reads two points harder while this is the best deck you are carrying. Only the best deck in your inventory is consulted.' },
     hack_fail_damage: { label: 'Hack Fail Damage', shape: 'number', scope: 'class', group: 'Gear',
       help: 'On a Hacking Device: the fraction of condition (0–1) burned by each FAILED breach. Unset means 0.2 — five failures and the deck is slag. 0.45 means roughly three. This bypasses the usual value-derived durability pool, so a cheap grinder deck is fragile because you said so, not because it was cheap.' },
@@ -374,7 +400,7 @@
       help: 'Synthesis lab equipment: which splice stage this apparatus automates (SPLICE_STAGES).' },
     interactions: { label: 'Interactions', shape: 'list', scope: 'class', group: 'Systems',
       help: 'Interactable verbs this object offers, e.g. ["switch","sit"]. Each entry surfaces as a present tag via tagsOf() for the specialized-action registry.' },
-    battery_max: { label: 'Battery Capacity', shape: 'int', scope: 'class', group: 'Systems',
+    battery_max: { label: 'Battery Capacity', shape: 'number', scope: 'class', group: 'Systems',
       help: 'Portable generator battery capacity in kW-minutes (generator plugin / power sim).' },
     boat: { label: 'Boat', shape: 'flag', scope: 'class', group: 'Systems',
       help: 'Carrying this rides the player across water dry — no swim stamina cost, no wetness/cold (swimming plugin).' },
@@ -384,7 +410,7 @@
       help: 'media_broadcasts row this cassette plays (pairs with media_cassette).' },
     component: { label: 'Component', shape: 'flag', scope: 'class', group: 'Systems',
       help: 'Salvaged tech component — crafting/repair input.' },
-    concealment_base: { label: 'Concealment Base', shape: 'int', scope: 'class', group: 'Systems',
+    concealment_base: { label: 'Concealment Base', shape: 'number', scope: 'class', group: 'Systems',
       help: 'Surveillance device: base difficulty to spot it once planted.' },
     contraband: { label: 'Contraband', shape: 'flag', scope: 'class', group: 'Systems',
       help: 'Illegal to carry through government checkpoints; confiscated to the evidence locker on arrest (govgate/jail).' },
@@ -392,11 +418,11 @@
       help: 'Portable drug-synthesis kit (synthesis plugin).' },
     device_kind: { label: 'Device Kind', shape: 'text', scope: 'class', group: 'Systems',
       help: 'Surveillance device type: audio_sensor, motion_sensor, drone, jammer, camera…' },
-    device_tier: { label: 'Device Tier', shape: 'int', scope: 'class', group: 'Systems',
+    device_tier: { label: 'Device Tier', shape: 'number', scope: 'class', group: 'Systems',
       help: 'Surveillance device quality tier (1–3).' },
     document: { label: 'Document', shape: 'flag', scope: 'class', group: 'Systems',
       help: 'Readable document marker (NPC reactions / flavor).' },
-    hack_difficulty: { label: 'Hack Difficulty', shape: 'int', scope: 'class', group: 'Systems',
+    hack_difficulty: { label: 'Hack Difficulty', shape: 'number', scope: 'class', group: 'Systems',
       help: 'Difficulty of hacking this device (ATM / hackable gear).' },
     lab_upgrade: { label: 'Lab Upgrade', shape: 'flag', scope: 'class', group: 'Systems',
       help: 'Synthesis lab upgrade marker. Not currently read by engine code.' },
@@ -444,7 +470,7 @@
       help: 'Optional refusal line shown when `residents_only` turns someone away, in the building\'s own voice. Defaults to a generic "Residents only."' },
     cell_block: { label: 'Cell Block', shape: 'flag', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Part of the Precinct 9 cell block: a prisoner doing time may walk here WITHOUT it counting as a jailbreak (jail plugin). Only for rooms behind the same locked cell door — a room that reaches the street must never carry this.' },
-    radiation: { label: 'Radiation', shape: 'int', scope: 'zone', group: 'Zone: Law & Hazard',
+    radiation: { label: 'Radiation', shape: 'number', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Ambient radiation 0-100. Players gain floor(value × 0.1) rads on entering the zone. Absent = clean. Replaces the radiation_level column.' },
     danger: { label: 'Danger Override', shape: 'enum', scope: 'zone', group: 'Zone: Law & Hazard',
       options: ['safe', 'low', 'medium', 'high', 'lethal'],
@@ -463,8 +489,6 @@
       help: 'Corporate Assets: a corp can take this storefront over with "corp asset claim". Value is the asset type key (restaurant, casino, fence, gun_shop, clinic, chem_supply). Needs a vendor NPC in the zone for the sales cut.' },
     aa_site: { label: 'AA Emplacement', shape: 'flag', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Exposed anti-aircraft emplacement (aa-sites plugin): the standable tile that fires on overflying aircraft and can be assaulted on foot. Pairs with an aa_sites row.' },
-    aa_bunker: { label: 'AA Bunker', shape: 'text', scope: 'zone', group: 'Zone: Law & Hazard',
-      help: 'Interior bunker of an AA emplacement (aa-sites plugin). Value is the linked AA site id (e.g. aa_clone_guard).' },
 
     is_interior: { label: 'Interior', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'Indoors — weather/temperature/lighting use the interior model.' },
@@ -494,8 +518,8 @@
       help: 'Building category (bar, hotel, store, grocery, …) — controls entrance-discovery flavor text.' },
     floors: { label: 'Floors (Storeys)', shape: 'number', scope: 'zone', group: 'Zone: Structure',
       help: 'Explicit storey count for the flight-sim skyline — overrides the per-building-type default so a landmark tower stands taller (or shorter). Read by the windshield building-height formula.' },
-    world_exit_zone: { label: 'World Exit Zone', shape: 'text', scope: 'zone', group: 'Zone: Structure',
-      help: 'Exterior seam zone for this building — where OUT ultimately lands.' },
+    world_exit_zone: { label: 'World Exit Zone', shape: 'ref', refTable: 'zones', scope: 'zone', group: 'Zone: Structure',
+      help: 'Exterior seam zone for this building — where OUT ultimately lands. TWO MEANINGS, by where it sits: on a FACADE it is the STREET tile out front (authored, geometry\'s business); on an INTERIOR tile it is the facade again, i.e. the map anchor — which the map owns and pushes, so change that one on the map, not the tile.' },
     entrance: { label: 'Entrance Direction', shape: 'text', scope: 'zone', group: 'Zone: Structure',
       help: 'Authored door side (north/south/east/west) for the map entrance arrow — read by buildingEntranceDir. Baked once from the road graph, NOT inferred at runtime, so terrain painting can never relocate a door. The interior out-exit must mirror this.' },
     utility_room: { label: 'Utility Room', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
@@ -508,10 +532,6 @@
       help: 'Suppress the exit/room/building list in the room description; graph (movement, pathfinding, minimap) is untouched. Elevator cars use it so the floor panel is the sole exit UI.' },
     open_sky: { label: 'Open Sky', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'Outdoor zone aircraft can overfly/land; on interiors, an open roof.' },
-    water: { label: 'Water', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
-      help: 'Deep/open water. Swimmable on foot (costs stamina, soaks + chills you); a boat-tagged item rides you across dry.' },
-    underwater: { label: 'Underwater', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
-      help: 'A submerged tile below a surface water tile (link up/down). Always submerged (a boat does not help), colder, and dark; starts a breath timer that drowns you when it runs out.' },
     water_temp_c: { label: 'Water Temperature (°C)', shape: 'number', scope: 'zone', group: 'Zone: Structure',
       help: 'Override the temperature a submerged swimmer here drifts toward (default: 12°C surface / 7°C underwater). Lower = hypothermia faster; e.g. 26 for a warm lagoon.' },
     vessel: { label: 'Vessel (boardable from water)', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
@@ -520,8 +540,8 @@
       help: 'Never dark regardless of power/time.' },
     rest_multiplier: { label: 'Rest Multiplier', shape: 'number', scope: 'zone', group: 'Zone: Structure',
       help: 'Scales both stamina regen and HP knit-back for anyone resting in this zone (restRegenTick in gameLoop.js). Default 1. Comfort zones raise it — Solenne units 1.5, penthouse 2.0.' },
-    terrain: { label: 'Terrain', shape: 'enum', options: ['water', 'road', 'dirt_road', 'asphalt', 'concrete', 'grass', 'park', 'dirt', 'sand', 'gravel', 'dock', 'scrub', 'redrock', 'ash', 'marsh'], scope: 'zone', group: 'Zone: Structure',
-      help: 'Ground surface for the map/minimap and the flight-sim ground tint — the authoritative source for zoneTerrain (overrides the inferred surface). Painted in the dev panel: Maps → Terrain mode. Road AND dirt_road tiles auto-tile their connector piece from adjacent road/dirt_road tiles; dirt_road renders as a graded packed-dirt track (brown, wheel ruts, no paint) rather than paved asphalt.' },
+    terrain: { label: 'Terrain', shape: 'enum', options: ['water', 'underwater', 'road', 'dirt_road', 'asphalt', 'concrete', 'grass', 'park', 'dirt', 'sand', 'gravel', 'dock', 'scrub', 'redrock', 'ash', 'marsh'], scope: 'zone', group: 'Zone: Structure',
+      help: 'Ground surface for the map/minimap and the flight-sim ground tint — the authoritative source for zoneTerrain (overrides the inferred surface). Painted in the dev panel: Maps → Terrain mode. Road AND dirt_road tiles auto-tile their connector piece from adjacent road/dirt_road tiles; dirt_road renders as a graded packed-dirt track (brown, wheel ruts, no paint) rather than paved asphalt. NOT render-only for one value: "water" is the SOLE marker for open water — it makes the tile swimmable (stamina, wetness, drowning), impassable to GPS/pathfinding, and a ditching crash to land on. There is no flags.water; test it with zoneTerrain(zone) === \'water\'.' },
     park_feature: { label: 'Park Feature', shape: 'enum', options: ['grove', 'pond', 'benches', 'flowerbeds', 'path'], scope: 'zone', group: 'Zone: Structure',
       help: 'On a "park" terrain tile, forces which flight-sim park dressing it draws (grove/pond/benches/flowerbeds/path) so a park can be laid out symmetrically. Unset → chosen from the tile position hash.' },
 
@@ -529,8 +549,6 @@
       help: 'Marks a world tile as part of the Ascendant stronghold campus (western frontier) — used for ambience and faction framing.' },
     ascension_gate: { label: 'Ascension Gate', shape: 'flag', scope: 'zone', group: 'Zone: Ascendant',
       help: 'The gated entrance tile into the Ascendant campus.' },
-    ascendant_inner: { label: 'Ascendant Inner Sanctum', shape: 'flag', scope: 'zone', group: 'Zone: Ascendant',
-      help: 'The Spire sanctum — deepest Ascendant interior, reserved for the highest standing.' },
     ascendant_vats: { label: 'Ascendant Vats', shape: 'flag', scope: 'zone', group: 'Zone: Ascendant',
       help: 'The cloning/regrowth hall within The Vats.' },
     ascendant_registry: { label: 'Ascendant Registry', shape: 'flag', scope: 'zone', group: 'Zone: Ascendant',
@@ -539,8 +557,6 @@
       help: 'A room where cybernetic augments can be installed (Chrome Clinic). Read by the augments plugin.' },
     assurance_policy: { label: 'Cortical Assurance Desk', shape: 'flag', scope: 'zone', group: 'Zone: Ascendant',
       help: 'A desk that sells prepaid cortical-backup restores (the secret Halcyon front). Enables the `policy` verb. Read by the augments plugin.' },
-    architect_uplink: { label: 'Architect Uplink', shape: 'flag', scope: 'zone', group: 'Zone: Ascendant',
-      help: 'The Architect Shrine uplink chamber — the Ascendants’ direct line to the Architect.' },
 
     yacht: { label: 'Yacht (Access-Gated)', shape: 'flag', scope: 'zone', group: 'Zone: Echelon',
       help: 'Marks a zone as part of an invite-only vessel (the yacht plugin). Boarding on foot is blocked for the uninvited; an uninvited player who ends up here anyway (teleport/glitch) is smitten on entry.' },
@@ -556,27 +572,23 @@
       help: 'The stern landing pad — a Dragonfly (VTOL) can set down here to embark/disembark.' },
     echelon_sundeck: { label: 'Echelon Sun Deck', shape: 'flag', scope: 'zone', group: 'Zone: Echelon',
       help: 'The open-air top-deck lounge with the jacuzzi; beckoned consorts suntan / soak / lounge here (consort plugin area-life).' },
-    echelon_broadcast: { label: 'Echelon Broadcast Deck', shape: 'flag', scope: 'zone', group: 'Zone: Echelon',
-      help: 'The lower-deck studio housing the special emergency MediaDeck that overrides every tuned TV in the city.' },
     pier: { label: 'Pier / Jetty', shape: 'flag', scope: 'zone', group: 'Zone: Echelon',
       help: 'A shoreline docking point. When a yacht (the Echelon) comes to rest on the water tile alongside, a gangway exit is auto-wired between them so invited players can board or step ashore.' },
     naval_ambience: { label: 'Naval Ambience', shape: 'flag', scope: 'zone', group: 'Zone: Echelon',
       help: 'Open-deck soundscape: gulls, surf and rigging play here (client yacht-ambience). Set on open-air deck zones so the naval bed is heard on deck but not in the suites/engineering.' },
     engine_ambience: { label: 'Engine Ambience', shape: 'flag', scope: 'zone', group: 'Zone: Echelon',
       help: 'Engine-room rumble plays here (client yacht-ambience), swelling while she makes way (yacht_underway). Set on the engine spaces.' },
-    heading: { label: 'Heading (deg)', shape: 'int', scope: 'zone', group: 'Zone: Echelon',
+    heading: { label: 'Heading (deg)', shape: 'number', scope: 'zone', group: 'Zone: Echelon',
       help: 'RUNTIME-only: the vessel\'s last steered course in degrees (0=N, bow-north), injected onto the live Echelon exterior zone by the yacht plugin from the persisted world flag. Not authored in content — catalogued so the persisted state validates on the zone-flags sweep.' },
 
     aircraft_cabin: { label: 'Aircraft Cabin', shape: 'text', scope: 'zone', group: 'Zone: Aircraft',
       help: 'Marks a zone as an interior cabin room of a walkable aircraft (the craft-type id, e.g. "leviathan"). The flight plugin binds these coordinate-free rooms to the live aircraft and lets occupants walk between them; the move gate keeps world exits sealed while airborne.' },
-    cabin_entry: { label: 'Cabin Entry', shape: 'flag', scope: 'zone', group: 'Zone: Aircraft',
-      help: 'The room boarders arrive in when they embark a walkable aircraft (and are set down near on deplane). One per cabin; mirrors the cabin map\'s entry_zone_id.' },
     cabin_window: { label: 'Cabin Window', shape: 'flag', scope: 'zone', group: 'Zone: Aircraft',
       help: 'A cabin room with windows: the WINDOW verb opens the through-hull moving-world view from here (reuses the passenger windshield fed by the live map window).' },
+    home_slots: { label: 'Home Slots', shape: 'list', scope: 'zone', group: 'Zone: Aircraft',
+      help: 'Authored decor anchors a walkable-base room offers, each { id, kind, label } — the owner fills them from the decor catalog (custom_data.home.slots). The shell defines the anchors; per-owner choices are runtime overlays, never zone edits. NOT YET READ BY ANY CODE — the anchors are authored ahead of the decor feature (docs/proposals/leviathan-flying-base.md). Kept deliberately; do not "clean up".' },
     flightdeck: { label: 'Flight Deck', shape: 'flag', scope: 'zone', group: 'Zone: Aircraft',
       help: 'The cockpit room of a walkable aircraft: where the NPC (or player) pilot flies. Home of the TAKE CONTROLS / HAND OFF verbs and the NAV course console (later phases).' },
-    home_slots: { label: 'Home Slots', shape: 'list', scope: 'zone', group: 'Zone: Aircraft',
-      help: 'Authored decor anchors a walkable-base room offers, each { id, kind, label } — the owner fills them from the decor catalog (custom_data.home.slots). The shell defines the anchors; per-owner choices are runtime overlays, never zone edits.' },
 
     district: { label: 'District Override', shape: 'text', scope: 'zone', group: 'Zone: Identity',
       help: 'Override the derived district key (normally from the zone-id prefix; see server/engine/districts.js).' },
@@ -590,32 +602,62 @@
       help: 'Destination zone id. The first time a player enters this tile, a one-off GPS route is plotted there (a pre-quest nudge toward a starter NPC/place). Handled by the lore plugin.' },
     gps_suggest_label: { label: 'GPS Suggestion Label', shape: 'text', scope: 'zone', group: 'Zone: Identity',
       help: 'Optional hint text shown with the gps_suggest route line (e.g. why to go there).' },
-    planner: { label: 'Planner Blueprint', shape: 'text', scope: 'zone', group: 'Zone: Identity',
-      help: 'Provenance marker: the blueprint id that generated this zone (tools/zone-planner). Re-running that blueprint may reassert this zone\'s grid position and planner-drawn exits.' },
-    region_id: { label: 'Region (spatial)', shape: 'text', scope: 'zone', group: 'Zone: Identity',
+    region_id: { label: 'Region (spatial)', shape: 'ref', refTable: 'regions', scope: 'zone', group: 'Zone: Identity',
       help: 'Spatial region membership: the regions.id this tile belongs to (dev-panel World Editor). Distinct from "District Override" above (land-use). Selecting/moving a region acts on every zone sharing this id.' },
-    icon: { label: 'Map Icon', shape: 'text', scope: 'zone', group: 'Zone: Identity',
-      help: 'Name of an SVG in client/game/assets/zone-icons/ (without .svg) drawn on the minimap tile in place of the marker glyph, e.g. "store". The file is the asset; this just references it.' },
+    // `ref` rather than `text` so the Studio renders a picker of the assets that
+    // actually exist and marks a name that doesn't. `zone_icons` is NOT a content
+    // table — it is a directory of SVGs, and the Studio's refOptions special-cases it.
+    // Everything downstream copes: shapeError only checks 'ref' is a non-empty string,
+    // content:lint skips a refTable with no content files ("nothing to check against"),
+    // and the dev panel renders any ref as a plain text input.
+    icon: { label: 'Map Icon', shape: 'ref', refTable: 'zone_icons', scope: 'zone', group: 'Zone: Identity',
+      help: 'OVERRIDE for this tile\'s map art. Names an SVG in client/game/assets/zone-icons/ (without .svg). This is the top rung of deriveFeature — it outranks the building rooftop and road auto-tiling, so a pinned tile keeps this art even when the map around it changes. Leave empty to let the tile derive its own.' },
     prologue: { label: 'Prologue', shape: 'flag', scope: 'zone', group: 'Zone: Identity',
       help: 'Part of the prologue instance.' },
 
-    scavenging_table_id: { label: 'Scavenging Table', shape: 'text', scope: 'zone', group: 'Zone: Systems',
+    // ── Zone PROPERTIES: terrain presets them, a tile overrides them ───────────
+    // docs/proposals/terrain-property-presets.md. These are the only `tristate`
+    // entries in the catalog, and they are tristate for one reason: the override
+    // has to be able to say NO. A frozen bay is terrain:'water' with
+    // swimmable:false + routable:true — still blue on the map, walked across,
+    // and no new terrain type invented. `flag` cannot express that, because there
+    // absence and false are the same signal.
+    //
+    // `presetFrom` is editor copy only: it tells the Studio what to name in the
+    // "— inherit (from …)" option so the row reads as an override of something.
+    liquid: { label: 'Liquid', shape: 'tristate', scope: 'zone', group: 'Zone: Properties', preset: true, presetFrom: 'terrain',
+      help: 'OVERRIDE. You are IN this tile rather than ON it — fishing casts into it, and the overland void rim does not exist here. Preset by terrain (water ⇒ liquid). Omit to inherit; set No to force a water tile solid.' },
+    swimmable: { label: 'Swimmable', shape: 'tristate', scope: 'zone', group: 'Zone: Properties', preset: true, presetFrom: 'terrain',
+      help: 'OVERRIDE. Entering costs stamina and applies wetness, drowning and hypothermia. Preset by terrain (water ⇒ swimmable). Set No for a frozen bay; set Yes for a flooded basement on concrete.' },
+    routable: { label: 'Routable', shape: 'tristate', scope: 'zone', group: 'Zone: Properties', preset: true, presetFrom: 'terrain',
+      help: 'OVERRIDE. GPS and pathfinding may cross this tile. Preset by terrain (water ⇒ NOT routable; everything else routable). This is the flag that keeps routes off the basin.' },
+    buildable: { label: 'Buildable', shape: 'tristate', scope: 'zone', group: 'Zone: Properties', preset: true, presetFrom: 'terrain',
+      help: 'OVERRIDE. The dev-panel building tool may place or move a building here. Preset by terrain (water ⇒ NOT buildable). Authoring-only — no player-facing effect.' },
+    underwater: { label: 'Underwater', shape: 'tristate', scope: 'zone', group: 'Zone: Properties', preset: true, presetFrom: 'terrain',
+      help: 'OVERRIDE. A submerged tile below a surface water tile (link up/down): always submerged (a boat does not help), colder, and dark, and it starts a breath timer that drowns you. Preset by the "underwater" terrain, which paints identically to water — the difference is what it does to you, not what it looks like.' },
+    frontage: { label: 'Frontage (front-door street)', shape: 'tristate', scope: 'zone', group: 'Zone: Properties', preset: true, presetFrom: 'terrain',
+      help: 'OVERRIDE. A street a building\'s front door may face onto — the map builder prefers a neighbouring tile with this when choosing which side the entrance goes. Preset by terrain (road). Authoring-only.' },
+    // NUMERIC property: shape 'number', not 'tristate'. A number already tells absent
+    // from a value, so it needs no third state — the tri-state problem is only a
+    // boolean problem. Typed by its default in PROP_DEFAULTS (derive.mjs).
+    speed_mult: { label: 'Speed Multiplier', shape: 'number', scope: 'zone', group: 'Zone: Properties', preset: true, presetFrom: 'terrain',
+      help: 'OVERRIDE. Movement pacing on this tile — 2 means you cross it in half the time. Preset by terrain (road and dirt_road are 2, everything else 1). Set it to make one stretch slow (rubble, a rutted lane) without inventing a terrain for it.' },
+
+    scavenging_table_id: { label: 'Scavenging Table', shape: 'ref', refTable: 'scavenging_tables', scope: 'zone', group: 'Zone: Systems',
       help: 'Loot table id for SCAVENGE here.' },
-    fishing_table_id: { label: 'Fishing Table', shape: 'text', scope: 'zone', group: 'Zone: Systems',
+    fishing_table_id: { label: 'Fishing Table', shape: 'ref', refTable: 'scavenging_tables', scope: 'zone', group: 'Zone: Systems',
       help: 'Scavenging-table id used for FISH here.' },
-    mining_table_id: { label: 'Mining Table', shape: 'text', scope: 'zone', group: 'Zone: Systems',
+    mining_table_id: { label: 'Mining Table', shape: 'ref', refTable: 'scavenging_tables', scope: 'zone', group: 'Zone: Systems',
       help: 'Scavenging-table id used for MINE here.' },
-    checkpoint_cfg: { label: 'Checkpoint Config', shape: 'text', scope: 'zone', group: 'Zone: Systems',
+    checkpoint_cfg: { label: 'Checkpoint Config', shape: 'object', scope: 'zone', group: 'Zone: Systems',
       help: 'Security-checkpoint config object driving the checkpoint plugin: { guards, checks:[wanted|contraband], wantedMode:hard|bluff, and one entry predicate insideFlag|fromFlag|fromDistrict }.' },
-    gov_checkpoint: { label: 'Gov Checkpoint', shape: 'flag', scope: 'zone', group: 'Zone: Systems',
-      help: 'Government checkpoint — contraband scan on pass-through.' },
     gov_enclave: { label: 'Gov Enclave', shape: 'flag', scope: 'zone', group: 'Zone: Systems',
       help: 'Inside the government enclave.' },
     citadel_public: { label: 'Citadel Public Floor', shape: 'flag', scope: 'zone', group: 'Zone: Systems',
       help: 'The public side of Citadel Financial (the Marble Hall). The security vestibule\'s checkpoint_cfg uses this as its fromFlag, so the scan only runs on the way IN off the public floor — not on the way back out of the vault.' },
-    greeter: { label: 'Greeter Config', shape: 'text', scope: 'zone', group: 'Zone: Systems',
+    greeter: { label: 'Greeter Config', shape: 'object', scope: 'zone', group: 'Zone: Systems',
       help: 'Greeter NPC gate config for this zone (jobboard plugin).' },
-    work_venue: { label: 'Work Venue (Steady Work)', shape: 'text', scope: 'zone', group: 'Zone: Systems',
+    work_venue: { label: 'Work Venue (Steady Work)', shape: 'object', scope: 'zone', group: 'Zone: Systems',
       help: 'Marks this zone as a Steady Work shift venue: { role, wage, employer?, name? }. Players past the XP gate can `clock in` here (work plugin).' },
     mis_ok: { label: 'MIS OK', shape: 'flag', scope: 'zone', group: 'Zone: Systems',
       help: 'Zone-gated NPC consent (see npcs.flags.mis_requires_zone_flag).' },
@@ -663,7 +705,7 @@
       help: 'AA-gated airspace over this zone.' },
     hangar_interior: { label: 'Hangar Interior', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
       help: 'Inside a hangar.' },
-    hangar_interior_zone: { label: 'Hangar Interior Zone', shape: 'text', scope: 'zone', group: 'Zone: Flight',
+    hangar_interior_zone: { label: 'Hangar Interior Zone', shape: 'ref', refTable: 'zones', scope: 'zone', group: 'Zone: Flight',
       help: 'Link from ramp to hangar interior zone id.' },
     hangar_ramp: { label: 'Hangar Ramp', shape: 'text', scope: 'zone', group: 'Zone: Flight',
       help: 'Hangar ramp (aircraft parking) — holds the paired dock zone id.' },
@@ -671,6 +713,77 @@
       help: 'Aircraft insurance vendor here.' },
     runway: { label: 'Runway', shape: 'enum', options: ['ns', 'ew', 'pad'], scope: 'zone', group: 'Zone: Flight',
       help: 'Marks a runway tile: "ns"/"ew" is the centreline orientation the flight sim aligns its drawn runway to; "pad" is the surrounding asphalt. Stamped by the zone planner on runway tiles.' },
+
+    // --- Zone COLUMNS (scope 'zone_column') ------------------------------------
+    // Not flags — real columns of the zones table. Keyed `zone:<column>` so a
+    // column can never collide with a flag of the same name (`description` is
+    // both, and a flat catalog can only hold one of them). Without these entries
+    // an editor generated from the catalog has no audio field, no prose field and
+    // no colours at all — silently, because nothing tells it they exist.
+    //
+    // Deliberately absent, and regress holds the line on the list: `id` (the
+    // frozen pk, spec §4), `flags` (the bag every other entry describes),
+    // `exits` (leaving content, spec §5) and `stains` (runtime). The two
+    // provenance columns that used to sit on this list — `created_by` and
+    // `updated_at` — are no columns at all now: both were write-only, and both
+    // were dropped 2026-08-01 with the zone planner. Git is the record.
+    'zone:name': { label: 'Name', shape: 'text', scope: 'zone_column', group: 'Zone: Identity', order: 1,
+      help: 'The room title shown at the top of every look.' },
+    'zone:description': { label: 'Description', shape: 'text', scope: 'zone_column', group: 'Zone: Identity', order: 2,
+      help: 'The prose body of a look. Tone authority is docs/story.md.' },
+    'zone:ambient_theme': { label: 'Ambient Theme', shape: 'enum', scope: 'zone_column', group: 'Zone: Identity', order: 3,
+      options: ['indoors', 'outdoors', 'city', 'urban', 'residential', 'commercial', 'industrial',
+                'underground', 'forest', 'waterfront', 'coast', 'ruins', 'wasteland'],
+      help: 'Which global ambience pool this tile draws from when it has no ambient_events of its own (world.js). A theme with no pool means no ambience ever fires — content:lint warns about that rather than letting it stay invisible.' },
+    'zone:audio_theme_id': { label: 'Audio Theme', shape: 'ref', refTable: 'audio_songs', scope: 'zone_column', group: 'Zone: Identity', order: 4,
+      help: 'Procedural music while a player is here. An OVERRIDE: leave it empty and the tile inherits its region default (regions.defaults, see scripts/content/derive.mjs).' },
+    'zone:ambient_events': { label: 'Ambient Events', shape: 'list', scope: 'zone_column', group: 'Zone: Identity', order: 5,
+      help: 'Per-tile ambience lines, e.g. ["A pipe knocks somewhere in the walls."]. Any entry here wins over the global pool the Ambient Theme selects.' },
+
+    // All three BEAT the terrain palette, on every terrain, with no exception list —
+    // and until 2026-08-01 two of them did not, which is why these strings now say
+    // what blank gives you rather than only what the field is. Leave one empty and
+    // the tile derives it; type one and the map obeys.
+    'zone:marker': { label: 'Map Marker', shape: 'text', scope: 'zone_column', group: 'Zone: Presentation', order: 1,
+      help: 'Up to 2 characters drawn on the map for this tile. Beats the code the build derives (a building\'s acronym, an apartment\'s floor, a sewer run\'s corridor art). Leave it empty and the tile derives its own; painted ground no longer suppresses it.' },
+    'zone:color': { label: 'Marker Colour', shape: 'text', scope: 'zone_column', group: 'Zone: Presentation', order: 2,
+      help: 'CSS colour for the marker glyph. Beats the terrain palette. Leave it empty and the tile takes the terrain\'s glyph colour, or a readable contrast against its fill.' },
+    'zone:bg_color': { label: 'Tile Colour', shape: 'text', scope: 'zone_column', group: 'Zone: Presentation', order: 3,
+      help: 'CSS fill for the tile. Beats the terrain palette. Leave it empty and the tile takes the terrain\'s fill — which is what almost every tile should do; an override is for the one that has earned looking different.' },
+
+    'zone:map_id': { label: 'Map', shape: 'ref', refTable: 'maps', scope: 'zone_column', group: 'Zone: Geometry', order: 1,
+      help: 'Which map this tile sits on (map_world for the overworld, an interior map for a room).' },
+    'zone:parent_zone': { label: 'Parent Zone', shape: 'ref', refTable: 'zones', scope: 'zone_column', group: 'Zone: Geometry', order: 2,
+      help: 'The world tile this tile\'s MAP hangs off. Owned by maps.parent_zone_id and pushed down — content:lint errors if a tile on a map disagrees, so edit it on the map (the Studio\'s map properties), not here. Only a tile on NO map still owns this, where it means the dev panel\'s room grouping.' },
+    'zone:grid_x': { label: 'Grid X', shape: 'number', scope: 'zone_column', group: 'Zone: Geometry', order: 3,
+      help: 'Column on the map grid. Geometry is authored, never derived.' },
+    'zone:grid_y': { label: 'Grid Y', shape: 'number', scope: 'zone_column', group: 'Zone: Geometry', order: 4,
+      help: 'Row on the map grid.' },
+    'zone:grid_z': { label: 'Grid Z (floor)', shape: 'number', scope: 'zone_column', group: 'Zone: Geometry', order: 5,
+      help: 'Floor level. 0 is ground; the knock and stairs checks compare this.' },
+
+    // ── Districts (scope 'district_column') ──────────────────────────────────
+    // The land-use neighbourhood a tile reads as. Catalogued for the same reason
+    // zone columns are: these were a hardcoded object in engine code, validated by
+    // nothing, mirrored by hand in the client — and the mirror had gone four
+    // districts stale. Keys are `district:<column>`, so they cannot collide with a
+    // flag or a zone column.
+    'district:name': { label: 'Name', shape: 'text', scope: 'district_column', group: 'District: Identity', order: 1,
+      help: 'Player-facing neighbourhood name, shown with the room and when crossing in. Written the way it reads in a sentence — "the Redline", not "Redline".' },
+    'district:color': { label: 'Colour', shape: 'text', scope: 'district_column', group: 'District: Identity', order: 2,
+      help: 'CSS colour. Tints the tile on the tablet\'s regional map, fills the legend swatch, and blends the street lines at that zoom. Not the tile fill at normal zoom — terrain owns that.' },
+    'district:sort': { label: 'Sort Order', shape: 'number', scope: 'district_column', group: 'District: Identity', order: 3,
+      help: 'Display order in authoring tools. Not player-facing.' },
+    'district:blurb': { label: 'Mood (first entry)', shape: 'text', scope: 'district_column', group: 'District: Prose', order: 1,
+      help: 'One line, shown once — the first time a player ever sets foot in this district.' },
+    'district:signature': { label: 'Sensory Lines', shape: 'list', scope: 'district_column', group: 'District: Prose', order: 2,
+      help: 'The smell/sound/air pool the district-ambience plugin draws from, OUTDOORS only. An empty list means this district has no sensory layer at all.' },
+    'district:landmark': { label: 'Landmark Zone', shape: 'ref', refTable: 'zones', scope: 'district_column', group: 'District: Prose', order: 3,
+      help: 'The orienting feature seen from across the district. Pairs with Skyline: both must be set, and the zone must exist, or no skyline line is shown at all.' },
+    'district:skyline': { label: 'Skyline Phrase', shape: 'text', scope: 'district_column', group: 'District: Prose', order: 4,
+      help: 'How the landmark reads from afar, completing "To the north, ___." — e.g. "the Dread Furnace glows red beyond the fence".' },
+    'district:prefixes': { label: 'Legacy Id Prefixes', shape: 'list', scope: 'district_column', group: 'District: Legacy', order: 1,
+      help: 'Zone-id prefixes that resolve to this district (zone_<prefix>_…), for the 154 old zones that still classify themselves that way. Every tile on the modern grid is zone_district_<x>_<y> and matches nothing here — those are assigned by painting.' },
   };
 
   global.TAG_CATALOG = TAG_CATALOG;

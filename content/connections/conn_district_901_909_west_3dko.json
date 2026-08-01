@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_901_909",
+  "b": "zone_furniture_store",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_901_909_west_3dko",
+  "lockable": true,
+  "one_way": false
+}

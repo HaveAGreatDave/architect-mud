@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_gunshop_interior",
+  "b": "zone_gunshop_interior",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_gunshop_interior_up_1npa",
+  "lockable": false,
+  "one_way": true
+}

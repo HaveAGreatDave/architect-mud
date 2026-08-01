@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2c2340",
   "color": "#eae6f0",
-  "created_by": null,
   "description": "The twin of 41-A across the hall — the same engineered calm, the same billed air, the same long drop past the glass. Empty, and expensive.",
   "exits": {
     "west": "zone_halcyon_residences"
@@ -22,6 +20,5 @@
   "map_id": "map_int_halcyon",
   "marker": "41",
   "name": "Halcyon Residence 41-B",
-  "parent_zone": "zone_halcyon_residences",
-  "updated_at": "1783316802"
+  "parent_zone": "zone_district_895_906"
 }

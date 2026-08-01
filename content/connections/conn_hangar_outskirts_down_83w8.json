@@ -1,0 +1,9 @@
+{
+  "a": "zone_hangar_outskirts",
+  "b": "zone_util_zone_hangar_outskirts",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hangar_outskirts_down_83w8",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_echelon_engineering",
+  "b": "zone_echelon_foyer",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_echelon_engineering_up_to9d",
+  "lockable": false,
+  "one_way": false
+}

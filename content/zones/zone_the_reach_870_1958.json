@@ -12,10 +12,6 @@
     "Somewhere in the hangar a radio hisses, catches half a word, and loses it again."
   ],
   "ambient_theme": "outdoors",
-  "audio_theme_id": null,
-  "bg_color": null,
-  "color": null,
-  "created_by": null,
   "description": "A patched-steel hangar squats at the head of a cracked scrub airstrip — in the Reach the sky is the easy road, and this is where it touches down. The windsock hangs dead-still over a hand-lettered board: NO MANIFESTS. NO QUESTIONS. CASH ON THE SKID.",
   "exits": {
     "east": "zone_bld_897_1175_lobby",
@@ -35,7 +31,6 @@
     "hangar_interior_zone": "zone_bld_897_1175_lobby",
     "is_building": true,
     "lawless": true,
-    "planner": "world_editor",
     "region_id": "region_the_reach",
     "world_exit_zone": "zone_the_reach_869_1958"
   },
@@ -46,6 +41,5 @@
   "map_id": "map_world",
   "marker": "BF",
   "name": "Buzzard Field",
-  "parent_zone": null,
-  "updated_at": "1784533788"
+  "parent_zone": null
 }

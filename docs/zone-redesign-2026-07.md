@@ -14,7 +14,7 @@ Zone properties were a split-brain of columns + an untyped `flags` grab-bag, bui
 were rooms you stood "outside the doors" of, and authoring a district was one-zone-at-a-time
 busywork. Design goals: buildings as map tiles that teleport you inside, zone properties as
 tags (like items/furniture), danger inferred from what actually spawns, and a planner that
-seeds whole blocks.
+seeds whole blocks (that planner is since retired — see §7).
 
 ## What was built (7 phases, each regress-gated)
 
@@ -76,7 +76,12 @@ seeds whole blocks.
   action-link handler), never danger-tinted; `◆` = sanctuary; danger tint from the inferred
   `danger` field; street names (artery) in tooltips.
 
-### 7. Zone planner + lint (`tools/zone-planner/`)
+### 7. Zone planner + lint (`tools/zone-planner/`) — **the tool was deleted 2026-08-01**
+
+> Historical. `tools/zone-planner/` and its `flags.planner` / `bp_district` marker are gone; the
+> [Studio](../tools/studio/README.md) authors the map now, against `content/` files rather than the
+> dev DB. The grid it produced is still the world; only the generator is retired.
+
 - `apply.mjs`: ASCII blueprint (`.bp.json`: grid + glyph legend) → zones with deterministic ids
   (`zone_<prefix>_<x>_<y>`), two-way adjacency exits (**exits stay the law — the planner writes
   them**), and the full facade shape per building glyph (facade tile + interior map + lobby +
@@ -134,9 +139,9 @@ confirmed), Redline shows `[LETHAL] ☢ RAD:50` with real rad gain. `content:lin
 
    Curate against the district world with the Maps "Paint Safe Zones" tool, which paints
    `sanctuary`. The 218-zone shortlist is moot — those zones are gone.
-2. **Re-run the connectivity lint** (`node tools/zone-planner/lint.mjs`) — each line has a
-   paste-ready exit fix. The measured 112 gaps were on the retired `map_world`; the district
-   world's count is unmeasured.
+2. ~~Re-run the connectivity lint~~ — **moot**: `tools/zone-planner/lint.mjs` was deleted with the
+   planner (2026-08-01). Adjacent-but-unconnected tiles are the Studio's business now; the measured
+   112 gaps were on the retired `map_world` anyway.
 3. Known-stale one-shot seeds still INSERT the dropped columns and would error if re-run:
    `scripts/seed-hangar-interiors.js`, `seed-surveillance-vendor.js`, `seed-furniture-store.js`,
    `seed-clothing-store.js`, `seed-wanted-police.js`, and everything under `server/models/temp/`.
@@ -146,5 +151,5 @@ confirmed), Redline shows `[LETHAL] ☢ RAD:50` with real rad gain. `content:lin
 Updated alongside the code: [tags.md](tags.md) (zone scope), [flags-keys.md](flags-keys.md)
 (new keys + validation note), [systems-world.md](systems-world.md) (inferred danger + sanctuary law),
 [systems-survival.md](systems-survival.md) (radiation + sleep), [systems-economy.md](systems-economy.md)
-(theft gate), [architecture.md](architecture.md) (schema sketch + zone editor),
-[tools/zone-planner/README.md](../tools/zone-planner/README.md) (planner usage).
+(theft gate), [architecture.md](architecture.md) (schema sketch + zone editor). The planner's own README went with
+the tool; [tools/studio/README.md](../tools/studio/README.md) is the authoring reference now.

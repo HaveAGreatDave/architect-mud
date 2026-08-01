@@ -9,10 +9,8 @@
     "The whole ceiling pulses once, hard, in time — white, then black, then white."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#0b0a16",
   "color": "#7fe8ff",
-  "created_by": null,
   "description": "Voltage is a black box built around a beat. The dancefloor is sunk two steps into the middle of the room, lit from beneath through a lattice of blue-white cells that pulse with the music; above it, a rig of moving beams paints the haze in slow sweeps. The bar runs the length of the far wall in a single unbroken ribbon of backlit ice, the DJ booth raised on a plinth to one side like an altar. Off to the north, past a velvet rope and a doorman who has already decided about you, a stair climbs to somewhere quieter and much more expensive.",
   "exits": {
     "north": "zone_voltage_vip",
@@ -33,8 +31,6 @@
   "grid_z": 0,
   "id": "zone_voltage_floor",
   "map_id": "map_int_voltage",
-  "marker": null,
   "name": "Main Floor",
-  "parent_zone": "zone_district_895_908",
-  "updated_at": "1784332800"
+  "parent_zone": "zone_district_895_908"
 }

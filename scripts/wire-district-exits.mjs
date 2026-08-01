@@ -72,11 +72,10 @@ if (conflicts.length) console.log(conflicts.slice(0, 20).map(s => '  ! ' + s).jo
 
 if (!APPLY) { console.log('\nDRY RUN — re-run with --apply to write.'); await c.end(); process.exit(0); }
 
-const now = Math.floor(1784700000); // fixed stamp (Date.now avoided; matches painted-batch stamp)
 await c.query('BEGIN');
 let n = 0;
 for (const [id, rec] of pending) {
-  await c.query('UPDATE zones SET exits = $1, updated_at = $2 WHERE id = $3', [JSON.stringify(rec.exits), now, id]);
+  await c.query('UPDATE zones SET exits = $1 WHERE id = $2', [JSON.stringify(rec.exits), id]);
   if (++n % 200 === 0) console.log(`  … ${n}/${pending.size}`);
 }
 await c.query('COMMIT');

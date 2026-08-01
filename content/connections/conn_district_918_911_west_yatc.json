@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_918_911",
+  "b": "zone_kessel_shop",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_918_911_west_yatc",
+  "lockable": true,
+  "one_way": false
+}

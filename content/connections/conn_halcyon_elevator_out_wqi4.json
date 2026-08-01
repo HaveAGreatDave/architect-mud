@@ -1,0 +1,9 @@
+{
+  "a": "zone_halcyon_elevator",
+  "b": "zone_halcyon_lobby",
+  "blocked": false,
+  "dir": "out",
+  "id": "conn_halcyon_elevator_out_wqi4",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_meridian_unit_204",
+  "b": "zone_meridian_floor_2",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_meridian_unit_204_east_s0vy",
+  "lockable": true,
+  "one_way": false
+}

@@ -46,7 +46,7 @@
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { on } from '../../server/engine/events.js';
 import { sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
-import { getLivePlayer, getZone } from '../../server/engine/world.js';
+import { getLivePlayer, getZone, renderOf } from '../../server/engine/world.js';
 import { cmdMove } from '../../server/engine/commands/movement.js';
 
 const WALK_COOLDOWN_MS   = 900;   // spam throttle; normal reading pace never hits it
@@ -70,8 +70,22 @@ function staminaOf(player) {
 // you move fast on. Water isn't handled here — it's impassable (engine:water gate).
 function roadSpeedFactor(zone) {
   const f = zone?.flags || {};
-  const isRoad = /^(road_|runway_)/.test(f.icon || '') || !!f.artery;
-  return isRoad ? ROAD_SPEEDUP : 1;
+  // A runway is a pseudo-surface, not a flags.terrain value: a painted-asphalt
+  // strip carrying flags.runway (see the dev panel's RUNWAY_KEYS). An artery is a
+  // named street. Neither is a terrain, so both keep their own clause.
+  if (/^runway_/.test(f.icon || '') || f.runway || f.artery) return ROAD_SPEEDUP;
+  // The painted fact and the mechanical fact are now the same fact. This used to
+  // key off flags.icon matching /^road_/, so a tile PAINTED road with no authored
+  // icon moved you at walking pace — 55 of the world's 158 road tiles.
+  //
+  // `speed_mult` is a terrain-preset PROPERTY (it moved off spec 2026-07-30, since a
+  // pacing multiplier is gameplay and spec is the render payload), so a tile can
+  // override it directly — a rutted lane can be slow without inventing a terrain.
+  const row = renderOf(zone?.id);
+  if (row?.props) return row.props.speed_mult ?? 1;
+  // No derived row: a transient (synthetic, non-DB) zone, which the build never
+  // sees. Fall back to the legacy icon test rather than silently slowing it down.
+  return /^road_/.test(f.icon || '') ? ROAD_SPEEDUP : 1;
 }
 
 // Run only earns the faster cadence while you can still pay the per-step toll. Empty

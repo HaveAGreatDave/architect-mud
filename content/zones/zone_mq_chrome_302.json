@@ -3,10 +3,7 @@
     "Pipes knock somewhere in the walls. The building is old but it holds."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#8b9096",
-  "color": null,
-  "created_by": null,
   "description": "A studio that still has its original built-in cabinetry, half the doors missing, the rest painted shut. A mattress on a pallet, a chair, a view of the square if you press your face to the glass. Home.",
   "exits": {
     "west": "zone_mq_chrome_f3"
@@ -22,6 +19,5 @@
   "map_id": "map_int_mq_chrome",
   "marker": "3",
   "name": "Unit 302",
-  "parent_zone": "zone_mq_chrome_lobby",
-  "updated_at": "1782964409"
+  "parent_zone": "zone_district_895_905"
 }

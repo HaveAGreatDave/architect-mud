@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_916_910",
+  "b": "zone_hock_pawn",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_916_910_south_4osj",
+  "lockable": true,
+  "one_way": false
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_meltwater_diner",
+  "b": "zone_meltwater_diner",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_meltwater_diner_up_d9yp",
+  "lockable": false,
+  "one_way": true
+}

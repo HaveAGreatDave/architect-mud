@@ -1,10 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
-  "bg_color": null,
-  "color": null,
-  "created_by": "reach_dev",
   "description": "A cramped room kept flight-deck tidy: sectional charts pinned over the bed, a footlocker padlocked twice, and the whole place smelling faintly of avgas and machine oil.",
   "exits": {
     "south": "zone_bld_900_1171_walk1"
@@ -21,8 +17,6 @@
   "grid_z": 0,
   "id": "zone_bld_900_1171_cabin_cass",
   "map_id": "map_int_bld_900_1171",
-  "marker": null,
   "name": "Cass's Cabin",
-  "parent_zone": "zone_the_reach_873_1954",
-  "updated_at": "1784517512"
+  "parent_zone": "zone_the_reach_873_1954"
 }

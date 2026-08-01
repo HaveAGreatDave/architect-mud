@@ -1,0 +1,9 @@
+{
+  "a": "zone_apt_3",
+  "b": "zone_embassy_floor_2nd",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_apt_3_west_ntpe",
+  "lockable": true,
+  "one_way": false
+}

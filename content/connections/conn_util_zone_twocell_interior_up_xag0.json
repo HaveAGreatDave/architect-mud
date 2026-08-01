@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_twocell_interior",
+  "b": "zone_twocell_interior",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_twocell_interior_up_xag0",
+  "lockable": false,
+  "one_way": true
+}

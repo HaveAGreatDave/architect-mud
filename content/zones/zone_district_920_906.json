@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "audio_theme_id": null,
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
   "description": "The face of Stitch 'n' Bitch — a walk-in clinic behind reinforced glass, a green cross guttering above the door. The queue started before dawn. Ironside Street runs off to the west.",
   "exits": {
     "east": "zone_clinic_interior",
@@ -17,7 +15,6 @@
     "entrance": "west",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes",
     "world_exit_zone": "zone_district_919_906"
@@ -29,6 +26,5 @@
   "map_id": "map_world",
   "marker": "MR",
   "name": "Stitch 'n' Bitch",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

@@ -435,7 +435,7 @@ function addFurnitureTag() {
   const name = document.getElementById('furniture-add-tag').value;
   if (!name) return;
   const def = TAG_CATALOG[name];
-  const defaults = { flag:true, int:0, enum:def.options?.[0], range:{min:0,max:0}, hot:{amount:0,duration_seconds:0}, statmap:{}, text:'' };
+  const defaults = { flag:true, int:0, number:0, enum:def.options?.[0], ref:'', range:{min:0,max:0}, hot:{amount:0,duration_seconds:0}, statmap:{}, object:{}, text:'' };
   document.getElementById('furniture-tags').insertAdjacentHTML('beforeend', furnitureTagRow(name, defaults[def.shape]));
   refreshFurnitureTagPicker();
 }

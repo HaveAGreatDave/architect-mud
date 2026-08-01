@@ -3,10 +3,7 @@
     "Pipes knock somewhere in the walls. The building is old but it holds."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#8b9096",
-  "color": null,
-  "created_by": null,
   "description": "A single room with a bed frame, a hot plate, and a window that frames a brick wall four feet away. The lock works. That is the entire pitch, and around here it closes the sale.",
   "exits": {
     "south": "zone_mq_chrome_f1"
@@ -22,6 +19,5 @@
   "map_id": "map_int_mq_chrome",
   "marker": "1",
   "name": "Unit 101",
-  "parent_zone": "zone_mq_chrome_lobby",
-  "updated_at": "1782964408"
+  "parent_zone": "zone_district_895_905"
 }

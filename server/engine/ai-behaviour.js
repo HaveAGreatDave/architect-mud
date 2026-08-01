@@ -1,4 +1,4 @@
-import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone, getZonePlayers, getPlayerMembership, isEnterableFacade, getMapByParentZone, resolveLanding, updateNpc } from './world.js';
+import { world, getLivePlayer, doorOnLink, setDoorCache, getZone, getZonePlayers, getPlayerMembership, isEnterableFacade, frontDoorOf, getMapByParentZone, resolveLanding, updateNpc } from './world.js';
 import { isSanctuary, isDwellingZone } from './zone-tags.js';
 import { zoneDanger, DANGER_RANK } from './danger.js';
 import { allExits, neighborZoneIds, exitTargets } from './exits.js';
@@ -10,7 +10,6 @@ import { dispatchAction } from './actions.js';
 import { isNpcScheduledNow, getNpcStudioZone, isZoneWatched, npcNextShiftInMins } from './broadcast-bridge.js';
 import { getShopperForNpc, closeShopSession, didBuyThisSession } from './vendor-session.js';
 import { getNpcChitchat } from './npc-personality.js';
-import { OPPOSITE as OPPOSITE_DIR } from './directions.js';
 import { setPosture, forceStand } from './posture.js';
 import { npcWashAtHome } from './hygiene.js';
 import { on } from './events.js';
@@ -543,8 +542,11 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
     const fromInside = getZone(oldZoneId)?.map_id === interior.id;
     const finalId = fromInside ? facadeZone.flags?.world_exit_zone : interior.entry_zone_id;
     if (finalId && finalId !== oldZoneId && getZone(finalId)) {
-      const fd = getDoorForExit(facadeZone.id, 'in', interior.entry_zone_id)
-              || getDoorForExit(interior.entry_zone_id, 'out', facadeZone.id) || null;
+      // Was a hardcoded 'in'/'out' lookup, which only ever matched legacy buildings —
+      // the 52 whose facade↔interior seam is labelled with a cardinal had NO front door
+      // as far as this check was concerned, so a locked shop never stopped an NPC or a
+      // chasing enemy. frontDoorOf reads the actual exit direction.
+      const fd = frontDoorOf(facadeZone);
       if (fd && fd.hp > 0 && fd.lock_state === 'locked') {
         const ownsFrontDoor = !isEnemy(entity) &&
           [entity.home_zone, entity.work_zone_id].some(z => z && (z === oldZoneId || z === finalId || z === facadeZone.id));
@@ -568,9 +570,9 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
   // shop the NPC just opened for business or double-announce a home they secured.
   let doorHandled = false;
   if (departDir) {
-    const door = getDoorForExit(oldZoneId, departDir, newZoneId)
-              || getDoorForExit(newZoneId, OPPOSITE_DIR[departDir], oldZoneId)
-              || null;
+    // One link, one fixture, one lookup (spec §6.3). This used to be written out
+    // as a near-then-far dance four times in this file alone.
+    const door = doorOnLink(oldZoneId, departDir, newZoneId);
 
     if (door && door.hp > 0) {
       if (door.lock_state === 'locked') {
@@ -702,9 +704,7 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
   const cameFromOwnSubZone = getZone(oldZoneId)?.parent_zone === entity.home_zone;
   if (!isEnemy(entity) && entity.home_zone && entity.home_zone === newZoneId && departDir
       && !cameFromOwnSubZone) {
-    const homeDoor = getDoorForExit(newZoneId, OPPOSITE_DIR[departDir], oldZoneId)
-                  || getDoorForExit(oldZoneId, departDir, newZoneId)
-                  || null;
+    const homeDoor = doorOnLink(oldZoneId, departDir, newZoneId);
     if (homeDoor && homeDoor.tags && Object.keys(homeDoor.tags).some(k => k.startsWith('lock:'))) {
       homeDoor.is_open = 0;
       homeDoor.lock_state = 'locked';
@@ -721,9 +721,7 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
     const arrivingAtWork = newZoneId === entity.work_zone_id;
     const leavingWork    = oldZoneId === entity.work_zone_id;
     if (arrivingAtWork || leavingWork) {
-      const shopDoor = getDoorForExit(newZoneId, OPPOSITE_DIR[departDir], oldZoneId)
-                    || getDoorForExit(oldZoneId, departDir, newZoneId)
-                    || null;
+      const shopDoor = doorOnLink(oldZoneId, departDir, newZoneId);
       if (shopDoor && shopDoor.hp > 0 &&
           shopDoor.tags && Object.keys(shopDoor.tags).some(k => k.startsWith('lock:'))) {
         if (arrivingAtWork && shopDoor.lock_state === 'locked') {
@@ -755,8 +753,7 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
   // or shop steps already took charge (secured home / opened shop / locked shop
   // up), leave their result alone.
   if (doorWasClosed && !doorHandled) {
-    const door = getDoorForExit(oldZoneId, departDir)
-              || getDoorForExit(newZoneId, OPPOSITE_DIR[departDir]);
+    const door = doorOnLink(oldZoneId, departDir, newZoneId);
     if (door) {
       door.is_open = 0;
       setDoorCache(door.id, door);

@@ -6,10 +6,8 @@
     "Wind scours straight across the open deck and off into the dark."
   ],
   "ambient_theme": "urban",
-  "audio_theme_id": null,
   "bg_color": "#1c242c",
   "color": "#cfd8e0",
-  "created_by": null,
   "description": "The crown of the tower, given over to one circle of non-slip deck ringed in recessed landing lights, cantilevered clear of the parapet so there is nothing under its outer edge but four hundred feet of grey air. A lit windsock stands at the northern rail. Two glass-doored bays are set back into the crown behind the pad, deep enough to swallow a light rotorcraft each and roll the doors down on it. A refuelling point sits flush in the deck under a brass cover. The wind up here is clean and constant, and it arrives without asking. Step <b>in</b> to the elevator.",
   "exits": {
     "in": "zone_solenne_elevator"
@@ -36,8 +34,6 @@
   "grid_z": 7,
   "id": "zone_solenne_helipad",
   "map_id": "map_int_solenne",
-  "marker": null,
   "name": "Solenne Sky Pad",
-  "parent_zone": "zone_district_914_908",
-  "updated_at": "1784900000"
+  "parent_zone": "zone_district_914_908"
 }

@@ -270,7 +270,9 @@ async function openEditDoorDialog(doorId, zoneId) {
           </div>
         </div>
         <div id="de-keycard-opts" style="${curLockType==='lock:keycardlock'?'':'display:none'}">
-          <div class="field" style="margin-top:6px"><label>Keycard Item ID</label><input id="de-keycard-id" value="${lockTag?.keyItemId||''}" placeholder="auto-created if blank"></div>
+          <div class="field" style="margin-top:6px"><label>Key Item ID</label><input id="de-keycard-id" value="${lockTag?.keyItemId||''}" placeholder="e.g. item_voltage_vip_band">
+            <div style="color:var(--text-dim);font-size:11px;margin-top:3px">An AUTHORED item that opens this door. Nothing is minted for you — create the item in the Items panel first, then name it here.</div>
+          </div>
         </div>
         <div id="de-privacy-opts" style="${curLockType==='lock:privacylock'?'':'display:none'}">
           <div class="field" style="margin-top:6px"><label>Unlockable from (lock side)</label>
@@ -312,13 +314,11 @@ async function saveDoorEdit(doorId, zoneId) {
     const lockData = { messages: LOCK_MESSAGES[lockType] || {} };
 
     if (lockType === 'lock:keycardlock') {
-      let keyItemId = document.getElementById('de-keycard-id').value.trim() || existingLockData?.keyItemId;
-      if (!keyItemId) {
-        const zone = await API(`/zones/${encodeURIComponent(zoneId)}`).catch(() => null);
-        const res = await API(`/doors/${doorId}/keycard`, 'POST', { zone_name: zone?.name || zoneId });
-        if (res?.error) { toast('Failed to create keycard: ' + res.error, true); return; }
-        keyItemId = res.id;
-      }
+      // No auto-minting (spec §6): a keycardlock reads an AUTHORED item, so the
+      // key is a thing somebody made and can be stolen, sold or lost. Cutting one
+      // on install manufactured a stray item AND anchored a door id inside it.
+      const keyItemId = document.getElementById('de-keycard-id').value.trim() || existingLockData?.keyItemId;
+      if (!keyItemId) { toast('A keycard lock needs a key item id — create the item first.', true); return; }
       lockData.keyItemId = keyItemId;
     } else if (lockType === 'lock:privacylock') {
       // Empty = Auto: the server resolves the bathroom side (and rejects the

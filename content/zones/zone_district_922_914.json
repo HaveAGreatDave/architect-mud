@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "audio_theme_id": null,
   "bg_color": "#332e28",
   "color": "#b89a72",
-  "created_by": "zone-planner",
   "description": "Home sweet subsidised home: prefab housing the colour of wet cardboard, balconies caged against jumpers and pigeons with equal indifference. A billboard over the roofline promises a better unit uptown. Nobody here has ever seen uptown.",
   "exits": {
     "east": "zone_district_923_914",
@@ -13,7 +11,6 @@
   },
   "flags": {
     "district": "residential",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_consumer_trash",
     "street_life": true,
@@ -24,8 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_922_914",
   "map_id": "map_world",
-  "marker": "▨",
   "name": "Residential Area",
-  "parent_zone": null,
-  "updated_at": "1784564578"
+  "parent_zone": null
 }

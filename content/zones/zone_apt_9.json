@@ -3,10 +3,7 @@
     "The empty ceiling hook turns a slow half-circle in the draft."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#c9a884",
-  "color": null,
-  "created_by": null,
   "description": "Unit 4A, top floor, street-facing. Best light in the building up here — what little the smog lets through comes in clean and level through a window that actually opens. A proper bed, a desk someone bolted to the wall, and a hook in the ceiling that used to hold a fan and now holds nothing, turning slowly in the draft. Quiet. Expensive-feeling, for the Embassy.",
   "exits": {
     "in": "zone_apt_9_bath",
@@ -22,6 +19,5 @@
   "map_id": "map_interior_zone_residential_lobby",
   "marker": "4A",
   "name": "Unit 4A",
-  "parent_zone": "zone_embassy_floor3",
-  "updated_at": "1783045464"
+  "parent_zone": "zone_district_920_904"
 }

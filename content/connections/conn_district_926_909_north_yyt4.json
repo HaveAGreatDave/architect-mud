@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_926_909",
+  "b": "zone_yard_coldline",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_district_926_909_north_yyt4",
+  "lockable": true,
+  "one_way": false
+}

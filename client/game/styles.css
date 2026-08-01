@@ -3027,6 +3027,26 @@ body.fsim-external #look-resize-handle { display: none; }
 	letter-spacing: calc(var(--mm-room) * -0.03);
 	-webkit-text-stroke: calc(var(--mm-room) * 0.035) #000;
 }
+.map-bld-icon {
+	font-size: 10px;
+	line-height: 1;
+	filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000);
+}
+/* Connectivity art (spec.label.kind === 'art'): the sewer corridors' ╬ ╠ ═ pieces.
+   This is the tile's OWN drawing, the text equivalent of a road connector, so unlike
+   a building code it is never toggled off and takes the tile's own ink rather than the
+   label's white-on-black. Muted so a corridor reads as structure, not as a label. */
+.map-bld-art {
+	font-size: 11px;
+	line-height: 1;
+	font-weight: 400;
+	color: inherit;
+	opacity: 0.75;
+}
+#map-grid .map-bld-art { font-size: 15px; }
+#minimap-grid .map-bld-art,
+#minimap-grid-hud .map-bld-art,
+#minimap-grid-mob .map-bld-art { font-size: calc(var(--mm-room) * 0.6); }
 
 /* ── Tileable terrain (server `terrain` field: road / water / grass) ──────────
    Shared by the sidebar minimap (.mm-*) and the full-map popup (.map-*). The fill

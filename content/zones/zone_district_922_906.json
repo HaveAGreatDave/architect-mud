@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "urban",
-  "audio_theme_id": null,
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
   "description": "The face of the Ferro Fabrication Works — an open-fronted steel shed spitting the blue strobe of an arc welder, the air tasting of hot metal and flux. Offcuts and I-beam stubs are stacked like cordwood along the frontage under a hand-painted board: WE MAKE IT, WE MEND IT, WE DON'T ASK. Dray Lane runs off to the west.",
   "exits": {
     "east": "zone_dray_fab",
@@ -17,7 +15,6 @@
     "entrance": "west",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_921_906"
   },
@@ -28,6 +25,5 @@
   "map_id": "map_world",
   "marker": "FB",
   "name": "Weld Enough Alone",
-  "parent_zone": null,
-  "updated_at": "1784100000"
+  "parent_zone": null
 }

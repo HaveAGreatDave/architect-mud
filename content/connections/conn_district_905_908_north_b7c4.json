@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_905_908",
+  "b": "zone_mq_amp_shop",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_district_905_908_north_b7c4",
+  "lockable": true,
+  "one_way": false
+}

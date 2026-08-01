@@ -1,0 +1,18 @@
+{
+  "blurb": "The party never ended here; it just stopped being fun.",
+  "color": "#e85aa0",
+  "id": "nightlife",
+  "landmark": "mq_marquee",
+  "name": "the Marquee",
+  "prefixes": [
+    "mq"
+  ],
+  "signature": [
+    "Bass thuds through a wall, felt in the teeth before the ears.",
+    "Spilled liquor, cheap perfume, and cigarette smoke braid together in the damp air.",
+    "A bouncer somewhere says \"not tonight\" in exactly that tone.",
+    "Broken neon buzzes overhead, painting the puddles pink and sick-green."
+  ],
+  "skyline": "the Marquee's dead neon flickers over the rooftops",
+  "sort": 60
+}

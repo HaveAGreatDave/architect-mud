@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_greenroom_booth",
+  "b": "zone_greenroom_booth",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_greenroom_booth_up_vkmu",
+  "lockable": false,
+  "one_way": true
+}

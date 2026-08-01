@@ -1,0 +1,9 @@
+{
+  "a": "zone_asc_shrine_nave",
+  "b": "zone_asc_shrine_uplink",
+  "blocked": false,
+  "dir": "in",
+  "id": "conn_asc_shrine_nave_in_h7v3",
+  "lockable": false,
+  "one_way": false
+}

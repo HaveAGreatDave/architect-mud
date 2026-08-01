@@ -7,10 +7,7 @@
     "Scissors catch the light from somewhere in the back."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#b0568f",
-  "color": null,
-  "created_by": null,
   "description": "The shop is narrow but makes good use of vertical space — racks of clothing climb toward the ceiling, organized by some colour-logic that only Cassius understands. The walls are covered in polaroid-style printouts of outfits, annotated in marker. A tailoring station dominates one corner: cutting mat, shears, a half-dressed mannequin with pins in unfortunate places.",
   "exits": {
     "down": "zone_drum_basement",
@@ -24,8 +21,6 @@
   "grid_z": 0,
   "id": "zone_drum_shop",
   "map_id": "map_int_drum",
-  "marker": null,
   "name": "Second Skin",
-  "parent_zone": "zone_district_901_908",
-  "updated_at": "1783059649"
+  "parent_zone": "zone_district_901_908"
 }

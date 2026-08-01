@@ -1,0 +1,9 @@
+{
+  "a": "zone_lw_shop_back",
+  "b": "zone_under_terminus",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_lw_shop_back_down_59ug",
+  "lockable": true,
+  "one_way": false
+}

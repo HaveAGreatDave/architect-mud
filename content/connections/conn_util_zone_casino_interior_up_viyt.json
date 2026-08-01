@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_casino_interior",
+  "b": "zone_casino_interior",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_casino_interior_up_viyt",
+  "lockable": false,
+  "one_way": true
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_913_911",
+  "b": "zone_studio_1782953094650",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_district_913_911_east_wegl",
+  "lockable": true,
+  "one_way": false
+}

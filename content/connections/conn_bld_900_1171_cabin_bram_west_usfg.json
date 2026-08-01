@@ -1,0 +1,9 @@
+{
+  "a": "zone_bld_900_1171_cabin_bram",
+  "b": "zone_bld_900_1171_cabin_cass",
+  "blocked": true,
+  "dir": "west",
+  "id": "conn_bld_900_1171_cabin_bram_west_usfg",
+  "lockable": false,
+  "one_way": false
+}

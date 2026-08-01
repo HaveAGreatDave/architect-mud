@@ -1,0 +1,16 @@
+{
+  "blurb": "The map runs out here. The land never noticed it was on one.",
+  "color": "#9c5030",
+  "id": "wilds",
+  "landmark": null,
+  "name": "the Wilds",
+  "prefixes": [],
+  "signature": [
+    "Red rock throws the heat back at you long after the sun has moved off it.",
+    "Wind comes across the open ground carrying grit and the smell of hot stone.",
+    "Nothing out here is shaped like anything a person built.",
+    "The horizon sits a very long way off, and it is in no hurry."
+  ],
+  "skyline": null,
+  "sort": 160
+}

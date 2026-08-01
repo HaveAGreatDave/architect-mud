@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "audio_theme_id": null,
   "bg_color": "#332e28",
   "color": "#b89a72",
-  "created_by": "zone-planner",
   "description": "Stacked living units marketed as \"affordable modular habitation\" — landlord for a concrete drawer you rent by the month, utilities extra, dignity not included. Someone's AC unit drips onto someone else's only window. The whole block breathes through one wheezing vent.",
   "exits": {
     "east": "zone_district_925_918",
@@ -14,7 +12,6 @@
   },
   "flags": {
     "district": "residential",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_consumer_trash",
     "street_life": true,
@@ -25,8 +22,6 @@
   "grid_z": 0,
   "id": "zone_district_924_918",
   "map_id": "map_world",
-  "marker": "▨",
   "name": "Residential Area",
-  "parent_zone": null,
-  "updated_at": "1784342750"
+  "parent_zone": null
 }

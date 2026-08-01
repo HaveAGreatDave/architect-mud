@@ -1,0 +1,71 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "A tired clerk who has seen every kind of customer and trusts none of them.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a many-pocketed utility coat",
+      "a faded company polo",
+      "grey boxer-briefs"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_bld_893_904_lobby",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_bld_893_904_lobby",
+  "name": "the shopkeeper",
+  "npc_type": "vendor",
+  "sex": "male",
+  "vendor_inventory": [],
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "mon": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "sun": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "thu": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "tue": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "wed": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ]
+  },
+  "wander_zones": [],
+  "wanders": 0
+}

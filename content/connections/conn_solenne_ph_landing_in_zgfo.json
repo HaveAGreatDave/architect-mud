@@ -1,0 +1,9 @@
+{
+  "a": "zone_solenne_ph_landing",
+  "b": "zone_solenne_elevator",
+  "blocked": false,
+  "dir": "in",
+  "id": "conn_solenne_ph_landing_in_zgfo",
+  "lockable": false,
+  "one_way": true
+}

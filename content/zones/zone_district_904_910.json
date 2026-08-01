@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "created_by": "zone-planner",
   "description": "A kiosk-sized unit set into the parade at the quiet end of Voss, barely wider than its own door and set back behind a strip of dead planting. The security grille is intact and the glass behind it is not. The notice says LET AS SEEN, which is the landlord being honest for once.",
   "exits": {
     "north": "zone_district_904_909",
@@ -17,9 +15,7 @@
     "entrance": "north",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
-    "terrain": "concrete",
     "world_exit_zone": "zone_district_904_909"
   },
   "grid_x": 904,
@@ -29,6 +25,5 @@
   "map_id": "map_world",
   "marker": "V7",
   "name": "Unit 7, Voss Avenue",
-  "parent_zone": null,
-  "updated_at": "1784800000"
+  "parent_zone": null
 }

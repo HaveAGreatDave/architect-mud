@@ -1,6 +1,6 @@
 import { query, logActivity } from '../../models/db.js';
 import { setFlags, evictPlayerFlags } from '../flags.js';
-import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, getZoneDoors, spawnEnemySync, world, getApartment, updateFurniture, getZoneFurniture } from '../world.js';
+import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, doorOnLink, getZoneDoors, spawnEnemySync, world, getApartment, updateFurniture, getZoneFurniture } from '../world.js';
 import { getLockTagPublic } from './doors.js';
 import { isApartmentZone, getBuildingName, releaseApartment, findNearestVacantApartment, rehomeNpc, clearNpcResidence } from '../apartments.js';
 import { sendToPlayer } from '../messaging.js';
@@ -962,13 +962,12 @@ async function cmdExamine(targetStr, player, broadcast) {
   const examDir = EXAM_DIRS.find(d => t === d || t === `door ${d}` || t === `${d} door`);
   if (examDir) {
     const zone = getZone(player.current_zone);
-    let examDoor = getDoorForExit(player.current_zone, examDir);
-    if (!examDoor) {
-      for (const targetId of exitTargets(zone, examDir)) {
-        examDoor = getDoorForExit(targetId, EXAM_OPP[examDir], player.current_zone);
-        if (examDoor) break;
-      }
+    let examDoor = null;
+    for (const targetId of exitTargets(zone, examDir)) {
+      examDoor = doorOnLink(player.current_zone, examDir, targetId);
+      if (examDoor) break;
     }
+    examDoor = examDoor || getDoorForExit(player.current_zone, examDir);
     if (examDoor) return describeDoor(examDoor, examDir);
   }
 
@@ -977,7 +976,7 @@ async function cmdExamine(targetStr, player, broadcast) {
     const local = getZoneDoors(player.current_zone);
     const farSide = [];
     for (const { dir, target: targetId } of allExits(zone)) {
-      const d = getDoorForExit(targetId, EXAM_OPP[dir], zone?.id);
+      const d = doorOnLink(zone?.id, dir, targetId);
       if (d && !local.find(x => x.id === d.id)) farSide.push({ door: d, dir });
     }
     const localWithDir = local.map(d => ({ door: d, dir: d.exit_dir }));

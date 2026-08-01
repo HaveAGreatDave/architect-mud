@@ -1,24 +1,20 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#55603f",
-  "color": null,
-  "created_by": null,
   "description": "A dank corner of the cellar where the floor never dries. A sump pump gurgles somewhere below, and a rust-streaked junction cabinet drips condensation down its breaker faces, sparks of corrosion blooming at every bolt. A small sealed hacking port sits below its latch.",
   "exits": {
     "south": "zone_mq_sump_cellar"
   },
   "flags": {
-    "is_interior": true
+    "is_interior": true,
+    "terrain": "grass"
   },
   "grid_x": 0,
   "grid_y": -1,
   "grid_z": -1,
   "id": "zone_mq_sump_util",
   "map_id": "map_int_mq_sump",
-  "marker": null,
   "name": "Utility Nook",
-  "parent_zone": "zone_mq_sump_cellar",
-  "updated_at": "1783023536"
+  "parent_zone": "zone_district_921_914"
 }

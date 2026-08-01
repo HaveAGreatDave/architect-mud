@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "urban",
-  "audio_theme_id": null,
   "bg_color": "#37322a",
   "color": "#cdb489",
-  "created_by": "yards-plan",
   "description": "Stacked pallets and a cluster of squat fuel bowsers behind chain-link, hoses coiled like sleeping snakes. Placards warn NO NAKED FLAME in three languages and one skull. The avgas smell gets into your teeth and stays there.",
   "exits": {
     "north": "zone_yard_fuelyard",
@@ -17,7 +15,6 @@
     "entrance": "south",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_923_908"
   },
@@ -28,6 +25,5 @@
   "map_id": "map_world",
   "marker": "FY",
   "name": "Flash Point Fuel & Pallet",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

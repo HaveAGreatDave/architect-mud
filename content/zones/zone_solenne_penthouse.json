@@ -4,10 +4,8 @@
     "The city glitters on far below, a machine you are, for now, above."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2f3a47",
   "color": "#efe4cd",
-  "created_by": null,
   "description": "The whole crown of the tower, and it knows it. A single volume of glass and pale stone under a five-metre ceiling, wrapped three-sixty in an unbroken view — the bay, the mountains, the grey sprawl of Coldwater all laid at your feet and none of it able to look back in. An emperor bed floats on a raised platform beneath the north glass; a sunken lounge, a private bar, a fireplace of honed basalt. Nothing up here is loud, because nothing up here has to be. Step <b>south</b> to the landing.",
   "exits": {
     "in": "zone_solenne_penthouse_bath",
@@ -24,8 +22,6 @@
   "grid_z": 5,
   "id": "zone_solenne_penthouse",
   "map_id": "map_int_solenne",
-  "marker": null,
   "name": "The Solenne Penthouse",
-  "parent_zone": "zone_district_914_908",
-  "updated_at": "1784600000"
+  "parent_zone": "zone_district_914_908"
 }

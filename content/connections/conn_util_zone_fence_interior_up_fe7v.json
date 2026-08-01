@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_fence_interior",
+  "b": "zone_fence_interior",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_fence_interior_up_fe7v",
+  "lockable": false,
+  "one_way": true
+}

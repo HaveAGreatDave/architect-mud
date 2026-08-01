@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_895_905",
+  "b": "zone_mq_chrome_lobby",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_district_895_905_east_15be",
+  "lockable": true,
+  "one_way": false
+}

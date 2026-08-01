@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#5f6f7a",
-  "color": null,
-  "created_by": null,
   "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
   "exits": {
     "up": "zone_hangar_threshold"
@@ -18,8 +15,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_hangar_threshold",
   "map_id": "map_int_hangar_threshold",
-  "marker": null,
   "name": "Threshold Helipad Hangar — Utility Room",
-  "parent_zone": null,
-  "updated_at": "1783296275"
+  "parent_zone": "zone_district_893_908"
 }

@@ -1,10 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
-  "bg_color": null,
-  "color": null,
-  "created_by": "dray-lane-build",
   "description": "The chill room: breath-fogging cold, racks of shrouded pallets furred with frost, and a floor slick enough to teach you humility. Something hangs on the far hooks under a tarp; the tag, when you can read it through the ice, just says HOLD.",
   "exits": {
     "down": "zone_util_zone_dray_coldstore",
@@ -22,8 +18,6 @@
   "grid_z": 0,
   "id": "zone_dray_coldstore",
   "map_id": "map_interior_zone_dray_coldstore",
-  "marker": null,
   "name": "Absolute Zero Holdings",
-  "parent_zone": "zone_district_922_905",
-  "updated_at": "1784100000"
+  "parent_zone": "zone_district_922_905"
 }

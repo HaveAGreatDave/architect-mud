@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "created_by": "zone-planner",
   "description": "A shuttered unit at the pawn end of the street, its roller door tagged twice over and the letting notice cable-tied to the handle rather than trusted to adhesive. Two doors down, the fence trade keeps its own hours. The rent reflects the company.",
   "exits": {
     "north": "zone_district_917_909",
@@ -17,9 +15,7 @@
     "entrance": "north",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
-    "terrain": "concrete",
     "world_exit_zone": "zone_district_917_909"
   },
   "grid_x": 917,
@@ -29,6 +25,5 @@
   "map_id": "map_world",
   "marker": "M9",
   "name": "Unit 9, Marrow Street",
-  "parent_zone": null,
-  "updated_at": "1784800000"
+  "parent_zone": null
 }

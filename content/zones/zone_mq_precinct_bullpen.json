@@ -6,10 +6,7 @@
     "Someone's coffee has grown a skin; it wrinkles as the AC breathes on it."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#3a5a8a",
-  "color": null,
-  "created_by": null,
   "description": "A room of mismatched desks shoved together, each buried under case files no one will close and coffee cups fossilizing into archaeology. A corkboard maps the district's gangs in red string that has long since become its own conspiracy. Half the overhead lights are dead and no one has requisitioned bulbs. The officers who work here have the specific exhaustion of people paid to hold a line that moved years ago.",
   "exits": {
     "north": "zone_mq_precinct_util",
@@ -23,8 +20,6 @@
   "grid_z": 0,
   "id": "zone_mq_precinct_bullpen",
   "map_id": "map_int_mq_precinct",
-  "marker": null,
   "name": "Bullpen",
-  "parent_zone": "zone_mq_precinct_lobby",
-  "updated_at": "1782964407"
+  "parent_zone": "zone_district_922_911"
 }

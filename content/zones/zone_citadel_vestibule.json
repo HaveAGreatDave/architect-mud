@@ -8,10 +8,8 @@
     "The floor here is rubber, not marble. Easier to hose down."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#33302c",
   "color": "#d2c8b4",
-  "created_by": null,
   "description": "A box of a room with an armoured door at each end and no charm whatsoever. It's a mantrap: the outer door will not open while the inner one is unsealed, and the inner one will not consider you at all until the arch in the middle has had a long, unhurried look through your clothes, your bag, and — going by the resolution on the guard's monitor — your ribcage. A post guard sits behind ballistic glass at a console showing four camera tiles and one outline of you. Bolted to the wall behind him, a grey breaker cabinet feeds the whole building; someone has stencilled a warning beside its sealed hacking port in stern red, and someone else has scratched it out. No marble in here. Just rubber matting, drain grating, and a ceiling low enough to feel deliberate.",
   "exits": {
     "north": "zone_citadel_gallery",
@@ -36,8 +34,6 @@
   "grid_z": 0,
   "id": "zone_citadel_vestibule",
   "map_id": "map_int_citadel",
-  "marker": null,
   "name": "Citadel Financial — Security Vestibule",
-  "parent_zone": "zone_district_921_911",
-  "updated_at": "1785110400"
+  "parent_zone": "zone_district_921_911"
 }

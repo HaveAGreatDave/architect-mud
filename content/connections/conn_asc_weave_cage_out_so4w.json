@@ -1,0 +1,9 @@
+{
+  "a": "zone_asc_weave_cage",
+  "b": "zone_asc_weave_line",
+  "blocked": false,
+  "dir": "out",
+  "id": "conn_asc_weave_cage_out_so4w",
+  "lockable": false,
+  "one_way": false
+}

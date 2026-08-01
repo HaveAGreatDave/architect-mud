@@ -1,0 +1,9 @@
+{
+  "a": "zone_fence_interior",
+  "b": "zone_district_920_910",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_fence_interior_north_3p3n",
+  "lockable": true,
+  "one_way": true
+}

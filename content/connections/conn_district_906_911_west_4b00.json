@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_906_911",
+  "b": "zone_ward_permits",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_906_911_west_4b00",
+  "lockable": true,
+  "one_way": false
+}

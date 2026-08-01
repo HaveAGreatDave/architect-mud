@@ -6,10 +6,7 @@
     "The overnight fluorescent buzzes at a pitch that turns sleep into a thin, fitful thing."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#3a5a8a",
-  "color": null,
-  "created_by": null,
   "description": "Two cages of painted bar-steel in a concrete basement, a drain in the floor, and a bench bolted to each wall for the overnight guests. The paint on the bars is chipped down to raw metal exactly at hand height, all the way around, by every pair of hands that ever gripped them waiting to be processed or forgotten. It smells of disinfectant losing a war against everything else. Two doorless openings break the far wall — the wash block <b>east</b>, the exercise room <b>west</b> — both well inside the lock, because the precinct would rather you wore yourself out down here than went looking for something to do.",
   "exits": {
     "east": "zone_mq_precinct_showers",
@@ -25,8 +22,6 @@
   "grid_z": -1,
   "id": "zone_mq_precinct_holding",
   "map_id": "map_int_mq_precinct",
-  "marker": null,
   "name": "Holding",
-  "parent_zone": "zone_mq_precinct_lobby",
-  "updated_at": "1782964408"
+  "parent_zone": "zone_district_922_911"
 }

@@ -1,0 +1,9 @@
+{
+  "a": "zone_bolt_shop",
+  "b": "zone_district_915_908",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_bolt_shop_south_fh0e",
+  "lockable": true,
+  "one_way": false
+}

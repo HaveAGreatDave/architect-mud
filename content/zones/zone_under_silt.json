@@ -5,10 +5,8 @@
     "The air here is thick enough to taste, still and old."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#20241c",
   "color": "#9cae8f",
-  "created_by": "the-under",
   "description": "A wide, silted-up gallery where the flow slows and drops its load — decades of grey sediment banked in dunes against the walls. Things live in the silt; you can see the tracks. A branch runs east to a flooded overflow, and south a heavy service door stands sealed in its frame.",
   "exits": {
     "east": "zone_under_overflow",
@@ -26,8 +24,6 @@
   "grid_z": -1,
   "id": "zone_under_silt",
   "map_id": "map_world",
-  "marker": "░",
   "name": "Silt Gallery",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

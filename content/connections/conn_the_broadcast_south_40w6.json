@@ -1,0 +1,9 @@
+{
+  "a": "zone_the_broadcast",
+  "b": "zone_the_collapse",
+  "blocked": true,
+  "dir": "south",
+  "id": "conn_the_broadcast_south_40w6",
+  "lockable": false,
+  "one_way": false
+}

@@ -5,10 +5,8 @@
     "The drip here keeps a rhythm the tunnel seems to like."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "created_by": "sewer-grid",
   "description": "A run of domestic storm line under Kessler Street, the walls streaked with a century of household runoff. Somewhere a broken pipe drips with idiot patience.",
   "exits": {
     "north": "zone_under_terminus",
@@ -27,6 +25,5 @@
   "map_id": "map_world",
   "marker": "╣",
   "name": "Drain Junction",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

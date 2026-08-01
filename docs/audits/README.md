@@ -33,7 +33,8 @@ terrain flag that contradicts its own description. Same silent bug class, but th
 tiles, so the checks had to become a script rather than a reading exercise.
 
 - **Skill:** `.claude/skills/map-audit/` — say "audit the map", or run
-  `node .claude/skills/map-audit/scripts/audit-map.mjs`
+  `node .claude/skills/map-audit/scripts/audit-map.mjs` (needs a local DB at HEAD; it
+  reads the resolved world, and refuses to run against a stale one)
 - **Criteria:** [`.claude/skills/map-audit/rules.md`](../../.claude/skills/map-audit/rules.md)
 - **Decisions:** [map-audit-decisions.json](map-audit-decisions.json) — accepted exceptions, so a
   deliberate call ("no loot in open water") never gets re-flagged. Human-authored only.

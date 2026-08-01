@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_asc_clinic_consult_east_bp6c",
   "door_type": "reinforced",
   "exit_dir": "east",
   "flags": {},

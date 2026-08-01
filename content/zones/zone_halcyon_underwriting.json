@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2c2340",
   "color": "#eae6f0",
-  "created_by": null,
   "description": "A long marble counter under recessed light, staffed by people trained to say no beautifully. Screens behind the desk cycle agreed values, premiums, and the small print no one reads until it is far too late. This is where you <b>insure</b> an aircraft.",
   "exits": {
     "in": "zone_halcyon_elevator"
@@ -20,8 +18,6 @@
   "grid_z": 2,
   "id": "zone_halcyon_underwriting",
   "map_id": "map_int_halcyon",
-  "marker": null,
   "name": "Halcyon Assurance — Underwriting",
-  "parent_zone": "zone_halcyon_lobby",
-  "updated_at": "1783316802"
+  "parent_zone": "zone_district_895_906"
 }

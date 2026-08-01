@@ -1,0 +1,16 @@
+{
+  "blurb": "The city’s plumbing outlived the city. It seems quietly pleased about it.",
+  "color": "#4f6b58",
+  "id": "sewer",
+  "landmark": null,
+  "name": "the Sewers",
+  "prefixes": [],
+  "signature": [
+    "Water moves somewhere below, unhurried, going somewhere you are not.",
+    "The air is warm and thick and wet, and it has been breathed before.",
+    "A drip lands, echoes, and is answered by another much further off.",
+    "Everything down here is slick with a growth that does not want a name."
+  ],
+  "skyline": null,
+  "sort": 170
+}

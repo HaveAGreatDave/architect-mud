@@ -1,8 +1,6 @@
 {
-  "created_by": null,
   "entry_zone_id": "zone_coldwater_turbine_hall",
   "id": "map_int_coldwater_power",
   "name": "Coldwater Power Plant — Interior",
-  "parent_zone_id": "zone_district_924_911",
-  "updated_at": "1782940278"
+  "parent_zone_id": "zone_district_924_911"
 }

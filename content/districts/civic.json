@@ -1,0 +1,23 @@
+{
+  "blurb": "The city keeps its paperwork and its promises here — neither in great repair.",
+  "color": "#4bb36a",
+  "id": "civic",
+  "landmark": "civ_steps",
+  "name": "the Civic Center",
+  "prefixes": [
+    "city",
+    "civ",
+    "clone",
+    "start",
+    "threshold",
+    "thresholdeast"
+  ],
+  "signature": [
+    "A queue shuffles somewhere out of sight, patient the way only the desperate are.",
+    "Wet concrete and cheap coffee — the smell of waiting your turn.",
+    "A departure chime loops from a kiosk, endlessly polite.",
+    "Pigeons argue over the steps in the flat civic light."
+  ],
+  "skyline": "the broad sweep of the Civic Steps",
+  "sort": 30
+}

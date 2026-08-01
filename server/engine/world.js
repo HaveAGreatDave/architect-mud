@@ -2,11 +2,12 @@ import { query } from '../models/db.js';
 import { neighborZoneIds, primaryExits, allExits, addExit, removeExit } from './exits.js';
 import { OPPOSITE, DIR_OFFSET } from './directions.js';
 import { titleCaseName } from './text.js';
-import { districtFor } from './districts.js';
+import { districtFor, loadDistricts } from './districts.js';
 import { isSanctuary, getZoneRadiation } from './zone-tags.js';
 import { hasTag } from './tags.js';
 import { registerProtectionProvider } from './protection.js';
 import { zoneDanger, enemyThreat, bucketThreat } from './danger.js';
+import { resolveTerrain, resolveDefault, buildingIconSvg, BUILDING_TYPE_ICON, PROP_DEFAULTS, coerceProp } from '../../scripts/content/derive.mjs';
 
 // In-memory world state — same as before, DB is source of truth
 const world = {
@@ -27,6 +28,8 @@ const world = {
   furniture: new Map(),  // id -> furniture row (write funnel below keeps it in sync; DB stays SoT)
   regions: new Map(),    // regionId -> regions row (spatial world-map places; member zones carry flags.region_id)
   transientZones: new Set(), // ids of synthetic (non-DB) zones injected at runtime — see registerTransientZone
+  render: new Map(),     // zoneId -> zone_derived row (GENERATED presentation; see below)
+  connections: new Map(),// connectionId -> connections row (AUTHORED; see getDoorForEdge)
 };
 
 // Last-resort home for an NPC whose current AND home zones were both deleted
@@ -65,6 +68,7 @@ export async function initWorld() {
   computeAllZoneDanger();
   await loadApartments();
   await loadGlobalAmbients();
+  await loadConnections();
   await loadDoors();
   await loadFurniture();
   await loadOrgs();
@@ -73,6 +77,8 @@ export async function initWorld() {
   await loadOrgVentures();
   await loadMaps();
   await loadRegions();
+  await loadDistrictRegistry();
+  await loadZoneRender();
   await loadPlayerCorpses();
   console.log(`✓ World loaded: ${world.zones.size} zones, ${world.npcs.size} NPCs, ${world.apartments.size} apartments, ${world.doors.size} doors, ${world.orgs.size} orgs`);
 }
@@ -94,14 +100,86 @@ async function loadRegions() {
   world.regions.clear();
   for (const row of rows) world.regions.set(row.id, row);
 }
+
+// Land-use districts (the neighbourhood a tile reads as). Held by the districts
+// module rather than on `world`, because every consumer already imports districtFor
+// from there — and that function is sync by contract, so the rows have to be in
+// memory before the first move command. One query, at boot, like regions.
+async function loadDistrictRegistry() {
+  const { rows } = await query('SELECT * FROM districts ORDER BY sort, id').catch(() => ({ rows: [] }));
+  const n = loadDistricts(rows);
+  // Silence here would be the bad kind: with an empty registry every tile answers
+  // with the unloaded placeholder, which reads in-game as a district with no name.
+  if (!n) console.warn('⚠ no districts loaded — run npm run content:import (or db:schema for the table)');
+}
+// ── Everything the build resolved (zone_derived) ────────────────────────────
+// Built by content:import's derive pass, never authored. Cached in RAM because
+// every minimap frame and every map payload reads it — a per-tile query would be
+// the worst kind of hot path. It only changes when a build runs, and the two
+// things that run a build (content:import, POST /map/derive) both refresh this.
+async function loadZoneRender() {
+  const { rows } = await query('SELECT * FROM zone_derived').catch(() => ({ rows: [] }));
+  world.render.clear();
+  for (const row of rows) world.render.set(row.zone_id, row);
+  if (!rows.length) {
+    console.warn('[world] zone_derived is empty — run `npm run map:derive`. Tiles will render with no fill.');
+  }
+}
+export { loadZoneRender };
+
+// The derived row for a tile. Renderers read THIS and nothing else: falling back
+// to zones.marker here is how a map ends up drawing a marker nobody authored
+// (commit 36f1b8f3). Returns null for a transient/synthetic zone, which has no
+// row by construction.
+export function renderOf(zoneId) { return world.render.get(zoneId) || null; }
+export function specOf(zoneId) { return world.render.get(zoneId)?.spec || null; }
+
+// The tile's resolved GAMEPLAY properties (terrain preset ∪ tile-flag override) —
+// see docs/proposals/terrain-property-presets.md. Gameplay asks the capability it
+// means (`propsOf(id).swimmable`), never what the tile is painted.
+//
+// Falls back to the DEFAULTS rather than `{}` so a tile with no derived row reads
+// as ordinary solid ground instead of as every-property-undefined.
+//
+// A TRANSIENT zone has no derived row by construction (the void-travel waste rooms,
+// a dreamscape, anything registerTransientZone builds), and the defaults alone would
+// silently drop what it authored — a generated pool registered `underwater` read as
+// dry land, because nothing had resolved it. So the override rung is applied here,
+// with derive's own coercion, for that case only. The terrain PRESET rung is not
+// reachable from the engine — it needs the palette, which is a build-time input —
+// so a transient zone gets what it says about itself and nothing more.
+export function propsOf(zoneId) {
+  const props = world.render.get(zoneId)?.props;
+  if (props) return props;
+  const flags = world.zones.get(zoneId)?.flags;
+  if (!flags) return PROP_DEFAULTS;
+  let out = null;
+  for (const key of Object.keys(PROP_DEFAULTS)) {
+    if (!(key in flags)) continue;
+    out ||= { ...PROP_DEFAULTS };
+    out[key] = coerceProp(key, flags[key]);
+  }
+  return out || PROP_DEFAULTS;
+}
+
 export function getRegion(id) { return world.regions.get(id) || null; }
 export function getAllRegions() { return [...world.regions.values()]; }
+
+// The region a tile belongs to, for resolveDefault's region rung. Membership is
+// flags.region_id (docs/reference/land-taxonomy.md) — outdoor tiles carry it,
+// interiors generally don't, and a tile without one simply falls through to the
+// global default. Two Map lookups, no query: safe on any path a zone object
+// already reached.
+export function regionForZone(zone) {
+  const id = zone?.flags?.region_id;
+  return id ? world.regions.get(id) || null : null;
+}
 
 // Maps are loaded at boot; the dev-panel routes that create interior maps
 // (add-room, link-interior) call this so a new building becomes enterable
 // without a reboot. Region create/move publishes route through here too, so the
 // region cache refreshes in lockstep.
-export async function reloadMaps() { await loadMaps(); await loadRegions(); }
+export async function reloadMaps() { await loadMaps(); await loadRegions(); await loadZoneRender(); }
 
 // The interior map whose parent tile is this zone (i.e. this zone is a
 // building facade). Linear scan — the maps table is tiny.
@@ -124,44 +202,12 @@ export function isEnterableFacade(zone) {
   return !!(m?.entry_zone_id && world.zones.has(m.entry_zone_id));
 }
 
-// Building type → top-down rooftop footprint SVG (client/game/assets/zone-icons/
-// bldg_*.svg). Now that a zone is one building, a facade tile with no authored
-// flags.icon falls back to the footprint for its building_type, so every building
-// reads as itself on the 1:1 map. Synonyms collapse (store/grocery → shop); an
-// unrecognised-but-present type gets a plain office block. Gated on the `facade`
-// tag so interior tiles (also is_building) never wear a rooftop.
-//
-// STANDARD: a new building_type needs BOTH a 2-D footprint here AND a 3-D shape in
-// BLDG_TYPE_3D (client/game/js/panels/windshield.js) so it reads consistently on the
-// map and from the air. Each registry has its own fallback, so an unlisted type still
-// renders something rather than nothing.
-const BUILDING_TYPE_ICON = {
-  residential: 'bldg_residential', apartment: 'bldg_apartment',
-  shop: 'bldg_shop', store: 'bldg_shop', grocery: 'bldg_shop',
-  bar: 'bldg_bar', club: 'bldg_club', nightclub: 'bldg_club', boutique: 'bldg_shop', police: 'bldg_police',
-  corporate_office: 'bldg_office', hotel: 'bldg_hotel', power: 'bldg_power',
-  hangar: 'bldg_hangar', studio: 'bldg_studio', clinic: 'bldg_clinic', diner: 'bldg_diner',
-  gun_shop: 'bldg_gunshop', casino: 'bldg_casino', fence: 'bldg_fence', chem_supply: 'bldg_chem',
-  kitchenware: 'bldg_kitchenware', bank: 'bldg_bank',
-  // The Yards — semi-industrial freight district (docs/proposals/yards.md).
-  warehouse: 'bldg_warehouse', container_yard: 'bldg_container', fuel_yard: 'bldg_fuel', cold_storage: 'bldg_cold',
-  fabrication: 'bldg_fab', wharf: 'bldg_wharf', freight_office: 'bldg_freightoffice', freight_forwarder: 'bldg_forwarder',
-  junkyard: 'bldg_junkyard', laundromat: 'bldg_laundromat',
-  // Marrow Street — the workaday downtown strip either side of the Sentinel.
-  dept_store: 'bldg_deptstore', hardware: 'bldg_hardware', bathhouse: 'bldg_bathhouse',
-  noodle_bar: 'bldg_noodlebar', outfitter: 'bldg_outfitter', bodega: 'bldg_bodega',
-  // Foundry Way — Grind House, the working blacksmith.
-  blade_shop: 'bldg_bladeshop',
-  // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md) — reuse the nearest existing
-  // glyphs so the campus reads on the 2-D map this build; bespoke SVGs are an optional polish pass.
-  asc_spire: 'bldg_office', asc_gate: 'bldg_police', asc_clinic: 'bldg_clinic',
-  asc_weave: 'bldg_fab', asc_vats: 'bldg_cold', asc_shrine: 'bldg_power',
-};
-export function buildingIconSvg(zone) {
-  if (!zone || !hasTag(zone, 'facade')) return null;
-  const bt = (zone.flags?.building_type || '').toLowerCase();
-  return BUILDING_TYPE_ICON[bt] || (bt ? 'bldg_office' : null);
-}
+// The rooftop-footprint table and `buildingIconSvg` now live in derive.mjs, next to
+// the rest of the tile stack, and are re-exported here so existing importers are
+// unaffected. Same move `resolveTerrain` made, for the same reason: a build that
+// resolves presentation must resolve it the way the engine always did, and the only
+// way to guarantee that is one copy.
+export { buildingIconSvg, BUILDING_TYPE_ICON };
 // The tile's own building type (facade-gated), for the map's labels/icons overlay —
 // null for streets, water, interiors and anything that isn't a building facade.
 export function buildingTypeOf(zone) {
@@ -183,6 +229,42 @@ export function buildingTypeOf(zone) {
 export function buildingEntranceDir(zone) {
   if (!zone || !hasTag(zone, 'facade')) return null;
   return zone.flags?.entrance || null;
+}
+
+// The front door of an enterable facade: the doors row on the facade↔interior seam,
+// whichever side it is anchored on. Null when the building has no door.
+//
+// This exists because a building's front door is NOT on the link a player standing
+// outside is about to traverse. A facade is never stood on — stepping onto it forwards
+// you through the seam in one move (resolveFacadeTransit) — so from the street the door
+// is one hop further in than any near/far-side lookup reaches. Every consumer that
+// wants "the front door of that building over there" has to reach through the facade,
+// and each one that reimplemented that reached differently:
+//
+//   • movement.js got it right (cardinal entrances AND legacy in/out),
+//   • ai-behaviour.js only ever looked for 'in'/'out', so it missed the 52 buildings
+//     whose seam is labelled with a cardinal,
+//   • the door verbs (open/close/lock/unlock/hack/knock/attack) never looked at all,
+//     which is why `open door` from the street returns null for every building.
+//
+// One implementation, so the door a player can walk through is the door they can also
+// operate. Direction is read from the actual exits rather than assumed: buildings
+// reworked to cardinal entrances label the seam e.g. 'west'/'east', legacy ones 'in'.
+export function frontDoorOf(facade) {
+  if (!isEnterableFacade(facade)) return null;
+  const interior = getMapByParentZone(facade.id);
+  const entryId = interior?.entry_zone_id;
+  const entry = entryId ? world.zones.get(entryId) : null;
+  if (!entry) return null;
+  // doorOnLink asks the connection first — a seam is ONE link and its two
+  // endpoints cannot pick the wrong end (§6.3) — then falls back to the direction
+  // scan for links no connection covers: transient zones have no rows by
+  // construction, and synthetic fixtures in tests have none either.
+  const toInteriorDir = allExits(facade).find((e) => e.target === entryId)?.dir;
+  const toFacadeDir = allExits(entry).find((e) => e.target === facade.id)?.dir;
+  return (toInteriorDir && doorOnLink(facade.id, toInteriorDir, entryId))
+    || (toFacadeDir && doorOnLink(entryId, toFacadeDir, facade.id))
+    || null;
 }
 
 // Cardinal directions from an interior room that lead OUT of the building — an exit to
@@ -223,62 +305,38 @@ export function interiorOpenDirs(zone) {
 // road recolour. Grass = parkland, detected by an authored green surface colour (the
 // way parks are painted). Buildings and ordinary street tiles return null.
 export function zoneTerrain(zone) {
-  if (!zone) return null;
-  // Authored terrain wins — the paint tool writes flags.terrain and it is the SSOT.
-  // The inference below stays as the fallback for tiles that were never painted.
-  if (zone.flags?.terrain) return zone.flags.terrain;
-  // DEPRECATED fallback. `flags.water` was a second, parallel way of marking water:
-  // the Coldwater Basin carried it with terrain unset, while the wildlands hydrology
-  // (two seas + a river) carried terrain:'water' with no flag — two markers that
-  // shared zero tiles and disagreed everywhere they were consulted. The 256 basin
-  // tiles were migrated to flags.terrain on 2026-07-21 and NOTHING carries this flag
-  // any more; the line stays only so hand-authored legacy content still reads right.
-  // Mark water with flags.terrain = 'water'. See reference/land-taxonomy.md.
-  if (zone.flags?.water) return 'water';
-  if (zone.flags?.pier) return 'dock';   // a jetty/pier reads as wooden decking, not bare ground
-  if (/^(road_|runway_)/.test(zone.flags?.icon || '')) return 'road';
-  if (buildingIconSvg(zone)) return null; // a building footprint, not terrain
-  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(zone.bg_color || '');
-  if (m) {
-    const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
-    // Green-dominant surface = parkland/grass. Catches both the bright plaza greens and
-    // the dark muted grasslands (bg #2f3a26). `g - b >= 15` keeps teal/cyan docks out.
-    if (g > r && g - b >= 15 && g >= 45) return 'grass';
-  }
-  return null;
+  // Moved to scripts/content/derive.mjs so the BUILD resolves terrain exactly the
+  // way the engine always has — there is one rule, and the generated zone_derived
+  // rows and any runtime caller cannot disagree about what a tile is standing on.
+  // The legacy inferences (flags.pier, road icons, a green authored surface =
+  // parkland) moved with it, comments and all.
+  return resolveTerrain(zone);
 }
 
-// The road-connector SVG for a road tile, auto-tiled from which orthogonal neighbors are
-// also road terrain — so painting roads next to each other forms straights / turns / T-
-// junctions / crossroads with no hand-picked piece (mirrors tools/zone-planner apply.mjs
-// roadIcon, but computed live from adjacency). `at(x,y,z)` returns the neighbor zone at a
-// grid coord (null when out of the caller's window). Returns a `road_<nesw>` name, `road_x`
-// when isolated, or null for a non-grid tile.
-// A tile reads as road-for-connectivity if it's paved road OR a graded dirt road — the two
-// auto-tile together (a dirt lane meets a paved street at a proper junction), and both draw
-// the same road_<nesw> connector piece (dirt_road just recolours it to a packed-dirt track).
+// A tile reads as road-for-connectivity if it's paved road OR a graded dirt road — the
+// two auto-tile together (a dirt lane meets a paved street at a proper junction) and draw
+// the same road_<nesw> piece, dirt_road just recoloured. Kept for callers that ask the
+// question; the piece itself is no longer computed here.
 export function isRoadTerrain(t) { return t === 'road' || t === 'dirt_road'; }
-export function roadConnector(zone, at) {
-  if (!zone || zone.grid_x == null || zone.grid_y == null) return null;
-  const x = zone.grid_x, y = zone.grid_y, z = zone.grid_z ?? 0;
-  const isRoad = (nx, ny) => isRoadTerrain(zoneTerrain(at(nx, ny, z)));
-  let s = '';
-  if (isRoad(x, y - 1)) s += 'n';
-  if (isRoad(x + 1, y)) s += 'e';
-  if (isRoad(x, y + 1)) s += 's';
-  if (isRoad(x - 1, y)) s += 'w';
-  return s ? 'road_' + s : 'road_x';
-}
 
-// The named zone-icon SVG for a tile's map payload: an authored `flags.icon` / building
-// rooftop wins (so hand-tuned roads are untouched); otherwise a painted `road` terrain
-// auto-tiles into the right connector piece. `at` is the caller's coord lookup (see
-// roadConnector); omit it to skip road auto-tiling.
-export function tileIconSvg(zone, at) {
-  const authored = zone.flags?.icon || buildingIconSvg(zone);
-  if (authored) return authored;
-  if (at && isRoadTerrain(zoneTerrain(zone))) return roadConnector(zone, at);
-  return null;
+// The named zone-icon SVG for a tile's map payload — READ, not computed.
+//
+// `roadConnector` used to live here and auto-tile a road from live adjacency, which
+// meant every map payload first built a coordinate index over the whole map (both
+// callers did it, on every send) and then re-derived a value the build already knew.
+// `deriveFeature` in scripts/content/derive.mjs owns the precedence now — authored
+// flags.icon, then building rooftop, then the auto-tiled connector — so this reads
+// `zone_derived.spec.feature` and the Studio's preview is the shipped string rather
+// than an approximation of it.
+//
+// A transient zone (a waste-crossing room) has no derived row by construction, so it
+// falls back to the two rungs that need no whole-map context. It is never road terrain,
+// so nothing is lost by not auto-tiling it.
+export function tileIconSvg(zone) {
+  if (!zone) return null;
+  const spec = specOf(zone.id);
+  if (spec) return spec.feature ?? null;
+  return zone.flags?.icon || buildingIconSvg(zone) || null;
 }
 
 // The street tile a facade spills you onto when you leave. The facade is
@@ -591,16 +649,47 @@ async function loadApartments() {
   }
 }
 
+// ─── Connections ─────────────────────────────────────────────────────────────
+// The authored links (docs/proposals/map-pipeline-spec.md §1.4). 327 rows, boot
+// tier, and the only thing the runtime reads them for today is anchoring doors:
+// `zones.exits` is still what movement traverses (§5 has not happened).
+//
+// connByPair is the reverse index getDoorForEdge needs. Unordered, because a
+// connection is one link and "which side am I on" is the caller's question, not
+// the row's.
+const connByPair = new Map();   // "a~b" (sorted) -> connections row
+const pairKey = (x, y) => (String(x) < String(y) ? `${x}~${y}` : `${y}~${x}`);
+
+async function loadConnections() {
+  const { rows } = await query('SELECT * FROM connections').catch(() => ({ rows: [] }));
+  world.connections.clear();
+  connByPair.clear();
+  for (const c of rows) {
+    world.connections.set(c.id, c);
+    if (!c.blocked) connByPair.set(pairKey(c.a, c.b), c);
+  }
+}
+export { loadConnections };
+
+export function getConnection(id) { return world.connections.get(id) || null; }
+export function getConnectionBetween(fromId, toId) { return connByPair.get(pairKey(fromId, toId)) || null; }
+
 async function loadDoors() {
   const { rows } = await query('SELECT * FROM doors').catch(() => ({ rows: [] }));
   world.doors.clear();
+  doorByConnection.clear();
   for (const door of rows) {
     const tags = (door.tags && !Array.isArray(door.tags)) ? door.tags : {};
     const lockCount = Object.keys(tags).filter(k => k.startsWith('lock:')).length;
     if (lockCount > 1) console.warn(`[doors] ${door.id} has ${lockCount} lock tags — using first`);
-    world.doors.set(door.id, { ...door, flags: door.flags || {}, tags, is_open: door.is_open ?? 0 });
+    setDoorCache(door.id, { ...door, flags: door.flags || {}, tags, is_open: door.is_open ?? 0 });
   }
 }
+
+// connection_id -> door. ONE fixture per connection is a unique index in the
+// schema, so this is a Map and not a list — and that is the point: there is no
+// far side to forget, and no second row to drift out of step (spec §6.3).
+const doorByConnection = new Map();
 
 export function getDoorById(id) { return world.doors.get(id) || null; }
 export function getZoneDoors(zoneId) { return [...world.doors.values()].filter(d => d.zone_id === zoneId); }
@@ -613,8 +702,57 @@ export function getDoorForExit(zoneId, exitDir, targetId = null) {
   }
   return matches[0];
 }
-export function setDoorCache(id, door) { world.doors.set(id, door); }
-export function deleteDoorCache(id) { world.doors.delete(id); }
+
+/**
+ * The door on the link between two zones, and which end you are standing on.
+ * Spec §6.3 — the replacement for the `getDoorForExit(a,dir,b) || getDoorForExit(
+ * b,opp,a)` dance that was written out by hand at six call sites, differently at
+ * three of them. Direction-free on purpose: a link is a link whichever way you
+ * walk it, and the caller almost never has a direction it trusts more than the
+ * two zone ids.
+ *
+ * @returns {{ door, connection, side: 'a'|'b', near: boolean } | null}
+ *   `side` is which end of the connection `fromId` is; `near` is whether the door
+ *   row is recorded on that end (which is all `zone_id` ever meant).
+ */
+export function getDoorForEdge(fromId, toId) {
+  const connection = getConnectionBetween(fromId, toId);
+  if (!connection) return null;
+  const door = doorByConnection.get(connection.id);
+  if (!door) return null;
+  const side = connection.a === fromId ? 'a' : 'b';
+  return { door, connection, side, near: door.zone_id === fromId };
+}
+
+/**
+ * The door standing on the step from `fromId` towards `toId`. THE resolver — the
+ * near-then-far fallback below was written out by hand at six call sites
+ * (movement, describe, and four times in ai-behaviour), and three of them wrote
+ * it differently, which is the whole argument of §6.3.
+ *
+ * The connection lookup answers first and correctly. The (zone, dir) pair behind
+ * it is the compatibility path, for transient zones — which have no connection
+ * rows by construction (systems-overland-void-travel) — and for a door whose
+ * connection_id lint hasn't caught yet.
+ */
+export function doorOnLink(fromId, direction, toId = null) {
+  return (toId ? getDoorForEdge(fromId, toId)?.door : null)
+    || getDoorForExit(fromId, direction, toId)
+    || (toId && OPPOSITE[direction] ? getDoorForExit(toId, OPPOSITE[direction], fromId) : null)
+    || null;
+}
+
+export function setDoorCache(id, door) {
+  const prev = world.doors.get(id);
+  if (prev?.connection_id && doorByConnection.get(prev.connection_id)?.id === id) doorByConnection.delete(prev.connection_id);
+  world.doors.set(id, door);
+  if (door?.connection_id) doorByConnection.set(door.connection_id, door);
+}
+export function deleteDoorCache(id) {
+  const prev = world.doors.get(id);
+  if (prev?.connection_id) doorByConnection.delete(prev.connection_id);
+  world.doors.delete(id);
+}
 
 // ─── Furniture ───────────────────────────────────────────────────────────────
 // world.furniture mirrors the furniture table (id -> row) so describeZone's
@@ -1004,14 +1142,9 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
   // node payloads.
   const zoneObjs = applyMinimapVisibility([...ids].map((id) => world.zones.get(id)).filter(Boolean), viewer);
 
-  // Coord index over this map/floor so road tiles can auto-tile their connector from
-  // neighbors (roadConnector). One pass, then O(1) lookups per node.
-  const roadIndex = new Map();
-  if (centerMapId) for (const z of world.zones.values())
-    if (z.map_id === centerMapId && z.grid_x != null && z.grid_y != null)
-      roadIndex.set(`${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`, z);
-  const roadAt = (x, y, z) => roadIndex.get(`${x},${y},${z}`) || null;
-
+  // (No coord index here any more. This walked every zone in the world on every
+  // minimap send — i.e. per move, per player — to auto-tile road connectors that the
+  // build has already resolved into spec.feature.)
   const nodes = [];
   for (const zone of zoneObjs) {
     // Building name(s) reachable from this tile — for the hover tooltip (same rule
@@ -1034,8 +1167,15 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       exits: primaryExits(zone),
       map_id: zone.map_id || null,
       grid_x: zone.grid_x, grid_y: zone.grid_y, grid_z: zone.grid_z,
+      // spec is the GENERATED presentation (zone_derived.spec) and the only thing a
+      // renderer should colour a tile from. marker/color/bg_color stay in the
+      // payload for the tooltip and for a transient zone, which has no derived row.
+      // The tile's footprint SVG and its map code are spec.feature / spec.label now.
+      // `icon_svg` was a second name for the same value, computed a second way; a
+      // renderer reading two channels is how the client and the tablet came to
+      // disagree about which tiles wear a label.
+      spec: specOf(zone.id),
       marker: zone.marker || null, color: zone.color || null, bg_color: zone.bg_color || null,
-      icon_svg: tileIconSvg(zone, roadAt), // named SVG in client/game/assets/zone-icons/ (authored icon / rooftop, or an auto-tiled road connector)
       building_type: buildingTypeOf(zone), // facade tile's type — drives the sidebar/full-map labels/icons overlay
       entrance: buildingEntranceDir(zone), // which edge the door faces — drives the map entrance arrow
       exit_dirs: interiorExitDirs(zone), // interior room's ways out — drives the interior map's exit arrows
@@ -1077,7 +1217,7 @@ export function getAllZones() {
     sanctuary: isSanctuary(z), radiation: getZoneRadiation(z), danger: zoneDanger(z),
     exits: z.exits, ambient_events: z.ambient_events, ambient_theme: z.ambient_theme, flags: z.flags,
     map_id: z.map_id, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z,
-    marker: z.marker, color: z.color, bg_color: z.bg_color,
+    marker: z.marker, color: z.color, bg_color: z.bg_color, spec: specOf(z.id),
     player_count: z.players.size, enemy_count: z.enemies.size,
   }));
 }

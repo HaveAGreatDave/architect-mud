@@ -3,10 +3,7 @@
     "The black-edged wardrobe mirror catches a movement that isn't there."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#c9a884",
-  "color": null,
-  "created_by": null,
   "description": "Number 3D, last door on the top floor. Half the light fixtures are gone, wires capped and hanging, but a portable lamp does the job. A wide bed under the window, a wardrobe with a mirror gone black at the edges, and a strange, welcome quiet — you're as far from the bar as the building gets. The kind of room you disappear into.",
   "exits": {
     "east": "zone_embassy_floor3",
@@ -22,6 +19,5 @@
   "map_id": "map_interior_zone_residential_lobby",
   "marker": "4D",
   "name": "Unit 4D",
-  "parent_zone": "zone_embassy_floor3",
-  "updated_at": "1783045464"
+  "parent_zone": "zone_district_920_904"
 }

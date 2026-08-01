@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_901_907",
+  "b": "zone_mq_cherry_floor",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_901_907_west_wfex",
+  "lockable": true,
+  "one_way": false
+}

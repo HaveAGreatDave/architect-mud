@@ -114,10 +114,16 @@ export function canonicalJson(obj) {
 // strings (deterministic, UTC); everything else is already JSON-able.
 export function rowToFileObject(entry, row) {
   const excluded = new Set(entry.excludeColumns || []);
+  // Absent-by-default override columns: a null means "no override", and a file
+  // that spells that out is 5,785 copies of a non-statement. Omit the key; the
+  // importer writes an explicit NULL for anything on this list that's missing,
+  // so absence still clears a removed override.
+  const omitWhenNull = new Set(entry.omitWhenNull || []);
   const schemaCols = schemaColumnsOf(entry.table);
   const out = {};
   for (const [col, v] of Object.entries(row)) {
     if (excluded.has(col)) continue;
+    if (v === null && omitWhenNull.has(col)) continue;
     // Drop columns SCHEMA_SQL doesn't declare (legacy leftovers on a Frankenstein
     // local DB): prod never has them and lint rejects them. Fail open if the table
     // isn't found in the schema parse, rather than emptying the file.
@@ -226,11 +232,59 @@ export function isRuntimeResidueId(table, id) {
 // ── File-tree reading (import / lint side) ───────────────────────────────────
 // Reads content/<table>/*.json for every registry table, in registry (FK-safe)
 // order. Throws on unparseable JSON or directories that aren't content tables.
+// Content directories that are NOT one-file-per-row tables. `map/` holds the
+// terrain palette (and, later, the coordinate atlas): authored, committed, git-
+// owned like everything else here, but read whole rather than upserted, so the
+// unknown-directory guard has to know about it by name.
+export const NON_TABLE_DIRS = new Set(['map']);
+
+// ── Asset refs ──────────────────────────────────────────────────────────────
+//
+// A catalog `ref` means "an id in another collection". For almost every field that
+// collection is a content table; for these it is a DIRECTORY OF FILES, and the id is
+// the filename without its extension.
+//
+// Declared once, on purpose. Three separate things need to agree about what
+// `zone_icons` means — the Studio's picker populates from it, content:lint resolves
+// against it, and regress's "every ref names a real table" gate has to know it is
+// legitimate rather than a typo. Special-casing the string in three files is how they
+// start disagreeing, and a ref nobody can resolve is silently inert forever, which is
+// the exact failure that check exists to prevent.
+export const ASSET_REFS = Object.freeze({
+  zone_icons: { dir: join('client', 'game', 'assets', 'zone-icons'), ext: '.svg' },
+});
+
+export function isAssetRef(table) {
+  return Object.prototype.hasOwnProperty.call(ASSET_REFS, table);
+}
+
+/** Every id in an asset-ref collection, or null if `table` is not one. */
+export function assetRefIds(table) {
+  const def = ASSET_REFS[table];
+  if (!def) return null;
+  try {
+    return readdirSync(join(REPO_ROOT, def.dir))
+      .filter(n => n.endsWith(def.ext))
+      .map(n => n.slice(0, -def.ext.length))
+      .sort();
+  } catch { return []; }
+}
+
+export function readPalette(baseDir = CONTENT_DIR) {
+  const path = join(baseDir, 'map', 'terrain.json');
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch (e) {
+    throw new Error(`content/map/terrain.json: invalid JSON — ${e.message}`);
+  }
+}
+
 export function readContentTree(baseDir = CONTENT_DIR) {
   if (!existsSync(baseDir)) return { entries: [], unknownDirs: [] };
   const byTable = new Map(contentEntries().map(e => [e.table, e]));
   const unknownDirs = readdirSync(baseDir, { withFileTypes: true })
-    .filter(d => d.isDirectory() && !byTable.has(d.name))
+    .filter(d => d.isDirectory() && !byTable.has(d.name) && !NON_TABLE_DIRS.has(d.name))
     .map(d => d.name);
   const entries = [];
   for (const entry of contentEntries()) {

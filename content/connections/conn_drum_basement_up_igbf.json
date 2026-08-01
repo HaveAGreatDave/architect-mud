@@ -1,0 +1,9 @@
+{
+  "a": "zone_drum_basement",
+  "b": "zone_drum_shop",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_drum_basement_up_igbf",
+  "lockable": false,
+  "one_way": false
+}

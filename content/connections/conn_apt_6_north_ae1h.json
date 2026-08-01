@@ -1,0 +1,9 @@
+{
+  "a": "zone_apt_6",
+  "b": "zone_embassy_floor2",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_apt_6_north_ae1h",
+  "lockable": true,
+  "one_way": false
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_926_908",
+  "b": "zone_yard_wharf",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_district_926_908_east_61sl",
+  "lockable": true,
+  "one_way": false
+}

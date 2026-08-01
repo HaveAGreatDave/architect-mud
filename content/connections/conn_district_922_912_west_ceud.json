@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_922_912",
+  "b": "zone_yard_freightoffice",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_922_912_west_ceud",
+  "lockable": true,
+  "one_way": false
+}

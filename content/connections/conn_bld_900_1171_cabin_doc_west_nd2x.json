@@ -1,0 +1,9 @@
+{
+  "a": "zone_bld_900_1171_cabin_doc",
+  "b": "zone_bld_900_1171_cabin_marla",
+  "blocked": true,
+  "dir": "west",
+  "id": "conn_bld_900_1171_cabin_doc_west_nd2x",
+  "lockable": false,
+  "one_way": false
+}

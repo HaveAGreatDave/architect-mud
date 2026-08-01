@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_aa_redline_bunker",
+  "b": "zone_aa_redline_bunker",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_aa_redline_bunker_up_regm",
+  "lockable": false,
+  "one_way": true
+}

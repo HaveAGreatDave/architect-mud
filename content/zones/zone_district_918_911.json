@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "urban",
-  "audio_theme_id": null,
   "bg_color": "#2a2620",
   "color": "#8ba36a",
-  "created_by": "marrow-infill",
   "description": "A corner grocery wedged where Marrow gives up and Ironside takes over, its windows so thoroughly papered in hand-inked price cards that the shop behind them is a rumour. A cooler hums against the outside wall under a padlock and a chain. The sign says BODEGA VU and, underneath, in smaller and much older paint, KESSEL'S.",
   "exits": {
     "east": "zone_district_919_911",
@@ -17,7 +15,6 @@
     "entrance": "east",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_919_911"
   },
@@ -28,6 +25,5 @@
   "map_id": "map_world",
   "marker": "BV",
   "name": "Bodega Vu",
-  "parent_zone": null,
-  "updated_at": "1785200000"
+  "parent_zone": null
 }

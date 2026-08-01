@@ -1044,6 +1044,17 @@ export function npcTypeForPersonality(personality) {
   return DEFAULTS[personality]?.npcType ?? null;
 }
 
+// Working hours an employed NPC gets when nobody authored a schedule. Lives here
+// (the dependency-free archetype-defaults module) rather than inside routes.js so
+// the dev-panel creator and the file-authoring CLI stamp the SAME hours — two
+// copies of this constant is exactly the "systems contradicting each other"
+// failure the content pipeline exists to remove.
+export const DEFAULT_VENDOR_SCHEDULE = {
+  mon: [{ from: 10, to: 22 }], tue: [{ from: 10, to: 22 }], wed: [{ from: 10, to: 22 }],
+  thu: [{ from: 10, to: 22 }], fri: [{ from: 10, to: 22 }], sat: [{ from: 10, to: 22 }],
+  sun: [{ from: 10, to: 22 }],
+};
+
 // ── Clothing ────────────────────────────────────────────────────────────────
 // Personality-appropriate outfits, split by sex ({ male, female }). Each sex has
 // several VARIANTS for variety; a variant is an ordered clothing_layers array
@@ -1273,16 +1284,28 @@ const CLOTHING = {
   },
 };
 
-// A random outfit (clothing_layers array) for a personality + sex, or null if the
-// archetype has no wardrobe / the personality is unknown. Sex 'female' picks the
-// female wardrobe; anything else (male / other / unset) falls back to male.
-// Consumed by apiCreateNpc and the backfill script.
-export function pickClothingForPersonality(personality, sex) {
+// An outfit (clothing_layers array) for a personality + sex, or null if the archetype
+// has no wardrobe / the personality is unknown. Sex 'female' picks the female wardrobe;
+// anything else (male / other / unset) falls back to male.
+//
+// `seed` makes the pick DETERMINISTIC — same seed, same outfit, every run. Content
+// authoring needs that: a tool that writes a git file must produce the same bytes on a
+// re-run or every re-run is a spurious diff. Live NPC creation (apiCreateNpc) passes no
+// seed and keeps the random pick, which is what variety wants there.
+export function pickClothingForPersonality(personality, sex, seed = null) {
   const bucket = CLOTHING[personality];
   if (!bucket) return null;
   const variants = (sex === 'female' ? bucket.female : bucket.male) || bucket.male || bucket.female;
   if (!variants || !variants.length) return null;
-  return variants[Math.floor(Math.random() * variants.length)].slice();
+  let idx;
+  if (seed == null) idx = Math.floor(Math.random() * variants.length);
+  else {
+    let h = 0;
+    const s = String(seed);
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+    idx = Math.abs(h) % variants.length;
+  }
+  return variants[idx].slice();
 }
 
 // Lightweight metadata for the dev-panel dropdown (no line arrays). Insertion

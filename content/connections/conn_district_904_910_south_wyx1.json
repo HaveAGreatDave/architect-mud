@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_904_910",
+  "b": "zone_sf_voss7",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_904_910_south_wyx1",
+  "lockable": true,
+  "one_way": false
+}

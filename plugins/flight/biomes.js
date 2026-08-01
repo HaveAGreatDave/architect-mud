@@ -61,7 +61,7 @@ export function districtBiome(zone) {
   const dr = zone.danger;
   const pre = (/^zone_([a-z0-9]+)/.exec(id) || [])[1] || '';
 
-  if (f.water || pre === 'bay') return 'water';                        // Coldwater Bay
+  if (pre === 'bay') return 'water';                                   // Coldwater Bay
   if (pre === 'dock') return 'docks';
   if (pre === 'red' || dr === 'lethal') return 'ruins';               // the Redline, radioactive
   if (id === 'zone_ruins' || pre === 'slums' || pre === 'velk') return 'oldcoldwater';  // rundown slum-ruins

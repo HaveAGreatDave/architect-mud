@@ -1,0 +1,9 @@
+{
+  "a": "zone_apt_7",
+  "b": "zone_embassy_floor2",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_apt_7_west_zaq2",
+  "lockable": true,
+  "one_way": false
+}

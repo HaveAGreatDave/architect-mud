@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "audio_theme_id": null,
-  "bg_color": "#3a3327",
   "color": "#b8a880",
-  "created_by": "zone-planner",
   "description": "Dry sand gives underfoot and hisses away from each step, then firms up toward the water. The wind comes off the basin with a mineral cold in it and finds every gap in whatever you're wearing. Someone's dragged a boat up here once and never dragged it back.",
   "exits": {
     "east": "zone_district_916_904",
@@ -14,7 +11,6 @@
   },
   "flags": {
     "district": "wasteland",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "sand"
   },
@@ -23,8 +19,6 @@
   "grid_z": 0,
   "id": "zone_district_915_904",
   "map_id": "map_world",
-  "marker": "#",
   "name": "The Strand",
-  "parent_zone": null,
-  "updated_at": "1784516878"
+  "parent_zone": null
 }

@@ -5,10 +5,8 @@
     "The stench of rat is a physical wall you have to push through."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#221c1c",
   "color": "#ae9a8f",
-  "created_by": "the-under",
   "description": "A drowned side-chamber the rats have made their own — a stinking warren of shredded nesting packed into every ledge and pipe-gap, the floor churned to filth. This is the heart of the colony. They do not take kindly to the light, or to you.",
   "exits": {
     "north": "zone_under_flooded"
@@ -23,8 +21,6 @@
   "grid_z": -1,
   "id": "zone_under_warren",
   "map_id": "map_world",
-  "marker": "⁙",
   "name": "Rat Warren",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

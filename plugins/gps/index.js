@@ -1,4 +1,4 @@
-import { getAllZones, getZone, resolveLanding } from '../../server/engine/world.js';
+import { getAllZones, getZone, resolveLanding, propsOf } from '../../server/engine/world.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { allExits } from '../../server/engine/exits.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
@@ -38,7 +38,7 @@ function routeDirs(path) {
 function plotRoute(player, destZone, { avoid = null, resume = false, go = false } = {}) {
   // Open water isn't a place you can stand — you can't route to it, and it's hidden
   // from name resolution below so it never even surfaces as a candidate.
-  if (destZone.flags?.water) {
+  if (!propsOf(destZone.id).routable) {
     return { type: 'error', message: 'Must be on Land.' };
   }
   // A building occupies a single non-standable facade tile; stepping onto it forwards you
@@ -233,7 +233,7 @@ function resolveByName(query, player, routeOpts) {
 
   // Water tiles are invisible to GPS — they can't be a destination (Coldwater Basin and
   // its ilk would otherwise clutter every name match), so drop them before resolving.
-  const landZones = getAllZones().filter(z => !z.flags?.water);
+  const landZones = getAllZones().filter(z => propsOf(z.id).routable);
 
   // Option D: the typed name is an exact match for several tiles (terrain / a long
   // street). Route to the nearest rather than SIFT's tie-break pick or a dead picker.

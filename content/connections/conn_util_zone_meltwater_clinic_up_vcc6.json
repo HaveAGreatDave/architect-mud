@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_meltwater_clinic",
+  "b": "zone_meltwater_clinic",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_meltwater_clinic_up_vcc6",
+  "lockable": false,
+  "one_way": true
+}

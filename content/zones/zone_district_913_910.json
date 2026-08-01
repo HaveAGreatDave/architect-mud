@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "urban",
-  "audio_theme_id": null,
   "bg_color": "#241f2e",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
   "description": "A glass-fronted annex grafted onto the flank of the KSAB tower, its holo-marquee stuttering WRITERS' WING • SCRIPT LOCKED 04:00 in tired violet. Through the tint you can see the story floor's whiteboards standing in rows like headstones, and one desk lamp burning at an hour when nothing should be burning. A speaker nobody can find murmurs the network's own feed back at itself.",
   "exits": {
     "north": "zone_district_913_909",
@@ -18,7 +16,6 @@
     "facade": true,
     "floors": 2,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_913_909"
   },
@@ -29,6 +26,5 @@
   "map_id": "map_world",
   "marker": "KW",
   "name": "KSAB Writers' Wing",
-  "parent_zone": null,
-  "updated_at": "1784500000"
+  "parent_zone": null
 }

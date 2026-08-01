@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_hock_pawn",
+  "b": "zone_hock_pawn",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_hock_pawn_up_a7yv",
+  "lockable": false,
+  "one_way": true
+}

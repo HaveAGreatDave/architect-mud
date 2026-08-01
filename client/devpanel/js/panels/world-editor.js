@@ -169,6 +169,10 @@ function _wdGridLines(x, y, w, h) {
 }
 
 function renderWorldEditor(data) {
+  // TERRAIN_TYPES / TERRAIN_FILL_BY_KEY are loaded from content/map/terrain.json by
+  // maps.js now, not hardcoded. Kick the fetch and re-render when it lands, so the
+  // region swatches aren't blank on a cold open of this tab.
+  if (!TERRAIN_TYPES.length) ensureTerrainPalette().then(() => renderWorldEditor());
   if (data) _worldData = { regions: data.regions || [], zones: data.zones || [] };
   const panel = document.getElementById('list-panel');
   const { byRegion, un } = _wdBlocks();

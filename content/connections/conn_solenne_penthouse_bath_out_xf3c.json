@@ -1,0 +1,9 @@
+{
+  "a": "zone_solenne_penthouse_bath",
+  "b": "zone_solenne_penthouse",
+  "blocked": false,
+  "dir": "out",
+  "id": "conn_solenne_penthouse_bath_out_xf3c",
+  "lockable": true,
+  "one_way": false
+}

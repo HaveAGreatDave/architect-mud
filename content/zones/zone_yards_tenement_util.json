@@ -4,10 +4,7 @@
     "The junction box hums, catches, and settles."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#5a5450",
-  "color": null,
-  "created_by": "tenement-gen",
   "description": "The tenement’s guts: a low, sweating concrete sub-basement of riser conduits, a long-dead boiler, and a floor drain choked with grit. A single junction box feeds all ten floors and trips if you so much as breathe on it wrong.",
   "exits": {
     "up": "zone_yards_tenement_lobby"
@@ -20,8 +17,6 @@
   "grid_z": -1,
   "id": "zone_yards_tenement_util",
   "map_id": "map_int_yards_tenement",
-  "marker": null,
   "name": "Sub-basement",
-  "parent_zone": "zone_yards_tenement_lobby",
-  "updated_at": "1783970000"
+  "parent_zone": "zone_district_921_902"
 }

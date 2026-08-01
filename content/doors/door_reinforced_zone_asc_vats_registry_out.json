@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_asc_vats_registry_north_skyh",
   "door_type": "reinforced",
   "exit_dir": "north",
   "flags": {},

@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "outdoors",
-  "audio_theme_id": null,
-  "bg_color": "#2b2b2b",
   "color": "#f5d400",
-  "created_by": "zone-planner",
   "description": "A strip of runway asphalt split down the middle by a hard yellow centreline running dead straight north to south. The paint is fresh enough to catch the light; tyre rubber smears black on either side of it.",
   "exits": {
     "east": "zone_district_926_901",
@@ -15,7 +12,6 @@
   "flags": {
     "district": "wasteland",
     "icon": "runway_ns",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "runway": "ns",
     "scavenging_table_id": "scav_industrial_salvage",
@@ -26,8 +22,6 @@
   "grid_z": 0,
   "id": "zone_district_925_901",
   "map_id": "map_world",
-  "marker": "┃",
   "name": "Runway",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

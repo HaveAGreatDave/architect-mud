@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "audio_theme_id": null,
-  "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
   "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
   "exits": {
     "north": "zone_district_920_913",
@@ -13,7 +10,6 @@
   },
   "flags": {
     "district": "residential",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes",
     "terrain": "grass"
@@ -23,8 +19,6 @@
   "grid_z": 0,
   "id": "zone_district_920_914",
   "map_id": "map_world",
-  "marker": "#",
   "name": "Grasslands",
-  "parent_zone": null,
-  "updated_at": "1784564578"
+  "parent_zone": null
 }

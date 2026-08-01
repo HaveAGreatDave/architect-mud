@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "audio_theme_id": null,
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
   "description": "The face of Sentimental Value Pawn — barred windows, a half-dead sign, and no questions. Whatever you lost is probably in the case out front. Ironside Street runs off to the west.",
   "exits": {
     "east": "zone_fence_interior",
@@ -17,7 +15,6 @@
     "entrance": "north",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes",
     "world_exit_zone": "zone_district_920_909"
@@ -29,6 +26,5 @@
   "map_id": "map_world",
   "marker": "PP",
   "name": "Sentimental Value Pawn",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

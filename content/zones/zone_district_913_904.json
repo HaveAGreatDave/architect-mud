@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "audio_theme_id": null,
-  "bg_color": "#3a3327",
   "color": "#b8a880",
-  "created_by": "zone-planner",
   "description": "A shelf of pale sand and shingle, ridged where the water works it and works it again. Bootprints fill and blur behind you almost politely. Further out the basin lies flat and lightless, and nothing crossing it moves in a way you'd care to name.",
   "exits": {
     "east": "zone_district_914_904",
@@ -14,7 +11,6 @@
   },
   "flags": {
     "district": "docks",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "sand"
   },
@@ -23,8 +19,6 @@
   "grid_z": 0,
   "id": "zone_district_913_904",
   "map_id": "map_world",
-  "marker": "#",
   "name": "The Strand",
-  "parent_zone": null,
-  "updated_at": "1784516878"
+  "parent_zone": null
 }

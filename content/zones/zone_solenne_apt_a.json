@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "created_by": null,
   "description": "A one-bedroom sky residence: engineered oak underfoot, a wall of glass framing the bay, and a low platform bed dressed in cloud-grey linen. The kitchen is a single seam of stone with no visible handles. Everything is quiet, warm, and exactly where it should be — the ambient hum of a life without friction. The door locks with a whisper. Leave <b>south</b> to the landing.",
   "exits": {
     "in": "zone_solenne_apt_a_bath",
@@ -24,6 +22,5 @@
   "map_id": "map_int_solenne",
   "marker": "30",
   "name": "Solenne Residence 30-A",
-  "parent_zone": "zone_district_914_908",
-  "updated_at": "1784600000"
+  "parent_zone": "zone_district_914_908"
 }

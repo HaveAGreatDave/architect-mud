@@ -1,0 +1,9 @@
+{
+  "a": "zone_yards_tenement_u9_1",
+  "b": "zone_yards_tenement_u9_5",
+  "blocked": true,
+  "dir": "east",
+  "id": "conn_yards_tenement_u9_1_east_uxwq",
+  "lockable": false,
+  "one_way": false
+}

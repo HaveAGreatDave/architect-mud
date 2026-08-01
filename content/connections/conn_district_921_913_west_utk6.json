@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_921_913",
+  "b": "zone_sf_kessler3",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_921_913_west_utk6",
+  "lockable": true,
+  "one_way": false
+}

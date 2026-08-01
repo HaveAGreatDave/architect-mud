@@ -5,10 +5,8 @@
     "Fresh boot prints in the silt, coming and going. You are not the first here today."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "A narrow service passage the Watch have quietly made their own, their tapped power line running its length toward the threshold below. There are signs of use everywhere for those who know to look — a dead drop, boot prints, a chalk sigil kept crisp. The run bends south toward the Watch's door.",
   "exits": {
     "south": "zone_under_watchthresh",
@@ -24,8 +22,6 @@
   "grid_z": -1,
   "id": "zone_under_cablingrun",
   "map_id": "map_world",
-  "marker": "≣",
   "name": "Cabling Run",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

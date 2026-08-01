@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_906_910",
+  "b": "zone_meltwater_diner",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_906_910_south_f9s9",
+  "lockable": true,
+  "one_way": false
+}

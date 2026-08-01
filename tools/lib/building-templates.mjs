@@ -4,7 +4,7 @@
 // and an optional inhabitant NPC. The route stamps the facade + interior map + power
 // (authorUtilityRoom) around this; templates only describe the rooms/props/people.
 //
-// This is authoring scaffolding (like the zone-planner's templates), NOT engine
+// This is authoring scaffolding, NOT engine
 // content — it lives in tools/ so the engine stays content-free. Types without a
 // bespoke entry fall back to GENERIC. Furniture object_type must be one of the valid
 // kinds (furniture/light/fixture/appliance/decoration/terminal/container); NPC
@@ -184,6 +184,12 @@ export const BUILDING_TEMPLATES = {
     npc: null,
   },
 };
+
+// Interior-grid offsets for template rooms. Cardinals only — 'down' is reserved for
+// authorUtilityRoom's utility room, 'up' is left free for hand-authored upper floors.
+// Lives beside the blueprints because a room's `dir` is only meaningful against these
+// offsets; both the dev-panel route and the file-authoring CLI read this one copy.
+export const BUILD_DIR_OFF = { north: [0, -1, 0], south: [0, 1, 0], east: [1, 0, 0], west: [-1, 0, 0] };
 
 // Resolve a building_type to its template (synonym-aware), always returning something.
 export function templateForType(buildingType) {

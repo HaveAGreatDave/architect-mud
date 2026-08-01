@@ -1,0 +1,9 @@
+{
+  "a": "zone_apt_12_bath",
+  "b": "zone_apt_12",
+  "blocked": false,
+  "dir": "out",
+  "id": "conn_apt_12_bath_out_gwst",
+  "lockable": true,
+  "one_way": false
+}

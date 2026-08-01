@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "audio_theme_id": null,
-  "bg_color": "#33343c",
   "color": "#9aa0b0",
-  "created_by": "zone-planner",
   "description": "Open apron stretching flat in every direction, tie-down rings rusted into the concrete. The wind has nothing to break it here and comes at you sideways, carrying grit and the ghost of jet fuel.",
   "exits": {
     "east": "zone_district_927_901",
@@ -14,7 +11,6 @@
   },
   "flags": {
     "district": "docks",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "runway": "pad",
     "scavenging_table_id": "scav_industrial_salvage",
@@ -25,8 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_926_901",
   "map_id": "map_world",
-  "marker": "#",
   "name": "Runway",
-  "parent_zone": null,
-  "updated_at": "1784326213"
+  "parent_zone": null
 }

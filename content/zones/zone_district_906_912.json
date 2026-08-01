@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "urban",
-  "audio_theme_id": null,
   "bg_color": "#22201c",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
   "description": "A slot of a café wedged into a street-facing unit, JITTER stencilled small on the glass above a menu board that cycles its prices a little faster than feels honest. Inside, a chrome espresso rig hisses and gleams, tended by one bored figure and a queue of standing counters. The whole place smells of scorched sugar and ozone.",
   "exits": {
     "east": "zone_district_907_912",
@@ -17,7 +15,6 @@
     "entrance": "east",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_907_912"
   },
@@ -28,6 +25,5 @@
   "map_id": "map_world",
   "marker": "JT",
   "name": "Battery Acid Coffee Co.",
-  "parent_zone": null,
-  "updated_at": "1784600000"
+  "parent_zone": null
 }

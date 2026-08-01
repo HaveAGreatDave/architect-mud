@@ -4,10 +4,8 @@
     "A sign over the register reads: YOU BREAK THE GLASS, YOU MEET THE OWNER."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2a2620",
   "color": "#d8c8a0",
-  "created_by": null,
   "description": "A tight, orderly shop that smells of oil and cold metal. Long guns stand racked behind a scarred counter, ammunition boxed in neat ziggurats, a firing lane sealed off behind scratched glass at the back.",
   "exits": {
     "west": "zone_district_920_905"
@@ -24,8 +22,6 @@
   "grid_z": 0,
   "id": "zone_gunshop_interior",
   "map_id": "map_interior_zone_gunshop_interior",
-  "marker": null,
   "name": "Ironside Arms",
-  "parent_zone": "zone_district_920_905",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_district_920_905"
 }

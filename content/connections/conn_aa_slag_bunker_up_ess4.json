@@ -1,0 +1,9 @@
+{
+  "a": "zone_aa_slag_bunker",
+  "b": "zone_district_891_905",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_aa_slag_bunker_up_ess4",
+  "lockable": false,
+  "one_way": false
+}

@@ -4,10 +4,7 @@
     "The stairwell breathes a draught of cold concrete up the landing."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#5a5450",
-  "color": null,
-  "created_by": "tenement-gen",
   "description": "A narrow landing off the stairwell, six numbered doors crowded around it, the stencilled numbers worn to grey ghosts. The carpet gave up years ago and the smell never will. A bare bulb buzzes overhead, throwing more shadow than light.",
   "exits": {
     "down": "zone_yards_tenement_f7",
@@ -27,8 +24,6 @@
   "grid_z": 8,
   "id": "zone_yards_tenement_f8",
   "map_id": "map_int_yards_tenement",
-  "marker": null,
   "name": "Floor 8",
-  "parent_zone": "zone_yards_tenement_lobby",
-  "updated_at": "1783970000"
+  "parent_zone": "zone_district_921_902"
 }

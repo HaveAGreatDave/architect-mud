@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "audio_theme_id": null,
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "created_by": "ascendant-stronghold",
   "description": "A working foundry with its guts on show: robot arms stitch synthetic muscle onto frames behind blast glass, sparks falling in slow orange rain. A sign over the door reads THE WEAVE in letters cut from the same chrome they extrude. It smells of ozone and hot polymer even out here.",
   "exits": {
     "east": "zone_district_894_907",
@@ -29,6 +27,5 @@
   "map_id": "map_world",
   "marker": "AW",
   "name": "The Weave",
-  "parent_zone": null,
-  "updated_at": "1783740000"
+  "parent_zone": null
 }

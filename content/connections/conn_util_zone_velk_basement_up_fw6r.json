@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_velk_basement",
+  "b": "zone_velk_basement",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_velk_basement_up_fw6r",
+  "lockable": false,
+  "one_way": false
+}

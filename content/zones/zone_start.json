@@ -5,10 +5,7 @@
     "A printer somewhere spits out a receipt. Nobody comes to collect it."
   ],
   "ambient_theme": "city",
-  "audio_theme_id": null,
   "bg_color": "#4bb36a",
-  "color": null,
-  "created_by": null,
   "description": "Aseptic white tile floor that has long since gone grey at the grout lines. Vat chambers run along both walls — human-sized cylinders of cloudy fluid, most occupied, all humming at a frequency just below the threshold of comfort. Overhead fluorescents pulse with slow, clinical regularity. Somewhere in the walls, a machine breathes. This is where you come from. Every time.",
   "exits": {
     "down": "zone_clone_facility_z-1_1782276270002",
@@ -21,6 +18,7 @@
     "is_building": true,
     "is_interior": true,
     "scavenging_table_id": "scav_roadside_junk",
+    "terrain": "grass",
     "world_exit_zone": "zone_district_918_903"
   },
   "grid_x": 0,
@@ -28,8 +26,6 @@
   "grid_z": 0,
   "id": "zone_start",
   "map_id": "map_int_1782352518150",
-  "marker": null,
   "name": "Coldwater Clone Facility",
-  "parent_zone": "zone_district_918_903",
-  "updated_at": "1782495256"
+  "parent_zone": "zone_district_918_903"
 }

@@ -5,10 +5,8 @@
     "Glass to port and starboard frames the water in two cold rectangles."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#1a1620",
   "color": "#efe6ff",
-  "created_by": "echelon",
   "description": "The upper-deck landing, hushed and carpeted in something deep enough to lose a coin in. The staircase descends (DOWN) to the foyer, and a slimmer stair climbs (UP) to the open sun deck. Forward (NORTH) a single sealed hatch guards the owner's suite; aft (SOUTH) the deck opens to the helipad. You can LOOK EAST or WEST out across the Basin through the smoked glass.",
   "exits": {
     "down": "zone_echelon_foyer",
@@ -31,8 +29,6 @@
   "grid_z": 2,
   "id": "zone_echelon_landing",
   "map_id": "map_echelon",
-  "marker": null,
   "name": "Echelon — Stair Landing",
-  "parent_zone": "zone_echelon_exterior",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_echelon_exterior"
 }

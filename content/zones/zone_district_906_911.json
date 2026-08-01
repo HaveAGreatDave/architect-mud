@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "urban",
-  "audio_theme_id": null,
   "bg_color": "#20242b",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
   "description": "A squat municipal box wedged onto the Meltwater Row verge, its frontage all scuffed institutional glass and a holo-shingle that reads WARD NINE — PERMITS · LICENCES · GRIEVANCES, the last word flickering like it's the honest one. A queue-line is painted on the crete outside, faded to a suggestion. A slot in the door is stuffed with forms nobody filed.",
   "exits": {
     "east": "zone_district_907_911",
@@ -17,7 +15,6 @@
     "entrance": "east",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_907_911"
   },
@@ -28,6 +25,5 @@
   "map_id": "map_world",
   "marker": "W9",
   "name": "Office of Permitted Suffering",
-  "parent_zone": null,
-  "updated_at": "1784600000"
+  "parent_zone": null
 }

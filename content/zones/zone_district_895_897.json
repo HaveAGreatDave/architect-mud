@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "coast",
-  "audio_theme_id": null,
-  "bg_color": "#1d3b52",
   "color": "#7fd3ff",
-  "created_by": "zone-planner",
   "description": "Cold water closes around your legs at the shoreline, the bottom shelving away fast into lightless murk. This is as far as you go on foot — the channel beyond is deep, and impassable without a boat.",
   "exits": {
     "east": "zone_district_896_897",
@@ -14,7 +11,6 @@
   },
   "flags": {
     "district": "water",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "water"
   },
@@ -23,8 +19,6 @@
   "grid_z": 0,
   "id": "zone_district_895_897",
   "map_id": "map_world",
-  "marker": "≈",
   "name": "Coldwater Basin",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

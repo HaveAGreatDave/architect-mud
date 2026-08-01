@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "urban",
-  "audio_theme_id": null,
   "bg_color": "#33383e",
   "color": "#cdb489",
-  "created_by": "yards-plan",
   "description": "A windowless steel shed the size of a hangar, its roller doors chained and customs-sealed. Everything inside is in transit and belongs, technically, to no one — which is exactly why a corp would want the keys. A faded stencil reads CUSTOMS BONDED STORE 7. NO ADMITTANCE.",
   "exits": {
     "north": "zone_yard_bonded",
@@ -17,7 +15,6 @@
     "entrance": "south",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_922_908"
   },
@@ -28,6 +25,5 @@
   "map_id": "map_world",
   "marker": "BW",
   "name": "Bonded & Bothered",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

@@ -6,10 +6,8 @@
     "The concierge screen wakes, reads you, and goes tactfully dark."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#1b232c",
   "color": "#cfe9ff",
-  "created_by": null,
   "description": "The plinth, inside: a ten-sided atrium of mirror steel where every facet holds a slightly different, slightly better version of you. A cyan cove band runs the whole decagon at shoulder height, cool as a held breath. The concierge counter is a single wet-looking slab with nobody behind it and a screen that already knows your name. Two express cars wait behind bronze glass, and the stair — a mirrored helix wrapped around the core — climbs into the shaft for residents who prefer their own legs. It is quiet the way expensive rooms are quiet: not empty, just insulated.",
   "exits": {
     "down": "zone_mq_chrome_util",
@@ -28,8 +26,6 @@
   "grid_z": 0,
   "id": "zone_mq_chrome_lobby",
   "map_id": "map_int_mq_chrome",
-  "marker": null,
   "name": "Lobby",
-  "parent_zone": "zone_district_895_905",
-  "updated_at": "1782964408"
+  "parent_zone": "zone_district_895_905"
 }

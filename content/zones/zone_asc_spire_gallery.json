@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "created_by": "ascendant-stronghold",
   "description": "A long hall of lit vitrines, each holding one rung of the ladder: a first crude jack; a coil of subdermal weave; a cortical backup drive on black velvet, labelled THE ONLY THING WORTH KEEPING. The exhibit is arranged so you walk it from meat to something else, and by the end you are meant to want it.",
   "exits": {
     "down": "zone_asc_spire_concourse",
@@ -21,8 +19,6 @@
   "grid_z": 0,
   "id": "zone_asc_spire_gallery",
   "map_id": "map_int_asc_spire",
-  "marker": null,
   "name": "Gallery of Rungs",
-  "parent_zone": "zone_district_892_906",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_district_892_906"
 }

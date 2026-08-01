@@ -1,0 +1,9 @@
+{
+  "a": "zone_broth_counter",
+  "b": "zone_district_917_908",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_broth_counter_south_5aiq",
+  "lockable": true,
+  "one_way": false
+}

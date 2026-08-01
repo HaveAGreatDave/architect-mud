@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_asc_vats_hall",
+  "b": "zone_asc_vats_hall",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_asc_vats_hall_up_sa2r",
+  "lockable": false,
+  "one_way": true
+}

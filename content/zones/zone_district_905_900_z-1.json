@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "audio_theme_id": null,
-  "bg_color": "#14283a",
   "color": "#356d90",
-  "created_by": null,
   "description": "The drowned floor of the basin, littered with the shapes of things people stopped needing — a bicycle frame furred with growth, drums gone soft with rust, a shopping trolley standing improbably upright. Nothing down here is in any hurry.",
   "exits": {
     "east": "zone_district_906_900_z-1",
@@ -13,17 +10,13 @@
     "west": "zone_district_904_900_z-1"
   },
   "flags": {
-    "planner": "bp_district",
-    "terrain": "water",
-    "underwater": true
+    "terrain": "underwater"
   },
   "grid_x": 905,
   "grid_y": 900,
   "grid_z": -1,
   "id": "zone_district_905_900_z-1",
   "map_id": "map_world",
-  "marker": null,
   "name": "The Basin Floor",
-  "parent_zone": null,
-  "updated_at": "1784504312"
+  "parent_zone": null
 }

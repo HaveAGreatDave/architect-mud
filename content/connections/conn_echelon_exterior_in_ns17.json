@@ -1,0 +1,9 @@
+{
+  "a": "zone_echelon_exterior",
+  "b": "zone_echelon_foyer",
+  "blocked": false,
+  "dir": "in",
+  "id": "conn_echelon_exterior_in_ns17",
+  "lockable": false,
+  "one_way": false
+}

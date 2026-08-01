@@ -1,0 +1,9 @@
+{
+  "a": "zone_solenne_elevator",
+  "b": "zone_solenne_lobby",
+  "blocked": false,
+  "dir": "out",
+  "id": "conn_solenne_elevator_out_ppqz",
+  "lockable": false,
+  "one_way": false
+}

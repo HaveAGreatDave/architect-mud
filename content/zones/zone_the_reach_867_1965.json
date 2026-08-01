@@ -8,10 +8,6 @@
     "Grit spirals up the inside face of the eastern sister and pours over the top."
   ],
   "ambient_theme": "wasteland",
-  "audio_theme_id": null,
-  "bg_color": null,
-  "color": null,
-  "created_by": null,
   "description": "Two slabs of rock lean into each other out of the flat scrub, forty feet of them, weathered down to the colour of a bad tooth and close enough at the top to make a crooked doorway you could walk a truck through. Between them is the only real shade for miles, and the ground in that shade is packed hard and shiny from traffic. Old paint marks the base of the eastern sister — a number, mostly gone. The wind coming through the gap has a sound to it that carries a long way across the flats.",
   "exits": {
     "east": "zone_the_reach_868_1965",
@@ -30,8 +26,6 @@
   "grid_z": 0,
   "id": "zone_the_reach_867_1965",
   "map_id": "map_world",
-  "marker": "drop",
   "name": "The Sisters",
-  "parent_zone": null,
-  "updated_at": "1784533789"
+  "parent_zone": null
 }

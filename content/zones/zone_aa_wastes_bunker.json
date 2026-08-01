@@ -5,16 +5,13 @@
     "A hand-lamp swings on its cord and throws the shadows around."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#221f18",
   "color": "#c0b088",
-  "created_by": "zone-planner",
   "description": "The bunker under the wastes nest — a half-buried shipping container sunk into the pasture and roofed with earth, close and hot and smelling of gun oil and dust. Belted ammunition hangs coiled from the walls; crates of scavenged spares and a bench of cannibalised parts fill the rest. Out here you fix the gun or you walk, so the gun gets fixed — dragged back to firing with spares and spite every time it's shot off its mount. A steel ladder climbs to the hatch and the open bed above.",
   "exits": {
     "up": "zone_district_891_907"
   },
   "flags": {
-    "aa_bunker": "aa_wastes_gun",
     "is_interior": true,
     "world_exit_zone": "zone_district_891_907"
   },
@@ -23,8 +20,6 @@
   "grid_z": -1,
   "id": "zone_aa_wastes_bunker",
   "map_id": "map_int_aa_wastes",
-  "marker": null,
   "name": "Wastes Gun Nest — Bunker",
-  "parent_zone": null,
-  "updated_at": "1783740000"
+  "parent_zone": "zone_district_891_907"
 }

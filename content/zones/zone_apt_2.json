@@ -3,10 +3,7 @@
     "The boarded windows let in thin lines of light that move slowly across the floor."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#c9a884",
-  "color": null,
-  "created_by": null,
   "description": "A corner unit with two windows, both boarded. Someone before you left a faded poster on the wall — a beach, somewhere, once.",
   "exits": {
     "in": "zone_apt_2_bath",
@@ -22,6 +19,5 @@
   "map_id": "map_interior_zone_residential_lobby",
   "marker": "2B",
   "name": "Unit 2B",
-  "parent_zone": null,
-  "updated_at": "1783045464"
+  "parent_zone": "zone_district_920_904"
 }

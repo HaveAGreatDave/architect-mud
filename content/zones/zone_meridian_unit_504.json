@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#8f9a7e",
-  "color": null,
-  "created_by": null,
   "description": "Unit 504 on the fifth floor of The Meridian. A compact studio: four concrete walls, a drop ceiling with a suspect water stain developing in one corner, bare cable hookups where a previous tenant's life used to plug in. A single window faces the interior airshaft — the view is another wall, close enough to touch if you lean out. Old picture hooks mark where someone made this home once. The bones are all here. Whether it qualifies as livable depends entirely on what you're used to.",
   "exits": {
     "east": "zone_meridian_floor_5"
@@ -12,7 +9,8 @@
   "flags": {
     "is_apartment": true,
     "is_interior": true,
-    "rent_cost": 200
+    "rent_cost": 200,
+    "terrain": "grass"
   },
   "grid_x": -1,
   "grid_y": 0,
@@ -21,6 +19,5 @@
   "map_id": "map_int_meridian",
   "marker": "5",
   "name": "Unit 504",
-  "parent_zone": "zone_meridian_floor_5",
-  "updated_at": "1782898111"
+  "parent_zone": "zone_district_918_908"
 }
