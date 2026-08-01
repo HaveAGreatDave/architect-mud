@@ -1,0 +1,9 @@
+{
+  "a": "zone_citadel_hall",
+  "b": "zone_district_921_911",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_citadel_hall_south_5k0k",
+  "lockable": false,
+  "one_way": false
+}

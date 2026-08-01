@@ -1,0 +1,9 @@
+{
+  "a": "zone_voltage_floor",
+  "b": "zone_voltage_vip",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_voltage_floor_north_zvsj",
+  "lockable": true,
+  "one_way": false
+}

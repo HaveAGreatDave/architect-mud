@@ -5,10 +5,8 @@
     "An amber light sweeps the far wall and is gone. You wait. It does not come again. Probably."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#1a1512",
   "color": "#b08a6a",
-  "created_by": "the-under",
   "description": "A pump chamber where the storm system once lifted its overflow toward the river, the great electric sump long dead and drowned. The concrete carries a constant low thrum from the power plant overhead. Passages run east to the turbine underflow and on down south into the deep trunk — and this is where the Architect's maintenance units come, when they come.",
   "exits": {
     "east": "zone_under_turbunder",
@@ -28,6 +26,5 @@
   "map_id": "map_world",
   "marker": "⚙",
   "name": "Machine Sump",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

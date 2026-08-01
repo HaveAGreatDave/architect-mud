@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_922_904",
+  "b": "zone_dray_freightoffice",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_district_922_904_east_lg0y",
+  "lockable": true,
+  "one_way": false
+}

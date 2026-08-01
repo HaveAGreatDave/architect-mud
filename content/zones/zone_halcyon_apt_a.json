@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2c2340",
   "color": "#eae6f0",
-  "created_by": null,
   "description": "A compact sky-apartment: engineered calm, a fold-away bed, and a floor-to-ceiling window that turns the whole cold city into a view you are paying for. Sparsely fitted, waiting for a tenant.",
   "exits": {
     "south": "zone_halcyon_residences"
@@ -22,6 +20,5 @@
   "map_id": "map_int_halcyon",
   "marker": "41",
   "name": "Halcyon Residence 41-A",
-  "parent_zone": "zone_halcyon_residences",
-  "updated_at": "1783316802"
+  "parent_zone": "zone_district_895_906"
 }

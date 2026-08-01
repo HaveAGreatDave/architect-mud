@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_901_908",
+  "b": "zone_drum_shop",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_901_908_west_nseq",
+  "lockable": true,
+  "one_way": false
+}

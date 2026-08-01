@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_apt_5_south_z0vx",
   "door_type": "basic",
   "exit_dir": "south",
   "flags": {},
@@ -23,6 +24,6 @@
       }
     }
   },
-  "target_zone": null,
+  "target_zone": "zone_embassy_floor2",
   "zone_id": "zone_apt_5"
 }

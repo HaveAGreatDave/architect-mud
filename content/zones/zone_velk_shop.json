@@ -7,10 +7,7 @@
     "A price tag twirls slowly on a hanging lamp."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#b06a35",
-  "color": null,
-  "created_by": null,
   "description": "The shop is improbably full — every surface covered, every corner claimed. Chairs stacked on tables, lamps draped with fabric samples, shelves bowing under the weight of picture frames, drawer units, and objects with no obvious purpose but clear previous lives. It smells like oil soap and old wood. Somehow, it all feels livable.",
   "exits": {
     "down": "zone_velk_basement",
@@ -25,8 +22,6 @@
   "grid_z": 0,
   "id": "zone_velk_shop",
   "map_id": "map_int_velk",
-  "marker": null,
   "name": "Velk's Pre-Owned Furnishings",
-  "parent_zone": "zone_district_920_911",
-  "updated_at": "1782918446"
+  "parent_zone": "zone_district_920_911"
 }

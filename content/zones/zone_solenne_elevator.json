@@ -4,10 +4,8 @@
     "A note of piped strings, so quiet it might be imagined, threads the car."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2c2c38",
   "color": "#eae1cf",
-  "created_by": null,
   "description": "The car is a jewel-box of mirror-bronze and hand-rubbed walnut, a bench of oxblood leather along the back wall and a single orchid on a shelf that is replaced before it can ever wilt. A brushed panel of lit buttons glows beside the door, and a small screen overhead reads SOLENNE and the car's drifting position. Step <b>out</b> to return to the Grand Lobby.",
   "exits": {
     "out": "zone_solenne_lobby",
@@ -64,8 +62,6 @@
   "grid_z": 0,
   "id": "zone_solenne_elevator",
   "map_id": "map_int_solenne",
-  "marker": null,
   "name": "Elevator",
-  "parent_zone": "zone_district_914_908",
-  "updated_at": "1784900000"
+  "parent_zone": "zone_district_914_908"
 }

@@ -7,10 +7,6 @@
     "A moth ticks against the office window, on the outside, wanting in."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
-  "bg_color": null,
-  "color": null,
-  "created_by": "bb1b3a85-e716-4885-8de7-6c12a496086a",
   "description": "A cramped front office warm with lamplight: a check-in desk under a board of key hooks, a sagging couch, and a dead screen used as a shelf. People come here to ask Amos for a room, a name, or a way in — and mostly to find out whether he'll give them one.",
   "exits": {
     "down": "zone_util_zone_bld_900_1171_lobby",
@@ -29,8 +25,6 @@
   "grid_z": 0,
   "id": "zone_bld_900_1171_lobby",
   "map_id": "map_int_bld_900_1171",
-  "marker": null,
   "name": "Front Office",
-  "parent_zone": "zone_the_reach_873_1954",
-  "updated_at": "1784517512"
+  "parent_zone": "zone_the_reach_873_1954"
 }

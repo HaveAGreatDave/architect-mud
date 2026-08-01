@@ -5,10 +5,8 @@
     "The Watch's sigil is cut clean into the lintel, no longer hiding."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#14100e",
   "color": "#e0a030",
-  "created_by": "the-under",
   "description": "The end of the road: a reinforced blast door set into a poured bulkhead the Watch built themselves, salvaged plate and honest welds. Here the hiding stops — their mark is carved openly into the lintel, and a gutted camera housing hangs above the door like a trophy. The door does not open for strangers. It opens for people the Long Watch have decided to trust.",
   "exits": {
     "east": "zone_lw_entry",
@@ -26,6 +24,5 @@
   "map_id": "map_world",
   "marker": "▣",
   "name": "The Watch Threshold",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "audio_theme_id": null,
   "bg_color": "#1b3040",
   "color": "#5f93b8",
-  "created_by": "wildlands-expand",
   "description": "A channel cut deep into the hardpan, its surface pleated and turning over itself. It smells of wet stone and, under that, of something mineral and faintly medicinal. The far bank is near enough to shout across and much too far to jump.",
   "exits": {
     "east": "zone_district_881_907",
@@ -14,7 +12,6 @@
   },
   "flags": {
     "district": "wilds",
-    "planner": "bp_district",
     "radiation": 32,
     "region_id": "region_coldwater",
     "terrain": "water"
@@ -24,8 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_880_907",
   "map_id": "map_world",
-  "marker": null,
   "name": "The Meltwater",
-  "parent_zone": null,
-  "updated_at": "1784496295"
+  "parent_zone": null
 }

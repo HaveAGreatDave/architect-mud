@@ -1,17 +1,14 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "created_by": "ascendant-stronghold",
   "description": "A single terminal set into the Curtain itself, where hard light meets cold glass. Here, they say, you can speak to the Architect — or to the part of yourself the Ascendants intend to upload into it. The hum is very loud, and very patient.",
   "exits": {
     "out": "zone_asc_shrine_nave"
   },
   "flags": {
     "always_lit": true,
-    "architect_uplink": true,
     "is_building": true,
     "is_interior": true,
     "world_exit_zone": "zone_district_892_907"
@@ -21,8 +18,6 @@
   "grid_z": 0,
   "id": "zone_asc_shrine_uplink",
   "map_id": "map_int_asc_shrine",
-  "marker": null,
   "name": "The Uplink",
-  "parent_zone": "zone_district_892_907",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_district_892_907"
 }

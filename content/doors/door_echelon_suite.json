@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_echelon_landing_north_zvua",
   "door_type": "reinforced",
   "exit_dir": "north",
   "flags": {},

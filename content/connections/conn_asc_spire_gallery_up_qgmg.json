@@ -1,0 +1,9 @@
+{
+  "a": "zone_asc_spire_gallery",
+  "b": "zone_asc_spire_sanctum",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_asc_spire_gallery_up_qgmg",
+  "lockable": false,
+  "one_way": false
+}

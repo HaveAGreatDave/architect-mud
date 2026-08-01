@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "created_by": "ascendant-stronghold",
   "description": "A calm room the colour of a fresh bandage. A chrome-doctor reviews your body the way a mechanic reviews a trade-in — not unkindly, just already pricing the parts. A catalogue of augments scrolls on the wall, each with a number that softens as your standing with the Ascendants rises.",
   "exits": {
     "east": "zone_district_893_905",
@@ -22,8 +20,6 @@
   "grid_z": 0,
   "id": "zone_asc_clinic_consult",
   "map_id": "map_int_asc_clinic",
-  "marker": null,
   "name": "Consultation",
-  "parent_zone": "zone_district_893_905",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_district_893_905"
 }

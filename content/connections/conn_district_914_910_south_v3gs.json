@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_914_910",
+  "b": "zone_sentinel_bullpen",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_914_910_south_v3gs",
+  "lockable": true,
+  "one_way": false
+}

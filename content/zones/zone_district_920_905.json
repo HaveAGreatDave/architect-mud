@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "audio_theme_id": null,
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
   "description": "The face of Second Amendment Superstore — a low blockhouse of riveted plate with a slit window and a door like a bank vault. A board over it reads: YOU BREAK THE GLASS, YOU MEET THE OWNER. Ironside Street runs off to the west.",
   "exits": {
     "east": "zone_gunshop_interior",
@@ -17,7 +15,6 @@
     "entrance": "west",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes",
     "world_exit_zone": "zone_district_919_905"
@@ -29,6 +26,5 @@
   "map_id": "map_world",
   "marker": "GN",
   "name": "Second Amendment Superstore",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

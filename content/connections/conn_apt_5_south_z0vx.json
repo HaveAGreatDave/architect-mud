@@ -1,0 +1,9 @@
+{
+  "a": "zone_apt_5",
+  "b": "zone_embassy_floor2",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_apt_5_south_z0vx",
+  "lockable": true,
+  "one_way": false
+}

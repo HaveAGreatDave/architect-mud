@@ -87,7 +87,6 @@ write(`zones/${sanitize(bathId)}.json`, {
   audio_theme_id: null,
   bg_color: parent.bg_color || '#3a3f44',
   color: null,
-  created_by: 'add-ensuite-bathroom',
   description: bathDesc,
   exits: { [bathDir]: parentId },
   flags: { is_interior: true },

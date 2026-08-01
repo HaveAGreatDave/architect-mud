@@ -8316,8 +8316,8 @@ export const routeHandler = async (path, method, body, auth) => {
         // Create interior map linked to the exterior zone
         const mapId = `map_int_${ts}`;
         await query(
-          `INSERT INTO maps (id, name, parent_zone_id, entry_zone_id, created_by) VALUES ($1,$2,$3,$4,$5)`,
-          [mapId, `${studio_name} — Interior`, exteriorZoneId, null, auth?.playerId || null]
+          `INSERT INTO maps (id, name, parent_zone_id, entry_zone_id) VALUES ($1,$2,$3,$4)`,
+          [mapId, `${studio_name} — Interior`, exteriorZoneId, null]
         );
         created.map = mapId;
 

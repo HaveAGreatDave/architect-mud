@@ -1,21 +1,14 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "audio_theme_id": null,
-  "bg_color": "#3f3a34",
-  "color": "#b9a888",
-  "created_by": "zone-planner",
   "description": "The road here is more suggestion than surface — compacted gravel, broken kerbstones, a storm drain choked with silt. Somebody dragged a mattress halfway across it and gave up.",
   "exits": {
     "east": "zone_district_919_904",
-    "south": "zone_district_918_905",
     "west": "zone_district_917_904"
   },
   "flags": {
     "district": "wasteland",
-    "icon": "road_e",
     "intro_lore": "Ironside Street is as close to neutral ground as the district keeps — a sagging stretch of broken kerb where every route in and out of the wastes has to pass, and nobody's yet managed to hold it. You'll cross it a hundred times; the trick is making it a hundred and one.",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
@@ -26,8 +19,6 @@
   "grid_z": 0,
   "id": "zone_district_918_904",
   "map_id": "map_world",
-  "marker": "⁙∴",
   "name": "Ironside Street",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

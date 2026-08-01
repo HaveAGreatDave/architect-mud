@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_914_908",
+  "b": "zone_solenne_lobby",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_district_914_908_north_0ita",
+  "lockable": true,
+  "one_way": false
+}

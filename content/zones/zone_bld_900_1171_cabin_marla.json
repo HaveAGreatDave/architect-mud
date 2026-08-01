@@ -1,10 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
-  "bg_color": null,
-  "color": null,
-  "created_by": "reach_dev",
   "description": "A lived-in room with a shelf of half-empty bottles she is \"testing\" and a spiral ledger by the bed listing, in tiny handwriting, exactly who in the Reach owes what to whom.",
   "exits": {
     "north": "zone_bld_900_1171_walk1"
@@ -20,8 +16,6 @@
   "grid_z": 0,
   "id": "zone_bld_900_1171_cabin_marla",
   "map_id": "map_int_bld_900_1171",
-  "marker": null,
   "name": "Marla's Cabin",
-  "parent_zone": "zone_the_reach_873_1954",
-  "updated_at": "1784517512"
+  "parent_zone": "zone_the_reach_873_1954"
 }

@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_yard_wharf",
+  "b": "zone_yard_wharf",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_yard_wharf_up_fcr3",
+  "lockable": false,
+  "one_way": true
+}

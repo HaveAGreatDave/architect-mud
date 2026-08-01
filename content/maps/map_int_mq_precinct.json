@@ -1,8 +1,5 @@
 {
-  "created_by": null,
   "entry_zone_id": "zone_mq_precinct_lobby",
   "id": "map_int_mq_precinct",
-  "name": "Precinct 9 — Interior",
-  "parent_zone_id": "zone_district_922_911",
-  "updated_at": "1782964406"
+  "parent_zone_id": "zone_district_922_911"
 }

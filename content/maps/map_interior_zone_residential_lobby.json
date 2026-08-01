@@ -1,8 +1,5 @@
 {
-  "created_by": null,
   "entry_zone_id": "zone_residential_lobby",
   "id": "map_interior_zone_residential_lobby",
-  "name": "Embassy Hotel & Bar",
-  "parent_zone_id": "zone_district_920_904",
-  "updated_at": "1781975742"
+  "parent_zone_id": "zone_district_920_904"
 }

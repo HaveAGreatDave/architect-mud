@@ -1,0 +1,9 @@
+{
+  "a": "zone_the_broadcast",
+  "b": "zone_the_collapse",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_the_broadcast_north_wgto",
+  "lockable": false,
+  "one_way": true
+}

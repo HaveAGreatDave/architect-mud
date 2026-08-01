@@ -6,10 +6,8 @@
     "The wind comes off the water clean and keeps going."
   ],
   "ambient_theme": "outdoors",
-  "audio_theme_id": null,
   "bg_color": "#1b232c",
   "color": "#cfe9ff",
-  "created_by": null,
   "description": "The crown of the obelisk: a ten-sided open deck ringed by a halo of cool white light where the shaft finally stops tapering. A glass windbreak stands as high as your shoulder and no higher, so the wind arrives filtered rather than blocked. Loungers, a marble slab of a bar, a long shallow water table that throws the halo back up at the underside of the sky. The antenna spire goes up out of the middle of it with a beacon at the tip, pulsing slow. The whole Marquee lies below in pink and cyan — the dead cinema, the precinct floodlights, the grid pretending to be a city that works — and from up here it very nearly convinces.",
   "exits": {
     "down": "zone_mq_chrome_f3"
@@ -22,8 +20,6 @@
   "grid_z": 4,
   "id": "zone_mq_chrome_roof",
   "map_id": "map_int_mq_chrome",
-  "marker": null,
   "name": "Chrome Court — The Crown",
-  "parent_zone": "zone_mq_chrome_lobby",
-  "updated_at": "1782964410"
+  "parent_zone": "zone_district_895_905"
 }

@@ -7,10 +7,8 @@
     "The house sound — one sustained synth chord, impossibly patient — swells and settles."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#1b1524",
   "color": "#f4e6ff",
-  "created_by": null,
   "description": "Aurelia is less a shop than a lit vitrine you are permitted to stand inside. The walls are brushed graphite; the racks are single slender rails, each holding one garment, spaced like paintings. A mag-lev display plinth turns a liquid-chrome gown under a pin-spot in the centre of the room. Everything is underlit in cool violet except the full-height mirror by the fitting alcove, which throws a warm, forgiving light that makes you look like the most expensive version of yourself. There are no prices anywhere. That is the price.",
   "exits": {
     "west": "zone_district_895_907"
@@ -23,8 +21,6 @@
   "grid_z": 0,
   "id": "zone_aurelia_floor",
   "map_id": "map_int_aurelia",
-  "marker": null,
   "name": "Aurelia",
-  "parent_zone": "zone_district_895_907",
-  "updated_at": "1784332800"
+  "parent_zone": "zone_district_895_907"
 }

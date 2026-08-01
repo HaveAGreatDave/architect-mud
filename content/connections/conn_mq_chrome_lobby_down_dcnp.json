@@ -1,0 +1,9 @@
+{
+  "a": "zone_mq_chrome_lobby",
+  "b": "zone_mq_chrome_util",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_mq_chrome_lobby_down_dcnp",
+  "lockable": false,
+  "one_way": false
+}

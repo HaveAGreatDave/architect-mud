@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_912_910",
+  "b": "zone_greenroom_lounge",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_912_910_south_okij",
+  "lockable": true,
+  "one_way": false
+}

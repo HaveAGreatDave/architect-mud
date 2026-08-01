@@ -6,10 +6,7 @@
     "The cherry underlight flickers, tinting the whole room arterial red."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#c0304a",
-  "color": null,
-  "created_by": null,
   "description": "A strip club that leans hard on the one gimmick it can afford: a single working spotlight and a stage of scuffed acrylic lit cherry-red from beneath. Vinyl banquettes ring the room in various states of split and repair. The music is a heartbeat of bass you feel in your fillings. Dancers work the pole with the flat professionalism of people counting the minutes, and the bar sells watered drinks at armed-robbery prices. Everyone is watching everyone, and pretending not to.",
   "exits": {
     "down": "zone_mq_cherry_office",
@@ -28,8 +25,6 @@
   "grid_z": 0,
   "id": "zone_mq_cherry_floor",
   "map_id": "map_int_mq_cherry",
-  "marker": null,
   "name": "The Cherry Pit",
-  "parent_zone": "zone_district_901_907",
-  "updated_at": "1783019924"
+  "parent_zone": "zone_district_901_907"
 }

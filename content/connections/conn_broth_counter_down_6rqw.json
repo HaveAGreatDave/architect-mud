@@ -1,0 +1,9 @@
+{
+  "a": "zone_broth_counter",
+  "b": "zone_util_zone_broth_counter",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_broth_counter_down_6rqw",
+  "lockable": false,
+  "one_way": false
+}

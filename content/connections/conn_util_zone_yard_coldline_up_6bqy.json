@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_yard_coldline",
+  "b": "zone_yard_coldline",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_yard_coldline_up_6bqy",
+  "lockable": false,
+  "one_way": false
+}

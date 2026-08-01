@@ -4,10 +4,7 @@
     "The dead vending machine emits a single, hopeless click."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#c9a884",
-  "color": null,
-  "created_by": null,
   "description": "The third-floor landing, where the hotel's old carpet runner gives up entirely — bare concrete underneath, worn pale in a path between the stairs and the doors. Four units open off it, brass numbers screwed to each: 2A through 2D, a couple hanging by a single screw. The stairwell railing is cold iron, sticky where a thousand hands have gripped it. A dead vending machine hulks in the corner, its glass front spider-cracked, the snacks inside fossilised. Somewhere below, the bar's murmur leaks up through the floor.",
   "exits": {
     "down": "zone_embassy_floor_2nd",
@@ -26,8 +23,6 @@
   "grid_z": 2,
   "id": "zone_embassy_floor2",
   "map_id": "map_interior_zone_residential_lobby",
-  "marker": null,
   "name": "Third Floor Landing",
-  "parent_zone": "zone_residential_lobby",
-  "updated_at": "1783020605"
+  "parent_zone": "zone_district_920_904"
 }

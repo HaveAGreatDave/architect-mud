@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2b2824",
   "color": "#cdb489",
-  "created_by": "yards-plan",
   "description": "Inside the fuel compound: drums stacked to head height, a hand-pump station, a spill tray gritty with absorbent. A NO SMOKING sign has been shot clean through. It reeks of diesel and hot rubber.",
   "exits": {
     "south": "zone_district_923_907"
@@ -21,8 +19,6 @@
   "grid_z": 0,
   "id": "zone_yard_fuelyard",
   "map_id": "map_int_yard_fuelyard",
-  "marker": null,
   "name": "Flash Point Fuel & Pallet",
-  "parent_zone": "zone_district_923_907",
-  "updated_at": "1783739474"
+  "parent_zone": "zone_district_923_907"
 }

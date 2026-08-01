@@ -5,10 +5,8 @@
     "The quiet here is the deep, total quiet of a place the world has lost track of."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#1a150f",
   "color": "#e0a030",
-  "created_by": "longwatch",
   "description": "The bunkroom — a double row of neat, blanketed cots where the Watch rest between operations. It is warm, dry, and utterly out of the Architect's sight, which makes it perhaps the safest place to close your eyes anywhere in Coldwater Basin. A member can sleep here without one eye open. The common room is north.",
   "exits": {
     "north": "zone_lw_commons"
@@ -27,8 +25,6 @@
   "grid_z": 0,
   "id": "zone_lw_bunk",
   "map_id": "map_int_longwatch",
-  "marker": null,
   "name": "The Bunkroom",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": "zone_under_watchthresh"
 }

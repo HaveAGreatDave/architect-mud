@@ -5,10 +5,8 @@
     "A drip finds the back of your neck with cold precision."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#1c241f",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "A long curved bend where the main tunnel doglegs and the walls run with seep. The brick underfoot is glazed slick with algae that has never seen a photon of sun. It connects the sump back west to the silt gallery south.",
   "exits": {
     "south": "zone_under_silt",
@@ -26,6 +24,5 @@
   "map_id": "map_world",
   "marker": "◜",
   "name": "Dripping Bend",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

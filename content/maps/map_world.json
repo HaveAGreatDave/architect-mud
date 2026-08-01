@@ -1,8 +1,6 @@
 {
-  "created_by": null,
   "entry_zone_id": "zone_district_918_904",
   "id": "map_world",
   "name": "World Map",
-  "parent_zone_id": null,
-  "updated_at": "1782285471"
+  "parent_zone_id": null
 }

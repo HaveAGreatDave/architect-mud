@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_895_908",
+  "b": "zone_voltage_floor",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_district_895_908_east_09hb",
+  "lockable": false,
+  "one_way": false
+}

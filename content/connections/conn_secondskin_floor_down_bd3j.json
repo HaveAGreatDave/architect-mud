@@ -1,0 +1,9 @@
+{
+  "a": "zone_secondskin_floor",
+  "b": "zone_util_zone_secondskin_floor",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_secondskin_floor_down_bd3j",
+  "lockable": false,
+  "one_way": false
+}

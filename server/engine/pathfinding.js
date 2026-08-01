@@ -1,5 +1,14 @@
-import { world } from './world.js';
+import { world, propsOf } from './world.js';
 import { neighborZoneIds } from './exits.js';
+
+// Can a route cross this tile? The resolved `routable` property answers it — terrain
+// water presets it false, and a tile overrides it either way (a frozen bay is water
+// you CAN walk). Asking the capability instead of the paint is the point:
+// docs/proposals/terrain-property-presets.md.
+//
+// This used to test a `flags.water` boolean that had been migrated away and sat on no
+// row, so both checks below were silently no-ops and routes crossed a 945-tile basin.
+function isBlocked(zone) { return !!zone && !propsOf(zone.id).routable; }
 
 // A walkable street tile: an actual road/runway surface, or a tagged artery. These are
 // the tiles a route should hug. Building facades, interiors, plazas and lots are not.
@@ -14,7 +23,7 @@ function isRoadZone(zone) {
 function stepCost(zone) {
   if (!zone) return 8;
   const f = zone.flags || {};
-  if (f.water) return Infinity;
+  if (isBlocked(zone)) return Infinity;
   if (isRoadZone(zone)) return 1;
   if (f.street_life) return 2;          // outdoor street tile that isn't a marked road
   if (f.facade || f.is_building) return 60;   // a building face — endpoints only
@@ -66,7 +75,7 @@ export function findPath(startId, targetId, { maxDistance = 60, roads = false, a
       // Open water isn't standable — skip it even in the plain-BFS fallback so the
       // initial GPS line routes around the basin instead of cutting straight across
       // it (the target itself is exempt, matching the road search / avoid handling).
-      if (neighborId !== targetId && world.zones.get(neighborId)?.flags?.water) continue;
+      if (neighborId !== targetId && isBlocked(world.zones.get(neighborId))) continue;
       if (!parent.has(neighborId)) {
         parent.set(neighborId, current);
         dist.set(neighborId, currentDist + 1);

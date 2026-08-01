@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "audio_theme_id": null,
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "created_by": "ascendant-stronghold",
   "description": "A windowless drum of dull steel, humming with the deep note of coolant pumps. Frost creeps out from its seams. This is where the Ascendants keep their promise that death is only a billing problem — though from the outside it looks less like a promise than a very large, very cold filing cabinet.",
   "exits": {
     "north": "zone_district_892_904",
@@ -29,6 +27,5 @@
   "map_id": "map_world",
   "marker": "AV",
   "name": "The Vats",
-  "parent_zone": null,
-  "updated_at": "1783740000"
+  "parent_zone": null
 }

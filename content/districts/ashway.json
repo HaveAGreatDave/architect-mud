@@ -1,0 +1,18 @@
+{
+  "blurb": "One long grey road hauls everything the city can’t look at out of sight.",
+  "color": "#8b9097",
+  "id": "ashway",
+  "landmark": "ashway_road",
+  "name": "the Ashway",
+  "prefixes": [
+    "ashway"
+  ],
+  "signature": [
+    "Ash coats everything in a fine grey felt that puffs up at a footstep.",
+    "The air is dry and dead and tastes of burnt paper.",
+    "A haul rig grinds past somewhere, gears and dust and diesel.",
+    "Grey light, grey ground, grey sky — the colour got hauled off with everything else."
+  ],
+  "skyline": "the Ashway's haul road cuts a grey scar toward the hills",
+  "sort": 130
+}

@@ -1,8 +1,5 @@
 {
-  "created_by": null,
   "entry_zone_id": "zone_voltage_floor",
   "id": "map_int_voltage",
-  "name": "Voltage — Interior",
-  "parent_zone_id": "zone_district_895_908",
-  "updated_at": "1784332800"
+  "parent_zone_id": "zone_district_895_908"
 }

@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#1c1218",
-  "color": null,
-  "created_by": "add-ensuite-bathroom",
   "description": "Cyd's private head, and nothing about it apologizes for the plumbing. Black marble underfoot, a wall of smoked glass, gold fixtures that were never going to be anything but gold. A rain-head shower stands behind a single sheet of glass; the low sink and the toilet are tucked discreetly to one side. The same floral-and-money scent as the suite hangs here, softened by steam. A brushed bolt on the hatch slides shut when Cyd wants the world to wait.",
   "exits": {
     "out": "zone_echelon_suite"
@@ -20,8 +17,6 @@
   "grid_z": 0,
   "id": "zone_echelon_suite_bath",
   "map_id": null,
-  "marker": null,
   "name": "Echelon — Owner's Head",
-  "parent_zone": "zone_echelon_suite",
-  "updated_at": "1784144725"
+  "parent_zone": "zone_echelon_suite"
 }

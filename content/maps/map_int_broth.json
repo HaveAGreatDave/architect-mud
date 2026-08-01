@@ -1,8 +1,6 @@
 {
-  "created_by": "marrow-infill",
   "entry_zone_id": "zone_broth_counter",
   "id": "map_int_broth",
   "name": "Oyelaran's — Interior",
-  "parent_zone_id": "zone_district_917_908",
-  "updated_at": "1785200000"
+  "parent_zone_id": "zone_district_917_908"
 }

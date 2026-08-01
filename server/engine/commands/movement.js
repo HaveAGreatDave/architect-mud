@@ -1,6 +1,6 @@
 import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
-import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, tileIconSvg, buildingEntranceDir, interiorExitDirs, interiorOpenDirs, facadeStreetTile, applyMinimapVisibility, persistableZone } from '../world.js';
+import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, doorOnLink, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, frontDoorOf, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, tileIconSvg, buildingEntranceDir, interiorExitDirs, interiorOpenDirs, facadeStreetTile, applyMinimapVisibility, specOf, persistableZone } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
@@ -340,21 +340,14 @@ function resolveFacadeTransit(from, to) {
     if (!street) return null;
     return { finalId: streetId, finalZone: street, frontDoor: null };
   }
-  // Entering: anywhere else → facade → interior entry zone. The front door
-  // lives on the facade↔interior link, so surface it for the gate chain (the
-  // street→facade hop has no door of its own). Find it by the ACTUAL exit
-  // direction rather than assuming 'in'/'out': buildings reworked to cardinal
-  // entrances label that link e.g. 'west'/'east', while legacy ones still use
-  // 'in'/'out' — both resolve here.
+  // Entering: anywhere else → facade → interior entry zone. The front door lives on
+  // the facade↔interior link, so surface it for the gate chain (the street→facade hop
+  // has no door of its own). frontDoorOf owns that lookup — the door verbs reach
+  // through the facade with the same call, so what you can walk through is what you
+  // can also open.
   const entryId = interior.entry_zone_id;
   const entryZone = getZone(entryId);
-  const toInteriorDir = allExits(to).find((e) => e.target === entryId)?.dir;
-  const toFacadeDir = entryZone ? allExits(entryZone).find((e) => e.target === to.id)?.dir : null;
-  const frontDoor =
-    (toInteriorDir && getDoorForExit(to.id, toInteriorDir, entryId)) ||
-    (toFacadeDir && getDoorForExit(entryId, toFacadeDir, to.id)) ||
-    null;
-  return { finalId: entryId, finalZone: entryZone, frontDoor };
+  return { finalId: entryId, finalZone: entryZone, frontDoor: frontDoorOf(to) };
 }
 
 export async function cmdMove(direction, player, broadcast, opts = {}) {
@@ -415,7 +408,7 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   if (!targetZone) return { type:'error', message:'That exit leads nowhere yet.' };
 
   // Door may be on either side: in this zone going out, or in the target zone going back
-  let door = getDoorForExit(zone.id, direction, targetId) || getDoorForExit(targetId, OPPOSITE[direction], zone.id) || null;
+  let door = doorOnLink(zone.id, direction, targetId);
 
   // Revolving-door seam: an enterable facade is never stood on. Stepping onto
   // it from the street forwards straight into the interior entry zone; walking
@@ -834,9 +827,8 @@ function mapPoi(zone) {
   return null;
 }
 
-// One tile snapshot, positioned at (x,y) relative to the map's origin. `at` is an
-// optional coord lookup (x,y,z → zone|null) so road tiles auto-tile their connector.
-function mapTile(zone, x, y, placed, currentId, at = null) {
+// One tile snapshot, positioned at (x,y) relative to the map's origin.
+function mapTile(zone, x, y, placed, currentId) {
   const links = {};
   for (const [dir, target] of Object.entries(primaryExits(zone))) {
     if (placed.has(target) && MAP_DIR_OFFSET[dir]) links[dir] = target;
@@ -846,13 +838,15 @@ function mapTile(zone, x, y, placed, currentId, at = null) {
     id: zone.id, x, y, name: zone.name,
     danger: zoneDanger(zone), marker: zone.marker || null,
     color: zone.color || null, bg_color: zone.bg_color || null,
+    spec: specOf(zone.id),  // generated presentation — what the tile is actually painted from
     func: mapFunc(zone),
     district: districtFor(zone).key, // land-use district key — the regional map shows only your own
 
     description: zone.description || '',
     buildings: buildingsAt(zone),
     icon: poi?.icon || null, poi: poi?.poi || null,
-    svg: tileIconSvg(zone, at), // named zone-icon SVG (authored icon / rooftop, or an auto-tiled road connector)
+    // The footprint SVG and the map code are spec.feature / spec.label — see the note
+    // in world.js's minimap payload. `svg` was the same value under a second name.
     building_type: buildingTypeOf(zone), // facade tile's type — drives the labels/icons map overlay
     building_name: zone.flags?.building_name || null,
     entrance: buildingEntranceDir(zone), // which edge the door faces — drives the map entrance arrow
@@ -860,7 +854,10 @@ function mapTile(zone, x, y, placed, currentId, at = null) {
     open_dirs: interiorOpenDirs(zone), // every cardinal side that's open — drives the "edge lines" door style
     terrain: zoneTerrain(zone), // 'road' | 'water' | 'grass' | null — tileable terrain styling
 
-    water: zoneTerrain(zone) === 'water', // open water — the client refuses to route onto it
+    // `water:` used to ride here, described as "the client refuses to route onto it".
+    // No client code ever read it — the minimap styles water off `terrain` and the
+    // auto-walker follows the server's own route. Routability is a server decision
+    // (propsOf().routable, honoured in pathfinding), so the payload doesn't restate it.
 
     curtain: zone.flags?.curtain ? true : null, // the Architect's perimeter wall edge
     perimeter_gate: zone.flags?.perimeter_gate ? true : null, // the one break in the Curtain
@@ -887,13 +884,9 @@ function windowTiles(centerId, viewer = null, half = MAP_WINDOW_HALF) {
       z.grid_x != null && z.grid_y != null &&
       Math.abs(z.grid_x - cx) <= H && Math.abs(z.grid_y - cy) <= H), viewer);
     const placed = new Set(onMap.map(z => z.id));
-    // Coord index over this map/floor so road tiles auto-tile their connector (roadConnector).
-    const roadIndex = new Map();
-    for (const z of getAllZones())
-      if (z.map_id === center.map_id && z.grid_x != null && z.grid_y != null)
-        roadIndex.set(`${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`, z);
-    const roadAt = (x, y, z) => roadIndex.get(`${x},${y},${z}`) || null;
-    return onMap.map(z => mapTile(z, z.grid_x - cx, z.grid_y - cy, placed, centerId, roadAt));
+    // (The whole-map coord index that stood here fed roadConnector. The build resolves
+    // the connector now — see world.js tileIconSvg.)
+    return onMap.map(z => mapTile(z, z.grid_x - cx, z.grid_y - cy, placed, centerId));
   }
 
   const coords = new Map([[centerId, [0, 0]]]);

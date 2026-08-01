@@ -1,10 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "audio_theme_id": null,
-  "bg_color": null,
-  "color": null,
-  "created_by": null,
   "description": "An empty place.",
   "exits": {
     "east": "zone_district_942_906",
@@ -12,7 +8,6 @@
     "west": "zone_district_940_906"
   },
   "flags": {
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "redrock"
   },
@@ -21,8 +16,6 @@
   "grid_z": 0,
   "id": "zone_district_941_906",
   "map_id": "map_world",
-  "marker": null,
   "name": "Water Ground",
-  "parent_zone": null,
-  "updated_at": "1784700000"
+  "parent_zone": null
 }

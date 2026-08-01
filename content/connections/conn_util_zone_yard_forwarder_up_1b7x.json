@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_yard_forwarder",
+  "b": "zone_yard_forwarder",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_yard_forwarder_up_1b7x",
+  "lockable": false,
+  "one_way": true
+}

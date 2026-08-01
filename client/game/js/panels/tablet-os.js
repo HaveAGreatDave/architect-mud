@@ -2111,6 +2111,10 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile .mt-code { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
       font-size:13px; font-weight:700; letter-spacing:.5px; color:#fff; text-shadow:0 0 3px #000,0 1px 2px #000;
       background:radial-gradient(closest-side, rgba(0,0,0,.55), rgba(0,0,0,.15)); pointer-events:none; z-index:2; }
+    /* Connectivity art (spec.label.kind==='art') — the sewer corridor pieces. Structure,
+       not a code: the tile's own ink, no plate, and it never replaces the footprint. */
+    #tablet-os-overlay .tos-map-tile .mt-code.mt-art { font-weight:400; letter-spacing:0; color:inherit;
+      opacity:.75; background:none; text-shadow:0 1px 2px #000; }
     #tablet-os-overlay .tos-map-tile .mt-you { position:absolute; top:0; right:2px; font-size:9px; color:var(--mg-accent); text-shadow:0 0 4px #000; }
     #tablet-os-overlay .tos-map-tile .mt-dest { position:absolute; top:0; left:2px; font-size:9px; color:#ffcf4a; text-shadow:0 0 4px #000; }
     /* Journey map — an off-grid "survey terminal" shown in place of the city map when
@@ -5509,31 +5513,26 @@ function _mapHexRgb(hex) {
   const h = String(hex || '').replace('#', '');
   return [parseInt(h.slice(0, 2), 16) || 0, parseInt(h.slice(2, 4), 16) || 0, parseInt(h.slice(4, 6), 16) || 0];
 }
-// A tile counts as a building for label mode if it carries a building identity
-// (same test the Buildings legend uses, minus the standalone-POI landmarks).
-function _mapIsBldg(t) {
-  return !!(t.building_type || t.building_name);
-}
-// The code a building tile wears in Labels mode: the AUTHORED zones.marker, and
-// nothing else. That column exists to be the tile's map glyph; deriving one here meant
-// the authored value rendered nowhere while this map and the sidebar minimap derived
-// two DIFFERENT codes from the same name ("Hall of Records" → "HO" here, "HA" there,
-// authored "HR" on neither).
+// Whether a tile wears a code, and what it says, is `spec.label` — derived once by
+// the build (scripts/content/derive.mjs deriveLabel) and read identically here and by
+// the sidebar minimap. It replaces a local `_mapIsBldg` predicate that tested
+// `building_type || building_name` against the minimap's `building_type || enterable
+// || building_name`, so the two screens disagreed about enterable facades.
 //
-// Derivation now happens ONCE at authoring time (the dev panel stamps a suggested
-// acronym when it converts a tile into a facade), so a building with no marker
-// deliberately draws no letters — a gap the map audit reports (MARK-2/MARK-4) rather
-// than a code that differs per screen. An unmarked room inside a building draws
-// nothing for the same reason it always should have: it inherits flags.building_name
-// from its parent, so a derived code stamped the parent's acronym on every room.
-function _mapBldgCode(t) {
-  return String(t.marker || '').trim() || null;
+// `kind` says what the Labels toggle may do: a `building` or `room` code follows the
+// toggle; `art` (sewer-corridor connectivity pieces) is the tile's own drawing and
+// always shows, exactly like a road connector.
+function _mapLabel(t) {
+  return t.spec?.label || null;
 }
 function _mapTileSym(t) {
   if (t.isCurrent) return '<span class="mt-icon">◉</span>';
   // A named zone-icon SVG (road/building/runway) is the tile's own footprint — it
-  // wins over the POI glyph, which is a landmark hint for the adjacent street.
-  if (t.svg) return `<span class="mt-icon mt-svg" style="--zi:url(/assets/zone-icons/${esc(t.svg)}.svg)"></span>`;
+  // wins over the POI glyph, which is a landmark hint for the adjacent street. The
+  // build resolves which one (spec.feature): authored flags.icon, then the building's
+  // rooftop, then the auto-tiled road connector.
+  const feat = t.spec?.feature;
+  if (feat) return `<span class="mt-icon mt-svg" style="--zi:url(/assets/zone-icons/${esc(feat)}.svg)"></span>`;
   if (t.icon) return `<span class="mt-icon">${esc(t.icon)}</span>`;
   return ''; // bare tile — no marker glyph (#, ⸪., …)
 }
@@ -6631,12 +6630,9 @@ function renderMap(d) {
   for (const t of tiles) { cell[rowOf(t)][colOf(t)] = t; tById.set(t.id, t); }
 
   let grid = `<div class="tos-map-grid" style="--tos-tile:${tosZoomPx(d)}px;grid-template-columns:repeat(${gCols},var(--tos-tile));grid-template-rows:repeat(${gRows},var(--tos-tile))">`;
-  // Canonical terrain fills (mirror minimap.js TERRAIN_FILL). 'road' is handled separately.
-  const TOS_TERRAIN_FILL = {
-    water: '#3f7fb0', grass: '#5a9e57', park: '#46a24e', asphalt: '#45484d', concrete: '#8a8d91',
-    dirt: '#6b5138', sand: '#c2b280', gravel: '#7d7a73', dock: '#6e5636', dirt_road: '#7d6236',
-    scrub: '#6f7248', redrock: '#6f3524', ash: '#4f4b47', marsh: '#4d5a30',
-  };
+  // TOS_TERRAIN_FILL is gone — it was a hand-kept copy of minimap.js's copy of the
+  // dev panel's table, and the three had already drifted. Colours now arrive fully
+  // resolved in t.spec (scripts/content/derive.mjs, content/map/terrain.json).
   for (let r = 0; r < gRows; r++) for (let c = 0; c < gCols; c++) {
     const t = cell[r][c];
     const pos = `grid-column:${c + 1};grid-row:${r + 1}`;
@@ -6656,21 +6652,18 @@ function renderMap(d) {
     // Tileable terrain (mirrors the sidebar/full-map minimap): roads → grey asphalt +
     // yellow markings; every other ground type → a seamless coloured expanse (marker
     // dropped). water/grass keep authored bg priority; newer types use their canonical fill.
-    const terrain = (t.terrain === 'road' || TOS_TERRAIN_FILL[t.terrain]) ? t.terrain : null;
+    const terrain = t.spec?.minimap_class || null;
     let sym = _mapTileSym(t);
     let style = pos + ';';
-    if (terrain === 'road') { style += 'background-color:#4c5157;color:#f2c53d;'; cls.push('terr', 'terr-road'); }
-    // dirt_road: same auto-tiled connector, recoloured to a packed-dirt track (keep the symbol).
-    else if (terrain === 'dirt_road') { style += 'background-color:#7d6236;color:#c9a86a;'; cls.push('terr', 'terr-dirt_road'); }
-    else if (terrain) {
-      const fill = (terrain === 'water' || terrain === 'grass') ? (t.bg_color || TOS_TERRAIN_FILL[terrain]) : TOS_TERRAIN_FILL[terrain];
-      style += `background-color:${fill};`;
+    if (terrain) {
+      style += `background-color:${t.spec.fill};color:${t.spec.text};`;
       cls.push('terr', 'terr-' + terrain);
       // Terrain paints the GROUND, so an authored zone-icon SVG standing on it (a
       // statue, a helipad, an AA nest) survives the fill — only the POI glyph, which
       // is a landmark hint for the adjacent street rather than this tile's own
-      // footprint, drops for a clean expanse.
-      if (!t.isCurrent && !t.svg) sym = '';
+      // footprint, drops for a clean expanse. Roads and dirt roads keep theirs —
+      // their auto-tiled connector IS the symbol, which is what spec.auto_tile says.
+      if (!t.spec.auto_tile && !t.isCurrent && !t.spec.feature) sym = '';
     }
     // Regional view tints each non-terrain tile by land-use function, like the popup.
     else if (mode === 'regional' && FUNC_LEGEND[t.func]) {
@@ -6697,10 +6690,14 @@ function renderMap(d) {
     if (t.perimeter_gate) cls.push('tos-gate');
     else if (t.curtain) cls.push('tos-curtain');
     else if (t.glacis) cls.push('tos-glacis');
-    // Label mode: stamp the building's two-letter code over its tile (hides the icon).
-    const _bc = mapLabelsOn() && _mapIsBldg(t) ? _mapBldgCode(t) : null;
-    const code = _bc ? `<span class="mt-code">${esc(_bc)}</span>` : '';
-    grid += `<div class="${cls.join(' ')}" style="${style}" data-map-zone="${esc(t.id)}" title="${esc(t.name)}">${badges}${code || sym}${ent}${exits}</div>`;
+    // What sits on the tile. A building/room code REPLACES the footprint, and only in
+    // Labels mode. Connectivity art rides ON TOP of it and shows in every mode, because
+    // it is the tile's own drawing rather than a code someone reads off it.
+    const _lb = _mapLabel(t);
+    const body = _lb?.kind === 'art'
+      ? sym + `<span class="mt-code mt-art">${esc(_lb.text)}</span>`
+      : (_tosMapLabels && _lb ? `<span class="mt-code">${esc(_lb.text)}</span>` : sym);
+    grid += `<div class="${cls.join(' ')}" style="${style}" data-map-zone="${esc(t.id)}" title="${esc(t.name)}">${badges}${body}${ent}${exits}</div>`;
   }
   // GPS route line: an accent polyline through route tile centres, laid over the grid
   // as an SVG spanning every track (viewBox in tile units), mirroring the minimap.

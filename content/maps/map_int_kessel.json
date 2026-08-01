@@ -1,8 +1,6 @@
 {
-  "created_by": "marrow-infill",
   "entry_zone_id": "zone_kessel_shop",
   "id": "map_int_kessel",
   "name": "Bodega Vu — Interior",
-  "parent_zone_id": "zone_district_918_911",
-  "updated_at": "1785200000"
+  "parent_zone_id": "zone_district_918_911"
 }

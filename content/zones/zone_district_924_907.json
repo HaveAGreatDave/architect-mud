@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "urban",
-  "audio_theme_id": null,
   "bg_color": "#33383e",
   "color": "#cdb489",
-  "created_by": "yards-plan",
   "description": "A yard of intermodal boxes stacked four high in sun-bleached reds and blues, aisles between them like canyons. A reach-stacker sits idle, keys long gone. Half the containers are empty; the other half nobody will open on record.",
   "exits": {
     "north": "zone_yard_container",
@@ -17,7 +15,6 @@
     "entrance": "south",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_924_908"
   },
@@ -28,6 +25,5 @@
   "map_id": "map_world",
   "marker": "CY",
   "name": "Stack Overflow",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

@@ -1,0 +1,9 @@
+{
+  "a": "zone_casino_interior",
+  "b": "zone_district_921_910",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_casino_interior_north_jrkq",
+  "lockable": true,
+  "one_way": true
+}

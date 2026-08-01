@@ -1,0 +1,9 @@
+{
+  "a": "zone_lw_shop",
+  "b": "zone_lw_shop_back",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_lw_shop_west_a3b7",
+  "lockable": true,
+  "one_way": false
+}

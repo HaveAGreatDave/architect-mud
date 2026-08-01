@@ -1,0 +1,9 @@
+{
+  "a": "zone_solenne_apt_d",
+  "b": "zone_solenne_residences_34",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_solenne_apt_d_south_czam",
+  "lockable": true,
+  "one_way": false
+}

@@ -5,10 +5,8 @@
     "Far off, a slow heavy sound repeats — a drip the size of a fist."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#121a1d",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "A deep confluence where the flooded sublevel and the descending shaft pour together into the main southern run. The water is strong here, funnelled and cold, and the walls have gone from brick to raw poured tunnel — the boundary where the maintained system ends and the forgotten one begins.",
   "exits": {
     "north": "zone_under_laddershaft",
@@ -27,6 +25,5 @@
   "map_id": "map_world",
   "marker": "╳",
   "name": "Deep Confluence",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

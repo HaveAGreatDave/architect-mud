@@ -5,10 +5,8 @@
     "Bootscuffs and a coil of good rope say this landing is used, and often."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "A dry brick landing at the foot of a drain riser — the storm shaft that climbs, up and up, into the back room of a certain repair shop on the surface. The Watch keep this stretch clean and quiet: it is the members' way down, out of the machine's sight the whole descent. The threshold itself lies east.",
   "exits": {
     "east": "zone_under_watchthresh",
@@ -28,6 +26,5 @@
   "map_id": "map_world",
   "marker": "◈",
   "name": "Terminus Landing",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

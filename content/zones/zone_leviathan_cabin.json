@@ -5,10 +5,8 @@
     "The bulkhead heaters tick as they cycle, and the cold pressed against the hull stays outside."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#0c1614",
   "color": "#cfeee6",
-  "created_by": "leviathan_base",
   "description": "The main cabin of the Leviathan: a ribbed aluminium tube slung between the flight deck and the hold, fitted out for people rather than pallets. A run of low seats lines one wall under a row of small round windows; webbing straps and grab-rails hang from the frames. This is where you climb aboard and where you ride. The flight deck lies forward to the NORTH; the galley aft to the SOUTH.",
   "exits": {
     "north": "zone_leviathan_flightdeck",
@@ -18,7 +16,6 @@
     "aircraft_cabin": "leviathan",
     "always_lit": true,
     "building_name": "Leviathan",
-    "cabin_entry": true,
     "cabin_window": true,
     "home_slots": [
       {
@@ -35,8 +32,6 @@
   "grid_z": 1,
   "id": "zone_leviathan_cabin",
   "map_id": "map_aircraft_leviathan",
-  "marker": null,
   "name": "Main Cabin",
-  "parent_zone": null,
-  "updated_at": "1784505600"
+  "parent_zone": null
 }

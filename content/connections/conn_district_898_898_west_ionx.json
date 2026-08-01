@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_898_898",
+  "b": "zone_echelon_exterior",
+  "blocked": true,
+  "dir": "west",
+  "id": "conn_district_898_898_west_ionx",
+  "lockable": false,
+  "one_way": false
+}

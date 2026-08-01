@@ -1,6 +1,6 @@
 // GPS plugin regression — exercises SIFT location resolution + route plotting
 // against the live world without touching the client-side minimap overlay.
-import { getZone, getAllZones, isEnterableFacade, getMapByParentZone, resolveLanding } from '../../server/engine/world.js';
+import { getZone, getAllZones, isEnterableFacade, getMapByParentZone, resolveLanding, propsOf } from '../../server/engine/world.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
@@ -23,7 +23,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   // A non-water neighbour: water is invisible to GPS (and impassable), so routing to
   // a Coldwater Basin tile can't produce a path — pick a dry neighbour to route to.
-  const neighborId = Object.values(here.exits || {}).flat().find(id => { const z = getZone(id); return z && !z.flags?.water && !isEnterableFacade(z); });
+  const neighborId = Object.values(here.exits || {}).flat().find(id => { const z = getZone(id); return z && propsOf(z.id).routable && !isEnterableFacade(z); });
   if (neighborId) {
     const neighbor = getAllZones().find(z => z.id === neighborId);
     r = await run(`gps ${neighbor.name}`);
@@ -48,14 +48,14 @@ export default async function regress({ run, check, getPlayer }) {
   {
     const sq = (a, b) => (a.grid_x - b.grid_x) ** 2 + (a.grid_y - b.grid_y) ** 2;
     const byName = {};
-    for (const z of getAllZones().filter(z => !z.flags?.water && z.grid_x != null))
+    for (const z of getAllZones().filter(z => propsOf(z.id).routable && z.grid_x != null))
       (byName[(z.name || '').toLowerCase()] = byName[(z.name || '').toLowerCase()] || []).push(z);
     let dupName, group, stand, expected;
     for (const n of Object.keys(byName)) {
       if (!n || byName[n].length <= 3) continue;
       const g = byName[n], gIds = new Set(g.map(z => z.id)), gMap = g[0].map_id;
       const stands = getAllZones().filter(z =>
-        z.map_id === gMap && !gIds.has(z.id) && !z.flags?.water && z.grid_x != null &&
+        z.map_id === gMap && !gIds.has(z.id) && propsOf(z.id).routable && z.grid_x != null &&
         z.exits && Object.keys(z.exits).length > 0);
       // Bounded stand probe: for each candidate stand, does GPS's closest-8 window contain
       // a road-reachable same-named tile? First hit wins. Cap the probe so a huge off-road
@@ -109,7 +109,7 @@ export default async function regress({ run, check, getPlayer }) {
     // routing, not a route failure, so the "routes to that tile" assertion needs a plain
     // standable tile as its target.
     const target = getAllZones().find(z =>
-      z.map_id === here.map_id && !z.flags?.water && z.grid_x != null && z.id !== here.id &&
+      z.map_id === here.map_id && propsOf(z.id).routable && z.grid_x != null && z.id !== here.id &&
       !isEnterableFacade(z) &&
       (z.grid_z ?? 0) === (here.grid_z ?? 0) &&
       coordCount[`${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`] === 1 &&
@@ -272,8 +272,13 @@ export default async function regress({ run, check, getPlayer }) {
     // import row order decides which pair the loop lands on first, so probing the raw tile
     // (rather than the landing) is a codex-order flake. Excluding facades from the pool keeps
     // origin standable and keeps the probe honest.
+    // `!z.flags?.water` used to sit here. That flag was deleted, so the filter had
+    // become a no-op and the pool could hand the probe an open-water destination —
+    // which plotRoute correctly refuses, pushing nothing, failing a check that is
+    // about GPS_TO's dispatch rather than about routability. Filter on the property
+    // GPS actually gates on.
     const tiles = getAllZones().filter(z =>
-      z.map_id === 'map_world' && !z.flags?.water && !isEnterableFacade(z) &&
+      z.map_id === 'map_world' && propsOf(z.id).routable && !isEnterableFacade(z) &&
       z.exits && Object.keys(z.exits).length > 0);
     let origin = null, dest = null;
     for (const o of tiles.slice(0, 60)) {

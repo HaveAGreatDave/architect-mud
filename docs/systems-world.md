@@ -36,6 +36,15 @@ specific exit even when several share a direction.
 
 ### The exits substrate
 
+> **`zones.exits` is still the source of truth the engine boots from.** As of the map
+> pipeline's step 6 there is a second, generated representation — `zone_edges`, the whole
+> traversal graph projected at build time from grid geometry plus `content/connections/`
+> ([spec §2.2/§7.5](proposals/map-pipeline-spec.md)). Nothing at runtime reads it yet;
+> `content:lint` and regress hold it to `exits` on all 21,203 edges so that it *can* be
+> read later. **Do not add a reader** — when the cutover happens (spec §5) the merge
+> happens once, at boot, the same way `zone_exit_overrides` already merges, and the
+> accessors below do not change shape.
+
 A zone's `exits` is a direction-keyed map whose value is **either a zone-id string (the common single
 exit) or an array of zone-ids when a direction holds two or more exits** (e.g. two `north` exits to
 different zones). Storage stays backward compatible — single exits are bare strings and a direction only
@@ -252,18 +261,18 @@ Each map/minimap node carries four additive rendering fields, all derived server
   building **facade** tile falls back to the top-down rooftop footprint for its `building_type`
   (`buildingIconSvg` → `BUILDING_TYPE_ICON`), so every building reads as itself on the 1:1 map. Road
   tiles get one of 16 connectivity icons (`road_ns`, `road_nesw`, …) matching their road neighbours,
-  which the zone-planner stamps at export — a continuous dashed street network with real
+  auto-tiled from adjacent road terrain — a continuous dashed street network with real
   T-junctions. Runways use `runway_ns`/`runway_ew`.
 - **`building_type`** (`buildingTypeOf`) — the facade tile's type, `null` for streets/water/interiors.
   Drives the rooftop footprint lookup and the flight-sim 3-D shape.
 - **`entrance`** (`buildingEntranceDir`) — which edge (`north`/`south`/`east`/`west`) the door faces,
   reverse-derived from the *real* exit graph (the street tile whose exit leads INTO the facade), **not**
-  from the `flags.world_exit_zone` planner hint. Cached, invalidated on any exit mutation. Drives the
+  from the `flags.world_exit_zone` hint. Cached, invalidated on any exit mutation. Drives the
   small amber entrance arrow.
 - **`terrain`** (`zoneTerrain`) — the tileable ground surface. The authoritative source is the
   authored **`flags.terrain`** field (`water | road | asphalt | concrete | grass | dirt | sand |
   gravel | dock`), painted in the dev panel **Maps → Terrain mode**; when unset, `zoneTerrain`
-  falls back to inference (`flags.water`, a `road_`/`runway_` icon, or a green `bg_color` → grass).
+  falls back to inference (`flags.pier` → dock, a `road_`/`runway_` icon, or a green `bg_color` → grass).
   Consumed by the minimap/tablet fills and the flight-sim ground tint (`biomes.js` maps each type
   to a ground biome). **Smart roads:** a `road` tile with no authored icon has its connector piece
   (`road_ns`, `road_nesw`, …) auto-tiled live from adjacent road terrain by `roadConnector` in
@@ -286,40 +295,54 @@ transparent so the current tile shows through. The full-map popup uses fixed squ
 > ([windshield.js](../client/game/js/panels/windshield.js)) so it reads consistently on the map and
 > from the air. Each registry falls back rather than rendering nothing.
 
-### The district — a generated slice of map_world
+### The district — the bulk of map_world
 
-The bulk of the exterior city is **generated content**, not hand-authored zone-by-zone. The
-**District Editor** ([tools/zone-planner/](../tools/zone-planner/), served on port 5178, tools-only —
-nothing the server or regress harness loads) turns a painted `bp_district` blueprint into a
-self-contained slice of `map_world`: terrain tiles, polyline-named roads (inheriting existing artery
-names at the seam), a connected minimap network, and the city's real buildings **relocated** onto the
-grid as facade markers that forward `in` to their existing interiors. `apply.mjs` writes to the local
-dev DB; `content:export` turns that into reviewable git diffs; the CODEX push deploys it. The current
-district is **888 zones** (shipped 2026-07-11), with the airfields (Coldwater Regional + Threshold
-Helipad) relocated onto it and the legacy ramps de-airfielded. See
-[tools/zone-planner/processlog.md](../tools/zone-planner/processlog.md) for the palette→kind reference
-and the pre-ship checklist.
+The bulk of the exterior city was **generated**, not hand-authored zone-by-zone: a single painted
+blueprint produced a self-contained slice of `map_world` — terrain tiles, polyline-named roads
+(inheriting existing artery names at the seam), a connected minimap network, and the city's real
+buildings relocated onto the grid as facade markers forwarding `in` to their existing interiors. The
+current grid is **888 zones** (shipped 2026-07-11), with the airfields (Coldwater Regional +
+Threshold Helipad) on it and the legacy ramps de-airfielded.
 
-Note the zone-planner **"District Editor"** and its `bp_district` marker are a build-time provenance
-tool — distinct from both the **region** (the spatial `regions` table / `flags.region_id` place, e.g.
-Coldwater, edited in the dev-panel World Editor) and the **district *registry*** below (land-use
-identity derived from zone-id prefix). Three different concepts; see
+The tool that generated it — `tools/zone-planner`, the "District Editor" — was **deleted
+2026-08-01**, along with the `flags.planner` / `bp_district` provenance marker it stamped on 5,309
+tiles. The [Studio](../tools/studio/README.md) replaces it: it edits `content/` files directly, with
+no database in the process and no regenerate step to defend the tiles against. Nothing was
+regenerated wholesale after the first ship anyway, which is what made the marker dead weight.
+
+Don't confuse the grid with the **region** (the spatial `regions` table / `flags.region_id` place,
+e.g. Coldwater, edited in the dev-panel World Editor) or with the **district *registry*** below
+(land-use identity derived from zone-id prefix). See
 [reference/land-taxonomy.md](reference/land-taxonomy.md) for the full breakdown and their single
-sources of truth. (The generated grid this tool produced *is* the Coldwater region — but that's the
-region layer's concern, not the planner's.)
+sources of truth. (The generated grid *is* the Coldwater region — but that's the region layer's
+concern.)
 
 ## Districts (sense of place)
 
 [districts.js](../server/engine/districts.js) is the **district registry** — the substrate that
-gives every zone a felt neighborhood identity. A district is the coarse land-use category **derived
-from the zone id prefix** (`zone_<prefix>_<name>`) via `DISTRICT_PREFIX`; `districtFor(zone)` returns
-the matching `DISTRICTS` entry (precedence: a `flags.district` override → the prefix table → a
-lethal-zone `hazard` fallback → the `residential` default, never null). Each entry carries
-`key` / `name` / `color` (the client `FUNC_LEGEND` in
-[minimap.js](../client/game/js/panels/minimap.js) is a separate-runtime mirror — keep its keys/colors
-in sync; `scripts/landuse-zone-colors.js` now imports `districtFor` directly), plus `blurb`,
-`landmark` (a zone id) + `skyline` phrase, and a `signature` sensory pool. `mapFunc` in [movement.js](../server/engine/commands/movement.js) is now a thin
-wrapper over `districtFor(z).key`.
+gives every zone a felt neighborhood identity. **The definitions are content** (`content/districts/`
+→ the `districts` table, `readTier: boot`), edited in the Studio's district view and shipped by the
+ordinary deploy; this module loads them at boot and owns the *resolution*, not the data.
+
+`districtFor(zone)` returns an entry — **never null, and sync/query-free by contract**, since it runs
+per move, per look and per ambience beat. Precedence: `flags.district` (painted) → the district's own
+`prefixes` list against `zone_<prefix>_<name>` → a lethal-zone `hazard` fallback → the `residential`
+default. The prefix rung is **legacy**: it classifies 154 old zones, and nothing on the modern grid,
+whose ids are all `zone_district_<x>_<y>`. A tile with neither reads as Residential — 1,150 do.
+
+Each row carries `id` (aliased `key`) / `name` / `color`, plus `blurb`, `landmark` (a zone id) +
+`skyline` phrase, and a `signature` sensory pool. The client's `FUNC_LEGEND` in
+[minimap.js](../client/game/js/panels/minimap.js) is **no longer a mirror** — it is filled from
+`/api/districts` at boot. It used to be hand-copied and had drifted four districts behind, so
+`wilds`, `sewer`, `yards` and `longwatch` drew no regional-map tint, legend row or tooltip at all.
+`mapFunc` in [movement.js](../server/engine/commands/movement.js) is a thin wrapper over
+`districtFor(z).key`.
+
+> **Skyline lines are dark.** All 14 districts naming a `landmark` name it **without the `zone_`
+> prefix** (`nc_spindle`, `drum_shop`), and [describe.js](../server/engine/commands/describe.js)
+> looks the value up verbatim — so `getZone()` misses and no "To the north, …" line is ever
+> composed. `content:lint` warns per district. Fixing them is authoring work: pick a live landmark
+> zone in the Studio.
 
 Four surfaces consume it:
 

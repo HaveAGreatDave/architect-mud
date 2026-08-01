@@ -6,10 +6,7 @@
     "A charger indicator blinks green, red, green, deciding nothing."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2f9aa8",
-  "color": null,
-  "created_by": null,
   "description": "A stall built into the overpass footing, every inch of it strung with salvaged tech: coils of cable, cracked slates, drones with their guts hanging out, and a wall of chargers for devices no one makes anymore. The proprietor works at a bench under a magnifier lamp, soldering iron never quite set down. Everything is priced by argument. A hand-lettered sign warns NO REFUNDS, NO EXCEPTIONS, NO EXORCISMS, the last apparently learned the hard way.",
   "exits": {
     "north": "zone_mq_amp_util",
@@ -27,8 +24,6 @@
   "grid_z": 0,
   "id": "zone_mq_amp_shop",
   "map_id": "map_int_mq_amp",
-  "marker": null,
   "name": "Ohm Sweet Ohm",
-  "parent_zone": "zone_district_905_908",
-  "updated_at": "1782964407"
+  "parent_zone": "zone_district_905_908"
 }

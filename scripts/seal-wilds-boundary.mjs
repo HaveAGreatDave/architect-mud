@@ -70,7 +70,7 @@ if (!APPLY) { console.log('\nDRY RUN — re-run with --apply.'); process.exit(0)
 const c2 = new pg.Client({ connectionString: url, ssl: /localhost|127\.0\.0\.1/.test(url) ? false : { rejectUnauthorized: false } });
 await c2.connect();
 await c2.query('BEGIN');
-for (const [id, e] of pending) await c2.query('UPDATE zones SET exits=$1, updated_at=$2 WHERE id=$3', [JSON.stringify(e), 1784700000, id]);
+for (const [id, e] of pending) await c2.query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(e), id]);
 await c2.query('COMMIT');
 await c2.end();
 console.log(`\n✓ updated ${pending.size} tiles.`);

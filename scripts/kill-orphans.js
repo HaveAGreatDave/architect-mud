@@ -16,7 +16,7 @@ if (process.platform !== 'win32') process.exit(0);
 const ps = `
 $me = ${process.pid}
 Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
-  Where-Object { $_.ProcessId -ne $me -and $_.CommandLine -match 'server[\\\\/]index\\.js|tests[\\\\/]regress\\.js|scripts[\\\\/]sync-commits\\.js' } |
+  Where-Object { $_.ProcessId -ne $me -and $_.CommandLine -match 'server[\\\\/]index\\.js|tests[\\\\/]regress\\.js|scripts[\\\\/]sync-commits\\.js|scripts[\\\\/]dev\\.mjs|tools[\\\\/]studio[\\\\/]serve\\.mjs' } |
   ForEach-Object {
     try { Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop; "  killed orphan $($_.ProcessId): $($_.CommandLine)" }
     catch { "  could not kill $($_.ProcessId): $($_.Exception.Message)" }

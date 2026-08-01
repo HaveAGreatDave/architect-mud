@@ -36,7 +36,7 @@ let zones = 0, powers = 0, furns = 0;
 
 const zone = (o) => { write(`content/zones/${o.id}.json`, {
   ambient_events: [], ambient_theme: 'indoors', audio_theme_id: null, bg_color: '#5a5450', color: null,
-  created_by: 'tenement-gen', marker: null, parent_zone: LOBBY, updated_at: STAMP, grid_x: 0, grid_y: 0, grid_z: 0, map_id: MAP,
+  marker: null, parent_zone: LOBBY, grid_x: 0, grid_y: 0, grid_z: 0, map_id: MAP,
   ...o }); zones++; };
 const power = (id, name) => { write(`content/power_zones/${id}.json`, {
   id, name, capacity_kw: 5400, max_capacity_kw: 5400, generator_id: GEN, source_type: 'junction_box', flags: {} }); powers++; };
@@ -61,12 +61,11 @@ fac.ambient_events = [
   'A light in an upper window flickers on, thinks better of it, and goes back out.',
   'Down the wall, a drainpipe empties a long grey ribbon of water onto the kerb.',
 ];
-fac.updated_at = STAMP;
 write(`content/zones/${FACADE}.json`, fac);
 
 // ── Map entity ──
 write(`content/maps/${MAP}.json`, {
-  id: MAP, name: 'The Yards Tenement — Interior', entry_zone_id: LOBBY, parent_zone_id: FACADE, created_by: null, updated_at: STAMP });
+  id: MAP, name: 'The Yards Tenement — Interior', entry_zone_id: LOBBY, parent_zone_id: FACADE });
 
 // ── Lobby (ground) ──
 zone({ id: LOBBY, name: 'The Yards Tenement — Lobby', parent_zone: FACADE, grid_z: 0,

@@ -5,10 +5,8 @@
     "A gull rides the wind off the Basin, hangs a moment, and wheels away."
   ],
   "ambient_theme": "coast",
-  "audio_theme_id": null,
   "bg_color": "#1b2530",
   "color": "#cfe6f2",
-  "created_by": "echelon",
   "description": "The sun deck: the Echelon's topmost terrace, open to the whole sky. Pale teak underfoot, a long curved run of cushioned loungers, and a sunken jacuzzi steaming quietly at its heart, lit turquoise from below. The Basin spreads out on every side and up here the wind smells only of salt and money. A stair descends (DOWN) to the landing. You can LOOK EAST or WEST out across the water.",
   "exits": {
     "down": "zone_echelon_landing"
@@ -31,8 +29,6 @@
   "grid_z": 3,
   "id": "zone_echelon_sundeck",
   "map_id": "map_echelon",
-  "marker": null,
   "name": "Echelon — Sun Deck",
-  "parent_zone": "zone_echelon_exterior",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_echelon_exterior"
 }

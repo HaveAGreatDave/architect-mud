@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_sentinel_bullpen",
+  "b": "zone_sentinel_bullpen",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_sentinel_bullpen_up_ftcb",
+  "lockable": false,
+  "one_way": true
+}

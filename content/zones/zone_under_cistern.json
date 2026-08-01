@@ -5,10 +5,8 @@
     "Something valuable-looking has fetched up on the shelf of silt — or something that only looks it."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#151d19",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "A walled-off Victorian cistern, round and domed and dry-ish, cut off from the main flow when the newer lines were bored. The current that used to feed it now only leaks, so it has become a settling pool for a century of things carried this deep and abandoned. A rich, quiet dead end for anyone willing to dig.",
   "exits": {
     "west": "zone_under_throat"
@@ -25,6 +23,5 @@
   "map_id": "map_world",
   "marker": "○",
   "name": "Old Cistern",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

@@ -39,10 +39,11 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 **World & place**
 
 - [docs/systems-world.md](docs/systems-world.md) — world state, movement, ambience, sound propagation, spawning, minimap, scheduler, tunables (as built)
-- [docs/reference/land-taxonomy.md](docs/reference/land-taxonomy.md) — region vs district vs terrain vs biome vs `bp_district`, one SSOT each. **Read before touching anything "district"/"region"/"terrain"**
+- [docs/reference/land-taxonomy.md](docs/reference/land-taxonomy.md) — region vs district vs terrain vs biome, one SSOT each. **Read before touching anything "district"/"region"/"terrain"**
 - [docs/systems-terrain.md](docs/systems-terrain.md) — `flags.terrain` ground-surface SSOT + the dev-panel Terrain Painter; drives minimap/tablet/pacing, **not passability, not flight** (as built)
 - [docs/systems-overland-void-travel.md](docs/systems-overland-void-travel.md) — transient (non-DB) waste rooms off a region's rim: the `movement.edge` seam + `registerTransientZone`. Read before touching transient zones or the map rim (as built)
 - [docs/reference/world-rendering.md](docs/reference/world-rendering.md) — how a DB tile becomes a building out the cockpit; palettes, decoration helpers, the **three separate "tower" renderers**. Read before "improving a model"
+- [tools/studio/README.md](tools/studio/README.md) — **the Studio** (`npm run studio`): the file-authoring map editor. Edits `content/` with no DB in the process, draws from the build's derive pass, generates its forms from the field catalog
 - [docs/reference/building-shapes.md](docs/reference/building-shapes.md) — **building geometry as data**: the model arms record themselves (`SHAPE_SINK`) rather than being rewritten, so the flight sim's own shapes now drive distance LOD, occlusion culling, ground shadows, per-point CFIT collision and the cold open's skyline. Read before touching a building model, the CFIT sweep or the flythrough — and for the `hwRaw` pre-clamp rule, the solved-not-assumed `[a·fh + b·h + c]` basis, and the `yaw` trap (as built)
 - [docs/devpanel-js.md](docs/devpanel-js.md) — what each script in `client/devpanel/js/` holds, and the load-order contract
 
@@ -128,7 +129,8 @@ Caveats: it shares the Neon session pool (pool_size 15) — if it dies with `EMA
 an orphaned local `node server/index.js` is holding pool connections. A `pretest:regress` hook runs
 `scripts/kill-orphans.js` to sweep these automatically before every regress run (and `predev` does
 the same before `npm run dev`); run it by hand any time with `npm run kill:orphans`. It's Windows-only,
-scoped to this repo's own entrypoints (`server/index.js`, `tests/regress.js`, `sync-commits.js`), and
+scoped to this repo's own entrypoints (`server/index.js`, `tests/regress.js`, `sync-commits.js`,
+`scripts/dev.mjs`, `tools/studio/serve.mjs`), and
 never runs in production (`npm start` has no pre-hook). If a sweep can't reach it, wait ~90 s. Player
 stat columns are `stat_brawn`/`stat_reflexes`/… (not `brawn`).
 

@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_924_909",
+  "b": "zone_yard_drystore",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_924_909_south_3y3z",
+  "lockable": true,
+  "one_way": false
+}

@@ -5,10 +5,8 @@
     "A drowned chair turns slowly in the current, as if it were still deciding."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#121a1d",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "A flooded sublevel where a collapsed grade let the standing water pool deep and stay. Wading is slow and blind, the surface skinned with oil that throws your light back at you. Whatever lives down here has learned to use the murk. A short passage east rejoins the main descent.",
   "exits": {
     "east": "zone_under_confldeep",
@@ -26,6 +24,5 @@
   "map_id": "map_world",
   "marker": "≈",
   "name": "Flooded Sublevel",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

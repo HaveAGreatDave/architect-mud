@@ -1,25 +1,21 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#4bb36a",
-  "color": null,
-  "created_by": "8063162d-964d-4bbb-ad88-eb932f8ec495",
   "description": "Basement of Coldwater Clone Facility.",
   "exits": {
     "up": "zone_start"
   },
   "flags": {
     "intro_lore": "Below the print floor, where the facility keeps the machinery that makes new people and the tanks that quietly dispose of the failed attempts. It hums with power the rest of the block would knife each other for. The Custodians tolerate this place because it still, technically, serves the city — step wrong down here and you'll learn how thin 'technically' is.",
-    "is_interior": true
+    "is_interior": true,
+    "terrain": "grass"
   },
   "grid_x": 0,
   "grid_y": 0,
   "grid_z": -1,
   "id": "zone_clone_facility_z-1_1782276270002",
   "map_id": "map_int_1782352518150",
-  "marker": null,
   "name": "Coldwater Clone Facility Basement",
-  "parent_zone": null,
-  "updated_at": "1782278037"
+  "parent_zone": "zone_district_918_903"
 }

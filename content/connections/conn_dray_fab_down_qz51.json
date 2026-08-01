@@ -1,0 +1,9 @@
+{
+  "a": "zone_dray_fab",
+  "b": "zone_util_zone_dray_fab",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_dray_fab_down_qz51",
+  "lockable": false,
+  "one_way": false
+}

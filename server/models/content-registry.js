@@ -26,6 +26,19 @@
 //                                  honest tradeoff. (Proven by regress: excluding
 //                                  doors.lock_state shipped every authored lock
 //                                  disengaged on a fresh import.)
+//                 omitWhenNull   — ABSENT-BY-DEFAULT OVERRIDE columns. The column is
+//                                  authored, but only when a tile is overriding what
+//                                  it would otherwise inherit (resolveDefault, see
+//                                  scripts/content/derive.mjs). A null value is not a
+//                                  fact worth writing down 5,785 times, so export
+//                                  omits the key entirely and lint rejects a
+//                                  present-but-null one. Distinct from excludeColumns:
+//                                  those are runtime state the pipeline must not
+//                                  touch; these ARE authored, they just default.
+//                                  Import writes an explicit NULL when the key is
+//                                  absent — removing an override has to clear it, or
+//                                  a deleted override would linger in every DB that
+//                                  ever saw it.
 //                 readTier       — where the table's rows live at RUNTIME (the read
 //                                  side; see docs/architecture.md → Read Tiers).
 //                                  Required on every content entry; regress layer 1a
@@ -82,16 +95,53 @@ export const REGISTRY = [
     // stains: blood/vomit — accumulates in RAM (world.zones); the DB column is only
     // ever bulk-cleared by the daily maintenance tick (gameLoop.js), never written rich.
     excludeColumns: ['stains'],
+    // Absent-by-default OVERRIDES (spec §1.1). Each is a column a tile writes only
+    // when it disagrees with what the build would otherwise give it:
+    //   audio_theme_id — the song its region supplies (regions.defaults, §1.3)
+    //   marker         — the map code deriveMarker computes (§7.4): a building's
+    //                    acronym, an apartment's floor, a sewer run's corridor art
+    //   color/bg_color — the fill and glyph colour the terrain palette supplies
+    // color/bg_color JOINED this list on 2026-08-01. They were held off it on the
+    // belief that they were the ROOM's colour identity rather than an override of a
+    // derived fill — but nothing renders `zones.bg_color`, every consumer colours
+    // from `spec.fill`, and what the column actually held was pre-terrain bulk fill
+    // that derive discarded on 3,484 tiles. That fill is cleared and the precedence
+    // is authored-first, so they are overrides like the two above and an absent key
+    // is how a tile says "whatever the palette gives me".
+    // See docs/proposals/tile-presentation-overrides.md.
+    omitWhenNull: ['audio_theme_id', 'marker', 'color', 'bg_color'],
     runtimeInserts: 'environment.js power/junction rooms; broadcast studio builder (dev-gated)',
     note: 'exits/tags are authored content but runtime systems may also wire them (power rooms, studios) — a known, drift-report-visible seam' },
+  // `parent_zone_id` is the SINGLE place a map's world anchor is decided; every
+  // tile on the map carries a copy in zones.parent_zone that content:lint holds
+  // to it (scripts/content/map-anchor.mjs). `name` is an override: omit it and an
+  // interior map is named after the building it hangs off, so renaming the facade
+  // renames the map. Only the parentless maps (map_world, Dreamzones, the
+  // Leviathan cabin) have to author one — nothing can be derived for them.
   { table: 'maps', class: 'content', pk: ['id'], readTier: 'boot',
+    omitWhenNull: ['name'],
     runtimeInserts: 'environment.js power-room interiors; broadcast studio builder (dev-gated)' },
   // Spatial region metadata (dev-panel World Editor). Member zones link via
   // flags.region_id; bounds derived from members, not stored. Dev-panel-read
-  // only — no runtime hot-path reader. Distinct from engine/districts.js land-use.
+  // only — no runtime hot-path reader. Distinct from `districts` land-use, below.
   { table: 'regions', class: 'content', pk: ['id'], readTier: 'cold' },
+  // Land-use districts — the neighbourhood a tile reads as, and the mood, colour
+  // and sensory pool that come with it. Member zones link via flags.district.
+  // 'boot' because districtFor() is called per move, per describe and per ambience
+  // beat: the registry is loaded once into memory and read synchronously from there.
+  { table: 'districts', class: 'content', pk: ['id'], readTier: 'boot' },
+  // Authored connections (spec §1.4) — the things grid geometry cannot say: a link
+  // the grid does not imply, a link that runs one way, a WALL between two tiles
+  // that touch. Contiguous walkable ground authors nothing, which is why 21,203
+  // traversable edges need 271 files. After `zones`, because a/b reference it.
+  //
+  // name/door are omitWhenNull; the three booleans deliberately are NOT — a file
+  // states all three explicitly, so flipping one back to false is an UPDATE the
+  // import actually applies rather than a key it simply stops sending.
+  { table: 'connections', class: 'content', pk: ['id'], readTier: 'boot',
+    omitWhenNull: ['name', 'door'] },
   { table: 'items', class: 'content', pk: ['id'], readTier: 'boot', // items-cache.js write-through Map
-    runtimeInserts: 'doors.js keycard cutting (keycard_<door>); surveillance evidence datachips (item_datachip_<clip>, reaped on submission/retention); broadcast recorded cassettes (item_cassette_<slug>)' },
+    runtimeInserts: 'surveillance evidence datachips (item_datachip_<clip>, reaped on submission/retention); broadcast recorded cassettes (item_cassette_<slug>)' },
   { table: 'enemies', class: 'content', pk: ['id'], readTier: 'boot' },      // via world.spawnTimers join
   { table: 'zone_spawns', class: 'content', pk: ['id'], readTier: 'boot' },  // via world.spawnTimers join
   { table: 'npcs', class: 'content', pk: ['id'], readTier: 'boot', // world.npcs + write funnel (updateNpc/syncNpc in world.js)
@@ -294,6 +344,13 @@ export const REGISTRY = [
   { table: 'email_verification_tokens', class: 'player' },
 
   // ── runtime: world state regenerated / accumulated at play time ──
+  // EVERYTHING THE BUILD RESOLVED (spec + props). Runtime by classification, not by
+  // care: content:export never emits a runtime table, so a derived marker — or a
+  // terrain-preset property — can never end up in a content file pretending somebody
+  // authored it. TRUNCATEd and rebuilt by the derive pass of content:import
+  // (map-pipeline-spec §2.1, §9; terrain-property-presets.md).
+  { table: 'zone_derived', class: 'runtime' },
+  { table: 'zone_edges', class: 'runtime' },      // generated traversal graph — grid geometry + connections (spec §2.2)
   // Trading cards (plugins/cards). Deliberately NOT content, even though the NPC
   // and enemy cards are derived from content: they are regenerated on any DB by
   // `strikeSeries()`, which is idempotent, so exporting them would commit a

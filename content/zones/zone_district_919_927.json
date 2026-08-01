@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "audio_theme_id": null,
-  "bg_color": "#262a1c",
   "color": "#a8b56a",
-  "created_by": "wildlands",
   "description": "The trail thins to a game-track heading south and east into country the Wildblood don't bother with — flat, blasted, and empty to the horizon. They say others went that way, the ones who wanted to leave the world entirely. For now the track just runs out into distance.",
   "exits": {
     "east": "zone_district_920_927",
@@ -14,7 +11,6 @@
   },
   "flags": {
     "district": "wilds",
-    "planner": "bp_district",
     "radiation": 40,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_irradiated_salvage",
@@ -25,8 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_919_927",
   "map_id": "map_world",
-  "marker": "…",
   "name": "The Deeper Wild",
-  "parent_zone": null,
-  "updated_at": "1784500000"
+  "parent_zone": null
 }

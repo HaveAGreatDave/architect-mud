@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "audio_theme_id": null,
-  "bg_color": "#1d3b52",
   "color": "#3f7fb0",
-  "created_by": null,
   "description": "Deep water, and it feels deep — a heaviness under the swell, a temperature that finds its way through whatever you're wearing. Far out, something breaks the surface and is gone before you've finished turning your head.",
   "exits": {
     "east": "zone_district_954_906",
@@ -13,7 +10,6 @@
     "west": "zone_district_952_906"
   },
   "flags": {
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "water"
   },
@@ -22,8 +18,6 @@
   "grid_z": 0,
   "id": "zone_district_953_906",
   "map_id": "map_world",
-  "marker": null,
   "name": "Coldwater Basin",
-  "parent_zone": null,
-  "updated_at": "1784700000"
+  "parent_zone": null
 }

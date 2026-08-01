@@ -1,10 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "audio_theme_id": null,
-  "bg_color": "#3f3a34",
-  "color": "#b9a888",
-  "created_by": "zone-planner",
   "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Here it forks: a short, oddly immaculate spur of poured white ferrocrete peels off west toward a wall of mirror-chrome, out of place against all this grit. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
   "exits": {
     "east": "zone_district_895_906",
@@ -15,7 +11,6 @@
   "flags": {
     "district": "wasteland",
     "icon": "road_nsw",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
@@ -26,8 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_894_906",
   "map_id": "map_world",
-  "marker": "⸪.",
   "name": "Halcyon Boulevard",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

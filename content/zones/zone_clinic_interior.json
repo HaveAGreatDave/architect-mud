@@ -4,10 +4,8 @@
     "The drug cabinet's lock cycles with a soft, expensive clunk."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2a2620",
   "color": "#d8c8a0",
-  "created_by": null,
   "description": "A cramped clinic under a buzzing strip-light, everything scrubbed to a hard institutional shine. A curtained exam bay, a locked drug cabinet, and a waiting bench worn smooth by the district's worst nights.",
   "exits": {
     "west": "zone_district_920_906"
@@ -24,8 +22,6 @@
   "grid_z": 0,
   "id": "zone_clinic_interior",
   "map_id": "map_interior_zone_clinic_interior",
-  "marker": null,
   "name": "Mercy Row Clinic",
-  "parent_zone": "zone_district_920_906",
-  "updated_at": "1783740000"
+  "parent_zone": "zone_district_920_906"
 }

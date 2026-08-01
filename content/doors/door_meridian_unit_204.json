@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_meridian_unit_204_east_s0vy",
   "door_type": "basic",
   "exit_dir": "east",
   "flags": {},
@@ -16,6 +17,6 @@
       "difficulty": 5
     }
   },
-  "target_zone": null,
+  "target_zone": "zone_meridian_floor_2",
   "zone_id": "zone_meridian_unit_204"
 }

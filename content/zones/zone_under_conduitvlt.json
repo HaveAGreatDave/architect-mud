@@ -5,10 +5,8 @@
     "The east wall is newer than the rest — poured concrete, sealed, deliberate."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#1a1512",
   "color": "#b08a6a",
-  "created_by": "the-under",
   "description": "A conduit vault where the power plant's buried feeders run in armoured bundles along the ceiling. Someone has tapped them — neat, competent splices bleeding off just enough current to matter, the kind of work the Watch are proud of. A sealed sublevel lies walled off to the east; the trunk carries on west and north.",
   "exits": {
     "east": "zone_under_sealedsub",
@@ -27,6 +25,5 @@
   "map_id": "map_world",
   "marker": "▦",
   "name": "Conduit Vault",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

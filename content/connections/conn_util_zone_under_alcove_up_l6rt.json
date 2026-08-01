@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_under_alcove",
+  "b": "zone_under_alcove",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_under_alcove_up_l6rt",
+  "lockable": false,
+  "one_way": true
+}

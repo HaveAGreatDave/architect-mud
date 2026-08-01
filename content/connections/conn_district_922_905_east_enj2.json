@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_922_905",
+  "b": "zone_dray_coldstore",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_district_922_905_east_enj2",
+  "lockable": true,
+  "one_way": false
+}

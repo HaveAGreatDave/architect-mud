@@ -5,10 +5,7 @@
     "Somewhere a phone rings twice and is silenced mid-tone."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#c0304a",
-  "color": null,
-  "created_by": null,
   "description": "The office where the Cherry's money is counted and its problems are solved. A metal desk, a safe bolted through the floor, and a wall of monitors cycling grainy feeds of every corner of the club. A cot in the corner says the manager either lives here or has nowhere better to hide. The air is stale with old smoke and the ozone tang of overworked electronics.",
   "exits": {
     "north": "zone_mq_cherry_util",
@@ -22,8 +19,6 @@
   "grid_z": -1,
   "id": "zone_mq_cherry_office",
   "map_id": "map_int_mq_cherry",
-  "marker": null,
   "name": "Back Office",
-  "parent_zone": "zone_mq_cherry_floor",
-  "updated_at": "1783020039"
+  "parent_zone": "zone_district_901_907"
 }

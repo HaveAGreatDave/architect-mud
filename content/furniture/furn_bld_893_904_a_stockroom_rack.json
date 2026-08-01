@@ -1,0 +1,8 @@
+{
+  "description": "Industrial shelving sagging under crates.",
+  "flags": {},
+  "id": "furn_bld_893_904_a_stockroom_rack",
+  "name": "a stockroom rack",
+  "object_type": "container",
+  "zone_id": "zone_bld_893_904_back"
+}

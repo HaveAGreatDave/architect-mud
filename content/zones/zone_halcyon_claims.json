@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2c2340",
   "color": "#eae6f0",
-  "created_by": null,
   "description": "A quieter, colder room. The chairs are comfortable in the way a dentist's are, and a single adjuster works a terminal with the patience of someone who has already decided your excess. This is where you <b>claim</b> against a covered loss.",
   "exits": {
     "in": "zone_halcyon_elevator"
@@ -19,8 +17,6 @@
   "grid_z": 3,
   "id": "zone_halcyon_claims",
   "map_id": "map_int_halcyon",
-  "marker": null,
   "name": "Halcyon Assurance — Claims",
-  "parent_zone": "zone_halcyon_lobby",
-  "updated_at": "1783316802"
+  "parent_zone": "zone_district_895_906"
 }

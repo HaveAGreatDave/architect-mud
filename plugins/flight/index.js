@@ -295,7 +295,7 @@ async function cmdDisembark(args, raw, player, broadcast) {
   // rather than back at the field you took off from (parkAt moves everyone's current_zone).
   if (live.row.airborne && player.seat === 'pilot' && isContinuous(live) && live.cont?.onGround) {
     const spot = surfaceAt(live.row.grid_x, live.row.grid_y);
-    if (spot && !spot.flags?.water && districtBiome(spot) !== 'water') await parkAt(live, spot.id);
+    if (spot && districtBiome(spot) !== 'water') await parkAt(live, spot.id);
   }
   if (live.row.airborne) return { type: 'emote', message: "You can't step out — you're in the air." };
   const name = live.type.name;
@@ -986,10 +986,11 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     // Basin. Resolve this BEFORE the water check below so an approach over open water still lands.
     if (isVtol) { const yf = yachtFieldNear(live.row.grid_x, live.row.grid_y); if (yf) field = yf; }
     // Open water is no place to set her down — nothing in the fleet has floats, so ditching
-    // in the bay is a crash, not a courtesy tow. Catch it by BIOME as well as the `flags.water`
-    // gate, so a bay tile that only reads as water via its district still ditches you. An
-    // airfield tile is never water, so this only bites off-strip.
-    if (field && !field.flags?.airfield_id && (field.flags?.water || districtBiome(field) === 'water')) { await crash(live, 'ditched'); return { type: 'noop' }; }
+    // in the bay is a crash, not a courtesy tow. BIOME is the test: it reads authored
+    // `flags.terrain` first and falls back to the district, so a bay tile that only reads as
+    // water via its id-prefix still ditches you. An airfield tile is never water, so this
+    // only bites off-strip.
+    if (field && !field.flags?.airfield_id && districtBiome(field) === 'water') { await crash(live, 'ditched'); return { type: 'noop' }; }
     // Graded-landing IP: a clean touchdown teaches piloting. The client reports the grade it
     // showed the pilot (`land <grade> <fpm>`); award it here for any survivable set-down (a
     // crash lands on the `crash` path with 0), but only once the trip has been ≥5 min airborne.

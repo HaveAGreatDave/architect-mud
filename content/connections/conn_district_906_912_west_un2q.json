@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_906_912",
+  "b": "zone_stimcafe",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_906_912_west_un2q",
+  "lockable": true,
+  "one_way": false
+}

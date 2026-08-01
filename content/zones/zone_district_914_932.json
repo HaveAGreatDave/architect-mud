@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "audio_theme_id": null,
-  "bg_color": "#2a1c16",
   "color": "#b5744a",
-  "created_by": "wildlands-expand",
   "description": "Broken mesa shelves step away in ochre and iron-red, cut by dry washes where the wind funnels grit against your teeth.",
   "exits": {
     "east": "zone_district_915_932",
@@ -14,7 +11,6 @@
   },
   "flags": {
     "district": "wilds",
-    "planner": "bp_district",
     "radiation": 33,
     "region_id": "region_coldwater",
     "terrain": "redrock"
@@ -24,8 +20,6 @@
   "grid_z": 0,
   "id": "zone_district_914_932",
   "map_id": "map_world",
-  "marker": null,
   "name": "Slateback Rise",
-  "parent_zone": null,
-  "updated_at": "1784700000"
+  "parent_zone": null
 }

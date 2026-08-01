@@ -5,10 +5,8 @@
     "A slow bloom of methane stink rolls up from somewhere below and passes on."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#161f1b",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "The eastern trunk takes a hard bend here and starts its long descent to the south, following the fall of the land above toward the industrial flats. The going gets tighter and older past this point, the brick giving way to poured concrete gone soft and crumbling at the edges.",
   "exits": {
     "south": "zone_under_laddershaft",
@@ -26,6 +24,5 @@
   "map_id": "map_world",
   "marker": "◞",
   "name": "Eastern Bend",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

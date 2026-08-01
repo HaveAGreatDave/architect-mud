@@ -36,8 +36,10 @@ import { contentEntries } from '../../server/models/content-registry.js';
 import {
   connectTarget, readContentTree, columnTypes, paramFor,
   rowToFileObject, canonicalJson, schemaColumnsOf, CONTENT_DIR, REPO_ROOT, MARKER_KEY,
-  isRuntimeResidueId,
+  isRuntimeResidueId, readPalette,
 } from './lib.mjs';
+import { writeDerived } from './derive-write.mjs';
+import { deriveMapName } from './derive.mjs';
 
 const args = new Set(process.argv.slice(2));
 const prod = args.has('--prod');
@@ -69,6 +71,24 @@ try {
   if (!entries.length) {
     console.log('content/ is empty or missing — nothing to import.');
     process.exit(0);
+  }
+
+  // `maps.name` is an absent-by-default override (registry omitWhenNull) over a
+  // NOT NULL column: a map file that omits it is saying "name me after the
+  // building I hang off", and the column still has to arrive with a value.
+  // Resolved HERE, before anything reads `entries`, so the drift report and the
+  // upsert pass agree — resolving in only one of them would report every
+  // derived-name map as differing on every deploy, forever.
+  {
+    const mapFiles = entries.find(e => e.entry.table === 'maps')?.files || [];
+    const zoneById = new Map((entries.find(e => e.entry.table === 'zones')?.files || [])
+      .map(f => [f.data.id, f.data]));
+    for (const f of mapFiles) {
+      if (f.data.name != null && String(f.data.name).trim()) continue;
+      const derived = deriveMapName(f.data, zoneById);
+      if (!derived) throw new Error(`maps/${f.name}: no name and none derivable — parent_zone_id "${f.data.parent_zone_id ?? ''}" names no zone with a building_name. Author a "name".`);
+      f.data.name = derived;
+    }
   }
 
   const { client, host } = await connectTarget({ prod, yes, purpose: 'import content INTO' });
@@ -292,9 +312,17 @@ try {
     // ── Upsert pass ───────────────────────────────────────────────────────────
     for (const { entry, files } of entries) {
       const types = await columnTypes(client, entry.table);
+      // Absent-by-default override columns (registry omitWhenNull) are the one
+      // case where a missing key is a STATEMENT — "no override" — rather than
+      // "don't touch this". Force them into every upsert so removing an override
+      // from a file actually clears the column; otherwise the old value would
+      // survive in every database that ever imported it, and only a freshly
+      // built one would match the files.
+      const forcedNull = (entry.omitWhenNull || []).filter(c => types.has(c));
       let ins = 0, upd = 0;
       for (const f of files) {
         const cols = Object.keys(f.data).filter(c => types.has(c));
+        for (const c of forcedNull) if (!cols.includes(c)) cols.push(c);
         const unknown = Object.keys(f.data).filter(c => !types.has(c));
         if (unknown.length) throw new Error(`${entry.table}/${f.name}: unknown column(s) ${unknown.join(', ')} — stale file or missing schema change.`);
         const nonPk = cols.filter(c => !entry.pk.includes(c));
@@ -318,6 +346,29 @@ try {
       }
       totalIns += ins; totalUpd += upd;
       if (ins || upd) console.log(`  ${entry.table.padEnd(26)} +${ins} inserted, ~${upd} updated (${files.length} files)`);
+    }
+
+    // ── Derive pass (spec §9) ─────────────────────────────────────────────────
+    // Reads the zones and regions this transaction just committed, plus the
+    // palette, and rebuilds the generated tables. Writes ONLY generated tables —
+    // never `zones` — so the drift report and the git-diff deletion pass need no
+    // changes at all. Runs on every push at zero Neon egress, because CI does the
+    // whole lint → import → regress cycle against a throwaway local Postgres.
+    {
+      const palette = readPalette();
+      // Sequential, not Promise.all: this is ONE client inside a transaction, so
+      // pg queues concurrent queries on it anyway (and deprecates doing so). The
+      // "parallelise independent reads" rule in architecture.md is about the pool.
+      const zoneRows = await client.query(`SELECT id, name, marker, color, bg_color, ambient_theme,
+                                                  audio_theme_id, flags, map_id, grid_x, grid_y, grid_z, exits
+                                           FROM zones`);
+      const regionRows = await client.query('SELECT id, defaults FROM regions');
+      const connRows = await client.query('SELECT id, a, b, dir, one_way, blocked FROM connections');
+      const { rows: derived, edges } = await writeDerived(client, {
+        zones: zoneRows.rows, regions: regionRows.rows, connections: connRows.rows, palette,
+      });
+      console.log(`  ${'zone_derived (derived)'.padEnd(26)} ${derived} rows${palette ? '' : '  ⚠ no content/map/terrain.json — palette rung empty'}`);
+      console.log(`  ${'zone_edges (derived)'.padEnd(26)} ${edges} rows (${connRows.rows.length} connections)`);
     }
 
     // ── Advance the marker ────────────────────────────────────────────────────

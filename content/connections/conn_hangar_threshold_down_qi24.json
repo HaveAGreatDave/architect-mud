@@ -1,0 +1,9 @@
+{
+  "a": "zone_hangar_threshold",
+  "b": "zone_util_zone_hangar_threshold",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hangar_threshold_down_qi24",
+  "lockable": false,
+  "one_way": false
+}

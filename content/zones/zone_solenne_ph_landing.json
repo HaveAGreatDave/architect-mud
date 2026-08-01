@@ -4,10 +4,8 @@
     "The hololock on the penthouse door pulses once, a slow bead of light, and goes still."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#242a33",
   "color": "#efe4cd",
-  "created_by": null,
   "description": "A private landing the size of most people's apartments, and it holds exactly one door. Pale stone underfoot, a single orchid on a plinth, and light that comes from nowhere you can point to. The far wall is taken up by a seamless slab of brushed bronze — the entrance to the penthouse — with a discreet plate beside it reading <b>J. AKERSON</b> and a <b>hololock</b> that watches you back. The elevator waits <b>in</b> behind you. There is nowhere else to go up here, and that is plainly the point.",
   "exits": {
     "in": "zone_solenne_elevator",
@@ -22,8 +20,6 @@
   "grid_z": 5,
   "id": "zone_solenne_ph_landing",
   "map_id": "map_int_solenne",
-  "marker": null,
   "name": "The Penthouse Landing",
-  "parent_zone": "zone_district_914_908",
-  "updated_at": "1784600000"
+  "parent_zone": "zone_district_914_908"
 }

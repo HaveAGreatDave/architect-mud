@@ -6,10 +6,8 @@
     "The curved glass hums faintly under a gust and stops."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#1b232c",
   "color": "#cfe9ff",
-  "created_by": null,
   "description": "The third residential floor: a curved gallery following the decagon's inner wall, mirror steel to waist height and warm pale stone above, the floorplate a touch narrower than the one below where the shaft steps in. The cyan LED band that rings the tower outside carries straight through the glass here as a line of cool light running the corridor's whole arc. Four residences open off it, their doors flush enough that the numbers are the only seam. Where the curve ends, the glass does not — it just becomes the city, far enough down now that the Marquee reads as weather.",
   "exits": {
     "down": "zone_mq_chrome_f2",
@@ -27,8 +25,6 @@
   "grid_z": 3,
   "id": "zone_mq_chrome_f3",
   "map_id": "map_int_mq_chrome",
-  "marker": null,
   "name": "Floor 3",
-  "parent_zone": "zone_mq_chrome_lobby",
-  "updated_at": "1783111944"
+  "parent_zone": "zone_district_895_905"
 }

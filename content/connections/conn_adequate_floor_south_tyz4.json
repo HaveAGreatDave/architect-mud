@@ -1,0 +1,9 @@
+{
+  "a": "zone_adequate_floor",
+  "b": "zone_district_912_908",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_adequate_floor_south_tyz4",
+  "lockable": true,
+  "one_way": false
+}

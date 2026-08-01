@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "audio_theme_id": null,
-  "bg_color": "#1d3b52",
   "color": "#3f7fb0",
-  "created_by": null,
   "description": "Open water, grey to the horizon, moving in long slow swells that never quite commit to being waves. The cold comes off it in a steady breath. There is nothing to fix your eye on and no way to guess how deep it goes.",
   "exits": {
     "east": "zone_district_940_902",
@@ -13,7 +10,6 @@
     "west": "zone_district_938_902"
   },
   "flags": {
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "water"
   },
@@ -22,8 +18,6 @@
   "grid_z": 0,
   "id": "zone_district_939_902",
   "map_id": "map_world",
-  "marker": null,
   "name": "Coldwater Basin",
-  "parent_zone": null,
-  "updated_at": "1784700000"
+  "parent_zone": null
 }

@@ -5,10 +5,8 @@
     "A cold draft breathes up out of the tunnels, carrying rot and iron."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#1c241f",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "The bottom of the Ironside storm drain. A rusted service ladder climbs back up toward a coin of grey daylight overhead; below it, brick tunnels run off into total black in three directions. The floor is a shallow sheet of cold water skinned with grease. Whatever light you carry is the only light there is down here.",
   "exits": {
     "east": "zone_under_bend",
@@ -29,6 +27,5 @@
   "map_id": "map_world",
   "marker": "▽",
   "name": "Storm Drain Sump",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

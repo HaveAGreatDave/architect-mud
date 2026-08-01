@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "urban",
-  "audio_theme_id": null,
   "bg_color": "#1c2620",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
   "description": "An unmarked door beside the studio loading bay, known only by the smokers clustered under its one working sconce and the bass leaking through the wall. A brass plate reads THE DEADLINE — PRESS & CREW; someone has keyed a cock beside it. The tint-glass window cycles slowly from smoke to clear and back, showing you nothing either way.",
   "exits": {
     "north": "zone_district_912_909",
@@ -17,7 +15,6 @@
     "entrance": "north",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_912_909"
   },
@@ -28,6 +25,5 @@
   "map_id": "map_world",
   "marker": "LD",
   "name": "The Deadline",
-  "parent_zone": null,
-  "updated_at": "1784500000"
+  "parent_zone": null
 }

@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "audio_theme_id": null,
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
   "description": "The face of The Lucky Bastard — a squat gambling house drenched in buzzing neon, its door flanked by two men who are not as bored as they look. The house always takes its cut. Marrow Street runs off to the north.",
   "exits": {
     "east": "zone_casino_interior",
@@ -17,7 +15,6 @@
     "entrance": "north",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes",
     "world_exit_zone": "zone_district_921_909"
@@ -29,6 +26,5 @@
   "map_id": "map_world",
   "marker": "NV",
   "name": "The Lucky Bastard",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

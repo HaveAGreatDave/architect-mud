@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "audio_theme_id": null,
-  "bg_color": "#3a3327",
   "color": "#b8a880",
-  "created_by": "zone-planner",
   "description": "Coarse grey sand, more grit than beach, packed hard by the wind and stitched with the things the basin gives back — bottle glass worn smooth, a rib of some hull, plastic bleached to bone. It runs down to the waterline and stops being land somewhere you can't quite point at.",
   "exits": {
     "east": "zone_district_913_906",
@@ -14,7 +11,6 @@
   },
   "flags": {
     "district": "wasteland",
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "sand"
   },
@@ -23,8 +19,6 @@
   "grid_z": 0,
   "id": "zone_district_912_906",
   "map_id": "map_world",
-  "marker": "#",
   "name": "The Strand",
-  "parent_zone": null,
-  "updated_at": "1784516878"
+  "parent_zone": null
 }

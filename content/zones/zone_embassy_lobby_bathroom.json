@@ -4,10 +4,7 @@
     "The hand dryer kicks on by itself for no one, then gives up."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#c9a884",
-  "color": null,
-  "created_by": null,
   "description": "A single-stall washroom off the lobby, cracked subway tile and a mirror gone cloudy at the edges. The lock on the stall door is a bent nail wedged in a hole where the real one used to be. Someone's scratched a room number into the paint by the sink, long since crossed out. It smells like old plumbing and Lowry's cheap soap, refilled from a bulk jug behind the bar.",
   "exits": {
     "west": "zone_residential_lobby"
@@ -21,8 +18,6 @@
   "grid_z": 0,
   "id": "zone_embassy_lobby_bathroom",
   "map_id": "map_interior_zone_residential_lobby",
-  "marker": null,
   "name": "Embassy Hotel & Bar — Washroom",
-  "parent_zone": "zone_residential_lobby",
-  "updated_at": "1784600001"
+  "parent_zone": "zone_district_920_904"
 }

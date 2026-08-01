@@ -1,0 +1,9 @@
+{
+  "a": "zone_embassy_floor2",
+  "b": "zone_embassy_floor3",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_embassy_floor2_up_nlty",
+  "lockable": false,
+  "one_way": false
+}

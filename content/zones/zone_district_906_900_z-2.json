@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "audio_theme_id": null,
   "bg_color": "#0d1a26",
   "color": "#2c5a7a",
-  "created_by": null,
   "description": "Deeper. The green has gone out of the water entirely and what's left is a blue-black that swallows whatever beam you brought. The pressure settles onto your chest like a hand set there to see what you'll do.",
   "exits": {
     "east": "zone_district_907_900_z-2",
@@ -12,17 +10,13 @@
     "west": "zone_district_905_900_z-2"
   },
   "flags": {
-    "planner": "bp_district",
-    "terrain": "water",
-    "underwater": true
+    "terrain": "underwater"
   },
   "grid_x": 906,
   "grid_y": 900,
   "grid_z": -2,
   "id": "zone_district_906_900_z-2",
   "map_id": "map_world",
-  "marker": null,
   "name": "The Deep Channel",
-  "parent_zone": null,
-  "updated_at": "1784503265"
+  "parent_zone": null
 }

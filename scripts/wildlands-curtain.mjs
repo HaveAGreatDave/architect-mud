@@ -21,7 +21,7 @@ for (const key of coords) {
   if (!existsSync(path)) { missing++; continue; }
   const zone = JSON.parse(readFileSync(path, 'utf8'));
   zone.flags = zone.flags || {};
-  if (zone.flags.water) { water++; continue; }                  // never wall a water tile
+  if (zone.flags.terrain === 'water') { water++; continue; }    // never wall a water tile
   zone.flags.curtain = true;
   flagged++;
   if (zone.name === 'Grasslands' && !/Curtain/.test(zone.description || '')) {

@@ -5,10 +5,7 @@
     "Far off, or maybe very close, something that isn't a screen prepares to become one."
   ],
   "ambient_theme": null,
-  "audio_theme_id": null,
   "bg_color": "#000000",
-  "color": null,
-  "created_by": null,
   "description": "Black. Complete, felted black, the kind that presses on your eyes. A single metal chair sits in a pool of nothing, bolted to a floor you can feel but not see, facing a wall that hasn't decided to exist yet. There is nothing else. There is nowhere else to look. The chair is, unmistakably, for you.",
   "exits": {
     "north": "zone_the_collapse"
@@ -24,8 +21,6 @@
   "grid_z": 0,
   "id": "zone_the_broadcast",
   "map_id": "map_prologue",
-  "marker": null,
   "name": "The Broadcast",
-  "parent_zone": null,
-  "updated_at": "1783364988"
+  "parent_zone": null
 }

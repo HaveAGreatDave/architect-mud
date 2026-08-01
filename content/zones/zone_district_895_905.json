@@ -6,10 +6,8 @@
     "The crown beacon pulses once, high enough that you lose it in the haze."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#1b232c",
   "color": "#cfe9ff",
-  "created_by": "zone-planner",
   "description": "Chrome Court goes up out of the Marquee like something dropped rather than built: a smooth tapered obelisk of mirror steel, decagonal, seamless, throwing the whole cheap pink-and-cyan street back at itself in a warped and flattering curve. Cyan LED bands ring it at every tech-floor, a brighter halo marks the sky-lounge two thirds up, and a beacon pulses off the spire at the crown. At street level the mirror splays into a lit plinth and a doorway that does not so much open as decide. Nothing here has been repainted, because nothing here has ever been allowed to weather.",
   "exits": {
     "east": "zone_mq_chrome_lobby",
@@ -22,7 +20,6 @@
     "entrance": "west",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_894_905"
   },
@@ -33,6 +30,5 @@
   "map_id": "map_world",
   "marker": "CC",
   "name": "Chrome Court",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

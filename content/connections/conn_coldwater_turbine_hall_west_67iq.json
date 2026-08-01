@@ -1,0 +1,9 @@
+{
+  "a": "zone_coldwater_turbine_hall",
+  "b": "zone_district_924_911",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_coldwater_turbine_hall_west_67iq",
+  "lockable": true,
+  "one_way": false
+}

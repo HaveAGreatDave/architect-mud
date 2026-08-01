@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_905_910",
+  "b": "zone_mq_pigeon_bar",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_905_910_south_evjx",
+  "lockable": true,
+  "one_way": false
+}

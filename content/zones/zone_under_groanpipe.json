@@ -5,10 +5,8 @@
     "Condensation beads the curved iron overhead and lets go, one fat drop at a time."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#111917",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "A stretch of the old cast-iron trunk main, big enough to walk upright in, its seams furred with a century of mineral scale. The metal complains constantly — a deep structural groan that travels the length of the pipe and makes it impossible to tell how far off anything really is. The floor slopes steadily south, and down.",
   "exits": {
     "north": "zone_under_confldeep",
@@ -26,6 +24,5 @@
   "map_id": "map_world",
   "marker": "═",
   "name": "Groaning Main",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

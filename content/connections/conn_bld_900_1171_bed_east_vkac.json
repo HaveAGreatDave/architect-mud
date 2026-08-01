@@ -1,0 +1,9 @@
+{
+  "a": "zone_bld_900_1171_bed",
+  "b": "zone_bld_900_1171_cabin_cass",
+  "blocked": true,
+  "dir": "east",
+  "id": "conn_bld_900_1171_bed_east_vkac",
+  "lockable": false,
+  "one_way": false
+}

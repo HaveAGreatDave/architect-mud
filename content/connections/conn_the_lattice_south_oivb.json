@@ -1,0 +1,9 @@
+{
+  "a": "zone_the_lattice",
+  "b": "zone_the_broadcast",
+  "blocked": true,
+  "dir": "south",
+  "id": "conn_the_lattice_south_oivb",
+  "lockable": false,
+  "one_way": false
+}

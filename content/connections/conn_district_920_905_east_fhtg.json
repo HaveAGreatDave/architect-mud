@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_920_905",
+  "b": "zone_gunshop_interior",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_district_920_905_east_fhtg",
+  "lockable": true,
+  "one_way": false
+}

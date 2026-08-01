@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_clinic_interior",
+  "b": "zone_clinic_interior",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_clinic_interior_up_9kb5",
+  "lockable": false,
+  "one_way": true
+}

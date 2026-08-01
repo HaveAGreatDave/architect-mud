@@ -1,0 +1,9 @@
+{
+  "a": "zone_dray_coldstore",
+  "b": "zone_util_zone_dray_coldstore",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_dray_coldstore_down_5v2m",
+  "lockable": false,
+  "one_way": false
+}

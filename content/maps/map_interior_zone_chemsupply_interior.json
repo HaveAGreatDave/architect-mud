@@ -1,8 +1,5 @@
 {
-  "created_by": null,
   "entry_zone_id": "zone_chemsupply_interior",
   "id": "map_interior_zone_chemsupply_interior",
-  "name": "Pallets & Pals",
-  "parent_zone_id": "zone_district_920_907",
-  "updated_at": "1783740000"
+  "parent_zone_id": "zone_district_920_907"
 }

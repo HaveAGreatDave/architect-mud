@@ -23,7 +23,7 @@ import { readdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone } from '../server/engine/world.js';
+import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, frontDoorOf, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone, regionForZone, renderOf, specOf, propsOf, getConnection, getConnectionBetween, getDoorForEdge, doorOnLink } from '../server/engine/world.js';
 import { moveEntity } from '../server/engine/ai-behaviour.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
 import { cmdMove, dragFollowers } from '../server/engine/commands/movement.js';
@@ -44,12 +44,14 @@ import { getRegisteredMoveGates } from '../server/engine/movement-gates.js';
 import { getRegisteredSpecializedActions } from '../server/engine/specializedActions.js';
 import { registerProtectionProvider, getZoneProtection, getRegisteredProtectionProviders } from '../server/engine/protection.js';
 import { npcHomedInOwnedUnit, authoredRentCost } from '../server/engine/apartments.js';
-import { validateTags } from '../server/engine/tags.js';
+import { validateTags, validateZoneColumns, zoneColumnCatalog, TAG_CATALOG } from '../server/engine/tags.js';
 import { stopAll } from '../server/engine/scheduler.js';
 import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../server/models/schema.js';
 import { handleApiRequest, apiUpdateZone, apiPatchZoneTag } from '../server/api/routes.js';
 import { query } from '../server/models/db.js';
+import { resolveDefault, resolveTerrain, resolveProps, PROP_DEFAULTS, deriveWorld, deriveMarker, deriveColors, deriveLabel, assignBuildingMarkers, projectEdges, edgesToExits, OPPOSITE, featureProvenance, buildCellIndex, gridKey } from '../scripts/content/derive.mjs';
+import { ASSET_REFS, assetRefIds, isAssetRef } from '../scripts/content/lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGINS_DIR = join(__dirname, '../plugins');
@@ -215,8 +217,15 @@ console.log('— layer 1a: content-registry coverage —');
     if (!e.pk || !e.pk.length) colErrors.push(`${e.table}: content entry has no pk`);
     for (const c of e.pk || []) if (!cols.has(c)) colErrors.push(`${e.table}: pk column "${c}" not in SCHEMA_SQL`);
     for (const c of e.excludeColumns || []) if (!cols.has(c)) colErrors.push(`${e.table}: excludeColumns "${c}" not in SCHEMA_SQL`);
+    // omitWhenNull columns are AUTHORED (just absent by default), so naming one
+    // that's also excluded means the pipeline both writes and refuses to write it.
+    for (const c of e.omitWhenNull || []) {
+      if (!cols.has(c)) colErrors.push(`${e.table}: omitWhenNull "${c}" not in SCHEMA_SQL`);
+      if ((e.excludeColumns || []).includes(c)) colErrors.push(`${e.table}: "${c}" is both omitWhenNull and excludeColumns`);
+      if ((e.pk || []).includes(c)) colErrors.push(`${e.table}: pk column "${c}" cannot be omitWhenNull`);
+    }
   }
-  check('registry pk/excludeColumns name real columns', colErrors.length === 0, colErrors.join('; '));
+  check('registry pk/excludeColumns/omitWhenNull name real columns', colErrors.length === 0, colErrors.join('; '));
 
   // Every content table must declare its read tier — where its rows live at
   // runtime (docs/architecture.md → Read Tiers). Adding a content table without
@@ -330,6 +339,89 @@ console.log('— layer 1d: zone tag substrate —');
   check('apiPatchZoneTag rejects an uncatalogued tag with 400', rPatchBad?.status === 400);
   const rPatchMissing = await apiPatchZoneTag('zone_regress_tag_probe', { name: 'radiation', value: 5 });
   check('apiPatchZoneTag 404s on a missing zone (validation passed, no write)', rPatchMissing?.status === 404);
+
+  // ── The COLUMN half of a tile (spec §3.1–3.2) ──────────────────────────────
+  // The flag bag has been catalogue-validated for a while; the columns were
+  // validated by nothing. These pin the catalog to the schema, because a catalog
+  // that has drifted from the table it describes is worse than no catalog — it
+  // reads as authoritative while an editor generated from it silently omits a
+  // field nobody can then set.
+  const colCat = zoneColumnCatalog();
+  const zoneCols = new Set();
+  {
+    const block = SCHEMA_SQL.match(/CREATE TABLE IF NOT EXISTS zones \(([\s\S]*?)\n  \);/m);
+    for (const line of (block?.[1] || '').split('\n')) {
+      const m = line.match(/^\s{4}"?([a-z_]+)"?\s/);
+      if (m && !['primary', 'foreign', 'unique', 'check', 'constraint'].includes(m[1])) zoneCols.add(m[1]);
+    }
+    for (const m of SCHEMA_SQL.matchAll(/ALTER TABLE zones\s+ADD COLUMN IF NOT EXISTS (\w+)/g)) zoneCols.add(m[1]);
+  }
+  const phantomCols = Object.keys(colCat).filter(c => !zoneCols.has(c));
+  check('every zone_column entry names a real zones column', phantomCols.length === 0, phantomCols.join(', '));
+
+  // Deliberately uncatalogued, with the reason each one is exempt. A new zones
+  // column lands here as a failure until somebody decides which side it's on.
+  const NOT_AUTHORED = new Set(['id', 'flags', 'exits', 'stains']);
+  const uncatalogued = [...zoneCols].filter(c => !colCat[c] && !NOT_AUTHORED.has(c));
+  check('every authored zones column is in the field catalog', uncatalogued.length === 0,
+    `${uncatalogued.join(', ')} — catalogue it as zone:<column> or add it to NOT_AUTHORED with a reason`);
+
+  // One shape vocabulary. A catalog entry whose shape shapeError() doesn't know
+  // is unvalidated and looks validated, which is the failure mode this whole
+  // section exists to remove.
+  const KNOWN_SHAPES = new Set(['text', 'flag', 'tristate', 'int', 'number', 'enum', 'ref', 'list', 'object', 'range', 'hot', 'statmap']);
+  const oddShapes = [...new Set(Object.values(TAG_CATALOG).map(d => d?.shape))].filter(s => !KNOWN_SHAPES.has(s));
+  check('every catalogued shape is one shapeError understands', oddShapes.length === 0, oddShapes.join(', '));
+  check('int was collapsed into number', !Object.values(TAG_CATALOG).some(d => d?.shape === 'int'));
+
+  // The Tags screen's dropdown is a THIRD copy of the shape vocabulary, and a
+  // shape missing from it is silently rewritten to the first option the moment
+  // anybody edits that tag — which is exactly how `number` and `list` entries
+  // were one careless save away from becoming `text`.
+  {
+    const panel = await readFile(join(__dirname, '..', 'client', 'devpanel', 'js', 'panels', 'tags.js'), 'utf8');
+    const listed = new Set([...(panel.match(/const SHAPES = \[([^\]]*)\]/)?.[1] || '').matchAll(/'([a-z]+)'/g)].map(m => m[1]));
+    const inUse = new Set(Object.values(TAG_CATALOG).map(d => d?.shape).filter(Boolean));
+    const missing = [...inUse].filter(s => !listed.has(s));
+    check('the Tags screen offers every shape the catalog uses', listed.size > 0 && missing.length === 0,
+      missing.length ? `${missing.join(', ')} missing from SHAPES in panels/tags.js` : `${listed.size} shapes`);
+  }
+
+  // A `ref` with no refTable, or one naming a table that doesn't exist, is a
+  // picker that can't populate and a lint check that silently passes everything.
+  // An ASSET REF is the one legitimate exception: its collection is a directory of
+  // files rather than a table (lib.mjs ASSET_REFS), and it is only exempt here
+  // because lint resolves it against that directory — so the failure this check
+  // guards against, a ref nobody can resolve, still cannot happen.
+  const badRefs = Object.entries(TAG_CATALOG)
+    .filter(([, d]) => d?.shape === 'ref')
+    .filter(([, d]) => !d.refTable || !(isAssetRef(d.refTable)
+      || new RegExp(`CREATE TABLE IF NOT EXISTS ${d.refTable} \\(`).test(SCHEMA_SQL)))
+    .map(([k, d]) => `${k}→${d.refTable ?? '(none)'}`);
+  check('every ref names a real table or a real asset directory', badRefs.length === 0, badRefs.join(', '));
+  // The exemption is only sound while every asset ref actually resolves to files.
+  const emptyAssetRefs = Object.keys(ASSET_REFS).filter(t => (assetRefIds(t) || []).length === 0);
+  check('every asset ref resolves to a real directory of assets',
+    emptyAssetRefs.length === 0, emptyAssetRefs.join(', '));
+
+  const colBad = validateZoneColumns({ ambient_theme: 'swamp', grid_x: 'twelve', audio_theme_id: 7, ambient_events: 'a pipe knocks' });
+  check('validateZoneColumns catches enum/number/ref/list violations', colBad.badShape.length === 4, colBad.badShape.join(' | '));
+  check('validateZoneColumns says nothing about absent, null or blank columns',
+    validateZoneColumns({ name: 'Somewhere', audio_theme_id: null, marker: '' }).ok);
+
+  // Every live tile must already pass, or the gate is being introduced on top of
+  // content that violates it — which is how a check gets quietly disabled later.
+  const colErrors = [];
+  for (const z of world.zones.values()) {
+    const v = validateZoneColumns(z);
+    if (!v.ok) colErrors.push(`${z.id}: ${v.badShape.join(', ')}`);
+  }
+  check(`every live zone passes validateZoneColumns (${world.zones.size} zones)`,
+    colErrors.length === 0, colErrors.slice(0, 5).join(' | '));
+
+  const rCol = await apiUpdateZone('zone_regress_tag_probe', { ambient_theme: 'swamp' });
+  check('apiUpdateZone rejects an out-of-catalog ambient_theme with 400',
+    rCol?.status === 400 && /ambient_theme/.test(rCol?.body?.error || ''), JSON.stringify(rCol?.body).slice(0, 120));
 }
 
 // ── Layer 1e: script trigger registry ────────────────────────────────────────
@@ -413,7 +505,7 @@ console.log('— layer 1e2: trigger params cover script tokens —');
     if (!scriptId || seen.has(scriptId)) return new Set();
     seen.add(scriptId);
     const graph = byId.get(scriptId);
-    if (!graph) return new Set([' missing:' + scriptId]);
+    if (!graph) return new Set(['\u0000missing:' + scriptId]);
     const found = new Set([...JSON.stringify(graph).matchAll(TOKEN)].map(m => m[1]));
     for (const node of Object.values(graph.nodes || {})) {
       if (node?.type !== 'script' || !node.scriptId) continue;
@@ -427,7 +519,7 @@ console.log('— layer 1e2: trigger params cover script tokens —');
   for (const t of trigs) {
     const params = t.params || {};
     for (const tok of tokensOf(t.script_id, params)) {
-      if (tok.startsWith(' missing:')) { problems.push(`${t.id} → ${tok.slice(8)} does not exist`); continue; }
+      if (tok.startsWith('\u0000missing:')) { problems.push(`${t.id} → ${tok.slice(8)} does not exist`); continue; }
       if (dispatcherSupplied(tok)) continue;
       if (params[tok] == null) problems.push(`${t.id} does not supply \${${tok}}`);
     }
@@ -2259,6 +2351,1192 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   deleteDoorCache(doorId);
   world.zones.delete(hallId);
   world.zones.delete(homeId);
+}
+
+// LAW: a building's front door is the SAME door however you reach it. It sits on the
+// facade↔interior seam, which is one hop further in than a near/far-side lookup gets
+// from the street — a facade is never stood on. Three consumers reached through the
+// facade for it and reached differently: movement handled cardinal AND legacy seams,
+// ai-behaviour matched only legacy 'in'/'out' (so a locked shop never stopped an NPC
+// at any of the 52 cardinal-seam buildings), and the door verbs never looked at all
+// (`open door` from the street returned null for every building). frontDoorOf is the
+// one implementation they now share; these assertions pin BOTH seam labels, because
+// the legacy-only version passed the 'in'/'out' half of this test.
+{
+  const streetId = 'zone_regress_street_' + process.pid;
+  const facadeId = 'zone_regress_facade_' + process.pid;
+  const entryId = 'zone_regress_entry_' + process.pid;
+  const mapId = 'map_regress_int_' + process.pid;
+  const frontId = 'door_regress_front_' + process.pid;
+  const mkZone = (id, name, flags, exits, map) => world.zones.set(id, {
+    id, name, flags, exits, map_id: map || null,
+    description: 'A regress fixture.', ambient_theme: 'indoors', ambient_events: [],
+    players: new Set(), npcs: new Set(), enemies: new Set(), corpses: new Set(), items: new Set(),
+  });
+  // Seam labelled with CARDINALS — the shape 52 of the 56 facade-anchored doors use.
+  mkZone(streetId, 'Regress Street', {}, { east: facadeId });
+  mkZone(facadeId, 'Regress Shop', { facade: true, is_building: true, entrance: 'west' }, { west: streetId, east: entryId });
+  mkZone(entryId, 'Regress Shop Floor', { is_interior: true, is_building: true }, { west: facadeId }, mapId);
+  world.maps.set(mapId, { id: mapId, parent_zone_id: facadeId, entry_zone_id: entryId });
+  setDoorCache(frontId, {
+    id: frontId, zone_id: facadeId, exit_dir: 'east', target_zone: entryId,
+    hp: 100, hp_max: 100, is_open: 0, lock_state: 'locked', tags: {},
+  });
+
+  check('frontDoorOf resolves a CARDINAL facade seam', frontDoorOf(getZone(facadeId))?.id === frontId,
+    String(frontDoorOf(getZone(facadeId))?.id));
+
+  // The door verbs must reach it from the STREET. A locked door short-circuits before
+  // any DB write, so this proves resolution without touching the doors table.
+  const saved = getPlayer().current_zone;
+  getPlayer().current_zone = streetId;
+  addPlayerToZone(P.id, streetId);
+  const openFromStreet = await run('open door east');
+  check('`open door` from the street reaches the front door', /locked/i.test(openFromStreet?.message || ''),
+    JSON.stringify(openFromStreet)?.slice(0, 120));
+
+  // ...and `look` must SAY so. A door that stops the step and describes itself as an
+  // open way through is the specific lie this pins: the building keeps its name (you
+  // can see which building it is from the street) and gains the door's state.
+  const lookStreet = await run('look');
+  const streetText = (lookStreet?.message || '').replace(/<[^>]*>/g, '');
+  check('`look` shows the front door on a building, keeping its name',
+    /Regress Shop/.test(streetText) && /\(locked\)/.test(streetText),
+    streetText.split('\n').find(l => /Buildings:/.test(l)) || streetText.slice(0, 120));
+
+  // The far-side case for ordinary exits: the door row lives in the NEIGHBOUR and
+  // points back. 58 shipped doors are anchored one-sided like this and used to read
+  // as plain exits from the other room.
+  const farId = 'zone_regress_far_' + process.pid;
+  const farDoorId = 'door_regress_far_' + process.pid;
+  mkZone(farId, 'Regress Far Room', {}, { south: streetId });
+  world.zones.get(streetId).exits = { east: facadeId, north: farId };
+  setDoorCache(farDoorId, {
+    id: farDoorId, zone_id: farId, exit_dir: 'south', target_zone: streetId,
+    name: 'a steel shutter', hp: 100, hp_max: 100, is_open: 0, lock_state: null, tags: {},
+  });
+  const lookFar = (await run('look'))?.message || '';
+  check('`look` shows a door anchored on the FAR side of an ordinary exit',
+    /steel shutter/.test(lookFar), lookFar.replace(/<[^>]*>/g, '').split('\n').find(l => /Exits:/.test(l)) || '');
+  deleteDoorCache(farDoorId);
+  world.zones.delete(farId);
+  world.zones.get(streetId).exits = { east: facadeId };
+
+  // Same building wired the LEGACY way ('in'/'out'). Both must resolve, or half the
+  // world silently has no front door.
+  world.zones.get(facadeId).exits = { west: streetId, in: entryId };
+  world.zones.get(entryId).exits = { out: facadeId };
+  setDoorCache(frontId, { ...getDoorForExit(facadeId, 'east', entryId) || {}, id: frontId, zone_id: facadeId, exit_dir: 'in', target_zone: entryId, hp: 100, hp_max: 100, is_open: 0, lock_state: 'locked', tags: {} });
+  check('frontDoorOf resolves a LEGACY in/out facade seam', frontDoorOf(getZone(facadeId))?.id === frontId,
+    String(frontDoorOf(getZone(facadeId))?.id));
+
+  removePlayerFromZone(P.id, streetId);
+  getPlayer().current_zone = saved;
+  addPlayerToZone(P.id, saved);
+  deleteDoorCache(frontId);
+  world.maps.delete(mapId);
+  world.zones.delete(streetId); world.zones.delete(facadeId); world.zones.delete(entryId);
+}
+
+// LAW: defaults-and-overrides resolves most-specific-first, and the AUTHORED world
+// actually uses it. resolveDefault is the primitive every later derivation calls
+// (map-pipeline-spec §7.3), so its precedence order is pinned here rather than
+// discovered later from a tile that plays the wrong song. The live half — that a
+// Coldwater tile with no override still gets the region's theme — is what turns
+// 5,785 nulls into 2 authored values; if the region rung ever stops firing, the
+// world goes silent and nothing else would notice.
+{
+  const palette = { terrains: { concrete: { audio_theme_id: 'song_from_palette' } } };
+  const region = { id: 'region_regress', defaults: { audio_theme_id: 'song_from_region' } };
+  // The palette rung is reached through the tile's TERRAIN. There is deliberately
+  // no palette-wide default terrain — an unpainted tile has no ground surface, and
+  // inventing one would have painted 530 interiors concrete grey.
+  const bare = { id: 'z', flags: { terrain: 'concrete' } };
+
+  check('resolveDefault: tile override wins over region',
+    resolveDefault('audio_theme_id', { ...bare, audio_theme_id: 'song_own' }, region, palette) === 'song_own');
+  check('resolveDefault: region beats the palette',
+    resolveDefault('audio_theme_id', bare, region, palette) === 'song_from_region');
+  check('resolveDefault: palette catches a tile with no region',
+    resolveDefault('audio_theme_id', bare, null, palette) === 'song_from_palette');
+  check('resolveDefault: falls through to the global default',
+    resolveDefault('ambient_theme', bare, null, null) === 'indoors');
+  // A null anywhere on the chain means "no opinion", never "stop here" — the one
+  // thing the mechanism deliberately cannot express (see derive.mjs).
+  check('resolveDefault: a null override does not shadow the region',
+    resolveDefault('audio_theme_id', { ...bare, audio_theme_id: null }, region, null) === 'song_from_region');
+  check('resolveDefault: unknown key with nothing to say resolves null',
+    resolveDefault('marker', bare, null, null) === null);
+  check('resolveDefault is pure — no DB, no clock, no RNG',
+    resolveDefault('audio_theme_id', bare, region, palette) === resolveDefault('audio_theme_id', bare, region, palette));
+
+  // The authored world, as loaded. Not a fixture: these are the real region rows.
+  const themed = getAllZones().filter(z => z.flags?.region_id && !z.audio_theme_id);
+  const withTheme = themed.filter(z => resolveDefault('audio_theme_id', z, regionForZone(z)));
+  check('region defaults reach the tiles that inherit them',
+    themed.length > 0 && withTheme.length === themed.length,
+    `${withTheme.length}/${themed.length} region tiles resolve a theme`);
+  check('a tile outside every region resolves no theme',
+    getAllZones().filter(z => !z.flags?.region_id)
+      .every(z => resolveDefault('audio_theme_id', z, regionForZone(z)) === null));
+  // Every authored default must name a song that EXISTS. content:lint checks this
+  // against the file tree; this checks the database the world actually booted from,
+  // because a JSONB value has no foreign key to break loudly.
+  const wanted = [...world.regions.values()].map(r => r.defaults?.audio_theme_id).filter(Boolean);
+  const known = new Set((await query('SELECT id FROM audio_songs')).rows.map(r => r.id));
+  const badDefaults = wanted.filter(id => !known.has(id));
+  check('every region default names a real song', wanted.length > 0 && badDefaults.length === 0,
+    badDefaults.length ? badDefaults.join(', ') : `${wanted.length} authored`);
+}
+
+// LAW: presentation is DERIVED AT BUILD TIME, and there is exactly one derivation.
+// Every renderer reads zone_derived.spec; none of them owns a palette. These pin the
+// three claims that makes: the table is complete, the function is pure, and the
+// function is deterministic — because a derived value that varies by machine is
+// worse than one computed at runtime, not better.
+{
+  const palettePath = join(__dirname, '..', 'content', 'map', 'terrain.json');
+  const palette = existsSync(palettePath) ? JSON.parse(await readFile(palettePath, 'utf8')) : null;
+  check('the terrain palette exists and has entries', !!palette && Object.keys(palette.terrains || {}).length > 0);
+
+  // Purity is enforced by the seam, not by inspection (spec §7.1) — but the seam
+  // only holds while derive imports nothing. An import here is the one edit that
+  // would let a query() into the build without anybody noticing.
+  const deriveSrc = await readFile(join(__dirname, '..', 'scripts', 'content', 'derive.mjs'), 'utf8');
+  const imports = [...deriveSrc.matchAll(/^\s*import\s.+$/gm)].map(m => m[0].trim());
+  check('derive.mjs imports nothing — no DB handle, no fs, no clock can reach it',
+    imports.length === 0, imports.join(' | '));
+
+  const zonesForDerive = getAllZones().map(z => ({
+    id: z.id, marker: z.marker, color: z.color, bg_color: z.bg_color,
+    ambient_theme: z.ambient_theme, audio_theme_id: z.audio_theme_id, flags: z.flags,
+    // Coordinates, because auto-tiling is a function of the NEIGHBOURS (§7.3).
+    // Without them the determinism and order-independence checks below would be
+    // passing over a world in which every road tile is an island.
+    map_id: z.map_id, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z,
+  }));
+  const regionsForDerive = [...world.regions.values()];
+  const ser = (w) => JSON.stringify([...w.render.entries()]);
+  const a = deriveWorld({ zones: zonesForDerive, regions: regionsForDerive, palette });
+  const b = deriveWorld({ zones: zonesForDerive, regions: regionsForDerive, palette });
+  check('deriveWorld is deterministic — same input, byte-identical output', ser(a) === ser(b));
+  // Shuffled input must not change the output: derive is whole-map and sorted, so
+  // it can't depend on which rows an upsert happened to touch first (§7.2).
+  const shuffled = [...zonesForDerive].reverse();
+  check('deriveWorld does not depend on input order',
+    ser(deriveWorld({ zones: shuffled, regions: regionsForDerive, palette })) === ser(a));
+
+  // ── deriveAutoTile — adjacency-aware art (spec §7.3, §2.3) ────────────────
+  // Which connector piece a road draws is a function of its neighbours, so it is
+  // checked against THE MAP rather than against itself: for every auto-tiling tile,
+  // each of the four sides must say exactly whether an auto-tiling tile is there.
+  // Checked on the pure derive rather than on zone_derived, because this is the
+  // authored half — the table is only as fresh as the last import.
+  const autoTerrains = new Set(Object.entries(palette?.terrains || {})
+    .filter(([, t]) => t.auto_tile).map(([k]) => k));
+  const autoOf = (z) => !!(z && autoTerrains.has(resolveTerrain(z)));
+  const AT_DIRS = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
+  // THE BUILD'S OWN CELL INDEX, not a second one written here. This check used to
+  // build a last-wins map that also indexed off-map rooms — the same two defects
+  // deriveWorld's private index had, so the test would have enshrined the bug it
+  // was meant to catch. A cell holds a LIST, and a side joins if ANY occupant there
+  // auto-tiles; off-map rooms have no map to be adjacent on and are not in the index.
+  const cells = buildCellIndex(zonesForDerive);
+  const occupantsAt = (z, dx = 0, dy = 0) =>
+    cells.get(gridKey(z.map_id, z.grid_x + dx, z.grid_y + dy, z.grid_z)) || [];
+  const anyAutoAt = (z, dx, dy) => occupantsAt(z, dx, dy).some(autoOf);
+  const autoTiles = zonesForDerive.filter(z => autoOf(z) && z.grid_x != null);
+  const specAt = (id) => a.render.get(id)?.spec;
+  const wrongSide = autoTiles.filter(z => {
+    const at = specAt(z.id)?.auto_tile;
+    if (!at) return true;
+    return Object.entries(AT_DIRS).some(([d, [dx, dy]]) => at[d] !== anyAutoAt(z, dx, dy));
+  });
+  check(`every auto-tiling tile's spec matches its neighbours (${autoTiles.length} tiles)`,
+    autoTiles.length > 0 && wrongSide.length === 0, wrongSide.slice(0, 3).map(z => z.id).join(', '));
+  // Present iff the palette auto-tiles the terrain (§2.3). It used to be a bare
+  // boolean on all 5,788 tiles, which told a renderer that a tile auto-tiles
+  // without telling it what to draw — so nothing drew anything.
+  const strayAuto = zonesForDerive.filter(z => !autoOf(z) && specAt(z.id)?.auto_tile !== undefined);
+  check('a terrain the palette does not auto-tile carries no auto_tile key',
+    strayAuto.length === 0, strayAuto.slice(0, 3).map(z => z.id).join(', '));
+  // And the thing that makes it worth deriving at all: a street in the middle of a
+  // grid joins on more than one side. All-islands would satisfy every check above.
+  const junctions = autoTiles.filter(z => Object.values(specAt(z.id).auto_tile).filter(Boolean).length >= 2);
+  check('painted roads derive as a connected network, not a field of islands',
+    junctions.length > 0, `${junctions.length}/${autoTiles.length} tiles join two or more sides`);
+
+  // ── The tile stack: ground / feature / label (spec §7.7) ──────────────────
+  // This used to read PAINTED GROUND NEVER CARRIES A LABEL, and it was a blanket
+  // suppression standing in for a data cleanup: 860 tiles authored a terrain
+  // DECORATION in `zones.marker` (`#` on grass, `≈` on water) which, drawn, letters
+  // the grasslands. Deleting the decorations (tile-override-cleanup.mjs) let the rule
+  // go, because the thing actually worth forbidding is narrower — see
+  // docs/proposals/tile-presentation-overrides.md.
+  //
+  // WHAT REPLACES IT: a label on painted ground must be AUTHORED. A derived code —
+  // a building acronym, an apartment floor, sewer corridor art — landing on ground
+  // is the accident (it means a building or a corridor got painted as a surface, and
+  // that reads as a lane drawn through a building). A human typing two characters
+  // onto one tile is the feature. The old rule could not tell those apart and so
+  // banned both.
+  const specs = [...a.render.values()].map(r => r.spec);
+  const labelledGround = zonesForDerive.filter(z => specAt(z.id)?.label && specAt(z.id)?.terrain);
+  const derivedOnGround = labelledGround.filter(z => !String(z.marker ?? '').trim());
+  check('a label on painted ground is authored, never derived', derivedOnGround.length === 0,
+    derivedOnGround.slice(0, 3).map(z => z.id).join(', '));
+  // AND THE OTHER SIDE OF THAT RULE: a building must not BE painted ground. The
+  // suppression above is by design, so a stray terrain on a building tile silently
+  // deletes its navigable code — and a missing label looks exactly like a tile that
+  // never had one. Hall of Records sat as `terrain: road` and Halloran's Fix-It as
+  // `grass`, both codeless on the map and the tablet, and the roads beside Hall of
+  // Records drew a lane straight through the building. content:lint errors on it and
+  // the Studio's brush refuses it; this is the same invariant against the live world.
+  const groundedBuildings = zonesForDerive.filter(z => z.map_id === 'map_world'
+    && (z.flags?.facade || z.flags?.is_building) && z.flags?.terrain);
+  check('no building tile is painted as ground', groundedBuildings.length === 0,
+    groundedBuildings.slice(0, 3).map(z => `${z.id} (${z.flags.terrain})`).join(', '));
+  // An off-map room carries coordinates but no map, so it cannot be anybody's
+  // neighbour. Seven of them — the Echelon suite's bath and boudoir, four Solenne
+  // baths, The Inbetween — all sat on the single key `|0,0,0` in the render pass's
+  // old private index, shadowing each other.
+  const offMapIndexed = zonesForDerive.filter(z => z.map_id == null && z.grid_x != null
+    && cells.has(gridKey(z.map_id, z.grid_x, z.grid_y, z.grid_z)));
+  check('off-map rooms are absent from the coordinate index', offMapIndexed.length === 0,
+    offMapIndexed.slice(0, 3).map(z => z.id).join(', '));
+  // `spec.glyph` had exactly one consumer in the repo — the Studio's debug line —
+  // because every renderer read the authored `zones.marker` off the payload instead.
+  // Its replacement must not quietly come back.
+  check('the dead spec.glyph channel is gone', specs.every(s => !('glyph' in s)));
+  const labels = specs.filter(s => s.label);
+  check(`a label declares what the overlay may do to it (${labels.length} tiles)`,
+    labels.length > 0 && labels.every(s => typeof s.label.text === 'string' && s.label.text
+      && ['building', 'room', 'art'].includes(s.label.kind)));
+  // The hierarchy, as data: a road tile has no label key the overlay could reach —
+  // which is what stops "letters instead of buildings" also blanking roads. Same
+  // narrowing as above: a road may now wear a label a human deliberately typed, but
+  // it must never DERIVE one, because a derived code on a road means a building was
+  // painted as a lane.
+  const labelledAuto = autoTiles.filter(z => specAt(z.id)?.label && !String(z.marker ?? '').trim());
+  check('an auto-tiled road derives no label, so no overlay mode can toggle it',
+    labelledAuto.length === 0, labelledAuto.slice(0, 3).map(z => z.id).join(', '));
+  // deriveFeature's precedence, checked against the map rather than against itself.
+  const features = specs.filter(s => s.feature);
+  const badFeature = features.filter(s => !/^[a-z0-9_-]+$/i.test(s.feature));
+  check(`every feature names one zone-icon asset (${features.length} tiles)`,
+    features.length > 0 && badFeature.length === 0, badFeature.slice(0, 3).map(s => s.feature).join(', '));
+  const autoNoFeature = autoTiles.filter(z => !specAt(z.id)?.feature);
+  check('every auto-tiling tile resolves to a connector piece',
+    autoNoFeature.length === 0, autoNoFeature.slice(0, 3).map(z => z.id).join(', '));
+  // An authored flags.icon is the OVERRIDE rung and must win — that is the whole
+  // basis for overriding a tile in the Studio.
+  const overridden = zonesForDerive.filter(z => z.flags?.icon);
+  check(`an authored flags.icon outranks the derived feature (${overridden.length} tiles)`,
+    overridden.length > 0 && overridden.every(z => specAt(z.id)?.feature === String(z.flags.icon)));
+  // featureProvenance is what the Studio explains a tile with. It must be the SAME
+  // precedence deriveFeature ships, or the editor is describing a tile the build did
+  // not make — so it is checked against deriveFeature on every tile, not sampled.
+  const provMismatch = zonesForDerive.filter(z =>
+    featureProvenance(z, specAt(z.id)?.auto_tile ?? null).name !== (specAt(z.id)?.feature ?? null));
+  check('the provenance an editor shows is the feature the build ships',
+    provMismatch.length === 0, provMismatch.slice(0, 3).map(z => z.id).join(', '));
+  const provSrc = zonesForDerive.map(z => featureProvenance(z, specAt(z.id)?.auto_tile ?? null));
+  check('every feature reports which rung produced it',
+    provSrc.every(p => (p.name === null) === (p.source === null)
+      && (p.source === null || ['authored', 'rooftop', 'auto'].includes(p.source))));
+  // The stale-pin warning the Studio draws is exactly the drift list, by construction.
+  const staleProv = provSrc.filter(p => p.stale);
+  check(`a stale pin is detectable per tile, not just in aggregate (${staleProv.length})`,
+    staleProv.length === a.featureOverrides.length);
+  // The Map Icon picker is the catalog's, not a hand-written control: `ref` + a
+  // refTable the Studio can resolve. If this reverts to `text` the picker silently
+  // becomes a free-text box and a typo goes back to being inert forever.
+  check('Map Icon is a catalogued picker, not a free-text field',
+    TAG_CATALOG.icon?.shape === 'ref' && TAG_CATALOG.icon?.refTable === 'zone_icons');
+  // Every asset a feature names must exist on disk, or the map draws a broken image.
+  const iconDir = join(__dirname, '..', 'client', 'game', 'assets', 'zone-icons');
+  const haveIcons = new Set((await readdir(iconDir)).filter(f => f.endsWith('.svg')).map(f => f.slice(0, -4)));
+  const missingIcons = [...new Set(features.map(s => s.feature))].filter(n => !haveIcons.has(n));
+  check('every derived feature has an SVG on disk', missingIcons.length === 0, missingIcons.slice(0, 5).join(', '));
+  // Drift, reported not resolved: an authored road piece frozen by hand does not grow
+  // an arm when someone paints a lane beside it later. This is a real, visible defect
+  // class (a road dead-ending into another road), so it is surfaced with a count
+  // rather than asserted to zero — which of the two is right is a call about the map.
+  if (a.featureOverrides.length) {
+    console.log(`    note: ${a.featureOverrides.length} authored road icons disagree with adjacency — ` +
+      a.featureOverrides.slice(0, 3).map(o => `${o.id} ${o.authored}→${o.implied}`).join(', '));
+  }
+
+  // Completeness. A tile with no derived row renders with no fill at all, and the
+  // renderers have no fallback any more — that is the point, so this must hold.
+  const missing = getAllZones().filter(z => !renderOf(z.id));
+  check(`every zone has a zone_derived row (${world.render.size} rows)`, missing.length === 0,
+    missing.slice(0, 3).map(z => z.id).join(', ') + (missing.length ? ' — run npm run map:derive' : ''));
+  const noSpec = getAllZones().filter(z => !specOf(z.id));
+  check('every zone_derived row carries a spec', noSpec.length === 0, noSpec.slice(0, 3).map(z => z.id).join(', '));
+
+  // ── Gameplay properties (docs/proposals/terrain-property-presets.md) ────────
+  // Pure resolver first: no world, no DB, so a failure here is the RULE breaking
+  // rather than the data.
+  {
+    const P = (flags) => resolveProps({ flags }, palette);
+    check('props: an unpainted tile gets the defaults',
+      JSON.stringify(P({})) === JSON.stringify(PROP_DEFAULTS));
+    check('props: water inherits its terrain preset',
+      P({ terrain: 'water' }).swimmable === true && P({ terrain: 'water' }).routable === false);
+    check('props: solid ground inherits the defaults',
+      P({ terrain: 'road' }).routable === true && P({ terrain: 'road' }).swimmable === false);
+    // THE tri-state regression. `false` must beat the preset — if this fails, the
+    // override rung has collapsed back to presence-only and a frozen bay is
+    // unauthorable. It is the reason the shape is `tristate` and not `flag`.
+    const frozen = P({ terrain: 'water', swimmable: false, routable: true });
+    check('props: an explicit FALSE overrides the preset (the frozen bay)',
+      frozen.swimmable === false && frozen.routable === true,
+      JSON.stringify(frozen));
+    check('props: an unset key still inherits alongside an overridden one',
+      frozen.buildable === false);
+    check('props: a tile can force a property ON against its terrain (flooded basement)',
+      P({ terrain: 'concrete', swimmable: true }).swimmable === true);
+    // NUMERIC properties. A number already distinguishes absent from set, so it needs
+    // no tri-state — but it must not go through the boolean path, which would turn
+    // `speed_mult: 2` into `true` and every road into walking pace.
+    check('props: a numeric property carries its preset', P({ terrain: 'road' }).speed_mult === 2);
+    check('props: a numeric override is a NUMBER, not coerced to a boolean',
+      P({ terrain: 'road', speed_mult: 0.5 }).speed_mult === 0.5,
+      `${P({ terrain: 'road', speed_mult: 0.5 }).speed_mult}`);
+    check('props: a garbage numeric override falls back to the default, never NaN',
+      P({ terrain: 'road', speed_mult: 'fast' }).speed_mult === 1);
+    // The underwater terrain: paints exactly like water, behaves nothing like it.
+    check('props: the underwater terrain presets underwater + swimmable + liquid',
+      P({ terrain: 'underwater' }).underwater === true && P({ terrain: 'underwater' }).swimmable === true
+      && P({ terrain: 'underwater' }).liquid === true);
+    check('props: surface water is NOT underwater',
+      P({ terrain: 'water' }).underwater === false);
+    check('props: frontage is preset on road only (dirt_road is not a front-door street)',
+      P({ terrain: 'road' }).frontage === true && P({ terrain: 'dirt_road' }).frontage === false);
+    // Your call, 2026-07-30: a marsh is walked, not swum.
+    check('props: marsh is deliberately not swimmable',
+      P({ terrain: 'marsh' }).swimmable === false && P({ terrain: 'marsh' }).liquid === false);
+  }
+  // The flag→terrain migration: 82 tiles carried terrain 'water' AND flags.underwater,
+  // two facts saying one thing. They are now terrain 'underwater' and the flag is gone.
+  check('no tile still carries a raw underwater flag (migrated to terrain)',
+    getAllZones().every(z => !('underwater' in (z.flags || {}))),
+    getAllZones().filter(z => 'underwater' in (z.flags || {})).slice(0, 3).map(z => z.id).join(', '));
+  const noProps = getAllZones().filter(z => !renderOf(z.id)?.props);
+  check('every zone_derived row carries props', noProps.length === 0,
+    noProps.slice(0, 3).map(z => z.id).join(', '));
+
+  // The 2026-07-21 guard, and the reason this block exists at all. `flags.water`
+  // was migrated to terrain and its 12 readers were left behind; because the flag
+  // then sat on no row, every water check silently answered "no" and GPS routed
+  // across a 945-tile basin for nine days. Nothing failed. This is what would have.
+  {
+    const water = getAllZones().filter(z => z.flags?.terrain === 'water');
+    const notSwim = water.filter(z => !propsOf(z.id).swimmable && !('swimmable' in (z.flags || {})));
+    const routable = water.filter(z => propsOf(z.id).routable && !('routable' in (z.flags || {})));
+    check(`every painted water tile resolves swimmable (${water.length} tiles)`,
+      notSwim.length === 0, notSwim.slice(0, 3).map(z => z.id).join(', '));
+    check('no painted water tile is routable unless it says so explicitly',
+      routable.length === 0, routable.slice(0, 3).map(z => z.id).join(', '));
+  }
+
+  // Every painted terrain must resolve in the palette, or the tile paints nothing.
+  const unknownTerrain = [...new Set(getAllZones().map(z => z.flags?.terrain).filter(Boolean))]
+    .filter(t => !palette?.terrains?.[t]);
+  check('every painted terrain resolves in the palette', unknownTerrain.length === 0, unknownTerrain.join(', '));
+
+  // AUTHORED BEATS DERIVED, ON EVERY TERRAIN. The palette supplies the fill a tile
+  // has no opinion about, and gets out of the way the moment one does. This used to
+  // be the other way round behind an `authored_bg_wins` exception list, which cost
+  // 3,484 authored fills and 150 glyph colours — see
+  // docs/proposals/tile-presentation-overrides.md. Asserted on synthetic tiles
+  // rather than found ones, because the law has to hold for the terrain nobody has
+  // painted an override onto YET; a found-tile check silently passes when the world
+  // stops containing an example.
+  const paintedNoOverride = getAllZones().find(z => z.flags?.terrain === 'redrock');
+  if (paintedNoOverride) {
+    check('a painted tile with no authored fill takes the palette fill',
+      specOf(paintedNoOverride.id).fill === palette.terrains.redrock.fill,
+      `${specOf(paintedNoOverride.id).fill} vs palette ${palette.terrains.redrock.fill}`);
+  }
+  const pinnedTile = { id: 'synthetic', flags: { terrain: 'redrock' }, bg_color: '#ff00ff', color: '#00ff00' };
+  check('an authored fill beats the palette on a terrain that once ignored it',
+    deriveColors(pinnedTile, palette).bg_color === '#ff00ff',
+    deriveColors(pinnedTile, palette).bg_color);
+  check('an authored glyph colour beats a terrain that dictates its own',
+    deriveColors({ ...pinnedTile, flags: { terrain: 'road' } }, palette).color === '#00ff00',
+    deriveColors({ ...pinnedTile, flags: { terrain: 'road' } }, palette).color);
+  check('an authored marker survives painted ground',
+    deriveLabel({ ...pinnedTile, marker: '⌂' }, palette)?.text === '⌂');
+  check('no terrain hides a tile\'s own fill behind an exception flag',
+    Object.values(palette.terrains).every(t => !('authored_bg_wins' in t)));
+
+  // THE PACING BUG (spec §1.2). Pacing keyed off flags.icon matching /^road_/, so a
+  // tile painted `road` with no authored icon moved you at walking pace. The painted
+  // fact and the mechanical fact are the same fact now.
+  const paintedRoadNoIcon = getAllZones().find(z =>
+    z.flags?.terrain === 'road' && !/^(road_|runway_)/.test(z.flags?.icon || '') && !z.flags?.artery);
+  // speed_mult moved from spec to props on 2026-07-30 — it is pacing, which is
+  // gameplay, and spec is the render payload. Assert it left, so nothing quietly
+  // starts reading a stale copy from both places.
+  if (paintedRoadNoIcon) {
+    check('a painted road with no authored icon carries the road speed-up',
+      propsOf(paintedRoadNoIcon.id).speed_mult === 2,
+      `${paintedRoadNoIcon.id} → ${propsOf(paintedRoadNoIcon.id).speed_mult}`);
+  }
+  check('a non-road terrain carries no speed-up',
+    propsOf(getAllZones().find(z => z.flags?.terrain === 'redrock')?.id)?.speed_mult === 1);
+  check('speed_mult no longer rides the render spec (one home, not two)',
+    specOf(paintedRoadNoIcon?.id)?.speed_mult === undefined);
+
+  // The step-1 loan, repaid: the resolved audio theme now lives in the table, and it
+  // must agree with what resolveDefault would have said at the call site.
+  const themed = getAllZones().filter(z => z.flags?.region_id).slice(0, 200);
+  const themeMismatch = themed.filter(z =>
+    renderOf(z.id).audio_theme_id !== resolveDefault('audio_theme_id', z, regionForZone(z)));
+  check('the derived audio theme agrees with resolveDefault', themeMismatch.length === 0,
+    themeMismatch.slice(0, 3).map(z => z.id).join(', '));
+  check('zone_derived.ambient_theme is always present',
+    getAllZones().every(z => !!renderOf(z.id).ambient_theme));
+
+  // ── deriveMarker: four jobs, separated (spec §7.4) ─────────────────────────
+  // `zones.marker` meant four unrelated things. After the split it means exactly
+  // one: a human overrode this tile's map code.
+  const bldCtx = { buildingMarkers: new Map([['zone_mk_probe', 'ZZ']]) };
+  const mk = (z, ctx = bldCtx) => deriveMarker(z, palette, ctx);
+  check('deriveMarker: an authored marker always wins',
+    mk({ id: 'zone_mk_probe', map_id: 'map_world', marker: '☠', flags: { facade: true } }) === '☠');
+  check('deriveMarker: a building takes its whole-map assignment',
+    mk({ id: 'zone_mk_probe', map_id: 'map_world', flags: { facade: true } }) === 'ZZ');
+  check('deriveMarker: an apartment takes its floor designation',
+    mk({ id: 'z', name: 'Unit 2A', flags: { is_apartment: true } }) === '2A'
+    && mk({ id: 'z', name: 'Halcyon Residence 41-A', flags: { is_apartment: true } }) === '41');
+  check('deriveMarker: sewer art comes from connectivity',
+    mk({ id: 'zone_under_1_1', grid_z: -1, exits: { north: 'a', south: 'b' } }) === '║'
+    && mk({ id: 'zone_under_1_1', grid_z: -1, exits: { north: 'a', east: 'b', south: 'c', west: 'd' } }) === '╬');
+  // The one case §7.4 got wrong about this world: terrain glyphs are hand-placed
+  // decoration, not a function of the paint, so the palette derives nothing.
+  check('deriveMarker: painted ground derives no glyph',
+    mk({ id: 'z', flags: { terrain: 'water' } }) === null);
+
+  // A building's code can only be unique if something sees every building at once.
+  {
+    const stripped = getAllZones().map(z => (z.map_id === 'map_world' && (z.flags?.facade || z.flags?.is_building))
+      ? { ...z, marker: null } : z);
+    const { markers, collisions } = assignBuildingMarkers(stripped);
+    const codes = [...markers.values()].filter(Boolean);
+    check(`derived building codes are unique across the world (${codes.length})`,
+      codes.length > 0 && new Set(codes).size === codes.length);
+    check('nothing collides once every code is derived', collisions.length === 0);
+    // Order-independence matters more here than anywhere: assignment is sequential,
+    // so a different row order could otherwise hand two buildings each other's code.
+    const rev = assignBuildingMarkers([...stripped].reverse()).markers;
+    check('building assignment does not depend on row order',
+      [...markers].every(([id, code]) => rev.get(id) === code));
+  }
+
+  // The migration itself: derivation must reproduce the world that shipped. Every
+  // authored marker still draws; nothing was invented and nothing was lost.
+  const markerDrift = getAllZones().filter(z => {
+    const authored = z.marker == null ? null : String(z.marker).trim() || null;
+    return (renderOf(z.id).marker ?? null) !== authored;
+  });
+  check(`every tile draws the marker it shipped with (${world.zones.size} zones)`,
+    markerDrift.length === 0, markerDrift.slice(0, 3).map(z => `${z.id}: ${z.marker} → ${renderOf(z.id).marker}`).join(' | '));
+}
+
+// LAW: connectivity is PROJECTED — grid geometry plus the things geometry cannot
+// say (spec §7.5). `zones.exits` is still what the engine boots from, so the whole
+// value of this step is the LAST check in this block: the projected graph and the
+// authored exits must agree edge for edge. The moment they don't, `exits` cannot
+// leave content, and the two would be two sources of truth instead of one.
+{
+  const connDir = join(__dirname, '..', 'content', 'connections');
+  const connections = existsSync(connDir)
+    ? await Promise.all((await readdir(connDir)).filter(f => f.endsWith('.json'))
+        .map(async f => JSON.parse(await readFile(join(connDir, f), 'utf8'))))
+    : [];
+  check(`content/connections/ is populated (${connections.length} files)`, connections.length > 0);
+
+  // Every connection file must be shaped so the build can act on it. A dangling
+  // end is silently skipped by projectEdges, which is exactly why lint errors on
+  // it — but the file's own fields have to hold up here too.
+  const zoneIds = new Set(getAllZones().map(z => z.id));
+  const badEnd = connections.filter(c => !zoneIds.has(c.a) || !zoneIds.has(c.b));
+  check('every connection joins two real zones', badEnd.length === 0,
+    badEnd.slice(0, 3).map(c => c.id).join(', '));
+  const badDir = connections.filter(c => !c.dir || (!OPPOSITE[c.dir] && !c.one_way));
+  check('every two-way connection uses a direction the build can reverse', badDir.length === 0,
+    badDir.slice(0, 3).map(c => `${c.id}:${c.dir}`).join(', '));
+  const dupIds = connections.length - new Set(connections.map(c => c.id)).size;
+  check('connection ids are unique — a lock is keyed by one (§6)', dupIds === 0);
+
+  const zonesForEdges = getAllZones().map(z => ({
+    id: z.id, map_id: z.map_id, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z, flags: z.flags,
+  }));
+  const { edges, undeclaredOneWays, unusedBlocks } = projectEdges(zonesForEdges, connections);
+  const serE = (e) => JSON.stringify(e);
+  check('projectEdges is deterministic', serE(edges) === serE(projectEdges(zonesForEdges, connections).edges));
+  check('projectEdges does not depend on input order',
+    serE(edges) === serE(projectEdges([...zonesForEdges].reverse(), [...connections].reverse()).edges));
+
+  // The undeclared one-way (§7.5): a step that goes and does not come back with
+  // nothing saying so. A warp the map cannot draw and nobody chose.
+  check('no undeclared one-way edges', undeclaredOneWays.length === 0,
+    undeclaredOneWays.slice(0, 3).map(e => `${e.from_zone} -${e.direction}-> ${e.to_zone}`).join(' | '));
+  check('no connection blocks something geometry never projected', unusedBlocks.length === 0,
+    unusedBlocks.slice(0, 3).join(', '));
+
+  // …and the detector has teeth. A connection that REDIRECTS a direction is the
+  // realistic way to strand a neighbour: A's north now goes to C, but B's south
+  // still comes back to A, so the pair is passable one way and nobody said so.
+  {
+    const at = (id, x, y) => ({ id, map_id: 'map_probe', grid_x: x, grid_y: y, grid_z: 0, flags: {} });
+    const probe = [at('zp_a', 0, 0), at('zp_b', 0, -1), at('zp_c', 5, 5)];
+    const clean = projectEdges(probe, []);
+    check('projectEdges: two adjacent tiles project both ways', clean.edges.length === 2
+      && clean.undeclaredOneWays.length === 0);
+    const redirected = projectEdges(probe, [{ id: 'conn_probe', a: 'zp_a', b: 'zp_c', dir: 'north', one_way: true }]);
+    check('projectEdges: a redirect that strands the neighbour is reported',
+      redirected.undeclaredOneWays.length === 1
+      && redirected.undeclaredOneWays[0].from_zone === 'zp_b');
+    const walled = projectEdges(probe, [{ id: 'conn_probe', a: 'zp_a', b: 'zp_b', dir: 'north', blocked: true }]);
+    check('projectEdges: a wall removes both directions', walled.edges.length === 0);
+    const orphanWall = projectEdges(probe, [{ id: 'conn_probe', a: 'zp_a', b: 'zp_c', dir: 'north', blocked: true }]);
+    check('projectEdges: a wall between tiles that never touched is reported',
+      orphanWall.unusedBlocks.length === 1);
+  }
+
+  // The grid must still be doing the work. If a refactor quietly broke the
+  // geometry pass, connection files would silently become the whole graph and
+  // every one of the checks above would still pass on a much smaller world.
+  const kinds = edges.reduce((m, e) => { m[e.kind] = (m[e.kind] || 0) + 1; return m; }, {});
+  check(`geometry projects the bulk of the graph (${kinds.grid} grid, ${kinds.authored || 0} authored, ${kinds.portal || 0} portal)`,
+    kinds.grid > (edges.length * 0.9));
+
+  // ── The agreement gate (§11 step 6) ────────────────────────────────────────
+  // "Cut over only when they agree." This is the check that earns the cutover.
+  const authoredEdges = new Set();
+  for (const z of getAllZones()) {
+    for (const [dir, v] of Object.entries(z.exits || {})) {
+      for (const t of (Array.isArray(v) ? v : [v])) if (t) authoredEdges.add(`${z.id}|${dir}|${t}`);
+    }
+  }
+  const projectedEdges = new Set(edges.map(e => `${e.from_zone}|${e.direction}|${e.to_zone}`));
+  const gaps = [...authoredEdges].filter(k => !projectedEdges.has(k));
+  const invented = [...projectedEdges].filter(k => !authoredEdges.has(k));
+  check(`the projected graph loses no authored exit (${authoredEdges.size} edges)`, gaps.length === 0,
+    gaps.slice(0, 3).join(' | '));
+  check('the projected graph invents no exit', invented.length === 0, invented.slice(0, 3).join(' | '));
+
+  // Shape, not just membership: exits lets one direction hold an ARRAY (two
+  // elevators do), and a graph that flattens those to one target loses nine
+  // floors while still passing a set comparison.
+  const view = edgesToExits(edges);
+  const norm = (o) => JSON.stringify(Object.keys(o || {}).sort()
+    .map(k => [k, [].concat(o[k]).filter(Boolean).slice().sort()]));
+  const shapeDrift = getAllZones().filter(z => norm(z.exits) !== norm(view.get(z.id)));
+  check('zone_edges presents the same exits object the engine boots from', shapeDrift.length === 0,
+    shapeDrift.slice(0, 3).map(z => z.id).join(', '));
+
+  // And the table the build actually wrote — not just what derive would say now.
+  const written = await query('SELECT count(*)::int AS n FROM zone_edges');
+  check(`zone_edges is built (${written.rows[0].n} rows)`, written.rows[0].n === edges.length,
+    `table ${written.rows[0].n} vs derived ${edges.length} — run npm run map:derive`);
+}
+
+// LAW: YOU LEAVE THE CITY THROUGH A GATE, OR YOU DO NOT LEAVE IT.
+// The city↔wilds curtain used to be `crossesCurtain` in derive.mjs, keyed on
+// `flags.district === 'wilds'` — a presentation field the Studio paints. Erasing a
+// district on a frontier tile deleted a wall, produced no diff (the wall was never
+// a file), and looked like nothing at all on the map, because missing ground-level
+// wall reads exactly like ground. What a player got for it was the waste without
+// The South Gate: no gate warning, no wanted/contraband check coming back, and
+// death out there with no clone-vat.
+//
+// It is 133 authored walls now (scripts/content/mint-curtain-walls.mjs). The files
+// are lint's business; THIS is the world you can actually walk, asserted against
+// the booted engine — and it is deliberately independent of `zones.exits`, because
+// the agreement gate above dies at the §5 cutover and this must not die with it.
+{
+  const isWilds = (z) => z?.flags?.district === 'wilds';
+  const crossings = [];
+  for (const z of getAllZones()) {
+    for (const [dir, v] of Object.entries(z.exits || {})) {
+      for (const t of (Array.isArray(v) ? v : [v])) {
+        if (!t) continue;
+        const far = getZone(t);
+        if (!far || isWilds(z) === isWilds(far)) continue;
+        // An authored connection is somebody DECIDING to open a hole, which is
+        // what a gate is. Geometry deciding it is the bug.
+        const conn = getConnectionBetween(z.id, t);
+        crossings.push({ from: z.id, dir, to: t, gated: !!conn && !conn.blocked });
+      }
+    }
+  }
+  const ungated = crossings.filter(c => !c.gated);
+  check('no step crosses the city↔wilds curtain except through an authored gate',
+    ungated.length === 0,
+    ungated.slice(0, 3).map(c => `${c.from} —${c.dir}→ ${c.to}`).join(' | '));
+
+  // Positive control. An empty crossing list would satisfy the check above while
+  // meaning the gate had been walled up and the wilds made unreachable on foot —
+  // which is the same map defect wearing the opposite sign.
+  check(`the curtain is pierced, and only at the gate (${crossings.length} crossing(s))`,
+    crossings.length === 2 && crossings.every(c => c.from === 'zone_district_918_919' || c.to === 'zone_district_918_919'),
+    crossings.map(c => `${c.from} —${c.dir}→ ${c.to}`).join(' | '));
+}
+
+// LAW: A MAP HANGS OFF ONE WORLD TILE, AND ONLY THE MAP SAYS WHICH.
+// `maps.parent_zone_id` is the single place a map's anchor is decided; the copy
+// every tile carries in `parent_zone` (and in `flags.world_exit_zone`, where it
+// has one) is a cache of it, not a second opinion. Asserted against the BOOTED
+// world rather than the files, because that is what the engine actually reads.
+//
+// It was not always true, and the failure is silent: `zones.parent_zone` was
+// carrying the containing ROOM on 154 tiles across 12 hand-built maps (Halcyon's
+// Elevator named its own Grand Lobby) while every runtime reader —
+// flight/acquisition.js and three sites in engine/environment.js — resolves
+// `flags.world_exit_zone || parent_zone` expecting a WORLD tile. Three utility
+// rooms had additionally kept the address their building stood at before it
+// moved. Every one of those ids resolves, so nothing could ever notice.
+{
+  const zones = [...world.zones.values()];
+  const anchorBad = [];
+  for (const z of zones) {
+    if (!z.map_id) continue;                       // off-map rooms own their own parent_zone
+    const m = world.maps.get(z.map_id);
+    if (!m) continue;                              // dangling map_id is the FK check's job
+    const want = m.parent_zone_id ?? null;
+    if ((z.parent_zone ?? null) !== want) anchorBad.push(`${z.id} parent_zone=${z.parent_zone ?? 'null'} want ${want ?? 'null'}`);
+    const wez = z.flags?.world_exit_zone ?? null;
+    // On a FACADE the flag means the street out front, which the map does not own.
+    if (want != null && !z.flags?.facade && wez != null && wez !== want) {
+      anchorBad.push(`${z.id} world_exit_zone=${wez} want ${want}`);
+    }
+  }
+  check(`every tile agrees with its map's anchor (${zones.filter(z => z.map_id).length} placed tiles)`,
+    anchorBad.length === 0, anchorBad.slice(0, 3).join('; ')
+    + (anchorBad.length ? ' — run node scripts/content/sync-map-anchors.mjs' : ''));
+
+  // An interior map takes its name from the building it hangs off unless it
+  // authors an override, so the two can never disagree the way 17 of them did.
+  const unnamed = [...world.maps.values()].filter(m => !String(m.name || '').trim());
+  check(`every map resolves to a name (${world.maps.size} maps)`, unnamed.length === 0,
+    unnamed.slice(0, 3).map(m => m.id).join(', '));
+
+  const anchoredOnItself = [...world.maps.values()].filter(m => m.parent_zone_id
+    && world.zones.get(m.parent_zone_id)?.map_id === m.id);
+  check('no map is anchored on one of its own tiles', anchoredOnItself.length === 0,
+    anchoredOnItself.map(m => m.id).join(', '));
+
+  // LAW: EVERY MAP HAS A WAY IN. A seam is an exit whose far end is on a different
+  // map — the same thing projectEdges labels `kind: 'portal'` and the Studio draws.
+  // A map with none is a map a player can only be teleported into, which is fine
+  // when that is the design and a defect when it is an oversight. So the two that
+  // legitimately have none are NAMED here: a map that joins them has to say so out
+  // loud rather than quietly becoming unreachable.
+  const NO_WALK_IN = new Set([
+    'map_dream',                // entered by sleeping — plugins/dreams, never on foot
+    'map_aircraft_leviathan',   // entered by boarding — the cabin has no ground seam
+  ]);
+  const withSeam = new Set();
+  for (const z of world.zones.values()) {
+    if (!z.map_id) continue;
+    for (const target of Object.values(z.exits || {}).flat()) {
+      const t = world.zones.get(target);
+      if (t && (t.map_id || null) !== z.map_id) { withSeam.add(z.map_id); break; }
+    }
+  }
+  const stranded = [...world.maps.keys()].filter(id => !withSeam.has(id) && !NO_WALK_IN.has(id));
+  check(`every map can be walked into (${withSeam.size}/${world.maps.size} have a seam)`,
+    stranded.length === 0,
+    stranded.join(', ') + (stranded.length ? ' — add a connection, or name it in NO_WALK_IN with the reason' : ''));
+}
+
+// LAW: the Studio computes no presentation and hand-writes no form field
+// (spec §10). Both are properties of source, not behaviour, so they are asserted
+// by reading it: the moment the tool grows its own palette or its own field list
+// it stops being a preview of the build and becomes a second opinion about it —
+// which is precisely the three-disagreeing-palettes bug step 3 deleted.
+{
+  const dir = join(__dirname, '..', 'tools', 'studio');
+  const serve = await readFile(join(dir, 'serve.mjs'), 'utf8');
+  const client = await readFile(join(dir, 'studio.js'), 'utf8');
+
+  check('the Studio imports the build\'s derive module',
+    /from '\.\.\/\.\.\/scripts\/content\/derive\.mjs'/.test(serve));
+  check('the Studio runs the same lint the deploy gate runs',
+    /lintContentTree/.test(serve));
+  check('the Studio validates writes with the engine\'s own shape checks',
+    /validateZoneColumns/.test(serve) && /validateTags/.test(serve));
+  check('the Studio builds its forms from the field catalog',
+    /zoneColumnCatalog/.test(serve) && /catalog\.columns/.test(client));
+
+  // The map's anchor is edited on the MAP and pushed, never typed per tile — and
+  // the rule comes from the same module lint and the fixer use, so the tool cannot
+  // hold a private opinion about what "anchored" means.
+  check('the Studio pushes the map anchor from the shared invariant module',
+    /from '\.\.\/\.\.\/scripts\/content\/map-anchor\.mjs'/.test(serve) && /applyAnchor/.test(serve));
+  check('the Studio locks the map-owned anchor on the tile inspector',
+    /lockedFieldHtml/.test(client) && /parent_zone/.test(client));
+
+  // A seam is marked because the BUILD called it one. The moment this tool decides
+  // for itself what a warp looks like — a facade here, a hatch there — the marking
+  // stops being complete and starts being a list somebody has to remember to grow.
+  check('the Studio marks the seams the build projected, not ones it recognises',
+    /kind !== 'portal'/.test(serve) && /body\.portals/.test(client));
+  // ONE SPATIAL MARK PER TILE. A facade's authored door and its seam direction are
+  // opposite by construction on 60 of 62, so drawing both puts two marks on one tile
+  // disagreeing about which way through — §2.3's failure at the presentation layer.
+  // The bar is also why it is a bar: an arrow would point at the innocent neighbour.
+  //
+  // Scoped to drawPortal rather than the whole file. It used to assert the client
+  // held no `ctx.moveTo` at all, as a proxy for "nothing here draws an arrow" — a
+  // proxy that stopped being true the moment roads auto-tiled, because a lane from
+  // the tile centre to a connected edge is a stroked path and has every right to be.
+  // The invariant was always about the SEAM mark, so that is what it reads now.
+  const portalFn = (client.match(/function drawPortal\([\s\S]*?\n\}/) || [''])[0];
+  check('the Studio bars one edge, and the authored door wins it',
+    /const BAR = \{/.test(client) && /authoredDoor/.test(client)
+    && portalFn.length > 0 && !/(moveTo|lineTo)/.test(portalFn));
+  // The tile stack, drawn from the spec and nowhere else. `spec.label` is present iff
+  // a code means something there, so this file no longer holds the rule about which
+  // tiles wear lettering — holding it wrongly is what stamped `#` across grasslands
+  // the game renders as grass.
+  check('the Studio draws the layers the spec declares, deciding neither',
+    /spec\.feature/.test(client) && /spec\.label/.test(client)
+    && !/\.marker\b/.test(client.slice(client.indexOf('function draw('), client.indexOf('// ── Input'))));
+  // ONE LAYER PER TILE, and a switch between them. 61 world tiles carry a footprint
+  // SVG AND a code, and the Studio used to stamp the letters over the middle of the
+  // rooftop — a combination no screen in the game renders, because the graphic and
+  // the code are two ways of saying the same tile. The overlay mode is the game's
+  // own (minimap.js `avenueOverlay`), so the feature draw has to be gated on it.
+  const drawFn = client.slice(client.indexOf('function draw('), client.indexOf('// ── Input'));
+  check('the Studio shows a tile\'s art or its lettering, never both',
+    /state\.overlay/.test(client) && /lettersWin/.test(drawFn)
+    && /if \(spec\.feature && !lettersWin\)/.test(drawFn));
+  // And the feature is THE GAME'S OWN ASSET, rasterised. An earlier pass hand-drew the
+  // road lanes to match the SVGs by eye: correct that day, drift the day someone edits
+  // road_ns.svg. No piece name may appear in this file — the build supplies it.
+  check('the Studio rasterises the game\'s zone-icon asset, not an impression of it',
+    /zone-icons\//.test(client) && /drawImage/.test(client) && !/road_[nesw]/.test(client));
+  // A paint stroke changes the LOOK of the ring around it, so the response has to
+  // carry that ring — otherwise a new lane meets an old one that still thinks it is
+  // a dead end, until you reload the map.
+  check('a paint response carries the tiles whose art the stroke changed',
+    /orthoNeighbours/.test(serve) && /touched\.add/.test(serve));
+
+  // One floor at a time. 273 cells on this world hold more than one tile, so a
+  // stacked draw hides tiles under tiles and a click can only ever reach z=0.
+  check('the Studio draws and hit-tests one floor at a time',
+    /onFloor/.test(client) && /,\$\{state\.z\}/.test(client));
+
+  // No hex literals in the client: a colour written here is a colour the build did
+  // not produce. The CSS lives in index.html, which is chrome, not map paint.
+  // #8ab4ff is the seam outline — chrome, and declared as --seam next to the rest of it.
+  const hexes = [...client.matchAll(/#[0-9a-fA-F]{6}\b/g)].map(m => m[0])
+    .filter(h => !['#0e0f12', '#c8c8cc', '#1a1c21', '#6ee7d0', '#ffd479', '#8ab4ff'].includes(h));
+  check('the Studio client paints no colour of its own invention', hexes.length === 0, hexes.join(', '));
+  check('the Studio client owns no terrain palette',
+    !/TERRAIN_FILL|luminanceTextColor|terrains\s*:\s*\{/.test(client));
+
+  // No database in the process at all — that is the whole claim of §10.
+  check('no database can be reached from the Studio',
+    !/models\/db\.js|from 'pg'|require\('pg'\)/.test(serve + client));
+
+  // DISTRICTS ARE PAINTED, NOT TYPED. The tile inspector used to render
+  // flags.district as a free-text box holding a key that had to match a district
+  // exactly, with nothing checking it did — so a typo read as "unclassified" and
+  // looked identical to a blank tile. The district view assigns it from a list of
+  // the districts that exist; the tile still SAYS which one it is in. `terrain`
+  // is skipped beside it for the same reason and by the same line: the brushes
+  // paint it, and offering it on the form hands back the box the form took away.
+  check('the Studio paints a tile\'s district rather than typing it',
+    /'\/api\/assign'/.test(serve) && /assignDistrict/.test(serve)
+    && /key === 'district' \|\| key === 'terrain'\) continue/.test(client)
+    && /districtLine/.test(client));
+  // And the district form comes from the catalog, exactly as the tile form does.
+  check('the Studio builds its district form from the field catalog',
+    /districtColumnCatalog/.test(serve) && /districtCatalog/.test(client));
+
+  // A SAVE AND AN EXPORT MUST PRODUCE THE SAME BYTES, which is what makes a no-op
+  // save a no-op diff and a terrain paint a one-line one. The rule that decides it
+  // is the registry's omitWhenNull, and this file used to carry a hand-typed copy
+  // (`k === 'audio_theme_id' || k === 'marker'`) — so adding a third omitted column
+  // to the registry would have made every subsequent no-op save write an explicit
+  // null the exporter omits, and nobody would have noticed until the diffs grew.
+  // Matched on the old CODE's shape (`if (v === null && (k === 'audio_theme_id'`)
+  // rather than on the column name, which still appears in the comment explaining
+  // why this check exists — the first version of this check failed on that prose.
+  check('the Studio reads omitWhenNull from the registry rather than retyping it',
+    /contentEntries\(\)/.test(serve) && /omitWhenNull/.test(serve)
+    && !/v === null && \(k ===/.test(serve));
+
+  // Writes land whole, and never over somebody else's. The Studio is not the only
+  // writer of content/ (a git pull, sync-map-anchors, the dev-panel save-hook, a
+  // hand edit), and it reads the tree once at boot — so a save has to compare the
+  // file it is replacing against the one it read, or it silently discards their work.
+  check('the Studio renames writes into place rather than truncating a live file',
+    /\.tmp-\$\{process\.pid\}/.test(serve) && /await rename\(/.test(serve));
+  check('the Studio refuses to overwrite a file that changed under it',
+    /function conflictOf/.test(serve) && /stamps\.get/.test(serve));
+  // And the multi-file one is all-or-nothing: it used to write the map, push the
+  // anchor tile by tile, and return 200 with `failed` for the ones that didn't.
+  check('a map save validates every file it would touch before writing any',
+    /objections/.test(serve) && !/failed\.push/.test(serve) && !/body\.failed/.test(client));
+
+  // UNDO IS A FILE OPERATION. Every edit in the Studio is on disk before the gesture
+  // is finished — there is no unsaved buffer — so a client-side undo would be
+  // apologising for writes it cannot see and could not survive a reload. The journal
+  // records at writeRow(), the ONE funnel every write goes through, which is the only
+  // reason it is complete: a map save pushing its anchor onto 331 tiles is one entry
+  // without the log knowing what an anchor push is.
+  check('the Studio journals undo where the writes happen, not in the client',
+    /function record\(table, id, after\)/.test(serve) && /record\(table, id, obj\);/.test(serve)
+    && !/localStorage/.test(client));
+  // Both sides of every file, so reverting is the same write in the other direction
+  // rather than a per-operation inverse (un-paint, un-assign) with its own bugs.
+  check('an undo entry keeps the whole row from both sides',
+    /before: tree\[table\]\?\.get\(id\) \?\? null, after/.test(serve));
+  // LIFO is what makes it sound without a dependency graph: the newest entry is by
+  // construction the last writer of every file it touched. Anything else wrote it and
+  // conflictOf catches that — the same check a save makes, refusing whole.
+  check('an undo refuses rather than reverting over somebody else\'s write',
+    /async function applyEntry/.test(serve) && /conflictOf\(f\.table, f\.id\)/.test(serve)
+    && /nothing was written/.test(serve));
+  // AS IF IT WERE A FRESH PAINT. derive is whole-map by contract, so the cache is
+  // dropped and the world re-derived from the files that now exist — there is no
+  // second render path through "undo" to disagree with the build.
+  const applyFn = (serve.match(/async function applyEntry[\s\S]*?\n\}/) || [''])[0];
+  check('an undo re-derives the world rather than patching the tiles it knows about',
+    /derived = null;/.test(applyFn) && /reloadOpenMap/.test(client)
+    && /'\/api\/undo'/.test(client) && /'\/api\/redo'/.test(client));
+  check('the action log holds 20 actions deep', /const JOURNAL_MAX = 20;/.test(serve));
+
+  // MOVING AND TURNING A BUILDING ARE THE PLANNER'S RULES, NOT THIS TOOL'S. Same
+  // argument as the palette and the field catalog: the moment the Studio holds its
+  // own idea of what a quarter turn does, it is a second opinion about content the
+  // build has to agree with, and `npm run test:regress` below drives the planner
+  // directly with no server in the room.
+  check('the Studio moves and turns through the shared planner',
+    /from '\.\.\/\.\.\/scripts\/content\/transform\.mjs'/.test(serve)
+    && /planMove/.test(serve) && /planRotate/.test(serve));
+  check('the Studio client computes no direction algebra of its own',
+    !/rotateDir|rotatePoint|northeast'\s*,/.test(client));
+  // ONE GESTURE IS ONE ENTRY, however many files it turned into — a move rewrites a
+  // dozen for a small building and eighty for the Yards tenement, and taking that
+  // back has to be one Ctrl+Z rather than eighty.
+  check('a structural change is one journal action', /action\(plan\.label/.test(serve));
+  // And it is all-or-nothing, the shape saveMap already keeps: every file validated
+  // and conflict-checked before any is written.
+  const applyPlanFn = (serve.match(/async function applyPlan[\s\S]*?\n\}/) || [''])[0];
+  check('a move validates and conflict-checks every file before writing any',
+    /objections/.test(applyPlanFn) && /conflictOf/.test(applyPlanFn)
+    && /nothing was written/.test(applyPlanFn)
+    && applyPlanFn.indexOf('objections.length') < applyPlanFn.indexOf('await writeRow'));
+  // A PLAN WRITES NOTHING. The panel lists what would land because it is the same
+  // call the commit makes — not a description maintained beside the thing it describes.
+  const planRoute = (serve.match(/path === '\/api\/move-plan'\)[\s\S]*?\n    \}/) || [''])[0];
+  check('a move plan writes nothing', planRoute.length > 0
+    && !/writeRow|applyPlan|action\(/.test(planRoute));
+  // power_zones is per-CELL: its id IS the zone id and its row says which grid feeds
+  // that tile. A building that dragged it along would take the street's power with it.
+  const tablesDecl = (serve.match(/const TABLES = \[[\s\S]*?\];/) || [''])[0];
+  check('the Studio never opens power_zones, so a move cannot take one with it',
+    tablesDecl.length > 0 && !/power_zones/.test(tablesDecl));
+
+  // THE THREAT VIEW READS AND NEVER WRITES. It is the one view showing content the
+  // Studio does not edit — spawns and the enemies they name — and the moment it
+  // grows a write path it is authoring monsters through a map editor, with no
+  // field catalog and no validation behind it. Pinned as an absence.
+  const threatFn = (serve.match(/function threatView[\s\S]*?\n\}/) || [''])[0];
+  check('the threat view writes nothing', threatFn.length > 0
+    && !/writeRow|action\(|saveZone/.test(threatFn)
+    && !/'\/api\/threat'[\s\S]{0,400}?writeRow/.test(serve));
+  // A ROOM INSIDE A BUILDING HAS NO TILE. Its spawns are authored against a zone on
+  // an interior map, so on the world map — the map you look at to ask where the
+  // danger is — they would be invisible. They fold up onto the facade you enter
+  // through, walking nested maps, which is the same rule the dev panel's Spawn Map
+  // established and the only reason the world map's heat is honest.
+  check('interior spawns fold onto the tile you enter them through',
+    /function tileFor/.test(serve) && /parent_zone_id/.test(threatFn + serve)
+    && /inside: zoneId !== t\.id/.test(serve));
+  // And the score is one function in one place. Two tools disagreeing about which
+  // end of town is worse is worse than either being wrong.
+  check('the threat score is the server\'s, not a second copy in the client',
+    /function enemyThreat/.test(serve) && !/hp_max/.test(client));
+}
+
+// LAW: a building moves and turns WHOLE, and neither can author what the gate rejects.
+// Driven against the real content tree with no server and no database — the planners
+// are pure, which is the entire reason they live in scripts/content/ beside derive.
+{
+  const { readContentTree, canonicalJson } = await import('../scripts/content/lib.mjs');
+  const { planRotate, planMove, rotateDir, rotatePoint } = await import('../scripts/content/transform.mjs');
+
+  const tree = {};
+  for (const { entry, files } of readContentTree().entries) {
+    tree[entry.table] = new Map(files.map(f => [f.data.id, f.data]));
+  }
+  const facades = [...tree.zones.values()].filter(z => z.flags?.facade);
+  const apply = (t, writes) => {
+    const next = {};
+    for (const [k, v] of Object.entries(t)) next[k] = new Map(v);
+    for (const w of writes) next[w.table].set(w.id, w.row);
+    return next;
+  };
+  const driftFrom = (t) => {
+    const out = [];
+    for (const table of Object.keys(tree)) {
+      for (const [id, row] of t[table]) {
+        if (canonicalJson(row) !== canonicalJson(tree[table].get(id))) out.push(`${table}/${id}`);
+      }
+    }
+    return out;
+  };
+
+  // NORTH IS y−1, so clockwise is (x, y) → (−y, x). Get this backwards and every
+  // interior turns the wrong way while every exit key turns the right way — a
+  // building whose rooms disagree with its own doors.
+  check('a quarter turn moves north to east and takes the diagonals with it',
+    rotateDir('north', 1) === 'east' && rotateDir('east', 1) === 'south'
+    && rotateDir('northeast', 1) === 'southeast' && rotateDir('north', -1) === 'west');
+  check('a quarter turn leaves up, down, in and out alone',
+    ['up', 'down', 'in', 'out'].every(d => rotateDir(d, 1) === d));
+  check('the grid turns the same way the compass does',
+    String(rotatePoint(0, -1, 1)) === '1,0' && String(rotatePoint(1, -1, 1)) === '1,1');
+  check('four quarter turns is no turn at all',
+    ['north', 'northeast', 'west', 'up'].every(d => rotateDir(d, 4) === d));
+
+  // TURNING BACK IS BYTE-FOR-BYTE THE SAME BUILDING. The strongest property the
+  // planner has: it says the geometry, the exit keys, the connection directions, the
+  // front door and the camera all turn together and reversibly. A partial turn —
+  // exits without coordinates, or the facade without its interior — shows up here as
+  // a file that did not come home.
+  let turned = 0; const notHome = [];
+  for (const f of facades) {
+    for (const k of [1, -1]) {
+      const out = planRotate(tree, f.id, k);
+      if (out.errors.length) continue;
+      const back = planRotate(apply(tree, out.writes), f.id, -k);
+      if (back.errors.length) { notHome.push(`${f.id}: cannot turn back — ${back.errors[0]}`); continue; }
+      turned++;
+      const d = driftFrom(apply(apply(tree, out.writes), back.writes));
+      if (d.length) notHome.push(`${f.id} (${k > 0 ? 'cw' : 'ccw'}): ${d.slice(0, 4).join(', ')}`);
+    }
+  }
+  check(`turning a building back leaves the same bytes (${turned} turns)`,
+    turned > 0 && notHome.length === 0, notHome.slice(0, 6).join(' | '));
+
+  // A DOOR OPENS ONTO A STREET OR IT IS REFUSED. This is the rule that makes the
+  // facade rule in derive.mjs meaningful: a facade opens at flags.entrance and
+  // nowhere else, so an entrance pointed at another building is a building with no
+  // way in that still looks enterable on the map.
+  const intoWall = [];
+  for (const f of facades) {
+    for (const k of [1, 2, 3]) {
+      const p = planRotate(tree, f.id, k);
+      if (p.errors.length) continue;
+      const w = p.writes.find(x => x.table === 'zones' && x.id === f.id);
+      const street = tree.zones.get(w.row.flags.world_exit_zone);
+      const blocked = !street || street.flags?.facade || street.flags?.is_building
+        || street.flags?.is_interior || street.flags?.terrain === 'water' || street.flags?.water;
+      if (blocked) intoWall.push(`${f.id} → ${w.row.flags.entrance} onto ${w.row.flags.world_exit_zone}`);
+      // The zone's identity and its floor are not what a turn is about.
+      if (w.row.id !== f.id || (w.row.grid_z ?? 0) !== (f.grid_z ?? 0)) intoWall.push(`${f.id}: a turn moved its id or its floor`);
+    }
+  }
+  check('no turn ever opens a door onto a wall or water', intoWall.length === 0, intoWall.slice(0, 5).join(' | '));
+
+  // MOVING NEVER TOUCHES A COORDINATE. A world-map zone id encodes its own position
+  // (`zone_district_<x>_<y>`, 58 of the 62 facades), and map-audit GEO-1 calls a
+  // coord/id disagreement the signature of a botched move — then refuses to run its
+  // other fixers over the tile. The identity swap is what keeps every id true.
+  const moved = [];
+  let planned = 0;
+  const OFF = { north: [0, -1], east: [1, 0], south: [0, 1], west: [-1, 0] };
+  for (const f of facades) {
+    for (const [, [dx, dy]] of Object.entries(OFF)) {
+      const p = planMove(tree, f.id, f.grid_x + dx * 2, f.grid_y + dy * 2);
+      if (p.errors.length) continue;
+      planned++;
+      for (const w of p.writes.filter(x => x.table === 'zones')) {
+        const was = tree.zones.get(w.id);
+        if (w.row.grid_x !== was.grid_x || w.row.grid_y !== was.grid_y || (w.row.grid_z ?? 0) !== (was.grid_z ?? 0)) {
+          moved.push(`${f.id}: ${w.id} changed coordinates`);
+        }
+        if (w.row.id !== was.id) moved.push(`${f.id}: ${w.id} changed id`);
+      }
+      if (p.writes.some(w => w.table === 'power_zones')) moved.push(`${f.id}: a move wrote a power_zones row`);
+      // THE DOOR DOES NOT MOVE ITSELF (world.js:190 — inferring it relocated Pawn &
+      // Pity's off Marrow Street). Turning is the only thing allowed to.
+      const landed = p.writes.find(w => w.table === 'zones' && w.id === p.facadeId);
+      if (landed.row.flags.entrance !== f.flags.entrance) moved.push(`${f.id}: a move turned the door`);
+      // Exactly one interior map still hangs off exactly one facade — the dup-map
+      // state regress hard-fails elsewhere, reached here by a tool rather than by hand.
+      const maps = p.writes.filter(w => w.table === 'maps');
+      if (maps.some(m => m.row.parent_zone_id !== p.facadeId)) moved.push(`${f.id}: an interior map was left on the old cell`);
+      break;
+    }
+  }
+  check(`moving a building changes no coordinate, no id and no door (${planned} moves planned)`,
+    planned > 0 && moved.length === 0, moved.slice(0, 6).join(' | '));
+
+  // The two refusals that stop the Studio authoring something the gate rejects.
+  const ontoBuilding = [], ontoOccupied = [];
+  for (const f of facades) {
+    for (const [, [dx, dy]] of Object.entries(OFF)) {
+      const target = [...tree.zones.values()].find(z => z.map_id === f.map_id
+        && z.grid_x === f.grid_x + dx && z.grid_y === f.grid_y + dy && (z.grid_z ?? 0) === (f.grid_z ?? 0));
+      if (!target?.flags?.facade) continue;
+      const p = planMove(tree, f.id, target.grid_x, target.grid_y);
+      if (!p.errors.some(e => /already a building/.test(e))) ontoBuilding.push(`${f.id} → ${target.id}`);
+    }
+  }
+  check('a building cannot be moved onto another building',
+    ontoBuilding.length === 0, ontoBuilding.slice(0, 5).join(' | '));
+
+  // A facade is not standable, so anything left on the cell is sealed inside a
+  // building nobody can enter — and nothing else in the pipeline reports it.
+  const withStuff = [...tree.zones.values()].filter(z => z.map_id === 'map_world'
+    && !z.flags?.facade && !z.flags?.is_building
+    && [...tree.furniture.values()].some(fu => fu.zone_id === z.id));
+  for (const z of withStuff.slice(0, 12)) {
+    const near = facades.find(f => f.map_id === z.map_id
+      && Math.abs(f.grid_x - z.grid_x) + Math.abs(f.grid_y - z.grid_y) <= 3);
+    if (!near) continue;
+    const p = planMove(tree, near.id, z.grid_x, z.grid_y);
+    if (!p.errors.some(e => /standing on it/.test(e))) ontoOccupied.push(`${near.id} → ${z.id}`);
+  }
+  check('a building cannot be moved onto a cell something is standing on',
+    ontoOccupied.length === 0, ontoOccupied.slice(0, 5).join(' | '));
+}
+
+// LAW: content-store's SCHEMA_SQL parse still finds columns.
+// It reads the schema by regex — including the four-space column indent — and an
+// empty result does not throw: it downgrades every jsonb column to a pass-through
+// string, so anything that walks one (an exits graph, a flags lookup) sees
+// characters instead of keys. A reformat of SCHEMA_SQL is the realistic cause.
+{
+  const { columnTypesOf } = await import('../tools/lib/content-store.mjs');
+  const zoneTypes = columnTypesOf('zones');
+  check(`content-store reads zone column types from SCHEMA_SQL (${zoneTypes.size} columns)`,
+    zoneTypes.size > 10);
+  check('content-store reads a jsonb column as jsonb, not as its default clause',
+    zoneTypes.get('flags') === 'jsonb' && zoneTypes.get('exits') === 'jsonb',
+    `flags=${zoneTypes.get('flags')} exits=${zoneTypes.get('exits')}`);
+}
+
+// LAW: DISTRICT DEFINITIONS ARE CONTENT, NOT CODE (and there is only one copy).
+// They were a 240-line literal in server/engine/districts.js — names, colours and
+// pools of prose that could only be changed by editing engine source — and the
+// client kept a hand-maintained mirror of the colours that had gone four districts
+// stale, so the 3,471-tile Wilds drew nothing on the regional map.
+{
+  const districts = await readFile(join(__dirname, '..', 'server', 'engine', 'districts.js'), 'utf8');
+  const minimap = await readFile(join(__dirname, '..', 'client', 'game', 'js', 'panels', 'minimap.js'), 'utf8');
+
+  check('the district registry holds no authored prose of its own',
+    /export const DISTRICTS = \{\}/.test(districts) && /loadDistricts/.test(districts));
+  // The one thing a boot-loaded registry must not do: reach for the DB on a path
+  // that runs per move. districtFor() is sync by contract.
+  check('districtFor stays sync and query-free',
+    !/await|query\(/.test(districts) && /export function districtFor/.test(districts));
+  check('the client legend is served, not written into the client',
+    /export const FUNC_LEGEND = \{\}/.test(minimap) && /setDistrictLegend/.test(minimap));
+
+  // Every district a tile claims must exist, or the tile silently reads as the
+  // engine default while looking assigned in every tool.
+  const { rows: dRows } = await query('SELECT id FROM districts').catch(() => ({ rows: [] }));
+  const known = new Set(dRows.map(r => r.id));
+  check(`districts load from the content table (${known.size})`, known.size > 0);
+  const claimed = new Map();
+  for (const z of world.zones.values()) {
+    const d = z.flags?.district;
+    if (d) claimed.set(d, (claimed.get(d) || 0) + 1);
+  }
+  const orphan = [...claimed.keys()].filter(d => !known.has(d));
+  check('every district a tile claims exists', orphan.length === 0,
+    orphan.map(d => `${d} (${claimed.get(d)} tiles)`).join(', '));
+  // The prefix rung has to stay unambiguous: two districts claiming one prefix
+  // would resolve by whichever loaded last.
+  const seen = new Map();
+  const dupes = [];
+  const { rows: pRows } = await query('SELECT id, prefixes FROM districts').catch(() => ({ rows: [] }));
+  for (const r of pRows) {
+    for (const p of Array.isArray(r.prefixes) ? r.prefixes : []) {
+      if (seen.has(p)) dupes.push(`${p}: ${seen.get(p)} and ${r.id}`);
+      seen.set(p, r.id);
+    }
+  }
+  check('no zone-id prefix is claimed by two districts', dupes.length === 0, dupes.join('; '));
+}
+
+// LAW: ONE FIXTURE PER CONNECTION (spec §6.3, §11 step 7). A door is a fixture on
+// an authored link, not a thing that lives at a coordinate. 56 of 117 seams used
+// to carry two rows — one authored from each side, with two lock_states, two hp
+// pools and two tag sets — which is "a door open in `look` and locked on move"
+// waiting for somebody to edit one of them.
+{
+  const doors = [...world.doors.values()];
+  check(`doors are loaded (${doors.length})`, doors.length > 0);
+
+  const unanchored = doors.filter(d => !d.connection_id);
+  check('every door names the connection it is a fixture on', unanchored.length === 0,
+    unanchored.slice(0, 3).map(d => `${d.id} (${d.zone_id} ${d.exit_dir})`).join(', ')
+    + (unanchored.length ? ' — run scripts/content/anchor-doors.mjs' : ''));
+
+  const dangling = doors.filter(d => d.connection_id && !getConnection(d.connection_id));
+  check('every door\'s connection exists', dangling.length === 0, dangling.slice(0, 3).map(d => d.id).join(', '));
+
+  const perConn = new Map();
+  for (const d of doors) {
+    if (!d.connection_id) continue;
+    if (!perConn.has(d.connection_id)) perConn.set(d.connection_id, []);
+    perConn.get(d.connection_id).push(d.id);
+  }
+  const doubled = [...perConn.entries()].filter(([, ids]) => ids.length > 1);
+  check(`no connection carries two doors (${perConn.size} seams)`, doubled.length === 0,
+    doubled.slice(0, 3).map(([c, ids]) => `${c}: ${ids.join(' + ')}`).join(' | '));
+
+  // A door hung on a wall is a door into a wall.
+  const onWalls = doors.filter(d => getConnection(d.connection_id)?.blocked);
+  check('no door is hung on a blocked connection', onWalls.length === 0, onWalls.slice(0, 3).map(d => d.id).join(', '));
+
+  // The §6.3 property itself: the seam answers to BOTH its ends, identically.
+  // This is what the near-then-far dance was approximating at six call sites.
+  const asym = doors.filter(d => {
+    const c = getConnection(d.connection_id);
+    if (!c) return false;
+    const fromA = getDoorForEdge(c.a, c.b), fromB = getDoorForEdge(c.b, c.a);
+    return fromA?.door?.id !== d.id || fromB?.door?.id !== d.id
+      || fromA.side !== 'a' || fromB.side !== 'b';
+  });
+  check('getDoorForEdge finds the same door from either end, and knows which end',
+    asym.length === 0, asym.slice(0, 3).map(d => d.id).join(', '));
+
+  // …and the direction-taking resolver every call site actually uses agrees.
+  const linkMiss = doors.filter(d => {
+    const c = getConnection(d.connection_id);
+    if (!c) return false;
+    const far = c.a === d.zone_id ? c.b : c.a;
+    return doorOnLink(d.zone_id, d.exit_dir, far)?.id !== d.id;
+  });
+  check('doorOnLink resolves every door from the side it is recorded on',
+    linkMiss.length === 0, linkMiss.slice(0, 3).map(d => `${d.id} ${d.zone_id} ${d.exit_dir}`).join(' | '));
+
+  // The keycard minter is deleted as a MECHANISM (spec §6), not merely unused —
+  // it manufactured a stray item and anchored a door id inside a player's pocket.
+  // A keycardlock still reads an AUTHORED item, which is the bearer-key pattern
+  // it was pretending to be.
+  const doorsSrc = await readFile(join(__dirname, '..', 'server', 'engine', 'commands', 'doors.js'), 'utf8');
+  const routesSrc = await readFile(join(__dirname, '..', 'server', 'api', 'routes.js'), 'utf8');
+  check('nothing mints a keycard any more',
+    !/keycard_\$\{|apiCreateKeycard/.test(doorsSrc + routesSrc));
+  const minted = await query("SELECT count(*)::int AS n FROM items WHERE id LIKE 'keycard\\_%'");
+  check('no auto-minted keycard survives in the catalog', minted.rows[0].n === 0, `${minted.rows[0].n} found`);
 }
 
 // LAW: no NPC may be homed in a PLAYER-OWNED apartment (the "someone's in Akerson's

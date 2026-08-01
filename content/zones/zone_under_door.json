@@ -5,10 +5,8 @@
     "Cold, machine-scented air seeps under the door's bottom edge."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#1c241f",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "The gallery narrows to a landing before a heavy steel maintenance door, set deep in a reinforced frame and streaked with old rust-weep. A dead keypad guards it. Whatever lies beyond has been sealed off from the sewer for a long time — and unlike the rest of the Under, it still smells faintly of clean, cold machinery. It will not open for you today.",
   "exits": {
     "north": "zone_under_silt"
@@ -25,6 +23,5 @@
   "map_id": "map_world",
   "marker": "▤",
   "name": "Sealed Maintenance Door",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "audio_theme_id": null,
   "bg_color": "#1f3646",
   "color": "#4f83a8",
-  "created_by": "wildlands-expand",
   "description": "The water goes wide and slow here, the current losing its grip and setting down whatever it was carrying. Sandbars break the surface in low grey backs. Birds you can't name work the shallows and leave when you get close.",
   "exits": {
     "east": "zone_district_901_940",
@@ -14,7 +12,6 @@
   },
   "flags": {
     "district": "wilds",
-    "planner": "bp_district",
     "radiation": 38,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_irradiated_salvage",
@@ -25,8 +22,6 @@
   "grid_z": 0,
   "id": "zone_district_900_940",
   "map_id": "map_world",
-  "marker": null,
   "name": "The Meltwater Mouth",
-  "parent_zone": null,
-  "updated_at": "1784496296"
+  "parent_zone": null
 }

@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_yard_drystore",
+  "b": "zone_yard_drystore",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_yard_drystore_up_xcd0",
+  "lockable": false,
+  "one_way": true
+}

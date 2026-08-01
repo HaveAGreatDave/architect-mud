@@ -1,0 +1,9 @@
+{
+  "a": "zone_embassy_floor_2nd",
+  "b": "zone_residential_lobby",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_embassy_floor_2nd_down_4k9y",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_918_906",
+  "b": "zone_junkyard_shack",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_918_906_west_ph14",
+  "lockable": false,
+  "one_way": false
+}

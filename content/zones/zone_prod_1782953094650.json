@@ -1,10 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#6d3fb5",
-  "color": null,
-  "created_by": null,
   "description": "The control room, stepped above the floor behind a long slab of glass. A wall of monitors quilts the dark — program, preview, a rank of camera feeds, and one channel showing nothing but colour bars and a held tone. The media deck squats at the center of the desk, faders and jog wheel worn shiny, its transmitter light the only thing in here that ever hurries. Cold coffee rings map the console like a star chart.",
   "exits": {
     "down": "zone_studio_1782953094650"
@@ -17,8 +14,6 @@
   "grid_z": 1,
   "id": "zone_prod_1782953094650",
   "map_id": "map_int_1782953094650",
-  "marker": null,
   "name": "KSAB-TV Studio — Production",
-  "parent_zone": null,
-  "updated_at": "1782953095"
+  "parent_zone": "zone_district_913_911"
 }

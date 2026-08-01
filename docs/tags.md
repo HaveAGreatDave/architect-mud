@@ -116,11 +116,41 @@ produces these keys.
 
 ## Shared catalog — single source of truth
 
-`client/shared/tagCatalog.js` (served at `/shared/*`) exports `TAG_CATALOG`, a map of tag name → `{ label, shape, scope, group, help, options?, targets? }`. `scope` is engine storage semantics: `class` (item template `tags`), `instance` (`player_inventory.custom_data`), `furniture` (`furniture.flags`), `zone` (`zones.flags`). `shape` is one of `text|flag|int|number|enum|range|hot|statmap|list` and drives both the dev-panel input widget and serialization. The optional `targets` array (`['item','furniture']`) controls which dev-panel editors offer the tag and is set via the **Usable on** checkboxes on the Tags screen — a tag can be attachable on both (e.g. `broadcast_receiver`). When `targets` is absent, applicability is derived from `scope` (class→item, furniture→furniture, instance→neither). Both the item and furniture editors render the same dropdown-picker + chips UI, filtered by `tagAppliesTo(def,'item'|'furniture')`; the furniture picker stores values as flat keys in `flags`.
+`client/shared/tagCatalog.js` (served at `/shared/*`) exports `TAG_CATALOG`, a map of field name → `{ label, shape, scope, group, help, options?, refTable?, order?, targets? }`. `scope` is engine storage semantics: `class` (item template `tags`), `instance` (`player_inventory.custom_data`), `furniture` (`furniture.flags`), `zone` (`zones.flags`), `zone_column` (a real **column** of the zones table — see below). `shape` is one of `text|flag|number|enum|ref|list|object|range|hot|statmap` and drives the editor widget, serialization, and `shapeError()`. `order` sorts within a `group`. The optional `targets` array (`['item','furniture']`) controls which dev-panel editors offer the tag and is set via the **Usable on** checkboxes on the Tags screen — a tag can be attachable on both (e.g. `broadcast_receiver`). When `targets` is absent, applicability is derived from `scope` (class→item, furniture→furniture, instance→neither). Both the item and furniture editors render the same dropdown-picker + chips UI, filtered by `tagAppliesTo(def,'item'|'furniture')`; the furniture picker stores values as flat keys in `flags`.
+
+### It is a FIELD catalog, not just a tag catalog
+
+Two additions make it describe a whole tile rather than half of one
+([map pipeline spec §3](proposals/map-pipeline-spec.md)); the file keeps its old name
+until the importer-wide rename is worth doing.
+
+**`scope: 'zone_column'`** entries describe the zones table's own columns — `name`,
+`description`, `ambient_theme`, `ambient_events`, `audio_theme_id`, `marker`, `color`,
+`bg_color`, `map_id`, `parent_zone`, `grid_x/y/z`. They are keyed **`zone:<column>`**,
+because a flat map can hold only one `description` and both a flag and a column want that
+name. `validateZoneColumns(row)` checks them with the same `shapeError()` the flag bag uses,
+and `apiCreateZone`/`apiUpdateZone` gate on it exactly like `zoneFlagsError`. Deliberately
+uncatalogued, enforced by regress: `id`, `flags`, `exits`, `stains` — a new
+zones column fails the suite until somebody picks a side. (`created_by` and
+`updated_at` were on this list until both columns were dropped, 2026-08-01.)
+
+**`shape: 'ref'` + `refTable`** marks a value that is an id in another table. None of these
+live in a column with a foreign key — they are JSONB flag values or plain TEXT — so a typo
+is inert forever and nothing complains. `content:lint` resolves every one against the file
+tree; entries whose column *does* have a real SQL foreign key are left to that check so a
+violation is reported once, not twice.
+
+**`content:lint` also warns** (warnings print, they don't fail the gate) about a catalogued
+zone flag on no tile, and about an `ambient_theme` with no `global_ambient_events` pool
+behind it — legal, catalogued, and silently producing no ambience at all.
+
+**Editing through the Tags screen is safe for these.** It used to rewrite any non-item entry
+to `scope: 'class'` and any unlisted shape to the first one in its dropdown; both are fixed,
+and the file's doc header and trailing note now survive a save instead of being deleted by it.
 
 The applicability helpers `tagTargets(def)` / `tagAppliesTo(def, surface)` live in the **sibling** `client/shared/tagHelpers.js`, not in the catalog file.
 
-Both shared files are written to work **as a browser global *and* as ESM**, because the dev-panel `<script>` is a classic script (not a module) while the Node engine uses `import`. `server/engine/tags.js` imports the catalog for that global side effect and exposes `hasTag(item,name)`, `tagValue(item,name,default)`, `isStackable(item)`, `hasFlag(invRow,name)`, `tagsOf(entity)`, `validateTags(bag)`, and re-exports `TAG_CATALOG`.
+Both shared files are written to work **as a browser global *and* as ESM**, because the dev-panel `<script>` is a classic script (not a module) while the Node engine uses `import`. `server/engine/tags.js` imports the catalog for that global side effect and exposes `hasTag(item,name)`, `tagValue(item,name,default)`, `isStackable(item)`, `hasFlag(invRow,name)`, `tagsOf(entity)`, `validateTags(bag)`, `shapeError(key, def, value)`, `validateZoneColumns(row)`, `zoneColumnCatalog()`, and re-exports `TAG_CATALOG`.
 
 **SQL gate pattern:** `jsonb_exists(i.tags,'<name>')` / `i.tags ->> '<key>'`. Never the bare `?` operator — it collides with node-pg placeholders.
 
@@ -133,7 +163,7 @@ Both shared files are written to work **as a browser global *and* as ESM**, beca
 
 ## Critical Files
 - `client/shared/tagCatalog.js` *(shared single source of truth)* + `client/shared/tagHelpers.js` (`tagTargets`/`tagAppliesTo`) + `client/shared/tagSupertags.js`
-- `server/engine/tags.js` *(engine helpers — `tagsOf`/`hasTag`/`tagValue`/`isStackable`/`hasFlag`/`validateTags`)*
+- `server/engine/tags.js` *(engine helpers — `tagsOf`/`hasTag`/`tagValue`/`isStackable`/`hasFlag`/`validateTags`/`shapeError`/`validateZoneColumns`)*
 - `server/engine/supertags.js` *(`ownTags` — strips `__super`/`__own` bookkeeping)*
 - `server/engine/specializedActions.js` *(Tag→Action registry — the extensibility seam, ADR-0003)*
 - `server/engine/zone-tags.js` *(`getZoneRadiation`/`isSanctuary` — the `scope:'zone'` readers)*

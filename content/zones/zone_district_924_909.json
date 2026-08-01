@@ -1,10 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "urban",
-  "audio_theme_id": null,
   "bg_color": "#33383e",
   "color": "#cdb489",
-  "created_by": "yards-plan",
   "description": "A plain dry-goods warehouse, concrete-floored and echoing, racking bolted to the ceiling. DRY STORE 12 is painted on the roller door in fading yellow. Cheap to hold, steady to run — the bread and butter of anyone building a freight empire down here.",
   "exits": {
     "north": "zone_district_924_908",
@@ -17,7 +15,6 @@
     "entrance": "north",
     "facade": true,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_924_908"
   },
@@ -28,6 +25,5 @@
   "map_id": "map_world",
   "marker": "DS",
   "name": "Shelf Life",
-  "parent_zone": null,
-  "updated_at": "1783739474"
+  "parent_zone": null
 }

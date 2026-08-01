@@ -421,14 +421,11 @@ function wireMinimap() { wireMinimapAvenueToggle(); wireMinimapAutoToggle(); wir
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireMinimap);
 else wireMinimap();
 
-function luminanceTextColor(hex) {
-  const h = hex.replace('#', '');
-  if (h.length !== 6) return null;
-  const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
-  const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
-  const t = Math.round((1 - lum) * 255);
-  return `rgb(${t},${t},${t})`;
-}
+// luminanceTextColor lived here. It moved to scripts/content/derive.mjs as
+// contrastText() and now runs at build time, so spec.text is already final — the
+// renderer never picks a colour. (There were two of these, and they disagreed:
+// the dev panel's returned a binary #111111/#eeeeee against this one's continuous
+// grey, so the same tile was lettered differently in the editor and the game.)
 
 // Slide the minimap in the direction of travel so a move reads as movement
 // rather than a hard swap. Offset is one cell; the new frame starts shifted
@@ -628,7 +625,7 @@ export function renderMinimap(nodes, direction) {
   }
 
   // Edge-to-edge 1:1: a 9×9 tile window (x,y ∈ −R..R), one cell per tile — tiles
-  // touch and roads/buildings render their own icon_svg footprint, so there are no
+  // touch and roads/buildings render their own spec.feature footprint, so there are no
   // connector/gap cells (mirrors the full-map popup). Gateways: a foreign tile one
   // step across a district boundary from an in-district tile still renders as an edge
   // marker, so crossing between neighborhoods reads.
@@ -650,48 +647,43 @@ export function renderMinimap(nodes, direction) {
     }
   }
 
-  // A named zone-icon SVG (icon_svg → assets/zone-icons/<name>.svg) is the tile's
-  // footprint, drawn as a CSS mask so it takes the tile's text colour. It's the base
-  // layer in both overlay modes; the shared overlay setting (mapState.avenueOverlay)
-  // paints the authored 2-letter acronym over building tiles on top.
+  // A named zone-icon SVG (spec.feature → assets/zone-icons/<name>.svg) is the tile's
+  // footprint, drawn as a CSS mask so it takes the tile's text colour. Mirrors the
+  // full map: the SVG footprint is the base layer in every overlay mode, and the
+  // shared overlay setting (mapState.avenueOverlay) paints a 2-letter acronym or a
+  // building-type glyph over building tiles on top.
   const iconSvg = (name) => /^[a-z0-9_-]+$/i.test(name || '')
     ? `<span class="mm-icon" style="--zi:url(/assets/zone-icons/${name}.svg)"></span>` : '';
-  const overlay = mapState.avenueOverlay || 'labels'; // none | labels
-  const baseSym = (node) => iconSvg(node.icon_svg) || (node.enterable
+  const overlay = mapState.avenueOverlay || 'icons'; // none | labels | icons
+  // ONE CHANNEL. Both layers a tile can stand on top of its ground come from the spec
+  // the build derived (scripts/content/derive.mjs), so this file no longer decides what
+  // a tile is: `spec.feature` is the footprint SVG, `spec.label` is the code someone
+  // reads. There used to be a second, separately-computed `node.icon_svg`, and an
+  // `isBuilding()` predicate here that the tablet spelled differently — which is how the
+  // two screens came to disagree about which tiles wear a label.
+  const baseSym = (node) => iconSvg(node.spec?.feature) || (node.enterable
     ? '▣ ' // pass-through building tile: a door you enter, not a room you stand in
     : (node.sanctuary ? '◆ ' : '')); // bare tile — no marker glyph (#, ⸪., …)
-  // A tile counts as a building for the overlay if it's an enterable facade, carries a
-  // building type, or has a building name — broader than building_type alone so labels
-  // still land on buildings the type-detector misses.
-  const isBuilding = (node) => !!(node.building_type || node.enterable || node.building_name);
-  // The label is the AUTHORED zones.marker, and nothing else. That column exists to be
-  // the tile's map glyph; deriving one here instead meant the authored value rendered
-  // nowhere while this map and the tablet derived two DIFFERENT codes from the same
-  // name ("Hall of Records" → "HA" here, "HO" there, authored "HR" on neither).
-  //
-  // Derivation now happens ONCE, at authoring time — the dev panel stamps a suggested
-  // acronym when it converts a tile into a facade — so it is a value someone can see
-  // and edit. The trade is deliberate: a building authored outside the panel shows no
-  // letters until someone sets one. That gap is visible and audited (MARK-2 asks for
-  // the missing marker, MARK-4 catches two buildings wearing the same one), which beats
-  // a plausible-looking code that differs per screen.
-  //
-  // Interiors fall out of this for free. An unmarked room inside a building inherits
-  // flags.building_name from its parent for the directory and the exit links, so a
-  // derived label stamped the parent's acronym on every room ("The Stacks" reading
-  // "HA"). Its own marker still shows if it has one — that is how an apartment shows
-  // its floor.
-  const bldLabel = (node) => (node.marker || '').trim() || null;
+  // `spec.label.kind` decides what the overlay toggle is allowed to do, so the toggle
+  // cannot reach a tile that has no business toggling:
+  //   building  a navigable code — Labels mode replaces the graphic with a solid box
+  //   room      an apartment designation — a code, so it follows Labels too
+  //   art       sewer-corridor connectivity art. THE TILE'S OWN DRAWING, exactly like a
+  //             road connector, so it survives every mode. This is the rule that stops
+  //             roads vanishing when someone switches buildings to letters.
+  // A road has no label key at all, which is why no mode can touch it.
   const symFor = (node) => {
-    // Labels: hide the building graphic entirely and show a 2-letter acronym filling the
-    // tile square (mm-bld-label turns the tile into a solid labelled box).
-    if (overlay === 'labels' && isBuilding(node)) {
-      const lbl = bldLabel(node);
-      // No label ⇒ an unmarked interior room, or a building nobody has authored a
-      // marker for. Draw the bare tile.
-      return lbl ? `<span class="map-bld-ov map-bld-label">${escapeHtml(lbl)}</span>` : baseSym(node);
-    }
-    return baseSym(node);
+    const lbl = node.spec?.label || null;
+    if (lbl?.kind === 'art') return baseSym(node) + `<span class="map-bld-ov map-bld-art">${escapeHtml(lbl.text)}</span>`;
+    // Labels: hide the building graphic entirely and show the code filling the tile
+    // square (map-bld-label turns the tile into a solid labelled box). No label ⇒ draw
+    // the bare tile, not the building furniture — falling through would stamp the
+    // building-type glyph on an unmarked interior room.
+    if (overlay === 'labels' && lbl) return `<span class="map-bld-ov map-bld-label">${escapeHtml(lbl.text)}</span>`;
+    const base = baseSym(node);
+    if (overlay === 'none' || !node.building_type) return base;
+    const glyph = BUILDING_ICON[node.building_type] || BUILDING_ICON._default;
+    return base + `<span class="map-bld-ov map-bld-icon">${glyph}</span>`;
   };
   // Hover tooltip: zone name, its district, street name(s), plus any building(s).
   const titleFor = (node) => {
@@ -731,14 +723,8 @@ export function renderMinimap(nodes, direction) {
         // not blank out what's there: the beacon is a small centred dot+ring that
         // sits over the tile, not a swatch that replaces it.
         const cs = [];
-        const cterr = TERRAIN.has(node.terrain) ? node.terrain : null;
-        // Colour is set alongside the fill exactly as the ordinary branch below does —
-        // without it the road connector SVG and any overlay glyph (both masked with
-        // currentColor) would inherit the beacon's accent and misread against the fill.
-        if (cterr === 'road') cs.push(`background-color:${ROAD_SURFACE}`, `color:${ROAD_MARKING}`);
-        else if (cterr === 'dirt_road') cs.push(`background-color:${DIRT_ROAD_SURFACE}`, `color:${DIRT_ROAD_MARKING}`);
-        else if (cterr) { const cfill = terrainFill(cterr, node.bg_color); cs.push(`background-color:${cfill}`, `color:${node.color || luminanceTextColor(cfill)}`); }
-        else if (node.bg_color) cs.push(`background-color:${node.bg_color}`);
+        const cterr = terrainOf(node);
+        if (node.spec?.fill) cs.push(`background-color:${node.spec.fill}`);
         else if (node.district?.color) { const [dr, dg, db] = hexToRgb(node.district.color); cs.push(`background-color:rgba(${dr},${dg},${db},0.20)`); }
         const cterrCls = cterr ? ` mm-terr mm-${cterr} mm-styled` : '';
         const cStyle = cs.length ? ` style="${cs.join(';')}"` : '';
@@ -761,37 +747,35 @@ export function renderMinimap(nodes, direction) {
       }
       // Authored bg wins; otherwise a faint district tint so the sidebar reads as
       // coloured neighborhood regions, not a uniform code-grid.
+      // Everything a tile looks like comes from spec — resolved at BUILD time by
+      // scripts/content/derive.mjs, never recomputed here. The district tint is the
+      // one thing left: it is a per-viewer overlay, not a property of the tile.
       const styles = [];
-      if (node.bg_color) styles.push(`background:${node.bg_color}`);
+      const fill = node.spec?.fill || null;
+      if (fill) styles.push(`background:${fill}`);
       else if (node.district?.color) { const [dr, dg, db] = hexToRgb(node.district.color); styles.push(`background:rgba(${dr},${dg},${db},0.20)`); }
-      const textColor = node.color || (node.bg_color ? luminanceTextColor(node.bg_color) : null);
-      if (textColor) styles.push(`color:${textColor}`);
-      let styled = (node.bg_color || node.color) ? ' mm-styled' : '';
+      if (node.spec?.text) styles.push(`color:${node.spec.text}`);
+      let styled = (fill || node.spec?.text) ? ' mm-styled' : '';
       // Terrain override (road / water / grass): seamless tileable fill. Roads become
       // grey asphalt with yellow markings (the road SVG mask inherits `color`); water
       // and grass drop their marker text for a clean coloured expanse + a connecting
       // texture supplied by the .mm-<terrain> class. `background-color` (long-hand) is
       // used so the class's texture background-image survives.
       let content = symFor(node);
-      const terr = TERRAIN.has(node.terrain) ? node.terrain : null;
-      if (terr === 'road' || terr === 'dirt_road') {
-        // dirt_road reuses road's auto-tiled connector SVG (node.icon_svg → symFor), just
-        // recoloured to a packed-dirt track so it still reads as a lane, not a bare patch.
-        styles.length = 0;
-        styles.push(`background-color:${terr === 'dirt_road' ? DIRT_ROAD_SURFACE : ROAD_SURFACE}`,
-          `color:${terr === 'dirt_road' ? DIRT_ROAD_MARKING : ROAD_MARKING}`);
-        styled = ' mm-styled';
-      } else if (terr) {
-        styles.length = 0;
-        const fill = terrainFill(terr, node.bg_color);
+      const terr = terrainOf(node);
+      if (terr) {
         // Terrain paints the GROUND. Whatever stands on that ground is a separate
         // layer and survives the fill: an authored flags.icon SVG (a statue, a
         // helipad, an AA nest), the ▣ door marker, a building's overlay glyph or
         // label. Painting the statue's square `park` must not delete the statue —
         // symFor() already emits nothing for a bare tile, so there is no stray
-        // marker text here to blank, only meaning. Colour is always set so the
-        // icon mask and any overlay read against the fill.
-        styles.push(`background-color:${fill}`, `color:${node.color || luminanceTextColor(fill)}`);
+        // marker text here to blank, only meaning. `background-color` (long-hand)
+        // is used so the .mm-<terrain> class's texture image survives.
+        // Roads and dirt roads need no branch any more: their yellow/tan markings
+        // are just the palette's `text` for that terrain (auto_tile says the
+        // connector SVG in spec.feature is doing the drawing).
+        styles.length = 0;
+        styles.push(`background-color:${node.spec.fill}`, `color:${node.spec.text}`);
         styled = ' mm-styled';
       }
       const terrCls = terr ? ` mm-terr mm-${terr}` : '';
@@ -835,24 +819,29 @@ export function renderMinimap(nodes, direction) {
 
 // Land-use / function colour key for the default map view. Keys + colours match
 // server mapFunc() (movement.js) and scripts/landuse-zone-colors.js — keep synced.
-export const FUNC_LEGEND = {
-  northcity:   { label: 'North City / Uptown',   color: '#d9a83a' },
-  government:  { label: 'Government',             color: '#b56fbf' },
-  civic:       { label: 'Civic / institutional', color: '#4bb36a' },
-  residential: { label: 'Residential',           color: '#c9a884' },
-  commercial:  { label: 'Commercial / shops',    color: '#e08a4a' },
-  nightlife:   { label: 'Nightlife — Marquee',   color: '#e85aa0' },
-  media:       { label: 'Media / studio',        color: '#8e6fd0' },
-  docks:       { label: 'Docks / waterfront',    color: '#1fb5aa' },
-  water:       { label: 'Water — Coldwater Bay',  color: '#2f86cc' },
-  industrial:  { label: 'Industrial',            color: '#9a8a4f' },
-  slaglands:   { label: 'Slagworks',             color: '#e5822a' },
-  wasteland:   { label: 'Wasteland / ruins',     color: '#7c6a4a' },
-  ashway:      { label: 'The Ashway',            color: '#8b9097' },
-  slum:        { label: 'Slum / Undermarket',    color: '#cf6a2e' },
-  redline:     { label: 'Redline / Slaughterworks', color: '#c0392b' },
-  hazard:      { label: 'Hazard / lethal',       color: '#e05555' },
-};
+// The district legend — SERVED, never written here. This was a hand-kept copy of
+// the server's district registry, and it did exactly what a hand-kept copy does:
+// four districts added over the past months were never copied across — wilds,
+// sewer, yards and longwatch — so the regional map gave them no tint, no legend
+// row and no tooltip. The Wilds alone is 3,471 tiles, the largest district in the
+// game, rendering as a hole in the legend nobody could see the cause of.
+//
+// It is filled from /api/districts at boot (main.js), off the same rows the engine
+// resolves districtFor() against, so a district authored in the Studio appears here
+// with no code change at all. Empty until that lands: every read site already
+// guards with `?.` or a default, because a tile can carry a func the legend has
+// never heard of — which is precisely how the drift stayed invisible.
+export const FUNC_LEGEND = {};
+
+/** Fill the legend from the server's registry. Mutates in place — importers hold
+ *  the binding, and reassigning would leave every one of them on the empty object. */
+export function setDistrictLegend(districts) {
+  for (const k of Object.keys(FUNC_LEGEND)) delete FUNC_LEGEND[k];
+  for (const [key, d] of Object.entries(districts || {})) {
+    FUNC_LEGEND[key] = { label: d.label || d.name || key, color: d.color };
+  }
+  return Object.keys(FUNC_LEGEND).length;
+}
 
 // Street tint: a connector inherits meaning from the tiles it joins. In zone/interior
 // view it takes the *higher* danger of its two endpoints (so any street touching a
@@ -869,10 +858,15 @@ function hexToRgb(hex) {
   const h = (hex || '').replace('#', '');
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
+// A street with nothing to inherit from: the legend has not arrived yet, or both
+// its ends carry a district this build has never heard of. Neutral steel, the same
+// grey the safe-danger street already uses — not a district colour, because
+// pretending to be one would be a colour no author chose.
+const STREET_UNKNOWN = '#788ca5';
 function streetColor(a, b, regional) {
   if (regional) {
-    const [r1, g1, b1] = hexToRgb(FUNC_LEGEND[a.func]?.color || FUNC_LEGEND.residential.color);
-    const [r2, g2, b2] = hexToRgb(FUNC_LEGEND[b.func]?.color || FUNC_LEGEND.residential.color);
+    const [r1, g1, b1] = hexToRgb(FUNC_LEGEND[a.func]?.color || FUNC_LEGEND.residential?.color || STREET_UNKNOWN);
+    const [r2, g2, b2] = hexToRgb(FUNC_LEGEND[b.func]?.color || FUNC_LEGEND.residential?.color || STREET_UNKNOWN);
     return `rgba(${(r1 + r2) >> 1},${(g1 + g2) >> 1},${(b1 + b2) >> 1},0.5)`;
   }
   return DANGER_STREET[Math.max(DANGER_RANK[a.danger] ?? 0, DANGER_RANK[b.danger] ?? 0)];
@@ -908,20 +902,19 @@ const TERRAIN = new Set(['road', 'dirt_road', 'water', 'grass', 'park', 'asphalt
 // (Every painted surface keeps whatever stands on it — see the terrain branch in the
 // cell loop. There is no longer a glyph-keeping subset: blanking icons and building
 // overlays on painted ground was the bug that hid the Fisherman Statue.)
-const ROAD_SURFACE = '#4c5157';   // grey asphalt
-const ROAD_MARKING = '#f2c53d';   // yellow lane markings (the road SVG mask takes `color`)
-const DIRT_ROAD_SURFACE = '#7d6236';   // packed-dirt track — same connector art, no paint
-const DIRT_ROAD_MARKING = '#c9a86a';   // pale tan (a graded dirt lane, not painted asphalt)
-// Canonical per-type surface colour. water/grass keep authored bg_color priority (legacy,
-// seamless); the newer painted types (asphalt…dock) use their fill so the terrain drives the look.
-const TERRAIN_FILL = {
-  water: '#3f7fb0', grass: '#5a9e57', park: '#46a24e', asphalt: '#45484d', concrete: '#8a8d91',
-  dirt: '#6b5138', sand: '#c2b280', gravel: '#7d7a73', dock: '#6e5636', dirt_road: DIRT_ROAD_SURFACE,
-  scrub: '#6f7248', redrock: '#6f3524', ash: '#4f4b47', marsh: '#4d5a30',
-};
-// water/grass prefer an authored bg_color; every other terrain uses its canonical fill.
-function terrainFill(terr, bg) {
-  return (terr === 'water' || terr === 'grass') ? (bg || TERRAIN_FILL[terr]) : TERRAIN_FILL[terr];
+// TERRAIN_FILL is gone. Every colour on this map now arrives already resolved in
+// node.spec, built by scripts/content/derive.mjs from content/map/terrain.json.
+// There used to be three copies of this table — here, the tablet, and the dev
+// panel — and they had drifted: redrock was #6f3524 in the game and #9e4a30 in
+// the editor, so for 2,996 tiles the map an author painted was not the map a
+// player saw. One palette, resolved once, at build time.
+
+// The terrain CLASS for styling hooks (.mm-<terrain> textures) — a name, not a
+// colour. spec.minimap_class is what derive resolved; the payload's node.terrain
+// stays as the fallback for a transient zone, which has no derived row.
+function terrainOf(node) {
+  const t = node?.spec?.minimap_class || node?.terrain || null;
+  return t && TERRAIN.has(t) ? t : null;
 }
 
 // Cosmetic open water — Coldwater Bay. The overworld (`map_world`) has empty grid

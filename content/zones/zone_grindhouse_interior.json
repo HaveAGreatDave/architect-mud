@@ -5,14 +5,12 @@
     "A hand-lettered card by the grinder reads: NO, I WILL NOT SHARPEN THAT."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#241a14",
   "color": "#e0a060",
-  "created_by": null,
   "description": "A long shed of a shop built around a forge that has not been allowed to go out in eleven years. Blades hang in racks by maker's mark — house work on the near wall, the good marques behind glass — and the floor is grey with a decade of grinding dust. It is twenty degrees warmer in here than outside, and everything smells of hot iron and quenching oil.",
   "exits": {
-    "north": "zone_district_913_914",
-    "down": "zone_util_zone_grindhouse_interior"
+    "down": "zone_util_zone_grindhouse_interior",
+    "north": "zone_district_913_914"
   },
   "flags": {
     "building_name": "Grind House",
@@ -25,8 +23,6 @@
   "grid_z": 0,
   "id": "zone_grindhouse_interior",
   "map_id": "map_interior_zone_grindhouse_interior",
-  "marker": null,
   "name": "Grind House",
-  "parent_zone": "zone_district_913_914",
-  "updated_at": "1785387939"
+  "parent_zone": "zone_district_913_914"
 }

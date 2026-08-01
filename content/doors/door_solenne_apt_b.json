@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_solenne_apt_b_west_pd1x",
   "door_type": "basic",
   "exit_dir": "west",
   "flags": {},
@@ -23,6 +24,6 @@
       }
     }
   },
-  "target_zone": null,
+  "target_zone": "zone_solenne_residences",
   "zone_id": "zone_solenne_apt_b"
 }

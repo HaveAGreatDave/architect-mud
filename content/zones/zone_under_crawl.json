@@ -5,10 +5,8 @@
     "Grit sifts down from the low ceiling and finds your collar."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#1c241f",
   "color": "#8fae9a",
-  "created_by": "the-under",
   "description": "A maintenance crawlway barely wide enough to pass, its ceiling a tangle of sweating conduit and dead cable. Someone bolted a walkway over the channel here a lifetime ago; half of it has rusted through into the flow below. It runs south to a dead-end alcove and north back to the junction.",
   "exits": {
     "north": "zone_under_confluence",
@@ -26,6 +24,5 @@
   "map_id": "map_world",
   "marker": "╫",
   "name": "Maintenance Crawl",
-  "parent_zone": null,
-  "updated_at": "1784000000"
+  "parent_zone": null
 }

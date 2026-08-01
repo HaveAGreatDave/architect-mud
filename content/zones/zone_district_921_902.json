@@ -6,10 +6,8 @@
     "Down the wall, a drainpipe empties a long grey ribbon of water onto the kerb."
   ],
   "ambient_theme": "forest",
-  "audio_theme_id": null,
   "bg_color": "#4a4642",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
   "description": "A ten-storey slab of stained precast concrete shoved in between the freight lanes, its ground-floor windows bricked over and its upper ones dark, cracked, or gone. A board wired to the door reads ROOMS TO LET, and under it, in a shakier hand, NO REFUNDS NO EXCEPTIONS. It is the closest thing the Yards has to somewhere to live.",
   "exits": {
     "north": "zone_yards_tenement_lobby",
@@ -23,7 +21,6 @@
     "facade": true,
     "floors": 10,
     "is_building": true,
-    "planner": "bp_district",
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_921_903"
   },
@@ -34,6 +31,5 @@
   "map_id": "map_world",
   "marker": "TN",
   "name": "The Yards Tenement",
-  "parent_zone": null,
-  "updated_at": "1783970000"
+  "parent_zone": null
 }

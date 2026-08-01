@@ -1,0 +1,9 @@
+{
+  "a": "zone_grindhouse_interior",
+  "b": "zone_util_zone_grindhouse_interior",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_grindhouse_interior_down_969v",
+  "lockable": false,
+  "one_way": false
+}

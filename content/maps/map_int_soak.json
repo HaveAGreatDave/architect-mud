@@ -1,8 +1,6 @@
 {
-  "created_by": "marrow-infill",
   "entry_zone_id": "zone_soak_front",
   "id": "map_int_soak",
   "name": "Lather & Lye — Interior",
-  "parent_zone_id": "zone_district_916_908",
-  "updated_at": "1785200000"
+  "parent_zone_id": "zone_district_916_908"
 }

@@ -1,10 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
-  "bg_color": null,
-  "color": null,
-  "created_by": "dray-lane-build",
   "description": "Inside the gate: a gravel lot walled in by stacked containers, a rusted reach-stacker slumped on flat tyres, and a weighbridge office the size of a phone box. Half the cans are welded shut; the other half you really don't want opened.",
   "exits": {
     "down": "zone_util_zone_dray_container",
@@ -22,8 +18,6 @@
   "grid_z": 0,
   "id": "zone_dray_container",
   "map_id": "map_interior_zone_dray_container",
-  "marker": null,
   "name": "Box Office",
-  "parent_zone": "zone_district_922_903",
-  "updated_at": "1784100000"
+  "parent_zone": "zone_district_922_903"
 }

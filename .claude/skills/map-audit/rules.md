@@ -13,6 +13,12 @@ call goes in [`map-audit-decisions.json`](../../../docs/audits/map-audit-decisio
 
 **`[auto]`** — has a fixer. Everything else is a hand edit.
 
+**The audit reads the RESOLVED world** — your local database, zones plus the generated
+`zone_render` rows — not the `content/` tree. Rules that ask "what does the map actually
+draw here" (TERRAIN-2, the MARK-* family) read the build's answer instead of re-deriving
+one that could differ from it. It refuses to run when the DB isn't at HEAD; fixers still
+write `content/` files, and are hard-disabled against a remote host. See the skill doc.
+
 ---
 
 ## CRITICAL — the tile graph is broken
@@ -292,7 +298,7 @@ underground level's corridor art. Flagging those would be 117 findings of pure n
 **Fix:** `marker: null` — the literal null, not a deleted key, which is how `content/`
 represents "no marker" (see any `zone_util_*.json`).
 
-### MARK-3 · Apartment has no floor designation as its marker · mechanical · [auto]
+### MARK-3 · Apartment has no floor designation as its marker · mechanical
 
 The one interior that **is** a distinct place worth marking, and the exception that MARK-1
 carves out. An apartment stack is dozens of near-identical rooms — 60 of them in the Yards
@@ -315,6 +321,17 @@ marker, which is the only authored precedent there is (the five Halcyon 41s).
 
 **Only absence is reported.** A marker that disagrees with the derived designation is the
 author's call, not a defect — otherwise the rule would start fighting hand-numbered stacks.
+
+**The BUILD derives this now** (`deriveMarker`, map-pipeline-spec §7.4), reading the same
+`floorDesignation()` this table describes — the audit imports it from derive rather than
+carrying a copy. So a finding here no longer means "somebody forgot to stamp a marker": it
+means the unit's **name** carries no designation to derive one from, which is why the
+`setMarker` fixer is gone. Rename the room.
+
+**MARK-2 is in the same position**: the build assigns an acronym to any building that
+didn't author one, seeing every building at once so the code is unique by construction.
+An unmarked building is no longer possible; what MARK-4 (collisions) and MARK-5 (not
+derivable from the name) ask about is the AUTHORED override, which is still a human's.
 
 ### MARK-2 · Building tile has no 2-character map marker · mechanical
 

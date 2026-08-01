@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_meridian_unit_602_west_nbld",
   "door_type": "basic",
   "exit_dir": "west",
   "flags": {},
@@ -16,6 +17,6 @@
       "difficulty": 5
     }
   },
-  "target_zone": null,
+  "target_zone": "zone_meridian_floor_6",
   "zone_id": "zone_meridian_unit_602"
 }

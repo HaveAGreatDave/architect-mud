@@ -1,0 +1,9 @@
+{
+  "a": "zone_the_collapse",
+  "b": "zone_start",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_the_collapse_north_wmsf",
+  "lockable": false,
+  "one_way": true
+}

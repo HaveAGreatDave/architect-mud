@@ -1,0 +1,13 @@
+{
+  "description": "A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.",
+  "flags": {
+    "destructible": true,
+    "generator_id": "gen_zone_util_zone_bld_893_904_lobby"
+  },
+  "hp": 1200,
+  "hp_max": 1200,
+  "id": "furn_jbox_zone_util_zone_bld_893_904_lobby",
+  "name": "Junction Box",
+  "object_type": "junction_box",
+  "zone_id": "zone_util_zone_bld_893_904_lobby"
+}

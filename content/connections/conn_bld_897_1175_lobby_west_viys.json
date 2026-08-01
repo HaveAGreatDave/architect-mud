@@ -1,0 +1,9 @@
+{
+  "a": "zone_bld_897_1175_lobby",
+  "b": "zone_the_reach_870_1958",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_bld_897_1175_lobby_west_viys",
+  "lockable": true,
+  "one_way": false
+}

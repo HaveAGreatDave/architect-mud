@@ -1,0 +1,9 @@
+{
+  "a": "zone_residential_lobby_z-1_1782105292491",
+  "b": "zone_residential_lobby",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_residential_lobby_z_1_178210529249_up_k9kz",
+  "lockable": true,
+  "one_way": false
+}

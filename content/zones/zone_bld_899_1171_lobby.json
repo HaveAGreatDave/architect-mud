@@ -12,10 +12,6 @@
     "Dust comes off the ceiling when the wind gets under the roof."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
-  "bg_color": null,
-  "color": null,
-  "created_by": "bb1b3a85-e716-4885-8de7-6c12a496086a",
   "description": "Sticky boards underfoot, a long bar down one wall, and light the colour of weak whiskey. Somewhere a speaker coughs out a song older than everyone in the room. Nobody looks up when the door goes — but everybody clocks you.",
   "exits": {
     "down": "zone_util_zone_bld_899_1171_lobby",
@@ -33,8 +29,6 @@
   "grid_z": 0,
   "id": "zone_bld_899_1171_lobby",
   "map_id": "map_int_bld_899_1171",
-  "marker": null,
   "name": "The Saloon Floor",
-  "parent_zone": "zone_the_reach_872_1954",
-  "updated_at": "1784516450"
+  "parent_zone": "zone_the_reach_872_1954"
 }

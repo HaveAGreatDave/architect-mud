@@ -1,0 +1,9 @@
+{
+  "a": "zone_under_919_906",
+  "b": "zone_under_warren",
+  "blocked": true,
+  "dir": "north",
+  "id": "conn_under_919_906_north_awle",
+  "lockable": false,
+  "one_way": false
+}

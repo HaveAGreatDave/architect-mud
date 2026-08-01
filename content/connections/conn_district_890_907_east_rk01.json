@@ -1,0 +1,10 @@
+{
+  "a": "zone_district_890_907",
+  "b": "zone_district_891_907",
+  "blocked": true,
+  "dir": "east",
+  "id": "conn_district_890_907_east_rk01",
+  "lockable": false,
+  "name": "the Architect's Curtain",
+  "one_way": false
+}

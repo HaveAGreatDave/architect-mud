@@ -66,14 +66,27 @@ export const SCHEMA_SQL = `
     description TEXT NOT NULL,
     ambient_events JSONB DEFAULT '[]',
     exits JSONB DEFAULT '{}',
-    flags JSONB DEFAULT '{}',
-    created_by TEXT,
-    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+    flags JSONB DEFAULT '{}'
   );
   ALTER TABLE zones DROP COLUMN IF EXISTS danger_rating;
   ALTER TABLE zones DROP COLUMN IF EXISTS pvp_enabled;
   ALTER TABLE zones DROP COLUMN IF EXISTS radiation_level;
   ALTER TABLE zones DROP COLUMN IF EXISTS is_safe_zone;
+  -- created_by left zones/maps/regions/districts 2026-08-01. It was write-only
+  -- provenance -- the NAME OF THE TOOL that typed the row (wildlands-expand,
+  -- zone-planner, sewer-grid, a raw player uuid on seven of them) -- and nothing
+  -- ever read it back: not the engine, not the dev panel, not the Studio. Git is
+  -- the authorship record for content now, and it is a better one. Dropped with
+  -- the zone planner, whose flags.planner was the same idea in the flags bag.
+  -- (Each sibling table drops its own copy right after its CREATE, below.)
+  ALTER TABLE zones DROP COLUMN IF EXISTS created_by;
+  -- updated_at went the same way, 2026-08-01, and for the same reason: every
+  -- reference to it on these four tables was a WRITE. Nothing selected it -- not
+  -- a staleness check, not the deploy, not a panel showing when a room last
+  -- changed. Git has the timestamp, per row, with the diff attached. (The
+  -- updated_at on player/rep/broadcast tables is load-bearing and stays: rep
+  -- decay reads it. This drop is scoped to the four content tables.)
+  ALTER TABLE zones DROP COLUMN IF EXISTS updated_at;
 
   -- Maps are grid containers. The world is one map (map_world); each
   -- building interior is its own map, so a building takes a single cell on
@@ -84,31 +97,184 @@ export const SCHEMA_SQL = `
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     parent_zone_id TEXT,
-    entry_zone_id TEXT,
-    created_by TEXT,
-    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+    entry_zone_id TEXT
   );
+  ALTER TABLE maps DROP COLUMN IF EXISTS created_by;
+  ALTER TABLE maps DROP COLUMN IF EXISTS updated_at;
 
   -- Regions are a SPATIAL grouping of map_world zones — a named rectangle of
   -- the global grid, authored via the dev-panel World Editor. Member zones carry
   -- flags.region_id = regions.id; bounds are derived from those members'
   -- bbox at read time (never stored), so moving a region — which rewrites its
   -- zones' grid_x/grid_y — can never desync stored bounds.
-  -- NOTE: distinct from server/engine/districts.js, which is the land-use
-  -- *district* registry inferred from zone-id prefix (sense of place). A region is
-  -- the larger world-map place (Coldwater Basin, The Reach); a district is the
-  -- land-use character within it. Different concept.
+  -- NOTE: distinct from the districts table below, which is the land-use
+  -- *district* registry (sense of place). A region is the larger world-map place
+  -- (Coldwater Basin, The Reach); a district is the land-use character within it.
+  -- Different concept — see docs/reference/land-taxonomy.md.
   CREATE TABLE IF NOT EXISTS regions (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     base_terrain TEXT,
-    grid_z INTEGER DEFAULT 0,
-    created_by TEXT,
-    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+    grid_z INTEGER DEFAULT 0
   );
+  ALTER TABLE regions DROP COLUMN IF EXISTS created_by;
+  ALTER TABLE regions DROP COLUMN IF EXISTS updated_at;
   -- Static per-region climate lean read by the weather field sampler:
   -- { temp: <°C offset>, dryness: <0..1 precip/cloud multiplier> }. NULL = baseline.
   ALTER TABLE regions ADD COLUMN IF NOT EXISTS climate_bias JSONB;
+
+  -- Districts are the LAND-USE identity of a tile — the neighbourhood it reads as
+  -- (North City, the Redline, the Wilds). Authored content, not code: this table
+  -- replaced a hardcoded registry in server/engine/districts.js, which had already
+  -- drifted from its hand-kept client copy (four districts, including the 3,471-tile
+  -- Wilds, existed only on the server and so drew no colour on the regional map).
+  --
+  -- A tile's membership is flags.district. prefixes is the LEGACY fallback: zone
+  -- ids of the form zone_<prefix>_… used to classify themselves, and 154 zones still
+  -- rely on it. Every tile on the modern grid is zone_district_<x>_<y>, which matches
+  -- nothing, so for those flags.district is the only thing that assigns identity.
+  --
+  -- signature is the outdoor sensory pool (smell/sound/air lines); blurb is the
+  -- one-off mood shown on a player's first-ever entry; landmark/skyline are the
+  -- orienting feature seen from afar. Read at boot into the districts registry;
+  -- districtFor() is sync and query-free by contract (it runs per move).
+  -- THE NAME WAS USED BEFORE. Until 2026-07-19 "district" meant the spatial place
+  -- that is now regions, and the rename moved the rows and files across but left
+  -- the old TABLE sitting in every database it had ever been created in — absent
+  -- from this file, absent from the content registry, read by nothing. A plain
+  -- create-if-not-exists therefore no-ops against that corpse and hands the new
+  -- registry a table with none of its columns. (Spelled out in full, that DDL would
+  -- also invent a table: regress reads this file's table names by pattern, comments
+  -- included, and duly reported an unclassified table called "would".)
+  --
+  -- Renamed rather than dropped: the rows are superseded by regions (dev held one,
+  -- district_coldwater, against region_coldwater) but a schema pass that runs on
+  -- every deploy has no business deleting data unattended. Guarded on base_terrain,
+  -- a column only the legacy shape has, so this fires once and is inert forever
+  -- after. Drop districts_legacy by hand once you've looked at it.
+  DO $$
+  BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_schema = 'public' AND table_name = 'districts'
+                 AND column_name = 'base_terrain')
+       AND NOT EXISTS (SELECT 1 FROM information_schema.tables
+                       WHERE table_schema = 'public' AND table_name = 'districts_legacy')
+    THEN
+      ALTER TABLE districts RENAME TO districts_legacy;
+    END IF;
+  END $$;
+
+  CREATE TABLE IF NOT EXISTS districts (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    color TEXT,
+    blurb TEXT,
+    landmark TEXT,
+    skyline TEXT,
+    signature JSONB,
+    prefixes JSONB,
+    sort INTEGER DEFAULT 0
+  );
+  ALTER TABLE districts DROP COLUMN IF EXISTS created_by;
+  ALTER TABLE districts DROP COLUMN IF EXISTS updated_at;
+
+  -- EVERYTHING THE BUILD RESOLVED, one row per zone. TRUNCATEd and rebuilt by the
+  -- derive pass of content:import (docs/proposals/map-pipeline-spec.md §2.1) —
+  -- never authored, never exported, classed runtime so it structurally cannot
+  -- enter content/. Renderers read ONLY these values; a renderer that falls back
+  -- to zones.marker is drawing a marker nobody authored.
+  --
+  -- Two payloads, and the split is the point (docs/proposals/terrain-property-presets.md):
+  --   spec   the RENDER resolution — fill, text, feature, minimap_class, speed_mult
+  --   props  the GAMEPLAY resolution — liquid/swimmable/routable/buildable, each
+  --          resolved terrain-preset then tile-flag override
+  -- It was called zone_render while spec was all it held. Gameplay properties riding
+  -- a table named "render" would mislead the next reader, so it was renamed when
+  -- props landed.
+  DO $$ BEGIN
+    IF to_regclass('zone_render') IS NOT NULL AND to_regclass('zone_derived') IS NULL THEN
+      ALTER TABLE zone_render RENAME TO zone_derived;
+    END IF;
+  END $$;
+  CREATE TABLE IF NOT EXISTS zone_derived (
+    zone_id        TEXT PRIMARY KEY REFERENCES zones(id) ON DELETE CASCADE,
+    marker         TEXT,
+    icon           TEXT,
+    ambient_theme  TEXT,
+    audio_theme_id TEXT,
+    spec           JSONB NOT NULL DEFAULT '{}',
+    props          JSONB NOT NULL DEFAULT '{}'
+  );
+  ALTER TABLE zone_derived ADD COLUMN IF NOT EXISTS props JSONB NOT NULL DEFAULT '{}';
+  -- Four columns left this table because nothing read them and each duplicated a
+  -- value the same row already carried: glyph was marker under a second name,
+  -- color/bg_color are spec.text/spec.fill, and minimap_class is spec.minimap_class
+  -- (both consumers -- minimap.js and tablet-os.js -- read it through the spec).
+  -- Two channels for one value is precisely the drift this table was introduced to
+  -- end, so carrying the unread half was working against itself.
+  ALTER TABLE zone_derived DROP COLUMN IF EXISTS color;
+  ALTER TABLE zone_derived DROP COLUMN IF EXISTS bg_color;
+  ALTER TABLE zone_derived DROP COLUMN IF EXISTS minimap_class;
+  ALTER TABLE zone_derived DROP COLUMN IF EXISTS glyph;
+
+  -- The region-level slot of the defaults-and-overrides mechanism
+  -- (docs/proposals/map-pipeline-spec.md §1.3): { "<column>": <value> } read by
+  -- resolveDefault() when a member tile leaves that column null. One key today,
+  -- audio_theme_id — two authored values standing in for 5,785 nulls.
+  ALTER TABLE regions ADD COLUMN IF NOT EXISTS defaults JSONB DEFAULT '{}';
+
+  -- AUTHORED connections (spec §1.4). A row exists only where geometry cannot say
+  -- what is true: a link the grid does not imply (a stairwell, a facade's front
+  -- door, a warp), a link that runs one way, or a WALL — two tiles that touch and
+  -- are deliberately not connected. Contiguous walkable ground authors nothing.
+  --
+  -- dir is authoritative, not adjacency: a connection may join non-adjacent tiles
+  -- or tiles on different maps, which is what makes warping legible.
+  --
+  -- id is MINTED once and never re-derived. The connection_locks row of §6 is
+  -- keyed by it, so re-deriving an id from its endpoints would make a lock's grant
+  -- evaporate the moment a tile is renamed.
+  CREATE TABLE IF NOT EXISTS connections (
+    id         TEXT PRIMARY KEY,
+    a          TEXT NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
+    b          TEXT NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
+    dir        TEXT NOT NULL,            -- direction FROM a TO b
+    one_way    BOOLEAN NOT NULL DEFAULT FALSE,
+    blocked    BOOLEAN NOT NULL DEFAULT FALSE,  -- adjacent, deliberately impassable
+    name       TEXT,                     -- optional, for prose and audit output
+    lockable   BOOLEAN NOT NULL DEFAULT FALSE,  -- a lock MAY be installed here (§6)
+    door       JSONB                     -- optional fixture spec
+    -- Deliberately no updated_at/created_by: nothing reads them, and a minted
+    -- file has no honest timestamp to carry. A column that exists only to churn
+    -- the export diff is the cost this pipeline was built to stop paying.
+  );
+  CREATE INDEX IF NOT EXISTS idx_connections_a ON connections(a);
+  CREATE INDEX IF NOT EXISTS idx_connections_b ON connections(b);
+
+  -- GENERATED connectivity (spec §2.2): the whole traversal graph, both
+  -- directions, projected from grid geometry plus the connections above.
+  -- TRUNCATEd and rebuilt by the same derive pass as zone_derived, classed runtime
+  -- so it structurally cannot enter content/.
+  --
+  -- The PK is (from_zone, direction, to_zone), NOT the spec's (from_zone,
+  -- direction): zones.exits already lets one direction hold an ARRAY of targets,
+  -- and two tiles use it — the Halcyon and Solenne elevators, whose "up" serves
+  -- five and four floors respectively, disambiguated at runtime by destination
+  -- name. A two-part key would silently drop four of those nine floors, and this
+  -- table has to be a drop-in for exits or it is not a replacement at all.
+  --
+  -- to_zone deliberately carries NO foreign key: TRUNCATE + rebuild in one
+  -- transaction must not depend on insert order, and from_zone's cascade already
+  -- keeps the table free of rows about deleted tiles.
+  CREATE TABLE IF NOT EXISTS zone_edges (
+    from_zone     TEXT NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
+    direction     TEXT NOT NULL,
+    to_zone       TEXT NOT NULL,
+    connection_id TEXT,           -- the authored file, when one exists; NULL for pure geometry
+    kind          TEXT NOT NULL,  -- 'grid' | 'portal' | 'authored'
+    PRIMARY KEY (from_zone, direction, to_zone)
+  );
+  CREATE INDEX IF NOT EXISTS idx_zone_edges_to ON zone_edges(to_zone);
 
   -- Grid coordinates + map membership for every zone. Additive: exits stay
   -- the source of truth for traversability (adjacency never implies a
@@ -373,6 +539,17 @@ export const SCHEMA_SQL = `
   -- (see server/engine/exits.js). NULL = legacy single-exit door, resolves by
   -- (zone_id, exit_dir) alone.
   ALTER TABLE doors ADD COLUMN IF NOT EXISTS target_zone TEXT DEFAULT NULL;
+
+  -- The connection this door is a fixture ON (map-pipeline-spec §6, §11 step 7).
+  -- ONE FIXTURE PER CONNECTION: a door used to be identified by (zone_id,
+  -- exit_dir), which is a coordinate, so 56 seams carried two rows describing one
+  -- door — two lock_states, two hp pools, two tag sets, free to drift into "open
+  -- in look, locked on move". Anchoring to an authored id that nothing regenerates
+  -- is the same P1 fix the connection ids exist for, and it is what lets
+  -- getDoorForEdge() answer "which door, and which side am I on" in one lookup.
+  ALTER TABLE doors ADD COLUMN IF NOT EXISTS connection_id TEXT REFERENCES connections(id) ON DELETE CASCADE;
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_doors_connection ON doors(connection_id);
+
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS wander_zones JSONB DEFAULT '[]';
 
   -- NPC ideologies folded into the unified orgs table (is_npc=1) — see the orgs

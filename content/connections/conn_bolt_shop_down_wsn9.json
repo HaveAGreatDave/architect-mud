@@ -1,0 +1,9 @@
+{
+  "a": "zone_bolt_shop",
+  "b": "zone_util_zone_bolt_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_bolt_shop_down_wsn9",
+  "lockable": false,
+  "one_way": false
+}

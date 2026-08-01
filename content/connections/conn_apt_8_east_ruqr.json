@@ -1,0 +1,9 @@
+{
+  "a": "zone_apt_8",
+  "b": "zone_embassy_floor2",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_apt_8_east_ruqr",
+  "lockable": true,
+  "one_way": false
+}

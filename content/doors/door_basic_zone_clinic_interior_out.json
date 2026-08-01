@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_clinic_interior_west_2xnu",
   "door_type": "basic",
   "exit_dir": "west",
   "flags": {},

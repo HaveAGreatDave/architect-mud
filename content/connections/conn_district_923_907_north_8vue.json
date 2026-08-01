@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_923_907",
+  "b": "zone_yard_fuelyard",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_district_923_907_north_8vue",
+  "lockable": true,
+  "one_way": false
+}

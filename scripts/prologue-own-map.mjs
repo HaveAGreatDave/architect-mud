@@ -21,8 +21,8 @@ import { query } from '../server/models/db.js';
 const ZONES = ['zone_the_inbetween', 'zone_the_lattice', 'zone_the_broadcast', 'zone_the_collapse'];
 
 const r1 = await query(
-  `INSERT INTO maps (id, name, entry_zone_id, parent_zone_id, created_by)
-     VALUES ('map_prologue', 'The Inbetween', 'zone_the_inbetween', NULL, NULL)
+  `INSERT INTO maps (id, name, entry_zone_id, parent_zone_id)
+     VALUES ('map_prologue', 'The Inbetween', 'zone_the_inbetween', NULL)
      ON CONFLICT (id) DO NOTHING`
 );
 console.log(`maps row: ${r1.rowCount ? 'created' : 'already present'}`);

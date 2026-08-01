@@ -1,0 +1,9 @@
+{
+  "a": "zone_mq_chrome_f1",
+  "b": "zone_mq_chrome_f2",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_mq_chrome_f1_up_tut1",
+  "lockable": false,
+  "one_way": false
+}

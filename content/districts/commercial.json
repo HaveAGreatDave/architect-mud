@@ -1,0 +1,21 @@
+{
+  "blurb": "Everything is for sale here, and most of it has been sold before.",
+  "color": "#e08a4a",
+  "id": "commercial",
+  "landmark": "drum_shop",
+  "name": "the Commercial Strip",
+  "prefixes": [
+    "drum",
+    "furniture",
+    "velk",
+    "weapons"
+  ],
+  "signature": [
+    "A shop-front jingle loops off its own echo, cheerful and unwell.",
+    "The gutters smell of fry-oil and hot vinyl.",
+    "A shutter rattles up, then halfway down again, undecided.",
+    "Discount holograms stutter in the windows, half their pixels dead."
+  ],
+  "skyline": "Second Skin's crooked sign leans over Bobbin Cut",
+  "sort": 50
+}
