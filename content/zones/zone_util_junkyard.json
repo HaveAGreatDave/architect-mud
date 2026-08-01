@@ -17,5 +17,5 @@
   "id": "zone_util_junkyard",
   "map_id": "map_int_junkyard",
   "name": "Utility Nook",
-  "parent_zone": "zone_junkyard_shack"
+  "parent_zone": "zone_district_918_906"
 }

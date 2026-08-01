@@ -24,5 +24,5 @@
   "id": "zone_junkyard_yard",
   "map_id": "map_int_junkyard",
   "name": "The Rows",
-  "parent_zone": "zone_junkyard_shack"
+  "parent_zone": "zone_district_918_906"
 }

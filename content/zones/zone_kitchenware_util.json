@@ -15,5 +15,5 @@
   "id": "zone_kitchenware_util",
   "map_id": "map_int_kitchenware",
   "name": "Tine & Temper — Back Room",
-  "parent_zone": "zone_kitchenware"
+  "parent_zone": "zone_district_918_907"
 }

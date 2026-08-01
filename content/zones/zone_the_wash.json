@@ -21,7 +21,7 @@
     "is_interior": true,
     "rest_multiplier": 1.2,
     "sanctuary": true,
-    "world_exit_zone": "zone_district_919_905"
+    "world_exit_zone": "zone_district_918_905"
   },
   "grid_x": 0,
   "grid_y": 0,

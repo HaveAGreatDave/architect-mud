@@ -19,5 +19,5 @@
   "id": "zone_embassy_lobby_bathroom",
   "map_id": "map_interior_zone_residential_lobby",
   "name": "Embassy Hotel & Bar — Washroom",
-  "parent_zone": "zone_residential_lobby"
+  "parent_zone": "zone_district_920_904"
 }

@@ -25,5 +25,5 @@
   "id": "zone_mq_sump_pit",
   "map_id": "map_int_mq_sump",
   "name": "The Pit",
-  "parent_zone": "zone_mq_sump_bar"
+  "parent_zone": "zone_district_921_914"
 }

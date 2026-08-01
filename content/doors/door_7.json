@@ -1,7 +1,7 @@
 {
-  "connection_id": "conn_embassy_lobby_bathroom_east_i4of",
+  "connection_id": "conn_embassy_lobby_bathroom_west_i4of",
   "door_type": "basic",
-  "exit_dir": "east",
+  "exit_dir": "west",
   "flags": {},
   "hololock_difficulty": 5,
   "hp": 1000,
@@ -21,6 +21,6 @@
       "privacySide": "zone_embassy_lobby_bathroom"
     }
   },
-  "target_zone": "zone_start",
+  "target_zone": "zone_residential_lobby",
   "zone_id": "zone_embassy_lobby_bathroom"
 }
