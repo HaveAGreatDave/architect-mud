@@ -3082,10 +3082,13 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // flags.district as a free-text box holding a key that had to match a district
   // exactly, with nothing checking it did — so a typo read as "unclassified" and
   // looked identical to a blank tile. The district view assigns it from a list of
-  // the districts that exist; the tile still SAYS which one it is in.
+  // the districts that exist; the tile still SAYS which one it is in. `terrain`
+  // is skipped beside it for the same reason and by the same line: the brushes
+  // paint it, and offering it on the form hands back the box the form took away.
   check('the Studio paints a tile\'s district rather than typing it',
     /'\/api\/assign'/.test(serve) && /assignDistrict/.test(serve)
-    && /key === 'district'\) continue/.test(client) && /districtLine/.test(client));
+    && /key === 'district' \|\| key === 'terrain'\) continue/.test(client)
+    && /districtLine/.test(client));
   // And the district form comes from the catalog, exactly as the tile form does.
   check('the Studio builds its district form from the field catalog',
     /districtColumnCatalog/.test(serve) && /districtCatalog/.test(client));
