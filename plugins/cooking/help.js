@@ -29,11 +29,12 @@ function build() {
       `  cook <food> in <device>  ${dim('when the room has more than one — a range and a microwave cook differently')}`,
       `  plate <food>             ${dim('take it off — this is when quality is decided')}`,
       `  examine <food>           ${dim('how it looks right now. Free, and the only clock you get')}`,
+      `  mise                     ${dim('also: prep — the whole board: every ingredient, which pan, how far along')}`,
       dim('  Leave it on the heat and it burns. Walking away is a choice with a result.'),
     ].join('\n')),
 
     cat('VESSELS', [
-      `  add <food> in <vessel>   ${dim('also: put, stow')}`,
+      `  add <food> in <vessel>   ${dim('also: put, stow, mix — "mix mustard into bowl" works')}`,
       `  cook <vessel>            ${dim('the vessel and everything in it goes on the heat')}`,
       `  plate <vessel>           ${dim('resolves the whole thing into ONE dish')}`,
       dim(`  Kinds: ${VESSEL_KINDS.join(', ')} — a stew needs a pot, a sear needs a pan, a roast a tray.`),

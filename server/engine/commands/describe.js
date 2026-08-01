@@ -480,6 +480,17 @@ function subBoxIds(pieces) {
 	const byId = new Map(pieces.map((f) => [f.id, f]));
 	const hidden = new Set();
 	for (const f of pieces) {
+		// A COMPARTMENT is the same idea generalised past two: a shelf inside a
+		// cabinet is its own container row, and the room should say "a wall
+		// cabinet" once rather than naming every shelf in it. Opening the cabinet
+		// reaches all of them (plugins/container draws them as tabs), so the
+		// shelves are hidden here whether there are one or nine. Same safety rule
+		// as the pair: the parent has to actually be in the room, or a dangling
+		// id would vanish a container nobody could then get at.
+		if (f.flags?.compartment_of && byId.has(f.flags.compartment_of)) {
+			hidden.add(f.id);
+			continue;
+		}
 		const partner = byId.get(f.flags?.paired_container);
 		if (!partner || partner.flags?.paired_container !== f.id) continue;
 		const mine = Number(f.flags?.container) || 0;
@@ -1254,3 +1265,7 @@ export async function describeZone(zone, player, out = {}) {
 	}
 	return desc;
 }
+
+// Exposed for the regression harness: which pieces the room deliberately does
+// NOT name, because something else in the room already reaches them.
+export const _test = { subBoxIds };

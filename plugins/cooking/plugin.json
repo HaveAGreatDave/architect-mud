@@ -21,6 +21,8 @@
     "stir",
     "stove",
     "doneness",
+    "mise",
+    "prep",
     "taste",
     "score",
     "tenderise",
@@ -47,7 +49,8 @@
   "actions": {
     "provides": [
       "TEACH_RECIPE",
-      "cooking.appliance_choice"
+      "cooking.appliance_choice",
+      "cooking.mix_vessel"
     ]
   },
   "objectGatedCommands": {

@@ -85,7 +85,11 @@ export async function resolveInventoryItem(player, opts = {}) {
     const ors = tags.map(t => { params.push(t); return `jsonb_exists(i.tags, $${params.length})`; });
     where.push(`(${ors.join(' OR ')})`);
   }
-  if (name) { params.push(`%${name}%`); where.push(`i.name ILIKE $${params.length}`); }
+  // Match the name the PLAYER sees. `inventory` prints `custom_data.name` when a
+  // row carries one (a stamped credit chip, butchered "feral dog meat", a minced
+  // cut), so resolving on the catalog name alone made those rows unreachable by
+  // the only name anybody had ever been shown.
+  if (name) { params.push(`%${name}%`); where.push(`(i.name ILIKE $${params.length} OR pi.custom_data->>'name' ILIKE $${params.length})`); }
   if (!includeFried) where.push(`COALESCE(pi.custom_data->>'fried', 'false') <> 'true'`);
   const sql =
     `SELECT pi.id AS inv_id, pi.item_id, pi.quantity, pi.condition,
@@ -116,7 +120,7 @@ export async function resolveInventoryItem(player, opts = {}) {
     const ors = tags.map(t => { nearParams.push(t); return `jsonb_exists(i.tags, $${nearParams.length})`; });
     nearWhere.push(`(${ors.join(' OR ')})`);
   }
-  if (name) { nearParams.push(`%${name}%`); nearWhere.push(`i.name ILIKE $${nearParams.length}`); }
+  if (name) { nearParams.push(`%${name}%`); nearWhere.push(`(i.name ILIKE $${nearParams.length} OR pi.custom_data->>'name' ILIKE $${nearParams.length})`); }
   if (!includeFried) nearWhere.push(`COALESCE(pi.custom_data->>'fried', 'false') <> 'true'`);
   const nearSql =
     `SELECT pi.id AS inv_id, pi.item_id, pi.quantity, pi.condition,
@@ -225,7 +229,13 @@ export const rowIsInstanced = row => {
   return INSTANCE_KEYS.some(k => { const v = cd[k]; return v != null && v !== false && v !== 0; });
 };
 // SQL predicate: a stack row safe to merge into (carries none of the instance keys).
-export const NOT_INSTANCED_SQL = `(custom_data IS NULL OR NOT jsonb_exists_any(custom_data, ARRAY['fluid_amount','potency','effects','spliced','charges','ownerId','loose','freshness','cooking','cook_quality','unpaid','show_pass']))`;
+// DERIVED from INSTANCE_KEYS rather than hand-listed, because the two drifted:
+// the old literal omitted 'minced', 'portion', 'scored', 'tenderised',
+// 'marinated_at', 'food_noun' and 'dish', so any merge guarded only by this
+// predicate would happily eat a minced cut into a plain one. A key present but
+// falsy makes this stricter than rowIsInstanced, which only ever costs a merge
+// that didn't have to happen.
+export const NOT_INSTANCED_SQL = `(custom_data IS NULL OR NOT jsonb_exists_any(custom_data, ARRAY[${INSTANCE_KEYS.map(k => `'${k}'`).join(',')}]))`;
 
 // Move a ground inventory row into a player's inventory. Stacking-aware: a
 // stackable item merges into an existing unequipped stack the player already

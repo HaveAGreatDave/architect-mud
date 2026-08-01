@@ -4447,6 +4447,51 @@ body.fsim-external #look-resize-handle { display: none; }
 }
 
 /* Compartment header row: label on the left, temperature readout right. */
+/* Compartment tabs — the shelves of one piece of furniture. Hidden entirely
+   for an ordinary one-box container, so nothing shifts for the 99% case. The
+   strip is rigid (never the thing that gives when the item list is full) and
+   wraps rather than scrolls, because a cabinet has shelves, not dozens. */
+#container-tabs {
+	display: none;
+	flex-wrap: wrap;
+	gap: 4px;
+	flex: 0 0 auto;
+	margin-bottom: 10px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--ctr-shelf-lip, rgba(200, 210, 220, 0.22));
+}
+#container-tabs.active {
+	display: flex;
+}
+.ctr-tab {
+	font-family: inherit;
+	font-size: 10px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 1.6px;
+	color: var(--text-dim);
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.28));
+	border: 1px solid rgba(255, 255, 255, 0.09);
+	border-radius: 3px 3px 0 0;
+	padding: 7px 12px;
+	cursor: pointer;
+	white-space: nowrap;
+	transition: color 0.12s, background 0.12s, border-color 0.12s;
+}
+.ctr-tab:hover {
+	color: var(--text);
+	border-color: rgba(255, 255, 255, 0.2);
+}
+/* The open shelf: lit, and its bottom edge deliberately dropped into the list
+   below it so the tab reads as the front of the drawer you're looking into. */
+.ctr-tab.active {
+	color: var(--ctr-accent, var(--accent));
+	border-color: color-mix(in srgb, var(--ctr-accent, var(--accent)) 45%, transparent);
+	background: linear-gradient(180deg, color-mix(in srgb, var(--ctr-accent, var(--accent)) 16%, transparent), rgba(0, 0, 0, 0.1));
+	cursor: default;
+	box-shadow: inset 0 2px 0 color-mix(in srgb, var(--ctr-accent, var(--accent)) 55%, transparent);
+}
+
 .ctr-shelf-head {
 	display: flex;
 	align-items: center;
@@ -5368,9 +5413,29 @@ body.fsim-external #look-resize-handle { display: none; }
 	margin-bottom: 8px;
 }
 /* Back + Leave share one row; the panel's static Leave button (a direct child
-   of the box) is hidden so only the in-options pair shows. */
-#dialogue-box.shop-mode #dialogue-options { flex-direction: row; gap: 6px; }
-#dialogue-box.shop-mode #dialogue-options .shop-back { flex: 1; }
+   of the box) is hidden so only the in-options pair shows.
+
+   The column rules above exist for a conversation with eight replies in it: the
+   options band is allowed to shrink and then scroll rather than run out of the
+   box. A shop has exactly TWO buttons and a fixed-height box, so that same
+   give-way rule had nothing to give — the row was the only shrinkable thing left
+   under a full item list, and it collapsed, squashing both buttons to a sliver.
+   In shop mode the row is rigid instead, and the pair carry their own padding
+   (the roomier `:not(.shop-mode)` sizing is deliberately column-only). */
+#dialogue-box.shop-mode #dialogue-options {
+	flex-direction: row;
+	gap: 6px;
+	align-items: stretch;
+	flex: 0 0 auto;
+	overflow: visible;
+}
+#dialogue-box.shop-mode #dialogue-options .dialogue-opt {
+	flex-shrink: 0;
+	padding: 10px 18px;
+	text-align: center;
+	white-space: nowrap;
+}
+#dialogue-box.shop-mode #dialogue-options .shop-back { flex: 1 1 auto; }
 #dialogue-box.shop-mode > .dialogue-opt { display: none; }
 
 /* Reactive purchase feedback lives on the credits counter — it rolls to the new

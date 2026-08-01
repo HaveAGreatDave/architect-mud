@@ -1,16 +1,20 @@
 {
-  "description": "A grease-filmed cashbox wedged behind the register, its dial worn to a shine and one corner dented inward from an argument nobody won.",
+  "description": "A dented steel cashbox bolted through the shelf under the counter, its lid worn pale where three sets of hands have pushed it shut. Everything the shop takes goes in here, and everyone who works the floor takes their end out of it.",
   "flags": {
     "hack_difficulty": 5,
+    "vendor_safe": true,
     "vendor_npc_id": "npc_ration_cook",
-    "vendor_safe": true
+    "vendor_staff": [
+      "npc_butcher",
+      "npc_fishmonger"
+    ]
   },
   "hp": null,
   "hp_max": null,
   "id": "furn_safe_npc_ration_cook",
   "light_type": "lamp",
   "lumen_output": null,
-  "name": "Dell Fry's cashbox",
+  "name": "the Ration Nine cashbox",
   "object_type": "fixture",
   "power_draw_kw": null,
   "price": 600,

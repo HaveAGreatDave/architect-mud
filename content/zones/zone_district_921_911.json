@@ -1,22 +1,29 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_theme": "indoors",
+  "bg_color": "#3a3550",
+  "color": "#e8e0ff",
+  "description": "The face of Citadel Financial — a windowless slab of white marble set down in the grass like a tomb that changed its mind about being underground. No signage beyond the name cut into the lintel, no windows to break, and a flight of shallow steps going up to doors that are always open and never inviting. The grass comes right up to the bottom step; nobody ever paved the approach, because the people Citadel does business with don't arrive on foot. The way in is up the steps to the north. The wasteland runs south.",
   "exits": {
+    "north": "zone_citadel_hall",
     "south": "zone_district_921_912"
   },
   "flags": {
+    "building_name": "Citadel Financial",
+    "building_type": "bank",
     "district": "residential",
+    "entrance": "south",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_921_912"
   },
   "grid_x": 921,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_district_921_911",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "CF",
+  "name": "Citadel Financial",
   "parent_zone": null
 }

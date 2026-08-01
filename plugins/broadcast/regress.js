@@ -892,8 +892,15 @@ export default async function regress({ check, run, getPlayer }) {
         state.lastScorebugAt = Date.now() - 10 * 60 * 1000;
         _test.sendCatchUp(player.id, cid);
         check('a stale score-bug is not replayed', !got.some(m => m?.overlay?.overlayType === 'scorebug'), JSON.stringify(got));
+        // One gesture can register a viewer two or three times (the client's lock check
+        // races the server echo), which used to replay the same line each time.
+        got.length = 0;
+        _test.sendCatchUp(player.id, cid);
+        check('the same beat is not replayed twice to one viewer', got.length === 0, JSON.stringify(got));
+
         state.lastScorebugAt = Date.now();
         got.length = 0;
+        state.lastBeat = { text: 'Next line.', style: 'raw', programName: null, duration: null, hasGameday: false, graphic: null };
         _test.sendCatchUp(player.id, cid);
         check('a live score-bug IS replayed', got.some(m => m?.overlay?.overlayType === 'scorebug'), JSON.stringify(got));
       } finally {

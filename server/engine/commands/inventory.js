@@ -6,7 +6,7 @@ import { foodLoad, applyThirst } from '../bodily.js';
 import { satiationLine, slakeLine, portionLine } from '../appetite.js';
 import { dispatchAction, getRegisteredActions } from '../actions.js';
 import { burnCharge, rowIsInstanced, NOT_INSTANCED_SQL } from '../inventory.js';
-import { getZonePlayers, getZoneNpcs } from '../world.js';
+import { getZonePlayers, getZoneNpcs, getZoneFurniture } from '../world.js';
 import { emit, on } from '../events.js';
 import { resolve as siftResolve, matchAll as siftMatchAll, createSelectionState, formatSelectionPage } from '../sift.js';
 import { fireSpecializedAction, availableActions } from '../specializedActions.js';
@@ -1075,20 +1075,82 @@ function containerCapacity(container) {
   return tagValue(container, 'container', container.kind === 'furniture' ? 60000 : 0);
 }
 
+// ── Compartments ─────────────────────────────────────────────────────────────
+//
+// One piece of furniture that stores things in more than one place: a cabinet
+// with three shelves, a desk with drawers. Generalises `paired_container` (a
+// fridge and its freezer box) past two, and past the assumption that the two
+// halves differ by temperature.
+//
+// A compartment is a whole CONTAINER ROW of its own — own name, own capacity,
+// own contents — carrying `flags.compartment_of: <parent furniture id>`. So
+// stow, pull, weight accounting, restock, vendor stock, the dish-cabinet lookup
+// and every drag in the panel keep working with no idea the feature exists. The
+// flags buy exactly three things: tabs in the panel, ONE entry in the room
+// description (see subBoxIds in describe.js), and a shelf list on `look in`.
+//
+// The alternative — stamping a compartment name onto each stored row and
+// filtering the view — was rejected. It would put a second meaning inside
+// custom_data that every stack-merge path could silently rewrite (see
+// INSTANCE_KEYS in engine/inventory.js), and capacity would have to be
+// re-derived per compartment instead of simply being what the row already says.
+//
+// Authoring: the parent needs nothing and is the compartment `open <name>`
+// lands on. Each additional one is a container row with `compartment_of`, plus
+// optional `compartment_label` (the tab text, falling back to the row's name)
+// and `compartment_index` (tab order, falling back to name order). A
+// compartment keeps whatever else it wants — give all three shelves
+// `dish_cabinet` and the kitchen finds a pot on any of them.
+const compartmentIndex = f => Number.isFinite(Number(f.flags?.compartment_index))
+  ? Number(f.flags.compartment_index) : Number.MAX_SAFE_INTEGER;
+
+// The set this container belongs to, in tab order — [] when it isn't in one.
+// Served from the in-memory furniture Map, so a cabinet costs no extra round
+// trip however many shelves it has.
+function compartmentsOf(container, zoneId) {
+  if (container?.kind !== 'furniture') return [];
+  const parentId = container.tags?.compartment_of || container.id;
+  const pieces = getZoneFurniture(zoneId) || [];
+  const parent = pieces.find(f => f.id === parentId);
+  if (!parent) return [];
+  // The parent leads, always — it is the piece itself, the one `open <name>`
+  // lands on, and it needs no authoring to be first. Only the shelves hung off
+  // it are sorted, by index then name.
+  const children = pieces.filter(f => f.flags?.compartment_of === parentId && f.id !== parentId);
+  if (!children.length) return [];
+  children.sort((a, b) => (compartmentIndex(a) - compartmentIndex(b)) || String(a.name).localeCompare(String(b.name)));
+  const set = [parent, ...children];
+  // `name` rides along so the panel can title itself after the PIECE (the
+  // parent is always first) rather than after whichever shelf happens to be
+  // open — "wall cabinet", with the shelf named on its tab.
+  return set.map(f => ({
+    id: f.id,
+    name: titleCaseName(f.name),
+    label: f.flags?.compartment_label || titleCaseName(f.name),
+    active: f.id === container.id,
+  }));
+}
+
 async function cmdLookInContainer(nameStr, player) {
   const container = await resolveContainer(nameStr, player);
   if (container === 'ambiguous') return { type:'error', message:`Which container? Try "look in <name>".` };
   if (!container) return { type:'error', message:`You don't see a container${nameStr?` matching "${nameStr}"`:''} here.` };
-  return { type:'examine', message: await describeContainer(container) };
+  return { type:'examine', message: await describeContainer(container, player) };
 }
 
-async function describeContainer(container) {
+async function describeContainer(container, player) {
   const cap = tagValue(container, 'container', 0);
   const { rows } = await query(`SELECT pi.quantity,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
   const used = await containerContentsWeight(container.id);
   let msg = `${container.name} (Capacity: ${formatWeight(used)}/${formatWeight(cap)})`;
-  if (!rows.length) { msg += `\n  It's empty.`; return msg; }
-  for (const r of rows) msg += `\n  ${r.name}${r.quantity>1?` x${r.quantity}`:''}`;
+  if (!rows.length) msg += `\n  It's empty.`;
+  else for (const r of rows) msg += `\n  ${r.name}${r.quantity>1?` x${r.quantity}`:''}`;
+  // Only one shelf is in front of you. Say what the others are called, or a
+  // text-only player has no way to learn the cabinet has any.
+  const others = player
+    ? compartmentsOf(container, player.current_zone).filter(c => !c.active)
+    : [];
+  if (others.length) msg += `\n  <span class="text-dim">Also in here: ${others.map(c => c.label).join(', ')}.</span>`;
   return msg;
 }
 
@@ -1144,6 +1206,14 @@ async function buildContainerView(containerId, player) {
       view.secondary = { containerId: paired.id, containerName: titleCaseName(paired.name), ...pairedBox };
     }
   }
+
+  // Shelves of one cabinet: a tab strip, one tab per compartment. Only the open
+  // one is loaded — a nine-drawer desk costs the same as a box, and switching
+  // tabs is an ordinary `opencontainer`, which is the same round trip the panel
+  // already makes after every stow. A container in no set gets no key at all,
+  // so the panel renders exactly what it rendered before this shipped.
+  const tabs = compartmentsOf(container, player.current_zone);
+  if (tabs.length > 1) view.compartments = tabs;
   // A container furniture can be more than a box — a wardrobe layers saved
   // outfits over the same storage. Handlers mutate `view` in place (retyping it
   // and hanging their own block off it); an unhooked container is untouched.
@@ -1245,15 +1315,21 @@ async function cmdStowById(argStr, player, broadcast) {
     if (innerItems.length) return { type:'container_error', message:`Empty the ${item.name} first.` };
   }
 
+  // A row carrying instance state (a mince, a portion, a marinade timer, a live
+  // cook, an unpaid mark) is NOT stackable however its catalog row is tagged —
+  // merging keeps the target's custom_data and drops the incoming row's, which
+  // is how a minced cut silently un-minced itself on the way into a bowl.
+  const stackable = isStackable(item) && !rowIsInstanced(item);
+
   // Partial stow: only move the requested qty when less than the full stack
   const reqQty = qtyStr && /^\d+$/.test(qtyStr) ? parseInt(qtyStr, 10) : null;
-  if (reqQty && reqQty > 0 && reqQty < item.quantity && isStackable(item)) {
+  if (reqQty && reqQty > 0 && reqQty < item.quantity && stackable) {
     const cap0 = containerCapacity(container);
     const used0 = await containerContentsWeight(container.id);
     const iw = item.weight || 0;
     const canFit = iw > 0 ? Math.min(reqQty, Math.floor((cap0 - used0) / iw)) : reqQty;
     if (canFit <= 0) return { type:'container_error', message:`${container.name} is full.` };
-    const { rows: ex0 } = await query('SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 LIMIT 1', [container.id, item.item_id]);
+    const { rows: ex0 } = await query(`SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [container.id, item.item_id]);
     if (ex0.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [canFit, ex0[0].id]);
       await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [canFit, item.id]);
@@ -1274,10 +1350,10 @@ async function cmdStowById(argStr, player, broadcast) {
 
   if (used + adding > cap) {
     // Partial fill: for stackable multi-quantity items, stow as many as fit.
-    if (isStackable(item) && itemWeight > 0 && item.quantity > 1) {
+    if (stackable && itemWeight > 0 && item.quantity > 1) {
       const canFit = Math.floor((cap - used) / itemWeight);
       if (canFit > 0) {
-        const { rows: existing } = await query('SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 LIMIT 1', [container.id, item.item_id]);
+        const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [container.id, item.item_id]);
         if (existing.length) {
           await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [canFit, existing[0].id]);
           await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [canFit, item.id]);
@@ -1295,8 +1371,8 @@ async function cmdStowById(argStr, player, broadcast) {
     return { type:'container_error', message:`${container.name} is full (${formatWeight(used)}/${formatWeight(cap)}).` };
   }
 
-  if (isStackable(item)) {
-    const { rows: existing } = await query('SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 LIMIT 1', [container.id, item.item_id]);
+  if (stackable) {
+    const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [container.id, item.item_id]);
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
       await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
@@ -1395,7 +1471,7 @@ function matchAllFilter(filter, rows) {
 // before stripping you), stowing shouldn't silently undress you.
 async function bulkStowPool(player) {
   const { rows } = await query(
-    `SELECT pi.*,i.name,i.type,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+    `SELECT pi.*,COALESCE(pi.custom_data->>'name',i.name) AS name,i.type,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id
      WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 AND NOT jsonb_exists(i.tags,'quest_item')`,
     [player.id]
   );
@@ -1426,7 +1502,7 @@ async function cmdStow(argStr, player) {
         await query('DELETE FROM player_inventory WHERE id = ANY($1)', [ids]);
         return { type:'stow', message:`You throw ${doomed.map(r => r.name).join(', ')} in the ${trashRows[0].name}. Gone.` };
       }
-      const { rows: itemRows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${itemPart}%`]);
+      const { rows: itemRows } = await query(`SELECT pi.*,COALESCE(pi.custom_data->>'name',i.name) AS name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND (i.name ILIKE $2 OR pi.custom_data->>'name' ILIKE $2) AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${itemPart}%`]);
       if (!itemRows.length) return { type:'error', message:`You don't have "${itemPart}".` };
       await query('DELETE FROM player_inventory WHERE container_id=$1', [itemRows[0].id]);
       await query('DELETE FROM player_inventory WHERE id=$1', [itemRows[0].id]);
@@ -1461,7 +1537,10 @@ async function cmdStow(argStr, player) {
     return { type:'stow', message: messages.join('\n') };
   }
 
-  const { rows } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${itemPart}%`]);
+  // Resolve on the name the player was SHOWN — `inventory` prints
+  // custom_data.name when there is one, so a minced cut reads "feral dog mince"
+  // in the pack and matching on the catalog name alone made it unstowable.
+  const { rows } = await query(`SELECT pi.*,COALESCE(pi.custom_data->>'name',i.name) AS name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND (i.name ILIKE $2 OR pi.custom_data->>'name' ILIKE $2) AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${itemPart}%`]);
   if (!rows.length) return { type:'error', message:`You don't have "${itemPart}" to stow.` };
   return stowOne(rows[0], container, player);
 }
@@ -1482,8 +1561,10 @@ async function stowOne(item, container, player) {
   const adding = (item.weight || 0) * item.quantity;
   if (used + adding > cap) return { type:'error', message:`${container.name} can't hold that — ${formatWeight(used)}/${formatWeight(cap)} used, ${item.name} weighs ${formatWeight(adding)}.` };
 
-  if (isStackable(item)) {
-    const { rows: existing } = await query('SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 LIMIT 1', [container.id, item.item_id]);
+  // Same guard `pull` uses on the way out: an instanced row never merges, or the
+  // merge would keep the target's custom_data and drop this row's.
+  if (isStackable(item) && !rowIsInstanced(item)) {
+    const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [container.id, item.item_id]);
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
       await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
@@ -1514,7 +1595,7 @@ async function cmdPull(argStr, player) {
   }
   if (!container) return { type:'error', message:`You don't see a container${containerPart?` matching "${containerPart}"`:''} here.` };
 
-  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 AND i.name ILIKE $2 LIMIT 1`, [container.id, `%${itemPart}%`]);
+  const { rows } = await query(`SELECT pi.*,COALESCE(pi.custom_data->>'name',i.name) AS name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 AND (i.name ILIKE $2 OR pi.custom_data->>'name' ILIKE $2) LIMIT 1`, [container.id, `%${itemPart}%`]);
   if (!rows.length) return { type:'error', message:`There's no "${itemPart}" in ${container.name}.` };
   const item = rows[0];
   if (item.tags?.perishable) await fireHook('item.checkFreshness', item, player);

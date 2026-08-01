@@ -68,6 +68,18 @@ at drink time, exactly as cooking derives resting from `plated_at`.
 Cold mixing is **ungated** — a vessel in hand is the whole requirement. Hot
 drinks need furniture, mirroring `cook`'s `stove_tier` gate.
 
+**`mix` is shared with cooking, routed target-first.** A mixing bowl is a
+`vessel`, never `drinkware`, so both `mix` forms hand off to the
+`cooking.mix_vessel` Action when the named vessel isn't drinkware:
+`mix <thing> into <bowl>` moves the ingredient in (the bowl may be sitting in
+the dish cabinet, which `stow` can't reach), and `mix <bowl>` plates it. Same
+shape as `cook` handing a recipe to synthesis — the verb stays with the plugin
+whose thing it is, and the vessel decides which one that is. Cooking not being
+loaded is handled: the hand-off returns undefined and drinks owns the refusal.
+Before this, a bowl got "You don't have a bowl to mix into", and the bare form
+fell through the dispatcher to **"Unknown command: mix"** one line after `mix`
+had printed its own usage.
+
 ## Tags
 
 | Tag | Meaning |

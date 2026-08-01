@@ -11,7 +11,36 @@
       "n_check": {
         "action_type": "CHECK_WORK",
         "goToWork": "n_work",
-        "haveLife": "n_life",
+        "haveLife": "n_off_home_check",
+        "type": "action"
+      },
+      "n_off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "n_off_random",
+        "ifTrue": "n_home_idle",
+        "type": "condition"
+      },
+      "n_off_random": {
+        "branch_0": "n_life",
+        "branch_1": "n_go_home",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 2
+          }
+        ],
+        "type": "random"
+      },
+      "n_go_home": {
+        "action_type": "GO_HOME",
+        "next": "n_home_idle",
+        "type": "action"
+      },
+      "n_home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "n_check",
         "type": "action"
       },
       "n_life": {
