@@ -5,5 +5,5 @@
   "dir": "south",
   "id": "conn_citadel_hall_south_5k0k",
   "lockable": false,
-  "one_way": true
+  "one_way": false
 }
