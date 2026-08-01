@@ -7,7 +7,7 @@ import { isSanctuary, getZoneRadiation } from './zone-tags.js';
 import { hasTag } from './tags.js';
 import { registerProtectionProvider } from './protection.js';
 import { zoneDanger, enemyThreat, bucketThreat } from './danger.js';
-import { resolveTerrain, resolveDefault, buildingIconSvg, BUILDING_TYPE_ICON, PROP_DEFAULTS } from '../../scripts/content/derive.mjs';
+import { resolveTerrain, resolveDefault, buildingIconSvg, BUILDING_TYPE_ICON, PROP_DEFAULTS, coerceProp } from '../../scripts/content/derive.mjs';
 
 // In-memory world state — same as before, DB is source of truth
 const world = {
@@ -140,7 +140,27 @@ export function specOf(zoneId) { return world.render.get(zoneId)?.spec || null; 
 //
 // Falls back to the DEFAULTS rather than `{}` so a tile with no derived row reads
 // as ordinary solid ground instead of as every-property-undefined.
-export function propsOf(zoneId) { return world.render.get(zoneId)?.props || PROP_DEFAULTS; }
+//
+// A TRANSIENT zone has no derived row by construction (the void-travel waste rooms,
+// a dreamscape, anything registerTransientZone builds), and the defaults alone would
+// silently drop what it authored — a generated pool registered `underwater` read as
+// dry land, because nothing had resolved it. So the override rung is applied here,
+// with derive's own coercion, for that case only. The terrain PRESET rung is not
+// reachable from the engine — it needs the palette, which is a build-time input —
+// so a transient zone gets what it says about itself and nothing more.
+export function propsOf(zoneId) {
+  const props = world.render.get(zoneId)?.props;
+  if (props) return props;
+  const flags = world.zones.get(zoneId)?.flags;
+  if (!flags) return PROP_DEFAULTS;
+  let out = null;
+  for (const key of Object.keys(PROP_DEFAULTS)) {
+    if (!(key in flags)) continue;
+    out ||= { ...PROP_DEFAULTS };
+    out[key] = coerceProp(key, flags[key]);
+  }
+  return out || PROP_DEFAULTS;
+}
 
 export function getRegion(id) { return world.regions.get(id) || null; }
 export function getAllRegions() { return [...world.regions.values()]; }

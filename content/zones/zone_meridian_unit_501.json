@@ -17,6 +17,7 @@
   "grid_z": 5,
   "id": "zone_meridian_unit_501",
   "map_id": "map_int_meridian",
+  "marker": "5",
   "name": "Unit 501",
   "parent_zone": "zone_district_918_908"
 }

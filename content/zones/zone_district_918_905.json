@@ -9,7 +9,6 @@
   "description": "A single-storey shopfront that is almost entirely window, wedged between the grass verge and the road. Blue-white light comes through it hard enough to lay a clean rectangle over the broken kerb, and the sign above the door — THE WASH, in cold tube neon, one letter flickering on a bad night — is the only thing on this stretch of Ironside that has been maintained on purpose. Through the glass: rows of machines, a bench, and usually somebody sitting on it doing nothing in particular. The door is on the <b>east</b> face, and it is never locked.",
   "exits": {
     "east": "zone_district_919_905",
-    "north": "zone_district_918_904",
     "west": "zone_the_wash"
   },
   "flags": {

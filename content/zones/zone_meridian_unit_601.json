@@ -17,6 +17,7 @@
   "grid_z": 6,
   "id": "zone_meridian_unit_601",
   "map_id": "map_int_meridian",
+  "marker": "6",
   "name": "Unit 601",
   "parent_zone": "zone_district_918_908"
 }

@@ -4,7 +4,6 @@
   "description": "The road here is more suggestion than surface — compacted gravel, broken kerbstones, a storm drain choked with silt. Somebody dragged a mattress halfway across it and gave up.",
   "exits": {
     "east": "zone_district_919_904",
-    "south": "zone_district_918_905",
     "west": "zone_district_917_904"
   },
   "flags": {

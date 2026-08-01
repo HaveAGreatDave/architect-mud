@@ -119,7 +119,7 @@ export function resolveProps(zone, palette) {
 // `speed_mult: 2`), and a garbage value falls back to the resolved default rather
 // than poisoning a movement multiplier with NaN. content:lint rejects both cases at
 // author time; this is the runtime floor under it.
-function coerceProp(key, value) {
+export function coerceProp(key, value) {
   if (typeof PROP_DEFAULTS[key] === 'number') {
     const n = Number(value);
     return Number.isFinite(n) ? n : PROP_DEFAULTS[key];
