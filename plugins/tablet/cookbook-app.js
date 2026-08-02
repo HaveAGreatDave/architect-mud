@@ -217,7 +217,37 @@ async function buildScreen(player, screenId, params) {
           : `everything it wants is in hand`,
         badge: left ? 'missing' : 'ready',
       });
-      for (const e of entries.slice().sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0))) {
+      // COMPONENTS FIRST, under the thing they compose. A `parts` group is one
+      // object made of several purchases — penne alla gin's sauce is tomato AND
+      // gin AND cream — so it gets a parent line of its own and its members keep
+      // their checkboxes underneath. That is the opposite of the alternatives
+      // below, and the two must never render alike.
+      const sorted = entries.slice().sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0));
+      const loose = sorted.filter(e => !e.part);
+      const parts = new Map();
+      for (const e of sorted.filter(e => e.part)) {
+        if (!parts.has(e.part)) parts.set(e.part, []);
+        parts.get(e.part).push(e);
+      }
+      for (const [partLabel, members] of parts) {
+        const short = members.filter(e => !e.done).length;
+        // No checkbox on the parent: you don't buy "the sauce", you buy the three
+        // things it's made of. A box here would be a fifth thing to shop for.
+        items.push({
+          id: '', child: true, label: partLabel,
+          sub: short ? `${members.length} things that make it — you need all of them` : 'all of it is in hand',
+          badge: short ? 'missing' : 'ready',
+        });
+        for (const e of members) {
+          items.push({
+            id: `${ING_PREFIX}${e.k}:${e.v}`, part: true,
+            label: `${e.done ? '☑' : '☐'} ${e.done ? e.label : (e.base || e.label)}`,
+            sub: e.done ? 'in hand' : '',
+            badge: e.done ? 'ready' : 'missing',
+          });
+        }
+      }
+      for (const e of loose) {
         // A CLASS line is itself made of parts you have to go and buy, so it
         // gets the same treatment one level down — except its parts are
         // ALTERNATIVES, not a checklist. "400g of liquid" is one errand that
@@ -233,11 +263,13 @@ async function buildScreen(player, screenId, params) {
           badge: e.done ? 'ready' : 'missing',
         });
         // An option opens the ITEM it names when the shelf has one, and stays a
-        // quiet aside when it doesn't. Either way it never becomes a checkbox.
-        for (const noun of opts) {
+        // quiet aside when it doesn't. Either way it never becomes a checkbox —
+        // and every one after the first carries an OR, so a run of alternatives
+        // can't be misread as a run of things to buy.
+        opts.forEach((noun, n) => {
           const shelf = e.k === 'p' ? itemForNoun(e.v, noun) : null;
-          items.push({ id: shelf ? `${ING_PREFIX}i:${shelf.id}` : '', option: true, label: `· ${noun}` });
-        }
+          items.push({ id: shelf ? `${ING_PREFIX}i:${shelf.id}` : '', option: true, or: n > 0, label: noun });
+        });
       }
     }
     const got = rows.filter(e => e.done).length;

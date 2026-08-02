@@ -57,6 +57,30 @@ export async function getList(playerOrId) {
 //
 // Sync and query-free: `catalogTemplate` and the item cache are both in memory,
 // so this costs a read path nothing.
+// COMPONENTS vs ALTERNATIVES — the two things a nested line can mean, and the
+// one distinction a shopping list is not allowed to blur.
+//
+// A generic class carries buyable EXAMPLES: "400g of liquid" is one errand and
+// tinned tomatoes OR stock OR cream each finish it. You buy one.
+//
+// A `parts` group is the opposite: penne alla gin's sauce is tomato AND gin AND
+// cream, all three, and the reason to nest them is that they are one thing —
+// the sauce — rather than three unrelated errands filed next to the pasta. You
+// buy all of them.
+//
+// Both nest. So both have to SAY which they are, or nesting makes them look
+// identical. Alternatives get "or" between them and no checkboxes; components
+// keep their own boxes under a named parent. The label a component sits under is
+// stamped here, on the entry, so every reader (the verb, the tablet) groups the
+// same way without either of them re-deriving it.
+export function partLabelFor(template, entry) {
+  for (const part of template?.parts || []) {
+    if (entry.k === 'p' && (part.needs || []).includes(entry.v)) return part.label;
+    if (entry.k === 'i' && (part.items || []).includes(entry.v)) return part.label;
+  }
+  return null;
+}
+
 export function refresh(list) {
   const itemRow = id => { try { return getItem(id); } catch { return null; } };
   const out = [];
@@ -66,7 +90,8 @@ export function refresh(list) {
     // from, so it stays exactly as written. That's the whole of its truth.
     if (!template) { out.push(e); continue; }
 
-    if (e.k === 'i') { out.push({ ...e, label: itemRow(e.v)?.name || e.label }); continue; }
+    const part = partLabelFor(template, e);
+    if (e.k === 'i') { out.push({ ...e, label: itemRow(e.v)?.name || e.label, part }); continue; }
 
     const need = template.needs?.[e.v];
     // The recipe doesn't want this class any more. Not a line to relabel — a line
@@ -81,7 +106,7 @@ export function refresh(list) {
     if (keyed && lo === 1 && hi === 1) continue;
 
     const named = classLabel(e.v, need, template);
-    out.push({ ...e, label: named.label, base: named.base, ex: named.ex });
+    out.push({ ...e, label: named.label, base: named.base, ex: named.ex, part });
   }
   return out;
 }

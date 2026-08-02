@@ -516,6 +516,10 @@ export const DISHES = {
     needs: { liquid: 1, aromatic: [2, 3] },
     optional: ['soft_vegetable', 'fat_or_oil'],
     nameSlots: ['aromatic'],
+    // The seasoning is the name slot and stays variable; the thick thing it gets
+    // stirred into does not. "90g of liquid" was the shopping list at its least
+    // helpful.
+    nouns: { liquid: 'cream' },
     seasoning: 3,
     ceiling: 'good', difficulty: 3,
     blurb: 'Something thick, something sharp, and a great deal more seasoning than seems wise.',
@@ -545,6 +549,10 @@ export const DISHES = {
     optional: ['preserved', 'fat_or_oil', 'aromatic', 'dense_meat'],
     nameSlots: [],
     nameFormat: 'okonomiyaki',
+    // Keyed on the cabbage and the blurb commits to it, so the list can say
+    // cabbage instead of "one soft vegetable". Display only — any soft vegetable
+    // still matches, exactly as before.
+    nouns: { soft_vegetable: 'cabbage' },
     // Sauce, bonito, and whatever else goes on top — a dish that is largely garnish.
     seasoning: 3,
     ceiling: 'masterful', difficulty: 7,
@@ -622,6 +630,9 @@ export const DISHES = {
     optional: ['soft_vegetable', 'aromatic', 'fat_or_oil', 'starchy_vegetable'],
     nameSlots: [],
     nameFormat: 'meatballs in sauce',
+    // A sugo is tomato, and the meat is the meatballs it's keyed on. Neither
+    // fills a name slot, so neither is variable — the list can name both.
+    nouns: { liquid: 'tomato', dense_meat: 'meatballs' },
     seasoning: 3,
     ceiling: 'masterful', difficulty: 9,
     blurb: 'Browned first, then hours on the lowest heat you have, stirred whenever you remember.',
@@ -660,6 +671,18 @@ export const DISHES = {
     // specific thing by each. `nouns` is where an author says so — it's what
     // makes the card read "a tomato" rather than "one soft vegetable".
     nouns: { soft_vegetable: 'tomato', dairy: 'cream' },
+    // THE SAUCE IS ONE THING MADE OF THREE. Tomato, gin and cream are not three
+    // unrelated errands that happen to share a recipe — they are the sauce, and a
+    // list that files them flat beside the pasta says nothing about that. `parts`
+    // is where a dish says which of its ingredients COMPOSE something, and the
+    // shopping list nests them under it.
+    //
+    // Components, not alternatives — you buy all three. That distinction is the
+    // whole reason this is a separate field from the buyable examples a generic
+    // class carries: those are answers to ONE errand and you pick one. Nesting
+    // both the same way would have made "buy all of these" and "buy any of these"
+    // look identical, which is the one thing a shopping list must never do.
+    parts: [{ label: 'the sauce', needs: ['soft_vegetable', 'dairy'], items: ['item_gin'] }],
     notes: {
       dry_starch: 'a portion a head, no more',
       soft_vegetable: 'cooked down hard, before anything else goes in',
@@ -683,7 +706,9 @@ export const DISHES = {
     nameSlots: ['dense_meat'],
     nameFormat: '{0} ramen',
     seasoning: 2,
-    nouns: { dry_starch: 'ramen noodles' },
+    // The blurb commits to it — "stock held at a whisper". The meat is the name
+    // slot and stays variable; the broth never was.
+    nouns: { dry_starch: 'ramen noodles', liquid: 'stock' },
     notes: {
       liquid: 'stock, and it is the whole dish, so make it properly',
       dry_starch: 'in last, and barely cooked',

@@ -2082,6 +2082,54 @@ export default async function regress({ run, check, getPlayer }) {
           healed.every(e => !/a portion a head|for the body|to finish/.test(e.label)), JSON.stringify(healed.map(e => e.label)));
       }
 
+      // COMPONENTS ARE NOT ALTERNATIVES. Both nest, and a list that renders them
+      // alike is telling you to buy one of three things that are all required.
+      {
+        await run('shoplist clear');
+        await run('shoplist add penne alla gin');
+        const l = await getList(player.id);
+        const sauce = l.filter(e => e.part);
+        check('a dish\'s components are stamped with the thing they compose',
+          sauce.length >= 2 && sauce.every(e => e.part === 'the sauce'), JSON.stringify(l.map(e => [e.label, e.part])));
+        check('...and the pasta is not one of them', l.some(e => e.v === 'item_penne' && !e.part), JSON.stringify(l.map(e => [e.v, e.part])));
+
+        const shop = await run('tabletnav cookbook Shopping_List __shop');
+        const rows = shop?.items || [];
+        const parent = rows.findIndex(i => i.label === 'the sauce');
+        check('the tablet gives the sauce a parent line of its own', parent >= 0, JSON.stringify(rows.map(i => i.label)));
+        check('...with no checkbox on it — you buy its parts, not it',
+          !/[☐☑]/.test(rows[parent]?.label || ''), JSON.stringify(rows[parent]));
+        check('...saying outright that all of them are needed', /all of them/.test(rows[parent]?.sub || ''), JSON.stringify(rows[parent]?.sub));
+        const members = rows.slice(parent + 1).filter(i => i.part);
+        check('...and its components keep their own boxes', members.length >= 2 && members.every(i => /[☐☑]/.test(i.label)),
+          JSON.stringify(members.map(i => i.label)));
+        check('...and each one still opens', members.every(i => String(i.id).startsWith('__ing:')), JSON.stringify(members.map(i => i.id)));
+        check('a component is never marked as an alternative', !members.some(i => i.option || i.or), JSON.stringify(members));
+
+        // The other half of the distinction, on a dish that has one.
+        await run('shoplist clear');
+        await run('shoplist add soup');
+        const alt = (await run('tabletnav cookbook Shopping_List __shop'))?.items || [];
+        // Per RUN, not across the screen: a dish with two generic classes has two
+        // sets of alternatives, and each starts fresh — "tomato or stock" then
+        // "cabbage or greens", never one OR bridging the two.
+        const runs = [];
+        for (const i of alt) {
+          if (!i.option) { runs.push([]); continue; }
+          (runs[runs.length - 1] || runs[runs.push([]) - 1]).push(i);
+        }
+        const real = runs.filter(r => r.length >= 2);
+        const opts = alt.filter(i => i.option);
+        check('alternatives carry an OR from the second one on',
+          real.length > 0 && real.every(r => !r[0].or && r.slice(1).every(i => i.or)),
+          JSON.stringify(real.map(r => r.map(i => [i.label, !!i.or]))));
+        check('...and an OR never bridges two separate sets of them',
+          real.every(r => r.every((i, n) => (n === 0) === !i.or)), JSON.stringify(real.map(r => r.map(i => !!i.or))));
+        check('...and never a checkbox', !opts.some(i => /[☐☑]/.test(i.label)), JSON.stringify(opts.map(i => i.label)));
+        const text = (await run('shoplist'))?.message || '';
+        check('...and the text list spells the OR out too', /<b>or<\/b>/.test(text), text);
+      }
+
       // A class the dish has no specific word for is one errand with several
       // possible answers, and those answers nest UNDER it as alternatives —
       // never as more boxes to tick, which would read as "buy all of them".

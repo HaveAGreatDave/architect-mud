@@ -1002,6 +1002,18 @@ function ensureStyles() {
     #tablet-os-overlay .tos-list-item.tos-li-static:hover { filter:none;
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 2px var(--tos-bevel-lo), 0 1px 4px rgba(0,0,0,0.18); }
     #tablet-os-overlay .tos-list-item.tos-li-static:active { transform:none; }
+    /* An OR is the one word that stops a run of alternatives reading as a run of
+       errands. Quiet, but never absent — it does the work the missing checkbox
+       only hints at. */
+    #tablet-os-overlay .tos-li-or { color:var(--mg-accent); font-size:10px; letter-spacing:1.5px;
+      text-transform:uppercase; opacity:0.75; margin-right:7px; }
+    /* A PART is a component of the line above it — one of the several things that
+       make one thing. It keeps its box and its badge (you buy all of them) and is
+       indented under its parent like an option, which is the only thing the two
+       levels have in common. */
+    #tablet-os-overlay .tos-list-item.tos-li-part { margin-left:30px; padding:6px 9px;
+      border-left:2px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); border-radius:0 5px 5px 0; }
+    #tablet-os-overlay .tos-list-item.tos-li-part .tos-li-label { font-size:12.5px; }
     /* The last option in a run carries the gap to the next line. */
     #tablet-os-overlay .tos-list-item.tos-li-option + .tos-list-item:not(.tos-li-option) { margin-top:7px; }
     #tablet-os-overlay .tos-badge { font-size:10.5px; letter-spacing:1px; padding:2px 6px; border-radius:3px; text-transform:uppercase; }
@@ -5001,8 +5013,15 @@ function renderList(items) {
   // get the attribute anyway, empty — and clicking it navigated the app with no
   // params, which is the app ROOT. Every heading and every summary line was
   // therefore a button that threw you out of the screen you were reading.
-  return items.map(it => { const oid = it.id == null ? '' : String(it.id); return `<div class="tos-list-item${it.group ? ' tos-li-group' : ''}${it.child ? ' tos-li-child' : ''}${it.option ? ' tos-li-option' : ''}${oid ? '' : ' tos-li-static'}"${oid ? ` data-open-item="${esc(oid)}"` : ''}>
-    <div class="tos-li-label"><span>${esc(it.label)}</span>${it.badge && !it.option ? `<span class="tos-badge ${esc(it.badge)}">${esc(it.badgeLabel || it.badge)}</span>` : ''}</div>
+  //
+  // A fourth level, `part`, and it exists because nesting alone is ambiguous.
+  // An `option` is one of several ANSWERS to the line above it — you pick one,
+  // so it has no checkbox and every one after the first is prefixed OR. A `part`
+  // is one of several COMPONENTS of the line above it — you buy all of them, so
+  // it keeps its checkbox and its badge. Same shape on screen, opposite meaning;
+  // the OR and the boxes are what tell them apart.
+  return items.map(it => { const oid = it.id == null ? '' : String(it.id); return `<div class="tos-list-item${it.group ? ' tos-li-group' : ''}${it.child ? ' tos-li-child' : ''}${it.option ? ' tos-li-option' : ''}${it.part ? ' tos-li-part' : ''}${oid ? '' : ' tos-li-static'}"${oid ? ` data-open-item="${esc(oid)}"` : ''}>
+    <div class="tos-li-label"><span>${it.or ? '<span class="tos-li-or">or</span>' : ''}${esc(it.label)}</span>${it.badge && !it.option ? `<span class="tos-badge ${esc(it.badge)}">${esc(it.badgeLabel || it.badge)}</span>` : ''}</div>
     ${it.sub ? `<div class="tos-li-sub">${esc(it.sub)}</div>` : ''}
   </div>`; }).join('');
 }
