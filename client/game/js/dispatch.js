@@ -32,6 +32,7 @@ import { openTextBreach, isTextBreachActive, command as textBreachCommand } from
 import { openTextHololock, isTextHololockActive, command as textHololockCommand } from './panels/texthololock.js';
 import { openTextVault, isTextVaultActive, command as textVaultCommand } from './panels/textvault.js';
 import { openTextSignal, isTextSignalActive, command as textSignalCommand } from './panels/textsignal.js';
+import { openTextFishing, isTextFishingActive, command as textFishingCommand } from './panels/textfishing.js';
 import { openHololock } from './panels/hololock.js';
 import { openSignalHijack } from './panels/signalhijack.js';
 import { openPirateConsole, closePirateConsole } from './panels/piratedeck.js';
@@ -304,7 +305,7 @@ const handlers = {
     // Don't clobber the live cockpit (either the continuous sim or the discrete
     // passenger HUD) or an open hangar bay panel — all replace the plain-text room
     // description with their own app in the same area-pane.
-    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive() && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive() && !isTextVaultActive() && !isTextSignalActive()) setAreaPane(msg.message);
+    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive() && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive() && !isTextVaultActive() && !isTextSignalActive() && !isTextFishingActive()) setAreaPane(msg.message);
     // Display Mode `log` — the room goes to the scrolling log as well. The pane is
     // aria-hidden at that rung, so this duplication is inaudible to a screen
     // reader and is the ONLY way the room reaches them; a sighted player on this
@@ -324,7 +325,7 @@ const handlers = {
     // against this plain-text room description — whichever lands second wins.
     // If the bay panel already won that race, don't stomp it; it owns the pane
     // until the player actually leaves (hangar_close triggers a fresh look).
-    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive() && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive() && !isTextVaultActive() && !isTextSignalActive()) setAreaPane(msg.message, msg.direction);
+    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive() && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive() && !isTextVaultActive() && !isTextSignalActive() && !isTextFishingActive()) setAreaPane(msg.message, msg.direction);
     if (msg.narration) appendHtml(msg.narration, 'move');
     if (msg.toLog) appendHtml(msg.message, 'look');   // see the `look` handler
     setPaneSilent(!!msg.toLog);
@@ -1073,13 +1074,20 @@ const handlers = {
   fishing_game: (msg) => {
     const castCmd = msg.castCmd || 'fishcast';
     const resolveCmd = msg.resolveCmd || 'fishresolve';
-    openFishing({
+    const args = {
       skill: msg.skill ?? 4,
       difficulty: msg.castDifficulty ?? 5,   // nominal — just tunes the cast-stage feel
       deviceName: msg.deviceName || 'THE LINE',
       onCast: ({ power, angle }) => sendCmdSilent(`${castCmd} ${msg.zoneId} ${power.toFixed(3)} ${angle.toFixed(3)} ${msg.token}`),
       onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.zoneId} ${won ? 1 : 0} ${msg.token}`),
-    });
+    };
+    // Same water, drawn in characters — same sweep, same gaff physics, same
+    // creel-vs-tension race. Note this family is TWO-STAGE: the server picks the
+    // catch from the cast and arms the fight through `fishing_fight` below, which
+    // is why the skin has to stay mounted between the two.
+    if (autoResolved(msg, args.onResult)) return;
+    if (msg.render === 'text' && openTextFishing(args)) return;
+    openFishing(args);
   },
   // The server picked the catch from the cast and armed the fight — continue the
   // open overlay into the reel stage tuned to the real catch difficulty.

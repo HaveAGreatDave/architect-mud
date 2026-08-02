@@ -21,7 +21,7 @@ let failed = 0;
 const bad = (m) => { console.error(`  ✗ ${m}`); failed++; };
 
 // ── The base games: import for real ──────────────────────────────────────────
-const BASES = ['circuithack', 'hololock', 'vaultcrack', 'signalhijack'];
+const BASES = ['circuithack', 'hololock', 'vaultcrack', 'signalhijack', 'fishing'];
 const exportsOf = {};
 for (const b of BASES) {
   try {
@@ -40,6 +40,7 @@ const SEAM = {
   hololock: ['setHololockSkin', 'startHololockGame', 'stopHololockGame', 'hololockSet', 'hololockPos'],
   vaultcrack: ['setVaultSkin', 'startVaultGame', 'stopVaultGame', 'vaultTurn', 'vaultSet', 'vaultBand'],
   signalhijack: ['setSignalSkin', 'startSignalGame', 'stopSignalGame', 'signalSweep', 'signalOverdrive', 'signalTune', 'SIGNAL_W'],
+  fishing: ['setFishingSkin', 'startFishingGame', 'stopFishingGame', 'fishingDown', 'fishingUp'],
 };
 for (const [b, names] of Object.entries(SEAM)) {
   for (const n of names) if (!exportsOf[b].has(n)) bad(`${b}.js no longer exports ${n} — its skin cannot drive the game`);
@@ -48,7 +49,7 @@ for (const [b, names] of Object.entries(SEAM)) {
 // ── The skins: check what they import actually exists ────────────────────────
 const SKINS = {
   textbreach: 'circuithack', texthololock: 'hololock',
-  textvault: 'vaultcrack', textsignal: 'signalhijack',
+  textvault: 'vaultcrack', textsignal: 'signalhijack', textfishing: 'fishing',
 };
 for (const [skin, base] of Object.entries(SKINS)) {
   const src = readFileSync(`${P}${skin}.js`, 'utf8');

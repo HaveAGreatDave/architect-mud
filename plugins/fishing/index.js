@@ -28,6 +28,7 @@
 // catch, spawning a hooked monster, or snapping the rod on a botched reel.
 
 import { randomUUID } from 'crypto';
+import { textRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
 import { getZone, getAllZones, getLivePlayer, spawnEnemySync, propsOf } from '../../server/engine/world.js';
 import { registerActivity } from '../../server/engine/activity-tick.js';
@@ -381,7 +382,10 @@ async function runAttempt(player, st, nowMs) {
   const avgDiff = Math.round(pool.reduce((s, e) => s + e.difficulty, 0) / pool.length);
   advanceState(player.id, { lastAttempt: nowMs, streak: 0, pending: { pool, token, armedAt: nowMs, phase: 'cast' } });
   out(player.id, `${flavor}\n<span class="text-cyan">Something stirs the black water past your float — ready your cast.</span>`);
-  sendToPlayer(player.id, {
+  // At the `log` rung this resolves with a skill check instead of opening a board;
+  // at `textgames` it opens the character board. TWO-STAGE, so the mark rides the
+  // CAST payload — the server picks the catch from the cast and arms the fight.
+  sendToPlayer(player.id, await textRender(player, {
     type: 'fishing_game',
     zoneId: st.zoneId,
     deviceName: 'THE LINE',
@@ -389,7 +393,7 @@ async function runAttempt(player, st, nowMs) {
     castDifficulty: avgDiff,
     castCmd: 'fishcast',
     token,
-  });
+  }));
 }
 
 // ── Tick ──────────────────────────────────────────────────────────────────────

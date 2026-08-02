@@ -353,7 +353,24 @@ function stepCast(s, dt) {
 }
 
 // ── Render ──────────────────────────────────────────────────────────────────
+// ── The SKIN seam ────────────────────────────────────────────────────────────
+// Everything above is the GAME — the sweeping aim, the charging power, the
+// darting fish, the gaff physics, the creel/tension race, all scaled off
+// skill-vs-difficulty. Everything below is one way of drawing it.
+//
+// textfishing.js installs a skin and fishes the identical water in characters:
+// the same rAF loop, the same LIFT/GRAVITY/DAMP on the gaff, the same dart
+// chance. It stays a reflex game, which is the point of the middle rung.
+let _skin = null;
+export function setFishingSkin(skin) { _skin = skin; }
+
+// The two inputs are ONE input at both stages — press and release — so a skin
+// wires one control and the stage decides what it means.
+export { primaryDown as fishingDown, primaryUp as fishingUp };
+export function fishingState() { return _state; }
+
 function render() {
+  if (_skin) return _skin.frame(_state);
   const col = _overlay.querySelector('#fs-column');
   const gaff = _overlay.querySelector('#fs-gaff');
   const fish = _overlay.querySelector('#fs-fish');
@@ -386,6 +403,7 @@ function render() {
 
 // Position the sweeping aim tick, its lane guide, and the charging power fill.
 function renderCast() {
+  if (_skin) return _skin.frame(_state);
   const col = _overlay.querySelector('#fs-column');
   const w = col ? col.clientWidth : 74;
   const x = (_state.phase === 'charging' ? _state.angle : _state.aim) * w;
@@ -409,6 +427,7 @@ function depthFt(power) { return Math.round(power * 60); }
 
 // The phase stepper + live readout in the HUD. `label` overrides the readout.
 function renderHud(label) {
+  if (_skin) return;   // the character board draws board and HUD in one pass
   if (!_overlay) return;
   const active = _state?.phase === 'fight' ? 'reel'
     : _state?.phase === 'charging' ? 'charge'
@@ -425,7 +444,10 @@ function renderHud(label) {
   if (read && label != null) read.innerHTML = label;
 }
 
-function setStatus(html) { const el = _overlay.querySelector('#fs-status'); if (el) el.innerHTML = html; }
+function setStatus(html) {
+  if (_skin) return _skin.status(html);
+  const el = _overlay.querySelector('#fs-status'); if (el) el.innerHTML = html;
+}
 
 // ── Stage 1: aim + charge the cast ─────────────────────────────────────────────
 function startCast() {
@@ -640,6 +662,9 @@ function finish(won) {
     ? '<span class="fs-win">◇ LANDED — it\'s yours.</span>'
     : '<span class="fs-lose">✕ LINE SNAPPED — it threw the hook.</span>');
   const cb = _opts?.onResult;
+  // A skin owns its own teardown — the character board lives in the area pane,
+  // not an overlay, so close() here would tear down the wrong thing.
+  if (_skin) { _skin.finish?.(_state, won); if (cb) cb({ won }); return; }
   schedule(() => { close(); if (cb) cb({ won }); }, 1100);
 }
 
@@ -667,6 +692,20 @@ function addListener(target, type, fn, opts) { target.addEventListener(type, fn,
 function clearListeners() { for (const [t, ty, fn, o] of _listeners) t.removeEventListener(ty, fn, o); _listeners = []; }
 
 // ── Public API ────────────────────────────────────────────────────────────────
+
+// Drive the whole two-stage game with no overlay mounted, for a skin that draws
+// elsewhere. Shares generateCast so the difficulty scaling cannot diverge.
+export function startFishingGame(opts) {
+  _opts = { skill: 4, difficulty: 5, deviceName: 'THE LINE', onResult: null, onCast: null, ...opts };
+  _state = generateCast(_opts.skill, _opts.difficulty);
+  _lastT = performance.now();
+  startCast();
+  return _state;
+}
+export function stopFishingGame() {
+  if (_raf) cancelAnimationFrame(_raf);
+  _raf = 0; clearTimers(); _hold = false; _state = null;
+}
 export function openFishing(opts = {}) {
   ensureStyles();
   ensureChassisStyles();

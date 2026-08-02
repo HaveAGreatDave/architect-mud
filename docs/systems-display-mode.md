@@ -218,9 +218,16 @@ rule the whole ladder rests on. It also covers families with no board at all
 second at frame rate for a forty-column panel, and it is the difference between a
 text panel and a slideshow.
 
-**Four families are done**, each by the same route — circuit hack, hololock, vault crack
-and signal hijack. Between them they cover ATMs, the practice rig, surveillance
-devices, hololock doors, vendor safes, storefront tills and media decks.
+**Five families are done**, each by the same route — circuit hack, hololock, vault
+crack, signal hijack and fishing. Between them they cover ATMs, the practice rig,
+surveillance devices, hololock doors, vendor safes, storefront tills, media decks
+and the water.
+
+Fishing is the only TWO-STAGE one: the server picks the catch from your cast and
+arms the fight through a second message, so the skin has to stay mounted between
+the two. Its column is drawn VERTICALLY, like the graphical board — depth is the
+axis the whole game is about (deep water hides the better catches), and rotating
+it to a horizontal bar to save lines would quietly throw that away.
 
 **Circuit Breach is the worked example.** `circuithack.js` grew a *skin seam* rather
 than a fork: `setBreachSkin({ board, hud, status, finish })` swaps the renderer while
@@ -320,6 +327,18 @@ Three rules the real output taught, none of which were obvious from the payload:
 3. **One entry per building, nearest face only.** A building spans several facade
    tiles, so without a dedupe the same block is listed once per tile it touches —
    reading as several different buildings and pushing the real ones off the list.
+
+### Deliberately NOT written out: the gameday sub-screen
+
+The animated per-at-bat sub-screen stays panel-only, and that is a decision rather
+than an omission. The **commentary carries the game** — it is generated
+play-by-play, not decoration over a simulation you can't see — and the score line
+carries the state. A text gameday would restate, at length, what the listener has
+already been told.
+
+The test from the top of this doc still passes: *the record reaches the log.* A
+sub-screen that re-presents the record more prettily is exactly the class of thing
+the `log` rung is allowed to drop.
 
 ### A live panel becomes a SNAPSHOT, not a stream
 
