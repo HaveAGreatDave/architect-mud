@@ -8,6 +8,8 @@
 // `sweep` is how anyone locates hidden gear.
 
 import { randomUUID } from 'crypto';
+import { escAttr } from '../../server/engine/text.js';
+import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { textRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
 import { getZone, getZonePlayers, getZoneNpcs, getZoneEnemies, getLivePlayer, getAllLivePlayers, spawnEnemySync, removeEnemyInstance, hasActivePlayers, world, insertFurniture, updateFurniture, deleteFurniture } from '../../server/engine/world.js';
@@ -478,10 +480,57 @@ async function doInstallSpecter(args, raw, player) {
     message: `You slot the ${it.name} into the tablet. A firmware flasher boots, tears through the tablet's signature check, and writes SPECTER to ROM. <span class="item-grant">SPECTER is now installed. Open your <b>tablet</b> → Surveillance.</span>` };
 }
 
+// ── The hub, written out ─────────────────────────────────────────────────────
+// A SNAPSHOT, not a stream, and that is the whole design decision here.
+//
+// The panel is fed by a 5-second tick. Pushing that to a log would be a wall of
+// near-identical readouts — twelve a minute, forever — which is precisely what the
+// pacing rule forbids (docs/systems-display-mode.md: "never faster than a person
+// reads"). A live panel and a scrolling log want opposite things from the same
+// data: the panel wants to always be current, the log wants to be worth reading.
+//
+// So at the bottom rung `hub` prints the network once and does NOT register a
+// viewer — no tick, no stream. Type it again for a fresh look. That is also how
+// somebody would actually use a deck: you check it, you don't stare at it.
+function renderHubText(payload) {
+  const out = [`<span class="text-cyan">${escAttr(payload.net?.name || 'SPECTER')}</span>`];
+
+  for (const a of payload.alerts || []) {
+    out.push(`<span class="text-red">⚠ ${escAttr(typeof a === 'string' ? a : (a.text || a.message || ''))}</span>`);
+  }
+
+  if (!payload.tiles?.length) {
+    out.push('<span class="text-dim">No devices on the network. <b>plant</b> one to start.</span>');
+    return out.join('\n');
+  }
+
+  const STATUS = { ok: 'text-green', offline: 'text-dim', damaged: 'text-red', jammed: 'text-amber', spoofed: 'text-amber' };
+  for (const t of payload.tiles) {
+    const cls = STATUS[t.status] || 'text-dim';
+    const bits = [`<span class="${cls}">${escAttr(String(t.status).toUpperCase())}</span>`];
+    if (t.battery != null) bits.push(`${t.battery}%`);
+    if (t.recording) bits.push(t.full ? '<span class="text-amber">TAPE FULL</span>' : '<span class="text-red">● REC</span>');
+    if (t.bufferLines) bits.push(`${t.bufferLines} on tape`);
+    if (t.expiresIn != null) bits.push(`⏻ ${Math.round(t.expiresIn / 60)}h`);
+
+    out.push(`  <b>${escAttr(t.name)}</b> <span class="text-dim">· ${escAttr(t.zone || '')} · ${bits.join(' · ')}</span>`);
+    // The frame IS the feed — what the camera can see right now. Without it this is
+    // an inventory list, not surveillance.
+    if (t.frame) out.push(`      <span class="ambient">${escAttr(t.frame)}</span>`);
+  }
+  out.push('<span class="text-dim">hub to refresh · record &lt;name&gt; · clip &lt;name&gt; · devices · destruct &lt;name&gt;</span>');
+  return out.join('\n');
+}
+
 // Register the player as a hub viewer and return the open payload. The command
 // pipeline delivers the return value to the client, so we don't also sendToPlayer
 // here (that would double-open); the tick uses sendToPlayer for live updates.
 async function openHubFor(player) {
+  if (loggedPanelsSync(player)) {
+    // Deliberately NOT added to hubViewers — see renderHubText. A snapshot, and
+    // the tick never touches them, so there is nothing to leak either.
+    return { type: 'output', message: renderHubText(await buildHubPayload(player, true)) };
+  }
   hubViewers.add(player.id);
   return buildHubPayload(player, true);
 }
@@ -3118,3 +3167,7 @@ export const routeHandler = async (path, method, body, auth) => {
 };
 
 console.log('[surveillance] Plugin loaded.');
+
+// The log-rung hub renderer is pure over a payload, so regress can assert it
+// without planting a camera.
+export const _test = { renderHubText };

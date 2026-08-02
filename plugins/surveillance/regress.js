@@ -297,4 +297,40 @@ export default async function regress({ run, check, getPlayer }) {
     x = await run('cast');
     check('cast with no camera asks which', x?.type === 'error', JSON.stringify(x)?.slice(0, 140));
   }
+
+  // ── The hub, written out (bottom Display Mode rung) ────────────────────────
+  // A SNAPSHOT, not a stream. The panel is fed by a 5-second tick; pushing that to
+  // a log would be twelve near-identical readouts a minute, forever — exactly what
+  // the pacing rule forbids. So `hub` prints once and registers no viewer.
+  {
+    const { _test: surv } = await import('./index.js');
+    const payload = {
+      net: { name: 'SPECTER // OPERATOR' },
+      alerts: [{ t: 1, text: 'Motion in the stairwell', zone: 'z1' }],
+      tiles: [
+        { id: 'a', name: 'stairwell cam', zone: 'Stairwell', status: 'ok', battery: 82,
+          recording: true, full: false, bufferLines: 4, frame: 'A figure crosses left to right.', expiresIn: 1380 },
+        { id: 'b', name: 'alley cam', zone: 'Back Alley', status: 'jammed', battery: 12,
+          recording: false, full: false, bufferLines: 0, frame: null, expiresIn: null },
+      ],
+    };
+    const t = surv.renderHubText(payload);
+
+    check('hub text: names the network', /SPECTER/.test(t), t.slice(0, 60));
+    check('hub text: surfaces alerts', /Motion in the stairwell/.test(t), t);
+    check('hub text: lists every device', /stairwell cam/.test(t) && /alley cam/.test(t));
+    check('hub text: carries status and battery', /OK/.test(t) && /82%/.test(t), t);
+    check('hub text: a jammed device reads as jammed, not merely absent', /JAMMED/.test(t), t);
+    check('hub text: shows what is recording and how much is on tape',
+      /REC/.test(t) && /4 on tape/.test(t), t);
+    // THE FRAME IS THE FEED. Without it this is an inventory list, not surveillance.
+    check('hub text: includes the live frame — otherwise it is not a feed at all',
+      /A figure crosses left to right/.test(t), t);
+    check('hub text: offers the way to refresh, since there is no live stream',
+      /hub to refresh/.test(t), t);
+
+    const empty = surv.renderHubText({ net: { name: 'SPECTER' }, alerts: [], tiles: [] });
+    check('hub text: an empty network says so and points at plant',
+      /No devices/.test(empty) && /plant/.test(empty), empty);
+  }
 }

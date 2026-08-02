@@ -284,6 +284,27 @@ staked.
 Check which shape you have before reaching for `logRender`. Suppressing a panel
 whose record doesn't reach the log is strictly worse than leaving the panel alone.
 
+### A live panel becomes a SNAPSHOT, not a stream
+
+The fourth shape, and the one most likely to be got wrong by translating a panel
+literally. **A live panel and a scrolling log want opposite things from the same
+data**: the panel wants to always be current, the log wants to be worth reading.
+
+The SPECTER hub is the worked example. Its panel is fed by a 5-second tick — push
+that to a log and you get twelve near-identical readouts a minute, forever, which
+is exactly what the pacing rule forbids. So at the bottom rung `hub` prints the
+network **once** and registers no viewer: no tick, no stream, type it again for a
+fresh look. That is also how somebody would really use a deck — you check it, you
+don't stare at it.
+
+The same instinct is why the TV's score bug is sent **only when it changes** even
+though it rides every line on screen, and why flight's narration runs on its own
+45-second schedule rather than the 3-second physics tick.
+
+**If a panel updates faster than a person reads, the log version is a thing you
+ask for.** Anything else is a torrent that buries everything else the player needs
+to hear — which for a screen-reader user means burying the game.
+
 ### The TV, now written out (was: the largest hole)
 
 An earlier roadmap for this work listed broadcast panels as already fine —
@@ -340,9 +361,11 @@ Still wanting a character board at : **splice/cook** (deeply
 canvas-coupled — its update functions draw, so a skin seam there is a real
 refactor rather than the five-line change it was elsewhere) and **fishing**
 (two-stage: the cast chooses the catch server-side, so its log-rung path needs
-plugin-side work rather than the shared fork). Outstanding panels: map/minimap, surveillance
-feeds, and the TV score-bug/gameday/standings overlays (a degradation, not a
-hole — the commentary carries the score in words). All five puzzle minigames
+plugin-side work rather than the shared fork). Outstanding panels: **map/minimap** — the last
+one, and the genuinely hard one (its value is the OVERVIEW, and an ASCII overview
+at the tablet map's zoom levels is a real rendering problem, not a translation).
+The TV gameday sub-screen is still panel-only, which is a degradation rather than
+a hole: the commentary and the score line carry the game. All five puzzle minigames
 share one payload contract (`{skill, difficulty, deviceName, resolveCmd, id}` →
 `<resolveCmd> <id> <0|1>`) and run entirely client-side once opened, so a text
 equivalent needs **no new server protocol** — one fork helper and a second renderer
