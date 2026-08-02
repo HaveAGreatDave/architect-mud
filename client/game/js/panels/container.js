@@ -292,6 +292,36 @@ function renderList(listId, items, source, containerId) {
   const list = document.getElementById(listId);
   list.innerHTML = '';
   let lastGroup = null;
+
+  // A shelf with things picked out of it takes them all out in one click. One of
+  // each, not the whole stack: the mark means "still on your list", and a second
+  // of the same thing isn't what the list asked for.
+  const takeAllBtn = (want) => {
+    const b = document.createElement('button');
+    b.className = 'ctr-takeall';
+    b.textContent = `▸ take ${want.length} listed`;
+    b.title = 'Take one of each shopping-list item on this shelf';
+    b.onclick = (e) => {
+      e.stopPropagation();
+      b.disabled = true;
+      for (const it of want) sendCmdSilent(`pullid ${it.id}`);
+    };
+    return b;
+  };
+  // A box whose stock doesn't partition stays flat and emits no headers at all
+  // (classify.js), which is a success there and would silently be a missing
+  // button here — so a flat list gets the button on a bare row of its own.
+  if (source !== 'inv' && !items.some(it => it.group)) {
+    const want = items.filter(it => it.wanted);
+    if (want.length) {
+      const h = document.createElement('div');
+      h.className = 'ctr-section has-wanted bare';
+      h.innerHTML = '<span></span>';
+      h.appendChild(takeAllBtn(want));
+      list.appendChild(h);
+    }
+  }
+
   for (const item of items) {
     // Shelf headers, the same convention the shop panel uses: the server decides
     // whether a box sections and sends the rows already in section order
@@ -301,24 +331,12 @@ function renderList(listId, items, source, containerId) {
       const h = document.createElement('div');
       h.className = 'ctr-section';
       h.innerHTML = `<span>${item.group}</span>`;
-      // A shelf with things picked out of it takes them all out in one click.
-      // One of each, not the whole stack: the mark means "still on your list",
-      // and a second of the same thing isn't what the list asked for.
       const want = source !== 'inv'
         ? items.filter(it => it.group === item.group && it.wanted)
         : [];
       if (want.length) {
         h.classList.add('has-wanted');
-        const b = document.createElement('button');
-        b.className = 'ctr-takeall';
-        b.textContent = `▸ take ${want.length} listed`;
-        b.title = 'Take one of each shopping-list item on this shelf';
-        b.onclick = (e) => {
-          e.stopPropagation();
-          b.disabled = true;
-          for (const it of want) sendCmdSilent(`pullid ${it.id}`);
-        };
-        h.appendChild(b);
+        h.appendChild(takeAllBtn(want));
       }
       list.appendChild(h);
     }

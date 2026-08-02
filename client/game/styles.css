@@ -4935,6 +4935,9 @@ body.fsim-external #look-resize-handle { display: none; }
    sum of the marks below it rather than as a new kind of control. */
 .ctr-section.has-wanted { display: flex; align-items: baseline; gap: 8px; }
 .ctr-section.has-wanted > span { flex: 1; min-width: 0; }
+/* A flat (unsectioned) box has no header text to sit beside, so the button gets
+   a bare row and drops the rule that would read as an empty section title. */
+.ctr-section.bare { border-bottom: none; padding-bottom: 0; justify-content: flex-end; }
 .ctr-takeall, .shop-takeall {
 	background: transparent;
 	border: 1px solid var(--yellow);
