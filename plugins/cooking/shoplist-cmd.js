@@ -101,10 +101,12 @@ export async function cmdShoplist(args, raw, player) {
     const head = forWhat || 'odds and ends';
     lines.push(`  <span class="text-bright">${head}</span> <span class="text-dim">— ${
       left ? `${left} of ${entries.length} still to buy, separately` : 'all in hand'}</span>`);
-    // Components under the thing they compose, then everything loose. A `parts`
-    // group is one object you buy in several pieces (the sauce is tomato AND gin
-    // AND cream); the alternatives below are one errand you finish with any ONE
-    // of several. Both are indented, so both have to say outright which they are.
+    // Things you just buy, then the things you assemble. A `parts` group is one
+    // object you buy in several pieces (the sauce is tomato AND gin AND cream);
+    // the alternatives below are one errand you finish with any ONE of several.
+    // Both are indented, so both have to say outright which they are — and the
+    // group goes LAST, because a list reads as a walk down the aisles and a
+    // composed thing is a stop on it rather than an item in the basket.
     const seen = new Set();
     const emit = ({ e, i }, indent) => {
       if (seen.has(i)) return;
@@ -121,19 +123,21 @@ export async function cmdShoplist(args, raw, player) {
 
     const partOrder = [];
     const byPart = new Map();
-    for (const x of entries) {
+    // Inside a group the order is the order you make it in, which `partAt`
+    // carries from the recipe — tomato, then gin, then cream.
+    for (const x of entries.slice().sort((a, b) => (a.e.partAt ?? 0) - (b.e.partAt ?? 0))) {
       if (!x.e.part) continue;
       if (!byPart.has(x.e.part)) { byPart.set(x.e.part, []); partOrder.push(x.e.part); }
       byPart.get(x.e.part).push(x);
     }
+    for (const x of entries) if (!x.e.part) emit(x, '    ');
     for (const partLabel of partOrder) {
       const members = byPart.get(partLabel);
       const short = members.filter(x => !x.e.done).length;
       lines.push(`    <span class="text-bright">${partLabel}</span> <span class="text-dim">— ${
-        short ? `${members.length} things that make it, all of them` : 'all in hand'}</span>`);
+        short ? `${members.length} thing${members.length === 1 ? '' : 's'} make it, all of them` : 'all in hand'}</span>`);
       for (const x of members) emit(x, '      ');
     }
-    for (const x of entries) emit(x, '    ');
   }
   lines.push(`<span class="text-dim">${done} of ${rows.length} in hand. <b>shoplist tidy</b> crosses those off for good.</span>`);
   return { type: 'output', message: lines.join('\n') };

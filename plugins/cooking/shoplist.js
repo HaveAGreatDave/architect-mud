@@ -73,25 +73,79 @@ export async function getList(playerOrId) {
 // keep their own boxes under a named parent. The label a component sits under is
 // stamped here, on the entry, so every reader (the verb, the tablet) groups the
 // same way without either of them re-deriving it.
-export function partLabelFor(template, entry) {
+// The group an entry belongs to, and WHERE IN IT — `of` is one ordered list and
+// its order is the order the thing is made in, so the position travels with the
+// entry. Without it the sauce reads back as tomato, cream, gin: the order the
+// storage happened to be in, which is not an order anybody cooks in.
+export function partFor(template, entry) {
   for (const part of template?.parts || []) {
-    if (entry.k === 'p' && (part.needs || []).includes(entry.v)) return part.label;
-    if (entry.k === 'i' && (part.items || []).includes(entry.v)) return part.label;
+    const at = (part.of || []).indexOf(entry.v);
+    if (at >= 0) return { label: part.label, at };
   }
   return null;
 }
 
+// A COMPONENT GROUP IS ALL-OR-NOTHING, so the list completes it.
+//
+// Relabelling wasn't enough. A list added before penne alla gin was rewritten
+// held only its two key items, so the sauce — three things — rendered as "1
+// things that make it" with the tomato and the cream nowhere on screen. Dropping
+// a dead line was half the job; a recipe that GAINS an ingredient is the other
+// half, and no reader could tell "absent because you already own it" from
+// "absent because this list predates the ingredient".
+//
+// So a part is completed and only a part. You cannot buy two thirds of a sauce,
+// and a group that shows one third of itself is worse than no group at all.
+// Loose lines keep their shortfall meaning — those really are "what you were
+// short of", and backfilling them would put things you already own on a list
+// whose whole promise is that it doesn't do that.
+function completeParts(list, template, forLabel, itemRow) {
+  const out = [...list];
+  for (const part of template?.parts || []) {
+    // Only a group this list is already carrying — adding one nobody asked for
+    // would put a sauce on the list of somebody who only wanted the pasta.
+    const present = (part.of || []).filter(v => list.some(e => e.v === v));
+    if (!present.length) continue;
+    for (const [at, v] of (part.of || []).entries()) {
+      if (list.some(e => e.v === v)) continue;
+      if (String(v).startsWith('item_')) {
+        out.push({ k: 'i', v, n: 1, label: itemRow(v)?.name || v.replace(/^item_/, '').replace(/_/g, ' '), for: forLabel, part: part.label, partAt: at });
+      } else {
+        const need = template.needs?.[v];
+        if (need == null) continue;
+        const named = classLabel(v, need, template);
+        const want = Array.isArray(need) ? need[0] : need;
+        out.push({ k: 'p', v, n: want, label: named.label, base: named.base, ex: named.ex, for: forLabel, part: part.label, partAt: at });
+      }
+    }
+  }
+  return out;
+}
+
 export function refresh(list) {
   const itemRow = id => { try { return getItem(id); } catch { return null; } };
+  // Complete every incomplete component group first, so the pass below relabels
+  // the backfilled lines exactly like the stored ones. One list in, one out.
+  let work = list;
+  for (const forLabel of new Set(list.map(e => e.for).filter(Boolean))) {
+    const template = catalogTemplate(forLabel)?.template;
+    if (!template?.parts?.length) continue;
+    const mine = work.filter(e => e.for === forLabel);
+    const completed = completeParts(mine, template, forLabel, itemRow);
+    if (completed.length !== mine.length) {
+      work = [...work.filter(e => e.for !== forLabel), ...completed];
+    }
+  }
   const out = [];
-  for (const e of list) {
+  for (const e of work) {
     const template = e.for ? catalogTemplate(e.for)?.template : null;
     // A loose want, or one from a player's own recipe: nothing to re-derive it
     // from, so it stays exactly as written. That's the whole of its truth.
     if (!template) { out.push(e); continue; }
 
-    const part = partLabelFor(template, e);
-    if (e.k === 'i') { out.push({ ...e, label: itemRow(e.v)?.name || e.label, part }); continue; }
+    const part = partFor(template, e);
+    const stamp = { part: part?.label ?? null, partAt: part?.at ?? null };
+    if (e.k === 'i') { out.push({ ...e, label: itemRow(e.v)?.name || e.label, ...stamp }); continue; }
 
     const need = template.needs?.[e.v];
     // The recipe doesn't want this class any more. Not a line to relabel — a line
@@ -106,7 +160,7 @@ export function refresh(list) {
     if (keyed && lo === 1 && hi === 1) continue;
 
     const named = classLabel(e.v, need, template);
-    out.push({ ...e, label: named.label, base: named.base, ex: named.ex, part });
+    out.push({ ...e, label: named.label, base: named.base, ex: named.ex, ...stamp });
   }
   return out;
 }

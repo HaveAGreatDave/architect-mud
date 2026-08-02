@@ -2126,6 +2126,55 @@ export default async function regress({ run, check, getPlayer }) {
         check('...and each one still opens', members.every(i => String(i.id).startsWith('__ing:')), JSON.stringify(members.map(i => i.id)));
         check('a component is never marked as an alternative', !members.some(i => i.option || i.or), JSON.stringify(members));
 
+        // THINGS YOU JUST BUY COME FIRST. A composed thing is a stop on the walk
+        // round the shop rather than an item in the basket, and leading with it
+        // buried the one line that WAS a simple purchase.
+        const looseAt = rows.findIndex(i => i.child && /box of penne/.test(i.label));
+        check('the plain purchase is listed before the thing you assemble',
+          looseAt >= 0 && looseAt < parent, JSON.stringify(rows.map(i => i.label)));
+        // ...and inside the group, the order is the order you cook in.
+        check('components read in the order the dish is made in',
+          /tomato/i.test(members[0]?.label || '') && /gin/i.test(members[1]?.label || '') && /cream/i.test(members[2]?.label || ''),
+          JSON.stringify(members.map(i => i.label)));
+
+        // A COMPONENT GROUP IS ALL-OR-NOTHING, so an older list that holds only
+        // some of it gets completed. This is the screenshot that started it: a
+        // list carrying just the two key items rendered "1 things that make it"
+        // with the tomato and the cream nowhere on it.
+        await run('shoplist clear');
+        await query(
+          `INSERT INTO player_flags (player_id, flag_key, flag_value) VALUES ($1,$2,$3)
+             ON CONFLICT (player_id, flag_key) DO UPDATE SET flag_value = EXCLUDED.flag_value`,
+          [player.id, SHOPLIST_FLAG, JSON.stringify([
+            { k: 'i', v: 'item_gin', n: 1, label: 'bottle of gin', for: 'penne alla gin' },
+            { k: 'i', v: 'item_penne', n: 1, label: 'box of penne', for: 'penne alla gin' },
+          ])]);
+        const grown = await getList(player.id);
+        check('a half-written component group is completed on load',
+          grown.filter(e => e.part === 'the sauce').length === 3, JSON.stringify(grown.map(e => [e.v, e.part])));
+        check('...with the ingredients the older list never knew about',
+          grown.some(e => e.v === 'soft_vegetable') && grown.some(e => e.v === 'dairy'), JSON.stringify(grown.map(e => e.v)));
+        check('...and the pasta outside it, still exactly one line',
+          grown.filter(e => e.v === 'item_penne' && !e.part).length === 1, JSON.stringify(grown.map(e => [e.v, e.part])));
+        // A group nobody asked for is never invented — completing only ever
+        // finishes a group this list is already carrying.
+        await run('shoplist clear');
+        await run('shoplist add soup');
+        check('a component group is never added to a list that never wanted it',
+          !(await getList(player.id)).some(e => e.part), JSON.stringify(await getList(player.id)));
+
+        // The parent opens onto what it is and how it's made.
+        await run('shoplist clear');
+        await run('shoplist add penne alla gin');
+        const det2 = await run('tabletnav cookbook Shopping_List __part:penne_alla_gin:the_sauce');
+        check('the sauce opens its own screen', det2?.view === 'detail', JSON.stringify({ v: det2?.view, m: det2?.message }));
+        check('...listing every component it takes',
+          (det2?.detail?.rows || []).filter(r => /to buy|in hand/.test(String(r.value))).length === 3,
+          JSON.stringify(det2?.detail?.rows));
+        check('...and the method, read from the recipe rather than copied beside it',
+          (det2?.detail?.rows || []).some(r => DISHES.penne_alla_gin.steps.includes(String(r.value))),
+          JSON.stringify((det2?.detail?.rows || []).map(r => r.value)));
+
         // The other half of the distinction, on a dish that has one.
         await run('shoplist clear');
         await run('shoplist add soup');

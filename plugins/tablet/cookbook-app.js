@@ -14,10 +14,10 @@
 // of a known recipe's ingredient classes you currently carry, because that's
 // planning rather than spoiling.
 import { query } from '../../server/models/db.js';
-import { DISHES, ingredientLine, methodLines, estimateCookMs } from '../cooking/dishes.js';
+import { DISHES, ingredientLine, methodLines, estimateCookMs, keyNounFor } from '../cooking/dishes.js';
 import { PROFILES } from '../cooking/profiles.js';
 import { cookbookState, UNTRIED } from '../cooking/knowledge.js';
-import { getList, holdings, answer, addShortfall, buyableExamples } from '../cooking/shoplist.js';
+import { getList, holdings, answer, addShortfall, buyableExamples, catalogTemplate } from '../cooking/shoplist.js';
 import { getItem, getItemCache } from '../../server/engine/items-cache.js';
 import { DISCOVERY_ATTEMPTS, COOK_SECONDS_PER_KG } from '../cooking/config.js';
 import { registerTabletApp } from './registry.js';
@@ -28,6 +28,9 @@ const BAND_ICON = {
 
 const titleFor = key => key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 const range = need => (Array.isArray(need) ? need : [need, need]);
+// SENTENCE case, not Title Case. An item's name is already written the way it
+// should read — "bottle of gin" — and Title-Casing it gave "Bottle Of Gin".
+const sentence = s => { const t = String(s || '').trim(); return t ? t[0].toUpperCase() + t.slice(1) : t; };
 
 function needLine(profile, need) {
   const [min, max] = range(need);
@@ -61,6 +64,78 @@ async function carriedProfiles(playerId) {
 //   __ing:i:<item_id>   a THING  (a bottle of gin)  — what it is and what it counts as
 // Both are read-only and derived; opening a line can't change the list.
 const ING_PREFIX = '__ing:';
+const PART_PREFIX = '__part:';
+
+// THE SAUCE, ON ITS OWN SCREEN. A component group is the one line on the list
+// that isn't a purchase — it's a thing you make out of the three lines under it,
+// and the shopping list has room to say what and not room to say how. So it
+// opens: the components in the order you use them, then the method.
+//
+// The method is read from the dish's own steps by INDEX (`part.steps`), never
+// copied — the sauce's instructions are the recipe's instructions, and a copy
+// would drift the first time either was edited.
+async function partDetail(player, token) {
+  const [forRaw, labelRaw] = String(token || '').split(':');
+  const forWhat = (forRaw || '').replace(/_/g, ' ');
+  const wanted = (labelRaw || '').replace(/_/g, ' ');
+  const found = catalogTemplate(forWhat);
+  const part = (found?.template?.parts || []).find(p => p.label === wanted);
+  if (!part) return { view: 'error', message: "That isn't part of anything you're making." };
+  const d = found.template;
+
+  const rows = answer(await getList(player.id), await holdings(player.id));
+  const mine = rows.filter(e => e.for === forWhat && e.part === part.label)
+    .sort((a, b) => (a.partAt ?? 0) - (b.partAt ?? 0));
+
+  const info = id => itemRow(id);
+  // The component, named the way the recipe card names it, with the tick on the
+  // RIGHT where every other value on the tablet sits. As a label the box became a
+  // one-character column with a dotted leader running off it, which read as a
+  // list of nothing.
+  const out = [];
+  if (mine.length) out.push({ label: 'What goes in it', heading: true, value: '' });
+  for (const e of mine) {
+    const noun = e.k === 'i'
+      ? (info(e.v)?.name || e.label)
+      : (keyNounFor(d, e.v, info) || PROFILES[e.v]?.label || e.v);
+    // Just the measure — the noun is already the label, so "60g–180g of tomato"
+    // would say tomato twice.
+    // A named bottle has no measure worth printing — it's one bottle of the thing
+    // the dish is named after, and "one ·" in front of it said nothing.
+    const measure = e.k === 'i' ? '' : `${String(e.base || e.label).replace(/ of .*/, '')} · `;
+    out.push({ label: sentence(noun), value: `${measure}${e.done ? 'in hand ☑' : 'to buy ☐'}` });
+  }
+  const steps = (part.steps || []).map(i => d.steps?.[i]).filter(Boolean);
+  if (steps.length) {
+    out.push({ label: 'How it goes together', heading: true, value: '' });
+    steps.forEach(s => out.push({ label: '', value: s }));
+  }
+  // What the dish has to say about each component — the note the shopping list
+  // deliberately refuses to print, which is exactly right on a screen about how
+  // to make the thing rather than what to buy. Named, not classed: the card says
+  // Tomato, so this must not say Soft Vegetable.
+  const notes = (part.of || []).filter(v => d.notes?.[v]).map(v => [v, d.notes[v]]);
+  if (notes.length) {
+    out.push({ label: 'Worth knowing', heading: true, value: '' });
+    for (const [profile, note] of notes) {
+      out.push({ label: sentence(keyNounFor(d, profile, info) || PROFILES[profile]?.label || profile), value: note });
+    }
+  }
+
+  const short = mine.filter(e => !e.done).length;
+  return {
+    view: 'detail',
+    breadcrumb: ['Cookbook', 'Shopping List', part.label],
+    detail: {
+      id: `${PART_PREFIX}${token}`,
+      name: part.label.replace(/\b\w/g, c => c.toUpperCase()),
+      desc: short
+        ? `Part of ${titleFor(forWhat.replace(/ /g, '_'))}. ${short} of its ${mine.length} still to buy.`
+        : `Part of ${titleFor(forWhat.replace(/ /g, '_'))}. Everything it needs is in hand.`,
+      rows: out,
+    },
+  };
+}
 
 // The item a buyable example noun stands for. The list stores nouns (they're what
 // you say over a counter, and they persist in a flag), so the id is resolved here
@@ -177,6 +252,8 @@ async function buildScreen(player, screenId, params) {
   // its own, with nothing having to fire when you bought it.
   // A line on the list, opened. Never a navigation back — see ingredientDetail.
   if (id.startsWith(ING_PREFIX)) return ingredientDetail(player, id.slice(ING_PREFIX.length));
+  // A component group — the sauce, the glaze — opens what it is and how it's made.
+  if (id.startsWith(PART_PREFIX)) return partDetail(player, id.slice(PART_PREFIX.length));
 
   if (id === '__shop') {
     const list = await getList(player.id);
@@ -225,28 +302,19 @@ async function buildScreen(player, screenId, params) {
       const sorted = entries.slice().sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0));
       const loose = sorted.filter(e => !e.part);
       const parts = new Map();
-      for (const e of sorted.filter(e => e.part)) {
+      // Grouped off the ORIGINAL order rather than the done-sorted one: inside a
+      // part the order is the order you make it in — tomato, then gin, then
+      // cream — and floating the finished ones to the bottom scrambles a method.
+      for (const e of entries.filter(e => e.part).sort((a, b) => (a.partAt ?? 0) - (b.partAt ?? 0))) {
         if (!parts.has(e.part)) parts.set(e.part, []);
         parts.get(e.part).push(e);
       }
-      for (const [partLabel, members] of parts) {
-        const short = members.filter(e => !e.done).length;
-        // No checkbox on the parent: you don't buy "the sauce", you buy the three
-        // things it's made of. A box here would be a fifth thing to shop for.
-        items.push({
-          id: '', child: true, label: partLabel,
-          sub: short ? `${members.length} things that make it — you need all of them` : 'all of it is in hand',
-          badge: short ? 'missing' : 'ready',
-        });
-        for (const e of members) {
-          items.push({
-            id: `${ING_PREFIX}${e.k}:${e.v}`, part: true,
-            label: `${e.done ? '☑' : '☐'} ${e.done ? e.label : (e.base || e.label)}`,
-            sub: e.done ? 'in hand' : '',
-            badge: e.done ? 'ready' : 'missing',
-          });
-        }
-      }
+
+      // THINGS YOU JUST BUY, THEN THE THINGS YOU ASSEMBLE. A list reads as a walk
+      // down the aisles, and a composed thing is a stop on it rather than an item
+      // in the basket: penne alla gin is a box of pasta, and then the sauce.
+      // Leading with the group buried the one line that WAS a simple purchase
+      // underneath three that weren't.
       for (const e of loose) {
         // A CLASS line is itself made of parts you have to go and buy, so it
         // gets the same treatment one level down — except its parts are
@@ -270,6 +338,29 @@ async function buildScreen(player, screenId, params) {
           const shelf = e.k === 'p' ? itemForNoun(e.v, noun) : null;
           items.push({ id: shelf ? `${ING_PREFIX}i:${shelf.id}` : '', option: true, or: n > 0, label: noun });
         });
+      }
+
+      for (const [partLabel, members] of parts) {
+        const short = members.filter(e => !e.done).length;
+        // No checkbox on the parent — you don't buy "the sauce", you buy the
+        // three things it's made of, and a box here would be a fourth errand.
+        // It opens instead: the components and the method, on their own screen.
+        items.push({
+          id: forWhat ? `${PART_PREFIX}${forWhat.replace(/ /g, '_')}:${partLabel.replace(/ /g, '_')}` : '',
+          child: true, label: partLabel,
+          sub: short
+            ? `${members.length} thing${members.length === 1 ? '' : 's'} make it — you need all of them`
+            : 'all of it is in hand',
+          badge: short ? 'missing' : 'ready',
+        });
+        for (const e of members) {
+          items.push({
+            id: `${ING_PREFIX}${e.k}:${e.v}`, part: true,
+            label: `${e.done ? '☑' : '☐'} ${e.done ? e.label : (e.base || e.label)}`,
+            sub: e.done ? 'in hand' : '',
+            badge: e.done ? 'ready' : 'missing',
+          });
+        }
       }
     }
     const got = rows.filter(e => e.done).length;
@@ -359,26 +450,60 @@ async function recipeDetail(player, key, band) {
   // can never promise something the cook won't do. Bare counts ("2 needed") were
   // technically true and useless: nobody has ever weighed out "2 dense meat".
   const rows = [];
-  for (const [profile, need] of Object.entries(d.needs)) {
+  const info = id => itemRow(id);
+  // NAME THE INGREDIENT, NOT THE CLASS — the same words the shopping list uses.
+  // The card said "Soft Vegetable" while the list beside it said "tomato", which
+  // is one dish described two ways. `keyNounFor` is the display lookup both now
+  // read, so a dish that names its ingredients is named everywhere or nowhere.
+  // The measure and what you're carrying stay SHORT, so they render as a tidy
+  // label/value pair; the dish's note about that ingredient goes underneath as
+  // its own line. Run together they made one long string that wrapped to three
+  // ragged lines and ended "…before anything else goes in · carrying 0 ✗", which
+  // is two unrelated facts welded into one sentence.
+  const rowsFor = (profile, need) => {
     const [min] = range(need);
     const n = have[profile] || 0;
-    // The weight, then whatever the dish has to say about what that class is
-    // FOR — "800g–1.2kg of liquid" alone is three ingredients hiding in one
-    // number, and the note is where a named dish explains itself.
-    const weight = ingredientLine(profile, need, d).replace(/ of [^—]*/, ' ');
-    rows.push({
-      label: (PROFILES[profile]?.label || profile).replace(/\b\w/g, c => c.toUpperCase()),
-      value: `${weight.trim()} · carrying ${n} ${n >= min ? '✓' : '✗'}`,
-    });
-  }
-  for (const profile of d.optional || []) {
-    const label = (PROFILES[profile]?.label || profile).replace(/\b\w/g, c => c.toUpperCase());
-    rows.push({ label, value: `optional · carrying ${have[profile] || 0}` });
+    const noun = keyNounFor(d, profile, info) || PROFILES[profile]?.label || profile;
+    const weight = ingredientLine(profile, need, { ...d, notes: {} }).replace(/ of [^—]*/, ' ');
+    const out = [{ label: sentence(noun), value: `${weight.trim()} · carrying ${n} ${n >= min ? '✓' : '✗'}` }];
+    if (d.notes?.[profile]) out.push({ label: '', value: d.notes[profile] });
+    return out;
+  };
+
+  // The card is structured the way the shopping list is: the things you simply
+  // put in, then the things you make first. Same order, same headings, so moving
+  // between the two screens doesn't mean re-reading the dish from scratch.
+  const parts = d.parts || [];
+  const inPart = p => parts.some(x => (x.of || []).includes(p));
+  const loose = Object.entries(d.needs).filter(([p]) => !inPart(p));
+  if (loose.length) rows.push({ label: 'Ingredients', heading: true, value: '' });
+  for (const [profile, need] of loose) rows.push(...rowsFor(profile, need));
+  for (const part of parts) {
+    rows.push({ label: part.label, heading: true, value: '' });
+    for (const v of part.of || []) {
+      if (String(v).startsWith('item_')) {
+        const it = info(v);
+        rows.push({ label: sentence(it?.name || v.replace(/^item_/, '').replace(/_/g, ' ')), value: 'this exactly — the dish is named for it' });
+      } else if (d.needs[v] != null) {
+        rows.push(...rowsFor(v, d.needs[v]));
+      }
+    }
   }
 
-  rows.push({ label: '—', value: '' });
-  methodLines(d).forEach((l, i) => rows.push({ label: i === 0 ? 'Method' : '', value: l }));
+  // Optional classes AFTER the parts and under their own heading. Mixed in with
+  // the required ones they read as four more things you have to go and find.
+  if ((d.optional || []).length) {
+    rows.push({ label: 'Welcome, but not needed', heading: true, value: '' });
+    for (const profile of d.optional || []) {
+      const noun = keyNounFor(d, profile, info) || PROFILES[profile]?.label || profile;
+      rows.push({ label: sentence(noun), value: `carrying ${have[profile] || 0}` });
+    }
+  }
 
+  rows.push({ label: 'Method', heading: true, value: '' });
+  methodLines(d).forEach(l => rows.push({ label: '', value: l }));
+
+  rows.push({ label: 'The numbers', heading: true, value: '' });
   const ms = estimateCookMs(d, COOK_SECONDS_PER_KG);
   if (ms > 0) {
     const mins = ms / 60000;

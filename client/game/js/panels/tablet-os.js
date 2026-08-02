@@ -666,6 +666,29 @@ function ensureStyles() {
     .tos-group-drag.tos-tile-removing { opacity:.7; border-color:var(--red,#e0413a) !important;
       box-shadow:0 8px 22px rgba(0,0,0,.5), 0 0 16px color-mix(in srgb, var(--red,#e0413a) 60%, transparent); }
     .tos-group-drag.tos-tile-removing::after { content:'✕'; color:var(--red,#e0413a); }
+    /* A HOLE. Invisible at rest — a home screen with a deliberate gap in it should
+       look like a gap, not like a missing tile — and only outlined while you're
+       arranging, when it stops being empty space and starts being a target. */
+    #tablet-os-overlay .tos-tile-gap { background:none; border:1px solid transparent;
+      box-shadow:none; cursor:default; }
+    #tablet-os-overlay .tos-grid-arranging .tos-tile-gap { border:1px dashed color-mix(in srgb, var(--mg-accent) 30%, transparent);
+      background:color-mix(in srgb, var(--mg-accent) 5%, transparent); }
+    #tablet-os-overlay .tos-tile-gap.tos-drop-swap { border-style:solid; }
+    /* Page-turn edges — live only while a tile or a box is in the air. They start
+       as a hint and light up under the finger; the fill is the dwell you're holding
+       for, so the page never turns without warning you first. */
+    #tablet-os-overlay .tos-page-edge { position:absolute; top:0; bottom:34px; width:42px; z-index:60;
+      pointer-events:none; display:flex; align-items:center; justify-content:center;
+      opacity:.32; transition:opacity .15s ease, background-color .15s ease;
+      font-size:22px; line-height:1; color:var(--mg-accent);
+      background:linear-gradient(to right, color-mix(in srgb, var(--mg-accent) 20%, transparent), transparent); }
+    #tablet-os-overlay .tos-page-edge.left { left:0; }
+    #tablet-os-overlay .tos-page-edge.right { right:0;
+      background:linear-gradient(to left, color-mix(in srgb, var(--mg-accent) 20%, transparent), transparent); }
+    #tablet-os-overlay .tos-page-edge.right .tos-page-edge-ar { animation-direction:reverse; }
+    #tablet-os-overlay .tos-page-edge.hot { opacity:1; }
+    #tablet-os-overlay .tos-page-edge.hot .tos-page-edge-ar { animation:tos-edge-pull .43s linear infinite; }
+    @keyframes tos-edge-pull { from { transform:translateX(6px); opacity:.4; } to { transform:translateX(-4px); opacity:1; } }
     /* Marquee band — drag on empty home-screen space to lasso tiles. Global (it's
        appended to <body> so its fixed coords are plain viewport pixels). */
     .tos-marquee { position:fixed; z-index:9290; pointer-events:none; border-radius:3px;
@@ -1238,9 +1261,37 @@ function ensureStyles() {
     #tablet-os-overlay .tos-narrate { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 10px; }
     #tablet-os-overlay .tos-narrate-hint { font-size:11px; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-narrate-min[disabled] { opacity:.4; cursor:default; }
-    #tablet-os-overlay .tos-row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 12%, transparent); font-size:13px; }
-    #tablet-os-overlay .tos-row span:first-child { color:var(--tos-fg-dim); }
-    #tablet-os-overlay .tos-row span:last-child { color:var(--tos-fg); }
+    /* A detail row is a label and a value, and it used to be a bare flex pair with
+       nothing stopping either side shrinking — so a value longer than the card
+       (a method step, a recipe note, anything prose) ran straight out of bounds.
+       A min-width of 0 is what lets a flex child wrap at all; without it the text
+       simply refuses to fold. */
+    #tablet-os-overlay .tos-row { display:flex; justify-content:space-between; gap:14px; align-items:baseline;
+      padding:5px 0; border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 12%, transparent); font-size:13px; }
+    #tablet-os-overlay .tos-row span:first-child { color:var(--tos-fg-dim); flex:0 1 auto; min-width:0; overflow-wrap:anywhere; }
+    #tablet-os-overlay .tos-row span:last-child { color:var(--tos-fg); flex:1 1 auto; min-width:0; text-align:right; overflow-wrap:anywhere; }
+    /* PROSE IS NOT A COLUMN. A sentence right-aligned against a label is a ragged
+       left edge to read down, so anything long stacks instead: the label becomes a
+       small caps heading and the text runs full width, left-aligned, at a line
+       height you can actually read. Same data, two layouts, chosen by length. */
+    #tablet-os-overlay .tos-row.tos-row-block { flex-direction:column; align-items:stretch; gap:3px; padding:7px 0; }
+    #tablet-os-overlay .tos-row.tos-row-block .tos-row-k { font-size:10px; letter-spacing:1.4px; text-transform:uppercase;
+      color:var(--mg-accent); opacity:0.8; }
+    #tablet-os-overlay .tos-row.tos-row-block .tos-row-v { text-align:left; line-height:1.6; color:var(--tos-fg); }
+    /* A continuation — a further step, another line of the same block — carries no
+       label of its own, so it keeps the indent and drops the rule above it. */
+    #tablet-os-overlay .tos-row.tos-row-cont { border-bottom:none; padding-top:0; padding-bottom:3px; }
+    #tablet-os-overlay .tos-row.tos-row-cont span:last-child { text-align:left; line-height:1.6; }
+    /* An authored "—" with nothing beside it means "put a gap here". It used to
+       render as a row containing a dash. */
+    #tablet-os-overlay .tos-row-sep { height:1px; margin:12px 0; background:linear-gradient(90deg,
+      color-mix(in srgb, var(--mg-accent) 30%, transparent), transparent); }
+    /* A section heading inside a card. Same small-caps voice as the list's group
+       rows, so a card and a list read as the same document. */
+    #tablet-os-overlay .tos-row-head { font-size:10px; letter-spacing:1.6px; text-transform:uppercase;
+      color:var(--mg-accent); margin:14px 0 5px; padding-bottom:4px;
+      border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); }
+    #tablet-os-overlay .tos-row-head:first-child { margin-top:0; }
 
     /* Help reader (Help app chapter view) */
     #tablet-os-overlay .tos-help-blurb { font-size:12.5px; color:var(--tos-fg-dim); line-height:1.5; margin-bottom:13px; }
@@ -3862,7 +3913,37 @@ function loadAppOrder() {
   catch { return []; }
 }
 function saveAppOrder(ids) {
-  try { if (ids?.length) localStorage.setItem(TABLET_APP_ORDER_KEY, JSON.stringify(ids)); } catch {}
+  try { const t = trimHomeGaps(ids || []); if (t.length) localStorage.setItem(TABLET_APP_ORDER_KEY, JSON.stringify(t)); } catch {}
+}
+
+// ── Empty slots ──────────────────────────────────────────────────────────────
+// A HOLE IS A REAL ENTRY IN THE ORDER, not an absence. The grid used to be a
+// flat list chunked sixteen at a time, so every arrangement re-packed itself: move
+// one app to the next page and everything after it slid up to close the space, and
+// a page could never be anything but full until the last one. Recording the hole
+// as a token in the same list is what lets a page hold four apps in the corners it
+// was given — pagination, drag-swap and persistence all treat it as an ordinary
+// occupant that happens to draw nothing.
+//
+// Tokens are UNIQUE (`~gap` + a random suffix). Identity matters because the
+// save path splices the visible page back into the full order by id — with one
+// shared token every hole on every other page would collide with this page's and
+// be swallowed. Trailing holes are trimmed on save: an empty run at the very end
+// is not a layout, it's a phantom page.
+const HOME_GAP_PREFIX = '~gap';
+const isHomeGap = (id) => typeof id === 'string' && id.startsWith(HOME_GAP_PREFIX);
+const newHomeGap = () => HOME_GAP_PREFIX + Math.random().toString(36).slice(2, 8);
+function trimHomeGaps(order) {
+  let end = order.length;
+  while (end > 0 && isHomeGap(order[end - 1])) end--;
+  return order.slice(0, end);
+}
+// Leave a hole exactly where an app was — used when a tile is flung off the tablet,
+// so stashing an app doesn't re-pack the page around the space it left.
+function replaceOrderIdWithGap(id) {
+  const order = loadAppOrder();
+  if (!order.includes(id)) return;
+  saveAppOrder(order.map(x => (x === id ? newHomeGap() : x)));
 }
 function loadHiddenApps() {
   try { const a = JSON.parse(localStorage.getItem(TABLET_APP_HIDDEN_KEY)); return Array.isArray(a) ? a : []; }
@@ -3973,7 +4054,11 @@ function applyAppOrder(apps) {
   if (!order.length) return apps;
   const byId = new Map(apps.map(a => [a.id, a]));
   const ordered = [];
-  for (const id of order) { if (byId.has(id)) { ordered.push(byId.get(id)); byId.delete(id); } }
+  for (const id of order) {
+    // A hole is carried through as an entry with no app behind it (see isHomeGap).
+    if (isHomeGap(id)) { ordered.push({ id, gap: true, name: '' }); continue; }
+    if (byId.has(id)) { ordered.push(byId.get(id)); byId.delete(id); }
+  }
   for (const a of apps) { if (byId.has(a.id)) ordered.push(a); }
   return ordered;
 }
@@ -3982,6 +4067,10 @@ function applyAppOrder(apps) {
 // removed still turns up when you look for it by name, dimmed, and tapping it puts
 // it back rather than pretending it isn't there.
 function homeTile(a, stashed, extra) {
+  // A hole: a real cell that holds a place and draws almost nothing. It only shows
+  // itself while you're arranging (see .tos-tile-gap), and it IS a drop target —
+  // dropping a tile on one is how an app gets moved into empty space.
+  if (a.gap) return `<div class="tos-tile tos-tile-gap${extra ? ' ' + extra : ''}" data-home-gap="${esc(a.id)}"></div>`;
   const svg = TOS_APP_ICONS[a.id];
   const icon = svg ? svg : esc(a.icon || '▫');
   // A positive `notify` count (e.g. SPECTER reels waiting to be clipped) lights a
@@ -3999,14 +4088,14 @@ function renderHomeApps(apps) {
   const roster = [...(apps || []), ...CLIENT_APPS];
   seedDefaultHiddenApps(roster);
   const hidden = new Set(loadHiddenApps());
-  const all = applyAppOrder(roster).filter(a => !hidden.has(a.id));
-  if (!all.length && !hidden.size) return '<div class="tos-empty">No applications registered.</div>';
+  const all = applyAppOrder(roster).filter(a => a.gap || !hidden.has(a.id));
+  if (!all.some(a => !a.gap) && !hidden.size) return '<div class="tos-empty">No applications registered.</div>';
   // Searching flattens everything: no pages, no boxes, no arranging — just the apps
   // that match, in order. With thirty-odd registered, typing three letters is faster
   // than remembering which page you put a thing on.
   if (_homeSearchOpen) {
     const q = _homeSearch.trim().toLowerCase();
-    const hits = [...all, ...[...hidden].map(id => roster.find(a => a.id === id)).filter(Boolean)]
+    const hits = [...all.filter(a => !a.gap), ...[...hidden].map(id => roster.find(a => a.id === id)).filter(Boolean)]
       .filter(a => !q || String(a.name).toLowerCase().includes(q) || a.id.includes(q));
     const grid = hits.length
       ? `<div class="tos-grid">${hits.map(a => homeTile(a, hidden.has(a.id))).join('')}</div>`
@@ -4259,8 +4348,10 @@ function paginateHome(blocks) {
 
 // The page dots. Hidden entirely at one page — a lone dot is noise, and the whole
 // point is that a twelve-app home screen looks exactly as it did before paging
-// existed. Dots are also drop targets: drag a tile onto one to send it to that
-// page, which is the only way to move an app between pages.
+// existed. Dots are also drop targets: drag a tile onto one to send it to that page —
+// the precise route, for when you know which page you want. The other route is to
+// hold the tile against the left or right edge of the screen and let the page turn
+// under it (see HOME_EDGE_MS), which is the one your thumb finds by accident.
 function renderHomePager(count) {
   if (count <= 1) return '';
   const dots = Array.from({ length: count }, (_, i) =>
@@ -4397,6 +4488,51 @@ function openAddAppsSheet() {
   }));
 }
 
+// ── Carrying an app to another page ──────────────────────────────────────────
+// Aiming a lifted tile at a 6px dot was the ONLY way across a page boundary, and it
+// is a fiddly thing to ask of a finger — you had to drop on a target the size of a
+// full stop, at the bottom of the screen, without letting go on the way. So the
+// edges of the screen are drop targets too: hold the tile against one for a beat and
+// the page turns UNDER the tile, which stays in your hand. Hold on and it keeps
+// turning; past the last page it makes a new one. The dots still work — this is a
+// second route to the same move, not a replacement.
+const HOME_EDGE_MS = 430;  // dwell before the page turns (and between repeats); the
+                           // band's width is the .tos-page-edge rule's, not a number here
+function showPageEdges() {
+  const home = _overlay?.querySelector('.tos-home-apps');
+  if (!home || home.querySelector('.tos-page-edge')) return;
+  for (const side of ['left', 'right']) {
+    const el = document.createElement('div');
+    el.className = 'tos-page-edge ' + side;
+    el.innerHTML = `<span class="tos-page-edge-ar">${side === 'left' ? '‹' : '›'}</span>`;
+    home.appendChild(el);
+  }
+}
+function hidePageEdges() {
+  _overlay?.querySelectorAll('.tos-page-edge').forEach(e => e.remove());
+}
+// Which band the pointer is in, if any — hit-tested against the painted zones
+// themselves rather than against a computed inset, so the hot area is exactly the
+// area you can see (and stays right through the chassis' CRT scale transform).
+function pageEdgeSide(x, y) {
+  for (const el of (_overlay?.querySelectorAll('.tos-page-edge') || [])) {
+    const b = el.getBoundingClientRect();
+    if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom) {
+      return el.classList.contains('left') ? 'left' : 'right';
+    }
+  }
+  return '';
+}
+function markPageEdge(side) {
+  _overlay?.querySelectorAll('.tos-page-edge').forEach(e =>
+    e.classList.toggle('hot', !!side && e.classList.contains(side)));
+}
+// Pages aren't stored, so the count is read off the dots the last render drew (one
+// page draws none — hence the floor of 1).
+function homePageCount() {
+  return Math.max(1, _overlay?.querySelectorAll('.tos-page-dot').length || 1);
+}
+
 // Long-press-to-lift drag reorder for the home app grid (the mobile home-screen
 // metaphor, so it works with touch and mouse and never fights a tap-to-open or a
 // scroll-swipe). Wired fresh on each home render; window listeners live only for
@@ -4407,19 +4543,27 @@ function wireAppGridDrag(container) {
   let press = null; // { tile, x, y, timer }
   let drag = null;  // { tile, clone, offX, offY }
 
+  // The home container is REPLACED whenever the page flips mid-drag (render() rebuilds
+  // it), so nothing here may hold the node it was wired with — every read goes through
+  // this. The window-level pointer listeners survive the rebuild, which is what lets a
+  // single gesture carry an app across two pages and put it down.
+  const grid = () => _overlay?.querySelector('.tos-home-apps') || container;
+
   // AIM, don't rearrange. This only marks where the tile WOULD land; the actual
   // insert happens once, on release (see `end`). Live reflow made every tile you
   // dragged past leap out of the way, so the arrangement you were aiming at kept
   // changing under the pointer — and each insert re-flowed the grid, which flipped
   // which neighbour was "nearest" and made the placeholder flicker between slots.
   const clearDropMark = () => {
-    container.querySelectorAll('.tos-drop-before, .tos-drop-after, .tos-drop-swap')
+    grid().querySelectorAll('.tos-drop-before, .tos-drop-after, .tos-drop-swap')
       .forEach(n => n.classList.remove('tos-drop-before', 'tos-drop-after', 'tos-drop-swap'));
   };
   const aim = (px, py) => {
     // The sweep spans EVERY app grid on the home screen (the outer one plus one per
-    // group box), which is what lets a tile be aimed into or out of a group.
-    const tiles = [...container.querySelectorAll('.tos-appgrid .tos-tile:not(.tos-tile-add)')];
+    // group box), which is what lets a tile be aimed into or out of a group. Holes
+    // are in the sweep on purpose — dropping onto one is how you put an app in a
+    // deliberately empty slot instead of shuffling a neighbour out of the way.
+    const tiles = [...grid().querySelectorAll('.tos-appgrid .tos-tile:not(.tos-tile-add)')];
     let target = null, best = Infinity;
     for (const t of tiles) {
       if (t === drag.tile) continue;
@@ -4449,7 +4593,8 @@ function wireAppGridDrag(container) {
     Object.assign(clone.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
     document.body.appendChild(clone);
     tile.classList.add('tos-tile-ghost');
-    container.classList.add('tos-grid-arranging');
+    grid().classList.add('tos-grid-arranging');
+    showPageEdges();
     _homeDragLifted = true;   // this gesture belongs to the reorder, not to the pager
     drag = { tile, clone, offX: press.x - r.left, offY: press.y - r.top, fromGrid: tile.parentElement };
     press = null;
@@ -4465,6 +4610,55 @@ function wireAppGridDrag(container) {
     return x < b.left || x > b.right || y < b.top || y > b.bottom;
   };
 
+  // Dwell against an edge → turn the page WITHOUT putting the tile down. The app is
+  // committed to the new page (it has to be: pages are derived from the saved order,
+  // so there is nowhere else for it to be mid-flight), the screen is rebuilt, and the
+  // drag then re-attaches to the tile's new node and carries on. Re-arming at the end
+  // is what makes holding still walk you across several pages.
+  const armEdge = (side) => {
+    if (!drag || drag.edgeSide === side) return;
+    clearTimeout(drag.edgeTimer);
+    drag.edgeSide = side;
+    markPageEdge(side);
+    if (side) drag.edgeTimer = setTimeout(() => flipPage(side), HOME_EDGE_MS);
+  };
+  const flipPage = (side) => {
+    if (!drag) return;
+    const appId = drag.tile.getAttribute('data-nav-app');
+    const dir = side === 'left' ? -1 : 1;
+    const target = _homePage + dir;
+    // One past the last page means "start a new page" — but only if the tile isn't
+    // already alone on this one, or holding at the right edge would spawn empty
+    // pages forever and each flip would land on an identical screen.
+    const alone = grid().querySelectorAll('.tos-appgrid .tos-tile:not(.tos-tile-gap):not(.tos-tile-add)').length <= 1;
+    if (!appId || target < 0 || target > homePageCount() || (target >= homePageCount() && alone)) {
+      markPageEdge('');
+      drag.edgeSide = null;
+      return;
+    }
+    moveIdsToPage(grid(), [appId], target);
+    // Leaving the page means leaving the box — a group is laid out as a unit and
+    // can't straddle a page (same rule as moveAppToPage).
+    saveAppGroups(loadAppGroups().map(g => ({ ...g, apps: g.apps.filter(x => x !== appId) })));
+    _homePage = target;
+    render();
+    const live = _overlay?.querySelector(`.tos-tile[data-nav-app="${CSS.escape(appId)}"]`);
+    if (!live) {   // shouldn't happen; if it does, put the tile down rather than drag a ghost
+      drag.clone.remove(); drag = null; hidePageEdges();
+      return;
+    }
+    drag.tile = live;
+    drag.fromGrid = live.parentElement;
+    live.classList.add('tos-tile-ghost');
+    grid().classList.add('tos-grid-arranging');
+    showPageEdges();
+    clearDropMark();
+    drag.dropTarget = null;
+    sfx(TOS_SELECT_DEF);
+    drag.edgeSide = null;
+    armEdge(side);   // still holding → keep turning
+  };
+
   const onMove = (e) => {
     if (drag) {
       e.preventDefault();
@@ -4473,7 +4667,8 @@ function wireAppGridDrag(container) {
       drag.lastX = e.clientX; drag.lastY = e.clientY;
       const off = offTablet(e.clientX, e.clientY);
       drag.clone.classList.toggle('tos-tile-removing', off);
-      if (off) { clearDropMark(); drag.dropTarget = null; } else aim(e.clientX, e.clientY);
+      if (off) { clearDropMark(); drag.dropTarget = null; armEdge(''); }
+      else { armEdge(pageEdgeSide(e.clientX, e.clientY)); aim(e.clientX, e.clientY); }
       return;
     }
     if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > CANCEL_MOVE) {
@@ -4487,15 +4682,20 @@ function wireAppGridDrag(container) {
     window.removeEventListener('pointercancel', end);
     if (press) { clearTimeout(press.timer); press = null; }
     if (drag) {
+      clearTimeout(drag.edgeTimer);
+      hidePageEdges();
       const dropOff = offTablet(drag.lastX, drag.lastY);
       const appId = drag.tile.getAttribute('data-nav-app');
       drag.clone.remove();
       drag.tile.classList.remove('tos-tile-ghost');
-      container.classList.remove('tos-grid-arranging');
+      grid().classList.remove('tos-grid-arranging');
       _suppressTileClick = true;                       // the drop's trailing click must not open an app
       setTimeout(() => { _suppressTileClick = false; }, 0);
       if (dropOff && appId) {
-        // Flung off the tablet → stash it under ⊕ and rebuild home.
+        // Flung off the tablet → stash it under ⊕ and rebuild home. The slot it left
+        // stays open: you took an app off this page, you didn't ask for the page to
+        // re-pack itself around the space.
+        replaceOrderIdWithGap(appId);
         hideApp(appId);
         drag = null;
         render();
@@ -4507,8 +4707,9 @@ function wireAppGridDrag(container) {
       // not a slot, this is the one gesture that can cross a page boundary.
       const dot = document.elementFromPoint(drag.lastX, drag.lastY)?.closest?.('[data-home-page]');
       if (dot && appId) {
+        const g = grid();
         drag = null;
-        moveAppToPage(container, appId, Number(dot.getAttribute('data-home-page')) || 0);
+        moveAppToPage(g, appId, Number(dot.getAttribute('data-home-page')) || 0);
         return;
       }
       // THE ONE AND ONLY MOVE, and it's a straight SWAP: the two tiles trade places
@@ -4527,7 +4728,7 @@ function wireAppGridDrag(container) {
       }
       const movedBox = drag.tile.parentElement !== drag.fromGrid;
       drag = null;
-      persistHomeArrangement(container);
+      persistHomeArrangement(grid());
       // Crossing between a group box and the outer grid changes a box's membership
       // (and can empty one out of existence), so that drop needs a real rebuild.
       if (movedBox) render();
@@ -4537,7 +4738,9 @@ function wireAppGridDrag(container) {
   container.addEventListener('pointerdown', (e) => {
     if (e.button > 0 || _tosSelectMode) return;                   // selection mode owns the gesture
     const tile = e.target.closest('.tos-tile');
-    if (!tile || tile.classList.contains('tos-tile-add')) return; // ⧉/⊕ tiles aren't draggable
+    // ⧉/⊕ tiles aren't draggable, and neither is a hole — a hole is a place, not a
+    // thing, so pressing one has to fall through to the pager's swipe.
+    if (!tile || tile.classList.contains('tos-tile-add') || tile.classList.contains('tos-tile-gap')) return;
     press = { tile, x: e.clientX, y: e.clientY, timer: setTimeout(begin, LIFT_MS) };
     window.addEventListener('pointermove', onMove, { passive: false });
     window.addEventListener('pointerup', end);
@@ -4566,13 +4769,16 @@ function wireGroupDrag(container) {
   // Candidate neighbours: the home grid's own children — top-level tiles and other
   // boxes. Scoped to that one grid, so a tile living INSIDE another group is never a
   // target (that would be a merge, not a move).
+  // Same rule as the tile drag: the container is replaced by any mid-drag page flip,
+  // so never hold it.
+  const grid = () => _overlay?.querySelector('.tos-home-apps') || container;
   const siblings = () => {
-    const grid = container.querySelector('.tos-homegrid');
-    return grid ? [...grid.children].filter(el => el !== drag.box) : [];
+    const g = grid().querySelector('.tos-homegrid');
+    return g ? [...g.children].filter(el => el !== drag.box) : [];
   };
 
   const clearDropMark = () => {
-    container.querySelectorAll('.tos-drop-before, .tos-drop-after, .tos-drop-swap')
+    grid().querySelectorAll('.tos-drop-before, .tos-drop-after, .tos-drop-swap')
       .forEach(n => n.classList.remove('tos-drop-before', 'tos-drop-after', 'tos-drop-swap'));
   };
   const aim = (px, py) => {
@@ -4603,7 +4809,9 @@ function wireGroupDrag(container) {
     Object.assign(clone.style, { left: r.left + 'px', top: r.top + 'px' });
     document.body.appendChild(clone);
     box.classList.add('tos-appgroup-ghost');
-    container.classList.add('tos-grid-arranging');
+    grid().classList.add('tos-grid-arranging');
+    showPageEdges();
+    _homeDragLifted = true;
     drag = { box, clone, offX: press.x - r.left, offY: press.y - r.top };
     press = null;
     sfx(TOS_SELECT_DEF);
@@ -4618,6 +4826,44 @@ function wireGroupDrag(container) {
     return x < b.left || x > b.right || y < b.top || y > b.bottom;
   };
 
+  // The box gets the same edge-hold flip as a single tile — every member travels
+  // together and the box is still a box when it lands, which is the whole point of
+  // dragging it by the label rather than moving four apps one at a time.
+  const armEdge = (side) => {
+    if (!drag || drag.edgeSide === side) return;
+    clearTimeout(drag.edgeTimer);
+    drag.edgeSide = side;
+    markPageEdge(side);
+    if (side) drag.edgeTimer = setTimeout(() => flipPage(side), HOME_EDGE_MS);
+  };
+  const flipPage = (side) => {
+    if (!drag) return;
+    const groupId = drag.box.getAttribute('data-group-id');
+    const group = groupId ? loadAppGroups().find(x => x.id === groupId) : null;
+    const dir = side === 'left' ? -1 : 1;
+    const target = _homePage + dir;
+    // A box that's the only thing on its page has nowhere new to go — flipping would
+    // just redraw the same screen one page along, forever.
+    const alone = grid().querySelectorAll('.tos-homegrid > *').length <= 1;
+    if (!group || target < 0 || target > homePageCount() || (target >= homePageCount() && alone)) {
+      markPageEdge(''); drag.edgeSide = null; return;
+    }
+    moveIdsToPage(grid(), group.apps, target);
+    _homePage = target;
+    render();
+    const live = _overlay?.querySelector(`.tos-appgroup[data-group-id="${CSS.escape(groupId)}"]`);
+    if (!live) { drag.clone.remove(); drag = null; hidePageEdges(); return; }
+    drag.box = live;
+    live.classList.add('tos-appgroup-ghost');
+    grid().classList.add('tos-grid-arranging');
+    showPageEdges();
+    clearDropMark();
+    drag.dropTarget = null;
+    sfx(TOS_SELECT_DEF);
+    drag.edgeSide = null;
+    armEdge(side);
+  };
+
   const onMove = (e) => {
     if (drag) {
       e.preventDefault();
@@ -4626,7 +4872,8 @@ function wireGroupDrag(container) {
       drag.lastX = e.clientX; drag.lastY = e.clientY;
       const off = offTablet(e.clientX, e.clientY);
       drag.clone.classList.toggle('tos-tile-removing', off);
-      if (off) { clearDropMark(); drag.dropTarget = null; } else aim(e.clientX, e.clientY);
+      if (off) { clearDropMark(); drag.dropTarget = null; armEdge(''); }
+      else { armEdge(pageEdgeSide(e.clientX, e.clientY)); aim(e.clientX, e.clientY); }
       return;
     }
     if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > CANCEL_MOVE) {
@@ -4640,11 +4887,13 @@ function wireGroupDrag(container) {
     window.removeEventListener('pointercancel', end);
     if (press) { clearTimeout(press.timer); press = null; }
     if (drag) {
+      clearTimeout(drag.edgeTimer);
+      hidePageEdges();
       const dropOff = offTablet(drag.lastX, drag.lastY);
       const groupId = drag.box.getAttribute('data-group-id');
       drag.clone.remove();
       drag.box.classList.remove('tos-appgroup-ghost');
-      container.classList.remove('tos-grid-arranging');
+      grid().classList.remove('tos-grid-arranging');
       _suppressTileClick = true;   // the drop's trailing click must not open the edit sheet
       setTimeout(() => { _suppressTileClick = false; }, 0);
       const group = groupId ? loadAppGroups().find(x => x.id === groupId) : null;
@@ -4652,15 +4901,16 @@ function wireGroupDrag(container) {
         // Flung the whole box off the tablet → stash every member. The group
         // definition itself is left alone (it's pruned once empty, same as a
         // single app's last member leaving), so a re-added app can rejoin it.
-        group.apps.forEach(hideApp);
+        group.apps.forEach(id => { replaceOrderIdWithGap(id); hideApp(id); });
         drag = null;
         render();
         return;
       }
       const dot = document.elementFromPoint(drag.lastX, drag.lastY)?.closest?.('[data-home-page]');
       if (dot && group) {
+        const g = grid();
         drag = null;
-        moveGroupToPage(container, group.apps, Number(dot.getAttribute('data-home-page')) || 0);
+        moveGroupToPage(g, group.apps, Number(dot.getAttribute('data-home-page')) || 0);
         return;
       }
       // The single move, on release — same contract as the tile drag.
@@ -4670,7 +4920,7 @@ function wireGroupDrag(container) {
         target.parentElement.insertBefore(drag.box, drag.dropAfter ? target.nextSibling : target);
       }
       drag = null;
-      persistHomeArrangement(container);   // the box's new sibling position IS the new order
+      persistHomeArrangement(grid());   // the box's new sibling position IS the new order
     }
   };
 
@@ -4692,6 +4942,8 @@ function wireGroupDrag(container) {
 function persistHomeArrangement(container) {
   // Direct children only, so a box's members are read from the box (below) and not
   // counted twice by the outer grid's sweep.
+  // Group membership is apps only — a hole that got swapped inside a box isn't a
+  // member of it, and storing one would make the box render a phantom app.
   const idsOf = (grid) => [...grid.children]
     .filter(el => el.classList.contains('tos-tile'))
     .map(t => t.getAttribute('data-nav-app')).filter(Boolean);
@@ -4703,7 +4955,7 @@ function persistHomeArrangement(container) {
   const visible = [];
   for (const el of (home ? [...home.children] : [])) {
     if (el.classList.contains('tos-tile')) {
-      const id = el.getAttribute('data-nav-app');
+      const id = el.getAttribute('data-nav-app') || el.getAttribute('data-home-gap');
       if (id) visible.push(id);
     } else if (el.classList.contains('tos-appgroup')) {
       const inner = el.querySelector('.tos-grp-inner');
@@ -4747,23 +4999,66 @@ function exitAppSelectMode() {
   render();
 }
 
-// Shared splice for both page-dot drops below: pull `ids` (in their existing
-// relative order) out of the saved order and reinsert them as one run at the
-// boundary the target page starts on. `HOME_SLOTS * targetPage` is an
-// APPROXIMATION of where that boundary actually falls once groups are interleaved
-// (a group can push the real boundary earlier or later) — close enough that the
-// drop lands on the right page, and any further nudge is an ordinary drag from there.
+// Where each page STARTS in the flat order. This walks the same cost rule
+// paginateHome does (a tile costs one cell, a group box costs the block it spans,
+// and only its first member pays) so a drop can be aimed at a real page boundary
+// instead of the old `targetPage * HOME_SLOTS` guess — which drifted by however
+// many cells the groups above it happened to span, and landed apps on the wrong page.
+function homePageStarts(order) {
+  const groupOf = new Map();
+  for (const g of loadAppGroups()) for (const id of g.apps) if (!groupOf.has(id)) groupOf.set(id, g);
+  const counts = new Map();
+  for (const id of order) { const g = groupOf.get(id); if (g) counts.set(g.id, (counts.get(g.id) || 0) + 1); }
+  const drawn = new Set();
+  const starts = [0];
+  let left = HOME_SLOTS, any = false;
+  for (let i = 0; i < order.length; i++) {
+    const g = groupOf.get(order[i]);
+    let cost = 1;
+    if (g) {
+      if (drawn.has(g.id)) continue;   // a later member rides along in the same box
+      drawn.add(g.id);
+      const cols = groupCols(g);
+      cost = cols * Math.ceil((counts.get(g.id) || 1) / cols);
+    }
+    if (cost > left && any) { starts.push(i); left = HOME_SLOTS; any = false; }
+    left = Math.max(0, left - cost);
+    any = true;
+  }
+  return starts;
+}
+
+// Shared move for every cross-page drop: page-dot drops, and the edge-hold flip.
+//
+// TWO RULES, and both exist so the arrangement you built survives the move.
+// 1. The app leaves a HOLE behind rather than being spliced out — the page it came
+//    from keeps its shape instead of re-packing itself around the space.
+// 2. It lands in the first HOLE on the target page if there is one, and only
+//    appends when there isn't. So dragging an app back and forth between two pages
+//    is stable: it goes back where it was, not onto the end of a re-flowed list.
+// A `targetPage` one past the last is legal and means "a new page" — which is how
+// dragging past the right edge of the last page creates one.
 function moveIdsToPage(container, ids, targetPage) {
-  const order = [...container.querySelectorAll('.tos-appgrid .tos-tile')]
-    .map(t => t.getAttribute('data-nav-app')).filter(Boolean);
+  const visible = [...(container?.querySelectorAll('.tos-appgrid .tos-tile') || [])]
+    .map(t => t.getAttribute('data-nav-app') || t.getAttribute('data-home-gap')).filter(Boolean);
   // The DOM only holds the CURRENT page, so start from the saved order (which spans
   // all of them) and fall back to the visible one if nothing has been saved yet.
-  const full = loadAppOrder().length ? loadAppOrder() : order;
+  const saved = loadAppOrder();
+  const full = saved.length ? saved : visible;
   const set = new Set(ids);
   const moving = full.filter(id => set.has(id));   // preserve their relative order
-  const rest = full.filter(id => !set.has(id));
-  const at = Math.max(0, Math.min(rest.length, targetPage * HOME_SLOTS));
-  saveAppOrder([...rest.slice(0, at), ...moving, ...rest.slice(at)]);
+  for (const id of ids) if (!moving.includes(id)) moving.push(id);   // never saved yet (a brand-new app)
+  const out = full.map(id => (set.has(id) ? newHomeGap() : id));
+  const starts = homePageStarts(out);
+  const from = starts[targetPage] ?? out.length;
+  let to = starts[targetPage + 1] ?? out.length;
+  for (const id of moving) {
+    let slot = -1;
+    for (let i = from; i < Math.min(to, out.length); i++) if (isHomeGap(out[i])) { slot = i; break; }
+    if (slot >= 0) out[slot] = id;
+    else { out.splice(to, 0, id); to++; }
+  }
+  saveAppOrder(out);
 }
 
 // Send one app to another page. Grouped apps leave their group in the process — a
@@ -4797,7 +5092,8 @@ function wireAppMarquee(container) {
     const left = Math.min(sel.x, x), top = Math.min(sel.y, y);
     const w = Math.abs(x - sel.x), h = Math.abs(y - sel.y);
     Object.assign(sel.band.style, { left: left + 'px', top: top + 'px', width: w + 'px', height: h + 'px' });
-    for (const t of container.querySelectorAll('.tos-appgrid .tos-tile:not(.tos-tile-add)')) {
+    // A hole isn't an app and can't be grouped, so the band sweeps straight over it.
+    for (const t of container.querySelectorAll('.tos-appgrid .tos-tile:not(.tos-tile-add):not(.tos-tile-gap)')) {
       const b = t.getBoundingClientRect();
       const hit = b.right > left && b.left < left + w && b.bottom > top && b.top < top + h;
       t.classList.toggle('tos-tile-sel', hit || sel.base.has(t));
@@ -5213,8 +5509,33 @@ function renderPageNav(appId, breadcrumb, page) {
   </div>`;
 }
 
+// A detail row picks its own layout from what's in it. Three shapes, one payload
+// — no app has to ask for any of them, so every existing detail screen improves
+// without touching its server code.
+//
+//   "—" + nothing   → a divider. Authors already wrote this to mean "gap here".
+//   no label        → a continuation of the row above (step 2, 3, 4 of a method)
+//   long value      → stacked: small-caps label over full-width, left-aligned text
+//   otherwise       → the label/value pair it always was
+//
+// The length test is what keeps a card readable: "Difficulty 9/10" is a column
+// pair, and "Off the heat — genuinely off it — in with the gin" is a paragraph.
+const TOS_PROSE_CHARS = 44;
+
 function renderDetailRows(rows) {
-  return (rows || []).map(r => `<div class="tos-row"><span>${esc(r.label)}</span><span>${esc(String(r.value ?? ''))}</span></div>`).join('');
+  return (rows || []).map(r => {
+    const label = String(r.label ?? '');
+    const value = String(r.value ?? '');
+    if (!value && (label === '—' || label === '-' || label === '')) return '<div class="tos-row-sep"></div>';
+    // A section heading inside a card — "the sauce", "Method". Opt-in, so no
+    // existing screen grows one by accident.
+    if (r.heading) return `<div class="tos-row-head">${esc(label)}</div>`;
+    if (!label) return `<div class="tos-row tos-row-cont"><span></span><span>${esc(value)}</span></div>`;
+    if (value.length > TOS_PROSE_CHARS) {
+      return `<div class="tos-row tos-row-block"><span class="tos-row-k">${esc(label)}</span><span class="tos-row-v">${esc(value)}</span></div>`;
+    }
+    return `<div class="tos-row"><span>${esc(label)}</span><span>${esc(value)}</span></div>`;
+  }).join('');
 }
 
 // Settings — the full game settings surface, rendered natively in the Tablet
@@ -10828,13 +11149,29 @@ let _wallState = null;   // { sky, drops:[], stars:[], w, h }
 // used at single-digit alpha, and every painter is a no-op with motion off after
 // its first static frame. If you can read the tile labels without effort, it's
 // working.
+//
+// STRENGTH IS PER-WALLPAPER (`s`), not one number for the set. The first pass gave
+// every pattern the same 0.34 and they all read as the same faint grey texture —
+// which is the failure mode a wallpaper picker exists to avoid. A lattice of hairlines
+// and a field of soft colour do NOT want the same opacity: the lattice is mostly empty
+// pixels and can carry 0.6 without touching legibility, while an aurora fills the whole
+// screen and would drown the tile labels there. Each one is set to where IT stops being
+// noticeable, and the tile labels stay readable because the tiles are raised surfaces
+// with their own background — the wallpaper is behind them, never under the text.
 const TABLET_WALLPAPERS = [
   { id: 'none',     label: 'None' },
-  { id: 'sky',      label: 'Sky' },       // live weather + game clock
-  { id: 'grid',     label: 'Grid' },      // drifting blueprint lattice
-  { id: 'contours', label: 'Contours' },  // slow interference lines
-  { id: 'drift',    label: 'Drift' },     // sparse floating motes
-  { id: 'scan',     label: 'Scan' },      // a single slow radar sweep
+  { id: 'sky',      label: 'Sky',      s: 0.50 },  // live weather + game clock
+  { id: 'grid',     label: 'Grid',     s: 0.58 },  // drifting blueprint lattice
+  { id: 'contours', label: 'Contours', s: 0.60 },  // slow interference lines
+  { id: 'drift',    label: 'Drift',    s: 0.62 },  // sparse floating motes
+  { id: 'scan',     label: 'Scan',     s: 0.58 },  // a single slow radar sweep
+  { id: 'circuit',  label: 'Circuit',  s: 0.60 },  // etched traces with charge running them
+  { id: 'aurora',   label: 'Aurora',   s: 0.46 },  // slow colour fronts
+  { id: 'hex',      label: 'Hex',      s: 0.55 },  // honeycomb with a lighting wave
+  { id: 'code',     label: 'Code',     s: 0.50 },  // glyph rain
+  { id: 'warp',     label: 'Warp',     s: 0.62 },  // starfield running past you
+  { id: 'tide',     label: 'Tide',     s: 0.55 },  // stacked wave fronts
+  { id: 'static',   label: 'Static',   s: 0.42 },  // dead channel + a rolling bar
 ];
 const TABLET_WALLPAPER_DEFAULT = 'none';
 function loadWallpaper() {
@@ -11094,7 +11431,284 @@ const WALL_PAINTERS = {
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(ang) * maxR, cy + Math.sin(ang) * maxR); ctx.stroke();
   },
+
+  // ── Circuit: etched traces with charge running down them ───────────────────
+  // The lattice is SEEDED, not random: it's built once into the state and never
+  // reshuffles, so the board looks like a board rather than a thing being redrawn.
+  // Only the charge moves.
+  circuit(ctx, st, t) {
+    const { w, h, c } = st;
+    const traces = (st.circuit ||= buildCircuitTraces(w, h));
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = wallMix(c.bg, '#000000', 0.18);
+    ctx.fillRect(0, 0, w, h);
+    // The etch itself.
+    ctx.lineWidth = 1.4; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.strokeStyle = wallAlpha(c.accent, 0.2);
+    for (const tr of traces) {
+      ctx.beginPath();
+      tr.pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.stroke();
+    }
+    // Pads at the corners — what makes it read as etched copper and not a maze.
+    ctx.fillStyle = wallAlpha(c.accent, 0.26);
+    for (const tr of traces) for (const p of tr.pts) { ctx.beginPath(); ctx.arc(p.x, p.y, 1.8, 0, 6.284); ctx.fill(); }
+    // And the charge: one bright head per trace with a short decaying tail.
+    for (const tr of traces) {
+      const d = ((t / tr.speed + tr.phase) % 1) * tr.len;
+      for (let k = 0; k < 7; k++) {
+        const p = wallAlongPolyline(tr, d - k * 5);
+        if (!p) continue;
+        ctx.globalAlpha = (1 - k / 7) * 0.85;
+        ctx.fillStyle = k ? wallAlpha(c.accent, 0.5) : c.fg;
+        ctx.beginPath(); ctx.arc(p.x, p.y, k ? 1.5 : 2.2, 0, 6.284); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  },
+
+  // ── Aurora: slow fronts of colour. The only painter with no line in it. ────
+  aurora(ctx, st, t) {
+    const { w, h, c } = st;
+    ctx.clearRect(0, 0, w, h);
+    const bg = ctx.createLinearGradient(0, 0, 0, h);
+    bg.addColorStop(0, wallMix(c.bg, '#000000', 0.25));
+    bg.addColorStop(1, wallMix(c.bg2, c.accent, 0.12));
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+    // Additive so the fronts brighten where they cross — the one thing that makes
+    // this read as light rather than as four coloured circles.
+    ctx.globalCompositeOperation = 'lighter';
+    const blobs = [
+      { col: c.accent, ax: 0.30, ay: 0.24, sx: 5200, sy: 8100, r: 0.62, a: 0.30 },
+      { col: wallMix(c.accent, c.fg, 0.55), ax: 0.34, ay: 0.20, sx: -6900, sy: 7300, r: 0.52, a: 0.24 },
+      { col: wallMix(c.accent, '#ffffff', 0.35), ax: 0.26, ay: 0.30, sx: 9400, sy: -5600, r: 0.45, a: 0.20 },
+      { col: c.bg2, ax: 0.38, ay: 0.26, sx: -11000, sy: 6200, r: 0.70, a: 0.26 },
+    ];
+    for (const b of blobs) {
+      const cx = w * (0.5 + Math.sin(t / b.sx) * b.ax);
+      const cy = h * (0.5 + Math.cos(t / b.sy) * b.ay);
+      const rad = Math.max(w, h) * b.r;
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      g.addColorStop(0, wallAlpha(b.col, b.a));
+      g.addColorStop(0.55, wallAlpha(b.col, b.a * 0.32));
+      g.addColorStop(1, wallAlpha(b.col, 0));
+      ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  },
+
+  // ── Hex: a honeycomb with a lighting wave crossing it ──────────────────────
+  hex(ctx, st, t) {
+    const { w, h, c } = st;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = wallMix(c.bg, c.bg2, 0.4);
+    ctx.fillRect(0, 0, w, h);
+    const R = 19, dx = R * 1.732, dy = R * 1.5;
+    const wave = (t / 1400);
+    ctx.lineWidth = 1;
+    for (let row = -1; row * dy < h + R; row++) {
+      for (let col = -1; col * dx < w + dx; col++) {
+        const cx = col * dx + (row % 2 ? dx / 2 : 0), cy = row * dy;
+        // One travelling diagonal band decides which cells are lit — a wave, not a
+        // random flicker, so the eye reads a direction instead of noise.
+        const k = Math.sin(wave - (cx * 0.012 + cy * 0.018));
+        const lit = Math.max(0, k) ** 3;
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const a = Math.PI / 180 * (60 * i - 30);
+          const x = cx + R * 0.92 * Math.cos(a), y = cy + R * 0.92 * Math.sin(a);
+          if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+        }
+        ctx.closePath();
+        if (lit > 0.02) { ctx.fillStyle = wallAlpha(c.accent, lit * 0.22); ctx.fill(); }
+        ctx.strokeStyle = wallAlpha(c.accent, 0.1 + lit * 0.35);
+        ctx.stroke();
+      }
+    }
+  },
+
+  // ── Code: glyph rain. The loudest of the set, and deliberately so. ─────────
+  code(ctx, st, t) {
+    const { w, h, c } = st;
+    const cols = (st.code ||= buildCodeColumns(w, h));
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = wallMix(c.bg, '#000000', 0.3);
+    ctx.fillRect(0, 0, w, h);
+    ctx.font = '12px "Courier New", monospace';
+    ctx.textBaseline = 'top';
+    const G = 'ABCDEFGH0123456789#$%&@*+=<>/\\|—▓▒░';
+    for (const col of cols) {
+      const head = ((t * col.v + col.off) % (h + col.n * 14)) - col.n * 14;
+      for (let i = 0; i < col.n; i++) {
+        const y = head - i * 14;
+        if (y < -14 || y > h) continue;
+        // Glyphs churn on their own slow clock, so the column reads as data rather
+        // than as one string sliding down the screen.
+        const ch = G[(col.seed + i * 7 + Math.floor(t / 260 + i)) % G.length];
+        ctx.fillStyle = i === 0 ? c.fg : wallAlpha(c.accent, 0.75 * (1 - i / col.n));
+        ctx.globalAlpha = i === 0 ? 0.95 : 1;
+        ctx.fillText(ch, col.x, y);
+      }
+    }
+    ctx.globalAlpha = 1;
+  },
+
+  // ── Warp: a starfield running past the hull ────────────────────────────────
+  warp(ctx, st, t) {
+    const { w, h, c } = st;
+    const stars = (st.warp ||= Array.from({ length: 90 }, () => ({
+      a: Math.random() * 6.284, r: Math.random(), z: Math.random(),
+    })));
+    ctx.clearRect(0, 0, w, h);
+    const g = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.hypot(w, h) / 2);
+    g.addColorStop(0, wallMix(c.bg, c.accent, 0.1));
+    g.addColorStop(1, wallMix(c.bg, '#000000', 0.4));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    const cx = w / 2, cy = h * 0.46, maxR = Math.hypot(w, h) * 0.62;
+    ctx.lineCap = 'round';
+    for (const s of stars) {
+      s.z += 0.0018 + s.r * 0.0032;
+      if (s.z > 1) { s.z = 0; s.a = Math.random() * 6.284; s.r = Math.random(); }
+      // Cubed so everything crawls near the middle and tears past at the edge —
+      // the whole feeling of the effect lives in that curve.
+      const d = Math.pow(s.z, 3) * maxR, d0 = Math.pow(Math.max(0, s.z - 0.05), 3) * maxR;
+      const co = Math.cos(s.a), si = Math.sin(s.a);
+      ctx.globalAlpha = Math.min(1, s.z * 2.2);
+      ctx.strokeStyle = s.r > 0.82 ? c.fg : wallAlpha(c.accent, 0.8);
+      ctx.lineWidth = 0.6 + s.z * 1.8;
+      ctx.beginPath();
+      ctx.moveTo(cx + co * d0, cy + si * d0);
+      ctx.lineTo(cx + co * d, cy + si * d);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  },
+
+  // ── Tide: stacked wave fronts, filled. Reads as depth, not as lines. ───────
+  tide(ctx, st, t) {
+    const { w, h, c } = st;
+    ctx.clearRect(0, 0, w, h);
+    const bg = ctx.createLinearGradient(0, 0, 0, h);
+    bg.addColorStop(0, wallMix(c.bg, '#000000', 0.22));
+    bg.addColorStop(1, wallMix(c.bg2, c.accent, 0.18));
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+    const layers = 5;
+    for (let i = 0; i < layers; i++) {
+      const k = i / (layers - 1);
+      const base = h * (0.30 + k * 0.62);
+      const amp = 26 - i * 3.4;
+      const ph = t / (3400 - i * 380) + i * 1.3;
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      for (let x = 0; x <= w; x += 6) {
+        const u = x / w;
+        ctx.lineTo(x, base + Math.sin(ph + u * 6.1) * amp + Math.sin(ph * 1.6 + u * 2.7) * amp * 0.45);
+      }
+      ctx.lineTo(w, h); ctx.closePath();
+      const g = ctx.createLinearGradient(0, base - amp, 0, h);
+      g.addColorStop(0, wallAlpha(c.accent, 0.10 + k * 0.12));
+      g.addColorStop(1, wallAlpha(c.bg2, 0.55));
+      ctx.fillStyle = g; ctx.fill();
+      ctx.strokeStyle = wallAlpha(c.accent, 0.22 + k * 0.2);
+      ctx.lineWidth = 1; ctx.stroke();
+    }
+  },
+
+  // ── Static: a dead channel. Noise is cached and reused — regenerating it every
+  // frame is the one thing here that would actually cost something. ──────────
+  static(ctx, st, t) {
+    const { w, h, c } = st;
+    const noise = (st.noise ||= buildNoiseTiles(c));
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = wallMix(c.bg, '#000000', 0.3);
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalAlpha = 0.5;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(noise[Math.floor(t / 90) % noise.length], 0, 0, w, h);
+    ctx.imageSmoothingEnabled = true;
+    ctx.globalAlpha = 1;
+    // The rolling bar — a vertical hold that never quite catches.
+    const barY = ((t / 12) % (h + 120)) - 60;
+    const g = ctx.createLinearGradient(0, barY - 40, 0, barY + 40);
+    g.addColorStop(0, wallAlpha(c.accent, 0));
+    g.addColorStop(0.5, wallAlpha(c.accent, 0.22));
+    g.addColorStop(1, wallAlpha(c.accent, 0));
+    ctx.fillStyle = g; ctx.fillRect(0, barY - 40, w, 80);
+    ctx.fillStyle = wallAlpha('#000000', 0.22);
+    for (let y = 0; y < h; y += 3) ctx.fillRect(0, y, w, 1);
+  },
 };
+
+// Circuit's board, built once: axis-aligned walks on a 16px pitch, each with its
+// cumulative length so a pulse can be placed by distance rather than by segment.
+function buildCircuitTraces(w, h) {
+  const P = 16, out = [];
+  const rnd = wallSeeded(0x5eed);
+  for (let i = 0; i < 16; i++) {
+    let x = Math.round((rnd() * w) / P) * P, y = Math.round((rnd() * h) / P) * P;
+    let horiz = rnd() < 0.5;
+    const pts = [{ x, y }];
+    for (let k = 0; k < 7; k++) {
+      const step = (1 + Math.floor(rnd() * 4)) * P * (rnd() < 0.5 ? -1 : 1);
+      if (horiz) x = Math.max(-P, Math.min(w + P, x + step)); else y = Math.max(-P, Math.min(h + P, y + step));
+      horiz = !horiz;
+      pts.push({ x, y });
+    }
+    let len = 0; const segs = [];
+    for (let k = 1; k < pts.length; k++) {
+      const d = Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y);
+      segs.push({ at: len, d }); len += d;
+    }
+    if (len < 20) continue;
+    out.push({ pts, segs, len, speed: 2600 + rnd() * 5200, phase: rnd() });
+  }
+  return out;
+}
+function wallAlongPolyline(tr, dist) {
+  if (dist < 0 || dist > tr.len) return null;
+  for (let i = 0; i < tr.segs.length; i++) {
+    const s = tr.segs[i];
+    if (dist <= s.at + s.d) {
+      const f = s.d ? (dist - s.at) / s.d : 0;
+      const a = tr.pts[i], b = tr.pts[i + 1];
+      return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+    }
+  }
+  return null;
+}
+function buildCodeColumns(w, h) {
+  const step = 13, out = [];
+  for (let x = 2; x < w; x += step) {
+    out.push({ x, n: 6 + Math.floor(Math.random() * 10), v: 0.02 + Math.random() * 0.055,
+      off: Math.random() * (h + 200), seed: Math.floor(Math.random() * 97) });
+  }
+  return out;
+}
+// Four small noise tiles, cycled — the eye reads four frames of grain as static and
+// never sees the loop, and the cost is four 48×48 buffers instead of one a frame.
+function buildNoiseTiles(c) {
+  const N = 48;
+  const base = wallRgb(c.fg) || [220, 230, 240];
+  return Array.from({ length: 4 }, () => {
+    const cv = document.createElement('canvas');
+    cv.width = N; cv.height = N;
+    const cx = cv.getContext('2d');
+    const img = cx.createImageData(N, N);
+    for (let i = 0; i < N * N; i++) {
+      const v = Math.random();
+      img.data[i * 4] = base[0]; img.data[i * 4 + 1] = base[1]; img.data[i * 4 + 2] = base[2];
+      img.data[i * 4 + 3] = v > 0.72 ? Math.round(v * 190) : 0;
+    }
+    cx.putImageData(img, 0, 0);
+    return cv;
+  });
+}
+// A small deterministic PRNG — a seeded layout has to come back the same on every
+// render, or the "board" reshuffles itself every time the tablet re-draws.
+function wallSeeded(seed) {
+  let s = (seed >>> 0) || 1;
+  return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+}
 
 function paintWall(ctx, st, t) {
   (WALL_PAINTERS[st.mode] || WALL_PAINTERS.sky)(ctx, st, t);
@@ -11118,11 +11732,14 @@ function startWallpaper(sky) {
   // removal did nothing and the sky stayed painted over every app screen for the
   // rest of the session. The var only takes effect while `.on` is present.
   //
-  // The patterns sit lower than the sky: the sky IS a picture and can carry itself,
-  // whereas a lattice or a sweep at the same strength stops being a backdrop and
-  // starts competing with the tile labels. Indoors knocks the sky back again —
-  // you can't see the weather through a wall, though the hour still reads.
-  const strength = mode === 'sky' ? (sky?.indoors ? 0.26 : 0.5) : 0.34;
+  // Every pattern carries its OWN strength (see the catalog): a hairline lattice and
+  // a screen-filling aurora want very different opacities to land at the same
+  // loudness, and one shared number is what made the first set all look alike.
+  // The sky is the exception that keeps its own rule — indoors knocks it back,
+  // because you can't see the weather through a wall, though the hour still reads.
+  const strength = mode === 'sky'
+    ? (sky?.indoors ? 0.26 : 0.5)
+    : (TABLET_WALLPAPERS.find(w2 => w2.id === mode)?.s ?? 0.34);
   cv.style.setProperty('--wall-strength', String(strength));
   cv.classList.add('on');
   _wallState = initWallState(sky, w, h, mode, wallColors(_overlay));
@@ -11181,7 +11798,9 @@ function close() {
   _navStack = [];
   _navHere = null;
   _navSig = null; _lastWasAct = false; _actDepth = 0;
-  document.querySelectorAll('.tos-tile-drag').forEach(el => el.remove()); // stray lift clone, if torn down mid-drag
+  // Stray lift clones, if the shell was torn down mid-drag. Both kinds live on
+  // document.body, outside the overlay, so nothing else sweeps them up.
+  document.querySelectorAll('.tos-tile-drag, .tos-group-drag').forEach(el => el.remove());
   if (_close) { _close(); _close = null; }
   _overlay = null;
   _data = null;

@@ -565,7 +565,7 @@ export const DISHES = {
     // thing, and the cabbage is the other. THE RULE FOR A `parts` GROUP: it has
     // to leave something outside itself. A group that swallows every ingredient
     // is a heading with nothing to distinguish, which is noise, not structure.
-    parts: [{ label: 'the batter', needs: ['batter', 'egg'] }],
+    parts: [{ label: 'the batter', of: ['batter', 'egg'] }],
     nameFormat: 'okonomiyaki',
     // Keyed on the cabbage and the blurb commits to it, so the list can say
     // cabbage instead of "one soft vegetable". Display only — any soft vegetable
@@ -593,7 +593,7 @@ export const DISHES = {
     optional: ['aromatic', 'fat_or_oil'],
     nameSlots: ['preserved'],
     // The sauce and the fruit are the glaze; the chop is the chop.
-    parts: [{ label: 'the glaze', needs: ['fruit'], items: ['item_bbq_sauce'] }],
+    parts: [{ label: 'the glaze', of: ['item_bbq_sauce', 'fruit'], steps: [4] }],
     nameFormat: '{0} chop',
     seasoning: 3,
     notes: {
@@ -702,7 +702,16 @@ export const DISHES = {
     // class carries: those are answers to ONE errand and you pick one. Nesting
     // both the same way would have made "buy all of these" and "buy any of these"
     // look identical, which is the one thing a shopping list must never do.
-    parts: [{ label: 'the sauce', needs: ['soft_vegetable', 'dairy'], items: ['item_gin'] }],
+    // `of` is ONE ordered list, profiles and item ids together, because the order
+    // is the cooking order and it runs straight through both: tomato, then gin,
+    // then cream. Two parallel arrays could not express that — the gin sat in the
+    // other list and always sorted after both classes, so the sauce read back in
+    // an order nobody would ever cook it in.
+    //
+    // `steps` are INDICES into this dish's own steps, never copied text: the
+    // sauce's method is already written below and pointing at it means the two
+    // can't drift apart.
+    parts: [{ label: 'the sauce', of: ['soft_vegetable', 'item_gin', 'dairy'], steps: [1, 2, 3] }],
     notes: {
       dry_starch: 'a portion a head, no more',
       soft_vegetable: 'cooked down hard, before anything else goes in',
@@ -1365,20 +1374,32 @@ export function validateDishes(dishes = DISHES, bonus = KNOWN_RECIPE_BONUS) {
     for (const [n, part] of (t.parts || []).entries()) {
       const where = at(`parts[${n}]`);
       if (!part?.label || typeof part.label !== 'string') errors.push(`${where} needs a label — it becomes the line its members sit under`);
-      const members = [...(part.needs || []), ...(part.items || [])];
+      const members = part.of || [];
+      if (!Array.isArray(members)) errors.push(`${where}.of must be an ordered array of profiles and item ids`);
       if (members.length < 2) errors.push(`${where} groups ${members.length} thing(s); a component group of one is a line with an extra level on top`);
-      for (const profile of part.needs || []) {
-        if (!needs[profile]) errors.push(`${where} composes "${profile}", which this dish doesn't require`);
-      }
-      for (const id of part.items || []) {
-        if (!(t.keyItems || []).includes(id)) errors.push(`${where} composes "${id}", which is not one of this dish's keyItems`);
+      for (const m of members) {
+        // One list, two kinds of member, told apart by the `item_` prefix the
+        // whole catalog already uses for ids. The order of this list is the
+        // order the thing is made in, which is why it can't be two arrays.
+        if (String(m).startsWith('item_')) {
+          if (!(t.keyItems || []).includes(m)) errors.push(`${where} composes "${m}", which is not one of this dish's keyItems`);
+        } else if (!needs[m]) {
+          errors.push(`${where} composes "${m}", which this dish doesn't require`);
+        }
       }
       // A group that swallows every ingredient is a heading with nothing to
       // distinguish — every line indented under one parent says no more than the
       // flat list did. There has to be something outside it.
-      const outside = Object.keys(needs).filter(p => !(part.needs || []).includes(p)).length
-        + (t.keyItems || []).filter(id => !(part.items || []).includes(id)).length;
+      const outside = Object.keys(needs).filter(p => !members.includes(p)).length
+        + (t.keyItems || []).filter(id => !members.includes(id)).length;
       if (!outside) errors.push(`${where} groups everything the dish has; a part must leave something outside it or it adds a level and no information`);
+      // Steps are INDICES into this dish's own steps, never copied prose — an
+      // index can't drift from the method, and a copy always does.
+      for (const i of part.steps || []) {
+        if (!Number.isInteger(i) || i < 0 || i >= (t.steps || []).length) {
+          errors.push(`${where}.steps[${i}] is not an index into this dish's ${(t.steps || []).length} steps`);
+        }
+      }
     }
 
     if (t.steps !== undefined) {
