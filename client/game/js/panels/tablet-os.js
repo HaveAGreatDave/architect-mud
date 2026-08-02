@@ -991,6 +991,17 @@ function ensureStyles() {
     #tablet-os-overlay .tos-list-item.tos-li-option:hover { filter:none; box-shadow:none; }
     #tablet-os-overlay .tos-list-item.tos-li-option:active { transform:none; box-shadow:none; }
     #tablet-os-overlay .tos-list-item.tos-li-option .tos-li-label { color:var(--tos-fg-dim); font-size:12px; }
+    /* An option that resolves to a real shelf item IS worth opening — it gets the
+       pointer back, quietly, without ever growing the panel an option must not have. */
+    #tablet-os-overlay .tos-list-item.tos-li-option[data-open-item] { cursor:pointer; }
+    #tablet-os-overlay .tos-list-item.tos-li-option[data-open-item]:hover .tos-li-label { color:var(--tos-fg); text-decoration:underline dotted; }
+    /* A row with no id leads nowhere. It used to still be clickable, and clicking
+       it navigated to the app root — which read as the tablet throwing you out of
+       the screen you were reading. Now it simply isn't a button. */
+    #tablet-os-overlay .tos-list-item.tos-li-static { cursor:default; }
+    #tablet-os-overlay .tos-list-item.tos-li-static:hover { filter:none;
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 2px var(--tos-bevel-lo), 0 1px 4px rgba(0,0,0,0.18); }
+    #tablet-os-overlay .tos-list-item.tos-li-static:active { transform:none; }
     /* The last option in a run carries the gap to the next line. */
     #tablet-os-overlay .tos-list-item.tos-li-option + .tos-list-item:not(.tos-li-option) { margin-top:7px; }
     #tablet-os-overlay .tos-badge { font-size:10.5px; letter-spacing:1px; padding:2px 6px; border-radius:3px; text-transform:uppercase; }
@@ -4993,10 +5004,15 @@ function renderList(items) {
   // (children), but a class's examples are alternatives — buying any one of them
   // answers the line. So an option deliberately has no checkbox and no badge;
   // giving it one would read as a fourth thing to buy.
-  return items.map(it => `<div class="tos-list-item${it.group ? ' tos-li-group' : ''}${it.child ? ' tos-li-child' : ''}${it.option ? ' tos-li-option' : ''}" data-open-item="${esc(it.id)}">
+  //
+  // A row only carries `data-open-item` when it HAS an id. An id-less row used to
+  // get the attribute anyway, empty — and clicking it navigated the app with no
+  // params, which is the app ROOT. Every heading and every summary line was
+  // therefore a button that threw you out of the screen you were reading.
+  return items.map(it => { const oid = it.id == null ? '' : String(it.id); return `<div class="tos-list-item${it.group ? ' tos-li-group' : ''}${it.child ? ' tos-li-child' : ''}${it.option ? ' tos-li-option' : ''}${oid ? '' : ' tos-li-static'}"${oid ? ` data-open-item="${esc(oid)}"` : ''}>
     <div class="tos-li-label"><span>${esc(it.label)}</span>${it.badge && !it.option ? `<span class="tos-badge ${esc(it.badge)}">${esc(it.badgeLabel || it.badge)}</span>` : ''}</div>
     ${it.sub ? `<div class="tos-li-sub">${esc(it.sub)}</div>` : ''}
-  </div>`).join('');
+  </div>`; }).join('');
 }
 
 // Month-grid calendar (Calendar app). A 7-column grid — weekday header row then the

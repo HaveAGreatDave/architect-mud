@@ -2062,6 +2062,25 @@ export default async function regress({ run, check, getPlayer }) {
         check('a class line carries its buyable answers as parts', !!cls, JSON.stringify(l));
         check('...with the bare ask kept separate from them', !!cls?.base && !/—/.test(cls.base), JSON.stringify(cls));
         check('...and they print as alternatives, not as errands', /any one of:/.test(out), out);
+
+        // ON THE TABLET, every one of those rows OPENS. A shopping-list line used
+        // to carry an empty id, and an empty id navigates the app with no params —
+        // i.e. to the app ROOT. Tapping an ingredient threw you out of the list.
+        const shop = await run('tabletnav cookbook Shopping_List __shop');
+        const rows = shop?.items || [];
+        check('the tablet list is a tree of headings, lines and alternatives',
+          rows.some(i => i.group) && rows.some(i => i.child) && rows.some(i => i.option), JSON.stringify(rows.map(i => i.label)));
+        check('every line you can buy leads somewhere',
+          rows.filter(i => i.child).every(i => String(i.id || '').startsWith('__ing:')), JSON.stringify(rows.filter(i => i.child)));
+        check('...and no heading or summary pretends to',
+          rows.filter(i => i.group).every(i => !i.id), JSON.stringify(rows.filter(i => i.group)));
+        const line = rows.find(i => i.child && i.id);
+        const det = await run(`tabletnav cookbook Shopping_List ${line.id}`);
+        check('opening a line opens the ingredient, not the app root',
+          det?.view === 'detail' && det?.detail?.id === line.id, JSON.stringify({ v: det?.view, id: det?.detail?.id, want: line.id }));
+        check('...and stays inside the shopping list',
+          (det?.breadcrumb || []).includes('Shopping List'), JSON.stringify(det?.breadcrumb));
+        check('...telling you how it behaves in a pan', (det?.detail?.rows || []).some(r => r.label === 'Raw'), JSON.stringify(det?.detail?.rows));
       }
 
       await run('shoplist clear');
