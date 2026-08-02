@@ -1957,12 +1957,23 @@ on('storefront.staffWitnessed', ({ player, zoneId, crime }) => {
   const key = ['shoplifting', 'hacking', 'burglary'].includes(crime) ? crime : 'theft';
   raiseCrime(player, key, zoneId || player.current_zone, player.handle, true);
 });
+// The shopkeeper you just leaned on is the witness by definition — you threatened
+// them to their face. Forced witness, same as a vendor catching a safe crack.
+on('extortion.witnessed', ({ player, zoneId }) => {
+  if (player?.id) raiseCrime(player, 'extortion', zoneId || player.current_zone, player.handle, true);
+});
 on('player.death', ({ killer }) => {
   if (killer?.id && killer?.handle) raiseCrime(killer, 'murder', killer.current_zone, killer.handle);
 });
 // Relieving yourself anywhere but a toilet (bodily plugin) — indecent exposure.
 on('bodily.publicRelief', ({ player, zoneId }) => {
   if (player?.id) raiseCrime(player, 'indecent_exposure', zoneId || player.current_zone, player.handle);
+});
+// Throwing filth at somebody (bodily plugin). Its own 1★ charge rather than
+// attack_npc's 4★: nothing was damaged and nobody was hurt, so a full assault
+// response would be absurd — but it's a step past graffiti.
+on('bodily.filthThrown', ({ player, zoneId }) => {
+  if (player?.id) raiseCrime(player, 'filth_assault', zoneId || player.current_zone, player.handle);
 });
 // Spraying a tag on a building front (graffiti plugin). The pettiest charge on the
 // board at 0.3★, and after sevFactor that's a floor-value single camera roll — you

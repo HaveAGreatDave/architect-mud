@@ -368,10 +368,12 @@ export const REGISTRY = [
   { table: 'lighting_states', class: 'runtime' },    // fully derived from furniture
   { table: 'zone_exit_overrides', class: 'runtime' }, // play-time exit wiring merged over authored zones.exits at load
   { table: 'zone_graffiti', class: 'runtime' },       // graffiti plugin — one player-sprayed tag per street tile, ages out on its own
+  { table: 'player_sprays', class: 'player' },        // graffiti plugin — a player's saved spray-can designs (the `spraycan` dialog's shelf)
   { table: 'economy_snapshots', class: 'runtime' },  // economy-ledger plugin — daily circulation totals
   { table: 'zone_control', class: 'runtime' },
   { table: 'org_assets', class: 'runtime' },          // player-crew territory assets (extractor/turret)
   { table: 'org_ventures', class: 'runtime' },        // player-crew Corporate Assets (owned operating businesses)
+  { table: 'org_rackets', class: 'runtime' },         // player-crew protection rackets on NPC shops
   { table: 'scavenging_zone_stock', class: 'runtime' },
   { table: 'scavenging_zone_state', class: 'runtime' },
   { table: 'security_clips', class: 'runtime' },

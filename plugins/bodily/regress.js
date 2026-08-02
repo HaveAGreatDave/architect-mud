@@ -61,6 +61,143 @@ export default async function regress({ run, check, getPlayer }) {
   s = await dispatchAction({ type: 'bodily.toiletContamination', params: { furnitureId: 'regress-bowl' } });
   check('flush clears pee, poo, and contamination', s.fouled === false && s.peed === false, JSON.stringify(s));
 
+  // ── Scooping a fouled toilet ────────────────────────────────────────────────
+  // The whole feature rests on the filth already being an ITEM, so the first
+  // thing to assert is that the item it hands you is a real row — a broken id
+  // here would fail silently at the INSERT and leave the player empty-handed
+  // with shit on their hands for nothing.
+  const { FILTH_ITEMS, clearBodyStain } = await import('../../server/engine/bodily.js');
+  const { query: q2 } = await import('../../server/models/db.js');
+  check('feces maps to a real item row', FILTH_ITEMS.feces === 'item_vessel_filth');
+  const { rows: filthRows } = await q2(`SELECT tags FROM items WHERE id=$1`, [FILTH_ITEMS.feces]);
+  check('...and that item exists in content', filthRows.length === 1);
+  check('...tagged so cooking and the containers already know it',
+    !!filthRows[0]?.tags?.bodily_filth && !!filthRows[0]?.tags?.food_profile);
+
+  // Scooping is NOT flushing. Taking the solid out removes the mass and leaves
+  // the water exactly as foul as it was — so the contamination query must keep
+  // answering `fouled`, because water/fillable ask it "is this safe to drink"
+  // and the answer did not change. Only a flush moves water.
+  const { scoopToilet } = await import('./index.js');
+  foulToilet('regress-scooped', 'poop');
+  scoopToilet('regress-scooped');
+  s = await dispatchAction({ type: 'bodily.toiletContamination', params: { furnitureId: 'regress-scooped' } });
+  check('a scooped bowl still contaminates its water', s.fouled === true, JSON.stringify(s));
+  clearToiletFilth('regress-scooped');
+  s = await dispatchAction({ type: 'bodily.toiletContamination', params: { furnitureId: 'regress-scooped' } });
+  check('...and only a flush clears it', s.fouled === false, JSON.stringify(s));
+  // Scooping must not take the piss with it — they are separate deposits.
+  foulToilet('regress-both', 'poop');
+  foulToilet('regress-both', 'pee');
+  scoopToilet('regress-both');
+  s = await dispatchAction({ type: 'bodily.toiletContamination', params: { furnitureId: 'regress-both' } });
+  check('scooping the solid leaves the piss alone', s.peed === true, JSON.stringify(s));
+  clearToiletFilth('regress-both');
+
+  // ── A bowl fills up, and then it stops coping ────────────────────────────────
+  // The threshold is the entire teaching mechanism for `flush`, so it is asserted
+  // rather than trusted: five deposits overflow, four do not, and it never
+  // quietly repairs itself.
+  const { TOILET_CAPACITY, sweepToilets } = await import('./index.js');
+  clearToiletFilth('regress-fill');
+  let last = null;
+  for (let i = 1; i < TOILET_CAPACITY; i++) last = foulToilet('regress-fill', 'poop', 'zone_regress_public');
+  check('a bowl takes several visits before it gives up', last.overflowed === false && last.count === TOILET_CAPACITY - 1, JSON.stringify(last));
+  last = foulToilet('regress-fill', 'poop', 'zone_regress_public');
+  check('...and overflows on the one that fills it', last.overflowed === true, JSON.stringify(last));
+  last = foulToilet('regress-fill', 'poop', 'zone_regress_public');
+  check('...and keeps overflowing — it does not fix itself', last.overflowed === true, JSON.stringify(last));
+
+  // Bailing it out by hand is a real (grim) answer: each scoop is one deposit
+  // and one `measure of filth` you now have to deal with.
+  const scooped = scoopToilet('regress-fill');
+  check('scooping takes one deposit, not the lot', scooped.count === TOILET_CAPACITY, JSON.stringify(scooped));
+  s = await dispatchAction({ type: 'bodily.toiletContamination', params: { furnitureId: 'regress-fill' } });
+  check('...and a bailed bowl is still foul water', s.fouled === true);
+
+  // ── The nightly sweep ────────────────────────────────────────────────────────
+  // Same cadence zones.stains runs on: the city cleans itself, your bathroom is
+  // your problem. Read off the engine's `deepClean` flag rather than re-derived,
+  // so the two can never drift.
+  const { registerOwnedZoneProvider } = await import('../../server/engine/zone-filth.js');
+  registerOwnedZoneProvider(z => (z === 'zone_regress_owned' ? 'regress-owner' : false));
+
+  clearToiletFilth('regress-fill');
+  foulToilet('regress-public', 'poop', 'zone_regress_public');
+  foulToilet('regress-owned',  'poop', 'zone_regress_owned');
+  let swept = sweepToilets({ deepClean: false });
+  check('the nightly sweep flushes an unowned toilet', swept.cleared === 1, JSON.stringify(swept));
+  check('...and leaves the one in a room somebody owns', swept.spared === 1, JSON.stringify(swept));
+  s = await dispatchAction({ type: 'bodily.toiletContamination', params: { furnitureId: 'regress-public' } });
+  check('...so the public bowl really is clean', s.fouled === false && s.peed === false, JSON.stringify(s));
+  s = await dispatchAction({ type: 'bodily.toiletContamination', params: { furnitureId: 'regress-owned' } });
+  check('...and the owned one really is not', s.fouled === true, JSON.stringify(s));
+
+  // The absentee backstop: on the deep-clean day even an owned bowl goes.
+  swept = sweepToilets({ deepClean: true });
+  check('the deep-clean day takes the owned one too', swept.cleared === 1 && swept.spared === 0, JSON.stringify(swept));
+
+  // A bowl fouled with no zone recorded can't belong to anybody, so it must
+  // never be spared — that would leak state forever.
+  foulToilet('regress-orphan', 'poop');
+  swept = sweepToilets({ deepClean: false });
+  check('a toilet with no room recorded is never spared', swept.cleared === 1 && swept.spared === 0, JSON.stringify(swept));
+
+  // Stateless by construction: the engine derives the day, and the sweep only
+  // ever reads the flag it is handed. Nothing here persists across a restart,
+  // which is the property that stops a reboot handing everyone a clean slate
+  // ON A DIFFERENT SCHEDULE than the stains they were tracking.
+  const { isDeepCleanDay, STAIN_KEEP_DAYS } = await import('../../server/engine/zone-filth.js');
+  check('the toilet sweep rides the same stateless cadence as stains',
+    typeof isDeepCleanDay('2026-08-01') === 'boolean' && STAIN_KEEP_DAYS === 7);
+
+  // Interception is self-gating: no toilet in the room means `take shit` is not
+  // this feature's business and must reach the ordinary ground-pickup builtin.
+  const { FILTH_WORDS } = await import('./index.js');
+  check('the scoop only answers to filth words', FILTH_WORDS.test('shit') && FILTH_WORDS.test('the filth'));
+  check('...and never to an ordinary take', !FILTH_WORDS.test('all') && !FILTH_WORDS.test('rusty pipe'));
+  r = await run('take shit');
+  check('with no toilet in the room the scoop falls through to the builtin',
+    /can't find|nothing here to take/i.test(r?.message || ''), r?.message);
+
+  // ── Throwing it ─────────────────────────────────────────────────────────────
+  // The charge is deliberately its own key. If this ever collapses into
+  // attack_npc, a thrown turd becomes a 4-star police response, which is absurd.
+  const { CRIME_DEFAULTS } = await import('../../server/engine/crimes.js');
+  check('throwing filth has its own charge', !!CRIME_DEFAULTS.filth_assault);
+  check('...that is nowhere near an assault response',
+    CRIME_DEFAULTS.filth_assault.stars < CRIME_DEFAULTS.attack_npc.stars, CRIME_DEFAULTS.filth_assault.stars);
+  check('...but worse than tagging a wall',
+    CRIME_DEFAULTS.filth_assault.stars > CRIME_DEFAULTS.graffiti.stars);
+
+  // `throw` must still mean `stow`. The matcher claims only `throw X at Y` where
+  // X is filth; a bare throw, or a throw of anything else, falls through to the
+  // alias every existing player already has their fingers trained on.
+  // `throw` reads its preposition rather than being blanket-aliased to `stow`.
+  // The alias rewrote the first word before dispatch, so it claimed `throw X at
+  // Y` too and silently stowed things the player meant to lob at somebody.
+  const { getAlias } = await import('../../server/engine/commands/aliases.js');
+  check('throw is no longer blanket-aliased to stow', getAlias('throw') !== 'stow', getAlias('throw'));
+  r = await run('throw rustypipe at nobodyhere');
+  check('throwing a non-filth item is not claimed by bodily',
+    !/don't see .* here to throw/i.test(r?.message || ''), r?.message);
+  check('...and says so rather than silently stowing it',
+    /can't throw that/i.test(r?.message || ''), r?.message);
+  r = await run('throw rustypipe in nosuchbin');
+  check('throw <thing> in <container> still reaches stow',
+    /don't see a container|don't have|container not found/i.test(r?.message || ''), r?.message);
+
+  // Hands wash clean without being a free shower: clearBodyStain is part-scoped,
+  // which is the only thing stopping `wash hands` from stripping a stain that is
+  // on somebody's face.
+  p.appearance_data = { soiled_state: { type: 'feces', locations: ['hands'] } };
+  check('washing hands clears filth on the hands', await clearBodyStain(p, 'hands') === true);
+  check('...and really clears it', !p.appearance_data.soiled_state);
+  p.appearance_data = { soiled_state: { type: 'feces', locations: ['face'] } };
+  check('washing hands does not clear a stain somewhere else',
+    await clearBodyStain(p, 'hands') === false && !!p.appearance_data.soiled_state);
+  p.appearance_data = {};
+
   // ── fart: deliberate, scaled, and on a leash ────────────────────────────────
   // The gamble: past ~75% full, farting risks the other thing entirely.
   const { fartRisk } = await import('./index.js');

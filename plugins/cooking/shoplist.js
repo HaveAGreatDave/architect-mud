@@ -46,7 +46,7 @@ async function putList(playerId, list) {
 // it is the only one this module makes.
 export async function holdings(playerId) {
   const { rows } = await query(
-    `SELECT pi.quantity, pi.custom_data, i.weight, i.tags
+    `SELECT pi.item_id, pi.quantity, pi.custom_data, i.weight, i.tags
        FROM player_inventory pi JOIN items i ON i.id = pi.item_id
       WHERE pi.player_id = $1`,
     [playerId]
@@ -126,20 +126,36 @@ function examplesLine(examples) {
   return `${examples.slice(0, -1).join(', ')} or ${examples[examples.length - 1]}`;
 }
 
-// The label one class shortfall carries. The weight comes from the recipe (the
-// same number the matcher counts against); the nouns come from the shelf.
+// The label one class shortfall carries, as its PARTS rather than one string:
+//   { label }      — the whole line, which is what the text list prints
+//   { base }       — the ask on its own ("400g of liquid")
+//   { ex }         — the buyable nouns that would answer it
+//
+// Kept separate because they are two different KINDS of thing and a display that
+// can tell them apart can nest them. `base` is a line you tick; `ex` is a set of
+// alternatives, any ONE of which ticks it — which is exactly why they are not
+// themselves list entries. Anything that just wants a line still reads `label`.
+//
+// The weight comes from the recipe (the same number the matcher counts against);
+// the nouns come from the shelf.
 function classLabel(profile, need, template) {
   const itemInfo = id => { try { return getItem(id); } catch { return null; } };
   // A class the dish wants exactly one of already prints its key item's own noun
   // ("125g of penne"). That IS the buyable thing; listing four more starches
   // after it would only make a solved line ambiguous again.
-  if (keyNounFor(template, profile, itemInfo)) return ingredientLine(profile, need, template, itemInfo);
+  if (keyNounFor(template, profile, itemInfo)) {
+    const label = ingredientLine(profile, need, template, itemInfo);
+    return { label, base: label, ex: [] };
+  }
   const examples = buyableExamples(profile, template);
-  if (!examples.length) return ingredientLine(profile, need, template, itemInfo);
+  if (!examples.length) {
+    const label = ingredientLine(profile, need, template, itemInfo);
+    return { label, base: label, ex: [] };
+  }
   // Note suppressed deliberately — see above. The examples replace it, and they
   // are the half of it that can be handed over a counter.
   const base = ingredientLine(profile, need, { ...template, notes: {} }, itemInfo);
-  return `${base} — ${examplesLine(examples)}`;
+  return { label: `${base} — ${examplesLine(examples)}`, base, ex: examples };
 }
 
 // Add a recipe's SHORTFALL, not its whole ingredient list. You already own half
@@ -151,15 +167,36 @@ export async function addShortfall(playerOrId, template, { label = null } = {}) 
   const list = await getList(playerId);
   const added = [];
 
+  // KEY ITEMS ARE COUNTED FIRST, and they count TWICE over — once as the specific
+  // thing you have to go and buy, and once against the class they belong to.
+  // A key item is mandatory (the matcher refuses the dish without it), so the
+  // moment it lands in the basket it also satisfies one unit of its own profile.
+  // Without this, penne alla gin wrote "125g of penne" AND "box of penne" as two
+  // separate lines — the same shopping trip, twice, because the class label had
+  // already borrowed the key item's noun.
+  const itemRow = id => { try { return getItem(id); } catch { return null; } };
+  const keyMissing = [];                 // key items not already in hand
+  const keyCovers = {};                  // profile → units those missing keys will supply
+  for (const id of template.keyItems || []) {
+    if ((held.byItem[id] || 0) >= 1) continue;
+    keyMissing.push(id);
+    const p = itemRow(id)?.tags?.food_profile;
+    if (p && PROFILES[p]) keyCovers[p] = (keyCovers[p] || 0) + 1;
+  }
+
   for (const [profile, need] of Object.entries(template.needs || {})) {
     const want = Array.isArray(need) ? need[0] : need;
     const have = held.byProfile[profile] || 0;
     // The recipe's own floor, so the list and the matcher agree about "enough".
-    const short = want - have;
+    const short = want - have - (keyCovers[profile] || 0);
     if (short <= 0.05) continue;
+    // Once a key item is covering part of the class, the line has to describe
+    // what's LEFT — "800g–1.2kg of liquid" when the gin is already on the list
+    // below it is the same overcount the duplicate line was.
+    const named = classLabel(profile, keyCovers[profile] ? short : need, template);
     const entry = {
       k: 'p', v: profile, n: Math.round(short * 100) / 100,
-      label: classLabel(profile, need, template),
+      label: named.label, base: named.base, ex: named.ex,
       for: label || null,
     };
     const at = list.findIndex(e => sameEntry(e, entry));
@@ -167,9 +204,8 @@ export async function addShortfall(playerOrId, template, { label = null } = {}) 
     else { list.push(entry); added.push(entry); }
   }
 
-  for (const id of template.keyItems || []) {
-    if ((held.byItem[id] || 0) >= 1) continue;
-    const entry = { k: 'i', v: id, n: 1, label: getItem(id)?.name || id.replace(/^item_/, '').replace(/_/g, ' '), for: label || null };
+  for (const id of keyMissing) {
+    const entry = { k: 'i', v: id, n: 1, label: itemRow(id)?.name || id.replace(/^item_/, '').replace(/_/g, ' '), for: label || null };
     if (list.some(e => sameEntry(e, entry))) continue;
     list.push(entry);
     added.push(entry);

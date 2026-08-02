@@ -1,8 +1,26 @@
 {
   "name": "corps",
-  "version": "1.0.0",
-  "description": "Corporations (player orgs): found/join a corp, custom ranks, a shared atomic treasury, a private corp channel, and a claimable HQ. NPC factions share the unified orgs table.",
-  "commands": ["corp", "org"],
+  "version": "1.1.0",
+  "description": "Corporations (player orgs): found/join a corp, custom ranks, a shared atomic treasury, a private corp channel, and a claimable HQ. NPC factions share the unified orgs table. Also owns territory (zone_control tug-of-war), Corporate Assets (org_ventures — corp-owned operating businesses), and protection rackets (org_rackets) — a cut of every sale at a shop the corp leans on, whose fear decays on a half-life so the income dies unless somebody keeps walking the beat.",
+  "commands": ["corp", "org", "shakedown"],
   "hooks": ["furniture.describe"],
-  "specializedActions": [{ "verb": "use", "requiredTag": "corp_terminal" }]
+  "specializedActions": [{ "verb": "use", "requiredTag": "corp_terminal" }],
+  "events": ["vendor.purchase", "crime.witnessed", "atm.jacked", "hack.success", "vendor.safeHackWitnessed", "enemy.killed", "npc.killed", "player.death"],
+  "emits": ["extortion.witnessed"],
+  "ticks": ["24h territory settlement", "24h venture settlement"],
+  "dataSchema": {
+    "orgs": "corp identity + treasury + tier; NPC factions share the table (is_npc=1)",
+    "org_ranks": "per-corp custom ranks carrying a permission bitmask (server/engine/org-perms.js)",
+    "org_members": "membership, one corp per player",
+    "org_relations": "org-to-org stance ('hostile'|'friendly'|'war')",
+    "zone_control": "per-zone controller + influence grip (territory tug-of-war)",
+    "org_assets": "invisible zone modifiers (extractor/turret)",
+    "org_ventures": "corp-owned operating businesses (Corporate Assets)",
+    "org_rackets": "protection rackets on NPC shops. `fear` is stored AS OF `last_leaned_at` and never decayed by a write — the current value is computed on read by fearNow() (the player_npc_relations pattern). One racket per shop (UNIQUE npc_id)."
+  },
+  "extensionPoints": {
+    "zone flags": "claimable (a zone corps may take territory in — also implied by danger != safe); claimable_asset (a vacant business shell a corp may claim as a venture)",
+    "furniture flags": "corp_terminal (boots the console), corp_poster (recruitment prose)",
+    "npcs.vendor_credits": "a racketed shop's till — the skim debits it, so the take is a transfer, not a faucet"
+  }
 }

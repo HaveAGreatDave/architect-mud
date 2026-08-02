@@ -37,7 +37,7 @@ import { recomputeEquipped } from '../../server/engine/commands/inventory.js';
 import { describeGenitals, ejaculateDescription, describeBodyPart } from '../../server/engine/appearance.js';
 import { getEnvironmentState, getZonePrecip } from '../../server/engine/environment.js';
 import { markWashed } from '../../server/engine/hygiene.js';
-import { depositIntoVessel } from '../../server/engine/bodily.js';
+import { depositIntoVessel, clearBodyStain } from '../../server/engine/bodily.js';
 import { useDrug, getDrugCache } from '../../server/engine/drugs.js';
 import { loadFitLines, allFitLines, saveFitLines, fitLine, HOLES,
   loadFitVocab, allFitVocab, saveFitVocab, previewFitLine } from './fit-lines.js';
@@ -1892,6 +1892,13 @@ async function cmdWashHands(player) {
   if (!rows.length) return { type:'error', message:`There's no water source here.` };
 
   let msg = `You wash your hands at the sink.`;
+  // Shit on your hands is the one thing WASH HANDS obviously ought to fix, and
+  // until there was a way to get it there (scooping a fouled toilet) nothing ever
+  // put it there. Part-scoped on purpose: a stain anywhere else survives, so this
+  // stays a hand wash rather than a free shower.
+  if (await clearBodyStain(player, 'hands')) {
+    msg = `You scrub your hands under the water until they stop being a problem. Twice. Then once more.`;
+  }
   if (isMisActive(player)) {
     const washed = await washEjaculate(player);
     if (washed) msg = `You wash your hands and clean yourself up at the sink.`;

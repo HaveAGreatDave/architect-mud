@@ -53,7 +53,7 @@ const WETNESS_BANDS = [
 
 function wetnessLabel(v) {
   for (const [floor, label] of WETNESS_BANDS) if (v >= floor) return label;
-  return '';   // bone dry — the row comes off entirely
+  return 'Dry';   // bone dry still reads — the panel says where you stand, always
 }
 
 let clientMinutes = null;
@@ -209,8 +209,9 @@ function renderEnvironmentHUD() {
 
 // Your own soaking, read straight off the live player object — the wetness tick
 // already pushes `player_update: { wetness }`, so there is nothing new on the wire.
-// Bone dry shows nothing at all: an always-present "Dry" row is a line of HUD that
-// tells you nothing 95% of the time.
+// Bone dry reads "Dry" rather than vanishing — a row that disappears leaves the
+// panel looking incomplete, and "Dry" is an answer. Only the unreal (dream/void)
+// case drops it, where there is no body weather to report.
 function renderWetnessRow() {
   const label = envUnreal ? '' : wetnessLabel(Math.round(state.player?.wetness ?? 0));
   for (const suffix of ['', '-m']) {

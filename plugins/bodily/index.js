@@ -13,7 +13,7 @@
  * Actions (the builtin replay path can't reach plugin verbs).
  */
 import { query } from '../../server/models/db.js';
-import { stainClothing, stainZone, stainCreatureBodyPart, taintAir, depositIntoVessel } from '../../server/engine/bodily.js';
+import { stainClothing, stainZone, stainCreatureBodyPart, taintAir, depositIntoVessel, takeFilthInHand } from '../../server/engine/bodily.js';
 import { isMisActive } from '../../server/engine/mis.js';
 import { getZonePlayers, getZoneEnemies, getZoneNpcs, getAllLivePlayers, getZoneFurniture } from '../../server/engine/world.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
@@ -23,6 +23,8 @@ import { registerStatusEffect, applyEffect } from '../../server/engine/effects.j
 import { schedule } from '../../server/engine/scheduler.js';
 import { setPosture } from '../../server/engine/posture.js';
 import { emit, on } from '../../server/engine/events.js';
+import { registerInputMatcher } from '../../server/engine/plugins.js';
+import { isOwnedZone } from '../../server/engine/zone-filth.js';
 import './help.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { coolSweat, coolSewerGrime, markWashed, checkFilthy } from '../../server/engine/hygiene.js';
@@ -47,8 +49,29 @@ const SHOWER_SQL = `(object_type='shower' OR jsonb_exists(flags,'shower') OR nam
 
 // Runtime-only state. A toilet stays fouled (poop) / full of piss until flushed;
 // toiletSessions guards against starting a toilet routine twice at once.
-const fouledToilets  = new Set(); // furniture id — unflushed poop
-const peedToilets    = new Set(); // furniture id — unflushed piss
+// Unflushed toilets. ONE map rather than three sets, because the nightly sweep
+// has to ask which ZONE a bowl is in to honour the owned-room exemption, and a
+// set of bare furniture ids can't answer that.
+//
+//   id → { zoneId, poop: <count>, peed: bool, residue: bool }
+//
+// `poop` is a COUNT, not a flag. That is what makes a toilet fill up: five
+// deposits and it overflows onto the floor and onto whoever is sitting on it.
+// `residue` means the mass is gone (somebody scooped it out) but the WATER is
+// still what it was sitting in — taking the solid out is not the same act as
+// flushing. Only a flush moves water.
+const toiletState = new Map();
+
+// How many deposits a bowl takes before it stops coping. Low on purpose: this
+// number is the entire teaching mechanism for `flush`, and a threshold nobody
+// ever reaches teaches nothing.
+export const TOILET_CAPACITY = 5;
+
+const stateOf = (id) => toiletState.get(id) || null;
+const isFouled  = (id) => (stateOf(id)?.poop || 0) > 0;
+const isPeed    = (id) => !!stateOf(id)?.peed;
+const isResidue = (id) => !!stateOf(id)?.residue;
+const isOverflowing = (id) => (stateOf(id)?.poop || 0) >= TOILET_CAPACITY;
 const toiletSessions = new Map(); // playerId -> { mode, target, zoneId, seated, sitOn, droppedLegs, timers }
 const showerSessions = new Map(); // playerId -> { zoneId, timers } — the timed shower ritual
 
@@ -56,13 +79,70 @@ const showerSessions = new Map(); // playerId -> { zoneId, timers } — the time
 // it. Contamination (the describe line + the water/fillable sickness) is derived
 // live from these two sets, so clearing them here removes the pee, the poo, and
 // thus the contamination in one shot. Exported so the round-trip is testable.
-export function foulToilet(id, mode) {
-  (mode === 'poop' ? fouledToilets : peedToilets).add(id);
+// Returns { count, overflowed } so the caller can narrate the moment it stops
+// coping. `zoneId` is optional only so the regress suite can foul a bare id; a
+// real deposit always knows its room, and the nightly sweep needs it.
+export function foulToilet(id, mode, zoneId = null) {
+  const s = stateOf(id) || { zoneId, poop: 0, peed: false, residue: false };
+  if (zoneId) s.zoneId = zoneId;
+  if (mode === 'poop') {
+    s.poop += 1;
+    // Nobody sits down and does only the one thing. A bowl somebody shat in has
+    // piss in it too, which is why scooping the solid out leaves water that is
+    // still worth being sick over. The reverse is NOT true — a piss is just a
+    // piss — so this is a one-way rule, not a pair of them.
+    s.peed = true;
+  } else {
+    s.peed = true;
+  }
+  toiletState.set(id, s);
+  return { count: s.poop, overflowed: s.poop >= TOILET_CAPACITY };
 }
+
 export function clearToiletFilth(id) {
-  fouledToilets.delete(id);
-  peedToilets.delete(id);
+  toiletState.delete(id);
 }
+
+// Scooping the solid out: ONE deposit leaves, the water does not. Deliberately
+// not a flush — the contamination query keeps answering `fouled` so the water
+// and fillable plugins go on making you sick with no idea anything changed.
+//
+// It decrements rather than emptying, which is what makes bare hands a real (if
+// grim) answer to an overflowing bowl: you can bail one turd at a time, and each
+// one is a `measure of filth` you now have to do something with.
+export function scoopToilet(id) {
+  const s = stateOf(id);
+  if (!s || s.poop <= 0) return { count: 0, emptied: false };
+  s.poop -= 1;
+  if (s.poop === 0) s.residue = true;   // nothing solid left, water still foul
+  toiletState.set(id, s);
+  return { count: s.poop, emptied: s.poop === 0 };
+}
+
+// The city cleans itself nightly; YOUR bathroom doesn't. Exactly the cadence
+// zones.stains runs on (server/engine/zone-filth.js), read off the same
+// `deepClean` flag rather than re-derived here so the two can never drift: an
+// unowned bowl is flushed by whoever works there, an owned one is your problem
+// until the STAIN_KEEP_DAYS backstop. Stateless — the engine derives the day
+// from the game date, so a restart can't hand everyone a clean slate.
+//
+// Exported for regress; the live path is the `world.dailyMaintenance` listener.
+export function sweepToilets({ deepClean = false } = {}) {
+  let cleared = 0, spared = 0;
+  for (const [id, s] of toiletState) {
+    // A bowl with no zone recorded can't be owned by anyone, so it gets swept.
+    if (!deepClean && s.zoneId && isOwnedZone(s.zoneId)) { spared++; continue; }
+    toiletState.delete(id);
+    cleared++;
+  }
+  return { cleared, spared };
+}
+
+on('world.dailyMaintenance', ({ deepClean }) => {
+  const { cleared, spared } = sweepToilets({ deepClean });
+  if (cleared) console.log(`[bodily] Flushed ${cleared} unattended toilet(s).`);
+  if (spared) console.log(`[bodily] Left ${spared} toilet(s) in owned rooms exactly as found.`);
+});
 
 // Disconnecting mid-routine cleanly cancels it: the live player object is about
 // to be dropped (removeLivePlayer), so the setTimeout closures would otherwise
@@ -561,9 +641,15 @@ async function finishRelief(player, session) {
   const relieve = isPoop ? relieveBowels : relieveBladder;
   let result;
 
+  let overflow = null;
   if (target.kind === 'toilet') {
     result = await relieve(player, true, broadcast);
-    foulToilet(target.furniture.id, mode);
+    const f = foulToilet(target.furniture.id, mode, session.zoneId);
+    // THE LESSON. A bowl holds TOILET_CAPACITY deposits and no more, and the
+    // person who finds that out is the one sitting on it. Everything past the
+    // threshold overflows too — it does not get better on its own, and the only
+    // thing that fixes it is the verb people were not using.
+    if (f.overflowed && isPoop) overflow = await overflowToilet(player, target.furniture, session, broadcast);
   } else if (target.kind === 'furniture') {
     result = await relieve(player, false, broadcast, { type: 'furniture', name: target.furniture.name });
   } else if (target.kind === 'creature') {
@@ -610,7 +696,48 @@ async function finishRelief(player, session) {
   }
 
   if (session.seated) setPosture(player, 'standing');
-  if (result) sendToPlayer(player.id, { type: result.ok ? 'output' : 'error', message: result.message + (result.ok ? restored : '') });
+  if (result) sendToPlayer(player.id, {
+    type: result.ok ? 'output' : 'error',
+    message: result.message + (result.ok ? restored : '') + (overflow || ''),
+  });
+}
+
+// The bowl gives up. Fires on the deposit that reaches TOILET_CAPACITY and on
+// every one after it, because an overflowing toilet does not repair itself.
+//
+// Three things happen, and all three are the point: the FLOOR is stained (so the
+// room now needs a mop as well as a flush), the person sitting on it is stained
+// (so it is a personal cost, not just scenery), and the whole room is told (so
+// the culprit is not anonymous). Returns a line to append to their private
+// result — the relief message is already built by the time we get here.
+const OVERFLOW_SELF = [
+  `And then the water keeps rising. It comes over the rim, over your feet, and across the floor, and there is a moment where you understand exactly how much of this was avoidable.`,
+  `The bowl makes a sound you have never heard a bowl make. Then it gives up entirely, and so does the floor.`,
+  `It does not go down. It comes up. You get off it far too late.`,
+];
+
+async function overflowToilet(player, furniture, session, broadcast) {
+  // The floor is now a cleaning job (plugins/cleaning `mop`). Two marks, because
+  // this is worse than a puddle.
+  await stainZone(session.zoneId, 'feces');
+  await stainZone(session.zoneId, 'feces');
+  // On the person. Feet, not legs — their legwear is round their ankles, which
+  // is exactly why this lands where it lands. Gloves-style rule applies: shoes
+  // take it if they're wearing any.
+  await stainCreatureBodyPart(player, 'feces', 'feet');
+
+  broadcast(session.zoneId, {
+    type: 'zone_event',
+    message: `<span style="color:var(--red)">The ${furniture.name} overflows. ${player.handle} is standing in it, and shortly so is everyone else.</span>`,
+  }, player.id);
+  emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'flush', intensity: 1 });
+  // Same charge as any other public mess — the room is now fouled and somebody
+  // watched you do it. Witness-gated by surveillance like every other emit.
+  emit('bodily.publicRelief', { player, zoneId: session.zoneId });
+  reactBystanderNpc(session.zoneId, 'poop', broadcast);
+
+  return `\n<span style="color:var(--red)">${pick(OVERFLOW_SELF)}</span>`
+    + `\n<span class="text-dim">(It needed flushing about ${TOILET_CAPACITY} visits ago. The floor needs a mop now too.)</span>`;
 }
 
 // A peed-/pooped-on NPC yells about it.
@@ -715,16 +842,196 @@ async function cmdFlush(args, player) {
   if (!rows.length) return { type:'error', message:`There's no toilet here to flush.` };
   // Was any toilet here actually fouled? Clear every toilet in the room so none
   // is left dirty — this wipes the pee, the poo, and thus the water contamination.
-  const wasDirty = rows.some(r => fouledToilets.has(r.id) || peedToilets.has(r.id));
+  // Residue counts: a scooped bowl still has fouled water in it, and moving that
+  // water is the one thing only a flush does.
+  const wasDirty = rows.some(r => isFouled(r.id) || isPeed(r.id) || isResidue(r.id));
+  const wasOverflowing = rows.some(r => isOverflowing(r.id));
   for (const r of rows) clearToiletFilth(r.id);
   emit('bodily.sfx', { zoneId: player.current_zone, cue: 'flush' });
   return {
     type: 'output',
-    message: wasDirty
+    message: wasOverflowing
+      ? `You flush, and hold your nerve while it decides. The level climbs, hesitates, and then goes down — all of it. <span class="text-dim">(The floor is still your problem.)</span>`
+      : wasDirty
       ? `You flush. The mess swirls away and the water runs clean again.`
       : `You flush. The sound is deeply satisfying.`,
   };
 }
+
+// ── Taking it back out ───────────────────────────────────────────────────────
+//
+// A fouled toilet holds something, and until now the only thing you could do
+// about it was flush it. This is the other option, and it exists because the
+// filth ITEM already existed: `pee in <bowl>` / `poop in <bowl>` produce an
+// ordinary inventory row (engine depositIntoVessel), so a scooped turd needs no
+// new item, no new tag, and no changes to drop/put/stow/containers/cooking. It
+// is the same `measure of filth` a bowl would have caught, arriving by a worse
+// route.
+//
+// Two things make it a decision rather than a free pickup: it clears the toilet
+// (you took the mess, so the bowl is clean and nobody is going to smell it in
+// here anymore), and it goes on your HANDS. Gloves take it instead of your skin
+// — stainCreatureBodyPart soaks the garment covering a part when there is one —
+// which is a real reason to be wearing some.
+export const FILTH_WORDS = /\b(poop|poo|shit|turd|crap|dump|stool|filth|leavings|deposit|log)\b/i;
+
+async function cmdTakeFilth(args, player) {
+  const str = args.join(' ').toLowerCase();
+  if (!FILTH_WORDS.test(str)) return undefined;
+  // "take shit from the toilet" is the same act as "take shit"; anything naming a
+  // different source is somebody else's command.
+  const source = str.split(/\bfrom\b/)[1];
+  if (source && !/toilet|bowl|pan|latrine/.test(source)) return undefined;
+
+  const here = getZoneFurniture(player.current_zone).filter(isToilet);
+  if (!here.length) return undefined;                       // no toilet — fall through
+  const fouled = here.find(f => isFouled(f.id));
+  if (!fouled) {
+    // A toilet IS here, so this was aimed at it. Answering beats falling through
+    // to "Can't find "shit" here." — the player wants to know the bowl is empty.
+    if (here.some(f => isPeed(f.id)) && !here.some(f => isResidue(f.id)))
+      return { type: 'error', message: `There's nothing solid in the ${here[0].name} to take. Just piss, and you'd need a vessel for that.` };
+    if (here.some(f => isResidue(f.id)))
+      return { type: 'error', message: `There's nothing left in the ${here[0].name} to take. Only the water, and you're not that far gone yet.` };
+    return { type: 'error', message: `The ${here[0].name} is empty. Small mercies.` };
+  }
+
+  const ok = await takeFilthInHand(player, 'feces', { from: 'toilet', scavenged: true });
+  if (!ok) return { type: 'error', message: `You can't bring yourself to do it after all.` };
+  // NOT a flush. You removed the mass; the water is exactly as foul as it was.
+  scoopToilet(fouled.id);
+
+  const { rows: gloves } = await query(
+    `SELECT i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+      WHERE pi.player_id=$1 AND pi.is_equipped=1 AND pi.slot='hands' LIMIT 1`,
+    [player.id]
+  );
+  // Always leaves a mark: on the glove if there's one, on the skin if there isn't.
+  await stainCreatureBodyPart(player, 'feces', 'hands');
+  emit('inventory.changed', { actor: player });
+
+  sendToZone(player.current_zone, {
+    type: 'zone_event',
+    message: `${player.handle} reaches into the ${fouled.name} and takes something out of it.`,
+  }, player.id);
+
+  const handline = gloves.length
+    ? `Your ${gloves[0].name} take the worst of it, which is the first time they've earned their keep.`
+    : `<span style="color:var(--red)">It is on your hands now. Bare skin. You will be able to smell yourself.</span>`;
+  return {
+    type: 'take',
+    message: `You reach into the ${fouled.name} and lift out a measure of filth. It is warmer than you expected and heavier than it looks. The water it came out of stays exactly where it is, and stays exactly what it is. <span class="text-dim">(Flushing is a separate act.)</span>\n${handline}`,
+  };
+}
+
+// ── Throwing it at somebody ──────────────────────────────────────────────────
+//
+// `throw <filth> at <someone>`. DELIBERATELY NOT a general throw mechanic: there
+// is no such thing in the game (`throw` is an alias for `stow`, and it stays
+// one), and inventing ballistics for every item is a system, not a joke. This is
+// the filth-only version, and it's cheap because the landing is already built —
+// `stainCreatureBodyPart` is the same call behind `shit on <someone>'s face`,
+// including the rule that a worn garment takes it instead of skin.
+//
+// Registered as an input matcher so it only claims `throw X at Y`. A bare
+// `throw <thing>` still reaches the stow alias, which is what every existing
+// player has it bound to.
+const THROW_MISS_LINES = [
+  `It goes wide, hits the wall with a sound nobody in this room will forget, and slides.`,
+  `You misjudge the weight entirely. It lands short, and it lands open.`,
+  `It clips past them and breaks up on the floor behind.`,
+];
+
+// The item that was thrown decides what lands on them — the reverse of the map
+// depositIntoVessel writes with, so piss thrown at somebody reads as piss.
+const FILTH_BY_ITEM = { item_vessel_filth: 'feces', item_vessel_piss: 'urine', item_vessel_seed: 'ejaculate' };
+
+async function cmdThrowFilth(args, raw, player, broadcast) {
+  const m = raw.match(/^throw\s+(.+?)\s+at\s+(.+)$/i);
+  if (!m) return undefined;
+  const [, itemStr, targetStrRaw] = m;
+
+  // Only filth is throwable. Anything else falls through to `stow`, which is
+  // what `throw` has always meant — no existing muscle memory breaks.
+  const row = await resolveInventoryItem(player, { tag: 'bodily_filth', name: itemStr.replace(/^(the|my|a)\s+/i, '').trim() });
+  if (!row) return undefined;
+
+  const targetStr = targetStrRaw.replace(/^the\s+/i, '').trim();
+  const partMatch = targetStr.match(/^(.+?)'s\s+(.+)$/i);
+  const searchStr = partMatch ? partMatch[1].trim() : targetStr;
+  const part = partMatch ? partMatch[2].trim() : null;
+
+  const candidates = [
+    ...getZonePlayers(player.current_zone).filter(p => p.id !== player.id)
+      .map(p => ({ ...p, name: p.handle, _bkind: 'player' })),
+    ...getZoneEnemies(player.current_zone).map(e => ({ ...e, name: e.name, _bkind: 'enemy' })),
+    ...getZoneNpcs(player.current_zone).filter(n => !n._dead).map(n => ({ ...n, name: n.name, _bkind: 'npc' })),
+  ];
+  const r = siftResolve(searchStr, candidates);
+  if (r.type === 'ambiguous') {
+    createSelectionState(player.id, r.candidates, { dispatchType: 'bodily.throw_target', dispatchParam: 'target', extra: { invId: row.inv_id, part } });
+    return { type: 'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
+  }
+  if (r.type !== 'match') return { type: 'error', message: `You don't see "${searchStr}" here to throw it at.` };
+
+  return landThrow(player, r.candidate, row, part, broadcast);
+}
+
+async function landThrow(player, target, row, part, broadcast) {
+  const type = FILTH_BY_ITEM[row.item_id] || 'feces';
+  const name = target.handle || target.name || 'them';
+
+  // It leaves your hands whatever happens next — a miss is a miss, not a refund.
+  if (row.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [row.inv_id]);
+  else await query('DELETE FROM player_inventory WHERE id=$1', [row.inv_id]);
+  emit('inventory.changed', { actor: player });
+
+  // A flat one-in-four miss. No stat roll on purpose: there is no throwing skill
+  // and inventing one for this would be the general mechanic this deliberately
+  // isn't. It's a coin the game flips so the act isn't a guaranteed win.
+  if (Math.random() < 0.25) {
+    await stainZone(player.current_zone, type);
+    broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} throws something at ${name} and misses.` }, player.id);
+    return { type: 'output', message: pick(THROW_MISS_LINES) };
+  }
+
+  // Same landing as shitting on somebody: garment first, bare skin otherwise.
+  // Only players carry the contamination columns — an NPC or enemy takes the
+  // insult and the reaction, exactly as the relief path already handles them.
+  if (target._bkind === 'player') await stainCreatureBodyPart(target, type, part);
+
+  const where = part ? `${name}'s ${part}` : name;
+  broadcast(player.current_zone, {
+    type: 'zone_event',
+    message: `${player.handle} throws a handful of filth at ${where}. It connects.`,
+  }, player.id, target.id);
+  if (target.handle) {
+    broadcast(null, { type: 'output', message: `<span style="color:var(--red)">${player.handle} throws filth at you. It hits your ${part || 'chest'} and stays there.</span>` }, null, target.id);
+  }
+
+  if (target._bkind === 'npc') {
+    broadcast(player.current_zone, { type: 'zone_event', message: `${target.name} shouts, "${pick(NPC_POOP_YELLS)}"` });
+    // They will remember this one. The biggest single warmth hit in the plugin,
+    // and cheap to justify: somebody threw shit at them.
+    adjustRelation(player, target.id, { familiarity: 3, warmth: -35, reason: 'filth thrown' });
+  }
+
+  // The charge. Emitted, never raised here — surveillance owns the witness roll
+  // and the star value, same as public relief and graffiti.
+  emit('bodily.filthThrown', { player, target, zoneId: player.current_zone });
+
+  return { type: 'output', message: `You throw it. It hits ${where} with a sound like a wet towel, and the room stops.` };
+}
+
+// SIFT replay for the ambiguous case — the candidates are always creatures.
+registerAction({
+  type: 'bodily.throw_target',
+  handler: async ({ actor, params, context }) => {
+    const row = await resolveInventoryItem(actor, { tag: 'bodily_filth' });
+    if (!row) return { type: 'error', message: `You're not holding anything to throw.` };
+    return landThrow(actor, params.target, row, params.part || null, context.broadcast);
+  },
+});
 
 // A brief cosmetic badge after a shower — no mechanical tick, just a visible
 // "Refreshed" status (same purely-visual pattern as weightbench's Exhausted).
@@ -837,10 +1144,24 @@ export const hooks = {
   'zone.smells': (zone) => {
     const here = getZoneFurniture(zone.id).filter(isToilet);
     const out = [];
-    if (here.some(f => fouledToilets.has(f.id))) {
+    // A fouled bowl is also a peed-in one (see foulToilet), so the piss line is
+    // suppressed underneath it — the stronger line already covers it, and two
+    // entries for one bowl reads like two bowls.
+    const anyFouled = here.some(f => isFouled(f.id));
+    if (here.some(f => isOverflowing(f.id))) {
+      // A bowl that has given up is not the same smell as a bowl somebody left.
+      // Strongest thing the plugin can contribute, and it should be: you can
+      // smell this one from the doorway, which is the warning.
+      out.push({ text: 'a toilet that has stopped coping, and the floor around it', strength: 10, source: 'feces' });
+    } else if (anyFouled) {
       out.push({ text: 'a toilet somebody used and did not flush', strength: 9, source: 'feces' });
+    } else if (here.some(f => isResidue(f.id))) {
+      // Weaker than an unflushed deposit, and worded to say why: the mass is gone
+      // and the water it sat in is not. Only reported when nothing worse is here,
+      // so a room with one scooped bowl and one fouled one reports the fouled one.
+      out.push({ text: 'a bowl of water that something was recently taken out of', strength: 6, source: 'feces' });
     }
-    if (here.some(f => peedToilets.has(f.id))) {
+    if (!anyFouled && here.some(f => isPeed(f.id))) {
       out.push({ text: 'stale piss standing in a bowl', strength: 7, source: 'urine' });
     }
     return out;
@@ -848,8 +1169,15 @@ export const hooks = {
   'furniture.describe': (f) => {
     if (!isToilet(f)) return undefined;
     const lines = [];
-    if (fouledToilets.has(f.id)) lines.push(`Someone left a grim deposit behind and never flushed.`);
-    if (peedToilets.has(f.id))   lines.push(`The bowl is full of stale, unflushed piss.`);
+    if (isOverflowing(f.id)) lines.push(`It is full to the brim and past it. The next person to use this is going to regret it, and so is the floor.`);
+    else if (isFouled(f.id)) {
+      const n = stateOf(f.id).poop;
+      lines.push(n > 1
+        ? `Nobody has flushed this in a while. You can count the visits.`
+        : `Someone left a grim deposit behind and never flushed.`);
+    }
+    else if (isResidue(f.id)) lines.push(`Whatever was in here has been taken out of it. The water it was sitting in has not gone anywhere, and it is the wrong colour.`);
+    else if (isPeed(f.id))   lines.push(`The bowl is full of stale, unflushed piss.`);
     return lines.length ? `<span style="color:var(--red)">${lines.join(' ')}</span>` : undefined;
   },
 };
@@ -893,7 +1221,15 @@ registerAction({
   type: 'bodily.toiletContamination',
   handler: ({ params }) => {
     const id = params.furnitureId;
-    return { type: 'data', fouled: fouledToilets.has(id), peed: peedToilets.has(id) };
+    // `fouled` is the WATER question, not the "is there a turd in it" question —
+    // which is why scooped-but-unflushed still answers true. Callers (water,
+    // fillable) ask "is this safe to drink", and the answer did not change when
+    // somebody lifted the solid out of it.
+    return {
+      type: 'data',
+      fouled: isFouled(id) || isResidue(id),
+      peed: isPeed(id),
+    };
   },
 });
 
@@ -943,6 +1279,12 @@ async function cmdUseToilet(player) {
 
   let msg = `${t.name}\n${t.description}`;
   msg += `\n<span class="text-dim">Actions:</span> ${peeLink}  ${poopLink}  ${flushLink}`;
+
+  // The one place the scoop is discoverable, and only while there's something in
+  // there to scoop — an empty bowl shouldn't be advertising it.
+  if (isFouled(t.id)) {
+    msg += `  <span class="action-link" data-action="take" data-target="filth">take filth</span>`;
+  }
 
   if (isMisActive(player)) {
     msg += `\n<span class="text-dim">The stall offers a moment of total privacy.</span>`;
@@ -997,6 +1339,13 @@ export const specializedActions = [{
     if (target.includes('shower')) return cmdUseShower(player);
     return undefined;
   },
+}, {
+  // `take shit` only means anything in a room with a toilet in it, so this is
+  // self-gating and returns undefined everywhere else — an item on the floor
+  // called anything at all still reaches the builtin. (`get` aliases to `take`
+  // upstream, so both spellings arrive here.)
+  verb: 'take',
+  handler: async (args, raw, player) => cmdTakeFilth(args, player),
 }];
 
 // `fart` — deliberately, on purpose, in public.
@@ -1298,6 +1647,12 @@ async function cmdSoap(args, raw, player, broadcast) {
 
 commands.soap  = cmdSoap;
 commands.scrub = cmdSoap;
+
+// `throw <filth> at <someone>` — an input matcher, not a command, because `throw`
+// is an alias for `stow` and must stay one. This claims only the `X at Y` shape,
+// and only when X resolves to something tagged `bodily_filth`; everything else
+// falls through untouched.
+registerInputMatcher(/^throw\s+.+\s+at\s+.+/i, (args, raw, player, broadcast) => cmdThrowFilth(args, raw, player, broadcast), 'bodily');
 
 // Deliberately NOT a specializedAction: registering it put a SOAP button on the
 // smartbar beside every sink in the world, which is far too much prominence for a

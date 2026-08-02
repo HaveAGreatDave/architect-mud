@@ -72,15 +72,51 @@ async function buildScreen(player, screenId, params) {
       };
     }
     const rows = answer(list, await holdings(player.id));
-    const items = rows.map((e, i) => ({
-      id: '',
-      label: `${e.done ? '☑' : '☐'} ${e.label}`,
-      sub: e.for ? `for ${e.for}${e.done ? ' · in hand' : ''}` : (e.done ? 'in hand' : ''),
-      badge: e.done ? 'ready' : 'missing',
-      _sort: e.done ? 1 : 0,
-    })).sort((a, b) => a._sort - b._sort);
+    // GROUPED UNDER THE RECIPE THAT WANTED THEM. A dish is not a thing you buy —
+    // it's several things you buy and then cook, and a flat list of ingredients
+    // with "for penne alla gin" repeated down the side read as one shopping
+    // decision when it is four. The heading is the dish; the lines under it are
+    // the shopping. Anything added without a recipe behind it keeps its own
+    // heading at the bottom, because a list of loose wants is still a list.
+    const groups = new Map();
+    for (const e of rows) {
+      const key = e.for || '';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(e);
+    }
+    const ordered = [...groups.entries()].sort((a, b) =>
+      (a[0] ? 0 : 1) - (b[0] ? 0 : 1) || a[0].localeCompare(b[0]));
+
+    const items = [];
+    for (const [forWhat, entries] of ordered) {
+      const left = entries.filter(e => !e.done).length;
+      items.push({
+        id: '', group: true,
+        label: forWhat ? titleFor(forWhat.replace(/ /g, '_')) : 'Odds and ends',
+        sub: left
+          ? `${left} of ${entries.length} still to buy — buy each one separately, then cook`
+          : `everything it wants is in hand`,
+        badge: left ? 'missing' : 'ready',
+      });
+      for (const e of entries.slice().sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0))) {
+        // A CLASS line is itself made of parts you have to go and buy, so it
+        // gets the same treatment one level down — except its parts are
+        // ALTERNATIVES, not a checklist. "400g of liquid" is one errand that
+        // tinned tomatoes OR cream OR gin would each finish, and nesting them as
+        // more checkboxes would have said "buy three", which is wrong. Hence the
+        // options render without boxes, and the parent says how to read them.
+        const opts = e.done ? [] : (e.ex || []);
+        items.push({
+          id: '', child: true,
+          label: `${e.done ? '☑' : '☐'} ${e.done ? e.label : (e.base || e.label)}`,
+          sub: e.done ? 'in hand' : (opts.length ? 'any one of these will do:' : ''),
+          badge: e.done ? 'ready' : 'missing',
+        });
+        for (const noun of opts) items.push({ id: '', option: true, label: `· ${noun}` });
+      }
+    }
     const got = rows.filter(e => e.done).length;
-    items.push({ id: '', label: `${got} of ${rows.length} in hand`, sub: '"shoplist tidy" crosses those off for good.', badge: got === rows.length ? 'ready' : 'missing' });
+    items.push({ id: '', group: true, label: `${got} of ${rows.length} in hand`, sub: '"shoplist tidy" crosses those off for good.', badge: got === rows.length ? 'ready' : 'missing' });
     return { view: 'list', breadcrumb: ['Cookbook', 'Shopping List'], items };
   }
 
@@ -213,8 +249,13 @@ async function handleAction(player, actionId) {
   const d = DISHES[key];
   if (!d) return { message: `That isn't a recipe.` };
   const r = await addShortfall(player.id, d, { label: key.replace(/_/g, ' ') });
+  // Land on the list itself. A bare { message } carries no `view`, so the shell
+  // fell through every renderer and drew "Unknown screen." — and the one thing
+  // you want to see after adding to a shopping list is the shopping list.
+  const screen = await buildScreen(player, null, '__shop');
   return {
-    message: r.added.length
+    ...screen,
+    notice: r.added.length
       ? `Added ${r.added.length} to your shopping list.`
       : `You've already got everything that wants.`,
   };

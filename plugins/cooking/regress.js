@@ -102,21 +102,38 @@ export default async function regress({ run, check, getPlayer }) {
   // ── penne alla gin: a named dish anchored on BOTH its key items ────────────
   // The anchor is the whole point — penne and tomato in a pan is pasta in sauce,
   // and without the penne it's just sauce. Neither half alone may claim the name.
+  //
+  // And the SAUCE is named too. This asked for "any two or three liquids", which
+  // meant penne, gin and two bottles of water was a valid pan of it. The steps
+  // have always said tomato cooked down hard and then cream off the heat, so
+  // both are required by class — and `liquid` is optional now, because every
+  // liquid that ends up in the pan is something the recipe already named.
   {
     const { DISHES, matchScore } = await import('./dishes.js');
     const t = DISHES.penne_alla_gin;
     const full = new Set(['item_penne', 'item_gin', 'item_tomato_paste', 'item_synth_cream']);
     check('penne alla gin exists as a pan dish', t?.vessel === 'pan', t?.vessel);
-    check('...and matches penne + gin + two liquids',
-      matchScore({ dry_starch: 1, liquid: 3 }, t, full) > 0);
+    check('...and matches penne + gin + tomato + cream',
+      matchScore({ dry_starch: 1, soft_vegetable: 1, dairy: 1, liquid: 2 }, t, full) > 0);
     check('...but never without the gin',
-      matchScore({ dry_starch: 1, liquid: 2 }, t,
+      matchScore({ dry_starch: 1, soft_vegetable: 1, dairy: 1 }, t,
         new Set(['item_penne', 'item_tomato_paste', 'item_synth_cream'])) === -1);
     check('...nor without the penne',
-      matchScore({ liquid: 3 }, t,
+      matchScore({ soft_vegetable: 1, dairy: 1 }, t,
         new Set(['item_gin', 'item_tomato_paste', 'item_synth_cream'])) === -1);
+    check('...nor without the tomato, which is the body of the sauce',
+      matchScore({ dry_starch: 1, dairy: 1, liquid: 2 }, t, full) === -1);
+    check('...nor without the cream that goes in last',
+      matchScore({ dry_starch: 1, soft_vegetable: 1, liquid: 2 }, t, full) === -1);
+    check('...and gin with two bottles of water is no longer a sauce',
+      matchScore({ dry_starch: 1, liquid: 3 }, t, full) === -1);
     check('...nor on gin alone with nothing to carry it',
       matchScore({ dry_starch: 1, liquid: 1 }, t, full) === -1);
+    // By CLASS, not by id: naming the tin in `keyItems` would forbid the tube,
+    // and the paste cooked down is the same sauce. All three tomatoes carry
+    // `soft_vegetable`, two of them as a `food_also`.
+    check('...the tomato is required as a class, so tin/tube/fresh all work',
+      !(t.keyItems || []).some(id => /tomato/.test(id)), JSON.stringify(t.keyItems));
   }
 
   check('stage text is monotonic and covers 0..1', stageText(COOK_STAGES, 0) === 'raw, glistening' && stageText(COOK_STAGES, 1) === 'cooked through, a faint char forming', {
@@ -1673,8 +1690,16 @@ export default async function regress({ run, check, getPlayer }) {
     // A note explains what a class is FOR; without it "800g–1.2kg of liquid" is
     // three ingredients hiding inside one number.
     check('card: a note rides along with the weight',
-      /tomato/.test(ingredientLine('liquid', DISHES.penne_alla_gin.needs.liquid, DISHES.penne_alla_gin)),
-      ingredientLine('liquid', DISHES.penne_alla_gin.needs.liquid, DISHES.penne_alla_gin));
+      /cooked down hard/.test(ingredientLine('soft_vegetable', DISHES.penne_alla_gin.needs.soft_vegetable, DISHES.penne_alla_gin)),
+      ingredientLine('soft_vegetable', DISHES.penne_alla_gin.needs.soft_vegetable, DISHES.penne_alla_gin));
+    // ...and the class gets the dish's own word for it. "One soft vegetable" is
+    // true of a cabbage, and this recipe does not mean a cabbage.
+    {
+      const info = id => ({ item_penne: { name: 'box of penne', tags: { food_profile: 'dry_starch', food_noun: 'penne' } } })[id] || null;
+      check('card: a named class says what the dish means by it',
+        /of tomato/.test(ingredientLine('soft_vegetable', DISHES.penne_alla_gin.needs.soft_vegetable, DISHES.penne_alla_gin, info)),
+        ingredientLine('soft_vegetable', DISHES.penne_alla_gin.needs.soft_vegetable, DISHES.penne_alla_gin, info));
+    }
 
     const rice = named(['item_grey_rice', 'item_bone_broth'], 'pot', ['dry_starch', 'liquid']);
     check('rice in the same stock is not ramen', rice?.key !== 'ramen', rice?.key);
@@ -1932,7 +1957,11 @@ export default async function regress({ run, check, getPlayer }) {
       // recipe card says "tomato", but a fresh tomato is a soft_vegetable and
       // the liquid in that sauce is the tinned one.
       {
-        const t = DISHES.penne_alla_gin;
+        // A written-out note, not a dish's — penne alla gin names its tomato and
+        // its cream outright now, so the catalog no longer has a note that talks
+        // about a class in nouns. The ORDERING rule it proves is unchanged: what
+        // the note mentions first, the list offers first.
+        const t = { notes: { liquid: 'tomato for the body, a slug of gin, cream to finish' } };
         const ex = buyableExamples('liquid', t);
         check('a class entry names buyable examples', ex.length > 0, JSON.stringify(ex));
         check('...and every one of them really carries that profile',
@@ -1983,6 +2012,57 @@ export default async function regress({ run, check, getPlayer }) {
       check('tidy crosses off what you have for good', /Crossed off/.test(r?.message || ''), r?.message);
       const after = await getList(player.id);
       check('...and leaves the rest', after.length < list.length, `${list.length} → ${after.length}`);
+
+      // What you're CARRYING, by item id. `holdings` built byItem off a column
+      // the query never selected, so it was permanently empty: every key-item
+      // line read MISSING no matter what was in your hands.
+      {
+        const h = await holdings(player.id);
+        check('holdings knows which specific items you are carrying', (h.byItem[TOM] || 0) >= 1, JSON.stringify(h.byItem));
+      }
+
+      // A key item is mandatory AND it satisfies a unit of its own class, so it
+      // must be counted once, not twice. penne alla gin keys on the penne, and
+      // the dry_starch line borrows the penne's own noun — writing both put "125g
+      // of penne" and "box of penne" on the same list as two separate errands.
+      {
+        // Empty-handed, or the list quite rightly says nothing about the tomato
+        // already in your pocket from the test above.
+        await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, TOM]);
+        await run('shoplist clear');
+        await run('shoplist add penne alla gin');
+        const l = await getList(player.id);
+        const keys = l.filter(e => e.k === 'i').map(e => e.v);
+        check('a recipe\'s key items go on the list by name', keys.includes('item_penne') && keys.includes('item_gin'), JSON.stringify(l));
+        check('...and never a second time as the class they already satisfy',
+          !l.some(e => e.k === 'p' && e.v === 'dry_starch'), JSON.stringify(l));
+        // The sauce is two more errands, not one fungible "liquid" — and each is
+        // written down by the word the dish uses for it, so the list says tomato
+        // and cream rather than "one soft vegetable" and "one dairy".
+        const out = (await run('shoplist'))?.message || '';
+        check('...the sauce goes on as its actual parts', /tomato/.test(out) && /cream/.test(out), out);
+        check('...and not as a count of interchangeable liquids',
+          !l.some(e => e.k === 'p' && e.v === 'liquid'), JSON.stringify(l));
+
+        // Grouped under the dish, because a recipe is several separate purchases
+        // and a flat run of ingredients reads as one.
+        check('the list groups its lines under the recipe that wanted them', /penne alla gin/.test(out), out);
+        check('...saying outright that each one is bought separately', /separately/.test(out), out);
+      }
+
+      // A class the dish has no specific word for is one errand with several
+      // possible answers, and those answers nest UNDER it as alternatives —
+      // never as more boxes to tick, which would read as "buy all of them".
+      {
+        await run('shoplist clear');
+        await run('shoplist add soup');
+        const l = await getList(player.id);
+        const cls = l.find(e => e.k === 'p' && (e.ex || []).length);
+        const out = (await run('shoplist'))?.message || '';
+        check('a class line carries its buyable answers as parts', !!cls, JSON.stringify(l));
+        check('...with the bare ask kept separate from them', !!cls?.base && !/—/.test(cls.base), JSON.stringify(cls));
+        check('...and they print as alternatives, not as errands', /any one of:/.test(out), out);
+      }
 
       await run('shoplist clear');
       check('clear empties it', (await getList(player.id)).length === 0);
@@ -2052,6 +2132,70 @@ export default async function regress({ run, check, getPlayer }) {
 
       await query('DELETE FROM player_inventory WHERE id=$1 OR item_id=$2', [invented, 'item_written_recipe']);
       await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key LIKE $2', [player.id, `${SAVED_PREFIX}%`]);
+    }
+
+    // ── What an ingredient carries onto the plate ────────────────────────────
+    // Plating turns a pan into one generic dish row, so anything the eat path
+    // reads off item tags is gone. These assert the gather step that stops
+    // cooking being a laundry for every bad idea.
+    {
+      const { gatherHazards } = await import('./hazards.js');
+
+      check('a pan of ordinary food carries nothing', gatherHazards([
+        { tags: { food_profile: 'dense_meat', restore_hunger: 20 } },
+        { tags: { food_profile: 'soft_vegetable' } },
+      ]) === null);
+
+      const filthy = gatherHazards([
+        { tags: { food_profile: 'dense_meat' } },
+        { tags: { food_profile: 'liquid', status_chance: { food_poisoning: 0.9 }, disease_risk: true },
+          custom_data: { donor_id: 'somebody' } },
+      ]);
+      check('filth in the pan taints the dish', filthy?.status_chance?.food_poisoning === 0.9, JSON.stringify(filthy));
+      check('...and carries the disease risk', filthy?.disease_risk === true);
+      check('...and remembers whose it was', filthy?.donors?.includes('somebody'), JSON.stringify(filthy?.donors));
+
+      // WORST, never summed: two risky things must not push past certainty, and
+      // must never average down into something safer than its worst ingredient.
+      const two = gatherHazards([
+        { tags: { status_chance: { food_poisoning: 0.9 } } },
+        { tags: { status_chance: { food_poisoning: 0.5 } } },
+      ]);
+      check('two risky ingredients take the worst, not the sum', two.status_chance.food_poisoning === 0.9, JSON.stringify(two));
+      check('...and never average down to something safer', two.status_chance.food_poisoning >= 0.9);
+
+      // Dose-like properties DO sum — two irradiated fillets are two doses.
+      const hot = gatherHazards([
+        { tags: { restore_radiation: 5 } },
+        { tags: { restore_radiation: 3 } },
+      ]);
+      check('irradiated ingredients sum into the dish', hot.radiation === 8, JSON.stringify(hot));
+
+      // The laundering hole: without reading a row's OWN carried hazards, one
+      // intermediate step (a paste, a dough) would wash the pan clean.
+      const viaPaste = gatherHazards([
+        { tags: { food_profile: 'batter' },
+          custom_data: { crafted_quality: 'good', hazards: { status_chance: { food_poisoning: 0.9 }, disease_risk: true, donors: ['somebody'] } } },
+      ]);
+      check('an intermediate cannot launder what went into it',
+        viaPaste?.status_chance?.food_poisoning === 0.9 && viaPaste.disease_risk === true, JSON.stringify(viaPaste));
+      check('...donors included', viaPaste?.donors?.includes('somebody'));
+
+      // custom_data arrives as a jsonb string from some callers; a parse failure
+      // must not throw in the middle of plating somebody's dinner.
+      check('a string custom_data is read, not thrown on', gatherHazards([
+        { tags: {}, custom_data: JSON.stringify({ hazards: { radiation: 4 } }) },
+      ])?.radiation === 4);
+      check('unparseable custom_data is survivable',
+        gatherHazards([{ tags: { food_profile: 'liquid' }, custom_data: '{not json' }]) === null);
+
+      // A laced ingredient makes a laced meal, and one dish takes one drug.
+      const laced = gatherHazards([
+        { tags: { laced_drug: 'drug_alcohol', laced_potency: 2 } },
+        { tags: { laced_drug: 'drug_khole' } },
+      ]);
+      check('a laced ingredient laces the dish', laced.laced_drug === 'drug_alcohol', JSON.stringify(laced));
+      check('...at its authored potency', laced.laced_potency === 2);
     }
 
   } finally {

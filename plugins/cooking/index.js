@@ -40,6 +40,7 @@ import { DISHES, signature, matchDish, dishName, composeBand, seasoningBonus, se
 import { UNTRIED, cookbookState, learnRecipe, improveRecipe, recordAttempt, beatsRecorded, knownBonus, markRoutineIp,
          savedRecipes, saveRecipe, recipeBySignature, renameRecipe, forgetRecipe, improveSaved, slugify } from './knowledge.js';
 import { inferDish, recipeSignature, improvisedIp } from './improvised.js';
+import { gatherHazards } from './hazards.js';
 import { cmdRecipe, learnFromWrittenCard } from './recipes.js';
 import { cmdShoplist, markShelf, markContainer } from './shoplist-cmd.js';
 import { rewardFor, restMultiplier, restText, RESTS_WELL, REST_PEAK_MS, REST_COLD_MS, REST_MIN_MS, TASTE_TIERS, TASTE_BITE } from './config.js';
@@ -690,8 +691,13 @@ async function plateVessel(vessel, player) {
   // whatever it eventually goes into.
   const intermediate = template.output || null;
   const produced = intermediate ? intermediate.item : DISH_ITEM;
+  // What the INGREDIENTS carry, independent of how well you cooked. The dish row
+  // is one generic item, so without this every hazard in the pan — filth, a
+  // laced ingredient, something irradiated — was laundered away by plating.
+  // Stamped on intermediates too, or one paste step would launder it anyway.
+  const hazards = gatherHazards(inVessel);
   const stamp = intermediate
-    ? { crafted_quality: band, dish: key }
+    ? { crafted_quality: band, dish: key, ...(hazards ? { hazards } : {}) }
     : {
         name, dish: key || 'unknown', cook_quality: band, cooked: true,
         // What an improvised dish carries so it can be written down later: the
@@ -708,6 +714,7 @@ async function plateVessel(vessel, player) {
         // chopping would be a way to make four dinners out of one.
         ...(dishYield !== 1 ? { yield: dishYield } : {}),
         ...(dishDoneness ? { doneness: dishDoneness } : {}),
+        ...(hazards ? { hazards } : {}),
       };
 
   await query(

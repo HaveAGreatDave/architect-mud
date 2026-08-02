@@ -24,6 +24,7 @@ const world = {
   zoneControl: new Map(),// zoneId -> zone_control row (territory: controller + influence grip)
   orgAssets: new Map(),  // zoneId -> [org_assets rows] (corp investment: extractor/turret)
   orgVentures: new Map(),// zoneId -> org_ventures row (Corporate Assets: corp-owned operating businesses)
+  orgRackets: new Map(), // npcId -> org_rackets row (protection rackets on NPC shops)
   maps: new Map(),       // mapId -> maps row (parent_zone_id links an interior to its overworld tile)
   furniture: new Map(),  // id -> furniture row (write funnel below keeps it in sync; DB stays SoT)
   regions: new Map(),    // regionId -> regions row (spatial world-map places; member zones carry flags.region_id)
@@ -75,6 +76,7 @@ export async function initWorld() {
   await loadZoneControl();
   await loadOrgAssets();
   await loadOrgVentures();
+  await loadOrgRackets();
   await loadMaps();
   await loadRegions();
   await loadDistrictRegistry();
@@ -972,6 +974,27 @@ export function getOrgVentures(orgId) { return [...world.orgVentures.values()].f
 export function getVentureByVendor(npcId) { return [...world.orgVentures.values()].find(v => v.vendor_id === npcId) || null; }
 export function removeVentureFromCache(zoneId) { world.orgVentures.delete(zoneId); }
 
+// ─── Corp rackets (protection) ───────────────────────────────────────────────
+// world.orgRackets: npcId -> org_rackets row (one racket per shopkeeper). Keyed
+// by npc_id rather than zone because the read that matters is on the vendor buy
+// hot path — getRacket(npcId) must be O(1), not a scan (contrast
+// getVentureByVendor, which is off the hot path and can afford one).
+// Corp commands write DB then reloadRacket(npcId). DB stays SoT.
+async function loadOrgRackets() {
+  world.orgRackets.clear();
+  const { rows } = await query('SELECT * FROM org_rackets').catch(() => ({ rows: [] }));
+  for (const r of rows) world.orgRackets.set(r.npc_id, r);
+}
+export async function reloadRacket(npcId) {
+  const { rows } = await query('SELECT * FROM org_rackets WHERE npc_id=$1', [npcId]);
+  if (rows.length) world.orgRackets.set(npcId, rows[0]); else world.orgRackets.delete(npcId);
+  return rows[0] || null;
+}
+export function getRacket(npcId) { return world.orgRackets.get(npcId) || null; }
+export function getAllRackets() { return [...world.orgRackets.values()]; }
+export function getOrgRackets(orgId) { return [...world.orgRackets.values()].filter(r => r.org_id === orgId); }
+export function removeRacketFromCache(npcId) { world.orgRackets.delete(npcId); }
+
 export function getZone(id) { return world.zones.get(id) || null; }
 
 // ── Transient zones (docs/systems-overland-void-travel.md) ───────────────────
@@ -1227,6 +1250,9 @@ export function getZoneEnemies(zoneId) {
   if (!z) return [];
   return [...z.enemies].map(id => world.enemies.get(id)).filter(Boolean);
 }
+
+// One live NPC by id — the npc twin of getZone(). Sync, cache-only.
+export function getNpc(id) { return world.npcs.get(id) || null; }
 
 export function getZoneNpcs(zoneId) {
   const z = world.zones.get(zoneId);

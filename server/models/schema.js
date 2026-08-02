@@ -2188,6 +2188,27 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_org_ventures_org ON org_ventures(org_id);
 
+  -- Protection rackets (corps plugin): a corp leaning on the shopkeepers in a
+  -- zone it controls. One racket per shop (UNIQUE npc_id) — a rival can't move in
+  -- while the shop is still afraid of somebody else.
+  --
+  -- fear is stored AS OF last_leaned_at and NEVER decayed by a write: the
+  -- current value is a pure function of elapsed time, computed on read by
+  -- fearNow() in plugins/corps/rackets.js (the player_npc_relations pattern --
+  -- see server/engine/relations.js). No decay tick, restart-proof, and correct
+  -- for a corp that logged off for a month.
+  CREATE TABLE IF NOT EXISTS org_rackets (
+    id             TEXT PRIMARY KEY,
+    org_id         TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    npc_id         TEXT NOT NULL REFERENCES npcs(id) ON DELETE CASCADE,
+    zone_id        TEXT NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
+    fear           REAL NOT NULL DEFAULT 0,     -- as of last_leaned_at; decayed on read
+    last_leaned_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW()),
+    established_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    UNIQUE (npc_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_org_rackets_org ON org_rackets(org_id);
+
   -- ── Jail system (jail plugin) ──────────────────────────────────────────────
   -- Runtime tables: schema is exported, rows are not. Written by plugins/jail.
   -- A jailed player's legal gear is snapshotted into held_items (JSONB array of
@@ -2584,6 +2605,27 @@ export const SCHEMA_SQL = `
     day_index INTEGER,
     created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
+  -- Per-letter colour and weight, as RUNS ([{n,c,f}]) rather than markup. The text
+  -- column keeps its contract untouched — escaped on the way in, stored escaped —
+  -- and style rides alongside it as data that can only ever hold a validated
+  -- #rrggbb and a four-bit flag, so there is no markup in a room description to
+  -- parse and none to get wrong. NULL is an ordinary unstyled tag.
+  ALTER TABLE zone_graffiti ADD COLUMN IF NOT EXISTS style JSONB;
+
+  -- Saved sprays (graffiti plugin): a player's own designs, kept off the wall. The
+  -- spray-can dialog is a design tool, and a design you can't put away is one you
+  -- only ever make once — this is where "load" comes from. Same {text, style} pair
+  -- as the wall, so a saved spray and a sprayed tag are the same object in two
+  -- places. Per-player and capped in code (SAVE_CAP). Runtime data, never content.
+  CREATE TABLE IF NOT EXISTS player_sprays (
+    id SERIAL PRIMARY KEY,
+    player_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    text TEXT NOT NULL,
+    style JSONB,
+    created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+  CREATE INDEX IF NOT EXISTS idx_player_sprays_player ON player_sprays(player_id);
 
   -- Economy ledger (economy-ledger plugin): append-only record of every credit
   -- mutation that flows through economy.js adjustCredits, keyed by a short
