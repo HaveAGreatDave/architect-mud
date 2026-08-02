@@ -1,9 +1,10 @@
 {
   "description": "A card machine surrounded by coiled cable and price-gunned solder spools. Somebody has stuck a hand-lettered note on it: NO, IT DOESNT TAKE TRADE-INS.",
   "flags": {
-    "vends_packs": 1,
+    "click_cmd": "buypack",
     "interactions": [],
-    "notable": true
+    "notable": true,
+    "vends_packs": 1
   },
   "hp": null,
   "hp_max": null,

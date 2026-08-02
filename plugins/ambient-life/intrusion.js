@@ -24,6 +24,7 @@ import { isDwellingZone } from '../../server/engine/zone-tags.js';
 import { getBroadcast, sendToZone } from '../../server/engine/messaging.js';
 import { playerControlsApt } from '../../server/engine/apartments.js';
 import { isNpcAsleep, disturbSleeper } from '../../server/engine/ai-behaviour.js';
+import { belongsHere, scheduleEscort, wayOutOf } from './eviction.js';
 
 const COOLDOWN_MS = 3 * 60_000;   // per zone — pacing back and forth isn't three scenes
 const lastReaction = new Map();   // zoneId → ts
@@ -95,6 +96,16 @@ on('zone.entered', ({ actor, zone }) => {
     const admin = ['admin', 'dev'].includes(actor.role);
     const line = rand(admin ? ADMIN_LINES : INTRUDER_LINES).replace(/\{npc\}/g, npc.name);
     sendToZone(zone, { type: 'zone_event', message: line });
+
+    // …and then they mean it. The challenge above used to be the whole reaction,
+    // which made a householder's territory a line of text you could stand in
+    // forever. `eviction.js` gives the words a consequence: still here when the
+    // grace lapses and you're walked out to the hall. Admins are exempt (they're
+    // not challenged in the first place), and so is anyone the resident already
+    // counts as a friend — belongsHere is the single answer to "who belongs".
+    if (!admin && !belongsHere(actor, npc, zone)) {
+      scheduleEscort(npc, actor, zone, wayOutOf(zone));
+    }
   } catch (e) {
     console.error('[ambient-life] intrusion:', e.message);
   }

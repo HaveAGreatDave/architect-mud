@@ -526,6 +526,38 @@ way in. That's what keeps a privacy latch meaningful. Covered in
 [plugins/doors/regress.js](../plugins/doors/regress.js), which asserts both layers: the raw registry
 still refuses, and `checkLockAuth` grants anyway.
 
+### NPC lock-up never traps anybody (as built)
+
+An NPC securing its `home_zone` on arrival, or shutting up shop on leaving `work_zone_id`
+([ai-behaviour.js](../server/engine/ai-behaviour.js) `moveEntity`), is the **only lock in the game that
+engages with nobody's hand on it** — so it is the only one that can close on a player who never touched
+it. Three rules, all in `moveEntity` + the `engine:door-lock` gate:
+
+1. **A manual bolt is never auto-engaged** (`npcAutoLockable` — every lock tag on the door must be
+   `lockTypePassesWhileLocked`). A `privacylock` has to be slid open by hand from the inside, which is
+   the worst possible lock to throw on a room somebody may be standing in — and it is the **bathroom**
+   lock: every ensuite and washroom door in the world carries it, so a resident walking home past their
+   own ensuite used to bolt the toilet shut behind them.
+2. **The lock records which side is indoors** (`door._autoLockedInside`, runtime-only like every other
+   door field). The move gate lets a player walk **out** through it and never **in** — a customer caught
+   in a shop as it closed leaves; the closed sign still means closed.
+3. **Residents come and go freely.** NPCs by the existing `ownsThisDoor`/`residentOfThisBuilding` tests;
+   players by `isResidentOf(player, getBuildingName(insideZone))` in the same gate.
+
+**The NPC ejects you rather than locking you in.** The engine emits **`npc.lockup`**
+(`{ npc, reason: 'shop'|'home', insideZoneId, outsideZoneId, door }`) at both sites and stops there —
+the eviction itself is [plugins/ambient-life/eviction.js](../plugins/ambient-life/eviction.js), which
+warns anyone who doesn't belong and escorts them out through `cmdMove` after a grace period (the same
+seam `shove` uses). `belongsHere` is its single answer to who stays: admins, the tenant/owner, any
+resident of the building, a `familiar`+ regular of that NPC, and anyone the NPC is fighting. The
+`_autoLockedInside` marker above is the safety net *underneath* that, not the plan.
+
+Any deliberate hand on the lock afterwards (`updateDoor`, the apartment lock command) **clears the
+marker** — once a person has locked that door it is their lock, and the walk-out-anyway leniency ends.
+This is deliberately *not* a general "you can always leave" law: a jail cell, a vault and a privacy
+bolt are locks somebody meant to hold you, and they still do. Covered in
+[tests/regress.js](../tests/regress.js).
+
 ### Privacy lock (`privacylock`)
 
 A bathroom-stall bolt. Its `authFn` is purely positional: **anyone standing on the door's `privacySide` can lock *and* unlock it**; the far side is shut out while it's occupied. `privacySide` (a zone id, stored on the lock tag) is resolved when the lock is placed — `detectBathroomSide(door)` in [doors.js](../server/engine/commands/doors.js) picks whichever side holds a `toilet` furniture (so "connects to a bathroom" ⇒ unlock from the bathroom side). When **neither** side (or **both**) has a toilet the save is rejected and the builder must set the side explicitly via the door editor's **lock-side switch** ([zone-subeditors.js](../client/devpanel/js/panels/zone-subeditors.js), resolved server-side in `apiUpdateDoor`). Not hackable (no `canHack`); bashing the door is the only forced entry. A `schedule('10m')` sweep in the doors plugin springs every engaged privacy lock — a courtesy release so a player who fell asleep in a public stall doesn't seal it forever.

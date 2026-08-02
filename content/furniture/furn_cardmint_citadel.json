@@ -2,6 +2,7 @@
   "description": "A brass-cased press set into the marble beside the cash terminals, small enough to miss and loud enough not to. A card slot, a camera lens the size of a coin, and a plate that reads STRIKE YOUR OWN. Whatever it takes a picture of, it never gives back.",
   "flags": {
     "card_mint": true,
+    "click_cmd": "mint",
     "interactions": [],
     "notable": true
   },

@@ -145,6 +145,32 @@ A node MAY author `text_by_relation`:
 
 When a tier is missing, the renderer does **not** fall straight to default: it walks **toward neutral** (`stranger`) and takes the first authored line on the way.
 
+### The introduction they only get to make once — `first`
+
+One key in that map is **not a tier**. `first` plays on the single render where this player and this NPC have no history at all:
+
+```json
+{
+  "text": "He clocks you over the top of a crate. \"What do you need.\"",
+  "text_by_relation": {
+    "first": "\"Name's Grady. Folks call me Two-Cell.\"",
+    "known": "\"You again.\" He almost sounds pleased about it."
+  }
+}
+```
+
+**`first` and `stranger` are different questions, and that's the whole point.** `stranger` isn't "we've just met" — it's "hasn't talked to me three times yet", and it repeats for several visits. So the name-and-nickname line goes in `first`, and the node's ordinary `text` becomes the **every-day greeting** an NPC gives someone they don't know yet.
+
+It costs nothing because `touchRelation` is already called **after** the text is chosen ([dialogue.js](../server/engine/dialogue.js), `renderDialogueNode`) — the conversation that introduces you still sees `met_at === 0`. No flag, no bookkeeping, and an NPC with no `first` line behaves exactly as before.
+
+One edge: any relation accrual creates the row, so a player who *buys* from a vendor before ever opening their root node has spent the introduction. In practice a vendor's shop opens through the root node, so talking comes first.
+
+**Author it for every NPC with anything to introduce** — a name, a nickname, a trade, a reason they're standing there. The pattern is worth asking about explicitly whenever a new dialogue tree is designed.
+
+- **`first`** — the one-time introduction.
+- **`text`** — what they say every day before they know you.
+- **`known` / `familiar` / `close`** — what they say once you're a regular.
+
 - An NPC with only a `close` line still reads as authored at `familiar`.
 - An NPC with only a `wary` line still reads as authored at `hostile`.
 - **A hostile player never inherits the line written for a friend** — which is why the walk goes toward neutral rather than simply down the ladder.

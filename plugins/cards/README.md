@@ -54,9 +54,11 @@ stays true on a young pool.
 ## Buying and opening are two acts
 
 `buypack` does **not** transact. It returns `cardmach_panel` and the client opens the machine's face
-(`client/game/js/panels/cardpack.js`) — an ATM-shaped terminal on the shared minigame chassis, with a
-lit product window, an odds board drawn from the **live pool**, your balance, and a tray that lights
-when you're carrying unopened sleeves. Its buttons send the ordinary verbs (`buypack confirm`,
+(`client/game/js/panels/cardpack.js`) — a **vending cabinet**, deliberately not the shared minigame
+CRT chassis: a lit marquee, product on coils behind glass, no scanlines (there is no tube in it), an
+odds board drawn from the **live pool**, your balance, and a delivery flap that takes the hit when a
+sleeve drops. Clicking the machine in the room list opens this face directly (`flags.click_cmd`), so
+`examine` no longer redraws the cabinet in the log — it leaves one line and the way in. Its buttons send the ordinary verbs (`buypack confirm`,
 `openpack`); nothing in the panel decides anything, so a typed command and a clicked button take the
 identical server path.
 

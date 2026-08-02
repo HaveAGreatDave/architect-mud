@@ -16,7 +16,7 @@ import { forceStand } from '../posture.js';
 import { isSneaking } from '../stealth.js';
 import { isDreamZone, pushDreamFx } from '../dreamscape.js';
 import { registerMoveGate, runMoveGates } from '../movement-gates.js';
-import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
+import { doorGuardsOnlyUnownedApartment, isResidentOf, getBuildingName } from '../apartments.js';
 import { createSelectionState, getSelectionState, formatSelectionPage } from '../sift.js';
 import { districtFor } from '../districts.js';
 import { getFlag, setFlag } from '../flags.js';
@@ -54,9 +54,32 @@ const WINDED_DURATION_MS = 30000;
 // zone instead (door to <exterior/interior zone name>). Cardinal directions keep
 // the natural "the door to the north" phrasing.
 const NAMED_LOCK_DIRS = new Set(['in', 'out', 'exit']);
-registerMoveGate(async ({ player, direction, door, to }) => {
+
+// Egress-and-residents rule for a door an NPC locked by itself. `from` is the zone
+// being LEFT, which after the facade swap is still the real origin — so a customer
+// stepping out of a shop's entry room matches even though the door is nominally on
+// the facade seam. Same map counts as the same inside: a back room is still indoors.
+function autoLockLetsThrough(player, door, from) {
+  const inside = door._autoLockedInside;
+  if (!inside || !from) return false;
+  if (from.id === inside) return true;                                   // walking out
+  const insideMap = getZone(inside)?.map_id;
+  if (insideMap && from.map_id === insideMap) return true;               // walking out of a back room
+  const building = getBuildingName(getZone(inside));                     // a resident holds a key
+  return !!building && isResidentOf(player, building);
+}
+registerMoveGate(async ({ player, direction, door, to, from }) => {
   if (!door || door.hp <= 0 || door.lock_state !== 'locked') return;
   if (doorGuardsOnlyUnownedApartment(door)) return; // unrented unit — the lock is vestigial
+  // An NPC's own lock-up (ai-behaviour.js: shopkeeper closing, resident securing
+  // their door) is the one lock nobody chose to put between you and the street,
+  // so it is the one lock that must never trap you. `_autoLockedInside` names the
+  // side that is indoors: you may always walk OUT of it, and a resident of that
+  // building may also walk in. Everyone else reads the closed sign.
+  //
+  // Deliberately not a general "you can always leave" law — a jail cell, a vault
+  // and a privacy bolt are all locks somebody meant to hold you, and they still do.
+  if (door._autoLockedInside && autoLockLetsThrough(player, door, from)) return;
   const lockTag = getLockTagPublic(door);
   if (!lockTag) return; // locked but no lock installed — a data glitch, not a wall; let it pass
   // A manual bolt (privacy latch) never opens while shut, even for the person who

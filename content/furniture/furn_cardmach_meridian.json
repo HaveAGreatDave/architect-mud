@@ -1,9 +1,10 @@
 {
   "description": "A card machine in the lobby, humming under the mailboxes. Somebody has scratched a name into the fascia and then scratched it out again.",
   "flags": {
-    "vends_packs": 1,
+    "click_cmd": "buypack",
     "interactions": [],
-    "notable": true
+    "notable": true,
+    "vends_packs": 1
   },
   "hp": null,
   "hp_max": null,

@@ -2,6 +2,7 @@
   "description": "A records-office press, older than the bank ones and prouder about it. A hand-lettered card taped to the housing reads A CARD IS A RECORD. THE RECORD IS PERMANENT. Somebody has added, in pen, SO ARE YOU.",
   "flags": {
     "card_mint": true,
+    "click_cmd": "mint",
     "interactions": [],
     "notable": true
   },

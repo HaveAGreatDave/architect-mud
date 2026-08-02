@@ -1,9 +1,10 @@
 {
   "description": "A card machine next to the job board, catching everyone who just found out what the work pays.",
   "flags": {
-    "vends_packs": 1,
+    "click_cmd": "buypack",
     "interactions": [],
-    "notable": true
+    "notable": true,
+    "vends_packs": 1
   },
   "hp": null,
   "hp_max": null,

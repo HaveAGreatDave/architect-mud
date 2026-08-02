@@ -510,10 +510,13 @@ function cardFurnitureDescribe(f) {
       + `</span>`;
   }
 
+  // The lit product window used to be drawn HERE, in the log. It isn't any more:
+  // the machine's face is the panel (`flags.click_cmd: buypack` opens it straight
+  // from the room list), so examine leaves one line and the way in. Two drawings
+  // of the same cabinet, one of them scrollable, was one too many.
   if (isMachine) {
     return `<span class="cardmach">`
       + `<span class="cardmach-top"><span class="cardmach-pwr">● PWR</span></span>`
-      + `<span class="cardmach-win">A1 · Foil sleeve <b>₵${PACK_PRICE}</b>\nA2 · Foil sleeve <b>₵${PACK_PRICE}</b>\nA3 · <span class="text-dim">SOLD OUT</span></span>`
       + `<span class="action-link cardmach-buy" data-action="cmd" data-cmd="buypack" title="Step up to the machine">USE MACHINE · ₵${PACK_PRICE} A SLEEVE</span>`
       + `</span>`;
   }

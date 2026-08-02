@@ -1,5 +1,6 @@
 import { world, getLivePlayer, doorOnLink, setDoorCache, getZone, getZonePlayers, getPlayerMembership, isEnterableFacade, frontDoorOf, getMapByParentZone, resolveLanding, updateNpc } from './world.js';
 import { isSanctuary, isDwellingZone } from './zone-tags.js';
+import { lockTypePassesWhileLocked } from './locks.js';
 import { zoneDanger, DANGER_RANK } from './danger.js';
 import { allExits, neighborZoneIds, exitTargets } from './exits.js';
 import { findPath as findPathRaw, getZonesInRadius } from './pathfinding.js';
@@ -12,7 +13,7 @@ import { getShopperForNpc, closeShopSession, didBuyThisSession } from './vendor-
 import { getNpcChitchat } from './npc-personality.js';
 import { setPosture, forceStand } from './posture.js';
 import { npcWashAtHome } from './hygiene.js';
-import { on } from './events.js';
+import { on, emit } from './events.js';
 
 // Breaking contact to flee is a competence check, not a given. An entity's flee
 // skill (`flags.flee_skill`, else its combat `dodge`, else 1) is rolled against a
@@ -24,6 +25,36 @@ const FLEE_DIFFICULTY = 6;
 // tick — otherwise a failed roll spams "can't break away!" several times a second.
 const FLEE_RETRY_MS = 4000;
 const d8 = () => 1 + Math.floor(Math.random() * 8);
+
+// ── NPC lock-up law ──────────────────────────────────────────────────────────
+// An NPC securing a home or shutting up shop is the only lock in the game that
+// engages with nobody's hand on it, which makes it the only one that can shut a
+// door on a player who never touched it. Three rules keep that honest:
+//
+//   1. A MANUAL BOLT IS NEVER AUTO-ENGAGED. A privacy latch (passWhileLocked
+//      false) has to be physically slid open to pass, from the inside, by the
+//      person who set it — exactly the wrong lock to throw on a room somebody
+//      might be standing in. It's also the bathroom lock: every ensuite and
+//      washroom door in the world is `lock:privacylock`, so a resident walking
+//      home past their own ensuite used to bolt the toilet shut behind them.
+//   2. The lock records WHICH SIDE IS INSIDE (`_autoLockedInside`), so the move
+//      gate can let a player walk out of a shop that closed around them. Out,
+//      never in — the closed sign still means closed.
+//   3. Residents come and go freely; that's handled on both sides — NPCs by the
+//      ownsThisDoor/residentOfThisBuilding tests above, players by the same
+//      `_autoLockedInside` marker in the engine:door-lock gate.
+function lockTagsOf(door) {
+  return Object.keys(door?.tags || {}).filter(k => k.startsWith('lock:'));
+}
+// A door an NPC may throw on their own: has a lock, and none of them is a bolt
+// that would have to be undone by hand from the inside.
+function npcAutoLockable(door) {
+  const tags = lockTagsOf(door);
+  return tags.length > 0 && tags.every(t => lockTypePassesWhileLocked(t));
+}
+// Mark/clear the "this lock was engaged by an NPC, and this side is indoors"
+// note. Runtime-only, like every other field on a door.
+function markAutoLock(door, insideZoneId) { door._autoLockedInside = insideZoneId || null; }
 
 // Vendor closing-time farewells — picked when the vendor shuts up shop while a
 // player is mid-session. Warm if they bought, needling if they didn't.
@@ -726,12 +757,17 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
   if (!isEnemy(entity) && entity.home_zone && entity.home_zone === newZoneId && departDir
       && !cameFromOwnSubZone) {
     const homeDoor = doorOnLink(oldZoneId, departDir, newZoneId);
-    if (homeDoor && homeDoor.tags && Object.keys(homeDoor.tags).some(k => k.startsWith('lock:'))) {
+    if (homeDoor && npcAutoLockable(homeDoor)) {
       homeDoor.is_open = 0;
       homeDoor.lock_state = 'locked';
+      markAutoLock(homeDoor, newZoneId);   // the home is the inside — you may always walk back out
       setDoorCache(homeDoor.id, homeDoor);
       broadcast(newZoneId, { type: 'zone_event', message: `The lock clicks as ${entity.name} secures the door.`, refresh: true });
       doorHandled = true;
+      // Somebody who doesn't live here doesn't get locked in with the householder.
+      // The eviction itself is a plugin's business (ambient-life/eviction.js) — the
+      // engine only reports that a door was secured and which side is indoors.
+      emit('npc.lockup', { npc: entity, reason: 'home', insideZoneId: newZoneId, outsideZoneId: oldZoneId, door: homeDoor });
     }
   }
 
@@ -743,10 +779,10 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
     const leavingWork    = oldZoneId === entity.work_zone_id;
     if (arrivingAtWork || leavingWork) {
       const shopDoor = doorOnLink(oldZoneId, departDir, newZoneId);
-      if (shopDoor && shopDoor.hp > 0 &&
-          shopDoor.tags && Object.keys(shopDoor.tags).some(k => k.startsWith('lock:'))) {
+      if (shopDoor && shopDoor.hp > 0 && npcAutoLockable(shopDoor)) {
         if (arrivingAtWork && shopDoor.lock_state === 'locked') {
           shopDoor.lock_state = null;
+          markAutoLock(shopDoor, null);
           setDoorCache(shopDoor.id, shopDoor);
           broadcast(newZoneId, { type: 'zone_event', message: `${entity.name} unlocks the shop and opens up for business.` });
           broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} unlocks the shop.` });
@@ -754,7 +790,9 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
         } else if (leavingWork && shopDoor.lock_state !== 'locked') {
           shopDoor.is_open = 0;
           shopDoor.lock_state = 'locked';
+          markAutoLock(shopDoor, oldZoneId);   // the shop floor is the inside — a customer caught in it can still leave
           setDoorCache(shopDoor.id, shopDoor);
+          emit('npc.lockup', { npc: entity, reason: 'shop', insideZoneId: oldZoneId, outsideZoneId: newZoneId, door: shopDoor });
           broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} pulls the shop door shut and locks it on the way out.`, refresh: true });
           broadcast(newZoneId, { type: 'zone_event', message: `${entity.name} locks up the shop.`, refresh: true });
           doorHandled = true;

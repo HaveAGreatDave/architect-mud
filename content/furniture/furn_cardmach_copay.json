@@ -1,9 +1,10 @@
 {
   "description": "A card machine beside the intake window, its glow the warmest light in the room.",
   "flags": {
-    "vends_packs": 1,
+    "click_cmd": "buypack",
     "interactions": [],
-    "notable": true
+    "notable": true,
+    "vends_packs": 1
   },
   "hp": null,
   "hp_max": null,

@@ -1,9 +1,10 @@
 {
   "description": "A card machine in the precinct lobby. Half the faces in it have been booked in this building.",
   "flags": {
-    "vends_packs": 1,
+    "click_cmd": "buypack",
     "interactions": [],
-    "notable": true
+    "notable": true,
+    "vends_packs": 1
   },
   "hp": null,
   "hp_max": null,

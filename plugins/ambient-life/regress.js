@@ -3,6 +3,7 @@ import { _test } from './index.js';
 
 import { _internals as _home } from './home-life.js';
 import { _intrusion } from './intrusion.js';
+import { _eviction } from './eviction.js';
 import { isDwellingZone } from '../../server/engine/zone-tags.js';
 import { world, getZone, getZoneFurniture } from '../../server/engine/world.js';
 import { isToilet, isShower } from '../bodily/index.js';
@@ -134,5 +135,45 @@ export default async function regress({ run, check }) {
     check('intrusion: an unknown zone yields nobody', residentsOf('zone_nope').length === 0);
     for (const id of ['n_home', 'n_guest', 'n_dead', 'n_optout']) world.npcs.delete(id);
     world.zones.delete(zoneId);
+  }
+
+  // ── …and then they mean it (eviction.js) ──
+  // `belongsHere` is the single answer to "who gets thrown out", asked by the
+  // lock-up escort AND the intrusion escalation, so it's the thing worth pinning.
+  {
+    const { belongsHere, wayOutOf, directionOut, ESCORT, GRACE_MS } = _eviction;
+    const npc = { id: 'npc_evict_test', name: 'Keeper' };
+    const zoneId = 'zone_evict_shop';
+    const hallId = 'zone_evict_hall';
+    const flatId = 'zone_evict_flat';
+    world.zones.set(zoneId, { id: zoneId, name: 'Shop', flags: {}, exits: { south: hallId, north: flatId }, npcs: new Set(), enemies: new Set(), players: new Set() });
+    world.zones.set(hallId, { id: hallId, name: 'Hall', flags: {}, exits: { north: zoneId }, npcs: new Set(), enemies: new Set(), players: new Set() });
+    world.zones.set(flatId, { id: flatId, name: 'Flat', flags: { is_apartment: true }, exits: { south: zoneId }, npcs: new Set(), enemies: new Set(), players: new Set() });
+
+    const stranger = { id: 'p_stranger', handle: 'Stranger', role: 'player', _relations: new Map() };
+    check('evict: a stranger does not belong', belongsHere(stranger, npc, zoneId) === false);
+    check('evict: an admin is never thrown out',
+      belongsHere({ ...stranger, role: 'admin' }, npc, zoneId) === true);
+    // A regular is the relations substrate showing up in a doorway.
+    const regular = { id: 'p_regular', handle: 'Regular', role: 'player',
+      _relations: new Map([[npc.id, { familiarity: 30, warmth: 80 }]]) };
+    check('evict: a regular is walked out, not thrown out', belongsHere(regular, npc, zoneId) === true);
+    const hated = { id: 'p_hated', handle: 'Hated', role: 'player',
+      _relations: new Map([[npc.id, { familiarity: 60, warmth: -80 }]]) };
+    check('evict: knowing you well and hating you is not belonging',
+      belongsHere(hated, npc, zoneId) === false);
+    // An eviction must never be a way to win a fight.
+    check('evict: someone you are fighting is not teleported away',
+      belongsHere({ ...stranger, combatTargetId: npc.id }, npc, zoneId) === true);
+
+    check('evict: the way out prefers a room nobody lives in', wayOutOf(zoneId) === hallId, wayOutOf(zoneId));
+    check('evict: the direction out is the real exit', directionOut(zoneId, hallId) === 'south', directionOut(zoneId, hallId));
+    check('evict: an unlinked pair still resolves to a usable direction',
+      directionOut(zoneId, 'zone_not_linked') === 'out');
+    check('evict: escort lines name both parties',
+      ESCORT.length >= 3 && ESCORT.every(l => l.includes('{npc}') && l.includes('{player}')));
+    check('evict: the grace is long enough to be heeded', GRACE_MS >= 10_000);
+
+    for (const z of [zoneId, hallId, flatId]) world.zones.delete(z);
   }
 }

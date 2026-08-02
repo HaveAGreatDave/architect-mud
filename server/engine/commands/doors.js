@@ -144,6 +144,10 @@ async function updateDoor(door, changes) {
   // and never persisted — doors reset to their authored state on reboot. The
   // apartment lock, however, is durable housing state and still gets mirrored.
   Object.assign(door, changes);
+  // Any deliberate hand on the lock retires the NPC lock-up marker (ai-behaviour.js):
+  // once a person has locked this door, it is their lock, and the walk-out-anyway
+  // leniency the move gate grants an auto-locked shop no longer applies.
+  if (changes.lock_state !== undefined) door._autoLockedInside = null;
   setDoorCache(door.id, door);
   if (changes.lock_state === 'locked' || changes.lock_state === 'unlocked') await syncApartmentLock(door, changes.lock_state);
 }

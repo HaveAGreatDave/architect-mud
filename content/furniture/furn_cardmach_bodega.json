@@ -1,9 +1,10 @@
 {
   "description": "A card machine the colour of a bad bruise, wedged between the cooler and the door. Foil sleeves hang in three columns behind scratched perspex, and one column has been empty long enough that the price card has faded.",
   "flags": {
-    "vends_packs": 1,
+    "click_cmd": "buypack",
     "interactions": [],
-    "notable": true
+    "notable": true,
+    "vends_packs": 1
   },
   "hp": null,
   "hp_max": null,

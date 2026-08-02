@@ -19,6 +19,50 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { emit } from '../../server/engine/events.js';
 import { holdVendorGrudge } from '../../server/engine/vendor-grudge.js';
 import { hackDifficulty, damageHackDeck, breachMargin, hasHackDeck } from '../../server/engine/hack-gear.js';
+import { getEnvironmentState } from '../../server/engine/environment.js';
+import { neighborZoneIds } from '../../server/engine/exits.js';
+import { disturbSleeper, isNpcAsleep } from '../../server/engine/ai-behaviour.js';
+
+// ── The night alarm ──────────────────────────────────────────────────────────
+//
+// A vendor standing over their own safe was, until now, the ONLY thing that made
+// cracking one risky: `vendorHere` forces a witness and the wanted stars follow.
+// Which meant the correct way to rob every safe in the city was to come back at
+// 3am, when the shop is locked, the owner is asleep across town and there is
+// nobody in the room to see it. Perfect information, zero risk, every time.
+//
+// So the safe watches its own shop after dark. The tamper circuit arms when the
+// owner ISN'T standing there and it's dark out — exactly the conditions that
+// made it free — and jacking in trips it: a siren in the room, audible in every
+// adjoining room, sleepers next door on their feet, and the same forced witness
+// a present owner is. It fires at ARM time, not on success, because an alarm you
+// only hear after the money's gone isn't an alarm, it's a receipt.
+//
+// Daylight with the owner out (lunch, a supply run) is deliberately still quiet:
+// that's a burglary you had to time, and timing it is the skill.
+const ALARM_PHASES = new Set(['night', 'dusk']);
+
+function alarmArmed(zoneId, vendorHere) {
+  if (vendorHere) return false;                      // they ARE the alarm
+  return ALARM_PHASES.has(getEnvironmentState().phase);
+}
+
+// Loud enough to carry one room. Anyone asleep next door gets up — a siren going
+// off through the wall is the least ambiguous wake-up in the game.
+function soundAlarm(safe, player, zoneId, broadcast) {
+  broadcast(zoneId, {
+    type: 'zone_event',
+    message: `<span class="text-red">A tamper contact breaks somewhere inside the ${safe.name} and the whole cabinet starts SHRIEKING — a flat electronic howl, loud enough to hurt.</span>`,
+    refresh: true,
+  });
+  for (const neighbourId of neighborZoneIds(getZone(zoneId)) || []) {
+    broadcast(neighbourId, { type: 'zone_event', message: `An alarm goes off nearby — a hard, flat shriek, close enough to feel in your teeth.` });
+    for (const npc of getZoneNpcs(neighbourId) || []) {
+      if (isNpcAsleep(npc)) disturbSleeper(npc, { broadcast, force: true });
+    }
+  }
+  emit('vendor.safeHackWitnessed', { player, zoneId });
+}
 
 // Per-player lockout: Map<playerId, timestampMs>
 const _lockout = new Map();
@@ -101,6 +145,10 @@ async function cmdHack(args, raw, player, broadcast) {
     });
     emit('vendor.safeHackWitnessed', { player, zoneId: player.current_zone });
     await holdVendorGrudge(player, npcId);   // caught in the act — they won't trade with you
+  } else if (alarmArmed(player.current_zone, vendorHere)) {
+    broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} jacks a deck into the ${safe.name} and starts working the dial.` }, player.id);
+    soundAlarm(safe, player, player.current_zone, broadcast);
+    await holdVendorGrudge(player, npcId);   // they come back to a screaming safe and a log with your name on it
   } else {
     broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} jacks a deck into the ${safe.name} and starts working the dial.` }, player.id);
   }
@@ -173,8 +221,27 @@ async function cmdSafeCrackResolve(args, raw, player) {
 // vendor safe advertises it via availableActions. The handler still self-gates
 // (returns undefined when no safe is present) so a hacked hololock door still
 // claims the verb through the doors plugin.
+// Fair warning, and the only warning. A trap the player can't see before they
+// spring it is a gotcha; a red LED on the fascia is a decision. The line reads
+// the SAME condition `alarmArmed` does, so the tell can never disagree with the
+// mechanic — and it goes quiet in daylight, which is the game telling you when
+// to come back.
+export const hooks = {
+  'furniture.describe': (f, player) => {
+    if (!f?.flags?.vendor_safe) return undefined;
+    const zoneId = f.zone_id || player?.current_zone;
+    if (!zoneId) return undefined;
+    const vendorHere = (getZoneNpcs(zoneId) || []).some(n => n.id === f.flags.vendor_npc_id);
+    if (!alarmArmed(zoneId, vendorHere)) return undefined;
+    return `<span class="text-red">A pinhead LED on the fascia is showing red. The tamper circuit is live — this thing is listening for hands after dark.</span>`;
+  },
+};
+
 export const specializedActions = [
   { verb: 'hack', requiredTag: 'vendor_safe', handler: cmdHack },
 ];
 
 export const commands = { safecrackresolve: cmdSafeCrackResolve };
+
+// Test seam.
+export const _test = { alarmArmed, ALARM_PHASES };

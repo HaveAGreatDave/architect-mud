@@ -1,9 +1,10 @@
 {
   "description": "A card machine bolted beside the newsstand, weathered to the colour of the pavement. It has been rained on for years and it still lights up.",
   "flags": {
-    "vends_packs": 1,
+    "click_cmd": "buypack",
     "interactions": [],
-    "notable": true
+    "notable": true,
+    "vends_packs": 1
   },
   "hp": null,
   "hp_max": null,

@@ -112,11 +112,11 @@ export default async function regress({ run, check, getPlayer }) {
 
     await insertFurniture({
       id: FURN_MINT, name: 'test mint', description: 'a test mint terminal', object_type: 'terminal',
-      zone_id: Z, flags: JSON.stringify({ card_mint: true }),
+      zone_id: Z, flags: JSON.stringify({ card_mint: true, click_cmd: 'mint' }),
     }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id');
     await insertFurniture({
       id: FURN_MACH, name: 'test card machine', description: 'a test card machine', object_type: 'fixture',
-      zone_id: Z, flags: JSON.stringify({ vends_packs: 1 }),
+      zone_id: Z, flags: JSON.stringify({ vends_packs: 1, click_cmd: 'buypack' }),
     }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id');
 
     player.current_zone = Z;
@@ -129,10 +129,14 @@ export default async function regress({ run, check, getPlayer }) {
     const look = await run('look');
     check('the machine does not paint a panel into the room description',
       !/cardmach/.test(look?.message || ''), (look?.message || '').slice(0, 160));
-
+    // The click is the way in: every shipped machine carries
+    // `flags.click_cmd: buypack`, so its room-list entry opens the machine's
+    // real face instead of printing a second drawing of the cabinet into the
+    // log. The engine seam itself is covered in tests/regress.js (layer 2) —
+    // this fixture zone isn't in the world map, so `look` can't be read here.
     r = await run('examine test card machine');
-    check('examining the machine opens its product window',
-      /cardmach-win/.test(r?.message || ''), JSON.stringify(r)?.slice(0, 200));
+    check('examining the machine no longer redraws the product window',
+      !/cardmach-win/.test(r?.message || ''), JSON.stringify(r)?.slice(0, 200));
     check('the BUY control sends a verb, not an empty target',
       /data-action="cmd"\s+data-cmd="buypack"/.test(r?.message || '') &&
       !/data-target=""/.test(r?.message || ''), (r?.message || '').slice(0, 300));

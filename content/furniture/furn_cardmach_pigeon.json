@@ -1,9 +1,10 @@
 {
   "description": "A card machine by the toilets, sticky in a way you decide not to investigate. Two of its rows are sold out and nobody has restocked them since.",
   "flags": {
-    "vends_packs": 1,
+    "click_cmd": "buypack",
     "interactions": [],
-    "notable": true
+    "notable": true,
+    "vends_packs": 1
   },
   "hp": null,
   "hp_max": null,

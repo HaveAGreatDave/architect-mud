@@ -1,9 +1,10 @@
 {
   "description": "A card machine by the terminal doors, dusted with the same grit as everything else airside.",
   "flags": {
-    "vends_packs": 1,
+    "click_cmd": "buypack",
     "interactions": [],
-    "notable": true
+    "notable": true,
+    "vends_packs": 1
   },
   "hp": null,
   "hp_max": null,

@@ -2,6 +2,7 @@
   "description": "A civic mint press behind a scratched perspex window, beneath a sign reading SELF-ISSUANCE. There is a queue. There is always a queue. You have come to this building to be officially informed that you exist.",
   "flags": {
     "card_mint": true,
+    "click_cmd": "mint",
     "interactions": [],
     "notable": true
   },

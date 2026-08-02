@@ -240,9 +240,10 @@ nothing, silently; wire a reader first.
 | `trash_bin` | scavenging | searchable trash |
 | `tv` / `tv_dial_freq` / `tv_skin` | broadcast | television set config |
 | `vends` / `vend_line` / `vend_cooldown_s` | vending | dispenser machine: item id to dispense (required), flavour line, per-machine throttle in seconds (default 20; 0 = off) |
-| `vends_packs` | cards | card-pack machine (value = series number). Renders its own lit product window on `examine` (`furniture.describe`), not in the room description; author with `power_draw_kw` so a blackout takes it dark |
+| `vends_packs` | cards | card-pack machine (value = series number). Its FACE is the vending-cabinet panel, opened by the click (`click_cmd: buypack`); `examine` leaves one line and the way in rather than drawing the cabinet a second time in the log. Author with `power_draw_kw` so a blackout takes it dark |
 | `card_mint` | cards | mint terminal — `mint` previews here for free and strikes for ₵2,500; `scrap` eats duplicates here too |
 | `fuel_source` | fillable | a fuel point in this zone that `fill` draws from |
+| `click_cmd` | describe (engine) | the command this piece's CLICK sends, instead of `examine`. For a thing with a face — a card machine, a mint terminal — so clicking it opens that face rather than dumping cabinet art into the log. The verb runs through the ordinary dispatcher and re-checks everything it always did |
 | `woven` | describe (engine) | fold this furniture into the room prose instead of listing it separately (the LIVE tier) |
 | `notable` | describe (engine) | force this piece to stay in the `Furniture:` list even when the classifier would demote it to the scenery clause. The override for a stub-described prop that actually matters |
 | `mundane` | describe (engine) | force this piece into the trailing scenery clause even when it affords verbs. The opposite override; wins over `notable` |

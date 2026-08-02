@@ -270,9 +270,18 @@ is a flag-value gate and the machine has to cue itself in prose. A card machine 
 and that was the wrong seam for this object. A poker table collapses four furniture rows into one
 control and earns its space; a vending machine is a thing you walk up to, and a block of cabinet art
 in every look at every shop that owns one is clutter the player can't dismiss. So the machine lists
-as ordinary furniture, and **`furniture.describe`** renders the lit product window — rows, prices,
-a BUY control — when you examine it. Unpowered, the same block renders dark with the glass
-reflecting the room back: visibly present and visibly useless, rather than silently absent.
+as ordinary furniture, and **`furniture.describe`** renders the machine's line when you examine it.
+Unpowered, that block renders dark with the glass reflecting the room back: visibly present and
+visibly useless, rather than silently absent.
+
+**Revised again: the click opens the panel, and the log stopped drawing the cabinet.** Even scoped to
+examine, the lit product window was a second drawing of a machine whose real face is the panel — and
+the click, being an ordinary furniture click, sent `examine` and printed that second drawing instead
+of opening the first. So the piece carries **`flags.click_cmd: buypack`** (`card_mint` → `mint`),
+a generic engine seam in `describe.js`: any furniture may name the command its own click sends. It is
+content-authored, so the engine learns no plugin's flags, and the verb still runs through the ordinary
+dispatcher. Powered `examine` now leaves one line and the USE control; the product window lives in the
+panel alone.
 
 The control sends its verb through `data-action="cmd" data-cmd="buypack"`. The first cut used
 `data-action="buypack" data-target=""`, and the empty target was fatal — `handleActionLinkClick`
@@ -314,11 +323,17 @@ commons and an uncommon is a slow, funny disappointment, which is a real outcome
 The first cut charged and revealed in one breath off a bare `buypack`. It no longer does, and the
 split is load-bearing in three places:
 
-**The machine is a terminal you stand at.** `buypack` returns `cardmach_panel` and the client opens
-an ATM-shaped face on the shared minigame chassis (`client/game/js/panels/cardpack.js`): lit product
-window, an odds board drawn from the **live pool** (a rank nobody has minted shows as a flat nub
-rather than an advertised chance that cannot pay out), your balance, and a tray that lights when
-you're carrying unopened sleeves. Opening it costs nothing — it is the thing you read the price off.
+**The machine is a cabinet you stand at.** `buypack` returns `cardmach_panel` and the client opens the
+machine's face (`client/game/js/panels/cardpack.js`). It is a **vending cabinet and not the shared
+minigame CRT chassis** — the one device in the game that isn't a screen you read but a box you buy
+something out of, so it gets a lit marquee, product on coils behind real glass, physical pushbuttons
+and a delivery flap, and it gets **no scanlines**, because there is no tube in it and a scanline over
+a shelf of merchandise reads as a bug. It carries an odds board drawn from the **live pool** (a rank
+nobody has minted shows as a flat nub rather than an advertised chance that cannot pay out), your
+balance, and a tray that lights when you're carrying unopened sleeves. The vend animation — coil
+turns, sleeve falls the height of the glass, flap kicks, cabinet shudders — runs **only on the
+server's vend message**, so it is a report of what happened and never a promise: a refused buy shows
+nothing falling. Opening it costs nothing — it is the thing you read the price off.
 Its buttons send the ordinary verbs, so a typed command and a clicked button take the identical
 server path and the panel decides nothing.
 

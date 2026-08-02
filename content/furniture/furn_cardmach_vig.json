@@ -1,9 +1,10 @@
 {
   "description": "A card machine on the casino floor, which is either a joke about gambling or the least subtle thing in the room.",
   "flags": {
-    "vends_packs": 1,
+    "click_cmd": "buypack",
     "interactions": [],
-    "notable": true
+    "notable": true,
+    "vends_packs": 1
   },
   "hp": null,
   "hp_max": null,

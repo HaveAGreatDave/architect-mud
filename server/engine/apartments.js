@@ -632,6 +632,7 @@ export async function cmdLockDoor(player, wantLocked) {
 			// Door lock state is runtime-only (world.doors); apt.is_locked persisted above
 			// is the durable source of truth, reapplied to the door at boot.
 			door.lock_state = newLockState;
+			door._autoLockedInside = null;   // a tenant's own hand on the lock — see doors.js updateDoor
 			setDoorCache(door.id, door);
 		}
 	}

@@ -2,6 +2,7 @@
   "description": "A mint press wedged between two slot banks, housing scratched to hell and lit like a prize. The house takes a picture of you at your best and then keeps it, which is the most honest thing in the building.",
   "flags": {
     "card_mint": true,
+    "click_cmd": "mint",
     "interactions": [],
     "notable": true
   },

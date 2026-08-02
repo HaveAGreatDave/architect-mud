@@ -1,9 +1,10 @@
 {
   "description": "A card machine standing where a second cooler should be. The window is clean, which in this district means somebody bothers.",
   "flags": {
-    "vends_packs": 1,
+    "click_cmd": "buypack",
     "interactions": [],
-    "notable": true
+    "notable": true,
+    "vends_packs": 1
   },
   "hp": null,
   "hp_max": null,

@@ -1,7 +1,9 @@
 {
   "name": "vendor-safe",
   "version": "1.0.0",
-  "description": "Hackable vendor safes — furniture pieces that store a vendor's accumulated sale credits. Crack the combination via the VAULT CRACK dial minigame to drain them.",
+  "description": "Hackable vendor safes — furniture pieces that store a vendor's accumulated sale credits. Crack the combination via the VAULT CRACK dial minigame to drain them. After dark, with the owner absent, the safe's own tamper alarm is armed: jacking in shrieks the room awake and is a forced witness.",
   "commands": ["safecrackresolve"],
-  "specializedActions": ["hack"]
+  "specializedActions": ["hack"],
+  "hooks": ["furniture.describe"],
+  "events": { "consumes": [], "emits": ["vendor.safeHackWitnessed", "hack.success"] }
 }

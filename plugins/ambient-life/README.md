@@ -60,3 +60,37 @@ still has an audience before each line. After any scene a zone rests for `ZONE_C
 - Reads `getEnvironmentState()` for the current day-phase + weather, `world`/`getZonePlayers`
   for witnesses, `propagateSound`/`sendToZone` to emit, `adjustCredits` + hunger/sanity for the
   two interactions. No engine changes — a pure leaf plugin over existing seams.
+
+## Eviction — being told to leave, and then made to
+
+[intrusion.js](intrusion.js) is the words half: a resident challenges a stranger standing in their
+kitchen. It stopped there on purpose, because nothing in the game moved a player and inventing that
+inside a scenery layer would have been a mechanic hiding in the furniture. Two things changed:
+`shove`/`drag` made moving another body an ordinary thing that goes through `cmdMove` like any other
+step, and **NPC lock-up** (see [systems-world.md](../../docs/systems-world.md#npc-lock-up-never-traps-anybody))
+turned a soft problem hard — a shopkeeper who shuts up shop around a browsing player has locked a
+stranger in their stockroom overnight.
+
+[eviction.js](eviction.js) is the consequence. **The NPC ejects you; it never traps you.**
+
+- **`npc.lockup`** (emitted by `moveEntity` when a shop closes or a resident secures their home) —
+  everyone inside who doesn't belong gets one line and, after a 20s grace, an escort out through
+  `cmdMove` (the same `bypassEncumbrance` exemption `shove` uses, so every gate and arrival
+  description runs normally).
+- **the intrusion beat** now schedules the same escort, so a challenge you can stand in forever
+  became a challenge with a deadline.
+
+`belongsHere(player, npc, zone)` is the single answer to *who gets thrown out*, asked by both paths
+and pinned by [regress.js](regress.js):
+
+| Who | Result |
+|---|---|
+| admin/dev | never challenged, never moved |
+| tenant/owner of a unit either side, or any resident of the building | belongs |
+| a **regular** — `familiar`+ with this NPC | belongs; a shop closing tells them, politely |
+| someone the NPC is fighting | left alone — an eviction must never be a way to win a fight |
+| everyone else | warned, then walked out |
+
+No resist roll: a refusal mechanic would let a player stand in a locked shop indefinitely by losing
+rolls, which is the situation the whole file exists to end. The timer re-validates everything (still
+online, still in the room, NPC still there and awake) — a warning is not a scheduled teleport.

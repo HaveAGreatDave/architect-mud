@@ -1,9 +1,10 @@
 {
   "description": "A card machine parked at the end of the arcade row, taking money at a fraction of the noise of everything around it.",
   "flags": {
-    "vends_packs": 1,
+    "click_cmd": "buypack",
     "interactions": [],
-    "notable": true
+    "notable": true,
+    "vends_packs": 1
   },
   "hp": null,
   "hp_max": null,

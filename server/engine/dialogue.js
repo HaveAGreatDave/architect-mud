@@ -51,10 +51,21 @@ registerConditionShape('on_air', (condition, _player, context) => {
 // line still reads as authored at `hostile`. Walking toward neutral (rather
 // than simply down the ladder) is what stops a beloved regular ever picking up
 // the line written for someone the NPC despises.
+//
+// One key is not a tier: `first`. It plays ONCE, on the render where this player
+// and this NPC have no history at all — the introduction an NPC only ever gets
+// to make once ("Folks call me Two-Cell"). It works because `touchRelation` is
+// deliberately called AFTER the text is chosen, so the conversation that
+// introduces you still sees met_at === 0; every later visit falls through to the
+// ordinary tier walk below. `stranger` is therefore the EVERY-DAY greeting for
+// someone who hasn't become a regular yet — the two are different questions and
+// this is the key that separates them.
 function relationVariant(node, npc, player) {
   const byRel = node?.text_by_relation;
   if (!byRel || !npc?.id || !player) return null;
-  const tier = relationTier(getRelation(player, npc.id));
+  const rel = getRelation(player, npc.id);
+  if (byRel.first && !rel.met_at) return byRel.first;
+  const tier = relationTier(rel);
   const neutral = RELATION_TIERS.indexOf('stranger');
   let i = RELATION_TIERS.indexOf(tier);
   const step = i > neutral ? -1 : 1;

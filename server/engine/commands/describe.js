@@ -338,6 +338,23 @@ function lightClick(f, viewer) {
 	};
 }
 
+// A piece can name the command its own click should send, in `flags.click_cmd`.
+// This is how a machine that has a FACE — a card dispenser, a terminal — opens
+// that face on click instead of dumping a block of cabinet art into the log:
+// examine is the wrong verb for a thing you walk up to and press buttons on.
+// Content-authored so the engine learns no plugin's flags; the verb still runs
+// through the ordinary dispatcher and re-checks everything it always did.
+function authoredClick(f) {
+	const cmd = String(f.flags?.click_cmd || "").trim();
+	if (!cmd) return null;
+	return { action: "cmd", cmd, target: f.name, title: `Use ${f.name}` };
+}
+
+// data-cmd rides alongside for an authored click; main.js sends it verbatim.
+function cmdAttr(click) {
+	return click.cmd ? ` data-cmd="${escAttr(click.cmd)}"` : "";
+}
+
 // `data-piece` is the piece's BARE name, emitted whenever the click target isn't
 // it (a light's target is "off desk lamp"). The smart bar builds every other verb
 // for a piece by pasting it onto data-target, and would otherwise offer you
@@ -352,12 +369,12 @@ function pieceAttr(f, click) {
 function furnitureSpan(f, viewer, body, cls) {
 	const verbs = furnitureVerbs(f, viewer);
 	const actionsAttr = verbs.length ? ` data-actions="${verbs.join(" ")}"` : "";
-	const click = lightClick(f, viewer) || {
+	const click = authoredClick(f) || lightClick(f, viewer) || {
 		action: "examine",
 		target: f.name,
 		title: `Examine ${f.name}`,
 	};
-	return `<span class="action-link ${cls}" data-action="${click.action}" data-target="${escAttr(click.target)}"${pieceAttr(f, click)}${actionsAttr} title="${escAttr(click.title)}">${body}</span>`;
+	return `<span class="action-link ${cls}" data-action="${click.action}"${cmdAttr(click)} data-target="${escAttr(click.target)}"${pieceAttr(f, click)}${actionsAttr} title="${escAttr(click.title)}">${body}</span>`;
 }
 
 // The sub-link an attached piece renders as, hanging off its parent's entry. Its
@@ -1282,7 +1299,7 @@ export async function describeZone(zone, player, out = {}) {
 				: "";
 			// A light clicks through to its own switch rather than to examine — see
 			// lightClick. The (on)/(off) tag beside it is what the click acts on.
-			const click = lightClick(f, player) || {
+			const click = authoredClick(f) || lightClick(f, player) || {
 				action: "examine",
 				target: f.name,
 				title: `Examine ${f.name}`,
@@ -1292,7 +1309,7 @@ export async function describeZone(zone, player, out = {}) {
 			const attached = (attachedMap.get(f.id) || [])
 				.map((c) => attachedSpan(c, player))
 				.join("");
-			return `<span class="action-link furniture-link" data-ftype="${f.object_type || "furniture"}" data-action="${click.action}" data-target="${escAttr(click.target)}"${pieceAttr(f, click)}${actionsAttr}${morphAttr} title="${escAttr(click.title)}">${label}</span>${stateTag}${attached}`;
+			return `<span class="action-link furniture-link" data-ftype="${f.object_type || "furniture"}" data-action="${click.action}"${cmdAttr(click)} data-target="${escAttr(click.target)}"${pieceAttr(f, click)}${actionsAttr}${morphAttr} title="${escAttr(click.title)}">${label}</span>${stateTag}${attached}`;
 		});
 		desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(", ")}`;
 	}

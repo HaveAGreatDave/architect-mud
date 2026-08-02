@@ -190,6 +190,12 @@ text: "State your business.",
 text_by_relation: { known: "You again. Sit.", close: ["Door's always open for you."] }
 ```
 
+**Plus one key that isn't a tier: `first`** — the introduction an NPC only ever gets to make once,
+played on the single render where the player has no history with them at all. Use it for the
+name/nickname/trade line, and let the node's ordinary `text` be the **every-day** greeting for
+someone who isn't a regular yet (`stranger` is *not* "first meeting" — it repeats for several
+visits). See [systems-relationships.md](systems-relationships.md#the-introduction-they-only-get-to-make-once--first).
+
 **Nothing is required and everything falls back.** An unauthored node, an unauthored tier, or a
 player this NPC has never met all land on the node's ordinary `text` — which is why the substrate
 shipped across every existing NPC without editing one tree. A missing tier walks *toward neutral*

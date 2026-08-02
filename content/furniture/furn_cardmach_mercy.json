@@ -1,9 +1,10 @@
 {
   "description": "A card machine in the waiting room, positioned exactly where a person with nothing to do will end up looking.",
   "flags": {
-    "vends_packs": 1,
+    "click_cmd": "buypack",
     "interactions": [],
-    "notable": true
+    "notable": true,
+    "vends_packs": 1
   },
   "hp": null,
   "hp_max": null,

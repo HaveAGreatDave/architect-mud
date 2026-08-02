@@ -2,6 +2,7 @@
   "description": "A mint press bolted between two rows of deposit boxes, on the theory that anyone already storing valuables might like to become one. The plate is polished; the queue rail in front of it is not.",
   "flags": {
     "card_mint": true,
+    "click_cmd": "mint",
     "interactions": [],
     "notable": true
   },

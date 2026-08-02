@@ -1,11 +1,12 @@
 // CARD MACHINE + PACK OPENING — the vending terminal and the foil-tear reveal.
 //
 // Two overlays, deliberately separate, because they are two different moments.
-// The MACHINE is a thing you stand in front of and press buttons on: an ATM-shaped
-// terminal with a lit product window, an odds board and your balance, modelled on
-// #atm-box through the shared minigame chassis so it reads as the same class of
-// hardware. The REVEAL is a thing that happens to you: fullscreen, no chrome, no
-// controls but "next".
+// The MACHINE is a thing you stand in front of and press buttons on — and it is
+// deliberately NOT the shared minigame CRT chassis every other device in the game
+// wears. A card machine is a vending cabinet: a lit marquee, product on coils
+// behind real glass, an odds board, and a delivery flap that gets hit. No
+// scanlines, because there is no tube in it. The REVEAL is a thing that happens
+// to you: fullscreen, no chrome, no controls but "next".
 //
 // THE RULE THIS MODULE IS BUILT AROUND: the client decides nothing. Every card,
 // its rarity, whether it's a dupe and the fully-rendered face all arrive from the
@@ -19,7 +20,7 @@
 // costs the player nothing but the show.
 import { sendCmd, sendCmdSilent } from '../net.js';
 import { refreshInventory } from './inventory-state.js';
-import { sfx, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays } from './minigame-common.js';
+import { sfx, esc, mountOverlay } from './minigame-common.js';
 
 // ── the rarity ladder, as presentation ────────────────────────────────────────
 // One table drives colour, ray count, screen flash, the pre-flip HOLD and the
@@ -215,38 +216,131 @@ function ensurePackStyles() {
   .cp-btn.primary { color:#04121a; background:linear-gradient(180deg,#7fe8ff,#37a8d8); border-color:#9ff0ff; font-weight:700; }
   .cp-btn:disabled { opacity:.4; cursor:not-allowed; box-shadow:none; }
 
-  /* ── the machine terminal ─────────────────────────────────────────────── */
+  /* ── the machine: a VENDING CABINET, not a terminal ───────────────────────
+     Deliberately NOT the shared minigame CRT chassis. Every other device in the
+     game is a screen you read; this one is a box you buy something out of, and
+     the whole appeal of a card machine is watching the sleeve fall. So: painted
+     steel, a lit marquee, product on real coils behind glass, and a delivery
+     flap that gets hit. No scanlines — there is no tube here, the glass is
+     glass, and a scanline over a shelf of merchandise reads as a bug. */
   #cardmach-overlay { position:fixed; inset:0; z-index:9100; display:flex; align-items:center; justify-content:center;
-    background:rgba(3,6,10,0.78); backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px);
-    font-family:'Courier New', monospace; }
-  #cardmach-overlay .cm-box { --mg-accent:#7fe8ff; --mg-base:#0d151d; width:min(94vw,470px); padding:0 0 14px;
-    background:linear-gradient(180deg,#182633,#0d151d 42%,#080d13); }
-  #cardmach-overlay .mg-bezel { margin:12px; }
-  .cm-screen { position:relative; min-height:170px; padding:14px 16px; overflow:hidden;
-    background:radial-gradient(ellipse at 50% 0%, #0b2530, #04101a 75%); color:#7fe8ff; font-size:12px; line-height:1.6; }
-  .cm-slots { display:flex; gap:8px; margin-bottom:12px; }
-  .cm-slot { flex:1; text-align:center; padding:10px 4px; border:1px solid rgba(127,232,255,0.3); border-radius:4px;
-    background:linear-gradient(180deg, rgba(127,232,255,0.09), transparent); }
-  .cm-slot.sold { opacity:.32; border-style:dashed; }
-  .cm-slot-id { font-size:9px; letter-spacing:2px; color:rgba(127,232,255,0.65); }
-  .cm-slot-art { font-size:22px; margin:3px 0; }
-  .cm-slot-price { font-size:11px; color:#fff; }
-  .cm-odds { display:flex; gap:4px; margin:10px 0 4px; align-items:flex-end; height:34px; }
-  .cm-odd { flex:1; text-align:center; }
-  .cm-odd-bar { height:22px; display:flex; align-items:flex-end; justify-content:center; }
-  .cm-odd-bar i { display:block; width:70%; border-radius:1px 1px 0 0; background:var(--c,#8b98a8);
+    background:radial-gradient(ellipse at 50% 40%, rgba(10,16,24,0.72), rgba(2,4,7,0.9) 72%);
+    backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px);
+    font-family:'Courier New', monospace; user-select:none; }
+
+  .vm-cab { position:relative; width:min(94vw,430px); border-radius:14px 14px 8px 8px; padding:0 0 12px;
+    background:linear-gradient(100deg,#1d2b3a 0%,#16222e 22%,#101a24 55%,#16222e 88%,#0b1219 100%);
+    box-shadow:0 26px 70px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.09),
+      inset 0 0 0 1px rgba(0,0,0,0.6), 0 0 46px rgba(90,190,240,0.14);
+    border:1px solid #05070a; }
+  .vm-cab.shake { animation:vm-shake .42s cubic-bezier(.36,.07,.19,.97); }
+  @keyframes vm-shake { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-3px,2px)}
+    35%{transform:translate(3px,-2px)} 55%{transform:translate(-2px,1px)} 78%{transform:translate(2px,0)} }
+
+  /* Lit marquee across the crown — the chaser bulbs are the machine's pulse. */
+  .vm-marquee { position:relative; display:flex; align-items:center; gap:10px; padding:10px 12px 9px;
+    border-radius:13px 13px 0 0; overflow:hidden;
+    background:linear-gradient(180deg,#2a1140,#3c1055 46%,#1b0a2c);
+    box-shadow:inset 0 -3px 8px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.12); }
+  .vm-marquee::after { content:''; position:absolute; inset:0; pointer-events:none;
+    background:repeating-linear-gradient(90deg, rgba(255,210,120,0.85) 0 4px, transparent 4px 22px);
+    height:3px; top:auto; bottom:0; animation:vm-chase 1.1s linear infinite; opacity:.75; }
+  @keyframes vm-chase { to { background-position:22px 0 } }
+  .vm-logo { font-size:19px; color:#ffd27a; text-shadow:0 0 14px rgba(255,190,90,0.85); animation:vm-buzz 4s ease-in-out infinite; }
+  @keyframes vm-buzz { 0%,88%,100%{opacity:1} 90%{opacity:.35} 92%{opacity:1} 94%{opacity:.5} }
+  .vm-names { flex:1; line-height:1.2; }
+  .vm-brand { font-size:14px; font-weight:700; letter-spacing:4px; color:#ffe9c0; text-shadow:0 0 10px rgba(255,180,70,0.6); }
+  .vm-model { font-size:8px; letter-spacing:3px; color:rgba(255,220,180,0.55); margin-top:3px; }
+  .vm-x { background:none; border:none; color:#d9b98a; font-family:inherit; font-size:14px; cursor:pointer;
+    padding:0 2px; line-height:1; }
+  .vm-x:hover { color:#ff6b6b; }
+
+  .vm-body { display:flex; gap:10px; padding:12px; }
+
+  /* The glass. A real window: sealed frame, product inside, one raked sheen. */
+  .vm-glass { position:relative; flex:1; min-height:214px; border-radius:6px; overflow:hidden; padding:10px 9px;
+    background:linear-gradient(180deg,#071019,#040a10 60%,#02060a);
+    box-shadow:inset 0 0 0 3px #0a1119, inset 0 0 0 4px rgba(150,220,255,0.10),
+      inset 0 18px 34px rgba(0,0,0,0.75); }
+  .vm-glass::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:6;
+    background:linear-gradient(112deg, transparent 0 34%, rgba(200,235,255,0.13) 40%, rgba(200,235,255,0.04) 46%, transparent 56%); }
+  .vm-shelf { display:flex; gap:7px; margin-bottom:9px; }
+  .vm-shelf:last-of-type { margin-bottom:0; }
+  .vm-slotwrap { flex:1; text-align:center; }
+  .vm-code { font-size:7px; letter-spacing:2px; color:#4c6274; margin-bottom:3px; }
+  /* The product: a foil sleeve stood on end, holo-swept like the real one. */
+  .vm-sleeve { position:relative; height:44px; border-radius:3px; overflow:hidden;
+    background:linear-gradient(150deg,#12212e,#2a5f7a 26%,#7fd8e8 42%,#123044 62%,#6b52a8 82%,#101a2a);
+    box-shadow:0 3px 7px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(255,255,255,0.18); }
+  .vm-sleeve::after { content:''; position:absolute; inset:-60%;
+    background:linear-gradient(74deg, transparent 40%, rgba(255,255,255,0.6) 49%, transparent 58%);
+    animation:cp-holo 3.2s linear infinite; mix-blend-mode:overlay; }
+  .vm-sleeve i { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-style:normal; font-size:15px; color:#eaf6ff; text-shadow:0 1px 5px rgba(0,0,0,0.9); z-index:2; }
+  .vm-slotwrap.out .vm-sleeve { background:#0a1219; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06); }
+  .vm-slotwrap.out .vm-sleeve::after, .vm-slotwrap.out .vm-sleeve i { display:none; }
+  /* The coil the sleeve sits on. It turns when the machine vends. */
+  .vm-coil { height:9px; margin-top:2px;
+    background:repeating-linear-gradient(72deg, #7c8b99 0 2px, #303c47 2px 6px);
+    border-radius:0 0 3px 3px; box-shadow:inset 0 -2px 4px rgba(0,0,0,0.7); }
+  .vm-slotwrap.turning .vm-coil { animation:vm-coil .55s linear 2; }
+  @keyframes vm-coil { to { background-position:22px 0 } }
+  .vm-tag { font-size:8px; letter-spacing:1px; color:#9fd8ff; margin-top:3px; }
+  .vm-slotwrap.out .vm-tag { color:#54646f; }
+
+  /* The falling sleeve — one node, reused, animated down the glass into the flap. */
+  .vm-drop { position:absolute; z-index:5; width:52px; height:44px; border-radius:3px; opacity:0; pointer-events:none;
+    background:linear-gradient(150deg,#12212e,#2a5f7a 26%,#7fd8e8 42%,#123044 62%,#6b52a8 82%,#101a2a);
+    box-shadow:0 6px 16px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(255,255,255,0.2); }
+  .vm-drop.fall { animation:vm-fall 1.05s cubic-bezier(.45,.05,.6,1) forwards; }
+  @keyframes vm-fall {
+    0%   { opacity:1; transform:translate(0,0) rotate(0deg) }
+    18%  { opacity:1; transform:translate(6px,10px) rotate(9deg) }
+    62%  { opacity:1; transform:translate(-4px,150px) rotate(-24deg) }
+    76%  { opacity:1; transform:translate(0,178px) rotate(-8deg) }
+    86%  { opacity:1; transform:translate(2px,164px) rotate(4deg) }
+    100% { opacity:0; transform:translate(0,190px) rotate(0deg) }
+  }
+
+  /* Right-hand control column: price plate, odds board, balance, buttons. */
+  .vm-side { width:126px; display:flex; flex-direction:column; gap:8px; }
+  .vm-plate { padding:7px 8px; border-radius:4px; text-align:center;
+    background:linear-gradient(180deg,#0f1720,#080d13); box-shadow:inset 0 1px 0 rgba(255,255,255,0.06), inset 0 -2px 5px rgba(0,0,0,0.7); }
+  .vm-plate-lbl { font-size:7px; letter-spacing:2px; color:#5d7d8d; }
+  .vm-plate-val { font-size:17px; color:#9ff0ff; text-shadow:0 0 12px rgba(90,220,255,0.6); }
+  .vm-odds { display:flex; gap:3px; align-items:flex-end; height:36px; padding:0 2px; }
+  .vm-odd { flex:1; text-align:center; }
+  .vm-odd-bar { height:24px; display:flex; align-items:flex-end; justify-content:center; }
+  .vm-odd-bar i { display:block; width:74%; border-radius:1px 1px 0 0; background:var(--c,#8b98a8);
     box-shadow:0 0 8px var(--c,#8b98a8); }
-  .cm-odd-lbl { font-size:8px; letter-spacing:1px; color:#5d7d8d; margin-top:3px; }
-  .cm-rows { border-top:1px solid rgba(127,232,255,0.2); margin-top:8px; padding-top:8px; }
-  .cm-row { display:flex; justify-content:space-between; }
-  .cm-row b { color:#fff; }
-  .cm-deck { display:flex; gap:9px; padding:0 16px; }
-  .cm-deck .cp-btn { flex:1; }
-  .cm-tray { margin:10px 16px 0; height:26px; border-radius:3px;
-    background:linear-gradient(180deg,#05080c,#0d141b); box-shadow:inset 0 3px 9px rgba(0,0,0,0.9);
-    display:flex; align-items:center; justify-content:center; font-size:9px; letter-spacing:3px; color:#3d4d5d; }
-  .cm-tray.loaded { color:#7fe8ff; text-shadow:0 0 10px rgba(127,232,255,0.7); animation:cp-blink 1.6s ease-in-out infinite; }
-  .cm-dead { color:#5d6d7d; text-align:center; padding:34px 10px; letter-spacing:2px; }
+  .vm-odd-lbl { font-size:7px; letter-spacing:1px; color:#5d7d8d; margin-top:3px; }
+  .vm-note { font-size:8px; letter-spacing:1px; color:#5d7d8d; text-align:center; }
+  /* Physical pushbuttons — they travel when pressed. */
+  .vm-btn { font-family:inherit; font-size:10px; letter-spacing:2px; padding:9px 6px; cursor:pointer; border-radius:5px;
+    color:#a9c4d8; border:1px solid rgba(120,190,240,0.3);
+    background:linear-gradient(180deg,#1a2937,#0c1219); box-shadow:0 3px 0 #05080c, inset 0 1px 0 rgba(255,255,255,0.08);
+    transition:transform .06s, box-shadow .06s; }
+  .vm-btn:hover:not(:disabled) { color:#eaf6ff; border-color:rgba(160,225,255,0.75); }
+  .vm-btn:active:not(:disabled) { transform:translateY(3px); box-shadow:0 0 0 #05080c, inset 0 1px 0 rgba(255,255,255,0.08); }
+  .vm-btn.primary { color:#04121a; background:linear-gradient(180deg,#7fe8ff,#37a8d8); border-color:#9ff0ff; font-weight:700;
+    box-shadow:0 3px 0 #145a75, inset 0 1px 0 rgba(255,255,255,0.5); }
+  .vm-btn.primary:active:not(:disabled) { box-shadow:0 0 0 #145a75, inset 0 1px 0 rgba(255,255,255,0.5); }
+  .vm-btn:disabled { opacity:.38; cursor:not-allowed; }
+
+  /* The delivery flap. It gets HIT — the kick is what sells the vend. */
+  .vm-hatch { margin:0 12px; border-radius:5px; padding:5px;
+    background:linear-gradient(180deg,#0e151c,#070b10); box-shadow:inset 0 2px 6px rgba(0,0,0,0.9); }
+  .vm-flap { height:34px; border-radius:3px; display:flex; align-items:center; justify-content:center;
+    font-size:8px; letter-spacing:3px; color:#4a5a68; transform-origin:50% 0%;
+    background:linear-gradient(180deg,#131c25,#080e14 70%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -8px 14px rgba(0,0,0,0.85); }
+  .vm-flap.kick { animation:vm-kick .5s ease-out; }
+  @keyframes vm-kick { 0%{transform:rotateX(0)} 30%{transform:rotateX(52deg)} 60%{transform:rotateX(-8deg)} 100%{transform:rotateX(0)} }
+  .vm-tray { margin:8px 12px 0; height:24px; border-radius:3px; display:flex; align-items:center; justify-content:center;
+    font-size:8px; letter-spacing:3px; color:#3d4d5d;
+    background:linear-gradient(180deg,#05080c,#0d141b); box-shadow:inset 0 3px 9px rgba(0,0,0,0.9); }
+  .vm-tray.loaded { color:#7fe8ff; text-shadow:0 0 10px rgba(127,232,255,0.7); animation:cp-blink 1.6s ease-in-out infinite; }
+  .vm-dead { color:#5d6d7d; text-align:center; padding:60px 10px; letter-spacing:2px; font-size:11px; line-height:1.7; }
 
   @media (prefers-reduced-motion: reduce) {
     #cardpack-overlay *, #cardmach-overlay * { animation-duration:.01ms !important; animation-iteration-count:1 !important;
@@ -260,35 +354,42 @@ function ensurePackStyles() {
 let machine = null;   // { overlay, close, data }
 
 export function openCardMachinePanel(msg) {
-  ensureChassisStyles();
   ensurePackStyles();
   if (machine) machine.close();
 
   const mounted = mountOverlay({
     id: 'cardmach-overlay',
-    html: `<div class="mg-chassis cm-box">
-      ${deviceHeader('◈', 'COLDWATER MINT', esc(String(msg.machine || 'CARD DISPENSER')).toUpperCase())}
-      <div class="mg-bezel">${bezelScrews()}<div class="mg-screen cm-screen" id="cm-screen"></div>${crtOverlays()}</div>
-      <div class="cm-tray" id="cm-tray">EMPTY TRAY</div>
-      <div class="cm-deck" style="margin-top:12px">
-        <button class="cp-btn primary" id="cm-buy">BUY SLEEVE</button>
-        <button class="cp-btn" id="cm-open">TEAR ONE OPEN</button>
+    html: `<div class="vm-cab" id="vm-cab">
+      <div class="vm-marquee">
+        <span class="vm-logo">◈</span>
+        <div class="vm-names">
+          <div class="vm-brand">COLDWATER MINT</div>
+          <div class="vm-model">${esc(String(msg.machine || 'CARD DISPENSER')).toUpperCase()}</div>
+        </div>
+        <button class="vm-x" aria-label="Close">&#10005;</button>
       </div>
+      <div class="vm-body">
+        <div class="vm-glass" id="vm-glass"><div class="vm-drop" id="vm-drop"></div></div>
+        <div class="vm-side" id="vm-side"></div>
+      </div>
+      <div class="vm-hatch"><div class="vm-flap" id="vm-flap">PUSH</div></div>
+      <div class="vm-tray" id="vm-tray">EMPTY TRAY</div>
     </div>`,
     onClose: () => { machine = null; },
   });
   machine = { ...mounted, data: msg };
-  mounted.overlay.querySelector('.mg-close').addEventListener('click', () => mounted.close());
-  mounted.overlay.querySelector('#cm-buy').addEventListener('click', () => {
-    // The button sends the ordinary verb. Nothing here transacts — the server
-    // re-checks power, price and balance, exactly as it would for a typed command.
+  mounted.overlay.querySelector('.vm-x').addEventListener('click', () => mounted.close());
+  renderMachine();
+  // Delegated, because the side column is re-rendered on every patch and its
+  // buttons are new nodes each time. The buttons send the ordinary verbs and
+  // nothing here transacts — the server re-checks power, price and balance
+  // exactly as it would for a typed command.
+  mounted.overlay.addEventListener('click', (e) => {
+    const btn = e.target.closest('#vm-buy, #vm-open');
+    if (!btn || btn.disabled) return;
+    if (btn.id === 'vm-open') { mounted.close(); sendCmdSilent('openpack'); return; }
     sendCmdSilent('buypack confirm');
   });
-  mounted.overlay.querySelector('#cm-open').addEventListener('click', () => {
-    mounted.close();
-    sendCmdSilent('openpack');
-  });
-  renderMachine();
   sfx('cards-slide');
 }
 
@@ -303,56 +404,110 @@ export function updateCardMachine(patch) {
 export function closeCardMachine() { machine?.close(); }
 export function isCardMachineOpen() { return !!machine; }
 
+// Three shelves of three, with the last column dark: a real machine is never
+// evenly stocked, and an empty row is what makes the full ones read as product.
+// Row A is the one that vends, so the drop always starts from a slot you watched.
+const SHELVES = [['A1', 'A2', 'A3'], ['B1', 'B2', 'B3'], ['C1', 'C2', 'C3']];
+const isOut = (code) => code === 'A3' || code === 'C2';
+
 function renderMachine() {
   if (!machine) return;
   const d = machine.data;
-  const screen = machine.overlay.querySelector('#cm-screen');
+  const glass = machine.overlay.querySelector('#vm-glass');
+  const side = machine.overlay.querySelector('#vm-side');
   const total = d.pool?.total || 0;
 
+  // The drop node survives a re-render — a patch arriving mid-fall must not
+  // delete the sleeve out of the air.
+  const drop = machine.overlay.querySelector('#vm-drop');
   if (!total) {
-    screen.innerHTML = `<div class="cm-dead">— NO STOCK —<br><br>Nobody has minted anything yet.<br>The racks behind the glass are empty.</div>`;
+    glass.innerHTML = `<div class="vm-dead">— NO STOCK —<br><br>Nobody has minted anything yet.<br>Every coil behind the glass is bare.</div>`;
   } else {
-    const by = d.pool?.byRank || {};
-    const ranks = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
-    // The odds board is drawn from the LIVE pool, so a rank nobody has minted
-    // shows as a flat nub rather than an advertised chance that cannot pay out.
-    const max = Math.max(1, ...ranks.map(r => by[r] || 0));
-    screen.innerHTML =
-      `<div class="cm-slots">` +
-        [1, 2, 3].map(n => `<div class="cm-slot${n === 3 ? ' sold' : ''}">` +
-          `<div class="cm-slot-id">A${n}</div><div class="cm-slot-art">▤</div>` +
-          `<div class="cm-slot-price">${n === 3 ? 'SOLD OUT' : '₵' + d.price}</div></div>`).join('') +
-      `</div>` +
-      `<div style="font-size:9px;letter-spacing:2px;color:#5d7d8d">IN THE POOL — ${total} CARD${total === 1 ? '' : 'S'}</div>` +
-      `<div class="cm-odds">` + ranks.map(r => {
-        const n = by[r] || 0;
-        const h = n ? Math.max(3, Math.round((n / max) * 22)) : 2;
-        return `<div class="cm-odd" style="--c:${rarity(r).color}">` +
-          `<div class="cm-odd-bar"><i style="height:${h}px"></i></div>` +
-          `<div class="cm-odd-lbl">${rarity(r).label.slice(0, 4)}</div></div>`;
-      }).join('') + `</div>` +
-      `<div class="cm-rows">` +
-        `<div class="cm-row"><span>ON YOU</span><b>₵${(d.credits ?? 0).toLocaleString()}</b></div>` +
-        `<div class="cm-row"><span>SLEEVE</span><b>₵${d.price}</b></div>` +
-        `<div class="cm-row"><span>DUPLICATE BUY-BACK</span><b>₵${d.scrapValue}</b></div>` +
-      `</div>`;
+    glass.innerHTML = SHELVES.map(row =>
+      `<div class="vm-shelf">` + row.map(code => {
+        const out = isOut(code);
+        return `<div class="vm-slotwrap${out ? ' out' : ''}" data-code="${code}">` +
+          `<div class="vm-code">${code}</div>` +
+          `<div class="vm-sleeve"><i>◈</i></div><div class="vm-coil"></div>` +
+          `<div class="vm-tag">${out ? 'OUT' : '₵' + d.price}</div></div>`;
+      }).join('') + `</div>`).join('');
   }
+  glass.appendChild(drop);
 
+  const by = d.pool?.byRank || {};
+  const ranks = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+  // The odds board is drawn from the LIVE pool, so a rank nobody has minted
+  // shows as a flat nub rather than an advertised chance that cannot pay out.
+  const max = Math.max(1, ...ranks.map(r => by[r] || 0));
   const packs = d.packs || 0;
-  const tray = machine.overlay.querySelector('#cm-tray');
+  side.innerHTML =
+    `<div class="vm-plate"><div class="vm-plate-lbl">YOUR CREDIT</div>` +
+      `<div class="vm-plate-val">₵${(d.credits ?? 0).toLocaleString()}</div></div>` +
+    `<div class="vm-note">IN THE POOL — ${total}</div>` +
+    `<div class="vm-odds">` + ranks.map(r => {
+      const n = by[r] || 0;
+      const h = n ? Math.max(3, Math.round((n / max) * 24)) : 2;
+      return `<div class="vm-odd" style="--c:${rarity(r).color}">` +
+        `<div class="vm-odd-bar"><i style="height:${h}px"></i></div>` +
+        `<div class="vm-odd-lbl">${rarity(r).label.slice(0, 4)}</div></div>`;
+    }).join('') + `</div>` +
+    `<div class="vm-note">BUY-BACK ₵${d.scrapValue} A DUPE</div>` +
+    `<button class="vm-btn primary" id="vm-buy"${!total || (d.credits ?? 0) < d.price ? ' disabled' : ''}>BUY · ₵${d.price}</button>` +
+    `<button class="vm-btn" id="vm-open"${packs < 1 ? ' disabled' : ''}>TEAR ONE OPEN</button>`;
+
+  const tray = machine.overlay.querySelector('#vm-tray');
   tray.classList.toggle('loaded', packs > 0);
   tray.textContent = packs ? `${packs} UNOPENED SLEEVE${packs === 1 ? '' : 'S'} ON YOU` : 'EMPTY TRAY';
-  machine.overlay.querySelector('#cm-open').disabled = packs < 1;
-  machine.overlay.querySelector('#cm-buy').disabled = !total || (d.credits ?? 0) < d.price;
 }
 
-// The vend response: play the hardware, patch the panel, and let the log line
-// through. The offer to open it NOW is the tray button lighting up — you are
-// already standing at the machine, so a second modal on top would be noise.
+// The vend response: run the hardware, patch the panel, and let the log line
+// through. The offer to open it NOW is the tray lighting up — you are already
+// standing at the machine, so a second modal on top would be noise.
+//
+// The animation is a REPORT, never a promise: it only runs on the server's vend
+// message, so a refused buy (no power, no credit) shows nothing falling.
 export function cardMachineVend(msg) {
   sfx('cards-vend');
-  if (machine) updateCardMachine({ credits: msg.credits, packs: msg.packs });
+  if (machine) { updateCardMachine({ credits: msg.credits, packs: msg.packs }); playVend(); }
   refreshInventory();
+}
+
+// Coil turns, sleeve tips off the shelf, falls the height of the glass, and the
+// flap takes the hit. Purely cosmetic — the sleeve was already in your inventory
+// before the first frame drew.
+function playVend() {
+  const ov = machine?.overlay;
+  if (!ov) return;
+  const slot = ov.querySelector('.vm-slotwrap[data-code="A1"]');
+  const drop = ov.querySelector('#vm-drop');
+  const flap = ov.querySelector('#vm-flap');
+  const cab = ov.querySelector('#vm-cab');
+  if (!slot || !drop) return;
+
+  slot.classList.remove('turning');
+  void slot.offsetWidth;
+  slot.classList.add('turning');
+
+  // Start the falling sleeve exactly where the shelved one sits, so the product
+  // appears to leave the coil rather than spawn in the middle of the window.
+  const g = ov.querySelector('#vm-glass').getBoundingClientRect();
+  const s = slot.querySelector('.vm-sleeve').getBoundingClientRect();
+  drop.style.left = `${s.left - g.left}px`;
+  drop.style.top = `${s.top - g.top}px`;
+  drop.style.width = `${s.width}px`;
+  drop.classList.remove('fall');
+  void drop.offsetWidth;
+  drop.classList.add('fall');
+
+  setTimeout(() => {
+    flap?.classList.remove('kick');
+    void flap?.offsetWidth;
+    flap?.classList.add('kick');
+    cab?.classList.remove('shake');
+    void cab?.offsetWidth;
+    cab?.classList.add('shake');
+    sfx('cards-slide');
+  }, 620);
 }
 
 // ── the reveal ────────────────────────────────────────────────────────────────

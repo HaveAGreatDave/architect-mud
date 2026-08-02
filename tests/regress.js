@@ -787,6 +787,22 @@ console.log('— layer 1i: relations substrate —');
   check('a hostile player never inherits the warm line',
     hostile.text === 'State your business.', hostile.text);
 
+  // ── `first` — the introduction an NPC only gets to make ONCE ──
+  // `stranger` is not "first meeting": it repeats for several visits, so an intro
+  // line ("Folks call me Two-Cell") left in plain text gets recited forever. This
+  // works only because touchRelation runs AFTER the text is chosen — if that ever
+  // moves, the intro is skipped on the very visit it exists for.
+  const intro = { id: 'npc_regress_intro', name: 'Introducer',
+    dialogue_tree: { root: { text: 'What do you need.',
+      text_by_relation: { first: "Name's Grady. Folks call me Two-Cell." }, options: [] } } };
+  const meeter = { id: 'regress_rel_intro', _relations: new Map(), _relationsDirty: new Set() };
+  const meet1 = await renderDialogueNode(intro, 'root', meeter, { npc: intro });
+  const meet2 = await renderDialogueNode(intro, 'root', meeter, { npc: intro });
+  check('the first meeting gets the introduction',
+    meet1.text === "Name's Grady. Folks call me Two-Cell.", meet1.text);
+  check('every visit after it gets the every-day greeting',
+    meet2.text === 'What do you need.', meet2.text);
+
   // ── `{ on_air: … }` — a performer mid-broadcast doesn't hold a conversation.
   // Dialogue never interrupts a behaviour graph (AT_WORK keeps returning RUNNING
   // regardless), so this gate is fiction rather than a mechanical lock — but it
@@ -1175,6 +1191,22 @@ check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice
   const want = lampRow ? (lampRow.light_on ? 'off' : 'on') : null;
   check('…in the direction opposite its current state',
     !want || new RegExp(`data-target="${want} portable lamp"`).test(lamp), `light_on=${lampRow?.light_on} link=${lamp}`);
+
+  // `flags.click_cmd`: a piece with a FACE (a card machine, a terminal) clicks
+  // through to the command that opens it rather than to examine, which would
+  // print a second drawing of the thing into the log. Verified on the live lamp
+  // row so the seam is exercised, not just the flag read.
+  if (lampRow) {
+    const savedFlags = lampRow.flags;
+    lampRow.flags = { ...(savedFlags || {}), click_cmd: 'buypack' };
+    const cmdBody = (await run('look'))?.message || '';
+    const link = cmdBody.match(/<span class="action-link[^>]*data-cmd="buypack"[^>]*>/)?.[0] || '';
+    check('flags.click_cmd sends its command instead of examine',
+      /data-action="cmd"/.test(link) && /data-cmd="buypack"/.test(link), cmdBody.slice(0, 900));
+    check('…and still carries the bare piece name for the smart bar',
+      /data-piece="portable lamp"/.test(link), link);
+    lampRow.flags = savedFlags;
+  }
   getPlayer().current_zone = saved;
 }
 
@@ -2454,6 +2486,71 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   deleteDoorCache(doorId);
   world.zones.delete(hallId);
   world.zones.delete(homeId);
+}
+
+// NPC lock-up never traps a player, and never bolts a bathroom.
+// (ai-behaviour.js npcAutoLockable/markAutoLock + the engine:door-lock gate.)
+{
+  const streetId = 'zone_regress_street_' + process.pid;
+  const shopId   = 'zone_regress_shop_' + process.pid;
+  const mapId    = 'map_regress_shop_' + process.pid;
+  const occupants = () => ({ players: new Set(), npcs: new Set(), enemies: new Set(), corpses: new Set(), items: new Set(), furniture: new Set() });
+  world.zones.set(streetId, { id: streetId, name: 'Regress Street', description: 'A street.', flags: {}, exits: { north: shopId }, ...occupants() });
+  world.zones.set(shopId,   { id: shopId, name: 'Regress Shop', description: 'A shop.', map_id: mapId, flags: { is_interior: true }, exits: { south: streetId }, ...occupants() });
+  const shopDoorId = 'door_regress_shop_' + process.pid;
+  setDoorCache(shopDoorId, {
+    id: shopDoorId, zone_id: shopId, exit_dir: 'south', target_zone: streetId,
+    hp: 100, hp_max: 100, is_open: 0, lock_state: 'unlocked', tags: { 'lock:hololock': {} },
+  });
+
+  const vendor = { id: 'npc_rg_vendor_' + process.pid, name: 'Vendor', zone_id: shopId, work_zone_id: shopId };
+  moveEntity(vendor, streetId, broadcast, undefined);
+  const shopDoor = getDoorForExit(shopId, 'south', streetId);
+  check('vendor locks up on leaving work, marking the inside',
+    shopDoor.lock_state === 'locked' && shopDoor._autoLockedInside === shopId,
+    `lock=${shopDoor.lock_state} inside=${shopDoor._autoLockedInside}`);
+
+  const shopper = getPlayer();
+  const savedShopperZone = shopper.current_zone;
+  world.zones.get(shopId).players.add(shopper.id);
+  shopper.current_zone = shopId;
+  shopper._lastStepAt = 0;
+  const gotOut = await cmdMove('south', shopper, broadcast);
+  check('a player shut in by the closing shop can still walk out',
+    shopper.current_zone === streetId, `${gotOut?.type}: ${gotOut?.message || ''}`);
+
+  shopper._lastStepAt = 0;
+  const gotIn = await cmdMove('north', shopper, broadcast);
+  check('…but cannot walk back into the locked shop',
+    shopper.current_zone === streetId && gotIn?.type === 'error', `${gotIn?.type}: ${gotIn?.message || ''}`);
+
+  world.zones.get(streetId).players.delete(shopper.id);
+  world.zones.get(shopId).players.delete(shopper.id);
+  shopper.current_zone = savedShopperZone;
+  deleteDoorCache(shopDoorId);
+  world.zones.delete(streetId);
+  world.zones.delete(shopId);
+
+  // A privacy bolt (every bathroom door in the world) is never auto-engaged: a
+  // resident walking home past their own ensuite used to bolt the toilet shut.
+  const flatId = 'zone_regress_flat_' + process.pid;
+  const bathId = 'zone_regress_bath_' + process.pid;
+  world.zones.set(flatId, { id: flatId, name: 'Regress Flat 2', flags: { is_apartment: true }, exits: { north: bathId }, players: new Set(), npcs: new Set(), enemies: new Set() });
+  world.zones.set(bathId, { id: bathId, name: 'Regress Ensuite', flags: {}, exits: { south: flatId }, players: new Set(), npcs: new Set(), enemies: new Set() });
+  const bathDoorId = 'door_regress_bath_' + process.pid;
+  setDoorCache(bathDoorId, {
+    id: bathDoorId, zone_id: bathId, exit_dir: 'south', target_zone: flatId,
+    hp: 100, hp_max: 100, is_open: 0, lock_state: 'unlocked',
+    tags: { 'lock:privacylock': { privacySide: bathId } },
+  });
+  const bather = { id: 'npc_rg_bather_' + process.pid, name: 'Bather', zone_id: bathId, home_zone: flatId };
+  moveEntity(bather, flatId, broadcast, undefined);
+  const bathDoor = getDoorForExit(bathId, 'south', flatId);
+  check('an NPC never bolts a privacy lock behind itself',
+    bathDoor.lock_state !== 'locked', `lock=${bathDoor.lock_state}`);
+  deleteDoorCache(bathDoorId);
+  world.zones.delete(flatId);
+  world.zones.delete(bathId);
 }
 
 // Disturbing a sleeping NPC: the roll, the wake-up state, and the escalation that
