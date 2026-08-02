@@ -53,6 +53,8 @@ export const DISHES = {
     needs: { liquid: 1, dense_meat: [1, 2], soft_vegetable: [1, 2] },
     optional: ['fat_or_oil', 'aromatic'],
     nameSlots: ['dense_meat', 'soft_vegetable'],
+    // Thick and pale is a commitment: a chowder's liquid is milk.
+    nouns: { liquid: 'milk' },
     ceiling: 'masterful', difficulty: 7,
     blurb: 'Thick, pale, and far better than the sum of what went in.',
   },
@@ -97,6 +99,9 @@ export const DISHES = {
     needs: { dense_meat: [1, 2], liquid: [1, 2] },
     optional: ['aromatic'],
     nameSlots: ['dense_meat'],
+    // Stock is bones and water. Offering "brandy or broth" as answers to a
+    // stock's liquid would be worse than useless.
+    nouns: { liquid: 'water' },
     ceiling: 'excellent', difficulty: 5,
     blurb: 'Bones and time. Not a meal — the thing that makes meals.',
   },
@@ -219,6 +224,8 @@ export const DISHES = {
     needs: { starchy_vegetable: [1, 3], liquid: 1 },
     optional: ['fat_or_oil', 'aromatic', 'soft_vegetable'],
     nameSlots: ['starchy_vegetable'],
+    // Layered, drowned, browned. The thing it's drowned in is cream.
+    nouns: { liquid: 'cream' },
     ceiling: 'excellent', difficulty: 6,
     blurb: 'Layered, drowned, and baked until the top goes brown and tight.',
   },
@@ -328,6 +335,8 @@ export const DISHES = {
     needs: { liquid: 1, egg: [1, 2] },
     optional: ['aromatic', 'soft_vegetable'],
     nameSlots: [],
+    // The blurb commits outright — "beaten egg poured into moving stock".
+    nouns: { liquid: 'stock' },
     ceiling: 'excellent', difficulty: 5,
     blurb: 'Beaten egg poured into moving stock, where it turns to ribbons.',
   },
@@ -385,6 +394,8 @@ export const DISHES = {
     needs: { batter: 1, egg: 1, liquid: 1 },
     optional: ['fruit', 'aromatic', 'fat_or_oil'],
     nameSlots: ['fruit'],
+    // A baked pudding is a custard set slowly — batter, egg and milk.
+    nouns: { liquid: 'milk' },
     ceiling: 'masterful', difficulty: 7,
     blurb: 'Set slow in a low oven until it barely holds its own shape.',
   },
@@ -401,6 +412,8 @@ export const DISHES = {
     needs: { preserved: [1, 2], starchy_vegetable: [1, 3], liquid: 1 },
     optional: ['fat_or_oil', 'aromatic'],
     nameSlots: ['preserved', 'starchy_vegetable'],
+    // Same dish with salt cuts through it, and the same answer.
+    nouns: { liquid: 'cream' },
     ceiling: 'excellent', difficulty: 7,
     blurb: 'Layered with salt cuts and drowned, then baked until the top tightens.',
   },
@@ -548,6 +561,11 @@ export const DISHES = {
     needs: { batter: 1, soft_vegetable: [1, 2], egg: [1, 2] },
     optional: ['preserved', 'fat_or_oil', 'aromatic', 'dense_meat'],
     nameSlots: [],
+    // "Cabbage and batter bound with egg" — the batter and the egg are one
+    // thing, and the cabbage is the other. THE RULE FOR A `parts` GROUP: it has
+    // to leave something outside itself. A group that swallows every ingredient
+    // is a heading with nothing to distinguish, which is noise, not structure.
+    parts: [{ label: 'the batter', needs: ['batter', 'egg'] }],
     nameFormat: 'okonomiyaki',
     // Keyed on the cabbage and the blurb commits to it, so the list can say
     // cabbage instead of "one soft vegetable". Display only — any soft vegetable
@@ -574,6 +592,8 @@ export const DISHES = {
     needs: { preserved: [1, 2], fruit: [1, 2] },
     optional: ['aromatic', 'fat_or_oil'],
     nameSlots: ['preserved'],
+    // The sauce and the fruit are the glaze; the chop is the chop.
+    parts: [{ label: 'the glaze', needs: ['fruit'], items: ['item_bbq_sauce'] }],
     nameFormat: '{0} chop',
     seasoning: 3,
     notes: {
@@ -1139,6 +1159,14 @@ export function ingredientLine(profileName, need, template = null, itemInfo = nu
 // `itemInfo(id)` returns the item row (or anything carrying name + tags); absent,
 // this answers null and everything falls back to the class label.
 export function keyNounFor(template, profileName, itemInfo) {
+  // A DECLARED NOUN IS CHECKED FIRST, because it needs nothing to resolve it.
+  // This guard used to sit above it and required a dish to have `keyItems` at
+  // all — so an author who wrote `nouns: { liquid: 'stock' }` on a dish with no
+  // key item (a gratin, a chowder, a custard: most of the catalog) had it
+  // silently ignored, and the card went on saying "400g of liquid". The comment
+  // below has always claimed an explicit override wins; now it does.
+  const declaredFirst = template?.nouns?.[profileName];
+  if (typeof declaredFirst === 'string' && declaredFirst.trim()) return declaredFirst.trim().toLowerCase();
   if (!template?.keyItems?.length || typeof itemInfo !== 'function') return null;
   // ONLY when the key item IS the whole of that class. penne_alla_gin keys on
   // gin, whose profile is `liquid` — but the recipe wants 2–3 liquids, of which
@@ -1328,6 +1356,31 @@ export function validateDishes(dishes = DISHES, bonus = KNOWN_RECIPE_BONUS) {
         errors.push(`${at('notes')} explains "${profile}", which this dish neither needs nor allows`);
       }
     }
+    // `parts` says which ingredients COMPOSE something — the sauce, the glaze,
+    // the batter — so a shopping list can nest them under it instead of filing
+    // them flat. Same failure mode as `notes`: a group naming an ingredient the
+    // dish doesn't have is the leftover an edit produces and nobody notices,
+    // except here it would silently drop a real errand off the list, because a
+    // stamped part groups whatever it matches and nothing else.
+    for (const [n, part] of (t.parts || []).entries()) {
+      const where = at(`parts[${n}]`);
+      if (!part?.label || typeof part.label !== 'string') errors.push(`${where} needs a label — it becomes the line its members sit under`);
+      const members = [...(part.needs || []), ...(part.items || [])];
+      if (members.length < 2) errors.push(`${where} groups ${members.length} thing(s); a component group of one is a line with an extra level on top`);
+      for (const profile of part.needs || []) {
+        if (!needs[profile]) errors.push(`${where} composes "${profile}", which this dish doesn't require`);
+      }
+      for (const id of part.items || []) {
+        if (!(t.keyItems || []).includes(id)) errors.push(`${where} composes "${id}", which is not one of this dish's keyItems`);
+      }
+      // A group that swallows every ingredient is a heading with nothing to
+      // distinguish — every line indented under one parent says no more than the
+      // flat list did. There has to be something outside it.
+      const outside = Object.keys(needs).filter(p => !(part.needs || []).includes(p)).length
+        + (t.keyItems || []).filter(id => !(part.items || []).includes(id)).length;
+      if (!outside) errors.push(`${where} groups everything the dish has; a part must leave something outside it or it adds a level and no information`);
+    }
+
     if (t.steps !== undefined) {
       if (!Array.isArray(t.steps) || !t.steps.length) errors.push(`${at('steps')} must be a non-empty array when present`);
       else if (t.steps.some(s => typeof s !== 'string' || !s.trim())) errors.push(`${at('steps')} contains an empty step`);

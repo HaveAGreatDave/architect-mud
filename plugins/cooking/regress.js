@@ -24,7 +24,7 @@ import { FLAG_PREFIX, PROGRESS_PREFIX, UNTRIED, learnRecipe, knownRecipes, cookb
 import { inferDish, improvisedCeiling, improvisedIp, recipeSignature } from './improvised.js';
 import { SHOPLIST_FLAG, getList, holdings, buyableExamples } from './shoplist.js';
 import { markShelf, markContainer } from './shoplist-cmd.js';
-import { getItemCache } from '../../server/engine/items-cache.js';
+import { getItemCache, getItem } from '../../server/engine/items-cache.js';
 import { evaluate, endStateAt, timeline, heatSpans, finishAt } from './quality.js';
 import { rowIsInstanced } from '../../server/engine/inventory.js';
 import { applyEffect, tickEffects, getRegisteredStatusEffects } from '../../server/engine/effects.js';
@@ -2080,6 +2080,26 @@ export default async function regress({ run, check, getPlayer }) {
           healed.filter(e => e.k === 'i').length === 2, JSON.stringify(healed));
         check('...and no recipe-card note rides along on any of it',
           healed.every(e => !/a portion a head|for the body|to finish/.test(e.label)), JSON.stringify(healed.map(e => e.label)));
+      }
+
+      // A DECLARED NOUN WINS EVEN WITH NO KEY ITEM. The guard that needs
+      // `keyItems` sat ABOVE the declared-noun lookup, so an author who named a
+      // class on a dish with no key item — a gratin, a chowder, a custard, most
+      // of the catalog — had it silently ignored and the card kept saying "400g
+      // of liquid".
+      {
+        const info = id => { try { return getItem(id); } catch { return null; } };
+        check('an authored noun is used on a dish with no key items at all',
+          !DISHES.gratin.keyItems && keyNounFor(DISHES.gratin, 'liquid', info) === 'cream',
+          JSON.stringify(keyNounFor(DISHES.gratin, 'liquid', info)));
+        check('...and it reaches the line the shopping list prints',
+          /of cream/.test(ingredientLine('liquid', DISHES.gratin.needs.liquid, DISHES.gratin, info)),
+          ingredientLine('liquid', DISHES.gratin.needs.liquid, DISHES.gratin, info));
+        // ...but a class nobody named still keeps its alternatives, which is the
+        // correct answer for a class that really is open.
+        check('a class the author left open still offers its answers',
+          !keyNounFor(DISHES.soup, 'liquid', info) && buyableExamples('liquid', DISHES.soup).length > 1,
+          JSON.stringify(buyableExamples('liquid', DISHES.soup)));
       }
 
       // COMPONENTS ARE NOT ALTERNATIVES. Both nest, and a list that renders them
