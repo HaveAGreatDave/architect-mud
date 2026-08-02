@@ -8,7 +8,6 @@
   "flags": {
     "is_interior": true,
     "lawless": true,
-    "utility_room": true,
     "world_exit_zone": "zone_the_reach_873_1954"
   },
   "grid_x": 0,

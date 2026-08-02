@@ -44,6 +44,7 @@ nothing, silently; wire a reader first.
 | `airfield_fuel` | flight | fuel vendor here |
 | `airfield_fuels` | flight | fuel price/stock config |
 | `airfield_id` | flight | which airfield this zone belongs to |
+| ~~`fence_cache`~~ | **REMOVED 2026-08-02** | there is no fence-cache flag. `scripts/reach-dead-drops.mjs` wrote it on 3 tiles and nothing read it; the authoritative list of raw-drug dead drops is `FENCE_CACHES` in `plugins/flight/contracts.js`, which those tile ids must already stay in step with. The flag was a second, weaker copy of that fact |
 | `airfield_lawless` | flight | airfield outside city law |
 | `airfield_name` | flight | display name of the airfield |
 | `airfield_surface` | flight | runway surface flavour for a rough strip (e.g. `dust` for a packed-dirt frontier field) |
@@ -123,7 +124,7 @@ nothing, silently; wire a reader first.
 | `street_life` | ambience | ambient street-life event pool strength |
 | `terrain` | map/minimap/flight | authored ground surface (`water\|road\|asphalt\|concrete\|grass\|park\|dirt\|sand\|gravel\|dock\|scrub\|redrock\|ash\|marsh`; `park` = manicured green w/ its own flight biome; last four = post-apoc wildlands, keep their glyph) — the SSOT `zoneTerrain()` prefers over inference; drives minimap/tablet fills + flight ground tint. Painted in dev panel Maps → Terrain mode. Road tiles auto-tile their connector from adjacent road terrain (`roadConnector` in `world.js`) |
 | `unsurveilled` | surveillance | off the Architect's grid — the witness roll (cameras/cops/bystanders) short-circuits to unseen, so no crime is witnessed and no heat earned. The Long Watch bunker uses this |
-| `utility_room` | power | building utility room (junction box lives here) |
+| ~~`utility_room`~~ | **REMOVED 2026-08-02** | there is no utility-room flag. It was written by `installGenerator` (environment.js) and `tools/lib/utility-room.mjs` and read by **nothing** — 67 tiles asserting a fact no code asked for. What makes a room the junction box's home is the junction box: furniture carrying `generator_id`. Cleared from content + prod by `scripts/strip-dead-zone-flags.mjs` |
 | `liquid` | props (preset) | **OVERRIDE of a terrain preset**, `tristate`. You are IN the tile, not ON it — fishing casts into it, the void rim doesn't exist here. Read as `propsOf(id).liquid`, never as a raw flag. Absent on almost every tile BY DESIGN: water presets it |
 | `frontage` | props (preset) | **OVERRIDE**, `tristate`. A street a building's front door may face onto — the map builder prefers a neighbour carrying it. Preset by `road` only |
 | `speed_mult` | props (preset) | **OVERRIDE**, `number` (not tristate — a number already tells absent from set). Movement pacing; 2 = half the time. Preset by `road`/`dirt_road`. Moved off `spec` 2026-07-30 |

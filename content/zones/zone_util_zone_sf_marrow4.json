@@ -7,7 +7,6 @@
   },
   "flags": {
     "is_interior": true,
-    "utility_room": true,
     "world_exit_zone": "zone_district_913_908"
   },
   "grid_x": 0,
@@ -18,4 +17,3 @@
   "name": "Unit 4, Marrow Street — Utility Room",
   "parent_zone": "zone_district_913_908"
 }
-

@@ -7,7 +7,6 @@
   },
   "flags": {
     "is_interior": true,
-    "utility_room": true,
     "world_exit_zone": "zone_district_892_905"
   },
   "grid_x": 0,

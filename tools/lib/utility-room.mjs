@@ -132,7 +132,7 @@ export async function authorUtilityRoom(query, { anchorId, capacityKw = JB_CAPAC
     [utilId, `${anchor.name} — Utility Room`,
      'A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.',
      anchor.map_id || null, anchor.parent_zone || null, gx, gy, gz,
-     JSON.stringify({ is_interior: true, utility_room: true, ...(worldExit ? { world_exit_zone: worldExit } : {}) }),
+     JSON.stringify({ is_interior: true, ...(worldExit ? { world_exit_zone: worldExit } : {}) }),
      JSON.stringify({ up: anchor.id })]
   );
 

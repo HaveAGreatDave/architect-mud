@@ -9,7 +9,6 @@
   "flags": {
     "is_interior": true,
     "terrain": "grass",
-    "utility_room": true,
     "world_exit_zone": "zone_district_918_908"
   },
   "grid_x": 0,

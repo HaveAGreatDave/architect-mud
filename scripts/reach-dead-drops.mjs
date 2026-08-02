@@ -8,7 +8,7 @@
 //
 // This script authors the content half of that:
 //   • three cache tiles themed out of PLANNER STUB into named landmarks, each with
-//     a bespoke description, its own ambient pool, and flags.fence_cache
+//     a bespoke description and its own ambient pool
 //   • one fixture per tile — the cache itself, so `look` finds it once you're there
 //   • Amos's dialogue reworked: the pitch is still open to anyone (it teaches that
 //     the trade exists), but ACCEPTING is gated, and he gains a standing
@@ -246,8 +246,13 @@ async function authorCaches() {
   for (const c of CACHES) {
     const { rows } = await query('SELECT id, flags FROM zones WHERE id = $1', [c.zone]);
     if (!rows.length) throw new Error(`${c.zone} not found — the Reach grid must be imported first`);
-    const flags = { ...(rows[0].flags || {}), fence_cache: true };
+    const flags = { ...(rows[0].flags || {}) };
     delete flags.planner;                        // it's authored content now, not a stub
+    // A cache tile is identified by being IN `FENCE_CACHES` (contracts.js), which is
+    // the list this script is required to stay in step with — so the `fence_cache`
+    // flag it used to write was a second, weaker copy of that fact, and nothing ever
+    // read it. Deleted rather than merely not-written, so a re-run converges.
+    delete flags.fence_cache;
     await query(
       `UPDATE zones SET name=$2, description=$3, marker=$4, ambient_events=$5::jsonb, flags=$6::jsonb WHERE id=$1`,
       [c.zone, c.name, c.description, c.marker, JSON.stringify(c.ambient), JSON.stringify(flags)]);

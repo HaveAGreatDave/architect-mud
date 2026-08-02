@@ -6,8 +6,7 @@
     "up": "zone_under_alcove"
   },
   "flags": {
-    "is_interior": true,
-    "utility_room": true
+    "is_interior": true
   },
   "grid_x": 918,
   "grid_y": 905,

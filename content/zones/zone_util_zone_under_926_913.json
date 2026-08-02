@@ -6,8 +6,7 @@
     "up": "zone_under_926_913"
   },
   "flags": {
-    "is_interior": true,
-    "utility_room": true
+    "is_interior": true
   },
   "grid_x": 926,
   "grid_y": 913,

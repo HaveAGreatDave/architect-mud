@@ -16,7 +16,6 @@
     "west": "zone_the_reach_866_1965"
   },
   "flags": {
-    "fence_cache": true,
     "lawless": true,
     "region_id": "region_the_reach",
     "terrain": "scrub"

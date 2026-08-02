@@ -2922,11 +2922,16 @@ async function createUtilityRoomWithJunctionBox(query, network, root) {
 
   // MERGE the flags on re-heal, never replace them. A utility room that has since
   // been adopted into content — renamed, re-described, given flags of its own —
-  // was silently reset to the bare {is_interior, utility_room} pair every time this
-  // ran, because a self-heal is not supposed to be an edit. The Leviathan's Belly
-  // Crawlspace is the case that found it: it carries `aircraft_cabin`, without
-  // which disembarking from it does not work. Authored keys win; the two keys this
-  // function owns are re-asserted underneath them.
+  // was silently reset to the bare {is_interior} pair every time this ran, because
+  // a self-heal is not supposed to be an edit. The Leviathan's Belly Crawlspace is
+  // the case that found it: it carries `aircraft_cabin`, without which disembarking
+  // from it does not work. Authored keys win; the keys this function owns are
+  // re-asserted underneath them.
+  //
+  // No `utility_room` marker: what makes this room the junction box's home is the
+  // junction box, which is furniture (`generator_id`) and is installed below. The
+  // flag was written here and by tools/lib/utility-room.mjs and read by nothing —
+  // 67 tiles asserting a fact no code ever asked for (removed 2026-08-02).
   await query(
     `INSERT INTO zones (id, name, description, map_id, parent_zone, grid_x, grid_y, grid_z, flags, exits)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
@@ -2935,7 +2940,7 @@ async function createUtilityRoomWithJunctionBox(query, network, root) {
     [utilId, `${anchor.name} — Utility Room`,
      'A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.',
      anchor.map_id || null, anchor.parent_zone || null, gx, gy, gz,
-     JSON.stringify({ is_interior: true, utility_room: true, ...(worldExit ? { world_exit_zone: worldExit } : {}) }),
+     JSON.stringify({ is_interior: true, ...(worldExit ? { world_exit_zone: worldExit } : {}) }),
      JSON.stringify({ up: anchor.id })]
   );
 

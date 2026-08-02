@@ -6,8 +6,7 @@
     "up": "zone_chemsupply_interior"
   },
   "flags": {
-    "is_interior": true,
-    "utility_room": true
+    "is_interior": true
   },
   "grid_x": 0,
   "grid_y": 0,
