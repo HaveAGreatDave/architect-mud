@@ -300,7 +300,26 @@ function renderList(listId, items, source, containerId) {
     if (item.group && item.group !== lastGroup) {
       const h = document.createElement('div');
       h.className = 'ctr-section';
-      h.textContent = item.group;
+      h.innerHTML = `<span>${item.group}</span>`;
+      // A shelf with things picked out of it takes them all out in one click.
+      // One of each, not the whole stack: the mark means "still on your list",
+      // and a second of the same thing isn't what the list asked for.
+      const want = source !== 'inv'
+        ? items.filter(it => it.group === item.group && it.wanted)
+        : [];
+      if (want.length) {
+        h.classList.add('has-wanted');
+        const b = document.createElement('button');
+        b.className = 'ctr-takeall';
+        b.textContent = `▸ take ${want.length} listed`;
+        b.title = 'Take one of each shopping-list item on this shelf';
+        b.onclick = (e) => {
+          e.stopPropagation();
+          b.disabled = true;
+          for (const it of want) sendCmdSilent(`pullid ${it.id}`);
+        };
+        h.appendChild(b);
+      }
       list.appendChild(h);
     }
     lastGroup = item.group || null;

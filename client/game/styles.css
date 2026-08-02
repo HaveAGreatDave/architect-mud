@@ -4930,6 +4930,25 @@ body.fsim-external #look-resize-handle { display: none; }
 	border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 .ctr-section:first-child { margin-top: 0; }
+/* A shelf header that has shopping-list items on it grows a take-all button on
+   its right. Same yellow as the ▸ marks it acts on, so the button reads as the
+   sum of the marks below it rather than as a new kind of control. */
+.ctr-section.has-wanted { display: flex; align-items: baseline; gap: 8px; }
+.ctr-section.has-wanted > span { flex: 1; min-width: 0; }
+.ctr-takeall, .shop-takeall {
+	background: transparent;
+	border: 1px solid var(--yellow);
+	border-radius: 3px;
+	color: var(--yellow);
+	font-family: inherit;
+	font-size: 9px; letter-spacing: 1px; text-transform: uppercase;
+	padding: 2px 6px;
+	cursor: pointer;
+	opacity: 0.85;
+	transition: background 0.15s, opacity 0.15s;
+}
+.ctr-takeall:hover, .shop-takeall:hover { background: rgba(255, 210, 60, 0.15); opacity: 1; }
+.ctr-takeall:disabled, .shop-takeall:disabled { opacity: 0.35; cursor: default; }
 .ctr-item-card {
 	background: var(--bg3);
 	border: 1px solid var(--border);
@@ -5635,6 +5654,8 @@ body.fsim-external #look-resize-handle { display: none; }
   border-bottom: 1px solid rgba(40, 229, 255, 0.15);
 }
 .shop-section:first-child { margin-top: 0; }
+.shop-section.has-wanted { display: flex; align-items: baseline; gap: 8px; }
+.shop-section.has-wanted > span { flex: 1; min-width: 0; }
 .shop-card { padding-left: 14px; min-height: 0; display: flex; }
 .shop-card-empty {
 	color: var(--text-dim);

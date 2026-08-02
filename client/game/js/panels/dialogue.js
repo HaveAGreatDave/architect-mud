@@ -427,10 +427,36 @@ function renderShop() {
       + `<span class="nm">${it.wanted ? '<span class="shop-mark" title="on your shopping list">▸</span>' : ''}${it.name}${qtyTxt} <span class="wg">(${formatWeight(it.weight)})</span></span>`
       + `<span class="pr${unaff ? ' noafford' : ''}">${it.price}₵</span></div>`;
   };
+  // A shelf that has anything picked out of it offers to buy the picked things
+  // in one click. Deliberately one of each and nothing else: the mark means "you
+  // haven't got it", so a second of the same thing isn't what the list asked for.
+  // Unaffordable rows are left out of the button's count rather than queued to
+  // fail — the shelf offers what it can actually sell you right now.
+  const wantedIn = (s) => {
+    if (mode !== 'buy') return [];
+    let spent = 0;
+    return s.items.filter(it => {
+      if (!it.wanted) return false;
+      if (spent + (it.price || 0) > credits) return false;
+      spent += it.price || 0;
+      return true;
+    });
+  };
+  const sectionHead = (s, i) => {
+    const want = wantedIn(s);
+    s.buyable = want;                    // what the button will actually purchase
+    if (!s.group && !want.length) return '';
+    const cost = want.reduce((n, it) => n + (it.price || 0), 0);
+    const btn = want.length
+      ? `<button class="shop-takeall" data-sec="${i}" title="buy one of each shopping-list item on this shelf">`
+        + `▸ take ${want.length} listed — ${cost}₵</button>`
+      : '';
+    return `<div class="shop-section${want.length ? ' has-wanted' : ''}">`
+      + `<span>${s.group || ''}</span>${btn}</div>`;
+  };
+  shopState.sections = sections;
   const rows = list.length
-    ? sections.map(s =>
-        (s.group ? `<div class="shop-section">${s.group}</div>` : '') + s.items.map(renderRow).join('')
-      ).join('')
+    ? sections.map((s, i) => sectionHead(s, i) + s.items.map(renderRow).join('')).join('')
     : `<div class="shop-empty">${mode === 'sell' ? 'Nothing to sell.' : 'Nothing in stock.'}</div>`;
 
   let card;
@@ -528,6 +554,13 @@ function wireShopEvents() {
     if (mode === 'buy') buyFromNpc(msg.npcId, it.item_id, shopState.qty);
     else sellToNpc(msg.npcId, it.inventory_id, shopState.qty);
   };
+  root.querySelectorAll('.shop-takeall').forEach(b => b.onclick = (e) => {
+    e.stopPropagation();                       // the header isn't a row; don't select anything
+    const sec = (shopState.sections || [])[Number(b.dataset.sec)];
+    if (!sec) return;
+    b.disabled = true;                         // the refresh re-renders; this only guards a double-click
+    for (const it of (sec.buyable || [])) buyFromNpc(msg.npcId, it.item_id, 1);
+  });
   const sellAll = root.querySelector('.shop-sellall');
   if (sellAll) sellAll.onclick = () => sellAllToNpc(msg.npcId);
 }
