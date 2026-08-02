@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "The charge is taped, tagged, and dated in a hand that has done this many times.",
+    "Chalk arrows on the wall point one way only: out.",
+    "The drain hatch below is barred from this side, and the bar is bright with use."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1c1710",
+  "color": "#e0a030",
+  "description": "A short raw-cut passage ending at a barred drain hatch, with a charge and a keyed collapse rigged into the roof beams above the halfway point. If the Watch are ever found, this corridor becomes forty tonnes of fill and the base becomes a hole in somebody's map. It is swept weekly and walked daily. The people who use it call the walk-through 'reading the ceiling'.",
+  "exits": {
+    "down": "zone_under_924_916",
+    "north": "zone_lw_cache",
+    "west": "zone_lw_genvault"
+  },
+  "flags": {
+    "always_lit": true,
+    "district": "longwatch",
+    "is_interior": true,
+    "safehouse": true,
+    "sanctuary": true,
+    "unsurveilled": true
+  },
+  "grid_x": 6,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_lw_deadfall",
+  "map_id": "map_int_longwatch",
+  "name": "The Deadfall",
+  "parent_zone": "zone_under_watchthresh"
+}

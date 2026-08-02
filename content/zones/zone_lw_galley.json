@@ -1,0 +1,29 @@
+{
+  "ambient_events": [
+    "Something long-cooked ticks over in the big pot; whoever is on galley duty lifts the lid, sniffs, and puts it back.",
+    "A chalked rota on the wall runs three weeks out, every name accounted for.",
+    "Onions and bunched herbs hang from a length of salvaged conduit."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1c1710",
+  "color": "#e0a030",
+  "description": "A working kitchen, hot and cramped and smelling of onions and scorched iron. Nothing here came out of a vendor packet, because a hundred ration purchases a week is a shape the Architect can see from orbit — so the Watch cook. Sacks of dried goods are stacked to the ceiling, labelled by hand, and a pot that has clearly never been empty sits over a low flame.",
+  "exits": {
+    "east": "zone_lw_quarter"
+  },
+  "flags": {
+    "always_lit": true,
+    "district": "longwatch",
+    "is_interior": true,
+    "safehouse": true,
+    "sanctuary": true,
+    "unsurveilled": true
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_lw_galley",
+  "map_id": "map_int_longwatch",
+  "name": "The Galley",
+  "parent_zone": "zone_under_watchthresh"
+}

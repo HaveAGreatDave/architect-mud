@@ -17,6 +17,7 @@ import { playerControlsApt } from '../../server/engine/apartments.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 import { getReputation } from '../../server/engine/ideologies.js';
+import { getFlagById } from '../../server/engine/flags.js';
 
 registerLockType('hololock', {
   tagType: 'lock:hololock',
@@ -83,7 +84,15 @@ registerLockType('longwatch', {
     // getReputation, not a raw SELECT — standing decays, and this gate has to
     // read the same number the ideology app shows or the door and the sheet
     // disagree (see systems-ideologies.md).
-    return (await getReputation(player.id, 'ideology_long_watch')) >= LW_TRUSTED_REP;
+    const need = Number(lockTag.minRep) > 0 ? Number(lockTag.minRep) : LW_TRUSTED_REP;
+    if ((await getReputation(player.id, 'ideology_long_watch')) < need) return false;
+    // Compartmentalization: the inner doors of the bunker ask for a specific
+    // flag on top of standing, so "trusted enough to sit by the stove" and
+    // "trusted enough to see the operation" are two different answers. Rep
+    // alone still opens the outer blast door — a tag with no requireFlag
+    // behaves exactly as before.
+    if (lockTag.requireFlag && !(await getFlagById(player.id, lockTag.requireFlag))) return false;
+    return true;
   },
 });
 

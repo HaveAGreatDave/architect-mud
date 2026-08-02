@@ -1,0 +1,9 @@
+{
+  "a": "zone_lw_archive",
+  "b": "zone_lw_runners",
+  "blocked": true,
+  "dir": "east",
+  "id": "conn_lw_archive_east_wall",
+  "lockable": false,
+  "one_way": false
+}

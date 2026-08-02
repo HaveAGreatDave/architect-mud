@@ -1,0 +1,140 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "roll",
+    "nodes": {
+      "roll": {
+        "branch_0": "say_a",
+        "branch_1": "say_b",
+        "branch_2": "walk",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 6
+          }
+        ],
+        "type": "random"
+      },
+      "say_a": {
+        "action_type": "SAY",
+        "cooldown_s": 300,
+        "message": "An old man in waders stops at the wall, licks a chalk stub, adds a stroke to a row of them, and moves on without a word.",
+        "next": "walk",
+        "type": "action"
+      },
+      "say_b": {
+        "action_type": "SAY",
+        "cooldown_s": 300,
+        "message": "He plants his pole in the silt, listens to the tunnel for a while with his head on one side, and grunts, apparently satisfied.",
+        "next": "walk",
+        "type": "action"
+      },
+      "walk": {
+        "action_type": "PATROL",
+        "loop": true,
+        "mode": "walk",
+        "next": "roll",
+        "type": "action",
+        "waypoints": [
+          "zone_under_watchthresh",
+          "zone_under_cablingrun",
+          "zone_under_terminus",
+          "zone_under_924_914",
+          "zone_under_924_915"
+        ]
+      }
+    }
+  },
+  "chitchat": [
+    "\"Fourteen this year. Fourteen of the little glass bastards, and every one of them stopped seeing.\"",
+    "\"You mark a thing, you know when it changes. That's the whole trick.\"",
+    "\"Water's a foot down on last month. Somebody upstream is drinking.\""
+  ],
+  "description": "A wiry old man with a hand-cranked lamp and a pole he uses more for sounding the muck than for walking. A chalk stub lives in his breast pocket, worn down to a nub, and he stops every so often to write something on a wall that you cannot read.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "He cranks his lamp, shoulders the pole, and goes on down the run at a pace that eats distance."
+    },
+    "chalk": {
+      "options": [
+        {
+          "label": "Wires?",
+          "next": "wires"
+        },
+        {
+          "label": "I'll do that.",
+          "next": "bye"
+        }
+      ],
+      "text": "He looks at the wall, then back at you, weighing something. \"Marks are for them as can read them,\" he says, not unkindly. \"You read them, you'd know why you've not been eaten yet. You don't, so walk in the middle and don't touch the wires.\""
+    },
+    "looking": {
+      "options": [
+        {
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Things with lenses in them,\" he says, and does not elaborate, and clearly is not going to."
+    },
+    "root": {
+      "first": "The old man hears you before he sees you, and he does not startle, which tells you something. He raises a hand-cranked lamp and holds it up until he is satisfied. \"Well,\" he says. \"You're not a rat and you're not a corpse, so that's two things.\"",
+      "options": [
+        {
+          "label": "Who are you looking for?",
+          "next": "looking"
+        },
+        {
+          "label": "What are the chalk marks?",
+          "next": "chalk"
+        },
+        {
+          "label": "Fair enough.",
+          "next": "bye"
+        }
+      ],
+      "text": "The old man raises his lamp, considers you, and lowers it again. \"You're not one of the ones I'm looking for,\" he says, \"so we'll get along fine.\""
+    },
+    "wires": {
+      "options": [
+        {
+          "label": "Good to know.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Ankle high, mostly.\" He cranks the lamp twice. \"They don't hurt you. They just tell me you came.\""
+    }
+  },
+  "faction": "ideology_long_watch",
+  "flags": {
+    "clothing_layers": [
+      "a rubberised sewerman's smock, patched at the shoulder",
+      "a knitted cap gone shapeless",
+      "thigh waders"
+    ],
+    "mis_willing": false
+  },
+  "home_activities": [],
+  "home_zone": "zone_under_watchthresh",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_lw_nyall",
+  "name": "Nyall",
+  "npc_type": "civilian",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

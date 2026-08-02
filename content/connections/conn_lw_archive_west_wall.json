@@ -1,0 +1,9 @@
+{
+  "a": "zone_lw_archive",
+  "b": "zone_lw_cage",
+  "blocked": true,
+  "dir": "west",
+  "id": "conn_lw_archive_west_wall",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,0 +1,127 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "roll",
+    "nodes": {
+      "roll": {
+        "branch_0": "say_a",
+        "branch_1": "say_b",
+        "branch_2": "walk",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 6
+          }
+        ],
+        "type": "random"
+      },
+      "say_a": {
+        "action_type": "SAY",
+        "cooldown_s": 300,
+        "message": "A woman in oilskins comes up the tunnel, looks you over without breaking stride, and says, \"Run's clear to the crossing.\" She is not talking to you.",
+        "next": "walk",
+        "type": "action"
+      },
+      "say_b": {
+        "action_type": "SAY",
+        "cooldown_s": 300,
+        "message": "She stops, whistles two falling notes into the dark ahead, waits for two to come back, and walks on.",
+        "next": "walk",
+        "type": "action"
+      },
+      "walk": {
+        "action_type": "PATROL",
+        "loop": true,
+        "mode": "walk",
+        "next": "roll",
+        "type": "action",
+        "waypoints": [
+          "zone_under_terminus",
+          "zone_under_923_913",
+          "zone_under_923_915",
+          "zone_under_924_914",
+          "zone_under_watchthresh"
+        ]
+      }
+    }
+  },
+  "chitchat": [
+    "\"Keep to the middle of the run. The edges are where things wait.\"",
+    "\"You want to be somewhere with a door on it before the water comes up.\"",
+    "\"There's nothing down this way. That's deliberate.\""
+  ],
+  "description": "A rangy woman in oilskins with a lever-action carbine slung muzzle-down and a hooded lantern hanging off her belt, unlit. She moves through the tunnels the way other people move through their own kitchen, and she has clocked you a good deal earlier than you clocked her.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "She nods once and carries on up the tunnel, and the dark takes her a lot faster than it should."
+    },
+    "clean": {
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "Something almost like approval crosses her face. \"Noticed that, did you.\" She adjusts the sling. \"Things that breed down here breed toward the warm. Somebody decided a while back that they weren't going to breed toward this particular warm.\" She starts walking. \"That's all you get from me tonight.\""
+    },
+    "root": {
+      "first": "She has been standing in the dark long enough to have watched you arrive. When she finally speaks it is from somewhere off to your left. \"Middle of the tunnel,\" she says. \"Nothing good stands where you are standing.\" She steps into your light: oilskins, carbine, no particular hurry.",
+      "options": [
+        {
+          "label": "What are you doing down here?",
+          "next": "work"
+        },
+        {
+          "label": "Why is this stretch so clean?",
+          "next": "clean"
+        },
+        {
+          "label": "Nothing. Passing through.",
+          "next": "bye"
+        }
+      ],
+      "text": "She stops a comfortable distance off, carbine still slung, and looks at you with the patience of somebody who has all night. \"You're a long way in,\" she says. \"Most people don't get this deep and stay this healthy.\""
+    },
+    "work": {
+      "options": [
+        {
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Walking,\" she says. \"Same as you.\" A beat. \"Difference is I'll be walking it again tomorrow, and the day after.\""
+    }
+  },
+  "faction": "ideology_long_watch",
+  "flags": {
+    "clothing_layers": [
+      "a long waxed-canvas coat, black with damp at the hem",
+      "a jumper darned at both elbows",
+      "wading boots turned down below the knee"
+    ],
+    "mis_willing": false
+  },
+  "home_activities": [],
+  "home_zone": "zone_under_terminus",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_lw_teague",
+  "name": "Teague",
+  "npc_type": "civilian",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

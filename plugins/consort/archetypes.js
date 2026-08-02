@@ -1316,6 +1316,13 @@ const VERBS = {
   own: 'owns', sit: 'sits', wait: 'waits', settle: 'settles', move: 'moves',
   clean: 'cleans', hope: 'hopes', notice: 'notices', find: 'finds', know: 'knows',
   try: 'tries', breathe: 'breathes',
+  // Added for the question beats (questions.js) — same fixed singular agreement.
+  watch: 'watches', shrug: 'shrugs', reach: 'reaches', check: 'checks',
+  sound: 'sounds', consider: 'considers', let: 'lets', smile: 'smiles',
+  turn: 'turns', pour: 'pours', leave: 'leaves', keep: 'keeps', say: 'says',
+  nod: 'nods', listen: 'listens', take: 'takes', laugh: 'laughs', look: 'looks',
+  hold: 'holds', ask: 'asks', is: 'is', are: 'is',
+  stop: 'stops', start: 'starts', shake: 'shakes', seem: 'seems', file: 'files',
 };
 
 // Full line render: pronouns first, then verb agreement, then the name slot.
@@ -1340,6 +1347,122 @@ export const DEFAULT_ARCHETYPE = 'romantic';
 
 export function archetypeOf(npc) {
   return ARCHETYPES[npc?.flags?.consort_archetype] || ARCHETYPES[DEFAULT_ARCHETYPE];
+}
+
+// ── Temperament — the personality half of a listing ───────────────────────────
+// B.L.I.S.S. itemises the body in exhausting detail (appearance.js); this is the
+// other half, so a buyer can tell a Ghost from an Ice before rather than after.
+//
+// Two deliberate choices:
+//
+//   • It never prints the archetype KEY, same rule as everywhere else. `traits`
+//     are adjectives a person would use, not a classification.
+//   • `wants` / `warned` are a MATCHED PAIR. Every placement carries a written
+//     downside, because a catalogue where every entry is upside is a catalogue
+//     nobody reads twice — and because these are the twelve ways this can go
+//     wrong, which is the actually useful information.
+export const TEMPERAMENT = {
+  strategist: {
+    traits: ['Composed', 'Dry', 'Controlling', 'Loyal past reason'],
+    warmth: 'Slow to warm, and worth the wait. Affection arrives as competence long before it arrives as words.',
+    wants: 'To run your household better than you run your life, and to be told once that they do.',
+    warned: 'Will never say it first. If you need to be told you are loved out loud, this is the wrong placement.',
+  },
+  romantic: {
+    traits: ['Open', 'Devoted', 'Sentimental', 'All-in'],
+    warmth: 'Immediate and total. There is no guarded phase to get through — there never was one.',
+    wants: 'To be the thing you come home to, and to hear about your day before anybody else does.',
+    warned: 'Feels every absence at full volume. A keeper who is gone for days will be met with a real reckoning.',
+  },
+  feral: {
+    traits: ['Physical', 'Blunt', 'Territorial', 'Unembarrassed'],
+    warmth: 'Instant and bodily. Words are not the medium.',
+    wants: 'To be in reach. Proximity is the whole relationship.',
+    warned: 'No interest whatsoever in decorum, guests, or timing. What they want, they want in the room they are in.',
+  },
+  devout: {
+    traits: ['Reverent', 'Serving', 'Intense', 'Quiet'],
+    warmth: 'Total, and unnervingly so from the first evening.',
+    wants: 'To be of use. Being given a task lands as being given a gift.',
+    warned: 'Will not tell you when something is too much, because being asked IS the point. Somebody has to keep count, and it will not be them.',
+  },
+  brat: {
+    traits: ['Loud', 'Funny', 'Provocative', 'Fragile underneath'],
+    warmth: 'Constant, disguised as antagonism. The teasing is the affection.',
+    wants: 'A reaction. Any reaction, at speed.',
+    warned: 'Will escalate until somebody responds. Ignoring them is the one thing that genuinely wounds.',
+  },
+  ghost: {
+    traits: ['Quiet', 'Watchful', 'Absent', 'Unreadable'],
+    warmth: 'Present rather than expressed. You will not be told; you will notice.',
+    wants: 'To be near without being asked to perform being near.',
+    warned: 'Goes long stretches saying nothing at all. A keeper who reads silence as displeasure will spend a lot of evenings wrong.',
+  },
+  wit: {
+    traits: ['Quick', 'Bright', 'Deflecting', 'Sharper than advertised'],
+    warmth: 'Warm, and consistently routed through a joke.',
+    wants: 'An audience that actually keeps up.',
+    warned: 'Turns everything into a bit, including the things that should not be one. Sincerity has to be asked for directly.',
+  },
+  scholar: {
+    traits: ['Curious', 'Precise', 'Distractible', 'Kind'],
+    warmth: 'Expressed as attention — they will remember what you said three weeks ago, verbatim.',
+    wants: 'To be told things. Anything. The world is the interest and you are the window on it.',
+    warned: 'Will lose entire evenings to a book and surface genuinely surprised that hours went by.',
+  },
+  ice: {
+    traits: ['Cool', 'Exacting', 'Elegant', 'Rationed'],
+    warmth: 'Rationed on purpose, which is what makes any of it land.',
+    wants: 'To be treated as an equal rather than an amenity.',
+    warned: 'Coldness is the default setting and not a mood you caused. Reading it as rejection nightly will exhaust you both.',
+  },
+  starlet: {
+    traits: ['Performing', 'Radiant', 'Hungry', 'Practised'],
+    warmth: 'Enormous, and never entirely off-camera.',
+    wants: 'To be watched, and to be told the watching was deserved.',
+    warned: 'Is always slightly performing, including at home. Finding the person under it takes months, and some keepers never bother.',
+  },
+  soldier: {
+    traits: ['Steady', 'Capable', 'Guarded', 'Unshakeable'],
+    warmth: 'Shown as reliability. They will be between you and the door before you notice the door.',
+    wants: 'A post worth holding.',
+    warned: 'Does not talk about what happened before this. Pushing on it closes the shutters for a week.',
+  },
+  stray: {
+    traits: ['Grateful', 'Anxious', 'Tender', 'Watchful of the exits'],
+    warmth: 'Overwhelming, and always a little braced for it to be withdrawn.',
+    wants: 'To be told they are staying, more than once, until it takes.',
+    warned: 'Reads every mood as a verdict on them. Cheap to keep, expensive to be careless with.',
+  },
+};
+
+export function temperamentOf(key) { return TEMPERAMENT[key] || null; }
+
+// What this placement actually SOUNDS like — three real lines pulled from the
+// pools they'll speak from once placed, rendered for their sex and name. Nothing
+// is written twice for the catalogue: the sample is the product. A line needing a
+// second consort is filtered out, because the buyer is looking at one person.
+export function voiceSamples(archetypeKey, member, count = 3) {
+  const A = ARCHETYPES[archetypeKey];
+  if (!A) return [];
+  const npc = { name: member?.name || '', flags: { consort_sex: member?.appearance?.sex || member?.sex || 'female' } };
+  const pools = [A.talkKeeper, A.devotedTame, A.missShort, A.worried, A.arousedTame];
+  const out = [];
+  // Deterministic, not random: the same listing shows the same sample every time
+  // it's opened, because a catalogue entry that reworded itself on every glance
+  // would read as a different person each visit.
+  const offset = String(member?.name || 'x').length;
+  for (let i = 0; i < pools.length && out.length < count; i++) {
+    const safe = soloSafe(pools[i]);
+    if (!safe.length) continue;
+    let line = renderLine(safe[(offset + i) % safe.length], npc, {});
+    if (!line) continue;
+    // An emote pool line is written to follow a name ("marks you the second you
+    // clear the door"); a spoken one already stands on its own.
+    if (!line.trimStart().startsWith('"')) line = `${npc.name} ${line}`;
+    if (!out.includes(line)) out.push(line);
+  }
+  return out.slice(0, count);
 }
 
 // ── Pairings ──────────────────────────────────────────────────────────────────

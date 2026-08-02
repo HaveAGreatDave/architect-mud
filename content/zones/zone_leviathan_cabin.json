@@ -7,8 +7,9 @@
   "ambient_theme": "indoors",
   "bg_color": "#0c1614",
   "color": "#cfeee6",
-  "description": "The main cabin of the Leviathan: a ribbed aluminium tube slung between the flight deck and the hold, fitted out for people rather than pallets. A run of low seats lines one wall under a row of small round windows; webbing straps and grab-rails hang from the frames. This is where you climb aboard and where you ride. The flight deck lies forward to the NORTH; the galley aft to the SOUTH.",
+  "description": "The main cabin of the Leviathan: a ribbed aluminium tube slung between the flight deck and the hold, fitted out for people rather than pallets. A run of low seats lines one wall under a row of small round windows; webbing straps and grab-rails hang from the frames. A hatch in the deck plating, held by four quarter-turn latches, drops DOWN into the belly. This is where you climb aboard and where you ride. The flight deck lies forward to the NORTH; the galley aft to the SOUTH.",
   "exits": {
+    "down": "zone_util_zone_leviathan_cabin",
     "north": "zone_leviathan_flightdeck",
     "south": "zone_leviathan_galley"
   },

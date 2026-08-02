@@ -1,0 +1,29 @@
+{
+  "ambient_events": [
+    "Every crate is stencilled, counted and turned label-out. Nothing has been opened.",
+    "A sealed envelope sits on the top crate with three names on the front and nothing else.",
+    "The dust on the floor holds one set of bootprints, in and out, from the last inventory."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1c1710",
+  "color": "#e0a030",
+  "description": "A second Long Watch, boxed. Rations, fuel, ammunition, a spare press bar, four copies of the archive index and a sealed envelope with three names in it — everything needed to start again somewhere else with whoever walks out of the deadfall. Nobody works in here. It is dusted, counted, and left alone, because the whole point of it is that it is still full on the day everything else is gone.",
+  "exits": {
+    "south": "zone_lw_deadfall"
+  },
+  "flags": {
+    "always_lit": true,
+    "district": "longwatch",
+    "is_interior": true,
+    "safehouse": true,
+    "sanctuary": true,
+    "unsurveilled": true
+  },
+  "grid_x": 6,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_lw_cache",
+  "map_id": "map_int_longwatch",
+  "name": "The Cache",
+  "parent_zone": "zone_under_watchthresh"
+}

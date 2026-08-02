@@ -1,0 +1,29 @@
+{
+  "ambient_events": [
+    "The air in here is bone dry, and it costs the generator something to keep it that way.",
+    "A box has been pulled and left open on the table, the top ledger turned to a page from eleven years ago.",
+    "The oldest boxes at the back are in a hand nobody in the base writes in any more."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1c1710",
+  "color": "#e0a030",
+  "description": "Floor to ceiling boxes, each one dated by hand, in a room kept dry at some expense. The Watch's real weapon is not the rifles in the entry — it is thirty years of what actually happened, written down where nothing can go back and quietly amend it. Ledgers of names, of prices, of who moved where and when the cameras went blind. Read enough of it and the shape of the machine's lie starts to show.",
+  "exits": {
+    "south": "zone_lw_plot"
+  },
+  "flags": {
+    "always_lit": true,
+    "district": "longwatch",
+    "is_interior": true,
+    "safehouse": true,
+    "sanctuary": true,
+    "unsurveilled": true
+  },
+  "grid_x": 4,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_lw_archive",
+  "map_id": "map_int_longwatch",
+  "name": "The Archive",
+  "parent_zone": "zone_under_watchthresh"
+}

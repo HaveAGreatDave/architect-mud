@@ -1,0 +1,29 @@
+{
+  "ambient_events": [
+    "The press bar takes a pull with a heavy, satisfying clunk, and a sheet comes off wet.",
+    "Drying sheets hang from a line on wooden pegs, still tacky, faces turned to the wall.",
+    "A tin bucket of ash sits by the door with a scrap of unburned edge on top."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1c1710",
+  "color": "#e0a030",
+  "description": "A hand-set flatbed press, four cases of lead type, and the good sharp stink of ink. Orders travel the Long Watch on paper, carried in a pocket, read once and burned — because a thing that was never a signal was never intercepted. The compositor's stick sits half-full on the stone, someone's evening interrupted, the line reading backwards and upside down as all true things do here.",
+  "exits": {
+    "north": "zone_lw_spine"
+  },
+  "flags": {
+    "always_lit": true,
+    "district": "longwatch",
+    "is_interior": true,
+    "safehouse": true,
+    "sanctuary": true,
+    "unsurveilled": true
+  },
+  "grid_x": 3,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_lw_press",
+  "map_id": "map_int_longwatch",
+  "name": "The Press",
+  "parent_zone": "zone_under_watchthresh"
+}

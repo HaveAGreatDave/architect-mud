@@ -1,0 +1,9 @@
+{
+  "a": "zone_lw_press",
+  "b": "zone_lw_quiet",
+  "blocked": true,
+  "dir": "west",
+  "id": "conn_lw_press_west_wall",
+  "lockable": false,
+  "one_way": false
+}

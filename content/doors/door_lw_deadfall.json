@@ -1,0 +1,27 @@
+{
+  "connection_id": "conn_lw_deadfall_down_lwdf",
+  "door_type": "reinforced",
+  "exit_dir": "down",
+  "flags": {},
+  "hololock_difficulty": 0,
+  "hp": 2000,
+  "hp_max": 2000,
+  "id": "door_lw_deadfall",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "barred drain hatch",
+  "tags": {
+    "lock:longwatch": {
+      "canHack": false,
+      "messages": {
+        "denied": "The hatch is barred from above and does not care how hard you push.",
+        "lock": "The hatch drops and the bar slides across.",
+        "unlock": "The bar lifts and the hatch swings up."
+      }
+    },
+    "unbreakable": true
+  },
+  "target_zone": "zone_under_924_916",
+  "zone_id": "zone_lw_deadfall"
+}

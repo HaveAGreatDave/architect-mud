@@ -2,8 +2,8 @@
 // Covers the archetype registry, the pronoun renderer, pairing resolution, the
 // seeded roster/pricing, and the live surface (talk hook, beckon/dismiss/pour, tick).
 import { _test } from './index.js';
-import { ARCHETYPES, PAIRINGS, renderLine, pronounsFor, soloSafe, needsOther } from './archetypes.js';
-import { generateAppearance, appearanceCard, describeAppearance, BUILDS, rngFor } from './appearance.js';
+import { ARCHETYPES, PAIRINGS, renderLine, pronounsFor, soloSafe, needsOther, temperamentOf, voiceSamples } from './archetypes.js';
+import { generateAppearance, appearanceCard, describeAppearance, intimateCard, intimateHeadline, BUILDS, rngFor } from './appearance.js';
 import * as roster from './roster.js';
 
 export default async function regress({ check }) {
@@ -163,6 +163,132 @@ export default async function regress({ check }) {
   check('settle: every reaction pool is a well-formed two-hander',
     Object.values(_test.SETTLE_REACT).every(th => th.length >= 1
       && th.every(([w, l]) => (w === 'A' || w === 'B') && typeof l === 'string' && l.trim())));
+
+  // ── Questions: a consort asks, the keeper answers, they react ──────────────
+  const QS = _test.QUESTIONS;
+  check('questions: the pool is worth having', QS.length >= 8, `${QS.length}`);
+  let qBad = null;
+  for (const q of QS) {
+    if (!q.key || typeof q.ask !== 'string' || !q.ask.trim()) { qBad = `${q.key}: ask`; break; }
+    if (!Array.isArray(q.answers) || !q.answers.length) { qBad = `${q.key}: answers`; break; }
+    // Every declared branch, plus dodge and timeout, must have written prose.
+    const branches = [...q.answers.map(([b]) => b), 'dodge', 'timeout'];
+    const missing = branches.find(b => !Array.isArray(q.react?.[b]) || !q.react[b].length
+      || !q.react[b].every(l => typeof l === 'string' && l.trim()));
+    if (missing) { qBad = `${q.key}.react.${missing}`; break; }
+    if (q.answers.some(([, re]) => !(re instanceof RegExp))) { qBad = `${q.key}: answers regex`; break; }
+  }
+  check('questions: every question is askable and every branch is written', qBad === null, qBad || '');
+  check('questions: keys are unique', new Set(QS.map(q => q.key)).size === QS.length);
+
+  // A question must read for BOTH sexes and never leave a token behind — same
+  // contract as every other pool. It must also never assume the KEEPER's sex,
+  // because the keeper is a player.
+  let qTok = null, qKeeper = null;
+  for (const q of QS) {
+    for (const sex of ['female', 'male']) {
+      const who = mk({ name: 'Vesper', flags: { ...mk().flags, consort_sex: sex } });
+      const all = [q.ask, ...Object.values(q.react).flat()];
+      for (const line of all) {
+        const out = renderLine(line, who, { other: 'Calla' });
+        if (/\{[A-Za-z]+\}/.test(out)) { qTok = `${q.key} [${sex}]: ${out.slice(0, 90)}`; break; }
+      }
+      if (qTok) break;
+    }
+    // The keeper is addressed in the second person throughout; a third-person
+    // pronoun in the ASK is the tell that somebody assumed a male keeper.
+    if (/\bhe\b|\bshe\b|\bhis\b|\bher\b|\bhim\b/i.test(q.ask.replace(/\{[^}]+\}/g, ''))) qKeeper = q.key;
+    if (qTok) break;
+  }
+  check('questions: every line renders clean for both sexes', qTok === null, qTok || '');
+  check('questions: no question assumes the keeper is a man', qKeeper === null, qKeeper || '');
+
+  // The classifier: generous, and an unreadable answer is a dodge, never a crash.
+  const qStay = _test.questionByKey('staying');
+  check('questions: questionByKey resolves', !!qStay);
+  check('questions: a yes is read as yes', _test.classifyAnswer(qStay, 'yeah, I am staying') === 'yes');
+  check('questions: a no is read as no', _test.classifyAnswer(qStay, 'nope, heading out') === 'no');
+  check('questions: an unrelated reply is a dodge', _test.classifyAnswer(qStay, 'the gin is warm') === 'dodge');
+  check('questions: an empty reply is a dodge', _test.classifyAnswer(qStay, '') === 'dodge');
+  check('questions: punctuation does not defeat the match', _test.classifyAnswer(qStay, 'Yes!!!') === 'yes');
+  check('questions: a branch with no written reaction never wins',
+    QS.every(q => q.answers.every(([b]) => !!q.react[b])));
+
+  // Rotation: a consort works through the pool before repeating.
+  const asker = mk({ id: 'regress_consort_q' });
+  const seen = new Set();
+  for (let i = 0; i < QS.length; i++) seen.add(_test.nextStaticQuestion(asker).key);
+  check('questions: the whole pool is asked before any repeat', seen.size === QS.length, `${seen.size}/${QS.length}`);
+  check('questions: the pool wraps rather than running dry', !!_test.nextStaticQuestion(asker));
+
+  // ── Dynamic questions: the ones that read the live room ────────────────────
+  const DQ = _test.DYNAMIC_QUESTIONS;
+  const CTX = {
+    gameMinutes: 3 * 60 + 20, hour: 3, hpPct: 0.42, hunger: 20, thirst: 15,
+    credits: 300, bank: 200, dailyRate: 900, daysKept: 44, missed: 1,
+    stars: 3, charge: 'assault', tempC: -4, severity: 0.8, weather: 'sleeting',
+    impaired: 2, companionName: 'Calla',
+  };
+  check('questions: a dynamic pool exists', DQ.length >= 8, `${DQ.length}`);
+  let dBad = null;
+  for (const q of DQ) {
+    if (typeof q.applies !== 'function' || typeof q.ask !== 'function') { dBad = `${q.key}: shape`; break; }
+    const branches = [...q.answers.map(([b]) => b), 'dodge', 'timeout'];
+    const missing = branches.find(b => !Array.isArray(q.react?.[b]) || !q.react[b].length);
+    if (missing) { dBad = `${q.key}.react.${missing}`; break; }
+  }
+  check('questions: every dynamic question is gated and fully written', dBad === null, dBad || '');
+  check('questions: dynamic keys never collide with static ones',
+    !DQ.some(q => QS.some(s => s.key === q.key)));
+
+  // The whole point: with a rich context they all apply, and with an empty one
+  // (a healthy, clean, fed, solvent keeper on a mild afternoon) almost none do.
+  check('questions: a loaded context makes every dynamic question available',
+    _test.applicableDynamic(CTX).length === DQ.length,
+    `${_test.applicableDynamic(CTX).length}/${DQ.length}`);
+  const CALM = {
+    gameMinutes: 14 * 60, hour: 14, hpPct: 1, hunger: 100, thirst: 100,
+    credits: 50_000, bank: 50_000, dailyRate: 900, daysKept: 2, missed: 0,
+    stars: 0, charge: null, tempC: 19, severity: 0, weather: 'clear',
+    impaired: 0, companionName: null,
+  };
+  check('questions: a calm context provokes none of them',
+    _test.applicableDynamic(CALM).length === 0,
+    _test.applicableDynamic(CALM).map(q => q.key).join(','));
+  check('questions: applies() never throws on a partial context',
+    Array.isArray(_test.applicableDynamic({})));
+
+  // Rendered against the context, for both sexes, with nothing left unresolved.
+  let dTok = null;
+  for (const q of DQ) {
+    for (const sex of ['female', 'male']) {
+      const who = mk({ name: 'Vesper', flags: { ...mk().flags, consort_sex: sex } });
+      const lines = [q.ask, ...Object.values(q.react).flat()];
+      for (const l of lines) {
+        const out = renderLine(_test.resolveLine(l, CTX), who, { other: 'Calla' });
+        if (typeof out !== 'string' || !out.trim()) { dTok = `${q.key} [${sex}]: empty`; break; }
+        if (/\{[A-Za-z]+\}/.test(out) || out.includes('undefined') || out.includes('NaN')) {
+          dTok = `${q.key} [${sex}]: ${out.slice(0, 90)}`; break;
+        }
+      }
+      if (dTok) break;
+    }
+    if (dTok) break;
+  }
+  check('questions: every dynamic line resolves against a live context', dTok === null, dTok || '');
+  check('questions: a dynamic question quotes the actual state back',
+    _test.resolveLine(_test.DYNAMIC_QUESTIONS.find(q => q.key === 'tenure').ask, CTX).includes('44'));
+  check('questions: dynamic branches classify like static ones',
+    _test.classifyAnswer(_test.questionByKey('heat'), 'no, they have no idea') === 'no');
+  check('questions: questionByKey finds dynamic questions too', !!_test.questionByKey('hurt'));
+
+  // ── Pacing: these beats are meant to be rare ───────────────────────────────
+  check('pacing: spoken beats are minutes apart', _test.SPEAK_GAP_MS >= 150_000, `${_test.SPEAK_GAP_MS}`);
+  check('pacing: scenes are on a long cooldown', _test.SCENE_GAP_MS >= 12 * 60_000, `${_test.SCENE_GAP_MS}`);
+  check('pacing: arousal takes several minutes to peak',
+    (_test.MAX_AROUSAL / _test.RISE_PER_TICK) * 15 >= 180,
+    `${Math.round((_test.MAX_AROUSAL / _test.RISE_PER_TICK) * 15)}s to peak`);
+  check('pacing: a question is rarer than a spoken beat', _test.QUESTION_GAP_MS > _test.SPEAK_GAP_MS);
 
   // ── Co-presence: non-paired consorts noticing each other ───────────────────
   // Two consorts kept by the same person who were never written for each other.
@@ -439,7 +565,43 @@ export default async function regress({ check }) {
   const sexes = new Set(many.flatMap(l => l.members.map(m => m.appearance.sex)));
   check('roster: both sexes appear in the catalogue', sexes.has('male') && sexes.has('female'), [...sexes].join(','));
   check('roster: rare pairings do appear', many.some(l => l.kind === 'pairing'));
-  check('roster: pairings stay rare', many.filter(l => l.kind === 'pairing').length < many.length * 0.4);
+  // "Rare" means rare. The old per-slot roll put a pair on most registers; a pair
+  // is now rolled once per register and capped at one.
+  const registers = Array.from({ length: 60 }, (_, i) => roster.generateRoster(`rare:${i}`));
+  const withPair = registers.filter(r => r.some(l => l.kind === 'pairing'));
+  check('roster: most registers carry no pairing at all',
+    withPair.length < registers.length * 0.4, `${withPair.length}/${registers.length}`);
+  check('roster: never more than one pairing on a register',
+    registers.every(r => r.filter(l => l.kind === 'pairing').length <= 1));
+
+  // The sex split is PLANNED, not coin-flipped per slot — the failure this fixes
+  // is a register of six women when the player wanted men and a refresh now costs
+  // a game day.
+  let splitBad = null;
+  for (const r of registers) {
+    const singles = r.filter(l => l.kind === 'single');
+    const m = singles.filter(l => l.members[0].appearance.sex === 'male').length;
+    const f = singles.length - m;
+    if (Math.abs(m - f) > 1) { splitBad = `${m}m/${f}f`; break; }
+    if (singles.length >= 2 && (m === 0 || f === 0)) { splitBad = `one-sided: ${m}m/${f}f`; break; }
+  }
+  check('roster: every register is an even split of men and women', splitBad === null, splitBad || '');
+  check('roster: a register is not always ordered the same way',
+    new Set(registers.map(r => r.map(l => l.members[0].appearance.sex).join(''))).size > 4);
+
+  // Sections: what the app shelves the register into.
+  const sections = roster.rosterSections(r1);
+  check('roster: sections cover every listing exactly once',
+    sections.reduce((s, x) => s + x.ids.length, 0) === r1.length
+    && new Set(sections.flatMap(s => s.ids)).size === r1.length);
+  check('roster: a pairing is shelved as a pair, never under a sex',
+    registers.every(r => {
+      const pairIds = r.filter(l => l.kind === 'pairing').map(l => l.id);
+      const sec = roster.rosterSections(r).find(s => s.key === 'pairs');
+      return pairIds.every(id => sec?.ids.includes(id));
+    }));
+  check('roster: an empty section is dropped rather than shown empty',
+    sections.every(s => s.ids.length > 0));
   const archSeen = new Set(many.flatMap(l => l.members.map(m => m.archetypeKey)));
   check('roster: every archetype is reachable', archSeen.size === KEYS.length, `${archSeen.size}/${KEYS.length}`);
 
@@ -449,6 +611,71 @@ export default async function regress({ check }) {
     card.members.every(m => m.says && !KEYS.includes(m.says)));
   check('card: carries the full physical breakdown', card.members.every(m => m.physical.length >= 11));
   check('card: projects the loyalty curve', card.projection.length === 4 && card.projection.every(p => p.rate > 0));
+
+  // ── The explicit specification, and the personality half ───────────────────
+  // Anatomy is generated for everyone, itemised on the card, and — the rule that
+  // matters — NEVER in describeAppearance(), which is what a stranger standing in
+  // the room sees when they examine a consort.
+  let anaBad = null;
+  for (let i = 0; i < 200; i++) {
+    const a = generateAppearance(`ana-${i}`);
+    if (!a.anatomy) { anaBad = `ana-${i}: missing`; break; }
+    const rows = intimateCard(a);
+    if (rows.length < 7) { anaBad = `ana-${i}: ${rows.length} rows`; break; }
+    if (rows.some(([, v]) => !v || /undefined|null/.test(v))) { anaBad = `ana-${i}: blank row`; break; }
+    if (!intimateHeadline(a)) { anaBad = `ana-${i}: no headline`; break; }
+    // The two tables are separate bodies, not one table with a pronoun swap.
+    const keys = rows.map(([k]) => k);
+    if (a.sex === 'male' && keys.includes('Bust')) { anaBad = `ana-${i}: male card carries female anatomy`; break; }
+    if (a.sex === 'female' && keys.includes('Cock')) { anaBad = `ana-${i}: female card carries male anatomy`; break; }
+  }
+  check('anatomy: every generated body is fully specified', anaBad === null, anaBad || '');
+  check('anatomy: the room description never carries it', (() => {
+    for (let i = 0; i < 200; i++) {
+      const a = generateAppearance(`leak-${i}`);
+      const d = describeAppearance('X', a).toLowerCase();
+      if (/\b(cock|cunt|nipple|bust|balls|areola|clit)\b/.test(d)) return false;
+      // ...and no anatomy VALUE appears verbatim in it either.
+      if (Object.values(a.anatomy).some(v => d.includes(String(v).toLowerCase().slice(0, 30)))) return false;
+    }
+    return true;
+  })());
+  check('anatomy: adding it did not change any pre-existing appearance', (() => {
+    // A seed is a promise: anatomy is rolled last, so every axis above it must
+    // still land where it always did. Spot-check the axes by shape rather than
+    // by frozen fixture — a changed ORDER would scramble these.
+    const a = generateAppearance('promise-check');
+    return a.sex && a.build && a.height && a.hair && a.eyes && a.skin && a.mouth
+      && a.grooming && a.scent && a.voice && a.age && a.layers.length > 0;
+  })());
+  check('card: carries the explicit specification', card.members.every(m => m.intimate.length >= 7));
+
+  // Temperament + voice: the personality half of a listing.
+  check('temperament: every archetype has one',
+    KEYS.every(k => {
+      const t = temperamentOf(k);
+      return t && t.traits.length >= 3 && t.warmth && t.wants && t.warned;
+    }));
+  check('temperament: every placement carries a written downside',
+    KEYS.every(k => temperamentOf(k).warned.length > 40));
+  check('temperament: never leaks the archetype key',
+    KEYS.every(k => !JSON.stringify(temperamentOf(k)).toLowerCase().includes(`"${k}"`)));
+  check('card: shows temperament and a voice sample',
+    card.members.every(m => m.temperament?.traits?.length && m.voice.length >= 2));
+  check('voice: samples resolve every token and name the speaker', (() => {
+    for (const k of KEYS) {
+      for (const sex of ['female', 'male']) {
+        const s = voiceSamples(k, { name: 'Vesper', appearance: { sex } });
+        if (s.length < 2) return false;
+        if (s.some(l => /\{[A-Za-z]+\}|§/.test(l))) return false;
+        if (s.some(l => !l.trimStart().startsWith('"') && !l.startsWith('Vesper'))) return false;
+      }
+    }
+    return true;
+  })());
+  check('voice: the same listing samples the same lines every time',
+    JSON.stringify(voiceSamples('ice', { name: 'Vesper', appearance: { sex: 'female' } }))
+    === JSON.stringify(voiceSamples('ice', { name: 'Vesper', appearance: { sex: 'female' } })));
 
   // Loyalty discount: monotonically cheaper, floored, never free.
   const rates = [0, 7, 21, 45, 90, 400].map(d => roster.effectiveRate(2000, d));
@@ -461,9 +688,15 @@ export default async function regress({ check }) {
   const now = Date.now();
   check('reroll: a fresh account may roll', roster.rerollState(0, now).ready === true);
   check('reroll: rolling starts a cooldown', roster.rerollState(now, now).ready === false);
-  check('reroll: the cooldown expires', roster.rerollState(now - roster.REROLL_COOLDOWN_MS - 1, now).ready === true);
+  const cd = roster.rerollCooldownMs();
+  check('reroll: the cooldown expires', roster.rerollState(now - cd - 1, now).ready === true);
   check('reroll: a pending cooldown reports time remaining',
-    /\dm/.test(roster.rerollState(now - 60_000, now).remainingLabel));
+    /\d+[hm]/.test(roster.rerollState(now - 60_000, now).remainingLabel));
+  // A register refresh is a DAY's wait, not ten minutes — the cooldown is the only
+  // thing stopping a player spinning until the placement they wanted falls out.
+  check('reroll: refreshing costs a game day', cd >= 20 * 60_000, `${Math.round(cd / 60_000)}m`);
+  check('reroll: a long wait is labelled in hours',
+    /h/.test(roster.rerollState(now, now).remainingLabel), roster.rerollState(now, now).remainingLabel);
 
   // ── Talk hook ──────────────────────────────────────────────────────────────
   const toKeeper = await _test.onTalk({ player: { handle: 'Cyd' }, npc: roxy });

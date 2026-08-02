@@ -2920,10 +2920,18 @@ async function createUtilityRoomWithJunctionBox(query, network, root) {
   const gz = (anchor.grid_z ?? 0) - 1;                       // z-1 by default
   const worldExit = anchor.flags?.world_exit_zone || anchor.parent_zone || null;
 
+  // MERGE the flags on re-heal, never replace them. A utility room that has since
+  // been adopted into content — renamed, re-described, given flags of its own —
+  // was silently reset to the bare {is_interior, utility_room} pair every time this
+  // ran, because a self-heal is not supposed to be an edit. The Leviathan's Belly
+  // Crawlspace is the case that found it: it carries `aircraft_cabin`, without
+  // which disembarking from it does not work. Authored keys win; the two keys this
+  // function owns are re-asserted underneath them.
   await query(
     `INSERT INTO zones (id, name, description, map_id, parent_zone, grid_x, grid_y, grid_z, flags, exits)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-     ON CONFLICT (id) DO UPDATE SET map_id=$4, parent_zone=$5, grid_x=$6, grid_y=$7, grid_z=$8, flags=$9`,
+     ON CONFLICT (id) DO UPDATE SET map_id=$4, parent_zone=$5, grid_x=$6, grid_y=$7, grid_z=$8,
+       flags = EXCLUDED.flags || zones.flags`,
     [utilId, `${anchor.name} — Utility Room`,
      'A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.',
      anchor.map_id || null, anchor.parent_zone || null, gx, gy, gz,
@@ -3007,6 +3015,20 @@ export async function fixBuildingPowerConnections() {
     const buildingName = namedRows[0]?.name || root.name;
 
     if (gens.length === 0) {
+      // …unless the "building" is a VEHICLE. An aircraft cabin and a deck of the
+      // Echelon both carry is_building/is_interior — they are walk-in interiors and
+      // want to be, but you cannot dig a room under something that flies. The
+      // Leviathan got one before this guard existed; rather than delete it, it was
+      // adopted as her Belly Crawlspace (content/zones), which is why it is skipped
+      // here by the same flag rather than by id. A vehicle interior that genuinely
+      // needs power gets a junction box authored into it, like any other content.
+      const { rows: vehicle } = await query(
+        `SELECT 1 FROM zones WHERE id = ANY($1::text[])
+           AND (flags ? 'aircraft_cabin' OR COALESCE((flags->>'vessel')::boolean, false)
+                OR COALESCE((flags->>'echelon')::boolean, false)) LIMIT 1`,
+        [network]
+      );
+      if (vehicle.length) continue;
       // Self-heal: dig a utility room below the building and drop a junction box.
       try {
         const made = await createUtilityRoomWithJunctionBox(query, network, root);

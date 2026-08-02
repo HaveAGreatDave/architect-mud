@@ -1,0 +1,9 @@
+{
+  "a": "zone_lw_airplant",
+  "b": "zone_lw_bench",
+  "blocked": true,
+  "dir": "west",
+  "id": "conn_lw_airplant_west_wall",
+  "lockable": false,
+  "one_way": false
+}

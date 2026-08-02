@@ -1,15 +1,16 @@
 {
   "ambient_events": [
-    "Water moves through the dark somewhere close, then further off.",
-    "Your light finds a waterline stain, old and high, and loses it.",
-    "The drip here keeps a rhythm the tunnel seems to like."
+    "A barred hatch is set into the ceiling of this dead end. It has no handle on this side.",
+    "The muck here has been walked through, and recently, by someone who came back the same way.",
+    "Somebody has swept this sump. In the sewer, that is a stranger thing than a body would be."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#141b19",
   "color": "#8fae9a",
   "description": "A run of domestic storm line under Kessler Street, the walls streaked with a century of household runoff. Somewhere a broken pipe drips with idiot patience.",
   "exits": {
-    "north": "zone_under_924_915"
+    "north": "zone_under_924_915",
+    "up": "zone_lw_deadfall"
   },
   "flags": {
     "district": "sewer",

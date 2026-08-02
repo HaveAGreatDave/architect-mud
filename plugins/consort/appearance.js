@@ -240,6 +240,178 @@ const AGES = [
   'older than the roster implies, and not hiding it',
 ];
 
+// ── Anatomy ───────────────────────────────────────────────────────────────────
+// The explicit half of a listing. B.L.I.S.S. is selling a body and is not coy
+// about the specification, so the app itemises it: proportions, weight, size, the
+// lot. Seeded like everything else, so a listing's body is the same body when
+// it's ordered.
+//
+// THE RULE: none of this reaches `describeAppearance()`. That function is the NPC
+// `description` that `examine` prints in a room to anybody standing there, and a
+// stranger walking past a consort is not owed their measurements. Anatomy lives
+// in `intimateCard()`, which is only ever assembled by the MIS-gated app.
+//
+// The two tables are separate rather than one shared table with a pronoun swap:
+// they describe different bodies and a mirrored line reads as a mirrored line.
+const FEMALE_ANATOMY = {
+  bust: [
+    'barely there and entirely unbothered about it, the kind of chest that suits a shirt with nothing under it',
+    'small and high and neat, more shape than volume',
+    'a modest handful, soft, sitting close',
+    'a full handful with a real weight to them',
+    'generous and heavy, with the low natural hang that comes with the size',
+    'heavy enough to be an event, and she moves like she knows the arithmetic of it',
+    'markedly, expensively large, and sitting higher than nature would have managed alone',
+  ],
+  nipples: [
+    'small pale nipples that go tight at nothing in particular',
+    'wide dark areolae and nipples that stand out plainly through anything thin',
+    'neat inverted nipples that come out under attention and not before',
+    'large dark nipples, permanently a little swollen',
+    'pierced through both, small steel bars, done well',
+  ],
+  waist: [
+    'a deep nipped-in waist that makes the rest of it look drawn on',
+    'a straight, boyish waist with no particular ceremony about it',
+    'a soft belly with a real curve to it and no interest in flattening it',
+    'a hard flat stomach with the muscle faintly legible under the skin',
+    'a soft roundness low on the belly that the light finds first',
+  ],
+  hips: [
+    'wide, heavy hips that swing whether or not she means them to',
+    'narrow hips, straight up and down, boyish from behind',
+    'a full, round, high backside that fills out anything she puts on',
+    'a soft, broad, generously spread backside',
+    'a small tight backside with muscle under it',
+    'hips and thighs that are the widest part of her by a considerable margin',
+  ],
+  thighs: [
+    'thick soft thighs that touch all the way down',
+    'long lean thighs with a visible gap',
+    'heavy muscled thighs, built by something',
+    'soft dimpled thighs, unhidden and unapologised for',
+  ],
+  grooming: [
+    'shaved perfectly smooth',
+    'kept trimmed short and neat',
+    'a neat dark strip left deliberately',
+    'left entirely natural and thick with it',
+    'left natural but kept tidy',
+    'permanently and expensively bare',
+  ],
+  sex: [
+    'small and tight and neatly tucked away, almost nothing showing',
+    'full outer lips with the inner ones just showing between them',
+    'noticeably prominent inner lips that show plainly when she opens her legs',
+    'long soft lips and a clit that stands out obviously when she is anywhere near interested',
+    'plump and heavy and quick to swell',
+    'neat and pink and pierced once through the hood',
+  ],
+};
+
+const MALE_ANATOMY = {
+  chest: [
+    'a flat narrow chest with the ribs showing',
+    'a broad slab of a chest with real mass on it',
+    'a lightly furred chest, soft over the muscle',
+    'a smooth waxed chest, every line of it deliberate',
+    'a heavy chest gone soft at the edges and none the worse for it',
+    'a pierced chest — a bar through each nipple, worn casually',
+  ],
+  back: [
+    'a wide V of a back that tapers hard to the waist',
+    'a long straight back with the spine showing',
+    'a thick, solid back with old muscle under a layer of comfort',
+    'a back covered in ink to the waistband, edge to edge',
+  ],
+  waist: [
+    'a hard stomach with the muscle plainly counted out',
+    'a soft belly he carries with complete unconcern',
+    'a narrow waist and the deep cut of the hip flexors either side',
+    'a flat unremarkable middle that does its job',
+  ],
+  rear: [
+    'a high tight backside that most trousers flatter',
+    'a heavy round backside with genuine mass to it',
+    'a flat backside he would be the first to admit to',
+    'a muscular backside that goes with the thighs',
+  ],
+  thighs: [
+    'heavy tree-trunk thighs',
+    'long lean runner\'s thighs',
+    'thick soft thighs, comfortable rather than sculpted',
+    'corded thighs with the muscle sliding under the skin',
+  ],
+  grooming: [
+    'shaved completely smooth',
+    'kept close-trimmed and tidy',
+    'left thick and natural',
+    'trimmed short, everything else left alone',
+    'permanently and expensively bare',
+  ],
+  size: [
+    'modest and neat, and he has never once apologised for it',
+    'on the small side, and skilled enough that nobody has ever raised it twice',
+    'entirely average, which he has correctly worked out is the useful size',
+    'a comfortable, obvious handful, thick more than long',
+    'long and slim, with a noticeable upward curve',
+    'genuinely large, and heavy with it — the sort of thing that changes the plan for the evening',
+    'oversized to the point of being a logistical consideration, and priced accordingly',
+  ],
+  cut: [
+    'circumcised, neat',
+    'uncut',
+    'uncut, and pierced once through the head',
+  ],
+  balls: [
+    'heavy and low-hanging',
+    'tight and high',
+    'shaved smooth and heavy',
+  ],
+};
+
+// The itemised anatomy rows for the app. MIS-gated by the app that calls it —
+// nothing else in this plugin ever renders these.
+export function intimateCard(a) {
+  const x = a?.anatomy;
+  if (!x) return [];
+  return a.sex === 'male'
+    ? [
+      ['Chest',     cap(x.chest)],
+      ['Back',      cap(x.back)],
+      ['Middle',    cap(x.waist)],
+      ['Behind',    cap(x.rear)],
+      ['Thighs',    cap(x.thighs)],
+      ['Body hair', cap(x.grooming)],
+      ['Cock',      cap(x.size)],
+      ['—',         `${cap(x.cut)}. ${cap(x.balls)}.`],
+    ]
+    : [
+      ['Bust',      cap(x.bust)],
+      ['Nipples',   cap(x.nipples)],
+      ['Waist',     cap(x.waist)],
+      ['Hips',      cap(x.hips)],
+      ['Thighs',    cap(x.thighs)],
+      ['Body hair', cap(x.grooming)],
+      ['Cunt',      cap(x.sex)],
+    ];
+}
+
+// One line of it, for the summary strip at the top of a listing — the single
+// characteristic somebody scanning the register would actually stop on.
+export function intimateHeadline(a) {
+  const x = a?.anatomy;
+  if (!x) return '';
+  return a.sex === 'male' ? cap(x.size) : cap(x.bust);
+}
+
+function generateAnatomy(r, sex) {
+  const T = sex === 'male' ? MALE_ANATOMY : FEMALE_ANATOMY;
+  const out = {};
+  for (const key of Object.keys(T)) out[key] = r.pick(T[key]);
+  return out;
+}
+
 // ── Generation ────────────────────────────────────────────────────────────────
 // One seed in, one whole person out. `sex` and `buildKey` can be forced (the
 // pairing generator pins them); otherwise both come from the seed too.
@@ -271,6 +443,10 @@ export function generateAppearance(seed, { sex = null, build = null } = {}) {
     // Not everyone carries a mark, and chrome is rarer still and costs more.
     mark:     r.chance(0.6) ? r.pick(MARKS) : null,
     mod:      r.chance(0.25) ? r.pick(MODS) : null,
+    // Rolled LAST, deliberately: appending axes here cannot shift any of the
+    // draws above, so every consort generated before anatomy existed still looks
+    // exactly the same. A seed is a promise.
+    anatomy:  generateAnatomy(r, theSex),
   };
 }
 

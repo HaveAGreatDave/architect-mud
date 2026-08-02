@@ -1,0 +1,29 @@
+{
+  "ambient_events": [
+    "A kettle sits on a burner beside a tray of instruments, waiting to be needed.",
+    "The nearer bed has been stripped and remade with the corners squared. It has not been slept in for a while.",
+    "A hand-copied anatomy chart hangs on the wall, annotated in three different hands."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1c1710",
+  "color": "#e0a030",
+  "description": "Two beds, a scrubbed table, and a cabinet of honestly-labelled bottles. This room exists because a clinic is a database — walk into one with a bullet in you and you are a record with a timestamp and a face, and the Watch have buried people rather than let that happen. The work here is done with hands, iodine, and a great deal of patience, and the surgeon's tools are boiled, not sterilised by anything with a plug.",
+  "exits": {
+    "east": "zone_lw_bunk"
+  },
+  "flags": {
+    "always_lit": true,
+    "district": "longwatch",
+    "is_interior": true,
+    "safehouse": true,
+    "sanctuary": true,
+    "unsurveilled": true
+  },
+  "grid_x": 0,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_lw_infirmary",
+  "map_id": "map_int_longwatch",
+  "name": "The Infirmary",
+  "parent_zone": "zone_under_watchthresh"
+}

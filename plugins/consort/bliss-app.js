@@ -25,7 +25,7 @@
 import { registerTabletApp, normScreen } from '../tablet/registry.js';
 import { isMisActive } from '../../server/engine/mis.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
-import { generateRoster, listingCard, rerollState, effectiveRate, loyaltyTier, REROLL_COOLDOWN_MS } from './roster.js';
+import { generateRoster, rosterSections, listingCard, rerollState, effectiveRate, loyaltyTier, rerollCooldownMs } from './roster.js';
 import { consortRowsOf, privateSpacesOf, placeListing, releaseConsort, consortRow, pairMembers, holdsPrivateSpace } from './hire.js';
 import { PAIRINGS } from './archetypes.js';
 
@@ -52,8 +52,13 @@ async function buildListings(player) {
     strapline: 'Bonded Live-In Intimacy Subscription Service',
     smallprint: 'Placements are subject to availability, a daily retainer, and clause 9.',
     reroll: rerollState(rolled),
-    cooldownMs: REROLL_COOLDOWN_MS,
+    cooldownMs: rerollCooldownMs(),
     heldCount: held.length,
+    // The register is SECTIONED by sex, with matched pairs their own shelf. A
+    // six-slot register is now built half and half (roster.js), so the sections
+    // are always both worth opening — the old coin-per-slot could hand you five
+    // women and a refresh you now have to wait a day for.
+    sections: rosterSections(listings),
     listings: listings.map(l => {
       const card = listingCard(l);
       return {
@@ -66,6 +71,8 @@ async function buildListings(player) {
           name: m.name,
           sex: m.sex,
           says: m.says,
+          traits: m.temperament?.traits || [],
+          headline: m.headline,
           summary: `${m.physical.find(r => r[0] === 'Height')?.[1] || ''}, ${m.physical.find(r => r[0] === 'Build')?.[1]?.split(' — ')[0] || ''}`,
         })),
       };

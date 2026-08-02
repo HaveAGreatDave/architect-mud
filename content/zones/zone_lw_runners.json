@@ -1,0 +1,29 @@
+{
+  "ambient_events": [
+    "Somebody comes off a cot, laces up, takes a sheet off the board and is gone without a word to anyone.",
+    "The board reads a column of times and a column of chalk symbols. No place names anywhere on it.",
+    "A pair of boots by the door has been resoled so many times there's almost nothing original left."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1c1710",
+  "color": "#e0a030",
+  "description": "Six cots, six lockers, and a chalked board of legs. The Watch move their messages on foot, and no runner is ever told more than one leg of a route — you take a sealed sheet from a face you know to a face you know, and you are not told what is on it or where it goes next. Half of them are asleep at any hour. The board never carries a destination, only a time and a shape.",
+  "exits": {
+    "south": "zone_lw_genvault"
+  },
+  "flags": {
+    "always_lit": true,
+    "district": "longwatch",
+    "is_interior": true,
+    "safehouse": true,
+    "sanctuary": true,
+    "unsurveilled": true
+  },
+  "grid_x": 5,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_lw_runners",
+  "map_id": "map_int_longwatch",
+  "name": "The Runners' Den",
+  "parent_zone": "zone_under_watchthresh"
+}

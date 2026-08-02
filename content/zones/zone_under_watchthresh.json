@@ -9,7 +9,7 @@
   "color": "#e0a030",
   "description": "The end of the road: a reinforced blast door set into a poured bulkhead the Watch built themselves, salvaged plate and honest welds. Here the hiding stops — their mark is carved openly into the lintel, and a gutted camera housing hangs above the door like a trophy. The door does not open for strangers. It opens for people the Long Watch have decided to trust.",
   "exits": {
-    "east": "zone_lw_entry",
+    "east": "zone_lw_sally",
     "north": "zone_under_cablingrun",
     "west": "zone_under_terminus"
   },

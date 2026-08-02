@@ -1,8 +1,8 @@
 {
   "ambient_events": [
-    "The Watch's cable run hums quietly along the wall, feeding something south.",
-    "A dead-drop tin is wedged in a niche, its lid scratched with a single mark.",
-    "Fresh boot prints in the silt, coming and going. You are not the first here today."
+    "The cable trays overhead have been stripped of everything with a signal in it, neatly, with the ends taped.",
+    "A camera bracket is bolted to the wall with no camera in it and no sign of a struggle.",
+    "Somebody has chalked a tally beside the bracket. It is at fourteen."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#141b19",

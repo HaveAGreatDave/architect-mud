@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "The hose drips into the drain, patient and steady.",
+    "A row of chalked lockers holds other people's tablets, all of them dark, all of them staying that way.",
+    "Someone has written above the mirror, in a careful hand: THE MACHINE KNOWS YOU BY WHAT YOU CARRY."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1c1710",
+  "color": "#e0a030",
+  "description": "A tiled scrub room with a run of hooks, a drain, and a hose fed from somewhere upstream. This is where you leave everything that can be listened to: tablets, chips, anything with a cell in it goes into a lead-lined locker with your name chalked on it, and the sewer goes down the drain with the rest. There is a mirror bolted at eye height, and beside it a set of calipers and a probe, because the Watch check for chrome and they do not take your word for it.",
+  "exits": {
+    "east": "zone_lw_blind",
+    "west": "zone_lw_sally"
+  },
+  "flags": {
+    "always_lit": true,
+    "district": "longwatch",
+    "is_interior": true,
+    "safehouse": true,
+    "sanctuary": true,
+    "unsurveilled": true
+  },
+  "grid_x": -2,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_lw_wash",
+  "map_id": "map_int_longwatch",
+  "name": "The Wash",
+  "parent_zone": "zone_under_watchthresh"
+}

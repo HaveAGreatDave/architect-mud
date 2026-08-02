@@ -1144,6 +1144,17 @@ body.fsim-external #look-resize-handle { display: none; }
 	color: var(--green);
 	font-weight: 600;
 }
+/* A busy room's furniture, sectioned by type (describe.js → sectionFurniture).
+   Two columns rather than padded spaces, because the label column has to hold
+   when a section wraps: with spaces, the second line of a long section runs back
+   under the label and the alignment that was the whole point is gone. 13ch is
+   the longest label ("Furnishings:") plus its space — an exact character count,
+   which is only possible because the pane is monospace. */
+#area-content .room-furn-secs {
+	display: grid;
+	grid-template-columns: 13ch 1fr;
+	margin-top: 0.35em;
+}
 /* Poker table's per-seat chair list — collapsed by default in the area pane. */
 .poker-chairs > summary {
 	cursor: pointer;

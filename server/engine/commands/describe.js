@@ -38,6 +38,7 @@ import { getLockTagPublic, checkLockAuth } from "./doors.js";
 import { getItem } from "../items-cache.js";
 import { getPhantomsInZone, applyTransforms, applyNpcTransforms, getRoomTransform, getRoomTransformName, getWeatherWarp } from "../phantoms.js";
 import { bodyTell } from "../dreamscape.js";
+import { sectionFurniture } from "../classify.js";
 
 // Emits a `data-lock` attribute the client dpad reads to colour the direction:
 // "owned" (the player controls this lock), "locked" (engaged, not theirs), or
@@ -1267,7 +1268,8 @@ export async function describeZone(zone, player, out = {}) {
 		const { map: attachedMap, claimed: attachedIds } = attachChildren(
 			plainFurniture.filter((f) => soloIds.has(f.id)),
 		);
-		const furnitureLinks = groups.filter((g) => !attachedIds.has(g.f.id)).map(({ f, qty, kind }) => {
+		const standing = groups.filter((g) => !attachedIds.has(g.f.id));
+		const furnitureLinks = standing.map(({ f, qty, kind }) => {
 			const stateTag =
 				f.object_type === "light"
 					? ` <span class="light-state ${f.light_on ? "light-on" : "light-off"}">(${f.light_on ? "on" : "off"})</span>`
@@ -1311,7 +1313,31 @@ export async function describeZone(zone, player, out = {}) {
 				.join("");
 			return `<span class="action-link furniture-link" data-ftype="${f.object_type || "furniture"}" data-action="${click.action}"${cmdAttr(click)} data-target="${escAttr(click.target)}"${pieceAttr(f, click)}${actionsAttr}${morphAttr} title="${escAttr(click.title)}">${label}</span>${stateTag}${attached}`;
 		});
-		desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(", ")}`;
+		// A busy room sections itself by what the pieces ARE — see sectionFurniture.
+		// The section labels replace the single `Furniture:` label rather than
+		// joining it: labelling the remainder "Furniture" under a heading that
+		// already said Furniture is what made the first draft of this unreadable.
+		//
+		// Nothing about a link changes between the two shapes, so targeting, tints,
+		// the smart bar and the morph attribute are identical either way — this
+		// decides only which line a piece is printed on. Most rooms hold four
+		// things and take the flat branch, which is the intended common answer.
+		//
+		// The grid children are emitted with NO whitespace between them on purpose:
+		// #area-content is `white-space: pre-wrap`, and a newline between two grid
+		// items is a text node that becomes a THIRD grid item and shunts the whole
+		// row a column to the right.
+		const sections = sectionFurniture(standing, { rowOf: (g) => g.f });
+		if (sections) {
+			const linkOf = new Map(standing.map((g, i) => [g, furnitureLinks[i]]));
+			const rows = sections.map(({ group, items }) => {
+				const links = items.map((g) => linkOf.get(g)).join(", ");
+				return `<span class="furniture-label">${group}:</span><span class="furn-sec-items">${links}</span>`;
+			});
+			desc += `<div class="room-furn-secs">${rows.join("")}</div>`;
+		} else {
+			desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(", ")}`;
+		}
 	}
 	if (furniturePanel?.html) desc += `\n${furniturePanel.html}`;
 	if (!isDark) {

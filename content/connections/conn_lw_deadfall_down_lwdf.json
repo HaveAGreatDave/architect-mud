@@ -1,0 +1,9 @@
+{
+  "a": "zone_lw_deadfall",
+  "b": "zone_under_924_916",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_lw_deadfall_down_lwdf",
+  "lockable": true,
+  "one_way": false
+}

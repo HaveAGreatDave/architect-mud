@@ -245,3 +245,86 @@ export function sectionize(entries, { preferred = null, itemOf = (e) => e } = {}
   }
   return orderGroups([...byGroup.keys()], axis).map(g => ({ group: g, items: byGroup.get(g) }));
 }
+
+// ─── Furniture facets: the sections a ROOM's furniture line sorts itself into ─
+//
+// Same question as above, asked of a different pile. A `furniture` row has no
+// `tags`, so none of the item machinery applies to it — but the doctrine does, and
+// it lives here so that "how a list sections itself" stays one file rather than two
+// that drift.
+//
+// DERIVED, NEVER AUTHORED, is the whole of it. There is no `area` field on
+// furniture and there must not be one: "Kitchen" is a place, and the same
+// stove-and-cold-box cluster turns up in a bar galley, a diner and a squat. What
+// the row already knows — its `object_type` and the flags the systems that own it
+// stamped on it — is enough, and it stays true when a piece is moved.
+//
+// Sync and query-free, like everything else here: it reads a hydrated row and
+// nothing else, and it is called from the room description on every `look`.
+const FURNITURE_FACETS = [
+  // Order is precedence, and the first two lines are the ones that matter: a fridge
+  // is a container that is ALSO an appliance, and a television is furniture that is
+  // also a set. Whichever bucket a player would name first, wins.
+  ['Media', (f, fl) => ['media_deck', 'tv'].includes(f.object_type)
+    || fl.tv || fl.is_tv || fl.media_deck || fl.broadcast_receiver || fl.broadcast_transmitter],
+  ['Appliances', (f, fl) => f.object_type === 'cosmetic_machine'
+    || fl.stove_tier || fl.microwave || fl.brew_tier || fl.preserves || fl.appliance_grade
+    || fl.washing_machine || fl.smoker],
+  ['Plumbing', (f, fl) => ['toilet', 'shower', 'sink'].includes(f.object_type) || fl.water_source],
+  ['Terminals', (f, fl) => f.object_type === 'terminal'
+    || fl.atm || fl.job_board || fl.slot_machine || fl.vends || fl.vends_packs
+    || fl.teleporter || fl.chargen || fl.checkout || fl.lending_terminal],
+  // Expected to stay EMPTY, and kept anyway. describe.js sends every light to the
+  // room prose instead of this list ("the ceiling wash is lit"), so a light only
+  // gets here when it's flagged `notable` — or in the dark, where the list is
+  // lights and nothing else and the dominance rejection prints it flat regardless.
+  // One line, so that the one room with two notable fixtures doesn't file them
+  // under Furnishings.
+  ['Lighting', (f, fl) => f.object_type === 'light' || fl.is_light],
+  ['Storage', (f, fl) => f.object_type === 'container'
+    || fl.container || fl.wardrobe || fl.dish_cabinet || fl.trash_bin],
+];
+// The trailing bucket. Named for what's actually in it — beds, seating, tables —
+// rather than "Other", because on this list the remainder is a real category and
+// the reader can see that it is.
+export const FURNITURE_REMAINDER = 'Furnishings';
+const FURNITURE_SECTION_ORDER = ['Appliances', 'Storage', 'Media', 'Terminals', 'Plumbing', 'Lighting', FURNITURE_REMAINDER];
+
+export function furnitureFacet(row) {
+  if (!row) return FURNITURE_REMAINDER;
+  const fl = (typeof row.flags === 'object' && row.flags) || {};
+  for (const [label, test] of FURNITURE_FACETS) if (test(row, fl)) return label;
+  return FURNITURE_REMAINDER;
+}
+
+// A room has to be BUSY before sections beat a flat line. Below the floor, three
+// labels over three short runs is more furniture than the furniture — the labels
+// become the clutter they were added to fix.
+export const MIN_FURNITURE_TO_SECTION = 8;
+
+// Returns ordered [{ group, items }], or NULL meaning "print the flat line you
+// print today". Null is the common answer and a successful one: most rooms in the
+// game hold four things.
+//
+// Four ways sectioning makes a room worse, and each is its own rejection:
+//   - too few pieces to be hard to read in the first place
+//   - only one section has company, so it's a flat list wearing a hat
+//   - one section holds everything, which is the flat list with an extra line
+//   - the remainder is most of the room, so the axis didn't answer for it
+export function sectionFurniture(entries, { rowOf = (e) => e } = {}) {
+  if (!entries || entries.length < MIN_FURNITURE_TO_SECTION) return null;
+  const byGroup = new Map();
+  for (const e of entries) {
+    const g = furnitureFacet(rowOf(e));
+    if (!byGroup.has(g)) byGroup.set(g, []);
+    byGroup.get(g).push(e);
+  }
+  if (byGroup.size < 2) return null;
+  const sizes = [...byGroup.values()].map((v) => v.length);
+  if (sizes.filter((n) => n >= 2).length < 2) return null;
+  if (Math.max(...sizes) === entries.length) return null;
+  if ((byGroup.get(FURNITURE_REMAINDER)?.length || 0) > entries.length / 2) return null;
+  return FURNITURE_SECTION_ORDER
+    .filter((g) => byGroup.has(g))
+    .map((g) => ({ group: g, items: byGroup.get(g) }));
+}

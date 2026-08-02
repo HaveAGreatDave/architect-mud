@@ -42,6 +42,10 @@ import { getItem } from '../../server/engine/items-cache.js';
 import { isStackable } from '../../server/engine/tags.js';
 import { randomUUID } from 'crypto';
 import { ARCHETYPES, PAIRINGS, archetypeOf, renderLine, soloSafe, needsOther } from './archetypes.js';
+import { QUESTIONS, DYNAMIC_QUESTIONS, classifyAnswer, questionByKey, applicableDynamic, resolveLine } from './questions.js';
+import { gameMinutes } from '../../server/engine/clock.js';
+import { getZoneTemperature, getZoneSeverity, getWeatherDescription } from '../../server/engine/environment.js';
+import { impairmentOf } from '../../server/engine/impairment.js';
 import { rehydrateConsorts, consortRowsOf, privateSpacesOf } from './hire.js';
 import './bliss-app.js';   // registers the B.L.I.S.S. tablet app (MIS-gated)
 
@@ -49,18 +53,18 @@ import './bliss-app.js';   // registers the B.L.I.S.S. tablet app (MIS-gated)
 // Deliberately unhurried: these beats are meant to land rarely and mean something,
 // not chatter. The gaps are long and most eligible ticks pass in silence.
 const MAX_AROUSAL   = 100;              // fully bare at this
-const RISE_PER_TICK  = 12;              // arousal gained per tick while alone with their keeper (slow burn)
+const RISE_PER_TICK  = 7;               // arousal gained per tick while alone with their keeper (slow burn)
 const COOL_PER_TICK  = 12;              // arousal shed per tick otherwise
 const AROUSED_AT     = 66;              // arousal at/above which solo lines turn hot
-const SPEAK_GAP_MS   = 75_000;          // min gap between an NPC's spoken beats
-const SPEAK_CHANCE   = 0.33;            // an eligible tick where she just is, quietly
-const SCENE_GAP_MS   = 8 * 60_000;      // keep the two-hander a rare treat, not a loop
-const SCENE_CHANCE   = 0.3;             // ...and only sometimes when it's eligible
+const SPEAK_GAP_MS   = 165_000;         // min gap between an NPC's spoken beats
+const SPEAK_CHANCE   = 0.22;            // an eligible tick where she just is, quietly
+const SCENE_GAP_MS   = 15 * 60_000;     // keep the two-hander a rare treat, not a loop
+const SCENE_CHANCE   = 0.22;            // ...and only sometimes when it's eligible
 const SETTLE_CHANCE  = 0.35;            // of those keeper two-handers, how often it's the "pick one of us" question
-const SCENE_TURN_MS  = [4500, 8000];    // random delay between turns of a scene
+const SCENE_TURN_MS  = [7000, 12_000];  // random delay between turns of a scene
 const MAX_TURNS      = 6;               // cap however long a chosen thread runs
 const FELLATIO_AT    = 84;              // arousal at/above which their signature act can happen
-const FELLATIO_CHANCE = 0.5;            // ...and how readily, once peaked (they're experts, not shy)
+const FELLATIO_CHANCE = 0.35;           // ...and how readily, once peaked (they're experts, not shy)
 const FELLATIO_DUO_CHANCE = 0.5;        // when both are here and peaked, chance the scene is a two-girl one
 
 // ── Absence ───────────────────────────────────────────────────────────────────
@@ -74,12 +78,12 @@ const FELLATIO_DUO_CHANCE = 0.5;        // when both are here and peaked, chance
 // keeper acts (FELLATIO_AT), because turning to each other is where a warm evening
 // goes before it peaks, not after. Paired or not; a pairing just brings history.
 const MUTUAL_AT     = 70;   // BOTH consorts must be at least this aroused
-const MUTUAL_CHANCE = 0.35; // ...and then only sometimes, on the shared scene cooldown
+const MUTUAL_CHANCE = 0.25; // ...and then only sometimes, on the shared scene cooldown
 
 // How readily two non-paired consorts acknowledge each other on an eligible beat.
 // Kept low: they're colleagues, not a double act, and this should read as texture
 // rather than a running commentary between them.
-const CO_PRESENCE_CHANCE = 0.3;
+const CO_PRESENCE_CHANCE = 0.22;
 
 const ABSENCE_SHORT_MS = 2 * 3_600_000;    // a few hours out → they mention it
 const ABSENCE_LONG_MS  = 20 * 3_600_000;   // the better part of a day+ → it lands harder
@@ -1105,6 +1109,7 @@ function playSettleQuestion(zoneId, a, b, keeper) {
 // moved) just clears silently.
 function onPlayerSay({ player, text }) {
   if (!player) return;
+  if (resolveQuestion(player, text)) return;   // a solo consort's question outranks nothing else; it's just first
   const p = pendingSettle.get(player.id);
   if (!p) return;
   const a = world.npcs.get(p.aId);
@@ -1117,6 +1122,166 @@ function onPlayerSay({ player, text }) {
     if (bothPresentWith(p.zoneId, a, b, player) && getZonePlayers(p.zoneId).length)
       playScene(p.zoneId, a, b, SETTLE_REACT[key]);
   }, 900);
+}
+
+// ── The solo version: a consort asks, and waits ────────────────────────────────
+// The settle-it beat needs a PAIRING. This is the same mechanism for one consort:
+// they ask their keeper something, the room goes quiet, and whatever the keeper
+// says next is read and reacted to. The pool lives in questions.js; everything
+// here is plumbing.
+//
+// Deliberately slow, and deliberately not sexual — this is the clothed half of
+// the relationship, and it's the main reason to be in the room when nobody is
+// undressing. One question per consort per QUESTION_GAP_MS at the very most, and
+// a question already asked isn't asked again until they've run out of new ones.
+const QUESTION_TIMEOUT_MS = 120_000;              // how long they'll wait on an answer
+const QUESTION_GAP_MS     = 12 * 60_000;          // and how rarely one gets asked at all
+const QUESTION_CHANCE     = 0.35;                 // ...of the eligible beats that clear that gap
+const pendingQuestion = new Map();                // keeperId -> { zoneId, npcId, qKey, timer }
+const questionAt      = new Map();                // npcId    -> last time this one asked anything
+
+function clearQuestion(keeperId) {
+  const p = pendingQuestion.get(keeperId);
+  if (p?.timer) clearTimeout(p.timer);
+  pendingQuestion.delete(keeperId);
+}
+
+// Never repeat until the whole pool is spent, then start over. Kept on the NPC
+// (in-memory like every other consort runtime value) so two consorts in the same
+// room don't ask the same thing on the same evening.
+function nextStaticQuestion(npc) {
+  const asked = npc._askedQuestions || (npc._askedQuestions = []);
+  let fresh = QUESTIONS.filter(q => !asked.includes(q.key));
+  if (!fresh.length) { asked.length = 0; fresh = QUESTIONS; }
+  const q = pick(fresh);
+  asked.push(q.key);
+  return q;
+}
+
+// ── The context a dynamic question reads ───────────────────────────────────────
+// Every value comes from LIVE MEMORY — the player object, the world maps, the
+// in-memory wanted runtime, the consort's own ledger row. Nothing here queries:
+// this is assembled on a 15s tick, and the read-tier rule is not negotiable.
+// Every lookup is individually guarded, because a question that can't be built is
+// simply a question that doesn't get asked — never a thrown tick.
+//
+// surveillance is reached the way every other plugin reaches it: a lazy dynamic
+// import cached at module scope. Until it resolves, `stars` is 0 and the heat
+// question just doesn't apply.
+let _survMod = null;
+import('../surveillance/index.js').then(m => { _survMod = m; }).catch(() => {});
+
+function questionContext(npc, keeper, zoneId) {
+  const safe = (fn, fallback) => { try { const v = fn(); return v == null ? fallback : v; } catch { return fallback; } };
+  const wanted = safe(() => _survMod?.wantedSnapshot?.(keeper.id), null) || { stars: 0, charges: [] };
+  const row = npc._consortRow || {};
+  const mins = safe(() => gameMinutes(), 0);
+  return {
+    npc, keeper,
+    gameMinutes: mins,
+    hour: Math.floor((mins % 1440) / 60),
+    hpPct: keeper.hp_max > 0 ? Math.max(0, Math.min(1, (keeper.hp || 0) / keeper.hp_max)) : 1,
+    hunger: Number.isFinite(keeper.hunger) ? keeper.hunger : 100,
+    thirst: Number.isFinite(keeper.thirst) ? keeper.thirst : 100,
+    credits: keeper.credits || 0,
+    bank: keeper.bank_credits || 0,
+    dailyRate: row.daily_rate || 0,
+    daysKept: row.days_kept || 0,
+    missed: row.missed || 0,
+    stars: wanted.stars || 0,
+    charge: (wanted.charges || []).slice(-1)[0] || null,
+    tempC: safe(() => getZoneTemperature(zoneId), 18),
+    severity: safe(() => getZoneSeverity(zoneId), 0),
+    weather: safe(() => getWeatherDescription(), 'filthy weather') || 'filthy weather',
+    impaired: safe(() => (impairmentOf(keeper)?.notes || []).length, 0),
+    companionName: companionFor(npc, zoneId)?.name || null,
+  };
+}
+
+// A dynamic question beats a static one when the state supports one, because a
+// question about the blood on you is worth more than a question about the weather
+// in general. They repeat on their own long cooldown rather than going in the
+// static rotation — the state that provokes them comes and goes.
+const DYNAMIC_REPEAT_MS = 45 * 60_000;
+const DYNAMIC_PREFERENCE = 0.75;
+
+function nextQuestionFor(npc, ctx = null) {
+  if (ctx && Math.random() < DYNAMIC_PREFERENCE) {
+    const now = Date.now();
+    const recent = npc._askedDynamic || (npc._askedDynamic = {});
+    const fresh = applicableDynamic(ctx).filter(q => now - (recent[q.key] || 0) > DYNAMIC_REPEAT_MS);
+    if (fresh.length) {
+      const q = pick(fresh);
+      recent[q.key] = now;
+      return q;
+    }
+  }
+  return nextStaticQuestion(npc);
+}
+
+const stillWith = (zoneId, npc, keeper) =>
+  npc && !npc._dead && npc.zone_id === zoneId
+  && keeper && keeper.current_zone === zoneId;
+
+// Play the reaction — the asker alone, one line at a time, at scene pacing — and
+// bank whatever the answer was worth to them.
+function playAnswerReact(zoneId, npc, keeper, lines, moodDelta = 0, ctx = null) {
+  if (moodDelta) {
+    const a = Math.max(0, Math.min(MAX_AROUSAL, (arousal.get(npc.id) || 0) + moodDelta));
+    arousal.set(npc.id, a);
+  }
+  sceneZones.add(zoneId);
+  let i = 0;
+  const step = () => {
+    if (!stillWith(zoneId, npc, keeper) || !getZonePlayers(zoneId).length || i >= lines.length) {
+      sceneZones.delete(zoneId);
+      return;
+    }
+    const line = renderLine(resolveLine(lines[i++], ctx), npc, { other: companionFor(npc, zoneId)?.name });
+    sendToZone(zoneId, formatChitchat(npc.name, line));
+    lastSpoke.set(npc.id, Date.now());
+    setTimeout(step, randInt(SCENE_TURN_MS[0], SCENE_TURN_MS[1]));
+  };
+  step();
+}
+
+// Ask it, then hand the room back and wait on him.
+function playQuestion(zoneId, npc, keeper) {
+  // The context is built ONCE and snapshotted onto the pending question, so a
+  // reaction that quotes a number quotes the number the question was asked about.
+  const ctx = questionContext(npc, keeper, zoneId);
+  const q = nextQuestionFor(npc, ctx);
+  const now = Date.now();
+  questionAt.set(npc.id, now);
+  lastSpoke.set(npc.id, now);
+  const ask = renderLine(resolveLine(q.ask, ctx), npc, { other: ctx.companionName });
+  sendToZone(zoneId, formatChitchat(npc.name, ask));
+  clearQuestion(keeper.id);
+  const timer = setTimeout(() => {
+    pendingQuestion.delete(keeper.id);
+    if (stillWith(zoneId, npc, keeper) && getZonePlayers(zoneId).length)
+      playAnswerReact(zoneId, npc, keeper, q.react.timeout || [], 0, ctx);
+  }, QUESTION_TIMEOUT_MS);
+  pendingQuestion.set(keeper.id, { zoneId, npcId: npc.id, qKey: q.key, ctx, timer });
+}
+
+// Resolve a pending question off the keeper's `say`. Same contract as the settle
+// beat: a room that's no longer valid just clears silently, and an unreadable
+// answer is a dodge rather than nothing.
+function resolveQuestion(player, text) {
+  const p = pendingQuestion.get(player.id);
+  if (!p) return false;
+  clearQuestion(player.id);
+  const npc = world.npcs.get(p.npcId);
+  const q = questionByKey(p.qKey);
+  if (!q || !stillWith(p.zoneId, npc, player)) return true;
+  const branch = classifyAnswer(q, text);
+  const lines = q.react[branch] || q.react.dodge || [];
+  setTimeout(() => {                                  // let his own say line land first
+    if (stillWith(p.zoneId, npc, player) && getZonePlayers(p.zoneId).length)
+      playAnswerReact(p.zoneId, npc, player, lines, q.mood?.[branch] || 0, p.ctx || null);
+  }, 1200);
+  return true;
 }
 
 // ── Area life (beckoned out of the cabin) ───────────────────────────────────────
@@ -1137,10 +1302,10 @@ function areaProfile(zone) {
 
 // Activity tunables — deliberately slow. She settles into a thing for minutes, and
 // most eligible ticks pass with nothing said.
-const ACT_MIN_MS       = 210_000;   // ~3.5 min settled into an activity...
-const ACT_MAX_MS       = 480_000;   // ...up to ~8
-const ACT_SPEAK_GAP_MS = 90_000;    // and a long gap between any continuation beats
-const ACT_IDLE_CHANCE  = 0.15;      // most eligible ticks she simply is
+const ACT_MIN_MS       = 300_000;   // ~5 min settled into an activity...
+const ACT_MAX_MS       = 720_000;   // ...up to ~12
+const ACT_SPEAK_GAP_MS = 180_000;   // and a long gap between any continuation beats
+const ACT_IDLE_CHANCE  = 0.10;      // most eligible ticks she simply is
 
 // Line factory: `§` is replaced with her name. Second arg is the MIS-only (skin)
 // variant, shown only to opted-in viewers and only when she's alone with her keeper.
@@ -1301,7 +1466,7 @@ const AREA_BANTER = {
 
 // One consort's turn of area-life. Picks/holds an activity keyed to the deck, and
 // only rarely narrates. Hot (skin) lines play only when she's alone with her keeper.
-function runAreaActivity(npc, zone, zoneId, now, keeperHere, strangerHere) {
+function runAreaActivity(npc, zone, zoneId, now, keeperHere, strangerHere, keeper = null) {
   const profile = areaProfile(zone);
   const acts = AREA_ACTIVITIES[profile] || AREA_ACTIVITIES.cabin;
 
@@ -1329,6 +1494,19 @@ function runAreaActivity(npc, zone, zoneId, now, keeperHere, strangerHere) {
 
   // Mid-activity: an occasional, unhurried continuation beat.
   if (now - (lastSpoke.get(npc.id) || 0) < ACT_SPEAK_GAP_MS) return;
+
+  // ...or, out here with him and nobody else, they ask him something instead. The
+  // deck is where the conversations that aren't about the bedroom happen, so this
+  // gets the same shot here as it does in the cabin.
+  if (keeperHere && keeper && !strangerHere && !sceneZones.has(zoneId)
+      && !pendingQuestion.has(keeper.id)
+      && now - (questionAt.get(npc.id) || 0) > QUESTION_GAP_MS
+      && Math.random() < QUESTION_CHANCE) {
+    playQuestion(zoneId, npc, keeper);
+    return;
+  }
+
+
   if (Math.random() > ACT_IDLE_CHANCE) return;
   const act = acts.find(a => a.key === cur.key);
   if (!act) return;
@@ -1378,7 +1556,7 @@ function consortTick() {
         // Beckoned out onto the ship (anywhere but the intimate cabins), she lives a
         // life keyed to that deck instead of the arousal/undress path.
         if (!isIntimateZone(zone)) {
-          runAreaActivity(npc, zone, zoneId, now, keeperHere, strangerHere);
+          runAreaActivity(npc, zone, zoneId, now, keeperHere, strangerHere, keeper);
           continue;
         }
         npc.onFurniture = null;   // back in the cabins she's on the arousal/undress path, not parked on deck furniture
@@ -1468,7 +1646,7 @@ function consortTick() {
         // due for a scene or spoke too recently.
         if (keeperHere && !strangerHere && layers.length && (npc._clothingPeeled || 0) >= layers.length
             && !sceneZones.has(zoneId)
-            && now - (lastSpoke.get(npc.id) || 0) >= SPEAK_GAP_MS && Math.random() < 0.4) {
+            && now - (lastSpoke.get(npc.id) || 0) >= SPEAK_GAP_MS && Math.random() < 0.3) {
           const [tame, hot] = pick(NAKED_SOLO);
           tieredZoneLine(zoneId, tame.replaceAll('§', npc.name), hot.replaceAll('§', npc.name));
           lastSpoke.set(npc.id, now);
@@ -1525,6 +1703,18 @@ function consortTick() {
 
         // Spoken beats — throttled, and sometimes she just is, quietly.
         if (now - (lastSpoke.get(npc.id) || 0) < SPEAK_GAP_MS) continue;
+
+        // A question, and then silence while they wait on him. Deliberately ahead of
+        // the two-hander and the ordinary devotion line, and deliberately gated BELOW
+        // AROUSED_AT: this is the clothed half of the evening. Only one consort can
+        // hold the keeper's answer at a time (pendingQuestion is keyed by keeper).
+        if (keeperHere && keeper && !strangerHere && a < AROUSED_AT
+            && !sceneZones.has(zoneId) && !pendingQuestion.has(keeper.id)
+            && now - (questionAt.get(npc.id) || 0) > QUESTION_GAP_MS
+            && Math.random() < QUESTION_CHANCE) {
+          playQuestion(zoneId, npc, keeper);
+          continue;                                              // asking IS their beat this tick
+        }
 
         // Two-hander: private only, both of them here, on a long cooldown.
         if (!strangerHere && !sceneZones.has(zoneId)
@@ -1935,4 +2125,8 @@ export const _test = {
   AREA_BANTER, onFurnitureDescribe,
   pickEntrance, pairIn, say, companionFor, absenceTierFor,
   SETTLE_SETUP, SETTLE_REACT, classifySettle, onPlayerSay, pendingSettle, clearSettle,
+  QUESTIONS, DYNAMIC_QUESTIONS, classifyAnswer, questionByKey, applicableDynamic, resolveLine,
+  nextQuestionFor, nextStaticQuestion, questionContext, playQuestion, resolveQuestion,
+  pendingQuestion, clearQuestion, questionAt, QUESTION_GAP_MS, QUESTION_TIMEOUT_MS,
+  SPEAK_GAP_MS, SCENE_GAP_MS, RISE_PER_TICK,
 };

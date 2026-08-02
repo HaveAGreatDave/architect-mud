@@ -1,0 +1,9 @@
+{
+  "a": "zone_lw_cache",
+  "b": "zone_lw_runners",
+  "blocked": true,
+  "dir": "west",
+  "id": "conn_lw_cache_west_wall",
+  "lockable": false,
+  "one_way": false
+}

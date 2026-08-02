@@ -303,6 +303,31 @@ function ensureStyles() {
     #tablet-os-overlay .mg-head:active { cursor:grabbing; }
     #tablet-os-overlay .tos-bezel { flex:1; min-height:0; display:flex; flex-direction:column; }
     #tablet-os-overlay .tos-screen { background:var(--bg, #0c1114); position:relative; flex:1; min-height:0; overflow:hidden; }
+    /* ── The scan bar ────────────────────────────────────────────────────────
+       The shared minigame sweep (.mg-crt-sweep) translates a 40px bar down by a
+       FIXED --mg-sweep-h in pixels, which is fine for a minigame deck of known
+       size. The tablet is a resizable window, so a pixel figure was wrong at
+       every height but one: at 420px the bar stopped short of the bottom on a
+       tall screen and ran off early on a short one, and it never swept the whole
+       device the way the fiction says.
+
+       So the tablet drives the same element off a full-height BACKGROUND instead
+       of a transform: the band is a fraction of the screen and the travel is in
+       percentages, which is exactly the screen's height whatever that is today —
+       no pixel constant, no JS measuring, no resize handler.
+
+       It is also much fainter (0.5 → 0.14) and slower. At half opacity a bright
+       bar crossing text every 4 seconds pulls the eye off whatever you were
+       reading, and the tablet is the one CRT in the game you READ rather than
+       watch. Faint enough to register as glass, not as motion. */
+    #tablet-os-overlay .tos-screen .mg-crt-sweep {
+      top:0; bottom:0; height:auto; transform:none; opacity:0.14;
+      background:linear-gradient(180deg, transparent,
+        color-mix(in srgb, var(--mg-accent,#fff) 38%, transparent), transparent);
+      background-size:100% 26%; background-repeat:no-repeat;
+      animation:tos-crt-sweep 7.5s linear infinite; }
+    @keyframes tos-crt-sweep { 0%{background-position:0 -30%} 100%{background-position:0 130%} }
+    [data-motion="off"] #tablet-os-overlay .tos-screen .mg-crt-sweep { display:none; }
     /* The only element that actually scrolls — CRT overlay layers are outside
        it (siblings), so scanlines/sweep/reticles stay pinned to the screen
        instead of scrolling away with the content. */
@@ -2431,6 +2456,20 @@ function ensureStyles() {
       font-size:.8em; opacity:.85; margin-top:3px; }
     #tablet-os-overlay .tos-bliss-heldline .save { opacity:.6; }
     #tablet-os-overlay .tos-bliss-warn { font-size:.75em; color:var(--yellow); margin-top:5px; }
+    /* Temperament, voice sample and the explicit spec — the two halves of a
+       listing that aren't a price. Traits are chips so they scan at a glance;
+       the "be warned" row is the only coloured thing in the card, because it is
+       the row that stops somebody buying the wrong person. */
+    #tablet-os-overlay .tos-bliss-traits { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
+    #tablet-os-overlay .tos-bliss-traits span { font-size:.68em; letter-spacing:.1em; text-transform:uppercase;
+      padding:2px 6px; border:1px solid var(--tos-line); border-radius:10px; opacity:.85; }
+    #tablet-os-overlay .tos-bliss-headline { font-size:.78em; opacity:.72; margin-top:4px; font-style:italic; }
+    #tablet-os-overlay .tos-bliss-subhead { font-size:.68em; letter-spacing:.16em; text-transform:uppercase;
+      opacity:.7; margin:10px 0 2px; border-top:1px dashed var(--tos-line); padding-top:7px; }
+    #tablet-os-overlay .tos-bliss-spec th.warn { color:var(--yellow); opacity:.9; }
+    #tablet-os-overlay .tos-bliss-spec.intimate th { width:6.5em; }
+    #tablet-os-overlay .tos-bliss-voice p { font-size:.82em; opacity:.9; font-style:italic; margin:4px 0 0;
+      padding-left:8px; border-left:2px solid var(--tos-line); }
 
     /* ── Vitals app ──────────────────────────────────────────────────────────
        Bars first, words second. The four bands are the only colour vocabulary
@@ -6879,30 +6918,42 @@ function blissChrome(sub) {
 }
 
 function renderBlissListings(d) {
-  const cards = (d.listings || []).map(l => {
+  const cardFor = (l) => {
     const pairTag = l.pairing
       ? `<div class="tos-bliss-pairtag">${esc(l.pairing.label)} &middot; non-severable</div>` : '';
     const who = (l.members || []).map(m => `
       <div class="tos-bliss-who">
         <div class="tos-bliss-name">${esc(m.name)} <span class="sex">${m.sex === 'male' ? '♂' : '♀'}</span></div>
         <div class="tos-bliss-says">${esc(m.says)}</div>
+        ${(m.traits || []).length ? `<div class="tos-bliss-traits">${m.traits.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
         <div class="tos-bliss-phys">${esc(m.summary)}</div>
+        ${m.headline ? `<div class="tos-bliss-headline">${esc(m.headline)}</div>` : ''}
       </div>`).join('');
     return `<div class="tos-bliss-card" data-act-id="open" data-act-app="bliss" data-act-params="${esc(l.id)}">
       ${pairTag}${who}
       <div class="tos-bliss-rate"><b>${l.rate}c</b> / day</div>
     </div>`;
-  }).join('');
+  };
+
+  // The register is sectioned server-side (women / men / matched pairs). A
+  // register with no sections at all still renders as one flat grid.
+  const byId = new Map((d.listings || []).map(l => [l.id, l]));
+  const cards = (d.sections || []).length
+    ? d.sections.map(s => `
+        <div class="tos-bliss-secthead">${esc(s.label)} <span class="dim">${s.ids.length}</span></div>
+        <div class="tos-bliss-grid">${s.ids.map(id => byId.get(id)).filter(Boolean).map(cardFor).join('')}</div>`).join('')
+    : `<div class="tos-bliss-grid">${(d.listings || []).map(cardFor).join('')}</div>`;
 
   const rr = d.reroll || {};
   const rerollBtn = rr.ready
-    ? `<button class="tos-btn" data-act-id="reroll" data-act-app="bliss" data-act-params="">↻ Refresh the register</button>`
+    ? `<button class="tos-btn" data-act-id="reroll" data-act-app="bliss" data-act-params=""
+         data-act-confirm="Refresh the register? The current placements are gone and the next refresh is a day away.">↻ Refresh the register</button>`
     : `<button class="tos-btn disabled" disabled>↻ Refreshes in ${esc(rr.remainingLabel || '')}</button>`;
 
   return `
     ${blissChrome(`${(d.listings || []).length} placements available`)}
     <div class="tos-bliss-strap">${esc(d.smallprint || '')}</div>
-    <div class="tos-bliss-grid">${cards}</div>
+    ${cards}
     <div class="tos-actions">
       ${rerollBtn}
       <button class="tos-btn" data-act-id="arrangement" data-act-app="bliss" data-act-params="">Your arrangement${d.heldCount ? ` (${d.heldCount})` : ''}</button>
@@ -6911,14 +6962,37 @@ function renderBlissListings(d) {
 
 function renderBlissDetail(d) {
   const l = d.listing || {};
-  const who = (l.members || []).map(m => `
+  const who = (l.members || []).map(m => {
+    const t = m.temperament || {};
+    // Temperament sits ABOVE the measurements on purpose: the body is the easy
+    // half to shop for and the personality is the half you have to live with.
+    const person = t.traits ? `
+      <div class="tos-bliss-traits">${(t.traits || []).map(x => `<span>${esc(x)}</span>`).join('')}</div>
+      <table class="tos-bliss-spec">
+        <tr><th>Warmth</th><td>${esc(t.warmth || '')}</td></tr>
+        <tr><th>Wants</th><td>${esc(t.wants || '')}</td></tr>
+        <tr><th class="warn">Be warned</th><td>${esc(t.warned || '')}</td></tr>
+      </table>` : '';
+    const voice = (m.voice || []).length ? `
+      <div class="tos-bliss-subhead">In their own words</div>
+      <div class="tos-bliss-voice">${m.voice.map(v => `<p>${esc(v)}</p>`).join('')}</div>` : '';
+    const intimate = (m.intimate || []).length ? `
+      <div class="tos-bliss-subhead">Specification</div>
+      <table class="tos-bliss-spec intimate">${m.intimate.map(([k, v]) =>
+        `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>` : '';
+    return `
     <div class="tos-bliss-detailwho">
       <div class="tos-bliss-name">${esc(m.name)} <span class="sex">${m.sex === 'male' ? '♂' : '♀'}</span></div>
       <div class="tos-bliss-says">${esc(m.says)}</div>
       <div class="tos-bliss-note">${esc(m.note)}</div>
+      ${person}
+      ${voice}
+      <div class="tos-bliss-subhead">Appearance</div>
       <table class="tos-bliss-spec">${(m.physical || []).map(([k, v]) =>
         `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>
-    </div>`).join('');
+      ${intimate}
+    </div>`;
+  }).join('');
 
   const pair = l.pairing ? `<div class="tos-bliss-pairbox">
       <div class="tos-bliss-pairtag">${esc(l.pairing.label)}</div>
@@ -10448,7 +10522,7 @@ export function openTabletPanel(msg) {
     // hold: no powering-on animation, no boot screen, render the real screen at once.
     const html = `<div class="tos-anchor"><div class="tos-panel mg-chassis${skip ? '' : ' tos-powering-on'}">
       ${deviceHeader('&#9635;', 'ARCHITECT OS', 'Tablet Interface')}
-      <div class="tos-bezel mg-bezel">${bezelScrews()}<div class="tos-screen mg-screen" style="--mg-sweep-h:420px" id="tos-screen-inner">
+      <div class="tos-bezel mg-bezel">${bezelScrews()}<div class="tos-screen mg-screen" id="tos-screen-inner">
         <canvas class="tos-wall" id="tos-wall"></canvas>
         <div class="tos-scroll" id="tos-scroll">
           ${skip ? '' : '<div class="tos-boot" id="tos-boot"><div class="tos-boot-logo">A</div><div class="tos-boot-title">ARCHITECT OS</div><div class="tos-boot-sub">Booting Tablet Interface&hellip;</div></div>'}
@@ -11139,16 +11213,19 @@ let _wallState = null;   // { sky, drops:[], stars:[], w, h }
 //
 // EVERY ONE IS DERIVED FROM THE THEME. Nothing here hardcodes a colour: each
 // painter is handed `st.c` — the live --bg / --bg2 / --mg-accent / --tos-fg read
-// off the overlay — and mixes from those, so switching theme moves the wallpaper
+// off the overlay, PLUS the three hues rotated off that accent (see wallColors) —
+// and mixes from those, so switching theme moves the wallpaper
 // with it instead of leaving a blue sky over a green terminal. The sky's
 // time-of-day tone is a *cast* blended into the theme's own background rather
 // than a palette of its own, which is what keeps it recognisably your theme at
 // 3am and at noon.
 //
-// And they stay QUIET: contrast is capped in CSS (.tos-wall.on), the accent is
-// used at single-digit alpha, and every painter is a no-op with motion off after
-// its first static frame. If you can read the tile labels without effort, it's
-// working.
+// And they stay QUIET: contrast is capped in CSS (.tos-wall.on), colour is carried
+// at low alpha over a darkened ground, every painter finishes on a vignette that
+// pulls the corners back under the tiles, and every one is a no-op with motion off
+// after its first static frame. Colour is not brightness — a magenta at 0.2 alpha
+// behind a vignette is more interesting than a grey at 0.4 and costs less
+// legibility. If you can read the tile labels without effort, it's working.
 //
 // STRENGTH IS PER-WALLPAPER (`s`), not one number for the set. The first pass gave
 // every pattern the same 0.34 and they all read as the same faint grey texture —
@@ -11161,17 +11238,17 @@ let _wallState = null;   // { sky, drops:[], stars:[], w, h }
 const TABLET_WALLPAPERS = [
   { id: 'none',     label: 'None' },
   { id: 'sky',      label: 'Sky',      s: 0.50 },  // live weather + game clock
-  { id: 'grid',     label: 'Grid',     s: 0.58 },  // drifting blueprint lattice
-  { id: 'contours', label: 'Contours', s: 0.60 },  // slow interference lines
-  { id: 'drift',    label: 'Drift',    s: 0.62 },  // sparse floating motes
-  { id: 'scan',     label: 'Scan',     s: 0.58 },  // a single slow radar sweep
-  { id: 'circuit',  label: 'Circuit',  s: 0.60 },  // etched traces with charge running them
-  { id: 'aurora',   label: 'Aurora',   s: 0.46 },  // slow colour fronts
-  { id: 'hex',      label: 'Hex',      s: 0.55 },  // honeycomb with a lighting wave
-  { id: 'code',     label: 'Code',     s: 0.50 },  // glyph rain
-  { id: 'warp',     label: 'Warp',     s: 0.62 },  // starfield running past you
-  { id: 'tide',     label: 'Tide',     s: 0.55 },  // stacked wave fronts
-  { id: 'static',   label: 'Static',   s: 0.42 },  // dead channel + a rolling bar
+  { id: 'grid',     label: 'Grid',     s: 0.55 },  // drifting blueprint lattice
+  { id: 'contours', label: 'Contours', s: 0.55 },  // slow interference lines
+  { id: 'drift',    label: 'Drift',    s: 0.56 },  // sparse floating motes
+  { id: 'scan',     label: 'Scan',     s: 0.54 },  // a single slow radar sweep
+  { id: 'circuit',  label: 'Circuit',  s: 0.56 },  // etched traces with charge running them
+  { id: 'aurora',   label: 'Aurora',   s: 0.44 },  // slow colour fronts
+  { id: 'hex',      label: 'Hex',      s: 0.52 },  // honeycomb with a lighting wave
+  { id: 'code',     label: 'Code',     s: 0.46 },  // glyph rain
+  { id: 'warp',     label: 'Warp',     s: 0.56 },  // starfield running past you
+  { id: 'tide',     label: 'Tide',     s: 0.52 },  // stacked wave fronts
+  { id: 'static',   label: 'Static',   s: 0.40 },  // dead channel + a rolling bar
 ];
 const TABLET_WALLPAPER_DEFAULT = 'none';
 function loadWallpaper() {
@@ -11187,15 +11264,83 @@ function saveWallpaper(id) {
 
 // The theme's live colours, resolved once per start (cheap, and they only change
 // on a re-render, which restarts the wallpaper anyway).
+//
+// COLOUR IS DERIVED, NEVER AUTHORED. The theme hands over exactly one accent, and a
+// set of painters that only ever use that one accent reads as thirteen shades of the
+// same grey texture — which is what the first pass was. So the accent is ROTATED on
+// the colour wheel into a small fixed palette (a complement, a neighbour, one warm)
+// and every painter draws from that instead. Rotating rather than hardcoding is what
+// keeps a green terminal green: the relationships travel with the theme, only the
+// spread is ours. Saturation is clamped at both ends — floored so a greyscale theme
+// still gets some chroma, capped so no theme can turn the home screen into a rave.
 function wallColors(el) {
   const cs = getComputedStyle(el);
   const pick = (v, fb) => (cs.getPropertyValue(v) || '').trim() || fb;
+  const accent = pick('--mg-accent', pick('--accent', '#3fd0d8'));
   return {
     bg: pick('--bg', '#0c1114'),
     bg2: pick('--bg2', '#1a2226'),
-    accent: pick('--mg-accent', pick('--accent', '#3fd0d8')),
+    accent,
     fg: pick('--tos-fg', '#dfe9f5'),
+    // The complement. Against a cyan accent this lands on magenta, which is the
+    // whole cyberpunk chord in one rotation — and it is the colour used LEAST.
+    hot: wallShift(accent, 152, { sat: 1.18, lift: 0.03 }),
+    // A neighbour, rotated the same way as the complement so the three sit as a
+    // proper split spread. Against cyan it lands on a deep azure. This one does
+    // most of the colour work — an analogous pair adds depth without ever looking
+    // like two systems fighting.
+    cool: wallShift(accent, 38, { sat: 1.08 }),
+    // One warm, for sodium light and filament glow. Sparingly — it's the loudest.
+    amber: wallShift(accent, -145, { sat: 1.15, lift: 0.05 }),
   };
+}
+
+// Rotate a colour's hue, with saturation floored/capped so the result is always a
+// colour rather than a grey, and never a fluorescent one.
+function wallShift(col, deg, opts = {}) {
+  const A = wallRgb(col);
+  if (!A) return col;
+  const [r, g, b] = A.map(v => v / 255);
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let l = (mx + mn) / 2;
+  let s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  // A greyscale theme has no hue to rotate FROM, so it borrows one. It still ends
+  // up desaturated-looking because the floor is low, but the set stops being flat.
+  let hdeg = !d ? 195
+    : mx === r ? 60 * (((g - b) / d) % 6)
+    : mx === g ? 60 * (((b - r) / d) + 2)
+    : 60 * (((r - g) / d) + 4);
+  hdeg = (hdeg + deg + 720) % 360;
+  s = Math.max(opts.satMin ?? 0.34, Math.min(opts.satMax ?? 0.76, s * (opts.sat ?? 1)));
+  l = Math.max(0.30, Math.min(0.70, l + (opts.lift ?? 0)));
+  const cc = (1 - Math.abs(2 * l - 1)) * s;
+  const x = cc * (1 - Math.abs(((hdeg / 60) % 2) - 1));
+  const m = l - cc / 2;
+  const seg = Math.floor(hdeg / 60) % 6;
+  const trio = [[cc, x, 0], [x, cc, 0], [0, cc, x], [0, x, cc], [x, 0, cc], [cc, 0, x]][seg];
+  return `rgb(${trio.map(v => Math.round((v + m) * 255)).join(',')})`;
+}
+
+// A soft point of light. Every painter that wants glow uses this rather than
+// shadowBlur, which is the one canvas feature that would actually cost frames here.
+function wallGlow(ctx, x, y, r, col, a) {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, wallAlpha(col, a));
+  g.addColorStop(0.45, wallAlpha(col, a * 0.28));
+  g.addColorStop(1, wallAlpha(col, 0));
+  ctx.fillStyle = g;
+  ctx.fillRect(x - r, y - r, r * 2, r * 2);
+}
+
+// The corner-darkening every painter finishes on. It's what stops a full-bleed
+// pattern from crowding the tiles at the edges, and it's why colour can be pushed
+// harder in the middle than it could be flat.
+function wallVignette(ctx, w, h, a = 0.34) {
+  const g = ctx.createRadialGradient(w / 2, h * 0.46, Math.min(w, h) * 0.26, w / 2, h * 0.5, Math.hypot(w, h) * 0.6);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, `rgba(0,0,0,${a})`);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
 }
 
 // A time-of-day CAST, expressed as an accent-independent tint plus a weight. The
@@ -11259,9 +11404,15 @@ function initWallState(sky, w, h, mode, c) {
     sky, w, h, precip, mode, c,
     // Drift's motes. Sparse on purpose — 26 across a whole screen reads as air, not
     // as snow; a dozen more and it becomes weather you didn't ask for.
-    motes: Array.from({ length: 26 }, () => ({
+    // `hue` is an index into the painter's palette and is fixed FOR LIFE — picking
+    // per frame would strobe every mote through three colours at 60fps.
+    motes: Array.from({ length: 30 }, () => ({
       x: rnd(0, w), y: rnd(0, h), v: rnd(.08, .28), r: rnd(.8, 2.1), o: rnd(.2, .6), big: Math.random() < 0.25,
+      hue: Math.random() < 0.42 ? 0 : Math.random() < 0.6 ? 1 : Math.random() < 0.5 ? 2 : 3,
     })),
+    // Scan's contacts: fixed positions on the scope, lit by the beam passing over
+    // them rather than by any spawn logic of their own.
+    blips: Array.from({ length: 9 }, () => ({ a: rnd(0, 6.283), r: rnd(.16, .92), hot: Math.random() < 0.3 })),
     // Wind shears the fall; a still day drops straight down.
     shear: Math.max(-1.4, Math.min(1.4, (sky?.windKph || 0) / 40)),
     drops: Array.from({ length: n }, () => ({ x: rnd(0, w), y: rnd(0, h), v: rnd(.5, 1.4), len: rnd(4, 14), o: rnd(.25, .8) })),
@@ -11305,24 +11456,43 @@ const WALL_PAINTERS = {
     const dayFrac = night ? ((m + 360) % 1440) / 720 : (m - 360) / 720;
     const cx = w * Math.max(-0.1, Math.min(1.1, dayFrac));
     const cy = h * (0.78 - 0.52 * Math.sin(Math.PI * Math.max(0, Math.min(1, dayFrac))));
-    ctx.globalAlpha = night ? 0.42 : 0.34;
-    ctx.fillStyle = night ? c.fg : c.accent;
+    // The disc gets a bloom around it — the sun is the brightest thing on the
+    // screen and a flat circle never reads as light.
+    wallGlow(ctx, cx, cy, night ? 46 : 78, night ? c.cool : c.amber, night ? 0.2 : 0.3);
+    ctx.globalAlpha = night ? 0.5 : 0.42;
+    ctx.fillStyle = night ? c.fg : wallMix(c.accent, c.amber, 0.5);
     ctx.beginPath(); ctx.arc(cx, cy, night ? 9 : 13, 0, 6.284); ctx.fill();
     ctx.globalAlpha = 1;
 
     // Skyline: deterministic (seeded off x, not random) so it doesn't reshuffle every
     // re-render. A darkening of the theme, not a black cut-out over it.
-    const silhouette = wallMix(c.bg, '#000000', 0.45);
-    const lit = wallAlpha(c.accent, 0.5);
-    ctx.fillStyle = silhouette;
     const base = h * 0.82;
+    // Haze along the rooftops: the city's own light bouncing off the smog, warm at
+    // the hour the sun is low and cold once the streetlights are all there is.
+    const haze = ctx.createLinearGradient(0, base - 70, 0, base + 8);
+    haze.addColorStop(0, wallAlpha(night ? c.hot : c.amber, 0));
+    haze.addColorStop(1, wallAlpha(night ? c.hot : c.amber, night ? 0.16 : 0.2));
+    ctx.fillStyle = haze;
+    ctx.fillRect(0, base - 70, w, 78);
+    const silhouette = wallMix(c.bg, '#000000', 0.5);
+    // Two window hues, chosen by the building's own seed — a block of sodium next
+    // to a block of cold fluorescent is what a city looks like from a distance.
+    const litA = wallAlpha(c.amber, 0.75), litB = wallAlpha(c.hot, 0.6), litC = wallAlpha(c.accent, 0.6);
+    ctx.fillStyle = silhouette;
     for (let x = -10; x < w + 10; x += 17) {
       const sd = Math.abs(Math.sin(x * 0.7) * 43758.5453) % 1;
       const bh = 16 + sd * 62;
       ctx.fillRect(x, base - bh, 15, bh + 30);
+      // A rooftop mast on the taller ones, with a red-shifted aircraft light.
+      if (sd > 0.72) {
+        ctx.fillRect(x + 7, base - bh - 7, 1, 7);
+        ctx.fillStyle = wallAlpha(c.hot, 0.4 + 0.4 * Math.abs(Math.sin(t / 900 + x)));
+        ctx.beginPath(); ctx.arc(x + 7.5, base - bh - 8, 1.5, 0, 6.284); ctx.fill();
+        ctx.fillStyle = silhouette;
+      }
       // A few lit windows, same seed, so the city looks inhabited without a texture.
       if (!night && sd < 0.5) continue;
-      ctx.fillStyle = lit;
+      ctx.fillStyle = sd > 0.66 ? litA : sd > 0.33 ? litC : litB;
       for (let wy = base - bh + 6; wy < base - 6; wy += 11) {
         if ((Math.abs(Math.sin((x + wy) * 1.3) * 4375.54)) % 1 > 0.62) ctx.fillRect(x + 4, wy, 3, 4);
       }
@@ -11350,86 +11520,186 @@ const WALL_PAINTERS = {
       }
       ctx.globalAlpha = 1;
     }
+    wallVignette(ctx, w, h, 0.3);
   },
 
   // ── Grid: a blueprint lattice, drifting one slow direction ─────────────────
+  // Two hues and three weights: minor lines in the neighbour, majors in the accent,
+  // and a pair of measure lines crossing the sheet like a drafting cursor. The thing
+  // that makes it read as a DRAWING rather than as graph paper is the tick marks —
+  // every major intersection is notched, which is detail the eye finds only if it
+  // looks for it.
   grid(ctx, st, t) {
     const { w, h, c } = st;
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = wallMix(c.bg, c.bg2, 0.5);
+    const bg = ctx.createLinearGradient(0, 0, w, h);
+    bg.addColorStop(0, wallMix(wallMix(c.bg, c.bg2, 0.5), c.cool, 0.14));
+    bg.addColorStop(1, wallMix(wallMix(c.bg, c.bg2, 0.5), c.hot, 0.11));
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, w, h);
     const step = 34;
     const drift = (t / 90) % step;
     ctx.lineWidth = 1;
-    ctx.strokeStyle = wallAlpha(c.accent, 0.16);
+    ctx.strokeStyle = wallAlpha(c.cool, 0.15);
     ctx.beginPath();
     for (let x = -step + drift; x < w + step; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
     for (let y = -step + drift; y < h + step; y += step) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
     ctx.stroke();
     // Every fourth line heavier — gives the lattice a scale without more lines.
-    ctx.strokeStyle = wallAlpha(c.accent, 0.26);
+    const maj = step * 4;
+    ctx.strokeStyle = wallAlpha(c.accent, 0.3);
     ctx.beginPath();
-    for (let x = -step * 4 + drift; x < w + step * 4; x += step * 4) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
-    for (let y = -step * 4 + drift; y < h + step * 4; y += step * 4) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+    for (let x = -maj + drift; x < w + maj; x += maj) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+    for (let y = -maj + drift; y < h + maj; y += maj) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
     ctx.stroke();
+    // Notches at the major crossings.
+    ctx.strokeStyle = wallAlpha(c.fg, 0.22);
+    ctx.beginPath();
+    for (let x = -maj + drift; x < w + maj; x += maj) {
+      for (let y = -maj + drift; y < h + maj; y += maj) {
+        ctx.moveTo(x - 3, y); ctx.lineTo(x + 3, y);
+        ctx.moveTo(x, y - 3); ctx.lineTo(x, y + 3);
+      }
+    }
+    ctx.stroke();
+    // The measure lines, and the lit node where they cross. One warm element on a
+    // cool sheet is the entire colour budget of this pattern.
+    const mx = ((t / 46) % (w + 160)) - 80;
+    const my = h * (0.5 + Math.sin(t / 7300) * 0.34);
+    ctx.strokeStyle = wallAlpha(c.hot, 0.3);
+    ctx.beginPath();
+    ctx.moveTo(mx, 0); ctx.lineTo(mx, h);
+    ctx.moveTo(0, my); ctx.lineTo(w, my);
+    ctx.stroke();
+    wallGlow(ctx, mx, my, 26, c.amber, 0.5);
+    ctx.fillStyle = wallAlpha(c.fg, 0.85);
+    ctx.beginPath(); ctx.arc(mx, my, 1.9, 0, 6.284); ctx.fill();
+    wallVignette(ctx, w, h, 0.3);
   },
 
   // ── Contours: slow interference lines, a depth map breathing ───────────────
+  // The bands now walk the palette from the neighbour up to the complement as they
+  // descend, and each one carries a thin filled shelf under it, so the field has a
+  // near and a far instead of nine identical hairlines.
   contours(ctx, st, t) {
     const { w, h, c } = st;
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = wallMix(c.bg, c.bg2, 0.35);
+    const bg = ctx.createLinearGradient(0, 0, 0, h);
+    bg.addColorStop(0, wallMix(c.bg, c.cool, 0.16));
+    bg.addColorStop(1, wallMix(c.bg2, c.hot, 0.14));
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, w, h);
-    ctx.lineWidth = 1;
-    const bands = 9;
+    const bands = 11;
+    const line = [];
     for (let i = 0; i < bands; i++) {
+      const k = i / (bands - 1);
+      const col = wallMix(c.cool, c.hot, k);
       const phase = t / 5200 + i * 0.55;
-      ctx.strokeStyle = wallAlpha(c.accent, 0.07 + (i / bands) * 0.1);
-      ctx.beginPath();
+      line.length = 0;
       for (let x = 0; x <= w; x += 8) {
-        const k = x / w;
-        const y = h * (0.12 + (i / bands) * 0.82)
-          + Math.sin(phase + k * 5.2) * 11 + Math.sin(phase * 1.7 + k * 2.1) * 7;
-        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        const u = x / w;
+        line.push(h * (0.08 + k * 0.88)
+          + Math.sin(phase + u * 5.2) * 11 + Math.sin(phase * 1.7 + u * 2.1) * 7);
       }
+      // The shelf: the band, dropped a few pixels and filled. Cheap depth.
+      ctx.beginPath();
+      line.forEach((y, j) => (j ? ctx.lineTo(j * 8, y) : ctx.moveTo(0, y)));
+      for (let j = line.length - 1; j >= 0; j--) ctx.lineTo(j * 8, line[j] + 9);
+      ctx.closePath();
+      ctx.fillStyle = wallAlpha(col, 0.055 + k * 0.05);
+      ctx.fill();
+      ctx.beginPath();
+      line.forEach((y, j) => (j ? ctx.lineTo(j * 8, y) : ctx.moveTo(0, y)));
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = wallAlpha(col, 0.16 + k * 0.22);
       ctx.stroke();
     }
+    wallVignette(ctx, w, h, 0.32);
   },
 
   // ── Drift: sparse motes rising. The quietest of the set. ───────────────────
+  // Quiet no longer means colourless: each mote holds one of three hues for life
+  // (assigned at build, never per frame, or they'd strobe), and the big ones carry
+  // a soft halo so the field has bokeh depth rather than a scatter of dots.
   drift(ctx, st, t) {
     const { w, h, c } = st;
+    const hues = [c.accent, c.cool, c.hot, c.fg];
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = wallMix(c.bg, c.bg2, 0.28);
+    const bg = ctx.createRadialGradient(w * 0.5, h * 0.85, 0, w * 0.5, h * 0.85, Math.hypot(w, h) * 0.8);
+    bg.addColorStop(0, wallMix(c.bg2, c.cool, 0.22));
+    bg.addColorStop(1, wallMix(c.bg, '#000000', 0.2));
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, w, h);
     for (const d of st.motes) {
       d.y -= d.v;
       d.x += Math.sin((t + d.y * 6) / 1400) * 0.25;
       if (d.y < -6) { d.y = h + 6; d.x = Math.random() * w; }
-      ctx.globalAlpha = d.o * (0.55 + 0.45 * Math.sin(t / 1600 + d.x));
-      ctx.fillStyle = d.big ? wallAlpha(c.accent, 0.7) : wallAlpha(c.fg, 0.5);
+      const col = hues[d.hue ?? 0];
+      const a = d.o * (0.55 + 0.45 * Math.sin(t / 1600 + d.x));
+      if (d.big) wallGlow(ctx, d.x, d.y, d.r * 9, col, a * 0.5);
+      ctx.globalAlpha = a;
+      ctx.fillStyle = wallAlpha(col, 0.8);
       ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 6.284); ctx.fill();
     }
     ctx.globalAlpha = 1;
+    wallVignette(ctx, w, h, 0.26);
   },
 
   // ── Scan: static rings, one slow sweep. Only one thing moves. ─────────────
+  // …and the contacts it lights up. Blips are seeded into the state, and their
+  // brightness is a pure function of how long ago the beam passed them — no timers,
+  // no spawn logic, and with motion off the static frame still shows a plausible
+  // half-decayed field instead of an empty scope.
   scan(ctx, st, t) {
     const { w, h, c } = st;
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = wallMix(c.bg, c.bg2, 0.35);
-    ctx.fillRect(0, 0, w, h);
     const cx = w * 0.5, cy = h * 0.62, maxR = Math.hypot(w, h) * 0.55;
-    ctx.strokeStyle = wallAlpha(c.accent, 0.1);
+    const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+    bg.addColorStop(0, wallMix(c.bg2, c.cool, 0.26));
+    bg.addColorStop(1, wallMix(c.bg, '#000000', 0.34));
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
     ctx.lineWidth = 1;
+    ctx.strokeStyle = wallAlpha(c.cool, 0.16);
     for (let i = 1; i <= 4; i++) { ctx.beginPath(); ctx.arc(cx, cy, (maxR / 4) * i, 0, 6.284); ctx.stroke(); }
+    // Bearing ticks around the outer ring, every 15°, long every 90°.
+    ctx.strokeStyle = wallAlpha(c.accent, 0.24);
+    ctx.beginPath();
+    for (let a = 0; a < 360; a += 15) {
+      const rad = a * Math.PI / 180, len = a % 90 ? 5 : 11;
+      const co = Math.cos(rad), si = Math.sin(rad);
+      ctx.moveTo(cx + co * (maxR - len), cy + si * (maxR - len));
+      ctx.lineTo(cx + co * maxR, cy + si * maxR);
+    }
+    ctx.stroke();
     const ang = ((t / 4200) % 1) * 6.283 - 1.571;   // ~4s a revolution
+    // Contacts, brightest just behind the beam and fading to nothing before it
+    // comes round again.
+    for (const b of st.blips) {
+      let dd = (ang - b.a) % 6.283; if (dd < 0) dd += 6.283;
+      const life = Math.exp(-dd * 1.9);
+      if (life < 0.02) continue;
+      const bx = cx + Math.cos(b.a) * b.r * maxR, by = cy + Math.sin(b.a) * b.r * maxR;
+      const col = b.hot ? c.hot : c.accent;
+      wallGlow(ctx, bx, by, 13, col, life * 0.6);
+      ctx.fillStyle = wallAlpha(col, life * 0.9);
+      ctx.beginPath(); ctx.arc(bx, by, 2, 0, 6.284); ctx.fill();
+    }
+    // The beam: a filled wedge under the leading edge, which is what a sweep looks
+    // like on glass — a bare line looks like a clock hand.
+    const wedge = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+    wedge.addColorStop(0, wallAlpha(c.accent, 0.16));
+    wedge.addColorStop(1, wallAlpha(c.accent, 0));
+    ctx.fillStyle = wedge;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, maxR, ang - 0.5, ang); ctx.closePath(); ctx.fill();
     const grad = ctx.createLinearGradient(cx, cy, cx + Math.cos(ang) * maxR, cy + Math.sin(ang) * maxR);
-    grad.addColorStop(0, wallAlpha(c.accent, 0.24));
+    grad.addColorStop(0, wallAlpha(c.fg, 0.3));
     grad.addColorStop(1, wallAlpha(c.accent, 0));
     ctx.strokeStyle = grad;
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(ang) * maxR, cy + Math.sin(ang) * maxR); ctx.stroke();
+    wallGlow(ctx, cx, cy, 18, c.fg, 0.3);
+    wallVignette(ctx, w, h, 0.36);
   },
 
   // ── Circuit: etched traces with charge running down them ───────────────────
@@ -11439,32 +11709,56 @@ const WALL_PAINTERS = {
   circuit(ctx, st, t) {
     const { w, h, c } = st;
     const traces = (st.circuit ||= buildCircuitTraces(w, h));
+    const lane = [c.accent, c.cool, c.hot];
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = wallMix(c.bg, '#000000', 0.18);
+    const bg = ctx.createLinearGradient(0, 0, w, h);
+    bg.addColorStop(0, wallMix(wallMix(c.bg, '#000000', 0.2), c.cool, 0.12));
+    bg.addColorStop(1, wallMix(wallMix(c.bg, '#000000', 0.24), c.hot, 0.09));
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, w, h);
-    // The etch itself.
-    ctx.lineWidth = 1.4; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    ctx.strokeStyle = wallAlpha(c.accent, 0.2);
+    // The ground plane: a hatch under everything, so the traces sit ON a board.
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = wallAlpha(c.cool, 0.06);
+    ctx.beginPath();
+    for (let x = -h; x < w; x += 9) { ctx.moveTo(x, 0); ctx.lineTo(x + h, h); }
+    ctx.stroke();
+    // The etch itself, each trace keeping the hue it was laid down in.
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     for (const tr of traces) {
+      const col = lane[tr.lane];
       ctx.beginPath();
       tr.pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-      ctx.stroke();
+      // Drawn twice: a wide dim under-stroke reads as the solder mask's shadow.
+      ctx.lineWidth = 3.4; ctx.strokeStyle = wallAlpha(col, 0.07); ctx.stroke();
+      ctx.lineWidth = 1.4; ctx.strokeStyle = wallAlpha(col, 0.26); ctx.stroke();
     }
-    // Pads at the corners — what makes it read as etched copper and not a maze.
-    ctx.fillStyle = wallAlpha(c.accent, 0.26);
-    for (const tr of traces) for (const p of tr.pts) { ctx.beginPath(); ctx.arc(p.x, p.y, 1.8, 0, 6.284); ctx.fill(); }
+    // Vias at the corners — a ring with a dark centre, which is what makes it read
+    // as etched copper and not a maze.
+    for (const tr of traces) {
+      const col = lane[tr.lane];
+      for (const p of tr.pts) {
+        ctx.fillStyle = wallAlpha(col, 0.3);
+        ctx.beginPath(); ctx.arc(p.x, p.y, 2.6, 0, 6.284); ctx.fill();
+        ctx.fillStyle = wallAlpha(c.bg, 0.85);
+        ctx.beginPath(); ctx.arc(p.x, p.y, 1.1, 0, 6.284); ctx.fill();
+      }
+    }
     // And the charge: one bright head per trace with a short decaying tail.
     for (const tr of traces) {
+      const col = lane[tr.lane];
       const d = ((t / tr.speed + tr.phase) % 1) * tr.len;
-      for (let k = 0; k < 7; k++) {
+      const head = wallAlongPolyline(tr, d);
+      if (head) wallGlow(ctx, head.x, head.y, 14, col, 0.55);
+      for (let k = 0; k < 8; k++) {
         const p = wallAlongPolyline(tr, d - k * 5);
         if (!p) continue;
-        ctx.globalAlpha = (1 - k / 7) * 0.85;
-        ctx.fillStyle = k ? wallAlpha(c.accent, 0.5) : c.fg;
+        ctx.globalAlpha = (1 - k / 8) * 0.9;
+        ctx.fillStyle = k ? wallAlpha(col, 0.6) : c.fg;
         ctx.beginPath(); ctx.arc(p.x, p.y, k ? 1.5 : 2.2, 0, 6.284); ctx.fill();
       }
     }
     ctx.globalAlpha = 1;
+    wallVignette(ctx, w, h, 0.34);
   },
 
   // ── Aurora: slow fronts of colour. The only painter with no line in it. ────
@@ -11478,11 +11772,22 @@ const WALL_PAINTERS = {
     // Additive so the fronts brighten where they cross — the one thing that makes
     // this read as light rather than as four coloured circles.
     ctx.globalCompositeOperation = 'lighter';
+    // Stars first, so the fronts wash OVER them. Reuses the sky's field — one
+    // seeded set of points, no second allocation.
+    ctx.fillStyle = wallAlpha(c.fg, 0.4);
+    for (const s2 of st.stars) {
+      ctx.globalAlpha = s2.o * 0.5;
+      ctx.beginPath(); ctx.arc(s2.x * w, s2.y * h * 1.2, s2.r, 0, 6.284); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // Four fronts, all four hues. This is the one painter where the full palette is
+    // on screen at once, and it gets away with it because nothing here has an edge.
     const blobs = [
       { col: c.accent, ax: 0.30, ay: 0.24, sx: 5200, sy: 8100, r: 0.62, a: 0.30 },
-      { col: wallMix(c.accent, c.fg, 0.55), ax: 0.34, ay: 0.20, sx: -6900, sy: 7300, r: 0.52, a: 0.24 },
-      { col: wallMix(c.accent, '#ffffff', 0.35), ax: 0.26, ay: 0.30, sx: 9400, sy: -5600, r: 0.45, a: 0.20 },
-      { col: c.bg2, ax: 0.38, ay: 0.26, sx: -11000, sy: 6200, r: 0.70, a: 0.26 },
+      { col: c.cool, ax: 0.34, ay: 0.20, sx: -6900, sy: 7300, r: 0.52, a: 0.26 },
+      { col: c.hot, ax: 0.26, ay: 0.30, sx: 9400, sy: -5600, r: 0.45, a: 0.22 },
+      { col: c.amber, ax: 0.38, ay: 0.26, sx: -11000, sy: 6200, r: 0.40, a: 0.13 },
+      { col: wallMix(c.accent, '#ffffff', 0.4), ax: 0.20, ay: 0.34, sx: 13500, sy: 9900, r: 0.34, a: 0.14 },
     ];
     for (const b of blobs) {
       const cx = w * (0.5 + Math.sin(t / b.sx) * b.ax);
@@ -11495,6 +11800,12 @@ const WALL_PAINTERS = {
       ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
     }
     ctx.globalCompositeOperation = 'source-over';
+    // A horizon: the fronts have to end somewhere or the screen is just fog.
+    const hz = ctx.createLinearGradient(0, h * 0.72, 0, h);
+    hz.addColorStop(0, wallAlpha(c.bg, 0));
+    hz.addColorStop(1, wallAlpha(wallMix(c.bg, '#000000', 0.4), 0.9));
+    ctx.fillStyle = hz; ctx.fillRect(0, h * 0.72, w, h * 0.28);
+    wallVignette(ctx, w, h, 0.3);
   },
 
   // ── Hex: a honeycomb with a lighting wave crossing it ──────────────────────
@@ -11504,15 +11815,19 @@ const WALL_PAINTERS = {
     ctx.fillStyle = wallMix(c.bg, c.bg2, 0.4);
     ctx.fillRect(0, 0, w, h);
     const R = 19, dx = R * 1.732, dy = R * 1.5;
-    const wave = (t / 1400);
+    const wave = (t / 1400), wave2 = (t / 3300);
     ctx.lineWidth = 1;
     for (let row = -1; row * dy < h + R; row++) {
       for (let col = -1; col * dx < w + dx; col++) {
         const cx = col * dx + (row % 2 ? dx / 2 : 0), cy = row * dy;
         // One travelling diagonal band decides which cells are lit — a wave, not a
-        // random flicker, so the eye reads a direction instead of noise.
+        // random flicker, so the eye reads a direction instead of noise. A second,
+        // slower wave crossing the other way decides the HUE, which is what turns a
+        // one-colour honeycomb into a surface with weather on it.
         const k = Math.sin(wave - (cx * 0.012 + cy * 0.018));
         const lit = Math.max(0, k) ** 3;
+        const tint = 0.5 + 0.5 * Math.sin(wave2 + (cx * 0.009 - cy * 0.014));
+        const col2 = wallMix(c.cool, c.hot, tint);
         ctx.beginPath();
         for (let i = 0; i < 6; i++) {
           const a = Math.PI / 180 * (60 * i - 30);
@@ -11520,11 +11835,18 @@ const WALL_PAINTERS = {
           if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
         }
         ctx.closePath();
-        if (lit > 0.02) { ctx.fillStyle = wallAlpha(c.accent, lit * 0.22); ctx.fill(); }
-        ctx.strokeStyle = wallAlpha(c.accent, 0.1 + lit * 0.35);
+        if (lit > 0.02) { ctx.fillStyle = wallAlpha(col2, lit * 0.26); ctx.fill(); }
+        ctx.strokeStyle = wallAlpha(lit > 0.3 ? col2 : c.accent, 0.1 + lit * 0.42);
         ctx.stroke();
+        // The crest of the wave gets a lit core — a handful of cells a frame, and
+        // the only place the amber ever shows up in this pattern.
+        if (lit > 0.86) {
+          ctx.fillStyle = wallAlpha(c.amber, (lit - 0.86) * 3.4);
+          ctx.beginPath(); ctx.arc(cx, cy, 2.4, 0, 6.284); ctx.fill();
+        }
       }
     }
+    wallVignette(ctx, w, h, 0.3);
   },
 
   // ── Code: glyph rain. The loudest of the set, and deliberately so. ─────────
@@ -11537,20 +11859,32 @@ const WALL_PAINTERS = {
     ctx.font = '12px "Courier New", monospace';
     ctx.textBaseline = 'top';
     const G = 'ABCDEFGH0123456789#$%&@*+=<>/\\|—▓▒░';
+    const lane = [c.accent, c.cool, c.hot, c.amber];
+    // A dim resident layer behind the rain: glyphs that sit still. Without it the
+    // gaps between columns are dead screen and the effect looks thin.
+    ctx.fillStyle = wallAlpha(c.cool, 0.09);
     for (const col of cols) {
+      for (let y = (col.seed % 14); y < h; y += 14) {
+        ctx.fillText(G[(col.seed + y) % G.length], col.x, y);
+      }
+    }
+    for (const col of cols) {
+      const colr = lane[col.lane];
       const head = ((t * col.v + col.off) % (h + col.n * 14)) - col.n * 14;
+      if (head > -14 && head < h) wallGlow(ctx, col.x + 4, head + 6, 16, colr, 0.4);
       for (let i = 0; i < col.n; i++) {
         const y = head - i * 14;
         if (y < -14 || y > h) continue;
         // Glyphs churn on their own slow clock, so the column reads as data rather
         // than as one string sliding down the screen.
         const ch = G[(col.seed + i * 7 + Math.floor(t / 260 + i)) % G.length];
-        ctx.fillStyle = i === 0 ? c.fg : wallAlpha(c.accent, 0.75 * (1 - i / col.n));
+        ctx.fillStyle = i === 0 ? c.fg : wallAlpha(colr, 0.8 * (1 - i / col.n));
         ctx.globalAlpha = i === 0 ? 0.95 : 1;
         ctx.fillText(ch, col.x, y);
       }
     }
     ctx.globalAlpha = 1;
+    wallVignette(ctx, w, h, 0.36);
   },
 
   // ── Warp: a starfield running past the hull ────────────────────────────────
@@ -11559,12 +11893,18 @@ const WALL_PAINTERS = {
     const stars = (st.warp ||= Array.from({ length: 90 }, () => ({
       a: Math.random() * 6.284, r: Math.random(), z: Math.random(),
     })));
-    ctx.clearRect(0, 0, w, h);
-    const g = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.hypot(w, h) / 2);
-    g.addColorStop(0, wallMix(c.bg, c.accent, 0.1));
-    g.addColorStop(1, wallMix(c.bg, '#000000', 0.4));
-    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
     const cx = w / 2, cy = h * 0.46, maxR = Math.hypot(w, h) * 0.62;
+    ctx.clearRect(0, 0, w, h);
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.hypot(w, h) / 2);
+    g.addColorStop(0, wallMix(c.bg, c.accent, 0.14));
+    g.addColorStop(1, wallMix(c.bg, '#000000', 0.45));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    // Two nebula washes drifting behind the field, so the streaks are travelling
+    // THROUGH something. They move slowly enough to read as parallax distance.
+    ctx.globalCompositeOperation = 'lighter';
+    wallGlow(ctx, cx + Math.sin(t / 14000) * w * 0.3, cy - h * 0.24, Math.max(w, h) * 0.5, c.hot, 0.1);
+    wallGlow(ctx, cx - Math.sin(t / 17000) * w * 0.3, cy + h * 0.3, Math.max(w, h) * 0.5, c.cool, 0.11);
+    ctx.globalCompositeOperation = 'source-over';
     ctx.lineCap = 'round';
     for (const s of stars) {
       s.z += 0.0018 + s.r * 0.0032;
@@ -11574,7 +11914,12 @@ const WALL_PAINTERS = {
       const d = Math.pow(s.z, 3) * maxR, d0 = Math.pow(Math.max(0, s.z - 0.05), 3) * maxR;
       const co = Math.cos(s.a), si = Math.sin(s.a);
       ctx.globalAlpha = Math.min(1, s.z * 2.2);
-      ctx.strokeStyle = s.r > 0.82 ? c.fg : wallAlpha(c.accent, 0.8);
+      // Hue is a property of the star (its `r`), not of its distance — a streak
+      // that changed colour as it came at you would look like a fault.
+      ctx.strokeStyle = s.r > 0.9 ? c.fg
+        : s.r > 0.74 ? wallAlpha(c.hot, 0.85)
+        : s.r > 0.44 ? wallAlpha(c.accent, 0.85)
+        : wallAlpha(c.cool, 0.8);
       ctx.lineWidth = 0.6 + s.z * 1.8;
       ctx.beginPath();
       ctx.moveTo(cx + co * d0, cy + si * d0);
@@ -11582,6 +11927,8 @@ const WALL_PAINTERS = {
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
+    wallGlow(ctx, cx, cy, 40, c.fg, 0.12);
+    wallVignette(ctx, w, h, 0.34);
   },
 
   // ── Tide: stacked wave fronts, filled. Reads as depth, not as lines. ───────
@@ -11589,29 +11936,44 @@ const WALL_PAINTERS = {
     const { w, h, c } = st;
     ctx.clearRect(0, 0, w, h);
     const bg = ctx.createLinearGradient(0, 0, 0, h);
-    bg.addColorStop(0, wallMix(c.bg, '#000000', 0.22));
-    bg.addColorStop(1, wallMix(c.bg2, c.accent, 0.18));
+    bg.addColorStop(0, wallMix(c.bg, c.hot, 0.16));
+    bg.addColorStop(0.42, wallMix(c.bg, '#000000', 0.2));
+    bg.addColorStop(1, wallMix(c.bg2, c.cool, 0.2));
     ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
-    const layers = 5;
+    // A low sun behind the water. Everything below is lit by it, which is what
+    // gives the stack a direction instead of five identical ribbons.
+    wallGlow(ctx, w * 0.5, h * 0.29, Math.min(w, h) * 0.42, c.amber, 0.22);
+    const layers = 6;
     for (let i = 0; i < layers; i++) {
       const k = i / (layers - 1);
       const base = h * (0.30 + k * 0.62);
       const amp = 26 - i * 3.4;
       const ph = t / (3400 - i * 380) + i * 1.3;
-      ctx.beginPath();
-      ctx.moveTo(0, h);
+      const col = wallMix(c.hot, c.cool, k);   // far fronts warm, near fronts cold
+      const crest = [];
       for (let x = 0; x <= w; x += 6) {
         const u = x / w;
-        ctx.lineTo(x, base + Math.sin(ph + u * 6.1) * amp + Math.sin(ph * 1.6 + u * 2.7) * amp * 0.45);
+        crest.push(base + Math.sin(ph + u * 6.1) * amp + Math.sin(ph * 1.6 + u * 2.7) * amp * 0.45);
       }
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      crest.forEach((y, j) => ctx.lineTo(j * 6, y));
       ctx.lineTo(w, h); ctx.closePath();
       const g = ctx.createLinearGradient(0, base - amp, 0, h);
-      g.addColorStop(0, wallAlpha(c.accent, 0.10 + k * 0.12));
-      g.addColorStop(1, wallAlpha(c.bg2, 0.55));
+      g.addColorStop(0, wallAlpha(col, 0.16 + k * 0.14));
+      g.addColorStop(1, wallAlpha(wallMix(c.bg2, c.cool, 0.3), 0.6));
       ctx.fillStyle = g; ctx.fill();
-      ctx.strokeStyle = wallAlpha(c.accent, 0.22 + k * 0.2);
+      // Two strokes on the crest: the body of the wave, and a bright rim above it.
+      ctx.beginPath();
+      crest.forEach((y, j) => (j ? ctx.lineTo(j * 6, y) : ctx.moveTo(0, y)));
+      ctx.strokeStyle = wallAlpha(col, 0.26 + k * 0.22);
+      ctx.lineWidth = 1.6; ctx.stroke();
+      ctx.beginPath();
+      crest.forEach((y, j) => (j ? ctx.lineTo(j * 6, y - 1.6) : ctx.moveTo(0, y - 1.6)));
+      ctx.strokeStyle = wallAlpha(c.fg, 0.06 + k * 0.1);
       ctx.lineWidth = 1; ctx.stroke();
     }
+    wallVignette(ctx, w, h, 0.3);
   },
 
   // ── Static: a dead channel. Noise is cached and reused — regenerating it every
@@ -11622,20 +11984,45 @@ const WALL_PAINTERS = {
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = wallMix(c.bg, '#000000', 0.3);
     ctx.fillRect(0, 0, w, h);
-    ctx.globalAlpha = 0.5;
+    // Chroma split: the same grain drawn three times, offset a pixel or two per
+    // channel and composited additively. That misregistration is the entire reason
+    // a dead channel looks like a dead SCREEN and not like grey sand.
+    const frame = noise[Math.floor(t / 90) % noise.length];
+    const jit = Math.sin(t / 140) * 1.6;
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(noise[Math.floor(t / 90) % noise.length], 0, 0, w, h);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.4;
+    ctx.drawImage(frame, -1.5 - jit, 0, w, h);
+    ctx.globalAlpha = 0.34;
+    ctx.drawImage(frame, 1.5 + jit, 0, w, h);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 0.34;
+    ctx.drawImage(frame, 0, 0, w, h);
     ctx.imageSmoothingEnabled = true;
     ctx.globalAlpha = 1;
-    // The rolling bar — a vertical hold that never quite catches.
+    // Two colour washes hold the split visible even where the grain is thin.
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = wallAlpha(c.hot, 0.05); ctx.fillRect(0, 0, w, h * 0.5);
+    ctx.fillStyle = wallAlpha(c.cool, 0.05); ctx.fillRect(0, h * 0.5, w, h * 0.5);
+    ctx.globalCompositeOperation = 'source-over';
+    // The rolling bar — a vertical hold that never quite catches — now with a
+    // torn edge of colour at its leading side.
     const barY = ((t / 12) % (h + 120)) - 60;
     const g = ctx.createLinearGradient(0, barY - 40, 0, barY + 40);
-    g.addColorStop(0, wallAlpha(c.accent, 0));
-    g.addColorStop(0.5, wallAlpha(c.accent, 0.22));
-    g.addColorStop(1, wallAlpha(c.accent, 0));
+    g.addColorStop(0, wallAlpha(c.hot, 0));
+    g.addColorStop(0.42, wallAlpha(c.hot, 0.14));
+    g.addColorStop(0.5, wallAlpha(c.fg, 0.16));
+    g.addColorStop(0.58, wallAlpha(c.cool, 0.14));
+    g.addColorStop(1, wallAlpha(c.cool, 0));
     ctx.fillStyle = g; ctx.fillRect(0, barY - 40, w, 80);
+    // One torn slice, moving on its own clock. Rare enough to be a glitch.
+    const gy = ((t / 900) % 1) * h;
+    ctx.globalAlpha = 0.5;
+    ctx.drawImage(frame, 0, 0, 48, 6, Math.sin(t / 300) * 14, gy, w, 7);
+    ctx.globalAlpha = 1;
     ctx.fillStyle = wallAlpha('#000000', 0.22);
     for (let y = 0; y < h; y += 3) ctx.fillRect(0, y, w, 1);
+    wallVignette(ctx, w, h, 0.4);
   },
 };
 
@@ -11660,7 +12047,7 @@ function buildCircuitTraces(w, h) {
       segs.push({ at: len, d }); len += d;
     }
     if (len < 20) continue;
-    out.push({ pts, segs, len, speed: 2600 + rnd() * 5200, phase: rnd() });
+    out.push({ pts, segs, len, speed: 2600 + rnd() * 5200, phase: rnd(), lane: Math.floor(rnd() * 3) });
   }
   return out;
 }
@@ -11679,8 +12066,12 @@ function wallAlongPolyline(tr, dist) {
 function buildCodeColumns(w, h) {
   const step = 13, out = [];
   for (let x = 2; x < w; x += step) {
+    // `lane` is the column's hue for life. Weighted hard toward the accent: the
+    // stray magenta column only reads as a stray if most of them aren't.
+    const r = Math.random();
     out.push({ x, n: 6 + Math.floor(Math.random() * 10), v: 0.02 + Math.random() * 0.055,
-      off: Math.random() * (h + 200), seed: Math.floor(Math.random() * 97) });
+      off: Math.random() * (h + 200), seed: Math.floor(Math.random() * 97),
+      lane: r < 0.62 ? 0 : r < 0.86 ? 1 : r < 0.97 ? 2 : 3 });
   }
   return out;
 }

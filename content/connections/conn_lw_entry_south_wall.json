@@ -1,0 +1,9 @@
+{
+  "a": "zone_lw_entry",
+  "b": "zone_lw_infirmary",
+  "blocked": true,
+  "dir": "south",
+  "id": "conn_lw_entry_south_wall",
+  "lockable": false,
+  "one_way": false
+}

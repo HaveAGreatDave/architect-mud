@@ -1,0 +1,29 @@
+{
+  "connection_id": "conn_lw_ops_east_lwin",
+  "door_type": "reinforced",
+  "exit_dir": "east",
+  "flags": {},
+  "hololock_difficulty": 0,
+  "hp": 3000,
+  "hp_max": 3000,
+  "id": "door_lw_inner",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "unmarked inner door",
+  "tags": {
+    "lock:longwatch": {
+      "canHack": false,
+      "messages": {
+        "denied": "The inner door has no handle on this side. Whatever is behind it is not yours to see yet.",
+        "lock": "The inner door closes on its counterweight, slow and final.",
+        "unlock": "A bolt draws back somewhere inside the frame, and the inner door swings."
+      },
+      "minRep": 500,
+      "requireFlag": "lw_member"
+    },
+    "unbreakable": true
+  },
+  "target_zone": "zone_lw_spine",
+  "zone_id": "zone_lw_ops"
+}

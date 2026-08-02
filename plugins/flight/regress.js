@@ -962,9 +962,20 @@ export default async function regress({ run, check, getPlayer }) {
   check('cabinTypeOf strips the ac_ prefix', cabinTypeOf({ type: { id: 'ac_leviathan' } }) === 'leviathan');
   // The authored cabin shell (git content, loaded into the world).
   const lvCabin = getZone('zone_leviathan_cabin'), lvFd = getZone('zone_leviathan_flightdeck'),
-    lvGalley = getZone('zone_leviathan_galley'), lvHold = getZone('zone_leviathan_hold');
-  check('the Leviathan cabin shell loaded (4 always-lit interior rooms, tagged aircraft_cabin)',
-    [lvCabin, lvFd, lvGalley, lvHold].every(z => z?.flags?.always_lit && z?.flags?.is_interior && z?.flags?.aircraft_cabin === 'leviathan'));
+    lvGalley = getZone('zone_leviathan_galley'), lvHold = getZone('zone_leviathan_hold'),
+    lvBelly = getZone('zone_util_zone_leviathan_cabin');
+  check('the Leviathan cabin shell loaded (5 always-lit interior rooms, tagged aircraft_cabin)',
+    [lvCabin, lvFd, lvGalley, lvHold, lvBelly].every(z => z?.flags?.always_lit && z?.flags?.is_interior && z?.flags?.aircraft_cabin === 'leviathan'));
+  // The belly crawlspace is the room power self-heal dug under her before that
+  // could be stopped (environment.js now skips vehicles). It was adopted into the
+  // shell rather than deleted — so it has to BE a cabin room, not a basement: same
+  // craft tag, reciprocal hatch, and no window to look out of down there.
+  check('the belly crawlspace is part of the cabin, not a basement under it',
+    isCabinZone(lvBelly, { type: { id: 'ac_leviathan' } }) === true
+    && lvCabin?.exits?.down === 'zone_util_zone_leviathan_cabin'
+    && lvBelly?.exits?.up === 'zone_leviathan_cabin'
+    && !lvBelly?.flags?.cabin_window,
+    `${JSON.stringify(lvBelly?.exits)} cabin.down=${lvCabin?.exits?.down}`);
   check('cabinEntryZone resolves the boarding room', cabinEntryZone({ type: { id: 'ac_leviathan' } })?.id === 'zone_leviathan_cabin');
   check('isCabinZone matches a room to its craft type only',
     isCabinZone(lvCabin, { type: { id: 'ac_leviathan' } }) === true && isCabinZone(lvCabin, { type: { id: 'ac_mule' } }) === false);
@@ -1001,7 +1012,8 @@ export default async function regress({ run, check, getPlayer }) {
       check('a windowless room (the galley) has nothing to look out of', /no window/i.test(wr?.message || ''), wr?.message);
       await run('disembark');
       check('disembark from the cabin sets them down on the ground (not in a cabin room)',
-        !getZone(p.current_zone)?.flags?.aircraft_cabin && !p.aircraftId, `${p.current_zone} ac=${p.aircraftId}`);
+        !getZone(p.current_zone)?.flags?.aircraft_cabin && !p.aircraftId,
+        `${p.current_zone} ac=${p.aircraftId} parked=${wLive.row.parked_zone_id} saved=${savedZoneW}`);
     }
     liveAircraft.delete(wAcId);
     for (const z of [lvCabin, lvFd, lvGalley, lvHold]) z?.players.delete(p.id);

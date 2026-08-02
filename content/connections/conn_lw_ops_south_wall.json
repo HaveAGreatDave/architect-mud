@@ -1,0 +1,9 @@
+{
+  "a": "zone_lw_ops",
+  "b": "zone_lw_quiet",
+  "blocked": true,
+  "dir": "south",
+  "id": "conn_lw_ops_south_wall",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_lw_entry",
+  "b": "zone_lw_galley",
+  "blocked": true,
+  "dir": "north",
+  "id": "conn_lw_entry_north_wall",
+  "lockable": false,
+  "one_way": false
+}

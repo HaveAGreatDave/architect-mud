@@ -573,6 +573,15 @@ below the line and it stops opening. `canHack: false` and the door is marked unb
 **there is no lockpick or bash path in, by design**. Denied entry reads *"The blast door does not know
 you. It does not move."*
 
+**Compartmentalization — `requireFlag` and `minRep` on the tag.** The same lock type gates the bunker's
+*inner* doors, which ask for more than standing: a lock tag may carry `requireFlag` (a player flag that
+must also be set, read through `getFlagById`) and `minRep` (a floor other than 500). This is what makes
+"trusted enough to sit by the stove" and "trusted enough to see the press, the archive and the plot room"
+two different answers — `door_lw_inner` (Ops → The Spine) requires `lw_member` on top of trusted standing.
+**A tag with neither key behaves exactly as it always did**, so the outer blast door is unchanged. Both
+conditions are re-read live, so a member who loses standing is shut out of the operation but the flag
+survives — regaining rep restores access without re-running the vetting arc.
+
 ### Hacking a lock (`hack`)
 
 Any lock type whose `defaults` include `canHack: true` (currently just `hololock`) can be bypassed without the normal `authFn` check by hacking it. Implemented in [doors.js](../server/engine/commands/doors.js) (`cmdHackLock` / `cmdHackResolve`), same client/server split as the ATM and security-device hacks (see [systems-atm.md](systems-atm.md)) but with its own **HOLOLOCK BYPASS** minigame — an electronic pin-tumbler lockpick ([client/game/js/panels/hololock.js](../client/game/js/panels/hololock.js)), distinct from the ATM's Circuit Breach:

@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "The blast door seats itself behind you with a pneumatic sigh, and the dark on the other side stops being your problem.",
+    "A hand-lettered board is bolted to the bend: NOTHING POWERED PAST THIS POINT.",
+    "The corner is scuffed waist-high on both sides, worn by years of shoulders taking it fast."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1c1710",
+  "color": "#e0a030",
+  "description": "A short, deliberately crooked passage of poured plate that turns hard twice before it lets you see anything. Nobody standing at the blast door can see into the Watch, and nothing coming through it arrives with momentum. A second door — plain steel, barred from the far side — waits at the end of the bend, and a firing slit watches the corner you have to walk around. East, past the bend, water is running somewhere.",
+  "exits": {
+    "east": "zone_lw_wash",
+    "west": "zone_under_watchthresh"
+  },
+  "flags": {
+    "always_lit": true,
+    "district": "longwatch",
+    "is_interior": true,
+    "safehouse": true,
+    "sanctuary": true,
+    "unsurveilled": true
+  },
+  "grid_x": -3,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_lw_sally",
+  "map_id": "map_int_longwatch",
+  "name": "The Dogleg",
+  "parent_zone": "zone_under_watchthresh"
+}

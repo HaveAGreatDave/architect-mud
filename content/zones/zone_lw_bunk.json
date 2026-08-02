@@ -9,7 +9,9 @@
   "color": "#e0a030",
   "description": "The bunkroom — a double row of neat, blanketed cots where the Watch rest between operations. It is warm, dry, and utterly out of the Architect's sight, which makes it perhaps the safest place to close your eyes anywhere in Coldwater Basin. A member can sleep here without one eye open. The common room is north.",
   "exits": {
-    "north": "zone_lw_commons"
+    "east": "zone_lw_quiet",
+    "north": "zone_lw_commons",
+    "west": "zone_lw_infirmary"
   },
   "flags": {
     "allow_sleep": true,

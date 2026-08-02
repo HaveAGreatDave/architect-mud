@@ -1,0 +1,9 @@
+{
+  "a": "zone_lw_ops",
+  "b": "zone_lw_spine",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_lw_ops_east_lwin",
+  "lockable": true,
+  "one_way": false
+}

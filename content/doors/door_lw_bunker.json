@@ -22,6 +22,6 @@
     },
     "unbreakable": true
   },
-  "target_zone": "zone_lw_entry",
+  "target_zone": "zone_lw_sally",
   "zone_id": "zone_under_watchthresh"
 }

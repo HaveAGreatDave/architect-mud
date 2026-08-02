@@ -144,6 +144,54 @@ belongs at the top.
 
 ---
 
+## The room's furniture line (same doctrine, different pile)
+
+A `furniture` row has no `tags`, so none of the axis machinery above applies to it — but the
+question is identical, so the answer lives in the same file: `furnitureFacet` /
+`sectionFurniture` in [classify.js](../../server/engine/classify.js), called once from
+`describeZone` ([commands/describe.js](../../server/engine/commands/describe.js)).
+
+**Derived, never authored, is the whole of it.** There is no `area` field on furniture and
+there must not be one: *Kitchen* is a place, and the same stove-and-cold-box cluster turns up
+in a bar galley, a diner and a squat. The row's `object_type` plus the flags the owning
+systems already stamp on it (`stove_tier`, `preserves`, `brew_tier`, `broadcast_receiver`,
+`container`, `water_source`, `atm`…) are enough, and they stay true when a piece is moved.
+
+Seven buckets, in this fixed print order: **Appliances, Storage, Media, Terminals, Plumbing,
+Lighting, Furnishings**. **Lighting is the rare one and is expected to stay empty**:
+`isSceneryPiece` sends every light to the room *prose* ("the ceiling wash is lit"), so a light
+only reaches this list when it is flagged `notable`, or in the dark — and a dark room's list
+is lights and nothing else, which the dominance rejection below keeps flat. The bucket exists
+so that the one room with two notable fixtures doesn't file them under Furnishings. Precedence is the order the tests are written in, and the first two
+lines are the ones that matter — a fridge is a container that is *also* an appliance, a
+television is furniture that is *also* a set, and whichever bucket a player would name first
+wins. `Furnishings` is the trailing bucket, named for what's actually in it (beds, seating,
+tables) rather than `Other`, because here the remainder is a real category.
+
+**Four rejections, and a flat line is the common — successful — answer.** Most rooms hold
+four things:
+
+| rejection | why |
+|---|---|
+| fewer than `MIN_FURNITURE_TO_SECTION` (8) standing pieces | a room that wasn't hard to read gains only labels |
+| fewer than two sections with ≥2 members | a flat list wearing a hat |
+| one section holds everything | the flat list, plus a line |
+| the `Furnishings` remainder is more than half | the axis didn't answer for this room |
+
+The sections **replace** the single `Furniture:` label rather than joining it — labelling the
+remainder "Furniture" underneath a heading that already said Furniture is exactly the mush
+this exists to fix. Rendering is a two-column CSS grid (`.room-furn-secs`, `13ch 1fr`) rather
+than padded spaces, because the label column has to hold when a long section **wraps**; `ch`
+is exact because the pane is monospace. Grid children are emitted with **no whitespace
+between them** — `#area-content` is `white-space: pre-wrap`, so a newline between two grid
+items is a text node that becomes a third grid item and shunts the row a column right.
+
+Nothing about a link changes between the two shapes: `data-target`, tints, the smart-bar
+verb list and the morph attribute are identical, so **targeting is untouched** — this decides
+only which line a piece prints on.
+
+---
+
 ## Contracts
 
 - **Sync and query-free.** Everything here reads an already-hydrated item's `tags`/`type`

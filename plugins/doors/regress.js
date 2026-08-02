@@ -157,6 +157,24 @@ export default async function regress({ run, check, getPlayer }) {
   check('longwatch: trusted standing → door opens', (await resolveLockAuth(lwTag, lwDoor, p)) === true);
   await query("UPDATE player_ideology_rep SET reputation=-300 WHERE player_id=$1 AND ideology_id='ideology_long_watch'", [p.id]);
   check('longwatch: standing lost (hostile) → shut again', (await resolveLockAuth(lwTag, lwDoor, p)) === false);
+
+  // Compartmentalization: the bunker's INNER doors carry a requireFlag on top of
+  // standing, so "trusted enough to sit by the stove" and "trusted enough to see
+  // the press, the archive and the plot room" are two different answers. Trusted
+  // standing alone is not enough for those — and a tag with no requireFlag (the
+  // outer blast door) must keep behaving exactly as it did above.
+  {
+    const innerTag = { type: 'lock:longwatch', requireFlag: 'lw_member' };
+    await query("UPDATE player_ideology_rep SET reputation=525 WHERE player_id=$1 AND ideology_id='ideology_long_watch'", [p.id]);
+    await query("DELETE FROM player_flags WHERE player_id=$1 AND flag_key='lw_member'", [p.id]);
+    check('longwatch inner: trusted but not a member → shut', (await resolveLockAuth(innerTag, lwDoor, p)) === false);
+    await query("INSERT INTO player_flags (player_id, flag_key, flag_value) VALUES ($1,'lw_member','true') ON CONFLICT (player_id, flag_key) DO UPDATE SET flag_value='true'", [p.id]);
+    check('longwatch inner: trusted member → opens', (await resolveLockAuth(innerTag, lwDoor, p)) === true);
+    await query("UPDATE player_ideology_rep SET reputation=150 WHERE player_id=$1 AND ideology_id='ideology_long_watch'", [p.id]);
+    check('longwatch inner: member who lost standing → shut', (await resolveLockAuth(innerTag, lwDoor, p)) === false);
+    check('longwatch outer: unchanged by the flag (rep alone still refuses)', (await resolveLockAuth(lwTag, lwDoor, p)) === false);
+    await query("DELETE FROM player_flags WHERE player_id=$1 AND flag_key='lw_member'", [p.id]);
+  }
   await query("DELETE FROM player_ideology_rep WHERE player_id=$1 AND ideology_id='ideology_long_watch'", [p.id]);
 
   // ── A resident is never locked out of their own home ────────────────────────

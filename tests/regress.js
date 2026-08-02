@@ -1124,9 +1124,25 @@ const dryExit = (z) => Object.entries(z?.exits || {})
 const nameCount = new Map();
 for (const z of zones) nameCount.set(z.name, (nameCount.get(z.name) || 0) + 1);
 const uniqueName = (z) => z && nameCount.get(z.name) === 1;
+// …and it must not be a room inside a VEHICLE. An aircraft cabin or a deck of the
+// Echelon is an ordinary-looking interior by every test above — exits, dry, no
+// door, unique name — and `find()` lands on whichever the DB hands back first, so
+// a re-ordered world silently anchored the fake player inside the Leviathan. From
+// there the flight suite parked that very aircraft on its own cabin
+// (`parked_zone_id = p.current_zone`) and then asserted that disembarking leaves
+// the cabin, which cannot be true. A vehicle interior also MOVES, is entry-gated,
+// and is always_lit — none of which an anchor room may be.
+// NEXT DOOR to a vehicle is just as bad, and is how this actually bit: the anchor
+// landed on `zone_util_zone_leviathan_cabin` — the utility room power self-heal
+// built under the flying base — whose own flags say nothing about aircraft and
+// whose one exit goes UP into the cabin. The move fixtures took that exit and left
+// the player aboard for every suite that followed.
+const inVehicle = (z) => !!(z.flags?.aircraft_cabin || z.flags?.vessel || z.flags?.echelon);
+const nearVehicle = (z) => inVehicle(z) || neighborZoneIds(z).some(n => inVehicle(zoneById.get(n)));
 const baseOk = (z) =>
   z.exits && Object.keys(z.exits).length > 0 &&
   !z.flags?.water &&
+  !nearVehicle(z) &&
   !doorZones.has(z.id) &&
   !getApartment(z.id) &&
   !z.flags?.prologue &&
@@ -1136,6 +1152,10 @@ const zone =
   zones.find(z => baseOk(z) && uniqueName(z) && uniqueName(zoneById.get(dryExit(z)[1])))
   || zones.find(baseOk);
 if (!zone) { console.error('No door-free, dry zone with a passable exit found; aborting.'); process.exit(1); }
+// Printed because which zone this lands on is DB-row-order dependent, and when a
+// suite fails for a reason that makes no sense, the anchor is the first thing to
+// check (see the vehicle-interior note above).
+console.log(`· fake player anchored at ${zone.id} ("${zone.name}")`);
 
 const P = {
   id: 'test_regress_' + process.pid,
@@ -1177,7 +1197,37 @@ check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice
     deckLinks.every((m) => /furniture-attached/.test(m)), deckLinks.join('\n'));
   check('the deck clicks through to its own panel',
     deckLinks.every((m) => /data-action="use"/.test(m)), deckLinks.join('\n'));
-  check('the television keeps its own entry', /data-target="wall-mounted flatscreen"/.test(body), body.slice(0, 900));
+  check('the television keeps its own entry', /data-target="Polaris Executive Chromavision 88"/.test(body), body.slice(0, 900));
+
+  // ── Sectioned furniture ────────────────────────────────────────────────────
+  // 30-B holds fifteen pieces with fifteen different names, so neither collapse
+  // pass fires and the flat line is a paragraph. It sections instead. The rules
+  // worth pinning: the sections REPLACE the single `Furniture:` label (a
+  // remainder labelled "Furniture" under a heading that already said Furniture
+  // is the thing this fixes), and no piece is lost between the two shapes.
+  check('a busy room sections its furniture by type', /class="room-furn-secs"/.test(body), body.slice(0, 900));
+  check('…and the sections replace the single Furniture: label',
+    !/>Furniture:</.test(body), body.slice(0, 900));
+  for (const label of ['Appliances:', 'Storage:', 'Media:']) {
+    check(`…${label} is one of them`, body.includes(`>${label}<`), body.slice(0, 1200));
+  }
+  {
+    // Nothing-is-ever-lost, and nothing is printed twice: the count of furniture
+    // links equals the count of DISTINCT pieces among them. Asserted as a
+    // relationship rather than a magic number, so re-dressing the flat doesn't
+    // turn this red. A piece landing in two sections is the failure this catches.
+    const links = [...body.matchAll(/class="action-link furniture-link"[^>]*data-target="([^"]+)"/g)].map((m) => m[1]);
+    check('no piece is printed in two sections',
+      links.length >= 8 && new Set(links).size === links.length, `${links.length} links: ${links.join(' | ')}`);
+    check('…and the pieces themselves are still there',
+      links.some((t) => /Chromavision/.test(t)) && links.some((t) => /Ember 300/.test(t)), links.join(' | '));
+  }
+  // …and a room with a handful of things stays flat, which is the common answer.
+  getPlayer().current_zone = 'zone_apt_12';
+  const smallBody = (await run('look'))?.message || '';
+  check('a small room keeps the flat Furniture: line',
+    !/room-furn-secs/.test(smallBody) && /Furniture:/.test(smallBody), smallBody.slice(0, 600));
+  getPlayer().current_zone = 'zone_solenne_apt_b';
 
   // A switchable light clicks to its own switch rather than to examine, and the
   // tooltip says which way it will go — the pane already prints the state, so the
@@ -3137,10 +3187,44 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     : [];
   check(`content/connections/ is populated (${connections.length} files)`, connections.length > 0);
 
+  // THIS BLOCK READS FILES, NOT THE LIVE WORLD — and that is the invariant, not a
+  // convenience. The question these checks ask is "does the SHIPPED world agree
+  // with itself": authored exits vs. the graph geometry projects from authored
+  // coordinates. The live world is a different thing, because the engine is
+  // *designed* to move it out from under this comparison:
+  //
+  //   • The Echelon SAILS. `zone_echelon_exterior.grid_x/grid_y` are runtime state
+  //     (plugins/yacht) — so wherever she's moored, geometry projects four grid
+  //     edges no authored `exits` will ever hold ("invents an exit"), and the
+  //     walls authored around her home tile block geometry that has moved away
+  //     ("blocks something geometry never projected").
+  //   • Power SELF-HEALS. `createUtilityRoomWithJunctionBox` wires a building down
+  //     into a utility room through `zone_exit_overrides` — deliberately a runtime
+  //     table so a content re-deploy can't orphan the room (environment.js) — so
+  //     the live zone carries a `down` the file does not ("loses an authored exit").
+  //
+  // Both are correct behaviour. Read against the live world, they are permanent
+  // false reds on any database that has ever been played in or booted with an
+  // unpowered building, which is every dev box and, on the right boot, CI. That
+  // cost several hours and taught people to reach for `--no-verify`, which is the
+  // real damage. Reading the files instead makes the checks say what they meant,
+  // and makes them deterministic: same tree, same answer, on any database.
+  const zoneDir = join(__dirname, '..', 'content', 'zones');
+  const authoredZones = await Promise.all((await readdir(zoneDir)).filter(f => f.endsWith('.json'))
+    .map(async f => JSON.parse(await readFile(join(zoneDir, f), 'utf8'))));
+  check(`content/zones/ is populated (${authoredZones.length} files)`, authoredZones.length > 0);
+  // The world still has to BE the content — a DB missing half the tree would
+  // otherwise sail through a files-only comparison. Extra live zones are fine and
+  // expected (transient void rooms, dreamscapes); missing ones never are.
+  const liveIds = new Set(getAllZones().map(z => z.id));
+  const notLoaded = authoredZones.filter(z => !liveIds.has(z.id));
+  check('every authored zone is in the booted world', notLoaded.length === 0,
+    `${notLoaded.length} missing, e.g. ${notLoaded.slice(0, 3).map(z => z.id).join(', ')} — run npm run content:import`);
+
   // Every connection file must be shaped so the build can act on it. A dangling
   // end is silently skipped by projectEdges, which is exactly why lint errors on
   // it — but the file's own fields have to hold up here too.
-  const zoneIds = new Set(getAllZones().map(z => z.id));
+  const zoneIds = new Set(authoredZones.map(z => z.id));
   const badEnd = connections.filter(c => !zoneIds.has(c.a) || !zoneIds.has(c.b));
   check('every connection joins two real zones', badEnd.length === 0,
     badEnd.slice(0, 3).map(c => c.id).join(', '));
@@ -3150,7 +3234,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   const dupIds = connections.length - new Set(connections.map(c => c.id)).size;
   check('connection ids are unique — a lock is keyed by one (§6)', dupIds === 0);
 
-  const zonesForEdges = getAllZones().map(z => ({
+  const zonesForEdges = authoredZones.map(z => ({
     id: z.id, map_id: z.map_id, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z, flags: z.flags,
   }));
   const { edges, undeclaredOneWays, unusedBlocks } = projectEdges(zonesForEdges, connections);
@@ -3196,7 +3280,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // ── The agreement gate (§11 step 6) ────────────────────────────────────────
   // "Cut over only when they agree." This is the check that earns the cutover.
   const authoredEdges = new Set();
-  for (const z of getAllZones()) {
+  for (const z of authoredZones) {
     for (const [dir, v] of Object.entries(z.exits || {})) {
       for (const t of (Array.isArray(v) ? v : [v])) if (t) authoredEdges.add(`${z.id}|${dir}|${t}`);
     }
@@ -3214,14 +3298,29 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   const view = edgesToExits(edges);
   const norm = (o) => JSON.stringify(Object.keys(o || {}).sort()
     .map(k => [k, [].concat(o[k]).filter(Boolean).slice().sort()]));
-  const shapeDrift = getAllZones().filter(z => norm(z.exits) !== norm(view.get(z.id)));
+  const shapeDrift = authoredZones.filter(z => norm(z.exits) !== norm(view.get(z.id)));
   check('zone_edges presents the same exits object the engine boots from', shapeDrift.length === 0,
     shapeDrift.slice(0, 3).map(z => z.id).join(', '));
 
   // And the table the build actually wrote — not just what derive would say now.
-  const written = await query('SELECT count(*)::int AS n FROM zone_edges');
-  check(`zone_edges is built (${written.rows[0].n} rows)`, written.rows[0].n === edges.length,
-    `table ${written.rows[0].n} vs derived ${edges.length} — run npm run map:derive`);
+  // Edges that touch a VESSEL are left out of both sides: she is somewhere else
+  // now than when derive last ran, and the four tiles alongside her hull are the
+  // one part of this graph that is legitimately allowed to differ (see the note
+  // at the top of this block). Everything else still has to match exactly, so a
+  // genuinely stale table is still caught.
+  const mobileIds = new Set(authoredZones.filter(z => z.flags?.vessel).map(z => z.id));
+  const moors = (from, to) => mobileIds.has(from) || mobileIds.has(to);
+  const writtenRows = await query('SELECT from_zone, direction, to_zone FROM zone_edges');
+  const writtenSet = new Set(writtenRows.rows.filter(r => !moors(r.from_zone, r.to_zone))
+    .map(r => `${r.from_zone}|${r.direction}|${r.to_zone}`));
+  const derivedSet = new Set(edges.filter(e => !moors(e.from_zone, e.to_zone))
+    .map(e => `${e.from_zone}|${e.direction}|${e.to_zone}`));
+  const missingRows = [...derivedSet].filter(k => !writtenSet.has(k));
+  const extraRows = [...writtenSet].filter(k => !derivedSet.has(k));
+  check(`zone_edges is built (${writtenSet.size} rows)`, missingRows.length === 0 && extraRows.length === 0,
+    `${missingRows.length} missing / ${extraRows.length} extra — run npm run map:derive`
+    + (missingRows.length ? ` — e.g. ${missingRows[0]}` : '')
+    + (extraRows.length ? ` — e.g. ${extraRows[0]}` : ''));
 }
 
 // LAW: YOU LEAVE THE CITY THROUGH A GATE, OR YOU DO NOT LEAVE IT.

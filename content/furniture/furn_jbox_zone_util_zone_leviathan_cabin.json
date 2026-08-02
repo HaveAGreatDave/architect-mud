@@ -1,0 +1,17 @@
+{
+  "description": "A grey steel breaker panel bolted to the forward bulkhead, busbars humming behind the door. Every circuit in the ship lands here, labelled in a hand that gave up halfway. A small sealed hacking port sits below the latch.",
+  "flags": {
+    "destructible": true,
+    "generator_id": "gen_zone_util_zone_leviathan_cabin"
+  },
+  "hp": 1200,
+  "hp_max": 1200,
+  "id": "furn_jbox_zone_util_zone_leviathan_cabin",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Junction Box",
+  "object_type": "junction_box",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_util_zone_leviathan_cabin"
+}

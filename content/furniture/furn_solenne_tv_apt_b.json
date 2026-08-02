@@ -1,5 +1,5 @@
 {
-  "description": "A wall-mounted flatscreen facing the platform bed, thin as a knife in a brushed-chrome bezel. Flat glass free of the fishbowl bulge and phosphor lines of the salvaged CRTs everyone else watches. It still pulls a crisp signal.",
+  "description": "Eighty-eight inches of flat glass in a brushed-chrome bezel, wall-hung facing the platform bed, thinner than a knife and wider than the bed it faces. None of the fishbowl bulge, none of the phosphor lines, none of the slow salvaged-CRT wobble everyone else watches the world through — the picture simply sits there, corner to corner, and stays put. CHROMAVISION is etched across the bottom rail in a typeface that was somebody's idea of the future, over a row of touch keys that come up amber when the set wakes. Polaris built it for people who wanted the wall to be the screen and were in a position to ask.",
   "flags": {
     "broadcast_device_type": "tv",
     "broadcast_receiver": true,
@@ -15,7 +15,7 @@
   "id": "furn_solenne_tv_apt_b",
   "light_type": null,
   "lumen_output": null,
-  "name": "wall-mounted flatscreen",
+  "name": "Polaris Executive Chromavision 88",
   "object_type": "furniture",
   "power_draw_kw": 2,
   "price": 3500,
