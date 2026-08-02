@@ -847,10 +847,11 @@ function draw() {
     //   ways of saying the same tile, so the game shows one or the other. Drawing
     //   both — which this did — is the one combination no screen in the game renders,
     //   and on a small cell the letters sit in the middle of the rooftop.
-    //   A label of kind `art` is exempt in both directions: the sewer corridors'
-    //   connectivity pieces are the TILE'S OWN DRAWING, like a road connector, so
-    //   they survive every mode. That is the rule that stops half the sewers
-    //   vanishing when someone switches buildings to letters.
+    //   A label of kind `mark` is exempt in both directions: an AUTHORED marker is
+    //   the TILE'S OWN DRAWING, like a road connector, so it survives every mode.
+    //   Derived codes are annotations and toggle; a glyph someone deliberately
+    //   placed is not. (This was `art`, a class that meant "in the sewers" and was
+    //   tested by id prefix — see deriveLabel for why it is gone.)
     //   A tile with no label falls through to its art, so Labels mode empties the
     //   map of buildings' rooftops and nothing else.
     //
@@ -861,9 +862,9 @@ function draw() {
     // cannot: the toggle is there to stop two layers fighting over one tile, and
     // there is nothing to fight with here.
     const lbl = (spec.label && c >= 9) ? spec.label : null;
-    const lettersWin = state.overlay === 'labels' && lbl && lbl.kind !== 'art';
+    const lettersWin = state.overlay === 'labels' && lbl && lbl.kind !== 'mark';
     if (spec.feature && !lettersWin) drawFeature(x, y, c, spec.feature, spec.text);
-    if (lbl && (lettersWin || lbl.kind === 'art' || !spec.feature)) {
+    if (lbl && (lettersWin || lbl.kind === 'mark' || !spec.feature)) {
       ctx.fillStyle = spec.text || '#c8c8cc';
       ctx.fillText(spec.label.text, x + c / 2 - 0.5, y + c / 2);
     }
@@ -1115,7 +1116,24 @@ $('#o-labels').onclick = () => setOverlay('labels');
 $('#fit').onclick = fit;
 
 // ── Traversal ───────────────────────────────────────────────────────────────
-const DIR_ARROW = { north: '↑', south: '↓', east: '→', west: '←', up: '↑', down: '↓', in: '↘', out: '↖' };
+// UP IS NOT NORTH. They shared `↑` while the only list this fed was a tile's
+// portals, where a `north` seam and an `up` seam never appeared together. A
+// tile's full exit list puts them one row apart — a stairwell landing reads
+// north, east, up, down — so the two vertical steps take glyphs of their own and
+// the compass keeps the plain arrows.
+//
+// EVERY DIRECTION THE WORLD HAS ONE, which is the other half of the same lesson.
+// The diagonals had no entry and fell back to the raw word, and the word does not
+// fit the 12px cell an arrow was sized for: an apartment landing with a northeast
+// exit printed "northeast" straight through the name of the flat it led to. The
+// keys here are OPPOSITE's, so a direction that can exist has a glyph — and the
+// diagonals took `↘`/`↖` back off in/out, which now read as crossing a threshold
+// rather than as pointing somewhere.
+const DIR_ARROW = {
+  north: '↑', south: '↓', east: '→', west: '←',
+  northeast: '↗', southeast: '↘', southwest: '↙', northwest: '↖',
+  up: '⇧', down: '⇩', in: '⇥', out: '⇤',
+};
 function seamLabel(seams) {
   if (!seams?.length) return null;
   const s = seams.find(x => x.way === 'out') || seams[0];
@@ -1462,6 +1480,7 @@ async function turnBuilding(id, k) {
 async function loadCatalog() { state.catalog = (await api('/api/catalog')).body; }
 
 let editing = null;   // the authored row, as loaded
+let editingExits = [];   // …and its derived exits, which the row itself never carries
 
 async function select(id) {
   state.selected = id;
@@ -1469,6 +1488,9 @@ async function select(id) {
   draw();
   const { body } = await api(`/api/zone/${encodeURIComponent(id)}`);
   editing = body.zone;
+  // Derived, and fetched WITH the tile rather than held for the whole map: see
+  // exitsOf() in serve.mjs for why the graph does not ride along in /api/world.
+  editingExits = body.exits || [];
   // prov comes from the server with the tile, not from the map view: `editing` is the
   // AUTHORED row and carries no derived anything, and the inspector must be able to
   // explain a tile whether or not it is on the map currently drawn.
@@ -1581,15 +1603,43 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 
 // The seams, in words — the same list the canvas draws, for when you want to read
 // where a map goes rather than hunt for the marked tiles.
-function seamsHtml(seams, title) {
+// One row per way out (or one way in), clickable through to the far end.
+//
+// `homeMap` is the map the ASKING tile is on, and it exists so a tile's own exit
+// list does not label all four of its neighbours with the map they obviously
+// share — on the world map that is the same twelve characters under every row,
+// which is how a meta line stops being read at all. The map-level index passes
+// none, so a seam there still names where it lands, which is its whole point.
+//
+// AN INBOUND ROW GETS NO ARROW OF ITS OWN. Its direction belongs to the tile at
+// the other end — the same reasoning the canvas hollow-dot key states — so
+// drawing `↑` on a row you cannot walk would be the tool telling you to type a
+// step that does not exist. `↩` says it arrives here; the meta line says which
+// step the far tile takes, in words. (Not `←`: that is west, one row up.)
+//
+// A DIRECTION WITH NO GLYPH DOES NOT GO IN THE ARROW CELL. That cell is one
+// character wide by design and a word does not fit it — the diagonals proved
+// that by printing over the destination name. Every direction the world has is
+// in DIR_ARROW now, so this is the case that should never fire; when it does,
+// the word goes to the meta line where there is room for it and the cell gets a
+// dot. A direction authored tomorrow is then merely unglyphed, not unreadable.
+function seamsHtml(seams, title, homeMap) {
   if (!seams.length) return '';
-  return `<div class="grp"><div class="t">${esc(title)}</div>${seams.map((s, i) => `
-    <button class="seam" data-seam="${i}"${s.far.map ? '' : ' disabled'}>
-      <span class="d">${esc(DIR_ARROW[s.dir] || s.dir)}</span>
+  return `<div class="grp"><div class="t">${esc(title)}</div>${seams.map((s, i) => {
+    const inbound = s.way === 'in';
+    const glyph = inbound ? '↩' : DIR_ARROW[s.dir];
+    const where = s.far.map == null ? 'on no map'
+      : (homeMap && s.far.map === homeMap) ? '' : esc(s.far.mapName || s.far.map);
+    const note = inbound ? `one-way in — their ${esc(s.dir)}` : s.twoWay ? '' : 'one-way';
+    const meta = [glyph ? '' : esc(s.dir), where, note].filter(Boolean).join(' · ');
+    return `
+    <button class="seam" data-seam="${i}"${s.far.map ? '' : ' disabled'}
+      title="${esc(inbound ? `${s.far.name || s.far.zone} leads here` : `${s.dir} → ${s.far.name || s.far.zone}`)}">
+      <span class="d">${glyph || '·'}</span>
       <span class="w">${esc(s.far.name || s.far.zone)}</span>
-      <span class="m">${s.far.mapName ? esc(s.far.mapName) : 'on no map'}${
-        s.way === 'in' ? ' · one-way in' : s.twoWay ? '' : ' · one-way'}</span>
-    </button>`).join('')}</div>`;
+      ${meta ? `<span class="m">${meta}</span>` : ''}
+    </button>`;
+  }).join('')}</div>`;
 }
 function wireSeams(seams) {
   for (const b of document.querySelectorAll('#inspector button.seam')) {
@@ -1833,7 +1883,12 @@ function renderInspector(spec, prov) {
     push(flags[key].group || 'Flags', fieldHtml(key, flags[key], editing.flags[key], 'flag'));
   }
   const uncatalogued = Object.keys(editing.flags || {}).filter(k => !flags[k]);
-  const seams = state.portals[editing.id] || [];
+  // EVERY way out, not just the seams. This used to list `state.portals` — the
+  // doors between maps — which meant the one tile whose exits you were looking at
+  // was the one place the tool would not tell you where north went. The portal
+  // rows are still all here (they are edges like any other), so nothing that used
+  // to be listed has gone; what joins them is the other 21,000 steps.
+  const seams = editingExits;
 
   // PAINTED IS NOT OFFERED EITHER. Skipping `district`/`terrain` in the loop above
   // only hid the row on a tile that already carried one; a tile with no terrain would
@@ -1880,7 +1935,10 @@ function renderInspector(spec, prov) {
     ${paintedLine(spec)}
     ${featureLine(prov)}
     ${districtLine()}
-    ${seamsHtml(seams, 'Leads to')}
+    ${seams.length ? seamsHtml(seams, `Leads to (${seams.length})`, editing.map_id)
+      : `<div class="grp"><div class="t">Leads to</div>
+         <div class="help" style="color:var(--warn)">Nothing. No step out of this tile and
+         none into it — whatever is here, no player reaches it on foot.</div></div>`}
     ${groupsHtml(groups)}
     ${uncatalogued.length ? `<div class="grp"><div class="t" style="color:var(--warn)">Not in the catalog</div>
       <div class="help">${uncatalogued.map(esc).join(', ')} — these fail content:lint. Catalogue them or remove them.</div></div>` : ''}

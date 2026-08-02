@@ -417,6 +417,74 @@ function portalsOnMap(mapId, mapNames) {
   return out;
 }
 
+// ── Exits: every step out of ONE tile ────────────────────────────────────────
+// The portal index above answers a question about a MAP — which of its tiles are
+// doors to somewhere else. This answers the other one, asked of a single tile:
+// everything you could type standing here and where each lands. It draws from
+// the same `derived.edges`, so a grid step, an authored link and a portal are
+// all here and none of them had to be recognised — a player typing `up` does not
+// care which of the three produced the step, and neither does this.
+//
+// PER TILE, ON DEMAND, and that is the whole reason it is not folded into
+// /api/world: the world map is 5,439 tiles carrying ~20,000 edges, and resolving
+// every far end for all of them would be megabytes shipped on every map load to
+// answer a question only the selected tile is asking. One tile's answer is four
+// or five rows.
+//
+// The index hangs off the derive cache for the same reason coordIndex does — it
+// is rebuilt exactly when the edges are, so a paint stroke can never leave the
+// inspector describing exits that moved.
+function edgeIndex() {
+  const w = world();
+  if (!w.byEdgeEnd) {
+    const out = new Map(), into = new Map(), pairs = new Set();
+    const bag = (m, k) => { if (!m.has(k)) m.set(k, []); return m.get(k); };
+    for (const e of w.edges) {
+      bag(out, e.from_zone).push(e);
+      bag(into, e.to_zone).push(e);
+      pairs.add(`${e.from_zone}|${e.to_zone}`);
+    }
+    w.byEdgeEnd = { out, into, pairs };
+  }
+  return w.byEdgeEnd;
+}
+
+// Reading order, not alphabetical: the compass first because that is how the
+// canvas is read, then the ones with no side at all. A direction nothing here
+// knows about sorts last rather than being dropped.
+const DIR_ORDER = ['north', 'east', 'south', 'west', 'up', 'down', 'in', 'out',
+  'northeast', 'southeast', 'southwest', 'northwest'];
+const dirRank = (d) => { const i = DIR_ORDER.indexOf(d); return i < 0 ? DIR_ORDER.length : i; };
+
+// `twoWay` is a fact about the PAIR, not about a direction — the same rule
+// indexPortals uses. A stairwell whose `up` is answered by a `down` is two-way;
+// a chute you drop through is not, and says so.
+function exitsOf(zoneId, mapNames) {
+  const { out, into, pairs } = edgeIndex();
+  const list = [];
+  for (const e of out.get(zoneId) || []) {
+    list.push({ way: 'out', dir: e.direction, kind: e.kind, twoWay: pairs.has(`${e.to_zone}|${zoneId}`),
+      connection_id: e.connection_id, far: farEnd(e.to_zone, mapNames) });
+  }
+  // Something that leads HERE and cannot be walked back is still a fact about
+  // this tile — usually the more surprising one. The mirrored half of an
+  // ordinary two-way step is dropped: the outbound row above already said it.
+  for (const e of into.get(zoneId) || []) {
+    if (pairs.has(`${zoneId}|${e.from_zone}`)) continue;
+    list.push({ way: 'in', dir: e.direction, kind: e.kind, twoWay: false,
+      connection_id: e.connection_id, far: farEnd(e.from_zone, mapNames) });
+  }
+  return list.filter(e => e.far).sort((a, b) => dirRank(a.dir) - dirRank(b.dir)
+    || String(a.far.name || '').localeCompare(String(b.far.name || '')));
+}
+
+// The derived name of every map, which is what a far end is labelled with. The
+// derivation is deriveMapName's, never a second copy of it — see /api/world.
+function mapNameIndex() {
+  const idx = zoneIndex();
+  return new Map([...tree.maps.values()].map(m => [m.id, deriveMapName(m, idx) || m.id]));
+}
+
 // ── Reference targets, for the `ref` shape (§10.1) ───────────────────────────
 // The Studio's job ends at "this tile points at that table": it offers a picker
 // and complains when a reference does not resolve. It does NOT create the target
@@ -1161,7 +1229,10 @@ const server = createServer(async (req, res) => {
       if (req.method === 'GET') {
         const row = tree.zones.get(id);
         if (!row) return json(res, 404, { error: 'no such zone' });
-        return json(res, 200, { zone: row, spec: world().render.get(id)?.spec ?? {}, prov: provOf(row) });
+        // `exits` is DERIVED and travels with the tile: the inspector must be able
+        // to say where every step lands without the client holding the graph.
+        return json(res, 200, { zone: row, spec: world().render.get(id)?.spec ?? {}, prov: provOf(row),
+          exits: exitsOf(id, mapNameIndex()) });
       }
       if (req.method === 'PUT') {
         // Only a zone that exists can be saved. This is the same rule the map and

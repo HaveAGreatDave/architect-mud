@@ -311,9 +311,44 @@ absence.
 
 A tile that leaves the map is **outlined**. **Double-click it** and the Studio opens
 the map on the other side, centred on the tile you would land on, with **← Back** to
-come home. The inspector says the same thing in words — *Leads to* on a tile,
-*Leads off this map* on the map itself, which on the world map is the index of all
-62 buildings you can walk into.
+come home. The inspector says the same thing in words — *Leads off this map* on the
+map itself, which on the world map is the index of all 62 buildings you can walk into.
+
+**A tile's own *Leads to* is every step, not just the ones that leave.** It used to
+list the seams alone, which meant the one tile whose exits you were looking at was the
+one place the tool would not tell you where `north` went. Each row is the direction you
+would type, the name of what you land in, and a click that takes you there — up and
+down and a facade's front door included, which are the three the canvas can only draw
+as a dot. Rows carry only what the tile does not already tell you:
+
+| | |
+|---|---|
+| *(no note)* | an ordinary two-way step to somewhere on this same map |
+| **a map name** | it lands on a different map — a front door, a hatch, a lift shaft |
+| **one-way** | you can walk it, and you cannot walk back |
+| **← one-way in** | something arrives here from a tile you cannot reach from here; the arrow is left off because the direction belongs to the far tile, not this one (43 of these) |
+
+**Every direction the world has is a glyph**, one column wide — the compass plain,
+`⇧`/`⇩` for the vertical pair so they are not mistaken for north and south, `⇥`/`⇤` for
+in and out, and the diagonals on the arrows they took back off those two. The Yards
+Tenement is where that stopped being cosmetic: a floor landing lists eight steps at
+once, and `northeast` spelled out is not a glyph, it is a word printed through the name
+of the flat it leads to. A direction with no glyph now drops to the note line and
+leaves a `·` behind, so an unglyphed exit is merely unglyphed and never unreadable.
+
+Two-way is a fact about the **pair**, not about a direction: the Spire's `in` answered
+by a `down` is a round trip and says nothing, while a chute you drop through says
+*one-way*. A direction with more than one destination lists each separately — the
+Halcyon elevator's `up` is five rows, one per floor it serves. A tile with **nothing**
+at all says so in warning colour; a room no step reaches is a bug you want to find in
+the editor rather than in the game.
+
+It is derived, never authored: the rows come from
+[`projectEdges`](../../scripts/content/derive.mjs)' own graph, so they are what the
+build will write, and there is no exits field to edit here. Fetched **with the tile**
+rather than with the map — 5,439 world tiles carry ~20,000 edges between them, and
+resolving all of those on every map load to answer a question one tile is asking is the
+version of this that would have made switching maps slow.
 
 **The side you go through is a bar across that edge** — a threshold, the way a floor
 plan draws a doorway. A street of shops reads as a row of bars facing the road, so a

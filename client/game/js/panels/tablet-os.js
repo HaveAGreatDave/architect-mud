@@ -2153,9 +2153,10 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile .mt-code { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
       font-size:13px; font-weight:700; letter-spacing:.5px; color:#fff; text-shadow:0 0 3px #000,0 1px 2px #000;
       background:radial-gradient(closest-side, rgba(0,0,0,.55), rgba(0,0,0,.15)); pointer-events:none; z-index:2; }
-    /* Connectivity art (spec.label.kind==='art') — the sewer corridor pieces. Structure,
-       not a code: the tile's own ink, no plate, and it never replaces the footprint. */
-    #tablet-os-overlay .tos-map-tile .mt-code.mt-art { font-weight:400; letter-spacing:0; color:inherit;
+    /* An authored marker (spec.label.kind==='mark') — sewer corridor pieces, the ◍ on a
+       tile with a way up, anything a human drew. Structure, not a code: the tile's own
+       ink, no plate, and it never replaces the footprint. */
+    #tablet-os-overlay .tos-map-tile .mt-code.mt-mark { font-weight:400; letter-spacing:0; color:inherit;
       opacity:.75; background:none; text-shadow:0 1px 2px #000; }
     #tablet-os-overlay .tos-map-tile .mt-you { position:absolute; top:0; right:2px; font-size:9px; color:var(--mg-accent); text-shadow:0 0 4px #000; }
     #tablet-os-overlay .tos-map-tile .mt-dest { position:absolute; top:0; left:2px; font-size:9px; color:#ffcf4a; text-shadow:0 0 4px #000; }
@@ -5666,9 +5667,9 @@ function _mapHexRgb(hex) {
 // `building_type || building_name` against the minimap's `building_type || enterable
 // || building_name`, so the two screens disagreed about enterable facades.
 //
-// `kind` says what the Labels toggle may do: a `building` or `room` code follows the
-// toggle; `art` (sewer-corridor connectivity pieces) is the tile's own drawing and
-// always shows, exactly like a road connector.
+// `kind` says what the Labels toggle may do: a derived `building` or `room` code
+// follows the toggle; `mark` (an authored `zones.marker`) is the tile's own drawing
+// and always shows, exactly like a road connector.
 function _mapLabel(t) {
   return t.spec?.label || null;
 }
@@ -6837,12 +6838,12 @@ function renderMap(d) {
     if (t.perimeter_gate) cls.push('tos-gate');
     else if (t.curtain) cls.push('tos-curtain');
     else if (t.glacis) cls.push('tos-glacis');
-    // What sits on the tile. A building/room code REPLACES the footprint, and only in
-    // Labels mode. Connectivity art rides ON TOP of it and shows in every mode, because
-    // it is the tile's own drawing rather than a code someone reads off it.
+    // What sits on the tile. A derived building/room code REPLACES the footprint, and
+    // only in Labels mode. An authored marker rides ON TOP of it and shows in every
+    // mode, because it is the tile's own drawing rather than a code read off it.
     const _lb = _mapLabel(t);
-    const body = _lb?.kind === 'art'
-      ? sym + `<span class="mt-code mt-art">${esc(_lb.text)}</span>`
+    const body = _lb?.kind === 'mark'
+      ? sym + `<span class="mt-code mt-mark">${esc(_lb.text)}</span>`
       : (mapLabelsOn() && _lb ? `<span class="mt-code">${esc(_lb.text)}</span>` : sym);
     grid += `<div class="${cls.join(' ')}" style="${style}" data-map-zone="${esc(t.id)}" title="${esc(t.name)}">${badges}${body}${ent}${exits}</div>`;
   }

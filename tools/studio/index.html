@@ -157,11 +157,18 @@
             gap: 3px; background: #000a; padding: 4px; border: 1px solid var(--line);
             border-radius: 3px; }
   #floors button { min-width: 34px; }
-  /* A seam, in the inspector: where this tile (or this map) leads. */
-  button.seam { display: block; width: 100%; text-align: left; margin: 3px 0; line-height: 1.35; }
-  button.seam .d { color: var(--seam); display: inline-block; width: 12px; }
-  button.seam .w { color: var(--text); }
-  button.seam .m { display: block; color: var(--dim); font-size: 10px; padding-left: 12px; }
+  /* A seam, in the inspector: where this tile (or this map) leads.
+     A GRID, not an inline arrow beside inline text. The arrow used to be a 12px
+     inline-block and everything else flowed around it, which meant anything wider
+     than 12px in that box — `northeast`, before the diagonals had glyphs — was
+     drawn straight through the destination name. A column cannot be overrun by
+     its own contents, the second column wraps instead of pushing the panel wide,
+     and the meta line lands under the name without being told to. */
+  button.seam { display: grid; grid-template-columns: 14px minmax(0, 1fr); column-gap: 4px;
+                width: 100%; text-align: left; margin: 3px 0; line-height: 1.35; }
+  button.seam .d { color: var(--seam); text-align: center; overflow: hidden; }
+  button.seam .w { color: var(--text); overflow-wrap: anywhere; }
+  button.seam .m { grid-column: 2; color: var(--dim); font-size: 10px; overflow-wrap: anywhere; }
   .key { display: flex; gap: 6px; align-items: center; color: var(--dim); font-size: 10px; margin-top: 3px; }
   .key { align-items: flex-start; }
   .key i { width: 12px; height: 12px; border: 2px solid var(--seam); border-radius: 2px; flex: none; }

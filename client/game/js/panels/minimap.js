@@ -725,13 +725,14 @@ export function renderMinimap(nodes, direction) {
   // cannot reach a tile that has no business toggling:
   //   building  a navigable code — Labels mode replaces the graphic with a solid box
   //   room      an apartment designation — a code, so it follows Labels too
-  //   art       sewer-corridor connectivity art. THE TILE'S OWN DRAWING, exactly like a
-  //             road connector, so it survives every mode. This is the rule that stops
-  //             roads vanishing when someone switches buildings to letters.
-  // A road has no label key at all, which is why no mode can touch it.
+  //   mark      an AUTHORED `zones.marker`. The tile's own drawing, so it survives every
+  //             mode. Derived codes are annotations and toggle; a glyph a human placed
+  //             is not, and this is the only kind a human can produce.
+  // A road has no label key at all, which is why no mode can touch it — it draws from
+  // spec.feature, in the base layer, where the toggle has never reached.
   const symFor = (node) => {
     const lbl = node.spec?.label || null;
-    if (lbl?.kind === 'art') return baseSym(node) + `<span class="map-bld-ov map-bld-art">${escapeHtml(lbl.text)}</span>`;
+    if (lbl?.kind === 'mark') return baseSym(node) + `<span class="map-bld-ov map-bld-mark">${escapeHtml(lbl.text)}</span>`;
     // Labels: hide the building graphic entirely and show the code filling the tile
     // square (map-bld-label turns the tile into a solid labelled box). No label ⇒ draw
     // the bare tile, not the building furniture — falling through would stamp the

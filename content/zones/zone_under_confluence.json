@@ -23,6 +23,7 @@
   "grid_z": -1,
   "id": "zone_under_confluence",
   "map_id": "map_world",
+  "marker": "╦",
   "name": "The Confluence",
   "parent_zone": null
 }

@@ -22,6 +22,7 @@
   "grid_z": -1,
   "id": "zone_under_cablingrun",
   "map_id": "map_world",
+  "marker": "╗",
   "name": "Cabling Run",
   "parent_zone": null
 }
