@@ -21,7 +21,7 @@
 import { lookup as cacheLookup, ingest as cacheIngest } from './minimap-cache.js';
 import { iconFor, preloadIcons, monoFamily, themeColor, onAssetReady } from './minimap-assets.js';
 import {
-	fitRadius, glyphPlan, titleFor, hexToRgb,
+	zoomRadius, glyphPlan, titleFor, hexToRgb,
 	isWorldWaterVoid, WATER_VOID_FILL, effectiveTracePath, mapOverlayMode, sendGo,
 	updateZoomButtons,
 } from './minimap.js';
@@ -169,7 +169,7 @@ function sizeView(view, n) {
 const buffers = new Map();
 
 function bufferFor(view) {
-	const tileDev = Math.max(2, Math.round(view.tilePx * view.dpr));
+	const tileDev = view.tileDev; // chosen in sizeView; must not be re-derived here
 	const span = view.n + 2 * MARGIN;
 	const key = `${tileDev}:${span}`;
 	let buf = buffers.get(key);
@@ -287,15 +287,18 @@ function inset(ctx, px, py, t, color, w) {
 	ctx.strokeRect(px + w / 2, py + w / 2, t - w, t - w);
 }
 
+// Text is drawn at WHOLE DEVICE PIXELS (this ctx is untransformed, so `t` is already
+// device px). A glyph origin on a half pixel is antialiased across two columns, and
+// at a 12px label that reads as blur rather than as position.
 function drawGlyph(ctx, node, px, py, t, ink) {
 	const plan = glyphPlan(node, scene.overlay);
-	const cx = px + t / 2, cy = py + t / 2;
+	const cx = Math.round(px + t / 2), cy = Math.round(py + t / 2);
 
 	if (plan.icon) {
 		const img = iconFor(plan.icon, ink || themeColor('--text', '#d8d8d8'));
 		if (img) {
-			const s = t * ICON_FRAC;
-			ctx.drawImage(img, cx - s / 2, cy - s / 2, s, s);
+			const s = Math.round(t * ICON_FRAC);
+			ctx.drawImage(img, cx - (s >> 1), cy - (s >> 1), s, s);
 		}
 	} else if (plan.fallback) {
 		ctx.fillStyle = ink || themeColor('--text', '#d8d8d8');
@@ -318,18 +321,27 @@ function drawGlyph(ctx, node, px, py, t, ink) {
 		ctx.restore();
 	}
 
-	// Labels mode: white with a heavy black outline, replacing the graphic. Canvas
-	// has no -webkit-text-stroke, and its strokes are CENTRED on the path where the
-	// CSS one sits outside it — hence the doubled width and stroke-then-fill.
+	// Labels mode: white with a black outline, replacing the graphic.
+	//
+	// THE STROKE IS A HAIRLINE, NOT A HALO. `-webkit-text-stroke-width` is centred on
+	// the outline exactly as canvas's lineWidth is, and `paint-order: stroke fill` is
+	// exactly strokeText-then-fillText — so the two are equivalent at the SAME width.
+	// This used to double it and floor it at 1px, on the mistaken belief that the CSS
+	// stroke sat outside the glyph. That put a 2px black stroke on a 12px letterform,
+	// 3.4× what the CSS asks for; it closed up the counters and read as blur.
 	if (plan.label) {
 		const size = Math.max(8, Math.round(t * 0.7));
+		// Fractional letter spacing puts every glyph after the first on a subpixel
+		// origin, which undoes the rounding above. Whole pixels or nothing.
+		const spacing = Math.round(t * -0.03);
 		ctx.save();
 		ctx.font = `800 ${size}px ${monoFamily()}`;
 		ctx.textAlign = 'center';
 		ctx.textBaseline = 'middle';
-		try { ctx.letterSpacing = `${(t * -0.03).toFixed(2)}px`; } catch {}
+		try { ctx.letterSpacing = `${spacing}px`; } catch {}
 		ctx.lineJoin = 'round';
-		ctx.lineWidth = Math.max(1, t * 0.035) * 2;
+		ctx.miterLimit = 2;
+		ctx.lineWidth = t * 0.035;
 		ctx.strokeStyle = '#000';
 		ctx.strokeText(plan.label, cx, cy);
 		ctx.fillStyle = '#fff';
@@ -597,10 +609,9 @@ export function renderMinimapCanvas(nodes, current, direction) {
 	const cx = gridded ? current.grid_x : 0;
 	const cy = gridded ? current.grid_y : 0;
 
-	// fitRadius wants coords relative to the player, the way the DOM path has them.
-	const rel = new Map();
-	for (const [id, [x, y]] of coordOf) rel.set(id, [x - cx, y - cy]);
-	const R = fitRadius(rel);
+	// The zoom level, and nothing else. This used to auto-fit to the content extent
+	// measured from the player, which made small interiors rescale on every step.
+	const R = zoomRadius();
 	const n = 2 * R + 1;
 
 	scene.nodes = nodes;

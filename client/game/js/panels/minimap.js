@@ -74,11 +74,10 @@ export function updateZoomButtons() {
 // Size the grid tracks to the current zoom's window and scale the tile size so the
 // grid keeps roughly the same overall footprint. At level 0 scale is 1, so the
 // inline values match the CSS and there's no visual change from default.
-// `rOverride` is the auto-fit radius for a compact map (an interior — see fitRadius);
-// without it we use the player's chosen zoom level.
+// It takes no radius argument: the window is the zoom level, always (see zoomRadius).
 // DOM renderer only — the canvas path sizes canvases instead (see sizeView).
-function applyMinimapZoom(rOverride) {
-  const n = 2 * (rOverride ?? MM_ZOOM[mmZoom].R) + 1;
+function applyMinimapZoom() {
+  const n = 2 * zoomRadius() + 1;
   const scale = 9 / n;
   for (const { id, base } of MM_GRIDS) {
     const el = document.getElementById(id);
@@ -616,22 +615,21 @@ function renderCrossing(nodes, current, direction) {
   if (direction) slideMinimap(direction);
 }
 
-// Auto-fit for interiors. Out on the city grid the server's window always fills the
-// 9×9, so the chosen zoom level stands. Inside a building there are only a handful of
-// rooms, and rendering them at street scale left a tiny cluster marooned in a mostly
-// empty grid (worst on the mobile minimap, the smallest of the three). So shrink the
-// window to the content's own extent — same render, bigger tiles — never wider than
-// the player's zoom and never below 1 (a 3×3, enough for the room plus its exits).
-const MM_MIN_R = 1;
-export function fitRadius(coords) {
-  const R = MM_ZOOM[mmZoom].R;
-  let ext = 0;
-  for (const [x, y] of coords.values()) {
-    const d = Math.max(Math.abs(x), Math.abs(y));
-    if (d <= R && d > ext) ext = d;
-  }
-  return Math.max(MM_MIN_R, Math.min(R, ext));
-}
+// The window radius: ALWAYS the zoom level the player picked, everywhere.
+//
+// There used to be an auto-fit here (`fitRadius`) that shrank the window to the
+// content's extent inside a building, so a handful of rooms wouldn't sit marooned in
+// a mostly-empty 9×9. The trouble is that it measured the extent FROM THE PLAYER, and
+// the player moves: walking a 3-tall map like the Paper Tomb, the furthest room is 2
+// away at one end and 1 away in the middle, so the radius flipped between steps and
+// the whole map visibly zoomed in and out as you walked from room to room.
+//
+// A radius that changes on its own is worse than empty cells, so it's gone. The zoom
+// buttons are the only thing that changes scale. (If small interiors ever need to
+// fill the widget again, fit to the map's own BOUNDING BOX rather than to the
+// distance from the player — that's a property of the place, so it holds still while
+// you walk around inside it.)
+export function zoomRadius() { return MM_ZOOM[mmZoom].R; }
 
 // ── Shared layout / glyph / tooltip helpers ──────────────────────────────────
 // Hoisted out of the render body so the canvas renderer draws from exactly the
@@ -748,7 +746,7 @@ function renderMinimapDom(nodes, direction) {
   // Edge-to-edge 1:1: a 9×9 tile window (x,y ∈ −R..R), one cell per tile — tiles
   // touch and roads/buildings render their own spec.feature footprint, so there are
   // no connector/gap cells (mirrors the full-map popup).
-  const R = fitRadius(coords);
+  const R = zoomRadius();
   const gCols = 2 * R + 1, gRows = gCols;
   const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
   const inWin = (x, y) => x >= -R && x <= R && y >= -R && y <= R;
@@ -863,7 +861,7 @@ function renderMinimapDom(nodes, direction) {
   if (gpsPts.length > 1)
     html += `<svg class="mm-gps-svg" viewBox="0 0 ${gCols} ${gRows}" preserveAspectRatio="none"><polyline class="mm-gps-line" points="${gpsPts.join(' ')}"/></svg>`;
 
-  applyMinimapZoom(R); // keep the grid tracks in step with R before painting the cells
+  applyMinimapZoom(); // keep the grid tracks in step before painting the cells
   for (const id of ['minimap-grid', 'minimap-grid-mob', 'minimap-grid-hud']) {
     const el = document.getElementById(id);
     if (el) el.innerHTML = html;

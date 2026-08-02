@@ -267,7 +267,7 @@ void-crossing branch live there, because anything put inside one renderer dies w
 buys is a **fractional camera**: the beacon is pinned at the canvas centre and the world eases
 underneath it over the measured step cadence (~480 ms running, ~1000 ms walking), **retargeting from
 where the camera currently is** so a run is continuous motion rather than a sequence of hops. The
-camera *snaps* instead — no glide — on a `map_id` change, a `grid_z` change, an `R` change, a teleport
+camera *snaps* instead — no glide — on a `map_id` change, a `grid_z` change, a zoom change, a teleport
 (>2 tiles), a virtual interior layout, or `data-motion="off"`. `up`/`down`/`in`/`out` keep the old
 scale/fade flourish, since they have no direction to glide along.
 
