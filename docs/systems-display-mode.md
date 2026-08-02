@@ -284,7 +284,7 @@ staked.
 Check which shape you have before reaching for `logRender`. Suppressing a panel
 whose record doesn't reach the log is strictly worse than leaving the panel alone.
 
-### ⚠ Correction: the TV has no log record
+### The TV, now written out (was: the largest hole)
 
 An earlier roadmap for this work listed broadcast panels as already fine —
 *"the log already carries them"*. **It does not.** `tv_panel` and `tv_overlay` both
@@ -298,9 +298,38 @@ giving them one means giving the whole broadcast surface one — five live-assem
 show modes, two sports pipelines, NPC hosts and camera feeds. A player on the `log`
 rung currently cannot watch television in any sense.
 
-That is a genuine gap, correctly sized: **L, not S**. It is also the largest
-remaining hole in the ladder, because unlike a minigame there is no fallback — the
-TV simply says nothing.
+**Now fixed, and it was far smaller than that framing suggested.** The whole thing
+turned on one funnel: the broadcast tick sends one `type: 'broadcast'` per beat to
+each viewer, and the client's handler returns early when no TV view is open. Three
+changes:
+
+- The tick stamps `toLog` for a viewer on the bottom rung — **sync by contract**,
+  reading the login-hydrated latch (`loggedPanelsSync`), because this is a tick.
+- The client appends that line to the log instead of requiring a panel.
+- `buildTvPanel` opens no set at that rung, announces the tune-in in words, and
+  **registers the viewer itself**.
+
+That last point is the one that bit. `tv.watch` is emitted by the *client* when the
+panel mounts, so suppressing the panel left the player unregistered — they silently
+fell through to the rate-limited `[TV]` line a passer-by hears, which looks like the
+feature half-working. Verified in a browser: a game show now plays out in the log,
+camera cuts and all. A comment asserting the opposite sat here until the browser
+disproved it.
+
+Two consequences worth knowing:
+
+- **`tv off`** now exists (stop watching). At this rung there is no panel ✕ to
+  fire `tv.unwatch`, so there was otherwise no way to stop. Deliberately *not*
+  `tune 0` — that switches the set off for the whole room, and wanting to stop
+  reading is not wanting to take the television away from everyone present.
+- **`tv.unwatch` is ignored at this rung** when a registration exists, because the
+  panel close that fired it was the ladder's own doing (dropping to `log` shuts a
+  set you can no longer read). The player's explicit stop is `tv off`, which deletes
+  the registration directly rather than through the event.
+
+Still on panels only: the score bug, gameday and standings overlays. The commentary
+carries the score in words, so this is a degradation rather than a hole — but it is
+the next thing to write.
 
 ## What still has no text form
 
@@ -311,9 +340,9 @@ Still wanting a character board at : **splice/cook** (deeply
 canvas-coupled — its update functions draw, so a skin seam there is a real
 refactor rather than the five-line change it was elsewhere) and **fishing**
 (two-stage: the cast chooses the catch server-side, so its log-rung path needs
-plugin-side work rather than the shared fork). Outstanding panels: **the whole broadcast/TV
-surface** (see the correction above — L, and the largest remaining hole),
-map/minimap, and surveillance feeds. All five puzzle minigames
+plugin-side work rather than the shared fork). Outstanding panels: map/minimap, surveillance
+feeds, and the TV score-bug/gameday/standings overlays (a degradation, not a
+hole — the commentary carries the score in words). All five puzzle minigames
 share one payload contract (`{skill, difficulty, deviceName, resolveCmd, id}` →
 `<resolveCmd> <id> <0|1>`) and run entirely client-side once opened, so a text
 equivalent needs **no new server protocol** — one fork helper and a second renderer

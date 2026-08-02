@@ -344,6 +344,13 @@ export const commands = {
       const { syncDisplayMode } = await import('../gametable/index.js');
       await syncDisplayMode?.(player, rung !== 'visual');
     } catch { /* gametable not loaded — nothing to sync */ }
+    // A TV set already open is a panel the player can no longer read once they drop
+    // to `log`. Broadcast shuts it and keeps them registered, so the programme
+    // continues in the log rather than stopping dead or freezing on screen.
+    try {
+      const { syncDisplayRung } = await import('../broadcast/index.js');
+      syncDisplayRung?.(player);
+    } catch { /* broadcast not loaded — nothing to sync */ }
     // Re-look, so the change lands NOW rather than at the player's next move.
     // Verified in a browser against the real accessibility tree: without this the
     // pane keeps its old aria-hidden state until something else repaints it, so a

@@ -32,6 +32,25 @@ export default async function regress({ check, run, getPlayer }) {
     }
     const { rows: real } = await query('SELECT id FROM media_channels WHERE number IS NOT NULL AND number <> 0 LIMIT 1');
     if (real.length) check('vcr: a real station is NOT a deck input', !isDeckInputChannel(real[0].id), real[0].id);
+
+    // ── A VCR answers for channel 0 and NOTHING else ──────────────────────────
+    // The viewer's-room lookup used to fall back to "any deck in the room", so the
+    // betamax under the set served its tape on every channel the TV could tune —
+    // THE METER READER pre-empted the station on channel 7. A deck only speaks for
+    // the channel it is plugged into.
+    if (zeroes.length && real.length) {
+      const { rows: vcrs } = await query(
+        `SELECT id, zone_id FROM furniture WHERE flags->>'media_deck'='true' AND flags->>'channel_id'=$1 LIMIT 1`,
+        [zeroes[0].id]
+      );
+      if (vcrs.length) {
+        const z = vcrs[0].zone_id;
+        check('vcr: a room VCR serves its own input channel',
+          _test.zoneDeck(z, zeroes[0].id, true)?.id === vcrs[0].id, `${z} / ${zeroes[0].id}`);
+        check('vcr: a room VCR does NOT answer for a real station',
+          _test.zoneDeck(z, real[0].id, true) === null, `${z} leaked onto ${real[0].id}`);
+      }
+    }
   }
 
   // ── Deterministic DEADBALL league ───────────────────────────────────────────
@@ -1522,13 +1541,66 @@ export default async function regress({ check, run, getPlayer }) {
       },
     });
 
-    const puck = L(mkItem('hockey'));
-    const ball = L(mkItem('baseball'));
-    check('guide: a hockey slot is captioned CLUSTER PUCK, never DEADBALL',
-      /^CLUSTER PUCK — /.test(puck || '') && !/DEADBALL/.test(puck || ''), String(puck));
-    check('guide: a baseball slot is still captioned DEADBALL',
-      /^DEADBALL — /.test(ball || ''), String(ball));
+    // PIN THE SEASON PHASE. `sportsSlotLabel` takes a World Series branch when one
+    // is pending — correct behaviour, but it made these assertions depend on
+    // whatever phase the dev DB was sitting in. Booting the server once advanced
+    // baseball into `worldseries` and turned this suite red for a reason that had
+    // nothing to do with the code. Both branches are now asserted deliberately.
+    const caches = _test.seasonCaches;
+    const saved = new Map(caches);
+    const setPhase = (sport, season) => caches.set(sport, season);
+    try {
+      setPhase('baseball', { phase: 'regular', finalistA: null, finalistB: null });
+      setPhase('hockey', { phase: 'regular', finalistA: null, finalistB: null });
+
+      const puck = L(mkItem('hockey'));
+      const ball = L(mkItem('baseball'));
+      check('guide: a hockey slot is captioned CLUSTER PUCK, never DEADBALL',
+        /^CLUSTER PUCK — /.test(puck || '') && !/DEADBALL/.test(puck || ''), String(puck));
+      check('guide: a baseball slot is still captioned DEADBALL',
+        /^DEADBALL — /.test(ball || ''), String(ball));
+
+      // …and the branch that used to break it, now asserted on purpose: a pending
+      // final outranks the regular caption, per sport, without leaking across.
+      setPhase('baseball', { phase: 'worldseries', finalistA: 'Static Saints', finalistB: 'Bunker Hill Bruisers' });
+      const wsBall = L(mkItem('baseball'));
+      check('guide: a pending World Series outranks the DEADBALL caption',
+        /WORLD SERIES — Static Saints vs Bunker Hill Bruisers/.test(wsBall || ''), String(wsBall));
+      check('guide: …and a baseball final never re-captions the hockey slot',
+        /^CLUSTER PUCK — /.test(L(mkItem('hockey')) || ''), String(L(mkItem('hockey'))));
+    } finally {
+      caches.clear();
+      for (const [k, v] of saved) caches.set(k, v);
+    }
     check('guide: a non-sports row has no sports label', L({ playback_mode: 'film' }) === null, 'film');
+
+    // ── The log rung's overlays ───────────────────────────────────────────────
+    // A viewer on the bottom Display Mode rung has no panel to take a score bug,
+    // and the score is the one thing a viewer is actually tracking — it should not
+    // have to be inferred from a play-by-play line you may have missed.
+    {
+      const bug = {
+        overlayType: 'scorebug', sport: 'baseball',
+        away: 'Static Saints', home: 'Meltdown Mudhens', awayAbbr: 'SAI', homeAbbr: 'MUD',
+        awayScore: 3, homeScore: 5, status: 'TOP 7th', outs: 2,
+      };
+      const line = _test.scorebugLine(bug);
+      check('scorebug line carries both scores', /3/.test(line) && /5/.test(line), line);
+      check('…and both clubs', /SAI/.test(line) && /MUD/.test(line), line);
+      check('…and the state of play', /TOP 7th/.test(line) && /2 out/.test(line), line);
+      check('no bug renders nothing at all', _test.scorebugLine(null) === null);
+      // Abbreviations are optional on the payload; fall back to the full name
+      // rather than rendering an empty side.
+      const noAbbr = _test.scorebugLine({ away: 'Saints', home: 'Mudhens', awayScore: 0, homeScore: 0, status: 'PRE' });
+      check('…falling back to full club names when no abbreviation is given',
+        /Saints/.test(noAbbr) && /Mudhens/.test(noAbbr), noAbbr);
+
+      const table = _test.standingsLines({ title: 'LEAGUE', rows: [{ team: 'Saints', record: '9-2' }, { team: 'Mudhens', record: '7-4' }] });
+      check('standings render as a table with records', /Saints/.test(table) && /9-2/.test(table), table);
+      check('empty standings render nothing rather than a bare heading',
+        _test.standingsLines({ title: 'LEAGUE', rows: [] }) === null);
+      check('a missing standings overlay renders nothing', _test.standingsLines(null) === null);
+    }
 
     // The dedicated-channel nightly guide reads the same brand off the same script.
     const rows = _test.sportsScheduleSlots(mkItem('hockey').sportsScript, _test.sportsSlotIndex());

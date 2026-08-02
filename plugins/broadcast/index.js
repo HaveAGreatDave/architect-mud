@@ -1,9 +1,12 @@
 import { randomUUID } from 'crypto';
+import { textRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers, insertFurniture, updateFurniture, deleteFurnitureWhere, getZoneFurniture } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
+import { escAttr } from '../../server/engine/text.js';
+import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { registerCommand } from '../../server/engine/plugins.js';
@@ -122,7 +125,69 @@ on('tv.watch',   ({ playerId, channelId }) => { tvWatchers.set(playerId, channel
 // A quick tap closes the panel — you stop watching, but the set keeps playing and the
 // room keeps overhearing it (ambient continues). So a plain unwatch just drops you as a
 // viewer; it does NOT switch the set off.
-on('tv.unwatch', ({ playerId }) => { tvWatchers.delete(playerId); catchUpSent.delete(playerId); });
+on('tv.unwatch', ({ playerId }) => {
+  // A panel close fires this (client/game/js/panels/tv.js sends `tv_unwatch` on
+  // shutdown). At the bottom Display Mode rung that close was OURS — switching to
+  // `log` shuts the set because it cannot be read there — and the player is meant
+  // to keep receiving the broadcast as log lines. Un-registering here would make
+  // the ladder silently stop their television.
+  //
+  // Safe to key on the rung: at `log` a panel is never opened deliberately, and
+  // the player's own way to stop is `tv off`, which deletes the registration
+  // directly rather than going through this event.
+  const p = world.players.get(playerId);
+  if (p && loggedPanelsSync(p) && tvWatchers.has(playerId)) return;
+  tvWatchers.delete(playerId); catchUpSent.delete(playerId);
+});
+
+// Called by the `displaymode` verb when a player changes rung. Dropping to `log`
+// shuts a set they can no longer read; the registration survives (see above), so
+// the broadcast keeps arriving in the log without them re-tuning.
+export function syncDisplayRung(player) {
+  if (!player || !loggedPanelsSync(player)) return;
+  if (tvWatchers.has(player.id)) sendToPlayer(player.id, { type: 'tv_off' });
+}
+
+// ── Overlays, written out ────────────────────────────────────────────────────
+// The score bug, the gameday snapshot and the standings flash are `tv_overlay`
+// pushes, which a log-rung viewer has no panel to receive. The commentary carries
+// most of it in words, so their absence is a degradation rather than a hole — but
+// the SCORE is the one thing a viewer is actually tracking, and "what's the score"
+// should not require inferring it from a play-by-play line you may have missed.
+//
+// Sent only when it CHANGES. The bug rides every line so late-tuners catch up
+// within a beat, which is right for a persistent on-screen graphic and would be a
+// line of spam per beat in a log.
+const _lastBugLine = new Map();   // playerId -> last score line sent
+
+function scorebugLine(bug) {
+  if (!bug) return null;
+  const a = bug.awayAbbr || bug.away, h = bug.homeAbbr || bug.home;
+  const outs = bug.outs != null ? ` · ${bug.outs} out` : '';
+  return `<span class="text-dim">[</span>${escAttr(a)} <b>${bug.awayScore}</b>`
+    + ` <span class="text-dim">—</span> <b>${bug.homeScore}</b> ${escAttr(h)}`
+    + `<span class="text-dim"> · ${escAttr(bug.status || '')}${outs}]</span>`;
+}
+
+// Standings are a flash card on screen; in the log they are a short table. Rate is
+// already slow (STANDINGS_BUG_EVERY_MS), so no extra gating is needed.
+function standingsLines(ov) {
+  if (!ov?.rows?.length) return null;
+  const rows = ov.rows.slice(0, 6).map(r => `  ${escAttr(String(r.team ?? r.name ?? ''))} <span class="text-dim">${escAttr(String(r.record ?? r.value ?? ''))}</span>`);
+  return `<span class="text-cyan">${escAttr(ov.title || 'STANDINGS')}</span>\n${rows.join('\n')}`;
+}
+
+// One place both tick paths call, so the live loop and the catch-up replay can't
+// drift on what a log-rung viewer is told.
+function sendOverlayLines(playerId, scorebugOverlay, standingsOverlay) {
+  const line = scorebugLine(scorebugOverlay);
+  if (line && _lastBugLine.get(playerId) !== line) {
+    _lastBugLine.set(playerId, line);
+    sendToPlayer(playerId, { type: 'output', message: line });
+  }
+  const table = standingsLines(standingsOverlay);
+  if (table) sendToPlayer(playerId, { type: 'output', message: table });
+}
 
 // The TV-guide button asks for the tuned channel's running order + the current time.
 on('tv.schedule', ({ playerId, channelId }) => { sendTvSchedule(playerId, channelId); });
@@ -193,7 +258,7 @@ on('deck.unwatch', ({ playerId })            => deckWatchers.delete(playerId));
 on('tablet_tv.watch',   ({ playerId, channelId }) => { if (channelId) { tabletTuners.set(playerId, channelId); sendCatchUp(playerId, channelId); } });
 on('tablet_tv.unwatch', ({ playerId })            => { tabletTuners.delete(playerId); catchUpSent.delete(playerId); });
 
-on('player.logout', ({ id })              => { tvWatchers.delete(id); deckWatchers.delete(id); tabletTuners.delete(id); catchUpSent.delete(id); gameshowForgetPlayer(id); });
+on('player.logout', ({ id })              => { tvWatchers.delete(id); deckWatchers.delete(id); tabletTuners.delete(id); catchUpSent.delete(id); _lastBugLine.delete(id); gameshowForgetPlayer(id); });
 
 // studioZoneIndex.get(studioZoneId) = channelId
 // Enables O(1) lookup in zone.broadcast relay listener.
@@ -3360,18 +3425,28 @@ function restartChannelBroadcast(channelId) {
   state.lastMsgKey = '';
   // Evict deck cache for every zone tuned to this channel so flat-list position resets too
   for (const [zoneId, tunings] of zoneTunings) {
-    if (tunings.has(channelId)) _deckCache.delete(zoneId);
+    if (tunings.has(channelId)) _evictDeckZone(zoneId);
   }
   return true;
 }
 
 // ── Media deck playback ───────────────────────────────────────────────────────
 
-// Cache: zoneId → { broadcastId, item, fetchedAt }. `item` is a runtime broadcast
-// object (same shape loadChannelRuntimes builds) so a loaded cassette can play ANY
-// broadcast type — flat, VINE graph, weather, or sports — not just flat messages.
+// Cache: "zoneId|channelId" → { broadcastId, item, fetchedAt }. `item` is a runtime
+// broadcast object (same shape loadChannelRuntimes builds) so a loaded cassette can
+// play ANY broadcast type — flat, VINE graph, weather, or sports — not just flat
+// messages. Keyed per channel because which deck in a room answers depends on which
+// channel is asking (see _zoneDeck); every eviction is by ZONE, hence the helper.
 const _deckCache = new Map();
 const _DECK_CACHE_TTL = 10000; // 10s
+
+// Evict every channel's cached deck resolution for one zone — what all the
+// load/eject/patch paths mean when they say "this room's deck changed".
+function _evictDeckZone(zoneId) {
+  if (!zoneId) return;
+  const prefix = `${zoneId}|`;
+  for (const k of _deckCache.keys()) if (k.startsWith(prefix)) _deckCache.delete(k);
+}
 
 // Build a runtime item from a broadcast row so the deck can render it through the
 // same machinery the schedule uses (graph walker / weather + sports assemblers).
@@ -3437,17 +3512,26 @@ async function _pirateItemDur(id) {
 // other-channel deck can't shadow the real transmitter. Fresh flags every call:
 // the pirate playback writes below go through updateFurniture, whose RETURNING
 // row re-syncs this cache before the next tick reads it.
-function _zoneDeck(zoneId, channelId = null) {
+//
+// `strict` drops the any-deck fallback, and the VIEWER'S-ROOM path must pass it.
+// A television resolves its content against the deck standing in the room with it,
+// and the loose fallback meant the VCR under the set answered for EVERY channel:
+// tuned to 7, no deck matched ch_7, and the betamax on channel 0 was handed back
+// anyway — so whatever tape was in it pre-empted the station. A deck only speaks
+// for the channel it is plugged into; a VCR is channel 0 and nothing else.
+function _zoneDeck(zoneId, channelId = null, strict = false) {
   const decks = getZoneFurniture(zoneId).filter(f => f.flags && 'media_deck' in f.flags);
   if (!decks.length) return null;
-  return (channelId && decks.find(f => f.flags.channel_id === channelId)) || decks[0];
+  const match = channelId ? decks.find(f => f.flags.channel_id === channelId) : null;
+  if (match) return match;
+  return strict ? null : decks[0];
 }
 
 // Returns undefined when the deck isn't pirated (caller falls through to the
 // normal path), null when pirated-but-dark (stopped / empty queue), or a tick
 // message when the pirate queue is airing.
-async function _getPirateMessage(zoneId, nowMs, state) {
-  const deck = _zoneDeck(zoneId, state?.channelId || null);
+async function _getPirateMessage(zoneId, nowMs, state, strict = false) {
+  const deck = _zoneDeck(zoneId, state?.channelId || null, strict);
   if (!deck) return undefined;
   const dflags = _deckFlags(deck);
   if (!dflags.pirate_owner) return undefined;   // not pirated → normal path
@@ -3512,22 +3596,27 @@ async function _getPirateMessage(zoneId, nowMs, state) {
   return _playDeckItem(entry.item, state, nowMs);
 }
 
-async function _getDeckMessage(zoneId, nowMs, state) {
-  const pirate = await _getPirateMessage(zoneId, nowMs, state);
+async function _getDeckMessage(zoneId, nowMs, state, strict = false) {
+  const pirate = await _getPirateMessage(zoneId, nowMs, state, strict);
   if (pirate !== undefined) return pirate;   // pirated deck runs its captor's queue
 
   // A consumer deck patched to a SPECTER camera shows the feed instead of a tape.
   // Checked before the cassette path because the input is exclusive: the tape may
   // still be sitting in the slot, but the jack is what's on the screen.
   {
-    const deck = _zoneDeck(zoneId, state?.channelId || null);
+    const deck = _zoneDeck(zoneId, state?.channelId || null, strict);
     const dflags = deck?.flags && typeof deck.flags === 'object' ? deck.flags : null;
     if (dflags?.deck_cam_source?.deviceId) return _camPatchMessage(deck, dflags, nowMs);
   }
 
-  let entry = _deckCache.get(zoneId);
+  // Cache key carries the channel: one room can be resolving several channels
+  // (a tuned set plus a VCR on channel 0), and which deck answers now depends on
+  // which channel asked — a zone-only key would let one channel's tape be served
+  // to another for the length of the TTL.
+  const cacheKey = `${zoneId}|${state?.channelId || ''}`;
+  let entry = _deckCache.get(cacheKey);
   if (!entry || nowMs - entry.fetchedAt > _DECK_CACHE_TTL) {
-    const deck = _zoneDeck(zoneId, state?.channelId || null);
+    const deck = _zoneDeck(zoneId, state?.channelId || null, strict);
     const activeId = deck?.flags?.deck_active || null;
     if (activeId && entry?.broadcastId === activeId && entry.item) {
       // Same cassette still loaded — keep the built item so an assembled sports/
@@ -3545,7 +3634,7 @@ async function _getDeckMessage(zoneId, nowMs, state) {
     } else {
       entry = { broadcastId: null, item: null, fetchedAt: nowMs };
     }
-    _deckCache.set(zoneId, entry);
+    _deckCache.set(cacheKey, entry);
   }
   return _playDeckItem(entry.item, state, nowMs);
 }
@@ -3602,9 +3691,12 @@ export function emergencyActive() { return !!emergencyOverride; }
 // otherwise the normal precedence applies: loaded deck/pirate cassette, then the
 // scheduled channel content. `deckZoneId` is the channel's transmitter zone (null on
 // the studio-acting path when the channel has no deck bound).
-async function _resolveTickMessage(deckZoneId, state, nowMs) {
+// `strict` is set by the viewer's-room path, where the zone passed in is wherever
+// the TV is standing rather than the channel's transmitter zone: there a deck may
+// only answer for the channel it is plugged into. See _zoneDeck.
+async function _resolveTickMessage(deckZoneId, state, nowMs, strict = false) {
   if (emergencyOverride) return _playDeckItem(emergencyOverride.item, state, nowMs);
-  const deckResult = deckZoneId ? await _getDeckMessage(deckZoneId, nowMs, state) : null;
+  const deckResult = deckZoneId ? await _getDeckMessage(deckZoneId, nowMs, state, strict) : null;
   return deckResult || await getCurrentMessage(state, nowMs);
 }
 
@@ -3743,9 +3835,10 @@ async function broadcastTick() {
 
       let result;
       try {
-        // Media deck check: a loaded cassette in this zone overrides channel content,
-        // and a city-wide emergency override wins over even that.
-        result = await _resolveTickMessage(zoneId, state, nowMs);
+        // Media deck check: a loaded cassette in this zone overrides channel content
+        // — but only a deck plugged into the channel being watched (a VCR is channel
+        // 0), and a city-wide emergency override wins over even that.
+        result = await _resolveTickMessage(zoneId, state, nowMs, true);
       } catch (err) {
         console.error(`[broadcast] tick error (${channelId}):`, err.message);
         // Mark it handled anyway — the walker may already have advanced, and the
@@ -3853,13 +3946,30 @@ async function broadcastTick() {
       for (const player of players) {
         if (tvWatchers.get(player.id) === channelId) {
           servedThisTick.add(`${player.id}:${channelId}`);
-          if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(result.duration != null ? { duration: result.duration } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
+          // Display Mode `log` — the broadcast reaches the LOG rather than a panel.
+          // Without this a viewer on that rung got nothing at all: the client's
+          // `broadcast` handler returns early when no TV view is open, so every
+          // line, score bug and overlay was dropped on the floor. The TV was the
+          // one system with no written form whatsoever.
+          //
+          // SYNC BY CONTRACT — this is the broadcast tick. `loggedPanelsSync` reads
+          // the latch hydrated at login and never awaits (see presentation.js).
+          const toLog = loggedPanelsSync(player);
+          if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
           if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song, owner: 'tv' });
           if (isSample) sendToPlayer(player.id, { type: 'audio_sample', def: result.sample });
-          if (scorebugOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: scorebugOverlay });
-          if (gamedayOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: gamedayOverlay });
-          if (standingsOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: standingsOverlay });
-          if (result.graphic) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: result.graphic });
+          // A log-rung viewer has no panel to take an overlay, so the score and the
+          // standings flash are written out instead (score only when it changes —
+          // the bug rides every line, which would be spam in a log).
+          if (toLog) sendOverlayLines(player.id, scorebugOverlay, standingsOverlay);
+          if (!toLog) {
+            // Overlays are panel-only by nature. Sending them to a viewer with no panel
+            // is pure wire traffic they can never see.
+            if (scorebugOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: scorebugOverlay });
+            if (gamedayOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: gamedayOverlay });
+            if (standingsOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: standingsOverlay });
+            if (result.graphic) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: result.graphic });
+          }
         } else if (ambientDue) {
           sendToPlayer(player.id, { type: 'broadcast_ambient', speechText: result.speechText, channel: channelId });
         }
@@ -6263,7 +6373,7 @@ async function cmdPirate(args, raw, player) {
   const difficulty = await hackDifficulty(player.id, dflags.hack_difficulty);
   const stationName = channelRuntime.get(dflags.channel_id)?.stationName || deck.name;
   pendingPirate.set(player.id, { deckId: deck.id, ts: Date.now() });
-  return { type: 'signal_hijack', deckId: deck.id, deckName: deck.name, stationName, skill, difficulty };
+  return textRender(player, { type: 'signal_hijack', deckId: deck.id, deckName: deck.name, stationName, skill, difficulty });
 }
 
 // pirateresolve <deckId> <1|0> — silent; the Signal Hijack overlay fires this.
@@ -6304,7 +6414,7 @@ async function cmdPirateResolve(args, raw, player) {
   dflags.pirate_started_ms = Date.now();
   delete dflags.pirate_engineer_at; // fresh defend window for the new captor
   await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
-  _deckCache.delete(deck.zone_id);
+  _evictDeckZone(deck.zone_id);
   _pirateCache.delete(deck.zone_id);
   await awardSkillUse(player.id, 'hacking', await breachMargin(player, dflags.hack_difficulty));
   // Citywide takeover is self-reporting heat (broadcast_piracy, witness 'always').
@@ -6333,7 +6443,7 @@ function _engineerDueAt(dflags) {
 async function _clearSeizure(deck, dflags) {
   for (const k of PIRATE_KEYS) delete dflags[k];
   await updateFurniture(deck.id, { flags: JSON.stringify(dflags) }).catch(() => {});
-  _deckCache.delete(deck.zone_id);
+  _evictDeckZone(deck.zone_id);
   _pirateCache.delete(deck.zone_id);
 }
 
@@ -6578,7 +6688,7 @@ async function cmdAir(args, raw, player) {
   if (touched) {
     if (dflags.pirate_cursor > Math.max(0, q.length - 1)) dflags.pirate_cursor = Math.max(0, q.length - 1);
     await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
-    _deckCache.delete(deck.zone_id);
+    _evictDeckZone(deck.zone_id);
     _pirateCache.delete(deck.zone_id);
     deck.flags = dflags; // reflect edits in the console payload below
   }
@@ -6671,7 +6781,7 @@ async function cmdLoadCassette(args, raw, player) {
   if (channelId && slotsToRestore.length) await loadChannelRuntimes();
   // Move the cassette item into the deck container rather than destroying it.
   await query('UPDATE player_inventory SET container_id=$1 WHERE id=$2', [deck.id, cassette.inv_id]);
-  _deckCache.delete(player.current_zone);
+  _evictDeckZone(player.current_zone);
   return { type: 'output', message: `You slide the cassette into the deck. It clunks into place and starts playing.` };
 }
 
@@ -6828,7 +6938,7 @@ async function cmdEjectCassette(args, raw, player) {
   dflags.deck_active = null;
   await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
   if (channelId) await loadChannelRuntimes();
-  _deckCache.delete(player.current_zone);
+  _evictDeckZone(player.current_zone);
   return { type: 'output', message: `You eject the cassette. The screen dissolves into static.` };
 }
 
@@ -6846,7 +6956,7 @@ async function cmdSelectCassette(args, raw, player) {
   if (!cassettes.includes(broadcastId)) return { type: 'output', message: 'That cassette is not in this deck.' };
   dflags.deck_active = broadcastId;
   if (dflags.deck_cam_source) { dflags.deck_cam_source = null; _camPatchCache.delete(deck.id); }
-  _deckCache.delete(player.current_zone);
+  _evictDeckZone(player.current_zone);
   await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
   return buildMediaDeckPanel(deck.id, player);
 }
@@ -6897,7 +7007,7 @@ async function _camPatchMessage(deck, dflags, nowMs) {
     dead.deck_cam_source = null;
     await updateFurniture(deck.id, { flags: JSON.stringify(dead) });
     _camPatchCache.delete(deck.id);
-    _deckCache.delete(deck.zone_id);
+    _evictDeckZone(deck.zone_id);
     return { text: `[CAM · ${src.label || 'FEED'}] ◌ NO SIGNAL — the camera is gone.`, style: 'raw', key: `campatch:${slot}` };
   }
   if (snap.status !== 'ok' && snap.status !== 'spoofed') {
@@ -6932,7 +7042,7 @@ async function cmdPatch(args, raw, player) {
     dflags.deck_cam_source = null;
     await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
     _camPatchCache.delete(deck.id);
-    _deckCache.delete(player.current_zone);
+    _evictDeckZone(player.current_zone);
     return { type: 'output', message: `You pull the jack. The ${deck.name} goes back to its own tape.` };
   }
 
@@ -6954,7 +7064,7 @@ async function cmdPatch(args, raw, player) {
   dflags.deck_cam_source = { deviceId: pick.deviceId, label: pick.label, zoneId: pick.zoneId };
   await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
   _camPatchCache.delete(deck.id);
-  _deckCache.delete(player.current_zone);
+  _evictDeckZone(player.current_zone);
 
   const state = dflags.channel_id ? channelRuntime.get(dflags.channel_id) : null;
   const chan = state?.number != null ? ` Put the set on channel ${state.number}.` : '';
@@ -6998,7 +7108,7 @@ export async function patchCamToDeck(player, deviceId) {
   }
   await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
   _camPatchCache.delete(deck.id);
-  _deckCache.delete(player.current_zone);
+  _evictDeckZone(player.current_zone);
   return dflags.deck_cam_source
     ? `Feed patched into the ${deck.name}.`
     : `Feed pulled from the ${deck.name}.`;
@@ -7277,6 +7387,35 @@ function _tvSkinForZone(zoneId) {
 // 'tablet' feeds the Tablet TV app's viewport. A tablet has no furniture backing it,
 // so dial/skin fall back to sane defaults instead of a zone device lookup.
 function buildTvPanel(channelId, player, dialFrequency, dest) {
+  // Display Mode `log` — no set opens; the broadcast arrives as log lines instead.
+  //
+  // ⚠ THE PANEL IS WHAT REGISTERS A VIEWER. `tv.watch` is emitted by the client
+  // when the TV panel mounts (client/game/js/panels/tv.js `watchMsg`), so
+  // suppressing the panel without doing this leaves the player unregistered — they
+  // fall through to the rate-limited `[TV]` overheard line that non-watchers get,
+  // which looks like the feature half-working and is worse than it plainly failing.
+  // Caught in a browser; the comment that used to sit here asserted the opposite.
+  //
+  // So register directly and fire the same catch-up the panel would have got, which
+  // is also exactly right for tuning in: you hear what's on NOW, not from the next
+  // beat.
+  if (loggedPanelsSync(player)) {
+    const s = channelRuntime.get(channelId);
+    tvWatchers.set(player.id, channelId);
+    sendCatchUp(player.id, channelId);
+    sendToPlayer(player.id, {
+      type: 'output',
+      message: s
+        ? `<span class="msg-system">Tuned to <b>${s.number != null ? `${s.number} · ` : ''}${escAttr(s.stationName || s.name || channelId)}</b>. It plays out below — <b>tv off</b> to stop.</span>`
+        : '<span class="msg-system">The set warms up on an empty channel.</span>',
+    });
+    // `noop`, never null: two callers return this value straight to the dispatcher
+    // (`tv`, and the console path), and a null there reads as "no handler took the
+    // verb" — the player would get `Unknown command` for a `tv` that had in fact
+    // worked. The line above is pushed rather than returned so the fire-and-forget
+    // callers (watch, the tablet tuner) tell the player too.
+    return { type: 'noop' };
+  }
   const state = channelRuntime.get(channelId);
   if (!state) return null;
   const isTablet = dest === 'tablet';
@@ -7427,6 +7566,24 @@ async function doUseTv(args, raw, player) {
 
 async function cmdTv(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
+
+  // `tv off` — stop watching. This is the log rung's equivalent of closing the
+  // panel: with no set on screen there is otherwise no way to stop the broadcast
+  // arriving in your log, and the panel's ✕ is what fires `tv.unwatch` for
+  // everyone else. Deliberately NOT the same as `tune 0` — that switches the
+  // physical set off for the whole room, and wanting to stop reading is not
+  // wanting to take the television away from everybody present.
+  if (/^(off|stop)$/i.test((args[0] || '').trim())) {
+    if (!tvWatchers.has(player.id)) return { type: 'error', message: "You aren't watching anything." };
+    tvWatchers.delete(player.id);
+    catchUpSent.delete(player.id);
+    // Forget the last score line, so tuning back in re-prints it rather than
+    // suppressing it as 'unchanged' and leaving them with no score at all.
+    _lastBugLine.delete(player.id);
+    sendToPlayer(player.id, { type: 'tv_off' });
+    return { type: 'output', message: 'You stop watching.' };
+  }
+
   const zoneMap = zoneTunings.get(player.current_zone);
 
   // A tuned TV in the zone is already emitting a broadcast (the ambient noise the
@@ -7645,6 +7802,17 @@ export const _test = {
   normalizeBroadcastGraph: _normalizeBroadcastGraph, CARD_MIN_HOLD_MS,
   pickDailySlot: _pickDailySlot, dayMask: _dayMask, dayLabel: _dayLabel, slotAirsOn: _slotAirsOn,
   sportsSlotLabel: _sportsSlotLabel, sportsScheduleSlots: _sportsScheduleSlots,
+  // The log-rung overlay renderers. Pure over a payload, so the suite can assert
+  // them without waiting for a ballgame to be scheduled.
+  scorebugLine, standingsLines,
+  // The live season cache. Exposed ONLY so the guide-caption suite can pin the
+  // phase it is asserting: `_sportsSlotLabel` takes the World Series branch when
+  // one is pending, which is correct behaviour but made the test depend on
+  // whatever phase the dev DB happened to be sitting in. Booting the server once
+  // was enough to flip it and turn the suite red for a reason that had nothing to
+  // do with the code. The suite now sets this and restores it.
+  seasonCaches: _seasonCaches,
+  zoneDeck: _zoneDeck,
 };
 
 // ── Route handler (CRUD) ─────────────────────────────────────────────────────

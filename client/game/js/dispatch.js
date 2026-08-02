@@ -387,6 +387,14 @@ const handlers = {
   // on another, so every broadcast/overlay is fanned out to whichever surface(s)
   // are actually tuned to that channel rather than to a single global panel.
   broadcast: (msg) => {
+    // Display Mode `log` — the broadcast IS the log line. Before this, a viewer on
+    // that rung got nothing: the early return below drops every line when no TV
+    // view is open, and at that rung no panel opens. Television was the one system
+    // with no written form at all.
+    if (msg.toLog) {
+      appendHtml(msg.message, 'broadcast');
+      return;
+    }
     const views = tvViewsForChannel(msg.channel);
     if (!views.length) return;
     if (msg.style === 'off_air') {
