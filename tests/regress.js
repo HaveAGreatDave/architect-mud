@@ -3012,21 +3012,14 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // The migration itself: derivation must reproduce the world that shipped. Every
   // authored marker still draws; nothing was invented and nothing was lost.
   //
-  // Sewer tiles are exempt, and deliberately so. c2b253928 deleted 34 `marker`
-  // overrides from zone_under_* precisely so `deriveMarker` would fall through to
-  // `sewerArt(zone.exits)` and each tile draw the corridor piece its own
-  // connectivity says it is — The Confluence was advertising a four-way junction on
-  // three exits. For those tiles derivation is the SOURCE, not a reproduction of
-  // something authored, so "nothing was invented" is the wrong question to ask of
-  // them: 32 of the 34 invent a glyph by design (the other 2 are manhole stubs
-  // whose only exit is `up`, so there is no shape to derive and they stay null).
-  // The exemption is only for the tiles that HAVE no override — the 83 sewer tiles
-  // still carrying a redundant one stay under the invariant, so a hand-placed glyph
-  // that contradicts the corridor it sits in is still caught.
-  const derivesItsOwnArt = (z) =>
-    (z?.grid_z ?? 0) < 0 && /^zone_under_/.test(z?.id || '') && z?.marker == null;
+  // A sewer exemption used to sit here, carved out because `deriveMarker` fell
+  // through to `sewerArt(zone.exits)` for any zone_under_ tile with no override —
+  // so for those, derivation was the SOURCE rather than a reproduction of something
+  // authored, and "nothing was invented" was the wrong question to ask. That
+  // derivation is gone and so is the carve-out: the 117 corridor pieces are
+  // authored markers now, which puts them back under the invariant where a glyph
+  // contradicting the tile it sits on is caught like any other.
   const markerDrift = getAllZones().filter(z => {
-    if (derivesItsOwnArt(z)) return false;
     const authored = z.marker == null ? null : String(z.marker).trim() || null;
     return (renderOf(z.id).marker ?? null) !== authored;
   });
