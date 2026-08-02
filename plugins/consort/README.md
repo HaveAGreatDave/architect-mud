@@ -31,6 +31,17 @@ consorts possible at all.
 `strategist` · `romantic` · `feral` · `devout` · `brat` · `ghost` · `wit` ·
 `scholar` · `ice` · `starlet` · `soldier` · `stray`
 
+**The lines live in two files and that is not a split personality.**
+[archetypes.js](archetypes.js) holds the DEFINITION of each of the twelve — tier,
+listing copy, temperament, and the seed pool that establishes the voice — and
+[archetypes-extra.js](archetypes-extra.js) holds the bulk of what they actually
+say, merged in at module load. Nothing downstream knows there are two files:
+`voiceSamples`, the tick, the B.L.I.S.S. catalogue and regress all see one merged
+pool, and **every rule is enforced against the merged result**, so the extras get
+no free pass on pronoun tokens, keeper-sex neutrality or garment naming. The split
+exists so the twelve personalities stay legible at a glance in one screen of file
+rather than being buried under a few hundred lines of prose each.
+
 Every one carries the same complete set of pools — `devotedTame/Hot`,
 `arousedTame/Hot`, `shy`, `worried`, `missShort/Long`, `pourTame/Hot`,
 `talkKeeper/Shy`, and four `entrances`. A missing pool is a bug, not a fallback;
@@ -310,8 +321,24 @@ holds for 5–12 minutes. Consorts are meant to be *company*, not a ticker.
 - **No witness** → nothing (same rule as the banter engine).
 
 Beckoned out of their room they instead live a life keyed to the area
-(`areaProfile` off zone flags): sun deck, view, helipad, or generic cabin idles,
-holding one activity for minutes at a time.
+(`areaProfile` off zone flags), holding one activity for minutes at a time.
+
+**Five area registers, and only three of them are the yacht.** `sundeck` / `view`
+/ `helipad` are bespoke Echelon content and stay that way. The catch-all used to be
+`cabin`, written for a boat — brushed titanium, bulkheads, the Basin sliding past —
+which was correct when a consort could only ever be one man's on one vessel. Anyone
+can now keep one anywhere they hold a private address, so the fallback is the pair
+**`indoor` / `outdoor`**, written to a room's furniture and a street's weather and
+naming no place in particular. Indoor-ness is read exactly the way the engine reads
+it everywhere else (`is_interior` / `is_apartment` / `is_building`, with `open_sky`
+overriding to outdoors — a roof terrace is a building climatically outdoors), so
+this needs no authoring on any zone that already works.
+
+Two rules on the outdoor pool: **no skin variant on any outdoor line** (a street is
+public by default — the MIS tier there would play the bare version to passers-by;
+regress asserts it), and the general two-hander banter written for these registers
+**never assumes the keeper's sex**, unlike the older Echelon threads which say "he"
+freely because they were written for one specific man.
 
 Nudity and explicit beats are MIS-gated throughout (`tieredZoneLine`). The mis
 plugin's `strip` verb still bares them on command; this plugin honours
@@ -368,10 +395,12 @@ keeper as well as a male one.
 |---|---|
 | [index.js](index.js) | the tick, scenes, verbs, hooks — the live behaviour |
 | [archetypes.js](archetypes.js) | the 12 personalities, pronoun renderer, pairings |
+| [archetypes-extra.js](archetypes-extra.js) | the rest of every voice — merged into the pools above at load |
 | [appearance.js](appearance.js) | seeded RNG, builds, feature pools, the listing card |
 | [roster.js](roster.js) | catalogue generation, pricing, loyalty, reroll cooldown |
 | [hire.js](hire.js) | ledger, spawn/despawn, private spaces, daily billing |
 | [questions.js](questions.js) | the questions they ask you, and how they take each answer |
+| [questions-extra.js](questions-extra.js) | more of the same, pushed onto both question arrays at load |
 | [bliss-app.js](bliss-app.js) | the MIS-gated tablet app |
 
 Client rendering for the app lives in `client/game/js/panels/tablet-os.js`

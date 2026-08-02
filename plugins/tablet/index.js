@@ -279,6 +279,39 @@ async function cmdTabletAction(args, raw, player, broadcast) {
 }
 
 export const commands = {
+  // `displaymode visual|text` — the server side of the Settings "Display Mode"
+  // switch, sent silently by the tablet the way `lorealways` is. Typed bare it
+  // reports, because a player who ends up in the wrong one needs a way back that
+  // doesn't require finding the tablet screen that put them there.
+  //
+  // One switch for every system that has both a graphical and a text version of
+  // the same thing (flight display, poker table) — see
+  // server/engine/presentation.js. Poker's own `text`/`visual` verbs are handles
+  // on this same preference.
+  displaymode: async (args, raw, player) => {
+    const { prefersTextDisplay, setDisplayMode } = await import('../../server/engine/presentation.js');
+    const arg = (args || []).join(' ').trim().toLowerCase();
+    const now = () => prefersTextDisplay(player);
+    if (!arg) {
+      const v = await now();
+      return { type: 'system', message: `<span class="msg-system">Display mode is <b>${v === true ? 'TEXT' : 'VISUAL'}</b>${v === undefined ? ' (default)' : ''}. Use "displaymode visual|text".</span>` };
+    }
+    if (!/^(visual|text|graphical|graphics)$/.test(arg)) {
+      return { type: 'error', message: 'Display mode is "visual" or "text".' };
+    }
+    const toText = arg === 'text';
+    await setDisplayMode(player, toText);
+    // Poker keeps a runtime Set of text-mode players for its narration hot path;
+    // flip it here too, or a seated player's switch wouldn't land until they
+    // stood up and sat down again.
+    try {
+      const { syncDisplayMode } = await import('../gametable/index.js');
+      await syncDisplayMode?.(player, toText);
+    } catch { /* gametable not loaded — nothing to sync */ }
+    return { type: 'system', message: `<span class="msg-system">Display mode set to <b>${toText ? 'TEXT' : 'VISUAL'}</b>. ${toText
+      ? 'Anything with a written version — the flight display, the poker table — comes to you as text from here on.'
+      : 'Graphics are used wherever a system has them: the cockpit, the cabin window, the poker felt.'}</span>` };
+  },
   // `alarm` opens the Alarm app directly, and `alarm 0730` sets it in one go —
   // the tablet is a device you carry, so the verb is just a shortcut into the
   // same screen the icon opens. Typing it beats three taps when you're about to

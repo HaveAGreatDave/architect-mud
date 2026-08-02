@@ -11,7 +11,8 @@
     "alarm",
     "codex",
     "vitals",
-    "health"
+    "health",
+    "displaymode"
   ],
   "actions": {
     "registers": ["CODEX_UNLOCK"]

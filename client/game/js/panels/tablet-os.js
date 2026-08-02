@@ -5702,7 +5702,7 @@ function tosPillRow(label, key, value, opts) {
   return `<div class="tos-set-row"><span class="tos-set-label">${esc(label)}</span><div class="tos-opts">${pills}</div></div>`;
 }
 
-function renderTabletSettings() {
+function renderTabletSettings(d) {
   const s = loadSettings();
   const tt = loadTabletTheme();
   const linked = tt.linked !== false;
@@ -5727,6 +5727,18 @@ function renderTabletSettings() {
     `<div class="tos-set-row"><span class="tos-set-label">Theme</span>${tosThemeTrigger('ui', themeActive)}</div>` +
     lockRow +
     (linked ? '' : `<div class="tos-set-row"><span class="tos-set-label">Tablet Theme</span>${tosThemeTrigger('tablet', tabletActive)}</div>`);
+
+  // Display Mode — the one game-wide choice between a system's graphical
+  // presentation and its text version (the flight display, the poker table).
+  // SERVER state, unlike everything else on this screen: the flight plugin reads
+  // it on the server, at board time, to decide whether to push a panel at all.
+  // So it renders from the payload (settings-app.js ships `textDisplay`) and the
+  // pills mirror any change back through the silent `displaymode` command.
+  const textDisplay = !!(d && d.textDisplay);
+  const displayRow = `<div class="tos-set-row"><span class="tos-set-label">Display Mode<span class="tos-set-val">Graphics, or the text version</span></span><div class="tos-opts">
+    <div class="tos-opt${!textDisplay ? ' selected' : ''}" data-set-display="visual" title="Use graphics wherever a system has them — the cockpit, the cabin window, the poker felt">Visual</div>
+    <div class="tos-opt${textDisplay ? ' selected' : ''}" data-set-display="text" title="Use the written version everywhere one exists — a narrated flight, poker called out to the log">Text</div>
+  </div></div>`;
 
   const feltMode = s.pokerFelt || 'green';
   const feltRow = `<div class="tos-set-row"><span class="tos-set-label">Poker Felt</span><div class="tos-opts">
@@ -5791,6 +5803,7 @@ function renderTabletSettings() {
         <span><input type="range" class="tos-slider" data-set-contrast="1" min="0" max="100" step="1" value="${contrast}">
         <span class="tos-btn-sub" data-contrast-reset="1" style="margin:0 0 0 8px;padding:4px 9px">Reset</span></span></div>` +
       fontRow +
+      displayRow +
       feltRow +
       loreRow +
       renderMisSection(),
@@ -9067,7 +9080,7 @@ function renderBody() {
 
   // App screen. view: categories | list | detail | corp | tablet_settings | error
   if (d.view === 'tablet_settings') {
-    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(null, [d.appName])}${renderTabletSettings()}</div>`;
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(null, [d.appName])}${renderTabletSettings(d)}</div>`;
   }
   if (d.view === 'corp') {
     return `<div class="tos-body tos-corp-view">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
@@ -10056,6 +10069,18 @@ function wireTabletSettings() {
       s.extraLore = val;
       commit(s);
       sendCmdSilent(`lorealways ${val}`);
+      render();
+    });
+  });
+  // Display Mode — server-side preference (see renderTabletSettings). Flip the
+  // cached payload so the re-render shows the new pill straight away; the server
+  // is still the source of truth and re-sends it on the next screen build.
+  _overlay.querySelectorAll('[data-set-display]').forEach(el => {
+    el.addEventListener('click', () => {
+      sfx(TOS_SELECT_DEF);
+      const val = el.getAttribute('data-set-display');
+      if (_data) _data.textDisplay = val === 'text';
+      sendCmdSilent(`displaymode ${val}`);
       render();
     });
   });

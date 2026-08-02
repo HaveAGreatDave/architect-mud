@@ -70,7 +70,12 @@ export function startGameLoop(broadcast) {
   schedule('1m', resourceTick);
   schedule('10s', () => tickSpawns(broadcastFn));
   schedule('15s', restRegenTick);
-  schedule('1m', npcWanderTick);
+  // NPC AI clock. 15s (not 1m) because at one tile per minute an NPC was 60x
+  // slower than the player standing next to them — you never saw one cross a
+  // room. Cheap to raise: paths are cached on ai.patrolPath and NPC positions
+  // are RAM-only, so a tick that doesn't change target is a shift() + broadcast.
+  // NPC_TICK_SECONDS in ai-behaviour.js must match this cadence.
+  schedule('15s', npcWanderTick);
   schedule('1m', flushDirtyPositions); // checkpoint moved players' current_zone/stamina in one batched write
   schedule('1m', flushAllRelations);   // coalesced upsert of who's met whom (engine/relations.js); logout flushes again
   schedule('1m', flushAllWear);        // coalesced gear-condition write (engine/durability.js) — wear accrues in memory on the swing path
@@ -1807,7 +1812,7 @@ async function npcWanderTick() {
     // Hardcoded fallback wander for NPCs without a behaviour graph.
     if (!npc.wanders) continue;
     if (npc._ai?.shopPaused) continue; // don't wander while a player is shopping
-    if (Math.random() > 0.2) continue; // ~20% chance per minute → wanders roughly every 5 min
+    if (Math.random() > 0.05) continue; // ~5% chance per 15s tick → wanders roughly every 5 min (unchanged when the tick sped up)
     const permitted = Array.isArray(npc.wander_zones) && npc.wander_zones.length ? npc.wander_zones : null;
     let candidates;
     if (permitted) {

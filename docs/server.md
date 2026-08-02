@@ -73,7 +73,7 @@ Any engine file that needs world state imports directly from `world.js`. There i
 | `ambientTick` | 45 seconds | Sends flavor text to occupied zones (via plugin hook or zone's own ambient pool) |
 | `minuteTickFn` | 1 minute | Radiation decay, drug decay, fires the `tick.minute` plugin hook |
 | `resourceTick` | 1 minute | Hunger/thirst decay, starvation/dehydration damage, heal-over-time, well-fed regen |
-| `npcWanderTick` | 1 minute | Idle NPC wandering |
+| `npcWanderTick` | 15 s | NPC behaviour graphs + idle wandering (`NPC_TICK_SECONDS` in `ai-behaviour.js` mirrors this) |
 | `flushDirtyPositions` | 1 minute | Batched write of every moved player's `current_zone`/`stamina` |
 
 Only `tick()` is a raw `setInterval`, and it carries its own `hasActivePlayers` guard because it does not inherit the scheduler's. Everything else registers through `scheduler.js` and is idle-gated automatically (`gameLoop.js:46-70`).

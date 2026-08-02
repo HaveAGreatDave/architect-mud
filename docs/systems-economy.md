@@ -65,6 +65,16 @@ error between the two steps can't tear them:
 [vendor.js](../server/engine/vendor.js), driven by the `shop`/`buy`/`sell` verbs — owned by the
 **commerce plugin** ([plugins/commerce/index.js](../plugins/commerce/index.js)); vendor services stay engine.
 
+- **Open or shut is one predicate, and the ROOM asks it too.** `isVendorClosed(npc)`
+  ([ai-behaviour.js](../server/engine/ai-behaviour.js)) answers off-shift (`vendor_schedule`) *or*
+  not-yet-walked-in (`isVendorAbsent`, for anyone with a `work_zone_id`); a vendor with no schedule
+  trades round the clock and a covert dealer is exempt outright (its window belongs to the dealer
+  plugin). The **`Vendors here:` section in a room description consults the same call**
+  ([describe.js](../server/engine/commands/describe.js)) — an off-shift shopkeeper lists as an
+  ordinary NPC. The section is a statement about whether you can *buy*, not about who somebody is,
+  which is why the covert dealer is excluded from it as well. Listing a closed vendor there made the
+  room promise something the trade path then refused, and hid the shift system entirely: you learned
+  a shopkeeper's hours by being turned away rather than by looking.
 - **Stock** comes from the NPC's `vendor_inventory` JSON — an array of `{ "item_id": "<id>", "price"?: <int>, "stock"?: <int> }`.
   Only `item_id` is required (the exact snake_case key — a `itemId` typo silently yields no stock; the NPC editor
   now rejects entries missing `item_id`). Price is `entry.price` (falling back to the item's `value`), discounted by

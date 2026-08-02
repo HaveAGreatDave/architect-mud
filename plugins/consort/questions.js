@@ -26,6 +26,8 @@
 //   { key, ask, answers: [[branch, /re/], …], react: { branch: [lines] }, mood: {} }
 // `react.timeout` is what they say when the keeper says nothing at all.
 
+import { MORE_QUESTIONS, MORE_DYNAMIC } from './questions-extra.js';
+
 const YES  = /\b(yes|yeah|yep|yup|aye|sure|of course|always|definitely|absolutely|i do|i am|i will|course i)\b/;
 const NO   = /\b(no|nope|nah|never|not really|i don'?t|i won'?t|i'?m not)\b/;
 
@@ -484,6 +486,12 @@ export function classifyAnswer(question, text) {
   }
   return 'dodge';
 }
+
+// The rest of the pool lives in questions-extra.js — same shapes, same rules. It's
+// pushed onto the two arrays rather than exported separately so nothing downstream
+// (the rotation, applicableDynamic, questionByKey, regress) knows there are two files.
+QUESTIONS.push(...MORE_QUESTIONS);
+DYNAMIC_QUESTIONS.push(...MORE_DYNAMIC);
 
 export const ALL_QUESTIONS = [...QUESTIONS, ...DYNAMIC_QUESTIONS];
 

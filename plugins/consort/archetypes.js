@@ -39,6 +39,8 @@
 // filtered out when they're alone — that's how a written-for-two beat degrades
 // gracefully for a solo placement.
 
+import { EXTRA } from './archetypes-extra.js';
+
 // ── Pronouns ──────────────────────────────────────────────────────────────────
 const PRONOUNS = {
   female: { they: 'she', them: 'her', their: 'her', theirs: 'hers', themself: 'herself', person: 'woman', kid: 'girl' },
@@ -1323,7 +1325,27 @@ const VERBS = {
   nod: 'nods', listen: 'listens', take: 'takes', laugh: 'laughs', look: 'looks',
   hold: 'holds', ask: 'asks', is: 'is', are: 'is',
   stop: 'stops', start: 'starts', shake: 'shakes', seem: 'seems', file: 'files',
+  put: 'puts',
 };
+
+// ── The rest of every voice ───────────────────────────────────────────────────
+// archetypes-extra.js holds the bulk of each personality's lines; this file holds
+// the DEFINITION (tier, listing copy, the seed pool that establishes the voice).
+// Merged here at module load so nothing downstream — voiceSamples, the tick, the
+// B.L.I.S.S. catalogue, regress — needs to know there are two files.
+for (const [key, pools] of Object.entries(EXTRA)) {
+  const a = ARCHETYPES[key];
+  if (!a) continue;   // a stale key in the extras is not worth crashing a boot over
+  for (const [pool, lines] of Object.entries(pools)) {
+    if (pool === 'entrances') {
+      for (const [slot, extra] of Object.entries(lines)) {
+        a.entrances[slot] = (a.entrances[slot] || []).concat(extra);
+      }
+    } else {
+      a[pool] = (a[pool] || []).concat(lines);
+    }
+  }
+}
 
 // Full line render: pronouns first, then verb agreement, then the name slot.
 export function renderLine(line, npc, opts = {}) {

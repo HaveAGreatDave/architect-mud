@@ -1,0 +1,14 @@
+{
+  "description": "A fat little cassette in a shell that was originally beige and has been handled into something warmer. There is no case. The spine label is a strip of masking tape, and whoever wrote on it wrote fast:\n\n  ┌───────────────────────────────┐\n  │ ▚▚▚▚▚  THE METER READER  IX   │\n  │ ▚   ▚  ───────────────────────│\n  │ ▚▚▚▚▚  VAULT PRINT · 25 MIN   │\n  │  ( )    ( )   REEL 5 TAPED    │\n  │ ═══════════════════════════   │\n  └───────────────────────────────┘\n\nUnderneath, in the same pen, pressed harder: \"NOT THE ONE I SAID IT WAS. PUT IT BACK BEHIND THE OTHERS.\"",
+  "flags": {},
+  "id": "item_betatape_meter_reader",
+  "name": "betatape: THE METER READER",
+  "tags": {
+    "beta_cassette": true,
+    "broadcast_id": "bc_the_meter_reader",
+    "media_cassette": true
+  },
+  "type": "media",
+  "value": 65,
+  "weight": 220
+}

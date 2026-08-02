@@ -746,18 +746,26 @@ export default async function regress({ run, check, getPlayer }) {
 
   // ── Text-only passenger travel (textmode.js) ────────────────────────────────
   // The accessibility opt-out: a passenger who never wants the graphical cabin.
+  // No longer a flight-owned flag — it reads the game-wide Display Mode
+  // (server/engine/presentation.js), the same switch the poker table reads.
   // What's load-bearing is that the preference is LATCHED onto the live player at
   // board time — pushHud is sync and runs on the 3s tick, so it can only skip a
   // text-only rider by reading a property, never by awaiting a flag.
   await clearFlag('player', TEXT_TRAVEL_FLAG, p);
   check('text travel is OFF by default', (await prefersTextTravel(p)) === false);
-  await setFlag('player', TEXT_TRAVEL_FLAG, 'true', p);
-  check('the flag turns text travel on', (await prefersTextTravel(p)) === true);
-  await setFlag('player', TEXT_TRAVEL_FLAG, 'false', p);
-  check('an explicit false reads as off (not merely "set")', (await prefersTextTravel(p)) === false);
+  await setFlag('player', TEXT_TRAVEL_FLAG, 'text', p);
+  check('Display Mode: text turns text travel on', (await prefersTextTravel(p)) === true);
+  await setFlag('player', TEXT_TRAVEL_FLAG, 'visual', p);
+  check('an explicit visual reads as off (not merely "set")', (await prefersTextTravel(p)) === false);
+  // A player who set the OLD flight-only flag before the two switches merged must
+  // still get what they asked for — presentation.js keeps it as a read-only fallback.
+  await clearFlag('player', TEXT_TRAVEL_FLAG, p);
+  await setFlag('player', 'flight_text_only', 'true', p);
+  check('the legacy flight_text_only flag is still honoured', (await prefersTextTravel(p)) === true);
+  await clearFlag('player', 'flight_text_only', p);
   // The narrator must be safe to run against whatever is aloft at any moment — it's
   // on its own 45s schedule with no guard around it beyond its own.
-  await setFlag('player', TEXT_TRAVEL_FLAG, 'true', p);
+  await setFlag('player', TEXT_TRAVEL_FLAG, 'text', p);
   let ttThrew = null;
   try { textTravelTick(); } catch (e) { ttThrew = e.message; }
   check('the narration tick survives the live-aircraft set as it stands', ttThrew === null, ttThrew);
@@ -785,7 +793,7 @@ export default async function regress({ run, check, getPlayer }) {
       p.current_zone = field.id;
       setBroadcast((zoneId, message, excludeId, targetId) => { sent.push({ targetId, message }); });
       try {
-        await setFlag('player', TEXT_TRAVEL_FLAG, 'true', p);
+        await setFlag('player', TEXT_TRAVEL_FLAG, 'text', p);
         await pushHangarBay(p);
         check('text flight display gets the text hangar, never the 3D bay panel',
           !sent.some(s => s.message?.type === 'hangar_bay_open')

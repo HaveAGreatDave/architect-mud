@@ -14,13 +14,17 @@
 //
 // The rider keeps `window` — opting into the view for one leg sets cabinWindowOpen,
 // which outranks this everywhere, so text mode is a default, not a lockout.
-import { getFlag } from '../../server/engine/flags.js';
+import { prefersTextDisplayOrDefault, DISPLAY_MODE_FLAG } from '../../server/engine/presentation.js';
 import { liveAircraft, getLivePlayer, sendToPlayer, isContinuous, BAND_LABEL, degToCardinal } from './state.js';
 
-export const TEXT_TRAVEL_FLAG = 'flight_text_only';
+// The preference is no longer flight's own: it's the game-wide Display Mode
+// (server/engine/presentation.js), the same switch poker reads. The old
+// `flight_text_only` flag is still honoured as a fallback for players who set it
+// before the merge — see LEGACY_KEYS there — but nothing writes it now.
+export const TEXT_TRAVEL_FLAG = DISPLAY_MODE_FLAG;
 
 export async function prefersTextTravel(player) {
-  return String(await getFlag('player', TEXT_TRAVEL_FLAG, player).catch(() => undefined)) === 'true';
+  return prefersTextDisplayOrDefault(player);
 }
 
 // Flavor by flight phase. Kept as plain arrays in the shape a zone authors
@@ -64,7 +68,7 @@ const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 // to load something. Also tells them the door back to the view is still there.
 export function boardingLine(live) {
   return `<span class="text-dim">You take a seat in the ${live.type.name}'s cabin and let the window stay a window. `
-    + '(<span class="action-link" data-action="cmd" data-cmd="window">window</span> to look out; Tablet → Vehicles → Flight Display to change this for good.)</span>';
+    + '(<span class="action-link" data-action="cmd" data-cmd="window">window</span> to look out; Tablet → Settings → Display Mode to change this for good.)</span>';
 }
 
 // A quiet, low-frequency readout so a text-only rider can still answer "where am I,

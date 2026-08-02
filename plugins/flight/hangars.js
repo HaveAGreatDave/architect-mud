@@ -159,8 +159,8 @@ async function buildCards(player, field) {
 }
 
 // ── The text hangar (the same floor, written down) ────────────────────────────
-// The flight display preference (textmode.js `flight_text_only`) is one setting for
-// the whole of flight, not just the ride: a player who asked never to be shown the
+// The game-wide Display Mode (server/engine/presentation.js, read here through
+// textmode.js) covers the whole of flight, not just the ride: a player who asked never to be shown the
 // graphical cockpit must never have the 3D hangar bay thrown at them either — least
 // of all by walking through a door, which is how the bay auto-opens. So the gate
 // lives in pushHangarBay rather than in `cmdHangar`, and every entry point (bare
@@ -209,7 +209,7 @@ async function textHangarBay(player, field, selectId, opts) {
   const craft = await buildCards(player, field);
   const name = field.flags.airfield_name || field.name;
   let msg = `<span class="text-cyan">HANGAR — ${name}</span>`
-    + ` <span class="text-dim">(text flight display; Tablet → Vehicles → Flight Display to change)</span>`;
+    + ` <span class="text-dim">(text display mode; Tablet → Settings → Display Mode to change)</span>`;
   msg += `\n<span class="furniture-label">Your bay:</span> `
     + (mine.length ? `${clean(mine[0].name)} — ${link('hangar store', 'store')} · ${link('hangar pull', 'pull')}`
       : `<span class="text-dim">you rent none here</span> — ${link('hangar rent', 'hangar rent')} <span class="text-dim">(200c/period, safe from thieves)</span>`);

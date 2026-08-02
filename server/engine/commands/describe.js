@@ -39,6 +39,7 @@ import { getItem } from "../items-cache.js";
 import { getPhantomsInZone, applyTransforms, applyNpcTransforms, getRoomTransform, getRoomTransformName, getWeatherWarp } from "../phantoms.js";
 import { bodyTell } from "../dreamscape.js";
 import { sectionFurniture } from "../classify.js";
+import { isVendorClosed } from "../ai-behaviour.js";
 
 // Emits a `data-lock` attribute the client dpad reads to colour the direction:
 // "owned" (the player controls this lock), "locked" (engaged, not theirs), or
@@ -1404,10 +1405,21 @@ export async function describeZone(zone, player, out = {}) {
 				`<span class="action-link npc-link" data-action="talk" data-target="${escAttr(p.name)}" title="Talk to ${escAttr(p.name)}">${p.name}</span>`;
 			// Vendors get their own section — but covert/trust-gated dealers stay
 			// camouflaged among the regular NPCs so their storefront isn't outed.
+			//
+			// The section is a statement about whether you can BUY, not about who the
+			// person is — which is why the covert dealer is excluded from it. So it
+			// asks the clock too: a vendor who is off-shift, or who hasn't walked into
+			// their own shop yet, lists as an ordinary NPC. Listing them under
+			// "Vendors here:" at 3am was the room making a promise the shop code then
+			// refused, and it hid the whole shift system from the player — you learned
+			// a shopkeeper's hours by being turned away rather than by looking.
+			// `isVendorClosed` is the same predicate the trade path itself uses, so the
+			// two can't disagree, and it's clock-only + in-memory (no query).
 			const isVendor = (n) =>
 				!n.flags?.trust_flag &&
 				((Array.isArray(n.vendor_inventory) && n.vendor_inventory.length > 0) ||
-					n.flags?.personality === 'vendor');
+					n.flags?.personality === 'vendor') &&
+				!isVendorClosed(n);
 			const vendors = npcs.filter(isVendor);
 			const regular = npcs.filter((n) => !isVendor(n));
 			const regularLinks = [...regular.map(npcLink), ...phantomPeople.map(phantomLink)];

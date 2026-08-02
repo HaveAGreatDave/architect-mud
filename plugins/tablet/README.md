@@ -5,6 +5,17 @@ Weather, Vehicles, Properties, Settings, and a Corporation link-out. `tablet`/`o
 other plugins (quests, jobboard, flight, atm) register an app tile via `registerTabletApp` and wire
 their own existing verbs to launch straight into it — no duplicate UI, no reimplemented game logic.
 
+## Display Mode
+Settings is otherwise pure client-side localStorage, with one exception: **Display Mode**
+(`displaymode visual|text`, Settings → General). It is the game-wide switch between a system's
+graphical presentation and its text version — the flight display and the poker table today — and
+lives in [server/engine/presentation.js](../../server/engine/presentation.js). It has to be server
+state because the flight plugin reads it *on the server*, at board time, to decide whether to push a
+graphical panel at all. So `settings-app.js` ships the current value down in its payload and the
+client mirrors changes back through the silent verb; nothing about it is stored in the browser.
+Poker's own `text`/`visual` verbs are handles on the same preference, and the verb syncs that
+plugin's runtime Set through its exported `syncDisplayMode`.
+
 ## Registered actions
 None. Tablet is a UI shell over existing Actions (`START_QUEST`, `TURN_IN`, `ABANDON_QUEST`, etc. —
 all owned by the quests plugin) and existing commands (flight's `accept`, atm's deposit logic via

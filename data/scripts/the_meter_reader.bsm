@@ -1,0 +1,334 @@
+@broadcast "THE METER READER"
+@category film
+@type film
+@length 1500
+@presents "Sable Wick Vault Releasing"
+@rating "CERTIFIED — PRIVATE VIEWING ONLY · TAPE MAY RUN HOT"
+@director "credited only as A FRIEND"
+@titlecard meter_reader_title
+
+::cast
+CASSIA | Cassia Wick | the meter reader
+MRS OKONJO | Mrs. Okonjo | 12-C, four months behind
+DELF | Delf | 19-A, allegedly a poet
+THE SUPER | Bev Trask | the superintendent
+CORVUS | Mr. Corvus | Utilities Compliance
+::endcast
+
+::asset meter_reader_title
+
+   ████████ ██   ██ ███████
+      ██    ██   ██ ██
+      ██    ███████ █████
+      ██    ██   ██ ██
+      ██    ██   ██ ███████
+
+   ███    ███ ███████ ████████ ███████ ██████
+   ████  ████ ██         ██    ██      ██   ██
+   ██ ████ ██ █████      ██    █████   ██████
+   ██  ██  ██ ██         ██    ██      ██   ██
+   ██      ██ ███████    ██    ███████ ██   ██
+
+        ██████  ███████  █████  ██████  ███████ ██████
+        ██   ██ ██      ██   ██ ██   ██ ██      ██   ██
+        ██████  █████   ███████ ██   ██ █████   ██████
+        ██   ██ ██      ██   ██ ██   ██ ██      ██   ██
+        ██   ██ ███████ ██   ██ ██████  ███████ ██   ██
+
+              V O L U M E   N I N E
+        "SOME OF THEM PAY.  ALL OF THEM CONSUME."
+
+::endasset
+
+::scene PICTURE
+
+LETTERBOX on
+
+TITLE meter_reader_title
+
+♪ A saxophone that has never once been asked to hurry. ♪
+
+SHOT
+The print is a fourth-generation dub. Every fade goes green, and somebody has recorded eleven seconds of a soap opera over the top of the fifth reel, which is honestly an improvement.
+SHOT_END
+
+SLUG COLDWATER — SOLENNE RESIDENCES | THE WET MONTH, 2083
+
+SHOT
+Rain on a lobby window. A woman in a grey utility coverall signs a clipboard she is not looking at, and the pen leaves a mark like a signature on something more binding.
+SHOT_END
+
+NARRATOR:
+They gave me a torch, a clipboard, and a master key to four hundred and twelve doors.
+
+NARRATOR:
+Nobody at Utilities ever asked what I did with the other three hundred and ninety.
+
+CASSIA:
+Meter reader. It's not the job people think it is.
+
+CASSIA:
+It's worse. And it takes longer.
+
+ACT 1 — Consumption
+
+SLUG UNIT 12-C | TUESDAY, 14:40
+
+SHOT
+MRS OKONJO opens the door in a housecoat and the specific dignity of somebody who has decided in advance not to be embarrassed.
+SHOT_END
+
+MRS OKONJO:
+You're the one from the letters.
+
+CASSIA:
+I'm the one from the meter, ma'am. The letters come from a different building.
+
+MRS OKONJO:
+Come in, then. Read whatever you like.
+
+SHOT
+The cupboard with the meter in it is behind the bed. It is always behind the bed. The picture makes nothing of this at all, which is somehow filthier.
+SHOT_END
+
+CASSIA:
+You're using four times what a single occupant uses.
+
+MRS OKONJO:
+I run hot.
+
+CASSIA:
+Ma'am, this dial hasn't stopped since March.
+
+MRS OKONJO:
+Neither have I, dear.
+
+SHOT
+She sits on the edge of the bed. CASSIA kneels to the meter, which puts her at a height the director holds for eleven full seconds without a single line of dialogue.
+SHOT_END
+
+♪ The saxophone remembers it has a job to do. ♪
+
+NARRATOR:
+There is a moment in every apartment where the reading stops being about the reading.
+
+NARRATOR:
+Mine took four seconds. Hers had been waiting since March.
+
+FADE out 3
+
+SHOT
+Later. The meter is still ticking. Nobody has looked at it.
+SHOT_END
+
+FADE in 2
+
+MRS OKONJO:
+Will you have to put that in the report?
+
+CASSIA:
+I'll put down that the unit was drawing heavily and the tenant was cooperative.
+
+MRS OKONJO:
+Was I?
+
+CASSIA:
+Twice.
+
+ACT 2 — The Poet in 19-A
+
+SLUG UNIT 19-A | THURSDAY, 22:10
+
+SHOT
+DELF answers the door barefoot, holding a notebook the way other men hold a shield, and wearing a bathrobe that is losing an argument with gravity.
+SHOT_END
+
+DELF:
+You're not going to believe this, but I was writing about you.
+
+CASSIA:
+I'd believe it. Everybody in this building is writing about somebody.
+
+DELF:
+It's called "The Woman Who Reads What We Use."
+
+CASSIA:
+Is it long?
+
+DELF:
+It's nine pages.
+
+CASSIA:
+That's a no, then.
+
+SHOT
+He reads her a stanza anyway. It is very bad. The picture lets it run in full, which is the closest this film ever comes to cruelty.
+SHOT_END
+
+DELF:
+"You come with your torch / into the dark of my cupboard / and you take a number from me / and you write it down."
+
+CASSIA:
+That's the job, yes.
+
+DELF:
+It's a metaphor.
+
+CASSIA:
+It's a cupboard, Delf.
+
+SHOT
+She checks his meter. It reads almost nothing. He has been sitting in the dark for a month because he spent the standing charge on lamp oil, for the atmosphere.
+SHOT_END
+
+NARRATOR:
+Some of them consume everything. Some of them consume nothing and call it art.
+
+NARRATOR:
+Both of them want you to notice, and both of them get what they want.
+
+♪ Wah-wah pedal. Somebody has clearly been told this is the sensual one. ♪
+
+CASSIA:
+Put the notebook down.
+
+DELF:
+Which part is this?
+
+CASSIA:
+The part with no pages.
+
+FADE out 3
+
+SLUG THE STAIRWELL | LATER
+
+SHOT
+CASSIA sits on the landing writing up her clipboard by torchlight. She writes: 19-A — NEGLIGIBLE DRAW. TENANT ADVISED.
+SHOT_END
+
+CASSIA:
+Advised.
+
+TECH_DIFFICULTIES 8
+
+SHOT
+REEL FIVE IS TAPED OVER. Eleven seconds of a soap opera, a woman shouting the word "GERALD", and then we are back, in a different room, with somebody's belt already on the floor.
+SHOT_END
+
+INTERMISSION 45
+
+ACT 3 — Compliance
+
+SLUG UTILITIES COMPLIANCE — SUB-LEVEL 2 | THE DRY MONTH
+
+SHOT
+MR CORVUS has an office with no window and a desk with no papers on it, which in Coldwater means he is either very unimportant or the most dangerous man in the building.
+SHOT_END
+
+CORVUS:
+Four hundred and twelve units, Miss Wick. Your route posts the highest satisfaction figures in the district.
+
+CASSIA:
+People like knowing where they stand.
+
+CORVUS:
+People like a great deal more than that, apparently.
+
+SHOT
+He slides a folder across the desk. She does not open it. The green fade eats the corner of the frame.
+SHOT_END
+
+CORVUS:
+There is a column on this form for irregular access.
+
+CASSIA:
+There's a column for everything. That's the trouble with the form.
+
+CORVUS:
+I could make it go away.
+
+CASSIA:
+And what would that cost me, Mr. Corvus?
+
+SHOT
+He tells her. It takes him a while, and the picture wisely stays on her face for all of it, and her face does not move once.
+SHOT_END
+
+CASSIA:
+Stand up.
+
+CORVUS:
+I beg your—
+
+CASSIA:
+Stand up and read your own meter.
+
+SHOT
+She turns his desk lamp around. Behind him, set into the wall, is his unit's dial. It has been running flat out, all night, every night, for two years — a building's worth of draw going into one windowless room nobody is ever invited into.
+SHOT_END
+
+NARRATOR:
+Everybody in Coldwater is consuming something.
+
+NARRATOR:
+The only real sin is doing it off somebody else's line.
+
+♪ The saxophone, finally, in a hurry. ♪
+
+SHOT
+What follows was cut in three districts, restored badly twice, and is the entire reason this tape is not sold in shops. The transfer flares white. Somebody is laughing. It is not Mr. Corvus.
+SHOT_END
+
+FADE out 4
+
+SLUG THE LOBBY | THE FOLLOWING WEEK
+
+SHOT
+A new notice on the board: UTILITIES COMPLIANCE — POSITION VACANT. Someone has drawn a circle on it, worn flat on one side.
+SHOT_END
+
+THE SUPER:
+They're saying you got him transferred.
+
+CASSIA:
+I got him metered.
+
+THE SUPER:
+Same thing, in this town.
+
+SHOT
+CASSIA takes her torch and her clipboard and starts up the stairs. Four hundred and eleven doors to go. The camera does not follow her, because the camera has learned some manners.
+SHOT_END
+
+NARRATOR:
+Tuesdays, twelfth floor.
+
+NARRATOR:
+Bring a torch. Bring a clipboard.
+
+NARRATOR:
+Don't bring anybody with you.
+
+FADE in 2
+
+LETTERBOX off
+
+CREDITS 20
+THE METER READER — VOLUME NINE
+
+Cassia Wick ......... the reader
+Mrs. Okonjo ......... four months behind, entirely unashamed
+Delf ................ nine pages, no lamp oil
+Mr. Corvus .......... two years of unbilled draw
+Bev Trask ........... the super, who knew all along
+
+DIRECTED BY A FRIEND
+PHOTOGRAPHED IN ONE BUILDING, MOSTLY IN CUPBOARDS
+
+A SABLE WICK VAULT RELEASING PICTURE
+
+Volumes One through Eight are believed lost.
+Volume Ten was never made. Ask anybody why.
+END_CREDITS
+
+END

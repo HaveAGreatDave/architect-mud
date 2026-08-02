@@ -12,8 +12,11 @@ export default async function regress({ check }) {
   const PID = `gametable_regress_${process.pid}`;
   const noop = () => {};
   const pokertext = (input, p) => commands.pokertext(input.split(/\s+/).filter(Boolean).slice(1), input, p, noop);
+  // The stored preference is the game-wide Display Mode (server/engine/
+  // presentation.js), shared with the flight display — poker no longer keeps a
+  // `poker_text_mode` flag of its own. Values are 'text' / 'visual'.
   const flagVal = async () =>
-    (await query('SELECT flag_value FROM player_flags WHERE player_id=$1 AND flag_key=$2', [PID, 'poker_text_mode'])).rows[0]?.flag_value;
+    (await query('SELECT flag_value FROM player_flags WHERE player_id=$1 AND flag_key=$2', [PID, 'display_mode'])).rows[0]?.flag_value;
 
   const player = { id: PID, handle: 'CardCounter', current_zone: 'void' };
   world.players.set(PID, player);
@@ -44,12 +47,12 @@ export default async function regress({ check }) {
     let r = await pokertext('pokertext on', player);
     check('pokertext on returns output', r?.type === 'output', JSON.stringify(r)?.slice(0, 120));
     check('pokertext on adds to the runtime set', isTextMode(PID), 'not in textModePlayers');
-    check('pokertext on persists the flag', (await flagVal()) === 'true', `flag=${await flagVal()}`);
+    check('pokertext on persists the flag', (await flagVal()) === 'text', `flag=${await flagVal()}`);
 
     // `pokertext off` — opts back out and persists.
     r = await pokertext('pokertext off', player);
     check('pokertext off removes from the runtime set', !isTextMode(PID), 'still in textModePlayers');
-    check('pokertext off persists the flag', (await flagVal()) === 'false', `flag=${await flagVal()}`);
+    check('pokertext off persists the flag', (await flagVal()) === 'visual', `flag=${await flagVal()}`);
 
     // Bare `pokertext` toggles from the current state.
     await pokertext('pokertext', player);
@@ -62,10 +65,10 @@ export default async function regress({ check }) {
     let tr = await commands.text([], 'text', player, noop);
     check('text switches to text mode', isTextMode(PID), 'text did not opt in');
     check('text with no table returns output', tr?.type === 'output', JSON.stringify(tr)?.slice(0, 120));
-    check('text persists the flag', (await flagVal()) === 'true', `flag=${await flagVal()}`);
+    check('text persists the flag', (await flagVal()) === 'text', `flag=${await flagVal()}`);
     let vr = await commands.visual([], 'visual', player, noop);
     check('visual switches back to visual mode', !isTextMode(PID), 'visual did not opt out');
-    check('visual persists the flag', (await flagVal()) === 'false', `flag=${await flagVal()}`);
+    check('visual persists the flag', (await flagVal()) === 'visual', `flag=${await flagVal()}`);
 
     // `config.textTable` is the table's OPENING DEFAULT, never an override: it
     // decides the view only for a player with no stored preference, and a stored

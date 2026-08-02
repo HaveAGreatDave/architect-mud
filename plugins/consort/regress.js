@@ -740,7 +740,20 @@ export default async function regress({ check }) {
 
   // ── Area life ──────────────────────────────────────────────────────────────
   check('area: sundeck flag → sundeck profile', _test.areaProfile({ flags: { echelon_sundeck: true } }) === 'sundeck');
-  check('area: unflagged zone → cabin profile', _test.areaProfile({ flags: {} }) === 'cabin');
+  // The general registers. `cabin` was the yacht-shaped catch-all; a consort can
+  // now be kept anywhere a private address exists, so an unflagged zone is OUTDOOR
+  // (a street) and an interior one is INDOOR. open_sky is a building's roof and is
+  // climatically outdoors — the same rule environment.js uses.
+  check('area: unflagged zone → outdoor profile', _test.areaProfile({ flags: {} }) === 'outdoor');
+  check('area: an interior → indoor profile', _test.areaProfile({ flags: { is_interior: true } }) === 'indoor');
+  check('area: an apartment → indoor profile', _test.areaProfile({ flags: { is_apartment: true } }) === 'indoor');
+  check('area: open_sky beats is_interior → outdoor',
+    _test.areaProfile({ flags: { is_interior: true, open_sky: true } }) === 'outdoor');
+  check('area: the general registers both exist and are stocked',
+    (_test.AREA_ACTIVITIES.indoor?.length || 0) >= 6 && (_test.AREA_ACTIVITIES.outdoor?.length || 0) >= 6);
+  // Outdoors is public by default — a skin variant there would play to a whole street.
+  check('area: no outdoor activity has a MIS/skin variant',
+    _test.AREA_ACTIVITIES.outdoor.every(a => !a.start.h && a.idle.every(l => !l.h)));
   check('area: suite/boudoir are intimate zones', _test.isIntimateZone({ flags: { echelon_suite: true } }) === true);
   check('area: the sun deck is NOT intimate', _test.isIntimateZone({ flags: { echelon_sundeck: true } }) === false);
   let actsBad = null;

@@ -9,8 +9,10 @@
     "deck_mark": "✦",
     "deck_style": "slab",
     "deck_silent": true,
-    "deck_cassettes": [],
-    "deck_active": null,
+    "deck_cassettes": [
+      "bc_the_meter_reader"
+    ],
+    "deck_active": "bc_the_meter_reader",
     "interactions": [
       "watch"
     ]

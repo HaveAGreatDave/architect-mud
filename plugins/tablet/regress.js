@@ -247,6 +247,23 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('tabletnav settings');
   check('settings app signals tablet_settings view', r?.view === 'tablet_settings', JSON.stringify(r));
 
+  // …with one exception: Display Mode is SERVER state (the flight plugin reads it
+  // on the server at board time), so the screen has to ship its current value down
+  // or the pills would render from nothing. `displaymode` is the way back.
+  check('settings ships the Display Mode state', typeof r?.textDisplay === 'boolean', JSON.stringify(r)?.slice(0, 160));
+  // Deliberately NOT hydrating a flag cache onto the shared fake player to make
+  // this pass: `_flags` is process-wide once set, and later suites clear flags with
+  // a raw DELETE that the cache never sees. The uncached read path is a real one
+  // (offline players, dev tools) and is what this exercises.
+  await run('displaymode text');
+  r = await run('tabletnav settings');
+  check('displaymode text is reflected on the settings screen', r?.textDisplay === true, JSON.stringify(r)?.slice(0, 160));
+  await run('displaymode visual');
+  r = await run('tabletnav settings');
+  check('displaymode visual is reflected on the settings screen', r?.textDisplay === false, JSON.stringify(r)?.slice(0, 160));
+  const badMode = await run('displaymode sideways');
+  check('displaymode rejects anything that is not visual|text', badMode?.type === 'error', JSON.stringify(badMode)?.slice(0, 160));
+
   // Corp app now renders natively (reshapes plugins/corps' own
   // buildConsolePayload()). The fake player has no corp membership, so this
   // exercises the founding screen (cost warning + name prompt), not an error.

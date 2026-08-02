@@ -75,14 +75,16 @@ Same Hold'em engine (rules/betting/bots in
   `calldealer` rushes Margo back if she wandered off.
 - **The `textTable` flag** (on the `game_tables` config, not content) does exactly
   two things: (a) it is the **opening default view** for a player who sits or
-  spectates with no stored `poker_text_mode` preference — they start in the
+  spectates with **no stored Display Mode** at all — they start in the
   called-aloud log game (`ensureTextPref`); and (b) it unlocks Margo's
   **old-school dealer quips** (`OLD_SCHOOL_LINES` in
   [game-table.js](../plugins/gametable/game-table.js), blended into `_quip` at
   ~50% for a flagged table).
 
   **It is a default, never an override.** The player's own `text`/`visual` choice
-  always wins, at every table, and is persisted per player. Whether the visual
+  always wins, at every table, and is persisted per player. This is why Display
+  Mode is **tri-state** (`text` / `visual` / never chosen): "never chosen" is not
+  the same as "visual", and only the distinction keeps this default alive. Whether the visual
   pane is drawn is decided **per player** in `pushPaneAll` (`isTextMode(pid)`),
   and `join`/`seat`/`spectate`/`look` return the room look only for players who
   are personally in text view (`paneOrLook`). *(Until 2026-07-20 `textTable` was a
@@ -166,7 +168,11 @@ can't follow. A player can switch their own view at any table between the
 `applyPokerView` in [index.js](../plugins/gametable/index.js) is the one switch
 behind all three verbs and the button: it toggles the in-memory
 `textModePlayers` `Set` ([text-mode.js](../plugins/gametable/text-mode.js)),
-persists `player_flags.poker_text_mode`, and — if you're at a table — flips the
+persists the game-wide **Display Mode** (`player_flags.display_mode`, see
+[server/engine/presentation.js](../server/engine/presentation.js)) — the same
+preference the flight display reads, so `text` at the felt also stops the 3D
+cockpit opening later; that is deliberate, there is one switch and these verbs
+are handles on it — and — if you're at a table — flips the
 top pane immediately (returns the room `look` for text, the `poker_update` pane
 for visual). `pushPaneAll` skips text-mode players so their room view isn't
 re-covered on every action, and the `Set` is the hot-path check so narration

@@ -733,6 +733,32 @@ const CO_PRESENCE = {
      `§ makes room beside her and pats it once, watching to see whether §other takes the invitation.`],
     [`"You get talked about, you know." § tells §other that much and no more.`,
      `"You get talked about, you know." § holds §other's eye, and the smile arrives slowly. "In detail. I asked."`],
+    [`§ works out which of them is going to be the sensible one and concedes it to §other.`,
+     `§ decides §other can be the sensible one tonight, and stops holding her own robe closed.`],
+    [`"Have you eaten?" § asks §other, which is not affection but is the nearest thing on offer.`,
+     `"Have you eaten?" § asks it while running a thumb along §other's jaw, which rather changes the question.`],
+    [`§ notices §other doing something exactly the way she does it, and says nothing about it.`,
+     `§ catches §other mirroring her and holds the look until §other goes pink about it.`],
+    [`§ leaves the last of the good thing for §other and makes sure that goes unremarked.`,
+     `§ feeds §other the last of it off her own fingers and doesn't ask first.`],
+    [`"Don't let him hear you say that." § warns §other, quietly, and means it kindly.`,
+     `"Don't let anyone hear you say that." § says it against §other's ear, one hand at her waist.`],
+    [`§ and §other trade a look about something neither will explain to anyone else.`,
+     `§ and §other trade a look, and §other's colour comes up, and neither of them says a word.`],
+    [`§ takes the far chair from §other on purpose, holding the distance like a position.`,
+     `§ closes the distance to §other by half, then half again, and waits to be told to stop.`],
+    [`"You're better at this than I was at the start." § gives §other that much, grudgingly.`,
+     `"You're better at this than I was." § lets her hand rest flat on §other's stomach. "Somebody's taught you well."`],
+    [`§ fixes something on §other that §other hadn't noticed was wrong.`,
+     `§ smooths §other's hair back with both hands and takes considerably longer over it than required.`],
+    [`§ and §other work round each other in the small space with practised, wordless courtesy.`,
+     `§ and §other stop working round each other entirely and simply stand too close for a while.`],
+    [`"Do you sleep alright here?" § asks §other, and actually waits for the answer.`,
+     `"Do you sleep alright here?" § asks, curled behind §other with an arm over her.`],
+    [`§ watches §other laugh at something and looks briefly, complicatedly, sad about it.`,
+     `§ watches §other laugh, and pulls her in by the hip mid-laugh without explaining.`],
+    [`§ says §other's name for no reason at all, just to have said it.`,
+     `§ says §other's name low, once, and §other stops what she's doing entirely.`],
   ],
   fm: [
     [`§ studies §other with open curiosity, as though working out what he's for.`,
@@ -1292,12 +1318,25 @@ function resolveQuestion(player, text) {
 // to a content id — the area is read off zone flags.
 const isIntimateZone = (zone) => !!zone?.flags?.echelon_suite;   // suite + boudoir
 
+// Three bespoke Echelon decks, then the two GENERAL registers.
+//
+// `cabin` used to be the catch-all, and it was written for a yacht — brushed
+// titanium, bulkheads, the Basin sliding past. That was fine when a consort could
+// only ever be one man's, on one boat. Now anybody can keep one anywhere they hold
+// a private address, so the fallback has to work in a rented flat on the Ridge and
+// on a street corner alike. `indoor`/`outdoor` are that fallback, and they name
+// nothing the room hasn't got: furniture, a window, weather, light, floor.
+//
+// Indoor-ness is read the same way the engine reads it everywhere else (see
+// environment.js `isIndoorZone`) — including `open_sky`, which is structurally a
+// building and climatically not one, so a roof terrace gets the outdoor register.
 function areaProfile(zone) {
   const f = zone?.flags || {};
   if (f.echelon_sundeck) return 'sundeck';
   if (f.echelon_helipad) return 'helipad';
   if (f.echelon_view)    return 'view';        // stern lounge, stair landing
-  return 'cabin';                              // foyer, bridge, anywhere else aboard
+  if (f.open_sky)        return 'outdoor';     // a deck or terrace inside a building's shell
+  return (f.is_interior || f.is_apartment || f.is_building) ? 'indoor' : 'outdoor';
 }
 
 // Activity tunables — deliberately slow. She settles into a thing for minutes, and
@@ -1352,6 +1391,35 @@ const AREA_ACTIVITIES = {
       start: L('§ pulls a wide sunhat down over her eyes and dozes on the lounger, breathing slow.'),
       idle: [ L('§ stirs, murmurs something, and settles deeper into the cushions.',
                 '§ shifts in her half-sleep, one bare leg sliding off the lounger, utterly unbothered by where the robe’s gone.') ] },
+    // Added in the variety pass. Written without a gendered pronoun, so they read
+    // correctly for a male placement too — the older entries above are legacy.
+    { key: 'swim-edge', occupies: 'jacuzzi', minMs: 240_000,
+      start: L('§ sits on the tiled lip with both feet in the water and watches the light move on it.',
+               '§ sits bare on the tiled lip with both feet in the water, entirely unbothered by the view anyone gets.'),
+      idle: [ L('§ pushes a slow wave across the surface with one hand and watches it come back.'),
+              L('§ ducks under entirely, comes up sleek, and pushes the hair back off a wet face.',
+                '§ ducks under entirely and comes up bare and streaming, taking a very long moment to push the hair back.'),
+              L('§ hooks both elbows on the edge, drifting, and says nothing for a long while.') ] },
+    { key: 'sky-watch',
+      start: L('§ tips a face up and tracks something crossing the sky until it’s gone.'),
+      idle: [ L('§ points out an aircraft on the approach line and follows it all the way down.'),
+              L('§ counts the gulls out loud, loses count, and starts again without embarrassment.'),
+              L('§ shades a face against the glare and studies the horizon like there’s something out there.') ] },
+    { key: 'stretch',
+      start: L('§ works through a long unhurried stretch on the warm boards, joint by joint.',
+               '§ works through a long stretch on the warm boards with nothing on at all, taking the time about it.'),
+      idle: [ L('§ rolls a shoulder, decides it’s better, and holds the next one longer.'),
+              L('§ folds forward with both palms flat on the boards and breathes out slowly.',
+                '§ folds forward with both palms flat on the boards, unhurried and entirely bare, and holds it.') ] },
+    { key: 'sun-doze', occupies: 'sun loungers',
+      start: L('§ lies back with an arm across both eyes and lets the heat do the rest.'),
+      idle: [ L('§ makes a small contented noise at nothing and doesn’t open an eye.'),
+              L('§ shifts a fraction to keep the sun where it was and settles again.') ] },
+    { key: 'ice',
+      start: L('§ fishes a piece of ice out of the bucket and presses it to the back of a neck.'),
+      idle: [ L('§ crunches through the last of the ice and looks around for more.'),
+              L('§ traces a melting cube along a collarbone and watches to see whether you noticed.',
+                '§ traces a melting cube down bare skin all the way to the hip, entirely aware of the audience.') ] },
   ],
   view: [
     { key: 'recline',
@@ -1374,6 +1442,26 @@ const AREA_ACTIVITIES = {
     { key: 'people-watch',
       start: L('§ curls sideways in the lounge and watches the far shore lights come on one by one.'),
       idle: [ L('§ picks out a window across the water and invents a whole life for whoever’s in it.') ] },
+    { key: 'glass-breath',
+      start: L('§ breathes on the cold glass and draws something small in it with one finger.'),
+      idle: [ L('§ rubs the drawing out with a sleeve before you can get a proper look at it.'),
+              L('§ starts a second one, decides it’s worse, and leaves it there anyway.') ] },
+    { key: 'count-lights',
+      start: L('§ leans on the sill and starts counting the lights on the far shore, out loud, badly.'),
+      idle: [ L('§ loses the count somewhere past forty and refuses to start again.'),
+              L('§ picks one light on the whole dark shore and won’t say why that one.') ] },
+    { key: 'weather-watch',
+      start: L('§ tracks a squall coming across the water and doesn’t move away from the glass.'),
+      idle: [ L('§ flinches very slightly at the thunder and pretends not to have.'),
+              L('§ presses a palm flat to the cold glass and holds it there while the rain comes across.') ] },
+    { key: 'hum',
+      start: L('§ hums something old and half-remembered at the window, mostly under the breath.'),
+      idle: [ L('§ gets a line wrong, stops, and starts the whole thing again from the top.'),
+              L('§ trails off mid-phrase and lets the quiet have the rest of it.') ] },
+    { key: 'memory',
+      start: L('§ goes still at the glass with the expression of somebody a long way from this room.'),
+      idle: [ L('§ comes back from wherever that was, blinks once, and looks faintly caught out.'),
+              L('§ says something too quiet to catch and doesn’t repeat it when asked.') ] },
   ],
   helipad: [
     { key: 'windswept',
@@ -1391,23 +1479,131 @@ const AREA_ACTIVITIES = {
     { key: 'skyline',
       start: L('§ shades her eyes and picks the towers out of the haze one by one.'),
       idle: [ L('§ names a district under her breath, then decides she likes the view better than the city.') ] },
+    { key: 'pad-walk',
+      start: L('§ paces the painted circle of the pad heel to toe, following the line exactly.'),
+      idle: [ L('§ reaches the end of the marking, turns on the spot, and starts back the other way.'),
+              L('§ stops dead on the centre mark and stands there in the wind, arms folded.') ] },
+    { key: 'listen',
+      start: L('§ tilts a head to the rotor-wash of something inbound and tracks it before it’s visible.'),
+      idle: [ L('§ points at the sound a full ten seconds before the aircraft comes out of the haze.'),
+              L('§ watches it all the way down and then goes straight back to watching nothing.') ] },
+    { key: 'cold-hands',
+      start: L('§ blows into cupped hands up here where the wind never stops and grins about it.'),
+      idle: [ L('§ tucks both hands into opposite sleeves and stamps once, twice, on the deck.'),
+              L('§ turns a back to the worst of the wind and takes the cold on the shoulders instead.') ] },
+    { key: 'lean-out',
+      start: L('§ hooks both hands on the rail and leans right out over the drop, weightless with it.'),
+      idle: [ L('§ spits over the edge and watches the whole long way down for it to land.'),
+              L('§ leans further, purely to see whether anyone in the room is going to say something.') ] },
   ],
-  cabin: [
+  // The general INDOOR register — a room with a door, a floor and some furniture
+  // in it. Nothing here names a bulkhead, a deck or a porthole, because this pool
+  // now has to work in a one-room let as well as on a yacht.
+  indoor: [
     { key: 'linger',
-      start: L('§ drapes herself over the nearest rail and watches you move through the room.'),
+      start: L('§ leans against the nearest doorframe and watches you move through the room.'),
       idle: [ L('§ shifts her weight, unhurried, following you with her eyes.'),
-              L('§ tips her head, tracking you across the cabin like you’re the only thing worth watching.') ] },
+              L('§ tips her head, tracking you across the room like you’re the only thing worth watching.') ] },
     { key: 'admire',
-      start: L('§ trails a fingertip along the brushed titanium and takes it all in.'),
-      idle: [ L('§ tilts her head at her own reflection in the bulkhead and half-smiles.'),
-              L('§ tests the weight of some expensive little thing, sets it down exactly where it was.') ] },
+      start: L('§ trails a fingertip along the wall on the way past and takes the whole room in.'),
+      idle: [ L('§ tilts her head at her own reflection in the darkened glass and half-smiles.'),
+              L('§ tests the weight of some small thing of yours, and sets it down exactly where it was.') ] },
     { key: 'perch',
-      start: L('§ perches on the edge of something expensive and crosses her legs.'),
+      start: L('§ perches on the edge of the nearest table and crosses her legs.'),
       idle: [ L('§ swings a foot idly and waits, content just to be near you.'),
               L('§ props her chin on one hand and watches you like she’s got all the time in the world.') ] },
     { key: 'tidy',
-      start: L('§ drifts around the cabin straightening things that were already straight.'),
+      start: L('§ drifts around the room straightening things that were already straight.'),
       idle: [ L('§ plumps a cushion, steps back to judge it, and moves on satisfied.') ] },
+    { key: 'doorway',
+      start: L('§ stands in the doorway a while, half in the room and half out of it.'),
+      idle: [ L('§ leans a shoulder into the frame and stays there, in no hurry to pick a side.'),
+              L('§ listens to the building for a moment — pipes, neighbours, somebody’s door — and lets it go.') ] },
+    { key: 'floor',
+      start: L('§ sits down on the floor with a back against the wall, which is where §’s most comfortable.'),
+      idle: [ L('§ stretches both legs out across the boards and studies the ceiling.'),
+              L('§ knocks a knuckle twice against the floor, listening to what it says back.') ] },
+    { key: 'kettle',
+      start: L('§ goes and puts something on to heat, mostly for the noise of it.'),
+      idle: [ L('§ warms both hands round the cup and doesn’t drink any of it.'),
+              L('§ makes a second one without asking and leaves it where your hand will find it.') ] },
+    { key: 'lamp',
+      start: L('§ works round the room turning lights off until only the one is left.'),
+      idle: [ L('§ adjusts the shade a fraction and looks pleased with the result.'),
+              L('§ sits in the one pool of light left and lets the rest of the room go.') ] },
+    { key: 'read-in',
+      start: L('§ folds into a corner of the room with something to read and one foot tucked up.'),
+      idle: [ L('§ turns a page and immediately turns it back to check something.'),
+              L('§ reads a line twice, decides it’s good, and doesn’t share it.') ] },
+    { key: 'music',
+      start: L('§ finds something low and old on the room’s system and leaves it at the edge of hearing.'),
+      idle: [ L('§ taps out the time against a knee without appearing to notice doing it.'),
+              L('§ sways a half-step to something with no beat in it and stops when caught.') ] },
+    { key: 'window-in',
+      start: L('§ stands at the window with both hands behind the back and watches the street below.'),
+      idle: [ L('§ follows one light all the way across the glass and out of the frame.'),
+              L('§ breathes out at the window and watches it fog and clear again.') ] },
+    { key: 'groom',
+      start: L('§ settles somewhere with a mirror and works through the small unhurried business of a face.'),
+      idle: [ L('§ tilts a chin one way, then the other, and approves of neither and both.'),
+              L('§ works something through the ends of the hair with entirely too much patience.',
+                '§ works something through the ends of the hair wearing not a great deal, in absolutely no hurry about it.') ] },
+    { key: 'wait',
+      start: L('§ sits down where the door is in view and settles in to wait, entirely unhurried.'),
+      idle: [ L('§ looks at the door, then away from the door, and doesn’t comment on either.'),
+              L('§ shifts once and goes still again, patient as furniture and considerably better company.') ] },
+    { key: 'drift',
+      start: L('§ moves slowly round the room touching one thing after another, mapping it by hand.'),
+      idle: [ L('§ picks something up, turns it over twice, and sets it back exactly square.'),
+              L('§ stops in the middle of the room, apparently having forgotten what the errand was.') ] },
+  ],
+  // The general OUTDOOR register — under the sky, wherever that is. Written to the
+  // weather, the ground and the passing city rather than to any one place, so it
+  // plays on a street, a rooftop, a dock or a waste road without a word of it
+  // being wrong. Nothing here bares anybody: outdoors is public by default, and
+  // the hot variant on an outdoor beat would fire in front of a whole street.
+  outdoor: [
+    { key: 'sky',
+      start: L('§ tips a face up at whatever the sky is doing today and reads it a while.'),
+      idle: [ L('§ tracks a bird, or something like one, all the way across and out of sight.'),
+              L('§ holds a hand up to the light and turns it, watching the edges of it.') ] },
+    { key: 'watch-street',
+      start: L('§ finds somewhere to stand out of the flow and watches the passers-by go past.'),
+      idle: [ L('§ picks somebody out of the crowd and invents a whole day for them, out loud, quietly.'),
+              L('§ tracks an argument happening two doors down with unashamed interest.'),
+              L('§ nods once at a stranger who nods back, and looks pleased about the transaction.') ] },
+    { key: 'wall',
+      start: L('§ props against the nearest wall with both hands in pockets and settles in.'),
+      idle: [ L('§ pushes off the wall, thinks better of moving, and leans back against it.'),
+              L('§ turns a shoulder into the wind and stays exactly where §’s standing.') ] },
+    { key: 'weather-out',
+      start: L('§ turns a face into the weather, whatever it’s doing, and takes it for a moment.'),
+      idle: [ L('§ shakes the wet out of the hair and doesn’t bother fixing it after.'),
+              L('§ pulls a collar up, then decides against it, and lets the cold have the neck.') ] },
+    { key: 'ground',
+      start: L('§ crouches to look at something on the ground that nobody else has noticed.'),
+      idle: [ L('§ turns whatever it was over with a fingertip and leaves it exactly where it lay.'),
+              L('§ stands, brushes both hands off, and looks briefly embarrassed to have been caught at it.') ] },
+    { key: 'pace-out',
+      start: L('§ walks a slow line back and forth nearby, never going far, never quite still.'),
+      idle: [ L('§ reaches the same turning point as last time and comes back the other way.'),
+              L('§ stops mid-pace, listening to something, and then carries on.') ] },
+    { key: 'near-you',
+      start: L('§ stays a half-step behind your shoulder and lets the city happen around the pair of you.'),
+      idle: [ L('§ closes the half-step to nothing when the street gets busy, and doesn’t mention it.'),
+              L('§ touches your sleeve to point something out, and forgets to let go of it.') ] },
+    { key: 'stray-cat',
+      start: L('§ crouches down to something small and half-wild and holds a hand out to it, patient.'),
+      idle: [ L('§ gets closer to it than anybody sensible would and looks delighted about that.'),
+              L('§ watches it go, and stays crouched a moment after it has.') ] },
+    { key: 'window-shop',
+      start: L('§ stops at a lit window and looks at everything behind the glass without wanting any of it.'),
+      idle: [ L('§ picks the worst thing in the window and admires it loudly and insincerely.'),
+              L('§ catches sight of the pair of you reflected in the glass and looks at that instead.') ] },
+    { key: 'smoke-out',
+      start: L('§ finds the sheltered side of the wind and stands there doing very little.'),
+      idle: [ L('§ breathes out and watches it go, and is briefly somewhere else entirely.'),
+              L('§ scuffs a heel against the ground and comes back to the present.') ] },
   ],
 };
 
@@ -1462,13 +1658,72 @@ const AREA_BANTER = {
       ['B', `grins. "You're always right. It's insufferable."`],
     ],
   ],
+  // The general registers. The Echelon threads above were written when a consort
+  // could only be on one boat kept by one man, and they say "he" freely; these
+  // don't, because the keeper is a player. Nothing here names the place either —
+  // it's about the two of them, in a room or on a street.
+  indoor: [
+    [
+      ['A', `"Do you ever miss having somewhere to be?" § asks it of §other without looking up.`],
+      ['B', `"No." A pause. "...some days. Not enough to say it twice."`],
+    ],
+    [
+      ['B', `"You've taken my side of the bed again."`],
+      ['A', `"It's the warm side. You'd have taken it." § doesn't move over.`],
+      ['B', `"Obviously I'd have taken it. That isn't the point and you know it isn't."`],
+    ],
+    [
+      ['A', `"Listen." § holds a hand up at §other. "That's the stair. That's the step that creaks."`],
+      ['B', `listens, and hears nothing at all. "That's the building settling. You do this every night."`],
+      ['A', `"And one night I'll be right, and you'll be the one still sitting down."`],
+    ],
+    [
+      ['B', `"What did you do all day?" § asks §other, genuinely curious.`],
+      ['A', `"Waited. Beautifully." A beat. "You?"`],
+      ['B', `"The same. We're extremely good at it. It's the whole skill."`],
+    ],
+    [
+      ['A', `"If it were you and me and nobody else — what would we do with a day?"`],
+      ['B', `considers it properly. "Cook something. Argue about it. Sleep through the afternoon."`],
+      ['A', `"That's it? That's the whole fantasy?"`],
+      ['B', `"That's it. I've had grander ones. They were worse."`],
+    ],
+    [
+      ['B', `"Sit down. You've been doing that circuit of the room for twenty minutes."`],
+      ['A', `sits, immediately gets up again, and pretends that was the plan.`],
+    ],
+  ],
+  outdoor: [
+    [
+      ['A', `"Out here I keep expecting somebody to ask me what I'm for." § says it lightly to §other.`],
+      ['B', `"Nobody's looking at you. That's the whole trick of a street."`],
+      ['A', `"...that's worse, somehow."`],
+    ],
+    [
+      ['B', `"How long since you were properly outside? Not a window. This."`],
+      ['A', `has to think about it, which is answer enough, and doesn't say the number.`],
+    ],
+    [
+      ['A', `nods at something down the road. "That one's a lookout. Don't turn round."`],
+      ['B', `doesn't turn round. "You see a lookout in everybody who stands still."`],
+      ['A', `"And one day I'll be right, and you'll thank me from a hospital."`],
+    ],
+    [
+      ['B', `"It's cold." § says it to §other like an accusation aimed at the sky.`],
+      ['A', `"It's weather. It doesn't care what you think of it." § moves closer anyway.`],
+    ],
+    [
+      ['A', `"Which way's home from here?" § asks §other, and doesn't like needing to.`],
+      ['B', `points without hesitating, which settles something between them.`],
+    ],
+  ],
 };
 
 // One consort's turn of area-life. Picks/holds an activity keyed to the deck, and
 // only rarely narrates. Hot (skin) lines play only when she's alone with her keeper.
 function runAreaActivity(npc, zone, zoneId, now, keeperHere, strangerHere, keeper = null) {
   const profile = areaProfile(zone);
-  const acts = AREA_ACTIVITIES[profile] || AREA_ACTIVITIES.cabin;
+  const acts = AREA_ACTIVITIES[profile] || AREA_ACTIVITIES.indoor;
 
   // Out here she's presentable: shed any cabin arousal/undress so she never wanders
   // onto the sun deck mid-strip.

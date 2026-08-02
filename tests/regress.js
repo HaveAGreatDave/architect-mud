@@ -24,7 +24,8 @@ import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, frontDoorOf, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone, regionForZone, renderOf, specOf, propsOf, getConnection, getConnectionBetween, getDoorForEdge, doorOnLink } from '../server/engine/world.js';
-import { moveEntity, disturbSleeper, isNpcAsleep, wakeNpc, initBlackboard } from '../server/engine/ai-behaviour.js';
+import { moveEntity, disturbSleeper, isNpcAsleep, wakeNpc, initBlackboard, tickEntityAI, isVendorClosed } from '../server/engine/ai-behaviour.js';
+import { openShopSession, closeShopSession, getNpcForShopper } from '../server/engine/vendor-session.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
 import { cmdMove, dragFollowers } from '../server/engine/commands/movement.js';
 import { resolveNamedDestination, _test as describeTest } from '../server/engine/commands/describe.js';
@@ -2601,6 +2602,93 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   deleteDoorCache(bathDoorId);
   world.zones.delete(flatId);
   world.zones.delete(bathId);
+}
+
+// A shop session never freezes a vendor permanently.
+//
+// `_ai.shopPaused` yields the ENTIRE behaviour graph — no commute, no wander, no
+// banter — and closeShopSession is only reached from `shop_close`, a disconnect, and
+// cmdMove. Every other way a player's current_zone changes (sleep, death, jail, a
+// lift, a flight, an apartment door, a VINE teleport) used to leave the flag stuck
+// on until the next restart, welding the vendor to their counter. tickEntityAI now
+// derives the pause from the shopper actually still standing there.
+{
+  const shopId = 'zone_regress_shopsess_' + process.pid;
+  const awayId = 'zone_regress_shopsess_away_' + process.pid;
+  const occupants = () => ({ players: new Set(), npcs: new Set(), enemies: new Set(), corpses: new Set(), items: new Set(), furniture: new Set() });
+  world.zones.set(shopId, { id: shopId, name: 'Regress Counter', description: 'A counter.', flags: { is_interior: true }, exits: {}, ...occupants() });
+  world.zones.set(awayId, { id: awayId, name: 'Regress Elsewhere', description: 'Elsewhere.', flags: { is_interior: true }, exits: {}, ...occupants() });
+
+  // Minimal graph: a start node that goes nowhere, so the tick exercises the pause
+  // gate and nothing else.
+  const keeper = {
+    id: 'npc_rg_shopsess_' + process.pid, name: 'Keeper', zone_id: shopId,
+    behaviour_graph: { _start: 'start', nodes: { start: { type: 'start' } } },
+    _ai: initBlackboard(),
+  };
+  world.npcs.set(keeper.id, keeper);
+  world.zones.get(shopId).npcs.add(keeper.id);
+
+  const shopper = getPlayer();
+  const savedZone = shopper.current_zone;
+  shopper.current_zone = shopId;
+
+  openShopSession(shopper.id, keeper.id);
+  check('opening a shop pauses the vendor', keeper._ai.shopPaused === true, `paused=${keeper._ai.shopPaused}`);
+
+  // Still at the counter — the pause is real and must hold.
+  await tickEntityAI(keeper, { broadcast, query: undefined });
+  check('…and the pause holds while the shopper is still in the room',
+    keeper._ai.shopPaused === true && getNpcForShopper(shopper.id) === keeper.id,
+    `paused=${keeper._ai.shopPaused} session=${getNpcForShopper(shopper.id)}`);
+
+  // Teleported out WITHOUT cmdMove — this is sleep/death/jail/lift/flight.
+  shopper.current_zone = awayId;
+  await tickEntityAI(keeper, { broadcast, query: undefined });
+  check('a shopper who left by any route other than walking unfreezes the vendor',
+    keeper._ai.shopPaused === false, `paused=${keeper._ai.shopPaused}`);
+  check('…and the stale session is torn down, not just the flag',
+    getNpcForShopper(shopper.id) === null, `session=${getNpcForShopper(shopper.id)}`);
+
+  // A pause with no session behind it at all (a vendor left flagged by a crashed
+  // handler) must also self-heal, or that NPC is frozen for the process lifetime.
+  keeper._ai.shopPaused = true;
+  await tickEntityAI(keeper, { broadcast, query: undefined });
+  check('a pause with no session behind it clears itself too',
+    keeper._ai.shopPaused === false, `paused=${keeper._ai.shopPaused}`);
+
+  closeShopSession(shopper.id);
+  shopper.current_zone = savedZone;
+  world.npcs.delete(keeper.id);
+  world.zones.delete(shopId);
+  world.zones.delete(awayId);
+}
+
+// The room's "Vendors here:" section is a statement about whether you can BUY, so it
+// asks the clock — an off-shift shopkeeper lists as an ordinary NPC rather than
+// advertising a counter that the trade path will then refuse. This covers the
+// predicate describe.js now consults; the two must not drift apart.
+{
+  const { getEnvironmentState } = await import('../server/engine/environment.js');
+  const hour = getEnvironmentState().hour ?? 0;
+  const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  const everyDay = (block) => Object.fromEntries(DAYS.map(d => [d, [block]]));
+  // A window that can never contain the current hour, whatever the clock says.
+  const shutHour = (hour + 2) % 22;
+
+  const openNow = { id: 'npc_rg_open', name: 'Open', vendor_schedule: everyDay({ from: 0, to: 24 }) };
+  const shutNow = { id: 'npc_rg_shut', name: 'Shut', vendor_schedule: everyDay({ from: shutHour, to: shutHour + 1 }) };
+
+  check('a vendor inside their scheduled hours reads as open',
+    isVendorClosed(openNow) === false, `hour=${hour}`);
+  check('a vendor outside them reads as closed, so the room stops calling them a vendor',
+    isVendorClosed(shutNow) === true, `hour=${hour} window=${shutHour}-${shutHour + 1}`);
+  check('a vendor with no schedule at all still trades round the clock',
+    isVendorClosed({ id: 'npc_rg_always', name: 'Always' }) === false, 'no schedule');
+  // Covert dealers are exempt outright — their window belongs to the dealer plugin,
+  // and they were already camouflaged out of the vendor section by trust_flag.
+  check('a covert dealer is never closed by vendor_schedule',
+    isVendorClosed({ ...shutNow, flags: { covert: true } }) === false, 'covert');
 }
 
 // Disturbing a sleeping NPC: the roll, the wake-up state, and the escalation that

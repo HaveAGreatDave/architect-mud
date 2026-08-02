@@ -79,6 +79,24 @@ const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 // >1 keeps far-flung workers from spending most of the morning in transit.
 const COMMUTE_STEPS_PER_TICK = 4;
 
+// The cadence npcWanderTick is registered at (gameLoop.js). Kept here as a
+// number because the commute departure window has to convert a path length into
+// game-minutes, and that conversion is meaningless without knowing how often a
+// step actually happens. If you change the schedule() cadence, change this.
+const NPC_TICK_SECONDS = 15;
+// Tiles a commuter covers per REAL minute. The game clock runs at
+// state.timeScale game-minutes per real minute, so the conversion to the
+// game-minutes the schedule is written in happens at the call site.
+const COMMUTE_TILES_PER_REAL_MIN = COMMUTE_STEPS_PER_TICK * (60 / NPC_TICK_SECONDS);
+
+// How long after a missed arrival an NPC still bothers turning up, in GAME
+// minutes. Only consulted for NPCs whose arrive_by params have no schedule
+// behind them — where a schedule exists it answers "should I be there now?"
+// directly and this constant is not used. 4 hours: long enough to cover a
+// restart or a locked door during the morning, short enough that an NPC who
+// missed a shift entirely doesn't wander in at midnight for it.
+const LATE_CATCHUP_GRACE_MINUTES = 240;
+
 /**
  * Check whether a vendor NPC should be working right now.
  * Returns { working, dayHasSchedule, referenceRange }
@@ -1326,13 +1344,43 @@ async function execAction(node, entity, ctx) {
       if (zone_id && arrive_by != null) {
         const path = findPath(zoneId, workZone, entity);
         if (!path || path.length < 2) return 'RUNNING'; // unreachable — hold and retry
-        const { minutes } = getEnvironmentState();
-        const travelMinutes = path.length - 1;
-        const arriveByMinutes = (arrive_by * 60) - depart_early_minutes;
-        const departMinutes = (arriveByMinutes - travelMinutes + 1440) % 1440;
-        const minutesUntilDept = (departMinutes - minutes + 1440) % 1440;
-        // Not time to leave yet — hold here so work activities don't start early
-        if (minutesUntilDept > travelMinutes + 5) return 'RUNNING';
+        const env = getEnvironmentState();
+        const { minutes, timeScale } = env;
+        // How long the walk actually takes, in the GAME-minutes the schedule is
+        // written in. The old form assumed one tile per game-minute, which was
+        // never true and is 16x off now — a worker three tiles from their shop
+        // was holding for three minutes to make a walk of about eleven seconds.
+        const tiles = path.length - 1;
+        const travelMinutes = Math.max(1, Math.ceil((tiles / COMMUTE_TILES_PER_REAL_MIN) * (timeScale || 1)));
+        // Buffer so they're early rather than late: half the trip again, never
+        // less than 5 game-minutes. A long cross-town commute gets proportionally
+        // more slack, which is where a blocked door or a detour actually costs.
+        const buffer = Math.max(5, Math.ceil(travelMinutes * 0.5));
+        const arriveAtMinutes = ((arrive_by * 60) - depart_early_minutes + 1440) % 1440;
+        const minutesUntilArrival = (arriveAtMinutes - minutes + 1440) % 1440;
+
+        // ── Late-arrival catch-up ────────────────────────────────────────────
+        // The window above is a forward countdown on a 24h ring, so an NPC who
+        // MISSED their arrival reads as ~1439 minutes early and holds until
+        // tomorrow — they'd sit at home through the entire shift they were late
+        // for. Anything that eats the window causes this: a locked front door, a
+        // path that opened late, a server restart mid-morning, a dev clock jump.
+        //
+        // "Are they late?" is not answered with a grace constant, because the
+        // game already knows: their own schedule says whether they should be
+        // standing at work RIGHT NOW. Ask that first, and only fall back to a
+        // window for NPCs carrying bare arrive_by params with no schedule behind
+        // them (nothing else can speak for those).
+        const lateBy = (minutes - arriveAtMinutes + 1440) % 1440;
+        const shiftSaysWorkNow = isNpcScheduledNow(entity.id) ||
+          (entity.vendor_schedule ? isVendorWorkTime(entity, env).working : false);
+        const late = shiftSaysWorkNow
+          ? lateBy > 0                        // schedule is authoritative: on the clock and not there → go
+          : lateBy > 0 && lateBy <= LATE_CATCHUP_GRACE_MINUTES;
+
+        // Not time to leave yet — hold here so work activities don't start early.
+        // A late NPC skips the hold entirely and leaves on this tick.
+        if (!late && minutesUntilArrival > travelMinutes + buffer) return 'RUNNING';
       }
 
       // Time to commute — walk toward destination. Cover several zones per wander
@@ -2064,8 +2112,28 @@ export async function tickEntityAI(entity, ctx) {
   // set the engine yields the graph (and the passive home-life below).
   if (ai.dosedOut) return;
 
-  // Don't tick while a player has this NPC's shop open.
-  if (ai.shopPaused) return;
+  // Don't tick while a player has this NPC's shop open — but VERIFY the session is
+  // still real before yielding, rather than trusting the flag.
+  //
+  // `shopPaused` freezes an NPC COMPLETELY: no graph, no commute, no banter, no
+  // wander. It's cleared from exactly three places — the client's `shop_close`, a
+  // disconnect, and cmdMove (movement.js). A player's `current_zone` is rewritten in
+  // a dozen places that never go near cmdMove: sleep (dreamscape), death/respawn,
+  // jail, elevators, flight, apartment entry, VINE teleports. Leave a shop open and
+  // exit by any of those and the flag stayed set FOREVER — the vendor stood at their
+  // counter until the next restart. Brack the Fishmonger was found welded to the
+  // Ration Nine fish slab this way, having never once walked home to Unit 305.
+  //
+  // Deriving the pause from "the shopper is still standing here" fixes every one of
+  // those call sites at once, and can't be defeated by the next teleport somebody
+  // adds. Both reads are in-memory, so this costs nothing on the tick.
+  if (ai.shopPaused) {
+    const shopperId = getShopperForNpc(entity.id);
+    const shopper = shopperId ? getLivePlayer(shopperId) : null;
+    if (shopper && shopper.current_zone === entityZone(entity)) return;
+    if (shopperId) closeShopSession(shopperId);
+    ai.shopPaused = false; // also clears a pause with no session behind it at all
+  }
 
   // Passive home life — any NPC in their home zone does random activities when players are watching.
   // Skipped while homeSleeping (the NPC is visibly asleep; AT_HOME_LIFE owns that state).

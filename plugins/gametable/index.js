@@ -12,7 +12,7 @@ import { renderHandASCII } from './cards.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { on } from '../../server/engine/events.js';
-import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { prefersTextDisplay, setDisplayMode } from '../../server/engine/presentation.js';
 import { textModePlayers, isTextMode } from './text-mode.js';
 import { isVendorWorkTime } from '../../server/engine/ai-behaviour.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
@@ -88,10 +88,15 @@ function tableInZone(zoneId, name = null) {
 // STARTING preference — what an old-school felt opens in for someone who has
 // never expressed a view — and `text`/`visual` flip freely from there at any
 // table. (It used to be a hard override that made `visual` impossible.)
+//
+// The stored choice is the game-wide Display Mode (server/engine/presentation.js),
+// shared with the flight display: "I want words, not pictures" is one preference,
+// not one per system. Its tri-state is what keeps the textTable default alive —
+// `undefined` means never chosen, which is not the same as "visual".
 async function ensureTextPref(player, table) {
-  const v = await getFlag('player', 'poker_text_mode', player).catch(() => undefined);
-  const wantsText = v === 'true' ? true
-    : v === 'false' ? false
+  const v = await prefersTextDisplay(player);
+  const wantsText = v === true ? true
+    : v === false ? false
     : !!table?.config?.textTable;   // no stored choice → the table's default
   if (wantsText) textModePlayers.add(player.id);
   else textModePlayers.delete(player.id);
@@ -553,13 +558,17 @@ async function cmdPlayers(args, raw, player) {
 // Switch a player between the visual table (top pane) and the text version
 // (room look in the pane, the game called out to the scrolling log). This is the
 // same per-player pref the screen-reader `pokertext` mode uses — `textModePlayers`
-// + the persisted `poker_text_mode` flag — so text view and narration are one
-// switch. If the player is at a table, the top pane is flipped immediately;
-// otherwise the pref is just stored for the next time they sit.
+// + the persisted Display Mode — so text view and narration are one switch. If the
+// player is at a table, the top pane is flipped immediately; otherwise the pref is
+// just stored for the next time they sit.
+//
+// It writes the GAME-WIDE preference (Tablet → Settings → Display Mode), so
+// `text` at the felt also stops the 3D cockpit opening later. That's deliberate:
+// there is one switch, and this is one of its handles.
 async function applyPokerView(player, toText) {
   if (toText) textModePlayers.add(player.id);
   else textModePlayers.delete(player.id);
-  await setFlag('player', 'poker_text_mode', toText ? 'true' : 'false', player).catch(() => {});
+  await setDisplayMode(player, toText);
 
   const y = s => `<span style="color:var(--yellow)">${s}</span>`;
   const note = toText
@@ -578,6 +587,25 @@ async function applyPokerView(player, toText) {
     return { type: 'look', message: await describeZone(zone, player), zone: zone.id };
   }
   return { type: 'poker_update', html: renderPane(t, player.id) };
+}
+
+// The same flip, driven from OUTSIDE the felt: the Settings "Display Mode" switch
+// (plugins/tablet) has already written the preference, so this only syncs poker's
+// runtime Set — which the narration hot path consults instead of the DB — and
+// repaints the top pane for anyone currently seated. Silent: the player is looking
+// at a settings screen, not the table, and that screen says it for us.
+export async function syncDisplayMode(player, toText) {
+  if (toText) textModePlayers.add(player.id);
+  else textModePlayers.delete(player.id);
+  const t = tableForPlayer(player);
+  if (!t) return;
+  if (toText) {
+    const { describeZone } = await import('../../server/engine/commands/index.js');
+    const zone = getZone(player.current_zone);
+    if (zone) sendToPlayer(player.id, { type: 'look', message: await describeZone(zone, player), zone: zone.id });
+    return;
+  }
+  sendToPlayer(player.id, { type: 'poker_update', html: renderPane(t, player.id) });
 }
 
 // `text` — switch this player to the text version of the game.
