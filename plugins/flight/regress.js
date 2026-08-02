@@ -796,8 +796,15 @@ export default async function regress({ run, check, getPlayer }) {
         // floor after every action would be a wall of scroll.
         sent.length = 0;
         await pushHangarBay(p, null, { refreshOnly: true });
-        check('a refresh-only push says nothing at all in text mode', sent.length === 0,
-          sent.map(s => s.message?.type).join(','));
+        // What's asserted is that the HANGAR PUSH is silent, not that no other
+        // plugin in the world may speak during it. Walking into the bay above can
+        // earn an accolade, and that grant isn't awaited — so it landed in this
+        // window or the previous one depending on timing, and failed this check at
+        // random. Filtered rather than slept on: a timing-dependent gate blocks
+        // pushes for reasons that have nothing to do with the change being pushed.
+        const own = sent.filter(s => s.message?.type !== 'accolade_unlocked');
+        check('a refresh-only push says nothing at all in text mode', own.length === 0,
+          own.map(s => s.message?.type).join(','));
 
         // …and the graphical player is untouched by any of this.
         sent.length = 0;
