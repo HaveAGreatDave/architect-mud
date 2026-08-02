@@ -12,7 +12,10 @@
     "cooking.donenessRisk",
     "cooking.prepText",
     "zone.smells",
-    "zone.sounds"
+    "zone.sounds",
+    "workspace.provider",
+    "shop.stock",
+    "container.view"
   ],
   "commands": [
     "cook",
@@ -38,6 +41,8 @@
     "kitchenkit",
     "microwave",
     "cookbook",
+    "recipe",
+    "shoplist",
     "drain"
   ],
   "specializedActions": [

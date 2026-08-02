@@ -88,7 +88,8 @@
   },
   "faction": null,
   "flags": {
-    "personality": "thug"
+    "personality": "thug",
+    "posted": true
   },
   "home_activities": [],
   "home_zone": "zone_casino_interior",

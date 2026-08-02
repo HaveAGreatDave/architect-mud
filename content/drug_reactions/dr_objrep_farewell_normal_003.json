@@ -1,0 +1,10 @@
+{
+  "id": "dr_objrep_farewell_normal_003",
+  "drug_id": null,
+  "source": "object_reply_farewell",
+  "tone": "normal",
+  "self_line": "Get some sleep. I mean it.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

@@ -193,6 +193,9 @@ function npcUpdateChitchatHint(slug) {
 // one textarea per thread — one line per turn — matching the chitchat convention.
 
 function _escTa(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+// Attribute variant — _escTa leaves quotes alone, which is fine inside a <textarea>
+// and breaks out of a value="…" the moment somebody names a drink with an inch mark.
+function _escAttr(s) { return _escTa(s ?? '').replace(/"/g, '&quot;'); }
 
 // ── Per-NPC banter scripts (nb-modal) ──
 let _nb = { threads: [] };
@@ -994,9 +997,30 @@ async function npcEditForm(rec, isNew) {
       </div>
       <textarea id="f-behaviour_graph" rows="6">${JSON.stringify(behaviourGraph, null, 2)}</textarea>
     </div>
+    <div class="field">
+      <label>Habits <span style="font-weight:400;color:var(--text-dim);font-size:11px">— what this NPC is on, and when. Name the drink or drug; leave blank for none.</span></label>
+      <div class="field-row" style="margin-top:4px">
+        <div class="field"><label style="font-weight:400;font-size:11px">Standing drink <span style="color:var(--text-dim)">— a dependency on no schedule but its own. Never floors them.</span></label>
+          <input id="f-booze_habit" value="${_escAttr(flags.booze_habit)}" placeholder="e.g. embassy reserve"></div>
+        <div class="field"><label style="font-weight:400;font-size:11px">Standing drug <span style="color:var(--text-dim)">— same cadence; effect comes from the drug's own data.</span></label>
+          <input id="f-drug_habit" value="${_escAttr(flags.drug_habit)}" placeholder="e.g. Neural Overclock"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label style="font-weight:400;font-size:11px">Pre-show drink <span style="color:var(--text-dim)">— steadying themselves ~2h before curtain.</span></label>
+          <input id="f-preshow_drink" value="${_escAttr(flags.preshow_drink)}" placeholder="needs a broadcast schedule"></div>
+        <div class="field"><label style="font-weight:400;font-size:11px">Pre-show drug <span style="color:var(--text-dim)">— the performer who can't go on flat.</span></label>
+          <input id="f-preshow_habit" value="${_escAttr(flags.preshow_habit)}" placeholder="needs a broadcast schedule"></div>
+      </div>
+      <div class="zone-subsection-note">Each plays a visible multi-beat ritual at home, then the effect, then a comedown. The pre-show pair need a scheduled shift to count down to; the standing pair don't.</div>
+    </div>
     <div class="field"><label>Flags (JSON) — e.g. first_strike_delay_ms, battle_cries, mis_willing</label><textarea id="f-flags" rows="3">${JSON.stringify(flags, null, 2)}</textarea></div>
   `;
 }
+
+// The four habit flags, edited as fields rather than hand-typed into the JSON blob.
+// NPC flags are not catalogue-validated (unlike zone/item tags), so a typo'd key is
+// accepted silently and is inert forever — which is exactly what a named input stops.
+const HABIT_FLAGS = ['booze_habit', 'drug_habit', 'preshow_drink', 'preshow_habit'];
 
 async function saveNpc(existing) {
   const isNew = !existing?.id;
@@ -1012,6 +1036,14 @@ async function saveNpc(existing) {
   if (misWillingEl) flags.mis_willing = misWillingEl.checked; else delete flags.mis_willing;
   const banterEnabledEl = document.getElementById('f-banter-enabled');
   if (banterEnabledEl && !banterEnabledEl.checked) flags.no_banter = true; else delete flags.no_banter;
+  // Habits: the field wins over whatever the JSON blob said, and an emptied field
+  // REMOVES the flag — otherwise clearing a habit in the UI would leave it running.
+  for (const k of HABIT_FLAGS) {
+    const el = document.getElementById(`f-${k}`);
+    if (!el) continue;
+    const v = el.value.trim();
+    if (v) flags[k] = v; else delete flags[k];
+  }
   const banter = _nbCollect();
   const wanderZonesRaw = document.getElementById('f-wander_zones')?.value || '';
   const wander_zones = wanderZonesRaw.split('\n').map(s => s.trim()).filter(Boolean);

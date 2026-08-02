@@ -1185,7 +1185,7 @@ function stepShots(F, now, dt, s) {
 // square and its attic narrower. buildingRoofFtAt now answers per POINT from the same captured
 // segments the renderer draws, so what you hit is what you can see — including, for the first time,
 // the gap between a tower and its low wing on the same tile, which returns 0 and is flown through.
-const CFIT_CRASH_PEN = 110;   // ft below the roofline that means you're INTO the structure → crash
+const CFIT_BOUNCE_KT = 18;    // at or below this airspeed a building contact BOUNCES you off; above it, she's written off
 const CFIT_SWEEP = 4;         // sub-samples along the frame's ground track (anti-tunnel for fast craft)
 
 // Test the aircraft's path THIS frame against the buildings on the tiles it crosses. Returns
@@ -1235,7 +1235,12 @@ function buildingCollisionAt(F, s) {
     if (pen > 0 && (!worst || pen > worst.pen)) worst = { pen, roofFt };
   }
   if (!worst) return null;
-  return { severe: worst.pen >= CFIT_CRASH_PEN || s.airspeed >= (F.P?.vne || 200) * 0.6, roofFt: worst.roofFt };
+  // Hitting a building is fatal — UNLESS you were barely moving when you did it. A hover taxi
+  // nudging a parapet at walking pace bumps off it; anything with real energy behind it is a
+  // write-off, however shallow the clip. That's the whole rule, and it's a speed rule rather
+  // than a depth rule on purpose: a 140kt graze along a roofline is not a survivable "clip",
+  // and a helicopter drifting sideways into a wall at 8kt should not be a death sentence.
+  return { severe: s.airspeed > CFIT_BOUNCE_KT, roofFt: worst.roofFt };
 }
 // Live-tunable render knobs exposed as in-cockpit sliders (⚙). RENDER_TUNE is shared
 // with windshield.js so a slider change takes effect on the very next frame.
@@ -3706,15 +3711,21 @@ function fsimFrame(now) {
       beginCrashBreakup(F, 'cfit');   // death cam: she comes apart before the crash is reported
       if (F.toast) F.toast('CRASH — you flew into a building');
     } else if (hit) {
-      // Glancing clip of the rooftops: real damage + a jolt, but you bounce off the top and fly out.
+      // A crawling contact — the only survivable one. She BOUNCES: shoved back the way she came
+      // and stopped dead, with a scrape's worth of damage. Deliberately a positional shove rather
+      // than the old "pop up to the roofline", which would have thrown a heli hovering beside a
+      // tower straight up onto its roof — the point here is to be kept OUT of the structure, not
+      // lifted over it.
       F.cfitCd = 1.6;
-      F.hull = Math.max(0, (F.hull || 100) - 20); F.hitFlashT = performance.now();
-      s.airspeed *= 0.72; s.altitude = hit.roofFt + 25; s.vs = Math.max(s.vs, 40);
-      s.bank = clampNum(s.bank + (s.bank >= 0 ? 14 : -14), -70, 70);
+      F.hull = Math.max(0, (F.hull || 100) - 6); F.hitFlashT = performance.now();
+      const hd = (s.heading || 0) * Math.PI / 180;
+      F.pos.x -= Math.sin(hd) * 0.16; F.pos.y += Math.cos(hd) * 0.16;   // back off along our own track
+      s.airspeed = 0; s.vs = Math.min(s.vs, 0);
+      s.bank = clampNum(s.bank + (s.bank >= 0 ? 6 : -6), -70, 70);
       groundFx('touchdownHard'); csfx('flight-touchdown', 'hololock-lose');
-      F.shake = 13;
+      F.shake = 8;
       sendCmdSilent('flightevent clip');
-      if (F.toast) F.toast('⚠ You clipped a rooftop!');
+      if (F.toast) F.toast('⚠ You bumped the wall — back it off.');
     }
   }
   if (F.cfitCd > 0 && F.cfitCd < 9999) F.cfitCd = Math.max(0, F.cfitCd - dt);

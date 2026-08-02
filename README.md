@@ -140,7 +140,8 @@ Neon `DATABASE_URL`.
 | `take` / `drop` / `use` | Item management |
 | `equip` / `unequip` | Equip by name (or drag in the panel) |
 | `undress` | Take off all clothing/armor at once (weapon & accessories stay on) |
-| `stow <item> in <container>` / `pull <item> from <container>` | Container management |
+| `stow <item> in <container>` / `pull <item> from <container>` | Container management (`put` = `stow`) |
+| `put all <category> in <container>` / `pull all <category> from <container>` | Bulk sweep by category — a tag (`utensils`, `vessels`, `perishables`), a shelf heading (`frozen`, `dry goods`, `meat`, `weapons`), or `non-perishable` / `cookware` / `food` / `drinks` |
 | `recipes` / `craft <id>` | Crafting |
 | `shop <npc>` / `buy` / `sell` | Trading |
 | `balance` / `deposit` / `withdraw` | Credits & ATM |
@@ -148,7 +149,7 @@ Neon `DATABASE_URL`.
 | `rent` / `lock` / `unlock` / `pick` / `upgrade lock` | Apartment commands |
 | `sleep` / `rest` | Timed recovery |
 | `stats` / `skills` / `mutations` / `factions` | Character info |
-| `talk <npc>` / `say <message>` / `who` | Social |
+| `talk <npc>` / `say <message>` / `me <action>` / `who` | Social (`me`/`/me`/`emote` = freeform action line) |
 | `help` | Full command list |
 
 Exits, NPCs, enemies, corpses, and ground items are clickable directly in room text — no typing required.

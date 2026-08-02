@@ -1,19 +1,35 @@
 {
   "banter": [],
   "behaviour_graph": {
-    "_start": "n_start",
+    "_start": "start",
     "nodes": {
-      "n_life": {
-        "action_type": "HAVE_LIFE",
-        "next": "n_loop",
+      "at_work": {
+        "action_type": "AT_WORK",
+        "next": "go_home",
         "type": "action"
       },
-      "n_loop": {
-        "next": "n_start",
-        "type": "loop"
+      "go_home": {
+        "action_type": "GO_HOME",
+        "next": "home_wait",
+        "type": "action"
       },
-      "n_start": {
-        "next": "n_life",
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "at_work",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "go_to_work",
+        "type": "action"
+      },
+      "home_wait": {
+        "next": "start",
+        "seconds": 60,
+        "type": "wait"
+      },
+      "start": {
+        "next": "have_life",
         "type": "start"
       }
     }
@@ -26,7 +42,7 @@
     "studio_npc": true
   },
   "home_activities": [],
-  "home_zone": "zone_studio_1782953094650",
+  "home_zone": "zone_solenne_apt_a",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_jerry_rosenberg",
@@ -36,10 +52,48 @@
   "studio_zone_id": null,
   "vendor_inventory": [],
   "vendor_restock_rate": 1,
-  "vendor_schedule": {},
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [
+      {
+        "from": 16,
+        "to": 23
+      }
+    ],
+    "sat": [
+      {
+        "from": 16,
+        "to": 23
+      }
+    ],
+    "sun": [
+      {
+        "from": 16,
+        "to": 23
+      }
+    ],
+    "thu": [
+      {
+        "from": 16,
+        "to": 23
+      }
+    ],
+    "tue": [
+      {
+        "from": 16,
+        "to": 23
+      }
+    ],
+    "wed": [
+      {
+        "from": 16,
+        "to": 23
+      }
+    ]
+  },
   "vendor_shop_name": null,
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_studio_1782953094650"
 }

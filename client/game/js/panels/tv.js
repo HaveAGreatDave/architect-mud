@@ -109,6 +109,12 @@ export function createTvView(root, opts = {}) {
   let _tickerText = '';
   let _tickerAnimating = false;
   let _overlayTimer = null;
+  // Identity of the transient card currently on the glass. A beat re-sends its
+  // graphic every time it fires, so the same lower third arrives again and again
+  // during one segment — rebuilding the node replayed its slide-in animation and
+  // the card kept shooting up off the bottom. Same identity ⇒ leave the node alone.
+  let _overlayKey = null;
+  let _programName = null;
   let _tuneTimer = null;
   let _standingsTimer = null;
   let _fxTimer = null;
@@ -385,7 +391,7 @@ export function createTvView(root, opts = {}) {
     // A held card belongs to the station that raised it. Anything with duration 0 — a
     // stand-by delay card above all — waits for its own channel to take it down, so it
     // has to come off the glass when you tune away or it hangs over the next station.
-    if (_channelChanged) { _clearOverlay(); _clearScorebug(); _clearStandings(); _clearSportsFx(); _clearGameday(); _clearStandingsPanel(); _clearFilmLayers(); }
+    if (_channelChanged) { _programName = null; _clearOverlay(); _clearScorebug(); _clearStandings(); _clearSportsFx(); _clearGameday(); _clearStandingsPanel(); _clearFilmLayers(); }
     _tvActiveChannelId = data.channelId || null;
     _tvPendingTune = null;   // the round trip is home; the lock check can arm again
     // Keep the TV guide open across a channel change, but refresh it for the new station.
@@ -462,12 +468,19 @@ export function createTvView(root, opts = {}) {
       staticEl.classList.add('tv-static-on');
       _playCrtPowerOn();
     } else {
-      // CRT power-on: expand from bright line, then reveal content
+      // Static first, then the picture fades up through it.
+      //
+      // The CRT power-on (the bright-line raster expand) belongs to the SET coming on, not to
+      // finding a station. A dial sweep from 0.0 onto a channel arrives here with the set
+      // already open and lit — it was showing static a frame ago — so replaying the raster
+      // expand made the tube look like it switched itself off and back on every time you
+      // locked a channel. Locking is a tune: it just fades in from the static.
+      const isLock = wasAlreadyOn && wasPoweredOff;
       content.classList.add('tv-hidden');
       staticEl.classList.remove('tv-static-fade', 'tv-static-loop');
       staticEl.style.opacity = '1';
       staticEl.classList.add('tv-static-on');
-      _playCrtPowerOn();
+      if (!isLock) _playCrtPowerOn();
       _tuneTimer = setTimeout(() => {
         _tuneTimer = null;
         if (_tvOffAir) return;
@@ -672,9 +685,18 @@ export function createTvView(root, opts = {}) {
       else _applySportsFx(overlay);
       return;
     }
-    _clearOverlay();
     const container = el('overlay-container');
-    if (!container || !overlay) return;
+    if (!container || !overlay) { _clearOverlay(); return; }
+
+    // A repeat of the card already showing: refresh its dismissal clock (the beat is
+    // still on air) but never re-create the node, or the entry animation replays.
+    const key = JSON.stringify([overlay.overlayType, overlay.text ?? '', overlay.subtext ?? '']);
+    if (key === _overlayKey && container.firstChild) {
+      if (_overlayTimer) { clearTimeout(_overlayTimer); _overlayTimer = null; }
+      if (overlay.duration > 0) _overlayTimer = setTimeout(_clearOverlay, overlay.duration * 1000);
+      return;
+    }
+    _clearOverlay();
 
     let node;
     if (overlay.overlayType === 'text_card') {
@@ -714,6 +736,7 @@ export function createTvView(root, opts = {}) {
     }
 
     if (node) {
+      _overlayKey = key;
       container.appendChild(node);
       if (overlay.duration > 0) {
         _overlayTimer = setTimeout(_clearOverlay, overlay.duration * 1000);
@@ -747,6 +770,7 @@ export function createTvView(root, opts = {}) {
 
   function _clearOverlay() {
     if (_overlayTimer) { clearTimeout(_overlayTimer); _overlayTimer = null; }
+    _overlayKey = null;
     const container = el('overlay-container');
     if (container) container.innerHTML = '';
   }
@@ -954,25 +978,34 @@ export function createTvView(root, opts = {}) {
     const host = el('standings-panel');
     if (!host) return;
     const rows = Array.isArray(data.rows) ? data.rows : [];
+    // Same table, two leagues. A hockey club's record carries its overtime losses and
+    // it is RANKED on points, so printing a run differential in the last column would
+    // read as a mis-sorted table — the eye takes the last number as the reason for the
+    // order. Baseball keeps W-L / PCT / RD exactly as it was.
+    const hockey = data.sport === 'hockey';
     const body = rows.length
       ? rows.map((r, i) => {
           const rd = (r.rd > 0 ? '+' : '') + (Number.isFinite(r.rd) ? r.rd : 0);
+          const gp = (r.wins || 0) + (r.losses || 0) + (r.otl || 0);
           const pct = (r.wins + r.losses) ? (r.wins / (r.wins + r.losses)) : 0;
           return `<div class="tv-stp-row${i === 0 ? ' lead' : ''}">` +
             `<span class="tv-stp-rank">${i + 1}</span>` +
             `<span class="tv-stp-team">${_esc(r.team)}</span>` +
-            `<span class="tv-stp-rec">${r.wins}-${r.losses}</span>` +
-            `<span class="tv-stp-pct">${pct.toFixed(3).replace(/^0/, '')}</span>` +
-            `<span class="tv-stp-rd">${rd}</span>` +
+            `<span class="tv-stp-rec">${hockey ? `${r.wins}-${r.losses}-${r.otl || 0}` : `${r.wins}-${r.losses}`}</span>` +
+            `<span class="tv-stp-pct">${hockey ? gp : pct.toFixed(3).replace(/^0/, '')}</span>` +
+            `<span class="tv-stp-rd">${hockey ? (r.points || 0) : rd}</span>` +
           `</div>`;
         }).join('')
       : '<div class="tv-sched-empty">No games played yet this season.</div>';
     host.innerHTML =
       `<div class="tv-sched-head"><span class="tv-sched-title">${_esc(data.title || 'STANDINGS')}</span></div>` +
       `<div class="tv-stp-row tv-stp-hdr"><span class="tv-stp-rank">#</span><span class="tv-stp-team">TEAM</span>` +
-        `<span class="tv-stp-rec">W-L</span><span class="tv-stp-pct">PCT</span><span class="tv-stp-rd">RD</span></div>` +
+        `<span class="tv-stp-rec">${hockey ? 'W-L-OTL' : 'W-L'}</span><span class="tv-stp-pct">${hockey ? 'GP' : 'PCT'}</span>` +
+        `<span class="tv-stp-rd">${hockey ? 'PTS' : 'RD'}</span></div>` +
       `<div class="tv-stp-list">${body}</div>` +
-      `<div class="tv-sched-foot">${data.phase === 'worldseries' ? 'World Series — winner takes the season.' : 'Run differential over the season to date.'}</div>`;
+      `<div class="tv-sched-foot">${data.phase === 'worldseries'
+        ? (hockey ? 'Coldwater Cup — winner takes the season.' : 'World Series — winner takes the season.')
+        : (hockey ? 'Two points for a win, one for losing past sixty.' : 'Run differential over the season to date.')}</div>`;
   }
 
   function renderSchedule(data) {
@@ -994,21 +1027,32 @@ export function createTvView(root, opts = {}) {
       rows = slots.map(sl => {
         const when = sl.todLabel ? _esc(sl.todLabel) : (sl.onNow ? 'ON NOW' : fmtIn(sl.startsInSec));
         const dur = fmtDur(sl.durationSec);
-        return `<div class="tv-sched-row${sl.onNow ? ' now' : ''}">` +
+        // Day-specific shows sit inline with the everyday grid — one running order,
+        // the way it airs — and are told apart by colour plus their day tag.
+        const weekly = sl.everyday === false;
+        const tag = weekly && sl.dayTag ? `<span class="tv-sched-day">${_esc(sl.dayTag)}</span>` : '';
+        return `<div class="tv-sched-row${sl.onNow ? ' now' : ''}${weekly ? ' weekly' : ''}">` +
           `<span class="tv-sched-when">${when}</span>` +
-          `<span class="tv-sched-name">${_esc(sl.name)}</span>` +
+          `<span class="tv-sched-name">${_esc(sl.name)}${tag}</span>` +
           `<span class="tv-sched-dur">${dur}</span>` +
         `</div>`;
       }).join('');
     }
     const title = _esc(data.stationName || 'Schedule') + (data.channelNumber ? ` · CH ${data.channelNumber}` : '');
+    const anyWeekly = slots.some(sl => sl.everyday === false);
+    const day = data.dayLabel ? `${_esc(data.dayLabel)}${data.dateLabel ? ` ${_esc(data.dateLabel)}` : ''}` : '';
+    const foot = daily
+      ? (anyWeekly ? 'In-world local time. <span class="tv-sched-key">Highlighted</span> shows air only on the days marked.'
+                   : 'In-world local time. Everything here airs every day.')
+      : 'This channel runs on a loop.';
     host.innerHTML =
       `<div class="tv-sched-head">` +
         `<span class="tv-sched-title">${title}</span>` +
         `<span class="tv-sched-clock">&#x1F552; ${_esc(data.nowLabel || '')}</span>` +
       `</div>` +
+      (day ? `<div class="tv-sched-day-head">Today &mdash; ${day}</div>` : '') +
       `<div class="tv-sched-list">${rows}</div>` +
-      `<div class="tv-sched-foot">${daily ? 'In-world local time.' : 'This channel runs on a loop.'}</div>`;
+      `<div class="tv-sched-foot">${foot}</div>`;
   }
 
   // Transient "standings bug" — the league table flashed up periodically during a
@@ -1656,8 +1700,14 @@ export function createTvView(root, opts = {}) {
   }
 
   function setProgramName(name) {
+    const next = name || '';
+    // A card belongs to the show that raised it. A duration-0 card waits for its own
+    // station to take it down, so when the next programme starts it has to come off
+    // the glass — otherwise a bulletin's lower third hangs over the show after it.
+    if (_programName !== null && next !== _programName) _clearOverlay();
+    _programName = next;
     const pn = el('program-name');
-    if (pn) pn.textContent = name || '';
+    if (pn) pn.textContent = next;
   }
 
   // ── wiring ────────────────────────────────────────────────────────────────

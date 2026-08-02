@@ -4,6 +4,7 @@ import { getZone, removePlayerFromZone } from '../../server/engine/world.js';
 import { allExits } from '../../server/engine/exits.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { emit } from '../../server/engine/events.js';
+import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 
 export default async function regress({ run, check, getPlayer }) {
   // Verb routes and self-gates: pin the player to a definitely-non-elevator zone
@@ -119,6 +120,25 @@ export default async function regress({ run, check, getPlayer }) {
       const midRide = await _test.matchElevatorOut([], 'out', p, () => {});
       check('out refused while the car is moving', midRide?.type === 'error', midRide?.message);
       p._elevator = null;
+      delete p._elevatorAt;
+    }
+
+    // Pressing the button for the floor you're already parked on is a no-op, not a
+    // refusal — an auto-walker that plotted this hop has to hear "doors open" and
+    // step out, and an `error` would send it off routing around the lift instead.
+    const parkedFloor = car.flags.elevator_floors?.find((f) => getZone(f.zone));
+    if (parkedFloor) {
+      const doors = [];
+      const savedBc2 = getBroadcast();
+      setBroadcast((_z, message, _ex, targetId) => { if (message?.type === 'elevator_doors') doors.push({ targetId, ...message }); });
+      p._elevatorAt = { n: parkedFloor.n, zone: parkedFloor.zone, car: car.id, label: parkedFloor.label };
+      const already = await _test.matchBareFloor([], String(parkedFloor.n), p, () => {});
+      setBroadcast(savedBc2);
+      check('pressing your own floor is not an error', already?.type === 'output', `${already?.type}: ${already?.message}`);
+      check('pressing your own floor signals the open doors',
+        doors.some((d) => d.targetId === p.id && d.zone === parkedFloor.zone && d.floor === parkedFloor.n),
+        JSON.stringify(doors));
+      check('pressing your own floor starts no ride', !p._elevator, 'a no-op press started a ride');
       delete p._elevatorAt;
     }
 

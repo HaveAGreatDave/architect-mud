@@ -1,0 +1,28 @@
+{
+  "id": "dx_blotter_bed_loom",
+  "drug_id": "drug_blotter",
+  "matches": "bed",
+  "scope": "object",
+  "name": "a loom weaving itself",
+  "description": "A wide frame of pale wood stands where the bed was, and it is weaving — shuttle going back and forth with nobody driving it, producing a cloth patterned with the room you are standing in.",
+  "looks": [
+    "The cloth coming off it shows this room, in thread, about four seconds behind. You are in it.",
+    "The shuttle crosses, returns, crosses. It never catches, and it never quite gets going either.",
+    "The finished end trails off the frame and onto the floor and keeps going out under the door."
+  ],
+  "says": [
+    "Lie on the finished part. That end is done with.",
+    "I only work on the one pattern. It is a big pattern.",
+    "You moved. I will have to do that row again."
+  ],
+  "emotes": [
+    "The shuttle on {it} crosses, snaps back, and the cloth grows a finger-width.",
+    "{it} clacks twice and pauses, as though listening for something.",
+    "The pattern in the cloth on {it} catches up with the room and, for a second, matches it exactly."
+  ],
+  "asks": [
+    "Do you want to be in this bit, or shall I leave you out?",
+    "What colour were you wearing yesterday? I need it for the border.",
+    "Are you going to stand still at all?"
+  ]
+}

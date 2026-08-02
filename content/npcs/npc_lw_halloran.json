@@ -422,7 +422,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_lw_shop",
+  "home_zone": "zone_lw_bunk",
   "hp": 26,
   "hp_max": 26,
   "id": "npc_lw_halloran",
@@ -436,8 +436,20 @@
       "price": 4
     },
     {
+      "item_id": "item_bearing_grease",
+      "price": 5
+    },
+    {
       "item_id": "item_tangled_wire",
       "price": 6
+    },
+    {
+      "item_id": "item_foam_earplugs",
+      "price": 8
+    },
+    {
+      "item_id": "item_hydraulic_hose",
+      "price": 8
     },
     {
       "item_id": "item_rag_bandage",
@@ -456,8 +468,36 @@
       "price": 12
     },
     {
+      "item_id": "item_work_gloves",
+      "price": 14
+    },
+    {
+      "item_id": "item_industrial_tape",
+      "price": 16
+    },
+    {
       "item_id": "item_battery",
       "price": 18
+    },
+    {
+      "item_id": "item_solvent",
+      "price": 20
+    },
+    {
+      "item_id": "item_valve_assembly",
+      "price": 20
+    },
+    {
+      "item_id": "item_gun_oil_kit",
+      "price": 24
+    },
+    {
+      "item_id": "item_flashlight",
+      "price": 34
+    },
+    {
+      "item_id": "item_jerry_can",
+      "price": 40
     },
     {
       "item_id": "item_pipe_wrench",
@@ -510,7 +550,7 @@
     ]
   },
   "vendor_shop_name": "Percussive Maintenance",
-  "vendor_stock_size": 8,
+  "vendor_stock_size": 24,
   "wander_zones": [],
   "wanders": 0,
   "work_zone_id": "zone_lw_shop"

@@ -1,5 +1,5 @@
 {
-  "altitude_ceiling": 2,
+  "altitude_ceiling": 3,
   "cargo_capacity": 20,
   "class": "heli",
   "cruise_speed": 3,

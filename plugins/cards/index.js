@@ -9,6 +9,7 @@
 //
 // Nothing here is on a hot path. Card reads are cold, the pool is cached in memory
 // behind one writer, and no tick is registered.
+import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { getZoneFurniture, getZone } from '../../server/engine/world.js';
 import { isPluggedIn } from '../appliances/index.js';
@@ -19,9 +20,30 @@ import {
 } from './builder.js';
 
 const MINT_FEE = 2500;
-const PACK_PRICE = 900;
-const SCRAP_VALUE = 150;
+// THESE TWO NUMBERS ARE COUPLED — never move one without the other.
+//
+// Scrap is the FLOOR under the pack price. A shelf near completion pulls mostly
+// duplicates, so a sleeve's worst case is `size × SCRAP_VALUE` coming straight
+// back out; if that ever reaches PACK_PRICE the machine stops being a gamble and
+// becomes a money printer, and the correct play becomes buying packs forever.
+// Worst case here is the 1% nine-card mis-cut: 9 × 25 = ₵225 against ₵250, so
+// even the fattest all-dupe sleeve loses money. Keep that inequality true.
+//
+// The absolute level is set by the job board, not by what a card "feels" worth:
+// gigs pay ₵10–15 at the bottom and average ₵88, so ₵250 is about three ordinary
+// jobs — an impulse buy you can make several times a session, which is what the
+// reveal is built to invite. It sat at ₵900 while a pack was a one-off curiosity;
+// that was the price of a Surveillance Deck, and nothing at that price gets
+// bought on a whim.
+const PACK_PRICE = 250;
+const SCRAP_VALUE = 25;
 const MINT_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+// The sleeve is a real inventory row, not an abstraction. You buy an unopened
+// pack, you carry it, and you tear it when you feel like it — which is the whole
+// reason the reveal is worth animating: the moment is CHOSEN, not a side effect
+// of paying. It also means a sleeve can sit in a drawer, be dropped, or be given
+// away unopened, all of which fall out of it being an ordinary item for free.
+const PACK_ITEM = 'card_foil_sleeve';
 
 // ── in-memory state ────────────────────────────────────────────────────────────
 // Recent speech per player, for the Overheard region. Capped, never persisted:
@@ -205,28 +227,140 @@ async function cmdMint(args, raw, player, broadcast) {
   };
 }
 
+// How many unopened sleeves you're carrying. Counts every row rather than one,
+// because a sleeve in a bag is still a sleeve — the pack has no reason to care
+// which pocket it's in.
+async function packsHeld(playerId) {
+  const { rows } = await query(
+    'SELECT COALESCE(SUM(quantity),0) AS n FROM player_inventory WHERE player_id=$1 AND item_id=$2',
+    [playerId, PACK_ITEM]
+  );
+  return Number(rows[0]?.n) || 0;
+}
+
+async function giveSleeve(playerId) {
+  const { rows } = await query(
+    'SELECT id, quantity FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL LIMIT 1',
+    [playerId, PACK_ITEM]
+  );
+  if (rows.length) {
+    await query('UPDATE player_inventory SET quantity = quantity + 1 WHERE id=$1', [rows[0].id]);
+  } else {
+    await query('INSERT INTO player_inventory (id, player_id, item_id, quantity) VALUES ($1,$2,$3,1)',
+      [randomUUID(), playerId, PACK_ITEM]);
+  }
+}
+
+// Take one sleeve off the pile. Returns false if there wasn't one — the caller
+// must not roll anything until this has succeeded, or a failed decrement pays
+// out a free pack.
+async function consumeSleeve(playerId) {
+  const { rows } = await query(
+    'SELECT id, quantity FROM player_inventory WHERE player_id=$1 AND item_id=$2 ORDER BY quantity ASC LIMIT 1',
+    [playerId, PACK_ITEM]
+  );
+  if (!rows.length) return false;
+  if (Number(rows[0].quantity) > 1) {
+    await query('UPDATE player_inventory SET quantity = quantity - 1 WHERE id=$1', [rows[0].id]);
+  } else {
+    await query('DELETE FROM player_inventory WHERE id=$1', [rows[0].id]);
+  }
+  return true;
+}
+
+// The odds board the machine prints. Derived from the LIVE pool, so a young pool
+// that can't fill an Epic shows that instead of advertising one.
+function poolBreakdown(catalogue) {
+  const by = {};
+  for (const r of RANKS) by[r] = 0;
+  for (const c of catalogue) if (by[c.rarity] != null) by[c.rarity]++;
+  return by;
+}
+
+// `buypack` opens the machine's face rather than transacting: the terminal is a
+// thing you stand at and press buttons on, exactly like an ATM, and the panel is
+// where the price, the odds board and your own credit balance are legible before
+// you commit. `buypack confirm` is the button.
 async function cmdBuyPack(args, raw, player, broadcast) {
   const machine = machineHere(player.current_zone);
   if (!machine) return { type: 'error', message: "There's no card machine here." };
   if (!isPluggedIn(machine)) return { type: 'error', message: `The ${machine.name}'s window is dark. The glass just shows you the room.` };
-  if ((player.credits || 0) < PACK_PRICE) return { type: 'error', message: `A sleeve is ₵${PACK_PRICE}. You have ₵${player.credits || 0}.` };
 
   const catalogue = await getPool();
+  const confirming = /^(confirm|buy|yes|y)$/i.test(argStr(args));
+
+  if (!confirming) {
+    return {
+      type: 'cardmach_panel',
+      machine: machine.name,
+      price: PACK_PRICE,
+      scrapValue: SCRAP_VALUE,
+      credits: player.credits || 0,
+      packs: await packsHeld(player.id),
+      pool: { total: catalogue.length, byRank: poolBreakdown(catalogue) },
+      message: catalogue.length
+        ? `The ${machine.name} lights its window.`
+        : `The ${machine.name} lights its window. Every slot reads SOLD OUT — nobody has minted anything yet.`,
+    };
+  }
+
   if (!catalogue.length) return { type: 'error', message: `The ${machine.name} is empty. Nobody has minted anything yet.` };
+  if ((player.credits || 0) < PACK_PRICE) return { type: 'error', message: `A sleeve is ₵${PACK_PRICE}. You have ₵${player.credits || 0}.` };
+
+  player.credits -= PACK_PRICE;
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  await giveSleeve(player.id);
+
+  broadcast(player.current_zone, { type: 'zone_event', message: `The ${machine.name} thumps, and drops a foil sleeve into ${player.handle}'s hand.` }, player.id);
+  return {
+    type: 'cardmach_vend',
+    machine: machine.name,
+    credits: player.credits,
+    packs: await packsHeld(player.id),
+    message: `The ${machine.name} thumps. A foil sleeve lands in the tray — <b>₵${PACK_PRICE}</b> gone, <b>₵${player.credits}</b> left. `
+      + `Tear it whenever you like: <span class="cmd">openpack</span>.`,
+  };
+}
+
+// Tearing one. The roll happens HERE, not at the vend — an unopened sleeve holds
+// no result, so nothing on the shelf can be datamined, traded pre-rolled, or go
+// stale against a pool that grew while it sat in your coat.
+async function cmdOpenPack(args, raw, player, broadcast) {
+  const catalogue = await getPool();
+  if (!catalogue.length) return { type: 'error', message: 'The pool is empty. There is nothing in the sleeve to be.' };
+  if (!(await consumeSleeve(player.id))) {
+    return { type: 'error', message: `You have no unopened sleeves. They come out of a card machine — ₵${PACK_PRICE} a go.` };
+  }
 
   const ranks = rollSleeve();
   const picks = ranks.map((rank, i) => pickAtRank(catalogue, rank, i === ranks.length - 1 ? 1 : 0));
 
-  player.credits -= PACK_PRICE;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  // One read for the whole sleeve, never one per card (architecture.md read
+  // tiers) — the reveal wants the full face, and the pool only carries the stub.
+  const { rows: full } = await query('SELECT * FROM cards WHERE id = ANY($1)', [picks.map(p => p.id)]);
+  const byId = new Map(full.map(r => [r.id, r]));
 
+  const cards = [];
   const lines = [];
   let scrapped = 0;
   for (let i = 0; i < picks.length; i++) {
     const qty = await grant(player.id, picks[i].id);
     const dupe = qty > 1;
     if (dupe) scrapped += SCRAP_VALUE;
-    lines.push(`<span class="card-pull card-pull-${picks[i].rarity}${i === picks.length - 1 ? ' card-pull-hit' : ''}" data-delay="${i}">`
+    const row = byId.get(picks[i].id);
+    const hit = i === picks.length - 1;
+    cards.push({
+      id: picks[i].id,
+      name: picks[i].subject_name,
+      subject_type: picks[i].subject_type,
+      rarity: picks[i].rarity,
+      hit, dupe,
+      // The face is rendered SERVER-side from the same renderCard the shelf uses,
+      // so the card you flip over in the reveal and the card you read later can
+      // never drift apart.
+      face: row ? renderCard(row) : '',
+    });
+    lines.push(`<span class="card-pull card-pull-${picks[i].rarity}${hit ? ' card-pull-hit' : ''}" data-delay="${i}">`
       + `${rankSpan(picks[i].rarity)} <span class="card-pull-name">${picks[i].subject_name}</span> `
       + `<span class="text-dim">${picks[i].subject_type}</span>`
       + (dupe ? ` <span class="card-dupe">DUPE ₵${SCRAP_VALUE}</span>` : '')
@@ -235,9 +369,16 @@ async function cmdBuyPack(args, raw, player, broadcast) {
 
   broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} tears open a foil sleeve.` }, player.id);
   return {
-    type: 'output',
-    message: `<span class="card-sleeve" data-count="${picks.length}">`
-      + `<span class="card-tear">The sleeve tears. <b>${picks.length}</b> cards.</span>`
+    type: 'cardpack_open',
+    cards,
+    scrapValue: SCRAP_VALUE,
+    scrapped,
+    packs: await packsHeld(player.id),
+    // The text log is the fallback, and it is NOT optional: a player who closes
+    // the overlay mid-reveal, or whose client is old enough not to know the type,
+    // still has to be able to read what they pulled.
+    message: `<span class="card-sleeve" data-count="${cards.length}">`
+      + `<span class="card-tear">The sleeve tears. <b>${cards.length}</b> cards.</span>`
       + lines.join('')
       + `</span>`
       + (scrapped ? `\n<span class="text-dim">Dupes in there — <span class="cmd">scrap</span> them for ₵${scrapped}.</span>` : ''),
@@ -373,7 +514,7 @@ function cardFurnitureDescribe(f) {
     return `<span class="cardmach">`
       + `<span class="cardmach-top"><span class="cardmach-pwr">● PWR</span></span>`
       + `<span class="cardmach-win">A1 · Foil sleeve <b>₵${PACK_PRICE}</b>\nA2 · Foil sleeve <b>₵${PACK_PRICE}</b>\nA3 · <span class="text-dim">SOLD OUT</span></span>`
-      + `<span class="action-link cardmach-buy" data-action="cmd" data-cmd="buypack" title="Buy a sleeve">BUY A SLEEVE · ₵${PACK_PRICE}</span>`
+      + `<span class="action-link cardmach-buy" data-action="cmd" data-cmd="buypack" title="Step up to the machine">USE MACHINE · ₵${PACK_PRICE} A SLEEVE</span>`
       + `</span>`;
   }
   return `<span class="cardmach cardmach-mint">`
@@ -490,7 +631,9 @@ export const commands = {
   cards: cmdCards,
   buypack: cmdBuyPack,
   sleeve: cmdBuyPack,
+  openpack: cmdOpenPack,
+  tear: cmdOpenPack,
   scrap: cmdScrap,
 };
 
-export const _test = { getPool, invalidatePool, insertCard, grant, BUDGET };
+export const _test = { getPool, invalidatePool, insertCard, grant, BUDGET, PACK_PRICE, SCRAP_VALUE };

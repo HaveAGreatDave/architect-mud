@@ -1316,10 +1316,19 @@ export const SCHEMA_SQL = `
   -- driving the existing gps_route push (plugins/quests routeToObjective).
   ALTER TABLE players ADD COLUMN IF NOT EXISTS tracked_quest_id TEXT;
 
-  -- Tablet OS Bank app: a minimal deposit ledger. ATM deposits are otherwise
-  -- immediate and unlogged; this table exists purely to back the app's
-  -- Transaction History screen. Written from the same deposit path the ATM
-  -- plugin and the Tablet Bank app both call.
+  -- Tablet OS Bank app: the banking ledger. It began as a display-only history
+  -- for the app's Transaction History screen, but it is now LOAD-BEARING: the
+  -- ATM's 24-hour rolling allowance is computed by summing this table, so a
+  -- machine transaction that fails to log here is a transaction that never
+  -- counted against the limit. Written from the ATM plugin and the Tablet Bank
+  -- app, both through logBankTx().
+  --
+  -- network_id scopes the allowance. It is the atm_networks id for a linked
+  -- terminal, "atm:<furniture id>" for an unlinked one, and NULL for anything
+  -- that deliberately does not consume an allowance (teller counters, remote
+  -- tablet transfers) — the window SUM filters on an equality, so NULLs are
+  -- excluded for free. Deliberately NOT a foreign key: the unlinked-terminal
+  -- key has no row to point at.
   CREATE TABLE IF NOT EXISTS bank_transactions (
     id BIGSERIAL PRIMARY KEY,
     player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
@@ -1328,7 +1337,10 @@ export const SCHEMA_SQL = `
     balance_after INTEGER NOT NULL,
     created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())
   );
+  ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS network_id TEXT;
   CREATE INDEX IF NOT EXISTS idx_bank_transactions_player ON bank_transactions(player_id, created_at DESC);
+  -- The allowance query: one player, one network, one type, last 24h.
+  CREATE INDEX IF NOT EXISTS idx_bank_transactions_window ON bank_transactions(player_id, network_id, type, created_at DESC);
 
   -- Channel chat history (arcnet etc). Runtime data: schema is exported, rows are not.
   -- Only the most recent messages per channel are retained; older rows are pruned.
@@ -1613,6 +1625,9 @@ export const SCHEMA_SQL = `
   -- ── ATM system ──────────────────────────────────────────────────────────────
   -- ATM networks define the banking faction: fee rates, withdrawal limits,
   -- faction rep gates, and UI accent color.
+  -- withdrawal_limit is a ROLLING 24-HOUR ALLOWANCE, not a per-transaction cap,
+  -- and each direction gets its own full allowance. Spent totals are summed off
+  -- bank_transactions; see the allowance section in plugins/atm/index.js.
   CREATE TABLE IF NOT EXISTS atm_networks (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -1955,6 +1970,9 @@ export const SCHEMA_SQL = `
   --              psychedelic on a bare street corner is still a psychedelic.
   --   'spawn'  — a thing that is not there at all, conjured as a phantom object
   --              when the room has too little furniture to work with.
+  --   'person' — re-reads one of the PEOPLE in the room. The room changing while
+  --              its occupants stay ordinary reads as a bug in the furniture;
+  --              talking to them and hitting them still reaches the real NPC.
   ALTER TABLE dream_templates ADD COLUMN IF NOT EXISTS weather TEXT;
   -- Particle field for the client FX canvas while you are in this room:
   -- rain | snow | ash | fog | wind | none, plus a 0-1 intensity. Ignores the real
@@ -1965,6 +1983,13 @@ export const SCHEMA_SQL = `
   ALTER TABLE drug_transforms ADD COLUMN IF NOT EXISTS fx TEXT;
   ALTER TABLE drug_transforms ADD COLUMN IF NOT EXISTS fx_intensity REAL DEFAULT 0.5;
   ALTER TABLE drug_transforms ADD COLUMN IF NOT EXISTS scope TEXT NOT NULL DEFAULT 'object';
+  -- What it DOES while you watch, and what it wants to know about you. A thing
+  -- that only ever talks is a talking chair; a thing that moves and asks you
+  -- questions about its own shape is a presence. Both render exactly as an NPC's
+  -- ambience and speech do (see plugins/trip) — {it} is the subject form of the
+  -- new name, so one line fits whatever the room turned into.
+  ALTER TABLE drug_transforms ADD COLUMN IF NOT EXISTS emotes JSONB NOT NULL DEFAULT '[]';
+  ALTER TABLE drug_transforms ADD COLUMN IF NOT EXISTS asks JSONB NOT NULL DEFAULT '[]';
 
   -- The shared line pool for anything that speaks to you during a hallucination.
   -- Authored rather than hardcoded because the whole effect lives in the WRITING,
@@ -2539,6 +2564,25 @@ export const SCHEMA_SQL = `
     source TEXT,
     created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
     PRIMARY KEY (zone_id, direction, target_zone)
+  );
+
+  -- Graffiti (graffiti plugin): one tag per street tile, sprayed onto the face of
+  -- a building on an adjacent exit. Keyed on the zone you STAND in rather than the
+  -- facade you paint, because that's the room it gets read from — and it's what
+  -- makes "one per zone" a primary key instead of a rule somebody has to enforce.
+  -- Painting over is an UPSERT, so this table can never exceed one row per street
+  -- tile in the world. day_index is the game-day it went up (zone-filth.js
+  -- gameDayIndex); expiry is derived from it lazily on read, so there is no tick
+  -- and a restart can't wipe the city's walls. Runtime data, never content.
+  CREATE TABLE IF NOT EXISTS zone_graffiti (
+    zone_id TEXT PRIMARY KEY,
+    target_zone_id TEXT,
+    target_name TEXT,
+    author_id TEXT,
+    author_handle TEXT,
+    text TEXT NOT NULL,
+    day_index INTEGER,
+    created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
 
   -- Economy ledger (economy-ledger plugin): append-only record of every credit

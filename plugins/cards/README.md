@@ -40,15 +40,57 @@ lives in the manifest on the back.
 | Verb | Where | What |
 |---|---|---|
 | `mint` | `flags.card_mint` furniture | previews free, `mint confirm` charges and strikes |
-| `buypack` / `sleeve` | `flags.vends_packs` furniture | ₵900, a foil sleeve |
+| `buypack` / `sleeve` | `flags.vends_packs` furniture | opens the machine terminal; `buypack confirm` buys |
+| `openpack` / `tear` | anywhere you're carrying a sleeve | consumes one sleeve, **rolls**, reveals |
 | `cards` | anywhere | your shelf; `cards <name>` reads one in full |
-| `scrap` | `flags.card_mint` furniture | eats duplicates at ₵150 each |
+| `scrap` | `flags.card_mint` furniture | eats duplicates at ₵25 each |
 
 Packs: sleeve **size is rolled** (4/5/6/7, plus a 1% nine-card mis-cut). Every card but the last
 rolls against the pool; the last excludes Common, so every sleeve holds at least an Uncommon. Cards
 are sorted **worst-to-best** before display — the pull builds and the hit lands last. A rank the pool
 can't fill steps down to the best available, except the hit slot, which steps **up** so the guarantee
 stays true on a young pool.
+
+## Buying and opening are two acts
+
+`buypack` does **not** transact. It returns `cardmach_panel` and the client opens the machine's face
+(`client/game/js/panels/cardpack.js`) — an ATM-shaped terminal on the shared minigame chassis, with a
+lit product window, an odds board drawn from the **live pool**, your balance, and a tray that lights
+when you're carrying unopened sleeves. Its buttons send the ordinary verbs (`buypack confirm`,
+`openpack`); nothing in the panel decides anything, so a typed command and a clicked button take the
+identical server path.
+
+₵250 buys a **`card_foil_sleeve` item** into your inventory. It is an ordinary item — carryable,
+droppable, giftable, storable — and it **holds no result**.
+
+**The roll happens at `openpack`, never at the vend.** That is what makes an unopened sleeve honest:
+it cannot be datamined, cannot be traded with known contents, and cannot go stale against a pool that
+grew while it sat in your coat. It also means the moment is *chosen* rather than a side effect of
+paying, which is the only reason the reveal is worth animating at all.
+
+## The reveal
+
+`cardpack_open` carries the whole outcome — every card's rarity, dupe flag, and its **server-rendered
+face** (the same `renderCard()` the shelf uses, so the card you flip and the card you read later can
+never drift). The client owns pacing and presentation and **decides nothing**. This matters more here
+than in most panels: a reveal is the one place a player would be quickest to suspect the animation of
+picking the outcome, and it can't — the cards were rolled and granted before the first frame drew.
+
+One table (`RARITY` in `cardpack.js`) drives colour, ray count, screen flash, shake, the pre-flip
+**hold** and the post-flip **dwell**, one row per rank. Reading straight down it is how you check the
+ladder hasn't gone ragged, which is the easiest thing to break by tuning a single case. A Common gets
+a dry paper tick and nothing else — deliberately, because if a Common got confetti a Legendary would
+have nothing left to be. `hold` is also literally the SFX riser: `cards-flip-legendary` spends its
+first 440ms climbing, so a legendary's 460ms hold lands the chord on the same frame as the face.
+
+A **player card** adds a banner and a sting *on top of* its rarity cue, never instead of it — somebody
+real is the rarest thing the system can hand you regardless of rank.
+
+Sounds live in the shared catalog (`client/shared/sfx-catalog.js`, group `cards`), so they're
+dev-panel tunable and DB-overridable like every other interface cue.
+
+**The text log always lands alongside the overlay.** Closing the reveal mid-flip, or running an old
+client that doesn't know the message type, costs the player nothing but the show.
 
 ## Admin
 

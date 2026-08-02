@@ -1,0 +1,10 @@
+{
+  "id": "dr_objask_surreal_013",
+  "drug_id": null,
+  "source": "object_ask",
+  "tone": "surreal",
+  "self_line": "You will remember this bit. Which bit do you think you will remember?",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

@@ -22,12 +22,17 @@
 //     people all frying eggs in silence.
 //   • A witness must be present, and is re-checked before every beat: this is
 //     scenery for whoever is in the room, not a simulation running in the dark.
-import { world, getZonePlayers } from '../../server/engine/world.js';
-import { sendToZone } from '../../server/engine/messaging.js';
+import { world, getZonePlayers, getZone, getZoneFurniture } from '../../server/engine/world.js';
+import { isDwellingZone } from '../../server/engine/zone-tags.js';
+import { sendToZone, getBroadcast } from '../../server/engine/messaging.js';
 import { isNpcScheduledNow } from '../../server/engine/broadcast-bridge.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
+import { moveEntity } from '../../server/engine/ai-behaviour.js';
+import { npcWashAtHome } from '../../server/engine/hygiene.js';
+import { query } from '../../server/models/db.js';
 import { DISHES } from '../cooking/dishes.js';
 import { DRINKS } from '../drinks/recipes.js';
+import { isToilet, isShower } from '../bodily/index.js';
 
 const START_CHANCE = 0.35;                 // per eligible zone, per tick
 const COOLDOWN_MS = [8 * 60_000, 20 * 60_000];
@@ -72,6 +77,91 @@ const TIDY = [
    `{npc} stops halfway through, loses interest, and sits down.`],
 ];
 
+// ── The bathroom ─────────────────────────────────────────────────────────────
+// The one domestic routine that is NOT pure narration, because it can't be: an
+// ensuite is a real adjacent zone with a real door, so the NPC actually walks
+// through it and comes back. That makes it the only routine a player can follow,
+// walk in on, or find an empty room because of — which is the whole reason it's
+// worth the extra machinery.
+//
+// It ends in npcWashAtHome(), the engine's existing abstract "someone who lives
+// here keeps clean" reset. That call already happened invisibly every tick an
+// NPC stood in their own home; this gives it somewhere to have happened.
+
+const BATHROOM_MS   = [25_000, 60_000];   // how long they're gone
+const BATHROOM_GOING = [
+  `{npc} gets up without a word and heads for the bathroom.`,
+  `{npc} says "give me a minute" to nobody in particular and goes through.`,
+  `{npc} pauses mid-thought, makes a face, and goes to the bathroom.`,
+  `{npc} disappears into the bathroom. The door does not quite latch.`,
+];
+const BATHROOM_BACK = [
+  `{npc} comes back drying their hands on their trousers.`,
+  `A cistern refills somewhere behind the wall. {npc} reappears, unbothered.`,
+  `{npc} returns, hair damp at the temples, looking marginally more like a person.`,
+  `{npc} comes back in, wiping their face, and picks up exactly where they left off.`,
+];
+
+// zoneId → { id: bathroomZoneId | null, at: ts }. A dwelling's ensuite doesn't
+// move, so the positive answer is cached forever; a NEGATIVE is re-checked
+// occasionally, because a builder can plumb a bathroom in at runtime and the
+// alternative is that flat never having one until the next restart.
+const bathroomOf = new Map();
+const NEGATIVE_TTL_MS = 10 * 60_000;
+
+function bathroomFor(zoneId) {
+  const hit = bathroomOf.get(zoneId);
+  if (hit && (hit.id || Date.now() - hit.at < NEGATIVE_TTL_MS)) return hit.id;
+
+  // A bathroom is a SUB-zone of this dwelling with a fixture in it. There is no
+  // bathroom flag in the world data and inventing one would mean backfilling
+  // twenty-odd rooms, so this asks the question the fixtures already answer.
+  let found = null;
+  for (const dest of Object.values(getZone(zoneId)?.exits || {})) {
+    if (getZone(dest)?.parent_zone !== zoneId) continue;
+    if (getZoneFurniture(dest).some(f => isToilet(f) || isShower(f))) { found = dest; break; }
+  }
+  bathroomOf.set(zoneId, { id: found, at: Date.now() });
+  return found;
+}
+
+// Bespoke rather than play(): the generic beat-runner aborts the moment the NPC
+// isn't in the room any more, and being out of the room is the point of this one.
+function playBathroom(zoneId, npc, bathId) {
+  activeHome.add(zoneId);
+  const done = () => { activeHome.delete(zoneId); startCooldown(zoneId); };
+  const say = (pool) => sendToZone(zoneId, {
+    type: 'ambient',
+    message: `<span class="msg-ambient">${rand(pool).replace(/\{npc\}/g, npc.name)}</span>`,
+  });
+
+  say(BATHROOM_GOING);
+  setTimeout(() => {
+    const live = world.npcs.get(npc.id);
+    if (!live || live._dead || live.zone_id !== zoneId || live._combatTargetId
+        || isBusyBeingUnconscious(live)) return done();
+    if (!moveEntity(live, bathId, getBroadcast(), query)) return done();
+
+    // Hold the behaviour graph off while they're in there, so the AI doesn't
+    // decide mid-visit that this NPC is inexplicably away from home and path
+    // them back out. Same lever sleep uses.
+    const away = randInt(BATHROOM_MS[0], BATHROOM_MS[1]);
+    if (live._ai) live._ai.waitUntil = Date.now() + away;
+
+    setTimeout(() => {
+      const back = world.npcs.get(npc.id);
+      if (!back || back._dead) return done();
+      if (back._ai) back._ai.waitUntil = null;
+      // The point of the trip. Rate-limited inside, so a short interval between
+      // visits just means this one was only a toilet visit.
+      npcWashAtHome(back);
+      if (back.zone_id === bathId && !moveEntity(back, zoneId, getBroadcast(), query)) return done();
+      if (back.zone_id === zoneId && getZonePlayers(zoneId).length) say(BATHROOM_BACK);
+      done();
+    }, away);
+  }, randInt(BEAT_GAP_MS[0], BEAT_GAP_MS[1]));
+}
+
 // A plausible thing to have made. Straight off the live catalogues, so anything
 // authored for players shows up here for free — and both are filtered to what a
 // person would plausibly knock together at home rather than the whole list.
@@ -92,10 +182,20 @@ function pickDrink(phase) {
   return DRINKS[rand(keys.length ? keys : Object.keys(DRINKS))].noun;
 }
 
-// Home, off-shift, alive, and not in the middle of something else.
+// Asleep, out cold, or otherwise horizontal. A sleeping NPC narrated frying eggs
+// is the one thing that breaks the illusion outright, and the engine already
+// tracks all three states — this reads them rather than inventing a fourth.
+const isBusyBeingUnconscious = (npc) =>
+  !!(npc._ai?.homeSleeping || npc._ai?.dosedOut || npc.posture === 'lying');
+
+// Home, off-shift, alive, awake, and not in the middle of something else.
 function homebodiesIn(zoneId) {
   const zone = world.zones.get(zoneId);
   if (!zone) return [];
+  // A KITCHEN, not a counter. Most of the cast has their own workplace registered
+  // as home_zone, and cooking a meal on the shop floor is worse than saying
+  // nothing — this is the same dwelling test the engine's passive ticker uses.
+  if (!isDwellingZone(getZone(zoneId) || zone)) return [];
   const out = [];
   for (const id of zone.npcs) {
     const npc = world.npcs.get(id);
@@ -103,6 +203,7 @@ function homebodiesIn(zoneId) {
     if (npc.home_zone !== zoneId) continue;        // this is their place, not a shift
     if (npc._combatTargetId) continue;
     if (npc.flags?.no_home_life) continue;         // the opt-out, for anyone it reads wrong on
+    if (isBusyBeingUnconscious(npc)) continue;     // asleep in the next room, not making dinner
     if (isNpcScheduledNow(npc.id)) continue;       // on shift — same gate banter uses
     out.push(npc);
   }
@@ -120,8 +221,12 @@ function play(zoneId, npc, beats) {
     // Re-checked every beat: a routine performing to an empty room is a timer
     // burning for nobody, and an NPC who wandered off should stop cooking.
     const live = world.npcs.get(npc.id);
+    // ...and re-checks unconsciousness with it: someone who lies down mid-routine
+    // (or gets put down) stops cooking there and then rather than narrating the
+    // rest of the meal from the floor.
     if (i >= beats.length || !getZonePlayers(zoneId).length
-        || !live || live._dead || live.zone_id !== zoneId || live._combatTargetId) {
+        || !live || live._dead || live.zone_id !== zoneId || live._combatTargetId
+        || isBusyBeingUnconscious(live)) {
       activeHome.delete(zoneId);
       startCooldown(zoneId);
       return;
@@ -161,6 +266,15 @@ export function homeLifeTick() {
     // being about food.
     const mealtime = ['morning', 'midday', 'evening'].includes(timePhase);
     const roll = Math.random();
+
+    // Checked first and deliberately rare: a flat with a bathroom gets the one
+    // routine that leaves the room. Most homes have no ensuite and fall straight
+    // through to the narrated half, exactly as before.
+    if (roll < 0.12) {
+      const bath = bathroomFor(zoneId);
+      if (bath) { playBathroom(zoneId, npc, bath); continue; }
+    }
+
     let beats;
     if (mealtime && roll < 0.45) beats = rand(MEAL).map(l => l.replace('{thing}', pickMeal()));
     else if (roll < 0.8) beats = rand(DRINK).map(l => l.replace('{thing}', pickDrink(timePhase)));
@@ -171,4 +285,7 @@ export function homeLifeTick() {
 }
 
 // Test seam — regress asserts the catalogues actually yield nouns.
-export const _internals = { pickMeal, pickDrink, MEAL, DRINK, TIDY };
+export const _internals = {
+  pickMeal, pickDrink, MEAL, DRINK, TIDY, isBusyBeingUnconscious,
+  bathroomFor, bathroomOf, BATHROOM_GOING, BATHROOM_BACK,
+};

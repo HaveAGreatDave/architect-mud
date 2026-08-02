@@ -45,7 +45,8 @@
     "take_line": "You soak the rag and hold it over your face."
   },
   "flags": {
-    "drug_class": "depressant"
+    "drug_class": "depressant",
+    "drug_family": "dissociative"
   },
   "id": "drug_ether",
   "item_id": "item_ether",

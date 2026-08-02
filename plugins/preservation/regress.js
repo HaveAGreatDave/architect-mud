@@ -5,7 +5,7 @@ import { query } from '../../server/models/db.js';
 import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js';
 import { insertFurniture, deleteFurniture } from '../../server/engine/world.js';
 import { computeCheckpoint, resolveEnvironment, ensureFreshnessCurrent } from './decay.js';
-import { TIER_FACTOR, BASE_DECAY_PER_HOUR, POWER_LOSS_BUFFER_MIN, STATE_CUTOFFS, stateFor } from './config.js';
+import { TIER_FACTOR, BASE_DECAY_PER_HOUR, POWER_LOSS_BUFFER_MIN, STATE_CUTOFFS, stateFor, ADDITIVE_FACTOR } from './config.js';
 
 const HOUR = 3600000;
 
@@ -42,6 +42,16 @@ export default async function regress({ run, check, getPlayer }) {
   const pastBuffer = computeCheckpoint(base, { tier: 'refrigerated', delivering: false, ambientTier: 'ambient', powerLostAt: 0 }, 'normal', bufferMs + HOUR);
   const expectedPastBuffer = (bufferMs / HOUR) * BASE_DECAY_PER_HOUR * TIER_FACTOR.refrigerated + 1 * BASE_DECAY_PER_HOUR * TIER_FACTOR.ambient;
   check('once the buffer is exhausted, the remainder decays at the ambient rate', Math.abs((100 - pastBuffer.value) - expectedPastBuffer) < 0.01, pastBuffer.value);
+
+  // ── The BHT dose: a rate multiplier that survives re-checkpointing ────────
+  const env = { tier: 'ambient', delivering: true, ambientTier: 'ambient', powerLostAt: null };
+  const dosed = computeCheckpoint({ ...base, additive: ADDITIVE_FACTOR }, env, 'normal', sixHoursMs);
+  check('a dosed item decays by exactly the additive factor', Math.abs((100 - dosed.value) - expectedAmbientDecay * ADDITIVE_FACTOR) < 0.01, dosed.value);
+  check('the dose is carried forward onto the new checkpoint', dosed.additive === ADDITIVE_FACTOR, dosed);
+  check('an undosed item carries no additive key at all', computeCheckpoint(base, env, 'normal', sixHoursMs).additive === undefined, ambient);
+
+  const dosedCold = computeCheckpoint({ ...base, additive: ADDITIVE_FACTOR }, { ...env, tier: 'refrigerated' }, 'normal', sixHoursMs);
+  check('the dose stacks with refrigeration rather than replacing it', (100 - dosedCold.value) < (100 - fridge.value) && (100 - dosedCold.value) < (100 - dosed.value), dosedCold.value);
 
   // ── Freshness never goes below zero ───────────────────────────────────────
   const wayGone = computeCheckpoint(base, { tier: 'ambient', delivering: true, ambientTier: 'ambient', powerLostAt: null }, 'fast', 1000 * HOUR);

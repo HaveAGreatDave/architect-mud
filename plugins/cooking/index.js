@@ -37,10 +37,16 @@ import { leavesFond, makeFond, fondState, fondModifier, fondText } from './fond.
 import { portionOf, canChop, portionName, yieldOf } from './portions.js';
 import { timeline, finishAt, endStateAt } from './quality.js';
 import { DISHES, signature, matchDish, dishName, composeBand, seasoningBonus, seasoningIdeal, nounFor, UNKNOWN_DISH, GENERIC_SANDWICH, describeDish } from './dishes.js';
-import { UNTRIED, cookbookState, learnRecipe, improveRecipe, recordAttempt, beatsRecorded, knownBonus, markRoutineIp } from './knowledge.js';
+import { UNTRIED, cookbookState, learnRecipe, improveRecipe, recordAttempt, beatsRecorded, knownBonus, markRoutineIp,
+         savedRecipes, saveRecipe, recipeBySignature, renameRecipe, forgetRecipe, improveSaved, slugify } from './knowledge.js';
+import { inferDish, recipeSignature, improvisedIp } from './improvised.js';
+import { cmdRecipe, learnFromWrittenCard } from './recipes.js';
+import { cmdShoplist, markShelf, markContainer } from './shoplist-cmd.js';
 import { rewardFor, restMultiplier, restText, RESTS_WELL, REST_PEAK_MS, REST_COLD_MS, REST_MIN_MS, TASTE_TIERS, TASTE_BITE } from './config.js';
 import { tasteNotes, flavourLines } from './taste.js';
 import { canMarinate, prepText } from './prep.js';
+import { workspaceProvider } from './workspace.js';
+import { cmdWorkspace } from '../workspace/index.js';
 
 // Which phase of resting a plate is in, for the flavour line on eating.
 const restPhase = cd => {
@@ -50,7 +56,8 @@ const restPhase = cd => {
   if (age >= REST_MIN_MS && age <= REST_PEAK_MS) return 'rested';
   return null;
 };
-import { DISCOVERY_IP, DISCOVERY_ATTEMPTS, MODIFIER_BONUS, MODIFIER_BONUS_CAP, OVER_SEASON_PENALTY, DEFAULT_SEASONING, STAGING } from './config.js';
+import { DISCOVERY_IP, DISCOVERY_ATTEMPTS, MODIFIER_BONUS, MODIFIER_BONUS_CAP, OVER_SEASON_PENALTY, DEFAULT_SEASONING, STAGING,
+         DISCOVERY_MIN_BAND, KNOWN_RECIPE_BONUS, RECIPE_MASTERY_IP, RECIPE_MASTERY_BAND } from './config.js';
 
 // Any blade will do. `can_chop` is the kitchen-specific tag; `butchering` is
 // what every knife in the game already carries, so all three existing blades
@@ -192,9 +199,12 @@ async function cmdCook(args, raw, player, broadcast) {
         message: `Cook on which?\n${formatSelectionPage({ allCandidates: stations, visibleIndex: 0, pageSize: 5 })}`,
       };
     }
-    return kinds.has('drug') && hasSynthesis()
-      ? toDrugs(player, null, broadcast)
-      : { type: 'error', message: 'Cook what?' };
+    // A bare `cook` at a stove is a request to SEE the kitchen, not a mis-typed
+    // command: "Cook what?" answered a question nobody was asking. The HUD lists
+    // what's out, what's stored and what's on the heat, and every action on it is
+    // a verb you could have typed — so this is a shortcut, not a second surface.
+    if (kinds.has('drug') && hasSynthesis()) return toDrugs(player, null, broadcast);
+    return (await cmdWorkspace(['kitchen'], '', player)) || { type: 'error', message: 'Cook what?' };
   }
 
   // Named a station directly ("cook on the range" / "cook stove")? Honour it.
@@ -202,7 +212,9 @@ async function cmdCook(args, raw, player, broadcast) {
   if (stations.length > 1) {
     const s = siftResolve(nameStr, stations);
     if (s.type === 'match' && s.candidate._cookKind === 'drug' && hasSynthesis()) return toDrugs(player, null, broadcast);
-    if (s.type === 'match' && s.candidate._cookKind === 'food') return { type: 'error', message: 'Cook what?' };
+    if (s.type === 'match' && s.candidate._cookKind === 'food') {
+      return (await cmdWorkspace(['kitchen'], '', player)) || { type: 'error', message: 'Cook what?' };
+    }
   }
 
   // Carrying something by that name that can actually be cooked → it's food.
@@ -577,8 +589,23 @@ async function plateVessel(vessel, player) {
   // sandwich named off its contents, so an unmatched bread vessel falls to the
   // generic template rather than to UNKNOWN_DISH — and because that template has
   // no key, making one teaches the cookbook nothing.
-  const template = hit?.template || (isBread ? GENERIC_SANDWICH : UNKNOWN_DISH);
+  // No recipe claims it. That used to mean "a mess" for every vessel but bread,
+  // where GENERIC_SANDWICH had already proved the better answer: anything
+  // sensible between two slices is a real thing and should be called what it is.
+  // `inferDish` generalises that — food makes a DISH, non-food makes a mess — so
+  // slop is now the answer only for a pan with something inedible in it.
+  //
+  // An improvised dish is capped below an authored one (superb, never
+  // masterful), which is what keeps the cookbook worth filling.
+  const improvised = hit ? null : (isBread ? null : inferDish(sig, kind));
+  const template = hit?.template || improvised || (isBread ? GENERIC_SANDWICH : UNKNOWN_DISH);
   const key = hit?.key || null;
+
+  // Have they written this exact pan down themselves? Matched on SIGNATURE, not
+  // on name — a player may call it anything, and does. A saved recipe pays the
+  // same small nudge a catalog one does: knowing what you're making helps.
+  const savedBook = improvised ? await savedRecipes(player.id) : new Map();
+  const mine = improvised ? recipeBySignature(savedBook, recipeSignature(sig, kind)) : null;
 
   // One skill check for the dish, not one per ingredient — you cooked a meal,
   // not five things that happened to share a pan.
@@ -640,8 +667,12 @@ async function plateVessel(vessel, player) {
   // just makes the same dish read better, which is what plating is.
   const plating = await platingBonus(player, inVessel.length);
   const band = composeBand(bands, capped,
-    (key ? knownBonus(known, key) : 0) + seasoning + handWork + fondBonus + butterBonus + plating.bonus);
-  const name = dishName(template, inVessel, profileNameFor, tagValue);
+    (key ? knownBonus(known, key) : 0) + (mine ? KNOWN_RECIPE_BONUS : 0)
+    + seasoning + handWork + fondBonus + butterBonus + plating.bonus);
+  // Your own name for it wins over the generated one. That IS the reward for
+  // writing a recipe down: the game starts calling your invention what you call
+  // it, for you and for anybody you taught.
+  const name = mine ? mine.name : dishName(template, inVessel, profileNameFor, tagValue);
 
   if (cooking.length) await freeAppliance(cooking[0].custom_data.cooking);
   // These rows are about to be DELETED rather than have their sessions ended,
@@ -663,6 +694,11 @@ async function plateVessel(vessel, player) {
     ? { crafted_quality: band, dish: key }
     : {
         name, dish: key || 'unknown', cook_quality: band, cooked: true,
+        // What an improvised dish carries so it can be written down later: the
+        // signature is its identity, the family is what to call it if the player
+        // doesn't. Absent on every catalog dish, so nothing that predates this
+        // changed.
+        ...(improvised ? { improv: recipeSignature(sig, kind), family: improvised.family, complexity: improvised.complexity } : {}),
         // When it hit the plate. Carry-over cooking is derived from this and
         // nothing else — the one timestamp that replaces a temperature model.
         plated_at: now,
@@ -707,7 +743,7 @@ async function plateVessel(vessel, player) {
   const label = band[0].toUpperCase() + band.slice(1);
   lines.push(intermediate
     ? `You work it together and roll it out: ${name}. ${label} — and not dinner yet.`
-    : key
+    : (key || improvised)
       ? `You plate it up: ${name}. It's ${label}.`
       : `You plate whatever this is. ${label}, and that's being generous.`);
   // Say it when real dishware earned something. Silence when you have none —
@@ -736,6 +772,31 @@ async function plateVessel(vessel, player) {
     lines.push(`Best you've ever made it. Your cookbook says so.`);
   }
 
+  // FOLLOWING A REAL RECIPE, WELL, IS THE BEST-PAID THING IN THE KITCHEN.
+  //
+  // Improvisation now reaches `superb`, which is close enough to the top that
+  // the catalog needed something improvisation can't have. Two things: the last
+  // rung — only an authored recipe can be plated `masterful` — and this, a flat
+  // bonus for executing one you actually know at the top of the ladder.
+  if (key && known.has(key) && bandIndex(band) >= bandIndex(RECIPE_MASTERY_BAND)) {
+    flatIp += RECIPE_MASTERY_IP;
+    lines.push(`<span class="text-dim">That's the recipe, cooked the way it's meant to go.</span>`);
+  }
+
+  // Improvised: pays on complexity, and always less than DISCOVERY_IP. Inventing
+  // is worth something; working out a real recipe is worth more.
+  if (improvised) {
+    flatIp += improvisedIp(improvised.complexity, band);
+    if (mine && beatsRecorded(mine.best, band)) {
+      bookkeeping.push(improveSaved(player.id, mine.slug, mine, band));
+      lines.push(`Best you've made your ${mine.name} yet.`);
+    } else if (!mine && bandIndex(band) >= bandIndex(DISCOVERY_MIN_BAND)) {
+      // The nudge, once, at the moment it's worth taking: you made something
+      // good that no recipe covers, and it's yours if you write it down.
+      lines.push(`<span class="text-dim">Nothing in the book covers that. <b>save recipe as &lt;name&gt;</b> while you're holding it.</span>`);
+    }
+  }
+
   // The skill award, the flat IP and the cookbook row are mutually independent.
   bookkeeping.push(awardSkillUse(player.id, 'cooking', check.margin));
   if (flatIp) bookkeeping.push(grantSkillIp(player.id, 'cooking', flatIp));
@@ -750,6 +811,12 @@ async function readRecipeCard(args, raw, player) {
   const nameStr = args.join(' ').trim();
   const card = await resolveInventoryItem(player, { tag: 'recipe_card', name: nameStr || undefined, topLevel: true });
   if (!card) return undefined; // not ours — fall through to the other read handlers
+  // A card a PLAYER wrote carries its recipe on custom_data rather than naming a
+  // catalog key, so it's checked first — the same blank item is every recipe
+  // anybody ever invents, exactly as one `item_cooked_dish` is every dish.
+  const written = await learnFromWrittenCard(card, player);
+  if (written) return { type: 'output', message: written };
+
   const key = String(tagValue(card, 'recipe_card', '') || '').trim();
   // A card whose tag names no real dish is a content bug, and "you already know
   // this one" is the worst possible way to report it — it reads as working.
@@ -1434,9 +1501,11 @@ registerAction({
 // never `{ verb }` — that route only reaches engine builtins (docs/commands.md).
 registerAction({
   type: 'cooking.station_choice',
-  handler: ({ actor, params }) => (params.target?._cookKind === 'drug' && hasSynthesis())
+  // Same landing as a bare `cook` in a food-only room: picking the stove out of
+  // the list is still a request to see the kitchen.
+  handler: async ({ actor, params }) => (params.target?._cookKind === 'drug' && hasSynthesis())
     ? toDrugs(actor, null, null)
-    : { type: 'error', message: 'Cook what?' },
+    : (await cmdWorkspace(['kitchen'], '', actor)) || { type: 'error', message: 'Cook what?' },
 });
 
 // Where the range-or-microwave pick lands. The food rode in on the candidate,
@@ -1622,6 +1691,8 @@ async function cmdCookbook(args, raw, player) {
 export const commands = {
   cook: cmdCook,
   cookbook: cmdCookbook,
+  recipe: cmdRecipe,
+  shoplist: cmdShoplist,
   drain: cmdDrain,
   // Naming the appliance as the VERB. Skips the SIFT prompt entirely, which is
   // what you want when you already know you're reheating something.
@@ -1817,6 +1888,17 @@ export const hooks = {
   // Prep state on an ingredient that hasn't hit the heat yet — the read side of
   // score/tenderise/marinate.
   'cooking.prepText': (cd) => prepText(cd),
+  // The kitchen half of the Preparation Workspace HUD. A gather-hook rather
+  // than an import so neither plugin depends on the other loading — pull
+  // plugins/workspace and cooking is unchanged; pull cooking and the HUD simply
+  // finds no provider in a kitchen. See workspace.js.
+  'workspace.provider': (player) => workspaceProvider(player),
+  // Mark shop stock that's on your shopping list. A list you have to hold up
+  // against the shelf yourself is only half a list.
+  'shop.stock': (ctx) => markShelf(ctx),
+  // ...and the same mark on a container's contents, so a shop's cases and cases
+  // and your own fridge answer the list too.
+  'container.view': (ctx) => markContainer({ view: ctx.view, playerId: ctx.player?.id }),
 };
 
 // Exposed for the regression harness.

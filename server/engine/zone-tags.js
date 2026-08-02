@@ -22,6 +22,28 @@ export function isSanctuary(zone) {
   return hasTag(zone, 'sanctuary');
 }
 
+// Dwelling = somewhere a person LIVES, which is a narrower question than "is this
+// indoors" and a different one from "can this be rented".
+//
+// It exists because `home_zone` had drifted into meaning "where you can be found
+// when you're not working" — 110 of 178 NPCs had their own shop floor, the studio
+// stage or a street tile as their home. Home life read off `home_zone` alone, so a
+// shopkeeper tidied her apartment in front of customers and eleven studio actors
+// microwaved something questionable on a live set.
+//
+// Two flags, deliberately:
+//   • is_apartment — the rentable pool, players and NPCs share it.
+//   • is_dwelling  — everything else somebody genuinely lives in and nobody rents:
+//                    the Reach cabins, Akerson's penthouse, the Long Watch
+//                    bunkroom, a sewer lair.
+//
+// A workplace gets NEITHER, and that is the whole point. An NPC posted at their
+// counter still stands there, still sleeps there, still talks to you — they just
+// stop performing domestic scenes in public.
+export function isDwellingZone(zone) {
+  return !!(zone?.flags?.is_apartment || zone?.flags?.is_dwelling);
+}
+
 // Allow-sleep = an explicit "you may sleep here" marker WITHOUT the sanctuary
 // bundle. Grants rest (safe-zone restore rate) but no combat protection /
 // forcefield / spawn suppression. For places like the Precinct 9 holding cell

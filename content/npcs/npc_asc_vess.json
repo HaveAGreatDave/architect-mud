@@ -86,7 +86,8 @@
       "soft slippers for the cathedral floor"
     ],
     "mis_willing": false,
-    "personality": "preacher"
+    "personality": "preacher",
+    "posted": true
   },
   "home_activities": [],
   "home_zone": "zone_asc_spire_concourse",

@@ -872,7 +872,7 @@ async function tick1m() {
   }
   stepIndoorTemps();
   if (broadcast) {
-    broadcast({ type: 'environment.clockTick', time: formatHHMM(state.minutes), tempC: state.tempC + diurnalOffset(state.minutes), currentWeatherType: state.currentPrecip !== 'none' ? state.currentPrecip : (PRECIP_FORECAST_TYPES.has(state.weatherType) ? 'cloudy' : state.weatherType), currentIntensity: currentIntensityLabel() });
+    broadcast({ type: 'environment.clockTick', time: formatHHMM(state.minutes), date: state.date, dayOfWeek: state.dayOfWeek, tempC: state.tempC + diurnalOffset(state.minutes), currentWeatherType: state.currentPrecip !== 'none' ? state.currentPrecip : (PRECIP_FORECAST_TYPES.has(state.weatherType) ? 'cloudy' : state.weatherType), currentIntensity: currentIntensityLabel() });
     // Per-zone indoor temp broadcasts so indoor HUDs stay current — only for
     // zones a player is in (Phase 8); an empty zone has no HUD to update.
     const occupiedTemp = deps.getOccupiedZones ? new Set(deps.getOccupiedZones()) : null;

@@ -1,0 +1,26 @@
+{
+  "id": "dxs_default_dog",
+  "drug_id": null,
+  "matches": null,
+  "scope": "spawn",
+  "name": "a large grey dog sitting in the doorway",
+  "description": "A grey dog the size of a bench sits square in the way, front legs braced, watching you with its head slightly tipped, in no hurry at all.",
+  "looks": [
+    "It has the patient, faintly disappointed face of an animal that has waited for people who did not come back.",
+    "Its tail moves once against the floor and thinks better of it.",
+    "It is sitting on something. You will not find out what."
+  ],
+  "says": [
+    "I will move. I always move.",
+    "You smell like outside. I am not complaining."
+  ],
+  "emotes": [
+    "{it} shakes itself from nose to tail and sits back down exactly as it was.",
+    "{it} follows something across the room with its eyes that is not there any more.",
+    "{it} rests its chin on the floor and sighs through its nose."
+  ],
+  "asks": [
+    "Are we going out?",
+    "Was that the door?"
+  ]
+}

@@ -14,6 +14,7 @@
 import { query } from '../../server/models/db.js';
 import { hasTag, tagValue } from '../../server/engine/tags.js';
 import { applyThirst } from '../../server/engine/bodily.js';
+import { slakeLine, portionLine } from '../../server/engine/appetite.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 
 const DEFAULT_RESTORE = 50;
@@ -33,7 +34,12 @@ async function drinkFrom(args, raw, player) {
   if (!furniture || !hasTag(furniture, 'water_source')) return undefined; // fall through
 
   const amount = tagValue(furniture, 'restore_thirst', DEFAULT_RESTORE);
+  const before = player.thirst || 0;
   applyThirst(player, amount);
+  // A tap is the one drink with no portion size, so it is also the one where a
+  // player can stand there swallowing with the meter already full. Say so, in the
+  // same words the `use` path uses.
+  const slake = `${slakeLine(player)}${portionLine('thirst', (player.thirst || 0) - before, amount)}`;
   await query('UPDATE players SET thirst=$1, hydration_load=$2 WHERE id=$3',
     [player.thirst, player.hydration_load || 0, player.id]);
 
@@ -45,14 +51,14 @@ async function drinkFrom(args, raw, player) {
     const foul = await dispatchAction({ type: 'bodily.drinkContaminated', actor: player, params: { fouled: contam.fouled } });
     return {
       type: 'use',
-      message: `You drink from the ${furniture.name}. ${foul.message}`,
+      message: `You drink from the ${furniture.name}. ${slake} ${foul.message}`,
       player_update: { thirst: player.thirst },
     };
   }
 
   return {
     type: 'use',
-    message: `You drink from the ${furniture.name}. Refreshing.`,
+    message: `You drink from the ${furniture.name}. ${slake}`,
     player_update: { thirst: player.thirst },
   };
 }

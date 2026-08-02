@@ -232,7 +232,7 @@ export function propagateYell(originZoneId, senderId, senderHandle, text, broadc
       // Others in origin zone hear the full yell; sender gets their own echo via command return.
       broadcastFn(zoneId, {
         type: 'output',
-        message: `<span style="color:var(--yellow);font-weight:bold">${senderHandle} yells: "${upped}"</span>`,
+        message: `<span class="speech-line yell">${senderHandle} yells, "${upped}"</span>`,
       }, senderId); // excludePlayerId — sender gets their own echo via command return
     } else {
       // Adjacent zones: muffled, some words dropped
@@ -240,7 +240,7 @@ export function propagateYell(originZoneId, senderId, senderHandle, text, broadc
       if (!muffled) continue;
       broadcastFn(zoneId, {
         type: 'output',
-        message: `<span style="color:var(--yellow);opacity:0.7">Somewhere nearby, someone yells: "${muffled}"</span>`,
+        message: `<span class="speech-line distant">Somewhere nearby, someone yells, "${muffled}"</span>`,
       });
     }
   }

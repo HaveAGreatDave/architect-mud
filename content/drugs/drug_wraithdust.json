@@ -76,7 +76,9 @@
       "recovery_per_sec": 0.0002
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "deliriant"
+  },
   "id": "drug_wraithdust",
   "item_id": "item_wraithdust",
   "name": "wraithdust",

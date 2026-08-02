@@ -1,0 +1,10 @@
+{
+  "id": "dr_objask_normal_010",
+  "drug_id": null,
+  "source": "object_ask",
+  "tone": "normal",
+  "self_line": "When did you last sit down for an hour?",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

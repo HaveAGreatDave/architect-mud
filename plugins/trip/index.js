@@ -38,7 +38,7 @@ import { query } from '../../server/models/db.js';
 import { getZone, world, getZoneNpcs, getZonePlayers, getZoneFurniture, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
-import { addPhantom, removePhantom, clearPhantoms, getPhantomsInZone, matchPhantom, addTransform, clearTransforms, getTransforms, setRoomTransform, setWeatherWarp } from '../../server/engine/phantoms.js';
+import { addPhantom, removePhantom, clearPhantoms, getPhantomsInZone, matchPhantom, addTransform, addNpcTransform, getNpcTransforms, clearTransforms, getTransforms, setRoomTransform, setWeatherWarp } from '../../server/engine/phantoms.js';
 import { buildDreamscape, dissolveDreamscape, isDreamZone } from '../../server/engine/dreamscape.js';
 import { getRelation, relationTier } from '../../server/engine/relations.js';
 
@@ -264,7 +264,10 @@ async function applyTransformsHere(player, state) {
   if (roomPool.length) {
     const r = one(roomPool);
     const line = arr(r.looks).length ? one(arr(r.looks)) : r.description;
-    setRoomTransform(player.id, player.current_zone, line);
+    // The room's NAME goes with it. A room warp that leaves the header reading
+    // "Ration Nine — Cold Store" is the trip telling you, in the one place you
+    // look first, that the room is still the room.
+    setRoomTransform(player.id, player.current_zone, line, r.name || null);
   }
 
   // ── 2. Real furniture ──────────────────────────────────────────────────────
@@ -282,8 +285,30 @@ async function applyTransformsHere(player, state) {
       const t = one(fits.length ? fits : objectPool);
       addTransform(player.id, f.id, {
         name: t.name, description: t.description, looks: arr(t.looks), says: arr(t.says),
+        emotes: arr(t.emotes), asks: arr(t.asks),
       });
       dressed++;
+    }
+  }
+
+  // ── 2b. The people in it ───────────────────────────────────────────────────
+  // The room changing while the people in it stay ordinary is the version of
+  // this that never quite lands: a bar full of normal drinkers around one
+  // impossible chair reads as a bug in the chair. ONE person, at most two — the
+  // ones who stay themselves are what make the changed one land, exactly as with
+  // the furniture. Talking to them, and hitting them, still reaches the real
+  // person (see commands/social.js and plugins/weapon).
+  const personPool = scoped('person');
+  const npcsHere = getZoneNpcs(player.current_zone) || [];
+  if (personPool.length && npcsHere.length) {
+    const targets = [...npcsHere].sort(() => Math.random() - 0.5).slice(0, 1 + (Math.random() < 0.35 ? 1 : 0));
+    for (const n of targets) {
+      const fits = personPool.filter(t => !t.matches || (n.npc_type || '').toLowerCase().includes(t.matches.toLowerCase()));
+      const t = one(fits.length ? fits : personPool);
+      addNpcTransform(player.id, n.id, {
+        name: t.name, description: t.description, looks: arr(t.looks), says: arr(t.says),
+        emotes: arr(t.emotes), asks: arr(t.asks),
+      });
     }
   }
 
@@ -300,6 +325,7 @@ async function applyTransformsHere(player, state) {
         id, name: t.name, kind: 'object',
         description: t.description,
         looks: arr(t.looks), says: arr(t.says),
+        emotes: arr(t.emotes), asks: arr(t.asks),
         zone: player.current_zone,
         hp: 1, hp_max: 1,
       });
@@ -318,23 +344,74 @@ async function applyTransformsHere(player, state) {
 // every row.
 const OWN_VOICE_SHARE = 0.4;
 
+// ── Nothing announces itself ────────────────────────────────────────────────
+//
+// THE WHOLE TRICK IS THAT IT IS NOT A TRICK. A line reading "the bed says,
+// without a mouth" tells the player two things it must never tell them: that
+// there is still a bed, and that what is happening is a special case. There is
+// no bed. There is a lion, and the lion talks the way anything in this game
+// talks — same `speech-line` wrapper, same "X says, ..." attribution, same
+// painted quotes the client gives an NPC. Read the log back afterwards and you
+// cannot tell which of the speakers was real, which is the point.
+//
+// Three registers, because a thing that only ever TALKS is a talking chair, and
+// a talking chair is a joke. Something that does things while you watch, and
+// asks you questions about itself, is a presence.
+const cap0 = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+// "a sleeping lion" -> "The sleeping lion". Subject form for an emote, matching
+// how the engine writes any other third-person room action.
+const theOf = (name) => {
+  const n = String(name || 'thing').trim();
+  const m = n.match(/^(?:a|an|the|some)\s+(.*)$/i);
+  return `The ${m ? m[1] : n}`;
+};
+// Speech attribution EXACTLY as ai-behaviour.js and voices.js write it, so the
+// forgery is byte-identical to the real thing (regress asserts this).
+const speechLine = (name, verb, text) =>
+  `<span class="speech-line">${cap0(name)} ${verb}, "${text}"</span>`;
+
 async function speakTransform(player, state) {
   // Conjured objects speak too — they are transforms that happen not to be
   // attached to a real piece of furniture. No says[] filter any more: the shared
   // pool can speak for anything.
   const conjured = getPhantomsInZone(player.id, player.current_zone).filter(p => p.kind === 'object');
-  const all = [...getTransforms(player.id), ...conjured];
-  if (!all.length || Math.random() > 0.5) return;
+  // Transformed PEOPLE act and speak from the same pools. They are cleared and
+  // re-rolled on every room change with the rest, so everything held here is in
+  // the room the player is standing in.
+  const all = [...getTransforms(player.id), ...getNpcTransforms(player.id), ...conjured];
+  if (!all.length || Math.random() > 0.6) return;
   const t = all[Math.floor(Math.random() * all.length)];
-  let line = null;
-  if (t.says?.length && Math.random() < OWN_VOICE_SHARE) {
-    line = t.says[Math.floor(Math.random() * t.says.length)];
-  } else {
-    line = (await drawReaction('object', state))?.self_line || null;
+
+  // Weighted toward ACTION. Something moving in the corner of a room you are
+  // still standing in does more work than another sentence, and it is also what
+  // keeps the talking rare enough to land.
+  const roll = Math.random();
+  const register = roll < 0.4 ? 'emote' : roll < 0.7 ? 'ask' : 'say';
+
+  if (register === 'emote') {
+    const line = own1(t.emotes) || (await drawReaction('object_emote', state))?.self_line || null;
+    if (!line) return speakTransform_fallbackSay(player, state, t);
+    // A per-player zone_event: the same channel real room life arrives on.
+    sendToPlayer(player.id, { type: 'zone_event', message: fillTokens(line, { it: theOf(t.name), player: player.handle }) });
+    return;
   }
-  if (!line) return;
-  sendToPlayer(player.id, { type: 'output', message: `<span class="msg-ambient">The ${t.name} says, without a mouth: <em>${line}</em></span>` });
+
+  if (register === 'ask') {
+    const line = own1(t.asks) || (await drawReaction('object_ask', state))?.self_line || null;
+    if (!line) return speakTransform_fallbackSay(player, state, t);
+    sendToPlayer(player.id, { type: 'output', message: speechLine(t.name, 'asks', fillTokens(line, { it: theOf(t.name), player: player.handle })) });
+    return;
+  }
+  return speakTransform_fallbackSay(player, state, t);
 }
+
+async function speakTransform_fallbackSay(player, state, t) {
+  const line = own1(t.says) || (await drawReaction('object', state))?.self_line || null;
+  if (!line) return;
+  sendToPlayer(player.id, { type: 'output', message: speechLine(t.name, 'says', fillTokens(line, { it: theOf(t.name), player: player.handle })) });
+}
+const own1 = (list) => (list?.length && Math.random() < OWN_VOICE_SHARE
+  ? list[Math.floor(Math.random() * list.length)] : null);
 
 async function killTripPlayer(player) {
   const { handlePlayerDeath } = await import('../../server/engine/gameLoop.js');
@@ -484,7 +561,11 @@ const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 function phantomExamine(player, target) {
   const ph = target && matchPhantom(player, target);
   if (!ph) return undefined;
-  return { type: 'examine', message: ph.look };
+  // A conjured OBJECT carries looks[]/description like a transform rather than
+  // the single `look` a person or beast gets — without this branch, examining a
+  // thing the drug put in the room answered with an empty message.
+  const look = arr(ph.looks).length ? one(arr(ph.looks)) : null;
+  return { type: 'examine', message: `<span class="zone-name">${cap(ph.name)}</span>\n${look || ph.look || ph.description || "It doesn't look quite right, though you couldn't say how."}` };
 }
 
 async function phantomTalk(player, target) {
@@ -513,25 +594,154 @@ async function phantomTalk(player, target) {
 async function talkToTransformed(player, target) {
   const t = (target || '').toLowerCase().trim();
   if (!t) return undefined;
-  const candidates = [
-    ...getTransforms(player.id),
-    ...getPhantomsInZone(player.id, player.current_zone).filter(p => p.kind === 'object'),
-  ].filter(c => (c.name || '').toLowerCase().includes(t));
+  const candidates = hallucinationsHere(player)
+    .filter(c => (c.name || '').toLowerCase().includes(t));
   if (!candidates.length) return undefined;
   const c = candidates[0];
+  // A CONVERSATION, not a line. Opens the ordinary dialogue panel against the
+  // shape in front of you — a transformed PERSON included, which is the one case
+  // where the two readings of `talk` diverge on purpose: their real name reaches
+  // the person and their dialogue tree, the shape's name reaches the shape.
+  return openConversation(player, c);
   // Same rule as the unprompted beat: its own authored voice sometimes, the
   // shared pool otherwise — so a thing answers in the same register whether it
   // spoke first or you did, and nothing is ever mute for want of a says[].
   const state = activeTrips.get(player.id);
-  let line = null;
-  if (c.says?.length && Math.random() < OWN_VOICE_SHARE) {
-    line = c.says[Math.floor(Math.random() * c.says.length)];
-  } else {
-    line = (await drawReaction('object', state || null))?.self_line || null;
-  }
+  // It may well answer a question with a question — the same three registers the
+  // unprompted beat uses, and rendered identically to an NPC replying to you.
+  const asking = Math.random() < 0.35;
+  let line = own1(asking ? c.asks : c.says);
+  if (!line) line = (await drawReaction(asking ? 'object_ask' : 'object', state || null))?.self_line || null;
+  if (!line) line = (await drawReaction('object', state || null))?.self_line || null;
   if (!line) return undefined;
-  return { type: 'output', message: `<span class="msg-ambient">You address the ${c.name}. It answers, without a mouth: <em>${line}</em></span>` };
+  const tokens = { it: theOf(c.name), player: player.handle };
+  return { type: 'output', message: speechLine(c.name, asking ? 'asks' : 'says', fillTokens(line, tokens)) };
 }
+
+// ── Conversations with things that are not there ────────────────────────────
+//
+// One line back was never a conversation — you spoke to a lion and it said one
+// sentence at you. This runs the real dialogue panel, so talking to the shape in
+// front of you looks EXACTLY like talking to a person: same panel, same speaker
+// name, same option list. There is no `npcs` row, so it rides the engine's
+// `dialogue.synthetic` seam (server/index.js) under an id the plugin owns.
+//
+// The branches are the point. Every one of them is something you can only say to
+// a hallucination, and the thing has an answer for each — including the one that
+// matters, which is telling it that it is not real.
+const CONV_PREFIX = 'trip:';
+// playerId -> { key, name, kind, spec, turns }
+const conversations = new Map();
+
+// What a reply DRAWS ON. Each maps to a `drug_reactions` source, so the writing
+// lives in content and the branch structure lives here.
+const BRANCHES = [
+  { key: 'answer',   label: 'Answer it.',                        source: 'object_reply_answer' },
+  { key: 'identity', label: 'Ask what it was before this.',      source: 'object_reply_identity' },
+  { key: 'denial',   label: "Tell it you know it isn't real.",   source: 'object_reply_denial' },
+  { key: 'listen',   label: 'Say nothing and let it talk.',      source: 'object' },
+];
+const MAX_TURNS = 5;   // it winds down rather than looping forever
+
+const convKeyOf = (c) => CONV_PREFIX + (c.furnitureId || c.npcId || c.id);
+
+// Everything in the room this viewer could be talking to — real furniture
+// wearing another shape, a person wearing another shape, or something conjured.
+function hallucinationsHere(player) {
+  return [
+    ...getTransforms(player.id),
+    ...getNpcTransforms(player.id),
+    ...getPhantomsInZone(player.id, player.current_zone).filter(p => p.kind === 'object'),
+  ];
+}
+
+// The frame the dialogue panel renders. `text` is already the thing's speech —
+// the panel prints it as the speaker's line, exactly as it does for an NPC.
+function convFrame(conv, text, { closing } = {}) {
+  const options = closing ? [] : [
+    ...BRANCHES.map(b => ({ label: b.label, next: b.key })),
+    { label: 'Leave it alone.', next: '__end__' },
+  ];
+  return {
+    type: 'dialogue',
+    npcId: conv.key,
+    npcName: cap(conv.name),
+    node: closing ? '__end__' : 'root',
+    text,
+    options,
+    stage: '',
+    mood: null,
+  };
+}
+
+async function openConversation(player, thing) {
+  const conv = { key: convKeyOf(thing), name: thing.name, spec: thing, turns: 0 };
+  conversations.set(player.id, conv);
+  const state = activeTrips.get(player.id) || null;
+  // It opens the way it has been opening all trip: with a question about itself.
+  const opener = own1(thing.asks)
+    || (await drawReaction('object_ask', state))?.self_line
+    || own1(thing.says)
+    || (await drawReaction('object', state))?.self_line
+    || 'Yes?';
+  return convFrame(conv, fillTokens(opener, { it: theOf(thing.name), player: player.handle }));
+}
+
+/**
+ * One exchange. Returns the next dialogue frame, or a `dialogue_end` when the
+ * conversation is over — the panel closes and the log says why.
+ *
+ * RE-VALIDATED EVERY TURN, like every other ongoing loop in the game: the trip
+ * can end, the drug can wear off, you can walk out. When the shape is gone, the
+ * conversation is over and it says so in the only way that fits — you are
+ * talking to a chair.
+ */
+async function advanceConversation(player, choice) {
+  const conv = conversations.get(player.id);
+  if (!conv) return null;
+  const still = hallucinationsHere(player).find(t => convKeyOf(t) === conv.key);
+  if (!still) {
+    conversations.delete(player.id);
+    return { type: 'dialogue_end', message: '<span class="msg-ambient">You are talking to a chair. It is a chair.</span>' };
+  }
+  if (choice === '__end__') {
+    conversations.delete(player.id);
+    const state = activeTrips.get(player.id) || null;
+    const bye = (await drawReaction('object_reply_farewell', state))?.self_line;
+    return {
+      type: 'dialogue_end',
+      message: bye
+        ? `<span class="speech-line">${cap(conv.name)} says, "${fillTokens(bye, { it: theOf(conv.name), player: player.handle })}"</span>`
+        : `<span class="msg-ambient">You stop talking to ${theOf(conv.name).toLowerCase()}.</span>`,
+    };
+  }
+
+  const branch = BRANCHES.find(b => b.key === choice) || BRANCHES[0];
+  const state = activeTrips.get(player.id) || null;
+  const line = (await drawReaction(branch.source, state))?.self_line
+    || own1(conv.spec.says)
+    || (await drawReaction('object', state))?.self_line
+    || '...';
+  conv.turns++;
+
+  const tokens = { it: theOf(conv.name), player: player.handle };
+  let text = fillTokens(line, tokens);
+  // It runs out of conversation rather than looping. The last thing it says is
+  // an ACTION, not a line — it goes back to whatever it was doing, and the panel
+  // shuts with no options left to press.
+  if (conv.turns >= MAX_TURNS) {
+    const emote = own1(conv.spec.emotes) || (await drawReaction('object_emote', state))?.self_line;
+    conversations.delete(player.id);
+    return {
+      type: 'dialogue_end',
+      message: `<span class="speech-line">${cap(conv.name)} says, "${text}"</span>${emote ? `\n<span class="msg-ambient">${fillTokens(emote, tokens)}</span>` : ''}`,
+    };
+  }
+  return convFrame(conv, text);
+}
+
+// Nobody carries a conversation out of a trip.
+function endConversation(playerId) { conversations.delete(playerId); }
 
 function pickWitness(player) {
   const npcs = getZoneNpcs(player.current_zone);
@@ -583,6 +793,7 @@ function endTrip(playerId, { reason } = {}) {
   clearPhantoms(playerId);
   clearTransforms(playerId);   // the room stops misbehaving
   forgetSaid(playerId);        // nobody carries this trip into the next one
+  endConversation(playerId);   // and nothing is still mid-sentence
 
   const player = world.players.get(playerId);
 
@@ -620,6 +831,7 @@ function endTrip(playerId, { reason } = {}) {
 // back inside the trip) and tear down silently.
 on('player.logout', ({ id }) => {
   forgetSaid(id);
+  endConversation(id);
   const state = activeTrips.get(id);
   if (!state) return;
   if (state.mode === 'dreamzone') {
@@ -750,8 +962,14 @@ async function drawReaction(source, drugIdOrState) {
   return drawReactionFrom(rows, source);
 }
 
-const fillTokens = (s, { npc, player }) =>
-  String(s || '').replace(/\{npc\}/g, npc || 'somebody').replace(/\{player\}/g, player || 'somebody');
+// {it} is the transformed thing in subject form ("The sleeping lion") — the one
+// token a shared object line needs, and what lets ONE emote pool fit every shape
+// a room can take.
+const fillTokens = (s, { npc, player, it } = {}) =>
+  String(s || '')
+    .replace(/\{npc\}/g, npc || 'somebody')
+    .replace(/\{player\}/g, player || 'somebody')
+    .replace(/\{it\}/g, it || 'It');
 
 // One reaction per room-entry at most, and not every time — a room that comments
 // on your state every single move stops being a world and starts being a nag.
@@ -806,12 +1024,26 @@ on('zone.entered', async ({ actor, zone }) => {
 // Test seams for the social layer — pure functions over (pool, npc, tier) and a
 // per-(player,npc) memory map, so regress can assert the scoping and the silence
 // without a live room.
+export const _speechLine = speechLine;
+export const _fillTokens = fillTokens;
+export const _theOf = theOf;
 export const _scopeToNpc = scopeToNpc;
 export const _npcMaySpeak = npcMaySpeak;
 export const _rememberSaid = rememberSaid;
 export const _forgetSaid = forgetSaid;
 
 export const hooks = {
+  // The engine routes any dialogue whose npcId isn't an NPC row through here.
+  // Claim only our own prefix — another plugin may own its own synthetic
+  // speaker, and answering for it would steal the conversation.
+  'dialogue.synthetic': async ({ player, npcId, choice }) => {
+    if (!player || typeof npcId !== 'string' || !npcId.startsWith(CONV_PREFIX)) return undefined;
+    const conv = conversations.get(player.id);
+    if (!conv || conv.key !== npcId) {
+      return { type: 'dialogue_end', message: '<span class="msg-ambient">Whatever you were talking to has stopped being there.</span>' };
+    }
+    return (await advanceConversation(player, choice)) ?? undefined;
+  },
   'drug.used': (payload) => startTrip(payload).catch(e => console.error('[trip] startTrip:', e.message)),
   'drug.overdose': ({ player }) => { if (player?.id) endTrip(player.id, { reason: 'overdose' }); },
 };

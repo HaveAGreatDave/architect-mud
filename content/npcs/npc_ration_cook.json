@@ -3,23 +3,121 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "chat": {
-        "action_type": "VENDOR_CHITCHAT",
-        "next": "wait",
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
         "type": "action"
       },
-      "look": {
-        "condition_type": "PLAYER_IN_ZONE",
-        "ifFalse": "wait",
-        "ifTrue": "chat",
+      "atm_wait": {
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "collect_safe",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
         "type": "condition"
       },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
       "start": {
-        "next": "wait",
+        "next": "check_work",
         "type": "start"
       },
-      "wait": {
-        "next": "look",
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
         "seconds": 60,
         "type": "wait"
       }
@@ -107,7 +205,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_mq_grocery",
+  "home_zone": "zone_meridian_unit_404",
   "hp": 50,
   "hp_max": 50,
   "id": "npc_ration_cook",
@@ -204,31 +302,31 @@
       "item_id": "item_frying_pan",
       "price": 60,
       "restockToQty": 4,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_stock_pot",
       "price": 90,
       "restockToQty": 4,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_spatula",
       "price": 15,
       "restockToQty": 6,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_wooden_spoon",
       "price": 10,
       "restockToQty": 6,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_oven_zenith_compact",
       "price": 850,
       "restockToQty": 4,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_orange",
@@ -438,37 +536,37 @@
       "item_id": "item_cast_iron_skillet",
       "price": 110,
       "restockToQty": 4,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_steel_saucepan",
       "price": 45,
       "restockToQty": 4,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_roasting_tray",
       "price": 70,
       "restockToQty": 4,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_kitchen_tongs",
       "price": 18,
       "restockToQty": 6,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_ladle",
       "price": 12,
       "restockToQty": 6,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_wire_whisk",
       "price": 14,
       "restockToQty": 5,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_recipe_card",
@@ -510,13 +608,13 @@
       "item_id": "item_mixing_bowl",
       "price": 26,
       "restockToQty": 4,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_pestle",
       "price": 30,
       "restockToQty": 4,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_wood_chips",
@@ -564,7 +662,7 @@
       "item_id": "item_kitchen_knife",
       "price": 52,
       "restockToQty": 4,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_penne",
@@ -681,28 +779,28 @@
       "sourceContainer": "furn_ration9_shelves"
     },
     {
-      "item_id": "item_fishing_rod",
-      "price": 45,
-      "restockToQty": 3,
-      "sourceContainer": "furn_ration9_shelves"
-    },
-    {
-      "item_id": "item_wetsuit",
-      "price": 300,
-      "restockToQty": 2,
-      "sourceContainer": "furn_ration9_shelves"
-    },
-    {
-      "item_id": "item_rebreather",
-      "price": 420,
-      "restockToQty": 2,
-      "sourceContainer": "furn_ration9_shelves"
-    },
-    {
       "item_id": "item_bloodworm_bait",
       "price": 6,
       "restockToQty": 10,
       "sourceContainer": "furn_ration9_case_chiller"
+    },
+    {
+      "item_id": "item_brown_sugar",
+      "price": 9,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_shelves"
+    },
+    {
+      "item_id": "item_paprika",
+      "price": 15,
+      "restockToQty": 12,
+      "sourceContainer": "furn_ration9_shelves"
+    },
+    {
+      "item_id": "item_pork_shoulder",
+      "price": 58,
+      "restockToQty": 4,
+      "sourceContainer": "furn_ration9_case_freezer"
     }
   ],
   "vendor_restock_rate": 1,

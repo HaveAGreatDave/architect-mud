@@ -223,7 +223,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_yard_freightoffice",
+  "home_zone": "zone_meridian_unit_504",
   "hp": 26,
   "hp_max": 26,
   "id": "npc_yardmaster_barlow",
@@ -241,12 +241,52 @@
       "price": 6
     },
     {
+      "item_id": "item_battery",
+      "price": 7
+    },
+    {
+      "item_id": "item_foam_earplugs",
+      "price": 7
+    },
+    {
+      "item_id": "item_hydraulic_hose",
+      "price": 7
+    },
+    {
       "item_id": "item_duct_tape",
       "price": 10
     },
     {
+      "item_id": "item_pressure_gauge",
+      "price": 10
+    },
+    {
+      "item_id": "item_work_gloves",
+      "price": 13
+    },
+    {
+      "item_id": "item_industrial_tape",
+      "price": 14
+    },
+    {
+      "item_id": "item_gun_oil_kit",
+      "price": 22
+    },
+    {
+      "item_id": "item_flashlight",
+      "price": 30
+    },
+    {
+      "item_id": "item_propane_canister",
+      "price": 33
+    },
+    {
       "item_id": "item_jerry_can",
       "price": 35
+    },
+    {
+      "item_id": "item_ear_defenders",
+      "price": 44
     },
     {
       "item_id": "item_mystery_component",
@@ -307,7 +347,7 @@
     ]
   },
   "vendor_shop_name": "Shipping & Handling",
-  "vendor_stock_size": 7,
+  "vendor_stock_size": 23,
   "wander_zones": [],
   "wanders": 0,
   "work_zone_id": "zone_yard_freightoffice"

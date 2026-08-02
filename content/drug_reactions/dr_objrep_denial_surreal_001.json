@@ -1,0 +1,10 @@
+{
+  "id": "dr_objrep_denial_surreal_001",
+  "drug_id": null,
+  "source": "object_reply_denial",
+  "tone": "surreal",
+  "self_line": "No. But I am HERE, which is the part you keep skipping.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

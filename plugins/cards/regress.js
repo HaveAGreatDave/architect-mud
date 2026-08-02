@@ -151,6 +151,41 @@ export default async function regress({ run, check, getPlayer }) {
     check('previewing costs nothing', (Number(player.credits) || 0) === before,
       `${before} -> ${player.credits}`);
 
+    // ── the price floor ──────────────────────────────────────────────────────
+    // Scrap is the floor under the pack price: a near-complete shelf pulls mostly
+    // duplicates, so a sleeve's worst case is `size × SCRAP_VALUE` straight back
+    // out. If that ever reaches the price, buying packs forever becomes the
+    // correct play and the machine is a money printer. The 9-card mis-cut is the
+    // fattest sleeve the roller can produce, so it is the case to test.
+    const { _test: cardConsts } = await import('./index.js');
+    check('a full-dupe sleeve can never pay for itself, even at max size',
+      9 * cardConsts.SCRAP_VALUE < cardConsts.PACK_PRICE,
+      `9 × ₵${cardConsts.SCRAP_VALUE} = ₵${9 * cardConsts.SCRAP_VALUE} vs ₵${cardConsts.PACK_PRICE}`);
+
+    // ── the machine is a panel, and buying is a separate act ─────────────────
+    // `buypack` used to charge and reveal in one breath. It now opens the
+    // terminal, which must cost nothing — the panel is the thing you read the
+    // price off, so a player who opens it and walks away has to be untouched.
+    const creditsBefore = Number(player.credits) || 0;
+    r = await run('buypack');
+    check('buypack opens the machine panel rather than transacting',
+      r?.type === 'cardmach_panel', JSON.stringify(r)?.slice(0, 160));
+    check('opening the machine costs nothing', (Number(player.credits) || 0) === creditsBefore,
+      `${creditsBefore} -> ${player.credits}`);
+    check('the panel carries the price, balance and pool it renders',
+      r?.price > 0 && r?.credits != null && r?.pool && typeof r.pool.total === 'number',
+      JSON.stringify(r)?.slice(0, 200));
+
+    // The sleeve is an inventory row, and the roll happens at the TEAR. With no
+    // sleeve there is nothing to roll, and nothing may be granted.
+    await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, 'card_foil_sleeve']).catch(() => {});
+    const shelfBefore = await query('SELECT COUNT(*)::int AS n FROM card_holdings WHERE player_id=$1', [player.id]).catch(() => ({ rows: [{ n: 0 }] }));
+    r = await run('openpack');
+    check('openpack with no sleeve errors cleanly', r?.type === 'error', JSON.stringify(r)?.slice(0, 140));
+    const shelfAfter = await query('SELECT COUNT(*)::int AS n FROM card_holdings WHERE player_id=$1', [player.id]).catch(() => ({ rows: [{ n: 0 }] }));
+    check('a failed openpack grants nothing', shelfAfter.rows[0].n === shelfBefore.rows[0].n,
+      `${shelfBefore.rows[0].n} -> ${shelfAfter.rows[0].n}`);
+
     r = await run('cards');
     check('cards reads an empty shelf without throwing', r?.type === 'output', JSON.stringify(r)?.slice(0, 120));
 

@@ -37,7 +37,9 @@
       "onset_seconds": 1200
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "nootropic"
+  },
   "id": "drug_memhack",
   "item_id": "item_memhack",
   "name": "Memhack",

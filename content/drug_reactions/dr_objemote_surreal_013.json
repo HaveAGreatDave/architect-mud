@@ -1,0 +1,10 @@
+{
+  "id": "dr_objemote_surreal_013",
+  "drug_id": null,
+  "source": "object_emote",
+  "tone": "surreal",
+  "self_line": "{it} draws itself up until the ceiling looks lower than it did.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

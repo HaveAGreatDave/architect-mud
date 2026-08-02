@@ -5,5 +5,5 @@
   "dir": "east",
   "id": "conn_kitchenware_east_u5bt",
   "lockable": false,
-  "one_way": true
+  "one_way": false
 }

@@ -29,7 +29,8 @@
     }
   },
   "flags": {
-    "drug_class": "stimulant"
+    "drug_class": "stimulant",
+    "drug_family": "stimulant"
   },
   "id": "drug_buzz",
   "item_id": "item_drug_buzz",

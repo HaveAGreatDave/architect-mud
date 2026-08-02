@@ -1,0 +1,14 @@
+{
+  "description": "A card in somebody's own handwriting, a method worked out at a stove rather than copied off a packet. The corner is greasy where a thumb kept the page.",
+  "flags": {},
+  "id": "item_written_recipe",
+  "name": "written recipe",
+  "tags": {
+    "description": "A card in somebody's own handwriting, a method worked out at a stove rather than copied off a packet. The corner is greasy where a thumb kept the page.",
+    "recipe_card": "",
+    "stackable": false
+  },
+  "type": "misc",
+  "value": 15,
+  "weight": 10
+}

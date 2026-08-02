@@ -1,0 +1,11 @@
+{
+  "name": "graffiti",
+  "version": "1.0.0",
+  "description": "TAG the front of a building with a can of spray paint. The `graffiti` crime has been in the registry at 0.3 stars since the crime system was built, charging nobody because there was no verb — this is the verb. Three rules shape it: you spray a BUILDING on an adjacent exit (flags.is_building), never open ground, so a tag always lands on a thing that exists and says which thing; there is exactly ONE tag per street tile and anyone may paint over anyone, which makes the wall a contested slot rather than a noticeboard (and makes the cap a PRIMARY KEY rather than a rule somebody enforces); and a tag ages out after 3 game days, derived from the game DATE rather than a tick, so it's stateless and a restart can't repaint the city. RAM is authoritative — every tag hydrates once and the room-description path never queries. Player text is escaped on the way IN and stored escaped, since it lands in a stranger's HTML. Removal is the cleaning plugin's `clean`, which needs a real tool for paint: bare hands do floor filth, not brickwork.",
+  "commands": ["tag"],
+  "hooks": ["zone.describeRoom"],
+  "extensionPoints": [
+    "items.tags.spray_paint",
+    "events.graffiti.tagged"
+  ]
+}

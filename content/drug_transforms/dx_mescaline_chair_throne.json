@@ -1,0 +1,28 @@
+{
+  "id": "dx_mescaline_chair_throne",
+  "drug_id": "drug_mescaline",
+  "matches": "chair",
+  "scope": "object",
+  "name": "a worn stone seat",
+  "description": "A seat cut from a single block of red stone, the arms polished to a shine by hands, the front edge worn into a shallow dip by generations of the backs of knees.",
+  "looks": [
+    "The dip in the seat is exactly the shape of somebody. It is not exactly your shape, and that bothers you more than it should.",
+    "There are marks cut into the underside of the arm where nobody would ever see them. They are a tally, and it is a long one.",
+    "It is warm. There is no sun in here and it is warm."
+  ],
+  "says": [
+    "Others have sat. It held them.",
+    "You may. It is not a throne. It is only very old.",
+    "The count under the arm is not people. Do not worry about the count."
+  ],
+  "emotes": [
+    "{it} takes the light along one polished arm as if somebody just ran a hand down it.",
+    "Dust settles on {it} and, a moment later, is not on it any more.",
+    "{it} sits in the middle of the floor as though the room was built around it, which it now appears to have been."
+  ],
+  "asks": [
+    "Are you going to sit, or are you working out whether you are allowed?",
+    "Who told you about this room?",
+    "Do you know how many that tally is up to?"
+  ]
+}

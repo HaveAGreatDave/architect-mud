@@ -46,10 +46,19 @@ function disguisesIn(zoneId) {
   return getZoneFurniture(zoneId).filter((f) => f.flags?.conceal_hides);
 }
 
-// The disguise piece a player means. A name hint matches the disguise itself OR
-// the brand; with no hint, the only disguise in the room (ambiguity is refused
-// rather than guessed, because guessing wrong here types your code at the wrong
-// box).
+// The disguise that hides a given piece, if any. The reverse of conceal_hides,
+// derived from the same zone read — so a revealed lab needs no back-pointer to be
+// resolvable, and a mis-authored one can't strand a keypad.
+function disguiseHiding(furniture) {
+  if (!furniture) return null;
+  return disguisesIn(furniture.zone_id).find((d) => d.flags.conceal_hides === furniture.id) || null;
+}
+
+// The disguise piece a player means. A name hint matches the disguise itself, its
+// brand, OR — once it's open and the cabinet has stood aside — the revealed piece
+// standing in its place, because that's the only thing left in the room to name.
+// With no hint, the only disguise in the room (ambiguity is refused rather than
+// guessed, because guessing wrong here types your code at the wrong box).
 function resolveDisguise(player, hint) {
   const all = disguisesIn(player.current_zone);
   if (!all.length) return { error: 'Nothing here has a keypad.' };
@@ -58,7 +67,12 @@ function resolveDisguise(player, hint) {
     if (all.length > 1) return { error: `Which one? ${all.map((f) => f.name).join(', ')}.` };
     return { furniture: all[0] };
   }
-  const hit = all.find((f) => f.name.toLowerCase().includes(h) || String(f.flags.conceal_brand || '').toLowerCase().includes(h));
+  const hit = all.find((f) => {
+    if (f.name.toLowerCase().includes(h)) return true;
+    if (String(f.flags.conceal_brand || '').toLowerCase().includes(h)) return true;
+    const hidden = getFurnitureById(f.flags.conceal_hides);
+    return !!hidden && !hidden.flags?.concealed && hidden.name.toLowerCase().includes(h);
+  });
   return hit ? { furniture: hit } : { error: `There's no keypad on "${hint}".` };
 }
 
@@ -135,8 +149,8 @@ async function submitCode(disguise, typed, player) {
 
   const brand = brandOf(disguise);
   const roomLine = opening
-    ? `<span class="msg-system">The ${disguise.name} chimes softly, and its whole face pivots on a hidden turntable — shelving swinging away, ${hidden.name} rolling out of the wall behind it.</span>`
-    : `<span class="msg-system">${hidden.name} rolls back into the wall, and the ${disguise.name} pivots shut over it. Just a cabinet again.</span>`;
+    ? `<span class="msg-system">The ${disguise.name} chimes softly and folds itself away on a hidden turntable — shelving, facing and all of it swallowed into the wall, ${hidden.name} rolling out into the space where it stood.</span>`
+    : `<span class="msg-system">${hidden.name} rolls back into the wall, and the ${disguise.name} turns out of it to take its place. Just a cabinet again.</span>`;
   sendToZone(player.current_zone, { type: 'zone_event', message: roomLine, refresh: true }, player.id);
   // The actor's own room pane has to repaint too — the furniture list just gained
   // (or lost) a row. A message-less zone_event is the client's refresh-only shape.
@@ -174,27 +188,49 @@ async function cmdConcealSetCode(args, raw, player) {
 // furniture.describe — the disguise reads as what it pretends to be, plus a hint
 // that there IS a panel (a keypad on a luxury cabinet isn't a secret; the code
 // is). An open cabinet says so, because the room can plainly see it.
+function keypadLine(target, trim) {
+  return `\n<span class="text-dim">${trim} — <span class="action-link" data-action="keypad" data-target="${target.name.toLowerCase()}">keypad</span>.</span>`;
+}
+
 function describeFurniture(furniture, player) {
   const hides = furniture?.flags?.conceal_hides;
   // undefined, NOT '' — fireHook keeps the LAST defined return, so an empty string
   // here silently wipes whatever another plugin's furniture.describe contributed
   // (it ate the appliances plugin's "unplugged" line the first time round).
-  if (!hides) return undefined;
-  if (isOpen(furniture)) {
-    // Open is public whoever you are — the lab is standing in the room.
-    const hidden = getFurnitureById(hides);
-    return `\n<span class="text-dim">It stands pivoted open, ${hidden ? hidden.name : 'the compartment'} exposed behind it.</span>`;
+  if (hides) {
+    // An OPEN cabinet isn't in the room at all any more (describe.js stands the
+    // revealed piece in its place), so there's nothing left to annotate. Anyone
+    // who examines it by name is looking at a slab folded into the wall.
+    if (isOpen(furniture)) {
+      const hidden = getFurnitureById(hides);
+      return `\n<span class="text-dim">It's folded away into the wall cavity, ${hidden ? hidden.name : 'the compartment'} standing where it was.</span>`;
+    }
+    if (!keypadVisibleTo(furniture, player)) return undefined;
+    return keypadLine(furniture, 'A slim keypad sits flush in the trim');
   }
-  if (!keypadVisibleTo(furniture, player)) return undefined;
-  return `\n<span class="text-dim">A slim keypad sits flush in the trim — <span class="action-link" data-action="keypad" data-target="${furniture.name.toLowerCase()}">keypad</span>.</span>`;
+  // The keypad follows the mechanism — with the cabinet gone, the panel that shuts
+  // it again is on the revealed piece — but it is NOT advertised from here. This
+  // hook is last-writer-wins (see above) and the revealed piece is usually a
+  // crafting station whose own plugin describes it: synthesis' "Lab:" line landed
+  // after this one and ate it. The keypad reaches the revealed piece through the
+  // specializedActions row below instead, which drains into examine's Actions line
+  // and the smart bar, and which nothing can overwrite.
+  return undefined;
 }
 
 // requiredFlag makes `keypad` advertise itself on exactly the pieces that have
 // one (examine's Actions row, and the mobile smart bar), and nowhere else;
 // visibleFor narrows that again to the owner of an owned room, so the two
 // discovery surfaces agree with the describe hook above.
+// The second row is the same verb on the other half of the pair: a revealed piece
+// carries `flags.conceal_hidden_by` purely so examine's Actions row and the smart
+// bar can advertise `keypad` on the thing standing in the room once the cabinet
+// has folded away. Discovery only — resolution derives the pair from the zone
+// (disguiseHiding), so a stale or missing back-pointer costs a hint, never access.
+// Only ONE row may carry a handler, or a bare `keypad` would run cmdKeypad twice.
 export const specializedActions = [
   { verb: 'keypad', requiredFlag: 'conceal_hides', visibleFor: keypadVisibleTo, handler: cmdKeypad },
+  { verb: 'keypad', requiredFlag: 'conceal_hidden_by', visibleFor: (f, v) => !f?.flags?.concealed && keypadVisibleTo(f, v), handler: null },
 ];
 
 export const hooks = {

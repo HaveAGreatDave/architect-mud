@@ -66,7 +66,8 @@
       "bare chromed feet on the cold floor"
     ],
     "mis_willing": false,
-    "personality": "preacher"
+    "personality": "preacher",
+    "posted": true
   },
   "home_activities": [],
   "home_zone": "zone_asc_shrine_nave",

@@ -83,6 +83,13 @@ Leaf plugin: no table, no tick, no skill. This is a chore, not a career.
 - A spotless floor **answers** rather than erroring — "there's nothing to clean"
   is information, and returning it here stops `clean` falling through to
   `Unknown command`.
+- **`clean` also takes graffiti off the wall** (2026-08-01), because one verb for
+  "make this room right" beats two. Note the deliberate asymmetry with the rule
+  above: **paint needs a real tool.** Bare hands do floor filth, not brickwork.
+  A tool is *rewarded* on the floor because requiring one would mean nobody ever
+  cleans; it is *required* on a wall because if defacing a shopfront cost the
+  owner nothing to undo, a tag wouldn't mean anything. See
+  [plugins/graffiti/README.md](../plugins/graffiti/README.md).
 
 ## Tags
 

@@ -59,7 +59,7 @@ That is nagging, not information — it trains a player to skim past the one lin
 
 At **zero** the flavour goes quiet entirely and the damage line owns the moment — `Starvation is taking its toll. (-1 HP)` already fires every minute and says everything the flavour would. Two systems narrating one moment is exactly how the first draft reached four lines a minute; a full simulated starvation run went from **235 lines to 38** across seven game-hours.
 
-**Satiation** is the half that never existed. `digestive_load` has always been there — eating adds `restoreHunger × 0.7` — but its only feedback was eventually needing the toilet, so a full stomach was a state the game could not express and portion sizes were unlearnable. Eating and drinking now report **where you ended up** rather than what the item was worth (`satiationLine` / `slakeLine`), which is the one thing a bar never could: how *full* you are, rather than how empty. The old `+20 Hunger.` receipt is gone; cooking's own quality line ("*Masterful, this one.*") still carries how good the meal was.
+**Satiation** is the half that never existed. `digestive_load` has always been there — eating adds `restoreHunger × 0.175` (was ×0.7 before the 2026-08-01 4× slowdown) — but its only feedback was eventually needing the toilet, so a full stomach was a state the game could not express and portion sizes were unlearnable. Eating and drinking now report **where you ended up** rather than what the item was worth (`satiationLine` / `slakeLine`), which is the one thing a bar never could: how *full* you are, rather than how empty. The old `+20 Hunger.` receipt is gone; cooking's own quality line ("*Masterful, this one.*") still carries how good the meal was.
 
 At ≤20 the player is warned ("very hungry/thirsty"). At 0:
 
@@ -245,6 +245,15 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   carrier row has none), so they don't stack. When the mix is what killed you — the dose alone was
   survivable — the death message says so, and a survivable mix warns you on the way in; a death you
   couldn't see coming is a bug, not difficulty.
+- **`flags.drug_family` is a different field, on purpose** — the *pharmacological* family
+  (`stimulant`, `depressant`, `opioid`, `cannabis`, `psychedelic`, `dissociative`, `deliriant`,
+  `nootropic`), authored on every psychoactive including the legal ones. It is **purely descriptive
+  and carries no overdose, tolerance or withdrawal semantics**, which is exactly why it exists: the
+  NPC reaction system (`plugins/npc-drugs`) needs to know a ketamine hole from a mushroom trip from a
+  screaming deliriant terror, and reusing `drug_class` for that would have handed every psychedelic
+  the additive ceiling and cross-tolerance this section deliberately withholds from them. **Family
+  describes; class kills.** A regress case fails the build if any drug picks up a `drug_class` outside
+  the additive-load set.
 - **Class membership cuts four ways** — beyond the shared overdose ceiling above, `flags.drug_class`
   also drives: **substitution** (any same-class drug taken recently holds part of the class's withdrawal
   off, decaying back to full bite as its own `duration_seconds` runs out, floored at `SUBSTITUTION_FLOOR`
@@ -444,9 +453,11 @@ stored as a meter: no per-tick write, it survives logout for free, and there is 
 - **Measured in GAME hours, not real ones** (`fatigueSpanMs()` divides by `getTimeScale()`). Everything else
   the body does — hunger, thirst, tolerance, withdrawal — runs on the game clock; fatigue was the odd one
   out. At the standard 3× the whole scale is ~24 real hours.
-- **The curve runs to THREE days, not one**, because it's written off what a person actually does: 12h up is
-  nothing, 24h up is unpleasant and survivable, and it's the second and third nights that take you apart.
-  `FATIGUE_FULL_HOURS = 72`; bands at `TIRED 50` (~36h), `EXHAUSTED 65` (~47h), `RUINED 85` (~61h). The stat
+- **The curve runs to TWELVE days, not one**, because it's written off what a person actually does: 48h up is
+  nothing, 96h up is unpleasant and survivable, and it's the later nights that take you apart. (Originally a
+  three-day curve; **stretched 4× on 2026-08-01** alongside hunger, thirst and the bodily loads, so upkeep is
+  background pressure rather than a drumbeat.)
+  `FATIGUE_FULL_HOURS = 288`; bands at `TIRED 50` (~144h), `EXHAUSTED 65` (~187h), `RUINED 85` (~245h). The stat
   penalties stay deliberately gentle (Brains first, then Reflexes, ≤2 points) — **the teeth are the sanity
   bleed**, not the stats.
 - **Sleep deprivation bleeds sanity** past `FATIGUE_RUINED`, in `resourceTick`

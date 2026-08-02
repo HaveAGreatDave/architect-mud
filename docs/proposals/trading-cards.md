@@ -1,9 +1,11 @@
 # Trading Cards — Mint, Packs & Rarity (BUILT 2026-07-30)
 
 > **Status: BUILT.** Shipped as [`plugins/cards/`](../../plugins/cards/README.md) — the `cards` /
-> `card_holdings` tables, the `mint` / `cards` / `buypack` / `sleeve` / `scrap` verbs, the machine
-> panel, the dev-panel **🎴 Cards** tab, 19 machines in world content, and the pack-opening animation
-> in `client/game/styles.css`. This document is the design rationale and stays authoritative on
+> `card_holdings` tables, the `mint` / `cards` / `buypack` / `sleeve` / `openpack` / `tear` / `scrap`
+> verbs, the dev-panel **🎴 Cards** tab, and 19 machines in world content. The machine is an
+> ATM-style terminal panel and the sleeve is a real inventory item opened by a fullscreen reveal
+> cinematic, both in `client/game/js/panels/cardpack.js` — see **§5b** for why buying and opening are
+> two separate acts. This document is the design rationale and stays authoritative on
 > *why*; the plugin README is the quick reference.
 >
 > It answers the adopt/drop question left open in [systems-cards.md](../systems-cards.md) — the
@@ -283,7 +285,7 @@ mobile smart bar list them like any other affordance.
 card. You buy a sleeve and the sleeve decides. This is not a shop with a catalogue — the whole
 pleasure of the object is that somebody else's card falls out of it.
 
-**The pack.** ₵900 for a **foil sleeve**. How many cards is itself part of the pull:
+**The pack.** ₵250 for a **foil sleeve**. How many cards is itself part of the pull:
 
 | Sleeve | Chance |
 |---|---:|
@@ -307,23 +309,63 @@ at a time. So a pull always builds, the hit always lands last, and a sleeve that
 still has a shape to it. It also means a long sleeve isn't automatically a good sleeve — seven
 commons and an uncommon is a slow, funny disappointment, which is a real outcome worth having.
 
+### 5b. Buying and opening are two acts *(as built, revised)*
+
+The first cut charged and revealed in one breath off a bare `buypack`. It no longer does, and the
+split is load-bearing in three places:
+
+**The machine is a terminal you stand at.** `buypack` returns `cardmach_panel` and the client opens
+an ATM-shaped face on the shared minigame chassis (`client/game/js/panels/cardpack.js`): lit product
+window, an odds board drawn from the **live pool** (a rank nobody has minted shows as a flat nub
+rather than an advertised chance that cannot pay out), your balance, and a tray that lights when
+you're carrying unopened sleeves. Opening it costs nothing — it is the thing you read the price off.
+Its buttons send the ordinary verbs, so a typed command and a clicked button take the identical
+server path and the panel decides nothing.
+
+**The sleeve is an item.** ₵250 buys a `card_foil_sleeve` row into your inventory — carryable,
+droppable, giftable, storable, and holding **no result**.
+
+**The roll happens at `openpack`, never at the vend.** An unopened sleeve therefore cannot be
+datamined, cannot be traded with known contents, and cannot go stale against a pool that grew while
+it sat in your coat. It also makes the moment *chosen* rather than a side effect of paying — which is
+the only reason the reveal is worth animating at all.
+
 **The opening.** The animation is the product. Sequence:
 
-1. The sleeve drops into the tray and **tears** — a foil rip, and the count is revealed by how many
-   card backs fan out. This is the first information you get and it lands before any card is read.
-2. Cards flip **one at a time**, ~320ms apart, worst first. Each flip prints its rank chip and name.
-3. **A better card than anything so far slows the sequence down** — an extra beat before it turns.
-   The pause is the tell, and by the third card a player is reading the *rhythm* rather than the
-   text.
-4. The final card — always the hit — flips with a rank-coloured bloom and settles a half-step
-   forward of the others.
-5. Anything already on your shelf stamps **DUPE** and its scrap value, so the good news and the bad
+1. The sealed sleeve sits on screen, foil sheen raking across it, seam scored. **You** tear it.
+2. It **tears** — a foil rip that climbs, the top strip spins off, flecks scatter.
+3. Cards arrive **one at a time**, worst first, face down on the Mint's house back — shared by every
+   card in the game, which is what makes the flip mean anything: until it turns you know nothing.
+4. Each card holds, then flips. **The hold is the tell** — a Common barely has one; a Legendary sits
+   on a riser for the better part of half a second before turning. By the third card a player is
+   reading the *rhythm* rather than the text.
+5. Rank drives colour, ray burst, screen flash, shake and dwell off one row of the `RARITY` table.
+   A Common gets a dry paper tick and nothing else, deliberately: if a Common got confetti, a
+   Legendary would have nothing left to be.
+6. A **player card** adds a banner and a sting *on top of* its rarity cue, never instead of it —
+   somebody real is the rarest thing the system can hand you regardless of rank.
+7. Anything already on your shelf stamps **DUPE** and its scrap value, so the good news and the bad
    news arrive in the same motion.
+8. A summary lays the whole sleeve out with the best pull named, the scrap total, and — if you're
+   carrying another sleeve — a button to tear that one too.
 
-The whole thing runs about four seconds and is **skippable on any input** — a player buying their
-fortieth sleeve must not be held hostage by their own ritual. Under `prefers-reduced-motion` the
-sequence renders instantly in final state, still sorted ascending, because the *order* is
-information and only the motion is decoration.
+Cards **auto-advance** on a rank-scaled dwell, so a player can watch a whole sleeve without touching
+anything; any click or Space skips ahead, and SKIP jumps straight to the summary. A player buying
+their fortieth sleeve must not be held hostage by their own ritual. Under `prefers-reduced-motion`
+every animation collapses to ~0, still in ascending order, because the *order* is information and
+only the motion is decoration.
+
+**The client decides nothing.** `cardpack_open` carries every card's rarity, dupe flag and its
+**server-rendered face** — the same `renderCard()` the shelf uses, so the card you flip and the card
+you read later can never drift apart. This matters more here than in most panels: a reveal is the one
+place a player would be quickest to suspect the animation of picking the outcome, and it can't, since
+the cards were rolled and granted before the first frame drew. The plain text log lands alongside the
+overlay too, so closing it mid-flip loses nothing but the show.
+
+Sounds live in the shared catalog (`client/shared/sfx-catalog.js`, group `cards`) — dev-panel tunable
+and DB-overridable like every other interface cue, and built as an **escalating ladder** where each
+rung adds a layer rather than swapping to a different sound, so the ear knows you've hit something
+before you can read the card.
 
 A sleeve mixes subject types freely: NPCs, enemies and players all come out of the same pool, and
 which kind you get is never a knob anybody turns.
@@ -338,7 +380,7 @@ Eligibility is deliberately loose — anything with a `description` qualifies �
 ladder means a thin row simply produces a shorter card rather than a broken one. The exclusions are
 narrow: dev/test rows, spawned-instance duplicates, and anything flagged `flags.card_exclude`.
 
-**Duplicates.** A dupe is not a loss. It stacks (`qty`) and can be **scrapped** at the mint for ₵150,
+**Duplicates.** A dupe is not a loss. It stacks (`qty`) and can be **scrapped** at the mint for ₵25,
 or three dupes traded up for one roll at the next rank. Scrapping is what keeps a shelf legible.
 
 **Trading.** Cards go through the existing [trade](../systems-economy.md) plugin as ordinary

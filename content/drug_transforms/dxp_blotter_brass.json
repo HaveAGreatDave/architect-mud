@@ -1,0 +1,28 @@
+{
+  "id": "dxp_blotter_brass",
+  "drug_id": "drug_blotter",
+  "matches": null,
+  "scope": "person",
+  "name": "a person made of moving brass",
+  "description": "A figure of articulated brass stands here at exactly human size, every plate sliding over its neighbour in a slow constant rearrangement, with a face that is very nearly a face and is being polite about the difference.",
+  "looks": [
+    "The plates never stop moving and never once catch. It is beautiful, and after a while it is a lot.",
+    "Where the eyes should be there are two apertures that iris smaller when they settle on you.",
+    "It ticks. It has been ticking since you came in and you only just started hearing it."
+  ],
+  "says": [
+    "I am running a little ahead. It will even out.",
+    "This is the version of me you can see.",
+    "There is no inside. I have checked, repeatedly."
+  ],
+  "emotes": [
+    "{it} refolds one hand into a different, better hand.",
+    "{it} ticks twice, loudly, and gets quieter about it.",
+    "A plate on the side of {it} slides back and reveals more plates."
+  ],
+  "asks": [
+    "Am I keeping good time? You have a clock in you somewhere.",
+    "Which of these faces did you want?",
+    "How many of me can you see?"
+  ]
+}

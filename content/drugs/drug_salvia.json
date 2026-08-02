@@ -5,10 +5,7 @@
   "effects": {
     "comeon_message": "<span class=\"msg-system\">You hold the smoke. Nothing. Nothing. Then the room takes a step to the left.</span>",
     "hallucination": {
-      "mode": "dreamzone",
       "duration_seconds": 70,
-      "intensity": 1,
-      "palette": "green",
       "events": [
         {
           "atSec": 8,
@@ -30,7 +27,10 @@
           "atSec": 64,
           "text": "[trip]You come back all at once, with the taste of mint and the certainty that you have just been somewhere.[/trip]"
         }
-      ]
+      ],
+      "intensity": 1,
+      "mode": "dreamzone",
+      "palette": "green"
     },
     "instant": {
       "sanity": -8
@@ -47,7 +47,9 @@
       "max_reduction": 0
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "psychedelic"
+  },
   "id": "drug_salvia",
   "item_id": "item_salvia",
   "name": "salvia",

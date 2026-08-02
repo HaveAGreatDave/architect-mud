@@ -1,0 +1,20 @@
+{
+  "description": "A tin of ground red powder, sweet and smoky rather than hot. Stains everything it touches, including you, including tomorrow.",
+  "flags": {},
+  "id": "item_paprika",
+  "name": "smoked paprika",
+  "tags": {
+    "consumable": true,
+    "description": "A tin of ground red powder, sweet and smoky rather than hot. Stains everything it touches, including you, including tomorrow.",
+    "food_noun": "smoky",
+    "food_profile": "aromatic",
+    "restore_hunger": 1,
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.05
+    }
+  },
+  "type": "consumable",
+  "value": 15,
+  "weight": 60
+}

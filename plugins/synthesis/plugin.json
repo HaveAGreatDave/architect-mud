@@ -1,8 +1,8 @@
 {
   "name": "synthesis",
   "version": "1.0.0",
-  "description": "Drug synthesis: cook reagents into potency-scaled drugs via a chemistry skill check + a 'stabilize the reaction' minigame. Raw→processed cooks require a real chem lab (station quality adds a bonus); no portable kit. A successful lab cook/splice deposits its finished product into the chem lab's shared storage vault (the lab furniture doubles as a container).",
-  "hooks": ["furniture.describe"],
+  "description": "Drug synthesis: cook reagents into potency-scaled drugs via a chemistry skill check + a 'stabilize the reaction' minigame. Raw→processed cooks require a real chem lab (station quality adds a bonus); no portable kit. A successful lab cook/splice deposits its finished product into the chem lab's shared storage vault (the lab furniture doubles as a container). Also contributes the `chembench` provider to the Preparation Workspace HUD (workspace.js) via the `workspace.provider` gather-hook — the second workspace, added without a line changing in plugins/workspace or its client panel.",
+  "hooks": ["furniture.describe", "workspace.provider"],
   "commands": ["synthesize", "synthresolve", "splice", "splicepreview", "splicebegin", "spliceresolve", "unseal", "reclaim", "cooktest", "splicetest"],
   "objectGatedCommands": {
     "synthesize": { "discoverVia": "furniture:flags.crafting_station", "exposed": false, "note": "The unambiguous drug-cooking verb. `cook` is owned by plugins/cooking and routes here via the `synthesis.cook` Action when the room/argument point at a chem lab; this is the escape hatch that always means drugs. The hub surfaces the 'cook' verb only." },

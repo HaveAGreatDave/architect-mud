@@ -116,6 +116,19 @@ REM Converges: strikeSeries skips any subject already carded, so a later run onl
 REM cards the NPCs and enemies added since. It can never restat or rewrite a card.
 call :run "oneshots/strike-card-series.mjs" "strike NPC + enemy trading cards"
 
+REM Returns NPCs left standing somewhere they cannot reach their own workplace
+REM from - the residue of a home_zone reassignment (npcs.zone_id is runtime, so
+REM the deploy cannot carry it). Converges: it asks the live pathfinder rather
+REM than forcing tiles from a list, so an NPC who has moved somewhere new and can
+REM still get to work is never touched. A no-op once the world is consistent.
+call :run "oneshots/reconcile-stranded-npcs.mjs" "return NPCs stranded away from work"
+
+REM Deletes the superseded drug_transforms rows BY ID - the old hedged text ("a
+REM large animal pretending to be a bed") the rewritten pool replaces. Additive
+REM deploys cannot remove a row. Converges: a fixed id list, permanent no-op once
+REM they are gone.
+call :run "drop-retired-transforms.mjs"    "drop retired drug transform rows"
+
 REM --- Policy, not repair: opt in explicitly ---------------------------------
 REM Lifts players carrying negative net XP after a stat retune up to exactly 0.
 REM That debt is real and deliberate - writing it off is a decision, so it only

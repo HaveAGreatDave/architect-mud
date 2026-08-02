@@ -34,11 +34,13 @@ import { schedule } from '../../server/engine/scheduler.js';
 import {
   liveAircraft, getLivePlayer, sendToPlayer, getZone, isContinuous, effStats,
   bandFromAltitude, surfacesWire, toDeg, degToCardinal, setHeading, bounds,
-  registerTextPilotTeardown, contextPayload,
+  registerTextPilotTeardown, contextPayload, nearestAirfield, surfaceAt,
 } from './state.js';
+import { getMinimapData } from '../../server/engine/world.js';
 import { TYPES as FM_TYPES, createState as fmCreate, step as fmStep, readout as fmReadout } from '../../client/game/js/panels/flight-model.js';
 import { checkGateProximity, checkrideEvent, evaluateCheckride } from './checkride.js';
 
+const TEXT_MAP_R = 6;      // tiles either side of the aircraft on the text pilot's chart (the 3D HUD's inset uses 3)
 const TICK_S = 1;          // the sweep's own cadence
 const SUBSTEPS = 10;       // fmStep calls per tick — the model is tuned for small dt
 const SUB_DT = TICK_S / SUBSTEPS;
@@ -150,8 +152,20 @@ export function panelPayload(live) {
     fuel: ctx.fuel, fuelCap: ctx.fuelCap, fuelPct: ctx.fuelPct, warn: ctx.warn,
     hull: ctx.hull, surfaces: ctx.surfaces,
     surface: ctx.surface, onField: ctx.onField,
-    minimap: ctx.minimap, fields: ctx.fields,
+    // A WIDER map than the 3D HUD's. The glass cockpit's minimap is a corner inset next to a
+    // window you can actually see out of; for a text pilot this chart IS the view, and a radius
+    // of three tiles is not enough to answer "where am I". Built here rather than by widening
+    // contextPayload, so the 3D HUD's per-tick BFS cost is untouched.
+    minimap: (() => {
+      const b = surfaceAt(live.row.grid_x, live.row.grid_y);
+      return b ? getMinimapData(b.id, TEXT_MAP_R + 2) : ctx.minimap;
+    })(),
+    mapR: TEXT_MAP_R,
+    fields: ctx.fields,
     x: live.row.grid_x, y: live.row.grid_y,
+    // What `land` will and won't do in THIS airframe — the panel prints it, so the rule is
+    // visible on the instruments instead of only being discovered by being refused.
+    landMode: live.type.takeoff_mode === 'vtol' ? 'vtol' : live.type.takeoff_mode === 'stol' ? 'stol' : 'strip',
     checkride: ctx.checkride,
   };
 }
@@ -344,7 +358,7 @@ export function cmdTextClimb(args, player) {
   if (!live.row.airborne) return { type: 'emote', message: 'Fly her off the ground first — <b>takeoff</b>.' };
   const n = parseInt(String(args.join(' ')).replace(/[^0-9]/g, ''), 10);
   if (Number.isNaN(n)) return { type: 'emote', message: 'Climb to what height? <b>climb to 3000</b>.' };
-  live.textTargets.altitude = clamp(n, 0, 20000);
+  live.textTargets.altitude = clamp(n, 0, 40000);
   const dir = live.textTargets.altitude > (live.fmState?.altitude || 0) ? 'ease the nose up' : 'let her down';
   return { type: 'emote', message: `<span class="text-cyan">You ${dir} for ${live.textTargets.altitude}ft.</span>` };
 }
@@ -408,15 +422,60 @@ export function cmdTextTakeoff(args, player) {
 
 // `land` sets an approach: gear down, flaps out, and a descent toward the deck. The
 // touchdown itself is the physics arriving, graded on the sink rate like any landing.
+//
+// WHAT THE AIRFRAME CAN DO DECIDES WHAT `land` MEANS. It used to mean the same thing in
+// everything — "descend to zero, right here, right now" — which made a Mule land like a
+// Dragonfly and quietly deleted the one real difference between the aircraft you can buy.
+// Now it's three verbs wearing one name, keyed off `takeoff_mode`:
+//
+//   vtol    — sets down where she's hovering. Needs to be SLOW; a VTOL arriving at cruise
+//             speed is still an aeroplane flying into the ground.
+//   stol    — rated for rough fields, but she still has to arrive over something and roll
+//             a little: refused above the approach speed, so you have to get slow first.
+//   strip   — needs tarmac. Refused outright unless there's a runway field under her, with
+//             the nearest one named so the answer is useful instead of just "no". Flying
+//             her into a street is still possible — you just can't ORDER it.
+//
+// The gate is on the ORDER, never on the physics: the model still lets you fly her into
+// whatever you like at whatever speed you like. This only refuses to fly the approach FOR
+// you, which is the assist's whole remit.
+const LAND_APPROACH_KT = { vtol: 0.55, stol: 1.35 };   // × the type's stall speed — the fastest the assist will start a set-down from
+const STRIP_FIELD_DIST = 2;                            // tiles: how close a strip-rated craft must be to a runway field to be ON it
+
 export function cmdTextLand(args, player) {
   const { live, err } = requireTextPilot(player); if (err) return err; if (!live) return null;
   if (!live.row.airborne) return { type: 'emote', message: "You're already on the ground." };
+  const p = fmTypeOf(live), s = live.fmState;
+  const mode = live.type.takeoff_mode === 'vtol' ? 'vtol' : live.type.takeoff_mode === 'stol' ? 'stol' : 'strip';
+  const name = live.type.name;
+
+  if (mode === 'strip') {
+    // A runway field under her, or within a tile or two of one — the same needsRunway filter
+    // that keeps a helipad out of a fixed-wing's diversion list, so a pad never counts here.
+    const near = nearestAirfield(live.row.grid_x, live.row.grid_y, { needsRunway: true });
+    if (!near || near.dist > STRIP_FIELD_DIST) {
+      const where = near ? ` The nearest strip is <b>${near.name}</b>, ${near.dist} tiles off.` : '';
+      return { type: 'emote', message: `<span class="text-amber">The ${name} needs a runway under her — she can't just stop in the air and sit down.</span>${where} <span class="text-dim">Fly to the field first (<b>turn to heading …</b>), then <b>land</b>.</span>` };
+    }
+  } else {
+    const vApp = (p?.vs0 || 30) * LAND_APPROACH_KT[mode];
+    if ((s?.airspeed || 0) > vApp) {
+      const verb = mode === 'vtol' ? 'come to the hover' : 'settle onto a short field';
+      return { type: 'emote', message: `<span class="text-amber">Too fast to ${verb} — ${Math.round(s.airspeed)} kt, and she wants under ${Math.round(vApp)}.</span> <span class="text-dim">Bring the power back (<b>throttle 20</b>) and let her slow, then <b>land</b>.</span>` };
+    }
+  }
+
   live.textTargets.gear = 1;
   live.textTargets.flaps = 100;
   live.textTargets.altitude = 0;
   live.textTargets.takeoff = false;
   if ((live.textTargets.throttle || 0) > 35) live.textTargets.throttle = 30;
-  return { type: 'emote', message: '<span class="text-cyan">Gear down, flaps out, power back — you set up the approach and start down.</span> <span class="text-dim">Watch your sink rate; a soft touchdown grades better.</span>' };
+  const lead = mode === 'vtol'
+    ? `<span class="text-cyan">You bleed the last of the speed off and let her down on the collective.</span>`
+    : mode === 'stol'
+      ? `<span class="text-cyan">Gear down, full flap, nose high — you drag the ${name} in slow over the threshold.</span>`
+      : `<span class="text-cyan">Gear down, flaps out, power back — you turn onto final and start down.</span>`;
+  return { type: 'emote', message: `${lead} <span class="text-dim">Watch your sink rate; a soft touchdown grades better.</span>` };
 }
 
 export const _test = { landingGrade, headingError, controlsFor, fmTypeOf, TILES_PER_SEC_AT_CRUISE };

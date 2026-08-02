@@ -1,0 +1,10 @@
+{
+  "id": "dr_objrep_answer_normal_003",
+  "drug_id": null,
+  "source": "object_reply_answer",
+  "tone": "normal",
+  "self_line": "That is what I would have said, in your position.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

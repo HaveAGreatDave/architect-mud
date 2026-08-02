@@ -1,4 +1,6 @@
-import { getAllLivePlayers, getZone, getApartment } from '../../server/engine/world.js';
+import { getAllLivePlayers, getLivePlayer, getZone, getApartment } from '../../server/engine/world.js';
+import { on } from '../../server/engine/events.js';
+import { stepCadenceMs } from '../pacing/index.js';
 import { cmdSetHome, isApartmentZone } from '../../server/engine/apartments.js';
 import { allExits } from '../../server/engine/exits.js';
 import { findPath } from '../../server/engine/pathfinding.js';
@@ -87,35 +89,83 @@ schedule('5s', async () => {
     }
   }
 
-  // Live players using .gohome
-  const broadcast = getBroadcast();
-  if (!broadcast) return;
-  for (const player of getAllLivePlayers()) {
-    if (!player.goingHome) continue;
-    if (!player.home_zone) { player.goingHome = false; continue; }
-
-    try {
-      if (player.current_zone === player.home_zone) {
-        player.goingHome = false;
-        await arriveSleepLive(player);
-        continue;
-      }
-
-      const step = nextStepToward(player.current_zone, player.home_zone);
-      if (!step) {
-        player.goingHome = false;
-        sendToPlayer(player.id, { type: 'output', message: "You can't find a path home from here. Going home cancelled." });
-        continue;
-      }
-
-      const result = await cmdMove(step.direction, player, broadcast, { bypassEncumbrance: true });
-      if (result) sendToPlayer(player.id, result);
-    } catch (e) {
-      console.error(`[pinch] live gohome tick error for ${player.id}:`, e.message);
-      player.goingHome = false;
-    }
-  }
+  // A live `home` walk is NOT driven here — it paces itself off the movement clock
+  // (see homeWalkStep below). This tick is the offline sleeper's shuffle only.
 });
+
+// ---------------------------------------------------------------------------
+// Live `home` walk — one step per movement cadence
+// ---------------------------------------------------------------------------
+//
+// This used to ride the 5s tick above, alongside the offline sleepers, which meant
+// walking yourself home crawled at one room per five seconds — five times slower
+// than walking the same rooms by hand, and slower still than running them. The
+// sleeper's shuffle is meant to look like that; your own legs are not.
+//
+// So a live walk steps on its own timer at `stepCadenceMs(player)` — the pacing
+// plugin's own answer for how long a step takes you right now. Because that reads
+// walk/run/sprint and the tile underfoot on every step, toggling `run` mid-journey
+// speeds the walk home up, and hitting a road speeds it up again, with nothing here
+// knowing any of those rules.
+//
+// The steps stay `bypassEncumbrance` (a system-driven relocation, same as before):
+// we are already the thing pacing them, so they must not ALSO be queued by the
+// pacing gate — that would pace one walk twice.
+
+function stopHomeWalk(player) {
+  if (!player) return;
+  if (player._homeWalkTimer) { clearTimeout(player._homeWalkTimer); player._homeWalkTimer = null; }
+  player.goingHome = false;
+}
+
+function scheduleHomeWalk(player) {
+  if (player._homeWalkTimer) clearTimeout(player._homeWalkTimer);
+  player._homeWalkTimer = setTimeout(() => { homeWalkStep(player).catch(() => {}); }, stepCadenceMs(player));
+}
+
+async function homeWalkStep(player) {
+  player._homeWalkTimer = null;
+  // Cancelled, logged out, downed, or asleep — a walk home is something you're
+  // doing, and every one of those means you've stopped doing it.
+  if (!player.goingHome) return;
+  if (getLivePlayer(player.id) !== player || (player.hp ?? 1) <= 0 || player.sleeping) { stopHomeWalk(player); return; }
+  if (!player.home_zone) { stopHomeWalk(player); return; }
+
+  const broadcast = getBroadcast();
+  if (!broadcast) { scheduleHomeWalk(player); return; }   // pre-boot; try again next step
+
+  try {
+    if (player.current_zone === player.home_zone) {
+      stopHomeWalk(player);
+      await arriveSleepLive(player);
+      return;
+    }
+
+    const step = nextStepToward(player.current_zone, player.home_zone);
+    if (!step) {
+      stopHomeWalk(player);
+      sendToPlayer(player.id, { type: 'output', message: "You can't find a path home from here. Going home cancelled." });
+      return;
+    }
+
+    const result = await cmdMove(step.direction, player, broadcast, { bypassEncumbrance: true });
+    if (result) sendToPlayer(player.id, result);
+    // A wall — a locked door, a gate — ends the walk rather than hammering it every
+    // cadence for the rest of the night.
+    if (result?.type === 'error') { stopHomeWalk(player); return; }
+  } catch (e) {
+    console.error(`[pinch] home walk step error for ${player.id}:`, e.message);
+    stopHomeWalk(player);
+    return;
+  }
+  scheduleHomeWalk(player);
+}
+
+// Anything that ends the journey without the player typing `home` again: dying
+// mid-walk, or dropping. Left un-cancelled, the timer walks a corpse (or a ghost)
+// the rest of the way home.
+on('player.death', ({ player }) => stopHomeWalk(player));
+on('player.logout', ({ id }) => stopHomeWalk(getAllLivePlayers().find((p) => p.id === id)));
 
 // ---------------------------------------------------------------------------
 // pinch command
@@ -187,7 +237,7 @@ async function cmdGoHome(args, raw, player, broadcast) {
   }
 
   if (player.goingHome) {
-    player.goingHome = false;
+    stopHomeWalk(player);
     return { type: 'output', message: 'Going home cancelled.' };
   }
 
@@ -197,6 +247,9 @@ async function cmdGoHome(args, raw, player, broadcast) {
   }
 
   player.goingHome = true;
+  // First step comes on the cadence, not instantly — you set off, you don't teleport
+  // a room. Everything after it is scheduled by the step itself.
+  scheduleHomeWalk(player);
   broadcast(
     player.current_zone,
     { type: 'zone_event', message: `${player.handle} starts heading home.` },

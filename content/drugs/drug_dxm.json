@@ -5,10 +5,7 @@
   "effects": {
     "comeon_message": "<span class=\"msg-system\">Syrup-thick and cloying. You sit down to wait, which takes a surprisingly long time.</span>",
     "hallucination": {
-      "mode": "dreamzone",
       "duration_seconds": 700,
-      "intensity": 0.75,
-      "palette": "cyan",
       "events": [
         {
           "atSec": 40,
@@ -34,7 +31,10 @@
           "atSec": 650,
           "text": "[trip]You start the long walk back up. It takes most of an evening.[/trip]"
         }
-      ]
+      ],
+      "intensity": 0.75,
+      "mode": "dreamzone",
+      "palette": "cyan"
     },
     "instant": {
       "sanity": -8
@@ -58,7 +58,9 @@
       "onset_seconds": 1800
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "dissociative"
+  },
   "id": "drug_dxm",
   "item_id": "item_dxm",
   "name": "robo",

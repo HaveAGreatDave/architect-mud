@@ -24,7 +24,7 @@ import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, frontDoorOf, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone, regionForZone, renderOf, specOf, propsOf, getConnection, getConnectionBetween, getDoorForEdge, doorOnLink } from '../server/engine/world.js';
-import { moveEntity } from '../server/engine/ai-behaviour.js';
+import { moveEntity, disturbSleeper, isNpcAsleep, wakeNpc, initBlackboard } from '../server/engine/ai-behaviour.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
 import { cmdMove, dragFollowers } from '../server/engine/commands/movement.js';
 import { resolveNamedDestination, _test as describeTest } from '../server/engine/commands/describe.js';
@@ -1145,6 +1145,39 @@ console.log('— layer 2: engine core —');
 let r = await run('look');
 check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice(0, 120));
 
+// ── Room pane: attached satellites and light clicks ──────────────────────────
+// Two rules about how the `Furniture:` line CLICKS, both easy to break silently
+// because nothing throws when a link points at the wrong verb.
+{
+  const saved = getPlayer().current_zone;
+  // A room with a television and a Betamax deck under it. The deck keeps its own
+  // furniture row and its own panel, but reads as part of the set: never its own
+  // entry in the list while the television it hangs off is there.
+  getPlayer().current_zone = 'zone_solenne_apt_b';
+  const body = (await run('look'))?.message || '';
+  const deckLinks = [...body.matchAll(/<span class="action-link[^"]*"[^>]*data-ftype="media_deck"[^>]*>/g)].map(([m]) => m);
+  check('the deck is in the room exactly once', deckLinks.length === 1, body.slice(0, 900));
+  check('the deck hangs off its television rather than standing alone',
+    deckLinks.every((m) => /furniture-attached/.test(m)), deckLinks.join('\n'));
+  check('the deck clicks through to its own panel',
+    deckLinks.every((m) => /data-action="use"/.test(m)), deckLinks.join('\n'));
+  check('the television keeps its own entry', /data-target="wall-mounted flatscreen"/.test(body), body.slice(0, 900));
+
+  // A switchable light clicks to its own switch rather than to examine, and the
+  // tooltip says which way it will go — the pane already prints the state, so the
+  // click a player reaches for is the flip.
+  getPlayer().current_zone = 'zone_apt_12';
+  const lampBody = (await run('look'))?.message || '';
+  const lamp = lampBody.match(/<span class="action-link[^>]*data-target="(?:on|off) portable lamp"[^>]*>/)?.[0] || '';
+  check('a switchable light clicks to its switch', /data-action="switch"/.test(lamp), lampBody.slice(0, 900));
+  check('…and the tooltip says which way', /title="Turn (?:on|off) portable lamp"/.test(lamp), lamp);
+  const lampRow = getZone('zone_apt_12') && world.furniture?.get('furn_apt12_lamp');
+  const want = lampRow ? (lampRow.light_on ? 'off' : 'on') : null;
+  check('…in the direction opposite its current state',
+    !want || new RegExp(`data-target="${want} portable lamp"`).test(lamp), `light_on=${lampRow?.light_on} link=${lamp}`);
+  getPlayer().current_zone = saved;
+}
+
 r = await run('zzznotacommand');
 check('unknown verb → error', r?.type === 'error' && /Unknown command/.test(r.message), r?.message);
 
@@ -1426,6 +1459,76 @@ r = await run('equip');
 check('bare equip → prompt', r?.type === 'error' && /Equip what/.test(r.message || ''), r?.message);
 r = await run('gear');
 check('gear returns a gear payload', r?.type === 'gear' && Array.isArray(r.items) && r.soak !== undefined && r.effects !== undefined, JSON.stringify(r)?.slice(0, 120));
+
+// Bulk sweeps by CATEGORY (`put all frozen in the case`). The vocabulary is not
+// a list anybody maintains: a tag name, then a facet label off classify.js — the
+// same words the shelf headings print — then a handful of aliases for the words
+// English has and the data doesn't ("non-perishable"). Seed one throwaway
+// container and four probe items covering each ladder, drive the real verbs.
+{
+  const savedZone = getPlayer().current_zone;
+  const BZ = 'zone_bulk_regress', BFURN = 'furn_bulk_regress';
+  const PROBES = [
+    ['item_bulk_utensil', 'bulk whisk', { utensil: true }],                                     // by TAG
+    ['item_bulk_frozen', 'bulk frozen brick', { consumable: true, storage_tier: 'frozen' }],    // by FACET
+    ['item_bulk_tinned', 'bulk tinned probe', { consumable: true, food_profile: 'preserved' }], // by ALIAS
+    ['item_bulk_rock', 'bulk rock', { misc: true }],                                            // by nothing
+  ];
+  try {
+    for (const [id, name, tags] of PROBES) {
+      await query(
+        `INSERT INTO items (id,name,description,type,value,weight,tags) VALUES ($1,$2,'bulk probe','misc',0,10,$3)
+         ON CONFLICT (id) DO UPDATE SET tags=$3, name=$2`, [id, name, JSON.stringify(tags)]);
+    }
+    await insertFurniture({
+      id: BFURN, name: 'bulk crate', description: 'a bulk crate', object_type: 'container',
+      zone_id: BZ, flags: JSON.stringify({ container: 400000, aliases: 'crate' }),
+    }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id');
+    getPlayer().current_zone = BZ;
+
+    const give = async () => {
+      await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id = ANY($2)', [getPlayer().id, PROBES.map(p => p[0])]);
+      await query('DELETE FROM player_inventory WHERE container_id=$1', [BFURN]);
+      for (const [id] of PROBES) {
+        await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`,
+          [randomUUID(), getPlayer().id, id]);
+      }
+    };
+    const inCrate = async () => (await query('SELECT item_id FROM player_inventory WHERE container_id=$1', [BFURN])).rows.map(r => r.item_id);
+
+    await give();
+    await run('put all utensils in crate');
+    check('bulk sweep by TAG name, pluralised ("all utensils")',
+      (await inCrate()).join() === 'item_bulk_utensil', (await inCrate()).join());
+
+    await give();
+    await run('put all frozen in crate');
+    check('bulk sweep by SHELF HEADING — the word the section prints ("all frozen")',
+      (await inCrate()).join() === 'item_bulk_frozen', (await inCrate()).join());
+
+    await give();
+    await run('put all non-perishable in crate');
+    const np = await inCrate();
+    check('bulk sweep by alias, and "non-perishable" means FOOD that keeps — not the rock',
+      np.includes('item_bulk_frozen') && np.includes('item_bulk_tinned') && !np.includes('item_bulk_rock'), np.join());
+
+    // ...and back out again, by the same word. A category that only works in one
+    // direction is half a feature.
+    await run('pull all frozen from crate');
+    check('the same vocabulary empties a container ("pull all frozen")',
+      !(await inCrate()).includes('item_bulk_frozen'), (await inCrate()).join());
+
+    const r2 = await run('put all wombats in crate');
+    check('a category that matches nothing is refused, not silently ignored',
+      r2?.type === 'error', JSON.stringify(r2)?.slice(0, 120));
+  } finally {
+    await query('DELETE FROM player_inventory WHERE container_id=$1', [BFURN]).catch(() => {});
+    await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id = ANY($2)', [getPlayer().id, PROBES.map(p => p[0])]).catch(() => {});
+    await deleteFurniture(BFURN).catch(() => {});
+    await query('DELETE FROM items WHERE id = ANY($1)', [PROBES.map(p => p[0])]).catch(() => {});
+    getPlayer().current_zone = savedZone;
+  }
+}
 
 // Restocking furniture container (engine law in buildContainerView): a container
 // flagged `restock_items` keeps one of each listed item present — take one and the
@@ -2353,6 +2456,55 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   world.zones.delete(homeId);
 }
 
+// Disturbing a sleeping NPC: the roll, the wake-up state, and the escalation that
+// stops a sleeper being a locked door. All in-memory on a synthetic NPC — no zone,
+// no DB, no broadcast (disturbSleeper takes a null broadcast and still returns the
+// line, which is what the verb answers the actor with).
+{
+  const mkSleeper = (dose = null) => {
+    const npc = { id: 'npc_rg_sleeper_' + process.pid, name: 'Sleeper', zone_id: null, posture: 'lying' };
+    npc._ai = initBlackboard();
+    npc._ai.homeSleeping = true;
+    npc._ai.sleepStartedAt = Date.now();
+    npc._ai.dose = dose;
+    return npc;
+  };
+
+  check('an awake NPC is not disturbable', disturbSleeper({ _ai: initBlackboard() }) === null);
+  check('isNpcAsleep reads the sleep flag', isNpcAsleep(mkSleeper()) === true && isNpcAsleep({}) === false);
+
+  // Every disturbance answers with a line, and the outcome is one of the two.
+  const one = disturbSleeper(mkSleeper());
+  check('a disturbance always produces a broadcastable line',
+    !!one && typeof one.message === 'string' && one.message.includes('Sleeper'), JSON.stringify(one));
+  check('a sleeper who stays under has no mood; one who wakes has one',
+    one.woke ? (one.mood === 'annoyed' || one.mood === 'confused') : one.mood === null, JSON.stringify(one));
+
+  // Persistence works: each attempt erodes the chance, so a bounded number of
+  // tries always wakes them. Five is well past the 0.2-per-disturbance decay.
+  const stubborn = mkSleeper({ loose: true });     // deepest sleeper there is
+  let woke = false;
+  for (let i = 0; i < 8 && !woke; i++) woke = !!disturbSleeper(stubborn)?.woke;
+  check('repeated disturbance always eventually wakes even a doped sleeper', woke === true);
+  check('waking clears the sleep state', !isNpcAsleep(stubborn) && stubborn.posture === 'standing',
+    `asleep=${isNpcAsleep(stubborn)} posture=${stubborn.posture}`);
+  check('waking restarts the graph and holds them awake',
+    stubborn._ai.currentNode === null && stubborn._ai.waitUntil === null && stubborn._ai.wokenUntil > Date.now(),
+    `node=${stubborn._ai.currentNode} wait=${stubborn._ai.waitUntil}`);
+  check('waking records the mood the passive home-life ticker reads',
+    !!stubborn._ai.wokeMood && ['annoyed', 'confused'].includes(stubborn._ai.wokeMood.mood));
+  check('a woken NPC is no longer disturbable', disturbSleeper(stubborn) === null);
+
+  // force skips the roll — being hit wakes you, no dice.
+  const hit = mkSleeper({ loose: true });
+  const forced = disturbSleeper(hit, { force: true });
+  check('force wakes on the first try, no roll', forced.woke === true && !isNpcAsleep(hit));
+
+  // wakeNpc is idempotent enough to call from any wake path without side damage.
+  wakeNpc(hit);
+  check('wakeNpc on an already-awake NPC is harmless', !isNpcAsleep(hit) && hit.posture === 'standing');
+}
+
 // LAW: a building's front door is the SAME door however you reach it. It sits on the
 // facade↔interior seam, which is one hop further in than a near/far-side lookup gets
 // from the street — a facade is never stood on. Three consumers reached through the
@@ -2471,21 +2623,25 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     resolveDefault('audio_theme_id', bare, region, palette) === resolveDefault('audio_theme_id', bare, region, palette));
 
   // The authored world, as loaded. Not a fixture: these are the real region rows.
-  const themed = getAllZones().filter(z => z.flags?.region_id && !z.audio_theme_id);
-  const withTheme = themed.filter(z => resolveDefault('audio_theme_id', z, regionForZone(z)));
-  check('region defaults reach the tiles that inherit them',
-    themed.length > 0 && withTheme.length === themed.length,
-    `${withTheme.length}/${themed.length} region tiles resolve a theme`);
-  check('a tile outside every region resolves no theme',
-    getAllZones().filter(z => !z.flags?.region_id)
-      .every(z => resolveDefault('audio_theme_id', z, regionForZone(z)) === null));
+  // DELIBERATE: walking around does not play music. Region themes were tried and
+  // pulled — a song starting because you crossed an invisible region boundary read
+  // as a bug to the player, and the music slot belongs to things you can point at
+  // (a radio, a TV, the broadcast plugin). The mechanism above stays pinned because
+  // a tile-level theme is still a legitimate thing to author for one room; what is
+  // asserted here is that no REGION carries one.
+  check('no region paints its tiles with a music theme',
+    getAllZones().every(z => resolveDefault('audio_theme_id', z, regionForZone(z)) === null),
+    getAllZones().filter(z => resolveDefault('audio_theme_id', z, regionForZone(z)))
+      .slice(0, 3).map(z => z.id).join(', '));
   // Every authored default must name a song that EXISTS. content:lint checks this
   // against the file tree; this checks the database the world actually booted from,
   // because a JSONB value has no foreign key to break loudly.
   const wanted = [...world.regions.values()].map(r => r.defaults?.audio_theme_id).filter(Boolean);
   const known = new Set((await query('SELECT id FROM audio_songs')).rows.map(r => r.id));
   const badDefaults = wanted.filter(id => !known.has(id));
-  check('every region default names a real song', wanted.length > 0 && badDefaults.length === 0,
+  // Vacuous while no region authors a theme (see above) — kept because the day one
+  // does, a typo'd song id must fail here rather than play silence.
+  check('every region default names a real song', badDefaults.length === 0,
     badDefaults.length ? badDefaults.join(', ') : `${wanted.length} authored`);
 }
 
@@ -2855,7 +3011,22 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
 
   // The migration itself: derivation must reproduce the world that shipped. Every
   // authored marker still draws; nothing was invented and nothing was lost.
+  //
+  // Sewer tiles are exempt, and deliberately so. c2b253928 deleted 34 `marker`
+  // overrides from zone_under_* precisely so `deriveMarker` would fall through to
+  // `sewerArt(zone.exits)` and each tile draw the corridor piece its own
+  // connectivity says it is — The Confluence was advertising a four-way junction on
+  // three exits. For those tiles derivation is the SOURCE, not a reproduction of
+  // something authored, so "nothing was invented" is the wrong question to ask of
+  // them: 32 of the 34 invent a glyph by design (the other 2 are manhole stubs
+  // whose only exit is `up`, so there is no shape to derive and they stay null).
+  // The exemption is only for the tiles that HAVE no override — the 83 sewer tiles
+  // still carrying a redundant one stay under the invariant, so a hand-placed glyph
+  // that contradicts the corridor it sits in is still caught.
+  const derivesItsOwnArt = (z) =>
+    (z?.grid_z ?? 0) < 0 && /^zone_under_/.test(z?.id || '') && z?.marker == null;
   const markerDrift = getAllZones().filter(z => {
+    if (derivesItsOwnArt(z)) return false;
     const authored = z.marker == null ? null : String(z.marker).trim() || null;
     return (renderOf(z.id).marker ?? null) !== authored;
   });
@@ -3963,6 +4134,108 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   p = { hp: 10, hp_max: 10 };
   applyMods(p, 'brutal', { hp_max: -999 });
   check('the ledger clamp can never kill (floors at 1)', p.hp === 1, JSON.stringify(p));
+}
+
+// ── Item facets: the shelf-sectioning substrate ──────────────────────────────
+// server/engine/classify.js decides whether a list of items sections itself and
+// along which axis. Pure functions over tags, so this is fixture-driven — no DB,
+// no world. The failure modes it exists to prevent are all "the list got worse":
+// sections nobody asked for, a section per item, or items quietly lost.
+{
+  const { classFacet, storageFacet, pickAxis, scoreAxis, sectionize, assignGroups,
+          MIN_ITEMS_TO_GROUP, OTHER_LABEL } = await import('../server/engine/classify.js');
+
+  const food = (name, tags) => ({ name, tags });
+
+  // The motivating case: a grocer's stock is uniformly `Consumables` on the class
+  // axis, so that axis must LOSE and storage must win. If class ever wins here,
+  // Ration Nine renders one section called "Consumables" holding everything —
+  // strictly worse than the flat list it replaced.
+  const grocery = [
+    food('rat loaf',    { consumable: true, food_profile: 'dense_meat', perishable: true, spoil_rate: 'fast' }),
+    food('grey mince',  { consumable: true, food_profile: 'dense_meat', perishable: true, spoil_rate: 'fast' }),
+    food('block ice',   { consumable: true, storage_tier: 'frozen' }),
+    food('frozen fish', { consumable: true, storage_tier: 'frozen' }),
+    food('dry noodle',  { consumable: true, food_profile: 'dry_starch' }),
+    food('tin beans',   { consumable: true, food_profile: 'preserved' }),
+    food('salt',        { consumable: true, food_profile: 'aromatic' }),
+  ];
+  check('a grocer sections by storage, not by type', pickAxis(grocery) === 'storage', String(pickAxis(grocery)));
+  check('the useless axis scores zero, it is not merely outranked',
+    scoreAxis(grocery, 'class') === 0, String(scoreAxis(grocery, 'class')));
+
+  // The reverse case, on the same code path and with no configuration anywhere.
+  const gunsmith = [
+    food('pipe rifle',  { weapon: true, damage: { min: 4, max: 9 } }),
+    food('scrap knife', { weapon: true, damage: { min: 2, max: 4 } }),
+    food('slug pistol', { weapon: true, damage: { min: 3, max: 7 } }),
+    food('flak vest',   { armor_soak: { ballistic: 4 }, slot: 'torso' }),
+    food('plate rig',   { armor_soak: { ballistic: 7 }, slot: 'torso' }),
+    food('ammo box',    { material: true }),
+    food('cleaning kit',{ material: true }),
+  ];
+  check('a gunsmith sections by type', pickAxis(gunsmith) === 'class', String(pickAxis(gunsmith)));
+
+  // Three ways an axis is useless, all of which must produce a FLAT list.
+  const tiny = grocery.slice(0, 3);
+  check('a short list is never sectioned', pickAxis(tiny) === null, String(pickAxis(tiny)));
+  check('the flat-list floor is a real threshold', MIN_ITEMS_TO_GROUP > 1, String(MIN_ITEMS_TO_GROUP));
+
+  const uniform = Array.from({ length: 10 }, (_, i) =>
+    food(`ration ${i}`, { consumable: true, food_profile: 'dry_starch' }));
+  check('a uniform list is never sectioned', pickAxis(uniform) === null, String(pickAxis(uniform)));
+
+  const allDistinct = ['head', 'torso', 'hands', 'legs', 'feet', 'accessory']
+    .map((s, i) => food(`piece ${i}`, { slot: s }));
+  check('one item per bucket is a header list, not sections',
+    scoreAxis(allDistinct, 'slot') === 0, String(scoreAxis(allDistinct, 'slot')));
+
+  // Nothing may be lost. This is the bug that would be hardest to spot by eye:
+  // an axis that answers for most of a list silently dropping the rest.
+  const mixed = [...grocery, food('crowbar', { weapon: true }), food('rope', { material: true })];
+  const sections = sectionize(mixed);
+  const seen = sections.flatMap(s => s.items);
+  check('sectioning loses no item', seen.length === mixed.length, `${seen.length}/${mixed.length}`);
+  check('items an axis cannot answer for land in one trailing bucket',
+    sections[sections.length - 1].group === OTHER_LABEL, JSON.stringify(sections.map(s => s.group)));
+
+  // Section order is declared, not alphabetical — a fridge reads cold to ambient.
+  const order = sectionize(grocery).map(s => s.group);
+  check('storage sections read cold → ambient',
+    order.indexOf('Frozen') < order.indexOf('Refrigerated') && order.indexOf('Refrigerated') < order.indexOf('Dry Goods'),
+    JSON.stringify(order));
+
+  // Frozen can only come from the author override — nothing in a spoil rate says
+  // a fillet is sold frozen rather than fresh.
+  check('frozen is authored, never derived',
+    storageFacet({ perishable: true, spoil_rate: 'fast' }) === 'Refrigerated' &&
+    storageFacet({ perishable: true, spoil_rate: 'fast', storage_tier: 'frozen' }) === 'Frozen');
+  check('non-food is off the storage axis entirely',
+    storageFacet({ weapon: true }) === null, String(storageFacet({ weapon: true })));
+
+  // The author override is honoured whenever it splits at all — a looser bar than
+  // auto-selection on purpose, because the quality heuristics exist to stop the
+  // AUTOMATIC choice making a list worse, and an author naming an axis has already
+  // made that call. `profile` would lose the auto contest on this stock (too many
+  // thin buckets), which is exactly why it's the useful test of the override.
+  check('an author override wins when it splits', pickAxis(grocery, 'profile') === 'profile', String(pickAxis(grocery, 'profile')));
+  check('the overridden axis would have lost the auto contest',
+    scoreAxis(grocery, 'profile') === 0 && pickAxis(grocery) === 'storage', String(scoreAxis(grocery, 'profile')));
+  // Splitting nothing is still refused: one section named after the whole shelf is
+  // never what anybody meant, so the override falls back to the scored winner.
+  check('an override that splits nothing is ignored', pickAxis(gunsmith, 'storage') === 'class', String(pickAxis(gunsmith, 'storage')));
+
+  // A flat list must leave `group` unset, or the client renders a header for it.
+  const flat = uniform.map(u => ({ ...u }));
+  check('a flat list stamps no group', assignGroups(flat) === null && flat.every(f => f.group === undefined));
+
+  // vendorCategory still speaks singular for the examine pane, off the same rules.
+  const { vendorCategory } = await import('../server/engine/vendor.js');
+  check('vendorCategory stays singular', vendorCategory({ weapon: true }) === 'Weapon', vendorCategory({ weapon: true }));
+  check('vendorCategory depluralises -ies correctly',
+    vendorCategory({ slot: 'accessory' }) === 'Accessory', vendorCategory({ slot: 'accessory' }));
+  check('vendorCategory leaves Goods alone', vendorCategory({}) === 'Goods', vendorCategory({}));
+  check('the section header is the plural of it', classFacet({ weapon: true }) === 'Weapons', classFacet({ weapon: true }));
 }
 
 // ── Vendor sourced-container stock ───────────────────────────────────────────

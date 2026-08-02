@@ -51,7 +51,8 @@
       "a dented plate carrier over grey city-guard fatigues",
       "standard-issue grey boxer briefs"
     ],
-    "personality": "guard"
+    "personality": "guard",
+    "posted": true
   },
   "home_activities": [],
   "home_zone": "zone_district_918_919",

@@ -26,6 +26,7 @@ import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { getTunable } from '../../server/engine/tunables.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { randomUUID } from 'crypto';
+import { workspaceProvider } from './workspace.js';
 
 const SYNTH_SKILL = 'chemistry';
 const PENDING_TTL_MS = 180000;
@@ -35,9 +36,9 @@ const pendingSynth = new Map(); // playerId -> { recipeId, contextBonus, mode, t
 const COOK_FAMILY = { powder: 'solids', pill: 'solids', crystal: 'solids', liquid: 'wet', gel: 'wet', paste: 'wet', gas: 'gas', leaf: 'botanical', blotter: 'botanical' };
 const TIER_PRICE = [0, 15, 40, 90, 180, 350]; // display estimate; real value is on the item (scripts/add-cook-tiers.js)
 // The drug a recipe produces (match its base_output item to a drugs-row item_id).
-function drugForOutput(recipe) { const outId = recipe.base_output?.item_id; if (!outId) return null; const cache = getDrugCache(); return Object.values(cache).find(d => d.item_id === outId) || null; }
+export function drugForOutput(recipe) { const outId = recipe.base_output?.item_id; if (!outId) return null; const cache = getDrugCache(); return Object.values(cache).find(d => d.item_id === outId) || null; }
 // Intensity tier 1..5 — author-set (flags.cook_tier) or derived from how nasty the drug is.
-function cookTier(drug) {
+export function cookTier(drug) {
   const t = Number(drug?.flags?.cook_tier); if (t >= 1 && t <= 5) return Math.round(t);
   const e = drug?.effects || {}; let s = 1;
   if (e.overdose?.lethal) s += 2;
@@ -46,9 +47,9 @@ function cookTier(drug) {
   return Math.max(1, Math.min(5, s));
 }
 function cookFamily(drug) { return COOK_FAMILY[drug?.flags?.form] || 'wet'; }
-function cookDiff(tier) { return Math.max(1, Math.min(14, 2 + tier * 2)); } // tier1=4 … tier5=12
+export function cookDiff(tier) { return Math.max(1, Math.min(14, 2 + tier * 2)); } // tier1=4 … tier5=12
 
-function synthRecipes() {
+export function synthRecipes() {
   // Cook = a chemistry recipe whose output is an actual drug. Non-drug chemistry
   // recipes (e.g. the compound stabilizer) are crafted via `craft`, not cooked.
   return Object.values(getRecipeCache()).filter(r => r.skill_id === SYNTH_SKILL && drugForOutput(r));
@@ -64,7 +65,7 @@ async function playerInventory(playerId) {
 }
 
 // Resolve reagents against inventory → { toConsume } or { missing }.
-function resolveIngredients(recipe, inventory) {
+export function resolveIngredients(recipe, inventory) {
   const toConsume = [];
   for (const ing of recipe.ingredients || []) {
     if (!ing.item_id || !ing.quantity) continue;
@@ -268,7 +269,7 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
 // useDrug reads directly — no DB drug row per splice). Four risks: instability →
 // bad batch, antagonistic clash → harder, overload → OD-prone, lethal blowback.
 // ════════════════════════════════════════════════════════════════════════════
-const SPLICE_MIN_SKILL = 6;     // effectiveSkill(chemistry) required
+export const SPLICE_MIN_SKILL = 6;     // effectiveSkill(chemistry) required
 const SPLICE_BASE_DIFF = 8;
 const STABILIZER_ITEM = 'item_stabilizer';
 const COMPOUND_ITEM = 'item_compound';
@@ -537,7 +538,7 @@ async function cmdSpliceBegin(args, raw, player, broadcast) {
   // trading the quality/instability penalty of a big batch for a lower per-dose
   // cost. Require enough across the player's stacks.
   const need = inputs.map(i => ({ itemId: i.itemId, qty: i.qty, label: i.name }));
-  need.push({ itemId: STABILIZER_ITEM, qty: 1, label: 'Stabilizer' });
+  need.push({ itemId: STABILIZER_ITEM, qty: 1, label: 'BHT stabilizer' });
   const inv = await playerInventory(player.id);
   for (const n of need) {
     const have = inv.filter(v => v.item_id === n.itemId).reduce((s, v) => s + v.quantity, 0);
@@ -813,6 +814,11 @@ export const _test = { composeSplice };
 
 export const hooks = {
   'furniture.describe': (f, player) => chemLabHub(f, player),
+  // The chemistry half of the Preparation Workspace HUD (plugins/workspace).
+  // A gather-hook rather than an import in either direction, so neither plugin
+  // depends on the other loading — the same reasoning that has `cook` reach this
+  // plugin through an Action. See workspace.js.
+  'workspace.provider': (player) => workspaceProvider(player),
 };
 
 // `cook` is a shared verb: the cooking plugin owns it and routes to whichever

@@ -60,7 +60,9 @@
       "onset_seconds": 2100
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "dissociative"
+  },
   "id": "drug_deadair",
   "item_id": "item_deadair",
   "name": "dead air",

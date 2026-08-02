@@ -1,0 +1,10 @@
+{
+  "id": "dr_objemote_surreal_008",
+  "drug_id": null,
+  "source": "object_emote",
+  "tone": "surreal",
+  "self_line": "{it} breathes out, slowly, and the dust in the room lies down.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

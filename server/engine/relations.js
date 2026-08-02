@@ -299,6 +299,27 @@ export function adjustRelation(player, npcId, { familiarity = 0, warmth = 0, rea
 }
 
 /**
+ * You bought something from them. Familiarity moves a little on every sale —
+ * that's the face turning up again — and warmth scales off what you spent, on
+ * the reasoning that a vendor warms to a good customer faster than a browsing
+ * one. Capped per purchase so a single luxury item can't buy a relationship.
+ *
+ * Sync, like everything else here, so the sale path adds no round trip.
+ */
+export function recordPurchase(player, npcId, price = 0) {
+  if (!player?.id || !npcId) return ZERO;
+  const warmth = Math.min(
+    PURCHASE_WARMTH_CAP,
+    (Math.max(0, Number(price) || 0) / 100) * PURCHASE_WARMTH_PER_100C
+  );
+  return adjustRelation(player, npcId, {
+    familiarity: PURCHASE_FAMILIARITY,
+    warmth,
+    reason: 'vendor:purchase',
+  });
+}
+
+/**
  * Ordinary contact — you spoke to them. Rate-limited per (player, NPC) so
  * relationships are built by showing up over time, not by spamming `talk`.
  * Returns true if the contact actually counted.

@@ -24,6 +24,9 @@ import { getZoneFurniture } from '../../server/engine/world.js';
 import { cleanZone, filthCount, filthTypes, isOwnedZone } from '../../server/engine/zone-filth.js';
 import { addSweat } from '../../server/engine/hygiene.js';
 import { hasTag } from '../../server/engine/tags.js';
+// The wall half of "make this room right". One verb covers the floor and the
+// brickwork; the graffiti plugin owns the tag itself and this only removes it.
+import { tagAt, removeTag } from '../graffiti/index.js';
 import { query } from '../../server/models/db.js';
 
 // Marks removed per action. A proper tool clears the room; hands do one mark and
@@ -37,14 +40,31 @@ const BARE_SWEAT = 14;
 
 // A carried mop/brush/rag, or a fixed utility sink/basin in the room. Either is
 // enough to do the job properly; the tag is the contract, never an item id.
+//
+// A `consumable_cleaner` (a bottle of acetone, say) does the same job and is
+// spent doing it, so it is picked LAST — never while a mop is in the bag. That
+// ordering is the whole safety property: a chemical you also cook with must
+// never be quietly burned because it sorted earlier alphabetically.
 async function carriedTool(player) {
   const { rows } = await query(
-    `SELECT pi.id, i.name, i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+    `SELECT pi.id, pi.quantity, i.name, i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id
       WHERE pi.player_id=$1 AND pi.container_id IS NULL
       ORDER BY i.name`,
     [player.id]
   );
-  return rows.find(r => r.tags?.cleaning_tool) || rows.find(r => r.tags?.soap) || null;
+  return rows.find(r => r.tags?.cleaning_tool && !r.tags?.consumable_cleaner)
+    || rows.find(r => r.tags?.soap)
+    || rows.find(r => r.tags?.consumable_cleaner)
+    || null;
+}
+
+// Spending one of a stack, or dropping the row when that was the last of it.
+async function spendCleaner(tool) {
+  if ((tool.quantity ?? 1) > 1) {
+    await query('UPDATE player_inventory SET quantity = quantity - 1 WHERE id=$1', [tool.id]);
+  } else {
+    await query('DELETE FROM player_inventory WHERE id=$1', [tool.id]);
+  }
 }
 
 function fixtureTool(zoneId) {
@@ -72,8 +92,9 @@ function cleanLine(types) {
 async function doClean(args, raw, player) {
   const zoneId = player.current_zone;
   const before = filthCount(zoneId);
+  const paint = tagAt(zoneId);
 
-  if (!before) {
+  if (!before && !paint) {
     // Not an error — "there's nothing to clean" is information, and answering it
     // here stops `clean` falling through to an unhelpful "Unknown command".
     return { type: 'output', message: `There's nothing here worth cleaning. Small mercies.` };
@@ -81,6 +102,26 @@ async function doClean(args, raw, player) {
 
   const types = filthTypes(zoneId);
   const tool = (await carriedTool(player)) || fixtureTool(zoneId);
+
+  // Paint on brick is the one thing bare hands can't fix. That asymmetry is
+  // deliberate: floor filth yields to a determined scrub because requiring a tool
+  // would mean nobody ever cleans, but a tag has to have TEETH or defacing a
+  // shopfront costs the owner nothing to undo. You go and buy a solvent.
+  let paintMsg = '';
+  if (paint) {
+    if (tool) {
+      await removeTag(zoneId);
+      paintMsg = `\nYou take ${tool.name} to the wall. <span class="text-dim">"${paint.text}"</span> goes grey, then goes.`;
+    } else {
+      paintMsg = `\n<span class="text-dim">The paint on the wall doesn't care about your hands. That needs solvent and a brush.</span>`;
+    }
+  }
+
+  // The wall was the only job here, and it's done (or refused) — don't run the
+  // floor arithmetic over a clean floor and report "0 patches".
+  if (!before) {
+    return { type: 'output', message: paintMsg.trim(), refresh: true };
+  }
   const removed = cleanZone(zoneId, tool ? TOOL_MARKS : BARE_MARKS);
   addSweat(player, tool ? TOOL_SWEAT : BARE_SWEAT);
 
@@ -88,6 +129,11 @@ async function doClean(args, raw, player) {
   let msg = cleanLine(types);
   if (tool) {
     msg += ` <span class="text-dim">(${tool.name})</span>`;
+    // Only a carried row can be spent — a fixture in the room has no inventory id.
+    if (tool.tags?.consumable_cleaner && tool.quantity !== undefined) {
+      await spendCleaner(tool);
+      msg += `\n<span class="text-dim">The ${tool.name} goes into the floor along with the mess. You won't be cooking with that one.</span>`;
+    }
   } else {
     msg += ` Bare-handed, so it's one patch at a time, and now it's on you as well.`;
   }
@@ -101,7 +147,7 @@ async function doClean(args, raw, player) {
       msg += ` <span class="text-dim">It'll stay that way as long as you keep it that way.</span>`;
     }
   }
-  return { type: 'output', message: msg, refresh: true };
+  return { type: 'output', message: msg + paintMsg, refresh: true };
 }
 
 export const commands = {
@@ -109,6 +155,6 @@ export const commands = {
   mop: doClean,
 };
 
-export const _test = { doClean, cleanLine, CLEAN_LINES, TOOL_MARKS, BARE_MARKS };
+export const _test = { doClean, cleanLine, carriedTool, CLEAN_LINES, TOOL_MARKS, BARE_MARKS };
 
 console.log('[cleaning] Plugin loaded.');

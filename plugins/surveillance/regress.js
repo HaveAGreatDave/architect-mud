@@ -1,7 +1,7 @@
 // Surveillance plugin regression suite — run by tests/regress.js (never loaded
 // in production). Verb routing plus the crime→star registry defaults/cap.
 import { CRIME_DEFAULTS, getCrimeStars, getCrimeList } from '../../server/engine/crimes.js';
-import { visFactorForCategory, isSpecterInstalled, cameraBufferLines, microreelList, deleteMicroreel, isWitnessed, witnessRoll, __refreshRecordingCams, __captureZoneLine, __cameraFrames, __cameraFull, selfDestructDevice, __expireStickyCams, __stickyCamTtl, __isSelfDefence } from './index.js';
+import { visFactorForCategory, isSpecterInstalled, cameraBufferLines, microreelList, deleteMicroreel, isWitnessed, witnessRoll, sevFactor, __refreshRecordingCams, __captureZoneLine, __cameraFrames, __cameraFull, selfDestructDevice, __expireStickyCams, __stickyCamTtl, __isSelfDefence } from './index.js';
 import { emit } from '../../server/engine/events.js';
 import { getTimeScale } from '../../server/engine/gametime.js';
 import { query } from '../../server/models/db.js';
@@ -97,6 +97,13 @@ export default async function regress({ run, check, getPlayer }) {
   // camChance 100 so the visibility scalar (never below 0.1×) can't make this flaky.
   check('a live camera at full odds does witness', (await witnessRoll(anyZone, 'any', true, 100)) === 'camera', anyZone);
 
+  // Camera odds scale with the crime's own star weight around a 2-star pivot, so a
+  // lens takes far longer to file public nudity than it does a mugging.
+  check('sevFactor: a 2-star crime rolls at face value', sevFactor('burglary') === 1, sevFactor('burglary'));
+  check('sevFactor: petty crime is floored, not free', sevFactor('indecent_exposure') === 0.25, sevFactor('indecent_exposure'));
+  check('sevFactor: violent crime out-rolls petty crime', sevFactor('arson') > sevFactor('graffiti'));
+  check('sevFactor: unknown key never breaks the roll', sevFactor('not_a_crime') === 1);
+
   const list = getCrimeList();
   check('crime list covers all defaults', list.length === Object.keys(CRIME_DEFAULTS).length, list.length);
   check('drug_use caught by camera only', list.find(c => c.id === 'drug_use')?.witness === 'camera');
@@ -149,7 +156,7 @@ export default async function regress({ run, check, getPlayer }) {
   );
   await __refreshRecordingCams(); // index the recording cam into its zone
 
-  __captureZoneLine(CAM_ZONE, { type: 'say', message: 'Kaz says: "meet me at the docks"' });
+  __captureZoneLine(CAM_ZONE, { type: 'say', message: 'Kaz says, "meet me at the docks"' });
   __captureZoneLine(CAM_ZONE, { type: 'zone_event', message: 'Vann arrives from the north.' });
   __captureZoneLine(CAM_ZONE, { type: 'ambient', message: 'A neon sign buzzes overhead.' }); // not whitelisted
   let frames = __cameraFrames(CAM_ID);

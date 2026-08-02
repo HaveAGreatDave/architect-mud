@@ -129,7 +129,11 @@ export function resistSanityLoss(player, amount) {
 //   36h →  50   TIRED
 //   48h →  67   EXHAUSTED — Brains starts to go
 //   72h → 100   RUINED, and the sanity bleed at its worst
-export const FATIGUE_FULL_HOURS = 72;     // awake this long (GAME time) = completely wrecked
+// Slowed 4× (2026-08-01) along with hunger/thirst/bladder/bowel: the bands below
+// are the same shape, just stretched — multiply each of the hour marks above by 4
+// (12h → 48h, 36h → 144h, 72h → 288h). Sleep still clears a full span in
+// SLEEP_FULL_CLEAR_MINUTES, since that's expressed as an outcome, not a ratio.
+export const FATIGUE_FULL_HOURS = 288;    // awake this long (GAME time) = completely wrecked
 export const FATIGUE_TIRED = 50;          // the first band you can feel — ~36h
 export const FATIGUE_EXHAUSTED = 65;      // ~47h
 export const FATIGUE_RUINED = 85;         // ~61h — past here it costs you your mind

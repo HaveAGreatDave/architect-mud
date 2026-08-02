@@ -558,6 +558,13 @@
 						</div>
 					</div>
 				</div>
+				<!-- Deliberately a text line rather than a bar: a balance is not a meter,
+				     and the strip is already crowded. Wanted stars deliberately do NOT
+				     live here — the neon pill up top already owns that readout. -->
+				<div class="mob-bar-row mob-status-row">
+					<span id="mob-credits" title="Credits">₵ 0</span>
+					<span id="mob-weapon" title="Equipped weapon">⚔ fists</span>
+				</div>
 				<div class="mob-bar-row" id="horny-bar-wrap-m" style="display: none">
 					<span class="mob-bar-label">HO</span>
 					<div class="mob-bar-bg vital-horny" title="Horny">
@@ -571,6 +578,35 @@
 		<div id="mobile-hud">
 			<div id="mob-hud-map">
 				<div id="minimap-grid-hud" title="Tap for full map">—</div>
+			</div>
+			<!-- Environment HUD, mobile edition. Sits between the map and the d-pad
+			     because that's the strip the player's eyes are already on, and it
+			     mirrors the sidebar block id-for-id (`-m` suffix) so one render
+			     function paints both layouts. -->
+			<div id="mob-hud-env" title="View 7-day forecast">
+				<div class="env-hud-row">
+					<span class="env-icon" id="env-time-icon-m">—</span>
+					<span class="env-clock" id="env-clock-m">—:—</span>
+				</div>
+				<div class="env-hud-row"><span class="env-date" id="env-date-m"></span></div>
+				<div class="env-hud-row env-hud-weather">
+					<span class="env-icon" id="env-weather-icon-m">—</span>
+					<span class="env-body-feel" id="env-body-feel-m"></span>
+					<span class="env-temp" id="env-temp-m">—°</span>
+				</div>
+				<!-- Marked env-hud-weather for parity with the sidebar: the unreal
+				     corridor has no light level to report either. -->
+				<div class="env-hud-row env-hud-weather">
+					<span id="env-light-icon-m" style="font-size: 9px; color: var(--text-dim)">●</span>
+					<span id="env-light-label-m" style="color: var(--text-dim)">—</span>
+				</div>
+				<div class="env-hud-row env-hud-weather">
+					<span class="env-precip-label" id="env-precip-intensity-m"></span>
+				</div>
+				<div class="env-hud-row env-hud-weather" id="env-wet-row-m" style="display: none">
+					<span style="font-size: 10px; color: var(--blue)">💧</span>
+					<span class="env-wet-label" id="env-wetness-m"></span>
+				</div>
 			</div>
 			<div id="mob-dpad">
 				<div class="dpad-row">
@@ -620,14 +656,10 @@
 				<div id="bottom-bar">
 					<div id="bottom-left">
 						<button id="cmd-fan-btn" title="Commands">≡ cmds</button>
-						<div id="bottom-weather">
-							<span id="env-weather-icon-m" class="mob-hud-weather" title="Weather">—</span>
-							<span class="mob-hud-temp" id="env-temp-m">—°</span>
-							<span id="env-clock-m" style="display:none"></span>
-							<span id="env-time-icon-m" style="display:none"></span>
-							<span id="env-body-feel-m" style="display:none"></span>
-							<span id="env-precip-intensity-m" style="display:none"></span>
-						</div>
+						<!-- The weather used to live here, above the chat bar. It moved
+						     up into #mobile-hud (between the map and the d-pad) so the
+						     input row is nothing but input. -->
+
 					</div>
 					<div id="quick-cmds">
 						<button class="qcmd" data-open-equip>inv</button>
@@ -804,7 +836,7 @@
 						<div class="env-hud-row">
 							<span class="env-icon" id="env-time-icon">—</span>
 							<span class="env-clock" id="env-clock">—:—</span>
-							<span class="env-temp" id="env-temp">—°C</span>
+							<span class="env-date" id="env-date"></span>
 						</div>
 						<div class="env-hud-row env-hud-weather">
 							<span class="env-icon" id="env-weather-icon"
@@ -813,6 +845,7 @@
 							<span
 								class="env-body-feel"
 								id="env-body-feel"></span>
+							<span class="env-temp" id="env-temp">—°C</span>
 						</div>
 						<div class="env-hud-row env-hud-weather">
 							<span id="env-light-icon" style="font-size: 10px; color: var(--text-dim)">●</span>
@@ -820,6 +853,10 @@
 							<span
 								class="env-precip-label"
 								id="env-precip-intensity"></span>
+						</div>
+						<div class="env-hud-row env-hud-weather" id="env-wet-row" style="display: none">
+							<span id="env-wet-icon" style="font-size: 10px; color: var(--blue)">💧</span>
+							<span class="env-wet-label" id="env-wetness"></span>
 						</div>
 					</div>
 				</div>
@@ -1482,6 +1519,7 @@
 				<div id="container-body">
 					<div class="container-col" id="container-inv-col">
 						<div class="container-section-label">Your Inventory</div>
+						<div id="container-inv-note" class="ctr-inv-note"></div>
 						<div id="container-inv-list"></div>
 					</div>
 					<div id="container-divider">⇄</div>
@@ -1507,6 +1545,23 @@
 					<button id="container-stow-all" class="loot-btn loot-btn-stow-all">Stow All</button>
 					<button id="container-take-all" class="loot-btn loot-btn-take-all">Take All</button>
 					<button id="container-close-btn" class="loot-btn">Close</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- PREPARATION WORKSPACE PANEL (`workspace` / `bench`) — a text HUD over
+		     a working area. Read-only in phase 1: it renders, it does not act. -->
+		<div id="workspace-panel">
+			<div id="workspace-box">
+				<div id="workspace-header">
+					<h2 id="workspace-title">Workspace</h2>
+					<span id="workspace-provider"></span>
+					<button id="workspace-close" aria-label="Close">✕</button>
+				</div>
+				<div id="workspace-body"></div>
+				<div id="workspace-footer">
+					<button id="workspace-refresh" class="loot-btn">Refresh</button>
+					<button id="workspace-close-btn" class="loot-btn">Close</button>
 				</div>
 			</div>
 		</div>

@@ -13,13 +13,18 @@ import { prepWindowMult, prepBurnMult, prepCeilingDrop, prepBonus, marinadeStren
 import { tasteNotes, tasteTier, flavourLines } from './taste.js';
 import { portionOf, isWhole, canChop, portionName, yieldOf } from './portions.js';
 import { FOND_BONUS, FOND_RESIDUE_PENALTY, FOND_NEGLECT_PENALTY, FOND_LIFE_MS, MODIFIER_BONUS_CAP, MIN_PORTION, MINCE_RATE, MARINATE_MIN_MS, MARINATE_FULL_MS, MARINATE_PROFILES, TASTE_TIERS, MINCE_CEILING_DROP, BAND_SCALE, BASE_OFFSET, FOND_MIN_BAND, DISCOVERY_MIN_BAND, SLOP_CEILING, BAND_REWARDS, rewardFor, restMultiplier, restText, RESTS_WELL, REST_MIN_MS, REST_PEAK_MS, REST_COLD_MS, REST_COLD_PENALTY } from './config.js';
-import { DISCOVERY_ATTEMPTS, cookingIpFor, ROUTINE_IP, MASTERFUL_IP, ROUTINE_IP_COOLDOWN_MS } from './config.js';
+import { DISCOVERY_ATTEMPTS, cookingIpFor, ROUTINE_IP, MASTERFUL_IP, ROUTINE_IP_COOLDOWN_MS, DISCOVERY_IP, RECIPE_MASTERY_IP } from './config.js';
 import {
   DISHES, UNKNOWN_DISH, validateDishes, signature, matchScore, matchDish,
   dishName, composeBand, nounFor, VESSEL_KINDS, seasoningIdeal, seasoningBonus, unitsOf, GENERIC_SANDWICH, ALSO,
   keyNounFor, ingredientLine, methodLines,
 } from './dishes.js';
-import { FLAG_PREFIX, PROGRESS_PREFIX, UNTRIED, learnRecipe, knownRecipes, cookbookState, recordAttempt, improveRecipe, beatsRecorded, knownBonus } from './knowledge.js';
+import { FLAG_PREFIX, PROGRESS_PREFIX, UNTRIED, learnRecipe, knownRecipes, cookbookState, recordAttempt, improveRecipe, beatsRecorded, knownBonus,
+         SAVED_PREFIX, savedRecipes } from './knowledge.js';
+import { inferDish, improvisedCeiling, improvisedIp, recipeSignature } from './improvised.js';
+import { SHOPLIST_FLAG, getList, holdings, buyableExamples } from './shoplist.js';
+import { markShelf, markContainer } from './shoplist-cmd.js';
+import { getItemCache } from '../../server/engine/items-cache.js';
 import { evaluate, endStateAt, timeline, heatSpans, finishAt } from './quality.js';
 import { rowIsInstanced } from '../../server/engine/inventory.js';
 import { applyEffect, tickEffects, getRegisteredStatusEffects } from '../../server/engine/effects.js';
@@ -556,7 +561,8 @@ export default async function regress({ run, check, getPlayer }) {
       new Set(cookTest2.cookStations(Z).map(s => s._cookKind)).size === 1, cookTest2.cookStations(Z).map(s => s.name));
 
     r = await run('cook');
-    check('bare cook at a stove alone asks what, not which', r?.type === 'error' && /Cook what/.test(r.message), JSON.stringify(r));
+    check('bare cook at a stove alone opens the kitchen workspace, not a prompt',
+      r?.type === 'workspace_view' && r.provider === 'kitchen', JSON.stringify(r));
 
     await insertFurniture({
       id: LAB, name: 'test chem bench', description: 'a test chem bench', object_type: 'fixture',
@@ -569,6 +575,10 @@ export default async function regress({ run, check, getPlayer }) {
     r = await run('cook');
     check('bare cook with a stove AND a lab raises a station prompt', /Cook on which/.test(r?.message || ''), JSON.stringify(r));
     check('the prompt lists both stations by name', /test cooktop/.test(r?.message || '') && /test chem bench/.test(r?.message || ''), r?.message);
+    // Picking the stove out of that prompt lands where a bare `cook` would have.
+    r = await run('1');
+    check('choosing the stove from the station prompt opens the kitchen workspace',
+      r?.type === 'workspace_view' && r.provider === 'kitchen', JSON.stringify(r));
     await run('cancel'); // clear the selection state so it can't leak into later checks
 
     // Routing stays target-first even with both stations present.
@@ -1295,8 +1305,13 @@ export default async function regress({ run, check, getPlayer }) {
     // A smoked cut is edible as it stands AND can still go back on heat. Every
     // other cooked thing is done; `finishable` is the single exception, and it
     // must be cleared by the finish or a cut could be re-cooked for a free band.
+    // NOTE the food_noun: the smoker stamps `smoked ${noun}` onto the instance
+    // (endSession in cook.js), so a smoked slab's noun is "smoked pork", not
+    // "pork". These fixtures used to say "pork", which quietly hid the fact that
+    // smoked_chop's old `smoked {0} chop` format was printing "smoked smoked
+    // pork chop" in the actual game.
     const smokedCut = { name: 'smoked pork', tags: { food_profile: 'dense_meat' },
-      custom_data: { smoked: 'preserved', food_noun: 'pork', cooked: true, finishable: true } };
+      custom_data: { smoked: 'preserved', food_noun: 'smoked pork', cooked: true, finishable: true } };
     check('a cured cut reads as preserved', profileNameFor(smokedCut) === 'preserved');
     check('a cured cut can go back on the heat',
       !cookTest.prepareCook({ ...smokedCut, weight: 700, quantity: 1 }, { profileName: 'preserved', speed: 1, id: 'x', name: 'grill' }, { tier: 'ambient', delivering: true, ambientTier: 'ambient' }).error);
@@ -1308,7 +1323,7 @@ export default async function regress({ run, check, getPlayer }) {
         { profileName: 'liquid', speed: 1, id: 'x', name: 'stove' }, { tier: 'ambient', delivering: true, ambientTier: 'ambient' }).error || ''));
 
     const chopRows = [
-      { id: 'item_pink_slab', name: 'smoked pork', tags: { food_profile: 'dense_meat' }, custom_data: { smoked: 'preserved', food_noun: 'pork' } },
+      { id: 'item_pink_slab', name: 'smoked pork', tags: { food_profile: 'dense_meat' }, custom_data: { smoked: 'preserved', food_noun: 'smoked pork' } },
       { id: 'item_bbq_sauce', name: 'sauce', tags: { food_profile: 'fruit' }, custom_data: {} },
     ];
     const chop = matchDish(signature(chopRows, profileNameFor), 'pan', new Set(chopRows.map(r => r.id)));
@@ -1317,6 +1332,24 @@ export default async function regress({ run, check, getPlayer }) {
       dishName(chop.template, chopRows, profileNameFor) === 'smoked pork chop', dishName(chop.template, chopRows, profileNameFor));
     check('the same cut WITHOUT the sauce is not that dish',
       matchDish(signature(chopRows, profileNameFor), 'pan', new Set(['item_pink_slab']))?.key !== 'smoked_chop');
+    // The overnight cousin of the chop: same smoker, no sauce required, and it
+    // takes TWO units of shoulder because a shoulder is not a portion.
+    const shoulderRows = [
+      { id: 'item_pork_shoulder', name: 'smoked pork', tags: { food_profile: 'dense_meat' }, custom_data: { smoked: 'preserved', food_noun: 'smoked pork' }, weight: 2600, quantity: 1 },
+      { id: 'item_pork_shoulder', name: 'smoked pork', tags: { food_profile: 'dense_meat' }, custom_data: { smoked: 'preserved', food_noun: 'smoked pork' }, weight: 2600, quantity: 1 },
+    ];
+    const pulled = matchDish(signature(shoulderRows, profileNameFor), 'tray', new Set(['item_pork_shoulder']));
+    check('two smoked shoulders in a tray are pulled shoulder', pulled?.key === 'pulled_shoulder', pulled?.key);
+    check('...and it names the cut', dishName(pulled.template, shoulderRows, profileNameFor) === 'pulled smoked pork',
+      pulled && dishName(pulled.template, shoulderRows, profileNameFor));
+
+    // The rub is an intermediate, so its ceiling caps whatever it seasons — it
+    // has to be able to reach masterful or it silently caps the chop.
+    check('the rub can reach masterful, so it never caps the dish it seasons',
+      DISHES.spice_rub.ceiling === 'masterful');
+    check('the rub produces the same item the grocery sells',
+      DISHES.spice_rub.output?.item === 'item_bbq_rub');
+
     check('an unsmoked slab cannot be a smoked chop, whatever sauce you put on it', (() => {
       const raw = [{ id: 'item_pink_slab', tags: { food_profile: 'dense_meat' }, custom_data: {} }, chopRows[1]];
       return matchDish(signature(raw, profileNameFor), 'pan', new Set(raw.map(r => r.id)))?.key !== 'smoked_chop';
@@ -1688,7 +1721,61 @@ export default async function regress({ run, check, getPlayer }) {
       if (winners.length > 1) ties++; else reachable.add(winners[0][0]);
     }
     check('no two dishes ever tie on the same contents', ties === 0, `${ties} ambiguous signatures`);
+
+    // The sweep above caps at 2 units per profile and 5 in total, which covers a
+    // catalog authored in ones and twos. `pulled_shoulder` lives outside it on
+    // purpose: a unit of `preserved` is 300g and a bone-in shoulder is 2.6kg, so
+    // the dish genuinely needs 6–10 units and the sweep can never reach it.
+    // Check any such dish directly against its own declared needs, so the
+    // reachability assertion stays honest instead of being a statement about
+    // the sweep's bounds.
+    for (const [key, t] of Object.entries(DISHES)) {
+      if (reachable.has(key)) continue;
+      const sig = {};
+      for (const [p, need] of Object.entries(t.needs || {})) {
+        const [lo, hi] = Array.isArray(need) ? need : [need, need];
+        sig[p] = (lo + hi) / 2;
+      }
+      const ids = new Set(t.keyItems || []);
+      const hits = Object.entries(DISHES)
+        .filter(([, o]) => !o.vessel || o.vessel === t.vessel)
+        .map(([k, o]) => [k, matchScore(sig, o, ids)])
+        .filter(([, sc]) => sc >= 0);
+      if (!hits.length) continue;
+      const top = Math.max(...hits.map(h => h[1]));
+      const winners = hits.filter(h => h[1] === top);
+      if (winners.length === 1 && winners[0][0] === key) reachable.add(key);
+    }
     check('every dish in the catalog is reachable', reachable.size === Object.keys(DISHES).length, `${reachable.size}/${Object.keys(DISHES).length}`);
+
+    // Authored TEACH_RECIPE nodes name a dish by KEY, and a key that doesn't
+    // exist fails at the worst possible moment: the player works their way up an
+    // NPC's trust ladder, picks the option, and the node answers "No such
+    // recipe." Nothing else catches this — content:lint doesn't read dialogue
+    // actions, and the handler can only find out at runtime. Cheap sweep of the
+    // content tree, so a renamed dish takes its authored callers down with it
+    // here rather than in front of a player.
+    try {
+      const { readdirSync, readFileSync } = await import('fs');
+      const bad = [];
+      for (const file of readdirSync('content/npcs')) {
+        if (!file.endsWith('.json')) continue;
+        const raw = readFileSync(`content/npcs/${file}`, 'utf8');
+        if (!raw.includes('TEACH_RECIPE')) continue;
+        const npc = JSON.parse(raw);
+        for (const [nodeKey, node] of Object.entries(npc.dialogue_tree || {})) {
+          for (const act of node?.actions || []) {
+            const a = act.params || act;
+            if (a.action !== 'TEACH_RECIPE' && act.action !== 'TEACH_RECIPE') continue;
+            if (!DISHES[a.recipe]) bad.push(`${file}:${nodeKey} -> ${a.recipe}`);
+          }
+        }
+      }
+      check('every authored TEACH_RECIPE names a real dish', bad.length === 0, bad.join(', '));
+    } catch (err) {
+      // Running from somewhere without the content tree is not a cooking failure.
+      check('TEACH_RECIPE content sweep ran', true, err.message);
+    }
 
     // Composition: mean pulled toward the worst, clamped by the template ceiling.
     const allMasterful = composeBand(['masterful', 'masterful', 'masterful'], DISHES.stew);
@@ -1747,6 +1834,225 @@ export default async function regress({ run, check, getPlayer }) {
 
     check('an unknown dish key is never written', (await learnRecipe(player.id, 'not_a_dish')).learned === false);
     await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key LIKE $2', [player.id, `${FLAG_PREFIX}%`]);
+
+    // ── Improvised dishes ─────────────────────────────────────────────────
+    //
+    // The rule that replaced "unmatched ⇒ slop": FOOD MAKES A DISH, NON-FOOD
+    // MAKES A MESS. Every one of these combinations has no catalog template
+    // behind it, and every one of them should still come out with a name.
+    {
+      const sig = (o) => ({ ...o });
+      const fam = (o, v) => inferDish(sig(o), v)?.family;
+
+      check('liquid, meat and a root in a pot is a stew', fam({ liquid: 1, dense_meat: 1, starchy_vegetable: 2 }, 'pot') === 'stew');
+      check('...two aromatics make it a curry instead', fam({ liquid: 1, dense_meat: 1, aromatic: 2 }, 'pot') === 'curry');
+      check('...dairy with the meat makes it a chowder', fam({ liquid: 1, dense_meat: 1, dairy: 1 }, 'pot') === 'chowder');
+      check('...no meat at all and it is a soup', fam({ liquid: 1, soft_vegetable: 2 }, 'pot') === 'soup');
+      check('liquid on its own is a broth', fam({ liquid: 2 }, 'pot') === 'broth');
+      check('batter and fruit in a tray is a pie', fam({ batter: 1, fruit: 2 }, 'tray') === 'pie');
+      check('meat in a tray is a roast', fam({ dense_meat: 2 }, 'tray') === 'roast');
+      check('starch and meat in a pan is a hash', fam({ starchy_vegetable: 2, dense_meat: 1 }, 'pan') === 'hash');
+      check('leaves in a bowl are a salad', fam({ soft_vegetable: 2 }, 'bowl') === 'salad');
+      check('meat on a bare stove is a grill', fam({ dense_meat: 1 }, null) === 'grill');
+
+      // The one route to a mess that's left, and the reason it's the right one.
+      check('something with no food profile in the pan is still a mess',
+        inferDish({ liquid: 1, dense_meat: 1, unprofiled: 1 }, 'pot') === null);
+      check('seasoning alone is not a dish', inferDish({ aromatic: 2 }, 'pot') === null);
+
+      // Naming: a dish is called after the thing it is mostly OF.
+      const stewT = inferDish({ liquid: 1, dense_meat: 1, starchy_vegetable: 1 }, 'pot');
+      check('the primary ingredient leads the generated name',
+        stewT.nameSlots[0] === 'dense_meat', JSON.stringify(stewT.nameSlots));
+      const pieT = inferDish({ batter: 1, fruit: 2 }, 'tray');
+      check('...and a pie is named after its fruit, not its pastry',
+        pieT.nameSlots[0] === 'fruit', JSON.stringify(pieT.nameSlots));
+
+      // Complexity buys the ceiling, and stops short of the top rung.
+      const simple = inferDish({ dense_meat: 1 }, 'pan');
+      const rich = inferDish({ liquid: 1, dense_meat: 1, starchy_vegetable: 1, soft_vegetable: 1, dairy: 1 }, 'pot');
+      check('a more complex improvisation has a higher ceiling',
+        bandIndex(rich.ceiling) > bandIndex(simple.ceiling), `${simple.ceiling} → ${rich.ceiling}`);
+      check('...and it is harder, so the ceiling is not free',
+        rich.difficulty > simple.difficulty, `${simple.difficulty} → ${rich.difficulty}`);
+      check('NO improvisation ever reaches masterful — that rung is the catalog\'s',
+        bandIndex(improvisedCeiling(99)) < bandIndex('masterful'), improvisedCeiling(99));
+      check('...and improvised IP always pays less than discovering a real recipe',
+        improvisedIp(99, 'masterful') < DISCOVERY_IP, improvisedIp(99, 'masterful'));
+      check('a bad improvisation pays nothing at all', improvisedIp(5, 'poor') === 0);
+
+      // Signature identity: what makes a saved recipe match the next pot.
+      const a = recipeSignature({ liquid: 1.1, dense_meat: 0.9 }, 'pot');
+      const b = recipeSignature({ dense_meat: 1.2, liquid: 0.8 }, 'pot');
+      check('the same pot in a different order is the same recipe', a === b, `${a} vs ${b}`);
+      check('...but a different vessel is a different recipe',
+        recipeSignature({ liquid: 1, dense_meat: 1 }, 'pan') !== a);
+      // Seasoning is not an ingredient — a stew you salted and one you didn't
+      // are the same recipe, and a saved one has to match both.
+      check('...and seasoning is not part of the identity',
+        recipeSignature({ liquid: 1, dense_meat: 1, aromatic: 1 }, 'pot') === a, a);
+    }
+
+    // ── The shopping list ─────────────────────────────────────────────────
+    //
+    // The rule: it stores what you WANT, never what you have. Every tick is
+    // answered against your inventory at read time, so buying the thing crosses
+    // it off on its own and there is no write to miss.
+    {
+      await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key=$2', [player.id, SHOPLIST_FLAG]);
+      await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, TOM]);
+
+      let r = await run('shoplist');
+      check('an empty list says how to fill it', /Nothing on your list/.test(r?.message || ''), r?.message);
+      r = await run('shoplist add not_a_real_dish');
+      check('adding a recipe you do not know is refused', r?.type === 'error', JSON.stringify(r));
+
+      r = await run('shoplist add soup');
+      check('adding a recipe writes down what you are SHORT of', /Added to the list/.test(r?.message || ''), r?.message);
+      const list = await getList(player.id);
+      check('...as ingredient CLASSES, which is what a recipe actually asks for',
+        list.length > 0 && list.every(e => e.k === 'p' || e.k === 'i'), JSON.stringify(list));
+      check('...remembering which recipe it was for', list.every(e => e.for === 'soup'), JSON.stringify(list));
+
+      r = await run('shoplist');
+      check('the list shows unticked boxes for what you lack', /\[ \]/.test(r?.message || ''), r?.message);
+
+      // The shelf, marked — the other half of a shopping list, and the reason
+      // entries are CLASSES: "one soft vegetable" is satisfied by whatever this
+      // particular shop happens to stock, with no authored mapping anywhere.
+      const shelf = [{ item_id: TOM, name: 'test tomato' }, { item_id: STEAK, name: 'test steak' }];
+      await markShelf({ stock: shelf, playerId: player.id });
+      check('shop stock on your list is marked, by CLASS not by item id',
+        shelf.find(s => s.item_id === TOM)?.wanted === true, JSON.stringify(shelf));
+      check('...and stock you have no use for is left alone',
+        !shelf.find(s => s.item_id === STEAK)?.wanted, JSON.stringify(shelf));
+
+      // A class entry names things you can actually hand over a counter, and
+      // every noun it names must be one the entry will ACCEPT — the note on a
+      // recipe card says "tomato", but a fresh tomato is a soft_vegetable and
+      // the liquid in that sauce is the tinned one.
+      {
+        const t = DISHES.penne_alla_gin;
+        const ex = buyableExamples('liquid', t);
+        check('a class entry names buyable examples', ex.length > 0, JSON.stringify(ex));
+        check('...and every one of them really carries that profile',
+          ex.every(noun => [...getItemCache().values()].some(i =>
+            i.tags?.food_profile === 'liquid' &&
+            String(i.tags?.food_noun || i.name || '').toLowerCase() === noun)),
+          JSON.stringify(ex));
+        check('...ordered so the recipe\'s own note leads (tomato before the spirit)',
+          ex.indexOf('tomato') === 0, JSON.stringify(ex));
+      }
+
+      // The container hook: the same mark on the box you opened, because half a
+      // shop's stock is reached by opening the case rather than by the clerk.
+      {
+        const view = { containerItems: [
+          { item_id: TOM, name: 'test tomato', tags: { food_profile: 'soft_vegetable' } },
+          { item_id: STEAK, name: 'test steak', tags: { food_profile: 'dense_meat' } },
+        ] };
+        await markContainer({ view, playerId: player.id });
+        check('a container marks contents that are on your list',
+          view.containerItems[0].wanted === true, JSON.stringify(view.containerItems));
+        check('...and leaves the rest of the box alone',
+          !view.containerItems[1].wanted, JSON.stringify(view.containerItems));
+      }
+
+      // Buy the thing. Nothing fires; the box ticks because the box is a
+      // question, not a record.
+      const softId = randomUUID();
+      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [softId, player.id, TOM]);
+      r = await run('shoplist');
+      check('acquiring an ingredient ticks it off with no write of any kind',
+        /\[x\]/.test(r?.message || ''), r?.message);
+
+      // ...and a finished dish is not an ingredient, so buying dinner never
+      // crosses "one soft vegetable" off.
+      await query(`UPDATE player_inventory SET custom_data='{"dish":"soup","cooked":true}'::jsonb WHERE id=$1`, [softId]);
+      const held = await holdings(player.id);
+      check('a cooked dish never counts toward the list', !(held.byProfile.soft_vegetable > 0), JSON.stringify(held.byProfile));
+      await query(`UPDATE player_inventory SET custom_data='{}'::jsonb WHERE id=$1`, [softId]);
+
+      // ...and once it's in your hands the shelf stops shouting about it.
+      const shelf2 = [{ item_id: TOM, name: 'test tomato' }];
+      await markShelf({ stock: shelf2, playerId: player.id });
+      check('a shelf stops marking what you have already bought',
+        !shelf2[0].wanted, JSON.stringify(shelf2));
+
+      r = await run('shoplist tidy');
+      check('tidy crosses off what you have for good', /Crossed off/.test(r?.message || ''), r?.message);
+      const after = await getList(player.id);
+      check('...and leaves the rest', after.length < list.length, `${list.length} → ${after.length}`);
+
+      await run('shoplist clear');
+      check('clear empties it', (await getList(player.id)).length === 0);
+      await query('DELETE FROM player_inventory WHERE id=$1', [softId]);
+      await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key=$2', [player.id, SHOPLIST_FLAG]);
+    }
+
+    // ── Player recipes: save, rename, share ───────────────────────────────
+    {
+      await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key LIKE $2', [player.id, `${SAVED_PREFIX}%`]);
+
+      let r = await run('recipe');
+      check('an empty personal book says how to start one', /written nothing down/.test(r?.message || ''), r?.message);
+      r = await run('recipe save house special');
+      check('saving with nothing invented in hand is refused',
+        r?.type === 'error' && /not holding anything you invented/.test(r.message), JSON.stringify(r));
+
+      // The dish itself is the record — hold one and write it down.
+      const invented = randomUUID();
+      await query(
+        `INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,custom_data) VALUES ($1,$2,$3,1,1.0,$4::jsonb)`,
+        [invented, player.id, 'item_cooked_dish', JSON.stringify({
+          name: 'rat and turnip stew', dish: 'unknown', cooked: true, cook_quality: 'good',
+          improv: 'pot|dense_meat:1,liquid:1,starchy_vegetable:2', family: 'stew', complexity: 3,
+        })]
+      );
+      r = await run('recipe save Rat Surprise');
+      check('holding something you invented, you can write it down', /Yours now/.test(r?.message || ''), JSON.stringify(r));
+      const renamed = (await query('SELECT custom_data FROM player_inventory WHERE id=$1', [invented])).rows[0];
+      check('...and the plate in your hands takes the name immediately',
+        renamed.custom_data.name === 'Rat Surprise', renamed.custom_data.name);
+
+      r = await run('recipe save Something Else');
+      check('the same combination under a second name is refused',
+        r?.type === 'error' && /already written that one down/.test(r.message), JSON.stringify(r));
+
+      r = await run('recipe');
+      check('it lists in your own book', /Rat Surprise/.test(r?.message || ''), r?.message);
+
+      r = await run('recipe rename Rat Surprise to House Special');
+      check('renaming is free', /House Special/.test(r?.message || ''), JSON.stringify(r));
+      const saved2 = await savedRecipes(player.id);
+      const only = [...saved2.values()][0];
+      check('...and it is the same recipe underneath — the signature is the identity',
+        only.sig === 'pot|dense_meat:1,liquid:1,starchy_vegetable:2', only.sig);
+
+      r = await run('recipe write House Special');
+      check('you can copy it onto a card', /onto a card/.test(r?.message || ''), JSON.stringify(r));
+      const card = (await query(`SELECT id,custom_data FROM player_inventory WHERE player_id=$1 AND item_id=$2`, [player.id, 'item_written_recipe'])).rows[0];
+      check('...and the card carries the whole recipe, so it travels by ordinary trade',
+        card?.custom_data?.recipe?.sig === only.sig, JSON.stringify(card?.custom_data));
+      check('...crediting whoever wrote it', card.custom_data.recipe.author === player.handle);
+
+      // Reading your own card back is a no-op, not a duplicate.
+      r = await run('read recipe card');
+      check('reading a card you already know changes nothing',
+        /already know/.test(r?.message || ''), JSON.stringify(r));
+
+      r = await run('recipe forget House Special');
+      check('you can scratch one out', /scratch/.test(r?.message || ''), JSON.stringify(r));
+      r = await run('read recipe card');
+      check('...and read it straight back off the card', /sticks/.test(r?.message || ''), JSON.stringify(r));
+
+      r = await run('recipe teach House Special to nobody');
+      check('teaching with nobody around says so',
+        r?.type === 'error' && /nobody here/i.test(r.message), JSON.stringify(r));
+
+      await query('DELETE FROM player_inventory WHERE id=$1 OR item_id=$2', [invented, 'item_written_recipe']);
+      await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key LIKE $2', [player.id, `${SAVED_PREFIX}%`]);
+    }
 
   } finally {
     const temps = [RAW, OVEN, STEAK, TOM, PAN, TURNER, KNIFE];

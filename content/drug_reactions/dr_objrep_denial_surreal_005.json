@@ -1,0 +1,10 @@
+{
+  "id": "dr_objrep_denial_surreal_005",
+  "drug_id": null,
+  "source": "object_reply_denial",
+  "tone": "surreal",
+  "self_line": "All right. Then you are talking to nothing, at length, out loud, in a room with a door in it.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

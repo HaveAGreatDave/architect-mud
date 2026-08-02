@@ -2,6 +2,10 @@
 import { _test } from './index.js';
 
 import { _internals as _home } from './home-life.js';
+import { _intrusion } from './intrusion.js';
+import { isDwellingZone } from '../../server/engine/zone-tags.js';
+import { world, getZone, getZoneFurniture } from '../../server/engine/world.js';
+import { isToilet, isShower } from '../bodily/index.js';
 
 export default async function regress({ run, check }) {
   // ── Verb routing ──
@@ -51,5 +55,84 @@ export default async function regress({ run, check }) {
     check('home: a meal noun comes off the dish catalogue', typeof pickMeal() === 'string' && pickMeal().length > 0);
     check('home: a morning drink is a hot one', typeof pickDrink('morning') === 'string' && pickDrink('morning').length > 0);
     check('home: an evening drink still resolves', typeof pickDrink('night') === 'string' && pickDrink('night').length > 0);
+
+    // Nobody cooks in their sleep. All three states the engine already tracks
+    // disqualify a homebody — this used to check none of them, so an NPC asleep
+    // in their own bed could be narrated frying eggs.
+    const { isBusyBeingUnconscious: down } = _home;
+    check('home: an awake NPC is available', down({ _ai: {}, posture: 'standing' }) === false);
+    check('home: a sleeping NPC does not cook', down({ _ai: { homeSleeping: true } }) === true);
+    check('home: an NPC dosed out does not cook', down({ _ai: { dosedOut: true } }) === true);
+    check('home: anyone lying down does not cook', down({ _ai: {}, posture: 'lying' }) === true);
+
+    // A kitchen, not a counter. 110 of the cast have their own workplace as
+    // home_zone; without the dwelling test they cooked a meal on the shop floor.
+    check('home: a rentable unit is a dwelling', isDwellingZone({ flags: { is_apartment: true } }) === true);
+    check('home: an authored dwelling is a dwelling', isDwellingZone({ flags: { is_dwelling: true } }) === true);
+    check('home: a shop floor is not a dwelling', isDwellingZone({ flags: { is_interior: true, is_building: true } }) === false);
+    check('home: a street tile is not a dwelling', isDwellingZone({ flags: { street_life: true } }) === false);
+    check('home: a missing zone is not a dwelling', isDwellingZone(null) === false && isDwellingZone({}) === false);
+  }
+
+  // ── The bathroom trip ──
+  // The only home routine that leaves the room, so it's the only one that can
+  // strand an NPC in a sub-zone. What's pinned here is the LOOKUP: there is no
+  // bathroom flag in the world data, so the whole feature rests on "a sub-zone
+  // of my home with a fixture in it" still finding the ensuites that exist.
+  {
+    const { bathroomFor, bathroomOf, BATHROOM_GOING, BATHROOM_BACK } = _home;
+    const pools = [...BATHROOM_GOING, ...BATHROOM_BACK];
+    check('bath: every line names the NPC', pools.every(l => l.includes('{npc}')), `${pools.length} lines`);
+    check('bath: both halves are written', BATHROOM_GOING.length >= 2 && BATHROOM_BACK.length >= 2);
+
+    // Find, from live world data, a dwelling whose sub-zone holds a toilet or a
+    // shower — then assert the lookup agrees. If the ensuites ever stop being
+    // sub-zones, or lose their fixtures, this is the test that says so.
+    let expectParent = null, expectBath = null;
+    for (const z of world.zones.values()) {
+      if (!z.parent_zone || !isDwellingZone(getZone(z.parent_zone))) continue;
+      if (!getZoneFurniture(z.id).some(f => isToilet(f) || isShower(f))) continue;
+      if (getZone(z.parent_zone)?.exits && Object.values(getZone(z.parent_zone).exits).includes(z.id)) {
+        expectParent = z.parent_zone; expectBath = z.id; break;
+      }
+    }
+    if (expectParent) {
+      bathroomOf.delete(expectParent);
+      check('bath: an ensuite is found from its parent flat',
+        bathroomFor(expectParent) === expectBath, `${expectParent} -> ${bathroomFor(expectParent)} (want ${expectBath})`);
+      check('bath: the answer is cached', bathroomOf.get(expectParent)?.id === expectBath);
+    } else {
+      check('bath: at least one ensuite exists in world content', false, 'no dwelling sub-zone with a toilet/shower');
+    }
+    check('bath: a flat with no ensuite resolves to nothing', bathroomFor('zone_does_not_exist') === null);
+  }
+
+  // ── Somebody let themselves in ──
+  // The reaction is only owed by people who LIVE here, and only to somebody who
+  // doesn't. Every one of these gates existed as a bug first: a guest NPC
+  // objecting to the owner, a corpse speaking, a shopkeeper defending a counter.
+  {
+    const { residentsOf, ADMIN_LINES, INTRUDER_LINES } = _intrusion;
+    check('intrusion: admin lines exist and name the NPC',
+      ADMIN_LINES.length >= 3 && ADMIN_LINES.every(l => l.includes('{npc}')));
+    check('intrusion: intruder lines exist and name the NPC',
+      INTRUDER_LINES.length >= 3 && INTRUDER_LINES.every(l => l.includes('{npc}')));
+    // An admin is startled, never evicted — the whole point of the split.
+    check('intrusion: no admin line throws the player out',
+      ADMIN_LINES.every(l => !/\b(out|leave|get out|five seconds)\b/i.test(l)), ADMIN_LINES.join(' | '));
+    check('intrusion: the intruder is actually challenged',
+      INTRUDER_LINES.some(l => /\b(out|leave|turn around|my home)\b/i.test(l)));
+
+    const zoneId = 'zone_intrusion_test';
+    world.zones.set(zoneId, { id: zoneId, npcs: new Set(['n_home', 'n_guest', 'n_dead', 'n_optout']), enemies: new Set(), players: new Set() });
+    world.npcs.set('n_home',   { id: 'n_home',   name: 'Resident', home_zone: zoneId });
+    world.npcs.set('n_guest',  { id: 'n_guest',  name: 'Guest',    home_zone: 'zone_elsewhere' });
+    world.npcs.set('n_dead',   { id: 'n_dead',   name: 'Corpse',   home_zone: zoneId, _dead: true });
+    world.npcs.set('n_optout', { id: 'n_optout', name: 'Opted',    home_zone: zoneId, flags: { no_home_life: true } });
+    const ids = residentsOf(zoneId).map(n => n.id);
+    check('intrusion: only the householder reacts', ids.length === 1 && ids[0] === 'n_home', ids.join(','));
+    check('intrusion: an unknown zone yields nobody', residentsOf('zone_nope').length === 0);
+    for (const id of ['n_home', 'n_guest', 'n_dead', 'n_optout']) world.npcs.delete(id);
+    world.zones.delete(zoneId);
   }
 }

@@ -1,11 +1,11 @@
 {
-  "description": "A squat jar of sauce the colour of old brick, thick enough to stand a spoon in. Apple butter underneath, chipotle somewhere behind it, and a warmth that arrives about four seconds after you think you got away with it.",
+  "description": "A squat jar of sauce the colour of old brick, thick enough to stand a spoon in. The label is a strip of tape with MALCOLM'S on it in marker, and underneath, smaller, in the same hand: it's fine. Apple butter underneath, chipotle somewhere behind it, and a warmth that arrives about four seconds after you think you got away with it.",
   "flags": {},
   "id": "item_bbq_sauce",
-  "name": "apple butter burn sauce",
+  "name": "Malcolm's apple butter burn",
   "tags": {
     "consumable": true,
-    "description": "A squat jar of sauce the colour of old brick, thick enough to stand a spoon in. Apple butter underneath, chipotle somewhere behind it, and a warmth that arrives about four seconds after you think you got away with it.",
+    "description": "A squat jar of sauce the colour of old brick, thick enough to stand a spoon in. The label is a strip of tape with MALCOLM'S on it in marker, and underneath, smaller, in the same hand: it's fine. Apple butter underneath, chipotle somewhere behind it, and a warmth that arrives about four seconds after you think you got away with it.",
     "food_also": "liquid",
     "food_noun": "apple butter",
     "food_profile": "fruit",

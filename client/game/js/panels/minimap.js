@@ -57,8 +57,10 @@ try { const z = parseInt(localStorage.getItem(MM_ZOOM_KEY), 10); if (z >= 0 && z
 // Size the grid tracks to the current zoom's window and scale the tile size so the
 // grid keeps roughly the same overall footprint. At level 0 scale is 1, so the
 // inline values match the CSS and there's no visual change from default.
-function applyMinimapZoom() {
-  const n = 2 * MM_ZOOM[mmZoom].R + 1;
+// `rOverride` is the auto-fit radius for a compact map (an interior — see fitRadius);
+// without it we use the player's chosen zoom level.
+function applyMinimapZoom(rOverride) {
+  const n = 2 * (rOverride ?? MM_ZOOM[mmZoom].R) + 1;
   const scale = 9 / n;
   for (const { id, base } of MM_GRIDS) {
     const el = document.getElementById(id);
@@ -145,6 +147,14 @@ let autoWalkTimer = null;
 // (a swallowed move, a stall), re-evaluating from our real position.
 let autoWalkWatchdog = null;
 const AUTO_WATCHDOG_MS = 3000;
+// An elevator hop is a ride, not a step, and the car takes up to 5s to climb (see
+// travelMs in plugins/elevator). The ordinary watchdog would fire mid-flight and
+// re-press the button on a moving car, so a ride gets its own generous window.
+const AUTO_RIDE_WATCHDOG_MS = 12000;
+// The elevator hop currently in flight: we've pressed `floor <n>` and are waiting
+// for the server's `elevator_doors` before sending `out`. Null whenever we're
+// walking normally.
+let autoElevatorRide = null;
 // The player's standing intent to auto-walk. Distinct from autoWalkTimer (the
 // "currently stepping" state): it SURVIVES arriving at a waypoint, so when a quest
 // advances a phase and re-plots the route (gps_route resumeAuto), we can pick the
@@ -189,9 +199,9 @@ function clearAutoWalkWatchdog() {
 }
 // Arm the safety net for a hop we just sent: if the server never confirms arrival,
 // re-run the step from our real position (which either retries, reroutes, or stops).
-function armAutoWalkWatchdog() {
+function armAutoWalkWatchdog(ms = AUTO_WATCHDOG_MS) {
   clearAutoWalkWatchdog();
-  autoWalkWatchdog = setTimeout(() => { autoWalkWatchdog = null; autoWalkStep(); }, AUTO_WATCHDOG_MS);
+  autoWalkWatchdog = setTimeout(() => { autoWalkWatchdog = null; autoElevatorRide = null; autoWalkStep(); }, ms);
 }
 
 // Ask the server to re-plot to `destId` from wherever we are now, routing around any
@@ -225,7 +235,7 @@ function stopAutoWalk(message, { keepArmed = false } = {}) {
   clearAutoWalkWatchdog();
   if (!keepArmed) { autoWalkArmed = false; autoWalkBtn()?.classList.remove('active'); autoAvoid.clear(); }
   autoNoProgress = 0; autoLastZone = null; autoPendingTarget = null; autoRerouteTries = 0;
-  autoBlockAnchor = null; autoBlockTries = 0;
+  autoBlockAnchor = null; autoBlockTries = 0; autoElevatorRide = null;
   if (message) appendMsg(message, 'system');
 }
 
@@ -301,6 +311,21 @@ function autoWalkStep() {
   // the direction off the current node's exits.
   const idx = mapState.tracePath.indexOf(current.id);
   let dir = (mapState.traceDirs && idx >= 0) ? mapState.traceDirs[idx] : null;
+
+  // An elevator hop: the server handed us a button press rather than a direction,
+  // because the car doesn't answer to `up`. Press it and stop stepping — the ride
+  // finishes on the server's clock, and `elevator_doors` is what tells us to get
+  // out (notifyElevatorDoors below). The ordinary confirmation path picks straight
+  // back up from there, since `out` is a real move onto nextId.
+  const ride = typeof dir === 'string' && dir.match(/^floor\s+(-?\d+)$/);
+  if (ride) {
+    autoPendingTarget = nextId;
+    autoElevatorRide = { zone: nextId, n: Number(ride[1]) };
+    sendCmd(dir);
+    armAutoWalkWatchdog(AUTO_RIDE_WATCHDOG_MS);
+    return;
+  }
+
   if (!dir) dir = Object.entries(current.exits || {}).find(([, id]) => id === nextId)?.[0];
   if (!dir || !DIR_CMDS.includes(dir)) { stopAutoWalk("Auto-walk stopped — can't step off the route from here."); return; }
   autoPendingTarget = nextId; // so an exit picker can be answered toward this zone
@@ -320,9 +345,24 @@ export function notifyAutoWalkArrival(currentId) {
   if (!autoWalkArmed || autoPendingTarget == null) return;
   if (currentId !== autoPendingTarget) return;   // not the hop we're waiting on
   autoPendingTarget = null;
+  autoElevatorRide = null;
   clearAutoWalkWatchdog();
   if (autoWalkTimer) clearTimeout(autoWalkTimer);
   autoWalkTimer = setTimeout(autoWalkStep, autoWalkDelay());
+}
+
+// The car we're riding has settled and its doors are standing open. Riding does not
+// move you — you're still in the car — so the hop isn't done until we step out. Only
+// act when the doors opened on the floor we actually pressed for: a car settling on
+// somebody else's floor (or a stray signal) must not walk us out of it.
+export function notifyElevatorDoors({ floor, zone } = {}) {
+  if (!autoElevatorRide) return;
+  if (zone ? zone !== autoElevatorRide.zone : floor !== autoElevatorRide.n) return;
+  autoElevatorRide = null;
+  sendCmd('out');
+  // Back on the ordinary confirmation path: `out` is a real move onto the floor,
+  // so notifyAutoWalkArrival paces the hop after it.
+  armAutoWalkWatchdog();
 }
 
 export function startAutoWalk() {
@@ -385,7 +425,7 @@ export function autoWalkBlocked(message) {
     autoAvoid.add(blocked);
     if (autoWalkTimer) { clearTimeout(autoWalkTimer); autoWalkTimer = null; }
     clearAutoWalkWatchdog();
-    autoLastZone = null; autoPendingTarget = null;
+    autoLastZone = null; autoPendingTarget = null; autoElevatorRide = null;
     requestReroute(destId);
     return true;
   }
@@ -573,6 +613,23 @@ function renderCrossing(nodes, current, direction) {
   if (direction) slideMinimap(direction);
 }
 
+// Auto-fit for interiors. Out on the city grid the server's window always fills the
+// 9×9, so the chosen zoom level stands. Inside a building there are only a handful of
+// rooms, and rendering them at street scale left a tiny cluster marooned in a mostly
+// empty grid (worst on the mobile minimap, the smallest of the three). So shrink the
+// window to the content's own extent — same render, bigger tiles — never wider than
+// the player's zoom and never below 1 (a 3×3, enough for the room plus its exits).
+const MM_MIN_R = 1;
+function fitRadius(coords) {
+  const R = MM_ZOOM[mmZoom].R;
+  let ext = 0;
+  for (const [x, y] of coords.values()) {
+    const d = Math.max(Math.abs(x), Math.abs(y));
+    if (d <= R && d > ext) ext = d;
+  }
+  return Math.max(MM_MIN_R, Math.min(R, ext));
+}
+
 export function renderMinimap(nodes, direction) {
   if (!nodes || !nodes.length) { minimapMessage('(unmapped)'); return; }
 
@@ -629,7 +686,7 @@ export function renderMinimap(nodes, direction) {
   // connector/gap cells (mirrors the full-map popup). Gateways: a foreign tile one
   // step across a district boundary from an in-district tile still renders as an edge
   // marker, so crossing between neighborhoods reads.
-  const R = MM_ZOOM[mmZoom].R;
+  const R = fitRadius(coords);
   const gCols = 2 * R + 1, gRows = gCols;
   const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
   const inWin = (x, y) => x >= -R && x <= R && y >= -R && y <= R;
@@ -810,7 +867,7 @@ export function renderMinimap(nodes, direction) {
   if (gpsPts.length > 1)
     html += `<svg class="mm-gps-svg" viewBox="0 0 ${gCols} ${gRows}" preserveAspectRatio="none"><polyline class="mm-gps-line" points="${gpsPts.join(' ')}"/></svg>`;
 
-  applyMinimapZoom(); // keep the grid tracks in step with R before painting the cells
+  applyMinimapZoom(R); // keep the grid tracks in step with R before painting the cells
   for (const id of ['minimap-grid', 'minimap-grid-mob', 'minimap-grid-hud']) {
     const el = document.getElementById(id);
     if (el) el.innerHTML = html;

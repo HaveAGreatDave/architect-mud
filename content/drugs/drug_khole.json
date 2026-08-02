@@ -58,7 +58,9 @@
       "onset_seconds": 1800
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "dissociative"
+  },
   "id": "drug_khole",
   "item_id": "item_khole",
   "name": "k-hole",

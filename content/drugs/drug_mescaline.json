@@ -70,7 +70,9 @@
       "max_reduction": 0.9
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "psychedelic"
+  },
   "id": "drug_mescaline",
   "item_id": "item_mescaline",
   "name": "mescaline",

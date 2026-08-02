@@ -69,7 +69,9 @@
       "max_reduction": 0.85
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "deliriant"
+  },
   "id": "drug_screamers",
   "item_id": "item_screamers",
   "name": "screamers",

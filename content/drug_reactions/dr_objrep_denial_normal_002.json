@@ -1,0 +1,10 @@
+{
+  "id": "dr_objrep_denial_normal_002",
+  "drug_id": null,
+  "source": "object_reply_denial",
+  "tone": "normal",
+  "self_line": "That is a bit rude, but I have had worse.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

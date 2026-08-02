@@ -5,10 +5,7 @@
   "effects": {
     "comeon_message": "<span class=\"msg-system\">Bitter enough to close your throat. Your pulse picks up, then does something you do not like.</span>",
     "hallucination": {
-      "mode": "dreamzone",
       "duration_seconds": 1800,
-      "intensity": 0.9,
-      "palette": "orange",
       "events": [
         {
           "atSec": 80,
@@ -34,7 +31,10 @@
           "atSec": 1650,
           "text": "[trip]It finishes. It does not offer a conclusion. You are simply let go.[/trip]"
         }
-      ]
+      ],
+      "intensity": 0.9,
+      "mode": "dreamzone",
+      "palette": "orange"
     },
     "instant": {
       "sanity": -14
@@ -58,7 +58,9 @@
       "onset_seconds": 1800
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "psychedelic"
+  },
   "id": "drug_ibogaine",
   "item_id": "item_ibogaine",
   "name": "ibogaine",

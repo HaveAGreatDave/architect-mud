@@ -1,0 +1,10 @@
+{
+  "id": "dr_objrep_identity_normal_001",
+  "drug_id": null,
+  "source": "object_reply_identity",
+  "tone": "normal",
+  "self_line": "I have been here as long as you have. Longer, if you count properly.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

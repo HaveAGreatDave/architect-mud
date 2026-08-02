@@ -19,6 +19,32 @@ export function updateInventoryCache(items, weight, capacity) {
   if (weight !== undefined) lastWeight = weight;
   if (capacity !== undefined) lastCapacity = capacity;
   if (_invWaiters.length) { const ws = _invWaiters; _invWaiters = []; for (const r of ws) r(lastItems); }
+  renderWeaponChip();
+}
+
+// ── The mobile weapon chip ───────────────────────────────────────────────────
+//
+// Lives here rather than in render.js because it is a view of THIS cache and
+// nothing else — every path that can change what you're holding ends up in
+// `updateInventoryCache`, so there is exactly one place to repaint from.
+//
+// The refresh is deliberately pull-not-push: the server's `inventory.changed`
+// ping carries no payload, so keeping the chip honest means asking for an
+// inventory. That's a real round trip, so it's gated on the chip being ON SCREEN
+// (mobile/compact only — `offsetParent` is null when the strip is display:none)
+// and coalesced, so a five-item looting spree costs one query, not five.
+function renderWeaponChip() {
+  const el = document.getElementById('mob-weapon');
+  if (!el) return;
+  el.textContent = `⚔ ${getEquippedWeaponName() || 'fists'}`;
+}
+
+let _chipTimer = 0;
+export function refreshWeaponChip() {
+  const el = document.getElementById('mob-weapon');
+  if (!el || !el.offsetParent) return;   // desktop layout — pay nothing
+  if (_chipTimer) return;
+  _chipTimer = setTimeout(() => { _chipTimer = 0; refreshInventory(); }, 600);
 }
 
 // Read-only snapshot of the last inventory payload (id/name/tags/actions per item).

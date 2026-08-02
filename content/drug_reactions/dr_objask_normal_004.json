@@ -1,0 +1,10 @@
+{
+  "id": "dr_objask_normal_004",
+  "drug_id": null,
+  "source": "object_ask",
+  "tone": "normal",
+  "self_line": "Are you working tomorrow?",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

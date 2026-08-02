@@ -1,0 +1,28 @@
+{
+  "id": "dx_blotter_wall_circuit",
+  "drug_id": "drug_blotter",
+  "matches": "wall",
+  "scope": "object",
+  "name": "a printed circuit the size of a wall",
+  "description": "The wall is a single vast board of green and gold, tracks running in right-angle rivers between components the size of your fist, and somewhere behind it all something is being computed.",
+  "looks": [
+    "The tracks branch and rejoin in a pattern that is nearly readable, the way a page in a language you nearly know is nearly readable.",
+    "Small lights come on in sequence along one edge, run out, and start again in a different order.",
+    "Put your ear to it and there is a hum with structure in it."
+  ],
+  "says": [
+    "I am nearly finished. I have been nearly finished for some time.",
+    "You are one of the inputs. Do not let that go to your head.",
+    "The answer will be short. Most of them are."
+  ],
+  "emotes": [
+    "A run of lights crosses {it} left to right and stops dead at the corner.",
+    "{it} hums up a semitone and settles.",
+    "A section of {it} reroutes itself while you watch, tracks sliding into new corners."
+  ],
+  "asks": [
+    "Would you say a number? Any number.",
+    "Do you know what I am working on?",
+    "Have you been counting the lights? I would like a second opinion."
+  ]
+}

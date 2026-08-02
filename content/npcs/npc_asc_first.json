@@ -97,7 +97,8 @@
       "prosthetic feet, bare on the cold floor"
     ],
     "mis_willing": false,
-    "personality": "cult_member"
+    "personality": "cult_member",
+    "posted": true
   },
   "home_activities": [],
   "home_zone": "zone_asc_spire_sanctum",

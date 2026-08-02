@@ -1,0 +1,10 @@
+{
+  "id": "dr_objemote_normal_005",
+  "drug_id": null,
+  "source": "object_emote",
+  "tone": "normal",
+  "self_line": "{it} moves about an inch, the way furniture moves when somebody knocks it.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

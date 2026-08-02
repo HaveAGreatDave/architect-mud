@@ -5,10 +5,7 @@
   "effects": {
     "comeon_message": "<span class=\"msg-system\">The smoke is foul and the room is already peeling.</span>",
     "hallucination": {
-      "mode": "dreamzone",
       "duration_seconds": 120,
-      "intensity": 1,
-      "palette": "magenta",
       "events": [
         {
           "atSec": 6,
@@ -34,7 +31,10 @@
           "atSec": 112,
           "text": "[trip]The room reassembles. You have been gone twelve minutes and several years.[/trip]"
         }
-      ]
+      ],
+      "intensity": 1,
+      "mode": "dreamzone",
+      "palette": "magenta"
     },
     "instant": {
       "sanity": -8
@@ -51,7 +51,9 @@
       "max_reduction": 0
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "psychedelic"
+  },
   "id": "drug_dmt",
   "item_id": "item_dmt",
   "name": "DMT",

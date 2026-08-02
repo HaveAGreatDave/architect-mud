@@ -2,16 +2,28 @@
   "id": "dx_mescaline_table_altar",
   "drug_id": "drug_mescaline",
   "matches": "table",
-  "name": "a table that was laid with great care",
-  "description": "A table, laid. Every object on it is in the only place it could be, and someone meant all of it.",
+  "scope": "object",
+  "name": "a stone altar, laid",
+  "description": "A slab of pale stone stands where the table was, laid with a folded cloth, a shallow dish, and a small heap of salt. Everything on it is in the only place it could be.",
   "looks": [
-    "The fold in the cloth has been like that since before the table.",
-    "The salt is the whole of the argument, settled.",
-    "You could follow the grain out of the room, if you were braver."
+    "The fold in the cloth has been like that since before the stone. Nobody folded it this morning.",
+    "The dish holds a finger of dark liquid that has not evaporated and is not going to.",
+    "The salt is heaped in a low cone with a single fingermark taken out of the side of it."
   ],
   "says": [
     "Sit. It has been ready a long time.",
-    "It is not a shrine. It is only that everything is where it should be."
+    "It is not a shrine. It is only that everything is where it should be.",
+    "Nothing is required of you. That is what the salt is for."
   ],
-  "scope": "object"
+  "emotes": [
+    "The dish on {it} rings once, faintly, though nothing has touched it.",
+    "The cloth on {it} lifts at one corner and lies back down.",
+    "{it} takes the light off the room and gives it back warmer.",
+    "A grain of salt slides down the cone on {it} and stops."
+  ],
+  "asks": [
+    "Did you wash your hands? It is not a rule. It is only usual.",
+    "Do you know whose place this was?",
+    "Would you take the salt, or leave it for whoever is after you?"
+  ]
 }

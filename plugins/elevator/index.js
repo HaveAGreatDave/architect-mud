@@ -37,6 +37,7 @@ import { emit, on } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { registerInputMatcher } from '../../server/engine/plugins.js';
 import { query } from '../../server/models/db.js';
+import { GROUND_FLOOR, isElevator, floorsOf } from './floors.js';
 
 const sys = (s) => `<span class="msg-system">${s}</span>`;
 
@@ -60,9 +61,6 @@ const SFX_ELEVATOR_CHIME = {
   },
 };
 
-// The car nominally rests at the lobby — call that Floor 1 for counter purposes.
-const GROUND_FLOOR = 1;
-
 // A ride shouldn't be instant, but it also shouldn't feel like a loading screen.
 // Time scales with how far the car climbs: a quick hop to the gym, a long haul to
 // the penthouse. Clamped so nothing feels broken at either extreme.
@@ -77,31 +75,6 @@ function travelMs(fromN, targetN) {
 // floor (see the zone.entered listener below).
 function currentFloor(player) {
   return player?._elevatorAt?.n ?? GROUND_FLOOR;
-}
-
-// Floor list off a zone, cleaned + sorted top-to-bottom (highest floor first, the
-// way a real elevator panel reads). Tolerates a missing/garbled flag.
-//
-// The ground floor is implicit: every car returns to its lobby (the `out` exit)
-// as Floor 1, injected here so the panel always offers a way down without the
-// content repeating it — the ride down runs the same timed board→arrive→chime
-// path as any other floor. Skipped if the content already defines a floor there.
-function floorsOf(zone) {
-  const raw = zone?.flags?.elevator_floors;
-  const list = Array.isArray(raw)
-    ? raw
-        .filter((f) => f && f.zone && Number.isFinite(Number(f.n)))
-        .map((f) => ({ n: Number(f.n), zone: f.zone, label: f.label || getZone(f.zone)?.name || f.zone }))
-    : [];
-  if (!list.some((f) => f.n === GROUND_FLOOR)) {
-    const lobbyId = exitTargets(zone, 'out')[0];
-    if (lobbyId && getZone(lobbyId)) list.push({ n: GROUND_FLOOR, zone: lobbyId, label: 'Ground Floor — Lobby' });
-  }
-  return list.sort((a, b) => b.n - a.n);
-}
-
-function isElevator(zone) {
-  return !!zone?.flags?.elevator;
 }
 
 // The clickable floor directory. Each button sends `floor <n>` verbatim.
@@ -157,6 +130,16 @@ function describeRoom(zone, player) {
   return buildPanel(floorsOf(zone), doorsOpenAt(zone, player));
 }
 
+// "The doors are open on floor N, and N is that zone." A machine-readable twin of
+// the prose the rider reads, because a ride is the one hop on a GPS route that a
+// direction can't express: the car answers `up` with a shrug, so the auto-walker
+// presses the button and then has to know WHEN to step out. Ignored by a human
+// client that isn't auto-walking. Sent from both places the doors can come to rest
+// open — the end of a ride, and pressing the button for the floor you're already on.
+function signalDoorsOpen(player, floor) {
+  sendToPlayer(player.id, { type: 'elevator_doors', floor: floor.n, zone: floor.zone });
+}
+
 // Tear down an in-progress ride's timers. Safe to call twice.
 function clearRide(player) {
   if (!player?._elevator) return;
@@ -202,6 +185,7 @@ async function arrive(player, ride) {
     type: 'output',
     message: sys(`▣ A soft chime. The doors part on <b>Floor ${floor.n}</b> — ${target.name}. Step <b>out</b> to leave the car.`),
   });
+  signalDoorsOpen(player, floor);
 }
 
 // `out` while parked on a floor — the actual step off the car. Prefers the real
@@ -293,7 +277,12 @@ async function cmdFloor(args, raw, player, broadcast) {
     return { type: 'error', message: `No Floor ${arg} on this panel. Try: ${valid}.` };
   }
   if (at && at.n === floor.n) {
-    return { type: 'error', message: `The doors are already open on ${floor.n === GROUND_FLOOR ? 'the lobby' : `Floor ${floor.n}`}. Step <b>out</b>.` };
+    // Not an error: pressing the button for the floor you're standing at is a
+    // no-op with the doors already open, and an auto-walker that plotted this hop
+    // needs to hear that so it steps out instead of treating a blocked ride as a
+    // wall to route around.
+    signalDoorsOpen(player, floor);
+    return { type: 'output', message: sys(`The doors are already open on ${floor.n === GROUND_FLOOR ? 'the lobby' : `Floor ${floor.n}`}. Step <b>out</b>.`) };
   }
   // A ride is a teleport, so it would otherwise skip every law a walked step
   // obeys — including the residents-only gate on a private amenity floor. Run

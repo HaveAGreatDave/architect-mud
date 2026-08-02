@@ -1,0 +1,17 @@
+{
+  "description": "A damp brick of dark sugar in a paper sack, pressed hard enough to hold a thumbprint. Smells faintly of molasses and strongly of the sack.",
+  "flags": {},
+  "id": "item_brown_sugar",
+  "name": "brown sugar",
+  "tags": {
+    "consumable": true,
+    "description": "A damp brick of dark sugar in a paper sack, pressed hard enough to hold a thumbprint. Smells faintly of molasses and strongly of the sack.",
+    "food_noun": "sweet",
+    "food_profile": "aromatic",
+    "restore_hunger": 3,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 9,
+  "weight": 250
+}

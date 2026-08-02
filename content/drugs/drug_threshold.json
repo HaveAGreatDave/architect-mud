@@ -38,7 +38,9 @@
       "max_reduction": 0.6
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "psychedelic"
+  },
   "id": "drug_threshold",
   "item_id": "item_threshold",
   "name": "The Threshold",

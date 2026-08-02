@@ -23,6 +23,16 @@ instead of hitting a wall of errors. System-driven relocations
   the winded transition below `SPRINT_FLOOR`, and pushes the `sta` HUD bar via
   `sendToPlayer`. Skipped for system moves (`opts.bypassEncumbrance`).
 
+## Exported
+
+- `stepCadenceMs(player)` — how long one step takes this player right now: gear
+  (walk/run/sprint) times the tile underfoot. This is the game's step clock and the
+  only one. Anything that walks a player **automatically** paces itself off it rather
+  than inventing a cadence that drifts the moment these consts are tuned — the live
+  `home` walk in `plugins/pinch` is the first caller. Note such a walker's own steps
+  should stay `bypassEncumbrance`: it is already pacing them, and the gate below would
+  otherwise pace the same walk twice.
+
 ## Move gate
 
 - `pacing:cadence` — a step that arrives before the walk/sprint cooldown elapses is

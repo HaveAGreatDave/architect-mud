@@ -448,6 +448,37 @@ export const DISHES = {
     ceiling: 'masterful', difficulty: 7,
     blurb: 'Meat, egg and crumb worked together by hand and rolled out. Not dinner yet.',
   },
+  // The rub. Nothing but seasoning, mixed dry, and its output is the same
+  // `item_bbq_rub` the grocery sells — buying it and making it are the same
+  // thing, which is the point: the shop version is the floor, and yours can be
+  // better than the shop's.
+  //
+  // The ceiling has to be `masterful` even though this is five powders in a
+  // bowl. An intermediate's band CAPS whatever it ends up in (see above), so a
+  // rub capped at `excellent` would quietly make a masterful smoked chop
+  // impossible for anyone who rubbed it — which is the opposite of the intent.
+  spice_rub: {
+    noun: 'rub', vessel: 'bowl',
+    needs: { aromatic: [3, 5] },
+    nameSlots: [],
+    nameFormat: 'spice rub',
+    output: { item: 'item_bbq_rub' },
+    // Every ingredient IS the seasoning, so there's no separate seasoning step
+    // to reward — the balance is the recipe.
+    seasoning: 0,
+    notes: {
+      aromatic: 'salt and pepper, garlic, brown sugar, paprika, cayenne — and the salt is not the flavour, it is the vehicle',
+    },
+    steps: [
+      'Everything dry and everything ground. A lump of anything in a rub is a lump of that thing in your dinner.',
+      'Salt first and by weight, because it is the only one you cannot walk back.',
+      'Sugar next. It is not there to sweeten it, it is there to burn — that is where the bark comes from.',
+      'Paprika for colour, cayenne for the argument, garlic for the rest of it.',
+      'Mix until the colour is one colour. If you can still see the salt, keep going.',
+    ],
+    ceiling: 'masterful', difficulty: 5,
+    blurb: 'Five powders and a bowl. The salt is the vehicle, the sugar is the bark, and the rest is an argument you get to settle yourself.',
+  },
 
   // ── Bowl: dips. Nothing here goes on the heat ─────────────────────────────
   // These are the only dishes made from ingredients at their RAW target, which
@@ -522,16 +553,67 @@ export const DISHES = {
   // Smoked first, then finished hot and fast over coals — the one dish that
   // spans two appliances. The sauce is the key: apple butter is `fruit`, so it
   // caramelises and chars the way the recipe wants rather than just seasoning.
+  //
+  // The name does NOT say "smoked" itself. The intended route into this dish is
+  // the smoker, and the smoker already renames what comes off it (`smoked pork`,
+  // via SMOKER_PROFILE in index.js) — so a hardcoded "smoked {0}" printed
+  // "smoked smoked pork chop". The preserved slot brings its own adjective;
+  // let it. A cured strip cooked this way is a "cured meat chop", which is
+  // exactly what it is.
   smoked_chop: {
     noun: 'chop', vessel: 'pan',
     keyItems: ['item_bbq_sauce'],
     needs: { preserved: [1, 2], fruit: [1, 2] },
     optional: ['aromatic', 'fat_or_oil'],
     nameSlots: ['preserved'],
-    nameFormat: 'smoked {0} chop',
+    nameFormat: '{0} chop',
     seasoning: 3,
+    notes: {
+      preserved: 'a slab an inch and a half thick, smoked first — that is not optional',
+      fruit: 'the sauce, and Malcolm will tell you which one',
+    },
+    steps: [
+      'Score the fat cap in a diamond, a quarter inch deep and no more. You are opening it up, not carving it.',
+      'Mustard all over it. You will not taste the mustard. That is not what the mustard is for.',
+      'Rub on heavy. Heavier than that.',
+      'Into the smoke, low, for an hour and a half. Go and do something else. Do not open the lid to look at it.',
+      'Grates as hot as they go, sauce on, and down until the fat cap chars and crisps.',
+      'Off at a hundred and fifty and not a degree over. Past that you have made a shoe.',
+    ],
     ceiling: 'masterful', difficulty: 8,
     blurb: 'Hours in the smoke, then minutes over coals with the sauce going black at the edges.',
+  },
+  // The overnight one. Same smoker as the chop and the same rub, but where the
+  // chop is an hour and a half and then your full attention over coals, this is
+  // ten to fourteen hours and then no attention at all.
+  //
+  // The count looks enormous against the rest of the catalog and is correct: a
+  // unit of `preserved` is 300g, and a bone-in shoulder is 2.6kg — nearly nine
+  // units on its own. The range spans one shoulder to two, which is the real
+  // choice being made. There is no small version of this dish; that is the dish.
+  //
+  // No `keyItems`: the chop is anchored on the sauce because the sauce IS that
+  // dish, but pulled shoulder is a method, and anything you smoke that long and
+  // pull apart is the thing. Sauce and rub are welcome and neither is required.
+  pulled_shoulder: {
+    noun: 'pulled shoulder', vessel: 'tray',
+    needs: { preserved: [6, 10] },
+    optional: ['aromatic', 'fruit', 'fat_or_oil', 'liquid'],
+    nameSlots: ['preserved'],
+    nameFormat: 'pulled {0}',
+    seasoning: 3,
+    notes: {
+      preserved: 'a whole shoulder, bone in, smoked — one feeds a room, two feeds a week',
+    },
+    steps: [
+      'Score the fat cap. Mustard, then rub, and far more rub than looks reasonable.',
+      'Two twenty-five, and then ten to fourteen hours. That is not a range you get to choose from — it is done when it is done.',
+      'It will stop climbing in temperature partway through and sit there for hours, sulking. This is normal. Do not turn the heat up. Do not.',
+      'Take it off when the bone comes away from it without an argument.',
+      'Rest it, then pull it apart with two forks and your hands, and put the bark back through the middle so everybody gets some.',
+    ],
+    ceiling: 'masterful', difficulty: 9,
+    blurb: 'On overnight and off when the bone gives up. Pulled apart by hand with the bark stirred back through it.',
   },
   meatball_sugo: {
     noun: 'sugo', vessel: 'pot',

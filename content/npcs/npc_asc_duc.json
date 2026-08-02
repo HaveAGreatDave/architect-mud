@@ -55,7 +55,8 @@
       "steel-toed boots worn to the metal"
     ],
     "mis_willing": false,
-    "personality": "vendor"
+    "personality": "vendor",
+    "posted": true
   },
   "home_activities": [],
   "home_zone": "zone_asc_weave_line",

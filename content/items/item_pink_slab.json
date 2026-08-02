@@ -1,11 +1,11 @@
 {
-  "description": "An inch and a half thick, pale as a scar, with a fat cap on one side you could set your watch by. Nobody at the counter will tell you what it came off and you have learned not to ask.",
+  "description": "An inch and a half thick, pale as a scar, with a fat cap on one side you could set your watch by. The wrapper says PORKY PORK PORK in three colours, which is two more assurances than an honest cut of pork has ever needed. Nobody at the counter will tell you what it came off and you have learned not to ask.",
   "flags": {},
   "id": "item_pink_slab",
-  "name": "slab of pink meat",
+  "name": "slab of Porky Pork Pork",
   "tags": {
     "consumable": true,
-    "description": "An inch and a half thick, pale as a scar, with a fat cap on one side you could set your watch by. Nobody at the counter will tell you what it came off and you have learned not to ask.",
+    "description": "An inch and a half thick, pale as a scar, with a fat cap on one side you could set your watch by. The wrapper says PORKY PORK PORK in three colours, which is two more assurances than an honest cut of pork has ever needed. Nobody at the counter will tell you what it came off and you have learned not to ask.",
     "food_noun": "pork",
     "food_profile": "dense_meat",
     "needs_cooking": true,

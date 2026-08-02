@@ -1,0 +1,10 @@
+{
+  "id": "dr_objemote_normal_002",
+  "drug_id": null,
+  "source": "object_emote",
+  "tone": "normal",
+  "self_line": "{it} makes the noise a radiator makes and then behaves itself.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

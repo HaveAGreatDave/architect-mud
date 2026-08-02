@@ -30,7 +30,9 @@
       "max_reduction": 0.6
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "nootropic"
+  },
   "id": "drug_static",
   "item_id": "item_static",
   "name": "Static",

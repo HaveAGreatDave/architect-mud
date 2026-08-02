@@ -1,0 +1,10 @@
+{
+  "id": "dr_objemote_normal_008",
+  "drug_id": null,
+  "source": "object_emote",
+  "tone": "normal",
+  "self_line": "{it} yawns — a long, human, end-of-shift yawn.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

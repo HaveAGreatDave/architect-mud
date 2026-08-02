@@ -95,7 +95,8 @@
       "a load-bearing vest, every pouch closed and squared",
       "scuffed jump boots, laced tight"
     ],
-    "mis_willing": false
+    "mis_willing": false,
+    "posted": true
   },
   "home_activities": [],
   "home_zone": "zone_under_watchthresh",

@@ -40,7 +40,8 @@
     }
   },
   "flags": {
-    "drug_class": "depressant"
+    "drug_class": "depressant",
+    "drug_family": "depressant"
   },
   "id": "drug_lull",
   "item_id": "item_lull",

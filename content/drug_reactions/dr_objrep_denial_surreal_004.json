@@ -1,0 +1,10 @@
+{
+  "id": "dr_objrep_denial_surreal_004",
+  "drug_id": null,
+  "source": "object_reply_denial",
+  "tone": "surreal",
+  "self_line": "Whether I am real is a question you are asking me. Think about the shape of that.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

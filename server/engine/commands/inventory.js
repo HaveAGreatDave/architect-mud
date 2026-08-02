@@ -17,6 +17,7 @@ import { getItem } from '../items-cache.js';
 import { fireHook } from '../plugins.js';
 import { applyEffect } from '../effects.js';
 import { sendToPlayer } from '../messaging.js';
+import { sectionize, facetOf, AXIS_ORDER } from '../classify.js';
 
 // Throttle: only broadcast "rummages in container" once per 30s per player.
 const _ctrBroadcastTs = new Map();
@@ -1140,11 +1141,20 @@ async function cmdLookInContainer(nameStr, player) {
 
 async function describeContainer(container, player) {
   const cap = tagValue(container, 'container', 0);
-  const { rows } = await query(`SELECT pi.quantity,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
+  const { rows } = await query(`SELECT pi.quantity,i.name,i.tags,i.type FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
   const used = await containerContentsWeight(container.id);
   let msg = `${container.name} (Capacity: ${formatWeight(used)}/${formatWeight(cap)})`;
   if (!rows.length) msg += `\n  It's empty.`;
-  else for (const r of rows) msg += `\n  ${r.name}${r.quantity>1?` x${r.quantity}`:''}`;
+  else {
+    // A box sorts itself into shelves by the same rule a shop's stock does
+    // (server/engine/classify.js): a footlocker reads by type, a chest freezer by
+    // storage, a spice rack by ingredient class — and none of them were told
+    // which. A small or uniform box stays the flat list it has always been.
+    for (const s of sectionize(rows)) {
+      if (s.group) msg += `\n  <span class="text-dim">${s.group}</span>`;
+      for (const r of s.items) msg += `\n  ${s.group ? '  ' : ''}${r.name}${r.quantity>1?` x${r.quantity}`:''}`;
+    }
+  }
   // Only one shelf is in front of you. Say what the others are called, or a
   // text-only player has no way to learn the cabinet has any.
   const others = player
@@ -1183,17 +1193,37 @@ async function loadBoxContents(container) {
   const used = await containerContentsWeight(container.id);
   const { rows: containerItems } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
   for (const r of containerItems) r.name = titleCaseName(r.name);
+  // Stamp `group` for the panel. The rows already carry tags, so this costs
+  // nothing; the client starts a new section wherever `group` changes, and rows
+  // arrive in section order. An ungrouped box leaves `group` unset throughout.
+  const grouped = sectionize(containerItems).flatMap(s => s.items);
+  containerItems.length = 0;
+  containerItems.push(...grouped);
   return { capacity: cap, usedWeight: round1(used), containerItems, preserves: container.tags?.preserves ?? null, applianceGrade: container.tags?.appliance_grade ?? null };
 }
 
 async function buildContainerView(containerId, player) {
   const container = await loadContainerById(containerId, player);
   if (!container) return { type:'error', message:'Container not found.' };
-  const { rows: invItems } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 ORDER BY i.name`, [player.id]);
-  for (const r of invItems) r.name = titleCaseName(r.name);       // list display — Title Case
+  const { rows: allInv } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 ORDER BY i.name`, [player.id]);
+  for (const r of allInv) r.name = titleCaseName(r.name);       // list display — Title Case
 
   const box = await loadBoxContents(container);
+  // A COLD box offers only what belongs in one. A fridge is not a cupboard —
+  // the reason to open it is the food that would otherwise spoil — so the
+  // stow column filters to `perishable`, the preservation plugin's own tag, and
+  // the panel and the decay clock therefore agree about what a fridge is for.
+  //
+  // A FILTER, NOT A LAW. `stow` itself is untouched: you can still put a pistol
+  // in the freezer by typing it, which is a thing people do and not a bug. This
+  // only stops the panel proposing every screwdriver you own as fridge contents.
+  const chilled = !!box.preserves;
+  const invItems = chilled ? allInv.filter(r => hasTag(r, 'perishable')) : allInv;
+
   const view = { type:'container_view', containerId: container.id, containerName: titleCaseName(container.name), ...box, invItems };
+  if (chilled && invItems.length < allInv.length) {
+    view.invNote = `Only what spoils — ${allInv.length - invItems.length} other item${allInv.length - invItems.length === 1 ? '' : 's'} hidden.`;
+  }
 
   // Paired container (e.g. a fridge's separate freezer box, same appliance,
   // linked via flags.paired_container on each side): surface it as a second
@@ -1453,17 +1483,75 @@ function parseAllArg(argStr) {
 }
 
 // SIFT matches on NAME only, which is right for a single target but too narrow
-// for a bulk sweep: "drop all utensils" names a CATEGORY, not an item. Fall back
-// to the item's type or one of its tags (singular or plural) when no name hits,
-// so a player can clear a category without knowing every item in it.
+// for a bulk sweep: "drop all utensils" names a CATEGORY, not an item. Four
+// ladders, tried in order, each one wider than the last.
+//
+// Words are compared through `normWords`, which lowercases, drops punctuation
+// and singularises every word — so "utensils", "Utensil" and "dry goods" all
+// arrive in the same shape as the thing they're being matched against, and a
+// player never has to guess whether the game wants the plural.
+function normWords(s) {
+  return String(s || '').toLowerCase()
+    .replace(/[^a-z0-9\s]+/g, ' ')
+    .split(/\s+/).filter(Boolean)
+    .map(w => (w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w))
+    .join(' ');
+}
+
+// SAY THE WORD THE SHELF SAYS.
+//
+// A shop's shelf sections and a container's compartments already print the
+// answer — "Frozen", "Refrigerated", "Dry Goods", "Utensils", "Meat" — and they
+// derive it per list from the item's own tags (server/engine/classify.js). A
+// player who has just read "Frozen" over a row of items should be able to type
+// `put all frozen in the freezer`, so the facet labels ARE the vocabulary, with
+// nothing authored twice and no list of category words to maintain: a new
+// profile or a new axis becomes typeable the day it exists.
+function matchesFacet(row, f) {
+  for (const axis of AXIS_ORDER) {
+    const label = facetOf(row, axis);
+    if (label && normWords(label) === f) return true;
+  }
+  return false;
+}
+
+// The handful of words a player reaches for that no tag and no facet spells.
+// Deliberately short: a synonym table is maintenance, and everything that can be
+// derived is derived above. Each is a predicate over the item's own tags.
+//
+// "non-perishable" is food-only on purpose — swept literally it would mean every
+// item in the game that doesn't rot, which is a rifle and a pair of boots, and
+// nobody typing it at a cupboard means that.
+const isFoodish = t => !!(t.consumable || t.food_profile);
+const FILTER_ALIASES = {
+  'non perishable': t => isFoodish(t) && !t.perishable,
+  'nonperishable': t => isFoodish(t) && !t.perishable,
+  'unperishable': t => isFoodish(t) && !t.perishable,
+  'cookware': t => !!t.vessel,
+  'kitchenware': t => !!(t.vessel || t.utensil || t.tableware || t.drinkware),
+  'kitchen kit': t => !!(t.vessel || t.utensil || t.tableware || t.drinkware),
+  'food': t => isFoodish(t),
+  'ingredient': t => !!t.food_profile,
+  'drink': t => !!(t.drink_profile || t.drinkware),
+  'booze': t => !!(t.drink_profile && t.abv),
+  'alcohol': t => !!(t.drink_profile && t.abv),
+};
+
 function matchAllFilter(filter, rows) {
   const byName = siftMatchAll(filter, rows);
   if (byName.length) return byName;
-  const f = filter.trim().toLowerCase().replace(/s$/, '');
+  const f = normWords(filter);
   if (!f) return [];
-  const norm = s => String(s || '').toLowerCase().replace(/s$/, '');
-  return rows.filter(r =>
-    norm(r.type) === f || Object.keys(r.tags || {}).some(t => norm(t) === f));
+  // A tag or the item's own type — the long-standing behaviour, and still the
+  // first thing tried, because `utensil` and `perishable` are tags that exist
+  // precisely so a bulk sweep can name them.
+  const byTag = rows.filter(r =>
+    normWords(r.type) === f || Object.keys(r.tags || {}).some(t => normWords(t) === f));
+  if (byTag.length) return byTag;
+  const byFacet = rows.filter(r => matchesFacet(r, f));
+  if (byFacet.length) return byFacet;
+  const alias = FILTER_ALIASES[f];
+  return alias ? rows.filter(r => alias(r.tags || {})) : [];
 }
 
 // Carried, unequipped, non-quest rows — the pool a bulk stow draws from.
@@ -1595,9 +1683,36 @@ async function cmdPull(argStr, player) {
   }
   if (!container) return { type:'error', message:`You don't see a container${containerPart?` matching "${containerPart}"`:''} here.` };
 
+  // "pull all <filter> from <box>" — the mirror of `stow all`, and the same
+  // vocabulary: a shelf that sections itself into Frozen and Dry Goods can be
+  // emptied by those words too, or the categories would only work in one
+  // direction.
+  const bulk = parseAllArg(itemPart);
+  if (bulk) {
+    const { rows: pool } = await query(
+      `SELECT pi.*,COALESCE(pi.custom_data->>'name',i.name) AS name,i.type,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1`,
+      [container.id]
+    );
+    const matches = bulk.filter ? matchAllFilter(bulk.filter, pool) : pool;
+    if (!matches.length) {
+      return { type:'error', message: bulk.filter
+        ? `There's no "${bulk.filter}" in ${container.name}.`
+        : `${container.name} is empty.` };
+    }
+    const messages = [];
+    for (const row of matches) messages.push((await pullOne(row, container, player)).message);
+    return { type:'pull', message: messages.join('\n') };
+  }
+
   const { rows } = await query(`SELECT pi.*,COALESCE(pi.custom_data->>'name',i.name) AS name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 AND (i.name ILIKE $2 OR pi.custom_data->>'name' ILIKE $2) LIMIT 1`, [container.id, `%${itemPart}%`]);
   if (!rows.length) return { type:'error', message:`There's no "${itemPart}" in ${container.name}.` };
-  const item = rows[0];
+  return pullOne(rows[0], container, player);
+}
+
+// Move one row out of a container and into your hands. Split out of cmdPull so
+// the bulk form can report per item rather than throwing the whole sweep away
+// on the first row that misbehaves — the same shape `stowOne` has.
+async function pullOne(item, container, player) {
   if (item.tags?.perishable) await fireHook('item.checkFreshness', item, player);
 
   const vendorId = vendorStockOwner(container);
@@ -1639,6 +1754,9 @@ export const handlers = {
   equipid:   (args, raw, player, broadcast) => cmdEquipById(args[0], player, broadcast),
   unequipid: (args, raw, player) => cmdUnequipById(args[0], player),
   stow:  (args, raw, player) => cmdStow(args.join(' '), player),
+  // `put X in Y` is what everyone types first — the same command, under the word
+  // people reach for.
+  put:   (args, raw, player) => cmdStow(args.join(' '), player),
   pull:  (args, raw, player) => cmdPull(args.join(' '), player),
   stowid: (args, raw, player, broadcast) => cmdStowById(args.join(' '), player, broadcast),
   pullid: (args, raw, player, broadcast) => cmdPullById(args[0], args[1], player, broadcast),

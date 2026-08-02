@@ -54,7 +54,8 @@
       "a projected badge that reads REGISTRAR"
     ],
     "mis_willing": false,
-    "personality": "scientist"
+    "personality": "scientist",
+    "posted": true
   },
   "home_activities": [],
   "home_zone": "zone_asc_vats_registry",

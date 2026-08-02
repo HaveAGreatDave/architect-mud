@@ -100,7 +100,7 @@ Four survival meters. All are threats. None are fun to micromanage — so the de
 - Zero sanity: catatonia event. Player wakes somewhere else. Memory (session notes) may be scrambled.
 
 ### Hunger / Thirst
-- Drains slowly over real time — thirst reaches 0 in ~5 hours unattended, hunger in ~6–7 hours. Thirst is the faster of the two, matching real survival pacing.
+- Drains slowly over real time — thirst reaches 0 in ~20 hours unattended, hunger in ~27 hours (slowed 4× on 2026-08-01 from ~5h/~6.7h). Thirst is the faster of the two, matching real survival pacing.
 - Ignored long enough (both hit 0): steady, genuinely lethal HP loss, not just a stat penalty — thirst does more damage per minute than hunger does.
 - Food and water both grant a secondary timed buff on top of refilling their own meter: food speeds up HP regeneration ("Well-Fed"), water speeds up radiation decay ("Hydrated"). Both last 10 minutes.
 - Food and water are abundant enough to not be a grind, scarce enough to matter in the deep zones

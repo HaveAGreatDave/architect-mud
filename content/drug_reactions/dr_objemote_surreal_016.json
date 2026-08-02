@@ -1,0 +1,10 @@
+{
+  "id": "dr_objemote_surreal_016",
+  "drug_id": null,
+  "source": "object_emote",
+  "tone": "surreal",
+  "self_line": "{it} looks at the door, holds it, and goes back to what it was doing.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

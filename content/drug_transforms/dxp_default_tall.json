@@ -1,0 +1,28 @@
+{
+  "id": "dxp_default_tall",
+  "drug_id": null,
+  "matches": null,
+  "scope": "person",
+  "name": "a very tall person who is nearly right",
+  "description": "A person stands here a full head taller than they should be, proportioned by somebody working from a description rather than a memory. It is a good try and it is not right.",
+  "looks": [
+    "The arms are a joint too long, and the hands hang lower than hands hang.",
+    "The face is assembled correctly. It is simply assembled.",
+    "It stands the way somebody stands when they are waiting to be told where to stand."
+  ],
+  "says": [
+    "I got most of it right.",
+    "You are the first person to look properly.",
+    "Do not worry about it. Nobody else has."
+  ],
+  "emotes": [
+    "{it} lowers itself slightly, as though trying to be less tall, and gives up.",
+    "{it} rearranges its face into a smile in two separate movements.",
+    "{it} takes a step and covers rather more ground than the step should have."
+  ],
+  "asks": [
+    "Is this how tall people are?",
+    "Am I doing this properly?",
+    "Would you say the hands are the problem?"
+  ]
+}

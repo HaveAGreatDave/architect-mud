@@ -188,6 +188,12 @@ function renderContainerPanel(data, { isOpen = false } = {}) {
   const invItems = (data.invItems || []).filter(i => i.id !== data.containerId && i.id !== data.secondary?.containerId);
   const fridgeItems = fridge.items.filter(i => i.id !== fridge.containerId);
   renderList('container-inv-list', invItems, 'inv', fridge.containerId);
+  // A cold box lists only what spoils (the server filters it), so the column
+  // says why rather than reading as an empty pack.
+  const invLabel = document.querySelector('#container-inv-col .container-section-label');
+  if (invLabel) invLabel.textContent = data.invNote ? 'Your Inventory — perishables' : 'Your Inventory';
+  const invNote = document.getElementById('container-inv-note');
+  if (invNote) invNote.textContent = data.invNote || '';
   renderList('container-contents-list', fridgeItems, 'contents', fridge.containerId);
 
   const freezerBox = document.getElementById('container-freezer-box');
@@ -285,9 +291,21 @@ function openItemActions(item, source, containerId, anchor) {
 function renderList(listId, items, source, containerId) {
   const list = document.getElementById(listId);
   list.innerHTML = '';
+  let lastGroup = null;
   for (const item of items) {
+    // Shelf headers, the same convention the shop panel uses: the server decides
+    // whether a box sections and sends the rows already in section order
+    // (server/engine/classify.js), so all the client does is notice the change.
+    // An ungrouped box has no `group` anywhere and emits no headers at all.
+    if (item.group && item.group !== lastGroup) {
+      const h = document.createElement('div');
+      h.className = 'ctr-section';
+      h.textContent = item.group;
+      list.appendChild(h);
+    }
+    lastGroup = item.group || null;
     const card = document.createElement('div');
-    card.className = 'ctr-item-card';
+    card.className = 'ctr-item-card' + (item.wanted ? ' ctr-wanted' : '');
     card.setAttribute('draggable', 'true');
     card.setAttribute('data-id', item.id);
     card.setAttribute('data-source', source);
@@ -295,7 +313,11 @@ function renderList(listId, items, source, containerId) {
     // glance and the name keeps a single clean baseline.
     const qty = item.quantity > 1 ? `<span class="ctr-qty">×${item.quantity}</span>` : '';
     const wt = item.weight != null ? `<span class="ctr-meta">${formatWeight(item.weight)}</span>` : '';
-    card.innerHTML = `<span class="ctr-name">${item.name}</span>${qty}${wt}`;
+    // `wanted` is set by the cooking plugin's container.view hook — this row
+    // answers something still on your shopping list. Same mark and same colour
+    // as the shop board uses, because it is the same fact.
+    const mark = item.wanted ? '<span class="ctr-mark" title="on your shopping list">▸</span>' : '';
+    card.innerHTML = `${mark}<span class="ctr-name">${item.name}</span>${qty}${wt}`;
 
     if (source === 'inv') {
       const btn = document.createElement('button');

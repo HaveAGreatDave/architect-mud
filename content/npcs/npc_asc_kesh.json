@@ -87,7 +87,8 @@
       "a magnifying ocular clipped over one eye"
     ],
     "mis_willing": false,
-    "personality": "doctor"
+    "personality": "doctor",
+    "posted": true
   },
   "home_activities": [],
   "home_zone": "zone_asc_clinic_consult",

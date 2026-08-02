@@ -1,9 +1,10 @@
 {
-  "description": "A can of industrial solvent. Degreases engines, thins paint, lifts old adhesive. Every workshop keeps a shelf of it.",
+  "description": "A dented can of toluene, the pouring spout crusted shut. Degreases an engine, thins paint back to workable, lifts old adhesive off a bench. Every workshop keeps a shelf of it and nobody thinks twice about the shelf.",
   "flags": {},
   "id": "item_reagent_solvent",
-  "name": "industrial solvent",
+  "name": "can of toluene",
   "tags": {
+    "drug": true,
     "reagent": true
   },
   "type": "chemical",

@@ -82,7 +82,9 @@
       "recovery_per_sec": 0.0002
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "psychedelic"
+  },
   "id": "drug_blotter",
   "item_id": "item_blotter",
   "name": "blotter",

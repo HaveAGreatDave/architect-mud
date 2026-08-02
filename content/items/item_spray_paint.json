@@ -1,0 +1,13 @@
+{
+ "description": "A dented aerosol can, label worn down to the hazard diamond and half a word. Industrial marking paint — meant for numbering pipework in a plant nobody has run in decades, and used since for absolutely everything else. It rattles when you pick it up, which is the only gauge it has.",
+ "flags": {},
+ "id": "item_spray_paint",
+ "name": "can of spray paint",
+ "tags": {
+  "spray_paint": true,
+  "misc": true
+ },
+ "type": "misc",
+ "value": 12,
+ "weight": 340
+}

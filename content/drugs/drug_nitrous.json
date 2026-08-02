@@ -5,10 +5,7 @@
   "effects": {
     "comeon_message": "<span class=\"msg-system\">Cold on the teeth, sweet at the back of the throat.</span>",
     "hallucination": {
-      "mode": "dreamzone",
       "duration_seconds": 40,
-      "intensity": 0.85,
-      "palette": "yellow",
       "events": [
         {
           "atSec": 4,
@@ -26,7 +23,10 @@
           "atSec": 38,
           "text": "[trip]Gone. You are standing in a room holding a balloon, and it is a bit embarrassing.[/trip]"
         }
-      ]
+      ],
+      "intensity": 0.85,
+      "mode": "dreamzone",
+      "palette": "yellow"
     },
     "instant": {
       "sanity": -2
@@ -50,7 +50,9 @@
       "onset_seconds": 1800
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "dissociative"
+  },
   "id": "drug_nitrous",
   "item_id": "item_nitrous",
   "name": "whippet",

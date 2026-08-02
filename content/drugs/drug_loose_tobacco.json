@@ -10,6 +10,7 @@
   },
   "flags": {
     "color": "#8a6a3a",
+    "drug_family": "stimulant",
     "form": "leaf",
     "legal": true,
     "sub": "dried"

@@ -2,8 +2,9 @@
   "id": "dx_blotter_any_elaborating",
   "drug_id": "drug_blotter",
   "matches": null,
-  "name": "something that will not stop elaborating",
-  "description": "Something here has got as far as ornament and is showing no sign of stopping.",
+  "scope": "object",
+  "name": "a cathedral of folding brass",
+  "description": "A brass structure stands here the size of a wardrobe and the shape of a church seen from a long way off, and it is adding to itself — buttresses, tracery, small saints in small niches — without ever finishing.",
   "looks": [
     "It is producing more of itself, tastefully, and at speed.",
     "You look at one square inch of it for about a year and a half.",
@@ -14,5 +15,14 @@
     "You are only seeing the first four or five layers.",
     "This is what it does when you are not looking. You are welcome."
   ],
-  "scope": "object"
+  "emotes": [
+    "{it} extrudes a spire, considers it, and folds it back in.",
+    "Something small and brass detaches from {it}, walks two steps, and rejoins it.",
+    "A whole face of {it} refolds into a different order of ornament, silently."
+  ],
+  "asks": [
+    "Is the west front too much? Be truthful.",
+    "How much of this can you actually hold in your head?",
+    "Would you like a window with you in it?"
+  ]
 }

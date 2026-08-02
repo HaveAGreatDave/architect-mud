@@ -1,0 +1,10 @@
+{
+  "id": "dr_objrep_farewell_surreal_003",
+  "drug_id": null,
+  "source": "object_reply_farewell",
+  "tone": "surreal",
+  "self_line": "Come back when the room is quieter.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

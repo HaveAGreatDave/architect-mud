@@ -168,11 +168,27 @@
       "price": 4
     },
     {
+      "item_id": "item_battery",
+      "price": 8
+    },
+    {
       "item_id": "item_salvaged_wiring",
       "price": 8
     },
     {
+      "item_id": "item_steel_plate",
+      "price": 8
+    },
+    {
+      "item_id": "item_copper_bundle",
+      "price": 10
+    },
+    {
       "item_id": "item_ration",
+      "price": 10
+    },
+    {
+      "item_id": "item_scrap_ore",
       "price": 10
     },
     {
@@ -184,8 +200,40 @@
       "price": 15
     },
     {
+      "item_id": "item_work_gloves",
+      "price": 15
+    },
+    {
+      "item_id": "item_industrial_tape",
+      "price": 16
+    },
+    {
+      "item_id": "item_slag_glass",
+      "price": 16
+    },
+    {
+      "item_id": "item_flashlight",
+      "price": 40
+    },
+    {
+      "item_id": "item_ear_defenders",
+      "price": 48
+    },
+    {
+      "item_id": "item_smoked_lenses",
+      "price": 52
+    },
+    {
       "item_id": "item_rusty_knife",
       "price": 65
+    },
+    {
+      "item_id": "item_insulated_gloves",
+      "price": 115
+    },
+    {
+      "item_id": "item_scrap_torch",
+      "price": 150
     }
   ],
   "vendor_restock_rate": 1,
@@ -234,7 +282,7 @@
     ]
   },
   "vendor_shop_name": "Slag & Wares",
-  "vendor_stock_size": 10,
+  "vendor_stock_size": 24,
   "wander_zones": [],
   "wanders": 0,
   "work_zone_id": "zone_coldwater_turbine_hall"

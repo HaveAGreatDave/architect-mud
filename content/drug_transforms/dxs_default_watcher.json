@@ -3,15 +3,23 @@
   "drug_id": null,
   "matches": null,
   "scope": "spawn",
-  "name": "something that is simply here",
-  "description": "There is a thing here that you cannot name and are not alarmed by.",
+  "name": "a tall thin figure made of coats",
+  "description": "A figure stands here, built out of hanging coats and nothing else, shoulders far too high, perfectly still and entirely aware of you.",
   "looks": [
-    "It is not looking at you. It has no obvious front. It is looking at you.",
+    "It has no obvious front. It is looking at you.",
     "It has moved. You would swear to it and you would be wrong.",
-    "It is exactly what it is, and it is also interested."
+    "The coats are yours, or near enough that arguing would be work."
   ],
   "says": [
     "Do not mind me.",
     "I will be here when it wears off."
+  ],
+  "emotes": [
+    "{it} settles half an inch and is somehow closer.",
+    "A sleeve of {it} swings gently and stops."
+  ],
+  "asks": [
+    "Are you all right? You have been a while.",
+    "Would you rather I waited outside?"
   ]
 }

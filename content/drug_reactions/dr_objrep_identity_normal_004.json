@@ -1,0 +1,10 @@
+{
+  "id": "dr_objrep_identity_normal_004",
+  "drug_id": null,
+  "source": "object_reply_identity",
+  "tone": "normal",
+  "self_line": "Somebody bought me. That is the whole story.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

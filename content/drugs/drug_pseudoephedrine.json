@@ -1,0 +1,42 @@
+{
+  "addiction_chance": 0.04,
+  "description": "Pseudoephedrine, taken the way the box intends. Opens the sinuses, sharpens the edges, and keeps you upright about an hour past where you should have stopped.",
+  "duration_seconds": 240,
+  "effects": {
+    "diuretic": 2,
+    "instant": {
+      "hunger": -4,
+      "sanity": 3,
+      "thirst": 12
+    },
+    "onset_message": "<span class=\"msg-system\">Your head clears. You can breathe through both sides of your nose, which is more than most people here can say.</span>",
+    "onset_seconds": 20,
+    "overdose": {
+      "lethal": true,
+      "message": "It was a cold remedy and you ate it like sweets. Your pulse goes thin and fast and then it doesn't go at all."
+    },
+    "phases": {
+      "comedown_message": "<span class=\"msg-system\">The lift drains out and leaves you gritty-eyed.</span>",
+      "comedown_scale": 0.4,
+      "comedown_seconds": 60,
+      "comeup_scale": 0.5,
+      "comeup_seconds": 20,
+      "end_message": "<span class=\"msg-system\">You are simply tired now, and your nose is blocked again.</span>",
+      "peak_mods": {
+        "stamina_regen_per_sec": 0.5,
+        "stat_reflexes": 1
+      },
+      "peak_seconds": 140
+    },
+    "take_line": "You swallow a dose from {name}."
+  },
+  "flags": {
+    "drug_class": "stimulant",
+    "legal": true
+  },
+  "id": "drug_pseudoephedrine",
+  "item_id": "item_precursor_stim",
+  "name": "pseudoephedrine",
+  "overdose_threshold": 6,
+  "withdrawal_effects": {}
+}

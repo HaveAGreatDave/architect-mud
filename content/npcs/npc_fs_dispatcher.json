@@ -3,62 +3,122 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "e_ash": {
+      "atm_emote": {
         "action_type": "EMOTE",
-        "next": "loop",
+        "next": "atm_wait",
         "params": {
-          "message": "taps ash into a tin lid and watches a queue that isn't there."
+          "message": "steps up to the ATM terminal and makes a deposit."
         },
         "type": "action"
       },
-      "e_clip": {
-        "action_type": "EMOTE",
-        "next": "loop",
-        "params": {
-          "message": "runs a finger down the clipboard, crossing nothing out."
-        },
+      "atm_wait": {
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "collect_safe",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
         "type": "action"
       },
-      "e_cough": {
-        "action_type": "EMOTE",
-        "next": "loop",
-        "params": {
-          "message": "coughs, low and unbothered, and does not look up."
-        },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
         "type": "action"
       },
-      "loop": {
-        "next": "start",
-        "type": "loop"
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
       },
-      "pick": {
-        "branch_0": "loop",
-        "branch_1": "e_ash",
-        "branch_2": "e_clip",
-        "branch_3": "e_cough",
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
         "branches": [
           {
-            "weight": 3
+            "weight": 1
           },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
           {
             "weight": 1
           },
           {
-            "weight": 1
-          },
-          {
-            "weight": 1
+            "weight": 5
           }
         ],
         "type": "random"
       },
       "start": {
-        "next": "wait",
+        "next": "check_work",
         "type": "start"
       },
-      "wait": {
-        "next": "pick",
-        "seconds": 90,
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
         "type": "wait"
       }
     }
@@ -440,7 +500,7 @@
     "job_board_dispatcher": true
   },
   "home_activities": [],
-  "home_zone": "zone_district_919_908",
+  "home_zone": "zone_meridian_unit_204",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_fs_dispatcher",
@@ -450,7 +510,45 @@
   "studio_zone_id": null,
   "vendor_inventory": [],
   "vendor_restock_rate": 1,
-  "vendor_schedule": {},
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 18
+      }
+    ]
+  },
   "vendor_shop_name": null,
   "vendor_stock_size": 10,
   "wander_zones": [],

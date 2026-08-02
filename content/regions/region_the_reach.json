@@ -1,9 +1,7 @@
 {
   "base_terrain": "scrub",
   "climate_bias": null,
-  "defaults": {
-    "audio_theme_id": "song_dead_zone"
-  },
+  "defaults": {},
   "grid_z": 0,
   "id": "region_the_reach",
   "name": "The Reach"

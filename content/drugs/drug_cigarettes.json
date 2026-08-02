@@ -42,6 +42,7 @@
   },
   "flags": {
     "appetite_suppress_seconds": 900,
+    "drug_family": "stimulant",
     "legal": true,
     "smokeable": true
   },

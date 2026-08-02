@@ -507,11 +507,12 @@ export function paintWindshield(id, view) {
   // the VIEW heading rotates the world + camera around the aircraft, while the model keeps its own
   // real heading (drawn below), so we see the plane from the orbit angle. The camera LOCKS wherever
   // you leave it (no spring-back); the ⟲ reset button zeroes it.
-  // FIRING (v.firing) overrides the locked orbit: while the trigger is HELD it snaps the chase camera
-  // dead-astern (no yaw, no elevation) so the boresight runs up the screen centre for the gun run.
-  // Just being armed no longer locks the camera — you can orbit freely and aim from any angle (the
-  // reticle projects through the live camera), and it snaps home only while you're actually shooting.
-  const extOrbit = ext ? (v.firing ? 0 : (v.extYaw || 0) + RENDER_TUNE.chaseYaw) : 0;
+  // SHOOTING NEVER MOVES THE CAMERA. Neither being armed nor holding the trigger touches the orbit
+  // any more: the camera stays exactly where you left it and the reticle projects through whatever
+  // view you're actually flying, so you aim from any angle instead of being snapped dead-astern
+  // mid-burst. A yanked camera the instant you pull the trigger is the one thing a gun run can't
+  // afford — you lose the target you were tracking at the exact moment you shoot at it.
+  const extOrbit = ext ? (v.extYaw || 0) + RENDER_TUNE.chaseYaw : 0;
   const yawOff = (v.viewYaw || (v.side ? 90 : 0)) + extOrbit;
   const vw = yawOff ? { ...v, heading: (v.heading || 0) + yawOff } : v;
   const W = cw, H = ch, speed = clamp(v.speed || 0, 0, 1), height = clamp(v.height || 0, 0, 1);
@@ -633,7 +634,7 @@ export function paintWindshield(id, view) {
   // craft — otherwise it just dollies up and the plane slides down the frame. We solve the horizon that
   // lands the own ship at a FIXED screen position for the current arc angle.
   let horizonY = st.horizon;
-  if (ext && !v.firing && chase) {
+  if (ext && chase) {   // NOT gated on v.firing — pulling the trigger must not re-solve the framing
     const D = H * 0.55;                                        // = focal, makeCam's vertical projection scale
     const baseWz = ownShipBaseWz({ EHbase: EHbaseC, R: v.map ? (v.map.length - 1) / 2 : 0 }, v);
     if (v.hideOwnShip) {
@@ -5812,7 +5813,7 @@ function bakeSignText(label, color, dn, vertical) {
 // called INSIDE an emitFace closure — it is pure screen-space drawing and composes onto the
 // current (DPR) transform via ctx.transform, never setTransform, so it stays in world scale.
 function drawSurfaceText(ctx, TL, TR, BR, BL, tex, vertical, alpha) {
-  if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment
+  if (SHAPE_SINK || ADORN_TIER < ADORN_RICH || !tex) return;   // adornment — `!tex` because bakeSignText ran at EMIT time (possibly under a cheap LOD tier, returning null) while this closure runs at FLUSH time, by which point ADORN_TIER is back to RICH and the tier guard alone would let a null texture through
   const W = tex.width, H = tex.height, S = 8;
   const at = (P, Q, t) => ({ x: P.sx + (Q.sx - P.sx) * t, y: P.sy + (Q.sy - P.sy) * t });
   for (let i = 0; i < S; i++) {

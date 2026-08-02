@@ -17,7 +17,7 @@ id TEXT PK
 name TEXT               — displayed in the panel header and fee messages
 color TEXT              — accent hex, e.g. '#00ff88'
 fee_rate NUMERIC        — fraction deducted per withdrawal (0.05 = 5%); fee goes to the network (evaporates)
-withdrawal_limit INT    — per-transaction cap in credits
+withdrawal_limit INT    — ROLLING 24-HOUR allowance in credits, per direction (not a per-transaction cap)
 min_faction_rep INT     — minimum reputation with faction_id to use this network (-200 = open to all)
 faction_id TEXT         — which faction reputation is checked (NULL = no gate)
 ```
@@ -63,6 +63,11 @@ Opens the ATM panel UI in the game client (`{ type: 'atm_panel', … }`). Option
 {
   atmId, name,
   network: { id, name, color, fee_rate, withdrawal_limit },
+  txnCap,                       // allowance size; null at a teller
+  allowance: {                  // what's actually LEFT, per direction
+    deposit:  { remaining, spent, resetsIn },
+    withdraw: { remaining, spent, resetsIn },
+  },
   cashStock, cashMax,
   powered: bool,
   isBroken: bool,
@@ -82,25 +87,40 @@ Moves carried credits → bank. Checks:
 
 Deposit increases `atm_units.cash_stock` up to `cash_max`. The machine fills as cash flows in.
 
-Deposits are capped by the same `withdrawal_limit` as withdrawals — the ceiling is per **transaction**, both directions, because the machine has to physically swallow the notes. `deposit all` clamps down to the cap and says so; an explicit over-cap amount is refused outright rather than quietly shaved.
+Deposits are capped by the same `withdrawal_limit` as withdrawals — both directions, because the machine has to physically swallow the notes. The ceiling covers a **rolling 24 hours**, not a single transaction. `deposit all` clamps down to what's *left* of the allowance and says so; an explicit over-allowance amount is refused outright rather than quietly shaved. An allowance already spent to zero is its own refusal naming the wait, rather than falling through as a nonsense `deposit 0c`.
 
 ### `withdraw <amount|all>`
 
 Moves bank credits → carried. Checks (in order):
 1. ATM exists, not broken, zone powered, faction rep OK.
-2. Amount ≤ `withdrawal_limit`.
+2. Amount ≤ what remains of the 24h withdrawal allowance.
 3. Amount ≤ `cash_stock`.
 4. Player has enough banked: `banked >= amount + fee`.
 
-`withdraw all` computes the maximum withdrawable: `min(cash_stock, withdrawal_limit, floor(banked / (1 + fee_rate)))`.
+`withdraw all` computes the maximum withdrawable: `min(cash_stock, allowance_remaining, floor(banked / (1 + fee_rate)))`.
 
 Fee calculation: `fee = ceil(amount × fee_rate)`. The fee is deducted from bank alongside the withdrawal amount; only the raw amount reaches the player's carried credits. The fee evaporates (no faction receives it — it's a network tax).
 
 After a successful withdrawal, `cash_stock` decreases by `amount` (not including the fee).
 
-### The transaction cap and the teller bypass
+The allowance is spent by the amount **dispensed**, not the amount debited — the network's own fee must not eat into what it will hand you.
 
-`atm_networks.withdrawal_limit` is the per-transaction ceiling at a **physical machine**, applied to `deposit` and `withdraw` alike. Citadel Financial sits at **2500c**. An ATM on no network falls back to `DEFAULT_TXN_CAP` (2500) — an unlinked terminal is capped, never uncapped.
+### The 24-hour allowance and the teller bypass
+
+`atm_networks.withdrawal_limit` is what a **physical machine** will move for you in any rolling 24 hours, applied to `deposit` and `withdraw` alike. Citadel Financial sits at **2500c**. An ATM on no network falls back to `DEFAULT_TXN_CAP` (2500) — an unlinked terminal is capped, never uncapped.
+
+It was a *per-transaction* ceiling until 2026-08-01, which meant it wasn't really a limit at all: you stood at the machine and ran the same maximum deposit until you'd moved everything you owned. A window is the only shape that bites.
+
+Four decisions define the window, each with a failure mode if reversed:
+
+- **Rolling, not a daily reset.** The window is always "the last 24 hours from now", summed at check time. No stored counter — so nothing to reset on a tick, nothing to drift across a restart, and no in-game midnight at which every player's limit refills at once.
+- **Per network.** Exhausting Citadel leaves a rival's terminals open, which is what finally gives `atm_units.network_id` a job. An **unlinked** terminal keys off its own furniture id (`atm:<id>`), so unlinked machines neither pool into one shared allowance nor escape into none.
+- **Separate buckets per direction.** Each direction gets the full allowance. Banking a day's earnings must not stop you drawing walking-around money back out.
+- **Summed off `bank_transactions`, which makes that table load-bearing.** It was a display-only history for the Tablet Bank app; it is now the substrate the limit is computed from. Two consequences: **withdrawals are now logged** (they never were — the ledger was deposits-only), and any new banking path that forgets to call `logBankTx` is a path whose money never counted against the limit.
+
+`bank_transactions.network_id` is what scopes it, and **NULL means "spends nobody's allowance"** — the window SUM filters on an equality, so NULL rows are excluded for free. Teller counters and remote Tablet transfers log NULL deliberately. The Tablet Bank app keeps its own separate 24h-per-direction cooldown ([bank-app.js](../plugins/tablet/bank-app.js)); the two limits are independent by design.
+
+Helpers, all in `plugins/atm/index.js`: `networkKey(atm)`, `allowanceFor(playerId, atm, type)` → `{ cap, spent, remaining, resetsInSec }`, and `fmtWindowWait(sec)`. `txnCap()` keeps its name and still returns the *size* of the allowance (null at a teller).
 
 The cap is a door, not a wall: **addressing an NPC flagged `flags.bank_teller` lifts it entirely.** `withdraw 9000 from teller` moves any sum in one motion, with no ceiling, no fee, no power gate and no cash-drum limit — the counter path bypasses the terminal completely.
 
@@ -111,7 +131,7 @@ Two consequences worth knowing:
 - The teller path works **in a room with no ATM furniture at all**, and there a bare `deposit`/`withdraw` falls to the counter automatically — nothing else it could mean.
 - `zone_citadel_hall` holds both the Citadel terminals *and* Robo Teller (`npc_citadel_teller`). `withdraw 9000` there is refused by the machine; `withdraw 9000 from teller` succeeds. The over-cap refusal quotes the working phrasing whenever a teller is in the room.
 
-The client ATM panel receives the live ceiling as `txnCap` (null at a teller) and both clamps its MAX button to it and prints it under the amount field, so the rule is visible before you type a number rather than after.
+The client ATM panel receives the ceiling as `txnCap` (null at a teller) **and the live per-direction `allowance`**, and clamps its MAX button to `allowance[direction].remaining` — clamping to `txnCap` alone would over-propose the moment any of it is spent, i.e. MAX would offer an amount the machine then refuses. The line under the amount field states the ceiling while the window is untouched, switches to "X of Y left — resets in Nh" once any is spent, and goes to a warm "24h limit reached" once it's gone, so the rule is visible before you type a number rather than after. A transaction returns only the direction it spent (`atm_allowance`), so `updateAtmPanel` merges per-direction rather than replacing the pair.
 
 ### `jack` / `jackresolve`
 
@@ -236,7 +256,7 @@ All write routes require dev/admin/builder/designer role. Reads are open (GET).
 
 Commands also handle zones that have only `zone.flags.has_atm` set (no furniture, no `atm_units` row) — and, by the same branch, rooms whose only banking presence is a `bank_teller` NPC. In this mode:
 
-- No power check, no faction check, no transaction cap, no fee, no cash stock.
+- No power check, no faction check, no 24h allowance (and it spends none — the counter logs `network_id` NULL), no fee, no cash stock.
 - `deposit`/`withdraw` use `transferCredits()` directly.
 - `atm` returns a simple text summary instead of an `atm_panel` message.
 

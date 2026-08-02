@@ -3,6 +3,7 @@
 // hook, fired by the engine from examine, stow, pull, and eat/use (see
 // server/engine/commands/{world,inventory}.js). See decay.js for the math.
 import { ensureFreshnessCurrent } from './decay.js';
+import { cmdPreserve } from './preserve.js';
 
 // `food_poisoning` used to be registered HERE, back when spoiled food was the
 // only thing that caused it. It is now applied by four separate paths — spoiled
@@ -15,6 +16,11 @@ import { ensureFreshnessCurrent } from './decay.js';
 // engine one with no warning anywhere.
 
 export const hooks = { 'item.checkFreshness': ensureFreshnessCurrent };
+
+// `preserve <food>` — the antioxidant half. Spends a vial of BHT to slow one
+// item's decay wherever it sits; see preserve.js for why that reagent and not
+// an invented one.
+export const commands = { preserve: cmdPreserve };
 
 // Exposed for the regression harness.
 export const _test = { ensureFreshnessCurrent };

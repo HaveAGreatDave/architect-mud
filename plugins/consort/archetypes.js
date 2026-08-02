@@ -1323,7 +1323,10 @@ export function renderLine(line, npc, opts = {}) {
   if (typeof line !== 'string') return line;
   let out = renderPronouns(line, npc?.flags?.consort_sex || npc?.biological_sex);
   out = out.replace(/\{(\w+)\}/g, (m, tok) => VERBS[tok] ?? m);
-  if (opts.other) out = out.replaceAll('§other', opts.other);
+  // §other MUST resolve before the bare § slot, or the name substitution eats its
+  // sigil and leaves "Roxyother's hand". A line that reaches here without a companion
+  // shouldn't have been picked (see needsOther), so this is the safety net, not a mode.
+  out = out.replaceAll('§other', opts.other || 'the other one');
   return out.replaceAll('§', npc?.name || '');
 }
 

@@ -1,0 +1,10 @@
+{
+  "id": "dr_objrep_denial_surreal_003",
+  "drug_id": null,
+  "source": "object_reply_denial",
+  "tone": "surreal",
+  "self_line": "You are not wrong. Say it again in an hour and see whether it still helps.",
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
+}

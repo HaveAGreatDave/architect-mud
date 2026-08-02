@@ -286,6 +286,39 @@ export function lintContentTree(baseDir) {
     for (const [n, files] of byName) {
       if (files.length > 1) errors.push(`npcs: duplicate NPC name "${n}" in ${files.join(', ')} — every NPC needs a unique name`);
     }
+
+    // A commuter with no shift never leaves the house.
+    //
+    // CHECK_VENDOR_WORK drives the whole vendor/worker graph off vendor_schedule.
+    // An empty one has no blocks and no reference range, so it falls straight
+    // through to `return 'offWork'` — the NPC is permanently off duty and the
+    // GO_TO_WORK branch can never be reached. There is no error, no log line and
+    // no in-game tell; the shop simply always has nobody behind the counter.
+    //
+    // 20 NPCs shipped in exactly this state (found 2026-08-01) — the Precinct
+    // clerks, the Halcyon front desk and most of the Turbine Hall roster all lived
+    // in the Yards tenement and had never once come in to work.
+    //
+    // Only flagged when home and work are DIFFERENT places. 28 more NPCs have
+    // work_zone_id === home_zone: they are stationed where they live and never
+    // commute, so a schedule would decide nothing for them. That is a legitimate
+    // shape, not an omission.
+    // Studio-driven NPCs are exempt: a graph built on CHECK_WORK (rather than
+    // CHECK_VENDOR_WORK) gates on studio_zone_id and the BROADCAST schedule, and
+    // never reads vendor_schedule at all. A TV host is at the studio when their
+    // show is on and at home otherwise, which is correct, not absent. John Akerson
+    // and Graham Mercer are both this shape.
+    const studioDriven = (f) => {
+      const g = JSON.stringify(f.data.behaviour_graph || {});
+      return g.includes('CHECK_WORK') && !g.includes('CHECK_VENDOR_WORK');
+    };
+    for (const f of npcFiles) {
+      const { work_zone_id: work, home_zone: home, vendor_schedule: sched } = f.data;
+      if (!work || !home || work === home) continue;
+      if (sched && typeof sched === 'object' && Object.keys(sched).length) continue;
+      if (studioDriven(f)) continue;
+      errors.push(`npcs/${f.name}: work_zone_id "${work}" differs from home_zone but vendor_schedule is empty — CHECK_VENDOR_WORK returns offWork forever, so this NPC never travels to work`);
+    }
   }
 
   // Facade invariants: a `facade`-tagged zone must have an interior map

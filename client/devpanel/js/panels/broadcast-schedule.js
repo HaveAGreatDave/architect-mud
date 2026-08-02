@@ -29,15 +29,20 @@ let _schedNowTimer = null;
 let   _schedPxPerHour   = 52;
 const SCHED_SNAP        = 1800;
 const SCHED_H           = 72;
-const SCHED_GHOST_H     = 26;   // the read-only "every day" lane shown behind a weekday
+
+// Channel 0 is the VCR input on the back of the set, not a station: every deck in
+// the world points at that one row, so it has no timetable to author. It's listed
+// so an author can see it exists, and refuses the timeline when picked.
+function _schedIsDeckInput(ch) { return Number(ch?.number) === 0; }
 
 // ── Day scope ────────────────────────────────────────────────────────────────
 // There is ONE schedule. `days` is a 7-bit mask on each slot (bit 0 = Mon … bit 6
 // = Sun); 127 = every day, the default. The day bar picks which slice of that one
 // schedule you're editing:
 //   • Every day (_schedDay = 0) — the base grid that repeats seven days a week.
-//   • A weekday (_schedDay = 1..7) — that day's EXCEPTIONS, drawn on their own lane
-//     above a ghosted, read-only copy of the base grid they replace.
+//   • A weekday (_schedDay = 1..7) — that day's EXCEPTIONS, drawn on the SAME row as
+//     a ghosted, read-only copy of the base grid, sitting on top of the block each
+//     one replaces. One row, because two lanes made you read the same hour twice.
 // Dropping a show while a weekday is selected creates a slot restricted to that day,
 // and the server picks the most specific slot covering any given second — so an
 // override needs no gap cut in the base grid underneath it.
@@ -267,8 +272,8 @@ function _schedRenderSidebar() {
   if (!el) return;
 
   const items = _schedChannels.map(ch => {
-    const sel     = ch.id === _schedChannelId;
-    const isDaily = ch.schedule_mode === 'daily';
+    const sel   = ch.id === _schedChannelId;
+    const input = _schedIsDeckInput(ch);
     return `<div onclick="_schedSwitchChannel('${ch.id}')"
       style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);
              background:${sel ? 'var(--bg3)' : 'transparent'};
@@ -277,8 +282,7 @@ function _schedRenderSidebar() {
         <span style="color:var(--text-dim);font-size:10px">Ch ${ch.number || '?'} </span>${escHtml(ch.name)}
       </div>
       <div style="font-size:10px;color:var(--text-dim);margin-top:2px;display:flex;gap:6px">
-        <span>${ch.channel_type || 'playlist'}</span>
-        <span style="color:${isDaily ? 'var(--cyan)' : 'var(--border)'}">● ${isDaily ? 'daily' : 'loop'}</span>
+        <span>${input ? 'deck input' : (ch.channel_type || 'playlist')}</span>
       </div>
     </div>`;
   }).join('');
@@ -315,7 +319,22 @@ function _schedRenderContent() {
     return;
   }
 
-  const isDaily = ch.schedule_mode === 'daily';
+  // Channel 0 isn't a station — every VCR in the world is plugged into this one row,
+  // so there is nothing here to schedule. Say so rather than offering a timeline that
+  // would drive every deck in Coldwater in lockstep.
+  if (_schedIsDeckInput(ch)) {
+    el.innerHTML = `
+      <div style="padding:32px;max-width:520px">
+        <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:8px">${escHtml(ch.name)} — deck input</div>
+        <div style="font-size:12px;color:var(--text-dim);line-height:1.6">
+          Channel 0 is not a station. It's the input on the back of the set that whatever
+          deck is under it is plugged into, and <strong>every VCR in the world shares this
+          one row</strong> — so it carries no schedule. A deck plays the cassette somebody
+          put in it, and answers to no timetable.
+        </div>
+      </div>`;
+    return;
+  }
 
   // Auto-fit timeline to available width so 24 hours fills the panel
   const availW = el.clientWidth - 32;
@@ -346,10 +365,6 @@ function _schedRenderContent() {
           <input id="sched-ch-name" class="form-input" value="${escHtml(ch.name)}"
             style="width:180px;font-size:13px;font-weight:700" onblur="_schedSaveChMeta()">
         </div>
-        <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--text)">
-          <input type="checkbox" id="sched-daily-toggle" ${isDaily ? 'checked' : ''} onchange="_schedToggleMode(this.checked)">
-          Daily mode
-        </label>
         <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
           <div style="display:flex;align-items:center;gap:4px">
             <button class="action-btn" style="padding:2px 7px" onclick="_schedZoom(-16)" title="Zoom out">−</button>
@@ -365,13 +380,9 @@ function _schedRenderContent() {
 
       <!-- Timeline area -->
       <div style="flex:1;overflow:auto;padding:16px">
-        ${!isDaily
-          ? `<div style="padding:24px 0;color:var(--text-dim);font-size:12px">
-               Enable <strong>Daily mode</strong> above to use the 24-hour timeline editor for this channel.
-             </div>`
-          : `${_schedBuildDayBar()}
-             <div class="bc-meta" style="margin-bottom:8px">${_schedScopeHint()}</div>
-             ${_schedBuildTimeline()}`}
+        ${_schedBuildDayBar()}
+        <div class="bc-meta" style="margin-bottom:8px">${_schedScopeHint()}</div>
+        ${_schedBuildTimeline()}
       </div>
 
       <!-- Library drawer -->
@@ -400,7 +411,8 @@ function _schedChBody(ch, overrides = {}) {
     priority: ch.priority || 0, channel_type: ch.channel_type || 'playlist',
     idle_broadcast_id: ch.idle_broadcast_id || null,
     news_categories: ch.news_categories || [],
-    schedule_mode: ch.schedule_mode || 'daily',
+    // One scheduling model: the seven-day grid. The server pins this too.
+    schedule_mode: 'daily',
     ...overrides,
   };
 }
@@ -461,7 +473,7 @@ function _schedScopeHint() {
   }
   const d = SCHED_DAY_ABBR[_schedDay - 1];
   return `Editing <strong>${d} only</strong>. Anything you drop here airs on ${d} instead of the `
-       + `every-day slot beneath it — the grid itself is untouched, and the other six days keep playing it.`;
+       + `dashed every-day block underneath it — the grid itself is untouched, and the other six days keep playing it.`;
 }
 
 async function _schedSetDay(d) {
@@ -504,7 +516,7 @@ function _schedItemHtml(item, idx) {
       <div class="bc-break-slot" draggable="true"
         ondragstart="_schedItemDragStart(event,${idx})"
         onclick="_schedOpenPopover(event,${idx})"
-        style="left:${x}px;width:${iw}px;">
+        style="left:${x}px;width:${iw}px;z-index:2;">
         <span style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">⏸ BREAK</span>
         <div class="sched-resize-handle" onmousedown="_schedResizeStart(event,${idx})"
           style="position:absolute;right:0;top:0;width:6px;height:100%;cursor:ew-resize;background:var(--border);opacity:0.8"></div>
@@ -514,7 +526,7 @@ function _schedItemHtml(item, idx) {
   if (item.missing_cassette) {
     return `
       <div title="No cassette loaded — nothing scheduled here"
-        style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;
+        style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;z-index:2;
                   background:repeating-linear-gradient(135deg,var(--bg3) 0,var(--bg3) 6px,var(--bg2) 6px,var(--bg2) 12px);
                   border:1px dashed var(--border);border-radius:2px;box-sizing:border-box;
                   overflow:hidden;opacity:0.7">
@@ -543,7 +555,7 @@ function _schedItemHtml(item, idx) {
     <div class="sched-item" draggable="true"
       ondragstart="_schedItemDragStart(event,${idx})"
       onclick="_schedOpenPopover(event,${idx})"
-      style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;
+      style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;z-index:2;
              background:color-mix(in srgb,${col} 18%,var(--bg2));
              border:1px solid ${col};border-radius:2px;box-sizing:border-box;
              overflow:hidden;cursor:grab;user-select:none">
@@ -555,9 +567,13 @@ function _schedItemHtml(item, idx) {
     </div>`;
 }
 
-// The read-only base-grid lane shown while a weekday is selected: what airs on this
-// day unless an override on the lane above replaces it. Click one to lift a copy
-// onto this day as an editable override.
+// A read-only every-day block, drawn on the SAME row as the weekday's overrides and
+// underneath them (z-index 1 vs 2). What airs on this day unless an override sits on
+// top. Click an exposed one to lift a copy onto this day as an editable override.
+//
+// Deliberately NOT draggable and never a drop target of its own: dragover/drop bubble
+// up to #sched-timeline, which reads clientX, so a drop that lands on a ghost means
+// "new override here" rather than "move the base grid".
 function _schedGhostHtml(item, idx) {
   const x   = _schedToX(item.start_time);
   const iw  = Math.max(12, _schedToX(item.duration));
@@ -567,14 +583,29 @@ function _schedGhostHtml(item, idx) {
   const name = item.slot_type === 'commercial_break' ? '⏸ Break' : item.broadcast_name;
   return `
     <div onclick="_schedOverrideGhost(${idx})"
-      title="${covered ? 'Replaced on this day by the override above.' : 'From the every-day grid. Click to override it on ' + SCHED_DAY_ABBR[_schedDay - 1] + '.'}"
-      style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_GHOST_H}px;top:0;
+      title="${covered ? 'Replaced on this day by the override on top of it.' : 'From the every-day grid. Click to override it on ' + SCHED_DAY_ABBR[_schedDay - 1] + '.'}"
+      style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;z-index:1;
              background:color-mix(in srgb,${col} 8%,var(--bg2));
              border:1px dashed ${col};border-radius:2px;box-sizing:border-box;
-             opacity:${covered ? 0.25 : 0.6};cursor:${covered ? 'default' : 'copy'};
-             overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
-             font-size:9px;line-height:${SCHED_GHOST_H - 2}px;padding:0 4px;color:${col};
-             text-decoration:${covered ? 'line-through' : 'none'}">${escHtml(name)}</div>`;
+             opacity:${covered ? 0.3 : 0.75};cursor:${covered ? 'default' : 'copy'};
+             overflow:hidden">
+      <div style="padding:3px 5px;font-size:10px;font-weight:600;color:${col};white-space:nowrap;
+                  overflow:hidden;text-overflow:ellipsis;
+                  text-decoration:${covered ? 'line-through' : 'none'}">${escHtml(name)}</div>
+      <div class="bc-meta" style="padding:0 5px">${_schedFmtTime(item.start_time)}–${_schedFmtTime(item.start_time + item.duration)}</div>
+      <div style="padding:0 5px;font-size:9px;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-dim)">
+        ${covered ? 'replaced' : 'every day'}
+      </div>
+    </div>`;
+}
+
+// Everything that belongs in the single timeline row, back to front: the every-day
+// ghosts first, this day's editable slots on top.
+function _schedRowHtml() {
+  const ghosts = _schedDay === 0 ? ''
+    : _schedItems.map((item, idx) => _schedIsGhost(item) ? _schedGhostHtml(item, idx) : '').join('');
+  const items = _schedItems.map((item, idx) => _schedInScope(item) ? _schedItemHtml(item, idx) : '').join('');
+  return ghosts + items;
 }
 
 function _schedBuildTimeline() {
@@ -587,31 +618,26 @@ function _schedBuildTimeline() {
   }
   ruler += '</div>';
 
-  const items = _schedItems.map((item, idx) => _schedInScope(item) ? _schedItemHtml(item, idx) : '').join('');
-
-  // Base-grid lane — only while a weekday is selected. On "Every day" there is
-  // nothing behind the grid, so the lane would be an empty box.
-  // The lane is full-width and left-aligned with the timeline below it, so a ghost
-  // sits directly above the override that replaces it.
-  const ghosts = _schedDay === 0 ? '' : `
-    <div class="bc-meta" style="margin-bottom:1px">Every-day grid (read-only) — click a block to override it on ${SCHED_DAY_ABBR[_schedDay - 1]}</div>
-    <div id="sched-ghost-lane" style="position:relative;width:${w}px;height:${SCHED_GHOST_H}px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin-bottom:3px">
-      ${_schedItems.map((item, idx) => _schedIsGhost(item) ? _schedGhostHtml(item, idx) : '').join('')}
-    </div>
-    <div class="bc-meta" style="margin-bottom:1px;color:var(--accent)">${SCHED_DAY_ABBR[_schedDay - 1]} only — overrides</div>`;
+  // One row. Dashed low-contrast blocks are the every-day grid; solid ones with a day
+  // badge are this day's overrides, sitting on top of what they replace.
+  const legend = _schedDay === 0 ? '' :
+    `<div class="bc-meta" style="margin-bottom:2px">
+       <span style="color:var(--accent)">Solid = ${SCHED_DAY_ABBR[_schedDay - 1]} override</span> ·
+       dashed = the every-day grid (click one to override it)
+     </div>`;
 
   return `
     <div style="overflow:visible">
       <div style="width:${w}px">
         ${ruler}
-        ${ghosts}
+        ${legend}
         <div id="sched-timeline" style="position:relative;width:${w}px;height:${SCHED_H}px;background:var(--bg3);border:1px solid var(--border);border-radius:2px"
           ondragover="_schedTlDragOver(event)"
           ondragleave="_schedTlDragLeave()"
           ondrop="_schedTlDrop(event)">
           <div id="sched-drop-line"></div>
           <div id="sched-now-line" style="position:absolute;top:0;bottom:0;width:2px;background:#44cc66;opacity:0.85;pointer-events:none;z-index:5"></div>
-          ${items}
+          ${_schedRowHtml()}
         </div>
       </div>
     </div>`;
@@ -630,20 +656,6 @@ async function _schedSwitchChannel(id) {
   await _schedLoadItems();
   _schedRenderSidebar();
   _schedRenderContent();
-}
-
-async function _schedToggleMode(daily) {
-  if (!_schedChannelId) return;
-  const ch = _schedChannels.find(c => c.id === _schedChannelId);
-  if (!ch) return;
-  const mode = daily ? 'daily' : 'loop';
-  try {
-    const res = await directAPI(`/broadcast/channels/${ch.id}`, 'PUT', _schedChBody(ch, { schedule_mode: mode }));
-    if (res?.error) { toast(res.error, true); return; }
-    ch.schedule_mode = mode;
-    _schedRenderSidebar();
-    _schedRenderContent();
-  } catch (err) { toast(err.message, true); }
 }
 
 // ── Library drag ─────────────────────────────────────────────────────────────
@@ -756,19 +768,11 @@ function _schedRenderTimeline() {
   const tl = document.getElementById('sched-timeline');
   if (!tl) { _schedRenderContent(); return; }
 
-  const items = _schedItems.map((item, idx) => _schedInScope(item) ? _schedItemHtml(item, idx) : '').join('');
-
-  // Keep the read-only base lane in step — resizing an override changes which
-  // every-day blocks it strikes through.
-  const ghostLane = document.getElementById('sched-ghost-lane');
-  if (ghostLane) {
-    ghostLane.style.width = _schedW() + 'px';
-    ghostLane.innerHTML = _schedItems.map((item, idx) => _schedIsGhost(item) ? _schedGhostHtml(item, idx) : '').join('');
-  }
-
+  // Ghosts and overrides re-render together — resizing an override changes which
+  // every-day blocks it strikes through, and they share the row now.
   const w = _schedW();
   tl.style.width = w + 'px';
-  tl.innerHTML = '<div id="sched-drop-line"></div><div id="sched-now-line" style="position:absolute;top:0;bottom:0;width:2px;background:var(--accent);opacity:0.7;pointer-events:none;z-index:5"></div>' + items;
+  tl.innerHTML = '<div id="sched-drop-line"></div><div id="sched-now-line" style="position:absolute;top:0;bottom:0;width:2px;background:var(--accent);opacity:0.7;pointer-events:none;z-index:5"></div>' + _schedRowHtml();
 
   // Rebuild ruler ticks at new zoom level
   const rulerEl = document.getElementById('sched-ruler');
@@ -895,7 +899,7 @@ function _schedDayChips(idx) {
 function _schedDaySummary(item) {
   const label = _schedDayLabel(item.days);
   return label
-    ? `Plays on ${label} only — it replaces whatever the every-day grid has at this time.`
+    ? `Plays on ${label} only — it sits on top of whatever the every-day grid has at this time.`
     : 'Plays every day. Add a weekday-only slot over the top to change one day.';
 }
 

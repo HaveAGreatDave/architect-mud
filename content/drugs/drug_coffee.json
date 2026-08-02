@@ -16,6 +16,7 @@
     "take_line": "You take a sip of {name}."
   },
   "flags": {
+    "drug_family": "stimulant",
     "legal": true,
     "sober_amount": 30,
     "sobering": true

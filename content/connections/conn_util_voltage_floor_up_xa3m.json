@@ -1,0 +1,10 @@
+{
+  "a": "zone_util_zone_voltage_floor",
+  "b": "zone_voltage_floor",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_voltage_floor_up_xa3m",
+  "lockable": false,
+  "one_way": true
+}
+

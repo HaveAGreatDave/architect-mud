@@ -93,7 +93,9 @@
       "onset_seconds": 2400
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_family": "deliriant"
+  },
   "id": "drug_glasshollow",
   "item_id": "item_drug_glasshollow",
   "name": "Glasshollow",

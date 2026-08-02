@@ -4,8 +4,11 @@
 //
 // Deliberately NOT a downgraded glass cockpit. There is no canvas, no WebGL and no
 // image in this file: box-drawing rules, a scrolling compass tape, block-character
-// bars and an ASCII attitude ladder. It should read like an instrument panel someone
-// built out of a terminal, because that is what a text pilot is flying.
+// bars, a coloured character-cell artificial horizon and a coloured moving chart. It
+// should read like an instrument panel someone built out of a terminal, because that
+// is what a text pilot is flying. Colour is doing real work here rather than decorating:
+// with no window, the horizon and the chart are the only answers to "which way is up"
+// and "where am I", and neither should have to be decoded character by character.
 //
 // Fed the `text_cockpit` payload from plugins/flight/textpilot.js once a second (the
 // server sim's own tick). Everything here is a pure render of that payload — no state
@@ -32,7 +35,23 @@ function ensureStyles() {
     .tck .ok { color:#6ef0a8; }
     .tck .rule { color:#1d4436; }
     .tck-hd { display:flex; justify-content:space-between; gap:12px; color:#7fe3ff; letter-spacing:1px; }
-    @media (max-width:700px){ .tck { font-size:11px; } }
+    /* Artificial horizon — solid colour, so attitude reads without being decoded. */
+    .tck .ai-sky { background:#1d5fa8; color:#1d5fa8; }
+    .tck .ai-gnd { background:#6b4a24; color:#6b4a24; }
+    .tck .ai-hzn { background:#1d5fa8; color:#f4fbff; text-shadow:0 0 4px #cfefff; }
+    .tck .ai-lad-s { background:#1d5fa8; color:#dbeeff; }
+    .tck .ai-lad-g { background:#6b4a24; color:#f0dcc2; }
+    .tck .ai-ref { color:#ffb63a; font-weight:700; text-shadow:0 0 5px rgba(255,150,40,.7); }
+    /* Chart */
+    .tck .mp-void { color:#0d1a15; }
+    .tck .mp-ground { color:#3f7a5c; }
+    .tck .mp-road { color:#7b8a80; }
+    .tck .mp-water { color:#3f8fd0; }
+    .tck .mp-bldg { color:#93a3ad; }
+    .tck .mp-field { color:#5ce2ff; font-weight:700; text-shadow:0 0 5px rgba(92,226,255,.6); }
+    .tck .mp-me { color:#ffb63a; font-weight:700; text-shadow:0 0 6px rgba(255,150,40,.8); }
+    .tck-cols { display:flex; gap:18px; align-items:flex-start; }
+    @media (max-width:700px){ .tck { font-size:11px; } .tck-cols { gap:10px; } }
   `;
   document.head.appendChild(st);
 }
@@ -64,57 +83,134 @@ function compassTape(hdg, width = 45) {
   return out;
 }
 
-// A small ASCII attitude indicator: the horizon line shifts with pitch and tilts with
-// bank. Three rows is enough to fly by — it answers "nose up or down, wings level?".
-function attitude(pitch, bank) {
-  const rows = 5, cols = 21, mid = Math.floor(rows / 2);
-  const horizonRow = clamp(mid - Math.round(pitch / 8), 0, rows - 1);
-  const slope = Math.tan(clamp(bank, -60, 60) * Math.PI / 180) * 0.35;
-  const grid = [];
-  for (let r = 0; r < rows; r++) {
-    let line = '';
-    for (let c = 0; c < cols; c++) {
-      const dx = c - Math.floor(cols / 2);
-      const hr = horizonRow + slope * dx;
-      if (Math.abs(r - hr) < 0.5) line += '─';
-      else if (r < hr) line += ' ';
-      else line += '·';
-    }
-    grid.push(line);
+// Run-length encode a row of {ch, cls} cells into as few spans as possible. Every
+// coloured grid in this file goes through here — a span per character would be a few
+// thousand DOM nodes a second at the sim's tick rate, for a panel that is 46 columns wide.
+function paintRow(cells) {
+  let out = '', run = '', cls = null;
+  for (const cell of cells) {
+    if (cell.cls !== cls) { if (run) out += `<span class="${cls}">${esc(run)}</span>`; run = ''; cls = cell.cls; }
+    run += cell.ch;
   }
-  // The fixed aircraft reference, always dead centre.
-  const cRow = grid[mid].split('');
-  const cMid = Math.floor(cols / 2);
-  cRow[cMid - 1] = '-'; cRow[cMid] = '+'; cRow[cMid + 1] = '-';
-  grid[mid] = cRow.join('');
-  return grid;
+  if (run) out += `<span class="${cls}">${esc(run)}</span>`;
+  return out;
 }
 
-// The minimap the server already builds for the 3D cockpit — a flat node array with
-// grid coords (getMinimapData), not a grid — rasterized here into a character block
-// centred on the plane. Glyphs, not tiles: @ you, ▲ an airfield, ≈ water, # a
-// building, · plain ground.
-function miniRows(nodes, cx, cy, R = 4) {
+// ── The artificial horizon ────────────────────────────────────────────────────
+// A COLOURED attitude indicator, which is the one instrument a pilot with no window
+// cannot fly without. Blue above the horizon, brown below it, a white horizon line that
+// rolls with bank and slides with pitch, a pitch ladder ruled every 10°, a bank scale
+// across the top with a pointer, and a fixed amber aircraft reference dead centre.
+// The ladder rungs are lines of CONSTANT pitch, so they roll with the horizon rather than
+// staying level — which is why a hard bank crosses several of them in one screen row.
+//
+// It is drawn as solid colour rather than punctuation on purpose: the old version was a
+// three-row ASCII sketch, and "which way is up" is not a thing you should have to READ.
+// At a glance the ratio of blue to brown IS your pitch and the tilt of the join IS your
+// bank, exactly as on the real gauge — no characters to decode.
+const AI_ROWS = 11, AI_COLS = 25, AI_DEG_PER_ROW = 5;   // ±25° of pitch across the ball
+
+function attitudeRows(pitch, bank) {
+  const midR = (AI_ROWS - 1) / 2, midC = (AI_COLS - 1) / 2;
+  // Roll the ball, don't roll the aeroplane: the horizon tilts by −bank (bank right ⇒ the
+  // world tips left), and the pitch offset is measured along the ball's own vertical.
+  const br = clamp(bank, -90, 90) * Math.PI / 180;
+  const sinB = Math.sin(br), cosB = Math.cos(br);
+  const pitchRows = clamp(pitch, -40, 40) / AI_DEG_PER_ROW;
+  const rows = [];
+  for (let r = 0; r < AI_ROWS; r++) {
+    const cells = [];
+    for (let c = 0; c < AI_COLS; c++) {
+      // Character cells are about twice as tall as they are wide, so the horizontal offset
+      // has to be halved before the rotation or every bank angle reads far too shallow.
+      const dx = (c - midC) * 0.5, dy = r - midR;
+      // Signed distance below the horizon, in rows, in the ball's frame.
+      const d = (dy * cosB - dx * sinB) + pitchRows;
+      const acrossN = (dy * sinB + dx * cosB) / (midC * 0.5);   // −1..1 along the horizon, for ladder width
+      if (Math.abs(d) < 0.5) { cells.push({ ch: '─', cls: 'ai-hzn' }); continue; }
+      const sky = d < 0;
+      // Pitch ladder: a rung every 10° (2 rows), drawn as a short bar either side of centre.
+      const rung = Math.abs(Math.abs(d) - Math.round(Math.abs(d) / 2) * 2) < 0.5 && Math.round(Math.abs(d) / 2) > 0;
+      const inBar = Math.abs(acrossN) > 0.18 && Math.abs(acrossN) < 0.62;
+      if (rung && inBar) { cells.push({ ch: sky ? '─' : '╌', cls: sky ? 'ai-lad-s' : 'ai-lad-g' }); continue; }
+      cells.push({ ch: ' ', cls: sky ? 'ai-sky' : 'ai-gnd' });
+    }
+    rows.push(cells);
+  }
+  // The fixed aircraft reference — the one thing on the gauge that never moves.
+  const ref = rows[Math.round(midR)];
+  ref[midC - 2] = { ch: '─', cls: 'ai-ref' }; ref[midC - 1] = { ch: '◄', cls: 'ai-ref' };
+  ref[midC] = { ch: '▲', cls: 'ai-ref' };
+  ref[midC + 1] = { ch: '►', cls: 'ai-ref' }; ref[midC + 2] = { ch: '─', cls: 'ai-ref' };
+  return rows.map(paintRow);
+}
+
+// The bank scale that sits above the ball: fixed 10/20/30/60° index marks with a pointer
+// that slides to the current bank, so a steep turn is readable as a number as well as a tilt.
+function bankScale(bank) {
+  const cells = [];
+  const midC = (AI_COLS - 1) / 2;
+  const ptr = Math.round(midC + clamp(bank, -60, 60) / 60 * midC);
+  for (let c = 0; c < AI_COLS; c++) {
+    if (c === ptr) { cells.push({ ch: '▼', cls: Math.abs(bank) > 45 ? 'bad' : 'ai-ref' }); continue; }
+    const deg = Math.abs((c - midC) / midC * 60);
+    const mark = [10, 20, 30, 60].some(m => Math.abs(deg - m) < 2.5);
+    cells.push({ ch: c === midC ? '│' : mark ? '·' : ' ', cls: 'dim' });
+  }
+  return paintRow(cells);
+}
+
+// ── The chart ─────────────────────────────────────────────────────────────────
+// The minimap the server already builds for the 3D cockpit — a flat node array with grid
+// coords (getMinimapData), not a grid — rasterized here into a COLOURED character block
+// centred on the aircraft. For a text pilot this is the whole outside world, so it is
+// bigger and legible by colour: green ground, blue water, grey buildings, cyan airfields,
+// and the aircraft itself drawn as an arrowhead pointing the way she's actually flying.
+//
+// The 8-way heading arrow matters more than it looks: a compass tape tells you the number,
+// but the arrow puts the number and the map in the same glance, which is the difference
+// between knowing your heading and knowing where you are going.
+const HDG_ARROWS = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
+const arrowFor = (hdg) => HDG_ARROWS[Math.round((((hdg % 360) + 360) % 360) / 45) % 8];
+
+function mapCell(n, isField) {
+  // Airfields come from the payload's own `fields` list rather than being sniffed out of
+  // the tile: the minimap node carries no airfield_id, and guessing one off the tile NAME
+  // is how a bar called The Airstrip ends up drawn as somewhere you can put down.
+  if (isField) return { ch: '✈', cls: 'mp-field' };
+  if (!n) return { ch: ' ', cls: 'mp-void' };
+  if (n.terrain === 'water') return { ch: '≈', cls: 'mp-water' };
+  if (n.building_name || n.building_type || n.enterable) return { ch: '▣', cls: 'mp-bldg' };
+  if (n.terrain === 'road') return { ch: '═', cls: 'mp-road' };
+  return { ch: '·', cls: 'mp-ground' };
+}
+
+function mapRows(nodes, cx, cy, hdg, R, fields) {
   if (!Array.isArray(nodes) || !nodes.length) return [];
   const at = new Map();
   for (const n of nodes) if (n.grid_x != null) at.set(`${n.grid_x},${n.grid_y}`, n);
+  const fieldAt = new Set((fields || []).map(f => `${f.gx},${f.gy}`));
   const rows = [];
   for (let y = cy - R; y <= cy + R; y++) {
-    let line = '';
+    const cells = [];
     for (let x = cx - R; x <= cx + R; x++) {
-      if (x === cx && y === cy) { line += '@'; continue; }
-      const n = at.get(`${x},${y}`);
-      if (!n) { line += ' '; continue; }
-      if (n.is_current) line += '@';
-      else if (n.building_type === 'airfield' || /field|airport|regional/i.test(n.name || '')) line += '▲';
-      else if (n.terrain === 'water') line += '≈';
-      else if (n.building_name || n.enterable) line += '#';
-      else line += '·';
+      const key = `${x},${y}`;
+      if (x === cx && y === cy) cells.push({ ch: arrowFor(hdg), cls: 'mp-me' });
+      else cells.push(mapCell(at.get(key), fieldAt.has(key)));
+      cells.push({ ch: ' ', cls: 'mp-void' });   // one space between columns — square tiles, not tall thin ones
     }
-    rows.push(line);
+    rows.push(paintRow(cells));
   }
   return rows;
 }
+
+// What `land` will do in this airframe, printed on the panel so the rule is an instrument
+// reading rather than something you only learn by being refused mid-approach.
+const LAND_MODE_NOTE = {
+  vtol: 'VTOL — she can set down anywhere, once she is slow.',
+  stol: 'STOL — rough-field rated; get her slow and she will go in short.',
+  strip: 'STRIP — she needs a runway under her to land.',
+};
 
 export function openTextCockpit(msg) {
   ensureStyles();
@@ -141,17 +237,25 @@ export function updateTextCockpit(s) {
   const rule = `<span class="rule">${'─'.repeat(W)}</span>`;
   const hdg = pad(Math.round(s.hdg), 3).replace(/ /g, '0');
   const spdCls = s.stalled ? 'bad' : (s.airborne && s.ias < s.vs0 * 1.15 ? 'warn' : 'ok');
-  const att = attitude(s.pitch || 0, s.bank || 0);
-  const mini = miniRows(s.minimap, s.x, s.y);
+  const pitch = s.pitch || 0, bank = s.bank || 0;
+  const att = [bankScale(bank), ...attitudeRows(pitch, bank)];
+  const R = s.mapR || 6;
+  const mini = mapRows(s.minimap, s.x, s.y, s.hdg, R, s.fields);
 
-  // Attitude ladder and minimap sit side by side, both character grids.
-  const bodyRows = [];
-  const attW = att[0].length;
-  for (let i = 0; i < Math.max(att.length, mini.length); i++) {
-    const a = (att[i] ?? ' '.repeat(attW)).padEnd(attW, ' ');
-    const m = mini[i] ?? '';
-    bodyRows.push(`<span class="dim">${esc(a)}</span>   <span class="hi">${esc(m)}</span>`);
-  }
+  // The horizon ball and the chart sit side by side as two independently-coloured
+  // character grids. Flex columns rather than padded rows: the cells carry background
+  // colour now, so a row padded with spaces would paint a ragged edge on the ball.
+  const nearest = Array.isArray(s.fields) && s.fields.length ? s.fields[0] : null;
+  const chartHead = `<span class="hi">CHART</span> <span class="dim">${s.x},${s.y}</span>`;
+  const chartFoot = nearest
+    ? `<span class="mp-field">✈ ${esc(nearest.name)}</span> <span class="dim">${pad(nearest.bearing, 3).replace(/ /g, '0')}° · ${nearest.dist}t</span>`
+    : '<span class="dim">no field in range</span>';
+  const bodyRows = [
+    `<div class="tck-cols"><div>`
+      + `<span class="hi">ATTITUDE</span> <span class="dim">${pitch >= 0 ? '+' : ''}${Math.round(pitch)}° pitch · ${Math.round(Math.abs(bank))}° ${Math.abs(bank) < 2 ? 'level' : bank > 0 ? 'right' : 'left'}</span>\n`
+      + att.join('\n')
+    + `</div><div>${chartHead}\n${mini.join('\n')}\n${chartFoot}</div></div>`,
+  ];
 
   const warnings = [];
   if (s.stalled) warnings.push('<span class="bad">⚠ STALLED — the assist is unloading and adding power.</span>');
@@ -176,6 +280,11 @@ export function updateTextCockpit(s) {
     `<b>FUE</b> ${bar((s.fuelPct || 0) / 100, 12, s.fuelPct <= 20 ? 'warn' : 'ok')} ${pad(s.fuelPct, 3)}%\n` +
     `<b>HUL</b> ${bar((s.hull ?? 100) / 100, 12, (s.hull ?? 100) < 50 ? 'bad' : 'ok')} ${pad(s.hull ?? 100, 3)}%\n` +
     `<span class="dim">GEAR ${s.gear ? 'DOWN' : 'UP  '} · FLAPS ${pad(s.flaps, 3)}% · ${esc(s.surface || 'open air')}</span>\n` +
+    `<span class="dim">${esc(LAND_MODE_NOTE[s.landMode] || '')}</span>\n` +
     (warnings.length ? rule + '\n' + warnings.join('\n') + '\n' : '') +
     `</div>`;
 }
+
+// Exported for the regress harness — the attitude ball and chart are pure functions of the
+// payload, so they can be checked without a DOM.
+export const _test = { attitudeRows, bankScale, mapRows, arrowFor, paintRow };

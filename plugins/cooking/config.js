@@ -559,3 +559,15 @@ export function stageText(stages, fraction) {
   for (const s of stages) if (f <= s.max) return s.text;
   return stages[stages.length - 1].text;
 }
+
+// FOLLOWING A REAL RECIPE, WELL, IS THE BEST-PAID THING IN THE KITCHEN.
+//
+// Improvised dishes (improvised.js) reach `superb`, which is close enough to the
+// top that the authored catalog needed something improvisation can't have. Two
+// things do that job: the last rung — only an authored recipe can be plated
+// `masterful` — and this flat bonus for executing a recipe you actually know at
+// or above RECIPE_MASTERY_BAND. Comfortably more than the most complex
+// improvisation pays (improvisedIp caps at 4), so knowing the real thing is
+// always the better play.
+export const RECIPE_MASTERY_IP = 6;
+export const RECIPE_MASTERY_BAND = 'excellent';

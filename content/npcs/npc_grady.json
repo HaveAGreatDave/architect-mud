@@ -537,7 +537,7 @@
     }
   },
   "home_activities": [],
-  "home_zone": "zone_twocell_interior",
+  "home_zone": "zone_apt_4",
   "hp": 60,
   "hp_max": 60,
   "id": "npc_grady",
@@ -644,6 +644,16 @@
       "item_id": "item_fishing_rod",
       "price": 50,
       "stock": 5
+    },
+    {
+      "item_id": "item_wetsuit",
+      "price": 300,
+      "stock": 2
+    },
+    {
+      "item_id": "item_rebreather",
+      "price": 420,
+      "stock": 2
     },
     {
       "item_id": "item_flashlight",

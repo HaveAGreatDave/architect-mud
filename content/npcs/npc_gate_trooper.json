@@ -38,7 +38,8 @@
       "grey city-guard fatigues cinched with a webbing belt",
       "a plain grey sports bra and briefs"
     ],
-    "personality": "guard"
+    "personality": "guard",
+    "posted": true
   },
   "home_activities": [],
   "home_zone": "zone_district_918_919",

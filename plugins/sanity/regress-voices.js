@@ -13,22 +13,22 @@ export default function regressVoices({ check }) {
 
   // ── The forgery, checked against the real thing ────────────────────────────
   // formatChitchat is the genuine NPC speech formatter. A fake NPC line must match its
-  // output exactly — same type, same inline style attribute (NOT a class), quotes inside
-  // the span, nothing added.
+  // output exactly — same type, same `speech-line` wrapper (the client tints the quotes
+  // inside it), quotes inside the span, nothing added.
   const real = formatChitchat('Sister Ida Adler', '"You look terrible."');
   const fake = asNpcLine('Sister Ida Adler', 'You look terrible.');
   check('a fake NPC line uses the same message type as a real one', fake.type === real.type, `${fake.type} vs ${real.type}`);
   check('a fake NPC line is byte-identical to a real one', fake.message === real.message,
     `\n    real: ${real.message}\n    fake: ${fake.message}`);
   // The specific things that would give it away if someone "tidied" either side.
-  check('the forgery keeps the INLINE style, not a class', /style="color:var\(--yellow\)"/.test(fake.message), fake.message);
+  check('the forgery wears the same speech-line wrapper as real speech', /class="speech-line"/.test(fake.message), fake.message);
   check('the forgery carries no speaker id or data attribute', !/data-|id=/.test(fake.message), fake.message);
 
   // Player speech is plain text on a `say` payload — the client renders it with textContent,
   // so any markup at all would both look wrong and prove it was fake.
   const pFake = asPlayerLine('Akerson', 'Don\'t.');
   check('a fake player line is a say payload', pFake.type === 'say', pFake.type);
-  check('a fake player line matches cmdSay\'s format exactly', pFake.message === 'Akerson says: "Don\'t."', pFake.message);
+  check('a fake player line matches cmdSay\'s format exactly', pFake.message === 'Akerson says, "Don\'t."', pFake.message);
   check('a fake player line carries no markup (textContent would expose it)',
     !/[<>]/.test(pFake.message), pFake.message);
 

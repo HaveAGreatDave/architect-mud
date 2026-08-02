@@ -10,9 +10,9 @@
  * So these lines are emitted through the EXACT wire format real speech uses:
  *
  *   real NPC   ai-behaviour.js formatChitchat →
- *     { type:'output',  message: '<span style="color:var(--yellow)">NAME says: "TEXT"</span>' }
+ *     { type:'output',  message: '<span class="speech-line">NAME says, "TEXT"</span>' }
  *   real player commands/social.js cmdSay →
- *     { type:'say',     message: 'HANDLE says: "TEXT"' }
+ *     { type:'say',     message: 'HANDLE says, "TEXT"' }
  *
  * byte for byte — inline style attribute rather than a class, quotes inside the span, no
  * speaker id, no data attribute, nothing added. `sendToPlayer` is a pure unicast that reuses
@@ -94,9 +94,9 @@ const fill = (line, player) => line.replace(/\{you\}/g, player.handle || 'you');
 // obviously a pair. If `formatChitchat` or `cmdSay` ever changes shape, these must follow it
 // in the same commit or the illusion breaks and nobody will know why.
 const asNpcLine = (name, text) =>
-  ({ type: 'output', message: `<span style="color:var(--yellow)">${name} says: "${text}"</span>` });
+  ({ type: 'output', message: `<span class="speech-line">${name} says, "${text}"</span>` });
 const asPlayerLine = (handle, text) =>
-  ({ type: 'say', message: `${handle} says: "${text}"` });
+  ({ type: 'say', message: `${handle} says, "${text}"` });
 
 // Somebody genuinely in the room with you, preferring a real player over an NPC — a player
 // is the more disturbing attribution because they can be asked about it, and being told "I

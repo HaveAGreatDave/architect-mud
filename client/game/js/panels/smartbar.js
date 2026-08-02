@@ -15,7 +15,8 @@
 // flags.interactions + the specialized-action registry) — so the bar offers
 // sit/lie/lean/watch/switch only where they actually apply; doors carry
 // data-lock so lock/unlock show only on lockable doors, and lights carry an
-// adjacent .light-state (on/off) sibling for the switch label. This module is a
+// adjacent .light-state (on/off) sibling for the switch label plus a data-piece
+// bare name (their data-target is the switch itself). This module is a
 // thumb-friendly re-presentation of those links; each leaf fires a real command
 // (attack/talk/take/loot/examine, turn on|off, open/close/lock/unlock, knock,
 // look through, sit/lie/lean/watch, scavenge) via sendCmd.
@@ -136,7 +137,11 @@ function scanRoom(area) {
         // data-actions carries this piece's full affordance set (server-derived
         // from flags.interactions + the specialized-action registry).
         const verbs = (el.dataset.actions || '').split(/\s+/).filter(Boolean);
-        const entry = { target, label, verbs };
+        // Every verb here is built by pasting the piece's name onto the verb, so
+        // it wants the BARE name — not the click target, which for a light is
+        // "off desk lamp" (the pane clicks straight through to the switch).
+        // data-piece carries the name whenever the two differ.
+        const entry = { target: el.dataset.piece || target, label, verbs };
         // Lights carry an adjacent (on)/(off) state span, used for the switch label.
         const sib = el.nextElementSibling;
         if (sib && sib.classList.contains('light-state')) entry.on = sib.classList.contains('light-on');
@@ -157,10 +162,10 @@ const CATALOG = [
   // Skills/Stats/Map/Music/Bank/etc. now that those quick-cmd buttons are gone.
   { build: () => (_tabletAccess ? { label: 'Tablet', cmd: 'tablet', accent: true } : null) },
 
-  // Fast lane to the Kit app's Inventory page — same accent as Tablet, sits right
+  // Fast lane to the INV app's Inventory page — same accent as Tablet, sits right
   // beside it. Opens the tablet with no CRT boot delay (client-side onFire).
-  // Labelled for the app it opens: the tablet app is Kit, so the shortcut says Kit.
-  { build: () => (_tabletAccess ? { label: 'Kit', accent: true, onFire: () => import('./tablet-os.js').then(m => m.openTabletToInventory?.()) } : null) },
+  // Labelled for the app it opens: the tablet app is INV, so the shortcut says INV.
+  { build: () => (_tabletAccess ? { label: 'INV', accent: true, onFire: () => import('./tablet-os.js').then(m => m.openTabletToInventory?.()) } : null) },
 
   // Fast lane to the Quests app root — same accent anchor, sits right after Inv.
   // Opens the tablet with no CRT boot delay (client-side onFire).

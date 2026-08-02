@@ -66,6 +66,7 @@ import { query } from '../../server/models/db.js';
 import { getOrg, getPlayerMembership, getZone } from '../../server/engine/world.js';
 import { getGameDateTime, getHUDPayload } from '../../server/engine/environment.js';
 import { getNetXp } from '../../server/engine/ip.js';
+import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getTabletApps, findTabletApp } from './registry.js';
 
 // Every "simple" app registers itself with registry.js at import time.
@@ -173,6 +174,31 @@ async function buildHomePayload(player) {
     widgets,
     sky,
   };
+}
+
+// An app the player has just EARNED — the library scan, a contract unlock, anything
+// whose appDef `visible` gate has this moment flipped true. Pushes the home screen
+// with `install: <appId>` on it, which makes the client bring the tablet up, page to
+// wherever that tile landed, and run the install fill on it before it can be tapped.
+//
+// Deliberately a PUSH and not something the client infers by diffing rosters: only
+// the unlock site knows the app arrived *now* rather than three logins ago, and a
+// diff would also fire for an app that merely became relevant again.
+//
+// Safe to call for a player with no tablet (the prologue corridor) — it just doesn't
+// send, so an unlock that happens early is simply seen the next time Home is built.
+export async function installTabletApp(player, appId) {
+  if (!player?.id || !appId) return false;
+  if (noTablet(player)) return false;
+  if (!findTabletApp(appId)) return false;
+  let payload;
+  try { payload = await buildHomePayload(player); } catch { return false; }
+  // The gate is re-evaluated inside buildHomePayload; if the app still isn't
+  // visible to this player, the flag hasn't been written yet and animating a tile
+  // that isn't in the payload would just pop an empty tablet.
+  if (!payload.apps?.some(a => a.id === appId)) return false;
+  sendToPlayer(player.id, { ...payload, install: appId });
+  return true;
 }
 
 async function cmdTablet(args, raw, player) {

@@ -59,7 +59,10 @@ created_by TEXT, updated_at
 ```
 id TEXT PK
 name TEXT
-number INTEGER UNIQUE     — dial number players tune to
+number INTEGER UNIQUE     — dial number players tune to. **number 0 is not a station**:
+                            it's the VCR INPUT on the back of the set, and every media
+                            deck in the world points flags.channel_id at that one row.
+                            An input channel carries no schedule — see "Channel 0" below
 channel_type TEXT         — playlist | news | mixed | live | emergency
 station_name TEXT         — display name in TV panel header
 theme_id TEXT FK          — references media_themes (optional)
@@ -68,17 +71,56 @@ news_categories JSONB     — ['murder','martial_law',…] — news event filter
 loop_playlist INTEGER     — 1 = playlist loops continuously
 studio_zone_id TEXT FK    — zone where NPC hosts work; used for presence checks
 offline_graphic_id TEXT FK — media_graphics id shown when channel is off-air
-schedule_mode TEXT        — 'loop' | 'daily' (default 'loop'); 'daily' makes start_time
-                            seconds from in-game midnight instead of loop-relative
+schedule_mode TEXT        — VESTIGIAL. Always written 'daily'; the runtime no longer
+                            reads it. There is one scheduling model (below), so the old
+                            'loop' mode is gone. Column kept so the schema stays additive
 commercial_pool JSONB     — broadcast ids eligible as commercial slots (default [])
 ```
+
+### One scheduling model — the seven-day grid
+
+A channel is programmed exactly one way: `start_time` is **seconds from in-game
+midnight** and `days` is a **7-bit mask** (bit 0 = Mon … bit 6 = Sun; 127 = every day).
+The server picks the **most specific** slot covering any given second, so a weekday
+override needs no gap cut in the every-day grid underneath it.
+
+The old `'loop'` mode — `start_time` as an offset into an endlessly repeating reel —
+was removed along with the "Daily mode" toggle and the channel modal's playlist
+timeline. `loadChannelRuntimes` hardcodes `scheduleMode: 'daily'`, and the channel
+modal now edits **metadata only**: programming belongs to the Schedule tab, which is
+the sole writer of `media_channel_playlist`.
+
+In the editor, the every-day grid and a weekday's overrides share **one row**: dashed
+low-contrast blocks are the base grid, solid blocks with a day badge sit on top of the
+block each replaces. Ghosts are not draggable and are never their own drop target —
+dragover/drop bubble to `#sched-timeline`, which reads `clientX`, so a drop landing on
+a ghost means "new override here", not "move the base grid".
+
+### Channel 0 — the VCR input, not a station
+
+`number = 0` is the input on the back of the set that whatever deck is under it is
+plugged into. **Every media deck in the world shares that one `media_channels` row**,
+so it must never be treated as a schedulable channel:
+
+- `isDeckInputChannel(channelId)` (exported from `plugins/broadcast/index.js`) is the
+  test; the set is rebuilt from `number = 0` on every `loadChannelRuntimes()`.
+- `mediaDeckSyncTick` skips input-channel decks — a VCR plays the cassette somebody
+  put in it (`deck_active` / `deck_cassettes`) and answers to no timetable. Without
+  this, one schedule would drive every VCR in Coldwater in lockstep.
+- The eject path skips its `DELETE FROM media_channel_playlist WHERE channel_id=…`,
+  which could otherwise let a tape ejected in one apartment wipe slots a deck across
+  town was reading.
+- The devpanel Schedule tab lists it as `deck input` and refuses the timeline.
+
+Regress covers the first and last points directly (`vcr:` cases in
+`plugins/broadcast/regress.js`).
 
 ### `media_channel_playlist`
 
 ```
 channel_id TEXT FK
 broadcast_id TEXT FK
-start_time INTEGER        — seconds from loop/day start
+start_time INTEGER        — seconds from in-game midnight (0–86399)
 duration_override REAL    — overrides computed duration for this slot only
 priority INTEGER          — manual tiebreak; higher wins when slots overlap (default 0)
 conditions JSONB          — gate object, e.g. { npc_staff: [npcId,…] } (default [])
@@ -362,6 +404,14 @@ There is **no show-type registry** — a type is a `playback_mode` string branch
 - **`sermon`** is the news type’s Sunday cousin: the SAME live news feed, read as scripture instead of reported. Dynamic but **not acted** — celebrants are display names, so nothing spawns and it never presence-gates. Variety comes from three axes rolled per service (which celebrant reads, a random interpretive LENS per reading, and which optional beats happen at all), which is why twelve services off identical headlines come out twelve distinct. Re-rolls per in-game DAY, not per news bucket — a 15-minute liturgy re-rolling mid-service would cut itself off. Weekly via `@airday`, which rides the playlist’s existing 7-bit day mask. See [Sermons](bsm-format.md#sermons-type-sermon).
 - **`film`** is the exception to this whole section: it is **linear**, not assembled. A feature stores an ordinary baked `broadcast_graph` like a `scripted` broadcast, and `film_meta` holds only what a chain cannot — pre-roll card copy, the display-name cast, and the `airSlots` screening block. It spawns no NPCs and never presence-gates (a film is a *recording*, so its `SPEAKER:` lines compile to pre-rendered `verbatim` says with no anchor). The one thing it needs from the runner is a **real-time seek**: daily slots elapse on the in-game clock but a picture is authored in real minutes, so the film branch divides `segElapsed` by `timeScale` before seeking — which is what lets a late viewer join the reel already running instead of restarting it. See [Films](bsm-format.md#films-type-film).
 - **`talkshow`** is the odd one out: it's **acted live by real cast NPCs**. A resident host + sidekick commute in on schedule, and ONE reusable guest NPC is renamed to a new persona each in-game day, appears in a random unobserved zone, walks across the map to the studio, performs, and vanishes backstage afterward (engine AI actions `TALKSHOW_APPEAR`/`TALKSHOW_HIDE`, plus `talkshowHeartbeat` for the nightly rename). The assembled graph sets `_requireHost`, so it presence-gates on any channel — no cast on-stage ⇒ camera-idle → technical difficulties. **`_requireHost` is not enough on its own, and the reason is worth carrying to any acted show:** it only fires when the studio is *empty*, so a segment built around ONE absent actor — while the rest of the cast works — degrades silently instead. The say-node room-authority rule drops that actor's lines without a trace, and what airs is a host interviewing furniture. A talk show therefore does two more things: the guest gets a **call time** (staffed a slot before airtime, since it's the only one with a journey to make), and the interview sits behind a **chair gate** — an `NPC_IN_STUDIO` condition evaluated at air time, with an authored `guest_noshow` cover on the other branch. See [the chair gate](bsm-format.md#the-chair-gate) and [Talk-Show Broadcasts](bsm-format.md#talk-show-broadcasts-type-talkshow).
+
+  There are **two** such gates, and the split between them is the design: a missing GUEST is a segment, a missing HOST is not a show. The **host gate** sits right after the announcer's introduction and branches the entire episode. Its false branch is short, solo and terminal — a few `host_absent` lines, the announcer's own `host_absent_signoff`, and off the air. It does **not** run the greeting (nobody to greet), the monologue, the guest intro, the interview, or — pointedly — the show's own sign-off, which is the host's line. Without it the whole running order played regardless and the room-authority rule binned the host's every line underneath, so what aired was the sidekick hosting a show he isn't the host of. The false branch also draws **no audience beats**: `react()` deals from the laugh deck, and a crowd losing it under "I can't say his name to an empty desk" is the wrong three seconds of television.
+
+  **Segment discipline.** The sidekick has exactly three places in the hour — the intro, the monologue, and the goodnight — and is silent between them. He gets one heckle (`sidekick_aside`) and one two-hander (`banter`) placed at two different joke boundaries *inside* the monologue run, never bracketing it, and one throwback (the second `greeting` drawn) on the way to the sign-off. He is absent from the interview entirely. Scattering him through the whole hour reads as a co-host, not a sidekick. The one exception is the `guest_noshow` cover, where filling a hole in the running order in front of the audience is the job.
+
+  **`{host}` vs `{host_first}`.** The full name is the marquee name and belongs in the announcer's formal introduction; every conversational line uses the derived `{host_first}` / `{sidekick_first}` / `{guest_first}` token, because two men who have shared a desk for nineteen years don't say "John Akerson" across it. The script used to hardcode "John" into the text — right on air, wrong the moment the host NPC is renamed.
+
+  **The cast has to be awake for any of this.** Studio actors are not vendors and have no `vendor_schedule`; their timetable lives in the channel playlist, reachable only through `npcNextShiftInMins()` on the broadcast bridge. `getNextShiftWakeMs()` in `ai-behaviour.js` consults it alongside the vendor schedule and takes whichever wake-up comes first. Before it did, a studio NPC read as "no schedule", fell through to the 07:00 default, and a host who dozed off at home in the evening was parked on `ai.waitUntil` until the next morning — asleep through his own 22:00 taping while the show aired to an empty desk.
 
 ---
 

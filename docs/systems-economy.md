@@ -95,6 +95,19 @@ is load-bearing, because the client sends an item id and without it a front-coun
 straight off the back room. This is what lets Sully be a bartender selling swill *and* a fence selling
 precursor without his bar list ever leaking contraband.
 
+**Shelf sections.** A shelf with enough variety on it sections itself — Ration Nine into Dry Goods /
+Refrigerated / Frozen, a gunsmith into Weapons / Armor / Materials — with **nothing configured on
+either NPC**. The axis is scored against the actual stock, so an axis that doesn't partition *this*
+shelf loses; a shelf that doesn't partition usefully stays flat. Same substrate sections the Sell tab,
+player storefront boards and container contents. `flags.shop_axis` is an author override and is not
+the intended route. Note it runs **after** the `shop.stock` hook, so a handler that adds entries is
+sectioned with the rest, and the shopping-list `wanted` mark stays orthogonal — marked wherever it
+lands, never gathered into a section of its own. See
+[reference/item-facets.md](reference/item-facets.md).
+
+Do not confuse a **section** with a **shelf**: sections are display grouping derived from the items,
+shelves (`back_room`, `min_trust`) are access gating authored on the entry.
+
 ### Physical stock — the cooler IS the shelf (as built)
 
 A `vendor_inventory` entry may carry `sourceContainer` (a furniture container id) and `restockToQty`

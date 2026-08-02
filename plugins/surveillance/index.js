@@ -1761,7 +1761,9 @@ async function raiseCrime(player, key, zoneId, suspectName, forced = false) {
   // one-shot act) catch chance and an on-scene cop is very likely to make you.
   // `forced` still short-circuits. Truthy result is the witness SOURCE ('camera' /
   // 'cop' / 'always'), which picks the callout below.
-  const seen = forced ? true : await witnessRoll(zoneId, witness, onCamera, CAM_CATCH_BASE);
+  // Flat base for a one-shot act, scaled by how hard this particular crime is
+  // watched for (sevFactor) — a lens shrugs at a tag on a wall and snaps to a mugging.
+  const seen = forced ? true : await witnessRoll(zoneId, witness, onCamera, CAM_CATCH_BASE * sevFactor(key));
   if (!seen) return;
 
   const dkey = `${player.id}:${key}`;
@@ -1962,6 +1964,13 @@ on('player.death', ({ killer }) => {
 on('bodily.publicRelief', ({ player, zoneId }) => {
   if (player?.id) raiseCrime(player, 'indecent_exposure', zoneId || player.current_zone, player.handle);
 });
+// Spraying a tag on a building front (graffiti plugin). The pettiest charge on the
+// board at 0.3★, and after sevFactor that's a floor-value single camera roll — you
+// will nearly always walk. That's correct: the rare bust should be a funny slap,
+// not a tax on the one expressive thing in the game.
+on('graffiti.tagged', ({ player, zoneId }) => {
+  if (player?.id) raiseCrime(player, 'graffiti', zoneId || player.current_zone, player.handle);
+});
 // A MIS act outside a private room (mis plugin) — the same charge. The mis plugin
 // decides what counts as private; everything after that is the ordinary witness
 // roll, so a lawless zone and an empty street still cost you nothing.
@@ -1991,12 +2000,31 @@ const CAM_CATCH_RAMP_MS = 30000;  // reaches the ceiling after ~30s of offending
 const ATM_JACK_MAX_MS = 180000;   // safety cap: drop an abandoned ATM session
 const COP_CATCH = 0.9;            // an on-scene cop is very likely to make you
 
-function camCatchChance(elapsedMs) {
+// A lens is watched by people, and people don't watch all crimes equally hard. The
+// catch chance scales with the crime's OWN severity (its star weight, overrides
+// included) around a 2-star pivot: a stabbing pulls an operator out of their chair
+// the moment it crosses the frame, while a half-star of public nudity has to sit
+// under the camera for a good while before anyone bothers to file it. Floored so
+// nothing is a literal free pass, ceilinged so a felony still isn't a certainty —
+// the ramp and CAM_CATCH_MAX stay the real limits.
+// Deliberately camera-only: an on-scene cop still makes you at COP_CATCH whatever
+// you're doing, because a badge standing right there isn't triaging a watchlist.
+const SEV_PIVOT_STARS = 2;   // the "ordinary street crime" that rolls at face value
+const SEV_MIN = 0.25;        // pettiest crimes: a quarter of the base odds
+const SEV_MAX = 1.6;         // violent crimes: over half again, before the max clamp
+export function sevFactor(key) {
+  const stars = getCrimeStars(key);
+  if (!stars) return 1;
+  return Math.max(SEV_MIN, Math.min(SEV_MAX, stars / SEV_PIVOT_STARS));
+}
+
+function camCatchChance(elapsedMs, key) {
   const t = Math.min(1, Math.max(0, elapsedMs) / CAM_CATCH_RAMP_MS);
   const raw = CAM_CATCH_BASE + (CAM_CATCH_MAX - CAM_CATCH_BASE) * t;
   // Global lens-effectiveness scalar, dev-tunable in the Crime panel (0 = cameras
   // never make you, 1 = full base/max ramp). Default 0.5 — cameras at half strength.
-  return raw * Math.max(0, Math.min(1, Number(getTunable('camera_effectiveness', 0.5))));
+  const eff = Math.max(0, Math.min(1, Number(getTunable('camera_effectiveness', 0.5))));
+  return Math.min(CAM_CATCH_MAX, raw * sevFactor(key)) * eff;
 }
 
 // A camera's catch rate is calibrated for CLEAR conditions; low visibility (night
@@ -2182,7 +2210,7 @@ async function scanActiveCrimes() {
       if (info.cap && now - info.startTs > info.cap) { m.delete(key); continue; }
       if (player.current_zone !== info.zoneId) { m.delete(key); continue; }   // left the scene
       const onCam = await cameraLiveInZone(info.zoneId);
-      if (await witnessRoll(info.zoneId, getCrimeWitness(key), onCam, camCatchChance(now - info.startTs))) {
+      if (await witnessRoll(info.zoneId, getCrimeWitness(key), onCam, camCatchChance(now - info.startTs, key))) {
         await raiseCrime(player, key, info.zoneId, player.handle, true);
         m.delete(key);   // caught; the 12s debounce covers a resumed streak
       }
