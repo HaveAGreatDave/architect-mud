@@ -243,6 +243,23 @@ function setSleepBar(sleeping, dreaming) {
 // and is unreadable by a screen reader. Print its line and fire the SAME resolve
 // verb the board would have fired, so the authoritative path is identical.
 // Returns true when it handled the message, so each handler reads as one guard.
+// Is the top pane free to hold the room description right now?
+//
+// Ten things can be mounted in it — the flight sim, the passenger HUD, the hangar
+// bay, the helm, and the six character panels — and each replaces the room with
+// its own app. This was written out twice, once per room-painting handler, which
+// is how the fishing board nearly got clobbered by a look before it was added to
+// both copies.
+//
+// It answers TWO questions, and that is why it's worth a name: whether to paint
+// the room here, and whether the `log` rung may hide the pane. Hiding it while a
+// text cockpit is mounted would black out a pilot's instruments.
+function paneFreeForRoom() {
+  return !isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive()
+    && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive()
+    && !isTextVaultActive() && !isTextSignalActive() && !isTextFishingActive();
+}
+
 function autoResolved(msg, onResult) {
   if (msg.render !== 'resolve') return false;
   if (msg.message) appendHtml(msg.message, 'system');
@@ -305,13 +322,14 @@ const handlers = {
     // Don't clobber the live cockpit (either the continuous sim or the discrete
     // passenger HUD) or an open hangar bay panel — all replace the plain-text room
     // description with their own app in the same area-pane.
-    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive() && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive() && !isTextVaultActive() && !isTextSignalActive() && !isTextFishingActive()) setAreaPane(msg.message);
+    const free = paneFreeForRoom();
+    if (free) setAreaPane(msg.message);
     // Display Mode `log` — the room goes to the scrolling log as well. The pane is
     // aria-hidden at that rung, so this duplication is inaudible to a screen
     // reader and is the ONLY way the room reaches them; a sighted player on this
     // rung gets the room in their scrollback, which is what they chose it for.
-    if (msg.toLog) appendHtml(msg.message, 'look');
-    setPaneSilent(!!msg.toLog);
+    if (msg.toLog) appendHtml(msg.logMessage || msg.message, 'look');
+    setPaneSilent(!!msg.toLog && free);
     if (state.echoNextLook) { appendMsg('You look around.', 'system'); state.echoNextLook = false; }
     if (msg.zone) { notifyZoneChanged(msg.zone); state.currentZone = msg.zone; }
     setYachtAmbience(msg.ambience);   // naval on deck / engine below / null elsewhere
@@ -325,10 +343,11 @@ const handlers = {
     // against this plain-text room description — whichever lands second wins.
     // If the bay panel already won that race, don't stomp it; it owns the pane
     // until the player actually leaves (hangar_close triggers a fresh look).
-    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive() && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive() && !isTextVaultActive() && !isTextSignalActive() && !isTextFishingActive()) setAreaPane(msg.message, msg.direction);
+    const free = paneFreeForRoom();
+    if (free) setAreaPane(msg.message, msg.direction);
     if (msg.narration) appendHtml(msg.narration, 'move');
-    if (msg.toLog) appendHtml(msg.message, 'look');   // see the `look` handler
-    setPaneSilent(!!msg.toLog);
+    if (msg.toLog) appendHtml(msg.logMessage || msg.message, 'look');   // see the `look` handler
+    setPaneSilent(!!msg.toLog && free);
     notifyZoneChanged(msg.zone);
     state.currentZone = msg.zone;
     setYachtAmbience(msg.ambience);   // naval on deck / engine below / null elsewhere

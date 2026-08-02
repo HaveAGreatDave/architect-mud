@@ -48,17 +48,50 @@ else ok('#area-content is not a live region');
 if (/aria-label=/.test(paneTag)) ok('#area-content is labelled, so it can be found on demand');
 else bad('#area-content has no aria-label — a screen reader user cannot locate the room pane');
 
-// ── The bottom rung hides the pane rather than deleting it ───────────────────
+// ── The bottom rung puts the pane away ───────────────────────────────────────
 if (/export function setPaneSilent/.test(render)) ok('setPaneSilent exists');
 else bad('setPaneSilent is gone — the pane can no longer be hidden at the log rung');
 if (/aria-hidden/.test(render)) ok('…and it toggles aria-hidden');
 else bad('setPaneSilent no longer touches aria-hidden');
+if (/log-rung/.test(render)) ok('…and collapses the pane visually');
+else bad('setPaneSilent no longer toggles the log-rung class — the pane stays on screen duplicating the log');
+
+const css = readFileSync('client/game/styles.css', 'utf8');
+if (/\.log-rung[^{]*#area-pane/.test(css)) ok('the log-rung collapse rule exists in styles.css');
+else bad('styles.css has no .log-rung rule for #area-pane — the class is toggled but does nothing');
 
 // Both room-painting handlers must drive it, or the pane stays announced (or
 // stays hidden) after the player changes rung mid-session.
 const paneSilentCalls = (dispatch.match(/setPaneSilent\(/g) || []).length;
 if (paneSilentCalls >= 2) ok(`setPaneSilent is called on both look and move (${paneSilentCalls} sites)`);
 else bad(`setPaneSilent is called ${paneSilentCalls}× — look AND move both need it`);
+
+// THE DANGEROUS ONE. The text cockpit and the five character minigame boards
+// mount in the very pane this hides, so an ungated hide blacks out a text pilot's
+// instruments or a breach board mid-run. Both call sites must be gated.
+const guardedHides = (dispatch.match(/setPaneSilent\([^)]*free[^)]*\)/g) || []).length;
+if (guardedHides >= 2) ok(`the pane is only hidden when no text cockpit or minigame owns it (${guardedHides} sites gated)`);
+else bad(`only ${guardedHides} setPaneSilent call(s) are gated on paneFreeForRoom() — hiding the pane while a text cockpit or minigame board is mounted blacks it out`);
+
+// ── Brief rooms ──────────────────────────────────────────────────────────────
+// Without this the log-rung player gets a full prose paragraph read aloud on
+// every single step, which is the difference between a playable transcript and
+// an unusable one.
+{
+  const brief = readFileSync('server/engine/room-brief.js', 'utf8');
+  const server2 = readFileSync('server/index.js', 'utf8');
+  if (/briefRoom/.test(server2)) ok('the server abbreviates repeat rooms in the log');
+  else bad('server/index.js no longer calls briefRoom — every step logs a full paragraph');
+  // The safety property. An abbreviated `look` would make the information GONE
+  // rather than one keystroke away, and the whole contract rests on that.
+  if (/type === 'look' \|\| first/.test(server2)) ok("…and never abbreviates an explicit `look` or a first arrival");
+  else bad('the full-render condition has changed — `look` and first arrivals MUST stay full, or brief becomes lossy');
+  if (/appendHtml\(msg\.logMessage \|\| msg\.message/.test(dispatch)) ok('…and the client honours the brief copy');
+  else bad('the client ignores msg.logMessage — the brief is computed and thrown away');
+  // The transform parses another module's markup, so its bail-out is load-bearing.
+  if (/return html;/.test(brief)) ok('briefRoom bails out to the full description when it does not recognise one');
+  else bad('briefRoom no longer returns the input unchanged on an unrecognised description — it can now eat a room');
+}
 
 // ── The room reaches the log at the bottom rung ──────────────────────────────
 // A look normally goes to the pane and never touches #output, so without this a

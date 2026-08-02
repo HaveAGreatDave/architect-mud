@@ -69,6 +69,7 @@ import { openShopSession, closeShopSession } from "./engine/vendor-session.js";
 import { getSoundReach } from "./engine/sounds.js";
 import { getFlag, hydratePlayerFlags, evictPlayerFlags } from "./engine/flags.js";
 import { hydrateDisplayRung, loggedPanelsSync } from "./engine/presentation.js";
+import { briefRoom, markSeenZone } from "./engine/room-brief.js";
 import { hydrateRelations, flushRelations } from "./engine/relations.js";
 import { hydrateIdeologyProfile } from "./engine/ideologies.js";
 import { DOMINANT_FLAG, SECOND_FLAG } from "./engine/senses.js";
@@ -117,7 +118,15 @@ setGhostTokenStore((token, playerId, zoneId) => {
 // log message. See the note at the handleCommand call site.
 function stampToLog(player, message) {
 	if (!message || (message.type !== 'look' && message.type !== 'move')) return message;
-	return loggedPanelsSync(player) ? { ...message, toLog: true } : message;
+	if (!loggedPanelsSync(player)) return message;
+	// The log copy of a room you have walked into BEFORE is abbreviated, so that
+	// crossing six rooms is not six paragraphs read aloud. An explicit `look` is
+	// never abbreviated, and neither is your first arrival anywhere — see the
+	// contract in engine/room-brief.js. The PANE copy stays full either way; only
+	// `toLog` carries the brief, because only the log repeats.
+	const first = markSeenZone(player, message.zone || player?.current_zone);
+	const full = message.type === 'look' || first;
+	return { ...message, toLog: true, logMessage: full ? message.message : briefRoom(message.message) };
 }
 
 function broadcast(

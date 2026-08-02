@@ -16011,3 +16011,15 @@ body.intro-cine-open { overflow: hidden; }
 	.chess-pane { --sq: 34px; --chess-tilt: 48deg; }
 	.chess-log { max-height: 32px; }
 }
+
+/* ── Display Mode `log`: the pane goes away ────────────────────────────────── */
+/* At the bottom rung everything the top pane would show also reaches the log
+   (server/index.js stamps `toLog`), so the pane is a duplicate of what you just
+   read. Collapse it and give the log the whole window — one chronological stream,
+   which is the entire point of the rung. The resize handle goes with it, or it is
+   left floating over nothing. Toggled by render.js setPaneSilent, which only ever
+   asks for this when no text cockpit or minigame board is mounted in the pane. */
+#output-container.log-rung > #area-pane,
+#output-container.log-rung > #look-resize-handle {
+	display: none;
+}

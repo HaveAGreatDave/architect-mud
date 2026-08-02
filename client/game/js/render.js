@@ -229,22 +229,37 @@ function playNameMorphs(root) {
   for (const el of els) playNameMorph(el);
 }
 
-// Display Mode `log` — hide the top pane from assistive tech.
+// Display Mode `log` — put the top pane away entirely.
 //
-// At that rung everything in the pane also reaches #output (server/index.js
-// stamps `toLog`), so leaving it in the accessibility tree would make a screen
-// reader user navigate past a duplicate of what they just heard. It stays
-// VISIBLE — a sighted player who chose this rung for the scrollback still wants
-// to see the room — it simply stops being announced.
+// At that rung everything the pane would show also reaches #output (server/index.js
+// stamps `toLog`), so the pane is a duplicate of what you just read: it is hidden
+// from assistive tech AND collapsed visually, and the log takes the whole window.
+// That is the point of the rung — one chronological stream, nothing else.
+//
+// Both halves matter and neither is enough alone. `aria-hidden` without the
+// collapse leaves a sighted log-rung player staring at a redundant panel;
+// `display:none` without the aria-hidden would be fine today, but the attribute
+// states the intent and survives someone changing how the collapse is done.
+//
+// ⚠ ONLY CALL THIS WITH `silent` TRUE WHEN THE PANE IS ACTUALLY FREE. The text
+// cockpit and all five character minigame boards mount in this same pane; hiding
+// it while one is up would black out a pilot's instruments or a breach board
+// mid-run. dispatch.js gates on paneFreeForRoom() for exactly this.
 //
 // The pane must never become a live region instead: it is replaced wholesale on
 // every look, so `aria-live` here would re-read the whole thing on every move and
 // queue ahead of the log.
 export function setPaneSilent(silent) {
   const pane = document.getElementById('area-content');
-  if (!pane) return;
-  if (silent) pane.setAttribute('aria-hidden', 'true');
-  else pane.removeAttribute('aria-hidden');
+  const container = document.getElementById('output-container');
+  if (pane) {
+    if (silent) pane.setAttribute('aria-hidden', 'true');
+    else pane.removeAttribute('aria-hidden');
+  }
+  // The collapse is a class, not an inline style — the layout belongs in
+  // styles.css (docs/audits/ui-presentation-standard-audit.md). It hides the pane
+  // AND its resize handle, or the handle is left floating over nothing.
+  if (container) container.classList.toggle('log-rung', !!silent);
 }
 
 export function setAreaPane(html, direction) {

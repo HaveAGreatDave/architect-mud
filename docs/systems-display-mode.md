@@ -129,10 +129,20 @@ tech wants; wholesale replacement is the shape it cannot follow. So:
   CH▲/▼, never continuous. The accurate rule is the one above, and
   `scripts/a11y/smoke.mjs` enforces it with an explicit justified-exceptions list so
   the next one is a decision rather than an accident.)*
-- At the `log` rung the pane gets `aria-hidden` (`setPaneSilent`). It stays
-  *visible* — a sighted player who chose this rung for the scrollback still wants to
-  see the room — it simply stops being announced. It must never become a live
-  region: it would re-read the whole pane on every move.
+- At the `log` rung **the pane goes away entirely** — `setPaneSilent` sets
+  `aria-hidden` *and* puts a `log-rung` class on `#output-container` that collapses
+  `#area-pane` and its resize handle. The log takes the whole window. Everything the
+  pane would have shown already reaches `#output` at this rung, so the pane is a
+  duplicate of what you just read; one chronological stream is the entire point.
+
+  ⚠ **`setPaneSilent(true)` is only safe when the pane is free.** The text cockpit and
+  all five character minigame boards mount in that same pane, so an unguarded hide
+  would black out a pilot's instruments or a breach board mid-run. `dispatch.js` gates
+  both call sites on `paneFreeForRoom()`, which is also what decides whether to paint
+  the room at all — one predicate, two questions, so they cannot drift apart.
+
+  The pane must never become a live region instead: it would re-read the whole thing
+  on every move.
 
 **The room description reaches the log at this rung.** A look normally goes to the
 pane and never touches `#output`, so a player reading through the log alone would
@@ -141,6 +151,39 @@ stamps `toLog` on outbound `look`/`move` payloads — one site, because the
 description is built at half a dozen places (movement.js, world.js, the login look,
 gametable's `paneOrLook`) and there is no single constructor to hook. The client
 then appends it as well.
+
+### Brief rooms — and the one property that makes them safe
+
+Appending the full room on every move makes walking six rooms six paragraphs *read
+aloud*. So the log copy of a room is abbreviated, by
+[`server/engine/room-brief.js`](../server/engine/room-brief.js), and the rule is the
+classic MUD `brief` contract:
+
+> **Nothing is ever lost, only deferred by one keystroke.**
+
+- An explicit `look` is **always** full. Always. This is what makes the whole thing
+  safe rather than lossy — if `look` ever goes terse, information is genuinely gone.
+- Your **first arrival** at a room is full: you have never read that prose, so
+  abbreviating it would be hiding content rather than repeating it. Tracked in a
+  `Set` on the live player object — per-session by design, so it costs no column, no
+  flag and no query on the every-move path.
+- Every arrival after that is brief.
+
+What survives is not "the short bits". It is **everything that could be different
+this time** — people, enemies, corpses, items, the furniture list, exits, and every
+warning and light-level line. What goes is what is a property of the room itself and
+therefore identical to last time: the prose paragraph, the woven-furniture second
+beat, ambient flavour. That is precisely why a brief is safe to repeat.
+
+*If you add a dynamic section to `describeZone`, add its class to `KEEP` — otherwise a
+`log`-rung player quietly stops being told about it.*
+
+It works by transforming the **rendered markup**, not by threading a `brief` option
+through `describeZone`: that function has ~20 call sites across the engine and eight
+plugins, each building its own payload, and a new one would silently opt out. The
+cost of that choice is that it is parsing another module's output, so it is written to
+**bail out and return the description whole** whenever it doesn't recognise the shape.
+A slightly long brief is a non-event; a missing room is not.
 
 This is also the acceptance test for anything new: **if a system's record doesn't
 reach the log, the `log` rung isn't done for it.**

@@ -1182,6 +1182,26 @@ console.log('— layer 2: engine core —');
 let r = await run('look');
 check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice(0, 120));
 
+// ── Brief, against a REAL room ───────────────────────────────────────────────
+// The unit cases further down use synthetic markup, which proves the transform's
+// logic but NOT that it recognises what describeZone actually emits. That is the
+// whole risk of parsing another module's output, so it gets checked against the
+// live renderer here — if describeZone's shape drifts, this is what notices.
+{
+  const { briefRoom } = await import('../server/engine/room-brief.js');
+  const full = r?.message || '';
+  const short = briefRoom(full);
+  check('brief: a real room description is recognised and shortened',
+    short.length < full.length, `${short.length} vs ${full.length}`);
+  check('brief: …and keeps the room name', /zone-name/.test(short), short.slice(0, 200));
+  // The load-bearing half: a brief is only safe to repeat because it carries
+  // everything that could have changed. Exits are the one every room has.
+  if (/exits-row/.test(full)) {
+    check('brief: …and keeps the exits', /exits-row/.test(short), short.slice(0, 400));
+  }
+  check('brief: …and drops the prose paragraph', !/room-desc/.test(short), short.slice(0, 400));
+}
+
 // ── Room pane: attached satellites and light clicks ──────────────────────────
 // Two rules about how the `Furniture:` line CLICKS, both easy to break silently
 // because nothing throws when a link points at the wrong verb.
@@ -4796,6 +4816,49 @@ removeLivePlayer(P.id);
   catch (e) { threw = e.message; }
   check('map: rendering with no player returns prose rather than throwing', threw === null, threw);
   check('map: …and says so plainly', /nowhere/i.test(renderMapBriefing(null)), renderMapBriefing(null));
+}
+
+// ── Brief room descriptions at the `log` rung ────────────────────────────────
+// The safety property is NOTHING IS EVER LOST, ONLY DEFERRED BY ONE KEYSTROKE,
+// and it rests on two things that are easy to break by accident: `look` staying
+// full, and the transform bailing out rather than emitting a stub when it does
+// not recognise a description. Both are asserted here.
+{
+  const { briefRoom, markSeenZone } = await import('../server/engine/room-brief.js');
+  const ROOM = [
+    '<span class="zone-name">Marrow Street</span>',
+    '<span class="room-desc">Rain sheets off the awnings. Somewhere a transformer hums itself to sleep, and the gutter carries a slick of something that was recently alive.</span>',
+    '<span class="npcs-label">Here:</span> a vendor',
+    '<span class="exits-row"><span class="exits-label">Exits:</span> north, east</span>',
+  ].join('\n');
+
+  const b = briefRoom(ROOM);
+  check('brief: the prose paragraph goes', !b.includes('transformer'), b);
+  check('brief: …but where you are stays', b.includes('Marrow Street'), b);
+  check('brief: …and the exits stay', b.includes('Exits:'), b);
+  // The whole reason a brief is safe to repeat is that it carries everything
+  // that could have CHANGED. Drop this and a log-rung player walks past people.
+  check('brief: …and so does anyone standing there', b.includes('a vendor'), b);
+  check('brief: it is actually shorter', b.length < ROOM.length, `${b.length} vs ${ROOM.length}`);
+
+  // Bail-out behaviour. A description this transform does not understand must
+  // come back WHOLE — a missing room is far worse than a long one.
+  const alien = 'just some text with no markup at all';
+  check('brief: an unrecognised description is returned untouched', briefRoom(alien) === alien);
+  check('brief: a name-only room is not abbreviated to nothing',
+    briefRoom('<span class="zone-name">A Cell</span>').includes('A Cell'));
+  let threw = null;
+  try { briefRoom(null); briefRoom(undefined); briefRoom(''); } catch (e) { threw = e.message; }
+  check('brief: rendering with no description does not throw', threw === null, threw);
+
+  // First arrival is full, every arrival after it is brief. Getting this
+  // inverted would abbreviate exactly the one visit whose prose you have never
+  // read — hiding content instead of repeating it.
+  const p = {};
+  check('brief: the first arrival at a room is full', markSeenZone(p, 'z1') === true);
+  check('brief: …the second is not', markSeenZone(p, 'z1') === false);
+  check('brief: …and a different room is full again', markSeenZone(p, 'z2') === true);
+  check('brief: a player with no zone is never abbreviated', markSeenZone(p, null) === true);
 }
 
 await sweepOrphanedPlayerRows();
