@@ -2,7 +2,7 @@
 
 Credits, banking, vendors, theft, crafting, the IP/stat-raise economy, factions, and apartments.
 Primary files: [economy.js](../server/engine/economy.js), [vendor.js](../server/engine/vendor.js),
-[factions.js](../server/engine/factions.js), [crafting.js](../server/engine/crafting.js),
+[ideologies.js](../server/engine/ideologies.js), [crafting.js](../server/engine/crafting.js),
 [ip.js](../server/engine/ip.js), [skills.js](../server/engine/skills.js),
 [apartments.js](../server/engine/apartments.js), and the matching command files.
 

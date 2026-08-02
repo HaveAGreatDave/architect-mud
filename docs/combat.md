@@ -1,9 +1,14 @@
 # Combat (As Built)
 
-This documents the combat system **as it currently runs in the engine**, file by file. It is
-distinct from [combat-and-stats-plan.md](combat-and-stats-plan.md), which is the agreed *future*
-scope (continuous skills, IP-funded stats, per-part typed soak). Much of that plan is already
-shipped; where the running code diverges from the plan, this file is the source of truth.
+This documents the combat system **as it currently runs in the engine**, file by file, and it is
+the source of truth for it.
+
+*(This paragraph used to point at a `combat-and-stats-plan.md` holding the "agreed future scope".
+No such file has ever existed in this repo — the July 2026 docs audit found it and recorded it as a
+ghost link, and it survived the audit that found it. The scope it described — continuous skills,
+IP-funded stats, per-part typed soak — has since shipped and is documented below, so there is
+nothing left to link to. Design intent that hasn't shipped lives in
+[design.md](design.md).)*
 
 Primary files: [combat.js](../server/engine/combat.js) (combat math, cooldowns, enemy swings),
 [stance.js](../server/engine/stance.js) (stance substrate: the modifier table, the dodge window, swing flavour),

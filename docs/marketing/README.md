@@ -17,7 +17,7 @@ It exists so the copy lives somewhere versioned instead of in someone's download
   false (`client/` is the largest body of code in the repo) and self-contradicting two
   columns later, where it boasts about volumetric cloud. If a line asserts something
   about the game, it should survive someone checking it.
-- **Lore copy comes from the Codex** ([plugins/tablet/codex/chapters.js](../plugins/tablet/codex/chapters.js)),
+- **Lore copy comes from the Codex** ([plugins/tablet/codex/chapters.js](../../plugins/tablet/codex/chapters.js)),
   which is the actual in-game text, so the pitch and the game agree. Note that Volume II
   is **locked and earned in play** — quoting it in marketing spoils chapters a player is
   meant to unlock. The current ad does quote it. That's a live judgement call, not an

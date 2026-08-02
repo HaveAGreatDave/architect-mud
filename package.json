@@ -29,7 +29,7 @@
     "map:derive": "node scripts/content/derive-cli.mjs",
     "studio": "node tools/studio/serve.mjs",
     "content:lint": "node scripts/content/lint.mjs",
-    "docs:lint": "node scripts/docs/lint.mjs",
+    "docs:lint": "node scripts/docs/lint.mjs && node scripts/docs/verbs.mjs && node scripts/docs/links.mjs",
     "shapes:smoke": "node scripts/shapes/smoke.mjs",
     "voice:smoke": "node scripts/voice/smoke.mjs",
     "shapes:bake": "node scripts/shapes/bake.mjs",

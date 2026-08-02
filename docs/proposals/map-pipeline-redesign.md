@@ -79,7 +79,7 @@ renderer that needs a value the author didn't set invents its own.
   `#6f3524` in both player renderers. **2,996 tiles — 55% of the world — are painted one colour
   by the authoring tool and drawn another to the player.**
 - **`flags.entrance`, the one field documented as "not inferred at runtime", is baked by two
-  scripts with two different rules.** [apply.mjs:425-428](../../tools/zone-planner/apply.mjs)
+  scripts with two different rules.** `apply.mjs:425-428` (since removed)
   takes the first non-building neighbour, preferring south; `bake-building-entrances.mjs:23-48`
   takes the road-icon side and refuses to guess when two qualify.
 - **Five derivations of a two-letter building code have existed** — two render-time and

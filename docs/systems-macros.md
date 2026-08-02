@@ -228,9 +228,9 @@ colours already used on other macros).
 
 The macro language itself is **client-only** — nothing wires into the server
 dispatch pipeline or plugin registries, so those parts are outside the
-`npm run test:regress` gate. See
-[project_custom_sidebar_panels](project_custom_sidebar_panels.md) for the sibling
-localStorage store pattern.
+`npm run test:regress` gate. The custom sidebar panels use the same
+localStorage-store pattern, in `client/game/js/panels/custom/store.js` — worth reading beside
+this if you are adding a third client-only store.
 
 The one server-side piece is the command **rate limit** in
 `handleGameCommand` (`server/index.js`). It's an additive guard on the WebSocket

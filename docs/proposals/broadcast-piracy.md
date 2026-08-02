@@ -5,7 +5,7 @@ frequency — cut its cameras to your own SPECTER feed, air recorded tapes and s
 run the schedule from your tablet while the city watches whatever you want.*
 
 Grows the **broadcast half** of the media system into a player-seizable, PvP-capable takeover layer —
-the mirror image of what [SPECTER surveillance](systems-surveillance.md) did to the camera half.
+the mirror image of what [SPECTER surveillance](../systems-surveillance.md) did to the camera half.
 Reuses the media-deck override, the SPECTER firmware/tablet shell, the Circuit-Breach-style hack
 loop, the crime/Wanted spine, and the dead-man tamper ping. **No new render stack, no new content
 system** — it turns the deck's existing `deck_active` override into a real pirate console.
@@ -138,7 +138,7 @@ gains the pirate controls for the owner-at-deck case. Controls:
 - **LIVE / RECORDED toggle** — flips `pirate_mode`.
 - **Recorded queue editor** — add from the **content pool** (carried cassettes · your SPECTER
   microreels/datachips · the station's own `deck_cassettes`), delete, reorder (reuse the
-  [list-reorder](../../client/game/js/list-reorder.js) engine). This is the "pick from a bottom list /
+  [list-reorder](../../client/game/js/panels/list-reorder.js) engine). This is the "pick from a bottom list /
   load cassettes / delete broadcasts" surface, mapped onto the *ephemeral* queue, not the real
   playlist.
 - **Playback** — Play/Stop, Skip/Next (advances `pirate_cursor`), Loop (off/item/queue).
@@ -152,7 +152,7 @@ gains the pirate controls for the owner-at-deck case. Controls:
 - New crime key **`broadcast_piracy`** in the [crime registry](../../server/engine/crimes.js),
   witness-mode **`always`** (a citywide hijack is inherently reported) → heavy stars (proposed 3–4,
   tune in the dev Crimes panel). Charged via `raiseCrime` on a successful hijack; ongoing possession
-  keeps you hot. Integrates with the built [Wanted system](systems-surveillance.md#wanted-system-phase-6).
+  keeps you hot. Integrates with the built [Wanted system](../systems-surveillance.md#wanted-system-phase-6).
 - **Tamper dead-man ping** to the station owner/PD network on seizure (reuse the SPECTER `⚠ TAMPER`
   ping) — the station *knows* it's been pirated, which is what triggers the engineer response.
 
@@ -230,7 +230,7 @@ gains the pirate controls for the owner-at-deck case. Controls:
 ## Dependencies & risks
 
 - **Corp-owned stations don't exist yet.** "NPC + player/corp stations" is fully realized only when
-  the [corps system](systems-corps.md) gains media-asset ownership. Phases 1–4 treat every channel as
+  the [corps system](../systems-corps.md) gains media-asset ownership. Phases 1–4 treat every channel as
   city/NPC (all pirateable); Phase 5 is the corp-ownership overlay.
 - **Behavior change: locking open deck access.** Today any player can `use` any deck and override it.
   Locking it is correct per the [broadcast overhaul](../../CLAUDE.md) (media-deck = required

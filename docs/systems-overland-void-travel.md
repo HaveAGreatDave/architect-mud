@@ -151,7 +151,7 @@ The adjacency graph has two surfaces, and they are different things (SSOT vs. vi
 - **Seen by players as an abstract *frontier map*, not the grid.** You can't draw this to scale — the
   Reach is ~1,000 tiles from Coldwater and the void between has no real geometry. So the player view is
   a **topology diagram** (region-islands as nodes, void-routes as edges — a subway/travel-network read),
-  *not* the tile-grid [Map app](systems-map.md) bigmap. It surfaces in **two places (both):**
+  *not* the tile-grid [Map app](systems-world.md#minimap) bigmap. It surfaces in **two places (both):**
   - **At the gate** (diegetic, in-world): standing at a departure threshold reads out the reachable
     neighbours — *"from here you can strike out toward: The Reach, Exodus."* The local slice, at the
     point of decision.
