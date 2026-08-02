@@ -34,8 +34,56 @@ export async function getList(playerOrId) {
   if (!raw) return [];
   try {
     const list = JSON.parse(raw);
-    return Array.isArray(list) ? list.filter(e => e && e.k && e.v) : [];
+    return Array.isArray(list) ? refresh(list.filter(e => e && e.k && e.v)) : [];
   } catch { return []; }
+}
+
+// THE LABEL IS DERIVED TOO.
+//
+// The rule at the top of this file — store what you want, derive the rest at read
+// time — was applied to whether a line is SATISFIED and to nothing else. The
+// line's prose was written once, at add time, and then kept forever in a flag.
+// So a list survived a change to the recipe it came from and went on describing
+// the old one: penne alla gin used to want a `liquid`, and a list added back then
+// still asks for "800g–1.2kg of liquid — tomato for the body, a slug of gin,
+// cream to finish" long after the dish was rewritten into a tomato, a cream and
+// two named bottles. Nothing was going to correct it, because nothing re-read the
+// recipe.
+//
+// So the recipe is re-read on every load. A stored entry keeps the two things
+// that are genuinely a RECORD of a decision — which class or item you wanted, and
+// how much you were short — and everything a reader sees is rebuilt from the
+// template. A list written by any older build heals itself the moment you open it.
+//
+// Sync and query-free: `catalogTemplate` and the item cache are both in memory,
+// so this costs a read path nothing.
+export function refresh(list) {
+  const itemRow = id => { try { return getItem(id); } catch { return null; } };
+  const out = [];
+  for (const e of list) {
+    const template = e.for ? catalogTemplate(e.for)?.template : null;
+    // A loose want, or one from a player's own recipe: nothing to re-derive it
+    // from, so it stays exactly as written. That's the whole of its truth.
+    if (!template) { out.push(e); continue; }
+
+    if (e.k === 'i') { out.push({ ...e, label: itemRow(e.v)?.name || e.label }); continue; }
+
+    const need = template.needs?.[e.v];
+    // The recipe doesn't want this class any more. Not a line to relabel — a line
+    // that should never have survived the dish being rewritten.
+    if (need == null) continue;
+    // ...and a class a key item on this same list satisfies outright is the
+    // duplicate that dedup already removes at add time. Applied here too, so an
+    // older list stops asking for the penne twice.
+    const [lo, hi] = Array.isArray(need) ? need : [need, need];
+    const keyed = (template.keyItems || []).some(id =>
+      itemRow(id)?.tags?.food_profile === e.v && list.some(x => x.k === 'i' && x.v === id));
+    if (keyed && lo === 1 && hi === 1) continue;
+
+    const named = classLabel(e.v, need, template);
+    out.push({ ...e, label: named.label, base: named.base, ex: named.ex });
+  }
+  return out;
 }
 
 async function putList(playerId, list) {
@@ -143,18 +191,24 @@ function classLabel(profile, need, template) {
   // A class the dish wants exactly one of already prints its key item's own noun
   // ("125g of penne"). That IS the buyable thing; listing four more starches
   // after it would only make a solved line ambiguous again.
+  //
+  // The note is suppressed on every branch, not just the one below. "125g of penne
+  // — a portion a head, no more" is a good line on a recipe card and noise on a
+  // shopping list, which has one job: say what to buy. How much of it goes in the
+  // pan is the card's business, and the card still says it.
+  const plain = { ...template, notes: {} };
   if (keyNounFor(template, profile, itemInfo)) {
-    const label = ingredientLine(profile, need, template, itemInfo);
+    const label = ingredientLine(profile, need, plain, itemInfo);
     return { label, base: label, ex: [] };
   }
   const examples = buyableExamples(profile, template);
   if (!examples.length) {
-    const label = ingredientLine(profile, need, template, itemInfo);
+    const label = ingredientLine(profile, need, plain, itemInfo);
     return { label, base: label, ex: [] };
   }
   // Note suppressed deliberately — see above. The examples replace it, and they
   // are the half of it that can be handed over a counter.
-  const base = ingredientLine(profile, need, { ...template, notes: {} }, itemInfo);
+  const base = ingredientLine(profile, need, plain, itemInfo);
   return { label: `${base} — ${examplesLine(examples)}`, base, ex: examples };
 }
 

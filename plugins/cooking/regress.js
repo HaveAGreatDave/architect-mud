@@ -2050,6 +2050,38 @@ export default async function regress({ run, check, getPlayer }) {
         check('...saying outright that each one is bought separately', /separately/.test(out), out);
       }
 
+      // A LIST WRITTEN BY AN OLDER BUILD HEALS ITSELF.
+      //
+      // Entries stored their rendered prose, so a list survived a change to the
+      // recipe it came from and went on describing the old one — a `liquid` line
+      // penne alla gin no longer wants, the penne asked for twice, and the recipe
+      // card's notes on a list whose only job is to say what to buy. Every one of
+      // those is re-derived from the template now, on load.
+      {
+        await run('shoplist clear');
+        // Exactly the shape the old build wrote, planted by hand.
+        const stale = [
+          { k: 'p', v: 'liquid', n: 2, label: '800g–1.2kg of liquid — tomato for the body, a slug of gin, cream to finish', for: 'penne alla gin' },
+          { k: 'p', v: 'dry_starch', n: 1, label: '125g of penne — a portion a head, no more', for: 'penne alla gin' },
+          { k: 'i', v: 'item_penne', n: 1, label: 'box of penne', for: 'penne alla gin' },
+          { k: 'i', v: 'item_gin', n: 1, label: 'bottle of gin', for: 'penne alla gin' },
+        ];
+        await query(
+          `INSERT INTO player_flags (player_id, flag_key, flag_value) VALUES ($1,$2,$3)
+             ON CONFLICT (player_id, flag_key) DO UPDATE SET flag_value = EXCLUDED.flag_value`,
+          [player.id, SHOPLIST_FLAG, JSON.stringify(stale)]);
+
+        const healed = await getList(player.id);
+        check('a class the recipe no longer wants drops off the list',
+          !healed.some(e => e.k === 'p' && e.v === 'liquid'), JSON.stringify(healed.map(e => e.label)));
+        check('...the class a key item already covers stops being asked for twice',
+          !healed.some(e => e.k === 'p' && e.v === 'dry_starch'), JSON.stringify(healed.map(e => e.label)));
+        check('...the two bottles you actually go and buy survive untouched',
+          healed.filter(e => e.k === 'i').length === 2, JSON.stringify(healed));
+        check('...and no recipe-card note rides along on any of it',
+          healed.every(e => !/a portion a head|for the body|to finish/.test(e.label)), JSON.stringify(healed.map(e => e.label)));
+      }
+
       // A class the dish has no specific word for is one errand with several
       // possible answers, and those answers nest UNDER it as alternatives —
       // never as more boxes to tick, which would read as "buy all of them".
