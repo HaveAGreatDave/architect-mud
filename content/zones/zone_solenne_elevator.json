@@ -11,6 +11,7 @@
     "out": "zone_solenne_lobby",
     "up": [
       "zone_solenne_gym",
+      "zone_solenne_salon",
       "zone_solenne_residences",
       "zone_solenne_residences_34",
       "zone_solenne_skydeck",
@@ -26,6 +27,11 @@
         "label": "Fitness Club",
         "n": 12,
         "zone": "zone_solenne_gym"
+      },
+      {
+        "label": "Material Advantage",
+        "n": 18,
+        "zone": "zone_solenne_salon"
       },
       {
         "label": "The Residences",

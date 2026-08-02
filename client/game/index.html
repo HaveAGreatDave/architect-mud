@@ -149,37 +149,49 @@
 
 				<div class="tagline">The AI won. You survived. Probably.</div>
 
+				<!-- EVERY LABEL HERE CARRIES `for`, AND IT IS LOAD-BEARING.
+				     Without it nothing is programmatically associated, so a screen
+				     reader falls back to naming each box by its PLACEHOLDER — and
+				     several drop the placeholder the moment you type, leaving you
+				     in an unnamed field. This is the first screen in the game; if
+				     it can't be filled in, nothing behind it matters.
+				     `aria-describedby` ties the error region to the fields, so a
+				     rejected login is announced rather than silently painted. -->
 				<form id="auth-form" autocomplete="on" onsubmit="return false">
 				<div class="auth-field auth-handle-field" id="handle-field">
-					<label>Handle (in-world name)</label>
+					<label for="auth-handle">Handle (in-world name)</label>
 					<input
 						type="text"
 						id="auth-handle"
 						placeholder="How will you be known?"
+						aria-describedby="auth-error"
 						maxlength="24" />
 				</div>
 				<div class="auth-field" id="email-field" style="display: none">
-					<label>Email</label>
+					<label for="auth-email">Email</label>
 					<input
 						type="email"
 						id="auth-email"
 						placeholder="your@email.com"
+						aria-describedby="auth-error"
 						autocomplete="email" />
 				</div>
 				<div class="auth-field">
-					<label>Username</label>
+					<label for="auth-username">Username</label>
 					<input
 						type="text"
 						id="auth-username"
 						placeholder="username"
+						aria-describedby="auth-error"
 						autocomplete="username" />
 				</div>
 				<div class="auth-field">
-					<label>Password</label>
+					<label for="auth-password">Password</label>
 					<input
 						type="password"
 						id="auth-password"
 						placeholder="password"
+						aria-describedby="auth-error"
 						autocomplete="current-password" />
 				</div>
 
@@ -191,7 +203,12 @@
 				</div>
 
 				<button class="auth-btn" id="auth-submit">Enter</button>
-				<div class="auth-error" id="auth-error"></div>
+				<!-- role="alert" so a rejected login SPEAKS. It is the one message on
+				     this screen that must interrupt: the field it refers to has
+				     already lost its value, and a player who doesn't hear "wrong
+				     password" just sits there. Empty until something goes wrong, so
+				     it says nothing on arrival. -->
+				<div class="auth-error" id="auth-error" role="alert"></div>
 				<div class="auth-toggle">
 					<span id="auth-toggle-text">No account?</span>
 					<a id="auth-toggle-link">Register</a>
@@ -273,7 +290,7 @@
 					gap: 12px;
 				">
 				<div class="auth-field" style="margin: 0">
-					<label>Username</label>
+					<label for="forgot-username">Username</label>
 					<input
 						type="text"
 						id="forgot-username"
@@ -289,7 +306,7 @@
 						"></div>
 				</div>
 				<div class="auth-field" style="margin: 0">
-					<label>Email address</label>
+					<label for="forgot-email">Email address</label>
 					<input
 						type="email"
 						id="forgot-email"
@@ -367,7 +384,7 @@
 					gap: 12px;
 				">
 				<div class="auth-field" style="margin: 0">
-					<label>New Password</label>
+					<label for="reset-password">New Password</label>
 					<input
 						type="password"
 						id="reset-password"
@@ -376,7 +393,7 @@
 						style="width: 100%; box-sizing: border-box" />
 				</div>
 				<div class="auth-field" style="margin: 0">
-					<label>Confirm Password</label>
+					<label for="reset-password-confirm">Confirm Password</label>
 					<input
 						type="password"
 						id="reset-password-confirm"
@@ -436,7 +453,7 @@
 				">
 				<div id="verify-message"></div>
 				<div class="auth-field" style="margin: 0">
-					<label>Email address</label>
+					<label for="verify-resend-email">Email address</label>
 					<input
 						type="email"
 						id="verify-resend-email"
@@ -1395,7 +1412,7 @@
 						align-items: center;
 						flex-shrink: 0;
 					">
-					<label
+					<label for="te-base-select"
 						style="
 							font-size: 11px;
 							color: var(--text-dim);

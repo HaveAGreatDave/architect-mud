@@ -1,0 +1,27 @@
+{
+  "ambient_events": [
+    "A clock somewhere behind the shelves marks the quarter-hour and is ignored.",
+    "The decanter is refilled by someone you don't see arrive or leave.",
+    "Ice shifts in a glass on the far table, where nobody is sitting.",
+    "A page turns in one of the deep chairs, unhurried."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#2b2419",
+  "color": "#e6d9c2",
+  "description": "A long, low room panelled in figured walnut, lit the colour of held whisky by shaded lamps that leave the corners in shadow. Deep leather chairs face each other across boards inlaid into the tables themselves — ebony and holly, level and true, worn pale at the centre files by hands that have played across them for longer than the building has stood. A humidor sits unlocked on the sideboard beside a decanter that is never empty and never watched. The carpet takes every footfall, and the city forty metres below makes no sound at all up here. Nobody hurries in this room. That, more than the walnut, is what it costs to be in it. Step <b>in</b> to the elevator.",
+  "exits": {
+    "in": "zone_solenne_elevator"
+  },
+  "flags": {
+    "building_name": "Solenne Residences",
+    "is_interior": true,
+    "sanctuary": true
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 2,
+  "id": "zone_solenne_salon",
+  "map_id": "map_int_solenne",
+  "name": "Material Advantage",
+  "parent_zone": "zone_district_914_908"
+}

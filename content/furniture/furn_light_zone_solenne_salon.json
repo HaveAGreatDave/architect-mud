@@ -1,0 +1,17 @@
+{
+  "description": "Shaded brass table lamps and a run of concealed picture lights along the panelling, throwing a low amber pool over each board and leaving the rest of the room comfortably dark.",
+  "flags": {
+    "is_light": true,
+    "light_type": "lamp"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_solenne_salon",
+  "light_type": "lamp",
+  "lumen_output": 1400,
+  "name": "shaded brass lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_solenne_salon"
+}

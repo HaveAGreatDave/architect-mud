@@ -1,0 +1,20 @@
+{
+  "description": "The twin of the chair across from it, set with its back to the panelling so whoever takes it sits in shadow with the light on their opponent. Regulars will tell you that isn't an accident.",
+  "flags": {
+    "game_table_id": "gametable_solenne_chess",
+    "interactions": [
+      "sit"
+    ],
+    "seat_idx": 1
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_chess_chair_2",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Club Chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 900,
+  "zone_id": "zone_solenne_salon"
+}

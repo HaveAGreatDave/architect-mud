@@ -15652,3 +15652,362 @@ body.intro-cine-open { overflow: hidden; }
    shelf of forty things should read as a list with three picked out of it. */
 .shop-row.shop-wanted .nm { color: var(--yellow); }
 .shop-mark { color: var(--yellow); margin-right: 3px; }
+
+/* ── Chess (GameTable) ──────────────────────────────────────────────────────
+   The 3/4 view is two rotations and a counter-rotation, nothing more:
+   .chess-board is tipped away from the viewer, and every .chess-piece inside it
+   is rotated back by the same angles so the glyph stands UP off the surface.
+   Take the counter-rotation away and you have a photograph of a board lying
+   flat; put it back and you're sitting at one.
+   White reads cyan and Black reads magenta — the two ends of the room's own
+   palette, which beats literal white-on-black at this brightness. */
+
+#area-pane:has(.chess-pane) { max-height: 92%; }
+
+.chess-pane {
+	font-family: var(--font-mono);
+	padding: 6px 8px 10px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	--sq: 46px;
+	--chess-white: var(--cyan);
+	--chess-black: var(--accent);
+	--chess-tilt: 54deg;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+
+.chess-head {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+	flex-wrap: wrap;
+	border-bottom: 1px solid color-mix(in srgb, var(--cyan) 25%, transparent);
+	padding-bottom: 4px;
+}
+.chess-title {
+	color: var(--text-bright);
+	font-weight: bold;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+.chess-phase {
+	color: var(--cyan);
+	font-size: 0.8em;
+	letter-spacing: 0.18em;
+	text-shadow: 0 0 8px color-mix(in srgb, var(--cyan) 60%, transparent);
+}
+.chess-host { color: var(--text-dim); font-size: 0.8em; margin-left: auto; }
+.chess-host-bubble {
+	flex-basis: 100%;
+	color: var(--speech);
+	font-style: italic;
+	font-size: 0.85em;
+}
+
+/* ── The tilted stage ───────────────────────────────────────────────────── */
+
+.chess-stage-wrap {
+	position: relative;
+	display: grid;
+	grid-template-columns: 18px 1fr;
+	grid-template-rows: 1fr 18px;
+	align-items: center;
+	justify-items: center;
+	padding: 26px 0 6px;
+	perspective: 1400px;
+}
+
+.chess-stage {
+	grid-column: 2;
+	grid-row: 1;
+	position: relative;
+	transform-style: preserve-3d;
+	transform: rotateX(var(--chess-tilt)) rotateZ(-45deg);
+	/* The tilt eats vertical space; pull the stage up into it rather than
+	   letting the pane grow a dead band above the board. */
+	margin: calc(var(--sq) * -0.6) 0 calc(var(--sq) * 1.1);
+}
+
+/* The floor glow under the board — the light source the pieces cast down onto. */
+.chess-glow {
+	position: absolute;
+	inset: -30% ;
+	background: radial-gradient(ellipse at center,
+		color-mix(in srgb, var(--cyan) 22%, transparent) 0%,
+		transparent 65%);
+	transform: translateZ(-6px);
+	pointer-events: none;
+}
+
+.chess-board {
+	display: grid;
+	grid-template-columns: repeat(8, var(--sq));
+	grid-template-rows: repeat(8, var(--sq));
+	transform-style: preserve-3d;
+	border: 1px solid color-mix(in srgb, var(--cyan) 45%, transparent);
+	box-shadow:
+		0 0 24px color-mix(in srgb, var(--cyan) 30%, transparent),
+		inset 0 0 40px rgba(0, 0, 0, 0.6);
+}
+
+/* ── Squares ────────────────────────────────────────────────────────────── */
+
+.chess-sq {
+	position: relative;
+	transform-style: preserve-3d;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.chess-sq-face {
+	position: absolute;
+	inset: 0;
+	border: 1px solid color-mix(in srgb, var(--cyan) 10%, transparent);
+}
+.sq-light .chess-sq-face { background: color-mix(in srgb, var(--cyan) 9%, #0b1016); }
+.sq-dark  .chess-sq-face { background: #070a0f; }
+
+/* A square you can act on. The lift is real 3D translation, so a live square
+   rises out of the board instead of just changing colour. */
+.chess-sq.sq-live { cursor: pointer; }
+.chess-sq.sq-live:hover .chess-sq-face {
+	background: color-mix(in srgb, var(--cyan) 26%, #0b1016);
+	box-shadow: 0 0 14px color-mix(in srgb, var(--cyan) 70%, transparent);
+}
+
+.sq-selected .chess-sq-face {
+	background: color-mix(in srgb, var(--yellow) 30%, #0b1016);
+	box-shadow: inset 0 0 0 2px var(--yellow), 0 0 18px color-mix(in srgb, var(--yellow) 60%, transparent);
+}
+.sq-last-from .chess-sq-face { background: color-mix(in srgb, var(--purple) 16%, #0b1016); }
+.sq-last-to .chess-sq-face {
+	background: color-mix(in srgb, var(--purple) 26%, #0b1016);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--purple) 70%, transparent);
+}
+.sq-check .chess-sq-face {
+	background: color-mix(in srgb, var(--red) 34%, #0b1016);
+	box-shadow: inset 0 0 0 2px var(--red), 0 0 22px color-mix(in srgb, var(--red) 70%, transparent);
+	animation: chessCheckPulse 1.1s ease-in-out infinite;
+}
+@keyframes chessCheckPulse {
+	0%, 100% { box-shadow: inset 0 0 0 2px var(--red), 0 0 14px color-mix(in srgb, var(--red) 50%, transparent); }
+	50%      { box-shadow: inset 0 0 0 2px var(--red), 0 0 30px color-mix(in srgb, var(--red) 90%, transparent); }
+}
+
+/* An empty legal destination gets a floating dot; an occupied one gets a ring
+   around the piece. Two marks, because "go here" and "take that" are different
+   decisions and shouldn't look alike. */
+.chess-dot {
+	position: absolute;
+	width: 30%;
+	height: 30%;
+	border-radius: 50%;
+	background: color-mix(in srgb, var(--green) 75%, transparent);
+	box-shadow: 0 0 12px var(--green);
+	transform: translateZ(3px);
+	animation: chessDot 1.6s ease-in-out infinite;
+}
+@keyframes chessDot {
+	0%, 100% { opacity: 0.55; }
+	50%      { opacity: 1; }
+}
+.sq-capture .chess-sq-face {
+	background: color-mix(in srgb, var(--red) 22%, #0b1016);
+	box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--red) 80%, transparent);
+}
+.sq-target .chess-sq-face { background: color-mix(in srgb, var(--green) 14%, #0b1016); }
+
+/* ── Pieces ─────────────────────────────────────────────────────────────── */
+
+/* The counter-rotation. Undo the board's rotateZ then its rotateX, in that
+   order, and the glyph faces the viewer square-on while its BASE stays on the
+   square it belongs to. translateY pulls the standing piece up so it sits on
+   the square rather than through it. */
+.chess-piece {
+	position: absolute;
+	bottom: 6%;
+	font-size: calc(var(--sq) * 0.82);
+	line-height: 1;
+	transform-origin: center bottom;
+	transform: rotateZ(45deg) rotateX(calc(var(--chess-tilt) * -1)) translateY(6%);
+	pointer-events: none;
+	transition: filter 0.2s ease;
+}
+.chess-glyph { display: block; }
+
+.pc-white .chess-glyph {
+	color: color-mix(in srgb, var(--chess-white) 82%, #ffffff);
+	text-shadow:
+		0 0 6px var(--chess-white),
+		0 0 16px color-mix(in srgb, var(--chess-white) 65%, transparent),
+		0 2px 0 rgba(0, 0, 0, 0.55);
+}
+.pc-black .chess-glyph {
+	color: color-mix(in srgb, var(--chess-black) 74%, #1a0a16);
+	text-shadow:
+		0 0 6px var(--chess-black),
+		0 0 18px color-mix(in srgb, var(--chess-black) 70%, transparent),
+		0 2px 0 rgba(0, 0, 0, 0.7);
+}
+
+/* Royalty stands taller than the infantry — the one bit of scale that makes a
+   glyph set read as a SET rather than a font. */
+.pc-k { font-size: calc(var(--sq) * 0.95); }
+.pc-q { font-size: calc(var(--sq) * 0.9); }
+.pc-p { font-size: calc(var(--sq) * 0.66); }
+
+.pc-checked .chess-glyph { animation: chessKingPanic 0.9s ease-in-out infinite; }
+@keyframes chessKingPanic {
+	0%, 100% { filter: none; }
+	50%      { filter: drop-shadow(0 0 12px var(--red)) brightness(1.3); }
+}
+
+/* The contact shadow stays FLAT on the board (no counter-rotation) — that
+   contrast between the flat shadow and the upright piece is what sells the
+   height. Without it the pieces hover. */
+.chess-shadow {
+	position: absolute;
+	bottom: 12%;
+	width: 62%;
+	height: 30%;
+	border-radius: 50%;
+	background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.75), transparent 72%);
+	pointer-events: none;
+}
+
+.chess-sq.sq-live:hover .chess-piece { filter: brightness(1.35); }
+
+/* ── Board labels ───────────────────────────────────────────────────────── */
+
+.chess-files, .chess-ranks {
+	display: flex;
+	color: var(--text-dim);
+	font-size: 0.72em;
+	letter-spacing: 0.1em;
+}
+.chess-files { grid-column: 2; grid-row: 2; gap: calc(var(--sq) - 0.72em); }
+.chess-ranks { grid-column: 1; grid-row: 1; flex-direction: column; gap: calc(var(--sq) - 1.1em); }
+
+/* ── Rails ──────────────────────────────────────────────────────────────── */
+
+.chess-rail {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 3px 8px;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	font-size: 0.85em;
+	min-height: 24px;
+}
+.rail-white .rail-name { color: var(--chess-white); }
+.rail-black .rail-name { color: var(--chess-black); }
+.chess-rail.rail-active {
+	border-color: color-mix(in srgb, var(--yellow) 55%, transparent);
+	background: color-mix(in srgb, var(--yellow) 8%, transparent);
+	box-shadow: 0 0 12px color-mix(in srgb, var(--yellow) 25%, transparent);
+}
+.rail-name { font-weight: bold; letter-spacing: 0.05em; }
+.rail-taken { color: var(--text-dim); letter-spacing: -0.1em; font-size: 1.15em; }
+.rail-pc { opacity: 0.8; }
+.rail-adv { color: var(--green); font-size: 0.9em; }
+
+/* ── Status, log, actions ───────────────────────────────────────────────── */
+
+.chess-status {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--text);
+	font-size: 0.88em;
+	min-height: 20px;
+}
+.chess-status-over {
+	color: var(--yellow);
+	font-weight: bold;
+	letter-spacing: 0.06em;
+	text-shadow: 0 0 10px color-mix(in srgb, var(--yellow) 50%, transparent);
+}
+.chess-check-tag {
+	color: var(--red);
+	border: 1px solid var(--red);
+	border-radius: 3px;
+	padding: 0 5px;
+	font-size: 0.82em;
+	letter-spacing: 0.12em;
+	animation: chessDot 1.1s ease-in-out infinite;
+}
+.chess-offer { color: var(--yellow); font-size: 0.85em; margin-left: auto; }
+
+.chess-log {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 10px;
+	max-height: 46px;
+	overflow-y: auto;
+	font-size: 0.78em;
+	color: var(--text-dim);
+	border-top: 1px solid color-mix(in srgb, var(--cyan) 15%, transparent);
+	padding-top: 4px;
+}
+.log-no { color: color-mix(in srgb, var(--cyan) 60%, transparent); margin-right: 3px; }
+.log-recent { color: var(--text-bright); }
+
+.chess-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.chess-btn {
+	background: transparent;
+	border: 1px solid color-mix(in srgb, var(--cyan) 45%, transparent);
+	color: var(--cyan);
+	font-family: var(--font-mono);
+	font-size: 0.78em;
+	letter-spacing: 0.1em;
+	padding: 4px 10px;
+	border-radius: 3px;
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+.chess-btn:hover {
+	background: color-mix(in srgb, var(--cyan) 18%, transparent);
+	box-shadow: 0 0 12px color-mix(in srgb, var(--cyan) 45%, transparent);
+}
+.chess-btn-danger { border-color: color-mix(in srgb, var(--red) 55%, transparent); color: var(--red); }
+.chess-btn-danger:hover { background: color-mix(in srgb, var(--red) 16%, transparent); box-shadow: 0 0 12px color-mix(in srgb, var(--red) 45%, transparent); }
+.chess-btn-ok { border-color: color-mix(in srgb, var(--green) 55%, transparent); color: var(--green); }
+.chess-btn-ok:hover { background: color-mix(in srgb, var(--green) 16%, transparent); box-shadow: 0 0 12px color-mix(in srgb, var(--green) 45%, transparent); }
+
+/* ── Empty board ────────────────────────────────────────────────────────── */
+
+.chess-idle { text-align: center; padding: 24px 0; }
+.chess-idle-art {
+	font-size: 2em;
+	color: color-mix(in srgb, var(--cyan) 40%, transparent);
+	letter-spacing: 0.2em;
+	text-shadow: 0 0 18px color-mix(in srgb, var(--cyan) 40%, transparent);
+	margin-bottom: 16px;
+}
+.chess-seats { display: flex; justify-content: center; gap: 14px; }
+.chess-seat {
+	border: 1px solid color-mix(in srgb, var(--cyan) 30%, transparent);
+	border-radius: 4px;
+	padding: 8px 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 110px;
+}
+.chess-seat.poker-cmd { cursor: pointer; }
+.chess-seat.poker-cmd:hover {
+	border-color: var(--cyan);
+	box-shadow: 0 0 14px color-mix(in srgb, var(--cyan) 40%, transparent);
+}
+.chess-seat-side { color: var(--text-dim); font-size: 0.72em; letter-spacing: 0.16em; }
+.chess-sit { color: var(--cyan); font-size: 0.85em; }
+
+/* Narrow screens: shrink the square rather than let the board scroll — a chess
+   board that needs panning is a chess board you can't play on. */
+@media (max-width: 700px) {
+	.chess-pane { --sq: 34px; --chess-tilt: 48deg; }
+	.chess-log { max-height: 32px; }
+}

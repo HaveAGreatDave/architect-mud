@@ -777,11 +777,23 @@ export default async function regress({ run, check, getPlayer }) {
       (await prefersTextMinigamesOrDefault(p)) === true, 'the middle rung left the 3D cockpit on');
   }
 
-  // A player who set the OLD flight-only flag before the two switches merged must
-  // still get what they asked for — presentation.js keeps it as a read-only fallback.
+  // ⚠ THE OLD PER-SYSTEM FLAG NO LONGER PROMOTES ANYBODY. An earlier cut landed a
+  // player carrying `flight_text_only` straight on `log` — the most aggressive
+  // rung, which strips every panel in the game. That is far more than the flag
+  // ever meant: it turned off a cabin window, not a map, a hangar and a television.
+  // They read as NEVER CHOSEN and land on `visual`, opting in fresh from Settings.
   await clearFlag('player', TEXT_TRAVEL_FLAG, p);
   await setFlag('player', 'flight_text_only', 'true', p);
-  check('the legacy flight_text_only flag is still honoured', (await prefersTextTravel(p)) === true);
+  check('the old flight_text_only flag no longer forces text travel',
+    (await prefersTextTravel(p)) === false, 'an old flag still promotes to the log rung');
+  {
+    const { displayRung } = await import('../../server/engine/presentation.js');
+    // Never-chosen rather than an explicit `visual` is what keeps poker's
+    // `config.textTable` alive for them — an old-school felt still opens
+    // called-aloud.
+    check('…and reads as NEVER CHOSEN, not as an explicit visual',
+      (await displayRung(p)) === undefined, String(await displayRung(p)));
+  }
   await clearFlag('player', 'flight_text_only', p);
   // The narrator must be safe to run against whatever is aloft at any moment — it's
   // on its own 45s schedule with no guard around it beyond its own.

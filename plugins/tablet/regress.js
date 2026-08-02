@@ -329,11 +329,18 @@ export default async function regress({ run, check, getPlayer }) {
     check('never chosen stays undefined on both axes',
       (await pres.prefersTextMinigames(p)) === undefined && (await pres.prefersLoggedPanels(p)) === undefined);
 
-    // The legacy per-system flag still answers, for a player who set it before
-    // any of this existed.
+    // ⚠ AN OLD PER-SYSTEM FLAG MUST NOT PROMOTE ANYBODY. An earlier cut landed
+    // them on `log`, which strips every panel in the game — far more than
+    // `flight_text_only` ever meant. They read as never-chosen and default to
+    // `visual`, so a deploy changes nothing under them.
     p._flags.set('flight_text_only', 'true');
-    check('the legacy flight_text_only flag still reads as the bottom rung',
-      (await pres.displayRung(p)) === 'log');
+    check('an old per-system flag no longer promotes the player onto the log rung',
+      (await pres.displayRung(p)) !== 'log', String(await pres.displayRung(p)));
+    check('…they read as never chosen, which keeps poker\'s textTable default alive',
+      (await pres.displayRung(p)) === undefined, String(await pres.displayRung(p)));
+    check('…and default to visual on both axes',
+      (await pres.prefersTextMinigamesOrDefault(p)) === false
+      && (await pres.prefersLoggedPanelsOrDefault(p)) === false);
     p._flags.delete('flight_text_only');
 
     // The sync latch readers — used by the look renderer, which cannot await.

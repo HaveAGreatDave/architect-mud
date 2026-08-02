@@ -1,13 +1,14 @@
 {
   "name": "gametable",
-  "description": "Multiplayer card game tables. Texas Hold'em is the first game; framework supports future expansion.",
-  "version": "1.0.0",
+  "description": "Multiplayer game tables. Texas Hold'em on the felt and chess on the board, sharing one seat/spectate/persistence layer (TableBase).",
+  "version": "1.1.0",
   "after": ["broadcast", "interactions"],
   "hooks": ["zone.furniturePanel"],
   "routePrefix": "/gametable",
   "commands": [
     "join", "seat", "leave", "spectate", "watch", "say", "look", "help",
     "check", "call", "deal", "summon", "evict", "calldealer", "bet", "raise", "fold", "allin",
-    "table", "board", "pot", "players", "showhand", "pokertext", "text", "visual"
+    "table", "board", "pot", "players", "showhand", "pokertext", "text", "visual",
+    "move", "chessmove", "chesspick", "resign", "offerdraw", "acceptdraw", "declinedraw"
   ]
 }

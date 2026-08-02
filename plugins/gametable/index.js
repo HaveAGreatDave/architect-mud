@@ -5,9 +5,13 @@ import { query } from '../../server/models/db.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getLivePlayer, setLivePlayer, getZone, world, hasActivePlayers } from '../../server/engine/world.js';
-import { GameTable, activeTables, MAX_SEATS } from './game-table.js';
+import { GameTable, MAX_SEATS } from './game-table.js';
+import { ChessTable } from './chess-table.js';
+import { activeTables, loadAllTables } from './tables.js';
 import { botId } from './bot-player.js';
 import { renderPane } from './render-pane.js';
+import { parseMove, generateMoves, toAlgebraic } from './games/chess.js';
+import { narrateBoard, boardASCII } from './text-chess.js';
 import { renderHandASCII } from './cards.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction } from '../../server/engine/actions.js';
@@ -20,7 +24,7 @@ import { escAttr } from '../../server/engine/text.js';
 
 // ── Boot ───────────────────────────────────────────────────────────────────────
 
-GameTable.loadAll().catch(e => console.error('[gametable] load error:', e.message));
+loadAllTables().catch(e => console.error('[gametable] load error:', e.message));
 
 // Walking out of the room drops you from any table you were seated at or
 // watching. Otherwise pushPaneAll keeps blasting the poker pane at you (on every
@@ -115,9 +119,22 @@ async function paneOrLook(t, player) {
     const { describeZone } = await import('../../server/engine/commands/index.js');
     const zone = getZone(player.current_zone);
     if (!zone) return null;
+    // A text-mode chess player still needs the position; poker's own narration
+    // fires from the game's transition points, but a chess board is a THING you
+    // arrive at, so hand it over on the way in.
+    if (isChess(t) && t.game) narrateBoard(t, player.id);
     return { type: 'look', message: await describeZone(zone, player), zone: zone.id };
   }
-  return { type: 'poker_update', html: renderPane(t, player.id) };
+  return { type: t.paneType, html: t.renderPaneFor(player.id) };
+}
+
+// Which game is this table running? Every shared command below branches on it.
+function isChess(t) { return t instanceof ChessTable; }
+
+// The noun to use when a command can't find a table — a chess player told
+// "no poker table here" thinks they're in the wrong room.
+function noTableMsg(zoneId) {
+  return tableInZone(zoneId) ? 'No table here.' : 'No game table here.';
 }
 
 // ── Commands ───────────────────────────────────────────────────────────────────
@@ -127,7 +144,7 @@ async function cmdJoin(args, raw, player) {
   if (existing) return { type: 'error', message: 'You are already at a table. Type `leave` first.' };
 
   const t = tableInZone(player.current_zone, args.join(' ') || null);
-  if (!t) return { type: 'error', message: 'No poker table here. Try a different zone.' };
+  if (!t) return { type: 'error', message: 'No game table here. Try a different zone.' };
 
   const result = await t.joinTable(player);
   if (!result.ok) return { type: 'error', message: result.error };
@@ -141,8 +158,9 @@ async function cmdJoin(args, raw, player) {
 // between hands if already seated. (`sit` itself belongs to the posture plugin.)
 async function cmdSeat(args, raw, player) {
   const t = tableForPlayer(player) || tableInZone(player.current_zone);
-  if (!t) return { type: 'error', message: 'No poker table here.' };
+  if (!t) return { type: 'error', message: noTableMsg(player.current_zone) };
 
+  const maxSeats = t.constructor.MAX_SEATS;
   const cur = t.seatedIndex(player.id);
 
   // Resolve which seat. With no number given, default to the first open seat
@@ -154,9 +172,9 @@ async function cmdSeat(args, raw, player) {
     n = t.seats.findIndex(s => s === null);
     if (n < 0) return { type: 'error', message: 'The table is full.' };
   } else {
-    n = parseInt(raw0, 10) - 1; // player-facing 1-4 → 0-3
-    if (isNaN(n) || n < 0 || n >= MAX_SEATS) {
-      return { type: 'error', message: `Which seat? Try: seat 2   (seats 1-${MAX_SEATS})` };
+    n = parseInt(raw0, 10) - 1; // player-facing 1-N → 0-based
+    if (isNaN(n) || n < 0 || n >= maxSeats) {
+      return { type: 'error', message: `Which seat? Try: seat 2   (seats 1-${maxSeats})` };
     }
   }
 
@@ -164,8 +182,11 @@ async function cmdSeat(args, raw, player) {
   if (t.seats[n]) return { type: 'error', message: `Seat ${n + 1} is taken.` };
 
   if (cur >= 0) {
-    // Already seated — move seats, but not in the middle of a live hand.
-    if (t.phase === 'InProgress') return { type: 'error', message: "You can't change seats mid-hand." };
+    // Already seated — move seats, but not in the middle of a live game. (At
+    // chess the seat IS your colour, so this would also swap sides mid-game.)
+    if (t.phase === 'InProgress') {
+      return { type: 'error', message: isChess(t) ? "You can't switch sides mid-game." : "You can't change seats mid-hand." };
+    }
     t.seats[n] = { ...t.seats[cur], seatIdx: n };
     t.seats[cur] = null;
     t.pushPaneAll();
@@ -198,7 +219,7 @@ async function cmdWatch(args, raw, player) {
     return paneOrLook(existing, player);
   }
   const t = tableInZone(player.current_zone, args.join(' ') || null);
-  if (!t) return { type: 'error', message: 'No poker table here.' };
+  if (!t) return { type: 'error', message: noTableMsg(player.current_zone) };
   t.addSpectator(player.id);
   await ensureTextPref(player, t);
   return paneOrLook(t, player);
@@ -314,7 +335,7 @@ async function cmdLook(args, raw, player) {
   // the visual pane. Fall through to the engine's room look.
   if (isTextMode(player.id)) return;
 
-  return { type: 'poker_update', html: renderPane(t, player.id) };
+  return { type: t.paneType, html: t.renderPaneFor(player.id) };
 }
 
 // ── Betting commands ───────────────────────────────────────────────────────────
@@ -518,14 +539,111 @@ async function cmdRaise(args, raw, player) {
   return null;
 }
 
+// ── Chess commands ─────────────────────────────────────────────────────────────
+
+// The chess table this player is actually sitting at (or watching), or null.
+function chessTableFor(player) {
+  const t = tableForPlayer(player);
+  return isChess(t) ? t : null;
+}
+
+// `chessmove e2e4` / `chessmove Nf3` — play a move.
+async function cmdChessMove(args, raw, player) {
+  const t = chessTableFor(player);
+  if (!t) return { type: 'error', message: 'You are not at a chessboard.' };
+  if (t.seatedIndex(player.id) < 0) return { type: 'error', message: 'You are watching, not playing.' };
+  const input = args.join(' ').trim();
+  if (!input) return { type: 'error', message: 'Usage: chessmove e2e4   (or chessmove Nf3)' };
+
+  const result = t.processMove(player.id, input);
+  if (!result.ok) return { type: 'error', message: result.error };
+  return null; // the pane and the log are pushed by processMove
+}
+
+// `move` — owned here so `move e2e4` works at the board, but handed straight
+// back to the engine's movement command for everything else. The guard is
+// deliberately narrow: a table, a live game, YOUR turn, and an input that
+// actually parses as a legal move. `move north` must never be eaten.
+async function cmdMoveRouter(args, raw, player) {
+  const t = chessTableFor(player);
+  if (!t || !t.game || t.game.isOver()) return undefined;
+  if (t.seatedIndex(player.id) < 0) return undefined;
+  if (t.game.getCurrentActor()?.playerId !== player.id) return undefined;
+
+  const input = args.join(' ').trim();
+  if (!input) return undefined;
+  if (!parseMove(t.game.position, input)) return undefined; // not a chess move — it's a direction
+
+  return cmdChessMove(args, raw, player);
+}
+
+// `chesspick e2` — lift a piece so its legal squares light up. `chesspick none`
+// puts it back. This is the first half of a board click; a player typing moves
+// never needs it.
+async function cmdChessPick(args, raw, player) {
+  const t = chessTableFor(player);
+  if (!t) return { type: 'error', message: 'You are not at a chessboard.' };
+  const sq = (args[0] || '').toLowerCase();
+  const result = t.pickSquare(player.id, sq);
+  if (!result.ok) return { type: 'error', message: result.error };
+
+  // In text view there are no glowing squares, so say what the piece can do.
+  if (isTextMode(player.id) && result.moves?.length) {
+    const dests = result.moves.map(m => toAlgebraic(m.to)).join(' · ');
+    return { type: 'output', message: `From ${sq}: ${dests}` };
+  }
+  return null;
+}
+
+async function cmdResign(args, raw, player) {
+  const t = chessTableFor(player);
+  if (!t) return { type: 'error', message: 'You have no game to resign.' };
+  const result = t.resign(player.id);
+  if (!result.ok) return { type: 'error', message: result.error };
+  return { type: 'output', message: 'You tip your king over.' };
+}
+
+async function cmdOfferDraw(args, raw, player) {
+  const t = chessTableFor(player);
+  if (!t) return { type: 'error', message: 'You are not at a chessboard.' };
+  const result = t.offerDraw(player.id);
+  if (!result.ok) return { type: 'error', message: result.error };
+  return { type: 'output', message: `You offer ${result.offeredTo} a draw.` };
+}
+
+async function cmdAcceptDraw(args, raw, player) {
+  const t = chessTableFor(player);
+  if (!t) return { type: 'error', message: 'No draw has been offered to you.' };
+  const result = t.respondDraw(player.id, true);
+  if (!result.ok) return { type: 'error', message: result.error };
+  return null;
+}
+
+async function cmdDeclineDraw(args, raw, player) {
+  const t = chessTableFor(player);
+  if (!t) return { type: 'error', message: 'No draw has been offered to you.' };
+  const result = t.respondDraw(player.id, false);
+  if (!result.ok) return { type: 'error', message: result.error };
+  return { type: 'output', message: 'You decline the draw.' };
+}
+
 // ── Info commands ──────────────────────────────────────────────────────────────
 
 async function cmdTable(args, raw, player) {
   const t = tableForPlayer(player) || tableInZone(player.current_zone);
   if (!t) return { type: 'error', message: 'No table here.' };
+  if (isChess(t)) {
+    const lines = [
+      `<b>${t.name}</b> — ${t.phase}`,
+      `Seats: ${t.seatedCount()} / ${t.constructor.MAX_SEATS}`,
+      t.stake ? `Stake: ₵ ${t.stake.toLocaleString()} a side` : 'Stake: free game',
+      `Move clock: ${t.config.moveTimerSecs || 120}s`,
+    ];
+    return { type: 'output', message: lines.join('<br>') };
+  }
   const lines = [
     `<b>${t.name}</b> — ${t.phase}`,
-    `Seats: ${t.seatedCount()} / 4`,
+    `Seats: ${t.seatedCount()} / ${t.constructor.MAX_SEATS}`,
     `Blinds: ₵ ${t.config.smallBlind || 10} / ₵ ${t.config.bigBlind || 20}`,
     `Buy-in: ₵ ${t.config.buyIn || t.config.minBuyIn || 100}`,
   ];
@@ -534,7 +652,16 @@ async function cmdTable(args, raw, player) {
 
 async function cmdBoard(args, raw, player) {
   const t = tableForPlayer(player);
-  if (!t || !t.game) return { type: 'error', message: 'No active hand.' };
+  if (!t || !t.game) return { type: 'error', message: isChess(t) ? 'No game in progress.' : 'No active hand.' };
+  if (isChess(t)) {
+    // Always the written board, in both views — "let me look at it again" is
+    // exactly as reasonable a request with the pane up as without it.
+    const color = t.game.seatByPlayer(player.id)?.color || 'w';
+    const turn = t.game.isOver()
+      ? t.game.resultLine()
+      : `${t.game.turn === 'w' ? 'White' : 'Black'} to move${t.game.inCheck() ? ' — in check' : ''}.`;
+    return { type: 'output', message: `<pre>${boardASCII(t.game, color)}</pre>${turn}` };
+  }
   const community = t.game.community;
   if (!community.length) return { type: 'output', message: 'No community cards yet.' };
   return { type: 'output', message: `<pre>${renderHandASCII(community)}</pre>` };
@@ -549,6 +676,16 @@ async function cmdPot(args, raw, player) {
 async function cmdPlayers(args, raw, player) {
   const t = tableForPlayer(player) || tableInZone(player.current_zone);
   if (!t) return { type: 'error', message: 'No table here.' };
+  if (isChess(t)) {
+    const lines = t.seats.map((s, i) => {
+      if (!s) return `Seat ${i + 1}: [ empty ]`;
+      const cs = t.game?.seatByPlayer(s.playerId);
+      const color = cs ? ` — ${cs.color === 'w' ? 'White' : 'Black'}` : '';
+      const toMove = cs && !t.game.isOver() && t.game.turn === cs.color ? ' (to move)' : '';
+      return `Seat ${i + 1}: ${s.handle}${color}${toMove}`;
+    });
+    return { type: 'output', message: lines.join('<br>') };
+  }
   const lines = t.seats.map((s, i) => {
     if (!s) return `Seat ${i + 1}: [ empty ]`;
     const gs = t.game?.seats.find(x => x.playerId === s.playerId);
@@ -596,9 +733,10 @@ async function applyPokerView(player, toText) {
     const { describeZone } = await import('../../server/engine/commands/index.js');
     const zone = getZone(player.current_zone);
     if (!zone) return null;
+    if (isChess(t) && t.game) narrateBoard(t, player.id);
     return { type: 'look', message: await describeZone(zone, player), zone: zone.id };
   }
-  return { type: 'poker_update', html: renderPane(t, player.id) };
+  return { type: t.paneType, html: t.renderPaneFor(player.id) };
 }
 
 // The same flip, driven from OUTSIDE the felt: the Settings "Display Mode" switch
@@ -615,9 +753,10 @@ export async function syncDisplayMode(player, toText) {
     const { describeZone } = await import('../../server/engine/commands/index.js');
     const zone = getZone(player.current_zone);
     if (zone) sendToPlayer(player.id, { type: 'look', message: await describeZone(zone, player), zone: zone.id });
+    if (isChess(t) && t.game) narrateBoard(t, player.id);
     return;
   }
-  sendToPlayer(player.id, { type: 'poker_update', html: renderPane(t, player.id) });
+  sendToPlayer(player.id, { type: t.paneType, html: t.renderPaneFor(player.id) });
 }
 
 // `text` — switch this player to the text version of the game.
@@ -688,11 +827,44 @@ function pokerHelpHTML(t) {
 
 // Bare `help` while seated/spectating shows the poker help; otherwise fall
 // through to the engine's general help. `help <topic>` always falls through.
+function chessHelpHTML(t) {
+  const y = (s) => `<span style="color:var(--yellow)">${s}</span>`;
+  const h = (s) => `<span style="color:var(--accent)">${s}</span>`;
+  return [
+    `<b>♟ ${t.name} — CHESS ♟</b>`,
+    t.stake
+      ? `₵ ${t.stake.toLocaleString()} a side. Winner takes the board; a draw returns both stakes.`
+      : `A free game. Nothing on it but your name.`,
+    `Two players. Colours swap every game.`,
+    ``,
+    h(`PLAY`),
+    `  <i>Click a piece, then click where it goes. That's the whole thing.</i>`,
+    `  ${y('move e2e4')}    play a move by squares (also ${y('chessmove')})`,
+    `  ${y('move Nf3')}     …or in proper notation, if that's your habit`,
+    `  ${y('move O-O')}     castle (${y('O-O-O')} queenside)`,
+    `  <i>Promotion picks a queen from the board; type</i> ${y('move e7e8r')} <i>for anything else.</i>`,
+    ``,
+    h(`THE OTHER WAYS IT ENDS`),
+    `  ${y('offerdraw')}    offer a draw`,
+    `  ${y('acceptdraw')}   ${y('declinedraw')}   answer one`,
+    `  ${y('resign')}       tip your king over`,
+    ``,
+    h(`INFO & OUT`),
+    `  ${y('board')}        the position as text, any time`,
+    `  ${y('players')}  ${y('table')}`,
+    `  ${y('text')}         play in the log — the board is called out move by move`,
+    `  ${y('visual')}       bring the board back to the top pane`,
+    `  ${y('leave')}        stand up. <i>Mid-game that's a forfeit — and the stake with it.</i>`,
+    ``,
+    `<i>Let the clock run out twice in a row and you forfeit. Chess is patient; the table isn't.</i>`,
+  ].join('<br>');
+}
+
 async function cmdHelpRouter(args, raw, player) {
   if (args.length) return undefined;
   const t = tableForPlayer(player);
   if (!t) return undefined;
-  return { type: 'output', message: pokerHelpHTML(t) };
+  return { type: 'output', message: isChess(t) ? chessHelpHTML(t) : pokerHelpHTML(t) };
 }
 
 // ── Room description hook ────────────────────────────────────────────────────────
@@ -700,6 +872,35 @@ async function cmdHelpRouter(args, raw, player) {
 // the room's Furniture: line is noise, and the plain table link buries the way in.
 // This hook suppresses the table's own furniture (chairs + table) from that line
 // and renders a single poker panel: the table, its dealer, and sit/watch buttons.
+
+// The chess version of the same panel: two seats, no chairs list worth
+// collapsing, and the position's state instead of a chip count.
+function renderChessPanel(t, furniture) {
+  const tableFurn = furniture.find(f => f.flags?.game_table_id === t.id && f.flags?.seat_idx == null);
+  const tableName = tableFurn?.name || t.name;
+  const link = (action, target, label, title) =>
+    `<span class="action-link furniture-link" data-action="${action}" data-target="${escAttr(target)}" title="${escAttr(title)}">${label}</span>`;
+
+  const state = t.game && !t.game.isOver()
+    ? ` <span class="text-dim">— ${t.game.turn === 'w' ? 'White' : 'Black'} to move</span>`
+    : (t.seatedCount() === 1 ? ' <span class="text-dim">— one player waiting</span>' : '');
+
+  const seatBits = t.seats.map((s, i) =>
+    s
+      ? `${i === 0 ? 'White' : 'Black'}: <span class="text-dim">${s.handle}</span>`
+      : `${i === 0 ? 'White' : 'Black'}: ${link('seat', i + 1, '&lt;OPEN&gt;', `Take the ${i === 0 ? 'white' : 'black'} pieces`)}`,
+  );
+
+  const firstOpen = t.seats.findIndex(s => !s);
+  const actions = [];
+  if (firstOpen >= 0) actions.push(link('seat', firstOpen + 1, 'Play', 'Sit down and play'));
+  actions.push(link('watch', 'chess', 'Watch', 'Watch the game'));
+  if (tableFurn) actions.push(link('examine', tableFurn.name, 'Examine', `Examine ${tableFurn.name}`));
+
+  return `<span class="furniture-label">Chess:</span> <span class="furniture-link">${tableName}</span>${state}`
+    + `   ·   ${actions.join('   ')}`
+    + `<div class="poker-chairs-list">${seatBits.join(' &nbsp;·&nbsp; ')}</div>`;
+}
 
 function renderTablePanel(t, furniture) {
   const tableFurn = furniture.find(f => f.flags?.game_table_id === t.id && f.flags?.seat_idx == null);
@@ -737,7 +938,7 @@ async function furniturePanel(zone, furniture, player) {
   const suppressIds = furniture
     .filter(f => f.flags?.game_table_id === t.id)
     .map(f => f.id);
-  return { suppressIds, html: renderTablePanel(t, furniture) };
+  return { suppressIds, html: isChess(t) ? renderChessPanel(t, furniture) : renderTablePanel(t, furniture) };
 }
 
 // ── Tick ───────────────────────────────────────────────────────────────────────
@@ -754,8 +955,22 @@ async function tableTick() {
   try {
     for (const table of activeTables.values()) {
       await table.maybePersist();
+      table.stepIncomingDealer(); // advance a rushing dealer/host, if one was called
+
+      // Chess has no gamblers to walk in and no dealer gate — its only tick work
+      // is the persist above plus the occasional line from the host.
+      if (isChess(table)) {
+        if (table.phase === 'InProgress' && table.seatedCount() > 0) {
+          const now = Date.now();
+          if (!table._lastDealerSay || now - table._lastDealerSay > 180_000) {
+            table._lastDealerSay = now;
+            table.hostIdle();
+          }
+        }
+        continue;
+      }
+
       table.stepIncomingBots(); // advance any gamblers walking in toward the table
-      table.stepIncomingDealer(); // advance a rushing dealer, if one was called
       if (table.phase === 'WaitingForDealer' && table.hasDealer()) table._checkAutoStart();
       if (table.seatedCount() !== 1 || table.game) table._loneSince = null;
 
@@ -904,6 +1119,15 @@ export const commands = {
   pokertext: cmdPokerText,
   text:      cmdTextView,
   visual:    cmdVisualView,
+  // Chess. `move` is shared with the engine's movement command and falls
+  // through unless the input is a legal move on a board you're sitting at.
+  move:        cmdMoveRouter,
+  chessmove:   cmdChessMove,
+  chesspick:   cmdChessPick,
+  resign:      cmdResign,
+  offerdraw:   cmdOfferDraw,
+  acceptdraw:  cmdAcceptDraw,
+  declinedraw: cmdDeclineDraw,
 };
 
 // Exposed for the regress suite.

@@ -55,26 +55,33 @@ export const RUNGS = ['visual', 'textgames', 'log'];
 // still means the bottom rung.
 const LEGACY_RUNG = { text: 'log', visual: 'visual' };
 
-// The original per-system flags, kept as READ-ONLY fallbacks so a choice made
-// before any of this survives with no data migration. Both were minigame-shaped
-// preferences. Nothing writes them any more.
-const LEGACY_KEYS = ['flight_text_only', 'poker_text_mode'];
-
 // The player's rung, or undefined if they have never chosen. `undefined` is a
 // real answer and is not the same as `visual` — poker opens an old-school felt in
 // text for someone who has never expressed a view, and can only do that if it can
 // tell the difference. Keep the fourth state.
+//
+// ⚠ THE OLD PER-SYSTEM FLAGS (`flight_text_only`, `poker_text_mode`) ARE NOT READ.
+// An earlier cut promoted anyone carrying one straight onto `log` — the most
+// aggressive rung, which strips every panel in the game. That is far more than
+// either flag ever meant: one turned off a cabin window, the other called a card
+// game out loud.
+//
+// So such a player reads as NEVER CHOSEN and lands on `visual` — no change on
+// deploy; they opt in fresh from Settings. Reading as never-chosen rather than as
+// an explicit `visual` also keeps poker's `config.textTable` alive for them, so an
+// old-school felt still opens called-aloud.
+//
+// This is a two-line omission rather than a migration because in practice nobody
+// had ever touched either flag. If that were not true it would want a notice at
+// login instead: silently reverting somebody's accessibility choice is the thing
+// not to do.
 export async function displayRung(player) {
   const v = await getFlag('player', DISPLAY_MODE_FLAG, player).catch(() => undefined);
   if (RUNGS.includes(v)) return v;
   if (LEGACY_RUNG[v]) return LEGACY_RUNG[v];
-  for (const k of LEGACY_KEYS) {
-    const lv = await getFlag('player', k, player).catch(() => undefined);
-    if (lv === 'true' || lv === true) return 'log';
-    if (lv === 'false' || lv === false) return 'visual';
-  }
   return undefined;
 }
+
 
 // ── CONTEST surfaces — the ones you have to act through ──────────────────────
 // true at `textgames` AND `log`; false at `visual`; undefined if never chosen.
@@ -116,6 +123,7 @@ export async function hydrateDisplayRung(player) {
   if (!player?.id) return;
   player.displayRung = await displayRung(player);
 }
+
 
 // SYNC readers, for the paths that genuinely cannot await — the room-look
 // renderer runs on every move. They read the latch and nothing else, so a player

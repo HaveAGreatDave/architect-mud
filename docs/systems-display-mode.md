@@ -69,8 +69,33 @@ start receiving panels they had turned off. `'text'` still parses, and it still
 means the bottom rung — including when typed at the verb, because a player who
 types the word they have always typed must land where they have always landed.
 
-`flight_text_only` and `poker_text_mode` remain read-only fallbacks for choices made
-before any of this. Nothing writes them. No data migration was needed.
+### The legacy flags do NOT promote anybody
+
+`flight_text_only` and `poker_text_mode` are **not consulted when deciding a rung.**
+
+They used to be, and it was wrong. A player who had set either one landed on `log`
+— the most aggressive rung, which strips *every* panel in the game. That is far
+more than either flag ever meant: one turned off a cabin window, the other called a
+card game out loud. Nobody consented to losing their map, their hangar and their
+television by once ticking "text poker".
+
+So a legacy-flagged player reads as **never chosen** and lands on `visual`. Two
+things follow, both deliberate:
+
+- **Nothing changes for them on deploy.** They opt in fresh from Settings.
+- Reading as never-chosen rather than as an explicit `visual` **keeps poker's
+  `config.textTable` alive for them** — an old-school felt still opens
+  called-aloud, which is the closest thing to their original intent that costs them
+  nothing.
+
+The cost, stated plainly: somebody who deliberately turned graphics off gets them
+back. That is why login tells them once, with the way back in the same breath
+(`noticeLegacyDisplayChoice`, a one-shot flag, not a per-login nag). **Reverting
+somebody's accessibility choice in silence is the thing not to do** — and if the
+flag were simply deleted there would be nothing left to tell them with, which is
+why it stays readable.
+
+Nothing writes those flags. No data migration was needed.
 
 ## Falling back
 

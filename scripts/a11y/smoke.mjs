@@ -79,6 +79,54 @@ if (/id="cmd-input"[\s\S]{0,200}?aria-label=/.test(html) || /aria-label=[\s\S]{0
   ok('the command input is labelled');
 } else bad('#cmd-input has no aria-label — the game\'s only input is unnamed');
 
+// ── The login screen ─────────────────────────────────────────────────────────
+// THE FIRST SCREEN IN THE GAME. If it can't be filled in, nothing behind it
+// matters — every other check in this file is about a player who already got in.
+//
+// A `<label>` with no `for` is not associated with anything, so a screen reader
+// names the box by its PLACEHOLDER, and several drop the placeholder the moment
+// you type — leaving you in an unnamed field on a form you cannot submit twice.
+{
+  const labels = [...html.matchAll(/<label(\s[^>]*)?>/g)].map(m => m[0]);
+  // A label that WRAPS its input (the "Remember me" checkbox) is implicitly
+  // associated and needs no `for`; those are the only ones allowed to be bare.
+  const wrapping = (html.match(/<label\s*>\s*<input/g) || []).length;
+  const bareCount = labels.filter(l => !/\sfor=/.test(l)).length;
+  if (bareCount > wrapping) {
+    bad(`${bareCount - wrapping} <label> without a "for" — a screen reader will name those fields by their placeholder, which vanishes once the player types`);
+  } else ok(`every login/registration label is associated (${labels.length} labels)`);
+
+  for (const id of ['auth-handle', 'auth-username', 'auth-password', 'auth-email']) {
+    if (!new RegExp(`<label for="${id}"`).test(html)) bad(`#${id} has no associated label — it is a field on the first screen of the game`);
+  }
+  ok('the four sign-in fields are each named');
+
+  // A rejected login must SPEAK. The field it refers to has already lost its
+  // value, and a player who doesn't hear "wrong password" simply sits there.
+  if (/id="auth-error"[^>]*role="alert"/.test(html)) ok('a failed login is announced (role="alert")');
+  else bad('#auth-error has no role="alert" — a rejected login is painted silently');
+}
+
+// ── The way out, before you have a tablet ────────────────────────────────────
+// Display Mode lives in the tablet, and the prologue deliberately refuses the
+// tablet until the clone vat issues it. `displaymode` is therefore a plain verb
+// with NO tablet gate — and the prologue says so in the log at first login,
+// because there is no way to guess a verb nobody has mentioned.
+{
+  const prologue = readFileSync('plugins/prologue/index.js', 'utf8');
+  if (/data-cmd="displaymode log"/.test(prologue)) ok('first login names the text mode');
+  else bad('the prologue no longer tells a new player that text mode exists — it is unguessable, and the setting is in a tablet they do not have yet');
+  // The cinematic states its own skip hint visually, which is no use to somebody
+  // who cannot see it.
+  if (/Escape/.test(prologue)) ok('…and names the way to skip the opening sequence');
+  else bad('the prologue no longer names Escape — a blind player sits through ~50s of silence with no stated way out');
+
+  const tablet = readFileSync('plugins/tablet/index.js', 'utf8');
+  const dm = tablet.slice(tablet.indexOf('displaymode:'), tablet.indexOf('displaymode:') + 400);
+  if (/noTablet/.test(dm)) bad('`displaymode` has become tablet-gated — the one setting a player needs BEFORE they are given a tablet');
+  else ok('`displaymode` is reachable without a tablet');
+}
+
 // ── Live regions elsewhere ───────────────────────────────────────────────────
 // The rule is NOT "exactly one live region" — that was too strong. A one-token,
 // user-triggered readout is a legitimate ARIA pattern. The real constraint is

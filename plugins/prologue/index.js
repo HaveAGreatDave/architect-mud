@@ -23,6 +23,7 @@
  * flag on the attendant, and cosmetic-machine's appearance.changed event).
  */
 import { randomUUID } from 'crypto';
+import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { query } from '../../server/models/db.js';
 import { on } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
@@ -548,11 +549,44 @@ on('player.login', async ({ id }) => {
   if (await isSet(player, F_ARRIVED)) return;
   await raise(player, F_ARRIVED);
 
+  // ── The escape hatch, before anything else ─────────────────────────────────
+  // THE FIRST THING IN THE LOG, ahead of the cinematic. A player using a screen
+  // reader has no way to guess that this game can be played entirely in text —
+  // and the setting lives in a tablet they will not be handed for another ten
+  // minutes. `displaymode` is a plain verb with no tablet gate, so it works right
+  // here at the first prompt; the only thing missing was anybody saying so.
+  //
+  // It also names the skip. The cinematic that follows is ~50 seconds and states
+  // its own skip hint VISUALLY, which is no use to somebody who cannot see it —
+  // so a player who would otherwise sit through a minute of silence is told, in
+  // the log, that Escape ends it.
+  sendToPlayer(player.id, {
+    type: 'output',
+    message: '<span class="msg-system">This game can be played entirely in text. '
+      + '<span class="action-link" data-action="cmd" data-cmd="displaymode log">displaymode log</span>'
+      + ' turns off every panel and writes everything here instead; '
+      + '<span class="action-link" data-action="cmd" data-cmd="displaymode text">displaymode text</span>'
+      + ' keeps the games but draws them in characters. You can change it any time.'
+      + '<br>An opening sequence is about to play. Press <b>Escape</b> to skip it.</span>',
+  });
+
   // The cold open runs FIRST and alone (client/game/js/panels/intro-cinematic.js).
   // Nothing below is scheduled here: the client echoes `introdone` when the
   // sequence ends or is skipped, and that verb starts the arrival. Otherwise a
   // player who watches the whole thing comes back to a log full of prose that
   // scrolled past while they were reading a different screen.
+  //
+  // A player already on the bottom rung never sees it: a wordless animation is
+  // pure dead air for them, and its text is in the CODEX either way (Volume I is
+  // granted when the welcome broadcast ends), so nothing is lost. Skipping
+  // straight to `beginArrival` is exactly what the client's own skip does.
+  //
+  // ⚠ THIS IS BELT-AND-BRACES, NOT THE MITIGATION. This handler is gated on
+  // F_ARRIVED, so it runs once, for a character who has never had a prompt — and
+  // who therefore cannot have set a rung yet. It will read `undefined` almost
+  // every time. The thing that actually helps a first-time player is the LINE
+  // above naming Escape; this only covers a re-run (a wiped flag, a dev reset).
+  if (loggedPanelsSync(player)) { beginArrival(player); return; }
   sendToPlayer(player.id, { type: 'intro_cinematic', skyline: coldwaterSkyline(), shore: coldwaterShore() });
   // Safety net for a client that never answers (an old cached bundle, a tab
   // closed and reopened mid-play): the prologue must never be able to stall.

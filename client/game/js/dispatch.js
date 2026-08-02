@@ -941,6 +941,11 @@ const handlers = {
   spray_shelf: (msg) => { updateSprayShelf(msg); },
   poker_update: (msg) => { setAreaPane(msg.html); },
   poker_sfx: (msg) => { playPokerSfx(msg.cue); },
+  // The generic seated-table pane (chess today). Same treatment as the felt —
+  // the server renders it whole and the client just hangs it up. Buttons and
+  // squares inside carry .poker-cmd, so main.js's delegated listener drives it
+  // with no code of its own.
+  table_update: (msg) => { setAreaPane(msg.html); },
   trade_update: (msg) => { updateTrade(msg.html); },
   trade_close: () => { closeTrade(); },
   // The unified 3D hangar-bay app (flight/hangars.js pushHangarBay) — floor +

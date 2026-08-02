@@ -1,12 +1,15 @@
-// GameTable — seat management, lifecycle, broadcasting.
-// Contains no game rules; delegates to the attached game plugin (holdem.js).
+// GameTable — the poker felt: hand lifecycle, betting, chips, gambler bots.
+//
+// The seat/spectator/dealer-NPC/pane/persistence half lives in TableBase, which
+// chess shares. Everything below here is Texas Hold'em and nothing else.
 
 import { query } from '../../server/models/db.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { emit } from '../../server/engine/events.js';
-import { getLivePlayer, getZonePlayers, getZoneNpcs, world, updateNpc } from '../../server/engine/world.js';
+import { getZonePlayers, getZoneNpcs, world, updateNpc } from '../../server/engine/world.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { findPath } from '../../server/engine/pathfinding.js';
+import { TableBase, activeTables } from './table-base.js';
 import { HoldemGame } from './games/holdem.js';
 import { renderPane } from './render-pane.js';
 import { botId, isBotId, decideBotAction, botChatter, botOutcomeLine } from './bot-player.js';
@@ -14,7 +17,6 @@ import { narrateDeal, narrateStreet, narrateShowdown, narrateTurn, isTextMode } 
 
 export const MAX_SEATS = 4;
 const AUTO_START_DELAY_MS = 15_000; // wait this long after 2nd player joins before starting
-const SEAT_RETAIN_MS = 60_000;      // hold seat for disconnected player before auto-folding
 
 // Dealer flavor lines by moment. Spoken quips (shown in the dealer's speech
 // bubble) — brutal, dry, house-always-wins tone.
@@ -119,45 +121,16 @@ const OLD_SCHOOL_LINES = {
   ],
 };
 
-// In-memory registry of all active GameTable instances keyed by table DB id.
-export const activeTables = new Map();
+export { activeTables };
 
-export class GameTable {
+export class GameTable extends TableBase {
+  static MAX_SEATS = MAX_SEATS;
+
   constructor(row) {
-    this.id       = row.id;
-    this.zoneId   = row.zone_id;
-    this.name     = row.name;
-    this.gameType = row.game_type || 'holdem';
-    this.config   = typeof row.config === 'string' ? JSON.parse(row.config) : (row.config || {});
-    this.phase    = row.phase || 'WaitingForPlayers';
-
-    // Optional explicit dealer NPC id; otherwise resolved from the zone by flag.
-    this.dealerNpcId  = this.config.dealerNpcId || null;
-
-    // seats: fixed array of 4. null = empty. Each entry: { playerId, handle, chips, seatIdx, disconnectedAt }
-    this.seats = Array(MAX_SEATS).fill(null);
-
-    // spectatorIds: Set of player IDs watching but not seated
-    this.spectators = new Set();
-
-    // Current game plugin instance
-    this.game = null;
-
-    // Last action speech bubbles: { playerId → actionLabel }
-    this.bubbles = {};
-
-    // Player chat bubbles from `say`: { playerId → text }
-    this.chatBubbles = {};
-
-    // Current dealer speech-bubble line (raw text), or null
-    this.dealerBubble = null;
+    super(row);
 
     // playerIds who won the most recent completed hand (drives winner glow)
     this.lastWinners = [];
-
-    // Auto-clear timers for the bubbles above
-    this._sayTimers = {};
-    this._dealerBubbleTimer = null;
 
     // One-render animation flags (consumed by pushPaneAll, like game.dealPhase)
     this._betAnimPlayer = null;  // playerId whose bet pile should toss in
@@ -172,36 +145,14 @@ export class GameTable {
     // Auto-start timer handle
     this._autoStartTimer = null;
 
-    // Seat retention timers: { playerId → timeoutHandle }
-    this._retainTimers = {};
-
-    // Turn timer handles: { warnHandle, foldHandle, playerId }
-    this._turnTimer = null;
-
-    // Pending bot-move timer (set when the action reaches a bot seat)
-    this._botMoveTimer = null;
-
     // Gambler NPCs walking in toward the table: [{ npc, path, step }]
     this._incomingBots = [];
-
-    // The table's assigned dealer, rushing in after a `call dealer` — { npc, path, step } | null
-    this._incomingDealer = null;
 
     // Pending board run-out timer (set when everyone remaining is all-in)
     this._runoutTimer = null;
 
-    // Last time state was persisted to DB
-    this._lastPersist = 0;
-
-    // Restore state from DB if a hand was in progress
+    // Restore the hand from DB if one was in progress (TableBase restored seats).
     const state = typeof row.state === 'string' ? JSON.parse(row.state) : (row.state || {});
-    if (state.seats) {
-      for (const s of state.seats) {
-        if (s && s.seatIdx >= 0 && s.seatIdx < MAX_SEATS) {
-          this.seats[s.seatIdx] = s;
-        }
-      }
-    }
     if (state.game && this.phase === 'InProgress') {
       const restored = HoldemGame.fromJSON(state.game, this.config);
       // Bots aren't persisted (they're transient, like AI blackboards). A hand
@@ -211,46 +162,25 @@ export class GameTable {
       else this.game = restored;
     }
 
-    activeTables.set(this.id, this);
+  }
+
+  // ── Presentation seams (TableBase contract) ────────────────────────────────
+
+  get paneType() { return 'poker_update'; }
+  get sfxType()  { return 'poker_sfx'; }
+  renderPaneFor(playerId) { return renderPane(this, playerId); }
+  inTextMode(playerId) { return isTextMode(playerId); }
+  isSyntheticSeat(playerId) { return isBotId(playerId); }
+
+  afterPush() {
+    // Clear one-render animation flags after first push (_shuffleAnim is NOT
+    // one-shot — it spans the whole countdown, see _startShuffleLoop/_stopShuffleLoop)
+    if (this.game) this.game.dealPhase = false;
+    this._betAnimPlayer = null;
+    this._sweepAnim = false;
   }
 
   // ── Seating ────────────────────────────────────────────────────────────────
-
-  // Returns { ok, error, seatIdx }
-  async joinTable(player, preferredSeat = null) {
-    if (this.phase === 'Closed') return { ok: false, error: 'This table is closed.' };
-    if (this.seatedIndex(player.id) >= 0) return { ok: false, error: 'You are already seated.' };
-    if (this.openSeats() === 0) return { ok: false, error: 'No seats available.' };
-
-    const buyIn = this.config.buyIn || this.config.minBuyIn || 100;
-    if ((player.credits || 0) < buyIn) return { ok: false, error: `You need at least ₵ ${buyIn} to join.` };
-
-    // Deduct credits
-    const { rowCount } = await query(
-      'UPDATE players SET credits = credits - $1 WHERE id = $2 AND credits >= $1',
-      [buyIn, player.id]
-    );
-    if (!rowCount) return { ok: false, error: `You need at least ₵ ${buyIn} to join.` };
-
-    // Assign seat
-    let seatIdx = preferredSeat !== null && this.seats[preferredSeat] === null ? preferredSeat : null;
-    if (seatIdx === null) {
-      seatIdx = this.seats.findIndex(s => s === null);
-    }
-
-    this.seats[seatIdx] = { playerId: player.id, handle: player.handle, chips: buyIn, buyIn, seatIdx };
-    this.spectators.delete(player.id);
-
-    // Send credit update to client
-    const { rows: pRows } = await query('SELECT credits FROM players WHERE id=$1', [player.id]);
-    if (pRows.length) {
-      sendToPlayer(player.id, { type: 'player_update', credits: pRows[0].credits });
-    }
-
-    this._checkAutoStart();
-    await this._persist();
-    return { ok: true, seatIdx };
-  }
 
   // Seat a bot (gambler NPC) at the table. Draws the buy-in from the NPC's
   // persistent bankroll (flags.poker_bankroll) instead of a player's credits.
@@ -398,14 +328,6 @@ export class GameTable {
     this.pushPaneAll();
     await this._persist();
     return { ok: true };
-  }
-
-  addSpectator(playerId) {
-    if (this.seatedIndex(playerId) < 0) this.spectators.add(playerId);
-  }
-
-  removeSpectator(playerId) {
-    this.spectators.delete(playerId);
   }
 
   // ── Game flow ──────────────────────────────────────────────────────────────
@@ -608,15 +530,6 @@ export class GameTable {
     this._turnTimer = { warnHandle, foldHandle, playerId: pid };
   }
 
-  _clearTurnTimer() {
-    clearTimeout(this._botMoveTimer);
-    this._botMoveTimer = null;
-    if (!this._turnTimer) return;
-    clearTimeout(this._turnTimer.warnHandle);
-    clearTimeout(this._turnTimer.foldHandle);
-    this._turnTimer = null;
-  }
-
   // Count consecutive inactivity time-outs per seat: warn on the 2nd, remove on
   // the 3rd. A manual action (see processAction) resets the count to zero.
   _registerAutoFold(pid) {
@@ -653,166 +566,6 @@ export class GameTable {
       const line = botChatter(seat, tag, this._anyHumanName());
       if (line) this.botSay(seat, line);
     }, delay);
-  }
-
-  // ── Seat retention (disconnect) ────────────────────────────────────────────
-
-  onPlayerDisconnect(playerId) {
-    if (this.seatedIndex(playerId) < 0) return;
-    clearTimeout(this._retainTimers[playerId]);
-    this._retainTimers[playerId] = setTimeout(() => {
-      const idx = this.seatedIndex(playerId);
-      if (idx >= 0 && !getLivePlayer(playerId)) {
-        this.leaveTable(playerId);
-      }
-    }, SEAT_RETAIN_MS);
-  }
-
-  onPlayerReconnect(playerId) {
-    clearTimeout(this._retainTimers[playerId]);
-    delete this._retainTimers[playerId];
-  }
-
-  // ── Broadcasting ───────────────────────────────────────────────────────────
-
-  pushPaneAll() {
-    const recipients = [
-      ...this.seats.filter(s => s && !s.isBot).map(s => s.playerId),
-      ...this.spectators,
-    ];
-    for (const pid of recipients) {
-      // Purely per-player. A player in text view plays in the log — their top
-      // pane is the room look, not the table — so don't blast the poker pane
-      // back over it on every action/quip. `text`/`visual` flip this freely, and
-      // config.textTable only seeds the starting preference (see ensureTextPref).
-      if (isTextMode(pid)) continue;
-      sendToPlayer(pid, { type: 'poker_update', html: renderPane(this, pid) });
-    }
-    // Clear one-render animation flags after first push (_shuffleAnim is NOT
-    // one-shot — it spans the whole countdown, see _startShuffleLoop/_stopShuffleLoop)
-    if (this.game) this.game.dealPhase = false;
-    this._betAnimPlayer = null;
-    this._sweepAnim = false;
-  }
-
-  // Push a poker sound-effect cue. Without playerId it goes to everyone watching
-  // the table (seated + spectators); with one it's private (e.g. going broke).
-  // The client (poker-sfx.js) owns the actual synth def for each cue.
-  //
-  // Several cues legitimately resolve on the same tick — shuffle + deal at hand
-  // start, a hand-ending fold immediately followed by the win fanfare — and fired
-  // together they smear into one "doubled" sound. Space cues at least MIN_SFX_GAP_MS
-  // apart so each lands cleanly; cues already spread out (normal mid-hand actions)
-  // pass straight through with no delay.
-  _pushSfx(cue, playerId = null) {
-    const MIN_SFX_GAP_MS = 260;
-    const now = Date.now();
-    const wait = Math.max(0, (this._lastSfxAt || 0) + MIN_SFX_GAP_MS - now);
-    this._lastSfxAt = now + wait;
-    if (wait > 0) { setTimeout(() => this._emitSfx(cue, playerId), wait); return; }
-    this._emitSfx(cue, playerId);
-  }
-
-  _emitSfx(cue, playerId = null) {
-    if (playerId) { if (!isBotId(playerId)) sendToPlayer(playerId, { type: 'poker_sfx', cue }); return; }
-    const recipients = [
-      ...this.seats.filter(s => s && !s.isBot).map(s => s.playerId),
-      ...this.spectators,
-    ];
-    for (const pid of recipients) sendToPlayer(pid, { type: 'poker_sfx', cue });
-  }
-
-  // The live dealer NPC for this table: the one flagged with our table_id, an
-  // explicitly configured id, or any dealer-type NPC in the room. null if none
-  // is present (dead, despawned, or a table with no NPC). Dead NPCs are already
-  // removed from the zone set on death, but the hp guard is belt-and-suspenders.
-  _dealerNpc() {
-    const alive = n => n && (n.hp == null || n.hp > 0);
-    const npcs = getZoneNpcs(this.zoneId).filter(alive);
-    if (this.dealerNpcId) return npcs.find(n => n.id === this.dealerNpcId) || null;
-    return npcs.find(n => n.flags?.table_id === this.id)
-        || npcs.find(n => n.npc_type === 'dealer')
-        || null;
-  }
-
-  // The living dealer NPC's name, or null if none is present.
-  dealerName() {
-    const npc = this._dealerNpc();
-    return npc ? npc.name : null;
-  }
-
-  // Is a dealer physically present at the table right now? Hands can't be
-  // dealt without one (see startHand/_checkAutoStart).
-  hasDealer() {
-    return !!this._dealerNpc();
-  }
-
-  // Rush the table's assigned dealer to the felt if he's elsewhere and free.
-  // Only the NPC already tagged as this table's dealer may be summoned this
-  // way — the caller (index.js cmdCallDealer) resolves which NPC that is.
-  // Returns { ok, error, walking?, arrived? }.
-  async summonDealer(npc) {
-    if (this.phase === 'Closed') return { ok: false, error: 'This table is closed.' };
-    if (this._dealerNpc()?.id === npc.id) return { ok: false, error: `${npc.name} is already at the table.` };
-    if (this._incomingDealer?.npc.id === npc.id) return { ok: false, error: `${npc.name} is already on his way.` };
-    if (npc.hp != null && npc.hp <= 0) return { ok: false, error: `${npc.name} is in no condition to deal.` };
-    if (npc._ai?.waitUntil && Date.now() < npc._ai.waitUntil) {
-      return { ok: false, error: `${npc.name} is tied up right now — try again shortly.` };
-    }
-
-    if (npc.zone_id === this.zoneId) {
-      this._checkAutoStart();
-      this.pushPaneAll();
-      return { ok: true, arrived: true };
-    }
-
-    const path = findPath(npc.zone_id, this.zoneId, { maxDistance: 60 });
-    if (!path || path.length < 2) return { ok: false, error: `${npc.name} can't get here from where he is.` };
-    this._incomingDealer = { npc, path, step: 1 };
-    return { ok: true, walking: true };
-  }
-
-  // Advance the incoming dealer two zones per tick — he's rushing, not
-  // strolling. Called from the plugin tick.
-  stepIncomingDealer() {
-    const w = this._incomingDealer;
-    if (!w) return;
-    for (let hop = 0; hop < 2; hop++) {
-      const next = w.path[w.step];
-      if (!next) break;
-      if (!moveEntity(w.npc, next, sendToZone, query)) { this._incomingDealer = null; return; }
-      w.step++;
-      if (w.npc.zone_id === this.zoneId) break;
-    }
-    if (w.npc.zone_id === this.zoneId) {
-      this._incomingDealer = null;
-      this._checkAutoStart();
-      this._dealerSay("Sorry, folks. Let's get back to it.");
-      this.pushPaneAll();
-    }
-  }
-
-  _dealerSay(text) {
-    if (!text) return;
-    // No living dealer NPC at the table — no one to speak. The table falls
-    // silent: no speech bubble, no chat line. (A dead dealer stops narrating.)
-    const npc = this._dealerNpc();
-    if (!npc) return;
-    // Drive the dealer's on-table speech bubble. It clears itself after a lull
-    // so it doesn't hang stale between hands. (No push here — the callers that
-    // emit dealer lines already pushPaneAll immediately afterwards.)
-    this.dealerBubble = text;
-    clearTimeout(this._dealerBubbleTimer);
-    this._dealerBubbleTimer = setTimeout(() => {
-      this.dealerBubble = null;
-      this.pushPaneAll();
-    }, 7000);
-    // Echo to the room chat log as the dealer NPC's own speech, matching the
-    // engine's standard NPC say format so it reads identically to `Orion Dex
-    // says, "..."`. Import sendToZone lazily to avoid circular dep at load.
-    import('../../server/engine/messaging.js').then(({ sendToZone }) => {
-      sendToZone(this.zoneId, { type: 'output', message: `<span class="speech-line">${npc.name} says, "${text}"</span>` });
-    });
   }
 
   _quip(kind) {
@@ -854,51 +607,7 @@ export class GameTable {
     this.pushPaneAll();
   }
 
-  // A seated player used `say` — float the line as a speech bubble over their seat.
-  playerSay(playerId, text) {
-    if (this.seatedIndex(playerId) < 0 || !text) return;
-    this.chatBubbles[playerId] = text;
-    clearTimeout(this._sayTimers[playerId]);
-    this._sayTimers[playerId] = setTimeout(() => {
-      delete this.chatBubbles[playerId];
-      this.pushPaneAll();
-    }, 7000);
-    this.pushPaneAll();
-  }
-
-  // Name of any seated human, for the bot to needle. Falls back to 'friend'.
-  _anyHumanName() {
-    const h = this.seats.find(s => s && !s.isBot);
-    return h ? h.handle : 'friend';
-  }
-
-  // A bot's speech: float a bubble over its seat AND echo to the room chat, like
-  // the dealer's narration. (Mirrors playerSay + _dealerSay.)
-  botSay(seat, text) {
-    if (!text || !seat) return;
-    this.chatBubbles[seat.playerId] = text;
-    clearTimeout(this._sayTimers[seat.playerId]);
-    this._sayTimers[seat.playerId] = setTimeout(() => {
-      delete this.chatBubbles[seat.playerId];
-      this.pushPaneAll();
-    }, 7000);
-    sendToZone(this.zoneId, { type: 'output', message: `<span class="speech-line">${seat.handle} says, "${text}"</span>` });
-    this.pushPaneAll();
-  }
-
   // ── Helpers ────────────────────────────────────────────────────────────────
-
-  seatedIndex(playerId) {
-    return this.seats.findIndex(s => s && s.playerId === playerId);
-  }
-
-  openSeats() {
-    return this.seats.filter(s => s === null).length;
-  }
-
-  seatedCount() {
-    return this.seats.filter(Boolean).length;
-  }
 
   _nextDealerSeatIdx() {
     // Rotate dealer each hand. Find first filled seat after current dealer.
@@ -981,52 +690,4 @@ export class GameTable {
     for (const s of this.seats.filter(s => s && s.isBot)) this.leaveTable(s.playerId);
   }
 
-  // Dev-panel config edit (blinds, buy-in, …) — merges into the live config so
-  // it takes effect on the next hand, and persists so it survives a restart.
-  async setConfig(patch) {
-    Object.assign(this.config, patch);
-    await query('UPDATE game_tables SET config=$1 WHERE id=$2', [JSON.stringify(this.config), this.id])
-      .catch(e => console.error('[gametable] config persist error:', e.message));
-  }
-
-  async _persist() {
-    const state = {
-      seats: this.seats.filter(s => s && !s.isBot), // bots are transient (see constructor)
-      game: this.game ? this.game.toJSON() : null,
-    };
-    const json = JSON.stringify(state);
-
-    // Skip the write when nothing actually changed. maybePersist() fires every
-    // 10 s per table for as long as the server is up, and an empty table's state
-    // is byte-identical forever — that was ~18 pointless UPDATEs a minute on a
-    // world where nobody was playing cards, each one keeping Neon's compute from
-    // suspending. The row already holds exactly what we were about to write, so
-    // not writing it changes nothing on restart.
-    if (json === this._persistedJson && this.phase === this._persistedPhase) {
-      this._lastPersist = Date.now();
-      return;
-    }
-
-    await query(
-      'UPDATE game_tables SET state=$1, phase=$2, updated_at=NOW() WHERE id=$3',
-      [json, this.phase, this.id]
-    ).catch(e => console.error('[gametable] persist error:', e.message));
-    this._persistedJson = json;
-    this._persistedPhase = this.phase;
-    this._lastPersist = Date.now();
-  }
-
-  // Called by plugin tick every 10s
-  async maybePersist() {
-    if (Date.now() - this._lastPersist > 10_000) await this._persist();
-  }
-
-  // ── Static loader ──────────────────────────────────────────────────────────
-
-  static async loadAll() {
-    const { rows } = await query('SELECT * FROM game_tables');
-    for (const row of rows) {
-      if (!activeTables.has(row.id)) new GameTable(row);
-    }
-  }
 }
