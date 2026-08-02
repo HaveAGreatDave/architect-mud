@@ -502,6 +502,37 @@ Still on panels only: the score bug, gameday and standings overlays. The comment
 carries the score in words, so this is a degradation rather than a hole — but it is
 the next thing to write.
 
+## The tablet at the log rung — an index of verbs
+
+The tablet is the one panel that could not simply be "written out": it is a
+fullscreen graphical OS with thirty-odd apps, and — the part that made this urgent —
+**the Display Mode switch itself lives inside it.** A player who reached `log` had no
+readable route back except knowing the `displaymode` verb already.
+
+So at the `log` rung `tablet`/`os` return a **typed index** instead of the shell
+([plugins/tablet/text-index.js](../plugins/tablet/text-index.js)). Both doors land on
+it: the verb, and the smartbar Tablet chip, which sends the literal verb rather than
+opening the panel client-side. `tablet verbs` forces the index at any rung, so a
+player in visual mode can read the same list to somebody who is not.
+
+**It lists verbs, not screens.** Each line is a command that can be typed and have
+something happen — `map`, `wanted`, `standings`, `library` — mixing verbs that OPEN
+an app with verbs that do the app's job in prose, because from the prompt those are
+the same thing. The verbs live on the appDef (`verbs: []`, see
+[registry.js](../plugins/tablet/registry.js)) rather than in a table inside the
+index, so an app registered from another plugin (flight's DEADHEAD, consort's BLISS)
+declares its own, and there is one place to change when a verb is renamed. A regress
+case sweeps every declared verb against the live registries — the index is the only
+tablet surface a log-rung player has, so it must not quietly lie.
+
+An app with **no** text route is still listed, marked `screen only` and dimmed at the
+bottom of its category. Knowing a feature exists and is currently out of reach beats
+it being invisible.
+
+**Deep links are deliberately not rerouted.** `tabletnav bank` at the log rung still
+returns the bank screen. Rendering every app's payload as text is a far bigger job
+than an index, and swallowing the nav would be worse than a screen that reads badly.
+
 ## What still has no text form
 
 See the roadmap in the plan file for ordering. Done: circuit hack, hololock, vault crack, signal

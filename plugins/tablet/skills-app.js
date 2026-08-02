@@ -83,5 +83,6 @@ async function handleAction(player, actionId) {
 
 registerTabletApp({
   id: 'skills', name: 'Skills & Stats', icon: '💪', category: 'Progression',
+  verbs: ['skills', 'stats'],
   buildScreen, handleAction,
 });

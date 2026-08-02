@@ -7,6 +7,17 @@
 // before initialization".
 const apps = [];
 
+// appDef fields the shell reads: { id, name, icon, category, buildScreen,
+// buildHome?, buildWidget?, handleAction?, visible? } — plus:
+//
+//   verbs: ['gigs', 'quests']   OPTIONAL. The commands that reach this feature by
+//     typing, listed by text-index.js for a player at the `log` rung of Display
+//     Mode. Include a verb that OPENS the app (`codex`) and equally one that does
+//     the app's job in prose (`wanted`, `standings`) — the index answers "what can
+//     I type", not "how do I get to this screen". Leave it off when the app has no
+//     text route at all: it's then listed as screen-only, which is honest and still
+//     tells the player the feature exists. Verbs live here, on the app, so an app
+//     registered from another plugin can declare its own.
 export function registerTabletApp(appDef) {
   if (!appDef?.id || typeof appDef.buildScreen !== 'function') {
     throw new Error('registerTabletApp requires { id, buildScreen }');

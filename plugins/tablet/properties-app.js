@@ -90,5 +90,6 @@ async function handleAction(player, actionId, params) {
 
 registerTabletApp({
   id: 'properties', name: 'Properties', icon: '🏠', category: 'Assets',
+  verbs: ['rent', 'deed'],
   buildHome, buildScreen, handleAction,
 });

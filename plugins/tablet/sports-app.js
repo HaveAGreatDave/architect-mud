@@ -344,5 +344,6 @@ export async function cmdFollow(args, raw, player) {
 
 registerTabletApp({
   id: 'sports', name: 'Sports', icon: '🏆', category: 'General',
+  verbs: ['standings', 'support'],
   buildHome, buildScreen, buildWidget, handleAction,
 });

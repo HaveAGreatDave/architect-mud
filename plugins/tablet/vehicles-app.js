@@ -139,5 +139,6 @@ async function handleAction(player, actionId, params) {
 
 registerTabletApp({
   id: 'vehicles', name: 'Vehicles', icon: '✈', category: 'Assets',
+  verbs: ['pilot', 'insure'],
   buildHome, buildScreen, handleAction,
 });

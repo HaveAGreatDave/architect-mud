@@ -99,5 +99,6 @@ function buildWidget() {
 
 registerTabletApp({
   id: 'help', name: 'Help', icon: '❓', category: 'System',
+  verbs: ['help'],
   buildScreen, buildWidget,
 });

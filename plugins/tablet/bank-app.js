@@ -193,5 +193,6 @@ export async function cmdWire(args, raw, player) {
 
 registerTabletApp({
   id: 'bank', name: 'Bank', icon: '🏦', category: 'Finance',
+  verbs: ['balance', 'wire'],
   buildHome, buildScreen, handleAction, buildWidget,
 });

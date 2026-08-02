@@ -225,5 +225,6 @@ async function visible(player) {
 
 registerTabletApp({
   id: 'library', name: 'Library', icon: '📖', category: 'Media',
+  verbs: ['library', 'books', 'page', 'contents'],
   visible, buildHome, buildScreen, handleAction,
 });

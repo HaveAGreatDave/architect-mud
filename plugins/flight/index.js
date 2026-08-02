@@ -1922,6 +1922,7 @@ function buildDeadhead(player) {
 }
 registerTabletApp({
   id: 'deadhead', name: 'DEADHEAD', icon: '✈', category: 'General',
+  verbs: ['nav', 'courier'],
   visible(player) { return !!ownLeviathan(player).live; },   // Home tile only when you have a Leviathan live in the world
   buildScreen(player) { return buildDeadhead(player); },
   async handleAction(player, actionId, params) {

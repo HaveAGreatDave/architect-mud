@@ -46,6 +46,7 @@ registerTabletApp({
   name: 'Map',
   icon: '🗺',
   category: 'General',
+  verbs: ['map', 'gps'],
   buildWidget,
   // screenId carries the requested zoom arg (interior | z<n> | regional); null =
   // default (interior when inside a building, otherwise z0 — same rule as bare `map`).
