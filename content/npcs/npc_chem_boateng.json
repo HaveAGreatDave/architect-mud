@@ -455,9 +455,57 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
+      "item_id": "item_reagent_acid",
+      "price": 4
+    },
+    {
+      "item_id": "item_reagent_feedstock",
+      "price": 4
+    },
+    {
+      "item_id": "item_reagent_nutrient",
+      "price": 4
+    },
+    {
+      "item_id": "item_reagent_solvent",
+      "price": 4
+    },
+    {
+      "item_id": "item_battery",
+      "price": 7
+    },
+    {
+      "item_id": "item_foam_earplugs",
+      "price": 7
+    },
+    {
+      "item_id": "item_duct_tape",
+      "price": 11
+    },
+    {
+      "item_id": "item_work_gloves",
+      "price": 13
+    },
+    {
+      "item_id": "item_industrial_solvent",
+      "price": 16
+    },
+    {
       "item_id": "item_industrial_tape",
       "price": 17,
       "stock": 25
+    },
+    {
+      "item_id": "item_mop",
+      "price": 20
+    },
+    {
+      "item_id": "item_solvent",
+      "price": 20
+    },
+    {
+      "item_id": "item_flashlight",
+      "price": 32
     },
     {
       "item_id": "item_solvent_jug",
@@ -470,6 +518,15 @@
       "stock": 12
     },
     {
+      "item_id": "item_smoked_lenses",
+      "price": 48
+    },
+    {
+      "item_id": "item_catalyst",
+      "price": 55,
+      "stock": 20
+    },
+    {
       "item_id": "item_glassware_set",
       "price": 63,
       "stock": 10
@@ -480,9 +537,8 @@
       "stock": 12
     },
     {
-      "item_id": "item_catalyst",
-      "price": 55,
-      "stock": 20
+      "item_id": "item_insulated_gloves",
+      "price": 105
     },
     {
       "item_id": "item_stabilizer",
@@ -536,7 +592,7 @@
     ]
   },
   "vendor_shop_name": "Pallets & Pals",
-  "vendor_stock_size": 12,
+  "vendor_stock_size": 27,
   "wander_zones": [],
   "wanders": 0,
   "work_zone_id": "zone_chemsupply_interior"

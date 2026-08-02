@@ -54,6 +54,18 @@ export default async function regress({ run, check, getPlayer }) {
     check('the closed line quotes the wait', /open again in about \d+ (hour|minute)/.test(vendorClosedLine(later)), vendorClosedLine(later));
   }
 
+  // Presence: a commuting vendor opens when they WALK IN, not on the stroke of the
+  // hour. Only vendors with a work_zone_id are gated this way.
+  const onShift = { [today]: [{ from: 0, to: 24 }] };
+  check('an on-shift vendor still walking to work reads closed',
+    isVendorClosed({ name: 'Latecomer', work_zone_id: 'zone_shop', zone_id: 'zone_street', vendor_schedule: onShift }));
+  check('the same vendor reads open once they are behind the counter',
+    !isVendorClosed({ name: 'Latecomer', work_zone_id: 'zone_shop', zone_id: 'zone_shop', vendor_schedule: onShift }));
+  check('an absent vendor does not quote next week\'s opening hour',
+    /hasn't opened up yet/.test(vendorClosedLine({ name: 'Latecomer', work_zone_id: 'zone_shop', zone_id: 'zone_street', vendor_schedule: onShift })));
+  check('a stallholder with no work_zone_id is unaffected by presence',
+    !isVendorClosed({ name: 'Stallie', zone_id: 'zone_street', vendor_schedule: onShift }));
+
   // Covert dealers keep their own window and are exempt from both.
   const covert = { name: 'Shade', flags: { covert: true }, vendor_schedule: { [today]: [{ from: 0, to: 0 }] } };
   check('covert dealers ignore vendor hours', !isVendorClosed(covert));

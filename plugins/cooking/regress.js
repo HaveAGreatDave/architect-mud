@@ -574,6 +574,10 @@ export default async function regress({ run, check, getPlayer }) {
     r = await run('cook');
     check('bare cook with a stove AND a lab raises a station prompt', /Cook on which/.test(r?.message || ''), JSON.stringify(r));
     check('the prompt lists both stations by name', /test cooktop/.test(r?.message || '') && /test chem bench/.test(r?.message || ''), r?.message);
+    // Picking the stove out of that prompt lands where a bare `cook` would have.
+    r = await run('1');
+    check('choosing the stove from the station prompt opens the kitchen workspace',
+      r?.type === 'workspace_view' && r.provider === 'kitchen', JSON.stringify(r));
     await run('cancel'); // clear the selection state so it can't leak into later checks
 
     // Routing stays target-first even with both stations present.

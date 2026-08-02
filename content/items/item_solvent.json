@@ -1,8 +1,8 @@
 {
-  "description": "A brown bottle of reagent-grade acetone. Cheap, nasty, essential — it cuts a batch, strips a finish, and takes a bloodstain off a floor faster than any mop, one bottle at a time.",
+  "description": "A brown glass bottle of CLEAN BREAK reagent-grade acetone, the label a cheerful hardware-aisle orange gone brittle with age. Strips lacquer, lifts adhesive, degreases a bench, and takes a stain off a floor faster than any mop. Directions: ventilate, wear gloves, do not smoke. One bottle at a time.",
   "flags": {},
   "id": "item_solvent",
-  "name": "bottle of acetone",
+  "name": "bottle of Clean Break acetone",
   "tags": {
     "cleaning_tool": true,
     "consumable_cleaner": true,

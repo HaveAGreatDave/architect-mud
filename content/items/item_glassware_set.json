@@ -1,10 +1,10 @@
 {
-  "description": "Beakers, a condenser, and a battered flask, nested in foam. Perfectly legal. Perfectly suspicious in quantity.",
+  "description": "Beakers, a condenser and a battered flask, nested in cut foam with a school-supply catalogue number still stencilled on the lid. Borosilicate, so it takes a flame without arguing.",
   "flags": {},
   "id": "item_glassware_set",
   "name": "lab glassware set",
   "tags": {
-    "description": "Beakers, a condenser, and a battered flask, nested in foam. Perfectly legal. Perfectly suspicious in quantity.",
+    "description": "Beakers, a condenser and a battered flask, nested in cut foam with a school-supply catalogue number still stencilled on the lid. Borosilicate, so it takes a flame without arguing.",
     "material": true
   },
   "type": "material",

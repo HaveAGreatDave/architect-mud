@@ -274,19 +274,48 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_salvaged_alternator",
-      "price": 77,
-      "stock": 6
+      "item_id": "item_bearing_grease",
+      "price": 4
     },
     {
-      "item_id": "item_scrap_copper_coil",
-      "price": 56,
-      "stock": 10
+      "item_id": "item_tangled_wire",
+      "price": 4
     },
     {
-      "item_id": "item_bearing_race",
-      "price": 39,
-      "stock": 12
+      "item_id": "item_ball_bearings",
+      "price": 5
+    },
+    {
+      "item_id": "item_battery",
+      "price": 7
+    },
+    {
+      "item_id": "item_hydraulic_hose",
+      "price": 7
+    },
+    {
+      "item_id": "item_copper_bundle",
+      "price": 9
+    },
+    {
+      "item_id": "item_duct_tape",
+      "price": 10
+    },
+    {
+      "item_id": "item_pressure_gauge",
+      "price": 10
+    },
+    {
+      "item_id": "item_work_gloves",
+      "price": 13
+    },
+    {
+      "item_id": "item_valve_assembly",
+      "price": 18
+    },
+    {
+      "item_id": "item_control_relay",
+      "price": 20
     },
     {
       "item_id": "item_cut_rebar",
@@ -294,14 +323,37 @@
       "stock": 14
     },
     {
-      "item_id": "item_scrap_torch",
-      "price": 182,
-      "stock": 2
+      "item_id": "item_flashlight",
+      "price": 30
+    },
+    {
+      "item_id": "item_bearing_race",
+      "price": 39,
+      "stock": 12
+    },
+    {
+      "item_id": "item_scrap_copper_coil",
+      "price": 56,
+      "stock": 10
+    },
+    {
+      "item_id": "item_mystery_component",
+      "price": 65
+    },
+    {
+      "item_id": "item_salvaged_alternator",
+      "price": 77,
+      "stock": 6
     },
     {
       "item_id": "item_junk_battery",
       "price": 105,
       "stock": 4
+    },
+    {
+      "item_id": "item_scrap_torch",
+      "price": 182,
+      "stock": 2
     }
   ],
   "vendor_restock_rate": 1,
@@ -350,7 +402,7 @@
     ]
   },
   "vendor_shop_name": "Salvage Rites",
-  "vendor_stock_size": 14,
+  "vendor_stock_size": 25,
   "wander_zones": [],
   "wanders": 0,
   "work_zone_id": "zone_junkyard_shack"

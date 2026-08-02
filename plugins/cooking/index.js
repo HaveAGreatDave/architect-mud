@@ -1501,9 +1501,11 @@ registerAction({
 // never `{ verb }` — that route only reaches engine builtins (docs/commands.md).
 registerAction({
   type: 'cooking.station_choice',
-  handler: ({ actor, params }) => (params.target?._cookKind === 'drug' && hasSynthesis())
+  // Same landing as a bare `cook` in a food-only room: picking the stove out of
+  // the list is still a request to see the kitchen.
+  handler: async ({ actor, params }) => (params.target?._cookKind === 'drug' && hasSynthesis())
     ? toDrugs(actor, null, null)
-    : { type: 'error', message: 'Cook what?' },
+    : (await cmdWorkspace(['kitchen'], '', actor)) || { type: 'error', message: 'Cook what?' },
 });
 
 // Where the range-or-microwave pick lands. The food rode in on the candidate,

@@ -123,6 +123,18 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
+      "item_id": "item_soap_block",
+      "price": 5
+    },
+    {
+      "item_id": "item_water_bottle",
+      "price": 7
+    },
+    {
+      "item_id": "item_foam_earplugs",
+      "price": 8
+    },
+    {
       "item_id": "item_rag_bandage",
       "price": 8
     },
@@ -131,20 +143,60 @@
       "price": 9
     },
     {
+      "item_id": "item_towel_rough",
+      "price": 11
+    },
+    {
+      "item_id": "item_duct_tape",
+      "price": 12
+    },
+    {
       "item_id": "item_rusty_pipe",
       "price": 12
+    },
+    {
+      "item_id": "item_work_gloves",
+      "price": 14
     },
     {
       "item_id": "item_battery",
       "price": 16
     },
     {
+      "item_id": "item_rad_band",
+      "price": 30
+    },
+    {
       "item_id": "item_jerry_can",
       "price": 35
     },
     {
+      "item_id": "item_flashlight",
+      "price": 36
+    },
+    {
+      "item_id": "item_propane_canister",
+      "price": 36
+    },
+    {
       "item_id": "item_field_welder",
       "price": 45
+    },
+    {
+      "item_id": "item_ear_defenders",
+      "price": 46
+    },
+    {
+      "item_id": "item_smoked_lenses",
+      "price": 50
+    },
+    {
+      "item_id": "item_respirator_mask",
+      "price": 58
+    },
+    {
+      "item_id": "item_insulated_gloves",
+      "price": 110
     },
     {
       "item_id": "item_keycard_lock_kit",
@@ -205,7 +257,7 @@
     ]
   },
   "vendor_shop_name": "Surplus of Sorrows",
-  "vendor_stock_size": 9,
+  "vendor_stock_size": 28,
   "wander_zones": [],
   "wanders": 0,
   "work_zone_id": "zone_lw_quarter"

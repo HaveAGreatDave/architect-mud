@@ -302,12 +302,52 @@
       "price": 6
     },
     {
+      "item_id": "item_battery",
+      "price": 7
+    },
+    {
+      "item_id": "item_foam_earplugs",
+      "price": 7
+    },
+    {
+      "item_id": "item_copper_bundle",
+      "price": 9
+    },
+    {
       "item_id": "item_duct_tape",
       "price": 10
     },
     {
+      "item_id": "item_pressure_gauge",
+      "price": 10
+    },
+    {
+      "item_id": "item_work_gloves",
+      "price": 13
+    },
+    {
+      "item_id": "item_industrial_tape",
+      "price": 14
+    },
+    {
+      "item_id": "item_solvent",
+      "price": 18
+    },
+    {
+      "item_id": "item_valve_assembly",
+      "price": 18
+    },
+    {
+      "item_id": "item_control_relay",
+      "price": 20
+    },
+    {
       "item_id": "item_gun_oil_kit",
       "price": 20
+    },
+    {
+      "item_id": "item_flashlight",
+      "price": 30
     },
     {
       "item_id": "item_jerry_can",
@@ -318,11 +358,11 @@
       "price": 45
     },
     {
-      "item_id": "item_smoked_lenses",
+      "item_id": "item_ear_defenders",
       "price": 60
     },
     {
-      "item_id": "item_ear_defenders",
+      "item_id": "item_smoked_lenses",
       "price": 60
     },
     {
@@ -392,7 +432,7 @@
     ]
   },
   "vendor_shop_name": "Watts The Damage",
-  "vendor_stock_size": 11,
+  "vendor_stock_size": 29,
   "wander_zones": [],
   "wanders": 0,
   "work_zone_id": "zone_coldwater_turbine_hall"

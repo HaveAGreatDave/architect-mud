@@ -94,9 +94,22 @@ export function isVendorWorkTime(npc, env) {
 // game clock so a manual clock jump takes effect immediately.
 export function isVendorClosed(npc) {
   if (npc?.flags?.covert) return false;
+  if (isVendorAbsent(npc)) return true;
   const schedule = npc?.vendor_schedule;
   if (!schedule || !Object.keys(schedule).length) return false;
   return !isVendorWorkTime(npc, getEnvironmentState()).working;
+}
+
+// A vendor who commutes is only open once they've actually WALKED IN. The clock
+// says when they set off, not when the shutter goes up: a shopkeeper who is late,
+// stuck behind a firefight, or has stepped out mid-shift leaves a shop that isn't
+// trading, matching the door — which already unlocks on arrival and locks on the
+// way out (see the shop-door block in the movement hook).
+// Only applies to vendors with a work_zone_id; an immobile stallholder without one
+// keeps the old pure-clock behaviour, so nothing that never commutes changes.
+export function isVendorAbsent(npc) {
+  if (!npc?.work_zone_id) return false;
+  return entityZone(npc) !== npc.work_zone_id;
 }
 
 // Game-hours until this vendor's next scheduled block opens, or null (no schedule,
@@ -134,6 +147,14 @@ export function openInPhrase(npc) {
 export function vendorClosedLine(npc) {
   const name = npc?.name || 'The vendor';
   if (npc?.flags?.covert) return `${name} looks straight through you. "Wrong time. Walk on."`;
+  // Absent rather than off-shift: nobody is behind the counter to say a line, and
+  // quoting the next scheduled block would be a lie if they're merely running late.
+  if (isVendorAbsent(npc)) {
+    const working = !npc.vendor_schedule || isVendorWorkTime(npc, getEnvironmentState()).working;
+    return working
+      ? `The counter is empty — ${name} hasn't opened up yet.`
+      : `The shutter is down. ${name} isn't in.`;
+  }
   const when = openInPhrase(npc);
   return when
     ? `${name} shakes their head. "I'm off the clock right now — I open again in ${when}."`
