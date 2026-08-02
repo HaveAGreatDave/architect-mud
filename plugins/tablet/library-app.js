@@ -5,79 +5,17 @@
 // sitting in a cell, riding a lift. Tie it to a physical object and it only ever
 // gets read where you found it.
 //
-// READ-TIER (docs/architecture.md) — this is the whole design constraint. These
-// texts are hundreds of KB each; `We` alone is ~390KB. A deploy already
-// cold-reloads the world from Neon at ~36MB and that cap has been hit before, so:
-//
-//   * `books` is registered readTier 'cold' and is NOT loaded at boot.
-//   * The shelf/list screens read id/title/author/blurb ONLY — never `chapters`.
-//     That's why the list query names its columns instead of SELECT *; a lazy
-//     star here would drag a megabyte of prose into a screen that shows six lines.
-//   * A page turn pulls ONE chapter, by index, out of the JSONB in Postgres
-//     (`chapters->$2`) rather than fetching the array and slicing it in Node.
-//
-// Progress is a player_flag, not a new table (CLAUDE.md: no new sparse per-player
-// columns/tables for scalar state). One flag holds the bookmark; owning a book is
-// implied by having opened it, which keeps the shelf honest without a join.
+// The READS ALL LIVE IN plugins/library/books.js now — the library plugin owns
+// its own data and this app is a view over it, the same way the Kit screen is a
+// view over the engine's inventory commands. That move is what made `read`/`page`
+// typeable at all (they were unreachable without a tablet). The read-tier rules,
+// the `chapters->($2::int)` cast and the bookmark-key contract are documented
+// there; nothing about this app's behaviour changed.
+import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { query } from '../../server/models/db.js';
-import { getFlag, setFlag, getFlagsByPrefix } from '../../server/engine/flags.js';
+import { shelf, bookMeta, chapter, chapterToc, bookmarkOf, bookmarks, BOOKMARK }
+  from '../library/books.js';
 import { registerTabletApp, normScreen } from './registry.js';
-
-const BOOKMARK = (bookId) => `book_pos_${bookId}`;
-
-// ── Reads ───────────────────────────────────────────────────────────────────
-
-// Metadata only. jsonb_array_length reads the chapter COUNT without ever
-// materialising the chapters themselves — the difference between a 2KB response
-// and a 1MB one.
-async function shelf() {
-  const { rows } = await query(
-    `SELECT id, title, author, year, blurb, jsonb_array_length(chapters) AS chapters
-       FROM books ORDER BY year, title`
-  );
-  return rows;
-}
-
-async function bookMeta(bookId) {
-  const { rows } = await query(
-    `SELECT id, title, author, year, blurb, source, pronunciation,
-            jsonb_array_length(chapters) AS chapters
-       FROM books WHERE id=$1`, [bookId]
-  );
-  return rows[0] || null;
-}
-
-// One chapter, pulled by index inside Postgres.
-async function chapter(bookId, idx) {
-  // The ::int cast is load-bearing. A bound parameter arrives as text, and
-  // `jsonb -> text` is a KEY lookup, not an array index — without the cast this
-  // silently returns NULL for every chapter of every book.
-  const { rows } = await query(
-    `SELECT chapters->($2::int)->>'title' AS title, chapters->($2::int)->>'text' AS text
-       FROM books WHERE id=$1`, [bookId, idx]
-  );
-  return rows[0]?.text ? rows[0] : null;
-}
-
-// The table of contents: title + LENGTH of each chapter, never the prose. The
-// length is measured inside Postgres and only the integer travels, so a contents
-// page for `We` costs a couple of KB rather than 390.
-//
-// Built with WITH ORDINALITY rather than jsonb_path_query_array($[*].title): a path
-// query SKIPS any element missing the key, so one untitled chapter would silently
-// shorten the array and shift every index after it — the contents page would then
-// send you to the wrong chapter with nothing to indicate it had.
-async function chapterToc(bookId) {
-  const { rows } = await query(
-    `SELECT COALESCE((
-       SELECT jsonb_agg(jsonb_build_object('title', c->>'title', 'len', length(c->>'text')) ORDER BY i)
-         FROM jsonb_array_elements(chapters) WITH ORDINALITY AS t(c, i)
-     ), '[]'::jsonb) AS toc
-       FROM books WHERE id=$1`,
-    [bookId]
-  );
-  return rows[0]?.toc || [];
-}
 
 // ── Glossary ────────────────────────────────────────────────────────────────
 // Small enough to hold in RAM (a few hundred one-line rows), unlike the books it
@@ -114,25 +52,6 @@ async function glossFor(text) {
     if (hit) out[w] = hit.gloss;
   }
   return Object.keys(out).length ? out : null;
-}
-
-async function bookmarkOf(player, bookId) {
-  const v = await getFlag('player', BOOKMARK(bookId), player);
-  const n = parseInt(v, 10);
-  return Number.isFinite(n) && n >= 0 ? n : 0;
-}
-
-// Every bookmark in one read — one prefix scan, and zero round trips for a
-// hydrated player, which is what makes a shelf that shows progress on all eight
-// spines cost the same as one that shows none.
-async function bookmarks(player) {
-  const m = await getFlagsByPrefix(player, 'book_pos_');
-  const out = new Map();
-  for (const [k, v] of m) {
-    const n = parseInt(v, 10);
-    if (Number.isFinite(n) && n >= 0) out.set(k.slice('book_pos_'.length), n);
-  }
-  return out;
 }
 
 // ── Screens ─────────────────────────────────────────────────────────────────

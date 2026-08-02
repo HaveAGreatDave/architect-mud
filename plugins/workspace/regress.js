@@ -382,4 +382,58 @@ export default async function regress({ run, check, getPlayer }) {
     await query('DELETE FROM items WHERE id = ANY($1)', [items]).catch(() => {});
     for (const id of items) deleteItemCache(id);
   }
+
+  // ── The written workspace (bottom Display Mode rung) ───────────────────────
+  // This one could NOT be a suppression the way the card reveal is: the HUD
+  // aggregates state that is nowhere else in the log. So it renders the SAME
+  // payload the panel does, and what matters is that nothing is dropped and that
+  // every action stays a verb string a player could have typed.
+  {
+    const { _test: ws } = await import('./index.js');
+    const view = {
+      title: 'KITCHEN',
+      status: [{ label: 'Power', value: 'ONLINE', state: 'ok' }, { label: 'Stove', value: 'NONE', state: 'off' }],
+      area: [{ id: 'a', name: 'iron pan', state: 'a finished dish', live: true,
+               actions: [{ label: 'plate', command: 'plate iron pan' }] }],
+      storage: [{ id: 'b', name: 'rat haunch', qty: 3, kind: 'food', state: 'raw', notes: ['minced'] }],
+      components: [], tools: [{ id: 'c', name: 'boning knife' }],
+      providers: [{ key: 'kitchen', label: 'Kitchen' }, { key: 'chembench', label: 'Chem Bench' }],
+      assistant: {
+        groups: [{ label: 'Ready', recipes: [
+          { name: 'rat stew', pct: 100, missing: [], equipment: [],
+            actions: [{ label: 'prepare', command: 'prepare rat stew' }] },
+          { name: 'hash', pct: 60, missing: ['onion'], equipment: [] },
+        ] }],
+        note: '3 of 47 recorded. 44 still out there.',
+      },
+      empty: false,
+    };
+    const t = ws.renderWorkspaceText(view);
+
+    check('workspace text: names the working area', /KITCHEN/.test(t), t.slice(0, 60));
+    check('workspace text: carries the status readout', /Power/.test(t) && /ONLINE/.test(t));
+    check('workspace text: an offline status is flagged, not silently dropped', /text-red/.test(t));
+    check('workspace text: lists what is on the surface', /iron pan/.test(t));
+    check('workspace text: lists what is within reach', /rat haunch/.test(t));
+    check('workspace text: carries quantity and prep notes', /×3/.test(t) && /minced/.test(t), t);
+    check('workspace text: lists tools', /boning knife/.test(t));
+    // A cook in progress is the one thing on the panel that MOVES; the panel dims
+    // everything else to say so, and the log has to say it in words.
+    check('workspace text: marks the live cook', /text-cyan/.test(t));
+    // The founding rule: every action is a verb string, not an opaque id.
+    check('workspace text: component actions are real commands',
+      t.includes('data-cmd="plate iron pan"'), t);
+    check('workspace text: assistant actions are real commands',
+      t.includes('data-cmd="prepare rat stew"'));
+    check('workspace text: a shortfall says WHAT is short', /onion/.test(t));
+    // …but only for recipes you already know — the provider decides that, and the
+    // renderer must not invent a listing of the undiscovered half.
+    check('workspace text: closes on the provider note about what is undiscovered',
+      /44 still out there/.test(t), t.slice(-120));
+    check('workspace text: offers the other provider in the room',
+      t.includes('workspace chembench'));
+
+    const bare = ws.renderWorkspaceText({ title: 'KITCHEN', empty: true, providers: [] });
+    check('workspace text: a bare bench says so rather than rendering blank', /bare/.test(bare), bare);
+  }
 }

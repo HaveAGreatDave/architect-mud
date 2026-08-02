@@ -305,6 +305,43 @@ async function handleAction(player, actionId, params) {
   return leagueScreen(player, code);
 }
 
+// ── `follow` — pick a club, by typing ────────────────────────────────────────
+// `standings`/`cup`/`champions` already read the league out loud, but the
+// `sports_follow_team` flag was written in exactly one place: this app's Follow
+// button. So a text player could read the table and never take a side.
+export async function cmdFollow(args, raw, player) {
+  const want = args.join(' ').trim();
+  const cur = await followedTeam(player);
+
+  if (!want) {
+    return {
+      type: 'output',
+      message: cur && cur !== 'none'
+        ? `You follow <b>${cur}</b>. <span class="text-dim">"follow none" to stop.</span>`
+        : 'You follow nobody. <span class="text-dim">"follow &lt;club&gt;" — see "standings" for the table.</span>',
+    };
+  }
+  if (/^(none|nobody|off)$/i.test(want)) {
+    await setFlag('player', 'sports_follow_team', 'none', player);
+    return { type: 'output', message: cur && cur !== 'none' ? `You stop following ${cur}.` : 'You already follow nobody.' };
+  }
+
+  // Resolve against the real standings so the stored spelling is the club's own,
+  // not whatever case the player typed — the widget renders the flag verbatim.
+  for (const code of Object.values(CODES)) {
+    const standings = await dispatchAction({ type: 'sportsleague.getStandings', actor: player, params: { sport: code.id } }).catch(() => null);
+    const rows = standings?.rows || [];
+    const exact = rows.find(r => String(r.team).toLowerCase() === want.toLowerCase());
+    const near = exact || rows.find(r => String(r.team).toLowerCase().startsWith(want.toLowerCase()))
+      || rows.find(r => String(r.team).toLowerCase().includes(want.toLowerCase()));
+    if (near) {
+      await setFlag('player', 'sports_follow_team', near.team, player);
+      return { type: 'output', message: `<span class="msg-system">You follow <b>${near.team}</b>. Their results will find you.</span>` };
+    }
+  }
+  return { type: 'error', message: `No club by that name. "standings" lists them.` };
+}
+
 registerTabletApp({
   id: 'sports', name: 'Sports', icon: '🏆', category: 'General',
   buildHome, buildScreen, buildWidget, handleAction,

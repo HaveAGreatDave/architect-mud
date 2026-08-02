@@ -243,4 +243,31 @@ export default async function regress({ run, check, getPlayer }) {
     await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, RETRIEVE_QUEST_ID]);
     await query('DELETE FROM quests WHERE id=$1', [RETRIEVE_QUEST_ID]);
   }
+
+  // ── quest track / abandon ──────────────────────────────────────────────────
+  // Both were tablet buttons only: the Quests app was the sole caller of
+  // ABANDON_QUEST and the only writer of `players.tracked_quest_id` anywhere, so
+  // a player who didn't use the tablet could take a quest and never drop it.
+  {
+    // Bare `quest` still means the log — the subcommands must not have stolen it.
+    let r = await run('quest');
+    check('bare quest is still the log, not a usage error', r?.type !== 'error', JSON.stringify(r)?.slice(0, 120));
+
+    r = await run('quest track something that is not a quest');
+    check('quest track on an unheld quest is refused by name',
+      r?.type === 'error' || /no active quests/i.test(r?.message || ''), JSON.stringify(r)?.slice(0, 140));
+
+    // The destructive one is TWO steps on purpose: the app puts a confirm dialog
+    // in front of it, and a modal is the wrong answer for a typed verb (and for a
+    // screen reader). The confirmation is a second command they can re-read.
+    r = await run('quest abandon nonexistent quest name');
+    check('quest abandon on an unheld quest never claims to have abandoned it',
+      !/abandoned/i.test(r?.message || ''), JSON.stringify(r)?.slice(0, 140));
+
+    // `drop` and `untrack` are aliases; `drop` in particular must not be routed
+    // here as a top-level verb (it's the engine's inventory drop).
+    r = await run('drop');
+    check('the engine drop verb is untouched by quest abandon',
+      !/abandon/i.test(r?.message || ''), JSON.stringify(r)?.slice(0, 120));
+  }
 }

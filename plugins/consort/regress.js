@@ -784,6 +784,46 @@ export default async function regress({ check }) {
   try { _test.consortTick(); } catch { threw = true; }
   check('tick: sweeps the live world without throwing', threw === false);
 
+  // ── B.L.I.S.S. by typing ───────────────────────────────────────────────────
+  // The whole hire-and-place economy used to be tablet buttons only. What's
+  // load-bearing about the verb is the CONSENT GATE: B.L.I.S.S. is MIS content,
+  // so an unopted player must get the literal `Unknown command` the rest of the
+  // mature layer answers with — never a refusal, which would tell them there is
+  // something there to be refused (docs/systems-mis.md, the two-switch gate).
+  {
+    const { _test: bliss } = await import('./bliss-cmd.js');
+    const unopted = { id: 'regress_bliss_unopted', handle: 'Unopted' };
+    const gate = bliss.misGate(unopted, 'bliss place 1');
+    check('bliss: an unopted player is told the VERB does not exist',
+      gate?.type === 'error' && /unknown command/i.test(gate.message || ''), JSON.stringify(gate));
+    // The verb ITSELF is echoed — that's required, not a leak: a real unknown
+    // command echoes what you typed, so anything else would make this refusal
+    // distinguishable from a typo. What must never appear is a word describing
+    // what the verb WOULD have done.
+    const described = String(gate?.message || '').replace(/"[^"]*"/g, '');
+    check('bliss: ...and the refusal never describes the service',
+      !/consort|syndicate|placement|register|intimacy/i.test(described), described);
+    // It echoes the typed verb, like mis's own gate, so it's indistinguishable
+    // from a genuine typo.
+    check('bliss: ...echoing what they typed, as a real unknown command would',
+      /"bliss"/.test(gate?.message || ''), gate?.message);
+
+    // The register is addressed by POSITION — the catalogue is regenerated from a
+    // seed rather than stored, so its ids are opaque hashes nobody can type.
+    const LISTINGS = [
+      { id: 'aaa', kind: 'solo', rate: 100, members: [{ name: 'Marisol' }] },
+      { id: 'bbb', kind: 'pairing', rate: 300, members: [{ name: 'Ines' }, { name: 'Vera' }] },
+    ];
+    check('bliss: a slot number picks a listing', bliss.pickListing(LISTINGS, '2')?.id === 'bbb');
+    check('bliss: ...and so does a name', bliss.pickListing(LISTINGS, 'Marisol')?.id === 'aaa');
+    check('bliss: ...case-insensitively', bliss.pickListing(LISTINGS, 'marisol')?.id === 'aaa');
+    check('bliss: either half of a pair finds the pairing', bliss.pickListing(LISTINGS, 'Vera')?.id === 'bbb');
+    check('bliss: an out-of-range slot is nothing, not the last one',
+      bliss.pickListing(LISTINGS, '9') === null, JSON.stringify(bliss.pickListing(LISTINGS, '9')));
+    check('bliss: a bare number that is not one is refused', bliss.pickListing(LISTINGS, '0') === null);
+    check('bliss: an empty argument picks nothing', bliss.pickListing(LISTINGS, '') === null);
+  }
+
   // Housekeeping — don't leave regress ids in the shared in-memory maps.
   for (const id of ['regress_consort_a', 'regress_deck', 'p_a', 'p_b']) {
     _test.arousal.delete(id); _test.lastSpoke.delete(id); _test.moodCap.delete(id);

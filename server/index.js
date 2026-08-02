@@ -68,6 +68,7 @@ import { getMotd } from "./engine/motd.js";
 import { openShopSession, closeShopSession } from "./engine/vendor-session.js";
 import { getSoundReach } from "./engine/sounds.js";
 import { getFlag, hydratePlayerFlags, evictPlayerFlags } from "./engine/flags.js";
+import { hydrateDisplayRung, loggedPanelsSync } from "./engine/presentation.js";
 import { hydrateRelations, flushRelations } from "./engine/relations.js";
 import { hydrateIdeologyProfile } from "./engine/ideologies.js";
 import { DOMINANT_FLAG, SECOND_FLAG } from "./engine/senses.js";
@@ -110,6 +111,14 @@ setInterval(
 setGhostTokenStore((token, playerId, zoneId) => {
 	ghostTokens.set(token, { playerId, zoneId, expires: Date.now() + 2 * 60 * 1000 });
 });
+
+// Mark a room description for the scrolling log when the player is on the bottom
+// Display Mode rung. Only `look`/`move` carry one; everything else is already a
+// log message. See the note at the handleCommand call site.
+function stampToLog(player, message) {
+	if (!message || (message.type !== 'look' && message.type !== 'move')) return message;
+	return loggedPanelsSync(player) ? { ...message, toLog: true } : message;
+}
 
 function broadcast(
 	zoneId,
@@ -1053,6 +1062,11 @@ async function finishAuth(ws, session, player) {
 		hydrateIdeologyProfile(livePlayer),
 		hydratePlayerFlags(livePlayer),
 	]);
+	// Latch the Display Mode rung onto the live player, AFTER the flag cache is
+	// warm so this costs nothing. The room-look renderer runs on every move and
+	// cannot await a preference; it reads this latch instead (presentation.js
+	// loggedPanelsSync). Same discipline flight uses for `player.textTravel`.
+	await hydrateDisplayRung(livePlayer);
 	// Seed the resource diff-gate stamp (Phase 6) from the freshly-loaded row so
 	// the first resourceTick after login doesn't write values that never changed.
 	livePlayer._lastSavedResources = {
@@ -1287,6 +1301,17 @@ async function handleGameCommand(ws, session, msg) {
 		return;
 	}
 	const result = await handleCommand(msg.command, player, broadcast);
+	// DISPLAY MODE `log` RIDES EVERY REPLY TOO, for the same reason as the sleep
+	// state below: the room description is built at half a dozen sites
+	// (movement.js, world.js, the login look, gametable's paneOrLook) and there is
+	// no single place that constructs one. Stamping it on the way OUT is the one
+	// site that cannot drift.
+	//
+	// This is the substantive half of the bottom rung. A look normally goes to the
+	// top pane and NEVER touches #output, so a player reading through the log
+	// alone would walk from room to room hearing nothing about where they are.
+	// `toLog` tells the client to append it as well.
+	// Sync by contract — reads the latch hydrated at login, never awaits.
 	// SLEEP STATE RIDES EVERY REPLY. There are six ways sleep can end (waking,
 	// `wake`, any command, the loop, two flavours of being attacked in your bed)
 	// and no single funnel that clears `player.sleeping`. Rather than teach all
@@ -1295,7 +1320,7 @@ async function handleGameCommand(ws, session, msg) {
 	// about to send. One site, and it cannot drift out of sync with the server.
 	ws.send(JSON.stringify({ type: 'sleep_state', sleeping: !!player.sleeping, dreaming: !!player.sleeping?.inDream }));
 	if (result) {
-		ws.send(JSON.stringify(result));
+		ws.send(JSON.stringify(stampToLog(player, result)));
 		if (result.player_update)
 			ws.send(
 				JSON.stringify({

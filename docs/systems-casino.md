@@ -172,7 +172,10 @@ persists the game-wide **Display Mode** (`player_flags.display_mode`, see
 [server/engine/presentation.js](../server/engine/presentation.js)) — the same
 preference the flight display reads, so `text` at the felt also stops the 3D
 cockpit opening later; that is deliberate, there is one switch and these verbs
-are handles on it — and — if you're at a table — flips the
+are handles on it. It writes the **middle** rung (`textgames`), never the bottom
+one: how you chose to play cards must not take away your map and hangar bay as a
+side effect. A player already on `log` stays there, since dropping them a rung
+would hand back panels they had turned off — and — if you're at a table — flips the
 top pane immediately (returns the room `look` for text, the `poker_update` pane
 for visual). `pushPaneAll` skips text-mode players so their room view isn't
 re-covered on every action, and the `Set` is the hot-path check so narration

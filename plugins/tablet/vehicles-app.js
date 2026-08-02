@@ -105,10 +105,15 @@ async function buildScreen(player, screenId, params) {
 // this vehicle's screen on failure or fall back to the fleet list once she's gone.
 async function handleAction(player, actionId, params) {
   // Fleet-level recovery: ground any of the player's aircraft stranded airborne.
+  // Routed through the `flushairborne` VERB rather than calling flushAirborne()
+  // directly — this button used to be the only door to that function anywhere in
+  // the codebase, which made an unrecoverable aircraft a permanent loss for a
+  // player who didn't use the tablet. Now the verb is the implementation and the
+  // button is one of its callers, the way the Kit screen sits over `equip`.
   if (actionId === 'flush_airborne') {
-    const { flushAirborne } = await import('../flight/hangars.js');
-    const n = await flushAirborne(player);
-    sendToPlayer(player.id, { type: 'output', message: `<span class="msg-system">${n ? `Grounded ${n} aircraft that ${n === 1 ? 'was' : 'were'} stuck aloft.` : 'No stranded aircraft to flush.'}</span>` });
+    const { commands: hangarCommands } = await import('../flight/hangars.js');
+    const res = await hangarCommands.flushairborne([], 'flushairborne', player);
+    if (res?.message) sendToPlayer(player.id, { type: 'output', message: res.message });
     return buildScreen(player, null, '');
   }
 

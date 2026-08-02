@@ -53,6 +53,7 @@
  *               INTO the shop when nobody's home.
  */
 import { randomUUID } from 'crypto';
+import { textRender } from '../../server/engine/minigame.js';
 import { query, withTransaction } from '../../server/models/db.js';
 import { getZone, world, getLivePlayer, setDoorCache, getZoneFurniture } from '../../server/engine/world.js';
 import { adjustCredits } from '../../server/engine/economy.js';
@@ -667,14 +668,14 @@ async function cmdHackVault(args, raw, player, broadcast) {
     `${guard ? ` ${guard.name} is on the floor.` : ''}</span>` });
 
   _vaultPending.set(player.id, { vaultId: vault.id, expires: Date.now() + VAULT_PENDING_TTL_MS });
-  return {
+  return textRender(player, {
     type: 'vault_crack',
     safeId: vault.id,
     deviceName: vault.name,
     skill: await effectiveSkill(player, 'hacking'),
     difficulty: await hackDifficulty(player.id, vault.flags?.hack_difficulty, 6),
     resolveCmd: 'tillcrackresolve',
-  };
+  });
 }
 
 // tillcrackresolve <vaultId> <1|0> — the overlay reports its own outcome; the

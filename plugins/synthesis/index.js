@@ -18,6 +18,7 @@
  * recipes/reagents/labs are content.
  */
 import { query, withTransaction } from '../../server/models/db.js';
+import { textRender } from '../../server/engine/minigame.js';
 import { getRecipeCache, findRecipeByName } from '../../server/engine/crafting.js';
 import { skillCheck, awardSkillUse, skillStatBonus, effectiveSkill } from '../../server/engine/skills.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
@@ -166,13 +167,16 @@ async function cmdCook(args, raw, player, broadcast) {
   const drug = drugForOutput(recipe); const tier = cookTier(drug); const family = cookFamily(drug); const difficulty = cookDiff(tier);
   const nonce = randomUUID().slice(0, 8); // one-shot token: the client echoes it on resolve, so a cook can't be resolved without being armed here
   pendingSynth.set(player.id, { recipeId: recipe.id, nonce, contextBonus: ws.contextBonus, mode: ws.mode, labId: ws.labId, tier, family, difficulty, ts: Date.now() });
-  return {
+  // The cook game has no character board, so at `textgames` this falls back UP to
+  // the graphical one (correct — that rung's audience can see it). At `log` the
+  // server resolves it instead, because opening a canvas there is a dead end.
+  return textRender(player, {
     type: 'synth_minigame',
     recipeId: recipe.id, nonce,
     recipeName: drug?.name || recipe.name,
     family, form: drug?.flags?.form || null, tier, difficulty,
     workspace: ws.label,
-  };
+  });
 }
 
 async function cmdSynthResolve(args, raw, player, broadcast) {
@@ -553,12 +557,12 @@ async function cmdSpliceBegin(args, raw, player, broadcast) {
   const automated = await automatedStages(player);
   const autoScore = Math.round(50 + Math.max(0, Math.min(10, eff)) / 10 * 45);
 
-  return {
+  return textRender(player, {
     type: 'synth_minigame', kind: 'splice', token,
     recipeName: name || `${inputs[0].name} splice`,
     difficulty: comp.difficulty, hard: true, instability: comp.instability, workspace: ws.label,
     automated, autoScore,
-  };
+  });
 }
 
 // Report card: the blended minigame+skill margin as a letter grade → potency.

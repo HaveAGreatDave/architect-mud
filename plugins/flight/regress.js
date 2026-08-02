@@ -753,10 +753,30 @@ export default async function regress({ run, check, getPlayer }) {
   // text-only rider by reading a property, never by awaiting a flag.
   await clearFlag('player', TEXT_TRAVEL_FLAG, p);
   check('text travel is OFF by default', (await prefersTextTravel(p)) === false);
+  // The legacy word — still the bottom rung, so an existing text player is
+  // unchanged by the ladder landing.
   await setFlag('player', TEXT_TRAVEL_FLAG, 'text', p);
-  check('Display Mode: text turns text travel on', (await prefersTextTravel(p)) === true);
+  check('the legacy "text" value still turns text travel on', (await prefersTextTravel(p)) === true);
+  await setFlag('player', TEXT_TRAVEL_FLAG, 'log', p);
+  check('...and so does the bottom rung by its real name', (await prefersTextTravel(p)) === true);
   await setFlag('player', TEXT_TRAVEL_FLAG, 'visual', p);
   check('an explicit visual reads as off (not merely "set")', (await prefersTextTravel(p)) === false);
+  // THE AXIS SPLIT — the subtle half of the ladder, and the thing most likely to
+  // be got wrong by a future call site. RIDING is a panel: delete the cabin window
+  // and the player is not stuck, so it only goes away on the bottom rung. FLYING
+  // is a minigame: delete the cockpit and the aircraft is unusable, so the text
+  // cockpit arrives one rung earlier. A player on `textgames` therefore flies by
+  // command AND keeps the view when they're only a passenger — which is precisely
+  // what the middle rung is for.
+  await setFlag('player', TEXT_TRAVEL_FLAG, 'textgames', p);
+  check('a textgames player still gets the cabin window as a PASSENGER',
+    (await prefersTextTravel(p)) === false, 'the middle rung took the window away');
+  {
+    const { prefersTextMinigamesOrDefault } = await import('../../server/engine/presentation.js');
+    check('...but flies by command as a PILOT',
+      (await prefersTextMinigamesOrDefault(p)) === true, 'the middle rung left the 3D cockpit on');
+  }
+
   // A player who set the OLD flight-only flag before the two switches merged must
   // still get what they asked for — presentation.js keeps it as a read-only fallback.
   await clearFlag('player', TEXT_TRAVEL_FLAG, p);

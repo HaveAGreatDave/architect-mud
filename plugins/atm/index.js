@@ -1,4 +1,5 @@
 import { query, withTransaction } from '../../server/models/db.js';
+import { textRender } from '../../server/engine/minigame.js';
 import { getZone, getZoneNpcs, updateFurniture, deleteFurniture } from '../../server/engine/world.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { transferCredits } from '../../server/engine/economy.js';
@@ -485,14 +486,17 @@ async function cmdJack(args, raw, player) {
   // the length of the jacked-in session (see plugins/surveillance activeCrimes).
   emit('atm.jacked', { player, zoneId: atm.zone_id });
 
-  return {
+  // textRender stamps the payload for a player on a text Display Mode rung — the
+  // same board, drawn in characters. One line, no protocol change: the game runs
+  // client-side and reports through `jackresolve` either way.
+  return textRender(player, {
     type: 'circuit_hack',
     deviceId: atm.id,
     deviceName: atm.name,
     skill: await effectiveSkill(player, 'hacking'),
     difficulty: await hackDifficulty(player.id, atm.hack_difficulty),
     resolveCmd: 'jackresolve',
-  };
+  });
 }
 
 // A failed breach kicks a shock back up the cable — random 6-14 damage.

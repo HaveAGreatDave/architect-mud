@@ -1,6 +1,17 @@
 {
   "name": "trade",
   "version": "1.0.0",
-  "description": "Two-sided player trade window — the default interface for exchanging items AND credits safely. `trade <player>` opens a shared two-panel window; each side stakes items/credits, any change unlocks both sides (anti-scam), and the atomic swap only happens once BOTH lock in. Buttons drive the same `tradeoffer`/`traderetract`/`tradeready` commands you can also type.",
-  "commands": ["trade", "tradeoffer", "traderetract", "tradeready", "tradecancel"]
+  "description": "Two-sided player trade window — the default interface for exchanging items AND credits safely. `trade <player>` opens a shared two-panel window; each side stakes items/credits, any change unlocks both sides (anti-scam), and the atomic swap only happens once BOTH lock in. Buttons drive the same `tradeoffer`/`traderetract`/`tradeready` commands you can also type. Every state change now also writes the offers to the LOG — staking, retracting, locking and unlocking were silent, so a closed window left no trace of what was agreed. At the bottom Display Mode rung no panel is sent at all and the log IS the trade window.",
+  "commands": [
+    "trade",
+    "tradeoffer",
+    "traderetract",
+    "tradeready",
+    "tradecancel"
+  ],
+  "commandMeta": {
+    "trade": {
+      "note": "`trade status` (aliases check/show) re-reads both offers on demand, for EVERY player and not just text rungs: the anti-scam rule (any change unlocks both sides) is only a protection if you can check what you are locking in against, and a few lines of combat spam lose the panel history too."
+    }
+  }
 }

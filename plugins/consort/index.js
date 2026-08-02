@@ -48,6 +48,7 @@ import { getZoneTemperature, getZoneSeverity, getWeatherDescription } from '../.
 import { impairmentOf } from '../../server/engine/impairment.js';
 import { rehydrateConsorts, consortRowsOf, privateSpacesOf } from './hire.js';
 import './bliss-app.js';   // registers the B.L.I.S.S. tablet app (MIS-gated)
+import { cmdBliss } from './bliss-cmd.js';   // …and the same register, by typing
 
 // ── Tunables ────────────────────────────────────────────────────────────────
 // Deliberately unhurried: these beats are meant to land rarely and mean something,
@@ -2349,6 +2350,11 @@ export const commands = {
   beckon:  cmdBeckon,
   dismiss: cmdDismiss,
   pour:    cmdPour,
+  // The register, by typing. Until this existed, hiring/placing/releasing a
+  // consort was reachable ONLY through the tablet's B.L.I.S.S. app — the whole
+  // acquisition economy was behind three buttons. MIS-gated identically to the
+  // app: unopted players get `Unknown command`, not a refusal.
+  bliss:   cmdBliss,
 };
 
 // ── Boot ────────────────────────────────────────────────────────────────────────

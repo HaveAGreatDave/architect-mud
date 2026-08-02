@@ -1,9 +1,14 @@
 {
   "name": "library",
-  "version": "1.0.0",
-  "description": "The acquisition point for the tablet's LIBRARY app. The books live in the `books` table and are read through plugins/tablet/library-app.js; this plugin exists so the app ARRIVES rather than simply being there. SCAN at furniture tagged `lending_terminal` sets the `library_unlocked` player flag, which is the only thing library-app.js's `visible` gate checks — before that the app is not on the home screen at all. The first scan prints an intro covering narration, minimize-and-keep-reading, the tap-to-gloss vocabulary layer, and per-book bookmarks; later scans are a gentle no-op. Examining a terminal teaches the verb once via the house shimmer convention. Leaf plugin: no table, no tick.",
+  "version": "1.1.0",
+  "description": "The books. They live in the `books` table (readTier cold, never boot-loaded) and are read two ways over one shelf: the tablet's LIBRARY app (plugins/tablet/library-app.js) and this plugin's typed reader (`library`/`read`/`page`/`chapter`/`contents`). Both call plugins/library/books.js and share the `book_pos_<id>` bookmark, so a book put down in one is picked up in the other. SCAN at furniture tagged `lending_terminal` sets the `library_unlocked` player flag, which gates BOTH front ends — before that the app is not on the home screen and the verbs fall through. The first scan prints an intro covering narration, minimize-and-keep-reading, the tap-to-gloss vocabulary layer, and per-book bookmarks; later scans are a gentle no-op. Examining a terminal teaches the verb once via the house shimmer convention. Leaf plugin: no table, no tick.",
   "hooks": ["furniture.describe"],
-  "specializedActions": ["scan"],
+  "specializedActions": ["scan", "read"],
+  "commands": ["library", "books", "page", "chapter", "contents"],
+  "commandMeta": {
+    "read": { "note": "Shared verb — self-gates on a shelf title AND on `library_unlocked`, returning undefined so the bulletin/jail/jobboard/cooking readers still get their turn. Bare `read` deliberately falls through." },
+    "page": { "note": "Pagination is the typed reader's alone (`book_page_<id>`); the tablet scrolls a whole chapter and has no concept of a page, so teaching it one would make the two readers disagree about where you are." }
+  },
   "extensionPoints": [
     "furniture.flags.lending_terminal"
   ]

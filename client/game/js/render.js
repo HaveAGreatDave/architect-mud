@@ -229,6 +229,24 @@ function playNameMorphs(root) {
   for (const el of els) playNameMorph(el);
 }
 
+// Display Mode `log` — hide the top pane from assistive tech.
+//
+// At that rung everything in the pane also reaches #output (server/index.js
+// stamps `toLog`), so leaving it in the accessibility tree would make a screen
+// reader user navigate past a duplicate of what they just heard. It stays
+// VISIBLE — a sighted player who chose this rung for the scrollback still wants
+// to see the room — it simply stops being announced.
+//
+// The pane must never become a live region instead: it is replaced wholesale on
+// every look, so `aria-live` here would re-read the whole thing on every move and
+// queue ahead of the log.
+export function setPaneSilent(silent) {
+  const pane = document.getElementById('area-content');
+  if (!pane) return;
+  if (silent) pane.setAttribute('aria-hidden', 'true');
+  else pane.removeAttribute('aria-hidden');
+}
+
 export function setAreaPane(html, direction) {
   const el = document.getElementById('area-content');
   el.innerHTML = html;

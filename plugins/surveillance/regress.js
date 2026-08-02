@@ -271,4 +271,30 @@ export default async function regress({ run, check, getPlayer }) {
   await deleteFurniture(NEW_ID);
   await deleteFurniture(CAM_ID);
   await query('DELETE FROM security_devices WHERE id=$1', [CAM_ID]);
+
+  // ── Your own network, by typing ────────────────────────────────────────────
+  // deleteMicroreel / selfDestructDevice / patchCamToDeck were each called from
+  // exactly one SPECTER-app button, so scuttling a device or destroying a reel
+  // was impossible without a tablet. The two destructive ones are TWO-STEP: with
+  // no focused tile to disambiguate, the confirmation IS the disambiguation.
+  {
+    let x = await run('devices');
+    check('devices lists your own network rather than erroring', x?.type === 'output', JSON.stringify(x)?.slice(0, 140));
+
+    x = await run('destruct');
+    check('destruct with no target asks which, and points at devices',
+      x?.type === 'error' && /devices/i.test(x.message || ''), JSON.stringify(x)?.slice(0, 160));
+    x = await run('destruct nothing_of_that_name');
+    check('destruct on an unowned device is refused', x?.type === 'error', JSON.stringify(x)?.slice(0, 140));
+    check('...and never claims to have destroyed it', !/gone|smoke/i.test(x?.message || ''), x?.message);
+
+    x = await run('crush');
+    check('crush with no chip is refused', x?.type === 'error', JSON.stringify(x)?.slice(0, 140));
+    x = await run('crush nothing_of_that_name');
+    check('crush on a chip you do not carry is refused', x?.type === 'error', JSON.stringify(x)?.slice(0, 140));
+    check('...and never claims to have destroyed it', !/isn't anywhere/i.test(x?.message || ''), x?.message);
+
+    x = await run('cast');
+    check('cast with no camera asks which', x?.type === 'error', JSON.stringify(x)?.slice(0, 140));
+  }
 }

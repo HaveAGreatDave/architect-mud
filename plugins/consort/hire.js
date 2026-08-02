@@ -93,6 +93,46 @@ export async function consortRow(id) {
 
 // Everyone in the same pairing as this row (including the row itself). A single
 // placement returns just itself — release/billing treat both shapes identically.
+// What the player currently keeps, collapsed so a matched pair reads as ONE
+// entry — it bills and releases as a single unit, and listing the two halves
+// separately would invite trying to release one.
+//
+// This lives here rather than in bliss-app.js because there are now two front
+// ends over it (the tablet app and the `bliss` verb), and the retainer arithmetic
+// is exactly the sort of thing that drifts when it's written twice: one of them
+// would eventually show the base rate where the other showed the loyalty-adjusted
+// one, and a player would be told two different daily costs for the same people.
+export async function arrangementEntries(playerId) {
+  const rows = await consortRowsOf(playerId);
+  const seen = new Set();
+  const entries = [];
+  for (const r of rows) {
+    if (seen.has(r.id)) continue;
+    const group = r.pairing_id ? rows.filter(x => x.pairing_id === r.pairing_id) : [r];
+    group.forEach(g => seen.add(g.id));
+    const todayRate = group.reduce((s, g) => s + effectiveRate(g.daily_rate, g.days_kept), 0);
+    const baseRate = group.reduce((s, g) => s + g.daily_rate, 0);
+    entries.push({
+      id: r.id,
+      row: r,
+      names: group.map(g => g.name),
+      pairing: r.pairing_id ? (PAIRINGS[group.map(g => g.archetype).sort().join('_')]?.label || 'A matched pair') : null,
+      daysKept: r.days_kept || 0,
+      tier: loyaltyTier(r.days_kept || 0),
+      baseRate,
+      todayRate,
+      saving: Math.max(0, baseRate - todayRate),
+      missed: r.missed || 0,
+      zone: r.home_zone,
+      // A house placement is listed like any other — that's the whole point of
+      // showing it — but it carries no retainer and cannot be released: the
+      // Syndicate did not place them and has no say in it.
+      house: !!r.house,
+    });
+  }
+  return entries;
+}
+
 export async function pairMembers(row) {
   if (!row?.pairing_id) return row ? [row] : [];
   const { rows } = await query(

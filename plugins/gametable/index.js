@@ -12,7 +12,7 @@ import { renderHandASCII } from './cards.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { on } from '../../server/engine/events.js';
-import { prefersTextDisplay, setDisplayMode } from '../../server/engine/presentation.js';
+import { prefersTextMinigames, setDisplayRung, displayRung } from '../../server/engine/presentation.js';
 import { textModePlayers, isTextMode } from './text-mode.js';
 import { isVendorWorkTime } from '../../server/engine/ai-behaviour.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
@@ -89,12 +89,16 @@ function tableInZone(zoneId, name = null) {
 // never expressed a view — and `text`/`visual` flip freely from there at any
 // table. (It used to be a hard override that made `visual` impossible.)
 //
-// The stored choice is the game-wide Display Mode (server/engine/presentation.js),
-// shared with the flight display: "I want words, not pictures" is one preference,
-// not one per system. Its tri-state is what keeps the textTable default alive —
-// `undefined` means never chosen, which is not the same as "visual".
+// The stored choice is the game-wide Display Mode ladder
+// (server/engine/presentation.js). Poker is a COMPOSITE surface — the felt both
+// shows the board and is how you bet — so by the classification rule it goes with
+// its blocking half and reads the MINIGAME axis: text from the `textgames` rung
+// onward, not just at `log`.
+//
+// Its tri-state is what keeps the textTable default alive — `undefined` means
+// never chosen, which is not the same as "visual".
 async function ensureTextPref(player, table) {
-  const v = await prefersTextDisplay(player);
+  const v = await prefersTextMinigames(player);
   const wantsText = v === true ? true
     : v === false ? false
     : !!table?.config?.textTable;   // no stored choice → the table's default
@@ -565,10 +569,18 @@ async function cmdPlayers(args, raw, player) {
 // It writes the GAME-WIDE preference (Tablet → Settings → Display Mode), so
 // `text` at the felt also stops the 3D cockpit opening later. That's deliberate:
 // there is one switch, and this is one of its handles.
+//
+// It moves the MINIGAME axis only. `text` here must not take away somebody's map
+// and hangar bay as a side effect of how they wanted to play cards, so it lands
+// on `textgames` rather than the bottom rung — unless they are ALREADY at `log`,
+// in which case leaving them there is the honest no-op (dropping them a rung
+// would silently hand back panels they had turned off).
 async function applyPokerView(player, toText) {
   if (toText) textModePlayers.add(player.id);
   else textModePlayers.delete(player.id);
-  await setDisplayMode(player, toText);
+  const rung = await displayRung(player);
+  if (toText) { if (rung !== 'log') await setDisplayRung(player, 'textgames'); }
+  else await setDisplayRung(player, 'visual');
 
   const y = s => `<span style="color:var(--yellow)">${s}</span>`;
   const note = toText

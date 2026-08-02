@@ -946,8 +946,37 @@ export async function flushAirborne(player) {
 // (unlike the tablet) refreshes the whole floor rather than round-tripping a
 // screen payload. `sell` is claimed only when the leading token is a real
 // aircraft id (popCraftId); anything else is ordinary item-selling → commerce.
+// Resolve an aircraft the player OWNS from what they typed: an internal id (what
+// the panel's buttons pass) or the tail name they actually call her by. The tail
+// is the whole point — an id is not a thing a player can see, let alone type, so
+// before this these two verbs were reachable only by clicking. Ambiguity is
+// reported rather than guessed at: selling is not reversible.
+async function ownedCraftByName(player, words, { rentalsOnly = false } = {}) {
+  const q = words.join(' ').trim().toLowerCase();
+  if (!q) return { error: null };                    // no argument — caller decides
+  const { rows } = await query(
+    `SELECT a.id, a.name, a.rental, t.name AS type_name
+       FROM aircraft a JOIN aircraft_types t ON t.id = a.type_id
+      WHERE a.owner_id=$1 AND a.is_wreck=0 ${rentalsOnly ? 'AND a.rental=1' : ''}`,
+    [player.id]
+  );
+  const norm = r => String(r.name || r.type_name || '').toLowerCase();
+  const hits = rows.filter(r => norm(r) === q)
+    .concat(rows.filter(r => norm(r) !== q && norm(r).startsWith(q)));
+  if (!hits.length) return { error: `You have no ${rentalsOnly ? 'rental' : 'aircraft'} called "${words.join(' ')}".` };
+  if (hits.length > 1) return { error: `Which one? ${hits.map(r => `<b>${clean(r.name || r.type_name)}</b>`).join(', ')}` };
+  return { id: hits[0].id, name: hits[0].name || hits[0].type_name };
+}
+
 async function cmdSell(args, raw, player, broadcast) {
-  const { id } = popCraftId(args);
+  let { id, rest } = popCraftId(args);
+  if (!id && rest.length) {
+    // Not an id — it may still be a tail name. Only if it resolves to one of the
+    // player's own aircraft do we claim the verb; anything else is commerce's
+    // item-sell, which is what `sell` means to almost everybody.
+    const byName = await ownedCraftByName(player, rest);
+    if (byName.id) id = byName.id;
+  }
   if (!id) return commerceCommands.sell(args, raw, player, broadcast);
   const res = await sellAircraft(player, id);
   out(player.id, res.message);
@@ -956,11 +985,43 @@ async function cmdSell(args, raw, player, broadcast) {
 }
 
 async function cmdCancelRental(args, raw, player) {
-  const { id } = popCraftId(args);
-  if (!id) return { type: 'emote', message: "Cancel which rental? Use the hangar bay panel." };
+  let { id, rest } = popCraftId(args);
+  if (!id && rest.length) {
+    const byName = await ownedCraftByName(player, rest, { rentalsOnly: true });
+    if (byName.error) return { type: 'error', message: byName.error };
+    id = byName.id;
+  }
+  if (!id) {
+    const { rows } = await query(
+      `SELECT a.name, t.name AS type_name FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id
+        WHERE a.owner_id=$1 AND a.rental=1 AND a.is_wreck=0`, [player.id]);
+    if (!rows.length) return { type: 'error', message: 'You have no rentals to cancel.' };
+    // Exactly one rental needs no disambiguation — asking "which one?" when there
+    // is only one is the panel talking, not the game.
+    if (rows.length === 1) {
+      const only = await ownedCraftByName(player, [String(rows[0].name || rows[0].type_name)], { rentalsOnly: true });
+      if (only.id) id = only.id;
+    }
+    if (!id) return { type: 'error', message: `Cancel which rental? ${rows.map(r => `<b>${clean(r.name || r.type_name)}</b>`).join(', ')}` };
+  }
   const res = await cancelRental(player, id);
   out(player.id, res.message);
   return pushHangarBay(player);
+}
+
+// `flushairborne` — the ONLY way to recover a craft stuck showing "Airborne" with
+// nobody aboard (a crashed tab, a lost connection, a server restart). Until now it
+// existed solely as a button on the tablet's Vehicles app, which made a plane a
+// player couldn't fly, sell or manage into a permanent loss for anyone who didn't
+// use the tablet. It's an anti-stuck recovery, so it must be reachable by typing.
+async function cmdFlushAirborne(args, raw, player) {
+  const n = await flushAirborne(player);
+  return {
+    type: 'output',
+    message: n
+      ? `<span class="msg-system">Grounded ${n} aircraft that ${n === 1 ? 'was' : 'were'} stuck aloft.</span>`
+      : 'No stranded aircraft to flush.',
+  };
 }
 
 export const commands = {
@@ -983,4 +1044,6 @@ export const commands = {
   loadout: cmdLoadout,
   sell: cmdSell,
   cancelrental: cmdCancelRental,
+  flushairborne: cmdFlushAirborne,
+  groundall: cmdFlushAirborne,
 };

@@ -632,7 +632,15 @@
 		<div id="main">
 			<div id="output-container">
 				<div id="area-pane">
-					<div id="area-content"></div>
+					<!-- The top pane is REPLACED wholesale on every look/panel push
+					     (render.js setAreaPane sets innerHTML). That is the one update
+					     shape assistive tech can't follow, so it must never be a live
+					     region: marking it aria-live would re-announce the entire pane
+					     on every repaint, and at a text-panel's frame rate that is an
+					     unusable torrent that also queues ahead of the log.
+					     A labelled region instead — findable on demand, silent by
+					     default. The scrolling log below is the thing that speaks. -->
+					<div id="area-content" role="region" aria-label="Location"></div>
 				</div>
 				<div id="look-resize-handle">
 					<span id="mob-room-name-bar"></span>
@@ -643,7 +651,15 @@
 					>
 					<span id="area-pane-toggle" aria-hidden="true">▼</span>
 				</div>
-				<div id="output"></div>
+				<!-- The game's voice. `role="log"` is doing real work: it implies
+				     polite announcement of ADDITIONS ONLY, which is exactly the shape
+				     of this element (render.js appendHtml appends one div.msg and never
+				     rewrites what's there). Without it nothing in the client is
+				     announced at all and a screen-reader player has to re-navigate here
+				     after every command to find out what happened.
+				     Keep it the ONLY live region in the client — two of them interleave
+				     and the listener can't tell which is speaking. -->
+				<div id="output" role="log" aria-label="Game log"></div>
 				<div id="bottom-input-wrap">
 				<div id="bottom-stack">
 				<!-- Shown only while asleep. The `wake` verb exists, but a dreamer has no
@@ -673,9 +689,12 @@
 				</div>
 				<div id="input-area">
 					<span id="prompt">&gt;</span>
+					<!-- aria-label, not the placeholder: a placeholder is not a label,
+					     and several screen readers drop it once anything is typed. -->
 					<input
 						type="text"
 						id="cmd-input"
+						aria-label="Command input"
 						placeholder="Type a command..."
 						autocomplete="off"
 						spellcheck="false" />

@@ -13,6 +13,7 @@
  * triggers a 5-minute lockout per player.
  */
 import { query } from '../../server/models/db.js';
+import { textRender } from '../../server/engine/minigame.js';
 import { getZone, getZoneNpcs, world, updateNpc } from '../../server/engine/world.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { adjustCredits } from '../../server/engine/economy.js';
@@ -154,14 +155,14 @@ async function cmdHack(args, raw, player, broadcast) {
   }
 
   _pending.set(player.id, { safeId: safe.id, expires: Date.now() + PENDING_TTL_MS });
-  return {
+  return textRender(player, {
     type: 'vault_crack',
     safeId: safe.id,
     deviceName: safe.name,
     skill: await effectiveSkill(player, 'hacking'),
     difficulty: await hackDifficulty(player.id, flags.hack_difficulty),
     resolveCmd: 'safecrackresolve',
-  };
+  });
 }
 
 // safecrackresolve <safeId> <1|0> — silent; the Vault Crack overlay fires this

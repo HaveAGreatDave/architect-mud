@@ -24,7 +24,11 @@
     "bribe",
     "scrub",
     "apprehendresolve",
-    "purge"
+    "purge",
+    "devices",
+    "destruct",
+    "cast",
+    "crush"
   ],
   "hooks": [
     "zone.delete"
@@ -82,6 +86,26 @@
       "discoverVia": "furniture:security_device",
       "exposed": false,
       "note": "KNOWN GAP: breaches a swept-out device furniture; no examine/sweep hint."
+    },
+    "devices": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "Lists your own deployed units. Exists because destruct/cast have no discoverable targets otherwise — a device id is a uuid and the SPECTER app was the only thing that ever showed you the list."
+    },
+    "destruct": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "Remote-scuttles one of your own units. TWO-STEP (… confirm): destroyed, never recovered, and unlike the app there is no focused tile to disambiguate, so the confirmation doubles as the disambiguation. Was a SPECTER-app button only."
+    },
+    "cast": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "Patches one of your cameras onto a consumer deck in this room (toggles). Delegates the whole rule to broadcast patchCamToDeck. Was a SPECTER-app button only. NOTE: the bare word is currently free, but it is the natural verb for fishing too — if fishing ever wants it, rename this one."
+    },
+    "crush": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "Destroys a saved microreel. The reel IS the datachip you carry, so this destroys a tradeable object — two-step, and named for what happens to the chip. Was a SPECTER-app button only."
     }
   }
 }

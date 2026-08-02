@@ -12,13 +12,22 @@
     "codex",
     "vitals",
     "health",
-    "displaymode"
+    "displaymode",
+    "remind",
+    "wire",
+    "support",
+    "findbench"
   ],
   "actions": {
-    "registers": ["CODEX_UNLOCK"]
+    "registers": [
+      "CODEX_UNLOCK"
+    ]
   },
   "events": {
-    "consumes": ["vendor.purchase", "zone.entered"],
+    "consumes": [
+      "vendor.purchase",
+      "zone.entered"
+    ],
     "emits": []
   },
   "dataSchema": [

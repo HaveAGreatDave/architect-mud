@@ -21,6 +21,7 @@ import { sendToPlayer, teachVerb, pointAt } from '../../server/engine/messaging.
 import { hasTag } from '../../server/engine/tags.js';
 import { UNLOCK_FLAG } from '../tablet/library-app.js';
 import { installTabletApp } from '../tablet/index.js';
+import { cmdRead, cmdLibrary, cmdPage, cmdChapter, cmdContents } from './read.js';
 
 // Any furniture tagged `lending_terminal` — the tag is the contract, so a second
 // library elsewhere needs no code.
@@ -147,7 +148,23 @@ async function onFurnitureDescribe(furniture, player) {
 
 export const specializedActions = [
   { verb: 'scan', requiredTag: 'lending_terminal', handler: cmdScan },
+  // `read <book>` joins the bulletin board, the charge sheet, the job board and a
+  // recipe card on the shared `read` verb. It self-gates hard — unknown title or
+  // no library unlocked means `undefined`, so every other reader still gets its
+  // turn. See read.js for why bare `read` deliberately falls through.
+  { verb: 'read', handler: cmdRead },
 ];
+
+// The typed reader. The books were always here; until these existed the only way
+// to open one was to tap the tablet, which meant a player who couldn't use the
+// tablet had no access to the entire content set.
+export const commands = {
+  library: cmdLibrary,
+  books: cmdLibrary,
+  page: cmdPage,
+  chapter: cmdChapter,
+  contents: cmdContents,
+};
 
 export const hooks = {
   'furniture.describe': onFurnitureDescribe,

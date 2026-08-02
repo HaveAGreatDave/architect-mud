@@ -119,19 +119,55 @@ function tick(t) {
     else s.cap = Math.max(0, s.cap - s.capDrain * dt);
     s.trace = Math.min(100, s.trace + (s.traceRate + (s.over ? s.traceRate * 1.1 : 0)) * dt);
 
-    const lockEl = _overlay.querySelector('.sh-lock');
-    if (lockEl) { lockEl.textContent = locked ? 'LOCKED' : '—'; lockEl.classList.toggle('on', locked); }
+    s.locked = locked;   // a skin reads this rather than a DOM node
+    if (!_skin) {
+      const lockEl = _overlay.querySelector('.sh-lock');
+      if (lockEl) { lockEl.textContent = locked ? 'LOCKED' : '—'; lockEl.classList.toggle('on', locked); }
+    }
 
     if (s.cap >= 100) return finish(true, 'CARRIER OVERPOWERED — STATION SEIZED');
     if (s.trace >= 100) return finish(false, 'TRACE COMPLETE — TRANSMITTER BURNED');
   }
 
-  const capEl = _overlay.querySelector('.sh-cap');
-  if (capEl) capEl.textContent = Math.round(s.cap) + '%';
-  setDeckLevel(_overlay, s.trace / 100);
-  render();
+  if (_skin) { _skin.frame(s); }
+  else {
+    const capEl = _overlay.querySelector('.sh-cap');
+    if (capEl) capEl.textContent = Math.round(s.cap) + '%';
+    setDeckLevel(_overlay, s.trace / 100);
+    render();
+  }
   _raf = requestAnimationFrame(tick);
 }
+
+// ── The SKIN seam ────────────────────────────────────────────────────────────
+// Everything above is the HIJACK — lock width, drift speed, hop rate, decoy
+// count, capture fill/drain and the TRACE rate, all scaled off skill-vs-
+// difficulty. Everything below is one way of drawing it.
+//
+// textsignal.js installs a skin and runs the identical capture in characters: the
+// same carrier drifting and hopping, the same decoys mimicking it, the same lock
+// tolerance. A spectrum band is a row of cells; the tuner window is a pair of
+// brackets. It stays a real-time tracking game, which is the point of the middle
+// rung.
+let _skin = null;
+export function setSignalSkin(skin) { _skin = skin; }
+
+export function startSignalGame(opts) {
+  _opts = { skill: 4, difficulty: 5, stationName: 'STATION', onResult: null, ...opts };
+  _state = generate(_opts.skill, _opts.difficulty);
+  _lastT = performance.now();
+  _raf = requestAnimationFrame(tick);
+  return _state;
+}
+export function stopSignalGame() {
+  if (_raf) cancelAnimationFrame(_raf);
+  _raf = 0; _state = null;
+}
+// The band width, so a skin can map cells onto the same coordinate space the
+// carrier drifts in — otherwise the two renderers disagree about where it is.
+export const SIGNAL_W = W;
+export { sweep as signalSweep, setOver as signalOverdrive };
+export function signalTune(delta) { if (_state) _state.keyNudge = (_state.keyNudge || 0) + delta; }
 
 // ── Render ──────────────────────────────────────────────────────────────────
 function drawPeak(ctx, x, amp, col, tag) {
@@ -173,7 +209,10 @@ function render() {
 }
 
 // ── Actions ─────────────────────────────────────────────────────────────────
-function setStatus(html) { const el = _overlay?.querySelector('.sh-status'); if (el) el.innerHTML = html; }
+function setStatus(html) {
+  if (_skin) return _skin.status(html);
+  const el = _overlay?.querySelector('.sh-status'); if (el) el.innerHTML = html;
+}
 
 function sweep() {
   const s = _state;
@@ -198,10 +237,12 @@ function finish(won, text) {
   s.done = won ? 1 : -1;
   cancelAnimationFrame(_raf); _raf = 0;
   s.over = false;
-  render();
+  if (!_skin) render();
   sfx(won ? 'hijack-win' : 'hijack-lose');
   setStatus(`<span class="${won ? 'sh-win' : 'sh-lose'}">&gt;&gt; ${text}</span>`);
   const cb = _opts?.onResult;
+  // A skin owns its own teardown — the character board is in the area pane.
+  if (_skin) { _skin.finish?.(s, won, text); if (cb) cb({ won }); return; }
   if (won) setTimeout(() => { close(); cb && cb({ won: true }); }, 1100);
   else if (cb) cb({ won: false });
 }

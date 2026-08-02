@@ -811,16 +811,131 @@ async function questLog(args, raw, player) {
     const objectives = pq.objectives || [];
     const progress = Array.isArray(pq.progress) ? pq.progress : [];
     const tag = pq.status === 'completed' ? ' (ready to turn in)' : '';
-    lines.push(`<span class="msg-system">${pq.name}${tag}</span>`);
+    // The tracked one is called out here because this log is the only place a
+    // non-tablet player would ever see that tracking is a thing you can do.
+    const mark = player.tracked_quest_id === pq.quest_id ? '<span class="text-cyan">▸</span> ' : '';
+    lines.push(`${mark}<span class="msg-system">${pq.name}${tag}</span>`);
     objectives.forEach((obj, i) => lines.push(objectiveLine(obj, progress[i] || 0, !requiresMet(objectives, obj, progress))));
   }
+  lines.push('<span class="text-dim">quest track &lt;name&gt; · quest abandon &lt;name&gt;</span>');
   return { type: 'output', message: lines.join('\n') };
 }
 
+// ── quest track / abandon ────────────────────────────────────────────────────
+// Both of these existed only as buttons in the tablet's Quests app: it was the
+// sole caller of ABANDON_QUEST and the only writer of `players.tracked_quest_id`
+// anywhere in the codebase. A player who didn't use the tablet could take a quest
+// and then never drop it or track it. Same operations, reached by typing.
+
+// Match what somebody typed against their OWN open quests. Exact name first, then
+// a prefix, then a contained fragment — and an ambiguous fragment is refused by
+// name rather than guessed at, because the destructive one of these two is not a
+// thing to be clever about.
+function matchQuest(rows, raw) {
+  const q = String(raw || '').trim().toLowerCase();
+  if (!q) return { error: 'Which quest? Try "quest" to list them.' };
+  const norm = r => String(r.name || '').toLowerCase();
+  const exact = rows.find(r => norm(r) === q) || rows.find(r => r.quest_id.toLowerCase() === q);
+  if (exact) return { row: exact };
+  const hits = rows.filter(r => norm(r).startsWith(q));
+  const wide = hits.length ? hits : rows.filter(r => norm(r).includes(q));
+  if (!wide.length) return { error: `You have no open quest matching "${raw}".` };
+  if (wide.length > 1) {
+    return { error: `That could be: ${wide.map(r => `<b>${r.name}</b>`).join(', ')}. Be more specific.` };
+  }
+  return { row: wide[0] };
+}
+
+async function openQuests(playerId) {
+  const { rows } = await query(
+    `SELECT pq.quest_id, pq.status, pq.progress, q.name, q.objectives FROM player_quests pq
+     JOIN quests q ON q.id = pq.quest_id
+     WHERE pq.player_id=$1 AND pq.status NOT IN ('turned_in', 'abandoned')
+     ORDER BY pq.started_at`,
+    [playerId]
+  );
+  return rows;
+}
+
+// `quest track <name>` — toggles, exactly as the app's button does, and plots the
+// same GPS route to the next objective so the two paths behave identically.
+async function questTrack(rest, player) {
+  const rows = await openQuests(player.id);
+  if (!rows.length) return { type: 'output', message: 'You have no active quests.' };
+
+  if (!rest) {
+    if (!player.tracked_quest_id) return { type: 'output', message: 'You are not tracking a quest.' };
+    const cur = rows.find(r => r.quest_id === player.tracked_quest_id);
+    return { type: 'output', message: `Tracking <b>${cur?.name || player.tracked_quest_id}</b>.` };
+  }
+
+  const m = matchQuest(rows, rest);
+  if (m.error) return { type: 'error', message: m.error };
+
+  const already = player.tracked_quest_id === m.row.quest_id;
+  player.tracked_quest_id = already ? null : m.row.quest_id;
+  await query('UPDATE players SET tracked_quest_id=$1 WHERE id=$2', [player.tracked_quest_id, player.id]);
+  if (already) return { type: 'output', message: `No longer tracking <b>${m.row.name}</b>.` };
+
+  // Plot the route to the next unmet objective with a zone, same as the app.
+  const progress = Array.isArray(m.row.progress) ? m.row.progress : [];
+  const next = (m.row.objectives || []).find((obj, i) => obj.zone && (progress[i] || 0) < (obj.count || 1));
+  if (next && next.zone !== player.current_zone) {
+    const destZone = getZone(next.zone);
+    const path = destZone ? findPath(player.current_zone, next.zone) : null;
+    if (path && path.length >= 2) {
+      sendToPlayer(player.id, { type: 'gps_route', message: `GPS locked: ${destZone.name}. Route plotted on the map.`, path, continueOnArrival: false });
+    }
+  }
+  return { type: 'output', message: `Tracking <b>${m.row.name}</b>.` };
+}
+
+// `quest abandon <name>` — two-step, because it can't be undone. The app puts a
+// confirm dialog in front of the same action; a modal is the wrong answer for a
+// typed verb (and for a screen reader), so the confirmation is a second command
+// the player can see and re-read rather than a box that steals focus.
+async function questAbandon(rest, player) {
+  const rows = await openQuests(player.id);
+  if (!rows.length) return { type: 'output', message: 'You have no active quests.' };
+
+  const confirmed = /\s+(confirm|yes)$/i.test(rest);
+  const nameArg = rest.replace(/\s+(confirm|yes)$/i, '').trim();
+  const m = matchQuest(rows, nameArg);
+  if (m.error) return { type: 'error', message: m.error };
+
+  if (!confirmed) {
+    return {
+      type: 'output',
+      message: `Abandon <b>${m.row.name}</b>? Progress is lost and it can't be undone.\n`
+        + `<span class="action-link" data-action="cmd" data-cmd="quest abandon ${m.row.name} confirm">quest abandon ${m.row.name} confirm</span>`,
+    };
+  }
+
+  const res = await dispatchAction({ type: 'ABANDON_QUEST', actor: player, params: { quest_id: m.row.quest_id } });
+  if (res?.type === 'error') return res;
+  if (player.tracked_quest_id === m.row.quest_id) {
+    player.tracked_quest_id = null;
+    await query('UPDATE players SET tracked_quest_id=NULL WHERE id=$1', [player.id]);
+  }
+  return { type: 'output', message: `<span class="msg-system">Abandoned <b>${m.row.name}</b>.</span>` };
+}
+
+// One verb with subcommands rather than three top-level ones: `abandon` and
+// `track` are both far too generic to own outright, and `quest abandon` reads the
+// way a player would say it.
+async function questCommand(args, raw, player) {
+  if (!player) return { type: 'error', message: 'No character.' };
+  const sub = (args[0] || '').toLowerCase();
+  const rest = args.slice(1).join(' ').trim();
+  if (sub === 'track' || sub === 'untrack') return questTrack(rest, player);
+  if (sub === 'abandon' || sub === 'drop') return questAbandon(rest, player);
+  return questLog(args, raw, player);
+}
+
 export const commands = {
-  quests: questLog,
-  quest: questLog,
-  ql: questLog,
+  quests: questCommand,
+  quest: questCommand,
+  ql: questCommand,
 };
 
 // --- Dev CRUD (devpanel quest authoring) -----------------------------------

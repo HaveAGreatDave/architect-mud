@@ -14,17 +14,24 @@
 //
 // The rider keeps `window` — opting into the view for one leg sets cabinWindowOpen,
 // which outranks this everywhere, so text mode is a default, not a lockout.
-import { prefersTextDisplayOrDefault, DISPLAY_MODE_FLAG } from '../../server/engine/presentation.js';
+import { prefersLoggedPanelsOrDefault, DISPLAY_MODE_FLAG } from '../../server/engine/presentation.js';
 import { liveAircraft, getLivePlayer, sendToPlayer, isContinuous, BAND_LABEL, degToCardinal } from './state.js';
 
-// The preference is no longer flight's own: it's the game-wide Display Mode
-// (server/engine/presentation.js), the same switch poker reads. The old
-// `flight_text_only` flag is still honoured as a fallback for players who set it
-// before the merge — see LEGACY_KEYS there — but nothing writes it now.
+// The preference is the game-wide Display Mode ladder
+// (server/engine/presentation.js), not flight's own flag any more.
+//
+// A RIDER IS A PANEL, so this reads the bottom rung only. Riding is the one part
+// of flight where the player does nothing: delete the cabin window and they are
+// not stuck, they just have a duller trip. So a `textgames` player — someone who
+// wants to fly by typing — keeps the view out of the window when they're only a
+// passenger. It is the `log` rung that takes it away.
+//
+// The PILOT's seat is the other axis: see textpilot.js, which reads
+// prefersTextMinigames because deleting the cockpit does leave you stuck.
 export const TEXT_TRAVEL_FLAG = DISPLAY_MODE_FLAG;
 
 export async function prefersTextTravel(player) {
-  return prefersTextDisplayOrDefault(player);
+  return prefersLoggedPanelsOrDefault(player);
 }
 
 // Flavor by flight phase. Kept as plain arrays in the shape a zone authors

@@ -280,6 +280,22 @@ async function cmdTabletAction(args, raw, player, broadcast) {
 }
 
 export const commands = {
+  // ── Tablet operations that had no verb ─────────────────────────────────────
+  // Four apps owned an operation outright: adding a reminder, moving credits
+  // remotely, following a club and routing to the nearest bench were each bound
+  // to a button and to nothing else. Each app keeps its button; these are the
+  // same functions with a name you can type. They live on the app modules (the
+  // stores and the rules are already there) and are only re-exported here,
+  // because this is where the tablet plugin declares its verbs.
+  // NOTE the two names that are NOT the obvious ones: `follow` belongs to
+  // interactions (following a person around) and `bench` to workspace (the HUD
+  // for the bench you're standing at). Both are older and better claims, so the
+  // sports one is `support` and the routing one is `findbench` — a verb that
+  // shadows an established one is a worse outcome than a slightly longer word.
+  remind:    async (args, raw, player) => (await import('./calendar-app.js')).cmdRemind(args, raw, player),
+  wire:      async (args, raw, player) => (await import('./bank-app.js')).cmdWire(args, raw, player),
+  support:   async (args, raw, player) => (await import('./sports-app.js')).cmdFollow(args, raw, player),
+  findbench: async (args, raw, player) => (await import('./crafting-app.js')).cmdBench(args, raw, player),
   // `displaymode visual|text` — the server side of the Settings "Display Mode"
   // switch, sent silently by the tablet the way `lorealways` is. Typed bare it
   // reports, because a player who ends up in the wrong one needs a way back that
@@ -290,28 +306,53 @@ export const commands = {
   // server/engine/presentation.js. Poker's own `text`/`visual` verbs are handles
   // on this same preference.
   displaymode: async (args, raw, player) => {
-    const { prefersTextDisplay, setDisplayMode } = await import('../../server/engine/presentation.js');
+    const pres = await import('../../server/engine/presentation.js');
     const arg = (args || []).join(' ').trim().toLowerCase();
-    const now = () => prefersTextDisplay(player);
+
+    const LABEL = { visual: 'VISUAL', textgames: 'TEXT', log: 'LOG' };
+    const BLURB = {
+      visual: 'Graphics wherever a system has them: the cockpit, the cabin window, the poker felt.',
+      textgames: 'The GAMES come to you as text — you fly her by command, you play cards in the log. '
+        + 'Maps, hangars and scores stay on screen.',
+      log: 'Everything is written out where you can scroll back. No panels at all — the room stays '
+        + 'in the pane above and the game speaks in one stream.',
+    };
+
     if (!arg) {
-      const v = await now();
-      return { type: 'system', message: `<span class="msg-system">Display mode is <b>${v === true ? 'TEXT' : 'VISUAL'}</b>${v === undefined ? ' (default)' : ''}. Use "displaymode visual|text".</span>` };
+      const r = await pres.displayRung(player);
+      return {
+        type: 'system',
+        message: `<span class="msg-system">Display mode is <b>${LABEL[r] || 'VISUAL'}</b>${r === undefined ? ' (default)' : ''}. `
+          + 'Use "displaymode visual|text|log".</span>',
+      };
     }
-    if (!/^(visual|text|graphical|graphics)$/.test(arg)) {
-      return { type: 'error', message: 'Display mode is "visual" or "text".' };
-    }
-    const toText = arg === 'text';
-    await setDisplayMode(player, toText);
+
+    // `text` is accepted and means the BOTTOM rung, because that is what it meant
+    // before the ladder existed — a player who types the word they have always
+    // typed must not be quietly moved up a rung into panels they turned off.
+    const rung = /^(visual|graphical|graphics)$/.test(arg) ? 'visual'
+      : /^(textgames|games|text ?games)$/.test(arg) ? 'textgames'
+        : /^(log|text|textonly|text ?only)$/.test(arg) ? 'log'
+          : null;
+    if (!rung) return { type: 'error', message: 'Display mode is "visual", "text" (games in characters), or "log" (everything written out).' };
+
+    await pres.setDisplayRung(player, rung);
     // Poker keeps a runtime Set of text-mode players for its narration hot path;
     // flip it here too, or a seated player's switch wouldn't land until they
-    // stood up and sat down again.
+    // stood up and sat down again. Poker is a minigame, so it follows that axis.
     try {
       const { syncDisplayMode } = await import('../gametable/index.js');
-      await syncDisplayMode?.(player, toText);
+      await syncDisplayMode?.(player, rung !== 'visual');
     } catch { /* gametable not loaded — nothing to sync */ }
-    return { type: 'system', message: `<span class="msg-system">Display mode set to <b>${toText ? 'TEXT' : 'VISUAL'}</b>. ${toText
-      ? 'Anything with a written version — the flight display, the poker table — comes to you as text from here on.'
-      : 'Graphics are used wherever a system has them: the cockpit, the cabin window, the poker felt.'}</span>` };
+    // Re-look, so the change lands NOW rather than at the player's next move.
+    // Verified in a browser against the real accessibility tree: without this the
+    // pane keeps its old aria-hidden state until something else repaints it, so a
+    // player who switched to `log` was still having the room pane announced to
+    // them — and one who switched back off `log` had a pane that stayed silent.
+    // A message-less zone_event is the client's existing "re-look quietly" signal.
+    sendToPlayer(player.id, { type: 'zone_event', refresh: true });
+
+    return { type: 'system', message: `<span class="msg-system">Display mode set to <b>${LABEL[rung]}</b>. ${BLURB[rung]}</span>` };
   },
   // `alarm` opens the Alarm app directly, and `alarm 0730` sets it in one go —
   // the tablet is a device you carry, so the verb is just a shortcut into the

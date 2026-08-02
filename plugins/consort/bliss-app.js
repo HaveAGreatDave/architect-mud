@@ -26,7 +26,7 @@ import { registerTabletApp, normScreen } from '../tablet/registry.js';
 import { isMisActive } from '../../server/engine/mis.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { generateRoster, rosterSections, listingCard, rerollState, effectiveRate, loyaltyTier, rerollCooldownMs } from './roster.js';
-import { consortRowsOf, privateSpacesOf, placeListing, releaseConsort, consortRow, pairMembers, holdsPrivateSpace } from './hire.js';
+import { consortRowsOf, privateSpacesOf, placeListing, releaseConsort, consortRow, pairMembers, holdsPrivateSpace, arrangementEntries } from './hire.js';
 import { PAIRINGS } from './archetypes.js';
 
 const GEN_FLAG    = 'bliss_roster_gen';
@@ -96,33 +96,9 @@ async function buildDetail(player, listingId) {
 }
 
 async function buildArrangement(player) {
-  const rows = await consortRowsOf(player.id);
-  // Collapse a pairing into one entry — it bills and releases as one unit.
-  const seen = new Set();
-  const entries = [];
-  for (const r of rows) {
-    if (seen.has(r.id)) continue;
-    const group = r.pairing_id ? rows.filter(x => x.pairing_id === r.pairing_id) : [r];
-    group.forEach(g => seen.add(g.id));
-    const todayRate = group.reduce((s, g) => s + effectiveRate(g.daily_rate, g.days_kept), 0);
-    const baseRate = group.reduce((s, g) => s + g.daily_rate, 0);
-    entries.push({
-      id: r.id,
-      names: group.map(g => g.name),
-      pairing: r.pairing_id ? (PAIRINGS[group.map(g => g.archetype).sort().join('_')]?.label || 'A matched pair') : null,
-      daysKept: r.days_kept || 0,
-      tier: loyaltyTier(r.days_kept || 0),
-      baseRate,
-      todayRate,
-      saving: Math.max(0, baseRate - todayRate),
-      missed: r.missed || 0,
-      zone: r.home_zone,
-      // A house placement is listed like any other — that's the whole point of
-      // showing it — but it carries no retainer and cannot be released through
-      // the app. The Syndicate did not place them and has no say in it.
-      house: !!r.house,
-    });
-  }
+  // The collapse + retainer arithmetic moved to hire.js when the `bliss` verb
+  // arrived, so the app and the verb can't drift on what a placement costs today.
+  const entries = await arrangementEntries(player.id);
   return {
     view: 'bliss_arrangement',
     entries,

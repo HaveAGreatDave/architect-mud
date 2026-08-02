@@ -3,42 +3,246 @@
   "version": "0.3.0",
   "description": "Flight — full system. Embark/charter/buy aircraft at six airfields; fly the map_world tile grid on a real-time posture tick loop through interactive takeoff/glideslope/targeting decks, OR ride an NPC-pilot charter as a passenger. Phase B hazards, no-fly airspace, cargo/passenger + smuggling contracts, ground AA + air combat, hangars, wreck salvage/rebuild, owner-only customization, and engine-noise propagation. The aircraft is a first-class object owning its occupant set; the cockpit HUD is synthesized per-aircraft.",
   "commands": [
-    "embark", "board", "disembark", "deplane", "window", "takecontrols", "controls", "handoff", "standdown", "nav", "circle", "orbit", "landat", "divert", "startup", "shutdown", "throttle", "heading", "climb", "dive", "takeoff", "land", "taxi", "refuel", "flightsync", "flightevent", "airhome", "checkride",
-    "turn", "descend", "level", "flaps", "gear", "status",
-    "extinguish", "eject", "bail", "preflight", "hover", "spot", "scan", "spray", "loadhopper", "chart", "squawk",
-    "buy", "rent", "charter", "charterinfo", "charterbook", "cancel", "testfly", "flight", "fs",
-    "arm", "safe", "evade", "strafe", "fire", "strafresolve", "airfire", "airlock", "airunlock", "flares",
-    "contracts", "jobs", "accept", "manifest", "jettison", "loadcargo", "freightlicense", "cargolicense", "customs", "raws",
-    "hangar", "showroom", "fleet", "carousel", "view", "hangaract", "paintset", "scheme", "repair", "salvage", "rebuild", "tune", "tuneset", "installkit", "modify", "customize", "loadout", "sell", "cancelrental",
-    "examine", "look"
+    "embark",
+    "board",
+    "disembark",
+    "deplane",
+    "window",
+    "takecontrols",
+    "controls",
+    "handoff",
+    "standdown",
+    "nav",
+    "circle",
+    "orbit",
+    "landat",
+    "divert",
+    "startup",
+    "shutdown",
+    "throttle",
+    "heading",
+    "climb",
+    "dive",
+    "takeoff",
+    "land",
+    "taxi",
+    "refuel",
+    "flightsync",
+    "flightevent",
+    "airhome",
+    "checkride",
+    "turn",
+    "descend",
+    "level",
+    "flaps",
+    "gear",
+    "status",
+    "extinguish",
+    "eject",
+    "bail",
+    "preflight",
+    "hover",
+    "spot",
+    "scan",
+    "spray",
+    "loadhopper",
+    "chart",
+    "squawk",
+    "buy",
+    "rent",
+    "charter",
+    "charterinfo",
+    "charterbook",
+    "cancel",
+    "testfly",
+    "flight",
+    "fs",
+    "arm",
+    "safe",
+    "evade",
+    "strafe",
+    "fire",
+    "strafresolve",
+    "airfire",
+    "airlock",
+    "airunlock",
+    "flares",
+    "contracts",
+    "jobs",
+    "accept",
+    "manifest",
+    "jettison",
+    "loadcargo",
+    "freightlicense",
+    "cargolicense",
+    "customs",
+    "raws",
+    "hangar",
+    "showroom",
+    "fleet",
+    "carousel",
+    "view",
+    "hangaract",
+    "paintset",
+    "scheme",
+    "repair",
+    "salvage",
+    "rebuild",
+    "tune",
+    "tuneset",
+    "installkit",
+    "modify",
+    "customize",
+    "loadout",
+    "sell",
+    "cancelrental",
+    "flushairborne",
+    "groundall",
+    "examine",
+    "look",
+    "deadhead"
   ],
   "objectGatedCommands": {
-    "board":     { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: boards a parked aircraft row (aircraft.parked_zone_id). Aircraft are DB rows, not furniture/items/NPCs, so they can never appear in an examine Actions line — discovered via airfield look/ambience text." },
-    "buy":       { "discoverVia": "zone:airfield_dealer", "exposed": false, "note": "KNOWN GAP: zone-flag gate, not an examinable object." },
-    "charter":   { "discoverVia": "zone:airfield_charter", "exposed": false, "note": "KNOWN GAP: zone-flag gate. Opens the visual charter dialog (charter_open push)." },
-    "charterinfo": { "discoverVia": "none", "exposed": false, "note": "Alias of `charter` — the hangar-bay's CHARTER tile calls this to (re)open the dialog." },
-    "charterbook": { "discoverVia": "none", "exposed": false, "note": "Books + charges a destination chosen in the charter dialog (`charterbook <destZoneId> [any]`); not typed directly." },
-    "refuel":    { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: aboard an aircraft at a field with fuel stock; aircraft/zone-flag gate, not examinable." },
-    "contracts": { "discoverVia": "zone:airfield_id", "exposed": false, "note": "KNOWN GAP: contract board is a zone flag, no board furniture." },
-    "jobs":      { "discoverVia": "zone:airfield_id", "exposed": false, "note": "KNOWN GAP: alias of contracts." },
-    "accept":    { "discoverVia": "zone:airfield_id", "exposed": false, "note": "KNOWN GAP: zone-flag gate." },
-    "hangar":    { "discoverVia": "zone:airfield_id", "exposed": false, "note": "KNOWN GAP: zone-flag gate. Opens the unified 3D hangar-bay app (hangar_bay_open push) — floor (your craft + the CHARTER Mule) with Charter/Buy-Rent/Maintenance sub-screens." },
-    "showroom":  { "discoverVia": "zone:airfield_id", "exposed": false, "note": "Alias for `hangar` open." },
-    "fleet":     { "discoverVia": "zone:airfield_id", "exposed": false, "note": "Alias for `hangar` open (legacy name for the same unified app)." },
-    "carousel":  { "discoverVia": "zone:airfield_id", "exposed": false, "note": "Alias of `fleet`." },
-    "view":      { "discoverVia": "none", "exposed": false, "note": "`view <tail>` opens the hangar-bay pre-selected on one craft's maintenance bench; generic verb, returns undefined off-field to fall through rather than hijack it." },
-    "repair":    { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: owned aircraft row + zone flag airfield_id; shadows the engine gear-repair builtin and falls through when no craft." },
-    "salvage":   { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: wreck aircraft row (is_wreck=1) in zone; not examinable furniture." },
-    "rebuild":   { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: wreck row + zone flag airfield_id." },
-    "tune":      { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: owned aircraft row + zone flag airfield_id (distinct from broadcast's tune)." },
-    "tuneset":   { "discoverVia": "none", "exposed": false, "note": "Commits all four tuning dials at once from the maintenance bench (`tuneset <id> <mix> <pitch> <boost> <cg>` floats); not typed directly." },
-    "installkit": { "discoverVia": "none", "exposed": false, "note": "Buys + fits an upgrade kit from the maintenance bench (`installkit <id> <kitId>`); owned aircraft row + zone flag airfield_id." },
-    "sell":      { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: owned aircraft row, id-based (hangar-bay panel / Tablet Vehicles app); shadows commerce's item-sell and falls through when the leading token isn't an aircraft id." },
-    "cancelrental": { "discoverVia": "none", "exposed": false, "note": "Rental aircraft row, id-based (hangar-bay panel / Tablet Vehicles app); not typed directly." }
+    "board": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "KNOWN GAP: boards a parked aircraft row (aircraft.parked_zone_id). Aircraft are DB rows, not furniture/items/NPCs, so they can never appear in an examine Actions line — discovered via airfield look/ambience text."
+    },
+    "buy": {
+      "discoverVia": "zone:airfield_dealer",
+      "exposed": false,
+      "note": "KNOWN GAP: zone-flag gate, not an examinable object."
+    },
+    "charter": {
+      "discoverVia": "zone:airfield_charter",
+      "exposed": false,
+      "note": "KNOWN GAP: zone-flag gate. Opens the visual charter dialog (charter_open push)."
+    },
+    "charterinfo": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "Alias of `charter` — the hangar-bay's CHARTER tile calls this to (re)open the dialog."
+    },
+    "charterbook": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "Books + charges a destination chosen in the charter dialog (`charterbook <destZoneId> [any]`); not typed directly."
+    },
+    "refuel": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "KNOWN GAP: aboard an aircraft at a field with fuel stock; aircraft/zone-flag gate, not examinable."
+    },
+    "contracts": {
+      "discoverVia": "zone:airfield_id",
+      "exposed": false,
+      "note": "KNOWN GAP: contract board is a zone flag, no board furniture."
+    },
+    "jobs": {
+      "discoverVia": "zone:airfield_id",
+      "exposed": false,
+      "note": "KNOWN GAP: alias of contracts."
+    },
+    "accept": {
+      "discoverVia": "zone:airfield_id",
+      "exposed": false,
+      "note": "KNOWN GAP: zone-flag gate."
+    },
+    "hangar": {
+      "discoverVia": "zone:airfield_id",
+      "exposed": false,
+      "note": "KNOWN GAP: zone-flag gate. Opens the unified 3D hangar-bay app (hangar_bay_open push) — floor (your craft + the CHARTER Mule) with Charter/Buy-Rent/Maintenance sub-screens."
+    },
+    "showroom": {
+      "discoverVia": "zone:airfield_id",
+      "exposed": false,
+      "note": "Alias for `hangar` open."
+    },
+    "fleet": {
+      "discoverVia": "zone:airfield_id",
+      "exposed": false,
+      "note": "Alias for `hangar` open (legacy name for the same unified app)."
+    },
+    "carousel": {
+      "discoverVia": "zone:airfield_id",
+      "exposed": false,
+      "note": "Alias of `fleet`."
+    },
+    "view": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "`view <tail>` opens the hangar-bay pre-selected on one craft's maintenance bench; generic verb, returns undefined off-field to fall through rather than hijack it."
+    },
+    "repair": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "KNOWN GAP: owned aircraft row + zone flag airfield_id; shadows the engine gear-repair builtin and falls through when no craft."
+    },
+    "salvage": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "KNOWN GAP: wreck aircraft row (is_wreck=1) in zone; not examinable furniture."
+    },
+    "rebuild": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "KNOWN GAP: wreck row + zone flag airfield_id."
+    },
+    "tune": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "KNOWN GAP: owned aircraft row + zone flag airfield_id (distinct from broadcast's tune)."
+    },
+    "tuneset": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "Commits all four tuning dials at once from the maintenance bench (`tuneset <id> <mix> <pitch> <boost> <cg>` floats); not typed directly."
+    },
+    "installkit": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "Buys + fits an upgrade kit from the maintenance bench (`installkit <id> <kitId>`); owned aircraft row + zone flag airfield_id."
+    },
+    "sell": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "Owned aircraft row. Takes an internal id (what the panel's buttons pass) OR the TAIL NAME, which is what a player can actually see and type — before that it was panel-only. Still shadows commerce's item-sell and falls through when the argument matches neither an id nor one of your aircraft."
+    },
+    "cancelrental": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "Rental aircraft row, by id or tail name; a lone rental needs no argument at all."
+    },
+    "flushairborne": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "Anti-stuck recovery (alias `groundall`) for a craft left flagged airborne with nobody aboard — a crashed tab, a lost connection, a restart. Was a Tablet Vehicles button ONLY, which made an unrecoverable plane a permanent loss for a player who didn't use the tablet."
+    },
+    "deadhead": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "Dispatches your Leviathan while you are NOT aboard (to <airfield> / hold <x> <y> / here). remoteDispatchField+remoteDispatchLoiter were reachable only from the DEADHEAD tablet app, so an owner without a tablet could never send for her. Aboard, it deliberately refuses and points at the real verbs rather than duplicating them."
+    }
   },
-  "after": ["gametable", "generator", "commerce", "broadcast", "interactions", "quests"],
-  "hooks": ["zone.describeRoom"],
+  "after": [
+    "gametable",
+    "generator",
+    "commerce",
+    "broadcast",
+    "interactions",
+    "quests"
+  ],
+  "hooks": [
+    "zone.describeRoom"
+  ],
   "routePrefix": "/flight",
-  "dependencies": ["quests"],
-  "dataSchema": ["aircraft", "aircraft_types", "aa_sites", "hangars"]
+  "dependencies": [
+    "quests"
+  ],
+  "dataSchema": [
+    "aircraft",
+    "aircraft_types",
+    "aa_sites",
+    "hangars"
+  ]
 }

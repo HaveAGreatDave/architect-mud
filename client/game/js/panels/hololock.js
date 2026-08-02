@@ -110,8 +110,38 @@ function generate(skill, difficulty) {
 // Triangle-bounce position 0..1 from a 0..2 phase.
 function posOf(pin) { return pin.phase <= 1 ? pin.phase : 2 - pin.phase; }
 
+// ── The SKIN seam ────────────────────────────────────────────────────────────
+// Everything above is the LOCK — pin count, sweet-zone width, scanner speed, miss
+// penalty and the ambient trickle, all scaled off skill-vs-difficulty. Everything
+// below is one way of drawing it.
+//
+// A skin supplies { board, hud, status, frame, finish } and gets the same state.
+// texthololock.js installs one and plays the identical lock in characters at the
+// same frame rate — which is the point of the middle Display Mode rung: the
+// scanner still sweeps and you still have to hit it. A text mode that turned this
+// into a dice roll would be a different, easier game wearing the same name.
+let _skin = null;
+export function setHololockSkin(skin) { _skin = skin; }
+
+// Drive the lock without mounting the overlay — for a skin that draws elsewhere.
+// Shares generate() so the difficulty scaling cannot diverge.
+export function startHololockGame(opts) {
+  _opts = { skill: 4, difficulty: 5, deviceName: 'HOLOLOCK', onResult: null, ...opts };
+  _state = generate(_opts.skill, _opts.difficulty);
+  _lastT = performance.now();
+  _raf = requestAnimationFrame(tick);
+  return _state;
+}
+export function stopHololockGame() {
+  if (_raf) cancelAnimationFrame(_raf);
+  _raf = 0; _state = null;
+}
+// The one action, exposed so a skin's key/click handler is the same code path.
+export { trySet as hololockSet, posOf as hololockPos };
+
 // ── Render ──────────────────────────────────────────────────────────────────
 function renderChannels() {
+  if (_skin) return _skin.board(_state);
   const wrap = _overlay.querySelector('#hl-channels');
   wrap.innerHTML = '';
   _state.pins.forEach((pin, i) => {
@@ -130,6 +160,7 @@ function renderChannels() {
 }
 
 function renderHud() {
+  if (_skin) return _skin.hud(_state);
   const set = _state.pins.filter(p => p.set).length;
   _overlay.querySelector('#hl-pins').textContent = `${set}/${_state.pins.length}`;
   const fill = _overlay.querySelector('#hl-fb-fill');
@@ -138,7 +169,10 @@ function renderHud() {
   fill.style.background = pct > 75 ? '#ff4a5b' : pct > 45 ? '#ffb23e' : '#46e05a';
 }
 
-function setStatus(html) { _overlay.querySelector('#hl-status').innerHTML = html; }
+function setStatus(html) {
+  if (_skin) return _skin.status(html);
+  _overlay.querySelector('#hl-status').innerHTML = html;
+}
 
 // ── Loop ──────────────────────────────────────────────────────────────────
 function tick(t) {
@@ -156,14 +190,20 @@ function tick(t) {
   // Ambient tension — the lock's IDS slowly homes in even if you stall.
   _state.feedback = clampNum(_state.feedback + _state.trickle * dt, 0, 1);
 
-  // Position the active scanner.
-  const active = _state.pins[_state.active];
-  if (active && !active.set) {
-    const scan = _overlay.querySelectorAll('.hl-ch')[_state.active]?.querySelector('.hl-scan');
-    if (scan) scan.style.left = `${posOf(active) * 100}%`;
+  // Position the active scanner. A skin draws its whole frame instead — the
+  // character board repaints the track every frame rather than nudging one
+  // element, which is what `paintRow` exists to make affordable.
+  if (_skin) {
+    _skin.frame(_state);
+  } else {
+    const active = _state.pins[_state.active];
+    if (active && !active.set) {
+      const scan = _overlay.querySelectorAll('.hl-ch')[_state.active]?.querySelector('.hl-scan');
+      if (scan) scan.style.left = `${posOf(active) * 100}%`;
+    }
+    renderHud();
+    setDeckLevel(_overlay, _state.feedback);
   }
-  renderHud();
-  setDeckLevel(_overlay, _state.feedback);
 
   if (_state.feedback >= 1) { finish(false); return; }
   _raf = requestAnimationFrame(tick);
@@ -200,6 +240,9 @@ function finish(won) {
     ? '<span class="hl-win">◇ LOCK DISENGAGED — access granted.</span>'
     : '<span class="hl-lose">✕ SEQUENCE RESET — deck flagged.</span>');
   const cb = _opts?.onResult;
+  // A skin owns its own teardown — the character board lives in the area pane,
+  // not an overlay, so close() here would tear down the wrong thing.
+  if (_skin) { _skin.finish?.(_state, won); if (cb) cb({ won }); return; }
   if (won) {
     setTimeout(() => { close(); cb && cb({ won: true }); }, 1100);
   } else {

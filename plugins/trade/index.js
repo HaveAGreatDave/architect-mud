@@ -18,6 +18,7 @@ import { getZonePlayers, getLivePlayer } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { resolve as siftResolve } from '../../server/engine/sift.js';
 import { on } from '../../server/engine/events.js';
+import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
 
 const INVITE_TTL_MS = 60000;
 const sessions = new Map();   // playerId -> session (both participants map to the same object)
@@ -94,10 +95,60 @@ async function renderFor(session, viewerId) {
     <div class="trade-foot">${lockBtn}<button class="trade-btn trade-cancel" data-cmd="tradecancel">Cancel</button></div>`;
 }
 
-async function pushBoth(session, sysMsg) {
+// ── The written record ───────────────────────────────────────────────────────
+// THE ANTI-SCAM RULE IS WHY THIS EXISTS. "Any change to either offer unlocks both
+// sides" only protects you if you can SEE what the other side is offering — a
+// player who can't is being asked to lock in blind, which is worse than having no
+// protection at all because the rule implies one.
+//
+// Until now four of the five pushBoth call sites passed no message, so staking,
+// retracting, locking and unlocking produced ZERO log output: the entire trade was
+// in a panel, and the buttons submitted silently (sendCmdSilent), so even the
+// commands didn't appear. Closing the window mid-trade left no trace of what had
+// been agreed.
+//
+// So the log now carries the record for EVERYONE, not just players on a text rung.
+// The panel is the show; this is the receipt.
+function offerLines(session, viewerId) {
+  const otherId = otherOf(session, viewerId);
+  const me = session.offers[viewerId], them = session.offers[otherId];
+  const side = (off, who) => {
+    const bits = off.items.map(it => `${esc(it.name)}${it.qty > 1 ? ` ×${it.qty}` : ''}`);
+    if (off.credits > 0) bits.push(`₵${off.credits}`);
+    const lock = off.ready
+      ? '<span class="text-green">✓ locked in</span>'
+      : '<span class="text-dim">not locked</span>';
+    return `  <b>${who}</b>: ${bits.length ? bits.join(', ') : '<span class="text-dim">nothing</span>'} — ${lock}`;
+  };
+  return [
+    side(me, 'You'),
+    side(them, esc(session.handles[otherId])),
+  ].join('\n');
+}
+
+// `trade status` and every state change print this. Deliberately the same text
+// both ways, so what you re-read on demand is exactly what you were told.
+function statusBlock(session, viewerId, headline) {
+  return `${headline ? `${headline}\n` : ''}${offerLines(session, viewerId)}\n`
+    + `<span class="text-dim">tradeoffer &lt;item&gt; · tradeoffer credits &lt;n&gt; · traderetract &lt;item&gt; · `
+    + `<span class="action-link" data-action="cmd" data-cmd="trade status">trade status</span> · `
+    + `<span class="action-link" data-action="cmd" data-cmd="tradeready">tradeready</span> · `
+    + `<span class="action-link" data-action="cmd" data-cmd="tradecancel">tradecancel</span></span>`;
+}
+
+// `headline` is what just happened, phrased per viewer — "You staked X" vs
+// "Cyd staked X" — so the log reads as a conversation rather than a diff.
+async function pushBoth(session, sysMsg, headlineFor) {
   for (const pid of session.players) {
-    const html = await renderFor(session, pid);
-    sendToPlayer(pid, { type: 'trade_update', html });
+    // A player on the bottom Display Mode rung gets no panel at all; the log IS
+    // their trade window. Everyone else gets both — the panel to act in, the log
+    // as the record.
+    if (!(await prefersLoggedPanelsOrDefault(getLivePlayer(pid) || { id: pid }))) {
+      const html = await renderFor(session, pid);
+      sendToPlayer(pid, { type: 'trade_update', html });
+    }
+    const headline = typeof headlineFor === 'function' ? headlineFor(pid) : null;
+    if (headline) sendToPlayer(pid, { type: 'output', message: statusBlock(session, pid, headline) });
     if (sysMsg) sendToPlayer(pid, { type: 'output', message: sysMsg });
   }
 }
@@ -112,7 +163,7 @@ async function openSession(a, b) {
   };
   sessions.set(a.id, session);
   sessions.set(b.id, session);
-  await pushBoth(session);
+  await pushBoth(session, null, (pid) => `<span class="msg-system">Trade open with ${esc(session.handles[otherOf(session, pid)])}.</span>`);
 }
 
 function closeSession(session, perPlayerMsg) {
@@ -143,6 +194,16 @@ function acceptInvite(player, inv) {
 }
 
 async function cmdTrade(args, raw, player, broadcast) {
+  // `trade status` — re-read both offers on demand. For EVERYONE, not just players
+  // on a text rung: the anti-scam rule ("any change unlocks both sides") is only a
+  // protection if you can check what you are about to lock in against, and after a
+  // few lines of combat spam a visual player has lost the panel's history too.
+  if (/^(status|check|show)$/i.test((args[0] || '').trim())) {
+    const s = sessions.get(player.id);
+    if (!s) return { type: 'error', message: 'You are not in a trade.' };
+    return { type: 'output', message: statusBlock(s, player.id, '<span class="text-cyan">TRADE</span>') };
+  }
+
   if (sessions.get(player.id)) return { type: 'error', message: 'Finish your current trade first (or `tradecancel`).' };
   const who = args.join(' ').trim();
   const inv = invites.get(player.id);
@@ -193,7 +254,12 @@ async function cmdTradeoffer(args, raw, player) {
     off.items.push({ invId: row.id, qty: Math.min(qty, row.quantity), name: row.name });
   }
   resetReady(session);
-  await pushBoth(session);
+  const staked = (args[0] || '').toLowerCase() === 'credits'
+    ? `₵${off.credits}`
+    : (off.items[off.items.length - 1]?.name || 'something');
+  await pushBoth(session, null, (pid) => pid === player.id
+    ? `<span class="msg-system">You stake ${esc(staked)}. Both sides unlocked.</span>`
+    : `<span class="msg-system">${esc(player.handle)} stakes ${esc(staked)}. Both sides unlocked.</span>`);
   return { type: 'noop' };
 }
 
@@ -206,7 +272,9 @@ async function cmdTraderetract(args, raw, player) {
   else if (token) off.items = off.items.filter(i => i.invId !== token && !i.name.toLowerCase().includes(token.toLowerCase()));
   else return { type: 'error', message: 'Retract what?' };
   resetReady(session);
-  await pushBoth(session);
+  await pushBoth(session, null, (pid) => pid === player.id
+    ? '<span class="msg-system">You take something back off the table. Both sides unlocked.</span>'
+    : `<span class="msg-system">${esc(player.handle)} takes something back off the table. Both sides unlocked.</span>`);
   return { type: 'noop' };
 }
 
@@ -216,7 +284,9 @@ async function cmdTradeready(args, raw, player) {
   const off = session.offers[player.id];
   off.ready = !off.ready;
   if (session.players.every(p => session.offers[p].ready)) { await executeTrade(session); return { type: 'noop' }; }
-  await pushBoth(session);
+  await pushBoth(session, null, (pid) => pid === player.id
+    ? `<span class="msg-system">You ${off.ready ? 'lock in' : 'unlock'} your offer.</span>`
+    : `<span class="msg-system">${esc(player.handle)} ${off.ready ? 'locks in' : 'unlocks'}.</span>`);
   return { type: 'noop' };
 }
 
@@ -309,6 +379,6 @@ export const commands = {
   tradecancel: cmdTradecancel,
 };
 
-export const _test = { tradeableRows, esc };
+export const _test = { tradeableRows, esc, offerLines, statusBlock };
 
 console.log('[trade] Plugin loaded.');

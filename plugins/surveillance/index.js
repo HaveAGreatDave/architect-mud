@@ -8,6 +8,7 @@
 // `sweep` is how anyone locates hidden gear.
 
 import { randomUUID } from 'crypto';
+import { textRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
 import { getZone, getZonePlayers, getZoneNpcs, getZoneEnemies, getLivePlayer, getAllLivePlayers, spawnEnemySync, removeEnemyInstance, hasActivePlayers, world, insertFurniture, updateFurniture, deleteFurniture } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
@@ -951,6 +952,111 @@ async function cmdClips(args, raw, player) {
   return { type: 'output', message: `Datachips in your kit:\n${lines}\n<span class="text-dim">(use one to replay it.)</span>` };
 }
 
+// ── Your own network, by typing ──────────────────────────────────────────────
+// `deleteMicroreel`, `selfDestructDevice` and broadcast's `patchCamToDeck` were
+// each called from exactly ONE place: a button in the SPECTER tablet app. So a
+// player who didn't use the tablet could plant a camera and then never scuttle
+// it, could mint a reel and never destroy it, and could never put a feed on a
+// deck. These are the same operations, addressable the way `smash` and `clip`
+// already are — by device name.
+
+// One resolver for both device verbs, matching cmdClip's hint style so `destruct
+// hallway cam` and `clip hallway cam` pick the same unit.
+async function myDevice(player, nameHint) {
+  const params = [player.id];
+  let sql = `SELECT d.id, d.zone_id, d.device_kind, f.name, z.name AS zone_name
+             FROM security_devices d JOIN furniture f ON f.id=d.id
+             LEFT JOIN zones z ON z.id=d.zone_id WHERE d.owner_id=$1`;
+  if (nameHint) { sql += ` AND (d.id=$2 OR f.name ILIKE $3)`; params.push(nameHint, `%${nameHint}%`); }
+  sql += ` ORDER BY f.name`;
+  const { rows } = await query(sql, params);
+  return rows;
+}
+
+// `devices` — what you have out there. Without this the two verbs below have no
+// discoverable targets: a device id is a uuid and the app was the only thing that
+// ever showed you the list.
+async function cmdDevices(args, raw, player) {
+  const rows = await myDevice(player, '');
+  if (!rows.length) return { type: 'output', message: 'You have nothing deployed.' };
+  const lines = rows.map(d =>
+    `  • <span class="furniture-link">${d.name}</span> <span class="text-dim">· ${d.zone_name || d.zone_id || 'unknown'}`
+    + `${d.device_kind ? ` · ${d.device_kind}` : ''}</span>`);
+  return {
+    type: 'output',
+    message: `Your network:\n${lines.join('\n')}\n`
+      + `<span class="text-dim">feed &lt;name&gt; · record · clip · cast &lt;name&gt; · destruct &lt;name&gt;</span>`,
+  };
+}
+
+// `destruct <device>` — scuttle one of your own units remotely. TWO-STEP, and
+// deliberately so: the unit is destroyed rather than recovered, and unlike the
+// app's button there is no screen here showing you which one is focused, so the
+// confirmation is also the disambiguation.
+async function cmdDestruct(args, raw, player) {
+  const confirmed = /\s+(confirm|yes)$/i.test(raw || '');
+  const hint = args.join(' ').replace(/\s+(confirm|yes)$/i, '').trim();
+  if (!hint) return { type: 'error', message: 'Scuttle which device? Try "devices" for the list.' };
+
+  const rows = await myDevice(player, hint);
+  if (!rows.length) return { type: 'error', message: `You have no deployed device matching "${hint}".` };
+  if (rows.length > 1) {
+    return { type: 'error', message: `Which one? ${rows.map(d => `<b>${d.name}</b> (${d.zone_name || d.zone_id})`).join(', ')}` };
+  }
+  const dev = rows[0];
+  if (!confirmed) {
+    return {
+      type: 'output',
+      message: `Scuttle <b>${dev.name}</b> at ${dev.zone_name || dev.zone_id}? It burns out where it sits — you get nothing back.\n`
+        + `<span class="action-link" data-action="cmd" data-cmd="destruct ${dev.name} confirm">destruct ${dev.name} confirm</span>`,
+    };
+  }
+  const res = await selfDestructDevice(player, dev.id);
+  return res?.ok
+    ? { type: 'output', message: `<span class="msg-system">${dev.name} is gone. A little smoke, and nothing anybody could pin on you.</span>` }
+    : { type: 'error', message: 'That device is already off the network.' };
+}
+
+// `cast <device>` — put one of your cameras on the consumer deck in this room, or
+// pull it back off. broadcast owns the rule about whether that's allowed; this
+// just names the camera and reports what it said.
+async function cmdCast(args, raw, player) {
+  const hint = args.join(' ').trim();
+  if (!hint) return { type: 'error', message: 'Cast which camera? Try "devices" for the list.' };
+  const rows = await myDevice(player, hint);
+  if (!rows.length) return { type: 'error', message: `You have no deployed device matching "${hint}".` };
+  if (rows.length > 1) {
+    return { type: 'error', message: `Which one? ${rows.map(d => `<b>${d.name}</b>`).join(', ')}` };
+  }
+  const bc = await import('../broadcast/index.js').catch(() => null);
+  if (!bc?.patchCamToDeck) return { type: 'error', message: 'There is no deck here to take the feed.' };
+  const said = await bc.patchCamToDeck(player, rows[0].id);
+  return { type: 'output', message: typeof said === 'string' ? said : `${rows[0].name} is on the deck.` };
+}
+
+// `crush <reel>` — destroy a saved microreel. The reel IS the datachip you carry
+// (see cmdClip), so this destroys a physical, tradeable object: two-step, same as
+// `destruct`, and named for what it does to the chip rather than to the file.
+async function cmdCrush(args, raw, player) {
+  const confirmed = /\s+(confirm|yes)$/i.test(raw || '');
+  const hint = args.join(' ').replace(/\s+(confirm|yes)$/i, '').trim();
+  const chip = await resolveInventoryItem(player, { tag: 'datachip', name: hint || undefined, topLevel: false });
+  if (!chip) {
+    return { type: 'error', message: hint ? `You are not carrying a datachip called "${hint}".` : 'Crush which datachip? Try "clips".' };
+  }
+  if (!confirmed) {
+    return {
+      type: 'output',
+      message: `Crush <b>${chip.name}</b>? The footage goes with it, and there is no other copy.\n`
+        + `<span class="action-link" data-action="cmd" data-cmd="crush ${chip.name} confirm">crush ${chip.name} confirm</span>`,
+    };
+  }
+  const res = await deleteMicroreel(player, chip.tags?.clip_id);
+  return res?.ok
+    ? { type: 'output', message: `<span class="msg-system">You snap ${chip.name} between finger and thumb. Whatever was on it isn't anywhere now.</span>` }
+    : { type: 'error', message: 'That chip is already blank.' };
+}
+
 // ── Counterplay (Phase 4) ────────────────────────────────────────────────────
 // Find & destroy (smash), hack & hijack (Circuit Breach), and the jam/spoof
 // gear (planted like any device; their effect is applied in deviceStatus/Frame).
@@ -1022,8 +1128,8 @@ async function cmdHijack(args, raw, player) {
   }
   const skill = await effectiveSkill(player, 'hacking');
   pendingHijack.set(player.id, { deviceId: dev.id, ts: Date.now() });
-  return { type: 'circuit_hack', deviceId: dev.id, deviceName: dev.name, skill,
-    difficulty: await hackDifficulty(player.id, dev.hack_difficulty) };
+  return textRender(player, { type: 'circuit_hack', deviceId: dev.id, deviceName: dev.name, skill,
+    difficulty: await hackDifficulty(player.id, dev.hack_difficulty) });
 }
 
 // hijackresolve <deviceId> <1|0> — silent; the Circuit Breach overlay fires this.
@@ -2888,6 +2994,11 @@ export const commands = {
   scrub: cmdScrub,
   apprehendresolve: cmdApprehendResolve,
   purge: cmdPurge,
+  // Your own network, by typing — these three were SPECTER-app buttons only.
+  devices: cmdDevices,
+  destruct: cmdDestruct,
+  cast: cmdCast,
+  crush: cmdCrush,
 };
 
 // When a zone is deleted (dev panel), reap the evidence tied to it so it can't

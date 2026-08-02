@@ -1,3 +1,7 @@
+import { command as textBreachCommand } from './panels/textbreach.js';
+import { command as textHololockCommand } from './panels/texthololock.js';
+import { command as textVaultCommand } from './panels/textvault.js';
+import { command as textSignalCommand } from './panels/textsignal.js';
 import {
 	loadSettings,
 	saveSettings,
@@ -11,6 +15,7 @@ import { appendMsg, initVitalsReorder } from "./render.js";
 import {
 	initNet,
 	setWhoModalHandler,
+	setMinigameCommandHandler,
 	sendCmd,
 	doAuth,
 	doForgotPassword,
@@ -278,6 +283,11 @@ initCustomPanelButton();
 // Net / WebSocket
 initNet(handleServerMsg);
 setWhoModalHandler(openWhoModal);
+// The character breach board claims ping/scan/breach/abort while it is open — a
+// text minigame runs entirely client-side, so there is nothing server-side to
+// receive those words. Returns false when the board is shut, so the verbs stay
+// available to whatever else owns them.
+setMinigameCommandHandler((cmd) => textBreachCommand(cmd) || textHololockCommand(cmd) || textVaultCommand(cmd) || textSignalCommand(cmd));
 
 // Auth form — restore remembered credentials
 const _savedUser = localStorage.getItem("mud_remember_user");

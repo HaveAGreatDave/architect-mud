@@ -42,6 +42,7 @@ import { commands as hangarCommands, pushHangarBay } from './hangars.js';
 import { commands as charterCommands, charterDebug, charterParkedAt, embarkCharter, activeCharters, chaseCont, stepToward, CRUISE_TILES } from './charter.js';
 import { isPilotLicensed, beginCheckride, evaluateCheckride, checkrideEvent, getCheckrideState, hasActiveCheckride } from './checkride.js';
 import { prefersTextTravel, boardingLine, textTravelTick } from './textmode.js';
+import { prefersTextMinigamesOrDefault } from '../../server/engine/presentation.js';
 import {
   startTextPilot, stopTextPilot, wireTextPilot, statusLines as textPilotStatus,
   cmdTextThrottle, cmdTextClimb, cmdTextLevel, cmdTextTurn, cmdTextFlaps, cmdTextGear,
@@ -233,10 +234,14 @@ async function boardFound(found, player, broadcast) {
   // boarding, never on the tick) so pushHud can skip them without an await, and gets
   // narrated flight instead of a panel. See textmode.js.
   player.textTravel = seat !== 'pilot' && await prefersTextTravel(player);
-  // The SAME preference governs the pilot's seat: a text-only player flies her by
-  // command with the server running the physics (textpilot.js), and no cockpit panel
-  // is ever sent. Falls back to the 3D sim if the airframe has no physics profile.
-  const textFly = seat === 'pilot' && isContinuous(live) && await prefersTextTravel(player) && startTextPilot(player, live);
+  // The pilot's seat reads the OTHER axis of the ladder. Riding is a panel — delete
+  // the cabin window and you are not stuck — so a rider only loses it at the `log`
+  // rung. FLYING is a minigame: delete the cockpit and the aircraft is unusable, so
+  // the text cockpit (textpilot.js) arrives one rung earlier, at `textgames`. That
+  // is the whole point of the middle rung — fly her by command, keep the map.
+  // Falls back to the 3D sim if the airframe has no physics profile.
+  const textFly = seat === 'pilot' && isContinuous(live)
+    && await prefersTextMinigamesOrDefault(player) && startTextPilot(player, live);
   if (textFly) { /* no panel — the text pilot flies on commands + status lines */ }
   else if (seat === 'pilot' && isContinuous(live)) sendFlightSim(player, live);
   else pushHud(live);
@@ -1955,7 +1960,65 @@ registerTabletApp({
   },
 });
 
+// ── deadhead — dispatch your flying base while you are NOT aboard ────────────
+// Aboard, everything routes to real verbs (`nav`, `circle`, `landat`,
+// `takecontrols`, `handoff`). REMOTE was the gap: `remoteDispatchField` and
+// `remoteDispatchLoiter` were reachable only from the DEADHEAD tablet app, so a
+// player who didn't use the tablet could own a Leviathan and never send for her.
+async function cmdDeadhead(args, raw, player) {
+  const { live, aboard } = ownLeviathan(player);
+  if (!live) return { type: 'error', message: 'You have no flying base out there.' };
+
+  const sub = (args[0] || '').toLowerCase();
+  const rest = args.slice(1).join(' ').trim();
+
+  // Aboard, this verb has nothing of its own to say — the real controls are the
+  // real verbs, and quietly duplicating them here would give two ways to fly with
+  // one of them subtly behind.
+  if (aboard) {
+    return {
+      type: 'output',
+      message: 'You are aboard her. Fly her yourself: '
+        + '<span class="action-link" data-action="cmd" data-cmd="takecontrols">takecontrols</span> · '
+        + '<span class="action-link" data-action="cmd" data-cmd="nav">nav</span> · '
+        + '<span class="action-link" data-action="cmd" data-cmd="landat">landat</span>',
+    };
+  }
+
+  const where = `${live.row.grid_x || 0},${live.row.grid_y || 0}`;
+  if (!sub) {
+    const state = live.row.airborne ? (live.crew ? 'under way with the crew' : 'aloft') : 'parked';
+    return {
+      type: 'output',
+      message: `<span class="text-cyan">${live.type?.name || 'Your base'}</span> <span class="text-dim">— ${state} at ${where}</span>\n`
+        + '<span class="text-dim">deadhead to &lt;airfield&gt; · deadhead hold &lt;x&gt; &lt;y&gt; · deadhead here</span>',
+    };
+  }
+
+  if (sub === 'to' || sub === 'chart') {
+    if (!rest) return { type: 'error', message: 'Send her where? "deadhead to <airfield>".' };
+    return remoteDispatchField(live, rest)
+      ? { type: 'output', message: `<span class="msg-system">Dispatched — the crew are taking her to ${rest}.</span>` }
+      : { type: 'error', message: `No airfield by that name${craftIsVtol(live) ? '' : ' with a runway she can use'}.` };
+  }
+
+  if (sub === 'hold' || sub === 'loiter') {
+    const [x, y] = rest.split(/\s+/).map(Number);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return { type: 'error', message: 'Hold where? "deadhead hold <x> <y>".' };
+    remoteDispatchLoiter(live, x, y);
+    return { type: 'output', message: `<span class="msg-system">Dispatched — the crew are holding ${x},${y}.</span>` };
+  }
+
+  if (sub === 'here' || sub === 'circlehere') {
+    remoteDispatchLoiter(live, live.row.grid_x || 0, live.row.grid_y || 0);
+    return { type: 'output', message: '<span class="msg-system">The crew hold a lazy orbit.</span>' };
+  }
+
+  return { type: 'error', message: 'Try "deadhead to <airfield>", "deadhead hold <x> <y>", or "deadhead here".' };
+}
+
 export const commands = {
+  deadhead: cmdDeadhead,
   examine: cmdExamineCraft, look: cmdLookCraft,
   embark: cmdBoard, board: cmdBoard, disembark: cmdDisembark, deplane: cmdDisembark, window: cmdWindow, testfly: cmdTestFly, taxi: cmdTaxi,
   takecontrols: cmdTakeControls, controls: cmdTakeControls, handoff: cmdHandoff, standdown: cmdHandoff, nav: cmdNav,

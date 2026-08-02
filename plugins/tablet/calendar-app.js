@@ -268,7 +268,68 @@ async function remindTick() {
 
 on('environment.dayRollover', remindTick);
 
-export const _test = { dueReminders };
+// ── `remind` — the same reminders, by typing ─────────────────────────────────
+// Adding and deleting a reminder existed only as buttons on this screen, and
+// there is no reminder verb anywhere else in the game, so the whole feature was
+// tablet-only. The store, the date parsing and the day-of ping are unchanged —
+// this is a second door onto them.
+function parseWhen(first) {
+  const today = gameToday();
+  if (DATE_RE.test(first)) return first;
+  if (/^\+\d+$/.test(first) && today) return addGameDays(today, parseInt(first.slice(1), 10));
+  return null;
+}
+
+export async function cmdRemind(args, raw, player) {
+  const sub = (args[0] || '').toLowerCase();
+
+  // `remind del <n>` — by POSITION in the list this verb prints, not by the
+  // internal `rem_<timestamp>` id the buttons pass around.
+  if (sub === 'del' || sub === 'delete' || sub === 'remove') {
+    const list = await loadReminders(player);
+    if (!list.length) return { type: 'output', message: 'You have no reminders.' };
+    const sorted = [...list].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const n = parseInt(args[1], 10);
+    const victim = Number.isFinite(n) ? sorted[n - 1] : null;
+    if (!victim) return { type: 'error', message: `Delete which? "remind" lists them, then "remind del <n>".` };
+    await saveReminders(player, list.filter(r => r.id !== victim.id));
+    return { type: 'output', message: `<span class="msg-system">Cleared: ${victim.text}</span>` };
+  }
+
+  // Bare `remind` — what's coming.
+  if (!sub) {
+    const list = (await loadReminders(player)).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    if (!list.length) {
+      return { type: 'output', message: 'Nothing in the book.\n<span class="text-dim">remind 2087-07-20 Meet Voss · remind +7 Pay rent</span>' };
+    }
+    const today = gameToday();
+    const lines = list.map((r, i) => {
+      const away = today ? gameDaysBetween(today, r.date) : null;
+      const when = away === 0 ? '<span class="text-cyan">today</span>'
+        : (Number.isFinite(away) && away > 0) ? `in ${away} day${away === 1 ? '' : 's'}`
+          : '<span class="text-dim">past</span>';
+      return `  ${i + 1}. <b>${r.text}</b> <span class="text-dim">· ${prettyDate(r.date)} · ${when}</span>`;
+    });
+    return {
+      type: 'output',
+      message: `<span class="text-cyan">REMINDERS</span>\n${lines.join('\n')}\n`
+        + `<span class="text-dim">remind &lt;YYYY-MM-DD|+N&gt; &lt;note&gt; · remind del &lt;n&gt;</span>`,
+    };
+  }
+
+  // `remind <date> <note>`
+  const date = parseWhen(args[0]);
+  const text = args.slice(1).join(' ').trim();
+  if (!date) return { type: 'error', message: 'Start with a date: "remind 2087-07-20 Meet Voss" or "remind +7 Pay rent".' };
+  if (!text) return { type: 'error', message: 'Add a note after the date, e.g. "remind 2087-07-20 Meet Voss".' };
+
+  const list = await loadReminders(player);
+  list.push({ id: `rem_${Date.now()}`, date, text });
+  await saveReminders(player, list);
+  return { type: 'output', message: `<span class="msg-system">Noted for ${prettyDate(date)}: ${text}</span>` };
+}
+
+export const _test = { dueReminders, parseWhen };
 
 registerTabletApp({
   id: 'calendar', name: 'Calendar', icon: '📅', category: 'General',

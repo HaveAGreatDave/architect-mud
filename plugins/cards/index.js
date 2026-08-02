@@ -10,6 +10,7 @@
 // Nothing here is on a hot path. Card reads are cold, the pool is cached in memory
 // behind one writer, and no tick is registered.
 import { randomUUID } from 'crypto';
+import { logRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
 import { getZoneFurniture, getZone } from '../../server/engine/world.js';
 import { isPluggedIn } from '../appliances/index.js';
@@ -437,7 +438,11 @@ async function cmdOpenPack(args, raw, player, broadcast) {
   broadcast(player.current_zone, { type: 'zone_event', message: hot
     ? `${player.handle} tears open a foil sleeve, and the foil comes off GOLD.`
     : `${player.handle} tears open a foil sleeve.` }, player.id);
-  return {
+  // The reveal is a cinematic; the pull itself is in `message` below, which is why
+  // this file already says "the overlay is the show, never the record". That makes
+  // it safe to suppress at the bottom Display Mode rung — the player still gets
+  // every card, in the log, in full. Nothing is lost but the animation.
+  return logRender(player, {
     type: 'cardpack_open',
     cards,
     scrapValue: SCRAP_VALUE,
@@ -462,7 +467,7 @@ async function cmdOpenPack(args, raw, player, broadcast) {
       + lines.join('')
       + `</span>`
       + (scrapped ? `\n<span class="text-dim">Dupes in there — <span class="cmd">scrap</span> them for ₵${scrapped}.</span>` : ''),
-  };
+  });
 }
 
 async function cmdCards(args, raw, player) {

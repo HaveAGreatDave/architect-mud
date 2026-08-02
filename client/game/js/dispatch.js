@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, showSkyBanner, pointAtRoomTarget, setRoomBeacon, clearRoomBeacons, isAreaPaneVisible } from './render.js';
+import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, setPaneSilent, showSkyBanner, pointAtRoomTarget, setRoomBeacon, clearRoomBeacons, isAreaPaneVisible } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
 import { renderMinimap, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt, notifyElevatorDoors } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors, setEnvUnreal } from './panels/environment.js';
@@ -28,6 +28,10 @@ import { openVoidwalkStaging, appendVoidwalkChat } from './panels/voidwalk-stagi
 import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } from './panels/mediadeck.js';
 import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/deviceinspect.js';
 import { openCircuitHack } from './panels/circuithack.js';
+import { openTextBreach, isTextBreachActive, command as textBreachCommand } from './panels/textbreach.js';
+import { openTextHololock, isTextHololockActive, command as textHololockCommand } from './panels/texthololock.js';
+import { openTextVault, isTextVaultActive, command as textVaultCommand } from './panels/textvault.js';
+import { openTextSignal, isTextSignalActive, command as textSignalCommand } from './panels/textsignal.js';
 import { openHololock } from './panels/hololock.js';
 import { openSignalHijack } from './panels/signalhijack.js';
 import { openPirateConsole, closePirateConsole } from './panels/piratedeck.js';
@@ -233,6 +237,19 @@ function setSleepBar(sleeping, dreaming) {
   }
 }
 
+// Display Mode `log` — the server already resolved this minigame with a skill
+// check and told us the outcome, because a character board repaints at frame rate
+// and is unreadable by a screen reader. Print its line and fire the SAME resolve
+// verb the board would have fired, so the authoritative path is identical.
+// Returns true when it handled the message, so each handler reads as one guard.
+function autoResolved(msg, onResult) {
+  if (msg.render !== 'resolve') return false;
+  if (msg.message) appendHtml(msg.message, 'system');
+  // Both shapes, so a family whose callback reads {score} and one that reads
+  // {won} are each satisfied without the helper knowing which is which.
+  onResult({ won: !!msg.autoWon, score: msg.autoScore ?? (msg.autoWon ? 100 : 0) });
+  return true;
+}
 const handlers = {
   connected: () => {},
   pong: () => {},
@@ -287,7 +304,13 @@ const handlers = {
     // Don't clobber the live cockpit (either the continuous sim or the discrete
     // passenger HUD) or an open hangar bay panel — all replace the plain-text room
     // description with their own app in the same area-pane.
-    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive() && !isTextCockpitActive()) setAreaPane(msg.message);
+    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive() && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive() && !isTextVaultActive() && !isTextSignalActive()) setAreaPane(msg.message);
+    // Display Mode `log` — the room goes to the scrolling log as well. The pane is
+    // aria-hidden at that rung, so this duplication is inaudible to a screen
+    // reader and is the ONLY way the room reaches them; a sighted player on this
+    // rung gets the room in their scrollback, which is what they chose it for.
+    if (msg.toLog) appendHtml(msg.message, 'look');
+    setPaneSilent(!!msg.toLog);
     if (state.echoNextLook) { appendMsg('You look around.', 'system'); state.echoNextLook = false; }
     if (msg.zone) { notifyZoneChanged(msg.zone); state.currentZone = msg.zone; }
     setYachtAmbience(msg.ambience);   // naval on deck / engine below / null elsewhere
@@ -301,8 +324,10 @@ const handlers = {
     // against this plain-text room description — whichever lands second wins.
     // If the bay panel already won that race, don't stomp it; it owns the pane
     // until the player actually leaves (hangar_close triggers a fresh look).
-    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive() && !isTextCockpitActive()) setAreaPane(msg.message, msg.direction);
+    if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive() && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive() && !isTextVaultActive() && !isTextSignalActive()) setAreaPane(msg.message, msg.direction);
     if (msg.narration) appendHtml(msg.narration, 'move');
+    if (msg.toLog) appendHtml(msg.message, 'look');   // see the `look` handler
+    setPaneSilent(!!msg.toLog);
     notifyZoneChanged(msg.zone);
     state.currentZone = msg.zone;
     setYachtAmbience(msg.ambience);   // naval on deck / engine below / null elsewhere
@@ -943,7 +968,10 @@ const handlers = {
     if (msg.message) appendHtml(msg.message, 'loot');
     if (msg.credits != null && state.player) { state.player.credits = msg.credits; updateVitals(state.player); }
   },
-  cardpack_open: (msg) => { openPackReveal(msg); if (msg.message) appendHtml(msg.message, 'loot'); },
+  // The reveal is the show; `message` is the record and always prints. At the
+  // bottom Display Mode rung the cinematic is suppressed and the record is all
+  // you get — which this file's own note says loses nothing.
+  cardpack_open: (msg) => { if (msg.render !== 'log') openPackReveal(msg); if (msg.message) appendHtml(msg.message, 'loot'); },
   insurance_panel: (msg) => { openInsurancePanel(msg); },
   insurance_action: (msg) => {
     appendHtml(msg.message, 'loot');
@@ -982,22 +1010,34 @@ const handlers = {
   },
   circuit_hack: (msg) => {
     const resolveCmd = msg.resolveCmd || 'hijackresolve';
-    openCircuitHack({
+    const onResult = ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.deviceId} ${won ? 1 : 0}`);
+    const args = {
       skill: msg.skill ?? 4,
       difficulty: msg.difficulty ?? 5,
-      atmName: msg.deviceName || 'DEVICE',
-      onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.deviceId} ${won ? 1 : 0}`),
-    });
+      onResult,
+    };
+    // Display Mode `textgames`/`log` — the same board drawn in characters. It is
+    // the SAME game: same generator, same difficulty scaling, same guaranteed-
+    // solvable route (see textbreach.js). If it can't open (generation failed),
+    // fall back UP to the graphical one rather than leaving the player unable to
+    // act — a rung with no implementation is never a dead end.
+    if (autoResolved(msg, onResult)) return;
+    if (msg.render === 'text' && openTextBreach({ ...args, deviceName: msg.deviceName || 'DEVICE' })) return;
+    openCircuitHack({ ...args, atmName: msg.deviceName || 'DEVICE' });
   },
 
   signal_hijack: (msg) => {
     const resolveCmd = msg.resolveCmd || 'pirateresolve';
-    openSignalHijack({
+    const args = {
       skill: msg.skill ?? 4,
       difficulty: msg.difficulty ?? 5,
       stationName: msg.stationName || msg.deckName || 'STATION',
       onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.deckId} ${won ? 1 : 0}`),
-    });
+    };
+    // Same capture — same carrier drift and hops, same decoys, same lock window.
+    if (autoResolved(msg, args.onResult)) return;
+    if (msg.render === 'text' && openTextSignal(args)) return;
+    openSignalHijack(args);
   },
 
   pirate_console: (msg) => openPirateConsole(msg),
@@ -1005,12 +1045,17 @@ const handlers = {
 
   hololock_game: (msg) => {
     const resolveCmd = msg.resolveCmd || 'hackresolve';
-    openHololock({
+    const args = {
       skill: msg.skill ?? 4,
       difficulty: msg.difficulty ?? 5,
       deviceName: msg.deviceName || 'HOLOLOCK',
       onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.doorId} ${won ? 1 : 0}`),
-    });
+    };
+    // Same lock, drawn in characters — same sweep speed, same sweet-zone width,
+    // same miss penalty, because it is the same loop with the drawing swapped.
+    if (autoResolved(msg, args.onResult)) return;
+    if (msg.render === 'text' && openTextHololock(args)) return;
+    openHololock(args);
   },
 
   // A bite arms the CAST overlay (charge a power meter for depth, aim an angle).
@@ -1102,15 +1147,29 @@ const handlers = {
 
   vault_crack: (msg) => {
     const resolveCmd = msg.resolveCmd || 'safecrackresolve';
-    openVaultCrack({
+    const args = {
       skill: msg.skill ?? 4,
       difficulty: msg.difficulty ?? 5,
       deviceName: msg.deviceName || 'VENDOR SAFE',
       onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.safeId} ${won ? 1 : 0}`),
-    });
+    };
+    // Same safe — same contact points, same tolerance, same noisy gauge. The dial
+    // just becomes a number you step rather than a wheel you drag, which also
+    // makes it playable without a pointing device at all.
+    if (autoResolved(msg, args.onResult)) return;
+    if (msg.render === 'text' && openTextVault(args)) return;
+    openVaultCrack(args);
   },
 
   synth_minigame: (msg) => {
+    // This family has no character board, so at `textgames` it falls back UP to the
+    // graphical one — correct, that rung's audience can see it. At `log` the server
+    // resolved it with a skill check, because opening a canvas for a screen-reader
+    // player is a dead end. It reports a SCORE, not a boolean, which is why the
+    // helper hands both shapes to the callback.
+    if (autoResolved(msg, ({ score }) => sendCmdSilent(msg.kind === 'splice'
+      ? `spliceresolve ${msg.token} ${score}`
+      : `synthresolve ${msg.recipeId} ${score} ${msg.nonce || ''}`.trim()))) return;
     if (msg.kind === 'splice') {
       // the master-tier orchestra (mix→pour→stir→stabilize→set)
       openSpliceStages({

@@ -103,6 +103,53 @@ async function nearestBench(player, station) {
   return best;
 }
 
+// ── `bench` — route to the nearest workbench, by typing ──────────────────────
+// `gps <name>` already routes to anywhere you can NAME. What it can't do is
+// "nearest one of these", and the tablet's Route button was the only thing in the
+// game that could — a player without a tablet had to already know where a bench
+// was. This is that button as a verb; the pathfinding is unchanged.
+export async function cmdBench(args, raw, player) {
+  const want = args.join(' ').trim().toLowerCase().replace(/\s+/g, '_');
+
+  const { rows } = await query(`SELECT DISTINCT flags->>'crafting_station' AS station FROM furniture WHERE flags ? 'crafting_station'`);
+  const stations = rows.map(r => r.station).filter(Boolean).sort();
+  if (!stations.length) return { type: 'output', message: 'There are no workbenches anywhere. That cannot be right.' };
+
+  if (!want) {
+    // No argument: nearest bench of ANY kind, and say what else is out there.
+    let best = null;
+    for (const s of stations) {
+      const b = await nearestBench(player, s);
+      if (b && (!best || b.hops < best.hops)) best = { ...b, station: s };
+    }
+    if (!best) return { type: 'output', message: `No bench you can walk to. Kinds that exist: ${stations.join(', ')}.` };
+    return routeToBench(player, best, best.station);
+  }
+
+  const station = stations.find(s => s === want) || stations.find(s => s.startsWith(want)) || stations.find(s => s.includes(want));
+  if (!station) return { type: 'error', message: `No such bench. Kinds: ${stations.map(s => `<b>${s}</b>`).join(', ')}` };
+
+  const bench = await nearestBench(player, station);
+  if (!bench) return { type: 'error', message: `No ${station} you can walk to from here.` };
+  return routeToBench(player, bench, station);
+}
+
+function routeToBench(player, bench, station) {
+  if (bench.hops === 0) {
+    return { type: 'output', message: `There's a ${station.replace(/_/g, ' ')} right here.` };
+  }
+  // Route WITHOUT autostart: the button is a deliberate tap on a screen you opened
+  // on purpose, whereas a typed verb shouldn't seize the legs of somebody who only
+  // wanted to know where the nearest one was. `gps` arms auto-walk if they want it.
+  sendToPlayer(player.id, {
+    type: 'gps_route',
+    message: `GPS locked: ${bench.name} — ${bench.hops} step${bench.hops === 1 ? '' : 's'}.`,
+    path: bench.path,
+    continueOnArrival: false,
+  });
+  return { type: 'output', message: `Nearest ${station.replace(/_/g, ' ')}: <b>${bench.name}</b> <span class="text-dim">(${bench.hops} steps — plotted on your map)</span>` };
+}
+
 function meetsSkill(recipe, levels, player) {
   for (const [sid, min] of Object.entries(recipe.skill_req || {})) {
     if ((levels[sid] || 0) + skillStatBonus(player, sid) < min) return false;

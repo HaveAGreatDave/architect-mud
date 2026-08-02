@@ -118,6 +118,32 @@ function baseAmp(st) {
 // Landing the (noisy) needle into it is the cue that a SET will drop the tumbler.
 function bandFloor(st) { return Math.pow(1 - Math.min(1, st.tolerance / st.senseRange), st.sharpen); }
 
+// ── The SKIN seam ────────────────────────────────────────────────────────────
+// Everything above is the SAFE — wheel count, tolerance, sensing range, gauge
+// noise, the sharpen curve and the tamper trickle, all scaled off
+// skill-vs-difficulty. Everything below is one way of drawing it.
+//
+// textvault.js installs a skin and cracks the identical safe in characters. The
+// hunt is unchanged: the same hidden contact points, the same noisy gauge, the
+// same tolerance. Only the dial stops being a thing you drag and becomes a number
+// you step — which is arguably the more honest safecracking interface anyway.
+let _skin = null;
+export function setVaultSkin(skin) { _skin = skin; }
+
+export function startVaultGame(opts) {
+  _opts = { skill: 4, difficulty: 5, deviceName: 'VENDOR SAFE', onResult: null, ...opts };
+  _state = generate(_opts.skill, _opts.difficulty);
+  _lastT = performance.now();
+  _raf = requestAnimationFrame(tick);
+  return _state;
+}
+export function stopVaultGame() {
+  if (_raf) cancelAnimationFrame(_raf);
+  _raf = 0; _state = null;
+}
+// The two actions and the two read-only curves a skin needs to draw the gauge.
+export { turn as vaultTurn, trySet as vaultSet, baseAmp as vaultAmp, bandFloor as vaultBand };
+
 // ── Render ──────────────────────────────────────────────────────────────────
 const DIAL_CX = 150, DIAL_CY = 150, DIAL_R = 120;
 const angleOf = (v) => (v / 100) * 360 - 90;                          // 0 at top, clockwise (deg)
@@ -193,6 +219,7 @@ function flarePointer() {
 }
 
 function paintDial() {
+  if (_skin) return _skin.board(_state);
   const spin = _overlay.querySelector('#vc-disc-spin');
   if (spin) spin.setAttribute('transform', `rotate(${(-_state.dial / 100) * 360} ${DIAL_CX} ${DIAL_CY})`);
   const ro = _overlay.querySelector('#vc-readout');
@@ -210,6 +237,7 @@ function paintDial() {
 }
 
 function renderHud() {
+  if (_skin) return _skin.hud(_state);
   const pips = _overlay.querySelector('#vc-pips');
   if (pips) pips.innerHTML = _state.wheels.map(w => w.set ? '<span style="color:#46e05a">&#9673;</span>' : '<span style="color:#4a525a">&#9711;</span>').join(' ');
   const fill = _overlay.querySelector('#vc-heat-fill');
@@ -219,11 +247,15 @@ function renderHud() {
 }
 
 function renderGauge() {
+  if (_skin) return _skin.frame(_state);
   const fill = _overlay.querySelector('#vc-gauge-fill');
   if (fill) fill.style.width = `${Math.round(_state.gauge * 100)}%`;
 }
 
-function setStatus(html) { _overlay.querySelector('#vc-status').innerHTML = html; }
+function setStatus(html) {
+  if (_skin) return _skin.status(html);
+  _overlay.querySelector('#vc-status').innerHTML = html;
+}
 
 // ── Loop ──────────────────────────────────────────────────────────────────
 function tick(t) {
@@ -239,8 +271,7 @@ function tick(t) {
   const target = clampNum(baseAmp(_state) + (Math.random() * 2 - 1) * _state.noise, 0, 1);
   _state.gauge += (target - _state.gauge) * 0.35;
   renderGauge();
-  renderHud();
-  setDeckLevel(_overlay, _state.heat);
+  if (!_skin) { renderHud(); setDeckLevel(_overlay, _state.heat); }
 
   if (_state.heat >= 1) { finish(false); return; }
   _raf = requestAnimationFrame(tick);
@@ -287,6 +318,8 @@ function finish(won) {
     ? '<span class="vc-win">&#9673; BOLT RETRACTED — safe open.</span>'
     : '<span class="vc-lose">&#10007; LOCK RE-SEATED — rig flagged.</span>');
   const cb = _opts?.onResult;
+  // A skin owns its own teardown — the character board is in the area pane.
+  if (_skin) { _skin.finish?.(_state, won); if (cb) cb({ won }); return; }
   if (won) {
     setTimeout(() => { close(); cb && cb({ won: true }); }, 1100);
   } else {

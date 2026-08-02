@@ -495,6 +495,9 @@ function finish(state, won, text) {
   const cls = won ? 'ch-win' : 'ch-lose';
   setStatus(`<span class="${cls}">&gt;&gt; ${text}</span>`);
   try { _opts.onResult && _opts.onResult({ won }); } catch { /* ignore */ }
+  // A skin owns its own teardown — the character board lives in the area pane,
+  // not in an overlay, so closing one here would tear down the wrong thing.
+  if (_skin) return _skin.finish?.(state, won, text);
   // On a win the real outcome is reported server-side (see onResult); the
   // overlay's job is done, so close it rather than leaving it sitting open.
   if (won) setTimeout(() => close(), 1100);
@@ -663,7 +666,44 @@ function boardSvg(state) {
   </svg>`;
 }
 
+// ── The SKIN seam ────────────────────────────────────────────────────────────
+// Everything above this line is the GAME — generation, the solvability proof,
+// movement, hazards, PING/SCAN/BREACH, the fail states. Everything below is one
+// way of DRAWING it.
+//
+// A skin supplies { board, hud, status, finish } and gets the same state object.
+// Install one and the character renderer (textbreach.js) plays the identical
+// puzzle — same generator, same difficulty scaling, same guaranteed-solvable
+// board — with no canvas and no SVG anywhere in the path. That is the whole
+// point of the middle Display Mode rung: a text minigame is an equivalent, not a
+// description (see docs/systems-display-mode.md).
+//
+// Null means the built-in glowing-PCB renderer, which is still the default.
+let _skin = null;
+export function setBreachSkin(skin) { _skin = skin; }
+
+// The state machine, exposed so a skin can drive it. These are the only four
+// things a player can do; a skin that needs a fifth is a skin changing the game.
+export const breachActions = {
+  move: (state, id) => moveTo(state, id),
+  ping: (state) => ping(state),
+  scan: (state, id) => scanNode(state, id),
+  breach: (state, id) => breach(state, id),
+  // Read-only helpers a renderer needs to decide what it may offer.
+  isReachable, isScannable, isKnown, breachKind, neighborsOf,
+};
+
+// Generate a board from explicit options, for a skin that isn't opening the
+// built-in overlay. Sets `_opts` because generate() and the hazard penalties read
+// it — the difficulty scaling must be identical for both skins or they are two
+// different games wearing one name.
+export function generateBreach(opts) {
+  _opts = { skill: 4, difficulty: 4, atmName: 'TERMINAL', onResult: null, ...opts };
+  return generate();
+}
+
 function renderBoard() {
+  if (_skin) return _skin.board(_state);
   const el = document.getElementById('ch-board');
   if (!el) return;
   el.innerHTML = boardSvg(_state);
@@ -678,6 +718,7 @@ function renderBoard() {
   });
 }
 function renderHud() {
+  if (_skin) return _skin.hud(_state);
   const el = document.getElementById('ch-hud');
   if (!el) return;
   const s = _state;
@@ -692,7 +733,10 @@ function renderHud() {
     (s.keys ? `<span style="color:#ffd75f">&#9919; KEY</span>` : '');
   setDeckLevel(_overlay, s.traceMax ? s.trace / s.traceMax : 0);
 }
-function setStatus(html) { const el = document.getElementById('ch-status'); if (el) el.innerHTML = html; }
+function setStatus(html) {
+  if (_skin) return _skin.status(html);
+  const el = document.getElementById('ch-status'); if (el) el.innerHTML = html;
+}
 function flashStatus(html) { setStatus(html); }
 
 // ── Plug-in intro ─────────────────────────────────────────────────────────────

@@ -5789,16 +5789,24 @@ function renderTabletSettings(d) {
     lockRow +
     (linked ? '' : `<div class="tos-set-row"><span class="tos-set-label">Tablet Theme</span>${tosThemeTrigger('tablet', tabletActive)}</div>`);
 
-  // Display Mode — the one game-wide choice between a system's graphical
-  // presentation and its text version (the flight display, the poker table).
-  // SERVER state, unlike everything else on this screen: the flight plugin reads
-  // it on the server, at board time, to decide whether to push a panel at all.
-  // So it renders from the payload (settings-app.js ships `textDisplay`) and the
-  // pills mirror any change back through the silent `displaymode` command.
-  const textDisplay = !!(d && d.textDisplay);
-  const displayRow = `<div class="tos-set-row"><span class="tos-set-label">Display Mode<span class="tos-set-val">Graphics, or the text version</span></span><div class="tos-opts">
-    <div class="tos-opt${!textDisplay ? ' selected' : ''}" data-set-display="visual" title="Use graphics wherever a system has them — the cockpit, the cabin window, the poker felt">Visual</div>
-    <div class="tos-opt${textDisplay ? ' selected' : ''}" data-set-display="text" title="Use the written version everywhere one exists — a narrated flight, poker called out to the log">Text</div>
+  // Display Mode — an ordered LADDER of three rungs, each stripping one more
+  // category of graphics. SERVER state, unlike everything else on this screen:
+  // the flight plugin reads it on the server, at board time, to decide whether to
+  // push a panel at all. So it renders from the payload (settings-app.js ships
+  // `displayRung`) and the pills mirror changes back through `displaymode`.
+  //
+  // The middle rung is NOT a downgrade — a text minigame is a live, character-
+  // drawn equivalent of the same game, not a description of it. The sublabels do
+  // the explaining, so keep them.
+  const rungNow = (d && d.displayRung) || 'visual';
+  const RUNGS = [
+    ['visual', 'Visual', 'Graphics wherever a system has them — the cockpit, the cabin window, the poker felt.'],
+    ['textgames', 'Text', 'The games come to you as characters — fly her by command, play cards in the log. Maps and hangars stay on screen.'],
+    ['log', 'Log', 'Everything written out where you can scroll back. No panels at all.'],
+  ];
+  const displayRow = `<div class="tos-set-row"><span class="tos-set-label">Display Mode<span class="tos-set-val">How much of the game is drawn for you</span></span><div class="tos-opts">
+    ${RUNGS.map(([id, label, hint]) =>
+    `<div class="tos-opt${rungNow === id ? ' selected' : ''}" data-set-display="${id}" title="${esc(hint)}">${esc(label)}</div>`).join('')}
   </div></div>`;
 
   const feltMode = s.pokerFelt || 'green';
@@ -10226,7 +10234,7 @@ function wireTabletSettings() {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
       const val = el.getAttribute('data-set-display');
-      if (_data) _data.textDisplay = val === 'text';
+      if (_data) _data.displayRung = val;
       sendCmdSilent(`displaymode ${val}`);
       render();
     });

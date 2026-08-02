@@ -1,7 +1,22 @@
 # Library — public-domain books as a readable system (as built)
 
-Nine complete public-domain books, readable anywhere from the tablet, narrated
-aloud in RP with the spoken line highlighted, and glossed for archaic vocabulary.
+Nine complete public-domain books, readable anywhere — from the tablet, narrated
+aloud in RP with the spoken line highlighted and glossed for archaic vocabulary,
+or by typing.
+
+**Two readers, one shelf.** Both call [plugins/library/books.js](../plugins/library/books.js)
+and share the `book_pos_<id>` bookmark, so a book put down on the tablet is picked
+up by `read` on the same chapter. Until the typed reader existed
+(`library`/`read`/`page`/`chapter`/`contents`) the plugin exported no commands at
+all and every book in the game was reachable only by tapping — the whole content
+set was invisible to a player who didn't use the tablet.
+
+The typed reader adds exactly one concept the tablet doesn't have: a **page**
+(`book_page_<id>`, its flag alone). The tablet scrolls a whole chapter inside a
+panel; the log can't, and a novel chapter pushed to the scrollback in one go is
+thousands of words nobody can navigate — so `page` serves ~1400 characters broken
+at a paragraph, **never mid-sentence**. Teaching the tablet about pages would only
+make the two readers disagree about where you are inside a chapter.
 
 Not to be confused with **CODEX** ([systems-codex.md](systems-codex.md)), which is
 the game's own backstory. CODEX is authored lore that unlocks a chapter at a time;
@@ -14,6 +29,11 @@ A book you carry only gets read where you found it. A book on the tablet gets re
 waiting out a storm, sitting in a cell, riding a lift — which is when people
 actually read. So the physical shelf is the *acquisition point* and the tablet is
 the reader.
+
+That reasoning is about the BOOK not being a carried object; it was never an
+argument for the tablet being the only interface, and for a while it was quietly
+doing duty as one. The typed reader is the same books, the same anywhere, without
+the panel.
 
 ## Copyright — the rule, not a footnote
 

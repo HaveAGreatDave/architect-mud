@@ -1,4 +1,5 @@
 import { query } from '../../models/db.js';
+import { textRender } from '../minigame.js';
 import { getDoorForExit, doorOnLink, getDoorById, getZoneDoors, setDoorCache, getZone, frontDoorOf, world, getApartment, setApartmentCache } from '../world.js';
 import { resolveLockAuth, getLockType, getAllLockTypes } from '../locks.js';
 import { propagateSound } from '../sounds.js';
@@ -477,14 +478,14 @@ async function hackDoor(door, player, broadcast) {
   });
 
   pendingHack.set(player.id, { doorId: door.id, expires: Date.now() + HACK_PENDING_TTL_MS });
-  return {
+  return textRender(player, {
     type: 'hololock_game',
     doorId: door.id,
     deviceName: door.name || 'hololock',
     skill: await effectiveSkill(player, 'hacking'),
     difficulty: await hackDifficulty(player.id, lockTag.difficulty),
     resolveCmd: 'hackresolve',
-  };
+  });
 }
 
 // SIFT picker replay for `hack` — the chosen candidate carries the resolved door.

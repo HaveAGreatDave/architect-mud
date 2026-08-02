@@ -10,7 +10,8 @@
   "commands": [
     "beckon",
     "dismiss",
-    "pour"
+    "pour",
+    "bliss"
   ],
   "ticks": [
     "15s"

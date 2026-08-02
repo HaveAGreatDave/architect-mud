@@ -24,6 +24,7 @@
 // `priority` settles a room that is two workspaces at once; the highest wins,
 // and a tie is the alphabetical key so the answer is at least stable.
 import { gatherHook, fireHook } from '../../server/engine/plugins.js';
+import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
 
 // Providers are gathered fresh per invocation rather than cached. The hook is a
 // pure in-memory room check by contract (kitchen's is `getZoneFurniture` and a
@@ -69,6 +70,90 @@ export async function buildWorkspaceView(player, providerKey = null) {
   return view;
 }
 
+// ── The written workspace ────────────────────────────────────────────────────
+// The bottom Display Mode rung gets the same view as prose rather than a panel.
+//
+// This one CANNOT be a suppression the way the card reveal is. The HUD aggregates
+// state that is nowhere else in the log: what is stored in reach, what is out on
+// the surface, what is mid-cook and how far along, which tools are here, whether
+// the stove is free. `look` shows you a room, not a working area. So the rung
+// needs a real rendering, and suppressing the panel without one would delete
+// information rather than re-present it (see logRender's contract).
+//
+// It renders the SAME payload the panel does — one builder, two presentations —
+// so the two can never disagree about what is on the bench. And every action it
+// prints is the same verb string the panel's buttons carry, which is this
+// plugin's founding rule: the HUD holds no gameplay logic.
+const esc = (s) => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const link = (cmd, label) =>
+  `<span class="action-link" data-action="cmd" data-cmd="${esc(cmd)}">${esc(label || cmd)}</span>`;
+
+function renderRow(c) {
+  const bits = [];
+  if (c.qty) bits.push(`×${c.qty}`);
+  if (c.state) bits.push(c.state);
+  if (c.notes?.length) bits.push(...c.notes);
+  // A cook in progress is the one thing here that is MOVING — the panel dims
+  // everything else to say so, and the log has to say it in words instead.
+  const live = c.live ? '<span class="text-cyan">▸</span> ' : '  ';
+  const tail = bits.length ? ` <span class="text-dim">(${esc(bits.join(' · '))})</span>` : '';
+  // Actions are `{ label, command, hint }` — verb strings a player could have
+  // typed, which is this plugin's founding rule. Printed as the clickable links
+  // they already are, so the log version is operable by mouse or by typing.
+  const acts = (c.actions || []).length
+    ? `\n      <span class="text-dim">${c.actions.map(a => link(a.command, a.label)).join(' · ')}</span>`
+    : '';
+  return `${live}<b>${esc(c.name)}</b>${tail}${acts}`;
+}
+
+function renderWorkspaceText(view) {
+  const out = [`<span class="text-cyan">${esc(view.title || 'WORKSPACE')}</span>`];
+
+  if (view.status?.length) {
+    out.push(view.status.map(s => {
+      const cls = s.state === 'off' ? 'text-red' : s.state === 'warn' ? 'text-amber' : 'text-dim';
+      return `  <span class="text-dim">${esc(s.label)}:</span> <span class="${cls}">${esc(s.value)}</span>`;
+    }).join('\n'));
+  }
+
+  const section = (label, rows) => {
+    if (!rows?.length) return null;
+    return `<span class="furniture-label">${label}:</span>\n${rows.map(renderRow).join('\n')}`;
+  };
+  for (const block of [
+    section('On the surface', view.area),
+    section('Within reach', view.storage),
+    section('Components', view.components),
+    section('Tools', view.tools),
+  ]) if (block) out.push(block);
+
+  if (view.empty) out.push('<span class="text-dim">The workspace is bare. Nothing out, nothing stored, nothing on the heat.</span>');
+
+  // The Assistant, printed group by group in the provider's own order. It scores
+  // only recipes you KNOW — listing the undiscovered half with exact shortfalls is
+  // the ingredient checklist the Cookbook deliberately refuses to be, and it would
+  // kill discovery. That rule is the provider's; this prints what it was handed and
+  // adds nothing, including the closing note about how many are still out there.
+  const a = view.assistant;
+  for (const g of a?.groups || []) {
+    if (!g.recipes?.length) continue;
+    out.push(`<span class="furniture-label">${esc(g.label)}:</span>\n`
+      + g.recipes.slice(0, 8).map(r => {
+        const short = r.missing?.length ? ` <span class="text-dim">— short: ${esc(r.missing.join(', '))}</span>` : '';
+        const gear = r.equipment?.length ? ` <span class="text-dim">— needs ${esc(r.equipment.join(', '))}</span>` : '';
+        const pct = Number.isFinite(r.pct) ? ` <span class="text-dim">${Math.round(r.pct)}%</span>` : '';
+        const acts = (r.actions || []).map(x => link(x.command, x.label || 'prepare')).join(' · ');
+        return `  <b>${esc(r.name)}</b>${pct}${short}${gear}${acts ? `  ${acts}` : ''}`;
+      }).join('\n'));
+  }
+  if (a?.note) out.push(`<span class="text-dim">${esc(a.note)}</span>`);
+
+  if (view.providers?.length > 1) {
+    out.push(`<span class="text-dim">Also here: ${view.providers.map(p => link(`workspace ${p.key}`, p.label)).join(' · ')}</span>`);
+  }
+  return out.join('\n');
+}
+
 // Exported because a domain verb can BE the way into its own workspace — a bare
 // `cook` at a stove opens the kitchen HUD rather than answering "Cook what?".
 export async function cmdWorkspace(args, raw, player) {
@@ -78,6 +163,9 @@ export async function cmdWorkspace(args, raw, player) {
       type: 'error',
       message: `There's nothing here to work at. A workspace needs equipment — a stove, a bench, something with a surface.`,
     };
+  }
+  if (await prefersLoggedPanelsOrDefault(player)) {
+    return { type: 'output', message: renderWorkspaceText(view) };
   }
   if (view.empty) {
     view.mainMsg = `<span class="text-dim">The workspace is bare. Nothing out, nothing stored, nothing on the heat.</span>`;
@@ -154,3 +242,7 @@ export const commands = {
   // everywhere except this file.
   bench: cmdWorkspace,
 };
+
+// The text rendering is pure over a payload, so regress can assert it without a
+// kitchen, a stove or a player.
+export const _test = { renderWorkspaceText, renderRow };

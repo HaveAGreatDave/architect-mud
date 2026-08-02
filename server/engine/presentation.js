@@ -1,54 +1,132 @@
-// Display Mode — the one player preference shared by every system that ships a
-// graphical presentation AND a text one for the same thing.
+// Display Mode — one ordered preference covering every system that ships a
+// graphical presentation AND a written one for the same thing.
 //
-// Two systems grew their own switch independently: the flight display (the 3D
-// cockpit / cabin window vs. a narrated ride) and the poker table (the felt in
-// the area pane vs. the game called out to the log). They are the same question
-// asked twice — "do I want the picture layer, or the words?" — and a player who
-// answers it for one has answered it for both. This module is that answer:
+// THREE RUNGS. Each strips one more category of graphics:
 //
-//   visual — use the graphical presentation wherever one exists (the default)
-//   text   — use the text presentation everywhere one exists
+//   visual    — graphics everywhere they exist. The default.
+//   textgames — the GAMES come to you as text; maps, hangars, scores and other
+//               readouts stay on screen.
+//   log       — nothing but the scrolling log. Panels are written out instead.
 //
-// It is a PREFERENCE, never a lockout. A system may still offer a per-moment
-// escape hatch (a passenger's `window`, poker's `text`/`visual`) — those flip
-// this same flag or ride over it for one sitting, by that system's own rules.
+// The middle rung is not a downgrade and must never be built as one. A text
+// minigame is a live, timed, character-drawn equivalent — same clock, same
+// difficulty, same win condition — the way textcockpit.js is an instrument panel
+// somebody built out of a terminal rather than a worse glass cockpit.
 //
-// Tri-state on purpose. `undefined` means the player has never expressed a view,
-// which is not the same as "visual": poker opens an old-school felt in text for
-// someone who never chose, and can only do that if it can tell the difference.
+// Two rungs, two audiences, and conflating them ruins both:
+//   · `textgames` is for players who WANT text. A character board repainting at
+//     frame rate is emphatically not screen-reader friendly, and that's fine.
+//   · `log` is for players who NEED a screen reader. Append-only, paced for a
+//     human, no modals. Everything they must know reaches #output.
 //
-// Read tier: player_flags, hydrated at login (engine/flags.js) — so these are
-// awaited but not round trips. Safe on a board/sit path; still not a per-tick one.
+// ── The two predicates ───────────────────────────────────────────────────────
+// Deliberately share no words, so a call site cannot read as the wrong axis:
+// there is no `prefersTextPanels`, so a typo is a crash rather than a wrong
+// answer. Ask the classification question to pick one:
+//
+//   "If I delete this surface, is the player STUCK?"
+//     yes → it's a minigame  → prefersTextMinigames
+//     no  → it's a panel     → prefersLoggedPanels
+//
+// A composite surface (the poker felt both shows the board and is how you bet) is
+// classified by its blocking half and ignores the panel rung.
+//
+// ── Falling back ─────────────────────────────────────────────────────────────
+// A rung with no implementation falls back to the rung ABOVE it — never to
+// "nothing happens". Flight already does this by accident: startTextPilot
+// returning false drops the player back into the 3D sim.
+//
+// Read tier: player_flags, hydrated at login (engine/flags.js) — awaited, but not
+// a round trip. Safe on a board/sit/look path. NEVER call one from a tick: latch
+// it at an entry moment the way flight latches `player.textTravel` at boarding.
 import { getFlag, setFlag } from './flags.js';
 
-export const DISPLAY_MODE_FLAG = 'display_mode';   // 'visual' | 'text'
+export const DISPLAY_MODE_FLAG = 'display_mode';
 
-// Each system's original per-system flag, kept as a READ-ONLY fallback so an
-// existing player's choice survives the merge with no data migration. Once they
-// touch the unified switch, `display_mode` answers and these are never consulted
-// again. Nothing writes them any more.
+export const RUNGS = ['visual', 'textgames', 'log'];
+
+// ⚠ THE MIDDLE RUNG IS NOT CALLED `text`, and that is load-bearing.
+//
+// Before the ladder, `display_mode='text'` meant what `log` means now: a text
+// poker player got the pane handed back to the room and everything narrated, and
+// a text passenger got no panel at all. If the new middle rung reused the string,
+// every existing text player would be silently promoted a rung on deploy and
+// start receiving panels they had turned off. So `'text'` still parses, and it
+// still means the bottom rung.
+const LEGACY_RUNG = { text: 'log', visual: 'visual' };
+
+// The original per-system flags, kept as READ-ONLY fallbacks so a choice made
+// before any of this survives with no data migration. Both were minigame-shaped
+// preferences. Nothing writes them any more.
 const LEGACY_KEYS = ['flight_text_only', 'poker_text_mode'];
 
-// true (text) / false (visual) / undefined (never chosen).
-export async function prefersTextDisplay(player) {
+// The player's rung, or undefined if they have never chosen. `undefined` is a
+// real answer and is not the same as `visual` — poker opens an old-school felt in
+// text for someone who has never expressed a view, and can only do that if it can
+// tell the difference. Keep the fourth state.
+export async function displayRung(player) {
   const v = await getFlag('player', DISPLAY_MODE_FLAG, player).catch(() => undefined);
-  if (v === 'text') return true;
-  if (v === 'visual') return false;
+  if (RUNGS.includes(v)) return v;
+  if (LEGACY_RUNG[v]) return LEGACY_RUNG[v];
   for (const k of LEGACY_KEYS) {
     const lv = await getFlag('player', k, player).catch(() => undefined);
-    if (lv === 'true' || lv === true) return true;
-    if (lv === 'false' || lv === false) return false;
+    if (lv === 'true' || lv === true) return 'log';
+    if (lv === 'false' || lv === false) return 'visual';
   }
   return undefined;
 }
 
-// Convenience for callers with no meaningful "unset" behavior (flight): unset
-// means visual, because a graphical client is what a new player gets.
-export async function prefersTextDisplayOrDefault(player) {
-  return (await prefersTextDisplay(player)) === true;
+// ── CONTEST surfaces — the ones you have to act through ──────────────────────
+// true at `textgames` AND `log`; false at `visual`; undefined if never chosen.
+export async function prefersTextMinigames(player) {
+  const r = await displayRung(player);
+  return r === undefined ? undefined : (r === 'textgames' || r === 'log');
 }
 
-export async function setDisplayMode(player, toText) {
-  await setFlag('player', DISPLAY_MODE_FLAG, toText ? 'text' : 'visual', player).catch(() => {});
+// For callers with no meaningful "never chosen" behaviour: unset means visual,
+// because a graphical client is what a new player gets.
+export async function prefersTextMinigamesOrDefault(player) {
+  return (await prefersTextMinigames(player)) === true;
 }
+
+// ── READOUT surfaces — the ones you only read ────────────────────────────────
+// true ONLY at `log`. A `textgames` player keeps their maps and hangars.
+export async function prefersLoggedPanels(player) {
+  const r = await displayRung(player);
+  return r === undefined ? undefined : r === 'log';
+}
+
+export async function prefersLoggedPanelsOrDefault(player) {
+  return (await prefersLoggedPanels(player)) === true;
+}
+
+// ── Writes ───────────────────────────────────────────────────────────────────
+// Setting the rung also latches it onto the live player, so anything on a hot
+// path (the look renderer) can read it synchronously without an await.
+export async function setDisplayRung(player, rung) {
+  const r = RUNGS.includes(rung) ? rung : (LEGACY_RUNG[rung] || 'visual');
+  await setFlag('player', DISPLAY_MODE_FLAG, r, player).catch(() => {});
+  if (player) player.displayRung = r;
+  return r;
+}
+
+// Latch at login (called from finishAuth alongside the other hydrations) so the
+// synchronous readers below never have to await. Undefined stays undefined.
+export async function hydrateDisplayRung(player) {
+  if (!player?.id) return;
+  player.displayRung = await displayRung(player);
+}
+
+// SYNC readers, for the paths that genuinely cannot await — the room-look
+// renderer runs on every move. They read the latch and nothing else, so a player
+// whose latch never got set reads as the default rather than as wrong.
+export function loggedPanelsSync(player) {
+  return player?.displayRung === 'log';
+}
+export function textMinigamesSync(player) {
+  return player?.displayRung === 'textgames' || player?.displayRung === 'log';
+}
+
+// (The one-switch API — prefersTextDisplay / setDisplayMode — is gone. It existed
+// for half a day between the two-value switch and this ladder; every call site
+// moved to whichever axis it actually meant, which is the point of the rename.)

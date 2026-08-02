@@ -12,17 +12,17 @@
 // screen ships its current value down and the client mirrors any change back
 // through the silent `displaymode` command; localStorage is never its home.
 import { registerTabletApp } from './registry.js';
-import { prefersTextDisplay } from '../../server/engine/presentation.js';
+import { displayRung } from '../../server/engine/presentation.js';
 
 async function buildScreen(player) {
   return {
     view: 'tablet_settings',
     breadcrumb: [],
     actions: [],
-    // undefined (never chosen) renders as Visual — the default a graphical
-    // client gets — while staying unset on the server so a text felt can still
-    // open in text for someone who hasn't decided.
-    textDisplay: (await prefersTextDisplay(player)) === true,
+    // The rung, or 'visual' for a player who has never chosen — that's what a
+    // graphical client gets. It stays UNSET on the server either way, so an
+    // old-school felt can still open in text for someone who hasn't decided.
+    displayRung: (await displayRung(player)) || 'visual',
   };
 }
 

@@ -42,6 +42,7 @@
  * rides on top of the same roll).
  */
 import { getZoneFurniture } from '../../server/engine/world.js';
+import { textRender } from '../../server/engine/minigame.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { hasHackDeck, hackDifficulty, damageHackDeck, marginOf } from '../../server/engine/hack-gear.js';
 
@@ -104,14 +105,14 @@ async function cmdHackRig(args, raw, player) {
   // Snapshot both: the resolve reads them back rather than re-deriving, so what
   // the minigame was actually played against is what scores it.
   _pending.set(player.id, { rigId: rig.id, skill, difficulty, expires: Date.now() + PENDING_TTL_MS });
-  return {
+  return textRender(player, {
     type: 'circuit_hack',
     deviceId: rig.id,
     deviceName: rig.name,
     skill,
     difficulty,
     resolveCmd: 'hackrigresolve',
-  };
+  });
 }
 
 // hackrigresolve <rigId> <1|0> — the Circuit Breach overlay reports its own

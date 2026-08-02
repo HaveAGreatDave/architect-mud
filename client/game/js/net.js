@@ -80,6 +80,15 @@ export function initNet(messageHandler) {
 
 export function setWhoModalHandler(fn) { _whoModalHandler = fn; }
 
+// A client-side minigame can claim a few words while it is open — the character
+// breach board's `ping`/`scan`/`breach`/`abort`. Same shape as the `who` intercept
+// above: the handler returns true if it took the command, false to let it go to
+// the server as normal. This is necessary because a text minigame runs ENTIRELY
+// in the client (the server only hands over skill+difficulty and is told the
+// result), so there is nothing on the far end to receive these words.
+let _minigameCmdHandler = null;
+export function setMinigameCommandHandler(fn) { _minigameCmdHandler = fn; }
+
 // ── Dropped-while-disconnected notice ────────────────────────────────────────
 // Both senders below return silently when the socket is shut, which is correct (there
 // is nowhere to send it) but reads as the FEATURE being broken: clicking Tablet or Kit
@@ -101,6 +110,8 @@ function noticeDropped() {
 export function sendCmd(cmd, displayText) {
   if (!_connection?.isOpen()) { noticeDropped(); return; }
   if (cmd.trim().toLowerCase() === 'who' && _whoModalHandler) { _whoModalHandler(); return; }
+  // An open client-side minigame gets first refusal on its own words.
+  if (_minigameCmdHandler && _minigameCmdHandler(cmd.trim().toLowerCase())) { appendMsg(`> ${displayText || cmd}`, 'echo'); return; }
   // Explicit user look should echo the room description into the scrolling log,
   // not just refresh the top area pane. Silent looks (combat/move refresh) use
   // sendCmdSilent and never set this flag.

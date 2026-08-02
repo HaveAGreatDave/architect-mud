@@ -14,6 +14,8 @@
 // server sim's own tick). Everything here is a pure render of that payload — no state
 // of its own beyond the last packet, so a missed tick simply redraws the old numbers.
 
+import { esc, pad, clamp, bar, paintRow } from './textui.js';
+
 let _last = null;
 let _open = false;
 
@@ -56,16 +58,13 @@ function ensureStyles() {
   document.head.appendChild(st);
 }
 
-const esc = (s) => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-const pad = (s, n) => String(s).padStart(n, ' ');
-const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
-
-// A block-character bar: █ filled, ░ empty. Used for throttle, fuel and hull, so all
-// three read at a glance without a single pixel of graphics.
-function bar(frac, width = 12, cls = '') {
-  const f = Math.round(clamp(frac, 0, 1) * width);
-  return `<span class="${cls}">${'█'.repeat(f)}</span><span class="dim">${'░'.repeat(width - f)}</span>`;
-}
+// The general half of this panel now lives in textui.js, so the next character
+// panel doesn't have to copy it. Everything aviation-specific — the horizon, the
+// compass tape, the chart — stays here.
+//
+// This file keeps its OWN stylesheet (`.tck`) rather than adopting `.txui`: the
+// cockpit's palette and its full-height area-pane mount are particular to it, and
+// a shared sheet that had to cover both would be a sheet neither one wanted.
 
 // The compass tape: a strip of the 360° ruler centred on the current heading, so it
 // slides sideways as she turns exactly like a real HSI tape.
@@ -83,18 +82,9 @@ function compassTape(hdg, width = 45) {
   return out;
 }
 
-// Run-length encode a row of {ch, cls} cells into as few spans as possible. Every
-// coloured grid in this file goes through here — a span per character would be a few
-// thousand DOM nodes a second at the sim's tick rate, for a panel that is 46 columns wide.
-function paintRow(cells) {
-  let out = '', run = '', cls = null;
-  for (const cell of cells) {
-    if (cell.cls !== cls) { if (run) out += `<span class="${cls}">${esc(run)}</span>`; run = ''; cls = cell.cls; }
-    run += cell.ch;
-  }
-  if (run) out += `<span class="${cls}">${esc(run)}</span>`;
-  return out;
-}
+// (paintRow, bar, esc, pad and clamp are imported from textui.js — the run-length
+// encoding is the load-bearing one: a span per character would be a few thousand
+// DOM nodes a second at the sim's tick rate for a panel 46 columns wide.)
 
 // ── The artificial horizon ────────────────────────────────────────────────────
 // A COLOURED attitude indicator, which is the one instrument a pilot with no window

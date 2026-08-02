@@ -273,19 +273,118 @@ export default async function regress({ run, check, getPlayer }) {
   // …with one exception: Display Mode is SERVER state (the flight plugin reads it
   // on the server at board time), so the screen has to ship its current value down
   // or the pills would render from nothing. `displaymode` is the way back.
-  check('settings ships the Display Mode state', typeof r?.textDisplay === 'boolean', JSON.stringify(r)?.slice(0, 160));
+  check('settings ships the Display Mode rung', typeof r?.displayRung === 'string', JSON.stringify(r)?.slice(0, 160));
   // Deliberately NOT hydrating a flag cache onto the shared fake player to make
   // this pass: `_flags` is process-wide once set, and later suites clear flags with
   // a raw DELETE that the cache never sees. The uncached read path is a real one
   // (offline players, dev tools) and is what this exercises.
+
+  // ⚠ THE MIGRATION TRAP. Before the ladder, `display_mode='text'` meant what
+  // `log` means now. If the word were re-pointed at the new middle rung, every
+  // existing text player would be silently promoted on deploy and start receiving
+  // panels they had turned off. `text` must still land on the BOTTOM rung.
   await run('displaymode text');
   r = await run('tabletnav settings');
-  check('displaymode text is reflected on the settings screen', r?.textDisplay === true, JSON.stringify(r)?.slice(0, 160));
+  check('the legacy word "text" still means the bottom rung, not the new middle one',
+    r?.displayRung === 'log', JSON.stringify(r)?.slice(0, 160));
+
+  await run('displaymode textgames');
+  r = await run('tabletnav settings');
+  check('displaymode textgames selects the middle rung', r?.displayRung === 'textgames', JSON.stringify(r)?.slice(0, 160));
+
+  await run('displaymode log');
+  r = await run('tabletnav settings');
+  check('displaymode log selects the bottom rung', r?.displayRung === 'log', JSON.stringify(r)?.slice(0, 160));
+
   await run('displaymode visual');
   r = await run('tabletnav settings');
-  check('displaymode visual is reflected on the settings screen', r?.textDisplay === false, JSON.stringify(r)?.slice(0, 160));
+  check('displaymode visual selects the top rung', r?.displayRung === 'visual', JSON.stringify(r)?.slice(0, 160));
+
   const badMode = await run('displaymode sideways');
-  check('displaymode rejects anything that is not visual|text', badMode?.type === 'error', JSON.stringify(badMode)?.slice(0, 160));
+  check('displaymode rejects a rung that is not one of the three', badMode?.type === 'error', JSON.stringify(badMode)?.slice(0, 160));
+
+  // The two axes, asserted against the module directly — a call site that reads
+  // the wrong one is the failure this ladder is most exposed to.
+  {
+    const pres = await import('../../server/engine/presentation.js');
+    const p = { id: 'regress_rung_probe', _flags: new Map() };
+    const set = (v) => { p._flags.set('display_mode', v); };
+
+    set('visual');
+    check('rung visual: games are graphical', (await pres.prefersTextMinigames(p)) === false);
+    check('rung visual: panels are on screen', (await pres.prefersLoggedPanels(p)) === false);
+
+    set('textgames');
+    check('rung textgames: games go text', (await pres.prefersTextMinigames(p)) === true);
+    check('rung textgames: panels STAY on screen — that is the whole point of the rung',
+      (await pres.prefersLoggedPanels(p)) === false);
+
+    set('log');
+    check('rung log: games go text', (await pres.prefersTextMinigames(p)) === true);
+    check('rung log: panels go to the log', (await pres.prefersLoggedPanels(p)) === true);
+
+    // Tri-state survives, which is what keeps poker's `config.textTable` default
+    // alive: "never chosen" is not the same as "chose visual".
+    p._flags.delete('display_mode');
+    check('never chosen stays undefined on both axes',
+      (await pres.prefersTextMinigames(p)) === undefined && (await pres.prefersLoggedPanels(p)) === undefined);
+
+    // The legacy per-system flag still answers, for a player who set it before
+    // any of this existed.
+    p._flags.set('flight_text_only', 'true');
+    check('the legacy flight_text_only flag still reads as the bottom rung',
+      (await pres.displayRung(p)) === 'log');
+    p._flags.delete('flight_text_only');
+
+    // The sync latch readers — used by the look renderer, which cannot await.
+    check('sync readers agree with the latch',
+      pres.loggedPanelsSync({ displayRung: 'log' }) === true
+      && pres.loggedPanelsSync({ displayRung: 'textgames' }) === false
+      && pres.textMinigamesSync({ displayRung: 'textgames' }) === true
+      && pres.loggedPanelsSync({}) === false);
+  }
+
+  // ── The four operations that used to be buttons only ───────────────────────
+  // remind / wire / support / findbench each did something no verb could do:
+  // adding a reminder, moving credits remotely, picking a club, and routing to
+  // the nearest bench. What's asserted here is that they ROUTE and refuse
+  // sensibly — the stores and rules behind them are the apps' own and unchanged.
+  {
+    let x = await run('remind');
+    check('remind routes and reports rather than erroring', x?.type === 'output', JSON.stringify(x)?.slice(0, 140));
+    x = await run('remind notadate some note');
+    check('remind refuses a bad date instead of filing it', x?.type === 'error', JSON.stringify(x)?.slice(0, 140));
+    x = await run('remind +7');
+    check('remind refuses a date with no note', x?.type === 'error', JSON.stringify(x)?.slice(0, 140));
+    x = await run('remind del 99');
+    check('remind del out of range is refused, not a crash', x?.type !== undefined, JSON.stringify(x)?.slice(0, 140));
+
+    x = await run('wire');
+    check('wire reports the cap and both cooldowns', x?.type === 'output' && /cap/i.test(x.message || ''), JSON.stringify(x)?.slice(0, 160));
+    x = await run('wire deposit 999999');
+    check('wire enforces the remote cap', x?.type === 'error' && /cap/i.test(x.message || ''), JSON.stringify(x)?.slice(0, 160));
+    x = await run('wire deposit banana');
+    check('wire refuses a non-amount', x?.type === 'error', JSON.stringify(x)?.slice(0, 140));
+
+    x = await run('support');
+    check('support reports who you follow', x?.type === 'output', JSON.stringify(x)?.slice(0, 140));
+    x = await run('support Not A Real Club');
+    check('support refuses an unknown club', x?.type === 'error', JSON.stringify(x)?.slice(0, 140));
+
+    x = await run('findbench notakindofbench');
+    check('findbench refuses an unknown station and lists the real kinds',
+      x?.type === 'error' || x?.type === 'output', JSON.stringify(x)?.slice(0, 160));
+
+    // The two names deliberately AVOIDED, because older plugins own them: a verb
+    // that shadows an established one is worse than a longer word. `follow` must
+    // still reach interactions and `bench` must still reach workspace.
+    x = await run('follow');
+    check('follow still belongs to interactions, not sports',
+      !/club|standings/i.test(x?.message || ''), JSON.stringify(x)?.slice(0, 140));
+    x = await run('bench');
+    check('bench still belongs to workspace, not bench-routing',
+      !/GPS locked|nearest/i.test(x?.message || ''), JSON.stringify(x)?.slice(0, 140));
+  }
 
   // Corp app now renders natively (reshapes plugins/corps' own
   // buildConsolePayload()). The fake player has no corp membership, so this

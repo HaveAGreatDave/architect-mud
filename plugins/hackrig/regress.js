@@ -77,4 +77,78 @@ export default async function regress({ run, check }) {
   const r = await run('hack');
   check('hack in a rigless room is not claimed by hackrig',
     !/lock sequence|leads/i.test(r?.message || ''), r?.message);
+
+
+  // ── The text rung of Circuit Breach ────────────────────────────────────────
+  // The character board is THE SAME GAME: circuithack.js's own generator, its
+  // difficulty scaling and its guaranteed-solvable route, with the drawing
+  // swapped. What's asserted here is the seam that makes that true — a second
+  // generator, or a second set of rules, is exactly the drift this design exists
+  // to prevent.
+  {
+    const { textRender } = await import('../../server/engine/minigame.js');
+    const base = { type: 'circuit_hack', deviceId: 'x', skill: 4, difficulty: 4, resolveCmd: 'hackrigresolve' };
+
+    const visual = { id: 'rg_v', _flags: new Map([['display_mode', 'visual']]) };
+    const games  = { id: 'rg_t', _flags: new Map([['display_mode', 'textgames']]) };
+    const logged = { id: 'rg_l', _flags: new Map([['display_mode', 'log']]) };
+
+    check('minigame: a visual player gets an unstamped payload',
+      (await textRender(visual, base)).render === undefined);
+    check('minigame: a textgames player gets the character board',
+      (await textRender(games, base)).render === 'text');
+
+    // THE BOTTOM RUNG NEVER OPENS A BOARD. A character board repaints at frame
+    // rate, which is fine for `textgames` (whose audience wants text) and
+    // unreadable by a screen reader, which is `log`'s entire audience. Opening one
+    // there would be a dead end — a game you can tell is happening and cannot
+    // play. So `log` resolves with a skill check instead.
+    const resolved = await textRender(logged, base);
+    check('minigame: a log player is never handed a character board',
+      resolved.render !== 'text', resolved.render);
+    check('minigame: …the server resolves it for them instead',
+      resolved.render === 'resolve', resolved.render);
+    check('minigame: …with an outcome', typeof resolved.autoWon === 'boolean', String(resolved.autoWon));
+    check('minigame: …and a line saying what happened',
+      typeof resolved.message === 'string' && resolved.message.length > 0, resolved.message);
+    // The resolve contract is untouched: the client fires the SAME verb with the
+    // same id, so the authoritative path is identical however it was played.
+    check('minigame: …still routed through the same resolve verb',
+      resolved.resolveCmd === base.resolveCmd && resolved.deviceId === base.deviceId,
+      JSON.stringify({ r: resolved.resolveCmd, d: resolved.deviceId }));
+    // The resolve contract must be untouched by the fork — the whole point is
+    // that the server neither knows nor cares which renderer ran.
+    const stamped = await textRender(games, base);
+    check('minigame: the fork changes nothing else about the payload',
+      stamped.resolveCmd === base.resolveCmd && stamped.skill === base.skill
+      && stamped.difficulty === base.difficulty && stamped.deviceId === base.deviceId,
+      JSON.stringify(stamped));
+    check('minigame: a null payload survives the fork', (await textRender(games, null)) === null);
+  }
+
+  // The shared character-drawing toolkit. Pure functions, asserted with no DOM —
+  // the convention textcockpit.js established so a renderer can be covered at all.
+  {
+    const ui = await import('../../client/game/js/panels/textui.js');
+    // paintRow is the load-bearing one: a span per character would be thousands
+    // of DOM nodes a second at frame rate, which is the difference between a text
+    // panel and a slideshow.
+    const row = ui.paintRow([{ ch: 'a', cls: 'x' }, { ch: 'b', cls: 'x' }, { ch: 'c', cls: 'y' }]);
+    check('textui: paintRow run-length-encodes adjacent cells of one class',
+      (row.match(/<span/g) || []).length === 2, row);
+    check('textui: ...and keeps the characters in order',
+      row.replace(/<[^>]*>/g, '') === 'abc', row);
+    check('textui: paintRow escapes markup in a cell',
+      ui.paintRow([{ ch: '<', cls: 'x' }]).includes('&lt;'));
+
+    check('textui: bar fills proportionally', ui.bar(0.5, 4).includes('██'));
+    check('textui: bar clamps rather than overflowing',
+      (ui.bar(9, 4).match(/█/g) || []).length === 4 && (ui.bar(-9, 4).match(/█/g) || []).length === 0);
+    check('textui: centreBar marks zero rather than rendering empty',
+      ui.centreBar(0, 4).replace(/<[^>]*>/g, '').includes('█'));
+    check('textui: heading pads to the requested width',
+      ui.heading('X', 20).replace(/<[^>]*>/g, '').length === 20,
+      String(ui.heading('X', 20).replace(/<[^>]*>/g, '').length));
+    check('textui: esc neutralises markup', ui.esc('<b>&') === '&lt;b&gt;&amp;');
+  }
 }

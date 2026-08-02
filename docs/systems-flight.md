@@ -100,16 +100,25 @@ the "content is deliberate" rule. Instead:
   foot instead of riding the cabin-window HUD. Every instance of the type shares the
   one authored shell — privacy comes from the occupant Set, so still no runtime rows.
   See [proposals/leviathan-flying-base.md](proposals/leviathan-flying-base.md).
-- **Text-only passenger travel** (`textmode.js`): a passenger who has set **Display Mode** to
-  *Text* (Tablet → Settings → General; the game-wide `display_mode` player flag —
+- **Text-only passenger travel** (`textmode.js`): a passenger on the **Log** rung of Display
+  Mode (Tablet → Settings → General; the game-wide `display_mode` player flag —
   [server/engine/presentation.js](../server/engine/presentation.js), shared with the poker
-  table, so one switch covers every system that has both a picture and a written version;
-  the old flight-only `flight_text_only` flag is still read as a fallback but never written) is sent
+  table; the old flight-only `flight_text_only` flag is still read as a fallback but never
+  written) is sent
   **no client panel at all** — not the HUD, not the cabin audio feed — and rides on narrated
   flight instead, on its own 45s schedule (the 3s physics tick is far too fast for prose).
   The preference is read ONCE at board time and latched as `player.textTravel`, because
   `pushHud` is sync and on the tick path; it is cleared by `detach`. `window` still works
   mid-flight and outranks it (`cabinWindowOpen`), so the mode is a default, not a lockout.
+
+  **⚠ The two seats read DIFFERENT axes of the ladder, and this is the easiest thing here
+  to get wrong.** Riding is a *panel* — delete the cabin window and you are not stuck, just
+  bored — so a passenger only loses it at the bottom (`log`) rung: `prefersLoggedPanels`.
+  Flying is a *minigame* — delete the cockpit and the aircraft is unusable — so the text
+  cockpit arrives one rung earlier, at `textgames`: `prefersTextMinigames`. A player on the
+  middle rung therefore **flies by command but keeps the view when they are only a
+  passenger**, which is exactly what that rung is for. The hangar bay is a panel and goes
+  with the rider.
   **Passengers only** — a pilot has no server-side flight to narrate (the sim IS the model),
   so a text-mode pilot is a separate system, not this flag. A walkable cabin deliberately
   does not latch it: those rooms are already graphics-free and latching would only cost

@@ -144,6 +144,53 @@ async function handleAction(player, actionId, params) {
   return buildScreen(player, null, '');
 }
 
+// ── `wire` — the remote transfer, by typing ──────────────────────────────────
+// `deposit`/`withdraw` (plugins/atm) need an ATM or a teller in the room. The
+// small-and-slow remote move — capped, once a day, no machine required — existed
+// only as this app's two buttons, so a player without a tablet had no way to
+// touch their account away from a terminal. Deliberately a DIFFERENT verb rather
+// than a fallback inside `deposit`: the ATM path has no cap and no cooldown, and
+// silently routing a machineless `deposit` through the capped path would make one
+// verb mean two quite different things depending on where you stood.
+export async function cmdWire(args, raw, player) {
+  const kind = (args[0] || '').toLowerCase() === 'withdraw' ? 'withdraw'
+    : (args[0] || '').toLowerCase() === 'deposit' ? 'deposit' : null;
+
+  if (!kind) {
+    const dep = await cooldownLeft(player, 'deposit');
+    const wd = await cooldownLeft(player, 'withdraw');
+    return {
+      type: 'output',
+      message: `<span class="text-cyan">REMOTE BANKING</span> <span class="text-dim">— cap ₵${REMOTE_CAP} per move, once a day each way</span>\n`
+        + `  On you: ₵${player.credits || 0} · Banked: ₵${player.bank_credits || 0}\n`
+        + `  <span class="text-dim">deposit ${dep > 0 ? `ready in ${fmtWait(dep)}` : 'ready'}`
+        + ` · withdraw ${wd > 0 ? `ready in ${fmtWait(wd)}` : 'ready'}</span>\n`
+        + `<span class="text-dim">wire deposit &lt;amount&gt; · wire withdraw &lt;amount&gt; · an ATM moves any sum with no wait</span>`,
+    };
+  }
+
+  const amount = parseInt(args[1], 10);
+  if (!Number.isFinite(amount) || amount <= 0) return { type: 'error', message: `How much? "wire ${kind} <amount>".` };
+  if (amount > REMOTE_CAP) return { type: 'error', message: `Remote transfers cap at ₵${REMOTE_CAP}. Use an ATM to move more.` };
+
+  const left = await cooldownLeft(player, kind);
+  if (left > 0) return { type: 'error', message: `Remote ${kind} on cooldown — try again in ${fmtWait(left)} (or use an ATM).` };
+
+  if (!await transferCredits(player, amount, kind)) {
+    return { type: 'error', message: kind === 'deposit'
+      ? `You only have ₵${player.credits || 0} on you.`
+      : `You only have ₵${player.bank_credits || 0} banked.` };
+  }
+  const { logBankTx } = await import('../atm/index.js');
+  await logBankTx(player.id, kind, amount, player.bank_credits);
+  await setFlag('player', FLAG[kind], nowSec(), player);
+  return {
+    type: 'output',
+    message: `<span class="msg-system">₵${amount} ${kind === 'deposit' ? 'in' : 'out'}. Banked: ₵${player.bank_credits || 0} · On you: ₵${player.credits || 0}</span>`,
+    player_update: { credits: player.credits, bank_credits: player.bank_credits },
+  };
+}
+
 registerTabletApp({
   id: 'bank', name: 'Bank', icon: '🏦', category: 'Finance',
   buildHome, buildScreen, handleAction, buildWidget,
