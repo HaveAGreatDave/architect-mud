@@ -429,5 +429,6 @@ async function handleAction(player, actionId, params, broadcast) {
 
 registerTabletApp({
   id: 'health', name: 'Vitals', icon: '🩺', category: 'General',
+  verbs: ['vitals', 'injuries', 'mutations'],
   buildScreen, handleAction,
 });

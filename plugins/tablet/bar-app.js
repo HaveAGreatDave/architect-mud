@@ -156,5 +156,6 @@ registerTabletApp({
   // id stays 'bar' — it is the nav token and the TOS_APP_ICONS key, and renaming it
   // would break every saved home-screen order. Only the display name changed.
   id: 'bar', name: 'Mixology', icon: '🥃', category: 'General',
+  verbs: ['mix', 'brew'],
   buildScreen,
 });

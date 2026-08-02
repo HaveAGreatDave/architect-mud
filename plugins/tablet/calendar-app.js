@@ -333,5 +333,6 @@ export const _test = { dueReminders, parseWhen };
 
 registerTabletApp({
   id: 'calendar', name: 'Calendar', icon: '📅', category: 'General',
+  verbs: ['remind'],
   buildScreen, handleAction,
 });

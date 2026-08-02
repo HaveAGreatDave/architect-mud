@@ -146,5 +146,6 @@ async function handleAction(player, actionId, params, broadcast) {
 
 registerTabletApp({
   id: 'corp', name: 'Corporation', icon: '🏢', category: 'Social',
+  verbs: ['corp'],
   buildHome, buildScreen, handleAction,
 });

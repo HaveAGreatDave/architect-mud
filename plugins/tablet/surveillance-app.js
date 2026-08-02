@@ -138,5 +138,6 @@ async function handleAction(player, actionId, params, broadcast) {
 
 registerTabletApp({
   id: 'specter', name: 'Surveillance', icon: '📡', category: 'Espionage',
+  verbs: ['hub', 'clips'],
   buildHome, buildScreen, handleAction,
 });

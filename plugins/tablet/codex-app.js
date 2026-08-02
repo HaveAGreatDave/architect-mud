@@ -107,5 +107,6 @@ async function buildScreen(player, screenId) {
 
 registerTabletApp({
   id: 'codex', name: 'Codex', icon: '◈', category: 'Reference',
+  verbs: ['codex'],
   buildScreen,
 });

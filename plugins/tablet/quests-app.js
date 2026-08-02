@@ -465,5 +465,6 @@ async function handleAction(player, actionId, params) {
 
 registerTabletApp({
   id: 'quests', name: 'Quests', icon: '📋', category: 'Progression',
+  verbs: ['quests', 'gigs'],
   buildHome, buildScreen, handleAction,
 });

@@ -4190,6 +4190,18 @@ function renderHomeApps(apps) {
   const hidden = new Set(loadHiddenApps());
   const all = applyAppOrder(roster).filter(a => a.gap || !hidden.has(a.id));
   if (!all.some(a => !a.gap) && !hidden.size) return '<div class="tos-empty">No applications registered.</div>';
+  // EVERY VISIBLE APP HAS TO BE IN THE SAVED ORDER. applyAppOrder tolerates one that
+  // isn't by appending it at render time, so the screen looks right — but only ONE
+  // page is ever in the DOM, so the cross-page moves (page-dot drop, edge-hold flip)
+  // compute page boundaries from the saved order ALONE. An app that was never written
+  // down (unstashed from ⊕, or newly registered) looked to them like it lived past the
+  // last page: dragging it to the previous page moved nothing, the flip then couldn't
+  // find its tile on the page it had just turned to, and the drag died in mid-air.
+  // Write the appended ones down here, once, where the whole roster is known.
+  if (all.some(a => !a.gap)) {
+    const saved = loadAppOrder();
+    if (all.some(a => !a.gap && !saved.includes(a.id))) saveAppOrder(all.map(a => a.id));
+  }
   // Searching flattens everything: no pages, no boxes, no arranging — just the apps
   // that match, in order. With thirty-odd registered, typing three letters is faster
   // than remembering which page you put a thing on.
@@ -4742,10 +4754,15 @@ function wireAppGridDrag(container) {
     saveAppGroups(loadAppGroups().map(g => ({ ...g, apps: g.apps.filter(x => x !== appId) })));
     _homePage = target;
     render();
-    const live = _overlay?.querySelector(`.tos-tile[data-nav-app="${CSS.escape(appId)}"]`);
-    if (!live) {   // shouldn't happen; if it does, put the tile down rather than drag a ghost
-      drag.clone.remove(); drag = null; hidePageEdges();
-      return;
+    let live = _overlay?.querySelector(`.tos-tile[data-nav-app="${CSS.escape(appId)}"]`);
+    if (!live) {
+      // The move didn't put it where we turned to. Rather than drop the tile out of
+      // the air (which reads as the drag "letting go" for no reason), turn back and
+      // stay in the gesture — the player is still holding it.
+      _homePage = target - dir;
+      render();
+      live = _overlay?.querySelector(`.tos-tile[data-nav-app="${CSS.escape(appId)}"]`);
+      if (!live) { drag.clone.remove(); drag = null; hidePageEdges(); return; }
     }
     drag.tile = live;
     drag.fromGrid = live.parentElement;

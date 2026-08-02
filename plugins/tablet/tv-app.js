@@ -29,5 +29,6 @@ async function buildScreen(player) {
 
 registerTabletApp({
   id: 'tv', name: 'TV', icon: '📺', category: 'Media',
+  verbs: ['tv', 'watch'],
   buildScreen,
 });

@@ -265,5 +265,6 @@ async function buildWidget(player) {
 
 registerTabletApp({
   id: 'crime', name: 'Crime', icon: '⚖', category: 'General',
+  verbs: ['wanted'],
   buildHome, buildScreen, buildWidget,
 });

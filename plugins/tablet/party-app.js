@@ -82,5 +82,6 @@ async function handleAction(player, actionId, params, broadcast) {
 
 registerTabletApp({
   id: 'party', name: 'Party', icon: '👥', category: 'Social',
+  verbs: ['party'],
   buildScreen, handleAction,
 });

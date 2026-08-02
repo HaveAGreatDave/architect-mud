@@ -124,5 +124,6 @@ async function buildScreen(player, screenId, params) {
 
 registerTabletApp({
   id: 'binder', name: 'Binder', icon: '🃏', category: 'Fun',
+  verbs: ['cards'],
   buildScreen,
 });

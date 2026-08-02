@@ -16,6 +16,14 @@ client mirrors changes back through the silent verb; nothing about it is stored 
 Poker's own `text`/`visual` verbs are handles on the same preference, and the verb syncs that
 plugin's runtime Set through its exported `syncDisplayMode`.
 
+At the **`log` rung the shell itself is unusable**, so `tablet`/`os` answer with a typed index of
+what the device is for — [text-index.js](text-index.js), one line per visible app listing the verbs
+that reach that feature. The smartbar chip sends the literal verb, so the button and the typed
+command get the same thing. `tablet verbs` forces the index at any rung. Verbs are declared per app
+(`verbs: []` on the appDef) so a tile registered from another plugin can carry its own, and a
+regress case sweeps them all against the live command registries. See
+[docs/systems-display-mode.md](../../docs/systems-display-mode.md#the-tablet-at-the-log-rung--an-index-of-verbs).
+
 ## Registered actions
 None. Tablet is a UI shell over existing Actions (`START_QUEST`, `TURN_IN`, `ABANDON_QUEST`, etc. —
 all owned by the quests plugin) and existing commands (flight's `accept`, atm's deposit logic via

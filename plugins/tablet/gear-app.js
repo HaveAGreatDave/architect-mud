@@ -39,6 +39,7 @@ registerTabletApp({
   name: 'INV',
   icon: '🧥',
   category: 'General',
+  verbs: ['inventory', 'equip', 'outfit'],
   buildScreen(player) {
     return buildGear(player);
   },

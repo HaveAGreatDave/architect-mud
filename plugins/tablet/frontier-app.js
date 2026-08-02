@@ -72,5 +72,6 @@ async function buildScreen(player, screenId) {
 
 registerTabletApp({
   id: 'frontier', name: 'Frontier', icon: '🧭', category: 'Navigation',
+  verbs: ['frontier'],
   buildScreen,
 });

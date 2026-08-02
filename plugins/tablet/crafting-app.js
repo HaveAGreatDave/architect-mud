@@ -351,5 +351,6 @@ async function handleAction(player, actionId, params) {
 
 registerTabletApp({
   id: 'crafting', name: 'Crafting', icon: '⚙', category: 'General',
+  verbs: ['craft', 'findbench'],
   buildScreen, handleAction,
 });

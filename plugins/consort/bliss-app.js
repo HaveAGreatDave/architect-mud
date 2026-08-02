@@ -197,6 +197,7 @@ registerTabletApp({
   name: 'BLISS',
   icon: '♡',
   category: 'General',
+  verbs: ['bliss'],
   // MIS-gated: no tile, no listing, no mention of it for anyone who hasn't opted in.
   visible(player) { return isMisActive(player); },
   buildScreen,

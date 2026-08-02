@@ -28,5 +28,6 @@ async function buildScreen(player) {
 
 registerTabletApp({
   id: 'settings', name: 'Settings', icon: '⚙', category: 'System',
+  verbs: ['displaymode'],
   buildScreen,
 });

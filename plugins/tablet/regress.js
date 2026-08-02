@@ -351,6 +351,59 @@ export default async function regress({ run, check, getPlayer }) {
       && pres.loggedPanelsSync({}) === false);
   }
 
+  // ── The tablet, at the log rung, is a list of verbs ────────────────────────
+  //
+  // The shell is a fullscreen graphical OS, so at `log` it is unreadable — and
+  // the switch that put the player there lives inside it. `tablet`/`os` answer
+  // with the typed index instead, which is the same thing the smartbar chip gets
+  // because the chip sends the literal verb.
+  {
+    const { builtinCommandNames } = await import('../../server/engine/commands/index.js');
+    const { getRegisteredCommands } = await import('../../server/engine/plugins.js');
+    const { getTabletApps } = await import('./registry.js');
+
+    await run('displaymode log');
+    const idx = await run('tablet');
+    check('at the log rung the tablet answers in text, not with a panel',
+      idx?.type === 'help' && !/tablet_panel/.test(idx?.type || ''), JSON.stringify(idx)?.slice(0, 120));
+    check('...and the index says how to get the screen back',
+      /displaymode visual/.test(idx?.message || ''), (idx?.message || '').slice(0, 200));
+    const osIdx = await run('os');
+    check('...through the alias too', osIdx?.type === 'help', JSON.stringify(osIdx)?.slice(0, 80));
+
+    // Deep links are NOT rerouted: `tabletnav bank` typed at the log rung still
+    // returns its screen. Routing every app through a text renderer is a much
+    // bigger job than an index, and silently swallowing the nav would be worse
+    // than a screen that reads badly.
+    const nav = await run('tabletnav bank');
+    check('a deep link still returns its screen at the log rung',
+      nav?.type === 'tablet_panel' && nav?.appId === 'bank', JSON.stringify(nav)?.slice(0, 100));
+
+    await run('displaymode visual');
+    const panel = await run('tablet');
+    check('at the visual rung the tablet is a panel again',
+      panel?.type === 'tablet_panel' && panel?.screen === 'home', JSON.stringify(panel)?.slice(0, 100));
+    const forced = await run('tablet verbs');
+    check('`tablet verbs` reads the index at ANY rung', forced?.type === 'help',
+      JSON.stringify(forced)?.slice(0, 100));
+
+    // THE RULE: every verb an app advertises has to be a verb a player could type.
+    // A renamed or removed command otherwise leaves the index quietly lying, and
+    // the index is the only surface a log-rung player has.
+    const known = new Set([...builtinCommandNames(), ...getRegisteredCommands()]);
+    const declared = getTabletApps().flatMap(a => (a.verbs || []).map(v => ({ app: a.id, v })));
+    check('apps declare verbs at all', declared.length > 20, String(declared.length));
+    const bogus = declared.filter(d => !known.has(d.v));
+    check('every verb a tablet app advertises is registered',
+      bogus.length === 0, bogus.map(d => `${d.app}:${d.v}`).join(', '));
+
+    // An app with no text route is listed as screen-only rather than omitted —
+    // knowing a feature exists beats it being invisible.
+    check('an app with no verbs is still listed, marked screen-only',
+      !getTabletApps().some(a => !(a.verbs || []).length) || /screen only/.test(idx?.message || ''),
+      (idx?.message || '').slice(-200));
+  }
+
   // ── The four operations that used to be buttons only ───────────────────────
   // remind / wire / support / findbench each did something no verb could do:
   // adding a reminder, moving credits remotely, picking a club, and routing to

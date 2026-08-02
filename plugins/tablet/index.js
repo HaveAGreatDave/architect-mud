@@ -101,6 +101,9 @@ import './frontier-app.js';
 import './accolades-app.js';
 import './binder-app.js';
 
+import { buildTextIndex } from './text-index.js';
+import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
+
 export { registerTabletApp, getTabletApps } from './registry.js';
 
 // ── Home screen ──────────────────────────────────────────────────────────────
@@ -212,6 +215,13 @@ async function cmdTablet(args, raw, player) {
   // corridor can get back into it, so this can't strand an existing character.
   const none = noTablet(player);
   if (none) return none;
+  // At the `log` rung the shell is unreadable — and the switch that put the player
+  // there lives inside it. Both doors in (`tablet`/`os` typed, and the smartbar
+  // Tablet chip, which sends the literal verb) land on the typed index instead.
+  // `tablet verbs` forces it at ANY rung, so a player in visual mode can read the
+  // same list to somebody who is not.
+  if ((args || [])[0] === 'verbs') return buildTextIndex(player);
+  if (await prefersLoggedPanelsOrDefault(player)) return buildTextIndex(player);
   return buildHomePayload(player);
 }
 

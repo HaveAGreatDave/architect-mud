@@ -545,5 +545,6 @@ async function handleAction(player, actionId) {
 
 registerTabletApp({
   id: 'cookbook', name: 'Cookbook', icon: '🍳', category: 'General',
+  verbs: ['cookbook', 'recipe', 'shoplist'],
   buildScreen, handleAction,
 });

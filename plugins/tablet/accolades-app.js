@@ -49,5 +49,6 @@ async function buildScreen(player) {
 
 registerTabletApp({
   id: 'accolades', name: 'Accolades', icon: '▓', category: 'Progression',
+  verbs: ['accolades'],
   buildScreen,
 });

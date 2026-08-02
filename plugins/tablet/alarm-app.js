@@ -103,6 +103,7 @@ async function handleAction(player, actionId, params) {
 
 registerTabletApp({
   id: 'alarm', name: 'Alarm', icon: '⏰', category: 'General',
+  verbs: ['alarm'],
   buildScreen, handleAction,
 });
 

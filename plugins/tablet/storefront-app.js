@@ -274,5 +274,6 @@ async function handleAction(player, actionId, params) {
 
 registerTabletApp({
   id: 'storefront', name: 'Storefront', icon: '🏪', category: 'Assets',
+  verbs: ['buyshop', 'renameshop'],
   buildHome, buildScreen, handleAction,
 });

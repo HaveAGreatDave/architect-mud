@@ -12,5 +12,6 @@ async function buildScreen() {
 
 registerTabletApp({
   id: 'chat', name: 'Chat', icon: '💬', category: 'Social',
+  verbs: ['whisper'],
   buildScreen,
 });
