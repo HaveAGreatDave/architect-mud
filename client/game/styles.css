@@ -2375,6 +2375,23 @@ body.fsim-external #look-resize-handle { display: none; }
 	--mm-room: 1.7em;
 	font-size: 10px;
 }
+/* Canvas mode: the grid div stops being a grid and becomes a plain box holding one
+   <canvas>, sized in JS. It stays the same element so everything that hangs off the
+   CONTAINER keeps working untouched — the esp-active filter, the delegated
+   double-click, and the crossing/message renderers that innerHTML it. The
+   compositor-layer hints above existed only for the DOM slide's hairline seams;
+   with a single canvas child there are no seams and no transform to promote. */
+#minimap-grid.mm-canvas-mode,
+#minimap-grid-hud.mm-canvas-mode,
+#minimap-grid-mob.mm-canvas-mode {
+	display: block;
+	width: max-content;
+	height: max-content;
+	margin: 0 auto;
+	backface-visibility: visible;
+	will-change: auto;
+}
+.mm-canvas { display: block; }
 .mm-c {
 	display: flex;
 	align-items: center;
@@ -2384,10 +2401,6 @@ body.fsim-external #look-resize-handle { display: none; }
 	box-sizing: border-box;
 	min-width: 0;
 	overflow: hidden;
-}
-.mm-link {
-	color: var(--text-dim);
-	opacity: 0.75;
 }
 /* Named zone-icon SVG on a minimap tile (symFor → flags.icon). Drawn as a mask
    filled with currentColor, so the icon takes the tile's text colour. */
@@ -2414,33 +2427,11 @@ body.fsim-external #look-resize-handle { display: none; }
 	opacity: 0.3;
 	filter: grayscale(0.55);
 }
-.mm-link.mm-dim {
-	opacity: 0.25;
-}
-/* District boundary connector — the street between two neighborhoods, faded and
-   dashed so district edges read as edges rather than a seamless grid. */
-.mm-link.mm-boundary {
-	opacity: 0.35;
-}
-/* The divider runs perpendicular to the street it crosses: an east-west connector
-   gets a vertical bar between the two tiles; a north-south one a horizontal bar. */
-.mm-link.mm-boundary-v {
-	border-left: 1px dashed var(--text-dim);
-}
-.mm-link.mm-boundary-h {
-	border-bottom: 1px dashed var(--text-dim);
-}
-/* Gateway tile — a door out of your district into an adjacent one. The sidebar
-   scopes to your own neighborhood, so instead of the real foreign room you see a
-   dashed, hollow marker carrying that district's initials (coloured inline), a
-   signpost that reads "another place lies this way". */
-.mm-gateway {
-	border: 1px dashed currentColor;
-	border-radius: 2px;
-	font-size: 8px;
-	font-style: italic;
-	opacity: 0.7;
-}
+/* (.mm-link* and .mm-gateway lived here — the connector tracks from the old
+   room+gap grid, and the district-boundary marker from when the sidebar was clipped
+   to your own neighbourhood. Both had lost their JS long before the canvas rewrite:
+   connectors went when tiles became edge-to-edge, and gateways when district
+   clipping was disabled. See docs/systems-world.md § Districts.) */
 /* The Curtain (perimeter wall): a hard-light shimmer ring along the city's land edge;
    the glacis kill-zone reads with a faint hazard tint; the one gate pulses as an opening. */
 .mm-curtain {
@@ -3063,41 +3054,16 @@ body.fsim-external #look-resize-handle { display: none; }
    Shared by the sidebar minimap (.mm-*) and the full-map popup (.map-*). The fill
    colour is set inline (grey asphalt for roads, the authored blue/green for water/
    grass); these classes drop the tile border + rounding so a body of water or a
-   park reads as one continuous surface, and lay a subtle SVG texture that lines up
-   edge-to-edge across neighbouring tiles (one period per tile, matching phase at
-   the shared edges). Roads carry no texture — their grey surface + the yellow
-   dashed SVG mask (currentColor) are the whole read. */
+   park reads as one continuous surface.
+
+   NO TERRAIN CARRIES A TEXTURE. Seven of them once laid a stretched SVG overlay
+   (water ripples, grass blades, plank seams, …) on top of the fill. They're gone:
+   ground is a flat authored colour, which is what the Studio draws, and the two
+   were never going to stay in step — the canvas renderer had to keep byte-copies
+   of these data URIs to reproduce them. Don't reintroduce one here without adding
+   it to minimap-assets.js too, or the sidebar and the full map paint different
+   water. A tile's read is its colour plus the icon/marker on it. */
 .mm-terr, .map-terr { border: 0 !important; border-radius: 0 !important; }
-.mm-water, .map-water, .mm-grass, .map-grass, .mm-dock, .map-dock,
-.mm-scrub, .map-scrub, .mm-redrock, .map-redrock, .mm-ash, .map-ash, .mm-marsh, .map-marsh { background-repeat: no-repeat; background-size: 100% 100%; }
-.mm-water, .map-water {
-	background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23ffffff' stroke-opacity='0.30' stroke-width='1.1' stroke-linecap='round'><path d='M0 7q6 -3 12 0t12 0'/><path d='M0 14q6 -3 12 0t12 0'/><path d='M0 21q6 -3 12 0t12 0'/></g></svg>");
-}
-.mm-grass, .map-grass {
-	background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%237fc95a' stroke-opacity='0.40' stroke-width='1' stroke-linecap='round'><path d='M4 21v-5'/><path d='M9 22v-6'/><path d='M14 21v-5'/><path d='M19 22v-6'/><path d='M6 13v-4'/><path d='M12 12v-4'/><path d='M18 13v-4'/></g></svg>");
-}
-/* Dock/pier: wooden decking — dark plank seams with staggered butt-joints + faint grain. */
-.mm-dock, .map-dock {
-	background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%233b2c19' stroke-opacity='0.55' stroke-width='1'><path d='M0 6h24M0 12h24M0 18h24'/><path d='M8 0v6M16 6v6M8 12v6M16 18v6'/></g><g fill='none' stroke='%23987444' stroke-opacity='0.30' stroke-width='0.6'><path d='M0 3h24M0 9h24M0 15h24M0 21h24'/></g></svg>");
-}
-/* --- Post-apocalyptic wildlands surfaces (the wilds beyond the Curtain) --- */
-/* Scrubland: sparse dry brush tufts + a few scattered pebbles over dusty olive. */
-.mm-scrub, .map-scrub {
-	background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23b5b06a' stroke-opacity='0.45' stroke-width='0.9' stroke-linecap='round'><path d='M5 20l-1.5-4M5 20l1.5-4M5 20v-5'/><path d='M17 22l-1.5-4M17 22l1.5-4M17 22v-5'/><path d='M11 14l-1-3M11 14l1-3'/></g><g fill='%23807a40' fill-opacity='0.4'><circle cx='9' cy='20' r='0.9'/><circle cx='20' cy='11' r='0.8'/><circle cx='3' cy='8' r='0.7'/></g></svg>");
-}
-/* Red rock: angular rust facets + darker cracks, littered with rust grit,
-   little boulders + pale flecks — mesa/badland stone strewn with debris. */
-.mm-redrock, .map-redrock {
-	background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23431c10' stroke-opacity='0.42' stroke-width='0.9'><path d='M0 9l7 3 6-4 5 4 6-2'/><path d='M4 24l3-8 6 2 4-6'/></g><g fill='%233a170c' fill-opacity='0.45'><circle cx='3' cy='19' r='1.2'/><circle cx='15' cy='7' r='1'/><circle cx='20' cy='18' r='0.9'/><circle cx='9' cy='4' r='0.7'/><circle cx='22' cy='3' r='0.6'/></g></svg>");
-}
-/* Ash: fine pale flecks + a drifting wisp over burnt grey. */
-.mm-ash, .map-ash {
-	background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='%23cfcac4' fill-opacity='0.35'><circle cx='4' cy='6' r='0.8'/><circle cx='12' cy='10' r='0.7'/><circle cx='19' cy='5' r='0.9'/><circle cx='8' cy='17' r='0.7'/><circle cx='16' cy='19' r='0.8'/><circle cx='21' cy='14' r='0.6'/></g><path d='M2 21q6 -3 11 0t9 -1' fill='none' stroke='%23b8b2ac' stroke-opacity='0.2' stroke-width='0.8'/></svg>");
-}
-/* Marsh: murky ripples + a couple of reed blades — toxic wetland. */
-.mm-marsh, .map-marsh {
-	background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23aeca7e' stroke-opacity='0.28' stroke-width='1' stroke-linecap='round'><path d='M0 8q6 -3 12 0t12 0'/><path d='M0 16q6 -3 12 0t12 0'/></g><g fill='none' stroke='%236f8a3e' stroke-opacity='0.5' stroke-width='0.9' stroke-linecap='round'><path d='M7 20v-7M9 20l-1-6'/><path d='M18 21v-8'/></g></svg>");
-}
 
 /* Edge-line door style — the only door style. Each interior tile gets a hairline down all four sides: green
    where the room opens through, red where it's wall. Deliberately thin and inset a

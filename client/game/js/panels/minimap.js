@@ -3,6 +3,10 @@ import { sendCmd, sendCmdSilent } from '../net.js';
 import { appendMsg } from '../render.js';
 import { state } from '../state.js';
 import { loadSettings } from '/shared/settings.js';
+// Cyclic by design: the canvas renderer draws from this module's layout/glyph
+// helpers. Safe because neither module reads the other's bindings during
+// evaluation — see the note at the top of minimap-canvas.js.
+import { renderMinimapCanvas, hideCanvas } from './minimap-canvas.js';
 
 // Shared map state that outlives the retired full-screen popup: the overlay label
 // mode (read by the sidebar minimap), the door render style, and the active GPS
@@ -24,12 +28,12 @@ let _savedOverlay = 'labels';
 try { _savedOverlay = loadSettings().mapOverlay || 'labels'; } catch {}
 const mapState = { avenueOverlay: _savedOverlay, tracePath: null, traceDirs: null };
 
-// Avenue View for the sidebar/HUD/mobile minimaps: a rendering toggle (not a
-// server round-trip) that strips room symbols down to "does a named artery run
-// through here" — || north/south, = east/west, + at a crossing. Persisted, and
-// the last node payload is cached so the toggle can re-render without a move.
-const MM_AVENUE_KEY = 'mm_avenue';
-let mmAvenueView = false; // avenue mode retired — toggle removed, always plain
+// (Avenue View — a toggle that stripped room symbols down to "does a named artery
+// run through here" — is gone, button and all. Its wiring outlived the button by
+// months, reading a `#mm-avenue-toggle` that index.html no longer contains.)
+//
+// The last node payload, cached so an overlay/zoom/route change can re-render in
+// place without a move. Read by auto-walk and isOnCrossing for `is_current`.
 let _lastMinimapNodes = null;
 
 // The city map lives in the tablet Map app now (the standalone popup is retired).
@@ -54,11 +58,25 @@ const MM_GRIDS = [
 let mmZoom = 0;
 try { const z = parseInt(localStorage.getItem(MM_ZOOM_KEY), 10); if (z >= 0 && z < MM_ZOOM.length) mmZoom = z; } catch {}
 
+// Grey out the end of the ladder you're standing on. SEPARATE from the grid sizing
+// below, and it has to be: this used to live inside applyMinimapZoom, which only the
+// DOM renderer calls. When the canvas renderer took over it sized its own canvases
+// and never called it, so both buttons froze at their boot state — zoom OUT was
+// disabled from the first paint and never came back, and zoom IN never disabled, so
+// at max zoom it stayed lit while doing nothing. Every render path must call this.
+export function updateZoomButtons() {
+  const zin = document.getElementById('mm-zoom-in');
+  const zout = document.getElementById('mm-zoom-out');
+  if (zin) zin.disabled = mmZoom >= MM_ZOOM.length - 1;
+  if (zout) zout.disabled = mmZoom <= 0;
+}
+
 // Size the grid tracks to the current zoom's window and scale the tile size so the
 // grid keeps roughly the same overall footprint. At level 0 scale is 1, so the
 // inline values match the CSS and there's no visual change from default.
 // `rOverride` is the auto-fit radius for a compact map (an interior — see fitRadius);
 // without it we use the player's chosen zoom level.
+// DOM renderer only — the canvas path sizes canvases instead (see sizeView).
 function applyMinimapZoom(rOverride) {
   const n = 2 * (rOverride ?? MM_ZOOM[mmZoom].R) + 1;
   const scale = 9 / n;
@@ -69,10 +87,7 @@ function applyMinimapZoom(rOverride) {
     el.style.gridTemplateColumns = `repeat(${n}, var(--mm-room))`;
     el.style.gridTemplateRows = `repeat(${n}, var(--mm-room))`;
   }
-  const zin = document.getElementById('mm-zoom-in');
-  const zout = document.getElementById('mm-zoom-out');
-  if (zin) zin.disabled = mmZoom >= MM_ZOOM.length - 1;
-  if (zout) zout.disabled = mmZoom <= 0;
+  updateZoomButtons();
 }
 
 // +1 = zoom in (closer, smaller R), −1 = zoom out. Clamped; re-renders in place.
@@ -85,18 +100,6 @@ function stepMinimapZoom(delta) {
   else applyMinimapZoom();
 }
 
-function wireMinimapAvenueToggle() {
-  const btn = document.getElementById('mm-avenue-toggle');
-  if (!btn || btn._wired) return;
-  btn._wired = true;
-  btn.classList.toggle('active', mmAvenueView);
-  btn.addEventListener('click', () => {
-    mmAvenueView = !mmAvenueView;
-    try { localStorage.setItem(MM_AVENUE_KEY, mmAvenueView ? '1' : '0'); } catch {}
-    btn.classList.toggle('active', mmAvenueView);
-    if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
-  });
-}
 // Run mode mirrors the server's player.running (source of truth). The Run toggle
 // and the `run` command both round-trip through the server, which echoes a
 // `run_state` message back into setRunState() to light the button and re-pace
@@ -457,7 +460,7 @@ function wireMinimapZoom() {
   if (zout && !zout._wired) { zout._wired = true; zout.addEventListener('click', () => stepMinimapZoom(-1)); }
   applyMinimapZoom(); // apply the persisted level + set initial button disabled states
 }
-function wireMinimap() { wireMinimapAvenueToggle(); wireMinimapAutoToggle(); wireMinimapDblClick(); wireMinimapZoom(); }
+function wireMinimap() { wireMinimapAutoToggle(); wireMinimapDblClick(); wireMinimapZoom(); }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireMinimap);
 else wireMinimap();
 
@@ -620,7 +623,7 @@ function renderCrossing(nodes, current, direction) {
 // window to the content's own extent — same render, bigger tiles — never wider than
 // the player's zoom and never below 1 (a 3×3, enough for the room plus its exits).
 const MM_MIN_R = 1;
-function fitRadius(coords) {
+export function fitRadius(coords) {
   const R = MM_ZOOM[mmZoom].R;
   let ext = 0;
   for (const [x, y] of coords.values()) {
@@ -630,29 +633,20 @@ function fitRadius(coords) {
   return Math.max(MM_MIN_R, Math.min(R, ext));
 }
 
-export function renderMinimap(nodes, direction) {
-  if (!nodes || !nodes.length) { minimapMessage('(unmapped)'); return; }
+// ── Shared layout / glyph / tooltip helpers ──────────────────────────────────
+// Hoisted out of the render body so the canvas renderer draws from exactly the
+// same decisions the DOM one makes. Anything here is a pure function of a node —
+// no DOM, no module state beyond the overlay mode, which is passed in.
 
-  const current = nodes.find(n => n.is_current);
-  if (!current) { minimapMessage('(unmapped)'); return; }
-  _lastMinimapNodes = nodes; // cache so the Avenue View toggle can re-render in place
-  notifyAutoWalkArrival(current.id); // confirmation-driven auto-walk: advance only when we actually arrive
+const DIR_OFFSET = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
 
-  // Off the grid: a waste-crossing room isn't on the world map, so drop the city
-  // renderer for a stylized "you are in the void" trail view (walked → you → fog).
-  if (current.void_crossing) { renderCrossing(nodes, current, direction); return; }
-  setMinimapCrossing(false);
-
-  const byId = new Map(nodes.map(n => [n.id, n]));
+// Where each node sits, in tiles, relative to the player. Two sources, in order:
+// the authored grid (the only one that's stable frame to frame, and the only one
+// the tile cache can key off), then a BFS walk of the exit graph for interiors
+// whose rooms carry no coords. The BFS layout is re-derived from wherever you're
+// standing, so it SHIFTS every step — `virtual` flags that for callers who care.
+function layoutCoords(nodes, current, byId) {
   const coords = new Map();
-
-  // District clipping DISABLED: the sidebar now renders every tile in the window,
-  // regardless of district, so neighbouring districts stay in place instead of being
-  // fogged to void. (`inDist` is kept as an always-true predicate so the gateway /
-  // foreign-tile branches below simply never fire.)
-  const inDist = () => true;
-  const gateways = new Set();
-
   if (current.map_id && current.grid_x != null && current.grid_y != null) {
     for (const n of nodes) {
       if (n.map_id === current.map_id && n.grid_z === current.grid_z && n.grid_x != null && n.grid_y != null) {
@@ -660,97 +654,109 @@ export function renderMinimap(nodes, direction) {
       }
     }
   }
+  if (coords.size) return { coords, virtual: false };
 
-  if (!coords.size) {
-    const DIR_OFFSET = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
-    coords.set(current.id, [0,0]);
-    const queue = [current.id];
-    const seen = new Set([current.id]);
-    while (queue.length) {
-      const id = queue.shift();
-      const node = byId.get(id);
-      const [x,y] = coords.get(id);
-      if (!node) continue;
-      for (const [dir, targetId] of Object.entries(node.exits || {})) {
-        if (!DIR_OFFSET[dir] || !byId.has(targetId) || seen.has(targetId)) continue;
-        const [dx,dy] = DIR_OFFSET[dir];
-        coords.set(targetId, [x+dx, y+dy]);
-        seen.add(targetId);
-        queue.push(targetId);
-      }
+  coords.set(current.id, [0, 0]);
+  const queue = [current.id];
+  const seen = new Set([current.id]);
+  while (queue.length) {
+    const id = queue.shift();
+    const node = byId.get(id);
+    const [x, y] = coords.get(id);
+    if (!node) continue;
+    for (const [dir, targetId] of Object.entries(node.exits || {})) {
+      if (!DIR_OFFSET[dir] || !byId.has(targetId) || seen.has(targetId)) continue;
+      const [dx, dy] = DIR_OFFSET[dir];
+      coords.set(targetId, [x + dx, y + dy]);
+      seen.add(targetId);
+      queue.push(targetId);
     }
   }
+  return { coords, virtual: true };
+}
+
+// A named zone-icon SVG (spec.feature → assets/zone-icons/<name>.svg) is the tile's
+// footprint, drawn as a CSS mask so it takes the tile's text colour. The canvas
+// renderer reproduces the tint with a source-in composite; ICON_NAME_RE is shared so
+// both paths reject the same names before building a URL.
+export const ICON_NAME_RE = /^[a-z0-9_-]+$/i;
+const iconSvg = (name) => ICON_NAME_RE.test(name || '')
+  ? `<span class="mm-icon" style="--zi:url(/assets/zone-icons/${name}.svg)"></span>` : '';
+
+// ONE CHANNEL. Both layers a tile can stand on top of its ground come from the spec
+// the build derived (scripts/content/derive.mjs), so this file no longer decides what
+// a tile is: `spec.feature` is the footprint SVG, `spec.label` is the code someone
+// reads. There used to be a second, separately-computed `node.icon_svg`, and an
+// `isBuilding()` predicate here that the tablet spelled differently — which is how the
+// two screens came to disagree about which tiles wear a label.
+const baseSym = (node) => iconSvg(node.spec?.feature) || (node.enterable
+  ? '▣ ' // pass-through building tile: a door you enter, not a room you stand in
+  : (node.sanctuary ? '◆ ' : '')); // bare tile — no marker glyph (#, ⸪., …)
+
+// `spec.label.kind` decides what the overlay toggle is allowed to do, so the toggle
+// cannot reach a tile that has no business toggling:
+//   building  a navigable code — Labels mode replaces the graphic with a solid box
+//   room      an apartment designation — a code, so it follows Labels too
+//   mark      an AUTHORED `zones.marker`. The tile's own drawing, so it survives every
+//             mode. Derived codes are annotations and toggle; a glyph a human placed
+//             is not, and this is the only kind a human can produce.
+// A road has no label key at all, which is why no mode can touch it — it draws from
+// spec.feature, in the base layer, where the toggle has never reached.
+//
+// The canvas renderer answers the same three questions through glyphPlan() below —
+// keep them in step, or the two renderers disagree about which tiles wear a label.
+function symFor(node, overlay) {
+  const lbl = node.spec?.label || null;
+  if (lbl?.kind === 'mark') return baseSym(node) + `<span class="map-bld-ov map-bld-mark">${escapeHtml(lbl.text)}</span>`;
+  // Labels: hide the building graphic entirely and show the code filling the tile
+  // square (map-bld-label turns the tile into a solid labelled box). No label ⇒ draw
+  // the bare tile, not the building furniture — falling through would stamp the
+  // building-type glyph on an unmarked interior room.
+  if (overlay === 'labels' && lbl) return `<span class="map-bld-ov map-bld-label">${escapeHtml(lbl.text)}</span>`;
+  return baseSym(node);
+}
+
+// The same decision as symFor, as data rather than markup, so the canvas path can
+// draw it. `icon` is a spec.feature name (or null), `mark`/`label` the text layers.
+export function glyphPlan(node, overlay) {
+  const lbl = node.spec?.label || null;
+  const icon = ICON_NAME_RE.test(node.spec?.feature || '') ? node.spec.feature : null;
+  const fallback = icon ? null : (node.enterable ? '▣' : (node.sanctuary ? '◆' : null));
+  if (lbl?.kind === 'mark') return { icon, fallback, mark: lbl.text, label: null };
+  if (overlay === 'labels' && lbl) return { icon: null, fallback: null, mark: null, label: lbl.text };
+  return { icon, fallback, mark: null, label: null };
+}
+
+// Hover tooltip: zone name, its district, street name(s), plus any building(s).
+// RETURNS RAW TEXT. The DOM path puts it in a `title="…"` attribute and must
+// escapeHtml() it at the call site; the canvas path assigns it to `canvas.title`,
+// a property, where escaping would show the entities literally.
+export function titleFor(node) {
+  const parts = [node.enterable && node.building_name ? `${node.building_name} — enter` : node.name];
+  if (node.district?.name) parts.push(node.district.name);
+  if (node.artery?.length) parts.push(node.artery.join(' / '));
+  if (node.buildings?.length) parts.push(node.buildings.join(', '));
+  return parts.join('\n');
+}
+
+// ── DOM renderer (the fallback; see renderMinimap for the dispatcher) ────────
+function renderMinimapDom(nodes, direction) {
+  const current = nodes.find(n => n.is_current);
+  const byId = new Map(nodes.map(n => [n.id, n]));
+  const { coords } = layoutCoords(nodes, current, byId);
 
   // Edge-to-edge 1:1: a 9×9 tile window (x,y ∈ −R..R), one cell per tile — tiles
-  // touch and roads/buildings render their own spec.feature footprint, so there are no
-  // connector/gap cells (mirrors the full-map popup). Gateways: a foreign tile one
-  // step across a district boundary from an in-district tile still renders as an edge
-  // marker, so crossing between neighborhoods reads.
+  // touch and roads/buildings render their own spec.feature footprint, so there are
+  // no connector/gap cells (mirrors the full-map popup).
   const R = fitRadius(coords);
   const gCols = 2 * R + 1, gRows = gCols;
   const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
   const inWin = (x, y) => x >= -R && x <= R && y >= -R && y <= R;
   for (const [id, [x, y]] of coords) {
-    if (!inWin(x, y)) continue;
-    cell[y + R][x + R] = id;
-    const node = byId.get(id);
-    if (!node || !inDist(node)) continue;
-    for (const targetId of Object.values(node.exits || {})) {
-      if (!coords.has(targetId)) continue;
-      const [tx, ty] = coords.get(targetId);
-      if (Math.abs(tx - x) > 1 || Math.abs(ty - y) > 1) continue;
-      const tnode = byId.get(targetId);
-      if (tnode && !inDist(tnode)) gateways.add(targetId);
-    }
+    if (inWin(x, y)) cell[y + R][x + R] = id;
   }
 
-  // A named zone-icon SVG (spec.feature → assets/zone-icons/<name>.svg) is the tile's
-  // footprint, drawn as a CSS mask so it takes the tile's text colour. Mirrors the
-  // full map: the SVG footprint is the base layer in every overlay mode, and the
-  // shared overlay setting (mapState.avenueOverlay) paints a 2-letter acronym or a
-  // building-type glyph over building tiles on top.
-  const iconSvg = (name) => /^[a-z0-9_-]+$/i.test(name || '')
-    ? `<span class="mm-icon" style="--zi:url(/assets/zone-icons/${name}.svg)"></span>` : '';
-  const overlay = mapState.avenueOverlay || 'icons'; // none | labels | icons
-  // ONE CHANNEL. Both layers a tile can stand on top of its ground come from the spec
-  // the build derived (scripts/content/derive.mjs), so this file no longer decides what
-  // a tile is: `spec.feature` is the footprint SVG, `spec.label` is the code someone
-  // reads. There used to be a second, separately-computed `node.icon_svg`, and an
-  // `isBuilding()` predicate here that the tablet spelled differently — which is how the
-  // two screens came to disagree about which tiles wear a label.
-  const baseSym = (node) => iconSvg(node.spec?.feature) || (node.enterable
-    ? '▣ ' // pass-through building tile: a door you enter, not a room you stand in
-    : (node.sanctuary ? '◆ ' : '')); // bare tile — no marker glyph (#, ⸪., …)
-  // `spec.label.kind` decides what the overlay toggle is allowed to do, so the toggle
-  // cannot reach a tile that has no business toggling:
-  //   building  a navigable code — Labels mode replaces the graphic with a solid box
-  //   room      an apartment designation — a code, so it follows Labels too
-  //   mark      an AUTHORED `zones.marker`. The tile's own drawing, so it survives every
-  //             mode. Derived codes are annotations and toggle; a glyph a human placed
-  //             is not, and this is the only kind a human can produce.
-  // A road has no label key at all, which is why no mode can touch it — it draws from
-  // spec.feature, in the base layer, where the toggle has never reached.
-  const symFor = (node) => {
-    const lbl = node.spec?.label || null;
-    if (lbl?.kind === 'mark') return baseSym(node) + `<span class="map-bld-ov map-bld-mark">${escapeHtml(lbl.text)}</span>`;
-    // Labels: hide the building graphic entirely and show the code filling the tile
-    // square (map-bld-label turns the tile into a solid labelled box). No label ⇒ draw
-    // the bare tile, not the building furniture — falling through would stamp the
-    // building-type glyph on an unmarked interior room.
-    if (overlay === 'labels' && lbl) return `<span class="map-bld-ov map-bld-label">${escapeHtml(lbl.text)}</span>`;
-    const base = baseSym(node);
-    if (overlay === 'none' || !node.building_type) return base;
-    const glyph = BUILDING_ICON[node.building_type] || BUILDING_ICON._default;
-    return base + `<span class="map-bld-ov map-bld-icon">${glyph}</span>`;
-  };
-  // Hover tooltip: zone name, its district, street name(s), plus any building(s).
-  const titleFor = (node) => {
-    const parts = [node.enterable && node.building_name ? `${node.building_name} — enter` : node.name];
-    if (node.district?.name) parts.push(node.district.name);
-    if (node.artery?.length) parts.push(node.artery.join(' / '));
-    if (node.buildings?.length) parts.push(node.buildings.join(', '));
-    return escapeHtml(parts.join('\n'));
-  };
+  const overlay = mapState.avenueOverlay || 'labels'; // none | labels
 
   // Route trace (shared with the full map): the plotted route is drawn as an accent
   // line through tile centres (an SVG laid over the grid, built after the cell loop),
@@ -786,23 +792,15 @@ export function renderMinimap(nodes, direction) {
         else if (node.district?.color) { const [dr, dg, db] = hexToRgb(node.district.color); cs.push(`background-color:rgba(${dr},${dg},${db},0.20)`); }
         const cterrCls = cterr ? ` mm-terr mm-${cterr} mm-styled` : '';
         const cStyle = cs.length ? ` style="${cs.join(';')}"` : '';
-        html += `<span class="mm-c mm-room mm-current${cterrCls}"${cStyle} title="${titleFor(node)}">${symFor(node)}${doorMarks(node, 'mm')}</span>`;
+        html += `<span class="mm-c mm-room mm-current${cterrCls}"${cStyle} title="${escapeHtml(titleFor(node))}">${symFor(node, overlay)}${doorMarks(node, 'mm')}</span>`;
         continue;
       }
-      // Foreign tile: only the ones one step across a boundary survive, as a gateway
-      // edge marker (the district's initials in its colour). Deeper foreign tiles are
-      // dropped to void so the sidebar stays scoped to your district.
-      if (!inDist(node)) {
-        if (gateways.has(node.id)) {
-          const g = node.district || {};
-          const gs = [];
-          if (g.color) { const [r0, g0, b0] = hexToRgb(g.color); gs.push(`background:rgba(${r0},${g0},${b0},0.12)`, `color:${g.color}`, `border-color:${g.color}`); }
-          html += `<span class="mm-c mm-room mm-gateway" style="${gs.join(';')}" title="→ ${escapeHtml(g.name || node.name)}">${streetAbbrev(g.name || node.name)}</span>`;
-        } else {
-          html += `<span class="mm-c mm-void"></span>`;
-        }
-        continue;
-      }
+      // (District clipping is gone. The sidebar renders every tile in the window,
+      // regardless of district, so neighbouring districts stay in place instead of
+      // being fogged to void — which is what the gateway/foreign-tile branches that
+      // used to sit here were for. They had been unreachable behind an always-true
+      // predicate for months.)
+      //
       // Authored bg wins; otherwise a faint district tint so the sidebar reads as
       // coloured neighborhood regions, not a uniform code-grid.
       // Everything a tile looks like comes from spec — resolved at BUILD time by
@@ -814,12 +812,11 @@ export function renderMinimap(nodes, direction) {
       else if (node.district?.color) { const [dr, dg, db] = hexToRgb(node.district.color); styles.push(`background:rgba(${dr},${dg},${db},0.20)`); }
       if (node.spec?.text) styles.push(`color:${node.spec.text}`);
       let styled = (fill || node.spec?.text) ? ' mm-styled' : '';
-      // Terrain override (road / water / grass): seamless tileable fill. Roads become
+      // Terrain override (road / water / grass): a seamless flat fill. Roads become
       // grey asphalt with yellow markings (the road SVG mask inherits `color`); water
-      // and grass drop their marker text for a clean coloured expanse + a connecting
-      // texture supplied by the .mm-<terrain> class. `background-color` (long-hand) is
-      // used so the class's texture background-image survives.
-      let content = symFor(node);
+      // and grass drop their marker text for a clean coloured expanse. No terrain
+      // carries a texture — the .mm-<terrain> class only kills the tile border now.
+      let content = symFor(node, overlay);
       const terr = terrainOf(node);
       if (terr) {
         // Terrain paints the GROUND. Whatever stands on that ground is a separate
@@ -827,8 +824,7 @@ export function renderMinimap(nodes, direction) {
         // helipad, an AA nest), the ▣ door marker, a building's overlay glyph or
         // label. Painting the statue's square `park` must not delete the statue —
         // symFor() already emits nothing for a bare tile, so there is no stray
-        // marker text here to blank, only meaning. `background-color` (long-hand)
-        // is used so the .mm-<terrain> class's texture image survives.
+        // marker text here to blank, only meaning.
         // Roads and dirt roads need no branch any more: their yellow/tan markings
         // are just the palette's `text` for that terrain (auto_tile says the
         // connector SVG in spec.feature is doing the drawing).
@@ -850,7 +846,7 @@ export function renderMinimap(nodes, direction) {
         ? ` data-action="go" data-target="${escapeHtml(node.building_name)}" data-dest="${escapeHtml(node.building_name)}"`
         : '';
       const cls = `mm-c mm-room danger-${dangerCls}${styled}${unreach}${enterCls}${terrCls}${perimCls}`;
-      html += `<span class="${cls}"${styleAttr}${enterAttrs} title="${titleFor(node)}">${content}${doorMarks(node, 'mm')}</span>`;
+      html += `<span class="${cls}"${styleAttr}${enterAttrs} title="${escapeHtml(titleFor(node))}">${content}${doorMarks(node, 'mm')}</span>`;
     }
   }
   // GPS route line: an accent polyline through the centres of the route tiles that
@@ -873,6 +869,63 @@ export function renderMinimap(nodes, direction) {
     if (el) el.innerHTML = html;
   }
   if (direction) slideMinimap(direction);
+}
+
+// ── The dispatcher ───────────────────────────────────────────────────────────
+// Everything that must happen on EVERY payload regardless of which renderer
+// draws it lives here: the node cache auto-walk reads, the arrival notify, and
+// the void-crossing branch. Put any of it inside a renderer and it dies the
+// moment the other one is selected.
+//
+// The canvas path is the default and the DOM path is the fallback, kept live
+// rather than deleted so `mm_canvas=0` is a one-key escape from a driver bug.
+// Any throw out of the canvas renderer disables it for the rest of the session —
+// a minimap that renders the old way beats a minimap that doesn't render.
+// Settings → Layout → "Minimap" (smooth | classic) is the user-facing switch;
+// `mm_canvas=0` in localStorage is the hard override for a machine that can't get
+// as far as the tablet.
+let mmCanvas = true;
+try {
+  mmCanvas = localStorage.getItem('mm_canvas') !== '0'
+    && (loadSettings().minimapRender || 'smooth') === 'smooth';
+} catch {}
+export function isCanvasMinimap() { return mmCanvas; }
+
+/** Settings hook (window._applyMinimapRender, registered in main.js). Re-renders
+ *  the cached payload so the pill takes effect without waiting for a move. */
+export function setMinimapRender(smooth) {
+  const next = !!smooth && (() => { try { return localStorage.getItem('mm_canvas') !== '0'; } catch { return true; } })();
+  if (next === mmCanvas) return;
+  mmCanvas = next;
+  if (!mmCanvas) hideCanvas();
+  if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
+}
+
+export function renderMinimap(nodes, direction) {
+  if (!nodes || !nodes.length) { hideCanvas(); minimapMessage('(unmapped)'); return; }
+  const current = nodes.find(n => n.is_current);
+  if (!current) { hideCanvas(); minimapMessage('(unmapped)'); return; }
+
+  _lastMinimapNodes = nodes;
+  notifyAutoWalkArrival(current.id); // confirmation-driven auto-walk: advance only when we actually arrive
+
+  // Off the grid: a waste-crossing room isn't on the world map, so drop the city
+  // renderer for a stylized "you are in the void" trail view (walked → you → fog).
+  // The void has no tiles to draw, so the canvas stands down entirely.
+  if (current.void_crossing) { hideCanvas(); renderCrossing(nodes, current, direction); return; }
+  setMinimapCrossing(false);
+
+  if (mmCanvas) {
+    try {
+      if (renderMinimapCanvas(nodes, current, direction)) return;
+    } catch (e) {
+      mmCanvas = false;
+      hideCanvas();
+      console.error('[minimap] canvas renderer failed — falling back to DOM', e);
+    }
+  }
+  hideCanvas(); // hands the grid divs back before the DOM path fills them
+  renderMinimapDom(nodes, direction);
 }
 
 // Land-use / function colour key for the default map view. Keys + colours match
@@ -912,7 +965,7 @@ const DANGER_STREET = [
   'rgba(212,70,60,0.52)',   // high
   'rgba(214,55,55,0.64)',   // lethal
 ];
-function hexToRgb(hex) {
+export function hexToRgb(hex) {
   const h = (hex || '').replace('#', '');
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
@@ -954,8 +1007,9 @@ export const POI_LEGEND = {
 // is a different thing and still live — that's the rooftop SVG footprint itself.)
 
 // Tileable terrain styling (server `terrain` field). Roads recolour to grey asphalt
-// with yellow lane markings; water/grass render as a seamless coloured expanse with a
-// connecting texture from the .mm-<terrain> / .map-<terrain> CSS classes.
+// with yellow lane markings; every other terrain is a seamless coloured expanse. The
+// .mm-<terrain> / .map-<terrain> classes carry no art any more — they only drop the
+// tile border so neighbours read as one surface.
 const TERRAIN = new Set(['road', 'dirt_road', 'water', 'grass', 'park', 'asphalt', 'concrete', 'dirt', 'sand', 'gravel', 'dock', 'scrub', 'redrock', 'ash', 'marsh']);
 // (Every painted surface keeps whatever stands on it — see the terrain branch in the
 // cell loop. There is no longer a glyph-keeping subset: blanking icons and building
@@ -970,7 +1024,7 @@ const TERRAIN = new Set(['road', 'dirt_road', 'water', 'grass', 'park', 'asphalt
 // The terrain CLASS for styling hooks (.mm-<terrain> textures) — a name, not a
 // colour. spec.minimap_class is what derive resolved; the payload's node.terrain
 // stays as the fallback for a transient zone, which has no derived row.
-function terrainOf(node) {
+export function terrainOf(node) {
   const t = node?.spec?.minimap_class || node?.terrain || null;
   return t && TERRAIN.has(t) ? t : null;
 }
@@ -1042,19 +1096,16 @@ export function setMapOverlay(mode) {
   mapState.avenueOverlay = next;
   if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
 }
+/** The active overlay mode, for the canvas renderer (which has no mapState access). */
+export function mapOverlayMode() { return mapState.avenueOverlay || 'labels'; }
+/** Enter a building from a minimap click. The DOM path routes the same command
+ *  through main.js's delegated action-link handler; canvas has no elements to
+ *  delegate on, so it sends directly. */
+export function sendGo(buildingName) { if (buildingName) sendCmd(`go ${buildingName}`); }
 
-function twoLetterAbbrev(name) {
-  return ((name || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 2) || '??');
-}
-// Avenue-View label: initials of the significant words ("Franchise Strip" → "FS",
-// "Muster Yard" → "MY"); a single word falls back to its first two letters. Drops
-// leading articles so "The Marquee" → "MA", not "TM".
-function streetAbbrev(name) {
-  const words = String(name || '').split(/\s+/).filter(w => w && !/^(the|of|and|at|a|an)$/i.test(w));
-  if (!words.length) return twoLetterAbbrev(name);
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-  return words.map(w => w[0]).join('').slice(0, 3).toUpperCase();
-}
+// (streetAbbrev/twoLetterAbbrev lived here — the district initials the gateway
+// marker stamped on a foreign tile. The gateway branch is gone with the district
+// clipping it served, and these went with it.)
 function escapeHtml(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
 }
@@ -1093,7 +1144,7 @@ function traceRoute(fromId, toId, byId) {
 // start at the current tile (so tiles already walked drop off), or the whole route if
 // you've stepped off it. Returns null once you've arrived (nothing left ahead) and
 // consumes the stored route at that point so it doesn't linger behind you.
-function effectiveTracePath(currentId) {
+export function effectiveTracePath(currentId) {
   const p = mapState.tracePath;
   if (!p || !p.length) return null;
   const i = p.indexOf(currentId);

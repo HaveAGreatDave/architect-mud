@@ -252,6 +252,59 @@ grid. `cmdMap` returns the full same-`map_id`/same-`grid_z` tile set (a `MAP_WIN
 [movement.js](../server/engine/commands/movement.js)) for the full-screen map popup and the tablet
 bigmap.
 
+### The renderer: canvas, with a camera (as built)
+
+The sidebar/HUD/mobile minimaps are drawn on a **canvas**, by
+[minimap-canvas.js](../client/game/js/panels/minimap-canvas.js). The DOM grid renderer still exists as
+`renderMinimapDom` in [minimap.js](../client/game/js/panels/minimap.js) and is the fallback —
+Settings → Layout → **Minimap** (`smooth` | `classic`) picks between them, `mm_canvas=0` in
+localStorage is the hard override, and any throw out of the canvas path disables it for the session.
+`renderMinimap` is now a dispatcher: the node cache auto-walk reads, the arrival notify and the
+void-crossing branch live there, because anything put inside one renderer dies when the other is picked.
+
+**Why canvas.** The DOM path rebuilt up to 243 spans (81 cells × three grids) per step, then started a
+180 ms transform on top of that layout/paint spike — which is why a move read as a pop. What canvas
+buys is a **fractional camera**: the beacon is pinned at the canvas centre and the world eases
+underneath it over the measured step cadence (~480 ms running, ~1000 ms walking), **retargeting from
+where the camera currently is** so a run is continuous motion rather than a sequence of hops. The
+camera *snaps* instead — no glide — on a `map_id` change, a `grid_z` change, an `R` change, a teleport
+(>2 tiles), a virtual interior layout, or `data-motion="off"`. `up`/`down`/`in`/`out` keep the old
+scale/fade flourish, since they have no direction to glide along.
+
+**The buffer is the design.** Tiles are drawn into surface buffers keyed by device tile size and
+rebuilt **only when the tiles change** (payload, zoom, overlay, an icon finishing load); a frame is a
+blit plus the GPS polyline and the beacon. Each buffer holds `MARGIN = 2` tiles more than it shows —
+that margin is what the camera glides across. Rebuild per frame and this is slower than the DOM it
+replaced. Three surfaces at three tile sizes deliberately do **not** share one downscaled buffer: the
+2 px door edges and the stroked labels are 1–2 device px on the HUD and would not survive it.
+
+**The tile cache** ([minimap-cache.js](../client/game/js/panels/minimap-cache.js)) keeps every node
+that arrives with real grid coords, keyed by **absolute** position — absolute is load-bearing, since
+payload coords are relative to wherever you were standing. A glide needs tiles the payload's window
+doesn't cover, so the leading edge draws from memory. Those are rendered at 55% alpha as **remembered**
+and carry no live data: no player counts, no reachability styling, no beacon — things you can only know
+by being there now. Interiors laid out by the exit-graph BFS have no stable key (their coords shift
+every step), so they run uncached and snap; that costs nothing, because an interior is always fully
+inside the window anyway. LRU-capped at 6,000 entries, evicting off-map tiles first.
+
+Canvas has no CSS, so [minimap-assets.js](../client/game/js/panels/minimap-assets.js) reproduces the
+one thing the DOM got for free: the ~70 zone icons, tinted per `spec.text` by a `source-in` composite.
+It never blocks a paint — a missing asset draws nothing and the ready callback marks the surfaces dirty.
+
+**Terrain has no texture.** Ground is the flat colour `derive.mjs` resolved into `node.spec.fill`, and
+nothing is laid over it. Seven terrains (water, grass, dock, scrub, redrock, ash, marsh) once carried a
+stretched SVG overlay — ripples, grass blades, plank seams — authored to phase-match at the tile edges.
+That art existed in **three** byte-identical copies (`styles.css` for the DOM minimap and the full map,
+`minimap-assets.js` for the canvas, `tablet-os.js` for the regional map) which had to be retuned in
+lockstep or the same bay painted differently on three surfaces; the Studio, which draws from the same
+derived palette, never rendered them at all. All three copies are deleted. The `.mm-<terrain>` /
+`.map-<terrain>` / `.terr-<terrain>` classes survive but now only drop the tile border, so a body of
+water still reads as one surface. A tile's read is its colour plus whatever a person put on it.
+
+The canvas is appended **inside** the existing `#minimap-grid` divs rather than replacing them, so the
+`esp-active` filter, the delegated double-click, and the crossing/message renderers keep working on
+the container untouched. Click-to-enter and the hover tooltip are hit-tested from camera coords.
+
 ### Tile rendering (the map is drawn, not ASCII)
 
 Each map/minimap node carries four additive rendering fields, all derived server-side in
@@ -357,11 +410,12 @@ Four surfaces consume it:
   standing in the landmark zone.
 - **Minimap** — `getMinimapData` ([world.js](../server/engine/world.js)) adds `district{key,name,color}`
   to each node; the client tints tiles with the district colour when they have no authored `bg_color`,
-  fades cross-district connectors (`.mm-boundary`), and names the district in the tooltip. The **sidebar
-  minimap is clipped to your own district**: `renderMinimap` drops tiles in other districts and instead
-  renders the one-step-across-a-boundary tiles as **gateway markers** (`.mm-gateway` — the target
-  district's initials in its colour on a dashed hollow cell, tooltip `→ <District>`). The full-screen
-  map (`renderMapGrid`) is *not* clipped — it's the cross-district overview.
+  and names the district in the tooltip. The sidebar minimap is **not** clipped to your own district —
+  every tile in the window renders, whatever district it belongs to, so neighbouring districts stay in
+  place instead of being fogged to void. (It once was clipped, with the tiles one step across a boundary
+  drawn as `.mm-gateway` markers carrying the target district's initials. That was disabled behind an
+  always-true predicate long before the canvas rewrite, and the dead branch has now been removed along
+  with `.mm-boundary`/`.mm-link`.)
 
 **Sensory signatures** are a plugin, not engine: [district-ambience](../plugins/district-ambience/)
 answers the `zone.describeAmbient` tick (~35% of outdoor ambient ticks) with a random `signature`

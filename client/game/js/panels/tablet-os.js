@@ -2232,19 +2232,11 @@ function ensureStyles() {
     #tablet-os-overlay .tos-jchip.gate { color:var(--green); border-color:color-mix(in srgb, var(--green) 50%, transparent); background:color-mix(in srgb, var(--green) 10%, transparent); }
     #tablet-os-overlay .tos-journey-hint { font-size:12px; font-style:italic; color:var(--tos-fg-dim); text-align:center; padding:10px 14px 20px; }
     /* Tileable terrain: drop the border/rounding so water & parkland read as one
-       expanse, and lay a subtle connecting texture (one period per tile). Fill colour
-       is set inline (grey asphalt for roads, authored blue/green for water/grass). */
+       expanse. Fill colour is set inline (grey asphalt for roads, authored blue/green
+       for water/grass) and is the whole of the ground — no terrain carries a texture.
+       Seven of them used to lay a stretched SVG here, a third copy of the same art
+       that also lived in styles.css and minimap-assets.js. All three are deleted. */
     #tablet-os-overlay .tos-map-tile.terr { border-radius:0; border-color:transparent; }
-    #tablet-os-overlay .tos-map-tile.terr-water, #tablet-os-overlay .tos-map-tile.terr-grass, #tablet-os-overlay .tos-map-tile.terr-dock,
-    #tablet-os-overlay .tos-map-tile.terr-scrub, #tablet-os-overlay .tos-map-tile.terr-redrock, #tablet-os-overlay .tos-map-tile.terr-ash, #tablet-os-overlay .tos-map-tile.terr-marsh { background-repeat:no-repeat; background-size:100% 100%; }
-    #tablet-os-overlay .tos-map-tile.terr-water { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23ffffff' stroke-opacity='0.30' stroke-width='1.1' stroke-linecap='round'><path d='M0 7q6 -3 12 0t12 0'/><path d='M0 14q6 -3 12 0t12 0'/><path d='M0 21q6 -3 12 0t12 0'/></g></svg>"); }
-    #tablet-os-overlay .tos-map-tile.terr-grass { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%237fc95a' stroke-opacity='0.40' stroke-width='1' stroke-linecap='round'><path d='M4 21v-5'/><path d='M9 22v-6'/><path d='M14 21v-5'/><path d='M19 22v-6'/><path d='M6 13v-4'/><path d='M12 12v-4'/><path d='M18 13v-4'/></g></svg>"); }
-    #tablet-os-overlay .tos-map-tile.terr-dock { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%233b2c19' stroke-opacity='0.55' stroke-width='1'><path d='M0 6h24M0 12h24M0 18h24'/><path d='M8 0v6M16 6v6M8 12v6M16 18v6'/></g><g fill='none' stroke='%23987444' stroke-opacity='0.30' stroke-width='0.6'><path d='M0 3h24M0 9h24M0 15h24M0 21h24'/></g></svg>"); }
-    /* Wildlands surfaces — mirror the sidebar minimap (.mm-*/.map-*) so the tablet reads the same. */
-    #tablet-os-overlay .tos-map-tile.terr-scrub { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23b5b06a' stroke-opacity='0.45' stroke-width='0.9' stroke-linecap='round'><path d='M5 20l-1.5-4M5 20l1.5-4M5 20v-5'/><path d='M17 22l-1.5-4M17 22l1.5-4M17 22v-5'/><path d='M11 14l-1-3M11 14l1-3'/></g><g fill='%23807a40' fill-opacity='0.4'><circle cx='9' cy='20' r='0.9'/><circle cx='20' cy='11' r='0.8'/><circle cx='3' cy='8' r='0.7'/></g></svg>"); }
-    #tablet-os-overlay .tos-map-tile.terr-redrock { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23431c10' stroke-opacity='0.42' stroke-width='0.9'><path d='M0 9l7 3 6-4 5 4 6-2'/><path d='M4 24l3-8 6 2 4-6'/></g><g fill='%233a170c' fill-opacity='0.45'><circle cx='3' cy='19' r='1.2'/><circle cx='15' cy='7' r='1'/><circle cx='20' cy='18' r='0.9'/><circle cx='9' cy='4' r='0.7'/><circle cx='22' cy='3' r='0.6'/></g></svg>"); }
-    #tablet-os-overlay .tos-map-tile.terr-ash { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='%23cfcac4' fill-opacity='0.35'><circle cx='4' cy='6' r='0.8'/><circle cx='12' cy='10' r='0.7'/><circle cx='19' cy='5' r='0.9'/><circle cx='8' cy='17' r='0.7'/><circle cx='16' cy='19' r='0.8'/><circle cx='21' cy='14' r='0.6'/></g><path d='M2 21q6 -3 11 0t9 -1' fill='none' stroke='%23b8b2ac' stroke-opacity='0.2' stroke-width='0.8'/></svg>"); }
-    #tablet-os-overlay .tos-map-tile.terr-marsh { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23aeca7e' stroke-opacity='0.28' stroke-width='1' stroke-linecap='round'><path d='M0 8q6 -3 12 0t12 0'/><path d='M0 16q6 -3 12 0t12 0'/></g><g fill='none' stroke='%236f8a3e' stroke-opacity='0.5' stroke-width='0.9' stroke-linecap='round'><path d='M7 20v-7M9 20l-1-6'/><path d='M18 21v-8'/></g></svg>"); }
     /* Edge-line door style — hairline per side of an interior room: green open, red wall. */
     #tablet-os-overlay .tos-map-tile .tos-edge { position:absolute; z-index:4; pointer-events:none; border-radius:1px; }
     #tablet-os-overlay .tos-map-tile .tos-edge.open { background:#3fd07a; }
@@ -5189,6 +5181,12 @@ const TOS_OPT_GROUPS = [
   { key: 'mapOverlay', label: 'Map Labels', opts: [
     { v: 'labels', t: 'Lettering — the building’s 2-letter code', g: 'AB', s: 'font-size:11px;letter-spacing:1px' },
     { v: 'none', t: 'Plain tiles — no lettering', g: '▫' } ] },
+  // Which renderer draws the sidebar minimap. Classic is a genuine fallback, not a
+  // style choice — it's what you switch to if the canvas path misbehaves on your
+  // machine, so it has to be reachable without devtools.
+  { key: 'minimapRender', label: 'Minimap', opts: [
+    { v: 'smooth', t: 'Smooth — the map glides as you walk', g: '🌊' },
+    { v: 'classic', t: 'Classic — tiles snap into place', g: '▦' } ] },
 ];
 const TOS_AUDIO_TOGGLES = [
   { key: 'music', label: 'Music', on: '🎵', off: '🔇' },

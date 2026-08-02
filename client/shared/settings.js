@@ -6,7 +6,7 @@ export const DEFAULT_AUDIO_SETTINGS = { enabled: true, music: true, sfx: true, t
 // default look of the product; keep it in step with the inline boot script in
 // client/game/index.html, which sets the same value before any module loads so the
 // first paint isn't a different colour from the second.
-const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', minimapRender: 'smooth', audio: DEFAULT_AUDIO_SETTINGS };
 
 const DEFAULT_FELT_GREEN = '#1a4a1a';
 
@@ -362,6 +362,12 @@ export function applySettings(settings) {
   // gate — panels/minimap.js registers it and re-renders in place, so the pill takes
   // effect without a move. Other clients have no minimap and skip it.
   window._applyMapOverlay?.(_mapOverlayMode(settings));
+
+  // Minimap renderer (smooth = canvas + gliding camera, classic = the DOM grid).
+  // A real setting rather than a hidden key because the fallback exists for people
+  // whose machine can't run the canvas path well, and telling them to open devtools
+  // is not a fallback.
+  window._applyMinimapRender?.((settings.minimapRender || 'smooth') === 'smooth');
 
   const audio = settings.audio || DEFAULT_AUDIO_SETTINGS;
   window.AudioEngine?.applyVolumeSettings(audio);
