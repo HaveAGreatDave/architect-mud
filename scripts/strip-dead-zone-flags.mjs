@@ -1,9 +1,14 @@
 // scripts/strip-dead-zone-flags.mjs — one-shot DATA TRANSFORMATION.
 //
-// Removes two zone flags that were authored and never read. The additive content
-// deploy (INSERT … ON CONFLICT DO NOTHING) can never remove a key from an existing
-// row, so the DB half has to be a deliberate one-shot; the content half is rewritten
-// in place so git and the DB agree.
+// Removes two zone flags that were authored and never read.
+//
+// ⚠ THE DB HALF TURNED OUT TO BE UNNECESSARY (2026-08-02). This was written believing
+// the deploy could not remove a key from an existing row. It can: the import upserts
+// `flags` as a whole column, so deleting the key from the content files is enough, and
+// the deploy cleared all 79 affected prod tiles on its own. Kept because the FILE half
+// is still what did the work, and because re-running it locally is a harmless no-op —
+// but do not reach for a script like this again without checking whether editing the
+// files already covers it. CLAUDE.md has been corrected.
 //
 //   • utility_room (67 zones) — written by installGenerator (environment.js) and by
 //     tools/lib/utility-room.mjs, read by NOTHING. What makes a room the junction

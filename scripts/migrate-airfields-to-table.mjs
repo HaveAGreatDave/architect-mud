@@ -4,9 +4,15 @@
 // the `airfields` table, leaving `flags.airfield_id` behind as the membership
 // pointer (the shape regions and districts already use).
 //
-// The additive content deploy can never REMOVE a key from an existing row, so the
-// strip half has to be a deliberate one-shot; the airfields rows themselves ride the
-// ordinary pipeline once this has written content/airfields/*.json.
+// WHAT THIS IS ACTUALLY FOR: deriving the rows. The airfield config only ever existed
+// as flags, so something has to read them and decide what each row says — that is the
+// job, and its OUTPUT is content/airfields/*.json, which then rides the ordinary
+// pipeline like any other content.
+//
+// ⚠ The strip half is NOT what makes this necessary (corrected 2026-08-02). This was
+// written believing the deploy could not remove a key from an existing row; it can —
+// the import upserts `flags` as a whole column, so the deploy stripped all nine tiles
+// itself from the edited files. Run this to BUILD the rows, not to clean the tiles.
 //
 // Two things this deliberately fixes rather than preserves:
 //
