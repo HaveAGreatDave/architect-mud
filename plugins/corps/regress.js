@@ -4,6 +4,7 @@
 // posters plugin's own hook still runs (hook contract: last non-undefined wins).
 import { _corpPosterPitch, colorDistance, MIN_COLOR_DISTANCE, DESTABILIZE } from './index.js';
 import { CORP_ASSET_TYPES, ventureConsoleBlock, warehouseStoreCapacity } from './ventures.js';
+import { RACKET_BANDS, FEAR_HALFLIFE_DAYS, FEAR_CAP, fearNow, fearBand, racketConsoleBlock } from './rackets.js';
 
 export default async function regress({ run, check }) {
   // ── Corporate Assets (ventures.js) — registry + console block ──────────────
@@ -60,6 +61,56 @@ export default async function regress({ run, check }) {
   check('corp territory → map_territory payload', terr?.type === 'map_territory', terr?.type);
   check('corp territory → control is an object', terr && terr.control && typeof terr.control === 'object' && !Array.isArray(terr.control));
   check('corp territory → orgs is an array', Array.isArray(terr?.orgs));
+
+  // ── Protection rackets (rackets.js) ────────────────────────────────────────
+  // Bands must be ordered high→low and their rates must fall with them, because
+  // fearBand() takes the FIRST band whose minimum is met — an out-of-order table
+  // would silently pay the wrong cut rather than throw.
+  const mins = RACKET_BANDS.map(b => b.min);
+  check('rackets: bands are ordered high → low', mins.every((m, i) => i === 0 || m < mins[i - 1]), mins);
+  check('rackets: cut rates fall with fear', RACKET_BANDS.every((b, i) => i === 0 || b.rate <= RACKET_BANDS[i - 1].rate), RACKET_BANDS.map(b => b.rate));
+  check('rackets: the bottom band pays nothing', RACKET_BANDS[RACKET_BANDS.length - 1].rate === 0);
+  check('rackets: the bottom band catches zero fear', RACKET_BANDS[RACKET_BANDS.length - 1].min === 0);
+  check('rackets: every band has a label and a key', RACKET_BANDS.every(b => typeof b.label === 'string' && typeof b.key === 'string'));
+  // Each band boundary resolves to its own band — off-by-one here is a silent
+  // pay-rate bug, not a crash.
+  for (const b of RACKET_BANDS) check(`rackets: fear ${b.min} → ${b.key}`, fearBand(b.min).key === b.key, fearBand(b.min).key);
+  check('rackets: fear above the cap still bands as terrified', fearBand(FEAR_CAP).key === 'terrified');
+
+  // Decay is a pure function of elapsed time — this is the whole mechanic, so it
+  // gets exercised directly rather than trusted.
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const at = (daysAgo, fear = 80) => ({ fear, last_leaned_at: Math.floor((now - daysAgo * DAY) / 1000) });
+  check('rackets: fresh fear is undecayed', Math.round(fearNow(at(0), now)) === 80, fearNow(at(0), now));
+  check('rackets: sub-day elapsed does not decay (noise short-circuit)', fearNow(at(0.5), now) === 80, fearNow(at(0.5), now));
+  const halved = fearNow(at(FEAR_HALFLIFE_DAYS), now);
+  check('rackets: one half-life halves fear', Math.abs(halved - 40) < 0.5, halved);
+  check('rackets: two half-lives quarter it', Math.abs(fearNow(at(FEAR_HALFLIFE_DAYS * 2), now) - 20) < 0.5, fearNow(at(FEAR_HALFLIFE_DAYS * 2), now));
+  check('rackets: decay is monotonic', fearNow(at(3), now) > fearNow(at(9), now) && fearNow(at(9), now) > fearNow(at(30), now));
+  check('rackets: a long-neglected racket lapses to a zero cut', fearBand(fearNow(at(60), now)).rate === 0, fearNow(at(60), now));
+  check('rackets: half-life is faster than the 7-day rent clock is slow (never feels like a bill)', FEAR_HALFLIFE_DAYS <= 14, FEAR_HALFLIFE_DAYS);
+  check('rackets: zero fear decays to zero, never NaN', fearNow({ fear: 0, last_leaned_at: 0 }, now) === 0);
+  check('rackets: a null racket reads as zero fear (no throw)', fearNow(null) === 0);
+  check('rackets: a missing timestamp does not produce NaN', Number.isFinite(fearNow({ fear: 50 }, now)));
+
+  // Console block is safe for a corp with nobody on the books.
+  const rBlock = racketConsoleBlock('org-that-does-not-exist');
+  check('rackets: console block for a corp with no rackets is an empty array', Array.isArray(rBlock) && rBlock.length === 0);
+
+  // Verb routing: `corp racket` reaches the dispatcher and `lean` is registered.
+  // The fake player is in no corp, so both land on a corp-shaped guard — which is
+  // what proves they're wired (same pattern as `corp warehouse` above).
+  const rk = await run('corp racket list');
+  check('corp racket → routes through the corp dispatcher', !!rk && !/Unknown corp command/.test(rk.message || ''), (rk?.message || '').slice(0, 60));
+  const ln = await run('shakedown somebody');
+  check('shakedown → is a registered verb, not an unknown command', !!ln && !/Unknown command/i.test(ln.message || ''), (ln?.message || '').slice(0, 60));
+  // Membership is checked before target resolution, so a corp-less player gets the
+  // corp refusal rather than "no such shopkeeper" — the cheap gate goes first.
+  check('shakedown → refuses a player with no corp', /not in a corp/i.test(ln?.message || ''), (ln?.message || '').slice(0, 60));
+  // `lean` must still belong to the interactions plugin (furniture), NOT to corps.
+  const leanStill = await run('lean');
+  check('lean → still the interactions furniture verb, not hijacked by corps', !/not in a corp/i.test(leanStill?.message || ''), (leanStill?.message || '').slice(0, 60));
 
   const poster = _corpPosterPitch({ name: 'a recruitment poster', flags: { corp_poster: true } });
   check('corp poster → leads to the recruiter, not a command list', typeof poster === 'string' && /Denny Corliss/.test(poster) && !/corp found/.test(poster), (poster || '').slice(0, 80));

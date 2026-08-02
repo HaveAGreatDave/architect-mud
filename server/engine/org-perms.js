@@ -14,6 +14,7 @@ export const PERM = {
   EDIT_CORP:  1 << 4,
   MANAGE_HQ:  1 << 5,
   DISBAND:    1 << 6,
+  RACKET:     1 << 7,   // establish/maintain protection rackets on shops in held turf
 };
 
 // Every bit set — the Founder rank.

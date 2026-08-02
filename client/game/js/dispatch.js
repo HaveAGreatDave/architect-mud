@@ -43,6 +43,7 @@ import { setYachtAmbience, yachtUnderway, yachtSettled } from './panels/yacht-am
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
 import { openConcealKeypad } from './panels/keypad.js';
+import { openSprayCan, updateSprayShelf } from './panels/spraycan.js';
 import { openSynthMinigame, openCookMenu } from './panels/synthlab.js';
 import { openSpliceSelect, openSpliceStages, applySplicePreview } from './panels/splicelab.js';
 import { showSpliceReport } from './panels/spliceReport.js';
@@ -893,6 +894,17 @@ const handlers = {
   arrest_notice: (msg) => { showArrestNotice(msg); },
   apprehend_prompt: (msg) => { openApprehendPrompt(msg); },
   conceal_search: (msg) => { openConcealSearch(msg); },
+
+  // The rattle-can (plugins/graffiti `spray`) — per-letter paint over the shared
+  // colour wheel, plus the player's shelf of saved designs. Everything it sends is
+  // re-validated server-side; the panel decides nothing.
+  spray_editor: (msg) => {
+    if (msg.message) appendHtml(msg.message, 'system');
+    openSprayCan(msg);
+  },
+  // The answer to a save or a bin: the whole shelf, never a delta, so the open panel
+  // can't drift from the table. Ignored if the can is already shut.
+  spray_shelf: (msg) => { updateSprayShelf(msg); },
   poker_update: (msg) => { setAreaPane(msg.html); },
   poker_sfx: (msg) => { playPokerSfx(msg.cue); },
   trade_update: (msg) => { updateTrade(msg.html); },

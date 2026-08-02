@@ -1868,6 +1868,13 @@ export async function dailyMaintenance() {
   if (stainsCleared > 0) console.log(`[dailyMaintenance] Cleared stains from ${stainsCleared} zone(s).`);
   if (spared.length) console.log(`[dailyMaintenance] Left ${spared.length} owned room(s) dirty — their owners can mop.`);
 
+  // --- Everything else that runs on the city's cleaning cadence ---
+  // Plugins that hold their own nightly-swept state listen here rather than the
+  // engine importing them (bodily's unflushed toilets is the first). `deepClean`
+  // is passed so a listener can honour the same owned-room exemption the stains
+  // above do, without re-deriving the cadence and drifting from it.
+  emit('world.dailyMaintenance', { deepClean, gameDay: gameToday() });
+
   // --- Vendor stock restock ---
   await restockAllVendors().catch(err =>
     console.error('[dailyMaintenance] Vendor restock failed:', err.message)

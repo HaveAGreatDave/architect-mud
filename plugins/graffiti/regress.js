@@ -9,7 +9,15 @@
 //   • expired — lazy, date-derived expiry with no tick. It has to fail toward "the
 //     tag is still there", because the alternative is a clock hiccup silently
 //     erasing every wall in the city.
+//
+// The spray can adds a fourth: STYLE IS DATA, NEVER MARKUP. paint.js is the only
+// thing that turns a run into HTML, and the only thing that decides a run is a run.
+// A colour that isn't a colour has to be dropped rather than emitted, and the run
+// indices have to survive escaping — `esc` changes the LENGTH of the string, and a
+// renderer that indexed the escaped text would slice an entity in half and put a
+// live `<` back on the wall.
 import { _test, TAG_MAX_LEN, TAG_LIFE_DAYS, tagAt, removeTag } from './index.js';
+import { normalizeRuns, coalesceRuns, renderStyled, decodePayload, safeColor, escapedChars } from './paint.js';
 import { world } from '../../server/engine/world.js';
 import { gameDayIndex } from '../../server/engine/zone-filth.js';
 
@@ -83,6 +91,64 @@ export default async function regress({ run, check }) {
   check('the room line carries the tag text', /NO GODS NO LANDLORDS/.test(line || ''), line);
   const clean = await (await import('./index.js')).hooks['zone.describeRoom'](field);
   check('an untagged room contributes nothing to the description', clean === undefined, String(clean));
+
+  // --- Style is data, never markup -----------------------------------------
+  check('safeColor accepts a six-digit hex', safeColor('#FF0044') === '#ff0044');
+  check('safeColor refuses a colour name', safeColor('red') === null);
+  check('safeColor refuses a style injection', safeColor('#fff;background:url(x)') === null);
+  check('safeColor refuses javascript:', safeColor('javascript:alert(1)') === null);
+  check('safeColor refuses a short hex (the renderer only ever emits six)', safeColor('#fff') === null);
+
+  const norm = normalizeRuns([{ n: 2, c: '#ff0000', f: 1 }], 5);
+  check('normalizeRuns pads the tail so runs always cover the text', norm.reduce((a, r) => a + r.n, 0) === 5, JSON.stringify(norm));
+  check('normalizeRuns clips a run that overruns the text',
+    normalizeRuns([{ n: 99, c: '#ff0000', f: 0 }], 3).reduce((a, r) => a + r.n, 0) === 3);
+  check('normalizeRuns drops a bad colour rather than passing it through',
+    normalizeRuns([{ n: 2, c: 'red; x', f: 0 }], 2)[0]?.c === null || normalizeRuns([{ n: 2, c: 'red; x', f: 0 }], 2).length === 0);
+  check('normalizeRuns masks the flags to the four that exist',
+    normalizeRuns([{ n: 1, c: null, f: 255 }], 1)[0]?.f === 15);
+  check('an entirely unstyled run list is no style at all', normalizeRuns([{ n: 3, c: null, f: 0 }], 3).length === 0);
+  check('normalizeRuns survives junk in place of an array', normalizeRuns('nope', 3).length === 0);
+  check('coalesceRuns merges neighbours that look the same',
+    coalesceRuns([{ n: 1, c: '#ff0000', f: 0 }, { n: 2, c: '#ff0000', f: 0 }]).length === 1);
+
+  // The index trap: `esc` lengthens the string, a run counts typed characters.
+  check('escapedChars counts an entity as the one character it was',
+    escapedChars(esc('a<b')).length === 3, JSON.stringify(escapedChars(esc('a<b'))));
+  const styledEsc = renderStyled(esc('a<b'), normalizeRuns([{ n: 1, c: null, f: 0 }, { n: 1, c: '#00ff00', f: 0 }], 3));
+  check('a styled tag never re-opens an escaped character', !/<b>|<script/.test(styledEsc.replace(/<\/?(span|b|i|u|s)\b[^>]*>/g, '')), styledEsc);
+  check('the escaped entity survives styling intact', styledEsc.includes('&lt;'), styledEsc);
+  check('renderStyled with no runs is exactly the escaped text', renderStyled('PLAIN', []) === 'PLAIN');
+  check('renderStyled emits a colour only from a validated run',
+    renderStyled('AB', [{ n: 2, c: '#ff0000', f: 0 }]) === '<span style="color:#ff0000">AB</span>');
+  check('renderStyled applies the weight flags', /<b>|<i>/.test(renderStyled('AB', [{ n: 2, c: null, f: 3 }])));
+
+  // --- The wire format ------------------------------------------------------
+  const b64 = Buffer.from(JSON.stringify({ t: 'NO GODS', r: [{ n: 2, c: '#ff0000', f: 1 }] })).toString('base64');
+  const decoded = decodePayload(b64);
+  check('decodePayload reads a well-formed payload', decoded?.text === 'NO GODS' && decoded.runs.length === 1, JSON.stringify(decoded));
+  check('decodePayload refuses rubbish rather than half-applying it', decodePayload('not base64 at all!!') === null);
+  check('decodePayload refuses an empty tag', decodePayload(Buffer.from(JSON.stringify({ t: '   ' })).toString('base64')) === null);
+  check('decodePayload refuses nothing at all', decodePayload('') === null && decodePayload(undefined) === null);
+  const nl = decodePayload(Buffer.from(JSON.stringify({ t: 'ONE\nTWO' })).toString('base64'));
+  check('decodePayload flattens a newline — a tag is one line on a wall', nl?.text === 'ONE TWO', JSON.stringify(nl));
+
+  // --- The room line, painted ------------------------------------------------
+  tags.set(street.id, {
+    text: esc('NO GODS'), style: [{ n: 2, c: '#ff2d55', f: 1 }, { n: 5, c: null, f: 0 }],
+    targetName: 'Bodega Vu', dayIndex: nowIdx,
+  });
+  const painted = await (await import('./index.js')).hooks['zone.describeRoom'](street);
+  check('a painted tag carries its colour into the room line', painted.includes('#ff2d55'), painted);
+  check('a painted tag still names the building', /Bodega Vu/.test(painted));
+  check('a painted tag drops the blanket bold — the paint decides the weight now',
+    !/: <b>/.test(painted), painted);
+
+  // --- The verbs the dialog talks to ----------------------------------------
+  for (const verb of ['spraycan', 'sprayapply', 'spraysave', 'spraydel']) {
+    const res = await run(verb);
+    check(`${verb} is routed`, res?.type !== undefined, `${verb}: ${JSON.stringify(res)}`);
+  }
 
   await removeTag(street.id);
   check('removeTag clears the wall', tagAt(street.id) === null);

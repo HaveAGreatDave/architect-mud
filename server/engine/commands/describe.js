@@ -1059,8 +1059,13 @@ export async function describeZone(zone, player, out = {}) {
 	// once. Under fireHook the last-loaded plugin silently ATE the others' line;
 	// every contributor already returns undefined outside its own case, so joining
 	// them can't duplicate anything, it can only stop losing text.
+	//
+	// GATHERED HERE, PRINTED LATER (below the prose). These lines describe THINGS
+	// THAT ARE IN THE ROOM — a tag on the shopfront, a shop's shutter, an elevator's
+	// floor readout — so they read with the authored prose, not up among the
+	// [SAFE]/district/light chips, which are a status header about the tile. The
+	// gather stays here because it is the async step; only the placement moved.
 	const roomLines = (await gatherHook("zone.describeRoom", zone, player)).filter(Boolean);
-	if (roomLines.length) desc += `\n${roomLines.join("\n")}`;
 	// Truncate description based on light level — less light, fewer details.
 	const sentences = zone.description.match(/[^.!?]+[.!?]+(\s|$)/g) || [
 		zone.description,
@@ -1131,6 +1136,10 @@ export async function describeZone(zone, player, out = {}) {
 	// the paragraph gap comes from its margin-top. A literal newline here would
 	// render as an extra blank line under pre-wrap and double the gap.
 	if (wovenProse) desc += `<span class="room-furniture">${wovenProse}</span>`;
+	// The plugin room-lines gathered above, in their own paragraph after the room
+	// has finished describing itself. Outside room-desc deliberately: a tag on the
+	// wall is still there when you collapse the prose.
+	if (roomLines.length) desc += `\n${roomLines.join("\n")}`;
 	// First-visit tone-setting lore (per-player, new-account-only) — a plugin
 	// decides whether this player has earned an introduction to this zone and
 	// returns the shimmering block, or nothing. Player is passed so eligibility

@@ -105,7 +105,14 @@ export function gameDayIndex(ymdStr) {
   return Number.isNaN(t) ? null : Math.floor(t / 86400000);
 }
 
-/** Is today the game-day on which even owned rooms get swept? */
+/**
+ * Is today the game-day on which even owned rooms get swept?
+ *
+ * Also read by the bodily plugin for unflushed toilets, which ride this exact
+ * cadence — it takes the `deepClean` flag off the `world.dailyMaintenance` event
+ * rather than calling this itself, so the floor and the bowl can never drift
+ * onto different schedules.
+ */
 export function isDeepCleanDay(ymdStr) {
   const idx = gameDayIndex(ymdStr);
   return idx === null ? true : idx % STAIN_KEEP_DAYS === 0;

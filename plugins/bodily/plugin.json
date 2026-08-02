@@ -1,7 +1,7 @@
 {
   "name": "bodily",
   "version": "1.0.0",
-  "description": "Bowel/bladder pressure simulation (1m tick), involuntary release, pee/poop/flush verbs, timed relief routines onto any target (toilet/ground/furniture/lying creature; poop drops legwear + squats 20-40s, pee 10s w/ male-stand/female-sit; farts (pressure-scaled) + plops + surface-varied pee-stream sound cues via bodily.sfx; NPCs yell when peed on and bystanders recoil at public elimination, which also emits bodily.publicRelief → indecent-exposure charge; toilets foul until flushed), toilet/sink use panels, and a `shower` verb (gated on a shower fixture) that fully cleans you — clothing/skin stains, dried fluid, and blood — leaving a brief cosmetic 'refreshed' badge. Stains + digestion loads stay engine (server/engine/bodily.js substrate).",
+  "description": "Bowel/bladder pressure simulation (1m tick), involuntary release, pee/poop/flush verbs, timed relief routines onto any target (toilet/ground/furniture/lying creature; poop drops legwear + squats 20-40s, pee 10s w/ male-stand/female-sit; farts (pressure-scaled) + plops + surface-varied pee-stream sound cues via bodily.sfx; NPCs yell when peed on and bystanders recoil at public elimination, which also emits bodily.publicRelief → indecent-exposure charge; toilets foul until flushed and hold only TOILET_CAPACITY=5 deposits before OVERFLOWING onto the floor and onto whoever is sitting on them; unflushed state is swept on the `world.dailyMaintenance` event using the same stateless owned-room cadence as zones.stains, and can be SCOOPED OUT by hand — a `take` specializedAction that only fires in a room with a fouled toilet, hands you the ordinary `item_vessel_filth` item, and stains your hands (or your gloves); scooping removes the MASS but not the water, so the bowl still contaminates until flushed, and a poop deposit marks the bowl peed too. Carried filth can be THROWN at a creature via a `throw X at Y` input matcher (`throw` is no longer blanket-aliased to `stow` — it is a builtin that reads its preposition: `in` stows, `at` reaches the matchers) — 25% miss, garment-first staining, and a 1-star `filth_assault` charge over `bodily.filthThrown`), toilet/sink use panels, and a `shower` verb (gated on a shower fixture) that fully cleans you — clothing/skin stains, dried fluid, and blood — leaving a brief cosmetic 'refreshed' badge. Stains + digestion loads stay engine (server/engine/bodily.js substrate).",
   "hooks": [
     "furniture.describe",
     "zone.smells"
@@ -9,10 +9,12 @@
   "events": {
     "emits": [
       "bodily.sfx",
-      "bodily.publicRelief"
+      "bodily.publicRelief",
+      "bodily.filthThrown"
     ],
     "consumes": [
-      "player.logout"
+      "player.logout",
+      "world.dailyMaintenance"
     ]
   },
   "commands": [
@@ -32,7 +34,7 @@
     "flush": {
       "discoverVia": "none",
       "exposed": false,
-      "note": "KNOWN GAP: requires a toilet in the zone (object_type='toilet' or flags.toilet); errors otherwise. Surfaced as an action-link inside the 'use toilet' panel, not on examine. (The `use toilet`/`use sink` panels are a tagless specializedAction that examine can't surface either — toilet/sink are not in examine's hardcoded object_type branches — but `use` is not a command so it cannot be logged here.)"
+      "note": "KNOWN GAP: requires a toilet in the zone (object_type='toilet' or flags.toilet); errors otherwise. Surfaced as an action-link inside the 'use toilet' panel, not on examine. (The `use toilet`/`use sink` panels are a tagless specializedAction that examine can't surface either — toilet/sink are not in examine's hardcoded object_type branches — but `use` is not a command so it cannot be logged here. The same is true of the `take` specializedAction that scoops a fouled toilet: it self-gates on a fouled toilet being present, falls through to the inventory builtin everywhere else, and is surfaced as a `take filth` action-link inside the same `use toilet` panel while the bowl is dirty.)"
     },
     "shower": {
       "discoverVia": "none",

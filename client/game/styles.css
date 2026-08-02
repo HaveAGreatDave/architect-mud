@@ -623,6 +623,20 @@ body.fsim-external #look-resize-handle { display: none; }
 	display: block;
 	margin-top: 0.7em;
 }
+/* A tag on a wall (plugins/graffiti) — its own paragraph with the room's prose
+   rather than up among the [SAFE]/district chips, because it describes a thing
+   that is in the room. The sentence is ambient; the paint is not, so .graffiti-ink
+   puts weight and colour back for the per-letter styling to override. */
+.room-graffiti {
+	display: block;
+	margin-top: 0.7em;
+	color: var(--text-dim);
+	font-style: italic;
+}
+.graffiti-ink {
+	font-style: normal;
+	color: var(--text);
+}
 .room-desc.collapsed {
 	display: -webkit-box;
 	-webkit-line-clamp: 1;

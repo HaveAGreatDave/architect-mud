@@ -974,6 +974,36 @@ function ensureStyles() {
     #tablet-os-overlay .tos-list-item:active { transform:translateY(1px); box-shadow:inset 0 2px 3px var(--tos-bevel-lo); }
     #tablet-os-overlay .tos-list-item .tos-li-label { color:var(--tos-fg); font-size:13.5px; display:flex; justify-content:space-between; gap:8px; }
     #tablet-os-overlay .tos-list-item .tos-li-sub { color:var(--tos-fg-dim); font-size:12px; }
+    /* Two-level list (opt-in via item.group / item.child). A heading reads as a
+       label rather than a button — flat, no bevel, no hover lift — and its
+       children sit indented under it with a rail joining them to it. */
+    #tablet-os-overlay .tos-list-item.tos-li-group { background:none; border:none; box-shadow:none; cursor:default;
+      margin:12px 0 4px; padding:0 2px 4px; border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); }
+    #tablet-os-overlay .tos-list-item.tos-li-group:first-child { margin-top:0; }
+    #tablet-os-overlay .tos-list-item.tos-li-group:hover { filter:none; box-shadow:none; }
+    #tablet-os-overlay .tos-list-item.tos-li-group:active { transform:none; box-shadow:none; }
+    #tablet-os-overlay .tos-list-item.tos-li-group .tos-li-label { font-size:12px; letter-spacing:1.5px; text-transform:uppercase; color:var(--mg-accent); }
+    #tablet-os-overlay .tos-list-item.tos-li-child { margin-left:14px; border-left:2px solid color-mix(in srgb, var(--mg-accent) 34%, transparent); border-radius:0 6px 6px 0; }
+    /* An option is one of several answers to the line above it, not another
+       errand — so it reads as a quiet aside: no panel, no badge, no hover lift. */
+    #tablet-os-overlay .tos-list-item.tos-li-option { margin:0 0 2px 30px; padding:2px 8px; background:none; border:none;
+      border-left:1px dashed color-mix(in srgb, var(--mg-accent) 30%, transparent); border-radius:0; box-shadow:none; cursor:default; }
+    #tablet-os-overlay .tos-list-item.tos-li-option:hover { filter:none; box-shadow:none; }
+    #tablet-os-overlay .tos-list-item.tos-li-option:active { transform:none; box-shadow:none; }
+    #tablet-os-overlay .tos-list-item.tos-li-option .tos-li-label { color:var(--tos-fg-dim); font-size:12px; }
+    /* An option that resolves to a real shelf item IS worth opening — it gets the
+       pointer back, quietly, without ever growing the panel an option must not have. */
+    #tablet-os-overlay .tos-list-item.tos-li-option[data-open-item] { cursor:pointer; }
+    #tablet-os-overlay .tos-list-item.tos-li-option[data-open-item]:hover .tos-li-label { color:var(--tos-fg); text-decoration:underline dotted; }
+    /* A row with no id leads nowhere. It used to still be clickable, and clicking
+       it navigated to the app root — which read as the tablet throwing you out of
+       the screen you were reading. Now it simply isn't a button. */
+    #tablet-os-overlay .tos-list-item.tos-li-static { cursor:default; }
+    #tablet-os-overlay .tos-list-item.tos-li-static:hover { filter:none;
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 2px var(--tos-bevel-lo), 0 1px 4px rgba(0,0,0,0.18); }
+    #tablet-os-overlay .tos-list-item.tos-li-static:active { transform:none; }
+    /* The last option in a run carries the gap to the next line. */
+    #tablet-os-overlay .tos-list-item.tos-li-option + .tos-list-item:not(.tos-li-option) { margin-top:7px; }
     #tablet-os-overlay .tos-badge { font-size:10.5px; letter-spacing:1px; padding:2px 6px; border-radius:3px; text-transform:uppercase; }
     #tablet-os-overlay .tos-badge.ready { color:#7bffb0; border:1px solid #244; background:#0c1a15; }
     #tablet-os-overlay .tos-badge.active { color:#ffcf4a; border:1px solid #3a3018; background:#1a150a; }
@@ -4953,10 +4983,28 @@ function renderTosTabs(d) {
 
 function renderList(items) {
   if (!items || !items.length) return '<div class="tos-empty">Nothing here.</div>';
-  return items.map(it => `<div class="tos-list-item" data-open-item="${esc(it.id)}">
-    <div class="tos-li-label"><span>${esc(it.label)}</span>${it.badge ? `<span class="tos-badge ${esc(it.badge)}">${esc(it.badgeLabel || it.badge)}</span>` : ''}</div>
+  // A list can be two levels deep when the payload says so: `group: true` heads a
+  // set, `child: true` sits under it. Opt-in, so every existing flat list renders
+  // exactly as before. The Cookbook's shopping list is the first user — a recipe
+  // is one heading over the several separate things you have to go and buy.
+  // A list can nest when the payload says so: `group` heads a set, `child` sits
+  // under it, `option` sits under a child as one of several ways to answer it.
+  // All three are opt-in, so every existing flat list renders exactly as before.
+  //
+  // The Cookbook's shopping list is the first user, and it needs all three
+  // because the levels are different KINDS of thing: a recipe is several errands
+  // (children), but a class's examples are alternatives — buying any one of them
+  // answers the line. So an option deliberately has no checkbox and no badge;
+  // giving it one would read as a fourth thing to buy.
+  //
+  // A row only carries `data-open-item` when it HAS an id. An id-less row used to
+  // get the attribute anyway, empty — and clicking it navigated the app with no
+  // params, which is the app ROOT. Every heading and every summary line was
+  // therefore a button that threw you out of the screen you were reading.
+  return items.map(it => { const oid = it.id == null ? '' : String(it.id); return `<div class="tos-list-item${it.group ? ' tos-li-group' : ''}${it.child ? ' tos-li-child' : ''}${it.option ? ' tos-li-option' : ''}${oid ? '' : ' tos-li-static'}"${oid ? ` data-open-item="${esc(oid)}"` : ''}>
+    <div class="tos-li-label"><span>${esc(it.label)}</span>${it.badge && !it.option ? `<span class="tos-badge ${esc(it.badge)}">${esc(it.badgeLabel || it.badge)}</span>` : ''}</div>
     ${it.sub ? `<div class="tos-li-sub">${esc(it.sub)}</div>` : ''}
-  </div>`).join('');
+  </div>`; }).join('');
 }
 
 // Month-grid calendar (Calendar app). A 7-column grid — weekday header row then the
@@ -8736,7 +8784,7 @@ function renderBody() {
     // Puck was unreachable — there was no second tab to press) and its leader
     // races vanished with them. Both renderers no-op on a payload that omits
     // them, so every existing list screen is unaffected.
-    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderTosTabs(d)}${renderList(d.items)}${d.rows ? `<div class="tos-detail-rows">${renderDetailRows(d.rows)}</div>` : ''}${pageNav}${renderActions(d.appId, d.actions, '')}</div>`;
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderTosTabs(d)}${d.notice ? `<div class="tos-error" style="text-align:left;padding:0 0 10px">${esc(d.notice)}</div>` : ''}${renderList(d.items)}${d.rows ? `<div class="tos-detail-rows">${renderDetailRows(d.rows)}</div>` : ''}${pageNav}${renderActions(d.appId, d.actions, '')}</div>`;
   }
   if (d.view === 'detail') {
     const det = d.detail || d.quest || {};

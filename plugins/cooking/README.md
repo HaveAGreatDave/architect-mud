@@ -193,6 +193,38 @@ So the only remaining route to slop is putting something with no `food_profile`
 in the pan — motor oil, mutagen, a spanner. That pot really is incoherent and
 deserves the old answer. Anything made of actual ingredients gets a name.
 
+## What an ingredient carries onto the plate (`hazards.js`)
+
+**A name is not the same as a consequence.** Plating produces one generic
+`item_cooked_dish` row, so the eat path in `commands/inventory.js` was reading
+the tags of a *generic dish* — and every property of everything in the pan was
+thrown away. A stew of rat, mutagen and a measure of filth ate exactly like a
+stew of rat. That also made the tag catalog wrong in writing: `bodily_filth`
+claimed it "taints the whole dish… carries the filth through to the plate", and
+nothing did that.
+
+`gatherHazards` runs at plate time and stamps `custom_data.hazards`. **This is
+independent of quality** — a mess and a `superb` improvisation carry their
+ingredients identically, because being good at cooking is not the same as the
+pan being safe.
+
+| Carried | How it merges | Why |
+|---|---|---|
+| `status_chance` | **worst**, per effect | Two risky things don't make a safer dish, and summing sails past 1.0 |
+| `disease_risk` + `donors` | any / union | The donor id `depositIntoVessel` stamps is the only reason disease risk is more than flavour |
+| `radiation`, `sanity` | **summed** | Dose-like. Two irradiated fillets really are two doses |
+| `laced_drug` | first wins | The drug path takes one id; picking a winner beats silently dropping one |
+
+Two rules worth not breaking:
+
+- **Cooking changes how good a thing is, never what it IS.** Heat is not a
+  purifier here — hazards carry at full strength. A well-cooked filth stew being
+  safe would be the joke collapsing.
+- **An intermediate cannot launder a pan.** `gatherHazards` reads each row's own
+  carried `hazards` as well as its tags, so filth folded into a paste and the
+  paste folded into a pie is still a filth pie. Without that, one intermediate
+  step washed everything clean.
+
 **Families**, ordered most specific first per vessel kind, first match wins:
 curry beats chowder beats stew beats soup beats broth in a pot; pie beats bake
 beats gratin beats roast in a tray; hash, scramble, sauce, sear, saute in a pan;
@@ -293,15 +325,40 @@ standing when you read it. Same caret, same yellow, one `markRow`.
 A class entry is **labelled with things you can actually buy** (`buyableExamples`
 in `shoplist.js`), and every noun it names is one the entry will ACCEPT — the
 test is `food_profile` exactly, the field the matcher itself reads. This is why
-the recipe-card **note is suppressed on the list**: penne alla gin's note says
-"tomato for the body", which is true of the dish and false of the shop, because a
-fresh tomato is a `soft_vegetable` and the liquid in that sauce is the tinned one
-or the paste. The note still orders the examples (tomato leads, the spirit
-follows); it just doesn't get the last word on what counts. A class the dish
-wants exactly one of already prints its key item's noun and is left alone.
+the recipe-card **note is suppressed on the list** when examples replace it: a
+note is written for the cook and can name something the shop's shelf won't
+answer. The note still orders the examples (whatever it mentions first is
+offered first); it just doesn't get the last word on what counts. A class the
+dish has its own word for — `nouns`, or a single-unit key item — prints that
+word instead and is left alone.
+
+### The list nests, three deep
+
+A flat run of ingredients with "for penne alla gin" repeated down the side reads
+as one shopping decision when it is four, so the list is **grouped under the
+recipe that wanted each line** (in the verb and in the Cookbook app alike). Under
+a line, its `ex` nouns nest one level further — but as **alternatives, not
+errands**: any ONE of them answers the line, so they render without checkboxes
+and without badges. Rendering them as more boxes would say "buy all three", and
+the count in the heading would be wrong.
+
+Two counting rules keep that honest, both in `addShortfall`:
+
+- **A key item counts once, not twice.** It's mandatory, so the moment it's in
+  the basket it also satisfies a unit of its own profile. Without this, penne
+  alla gin wrote "125g of penne" *and* "box of penne" as two separate errands,
+  because the class label had already borrowed the key item's noun.
+- **A class only partly covered by a key item asks for the remainder**, and its
+  label describes what's left rather than the recipe's full requirement.
+
+The tablet side needs `renderList`'s opt-in `group` / `child` / `option` flags
+(`client/game/js/panels/tablet-os.js`); every other list in the OS passes none of
+them and renders flat exactly as before.
 
 Storage is one `player_flags` row (`shoplist`), read by the verb, the Cookbook
-tablet app's list screen, and the shelf marker.
+tablet app's list screen, and the shelf marker. An entry stores `label` (the
+whole line), plus `base` and `ex` kept apart so a display that can nest them
+does — anything that just wants one line reads `label`.
 
 ## Modifiers
 

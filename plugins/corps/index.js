@@ -26,6 +26,9 @@ import { getBroadcast, sendToPlayer } from '../../server/engine/messaging.js';
 import {
   cmdVentureAsset, cmdWarehouse, handleVenturePurchase, runVentureTick, ventureConsoleBlock, ventureCount,
 } from './ventures.js';
+import {
+  cmdRacket, cmdShakedown, handleRacketPurchase, racketConsoleBlock, racketCount,
+} from './rackets.js';
 
 const FOUND_FEE = 1000;            // credits to found a corp
 const HQ_FEE = 500;                // credits (from treasury) to claim an HQ
@@ -211,6 +214,7 @@ async function buildConsolePayload(player) {
     members,
     relations,
     territory,
+    rackets: racketConsoleBlock(m.org_id),
     assets: ventureConsoleBlock(m.org_id),
     directives: [],
     architectHeat: architectHeat(org, zones.length, assetCount),
@@ -236,7 +240,7 @@ async function pushConsole(orgId, broadcast) {
     type: 'corp_console_patch',
     treasury: payload.treasury, architectHeat: payload.architectHeat,
     members: payload.members, territory: payload.territory,
-    tierInfo: payload.tierInfo, assets: payload.assets,
+    tierInfo: payload.tierInfo, assets: payload.assets, rackets: payload.rackets,
   };
   for (const p of members) broadcast(null, patch, null, p.id);
 }
@@ -1080,6 +1084,9 @@ const USAGE = [
   'corp invest               — raise your corp tier (member cap · territory slots · assets)',
   'corp build extractor|turret — build/upgrade an asset on a zone you hold',
   'corp asset [list|claim]   — your corp-owned businesses; claim the one you stand in',
+  'shakedown <shopkeeper>    — put a shop on the books, or remind one; fear fades if you don\'t',
+  'corp racket list          — what your corp has on the books, and how scared they still are',
+  'corp racket drop <shop>   — let a shop off the hook',
   'corp warehouse [list|deposit <item>|withdraw <item>] — the pooled Logistics Store (stand in an owned warehouse)',
   'corp say <message>        — talk on your private corp channel',
   'corp disband              — dissolve the corp (owner only)',
@@ -1132,6 +1139,8 @@ async function cmdCorp(args, raw, player, broadcast) {
     case 'build':       return cmdBuild(player, rest[0], broadcast);
     case 'asset':
     case 'business':    return cmdVentureAsset(player, rest, broadcast, pushConsole);
+    case 'racket':
+    case 'protection':  return cmdRacket(player, rawRest, broadcast, pushConsole);
     case 'warehouse':
     case 'store':       return cmdWarehouse(player, rest);
     case 'say':
@@ -1164,6 +1173,10 @@ async function doUseCorpTerminal(args, raw, player) {
 export const commands = {
   corp: cmdCorp,
   org: cmdCorp,
+  // The maintenance verb gets to be a bare verb: it's the one you type over and
+  // over, and burying it under `corp` would make the beat feel like admin.
+  // (Not `lean` — the interactions plugin already owns that for furniture.)
+  shakedown: (args, raw, player, broadcast) => cmdShakedown(args, raw, player, broadcast, pushConsole),
 };
 
 export const specializedActions = [
@@ -1212,6 +1225,13 @@ schedule('24h', () => runTerritoryTick().catch(e => console.error('[corps] terri
 // ── Corporate Assets (ventures.js) ──────────────────────────────────────────
 // Live: a cut of every sale at an owned business's storefront vendor.
 on('vendor.purchase', (e) => handleVenturePurchase(e).catch(err => console.error('[corps] venture purchase error:', err.message)));
+
+// ── Protection rackets (rackets.js) ─────────────────────────────────────────
+// Same seam, different morality: a cut of every sale at a shop your corp leans
+// on. Unlike a venture this one DECAYS — the income dies unless somebody walks
+// back and leans on them again. Early-returns on a Map miss, so shops nobody is
+// shaking down cost one lookup on the buy path.
+on('vendor.purchase', (e) => handleRacketPurchase(e).catch(err => console.error('[corps] racket purchase error:', err.message)));
 
 // ── Destabilization: hostile activity on a rival's turf saps their grip ──────
 // Every hostile act already emits an event carrying an actor + a zone. These

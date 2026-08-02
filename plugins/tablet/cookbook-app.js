@@ -17,7 +17,8 @@ import { query } from '../../server/models/db.js';
 import { DISHES, ingredientLine, methodLines, estimateCookMs } from '../cooking/dishes.js';
 import { PROFILES } from '../cooking/profiles.js';
 import { cookbookState, UNTRIED } from '../cooking/knowledge.js';
-import { getList, holdings, answer, addShortfall } from '../cooking/shoplist.js';
+import { getList, holdings, answer, addShortfall, buyableExamples } from '../cooking/shoplist.js';
+import { getItem, getItemCache } from '../../server/engine/items-cache.js';
 import { DISCOVERY_ATTEMPTS, COOK_SECONDS_PER_KG } from '../cooking/config.js';
 import { registerTabletApp } from './registry.js';
 
@@ -50,6 +51,121 @@ async function carriedProfiles(playerId) {
   return have;
 }
 
+// ── Ingredient detail ────────────────────────────────────────────────────────
+// A shopping-list line used to lead nowhere: every row carried an empty id, and
+// clicking one navigated the app with no params — which is the app root. So the
+// list's own rows behaved like a Back button. They now open the thing they name.
+//
+// Two subjects, one screen id space, because a list holds two kinds of line:
+//   __ing:p:<profile>   a CLASS  ("800g of liquid") — what would answer it
+//   __ing:i:<item_id>   a THING  (a bottle of gin)  — what it is and what it counts as
+// Both are read-only and derived; opening a line can't change the list.
+const ING_PREFIX = '__ing:';
+
+// The item a buyable example noun stands for. The list stores nouns (they're what
+// you say over a counter, and they persist in a flag), so the id is resolved here
+// at read time against the shelf — which also means an option whose item has since
+// left the catalog quietly stops being clickable instead of opening a dead screen.
+function itemForNoun(profile, noun) {
+  const want = String(noun || '').toLowerCase().trim();
+  if (!want) return null;
+  for (const item of getItemCache().values()) {
+    const tags = item?.tags || {};
+    if (tags.food_profile !== profile) continue;
+    if (String(tags.food_noun || item.name || '').toLowerCase().trim() === want) return item;
+  }
+  return null;
+}
+
+const itemRow = id => { try { return getItem(id); } catch { return null; } };
+
+// What a profile does in a pan, in the words the recipe cards already use. Read
+// off the profile itself, so a new class is described the day it's added.
+function profileRows(profileName) {
+  const p = PROFILES[profileName];
+  if (!p) return [];
+  const rows = [];
+  if (p.unitWeight) rows.push({ label: 'One of these is', value: `${p.unitWeight}g` });
+  rows.push({ label: 'Raw', value: p.targets?.raw || '—' });
+  rows.push({ label: 'Cooked right', value: p.targets?.peak || '—' });
+  rows.push({ label: 'Past its peak', value: `${p.targets?.over || '—'}, then ${p.targets?.burnt || '—'}` });
+  rows.push({ label: 'Prep', value: p.needsPrep ? 'arrives whole — cut it down first' : 'goes in as it comes' });
+  rows.push({
+    label: 'In the pan',
+    value: `${p.turns ? `turn it ${p.turns} time${p.turns === 1 ? '' : 's'}` : 'leave it alone'} · ${p.heatTolerance} heat`,
+  });
+  if (p.doneness) rows.push({ label: 'Doneness', value: p.doneness.levels.map(l => l.name).join(' / ') });
+  if (p.modifier) rows.push({ label: 'Note', value: 'a seasoning, not an ingredient — it flavours the dish rather than being part of it' });
+  rows.push({ label: 'Difficulty', value: `${p.difficulty}/10` });
+  return rows;
+}
+
+// Which list lines want this thing, and how much of it is still outstanding.
+// Answered against inventory like every other read of the list.
+async function ingredientDetail(player, token) {
+  const [kind, ...restParts] = String(token || '').split(':');
+  const key = restParts.join(':');
+  const rows = answer(await getList(player.id), await holdings(player.id));
+
+  if (kind === 'p') {
+    const p = PROFILES[key];
+    if (!p) return { view: 'error', message: "Nothing on your list wants that." };
+    const mine = rows.filter(e => e.k === 'p' && e.v === key);
+    const name = (p.label || key).replace(/\b\w/g, c => c.toUpperCase());
+    const out = [];
+    for (const e of mine) {
+      out.push({ label: e.for ? titleFor(e.for.replace(/ /g, '_')) : 'Odds and ends', value: `${e.base || e.label}${e.done ? ' · in hand' : ''}` });
+    }
+    if (mine.length) {
+      const held = mine[0].have || 0;
+      out.push({ label: 'Carrying', value: `${Math.round(held * 100) / 100} — about ${Math.round(held * (p.unitWeight || 0))}g` });
+      // The alternatives, spelled out one per row rather than run together in a
+      // sentence: this is the screen you read standing in the shop.
+      const ex = buyableExamples(key);
+      if (ex.length) ex.forEach((n, i) => out.push({ label: i === 0 ? 'Any one of' : '', value: n }));
+      out.push({ label: '—', value: '' });
+    }
+    out.push(...profileRows(key));
+    return {
+      view: 'detail',
+      breadcrumb: ['Cookbook', 'Shopping List', name],
+      detail: {
+        id: `${ING_PREFIX}p:${key}`, name,
+        desc: `A class, not a thing — anything on the shelf that behaves like this counts towards the line.`,
+        rows: out,
+      },
+    };
+  }
+
+  if (kind === 'i') {
+    const item = itemRow(key);
+    if (!item) return { view: 'error', message: "That isn't anything you can buy." };
+    const tags = item.tags || {};
+    const profile = tags.food_profile;
+    const p = PROFILES[profile];
+    const out = [];
+    if (p) {
+      out.push({ label: 'Counts as', value: (p.unitWeight && Number(item.weight))
+        ? `${Math.round((Number(item.weight) / p.unitWeight) * 100) / 100} of ${p.label}`
+        : p.label });
+    }
+    if (item.weight) out.push({ label: 'Weight', value: `${item.weight}g` });
+    if (item.value) out.push({ label: 'Usually about', value: `₵${item.value}` });
+    const wants = rows.filter(e => (e.k === 'i' && e.v === key) || (e.k === 'p' && e.v === profile));
+    for (const e of wants) {
+      out.push({ label: e.for ? titleFor(e.for.replace(/ /g, '_')) : 'On your list', value: `${e.base || e.label}${e.done ? ' · in hand' : ''}` });
+    }
+    if (p) { out.push({ label: '—', value: '' }); out.push(...profileRows(profile)); }
+    return {
+      view: 'detail',
+      breadcrumb: ['Cookbook', 'Shopping List', item.name],
+      detail: { id: `${ING_PREFIX}i:${key}`, name: item.name, desc: item.description || '', rows: out },
+    };
+  }
+
+  return { view: 'error', message: "Nothing on your list wants that." };
+}
+
 async function buildScreen(player, screenId, params) {
   const id = (params || '').trim();
   const { known, progress } = await cookbookState(player.id);
@@ -59,6 +175,9 @@ async function buildScreen(player, screenId, params) {
   // Every line is ANSWERED against your inventory at the moment you look, never
   // stored as "bought". So walking out of a shop with the onion ticks the box on
   // its own, with nothing having to fire when you bought it.
+  // A line on the list, opened. Never a navigation back — see ingredientDetail.
+  if (id.startsWith(ING_PREFIX)) return ingredientDetail(player, id.slice(ING_PREFIX.length));
+
   if (id === '__shop') {
     const list = await getList(player.id);
     if (!list.length) {
@@ -72,15 +191,57 @@ async function buildScreen(player, screenId, params) {
       };
     }
     const rows = answer(list, await holdings(player.id));
-    const items = rows.map((e, i) => ({
-      id: '',
-      label: `${e.done ? '☑' : '☐'} ${e.label}`,
-      sub: e.for ? `for ${e.for}${e.done ? ' · in hand' : ''}` : (e.done ? 'in hand' : ''),
-      badge: e.done ? 'ready' : 'missing',
-      _sort: e.done ? 1 : 0,
-    })).sort((a, b) => a._sort - b._sort);
+    // GROUPED UNDER THE RECIPE THAT WANTED THEM. A dish is not a thing you buy —
+    // it's several things you buy and then cook, and a flat list of ingredients
+    // with "for penne alla gin" repeated down the side read as one shopping
+    // decision when it is four. The heading is the dish; the lines under it are
+    // the shopping. Anything added without a recipe behind it keeps its own
+    // heading at the bottom, because a list of loose wants is still a list.
+    const groups = new Map();
+    for (const e of rows) {
+      const key = e.for || '';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(e);
+    }
+    const ordered = [...groups.entries()].sort((a, b) =>
+      (a[0] ? 0 : 1) - (b[0] ? 0 : 1) || a[0].localeCompare(b[0]));
+
+    const items = [];
+    for (const [forWhat, entries] of ordered) {
+      const left = entries.filter(e => !e.done).length;
+      items.push({
+        id: '', group: true,
+        label: forWhat ? titleFor(forWhat.replace(/ /g, '_')) : 'Odds and ends',
+        sub: left
+          ? `${left} of ${entries.length} still to buy — buy each one separately, then cook`
+          : `everything it wants is in hand`,
+        badge: left ? 'missing' : 'ready',
+      });
+      for (const e of entries.slice().sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0))) {
+        // A CLASS line is itself made of parts you have to go and buy, so it
+        // gets the same treatment one level down — except its parts are
+        // ALTERNATIVES, not a checklist. "400g of liquid" is one errand that
+        // tinned tomatoes OR cream OR gin would each finish, and nesting them as
+        // more checkboxes would have said "buy three", which is wrong. Hence the
+        // options render without boxes, and the parent says how to read them.
+        const opts = e.done ? [] : (e.ex || []);
+        items.push({
+          // The line opens the thing it names — the class, or the specific item.
+          id: `${ING_PREFIX}${e.k}:${e.v}`, child: true,
+          label: `${e.done ? '☑' : '☐'} ${e.done ? e.label : (e.base || e.label)}`,
+          sub: e.done ? 'in hand' : (opts.length ? 'any one of these will do:' : ''),
+          badge: e.done ? 'ready' : 'missing',
+        });
+        // An option opens the ITEM it names when the shelf has one, and stays a
+        // quiet aside when it doesn't. Either way it never becomes a checkbox.
+        for (const noun of opts) {
+          const shelf = e.k === 'p' ? itemForNoun(e.v, noun) : null;
+          items.push({ id: shelf ? `${ING_PREFIX}i:${shelf.id}` : '', option: true, label: `· ${noun}` });
+        }
+      }
+    }
     const got = rows.filter(e => e.done).length;
-    items.push({ id: '', label: `${got} of ${rows.length} in hand`, sub: '"shoplist tidy" crosses those off for good.', badge: got === rows.length ? 'ready' : 'missing' });
+    items.push({ id: '', group: true, label: `${got} of ${rows.length} in hand`, sub: '"shoplist tidy" crosses those off for good.', badge: got === rows.length ? 'ready' : 'missing' });
     return { view: 'list', breadcrumb: ['Cookbook', 'Shopping List'], items };
   }
 
@@ -213,8 +374,13 @@ async function handleAction(player, actionId) {
   const d = DISHES[key];
   if (!d) return { message: `That isn't a recipe.` };
   const r = await addShortfall(player.id, d, { label: key.replace(/_/g, ' ') });
+  // Land on the list itself. A bare { message } carries no `view`, so the shell
+  // fell through every renderer and drew "Unknown screen." — and the one thing
+  // you want to see after adding to a shopping list is the shopping list.
+  const screen = await buildScreen(player, null, '__shop');
   return {
-    message: r.added.length
+    ...screen,
+    notice: r.added.length
       ? `Added ${r.added.length} to your shopping list.`
       : `You've already got everything that wants.`,
   };

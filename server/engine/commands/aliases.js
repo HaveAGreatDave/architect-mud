@@ -38,7 +38,14 @@ export const ALIAS_DEFAULTS = {
   wear: 'equip',
   remove: 'unequip',
   put: 'stow',
-  throw: 'stow',
+  // `throw` is NOT here, deliberately. It was aliased to `stow` for one shape —
+  // `throw <thing> in <bin>`, which stow's trash-bin path even prints as "you
+  // throw it in the bin" — but an alias rewrites the FIRST WORD before dispatch,
+  // so it claimed every other shape too and `throw rock at bob` silently stowed a
+  // rock. That also broke this file's own rule two comments up: only pure
+  // abbreviations belong here, and `throw` is a context synonym, not short for
+  // `stow`. It's an ordinary builtin now (commands/inventory.js) that reads the
+  // preposition and routes accordingly.
   add: 'stow',
   // Info screens
   st: 'stats',

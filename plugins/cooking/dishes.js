@@ -627,27 +627,43 @@ export const DISHES = {
     blurb: 'Browned first, then hours on the lowest heat you have, stirred whenever you remember.',
   },
   // Penne alla gin — the vodka sauce with the wrong bottle in it, which is what
-  // you make when the right bottle costs a week's rent. Anchored on BOTH key
-  // items: penne and tomato in a pan is just pasta in sauce, and the gin is the
+  // you make when the right bottle costs a week's rent. Anchored on penne and
+  // gin: penne and tomato in a pan is just pasta in sauce, and the gin is the
   // entire point of the name. The juniper is why this isn't penne alla vodka —
   // vodka adds nothing but heat and alcohol, gin brings a whole hedge with it.
+  //
+  // THE SAUCE IS NAMED, NOT COUNTED. This asked for `liquid: [2,3]` — any two or
+  // three liquids — which made penne, gin and two bottles of water a valid pan of
+  // it, and told the shopping list the sauce was one errand with interchangeable
+  // answers. It isn't: it's tomato cooked down HARD and then cream off the heat,
+  // in that order, and the steps below have always said so. So the two of them
+  // are required by class in their own right, and `liquid` drops to optional —
+  // every liquid in the pan is now something already named, and counting them a
+  // second time was the double-count that put the sauce on a shopping list twice.
+  //
+  // By CLASS and not by `keyItems`, because keyItems are exact ids and all
+  // mandatory: naming the tin would forbid the paste, and the paste cooked down
+  // is the same sauce. The tin, the tube and a fresh tomato all carry
+  // `soft_vegetable` (two of them as `food_also`), so all three still work.
   penne_alla_gin: {
     noun: 'penne alla gin', vessel: 'pan',
     keyItems: ['item_penne', 'item_gin'],
-    // Tightened from [2,4]: four liquid units is 1.6kg of sauce for one pan of
-    // pasta, which the recipe card exposed as plainly silly the moment it
-    // started printing real weights.
-    needs: { dry_starch: 1, liquid: [2, 3] },
-    optional: ['dairy', 'aromatic', 'fat_or_oil', 'soft_vegetable', 'preserved'],
+    // The tomato band is wide on purpose — a 200g tube of concentrate is half a
+    // unit and a fresh one is a quarter over, and both are a legitimate way to
+    // make this. The requirement is that there IS tomato, not how much.
+    needs: { dry_starch: 1, soft_vegetable: [0.5, 1.5], dairy: 1 },
+    optional: ['liquid', 'aromatic', 'fat_or_oil', 'preserved'],
     nameSlots: [],
     nameFormat: 'penne alla gin',
     seasoning: 2,
-    // What each `liquid` is actually FOR. Class matching is what makes the
-    // catalog extensible, but "800g–1.6kg of liquid" is not a recipe anybody can
-    // follow — these notes are how a named dish gets to explain itself.
+    // The classes are right but the WORDS are generic, and this dish means one
+    // specific thing by each. `nouns` is where an author says so — it's what
+    // makes the card read "a tomato" rather than "one soft vegetable".
+    nouns: { soft_vegetable: 'tomato', dairy: 'cream' },
     notes: {
       dry_starch: 'a portion a head, no more',
-      liquid: 'tomato for the body, a slug of gin, cream to finish',
+      soft_vegetable: 'cooked down hard, before anything else goes in',
+      dairy: 'in last, off the heat, once the alcohol has gone',
     },
     steps: [
       'Salt the water heavily and get the penne in. Do not stir it about.',
@@ -1261,8 +1277,14 @@ export function validateDishes(dishes = DISHES, bonus = KNOWN_RECIPE_BONUS) {
     for (const [profile, need] of Object.entries(needs)) {
       if (!PROFILES[profile]) errors.push(`${at(`needs.${profile}`)} is not a known food profile`);
       const [min, max] = range(need);
-      if (!Number.isInteger(min) || !Number.isInteger(max)) errors.push(`${at(`needs.${profile}`)} must be an integer or [min, max] — got ${JSON.stringify(need)}`);
-      else if (min < 1 || max < min) errors.push(`${at(`needs.${profile}`)} range must be 1 <= min <= max — got ${JSON.stringify(need)}`);
+      // Whole numbers WERE the rule, back when one ingredient was one unit. A
+      // unit is a mass now, so "half a unit" is a thing an author can mean and a
+      // pan can hold: penne alla gin wants tomato in it without caring whether
+      // that's a 200g tube or a 400g tin, and the integer floor of 1 could only
+      // say the tin. Still guarded — a need must be a positive, ordered range;
+      // it just no longer has to be a whole ingredient.
+      if (!Number.isFinite(min) || !Number.isFinite(max)) errors.push(`${at(`needs.${profile}`)} must be a number or [min, max] — got ${JSON.stringify(need)}`);
+      else if (min <= 0 || max < min) errors.push(`${at(`needs.${profile}`)} range must be 0 < min <= max — got ${JSON.stringify(need)}`);
     }
 
     for (const profile of t.optional || []) {

@@ -81,13 +81,38 @@ export async function cmdShoplist(args, raw, player) {
   const lines = [`<span class="text-bright">Shopping list</span>`];
   const rows = answer(list, await holdings(player.id));
   let done = 0;
+
+  // Under the recipe that wanted them, not one flat run with "— for penne alla
+  // gin" repeated down the side. A dish is several separate purchases; the
+  // heading says which dish, the lines under it say what to hand over the
+  // counter. The NUMBER on each line is still its index in the stored list, so
+  // `shoplist drop 3` means the same thing it always did.
+  const groups = new Map();
   rows.forEach((e, i) => {
-    if (e.done) done++;
-    const mark = e.done ? `<span class="text-dim">[x]</span>` : `[ ]`;
-    const body = e.done ? `<span class="text-dim">${e.label}</span>` : e.label;
-    const forWhat = e.for ? ` <span class="text-dim">— for ${e.for}</span>` : '';
-    lines.push(`  ${mark} ${i + 1}. ${body}${forWhat}`);
+    const key = e.for || '';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ e, i });
   });
+  const ordered = [...groups.entries()].sort((a, b) =>
+    (a[0] ? 0 : 1) - (b[0] ? 0 : 1) || a[0].localeCompare(b[0]));
+
+  for (const [forWhat, entries] of ordered) {
+    const left = entries.filter(x => !x.e.done).length;
+    const head = forWhat || 'odds and ends';
+    lines.push(`  <span class="text-bright">${head}</span> <span class="text-dim">— ${
+      left ? `${left} of ${entries.length} still to buy, separately` : 'all in hand'}</span>`);
+    for (const { e, i } of entries) {
+      if (e.done) done++;
+      const mark = e.done ? `<span class="text-dim">[x]</span>` : `[ ]`;
+      // A class line is one errand with several possible answers. Ticked, it
+      // needs none of them; outstanding, they go on their own line UNDER it —
+      // as alternatives, which is why they get no boxes of their own.
+      const opts = e.done ? [] : (e.ex || []);
+      const head = e.done ? `<span class="text-dim">${e.label}</span>` : (e.base || e.label);
+      lines.push(`    ${mark} ${i + 1}. ${head}`);
+      if (opts.length) lines.push(`         <span class="text-dim">any one of: ${opts.join(', ')}</span>`);
+    }
+  }
   lines.push(`<span class="text-dim">${done} of ${rows.length} in hand. <b>shoplist tidy</b> crosses those off for good.</span>`);
   return { type: 'output', message: lines.join('\n') };
 }

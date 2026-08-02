@@ -852,6 +852,38 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
       break;   // one affliction per mouthful
     }
   }
+
+  // WHAT WENT INTO IT. A plated dish is one generic `item_cooked_dish` row, so
+  // everything above reads the tags of a generic dish and knows nothing about
+  // the pan. The cooking plugin gathers the ingredients' own hazards at plate
+  // time (plugins/cooking/hazards.js) and stamps them here; this is where they
+  // are paid. Without it, cooking was a laundry for every bad idea — a stew of
+  // rat, mutagen and a measure of filth ate exactly like a stew of rat.
+  //
+  // Deliberately NOT gated on `madeIll` or on `shelfStable` the way the tag
+  // block above is: those guards stop one ITEM poisoning you twice over. This
+  // is a different question — what was in it — and a dish being undercooked
+  // has no bearing on whether somebody shat in it.
+  const hz = cd?.hazards;
+  if (hz && typeof hz === 'object') {
+    if (hz.radiation) {
+      player.radiation = Math.max(0, (player.radiation || 0) + hz.radiation);
+      messages.push(`${hz.radiation > 0 ? '+' : ''}${hz.radiation} Radiation. <span class="text-dim">Something in that was hot.</span>`);
+    }
+    if (hz.sanity) {
+      player.sanity = Math.min(player.sanity_max, Math.max(0, (player.sanity || 0) + hz.sanity));
+      messages.push(`${hz.sanity > 0 ? '+' : ''}${hz.sanity} Sanity.`);
+    }
+    for (const [effect, chance] of Object.entries(hz.status_chance || {})) {
+      const p = Number(chance);
+      if (!(p > 0) || Math.random() >= p) continue;
+      applyEffect(player, effect, effect === 'food_poisoning' ? 90 : 30);
+      messages.push(effect === 'food_poisoning'
+        ? `<span style="color:var(--red)">Whatever was in that, your body wants it back. Immediately.</span>`
+        : `Something that went into that disagrees with you.`);
+      break;   // one affliction per mouthful, same as above
+    }
+  }
   // Apply the item's effects and consume it as one atomic unit, so a failure
   // between the two can't grant the effect (incl. credits) without spending the item.
   await withTransaction(async (q) => {
@@ -866,8 +898,13 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
   // above; the drug adds its systemic effects (intox meter, phases, overdose) via
   // useDrug with skipInstant, so its resource block doesn't double the restores.
   // This is the general "drugged drink/food" path — alcohol is just its first user.
-  if (t.laced_drug) {
-    const laced = await useDrug(player, t.laced_drug, broadcast, { potencyMult: Number(t.laced_potency) || 1, skipInstant: true, takeLine: '', route: opts.route });
+  // A laced INGREDIENT makes a laced meal — the dish row carries it forward the
+  // same way it carries the rest of what went in. The item's own tag still wins,
+  // since a purpose-made laced item is authored and a cooked one is inferred.
+  const lacedDrug = t.laced_drug || cd?.hazards?.laced_drug;
+  if (lacedDrug) {
+    const lacedMult = Number(t.laced_drug ? t.laced_potency : cd?.hazards?.laced_potency) || 1;
+    const laced = await useDrug(player, lacedDrug, broadcast, { potencyMult: lacedMult, skipInstant: true, takeLine: '', route: opts.route });
     if (laced?.overdose_death) {
       broadcast(null, { type: 'output', message: messages.join('\n') }, null, player.id);
       const { handlePlayerDeath } = await import('../gameLoop.js');
@@ -1757,6 +1794,20 @@ export const handlers = {
   // `put X in Y` is what everyone types first — the same command, under the word
   // people reach for.
   put:   (args, raw, player) => cmdStow(args.join(' '), player),
+  // `throw` reads its preposition instead of being blanket-aliased to `stow`.
+  // `throw X in Y` is the bin/container sense stow already handles (and already
+  // narrates as "you throw it in the bin"). `throw X at Y` reaches here only when
+  // no matcher upstream claimed it — bodily claims filth — so this is the honest
+  // "you can't throw that" rather than a silent stow of something the player
+  // meant to lob at somebody.
+  throw: (args, raw, player) => {
+    const argStr = args.join(' ');
+    if (/\bin\b/i.test(argStr)) return cmdStow(argStr, player);
+    if (/\bat\b/i.test(argStr)) {
+      return { type: 'error', message: `You can't throw that. Some things are made for throwing; that isn't one of them.` };
+    }
+    return { type: 'error', message: `Throw what, and where? (\`throw <thing> in <container>\`, or at somebody if it's the sort of thing you'd throw at somebody.)` };
+  },
   pull:  (args, raw, player) => cmdPull(args.join(' '), player),
   stowid: (args, raw, player, broadcast) => cmdStowById(args.join(' '), player, broadcast),
   pullid: (args, raw, player, broadcast) => cmdPullById(args[0], args[1], player, broadcast),

@@ -1,6 +1,7 @@
-# Corporations & Player Orgs (Phases 0–2 + Corporate Assets A + Phase 3 War Built; Rest Design)
+# Corporations & Player Orgs (Phases 0–2 + Corporate Assets A + Phase 3 War + Rackets Built; Rest Design)
 
-> **Status: Phases 0–2 built; Phase 3 war/raids + destabilization built 2026-07-18** (see the
+> **Status: Phases 0–2 built; Phase 3 war/raids + destabilization built 2026-07-18; protection
+> rackets built 2026-08-01** (see the
 > build-order section). Espionage/sabotage, NPC corp AI, and the Architect reactive layer remain
 > design. This is the agreed plan for
 > HellMOO-style corps — organizations that both players and the AI run, that hold territory, money, and
@@ -109,6 +110,8 @@ generalization of the currently-dormant `hostile_to[] / friendly_to[]` fields.
   doors/apartments).
 
 ### E. Diplomacy (the third path)
+- **Tribute is built**, though not as an org-to-org stance: it landed as **protection rackets** on NPC
+  shops (see the build-order entry below). Org-to-org tribute remains design.
 - Driven by `relations`. Wire the dormant relation fields live: **non-aggression pacts, tribute, trade
   agreements, mergers, betrayal.** NPC corps evaluate relations in their strategy tick and react (tribute
   buys peace; a merger folds two orgs). "Being Inner-Circle with the Breakers makes the Custodians
@@ -193,6 +196,34 @@ wants* is the deepest thread ([story.md](story.md)). Corps give it something to 
   no-challenger floor, challenger-seize flip, symmetric war read). **Still pending:** espionage /
   sabotage as a distinct SPECTER intel layer, treasury raiding, turrets that deal HP back to the raider,
   and whether war enables broader PvP than just the raid verb.
+- **Protection rackets — ✅ BUILT 2026-08-01** (lever E's "tribute", finally real; [rackets.js](../plugins/corps/rackets.js)).
+  A corp that **controls** a zone can `shakedown <shopkeeper>` the NPC shops in it and skim a cut of
+  every sale. The rule that shapes it: **the income decays and nothing tops it up for you.** Each shop
+  carries a `fear` value stored in the new `org_rackets` table (`UNIQUE(npc_id)` — one racket per shop,
+  so a rival can't move in on a shop that's still afraid of somebody else), and — exactly like
+  `player_npc_relations` — `fear` is stored **as of `last_leaned_at` and never decayed by a write**:
+  `fearNow()` computes it from elapsed time on read. **No decay tick**, restart-proof, and a corp that
+  logged off for a month returns to precisely the decay it earned. Half-life is **10 real days**,
+  deliberately *faster* than the 7-game-day rent clock so a racket never settles into feeling like a
+  bill. The cut reads off **bands, not a curve** (terrified 20% / cowed 12% / wary 6% / slipping 2% /
+  lapsed 0%) so a player can reason about what their book is worth.
+  **The take is a TRANSFER, not a faucet** — unlike `handleVenturePurchase`, which mints its cut, the
+  skim debits `npcs.vendor_credits` (the shop's actual till, physically held in its `vendor_safe`
+  furniture). Three things fall out of that for free: an over-milked shop with an empty till simply
+  pays nothing, so greed caps itself with no tuning knob; every credit skimmed is a credit a rival can
+  no longer crack out of that safe, so the racket and the safe-hack fight over one pot; and it can't
+  inflate the credit economy. The listener early-returns on a Map miss (`world.orgRackets` is keyed by
+  **npc_id**, not zone, precisely so the buy hot path is O(1)), and re-checks `zone_control` at settle
+  time — so **losing the zone silently stops the income** with no tick having to notice.
+  Consequences reuse what exists: `adjustRelation` (the shopkeeper remembers, and warmth decays on its
+  own half-life so grudges soften), a failed shakedown adds a `holdVendorGrudge` *and* costs an
+  existing racket ground, and a new **`extortion`** crime key (2.5★) charged through the
+  forced-witness convention — the corps plugin emits `extortion.witnessed` and surveillance decides.
+  Destabilization needs no new wiring: `raiseCrime` already emits `crime.witnessed`, which the
+  existing funnel consumes. New permission bit `PERM.RACKET`. **Still pending:** player storefronts as
+  victims (the `storefront.sale` event is the exact twin of `vendor.purchase`, so it's a listener and
+  config — but the PvP griefing surface wants its own counterplay design first), muscling in on a
+  rival's racket, shopkeepers hiring their own protection, and NPC corps running rackets (Phase 4).
 - **Phase 4 — NPC corp AI + the Architect reactive layer.**
 
 Everything ships as a new **`/plugins/corps/`** plugin: scheduler hooks for ticks, the action/event bus

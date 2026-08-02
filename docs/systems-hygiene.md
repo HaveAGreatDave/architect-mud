@@ -63,6 +63,18 @@ A player who has **never** washed doesn't start filthy — the clock starts the
 first time anything asks, this session. That keeps the system from ambushing
 existing characters with a debt they had no way to pay.
 
+### Washing one part
+
+`clearBodyStain(player, part)` (engine `bodily.js`) is the part-scoped counterpart
+to `stainCreatureBodyPart`. `soiled_state` only ever holds one entry, so clearing
+a part that matches clears the state and a stain somewhere else survives — which
+is the only thing stopping `wash hands` from being a free shower. MIS's
+`wash hands` calls it, which is what gets shit off your hands after scooping a
+fouled toilet (see [plugins/bodily/README.md](../plugins/bodily/README.md)). Note
+what this means for gloves: `stainCreatureBodyPart` soaks the garment covering a
+part when there is one, so **gloves take the contamination instead of your skin**
+— and a stained glove is on the clothing clock, not the body one.
+
 ## MIS gating
 
 `ejaculate` is an ordinary contaminant with one extra property: `misOnly: true`.

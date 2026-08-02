@@ -149,15 +149,49 @@ export const FILTH_ITEMS = {
   feces:     'item_vessel_filth',
 };
 
-export async function depositIntoVessel(player, vessel, type, extra = {}) {
+// The shared insert. `containerId` null means it lands loose in the player's
+// hands rather than inside a vessel — the only difference between filling a bowl
+// and scooping a toilet out by hand. Everything downstream (drop, put, stow,
+// cooking) is the ordinary inventory path either way, which is the point: filth
+// is an ITEM, so nothing has to learn about it.
+async function spawnFilth(player, type, containerId, extra = {}) {
   const itemId = FILTH_ITEMS[type];
-  if (!itemId || !vessel?.inv_id) return false;
+  if (!itemId || !player?.id) return false;
   const { randomUUID } = await import('crypto');
   await query(
     `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, container_id, custom_data)
      VALUES ($1,$2,$3,1,1.0,$4,$5)`,
-    [randomUUID(), player.id, itemId, vessel.inv_id,
+    [randomUUID(), player.id, itemId, containerId,
      JSON.stringify({ donor_id: player.id, donor: player.handle, produced_at: Date.now(), ...extra })]
   );
+  return true;
+}
+
+export async function depositIntoVessel(player, vessel, type, extra = {}) {
+  if (!vessel?.inv_id) return false;
+  return spawnFilth(player, type, vessel.inv_id, extra);
+}
+
+// Straight into the hands, no vessel. The donor fields are still stamped, but a
+// caller who did not produce it (scooping somebody else's leavings out of a
+// bowl) passes its own `extra` to say so.
+export async function takeFilthInHand(player, type, extra = {}) {
+  return spawnFilth(player, type, null, extra);
+}
+
+// The counterpart to stainCreatureBodyPart: get one part clean again without
+// touching the rest. `soiled_state` only ever holds one entry, so clearing a part
+// that matches clears the state; a stain somewhere else survives, which is what
+// stops "wash hands" from being a free shower.
+export async function clearBodyStain(player, part) {
+  const ad = player?.appearance_data;
+  const s = ad?.soiled_state;
+  if (!s) return false;
+  const label = (part || '').toLowerCase();
+  if (label && !(s.locations || []).some(l => String(l).toLowerCase() === label)) return false;
+  ad.soiled_state = null;
+  player.appearance_data = ad;
+  await query('UPDATE players SET appearance_data=$1 WHERE id=$2',
+    [JSON.stringify(ad), player.id]).catch(() => {});
   return true;
 }
