@@ -265,10 +265,16 @@ export default async function regress({ run, check, getPlayer }) {
     const seeded = rollSleeve(mulberry32(seedA));
     check('a seed rebuilds its sleeve exactly',
       JSON.stringify(seeded) === JSON.stringify(rollSleeve(mulberry32(seedA))), JSON.stringify(seeded));
-    check('...and a different seed generally does not',
-      JSON.stringify(seeded) !== JSON.stringify(rollSleeve(mulberry32(seedA + 1)))
-        || JSON.stringify(seeded) !== JSON.stringify(rollSleeve(mulberry32(seedA + 2))),
-      'two seeds produced identical sleeves');
+    // A sleeve is only a SORTED list of ranks, so two unrelated seeds landing on
+    // the same list is ordinary, not suspicious — comparing one seed against its
+    // neighbour is a coin flip and used to go red on its own. What actually has
+    // to hold is that the seed still drives the outcome across the range, so we
+    // count distinct sleeves over a fixed span: constant or near-constant output
+    // is the failure, and a fixed span means this can never flake.
+    const spread = new Set();
+    for (let i = 0; i < 200; i++) spread.add(JSON.stringify(rollSleeve(mulberry32(seedA + i))));
+    check('...and the seed still drives the sleeve across a span of them',
+      spread.size >= 20, `only ${spread.size} distinct sleeves in 200 seeds`);
     // A seeded roller has to obey every guarantee an unseeded one does, or a
     // bought sleeve could break the rules a typed one can't.
     let seededSorted = true, seededGuaranteed = true;

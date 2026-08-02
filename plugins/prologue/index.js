@@ -565,7 +565,7 @@ on('player.login', async ({ id }) => {
     message: '<span class="msg-system">This game can be played entirely in text. '
       + '<span class="action-link" data-action="cmd" data-cmd="displaymode log">displaymode log</span>'
       + ' turns off every panel and writes everything here instead; '
-      + '<span class="action-link" data-action="cmd" data-cmd="displaymode text">displaymode text</span>'
+      + '<span class="action-link" data-action="cmd" data-cmd="displaymode textgames">displaymode textgames</span>'
       + ' keeps the games but draws them in characters. You can change it any time.'
       + '<br>An opening sequence is about to play. Press <b>Escape</b> to skip it.</span>',
   });

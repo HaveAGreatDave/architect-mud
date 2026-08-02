@@ -296,7 +296,7 @@ export const commands = {
   wire:      async (args, raw, player) => (await import('./bank-app.js')).cmdWire(args, raw, player),
   support:   async (args, raw, player) => (await import('./sports-app.js')).cmdFollow(args, raw, player),
   findbench: async (args, raw, player) => (await import('./crafting-app.js')).cmdBench(args, raw, player),
-  // `displaymode visual|text` — the server side of the Settings "Display Mode"
+  // `displaymode visual|textgames|log` — the server side of the Settings "Display Mode"
   // switch, sent silently by the tablet the way `lorealways` is. Typed bare it
   // reports, because a player who ends up in the wrong one needs a way back that
   // doesn't require finding the tablet screen that put them there.
@@ -323,7 +323,8 @@ export const commands = {
       return {
         type: 'system',
         message: `<span class="msg-system">Display mode is <b>${LABEL[r] || 'VISUAL'}</b>${r === undefined ? ' (default)' : ''}. `
-          + 'Use "displaymode visual|text|log".</span>',
+          + 'Use "displaymode visual|textgames|log" — "text" on its own is an old '
+          + 'spelling of "log".</span>',
       };
     }
 
@@ -334,7 +335,7 @@ export const commands = {
       : /^(textgames|games|text ?games)$/.test(arg) ? 'textgames'
         : /^(log|text|textonly|text ?only)$/.test(arg) ? 'log'
           : null;
-    if (!rung) return { type: 'error', message: 'Display mode is "visual", "text" (games in characters), or "log" (everything written out).' };
+    if (!rung) return { type: 'error', message: 'Display mode is "visual", "textgames" (the games drawn in characters), or "log" (everything written out). Plain "text" is an old spelling of "log".' };
 
     await pres.setDisplayRung(player, rung);
     // Poker keeps a runtime Set of text-mode players for its narration hot path;
