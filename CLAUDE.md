@@ -36,6 +36,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/ai-behaviour.md](docs/ai-behaviour.md) — VINE behaviour trees for enemies/NPCs: node types, condition/action catalogue, blackboard, pathfinding
 - [docs/npc-clothing.md](docs/npc-clothing.md) — the `CLOTHING` personality table, auto-injection at `apiCreateNpc`, the `flags.clothing_layers` model
 - [docs/bsm-format.md](docs/bsm-format.md) — the `.bsm` broadcast-script spec as parsed by `compileBsm()`. Read before authoring or changing any `data/scripts/*.bsm`
+- [docs/amp-format.md](docs/amp-format.md) — the `.amp` audio-asset spec (the devpanel Audio tab's export): instruments, songs, sfx, ambient, samples. The sibling of `bsm-format` for sound — read before authoring or changing an audio preset
 - [docs/content-pipeline.md](docs/content-pipeline.md) — one JSON file per entity under `content/`, export/import/lint, the CI deploy. **Cutover done 2026-07-08** — git is the sole writer of prod content
 
 **World & place**
@@ -47,6 +48,9 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/reference/world-rendering.md](docs/reference/world-rendering.md) — how a DB tile becomes a building out the cockpit; palettes, decoration helpers, the **three separate "tower" renderers**. Read before "improving a model"
 - [tools/studio/README.md](tools/studio/README.md) — **the Studio** (`npm run studio`): the file-authoring map editor. Edits `content/` with no DB in the process, draws from the build's derive pass, generates its forms from the field catalog
 - [docs/reference/building-shapes.md](docs/reference/building-shapes.md) — **building geometry as data**: the model arms record themselves (`SHAPE_SINK`) rather than being rewritten, so the flight sim's own shapes now drive distance LOD, occlusion culling, ground shadows, per-point CFIT collision and the cold open's skyline. Read before touching a building model, the CFIT sweep or the flythrough — and for the `hwRaw` pre-clamp rule, the solved-not-assumed `[a·fh + b·h + c]` basis, and the `yaw` trap (as built)
+- [docs/zone-redesign-2026-07.md](docs/zone-redesign-2026-07.md) — the record of the 2026-07-09 zone re-imagining: what changed, why, and what's left. Read when a zone field's *shape* looks odd — this is where the reasoning behind it was written down
+- [docs/systems-wildlands.md](docs/systems-wildlands.md) — the Curtain and the Wildlands beyond the South Gate. **Compound status: the map + wall are BUILT content; the systems on top of them are still design**
+- [docs/roadmap-world-expansion.md](docs/roadmap-world-expansion.md) — the road to the 100×100 Coldwater Basin. **The canvas is built; the open questions in it were never answered** — read before a large world-expansion push so they get decided rather than re-discovered
 - [docs/devpanel-js.md](docs/devpanel-js.md) — what each script in `client/devpanel/js/` holds, and the load-order contract
 
 **Systems (as built)**

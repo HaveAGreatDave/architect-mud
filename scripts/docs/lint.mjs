@@ -112,8 +112,42 @@ export function lintDocsTree(root = DOCS_ROOT) {
   return problems;
 }
 
+// ── Every top-level doc is reachable from the index ──────────────────────────
+// CLAUDE.md is the map: it is what's loaded into context at the start of every
+// session, so a doc it doesn't link is a doc that effectively does not exist. It
+// gets written, it goes stale, and the next person re-derives what was already
+// written down.
+//
+// This found four on 2026-08-02 — including the `.amp` audio-asset spec (whose
+// sibling `bsm-format.md` WAS linked) and a zone-redesign record edited the day
+// before. Nobody deleted those links; they were never added, which is exactly the
+// failure a human pass catches once and then stops catching.
+//
+// Scoped to top-level `docs/*.md` ON PURPOSE. `proposals/`, `adr/` and
+// `reference/` are deliberately selective — indexing all of them would bloat the
+// map until it stopped being one — and `audits/` has its own README index.
+export function lintDocsIndex(root = DOCS_ROOT, indexPath = 'CLAUDE.md') {
+  const index = readFileSync(indexPath, 'utf8');
+  const problems = [];
+  for (const name of readdirSync(root)) {
+    if (!name.endsWith('.md')) continue;
+    if (!statSync(join(root, name)).isFile()) continue;
+    if (!index.includes(name)) {
+      problems.push(`${relative('.', join(root, name))} is not linked from ${indexPath} — a doc the index doesn't name is a doc nobody reads`);
+    }
+  }
+  return problems;
+}
+
 import { fileURLToPath } from 'node:url';
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  const unindexed = lintDocsIndex();
+  if (unindexed.length) {
+    console.error(`✗ docs:lint — ${unindexed.length} doc(s) missing from the index:`);
+    for (const p of unindexed) console.error(`  ${p}`);
+    console.error('\n  Add a line to CLAUDE.md saying what it holds and when to read it.');
+    process.exit(1);
+  }
   const problems = lintDocsTree();
   if (problems.length) {
     console.error(`✗ docs:lint — ${problems.length} doc(s) whose status header contradicts the body:`);
