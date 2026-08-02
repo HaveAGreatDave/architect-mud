@@ -70,6 +70,18 @@ async function _studioTileColor() {
 // }
 const channelRuntime = new Map();
 
+// Channel 0 is not a station — it's the INPUT on the back of the set that whatever
+// deck is under it is plugged into, the same as every television that ever had a
+// tape player beneath it. Every VCR in the world therefore points its
+// flags.channel_id at the same row, so a schedule authored there would drive every
+// deck in Coldwater in lockstep and ejecting a tape in one apartment would delete
+// the slots another deck was reading. A deck on an input channel plays what a
+// player put IN it (deck_active / deck_cassettes) and answers to no timetable.
+const deckInputChannels = new Set();
+export function isDeckInputChannel(channelId) {
+  return !!channelId && deckInputChannels.has(channelId);
+}
+
 // zoneTunings.get(zoneId) = Map<channelId, deviceType>
 // Built from furniture rows with flags.tuned_channel set.
 const zoneTunings = new Map();
@@ -693,7 +705,9 @@ async function loadChannelRuntimes() {
 
     channelRuntime.clear();
     studioZoneIndex.clear();
+    deckInputChannels.clear();
     for (const ch of channels) {
+      if (Number(ch.number) === 0) deckInputChannels.add(ch.id);
       if (ch.studio_zone_id) studioZoneIndex.set(ch.studio_zone_id, ch.id);
       const pl = playlistByChannel.get(ch.id) || [];
       // Studio staffing only applies to LIVE channels, WEATHER forecasts, TALK SHOWS,
@@ -722,7 +736,12 @@ async function loadChannelRuntimes() {
         totalDuration,
         idleBroadcast: idleMsgs.length ? { messages: idleMsgs, message_interval: ch.idle_interval || 5 } : null,
         camera: cameraByChannel.get(ch.id) || null,
-        scheduleMode: ch.schedule_mode || 'loop',
+        // There is one way to schedule a channel: the seven-day grid, where
+        // start_time is seconds from in-game midnight and `days` is the 7-bit mask
+        // saying which days a slot airs. The old 'loop' mode (start_time as an
+        // offset into an endlessly repeating reel) is gone — the column survives
+        // only so the schema stays additive.
+        scheduleMode: 'daily',
         studioZoneId: ch.studio_zone_id || null,
         deckZoneId: deckZoneByChannel.get(ch.id) || null,
         offlineGraphicId: ch.offline_graphic_id || null,
@@ -6778,7 +6797,10 @@ async function cmdEjectCassette(args, raw, player) {
 
   // Pull every occurrence of this broadcast from the channel's schedule and remember the slots
   // so they can be restored if the cassette is reloaded.
-  const channelId = dflags.channel_id || null;
+  // …unless the deck is on the VCR input, which has no schedule to pull from. Every
+  // VCR shares that one channel row, so this delete used to be able to wipe slots a
+  // different deck across town was reading. See isDeckInputChannel.
+  const channelId = isDeckInputChannel(dflags.channel_id) ? null : (dflags.channel_id || null);
   if (channelId) {
     const { rows: plRows } = await query(
       `SELECT start_time, duration_override, conditions, slot_type FROM media_channel_playlist
@@ -7167,8 +7189,12 @@ async function mediaDeckSyncTick() {
   // Every eligible deck's channel playlist in one query (this was a per-deck
   // round trip), grouped by channel — decks often share a channel.
   const deckStates = decks.map(deck => ({ deck, dflags: _deckFlags(deck) }));
+  // A deck on the VCR *input* (channel 0) has no timetable to align to — it plays
+  // the tape somebody put in it. Aligning it would sync every VCR in the world to
+  // one shared schedule. See isDeckInputChannel.
   const channelIds = [...new Set(deckStates
-    .filter(({ dflags }) => dflags.channel_id && Array.isArray(dflags.deck_cassettes) && dflags.deck_cassettes.length && !dflags.pirate_owner)
+    .filter(({ dflags }) => dflags.channel_id && !isDeckInputChannel(dflags.channel_id)
+      && Array.isArray(dflags.deck_cassettes) && dflags.deck_cassettes.length && !dflags.pirate_owner)
     .map(({ dflags }) => dflags.channel_id))];
   if (!channelIds.length) return;
   const { rows: allPlRows } = await query(
@@ -7186,6 +7212,7 @@ async function mediaDeckSyncTick() {
     const channelId = dflags.channel_id;
     const cassettes = Array.isArray(dflags.deck_cassettes) ? dflags.deck_cassettes : [];
     if (!channelId || !cassettes.length) continue;
+    if (isDeckInputChannel(channelId)) continue; // a VCR plays its own tape, not a timetable
     if (dflags.pirate_owner) continue; // a pirated deck answers only to its captor — don't auto-align it to the schedule
 
     const plRows = playlistByChannel.get(channelId) || [];
@@ -7820,8 +7847,8 @@ export const routeHandler = async (path, method, body, auth) => {
       if (!id && method === 'POST') {
         const cid = body.id || `ch_${Date.now()}`;
         await query(
-          `INSERT INTO media_channels (id,name,number,description,station_name,theme_id,enabled,loop_playlist,priority,channel_type,idle_broadcast_id,news_categories,commercial_pool,studio_zone_id,updated_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,EXTRACT(EPOCH FROM NOW()))`,
+          `INSERT INTO media_channels (id,name,number,description,station_name,theme_id,enabled,loop_playlist,priority,channel_type,idle_broadcast_id,news_categories,commercial_pool,studio_zone_id,schedule_mode,updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'daily',EXTRACT(EPOCH FROM NOW()))`,
           [cid, body.name || 'Untitled Channel', body.number || null, body.description || '',
            body.station_name || '', body.theme_id || null,
            body.enabled !== false ? 1 : 0, body.loop_playlist !== false ? 1 : 0,
@@ -7852,7 +7879,7 @@ export const routeHandler = async (path, method, body, auth) => {
            body.enabled !== false ? 1 : 0, body.loop_playlist !== false ? 1 : 0,
            body.priority || 0, body.channel_type || 'playlist',
            body.idle_broadcast_id || null, JSON.stringify(body.news_categories || []),
-           body.schedule_mode || 'loop', body.studio_zone_id || null,
+           'daily', body.studio_zone_id || null,
            body.offline_graphic_id || null, JSON.stringify(body.commercial_pool || []), id]
         );
         await loadChannelRuntimes();

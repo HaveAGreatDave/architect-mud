@@ -2247,9 +2247,10 @@ async function _bcNpcLoad(data, el) {
     }
   }
 
-  // Channels with studio zones running daily schedules
+  // Channels with studio zones. Every channel is on the seven-day grid now, so the
+  // studio zone is the only thing that decides whether one shows up here.
   const channels = data.channels || [];
-  const dailyStudios = channels.filter(c => c.schedule_mode === 'daily' && c.studio_zone_id);
+  const dailyStudios = channels.filter(c => c.studio_zone_id);
 
   // Fetch game time and all relevant playlists in parallel
   const [envState, ...playlists] = await Promise.all([

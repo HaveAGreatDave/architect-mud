@@ -6,7 +6,7 @@ import { readFileSync, readdirSync } from 'fs';
 import { getRegisteredAINodes, tickEntityAI, initBlackboard } from '../../server/engine/ai-behaviour.js';
 import { world } from '../../server/engine/world.js';
 import { query } from '../../server/models/db.js';
-import { ensureClipBroadcast, _test, _piracyTest, startEmergency, stopEmergency, emergencyActive, getTvChannelList, getTabletTunedChannel } from './index.js';
+import { ensureClipBroadcast, _test, _piracyTest, startEmergency, stopEmergency, emergencyActive, getTvChannelList, getTabletTunedChannel, isDeckInputChannel } from './index.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { emit } from '../../server/engine/events.js';
 const tabletTunersClear = (id) => _test.tabletTuners.delete(id);
@@ -16,6 +16,24 @@ import { rowIsInstanced, NOT_INSTANCED_SQL } from '../../server/engine/inventory
 import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
 
 export default async function regress({ check, run, getPlayer }) {
+  // ── The VCR input is not a station ──────────────────────────────────────────
+  // Channel 0 is the input on the back of the set. EVERY deck in the world points
+  // flags.channel_id at that one row, so anything that treats it as a schedulable
+  // channel drives every VCR in Coldwater in lockstep — and the eject path's
+  // `DELETE FROM media_channel_playlist WHERE channel_id=…` would let a tape
+  // ejected in one apartment wipe slots a deck across town was reading.
+  {
+    const { rows: zeroes } = await query('SELECT id FROM media_channels WHERE number = 0');
+    for (const ch of zeroes) {
+      check(`vcr: channel 0 '${ch.id}' is treated as a deck input, not a station`,
+        isDeckInputChannel(ch.id), ch.id);
+      const { rows: pl } = await query('SELECT count(*)::int AS n FROM media_channel_playlist WHERE channel_id=$1', [ch.id]);
+      check(`vcr: channel 0 '${ch.id}' carries no schedule`, pl[0].n === 0, `${pl[0].n} slot(s)`);
+    }
+    const { rows: real } = await query('SELECT id FROM media_channels WHERE number IS NOT NULL AND number <> 0 LIMIT 1');
+    if (real.length) check('vcr: a real station is NOT a deck input', !isDeckInputChannel(real[0].id), real[0].id);
+  }
+
   // ── Deterministic DEADBALL league ───────────────────────────────────────────
   // Every game is a pure function of its slot: same slot → byte-identical result on
   // every server and every TV (this is what keeps all TVs in sync and lets the

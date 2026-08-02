@@ -1991,7 +1991,7 @@ async function apiGetNpcBroadcastSchedule(id) {
   const { rows } = await query(`
     SELECT p.start_time, p.duration_override, p.conditions,
            b.name AS broadcast_name, b.messages, b.message_interval, b.override_duration,
-           c.name AS channel_name, c.schedule_mode
+           c.name AS channel_name
     FROM media_channel_playlist p
     JOIN media_broadcasts b ON b.id = p.broadcast_id
     LEFT JOIN media_channels c ON c.id = p.channel_id
@@ -1999,7 +1999,7 @@ async function apiGetNpcBroadcastSchedule(id) {
   const hours = new Array(24).fill(false);
   const slots = [];
   for (const r of rows) {
-    if ((r.schedule_mode || 'loop') !== 'daily') continue; // only daily maps to hours-of-day
+    // Every channel is on the seven-day grid now, so every slot maps to an hour block.
     let cond = r.conditions;
     if (typeof cond === 'string') { try { cond = JSON.parse(cond); } catch { cond = {}; } }
     const staff = Array.isArray(cond?.npc_staff) ? cond.npc_staff : [];

@@ -59,7 +59,10 @@ created_by TEXT, updated_at
 ```
 id TEXT PK
 name TEXT
-number INTEGER UNIQUE     — dial number players tune to
+number INTEGER UNIQUE     — dial number players tune to. **number 0 is not a station**:
+                            it's the VCR INPUT on the back of the set, and every media
+                            deck in the world points flags.channel_id at that one row.
+                            An input channel carries no schedule — see "Channel 0" below
 channel_type TEXT         — playlist | news | mixed | live | emergency
 station_name TEXT         — display name in TV panel header
 theme_id TEXT FK          — references media_themes (optional)
@@ -68,17 +71,56 @@ news_categories JSONB     — ['murder','martial_law',…] — news event filter
 loop_playlist INTEGER     — 1 = playlist loops continuously
 studio_zone_id TEXT FK    — zone where NPC hosts work; used for presence checks
 offline_graphic_id TEXT FK — media_graphics id shown when channel is off-air
-schedule_mode TEXT        — 'loop' | 'daily' (default 'loop'); 'daily' makes start_time
-                            seconds from in-game midnight instead of loop-relative
+schedule_mode TEXT        — VESTIGIAL. Always written 'daily'; the runtime no longer
+                            reads it. There is one scheduling model (below), so the old
+                            'loop' mode is gone. Column kept so the schema stays additive
 commercial_pool JSONB     — broadcast ids eligible as commercial slots (default [])
 ```
+
+### One scheduling model — the seven-day grid
+
+A channel is programmed exactly one way: `start_time` is **seconds from in-game
+midnight** and `days` is a **7-bit mask** (bit 0 = Mon … bit 6 = Sun; 127 = every day).
+The server picks the **most specific** slot covering any given second, so a weekday
+override needs no gap cut in the every-day grid underneath it.
+
+The old `'loop'` mode — `start_time` as an offset into an endlessly repeating reel —
+was removed along with the "Daily mode" toggle and the channel modal's playlist
+timeline. `loadChannelRuntimes` hardcodes `scheduleMode: 'daily'`, and the channel
+modal now edits **metadata only**: programming belongs to the Schedule tab, which is
+the sole writer of `media_channel_playlist`.
+
+In the editor, the every-day grid and a weekday's overrides share **one row**: dashed
+low-contrast blocks are the base grid, solid blocks with a day badge sit on top of the
+block each replaces. Ghosts are not draggable and are never their own drop target —
+dragover/drop bubble to `#sched-timeline`, which reads `clientX`, so a drop landing on
+a ghost means "new override here", not "move the base grid".
+
+### Channel 0 — the VCR input, not a station
+
+`number = 0` is the input on the back of the set that whatever deck is under it is
+plugged into. **Every media deck in the world shares that one `media_channels` row**,
+so it must never be treated as a schedulable channel:
+
+- `isDeckInputChannel(channelId)` (exported from `plugins/broadcast/index.js`) is the
+  test; the set is rebuilt from `number = 0` on every `loadChannelRuntimes()`.
+- `mediaDeckSyncTick` skips input-channel decks — a VCR plays the cassette somebody
+  put in it (`deck_active` / `deck_cassettes`) and answers to no timetable. Without
+  this, one schedule would drive every VCR in Coldwater in lockstep.
+- The eject path skips its `DELETE FROM media_channel_playlist WHERE channel_id=…`,
+  which could otherwise let a tape ejected in one apartment wipe slots a deck across
+  town was reading.
+- The devpanel Schedule tab lists it as `deck input` and refuses the timeline.
+
+Regress covers the first and last points directly (`vcr:` cases in
+`plugins/broadcast/regress.js`).
 
 ### `media_channel_playlist`
 
 ```
 channel_id TEXT FK
 broadcast_id TEXT FK
-start_time INTEGER        — seconds from loop/day start
+start_time INTEGER        — seconds from in-game midnight (0–86399)
 duration_override REAL    — overrides computed duration for this slot only
 priority INTEGER          — manual tiebreak; higher wins when slots overlap (default 0)
 conditions JSONB          — gate object, e.g. { npc_staff: [npcId,…] } (default [])

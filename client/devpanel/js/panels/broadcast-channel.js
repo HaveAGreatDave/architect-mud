@@ -1,4 +1,5 @@
-// Broadcast channel panel — list + timeline editor + camera manager.
+// Broadcast channel panel — list + channel metadata editor + camera manager.
+// Programming is NOT edited here: the Schedule tab owns the seven-day grid.
 // All functions land in global scope (no modules).
 
 const CHANNEL_TYPES = ['playlist','news','mixed','live','emergency'];
@@ -13,12 +14,7 @@ const NEWS_CATEGORIES = [
 
 let _channelList = [];
 let _channelEditTarget = null;
-let _channelPlaylist = [];     // [{ id, broadcast_id, broadcast_name, start_time, duration, duration_override, priority, conditions }]
-let _channelBroadcasts = [];   // available broadcast assets for dragging onto timeline
-let _tlScale = 2;              // px per second
-let _tlLoopDuration = 3600;    // total loop seconds
-let _tlDragging = null;        // { idx, startX, origStartTime }
-let _tlResizing = null;        // { idx, startX, origDuration }
+let _channelBroadcasts = [];   // available broadcast assets (idle-broadcast + commercial-pool pickers)
 let _cameras = [];
 const _channelExpanded = new Set();   // channel IDs with expanded children visible
 const _channelDeckCache = {};         // channelId → { deck, cameras, mediaCameras } | 'loading' | 'error'
@@ -264,11 +260,10 @@ async function spawnDeckForChannel(channelId) {
   } catch (e) { toast(e.message, true); }
 }
 
-// ── Channel editor (metadata + timeline) ─────────────────────────────────────
+// ── Channel editor (metadata only) ───────────────────────────────────────────
 
 async function openChannelEditor(rec) {
   _channelEditTarget = rec || null;
-  _channelPlaylist = [];
 
   // Load broadcasts, themes, graphics, and zones in parallel
   let themes = [], graphics = [], zones = [];
@@ -285,33 +280,8 @@ async function openChannelEditor(rec) {
     zones    = Array.isArray(zns) ? zns : [];
   } catch (e) { _channelBroadcasts = []; themes = []; graphics = []; zones = []; }
 
-  // Load existing playlist
-  if (rec) {
-    try {
-      const pl = await directAPI(`/broadcast/channels/${rec.id}/playlist`);
-      _channelPlaylist = (Array.isArray(pl) ? pl : []).map(item => {
-        const msgs = Array.isArray(item.messages) ? item.messages : (item.messages ? JSON.parse(item.messages || '[]') : []);
-        const dur = item.duration_override || (msgs.length * (item.message_interval || 5));
-        return {
-          id: item.id,
-          broadcast_id: item.broadcast_id,
-          broadcast_name: item.broadcast_name || item.broadcast_id,
-          start_time: item.start_time || 0,
-          duration: dur || 60,
-          duration_override: item.duration_override || null,
-          priority: item.priority || 0,
-          conditions: item.conditions || [],
-        };
-      });
-    } catch (e) { _channelPlaylist = []; }
-  }
-
-  // Compute a sensible loop duration
-  if (_channelPlaylist.length) {
-    _tlLoopDuration = Math.max(3600, ...(_channelPlaylist.map(i => i.start_time + i.duration)));
-  } else {
-    _tlLoopDuration = 3600;
-  }
+  // No playlist fetch: this modal edits channel METADATA only. Programming belongs
+  // to the Schedule tab's seven-day grid, which is the one scheduling model.
 
   // Build idle broadcast options
   const idleOptions = [
@@ -432,36 +402,11 @@ async function openChannelEditor(rec) {
         </div>
       </div>
 
-      <!-- Timeline (hidden for daily-schedule channels — use the Schedule tab instead) -->
-      ${rec?.schedule_mode === 'daily' ? `
+      <!-- Programming lives on the Schedule tab. There is one scheduling model — the
+           seven-day grid — so this modal no longer edits a playlist at all. -->
       <div style="padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;font-size:12px;color:var(--text-dim)">
-        📅 This channel uses daily scheduling — use the <strong style="color:var(--accent)">Schedule</strong> tab to edit its programming blocks.
-      </div>` : `
-      <div id="ch-timeline-section" style="border:1px solid var(--border);border-radius:2px;overflow:hidden">
-        <div style="padding:6px 10px;background:var(--bg3);display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px">Playlist Timeline</span>
-          <div style="display:flex;gap:8px;align-items:center">
-            <label style="font-size:11px;color:var(--text-dim)">Loop:</label>
-            <input id="tl-loop-dur" type="number" class="form-input" style="width:80px;font-size:11px" value="${_tlLoopDuration}" min="60" step="60"> s
-            <button class="action-btn" style="font-size:10px;padding:3px 6px" onclick="tlZoom(-0.5)">−</button>
-            <span id="tl-scale-label" style="font-size:10px;color:var(--text-dim);min-width:40px;text-align:center">${_tlScale}px/s</span>
-            <button class="action-btn" style="font-size:10px;padding:3px 6px" onclick="tlZoom(0.5)">+</button>
-          </div>
-        </div>
-        <div style="display:flex;gap:0;min-height:120px">
-          <!-- Library -->
-          <div style="width:160px;min-width:160px;border-right:1px solid var(--border);padding:6px;overflow-y:auto;max-height:260px;background:var(--bg2)">
-            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:4px">Library</div>
-            <div id="tl-library" style="display:flex;flex-direction:column;gap:3px"></div>
-          </div>
-          <!-- Timeline canvas -->
-          <div style="flex:1;overflow-x:auto;position:relative;background:var(--bg)">
-            <div id="tl-ruler" style="height:20px;position:sticky;top:0;z-index:2;background:var(--bg2);border-bottom:1px solid var(--border)"></div>
-            <div id="tl-track" style="position:relative;height:80px;min-width:100%;overflow:hidden"
-              ondragover="event.preventDefault()" ondrop="tlDrop(event)"></div>
-          </div>
-        </div>
-      </div>`}
+        📅 Programming is edited on the <strong style="color:var(--accent)">Schedule</strong> tab — one seven-day grid, with per-day overrides.
+      </div>
     </div>`;
 
   openModal(rec ? `Edit Channel: ${rec.name}` : 'New Channel', body);
@@ -476,190 +421,7 @@ async function openChannelEditor(rec) {
     if (sec) sec.style.display = (e.target.value === 'news' || e.target.value === 'mixed') ? 'block' : 'none';
   });
 
-  document.getElementById('tl-loop-dur')?.addEventListener('change', (e) => {
-    _tlLoopDuration = parseInt(e.target.value, 10) || 3600;
-    tlRender();
-  });
-
-  if (rec?.schedule_mode !== 'daily') {
-    tlRenderLibrary();
-    tlRender();
-  }
-
   document.getElementById('modal-save').onclick = saveChannel;
-}
-
-// ── Timeline editor ──────────────────────────────────────────────────────────
-
-function tlZoom(delta) {
-  _tlScale = Math.max(0.5, Math.min(20, _tlScale + delta));
-  const label = document.getElementById('tl-scale-label');
-  if (label) label.textContent = `${_tlScale}px/s`;
-  tlRender();
-}
-
-function tlRenderLibrary() {
-  const lib = document.getElementById('tl-library');
-  if (!lib) return;
-  if (!_channelBroadcasts.length) {
-    lib.innerHTML = '<div style="font-size:11px;color:var(--text-dim)">No broadcasts.</div>';
-    return;
-  }
-  lib.innerHTML = _channelBroadcasts.map(b => {
-    const msgs = Array.isArray(b.messages) ? b.messages : [];
-    const dur = b.override_duration || (msgs.length * (b.message_interval || 5));
-    return `<div draggable="true"
-      style="font-size:11px;padding:3px 6px;background:var(--bg3);border-radius:2px;cursor:grab;border-left:3px solid var(--accent);user-select:none"
-      ondragstart="tlLibDragStart(event,'${b.id}','${escHtml2(b.name).replace(/'/g,"\\'")}',${dur})"
-      title="${escHtml2(b.name)} — ${dur}s">
-      ${escHtml2(b.name.length > 22 ? b.name.slice(0,20)+'…' : b.name)}
-      <span style="color:var(--text-dim);font-size:10px"> ${dur}s</span>
-    </div>`;
-  }).join('');
-}
-
-function tlLibDragStart(event, broadcastId, broadcastName, duration) {
-  event.dataTransfer.setData('bc_id', broadcastId);
-  event.dataTransfer.setData('bc_name', broadcastName);
-  event.dataTransfer.setData('bc_dur', duration);
-}
-
-function tlDrop(event) {
-  event.preventDefault();
-  const track = document.getElementById('tl-track');
-  if (!track) return;
-  const bcId = event.dataTransfer.getData('bc_id');
-  const bcName = event.dataTransfer.getData('bc_name');
-  const bcDur = parseFloat(event.dataTransfer.getData('bc_dur')) || 60;
-  if (!bcId) return;
-
-  const rect = track.getBoundingClientRect();
-  const offsetX = event.clientX - rect.left;
-  const rawTime = offsetX / _tlScale;
-  const startTime = Math.max(0, Math.round(rawTime / 30) * 30); // snap to 30s
-
-  _channelPlaylist.push({
-    id: `pl_new_${Date.now()}`,
-    broadcast_id: bcId,
-    broadcast_name: bcName,
-    start_time: startTime,
-    duration: bcDur,
-    duration_override: null,
-    priority: 0,
-    conditions: [],
-  });
-  tlRender();
-}
-
-function tlRender() {
-  const track = document.getElementById('tl-track');
-  const ruler = document.getElementById('tl-ruler');
-  if (!track || !ruler) return;
-
-  const totalWidth = Math.max((_tlLoopDuration + 300) * _tlScale, 400);
-  track.style.width = `${totalWidth}px`;
-  ruler.style.width = `${totalWidth}px`;
-
-  // Ruler tick marks
-  const COLORS = ['var(--cyan)','var(--yellow)','var(--green)','var(--accent)','var(--red)'];
-  let rulerHtml = '';
-  const tickEvery = _tlScale < 1 ? 600 : _tlScale < 3 ? 300 : _tlScale < 6 ? 120 : 60;
-  for (let t = 0; t <= _tlLoopDuration; t += tickEvery) {
-    const x = t * _tlScale;
-    const label = t >= 3600 ? `${(t/3600).toFixed(1)}h` : t >= 60 ? `${Math.floor(t/60)}m` : `${t}s`;
-    rulerHtml += `<div style="position:absolute;left:${x}px;top:0;height:100%;border-left:1px solid var(--border);padding-left:3px;font-size:9px;color:var(--text-dim);white-space:nowrap;line-height:20px">${label}</div>`;
-  }
-  // Loop end marker
-  const loopX = _tlLoopDuration * _tlScale;
-  rulerHtml += `<div style="position:absolute;left:${loopX}px;top:0;height:100%;border-left:2px dashed var(--text-dim);z-index:3"></div>`;
-  ruler.innerHTML = rulerHtml;
-
-  // Playlist items
-  track.innerHTML = _channelPlaylist.map((item, idx) => {
-    const left = item.start_time * _tlScale;
-    const width = Math.max(item.duration * _tlScale, 20);
-    const color = COLORS[idx % COLORS.length];
-    const label = item.broadcast_name || item.broadcast_id;
-    const dur = item.duration_override ? `${item.duration_override}s` : `${item.duration.toFixed(0)}s`;
-    const dimmed = item.start_time + item.duration > _tlLoopDuration;
-    return `<div class="tl-item" data-idx="${idx}" style="
-        position:absolute;left:${left}px;top:8px;width:${width}px;height:64px;
-        background:color-mix(in srgb,${color} 20%,var(--bg3));
-        border-left:3px solid ${color};border-radius:2px;
-        box-sizing:border-box;overflow:hidden;cursor:grab;user-select:none;
-        opacity:${dimmed ? 0.4 : 1};
-      "
-      onmousedown="tlItemDragStart(event,${idx})"
-      ondblclick="tlEditItem(${idx})">
-      <div style="font-size:10px;padding:4px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-bright)">${escHtml2(label)}</div>
-      <div style="font-size:9px;padding:0 6px;color:var(--text-dim)">${formatTime(item.start_time)} — ${dur}</div>
-      <button onclick="event.stopPropagation();tlRemoveItem(${idx})" style="position:absolute;top:2px;right:2px;background:transparent;border:none;color:var(--text-dim);font-size:11px;cursor:pointer;line-height:1;padding:0">✕</button>
-      <div class="tl-resize-handle" style="position:absolute;right:0;top:0;bottom:0;width:8px;cursor:ew-resize;background:linear-gradient(to right,transparent,${color})" onmousedown="tlResizeStart(event,${idx})"></div>
-    </div>`;
-  }).join('');
-}
-
-function formatTime(sec) {
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = sec % 60;
-  return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
-}
-
-function tlItemDragStart(event, idx) {
-  if (event.target.classList.contains('tl-resize-handle')) return;
-  event.preventDefault();
-  _tlDragging = { idx, startX: event.clientX, origStartTime: _channelPlaylist[idx].start_time };
-  const onMove = (e) => {
-    if (!_tlDragging) return;
-    const dx = e.clientX - _tlDragging.startX;
-    const newTime = Math.max(0, _tlDragging.origStartTime + dx / _tlScale);
-    _channelPlaylist[_tlDragging.idx].start_time = Math.round(newTime / 30) * 30;
-    tlRender();
-  };
-  const onUp = () => {
-    _tlDragging = null;
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
-  };
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
-}
-
-function tlResizeStart(event, idx) {
-  event.preventDefault();
-  event.stopPropagation();
-  _tlResizing = { idx, startX: event.clientX, origDuration: _channelPlaylist[idx].duration };
-  const onMove = (e) => {
-    if (!_tlResizing) return;
-    const dx = e.clientX - _tlResizing.startX;
-    const newDur = Math.max(30, _tlResizing.origDuration + dx / _tlScale);
-    _channelPlaylist[_tlResizing.idx].duration = Math.round(newDur / 30) * 30;
-    _channelPlaylist[_tlResizing.idx].duration_override = _channelPlaylist[_tlResizing.idx].duration;
-    tlRender();
-  };
-  const onUp = () => {
-    _tlResizing = null;
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
-  };
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
-}
-
-function tlRemoveItem(idx) {
-  _channelPlaylist.splice(idx, 1);
-  tlRender();
-}
-
-async function tlEditItem(idx) {
-  const item = _channelPlaylist[idx];
-  if (!item) return;
-  const newTime = await dpPrompt(`Start time for "${item.broadcast_name}" (seconds):`, item.start_time);
-  if (newTime !== null) {
-    const t = parseInt(newTime, 10);
-    if (!isNaN(t)) { item.start_time = Math.max(0, t); tlRender(); }
-  }
 }
 
 // ── Save channel ─────────────────────────────────────────────────────────────
@@ -697,18 +459,8 @@ async function saveChannel() {
 
     const channelId = isNew ? chRes.id : _channelEditTarget.id;
 
-    // Save playlist — skip for daily-schedule channels (managed via the Schedule tab)
-    if (_channelEditTarget?.schedule_mode !== 'daily') {
-      const playlistBody = _channelPlaylist.map(item => ({
-        broadcast_id: item.broadcast_id,
-        start_time: item.start_time,
-        duration_override: item.duration_override || null,
-        priority: item.priority || 0,
-        conditions: item.conditions || [],
-      }));
-      const plRes = await directAPI(`/broadcast/channels/${channelId}/playlist`, 'PUT', playlistBody);
-      if (plRes?.error) { toast(plRes.error, true); return; }
-    }
+    // No playlist write here. Programming is owned entirely by the Schedule tab's
+    // seven-day grid — saving this modal must never clobber it with a stale copy.
 
     closeModal();
     toast(isNew ? 'Channel created.' : 'Channel saved.');
