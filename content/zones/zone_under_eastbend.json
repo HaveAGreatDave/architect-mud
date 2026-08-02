@@ -22,6 +22,7 @@
   "grid_z": -1,
   "id": "zone_under_eastbend",
   "map_id": "map_world",
+  "marker": "╗",
   "name": "Eastern Bend",
   "parent_zone": null
 }

@@ -847,10 +847,11 @@ function draw() {
     //   ways of saying the same tile, so the game shows one or the other. Drawing
     //   both — which this did — is the one combination no screen in the game renders,
     //   and on a small cell the letters sit in the middle of the rooftop.
-    //   A label of kind `art` is exempt in both directions: the sewer corridors'
-    //   connectivity pieces are the TILE'S OWN DRAWING, like a road connector, so
-    //   they survive every mode. That is the rule that stops half the sewers
-    //   vanishing when someone switches buildings to letters.
+    //   A label of kind `mark` is exempt in both directions: an AUTHORED marker is
+    //   the TILE'S OWN DRAWING, like a road connector, so it survives every mode.
+    //   Derived codes are annotations and toggle; a glyph someone deliberately
+    //   placed is not. (This was `art`, a class that meant "in the sewers" and was
+    //   tested by id prefix — see deriveLabel for why it is gone.)
     //   A tile with no label falls through to its art, so Labels mode empties the
     //   map of buildings' rooftops and nothing else.
     //
@@ -861,9 +862,9 @@ function draw() {
     // cannot: the toggle is there to stop two layers fighting over one tile, and
     // there is nothing to fight with here.
     const lbl = (spec.label && c >= 9) ? spec.label : null;
-    const lettersWin = state.overlay === 'labels' && lbl && lbl.kind !== 'art';
+    const lettersWin = state.overlay === 'labels' && lbl && lbl.kind !== 'mark';
     if (spec.feature && !lettersWin) drawFeature(x, y, c, spec.feature, spec.text);
-    if (lbl && (lettersWin || lbl.kind === 'art' || !spec.feature)) {
+    if (lbl && (lettersWin || lbl.kind === 'mark' || !spec.feature)) {
       ctx.fillStyle = spec.text || '#c8c8cc';
       ctx.fillText(spec.label.text, x + c / 2 - 0.5, y + c / 2);
     }

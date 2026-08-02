@@ -2611,7 +2611,19 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   const labels = specs.filter(s => s.label);
   check(`a label declares what the overlay may do to it (${labels.length} tiles)`,
     labels.length > 0 && labels.every(s => typeof s.label.text === 'string' && s.label.text
-      && ['building', 'room', 'art'].includes(s.label.kind)));
+      && ['building', 'room', 'mark'].includes(s.label.kind)));
+  // `mark` is the only kind no overlay mode can switch off, so what qualifies for it
+  // has to be checkable rather than assumed. It replaced a kind `art` that meant "this
+  // tile's id starts with zone_under_ and sits below ground" — under which 34 authored
+  // ROOM decorations were classified as corridor structure and became undismissable.
+  // The rule now is an identity: kind `mark` iff a human authored zones.marker. This
+  // check is the whole reason that defect cannot recur — not the sewers being fixed,
+  // but the category losing its ability to admit a tile nobody drew on.
+  const marked = zonesForDerive.filter(z => specAt(z.id)?.label?.kind === 'mark');
+  const unauthoredMarks = marked.filter(z => !String(z.marker ?? '').trim());
+  check(`kind 'mark' means a human authored zones.marker (${marked.length} tiles)`,
+    marked.length > 0 && unauthoredMarks.length === 0,
+    unauthoredMarks.slice(0, 3).map(z => z.id).join(', '));
   // The hierarchy, as data: a road tile has no label key the overlay could reach —
   // which is what stops "letters instead of buildings" also blanking roads. Same
   // narrowing as above: a road may now wear a label a human deliberately typed, but
@@ -2812,9 +2824,14 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   check('deriveMarker: an apartment takes its floor designation',
     mk({ id: 'z', name: 'Unit 2A', flags: { is_apartment: true } }) === '2A'
     && mk({ id: 'z', name: 'Halcyon Residence 41-A', flags: { is_apartment: true } }) === '41');
-  check('deriveMarker: sewer art comes from connectivity',
-    mk({ id: 'zone_under_1_1', grid_z: -1, exits: { north: 'a', south: 'b' } }) === '║'
-    && mk({ id: 'zone_under_1_1', grid_z: -1, exits: { north: 'a', east: 'b', south: 'c', west: 'd' } }) === '╬');
+  // Sewer art USED to be derived here from the tile's own exits, and the id-prefix
+  // test that selected for it is what made 34 room decorations undismissable. The
+  // 117 corridor pieces are authored markers now (the 4 tiles with a way up carry ◍,
+  // which no connectivity rule could have produced), so connectivity must derive
+  // nothing at all — otherwise the special case is back under a new name.
+  check('deriveMarker: connectivity derives nothing; sewer art is authored',
+    mk({ id: 'zone_under_1_1', grid_z: -1, exits: { north: 'a', south: 'b' } }) === null
+    && mk({ id: 'zone_under_1_1', grid_z: -1, marker: '║', exits: { north: 'a', south: 'b' } }) === '║');
   // The one case §7.4 got wrong about this world: terrain glyphs are hand-placed
   // decoration, not a function of the paint, so the palette derives nothing.
   check('deriveMarker: painted ground derives no glyph',

@@ -21,6 +21,7 @@
   "grid_z": -1,
   "id": "zone_under_cistern",
   "map_id": "map_world",
+  "marker": "╡",
   "name": "Old Cistern",
   "parent_zone": null
 }

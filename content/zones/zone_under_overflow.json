@@ -22,6 +22,7 @@
   "grid_z": -1,
   "id": "zone_under_overflow",
   "map_id": "map_world",
+  "marker": "═",
   "name": "Overflow Chamber",
   "parent_zone": null
 }

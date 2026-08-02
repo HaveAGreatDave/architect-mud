@@ -210,13 +210,23 @@ export function contrastText(hex) {
 
 // ── deriveMarker — four unrelated jobs, separated (§7.4) ─────────────────────
 //
-// `zones.marker` was doing four jobs at once. After the split it means exactly
-// one thing: A HUMAN OVERRODE THIS TILE'S MAP CODE. Everything else is derived.
+// `zones.marker` was doing four jobs at once. After the split it means one of
+// two things, and which one is decided by the tile, not by the field:
 //
 //   building acronym       62 tiles → derived from building_name; authored wins
 //   apartment designation  116      → derived from the unit name
-//   sewer corridor art     118      → derived from connectivity
+//   sewer corridor art     118      → STAYS AUTHORED. See below.
 //   terrain glyph          846      → STAYS AUTHORED. See below.
+//
+// The sewer row used to be derived from connectivity, and the derivation is
+// gone. It was the only client of a `kind: 'art'` label class whose whole job
+// was exempting it from the overlay toggle — a category with one member, keyed
+// on an id prefix, which is how 34 room decorations ended up classified as
+// corridor structure and undismissable on the map. The 115 corridor pieces are
+// now ordinary authored markers, computed once and committed, and a marker is
+// how you put art on ANY tile rather than a thing the sewers alone can have.
+// The trade is real and deliberate: re-cutting a sewer exit no longer re-cuts
+// its glyph. That is the same trade every other authored tile already makes.
 //
 // The terrain row is the one place §7.4 was wrong about this world, and the
 // measurement is worth keeping: painted terrain does NOT carry one glyph per
@@ -295,21 +305,12 @@ export function floorDesignation(name) {
   return /^\d+$/.test(head) ? head.slice(0, -2) : head.slice(0, 2);
 }
 
-// Sewer corridor art, from the tile's own connectivity. Lifted from
-// scripts/content/build-sewer-grid.mjs, which already re-derived these from FINAL
-// connectivity rather than trusting what it had stamped earlier — the same
-// conclusion this module exists to generalise.
-const SEWER_ART = {
-  N: '╨', S: '╥', E: '╞', W: '╡',
-  NS: '║', EW: '═', NE: '╚', NW: '╝', SE: '╔', SW: '╗',
-  NSE: '╠', NSW: '╣', NEW: '╩', SEW: '╦', NSEW: '╬',
-};
-const DIR_LETTER = { N: 'north', S: 'south', E: 'east', W: 'west' };
-export function sewerArt(exits) {
-  const dirs = new Set(Object.keys(exits || {}));
-  const key = ['N', 'S', 'E', 'W'].filter((c) => dirs.has(DIR_LETTER[c])).join('');
-  return key ? (SEWER_ART[key] ?? '╬') : null;
-}
+// `sewerArt(exits)` used to live here — a ╬/╠/═ lookup keyed on which cardinals a
+// tile exits to, so the sewers drew their own shape. It was the only reason
+// `deriveLabel` had a third kind, and the shape it derived is now sitting in the
+// 117 `zone_under_*` files as an ordinary authored marker (the 4 tiles with a way
+// up carry ◍ instead, which no connectivity rule could have produced). Restoring
+// it means restoring the id-prefix test with it — see the note on deriveMarker.
 
 // A BUILDING for marker purposes is a tile on the overworld a player navigates BY
 // — the thing whose code appears in Labels mode. `is_building` also sits on 90
@@ -317,7 +318,6 @@ export function sewerArt(exits) {
 // giving those an acronym would put a building code on a room nobody navigates to
 // by code, which is precisely what MARK-1 exists to complain about.
 const isBuildingTile = (z) => (z?.map_id === 'map_world') && !!(z?.flags?.facade || z?.flags?.is_building);
-const isSewerTile = (z) => (z?.grid_z ?? 0) < 0 && /^zone_under_/.test(z?.id || '');
 const authoredMarker = (z) => (z?.marker == null ? '' : String(z.marker).trim());
 
 /**
@@ -331,7 +331,6 @@ export function deriveMarker(zone, palette, ctx = {}) {
   if (authored) return authored;                                  // a human overrode it
   if (isBuildingTile(zone)) return ctx.buildingMarkers?.get(zone.id) ?? null;
   if (zone?.flags?.is_apartment) return floorDesignation(zone.name);
-  if (isSewerTile(zone)) return sewerArt(zone.exits);
   return paletteEntry(zone, palette)?.glyph ?? null;              // null everywhere; see the note above
 }
 
@@ -547,13 +546,32 @@ export function featureProvenance(zone, autoTile = null) {
 }
 
 /**
- * The code a human reads off this tile, or null. Three kinds, because the overlay
- * toggle treats them differently:
+ * What this tile draws, or null. Three kinds, because the overlay toggle treats
+ * them differently — and the split is now DERIVED vs AUTHORED, which is a
+ * property of where the glyph came from rather than of where the tile sits:
  *
- *   building  a navigable 2-letter code (Labels mode turns the tile into that box)
- *   room      an apartment designation / floor — a code, but not a landmark
- *   art       sewer-corridor connectivity art: the tile's own drawing, like a road
- *             connector, so it survives every overlay mode and is never toggled off
+ *   building  a navigable 2-letter code, derived from the name (Labels mode turns
+ *             the tile into that box). A human may override the code; it is still
+ *             a code, so it still follows the toggle
+ *   room      an apartment designation / floor, derived from the unit name — a
+ *             code, but not a landmark
+ *   mark      the tile's own drawing, and the ONLY kind a human can create: it
+ *             exists iff `zones.marker` is authored. Never toggled off, because a
+ *             glyph someone deliberately placed is structure, not an annotation
+ *
+ * `mark` replaced a `kind: 'art'` that meant "this tile is in the sewers", tested
+ * by id prefix + negative grid_z. That category had exactly one client, and its
+ * stated justification (keeping road connectors from vanishing in Labels mode) was
+ * never the mechanism protecting them — roads carry no label at all and draw from
+ * `spec.feature`, which no overlay mode touches. What it did do was classify 34
+ * hand-placed room symbols as corridor structure and make them undismissable.
+ *
+ * The rule that replaces it is general: author a marker on ANY tile and it draws,
+ * anywhere on any map. Exactly one tile outside the sewers relies on that — the
+ * Echelon's ⛴ on map_world, which is the point of the field. The only other
+ * candidate was `CF` on the Citadel's Marble Hall, an acronym duplicating its
+ * building's own code on an interior room; it was deleted rather than exempted,
+ * because a kind that needs an exception list is the thing being removed here.
  *
  * PAINTED GROUND USED TO BE UNLABELLABLE, and that rule is gone. It read
  * `if (resolveTerrain(zone)) return null`, and it existed because 860 tiles authored
@@ -582,7 +600,7 @@ export function featureProvenance(zone, autoTile = null) {
 export function deriveLabel(zone, palette, ctx = {}) {
   const text = deriveMarker(zone, palette, ctx);
   if (!text) return null;
-  const kind = isBuildingTile(zone) ? 'building' : (isSewerTile(zone) ? 'art' : 'room');
+  const kind = isBuildingTile(zone) ? 'building' : (zone?.flags?.is_apartment ? 'room' : 'mark');
   return { text, kind };
 }
 

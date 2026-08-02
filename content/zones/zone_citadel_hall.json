@@ -29,7 +29,6 @@
   "grid_z": 0,
   "id": "zone_citadel_hall",
   "map_id": "map_int_citadel",
-  "marker": "CF",
   "name": "Citadel Financial — The Marble Hall",
   "parent_zone": "zone_district_921_911"
 }
