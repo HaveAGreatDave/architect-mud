@@ -50,6 +50,19 @@
  *
  * order — OPTIONAL number for sorting within a `group`. Absent sorts last.
  *
+ * requires — OPTIONAL name of another key on the SAME zone that must be present
+ * for this one to mean anything: `shop_price` without `is_storefront` prices a
+ * unit nobody can buy. Editors offer a dependent field only once its parent is
+ * set (the Studio reveals the three shop terms the moment you tick Storefront),
+ * and content:lint rejects a child authored without its parent — a value that
+ * cannot be read is an authoring error, not a preference.
+ *
+ * DECLARE THESE BY HAND, from what the key MEANS. A co-occurrence sweep over the
+ * 5,867 zones will happily report that `flightdeck` requires `cabin_window` and
+ * that `light_beacon` requires `checkpoint_cfg`, because zero counterexamples out
+ * of one authored tile is not evidence. Every pair below is one the help text on
+ * the dependent entry already stated in prose.
+ *
  * targets — OPTIONAL array controlling which dev-panel editors offer the tag:
  * subset of ['item','furniture']. When present it overrides the default derived
  * from scope, so a single tag can be attachable on both items and furniture
@@ -469,7 +482,7 @@
       help: 'Permit `sleep` in this zone WITHOUT the full sanctuary bundle — grants safe-zone-rate rest but no combat protection / forcefield / spawn suppression. For places like the holding cell where you can doze but stay exposed.' },
     residents_only: { label: 'Residents Only', shape: 'text', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Set to a building name (e.g. "Solenne Residences"): only a player holding a unit in that building may enter — walked in OR ridden to by elevator (residency plugin). For private amenity floors: the Solenne sky pad, a residents\' spa.' },
-    residents_only_deny: { label: 'Residents Only: Refusal', shape: 'text', scope: 'zone', group: 'Zone: Law & Hazard',
+    residents_only_deny: { label: 'Residents Only: Refusal', shape: 'text', requires: 'residents_only', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Optional refusal line shown when `residents_only` turns someone away, in the building\'s own voice. Defaults to a generic "Residents only."' },
     cell_block: { label: 'Cell Block', shape: 'flag', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Part of the Precinct 9 cell block: a prisoner doing time may walk here WITHOUT it counting as a jailbreak (jail plugin). Only for rooms behind the same locked cell door — a room that reaches the street must never carry this.' },
@@ -507,15 +520,15 @@
       help: 'OPT-IN pass-through building tile: stepping onto it auto-forwards into the building\'s interior entry zone (needs an interior map parented on this zone); OUT from inside lands on world_exit_zone. Without this tag a building tile is a normal standable zone — do NOT put it on street tiles that host a building.' },
     building_name: { label: 'Building Name', shape: 'text', scope: 'zone', group: 'Zone: Structure',
       help: 'Display name of the enclosing building.' },
-    rent_cost: { label: 'Rent Cost (₵/cycle)', shape: 'number', scope: 'zone', group: 'Zone: Structure',
+    rent_cost: { label: 'Rent Cost (₵/cycle)', shape: 'number', requires: 'is_apartment', scope: 'zone', group: 'Zone: Structure',
       help: 'AUTHORED weekly rent for this apartment unit (needs is_apartment). Read by authoredRentCost (apartments.js) when a player rents; omit for the 100c default. Ownership/tenancy itself is player data in the apartments table, never content.' },
     is_storefront: { label: 'Storefront (For Sale)', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'A vacant retail unit a PLAYER can buy and trade out of (plugins/storefront: DEED / BUYSHOP / STOCK / WARES / TILL). The terms below are authored here; who holds the deed is player data in the storefronts table, never content. Pair with a `shop_vault` furniture piece for the till.' },
-    shop_price: { label: 'Shop: Asking Price (₵)', shape: 'number', scope: 'zone', group: 'Zone: Structure',
+    shop_price: { label: 'Shop: Asking Price (₵)', shape: 'number', requires: 'is_storefront', scope: 'zone', group: 'Zone: Structure',
       help: 'AUTHORED total purchase price for an `is_storefront` unit. The per-cycle instalment is price ÷ shop_term. Omit for the 6000c default.' },
-    shop_term: { label: 'Shop: Mortgage Term (cycles)', shape: 'number', scope: 'zone', group: 'Zone: Structure',
+    shop_term: { label: 'Shop: Mortgage Term (cycles)', shape: 'number', requires: 'is_storefront', scope: 'zone', group: 'Zone: Structure',
       help: 'How many 7-game-day instalments clear the mortgage on an `is_storefront` unit. Omit for the 8-cycle default. Clearing the term buys it outright; only shop_upkeep is charged after that.' },
-    shop_upkeep: { label: 'Shop: Upkeep (₵/cycle)', shape: 'number', scope: 'zone', group: 'Zone: Structure',
+    shop_upkeep: { label: 'Shop: Upkeep (₵/cycle)', shape: 'number', requires: 'is_storefront', scope: 'zone', group: 'Zone: Structure',
       help: 'Rates and power charged every cycle on an `is_storefront` unit AFTER the mortgage clears — so an abandoned shop still eventually lapses instead of squatting the tile forever. Omit for the 40c default.' },
     building_type: { label: 'Building Type', shape: 'text', scope: 'zone', group: 'Zone: Structure',
       help: 'Building category (bar, hotel, store, grocery, …) — controls entrance-discovery flavor text.' },
@@ -527,7 +540,7 @@
       help: 'Authored door side (north/south/east/west) for the map entrance arrow — read by buildingEntranceDir. Baked once from the road graph, NOT inferred at runtime, so terrain painting can never relocate a door. The interior out-exit must mirror this.' },
     elevator: { label: 'Elevator', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'Elevator car zone.' },
-    elevator_floors: { label: 'Elevator Floors', shape: 'list', scope: 'zone', group: 'Zone: Structure',
+    elevator_floors: { label: 'Elevator Floors', shape: 'list', requires: 'elevator', scope: 'zone', group: 'Zone: Structure',
       help: 'Floor list for the elevator, e.g. [{ "n": 50, "zone": "zone_x", "label": "Concourse" }].' },
     hide_exits: { label: 'Hide Exits', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'Suppress the exit/room/building list in the room description; graph (movement, pathfinding, minimap) is untouched. Elevator cars use it so the floor panel is the sole exit UI.' },
@@ -601,7 +614,7 @@
       help: 'One-time lore text shown on a player\'s first visit.' },
     gps_suggest: { label: 'GPS Suggestion', shape: 'text', scope: 'zone', group: 'Zone: Identity',
       help: 'Destination zone id. The first time a player enters this tile, a one-off GPS route is plotted there (a pre-quest nudge toward a starter NPC/place). Handled by the lore plugin.' },
-    gps_suggest_label: { label: 'GPS Suggestion Label', shape: 'text', scope: 'zone', group: 'Zone: Identity',
+    gps_suggest_label: { label: 'GPS Suggestion Label', shape: 'text', requires: 'gps_suggest', scope: 'zone', group: 'Zone: Identity',
       help: 'Optional hint text shown with the gps_suggest route line (e.g. why to go there).' },
     region_id: { label: 'Region (spatial)', shape: 'ref', refTable: 'regions', scope: 'zone', group: 'Zone: Identity',
       help: 'Spatial region membership: the regions.id this tile belongs to (dev-panel World Editor). Distinct from "District Override" above (land-use). Selecting/moving a region acts on every zone sharing this id.' },

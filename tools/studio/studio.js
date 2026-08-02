@@ -1783,7 +1783,39 @@ function wireLazyGroups() {
       const flags = state.catalog.flags;
       box.innerHTML = JSON.parse(d.dataset.keys)
         .map(k => `<div class="unset">${fieldHtml(k, flags[k], undefined, 'flag')}</div>`).join('');
+      // A parent can live inside a group that was only just built, so re-run here as
+      // well as after the first render — otherwise ticking a parent you had to open a
+      // fold to reach would reveal nothing.
+      wireDependents();
     });
+  }
+}
+
+// Fields whose `requires` parent is not set on this tile — held back by the flag loop
+// and attached here, under whichever checkbox controls them.
+let pendingDeps = [];
+
+// Put each held-back field directly beneath its parent's checkbox, hidden, and tie its
+// visibility to that checkbox. No re-render: the inspector is a live form and rebuilding
+// it on a tick would throw away every other edit in progress.
+//
+// A hidden row keeps its `data-k`, which is deliberate — collect() reads it, finds it
+// blank, and deletes nothing. Untick Storefront after typing a price and the price goes
+// with it, which is the correct outcome: the engine could not have read it anyway.
+function wireDependents() {
+  for (const dep of pendingDeps) {
+    if (dep.attached) continue;
+    const parentEl = document.querySelector(`#inspector [data-k="${CSS.escape(dep.parent)}"]`);
+    if (!parentEl) continue;                     // parent not on the form yet — try again later
+    const row = parentEl.closest('.flagrow') || parentEl.closest('.f') || parentEl;
+    const host = document.createElement('div');
+    host.className = 'unset dep';
+    host.innerHTML = fieldHtml(dep.key, dep.def, undefined, 'flag');
+    row.after(host);
+    dep.attached = true;
+    const sync = () => { host.style.display = parentEl.checked ? '' : 'none'; };
+    parentEl.addEventListener('change', sync);
+    sync();
   }
 }
 
@@ -1900,9 +1932,28 @@ function renderInspector(spec, prov) {
   // business. Carried, it shows locked (above); unset, it is not offered at all —
   // an editor should not hand you a field whose only legal value belongs to
   // somebody else.
+  // A DEPENDENT FIELD IS NOT OFFERED UNTIL ITS PARENT IS SET. `shop_price` prices a
+  // unit nobody can buy unless `is_storefront` is on the same tile, and the catalog
+  // now says so (`requires`). Seven fields carry one, and on an ordinary tile all
+  // seven were sitting in the "not set" list being irrelevant together.
+  //
+  // Unlike hiding a whole GROUP — which needs a guess about what KIND of place this
+  // tile is, and which is why that idea was dropped — this asks one exact question
+  // about the tile in front of you: is the parent key set, yes or no. It cannot be
+  // wrong about a tile it is looking at.
+  //
+  // They are not merely hidden: wireDependents() puts each one directly under its
+  // parent's checkbox and reveals it the moment you tick it, so the three shop terms
+  // appear where you just said "this is a storefront". Hiding a field with no way to
+  // reach it would be the same sin as the old alphabetical "Add a flag" dropdown.
+  pendingDeps = [];
   for (const [key, def] of ordered(flags)) {
     if (carried.includes(key) || key === 'district' || key === 'terrain') continue;
     if (key === 'world_exit_zone' && onMap && !editing.flags?.facade && mapAnchor != null) continue;
+    if (def.requires && !editing.flags?.[def.requires]) {
+      pendingDeps.push({ key, def, parent: def.requires });
+      continue;
+    }
     bucket(def.group || 'Flags').unset.push(key);
   }
 
@@ -1948,6 +1999,7 @@ function renderInspector(spec, prov) {
     </div>`;
 
   wireLazyGroups();
+  wireDependents();
   $('#revert').onclick = () => select(editing.id);
   $('#save').onclick = save;
   if (editing.flags?.facade) renderTurnControls(editing.id);

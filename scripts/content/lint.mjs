@@ -163,6 +163,17 @@ export function lintContentTree(baseDir) {
         const tv = validateTags(f.data.flags);
         for (const k of tv.unknown) errors.push(`${label}: zone flag "${k}" is not in the tag catalog (client/shared/tagCatalog.js)`);
         for (const s of tv.badShape) errors.push(`${label}: zone flag value shape — ${s}`);
+        // DEPENDENT FLAGS. A key whose catalogued `requires` parent is absent is a
+        // value nothing can read — `shop_price` on a tile that is not `is_storefront`
+        // prices a unit no player can buy, and it fails the way a typo'd flag fails:
+        // silently, looking authored. The Studio will not offer one without its
+        // parent, so this catches hand-edited files and anything the old editors left.
+        for (const k of Object.keys(f.data.flags)) {
+          const need = CATALOG[k]?.requires;
+          if (need && !f.data.flags[need]) {
+            errors.push(`${label}: zone flag "${k}" requires "${need}" on the same tile, which is not set — nothing will read it`);
+          }
+        }
       }
       // The other half of a tile: the COLUMNS. Validated by the same shape rules
       // as the flags, against the `zone:<column>` catalog entries (spec §3.2), so
