@@ -302,31 +302,31 @@
       "item_id": "item_frying_pan",
       "price": 60,
       "restockToQty": 4,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_stock_pot",
       "price": 90,
       "restockToQty": 4,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_spatula",
       "price": 15,
       "restockToQty": 6,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_wooden_spoon",
       "price": 10,
       "restockToQty": 6,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_oven_zenith_compact",
       "price": 850,
       "restockToQty": 4,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_orange",
@@ -536,37 +536,37 @@
       "item_id": "item_cast_iron_skillet",
       "price": 110,
       "restockToQty": 4,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_steel_saucepan",
       "price": 45,
       "restockToQty": 4,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_roasting_tray",
       "price": 70,
       "restockToQty": 4,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_kitchen_tongs",
       "price": 18,
       "restockToQty": 6,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_ladle",
       "price": 12,
       "restockToQty": 6,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_wire_whisk",
       "price": 14,
       "restockToQty": 5,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_recipe_card",
@@ -608,13 +608,13 @@
       "item_id": "item_mixing_bowl",
       "price": 26,
       "restockToQty": 4,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_pestle",
       "price": 30,
       "restockToQty": 4,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_wood_chips",
@@ -662,7 +662,7 @@
       "item_id": "item_kitchen_knife",
       "price": 52,
       "restockToQty": 4,
-      "sourceContainer": "furn_ration9_shelves"
+      "sourceContainer": "furn_ration9_kitchenware"
     },
     {
       "item_id": "item_penne",
@@ -776,24 +776,6 @@
       "item_id": "item_ration",
       "price": 10,
       "restockToQty": 12,
-      "sourceContainer": "furn_ration9_shelves"
-    },
-    {
-      "item_id": "item_fishing_rod",
-      "price": 45,
-      "restockToQty": 3,
-      "sourceContainer": "furn_ration9_shelves"
-    },
-    {
-      "item_id": "item_wetsuit",
-      "price": 300,
-      "restockToQty": 2,
-      "sourceContainer": "furn_ration9_shelves"
-    },
-    {
-      "item_id": "item_rebreather",
-      "price": 420,
-      "restockToQty": 2,
       "sourceContainer": "furn_ration9_shelves"
     },
     {

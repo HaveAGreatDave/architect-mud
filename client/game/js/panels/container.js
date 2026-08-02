@@ -305,7 +305,7 @@ function renderList(listId, items, source, containerId) {
     }
     lastGroup = item.group || null;
     const card = document.createElement('div');
-    card.className = 'ctr-item-card';
+    card.className = 'ctr-item-card' + (item.wanted ? ' ctr-wanted' : '');
     card.setAttribute('draggable', 'true');
     card.setAttribute('data-id', item.id);
     card.setAttribute('data-source', source);
@@ -313,7 +313,11 @@ function renderList(listId, items, source, containerId) {
     // glance and the name keeps a single clean baseline.
     const qty = item.quantity > 1 ? `<span class="ctr-qty">×${item.quantity}</span>` : '';
     const wt = item.weight != null ? `<span class="ctr-meta">${formatWeight(item.weight)}</span>` : '';
-    card.innerHTML = `<span class="ctr-name">${item.name}</span>${qty}${wt}`;
+    // `wanted` is set by the cooking plugin's container.view hook — this row
+    // answers something still on your shopping list. Same mark and same colour
+    // as the shop board uses, because it is the same fact.
+    const mark = item.wanted ? '<span class="ctr-mark" title="on your shopping list">▸</span>' : '';
+    card.innerHTML = `${mark}<span class="ctr-name">${item.name}</span>${qty}${wt}`;
 
     if (source === 'inv') {
       const btn = document.createElement('button');

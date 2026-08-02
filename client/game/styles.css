@@ -4967,6 +4967,11 @@ body.fsim-external #look-resize-handle { display: none; }
 .ctr-item-card.dragging {
 	opacity: 0.4;
 }
+/* On your shopping list — the same yellow and the same little caret the shop
+   board uses (.shop-wanted / .shop-mark), because it is the same fact told in
+   a different place. */
+.ctr-item-card.ctr-wanted .ctr-name { color: var(--yellow); }
+.ctr-mark { color: var(--yellow); margin-right: 3px; flex: 0 0 auto; }
 /* Type hierarchy on a card: the name carries it at a readable size, the
    quantity is a badge, and the weight is small tabular mono hard against the
    right edge so a column of cards lines up as a table would. */

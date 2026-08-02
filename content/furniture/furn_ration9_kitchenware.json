@@ -1,0 +1,21 @@
+{
+  "description": "A single bay at the end of the aisle given over to the things you cook IN rather than the things you cook. Pans hang off a length of reinforcing bar bolted across the top, nested pots go bottom shelf, and the small stuff — spoons, tongs, whisks — stands bristling out of a catering tin somebody has never once emptied. Everything on it is priced like it is expected to outlive you.",
+  "flags": {
+    "aliases": "kitchenware, cookware, pots, pans, utensils, rack, hardware bay",
+    "container": 200000,
+    "interactions": [
+      "lean"
+    ],
+    "vendor_stock": "npc_ration_cook"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_ration9_kitchenware",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Kitchenware Rack",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_grocery"
+}

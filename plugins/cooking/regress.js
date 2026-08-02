@@ -22,8 +22,9 @@ import {
 import { FLAG_PREFIX, PROGRESS_PREFIX, UNTRIED, learnRecipe, knownRecipes, cookbookState, recordAttempt, improveRecipe, beatsRecorded, knownBonus,
          SAVED_PREFIX, savedRecipes } from './knowledge.js';
 import { inferDish, improvisedCeiling, improvisedIp, recipeSignature } from './improvised.js';
-import { SHOPLIST_FLAG, getList, holdings } from './shoplist.js';
-import { markShelf } from './shoplist-cmd.js';
+import { SHOPLIST_FLAG, getList, holdings, buyableExamples } from './shoplist.js';
+import { markShelf, markContainer } from './shoplist-cmd.js';
+import { getItemCache } from '../../server/engine/items-cache.js';
 import { evaluate, endStateAt, timeline, heatSpans, finishAt } from './quality.js';
 import { rowIsInstanced } from '../../server/engine/inventory.js';
 import { applyEffect, tickEffects, getRegisteredStatusEffects } from '../../server/engine/effects.js';
@@ -1925,6 +1926,37 @@ export default async function regress({ run, check, getPlayer }) {
         shelf.find(s => s.item_id === TOM)?.wanted === true, JSON.stringify(shelf));
       check('...and stock you have no use for is left alone',
         !shelf.find(s => s.item_id === STEAK)?.wanted, JSON.stringify(shelf));
+
+      // A class entry names things you can actually hand over a counter, and
+      // every noun it names must be one the entry will ACCEPT — the note on a
+      // recipe card says "tomato", but a fresh tomato is a soft_vegetable and
+      // the liquid in that sauce is the tinned one.
+      {
+        const t = DISHES.penne_alla_gin;
+        const ex = buyableExamples('liquid', t);
+        check('a class entry names buyable examples', ex.length > 0, JSON.stringify(ex));
+        check('...and every one of them really carries that profile',
+          ex.every(noun => [...getItemCache().values()].some(i =>
+            i.tags?.food_profile === 'liquid' &&
+            String(i.tags?.food_noun || i.name || '').toLowerCase() === noun)),
+          JSON.stringify(ex));
+        check('...ordered so the recipe\'s own note leads (tomato before the spirit)',
+          ex.indexOf('tomato') === 0, JSON.stringify(ex));
+      }
+
+      // The container hook: the same mark on the box you opened, because half a
+      // shop's stock is reached by opening the case rather than by the clerk.
+      {
+        const view = { containerItems: [
+          { item_id: TOM, name: 'test tomato', tags: { food_profile: 'soft_vegetable' } },
+          { item_id: STEAK, name: 'test steak', tags: { food_profile: 'dense_meat' } },
+        ] };
+        await markContainer({ view, playerId: player.id });
+        check('a container marks contents that are on your list',
+          view.containerItems[0].wanted === true, JSON.stringify(view.containerItems));
+        check('...and leaves the rest of the box alone',
+          !view.containerItems[1].wanted, JSON.stringify(view.containerItems));
+      }
 
       // Buy the thing. Nothing fires; the box ticks because the box is a
       // question, not a record.

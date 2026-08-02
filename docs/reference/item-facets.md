@@ -126,6 +126,16 @@ array is silently dropped by `JSON.stringify`. Section order comes from the sequ
 | Player storefront board | `waresBoard` ([storefront/index.js](../../plugins/storefront/index.js)) |
 | `look in <container>` (text) | `describeContainer` ([commands/inventory.js](../../server/engine/commands/inventory.js)) |
 | Container panel | `loadBoxContents` (same file) |
+| `put/stow/pull/drop all <category>` | `matchAllFilter` (same file) — the facet labels double as the **typed vocabulary** |
+
+A player who has just read **Frozen** over a row of items can type `put all frozen in the
+freezer`. That is the point of listing this here: the section headings are not decoration,
+they are the words the bulk commands accept, so a new profile or a new axis becomes
+typeable the day it is authored and no category list is maintained anywhere. `matchAllFilter`
+tries a **tag or type name** first (`utensils`, `perishables` — tags that exist precisely to
+be swept), then these **facet labels**, then a short alias table for the words English has
+and the data doesn't (`non-perishable`, `cookware`, `food`, `drinks`). Everything is compared
+through one normaliser, so plurals and capitals never have to be guessed.
 
 Section headers use the axis's **declared** order where it has one — a fridge reads cold →
 ambient, not alphabetically — then anything unlisted alphabetically, then `Other` **always

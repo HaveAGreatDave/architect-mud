@@ -117,12 +117,30 @@ export async function markShelf({ stock, playerId }) {
   if (!stock?.length || !playerId) return;
   const want = await outstanding({ id: playerId });
   if (!want) return;
-  for (const entry of stock) {
-    const item = getItem(entry.item_id);
-    if (!item) continue;
-    const profile = item.tags?.food_profile || item.tags?.food_also || null;
-    if (want.items.has(entry.item_id) || (profile && want.profiles.has(profile))) {
-      entry.wanted = true;
-    }
-  }
+  for (const entry of stock) markRow(entry, entry.item_id, getItem(entry.item_id)?.tags, want);
+}
+
+// One row, one question, asked the same way in both places: does this thing
+// answer something still on the list? `food_also` counts because a tin of
+// tomatoes is a liquid that is also a vegetable, and either answer is a real
+// one at the shelf.
+function markRow(entry, itemId, tags, want) {
+  if (!entry || !itemId) return;
+  const profile = tags?.food_profile || tags?.food_also || null;
+  if (want.items.has(itemId) || (profile && want.profiles.has(profile))) entry.wanted = true;
+}
+
+// The same mark, on the boxes rather than the vendor's board. Half of a shop's
+// stock is reached by opening the case it sits in rather than by talking to the
+// clerk — and a shelf you have to hold the list up against yourself is only
+// half a list, wherever you are standing when you read it.
+//
+// Every container, not just a shop's: your own fridge answering "this is the
+// thing you wrote down" is the same question with the same answer.
+export async function markContainer({ view, playerId }) {
+  const boxes = [view?.containerItems, view?.secondary?.containerItems].filter(b => b?.length);
+  if (!boxes.length || !playerId) return;
+  const want = await outstanding({ id: playerId });
+  if (!want) return;
+  for (const box of boxes) for (const row of box) markRow(row, row.item_id, row.tags, want);
 }

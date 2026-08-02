@@ -14,7 +14,8 @@
     "zone.smells",
     "zone.sounds",
     "workspace.provider",
-    "shop.stock"
+    "shop.stock",
+    "container.view"
   ],
   "commands": [
     "cook",

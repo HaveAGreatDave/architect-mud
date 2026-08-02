@@ -646,6 +646,16 @@
       "stock": 5
     },
     {
+      "item_id": "item_wetsuit",
+      "price": 300,
+      "stock": 2
+    },
+    {
+      "item_id": "item_rebreather",
+      "price": 420,
+      "stock": 2
+    },
+    {
       "item_id": "item_flashlight",
       "price": 55,
       "stock": 10

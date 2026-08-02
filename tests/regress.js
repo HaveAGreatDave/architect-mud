@@ -1460,6 +1460,76 @@ check('bare equip → prompt', r?.type === 'error' && /Equip what/.test(r.messag
 r = await run('gear');
 check('gear returns a gear payload', r?.type === 'gear' && Array.isArray(r.items) && r.soak !== undefined && r.effects !== undefined, JSON.stringify(r)?.slice(0, 120));
 
+// Bulk sweeps by CATEGORY (`put all frozen in the case`). The vocabulary is not
+// a list anybody maintains: a tag name, then a facet label off classify.js — the
+// same words the shelf headings print — then a handful of aliases for the words
+// English has and the data doesn't ("non-perishable"). Seed one throwaway
+// container and four probe items covering each ladder, drive the real verbs.
+{
+  const savedZone = getPlayer().current_zone;
+  const BZ = 'zone_bulk_regress', BFURN = 'furn_bulk_regress';
+  const PROBES = [
+    ['item_bulk_utensil', 'bulk whisk', { utensil: true }],                                     // by TAG
+    ['item_bulk_frozen', 'bulk frozen brick', { consumable: true, storage_tier: 'frozen' }],    // by FACET
+    ['item_bulk_tinned', 'bulk tinned probe', { consumable: true, food_profile: 'preserved' }], // by ALIAS
+    ['item_bulk_rock', 'bulk rock', { misc: true }],                                            // by nothing
+  ];
+  try {
+    for (const [id, name, tags] of PROBES) {
+      await query(
+        `INSERT INTO items (id,name,description,type,value,weight,tags) VALUES ($1,$2,'bulk probe','misc',0,10,$3)
+         ON CONFLICT (id) DO UPDATE SET tags=$3, name=$2`, [id, name, JSON.stringify(tags)]);
+    }
+    await insertFurniture({
+      id: BFURN, name: 'bulk crate', description: 'a bulk crate', object_type: 'container',
+      zone_id: BZ, flags: JSON.stringify({ container: 400000, aliases: 'crate' }),
+    }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id');
+    getPlayer().current_zone = BZ;
+
+    const give = async () => {
+      await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id = ANY($2)', [getPlayer().id, PROBES.map(p => p[0])]);
+      await query('DELETE FROM player_inventory WHERE container_id=$1', [BFURN]);
+      for (const [id] of PROBES) {
+        await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`,
+          [randomUUID(), getPlayer().id, id]);
+      }
+    };
+    const inCrate = async () => (await query('SELECT item_id FROM player_inventory WHERE container_id=$1', [BFURN])).rows.map(r => r.item_id);
+
+    await give();
+    await run('put all utensils in crate');
+    check('bulk sweep by TAG name, pluralised ("all utensils")',
+      (await inCrate()).join() === 'item_bulk_utensil', (await inCrate()).join());
+
+    await give();
+    await run('put all frozen in crate');
+    check('bulk sweep by SHELF HEADING — the word the section prints ("all frozen")',
+      (await inCrate()).join() === 'item_bulk_frozen', (await inCrate()).join());
+
+    await give();
+    await run('put all non-perishable in crate');
+    const np = await inCrate();
+    check('bulk sweep by alias, and "non-perishable" means FOOD that keeps — not the rock',
+      np.includes('item_bulk_frozen') && np.includes('item_bulk_tinned') && !np.includes('item_bulk_rock'), np.join());
+
+    // ...and back out again, by the same word. A category that only works in one
+    // direction is half a feature.
+    await run('pull all frozen from crate');
+    check('the same vocabulary empties a container ("pull all frozen")',
+      !(await inCrate()).includes('item_bulk_frozen'), (await inCrate()).join());
+
+    const r2 = await run('put all wombats in crate');
+    check('a category that matches nothing is refused, not silently ignored',
+      r2?.type === 'error', JSON.stringify(r2)?.slice(0, 120));
+  } finally {
+    await query('DELETE FROM player_inventory WHERE container_id=$1', [BFURN]).catch(() => {});
+    await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id = ANY($2)', [getPlayer().id, PROBES.map(p => p[0])]).catch(() => {});
+    await deleteFurniture(BFURN).catch(() => {});
+    await query('DELETE FROM items WHERE id = ANY($1)', [PROBES.map(p => p[0])]).catch(() => {});
+    getPlayer().current_zone = savedZone;
+  }
+}
+
 // Restocking furniture container (engine law in buildContainerView): a container
 // flagged `restock_items` keeps one of each listed item present — take one and the
 // refreshed view a pull returns respawns it, so the supply is bottomless. Seed a

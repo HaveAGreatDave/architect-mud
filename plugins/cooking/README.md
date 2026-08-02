@@ -284,6 +284,22 @@ your list and still outstanding, so "one soft vegetable" lights up whatever this
 particular shop happens to stock, with no authored mapping anywhere. A keyed
 dish's anchor is the exception and goes on by item id.
 
+The **`container.view` hook** marks the same thing inside a box — a shop's
+chiller case, its kitchenware rack, your own fridge. Half a shop's stock is
+reached by opening the case rather than by talking to the clerk, and a shelf you
+have to hold the list up against yourself is only half a list wherever you're
+standing when you read it. Same caret, same yellow, one `markRow`.
+
+A class entry is **labelled with things you can actually buy** (`buyableExamples`
+in `shoplist.js`), and every noun it names is one the entry will ACCEPT — the
+test is `food_profile` exactly, the field the matcher itself reads. This is why
+the recipe-card **note is suppressed on the list**: penne alla gin's note says
+"tomato for the body", which is true of the dish and false of the shop, because a
+fresh tomato is a `soft_vegetable` and the liquid in that sauce is the tinned one
+or the paste. The note still orders the examples (tomato leads, the spirit
+follows); it just doesn't get the last word on what counts. A class the dish
+wants exactly one of already prints its key item's noun and is left alone.
+
 Storage is one `player_flags` row (`shoplist`), read by the verb, the Cookbook
 tablet app's list screen, and the shelf marker.
 
@@ -482,7 +498,7 @@ discovery into data entry.
 | `taste.js` | **pure** — skill-scaled tasting notes, and eating-it prose |
 | `improvised.js` | **pure** — the family table, complexity→ceiling, the recipe signature |
 | `shoplist.js` | the shopping list: storage, `holdings`, and the derived `answer` |
-| `shoplist-cmd.js` | the `shoplist` verb, and `markShelf` for the `shop.stock` hook |
+| `shoplist-cmd.js` | the `shoplist` verb, `markShelf` (`shop.stock`) and `markContainer` (`container.view`) |
 | `recipes.js` | the `recipe` verb: save / rename / forget / write a card / teach |
 | `workspace.js` | the `kitchen` provider for the Preparation Workspace HUD |
 | `knowledge.js` | the cookbook: what's known, how it's learned, `TEACH_RECIPE`, and player recipes |

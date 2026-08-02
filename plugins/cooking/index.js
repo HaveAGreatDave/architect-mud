@@ -41,7 +41,7 @@ import { UNTRIED, cookbookState, learnRecipe, improveRecipe, recordAttempt, beat
          savedRecipes, saveRecipe, recipeBySignature, renameRecipe, forgetRecipe, improveSaved, slugify } from './knowledge.js';
 import { inferDish, recipeSignature, improvisedIp } from './improvised.js';
 import { cmdRecipe, learnFromWrittenCard } from './recipes.js';
-import { cmdShoplist, markShelf } from './shoplist-cmd.js';
+import { cmdShoplist, markShelf, markContainer } from './shoplist-cmd.js';
 import { rewardFor, restMultiplier, restText, RESTS_WELL, REST_PEAK_MS, REST_COLD_MS, REST_MIN_MS, TASTE_TIERS, TASTE_BITE } from './config.js';
 import { tasteNotes, flavourLines } from './taste.js';
 import { canMarinate, prepText } from './prep.js';
@@ -1896,6 +1896,9 @@ export const hooks = {
   // Mark shop stock that's on your shopping list. A list you have to hold up
   // against the shelf yourself is only half a list.
   'shop.stock': (ctx) => markShelf(ctx),
+  // ...and the same mark on a container's contents, so a shop's cases and cases
+  // and your own fridge answer the list too.
+  'container.view': (ctx) => markContainer({ view: ctx.view, playerId: ctx.player?.id }),
 };
 
 // Exposed for the regression harness.

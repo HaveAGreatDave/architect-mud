@@ -16,9 +16,9 @@
 // `cookbook:` and `recipe:`. No new table, no new `players` column.
 import { query } from '../../server/models/db.js';
 import { getFlagById, setFlagById, clearFlagsIn } from '../../server/engine/flags.js';
-import { getItem } from '../../server/engine/items-cache.js';
+import { getItem, getItemCache } from '../../server/engine/items-cache.js';
 import { PROFILES, profileNameFor } from './profiles.js';
-import { unitsOf, ingredientLine, DISHES } from './dishes.js';
+import { unitsOf, ingredientLine, keyNounFor, DISHES } from './dishes.js';
 
 export const SHOPLIST_FLAG = 'shoplist';
 export const MAX_ENTRIES = 24;
@@ -75,6 +75,73 @@ export function answer(list, held) {
 
 const sameEntry = (a, b) => a.k === b.k && a.v === b.v;
 
+// THINGS YOU CAN ACTUALLY BUY, not the class and not the note.
+//
+// A recipe card's note is prose written for the cook — penne alla gin says
+// "tomato for the body, a slug of gin, cream to finish", which reads perfectly
+// and sends you home with a fresh tomato that doesn't count: a tomato is a
+// `soft_vegetable`, and the liquid in that sauce is the TINNED one, or the
+// paste, cooked down. On a recipe card that's a fine thing to say. On a shopping
+// list it is a wrong answer, because the list's only job is to be shoppable.
+//
+// So the list names examples derived from the catalogue instead, and the test is
+// the one the matcher itself applies: `food_profile` exactly, the same field
+// `profileNameFor` reads. Everything named here therefore ticks the entry off
+// when you buy it. The entry stays a CLASS entry — this is the label, not the
+// rule — so whatever else the shop happens to stock still counts too.
+// Three. Four starts reading as a catalogue rather than a hint, and the tail of
+// any profile is always the thing nobody wants to be told to cook with.
+const MAX_EXAMPLES = 3;
+
+export function buyableExamples(profileName, template = null) {
+  const keyed = new Set(template?.keyItems || []);
+  // The note still gets a say in the ORDER, which is the half of it that was
+  // right: it knows this sauce is mostly tomato and only a slug of gin. What it
+  // doesn't get is the last word on whether the thing it names counts — a noun
+  // only survives here if a real item carries the profile.
+  const note = String(template?.notes?.[profileName] || '').toLowerCase();
+  const cands = new Map();       // noun → rank tuple
+  for (const item of getItemCache().values()) {
+    const tags = item?.tags || {};
+    if (tags.food_profile !== profileName) continue;
+    const noun = String(tags.food_noun || item.name || '').toLowerCase().trim();
+    if (!noun) continue;
+    const at = note && new RegExp(`\\b${noun.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}s?\\b`).test(note)
+      ? note.indexOf(noun.split(' ')[0]) : Infinity;
+    const rank = [at, keyed.has(item.id) ? 0 : 1, noun];
+    const prev = cands.get(noun);
+    if (!prev || rank[0] < prev[0] || (rank[0] === prev[0] && rank[1] < prev[1])) cands.set(noun, rank);
+  }
+  return [...cands.values()]
+    .sort((a, b) => (a[0] - b[0]) || (a[1] - b[1]) || a[2].localeCompare(b[2]))
+    .slice(0, MAX_EXAMPLES)
+    .map(r => r[2]);
+}
+
+// "tinned tomatoes, gin or cream" — an English list, because this line is read
+// standing in a shop and not parsed by anything.
+function examplesLine(examples) {
+  if (!examples.length) return '';
+  if (examples.length === 1) return examples[0];
+  return `${examples.slice(0, -1).join(', ')} or ${examples[examples.length - 1]}`;
+}
+
+// The label one class shortfall carries. The weight comes from the recipe (the
+// same number the matcher counts against); the nouns come from the shelf.
+function classLabel(profile, need, template) {
+  const itemInfo = id => { try { return getItem(id); } catch { return null; } };
+  // A class the dish wants exactly one of already prints its key item's own noun
+  // ("125g of penne"). That IS the buyable thing; listing four more starches
+  // after it would only make a solved line ambiguous again.
+  if (keyNounFor(template, profile, itemInfo)) return ingredientLine(profile, need, template, itemInfo);
+  const examples = buyableExamples(profile, template);
+  if (!examples.length) return ingredientLine(profile, need, template, itemInfo);
+  // Note suppressed deliberately — see above. The examples replace it, and they
+  // are the half of it that can be handed over a counter.
+  const base = ingredientLine(profile, need, { ...template, notes: {} }, itemInfo);
+  return `${base} — ${examplesLine(examples)}`;
+}
+
 // Add a recipe's SHORTFALL, not its whole ingredient list. You already own half
 // of most recipes, and a shopping list that told you to buy things off your own
 // shelf would be one nobody read twice.
@@ -92,7 +159,7 @@ export async function addShortfall(playerOrId, template, { label = null } = {}) 
     if (short <= 0.05) continue;
     const entry = {
       k: 'p', v: profile, n: Math.round(short * 100) / 100,
-      label: ingredientLine(profile, need, template, id => { try { return getItem(id); } catch { return null; } }),
+      label: classLabel(profile, need, template),
       for: label || null,
     };
     const at = list.findIndex(e => sameEntry(e, entry));
