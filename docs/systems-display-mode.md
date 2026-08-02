@@ -284,6 +284,43 @@ staked.
 Check which shape you have before reaching for `logRender`. Suppressing a panel
 whose record doesn't reach the log is strictly worse than leaving the panel alone.
 
+### ⚠ The map: where the two text rungs stop agreeing
+
+Every other surface has ONE written form that serves both text rungs. The map is
+the exception, and the reason is worth stating because it will come up again:
+
+> **A character grid is still a visual-spatial artefact.**
+
+Drawn as glyphs, the neighbourhood is genuinely good for someone who simply
+prefers text — they read the shape at a glance, exactly as they read the text
+cockpit's chart. Read the *same grid aloud* and it is close to useless: a screen
+reader spells out rows of punctuation, and relationships obvious to an eye have to
+be rebuilt in the listener's head. Long **and** uninformative.
+
+So [map-text.js](../server/engine/map-text.js) renders two things:
+
+- `textgames` → **a chart.** A 9×9 glyph window, you-are-here marked.
+- `log` → **a briefing.** Where you are, what each exit leads to *by name*, and
+  what's near with a bearing and a distance.
+
+The briefing isn't a lesser map. For someone navigating by ear it is a better one:
+*"Bodega Vu — north-east, 2 steps"* is directly actionable, and a grid is not,
+however carefully drawn. It also gives what `look` structurally cannot — `look`
+lists directions, not **where they go**.
+
+Three rules the real output taught, none of which were obvious from the payload:
+
+1. **A chart must earn its place.** An interior inherits its facade's coordinates,
+   so it passes a naive "has a grid position" test and then draws a 9×9 box
+   containing nothing but `@` — strictly less than the briefing, in more space. If
+   there's no neighbourhood to draw, say so instead of drawing its absence.
+2. **Drop landmarks at distance 0.** A facade tile sharing your coordinates is the
+   building you're standing in; it's already the header. *"Grind House — here, 0
+   steps"* is noise dressed as navigation.
+3. **One entry per building, nearest face only.** A building spans several facade
+   tiles, so without a dedupe the same block is listed once per tile it touches —
+   reading as several different buildings and pushing the real ones off the list.
+
 ### A live panel becomes a SNAPSHOT, not a stream
 
 The fourth shape, and the one most likely to be got wrong by translating a panel
@@ -361,11 +398,9 @@ Still wanting a character board at : **splice/cook** (deeply
 canvas-coupled — its update functions draw, so a skin seam there is a real
 refactor rather than the five-line change it was elsewhere) and **fishing**
 (two-stage: the cast chooses the catch server-side, so its log-rung path needs
-plugin-side work rather than the shared fork). Outstanding panels: **map/minimap** — the last
-one, and the genuinely hard one (its value is the OVERVIEW, and an ASCII overview
-at the tablet map's zoom levels is a real rendering problem, not a translation).
-The TV gameday sub-screen is still panel-only, which is a degradation rather than
-a hole: the commentary and the score line carry the game. All five puzzle minigames
+plugin-side work rather than the shared fork). Panels: **all done.** The TV gameday sub-screen is still
+panel-only, which is a degradation rather than a hole — the commentary and the
+score line carry the game. All five puzzle minigames
 share one payload contract (`{skill, difficulty, deviceName, resolveCmd, id}` →
 `<resolveCmd> <id> <0|1>`) and run entirely client-side once opened, so a text
 equivalent needs **no new server protocol** — one fork helper and a second renderer

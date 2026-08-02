@@ -1,5 +1,7 @@
 import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
+import { renderMapBriefing, renderMapChart } from '../map-text.js';
+import { loggedPanelsSync, textMinigamesSync } from '../presentation.js';
 import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, doorOnLink, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, frontDoorOf, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, tileIconSvg, buildingEntranceDir, interiorExitDirs, interiorOpenDirs, facadeStreetTile, applyMinimapVisibility, specOf, persistableZone } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
@@ -1028,6 +1030,11 @@ export function buildMapPayload(player, arg = '') {
 
 function cmdMap(player, args = []) {
   const arg = Array.isArray(args) ? (args[0] || '') : '';
+  // The two text rungs want genuinely different maps — the only surface where that
+  // is true. A character grid is still a visual-spatial artefact: fine to glance
+  // at, close to useless read aloud. See server/engine/map-text.js.
+  if (loggedPanelsSync(player)) return { type: 'output', message: renderMapBriefing(player) };
+  if (textMinigamesSync(player)) return { type: 'output', message: renderMapChart(player) };
   return { type:'map', ...buildMapPayload(player, arg) };
 }
 

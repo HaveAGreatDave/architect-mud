@@ -4766,6 +4766,38 @@ removeLivePlayer(P.id);
 //
 // Left this to the very end so a mid-suite crash can't wipe a fixture a later
 // suite still needs. Local-only in practice: CI runs against a throwaway DB.
+// ── The map, written out ─────────────────────────────────────────────────────
+// THE ONE SURFACE WHERE THE TWO TEXT RUNGS NEED DIFFERENT THINGS. A character
+// grid is still a visual-spatial artefact: fine to glance at, close to useless
+// read aloud. So  gets a chart and  gets a briefing — where you
+// are, what each exit leads to BY NAME, and what is near with a bearing.
+//
+// Nothing exercised  before this, which is how an unimported symbol in
+// cmdMap survived a full green run.
+{
+  const { _test: mt, renderMapBriefing, renderMapChart } = await import('../server/engine/map-text.js');
+
+  // grid_y increases SOUTHWARD, so north is −dy. Getting this backwards would
+  // send every listener the wrong way.
+  check('map: north is negative dy', mt.bearing(0, -3) === 'north', mt.bearing(0, -3));
+  check('map: south is positive dy', mt.bearing(0, 3) === 'south', mt.bearing(0, 3));
+  check('map: east is positive dx', mt.bearing(4, 0) === 'east', mt.bearing(4, 0));
+  check('map: diagonals compound', mt.bearing(3, -3) === 'north-east', mt.bearing(3, -3));
+  // A bearing that over-specifies is worse than one that rounds honestly.
+  check('map: a near-cardinal bearing rounds to the cardinal',
+    mt.bearing(1, -9) === 'north', mt.bearing(1, -9));
+  check('map: standing still is here, not a direction', mt.bearing(0, 0) === 'here');
+
+  // A map render must never be able to take the process down. This block runs
+  // after the engine suite tears its fake player down, which is exactly how the
+  // crash was found: renderMapBriefing(null) threw and killed the whole run.
+  let threw = null;
+  try { renderMapBriefing(null); renderMapChart(null); renderMapBriefing({}); }
+  catch (e) { threw = e.message; }
+  check('map: rendering with no player returns prose rather than throwing', threw === null, threw);
+  check('map: …and says so plainly', /nowhere/i.test(renderMapBriefing(null)), renderMapBriefing(null));
+}
+
 await sweepOrphanedPlayerRows();
 stopAll();
 
