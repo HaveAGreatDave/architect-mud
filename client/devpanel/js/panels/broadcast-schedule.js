@@ -31,8 +31,9 @@ const SCHED_SNAP        = 1800;
 const SCHED_H           = 72;
 
 // Channel 0 is the VCR input on the back of the set, not a station: every deck in
-// the world points at that one row, so it has no timetable to author. It's listed
-// so an author can see it exists, and refuses the timeline when picked.
+// the world points at that one row, so it has no timetable to author. It's hidden
+// from this screen entirely (see renderSchedulePanel); the render guard below stays
+// as a belt-and-braces refusal in case one ever reaches the timeline.
 function _schedIsDeckInput(ch) { return Number(ch?.number) === 0; }
 
 // ── Day scope ────────────────────────────────────────────────────────────────
@@ -115,11 +116,14 @@ function _schedFmtTime(sec) {
 // ── Panel entry ──────────────────────────────────────────────────────────────
 
 async function renderSchedulePanel(data) {
-  _schedChannels   = Array.isArray(data?.channels)   ? data.channels   : [];
+  // Channel 0 (the VCR deck input) carries no schedule, so it's dropped here rather
+  // than listed-and-refused — nothing on this screen can do anything with it.
+  _schedChannels   = Array.isArray(data?.channels)   ? data.channels.filter(c => !_schedIsDeckInput(c)) : [];
   _schedBroadcasts = Array.isArray(data?.broadcasts) ? data.broadcasts : [];
   _schedNpcs       = Array.isArray(data?.npcs)       ? data.npcs       : [];
 
-  if (!_schedChannelId && _schedChannels.length) _schedChannelId = _schedChannels[0].id;
+  const stillThere = _schedChannels.some(c => c.id === _schedChannelId);
+  if (!stillThere && _schedChannels.length) _schedChannelId = _schedChannels[0].id;
 
   const panel = document.getElementById('list-panel');
   panel.innerHTML = `

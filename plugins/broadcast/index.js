@@ -7756,7 +7756,12 @@ export const routeHandler = async (path, method, body, auth) => {
           const { rows: names } = await query(`SELECT id, name, category FROM media_broadcasts WHERE id = ANY($1)`, [bcIds]);
           for (const b of names) nameMap[b.id] = b;
         }
-        return { status: 200, body: result.map(r => ({ ...r, broadcast_name: nameMap[r.broadcast_id]?.name || r.broadcast_id, broadcast_category: nameMap[r.broadcast_id]?.category || 'general' })) };
+        // A ghost slot means "this cassette is out of the deck, hold its schedule for
+        // when it comes back". If the broadcast itself has been DELETED it can never
+        // come back, so the saved slot is junk — drop it rather than show an author a
+        // dashed block named after a raw id they can do nothing about.
+        const live = result.filter(r => nameMap[r.broadcast_id]);
+        return { status: 200, body: live.map(r => ({ ...r, broadcast_name: nameMap[r.broadcast_id].name, broadcast_category: nameMap[r.broadcast_id].category || 'general' })) };
       }
 
       // Discard a ghost (ejected) slot — forget the saved schedule for a cassette
