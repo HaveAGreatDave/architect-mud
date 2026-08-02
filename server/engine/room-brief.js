@@ -75,13 +75,42 @@ const KEEP = [
 // newline, so it shares a line with room-desc and goes with it either way. That
 // is the right answer: it is prose about the room, identical every visit. The
 // plain Furniture list (`furniture-label`) is a separate line and survives.
-const DROP = ['room-desc', 'room-furniture', 'msg-ambient', 'room-furn-secs'];
+const DROP = ['room-desc', 'room-furniture', 'msg-ambient'];
 
 const classesOf = (line) => {
 	const out = [];
 	for (const m of line.matchAll(/class="([^"]*)"/g)) out.push(...m[1].split(/\s+/));
 	return out;
 };
+
+// ── Furniture sections are flattened, not dropped ────────────────────────────
+// A room with enough furniture sections it into derived facet groups — Seating:,
+// Storage:, Tools: (docs/reference/item-facets.md). Those groups are a way of
+// making a long list SCANNABLE, which is a property of a pane you look at. In a
+// chronological log they are three labels and three line breaks carrying the
+// information one comma-separated line already carries, so brief flattens them
+// back to a single `Furniture:` row. Every object survives; only the grouping goes.
+//
+// ⚠ This must be a FLATTEN, never a drop. describe.js emits the sections as a
+// `<div>` with NO leading newline, so the div shares a line with whatever came
+// before it — dropping that line would take the furniture AND the row above it
+// with it. That was a real bug here before this function existed in this shape.
+function flattenFurnitureSections(html) {
+	return html.replace(/<div class="room-furn-secs">([\s\S]*?)<\/div>/g, (_, inner) => {
+		const items = [...inner.matchAll(/<span class="furn-sec-items">([\s\S]*?)<\/span>/g)]
+			.map((m) => m[1].trim())
+			.filter(Boolean);
+		if (!items.length) return '';   // shape not understood — drop the empty wrapper only
+		return `\n<span class="furniture-label">Furniture:</span> ${items.join(', ')}`;
+	});
+}
+
+// The `Installed:` row — utility devices bolted to the room (junction boxes,
+// meters). It shares the `furniture-label` CLASS with `Furniture:`, so it can only
+// be told apart by its label text. It is a fixture of the room, identical every
+// visit, and each entry repeats the room's own name, which makes it the single
+// noisiest thing in a logged room. An explicit `look` still shows it in full.
+const isInstalledRow = (line) => /<span class="furniture-label">Installed:<\/span>/.test(line);
 
 /**
  * Abbreviate a rendered room description.
@@ -92,12 +121,17 @@ export function briefRoom(html) {
 	// A description with no zone name is not a shape we understand — leave it be.
 	if (!html.includes('zone-name')) return html;
 
-	const lines = html.split('\n');
+	const lines = flattenFurnitureSections(html).split('\n');
 	const kept = [];
 	for (const line of lines) {
 		if (!line.trim()) continue;                 // blank spacers; re-added below
+		if (isInstalledRow(line)) continue;
 		const cls = classesOf(line);
-		if (cls.some((c) => DROP.includes(c))) continue;
+		// KEEP beats DROP on a mixed line. describe.js appends several sections with
+		// no leading newline, so two sections routinely share one line — and when
+		// they do, keeping too much is a non-event while dropping too much loses a
+		// room's contents. The bias is deliberate and must not be inverted.
+		if (cls.some((c) => DROP.includes(c)) && !cls.some((c) => KEEP.includes(c))) continue;
 		if (!cls.length) {
 			// Unclassed text. This is the prose case when describeZone emits the
 			// description bare, so drop it ONLY when we have already kept the zone

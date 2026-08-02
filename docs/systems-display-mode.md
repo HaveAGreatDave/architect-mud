@@ -175,6 +175,32 @@ warning and light-level line. What goes is what is a property of the room itself
 therefore identical to last time: the prose paragraph, the woven-furniture second
 beat, ambient flavour. That is precisely why a brief is safe to repeat.
 
+Two refinements on top of that rule, both about a log being *read* rather than
+*scanned*:
+
+- **Facet sections are FLATTENED, not dropped.** A room with enough furniture splits
+  it into derived groups — `Seating:`, `Storage:`, `Tools:`
+  ([item-facets.md](reference/item-facets.md)). Grouping is what makes a long list
+  scannable, which is a property of a pane you *look at*; in a chronological log it
+  is three labels and three line breaks carrying what one comma-separated row
+  already carries. So brief collapses them to a single `Furniture:` line. Every
+  object survives — only the grouping goes.
+
+  ⚠ **It must be a flatten, never a drop.** describe.js emits the sections as a
+  `<div>` with **no leading newline**, so they share a line with the prose
+  paragraph — and a drop-by-class rule takes the furniture *and* the prose's line
+  with it. That was a real bug; it is pinned by a regress case.
+
+- **The `Installed:` row goes.** Utility fixtures bolted to the room — junction
+  boxes, meters. Identical every visit, and every entry repeats the room's own name,
+  which makes it the noisiest thing in a logged room. It shares the
+  `furniture-label` class with `Furniture:`, so it is matched by its label **text**.
+
+Relatedly: **KEEP beats DROP on a mixed line.** Several sections are appended with
+no leading newline, so two of them routinely share one line. When they do, keeping
+too much is a non-event while dropping too much loses a room's contents — the bias
+is deliberate and must not be inverted.
+
 *If you add a dynamic section to `describeZone`, add its class to `KEEP` — otherwise a
 `log`-rung player quietly stops being told about it.*
 

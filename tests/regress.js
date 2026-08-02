@@ -4859,6 +4859,29 @@ removeLivePlayer(P.id);
   check('brief: …the second is not', markSeenZone(p, 'z1') === false);
   check('brief: …and a different room is full again', markSeenZone(p, 'z2') === true);
   check('brief: a player with no zone is never abbreviated', markSeenZone(p, null) === true);
+
+  // ── Facet sections are FLATTENED, never dropped ────────────────────────────
+  // describe.js emits the sections as a <div> with NO leading newline, so they
+  // share a line with the prose paragraph. A drop-by-class rule takes the
+  // furniture AND the prose's line with it — this is that bug, pinned.
+  const SECTIONED = [
+    '<span class="zone-name">The Scanline</span>',
+    '<span class="room-desc">Rain sheets off the awnings.</span><div class="room-furn-secs">' +
+      '<span class="furniture-label">Seating:</span><span class="furn-sec-items">a steel stool</span>' +
+      '<span class="furniture-label">Storage:</span><span class="furn-sec-items">a parts bin</span></div>',
+    '<span class="furniture-label">Installed:</span> Junction Box (online)',
+    '<span class="exits-row"><span class="exits-label">Exits:</span> north</span>',
+  ].join('\n');
+  const sb = briefRoom(SECTIONED);
+  check('brief: sectioned furniture survives sharing a line with the prose',
+    sb.includes('a steel stool') && sb.includes('a parts bin'), sb);
+  check('brief: …flattened to one Furniture row, not per-category',
+    !/Seating:/.test(sb) && !/Storage:/.test(sb) && /Furniture:/.test(sb), sb);
+  check('brief: …and the prose on that same line still goes',
+    !/awnings/.test(sb), sb);
+  // Utility fixtures: identical every visit and each entry repeats the room name.
+  check('brief: the Installed row is dropped', !/Installed:/.test(sb), sb);
+  check('brief: …but Exits, which share its class, are not', /Exits:/.test(sb), sb);
 }
 
 await sweepOrphanedPlayerRows();
