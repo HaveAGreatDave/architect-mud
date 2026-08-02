@@ -26,8 +26,20 @@
 // the good data. A migration that destroys its own output when run twice is not a
 // migration. A tile with no lifted config and an existing row is now left alone.
 //
-// Local:  node scripts/migrate-airfields-to-table.mjs
-// Prod:   node --env-file=.env.prod scripts/migrate-airfields-to-table.mjs
+// ORDER MATTERS ON PROD, and it is the opposite of what it looks like. Prod gets
+// SCHEMA_SQL from the CODEX deploy, never from db:schema — so the `airfields` table
+// does not exist there until this branch is pushed. The same deploy also INSERTs the
+// five rows out of content/airfields/, because the additive import creates rows it has
+// never seen. So the push alone leaves prod correct: table, rows, and code agreeing.
+//
+// What this script does for prod is only the STRIP half — clearing the twelve lifted
+// keys off the zone rows, which the additive deploy can never do. Nothing reads them
+// after the deploy, so it is hygiene rather than correctness, and it can run whenever.
+//
+// Local:  npm run db:schema  (creates the table)  then
+//         node scripts/migrate-airfields-to-table.mjs
+// Prod:   push to main FIRST, then
+//         node --env-file=.env.prod scripts/migrate-airfields-to-table.mjs
 import fs from 'fs';
 import path from 'path';
 import { query } from '../server/models/db.js';
@@ -37,6 +49,19 @@ import { CONTENT_DIR, canonicalJson } from './content/lib.mjs';
 const LIFTED = ['airfield_name', 'airfield_charter', 'airfield_rental', 'airfield_dealer',
   'airfield_fuel', 'airfield_fuels', 'airfield_vtol_only', 'charter_vtol_only',
   'airfield_residents_only', 'airfield_lawless', 'airfield_theme', 'airfield_surface'];
+
+// No table means the schema half hasn't landed on this database yet. Say which step is
+// missing rather than letting a 42P01 stack trace be the whole answer — on prod the
+// answer is "push first", which is not what a missing-relation error looks like.
+const { rows: hasTable } = await query(
+  `SELECT to_regclass('public.airfields') IS NOT NULL AS ok`
+);
+if (!hasTable[0]?.ok) {
+  console.error('✗ no `airfields` table on this database.');
+  console.error('  local: run `npm run db:schema` first.');
+  console.error('  prod:  push to main first — CI applies SCHEMA_SQL and imports content/airfields/.');
+  process.exit(1);
+}
 
 // ── Gather: the field tile, plus any tile linked to it that carries lifted config ──
 const { rows: fields } = await query(
