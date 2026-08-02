@@ -12,10 +12,6 @@
     "north": "zone_echelon_landing"
   },
   "flags": {
-    "airfield_fuels": [
-      "avgas",
-      "jet"
-    ],
     "always_lit": true,
     "building_name": "The Echelon",
     "echelon": true,

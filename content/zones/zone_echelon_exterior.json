@@ -13,10 +13,7 @@
     "in": "zone_echelon_foyer"
   },
   "flags": {
-    "airfield_charter": true,
     "airfield_id": "echelon_helipad",
-    "airfield_name": "The Echelon — Helipad",
-    "charter_vtol_only": true,
     "district": "water",
     "echelon": true,
     "hangar_interior_zone": "zone_echelon_helipad",

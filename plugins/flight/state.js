@@ -8,7 +8,7 @@
 // engine-facing seam the whole plugin shares.
 
 import { query } from '../../server/models/db.js';
-import { getZone, getAllZones, getLivePlayer, getMinimapData, buildingEntranceDir, getRegion, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
+import { getZone, getAllZones, getLivePlayer, getMinimapData, buildingEntranceDir, getRegion, addPlayerToZone, removePlayerFromZone, airfieldOf } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { biomeOf, districtBiome } from './biomes.js';
 import { normalizeLivery } from './livery.js';
@@ -325,7 +325,7 @@ export function nearestAirfield(x, y, opts = {}) {
     const z = getZone(cell.id);
     if (z?.grid_x == null) continue;
     const dist = Math.max(Math.abs(z.grid_x - x), Math.abs(z.grid_y - y));
-    if (!best || dist < best.dist) best = { id: cell.id, name: cell.flags.airfield_name || cell.name, dist };
+    if (!best || dist < best.dist) best = { id: cell.id, name: fieldName(cell), dist };
   }
   return best;
 }
@@ -342,7 +342,7 @@ export function listAirfields(opts = {}) {
     if (opts.needsRunway && vtolOnlyField(cell)) continue;
     const z = getZone(cell.id);
     if (z?.grid_x == null) continue;
-    out.push({ id: cell.id, name: cell.flags.airfield_name || cell.name, gx: z.grid_x, gy: z.grid_y });
+    out.push({ id: cell.id, name: fieldName(cell), gx: z.grid_x, gy: z.grid_y });
   }
   return out;
 }
@@ -366,11 +366,11 @@ export function yachtFieldNear(x, y, range = YACHT_LAND_RANGE) {
 
 // The terrain "look" of a parked field, so the client can paint the right airport
 // backdrop out the canopy (city skyline, dock cranes, wasteland rock, …). Derived
-// from the zone — an explicit `flags.airfield_theme` wins, otherwise inferred from
+// from the zone — an explicit `theme` on the field wins, otherwise inferred from
 // the zone id so every field themes itself without extra authoring.
 export function groundTheme(zone) {
-  const f = zone?.flags || {};
-  if (f.airfield_theme) return f.airfield_theme;
+  const theme = airfieldOf(zone)?.theme;
+  if (theme) return theme;
   const id = (zone?.id || '').toLowerCase();
   if (/slag|ashway|foundry|smelt/.test(id)) return 'slag';
   if (/waste|redline|red_|ashreach|cinder|scald|slop|ruin/.test(id)) return 'wastes';
@@ -379,6 +379,17 @@ export function groundTheme(zone) {
   if (/civ|city|mq_|downtown|threshold|outskirt|residential|gov|commons|market|plaza|precinct|steps|vellum/.test(id)) return 'city';
   return 'default';
 }
+
+// What to CALL a field. Re-exported from world.js so flight code has one import for
+// the whole airfield seam, and paired with fieldName because `airfield_name || name`
+// was written out at fourteen sites — which is how a display string ended up doing
+// predicate duty in mapPoi ("has a name" standing in for "is an airfield").
+//
+// The tile's own name is the fallback, not the row's: a runway tile is called
+// "Runway" and the field it belongs to is "Coldwater Regional", so a tile with no
+// airfield row still reads sensibly instead of rendering null.
+export { airfieldOf };
+export function fieldName(zone) { return airfieldOf(zone)?.name || zone?.name || null; }
 
 // The exterior airfield ("ramp") zone for the player's location — whether they're
 // standing on the ramp tile itself (flags.airfield_id) or inside its walk-in
@@ -392,10 +403,10 @@ export function fieldFor(player) {
     : z.flags?.hangar_ramp ? getZone(z.flags.hangar_ramp)                  // inside the hangar → its ramp
     : null;
   if (!f) return null;
-  // A PRIVATE field — a building's own pad (`airfield_residents_only: "<building>"`) —
-  // serves only that building's residents. Reporting "no field here" for everyone else
-  // gates the whole services surface in one place: bay, rent/store, refuel, tuning.
-  const priv = f.flags?.airfield_residents_only;
+  // A PRIVATE field — a building's own pad (`residents_only: "<building>"`) — serves
+  // only that building's residents. Reporting "no field here" for everyone else gates
+  // the whole services surface in one place: bay, rent/store, refuel, tuning.
+  const priv = airfieldOf(f)?.residents_only;
   if (priv && !isResidentOf(player, priv)) return null;
   return f;
 }
@@ -475,15 +486,16 @@ export function inHangarInterior(player) {
 
 // A VTOL-only field (a helipad): no runway, so only rotorcraft/VTOL can work out of it.
 // Gates acquisition (buy/rent) AND charter to `takeoff_mode === 'vtol'` craft. The
-// canonical flag is `airfield_vtol_only`; `charter_vtol_only` is the older Echelon-pad
-// flag, kept working here so both read as the same thing.
+// canonical column is `vtol_only`; `charter_vtol_only` is the older Echelon-pad rule
+// (only her CHARTER is VTOL-restricted), kept working here so both read as the same
+// thing at this seam.
 // Can this airframe work out of a pad with no runway? Rotorcraft and anything else marked
 // takeoff_mode 'vtol'. Everything else needs tarmac.
 export function craftIsVtol(live) { return (live?.type?.takeoff_mode || '') === 'vtol'; }
 
 export function vtolOnlyField(field) {
-  const f = field?.flags || {};
-  return !!(f.airfield_vtol_only || f.charter_vtol_only);
+  const a = airfieldOf(field);
+  return !!(a?.vtol_only || a?.charter_vtol_only);
 }
 
 // The airframes a field may sell or rent. SSOT for both the text desk
@@ -717,13 +729,12 @@ function mapWindow(a, radius = 36) {
       const road = isRoadCell(cell) ? 1 : 0;
       const kind = cell.flags?.airfield_id ? 'field' : cell.flags?.airspace_restricted ? 'nofly' : 'land';
       // Surface look ('dust' = graded dirt — wheel ruts, no paint/PAPI/edge lights). On a field
-      // tile an explicit `flags.airfield_surface` wins, else a lawless frontier strip defaults to
-      // dust (paved regional airports leave it undefined). A `dirt_road` terrain tile — including
+      // tile the airfield's own `surface` wins, else a lawless frontier strip defaults to dust
+      // (paved regional airports leave it undefined). A `dirt_road` terrain tile — including
       // a frontier runway centreline painted as dirt_road — carries the same dust look so the
       // road pass renders it as a packed-dirt track rather than asphalt.
-      const ft = (kind === 'field'
-        ? (cell.flags?.airfield_surface || (cell.flags?.airfield_lawless ? 'dust' : undefined))
-        : undefined)
+      const af = kind === 'field' ? airfieldOf(cell) : null;
+      const ft = (af ? (af.surface || (af.lawless ? 'dust' : undefined)) : undefined)
         || (cell.flags?.terrain === 'dirt_road' ? 'dust' : undefined);
       // Building tiles carry their building_type AND their name so the windshield can
       // render either a dedicated per-building model (keyed off the name) or, failing
@@ -821,7 +832,7 @@ function nearestField(x, y) {
     const d = Math.hypot(z.grid_x - x, z.grid_y - y);
     if (d < bestD) { bestD = d; best = z; }
   }
-  return best ? { name: best.flags.airfield_name || best.name, bearing: Math.round(bearingDeg(x, y, best.grid_x, best.grid_y)), dist: Math.round(bestD) } : null;
+  return best ? { name: fieldName(best), bearing: Math.round(bearingDeg(x, y, best.grid_x, best.grid_y)), dist: Math.round(bestD) } : null;
 }
 
 // All airfields within FIELD_TAG_RANGE tiles of a coord, each as a bearing tag the
@@ -835,7 +846,7 @@ function nearbyFields(x, y) {
     const d = Math.hypot(z.grid_x - x, z.grid_y - y);
     // gx/gy let the client project a live target ring at the field's spot; id keeps the
     // player's chosen target stable across the list re-sorting each tick.
-    all.push({ id: z.flags.airfield_id, name: z.flags.airfield_name || z.name, gx: z.grid_x, gy: z.grid_y,
+    all.push({ id: z.flags.airfield_id, name: fieldName(z), gx: z.grid_x, gy: z.grid_y,
       bearing: Math.round(bearingDeg(x, y, z.grid_x, z.grid_y)), dist: Math.round(d), _d: d });
   }
   all.sort((a, b) => a._d - b._d);
@@ -936,9 +947,9 @@ export function gaugePayload(live) {
     guide: (a.airborne && fuelPct < 30) ? nearestField(a.grid_x, a.grid_y) : null,
     // Parked: the terrain look of the field, for the out-the-canopy airport scene.
     // `helipad` swaps the out-the-canopy departure STRIP for a circle-H pad. Keyed
-    // off the same vtolOnlyField() the rosters use, so any field flagged
-    // airfield_vtol_only renders correctly without extra art data.
-    ground: a.airborne ? null : { theme: groundTheme(parkedZone), field: parkedZone?.flags?.airfield_name || parkedZone?.name || null, helipad: vtolOnlyField(parkedZone) },
+    // off the same vtolOnlyField() the rosters use, so any field marked
+    // vtol_only renders correctly without extra art data.
+    ground: a.airborne ? null : { theme: groundTheme(parkedZone), field: fieldName(parkedZone), helipad: vtolOnlyField(parkedZone) },
     sky: skyState(),
     // Avionics dead (EMP hazard). The client blanks the gauges off this rather
     // than deriving it — the server owns whether your instruments work.
@@ -1130,7 +1141,7 @@ export function contextPayload(live) {
     map: mapWindow(a), mapX: a.grid_x, mapY: a.grid_y, sky: skyState(),   // window centre → client keeps map+centre paired (no recenter pop)
     // Overflight readout: the real place under the craft — a named building wins over the
     // raw tile name, so you read "Embassy Hotel & Bar", not the street cell it sits on.
-    surface: surfaceZone?.flags?.airfield_name || surfaceZone?.flags?.building_name || surfaceZone?.name || 'open air',
+    surface: airfieldOf(surfaceZone)?.name || surfaceZone?.flags?.building_name || surfaceZone?.name || 'open air',
     biomeBelow: districtBiome(surfaceAt(a.grid_x, a.grid_y)),
     minimap: (() => { const b = surfaceAt(a.grid_x, a.grid_y); return b ? getMinimapData(b.id, 3) : null; })(),
     fields: nearbyFields(a.grid_x, a.grid_y),   // airport bearing tags for the heading tape

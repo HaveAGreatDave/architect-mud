@@ -17,7 +17,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, liveAircraft, out, persist, fieldFor as fieldOf, isContinuous, pushContext, effLoadout, installedKits, BAND_BURN, REFUEL_PRICE_PER_UNIT, rentalOpFee } from './state.js';
+import { getZone, liveAircraft, out, persist, fieldFor as fieldOf, isContinuous, pushContext, effLoadout, installedKits, BAND_BURN, REFUEL_PRICE_PER_UNIT, rentalOpFee, airfieldOf, fieldName } from './state.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { getZoneNpcs } from '../../server/engine/world.js';
 import { teachVerb } from '../../server/engine/messaging.js';
@@ -86,8 +86,8 @@ export async function topUp(fieldZone, fields) {
   const have = rows[0]?.n || 0;
   const others = fields.filter(f => f.id !== fieldZone.id && f.grid_x != null);
   if (!others.length) return;
-  const lawless = !!fieldZone.flags?.airfield_lawless;
-  const lawlessDests = others.filter(f => f.flags?.airfield_lawless);
+  const lawless = !!airfieldOf(fieldZone)?.lawless;
+  const lawlessDests = others.filter(f => airfieldOf(f)?.lawless);
   const templates = await loadTemplates();
   const legalTemplates = templates.filter(t => t.meta?.legal);
   const illegalTemplates = templates.filter(t => !t.meta?.legal);
@@ -107,11 +107,11 @@ export async function topUp(fieldZone, fields) {
     const dist = cheb(fieldZone.grid_x, fieldZone.grid_y, dest.grid_x, dest.grid_y) || 1;
     const wMin = m.wMin || 40, wMax = Math.max(wMin, m.wMax || wMin);
     const weight = wMin + Math.floor(Math.random() * (wMax - wMin + 1));
-    const risk = Math.min(5, 1 + Math.floor(dist / 4) + (m.riskBase || 0) + ((dest.flags?.airfield_lawless) ? 1 : 0));
+    const risk = Math.min(5, 1 + Math.floor(dist / 4) + (m.riskBase || 0) + (airfieldOf(dest)?.lawless ? 1 : 0));
     const names = Array.isArray(m.names) && m.names.length ? m.names : ['a shipment'];
     const cargoName = pick(names);
     const deadlineMins = m.deadlineMins || 20;
-    const destName = dest.flags?.airfield_name || dest.name;
+    const destName = fieldName(dest);
     const quoted = estimateContractPayout({ type: GENERIC_TYPE, rental: true, dist, weight, deadlineMins, riskBase: risk });
 
     await query(
@@ -706,13 +706,13 @@ async function cmdLoadCargo(args, raw, player) {
   }
   if (isContinuous(live)) pushContext(live);
 
-  const destName = getZone(dest)?.flags?.airfield_name || getZone(dest)?.name || dest;
+  const destName = fieldName(getZone(dest)) || dest;
   const weight = loaded.reduce((s, d) => s + d.weight_kg, 0);
   return { type: 'output', message: `<span class="item-grant">${loaded.map(d => d.label).join(', ')} loaded (${weight}kg, ${loaded.length} load${loaded.length > 1 ? 's' : ''}). Fly it to <b>${destName}</b> — the last leg home is on the courier once it's on the ground there.</span>` };
 }
 
 // ── Customs scan (contraband air cargo) ────────────────────────────────────────
-// Landing a hold of raw drugs at a POLICED field (any airfield NOT flags.airfield_lawless
+// Landing a hold of raw drugs at a POLICED field (any airfield whose row is NOT lawless
 // — so the Reach's Buzzard strip is a safe base) triggers a customs scan: a Deception
 // check whose difficulty climbs with the purest drug AND the size of the haul. Pass = it
 // lands as normal; fail = the inspector flags you and you choose (bribe or bolt). A
@@ -794,7 +794,7 @@ export async function checkCargoDropDelivery(player, live, fieldZoneId) {
   if (!fence.length) return;
 
   // Contraband: a lawless field waves it through; a policed one runs customs.
-  const policed = !getZone(fieldZoneId)?.flags?.airfield_lawless;
+  const policed = !airfieldOf(fieldZoneId)?.lawless;
   if (!policed) { await deliverAllFence(player, live, fence); return; }
 
   // Legal crop is the entry rung of the ladder and it is genuinely legal: a bale of

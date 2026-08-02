@@ -109,14 +109,14 @@
       "note": "KNOWN GAP: boards a parked aircraft row (aircraft.parked_zone_id). Aircraft are DB rows, not furniture/items/NPCs, so they can never appear in an examine Actions line — discovered via airfield look/ambience text."
     },
     "buy": {
-      "discoverVia": "zone:airfield_dealer",
+      "discoverVia": "zone:airfield_id",
       "exposed": false,
-      "note": "KNOWN GAP: zone-flag gate, not an examinable object."
+      "note": "KNOWN GAP: gated on the airfield's `dealer` column, reached from the tile's airfield_id. Not an examinable object."
     },
     "charter": {
-      "discoverVia": "zone:airfield_charter",
+      "discoverVia": "zone:airfield_id",
       "exposed": false,
-      "note": "KNOWN GAP: zone-flag gate. Opens the visual charter dialog (charter_open push)."
+      "note": "KNOWN GAP: gated on the airfield's `charter` column, reached from the tile's airfield_id. Opens the visual charter dialog (charter_open push)."
     },
     "charterinfo": {
       "discoverVia": "none",

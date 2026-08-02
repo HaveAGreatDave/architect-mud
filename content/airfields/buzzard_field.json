@@ -1,0 +1,14 @@
+{
+  "charter": true,
+  "charter_vtol_only": false,
+  "dealer": false,
+  "fuels": null,
+  "id": "buzzard_field",
+  "lawless": true,
+  "name": "Buzzard Field",
+  "rental": false,
+  "residents_only": null,
+  "surface": "dust",
+  "theme": "wastes",
+  "vtol_only": false
+}

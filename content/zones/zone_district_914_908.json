@@ -12,15 +12,7 @@
     "south": "zone_district_914_909"
   },
   "flags": {
-    "airfield_fuel": true,
-    "airfield_fuels": [
-      "avgas",
-      "jet"
-    ],
     "airfield_id": "af_solenne",
-    "airfield_name": "Solenne Sky Pad",
-    "airfield_residents_only": "Solenne Residences",
-    "airfield_vtol_only": true,
     "building_name": "Solenne Residences",
     "building_type": "apartment",
     "district": "wasteland",

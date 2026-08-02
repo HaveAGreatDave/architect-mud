@@ -1,0 +1,18 @@
+{
+  "charter": true,
+  "charter_vtol_only": false,
+  "dealer": true,
+  "fuels": [
+    "avgas",
+    "jet",
+    "biofuel"
+  ],
+  "id": "af_regional",
+  "lawless": false,
+  "name": "Coldwater Regional",
+  "rental": true,
+  "residents_only": null,
+  "surface": null,
+  "theme": null,
+  "vtol_only": false
+}

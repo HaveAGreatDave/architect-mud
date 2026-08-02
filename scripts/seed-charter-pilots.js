@@ -18,7 +18,7 @@ const PILOTS = [
 for (const p of PILOTS) {
   const exists = await query('SELECT id FROM npcs WHERE id=$1', [p.id]);
   if (exists.rows.length) { console.log(`SKIP  ${p.id}`); continue; }
-  const z = await query("SELECT flags->>'airfield_name' af FROM zones WHERE id=$1", [p.field]);
+  const z = await query("SELECT flags->>'airfield_id' af FROM zones WHERE id=$1 AND flags ? 'airfield_id'", [p.field]);
   if (!z.rows.length) { console.warn(`SKIP ${p.id}: field ${p.field} missing`); continue; }
   const flags = { personality: 'charter_pilot', charter_pilot: { field: p.field, shift_start: p.shift } };
   await query(

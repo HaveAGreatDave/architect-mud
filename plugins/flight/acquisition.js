@@ -5,7 +5,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, liveAircraft, persist, pushHud, sendToPlayer, REFUEL_PRICE_PER_UNIT, effStats, fieldFor as fieldOf, inHangarInterior, rentalOpFee, vtolOnlyField, acquirableTypes } from './state.js';
+import { getZone, liveAircraft, persist, pushHud, sendToPlayer, REFUEL_PRICE_PER_UNIT, effStats, fieldFor as fieldOf, inHangarInterior, rentalOpFee, vtolOnlyField, acquirableTypes, airfieldOf, fieldName } from './state.js';
 import { allExits } from '../../server/engine/exits.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
@@ -18,19 +18,16 @@ import { commands as commerceCommands } from '../commerce/index.js';
 const MAX_OWNED = 8;   // anti-clutter cap per player
 
 
-// Fuel types a field stocks (defaults to all if only the legacy bool is set).
-// The fuel bowser can be declared on the ramp OR on the walk-in hangar interior
-// (e.g. the Echelon's helipad, where the bowser is lashed to the deck) — if the
-// field zone itself stocks nothing, fall back to its linked interior's fuels.
+// Fuel types a field stocks — empty means it sells none.
+//
+// This used to read the ramp, then FALL BACK to the walk-in hangar interior, because
+// the bowser could be declared on either tile ("lashed to the deck" at the Echelon).
+// That fallback was the smear, not the fiction: it let the Echelon end up with a
+// fuels list on its interior and no fuel flag on its ramp while Solenne carried one
+// on both, and nothing could tell you which was intended. Fuel is a fact about the
+// FIELD, so it is one column now and there is nothing to fall back to.
 export function fieldStocks(zone) {
-  const of = (z) => {
-    const f = z?.flags || {};
-    if (Array.isArray(f.airfield_fuels)) return f.airfield_fuels;
-    return f.airfield_fuel ? ['avgas', 'jet', 'biofuel'] : [];
-  };
-  const own = of(zone);
-  if (own.length) return own;
-  return zone?.flags?.hangar_interior_zone ? of(getZone(zone.flags.hangar_interior_zone)) : [];
+  return airfieldOf(zone)?.fuels || [];
 }
 
 // A field's acquirable roster — see state.acquirableTypes (shared with the
@@ -93,8 +90,8 @@ async function walkIntoHangar(player, field) {
 
 async function acquire(args, raw, player, kind) {
   const field = fieldOf(player);
-  const flagKey = kind === 'buy' ? 'airfield_dealer' : 'airfield_rental';
-  if (!field || !field.flags[flagKey])
+  const desk = kind === 'buy' ? 'dealer' : 'rental';
+  if (!airfieldOf(field)?.[desk])
     return { type: 'emote', message: `There's no ${kind === 'buy' ? 'aircraft dealer' : 'rental desk'} here.` };
   // The desk is INSIDE the hangar. Rather than refuse someone standing out on the
   // ramp (which is exactly where you are after a landing rollout, and where the
@@ -116,7 +113,7 @@ async function acquire(args, raw, player, kind) {
   if (!wanted) {
     const note = vtolOnlyField(field) ? ' <span class="text-dim">(helipad — VTOL only)</span>' : '';
     const lines = types.map(t => '· ' + typeLine(t, kind));
-    return { type: 'output', message: `<span class="text-cyan">${kind === 'buy' ? 'FOR SALE' : 'FOR RENT (self-flown)'} at ${field.flags.airfield_name || field.name}:</span>${note}\n${lines.join('\n')}` };
+    return { type: 'output', message: `<span class="text-cyan">${kind === 'buy' ? 'FOR SALE' : 'FOR RENT (self-flown)'} at ${fieldName(field)}:</span>${note}\n${lines.join('\n')}` };
   }
   const t = types.find(x => x.id === wanted || x.name.toLowerCase() === wanted || x.id.endsWith(wanted));
   if (!t) return { type: 'emote', message: `They don't ${kind} a "${wanted}" here. Type <b>${kind}</b> to see the list.` };
@@ -134,7 +131,7 @@ async function acquire(args, raw, player, kind) {
   const tailNum = `${kind === 'buy' ? '' : 'R-'}${(player.handle || 'PLT').slice(0, 3).toUpperCase()}${Math.floor(Math.random() * 900 + 100)}`;
   // A rental remembers the hangar/operator it came from so the cockpit registration certificate
   // can name it as the registered operator, even after the plane's flown off to another field.
-  const customData = kind === 'rent' ? { operator: field.flags.airfield_name || field.name } : {};
+  const customData = kind === 'rent' ? { operator: fieldName(field) } : {};
   await query(
     `INSERT INTO aircraft (id,type_id,name,owner_id,map_id,grid_x,grid_y,altitude_band,heading,parked_zone_id,fuel,engine_temp,rental,custom_data)
      VALUES ($1,$2,$3,$4,'map_world',$5,$6,'ground','n',$7,$8,20,$9,$10)`,
@@ -226,7 +223,7 @@ export async function refuelParked(player, craftId) {
 // `buy <type>` purchases; anywhere else it's ordinary shopping → commerce.
 async function cmdBuy(args, raw, player, broadcast) {
   const field = fieldOf(player);
-  if (field?.flags?.airfield_dealer) {
+  if (airfieldOf(field)?.dealer) {
     const types = await listTypes('buy', field);
     const wanted = (args[0] || '').toLowerCase();
     if (!wanted || types.some(t => t.id === wanted || t.name.toLowerCase() === wanted || t.id.endsWith(wanted)))
@@ -235,14 +232,14 @@ async function cmdBuy(args, raw, player, broadcast) {
   return commerceCommands.buy(args, raw, player, broadcast);
 }
 
-// `rent` router: at a field with a rental desk (`airfield_rental`), `rent` lists /
+// `rent` router: at a field with a rental desk (the airfield's `rental`), `rent` lists /
 // `rent <type>` rents a self-flown aircraft (owned by you, rental=1). Anywhere else
 // it falls through to the engine's apartment-rent builtin (return undefined).
 // Distinct from `charter` (an NPC-pilot ride, see charter.js) — a field can offer
 // one without the other, e.g. Buzzard Field charters but rents nothing.
 async function cmdRent(args, raw, player) {
   const field = fieldOf(player);
-  if (field?.flags?.airfield_rental) {
+  if (airfieldOf(field)?.rental) {
     const types = await listTypes('rent', field);
     const wanted = (args[0] || '').toLowerCase();
     if (!wanted || types.some(t => t.id === wanted || t.name.toLowerCase() === wanted || t.id.endsWith(wanted)))

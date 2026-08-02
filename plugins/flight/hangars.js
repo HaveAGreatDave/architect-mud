@@ -10,7 +10,7 @@ import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/s
 import { liveAircraft, persist, out, effStats, fieldFor as fieldOf,
   SEAT_KG, isConfigurable, loadoutBudget, effLoadout, sendToPlayer, skyState, inHangarInterior,
   FLIGHT_PACE, tuneRange, installedKits, KITS, perfAxes, parkAt, nearestAirfield, craftIsVtol, getZone,
-  detach, getLivePlayer, resetSurfaces, acquirableTypes } from './state.js';
+  detach, getLivePlayer, resetSurfaces, acquirableTypes, airfieldOf, fieldName } from './state.js';
 import { normalizeLivery, sanitizeLivery, signatureScore, describeExterior,
   paintCost, isPaintable, readSchemes, schemeOf,
   PATTERNS, FINISHES, UPHOLSTERY, DECALS, PRESETS } from './livery.js';
@@ -207,7 +207,7 @@ async function textHangarBay(player, field, selectId, opts) {
   if (opts.refreshOnly) return { type: 'noop' };
   const { rows: mine } = await query('SELECT id, name FROM hangars WHERE field_zone=$1 AND owner_id=$2', [field.id, player.id]);
   const craft = await buildCards(player, field);
-  const name = field.flags.airfield_name || field.name;
+  const name = fieldName(field);
   let msg = `<span class="text-cyan">HANGAR — ${name}</span>`
     + ` <span class="text-dim">(text display mode; Tablet → Settings → Display Mode to change)</span>`;
   msg += `\n<span class="furniture-label">Your bay:</span> `
@@ -224,7 +224,8 @@ async function textHangarBay(player, field, selectId, opts) {
     msg += `\n<span class="text-dim">Nothing of yours is here.</span>`;
   }
 
-  const canBuy = !!field.flags.airfield_dealer, canRent = !!field.flags.airfield_rental;
+  const af = airfieldOf(field);
+  const canBuy = !!af?.dealer, canRent = !!af?.rental;
   if (canBuy || canRent) {
     const types = await acquirableTypes(field);
     if (types.length) {
@@ -276,12 +277,13 @@ export async function pushHangarBay(player, selectId, opts = {}) {
   // held for them; clicking it embarks instead of opening the booking dialog.
   const parked = charterParkedAt(field.id);
   const charterWaiting = parked && parked.chartererId === player.id ? { destName: parked.destName } : null;
-  // Three independent desks: `airfield_dealer` sells, `airfield_rental` rents
-  // self-flown airframes, `airfield_charter` books an NPC-piloted ride. A field can
+  // Three independent desks on the airfield row: `dealer` sells, `rental` rents
+  // self-flown airframes, `charter` books an NPC-piloted ride. A field can
   // have any combination — the Echelon pad and Buzzard Field both charter without
-  // renting. (Rental used to be implied by `airfield_charter`, which made a
+  // renting. (Rental used to be implied by `charter`, which made a
   // charter desk impossible to open without also opening a rental counter.)
-  const canBuy = !!field.flags.airfield_dealer, canRent = !!field.flags.airfield_rental;
+  const af = airfieldOf(field);
+  const canBuy = !!af?.dealer, canRent = !!af?.rental;
   // ONE lot per airframe carrying BOTH prices — the client shows a single wireframe with a
   // Buy and a Rent button under it (each gated on afford + licence), instead of separate
   // buy/rent sections. Buy/Rent buttons still show only where the field offers that desk.
@@ -305,7 +307,7 @@ export async function pushHangarBay(player, selectId, opts = {}) {
   // command handler and null would read as an unhandled verb.
   if (player.current_zone !== askedFrom) return { type: 'noop' };
   sendToPlayer(player.id, { type: 'hangar_bay_open', data: {
-    field: field.flags.airfield_name || field.name,
+    field: fieldName(field),
     // Tells the client whether "Close" also has to walk the player back out to
     // the ramp (standing inside the walk-in hangar) or just dismisses the panel
     // (opened from the open ramp itself, where there's no interior to leave).
@@ -476,7 +478,7 @@ async function cmdHangar(args, raw, player) {
 
   if (sub === 'list') {
     const { rows: stored } = await query('SELECT a.name, t.name tname FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.hangar_id IN (SELECT id FROM hangars WHERE field_zone=$1 AND owner_id=$2)', [field.id, player.id]);
-    const head = `<span class="text-cyan">HANGARS — ${field.flags.airfield_name || field.name}:</span>`;
+    const head = `<span class="text-cyan">HANGARS — ${fieldName(field)}:</span>`;
     if (!mine.length) return { type: 'output', message: `${head}\nYou rent no hangar here. <span class="action-link" data-action="cmd" data-cmd="hangar rent">hangar rent</span> — ${200}c/period, and your craft is safe from thieves.` };
     const list = stored.length ? stored.map(s => `· ${s.tname} "${s.name}"`).join('\n') : '· (empty)';
     return { type: 'output', message: `${head}\nYour hangar (${mine[0].name}). Stored:\n${list}\n<span class="action-link" data-action="cmd" data-cmd="hangar store">hangar store</span> · <span class="action-link" data-action="cmd" data-cmd="hangar pull">hangar pull</span>` };

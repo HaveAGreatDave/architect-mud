@@ -650,6 +650,13 @@
       help: 'Scavenging-table id used for FISH here.' },
     mining_table_id: { label: 'Mining Table', shape: 'ref', refTable: 'scavenging_tables', scope: 'zone', group: 'Zone: Systems',
       help: 'Scavenging-table id used for MINE here.' },
+    // Grouped under Systems, not Flight, because it is a CITY OFFICE: the two rooms
+    // that carry it are Halcyon Assurance's claims and underwriting floors, nowhere
+    // near an airfield. It sat in "Zone: Flight" purely because aircraft are what it
+    // insures — which meant it was offered on every airfield tile and on no tile in
+    // the tower where you would actually place it.
+    insurance_desk: { label: 'Insurance Desk', shape: 'flag', scope: 'zone', group: 'Zone: Systems',
+      help: 'An aircraft-insurance counter. `insure` / `insurebind` work in this room. Halcyon Assurance runs the two that exist; binding is ALSO possible at an aircraft dealer, which is resolved from the airfield, not from this flag.' },
     checkpoint_cfg: { label: 'Checkpoint Config', shape: 'object', scope: 'zone', group: 'Zone: Systems',
       help: 'Security-checkpoint config object driving the checkpoint plugin: { guards, checks:[wanted|contraband], wantedMode:hard|bluff, and one entry predicate insideFlag|fromFlag|fromDistrict }.' },
     gov_enclave: { label: 'Gov Enclave', shape: 'flag', scope: 'zone', group: 'Zone: Systems',
@@ -674,32 +681,12 @@
     light_beacon: { label: 'Light Beacon', shape: 'flag', scope: 'zone', group: 'Zone: Perimeter',
       help: 'This tile glows bright enough to flood itself and every same-level tile one grid-step away (the 8 surrounding cells) to full brightness, overriding night, power, and weather. Set on the source tile only; the environment sim expands the spill. Owner: environment (getZoneVisibility).' },
 
+    // WHAT THE FIELD IS lives in the `airfields` table (one row per field); what is
+    // true of a TILE stays here. Twelve airfield_* config flags were lifted out on
+    // 2026-08-02 — name, charter/rental/dealer, fuel, vtol_only, residents_only,
+    // lawless, theme, surface. Edit those on the airfield, not the tile.
     airfield_id: { label: 'Airfield ID', shape: 'text', scope: 'zone', group: 'Zone: Flight',
-      help: 'Which airfield this zone belongs to.' },
-    airfield_name: { label: 'Airfield Name', shape: 'text', scope: 'zone', group: 'Zone: Flight',
-      help: 'Display name of the airfield.' },
-    airfield_charter: { label: 'Airfield: Charter', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
-      help: 'An NPC charter pilot flies you somewhere. Needs a charter_pilot NPC assigned to this field. Independent of the rental desk.' },
-    airfield_rental: { label: 'Airfield: Rental', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
-      help: 'Self-fly rental desk — `rent` an airframe you pilot yourself. Independent of Charter: a field can offer an NPC ride without renting anything out (Buzzard Field), or vice versa.' },
-    charter_vtol_only: { label: 'Charter: VTOL-only', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
-      help: 'Charter pad flies the VTOL Dragonfly off-airfield only — no Mule, no self-fly rental desk (e.g. the Echelon helipad).' },
-    airfield_vtol_only: { label: 'Airfield: VTOL-only (helipad)', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
-      help: 'A helipad — no runway, so only VTOL/rotorcraft can be bought, rented, or chartered here (fixed-wings are hidden from every roster).' },
-    airfield_residents_only: { label: 'Airfield: Residents Only', shape: 'text', scope: 'zone', group: 'Zone: Flight',
-      help: 'A PRIVATE field — a building\'s own pad. Set it to the building name (e.g. "Solenne Residences") and only players holding a unit in that building get a field here at all: no bay, no hangar rent/store, no fuel, no services. Pair with `residents_only` on the pad room itself.' },
-    airfield_dealer: { label: 'Airfield: Dealer', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
-      help: 'Aircraft dealer here.' },
-    airfield_fuel: { label: 'Airfield: Fuel', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
-      help: 'Fuel vendor here.' },
-    airfield_fuels: { label: 'Airfield: Fuel Types', shape: 'list', scope: 'zone', group: 'Zone: Flight',
-      help: 'Fuel types sold, e.g. ["avgas","biofuel"].' },
-    airfield_lawless: { label: 'Airfield: Lawless', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
-      help: 'Airfield outside city law.' },
-    airfield_theme: { label: 'Airfield: Theme', shape: 'text', scope: 'zone', group: 'Zone: Flight',
-      help: 'Overrides the airport backdrop painted out the canopy (city, docks, yards, slag, wastes, default). Inferred from the zone id when unset.' },
-    airfield_surface: { label: 'Airfield: Surface', shape: 'text', scope: 'zone', group: 'Zone: Flight',
-      help: 'Runway surface flavour for a rough strip, e.g. "dust" for a packed-dirt frontier field.' },
+      help: 'Which airfield this tile belongs to — the membership pointer into the `airfields` table, exactly like region_id. Everything ABOUT the field (its name, which desks it runs, what fuel it stocks, whether it is a helipad) lives on that row, not here. A tile with an id that has no row reads as "no field here".' },
     airspace_restricted: { label: 'Airspace Restricted', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
       help: 'AA-gated airspace over this zone.' },
     hangar_interior: { label: 'Hangar Interior', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
@@ -708,8 +695,6 @@
       help: 'Link from ramp to hangar interior zone id.' },
     hangar_ramp: { label: 'Hangar Ramp', shape: 'text', scope: 'zone', group: 'Zone: Flight',
       help: 'Hangar ramp (aircraft parking) — holds the paired dock zone id.' },
-    insurance_desk: { label: 'Insurance Desk', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
-      help: 'Aircraft insurance vendor here.' },
     runway: { label: 'Runway', shape: 'enum', options: ['ns', 'ew', 'pad'], scope: 'zone', group: 'Zone: Flight',
       help: 'Marks a runway tile: "ns"/"ew" is the centreline orientation the flight sim aligns its drawn runway to; "pad" is the surrounding asphalt. Stamped by the zone planner on runway tiles.' },
 

@@ -283,6 +283,13 @@ export const REGISTRY = [
     runtimeInserts: 'surveillance plugin player devices (outside predicate)' },
   { table: 'atm_networks', class: 'content', pk: ['id'], readTier: 'cold' },   // per ATM interaction
   { table: 'aircraft_types', class: 'content', pk: ['id'], readTier: 'cold' }, // per flight operation
+  // Airfields — the field as an entity, replacing twelve airfield_* zone flags
+  // (2026-08-02). Member tiles link via flags.airfield_id, same shape as regions
+  // and districts. 'boot' for the same reason districts is: fieldFor() resolves on
+  // every flight service call and mapPoi() runs per move, so airfieldOf() is sync
+  // by contract and reads the boot-loaded Map. Five rows — it is not a cache so
+  // much as a registry that happens to live in Postgres.
+  { table: 'airfields', class: 'content', pk: ['id'], readTier: 'boot' },
   { table: 'aa_sites', class: 'content', pk: ['id'], readTier: 'fresh', // firing path honors the live `active` toggle
     // active is toggled at runtime (shot down: flight/combat.js; engineer repair:
     // aa-sites plugin) but carries authored initial state, so it stays content.

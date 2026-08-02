@@ -1,0 +1,17 @@
+{
+  "charter": true,
+  "charter_vtol_only": true,
+  "dealer": false,
+  "fuels": [
+    "avgas",
+    "jet"
+  ],
+  "id": "echelon_helipad",
+  "lawless": false,
+  "name": "The Echelon — Helipad",
+  "rental": false,
+  "residents_only": null,
+  "surface": null,
+  "theme": null,
+  "vtol_only": false
+}

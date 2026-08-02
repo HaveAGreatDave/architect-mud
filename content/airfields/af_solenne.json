@@ -1,0 +1,17 @@
+{
+  "charter": false,
+  "charter_vtol_only": false,
+  "dealer": false,
+  "fuels": [
+    "avgas",
+    "jet"
+  ],
+  "id": "af_solenne",
+  "lawless": false,
+  "name": "Solenne Sky Pad",
+  "rental": false,
+  "residents_only": "Solenne Residences",
+  "surface": null,
+  "theme": null,
+  "vtol_only": true
+}

@@ -804,7 +804,7 @@ function buildingsAt(zone) {
 }
 
 // Map POI icon — the single most salient landmark at a tile, for legibility.
-// Uses the clean signals (airfield_name flag, building_type on adjacent buildings)
+// Uses the clean signals (airfield membership, building_type on adjacent buildings)
 // plus vendor NPCs and up/down stairs. Deliberately SPARSE: most tiles return null.
 // Priority is the "what matters most here" order. { icon, poi } | null.
 const POI_ICON = { aa: '⌖', airport: '✈', police: '★', power: '⚡', club: '♥', nightclub: '🎶', bar: '🍺', hotel: '🏨', bathhouse: '♨', noodle_bar: '🍜', vendor: '$', home: '⌂', stairs: '⇕' };
@@ -826,7 +826,12 @@ function mapPoi(zone) {
   // AA emplacements outrank everything (incl. the up/down-hatch stairs marker below)
   // so a battery reads as a battery, not a stairwell.
   if (zone.flags?.aa_site) return { icon: POI_ICON.aa, poi: 'aa' };
-  if (zone.flags?.airfield_name) return { icon: POI_ICON.airport, poi: 'airport' };
+  // MEMBERSHIP, not the name. This tested `flags.airfield_name` until 2026-08-02 —
+  // a display string standing in for "is this an airfield" — so the two hangar
+  // interiors that carried a courtesy copy of their field's name drew an airport
+  // marker, and a field would have lost its icon the moment someone left the name
+  // to fall back to the tile's own.
+  if (zone.flags?.airfield_id) return { icon: POI_ICON.airport, poi: 'airport' };
   const bt = buildingTypesAt(zone);
   if (bt.has('police')) return { icon: POI_ICON.police, poi: 'police' };
   if (POWER_RE.test(zone.id || '') || POWER_RE.test(zone.name || '') ||

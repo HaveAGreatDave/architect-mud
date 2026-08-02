@@ -44,7 +44,7 @@ Flagged onto fitting zones (the `zones.flags.airfield_id` pattern):
 | Buzzard Field | `buzzard_field` | `zone_the_reach_870_1958` (910,986) | charter only · **lawless** · dust strip |
 | **Solenne Sky Pad** | `af_solenne` | `zone_district_914_908` (914,908) | **private** — residents only · avgas/jet · **VTOL-only** |
 
-**Private fields.** `flags.airfield_residents_only: "<building name>"` makes a field the
+**Private fields.** `airfields.residents_only = "<building name>"` makes a field the
 building's own: `fieldFor()` returns null for anyone who doesn't hold a unit there, so an
 outsider gets no bay, no `hangar rent`/`store`, no fuel and no services — the field simply
 isn't there for them. The pad ROOM is walled separately by `flags.residents_only`
@@ -390,11 +390,20 @@ are one-shot per-tick events. Utility verbs: `preflight`, `hover` (VTOL), `spot`
 field + fuel range), `squawk` (transponder; running dark evades cameras but is a
 crime), and `eject`/`bail` (parachute-gated — a pilot bailing dooms the craft).
 
-**Airfield desks are three independent flags.** `airfield_dealer` sells airframes,
-`airfield_rental` opens the self-fly rental desk (`rent`), `airfield_charter` books
+**The field is a row, not a tile** (2026-08-02). Twelve `airfield_*` zone flags became
+the `airfields` table, one row per field, authored under `content/airfields/`. A tile
+says only which field it belongs to (`flags.airfield_id`) and what its own geometry is
+(`runway`, `hangar_interior`, `hangar_interior_zone`, `hangar_ramp`). Read the row with
+`airfieldOf(zone)` — sync by contract, boot-loaded, five rows — and `fieldName(zone)`
+for display. Do not reach for `zone.flags` for anything about the field: that is what
+let fuel be authored on two different tiles and let a display string decide whether a
+tile drew an airport marker.
+
+**Airfield desks are three independent columns.** `dealer` sells airframes,
+`rental` opens the self-fly rental desk (`rent`), `charter` books
 an NPC-piloted ride (needs a `charter_pilot` NPC assigned to the field). Any
 combination is legal — Buzzard Field and the Echelon pad both charter without
-renting. The legacy `charter_vtol_only` flag is folded into `airfield_vtol_only` by
+renting. The older `charter_vtol_only` is folded into `vtol_only` by
 `state.vtolOnlyField`.
 
 **Ground stop** (`index.groundStop`, threshold `GROUND_STOP_SEVERITY = 0.7`). Weather
@@ -426,7 +435,7 @@ flavour, load, deadline and pay:
 - **Illegal** (contraband → **run dark**, +heavy pay, higher risk): Smuggling ·
   Gun-Running · Chop-Shop Parts · Disposal · Toxic Dump · Exfil (hot) · Data Mule.
 
-Illegal jobs only appear at **lawless fields** (`airfield_lawless` — today only
+Illegal jobs only appear at **lawless fields** (`airfields.lawless` — today only
 Buzzard Field) and prefer a lawless drop; every other field carries legal work
 only. `accept` loads the weight onto the craft (fed
 through `effStats` → takeoff difficulty + fuel burn + overweight gate); `manifest`
@@ -534,7 +543,7 @@ you; here you fly it yourself. His `raws_list` dialogue node fires `OPEN_SHOP`.
 - **A pallet is `CACHE_KG` (150kg)**, one `cargo_drops` row per pallet, all pallets
   of one order in the **same** cache so there's one place to fly. It only ever
   exists as a row — there is no ground item, so it cannot be hand-carried.
-- Landing at any field that isn't `airfield_lawless` runs the customs scan:
+- Landing at any field that isn't `airfields.lawless` runs the customs scan:
   Deception vs `3 + maxCookTier + (pallets−1) − (smuggler's hold ? 2 : 0)`. Buzzard
   Field is lawless, which is what makes the Reach a base rather than a target.
 - **Legal crop is exempt and is scanned separately from the rest.** Clean pallets

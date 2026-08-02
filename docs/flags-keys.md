@@ -21,11 +21,6 @@ nothing, silently; wire a reader first.
 
 | key | owner | meaning |
 |---|---|---|
-| `airfield_charter` | flight | an NPC charter pilot flies you somewhere (needs a `charter_pilot` NPC assigned to this field) |
-| `airfield_rental` | flight | self-fly rental desk (`rent`). **Independent of `airfield_charter`** — a field can offer the NPC ride without a hire counter (Buzzard Field) |
-| `charter_vtol_only` | flight | charter pad is VTOL Dragonfly-only, off-airfield drops, no rental desk (Echelon helipad) |
-| `airfield_vtol_only` | flight | helipad — buy/rent/charter restricted to VTOL/rotorcraft; fixed-wings hidden from every roster (Threshold Helipad) |
-| `airfield_residents_only` | flight | a PRIVATE field: set to a building name, only that building's residents resolve a field here at all (`fieldFor` → null for everyone else — no bay, no hangar rent/store, no fuel). Solenne Sky Pad |
 | `residents_only` | residency | interior tile only enterable by a player holding a unit in the named building — walked in OR ridden to by lift (the lift runs the gate chain too) |
 | `residents_only_deny` | residency | optional refusal line for `residents_only`, in the building's voice |
 | `private_billet_owner` | consort | handle of the player who **holds** this zone as a private space. Makes a bespoke room (a yacht boudoir, a safehouse) a legal B.L.I.S.S. delivery address without the consort plugin having to know what a yacht is — apartments you control and premises you own already qualify without this |
@@ -40,15 +35,9 @@ nothing, silently; wire a reader first.
 | `vessel` | swimming | this zone is a boat sitting on the map: swimmers can't enter the water tile it shares coordinates with (the `swimming:vessel-hull` gate), and `embark` from any tile alongside climbs aboard it. Needs an `in` exit to the vessel interior |
 | `naval_ambience` | yacht | naval ambient-event pool (Echelon exterior) |
 | `pier` | terrain | pier tile → inferred `dock` surface by `zoneTerrain()` when no authored `terrain` |
-| `airfield_dealer` | flight | aircraft dealer here |
-| `airfield_fuel` | flight | fuel vendor here |
-| `airfield_fuels` | flight | fuel price/stock config |
-| `airfield_id` | flight | which airfield this zone belongs to |
+| ~~`airfield_*` (12 keys)~~ | **MOVED TO A TABLE 2026-08-02** | `airfield_name`, `airfield_charter`, `airfield_rental`, `airfield_dealer`, `airfield_fuel`, `airfield_fuels`, `airfield_vtol_only`, `charter_vtol_only`, `airfield_residents_only`, `airfield_lawless`, `airfield_theme`, `airfield_surface` are now COLUMNS on the `airfields` table (`name`, `charter`, `rental`, `dealer`, `fuels`, `vtol_only`, `charter_vtol_only`, `residents_only`, `lawless`, `theme`, `surface`), one row per field, authored under `content/airfields/`. Read them with `airfieldOf(zone)` (world.js, **sync by contract**), never off the tile. `airfield_fuel` + `airfield_fuels` collapsed into the single `fuels` column. Migrated by `scripts/migrate-airfields-to-table.mjs` |
+| `airfield_id` | flight | **the membership pointer**, and the only airfield key left on a tile — the `airfields.id` this tile belongs to, exactly the shape `region_id` uses. Everything true of the FIELD lives on the row; the tile keeps only geometry (`runway`, `hangar_*`). A tile whose id has no row resolves to null everywhere, which every caller already reads as "no field here" |
 | ~~`fence_cache`~~ | **REMOVED 2026-08-02** | there is no fence-cache flag. `scripts/reach-dead-drops.mjs` wrote it on 3 tiles and nothing read it; the authoritative list of raw-drug dead drops is `FENCE_CACHES` in `plugins/flight/contracts.js`, which those tile ids must already stay in step with. The flag was a second, weaker copy of that fact |
-| `airfield_lawless` | flight | airfield outside city law |
-| `airfield_name` | flight | display name of the airfield |
-| `airfield_surface` | flight | runway surface flavour for a rough strip (e.g. `dust` for a packed-dirt frontier field) |
-| `airfield_theme` | flight | overrides the airport backdrop painted out the canopy (`city\|docks\|yards\|slag\|wastes\|default`); inferred from the zone id when unset |
 | `runway` | flight | runway tile: `ns`/`ew` is the centreline orientation the flight sim aligns its drawn runway to; `pad` is the surrounding asphalt |
 | `aircraft_cabin` | flight | interior cabin room of a **walkable** aircraft; value = the craft-type id (e.g. `leviathan`). Binds these coordinate-free rooms to the live aircraft; the move gate seals world exits while airborne |
 | `cabin_window` | flight | cabin room with windows — `window` opens the through-hull moving-world view from here |

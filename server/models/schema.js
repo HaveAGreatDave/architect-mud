@@ -2463,6 +2463,39 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_cargo_drops_origin ON cargo_drops(origin_zone, status);
   CREATE INDEX IF NOT EXISTS idx_cargo_drops_owner ON cargo_drops(owner_id, kind, status);
 
+  -- AIRFIELDS — the field as a THING, not as a tile that happens to describe one.
+  --
+  -- Until 2026-08-02 an airfield had no row anywhere: it was twelve airfield_*
+  -- flags smeared across whichever tiles happened to carry them, and the code
+  -- rebuilt the entity by scanning world.zones for the tile holding the config.
+  -- Two costs, both paid: fuel was authorable on the ramp OR on the hangar
+  -- interior (so fieldStocks needed a fallback and the Echelon ended up with a
+  -- fuels list on one tile and no fuel flag on the other), and airfield_name --
+  -- a DISPLAY STRING -- was doing predicate duty in mapPoi, so a hangar interior
+  -- carrying a courtesy copy of the name drew an airport marker.
+  --
+  -- Membership is zones.flags.airfield_id, exactly the shape regions/districts
+  -- already use. Geometry stays on the tiles (which one is the ramp, where the
+  -- runway centreline runs, which interior is the hangar); everything that is
+  -- true of the FIELD lives here, once.
+  CREATE TABLE IF NOT EXISTS airfields (
+    id                TEXT PRIMARY KEY,
+    name              TEXT NOT NULL,
+    charter           BOOLEAN NOT NULL DEFAULT FALSE,   -- an NPC pilot flies you out
+    rental            BOOLEAN NOT NULL DEFAULT FALSE,   -- self-fly hire counter
+    dealer            BOOLEAN NOT NULL DEFAULT FALSE,   -- aircraft sales
+    -- Fuel types stocked. NULL/absent = sells no fuel at all; this one column is the
+    -- old airfield_fuel (bool) and airfield_fuels (list) collapsed — a boolean that
+    -- meant "all three" plus a list that overrode it was two ways to say one thing.
+    fuels             JSONB,
+    vtol_only         BOOLEAN NOT NULL DEFAULT FALSE,   -- helipad: no fixed-wing, at all
+    charter_vtol_only BOOLEAN NOT NULL DEFAULT FALSE,   -- only the CHARTER is VTOL-only
+    residents_only    TEXT,                             -- private pad: the building whose residents it serves
+    lawless           BOOLEAN NOT NULL DEFAULT FALSE,   -- outside city law
+    theme             TEXT,                             -- canopy backdrop override (city|docks|yards|slag|wastes)
+    surface           TEXT                              -- runway surface flavour for a rough strip
+  );
+
   -- Ground anti-aircraft emplacements (flight combat.js). Fire on low/slow craft
   -- overflying within range. CONTENT: seeded, editable.
   CREATE TABLE IF NOT EXISTS aa_sites (

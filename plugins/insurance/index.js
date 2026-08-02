@@ -11,7 +11,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, getLivePlayer } from '../../server/engine/world.js';
+import { getZone, getLivePlayer, airfieldOf } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 
@@ -162,7 +162,7 @@ async function cmdClaim(args, raw, player) {
 // the dealer floor (or at the underwriting desk), so you can cover her before her first
 // flight without a trip across town. Same premium and terms as the desk — this is just
 // the desk coming to you at the moment of purchase. Targets one aircraft by id.
-const dealerHere = (z) => !!z && (z.flags?.airfield_dealer || getZone(z.flags?.hangar_ramp)?.flags?.airfield_dealer);
+const dealerHere = (z) => !!z && !!(airfieldOf(z)?.dealer || airfieldOf(z?.flags?.hangar_ramp)?.dealer);
 async function cmdInsureBind(args, raw, player) {
   const z = getZone(player.current_zone);
   if (!z?.flags?.insurance_desk && !dealerHere(z)) return notHere;

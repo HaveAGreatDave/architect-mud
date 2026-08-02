@@ -1,3 +1,7 @@
+// SUPERSEDED 2026-08-02 — DO NOT RE-RUN.
+// Seeded the original airfield tiles and their config flags.
+// Airfield config moved off zone flags into the `airfields` table; edit the row in
+// content/airfields/<id>.json (or the DB) instead. Kept as the record of the change.
 // One-shot: seed the full flight world — the six-aircraft roster, the six
 // airfields (with per-field fuel/dealer/charter services), the Core no-fly
 // airspace, a handful of ground AA sites, standing charter rentals, and one

@@ -1,0 +1,17 @@
+{
+  "charter": true,
+  "charter_vtol_only": false,
+  "dealer": false,
+  "fuels": [
+    "avgas",
+    "jet"
+  ],
+  "id": "af_helipad",
+  "lawless": false,
+  "name": "Threshold Helipad",
+  "rental": true,
+  "residents_only": null,
+  "surface": null,
+  "theme": null,
+  "vtol_only": true
+}

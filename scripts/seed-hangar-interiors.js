@@ -38,7 +38,13 @@ for (const { ramp, pilot } of FIELDS) {
   if (!rz.rows.length) { console.warn(`SKIP ${ramp}: ramp zone missing`); continue; }
   const rampFlags = rz.rows[0].flags || {};
   const rampExits = rz.rows[0].exits || {};
-  const afName = rampFlags.airfield_name || ramp;
+  // The field's name now lives on the airfields row, reached through the ramp's
+  // membership pointer. The interior deliberately does NOT get a copy — carrying one
+  // is what made two hangar interiors read as airports on the map.
+  const afRow = rampFlags.airfield_id
+    ? (await query('SELECT name FROM airfields WHERE id=$1', [rampFlags.airfield_id])).rows[0]
+    : null;
+  const afName = afRow?.name || ramp;
 
   const suffix = ramp.replace(/^zone_/, '');
   const interiorId = `zone_hangar_${suffix}`;
@@ -56,7 +62,7 @@ for (const { ramp, pilot } of FIELDS) {
   // 2. The interior zone. `hangar_interior` is our discriminator; `is_interior` is
   //    the engine's indoor contract (no weather/temp, no NPC wander-in). Deliberately
   //    NO `airfield_id`, so no airfield scan ever treats it as a flyable field.
-  const flags = { hangar_interior: true, is_interior: true, hangar_ramp: ramp, airfield_name: afName };
+  const flags = { hangar_interior: true, is_interior: true, hangar_ramp: ramp };
   const exists = await query('SELECT id FROM zones WHERE id=$1', [interiorId]);
   if (exists.rows.length) {
     // Zone already built — re-assert the description so prose edits (e.g. the

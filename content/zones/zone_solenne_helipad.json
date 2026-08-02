@@ -13,10 +13,6 @@
     "in": "zone_solenne_elevator"
   },
   "flags": {
-    "airfield_fuels": [
-      "avgas",
-      "jet"
-    ],
     "always_lit": true,
     "building_name": "Solenne Residences",
     "hangar_interior": true,

@@ -1,3 +1,7 @@
+// SUPERSEDED 2026-08-02 — DO NOT RE-RUN.
+// Split the rental desk off charter; that split is now the `rental` column.
+// Airfield config moved off zone flags into the `airfields` table; edit the row in
+// content/airfields/<id>.json (or the DB) instead. Kept as the record of the change.
 // scripts/airfield-rental-flag.mjs — one-shot data transformation.
 //
 // Splits the self-fly RENTAL desk off `airfield_charter` onto its own positive

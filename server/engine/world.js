@@ -28,6 +28,7 @@ const world = {
   maps: new Map(),       // mapId -> maps row (parent_zone_id links an interior to its overworld tile)
   furniture: new Map(),  // id -> furniture row (write funnel below keeps it in sync; DB stays SoT)
   regions: new Map(),    // regionId -> regions row (spatial world-map places; member zones carry flags.region_id)
+  airfields: new Map(),  // airfieldId -> airfields row (member tiles carry flags.airfield_id; see airfieldOf)
   transientZones: new Set(), // ids of synthetic (non-DB) zones injected at runtime — see registerTransientZone
   render: new Map(),     // zoneId -> zone_derived row (GENERATED presentation; see below)
   connections: new Map(),// connectionId -> connections row (AUTHORED; see getDoorForEdge)
@@ -79,6 +80,7 @@ export async function initWorld() {
   await loadOrgRackets();
   await loadMaps();
   await loadRegions();
+  await loadAirfields();
   await loadDistrictRegistry();
   await loadZoneRender();
   await loadPlayerCorpses();
@@ -167,6 +169,32 @@ export function propsOf(zoneId) {
 export function getRegion(id) { return world.regions.get(id) || null; }
 export function getAllRegions() { return [...world.regions.values()]; }
 
+// Airfields — five rows, boot-loaded, for the same reason districts are: every
+// flight service resolves a field before it does anything, and mapPoi runs on the
+// move path. SYNC BY CONTRACT; never add a query behind airfieldOf().
+async function loadAirfields() {
+  const { rows } = await query('SELECT * FROM airfields').catch(() => ({ rows: [] }));
+  world.airfields.clear();
+  for (const row of rows) world.airfields.set(row.id, row);
+}
+
+// The airfield a tile belongs to, or null. Takes a zone OBJECT or a zone id, and
+// resolves the membership pointer — `flags.airfield_id` — exactly the way
+// regionForZone resolves flags.region_id.
+//
+// A tile carrying an airfield_id that no longer has a row answers null rather than
+// a half-built object: a deleted field must read as "no field here", which is the
+// one answer every caller already handles (fieldFor returns null for a private pad
+// the player can't use, and every service gates on that).
+export function airfieldOf(zoneOrId) {
+  const zone = typeof zoneOrId === 'string' ? world.zones.get(zoneOrId) : zoneOrId;
+  const id = zone?.flags?.airfield_id;
+  return id ? world.airfields.get(id) || null : null;
+}
+export function getAirfield(id) { return world.airfields.get(id) || null; }
+export function getAllAirfields() { return [...world.airfields.values()]; }
+export { loadAirfields };
+
 // The region a tile belongs to, for resolveDefault's region rung. Membership is
 // flags.region_id (docs/reference/land-taxonomy.md) — outdoor tiles carry it,
 // interiors generally don't, and a tile without one simply falls through to the
@@ -181,7 +209,7 @@ export function regionForZone(zone) {
 // (add-room, link-interior) call this so a new building becomes enterable
 // without a reboot. Region create/move publishes route through here too, so the
 // region cache refreshes in lockstep.
-export async function reloadMaps() { await loadMaps(); await loadRegions(); await loadZoneRender(); }
+export async function reloadMaps() { await loadMaps(); await loadRegions(); await loadAirfields(); await loadZoneRender(); }
 
 // The interior map whose parent tile is this zone (i.e. this zone is a
 // building facade). Linear scan — the maps table is tiny.

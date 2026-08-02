@@ -31,6 +31,7 @@ import {
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
   RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, listAirfields, listRegions, worldTerrainMap, craftIsVtol, runwayFor, airfieldForRunway, yachtFieldNear, isGroundRolling,
   isWalkableCabin, isCabinZone, boardCabin, lookPayload, pushWindowTo, closeHud,
+  airfieldOf, fieldName,
 } from './state.js';
 import { describeExterior, rampColorWord, conspicuousnessMult, normalizeLivery } from './livery.js';
 import { districtBiome } from './biomes.js';
@@ -772,7 +773,7 @@ function groundStop(live) {
   if (!zoneId) return null;
   const severity = getZoneSeverity(zoneId) || 0;
   if (severity < GROUND_STOP_SEVERITY) return null;
-  const airfield = getZone(zoneId)?.flags?.airfield_name || 'The field';
+  const airfield = airfieldOf(zoneId)?.name || 'The field';
   return `<span class="text-amber">${airfield} is closed.</span> The air is solid grit and you can't see the far end of the strip. `
     + `Nothing is going up in this — sit it out somewhere with a roof.`;
 }
@@ -867,7 +868,7 @@ function sendFlightSim(player, live) {
     // (stamped into custom_data.operator at the rental desk; falls back to the field it's parked
     // at). An owned craft names you; anyone else's reads PRIVATE; a stock/wreck reads UNREGISTERED.
     owner: live.row.rental
-      ? String(live.row.custom_data?.operator || zone?.flags?.airfield_name || zone?.name || 'RENTAL FLEET').toUpperCase()
+      ? String(live.row.custom_data?.operator || fieldName(zone) || 'RENTAL FLEET').toUpperCase()
       : (!live.row.owner_id ? 'UNREGISTERED'
         : (live.row.owner_id === player.id ? String(player.name || player.username || 'OWNER').toUpperCase() : 'PRIVATE')),
     fuel: ctx.fuel, fuelCap: ctx.fuelCap, map: ctx.map, sky: ctx.sky, biomeBelow: ctx.biomeBelow, minimap: ctx.minimap, fields: ctx.fields,
@@ -1485,13 +1486,13 @@ registerAction({
 // the two can't drift.
 const svcLink = (cmd, label) => `<span class="action-link cmd-link" data-action="cmd" data-cmd="${cmd}" title="${label}">${label}</span>`;
 function serviceBits(field) {
-  const f = field.flags || {};
+  const af = airfieldOf(field);
   const bits = [svcLink('hangar', 'hangar')];
   const stocks = fieldStocks(field);
   if (stocks.length) bits.push(`${svcLink('refuel', 'refuel')} <span class="text-dim">(${stocks.join('/')})</span>`);
-  if (f.airfield_dealer) bits.push(svcLink('buy', 'buy'));
-  if (f.airfield_rental) bits.push(svcLink('rent', 'rent'));
-  if (f.airfield_charter) bits.push(svcLink('charter', 'charter'));
+  if (af?.dealer) bits.push(svcLink('buy', 'buy'));
+  if (af?.rental) bits.push(svcLink('rent', 'rent'));
+  if (af?.charter) bits.push(svcLink('charter', 'charter'));
   return `<span class="furniture-label">Services:</span> ${bits.join('   ·   ')}`;
 }
 

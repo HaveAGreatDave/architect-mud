@@ -174,7 +174,7 @@ async function buildScreen(player, screenId, params) {
     return {
       view: 'list',
       breadcrumb: ['Pilot Contracts'],
-      boardName: field.flags?.airfield_name || field.name,
+      boardName: airfieldOf(field)?.name || field.name,
       items: board.map((q, i) => {
         const m = q.meta || {};
         return {

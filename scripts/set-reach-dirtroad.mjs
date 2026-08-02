@@ -1,3 +1,7 @@
+// SUPERSEDED 2026-08-02 — DO NOT RE-RUN.
+// Set Buzzard Field surface/theme; those are now the `surface`/`theme` columns.
+// Airfield config moved off zone flags into the `airfields` table; edit the row in
+// content/airfields/<id>.json (or the DB) instead. Kept as the record of the change.
 // One-shot data transform: apply The Reach's dirt-strip flags to rows that already
 // shipped. The CODEX import is additive (ON CONFLICT DO NOTHING) and can't update
 // existing rows, so this backfills the flags the modified content files carry:

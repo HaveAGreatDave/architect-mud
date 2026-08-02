@@ -1,3 +1,7 @@
+// SUPERSEDED 2026-08-02 — DO NOT RE-RUN.
+// Turned on charter at Buzzard Field; that is now the `charter` column.
+// Airfield config moved off zone flags into the `airfields` table; edit the row in
+// content/airfields/<id>.json (or the DB) instead. Kept as the record of the change.
 // scripts/reach-charter-pilot.mjs — one-shot content authoring.
 //
 // Opens a charter desk at Buzzard Field and puts Cass Renner behind it.

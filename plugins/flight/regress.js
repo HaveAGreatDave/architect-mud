@@ -13,7 +13,7 @@ import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
   shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
   isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, nearestAirfield, listRegions, worldTerrainMap, salvoOf,
-  vtolOnlyField, acquirableTypes, hangarRampFor, HANGAR_REACH, BANDS } from './state.js';
+  vtolOnlyField, acquirableTypes, hangarRampFor, HANGAR_REACH, BANDS, airfieldOf, fieldName } from './state.js';
 import { isFreightLicensed, ensureFreightDrops, isAirCargoUnlocked, hasCacheStanding,
   openOrders, placeCacheOrder, rawsCatalogue, trustFor, unitsPerPallet, palletPrice,
   waitingDropAt, FENCE_CACHES } from './contracts.js';
@@ -178,22 +178,27 @@ export default async function regress({ run, check, getPlayer }) {
   check('ground stop is clear in fair weather', _test.groundStop({ row: { parked_zone_id: 'zone_start' } }) === null);
 
   // Airfield desks are three independent capabilities: dealer (buy), rental
-  // (self-fly), charter (an NPC flies you). Rental used to be implied by
-  // `airfield_charter`, which made a charter desk impossible to open without also
-  // opening a rental counter — the Reach wants the ride, not the hire desk.
+  // (self-fly), charter (an NPC flies you). Rental used to be implied by charter,
+  // which made a charter desk impossible to open without also opening a rental
+  // counter — the Reach wants the ride, not the hire desk.
+  //
+  // Reads the airfields TABLE through the same accessor gameplay uses, joined to
+  // the tiles by flags.airfield_id. A tile whose airfield_id has no row answers
+  // null everywhere, so this doubles as the check that all five rows loaded.
   {
-    const { rows: fields } = await query(
-      `SELECT id, flags->>'airfield_name' AS name,
-              COALESCE(flags->>'airfield_rental','false')  AS rent,
-              COALESCE(flags->>'airfield_charter','false') AS charter
-         FROM zones WHERE flags ? 'airfield_id'`);
+    const { rows: tiles } = await query(
+      `SELECT id, flags->>'airfield_id' AS af FROM zones WHERE flags ? 'airfield_id'`);
+    const fields = tiles.map(t => ({ id: t.id, row: airfieldOf(getZone(t.id)) }))
+      .filter(f => f.row).map(f => ({ id: f.id, name: f.row.name, rent: f.row.rental, charter: f.row.charter }));
     check('airfields exist to check', fields.length > 0, `${fields.length}`);
+    check('every airfield tile resolves to a row', fields.length === tiles.length,
+      `${fields.length}/${tiles.length} — an airfield_id with no airfields row reads as "no field here"`);
     const buzzard = fields.find(f => f.id === 'zone_the_reach_870_1958');
-    check('Buzzard Field charters', buzzard?.charter === 'true', JSON.stringify(buzzard));
-    check('Buzzard Field has no rental desk', buzzard?.rent !== 'true', JSON.stringify(buzzard));
-    // The flag must be genuinely separable, not just unset everywhere.
+    check('Buzzard Field charters', buzzard?.charter === true, JSON.stringify(buzzard));
+    check('Buzzard Field has no rental desk', buzzard?.rent !== true, JSON.stringify(buzzard));
+    // The capability must be genuinely separable, not just unset everywhere.
     check('some field still rents (the split did not close every desk)',
-      fields.some(f => f.rent === 'true'), fields.filter(f => f.rent === 'true').map(f => f.name).join(',') || 'NONE');
+      fields.some(f => f.rent === true), fields.filter(f => f.rent === true).map(f => f.name).join(',') || 'NONE');
 
     // A helipad has no runway: it must never OFFER an airframe it can't launch.
     // acquirableTypes is the SSOT for both the text desk and the hangar-bay lot —
@@ -213,7 +218,7 @@ export default async function regress({ run, check, getPlayer }) {
     // vtolOnlyField is also the ONLY key for the out-the-canopy render: a field it
     // calls VTOL-only draws a circle-H pad instead of a departure strip
     // (state.contextPayload → ground.helipad → windshield.drawGroundHelipad). Any
-    // future helipad inherits it by carrying airfield_vtol_only.
+    // future helipad inherits it by setting vtol_only on its airfields row.
     const pads = fields.filter(f => vtolOnlyField(getZone(f.id))).map(f => f.name);
     check('both helipads read as VTOL-only (→ pad art, not a runway)',
       pads.length >= 2, pads.join(', ') || 'NONE');
@@ -817,7 +822,7 @@ export default async function regress({ run, check, getPlayer }) {
     // so pick a PUBLIC one explicitly rather than trusting the head of the list.
     const field = listAirfields().find(f => {
       const z = getZone(f.id);
-      return z?.flags?.airfield_id && !z.flags.airfield_residents_only;
+      return z?.flags?.airfield_id && !airfieldOf(z)?.residents_only;
     });
     if (!field) check('an airfield exists to open a hangar at', false, 'no airfield zones loaded');
     else {

@@ -28,7 +28,7 @@ import { getEnvironmentState } from '../../server/engine/environment.js';
 import {
   getZone, liveAircraft, loadAircraft, persist, detach, out, toOccupants, pushHud,
   sendToZone, sendToPlayer, getLivePlayer, surfaceAt, setPosture, forceStand, bearingDeg, degToCardinal, effStats,
-  fieldFor as fieldOf, inHangarInterior, vtolOnlyField,
+  fieldFor as fieldOf, inHangarInterior, vtolOnlyField, airfieldOf, fieldName,
   isWalkableCabin, isCabinZone, boardCabin,
 } from './state.js';
 import { removePlayerFromZone } from '../../server/engine/world.js';
@@ -214,7 +214,7 @@ function openDeskElsewhere(exceptField) {
     if (p.flags.charter_pilot.field === exceptField) continue;
     const z = getZone(p.flags.charter_pilot.field);
     if (z?.flags?.yacht) continue;   // never point a stranger at Cyd's invite-only pad
-    if (available(p)) { return { field: z?.flags?.airfield_name || z?.name || p.flags.charter_pilot.field, pilot: p.name }; }
+    if (available(p)) { return { field: fieldName(z) || p.flags.charter_pilot.field, pilot: p.name }; }
   }
   return null;
 }
@@ -224,7 +224,7 @@ function openDeskElsewhere(exceptField) {
 // charter, with a free on-duty pilot? Returns { field, pilot } or { err }.
 function charterGate(player) {
   const field = fieldOf(player);
-  if (!field || !field.flags.airfield_charter) return { err: { type: 'emote', message: "There's no charter desk here." } };
+  if (!airfieldOf(field)?.charter) return { err: { type: 'emote', message: "There's no charter desk here." } };
   if (field.flags.hangar_interior_zone && !inHangarInterior(player))
     return { err: { type: 'emote', message: 'The charter desk is inside the hangar — step <b>in</b> off the ramp to book a flight.' } };
   if (player.aircraftId) return { err: { type: 'emote', message: "You're already aboard something — disembark first." } };
@@ -278,7 +278,7 @@ function openCharterDialog(player, field, pilot) {
   const vtolOnly = vtolOnlyField(field);
   return { type: 'charter_open', data: {
     pilotName: pilot.name, pilotColor: pilotColor(pilot.id),
-    fieldName: field.flags.airfield_name || field.name,
+    fieldName: fieldName(field),
     muleName: 'Mule', anyName: 'Dragonfly', vtolOnly,
     credits: player.credits || 0, tiles,
   } };
@@ -306,7 +306,7 @@ export async function cmdCharterBook(args, raw, player) {
   if ((player.credits || 0) < fare)
     return { type: 'emote', message: `That run runs <b>${fare}c</b> — you're short. ${pilot.name} can't roll without the fare.` };
 
-  const destName = dest.flags?.airfield_name || dest.name;
+  const destName = fieldName(dest);
   const acId = `aircraft_charter_${randomUUID().slice(0, 10)}`;
   await query(
     `INSERT INTO aircraft (id,type_id,name,owner_id,map_id,grid_x,grid_y,altitude_band,heading,parked_zone_id,fuel,engine_temp,rental,custom_data)
@@ -323,7 +323,7 @@ export async function cmdCharterBook(args, raw, player) {
   const ch = {
     aircraftId: acId, typeId: t.id, class: t.class, pilotId: pilot.id, pilotName: pilot.name,
     chartererId: player.id, playerId: null, paid: fare, fare,
-    homeField: field.id, homeName: field.flags.airfield_name || field.name,
+    homeField: field.id, homeName: fieldName(field),
     phase: 'boarding', anyTile: anywhere, fx: field.grid_x, fy: field.grid_y,
     destZone: dest.id, destName, tx: dest.grid_x, ty: dest.grid_y,
     holdOpen: true, boardExpiry: Date.now() + HELD_EXPIRY_MS,
@@ -348,7 +348,7 @@ function resolveDest(field, anywhere, destId) {
   let dest = getZone(a0);
   if (!dest) {
     const key = a0.toLowerCase();
-    dest = getAllZones().find(z => z.map_id === 'map_world' && z.grid_x != null && ((z.name || '').toLowerCase() === key || (z.flags?.airfield_name || '').toLowerCase() === key)) || null;
+    dest = getAllZones().find(z => z.map_id === 'map_world' && z.grid_x != null && ((z.name || '').toLowerCase() === key || (airfieldOf(z)?.name || '').toLowerCase() === key)) || null;
   }
   if (!dest || dest.map_id !== 'map_world' || dest.grid_x == null || (dest.grid_z ?? 0) !== 0)
     return { err: { type: 'emote', message: "That's not a place they can set down. Pick another." } };
@@ -722,7 +722,7 @@ export async function charterDebug() {
       : inHangar(n) ? 'ON DUTY (in hangar)'
       : onShift(n) ? 'DUE IN' : 'OFF SHIFT (home)';
     return {
-      name: n.name, field: field?.flags?.airfield_name || n.flags.charter_pilot.field,
+      name: n.name, field: airfieldOf(field)?.name || n.flags.charter_pilot.field,
       shift: `${String(start).padStart(2, '0')}00–${String((start + SHIFT_HOURS) % 24).padStart(2, '0')}00`,
       status,
     };
