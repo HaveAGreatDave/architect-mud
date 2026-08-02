@@ -322,6 +322,19 @@ reached by opening the case rather than by talking to the clerk, and a shelf you
 have to hold the list up against yourself is only half a list wherever you're
 standing when you read it. Same caret, same yellow, one `markRow`.
 
+A box is a place you take things **out** of, though, so the container mark also
+carries **how many** (`wantedQty`). The panel's take-listed button pulls that
+amount — the shortfall in the recipe's own units, so 500g of dense meat is two
+250g fillets — never one and never the whole stack; a shelf of five tomatoes
+must not empty itself for a soup that wants one. The shortfall is **spent as it
+is allocated, across both boxes of a paired appliance**, so the fridge and the
+freezer can't each claim it and send you home with six. A row that answers
+nothing outstanding any more loses its caret entirely: a mark you shouldn't act
+on is worse than no mark. The button itself sits **above every section** and
+covers all of them — sections are how a list reads, not how a shopping trip
+works — with the per-section buttons kept for the trip where you only want the
+cold half of it.
+
 A class entry is **labelled with things you can actually buy** (`buyableExamples`
 in `shoplist.js`), and every noun it names is one the entry will ACCEPT — the
 test is `food_profile` exactly, the field the matcher itself reads. This is why

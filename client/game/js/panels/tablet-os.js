@@ -2688,6 +2688,64 @@ function ensureStyles() {
       #tablet-os-overlay .tos-vt-subgrid { grid-template-columns:auto 1fr; }
     }
 
+    /* ── Binder ────────────────────────────────────────────────────────────
+       Shelves of cards with the gaps drawn in. The empty sleeve is the load-
+       bearing element: it is what a collection feels like from the inside, and
+       it is deliberately anonymous — a named gap would be a shopping list. */
+    #tablet-os-overlay .tos-bnd-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
+      padding-bottom:11px; border-bottom:1px solid var(--border); }
+    #tablet-os-overlay .tos-bnd-app { font-size:16px; letter-spacing:5px; text-transform:uppercase; color:var(--tos-fg); font-weight:bold; }
+    #tablet-os-overlay .tos-bnd-sub { font-size:11px; letter-spacing:1.6px; color:var(--tos-fg-dim); font-weight:bold; margin-top:3px; }
+    #tablet-os-overlay .tos-bnd-count { font-size:10.5px; letter-spacing:1.4px; color:var(--tos-fg-dim); font-weight:bold;
+      text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-bnd-count b { display:block; font-size:23px; color:var(--mg-accent); letter-spacing:1px; }
+    #tablet-os-overlay .tos-bnd-meter { margin:12px 0 16px; }
+    #tablet-os-overlay .tos-bnd-meter-lbl { display:flex; justify-content:space-between; font-size:10px;
+      letter-spacing:1.4px; color:var(--tos-fg-dim); font-weight:bold; margin-bottom:5px; }
+    #tablet-os-overlay .tos-bnd-meter-lbl .v { color:var(--mg-accent); font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-bnd-meter-bar { height:5px; border-radius:3px; background:rgba(255,255,255,0.07); overflow:hidden; }
+    #tablet-os-overlay .tos-bnd-meter-bar i { display:block; height:100%; background:var(--mg-accent);
+      box-shadow:0 0 10px var(--mg-accent); transition:width .5s ease; }
+
+    #tablet-os-overlay .tos-bnd-shelf { margin-bottom:18px; }
+    #tablet-os-overlay .tos-bnd-shelf-head { display:flex; justify-content:space-between; align-items:baseline;
+      font-size:10px; letter-spacing:2.4px; text-transform:uppercase; font-weight:bold; color:var(--c,#8b98a8); }
+    #tablet-os-overlay .tos-bnd-ratio { color:var(--tos-fg-dim); letter-spacing:1.2px; font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-bnd-bar { height:3px; border-radius:2px; margin:5px 0 9px;
+      background:rgba(255,255,255,0.07); overflow:hidden; }
+    #tablet-os-overlay .tos-bnd-bar i { display:block; height:100%; background:var(--c,#8b98a8); box-shadow:0 0 8px var(--c,#8b98a8); }
+    #tablet-os-overlay .tos-bnd-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr)); gap:7px; }
+    #tablet-os-overlay .tos-bnd-card { position:relative; min-height:62px; padding:7px 8px; border-radius:6px; cursor:pointer;
+      background:linear-gradient(165deg, rgba(255,255,255,0.055), rgba(0,0,0,0.25));
+      border:1px solid color-mix(in srgb, var(--c,#8b98a8) 55%, transparent);
+      box-shadow:0 0 12px color-mix(in srgb, var(--c,#8b98a8) 16%, transparent);
+      transition:transform .13s ease, box-shadow .2s ease, border-color .2s ease; }
+    #tablet-os-overlay .tos-bnd-card:hover { transform:translateY(-3px);
+      border-color:var(--c,#8b98a8); box-shadow:0 6px 18px rgba(0,0,0,0.5), 0 0 20px color-mix(in srgb, var(--c,#8b98a8) 45%, transparent); }
+    #tablet-os-overlay .tos-bnd-name { font-size:11px; font-weight:bold; color:var(--tos-fg); line-height:1.25; word-break:break-word; }
+    #tablet-os-overlay .tos-bnd-type { font-size:8.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--tos-fg-dim); margin-top:3px; }
+    #tablet-os-overlay .tos-bnd-marks { font-size:8.5px; line-height:1.3; color:var(--c,#8b98a8); opacity:.85; margin-top:4px; }
+    #tablet-os-overlay .tos-bnd-qty { position:absolute; top:5px; right:6px; font-size:9px; font-weight:bold;
+      letter-spacing:.5px; color:#0b0f14; background:var(--c,#8b98a8); border-radius:8px; padding:1px 5px; }
+    /* The gap. Dashed, dim, and nameless. */
+    #tablet-os-overlay .tos-bnd-slot { min-height:62px; border-radius:6px; display:flex; align-items:center; justify-content:center;
+      font-size:15px; color:color-mix(in srgb, var(--c,#8b98a8) 35%, transparent);
+      border:1px dashed color-mix(in srgb, var(--c,#8b98a8) 28%, transparent); background:rgba(0,0,0,0.16); }
+    #tablet-os-overlay .tos-bnd-more { min-height:62px; border-radius:6px; display:flex; align-items:center; justify-content:center;
+      text-align:center; font-size:9px; letter-spacing:1px; color:var(--tos-fg-dim); border:1px dashed var(--border); }
+    #tablet-os-overlay .tos-bnd-empty { text-align:center; padding:34px 12px; font-size:12px; color:var(--tos-fg-dim); line-height:1.9; }
+    #tablet-os-overlay .tos-bnd-empty span { font-size:10.5px; letter-spacing:1.2px; }
+
+    #tablet-os-overlay .tos-bnd-detail { padding:4px 0 10px; }
+    #tablet-os-overlay .tos-bnd-face { padding:12px; border-radius:8px;
+      background:linear-gradient(170deg, rgba(255,255,255,0.05), rgba(0,0,0,0.3));
+      border:1px solid color-mix(in srgb, var(--c,#8b98a8) 60%, transparent);
+      box-shadow:0 0 26px color-mix(in srgb, var(--c,#8b98a8) 22%, transparent); }
+    #tablet-os-overlay .tos-bnd-face .card-face { display:block; font-size:12px; line-height:1.55; }
+    #tablet-os-overlay .tos-bnd-foot { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;
+      margin-top:10px; font-size:9.5px; letter-spacing:1.2px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-bnd-dupe { color:#c07b3a; }
+
     #tablet-os-overlay .tos-acc-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
       padding-bottom:11px; border-bottom:1px solid var(--border); }
     #tablet-os-overlay .tos-acc-app { font-size:16px; letter-spacing:5px; text-transform:uppercase; color:var(--tos-fg); font-weight:bold; }
@@ -3883,6 +3941,9 @@ const TOS_APP_ICONS = {
   alarm: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="13.5" r="7.5" fill="currentColor" fill-opacity=".16" stroke="none"/><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.6 1.7"/><path d="M4.6 4.2A4 4 0 0 0 3 7.4M19.4 4.2A4 4 0 0 1 21 7.4"/><path d="M6.2 19.8L4.6 21.6M17.8 19.8l1.6 1.8"/></svg>`,
   // Accolades = a rosette: award ribbon with a struck centre. Replaces the ▓ block,
   // which was monochrome but carried no meaning.
+  // Three cards fanned, the back two dimmed — a hand you are still filling,
+  // which is the app in one shape.
+  binder: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><rect class="dim" x="3.2" y="7" width="8.6" height="12.4" rx="1.4" transform="rotate(-16 7.5 13.2)" fill="currentColor" fill-opacity=".18"/><rect class="dim" x="3.2" y="7" width="8.6" height="12.4" rx="1.4" transform="rotate(-16 7.5 13.2)"/><rect x="8" y="4.6" width="9" height="13.2" rx="1.4" transform="rotate(-4 12.5 11.2)" fill="currentColor" fill-opacity=".12"/><rect x="8" y="4.6" width="9" height="13.2" rx="1.4" transform="rotate(-4 12.5 11.2)"/><path d="M12.9 9.3l1 2.05 2.26.33-1.63 1.6.38 2.25-2.01-1.06-2.02 1.06.39-2.25-1.64-1.6 2.27-.33z" fill="currentColor" stroke="none"/></svg>`,
   accolades: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="9" r="6" fill="currentColor" fill-opacity=".2" stroke="none"/><circle cx="12" cy="9" r="6"/><path d="M12 6.2l1.15 2.35 2.6.38-1.88 1.83.44 2.58L12 12.1l-2.31 1.22.44-2.58L8.25 8.9l2.6-.38z" fill="currentColor" stroke="none"/><path d="M8.4 14.3L7 21.5l5-2.4 5 2.4-1.4-7.2"/></svg>`,
   // BLISS = the heart, kept from the ♡ it replaces, redrawn at the same stroke
   // weight as every other tile so it stops reading as a text character.
@@ -6881,6 +6942,82 @@ function renderHealth(d) {
     </div>`;
 }
 
+// ── Binder ───────────────────────────────────────────────────────────────────
+// The collection, as a collection. Every rank is a shelf: the cards you hold,
+// then the slots you don't, drawn as empty sleeves. The gaps are the whole
+// point — a binder that only showed what you own would be a list, and a list
+// doesn't make anybody want another pack.
+//
+// The gaps are ANONYMOUS by contract (see plugins/tablet/binder-app.js): the
+// server sends a count, never names, so the binder can't become a shopping list
+// or leak who has minted.
+const TOS_BINDER_COLORS = {
+  common: '#8b98a8', uncommon: '#57d47c', rare: '#4aa8ff',
+  epic: '#b374ff', legendary: '#ffc23d', architect: '#ff5470',
+};
+
+function renderBinder(d) {
+  const shelves = (d.ranks || []).map(r => {
+    const c = TOS_BINDER_COLORS[r.rarity] || '#8b98a8';
+    const held = (r.cards || []).map(card => `
+      <div class="tos-bnd-card" data-binder-card="${esc(String(card.id))}" style="--c:${c}" title="Read ${esc(card.name)}">
+        ${card.qty > 1 ? `<span class="tos-bnd-qty">×${card.qty}</span>` : ''}
+        <div class="tos-bnd-name">${esc(card.name)}</div>
+        <div class="tos-bnd-type">${esc(card.type)}</div>
+        ${card.marks ? `<div class="tos-bnd-marks">${esc(card.marks)}</div>` : ''}
+      </div>`).join('');
+    // Capped at 24 drawn slots: past that the gap is a fact, not a picture, and a
+    // fresh player with 300 empty commons would scroll for a minute to learn it.
+    const drawGaps = Math.min(24, r.gaps || 0);
+    const gaps = Array.from({ length: drawGaps }, () => `<div class="tos-bnd-slot" style="--c:${c}">◈</div>`).join('');
+    const over = (r.gaps || 0) - drawGaps;
+    return `
+      <div class="tos-bnd-shelf">
+        <div class="tos-bnd-shelf-head" style="--c:${c}">
+          <span class="tos-bnd-rank">${esc(r.label)}</span>
+          <span class="tos-bnd-ratio">${r.total ? `${r.owned} / ${r.total}` : `${r.owned} held`}</span>
+        </div>
+        ${r.total ? `<div class="tos-bnd-bar" style="--c:${c}"><i style="width:${Math.round((r.owned / Math.max(1, r.total)) * 100)}%"></i></div>` : ''}
+        <div class="tos-bnd-grid">${held}${gaps}${over > 0 ? `<div class="tos-bnd-more">+${over} more<br>unfilled</div>` : ''}</div>
+      </div>`;
+  }).join('');
+
+  const empty = `<div class="tos-bnd-empty">The binder is empty.<br><span>Sleeves come out of an ARCHITECT DRAFT machine.</span></div>`;
+
+  return `
+    <div class="tos-bnd-head">
+      <div>
+        <div class="tos-bnd-app">Binder</div>
+        <div class="tos-bnd-sub">Collected Works &middot; Series 1</div>
+      </div>
+      <div class="tos-bnd-count"><b>${d.distinct || 0}</b>of ${d.setTotal || 0} faces</div>
+    </div>
+    <div class="tos-bnd-meter">
+      <div class="tos-bnd-meter-lbl">
+        <span>Set completion</span>
+        <span class="v">${d.pct || 0}%${d.dupes ? ` &middot; ${d.dupes} doubled up` : ''}</span>
+      </div>
+      <div class="tos-bnd-meter-bar"><i style="width:${Math.min(100, d.pct || 0)}%"></i></div>
+    </div>
+    ${(d.ranks || []).length ? shelves : empty}`;
+}
+
+// One card, read at size. The face is the same server-rendered markup the reveal
+// and the `cards` verb use, so a card can never look like two different objects
+// depending on where you opened it.
+function renderBinderCard(d) {
+  const c = d.card || {};
+  const col = TOS_BINDER_COLORS[c.rarity] || '#8b98a8';
+  return `
+    <div class="tos-bnd-detail" style="--c:${col}">
+      <div class="tos-bnd-face">${c.face || ''}</div>
+      <div class="tos-bnd-foot">
+        <span>Series ${esc(String(c.series ?? 1))} &middot; № ${String(c.serial ?? 0).padStart(4, '0')}</span>
+        ${c.qty > 1 ? `<span class="tos-bnd-dupe">${c.qty} copies &middot; scrap the spares at a mint</span>` : ''}
+      </div>
+    </div>`;
+}
+
 function renderAccolades(d) {
   const rows = (d.entries || []).map((e, i) => `
     <div class="tos-acc-row${i === (d.entries.length - 1) ? ' first' : ''}">
@@ -9153,6 +9290,11 @@ function renderBody() {
       ${renderAccolades(d)}
     </div>`;
   }
+  if (d.view === 'binder' || d.view === 'binder_card') {
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+      ${d.view === 'binder_card' ? renderBinderCard(d) : renderBinder(d)}
+    </div>`;
+  }
   if (d.view === 'bliss_listings' || d.view === 'bliss_detail' || d.view === 'bliss_arrangement') {
     const body = d.view === 'bliss_detail' ? renderBlissDetail(d)
                : d.view === 'bliss_arrangement' ? renderBlissArrangement(d)
@@ -9593,6 +9735,11 @@ function wireBody() {
     // third-level screen throwing you back to the app root (or, from the root, to
     // Home) instead of to the screen you actually came from.
     el.addEventListener('click', () => navBack());
+  });
+  // A card in the binder opens that card. `nav`'s third argument is a separate
+  // token, so the id survives the command tokenizer intact as `binder card 12`.
+  _overlay.querySelectorAll('[data-binder-card]').forEach(el => {
+    el.addEventListener('click', () => nav(_data.appId, 'card', el.getAttribute('data-binder-card')));
   });
   _overlay.querySelectorAll('[data-open-cat]').forEach(el => {
     el.addEventListener('click', () => nav(_data.appId, el.getAttribute('data-open-cat'), null));

@@ -453,6 +453,89 @@
         { waveform: 'triangle', freq: 210, delay: 0.28, pitchBend: { to: 130, time: 0.07 }, adsr: { a: 0.001, d: 0.09, s: 0, r: 0.06 }, gain: 0.26 },
         { waveform: 'noise', noiseMix: 1, delay: 0.3, filter: { type: 'highpass', freq: 2600, q: 0.8 }, adsr: { a: 0.001, d: 0.07, s: 0, r: 0.05 }, gain: 0.14 } ] } },
 
+    // ── The vend, as a MECHANISM ─────────────────────────────────────────────
+    // The cabinet's four moving parts get four cues, played in sequence by the
+    // panel as the sleeve travels: coil turns, sleeve is caught, belt carries it
+    // across, chute drops it and the flap bangs. They are deliberately SHORT and
+    // dry — this is machinery in a shop, not a fanfare — and they are sequenced
+    // rather than mixed, so one set of four covers a vend of any length.
+    //
+    // `cards-vend` above stays exactly as it was and is now the ACCEPT: the thump
+    // of the machine taking your money, before any of this runs.
+    { id: 'cards-coil', name: 'Cards — the coil turns', group: 'cards', category: 'sfx', priority: 6,
+      config: { duration: 0.8, layers: [
+        // Motor: a low saw under a lowpass, spinning up and settling.
+        { waveform: 'sawtooth', freq: 62, pitchBend: { to: 94, time: 0.14 }, filter: { type: 'lowpass', freq: 420, q: 3 }, adsr: { a: 0.03, d: 0.1, s: 0.7, r: 0.16 }, gain: 0.1 },
+        // Ratchet — the auger's teeth passing. Eight clicks IS the turn; the ear
+        // counts them, which is what makes the coil look like it moved.
+        ...Array.from({ length: 8 }, (_, i) => ({
+          waveform: 'noise', noiseMix: 1, delay: 0.05 + i * 0.062,
+          filter: { type: 'bandpass', freq: 1500 + (i % 3) * 260, q: 6 },
+          adsr: { a: 0.001, d: 0.024, s: 0, r: 0.018 }, gain: 0.075,
+        })),
+        { waveform: 'triangle', freq: 150, delay: 0.56, pitchBend: { to: 98, time: 0.06 }, adsr: { a: 0.001, d: 0.07, s: 0, r: 0.05 }, gain: 0.09 } ] } },
+
+    // Caught. A soft foil slap on sprung metal — body first, then the paddle
+    // ringing off it. Doubles as the sound of anything light landing in the
+    // cabinet, which is why it is not named for the sleeve.
+    { id: 'cards-catch', name: 'Cards — caught by the paddle', group: 'cards', category: 'sfx', priority: 5,
+      config: { duration: 0.34, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 900, q: 1.1 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.05 }, gain: 0.16 },
+        { waveform: 'triangle', freq: 320, pitchBend: { to: 210, time: 0.05 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.05 }, gain: 0.1 },
+        { waveform: 'sine', freq: 1180, delay: 0.02, adsr: { a: 0.002, d: 0.16, s: 0, r: 0.1 }, gain: 0.035 } ] } },
+
+    // The belt. Filtered noise with a slow tremolo-ish envelope and a rubber
+    // seam ticking past twice — cheap, and unmistakably a conveyor.
+    { id: 'cards-belt', name: 'Cards — the belt carries it across', group: 'cards', category: 'sfx', priority: 4,
+      config: { duration: 0.9, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 700, q: 1.4 }, adsr: { a: 0.06, d: 0.1, s: 0.75, r: 0.2 }, gain: 0.09 },
+        { waveform: 'sawtooth', freq: 84, filter: { type: 'lowpass', freq: 300, q: 2 }, adsr: { a: 0.05, d: 0.1, s: 0.6, r: 0.18 }, gain: 0.055 },
+        { waveform: 'noise', noiseMix: 1, delay: 0.24, filter: { type: 'bandpass', freq: 1250, q: 5 }, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, gain: 0.055 },
+        { waveform: 'noise', noiseMix: 1, delay: 0.56, filter: { type: 'bandpass', freq: 1250, q: 5 }, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, gain: 0.055 } ] } },
+
+    // The chute and the flap. The tumble is a scrape, the flap is a sprung metal
+    // BANG, and the two together are the payoff the whole cabinet exists for.
+    { id: 'cards-chute', name: 'Cards — down the chute, flap bangs', group: 'cards', category: 'sfx', priority: 7,
+      config: { duration: 0.7, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1700, q: 0.9 }, adsr: { a: 0.01, d: 0.16, s: 0.2, r: 0.1 }, gain: 0.12 },
+        { waveform: 'square', freq: 190, delay: 0.2, pitchBend: { to: 76, time: 0.07 }, filter: { type: 'lowpass', freq: 1200, q: 1.2 }, adsr: { a: 0.001, d: 0.11, s: 0, r: 0.08 }, gain: 0.3 },
+        { waveform: 'noise', noiseMix: 1, delay: 0.2, filter: { type: 'highpass', freq: 2800, q: 0.8 }, adsr: { a: 0.001, d: 0.07, s: 0, r: 0.05 }, gain: 0.13 },
+        // The flap swinging back and settling.
+        { waveform: 'triangle', freq: 240, delay: 0.36, pitchBend: { to: 160, time: 0.06 }, adsr: { a: 0.001, d: 0.08, s: 0, r: 0.06 }, gain: 0.1 },
+        { waveform: 'triangle', freq: 200, delay: 0.5, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.05 }, gain: 0.05 } ] } },
+
+    // ── panel interaction ────────────────────────────────────────────────────
+    // ONE tick for every affordance in the cabinet — selecting a coil, pressing a
+    // button, closing the panel. Deliberately generic and deliberately tiny: a
+    // distinct sound per control would make the machine chatty, and a UI cue that
+    // reuses itself is one a player stops hearing and starts feeling.
+    { id: 'cards-ui', name: 'Cards — panel tick', group: 'cards', category: 'sfx', priority: 3,
+      config: { duration: 0.1, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2600, q: 3.5 }, adsr: { a: 0.001, d: 0.025, s: 0, r: 0.02 }, gain: 0.09 },
+        { waveform: 'sine', freq: 1046, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.045 } ] } },
+
+    // Refused — an empty coil, a disabled button, not enough credit. A flat
+    // detuned pair, the sound every vending machine in the world makes at you.
+    { id: 'cards-deny', name: 'Cards — machine refuses', group: 'cards', category: 'sfx', priority: 5,
+      config: { duration: 0.32, layers: [
+        { waveform: 'square', freq: 196, filter: { type: 'lowpass', freq: 1400, q: 1 }, adsr: { a: 0.002, d: 0.1, s: 0.3, r: 0.08 }, gain: 0.07 },
+        { waveform: 'square', freq: 185, filter: { type: 'lowpass', freq: 1400, q: 1 }, adsr: { a: 0.002, d: 0.1, s: 0.3, r: 0.08 }, gain: 0.07 } ] } },
+
+    // The gold under the foil. Fires between the tear and the first card, so it
+    // has to read as a REVALUATION rather than a win — a bright rising fifth
+    // over a shimmer, deliberately shorter and less final than a legendary flip,
+    // because it is a promise about the cards rather than one of them.
+    { id: 'cards-hot', name: 'Cards — the sleeve runs hot', group: 'cards', category: 'sfx', priority: 9,
+      config: { duration: 1.2, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 3200, q: 0.8 }, adsr: { a: 0.18, d: 0.3, s: 0, r: 0.2 }, gain: 0.08 },
+        { waveform: 'sine', freq: 659, delay: 0.02, adsr: { a: 0.004, d: 0.4, s: 0, r: 0.2 }, gain: 0.09 },
+        { waveform: 'sine', freq: 988, delay: 0.13, adsr: { a: 0.004, d: 0.5, s: 0, r: 0.26 }, gain: 0.09 },
+        { waveform: 'sine', freq: 1319, delay: 0.24, adsr: { a: 0.004, d: 0.75, s: 0, r: 0.36 }, gain: 0.085 },
+        { waveform: 'sine', freq: 1319, delay: 0.24, detune: 9, adsr: { a: 0.005, d: 0.75, s: 0, r: 0.36 }, gain: 0.044 },
+        { waveform: 'triangle', freq: 2637, delay: 0.28, adsr: { a: 0.006, d: 0.5, s: 0, r: 0.24 }, gain: 0.022 },
+        { waveform: 'sine', freq: 3951, delay: 0.42, adsr: { a: 0.004, d: 0.24, s: 0, r: 0.12 }, gain: 0.013 },
+        { waveform: 'sine', freq: 3520, delay: 0.66, adsr: { a: 0.004, d: 0.2, s: 0, r: 0.1 }, gain: 0.011 } ] } },
+
     // Foil, not paper: a bright band-passed rip that CLIMBS as the seam runs,
     // with the crinkle grains riding on top rather than under it.
     { id: 'cards-tear', name: 'Cards — foil sleeve tears', group: 'cards', category: 'sfx', priority: 8,

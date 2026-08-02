@@ -4,9 +4,12 @@
 // 900-character description is the case that breaks it).
 import { query } from '../../server/models/db.js';
 import { insertFurniture } from '../../server/engine/world.js';
+import { getGameDateTime } from '../../server/engine/environment.js';
+import { slotsFor, slotLeft, fullestSlot, takeFromSlot, baseStock, sleeveSeed } from './machine.js';
 import {
   ladder, wholeSentences, pickQuote, BUDGET, SILENCE, rollSleeve, RANKS,
-  buildNpcCard, buildEnemyCard, enemyRarity, conditionBand,
+  buildNpcCard, buildEnemyCard, enemyRarity, conditionBand, mulberry32,
+  isHotSeed, HOT_RANK_WEIGHT, RANK_WEIGHT, fieldMarks, combatMarks,
 } from './builder.js';
 
 export default async function regress({ run, check, getPlayer }) {
@@ -103,6 +106,40 @@ export default async function regress({ run, check, getPlayer }) {
     check('an enemy card has no portrait body', enemyCard.body === null, String(enemyCard.body));
     check('enemy power derives from combat numbers', enemyCard.power > 0, String(enemyCard.power));
 
+    // ── field marks ──────────────────────────────────────────────────────────
+    // Marks are LIFTED from the author's description, never invented, and that is
+    // the property under test: a card that states a physical fact its subject's
+    // own prose doesn't support is worse than a card with no marks at all.
+    check('marks are lifted from the description',
+      fieldMarks('A tall man with a scarred jaw and a chrome arm.') === 'tall · scarred · chromed',
+      fieldMarks('A tall man with a scarred jaw and a chrome arm.'));
+    check('a description with nothing physical in it yields no marks',
+      fieldMarks('He is waiting for someone.') === '', fieldMarks('He is waiting for someone.'));
+    // "a piercing shriek" / "piercing eyes" are everywhere in the roster. A mark
+    // table that fires on them invents a nose ring for half the world.
+    check('common prose does not trip a false mark',
+      fieldMarks('Her piercing gaze follows you across the room.') === '',
+      fieldMarks('Her piercing gaze follows you across the room.'));
+    check('marks never exceed their budget, and never cut one in half',
+      (() => {
+        const m = fieldMarks('A towering, scarred, chromed, limping, filthy, bald, mutated wreck of a man.');
+        return m.length <= BUDGET.marks && !m.endsWith('·') && !m.endsWith(' ');
+      })(), fieldMarks('A towering, scarred, chromed, limping, filthy, bald, mutated wreck of a man.'));
+    check('no mark carries a gendered pronoun',
+      !/\b(him|her|his|hers|he|she)\b/i.test(fieldMarks('A filthy, scarred, stooped, rasping man.')),
+      fieldMarks('A filthy, scarred, stooped, rasping man.'));
+    // An enemy's physique is its stat line, so its numbers lead its marks.
+    check("an enemy's marks lead with its combat shape",
+      combatMarks({ hp_max: 80, dodge: 0, hit: 5 }, 20).join('|') === 'takes a beating|slow, and knows it',
+      combatMarks({ hp_max: 80, dodge: 0, hit: 5 }, 20).join('|'));
+    check('a fast, fragile enemy reads as one',
+      combatMarks({ hp_max: 10, dodge: 6, hit: 3 }, 6).join('|') === 'goes down easy|hard to lay hands on',
+      combatMarks({ hp_max: 10, dodge: 6, hit: 3 }, 6).join('|'));
+    check('all three subject types can carry marks',
+      typeof buildNpcCard({ id: 'n', name: 'N', description: 'A bald, stooped woman.', flags: {} }).text_blocks.marks === 'string'
+      && typeof buildEnemyCard({ id: 'e', name: 'E', description: 'A rotting thing.', hp_max: 30, hit: 2, dodge: 2, weapon: [] }, {}).text_blocks.marks === 'string',
+      'a builder dropped the marks region');
+
     // ── verbs route, and gate on furniture ───────────────────────────────────
     player.current_zone = 'zone_cards_regress_empty';
     let r = await run('mint');
@@ -179,6 +216,125 @@ export default async function regress({ run, check, getPlayer }) {
     check('the panel carries the price, balance and pool it renders',
       r?.price > 0 && r?.credits != null && r?.pool && typeof r.pool.total === 'number',
       JSON.stringify(r)?.slice(0, 200));
+
+    // ── the coils ────────────────────────────────────────────────────────────
+    // Picking a slot is the machine's whole sense of control, so the contract is
+    // that the panel ships REAL stock, an empty coil refuses, and the refusal is
+    // free. A slot that could be clicked but not bought — or bought but not
+    // clicked — is the bug this covers.
+    const mach = { id: FURN_MACH };
+    check('the panel ships nine coils with counts',
+      Array.isArray(r?.slots) && r.slots.length === 9 && r.slots.every(s => s.code && typeof s.left === 'number'),
+      JSON.stringify(r?.slots)?.slice(0, 200));
+    check('a machine is never entirely bare on a fresh day',
+      (r?.slots || []).some(s => s.left > 0), JSON.stringify(r?.slots)?.slice(0, 200));
+
+    const day = getGameDateTime().date;
+    check('stock is DERIVED, so two reads of the same machine/day agree',
+      JSON.stringify(slotsFor(mach, day)) === JSON.stringify(slotsFor(mach, day)), 'stock drifted between reads');
+    check('a different machine gets a different face',
+      JSON.stringify(slotsFor(mach, day)) !== JSON.stringify(slotsFor({ id: 'furn_other_mach' }, day)),
+      'every machine looks identical');
+
+    // An empty coil must refuse BEFORE any money moves. This is the one ordering
+    // that matters: charge-then-check would sell a sleeve out of a bare column.
+    const empty = slotsFor(mach, day).find(s => s.left === 0);
+    if (empty) {
+      const cr = Number(player.credits) || 0;
+      r = await run(`buypack confirm ${empty.code}`);
+      check('an empty coil refuses', r?.type === 'error', JSON.stringify(r)?.slice(0, 140));
+      check('a refused coil costs nothing', (Number(player.credits) || 0) === cr, `${cr} -> ${player.credits}`);
+    }
+    r = await run('buypack confirm ZZ9');
+    check('a nonsense coil code falls back rather than crashing',
+      r?.type === 'cardmach_vend' || r?.type === 'error', JSON.stringify(r)?.slice(0, 140));
+
+    // ── the coil decides the sleeve ──────────────────────────────────────────
+    // This is the property the whole feature rests on: a sleeve's contents are
+    // fixed when it is loaded, so the player's physical choice has real input on
+    // the result. If a seed ever stopped reproducing its sleeve, choosing would
+    // silently go back to being decorative and nothing would look broken.
+    const seedA = sleeveSeed('furn_seed_mach', '2026-01-01', 'A1', 0);
+    check('the same coil, same depth, gives the same seed',
+      seedA === sleeveSeed('furn_seed_mach', '2026-01-01', 'A1', 0), `${seedA}`);
+    check('a different coil gives a different seed',
+      seedA !== sleeveSeed('furn_seed_mach', '2026-01-01', 'B2', 0), 'coils share an outcome');
+    check('the next sleeve down the same coil is a different sleeve',
+      seedA !== sleeveSeed('furn_seed_mach', '2026-01-01', 'A1', 1), 'a coil pays out identically forever');
+
+    const seeded = rollSleeve(mulberry32(seedA));
+    check('a seed rebuilds its sleeve exactly',
+      JSON.stringify(seeded) === JSON.stringify(rollSleeve(mulberry32(seedA))), JSON.stringify(seeded));
+    check('...and a different seed generally does not',
+      JSON.stringify(seeded) !== JSON.stringify(rollSleeve(mulberry32(seedA + 1)))
+        || JSON.stringify(seeded) !== JSON.stringify(rollSleeve(mulberry32(seedA + 2))),
+      'two seeds produced identical sleeves');
+    // A seeded roller has to obey every guarantee an unseeded one does, or a
+    // bought sleeve could break the rules a typed one can't.
+    let seededSorted = true, seededGuaranteed = true;
+    for (let i = 0; i < 300; i++) {
+      const rr = rollSleeve(mulberry32(sleeveSeed('m', 'd', 'A1', i)));
+      for (let j = 1; j < rr.length; j++) if (RANKS.indexOf(rr[j]) < RANKS.indexOf(rr[j - 1])) seededSorted = false;
+      if (rr[rr.length - 1] === 'common') seededGuaranteed = false;
+    }
+    check('a seeded sleeve is still sorted worst-to-best', seededSorted, 'reveal order broken under a seed');
+    check('a seeded sleeve still never ends on a Common', seededGuaranteed, 'the guarantee broke under a seed');
+    // ── the hot run ──────────────────────────────────────────────────────────
+    // Occasional, seeded, and INVISIBLE until the tear. The two things that can
+    // break it silently: hotness drifting for a seed (so the same sleeve is hot
+    // one day and not the next), and asking whether a sleeve is hot perturbing
+    // the sleeve it then rolls — which would make the question part of the answer.
+    check('hotness is fixed by the seed', isHotSeed(seedA) === isHotSeed(seedA), 'a sleeve changed its mind');
+    const beforeAsk = rollSleeve(mulberry32(seedA));
+    isHotSeed(seedA); isHotSeed(seedA);
+    check('asking whether a sleeve is hot does not change the sleeve',
+      JSON.stringify(rollSleeve(mulberry32(seedA))) === JSON.stringify(beforeAsk), 'the question moved the answer');
+
+    let hotCount = 0;
+    for (let i = 0; i < 4000; i++) if (isHotSeed(sleeveSeed('m2', 'd2', 'A1', i))) hotCount++;
+    check('a hot run is occasional, not rare-to-the-point-of-myth or common',
+      hotCount / 4000 > 0.04 && hotCount / 4000 < 0.13, `${(hotCount / 4000 * 100).toFixed(1)}%`);
+    check('hot weights triple epic and legendary and touch nothing else',
+      HOT_RANK_WEIGHT.epic === RANK_WEIGHT.epic * 3 && HOT_RANK_WEIGHT.legendary === RANK_WEIGHT.legendary * 3
+      && HOT_RANK_WEIGHT.common === RANK_WEIGHT.common && HOT_RANK_WEIGHT.rare === RANK_WEIGHT.rare,
+      JSON.stringify(HOT_RANK_WEIGHT));
+
+    // The point of a hot sleeve is that it actually pays better. Measured, not
+    // assumed — a weights table that never reached the roller would look right.
+    const topRate = (weights) => {
+      let top = 0, cards = 0;
+      for (let i = 0; i < 3000; i++) {
+        for (const r of rollSleeve(mulberry32(sleeveSeed('m3', 'd3', 'B2', i)), weights)) {
+          cards++; if (r === 'epic' || r === 'legendary') top++;
+        }
+      }
+      return top / cards;
+    };
+    const cold = topRate(RANK_WEIGHT), warm = topRate(HOT_RANK_WEIGHT);
+    check('a hot sleeve really does pay epic/legendary far more often',
+      warm > cold * 2, `${(cold * 100).toFixed(2)}% -> ${(warm * 100).toFixed(2)}%`);
+    check('...and still never ends on a Common',
+      Array.from({ length: 300 }, (_, i) => rollSleeve(mulberry32(sleeveSeed('m4', 'd4', 'C3', i)), HOT_RANK_WEIGHT))
+        .every(r => r[r.length - 1] !== 'common'), 'the guarantee broke on a hot sleeve');
+
+    check('takeFromSlot hands back the identity the row has to store',
+      (() => { const t = takeFromSlot({ id: 'furn_seed_take' }, day, fullestSlot({ id: 'furn_seed_take' }, day));
+        return t && t.coil && typeof t.seed === 'number' && typeof t.depth === 'number'; })(),
+      'a taken sleeve came back without its seed');
+
+    // Taking from a coil has to actually deplete it, or the stack drawn behind
+    // the glass is decoration and "3 LEFT" is a lie. Run on a machine id nothing
+    // else in this suite buys from — the assertion is about ONE coil moving, so
+    // it can't share a ledger with the purchases above.
+    const stockMach = { id: 'furn_cards_regress_stock' };
+    const target = fullestSlot(stockMach, day);
+    const beforeLeft = slotLeft(stockMach, day, target);
+    takeFromSlot(stockMach, day, target);
+    check('taking a sleeve depletes that coil', slotLeft(stockMach, day, target) === beforeLeft - 1,
+      `${beforeLeft} -> ${slotLeft(stockMach, day, target)}`);
+    check('and leaves the other coils alone',
+      slotsFor(stockMach, day).filter(s => s.code !== target)
+        .every(s => s.left === baseStock(stockMach.id, day, s.code)), 'a neighbouring coil moved');
 
     // The sleeve is an inventory row, and the roll happens at the TEAR. With no
     // sleeve there is nothing to roll, and nothing may be granted.

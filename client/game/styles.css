@@ -4949,6 +4949,11 @@ body.fsim-external #look-resize-handle { display: none; }
 /* A flat (unsectioned) box has no header text to sit beside, so the button gets
    a bare row and drops the rule that would read as an empty section title. */
 .ctr-section.bare { border-bottom: none; padding-bottom: 0; justify-content: flex-end; }
+/* The whole-box button sits above every section, so it is the widest thing in
+   the column rather than one more right-aligned chip among the headers. */
+.ctr-section.ctr-takeall-top { margin-top: 0; margin-bottom: 6px; }
+.ctr-section.ctr-takeall-top > span { display: none; }
+.ctr-section.ctr-takeall-top > .ctr-takeall { flex: 1; padding: 5px 6px; font-size: 10px; opacity: 1; }
 .ctr-takeall, .shop-takeall {
 	background: transparent;
 	border: 1px solid var(--yellow);
@@ -15365,6 +15370,9 @@ body.intro-cine-open { overflow: hidden; }
 .card-serial { display: block; font-size: 0.72em; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-dim); }
 .card-handle { display: block; font-size: 1.5em; font-weight: 700; letter-spacing: 0.05em; margin: 2px 0 1px; }
 .card-sub { display: block; font-size: 0.78em; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
+/* Field marks — the physical line, set like the stat strip on a real card:
+   small, spaced, and sitting tight under the name rather than in the prose. */
+.card-marks { display: block; margin-top: 4px; font-size: 0.74em; letter-spacing: 0.08em; color: var(--cyan); opacity: 0.85; }
 .card-block { display: block; margin-top: 9px; font-size: 0.92em; }
 .card-lbl { display: block; font-size: 0.72em; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 3px; }
 .card-quote { display: block; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); color: var(--yellow); }
@@ -15392,6 +15400,17 @@ body.intro-cine-open { overflow: hidden; }
 	animation: cardTear 0.34s ease-out backwards;
 }
 @keyframes cardTear { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+/* A hot run, in the log. The overlay is the show; this line is the RECORD, so it
+   states the actual effect on the odds rather than just looking excited. */
+.card-hot {
+	display: block;
+	font-size: 0.85em;
+	letter-spacing: 0.12em;
+	color: #ffc23d;
+	text-shadow: 0 0 10px rgba(255, 190, 70, 0.55);
+	margin-bottom: 4px;
+	animation: cardTear 0.34s ease-out backwards;
+}
 .card-pull {
 	display: block;
 	padding: 4px 0;

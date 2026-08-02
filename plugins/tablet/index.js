@@ -99,6 +99,7 @@ import './codex-app.js';
 import './party-app.js';
 import './frontier-app.js';
 import './accolades-app.js';
+import './binder-app.js';
 
 export { registerTabletApp, getTabletApps } from './registry.js';
 

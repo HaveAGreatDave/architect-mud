@@ -16,8 +16,11 @@ import { isPluggedIn } from '../appliances/index.js';
 import { getGameDateTime } from '../../server/engine/environment.js';
 import {
   buildPlayerCard, buildNpcCard, buildEnemyCard, rollSleeve, RANKS, RANK_WEIGHT,
-  BUDGET, SILENCE,
+  BUDGET, SILENCE, mulberry32, isHotSeed, HOT_RANK_WEIGHT, HOT_CHANCE,
 } from './builder.js';
+import {
+  slotsFor, slotLeft, totalLeft, fullestSlot, takeFromSlot, normaliseSlot, SLOT_CODES,
+} from './machine.js';
 
 const MINT_FEE = 2500;
 // THESE TWO NUMBERS ARE COUPLED — never move one without the other.
@@ -62,18 +65,20 @@ function invalidatePool() { pool = null; }
 // `floorIdx` is the lowest rank this slot may ever pay out. The hit card passes 1
 // (uncommon), which is what keeps the every-sleeve guarantee true even on a young
 // pool: it steps UP rather than dropping to Common.
-export function pickAtRank(catalogue, rank, floorIdx = 0) {
+// `rand` is the sleeve's own seeded generator when it came off a coil, so which
+// face fills a rank is fixed too — for the pool as it stands at tear time.
+export function pickAtRank(catalogue, rank, floorIdx = 0, rand = Math.random) {
   const at = i => catalogue.filter(c => c.rarity === RANKS[i]);
   const start = RANKS.indexOf(rank);
   for (let i = start; i >= floorIdx; i--) {          // best available at or below
     const set = at(i);
-    if (set.length) return set[Math.floor(Math.random() * set.length)];
+    if (set.length) return set[Math.floor(rand() * set.length)];
   }
   for (let i = start + 1; i < RANKS.length; i++) {   // nothing below: step up
     const set = at(i);
-    if (set.length) return set[Math.floor(Math.random() * set.length)];
+    if (set.length) return set[Math.floor(rand() * set.length)];
   }
-  return catalogue[Math.floor(Math.random() * catalogue.length)];
+  return catalogue[Math.floor(rand() * catalogue.length)];
 }
 
 async function getPool() {
@@ -152,6 +157,10 @@ export function renderCard(row) {
   out.push(`<span class="card-serial">Series ${row.series} · № ${String(row.serial).padStart(4, '0')}</span>`);
   out.push(`<span class="card-handle">${row.subject_name}</span>`);
   out.push(`<span class="card-sub">${t.epithet || row.subject_type} · ${rankSpan(row.rarity)}</span>`);
+  // The physical line, the way a real card carries HT/WT. Lifted from the
+  // subject's own description, so it can never argue with the prose below it —
+  // and simply absent when nobody wrote anything physical down.
+  if (t.marks) out.push(`<span class="card-marks">${t.marks}</span>`);
   if (t.last_seen) out.push(`<span class="card-block"><span class="card-lbl">${row.subject_type === 'enemy' ? 'In the field' : 'Last seen'}</span>${t.last_seen}</span>`);
   if (t.origin) out.push(`<span class="card-block"><span class="card-lbl">${row.subject_type === 'enemy' ? 'What it leaves' : 'In their own words'}</span><i>“${t.origin}”</i></span>`);
   out.push(`<span class="card-quote">${t.quote === SILENCE ? `<i>${SILENCE}</i>` : `“${t.quote}”`}</span>`);
@@ -238,34 +247,42 @@ async function packsHeld(playerId) {
   return Number(rows[0]?.n) || 0;
 }
 
-async function giveSleeve(playerId) {
-  const { rows } = await query(
-    'SELECT id, quantity FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL LIMIT 1',
-    [playerId, PACK_ITEM]
-  );
-  if (rows.length) {
-    await query('UPDATE player_inventory SET quantity = quantity + 1 WHERE id=$1', [rows[0].id]);
-  } else {
-    await query('INSERT INTO player_inventory (id, player_id, item_id, quantity) VALUES ($1,$2,$3,1)',
-      [randomUUID(), playerId, PACK_ITEM]);
-  }
+// A sleeve is no longer fungible: it came off a particular coil and its contents
+// were decided there, so it gets its OWN row carrying that identity. One row per
+// sleeve is the price of the coil mattering, and it is a cheap price — the row
+// holds a single integer, not a card list.
+async function giveSleeve(playerId, taken) {
+  await query('INSERT INTO player_inventory (id, player_id, item_id, quantity, custom_data) VALUES ($1,$2,$3,1,$4)',
+    [randomUUID(), playerId, PACK_ITEM, JSON.stringify({
+      seed: taken?.seed ?? null, coil: taken?.coil ?? null, machine: taken?.machine ?? null,
+    })]);
 }
 
-// Take one sleeve off the pile. Returns false if there wasn't one — the caller
+// Take one sleeve off the pile. Returns null if there wasn't one — the caller
 // must not roll anything until this has succeeded, or a failed decrement pays
-// out a free pack.
+// out a free pack — otherwise the sleeve's identity, so the tear can rebuild
+// exactly the sleeve that came off the coil.
+//
+// Ordered so SEEDED sleeves go first and, among those, the oldest row: a player
+// holding both a pre-coil sleeve and a new one should be spending the one whose
+// outcome is already decided, and a queue nobody can see should still be a queue.
 async function consumeSleeve(playerId) {
   const { rows } = await query(
-    'SELECT id, quantity FROM player_inventory WHERE player_id=$1 AND item_id=$2 ORDER BY quantity ASC LIMIT 1',
+    `SELECT id, quantity, custom_data FROM player_inventory
+     WHERE player_id=$1 AND item_id=$2
+     ORDER BY (custom_data->>'seed') IS NULL, id LIMIT 1`,
     [playerId, PACK_ITEM]
   );
-  if (!rows.length) return false;
+  if (!rows.length) return null;
   if (Number(rows[0].quantity) > 1) {
     await query('UPDATE player_inventory SET quantity = quantity - 1 WHERE id=$1', [rows[0].id]);
   } else {
     await query('DELETE FROM player_inventory WHERE id=$1', [rows[0].id]);
   }
-  return true;
+  const d = rows[0].custom_data || {};
+  // A legacy stacked sleeve (bought before coils meant anything) has no seed and
+  // falls back to an unseeded roll. It must not throw, and it must not be worse.
+  return { seed: d.seed != null ? Number(d.seed) : null, coil: d.coil || null, machine: d.machine || null };
 }
 
 // The odds board the machine prints. Derived from the LIVE pool, so a young pool
@@ -280,16 +297,28 @@ function poolBreakdown(catalogue) {
 // `buypack` opens the machine's face rather than transacting: the terminal is a
 // thing you stand at and press buttons on, exactly like an ATM, and the panel is
 // where the price, the odds board and your own credit balance are legible before
-// you commit. `buypack confirm` is the button.
+// you commit. `buypack confirm` is the button, and `buypack confirm B2` is the
+// button after you've chosen a coil.
+//
+// The SLOT is the agency. Sealed sleeves are identical and the roll still happens
+// at the tear, so choosing a column picks which physical object you walk away
+// with, nothing more — which is exactly what a real machine offers and is worth
+// stating plainly rather than dressing up as an odds lever.
 async function cmdBuyPack(args, raw, player, broadcast) {
   const machine = machineHere(player.current_zone);
   if (!machine) return { type: 'error', message: "There's no card machine here." };
   if (!isPluggedIn(machine)) return { type: 'error', message: `The ${machine.name}'s window is dark. The glass just shows you the room.` };
 
   const catalogue = await getPool();
-  const confirming = /^(confirm|buy|yes|y)$/i.test(argStr(args));
+  const day = getGameDateTime().date;
+  const words = argStr(args).split(/\s+/).filter(Boolean);
+  const confirming = words.some(w => /^(confirm|buy|yes|y)$/i.test(w));
+  const asked = words.map(normaliseSlot).find(w => SLOT_CODES.includes(w)) || null;
 
-  if (!confirming) {
+  const slots = slotsFor(machine, day);
+  const stocked = totalLeft(machine, day);
+
+  if (!confirming && !asked) {
     return {
       type: 'cardmach_panel',
       machine: machine.name,
@@ -297,43 +326,81 @@ async function cmdBuyPack(args, raw, player, broadcast) {
       scrapValue: SCRAP_VALUE,
       credits: player.credits || 0,
       packs: await packsHeld(player.id),
+      slots,
       pool: { total: catalogue.length, byRank: poolBreakdown(catalogue) },
-      message: catalogue.length
-        ? `The ${machine.name} lights its window.`
-        : `The ${machine.name} lights its window. Every slot reads SOLD OUT — nobody has minted anything yet.`,
+      message: !catalogue.length
+        ? `The ${machine.name} lights its window. Every coil reads SOLD OUT — nobody has minted anything yet.`
+        : stocked
+          ? `The ${machine.name} lights its window. Nine coils, ${stocked} sleeve${stocked === 1 ? '' : 's'} between them — take your pick.`
+          : `The ${machine.name} lights its window, and every coil behind the glass is bare. Somebody cleaned it out.`,
     };
   }
 
   if (!catalogue.length) return { type: 'error', message: `The ${machine.name} is empty. Nobody has minted anything yet.` };
+
+  // Slot resolution before money changes hands, always. A player who names a bare
+  // coil must be told so and charged nothing.
+  const slot = asked || fullestSlot(machine, day);
+  if (!slot) return { type: 'error', message: `Every coil in the ${machine.name} is bare. Come back when it's been filled.` };
+  if (asked && slotLeft(machine, day, asked) < 1) {
+    return { type: 'error', message: `Coil ${asked} is empty — the price card behind it has faded. Pick another.` };
+  }
   if ((player.credits || 0) < PACK_PRICE) return { type: 'error', message: `A sleeve is ₵${PACK_PRICE}. You have ₵${player.credits || 0}.` };
+  const taken = takeFromSlot(machine, day, slot);
+  if (!taken) {
+    return { type: 'error', message: `Coil ${slot} turns, catches, and gives you nothing. Try another.` };
+  }
 
   player.credits -= PACK_PRICE;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
-  await giveSleeve(player.id);
+  await giveSleeve(player.id, { ...taken, machine: machine.name });
 
-  broadcast(player.current_zone, { type: 'zone_event', message: `The ${machine.name} thumps, and drops a foil sleeve into ${player.handle}'s hand.` }, player.id);
+  broadcast(player.current_zone, { type: 'zone_event', message: `The ${machine.name} grinds, and drops a foil sleeve into its tray for ${player.handle}.` }, player.id);
   return {
     type: 'cardmach_vend',
     machine: machine.name,
+    slot,
     credits: player.credits,
     packs: await packsHeld(player.id),
-    message: `The ${machine.name} thumps. A foil sleeve lands in the tray — <b>₵${PACK_PRICE}</b> gone, <b>₵${player.credits}</b> left. `
+    slots: slotsFor(machine, day),
+    message: `Coil <b>${slot}</b> turns. The sleeve tips, drops, and the ${machine.name} kicks it into the tray — `
+      + `<b>₵${PACK_PRICE}</b> gone, <b>₵${player.credits}</b> left. `
       + `Tear it whenever you like: <span class="cmd">openpack</span>.`,
   };
 }
 
-// Tearing one. The roll happens HERE, not at the vend — an unopened sleeve holds
-// no result, so nothing on the shelf can be datamined, traded pre-rolled, or go
-// stale against a pool that grew while it sat in your coat.
+// Tearing one.
+//
+// WHAT IS DECIDED WHERE, because the split is the whole design:
+//
+//   The COIL decides the sleeve's QUALITY. Its seed was fixed when the sleeve was
+//   loaded, so the third sleeve down B2 is a specific sleeve and taking it gets
+//   you what was in it. A player's physical choice therefore has real input on
+//   the result, which is the entire point of letting them choose.
+//
+//   The POOL, at tear time, decides WHOSE FACES fill those ranks. That is what
+//   keeps a sleeve from going stale in your coat: a legendary bought last month
+//   is still a legendary, but it can pay out somebody who minted yesterday.
+//
+// The seed never leaves the server and is never sent to the client, so a sealed
+// sleeve still can't be read, and it still can't be traded with known contents —
+// nobody, including its owner, knows what is in it until it is torn.
 async function cmdOpenPack(args, raw, player, broadcast) {
   const catalogue = await getPool();
   if (!catalogue.length) return { type: 'error', message: 'The pool is empty. There is nothing in the sleeve to be.' };
-  if (!(await consumeSleeve(player.id))) {
+  const sleeve = await consumeSleeve(player.id);
+  if (!sleeve) {
     return { type: 'error', message: `You have no unopened sleeves. They come out of a card machine — ₵${PACK_PRICE} a go.` };
   }
 
-  const ranks = rollSleeve();
-  const picks = ranks.map((rank, i) => pickAtRank(catalogue, rank, i === ranks.length - 1 ? 1 : 0));
+  // A sleeve with no seed is one bought before coils meant anything. It rolls
+  // fresh rather than failing, and is neither better nor worse for it.
+  const rand = sleeve.seed != null ? mulberry32(sleeve.seed) : Math.random;
+  // Hot or not was decided at the coil along with everything else, on its own
+  // stream so asking the question doesn't change the answer to the next one.
+  const hot = sleeve.seed != null ? isHotSeed(sleeve.seed) : Math.random() < HOT_CHANCE;
+  const ranks = rollSleeve(rand, hot ? HOT_RANK_WEIGHT : RANK_WEIGHT);
+  const picks = ranks.map((rank, i) => pickAtRank(catalogue, rank, i === ranks.length - 1 ? 1 : 0, rand));
 
   // One read for the whole sleeve, never one per card (architecture.md read
   // tiers) — the reveal wants the full face, and the pool only carries the stub.
@@ -367,18 +434,31 @@ async function cmdOpenPack(args, raw, player, broadcast) {
       + `</span>`);
   }
 
-  broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} tears open a foil sleeve.` }, player.id);
+  broadcast(player.current_zone, { type: 'zone_event', message: hot
+    ? `${player.handle} tears open a foil sleeve, and the foil comes off GOLD.`
+    : `${player.handle} tears open a foil sleeve.` }, player.id);
   return {
     type: 'cardpack_open',
     cards,
     scrapValue: SCRAP_VALUE,
     scrapped,
+    // Provenance, printed on the sealed sleeve in the reveal. It is the only
+    // thing tying an outcome back to a choice, and it is what makes a player
+    // start to believe things about particular coils — which is the folklore the
+    // whole feature is for. It reveals nothing: the coil is where the sleeve came
+    // from, not a readout of what is in it.
+    coil: sleeve.coil,
+    machine: sleeve.machine,
+    hot,
     packs: await packsHeld(player.id),
     // The text log is the fallback, and it is NOT optional: a player who closes
     // the overlay mid-reveal, or whose client is old enough not to know the type,
     // still has to be able to read what they pulled.
     message: `<span class="card-sleeve" data-count="${cards.length}">`
-      + `<span class="card-tear">The sleeve tears. <b>${cards.length}</b> cards.</span>`
+      + (hot ? `<span class="card-hot">HOT RUN — the foil under the foil is gold. Triple weight on epic and legendary.</span>` : '')
+      + `<span class="card-tear">The sleeve tears. <b>${cards.length}</b> cards.`
+      + (sleeve.coil ? ` <span class="text-dim">Coil ${sleeve.coil}${sleeve.machine ? `, ${sleeve.machine}` : ''}.</span>` : '')
+      + `</span>`
       + lines.join('')
       + `</span>`
       + (scrapped ? `\n<span class="text-dim">Dupes in there — <span class="cmd">scrap</span> them for ₵${scrapped}.</span>` : ''),
@@ -517,7 +597,7 @@ function cardFurnitureDescribe(f) {
   if (isMachine) {
     return `<span class="cardmach">`
       + `<span class="cardmach-top"><span class="cardmach-pwr">● PWR</span></span>`
-      + `<span class="action-link cardmach-buy" data-action="cmd" data-cmd="buypack" title="Step up to the machine">USE MACHINE · ₵${PACK_PRICE} A SLEEVE</span>`
+      + `<span class="action-link cardmach-buy" data-action="cmd" data-cmd="buypack" title="Step up to the machine">PICK A COIL · ₵${PACK_PRICE} A SLEEVE</span>`
       + `</span>`;
   }
   return `<span class="cardmach cardmach-mint">`

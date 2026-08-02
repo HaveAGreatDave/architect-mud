@@ -293,33 +293,42 @@ function renderList(listId, items, source, containerId) {
   list.innerHTML = '';
   let lastGroup = null;
 
-  // A shelf with things picked out of it takes them all out in one click. One of
-  // each, not the whole stack: the mark means "still on your list", and a second
-  // of the same thing isn't what the list asked for.
-  const takeAllBtn = (want) => {
+  // A shelf with things picked out of it takes them all out in one click. HOW
+  // MANY comes from the server (`wantedQty`) — the amount the recipe is still
+  // short of, not one and not the whole stack. Taking six onions for a dish that
+  // wants two is the same failure as taking one when it wants six.
+  const takeAllBtn = (want, label, title) => {
     const b = document.createElement('button');
     b.className = 'ctr-takeall';
-    b.textContent = `▸ take ${want.length} listed`;
-    b.title = 'Take one of each shopping-list item on this shelf';
+    b.textContent = label;
+    b.title = title;
     b.onclick = (e) => {
       e.stopPropagation();
       b.disabled = true;
-      for (const it of want) sendCmdSilent(`pullid ${it.id}`);
+      for (const it of want) {
+        const q = Math.max(1, Math.min(it.quantity || 1, it.wantedQty || 1));
+        sendCmdSilent(`pullid ${it.id}${q > 1 ? ` ${q}` : ''}`);
+      }
     };
     return b;
   };
-  // A box whose stock doesn't partition stays flat and emits no headers at all
-  // (classify.js), which is a success there and would silently be a missing
-  // button here — so a flat list gets the button on a bare row of its own.
-  if (source !== 'inv' && !items.some(it => it.group)) {
-    const want = items.filter(it => it.wanted);
-    if (want.length) {
-      const h = document.createElement('div');
-      h.className = 'ctr-section has-wanted bare';
-      h.innerHTML = '<span></span>';
-      h.appendChild(takeAllBtn(want));
-      list.appendChild(h);
-    }
+  // THE WHOLE BOX, AT THE TOP. Sections are how a list reads, not how a shopping
+  // trip works — you came for what's on the list, wherever in the cabinet it is,
+  // so the one button that clears every section sits above all of them. It is
+  // also the only button a box that doesn't partition ever gets (classify.js
+  // leaves such a list flat and header-free, which is a success there and would
+  // silently be a missing button here).
+  const wantAll = source !== 'inv' ? items.filter(it => it.wanted) : [];
+  if (wantAll.length) {
+    const units = wantAll.reduce((a, it) => a + Math.max(1, Math.min(it.quantity || 1, it.wantedQty || 1)), 0);
+    const h = document.createElement('div');
+    h.className = 'ctr-section has-wanted bare ctr-takeall-top';
+    h.innerHTML = '<span></span>';
+    h.appendChild(takeAllBtn(
+      wantAll,
+      `▸ take everything listed (${units})`,
+      'Take what your shopping list still wants from this container — every shelf, in the amounts the recipes ask for'));
+    list.appendChild(h);
   }
 
   for (const item of items) {
@@ -334,9 +343,10 @@ function renderList(listId, items, source, containerId) {
       const want = source !== 'inv'
         ? items.filter(it => it.group === item.group && it.wanted)
         : [];
+      // Per-section too, for the trip where you only want the cold half of it.
       if (want.length) {
         h.classList.add('has-wanted');
-        h.appendChild(takeAllBtn(want));
+        h.appendChild(takeAllBtn(want, `▸ take ${want.length} listed`, 'Take this section’s shopping-list items, in the amounts the recipes ask for'));
       }
       list.appendChild(h);
     }

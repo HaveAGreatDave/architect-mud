@@ -1987,6 +1987,22 @@ export default async function regress({ run, check, getPlayer }) {
           !view.containerItems[1].wanted, JSON.stringify(view.containerItems));
       }
 
+      // HOW MANY, not just whether: the take-listed button acts on `wantedQty`,
+      // so a shelf of five tomatoes must not empty itself for a soup that wants
+      // one — and a second shelf of the same thing must not claim it twice.
+      {
+        const view = { containerItems: [
+          { item_id: TOM, name: 'test tomato', quantity: 5, tags: { food_profile: 'soft_vegetable' } },
+        ], secondary: { containerItems: [
+          { item_id: TOM, name: 'test tomato', quantity: 5, tags: { food_profile: 'soft_vegetable' } },
+        ] } };
+        await markContainer({ view, playerId: player.id });
+        check('a marked row says how many the recipe is short of, not the whole stack',
+          view.containerItems[0].wantedQty === 1, JSON.stringify(view.containerItems));
+        check('...and the shortfall is spent once, across every box of the appliance',
+          !view.secondary.containerItems[0].wanted, JSON.stringify(view.secondary.containerItems));
+      }
+
       // Buy the thing. Nothing fires; the box ticks because the box is a
       // question, not a record.
       const softId = randomUUID();

@@ -318,6 +318,20 @@ at a time. So a pull always builds, the hit always lands last, and a sleeve that
 still has a shape to it. It also means a long sleeve isn't automatically a good sleeve — seven
 commons and an uncommon is a slow, funny disappointment, which is a real outcome worth having.
 
+### 5a-bis. The Binder, field marks, and the reveal *(as built)*
+
+Three later additions, documented in full in [plugins/cards/README.md](../../plugins/cards/README.md):
+
+- **Field marks** — the physical line every card now carries, **lifted from the subject's own
+  description rather than invented**, so a card can never contradict the prose it was built from.
+  Enemies lead with their combat shape. Backfill for already-struck cards:
+  `node scripts/rederive-card-marks.mjs`.
+- **The Binder** (`plugins/tablet/binder-app.js`) — the collection as shelves with real completion
+  denominators and **anonymous** empty slots.
+- **The reveal** — a flat 15-second wait per card instead of a rarity-length auto-advance, a
+  sequential shimmer over the card's own regions, corona/dust tiers above Rare, and a browsable
+  summary where every card opens full-size.
+
 ### 5b. Buying and opening are two acts *(as built, revised)*
 
 The first cut charged and revealed in one breath off a bare `buypack`. It no longer does, and the
@@ -330,17 +344,79 @@ something out of, so it gets a lit marquee, product on coils behind real glass, 
 and a delivery flap, and it gets **no scanlines**, because there is no tube in it and a scanline over
 a shelf of merchandise reads as a bug. It carries an odds board drawn from the **live pool** (a rank
 nobody has minted shows as a flat nub rather than an advertised chance that cannot pay out), your
-balance, and a tray that lights when you're carrying unopened sleeves. The vend animation — coil
-turns, sleeve falls the height of the glass, flap kicks, cabinet shudders — runs **only on the
-server's vend message**, so it is a report of what happened and never a promise: a refused buy shows
-nothing falling. Opening it costs nothing — it is the thing you read the price off.
-Its buttons send the ordinary verbs, so a typed command and a clicked button take the identical
-server path and the panel decides nothing.
+balance, and a tray that lights when you're carrying unopened sleeves. The cabinet is branded **FOIL
+PLAY**, never the Mint: minting is what a player does to themselves at a terminal, and a machine that
+borrowed the word would be advertising a service it doesn't sell. Opening it costs nothing — it is
+the thing you read the price off. Its buttons send the ordinary verbs, so a typed command and a
+clicked button take the identical server path and the panel decides nothing.
+
+**You pick the coil** (`plugins/cards/machine.js`). Nine coils, `A1`–`C3`, each with its own stock,
+each able to run out; the panel draws the stack behind the glass so a coil two from empty *looks*
+different from a full one, and `buypack confirm B2` is the same act from the keyboard. The rule that
+keeps this honest: **the coil picks your object, not your odds** — every sealed sleeve is identical
+and the roll still happens at the tear, so choosing is the physical choice a real machine offers and
+nothing more. That sentence is printed on the cabinet rather than left for a player to discover by
+testing it in an evening. An empty coil refuses **before** money moves, and a typed `buypack confirm`
+with no code falls back to the fullest coil, so the verb never fails for want of a choice.
+
+Stock is **derived, not stored**: a hash of (machine id, game date, coil) gives the base layout, and
+only the day's *sales* live in RAM. So it is stateless, identical for every player at the same machine
+on the same day, self-restocking as the date rolls with no tick to run it, and it adds **no DB write
+per purchase** — which is the write the persistence tiers exist to refuse. A restart forgetting that
+a stranger emptied B2 an hour ago is the correct amount of memory for a vending machine.
+
+**The vend is a mechanism, not a fade.** Coil turns → the sleeve tips off it → it is **caught** by a
+sprung paddle that parks under the coil you chose → a **belt** carries it across the deck → it goes
+down the **chute**, the flap bangs and the cabinet shudders. Every position is measured off the live
+layout and driven through the Web Animations API rather than baked into a keyframe, so it works at any
+cabinet size and always starts at the coil the player actually pressed. Four stages, four sounds
+(`cards-coil` / `cards-catch` / `cards-belt` / `cards-chute`), sequenced rather than mixed. It runs
+**only on the server's vend message**, so it is a report of what happened and never a promise: a
+refused buy shows nothing moving. `prefers-reduced-motion` skips the journey and keeps the report.
 
 **The sleeve is an item.** ₵250 buys a `card_foil_sleeve` row into your inventory — carryable,
 droppable, giftable, storable, and holding **no result**.
 
-**The roll happens at `openpack`, never at the vend.** An unopened sleeve therefore cannot be
+**The coil decides the sleeve; the pool decides the faces** *(revised — this replaces the original
+"the roll happens at `openpack`, never at the vend")*. The first rule was written when every coil was
+the same coil, and it made the pick decorative: if contents are decided at the tear, a player's
+physical choice provably cannot matter. Now each sleeve on a coil has a **seed** fixed when it was
+loaded — the third sleeve down B2 is a specific sleeve, and taking it gets you what was in it. The
+seed is derived from (process salt, machine, game date, coil, depth) and rides on the sleeve's
+inventory row, so it survives a restart, a trade, and a month in a coat pocket. It costs **one
+integer**, not a stored card list, because every roller in `builder.js` already took a `rand`
+function: `mulberry32(seed)` rebuilds the identical sleeve at tear time.
+
+What the original rule was protecting is still protected, which is why the change is safe:
+
+| Property | How it survives |
+|---|---|
+| A sealed sleeve can't be datamined | The seed never leaves the server and is never in a payload. |
+| It can't be traded with known contents | Nobody — including its owner — can see what's in it until it's torn. |
+| It can't go stale | The seed fixes the **ranks**; the **live pool at tear time** fills the faces, so a month-old legendary can pay out somebody who minted yesterday. |
+| The moment is still chosen | `openpack` is still a separate act on an item you carry. |
+
+The process **salt** is what stops the mapping being recomputable from public content ids — without
+it a player could scout every machine in the city. Re-salting on restart only ever changes sleeves
+nobody has bought; a bought sleeve carries its own seed and is immune.
+
+The reveal prints the **coil it came off**, which is the only thread tying an outcome back to a
+choice — and the seed of every superstition a player will ever form about a particular column. That
+folklore is the point of letting them choose.
+
+**Hot runs.** About **one sleeve in twelve** (`HOT_CHANCE = 0.08`) comes off the line with triple
+weight on epic and legendary (`HOT_RANK_WEIGHT`), everything else untouched. Measured over 20k
+sleeves that moves epic-or-better from **6.4% to 16.8%** of cards dealt, and legendary from **1.3% to
+3.4%**. Hotness is derived from the sleeve's own seed on a **separate stream** (the golden-ratio
+constant), so asking whether a sleeve is hot never perturbs the sleeve it rolls — there is a regress
+case on exactly that. It is **invisible until the tear**: a hot sleeve you could spot behind the glass
+would simply be the sleeve everybody buys, and the coil choice would collapse into "take the gold
+one". So the sealed pack looks ordinary, the gold is *under* the foil, and the run announces itself in
+the gap between the tear and the first card — where it retunes your expectation of everything about
+to be dealt. After the cards it would be a footnote.
+
+The older reasoning, which still holds for everything except *when* the roll is fixed:
+An unopened sleeve cannot be
 datamined, cannot be traded with known contents, and cannot go stale against a pool that grew while
 it sat in your coat. It also makes the moment *chosen* rather than a side effect of paying — which is
 the only reason the reveal is worth animating at all.

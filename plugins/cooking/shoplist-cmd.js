@@ -5,7 +5,7 @@
 // So there is no "mark as bought" step, and no way for the list to be wrong.
 import { getList, holdings, answer, addShortfall, tidy, clearList, removeAt, catalogTemplate } from './shoplist.js';
 import { savedRecipes } from './knowledge.js';
-import { DISHES } from './dishes.js';
+import { DISHES, unitsOf } from './dishes.js';
 import { getItem } from '../../server/engine/items-cache.js';
 
 // A saved recipe's signature read back as a `needs` map, so the player's own
@@ -146,15 +146,24 @@ export async function cmdShoplist(args, raw, player) {
 // Everything still outstanding, as a lookup a shop can highlight against. Used
 // by the vendor path — a list you have to hold up against the shelf yourself is
 // only half a list.
+//
+// MAPS, NOT SETS, because "is this on the list" and "how much of it is still
+// missing" are the same question asked to different depths. The shelf only needs
+// the first (`.has`); a box you can empty in one click needs the second, or the
+// button takes the whole stack when the recipe asked for one onion. Two lines
+// wanting the same class add up — that really is how much you have to buy.
 export async function outstanding(player) {
   const list = await getList(player.id);
   if (!list.length) return null;
   const rows = answer(list, await holdings(player.id)).filter(e => !e.done);
   if (!rows.length) return null;
-  return {
-    profiles: new Set(rows.filter(e => e.k === 'p').map(e => e.v)),
-    items: new Set(rows.filter(e => e.k === 'i').map(e => e.v)),
-  };
+  const profiles = new Map(), items = new Map();
+  for (const e of rows) {
+    const short = Math.max(0, (e.n || 1) - (e.have || 0));
+    const into = e.k === 'p' ? profiles : items;
+    into.set(e.v, (into.get(e.v) || 0) + short);
+  }
+  return { profiles, items };
 }
 
 // The shelf, marked. A shopping list you have to hold up against the stock
@@ -193,5 +202,30 @@ export async function markContainer({ view, playerId }) {
   if (!boxes.length || !playerId) return;
   const want = await outstanding({ id: playerId });
   if (!want) return;
-  for (const box of boxes) for (const row of box) markRow(row, row.item_id, row.tags, want);
+  // HOW MANY, not just whether. A box is a place you take things OUT of, so the
+  // mark has to carry a number the panel can act on — and the number is spent as
+  // it is allocated, across BOTH boxes of a paired appliance, so two shelves of
+  // tomatoes don't each claim the whole shortfall and send you home with six.
+  for (const box of boxes) for (const row of box) allocate(row, want);
+}
+
+// One row's share of the shortfall, in whole items. A class is counted in the
+// recipe's own units (`unitsOf`), so 500g of dense meat is two 250g fillets and
+// one 600g one — the same arithmetic the matcher does, asked backwards.
+function allocate(row, want) {
+  markRow(row, row.item_id, row.tags, want);
+  if (!row.wanted) return;
+  const stack = Math.max(1, Number(row.quantity) || 1);
+  const profile = row.tags?.food_profile || row.tags?.food_also || null;
+  const byItem = want.items.get(row.item_id);
+  let need, per, pool;
+  if (byItem > 0) { need = byItem; per = 1; pool = want.items; }
+  else { need = want.profiles.get(profile) || 0; per = unitsOf({ ...row, quantity: 1 }, profile); pool = want.profiles; }
+  // A row that answers nothing outstanding any more (an earlier shelf already
+  // covered it) keeps no mark at all — a ▸ you shouldn't act on is worse than none.
+  if (!(need > 1e-9)) { row.wanted = false; return; }
+  const qty = per > 0 ? Math.min(stack, Math.ceil(need / per - 1e-9)) : 1;
+  row.wantedQty = qty;
+  const key = byItem > 0 ? row.item_id : profile;
+  pool.set(key, Math.max(0, need - qty * (per > 0 ? per : need)));
 }

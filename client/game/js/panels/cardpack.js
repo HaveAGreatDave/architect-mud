@@ -33,14 +33,27 @@ import { sfx, esc, mountOverlay } from './minigame-common.js';
 // suspense, and it is also literally the SFX riser: cards-flip-legendary spends
 // its first 440ms climbing, so a legendary's 460ms hold means the chord lands on
 // the same frame the face does.
+//
+// `dwell` is no longer an auto-advance timer — it is the SHIMMER BUDGET, the
+// window the card's own lines have to light up one after another before the
+// reveal is considered finished. Nothing takes the card away at the end of it:
+// see AUTO_MS.
 const RARITY = {
-  common:    { color: '#8b98a8', glow: 0.15, rays: 0,  flash: 0,    shake: 0,    hold: 90,  dwell: 820,  sfx: 'cards-flip-common',    label: 'COMMON' },
-  uncommon:  { color: '#57d47c', glow: 0.3,  rays: 0,  flash: 0.08, shake: 0,    hold: 130, dwell: 980,  sfx: 'cards-flip-uncommon',  label: 'UNCOMMON' },
-  rare:      { color: '#4aa8ff', glow: 0.5,  rays: 10, flash: 0.16, shake: 0.25, hold: 240, dwell: 1500, sfx: 'cards-flip-rare',      label: 'RARE' },
-  epic:      { color: '#b374ff', glow: 0.72, rays: 16, flash: 0.3,  shake: 0.55, hold: 340, dwell: 2050, sfx: 'cards-flip-epic',      label: 'EPIC' },
-  legendary: { color: '#ffc23d', glow: 1,    rays: 24, flash: 0.5,  shake: 1,    hold: 460, dwell: 2750, sfx: 'cards-flip-legendary', label: 'LEGENDARY' },
-  architect: { color: '#ff5470', glow: 1,    rays: 28, flash: 0.6,  shake: 1,    hold: 540, dwell: 3000, sfx: 'cards-flip-architect', label: 'ARCHITECT' },
+  common:    { color: '#8b98a8', glow: 0.15, rays: 0,  flash: 0,    shake: 0,    hold: 140, dwell: 1400, sfx: 'cards-flip-common',    label: 'COMMON' },
+  uncommon:  { color: '#57d47c', glow: 0.3,  rays: 0,  flash: 0.08, shake: 0,    hold: 200, dwell: 1800, sfx: 'cards-flip-uncommon',  label: 'UNCOMMON' },
+  rare:      { color: '#4aa8ff', glow: 0.5,  rays: 10, flash: 0.16, shake: 0.25, hold: 340, dwell: 2600, sfx: 'cards-flip-rare',      label: 'RARE' },
+  epic:      { color: '#b374ff', glow: 0.72, rays: 16, flash: 0.3,  shake: 0.55, hold: 470, dwell: 3400, sfx: 'cards-flip-epic',      label: 'EPIC' },
+  legendary: { color: '#ffc23d', glow: 1,    rays: 24, flash: 0.5,  shake: 1,    hold: 640, dwell: 4200, sfx: 'cards-flip-legendary', label: 'LEGENDARY' },
+  architect: { color: '#ff5470', glow: 1,    rays: 28, flash: 0.6,  shake: 1,    hold: 740, dwell: 4600, sfx: 'cards-flip-architect', label: 'ARCHITECT' },
 };
+
+// THE CARD WAITS FOR YOU. Fifteen seconds, the same for every rank, and a click
+// takes it early. The old behaviour auto-advanced after the rarity's own dwell —
+// under a second and a half on a Common — which meant the pacing decided how long
+// you were allowed to look at your own card, and a player who wanted to actually
+// READ one had to race it. A generous flat timer inverts that: the reveal is
+// paced by its animation, and the card is dismissed by the person holding it.
+const AUTO_MS = 15000;
 const rarity = r => RARITY[r] || RARITY.common;
 
 // A rare-or-better pull earns the full treatment: rays, flash, a held beat. Below
@@ -93,6 +106,11 @@ function ensurePackStyles() {
   .cp-pack-seam { position:absolute; left:0; right:0; top:26px; height:12px; z-index:3;
     background:repeating-linear-gradient(90deg, rgba(255,255,255,0.5) 0 5px, transparent 5px 10px);
     opacity:.55; }
+  /* Where it came off. The sealed sleeve remembers its coil, which is the only
+     thread between a choice and an outcome — and the seed of every superstition
+     a player is ever going to form about this machine. */
+  .cp-pack-from { position:absolute; left:0; right:0; bottom:10px; text-align:center; z-index:3;
+    font-size:8px; letter-spacing:2px; color:rgba(230,245,255,0.55); text-shadow:0 1px 4px rgba(0,0,0,0.9); }
   .cp-pack-hint { position:absolute; left:50%; bottom:-46px; transform:translateX(-50%); white-space:nowrap;
     font-size:11px; letter-spacing:3px; color:#9fd8ff; animation:cp-blink 1.5s ease-in-out infinite; }
 
@@ -103,6 +121,12 @@ function ensurePackStyles() {
   /* Tearing: the top strip rips free and spins off, the body drops and fades. */
   .cp-pack.tearing { animation:cp-pack-shake .28s ease-in-out 2; }
   .cp-pack.tearing .cp-pack-seam { animation:cp-seam-run .34s linear forwards; }
+  /* The seam burns as it runs — light leaking out of the pack before anything
+     has come out of it. */
+  .cp-stage.tearlight .cp-pack-seam { box-shadow:0 0 18px rgba(150,235,255,0.95), 0 0 44px rgba(120,215,255,0.6);
+    background:repeating-linear-gradient(90deg, rgba(255,255,255,0.95) 0 5px, rgba(160,235,255,0.4) 5px 10px); opacity:1; }
+  .cp-stage.tearlight .cp-pack-body { box-shadow:0 26px 60px rgba(0,0,0,0.75), inset 0 0 0 1px rgba(255,255,255,0.16),
+    inset 0 22px 50px rgba(150,235,255,0.45); }
   .cp-pack.torn .cp-pack-top { animation:cp-strip-away .8s cubic-bezier(.3,.7,.4,1) forwards; }
   .cp-pack.torn .cp-pack-body, .cp-pack.torn .cp-pack-print { animation:cp-body-drop .8s cubic-bezier(.4,0,.7,1) forwards; }
   .cp-pack-top { position:absolute; left:-4px; right:-4px; top:-4px; height:36px; z-index:4; border-radius:8px 8px 2px 2px;
@@ -119,6 +143,17 @@ function ensurePackStyles() {
     background:linear-gradient(140deg,#cfeeff,#5aa8c8); border-radius:1px;
     animation:cp-fleck-fly var(--d,1s) cubic-bezier(.15,.6,.4,1) forwards; }
   @keyframes cp-fleck-fly { to{ transform:translate(var(--tx),var(--ty)) rotate(var(--rot)); opacity:0 } }
+  /* Gold under the foil — a hot run's only visual tell, and it arrives at the
+     tear, never before it. */
+  .cp-fleck.gold { background:linear-gradient(140deg,#fff2c0,#e0a52a); box-shadow:0 0 8px rgba(255,200,90,0.8); }
+
+  .cp-hot-banner { position:absolute; left:50%; top:26%; transform:translate(-50%,-50%); z-index:15; text-align:center;
+    pointer-events:none; animation:cp-hot-in .5s cubic-bezier(.2,1.6,.4,1) forwards, cp-hot-out .5s ease-in 2.1s forwards; }
+  .cp-hot-banner span { display:block; font-size:30px; font-weight:700; letter-spacing:10px; color:#ffd77a;
+    text-shadow:0 0 26px rgba(255,190,70,0.95), 0 0 60px rgba(255,150,40,0.6); }
+  .cp-hot-banner i { display:block; margin-top:8px; font-style:normal; font-size:10px; letter-spacing:5px; color:#ffe9c0; }
+  @keyframes cp-hot-in { from{opacity:0; transform:translate(-50%,-50%) scale(.6)} to{opacity:1; transform:translate(-50%,-50%) scale(1)} }
+  @keyframes cp-hot-out { to{opacity:0; transform:translate(-50%,-58%) scale(1.05)} }
 
   /* ── the card ─────────────────────────────────────────────────────────── */
   .cp-card-wrap { position:relative; width:min(78vw,340px); perspective:1400px; }
@@ -181,12 +216,91 @@ function ensurePackStyles() {
     30%,50%,70%{transform:translateX(calc(-7px * var(--cp-shake,0)))}
     40%,60%{transform:translateX(calc(7px * var(--cp-shake,0)))} }
 
+  /* Shockwave — a ring thrown off the card at the instant it turns. It is the
+     single cheapest thing that makes a flip feel like an EVENT rather than a
+     transition, and it scales with the rank because it borrows --cp-glow. */
+  .cp-ring { position:absolute; left:50%; top:50%; width:220px; height:220px; margin:-110px 0 0 -110px;
+    border-radius:50%; pointer-events:none; z-index:7; opacity:0;
+    border:2px solid var(--cp-accent,#fff); box-shadow:0 0 26px var(--cp-accent,#fff), inset 0 0 26px var(--cp-accent,#fff); }
+  .cp-ring.on { animation:cp-ring-out .78s cubic-bezier(.2,.7,.3,1) forwards; }
+  @keyframes cp-ring-out { 0%{opacity:calc(.25 + var(--cp-glow,0) * .6); transform:scale(.35)}
+    100%{opacity:0; transform:scale(2.6)} }
+
+  /* Shine — a hard specular band raked across the FACE just after it lands, the
+     same cue the sealed foil uses. It is what says the card is a printed,
+     laminated object and not a panel of text. */
+  .cp-shine { position:absolute; inset:0; pointer-events:none; z-index:8; overflow:hidden; border-radius:12px; }
+  .cp-shine i { position:absolute; inset:-70%;
+    background:linear-gradient(74deg, transparent 42%, rgba(255,255,255,0.42) 49%, rgba(220,250,255,0.6) 51%, transparent 58%);
+    transform:translateX(-70%); mix-blend-mode:overlay; }
+  .cp-card.flipped .cp-shine i { animation:cp-shine-run 1.1s cubic-bezier(.3,.6,.4,1) .16s; }
+  @keyframes cp-shine-run { to { transform:translateX(70%) } }
+
+  /* Holo — epic and above only. A slow prismatic wash over the face, so the top
+     of the ladder LOOKS like a different print run and not just a brighter one. */
+  .cp-front.holo::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:7; opacity:.3;
+    background:linear-gradient(122deg, rgba(255,80,160,0.5), rgba(80,200,255,0.5) 28%, rgba(140,255,190,0.5) 46%,
+      rgba(255,215,110,0.5) 64%, rgba(190,120,255,0.5) 84%, rgba(255,80,160,0.5));
+    background-size:260% 260%; mix-blend-mode:color-dodge; animation:cp-holo-wash 5.5s ease-in-out infinite; }
+  @keyframes cp-holo-wash { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+
+  /* Parallax. The card leans toward the pointer — one transform on a wrapper, so
+     it composes with the flip rather than fighting it. Held to a small angle:
+     this is a card in your hands, not a turntable. */
+  .cp-tiltbox { perspective:1300px; }
+  .cp-tilt { transform-style:preserve-3d; transition:transform .22s ease-out; will-change:transform; }
+
   /* Sparkle motes on a big pull. */
   .cp-mote { position:absolute; width:4px; height:4px; border-radius:50%; pointer-events:none; z-index:6;
     background:var(--cp-accent,#fff); box-shadow:0 0 10px var(--cp-accent,#fff);
     animation:cp-mote-rise var(--d,1.4s) ease-out forwards; }
   @keyframes cp-mote-rise { 0%{opacity:0; transform:translate(0,0) scale(.4)} 15%{opacity:1}
     100%{opacity:0; transform:translate(var(--tx),var(--ty)) scale(1.1)} }
+
+  /* ── the shimmer ──────────────────────────────────────────────────────────
+     The card's own lines, lit in reading order. cp-dim is where a part starts
+     — present but recessive — and cp-lit is the pass of light going over it.
+     Two states rather than an animation on everything means the eye is drawn to
+     exactly one place at a time, which is the entire trick. */
+  .cp-front .cp-dim { opacity:.34; filter:saturate(.5); transition:opacity .3s ease, filter .3s ease; }
+  .cp-front .cp-lit { position:relative; opacity:1;
+    animation:cp-lit-pulse .9s ease-out; }
+  @keyframes cp-lit-pulse {
+    0%   { text-shadow:none; transform:translateX(0) }
+    18%  { text-shadow:0 0 14px var(--cp-accent,#fff), 0 0 30px var(--cp-accent,#fff); transform:translateX(2px) }
+    100% { text-shadow:0 0 0 transparent; transform:translateX(0) }
+  }
+  /* The band of light itself, raked across whatever part is currently lit. */
+  .cp-front .cp-lit::after { content:''; position:absolute; inset:-4px -10px; pointer-events:none;
+    background:linear-gradient(96deg, transparent 40%, color-mix(in srgb, var(--cp-accent,#fff) 55%, transparent) 50%, transparent 60%);
+    animation:cp-lit-sweep .9s ease-out; }
+  @keyframes cp-lit-sweep { from{transform:translateX(-115%)} to{transform:translateX(115%)} }
+
+  /* Corona — epic and up. A slow rotating fan BEHIND everything that outlives the
+     burst, so a big pull keeps radiating for as long as it is on screen. */
+  .cp-stage.corona::before { content:''; position:absolute; left:50%; top:46%; width:150vmax; height:150vmax;
+    margin:-75vmax 0 0 -75vmax; pointer-events:none; z-index:-2; opacity:.22; mix-blend-mode:screen;
+    background:conic-gradient(from 0deg, transparent 0deg, var(--cp-accent,#fff) 14deg, transparent 28deg,
+      transparent 46deg, var(--cp-accent,#fff) 60deg, transparent 74deg, transparent 100deg,
+      var(--cp-accent,#fff) 114deg, transparent 128deg, transparent 180deg,
+      var(--cp-accent,#fff) 194deg, transparent 208deg, transparent 260deg,
+      var(--cp-accent,#fff) 274deg, transparent 288deg, transparent 360deg);
+    animation:cp-corona 22s linear infinite; }
+  @keyframes cp-corona { to { transform:rotate(360deg) } }
+
+  /* Dust — legendary and architect only. Falls past the card, never inside it. */
+  .cp-dust { position:absolute; top:-8%; width:3px; height:3px; border-radius:50%; pointer-events:none; z-index:9;
+    opacity:0; box-shadow:0 0 8px currentColor; animation:cp-dust-fall var(--d,3s) linear forwards; }
+  @keyframes cp-dust-fall { 0%{opacity:0; transform:translate(0,0)} 12%{opacity:.9}
+    100%{opacity:0; transform:translate(var(--dx,0),108vh)} }
+
+  /* The wait. A visible bar for the fifteen seconds the card is yours, so moving
+     on always reads as a choice you made or declined to make. */
+  .cp-next { position:absolute; bottom:34px; left:50%; transform:translateX(-50%); white-space:nowrap;
+    font-size:9px; letter-spacing:3px; color:#6d8296; opacity:0; transition:opacity .4s ease .5s; pointer-events:none; }
+  .cp-next.on { opacity:1; }
+  .cp-next i { display:block; height:2px; margin-top:6px; width:100%; border-radius:1px;
+    background:color-mix(in srgb, var(--cp-accent,#fff) 70%, transparent); }
 
   /* ── progress pips + footer ───────────────────────────────────────────── */
   .cp-pips { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); display:flex; gap:7px; }
@@ -200,10 +314,24 @@ function ensurePackStyles() {
   .cp-summary { display:flex; flex-direction:column; align-items:center; gap:14px; width:100%; max-height:100%; }
   .cp-sum-head { font-size:13px; letter-spacing:5px; color:#c8d8e8; }
   .cp-sum-grid { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; overflow-y:auto; padding:4px; }
-  .cp-sum-card { width:118px; border-radius:7px; padding:8px; cursor:default;
+  /* Each card in the wall is a door back into that card, so it has to LOOK like
+     one: it lifts under the pointer and says READ. A grid of tiles that can be
+     clicked but never suggest it is a feature nobody finds. */
+  .cp-sum-card { position:relative; width:118px; border-radius:7px; padding:8px; cursor:pointer;
     background:linear-gradient(170deg,#0c141c,#141d28);
     border:1px solid color-mix(in srgb, var(--c,#8b98a8) 60%, transparent);
-    box-shadow:0 0 16px color-mix(in srgb, var(--c,#8b98a8) 22%, transparent); }
+    box-shadow:0 0 16px color-mix(in srgb, var(--c,#8b98a8) 22%, transparent);
+    transition:transform .15s ease, box-shadow .2s ease, border-color .2s ease;
+    animation:cp-sum-in .4s cubic-bezier(.2,1.4,.4,1) backwards; }
+  @keyframes cp-sum-in { from{opacity:0; transform:translateY(14px) scale(.9)} to{opacity:1; transform:none} }
+  .cp-sum-card:hover { transform:translateY(-4px) scale(1.04);
+    border-color:color-mix(in srgb, var(--c,#8b98a8) 100%, transparent);
+    box-shadow:0 8px 26px rgba(0,0,0,0.6), 0 0 26px color-mix(in srgb, var(--c,#8b98a8) 55%, transparent); }
+  .cp-sum-read { margin-top:6px; font-size:7px; letter-spacing:2px; color:var(--c,#8b98a8); opacity:0; transition:opacity .16s; }
+  .cp-sum-card:hover .cp-sum-read { opacity:1; }
+
+  /* One card, read at full size out of the summary. */
+  .cp-detail { display:flex; flex-direction:column; align-items:center; gap:16px; }
   .cp-sum-rank { font-size:8px; letter-spacing:2px; color:var(--c,#8b98a8); }
   .cp-sum-name { font-size:11px; color:#dfe9f2; margin-top:4px; word-break:break-word; }
   .cp-sum-type { font-size:9px; color:#63737f; margin-top:2px; }
@@ -220,103 +348,187 @@ function ensurePackStyles() {
      Deliberately NOT the shared minigame CRT chassis. Every other device in the
      game is a screen you read; this one is a box you buy something out of, and
      the whole appeal of a card machine is watching the sleeve fall. So: painted
-     steel, a lit marquee, product on real coils behind glass, and a delivery
-     flap that gets hit. No scanlines — there is no tube here, the glass is
-     glass, and a scanline over a shelf of merchandise reads as a bug. */
-  #cardmach-overlay { position:fixed; inset:0; z-index:9100; display:flex; align-items:center; justify-content:center;
-    background:radial-gradient(ellipse at 50% 40%, rgba(10,16,24,0.72), rgba(2,4,7,0.9) 72%);
-    backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px);
-    font-family:'Courier New', monospace; user-select:none; }
+     steel, a lit marquee, product on real coils behind glass, a catch paddle, a
+     belt, a chute and a flap that gets hit. No scanlines — there is no tube
+     here, the glass is glass, and a scanline over a shelf of merchandise reads
+     as a bug.
 
-  .vm-cab { position:relative; width:min(94vw,430px); border-radius:14px 14px 8px 8px; padding:0 0 12px;
-    background:linear-gradient(100deg,#1d2b3a 0%,#16222e 22%,#101a24 55%,#16222e 88%,#0b1219 100%);
-    box-shadow:0 26px 70px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.09),
-      inset 0 0 0 1px rgba(0,0,0,0.6), 0 0 46px rgba(90,190,240,0.14);
+     THE GLASS IS THE WHOLE ILLUSION, so it is built the way real glass reads
+     rather than as one sheen: an inner bevel where the pane meets the frame, a
+     tinted body that darkens with depth, a broad raked specular, a second
+     tighter highlight along the top edge, drifting room reflection, and dirt —
+     smudges and dust that DON'T move with the product behind them. Parallax
+     between the reflection layer and the shelves is what stops it looking like
+     a picture of a machine. */
+  #cardmach-overlay { position:fixed; inset:0; z-index:9100; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(ellipse at 50% 38%, rgba(12,19,28,0.74), rgba(2,4,7,0.93) 74%);
+    backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);
+    font-family:'Courier New', monospace; user-select:none; padding:16px; overflow:auto; }
+
+  .vm-cab { position:relative; width:min(96vw,640px); border-radius:18px 18px 10px 10px; padding:0 0 14px;
+    background:linear-gradient(100deg,#22323f 0%,#18242f 20%,#111b24 52%,#18242f 86%,#0a1017 100%);
+    box-shadow:0 34px 90px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.10),
+      inset 0 0 0 1px rgba(0,0,0,0.6), 0 0 60px rgba(90,190,240,0.16);
     border:1px solid #05070a; }
-  .vm-cab.shake { animation:vm-shake .42s cubic-bezier(.36,.07,.19,.97); }
-  @keyframes vm-shake { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-3px,2px)}
-    35%{transform:translate(3px,-2px)} 55%{transform:translate(-2px,1px)} 78%{transform:translate(2px,0)} }
+  /* Moulded seam down each flank — the cabinet is a pressing, not a rectangle. */
+  .vm-cab::before, .vm-cab::after { content:''; position:absolute; top:64px; bottom:14px; width:3px; border-radius:2px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.07), rgba(0,0,0,0.5)); pointer-events:none; }
+  .vm-cab::before { left:5px } .vm-cab::after { right:5px }
+  .vm-cab.shake { animation:vm-shake .46s cubic-bezier(.36,.07,.19,.97); }
+  @keyframes vm-shake { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-4px,3px)}
+    35%{transform:translate(4px,-3px)} 55%{transform:translate(-3px,1px)} 78%{transform:translate(2px,0)} }
 
   /* Lit marquee across the crown — the chaser bulbs are the machine's pulse. */
-  .vm-marquee { position:relative; display:flex; align-items:center; gap:10px; padding:10px 12px 9px;
-    border-radius:13px 13px 0 0; overflow:hidden;
+  .vm-marquee { position:relative; display:flex; align-items:center; gap:14px; padding:14px 16px 13px;
+    border-radius:17px 17px 0 0; overflow:hidden;
     background:linear-gradient(180deg,#2a1140,#3c1055 46%,#1b0a2c);
     box-shadow:inset 0 -3px 8px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.12); }
   .vm-marquee::after { content:''; position:absolute; inset:0; pointer-events:none;
     background:repeating-linear-gradient(90deg, rgba(255,210,120,0.85) 0 4px, transparent 4px 22px);
     height:3px; top:auto; bottom:0; animation:vm-chase 1.1s linear infinite; opacity:.75; }
   @keyframes vm-chase { to { background-position:22px 0 } }
-  .vm-logo { font-size:19px; color:#ffd27a; text-shadow:0 0 14px rgba(255,190,90,0.85); animation:vm-buzz 4s ease-in-out infinite; }
+  .vm-logo { font-size:26px; color:#ffd27a; text-shadow:0 0 18px rgba(255,190,90,0.85); animation:vm-buzz 4s ease-in-out infinite; }
   @keyframes vm-buzz { 0%,88%,100%{opacity:1} 90%{opacity:.35} 92%{opacity:1} 94%{opacity:.5} }
   .vm-names { flex:1; line-height:1.2; }
-  .vm-brand { font-size:14px; font-weight:700; letter-spacing:4px; color:#ffe9c0; text-shadow:0 0 10px rgba(255,180,70,0.6); }
-  .vm-model { font-size:8px; letter-spacing:3px; color:rgba(255,220,180,0.55); margin-top:3px; }
-  .vm-x { background:none; border:none; color:#d9b98a; font-family:inherit; font-size:14px; cursor:pointer;
+  .vm-brand { font-size:20px; font-weight:700; letter-spacing:7px; color:#ffe9c0; text-shadow:0 0 12px rgba(255,180,70,0.65); }
+  .vm-model { font-size:9px; letter-spacing:3px; color:rgba(255,220,180,0.6); margin-top:4px; }
+  .vm-x { background:none; border:none; color:#d9b98a; font-family:inherit; font-size:16px; cursor:pointer;
     padding:0 2px; line-height:1; }
   .vm-x:hover { color:#ff6b6b; }
 
-  .vm-body { display:flex; gap:10px; padding:12px; }
+  .vm-body { display:flex; gap:14px; padding:16px 16px 10px; align-items:stretch; }
 
-  /* The glass. A real window: sealed frame, product inside, one raked sheen. */
-  .vm-glass { position:relative; flex:1; min-height:214px; border-radius:6px; overflow:hidden; padding:10px 9px;
-    background:linear-gradient(180deg,#071019,#040a10 60%,#02060a);
-    box-shadow:inset 0 0 0 3px #0a1119, inset 0 0 0 4px rgba(150,220,255,0.10),
-      inset 0 18px 34px rgba(0,0,0,0.75); }
-  .vm-glass::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:6;
-    background:linear-gradient(112deg, transparent 0 34%, rgba(200,235,255,0.13) 40%, rgba(200,235,255,0.04) 46%, transparent 56%); }
-  .vm-shelf { display:flex; gap:7px; margin-bottom:9px; }
-  .vm-shelf:last-of-type { margin-bottom:0; }
-  .vm-slotwrap { flex:1; text-align:center; }
-  .vm-code { font-size:7px; letter-spacing:2px; color:#4c6274; margin-bottom:3px; }
-  /* The product: a foil sleeve stood on end, holo-swept like the real one. */
-  .vm-sleeve { position:relative; height:44px; border-radius:3px; overflow:hidden;
+  /* The window assembly: pane + product + mechanism, all one coordinate space so
+     the travelling sleeve can cross from a coil to the chute without changing
+     parents mid-flight. */
+  .vm-window { position:relative; flex:1; min-width:0; border-radius:8px; overflow:hidden;
+    background:linear-gradient(180deg,#08121c,#040b12 58%,#02060a);
+    box-shadow:inset 0 0 0 4px #0b131b, inset 0 0 0 5px rgba(150,220,255,0.13),
+      inset 0 22px 40px rgba(0,0,0,0.8), 0 0 0 1px #05070a; }
+
+  /* GLASS, layer by layer. All pointer-events:none and stacked above product. */
+  .vm-pane { position:absolute; inset:0; pointer-events:none; z-index:8; border-radius:8px; }
+  /* Body tint + depth: the pane is slightly cyan and gets darker toward the
+     bottom, where the cabinet's own shadow falls behind it. */
+  .vm-pane-tint { background:linear-gradient(184deg, rgba(150,225,255,0.055), rgba(10,30,45,0.10) 55%, rgba(0,0,0,0.30));
+    box-shadow:inset 0 0 40px rgba(0,0,0,0.55); }
+  /* The broad raked specular — the single strongest "there is a sheet in front
+     of this" cue. It drifts, very slowly, so the pane never looks printed on. */
+  .vm-pane-sheen { background:linear-gradient(108deg, transparent 0 26%, rgba(210,240,255,0.16) 33%,
+      rgba(210,240,255,0.05) 39%, transparent 47%, transparent 66%, rgba(200,235,255,0.07) 71%, transparent 78%);
+    animation:vm-sheen 13s ease-in-out infinite; }
+  @keyframes vm-sheen { 0%,100%{transform:translateX(-3%)} 50%{transform:translateX(3%)} }
+  /* Top-edge highlight + bottom-edge catch: where the pane's THICKNESS shows. */
+  .vm-pane-edge { background:linear-gradient(180deg, rgba(255,255,255,0.24), transparent 2.5%),
+      linear-gradient(0deg, rgba(160,220,255,0.10), transparent 3%); }
+  /* Room reflection — soft blobs that drift independently of the shelves. The
+     parallax is the point; a reflection locked to the product is a texture. */
+  .vm-pane-refl { opacity:.5; mix-blend-mode:screen;
+    background:radial-gradient(58% 30% at 22% 14%, rgba(190,225,255,0.18), transparent 70%),
+      radial-gradient(40% 22% at 78% 30%, rgba(255,205,140,0.10), transparent 70%),
+      radial-gradient(70% 24% at 50% 92%, rgba(140,200,255,0.08), transparent 70%);
+    animation:vm-refl 17s ease-in-out infinite; }
+  @keyframes vm-refl { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-7px,4px) scale(1.04)} }
+  /* Dirt. Nobody cleans a card machine. Smudges are what make the pane an object
+     with a history rather than a rendering trick. */
+  .vm-pane-dirt { opacity:.5;
+    background:radial-gradient(9px 13px at 24% 62%, rgba(230,245,255,0.09), transparent 70%),
+      radial-gradient(7px 10px at 27% 66%, rgba(230,245,255,0.07), transparent 70%),
+      radial-gradient(14px 9px at 71% 24%, rgba(230,245,255,0.05), transparent 70%),
+      radial-gradient(3px 3px at 12% 32%, rgba(255,255,255,0.16), transparent 70%),
+      radial-gradient(2px 2px at 84% 71%, rgba(255,255,255,0.13), transparent 70%),
+      radial-gradient(2px 2px at 55% 12%, rgba(255,255,255,0.10), transparent 70%); }
+
+  /* ── product: three shelves of three coils ───────────────────────────────── */
+  .vm-shelves { position:relative; z-index:2; padding:12px 12px 6px; }
+  .vm-shelf { display:flex; gap:10px; margin-bottom:12px; }
+  .vm-slotwrap { flex:1; text-align:center; cursor:pointer; border-radius:5px; padding:3px 2px 4px;
+    transition:background .16s, box-shadow .16s; }
+  .vm-slotwrap:hover:not(.out) { background:rgba(120,200,255,0.07); }
+  .vm-slotwrap.sel { background:rgba(120,200,255,0.13); box-shadow:0 0 0 1px rgba(140,220,255,0.6), 0 0 18px rgba(90,190,240,0.3); }
+  .vm-slotwrap.out { cursor:not-allowed; }
+  .vm-code { font-size:8px; letter-spacing:2px; color:#4c6274; margin-bottom:4px; }
+  .vm-slotwrap.sel .vm-code { color:#9ff0ff; }
+  /* The stack. A coil holds several sleeves and you can SEE how many are left —
+     the back ones are just edges, the front one is the whole face. A slot two
+     from empty has to look different from a full one or the counter is the only
+     thing carrying the stock, and nobody reads a counter. */
+  .vm-stack { position:relative; height:58px; }
+  .vm-sleeve { position:absolute; left:0; right:0; bottom:0; height:46px; border-radius:3px; overflow:hidden;
     background:linear-gradient(150deg,#12212e,#2a5f7a 26%,#7fd8e8 42%,#123044 62%,#6b52a8 82%,#101a2a);
-    box-shadow:0 3px 7px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(255,255,255,0.18); }
-  .vm-sleeve::after { content:''; position:absolute; inset:-60%;
-    background:linear-gradient(74deg, transparent 40%, rgba(255,255,255,0.6) 49%, transparent 58%);
+    box-shadow:0 3px 8px rgba(0,0,0,0.75), inset 0 0 0 1px rgba(255,255,255,0.2); }
+  .vm-sleeve.back { filter:brightness(.5); }
+  .vm-sleeve.front::after { content:''; position:absolute; inset:-60%;
+    background:linear-gradient(74deg, transparent 40%, rgba(255,255,255,0.62) 49%, transparent 58%);
     animation:cp-holo 3.2s linear infinite; mix-blend-mode:overlay; }
   .vm-sleeve i { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-    font-style:normal; font-size:15px; color:#eaf6ff; text-shadow:0 1px 5px rgba(0,0,0,0.9); z-index:2; }
-  .vm-slotwrap.out .vm-sleeve { background:#0a1219; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06); }
-  .vm-slotwrap.out .vm-sleeve::after, .vm-slotwrap.out .vm-sleeve i { display:none; }
+    font-style:normal; font-size:17px; color:#eaf6ff; text-shadow:0 1px 5px rgba(0,0,0,0.9); z-index:2; }
+  .vm-sleeve.back i { display:none; }
+  .vm-empty { position:absolute; inset:auto 0 0 0; height:46px; border-radius:3px;
+    background:linear-gradient(180deg,#070d13,#0b1219); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05), inset 0 6px 12px rgba(0,0,0,0.8); }
   /* The coil the sleeve sits on. It turns when the machine vends. */
-  .vm-coil { height:9px; margin-top:2px;
+  .vm-coil { position:relative; height:11px; margin-top:3px; border-radius:0 0 3px 3px;
     background:repeating-linear-gradient(72deg, #7c8b99 0 2px, #303c47 2px 6px);
-    border-radius:0 0 3px 3px; box-shadow:inset 0 -2px 4px rgba(0,0,0,0.7); }
-  .vm-slotwrap.turning .vm-coil { animation:vm-coil .55s linear 2; }
-  @keyframes vm-coil { to { background-position:22px 0 } }
-  .vm-tag { font-size:8px; letter-spacing:1px; color:#9fd8ff; margin-top:3px; }
+    box-shadow:inset 0 -2px 5px rgba(0,0,0,0.75); }
+  .vm-slotwrap.turning .vm-coil { animation:vm-coil .28s linear 3; }
+  @keyframes vm-coil { to { background-position:24px 0 } }
+  .vm-tag { font-size:8px; letter-spacing:1px; color:#9fd8ff; margin-top:4px; }
   .vm-slotwrap.out .vm-tag { color:#54646f; }
+  .vm-left { font-size:7px; letter-spacing:1px; color:#5d7d8d; }
 
-  /* The falling sleeve — one node, reused, animated down the glass into the flap. */
-  .vm-drop { position:absolute; z-index:5; width:52px; height:44px; border-radius:3px; opacity:0; pointer-events:none;
+  /* ── the mechanism: paddle, belt, chute ──────────────────────────────────── */
+  .vm-mech { position:relative; z-index:3; height:52px; margin:2px 10px 10px; border-radius:4px;
+    background:linear-gradient(180deg,#0a121a,#060c12);
+    box-shadow:inset 0 2px 7px rgba(0,0,0,0.85), inset 0 0 0 1px rgba(255,255,255,0.04); }
+  /* The catch paddle: sprung steel that DIPS when something lands on it. */
+  .vm-paddle { position:absolute; top:8px; height:7px; width:64px; border-radius:2px; transform-origin:50% 100%;
+    background:linear-gradient(180deg,#8494a2,#3a4652);
+    box-shadow:0 2px 5px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.3);
+    transition:transform .12s cubic-bezier(.3,1.6,.5,1), left .34s cubic-bezier(.4,0,.3,1); }
+  .vm-paddle.dip { transform:translateY(5px) rotate(-3deg); }
+  /* The belt: a rubber run across the deck, ticking when it moves. */
+  .vm-belt { position:absolute; left:8px; right:56px; top:26px; height:12px; border-radius:6px; overflow:hidden;
+    background:linear-gradient(180deg,#1b232b,#0c1219); box-shadow:inset 0 2px 4px rgba(0,0,0,0.8); }
+  .vm-belt::after { content:''; position:absolute; inset:0;
+    background:repeating-linear-gradient(90deg, rgba(255,255,255,0.10) 0 3px, transparent 3px 14px); }
+  .vm-belt.run::after { animation:vm-beltrun .42s linear infinite; }
+  @keyframes vm-beltrun { to { background-position:14px 0 } }
+  /* The chute mouth at the end of the belt — where it leaves the window. */
+  .vm-chute { position:absolute; right:8px; top:14px; width:40px; height:32px; border-radius:4px 4px 8px 8px;
+    background:linear-gradient(180deg,#05090d,#0c141c); box-shadow:inset 0 4px 10px rgba(0,0,0,0.95), inset 0 0 0 1px rgba(150,220,255,0.10); }
+  .vm-chute::after { content:'▼'; position:absolute; left:0; right:0; bottom:3px; text-align:center;
+    font-size:9px; color:#2c3b48; }
+  .vm-chute.hot::after { color:#7fe8ff; text-shadow:0 0 8px rgba(127,232,255,0.8); }
+
+  /* The travelling sleeve — ONE node for the whole journey, driven by the Web
+     Animations API against MEASURED positions rather than a keyframe guess, so
+     it genuinely leaves the coil you picked and genuinely reaches the chute at
+     whatever size the cabinet happens to be. */
+  .vm-drop { position:absolute; z-index:5; width:52px; height:46px; border-radius:3px; opacity:0; pointer-events:none;
     background:linear-gradient(150deg,#12212e,#2a5f7a 26%,#7fd8e8 42%,#123044 62%,#6b52a8 82%,#101a2a);
-    box-shadow:0 6px 16px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(255,255,255,0.2); }
-  .vm-drop.fall { animation:vm-fall 1.05s cubic-bezier(.45,.05,.6,1) forwards; }
-  @keyframes vm-fall {
-    0%   { opacity:1; transform:translate(0,0) rotate(0deg) }
-    18%  { opacity:1; transform:translate(6px,10px) rotate(9deg) }
-    62%  { opacity:1; transform:translate(-4px,150px) rotate(-24deg) }
-    76%  { opacity:1; transform:translate(0,178px) rotate(-8deg) }
-    86%  { opacity:1; transform:translate(2px,164px) rotate(4deg) }
-    100% { opacity:0; transform:translate(0,190px) rotate(0deg) }
-  }
+    box-shadow:0 8px 20px rgba(0,0,0,0.85), inset 0 0 0 1px rgba(255,255,255,0.22); }
 
   /* Right-hand control column: price plate, odds board, balance, buttons. */
-  .vm-side { width:126px; display:flex; flex-direction:column; gap:8px; }
-  .vm-plate { padding:7px 8px; border-radius:4px; text-align:center;
+  .vm-side { width:168px; flex:none; display:flex; flex-direction:column; gap:9px; }
+  .vm-plate { padding:9px 8px; border-radius:5px; text-align:center;
     background:linear-gradient(180deg,#0f1720,#080d13); box-shadow:inset 0 1px 0 rgba(255,255,255,0.06), inset 0 -2px 5px rgba(0,0,0,0.7); }
-  .vm-plate-lbl { font-size:7px; letter-spacing:2px; color:#5d7d8d; }
-  .vm-plate-val { font-size:17px; color:#9ff0ff; text-shadow:0 0 12px rgba(90,220,255,0.6); }
-  .vm-odds { display:flex; gap:3px; align-items:flex-end; height:36px; padding:0 2px; }
+  .vm-plate-lbl { font-size:8px; letter-spacing:2px; color:#5d7d8d; }
+  .vm-plate-val { font-size:22px; color:#9ff0ff; text-shadow:0 0 14px rgba(90,220,255,0.6); }
+  /* The selected coil, called out as its own readout — the machine confirming
+     your choice back to you is most of what makes choosing feel like control. */
+  .vm-pick { padding:7px 8px; border-radius:5px; text-align:center;
+    background:linear-gradient(180deg,#101d26,#070f13); box-shadow:inset 0 0 0 1px rgba(120,200,255,0.22); }
+  .vm-pick-val { font-size:18px; letter-spacing:4px; color:#ffd27a; text-shadow:0 0 12px rgba(255,190,90,0.6); }
+  .vm-pick-sub { font-size:7px; letter-spacing:1px; color:#5d7d8d; margin-top:2px; }
+  .vm-odds { display:flex; gap:4px; align-items:flex-end; height:44px; padding:0 2px; }
   .vm-odd { flex:1; text-align:center; }
-  .vm-odd-bar { height:24px; display:flex; align-items:flex-end; justify-content:center; }
+  .vm-odd-bar { height:30px; display:flex; align-items:flex-end; justify-content:center; }
   .vm-odd-bar i { display:block; width:74%; border-radius:1px 1px 0 0; background:var(--c,#8b98a8);
     box-shadow:0 0 8px var(--c,#8b98a8); }
   .vm-odd-lbl { font-size:7px; letter-spacing:1px; color:#5d7d8d; margin-top:3px; }
   .vm-note { font-size:8px; letter-spacing:1px; color:#5d7d8d; text-align:center; }
   /* Physical pushbuttons — they travel when pressed. */
-  .vm-btn { font-family:inherit; font-size:10px; letter-spacing:2px; padding:9px 6px; cursor:pointer; border-radius:5px;
+  .vm-btn { font-family:inherit; font-size:11px; letter-spacing:2px; padding:11px 6px; cursor:pointer; border-radius:5px;
     color:#a9c4d8; border:1px solid rgba(120,190,240,0.3);
     background:linear-gradient(180deg,#1a2937,#0c1219); box-shadow:0 3px 0 #05080c, inset 0 1px 0 rgba(255,255,255,0.08);
     transition:transform .06s, box-shadow .06s; }
@@ -328,19 +540,26 @@ function ensurePackStyles() {
   .vm-btn:disabled { opacity:.38; cursor:not-allowed; }
 
   /* The delivery flap. It gets HIT — the kick is what sells the vend. */
-  .vm-hatch { margin:0 12px; border-radius:5px; padding:5px;
+  .vm-hatch { margin:0 16px; border-radius:6px; padding:6px;
     background:linear-gradient(180deg,#0e151c,#070b10); box-shadow:inset 0 2px 6px rgba(0,0,0,0.9); }
-  .vm-flap { height:34px; border-radius:3px; display:flex; align-items:center; justify-content:center;
-    font-size:8px; letter-spacing:3px; color:#4a5a68; transform-origin:50% 0%;
+  .vm-flap { height:42px; border-radius:3px; display:flex; align-items:center; justify-content:center;
+    font-size:9px; letter-spacing:3px; color:#4a5a68; transform-origin:50% 0%;
     background:linear-gradient(180deg,#131c25,#080e14 70%);
     box-shadow:inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -8px 14px rgba(0,0,0,0.85); }
-  .vm-flap.kick { animation:vm-kick .5s ease-out; }
-  @keyframes vm-kick { 0%{transform:rotateX(0)} 30%{transform:rotateX(52deg)} 60%{transform:rotateX(-8deg)} 100%{transform:rotateX(0)} }
-  .vm-tray { margin:8px 12px 0; height:24px; border-radius:3px; display:flex; align-items:center; justify-content:center;
-    font-size:8px; letter-spacing:3px; color:#3d4d5d;
+  .vm-flap.kick { animation:vm-kick .55s ease-out; }
+  @keyframes vm-kick { 0%{transform:rotateX(0)} 26%{transform:rotateX(58deg)} 58%{transform:rotateX(-10deg)} 100%{transform:rotateX(0)} }
+  .vm-tray { margin:10px 16px 0; height:30px; border-radius:3px; display:flex; align-items:center; justify-content:center;
+    font-size:9px; letter-spacing:3px; color:#3d4d5d;
     background:linear-gradient(180deg,#05080c,#0d141b); box-shadow:inset 0 3px 9px rgba(0,0,0,0.9); }
   .vm-tray.loaded { color:#7fe8ff; text-shadow:0 0 10px rgba(127,232,255,0.7); animation:cp-blink 1.6s ease-in-out infinite; }
-  .vm-dead { color:#5d6d7d; text-align:center; padding:60px 10px; letter-spacing:2px; font-size:11px; line-height:1.7; }
+  .vm-dead { position:relative; z-index:2; color:#5d6d7d; text-align:center; padding:96px 10px; letter-spacing:2px; font-size:12px; line-height:1.8; }
+  .vm-hint { padding:0 16px; font-size:8px; letter-spacing:1px; color:#4c6274; text-align:center; }
+
+  @media (max-width: 560px) {
+    .vm-body { flex-direction:column; }
+    .vm-side { width:auto; }
+    .vm-odds { height:38px; }
+  }
 
   @media (prefers-reduced-motion: reduce) {
     #cardpack-overlay *, #cardmach-overlay * { animation-duration:.01ms !important; animation-iteration-count:1 !important;
@@ -351,7 +570,26 @@ function ensurePackStyles() {
 }
 
 // ── the machine ───────────────────────────────────────────────────────────────
-let machine = null;   // { overlay, close, data }
+// THE BRAND. Not the Mint, and never the word "mint": minting is what a player
+// does to themselves at a terminal, and a machine that borrowed the word would
+// be advertising a service it doesn't sell.
+//
+// ARCHITECT DRAFT works three ways at once, which is why it beat the alternatives:
+// an architect DRAFTS, a collector DRAFTS a set, and being drafted is what
+// happens to everybody whose face ends up in that pool without being asked.
+// "COLLECTED WORKS" is the same joke one floor down — an architect's collected
+// works is their portfolio, and yours is a shoebox of strangers.
+const VM_BRAND = 'ARCHITECT DRAFT';
+const VM_TAGLINE = 'COLLECTED WORKS · SERIES 1';
+
+let machine = null;   // { overlay, close, data, pick, busy }
+
+// Three shelves of three. Codes are the SERVER's — the panel never invents a
+// coil, because the coil you press has to be the coil the verb charges you for.
+const SHELVES = [['A1', 'A2', 'A3'], ['B1', 'B2', 'B3'], ['C1', 'C2', 'C3']];
+const slotOf = (d, code) => (d.slots || []).find(s => s.code === code) || { code, left: 0, cap: 8 };
+const stockedCodes = (d) => (d.slots || []).filter(s => s.left > 0).map(s => s.code);
+const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 export function openCardMachinePanel(msg) {
   ensurePackStyles();
@@ -363,32 +601,67 @@ export function openCardMachinePanel(msg) {
       <div class="vm-marquee">
         <span class="vm-logo">◈</span>
         <div class="vm-names">
-          <div class="vm-brand">COLDWATER MINT</div>
-          <div class="vm-model">${esc(String(msg.machine || 'CARD DISPENSER')).toUpperCase()}</div>
+          <div class="vm-brand">${VM_BRAND}</div>
+          <div class="vm-model">${esc(String(msg.machine || 'CARD DISPENSER')).toUpperCase()} · ${VM_TAGLINE}</div>
         </div>
         <button class="vm-x" aria-label="Close">&#10005;</button>
       </div>
       <div class="vm-body">
-        <div class="vm-glass" id="vm-glass"><div class="vm-drop" id="vm-drop"></div></div>
+        <div class="vm-window" id="vm-window">
+          <div class="vm-shelves" id="vm-shelves"></div>
+          <div class="vm-mech" id="vm-mech">
+            <div class="vm-belt" id="vm-belt"></div>
+            <div class="vm-paddle" id="vm-paddle"></div>
+            <div class="vm-chute" id="vm-chute"></div>
+          </div>
+          <div class="vm-drop" id="vm-drop"></div>
+          <div class="vm-pane vm-pane-tint"></div>
+          <div class="vm-pane vm-pane-refl"></div>
+          <div class="vm-pane vm-pane-sheen"></div>
+          <div class="vm-pane vm-pane-dirt"></div>
+          <div class="vm-pane vm-pane-edge"></div>
+        </div>
         <div class="vm-side" id="vm-side"></div>
       </div>
       <div class="vm-hatch"><div class="vm-flap" id="vm-flap">PUSH</div></div>
       <div class="vm-tray" id="vm-tray">EMPTY TRAY</div>
+      <div class="vm-hint">Every sleeve on these coils is already what it is. About one in twelve runs HOT — triple
+        weight on epic and legendary — and nothing on the outside of a sleeve will ever tell you which.</div>
     </div>`,
     onClose: () => { machine = null; },
   });
-  machine = { ...mounted, data: msg };
-  mounted.overlay.querySelector('.vm-x').addEventListener('click', () => mounted.close());
+  // The default pick is the fullest coil, so BUY works the instant the panel
+  // opens: choosing is an option, never a toll.
+  const slots = msg.slots || [];
+  const best = [...slots].filter(s => s.left > 0).sort((a, b) => b.left - a.left || a.code.localeCompare(b.code))[0];
+  machine = { ...mounted, data: msg, pick: best?.code || null, busy: false };
+
+  mounted.overlay.querySelector('.vm-x').addEventListener('click', () => { sfx('cards-ui'); mounted.close(); });
   renderMachine();
-  // Delegated, because the side column is re-rendered on every patch and its
-  // buttons are new nodes each time. The buttons send the ordinary verbs and
-  // nothing here transacts — the server re-checks power, price and balance
+
+  // Delegated, because both columns are re-rendered on every patch and their
+  // controls are new nodes each time. Nothing here transacts — the buttons send
+  // the ordinary verbs and the server re-checks power, price, stock and balance
   // exactly as it would for a typed command.
   mounted.overlay.addEventListener('click', (e) => {
+    const slotEl = e.target.closest('.vm-slotwrap');
+    if (slotEl) {
+      const code = slotEl.dataset.code;
+      if (slotOf(machine.data, code).left < 1) { sfx('cards-deny'); return; }
+      machine.pick = code;
+      sfx('cards-ui');
+      renderMachine();
+      return;
+    }
     const btn = e.target.closest('#vm-buy, #vm-open');
-    if (!btn || btn.disabled) return;
+    if (!btn) return;
+    if (btn.disabled) { sfx('cards-deny'); return; }
+    sfx('cards-ui');
     if (btn.id === 'vm-open') { mounted.close(); sendCmdSilent('openpack'); return; }
-    sendCmdSilent('buypack confirm');
+    // The coil travels with the verb. A typed `buypack confirm` with no code is
+    // still valid — the server falls back to the fullest coil — so the panel and
+    // the keyboard reach the same machine.
+    sendCmdSilent(`buypack confirm${machine.pick ? ' ' + machine.pick : ''}`);
   });
   sfx('cards-slide');
 }
@@ -398,41 +671,54 @@ export function openCardMachinePanel(msg) {
 export function updateCardMachine(patch) {
   if (!machine) return;
   Object.assign(machine.data, patch);
+  // A coil the patch just emptied can't stay selected, or BUY would aim at a
+  // bare column and the server would (correctly) refuse a click the panel had
+  // shown as live.
+  if (machine.pick && slotOf(machine.data, machine.pick).left < 1) {
+    const left = stockedCodes(machine.data);
+    machine.pick = left.length ? left[0] : null;
+  }
   renderMachine();
 }
 
 export function closeCardMachine() { machine?.close(); }
 export function isCardMachineOpen() { return !!machine; }
 
-// Three shelves of three, with the last column dark: a real machine is never
-// evenly stocked, and an empty row is what makes the full ones read as product.
-// Row A is the one that vends, so the drop always starts from a slot you watched.
-const SHELVES = [['A1', 'A2', 'A3'], ['B1', 'B2', 'B3'], ['C1', 'C2', 'C3']];
-const isOut = (code) => code === 'A3' || code === 'C2';
-
 function renderMachine() {
   if (!machine) return;
   const d = machine.data;
-  const glass = machine.overlay.querySelector('#vm-glass');
+  const shelves = machine.overlay.querySelector('#vm-shelves');
   const side = machine.overlay.querySelector('#vm-side');
+  const mech = machine.overlay.querySelector('#vm-mech');
   const total = d.pool?.total || 0;
+  const stocked = stockedCodes(d).length;
 
-  // The drop node survives a re-render — a patch arriving mid-fall must not
-  // delete the sleeve out of the air.
-  const drop = machine.overlay.querySelector('#vm-drop');
   if (!total) {
-    glass.innerHTML = `<div class="vm-dead">— NO STOCK —<br><br>Nobody has minted anything yet.<br>Every coil behind the glass is bare.</div>`;
+    shelves.innerHTML = `<div class="vm-dead">— NO STOCK —<br><br>Nobody has minted anything yet.<br>Every coil behind the glass is bare.</div>`;
+    if (mech) mech.style.visibility = 'hidden';
   } else {
-    glass.innerHTML = SHELVES.map(row =>
+    if (mech) mech.style.visibility = '';
+    shelves.innerHTML = SHELVES.map(row =>
       `<div class="vm-shelf">` + row.map(code => {
-        const out = isOut(code);
-        return `<div class="vm-slotwrap${out ? ' out' : ''}" data-code="${code}">` +
+        const s = slotOf(d, code);
+        const out = s.left < 1;
+        const sel = machine.pick === code;
+        // Up to three visible edges behind the face — past that the stack reads
+        // as "plenty" and counting them stops being information.
+        const backs = Math.min(3, Math.max(0, s.left - 1));
+        const stack = out
+          ? `<div class="vm-empty"></div>`
+          : Array.from({ length: backs }, (_, i) =>
+              `<div class="vm-sleeve back" style="bottom:${(backs - i) * 4}px; transform:scale(${1 - (backs - i) * 0.03})"></div>`).join('')
+            + `<div class="vm-sleeve front"><i>◈</i></div>`;
+        return `<div class="vm-slotwrap${out ? ' out' : ''}${sel ? ' sel' : ''}" data-code="${code}"` +
+          ` title="${out ? `Coil ${code} is empty` : `Take a sleeve from coil ${code}`}">` +
           `<div class="vm-code">${code}</div>` +
-          `<div class="vm-sleeve"><i>◈</i></div><div class="vm-coil"></div>` +
-          `<div class="vm-tag">${out ? 'OUT' : '₵' + d.price}</div></div>`;
+          `<div class="vm-stack">${stack}</div><div class="vm-coil"></div>` +
+          `<div class="vm-tag">${out ? 'OUT' : '₵' + d.price}</div>` +
+          `<div class="vm-left">${out ? '&nbsp;' : `${s.left} LEFT`}</div></div>`;
       }).join('') + `</div>`).join('');
   }
-  glass.appendChild(drop);
 
   const by = d.pool?.byRank || {};
   const ranks = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
@@ -440,19 +726,24 @@ function renderMachine() {
   // shows as a flat nub rather than an advertised chance that cannot pay out.
   const max = Math.max(1, ...ranks.map(r => by[r] || 0));
   const packs = d.packs || 0;
+  const canBuy = total > 0 && stocked > 0 && (d.credits ?? 0) >= d.price && !!machine.pick;
   side.innerHTML =
     `<div class="vm-plate"><div class="vm-plate-lbl">YOUR CREDIT</div>` +
       `<div class="vm-plate-val">₵${(d.credits ?? 0).toLocaleString()}</div></div>` +
+    `<div class="vm-pick"><div class="vm-plate-lbl">SELECTED COIL</div>` +
+      `<div class="vm-pick-val">${machine.pick || '——'}</div>` +
+      `<div class="vm-pick-sub">${machine.pick ? `${slotOf(d, machine.pick).left} SLEEVE${slotOf(d, machine.pick).left === 1 ? '' : 'S'} ON THE COIL` : 'NOTHING LOADED'}</div></div>` +
     `<div class="vm-note">IN THE POOL — ${total}</div>` +
     `<div class="vm-odds">` + ranks.map(r => {
       const n = by[r] || 0;
-      const h = n ? Math.max(3, Math.round((n / max) * 24)) : 2;
+      const h = n ? Math.max(3, Math.round((n / max) * 30)) : 2;
       return `<div class="vm-odd" style="--c:${rarity(r).color}">` +
         `<div class="vm-odd-bar"><i style="height:${h}px"></i></div>` +
         `<div class="vm-odd-lbl">${rarity(r).label.slice(0, 4)}</div></div>`;
     }).join('') + `</div>` +
     `<div class="vm-note">BUY-BACK ₵${d.scrapValue} A DUPE</div>` +
-    `<button class="vm-btn primary" id="vm-buy"${!total || (d.credits ?? 0) < d.price ? ' disabled' : ''}>BUY · ₵${d.price}</button>` +
+    `<button class="vm-btn primary" id="vm-buy"${canBuy ? '' : ' disabled'}>` +
+      `${machine.pick ? `BUY ${machine.pick} · ₵${d.price}` : 'SELECT A COIL'}</button>` +
     `<button class="vm-btn" id="vm-open"${packs < 1 ? ' disabled' : ''}>TEAR ONE OPEN</button>`;
 
   const tray = machine.overlay.querySelector('#vm-tray');
@@ -465,49 +756,127 @@ function renderMachine() {
 // standing at the machine, so a second modal on top would be noise.
 //
 // The animation is a REPORT, never a promise: it only runs on the server's vend
-// message, so a refused buy (no power, no credit) shows nothing falling.
+// message, so a refused buy (no power, no credit, bare coil) shows nothing
+// moving. Patch AFTER the journey starts, so the coil the sleeve leaves is the
+// one you were looking at rather than one already redrawn a sleeve lighter.
 export function cardMachineVend(msg) {
   sfx('cards-vend');
-  if (machine) { updateCardMachine({ credits: msg.credits, packs: msg.packs }); playVend(); }
+  if (machine) {
+    playVend(msg.slot, () => updateCardMachine({ credits: msg.credits, packs: msg.packs, slots: msg.slots }));
+  }
   refreshInventory();
 }
 
-// Coil turns, sleeve tips off the shelf, falls the height of the glass, and the
-// flap takes the hit. Purely cosmetic — the sleeve was already in your inventory
-// before the first frame drew.
-function playVend() {
+// ── the delivery ──────────────────────────────────────────────────────────────
+// Four stages, four sounds, one node: the coil turns and the sleeve TIPS off it,
+// it falls and is CAUGHT by the sprung paddle, the belt CARRIES it across the
+// deck, and the chute DROPS it through into a flap that bangs. Every position is
+// measured off the live layout rather than baked into a keyframe, so this works
+// at any cabinet size and always starts at the coil the player actually chose.
+//
+// Purely cosmetic. The sleeve was in the player's inventory before the first
+// frame drew, and `onSettled` patching the panel late is presentation, not state.
+function playVend(code, onSettled) {
   const ov = machine?.overlay;
-  if (!ov) return;
-  const slot = ov.querySelector('.vm-slotwrap[data-code="A1"]');
+  if (!ov) { onSettled?.(); return; }
   const drop = ov.querySelector('#vm-drop');
+  const win = ov.querySelector('#vm-window');
+  const paddle = ov.querySelector('#vm-paddle');
+  const belt = ov.querySelector('#vm-belt');
+  const chute = ov.querySelector('#vm-chute');
   const flap = ov.querySelector('#vm-flap');
   const cab = ov.querySelector('#vm-cab');
-  if (!slot || !drop) return;
+  const slot = ov.querySelector(`.vm-slotwrap[data-code="${code}"]`) || ov.querySelector('.vm-slotwrap');
+  const face = slot?.querySelector('.vm-sleeve.front') || slot?.querySelector('.vm-sleeve');
+  if (!drop || !win || !face || !paddle || !chute) { onSettled?.(); return; }
 
+  // Reduced motion: the machine still reports, it just doesn't perform.
+  if (reduceMotion()) { sfx('cards-chute'); onSettled?.(); return; }
+  if (machine.busy) { onSettled?.(); return; }
+  machine.busy = true;
+
+  const rel = (el) => {
+    const w = win.getBoundingClientRect(), r = el.getBoundingClientRect();
+    return { x: r.left - w.left, y: r.top - w.top, w: r.width, h: r.height };
+  };
+  const from = rel(face);
+  const pad = rel(paddle);
+  const mouth = rel(chute);
+
+  drop.style.left = `${from.x}px`;
+  drop.style.top = `${from.y}px`;
+  drop.style.width = `${from.w}px`;
+  drop.style.height = `${from.h}px`;
+  drop.style.opacity = '0';
+
+  // Park the paddle under the coil that's about to give, so it is CAUGHT rather
+  // than landing on a paddle that happened to be somewhere else.
+  paddle.style.left = `${Math.max(4, from.x + from.w / 2 - pad.w / 2)}px`;
+
+  // Stage 1 — the coil turns.
   slot.classList.remove('turning');
   void slot.offsetWidth;
   slot.classList.add('turning');
+  sfx('cards-coil');
 
-  // Start the falling sleeve exactly where the shelved one sits, so the product
-  // appears to leave the coil rather than spawn in the middle of the window.
-  const g = ov.querySelector('#vm-glass').getBoundingClientRect();
-  const s = slot.querySelector('.vm-sleeve').getBoundingClientRect();
-  drop.style.left = `${s.left - g.left}px`;
-  drop.style.top = `${s.top - g.top}px`;
-  drop.style.width = `${s.width}px`;
-  drop.classList.remove('fall');
-  void drop.offsetWidth;
-  drop.classList.add('fall');
+  const catchY = pad.y - from.h + 2;
+  const catchX = from.x;
 
+  // Stage 2 — it tips off the coil and falls onto the paddle.
+  const anim = (kf, opts) => drop.animate(kf, { fill: 'forwards', ...opts });
   setTimeout(() => {
-    flap?.classList.remove('kick');
-    void flap?.offsetWidth;
-    flap?.classList.add('kick');
-    cab?.classList.remove('shake');
-    void cab?.offsetWidth;
-    cab?.classList.add('shake');
-    sfx('cards-slide');
-  }, 620);
+    if (!machine) return;
+    anim([
+      { transform: `translate(0,0) rotate(0deg)`, opacity: 1, offset: 0 },
+      { transform: `translate(4px,${(catchY - from.y) * 0.35}px) rotate(14deg)`, opacity: 1, offset: 0.45 },
+      { transform: `translate(0px,${catchY - from.y}px) rotate(3deg)`, opacity: 1, offset: 1 },
+    ], { duration: 480, easing: 'cubic-bezier(.5,0,.75,1)' });
+
+    setTimeout(() => {
+      if (!machine) return;
+      sfx('cards-catch');
+      paddle.classList.add('dip');
+      setTimeout(() => paddle.classList.remove('dip'), 190);
+
+      // Stage 3 — the belt carries it to the chute mouth.
+      belt?.classList.add('run');
+      sfx('cards-belt');
+      const rideY = pad.y - from.h + 6;
+      const rideX = mouth.x + mouth.w / 2 - from.w / 2 - catchX;
+      anim([
+        { transform: `translate(0px,${catchY - from.y}px) rotate(3deg)`, offset: 0 },
+        { transform: `translate(${rideX * 0.5}px,${rideY - from.y}px) rotate(-2deg)`, offset: 0.55 },
+        { transform: `translate(${rideX}px,${rideY - from.y}px) rotate(0deg)`, offset: 1 },
+      ], { duration: 760, easing: 'cubic-bezier(.35,0,.4,1)' });
+
+      setTimeout(() => {
+        if (!machine) return;
+        belt?.classList.remove('run');
+        chute?.classList.add('hot');
+        sfx('cards-chute');
+
+        // Stage 4 — through the chute, and the flap takes the hit.
+        anim([
+          { transform: `translate(${rideX}px,${rideY - from.y}px) rotate(0deg)`, opacity: 1, offset: 0 },
+          { transform: `translate(${rideX}px,${rideY - from.y + 30}px) rotate(11deg)`, opacity: 1, offset: 0.55 },
+          { transform: `translate(${rideX}px,${rideY - from.y + 70}px) rotate(20deg)`, opacity: 0, offset: 1 },
+        ], { duration: 340, easing: 'cubic-bezier(.5,0,.9,1)' });
+
+        setTimeout(() => {
+          flap?.classList.remove('kick');
+          void flap?.offsetWidth;
+          flap?.classList.add('kick');
+          cab?.classList.remove('shake');
+          void cab?.offsetWidth;
+          cab?.classList.add('shake');
+          setTimeout(() => chute?.classList.remove('hot'), 700);
+          if (machine) machine.busy = false;
+          drop.style.opacity = '0';
+          onSettled?.();
+        }, 250);
+      }, 780);
+    }, 500);
+  }, 420);
 }
 
 // ── the reveal ────────────────────────────────────────────────────────────────
@@ -531,6 +900,7 @@ export function openPackReveal(msg) {
         <div class="cp-ambient" id="cp-ambient"></div>
         <div class="cp-flash" id="cp-flash"></div>
         <div id="cp-slot"></div>
+        <div class="cp-next" id="cp-next">CLICK FOR THE NEXT CARD<i></i></div>
         <div class="cp-pips" id="cp-pips"></div>
       </div>
       <div class="cp-skip" id="cp-skip">SKIP ▸</div>`,
@@ -540,11 +910,26 @@ export function openPackReveal(msg) {
   show = {
     ...mounted, cards, idx: -1, phase: 'sealed', timers: [],
     scrapped: msg.scrapped || 0, scrapValue: msg.scrapValue || 0, packs: msg.packs || 0,
+    coil: msg.coil || null, machine: msg.machine || null, hot: !!msg.hot,
   };
 
-  mounted.overlay.querySelector('#cp-skip').addEventListener('click', (e) => { e.stopPropagation(); toSummary(); });
+  mounted.overlay.querySelector('#cp-skip').addEventListener('click', (e) => { e.stopPropagation(); sfx('cards-ui'); toSummary(); });
   // Anywhere on the stage advances. One affordance, always the same one.
   mounted.overlay.addEventListener('click', () => advance());
+
+  // Parallax. The card leans toward the pointer, which costs one transform and
+  // buys the single strongest "this is an object in front of me" cue available
+  // to a flat page. Deliberately small, and deliberately re-queried each move
+  // rather than cached — the wrapper is replaced on every card.
+  mounted.overlay.addEventListener('pointermove', (e) => {
+    const wrap = mounted.overlay.querySelector('#cp-wrap');
+    if (!wrap) return;
+    const r = wrap.getBoundingClientRect();
+    const dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
+    const dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+    const clamp = (v) => Math.max(-1, Math.min(1, v));
+    wrap.style.transform = `rotateY(${clamp(dx) * 9}deg) rotateX(${clamp(-dy) * 7}deg)`;
+  });
   renderPips();
   renderSealed();
   refreshInventory();
@@ -565,6 +950,9 @@ function renderPips() {
   pips.innerHTML = show.cards.map(() => `<span class="cp-pip"></span>`).join('');
 }
 
+// The sealed sleeve looks ORDINARY even when it is hot. That is deliberate: the
+// gold is under the foil, so a hot run is something you find out you got, never
+// something you could have read off the machine or the pack in your hand.
 function renderSealed() {
   const slot = show.overlay.querySelector('#cp-slot');
   slot.innerHTML = `<div class="cp-pack" id="cp-pack">
@@ -573,10 +961,11 @@ function renderSealed() {
       <div class="cp-pack-seam"></div>
       <div class="cp-pack-print">
         <div class="cp-pack-mark">◈</div>
-        <div class="cp-pack-brand">COLDWATER</div>
-        <div class="cp-pack-sub">MINT · SERIES 1</div>
-        <div class="cp-pack-count">FOIL SLEEVE</div>
+        <div class="cp-pack-brand">${VM_BRAND}</div>
+        <div class="cp-pack-sub">SERIES 1 · SEALED</div>
+        <div class="cp-pack-count">${show.coil ? `COIL ${esc(show.coil)}` : 'FOIL SLEEVE'}</div>
       </div>
+      ${show.machine ? `<div class="cp-pack-from">${esc(show.machine)}</div>` : ''}
       <div class="cp-pack-hint">CLICK TO TEAR</div>
     </div>`;
 }
@@ -589,19 +978,55 @@ function tear() {
   if (hint) hint.remove();
   pack.classList.add('tearing');
   sfx('cards-tear');
+  // The seam lights as it runs, so the rip is something you WATCH travel rather
+  // than a state the pack is suddenly in.
+  show.overlay.querySelector('#cp-stage')?.classList.add('tearlight');
   later(() => {
     pack.classList.add('torn');
-    throwFlecks(pack);
+    throwFlecks(pack, show.hot);
+    // The pack gives up its contents: a burst ring out of the seam, a hard flash,
+    // and the stage kicks. Three cheap layers that turn "the pack disappeared"
+    // into "the pack was opened".
+    const stage = show.overlay.querySelector('#cp-stage');
+    stage.style.setProperty('--cp-accent', show.hot ? '#ffc23d' : '#7fe8ff');
+    stage.style.setProperty('--cp-flash', show.hot ? '0.42' : '0.2');
+    stage.style.setProperty('--cp-shake', show.hot ? '1' : '0.45');
+    const burst = document.createElement('div');
+    burst.className = 'cp-ring on';
+    stage.appendChild(burst);
+    later(() => burst.remove(), 900);
+    const flash = show.overlay.querySelector('#cp-flash');
+    flash?.classList.add('on');
+    later(() => flash?.classList.remove('on'), 520);
+    stage.classList.add('shake');
+    later(() => stage.classList.remove('shake'), 460);
+    later(() => stage.classList.remove('tearlight'), 400);
+    // A hot run announces itself HERE — between the tear and the first card,
+    // where it retunes your expectation of everything about to be dealt. After
+    // the cards it would be a footnote; before them it is the whole moment.
+    if (show.hot) {
+      sfx('cards-hot');
+      const stage = show.overlay.querySelector('#cp-stage');
+      stage.style.setProperty('--cp-accent', '#ffc23d');
+      const b = document.createElement('div');
+      b.className = 'cp-hot-banner';
+      b.innerHTML = `<span>HOT RUN</span><i>TRIPLE EPIC &amp; LEGENDARY</i>`;
+      stage.appendChild(b);
+      later(() => b.remove(), 2600);
+      const amb = show.overlay.querySelector('#cp-ambient');
+      if (amb) { amb.style.opacity = '0.3'; later(() => { amb.style.opacity = '0.12'; }, 900); }
+    }
   }, 320);
-  later(() => { show.phase = 'revealing'; nextCard(); }, 1000);
+  // The hot banner needs room to land before the first card starts dealing.
+  later(() => { show.phase = 'revealing'; nextCard(); }, show.hot ? 2000 : 1000);
 }
 
 // Foil comes off in bits. Positions and vectors are random per tear so two
 // openings never look identical — the cards are the only thing that repeats.
-function throwFlecks(host) {
-  for (let i = 0; i < 16; i++) {
+function throwFlecks(host, gold = false) {
+  for (let i = 0; i < (gold ? 34 : 16); i++) {
     const f = document.createElement('span');
-    f.className = 'cp-fleck';
+    f.className = `cp-fleck${gold ? ' gold' : ''}`;
     f.style.left = `${18 + Math.random() * 64}%`;
     f.style.top = `${4 + Math.random() * 22}%`;
     f.style.setProperty('--tx', `${(Math.random() - 0.5) * 340}px`);
@@ -624,22 +1049,33 @@ function nextCard() {
   const ambient = show.overlay.querySelector('#cp-ambient');
   show.phase = 'dealt';
 
+  // The previous card's lingering effects come off before this one's go on, or a
+  // Common inherits a Legendary's corona and the ladder stops meaning anything.
+  stage.classList.remove('corona');
+  stage.querySelectorAll('.cp-dust').forEach(d => d.remove());
+  show.overlay.querySelector('#cp-next')?.classList.remove('on');
+
   stage.style.setProperty('--cp-accent', R.color);
   stage.style.setProperty('--cp-glow', String(R.glow));
   stage.style.setProperty('--cp-flash', String(R.flash));
   stage.style.setProperty('--cp-shake', String(R.shake));
 
-  slot.innerHTML = `<div class="cp-card-wrap">
+  // Epic and above print holographic. It is a property of the CARD, so it is
+  // decided off the same rarity row everything else reads and never set by hand.
+  const holo = (R.rays || 0) >= 16;
+  slot.innerHTML = `<div class="cp-tiltbox"><div class="cp-card-wrap cp-tilt" id="cp-wrap">
       <div class="cp-rays" id="cp-rays">${Array.from({ length: R.rays }, (_, i) =>
         `<span class="cp-ray" style="transform:rotate(${(360 / Math.max(1, R.rays)) * i}deg) translateX(-50%)"></span>`).join('')}</div>
+      <div class="cp-ring" id="cp-ring"></div>
       <div class="cp-card" id="cp-card">
         <div class="cp-card-side cp-back"><span class="cp-back-mark">◈</span></div>
-        <div class="cp-card-side cp-front">${card.face || `<span class="card-face">${esc(card.name)}</span>`}</div>
+        <div class="cp-card-side cp-front${holo ? ' holo' : ''}">${card.face || `<span class="card-face">${esc(card.name)}</span>`}
+          <span class="cp-shine"><i></i></span></div>
       </div>
       ${card.subject_type === 'player' ? `<div class="cp-player-banner">PLAYER CARD</div>` : ''}
       <div class="cp-rank">${R.label}</div>
       <div class="cp-sub">${esc(card.name)} · ${esc(card.subject_type)}${card.dupe ? ` · <span class="cp-dupe-tag">DUPLICATE, ₵${show.scrapValue}</span>` : ''}</div>
-    </div>`;
+    </div></div>`;
 
   const el = slot.querySelector('#cp-card');
   sfx('cards-slide');
@@ -655,6 +1091,7 @@ function nextCard() {
     if (card.dupe) later(() => sfx('cards-dupe'), 340);
     if (card.subject_type === 'player') later(() => sfx('cards-player-sting'), 120);
 
+    slot.querySelector('#cp-ring')?.classList.add('on');
     ambient.style.opacity = String(0.06 + R.glow * 0.2);
     show.overlay.querySelector('#cp-flash').classList.add('on');
     later(() => show?.overlay.querySelector('#cp-flash')?.classList.remove('on'), 520);
@@ -663,15 +1100,99 @@ function nextCard() {
       slot.querySelector('#cp-rays')?.classList.add('on');
       if (R.shake) { stage.classList.add('shake'); later(() => stage.classList.remove('shake'), 460); }
       throwMotes(slot.querySelector('.cp-card-wrap'), Math.round(R.rays * 0.8));
+      // Epic and up get a slow rotating corona behind the card that OUTLASTS the
+      // burst — the burst says "something happened", the corona says "and it is
+      // still happening", which is the half that makes a big pull feel heavy
+      // rather than loud.
+      if (R.rays >= 16) stage.classList.add('corona');
+      // The top of the ladder rains. It is the one effect nothing below it gets.
+      if (R.rays >= 24) rainDust(stage, R.color);
     }
 
     const pip = show.overlay.querySelectorAll('.cp-pip')[show.idx];
     if (pip) { pip.style.setProperty('--pipc', R.color); pip.classList.add('done'); }
 
-    // Auto-advance after the dwell. Clicking early skips ahead; nothing waits on
-    // input, so a player can watch the whole sleeve without touching anything.
-    later(() => nextCard(), R.dwell);
+    // The card's own lines light up one after another, so your eye is WALKED
+    // through it instead of being handed a wall of text at once.
+    shimmerFace(slot, R);
+
+    // Then it waits. Fifteen seconds, or a click — see AUTO_MS.
+    armAdvance();
   }, R.hold);
+}
+
+// ── the shimmer ───────────────────────────────────────────────────────────────
+// Walk the server-rendered face and light its parts in reading order: the name
+// first, then the rank line, then each block, then the power number. The face is
+// authored server-side (`renderCard`), so this selects the classes that markup
+// already emits rather than requiring the payload to describe itself — a card
+// that grows a new block gets shimmered for free.
+//
+// The tick is a GENERATED def rather than a catalogue cue: one shape, pitched up
+// the scale per line, which is a whole sequence's worth of audio out of four
+// lines of code and stays in tune with itself however many blocks a card has.
+const SHIMMER_ORDER = ['.card-handle', '.card-sub', '.card-marks', '.card-block', '.card-quote', '.card-power'];
+const PENTATONIC = [784, 880, 1047, 1175, 1319, 1568, 1760, 2093];
+
+function shimmerTick(i, gain = 0.05) {
+  const f = PENTATONIC[Math.min(i, PENTATONIC.length - 1)];
+  return { duration: 0.4, layers: [
+    { waveform: 'sine', freq: f, adsr: { a: 0.004, d: 0.22, s: 0, r: 0.12 }, gain },
+    { waveform: 'triangle', freq: f * 2, adsr: { a: 0.006, d: 0.14, s: 0, r: 0.08 }, gain: gain * 0.3 },
+  ] };
+}
+
+function shimmerFace(slot, R) {
+  const front = slot.querySelector('.cp-front');
+  if (!front) return;
+  // Ordered by SELECTOR, not by document order, so the name always leads even if
+  // the card's markup is rearranged later.
+  const parts = [];
+  for (const sel of SHIMMER_ORDER) front.querySelectorAll(sel).forEach(el => parts.push(el));
+  if (!parts.length) return;
+  // Spread the run across the rank's dwell, floored so a Common doesn't machine-gun
+  // and capped so a Legendary's tail doesn't outlast the time the card is on screen.
+  const step = Math.max(150, Math.min(420, Math.round(R.dwell / (parts.length + 1))));
+  parts.forEach((el, i) => {
+    el.classList.add('cp-dim');
+    later(() => {
+      el.classList.remove('cp-dim');
+      el.classList.add('cp-lit');
+      sfx(shimmerTick(i, 0.035 + R.glow * 0.03));
+      later(() => el.classList.remove('cp-lit'), 900);
+    }, 120 + i * step);
+  });
+}
+
+// The wait, and the affordance for skipping it. The bar is honest — it runs for
+// exactly as long as the card has left — because a countdown you can see is the
+// difference between "it moved on" and "I let it move on".
+function armAdvance() {
+  if (!show) return;
+  const next = show.overlay.querySelector('#cp-next');
+  if (next) {
+    next.classList.add('on');
+    const bar = next.querySelector('i');
+    if (bar) { bar.style.transition = 'none'; bar.style.width = '100%';
+      requestAnimationFrame(() => { bar.style.transition = `width ${AUTO_MS}ms linear`; bar.style.width = '0%'; }); }
+  }
+  later(() => nextCard(), AUTO_MS);
+}
+
+// Gold rain, legendary and up only. Absolute in the stage so it falls past the
+// card rather than inside it.
+function rainDust(stage, color) {
+  for (let i = 0; i < 46; i++) {
+    const d = document.createElement('span');
+    d.className = 'cp-dust';
+    d.style.left = `${Math.random() * 100}%`;
+    d.style.background = color;
+    d.style.setProperty('--dx', `${(Math.random() - 0.5) * 90}px`);
+    d.style.setProperty('--d', `${2.2 + Math.random() * 2.6}s`);
+    d.style.animationDelay = `${Math.random() * 1.6}s`;
+    stage.appendChild(d);
+    setTimeout(() => d.remove(), 6500);
+  }
 }
 
 function throwMotes(host, n) {
@@ -701,14 +1222,16 @@ function toSummary() {
     Object.keys(RARITY).indexOf(c.rarity) > Object.keys(RARITY).indexOf(a.rarity) ? c : a, show.cards[0]);
 
   show.overlay.querySelector('#cp-slot').innerHTML = `<div class="cp-summary">
-      <div class="cp-sum-head" style="color:${rarity(best.rarity).color}">${show.cards.length} CARDS · BEST PULL ${rarity(best.rarity).label}</div>
-      <div class="cp-sum-grid">${show.cards.map(c => {
+      <div class="cp-sum-head" style="color:${show.hot ? '#ffc23d' : rarity(best.rarity).color}">${show.hot ? 'HOT RUN · ' : ''}${show.cards.length} CARDS · BEST PULL ${rarity(best.rarity).label}</div>
+      ${show.coil ? `<div class="cp-sum-note">Off coil <b style="color:#9fd8ff">${esc(show.coil)}</b>${show.machine ? ` · ${esc(show.machine)}` : ''}</div>` : ''}
+      <div class="cp-sum-grid">${show.cards.map((c, i) => {
         const R = rarity(c.rarity);
-        return `<div class="cp-sum-card" style="--c:${R.color}">
+        return `<div class="cp-sum-card" data-i="${i}" style="--c:${R.color}; animation-delay:${i * 60}ms" title="Read ${esc(c.name)}">
           <div class="cp-sum-rank">${R.label}</div>
           <div class="cp-sum-name">${esc(c.name)}</div>
           <div class="cp-sum-type">${esc(c.subject_type)}</div>
           ${c.dupe ? `<div class="cp-sum-dupe">DUPLICATE</div>` : ''}
+          <div class="cp-sum-read">READ ▸</div>
         </div>`;
       }).join('')}</div>
       ${show.scrapped ? `<div class="cp-sum-note">Duplicates in there — <b style="color:#c07b3a">₵${show.scrapped}</b> if you scrap them at a mint.</div>` : ''}
@@ -723,4 +1246,42 @@ function toSummary() {
   wire('#cp-done', () => show.close());
   wire('#cp-shelf', () => { show.close(); sendCmd('cards'); });
   wire('#cp-again', () => { show.close(); sendCmdSilent('openpack'); });
+
+  // Every card in the wall is a way back into that card. The reveal moves at its
+  // own pace and a player will always miss one — the summary is where they get to
+  // go back and actually read it, without leaving the overlay or typing anything.
+  show.overlay.querySelectorAll('.cp-sum-card').forEach((el) => {
+    el.addEventListener('click', (e) => { e.stopPropagation(); showDetail(Number(el.dataset.i)); });
+  });
+}
+
+// One card, full size, out of the summary. Not a re-run of the reveal — no flip,
+// no rays, no sound ladder: the reveal is the moment, and this is the reading
+// light. Giving it the full cinematic again would cheapen the first one.
+function showDetail(i) {
+  if (!show) return;
+  const card = show.cards[i];
+  if (!card) return;
+  clearTimers();
+  show.phase = 'detail';
+  sfx('cards-slide');
+  const R = rarity(card.rarity);
+  const stage = show.overlay.querySelector('#cp-stage');
+  stage.style.setProperty('--cp-accent', R.color);
+  stage.style.setProperty('--cp-glow', String(R.glow));
+
+  show.overlay.querySelector('#cp-slot').innerHTML = `<div class="cp-detail">
+      <div class="cp-tiltbox"><div class="cp-card-wrap cp-tilt" id="cp-wrap">
+        <div class="cp-card flipped" id="cp-card">
+          <div class="cp-card-side cp-back"><span class="cp-back-mark">◈</span></div>
+          <div class="cp-card-side cp-front${(R.rays || 0) >= 16 ? ' holo' : ''}">${card.face || `<span class="card-face">${esc(card.name)}</span>`}
+            <span class="cp-shine"><i></i></span></div>
+        </div>
+        ${card.subject_type === 'player' ? `<div class="cp-player-banner">PLAYER CARD</div>` : ''}
+        <div class="cp-rank">${R.label}</div>
+        <div class="cp-sub">${esc(card.name)} · ${esc(card.subject_type)}${card.dupe ? ` · <span class="cp-dupe-tag">DUPLICATE, ₵${show.scrapValue}</span>` : ''}</div>
+      </div></div>
+      <div class="cp-btns"><button class="cp-btn" id="cp-back">◂ ALL ${show.cards.length} CARDS</button></div>
+    </div>`;
+  show.overlay.querySelector('#cp-back')?.addEventListener('click', (e) => { e.stopPropagation(); sfx('cards-ui'); toSummary(); });
 }

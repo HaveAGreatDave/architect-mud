@@ -217,6 +217,29 @@ export default async function regress({ run, check, getPlayer }) {
     check(`tabletnav ${appId} has no error`, !r?.error, r?.error);
   }
 
+  // Binder: the card collection. The fake player owns nothing, which is the case
+  // worth pinning — an empty binder still has to render its shelves and its
+  // denominator rather than dividing by zero or erroring out. The two contracts
+  // are that completion is measured against the ROLLABLE set (architect cards
+  // never roll, so counting them would put 100% out of reach forever) and that a
+  // gap is a COUNT and never a name.
+  r = await run('tabletnav binder');
+  check('tabletnav binder routes to the app', r?.type === 'tablet_panel' && r?.appId === 'binder' && r?.view === 'binder',
+    JSON.stringify(r)?.slice(0, 180));
+  check('an empty binder renders without erroring', !r?.error && typeof r?.pct === 'number' && typeof r?.setTotal === 'number',
+    JSON.stringify(r)?.slice(0, 180));
+  check('the binder never names an unfilled slot',
+    (r?.ranks || []).every(k => typeof k.gaps === 'number' && (k.cards || []).length === k.owned),
+    JSON.stringify(r?.ranks)?.slice(0, 200));
+  check('completion is measured against the rollable set only',
+    !(r?.ranks || []).some(k => k.rarity === 'architect' && k.total > 0),
+    JSON.stringify(r?.ranks?.map(k => `${k.rarity}:${k.total}`)));
+  // A card you don't hold must not open — the detail screen is reachable only
+  // from your own shelf, so a guessed id falls back to the binder rather than
+  // reading somebody else's card out of the table.
+  r = await run('tabletnav binder card 999999');
+  check('a card you do not own falls back to the binder', r?.view === 'binder' && !r?.error, JSON.stringify(r)?.slice(0, 140));
+
   // Crafting app: root is a list of known recipes (skill-gated). The fake player
   // knows none, but the screen must still route as a list view with no error.
   r = await run('tabletnav crafting');
