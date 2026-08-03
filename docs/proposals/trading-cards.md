@@ -244,7 +244,7 @@ A blackout should take the card machines with it.
 **Mint terminals** — `zone_citadel_hall` (Citadel Financial's Marble Hall, already the ATM's home and
 the obvious flagship), `zone_citadel_gallery` (Safe Deposit Gallery), `zone_records_reading` (the
 Paper Tomb's Reading Room — a card *is* a record), `zone_ward_permits` (Office of Permitted
-Suffering, for the joke of queueing to be issued yourself), and `zone_casino_interior` (The Neon Vig,
+Suffering, for the joke of queueing to be issued yourself), and `zone_casino_interior` (The Lucky Bastard,
 the one disreputable mint). Optionally `zone_citadel_vault` as an ultra-rare fifth.
 
 **Pack machines** — `zone_kessel_shop` (Bodega Vu), `zone_mq_grocery` (Ration Nine), `zone_mq_amp_shop`

@@ -416,7 +416,7 @@ async function cmdSummon(args, raw, player) {
   }
   if (t.openSeats() === 0) return { type: 'error', message: chess ? 'Somebody is already sitting opposite.' : 'The table is full.' };
 
-  // The two pools are deliberately separate flags: the Neon Vig's card crowd has
+  // The two pools are deliberately separate flags: the Lucky Bastard's card crowd has
   // no business answering a summons to a chess salon eighteen floors up.
   //
   // Off-shift players are asleep, not antisocial — same reason `call dealer` won't

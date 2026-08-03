@@ -5426,7 +5426,7 @@ const NAMED_MODELS = {
   yardsfreightoffice:         { type: 'oldoffice',  pal: 'ty_meltoffice', neon: '#ffb43a' },
   bondedbothered:            { type: 'bonded',     pal: 'ty_wh_metal',   neon: '#6affa8' },
   // Promoted off the generic `casino` type model so a future casino still has one.
-  theneonvig:                     { type: 'neonvig',    pal: 'ty_vig',        neon: '#ff3e8a' },
+  theluckybastard:                { type: 'neonvig',    pal: 'ty_vig',        neon: '#ff3e8a' },
   buzzardfield:                   { type: 'buzzard',   pal: 'ty_reach_hangar', neon: '#ffb14a' },
   thecoyotesrest:                 { type: 'saloon',    pal: 'ty_reach_saloon', neon: '#ff6a3a' },
   thedynamo:                      { type: 'dynamo',    pal: 'ty_reach_dynamo', neon: '#6cf0ff' },

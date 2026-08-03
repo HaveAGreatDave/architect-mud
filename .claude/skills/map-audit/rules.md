@@ -338,7 +338,7 @@ derivable from the name) ask about is the AUTHORED override, which is still a hu
 The inverse. A building is the one thing on the map a player navigates *by*, and the marker
 is what identifies it at a glance in the same two renderers. The convention across the 54
 buildings that carry one is a **2-letter acronym of the building name** — `HR` Hall of
-Records, `NV` The Neon Vig, `P9` Precinct 9.
+Records, `LB` The Lucky Bastard, `P9` Precinct 9.
 
 A **1-glyph** marker is not a short acronym, it's a leftover: `#` is the glyph the district
 planner stamped on grassland, and `🔧` is decoration that reads as an icon, not a label.

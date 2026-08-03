@@ -10,7 +10,7 @@
 // Embassy felt. `config.textTable: true` would only make the called-aloud log
 // game the *opening default* here — it's a starting preference, not a lock, and
 // any player can flip with `text` / `visual` at any table. That default belongs
-// to the Neon Vig back room, not this one.
+// to the Lucky Bastard back room, not this one.
 //
 //   local:  node scripts/seed-coyote-poker.mjs
 //   prod:   node --env-file=.env.prod scripts/seed-coyote-poker.mjs
@@ -21,7 +21,7 @@ const TABLE_ID = 'gametable_coyote';
 const ZONE_ID = 'zone_bld_899_1171_lobby';   // The Saloon Floor
 const NAME = "The Coyote's Felt";
 
-// Smuggler stakes — a notch above the Neon Vig friendly table. Cash-rich clientele,
+// Smuggler stakes — a notch above the Lucky Bastard friendly table. Cash-rich clientele,
 // no markers. 10/20 blinds, 200 to sit.
 const CONFIG = {
   smallBlind: 10,

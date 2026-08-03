@@ -1,7 +1,7 @@
 // Re-key building-interior exits so they face the road, matching the door side the
 // engine derives (buildingEntranceDir, which now prefers the first available open
 // road). The external district planner sometimes ships an interior whose single
-// cardinal out-exit points at the wrong face — e.g. Pawn & Pity / The Neon Vig
+// cardinal out-exit points at the wrong face — e.g. Pawn & Pity / The Lucky Bastard
 // front Marrow Street to the NORTH but shipped a `west` exit, so "leave" and the
 // minimap arrow disagreed with where you actually spill out.
 //

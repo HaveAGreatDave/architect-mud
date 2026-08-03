@@ -1,4 +1,4 @@
-// One-shot: register the Neon Vig "old-school" text-poker table (the only poker
+// One-shot: register the Lucky Bastard "old-school" text-poker table (the only poker
 // table in the casino — it lives in the main room, zone_casino_interior).
 //
 // The furniture (furn_backroom_poker_table + chairs) and the dealer NPC
@@ -49,7 +49,7 @@ async function main() {
     );
     console.log(`[create] game_table ${TABLE_ID}`);
   }
-  console.log('Done. Restart the server (or reload the world) and walk into The Neon Vig — Margo runs the felt in the main room.');
+  console.log('Done. Restart the server (or reload the world) and walk into The Lucky Bastard — Margo runs the felt in the main room.');
   process.exit(0);
 }
 

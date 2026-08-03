@@ -578,7 +578,7 @@ const cellAt = (px, py) => state.byCell.get(
 //
 // Drawn as an arrow that reads as a vector AT THE NEIGHBOUR, and the neighbour is
 // innocent: Pawn & Pity's seam direction is `east`, and east on the world map is
-// The Neon Vig, so the arrow pointed at the casino while meaning "step east into
+// The Lucky Bastard, so the arrow pointed at the casino while meaning "step east into
 // Pawn & Pity's own interior". Drawn as a bar ON the edge it reads as a property
 // of this tile — a threshold, the way a floor plan draws a doorway — and says the
 // same thing without pointing at anybody.

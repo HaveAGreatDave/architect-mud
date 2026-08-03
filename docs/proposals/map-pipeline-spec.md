@@ -1207,7 +1207,7 @@ reintroduces runtime derivation, the thing this removes).
 > connection claims its `(from, direction)` and the grid edge steps aside (§7.5), so
 > nothing is reachable that way but the seam. An arrow, though, reads as a vector at
 > the tile beyond, and that tile is innocent: Pawn & Pity's seam direction is `east`,
-> and east on the world map is The Neon Vig, so the arrow pointed at the casino while
+> and east on the world map is The Lucky Bastard, so the arrow pointed at the casino while
 > meaning "step east into Pawn & Pity's own interior". A bar is a property of the
 > edge and points at nobody.
 >

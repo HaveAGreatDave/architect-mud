@@ -366,7 +366,7 @@ statement about *this tile's edge* — an authored connection **claims** its
 `(from, direction)` and the grid edge there steps aside (spec §7.5), so nothing is
 reachable that way except the seam. But an arrow reads as a vector **at the
 neighbour**, and the neighbour is innocent: Pawn & Pity's seam direction is `east`,
-and east on the world map is The Neon Vig, so the arrow pointed at the casino while
+and east on the world map is The Lucky Bastard, so the arrow pointed at the casino while
 meaning *"step east into Pawn & Pity's own interior"*. A bar says the same thing
 without pointing at anybody.
 

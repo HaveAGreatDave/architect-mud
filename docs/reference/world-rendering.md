@@ -301,7 +301,7 @@ The fix is to promote the more characterful half of a pair to a `NAMED_MODELS` e
 with its own `drawTypeModel` case, leaving the twin on the generic type model — as with
 **Coldline Reefer Depot** (`reefer`), **Interchange Stack** (`interstack`), **Ferro
 Fabrication Works** (`foundry`), **Meltwater Freight Office** (`oldoffice`), **Customs
-Bonded Store 7** (`bonded`) and **The Neon Vig** (`neonvig`, promoted off `casino` so a
+Bonded Store 7** (`bonded`) and **The Lucky Bastard** (`neonvig`, promoted off `casino` so a
 future casino still has a generic to fall back on).
 
 **A weaker tier still exists and is deliberate:** several `NAMED_MODELS` entries share a

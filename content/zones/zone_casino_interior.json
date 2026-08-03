@@ -23,7 +23,7 @@
     "north": "zone_district_921_910"
   },
   "flags": {
-    "building_name": "The Neon Vig",
+    "building_name": "The Lucky Bastard",
     "claimable_asset": "casino",
     "is_building": true,
     "is_interior": true,
@@ -34,6 +34,6 @@
   "grid_z": 0,
   "id": "zone_casino_interior",
   "map_id": "map_interior_zone_casino_interior",
-  "name": "The Neon Vig",
+  "name": "The Lucky Bastard",
   "parent_zone": "zone_district_921_910"
 }
