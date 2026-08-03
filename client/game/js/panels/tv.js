@@ -126,6 +126,8 @@ export function createTvView(root, opts = {}) {
   let _scheduleTimer = null;
   let _standingsPanelOpen = false;
   let _standingsPanelTimer = null;
+  let _deckData = null;      // the absorbed tape deck under this set, or null
+  let _deckOpen = false;
   let _tvChannelList = [];   // [{ number, name, channelId }] sorted by number
   let _tvFrequency   = 0;    // current dial position (float), quantized to 0.05 steps
   let _dialRaw       = 0;    // unquantized accumulator driving drag math
@@ -619,6 +621,11 @@ export function createTvView(root, opts = {}) {
     _clearSchedule();
     _clearStandingsPanel();
     _clearFilmLayers();
+    // The deck belongs to the ROOM, not the channel — but the strip is a surface of
+    // this set, so it closes with it and the server re-pushes on the next power-on.
+    _clearDeck();
+    _deckData = null;
+    el('deck-btn')?.classList.remove('avail');
     const win = el('window');
     if (win) {
       win.classList.remove('tv-shutting-off');
@@ -937,6 +944,74 @@ export function createTvView(root, opts = {}) {
     const host = el('schedule');
     if (host) { host.classList.remove('on'); host.innerHTML = ''; }
     el('schedule-btn')?.classList.remove('on');
+  }
+
+  // ── Tape deck strip (the deck ABSORBED into the set) ──────────────────────
+  // A consumer tape player standing under this television is no longer listed in
+  // the room pane — plugins/broadcast absorbs it into the set and pushes it here
+  // as `tv_deck`, so the way you reach it is the set's own display.
+  //
+  // Reduced on purpose: what's loaded, what's on the shelf, eject, load, and the
+  // one button that answers the classic VCR question — put the set on the deck's
+  // own channel so the tape is actually visible. The full chassis (schedule, cam
+  // input, pirate console) stays behind `use <deck>`.
+  //
+  // THE STRIP DECIDES NOTHING. Every control sends a verb string the player could
+  // have typed; the server answers with a fresh `tv_deck` and this redraws.
+  function renderDeck(msg) {
+    _deckData = msg?.deck || null;
+    el('deck-btn')?.classList.toggle('avail', !!_deckData);
+    if (!_deckData) { _clearDeck(); return; }
+    if (_deckOpen) _drawDeck();
+  }
+
+  function _toggleDeck() {
+    const host = el('deck');
+    if (!host || !_deckData) return;
+    _deckOpen = !_deckOpen;
+    host.classList.toggle('on', _deckOpen);
+    el('deck-btn')?.classList.toggle('on', _deckOpen);
+    if (_deckOpen) _drawDeck();
+    else host.innerHTML = '';
+  }
+
+  function _clearDeck() {
+    _deckOpen = false;
+    const host = el('deck');
+    if (host) { host.classList.remove('on'); host.innerHTML = ''; }
+    el('deck-btn')?.classList.remove('on');
+  }
+
+  function _drawDeck() {
+    const host = el('deck');
+    const d = _deckData;
+    if (!host || !d) return;
+    const active = (d.cassettes || []).find(c => c.id === d.activeCassetteId) || null;
+    const status = d.camLabel
+      ? `CAM · ${_esc(d.camLabel)}`
+      : d.playing ? 'PLAYING' : (d.whyNot ? `IDLE — ${_esc(d.whyNot)}` : 'IDLE');
+    const shelf = (d.cassettes || []).map(c =>
+      `<button class="tv-deck-row${c.id === d.activeCassetteId ? ' on' : ''}" data-deck="select" data-id="${_esc(c.id)}">${c.id === d.activeCassetteId ? '▶' : '▪'} ${_esc(c.name)}</button>`
+    ).join('') || '<div class="tv-sched-empty">Nothing on the shelf.</div>';
+    const carry = (d.carrying || []).map(c =>
+      `<button class="tv-deck-row" data-deck="load" data-name="${_esc(c.name)}">⇥ ${_esc(c.name)}</button>`
+    ).join('');
+    const controls = d.locked
+      ? '<div class="tv-sched-empty">Its controls don’t answer to you.</div>'
+      : `<div class="tv-deck-list">${shelf}</div>
+         ${carry ? `<div class="tv-deck-sub">Carrying</div><div class="tv-deck-list">${carry}</div>` : ''}
+         <div class="tv-deck-btns">
+           <button data-deck="eject"${active ? '' : ' disabled'}>EJECT</button>
+           ${d.specter ? `<button data-deck="patch">${d.camLabel ? 'UNPATCH' : 'PATCH CAM'}</button>` : ''}
+           ${d.deckChannel != null ? `<button data-deck="tune">WATCH TAPE · CH ${d.deckChannel}</button>` : ''}
+         </div>`;
+    host.innerHTML = `
+      <div class="tv-deck-head">
+        <span class="tv-deck-name">${_esc(d.brand || d.deckName || 'TAPE DECK')}</span>
+        <span class="tv-deck-status">${status}</span>
+      </div>
+      <div class="tv-deck-loaded">${active ? `▶ ${_esc(active.name)}` : 'No tape loaded.'}</div>
+      ${controls}`;
   }
 
   // ── Standings sub-screen ──────────────────────────────────────────────────
@@ -1768,6 +1843,25 @@ export function createTvView(root, opts = {}) {
     // TV guide toggle: shows the tuned channel's running order + in-world time.
     el('schedule-btn')?.addEventListener('click', () => { if (_tvOpen) _toggleSchedule(); });
 
+    // Tape deck toggle: revealed (`.avail`) only when the server says a consumer
+    // deck stands under this set. One delegated listener for the whole strip, so
+    // a redraw never has to re-bind anything.
+    el('deck-btn')?.addEventListener('click', () => { if (_tvOpen) _toggleDeck(); });
+    el('deck')?.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-deck]');
+      if (!b || !_deckData || b.disabled) return;
+      const act = b.dataset.deck;
+      if (act === 'select')     sendCmdSilent(`selectcassette ${b.dataset.id} tv`);
+      else if (act === 'load')  sendCmdSilent(`load cassette ${b.dataset.name}`);
+      else if (act === 'eject') sendCmdSilent('eject');
+      // ONE verb both ways: bare `patch` pulls the jack when a feed is already in,
+      // and otherwise answers with the player's own list of cameras as clickable
+      // prose. The strip proposes; the verb decides which of those it was — this
+      // is not the place to re-derive whether they own a camera.
+      else if (act === 'patch') sendCmdSilent('patch');
+      else if (act === 'tune' && _deckData.deckChannel != null) _tvTuneTo(_deckData.deckChannel);
+    });
+
     // Standings toggle: the DEADBALL league table, on demand. Hidden until a sports
     // broadcast's first score-bug reveals it (adds `.avail`).
     el('standings-btn')?.addEventListener('click', () => { if (_tvOpen) _toggleStandings(); });
@@ -1852,7 +1946,7 @@ export function createTvView(root, opts = {}) {
   const view = {
     open, close, shutdown, init, destroy,
     applyOverlay, appendMessage, updateTicker, showOffAir, showOnAir,
-    renderSchedule, renderStandings, speak, applyTheme, tunerInput, setProgramName,
+    renderSchedule, renderStandings, renderDeck, speak, applyTheme, tunerInput, setProgramName,
     clearMessages: _clearTvMessages,
     isOpen: () => _tvOpen,
     activeChannelId: () => _tvActiveChannelId,
@@ -1900,6 +1994,7 @@ export function updateTvTicker(text)         { panel()?.updateTicker(text); }
 export function showTvOffAir(content, type)  { panel()?.showOffAir(content, type); }
 export function showTvOnAir()                { panel()?.showOnAir(); }
 export function renderTvSchedule(data)       { panel()?.renderSchedule(data); }
+export function renderTvDeck(data)           { panel()?.renderDeck(data); }
 export function tvSpeak(text, style, win)    { panel()?.speak(text, style, win); }
 export function applyTvTheme(theme)          { panel()?.applyTheme(theme); }
 export function tvTunerInput(val)            { panel()?.tunerInput(val); }

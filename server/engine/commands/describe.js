@@ -577,7 +577,16 @@ function subBoxIds(pieces) {
 // safety rule as the paired fridge: no parent present, or more than one candidate,
 // means no attachment, and the deck lists itself as before rather than silently
 // vanishing out of a room nobody could then reach it in.
-function attachChildren(pieces) {
+//
+// ABSORBED. A CONSUMER deck (`flags.mini_deck`) under a set the player can
+// actually switch on isn't printed at all: the television's own display carries
+// its transport (plugins/broadcast `tv_deck`), so a satellite row would be a
+// second door onto one panel. Two things keep that from stranding anybody —
+// `absorbDecks` is false at the log Display Mode rung, where no TV panel opens,
+// and a STATION transmitter deck is never absorbed, because seeing one is the
+// whole discovery path for `pirate`. Either way the deck falls back to the
+// satellite row it always had.
+function attachChildren(pieces, absorbDecks = false) {
 	const byId = new Map(pieces.map((f) => [f.id, f]));
 	const receivers = pieces.filter(
 		(f) => f.flags?.tv && f.flags?.broadcast_receiver,
@@ -589,9 +598,10 @@ function attachChildren(pieces) {
 		let parent = f.flags?.attached_to ? byId.get(f.flags.attached_to) : null;
 		if (!parent && isDeck && receivers.length === 1) parent = receivers[0];
 		if (!parent || parent.id === f.id) continue;
+		claimed.add(f.id);
+		if (isDeck && absorbDecks && f.flags?.mini_deck) continue;
 		if (!map.has(parent.id)) map.set(parent.id, []);
 		map.get(parent.id).push(f);
-		claimed.add(f.id);
 	}
 	return { map, claimed };
 }
@@ -1269,6 +1279,7 @@ export async function describeZone(zone, player, out = {}) {
 		const soloIds = new Set(groups.filter((g) => g.qty === 1 && !g.kind).map((g) => g.f.id));
 		const { map: attachedMap, claimed: attachedIds } = attachChildren(
 			plainFurniture.filter((f) => soloIds.has(f.id)),
+			!loggedPanelsSync(player),
 		);
 		const standing = groups.filter((g) => !attachedIds.has(g.f.id));
 		const furnitureLinks = standing.map(({ f, qty, kind }) => {

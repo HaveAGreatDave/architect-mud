@@ -1207,18 +1207,31 @@ check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice
 // because nothing throws when a link points at the wrong verb.
 {
   const saved = getPlayer().current_zone;
-  // A room with a television and a Betamax deck under it. The deck keeps its own
-  // furniture row and its own panel, but reads as part of the set: never its own
-  // entry in the list while the television it hangs off is there.
+  // A room with a television and a Betamax deck under it. The CONSUMER deck is
+  // absorbed into the set entirely — it isn't in the pane at all, because the
+  // television's own display carries its transport (plugins/broadcast `tv_deck`).
+  // The television, of course, stays.
   getPlayer().current_zone = 'zone_solenne_apt_b';
+  const deckRows = (html) => [...html.matchAll(/<span class="action-link[^"]*"[^>]*data-ftype="media_deck"[^>]*>/g)].map(([m]) => m);
   const body = (await run('look'))?.message || '';
-  const deckLinks = [...body.matchAll(/<span class="action-link[^"]*"[^>]*data-ftype="media_deck"[^>]*>/g)].map(([m]) => m);
-  check('the deck is in the room exactly once', deckLinks.length === 1, body.slice(0, 900));
-  check('the deck hangs off its television rather than standing alone',
-    deckLinks.every((m) => /furniture-attached/.test(m)), deckLinks.join('\n'));
-  check('the deck clicks through to its own panel',
-    deckLinks.every((m) => /data-action="use"/.test(m)), deckLinks.join('\n'));
+  check('a consumer deck under a set is absorbed out of the room pane', deckRows(body).length === 0, body.slice(0, 900));
   check('the television keeps its own entry', /data-target="Polaris Executive Chromavision 88"/.test(body), body.slice(0, 900));
+  {
+    // …UNLESS no TV panel opens for this player. At the log rung the strip never
+    // arrives, so the deck must be back in the pane as the satellite row it has
+    // always had — absorbing it there would strand it behind a surface that
+    // doesn't exist. This is the check that keeps that rung honest.
+    const savedMode = getPlayer().displayRung;
+    getPlayer().displayRung = 'log';
+    const logBody = (await run('look'))?.message || '';
+    const logRows = deckRows(logBody);
+    getPlayer().displayRung = savedMode;
+    check('…but at the log rung it is back, exactly once', logRows.length === 1, logBody.slice(0, 900));
+    check('…hanging off its television rather than standing alone',
+      logRows.every((m) => /furniture-attached/.test(m)), logRows.join('\n'));
+    check('…and clicking through to its own panel',
+      logRows.every((m) => /data-action="use"/.test(m)), logRows.join('\n'));
+  }
 
   // ── Sectioned furniture ────────────────────────────────────────────────────
   // 30-B holds fifteen pieces with fifteen different names, so neither collapse

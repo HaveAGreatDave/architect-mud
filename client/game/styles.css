@@ -9531,6 +9531,7 @@ body.ck-fullscreen #mob-hud-env {
 #tv-window[data-skin="flatscreen"] #tv-read-btn,
 #tv-window[data-skin="flatscreen"] #tv-schedule-btn,
 #tv-window[data-skin="flatscreen"] #tv-gameday-btn,
+#tv-window[data-skin="flatscreen"] #tv-deck-btn,
 #tv-window[data-skin="flatscreen"] #tv-standings-btn {
 	border: none;
 	border-radius: 8px;
@@ -9543,6 +9544,7 @@ body.ck-fullscreen #mob-hud-env {
 #tv-window[data-skin="flatscreen"] #tv-read-btn:hover,
 #tv-window[data-skin="flatscreen"] #tv-schedule-btn:hover,
 #tv-window[data-skin="flatscreen"] #tv-gameday-btn:hover,
+#tv-window[data-skin="flatscreen"] #tv-deck-btn:hover,
 #tv-window[data-skin="flatscreen"] #tv-standings-btn:hover {
 	background: rgba(255, 255, 255, 0.1);
 	color: #fff;
@@ -9793,6 +9795,33 @@ body.ck-fullscreen #mob-hud-env {
 	color: var(--tv-header-color, #37d67a);
 	border-color: var(--tv-header-color, #37d67a);
 	box-shadow: 0 0 10px rgba(55, 214, 122, 0.4), inset 0 0 5px rgba(55, 214, 122, 0.15);
+}
+/* Tape-deck toggle — hidden until the server reports a deck standing under this
+   set (.avail), lit while the drawer is open (.on). Amber, not the chassis green:
+   it opens an appliance, not a station service. */
+#tv-deck-btn {
+	display: none;
+	background: #0c100e;
+	border: 2px solid #1e2e28;
+	color: #2e4840;
+	font-family: inherit;
+	font-size: 13px;
+	line-height: 1;
+	cursor: pointer;
+	padding: 0;
+	border-radius: 50%;
+	width: 28px;
+	height: 28px;
+	align-items: center;
+	justify-content: center;
+	transition: color 0.2s, border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+#tv-deck-btn.avail { display: flex; }
+#tv-deck-btn:hover { color: #ffb454; border-color: rgba(255, 180, 84, 0.6); }
+#tv-deck-btn.on {
+	color: #ffb454;
+	border-color: #ffb454;
+	box-shadow: 0 0 10px rgba(255, 180, 84, 0.4), inset 0 0 5px rgba(255, 180, 84, 0.15);
 }
 /* Content area */
 #tv-content {
@@ -10159,6 +10188,60 @@ body.ck-fullscreen #mob-hud-env {
 .tv-sched-key { color: #ffb454; }
 .tv-sched-empty { padding: 20px 8px; text-align: center; color: rgba(220, 240, 235, 0.5); font-size: 12.5px; }
 .tv-sched-foot { flex: 0 0 auto; padding-top: 5px; font-size: 10.5px; color: rgba(220, 240, 235, 0.35); text-align: center; }
+
+/* ── Tape deck strip ──────────────────────────────────────────────────────────
+   The consumer deck under the set, reached through the set instead of the room
+   pane. A DRAWER, not a full sub-screen: it slides up over the bottom of the
+   picture so whatever is playing stays visible behind it — the point of most of
+   these presses is watching the picture change. Amber throughout, the same
+   consumer-appliance accent the deck's own chassis uses. */
+#tv-deck {
+	position: absolute;
+	inset: auto 0 72px 0;
+	max-height: 62%;
+	z-index: 48;
+	display: none;
+	flex-direction: column;
+	gap: 4px;
+	background:
+		repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,0.10) 2px 3px),
+		linear-gradient(180deg, rgba(8,10,8,0.86), rgba(8,10,8,0.97));
+	border-top: 1px solid rgba(255, 180, 84, 0.35);
+	color: var(--tv-text, #b8d4c8);
+	font-family: var(--font-mono);
+	padding: 8px 10px;
+	overflow: hidden;
+	animation: gd-in 0.25s ease-out;
+}
+#tv-deck.on { display: flex; }
+.tv-deck-head {
+	display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+	flex: 0 0 auto; padding-bottom: 5px;
+	border-bottom: 1px solid rgba(255, 180, 84, 0.25);
+}
+.tv-deck-name { font-weight: bold; letter-spacing: 1px; text-transform: uppercase; font-size: 12.5px; color: #ffb454; }
+.tv-deck-status { font-size: 11px; letter-spacing: 0.6px; color: rgba(255, 180, 84, 0.7); white-space: nowrap; }
+.tv-deck-loaded { flex: 0 0 auto; font-size: 12.5px; padding: 2px 2px 4px; color: var(--tv-text, #b8d4c8); }
+.tv-deck-sub { flex: 0 0 auto; font-size: 10.5px; letter-spacing: 0.6px; text-transform: uppercase; color: rgba(220, 240, 235, 0.4); padding-top: 3px; }
+.tv-deck-list { flex: 0 1 auto; overflow-y: auto; display: flex; flex-direction: column; }
+.tv-deck-row {
+	display: block; width: 100%; text-align: left;
+	background: none; border: 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+	color: var(--tv-text, #b8d4c8); font-family: inherit; font-size: 12.5px;
+	padding: 4px 4px; cursor: pointer;
+	overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tv-deck-row:hover { background: rgba(255, 180, 84, 0.12); color: #ffd79a; }
+.tv-deck-row.on { color: #ffd79a; font-weight: bold; background: rgba(255, 180, 84, 0.08); }
+.tv-deck-btns { flex: 0 0 auto; display: flex; gap: 6px; padding-top: 6px; }
+.tv-deck-btns button {
+	flex: 1 1 auto;
+	background: #140f08; border: 1px solid rgba(255, 180, 84, 0.4); color: #ffb454;
+	font-family: inherit; font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+	padding: 5px 6px; cursor: pointer; transition: background 0.2s, color 0.2s;
+}
+.tv-deck-btns button:hover:not(:disabled) { background: rgba(255, 180, 84, 0.18); color: #ffd79a; }
+.tv-deck-btns button:disabled { opacity: 0.35; cursor: default; }
 
 /* ── Score bug (broadcast strip) ─────────────────────────────────────────────── */
 .gd-top { display: flex; align-items: stretch; justify-content: space-between; gap: 6px; height: 40px; flex: 0 0 auto; }

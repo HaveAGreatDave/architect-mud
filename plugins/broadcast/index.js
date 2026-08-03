@@ -6845,6 +6845,7 @@ async function cmdLoadCassette(args, raw, player) {
   // Move the cassette item into the deck container rather than destroying it.
   await query('UPDATE player_inventory SET container_id=$1 WHERE id=$2', [deck.id, cassette.inv_id]);
   _evictDeckZone(player.current_zone);
+  _pushTvDeckSafe(player);
   return { type: 'output', message: `You slide the cassette into the deck. It clunks into place and starts playing.` };
 }
 
@@ -7002,6 +7003,7 @@ async function cmdEjectCassette(args, raw, player) {
   await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
   if (channelId) await loadChannelRuntimes();
   _evictDeckZone(player.current_zone);
+  _pushTvDeckSafe(player);
   return { type: 'output', message: `You eject the cassette. The screen dissolves into static.` };
 }
 
@@ -7038,6 +7040,13 @@ async function cmdSelectCassette(args, raw, player) {
   if (dflags.deck_cam_source) { dflags.deck_cam_source = null; _camPatchCache.delete(deck.id); }
   _evictDeckZone(player.current_zone);
   await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
+  // `selectcassette <id> tv` — pressed from the set's own strip, which is not a
+  // reason to throw the full deck chassis up over the television the player is
+  // watching. Refresh the strip in place instead.
+  if ((args[1] || '').toLowerCase() === 'tv') {
+    await pushTvDeck(player);
+    return { type: 'noop' };
+  }
   return buildMediaDeckPanel(deck.id, player);
 }
 
@@ -7123,6 +7132,7 @@ async function cmdPatch(args, raw, player) {
     await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
     _camPatchCache.delete(deck.id);
     _evictDeckZone(player.current_zone);
+    _pushTvDeckSafe(player);
     return { type: 'output', message: `You pull the jack. The ${deck.name} goes back to its own tape.` };
   }
 
@@ -7145,6 +7155,7 @@ async function cmdPatch(args, raw, player) {
   await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
   _camPatchCache.delete(deck.id);
   _evictDeckZone(player.current_zone);
+  _pushTvDeckSafe(player);
 
   const state = dflags.channel_id ? channelRuntime.get(dflags.channel_id) : null;
   const chan = state?.number != null ? ` Put the set on channel ${state.number}.` : '';
@@ -7344,6 +7355,91 @@ async function buildMediaDeckPanel(deckId, player) {
   return { type: 'output', message: `You examine the ${deck.name}.` };
 }
 
+// ── The deck AS PART OF THE SET ───────────────────────────────────────────────
+// A consumer tape player under a television is one appliance to the person in the
+// room, so the room pane stops listing it (server/engine/commands/describe.js,
+// `attachChildren`) and the television's own display carries a REDUCED transport
+// instead: what's in it, what else is on the shelf, eject, and put a tape in.
+//
+// Reduced is the point. The full `mediadeck_panel` chassis — the studio LIVE lamp,
+// the schedule preview, the SPECTER cam input, the pirate console — stays behind
+// `use <deck>`; nothing here is a second implementation of it, every control is a
+// verb string the player could have typed.
+//
+// Same derivation rule as the room pane, and deliberately so: absorb only where a
+// mis-attribution is impossible (exactly one consumer deck, exactly one set, or a
+// pinned `flags.attached_to`). Anything ambiguous keeps its own furniture row and
+// gets no strip, rather than the two surfaces disagreeing about which set the
+// deck is under.
+function _absorbedDeckFor(zoneId) {
+  const pieces = getZoneFurniture(zoneId) || [];
+  const receivers = pieces.filter(f => f.flags?.tv && f.flags?.broadcast_receiver);
+  if (receivers.length !== 1) return null;
+  const decks = pieces.filter(f => f.flags?.mini_deck && f.flags && 'media_deck' in f.flags)
+    .filter(f => !f.flags.attached_to || f.flags.attached_to === receivers[0].id);
+  if (decks.length !== 1) return null;
+  return decks[0];
+}
+
+// Push (or clear) the set's deck strip. Fire-and-forget from every path that
+// changes what the machine is holding; the client draws nothing when there's no
+// deck, so a room with a bare television gets an explicit null rather than a
+// stale strip left over from the last flat you stood in.
+async function pushTvDeck(player) {
+  if (!player || loggedPanelsSync(player)) return;
+  const deck = _absorbedDeckFor(player.current_zone);
+  if (!deck) { sendToPlayer(player.id, { type: 'tv_deck', deck: null }); return; }
+  const dflags = _deckFlags(deck);
+  const ids = Array.isArray(dflags.deck_cassettes) ? dflags.deck_cassettes : [];
+  let cassettes = [];
+  if (ids.length) {
+    const { rows } = await query('SELECT id, name FROM media_broadcasts WHERE id = ANY($1)', [ids]);
+    cassettes = ids.map(id => rows.find(r => r.id === id)).filter(Boolean);
+  }
+  const { rows: invRows } = await query(
+    `SELECT i.name FROM player_inventory pi
+       JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id=$1 AND pi.is_equipped=0 AND pi.container_id IS NULL
+        AND (jsonb_exists(i.tags,'media_cassette') OR (i.flags->>'media_cassette')='true')
+      ORDER BY i.name`,
+    [player.id]
+  );
+  const channelId = dflags.channel_id || null;
+  const deckNumber = channelId ? (channelRuntime.get(channelId)?.number ?? null) : null;
+  const playback = _miniDeckPlayback(deck, dflags, deckNumber);
+  // The spare input, offered only to a player who has something to plug into it.
+  // A player without SPECTER never sees the row, so the set doesn't advertise a
+  // surface they can't reach — the same rule the full deck panel follows.
+  const specterMod = await _specter();
+  const specterOn = specterMod ? await specterMod.isSpecterInstalled(player).catch(() => false) : false;
+  sendToPlayer(player.id, {
+    type: 'tv_deck',
+    deck: {
+      deckId: deck.id,
+      deckName: deck.name,
+      brand: typeof dflags.deck_brand === 'string' ? dflags.deck_brand.trim() || null : null,
+      // The strip is drawn on a set the player is standing at, so the lock is the
+      // same one the verbs enforce — a locked deck draws its state and refuses,
+      // rather than offering controls that answer with an error line.
+      locked: !canOperateDeck(dflags, player),
+      activeCassetteId: dflags.deck_active || null,
+      camLabel: playback.camLabel,
+      specter: specterOn,
+      playing: playback.playing,
+      whyNot: playback.whyNot,
+      // The channel the tape actually comes out on — a loaded deck shows nothing
+      // until the set is tuned to it, which is the single most confusing thing
+      // about a VCR and the one the strip can just fix with a button.
+      deckChannel: deckNumber,
+      cassettes: cassettes.map(c => ({ id: c.id, name: c.name })),
+      carrying: invRows.map(r => ({ name: r.name })),
+    },
+  });
+}
+
+// Never let a strip refresh take down the verb that triggered it.
+function _pushTvDeckSafe(player) { pushTvDeck(player).catch(() => {}); }
+
 async function doUseMediaDeck(args, raw, player) {
   if (!player) return undefined;
   const nameHint = args.join(' ').toLowerCase();
@@ -7525,6 +7621,9 @@ function buildTvPanel(channelId, player, dialFrequency, dest) {
       powerOff: getSfxDefByName('tv_power_off'),
     },
   });
+  // The set carries the tape player under it (see pushTvDeck). Tablet only: a
+  // tablet has no furniture beneath it, so there is nothing to absorb.
+  if (!isTablet) _pushTvDeckSafe(player);
   // If the channel is currently off-air, signal it immediately rather than waiting for the next tick
   if (!state.wasActive) {
     sendToPlayer(player.id, _offAirMessage(state, channelId));

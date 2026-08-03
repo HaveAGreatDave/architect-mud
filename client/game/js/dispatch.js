@@ -54,7 +54,7 @@ import { openSpliceSelect, openSpliceStages, applySplicePreview } from './panels
 import { showSpliceReport } from './panels/spliceReport.js';
 import { updateWantedHud, setWantedHeat } from './panels/wanted.js';
 import { showAccoladeUnlock } from './panels/accolades-banner.js';
-import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel, tvSpeak, renderTvSchedule, tvViewsForChannel, tvOpenViews } from './panels/tv.js';
+import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel, tvSpeak, renderTvSchedule, renderTvDeck, tvViewsForChannel, tvOpenViews } from './panels/tv.js';
 import { applyAmpUnlocks, addAmpUnlock } from './panels/musicplayer.js';
 import { applyEspState, handleEspWarning } from './esp.js';
 import { playPokerSfx } from './poker-sfx.js';
@@ -448,6 +448,9 @@ const handlers = {
   tv_overlay: (msg) => {
     for (const v of tvViewsForChannel(msg.channelId)) v.applyOverlay(msg.overlay);
   },
+  // The tape deck absorbed into the wall set. Panel-only: the tablet TV app has no
+  // furniture under it, so the server never sends this for the tablet surface.
+  tv_deck: (msg) => { renderTvDeck(msg); },
   tv_schedule: (msg) => { for (const v of tvOpenViews()) v.renderSchedule(msg); },
   tv_standings: (msg) => { for (const v of tvOpenViews()) v.renderStandings(msg); },
   system: (msg) => { appendHtml(msg.message, 'system'); },

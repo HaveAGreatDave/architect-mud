@@ -733,6 +733,36 @@ had a tape deck under it. Tape players carry `channel_id: 'ch_0_vcr'`; **KSAB-TV
 independent**, so putting a tape on no longer hijacks the station in that room — you change
 input, the way you would in life.
 
+#### Absorbed into the set — the `tv_deck` strip
+
+*Built.* A `mini_deck` standing under a television is **one appliance in the room's eye**, so it
+is no longer a thing in the room pane at all: `attachChildren`
+(`server/engine/commands/describe.js`) claims it and prints nothing, and the television's own
+display carries a **reduced transport** instead — `tv_deck`, pushed by `pushTvDeck()` and drawn
+by the 📼 drawer in `client/game/js/panels/tv.js`. What's loaded, the shelf, what you're
+carrying, EJECT, one button that puts the set on the deck's own channel — the classic VCR
+confusion, and the thing the strip most exists to fix — and, for a player who has SPECTER, the
+spare input. That last one is **one verb both ways**: bare `patch` pulls the jack when a feed is
+already in and otherwise answers with the player's own cameras as clickable prose, so the strip
+never has to know whether they own one.
+
+Three rules hold it up:
+
+- **Reduced, never a second implementation.** The full chassis — schedule preview, the SPECTER
+  cam input, the pirate console — stays behind `use <deck>`. The strip **decides nothing**:
+  every control sends a verb string a player could have typed (`selectcassette <id> tv`,
+  `load cassette <name>`, `eject`, `tune <n>`) and redraws from the server's answer. The lone
+  `tv` suffix on `selectcassette` says *which surface asked*, so the answer refreshes the strip
+  instead of throwing the deck chassis up over the television you're watching.
+- **Absorb only where mis-attribution is impossible** — exactly one consumer deck and exactly
+  one receiver in the zone, or a pinned `flags.attached_to`. `_absorbedDeckFor()` and
+  `attachChildren` apply the same test, so the two surfaces can never disagree about which set
+  a deck is under. Anything ambiguous keeps its old satellite row and gets no strip.
+- **A STATION deck is never absorbed**, and neither is anything at the **log** Display Mode
+  rung, where no TV panel opens. Seeing a transmitter deck is the entire discovery path for
+  `pirate`, and absorbing a deck behind a surface that doesn't exist would strand it. Both fall
+  back to the `↳` satellite row, which is what regress pins.
+
 That required freeing `0`, which used to mean *off*. **Powering down is the power button, not a
 dial position**: in `client/game/js/panels/tv.js` a **tap** closes the view and leaves the set on,
 a **450 ms hold** sends `tv_poweroff` and switches it off room-wide. `_applyTuning` now takes an
