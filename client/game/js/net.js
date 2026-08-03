@@ -65,8 +65,14 @@ export function initNet(messageHandler) {
         }
       }
     },
+    // Both directions. The old `if (showing)` had no else, so the overlay could
+    // only ever be taken down by a fresh onOpen or the DB's `awake` — and if it
+    // went up after the socket was already back (a late close event from a
+    // superseded socket), neither of those was ever coming again and it sat
+    // there over a working connection.
     onColdStart(showing) {
       if (showing) showColdStart();
+      else hideColdStart();
     },
     onMessage(msg) {
       // DB compute wake (Neon free-tier cold start). Handled here so it reuses
