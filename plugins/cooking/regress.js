@@ -2325,6 +2325,32 @@ export default async function regress({ run, check, getPlayer }) {
           both.filter(e => e.v === 'vessel:pot').length === 1, JSON.stringify(both.filter(e => e.k === 'g').map(e => [e.v, e.for])));
       }
 
+      // DROPPING A WHOLE DISH. `add` is recipe-sized, so `drop` has to be — and
+      // it must take only the dish named, leaving the other one's lines alone.
+      {
+        await run('shoplist clear');
+        await run('shoplist add soup');
+        await run('shoplist add stew');
+        const before = await getList(player.id);
+        const soupLines = before.filter(e => e.for === 'soup').length;
+        const stewLines = before.filter(e => e.for === 'stew').length;
+        let r = await run('shoplist drop soup');
+        const after = await getList(player.id);
+        check('dropping a recipe takes every line it added',
+          soupLines > 0 && after.every(e => e.for !== 'soup'), JSON.stringify(after.map(e => e.for)));
+        check('...and leaves the other recipe on the list',
+          after.filter(e => e.for === 'stew').length === stewLines, JSON.stringify(after.map(e => e.for)));
+        check('...and says so', /soup/i.test(r?.message || '') && r?.type === 'output', JSON.stringify(r));
+        r = await run('shoplist drop soup');
+        check('dropping one that isn\'t on it is an error, not a silent no-op',
+          r?.type === 'error', JSON.stringify(r));
+        // A number still means a line — the two readings must not collide.
+        const n = (await getList(player.id)).length;
+        r = await run('shoplist drop 1');
+        check('a number still drops a single line',
+          r?.type === 'output' && (await getList(player.id)).length === n - 1, JSON.stringify(r));
+      }
+
       await run('shoplist clear');
       check('clear empties it', (await getList(player.id)).length === 0);
       await query('DELETE FROM player_inventory WHERE id=$1', [softId]);

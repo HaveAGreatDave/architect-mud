@@ -18,7 +18,7 @@ import { DISHES, ingredientLine, methodLines, estimateCookMs, keyNounFor } from 
 import { gearFor, gearKeysOf, GEAR_TAGS } from '../cooking/gear.js';
 import { PROFILES } from '../cooking/profiles.js';
 import { cookbookState, UNTRIED } from '../cooking/knowledge.js';
-import { getList, holdings, answer, addShortfall, buyableExamples, catalogTemplate } from '../cooking/shoplist.js';
+import { getList, holdings, answer, addShortfall, removeFor, buyableExamples, catalogTemplate } from '../cooking/shoplist.js';
 import { getItem, getItemCache } from '../../server/engine/items-cache.js';
 import { DISCOVERY_ATTEMPTS, COOK_SECONDS_PER_KG } from '../cooking/config.js';
 import { registerTabletApp } from './registry.js';
@@ -407,7 +407,16 @@ async function buildScreen(player, screenId, params) {
     }
     const got = rows.filter(e => e.done).length;
     items.push({ id: '', group: true, label: `${got} of ${rows.length} in hand`, sub: '"shoplist tidy" crosses those off for good.', badge: got === rows.length ? 'ready' : 'missing' });
-    return { view: 'list', breadcrumb: ['Cookbook', 'Shopping List'], items };
+    // A DISH GOES ON IN ONE GESTURE AND COMES OFF IN ONE. Adding is a button on a
+    // recipe card, so changing your mind can't be six lines ticked off by number.
+    // One button per heading, and only for headings that are a recipe — the loose
+    // wants under "odds and ends" came on one at a time and go off the same way.
+    const actions = ordered.filter(([forWhat]) => forWhat).map(([forWhat]) => ({
+      id: `unshop:${forWhat}`,
+      label: `Remove ${titleFor(forWhat.replace(/ /g, '_'))}`,
+      confirm: `Take everything for ${forWhat} off the list?`,
+    }));
+    return { view: 'list', breadcrumb: ['Cookbook', 'Shopping List'], items, actions };
   }
 
   // DETAIL
@@ -585,6 +594,19 @@ async function recipeDetail(player, key, band) {
 // Adding to the list from a recipe card. It calls the same `addShortfall` the
 // `shoplist add` verb does, so the app and the verb can't drift.
 async function handleAction(player, actionId) {
+  // Removing a dish's worth, through the same `removeFor` the verb calls — the
+  // app and the verb must not drift on what "the whole dish" means.
+  if (String(actionId || '').startsWith('unshop:')) {
+    const label = actionId.slice(7);
+    const r = await removeFor(player.id, label);
+    const screen = await buildScreen(player, null, '__shop');
+    return {
+      ...screen,
+      notice: r.ok
+        ? `Took ${r.removed} line${r.removed === 1 ? '' : 's'} off for ${r.label}.`
+        : `Nothing on the list is for that.`,
+    };
+  }
   if (!String(actionId || '').startsWith('shop:')) return null;
   const key = actionId.slice(5);
   const d = DISHES[key];

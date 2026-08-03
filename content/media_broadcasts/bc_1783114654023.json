@@ -1,122 +1,13 @@
 {
   "broadcast_graph": {
-    "_start": "c_0",
+    "_start": "gs_stub",
     "nodes": {
-      "c_0": {
+      "gs_stub": {
         "_vine": {
           "x": 80,
           "y": 80
         },
-        "next": "c_1",
         "type": "start"
-      },
-      "c_1": {
-        "_vine": {
-          "x": 300,
-          "y": 80
-        },
-        "graphic_id": "jackpot_protocol_logo",
-        "next": "c_2",
-        "type": "title_card"
-      },
-      "c_10": {
-        "_vine": {
-          "x": 80,
-          "y": 400
-        },
-        "label": "CAM — 2 — Audience",
-        "next": "c_11",
-        "type": "camera_cut",
-        "zone_id": "zone_studio_1782953094650"
-      },
-      "c_11": {
-        "_vine": {
-          "x": 300,
-          "y": 400
-        },
-        "style": "narration",
-        "text": "The packed audience erupts into applause as holographic spotlights dance across the studio. Giant displays shimmer with spinning credit symbols while cameras glide effortlessly above the crowd.\r\n\r\n4s\r\n\r\nCAM 1 Main Stage\r\n\r\nLANCE:\r\nWelcome to Jackpot Protocol, KSAB's biggest night of entertainment, where everyday people compete for prizes beyond their wildest dreams.\r\n\r\nCAM 3 Prize Display\r\n\r\nOVERLAY grand_prize\r\nTONIGHT'S GRAND PRIZE\r\n\r\n250,000 CREDITS\r\n\r\nLUXURY SKYLOFT\r\n\r\nONE YEAR CORPORATE PLATINUM STATUS\r\nOVERLAY_END\r\n\r\n5s\r\n\r\nCAM 1 Main Stage\r\n\r\nLANCE:\r\nThree contestants. Five rounds. Countless possibilities.\r\n\r\nLANCE:\r\nEvery question answered correctly brings them one step closer to a brand-new life.\r\n\r\n♪ Audience applause ♪\r\n\r\nCAM 2 Contestants\r\n\r\nSHOT\r\nThree illuminated podiums rise from beneath the stage floor as the contestants wave nervously to the roaring crowd.\r\n\r\n4s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nLet's meet tonight's challengers!\r\n\r\nACTION npc_stage_assistant walks confidently across the stage.\r\n\r\nASSISTANT:\r\nAt podium one, maintenance technician Kara Holt!\r\n\r\n♪ Audience cheers ♪\r\n\r\n2s\r\n\r\nASSISTANT:\r\nAt podium two, independent courier Devon Marsh!\r\n\r\n♪ Audience cheers ♪\r\n\r\n2s\r\n\r\nASSISTANT:\r\nAnd at podium three, systems analyst Mia Voss!\r\n\r\n♪ Audience cheers ♪\r\n\r\n3s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nContestants... welcome to Jackpot Protocol.\r\n\r\nLANCE:\r\nAre you ready to play?\r\n\r\n♪ Audience cheers loudly ♪\r\n\r\nCAM 3 Contestants\r\n\r\nSHOT\r\nAll three contestants nod as the audience begins chanting.\r\n\r\n3s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nThen let's begin.\r\n\r\nTITLE ROUND ONE\r\n\r\n2s\r\n\r\nOVERLAY\r\nROUND ONE\r\n\r\nGENERAL KNOWLEDGE\r\n\r\n100 CREDITS PER CORRECT ANSWER\r\nOVERLAY_END\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nHere's your first question.\r\n\r\nOVERLAY\r\nQUESTION ONE\r\n\r\nWhich corporation operates the majority of Coldwater Basin's maglev transit system?\r\nOVERLAY_END\r\n\r\n8s\r\n\r\nCAM 2 Contestants\r\n\r\nSHOT\r\nA countdown clock appears above the stage while contestants lock in their answers.\r\n\r\n5s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nTime's up...\r\n\r\n2s\r\n\r\nOVERLAY\r\nCORRECT ANSWER\r\n\r\nMETRODYNE TRANSIT\r\nOVERLAY_END\r\n\r\n♪ Audience applauds ♪\r\n\r\nCAM 3 Scoreboard\r\n\r\nOVERLAY\r\nCURRENT SCORES\r\n\r\nKARA      100\r\n\r\nDEVON       0\r\n\r\nMIA        100\r\nOVERLAY_END\r\n\r\n4s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nAn excellent start!\r\n\r\nLANCE:\r\nWhen we return, the stakes get even higher, and only one contestant can earn a place in the Jackpot Round.\r\n\r\nMUSIC commercial_sting\r\nAudience applause fades beneath an energetic synth bumper.\r\nMUSIC_END\r\n\r\nCREDITS 20\r\nJACKPOT PROTOCOL\r\n\r\nHosted by\r\nLance Aubry\r\n\r\nProduced by\r\nKSAB Entertainment\r\n\r\nRecorded Before a Live Studio Audience\r\n\r\nEND_CREDITS\r\n\r\nEND",
-        "type": "say"
-      },
-      "c_2": {
-        "_vine": {
-          "x": 520,
-          "y": 80
-        },
-        "duration": 2,
-        "next": "c_3",
-        "type": "wait"
-      },
-      "c_3": {
-        "_vine": {
-          "x": 740,
-          "y": 80
-        },
-        "next": "c_4",
-        "song": "jackpot_theme",
-        "text": "Huge audience applause. Upbeat synth fanfare. Lights sweep across the studio.",
-        "type": "music"
-      },
-      "c_4": {
-        "_vine": {
-          "x": 960,
-          "y": 80
-        },
-        "label": "CAM — 1 — Main Stage",
-        "next": "c_5",
-        "type": "camera_cut",
-        "zone_id": "zone_studio_1782953094650"
-      },
-      "c_5": {
-        "_vine": {
-          "x": 80,
-          "y": 240
-        },
-        "graphic_id": "",
-        "next": "c_6",
-        "overlayType": "lower_third",
-        "subtext": "Hosted by Lance Aubry",
-        "text": "JACKPOT PROTOCOL",
-        "type": "overlay"
-      },
-      "c_6": {
-        "_vine": {
-          "x": 300,
-          "y": 240
-        },
-        "next": "c_7",
-        "npc_id": "npc_lance_kessler",
-        "type": "npc_anchor"
-      },
-      "c_7": {
-        "_vine": {
-          "x": 520,
-          "y": 240
-        },
-        "next": "c_8",
-        "style": "raw",
-        "text": "Good evening, Coldwater Basin!",
-        "type": "say"
-      },
-      "c_8": {
-        "_vine": {
-          "x": 740,
-          "y": 240
-        },
-        "next": "c_9",
-        "style": "ambient",
-        "text": "♪ Audience cheers ♪",
-        "type": "say"
-      },
-      "c_9": {
-        "_vine": {
-          "x": 960,
-          "y": 240
-        },
-        "next": "c_10",
-        "style": "raw",
-        "text": "I'm Lance Aubry, and tonight somebody's life is about to change!",
-        "type": "say"
       }
     }
   },
@@ -127,29 +18,139 @@
   "enabled": 1,
   "fallback_messages": [],
   "film_meta": null,
-  "gameshow_pools": null,
+  "gameshow_pools": {
+    "airSlots": [
+      6
+    ],
+    "contestants": [
+      "Pell Anselm",
+      "Nine-of-Cups",
+      "Dorothy Vane",
+      "A Caller Who Declined To Be Named",
+      "Sunder",
+      "Ma Rethick",
+      "The Gentleman From Ashway"
+    ],
+    "host": "npc_jp_thorne",
+    "pools": {
+      "announce_host": [
+        "The only woman in the Basin who reads the census for pleasure — {host}!",
+        "She has never once been to Ashway and can describe it to you in full — {host}!",
+        "Ladies, gentlemen, and whatever the Synthesis are calling it this week — {host}!"
+      ],
+      "applause": [
+        "♪ Applause, big and slightly too long, the way the floor manager likes it. ♪",
+        "♪ The audience comes in hard on the sting. ♪",
+        "♪ Applause, and the theme underneath it, and the lights going up. ♪"
+      ],
+      "audience": [
+        "The audience makes a noise somewhere between a cheer and an apology.",
+        "Somebody says the right letter out loud, half a second too late, to nobody.",
+        "A groan travels the length of the floor and expires near the exit.",
+        "The applause comes in unevenly, the way it does when nobody is sure yet.",
+        "Two rows of people turn to each other and disagree, quietly, on television.",
+        "Somewhere in the dark a chair goes over."
+      ],
+      "audience_call": [
+        "If you're standing on my floor, you're playing. Type {verb} and a letter. That's the whole apparatus.",
+        "Anyone in this studio may answer — {verb}, then A, B, C or D. Say it on television and mean it.",
+        "You. Yes. {verb} and a letter. You have lived here your whole life. Prove some of it.",
+        "The rules have not changed since the format changed: I ask, you {verb} a letter, the Basin watches you be wrong."
+      ],
+      "commercial": [
+        "KSAB will return to JACKPOT PROTOCOL. Stay where you are. The lights are on.",
+        "A bumper plays: the logo, spinning, over a city that does not look like this one.",
+        "KSAB. We are legally required to tell you the prize money is real."
+      ],
+      "no_payout": [
+        "The network says one purse a day. Bertrand did not write that rule and neither did I."
+      ],
+      "open": [
+        "From the KSAB soundstage, under lights that cost more than the prize — this is JACKPOT PROTOCOL.",
+        "Good evening, Coldwater Basin. Tonight we find out how much of your own city you were actually looking at.",
+        "This is the programme where knowing where you live is worth money. Briefly. Once.",
+        "Nine districts, four orders, and a hundred and eighty people who all sleep somewhere. Let's see who's been paying attention."
+      ],
+      "prize_copy": [
+        "Tonight's category: {prize}.",
+        "The category is {prize}. Play it as it lies.",
+        "{prize}. Standard rules, standard purse, no appeals.",
+        "This one comes to us from {prize}, and the network has checked it twice.",
+        "{prize}. Answer with a letter and try to look confident about it."
+      ],
+      "prompt": [
+        "{question} Your options: {options}.",
+        "Here it is. {question} {options}.",
+        "{question} And the answers — {options}.",
+        "Listen carefully. {question} Options: {options}."
+      ],
+      "reveal": [
+        "Answers in — {guesses}. And the correct answer is {answer}.",
+        "The floor said {guesses}. The card says {answer}.",
+        "{guesses}. And it was {answer} all along.",
+        "Let's have it. {guesses}. Bertrand — the card. It's {answer}.",
+        "The floor gave me {guesses}. The Basin gives me {answer}."
+      ],
+      "round_intro.choice": [
+        "Here we go. A question, some answers, and about forty seconds of you looking at the ceiling.",
+        "Next question. One of these is true and the rest were written to look like it.",
+        "On we go. Statistically, two of you are about to pick the same wrong one.",
+        "Same shape, harder ground. Let's see.",
+        "Another one. The field is wider than it looks and so is the silence.",
+        "And again. Nobody has ever made this look as difficult as you're all about to."
+      ],
+      "showcase_intro": [
+        "And now the money. THE JACKPOT ROUND. Four answers, one question, and a purse that would clear most people's rent.",
+        "Our last question of the night. This is the one they'll talk about on the platform tomorrow. Four options.",
+        "The Jackpot Round. Bertrand has the card. I have the question. You have about a minute."
+      ],
+      "showcase_reveal": [
+        "The Jackpot answers: {guesses}. And the card says {answer}.",
+        "{guesses}, for {purse} credits. And the correct answer — {answer}.",
+        "Sealed card, Bertrand. Thank you. It's {answer}. The floor said {guesses}."
+      ],
+      "signoff": [
+        "That's our programme. Go home. You clearly need the practice.",
+        "From all of us at JACKPOT PROTOCOL — know your city. It certainly knows you.",
+        "Goodnight, Coldwater Basin. Look up on the way home."
+      ],
+      "stall": [
+        "Take your time. The city took two hundred years to get like this.",
+        "I can hear somebody in the third row saying it out loud. Don't help them. They're wrong.",
+        "Bertrand has the sealed card and the expression of a man who already knows.",
+        "Answer, somebody. The lights are the only thing in this building that runs on schedule.",
+        "Anyone. A letter. It costs you nothing and it might cost you everything.",
+        "Still time. Not much of it."
+      ],
+      "ticker": [
+        "JACKPOT PROTOCOL is recorded before a live studio audience · Prize money subject to network verification · Contestant answers are broadcast in full and cannot be withdrawn · KSAB Entertainment"
+      ],
+      "verdict_read": [
+        "{verdict} That's {purse} credits and a place in the transcript.",
+        "{verdict} Take the money. It clears before the network notices.",
+        "{verdict} And that, ladies and gentlemen, is what knowing your own street is worth.",
+        "{verdict} Bertrand, mark it down. Mark it in ink, we're not the shopping channel.",
+        "{verdict} The Basin thanks you for your civic attention."
+      ],
+      "walkoff": [
+        "{contestant} has left the studio floor and forfeits the answer."
+      ]
+    },
+    "rounds": 4,
+    "sidekick": "npc_jp_okoye",
+    "subject": "basin",
+    "theme": "",
+    "title": "jackpot_protocol_logo"
+  },
   "id": "bc_1783114654023",
   "loop": 0,
   "message_interval": 5,
-  "messages": [
-    {
-      "text": "Good evening, Coldwater Basin!"
-    },
-    {
-      "text": "♪ Audience cheers ♪"
-    },
-    {
-      "text": "I'm Lance Aubry, and tonight somebody's life is about to change!"
-    },
-    {
-      "text": "The packed audience erupts into applause as holographic spotlights dance across the studio. Giant displays shimmer with spinning credit symbols while cameras glide effortlessly above the crowd.\r\n\r\n4s\r\n\r\nCAM 1 Main Stage\r\n\r\nLANCE:\r\nWelcome to Jackpot Protocol, KSAB's biggest night of entertainment, where everyday people compete for prizes beyond their wildest dreams.\r\n\r\nCAM 3 Prize Display\r\n\r\nOVERLAY grand_prize\r\nTONIGHT'S GRAND PRIZE\r\n\r\n250,000 CREDITS\r\n\r\nLUXURY SKYLOFT\r\n\r\nONE YEAR CORPORATE PLATINUM STATUS\r\nOVERLAY_END\r\n\r\n5s\r\n\r\nCAM 1 Main Stage\r\n\r\nLANCE:\r\nThree contestants. Five rounds. Countless possibilities.\r\n\r\nLANCE:\r\nEvery question answered correctly brings them one step closer to a brand-new life.\r\n\r\n♪ Audience applause ♪\r\n\r\nCAM 2 Contestants\r\n\r\nSHOT\r\nThree illuminated podiums rise from beneath the stage floor as the contestants wave nervously to the roaring crowd.\r\n\r\n4s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nLet's meet tonight's challengers!\r\n\r\nACTION npc_stage_assistant walks confidently across the stage.\r\n\r\nASSISTANT:\r\nAt podium one, maintenance technician Kara Holt!\r\n\r\n♪ Audience cheers ♪\r\n\r\n2s\r\n\r\nASSISTANT:\r\nAt podium two, independent courier Devon Marsh!\r\n\r\n♪ Audience cheers ♪\r\n\r\n2s\r\n\r\nASSISTANT:\r\nAnd at podium three, systems analyst Mia Voss!\r\n\r\n♪ Audience cheers ♪\r\n\r\n3s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nContestants... welcome to Jackpot Protocol.\r\n\r\nLANCE:\r\nAre you ready to play?\r\n\r\n♪ Audience cheers loudly ♪\r\n\r\nCAM 3 Contestants\r\n\r\nSHOT\r\nAll three contestants nod as the audience begins chanting.\r\n\r\n3s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nThen let's begin.\r\n\r\nTITLE ROUND ONE\r\n\r\n2s\r\n\r\nOVERLAY\r\nROUND ONE\r\n\r\nGENERAL KNOWLEDGE\r\n\r\n100 CREDITS PER CORRECT ANSWER\r\nOVERLAY_END\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nHere's your first question.\r\n\r\nOVERLAY\r\nQUESTION ONE\r\n\r\nWhich corporation operates the majority of Coldwater Basin's maglev transit system?\r\nOVERLAY_END\r\n\r\n8s\r\n\r\nCAM 2 Contestants\r\n\r\nSHOT\r\nA countdown clock appears above the stage while contestants lock in their answers.\r\n\r\n5s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nTime's up...\r\n\r\n2s\r\n\r\nOVERLAY\r\nCORRECT ANSWER\r\n\r\nMETRODYNE TRANSIT\r\nOVERLAY_END\r\n\r\n♪ Audience applauds ♪\r\n\r\nCAM 3 Scoreboard\r\n\r\nOVERLAY\r\nCURRENT SCORES\r\n\r\nKARA      100\r\n\r\nDEVON       0\r\n\r\nMIA        100\r\nOVERLAY_END\r\n\r\n4s\r\n\r\nCAM 1 Host\r\n\r\nLANCE:\r\nAn excellent start!\r\n\r\nLANCE:\r\nWhen we return, the stakes get even higher, and only one contestant can earn a place in the Jackpot Round.\r\n\r\nMUSIC commercial_sting\r\nAudience applause fades beneath an energetic synth bumper.\r\nMUSIC_END\r\n\r\nCREDITS 20\r\nJACKPOT PROTOCOL\r\n\r\nHosted by\r\nLance Aubry\r\n\r\nProduced by\r\nKSAB Entertainment\r\n\r\nRecorded Before a Live Studio Audience\r\n\r\nEND_CREDITS\r\n\r\nEND"
-    }
-  ],
+  "messages": [],
   "morning_pools": null,
   "name": "Jackpot Protocol",
   "news_pools": null,
   "override_duration": 600,
-  "playback_mode": "scripted",
+  "playback_mode": "gameshow",
   "sermon_pools": null,
   "sports_pools": null,
   "tags": [],

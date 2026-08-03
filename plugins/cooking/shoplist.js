@@ -460,6 +460,30 @@ export async function removeAt(playerOrId, index) {
   return { ok: true, gone };
 }
 
+// Drop a whole RECIPE off the list — every line `shoplist add` wrote under that
+// heading, in one go. `add` is a recipe-sized gesture, so `drop` has to be one
+// too: changing your mind about a stew meant crossing off six lines by number,
+// and the numbers shifted under you as you went.
+//
+// Matched on the stored `for` label, which is what the heading printed and so
+// what the player is reading off the screen. The kit needs no handling at all —
+// `gearRows` derives it from the `for` labels still on the list, so the pot goes
+// with the dish that wanted it and stays if another dish still does.
+export async function removeFor(playerOrId, name) {
+  const playerId = typeof playerOrId === 'string' ? playerOrId : playerOrId?.id;
+  const want = String(name || '').trim().toLowerCase();
+  if (!want) return { ok: false };
+  const list = await getList(playerId);
+  const label = list.map(e => e.for).find(f => f && f.toLowerCase() === want)
+    // A recipe named with underscores in the catalog reads with spaces on the
+    // list; accept either, the same way `add` does.
+    || list.map(e => e.for).find(f => f && f.toLowerCase().replace(/_/g, ' ') === want.replace(/_/g, ' '));
+  if (!label) return { ok: false };
+  const kept = list.filter(e => e.for !== label);
+  await putList(playerId, kept);
+  return { ok: true, label, removed: list.length - kept.length, left: kept.length };
+}
+
 // Resolve a recipe name to something with `needs` — the authored catalog first,
 // then the player's own book, so "add my house special to the list" works.
 export function catalogTemplate(nameStr) {

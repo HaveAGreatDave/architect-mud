@@ -135,6 +135,46 @@ export default async function regress({ check, run, getPlayer }) {
   check('news title card leads the bulletin', Object.values(ng.nodes).some(n => n.type === 'title_card' && n.data?.graphic_id === 'rnn_title'), 'titlecard');
   check('newsFill strips unknown tokens to empty', _test.newsFill('a{nope}b', {}) === 'ab', _test.newsFill('a{nope}b', {}));
 
+  // ── The bulletin's weather desk ─────────────────────────────────────────────
+  // The weather segment is the one part of a newscast whose facts are REAL: it reads the
+  // same live forecast DOOMCAST does. Two things have to hold. (1) A hero day is named as
+  // ITSELF — an acid day picks wx.sky.acid, not the ordinary weather sitting underneath
+  // it — because that line is the only warning a player who never opens the tablet gets.
+  // (2) A news file with no wx.* pools loses nothing: the segment simply doesn't exist,
+  // which is what makes the desk additive for any other news show.
+  const wxEnv = {
+    hour: 19, season: 'winter', feelsLikeC: -14,
+    forecast: [
+      { date: '2226-01-04', weatherType: 'rain', heroEvent: 'acid_rain', tempC: 6, windKph: 20, humidityPct: 80, precipChance: 0.8, severity: 0.9 },
+      { date: '2226-01-05', weatherType: 'cloudy', tempC: 5, windKph: 10, humidityPct: 60, precipChance: 0.1, severity: 0.1 },
+      { date: '2226-01-06', weatherType: 'snow', heroEvent: 'ion_storm', tempC: -3, windKph: 30, humidityPct: 70, precipChance: 0.5, severity: 0.8 },
+    ],
+  };
+  const wxPools = {
+    'wx.toss': ['Over to {meteorologist}.'],
+    'wx.sky.acid': ['Acid, {precip}% of it.'],
+    'wx.sky.ion': ['{day}: ion storm.'],
+    'wx.warn.acid': ['⚠⚠ ACID WARNING for {day}.'],
+    'wx.warn.ion': ['⚠⚠ ION STORM {day}.'],
+    'wx.sky.snow': ['{day}: snow.'],
+    'wx.trend.deteriorating': ['{severeCount} severe days, {worstDay} the worst.'],
+    'wx.back': ['Back to you, {anchor}.'],
+  };
+  const wxScript = { ...newsScript, meteorologist: 'Skip Vandermeer', pools: { ...newsScript.pools, ...wxPools } };
+  const wg = _test.assembleNewsGraph(wxScript, 'bc_news_wx', newsStories, 'bucket0', wxEnv);
+  const wxTexts = Object.values(wg.nodes).filter(n => n.type === 'say').map(n => n.data?.text || '');
+  check('news weather names the meteorologist', wxTexts.some(t => t.startsWith('Skip Vandermeer says')), 'meteorologist');
+  check('news weather reads the live forecast', wxTexts.some(t => t.includes('Acid, 80% of it.')), wxTexts.join(' | ').slice(0, 200));
+  check('an acid day is reported as acid, not as the rain underneath it',
+    wxTexts.some(t => t.includes('ACID WARNING for today')), 'wx.warn.acid');
+  check('a severe day later in the week is named ahead of time',
+    wxTexts.some(t => t.includes('ION STORM')), 'wx.warn.ion');
+  check('news weather leaves no unfilled {tokens}', !wxTexts.some(t => /\{\w+\}/.test(t)), wxTexts.find(t => /\{\w+\}/.test(t)) || 'clean');
+  const noWx = _test.assembleNewsGraph(newsScript, 'bc_news_nowx', newsStories, 'bucket0', wxEnv);
+  const noWxTexts = Object.values(noWx.nodes).filter(n => n.type === 'say').map(n => n.data?.text || '');
+  check('a news file with no wx pools airs no weather segment',
+    !noWxTexts.some(t => /Right now:|degrees|Skip Vandermeer/.test(t)), noWxTexts.find(t => /degrees/.test(t)) || 'clean');
+
   // ── Talk-show episode assembly (live-acted, procedural) ──────────────────────
   // A talk show assembles a fresh episode from ::lines pools each night and ACTS it with
   // real cast NPCs. Check the assembled graph: it attributes lines to the cast (npc_anchor),
@@ -575,6 +615,97 @@ export default async function regress({ check, run, getPlayer }) {
       JSON.stringify(_test.parseGuess('lot', ['2', '1', '3'])?.value) === '[2,1,3]'
       && _test.parseGuess('lot', ['1', '1', '2']) === null
       && _test.parseGuess('lot', ['1', '2']) === null, 'bad permutation accepted');
+
+    // ── Subjects ──────────────────────────────────────────────────────────
+    // The seam that lets one game-show engine run two different programmes. The rule
+    // that matters most is the fallback: every show that existed before subjects did
+    // is a retail show and must keep behaving like one.
+    const retail = _test.getGameshowSubject('retail');
+    const basin = _test.getGameshowSubject('basin');
+    check('gameshow: both subjects are registered',
+      _test.gameshowSubjectIds().includes('retail') && _test.gameshowSubjectIds().includes('basin'),
+      _test.gameshowSubjectIds().join(','));
+    check('gameshow: an absent subject falls back to retail',
+      _test.getGameshowSubject('').id === 'retail' && _test.getGameshowSubject(undefined).id === 'retail', 'no fallback');
+    check('gameshow: an UNKNOWN subject falls back to retail rather than throwing',
+      _test.getGameshowSubject('no_such_subject_at_all').id === 'retail', 'unknown subject did not fall back');
+    check('gameshow: a subject id is matched case-insensitively',
+      _test.getGameshowSubject('BASIN').id === 'basin', 'case-sensitive lookup');
+    check('gameshow: every subject declares a plan of at most four rounds',
+      [retail, basin].every(s => Array.isArray(s.plan) && s.plan.length && s.plan.length <= 4),
+      [retail, basin].map(s => `${s.id}:${s.plan?.length}`).join(' '));
+
+    // The basin subject: a letter, and only a letter.
+    check('gameshow: a bare letter parses as a choice',
+      basin.parse('choice', ['b'])?.value === 'b' && basin.parse('choice', ['D'])?.value === 'd', 'letter rejected');
+    check('gameshow: a letter is found inside a spoken answer',
+      basin.parse('choice', ['b,', 'the', 'ashway'])?.value === 'b', 'embedded letter missed');
+    check('gameshow: a letter outside the option range is rejected',
+      basin.parse('choice', ['z']) === null && basin.parse('choice', ['400']) === null, 'out-of-range letter accepted');
+    check('gameshow: an empty choice answer is rejected', basin.parse('choice', []) === null, 'empty accepted');
+    check('gameshow: the choice hint names the verb shape',
+      /guess\s+b/i.test(basin.hint('choice')), basin.hint('choice'));
+    check('gameshow: a choice is scored right-or-wrong, first in',
+      basin.score('choice', [{ key: 'a', value: 'c' }, { key: 'b', value: 'b' }], { correct: 'b' })?.key === 'b'
+      && basin.score('choice', [{ key: 'a', value: 'c' }], { correct: 'b' }) === null, 'choice scoring wrong');
+    check('gameshow: a choice tie goes to whoever answered first',
+      basin.score('choice', [{ key: 'first', value: 'b' }, { key: 'second', value: 'b' }], { correct: 'b' })?.key === 'first',
+      'tie did not go to the first answer');
+
+    // The material. These pools are the whole reason the subject is affordable — they
+    // read the boot-loaded registries and nothing else.
+    const T2 = _test.gameshowTest;
+    const districts = T2.districtPool();
+    const orders = T2.orderPool();
+    check('gameshow: the basin subject has districts to ask about', districts.length >= 3, String(districts.length));
+    check('gameshow: every district question has authored copy behind it',
+      districts.every(d => d.name && String(d.blurb).trim()), 'a district reached the pool with no blurb');
+    check('gameshow: only NPC orders are quotable — a player corp is not general knowledge',
+      orders.every(o => o.name && String(o.creed).trim()), 'an order reached the pool with no creed');
+    check('gameshow: the material pools are sorted, so an episode is reproducible',
+      districts.every((d, i) => i === 0 || districts[i - 1].id <= d.id), 'district pool is not id-sorted');
+
+    // THE defect this subject would otherwise ship with: the authored copy was written to
+    // be read ABOUT a place, so it very often names it, and a verbatim quote answers its
+    // own question. Sweeping the whole corpus is the only check worth having here.
+    const leaks = [
+      ...districts.map(d => [d.name, T2.redactAnswer(T2.speakable(d.blurb), d.name)]),
+      ...orders.map(o => [o.name, T2.redactAnswer(T2.speakable(o.creed), o.name)]),
+    ].filter(([name, q]) => q.toLowerCase().includes(String(name).replace(/^the\s+/i, '').toLowerCase()));
+    check('gameshow: no quoted question names its own answer',
+      leaks.length === 0, leaks.map(([n]) => n).join(', '));
+    check('gameshow: redaction masks a multi-word name as one bar, not several',
+      (T2.redactAnswer('deep in the Commercial Strip somewhere', 'the Commercial Strip').match(/————/g) || []).length === 1,
+      T2.redactAnswer('deep in the Commercial Strip somewhere', 'the Commercial Strip'));
+    check('gameshow: redaction leaves short common words alone',
+      T2.redactAnswer('the end of the road', 'the Docks') === 'the end of the road',
+      T2.redactAnswer('the end of the road', 'the Docks'));
+
+    // A whole basin episode, assembled the same way the runtime does it.
+    const basinScript = { ...gsScript, subject: 'basin' };
+    const gb = _test.assembleGameshowGraph(basinScript, 'bc_gs_basin', 'day1', normalize);
+    const basinRounds = Object.values(gb.nodes).filter(n => n.type === 'gameshow_round').map(n => n.data);
+    check('gameshow: a basin episode deals rounds', basinRounds.length > 0, String(basinRounds.length));
+    check('gameshow: every basin round is a choice tagged with its subject',
+      basinRounds.every(r => r.format === 'choice' && r.subject === 'basin'),
+      basinRounds.map(r => `${r.format}/${r.subject}`).join(' '));
+    check('gameshow: every basin round has a correct letter inside its own options',
+      basinRounds.every(r => T2.CHOICE_LETTERS.includes(r.correct)),
+      basinRounds.map(r => r.correct).join(','));
+    // A quiz has no lot on a plinth, and granting a random item as a consolation would put
+    // untraceable loot on the floor.
+    check('gameshow: a basin round never hands over an item',
+      basinRounds.every(r => !r.grantsItem && (!r.prizes || !r.prizes.length)), 'a quiz round granted a lot');
+    check('gameshow: the basin finale still pays the showcase purse',
+      basinRounds[basinRounds.length - 1]?.purse === _test.gameshowTest.SHOWCASE_PRIZE,
+      String(basinRounds[basinRounds.length - 1]?.purse));
+    check('gameshow: a basin episode is reproducible from its seed',
+      JSON.stringify(_test.assembleGameshowGraph(basinScript, 'bc_gs_basin', 'day1', normalize).nodes) === JSON.stringify(gb.nodes),
+      'basin episode diverged across two assembles');
+    // A retail round carries no `subject` when it was dealt before subjects existed; the
+    // runtime must read that as retail rather than as a missing subject.
+    check('gameshow: a retail round is tagged retail',
+      roundsOf(g1).every(r => r.subject === 'retail'), roundsOf(g1).map(r => r.subject).join(','));
 
     // Round lifecycle with no player in the studio — the show must play out regardless.
     _test.gameshowOpenRound('ch_gs_rx', {

@@ -492,7 +492,7 @@ const VINE_GROUP_PANELS = new Set(['vine', 'scripts', 'script-triggers', 'quests
 // with the data-ops attributes in index.html.
 const OPS_PANELS = new Set(['dashboard', 'devlog', 'worldstate', 'timeweather', 'players',
                             'games', 'gossip', 'validator', 'power', 'emergency', 'bank', 'flight',
-                            'broadcasts', 'zones', 'npcs', 'items', 'enemies']);
+                            'broadcasts', 'zones', 'npcs', 'items', 'enemies', 'cards']);
 
 // Content panels kept on /admin to LOOK at (data-ops-ro in index.html). They answer
 // the questions a live bug actually raises — why can't they leave this room, where

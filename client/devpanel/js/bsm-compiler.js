@@ -5,8 +5,8 @@ function compileBsm(text) {
   const lines = text.split('\n');
   let i = 0;
 
-  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', sport: '', announcer: '', airSlots: null, anchors: [], reporters: [], sidekick: '', guestNpc: '', cohost: '', rounds: null, presents: '', rating: '', director: '', airDays: [] };
-  const _debug = { unknownDirectives: [], nodeTypes: {}, unresolvedSpeakers: [] };
+  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', sport: '', announcer: '', meteorologist: '', airSlots: null, anchors: [], reporters: [], sidekick: '', guestNpc: '', cohost: '', rounds: null, subject: '', presents: '', rating: '', director: '', airDays: [] };
+  const _debug = { unknownDirectives: [], nodeTypes: {}, unresolvedSpeakers: [], unterminatedBlocks: [] };
 
   // Pre-scan ::actors block to build alias map and actor list.
   // Format:
@@ -146,14 +146,25 @@ function compileBsm(text) {
     return DIRECTIVE_PREFIXES.some(p => ln.startsWith(p)) || SPEAKER_RE.test(ln) || BARE_DURATION_RE.test(ln);
   }
 
-  function collectBlock(terminator) {
+  // `prose: true` makes a missing terminator recoverable. A presentation block
+  // (SHOT, OVERLAY, MUSIC…) holds authored prose, so the first DIRECTIVE line is
+  // proof the author forgot the terminator — bail there rather than running to EOF.
+  // Without this, one missing SHOT_END silently swallowed the whole rest of the
+  // script into a single narration node, and the raw directives ("CAM 1", "4s",
+  // "OVERLAY_END") aired at the player as one unbroken paragraph. Data blocks
+  // (::endasset, ::endlines…) pass prose:false — their contents are box-drawing art
+  // and pool lines that may legitimately look like directives.
+  function collectBlock(terminator, prose = false) {
     const buf = [];
+    let closed = false;
     while (i < lines.length) {
       const ln = lines[i].trim();
-      if (ln === terminator) { i++; break; }
+      if (ln === terminator) { i++; closed = true; break; }
+      if (prose && isDirectiveLine(ln)) break;   // leave i on the directive; the main loop handles it
       buf.push(lines[i]);
       i++;
     }
+    if (!closed) _debug.unterminatedBlocks.push(terminator);
     return buf.join('\n').trim();
   }
 
@@ -185,6 +196,9 @@ function compileBsm(text) {
         // First @anchor is the lead anchor ({anchor}); a second is the co-anchor ({anchor2}).
         else if (key === 'anchor')   { const nm = val.replace(/^["']|["']$/g, ''); if (nm) meta.anchors.push(nm); }
         else if (key === 'reporter') { const nm = val.replace(/^["']|["']$/g, ''); if (nm) meta.reporters.push(nm); }
+        // news: the weather desk. A name string like the anchors — the bulletin's weather
+        // segment reads the SAME live forecast DOOMCAST does, in this person's voice.
+        else if (key === 'meteorologist') meta.meteorologist = val.replace(/^["']|["']$/g, '');
         // sports: feature only the game(s) covering these IN-GAME hours (0–23) each day —
         // one full game, grid-snapped, at a fixed time of day. Omit ⇒ continuous (back-to-back
         // games all day). "@airtime 19" → the evening (18:00–21:00) game airs daily.
@@ -218,6 +232,10 @@ function compileBsm(text) {
         else if (key === 'presents') meta.presents = val.replace(/^["']|["']$/g, '');
         else if (key === 'rating')   meta.rating   = val.replace(/^["']|["']$/g, '');
         else if (key === 'director') meta.director = val.replace(/^["']|["']$/g, '');
+        // gameshow: what the show asks ABOUT — the subject id registered in
+        // plugins/broadcast/gameshow-subjects.js ('retail', 'basin'). Omit ⇒ retail,
+        // which is what every game show was before subjects existed.
+        else if (key === 'subject')  meta.subject = val.replace(/^[\"']|[\"']$/g, '').toLowerCase();
         // gameshow: how many rounds an episode plays (1–4). Omit ⇒ all four.
         else if (key === 'rounds')   { const r = parseInt(val, 10); if (Number.isFinite(r)) meta.rounds = r; }
         // @actor / @alias are pre-scanned from ::actors block; skip here
@@ -347,7 +365,7 @@ function compileBsm(text) {
     // ── TICKER block ─────────────────────────────────────────────────────────
     if (ln === 'TICKER') {
       i++;
-      const text = collectBlock('TICKER_END');
+      const text = collectBlock('TICKER_END', true);
       makeNode({ type: 'ticker', text });
       messages.push(text);
       continue;
@@ -380,7 +398,7 @@ function compileBsm(text) {
     // ── OVERLAY text_card (bare OVERLAY, no graphic id) ─────────────────────
     if (ln === 'OVERLAY') {
       i++;
-      const text = collectBlock('OVERLAY_END');
+      const text = collectBlock('OVERLAY_END', true);
       makeNode({ type: 'overlay', overlayType: 'text_card', text });
       continue;
     }
@@ -420,7 +438,7 @@ function compileBsm(text) {
     // ── SHOT block → narration (no NPC prefix) ───────────────────────────────
     if (ln === 'SHOT') {
       i++;
-      const text = collectBlock('SHOT_END');
+      const text = collectBlock('SHOT_END', true);
       makeNode({ type: 'say', text, style: 'narration' });
       messages.push(text);
       continue;
@@ -432,7 +450,7 @@ function compileBsm(text) {
       const durStr = ln.slice(7).trim();
       const duration = durStr ? (parseFloat(durStr) || null) : null;
       i++;
-      const text = collectBlock('END_CREDITS');
+      const text = collectBlock('END_CREDITS', true);
       const nodeData = { type: 'credits', text };
       if (duration !== null) nodeData.duration = duration;
       makeNode(nodeData);
@@ -586,7 +604,7 @@ function compileBsm(text) {
     if (ln === 'MUSIC' || ln.startsWith('MUSIC ')) {
       const song = ln === 'MUSIC' ? '' : ln.slice(6).trim();
       i++;
-      const displayText = collectBlock('MUSIC_END');
+      const displayText = collectBlock('MUSIC_END', true);
       if (song || displayText) makeNode({ type: 'music', song, text: displayText });
       continue;
     }
@@ -603,7 +621,7 @@ function compileBsm(text) {
     // ── ACTION stage direction → npc_anchor + npc_action ─────────────────────
     if (ln === 'ACTION') {
       i++;
-      const content = collectBlock('END_ACTION');
+      const content = collectBlock('END_ACTION', true);
       const [rawFirst, ...rest] = content.trim().split(/\s+/);
       const npc = rawFirst ? (rawFirst.startsWith('npc_') ? rawFirst : `npc_${rawFirst}`) : activeNpc;
       const act = rest.join(' ');
@@ -668,7 +686,7 @@ function compileBsm(text) {
   // and the announcer are plain NAME strings spoken as narration — deliberately NOT added
   // to npcIds, so importing a news broadcast never spawns a studio NPC.
   // See docs/bsm-format.md#news-broadcasts-type-news.
-  const newsScript = { anchors: meta.anchors, reporters: meta.reporters, announcer: meta.announcer, pools: weatherPools, title: meta.titlecard || '', theme: meta.theme || '' };
+  const newsScript = { anchors: meta.anchors, reporters: meta.reporters, announcer: meta.announcer, meteorologist: meta.meteorologist || '', pools: weatherPools, title: meta.titlecard || '', theme: meta.theme || '' };
 
   // Talk-show broadcasts (@type talkshow) are the live-acted procedural sibling: a line
   // library (::lines pools) + guest personas (::guests), assembled into a fresh episode
@@ -706,7 +724,7 @@ function compileBsm(text) {
     host: meta.host || '', sidekick: meta.sidekick || '',
     contestants, pools: weatherPools, title: meta.titlecard || '', theme: meta.theme || '',
     airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null,
-    rounds: meta.rounds || null,
+    rounds: meta.rounds || null, subject: meta.subject || '',
   };
   if (meta.type === 'gameshow') {
     for (const id of [meta.host, meta.sidekick]) if (id) npcIds.add(id);

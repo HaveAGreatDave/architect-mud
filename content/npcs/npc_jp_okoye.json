@@ -1,0 +1,107 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "at_work": {
+        "action_type": "AT_WORK",
+        "next": "go_home",
+        "type": "action"
+      },
+      "go_home": {
+        "action_type": "GO_HOME",
+        "next": "home_wait",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "at_work",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "go_to_work",
+        "type": "action"
+      },
+      "home_wait": {
+        "next": "start",
+        "seconds": 60,
+        "type": "wait"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      }
+    }
+  },
+  "chitchat": [],
+  "description": "The announcer on Jackpot Protocol, keeper of the sealed card, and a man who has read the ratings and drawn conclusions. He reads the category, he holds the answer, and he has the settled expression of somebody who knows how tonight ends and is not going to say. He and Thorne have never once disagreed on air.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a dinner jacket a half-size too generous",
+      "a dress shirt with the collar worn soft",
+      "a bow tie, tied, and he will tell you so",
+      "dark trousers",
+      "an undershirt"
+    ],
+    "personality": "tv_host",
+    "studio_npc": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_meridian_unit_501",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_jp_okoye",
+  "name": "Bertrand Okoye",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_studio_1782953094650",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 19,
+        "to": 23
+      }
+    ],
+    "tue": [
+      {
+        "from": 19,
+        "to": 23
+      }
+    ],
+    "wed": [
+      {
+        "from": 19,
+        "to": 23
+      }
+    ],
+    "thu": [
+      {
+        "from": 19,
+        "to": 23
+      }
+    ],
+    "fri": [
+      {
+        "from": 19,
+        "to": 23
+      }
+    ],
+    "sat": [
+      {
+        "from": 19,
+        "to": 23
+      }
+    ],
+    "sun": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_studio_1782953094650"
+}

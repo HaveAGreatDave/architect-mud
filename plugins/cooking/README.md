@@ -298,8 +298,15 @@ market, try to remember it — happened in the player's head.
 shoplist                    the list, answered
 shoplist add <recipe>       writes down what you're SHORT of, not the whole recipe
 shoplist tidy               crosses off what you've since got
-shoplist drop <n> | clear
+shoplist drop <n>           one line, by the number printed beside it
+shoplist drop <recipe>      the whole dish — every line that was added with it
+shoplist clear
 ```
+
+`add` takes a recipe, so `drop` does too: a number is a line and a name is a
+dish. The kit needs no special handling either way — it is derived from the
+`for` labels still on the list, so the pot leaves with the last dish that
+wanted it and stays while another one does.
 
 > **The list stores what you WANT, never what you have.**
 

@@ -4198,9 +4198,14 @@ function renderHomeApps(apps) {
   // last page: dragging it to the previous page moved nothing, the flip then couldn't
   // find its tile on the page it had just turned to, and the drag died in mid-air.
   // Write the appended ones down here, once, where the whole roster is known.
+  // APPEND the missing ones — never rewrite the order from `all`, which has the
+  // stashed apps filtered out and so would erase the slot every one of them is
+  // holding under ⊕. Appending is also exactly what applyAppOrder just did on
+  // screen, so what gets written down is what the player is looking at.
   if (all.some(a => !a.gap)) {
     const saved = loadAppOrder();
-    if (all.some(a => !a.gap && !saved.includes(a.id))) saveAppOrder(all.map(a => a.id));
+    const missing = all.filter(a => !a.gap && !saved.includes(a.id)).map(a => a.id);
+    if (missing.length) saveAppOrder(saved.length ? [...saved, ...missing] : all.map(a => a.id));
   }
   // Searching flattens everything: no pages, no boxes, no arranging — just the apps
   // that match, in order. With thirty-odd registered, typing three letters is faster
@@ -5121,15 +5126,27 @@ function exitAppSelectMode() {
 // and only its first member pays) so a drop can be aimed at a real page boundary
 // instead of the old `targetPage * HOME_SLOTS` guess — which drifted by however
 // many cells the groups above it happened to span, and landed apps on the wrong page.
+// A STASHED APP COSTS NOTHING. renderHomeApps filters hidden apps out before it
+// paginates, so counting them here made every page boundary past the first stash sit
+// too early in the order — and a cross-page move then landed the app on a page other
+// than the one it turned to. The flip's not-found branch turned straight back, so the
+// gesture read as "the page didn't change and a hole appeared where my app was".
+// There are stashed apps from the first render (seedDefaultHiddenApps), so this was
+// never the rare case it looks like.
 function homePageStarts(order) {
+  const hidden = new Set(loadHiddenApps());
   const groupOf = new Map();
   for (const g of loadAppGroups()) for (const id of g.apps) if (!groupOf.has(id)) groupOf.set(id, g);
   const counts = new Map();
-  for (const id of order) { const g = groupOf.get(id); if (g) counts.set(g.id, (counts.get(g.id) || 0) + 1); }
+  for (const id of order) {
+    if (hidden.has(id)) continue;
+    const g = groupOf.get(id); if (g) counts.set(g.id, (counts.get(g.id) || 0) + 1);
+  }
   const drawn = new Set();
   const starts = [0];
   let left = HOME_SLOTS, any = false;
   for (let i = 0; i < order.length; i++) {
+    if (hidden.has(order[i])) continue;   // not drawn, so it occupies no cell
     const g = groupOf.get(order[i]);
     let cost = 1;
     if (g) {

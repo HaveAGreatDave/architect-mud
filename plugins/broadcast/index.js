@@ -29,6 +29,7 @@ import {
   gameshowTokens, gameshowForgetPlayer, makeGuessCommand, assembleGameshowGraph, gameshowPool,
   gameshowEndPass, gameshowPassIndex,
   parseGuess, scorePrice, scoreOverUnder, scoreLot, scoreShowcase, _gameshowTest,
+  getGameshowSubject, gameshowSubjectIds,
 } from './gameshow.js';
 import { installAudienceGate } from './audience.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
@@ -2107,7 +2108,57 @@ const newsPickFrom = (arr, fallback) => (Array.isArray(arr) && arr.length ? arr[
 // headlines → kicker → sign-off. One random line per matching pool, {tokens} filled
 // from the story and the show's anchor/reporter names. Missing pools skip gracefully
 // (a couple of essentials have a neutral built-in fallback so a thin file still airs).
-function assembleNewsGraph(script, broadcastId, stories, bucket) {
+// The bulletin's weather desk. A newscast that never mentions the sky is the one
+// thing no newscast has ever been, and the facts are already live: this reads the
+// SAME 7-day forecast DOOMCAST does (`env.forecast`), through the same pool keys
+// (`sky.*`, `warn.*`, `trend.*`) so a hero day — acid, ion — is named as ITSELF
+// here too rather than as the ordinary weather sitting underneath it. Pools are
+// namespaced `wx.` inside a news file so they can't collide with the news pools.
+// No pools authored ⇒ every beat is empty and the segment silently doesn't exist,
+// which is what keeps this additive for any other news show.
+function newsWeatherWeek(forecast, met) {
+  const temps = forecast.map(f => Math.round(f.tempC));
+  const worstIdx = forecast.reduce((b, f, i) => ((f.severity ?? 0) > (forecast[b].severity ?? 0) ? i : b), 0);
+  return {
+    hi: Math.max(...temps), lo: Math.min(...temps),
+    severeCount: forecast.filter(wxIsSevere).length,
+    worstDay: wxDayLabel(worstIdx, forecast[worstIdx].date),
+    hostName: met,
+  };
+}
+
+// Append the weather segment to an in-progress news graph. `say` is the assembler's
+// own attributed emitter, so the meteorologist gets a nameplate and a voice like any
+// other member of the cast.
+function newsWeatherSegment(say, pools, forecast, env, met, baseTok) {
+  // No forecast, or a file that authored no wx.* pools at all ⇒ no weather desk. The
+  // per-beat fallbacks below are for a file that has the segment but is missing ONE sky;
+  // they must never conjure a segment into a show that never asked for one.
+  if (!forecast.length || !Object.keys(pools).some(k => k.startsWith('wx.'))) return;
+  const today = forecast[0];
+  const week = newsWeatherWeek(forecast, met);
+  const tokFor = (day, i) => ({ ...baseTok, meteorologist: met, ...wxTokens(day, i, week, env) });
+
+  say(baseTok.anchor, newsPick(pools, 'wx.toss'), tokFor(today, 0));
+  say(met, newsPick(pools, 'wx.open'), tokFor(today, 0));
+  say(met, newsPick(pools, `wx.sky.${wxSkyPool(today)}`), tokFor(today, 0), 'Right now: {weather}, {temp} degrees, feels like {feels}.');
+  if (wxIsSevere(today)) say(met, newsPick(pools, `wx.warn.${wxSevereChannel(today)}`, 'wx.warn.generic'), tokFor(today, 0));
+
+  // One day ahead is worth naming: the worst day in the week if there is one, else
+  // tomorrow. A whole seven-day walk belongs to DOOMCAST — this is a news hit.
+  const aheadIdx = forecast.findIndex((d, i) => i > 0 && wxIsSevere(d));
+  const idx = aheadIdx > 0 ? aheadIdx : Math.min(1, forecast.length - 1);
+  if (idx > 0) {
+    const day = forecast[idx];
+    say(met, newsPick(pools, `wx.sky.${wxSkyPool(day)}`), tokFor(day, idx), '{day}: {weather}, around {temp} degrees.');
+    if (wxIsSevere(day)) say(met, newsPick(pools, `wx.warn.${wxSevereChannel(day)}`, 'wx.warn.generic'), tokFor(day, idx));
+  }
+  say(met, newsPick(pools, `wx.trend.${wxTrendKey(forecast)}`, 'wx.trend'), tokFor(today, 0));
+  say(met, newsPick(pools, 'wx.back'), tokFor(today, 0));
+  say(baseTok.anchor2, newsPick(pools, 'wx.reaction'), tokFor(today, 0));
+}
+
+function assembleNewsGraph(script, broadcastId, stories, bucket, env = {}) {
   const pools = script.pools || {};
   const anchors = (script.anchors && script.anchors.length) ? script.anchors : ['the anchor'];
   const reporters = (script.reporters && script.reporters.length) ? script.reporters : anchors;
@@ -2194,6 +2245,9 @@ function assembleNewsGraph(script, broadcastId, stories, bucket) {
     // Rapid-fire headlines alternate between the two anchors.
     rundown.forEach((s, i) => say(i % 2 ? anchor2 : anchor, newsPick(pools, 'rundown.item'), { ...baseTok, headline: s.headline || '' }, 'Also tonight: {headline}.'));
   }
+
+  // Weather desk, between the rundown and the kicker — where a nightly bulletin puts it.
+  newsWeatherSegment(say, pools, env.forecast || [], env, script.meteorologist || anchor2, baseTok);
 
   say(anchor2, newsPick(pools, 'kicker.lead'), baseTok);   // co-anchor takes the feel-good pivot
   say(anchor2, newsPick(pools, 'kicker'), baseTok);
@@ -2351,7 +2405,7 @@ async function getNewsGraph(item, nowMs) {
     if (Array.isArray(res?.stories)) stories = res.stories;
   } catch { /* generator unavailable — fall back below */ }
   if (!stories.length) stories = NEWS_FALLBACK_STORIES;
-  item._newsGraph = assembleNewsGraph(script, item.broadcastId, stories, bucket);
+  item._newsGraph = assembleNewsGraph(script, item.broadcastId, stories, bucket, env);
   item._newsBucket = bucket;
   return item._newsGraph;
 }
@@ -7816,6 +7870,7 @@ export const _test = {
   gameshowResolveRound, gameshowTokens, gameshowPassIndex, gameshowEndPass,
   parseGuess, scorePrice, scoreOverUnder, scoreLot,
   scoreShowcase, gameshowTest: _gameshowTest, normalizeGraph: _normalizeBroadcastGraph,
+  getGameshowSubject, gameshowSubjectIds,
   subTokens: _subTokens, scriptedTokens: _scriptedTokens, untilFour: _untilFour, otherViewers: _otherViewers,
   garbleLine: _garbleLine, actorImpairment: _actorImpairment,
   cameraLabel: _cameraLabel, pickCamera: _pickCamera, anyCastPresent: _anyCastPresent, zoneCameras,

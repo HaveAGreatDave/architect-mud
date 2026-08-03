@@ -1,0 +1,107 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "at_work": {
+        "action_type": "AT_WORK",
+        "next": "go_home",
+        "type": "action"
+      },
+      "go_home": {
+        "action_type": "GO_HOME",
+        "next": "home_wait",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "at_work",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "go_to_work",
+        "type": "action"
+      },
+      "home_wait": {
+        "next": "start",
+        "seconds": 60,
+        "type": "wait"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      }
+    }
+  },
+  "chitchat": [],
+  "description": "The host of Jackpot Protocol, and the only person at KSAB who believes the programme is a civic service rather than a way to fill the hour before the late news. She can name every district from its own copy and has done, on air, unprompted, twice. She likes the contestants. This is considered a weakness by the network.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a sharp teal jacket with the network pin still on the lapel",
+      "a cream blouse pressed to within an inch of its life",
+      "a narrow skirt",
+      "flat shoes she changes into the moment the lights go down",
+      "an undershirt"
+    ],
+    "personality": "tv_host",
+    "studio_npc": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_meridian_unit_501",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_jp_thorne",
+  "name": "Marisa Thorne",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": "zone_studio_1782953094650",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 19,
+        "to": 23
+      }
+    ],
+    "tue": [
+      {
+        "from": 19,
+        "to": 23
+      }
+    ],
+    "wed": [
+      {
+        "from": 19,
+        "to": 23
+      }
+    ],
+    "thu": [
+      {
+        "from": 19,
+        "to": 23
+      }
+    ],
+    "fri": [
+      {
+        "from": 19,
+        "to": 23
+      }
+    ],
+    "sat": [
+      {
+        "from": 19,
+        "to": 23
+      }
+    ],
+    "sun": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_studio_1782953094650"
+}

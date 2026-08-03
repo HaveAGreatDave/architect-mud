@@ -1,215 +1,180 @@
 @broadcast "Jackpot Protocol"
 @channel KSAB
 @category entertainment
-@host npc_lance_kessler
+@type gameshow
+@subject basin
+@host npc_jp_thorne
+@sidekick npc_jp_okoye
+@titlecard jackpot_protocol_logo
 @length 600
-@type scripted
+@airtime 19
+@rounds 4
+
+# Jackpot Protocol used to be a scripted tape: three strangers with fixed names answered
+# fixed questions and a fixed one of them won 250,000 credits, every night, forever. The
+# prize alone gave it away — the dearest object in the Basin is worth nine thousand.
+#
+# It is now a live quiz. The questions are the city itself: the districts described in
+# their own authored copy, the four orders quoted from their own creeds, and where the
+# people you pass in the street actually go home to. None of that is written twice — it
+# is the world's own text read back at you, which means a district added next month
+# becomes a question with no authoring at all.
+#
+# Anyone standing in the KSAB soundstage when a round opens is a contestant, and their
+# answer goes out to every set in the Basin. The three strangers are still here for the
+# nights nobody comes.
+#
+# Marisa Thorne believes this is a serious civic institution. Bertrand Okoye has read the
+# ratings.
 
 ::actors
-@actor npc_lance_kessler
-@alias npc_lance_kessler LANCE
-@actor npc_stage_assistant
-@alias npc_stage_assistant ASSISTANT
+@actor npc_jp_thorne
+@alias npc_jp_thorne THORNE
+@actor npc_jp_okoye
+@alias npc_jp_okoye OKOYE
 ::endactors
 
-TITLE jackpot_protocol_logo
-
-2s
-
-♪ Huge audience applause. Upbeat synth fanfare. Lights sweep across the studio. ♪
-
-CAM 1 Main Stage
-
-LOWER_THIRD
-JACKPOT PROTOCOL
-Hosted by Lance Kessler
-LOWER_THIRD_END
-
-NPC npc_lance_kessler
-
-LANCE:
-Good evening, Coldwater Basin!
-
-♪ Audience cheers ♪
-
-LANCE:
-I'm Lance Kessler, and tonight somebody's life is about to change!
-
-CAM 2 Audience
-
-SHOT
-The packed audience erupts into applause as holographic spotlights dance across the studio. Giant displays shimmer with spinning credit symbols while cameras glide effortlessly above the crowd.
-
-4s
-
-CAM 1 Main Stage
-
-LANCE:
-Welcome to Jackpot Protocol, KSAB's biggest night of entertainment, where everyday people compete for prizes beyond their wildest dreams.
-
-CAM 3 Prize Display
-
-OVERLAY grand_prize
-TONIGHT'S GRAND PRIZE
-
-250,000 CREDITS
-
-LUXURY SKYLOFT
-
-ONE YEAR CORPORATE PLATINUM STATUS
-OVERLAY_END
-
-5s
-
-CAM 1 Main Stage
-
-LANCE:
-Three contestants. Five rounds. Countless possibilities.
-
-LANCE:
-Every question answered correctly brings them one step closer to a brand-new life.
-
-♪ Audience applause ♪
-
-CAM 2 Contestants
-
-SHOT
-Three illuminated podiums rise from beneath the stage floor as the contestants wave nervously to the roaring crowd.
-
-4s
-
-CAM 1 Host
-
-LANCE:
-Let's meet tonight's challengers!
-
-ACTION npc_stage_assistant walks confidently across the stage.
-
-ASSISTANT:
-At podium one, maintenance technician Kara Holt!
-
-♪ Audience cheers ♪
-
-2s
-
-ASSISTANT:
-At podium two, independent courier Devon Marsh!
-
-♪ Audience cheers ♪
-
-2s
-
-ASSISTANT:
-And at podium three, systems analyst Mia Voss!
-
-♪ Audience cheers ♪
-
-3s
-
-CAM 1 Host
-
-LANCE:
-Contestants... welcome to Jackpot Protocol.
-
-LANCE:
-Are you ready to play?
-
-♪ Audience cheers loudly ♪
-
-CAM 3 Contestants
-
-SHOT
-All three contestants nod as the audience begins chanting.
-
-3s
-
-CAM 1 Host
-
-LANCE:
-Then let's begin.
-
-TITLE ROUND ONE
-
-2s
-
-OVERLAY
-ROUND ONE
-
-GENERAL KNOWLEDGE
-
-100 CREDITS PER CORRECT ANSWER
-OVERLAY_END
-
-CAM 1 Host
-
-LANCE:
-Here's your first question.
-
-OVERLAY
-QUESTION ONE
-
-Which corporation operates the majority of Coldwater Basin's maglev transit system?
-OVERLAY_END
-
-8s
-
-CAM 2 Contestants
-
-SHOT
-A countdown clock appears above the stage while contestants lock in their answers.
-
-5s
-
-CAM 1 Host
-
-LANCE:
-Time's up...
-
-2s
-
-OVERLAY
-CORRECT ANSWER
-
-METRODYNE TRANSIT
-OVERLAY_END
-
-♪ Audience applauds ♪
-
-CAM 3 Scoreboard
-
-OVERLAY
-CURRENT SCORES
-
-KARA      100
-
-DEVON       0
-
-MIA        100
-OVERLAY_END
-
-4s
-
-CAM 1 Host
-
-LANCE:
-An excellent start!
-
-LANCE:
-When we return, the stakes get even higher, and only one contestant can earn a place in the Jackpot Round.
-
-♪ Audience applause fades beneath an energetic synth bumper. ♪
-
-CREDITS 20
-JACKPOT PROTOCOL
-
-Hosted by
-Lance Kessler
-
-Produced by
-KSAB Entertainment
-
-Recorded Before a Live Studio Audience
-
-END_CREDITS
-
-END
+::contestants
+Pell Anselm
+Nine-of-Cups
+Dorothy Vane
+A Caller Who Declined To Be Named
+Sunder
+Ma Rethick
+The Gentleman From Ashway
+::endcontestants
+
+# ── Cold open ────────────────────────────────────────────────────────────────
+::lines open
+From the KSAB soundstage, under lights that cost more than the prize — this is JACKPOT PROTOCOL.
+Good evening, Coldwater Basin. Tonight we find out how much of your own city you were actually looking at.
+This is the programme where knowing where you live is worth money. Briefly. Once.
+Nine districts, four orders, and a hundred and eighty people who all sleep somewhere. Let's see who's been paying attention.
+::endlines
+
+::lines announce_host
+The only woman in the Basin who reads the census for pleasure — {host}!
+She has never once been to Ashway and can describe it to you in full — {host}!
+Ladies, gentlemen, and whatever the Synthesis are calling it this week — {host}!
+::endlines
+
+::lines audience_call
+If you're standing on my floor, you're playing. Type {verb} and a letter. That's the whole apparatus.
+Anyone in this studio may answer — {verb}, then A, B, C or D. Say it on television and mean it.
+You. Yes. {verb} and a letter. You have lived here your whole life. Prove some of it.
+The rules have not changed since the format changed: I ask, you {verb} a letter, the Basin watches you be wrong.
+::endlines
+
+# ── Round intros ─────────────────────────────────────────────────────────────
+# The generic key does the work — every round of this show is the same shape, which is
+# the point. The question and the options are read by `prompt`.
+#
+# NO ORDINALS IN HERE. This pool is drawn from at random, once per round, so a line
+# saying "round three" will air first about as often as it airs third. The Last Lot gets
+# away with ordinals because its pools are per-FORMAT and its formats are per-round;
+# this show has one format all the way down. Say "next" and "again", never "third".
+::lines round_intro.choice
+Here we go. A question, some answers, and about forty seconds of you looking at the ceiling.
+Next question. One of these is true and the rest were written to look like it.
+On we go. Statistically, two of you are about to pick the same wrong one.
+Same shape, harder ground. Let's see.
+Another one. The field is wider than it looks and so is the silence.
+And again. Nobody has ever made this look as difficult as you're all about to.
+::endlines
+
+::lines showcase_intro
+And now the money. THE JACKPOT ROUND. Four answers, one question, and a purse that would clear most people's rent.
+Our last question of the night. This is the one they'll talk about on the platform tomorrow. Four options.
+The Jackpot Round. Bertrand has the card. I have the question. You have about a minute.
+::endlines
+
+# ── The announcer's read ─────────────────────────────────────────────────────
+# {prize} is the CATEGORY here rather than an object — a quiz has no lot on a plinth.
+::lines prize_copy
+Tonight's category: {prize}.
+The category is {prize}. Play it as it lies.
+{prize}. Standard rules, standard purse, no appeals.
+This one comes to us from {prize}, and the network has checked it twice.
+{prize}. Answer with a letter and try to look confident about it.
+::endlines
+
+# ── The question ─────────────────────────────────────────────────────────────
+# The prompt IS the question — {question} then {options}. This is the guess window.
+::lines prompt
+{question} Your options: {options}.
+Here it is. {question} {options}.
+{question} And the answers — {options}.
+Listen carefully. {question} Options: {options}.
+::endlines
+
+::lines stall
+Take your time. The city took two hundred years to get like this.
+I can hear somebody in the third row saying it out loud. Don't help them. They're wrong.
+Bertrand has the sealed card and the expression of a man who already knows.
+Answer, somebody. The lights are the only thing in this building that runs on schedule.
+Anyone. A letter. It costs you nothing and it might cost you everything.
+Still time. Not much of it.
+::endlines
+
+# ── The reveal ───────────────────────────────────────────────────────────────
+::lines reveal
+Answers in — {guesses}. And the correct answer is {answer}.
+The floor said {guesses}. The card says {answer}.
+{guesses}. And it was {answer} all along.
+Let's have it. {guesses}. Bertrand — the card. It's {answer}.
+The floor gave me {guesses}. The Basin gives me {answer}.
+::endlines
+
+::lines showcase_reveal
+The Jackpot answers: {guesses}. And the card says {answer}.
+{guesses}, for {purse} credits. And the correct answer — {answer}.
+Sealed card, Bertrand. Thank you. It's {answer}. The floor said {guesses}.
+::endlines
+
+::lines verdict_read
+{verdict} That's {purse} credits and a place in the transcript.
+{verdict} Take the money. It clears before the network notices.
+{verdict} And that, ladies and gentlemen, is what knowing your own street is worth.
+{verdict} Bertrand, mark it down. Mark it in ink, we're not the shopping channel.
+{verdict} The Basin thanks you for your civic attention.
+::endlines
+
+# ── Crowd ────────────────────────────────────────────────────────────────────
+::lines audience
+The audience makes a noise somewhere between a cheer and an apology.
+Somebody says the right letter out loud, half a second too late, to nobody.
+A groan travels the length of the floor and expires near the exit.
+The applause comes in unevenly, the way it does when nobody is sure yet.
+Two rows of people turn to each other and disagree, quietly, on television.
+Somewhere in the dark a chair goes over.
+::endlines
+
+::lines applause
+♪ Applause, big and slightly too long, the way the floor manager likes it. ♪
+♪ The audience comes in hard on the sting. ♪
+♪ Applause, and the theme underneath it, and the lights going up. ♪
+::endlines
+
+::lines commercial
+KSAB will return to JACKPOT PROTOCOL. Stay where you are. The lights are on.
+A bumper plays: the logo, spinning, over a city that does not look like this one.
+KSAB. We are legally required to tell you the prize money is real.
+::endlines
+
+::lines walkoff
+{contestant} has left the studio floor and forfeits the answer.
+::endlines
+
+::lines no_payout
+The network says one purse a day. Bertrand did not write that rule and neither did I.
+::endlines
+
+::lines signoff
+That's our programme. Go home. You clearly need the practice.
+From all of us at JACKPOT PROTOCOL — know your city. It certainly knows you.
+Goodnight, Coldwater Basin. Look up on the way home.
+::endlines
+
+::lines ticker
+JACKPOT PROTOCOL is recorded before a live studio audience · Prize money subject to network verification · Contestant answers are broadcast in full and cannot be withdrawn · KSAB Entertainment
+::endlines

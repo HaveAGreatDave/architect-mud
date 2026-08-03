@@ -655,6 +655,7 @@ All the standard headers (`@broadcast`, `@channel`, `@category`, `@length`) work
 | `@anchor "Brick Hardline"` | A studio anchor — a display **name**, quotes stripped. **Repeatable**: the first `@anchor` is the lead anchor (`{anchor}`), a second is the co-anchor (`{anchor2}`). Not an NPC. |
 | `@reporter "Ronnie Vasquez"` | A field reporter — a display **name**. **Repeatable**; the runner rotates through them for `{reporter}` (live-on-scene segments). Not an NPC. |
 | `@announcer "The Voice of…"` | Optional station/voiceover name, available as `{announcer}` (cold opens, stings, sign-off). Not an NPC. |
+| `@meteorologist "Skip Vandermeer"` | The weather desk — a display **name**, available as `{meteorologist}`. Optional; with no `@meteorologist` the co-anchor reads the weather. Not an NPC. |
 | `@titlecard <graphic_id>` | Shows this graphic as a `title_card` before the bulletin each airing. Pair it with a `::asset <graphic_id>` block (ASCII or `<svg>…</svg>`). |
 | `@theme <song>` | Intro sting — an `audio_songs` or `audio_samples` name (quote names with spaces). With a `@titlecard` it rides the card (song starts as the card appears, card holds for the theme's length); without one it plays as a standalone `music` node. |
 
@@ -665,6 +666,9 @@ Same collector as weather/sports — each non-empty line is one interchangeable 
 **Framing (once per bulletin):** `open` (station cold open, announcer voice) · `anchor.intro` (anchor greeting) · `rundown.lead` (the "also tonight" pivot) · `kicker.lead` (feel-good pivot) · `kicker` (the light closer itself) · `outro` (anchor sign-off) · `signoff` (station sign-off, announcer voice)
 **Per featured story (top 3):** `alert` (breaking sting — lead story only) · `anchor.banter` (toss to co-anchor between later stories) · `story.lead` (anchor reads the headline) · `handoff.reporter` (toss to a field reporter) · `reporter.scene` (reporter on scene, expands the story `{body}`) · `reporter.vox` (fabricated "man on the street", optional) · `handoff.back` (reporter tosses back) · `pundit.take` (a hot take, used for stories that *don't* get a field reporter) · `anchor.reaction` (anchor editorializes)
 **Rundown (the next few headlines):** `rundown.item` (one per remaining headline)
+**Weather desk (`wx.*`, between the rundown and the kicker):** `wx.toss` (anchor tosses to the desk) · `wx.open` (weathercaster sign-on) · `wx.sky.<weatherType>` (conditions now, and for the day named ahead) · `wx.warn.<channel>` (severe-day warning) · `wx.trend.<key>` (the week's arc) · `wx.back` (toss back) · `wx.reaction` (co-anchor reacts)
+
+**The weather segment is real.** It reads the SAME live 7-day forecast `@type weather` does (`env.forecast`) and uses the same pool suffixes — `wx.sky.*` mirrors [weather](#weather-broadcasts-type-weather)'s `sky.*`, `wx.warn.*` its `warn.*`, `wx.trend.*` its `trend.*` — so a **hero event day is named as ITSELF** (`wx.sky.acid`, `wx.warn.ion`) rather than as the ordinary weather underneath it. Unlike DOOMCAST it does not walk the whole week: it reports today, then the first severe day ahead (or tomorrow if there is none), then the trend. **A file that authors no `wx.*` pool at all gets no weather segment** — the beats are skipped whole, so the desk is purely additive for any other news show.
 
 The lead story always gets a reporter field segment; the others get a reporter ~half the time and a `pundit.take` otherwise. Missing pools skip gracefully; `story.lead`, `handoff.reporter`, `reporter.scene`, and `rundown.item` have neutral built-in fallbacks so a thin file still airs.
 
@@ -682,10 +686,12 @@ Filled per beat; unknown tokens strip to empty.
 | `{headline}` | the story's headline (from the news generator) |
 | `{body}` | the story's body copy — the reporter expands on this |
 | `{byline}` | the story's outlet/byline |
+| `{meteorologist}` | the weather desk name (`@meteorologist`) |
+| weather tokens | inside a `wx.*` line only: `{weather}` `{temp}` `{feels}` `{wind}` `{windLabel}` `{humidity}` `{precip}` `{day}` `{season}` `{hiTemp}` `{loTemp}` `{severeCount}` `{worstDay}` — identical to [weather](#weather-broadcasts-type-weather)'s |
 
 ## Assembly order
 
-Each airing: `title_card` (if `@titlecard`) → `open` → `anchor.intro` → **for each of the top 3 stories:** (`alert` on the lead / `anchor.banter` after) → `story.lead` → *either* `handoff.reporter` → `reporter.scene` → (`reporter.vox`) → `handoff.back` *or* `pundit.take` → `anchor.reaction` → **rundown:** `rundown.lead` → `rundown.item` × remaining → `kicker.lead` → `kicker` → `outro` → `signoff`. Each beat is a `say` node; with no anchor NPC the lines render as plain `[TV] "…"` narration. The bulletin re-rolls when the refresh bucket (in-game day + a 5-minute window) advances, so it picks up new live stories as the world's news changes; within a bucket the chain loops.
+Each airing: `title_card` (if `@titlecard`) → `open` → `anchor.intro` → **for each of the top 3 stories:** (`alert` on the lead / `anchor.banter` after) → `story.lead` → *either* `handoff.reporter` → `reporter.scene` → (`reporter.vox`) → `handoff.back` *or* `pundit.take` → `anchor.reaction` → **rundown:** `rundown.lead` → `rundown.item` × remaining → **weather:** `wx.toss` → `wx.open` → `wx.sky.*` (today) → `wx.warn.*` (if today is severe) → `wx.sky.*`/`wx.warn.*` (the day ahead) → `wx.trend.*` → `wx.back` → `wx.reaction` → `kicker.lead` → `kicker` → `outro` → `signoff`. Each beat is a `say` node; with no anchor NPC the lines render as plain `[TV] "…"` narration. The bulletin re-rolls when the refresh bucket (in-game day + a 5-minute window) advances, so it picks up new live stories as the world's news changes; within a bucket the chain loops.
 
 ## Compiler & runtime contract (as built)
 
@@ -695,6 +701,7 @@ Each airing: `title_card` (if `@titlecard`) → `open` → `anchor.intro` → **
     anchors:   [ 'Brick Hardline', 'Chastity Vale' ], // @anchor lines, in order — NOT added to npcIds
     reporters: [ 'Ronnie Vasquez', … ],               // @reporter lines
     announcer: 'The Voice of Raptor',                 // @announcer
+    meteorologist: 'Skip Vandermeer',                 // @meteorologist ('' ⇒ the co-anchor reads it)
     pools:     { [key]: [line, …] },                  // ::lines blocks
     title:     'rnn_title',                           // @titlecard
     theme:     'rnn_sting',                           // @theme
@@ -707,6 +714,8 @@ Each airing: `title_card` (if `@titlecard`) → `open` → `anchor.intro` → **
 ## Worked example
 
 See [data/scripts/raptor_news.bsm](../data/scripts/raptor_news.bsm) for the full library — **Raptor News Network**, a Fox-News-parody nightly bulletin. A minimal viable file needs `@type news`, at least one `@anchor`, and the `anchor.intro`, `story.lead`, and `outro` pools; add `@reporter` plus `handoff.reporter`/`reporter.scene`/`handoff.back` for on-scene segments, and the rest is enrichment. Import it through the dev panel (Broadcast → Import BSM), pick a channel, and it airs a fresh, live-sourced bulletin on loop.
+
+**Editing the shipped shows without a browser.** Raptor News and DOOMCAST are the two shows whose rows are regenerated straight from the file: [scripts/content/build-news-weather.mjs](../scripts/content/build-news-weather.mjs) recompiles both `.bsm` files into `news_pools` / `weather_pools` and touches nothing else. Run it after editing either file — the row and the file drifting apart is not hypothetical: DOOMCAST carried its acid/ion pools in git for weeks while the row that actually aired had none of them, so Dex fell through to the generic fallback on the two days it mattered most.
 
 ---
 
@@ -993,7 +1002,7 @@ required.
 
 | | `news` | `talkshow` | `morning` | `gameshow` |
 |---|---|---|---|---|
-| State source | live news generator | the night's guest persona | the live world | **the live item catalog (`items.value`)** |
+| State source | live news generator | the night's guest persona | the live world | **its `@subject` — the item catalog, or the districts and orders** |
 | Repeatable | per refresh bucket | fresh episode per in-game day | fresh episode per in-game day | **fresh lots per in-game day** |
 | Acted live | no — names | yes — cast + roaming guest | yes — two resident hosts | **yes — host + optional sidekick** |
 | Player can take part | no | no | no | **yes — stand in the studio and `guess`** |
@@ -1011,13 +1020,54 @@ required.
 | `@theme <song or sample>` | intro sting; plays over the title card |
 | `@airtime <hour…>` | in-game hours to air; snapped to 3h blocks. Omit means continuous |
 | `@rounds <1–4>` | how many rounds an episode plays. Omit means all four |
+| `@subject <id>` | **what the show asks about** — see [Subjects](#subjects). Omit means `retail` |
 
 **`::contestants … ::endcontestants`** — one name per line. These are **plain strings, not
 `npc_` ids**: they never get bodies, never commute, never spawn. Their guesses are generated from
 the episode seed, so they lose convincingly for free. This is deliberate — three walk-on NPCs a
 day would need three commutes and three renames for nothing a name string doesn't already do.
 
+## Subjects
+
+A game show's SUBJECT is what it asks about: where the material comes from, how a round is dealt,
+how an answer is typed, and how it's scored. The engine (`plugins/broadcast/gameshow.js`) owns
+everything a game show has *regardless* of subject — the cast, the guess window, the purse, the
+win cooldown, the studio-floor relay — and knows nothing about prices or districts. Subjects live
+in `plugins/broadcast/gameshow-subjects.js`.
+
+| `@subject` | Asks | Material | Answered with |
+|---|---|---|---|
+| `retail` *(default)* | "what is this worth?" | the live item catalog (`items.value`) | a number, higher/lower, or an ordering |
+| `basin` | "what do you know about this city?" | the district registry, the NPC orders' own creeds, where NPCs live | a letter |
+
+**The subject contract is ZERO QUERIES.** A subject may read the boot-loaded item cache, the world
+Maps and the district registry, and nothing else. An episode is assembled on the broadcast tick, on
+every channel, for every set in the city — a subject that needs a DB read is a subject that can't air.
+
+An **unknown or absent `@subject` resolves to `retail`**, which is what every game show was before
+subjects existed. A typo therefore produces a working show rather than a broken one — which is why
+a build script that cares should assert its subject rather than trust it.
+
+**Adding a subject** is a module exporting `id`, `plan` (the ordered round specs),
+`episode(rand, ctx)`, `score`, `parse` and `hint`, passed to `registerGameshowSubject`.
+`episode().round(spec)` returning `null` means "the world can't furnish this round today" — the
+episode plays one round shorter, which is a normal outcome and not an error. The **purse is the
+engine's to set, never the subject's**: prize money is calibrated against the quest economy for
+every show at once, and a subject that could name its own could mint credits.
+
+### Writing questions from authored copy
+
+`basin` quotes the world's own prose back at the viewer, and that prose was written to be read
+*about* a place rather than as a riddle — so it very often names it. The Pioneers' creed opens
+"The old world is a corpse and the Pioneers refuse to keep it on life support", which quoted
+verbatim is a question that answers itself. `redactAnswer` masks the answer's own name — and each
+significant word of it, so "the Commercial Strip" also catches a later bare "the Strip" — before
+the quote goes on air. **A new quoted category needs the same treatment**, and the regress suite
+sweeps the whole corpus for a question that names its own answer.
+
 ## Rounds
+
+### `retail`
 
 Four fixed formats, in this order, all answered by the single `guess` verb:
 
@@ -1033,12 +1083,38 @@ episode isn't four consumables, and guarded so each round is answerable: over-or
 pairs closer than a 1.35× ratio (otherwise it's a coin flip), and the ordering round rejects
 duplicate prices (otherwise there is no correct order).
 
+### `basin`
+
+One format, `choice`, four times — a question and lettered options, answered `guess b`. Difficulty
+rises by **widening the field** (three options, then four), not by getting obscurer. Four scoring
+modes were the wrong shape for a quiz: a question is right or it isn't, and one parse means the
+finale can be harder without teaching a second verb.
+
+| Round | Category | Options |
+|---|---|---|
+| 1 | a district, quoted from its own `blurb` | 3 |
+| 2 | an order, quoted from its own creed | 3 |
+| 3 | which district an NPC goes home to | 4 |
+| 4 | a district again, for the Jackpot purse | 4 |
+
+A category that can't furnish a question today (no orgs loaded, no NPC with a resolvable home
+district) falls through to the next one, so a thin world plays a shorter show rather than a broken
+one. **A quiz round hands over no item** — there is no lot on a plinth, and granting a random
+consolation item would put untraceable loot on the studio floor.
+
 ## Line pools (`::lines <key>`)
 
-`open`, `announce_host`, `audience_call`, `round_intro.overunder`, `round_intro.price`,
-`round_intro.lot`, `showcase_intro`, `prize_copy`, `prompt`, `stall`, `reveal`,
-`showcase_reveal`, `verdict_read`, `audience`, `applause`, `commercial`, `walkoff`, `no_payout`,
-`signoff`, `ticker`.
+`open`, `announce_host`, `audience_call`, `round_intro.<format>`, `showcase_intro`, `prize_copy`,
+`prompt`, `stall`, `reveal`, `showcase_reveal`, `verdict_read`, `audience`, `applause`,
+`commercial`, `walkoff`, `no_payout`, `signoff`, `ticker`.
+
+The `.<format>` keys follow the subject: `retail` uses `round_intro.overunder`,
+`round_intro.price` and `round_intro.lot`; `basin` uses `round_intro.choice` for every round.
+
+**A pool drawn at random must contain no ordinals.** `retail` gets away with "Round three" in
+`round_intro.lot` only because that pool is per-format and its formats are per-round. A show with
+one format all the way down draws every round intro from the same pool, so a line saying "round
+three" airs first about as often as it airs third — write "next" and "again" instead.
 
 `prize_copy`, `prompt` and `reveal` accept a **`.<format>` variant** (`reveal.lot`,
 `prompt.overunder`, `prize_copy.lot`, …) which wins over the generic pool when present. Use these
@@ -1050,9 +1126,15 @@ anything, so "A {prize}" produces "A Ooze — cassette tape".
 
 ## Tokens
 
-**Baked at assemble time** (deterministic, known when the lots are dealt): `{host}` `{sidekick}`
-`{prize}` `{prize2}` `{prize3}` `{price}` `{price2}` `{price3}` `{prices}` (every lot with its
-price, as shown) `{order}` (the correct cheapest-first order, as prose) `{total}` `{purse}`.
+**Baked at assemble time** (deterministic, known when the round is dealt). Shared by every subject:
+`{host}` `{sidekick}` `{prize}` `{purse}`.
+
+`retail` adds: `{prize2}` `{prize3}` `{price}` `{price2}` `{price3}` `{prices}` (every lot with its
+price, as shown) `{order}` (the correct cheapest-first order, as prose) `{total}`.
+
+`basin` adds: `{question}` `{options}` (the lettered options as read out) `{answer}` (letter +
+text) `{answer_letter}` `{answer_text}`. Its `{prize}` is the **category** ("THE BASIN", "WHO
+LIVES WHERE") rather than an object, since a quiz has no lot on a plinth.
 
 **Resolved at airtime** (they depend on who was in the room): `{guesses}` `{contestant}`
 `{guess}` `{winner}` `{verdict}`.

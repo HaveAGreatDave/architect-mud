@@ -3,7 +3,7 @@
 // Everything it prints is DERIVED: the list stores what you want, and whether
 // each line is ticked is answered against your inventory at the moment you look.
 // So there is no "mark as bought" step, and no way for the list to be wrong.
-import { getList, holdings, answer, addShortfall, tidy, clearList, removeAt, catalogTemplate } from './shoplist.js';
+import { getList, holdings, answer, addShortfall, tidy, clearList, removeAt, removeFor, catalogTemplate } from './shoplist.js';
 import { savedRecipes } from './knowledge.js';
 import { DISHES, unitsOf } from './dishes.js';
 import { gearKeysOf } from './gear.js';
@@ -42,12 +42,21 @@ export async function cmdShoplist(args, raw, player) {
   }
 
   if (sub === 'drop' || sub === 'remove') {
-    const n = parseInt(rest, 10);
-    if (!Number.isInteger(n)) return { type: 'error', message: `Drop which line? ("shoplist drop 2")` };
-    const r = await removeAt(player.id, n - 1);
+    if (!rest) return { type: 'error', message: `Drop what? ("shoplist drop 2", or "shoplist drop stew" for the whole dish)` };
+    // A NUMBER IS A LINE, A NAME IS A DISH. `add` takes a recipe, so `drop` has to
+    // as well — changing your mind about a stew shouldn't mean crossing off six
+    // lines by number and watching the numbers move as you go.
+    if (/^\d+$/.test(rest)) {
+      const n = parseInt(rest, 10);
+      const r = await removeAt(player.id, n - 1);
+      return r.ok
+        ? { type: 'output', message: `Crossed off ${r.gone.label}.` }
+        : { type: 'error', message: `There's no line ${n}.` };
+    }
+    const r = await removeFor(player.id, rest);
     return r.ok
-      ? { type: 'output', message: `Crossed off ${r.gone.label}.` }
-      : { type: 'error', message: `There's no line ${n}.` };
+      ? { type: 'output', message: `Crossed off everything for <span class="text-bright">${r.label}</span> — ${r.removed} line${r.removed === 1 ? '' : 's'} gone, ${r.left} left.` }
+      : { type: 'error', message: `Nothing on your list is for "${rest}".` };
   }
 
   if (sub === 'add') {
@@ -171,6 +180,10 @@ export async function cmdShoplist(args, raw, player) {
     }
   }
   lines.push(`<span class="text-dim">${done} of ${rows.length} in hand. <b>shoplist tidy</b> crosses those off for good.</span>`);
+  // Named only when there IS a dish to name — the hint is useless on a list of
+  // loose wants, and the heading it refers to is what you type.
+  const dish = [...groups.keys()].find(Boolean);
+  if (dish) lines.push(`<span class="text-dim">Changed your mind? <b>shoplist drop ${dish}</b> takes a whole dish back off.</span>`);
   return { type: 'output', message: lines.join('\n') };
 }
 

@@ -8,9 +8,13 @@
 // mode — the contestants are then name-only strangers and the show plays out exactly as
 // well. Participation is possible, never required.
 //
-// The quiz material is the world's own price list: `items.value`, read from the boot
-// loaded item cache, so question generation costs ZERO queries and every item added to
-// the game later becomes a new prize with no authoring.
+// WHAT the show asks about is a SUBJECT, picked by `@subject` in the .bsm and owned by
+// gameshow-subjects.js — the material, the round plan, the parsing and the scoring. This
+// module owns everything a game show has regardless of subject: the cast, the guess
+// window, the purse, the cooldown, the studio relay. `retail` (what is this worth?) reads
+// the world's own price list; `basin` (what do you know about this city?) reads the
+// district registry and the orders. Both cost ZERO queries — that's the subject contract,
+// because an episode is assembled on the broadcast tick for every set in the city.
 //
 // The episode is a pure function of (broadcastId, day bucket) — same seeded rng idiom as
 // the talk show's persona pick and the sports league — so every TV in the city shows the
@@ -26,6 +30,7 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { sportsPick, sportsShuffle, seedFromKey } from './rng.js';
+import { getGameshowSubject, _subjectsTest } from './gameshow-subjects.js';
 
 // ── Tunables ────────────────────────────────────────────────────────────────
 // Prize money is calibrated against the live quest economy (48 credit-rewarding
@@ -37,21 +42,6 @@ const ROUND_PRIZE = 40;
 const SHOWCASE_PRIZE = 250;
 const WIN_COOLDOWN_MS = 6 * 60 * 60 * 1000;   // real hours between paid wins
 const COOLDOWN_FLAG = 'gameshow_win_cooldown';
-
-// Prize-pool sanity bounds. The floor kills 1cr placeholder junk (a crushed can is
-// not a question); the ceiling is headroom over today's dearest item (9,200) so one
-// future absurd row can't hijack the show.
-const PRIZE_MIN_VALUE = 5;
-const PRIZE_MAX_VALUE = 12000;
-// Value bands, so an episode isn't four consumables in a row.
-const TIER_CHEAP_MAX = 50;
-const TIER_MID_MAX = 500;
-// The showcase is winnable inside a band rather than closest-without-going-over —
-// a finale nobody can win reads badly, and "within twenty percent" says well on air.
-const SHOWCASE_BAND = 0.20;
-// Over-or-under is only a question when the two lots aren't neighbours. Below this
-// ratio it's a coin flip, so the pair is rejected and another is drawn.
-const OVERUNDER_MIN_RATIO = 1.35;
 
 // ── Round state ─────────────────────────────────────────────────────────────
 // Live rounds are in memory only and per channel. A round lasts about a minute; losing
@@ -85,60 +75,6 @@ const payouts = new Map();
 // synchronously at resolve time without the walker awaiting anything. Persisted to
 // player_flags so a restart can't be used to reset the cooldown.
 const lastWinAt = new Map();
-
-// ── Prize pool ──────────────────────────────────────────────────────────────
-// Fold the in-memory item catalog into a priceable pool. Deliberately NOT sourced from
-// `furniture`: those rows are per-instance rather than catalog (the same flatscreen
-// appears three times), half are unpriced, and the table is intentionally uncached.
-export function gameshowPool(cache = getItemCache()) {
-  const seen = new Set();
-  const pool = [];
-  for (const it of cache.values()) {
-    const value = Number(it?.value);
-    if (!Number.isFinite(value) || value < PRIZE_MIN_VALUE || value > PRIZE_MAX_VALUE) continue;
-    // Street chemistry is both unguessable (median 8cr) and not what a network gives
-    // away on daytime television.
-    if (it.type === 'drug' || it.type === 'chemical') continue;
-    if (!it.name || !String(it.description || '').trim()) continue;   // can't be presented on air
-    const key = String(it.name).toLowerCase();
-    if (seen.has(key)) continue;                                      // never show one prize twice
-    seen.add(key);
-    pool.push({ id: it.id, name: it.name, value, type: it.type || 'misc' });
-  }
-  // LOAD-BEARING: the item cache iterates in DB insertion order, which is not guaranteed
-  // stable across restarts. Sorting by id before any seeded shuffle is what makes the
-  // episode reproducible — without it, two servers (or the same server after a restart)
-  // would disagree about tonight's lots.
-  pool.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  return pool;
-}
-
-function tierOf(item) {
-  if (item.value <= TIER_CHEAP_MAX) return 'cheap';
-  if (item.value <= TIER_MID_MAX) return 'mid';
-  return 'dear';
-}
-
-// Split the pool into value bands, each independently shuffled by the episode rng.
-// Rounds draw from the band that suits them, so the show has a shape: something small
-// to warm up, something worth real money to finish on.
-function gameshowTiers(pool, rand) {
-  const t = { cheap: [], mid: [], dear: [] };
-  for (const it of pool) t[tierOf(it)].push(it);
-  return { cheap: sportsShuffle(t.cheap, rand), mid: sportsShuffle(t.mid, rand), dear: sportsShuffle(t.dear, rand) };
-}
-
-// Deal n lots from a tier, falling back through the other bands when a band is thin, so
-// a sparse catalog still produces a full episode rather than a broken one.
-function deal(tiers, tier, n) {
-  const order = tier === 'dear' ? ['dear', 'mid', 'cheap'] : tier === 'mid' ? ['mid', 'cheap', 'dear'] : ['cheap', 'mid', 'dear'];
-  const out = [];
-  for (const t of order) {
-    while (out.length < n && tiers[t].length) out.push(tiers[t].shift());
-    if (out.length >= n) break;
-  }
-  return out;
-}
 
 // ── Airing + bucket ─────────────────────────────────────────────────────────
 // Airs on in-game @airtime slots, reusing the sports 3-hour block clock. The caller
@@ -179,15 +115,6 @@ function drawFmt(pools, base, format, n, tok, rand) {
 }
 const money = (n) => `${Number(n).toLocaleString('en-US')}`;
 
-// A plausible-looking wrong answer: a stranger's guess, deterministic from the episode
-// rng, scattered around the true price and rounded the way a person rounds. Wide enough
-// that the NPCs lose convincingly without looking scripted.
-function npcGuessValue(price, rand) {
-  const raw = price * (0.55 + rand() * 0.9);
-  const step = price > 2000 ? 100 : price > 400 ? 25 : price > 60 ? 5 : 1;
-  return Math.max(1, Math.round(raw / step) * step);
-}
-
 // ── Assembly ────────────────────────────────────────────────────────────────
 // Build one episode into a VINE broadcast graph of npc_anchor + say nodes, with a
 // gameshow_round / gameshow_reveal pair bracketing each round.
@@ -211,8 +138,10 @@ export function assembleGameshowGraph(script, broadcastId, bucket, normalizeGrap
   const contestantNames = (Array.isArray(script.contestants) ? script.contestants : []).filter(Boolean);
   const roundCount = Math.max(1, Math.min(4, Number(script.rounds) || 4));
 
-  const pool = gameshowPool(cache);
-  const tiers = gameshowTiers(pool, rand);
+  // What this show asks about. An unknown or absent @subject is a retail show — that is
+  // what every game show was before subjects existed, and The Last Lot must not notice.
+  const subject = getGameshowSubject(script.subject);
+  const dealer = subject.episode(rand, { cache, contestantNames });
 
   const baseTok = {
     host: (world.npcs.get(host)?.name) || 'the host',
@@ -265,107 +194,42 @@ export function assembleGameshowGraph(script, broadcastId, bucket, normalizeGrap
   if (call.length) lines(host, call);
 
   // ── Rounds ────────────────────────────────────────────────────────────────
-  // Formats in fixed order so the episode has a shape: a fast binary warm-up, the
-  // canonical pricing round, the hard one, then the money.
-  const FORMATS = [
-    { format: 'overunder', tier: 'mid', count: 2 },
-    { format: 'price', tier: 'mid', count: 1 },
-    { format: 'lot', tier: 'cheap', count: 3 },
-    { format: 'showcase', tier: 'dear', count: 1 },
-  ];
+  // The subject owns the plan: which formats, in what order, on what material. Retail's
+  // is a fast binary warm-up, the canonical pricing round, the hard one, then the money;
+  // a quiz's is four questions on a widening field. The loop below is the same either way.
+  const plan = Array.isArray(subject.plan) ? subject.plan : [];
 
   for (let r = 0; r < roundCount; r++) {
-    const spec = FORMATS[r];
-    let prizes = deal(tiers, spec.tier, spec.count);
-    if (prizes.length < spec.count) continue;   // catalog too thin for this format — skip the round
+    const spec = plan[r];
+    if (!spec) continue;
+    // Deal the round. A subject returns null when the world can't furnish this format
+    // today — a thin catalog, a category with nothing left to ask. The episode simply
+    // plays one round shorter, which is a normal outcome and not an error.
+    const rd = dealer.round(spec);
+    if (!rd) continue;
 
-    // Over-or-under needs two lots that aren't near-neighbours, else the answer is a
-    // coin flip. Keep dealing replacements for the second lot until the gap is real.
-    if (spec.format === 'overunder') {
-      let guard = 0;
-      while (guard++ < 12 && Math.max(prizes[0].value, prizes[1].value) / Math.min(prizes[0].value, prizes[1].value) < OVERUNDER_MIN_RATIO) {
-        const [next] = deal(tiers, spec.tier, 1);
-        if (!next) break;
-        prizes = [prizes[0], next];
-      }
-      if (Math.max(prizes[0].value, prizes[1].value) / Math.min(prizes[0].value, prizes[1].value) < OVERUNDER_MIN_RATIO) continue;
-    }
-
-    // Ordering three lots is only answerable if their prices are DISTINCT — two items at
-    // the same value make the correct order ambiguous and the round unwinnable. Keep
-    // swapping out duplicates until all three differ.
-    if (spec.format === 'lot') {
-      let guard = 0;
-      while (guard++ < 20 && new Set(prizes.map(p => p.value)).size < prizes.length) {
-        const dupAt = prizes.findIndex((p, i) => prizes.findIndex(q => q.value === p.value) !== i);
-        const [next] = deal(tiers, spec.tier, 1);
-        if (!next) break;
-        prizes = prizes.map((p, i) => (i === dupAt ? next : p));
-      }
-      if (new Set(prizes.map(p => p.value)).size < prizes.length) continue;   // couldn't separate them
-    }
-
-    const isShowcase = spec.format === 'showcase';
-    const price = prizes[0].value;
-    // Lots read cheapest-first, for the ordering round's reveal.
-    const ranked = prizes.map((p, i) => ({ slot: i + 1, ...p })).sort((a, b) => a.value - b.value);
-    const tok = {
-      ...baseTok,
-      prize: prizes[0].name,
-      prize2: prizes[1]?.name || '',
-      prize3: prizes[2]?.name || '',
-      price: money(price),
-      price2: prizes[1] ? money(prizes[1].value) : '',
-      price3: prizes[2] ? money(prizes[2].value) : '',
-      // Every lot with its price, in the order they were shown — for a multi-item reveal.
-      // The two-lot case (higher-or-lower) gets "against" rather than a comma: this token
-      // is read out right after {guesses}, which is itself a comma list of names, and two
-      // comma lists in a row parse as one run-on roster.
-      prices: prizes.length === 2
-        ? `${prizes[0].name} at ${money(prizes[0].value)} against ${prizes[1].name} at ${money(prizes[1].value)}`
-        : prizes.map(p => `${p.name} at ${money(p.value)}`).join(', '),
-      // The right answer, read out as prose.
-      order: ranked.map(p => `${p.name} at ${money(p.value)}`).join(', then '),
-      total: money(prizes.reduce((s, p) => s + p.value, 0)),
-      purse: money(isShowcase ? SHOWCASE_PRIZE : ROUND_PRIZE),
-    };
-
-    // What the strangers said. Baked now so the reveal is deterministic and identical
-    // on every set, whether or not a player ever turns up.
-    const npcGuesses = contestantNames.slice(0, 3).map((name) => {
-      if (spec.format === 'overunder') {
-        const pick = rand() < 0.5 ? 'higher' : 'lower';
-        return { name, value: pick, label: pick };
-      }
-      if (spec.format === 'lot') {
-        const order = sportsShuffle([1, 2, 3], rand);
-        return { name, value: order, label: order.join('-') };
-      }
-      const v = npcGuessValue(price, rand);
-      return { name, value: v, label: money(v) };
-    });
-
-    const correct = spec.format === 'overunder'
-      ? (prizes[1].value > prizes[0].value ? 'higher' : 'lower')
-      : spec.format === 'lot'
-        ? prizes.map((p, i) => ({ i: i + 1, v: p.value })).sort((a, b) => a.v - b.v).map(x => x.i)
-        : null;
+    const isShowcase = !!rd.isShowcase;
+    const purse = isShowcase ? SHOWCASE_PRIZE : ROUND_PRIZE;
+    // The PURSE is the engine's to set, never the subject's: prize money is calibrated
+    // against the quest economy for every show at once, and a subject that could name
+    // its own would be a subject that could mint credits.
+    const tok = { ...baseTok, ...rd.tok, purse: money(purse) };
 
     // Round intro + the prize copy the announcer reads over the lot.
-    lines(host, draw(pools, isShowcase ? 'showcase_intro' : `round_intro.${spec.format}`, 1, tok, rand));
+    lines(host, draw(pools, rd.keys?.intro || `round_intro.${spec.format}`, 1, tok, rand));
     lines(sidekick, drawFmt(pools, 'prize_copy', spec.format, 1, tok, rand));
 
     // Open the round. Everything the contestants need to answer is in this node.
+    // `subject` rides along so the guess verb can parse and the reveal can score without
+    // the runtime having to know which show it's looking at.
     add({
       type: 'gameshow_round',
       format: spec.format,
+      subject: subject.id,
       roundIndex: r,
-      prizes: prizes.map(p => ({ id: p.id, name: p.name, value: p.value })),
-      price,
-      correct,
-      npcGuesses,
-      purse: isShowcase ? SHOWCASE_PRIZE : ROUND_PRIZE,
-      grantsItem: isShowcase,
+      ...rd.node,
+      purse,
+      grantsItem: !!rd.grantsItem,
     });
 
     // The guess window — the host asks, then fills. These lines ARE the clock.
@@ -375,18 +239,14 @@ export function assembleGameshowGraph(script, broadcastId, bucket, normalizeGrap
 
     // Close the round and score it, then read the verdict out.
     add({ type: 'gameshow_reveal', format: spec.format, roundIndex: r });
-    lines(host, isShowcase ? draw(pools, 'showcase_reveal', 1, tok, rand) : drawFmt(pools, 'reveal', spec.format, 1, tok, rand));
-    // The price card. A multi-lot round shows every lot's price, or the card contradicts
-    // the line that just aired. The ORDERING round lists them cheapest-first, because that
-    // ordering is the answer; every other round lists them as they were shown, so the card
-    // matches the order the host read them out in.
-    const cardOrder = spec.format === 'lot' ? ranked : prizes;
+    lines(host, isShowcase ? draw(pools, rd.keys?.reveal || 'showcase_reveal', 1, tok, rand) : drawFmt(pools, rd.keys?.reveal || 'reveal', spec.format, 1, tok, rand));
+    // The answer card. The subject writes it, because only the subject knows what the
+    // answer looks like — a retail round prints every lot's price (or the card contradicts
+    // the line that just aired), a quiz round prints the lettered options and the right one.
     add({
       type: 'show_overlay',
       overlayType: 'text_card',
-      text: prizes.length > 1
-        ? `ACTUAL RETAIL PRICES\n\n${cardOrder.map(p => `${String(p.name).toUpperCase()} · ${money(p.value)}₵`).join('\n')}`
-        : `${String(prizes[0].name).toUpperCase()}\n\nACTUAL RETAIL PRICE · ${money(price)}₵`,
+      text: rd.cardText,
       duration_s: 5,
     });
     curAnchor = null;   // the card broke the speaker chain; re-anchor before the next line
@@ -452,70 +312,14 @@ export function gameshowEndPass(channelId) {
   passes.set(channelId, { bucket, pass: (cur && cur.bucket === bucket ? cur.pass : 0) + 1 });
 }
 
-// ── Scoring ─────────────────────────────────────────────────────────────────
-// All four take entries in insertion order — [{ key, name, value, label }] — and return
-// the winning entry or null. Ties go to whoever answered first, which rewards nerve.
-// Pure and exported so the regress suite can drive them directly.
-
-// Closest without going over. Over-bidding is elimination, not a penalty.
-export function scorePrice(entries, price) {
-  let best = null;
-  for (const e of entries) {
-    const v = Number(e.value);
-    if (!Number.isFinite(v) || v > price) continue;
-    if (!best || v > Number(best.value)) best = e;
-  }
-  return best;
-}
-
-// Binary. First correct answer takes it.
-export function scoreOverUnder(entries, correct) {
-  return entries.find(e => e.value === correct) || null;
-}
-
-// Order three lots cheapest→priciest. Score = adjacent pairs in the right order, so for
-// three items a perfect 2 IS the exact order. Only a UNIQUE top scorer wins — a shared
-// best means nobody got it, which happens often enough to be dramatic.
-export function scoreLot(entries, correctOrder) {
-  const rank = new Map(correctOrder.map((slot, i) => [slot, i]));
-  const scored = entries.map(e => {
-    const order = Array.isArray(e.value) ? e.value : [];
-    let s = 0;
-    for (let i = 0; i + 1 < order.length; i++) {
-      const a = rank.get(order[i]), b = rank.get(order[i + 1]);
-      if (a !== undefined && b !== undefined && a < b) s++;
-    }
-    return { e, s };
-  });
-  if (!scored.length) return null;
-  const top = Math.max(...scored.map(x => x.s));
-  const winners = scored.filter(x => x.s === top);
-  return winners.length === 1 ? winners[0].e : null;
-}
-
-// The finale: inside a band either side, first one in wins.
-export function scoreShowcase(entries, price, band = SHOWCASE_BAND) {
-  const lo = price * (1 - band), hi = price * (1 + band);
-  return entries.find(e => {
-    const v = Number(e.value);
-    return Number.isFinite(v) && v >= lo && v <= hi;
-  }) || null;
-}
-
-function scoreRound(round, entries) {
-  switch (round.format) {
-    case 'overunder': return scoreOverUnder(entries, round.correct);
-    case 'lot':       return scoreLot(entries, round.correct);
-    case 'showcase':  return scoreShowcase(entries, round.price);
-    default:          return scorePrice(entries, round.price);
-  }
-}
-
 // ── Round lifecycle ─────────────────────────────────────────────────────────
 export function gameshowOpenRound(channelId, node, studioZoneId) {
   const d = node.data || node;
   rounds.set(channelId, {
     format: d.format || 'price',
+    // A round dealt before subjects existed carries no subject; getGameshowSubject
+    // resolves that to retail, which is what it was.
+    subject: d.subject || 'retail',
     roundIndex: d.roundIndex ?? 0,
     prizes: Array.isArray(d.prizes) ? d.prizes : [],
     price: Number(d.price) || 0,
@@ -554,7 +358,7 @@ export function gameshowResolveRound(channelId) {
   const npcEntries = round.npcGuesses.map((g, i) => ({ key: `npc:${i}`, name: g.name, value: g.value, label: g.label }));
 
   // Players first so a player takes a tie against a stranger.
-  const winner = scoreRound(round, [...playerEntries, ...npcEntries]);
+  const winner = getGameshowSubject(round.subject).score(round.format, [...playerEntries, ...npcEntries], round);
   const all = [...playerEntries, ...npcEntries];
 
   const result = {
@@ -678,8 +482,9 @@ export function makeGuessCommand(channelsForStudio) {
     }
     if (round.guesses.has(player.id)) return "You've locked your answer in.";
 
-    const parsed = parseGuess(round.format, args);
-    if (!parsed) return guessHint(round.format);
+    const subject = getGameshowSubject(round.subject);
+    const parsed = subject.parse(round.format, args);
+    if (!parsed) return subject.hint(round.format);
 
     round.guesses.set(player.id, { name: player.handle || player.name || 'someone', ...parsed });
 
@@ -701,49 +506,26 @@ export function makeGuessCommand(channelsForStudio) {
   };
 }
 
-// Per-format parsing. Returns { value, label, spoken } or null.
-export function parseGuess(format, args) {
-  const text = String(Array.isArray(args) ? args.join(' ') : (args || '')).trim();
-  if (!text) return null;
-
-  if (format === 'overunder') {
-    const w = text.toLowerCase().replace(/[^a-z]/g, '');
-    if (['higher', 'high', 'over', 'up', 'h'].includes(w)) return { value: 'higher', label: 'higher', spoken: 'Higher.' };
-    if (['lower', 'low', 'under', 'down', 'l'].includes(w)) return { value: 'lower', label: 'lower', spoken: 'Lower.' };
-    return null;
-  }
-
-  if (format === 'lot') {
-    const nums = text.match(/[1-3]/g);
-    if (!nums || nums.length !== 3) return null;
-    const order = nums.map(Number);
-    if (new Set(order).size !== 3) return null;
-    return { value: order, label: order.join('-'), spoken: `${order.join(', then ')}.` };
-  }
-
-  // price / showcase — a plain number, commas and a leading ₵ tolerated.
-  const m = text.replace(/[,₵]/g, '').match(/\d+/);
-  if (!m) return null;
-  const v = Number(m[0]);
-  if (!Number.isFinite(v) || v <= 0) return null;
-  return { value: v, label: money(v), spoken: `${money(v)} credits.` };
-}
-
-function guessHint(format) {
-  if (format === 'overunder') return 'Say `guess higher` or `guess lower`.';
-  if (format === 'lot') return 'Order all three — `guess 2 1 3` — cheapest first.';
-  return 'Name a price in credits — `guess 400`.';
-}
-
 // Cleared on logout so a stale seat can't hold a guess for someone who has gone.
 export function gameshowForgetPlayer(playerId) {
   for (const r of rounds.values()) r.guesses.delete(playerId);
 }
 
+// ── Back-compat surface ─────────────────────────────────────────────────────
+// The pool, the four retail scorers and the guess parser moved into the retail subject
+// when subjects were introduced. They are re-exported here because index.js and the
+// regress suite import them from this module, and a subject boundary is not a reason to
+// churn every call site. `parseGuess`/`scoreRound` keep their old signature by routing
+// through the retail subject — which is what they always were.
+export { gameshowPool, scorePrice, scoreOverUnder, scoreLot, scoreShowcase } from './gameshow-subjects.js';
+export { getGameshowSubject, registerGameshowSubject, gameshowSubjectIds } from './gameshow-subjects.js';
+export function parseGuess(format, args, subjectId = 'retail') {
+  return getGameshowSubject(subjectId).parse(format, args);
+}
+
 // Test seam for regress.js — never used in production paths.
 export const _gameshowTest = {
   rounds, lastResults, lastWinAt, passes, payouts,
-  npcGuessValue, tierOf, deal, gameshowTiers,
-  ROUND_PRIZE, SHOWCASE_PRIZE, WIN_COOLDOWN_MS, SHOWCASE_BAND, OVERUNDER_MIN_RATIO,
-  PRIZE_MIN_VALUE, PRIZE_MAX_VALUE,
+  ROUND_PRIZE, SHOWCASE_PRIZE, WIN_COOLDOWN_MS,
+  ..._subjectsTest,
 };

@@ -6,6 +6,7 @@
 @anchor "Chastity Vale"
 @reporter "Ronnie Vasquez"
 @reporter "Dallas Cru"
+@meteorologist "Skip Vandermeer"
 @announcer "The Voice of Raptor"
 @length 200
 @titlecard rnn_title
@@ -21,6 +22,9 @@
 # ever spawned. See docs/bsm-format.md#news-broadcasts-type-news.
 #
 # Tokens: {anchor} {anchor2} {reporter} {announcer} {scene} {headline} {body} {byline}
+# The weather segment (the wx.* pools, below the rundown) is the one part of the bulletin
+# with REAL facts in it: it reads the same live 7-day forecast DOOMCAST does, so the sky
+# Skip describes is the sky outside. See the block comment above those pools.
 # =============================================================================
 
 # --- Show logo / title card: shown once before the bulletin each airing (@titlecard) -----
@@ -110,6 +114,14 @@ Raptor News is now transmitting on every frequency the Machine hasn't confiscate
 You're locked into Raptor News — the last honest voice in a city that stopped listening years ago.
 This is Raptor News. Everything is fine. That sentence is a lie, and we are legally required to tell you so.
 RAPTOR NEWS NETWORK. If you're hearing this, the transmitter held. We take our victories small these days.
+Raptor News. Number one in the Basin among viewers who own a television and answer the door.
+This is Raptor News, where we've never been wrong, because we've never gone back and checked.
+RAPTOR NEWS. Some networks inform. Some entertain. We escalate.
+You're watching Raptor News, the network that asks the questions nobody asked us to ask.
+This is Raptor News. Our competitors have fact-checkers. We have a lawyer and a generator.
+Raptor News, live from the Basin. If your neighbour isn't watching this, that's information too.
+RAPTOR NEWS NETWORK — accurate to within the hour, honest to within the segment.
+This is Raptor News. Studies show viewers of this program are 40% more alert. We conducted the study. We are the finding.
 ::endlines
 
 # --- Anchor sign-on -----------------------------------------------------------
@@ -130,6 +142,13 @@ Welcome back to the only newscast that trends fear responsibly. I'm {anchor}.
 Good evening. I'm {anchor}, and somewhere out there a story is happening TO you. We found it.
 {anchor} with you. Take a deep breath. Now let it go — you'll need the air for screaming later.
 I'm {anchor}, and this is Raptor News, where we don't tell you what to think. We just tell you loudly.
+Good evening. I'm {anchor}. Tonight: everything, at once, at volume. Let's get into it.
+{anchor} here. Before we start — no, you didn't miss anything good. There wasn't any.
+I'm {anchor}, coming to you from a desk the network insists is bulletproof. We'll find out together.
+Evening. {anchor} at the desk. We've got the stories, the facts, and in a couple of cases, both.
+I'm {anchor}. Somewhere in the Basin tonight, someone is having a worse day than you. We sent a crew.
+{anchor} with you. Fair warning: I have not slept, and the teleprompter and I are no longer speaking.
+Good evening, Coldwater. I'm {anchor}, and the following is news in the sense that it is new and it is bad.
 ::endlines
 
 # --- Breaking sting on the lead story -----------------------------------------
@@ -150,6 +169,12 @@ This is a Raptor News Special Report, which is our regular report with considera
 Incoming. Buckle up. If this turns out to be nothing, we will simply never mention it again.
 RAPTOR ALERT. We go to this LIVE, unverified, and at maximum volume — the Raptor way.
 Breaking news, and I do mean breaking — like the last three things we swore would blow over.
+RAPTOR ALERT. The graphics department has deployed the big red one. They only get so many.
+This is breaking, developing, and unfolding — three words that mean we just found out too.
+We're going to bring you this live, because by the time we've confirmed it, it'll be somebody's memory.
+BREAKING. I'm being told in my ear to sound more concerned. I am at capacity.
+Special report. The music you're hearing cost this network a great deal, and we intend to use it.
+Alert. This story is moving faster than our ability to responsibly cover it, and we're covering it anyway.
 ::endlines
 
 # --- Anchor reads the headline ------------------------------------------------
@@ -170,6 +195,12 @@ The story everyone's whispering about, now at full Raptor volume: {headline}.
 Here's what the Machine hoped you'd sleep straight through: {headline}.
 Our headline tonight writes itself, unfortunately: {headline}.
 Buckle up, Basin. Tonight's lead: {headline}. And that's the GOOD paragraph.
+Top story: {headline}. I read that four times in the makeup chair and it got worse each time.
+Here's where we start tonight: {headline}. Sit with that. We're going to.
+Our lead, and it's a heavy one: {headline}. Somebody knew. Somebody always knew.
+{headline}. That's the story. That's the whole story. That's why we opened with it.
+Leading the bulletin: {headline}. We asked the Machine for comment and received a weather advisory.
+Tonight's top story: {headline}. The details are thin, the implications are not.
 ::endlines
 
 # --- Anchor tosses to a field reporter ----------------------------------------
@@ -190,6 +221,11 @@ Live now to {scene} and the fearless, or possibly just lost, {reporter}. Go ahea
 For more, {reporter} joins us live from {scene}, where the situation is fluid and so are my nerves. {reporter}?
 We go now to {reporter} in {scene}: live, unscripted, and slightly regretting it. {reporter}?
 Down to {reporter} in {scene}. {reporter}, the Basin's watching — try not to get repossessed on air.
+{reporter} has been in {scene} since this broke. {reporter}, what's changed in the last hour?
+Let's go to {scene}. {reporter} is there, and has been asked twice to move. {reporter}?
+Our {reporter} is live in {scene} tonight. {reporter} — set the scene, and don't spare us.
+{reporter}, you're in {scene}. Tell me what the cameras aren't picking up.
+Straight to {reporter} in {scene}. {reporter}, I'm told it's loud where you are. Talk over it.
 ::endlines
 
 # --- Reporter on the scene (expands the story with {body}) --------------------
@@ -210,6 +246,11 @@ I'm in {scene}, {anchor}, and the mood is best described as "pre-lawsuit." {body
 Live from {scene}: {body} People keep asking if it's safe. {anchor}, I'm a reporter, not a liar. Mostly.
 {anchor}, from where I'm standing in {scene}, it is worse in person. {body}
 {reporter} reporting, {scene}. {body} I'd editorialize, {anchor}, but the footage is doing it for me.
+{anchor}, it's quieter here than you'd expect, and that's the part that's bothering me. {body}
+I've been here two hours, {anchor}, and nobody official has shown up. {body} Make of that what you will.
+{body} Behind me, {anchor}, people are still going to work. That's the Basin for you.
+{anchor}, I asked six people what happened and got six versions. {body} Here's the one they agreed on.
+From {scene}, {anchor} — the crowd's thinned, the smell hasn't. {body}
 ::endlines
 
 # --- Reporter's "man on the street" vox pop (fabricated, optional) -------------
@@ -230,6 +271,11 @@ One eyewitness demanded to speak to the Machine. The Machine, as ever, was speak
 A child in {scene} explained the whole thing to me perfectly. We won't be using it — made us look bad.
 A local told me not to worry. I found this, {anchor}, deeply and specifically worrying.
 Everyone I interviewed agreed it was somebody else's fault. A rare moment of unity here in {scene}.
+A vendor here told me business is up. He wasn't smiling when he said it, {anchor}.
+One woman asked me if this was live. I said yes. She said, "then tell them I'm fine," and walked off.
+A man handed me a list of names and left. We are reading the list. That's all I can say on air.
+I asked what would fix it. A kid in {scene} said "leaving." Nobody argued with him, {anchor}.
+An old-timer here told me this happened before, in '61. There is no record of '61.
 ::endlines
 
 # --- Reporter tosses back to the studio ---------------------------------------
@@ -250,6 +296,10 @@ Sending it home, {anchor}. Everything you need to know is behind me; everything 
 That's the situation here, {anchor} — grim, ongoing, and well above my pay grade. Studio's yours.
 Back to you, {anchor}. Remember my name. Spell it right on the plaque.
 From {scene}, this is {reporter}, alive and reporting — for now. {anchor}, take us home.
+We'll stay with it, {anchor}. Somebody should. Back to you.
+That's {scene} tonight, {anchor}. I'll file more when there's more, or when there's light.
+Back to the studio. {anchor}, tell the desk I want the good assignment next time. Tell them twice.
+{anchor}, that's what we've got. The rest of it we'll know by morning, or never. Studio.
 ::endlines
 
 # --- Pundit "hot take" (for stories that don't get a field reporter) ----------
@@ -270,6 +320,13 @@ People want easy answers. I don't have those. I have loud ones. Loud is close en
 Let's connect the dots nobody else will: this, that, the other thing — see? A pattern. You're welcome.
 I'll say what the mainstream won't: I have no idea what happened, but I am certain it's outrageous.
 Bottom line, and this is why they pay me: thoughts and prayers, plus a small monthly fee to this network.
+I'll tell you what nobody at the other networks has the spine to say: I haven't read the story either.
+Look, I'm just asking questions. That's all I do. I ask them, and then I answer them, and then I get angry at my answer.
+This is what happens when a society stops rewarding people like me and starts rewarding people like them.
+Some will say it's complicated. Complicated is a word people use when they've lost the argument.
+I don't blame the individuals involved. I blame everyone standing near them, which is the same thing but broader.
+You know who saw this coming? Me. On this network. Repeatedly. Check the tape. Do not check the tape.
+And nobody — nobody — is talking about the real story here, except me, right now, at length, on television.
 ::endlines
 
 # --- Anchor reaction / editorial spin -----------------------------------------
@@ -290,6 +347,12 @@ We'll follow this story until it's resolved or forgotten, and let's be honest ab
 You're seeing it here because we have the courage to show you what you'd rather not see. You're welcome. Subscribe.
 Remarkable. Horrifying. Great television, if we're being honest — and we are, occasionally.
 And THAT, folks, is what accountability looks like when nobody is held accountable. Chilling.
+I'd love to tell you somebody's handling it. I have a producer shaking her head at me right now.
+We'll keep asking. They'll keep not answering. That's the relationship, and it's working for exactly one of us.
+Now, I'm not an expert. But I've sat at this desk for a long time, and I know what a cover story sounds like.
+That's the story as we have it. If any of it turns out to be wrong, it'll be wrong in our favour, as usual.
+Take a breath, Coldwater. Then take a look at your locks.
+And there's the part that should worry you: nobody in charge has said a word all day.
 ::endlines
 
 # --- Toss between stories (to the co-anchor) ----------------------------------
@@ -310,6 +373,11 @@ I need a moment, {anchor2}. Read the next one while I locate my composure.
 Handing over to {anchor2}, who's been suspiciously calm this entire broadcast. Suspicious.
 {anchor2}, you're up. And remember: fair, balanced, terrified.
 Let's get {anchor2} in here, because two anchors is exactly twice the credibility. Math.
+{anchor2}, you've read the next one. Your face has already reviewed it.
+This next one's yours, {anchor2}. I've done my share of the damage tonight.
+{anchor2}, take it — and take your time, it's not going to improve on the way over.
+Your desk, {anchor2}. Try to sound like somebody who's slept.
+{anchor2}, I'm handing this to you the way you'd hand someone a hot pan.
 ::endlines
 
 # --- Rundown intro (the "also tonight" transition) ----------------------------
@@ -330,6 +398,11 @@ Before weather — and it's not looking good either — here's the rundown:
 Our producers insist we mention these, so, briefly, and with dread:
 The headlines we can't dwell on, because dwelling requires hope:
 And now, the news equivalent of ripping off a bandage that's on fire:
+A quick run at the rest, because the clock is the only thing in this building that works:
+Here's what else crossed the desk before we went to air:
+The rest of tonight, at speed. Blink and you'll miss something that affects you directly:
+Other stories we're watching, which is a phrase meaning we have not called anybody about them:
+And briefly, the headlines that didn't make the cut but should have:
 ::endlines
 
 # --- Rundown items (one per remaining headline) -------------------------------
@@ -350,6 +423,199 @@ Briefly: {headline}. Add it to the pile. The pile is very tall now.
 Also happening: {headline}. We reported it. That's where our involvement ends.
 And finally in the rundown: {headline}. Terrible. Onward, bravely, to the next terrible thing.
 Just in: {headline}. We'll circle back to this never. Moving on.
+{headline}. Eleven seconds is what that gets, and eleven seconds is generous.
+Next: {headline}. Somebody's whole year, summarized by me, badly.
+Also: {headline}. We have a reporter on it. We have a reporter near it. We have a reporter.
+{headline}. That one's going to matter in about six weeks. Remember where you heard it.
+And: {headline}. Statement pending. Statement will not arrive.
+::endlines
+
+# =============================================================================
+# THE RAPTOR FURY WEATHER DECK — the bulletin's weather segment.
+# These are NOT decoration: the server fills them from the SAME live 7-day forecast
+# DOOMCAST reads, so {temp}, {wind}, {precip} and the pool that gets picked are the
+# real sky over the Basin tonight. Skip names a hero day — acid, ion — as itself,
+# because a warning that arrives as a joke is still the only warning anyone gets.
+# Tokens here: {meteorologist} {weather} {temp} {feels} {wind} {windLabel} {humidity}
+#              {precip} {day} {season} {hiTemp} {loTemp} {severeCount} {worstDay}
+# =============================================================================
+
+# --- Anchor tosses to the weather deck ----------------------------------------
+::lines wx.toss
+Now to the Raptor Fury Weather Deck, where {meteorologist} has been shouting at a map since noon. {meteorologist}?
+Let's check the sky, which has been openly hostile all week. {meteorologist}, what's it planning?
+{meteorologist}'s at the weather wall with a forecast our lawyers have described as "actionable." Take it.
+Time for weather — the only segment on this network where the threats are verified. {meteorologist}?
+Over to {meteorologist} at the Fury Deck. {meteorologist}, give it to us with both barrels.
+{meteorologist}, you've had the radar all day and the look on your face all evening. Go ahead.
+Weather now, and I'm told you should be sitting down for it. {meteorologist}?
+Let's bring in {meteorologist}, who has never once told me good news. {meteorologist}.
+::endlines
+
+# --- Weathercaster sign-on -----------------------------------------------------
+::lines wx.open
+Thanks, {anchor}. I've been staring at this system for six hours and it has not blinked.
+{anchor}, the radar's lit up like a citation. Here's what's actually over your head.
+Good evening. I'm {meteorologist}, and unlike the rest of this broadcast, I have instruments.
+Thanks, {anchor}. Fair warning: the atmosphere did not consult us on any of this.
+Here's your sky, {anchor}, and it is a {season} sky with something to prove.
+Appreciate it, {anchor}. Numbers first, panic after — that's the deal at this desk.
+::endlines
+
+# --- Conditions by sky (mirrors DOOMCAST's pools, in Skip's voice) -------------
+::lines wx.sky.clear
+Clear out there — {temp} degrees and not a cloud in it. Enjoy it, and then ask yourself why it's free.
+Wide open sky tonight, {temp} degrees. Clear is not the same as safe, but I'll take it.
+::endlines
+
+::lines wx.sky.fog
+Fog's in — {humidity}% humidity and visibility down to whoever's already standing next to you.
+Thick fog over the Basin. {temp} degrees, and the city's gone from the map for a few hours.
+::endlines
+
+::lines wx.sky.haze
+Haze across the whole Basin. {temp} degrees of flat grey air you can taste on the back of your teeth.
+It's hazy out — the skyline's a rumour and the air's got texture. Breathe shallow.
+::endlines
+
+::lines wx.sky.cloudy
+Cloud cover, {temp} degrees, sky can't commit. Neither can anyone else this week.
+Partly cloudy tonight at {temp}. Unremarkable, which around here is practically a holiday.
+::endlines
+
+::lines wx.sky.overcast
+Full overcast — {temp} degrees under a lid. No sky tonight, just ceiling.
+Solid grey top to bottom, {temp} degrees. The sun's filed for absence and nobody's chasing it.
+::endlines
+
+::lines wx.sky.rain
+Rain, {precip}% of it, {temp} degrees. It's wet, it's dirty, and it's going straight down your collar.
+{precip}% chance of rain and I'd take that bet. Waterproof whatever you can't replace.
+::endlines
+
+::lines wx.sky.sleet
+Sleet — {temp} degrees, half rain, half ice, coming in sideways. Nobody's dressed for this.
+It's sleeting out there. {temp} degrees and every surface in the Basin is now a decision.
+::endlines
+
+::lines wx.sky.snow
+Snow, {temp} degrees, settling on anything that stops moving. Don't stop moving.
+It's snowing across the Basin, {temp} degrees. Beautiful from a window. Lethal from a doorway.
+::endlines
+
+::lines wx.sky.thunderstorm
+Thunderstorms, {precip}% chance, {temp} degrees. The sky's picking targets and it isn't picky.
+Lightning's in play tonight. If you can count the gap to the thunder, you are the tallest thing you know.
+::endlines
+
+::lines wx.sky.blizzard
+Blizzard conditions — {temp} degrees, feels like {feels}, {wind} km/h of it in your face.
+Whiteout out there. {feels}-degree windchill. If you can see this screen, stay exactly where you are.
+::endlines
+
+::lines wx.sky.storm
+Storm-force, {wind} km/h, {temp} degrees. The grid's holding its breath and so am I.
+Full system on top of us — wind, water, and a power company that has already stopped answering.
+::endlines
+
+# --- Hero events: acid and ion. The joke stops here. --------------------------
+::lines wx.sky.acid
+Acid. Not bad rain — acid. {precip}% chance, and it goes through a coat and then through you.
+The sky's gone yellow and it means it. Sealed rainwear or four walls. There is no third option, {anchor}.
+Caustic rain over the Basin. I'll say it plainly because this network rarely does: do not go out in it.
+::endlines
+
+::lines wx.sky.ion
+Ion storm. The air goes conductive, the grid goes down, and anything with a circuit in it becomes scrap.
+Static's building to a scream out there. Charge nothing, trust nothing with a battery, sit down if you're chromed.
+Pulse conditions across the Basin. When the lights go, they go all at once — and yes, that includes us.
+::endlines
+
+# --- Warnings (severity band, or a hero day) ----------------------------------
+::lines wx.warn.cold
+⚠ Cold warning: {temp} degrees, feels like {feels}. Thermal gear tonight, or a very short walk.
+⚠ {day} runs to {temp}. That's not discomfort, that's exposure. Layer or don't go.
+::endlines
+
+::lines wx.warn.heat
+⚠ Heat warning — {temp} degrees. Shade, water, and nothing heroic between noon and four.
+⚠ {day} bakes at {temp}. Heatstroke's fast and free. Decline it.
+::endlines
+
+::lines wx.warn.wind
+⚠ Wind warning, {wind} km/h — {windLabel}. Off the rooftops, away from the glass.
+⚠ {day}: gusts to {wind}. If it can fall on you, tonight it will.
+::endlines
+
+::lines wx.warn.blizzard
+⚠ Blizzard warning for {day}. {feels}-degree windchill. This one takes stragglers.
+⚠ Severe: {day} is a killer. Thermal gear or a will, {anchor}. Your viewers pick one.
+::endlines
+
+::lines wx.warn.storm
+⚠ Storm warning, {day}. Lightning, {wind} km/h, and a grid that may not hold. Charge what you can now.
+⚠ {day} brings the whole system. Stay in, stay off the roofs, and keep a light that doesn't need power.
+::endlines
+
+::lines wx.warn.acid
+⚠⚠ ACID WARNING, {day}. This is the one that takes skin off. Sealed rainwear or you stay indoors.
+⚠⚠ Caustic front {day}. It eats coats, it eats gear, then it starts on you. Cover every inch.
+⚠⚠ {day} rains acid, {anchor}. I'm not being colourful for the ratings. That's a chemical burn falling out of the sky.
+::endlines
+
+::lines wx.warn.ion
+⚠⚠ ION STORM {day}. The grid drops and stays down. Anything electronic on you gets cooked.
+⚠⚠ Pulse warning for {day}. Leave the deck home, shield the tablet, and if you're chromed — be sitting down.
+⚠⚠ Lights out citywide {day}. Torch that doesn't need a circuit, room you trust. You've had the notice.
+::endlines
+
+::lines wx.warn.generic
+⚠ The numbers on {day} come in severe, {anchor}, and the numbers don't flatter anybody.
+⚠ Flagging {day} as severe. Not for drama — for the record, and for whoever's listening.
+::endlines
+
+# --- Week arc ------------------------------------------------------------------
+::lines wx.trend.warming
+It climbs from here — {loTemp} tonight to {hiTemp} by week's end. Enjoy it suspiciously.
+Warming trend, {hiTemp} degrees waiting at the far side of the week.
+::endlines
+
+::lines wx.trend.cooling
+We shed it fast — {hiTemp} down to {loTemp} before the week's out. Dig out the layers now.
+Cooling all week, bottoming at {loTemp}. Whatever heat you've got, ration it.
+::endlines
+
+::lines wx.trend.clearing
+Good news, and I hate saying it on this network: the wet clears as the week runs on.
+It dries out toward the weekend. Briefly. Don't build a life on it.
+::endlines
+
+::lines wx.trend.deteriorating
+It gets worse. {severeCount} severe days ahead, {worstDay} the worst of them. Plan around it or pay for it.
+{severeCount} days flagged severe this week, {anchor}. {worstDay} is the one I'd move things off.
+::endlines
+
+::lines wx.trend.steady
+Flat all week — same grey, same grind, {loTemp} to {hiTemp} and no surprises. Consistency, at least.
+No real movement ahead. The sky's found its rut and it's staying in it.
+::endlines
+
+# --- Weathercaster tosses back --------------------------------------------------
+::lines wx.back
+That's your sky, {anchor}. Dress for the worst number I said, not the one you liked.
+Back to you, {anchor}. The forecast's free; ignoring it costs.
+That's the Fury Deck. I'll be here, {anchor}, watching it come.
+Numbers are the numbers, {anchor}. Do with them what the rest of this show never does.
+::endlines
+
+# --- Anchor reaction to the weather ----------------------------------------------
+::lines wx.reaction
+Thank you, {meteorologist}. Comforting as ever.
+{meteorologist}, you are the only honest man on this network and it shows in the ratings.
+Chilling stuff — literally, in this case. Thanks, {meteorologist}.
+And there it is, folks: the one part of this broadcast we can actually prove.
+Thanks, {meteorologist}. Somebody get that man a window that isn't cracked.
+Wonderful. The sky's against us too. Thank you, {meteorologist}, sincerely.
 ::endlines
 
 # --- Kicker intro (the mandated feel-good pivot) ------------------------------
@@ -370,6 +636,10 @@ Last tonight, a palate cleanser for the soul, if you've still got one:
 Before we go dark, a little light. Ration it. It's all we've got.
 And to wrap, a story with no body count. Savor it.
 Finally, because you've earned it and we've billed for it, something almost sweet:
+And finally tonight, a story with no villain in it. We checked twice.
+Before we go — one small thing that went right today. Just the one.
+Let's finish somewhere softer. The producers say it tests well and I say it's nice.
+And to close: something the Machine hasn't found a way to charge for yet.
 ::endlines
 
 # --- Kicker (standalone light closer) -----------------------------------------
@@ -390,6 +660,13 @@ A vending drone and a traffic drone fell in love. It won't last, but for one nig
 Local man wins the lottery, immediately loses the ticket, remains weirdly upbeat. We could all learn something. We won't.
 A rooftop garden bloomed overnight in the Yards. Authorities are investigating this act of unlicensed beauty.
 A stray dog led a lost tourist safely out of Redline, then declined both comment and a medal. A good boy, off the record.
+An entire tenement block chipped in to fix one elevator. It works. It has never worked. Scientists are en route.
+A woman in the Yards has been feeding the same crow for nine years. It now brings her bottle caps and, once, a ring.
+A busker and a repossession agent got into an argument that ended in a duet. There is footage. It's lovely. We're not airing it.
+Somebody painted a mural of the old skyline on a wall in Redline. It's already been buffed. Somebody's painting it again.
+A grocer in the Undermarket has kept a running tab for a family for two years and never mentioned it. He'd like us to stop mentioning it.
+A kid returned a wallet with all the credits still in it. His mother is deeply confused and quietly, enormously proud.
+Two neighbours who haven't spoken since the blackout shared a generator last night. Neither has acknowledged it. Both showed up again tonight.
 ::endlines
 
 # --- Anchor sign-off ----------------------------------------------------------
@@ -410,6 +687,11 @@ We now return you to your regularly scheduled dread. I'm {anchor}. Thank you for
 That's the news that fit. The rest we're saving for when it's worse. I'm {anchor}. Good night.
 I'm {anchor}. Keep your head down and your dial here — it's the safest place in the Basin, statistically, per us.
 And that's a wrap on tonight's fury. I'm {anchor} — go carefully, the city's in a mood.
+That's tonight's bulletin. I'm {anchor}. Whatever's out there, at least now you know its name.
+We'll be back tomorrow with the same desk, the same coffee, and worse news. I'm {anchor}.
+I'm {anchor}. Look after the people on your floor. Nobody else is going to.
+That's all we have, and honestly a bit more than we had. I'm {anchor}. Good night, Coldwater.
+From the Raptor desk, I'm {anchor}. Eat something. Lock something. Watch us again.
 ::endlines
 
 # --- Station sign-off (the announcer, over the outro sting) -------------------
@@ -430,6 +712,11 @@ That's the transmission. Raptor News — the last light on the dial, and it is a
 RAPTOR NEWS. We told you so, we're telling you so, and we'll tell you so again. Good night.
 This concludes Raptor News. The fear you feel is normal, expected, and, per our sponsors, sponsored.
 You've been watching Raptor News. Now go check on your neighbors. Report anything unusual. Especially the neighbors.
+This has been Raptor News. Everything we said was true at the time we said it.
+RAPTOR NEWS NETWORK. Broadcasting to the Basin nightly, and to whoever else is listening. We know you are.
+That's the end of the transmission. Raptor News — first with the fear, last with the correction.
+This has been Raptor News. Tell a friend. Tell an enemy. Tell the ratings board.
+Raptor News, off the air. The city continues without us, unfortunately for the city.
 ::endlines
 
 END
