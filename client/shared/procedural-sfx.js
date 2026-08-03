@@ -507,6 +507,105 @@
     return cue;
   }
 
+  // ── INSTRUMENTS ──────────────────────────────────────────────────────────────
+  //
+  // A struck/plucked musical note, as opposed to everything above it, which is
+  // noise made by objects. Same machinery, same layer vocabulary, same "the
+  // server sends semantics and the client builds the sound" contract — a note on
+  // the wire is `{instrument, note, velocity}`, about 40 bytes, and every ear in
+  // the room rebuilds the identical voice locally.
+  //
+  // DELIBERATELY FREE OF `vary()`. Every other generator here jitters itself so
+  // the ninth chop doesn't sound machine-stamped. A note must not: two people
+  // standing in the same room have to hear the SAME performance, and they build
+  // it independently from the same three numbers. There is no seed on the wire
+  // because there is nothing random to reproduce.
+  //
+  // The classic FM insight the whole table rests on: a modulation index that
+  // COLLAPSES across the note is what reads as struck. High index at the attack
+  // is the hammer/mallet — bright, inharmonic, metallic — and as it falls the
+  // tone settles toward its carrier and rings. `fm.depthTo` in audio-engine.js
+  // does exactly this, which is why a piano costs a table row and not a synth.
+  //
+  //   ratio      modulator frequency as a multiple of the note. Integer ratios
+  //              are harmonic (piano, organ); non-integer go bell/metallic.
+  //   index      modulation index at the attack, scaled by velocity
+  //   indexEnd   where it collapses to — the sustained timbre
+  //   bright     how much harder playing opens the index (velocity → timbre,
+  //              which is the difference between a keyboard and a piano)
+  //   decay      seconds at C4; scaled by `stretch` across the range
+  //   stretch    how much longer low notes ring than high ones (1 = not at all)
+  //   body       gain of a sub-octave layer under the fundamental
+  //   hammer     gain of the noise transient at the attack
+  //   wave       carrier waveform
+  const INSTRUMENTS = {
+    // Upright piano. Ratio 1 with a hard index collapse: the strike is bright
+    // and complex, and a half-second later it is nearly a sine ringing out.
+    piano:     { ratio: 1,    index: 2.6, indexEnd: 0.12, bright: 1.5, decay: 1.5, stretch: 2.4, body: 0.16, hammer: 0.05, wave: 'sine' },
+    // Electric piano. Ratio 14:1 is the Rhodes trick — a high inharmonic
+    // modulator over a sine gives the bell-in-the-attack that defines the sound.
+    rhodes:    { ratio: 14,   index: 1.1, indexEnd: 0.04, bright: 2.2, decay: 1.9, stretch: 1.8, body: 0.10, hammer: 0.02, wave: 'sine' },
+    // Music box / celeste. Non-integer ratio, very short bright attack, long
+    // pure ring. Deliberately thin — no body layer.
+    musicbox:  { ratio: 3.5,  index: 3.2, indexEnd: 0.02, bright: 1.2, decay: 2.6, stretch: 1.4, body: 0,    hammer: 0.08, wave: 'sine' },
+    // Plucked string. Fast decay, index falls almost immediately, sawtooth
+    // carrier for the buzz of a wound string.
+    pluck:     { ratio: 2,    index: 1.8, indexEnd: 0.20, bright: 1.6, decay: 0.85, stretch: 1.9, body: 0.12, hammer: 0.06, wave: 'sawtooth' },
+    // Tonewheel-ish organ. No collapse at all (index sits where it starts) and
+    // a long flat sustain, which is what makes it read as blown rather than hit.
+    organ:     { ratio: 1,    index: 0.5, indexEnd: 0.45, bright: 0.4, decay: 0.9, stretch: 1.1, body: 0.22, hammer: 0,    wave: 'sine' },
+  };
+
+  const SEMITONE = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
+
+  // Local copy rather than an import: this file is loaded as a plain <script> in
+  // the client and as ESM on the server, and audio-engine.js is browser-only.
+  // Same formula, same A440 reference — a disagreement here would be inaudible
+  // to one listener and out of tune to another.
+  function noteFreq(note) {
+    if (typeof note === 'number') return Number.isFinite(note) ? note : null;
+    const m = /^([A-G][#b]?)(-?\d+)$/.exec(String(note || '').trim());
+    if (!m || SEMITONE[m[1]] === undefined) return null;
+    return 440 * Math.pow(2, (((parseInt(m[2], 10) + 1) * 12 + SEMITONE[m[1]]) - 69) / 12);
+  }
+
+  function note({ instrument = 'piano', note: n = 'C4', velocity = 0.75 } = {}) {
+    const ins = INSTRUMENTS[instrument] || INSTRUMENTS.piano;
+    const freq = noteFreq(n);
+    if (freq == null) return null;
+    const v = clamp01(velocity);
+
+    // Decay stretched across the range: a bass note rings, a treble note doesn't.
+    // Measured in octaves either side of C4 so the curve is musical, not linear
+    // in Hz — an octave down should always be the same amount longer.
+    const octaves = Math.log2(freq / 261.63);
+    const decay = ins.decay * Math.pow(ins.stretch, -octaves / 2);
+
+    // Velocity opens the modulation index. This is the whole reason a piano
+    // sounds different played hard rather than just louder, and it costs one
+    // multiply — the layer builder already sweeps the index for us.
+    const idx = ins.index * (1 + (v - 0.5) * ins.bright);
+
+    return def(`note_${instrument}`, decay + 0.2, [
+      // Carrier + collapsing modulator: the note itself.
+      { waveform: ins.wave, freq,
+        fm: { rate: freq * ins.ratio, depth: freq * idx, depthTo: freq * ins.indexEnd, time: decay * 0.25 },
+        adsr: { a: 0.002, d: decay, s: 0, r: decay * 0.35 },
+        gain: (0.10 + 0.20 * v) },
+      // Sub-octave body. Not a second voice — it is the soundboard, and it is
+      // why a low piano note has weight the carrier alone can't give it.
+      ins.body > 0 && { waveform: 'sine', freq: freq / 2,
+        adsr: { a: 0.004, d: decay * 0.8, s: 0, r: decay * 0.3 },
+        gain: ins.body * (0.06 + 0.10 * v) },
+      // Hammer/mechanism. A few milliseconds of filtered noise riding the
+      // attack; inaudible on its own, and the note sounds synthetic without it.
+      ins.hammer > 0 && { noiseMix: 1,
+        filter: { type: 'bandpass', freq: Math.min(freq * 6, 7000), q: 1.2 },
+        adsr: { a: 0.001, d: 0.02, s: 0, r: 0.02 },
+        gain: ins.hammer * (0.3 + 0.7 * v) },
+    ], 6);
+  }
+
   // THE ENTRY POINT. Everything above is deterministic given `rnd`, so seeding
   // here is what makes the client's rebuild bit-identical to whatever the server
   // intended — and what makes a cue reproducible while someone is tuning it.
@@ -533,6 +632,10 @@
       case 'stream':  return stream({ surface: surf, intensity, phase: state, duration: flow });
       case 'flatus':  return flatus({ intensity, style: state });
       case 'microwave': return microwave({ intensity, revolutions: Math.max(1, Math.round(flow || 3)), phase: state || 'running' });
+      // `state` carries the note name and `surface` the instrument, so a note
+      // reaches the same one-argument entry point as everything else. Callers
+      // that know they want a note should use buildNoteCue below instead.
+      case 'note':    return note({ instrument: surf, note: state, velocity: intensity });
       default:        return null;
     }
   }
@@ -553,6 +656,7 @@
     'proc:surfaces': { name: 'Procedural — surfaces', ref: () => SURFACES },
     'proc:streams': { name: 'Procedural — stream surfaces', ref: () => STREAM_SURFACES },
     'proc:flatus': { name: 'Procedural — fart styles', ref: () => FLATUS_STYLES },
+    'proc:instruments': { name: 'Procedural — instrument voices', ref: () => INSTRUMENTS },
   };
 
   function defaults() {
@@ -592,7 +696,12 @@
     // Kept as an alias: the system started as cooking-only and the name is in
     // the regression suite and the docs. Same function.
     buildCookingCue: buildActionCue,
-    MATERIALS, SURFACES, STATES, STREAM_SURFACES, FLATUS_STYLES,
-    chop, impact, scrape, stir, pour, sizzle, boil, stream, flatus, microwave,
+    MATERIALS, SURFACES, STATES, STREAM_SURFACES, FLATUS_STYLES, INSTRUMENTS,
+    chop, impact, scrape, stir, pour, sizzle, boil, stream, flatus, microwave, note,
+    // Musical notes have their own entry point rather than riding buildActionCue:
+    // there is no seed (nothing is random) and the argument names are the ones a
+    // caller actually has — instrument, note, velocity.
+    buildNoteCue: (opts) => note(opts),
+    noteFreq,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

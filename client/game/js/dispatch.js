@@ -19,6 +19,7 @@ import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel, closeMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
+import { openPianoPanel, closePianoPanel, onRoomNote } from './panels/piano.js';
 import { openCardMachinePanel, cardMachineVend, openPackReveal } from './panels/cardpack.js';
 import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js';
 import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
@@ -1001,6 +1002,12 @@ const handlers = {
   // the back of a modal the player is still standing in front of.
   morphex_close: () => { closeMorphexPanel(); },
   atm_panel: (msg) => { openAtmPanel(msg); },
+  // The piano. `instrument_note` is somebody ELSE playing — the server excludes
+  // the player from their own broadcast, because their client already sounded
+  // that note the instant the key went down rather than waiting for a round trip.
+  instrument_panel: (msg) => { openPianoPanel(msg); },
+  instrument_note: (msg) => { onRoomNote(msg); },
+  instrument_close: () => { closePianoPanel(); },
   // The card machine's face, its vend, and the pack-opening cinematic. All three
   // still echo `message` into the log — the overlay is the show, never the record,
   // so closing it (or an audio-off client) loses nothing but the presentation.

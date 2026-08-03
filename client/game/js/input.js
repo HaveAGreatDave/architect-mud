@@ -6,6 +6,7 @@ import { appendToWhisperLog, sendToActiveTab } from './panels/whisper.js';
 import { openMusicPlayerPanel } from './panels/musicplayer.js';
 import { isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { isHangarBayWalkActive } from './panels/hangar-bay.js';
+import { isPianoKeysLive } from './panels/piano.js';
 import { toggleAutoWalk, startAutoWalk, cancelAutoWalk, isAutoWalkPromptPending, answerAutoWalkPrompt } from './panels/minimap.js';
 import { runMacroByName, abortMacros } from './panels/smartbar-macros.js';
 
@@ -115,6 +116,10 @@ export function initInput({ saveOrigin, notify } = {}) {
     // WASD keyboard movement owns the keys while armed — don't pull focus into
     // the command box (the window-capture handler in main.js drives movement).
     if (state.wasdMove) return;
+    // The piano owns the letter rows while its keys are live — every one of them
+    // is a note. It hands the keyboard back on Escape or on blur, and says so on
+    // the panel, so this never traps anyone.
+    if (isPianoKeysLive()) return;
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
       input.focus();
     }

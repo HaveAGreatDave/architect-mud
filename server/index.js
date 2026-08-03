@@ -482,6 +482,8 @@ const wss = new WebSocketServer({
 // things a player typed or clicked, not the client keeping itself alive.
 const IDLE_ACTIVITY_TYPES = new Set([
 	"command", "dialogue", "buy_npc", "sell_npc", "sell_all_npc", "shop_close", "mis_toggle",
+	// Somebody playing the piano is the least idle player in the building.
+	"instrument_note",
 ]);
 
 wss.on("connection", (ws) => {
@@ -540,6 +542,16 @@ wss.on("connection", (ws) => {
 		}
 		if (msg.type === "mis_toggle") return handleMisToggle(ws, session, msg);
 		if (msg.type === "panel_data") return handlePanelData(session, msg);
+		// A note struck on an instrument (plugins/instrument). Deliberately NOT a
+		// command: a player noodling produces 8-12 inputs a second, and each one
+		// through handleCommand would run the blackout/posture/SIFT gates and print
+		// a line into the log. This route does nothing but emit — the plugin owns
+		// every validation, including the rate limit, and rejects silently.
+		if (msg.type === "instrument_note") {
+			if (session.playerId)
+				emit("instrument.note", { playerId: session.playerId, note: msg.note, velocity: msg.velocity });
+			return;
+		}
 		if (msg.type === "panel_watch" || msg.type === "panel_unwatch") {
 			if (session.playerId)
 				emit("panel.watch", { playerId: session.playerId, feeds: msg.type === "panel_watch" ? (msg.feeds || []) : [] });

@@ -80,6 +80,15 @@ cue in that tab deterministic.
 | `boil` | liquid at temperature | heat, viscosity |
 | `stream` | a jet of liquid on a surface | **pressure**, surface, phase |
 | `flatus` | exactly what you think | **pressure** |
+| `note` | a struck/plucked musical note | instrument voice, note, **velocity** |
+
+One generator is not like the others: **`note`** makes a *musical* sound rather than noise made by an
+object, and it is the only one here with **no `vary()` in it at all**. Everything above jitters itself
+so the ninth chop doesn't sound machine-stamped; a note must not, because two people standing in the
+same room build the performance independently and have to arrive at the same sound. There is no seed
+on its wire format for the same reason — there is nothing random to reproduce. Its table is
+`INSTRUMENTS`, and the parameter the whole thing rests on is `fm.depthTo`: a modulation index that
+**collapses across the note** is what reads as *struck*. See [systems-instruments.md](systems-instruments.md).
 
 Deliberately **not** separate generators: `fry_crackle` is `sizzle` at high heat; `whisk` is `stir`
 with high-frequency movement; metal/ceramic/wood resonance are `impact` with a surface. Reuse over

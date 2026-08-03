@@ -1,0 +1,13 @@
+{
+  "name": "instrument",
+  "version": "1.0.0",
+  "description": "Playable musical instruments. Furniture carrying `flags.instrument` (a voice name — piano, rhodes, musicbox, pluck, organ) can be sat down at with `play`, and is then played key by key on the player's own keyboard through a visual two-octave keyboard panel; every note is heard by everyone else in the zone. A note is NOT a command — noodling is 8-12 inputs a second, so notes ride a thin `instrument_note` ws route that only emits, the same shape as tv_watch, rather than running the dispatch pipeline and printing a log line each. The server relays semantics only (`{voice, note, velocity}`, ~40 bytes) and each ear rebuilds the voice locally from the INSTRUMENTS table in client/shared/procedural-sfx.js — which is also what lets the player's OWN note sound client-side the instant the key goes down, because a round trip between pressing a key and hearing it is the difference between an instrument and a website. Voices are FM: the modulation index COLLAPSES across the note (fm.depthTo, already in audio-engine.js), which is what reads as struck, and velocity opens the index rather than just the gain, which is why playing harder changes the timbre. Deliberately NO skill roll and no fumbles: the skill being exercised is the player's own hands on their own keyboard, and rolling dice over it would punish someone for playing well. Authoritative state is who is seated, that they are still in the room, and a 14/sec token-bucket rate limit re-checked on every note; all of it in memory, no table, no tick, no query on the note path. `play c4 e4 g4` is the written route for the textgames rung (and for macros), and leaving the room ends the performance.",
+  "commands": ["play"],
+  "hooks": [],
+  "objectGatedCommands": {
+    "play": { "discoverVia": "instrument", "note": "Surfaced by the declaration-only specialized action registered under requiredFlag instrument, so examining the piano advertises PLAY." }
+  },
+  "extensionPoints": [
+    "furniture.flags.instrument"
+  ]
+}

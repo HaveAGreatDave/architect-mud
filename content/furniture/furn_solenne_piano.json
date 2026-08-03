@@ -1,0 +1,20 @@
+{
+  "description": "An upright in black lacquer, pushed against the wall where the glass ends, with the lid propped and the music desk empty. The fallboard has a maker's name on it in worn gilt that nobody in the room could pronounce and nobody in the room would admit to not being able to pronounce. It is tuned, which is the expensive part — somebody comes up eighteen floors twice a year to do it, and the room pays for that the way it pays for the coffee, without discussing it. The middle of the keyboard is a shade warmer in colour than the ends. That is a hundred years of hands.",
+  "flags": {
+    "instrument": "piano",
+    "interactions": [
+      "examine",
+      "play"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_piano",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Black Upright Piano",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 9200,
+  "zone_id": "zone_solenne_salon"
+}

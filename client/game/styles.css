@@ -16410,3 +16410,102 @@ body.intro-cine-open { overflow: hidden; }
 #output-container.log-rung > #look-resize-handle {
 	display: none;
 }
+
+/* ── Piano keyboard (panels/piano.js) ─────────────────────────────────────── */
+/* Docked to the bottom edge rather than modal: the whole point is that the room
+   is still there while you play, so you can read what people say about it. It is
+   never taller than a third of the viewport for the same reason. */
+#piano-panel {
+	display: none;
+	position: fixed;
+	left: 50%;
+	bottom: 0;
+	transform: translateX(-50%);
+	width: min(760px, 98vw);
+	z-index: 190;
+	background: linear-gradient(180deg, #1a1410 0%, #100c09 100%);
+	border: 1px solid #2e2419;
+	border-bottom: none;
+	border-radius: 10px 10px 0 0;
+	box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.7);
+	padding: 6px 8px 8px;
+	font-family: 'Courier New', Courier, monospace;
+	user-select: none;
+}
+#piano-panel.active { display: block; }
+
+#piano-panel .pk-head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	font-size: 0.72em;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: #8a7a63;
+	padding: 2px 4px 6px;
+}
+#piano-panel .pk-name { color: #d8c39a; }
+#piano-panel .pk-octave { color: #6f6252; }
+/* The keyboard-ownership indicator. Deliberately loud when live — a surface that
+   silently swallows every letter you type is a bug report waiting to happen. */
+#piano-panel .pk-status { margin-left: auto; color: #6f6252; }
+#piano-panel.pk-live .pk-status { color: #ffd479; text-shadow: 0 0 8px rgba(255, 212, 121, 0.5); }
+#piano-panel .pk-close { cursor: pointer; color: #8a7a63; padding: 0 2px; }
+#piano-panel .pk-close:hover { color: #ffd479; }
+
+#piano-panel .pk-keys {
+	position: relative;
+	display: flex;
+	height: 108px;
+	outline: none;
+	touch-action: none;
+}
+/* No focus ring — the pk-live indicator IS the focus affordance, and a browser
+   outline around a piano looks like a form field. */
+#piano-panel .pk-keys:focus { outline: none; }
+
+#piano-panel .pk-key {
+	position: relative;
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+	cursor: pointer;
+	border-radius: 0 0 3px 3px;
+	transition: background 60ms linear, box-shadow 60ms linear;
+}
+#piano-panel .pk-white {
+	flex: 1 1 0;
+	background: linear-gradient(180deg, #f3ece0 0%, #ddd3c2 88%, #c3b8a4 100%);
+	border: 1px solid #3a2f22;
+	border-top: none;
+	margin-right: -1px;
+	box-shadow: inset 0 -6px 6px -6px rgba(0, 0, 0, 0.5);
+	padding-bottom: 6px;
+}
+#piano-panel .pk-black {
+	position: absolute;
+	top: 0;
+	height: 62%;
+	background: linear-gradient(180deg, #2b2622 0%, #14110e 90%);
+	border: 1px solid #000;
+	border-top: none;
+	border-radius: 0 0 3px 3px;
+	box-shadow: 0 3px 5px rgba(0, 0, 0, 0.6);
+	z-index: 2;
+	padding-bottom: 5px;
+}
+#piano-panel .pk-cap { font-size: 0.62em; opacity: 0.5; pointer-events: none; }
+#piano-panel .pk-white .pk-cap { color: #6b5b45; }
+#piano-panel .pk-black .pk-cap { color: #b9a88c; }
+
+/* Struck by you, and struck by somebody else in the room, are different colours
+   on purpose — it is the only way to read a duet off the keys. */
+#piano-panel .pk-key.pk-down { background: linear-gradient(180deg, #ffd479 0%, #d9a23f 100%); }
+#piano-panel .pk-black.pk-down { background: linear-gradient(180deg, #c8912f 0%, #6d4c14 100%); }
+#piano-panel .pk-key.pk-other { background: linear-gradient(180deg, #7fd7ff 0%, #3a93c4 100%); }
+#piano-panel .pk-black.pk-other { background: linear-gradient(180deg, #3a93c4 0%, #1c5a7d 100%); }
+
+@media (max-width: 700px) {
+	#piano-panel .pk-keys { height: 84px; }
+	#piano-panel .pk-cap { display: none; }
+}
