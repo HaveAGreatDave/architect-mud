@@ -269,10 +269,70 @@ const SFX = {
       { waveform: 'triangle', freq: 880, adsr: { a: 1.2, d: 0.5, s: 0.4, r: 1.5 }, gain: 0.16 },
     ] },
   },
+  // ── The Architect's address ────────────────────────────────────────────────
+  // The welcome ran in SILENCE until now, which made the one moment the game's
+  // author-figure speaks to you directly the quietest in the prologue. These four
+  // are deliberately the lowest-pitched things in the game: the bed sits at A0,
+  // an octave under the vat swell, because the Architect should be felt in the
+  // chest before it is understood in the ear. Nothing here is bright — no chime,
+  // no shimmer, no high partial above 1.4k. It is a large machine talking.
+
+  // The wall becoming a screen: a sub swell that arrives before the light does.
+  screenWake: {
+    id: 'sfx_prologue_screen_wake', name: 'sfx_prologue_screen_wake', category: 'sfx', priority: 10,
+    config: { duration: 2.8, layers: [
+      { waveform: 'sine', freq: 18, pitchBend: { to: 34, time: 2.2 }, adsr: { a: 0.6, d: 0.8, s: 0.7, r: 1.2 }, gain: 0.6 },
+      { waveform: 'sawtooth', freq: 32, pitchBend: { to: 55, time: 2.0 }, filter: { type: 'lowpass', freq: 420, q: 1.4 }, adsr: { a: 0.5, d: 0.9, s: 0.5, r: 1.1 }, gain: 0.3 },
+      // The only voice above the sub: glass taking a charge, kept quiet and dull.
+      { noiseMix: 1, filter: { type: 'bandpass', freq: 1200, q: 0.9 }, adsr: { a: 0.35, d: 0.7, s: 0.25, r: 0.9 }, gain: 0.1 },
+    ] },
+  },
+  // The room tone that holds under the whole address. A LOOP, so it can be swelled
+  // line by line — the address gets heavier as it goes rather than opening at full
+  // weight, which is what makes the last line land.
+  voiceBed: {
+    id: 'sfx_prologue_architect_bed', name: 'sfx_prologue_architect_bed', category: 'ambient', priority: 8,
+    config: { gain: 1, layers: [
+      { waveform: 'sine', freq: 27.5, adsr: { a: 2.5, d: 1.0, s: 1, r: 2.5 }, gain: 0.5 },
+      { waveform: 'sawtooth', freq: 36.71, filter: { type: 'lowpass', freq: 140, q: 0.8 }, adsr: { a: 3.0, d: 1.0, s: 1, r: 2.5 }, gain: 0.34 },
+      // Slow breath rather than a steady tone — a room that is doing something.
+      { noiseMix: 1, filter: { type: 'lowpass', freq: 220, q: 0.7 }, tremolo: { rate: 0.09, depth: 0.4 }, adsr: { a: 4.0, d: 1.0, s: 1, r: 3.0 }, gain: 0.22 },
+    ] },
+  },
+  // One per spoken line: the weight behind a sentence, not a word-sync. Sub thump
+  // with a dead-dull noise brush and no attack transient — it should read as the
+  // room pressing rather than as a drum.
+  voiceLine: {
+    id: 'sfx_prologue_architect_line', name: 'sfx_prologue_architect_line', category: 'sfx', priority: 9,
+    config: { duration: 1.8, layers: [
+      { waveform: 'sine', freq: 30, adsr: { a: 0.04, d: 0.5, s: 0.35, r: 1.0 }, gain: 0.55 },
+      { waveform: 'triangle', freq: 45, adsr: { a: 0.06, d: 0.4, s: 0.25, r: 0.9 }, gain: 0.24 },
+      { noiseMix: 1, filter: { type: 'lowpass', freq: 300, q: 1.2 }, adsr: { a: 0.02, d: 0.3, s: 0.1, r: 0.6 }, gain: 0.18 },
+    ] },
+  },
+  // The screen taking the wall with it: everything pitches DOWN and keeps going
+  // after the text has stopped, so the dark it leaves is louder than the light was.
+  screenDeath: {
+    id: 'sfx_prologue_screen_death', name: 'sfx_prologue_screen_death', category: 'sfx', priority: 10,
+    config: { duration: 3.6, layers: [
+      { waveform: 'sawtooth', freq: 140, pitchBend: { to: 19, time: 2.4 }, filter: { type: 'lowpass', freq: 900, q: 1.6 }, adsr: { a: 0.02, d: 0.6, s: 0.5, r: 1.4 }, gain: 0.42 },
+      { waveform: 'sine', freq: 44, pitchBend: { to: 21, time: 2.8 }, adsr: { a: 0.05, d: 0.8, s: 0.6, r: 1.8 }, gain: 0.6 },
+      { noiseMix: 1, filter: { type: 'lowpass', freq: 400, q: 0.8 }, adsr: { a: 0.01, d: 0.9, s: 0.2, r: 1.2 }, gain: 0.22 },
+    ] },
+  },
 };
 
 const playSfx = (player, def, gain = 1) =>
   sendToPlayer(player.id, { type: 'audio_sfx', def, gain });
+
+// Loops, for the one sequence that needs a bed under it rather than a cue on top.
+// Same fire-and-forget shape as playSfx — the client owns the voice from here.
+const startLoop = (player, def) =>
+  sendToPlayer(player.id, { type: 'audio_ambience', def });
+const rideLoop = (player, id, gain, ramp = 1.2) =>
+  sendToPlayer(player.id, { type: 'audio_loop_gain', id, gain, ramp });
+const stopLoop = (player, id) =>
+  sendToPlayer(player.id, { type: 'audio_stop', scope: 'ambience', id });
 
 // Run a [{ at, def, gain }] cue sheet on the player's own timers. Deliberately a
 // plain setTimeout ladder (same shape as playBroadcast below and the clone-vat
@@ -881,10 +941,40 @@ function playBroadcast(player) {
   ];
   let t = 1200;
   const step = 6400; // per-line interval; halved playback speed (was 3200)
+  // SOUND. The bed starts BEFORE the first line — the room should already feel
+  // wrong by the time the screen admits it's there — and swells one rung per
+  // line, so the address gets heavier as it goes instead of opening at full
+  // weight. Lines 1 and 6 (0-indexed) are narration, not the Architect speaking,
+  // so they take the screen cues rather than a voice pulse.
+  const lastIdx = lines.length - 1;
+  startLoop(player, SFX.voiceBed);
+  rideLoop(player, SFX.voiceBed.id, 0.35, 2.4);
   for (const line of lines) {
     setTimeout(() => out(player, line), t);
     t += step;
   }
+  playSoundscript(player, [
+    { at: 1200, def: SFX.screenWake, gain: 1 },
+    // The pulse lands a beat BEFORE its sentence: the room presses, then the
+    // voice arrives in the space it made.
+    ...lines.slice(1, lastIdx).map((_, i) => ({
+      at: 1200 + (i + 1) * step - 260,
+      def: SFX.voiceLine,
+      // "Behave exactly as you would" is the line the whole address exists to
+      // deliver, so it gets the hardest press.
+      gain: i === lines.length - 3 ? 1.15 : 0.75 + i * 0.08,
+    })),
+    { at: 1200 + lastIdx * step, def: SFX.screenDeath, gain: 1 },
+  ]);
+  // The bed climbs under the spoken lines, then goes with the screen. Stopped a
+  // beat AFTER the death cue so the sub tail is the last thing in the room, and
+  // stopLoop's own release ramps it rather than cutting it.
+  for (let i = 1; i < lastIdx; i++) {
+    const gain = Math.min(1, 0.35 + i * 0.16);
+    setTimeout(() => rideLoop(player, SFX.voiceBed.id, gain, 2.0), 1200 + i * step - 400);
+  }
+  setTimeout(() => rideLoop(player, SFX.voiceBed.id, 0, 2.6), 1200 + lastIdx * step + 400);
+  setTimeout(() => stopLoop(player, SFX.voiceBed.id), 1200 + lastIdx * step + 3400);
   // After the last line: the kit hits the floor and the way opens.
   setTimeout(async () => {
     try {

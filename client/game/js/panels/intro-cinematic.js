@@ -160,12 +160,25 @@ function startAudio() {
   // A low fifth, barely moving. This is the floor everything else sits on; it
   // is meant to be felt rather than heard, which is why it lives under the
   // filter and never gets bright.
-  for (const [i, f] of [38.5, 38.9, 57.8].entries()) {
+  //
+  // 28.9 is the SUB-OCTAVE of the 57.8 already here, added so the cold open and
+  // the Architect's address downstairs share a floor — that bed roots at 27.5
+  // (A0), and until this the cinematic bottomed out an octave above it, which
+  // made the game's opening lighter than the speech it sets up. Deliberately the
+  // existing fifth's own octave rather than the welcome's pitches: this bed is
+  // D#1/A#1 and that one is A0/D1, so importing the note would have put a
+  // semitone against 38.5 and set the whole floor beating.
+  for (const { f, type, gain } of [
+    { f: 28.9, type: 'sine',     gain: 0.30 },
+    { f: 38.5, type: 'sawtooth', gain: 0.34 },
+    { f: 38.9, type: 'sawtooth', gain: 0.34 },
+    { f: 57.8, type: 'sine',     gain: 0.22 },
+  ]) {
     const o = ctx.createOscillator();
-    o.type = i === 2 ? 'sine' : 'sawtooth';
+    o.type = type;
     o.frequency.value = f;
     const g = ctx.createGain();
-    g.gain.value = i === 2 ? 0.22 : 0.34;
+    g.gain.value = gain;
     o.connect(g).connect(filter);
     o.start(now);
     voices.push(o);
@@ -288,13 +301,19 @@ function startAudio() {
     o.stop(t0 + 3.6);
     voices.push(o);
   };
-  const A4 = 440, C5 = 523.25, E5 = 659.25, CS5 = 554.37;
-  bell(A4,  5200,  0.07);   // the first line lands
-  bell(E5,  19400, 0.06);   // the lattice starts to tighten
-  bell(C5,  26900, 0.08);   // "something woke up"
-  bell(A4,  35000, 0.09);   // the last one before it all comes apart
-  bell(C5,  50000, 0.06);   // the lights come back on
-  bell(CS5, LOGO_AT + 700, 0.075);  // the mark strikes — major, not minor
+  // Dropped an OCTAVE from where these sat. Same six notes, same six moments —
+  // the motif is unchanged, it just stopped ringing above the voice. At A4/C5/E5
+  // the bells were the brightest thing in a record whose whole argument is dread,
+  // and they read as chimes; down here they read as something struck. It also
+  // puts every tone in the piece under 400 Hz except the pad shimmers, which is
+  // the register the Architect's address works in.
+  const A3 = 220, C4 = 261.63, E4 = 329.63, CS4 = 277.18;
+  bell(A3,  5200,  0.085);  // the first line lands
+  bell(E4,  19400, 0.075);  // the lattice starts to tighten
+  bell(C4,  26900, 0.095);  // "something woke up"
+  bell(A3,  35000, 0.105);  // the last one before it all comes apart
+  bell(C4,  50000, 0.075);  // the lights come back on
+  bell(CS4, LOGO_AT + 700, 0.09);  // the mark strikes — major, not minor
 
   // ── Master shape ──
   master.gain.setValueAtTime(0, now);
@@ -324,7 +343,11 @@ function startAudio() {
   // Noise hits: the wake-up, the exchange, and the first light of Coldwater.
   // Retimed with the beats — these are cues, and a cue that lands on the wrong
   // line is worse than no cue.
-  const hit = (delayMs, dur, gain, freq) => {
+  // `sub` rides a falling sine under a hit — the same gesture the Architect's
+  // screen-death cue makes downstairs (140→19 Hz), and the reason a noise burst
+  // reads as an EVENT rather than a hiss. Only the two structural hits get one;
+  // putting it under all four would make the piece thump on a schedule.
+  const hit = (delayMs, dur, gain, freq, sub = 0) => {
     const len = Math.floor(ctx.sampleRate * dur);
     const buf = ctx.createBuffer(1, len, ctx.sampleRate);
     const data = buf.getChannelData(0);
@@ -333,11 +356,25 @@ function startAudio() {
     const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = 0.8;
     const g = ctx.createGain(); g.gain.value = vol * gain;
     src.connect(bp).connect(g).connect(ctx.destination);
-    src.start(now + delayMs / 1000);
+    const t0 = now + delayMs / 1000;
+    src.start(t0);
     voices.push(src);
+    if (!sub) return;
+    const o = ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(58, t0);
+    o.frequency.exponentialRampToValueAtTime(22, t0 + dur * 0.8);
+    const sg = ctx.createGain();
+    sg.gain.setValueAtTime(0.0001, t0);
+    sg.gain.linearRampToValueAtTime(vol * sub, t0 + 0.05);
+    sg.gain.exponentialRampToValueAtTime(0.0001, t0 + dur + 0.6);
+    o.connect(sg).connect(ctx.destination);
+    o.start(t0);
+    o.stop(t0 + dur + 0.8);
+    voices.push(o);
   };
-  hit(26850, 1.1, 0.5, 220);   // "something woke up"
-  hit(38000, 2.4, 0.9, 130);   // "Civilization disappeared in weeks."
+  hit(26850, 1.1, 0.5, 220, 0.34);   // "something woke up"
+  hit(38000, 2.4, 0.9, 130, 0.5);    // "Civilization disappeared in weeks."
   hit(49000, 1.6, 0.35, 520);  // the title card
   hit(LOGO_AT, 0.9, 0.22, 1400); // the A-mark draws itself on — a soft air-hiss
 
