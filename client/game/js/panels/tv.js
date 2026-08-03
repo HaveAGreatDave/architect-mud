@@ -400,7 +400,11 @@ export function createTvView(root, opts = {}) {
     if (_channelChanged && _scheduleOpen) _requestSchedule();
     _tvOpen = true;
     _tvShuttingDown = false;
-    _tvPoweredOff = !data.channelId || data.channelNumber === 0;
+    // "Powered off" here means the dial is parked with nothing on it — NOT channel
+    // 0. Channel 0 is the VCR input (see plugins/broadcast `TV_OFF`), and a set on
+    // it is showing a tape, so it gets the picture like any other station. Both
+    // arrive with channelNumber 0; `deckInput` is what separates them.
+    _tvPoweredOff = !data.channelId || (data.channelNumber === 0 && !data.deckInput);
     if (_tvActiveChannelId) {
       sendRaw({ type: watchMsg, channelId: _tvActiveChannelId });
       _speechOwner = view;   // the surface you just tuned owns the voice
@@ -413,7 +417,7 @@ export function createTvView(root, opts = {}) {
 
     const stationEl = el('station-name');
     if (stationEl) stationEl.textContent = data.stationName || data.channelName || '——';
-    setAll('channel-num', (data.channelNumber > 0) ? `CH ${data.channelNumber}` : '——');
+    setAll('channel-num', data.deckInput ? 'CH 0' : (data.channelNumber > 0) ? `CH ${data.channelNumber}` : '——');
     const pnEl = el('program-name');
     if (pnEl) { pnEl.textContent = ''; pnEl.style.opacity = ''; }
     const msgs = el('messages');

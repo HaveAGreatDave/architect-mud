@@ -7609,6 +7609,10 @@ function buildTvPanel(channelId, player, dialFrequency, dest) {
     channelName: state.name || channelId,
     stationName: state.stationName || state.name || channelId,
     channelNumber: state.number ?? 0,
+    // The VCR input is channel 0, and a set with no station resolves to 0 as well
+    // (`state.number ?? 0`) — so the number alone can't tell "tape playing" from
+    // "dial parked at 0.0". The client drew static for both. Say which one it is.
+    deckInput: isDeckInputChannel(channelId),
     dialFrequency,
     skin: isTablet ? 'tablet' : (fEntry?.skin || _tvSkinForZone(player.current_zone)),
     channelType: state.channelType || 'playlist',
