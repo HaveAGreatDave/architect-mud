@@ -16443,6 +16443,15 @@ body.intro-cine-open { overflow: hidden; }
 	text-transform: uppercase;
 	color: #8a7a63;
 	padding: 2px 4px 6px;
+	cursor: grab;
+}
+/* Dragged off the dock: it stops being a fixture of the bottom edge and becomes
+   a thing sitting on top of the room, so it gets its bottom corners back and a
+   shadow on all four sides. Double-click the header to re-dock. */
+#piano-panel.pk-loose {
+	border-radius: 10px;
+	border-bottom: 1px solid #2e2419;
+	box-shadow: 0 14px 44px rgba(0, 0, 0, 0.75);
 }
 #piano-panel .pk-name { color: #d8c39a; }
 #piano-panel .pk-octave { color: #6f6252; }

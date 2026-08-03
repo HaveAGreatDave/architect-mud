@@ -26,6 +26,12 @@
  * on the keys.
  */
 import { sendRaw, sendCmdSilent } from '../net.js';
+import { makeDraggable } from './confirm.js';
+
+// Where the player last dragged it to. Remembered across sessions, because a
+// panel you have to reposition every time you sit down is a panel you resent.
+// Double-clicking the header throws it away and re-docks.
+const POS_KEY = 'pianoPanelPos';
 
 const SEMITONES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const IS_WHITE = [true, false, true, false, true, true, false, true, false, true, false, true];
@@ -225,6 +231,63 @@ function build() {
   keys.addEventListener('focus', () => setLive(true));
   keys.addEventListener('blur', () => setLive(false));
   el.querySelector('.pk-close').addEventListener('click', () => { sendCmdSilent('play stop'); closePianoPanel(); });
+
+  // ── Dragging ──────────────────────────────────────────────────────────────
+  const head = el.querySelector('.pk-head');
+
+  // Registered BEFORE makeDraggable so it runs first: the panel is docked with
+  // `bottom: 0` and a centring transform, and a fixed box pinned at both top and
+  // bottom stretches to fill the gap rather than moving. Undock, then drag.
+  head.addEventListener('pointerdown', (e) => {
+    if (e.target.classList.contains('pk-close')) return;
+    undock();
+    // Dragging the header blurs the keys, which drops keyboard ownership. Put it
+    // back when the drag ends if they were live when it started — otherwise
+    // nudging the panel silently costs you the keyboard, with no way to tell.
+    const wasLive = live;
+    head.addEventListener('pointerup', () => { if (wasLive) setLive(true); }, { once: true });
+  });
+
+  makeDraggable(el, head);
+
+  head.addEventListener('pointerup', () => savePos());
+  // Escape hatch: put it back where it came from.
+  head.addEventListener('dblclick', () => { redock(); if (live) setLive(true); });
+}
+
+function undock() {
+  if (el.classList.contains('pk-loose')) return;
+  const r = el.getBoundingClientRect();
+  el.classList.add('pk-loose');
+  el.style.bottom = 'auto';
+  el.style.transform = 'none';
+  el.style.left = r.left + 'px';
+  el.style.top = r.top + 'px';
+}
+
+function redock() {
+  el.classList.remove('pk-loose');
+  el.style.left = el.style.top = el.style.bottom = el.style.transform = '';
+  try { localStorage.removeItem(POS_KEY); } catch { /* private mode */ }
+}
+
+function savePos() {
+  if (!el.classList.contains('pk-loose')) return;
+  try { localStorage.setItem(POS_KEY, JSON.stringify({ left: el.style.left, top: el.style.top })); } catch { /* private mode */ }
+}
+
+// Restoring is clamped to the CURRENT viewport, not the one it was saved from —
+// a position remembered on a wide monitor must not park the keyboard off the
+// edge of a laptop, where it can't be dragged back.
+function restorePos() {
+  let p = null;
+  try { p = JSON.parse(localStorage.getItem(POS_KEY) || 'null'); } catch { /* ignore */ }
+  if (!p?.left) return;
+  el.classList.add('pk-loose');
+  el.style.bottom = 'auto';
+  el.style.transform = 'none';
+  el.style.left = `${Math.max(0, Math.min(innerWidth - el.offsetWidth, parseInt(p.left, 10) || 0))}px`;
+  el.style.top = `${Math.max(0, Math.min(innerHeight - el.offsetHeight, parseInt(p.top, 10) || 0))}px`;
 }
 
 // The keycap glyph, uppercased for legibility. `,` stays as it is.
@@ -246,6 +309,8 @@ export function openPianoPanel(msg) {
   el.querySelector('.pk-name').textContent = furnName;
   el.classList.add('active');
   relabel();
+  // After `active`, so the panel has a measurable size to clamp against.
+  restorePos();
   setLive(true);
 }
 

@@ -5,7 +5,12 @@ import { sendCmd } from '../net.js';
 
 let _el = null;
 
-function makeDraggable(win, handle) {
+// Exported because the piano panel needs exactly this and a third copy of it
+// would be a third copy. (arrest.js still carries its own; fold it in when
+// somebody is next in there.) Callers with a panel anchored by `bottom` or
+// `right` must clear those themselves — this only ever writes left/top, and a
+// box pinned at both edges stretches instead of moving.
+export function makeDraggable(win, handle) {
   let ox = 0, oy = 0;
   handle.addEventListener('pointerdown', (e) => {
     if (e.target.tagName === 'BUTTON') return;
