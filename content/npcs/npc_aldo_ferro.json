@@ -1,0 +1,65 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "wait",
+        "ifTrue": "home_life",
+        "type": "condition"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"I've been reading about this. I'm told I have a very solid structure.\"",
+    "sets up the pieces slightly too fast and has to move the king and queen back",
+    "\"Krebs won't play me any more. She says it's not instructive for either of us.\"",
+    "hovers a hand over a knight, withdraws it, hovers it again",
+    "\"Best of three? Best of five. Best of however long it takes, honestly.\"",
+    "loses a piece, laughs at it, and pours himself something"
+  ],
+  "description": "A soft-handed man in his thirties wearing a very good jacket badly, as though it had been chosen for him and he had agreed rather than decided. He is delighted to see anyone. He plays the way enthusiastic people do — quickly, brightly, and straight off the edge of a cliff around move twenty — and he is entirely undamaged by it, which in this room is close to a superpower.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "chess_player": true,
+    "chess_strength": "patzer"
+  },
+  "home_activities": [],
+  "home_zone": "zone_solenne_apt_b",
+  "hp": 22,
+  "hp_max": 22,
+  "id": "npc_aldo_ferro",
+  "name": "Aldo Ferro",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

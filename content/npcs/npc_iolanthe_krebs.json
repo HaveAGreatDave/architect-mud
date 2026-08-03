@@ -1,0 +1,65 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "wait",
+        "ifTrue": "home_life",
+        "type": "condition"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Sit down. I'll give you the white pieces. I'll give you the first ten moves, too.\"",
+    "sets a captured pawn upright on the sideboard, the way one files a receipt",
+    "\"Everyone your age plays the opening. Nobody plays the ending. That is where I live.\"",
+    "turns a bishop over in her fingers without looking at the board",
+    "\"I don't play for money. Money would make it quicker, and I have the evening.\"",
+    "watches the door the way she watches a weak square"
+  ],
+  "description": "A small, upright woman of considerable age in a grey cashmere coat she has clearly owned longer than most of the building has stood. Her hands are spotted and absolutely steady. She sits with her back to the walnut and her face to the room, and she looks at whoever comes in exactly once, thoroughly, the way you'd read a position before touching anything. There is no chrome on her anywhere. In this city that is its own kind of boast.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "chess_player": true,
+    "chess_strength": "shark"
+  },
+  "home_activities": [],
+  "home_zone": "zone_solenne_apt_b",
+  "hp": 18,
+  "hp_max": 18,
+  "id": "npc_iolanthe_krebs",
+  "name": "Iolanthe Krebs",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

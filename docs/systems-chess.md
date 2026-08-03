@@ -4,8 +4,8 @@
 area pane, an ASCII board in the log, and an alpha-beta opponent. Lives in
 `plugins/gametable/` alongside poker, sharing one seat/persistence layer.
 
-The only piece not yet placed in the world is a chess-playing NPC — the bot is written and
-regress-tested, but nothing carries `flags.chess_player` and no verb summons one yet.
+You can sit down alone: `summon` calls a `flags.chess_player` NPC over to take the chair
+opposite, walking them across the city if they aren't already in the room.
 
 ---
 
@@ -171,6 +171,40 @@ Three rules shape it:
 
 Mate scores include the depth so mate-in-one beats mate-in-three; without that term the bot
 sees them as identical and can shuffle forever.
+
+### Getting it into a chair
+
+The search above was written long before anything could seat it. What seats it now is
+`summon` (also `deal`/`call <name>`), the same verb poker uses — because **calling somebody
+over is the same act in both games**, so the walk-over lives in `TableBase.summonBot` /
+`stepIncomingBots` rather than being written twice. It was lifted out of `GameTable` for
+this; poker kept only what actually differs, which is money.
+
+The subclass seams are `botIdFor(npc)`, `seatBot(npc)` (each game owns its seat row) and
+`_botPreflight(npc)` — everything that must be settled *before* an opponent sets off, so
+nobody crosses the map only to be turned away at the seat. A table that overrides nothing
+has no AI opponents at all.
+
+| | Poker | Chess |
+|---|---|---|
+| Pool flag | `flags.poker_player` | `flags.chess_player` |
+| Strength/style | `flags.poker_persona` | `flags.chess_strength` (a `CHESS_PERSONAS` key), or `flags.chess_persona` to override fields |
+| Preflight | bankroll, buy-in, bust cooldown, a backer's restake | **stake must be 0** |
+
+That last row is the one rule worth knowing: **nothing escrows a stake on an NPC's behalf**,
+so a bot seat at a staked board would pay a winner out of thin air. Chess refuses the summon
+rather than minting the pot ("*will play you, but not for money*"). The Inlaid Board is free,
+so this never bites in practice — but a staked board is one config key away, and this is what
+stops that key becoming a credit printer. Regress pins the refusal.
+
+Two smaller rules: an NPC's AI is frozen while it sits (and **thawed on leave**, or a
+summoned opponent is stuck in the chair for an hour), and when the last human stands up any
+bot still seated stands up too — an AI waiting alone at a two-seat board is a seat nobody
+else can take.
+
+The opponents themselves are ordinary content: `npc_iolanthe_krebs` (`shark`) and
+`npc_aldo_ferro` (`patzer`), both resident in the Solenne, giving the room a game you can
+lose and a game you can win.
 
 ---
 

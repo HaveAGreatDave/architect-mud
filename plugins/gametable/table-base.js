@@ -80,6 +80,9 @@ export class TableBase {
     // The table's assigned dealer, rushing in after a `call dealer` — { npc, path, step } | null
     this._incomingDealer = null;
 
+    // AI opponents walking in toward the table: [{ npc, path, step }]
+    this._incomingBots = [];
+
     // Last time state was persisted to DB
     this._lastPersist = 0;
 
@@ -309,6 +312,86 @@ export class TableBase {
       this._dealerSay("Sorry, folks. Let's get back to it.");
       this.pushPaneAll();
     }
+  }
+
+  // ── AI opponents ───────────────────────────────────────────────────────────
+  //
+  // Summoning an opponent is the same act in both games — you call somebody over,
+  // and if they aren't in the room they walk here — so it lives here rather than
+  // being written twice. What DIFFERS is money, and that is the whole reason for
+  // the seams below: a gambler needs a bankroll and a bust cooldown before he'll
+  // cross the city, and a chess player needs neither. A table that overrides
+  // nothing simply has no AI opponents.
+
+  // The synthetic seat id this table gives an NPC. Must agree with
+  // isSyntheticSeat(). Null means this game has no AI opponents.
+  botIdFor(_npc) { return null; }
+
+  // Seat the NPC. Subclasses own the seat row, because they own its fields.
+  async seatBot(_npc, _preferredSeat = null) {
+    return { ok: false, error: 'Nobody plays this game for you.' };
+  }
+
+  // Everything the game wants settled BEFORE an opponent sets off walking —
+  // cooldowns, stake, a backer's restake. Runs once, at summon time, so a bot
+  // never crosses the map only to be turned away at the seat.
+  async _botPreflight(_npc) { return { ok: true }; }
+
+  // What the table says when an opponent arrives on foot.
+  _botArrivedLine(npc) { return `${npc.name} takes a seat.`; }
+
+  // Bring an NPC to the table. If they're already in the room they sit at once;
+  // otherwise they walk in over the next several ticks (see stepIncomingBots).
+  // Returns { ok, error, walking?, seatIdx? }.
+  async summonBot(npc) {
+    const id = this.botIdFor(npc);
+    if (!id) return { ok: false, error: 'Nobody plays this game for you.' };
+    if (this.phase === 'Closed') return { ok: false, error: 'This table is closed.' };
+    if (this.openSeats() === 0) return { ok: false, error: 'No seats available.' };
+    if (this.seatedIndex(id) >= 0) return { ok: false, error: `${npc.name} is already at the table.` };
+    if (this._incomingBots.some(w => w.npc.id === npc.id)) return { ok: false, error: `${npc.name} is already on the way.` };
+
+    const pre = await this._botPreflight(npc);
+    if (!pre.ok) return pre;
+
+    if (npc.zone_id === this.zoneId) return this.seatBot(npc);
+
+    const path = findPath(npc.zone_id, this.zoneId, { maxDistance: 60 });
+    if (!path || path.length < 2) return { ok: false, error: `${npc.name} can't get here from where they are.` };
+    if (npc._ai) npc._ai.waitUntil = Date.now() + 3_600_000; // freeze their AI while we drive them
+    this._incomingBots.push({ npc, path, step: 1 });          // step 0 is their current zone
+    return { ok: true, walking: true };
+  }
+
+  // Advance each incoming opponent one zone toward the table; seat on arrival.
+  // Called from the plugin tick.
+  stepIncomingBots() {
+    if (!this._incomingBots.length) return;
+    const still = [];
+    for (const w of this._incomingBots) {
+      const next = w.path[w.step];
+      const moved = next && moveEntity(w.npc, next, sendToZone, query);
+      if (!moved) { if (w.npc._ai) w.npc._ai.waitUntil = null; continue; } // arrived-off-path or blocked
+      w.step++;
+      if (w.npc.zone_id === this.zoneId) {
+        this.seatBot(w.npc)
+          .then(r => {
+            if (r.ok) this._dealerSay(this._botArrivedLine(w.npc));
+            else if (w.npc._ai) w.npc._ai.waitUntil = null; // couldn't seat — let them resume their life
+          })
+          .catch(e => console.error('[gametable] seat incoming bot:', e.message));
+      } else {
+        still.push(w);
+      }
+    }
+    this._incomingBots = still;
+  }
+
+  // Hand an NPC back its own life after it leaves a seat. Safe to call twice.
+  _thawBot(npcId) {
+    if (!npcId) return;
+    const npc = getZoneNpcs(this.zoneId).find(n => n.id === npcId);
+    if (npc?._ai) npc._ai.waitUntil = null;
   }
 
   _dealerSay(text) {

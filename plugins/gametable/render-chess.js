@@ -205,7 +205,9 @@ function idleBoardHTML(table, viewerId) {
     const s = table.seats[i];
     const side = i === 0 ? 'WHITE' : 'BLACK';
     if (s) return `<div class="chess-seat filled"><span class="chess-seat-side">${side}</span><span>${esc(s.handle)}</span></div>`;
-    if (seated) return `<div class="chess-seat"><span class="chess-seat-side">${side}</span><span class="text-dim">[ empty ]</span></div>`;
+    // Sitting alone at a two-seat board is a dead end, so the empty chair
+    // opposite is the offer to call somebody over rather than a dim label.
+    if (seated) return `<div class="chess-seat poker-cmd" data-cmd="summon"><span class="chess-seat-side">${side}</span><span class="chess-sit">call an opponent</span></div>`;
     return `<div class="chess-seat poker-cmd" data-cmd="seat ${i + 1}"><span class="chess-seat-side">${side}</span><span class="chess-sit">sit down</span></div>`;
   }).join('');
   return `<div class="chess-idle">

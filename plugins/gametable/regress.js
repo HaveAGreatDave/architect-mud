@@ -337,4 +337,40 @@ async function chessRegress(check) {
   const flipped = boardASCII(textGame, 'b');
   check('chess text: Black reads the board from Black\'s side',
     flipped.split('\n')[2].startsWith('1 |'));
+
+  // ── The AI opponent's seat ─────────────────────────────────────────────────
+  //
+  // The search was always here; nothing ever put it in a chair. What's pinned is
+  // the seam that does — and the one refusal that protects credits, since no NPC
+  // escrows a stake and a bot seat at a staked board would pay out of thin air.
+  const { ChessTable } = await import('./chess-table.js');
+  const { isChessBotId } = await import('./bot-chess.js');
+  const { activeTables } = await import('./table-base.js');
+  const mkTable = (config, tag) => new ChessTable({
+    id: `chess_regress_${process.pid}_${tag}`, zone_id: 'void', name: 'Regress Board',
+    game_type: 'chess', config, state: '{}', phase: 'WaitingForPlayers',
+  });
+  const npc = { id: 'npc_regress_chess', name: 'Regress Opponent', zone_id: 'void', flags: { chess_strength: 'patzer' } };
+
+  const free = mkTable({ stake: 0 }, 'free');
+  const seated = await free.summonBot(npc);
+  check('chess bot: an opponent in the room sits down when summoned', seated.ok === true, seated.error);
+  check('chess bot: the seat is a synthetic one', isChessBotId(free.seats[seated.seatIdx]?.playerId));
+  check('chess bot: authored strength reaches the seat', free.seats[seated.seatIdx]?.persona?.depth === 1);
+  const twice = await free.summonBot(npc);
+  check('chess bot: the same opponent cannot be summoned twice', twice.ok === false);
+
+  const staked = mkTable({ stake: 500 }, 'staked');
+  const refused = await staked.summonBot(npc);
+  check('chess bot: refuses a staked board rather than minting the pot', refused.ok === false, refused.error);
+
+  // Standing up must hand the NPC its own life back, or a summoned opponent is
+  // frozen where it sits for the next hour.
+  npc._ai = { waitUntil: Date.now() + 3_600_000 };
+  free.seats[seated.seatIdx] = { ...free.seats[seated.seatIdx], npcId: npc.id };
+  await free.leaveTable(free.seats[seated.seatIdx].playerId);
+  check('chess bot: leaving the board clears the seat', free.seatedCount() === 0);
+
+  activeTables.delete(free.id);
+  activeTables.delete(staked.id);
 }

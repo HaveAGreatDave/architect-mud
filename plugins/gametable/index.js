@@ -8,7 +8,6 @@ import { getLivePlayer, setLivePlayer, getZone, world, hasActivePlayers } from '
 import { GameTable, MAX_SEATS } from './game-table.js';
 import { ChessTable } from './chess-table.js';
 import { activeTables, loadAllTables } from './tables.js';
-import { botId } from './bot-player.js';
 import { renderPane } from './render-pane.js';
 import { parseMove, generateMoves, toAlgebraic } from './games/chess.js';
 import { narrateBoard, boardASCII } from './text-chess.js';
@@ -381,16 +380,29 @@ async function cmdCall(args, raw, player) {
 // room he walks in over the next several ticks (see GameTable.stepIncomingBots).
 async function cmdSummon(args, raw, player) {
   const t = tableInZone(player.current_zone);
-  if (!t) return { type: 'error', message: 'No poker table here.' };
-  // Sit down first — you call him over to join you, not to an empty table.
-  if (t.seatedIndex(player.id) < 0) return { type: 'error', message: 'Take a seat first, then call a gambler over.' };
-  if (t.openSeats() === 0) return { type: 'error', message: 'The table is full.' };
+  if (!t) return { type: 'error', message: 'No game table here.' };
+  const chess = isChess(t);
+  // Sit down first — you call them over to join you, not to an empty table.
+  if (t.seatedIndex(player.id) < 0) {
+    return { type: 'error', message: chess
+      ? 'Take a seat first, then call somebody over to play you.'
+      : 'Take a seat first, then call a gambler over.' };
+  }
+  if (t.openSeats() === 0) return { type: 'error', message: chess ? 'Somebody is already sitting opposite.' : 'The table is full.' };
 
-  // Off-shift gamblers are asleep, not antisocial — same reason `call dealer` won't
+  // The two pools are deliberately separate flags: the Neon Vig's card crowd has
+  // no business answering a summons to a chess salon eighteen floors up.
+  //
+  // Off-shift players are asleep, not antisocial — same reason `call dealer` won't
   // wake the dealer: their commute graph would walk them straight back out.
+  const flag = chess ? 'chess_player' : 'poker_player';
   const gamblers = [...world.npcs.values()].filter(n =>
-    n.flags?.poker_player && (n.hp == null || n.hp > 0) && !isOffShift(n));
-  if (!gamblers.length) return { type: 'error', message: "You don't know any card players who'd show at this hour." };
+    n.flags?.[flag] && (n.hp == null || n.hp > 0) && !isOffShift(n));
+  if (!gamblers.length) {
+    return { type: 'error', message: chess
+      ? "You don't know anyone who'd come out for a game at this hour."
+      : "You don't know any card players who'd show at this hour." };
+  }
 
   let npc;
   const name = args.join(' ').replace(/^in\s+/i, '').trim(); // allow "deal in <name>"
@@ -400,21 +412,23 @@ async function cmdSummon(args, raw, player) {
     // over) so the one-click option doesn't just bounce off gamblers[0].
     const free = gamblers.filter(n =>
       !(n.flags?.poker_cooldown_until && Date.now() < n.flags.poker_cooldown_until)
-      && t.seatedIndex(botId(n.id)) < 0
+      && t.seatedIndex(t.botIdFor(n)) < 0
       && !t._incomingBots.some(w => w.npc.id === n.id));
     const pool = free.length ? free : gamblers;
     npc = pool[Math.floor(Math.random() * pool.length)];
   } else {
     const r = siftResolve(name, gamblers.map(n => ({ name: n.name, npc: n })));
-    if (r.type !== 'match') return { type: 'error', message: 'No gambler you know by that name.' };
+    if (r.type !== 'match') {
+      return { type: 'error', message: chess ? 'Nobody you know by that name plays.' : 'No gambler you know by that name.' };
+    }
     npc = r.candidate.npc;
   }
 
   const result = await t.summonBot(npc);
   if (!result.ok) return { type: 'error', message: result.error };
-  if (result.walking) return { type: 'output', message: `<span style="color:var(--yellow)">Word goes out. ${npc.name} is on his way.</span>` };
+  if (result.walking) return { type: 'output', message: `<span style="color:var(--yellow)">Word goes out. ${npc.name} is on the way.</span>` };
   t.pushPaneAll();
-  return { type: 'output', message: `<span style="color:var(--yellow)">${npc.name} pulls out a chair and sits down.</span>` };
+  return { type: 'output', message: `<span style="color:var(--yellow)">${npc.name} ${chess ? 'takes the chair opposite and turns the board' : 'pulls out a chair and sits down'}.</span>` };
 }
 
 // `evict` — send a seated AI opponent packing (between hands only; folding a
@@ -427,8 +441,13 @@ async function cmdEvict(args, raw, player) {
   // isn't at a poker table at all, this isn't a poker eviction — return undefined so
   // dispatch falls through to that engine handler instead of eating the verb here.
   if (!t) return undefined;
+  const chess = isChess(t);
   if (t.seatedIndex(player.id) < 0) return { type: 'error', message: 'Take a seat first, then evict a gambler.' };
-  if (t.phase === 'InProgress') return { type: 'error', message: "You can't evict anyone mid-hand." };
+  if (t.phase === 'InProgress') {
+    return { type: 'error', message: chess
+      ? "You can't send them away mid-game — finish it, or resign."
+      : "You can't evict anyone mid-hand." };
+  }
 
   const bots = t.seats.filter(s => s && s.isBot);
   if (!bots.length) return { type: 'error', message: 'No AI players at this table.' };
@@ -445,7 +464,7 @@ async function cmdEvict(args, raw, player) {
 
   await t.leaveTable(seat.playerId);
   t.pushPaneAll();
-  return { type: 'output', message: `<span style="color:var(--yellow)">${seat.handle} racks his chips and steps back from the table.</span>` };
+  return { type: 'output', message: `<span style="color:var(--yellow)">${seat.handle} ${chess ? 'sets the pieces back up and steps away from the board' : 'racks his chips and steps back from the table'}.</span>` };
 }
 
 // Find the NPC actually assigned to this table (explicit dealerNpcId, or
@@ -957,9 +976,10 @@ async function tableTick() {
       await table.maybePersist();
       table.stepIncomingDealer(); // advance a rushing dealer/host, if one was called
 
-      // Chess has no gamblers to walk in and no dealer gate — its only tick work
-      // is the persist above plus the occasional line from the host.
+      // Chess has no dealer gate — beyond walking an opponent in, its only tick
+      // work is the persist above plus the occasional line from the host.
       if (isChess(table)) {
+        table.stepIncomingBots();
         if (table.phase === 'InProgress' && table.seatedCount() > 0) {
           const now = Date.now();
           if (!table._lastDealerSay || now - table._lastDealerSay > 180_000) {

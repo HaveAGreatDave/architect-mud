@@ -4,11 +4,9 @@
 // chess shares. Everything below here is Texas Hold'em and nothing else.
 
 import { query } from '../../server/models/db.js';
-import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
+import { sendToPlayer } from '../../server/engine/messaging.js';
 import { emit } from '../../server/engine/events.js';
 import { getZonePlayers, getZoneNpcs, world, updateNpc } from '../../server/engine/world.js';
-import { moveEntity } from '../../server/engine/ai-behaviour.js';
-import { findPath } from '../../server/engine/pathfinding.js';
 import { TableBase, activeTables } from './table-base.js';
 import { HoldemGame } from './games/holdem.js';
 import { renderPane } from './render-pane.js';
@@ -145,9 +143,6 @@ export class GameTable extends TableBase {
     // Auto-start timer handle
     this._autoStartTimer = null;
 
-    // Gambler NPCs walking in toward the table: [{ npc, path, step }]
-    this._incomingBots = [];
-
     // Pending board run-out timer (set when everyone remaining is all-in)
     this._runoutTimer = null;
 
@@ -182,6 +177,8 @@ export class GameTable extends TableBase {
 
   // ── Seating ────────────────────────────────────────────────────────────────
 
+  botIdFor(npc) { return botId(npc.id); }
+
   // Seat a bot (gambler NPC) at the table. Draws the buy-in from the NPC's
   // persistent bankroll (flags.poker_bankroll) instead of a player's credits.
   // Returns { ok, error, seatIdx }.
@@ -208,15 +205,9 @@ export class GameTable extends TableBase {
     return { ok: true, seatIdx };
   }
 
-  // Bring a gambler NPC to the table. If he's already in the room he sits at once;
-  // otherwise he walks in over the next several ticks (see stepIncomingBots).
-  // Returns { ok, error, walking?, seatIdx? }.
-  async summonBot(npc) {
-    if (this.phase === 'Closed') return { ok: false, error: 'This table is closed.' };
-    if (this.openSeats() === 0) return { ok: false, error: 'No seats available.' };
-    if (this.seatedIndex(botId(npc.id)) >= 0) return { ok: false, error: `${npc.name} is already at the table.` };
-    if (this._incomingBots.some(w => w.npc.id === npc.id)) return { ok: false, error: `${npc.name} is already on his way.` };
-
+  // A gambler won't cross the city broke, and won't cross it at all straight
+  // after being cleaned out. (The walking itself is TableBase.summonBot.)
+  async _botPreflight(npc) {
     const persona = npc.flags?.poker_persona || {};
     const buyIn = persona.buyIn || this.config.buyIn || this.config.minBuyIn || 100;
     if (npc.flags?.poker_cooldown_until && Date.now() < npc.flags.poker_cooldown_until) {
@@ -228,38 +219,7 @@ export class GameTable extends TableBase {
       bankroll = Math.max(persona.bankroll || 0, buyIn * 10);
       await this._saveBotBankroll(npc, bankroll);
     }
-
-    if (npc.zone_id === this.zoneId) return this.seatBot(npc);
-
-    const path = findPath(npc.zone_id, this.zoneId, { maxDistance: 60 });
-    if (!path || path.length < 2) return { ok: false, error: `${npc.name} can't get here from where he is.` };
-    if (npc._ai) npc._ai.waitUntil = Date.now() + 3_600_000; // freeze his AI while we drive him
-    this._incomingBots.push({ npc, path, step: 1 });          // step 0 is his current zone
-    return { ok: true, walking: true };
-  }
-
-  // Advance each incoming gambler one zone toward the table; seat on arrival.
-  // Called from the plugin tick.
-  stepIncomingBots() {
-    if (!this._incomingBots.length) return;
-    const still = [];
-    for (const w of this._incomingBots) {
-      const next = w.path[w.step];
-      const moved = next && moveEntity(w.npc, next, sendToZone, query);
-      if (!moved) { if (w.npc._ai) w.npc._ai.waitUntil = null; continue; } // arrived-off-path or blocked
-      w.step++;
-      if (w.npc.zone_id === this.zoneId) {
-        this.seatBot(w.npc)
-          .then(r => {
-            if (r.ok) this._dealerSay(`${w.npc.name} takes a seat.`);
-            else if (w.npc._ai) w.npc._ai.waitUntil = null; // couldn't seat — let him resume his life
-          })
-          .catch(e => console.error('[gametable] seat incoming bot:', e.message));
-      } else {
-        still.push(w);
-      }
-    }
-    this._incomingBots = still;
+    return { ok: true };
   }
 
   // A bot lost its last chip: park it on a recovery cooldown and stand it up.

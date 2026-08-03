@@ -18,7 +18,7 @@ import { TableBase } from './table-base.js';
 import { ChessGame, fromAlgebraic, toAlgebraic, generateMoves } from './games/chess.js';
 import { renderChessPane } from './render-chess.js';
 import { narrateBoard, narrateMove, narrateResult, isChessTextMode } from './text-chess.js';
-import { chessBotId, isChessBotId, decideBotMove } from './bot-chess.js';
+import { chessBotId, isChessBotId, decideBotMove, CHESS_PERSONAS } from './bot-chess.js';
 
 const START_DELAY_MS = 4_000;   // beat between the second player sitting and the first move
 const DEFAULT_MOVE_SECS = 120;  // chess is a thinking game; the felt's 30s would be cruel
@@ -66,6 +66,47 @@ export class ChessTable extends TableBase {
   }
 
   get stake() { return Math.max(0, Number(this.config.stake) || 0); }
+
+  // ── AI opponent ────────────────────────────────────────────────────────────
+  //
+  // The walk-over is TableBase's; what chess adds here is almost nothing, and
+  // that is the point. A gambler needs a bankroll, a buy-in and a bust cooldown
+  // before he'll sit; a chess player needs a chair.
+
+  botIdFor(npc) { return chessBotId(npc.id); }
+
+  _botArrivedLine(npc) { return `${npc.name} sits down across the board.`; }
+
+  // The one thing that can turn an opponent away: money. Nothing escrows a stake
+  // on an NPC's behalf, so seating one at a staked board would let a player win
+  // credits from a seat that never put any in. Refuse rather than mint.
+  async _botPreflight(npc) {
+    if (this.stake > 0) {
+      return { ok: false, error: `${npc.name} will play you, but not for money.` };
+    }
+    return { ok: true };
+  }
+
+  async seatBot(npc, preferredSeat = null) {
+    if (this.phase === 'Closed') return { ok: false, error: 'This table is closed.' };
+    const id = chessBotId(npc.id);
+    if (this.seatedIndex(id) >= 0) return { ok: false, error: `${npc.name} is already playing.` };
+    if (this.openSeats() === 0) return { ok: false, error: 'No seats available.' };
+
+    // An NPC's own strength wins; the named personas are the authoring shorthand.
+    const named = CHESS_PERSONAS[npc.flags?.chess_strength] || CHESS_PERSONAS.hustler;
+    const persona = { ...named, ...(npc.flags?.chess_persona || {}) };
+
+    let seatIdx = preferredSeat !== null && this.seats[preferredSeat] === null ? preferredSeat : null;
+    if (seatIdx === null) seatIdx = this.seats.findIndex(s => s === null);
+
+    this.seats[seatIdx] = { playerId: id, npcId: npc.id, handle: npc.name, chips: 0, seatIdx, isBot: true, persona };
+    if (npc._ai) npc._ai.waitUntil = Date.now() + 3_600_000; // freeze their AI so they stay in the chair
+
+    this._checkAutoStart();
+    await this._persist();
+    return { ok: true, seatIdx };
+  }
 
   // ── Selection (the two-step click) ─────────────────────────────────────────
 
@@ -303,6 +344,7 @@ export class ChessTable extends TableBase {
     this._selection.delete(playerId);
     clearTimeout(this._retainTimers[playerId]);
     delete this._retainTimers[playerId];
+    if (seat.isBot) this._thawBot(seat.npcId);
 
     // Anything still on the seat (an unplayed stake) goes back.
     if (!seat.isBot && seat.chips > 0) {
@@ -312,9 +354,19 @@ export class ChessTable extends TableBase {
     }
 
     this._checkGameViable();
+    // Nobody left but the machine. An AI opponent waiting alone at a board is a
+    // seat nobody else can take, so it gets up and goes back to its evening.
+    if (!seat.isBot && !this.seats.some(s => s && !s.isBot)) await this._standDownBots();
     this.pushPaneAll();
     await this._persist();
     return { ok: true };
+  }
+
+  async _standDownBots() {
+    for (const seat of this.seats.filter(s => s && s.isBot)) {
+      this._hostSay(`${seat.handle} racks the pieces and stands.`);
+      await this.leaveTable(seat.playerId);
+    }
   }
 
   _checkGameViable() {
