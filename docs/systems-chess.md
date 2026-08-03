@@ -1,7 +1,8 @@
 # Chess — as built
 
-**STATUS: BUILT.** Full legal chess on a two-seat table, an isometric neon board in the
-area pane, an ASCII board in the log, and an alpha-beta opponent. Lives in
+**STATUS: BUILT.** Full legal chess on a two-seat table, a canvas-rendered 3D neon board in
+the area pane that you can orbit around, an ASCII board in the log, and an alpha-beta
+opponent. Lives in
 `plugins/gametable/` alongside poker, sharing one seat/persistence layer.
 
 You can sit down alone: `summon` calls a `flags.chess_player` NPC over to take the chair
@@ -111,17 +112,46 @@ Server-rendered HTML, like the felt. The client holds no board model and decides
 `.poker-cmd` with a literal verb string, so the existing delegated listener in `main.js`
 drives the whole thing with no client code of its own.
 
-**The 3/4 view is CSS, not sprites.** `.chess-board` is tipped with `rotateX/rotateZ`, and
-every `.chess-piece` inside counter-rotates by the same angles so the glyph stands *up* off
-the surface. Take the counter-rotation away and you have a photograph of a board lying
-flat; put it back and you're sitting across from someone. The contact shadow deliberately
-does **not** counter-rotate — the contrast between the flat shadow and the upright piece is
-what sells the height, and without it the pieces hover.
+**The board you actually see is drawn in 3D** by `client/game/js/panels/chess3d.js`, not by
+the CSS. `table_update` hangs the server's HTML as before, then `mountChess3D()` reads the
+board back out of that markup — `.chess-sq[data-sq]` for the squares, the `.chess-piece`
+classes inside them for the men — and replaces the stage with a canvas. **The server's flat
+board is still the source of truth and still the fallback**: if the renderer can't run, what
+stays on screen is a working board, which is why the mount runs *after* `setAreaPane` and
+never instead of it.
 
-Pieces are Unicode glyphs, so the set is crisp at any size and costs nothing to ship.
-**White reads cyan and Black reads magenta** — the two ends of the room's own palette,
-because literal white-on-black loses the black army entirely at this brightness. Solid
-glyphs for both sides; the outline set vanishes at this tilt.
+The 3D is done **the way the flight sim does it** (`panels/windshield.js`): no WebGL, no
+library, no build step. A camera that projects a world point to the screen, a depth-sorted
+face sink painted back→front (a 2D context has no z-buffer), and per-face lighting off the
+face normal. The one divergence is that windshield queues *closures* — a building face can
+paint itself a dozen ways — while every face here is a filled polygon, so the sink holds
+plain geometry and skips ~4000 closure allocations a frame.
+
+**Pieces are surfaces of revolution.** A silhouette of `[radius, height]` pairs, spun around
+its axis — which is how real chess pieces are made, and why a dozen numbers is enough to get
+a shape that reads instantly. Only the two things that *aren't* lathes are special-cased: the
+knight's head and the king's cross are extruded polygons on a lathed base, plus the rook's
+battlements and the queen's coronet as rings of small blocks. **The knight is the one piece
+whose orientation matters**, so it's the one piece turned to face down the board.
+
+**Rendering is on demand, never a rAF loop.** The scene is static between moves, so it
+redraws on a camera change or a pane update and otherwise costs nothing — that is what makes
+4000 faces in a 2D context affordable.
+
+**Drag the board to orbit it**, wheel to zoom; the view bar in the actions row is the touch
+route to the same camera and the way back from a wild orbit. The camera lives in
+`localStorage` and **survives the remount that happens on every single move**, which is the
+thing that would be maddening to lose.
+
+**White reads cyan and Black reads magenta** — the two ends of the room's own palette, read
+from the pane's own CSS variables rather than hardcoded, because literal white-on-black loses
+the black army entirely at this brightness.
+
+**Coverage: `npm run chess3d:smoke`** (in `pretest:regress`). Same bar and same reason as
+`shapes:smoke` — a canvas renderer whose only execution path is "a player happens to be
+looking at it" has no coverage at all. It draws a full board with every piece type, both
+colours and every square state across six camera angles including both pitch clamps, and
+checks that picking returns a square. It proves the board *draws*, not that it looks right.
 
 Selection is **server-side and two-step**: `chesspick e2` marks a piece and re-renders with
 its legal destinations lit, then a destination click sends the whole move. The extra round

@@ -15910,10 +15910,17 @@ body.intro-cine-open { overflow: hidden; }
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
-	--sq: 46px;
+	/* The board sizes itself off the pane rather than off a fixed pixel square —
+	   the pane is far wider than it is tall, so the HEIGHT is what actually
+	   binds and the vw term only stops it running away on an ultrawide. */
+	--sq: clamp(40px, min(5.4vw, 10.5vh), 104px);
 	--chess-white: var(--cyan);
 	--chess-black: var(--accent);
-	--chess-tilt: 54deg;
+	/* Camera. main.js overwrites these inline from localStorage when the player
+	   uses the view bar; these are the defaults, and the only thing that reads
+	   them is presentation. */
+	--chess-tilt: 52deg;
+	--chess-spin: -45deg;
 }
 
 /* ── Header ─────────────────────────────────────────────────────────────── */
@@ -15948,26 +15955,45 @@ body.intro-cine-open { overflow: hidden; }
 
 /* ── The tilted stage ───────────────────────────────────────────────────── */
 
+/* The 3D canvas takes this wrapper over entirely (panels/chess3d.js empties it
+   and drops a canvas in). Everything below it — the tilted CSS board, the
+   extruded glyph pieces — is the FALLBACK that shows if that never runs, so it
+   stays working rather than being deleted. */
+.chess-stage-wrap.chess-3d {
+	display: block;
+	padding: 0;
+	perspective: none;
+	height: clamp(280px, 58vh, 620px);
+}
+.chess-canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+	cursor: grab;
+	touch-action: none;
+}
+.chess-canvas:active { cursor: grabbing; }
+
 .chess-stage-wrap {
 	position: relative;
-	display: grid;
-	grid-template-columns: 18px 1fr;
-	grid-template-rows: 1fr 18px;
+	display: flex;
 	align-items: center;
-	justify-items: center;
-	padding: 26px 0 6px;
-	perspective: 1400px;
+	justify-content: center;
+	padding: calc(var(--sq) * 0.4) 0 calc(var(--sq) * 0.2);
+	/* A shorter perspective than before, because the board is bigger now — the
+	   near rank should read as genuinely nearer, not as a flat scale-down. */
+	perspective: calc(var(--sq) * 18);
+	perspective-origin: 50% 42%;
 }
 
 .chess-stage {
-	grid-column: 2;
-	grid-row: 1;
 	position: relative;
 	transform-style: preserve-3d;
-	transform: rotateX(var(--chess-tilt)) rotateZ(-45deg);
+	transform: rotateX(var(--chess-tilt)) rotateZ(var(--chess-spin));
+	transition: transform 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
 	/* The tilt eats vertical space; pull the stage up into it rather than
 	   letting the pane grow a dead band above the board. */
-	margin: calc(var(--sq) * -0.6) 0 calc(var(--sq) * 1.1);
+	margin: calc(var(--sq) * -0.55) 0 calc(var(--sq) * 0.9);
 }
 
 /* The floor glow under the board — the light source the pieces cast down onto. */
@@ -15982,6 +16008,7 @@ body.intro-cine-open { overflow: hidden; }
 }
 
 .chess-board {
+	position: relative;
 	display: grid;
 	grid-template-columns: repeat(8, var(--sq));
 	grid-template-rows: repeat(8, var(--sq));
@@ -15990,6 +16017,24 @@ body.intro-cine-open { overflow: hidden; }
 	box-shadow:
 		0 0 24px color-mix(in srgb, var(--cyan) 30%, transparent),
 		inset 0 0 40px rgba(0, 0, 0, 0.6);
+}
+
+/* The slab the squares sit on, pushed down in Z. It's what gives the board an
+   EDGE when you spin it — without a plate the board is an infinitely thin sheet
+   and a low tilt makes it vanish. */
+.chess-plate {
+	/* Absolute, not a grid item — a grid-placed plate would push the
+	   auto-placed squares off their own cells. */
+	position: absolute;
+	inset: 0;
+	transform: translateZ(calc(var(--sq) * -0.14));
+	background: linear-gradient(135deg, #0a1119, #05080c);
+	border: 1px solid color-mix(in srgb, var(--cyan) 55%, transparent);
+	box-shadow:
+		0 0 0 calc(var(--sq) * 0.06) #060a0f,
+		0 0 0 calc(var(--sq) * 0.07) color-mix(in srgb, var(--accent) 45%, transparent),
+		0 0 30px color-mix(in srgb, var(--accent) 25%, transparent);
+	pointer-events: none;
 }
 
 /* ── Squares ────────────────────────────────────────────────────────────── */
@@ -16006,8 +16051,21 @@ body.intro-cine-open { overflow: hidden; }
 	inset: 0;
 	border: 1px solid color-mix(in srgb, var(--cyan) 10%, transparent);
 }
-.sq-light .chess-sq-face { background: color-mix(in srgb, var(--cyan) 9%, #0b1016); }
-.sq-dark  .chess-sq-face { background: #070a0f; }
+/* Chamfered corners and a faint circuit grid: the "light" square is a lit
+   panel in a floor, not a piece of ivory. */
+.chess-sq-face {
+	clip-path: polygon(9% 0, 91% 0, 100% 9%, 100% 91%, 91% 100%, 9% 100%, 0 91%, 0 9%);
+}
+.sq-light .chess-sq-face {
+	background:
+		repeating-linear-gradient(0deg, color-mix(in srgb, var(--cyan) 7%, transparent) 0 1px, transparent 1px 25%),
+		repeating-linear-gradient(90deg, color-mix(in srgb, var(--cyan) 7%, transparent) 0 1px, transparent 1px 25%),
+		color-mix(in srgb, var(--cyan) 10%, #0b1016);
+}
+.sq-dark .chess-sq-face {
+	background: linear-gradient(135deg, #080c12, #04070a);
+	border-color: color-mix(in srgb, var(--accent) 8%, transparent);
+}
 
 /* A square you can act on. The lift is real 3D translation, so a live square
    rises out of the board instead of just changing colour. */
@@ -16065,38 +16123,88 @@ body.intro-cine-open { overflow: hidden; }
    order, and the glyph faces the viewer square-on while its BASE stays on the
    square it belongs to. translateY pulls the standing piece up so it sits on
    the square rather than through it. */
+/* The counter-rotation undoes the stage's spin then its tilt, so the piece
+   stands upright off the square whatever angle the board is viewed from. It
+   reads the SAME two variables the stage does — that's what lets the view bar
+   spin the board without the pieces lying down. */
 .chess-piece {
 	position: absolute;
-	bottom: 6%;
-	font-size: calc(var(--sq) * 0.82);
+	bottom: 4%;
+	font-size: calc(var(--sq) * 0.9);
 	line-height: 1;
 	transform-origin: center bottom;
-	transform: rotateZ(45deg) rotateX(calc(var(--chess-tilt) * -1)) translateY(6%);
+	transform: rotateZ(calc(var(--chess-spin) * -1)) rotateX(calc(var(--chess-tilt) * -1)) translateY(4%);
+	transition: transform 0.35s cubic-bezier(0.22, 0.61, 0.36, 1), filter 0.2s ease;
 	pointer-events: none;
-	transition: filter 0.2s ease;
 }
-.chess-glyph { display: block; }
 
-.pc-white .chess-glyph {
-	color: color-mix(in srgb, var(--chess-white) 82%, #ffffff);
+.pc-white { --pc-neon: var(--chess-white); --pc-deep: #063a47; --pc-core: #d8ffff; }
+.pc-black { --pc-neon: var(--chess-black); --pc-deep: #3d0b2d; --pc-core: #ffd9f4; }
+
+/* The body of the piece: a stack of downward text-shadows is a real extrusion,
+   so what you see is a solid object with thickness rather than a glyph with a
+   glow behind it. The last two steps are contact shading, not extrusion. */
+.chess-glyph {
+	display: block;
+	position: relative;
+	color: color-mix(in srgb, var(--pc-neon) 26%, #04070a);
 	text-shadow:
-		0 0 6px var(--chess-white),
-		0 0 16px color-mix(in srgb, var(--chess-white) 65%, transparent),
-		0 2px 0 rgba(0, 0, 0, 0.55);
+		0 1px 0 var(--pc-deep), 0 2px 0 var(--pc-deep), 0 3px 0 var(--pc-deep),
+		0 4px 0 var(--pc-deep), 0 5px 0 var(--pc-deep), 0 6px 0 var(--pc-deep),
+		0 7px 0 color-mix(in srgb, var(--pc-deep) 70%, #000),
+		0 9px 12px rgba(0, 0, 0, 0.85);
 }
-.pc-black .chess-glyph {
-	color: color-mix(in srgb, var(--chess-black) 74%, #1a0a16);
-	text-shadow:
-		0 0 6px var(--chess-black),
-		0 0 18px color-mix(in srgb, var(--chess-black) 70%, transparent),
-		0 2px 0 rgba(0, 0, 0, 0.7);
+
+/* The lit top face, sat on the extrusion. A vertical gradient clipped to the
+   glyph is what makes the material read as polished chrome under a neon sign
+   instead of flat coloured text. */
+.chess-glyph::before {
+	position: absolute;
+	inset: 0;
+	transform: translateY(-3px);
+	background: linear-gradient(180deg,
+		var(--pc-core) 0%,
+		color-mix(in srgb, var(--pc-neon) 85%, #fff) 30%,
+		var(--pc-neon) 58%,
+		color-mix(in srgb, var(--pc-neon) 40%, #000) 100%);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+	filter: drop-shadow(0 0 6px var(--pc-neon)) drop-shadow(0 0 16px color-mix(in srgb, var(--pc-neon) 55%, transparent));
+}
+.pc-k .chess-glyph::before { content: '\265A'; }
+.pc-q .chess-glyph::before { content: '\265B'; }
+.pc-r .chess-glyph::before { content: '\265C'; }
+.pc-b .chess-glyph::before { content: '\265D'; }
+.pc-n .chess-glyph::before { content: '\265E'; }
+.pc-p .chess-glyph::before { content: '\265F'; }
+
+/* A holo scan bar crawling up each piece. One line, slow, low opacity — enough
+   that the set reads as projected hardware rather than carved stone. */
+.chess-piece::after {
+	content: '';
+	position: absolute;
+	left: -6%;
+	right: -6%;
+	top: 50%;
+	height: 2px;
+	background: linear-gradient(90deg, transparent, var(--pc-neon), transparent);
+	opacity: 0.35;
+	mix-blend-mode: screen;
+	animation: chessScan 4.5s linear infinite;
+}
+@keyframes chessScan {
+	0%   { top: 96%; opacity: 0; }
+	12%  { opacity: 0.4; }
+	88%  { opacity: 0.4; }
+	100% { top: -4%; opacity: 0; }
 }
 
 /* Royalty stands taller than the infantry — the one bit of scale that makes a
    glyph set read as a SET rather than a font. */
-.pc-k { font-size: calc(var(--sq) * 0.95); }
-.pc-q { font-size: calc(var(--sq) * 0.9); }
-.pc-p { font-size: calc(var(--sq) * 0.66); }
+.pc-k { font-size: calc(var(--sq) * 1.05); }
+.pc-q { font-size: calc(var(--sq) * 1); }
+.pc-p { font-size: calc(var(--sq) * 0.72); }
 
 .pc-checked .chess-glyph { animation: chessKingPanic 0.9s ease-in-out infinite; }
 @keyframes chessKingPanic {
@@ -16104,31 +16212,49 @@ body.intro-cine-open { overflow: hidden; }
 	50%      { filter: drop-shadow(0 0 12px var(--red)) brightness(1.3); }
 }
 
-/* The contact shadow stays FLAT on the board (no counter-rotation) — that
-   contrast between the flat shadow and the upright piece is what sells the
-   height. Without it the pieces hover. */
-.chess-shadow {
+/* The plinth stays FLAT on the board (no counter-rotation) — the contrast
+   between the flat pad and the upright piece is what sells the height. It's a
+   hex emitter, not a smudge: the piece is standing on something. */
+.chess-plinth {
 	position: absolute;
-	bottom: 12%;
-	width: 62%;
-	height: 30%;
-	border-radius: 50%;
-	background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.75), transparent 72%);
+	bottom: 14%;
+	width: 58%;
+	aspect-ratio: 1;
+	clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+	background:
+		radial-gradient(ellipse at center, color-mix(in srgb, var(--pl-neon) 45%, transparent) 0%, transparent 70%),
+		color-mix(in srgb, var(--pl-neon) 14%, #05080c);
+	box-shadow: 0 0 14px color-mix(in srgb, var(--pl-neon) 40%, transparent);
 	pointer-events: none;
 }
+.pl-white { --pl-neon: var(--chess-white); }
+.pl-black { --pl-neon: var(--chess-black); }
 
-.chess-sq.sq-live:hover .chess-piece { filter: brightness(1.35); }
-
-/* ── Board labels ───────────────────────────────────────────────────────── */
-
-.chess-files, .chess-ranks {
-	display: flex;
-	color: var(--text-dim);
-	font-size: 0.72em;
-	letter-spacing: 0.1em;
+.chess-sq.sq-live:hover .chess-piece { filter: brightness(1.3); }
+/* A piece you can pick up lifts off its square. Real Z, so it lifts toward the
+   camera at any spin. */
+.chess-sq.sq-live:hover .chess-piece,
+.sq-selected .chess-piece {
+	transform: rotateZ(calc(var(--chess-spin) * -1)) rotateX(calc(var(--chess-tilt) * -1)) translateY(-8%);
 }
-.chess-files { grid-column: 2; grid-row: 2; gap: calc(var(--sq) - 0.72em); }
-.chess-ranks { grid-column: 1; grid-row: 1; flex-direction: column; gap: calc(var(--sq) - 1.1em); }
+
+/* ── Board coordinates ──────────────────────────────────────────────────── */
+
+/* Printed on the edge squares and counter-rotated like the pieces. A label
+   strip outside a board spun 45° lines up with nothing, which is why the old
+   one drifted away from the ranks it named. */
+.chess-coord {
+	position: absolute;
+	font-size: calc(var(--sq) * 0.2);
+	color: color-mix(in srgb, var(--cyan) 55%, transparent);
+	letter-spacing: 0.08em;
+	transform-origin: center;
+	transform: rotateZ(calc(var(--chess-spin) * -1)) rotateX(calc(var(--chess-tilt) * -1));
+	pointer-events: none;
+	z-index: 1;
+}
+.coord-file { bottom: 4%; right: 8%; }
+.coord-rank { top: 4%; left: 8%; }
 
 /* ── Rails ──────────────────────────────────────────────────────────────── */
 
@@ -16195,7 +16321,28 @@ body.intro-cine-open { overflow: hidden; }
 .log-no { color: color-mix(in srgb, var(--cyan) 60%, transparent); margin-right: 3px; }
 .log-recent { color: var(--text-bright); }
 
-.chess-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.chess-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+/* The camera bar. Deliberately quieter than the game buttons and pushed to the
+   far end — these change nothing about the game, only where you're standing. */
+.chess-viewbar { display: flex; gap: 3px; margin-left: auto; }
+.chess-viewbar button {
+	background: transparent;
+	border: 1px solid color-mix(in srgb, var(--cyan) 22%, transparent);
+	color: color-mix(in srgb, var(--cyan) 65%, transparent);
+	font-family: var(--font-mono);
+	font-size: 0.8em;
+	line-height: 1;
+	padding: 3px 7px;
+	border-radius: 3px;
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+.chess-viewbar button:hover {
+	color: var(--cyan);
+	border-color: var(--cyan);
+	box-shadow: 0 0 10px color-mix(in srgb, var(--cyan) 40%, transparent);
+}
 .chess-btn {
 	background: transparent;
 	border: 1px solid color-mix(in srgb, var(--cyan) 45%, transparent);

@@ -28,6 +28,7 @@ import { openVoidwalkStaging, appendVoidwalkChat } from './panels/voidwalk-stagi
 import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } from './panels/mediadeck.js';
 import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/deviceinspect.js';
 import { openCircuitHack } from './panels/circuithack.js';
+import { mountChess3D } from './panels/chess3d.js';
 import { openTextBreach, isTextBreachActive, command as textBreachCommand } from './panels/textbreach.js';
 import { openTextHololock, isTextHololockActive, command as textHololockCommand } from './panels/texthololock.js';
 import { openTextVault, isTextVaultActive, command as textVaultCommand } from './panels/textvault.js';
@@ -967,7 +968,12 @@ const handlers = {
   // the server renders it whole and the client just hangs it up. Buttons and
   // squares inside carry .poker-cmd, so main.js's delegated listener drives it
   // with no code of its own.
-  table_update: (msg) => { setAreaPane(msg.html); },
+  // …and chess then upgrades that flat pane in place: mountChess3D reads the
+  // board back out of the markup the server just sent and redraws it as a real
+  // 3D scene. If it can't (no canvas, a pane that isn't chess), the server's
+  // own board is what stays on screen — which is why this runs AFTER, never
+  // instead of, setAreaPane.
+  table_update: (msg) => { setAreaPane(msg.html); mountChess3D(); },
   trade_update: (msg) => { updateTrade(msg.html); },
   trade_close: () => { closeTrade(); },
   // The unified 3D hangar-bay app (flight/hangars.js pushHangarBay) — floor +

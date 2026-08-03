@@ -64,6 +64,14 @@ globalThis.window = {
 };
 // node ≥21 ships a read-only `navigator`, so a plain assignment throws. Define over it instead.
 try { Object.defineProperty(globalThis, 'navigator', { value: { userAgent: 'node', maxTouchPoints: 0 }, configurable: true }); } catch { /* already fine */ }
+// Generic DOM shape the canvas renderers ask for. getComputedStyle answers a
+// property bag rather than a cascade — a renderer reading a CSS variable needs a
+// value, not the right one.
+globalThis.getComputedStyle = () => ({
+  color: 'rgb(80, 220, 210)',
+  getPropertyValue: () => '',
+});
+globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
 globalThis.requestAnimationFrame = () => 0;
 globalThis.cancelAnimationFrame = () => {};
 globalThis.localStorage = globalThis.window.localStorage;

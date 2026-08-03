@@ -107,6 +107,8 @@ function boardHTML(table, game, viewerId, flipped) {
       const piece = grid[rank][file];
       cells.push(squareHTML({
         sq, piece, r, f,
+        fileLabel: r === 7 ? (flipped ? 'hgfedcba' : 'abcdefgh')[f] : null,
+        rankLabel: f === 0 ? (flipped ? '12345678' : '87654321')[r] : null,
         light: (rank + file) % 2 === 0,
         selected: sq === selected,
         target: targets.get(sq) || null,
@@ -121,19 +123,16 @@ function boardHTML(table, game, viewerId, flipped) {
     rows.push(cells.join(''));
   }
 
-  // Rank/file labels ride outside the tilted plane so they stay readable.
-  const files = (flipped ? 'hgfedcba' : 'abcdefgh').split('')
-    .map(c => `<span>${c}</span>`).join('');
-  const ranks = (flipped ? '12345678' : '87654321').split('')
-    .map(c => `<span>${c}</span>`).join('');
-
+  // Coordinates ride INSIDE the edge squares (see squareHTML). A strip outside a
+  // board rotated 45° lines up with nothing, so there isn't one.
   return `<div class="chess-stage-wrap">
-    <div class="chess-ranks">${ranks}</div>
     <div class="chess-stage">
       <div class="chess-glow"></div>
-      <div class="chess-board">${rows.join('')}</div>
+      <div class="chess-board">
+        <div class="chess-plate"></div>
+        ${rows.join('')}
+      </div>
     </div>
-    <div class="chess-files">${files}</div>
   </div>`;
 }
 
@@ -173,8 +172,13 @@ function squareHTML(o) {
   // are different decisions.
   const mark = o.target && !o.piece ? '<span class="chess-dot"></span>' : '';
 
+  // Coordinates sit on the edge squares themselves and counter-rotate with the
+  // pieces, so they stay upright and readable however the board is spun.
+  const coords = (o.fileLabel ? `<span class="chess-coord coord-file">${o.fileLabel}</span>` : '')
+    + (o.rankLabel ? `<span class="chess-coord coord-rank">${o.rankLabel}</span>` : '');
+
   return `<div class="${cls.join(' ')}"${attrs}${label} data-sq="${alg}">
-    <span class="chess-sq-face"></span>${mark}${piece}
+    <span class="chess-sq-face"></span>${coords}${mark}${piece}
   </div>`;
 }
 
@@ -183,9 +187,10 @@ function pieceHTML(piece, checked) {
   const color = colorOf(piece);
   const cls = ['chess-piece', color === 'w' ? 'pc-white' : 'pc-black', `pc-${type}`];
   if (checked && type === 'k') cls.push('pc-checked');
-  // The shadow is a separate element on the board plane; the glyph stands up off
-  // it. Without the shadow the pieces float and the tilt stops reading as depth.
-  return `<span class="chess-shadow"></span>`
+  // The plinth is a separate element that stays FLAT on the board plane; the
+  // piece stands up off it. Without it the pieces float and the tilt stops
+  // reading as depth. It carries the colour so it can glow in the team's neon.
+  return `<span class="chess-plinth ${color === 'w' ? 'pl-white' : 'pl-black'}"></span>`
        + `<span class="${cls.join(' ')}"><span class="chess-glyph">${GLYPHS[type]}</span></span>`;
 }
 
@@ -289,7 +294,23 @@ function actionsHTML(table, game, viewerId, isSpectator) {
   } else {
     btns.push(btn('leave', 'LEAVE TABLE'));
   }
-  return `<div class="chess-actions">${btns.join('')}</div>`;
+  return `<div class="chess-actions">${btns.join('')}${viewControlsHTML(game)}</div>`;
+}
+
+// Camera controls. These are NOT commands — they carry no data-cmd and never
+// reach the server; the 3D renderer (client/game/js/panels/chess3d.js) picks
+// them up by data-view and remembers the angle per browser. Dragging the board
+// does the same thing; the bar is the touch route to it, and the only way back
+// from a wild orbit. The board is one player's viewpoint, not table state.
+function viewControlsHTML(game) {
+  if (!game) return '';
+  const b = (v, glyph, title) =>
+    `<button class="chess-view" data-view="${v}" title="${esc(title)}">${glyph}</button>`;
+  return `<div class="chess-viewbar">
+    ${b('left', '↺', 'Orbit left (or drag the board)')}${b('right', '↻', 'Orbit right')}
+    ${b('up', '▲', 'Look down on the board')}${b('down', '▼', 'Drop to a low angle')}
+    ${b('reset', '⌂', 'Reset the view')}
+  </div>`;
 }
 
 function btn(cmd, label, kind = '') {
