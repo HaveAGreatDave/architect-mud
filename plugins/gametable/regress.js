@@ -117,6 +117,45 @@ export default async function regress({ check }) {
     } catch (e) { threw = true; check('narration builders do not throw', false, e.message); }
     check('narration builders run cleanly', !threw, 'a builder threw');
 
+    // Reconnect: a player who drops while seated comes back to the login LOOK,
+    // so unless the pane is pushed again they are sitting at a table they can't
+    // see. Text mode is the exception — the log is their table, and re-pushing
+    // the pane would take away the view they chose.
+    let rendered = 0;
+    const seatedTable = {
+      paneType: 'poker_pane',
+      config: {},
+      seats: [{ playerId: PID, seatIdx: 0, isBot: false }],
+      spectators: new Set(),
+      seatedIndex: pid => (pid === PID ? 0 : -1),
+      renderPaneFor: () => { rendered++; return '<div></div>'; },
+    };
+    await query('DELETE FROM player_flags WHERE player_id=$1', [PID]);
+    textModePlayers.delete(PID);
+    await _test.restorePaneOnLogin(seatedTable, PID);
+    check('reconnect: a seated player gets the table pane back', rendered === 1, `rendered=${rendered}`);
+
+    await commands.text([], 'text', player, noop);   // store an explicit text-mode pref
+    rendered = 0;
+    await _test.restorePaneOnLogin(seatedTable, PID);
+    check('reconnect: a text-mode player is left on the room view', rendered === 0, `rendered=${rendered}`);
+
+    // …and the pref is re-derived from the DB, not from the runtime Set, so a
+    // seat that outlived a server restart still comes back in the right view.
+    textModePlayers.delete(PID);
+    rendered = 0;
+    await _test.restorePaneOnLogin(seatedTable, PID);
+    check('reconnect: the stored Display Mode wins over an empty runtime set',
+      rendered === 0 && isTextMode(PID), `rendered=${rendered}, textMode=${isTextMode(PID)}`);
+
+    // An unknown player (logged out again mid-flight) must not throw.
+    let loginThrew = false;
+    try { await _test.restorePaneOnLogin(seatedTable, 'nobody_at_all'); }
+    catch { loginThrew = true; }
+    check('reconnect: a vanished player is a no-op, not a throw', !loginThrew);
+    await query('DELETE FROM player_flags WHERE player_id=$1', [PID]);
+    textModePlayers.delete(PID);
+
     await chessRegress(check);
   } finally {
     textModePlayers.delete(PID);

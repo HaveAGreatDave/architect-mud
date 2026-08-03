@@ -104,19 +104,20 @@ function doEmote(selfMsg, zoneMsg, player, broadcast) {
 // Posture commands
 // ---------------------------------------------------------------------------
 
-// The poker chairs are furniture flagged with game_table_id / seat_idx. Sitting
-// on one (or "at the poker table") takes a poker seat instead of a posture.
+// A game table's chairs are furniture flagged with game_table_id / seat_idx.
+// Sitting on one (or "at the chess table") takes a seat at the game instead of
+// a posture. Poker and chess are the same shape here — the table decides which.
 // Returns a command result, or undefined to fall through to normal posture sit.
 async function maybeSitAtPoker(target, player, broadcast) {
 	const zoneFurn = getZoneFurniture(player.current_zone);
-	if (!zoneFurn.some((f) => f.flags?.game_table_id != null)) return undefined; // no poker table here — ordinary sit
+	if (!zoneFurn.some((f) => f.flags?.game_table_id != null)) return undefined; // no game table here — ordinary sit
 
 	if (target) {
 		const name = target.replace(/^the\s+/i, "").trim().toLowerCase();
 		const seat = zoneFurn.find(
 			(f) => f.flags?.game_table_id != null && (f.name || "").toLowerCase().includes(name),
 		);
-		if (!seat) return undefined; // not a poker seat — let posture logic try
+		if (!seat) return undefined; // not one of its seats — let posture logic try
 		const seatIdx = seat.flags?.seat_idx;
 		return dispatchAction({
 			type: "gametable.take_seat",
@@ -126,10 +127,18 @@ async function maybeSitAtPoker(target, player, broadcast) {
 		});
 	}
 
-	// Bare `sit` with a poker table present — ask: floor or the table?
+	// Bare `sit` with a game table present — ask: floor or the table?
+	//
+	// Name the choice off the FURNITURE, not off poker. The table piece is the
+	// one carrying game_table_id without a seat_idx (the seats are its chairs),
+	// so a chess salon offers "the Inlaid Chess Table" rather than a felt that
+	// isn't in the room.
+	const tableFurn = zoneFurn.find(
+		(f) => f.flags?.game_table_id != null && f.flags?.seat_idx == null,
+	);
 	const candidates = [
 		{ name: "the floor", kind: "floor" },
-		{ name: "the poker table", kind: "poker" },
+		{ name: tableFurn ? `the ${tableFurn.name}` : "the game table", kind: "poker" },
 	];
 	createSelectionState(player.id, candidates, {
 		dispatchType: "interactions.sit_choice",
@@ -770,7 +779,8 @@ async function findTargetInZone(target, player) {
 	return null;
 }
 
-// Resolves the bare-`sit` SIFT choice: floor (posture) or the poker table.
+// Resolves the bare-`sit` SIFT choice: floor (posture) or the game table. The
+// `poker` kind is historical — it means "the table", whatever game it runs.
 // Plugin verbs can't use SIFT's builtin replay, so this rides the action path.
 registerAction({
 	type: "interactions.sit_choice",

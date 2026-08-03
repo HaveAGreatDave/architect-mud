@@ -58,10 +58,35 @@ on('player.logout', ({ id }) => {
   }
 });
 
-// Reconnected in time — cancel the pending seat cash-out.
+// Reconnected in time — cancel the pending seat cash-out, and put the game back
+// in the top pane. The login look has already been sent by the time this fires,
+// so a returning player would otherwise be sitting at a table they can't see:
+// still seated, still owed a move, with the room description on screen. The
+// pane is the only place the felt or the board exists.
+//
+// A text-mode player is left on the room view by design — that IS their table —
+// but a chess position doesn't repeat itself the way poker narrates each street,
+// so hand them the board on the way back in.
 on('player.login', ({ id }) => {
-  for (const t of activeTables.values()) t.onPlayerReconnect(id);
+  for (const t of activeTables.values()) {
+    t.onPlayerReconnect(id);
+    if (t.seatedIndex(id) < 0) continue;   // spectators are dropped at logout
+    restorePaneOnLogin(t, id).catch(e => console.error('[gametable] login-pane:', e.message));
+  }
 });
+
+async function restorePaneOnLogin(t, id) {
+  const player = getLivePlayer(id);
+  if (!player) return;
+  // The runtime text-mode Set doesn't survive a restart (and a seat can), so
+  // re-derive this player's view from their stored Display Mode before pushing.
+  await ensureTextPref(player, t);
+  if (isTextMode(id)) {
+    if (isChess(t) && t.game) narrateBoard(t, id);
+    return;
+  }
+  sendToPlayer(id, { type: t.paneType, html: t.renderPaneFor(id) });
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -275,9 +300,10 @@ async function cmdWatchRouter(args, raw, player, broadcast) {
 
   if (!(await zoneHasTV(player.current_zone))) return cmdWatch([], raw, player); // only the table
 
-  // Both a TV and a poker table are here — ask which.
+  // Both a TV and a game table are here — ask which. Name the table, not the
+  // game: a chess salon must not offer you a felt that isn't in the room.
   const candidates = [
-    { name: 'the poker table', kind: 'poker' },
+    { name: table.name, kind: 'poker' },
     { name: 'the television',  kind: 'tv' },
   ];
   const r = siftResolve(args.join(' '), candidates);
@@ -497,7 +523,8 @@ function isOffShift(npc) {
 // staff back is different from summoning an opponent to play.
 async function cmdCallDealer(args, raw, player) {
   const t = tableForPlayer(player) || tableInZone(player.current_zone);
-  if (!t) return { type: 'error', message: 'No poker table here.' };
+  if (!t) return { type: 'error', message: noTableMsg(player.current_zone) };
+  if (isChess(t)) return { type: 'error', message: 'Nobody deals at a chess board.' };
   if (t.hasDealer()) return { type: 'error', message: `${t.dealerName()} is already at the table.` };
 
   const npc = findAssignedDealer(t);
@@ -739,11 +766,16 @@ async function applyPokerView(player, toText) {
   else await setDisplayRung(player, 'visual');
 
   const y = s => `<span style="color:var(--yellow)">${s}</span>`;
-  const note = toText
-    ? `${y('Text mode.')} The table drops out of the top pane back to the room view; your hole cards, the board on every street, and your turn (pot + to-call) are called out to this log. Type <b>visual</b> to bring the table back.`
-    : `${y('Visual mode.')} The poker table is back in the top pane. Type <b>text</b> to play in the log instead.`;
-
   const t = tableForPlayer(player);
+  // What text mode actually GIVES you differs by game — hole cards and streets
+  // at the felt, the position after every move at a board. Promise the right one.
+  const textNote = isChess(t)
+    ? `${y('Text mode.')} The board drops out of the top pane back to the room view; the position is written out to this log after every move. Type <b>visual</b> to bring the board back.`
+    : `${y('Text mode.')} The table drops out of the top pane back to the room view; your hole cards, the board on every street, and your turn (pot + to-call) are called out to this log. Type <b>visual</b> to bring the table back.`;
+  const note = toText
+    ? textNote
+    : `${y('Visual mode.')} The ${isChess(t) ? 'board' : 'table'} is back in the top pane. Type <b>text</b> to play in the log instead.`;
+
   if (!t) return { type: 'output', message: note };
 
   // At a table — confirm in the log, then flip the top pane itself.
@@ -1151,4 +1183,4 @@ export const commands = {
 };
 
 // Exposed for the regress suite.
-export const _test = { isOffShift, ensureTextPref };
+export const _test = { isOffShift, ensureTextPref, restorePaneOnLogin };
