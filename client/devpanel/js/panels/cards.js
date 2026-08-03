@@ -18,13 +18,69 @@ function cardRankBadge(r) {
   return `<span style="color:${CARD_RANK_COLOR[r] || 'var(--text-dim)'};font-size:11px;letter-spacing:.1em">${String(r || '').toUpperCase()}</span>`;
 }
 
-function renderCardsTable(records) {
+// SORTING IS CARD-LOCAL, and rarity is the whole reason. The generic comparator
+// in core/table.js sorts strings alphabetically, which puts architect above
+// common and epic above legendary — the exact opposite of the only order an
+// author cares about. Rarity is a LADDER, so it sorts by its rung. Everything
+// else falls through to the ordinary numeric/locale rules, and № sorts by the
+// series-then-serial the column actually prints rather than by serial alone,
+// which would interleave two series into nonsense.
+const CARD_SORT_KEYS = new Set(['serial', 'subject_name', 'subject_type', 'rarity', 'power', 'pool_weight', 'held']);
+
+function _cardSortValue(c, key) {
+  switch (key) {
+    case 'rarity': return _cardRanks.indexOf(c.rarity);
+    case 'serial': return `${String(c.series ?? '').padStart(6, '0')}${String(c.serial ?? '').padStart(8, '0')}`;
+    case 'power': case 'pool_weight': case 'held': return Number(c[key]) || 0;
+    default: return c[key] ?? '';
+  }
+}
+
+function _sortCards(records) {
+  // sortState is shared across every panel, so a key left behind by the NPCs
+  // table must not silently reorder this one. Unknown key ⇒ struck order.
+  if (!sortState.key || !CARD_SORT_KEYS.has(sortState.key)) return records;
+  return [...records].sort((a, b) => {
+    const av = _cardSortValue(a, sortState.key);
+    const bv = _cardSortValue(b, sortState.key);
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sortState.dir;
+    return String(av).localeCompare(String(bv)) * sortState.dir;
+  });
+}
+
+function _cardTh(key, label, right) {
+  const isSorted = sortState.key === key;
+  const arrow = isSorted ? (sortState.dir === 1 ? ' ▲' : ' ▼') : '';
+  return `<th class="sortable-col${isSorted ? ' sorted' : ''}"${right ? ' style="text-align:right"' : ''} onclick="sortTableBy('${key}')">${label}${arrow}</th>`;
+}
+
+// Search re-renders the CARD table rather than falling through to the generic
+// one in core/table.js — that fallback (`filterTable`, for panels with no filter
+// hook) renders from `PANELS.cards.columns`, which is five columns with no №, no
+// Held and an Edit button, so typing a letter swapped the table out for a
+// different-shaped one and lost the sort you had just set.
+let _cardQuery = '';
+function filterCards(q) {
+  _cardQuery = (q || '').toLowerCase();
+  PANELS.cards.render();
+}
+
+function _queriedCards(records) {
+  if (!_cardQuery) return records;
+  return records.filter(r => Object.values(r).some(v => String(v).toLowerCase().includes(_cardQuery)));
+}
+
+function renderCardsTable(allCards) {
+  const records = _queriedCards(allCards || []);
+  if (!records?.length && _cardQuery) {
+    return `<div class="empty-state">No card matches “${_cardQuery}”.</div>`;
+  }
   if (!records?.length) {
     return `<div class="empty-state">No cards struck yet.
       <p style="color:var(--text-dim);margin-top:8px">Use <b>Strike series</b> below to cut a card for every eligible NPC and enemy in world content — that's what fills the pack pool on day one. Player cards arrive as players mint themselves.</p>
       ${cardToolbar()}</div>`;
   }
-  const rows = records.map(c => `
+  const rows = _sortCards(records).map(c => `
     <tr onclick="editRecord('${c.id}')" style="cursor:pointer">
       <td style="font-variant-numeric:tabular-nums">${c.series}·${String(c.serial).padStart(4, '0')}</td>
       <td>${c.subject_name}</td>
@@ -38,13 +94,18 @@ function renderCardsTable(records) {
   const counts = records.reduce((a, c) => { a[c.rarity] = (a[c.rarity] || 0) + 1; return a; }, {});
   const spread = _cardRanks.filter(r => counts[r]).map(r => `${cardRankBadge(r)} <b>${counts[r]}</b>`).join(' &nbsp;·&nbsp; ');
 
+  // The count/spread line and the strike buttons pin as one block; the column
+  // headers are sticky already (core styles) and park directly beneath it, so a
+  // scroll down a four-hundred-card series never loses which column is which.
   return `
-    <div style="margin-bottom:12px;color:var(--text-dim);font-size:13px">${records.length} cards &nbsp;—&nbsp; ${spread}</div>
-    ${cardToolbar()}
+    <div class="panel-sticky-head" style="padding:12px 12px 2px">
+      <div style="margin-bottom:12px;color:var(--text-dim);font-size:13px">${records.length} cards &nbsp;—&nbsp; ${spread}</div>
+      ${cardToolbar()}
+    </div>
     <table class="data-table">
       <thead><tr>
-        <th>№</th><th>Subject</th><th>Type</th><th>Rarity</th>
-        <th style="text-align:right">Power</th><th style="text-align:right">Pool</th><th style="text-align:right">Held</th>
+        ${_cardTh('serial', '№')}${_cardTh('subject_name', 'Subject')}${_cardTh('subject_type', 'Type')}${_cardTh('rarity', 'Rarity')}
+        ${_cardTh('power', 'Power', true)}${_cardTh('pool_weight', 'Pool', true)}${_cardTh('held', 'Held', true)}
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;

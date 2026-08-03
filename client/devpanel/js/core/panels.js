@@ -38,6 +38,7 @@ const PANELS = {
     description: 'Every struck card — players who minted themselves, plus the NPC and enemy cards cut from world content when a series opened. Edit rarity, pool weight and the three text blocks; the character counters enforce the budgets, because a card must never truncate. NPC flavour overrides (flags.card_quote / card_note / card_rarity) live on the NPC row, in the NPCs panel.',
     idPrefix: 'card',
     fetch: async () => {
+      _cardQuery = '';   // a stale query from the last visit would hide the list
       const r = await API('/cards');
       if (r?.budgets) _cardBudgets = { ...(_cardBudgets), ...r.budgets };
       if (Array.isArray(r?.ranks)) _cardRanks = r.ranks;
@@ -56,6 +57,9 @@ const PANELS = {
     // renderCardsTable RETURNS markup (the toolbar/empty-state share it), so the
     // panel hook has to place it — a render() that only returns leaves an empty body.
     render: () => { document.getElementById('list-panel').innerHTML = renderCardsTable(allRecords); },
+    // Own the search, or `filterTable` falls back to the generic five-column
+    // table above and throws this panel's shape (and its sort) away.
+    filter: filterCards,
   },
   zones: {
     title: 'Zones',
