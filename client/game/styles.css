@@ -16459,8 +16459,24 @@ body.intro-cine-open { overflow: hidden; }
    silently swallows every letter you type is a bug report waiting to happen. */
 #piano-panel .pk-status { margin-left: auto; color: #6f6252; }
 #piano-panel.pk-live .pk-status { color: #ffd479; text-shadow: 0 0 8px rgba(255, 212, 121, 0.5); }
-#piano-panel .pk-close { cursor: pointer; color: #8a7a63; padding: 0 2px; }
-#piano-panel .pk-close:hover { color: #ffd479; }
+/* Real <button>s so makeDraggable's existing "not on a button" guard keeps a tap
+   on a control from starting a drag, with no second exception list to maintain.
+   Sized for a fingertip on touch — the header is otherwise about 14px tall. */
+#piano-panel .pk-btn {
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: #8a7a63;
+	font: inherit;
+	line-height: 1;
+	padding: 2px 6px;
+	-webkit-tap-highlight-color: transparent;
+}
+#piano-panel .pk-btn:hover { color: #ffd479; }
+#piano-panel .pk-close { margin-left: 4px; }
+@media (pointer: coarse) {
+	#piano-panel .pk-btn { padding: 6px 12px; }
+}
 
 #piano-panel .pk-keys {
 	position: relative;
@@ -16514,7 +16530,16 @@ body.intro-cine-open { overflow: hidden; }
 #piano-panel .pk-key.pk-other { background: linear-gradient(180deg, #7fd7ff 0%, #3a93c4 100%); }
 #piano-panel .pk-black.pk-other { background: linear-gradient(180deg, #3a93c4 0%, #1c5a7d 100%); }
 
-@media (max-width: 700px) {
-	#piano-panel .pk-keys { height: 84px; }
+/* Keycaps are hidden by POINTER CAPABILITY, not by viewport width. `Z`/`S`/`X`
+   printed on the keys of a device with no keyboard is an instruction the player
+   cannot follow, and a tablet in landscape is wider than any mobile breakpoint
+   while still having nothing to label. The panel also renders a shorter span on
+   touch (piano.js), so the keys stay big enough to hit. */
+@media (pointer: coarse) {
 	#piano-panel .pk-cap { display: none; }
+	#piano-panel .pk-head { cursor: default; touch-action: none; }
+}
+@media (max-width: 720px) {
+	#piano-panel .pk-keys { height: 92px; }
+	#piano-panel .pk-head { font-size: 0.68em; gap: 6px; }
 }

@@ -43,7 +43,18 @@ const KEYMAP = {
   q: 12, 2: 13, w: 14, 3: 15, e: 16, r: 17, 5: 18, t: 19, 6: 20, y: 21, 7: 22, u: 23,
   i: 24, 9: 25, o: 26, 0: 27, p: 28,
 };
-const SPAN = 29; // semitones drawn, C(base) .. E(base+2)
+// Touch-primary, by the house test (main.js, cockpit.js) — POINTER CAPABILITY,
+// not viewport width. A tablet in landscape is wider than the mobile breakpoint
+// and still has no keys to label, and a narrow desktop window has a keyboard.
+// Every mobile decision below hangs off this rather than a media query.
+const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+
+// Semitones drawn. Two octaves plus the tail of a third is what the two letter
+// rows physically reach — but on a phone that is 17 white keys across 360px, or
+// about a fingernail each. Touch gets a shorter keyboard (C..E of the next
+// octave, 10 whites) so the keys are big enough to actually hit, and the octave
+// buttons cover the rest of the range.
+const SPAN = TOUCH ? 17 : 29;
 
 // The label drawn on each key. Built from KEYMAP so the two can never disagree;
 // where two keys reach the same note (`,` and `q` are both the middle C of the
@@ -152,13 +163,20 @@ function shiftOctave(d) {
   relabel();
 }
 
+// Keyboard OWNERSHIP — a desktop-only concept. There is nothing to own on a
+// phone: the keys are tapped, no letter row is being swallowed, and there is no
+// state the player needs warning about. So on touch this is a no-op beyond the
+// status line, and in particular it must never focus anything: focusing the
+// keys pane does nothing useful, and focusing #cmd-input on the way out throws
+// the soft keyboard up over the instrument the player is trying to play.
 function setLive(on) {
-  live = on;
+  live = TOUCH ? false : on;
   if (!el) return;
-  el.classList.toggle('pk-live', on);
-  el.querySelector('.pk-status').textContent = on
-    ? 'KEYS LIVE — Esc to type'
-    : 'click the keys to play';
+  el.classList.toggle('pk-live', live);
+  el.querySelector('.pk-status').textContent = TOUCH
+    ? 'tap the keys'
+    : live ? 'KEYS LIVE — Esc to type' : 'click the keys to play';
+  if (TOUCH) return;
   if (on) el.querySelector('.pk-keys').focus();
   else { held.clear(); document.getElementById('cmd-input')?.focus(); }
 }
@@ -166,7 +184,7 @@ function setLive(on) {
 // ── Render ───────────────────────────────────────────────────────────────────
 
 function relabel() {
-  el.querySelector('.pk-octave').textContent = `C${octave} – E${octave + 2}`;
+  el.querySelector('.pk-octave').textContent = `${noteName(0)}–${noteName(SPAN - 1)}`;
   for (const [off, node] of keyEls) node.title = noteName(off);
 }
 
@@ -176,9 +194,11 @@ function build() {
   el.innerHTML = `
     <div class="pk-head">
       <span class="pk-name"></span>
+      <button type="button" class="pk-btn pk-oct-down" title="Octave down">◀</button>
       <span class="pk-octave"></span>
+      <button type="button" class="pk-btn pk-oct-up" title="Octave up">▶</button>
       <span class="pk-status"></span>
-      <span class="pk-close" title="Get up">✕</span>
+      <button type="button" class="pk-btn pk-close" title="Get up">✕</button>
     </div>
     <div class="pk-keys" tabindex="0"></div>`;
   document.body.appendChild(el);
@@ -231,6 +251,10 @@ function build() {
   keys.addEventListener('focus', () => setLive(true));
   keys.addEventListener('blur', () => setLive(false));
   el.querySelector('.pk-close').addEventListener('click', () => { sendCmdSilent('play stop'); closePianoPanel(); });
+  // Transposing has to be reachable without arrow keys, which is to say without
+  // a keyboard. Shown on every device — they're useful with a mouse too.
+  el.querySelector('.pk-oct-down').addEventListener('click', () => shiftOctave(-1));
+  el.querySelector('.pk-oct-up').addEventListener('click', () => shiftOctave(1));
 
   // ── Dragging ──────────────────────────────────────────────────────────────
   const head = el.querySelector('.pk-head');
@@ -238,8 +262,11 @@ function build() {
   // Registered BEFORE makeDraggable so it runs first: the panel is docked with
   // `bottom: 0` and a centring transform, and a fixed box pinned at both top and
   // bottom stretches to fill the gap rather than moving. Undock, then drag.
+  // The header's controls are real <button>s, which is what makeDraggable's own
+  // guard already tests for — so tapping one never starts a drag, on either half
+  // of this handler, without a second list of exceptions to keep in sync.
   head.addEventListener('pointerdown', (e) => {
-    if (e.target.classList.contains('pk-close')) return;
+    if (e.target.closest('.pk-btn')) return;
     undock();
     // Dragging the header blurs the keys, which drops keyboard ownership. Put it
     // back when the drag ends if they were live when it started — otherwise
@@ -265,9 +292,19 @@ function undock() {
   el.style.top = r.top + 'px';
 }
 
+// The docked resting place: bottom edge, but clear of the command input rather
+// than on top of it. Measured, not guessed — the input area's height moves with
+// the density setting and the mobile scale, so any constant here is wrong on
+// most devices.
+function dock() {
+  const inputH = document.getElementById('input-area')?.offsetHeight || 0;
+  el.style.bottom = inputH ? `${inputH}px` : '';
+}
+
 function redock() {
   el.classList.remove('pk-loose');
-  el.style.left = el.style.top = el.style.bottom = el.style.transform = '';
+  el.style.left = el.style.top = el.style.transform = '';
+  dock();
   try { localStorage.removeItem(POS_KEY); } catch { /* private mode */ }
 }
 
@@ -309,6 +346,14 @@ export function openPianoPanel(msg) {
   el.querySelector('.pk-name').textContent = furnName;
   el.classList.add('active');
   relabel();
+  // Docked at bottom:0 the keyboard sits ON TOP of the command input. On desktop
+  // that's survivable — the input is one of several ways to type, and the panel
+  // gets dragged. On a phone it hides the only way to talk to the game, behind a
+  // thing that has no reason to be over it. So the dock is lifted clear of the
+  // input area, measured rather than guessed: its height moves with the density
+  // setting and the mobile scale, and a hardcoded offset would be wrong on most
+  // of them.
+  dock();
   // After `active`, so the panel has a measurable size to clamp against.
   restorePos();
   setLive(true);

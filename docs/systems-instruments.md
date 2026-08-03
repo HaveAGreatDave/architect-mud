@@ -127,9 +127,31 @@ the row above holds its black keys, QWERTY row is the octave above — `Z`…`M`
 semitones, C(n) to E(n+2). `←`/`→` transpose. The keycaps are drawn on the keys, so somebody who has
 never opened a DAW can read it off the screen.
 
-Pointer play works too, with velocity from how far down the key you hit — which is the closest a
-mouse gets to touch, and is what makes the panel playable on a phone, where there is no keyboard to
-be live in the first place.
+Pointer play works too, with velocity from how far down the key you hit — the closest a mouse gets to
+touch, and what makes the panel playable at all on a phone.
+
+## Mobile
+
+Every mobile decision hangs off **pointer capability** (`matchMedia('(pointer: coarse)')`, the test
+`main.js` and `cockpit.js` already use), never viewport width. A tablet in landscape is wider than any
+mobile breakpoint and still has no keys to label; a narrow desktop window has a keyboard.
+
+Four things change on touch, and each fixes something that was actually broken:
+
+- **No keycaps.** `Z`/`S`/`X` printed on the keys of a device with no keyboard is an instruction the
+  player cannot follow.
+- **A shorter keyboard** — 17 semitones instead of 29. Two octaves across a 360px phone is 20px per
+  white key, about a fingernail; the short span gives 34px. The octave buttons cover the rest of the
+  range, and they exist *because* `←`/`→` don't.
+- **No keyboard ownership.** `setLive` is inert on touch: there is no letter row being swallowed and
+  nothing to warn anybody about. Critically it must not focus anything — focusing `#cmd-input` on the
+  way out throws the soft keyboard up over the instrument.
+- **The dock sits above the command input**, at a *measured* offset rather than a constant, because
+  the input area's height moves with the density setting and the mobile scale. Docked at `bottom: 0`
+  the keyboard covered the only way to talk to the game.
+
+Multi-touch chords work — `pointerdown` fires per touch, and `touch-action: none` on the keys keeps a
+glissando from scrolling the page instead.
 
 ## Display Mode
 
