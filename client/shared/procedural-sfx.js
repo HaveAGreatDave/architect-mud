@@ -535,25 +535,36 @@
   //              which is the difference between a keyboard and a piano)
   //   decay      seconds at C4; scaled by `stretch` across the range
   //   stretch    how much longer low notes ring than high ones (1 = not at all)
-  //   body       gain of a sub-octave layer under the fundamental
-  //   hammer     gain of the noise transient at the attack
+  //   hammer     gain of the noise transient at the attack. ZERO for the piano —
+  //              see the note below; a mechanism click is the point on a music
+  //              box and just grit on an upright
   //   wave       carrier waveform
+  //
+  // THERE IS NO `body` LAYER, AND THERE WAS. It stacked a second tone an OCTAVE
+  // DOWN under the fundamental, meant as the soundboard. That is not what a
+  // soundboard is: resonance sits at the note's own fundamental, and a tone at
+  // half the frequency is a different note. It read exactly as what it was —
+  // a second, lower thing ringing under every note and outlasting it, which is
+  // what you hear as an echo. Deleted rather than retuned; the idea was wrong,
+  // not the number. If a voice wants weight, it belongs in the index, not in a
+  // second pitch.
   const INSTRUMENTS = {
     // Upright piano. Ratio 1 with a hard index collapse: the strike is bright
     // and complex, and a half-second later it is nearly a sine ringing out.
-    piano:     { ratio: 1,    index: 2.6, indexEnd: 0.12, bright: 1.5, decay: 1.5, stretch: 2.4, body: 0.16, hammer: 0.05, wave: 'sine' },
+    // One layer, nothing under it and nothing on top. A piano note is one sound.
+    piano:     { ratio: 1,    index: 2.6, indexEnd: 0.12, bright: 1.5, decay: 1.5, stretch: 2.4, hammer: 0,    wave: 'sine' },
     // Electric piano. Ratio 14:1 is the Rhodes trick — a high inharmonic
     // modulator over a sine gives the bell-in-the-attack that defines the sound.
-    rhodes:    { ratio: 14,   index: 1.1, indexEnd: 0.04, bright: 2.2, decay: 1.9, stretch: 1.8, body: 0.10, hammer: 0.02, wave: 'sine' },
+    rhodes:    { ratio: 14,   index: 1.1, indexEnd: 0.04, bright: 2.2, decay: 1.9, stretch: 1.8, hammer: 0,    wave: 'sine' },
     // Music box / celeste. Non-integer ratio, very short bright attack, long
-    // pure ring. Deliberately thin — no body layer.
-    musicbox:  { ratio: 3.5,  index: 3.2, indexEnd: 0.02, bright: 1.2, decay: 2.6, stretch: 1.4, body: 0,    hammer: 0.08, wave: 'sine' },
+    // pure ring. The one voice where the mechanism SHOULD be audible.
+    musicbox:  { ratio: 3.5,  index: 3.2, indexEnd: 0.02, bright: 1.2, decay: 2.6, stretch: 1.4, hammer: 0.06, wave: 'sine' },
     // Plucked string. Fast decay, index falls almost immediately, sawtooth
     // carrier for the buzz of a wound string.
-    pluck:     { ratio: 2,    index: 1.8, indexEnd: 0.20, bright: 1.6, decay: 0.85, stretch: 1.9, body: 0.12, hammer: 0.06, wave: 'sawtooth' },
+    pluck:     { ratio: 2,    index: 1.8, indexEnd: 0.20, bright: 1.6, decay: 0.85, stretch: 1.9, hammer: 0.04, wave: 'sawtooth' },
     // Tonewheel-ish organ. No collapse at all (index sits where it starts) and
     // a long flat sustain, which is what makes it read as blown rather than hit.
-    organ:     { ratio: 1,    index: 0.5, indexEnd: 0.45, bright: 0.4, decay: 0.9, stretch: 1.1, body: 0.22, hammer: 0,    wave: 'sine' },
+    organ:     { ratio: 1,    index: 0.5, indexEnd: 0.45, bright: 0.4, decay: 0.9, stretch: 1.1, hammer: 0,    wave: 'sine' },
   };
 
   const SEMITONE = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
@@ -592,13 +603,9 @@
         fm: { rate: freq * ins.ratio, depth: freq * idx, depthTo: freq * ins.indexEnd, time: decay * 0.25 },
         adsr: { a: 0.002, d: decay, s: 0, r: decay * 0.35 },
         gain: (0.10 + 0.20 * v) },
-      // Sub-octave body. Not a second voice — it is the soundboard, and it is
-      // why a low piano note has weight the carrier alone can't give it.
-      ins.body > 0 && { waveform: 'sine', freq: freq / 2,
-        adsr: { a: 0.004, d: decay * 0.8, s: 0, r: decay * 0.3 },
-        gain: ins.body * (0.06 + 0.10 * v) },
-      // Hammer/mechanism. A few milliseconds of filtered noise riding the
-      // attack; inaudible on its own, and the note sounds synthetic without it.
+      // Mechanism. A few milliseconds of filtered noise riding the attack. Only
+      // for voices that genuinely have a mechanism you're meant to hear — on a
+      // piano it is not "air", it is grit on the front of every note.
       ins.hammer > 0 && { noiseMix: 1,
         filter: { type: 'bandpass', freq: Math.min(freq * 6, 7000), q: 1.2 },
         adsr: { a: 0.001, d: 0.02, s: 0, r: 0.02 },

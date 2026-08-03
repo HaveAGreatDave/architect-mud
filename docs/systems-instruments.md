@@ -78,9 +78,16 @@ single thing that most separates a piano from a keyboard.
 | `pluck` | sawtooth carrier, fast decay, index falls almost immediately |
 | `organ` | index **doesn't** collapse and the sustain is flat — which is what reads as blown rather than hit |
 
-Two more things every voice gets: a **sub-octave body layer** (the soundboard — why a low note has
-weight the carrier alone can't give it) and a few milliseconds of **hammer noise** at the attack
-(inaudible alone; the note sounds synthetic without it). Decay is **stretched across the range** —
+**A piano note is one layer.** It shipped with two more — a sub-octave "soundboard" tone and a noise
+transient at the attack — and both were wrong. The sub-octave was wrong on its own terms: resonance
+sits at the note's own fundamental, and a tone at *half* the frequency is a different note, so what
+it actually produced was a second lower thing ringing under every note and outlasting it, which is
+heard as an echo. It's deleted rather than retuned, because the idea was wrong and not the number; if
+a voice wants weight it belongs in the modulation index, not in a second pitch. The noise transient
+survives only on `musicbox` and `pluck`, where the mechanism is something you're meant to hear — on
+an upright it is grit on the front of every note.
+
+Decay is **stretched across the range** —
 measured in octaves from C4, so an octave down is always the same amount longer. A C2 rings 3.8 s and
 a C6 rings 0.8 s.
 
