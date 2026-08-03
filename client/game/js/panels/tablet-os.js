@@ -2409,67 +2409,140 @@ function ensureStyles() {
        smears badly at small sizes, which is what made the first pass unreadable. */
     /* B.L.I.S.S. — deliberately cold and catalogue-like. Monochrome like the rest
        of the tablet; the only warmth in the whole app is the ♡ on its tile. */
+    /* The register is a PRINTED object: a ruled masthead, plates numbered down the
+       left, dotted leaders in the spec, bars where a number wants comparing. Cold
+       stays cold — nothing here adds a colour the tablet doesn't already have.
+       One surface token drives the whole app so it follows every tablet theme. */
+    #tablet-os-overlay [class^="tos-bliss-"], #tablet-os-overlay [class*=" tos-bliss-"] {
+      --bl-ink: color-mix(in srgb, var(--mg-accent) 30%, transparent);
+      --bl-fill: color-mix(in srgb, var(--mg-accent) 7%, transparent); }
     #tablet-os-overlay .tos-bliss-head { display:flex; align-items:flex-end; justify-content:space-between;
-      gap:12px; padding-bottom:8px; border-bottom:1px solid var(--tos-line); margin-bottom:10px; }
-    #tablet-os-overlay .tos-bliss-app { font-size:1.35em; letter-spacing:.18em; font-weight:700; }
-    #tablet-os-overlay .tos-bliss-expand { font-size:.78em; opacity:.75; letter-spacing:.04em; margin-top:2px; }
-    #tablet-os-overlay .tos-bliss-sub { font-size:.85em; opacity:.87; white-space:nowrap; }
-    #tablet-os-overlay .tos-bliss-strap { font-size:.78em; opacity:.72; font-style:italic; margin-bottom:10px; }
-    #tablet-os-overlay .tos-bliss-notice { font-size:.85em; padding:7px 9px; margin-bottom:10px;
-      border:1px solid var(--tos-line); background:rgba(255,255,255,.04); }
-    #tablet-os-overlay .tos-bliss-grid { display:flex; flex-direction:column; gap:9px; }
-    #tablet-os-overlay .tos-bliss-card { border:1px solid var(--tos-line); padding:9px 11px; cursor:pointer; }
-    #tablet-os-overlay .tos-bliss-card:hover { background:rgba(255,255,255,.05); }
-    #tablet-os-overlay .tos-bliss-who + .tos-bliss-who { margin-top:8px; padding-top:8px;
-      border-top:1px dashed var(--tos-line); }
+      gap:12px; padding:0 0 9px; margin-bottom:12px; position:relative;
+      border-bottom:2px solid var(--bl-ink); }
+    #tablet-os-overlay .tos-bliss-head::after { content:''; position:absolute; left:0; right:0; bottom:-4px;
+      height:1px; background:var(--bl-ink); opacity:.5; }
+    #tablet-os-overlay .tos-bliss-app { font-size:1.35em; letter-spacing:.22em; font-weight:700; }
+    #tablet-os-overlay .tos-bliss-expand { font-size:.72em; opacity:.7; letter-spacing:.06em; margin-top:3px;
+      text-transform:uppercase; }
+    #tablet-os-overlay .tos-bliss-plate { text-align:right; flex:0 0 auto;
+      border-left:1px solid var(--bl-ink); padding-left:12px; }
+    #tablet-os-overlay .tos-bliss-sub { font-size:1.25em; font-weight:700; letter-spacing:.02em;
+      white-space:nowrap; line-height:1.1; }
+    #tablet-os-overlay .tos-bliss-platenote { font-size:.68em; opacity:.66; letter-spacing:.1em;
+      text-transform:uppercase; margin-top:3px; white-space:nowrap; }
+    #tablet-os-overlay .tos-bliss-strap { font-size:.75em; opacity:.6; margin-bottom:12px; letter-spacing:.02em; }
+    #tablet-os-overlay .tos-bliss-notice { font-size:.85em; padding:8px 10px; margin-bottom:10px;
+      border:1px solid var(--bl-ink); border-left-width:3px; background:var(--bl-fill); }
+    #tablet-os-overlay .tos-bliss-grid { display:flex; flex-direction:column; gap:10px; }
+    #tablet-os-overlay .tos-bliss-card { border:1px solid var(--bl-ink); padding:11px 12px; cursor:pointer;
+      position:relative; transition:background .12s, border-color .12s, transform .12s; }
+    #tablet-os-overlay .tos-bliss-card:hover { background:var(--bl-fill);
+      border-color:color-mix(in srgb, var(--mg-accent) 55%, transparent); transform:translateX(2px); }
+    /* Plate + body. The figure column is a fixed rail so every card in the register
+       lines up down the page, which is most of what makes a list read as a list. */
+    #tablet-os-overlay .tos-bliss-who { display:flex; gap:11px; align-items:flex-start; }
+    #tablet-os-overlay .tos-bliss-whobody { flex:1 1 auto; min-width:0; }
+    #tablet-os-overlay .tos-bliss-who + .tos-bliss-who { margin-top:9px; padding-top:9px;
+      border-top:1px dashed var(--bl-ink); }
+    #tablet-os-overlay .tos-bliss-plate-fig { flex:0 0 auto; width:46px; height:56px; position:relative;
+      border:1px solid var(--bl-ink); background:var(--bl-fill);
+      display:flex; align-items:center; justify-content:center; }
+    #tablet-os-overlay .tos-bliss-initial { font-size:1.7em; font-weight:700; letter-spacing:0; opacity:.85; }
+    #tablet-os-overlay .tos-bliss-glyph { position:absolute; bottom:2px; right:4px; font-size:.72em; opacity:.7; }
+    #tablet-os-overlay .tos-bliss-idx { position:absolute; top:2px; left:4px; font-size:.6em; opacity:.5;
+      letter-spacing:.06em; }
     #tablet-os-overlay .tos-bliss-name { font-weight:700; letter-spacing:.05em; }
-    #tablet-os-overlay .tos-bliss-name .sex { opacity:.72; font-weight:400; margin-left:3px; }
     #tablet-os-overlay .tos-bliss-name .dim,
     #tablet-os-overlay .tos-bliss-card .dim,
+    #tablet-os-overlay .tos-bliss-tenurehead .dim,
     #tablet-os-overlay .tos-actions .dim { opacity:.72; font-weight:400; font-size:.85em; }
-    #tablet-os-overlay .tos-bliss-says { font-size:.86em; opacity:.95; font-style:italic; margin-top:2px; }
-    #tablet-os-overlay .tos-bliss-phys { font-size:.8em; opacity:.75; margin-top:3px; }
-    #tablet-os-overlay .tos-bliss-note { font-size:.78em; opacity:.75; margin-top:4px; }
-    #tablet-os-overlay .tos-bliss-rate { text-align:right; margin-top:6px; font-size:.85em; }
-    #tablet-os-overlay .tos-bliss-pairtag { font-size:.74em; letter-spacing:.14em; text-transform:uppercase;
-      opacity:.87; margin-bottom:5px; }
-    #tablet-os-overlay .tos-bliss-pairbox { border:1px solid var(--tos-line); padding:9px 11px; margin-bottom:10px;
-      font-size:.86em; background:rgba(255,255,255,.03); }
-    #tablet-os-overlay .tos-bliss-detailwho { border:1px solid var(--tos-line); padding:9px 11px; }
-    #tablet-os-overlay .tos-bliss-spec { width:100%; border-collapse:collapse; margin-top:7px; font-size:.8em; }
-    #tablet-os-overlay .tos-bliss-spec th { text-align:left; opacity:.72; font-weight:400; width:5.5em;
-      vertical-align:top; padding:2px 8px 2px 0; }
-    #tablet-os-overlay .tos-bliss-spec td { padding:2px 0; opacity:.95; }
-    #tablet-os-overlay .tos-bliss-proj { width:100%; border-collapse:collapse; font-size:.76em; margin-top:6px; }
-    #tablet-os-overlay .tos-bliss-proj th { text-align:left; opacity:.72; font-weight:400; padding:3px 0;
-      border-bottom:1px solid var(--tos-line); }
-    #tablet-os-overlay .tos-bliss-proj td { padding:3px 0; opacity:.95; }
-    #tablet-os-overlay .tos-bliss-secthead { font-size:.7em; letter-spacing:.16em; text-transform:uppercase;
-      opacity:.78; margin:14px 0 4px; }
+    #tablet-os-overlay .tos-bliss-says { font-size:.86em; opacity:.95; margin-top:2px; }
+    #tablet-os-overlay .tos-bliss-phys { font-size:.78em; opacity:.7; margin-top:4px; letter-spacing:.02em; }
+    #tablet-os-overlay .tos-bliss-note { font-size:.78em; opacity:.72; margin-top:5px; }
+    /* The price is set as a plate, not a sentence: the figure large, the unit
+       under it small and uppercase. It is the one number a register is for. */
+    #tablet-os-overlay .tos-bliss-rate { text-align:right; margin-top:8px; padding-top:6px;
+      border-top:1px solid var(--bl-ink); }
+    #tablet-os-overlay .tos-bliss-ratefig { display:block; font-size:1.15em; font-weight:700; line-height:1.1; }
+    #tablet-os-overlay .tos-bliss-rateunit { display:block; font-size:.62em; letter-spacing:.14em;
+      text-transform:uppercase; opacity:.62; margin-top:1px; }
+    #tablet-os-overlay .tos-bliss-pairtag { font-size:.66em; letter-spacing:.16em; text-transform:uppercase;
+      display:inline-block; padding:2px 7px; margin-bottom:8px;
+      border:1px solid var(--bl-ink); background:var(--bl-fill); }
+    #tablet-os-overlay .tos-bliss-pairbox { border:1px solid var(--bl-ink); border-left-width:3px;
+      padding:10px 12px; margin-bottom:11px; font-size:.86em; background:var(--bl-fill); }
+    #tablet-os-overlay .tos-bliss-detailwho { border:1px solid var(--bl-ink); padding:11px 12px; }
+    /* Spec rows: label, dotted leader, value. The leader is what makes a stack of
+       short rows read as a specification instead of as loose sentences. */
+    #tablet-os-overlay .tos-bliss-spec { margin:8px 0 0; font-size:.8em; }
+    #tablet-os-overlay .tos-bliss-specrow { display:flex; align-items:baseline; gap:6px; padding:3px 0;
+      border-bottom:1px dotted color-mix(in srgb, var(--mg-accent) 18%, transparent); }
+    #tablet-os-overlay .tos-bliss-specrow:last-child { border-bottom:0; }
+    #tablet-os-overlay .tos-bliss-spec dt { flex:0 0 6em; opacity:.62; letter-spacing:.08em;
+      text-transform:uppercase; font-size:.86em; }
+    #tablet-os-overlay .tos-bliss-spec.intimate dt { flex-basis:7.5em; }
+    #tablet-os-overlay .tos-bliss-spec dd { flex:1 1 auto; margin:0; opacity:.95; }
+    /* The one row the register would rather you skimmed. */
+    #tablet-os-overlay .tos-bliss-warned { margin-top:8px; padding:6px 9px; font-size:.79em;
+      border-left:3px solid var(--yellow); background:color-mix(in srgb, var(--yellow) 7%, transparent); }
+    #tablet-os-overlay .tos-bliss-warned span { display:block; font-size:.76em; letter-spacing:.14em;
+      text-transform:uppercase; color:var(--yellow); opacity:.9; }
+    #tablet-os-overlay .tos-bliss-warned p { margin:2px 0 0; opacity:.92; }
+    /* Tenure ladder: each rung's bar is its rate against day one, so the discount
+       is a shape rather than four numbers to compare by eye. */
+    #tablet-os-overlay .tos-bliss-ladder { margin-top:8px; display:flex; flex-direction:column; gap:5px; }
+    #tablet-os-overlay .tos-bliss-rung { display:grid; grid-template-columns:5.2em 1fr 5.6em; gap:8px;
+      align-items:center; font-size:.76em; }
+    #tablet-os-overlay .tos-bliss-rungday { opacity:.68; letter-spacing:.04em; }
+    #tablet-os-overlay .tos-bliss-rungbar { height:9px; border:1px solid var(--bl-ink); display:block; }
+    #tablet-os-overlay .tos-bliss-rungbar i { display:block; height:100%;
+      background:repeating-linear-gradient(90deg,
+        color-mix(in srgb, var(--mg-accent) 42%, transparent) 0 3px, transparent 3px 5px); }
+    #tablet-os-overlay .tos-bliss-rung.now .tos-bliss-rungbar i {
+      background:color-mix(in srgb, var(--mg-accent) 46%, transparent); }
+    #tablet-os-overlay .tos-bliss-rungrate { text-align:right; font-weight:700; }
+    #tablet-os-overlay .tos-bliss-rungrate em { font-style:normal; font-weight:400; opacity:.6; font-size:.9em; }
+    #tablet-os-overlay .tos-bliss-runglabel { grid-column:2 / -1; font-size:.88em; opacity:.55;
+      margin-top:-3px; letter-spacing:.04em; }
+    #tablet-os-overlay .tos-bliss-secthead { display:flex; align-items:center; gap:9px;
+      font-size:.68em; letter-spacing:.18em; text-transform:uppercase; opacity:.72; margin:16px 0 6px; }
+    #tablet-os-overlay .tos-bliss-rule { flex:1 1 auto; height:1px; background:var(--bl-ink); }
+    #tablet-os-overlay .tos-bliss-secthead b { font-weight:700; opacity:.85; }
     #tablet-os-overlay .tos-bliss-housetag { font-size:.68em; letter-spacing:.14em; text-transform:uppercase;
-      padding:2px 6px; margin-left:6px; border:1px solid var(--tos-line); border-radius:10px;
+      padding:2px 6px; margin-left:6px; border:1px solid var(--bl-ink);
       color:var(--mg-accent); vertical-align:1px; }
-    #tablet-os-overlay .tos-bliss-held.house { border-left:2px solid var(--mg-accent); padding-left:9px; }
-    #tablet-os-overlay .tos-bliss-blocked { font-size:.85em; opacity:.84; padding:10px; border:1px dashed var(--tos-line); }
-    #tablet-os-overlay .tos-bliss-held { border:1px solid var(--tos-line); padding:9px 11px; }
+    #tablet-os-overlay .tos-bliss-held.house { border-left:3px solid var(--mg-accent); }
+    #tablet-os-overlay .tos-bliss-blocked { font-size:.85em; opacity:.84; padding:11px;
+      border:1px dashed var(--bl-ink); background:var(--bl-fill); }
+    #tablet-os-overlay .tos-bliss-held { border:1px solid var(--bl-ink); padding:11px 12px; }
+    #tablet-os-overlay .tos-bliss-heldtop { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    #tablet-os-overlay .tos-bliss-heldtop .tos-bliss-rate { margin-top:0; padding-top:0; border-top:0; flex:0 0 auto; }
     #tablet-os-overlay .tos-bliss-heldline { display:flex; justify-content:space-between; gap:10px;
-      font-size:.8em; opacity:.85; margin-top:3px; }
-    #tablet-os-overlay .tos-bliss-heldline .save { opacity:.6; }
-    #tablet-os-overlay .tos-bliss-warn { font-size:.75em; color:var(--yellow); margin-top:5px; }
+      font-size:.78em; opacity:.7; margin-top:6px; letter-spacing:.04em; }
+    #tablet-os-overlay .tos-bliss-tenure { margin-top:5px; }
+    #tablet-os-overlay .tos-bliss-tenurehead { display:flex; justify-content:space-between; gap:10px;
+      font-size:.74em; letter-spacing:.06em; margin-bottom:3px; }
+    #tablet-os-overlay .tos-bliss-track { display:block; height:7px; border:1px solid var(--bl-ink); }
+    #tablet-os-overlay .tos-bliss-track i { display:block; height:100%;
+      background:color-mix(in srgb, var(--mg-accent) 38%, transparent); }
+    #tablet-os-overlay .tos-bliss-track.full i { background:color-mix(in srgb, var(--mg-accent) 62%, transparent); }
+    #tablet-os-overlay .tos-bliss-warn { font-size:.75em; color:var(--yellow); margin-top:6px; }
     /* Temperament, voice sample and the explicit spec — the two halves of a
        listing that aren't a price. Traits are chips so they scan at a glance;
        the "be warned" row is the only coloured thing in the card, because it is
        the row that stops somebody buying the wrong person. */
     #tablet-os-overlay .tos-bliss-traits { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
-    #tablet-os-overlay .tos-bliss-traits span { font-size:.68em; letter-spacing:.1em; text-transform:uppercase;
-      padding:2px 6px; border:1px solid var(--tos-line); border-radius:10px; opacity:.85; }
-    #tablet-os-overlay .tos-bliss-headline { font-size:.78em; opacity:.72; margin-top:4px; font-style:italic; }
-    #tablet-os-overlay .tos-bliss-subhead { font-size:.68em; letter-spacing:.16em; text-transform:uppercase;
-      opacity:.7; margin:10px 0 2px; border-top:1px dashed var(--tos-line); padding-top:7px; }
-    #tablet-os-overlay .tos-bliss-spec th.warn { color:var(--yellow); opacity:.9; }
-    #tablet-os-overlay .tos-bliss-spec.intimate th { width:6.5em; }
-    #tablet-os-overlay .tos-bliss-voice p { font-size:.82em; opacity:.9; font-style:italic; margin:4px 0 0;
-      padding-left:8px; border-left:2px solid var(--tos-line); }
+    #tablet-os-overlay .tos-bliss-traits span { font-size:.66em; letter-spacing:.12em; text-transform:uppercase;
+      padding:2px 7px; border:1px solid var(--bl-ink); background:var(--bl-fill); opacity:.9; }
+    #tablet-os-overlay .tos-bliss-headline { font-size:.78em; opacity:.66; margin-top:5px; }
+    #tablet-os-overlay .tos-bliss-subhead { font-size:.66em; letter-spacing:.18em; text-transform:uppercase;
+      opacity:.66; margin:12px 0 2px; border-top:1px solid var(--bl-ink); padding-top:8px; }
+    /* Pulled quotes, not a paragraph: an oversized mark in the margin and the line
+       hung off it. Roman, never italic — Courier's synthetic oblique smears. */
+    #tablet-os-overlay .tos-bliss-voice p { font-size:.84em; opacity:.92; margin:6px 0 0;
+      padding-left:16px; position:relative; }
+    #tablet-os-overlay .tos-bliss-voice p::before { content:'\\201C'; position:absolute; left:0; top:-2px;
+      font-size:1.5em; line-height:1; opacity:.4; }
 
     /* ── Vitals app ──────────────────────────────────────────────────────────
        Bars first, words second. The four bands are the only colour vocabulary
@@ -7113,31 +7186,60 @@ function renderAccolades(d) {
 // The voice throughout is the Syndicate's — procedural, clinical, entirely
 // untroubled by what it's selling. That contrast IS the joke; don't warm it up.
 
-function blissChrome(sub) {
+// The masthead of a trade register: a ruled wordmark, the expansion under it, and
+// the one figure that matters on this screen set as a plate to the right. Cold on
+// purpose — the app is a catalogue of people and reads like a catalogue of parts.
+function blissChrome(sub, note) {
   return `<div class="tos-bliss-head">
-    <div>
+    <div class="tos-bliss-mark">
       <div class="tos-bliss-app">B.L.I.S.S.</div>
       <div class="tos-bliss-expand">Bonded Live-In Intimacy Subscription Service</div>
     </div>
-    <div class="tos-bliss-sub">${esc(sub || '')}</div>
+    <div class="tos-bliss-plate">
+      <div class="tos-bliss-sub">${esc(sub || '')}</div>
+      ${note ? `<div class="tos-bliss-platenote">${esc(note)}</div>` : ''}
+    </div>
   </div>`;
 }
 
+// The specimen plate on a listing: initial, sex glyph, and a hairline frame. No
+// portrait exists for a generated consort, so rather than a blank the card gets a
+// stamped index tile — the register numbering its stock, which is the joke.
+function blissPlate(m, idx) {
+  const initial = (m.name || '?').trim().charAt(0).toUpperCase();
+  return `<div class="tos-bliss-plate-fig">
+    <span class="tos-bliss-initial">${esc(initial)}</span>
+    <span class="tos-bliss-glyph">${m.sex === 'male' ? '♂' : '♀'}</span>
+    ${idx != null ? `<span class="tos-bliss-idx">${String(idx).padStart(2, '0')}</span>` : ''}
+  </div>`;
+}
+
+// A ruled row: label, dotted leader, value. Used for every spec table in the app,
+// which is what stops three different screens inventing three different tables.
+function blissRows(rows, cls = '') {
+  return `<dl class="tos-bliss-spec ${cls}">${(rows || []).map(([k, v]) =>
+    `<div class="tos-bliss-specrow"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
+}
+
 function renderBlissListings(d) {
+  let plateNo = 0;
   const cardFor = (l) => {
     const pairTag = l.pairing
       ? `<div class="tos-bliss-pairtag">${esc(l.pairing.label)} &middot; non-severable</div>` : '';
     const who = (l.members || []).map(m => `
       <div class="tos-bliss-who">
-        <div class="tos-bliss-name">${esc(m.name)} <span class="sex">${m.sex === 'male' ? '♂' : '♀'}</span></div>
-        <div class="tos-bliss-says">${esc(m.says)}</div>
-        ${(m.traits || []).length ? `<div class="tos-bliss-traits">${m.traits.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
-        <div class="tos-bliss-phys">${esc(m.summary)}</div>
-        ${m.headline ? `<div class="tos-bliss-headline">${esc(m.headline)}</div>` : ''}
+        ${blissPlate(m, ++plateNo)}
+        <div class="tos-bliss-whobody">
+          <div class="tos-bliss-name">${esc(m.name)}</div>
+          <div class="tos-bliss-says">${esc(m.says)}</div>
+          ${(m.traits || []).length ? `<div class="tos-bliss-traits">${m.traits.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
+          <div class="tos-bliss-phys">${esc(m.summary)}</div>
+          ${m.headline ? `<div class="tos-bliss-headline">${esc(m.headline)}</div>` : ''}
+        </div>
       </div>`).join('');
     return `<div class="tos-bliss-card" data-act-id="open" data-act-app="bliss" data-act-params="${esc(l.id)}">
       ${pairTag}${who}
-      <div class="tos-bliss-rate"><b>${l.rate}c</b> / day</div>
+      <div class="tos-bliss-rate"><span class="tos-bliss-ratefig">${l.rate}c</span><span class="tos-bliss-rateunit">per day</span></div>
     </div>`;
   };
 
@@ -7146,7 +7248,7 @@ function renderBlissListings(d) {
   const byId = new Map((d.listings || []).map(l => [l.id, l]));
   const cards = (d.sections || []).length
     ? d.sections.map(s => `
-        <div class="tos-bliss-secthead">${esc(s.label)} <span class="dim">${s.ids.length}</span></div>
+        <div class="tos-bliss-secthead"><span>${esc(s.label)}</span><i class="tos-bliss-rule"></i><b>${s.ids.length}</b></div>
         <div class="tos-bliss-grid">${s.ids.map(id => byId.get(id)).filter(Boolean).map(cardFor).join('')}</div>`).join('')
     : `<div class="tos-bliss-grid">${(d.listings || []).map(cardFor).join('')}</div>`;
 
@@ -7157,7 +7259,7 @@ function renderBlissListings(d) {
     : `<button class="tos-btn disabled" disabled>↻ Refreshes in ${esc(rr.remainingLabel || '')}</button>`;
 
   return `
-    ${blissChrome(`${(d.listings || []).length} placements available`)}
+    ${blissChrome(`${(d.listings || []).length} placements`, 'on the register today')}
     <div class="tos-bliss-strap">${esc(d.smallprint || '')}</div>
     ${cards}
     <div class="tos-actions">
@@ -7172,30 +7274,33 @@ function renderBlissDetail(d) {
     const t = m.temperament || {};
     // Temperament sits ABOVE the measurements on purpose: the body is the easy
     // half to shop for and the personality is the half you have to live with.
+    // Warmth/Wants/Be-warned are the same shape as every other spec block, but
+    // the warning keeps its own class: it is the one row on the whole card the
+    // register would rather you skimmed, so it gets the rule and the colour.
     const person = t.traits ? `
       <div class="tos-bliss-traits">${(t.traits || []).map(x => `<span>${esc(x)}</span>`).join('')}</div>
-      <table class="tos-bliss-spec">
-        <tr><th>Warmth</th><td>${esc(t.warmth || '')}</td></tr>
-        <tr><th>Wants</th><td>${esc(t.wants || '')}</td></tr>
-        <tr><th class="warn">Be warned</th><td>${esc(t.warned || '')}</td></tr>
-      </table>` : '';
+      ${blissRows([['Warmth', t.warmth || ''], ['Wants', t.wants || '']])}
+      ${t.warned ? `<div class="tos-bliss-warned"><span>Be warned</span><p>${esc(t.warned)}</p></div>` : ''}` : '';
     const voice = (m.voice || []).length ? `
       <div class="tos-bliss-subhead">In their own words</div>
       <div class="tos-bliss-voice">${m.voice.map(v => `<p>${esc(v)}</p>`).join('')}</div>` : '';
     const intimate = (m.intimate || []).length ? `
       <div class="tos-bliss-subhead">Specification</div>
-      <table class="tos-bliss-spec intimate">${m.intimate.map(([k, v]) =>
-        `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>` : '';
+      ${blissRows(m.intimate, 'intimate')}` : '';
     return `
     <div class="tos-bliss-detailwho">
-      <div class="tos-bliss-name">${esc(m.name)} <span class="sex">${m.sex === 'male' ? '♂' : '♀'}</span></div>
-      <div class="tos-bliss-says">${esc(m.says)}</div>
-      <div class="tos-bliss-note">${esc(m.note)}</div>
+      <div class="tos-bliss-who">
+        ${blissPlate(m, null)}
+        <div class="tos-bliss-whobody">
+          <div class="tos-bliss-name">${esc(m.name)}</div>
+          <div class="tos-bliss-says">${esc(m.says)}</div>
+          <div class="tos-bliss-note">${esc(m.note)}</div>
+        </div>
+      </div>
       ${person}
       ${voice}
       <div class="tos-bliss-subhead">Appearance</div>
-      <table class="tos-bliss-spec">${(m.physical || []).map(([k, v]) =>
-        `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>
+      ${blissRows(m.physical)}
       ${intimate}
     </div>`;
   }).join('');
@@ -7206,9 +7311,21 @@ function renderBlissDetail(d) {
       <div class="tos-bliss-note">${esc(l.pairing.note)}</div>
     </div>` : '';
 
-  const proj = `<table class="tos-bliss-proj"><tr><th>Tenure</th><th>Rate</th><th></th></tr>
-    ${(l.projection || []).map(p =>
-      `<tr><td>${p.days} days</td><td><b>${p.rate}c</b></td><td>${esc(p.label)}</td></tr>`).join('')}</table>`;
+  // The tenure ladder, drawn rather than tabulated. Every rung's bar is its rate
+  // as a fraction of the day-one rate, so the discount is a shape you read in one
+  // glance instead of four numbers you have to compare. Today's rate is rung zero
+  // and always full width — everything below it is measured against that.
+  const rungs = [{ days: 0, rate: l.rate, label: 'Today' }, ...(l.projection || [])];
+  const proj = `<div class="tos-bliss-ladder">${rungs.map(p => {
+    const pct = l.rate > 0 ? Math.max(6, Math.round((p.rate / l.rate) * 100)) : 100;
+    const off = l.rate > 0 ? Math.round(100 - (p.rate / l.rate) * 100) : 0;
+    return `<div class="tos-bliss-rung${p.days === 0 ? ' now' : ''}">
+      <span class="tos-bliss-rungday">${p.days === 0 ? 'Day one' : `${p.days} days`}</span>
+      <span class="tos-bliss-rungbar"><i style="width:${pct}%"></i></span>
+      <span class="tos-bliss-rungrate">${p.rate}c${off ? ` <em>−${off}%</em>` : ''}</span>
+      <span class="tos-bliss-runglabel">${esc(p.label)}</span>
+    </div>`;
+  }).join('')}</div>`;
 
   // Where to put them. No private address on file → no placement.
   const places = d.blocked
@@ -7219,20 +7336,20 @@ function renderBlissDetail(d) {
            ${esc(s.name)} <span class="dim">${esc(s.label)}</span></button>`).join('')}</div>`;
 
   return `
-    ${blissChrome(`${l.rate}c / day`)}
+    ${blissChrome(`${l.rate}c`, 'per day, first day up front')}
     ${pair}
     <div class="tos-bliss-grid detail">${who}</div>
-    <div class="tos-bliss-secthead">Retainer &amp; tenure</div>
+    <div class="tos-bliss-secthead"><span>Retainer &amp; tenure</span><i class="tos-bliss-rule"></i></div>
     <div class="tos-bliss-note">The rate falls the longer a placement stays. Loyalty is cheaper than novelty.</div>
     ${proj}
-    <div class="tos-bliss-secthead">Deliver to</div>
+    <div class="tos-bliss-secthead"><span>Deliver to</span><i class="tos-bliss-rule"></i></div>
     ${places}
     <div class="tos-actions"><button class="tos-btn" data-act-id="listings" data-act-app="bliss" data-act-params="">← Back to the register</button></div>`;
 }
 
 function renderBlissArrangement(d) {
   if (d.empty) {
-    return `${blissChrome('No active placement')}
+    return `${blissChrome('None', 'placements on account')}
       <div class="tos-bliss-blocked">You keep nobody. The Syndicate notes this without judgement and with some disappointment.</div>
       <div class="tos-actions"><button class="tos-btn" data-act-id="listings" data-act-app="bliss" data-act-params="">Browse the register</button></div>`;
   }
@@ -7240,27 +7357,39 @@ function renderBlissArrangement(d) {
   // listed exactly like the rest (that's the point — they're yours and should be
   // on your account), but it bills nothing, has no tenure ladder to climb, and
   // shows no Release button, because B.L.I.S.S. cannot collect what it never placed.
-  const rows = (d.entries || []).map(e => `
-    <div class="tos-bliss-held${e.house ? ' house' : ''}">
-      <div class="tos-bliss-name">${esc(e.names.join(' &amp; '))}${e.pairing ? ` <span class="dim">${esc(e.pairing)}</span>` : ''}${e.house ? ' <span class="tos-bliss-housetag">House</span>' : ''}</div>
-      ${e.house ? `
-      <div class="tos-bliss-heldline">
-        <span>Retained by the house</span>
-        <span><b>No retainer</b></span>
+  const rows = (d.entries || []).map(e => {
+    // Tenure as a filled track toward the next rung, with the rung named at the
+    // end of it. At the top of the ladder there is nothing left to climb, so the
+    // track goes solid and says so rather than sitting at a misleading 0%.
+    const nt = e.nextTier;
+    const tenure = `<div class="tos-bliss-tenure">
+      <div class="tos-bliss-tenurehead">
+        <span>${esc(e.tier.label)}</span>
+        <span class="dim">${nt ? `${nt.daysAway} day${nt.daysAway === 1 ? '' : 's'} to ${esc(nt.label)}` : 'Floor rate reached'}</span>
       </div>
+      <span class="tos-bliss-track${nt ? '' : ' full'}"><i style="width:${nt ? Math.max(2, Math.min(100, nt.pct)) : 100}%"></i></span>
+    </div>`;
+    return `
+    <div class="tos-bliss-held${e.house ? ' house' : ''}">
+      <div class="tos-bliss-heldtop">
+        <div class="tos-bliss-name">${esc(e.names.join(' &amp; '))}${e.pairing ? ` <span class="dim">${esc(e.pairing)}</span>` : ''}${e.house ? ' <span class="tos-bliss-housetag">House</span>' : ''}</div>
+        <div class="tos-bliss-rate">${e.house
+          ? '<span class="tos-bliss-ratefig">—</span><span class="tos-bliss-rateunit">no retainer</span>'
+          : `<span class="tos-bliss-ratefig">${e.todayRate}c</span><span class="tos-bliss-rateunit">per day${e.saving ? ` · −${e.saving}c` : ''}</span>`}</div>
+      </div>
+      ${e.house ? `
       <div class="tos-bliss-note">Yours outright. The Syndicate bills nothing and arranges nothing.</div>`
       : `
-      <div class="tos-bliss-heldline">
-        <span>${e.daysKept} day${e.daysKept === 1 ? '' : 's'} &middot; ${esc(e.tier.label)}</span>
-        <span><b>${e.todayRate}c</b>/day${e.saving ? ` <span class="save">(−${e.saving}c)</span>` : ''}</span>
-      </div>
+      <div class="tos-bliss-heldline"><span>${e.daysKept} day${e.daysKept === 1 ? '' : 's'} kept</span></div>
+      ${tenure}
       <div class="tos-bliss-note">${esc(e.tier.note)}</div>
       ${e.missed ? `<div class="tos-bliss-warn">${e.missed} missed payment — one more and the placement is collected.</div>` : ''}
       <div class="tos-actions"><button class="tos-btn" data-act-id="release" data-act-app="bliss" data-act-params="${esc(e.id)}"
         data-act-confirm="Release ${esc(e.names.join(' and '))}? ${e.names.length > 1 ? 'A matched pair goes together. ' : ''}This cannot be undone.">Release</button></div>`}
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
-  return `${blissChrome(`${d.dailyTotal}c / day total`)}
+  return `${blissChrome(`${d.dailyTotal}c`, 'per day, drawn nightly')}
     <div class="tos-bliss-grid held">${rows}</div>
     <div class="tos-actions"><button class="tos-btn" data-act-id="listings" data-act-app="bliss" data-act-params="">Browse the register</button></div>`;
 }

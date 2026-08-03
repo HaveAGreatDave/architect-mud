@@ -31,7 +31,7 @@ import { on } from '../../server/engine/events.js';
 import { gameToday, addGameDays, gameDaysBetween, ymd, playerControlsApt } from '../../server/engine/apartments.js';
 import { ARCHETYPES, PAIRINGS, renderLine } from './archetypes.js';
 import { generateAppearance, describeAppearance } from './appearance.js';
-import { effectiveRate, loyaltyTier } from './roster.js';
+import { effectiveRate, loyaltyTier, LOYALTY_TIERS } from './roster.js';
 
 const MISSES_BEFORE_LEAVING = 2;
 
@@ -119,6 +119,23 @@ export async function arrangementEntries(playerId) {
       pairing: r.pairing_id ? (PAIRINGS[group.map(g => g.archetype).sort().join('_')]?.label || 'A matched pair') : null,
       daysKept: r.days_kept || 0,
       tier: loyaltyTier(r.days_kept || 0),
+      // The rung above, so the app can draw how far a placement is along its
+      // tenure rather than just naming where it stands. Derived here and not in
+      // the client because LOYALTY_TIERS is the tunable — a ladder copied into a
+      // renderer is a ladder that drifts. Null at the top rung: there is no next.
+      nextTier: (() => {
+        const kept = r.days_kept || 0;
+        const nxt = LOYALTY_TIERS.find(t => t.days > kept);
+        if (!nxt) return null;
+        const prev = loyaltyTier(kept).days;
+        const span = nxt.days - prev;
+        return {
+          label: nxt.label,
+          days: nxt.days,
+          daysAway: nxt.days - kept,
+          pct: span > 0 ? Math.round(((kept - prev) / span) * 100) : 0,
+        };
+      })(),
       baseRate,
       todayRate,
       saving: Math.max(0, baseRate - todayRate),
