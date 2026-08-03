@@ -10,7 +10,7 @@ import { ChessTable } from './chess-table.js';
 import { activeTables, loadAllTables } from './tables.js';
 import { renderPane } from './render-pane.js';
 import { parseMove, generateMoves, toAlgebraic } from './games/chess.js';
-import { narrateBoard, boardASCII } from './text-chess.js';
+import { narrateBoard, boardASCII, piecesLine, threatLines, movesLine } from './text-chess.js';
 import { renderHandASCII } from './cards.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction } from '../../server/engine/actions.js';
@@ -635,10 +635,20 @@ async function cmdChessPick(args, raw, player) {
 
   // In text view there are no glowing squares, so say what the piece can do.
   if (isTextMode(player.id) && result.moves?.length) {
-    const dests = result.moves.map(m => toAlgebraic(m.to)).join(' · ');
-    return { type: 'output', message: `From ${sq}: ${dests}` };
+    return { type: 'output', message: movesLine(result.moves, sq) };
   }
   return null;
+}
+
+// `threats` — what's attacking what. The pane shows danger for free; without it
+// the only way to find a hanging knight is to re-read the whole grid, so this is
+// the pull that closes the real gap. It reports the position, never advice.
+async function cmdThreats(args, raw, player) {
+  const t = chessTableFor(player);
+  if (!t || !t.game) return { type: 'error', message: 'No game in progress.' };
+  const color = t.game.seatByPlayer(player.id)?.color;
+  if (!color) return { type: 'error', message: 'You are watching, not playing.' };
+  return { type: 'output', message: threatLines(t.game, color) };
 }
 
 async function cmdResign(args, raw, player) {
@@ -706,7 +716,10 @@ async function cmdBoard(args, raw, player) {
     const turn = t.game.isOver()
       ? t.game.resultLine()
       : `${t.game.turn === 'w' ? 'White' : 'Black'} to move${t.game.inCheck() ? ' — in check' : ''}.`;
-    return { type: 'output', message: `<pre>${boardASCII(t.game, color)}</pre>${turn}` };
+    return {
+      type: 'output',
+      message: `<pre>${boardASCII(t.game, color)}</pre>${piecesLine(t.game)}<br>${turn}`,
+    };
   }
   const community = t.game.community;
   if (!community.length) return { type: 'output', message: 'No community cards yet.' };
@@ -902,8 +915,9 @@ function chessHelpHTML(t) {
     ``,
     h(`INFO & OUT`),
     `  ${y('board')}        the position as text, any time`,
+    `  ${y('threats')}      what of yours is attacked, and what's hanging for you`,
     `  ${y('players')}  ${y('table')}`,
-    `  ${y('text')}         play in the log — the board is called out move by move`,
+    `  ${y('text')}         play in the log — every move called, ${y('board')} to re-read`,
     `  ${y('visual')}       bring the board back to the top pane`,
     `  ${y('leave')}        stand up. <i>Mid-game that's a forfeit — and the stake with it.</i>`,
     ``,
@@ -1176,6 +1190,7 @@ export const commands = {
   move:        cmdMoveRouter,
   chessmove:   cmdChessMove,
   chesspick:   cmdChessPick,
+  threats:     cmdThreats,
   resign:      cmdResign,
   offerdraw:   cmdOfferDraw,
   acceptdraw:  cmdAcceptDraw,

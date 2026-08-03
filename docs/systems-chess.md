@@ -102,6 +102,8 @@ coordinate form (`e2e4`, `e7e8q`), and the spellings people actually type for ca
 asking.
 
 `chessmove` is the unambiguous long form; `chesspick` is the first half of a board click.
+`board` re-reads the position and `threats` reads the danger in it — both are pulls, and
+§5 is why.
 
 ---
 
@@ -210,14 +212,44 @@ the surface and the player is stuck. The preference is the **same one the felt u
 player who reads poker in the log reads chess in the log, and there is no second switch to
 find. It is latched at sit, never read from a tick.
 
-The log gets the whole game, not a summary: an ASCII board at the start, the board again
-after every move, and the result. If the record in the log isn't enough to keep playing
-from, the rung isn't done. `board` prints the position **in both views** — "let me look at
-it again" is exactly as reasonable a request with the pane up as without it.
+The log gets the whole game, not a summary: an ASCII board at the start, every move as it
+lands, the result. If the record in the log isn't enough to keep playing from, the rung
+isn't done. `board` prints the position **in both views** — "let me look at it again" is
+exactly as reasonable a request with the pane up as without it.
 
 Letters, not glyphs, in the text board: a screen reader says "capital R" and "R"
 differently, and `♜` is read as nothing useful at all. Two columns per square, because a
 single-column board is unreadably narrow.
+
+### Push a move, pull a position
+
+The board used to be re-sent under **every half-move**, and that was the one thing wrong
+with this rung. `#output` is the ONE live region ([systems-display-mode.md](systems-display-mode.md)),
+so a re-sent grid is twelve lines spoken again for a position the reader already has, with
+the single new fact — what the opponent played — buried at the top of it. Twice a move pair.
+
+So `narrateMove` pushes the **move and its consequence** (`Karla plays Nf3.` · `— check.`
+· `▶ Your move.`) and nothing else, and the position is **pulled** with `board`. The rung
+contract is untouched: the move stream is a game record you can play from, and `board`
+reconstructs the position at any point. Captures are deliberately *not* repeated in the
+push — `handleMove` already says "X takes the knight" to the room, and the room log is the
+same log.
+
+Two reads close the gap that leaves:
+
+- **`piecesLine`** — every occupied square by side, grouped (`White: king e1, queen d1,
+  rooks a1 h1, pawns a2 b2 …`), appended to the pulled board. This is how a player who
+  can't see a grid actually holds a position: thirty named facts, not sixty-four cells to
+  scan for dots.
+- **`threats`** — what of yours is attacked (and whether it's undefended), what of theirs is
+  free, and whether you're in check. The pane gives danger away for nothing — a ring round
+  a piece reads as threatened at a glance — so the written board owes the same answer or
+  the text player is the only one at the table playing blind. It reports the **position,
+  never advice**; an opponent-side piece that's attacked *and* defended is a trade, not a
+  threat, and listing every one of those is the noise this whole section is about.
+
+The destination list from `chesspick` marks captures the same way the pane does with its two
+marks (`From d4: d5 · e5 (takes pawn)`).
 
 ---
 

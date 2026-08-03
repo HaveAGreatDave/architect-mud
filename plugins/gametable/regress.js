@@ -377,6 +377,40 @@ async function chessRegress(check) {
   check('chess text: Black reads the board from Black\'s side',
     flipped.split('\n')[2].startsWith('1 |'));
 
+  // The piece list is the spoken half of the same position — a reader holds a
+  // game by named squares, not by scanning sixty-four cells for dots. From the
+  // opening it must name both kings and all sixteen pawns.
+  const { piecesLine, threatLines, movesLine } = await import('./text-chess.js');
+  const listed = piecesLine(textGame);
+  check('chess text: the piece list names both sides', /White:/.test(listed) && /Black:/.test(listed));
+  check('chess text: the piece list names the kings by square',
+    /king e1/.test(listed) && /king e8/.test(listed), listed);
+  check('chess text: the piece list groups the pawns',
+    /pawns a2 b2 c2 d2 e2 f2 g2 h2/.test(listed), listed);
+
+  // Threats: the pane draws danger for free, so the written board owes it too.
+  // Black's e5 pawn is attacked by the d4 pawn and defended by nothing.
+  const hanging = newGame('4k3/8/8/4p3/3P4/8/8/4K3 b - - 0 1');
+  const tl = threatLines(hanging, 'b');
+  check('chess text: threats names an attacked piece as undefended',
+    /pawn e5 \(undefended\)/.test(tl), tl);
+  check('chess text: threats tells the reader what is free to take',
+    /Hanging for you: pawn d4/.test(tl), tl);
+  const quiet = threatLines(newGame(), 'w');
+  check('chess text: a quiet position says so rather than listing nothing',
+    /Nothing of yours is attacked/.test(quiet), quiet);
+  const checked = threatLines(newGame('4k3/8/4R3/8/8/8/8/4K3 b - - 0 1'), 'b');
+  check('chess text: threats reports check', /in check/.test(checked), checked);
+
+  // A destination list marks captures — "go here" and "take that" are different
+  // decisions, and the pane distinguishes them with two different marks.
+  const capGame = newGame('4k3/8/8/4p3/3P4/8/8/4K3 w - - 0 1');
+  const pawnMoves = generateMoves(capGame.position).filter(m => toAlgebraic(m.from) === 'd4');
+  const ml = movesLine(pawnMoves, 'd4');
+  check('chess text: the move list marks a capture', /e5 \(takes pawn\)/.test(ml), ml);
+  check('chess text: the move list leaves a quiet square unmarked',
+    /(^|·\s)d5(\s|$)/.test(ml.replace('From d4: ', '')), ml);
+
   // ── The AI opponent's seat ─────────────────────────────────────────────────
   //
   // The search was always here; nothing ever put it in a chair. What's pinned is

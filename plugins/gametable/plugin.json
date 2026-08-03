@@ -9,6 +9,6 @@
     "join", "seat", "leave", "spectate", "watch", "say", "look", "help",
     "check", "call", "deal", "summon", "evict", "calldealer", "bet", "raise", "fold", "allin",
     "table", "board", "pot", "players", "showhand", "pokertext", "text", "visual",
-    "move", "chessmove", "chesspick", "resign", "offerdraw", "acceptdraw", "declinedraw"
+    "move", "chessmove", "chesspick", "threats", "resign", "offerdraw", "acceptdraw", "declinedraw"
   ]
 }
