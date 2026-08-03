@@ -156,10 +156,18 @@ async function main() {
 	// standing on the square behind it. The fix is structural — board faces and
 	// piece faces are separate sinks, painted in that order — and nothing about
 	// merging them back LOOKS wrong until you orbit, so assert the split itself.
+	//
+	// The SLAB is a third sink for the same reason, and it has its own bug: the
+	// underside is one quad spanning the whole board, so its average depth equals
+	// the average of the 64 square tops exactly. Sorted together it's a coin flip,
+	// and when it lost, the near-black underside painted over the entire
+	// checkerboard.
 	try {
-		const { board, pieces } = mod.__smokeFaces();
+		const { slab, board, pieces } = mod.__smokeFaces();
 		if (pieces.length !== 32) errs.push(`sinks: ${pieces.length} piece groups, expected 32`);
 		if (board.length < 64) errs.push(`sinks: only ${board.length} board faces — squares are missing`);
+		if (!slab?.length) errs.push('sinks: the slab sink is empty — it merged back into the board');
+		if (slab && board.some(f => slab.includes(f))) errs.push('sinks: a slab face leaked into the board sink');
 		if (pieces.some(p => !p.faces?.length)) errs.push('sinks: a piece group came back with no faces');
 	} catch (e) {
 		errs.push(`sinks: ${e.message}`);

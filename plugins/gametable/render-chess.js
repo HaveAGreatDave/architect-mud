@@ -307,7 +307,7 @@ function viewControlsHTML(game) {
   const b = (v, glyph, title) =>
     `<button class="chess-view" data-view="${v}" title="${esc(title)}">${glyph}</button>`;
   return `<div class="chess-viewbar">
-    ${b('left', '↺', 'Orbit left (or drag the board)')}${b('right', '↻', 'Orbit right')}
+    ${b('left', '↺', 'Orbit left (or middle-drag the board)')}${b('right', '↻', 'Orbit right')}
     ${b('up', '▲', 'Look down on the board')}${b('down', '▼', 'Drop to a low angle')}
     ${b('reset', '⌂', 'Reset the view')}
   </div>`;

@@ -127,7 +127,8 @@ face normal. The one divergence is that windshield queues *closures* — a build
 paint itself a dozen ways — while every face here is a filled polygon, so the sink holds
 plain geometry and skips ~4000 closure allocations a frame.
 
-**There are TWO sinks — board and pieces — and that split is a bug fix, not tidiness.**
+**There are THREE sinks — slab, board and pieces — and every split is a bug fix, not
+tidiness.**
 Faces sort by their *average* depth, and a board square is a metre wide: the near half of a
 square can sit in front of a piece standing on the square behind it while its average says
 otherwise, so the square paints over the piece and **the piece vanishes**. Average-depth
@@ -136,6 +137,14 @@ piece is ever *behind* the board — pieces stand ON the plane. So the board is 
 and whole, then the pieces on top, ordered **per piece** by the depth of its base (exact for
 anything standing on a plane) and only then per face within a piece. A piece's contact
 shadow and emitter pad are emitted into the *board* sink, because they lie on the plane too.
+
+The **slab** is the same argument run the other way, and it had its own symptom: the
+underside is one quad spanning the whole board, so its average depth equals the average of
+the 64 square tops *exactly*. Sorted together that's a coin flip, and when it lost, the
+near-black underside painted over the entire checkerboard — **the board losing its squares
+at certain angles**. The camera is always above the plane (pitch clamps well clear of 0), so
+the slab is always behind the top; saying that outright is both correct and cheaper than
+sorting. Each boundary between the three passes is an ordering **fact**, never a comparison.
 
 **Pieces are surfaces of revolution.** A silhouette of `[radius, height]` pairs, spun around
 its axis — which is how real chess pieces are made, and why a dozen numbers is enough to get
@@ -148,10 +157,19 @@ whose orientation matters**, so it's the one piece turned to face down the board
 redraws on a camera change or a pane update and otherwise costs nothing — that is what makes
 4000 faces in a 2D context affordable.
 
-**Drag the board to orbit it**, wheel to zoom; the view bar in the actions row is the touch
-route to the same camera and the way back from a wild orbit. The camera lives in
-`localStorage` and **survives the remount that happens on every single move**, which is the
-thing that would be maddening to lose.
+**Playing and looking are separate gestures**, and conflating them is a bug, not a
+simplification: when one press both picked a piece up and swung the camera, the few pixels
+of drift between pressing and releasing on a piece read as an orbit and **the move never
+fired**. So on a mouse, **left is the game and middle/right are the camera** — left-dragging
+over empty board still orbits, because it's the discoverable gesture and costs nothing once
+a press that starts on a playable square is claimed by the game before the camera sees it.
+Touch has no buttons to split on, so it splits on **finger count**: one finger taps to play
+and drags to orbit, two fingers pinch to zoom. A tap is judged by distance travelled, not by
+what it landed on — there is only one element and it's a canvas. Wheel zooms; the view bar
+is the keyboard-free route to the same camera and the way back from a wild orbit.
+
+The camera lives in `localStorage` and **survives the remount that happens on every single
+move**, which is the thing that would be maddening to lose.
 
 **The set is lit metal, not painted plastic**, and three things do that work. The **ambient
 floor is low** (0.10), so faces turned away from the key light fall into the dark instead of

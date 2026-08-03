@@ -24,8 +24,8 @@
 //     → proj; here `project`),
 //   • depth-sorted FACE SINKS, because a 2D context has no z-buffer, so faces
 //     are queued with their camera depth and painted back→front (windshield's
-//     emitFace/flushFaces; here `face()` + the sorts in draw()). Two of them,
-//     board and pieces — see buildFaces for why one wasn't enough,
+//     emitFace/flushFaces; here `face()` + the sorts in draw()). THREE of them —
+//     slab, board, pieces — see buildFaces for why one wasn't enough,
 //   • per-face lighting from the face normal, not per-pixel.
 // The one deliberate divergence: windshield queues CLOSURES because a building
 // face can paint itself in a dozen different ways. Every face here is a filled
@@ -209,6 +209,7 @@ function project(p) {
 // only then per face inside that piece — the same shape as the flight sim's
 // per-building face sink.
 function buildFaces() {
+	const slab = [];
 	const board = [];
 	const pieces = [];
 	const into = list => (pts, fill, opts = {}) => {
@@ -218,13 +219,22 @@ function buildFaces() {
 	};
 	const face = into(board);
 
-	// The slab: top surface is drawn per-square below, so this is just the sides
-	// and the underside rim that gives the board an edge when you orbit low.
+	// The slab: the sides and the underside rim that give the board an edge when
+	// you orbit low. It gets its OWN pass, painted before the squares — the same ordering
+	// argument as pieces, run the other way. The underside is a single quad
+	// spanning the whole board, so its average depth is IDENTICAL to the average
+	// of the 64 square tops; a depth sort between them is a coin flip, and when it
+	// came up tails the near-black underside painted over the entire checkerboard.
+	// That's the board "losing its squares" at certain angles. It isn't a sorting
+	// bug to be tuned — the camera is always above the plane (pitch clamps well
+	// above 0), so the slab is ALWAYS behind the top, and saying so outright is
+	// both correct and cheaper than sorting.
+	const slabFace = into(slab);
 	const z0 = -SLAB;
 	const corners = [[0, 0], [BOARD, 0], [BOARD, BOARD], [0, BOARD]];
 	for (let i = 0; i < 4; i++) {
 		const a = corners[i], b = corners[(i + 1) % 4];
-		face([[a[0], a[1], z0], [b[0], b[1], z0], [b[0], b[1], 0], [a[0], a[1], 0]],
+		slabFace([[a[0], a[1], z0], [b[0], b[1], z0], [b[0], b[1], 0], [a[0], a[1], 0]],
 			'#080f16', { stroke: colors.accent, strokeAlpha: 0.55 });
 		// A light strip let into the rim, all the way round. The board is a
 		// machine the game runs on, and this is the one detail that says so from
@@ -232,10 +242,10 @@ function buildFaces() {
 		const inset = 0.05, lo = z0 * 0.62, hi = z0 * 0.34;
 		const ax = a[0] + (b[0] - a[0]) * inset, ay = a[1] + (b[1] - a[1]) * inset;
 		const bx = b[0] - (b[0] - a[0]) * inset, by = b[1] - (b[1] - a[1]) * inset;
-		face([[ax, ay, lo], [bx, by, lo], [bx, by, hi], [ax, ay, hi]],
+		slabFace([[ax, ay, lo], [bx, by, lo], [bx, by, hi], [ax, ay, hi]],
 			rgba(toRgb(colors.accent), 0.75), { glow: colors.accent, glowSize: 12 });
 	}
-	face([[0, 0, z0], [BOARD, 0, z0], [BOARD, BOARD, z0], [0, BOARD, z0]], '#04060a');
+	slabFace([[0, 0, z0], [BOARD, 0, z0], [BOARD, BOARD, z0], [0, BOARD, z0]], '#04060a');
 
 	// Squares. The face colour carries every bit of board state — selection, the
 	// last move, check — because a flat lit panel is the only surface here that
@@ -258,7 +268,7 @@ function buildFaces() {
 		pieceFaces(pc, into(own), face);
 		pieces.push({ depth: project([pc.x + 0.5, pc.y + 0.5, 0])[2], faces: own });
 	}
-	return { board, pieces };
+	return { slab, board, pieces };
 }
 
 function discPts(cx, cy, r, z) {
@@ -595,16 +605,20 @@ function draw() {
 	ctx.fillStyle = g;
 	ctx.fillRect(0, 0, w, h);
 
-	const { board, pieces } = buildFaces();
+	const { slab, board, pieces } = buildFaces();
 
-	// Pass 1: the board, whole. Nothing standing on it can be behind it, which is
-	// the fact that makes this safe to paint first and the reason pieces stopped
-	// disappearing under the far ranks.
+	// Three passes, back to front, and every boundary between them is an ordering
+	// FACT rather than a sort: the slab is under the squares, the squares are
+	// under the pieces. Sorting across those boundaries is what produced both the
+	// vanishing pieces and the vanishing checkerboard.
+	slab.sort((a, b) => b.depth - a.depth);
+	for (const poly of slab) paintFace(poly);
+
 	board.sort((a, b) => b.depth - a.depth);
 	for (const poly of board) paintFace(poly);
 
-	// Pass 2: the pieces, far to near BY PIECE — exact for objects standing on a
-	// plane — then face by face inside each one.
+	// The pieces, far to near BY PIECE — exact for objects standing on a plane —
+	// then face by face inside each one.
 	pieces.sort((a, b) => b.depth - a.depth);
 	for (const pc of pieces) {
 		pc.faces.sort((a, b) => b.depth - a.depth);
@@ -707,34 +721,77 @@ export function unmountChess3D() {
 	scene = null;
 }
 
-function attachInput(pane) {
-	let dragging = false, moved = 0, lx = 0, ly = 0;
+// How much travel stops counting as a tap. Generous, because a finger on glass
+// always moves a few pixels and a thumb on a phone moves more than that.
+const TAP_SLOP = 10;
 
-	const down = (x, y) => { dragging = true; moved = 0; lx = x; ly = y; };
-	const move = (x, y) => {
-		if (!dragging) return;
-		moved += Math.abs(x - lx) + Math.abs(y - ly);
+// Playing and looking are SEPARATE GESTURES, and conflating them is why a
+// left-drag used to eat the move you were trying to make: the same press both
+// picked a piece up and swung the camera, so the tiny drift between pressing and
+// releasing on a piece counted as an orbit and the move never fired.
+//
+// Mouse: left is the game, middle and right are the camera. Left-dragging over
+// empty board still orbits — it's the discoverable gesture and costs nothing,
+// because a press that starts on a playable square is claimed by the game before
+// the camera ever sees it.
+//
+// Touch has no buttons to split on, so it splits on FINGER COUNT: one finger taps
+// to play and drags to orbit, two fingers pinch to zoom and twist to orbit. A tap
+// is judged by distance, not by which element it landed on — there is only one
+// element, and it's a canvas.
+function attachInput(pane) {
+	let mode = null;         // 'orbit' | 'play' | null
+	let moved = 0, lx = 0, ly = 0;
+	let pinchDist = 0;
+
+	const orbitTo = (x, y) => {
 		cam.yaw += (x - lx) * 0.008;
 		cam.pitch = Math.max(0.12, Math.min(1.45, cam.pitch + (y - ly) * 0.006));
 		lx = x; ly = y;
 		requestDraw();
 	};
-	const up = (x, y, ev) => {
-		if (!dragging) return;
-		dragging = false;
-		if (moved > 6) { saveCam(); return; }   // that was an orbit, not a click
+	const atCanvas = (x, y) => {
 		const rect = canvas.getBoundingClientRect();
-		const sq = pickSquare(x - rect.left, y - rect.top);
-		if (sq?.cmd) fireCmd(sq.cmd, ev);
+		return [x - rect.left, y - rect.top];
 	};
 
-	canvas.addEventListener('mousedown', e => { e.preventDefault(); down(e.clientX, e.clientY); });
+	// ── Mouse ────────────────────────────────────────────────────────────────
+	canvas.addEventListener('mousedown', e => {
+		moved = 0; lx = e.clientX; ly = e.clientY;
+		if (e.button === 0) {
+			// Left on a playable square is a move, full stop — the camera doesn't
+			// get a vote. Left anywhere else falls through to orbit.
+			const sq = pickSquare(...atCanvas(e.clientX, e.clientY));
+			mode = sq?.cmd ? 'play' : 'orbit';
+		} else {
+			mode = 'orbit';    // middle and right are always the camera
+			e.preventDefault();
+		}
+	});
+	// Right-drag is an orbit, so the context menu would fire on every release.
+	canvas.addEventListener('contextmenu', e => e.preventDefault());
+
 	// The drag listeners live on WINDOW so an orbit that runs off the edge of the
 	// canvas keeps working. Every table_update remounts, so they're torn down
 	// explicitly — hanging a fresh pair on window per move is how you end up with
 	// forty stale closures by the endgame.
-	const onWinMove = e => { if (dragging) move(e.clientX, e.clientY); };
-	const onWinUp = e => { if (dragging) up(e.clientX, e.clientY, e); };
+	const onWinMove = e => {
+		if (!mode) return;
+		moved += Math.abs(e.clientX - lx) + Math.abs(e.clientY - ly);
+		if (mode === 'orbit') orbitTo(e.clientX, e.clientY);
+		else { lx = e.clientX; ly = e.clientY; }
+	};
+	const onWinUp = e => {
+		if (!mode) return;
+		const wasPlay = mode === 'play';
+		mode = null;
+		if (!wasPlay) { saveCam(); return; }
+		// A press that started on a piece stays a move even if the hand wandered:
+		// the alternative is a player who "clicked" and nothing happened.
+		if (moved > TAP_SLOP * 4) return;
+		const sq = pickSquare(...atCanvas(e.clientX, e.clientY));
+		if (sq?.cmd) fireCmd(sq.cmd, e);
+	};
 	window.addEventListener('mousemove', onWinMove);
 	window.addEventListener('mouseup', onWinUp);
 	detachInput = () => {
@@ -743,9 +800,49 @@ function attachInput(pane) {
 		detachInput = null;
 	};
 
-	canvas.addEventListener('touchstart', e => { const t = e.touches[0]; down(t.clientX, t.clientY); }, { passive: true });
-	canvas.addEventListener('touchmove', e => { const t = e.touches[0]; move(t.clientX, t.clientY); e.preventDefault(); }, { passive: false });
-	canvas.addEventListener('touchend', e => { const t = e.changedTouches[0]; up(t.clientX, t.clientY, e); }, { passive: true });
+	// ── Touch ────────────────────────────────────────────────────────────────
+	const spread = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+
+	canvas.addEventListener('touchstart', e => {
+		if (e.touches.length >= 2) {
+			mode = 'pinch';
+			pinchDist = spread(e.touches);
+			return;
+		}
+		const t = e.touches[0];
+		mode = 'tap';                 // becomes 'orbit' the moment it travels
+		moved = 0; lx = t.clientX; ly = t.clientY;
+	}, { passive: true });
+
+	canvas.addEventListener('touchmove', e => {
+		if (mode === 'pinch' && e.touches.length >= 2) {
+			const d = spread(e.touches);
+			// Pinch OUT (fingers apart) should bring the board closer, so the sign
+			// is inverted against distance.
+			cam.dist = Math.max(7, Math.min(26, cam.dist - (d - pinchDist) * 0.04));
+			pinchDist = d;
+			requestDraw();
+			e.preventDefault();
+			return;
+		}
+		if (!mode || mode === 'pinch') return;
+		const t = e.touches[0];
+		moved += Math.abs(t.clientX - lx) + Math.abs(t.clientY - ly);
+		if (moved > TAP_SLOP) mode = 'orbit';
+		if (mode === 'orbit') orbitTo(t.clientX, t.clientY);
+		else { lx = t.clientX; ly = t.clientY; }
+		e.preventDefault();
+	}, { passive: false });
+
+	canvas.addEventListener('touchend', e => {
+		const wasTap = mode === 'tap';
+		// Don't clear the mode while a second finger is still down mid-pinch.
+		if (e.touches.length === 0) mode = null;
+		if (!wasTap) { saveCam(); return; }
+		const t = e.changedTouches[0];
+		const sq = pickSquare(...atCanvas(t.clientX, t.clientY));
+		if (sq?.cmd) fireCmd(sq.cmd, e);
+	}, { passive: true });
 
 	canvas.addEventListener('wheel', e => {
 		e.preventDefault();
@@ -754,10 +851,11 @@ function attachInput(pane) {
 		saveCam();
 	}, { passive: false });
 
+	// The cursor is the only thing telling a mouse user which of the two gestures
+	// they're about to get, so it has to be right on every pixel.
 	canvas.addEventListener('mousemove', e => {
-		if (dragging) return;
-		const rect = canvas.getBoundingClientRect();
-		canvas.style.cursor = pickSquare(e.clientX - rect.left, e.clientY - rect.top) ? 'pointer' : 'grab';
+		if (mode) return;
+		canvas.style.cursor = pickSquare(...atCanvas(e.clientX, e.clientY)) ? 'pointer' : 'grab';
 	});
 
 	// The view bar still works — it's the touch route to the same camera, and the
