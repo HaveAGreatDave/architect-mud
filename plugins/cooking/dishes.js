@@ -18,6 +18,7 @@
 
 import { PROFILES, QUALITY_BANDS, bandIndex, instanceNoun, HANDLING_VERB } from './profiles.js';
 import { portionOf } from './portions.js';
+import { gearLine } from './gear.js';
 import { WORST_PULL, SLOP_CEILING, KNOWN_RECIPE_BONUS, MODIFIER_BONUS, MODIFIER_BONUS_CAP, OVER_SEASON_PENALTY, DEFAULT_SEASONING } from './config.js';
 
 // Vessel kinds, read from the vessel's `tags.vessel_kind`. A vessel that
@@ -1288,7 +1289,9 @@ export function describeDish(key, template, secondsPerKg = 360, itemInfo = null)
   lines.push('');
   const ms = estimateCookMs(t, secondsPerKg);
   if (ms > 0) lines.push(`<span class="text-dim">Roughly:</span> ${MINS(ms)} <span class="text-dim">on an ordinary stove — the pan and the heat move it either way.</span>`);
-  lines.push(`<span class="text-dim">Cook it in:</span> ${t.vessel ? `a ${t.vessel}` : 'anything, or straight on the heat'}`);
+  // THE KIT, not just the pan. A card that named the vessel and stopped left the
+  // stove and the spoon as things you found out you needed halfway through.
+  lines.push(`<span class="text-dim">Make it with:</span> ${gearLine(t) || 'anything, or straight on the heat'}`);
   // NAME the key items. Being coy about them is right on the LIST (working out
   // what a dish is made of is the cooking game) but wrong on a card for a
   // recipe you have already earned — at that point "the right ingredient" is

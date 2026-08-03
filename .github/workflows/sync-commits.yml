@@ -1,0 +1,61 @@
+# Dev Log commit sync — keeps production's `dev_commits` table current.
+#
+# The Dev Log panel has no runtime git to read (the Render checkout is shallow),
+# so it renders from the `dev_commits` table that scripts/sync-commits.js fills.
+# That script is also installed as a local post-commit hook, but a hook can only
+# write to whatever `.env` points at — and once a dev's `.env` moved to a local
+# Postgres, prod silently stopped receiving commits and the panel froze on a
+# month-old snapshot without ever saying so (`needsSync` is false when the table
+# is merely stale rather than empty). Git is the source of truth for history the
+# same way it is for content, so the sync belongs here.
+#
+# Deliberately NOT a step in deploy-content.yml:
+#   • no `paths:` filter — a docs-only or tools-only commit is still history, and
+#     deploy-content only starts on code/content paths.
+#   • runs on every push, not just the ones the debounce gate lets deploy, so the
+#     Dev Log is current between the 2-hourly deploy windows.
+#   • it can never fail or delay a deploy. This writes one table nothing in the
+#     game reads; a red run here means a stale panel, not a stale world.
+#
+# Backfill / recompute: Actions tab → sync-commits → Run workflow, with
+# `full: true` to re-scan every commit (e.g. after editing CORE_SEAM_FILES, which
+# changes the core-seam flags on commits already stored). Upserts by hash either
+# way, so any run is safe to repeat.
+#
+# Required repo secret: PROD_DATABASE_URL (the same Neon string deploy-content
+# uses). db.js turns TLS on by hostname, so nothing else needs configuring.
+
+name: sync-commits
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      full:
+        description: 'Re-scan ALL commits instead of only the new ones'
+        type: boolean
+        default: false
+
+# Serialize: concurrent runs would race the same upsert to no purpose. Never
+# cancel in progress — a half-finished chunked upsert should be allowed to land.
+concurrency:
+  group: dev-commits-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # the sync walks the whole history
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Sync git history into dev_commits
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: node scripts/sync-commits.js ${{ inputs.full && '--full' || '' }}

@@ -108,6 +108,31 @@ rounded cards. The container panel's split of **id-based structure + a short cla
 (`#container-*` / `.ctr-*`, [styles.css:3749](../../client/game/styles.css#L3749)) is the
 convention to copy.
 
+**There is no `textgames` variant, and there must not be.** The HUD is a *panel* by the
+Display Mode test — delete it and you are not stuck, every action on it is a verb you could
+type — so only the `log` rung changes it, where it re-renders rather than suppresses
+([systems-display-mode.md](../systems-display-mode.md)). The second reason is specific to
+this surface: **the visual form already IS the text form.** A middle-rung variant would be a
+monospace re-implementation of a monospace panel, which is the duplicate implementation this
+whole layer exists to avoid.
+
+Four presentation rules the built panel settled on, each of which had a wrong answer first:
+
+- **Status lives in the header, not the foot.** It is the shortest block and the one most
+  likely to decide whether you can start at all; a cut supply belongs where you look first,
+  not below a screenful of recipes. It does not scroll — the body does.
+- **The first action on a row stays legible at rest**, the rest surface on hover. The strip
+  exists to TEACH the verb, and one that is invisible until hovered teaches nothing to
+  somebody reading down the page, or to anybody on a touchscreen.
+- **The marker is the whole signal.** A row a recipe would use is marked in the gutter and
+  is *not* recoloured as well — that second colour is exactly the "twenty things of subtly
+  different shades" the gutter was introduced to avoid.
+- **With several recipes open the markers carry ordinals** (`▸1`, `▸12`). The highlight is a
+  union computed per recipe, so it always slightly overstates; numbering it says *which*
+  recipe wants the onion rather than leaving an honest-but-mute union to be guessed at.
+  Ordinals follow the order you opened them in, so opening a third cannot renumber the two
+  you are reading.
+
 ---
 
 ## The wire contract
@@ -140,7 +165,7 @@ unsolicited refresh per second per cooking player is a real cost.
   title: 'PREPARATION WORKSPACE',
   providers:  [ { key, label } ],                                     // what else this room is
   storage:    [ { id, name, preserves, items: [Component], other } ], // `other` is a COUNT
-  area:       [ { id, name, place, heat, hot, contents: [Component] } ],  // vessels
+  area:       [ { id, name, place, heat, hot, idle, contents: [Component] } ],  // vessels + free burners
   components: [ Component ],                                          // loose, on you
   tools:      [ Component ],
   status:     [ { label, value, state: 'ok'|'warn'|'off' } ],
@@ -150,10 +175,27 @@ unsolicited refresh per second per cooking player is a real cost.
 ```
 
 ```js
-Component = { id, name, qty, kind, state, notes: [String], live, actions: [Action] }
+Component = { id, name, qty, kind, state, notes: [String], live, cook, actions: [Action] }
+cook      = { phase: 'thaw'|'cook'|'window'|'over'|'burnt', stage, stages } | null
 Action    = { label, command, hint }     // command is the literal verb string
 Recipe    = { key, name, known, pct, missing: [String], suggestion, command }
 ```
+
+**`cook` is a BEAT, never a clock.** It is which stage of the prose beside it the food
+has reached — the same index `checkCooking` picks the words from, so the pips and the
+sentence can never disagree — and past the finish it stops counting and reports a
+state (`window`/`over`/`burnt`) instead. There is deliberately no percentage and no time
+remaining: **deciding when to plate is the single largest quality lever in the kitchen**,
+and a countdown would play that half of the game for the player. The panel is allowed to
+say how far along; it is not allowed to say how long.
+
+**`idle` marks a piece of the working area standing empty** — a burner with nothing on
+it. *"Is there a ring free"* is one of the questions the HUD exists to answer at a glance,
+and the only answer used to be an aggregate `1/2 in use` at the foot of Status, which says
+a burner is free and not **which** in a kitchen whose rings cook at different tiers. An
+idle row carries no actions, because every verb that uses a burner names the FOOD
+(`cook steak`) and never the stove. ⚠ **It must not count towards `empty`** — otherwise a
+kitchen holding nothing but a cold stove stops reading as bare.
 
 **Every actionable entry carries the command string, not an opaque id.** That is not a
 stylistic choice — it is the enforcement mechanism for the rule above. A reviewer can read

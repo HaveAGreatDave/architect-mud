@@ -554,10 +554,17 @@ export function restText(platedAt, restsWell, now = Date.now()) {
   return 'gone cold';
 }
 
-export function stageText(stages, fraction) {
+// WHICH stage, rather than what it reads like. Same table, same fraction, same
+// clamp — the two must never disagree about where a cook has got to, which is
+// why `stageText` is written in terms of this one rather than looping again.
+export function stageIndex(stages, fraction) {
   const f = Math.max(0, Math.min(1, fraction));
-  for (const s of stages) if (f <= s.max) return s.text;
-  return stages[stages.length - 1].text;
+  for (let i = 0; i < stages.length; i++) if (f <= stages[i].max) return i;
+  return stages.length - 1;
+}
+
+export function stageText(stages, fraction) {
+  return stages[stageIndex(stages, fraction)].text;
 }
 
 // FOLLOWING A REAL RECIPE, WELL, IS THE BEST-PAID THING IN THE KITCHEN.

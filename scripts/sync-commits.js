@@ -8,6 +8,13 @@
 //
 // Installed as a git post-commit hook (scripts/git-hooks/post-commit) it runs
 // automatically & backgrounded after each commit. Upserts by hash — idempotent.
+//
+// PROD is fed by CI, not by the hook: .github/workflows/sync-commits.yml runs
+// this on every push to main against PROD_DATABASE_URL. The hook writes only to
+// whatever the local .env points at, so it keeps YOUR dev panel current and
+// nothing else — when that .env moved to a local Postgres, prod's Dev Log froze
+// for a month without ever reporting it (a stale table isn't an empty one, so
+// `needsSync` stayed false). Treat the hook as a local convenience.
 
 import { execFile } from 'child_process';
 import { promisify } from 'util';

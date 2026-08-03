@@ -20,6 +20,7 @@ const PANELS = {
       const [notes, activity, ids, contrib] = await Promise.all([directAPI('/dev/notes'), directAPI('/dev/activity'), directAPI('/dev/identities'), directAPI('/dev/contributions')]);
       return { notes: notes?.notes || [], commits: activity?.commits || [],
                needsSync: !!(activity?.needsSync || contrib?.needsSync),
+               syncedThrough: activity?.syncedThrough || null,
                routeError: (activity?.error || contrib?.error || (notes?.error && notes.error)) || null,
                identities: ids?.identities || [], players: ids?.players || [], contributions: contrib?.ranges || null };
     },

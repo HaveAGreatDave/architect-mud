@@ -6,6 +6,7 @@
 import { getList, holdings, answer, addShortfall, tidy, clearList, removeAt, catalogTemplate } from './shoplist.js';
 import { savedRecipes } from './knowledge.js';
 import { DISHES, unitsOf } from './dishes.js';
+import { gearKeysOf } from './gear.js';
 import { getItem } from '../../server/engine/items-cache.js';
 
 // A saved recipe's signature read back as a `needs` map, so the player's own
@@ -65,11 +66,20 @@ export async function cmdShoplist(args, raw, player) {
     if (!template) return { type: 'error', message: `"${rest}" isn't a recipe you know.` };
 
     const r = await addShortfall(player.id, template, { label });
+    // The kit is named in the same breath as the food, because it is the same
+    // errand — and a cook told to buy meat and potatoes who owns no pot has been
+    // told two thirds of what they needed to hear.
+    const kit = r.gear.length
+      ? `\n<span class="text-dim">…and you'll want:</span>\n${r.gear.map(e => `  <span class="text-bright">${e.label}</span>`).join('\n')}`
+      : '';
+    if (!r.added.length && !r.gear.length) {
+      return { type: 'output', message: `You've already got everything ${label} wants, kit and all.` };
+    }
     return {
       type: 'output',
       message: r.added.length
-        ? `Added to the list:\n${r.added.map(e => `  <span class="text-bright">${e.label}</span>`).join('\n')}`
-        : `You've already got everything ${label} wants.`,
+        ? `Added to the list:\n${r.added.map(e => `  <span class="text-bright">${e.label}</span>`).join('\n')}${kit}`
+        : `You've got everything ${label} is made of.${kit}`,
     };
   }
 
@@ -115,7 +125,10 @@ export async function cmdShoplist(args, raw, player) {
       const mark = e.done ? `<span class="text-dim">[x]</span>` : `[ ]`;
       const opts = e.done ? [] : (e.ex || []);
       const head = e.done ? `<span class="text-dim">${e.label}</span>` : (e.base || e.label);
-      lines.push(`${indent}${mark} ${i + 1}. ${head}`);
+      // NO NUMBER ON A DERIVED LINE. The number is an index into the STORED list
+      // and the only thing it is for is `shoplist drop 3`; kit isn't stored, so
+      // numbering it would print a handle that doesn't open anything.
+      lines.push(`${indent}${mark} ${e.derived ? '·' : `${i + 1}.`} ${head}`);
       // "or" between them, not a comma-separated run — a comma reads as a list of
       // things to buy, which is the exact opposite of what these are.
       if (opts.length) lines.push(`${indent}     <span class="text-dim">any one of: ${opts.join(' <b>or</b> ')}</span>`);
@@ -130,7 +143,25 @@ export async function cmdShoplist(args, raw, player) {
       if (!byPart.has(x.e.part)) { byPart.set(x.e.part, []); partOrder.push(x.e.part); }
       byPart.get(x.e.part).push(x);
     }
-    for (const x of entries) if (!x.e.part) emit(x, '    ');
+    for (const x of entries) if (!x.e.part && x.e.k !== 'g') emit(x, '    ');
+    // THE KIT, under its own heading and last. It is not an ingredient — you buy
+    // it once and it comes home with you forever — so running it in with the
+    // onions would say the wrong thing about both. `req` is printed because "the
+    // dish will not happen without this" and "it'll be better with one" are two
+    // different errands and the list is not allowed to blur them.
+    const kit = entries.filter(x => x.e.k === 'g');
+    if (kit.length) {
+      // Every line here is one you haven't got — kit is derived and only appears
+      // while it's still an errand, so there is no ticked half of this block.
+      lines.push(`    <span class="text-bright">to make it in</span> <span class="text-dim">— ${
+        kit.length} still to buy, and you keep them</span>`);
+      for (const x of kit.sort((a, b) => (a.e.req === 'required' ? 0 : 1) - (b.e.req === 'required' ? 0 : 1))) {
+        emit(x, '      ');
+        if (!x.e.done && x.e.req === 'better') {
+          lines.push(`             <span class="text-dim">it'll cook without one, and worse</span>`);
+        }
+      }
+    }
     for (const partLabel of partOrder) {
       const members = byPart.get(partLabel);
       const short = members.filter(x => !x.e.done).length;
@@ -157,13 +188,15 @@ export async function outstanding(player) {
   if (!list.length) return null;
   const rows = answer(list, await holdings(player.id)).filter(e => !e.done);
   if (!rows.length) return null;
-  const profiles = new Map(), items = new Map();
+  const profiles = new Map(), items = new Map(), gear = new Map();
   for (const e of rows) {
     const short = Math.max(0, (e.n || 1) - (e.have || 0));
-    const into = e.k === 'p' ? profiles : items;
-    into.set(e.v, (into.get(e.v) || 0) + short);
+    const into = e.k === 'p' ? profiles : e.k === 'g' ? gear : items;
+    // Kit never accumulates: two recipes wanting a pot want ONE pot, and adding
+    // their shortfalls would send you home from the hardware shop with two.
+    into.set(e.v, e.k === 'g' ? Math.min(1, short) : (into.get(e.v) || 0) + short);
   }
-  return { profiles, items };
+  return { profiles, items, gear };
 }
 
 // The shelf, marked. A shopping list you have to hold up against the stock
@@ -187,7 +220,11 @@ export async function markShelf({ stock, playerId }) {
 function markRow(entry, itemId, tags, want) {
   if (!entry || !itemId) return;
   const profile = tags?.food_profile || tags?.food_also || null;
-  if (want.items.has(itemId) || (profile && want.profiles.has(profile))) entry.wanted = true;
+  // Kit answers the same question one aisle over — the shelf of a hardware shop
+  // marks the pot exactly as the grocer's marks the onion, off the same list and
+  // through the same matcher.
+  const kit = gearKeysOf(tags).some(k => want.gear?.get(k) > 0);
+  if (want.items.has(itemId) || (profile && want.profiles.has(profile)) || kit) entry.wanted = true;
 }
 
 // The same mark, on the boxes rather than the vendor's board. Half of a shop's
@@ -217,6 +254,15 @@ function allocate(row, want) {
   if (!row.wanted) return;
   const stack = Math.max(1, Number(row.quantity) || 1);
   const profile = row.tags?.food_profile || row.tags?.food_also || null;
+  // A pot is one pot. It has no units and no stack worth taking two of, so it
+  // takes exactly one and spends the line outright — the next pot on the shelf
+  // is then wanted by nobody, which is the mark it should carry.
+  const kitKey = gearKeysOf(row.tags).find(k => want.gear?.get(k) > 0);
+  if (kitKey && !want.items.get(row.item_id) && !(profile && want.profiles.get(profile) > 0)) {
+    row.wantedQty = 1;
+    want.gear.set(kitKey, 0);
+    return;
+  }
   const byItem = want.items.get(row.item_id);
   let need, per, pool;
   if (byItem > 0) { need = byItem; per = 1; pool = want.items; }

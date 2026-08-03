@@ -1594,6 +1594,10 @@
 					<span id="workspace-provider"></span>
 					<button id="workspace-close" aria-label="Close">✕</button>
 				</div>
+				<!-- The room's state — power, stove, ambient. In the header, not the
+				     foot: it is short, it never scrolls away, and it is the thing most
+				     likely to decide whether you can start at all. -->
+				<div id="workspace-status"></div>
 				<div id="workspace-body"></div>
 				<div id="workspace-footer">
 					<button id="workspace-refresh" class="loot-btn">Refresh</button>
@@ -1929,7 +1933,16 @@
 				     what it is doing. -->
 					<div id="mediadeck-door">
 						<div class="mediadeck-door-mouth">
-							<div class="mediadeck-door-tape" id="mediadeck-door-tape"></div>
+							<!-- The cassette itself. Only ever visible while it is being taken or
+							     handed back — at rest it sits outside the mouth, which clips it. -->
+							<div class="mediadeck-door-tape" id="mediadeck-door-tape">
+								<span class="mediadeck-door-tape-hub"></span>
+								<span class="mediadeck-door-tape-label" id="mediadeck-door-tape-label"></span>
+								<span class="mediadeck-door-tape-hub"></span>
+							</div>
+							<!-- Top-loader lid (style-keys only): swings up out of the way for the
+							     tape, then drops back down over it. -->
+							<div class="mediadeck-door-lid" aria-hidden="true"></div>
 							<div class="mediadeck-door-lip"></div>
 						</div>
 						<div class="mediadeck-amber"><span class="mediadeck-amber-fill" id="mediadeck-amber-fill"></span></div>

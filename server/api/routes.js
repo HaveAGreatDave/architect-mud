@@ -2486,12 +2486,14 @@ async function apiGetDevActivity(fullUrl) {
              filesChanged: r.files_changed || 0, core: coreLines > 0, coreLines,
              coreTier: coreIntensityTier(coreLines), coreFiles: r.core_files || [] };
   });
-  let needsSync = false;
-  if (!commits.length) {
-    const { rows: any } = await query(`SELECT 1 FROM dev_commits LIMIT 1`);
-    needsSync = any.length === 0;
-  }
-  return { status: 200, body: { commits, needsSync } };
+  // An EMPTY table announces itself; a merely STALE one used to say nothing at
+  // all, and rendered a frozen snapshot as though it were live — prod's Dev Log
+  // sat a month behind from 2026-07-03 and looked healthy the whole time. So
+  // always report the newest commit stored, and let the client judge the lag.
+  const { rows: [{ newest, total }] } = await query(
+    `SELECT MAX(authored_at) AS newest, COUNT(*)::int AS total FROM dev_commits`
+  );
+  return { status: 200, body: { commits, needsSync: total === 0, syncedThrough: newest, total } };
 }
 
 async function apiGetDevIdentities() {

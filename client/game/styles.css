@@ -9062,22 +9062,56 @@ body.ck-fullscreen #mob-hud-env {
 	background: linear-gradient(90deg, transparent, var(--border) 12%, var(--text-dim) 50%, var(--border) 88%, transparent);
 	opacity: 0.75;
 }
-/* The cassette itself, only visible while it is being taken or handed back. */
+/* The cassette itself, only visible while it is being taken or handed back: two
+   hub windows and a hand-written label strip, so what crosses the mouth reads as
+   a TAPE rather than a moving rectangle. At rest it sits above the mouth, which
+   clips it — there is no state in which a machine holding nothing shows one. */
 .mediadeck-door-tape {
 	position: absolute;
 	left: 12%; right: 12%;
 	top: -30px;
 	height: 26px;
+	display: flex;
+	align-items: center;
+	gap: 3px;
+	padding: 0 5px;
 	border-radius: 1px;
-	background: linear-gradient(180deg, var(--bg3), var(--bg2));
+	background: linear-gradient(180deg, var(--bg3), var(--bg2) 60%, var(--bg) 100%);
 	border: 1px solid var(--border);
+	box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 2px 5px rgba(0,0,0,0.55);
 	opacity: 0;
 }
-/* Four seconds, no easing drama, no bounce: it just takes it from you. */
-#mediadeck-door.drawing .mediadeck-door-tape {
+.mediadeck-door-tape-hub {
+	flex: 0 0 auto;
+	width: 7px; height: 7px;
+	border-radius: 50%;
+	background: #000;
+	border: 1px solid var(--border);
+	box-shadow: inset 0 0 2px rgba(0,0,0,0.9);
+}
+.mediadeck-door-tape-label {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	text-align: center;
+	font-size: 7px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: var(--text-dim);
+	background: rgba(255,255,255,0.05);
+	border-top: 1px solid var(--border);
+	border-bottom: 1px solid var(--border);
+	padding: 1px 2px;
+}
+/* ── Slab (machined, silent) ──
+   Four seconds, no easing drama, no bounce: it just takes it from you. The
+   hand-back is the same motion run backwards and a little quicker. */
+#mediadeck-box.style-slab #mediadeck-door.drawing .mediadeck-door-tape {
 	animation: mediadeck-draw-in 4s linear forwards;
 }
-#mediadeck-door.ejecting .mediadeck-door-tape {
+#mediadeck-box.style-slab #mediadeck-door.ejecting .mediadeck-door-tape {
 	animation: mediadeck-hand-back 2.2s linear forwards;
 }
 @keyframes mediadeck-draw-in {
@@ -9089,6 +9123,80 @@ body.ck-fullscreen #mob-hud-env {
 	0%   { top: 4px;   opacity: 0; }
 	12%  { top: 2px;   opacity: 1; }
 	100% { top: -26px; opacity: 1; }
+}
+
+/* ── Top-loader (cheap, loud) ──
+   Opposite machine, opposite motion. The lid flips up, the tape is dropped in
+   and bottoms out with a bounce, the lid is shoved shut. Eject is a spring: the
+   lid springs open and the tape is thrown half out of the well before it settles
+   — then it's gone, because the machine is no longer holding it. */
+.mediadeck-door-lid { display: none; }
+#mediadeck-box.style-keys .mediadeck-door-lid {
+	display: block;
+	position: absolute;
+	inset: 0;
+	transform-origin: 50% 100%;
+	background: linear-gradient(180deg, var(--bg3) 0%, var(--bg2) 55%, var(--bg) 100%);
+	border-bottom: 2px solid var(--border);
+	box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 3px 6px rgba(0,0,0,0.7);
+	z-index: 2;
+}
+/* The moulding seam across the lid — the closed machine's one bit of relief,
+   since the lid covers the recessed lip the slab shows. */
+#mediadeck-box.style-keys .mediadeck-door-lid::after {
+	content: '';
+	position: absolute;
+	left: 6px; right: 6px; top: 46%;
+	height: 2px;
+	background: linear-gradient(90deg, transparent, rgba(0,0,0,0.55) 15%, rgba(0,0,0,0.7) 85%, transparent);
+	border-bottom: 1px solid rgba(255,255,255,0.05);
+	opacity: 0.8;
+}
+#mediadeck-box.style-keys #mediadeck-door.drawing .mediadeck-door-lid {
+	animation: mediadeck-lid-load 0.9s ease-in forwards;
+}
+#mediadeck-box.style-keys #mediadeck-door.ejecting .mediadeck-door-lid {
+	animation: mediadeck-lid-pop 1.1s ease-out forwards;
+}
+#mediadeck-box.style-keys #mediadeck-door.drawing .mediadeck-door-tape {
+	animation: mediadeck-drop-in 0.9s ease-in forwards;
+}
+#mediadeck-box.style-keys #mediadeck-door.ejecting .mediadeck-door-tape {
+	animation: mediadeck-spring-out 1.1s ease-out forwards;
+}
+/* Lid up out of the way, then shoved shut over the seated tape. */
+@keyframes mediadeck-lid-load {
+	0%   { transform: rotateX(0deg); }
+	10%  { transform: rotateX(82deg); }
+	62%  { transform: rotateX(82deg); }
+	88%  { transform: rotateX(0deg); }
+	94%  { transform: rotateX(7deg); }   /* the rattle of a cheap hinge */
+	100% { transform: rotateX(0deg); }
+}
+/* The spring throws it open and it stays open a beat before dropping back. */
+@keyframes mediadeck-lid-pop {
+	0%   { transform: rotateX(0deg); }
+	8%   { transform: rotateX(88deg); }
+	70%  { transform: rotateX(84deg); }
+	96%  { transform: rotateX(0deg); }
+	100% { transform: rotateX(0deg); }
+}
+@keyframes mediadeck-drop-in {
+	0%   { top: -30px; opacity: 0; }
+	12%  { top: -26px; opacity: 1; }
+	58%  { top: 5px;   opacity: 1; }
+	70%  { top: 1px;   opacity: 1; }   /* bottoms out and bounces once */
+	80%  { top: 4px;   opacity: 1; }
+	88%  { top: 4px;   opacity: 0; }
+	100% { top: 4px;   opacity: 0; }
+}
+@keyframes mediadeck-spring-out {
+	0%   { top: 4px;   opacity: 0; }
+	8%   { top: 4px;   opacity: 1; }
+	26%  { top: -20px; opacity: 1; }   /* thrown up by the spring */
+	40%  { top: -14px; opacity: 1; }   /* falls back and rests half out */
+	72%  { top: -16px; opacity: 1; }
+	100% { top: -34px; opacity: 0; }   /* lifted out — the well is empty */
 }
 
 /* The single amber bar — the entire readout. */
@@ -9193,6 +9301,8 @@ body.ck-fullscreen #mob-hud-env {
 	border-radius: 1px;
 	background: linear-gradient(180deg, var(--bg2) 0%, var(--bg) 45%, #000 100%);
 	border-width: 2px;
+	/* so the lid reads as swinging up on a hinge rather than squashing flat */
+	perspective: 220px;
 }
 #mediadeck-box.consumer.style-keys .mediadeck-door-lip {
 	top: 26%;
@@ -15557,6 +15667,16 @@ body.intro-cine-open { overflow: hidden; }
 	text-transform: uppercase;
 }
 
+/* The room's state, pinned under the header rather than sitting at the foot of
+   the panel. It is the shortest block and the one most likely to change what you
+   can do next — a dead ring or a cut supply belongs where you look first, not
+   below a screenful of recipes. It never scrolls: the body does. */
+#workspace-status:not(:empty) {
+	border-bottom: 1px solid var(--border);
+	padding: 6px 0;
+	margin-bottom: 8px;
+	flex: 0 0 auto;
+}
 .wsp-status {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -15580,10 +15700,17 @@ body.intro-cine-open { overflow: hidden; }
 /* Action strip — phase 2. Dim until the row is hovered or a button is focused,
    so a dense panel stays readable and the verbs surface only where you're
    looking. Keyboard reaches them the same way the mouse does: they are real
-   buttons in document order. */
-.wsp-acts { margin-left: 8px; opacity: 0.35; transition: opacity 120ms ease; }
-.wsp-row:hover .wsp-acts,
-.wsp-acts:focus-within { opacity: 1; }
+   buttons in document order.
+
+   The FIRST action on a row stays legible at rest. This panel is meant to teach
+   the verb, and a strip that is invisible until hovered teaches nothing to
+   somebody reading down the page — or to anybody on a touchscreen, where there
+   is no hover at all. The rest still surface where you're looking. */
+.wsp-acts { margin-left: 8px; }
+.wsp-acts .wsp-act { opacity: 0.4; transition: opacity 120ms ease; }
+.wsp-acts .wsp-act:first-child { opacity: 1; }
+.wsp-row:hover .wsp-acts .wsp-act,
+.wsp-acts:focus-within .wsp-act { opacity: 1; }
 .wsp-act {
 	background: none;
 	border: 1px solid var(--border);
@@ -15636,6 +15763,9 @@ body.intro-cine-open { overflow: hidden; }
 	padding-left: 16px;
 	font-size: 12px;
 }
+/* Kit the room hasn't got. Dimmer than a step rather than an alarm — a missing
+   spoon is a worse sauce, not a refusal, and the mark already says which. */
+.wsp-short { color: var(--text-muted, var(--text-dim)); opacity: .75; }
 .wsp-mark-note { color: var(--yellow); opacity: .8; }
 .wsp-mark {
 	color: var(--yellow);
@@ -15643,7 +15773,34 @@ body.intro-cine-open { overflow: hidden; }
 	width: 12px;
 	margin-left: -12px;
 }
-.wsp-wanted .wsp-name { color: var(--yellow); }
+/* Which of the open recipes wants this row. In the flow rather than the gutter:
+   a two-digit marker in a 12px hang would sit outside the section. The NAME is
+   deliberately not recoloured — the marker is the whole signal, and tinting the
+   row as well is the second colour the gutter exists to avoid. */
+.wsp-ord {
+	color: var(--yellow);
+	font-size: 10px;
+	letter-spacing: 1px;
+	margin-right: 3px;
+	opacity: .85;
+}
+.wsp-recipe .wsp-ord { margin-left: -12px; width: 12px; }
+
+/* The cook meter. Pips, one per beat of the stage prose beside it — never a
+   percentage, because how long is left is the question the kitchen deliberately
+   refuses to answer. Past the finish the pips give way to a word: the window is
+   a state, not a countdown, and it is the one thing worth shouting. */
+.wsp-pips { color: var(--orange); letter-spacing: 1px; font-size: 11px; }
+.wsp-pips.wsp-thaw { color: var(--cyan); }
+.wsp-window { color: var(--green); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+.wsp-over { color: var(--yellow); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+.wsp-burnt { color: var(--red); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+
+/* A burner with nothing on it. Listed, because "is there a ring free" is a
+   question this panel exists to answer at a glance — and dim, because it is the
+   absence of work rather than work. */
+.wsp-idle .wsp-name { color: var(--text-dim); }
+.wsp-idle .wsp-state { opacity: .7; }
 
 .wsp-pullall { margin-top: 4px; padding-left: 14px; }
 

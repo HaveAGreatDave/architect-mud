@@ -368,6 +368,37 @@ The tablet side needs `renderList`'s opt-in `group` / `child` / `option` flags
 (`client/game/js/panels/tablet-os.js`); every other list in the OS passes none of
 them and renders flat exactly as before.
 
+### The kit — what you make it *in*
+
+A recipe is not only its food. `gear.js` derives the pan, the heat and the
+utensil a dish needs from data that was already there — `vessel: 'pot'` names the
+pan, a profile's `turns` says whether it wants stirring or turning, its
+`needsPrep` says whether it wants a knife — so all 47 catalog recipes gained a
+kit list with **no edit to the catalog**, and one authored next month has one
+too. It reads back three ways: the Cookbook card's **Kit** section, the workspace
+Assistant's equipment check, and the shopping list.
+
+Three rules shape it, and each prevents a specific wrong sentence:
+
+- **The kit is DERIVED at read time, never stored.** A gram shortfall is a record
+  of a decision and has to be written down; a pot is not — the recipe says which
+  pan and your inventory says whether you own one, and there is nothing left for
+  a stored line to add. That is what makes the backfill free (a list written
+  before this existed gains its kit the moment it's opened), what makes buying
+  the pot **remove** the line rather than tick it, and what stops `tidy` from
+  crossing off something that comes straight back.
+- **A stove is stated, never listed.** It's furniture bolted to a room, so it
+  belongs on a recipe card and must never reach a list of things you carry out of
+  a shop. That's the `shoppable` flag in `GEAR`.
+- **Required and better are different errands.** The matcher refuses a stew
+  that isn't in a pot; a missing spoon is a worse sauce, not a refusal. So a
+  missing utensil never buckets a recipe under "Missing Equipment", and the list
+  says outright that it'll cook without one, and worse.
+
+Kit lines carry no number in the text list — the number is an index into the
+stored list and exists only for `shoplist drop`. Two recipes wanting a pot want
+one pot.
+
 Storage is one `player_flags` row (`shoplist`), read by the verb, the Cookbook
 tablet app's list screen, and the shelf marker. An entry stores `label` (the
 whole line), plus `base` and `ex` kept apart so a display that can nest them
@@ -567,6 +598,7 @@ discovery into data entry.
 | `fond.js` | **pure** — what a sear leaves behind and what lifting it is worth |
 | `taste.js` | **pure** — skill-scaled tasting notes, and eating-it prose |
 | `improvised.js` | **pure** — the family table, complexity→ceiling, the recipe signature |
+| `gear.js` | **pure** — the kit a recipe needs (pan/heat/utensil), derived from the template |
 | `shoplist.js` | the shopping list: storage, `holdings`, and the derived `answer` |
 | `shoplist-cmd.js` | the `shoplist` verb, `markShelf` (`shop.stock`) and `markContainer` (`container.view`) |
 | `recipes.js` | the `recipe` verb: save / rename / forget / write a card / teach |

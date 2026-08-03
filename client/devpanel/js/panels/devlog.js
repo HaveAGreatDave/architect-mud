@@ -111,13 +111,39 @@ function _dlCoreColor(tier) {
 // Cached per-range contribution stats, so the range toggle re-renders without a
 // server round trip. Set in renderDevLog.
 let _devlogContrib = null;
-let _devlogGitInfo = { needsSync: false, routeError: null };
+let _devlogGitInfo = { needsSync: false, routeError: null, syncedThrough: null };
 
-// A specific, actionable message for why commit history is missing.
+// Commit history older than this reads as a broken sync rather than a quiet week.
+const _DL_STALE_DAYS = 3;
+
+// A specific, actionable message for why commit history is missing. The fix
+// differs by environment: prod is fed by CI (.github/workflows/sync-commits.yml)
+// and there is nothing to run by hand there, while a local DB is filled by the
+// post-commit hook — so name both rather than sending everyone to npm.
 function _dlUnavailableMsg() {
   if (_devlogGitInfo.routeError) return `Dev Log routes aren't responding (“${_dlEsc(_devlogGitInfo.routeError)}”). Run <code>npm run db:schema</code> and restart the server so the new routes load.`;
-  if (_devlogGitInfo.needsSync) return `No commit history synced yet. From a full clone of the repo, run <code>npm run sync:commits</code> to populate it (re-run to refresh).`;
+  if (_devlogGitInfo.needsSync) return `No commit history synced yet. On <b>production</b> it arrives from CI — check the <code>sync-commits</code> workflow in the Actions tab. On a <b>local</b> DB, run <code>npm run sync:commits</code> from a full clone (<code>npm run hooks:install</code> keeps it current after each commit).`;
   return 'Commit history unavailable.';
+}
+
+// The failure this exists to catch: a table that is stale rather than empty
+// renders a frozen snapshot and looks perfectly healthy. Prod's Dev Log sat a
+// month behind and said nothing, because `needsSync` only ever meant "empty".
+function _dlStaleBannerHtml() {
+  if (_devlogGitInfo.needsSync || _devlogGitInfo.routeError) return '';   // already reported, in full
+  const newest = _devlogGitInfo.syncedThrough ? new Date(_devlogGitInfo.syncedThrough) : null;
+  if (!newest || isNaN(newest)) return '';
+  const days = Math.floor((Date.now() - newest.getTime()) / 86400000);
+  if (days < _DL_STALE_DAYS) return '';
+  const fix = window.OPS_MODE
+    ? `The <code>sync-commits</code> workflow feeds this on every push to <code>main</code> — check the Actions tab for a red run.`
+    : `Run <code>npm run sync:commits</code>, or <code>npm run hooks:install</code> if the post-commit hook isn't wired up.`;
+  return `
+    <div style="background:var(--bg2);border:1px solid var(--yellow);border-left:3px solid var(--yellow);border-radius:4px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--text)">
+      <b style="color:var(--yellow)">⚠ Commit history is ${days} days stale.</b>
+      Newest commit stored is from ${_dlEsc(newest.toLocaleDateString())} — everything below this line is a snapshot from then,
+      not what the repo looks like now. If anyone has committed since, the sync is broken. ${fix}
+    </div>`;
 }
 const _DL_CONTRIB_COLORS = ['#2a78d6', '#eda100', '#199e70', '#e34948', '#9085e9', '#d95926'];
 const _DL_RANGE_LABELS = { '7d': 'Last 7 days', '30d': 'Last 30 days', 'all': 'All time' };
@@ -233,7 +259,7 @@ function _dlIdentitiesHtml(commits, identities, players) {
 function renderDevLog(data) {
   const panel = document.getElementById('list-panel');
   _devlogContrib = data.contributions || null;
-  _devlogGitInfo = { needsSync: !!data.needsSync, routeError: data.routeError || null };
+  _devlogGitInfo = { needsSync: !!data.needsSync, routeError: data.routeError || null, syncedThrough: data.syncedThrough || null };
   const notes = data.notes || [];
   const active = notes.filter(n => !n.resolved);
   const resolved = notes.filter(n => n.resolved);
@@ -245,6 +271,7 @@ function renderDevLog(data) {
 
   panel.innerHTML = `
     <div style="padding:24px;max-width:1000px">
+      ${_dlStaleBannerHtml()}
       <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px">Post important changes so the next dev checking in sees them — server restarts, DB migrations, content scripts to run.</div>
 
       ${sectionLabel('Post a note')}

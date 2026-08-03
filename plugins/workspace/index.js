@@ -62,7 +62,10 @@ export async function buildWorkspaceView(player, providerKey = null) {
     status: built.status || [],
     assistant: built.assistant || null,
   };
-  view.empty = !view.storage.length && !view.area.length && !view.components.length;
+  // An `idle` area row is a piece of the room standing empty — a free burner, a
+  // clear bench. It must not count towards "there is something here", or a
+  // kitchen with a cold stove and nothing else stops reading as bare.
+  view.empty = !view.storage.length && !view.area.some(v => !v.idle) && !view.components.length;
 
   // Same decoration seam the container panel uses (`container.view`): a plugin
   // that wants to hang its own block off a workspace mutates the view in place.
@@ -91,7 +94,10 @@ const link = (cmd, label) =>
 function renderRow(c) {
   const bits = [];
   if (c.qty) bits.push(`×${c.qty}`);
-  if (c.state) bits.push(c.state);
+  // An area row says WHERE it is (`on the stove`, `in hand`, `free`) where a
+  // component says what state it's in. Both belong in the same parenthesis, and
+  // printing neither left a free burner reading as a bare noun.
+  if (c.state || c.place) bits.push(c.state || c.place);
   if (c.notes?.length) bits.push(...c.notes);
   // A cook in progress is the one thing here that is MOVING — the panel dims
   // everything else to say so, and the log has to say it in words instead.

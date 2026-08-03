@@ -19,15 +19,23 @@ import { getFlagById, setFlagById, clearFlagsIn } from '../../server/engine/flag
 import { getItem, getItemCache } from '../../server/engine/items-cache.js';
 import { PROFILES, profileNameFor } from './profiles.js';
 import { unitsOf, ingredientLine, keyNounFor, DISHES } from './dishes.js';
+import { GEAR, gearFor, gearKeysOf, gearExamples } from './gear.js';
 
 export const SHOPLIST_FLAG = 'shoplist';
 export const MAX_ENTRIES = 24;
 
-// An entry is one of two shapes, and they answer different questions:
+// An entry is one of three shapes, and they answer different questions:
 //   { k:'p', v:<profile>, n:<units>, label }  — a CLASS ("about 500g of meat")
 //   { k:'i', v:<item_id>, n:<count>, label }  — a specific thing (ramen noodles)
+//   { k:'g', v:<gear key>, n:1, label }       — a piece of KIT (a pot, a spoon)
 // Class entries are the common case, because that's what a recipe actually asks
 // for; a keyed dish is the exception and names its anchor outright.
+//
+// Kit is the third because a recipe is not only its food. You cannot make a stew
+// with meat, potatoes and no pot, and a list that walked you past the cookware
+// aisle to buy the meat was only ever two thirds of the errand. It buys ONCE and
+// stays bought — which is why a kit line is `n: 1` and why, unlike an ingredient,
+// it disappears from every future list the moment you own one.
 export async function getList(playerOrId) {
   const playerId = typeof playerOrId === 'string' ? playerOrId : playerOrId?.id;
   const raw = await getFlagById(playerId, SHOPLIST_FLAG);
@@ -122,6 +130,57 @@ function completeParts(list, template, forLabel, itemRow) {
   return out;
 }
 
+// One kit line, built from the catalog rather than stored prose — same rule as
+// every other label here, so a spoon renamed in the item catalog renames itself
+// on lists that were written before it.
+function gearEntry(g, forLabel) {
+  const ex = gearExamples(g.key);
+  return {
+    k: 'g', v: g.key, n: 1,
+    label: ex.length ? `${g.label} — ${examplesLine(ex)}` : g.label,
+    base: g.label, ex, req: g.req, for: forLabel || null,
+  };
+}
+
+// THE KIT IS NEVER STORED. It is derived, whole, at read time.
+//
+// This is the file's own rule taken one step further than the ingredients could
+// take it. A shortfall in grams has to be RECORDED — how much you were short of
+// when you asked is a decision, and nothing else remembers it. A pot is not: the
+// recipe says which pan, and your inventory says whether you own one, and
+// between those two facts there is nothing left for a stored line to add.
+//
+// Deriving it settles three things that a stored kit line got wrong at once.
+// Every list written before recipes knew what they were cooked in gains its kit
+// the moment it is opened, with no migration — that is the backfill. Buying the
+// pot doesn't tick a box, it removes the line, which is the truth: you own a pot
+// now and no future recipe will ask you for another. And `tidy` has nothing to
+// cross off, rather than crossing something off that came straight back.
+//
+// Catalog recipes only. A recipe you invented is stored as a signature and read
+// back by a path that queries; this one is sync by contract because `answer` is
+// on the shopping list's read path, and a round trip to tell you a stew wants a
+// pot is not a trade worth making. `addShortfall` knows the template outright,
+// so a saved recipe still gets its kit named when you add it.
+function gearRows(list, held) {
+  const out = [];
+  const seen = new Set();
+  for (const forLabel of new Set(list.map(e => e.for).filter(Boolean))) {
+    const template = catalogTemplate(forLabel)?.template;
+    if (!template) continue;
+    for (const g of gearFor(template)) {
+      if (!GEAR[g.key]?.shoppable) continue;   // a stove is furniture, never an errand
+      if ((held.byGear[g.key] || 0) >= 1) continue;
+      // Two recipes on one list want ONE pot between them. It hangs off the
+      // first that asked, because the alternative is telling you to buy two.
+      if (seen.has(g.key)) continue;
+      seen.add(g.key);
+      out.push({ ...gearEntry(g, forLabel), have: 0, done: false, derived: true });
+    }
+  }
+  return out;
+}
+
 export function refresh(list) {
   const itemRow = id => { try { return getItem(id); } catch { return null; } };
   // Complete every incomplete component group first, so the pass below relabels
@@ -129,7 +188,8 @@ export function refresh(list) {
   let work = list;
   for (const forLabel of new Set(list.map(e => e.for).filter(Boolean))) {
     const template = catalogTemplate(forLabel)?.template;
-    if (!template?.parts?.length) continue;
+    if (!template) continue;
+    if (!template.parts?.length) continue;
     const mine = work.filter(e => e.for === forLabel);
     const completed = completeParts(mine, template, forLabel, itemRow);
     if (completed.length !== mine.length) {
@@ -146,6 +206,10 @@ export function refresh(list) {
     const part = partFor(template, e);
     const stamp = { part: part?.label ?? null, partAt: part?.at ?? null };
     if (e.k === 'i') { out.push({ ...e, label: itemRow(e.v)?.name || e.label, ...stamp }); continue; }
+    // Kit is derived at read time and never stored. A `g` entry can only be one
+    // an older build wrote down; it is dropped rather than migrated, because
+    // `gearRows` is about to say the same thing more accurately.
+    if (e.k === 'g') continue;
 
     const need = template.needs?.[e.v];
     // The recipe doesn't want this class any more. Not a line to relabel — a line
@@ -180,6 +244,10 @@ export async function holdings(playerId) {
   );
   const byProfile = {};
   const byItem = {};
+  // KIT IS COUNTED OFF THE SAME ROWS, and off the same matcher the shop marks
+  // its shelf with. A pan is a pan whether it's in your hands or in the cabinet
+  // drawer, so nothing here cares where it is — only that you own one.
+  const byGear = {};
   for (const r of rows) {
     // A finished dish is dinner, not an ingredient — the same rule the Assistant
     // uses. Buying a stew does not tick "500g of meat" off your list.
@@ -188,16 +256,21 @@ export async function holdings(playerId) {
     if (p && PROFILES[p]) byProfile[p] = (byProfile[p] || 0) + unitsOf(r, p);
     const id = r.item_id;
     if (id) byItem[id] = (byItem[id] || 0) + (Number(r.quantity) || 1);
+    for (const key of gearKeysOf(r.tags)) byGear[key] = (byGear[key] || 0) + (Number(r.quantity) || 1);
   }
-  return { byProfile, byItem };
+  return { byProfile, byItem, byGear };
 }
 
 // The list, with each entry answered. Derived — nothing here writes.
 export function answer(list, held) {
-  return list.map(e => {
-    const have = e.k === 'p' ? (held.byProfile[e.v] || 0) : (held.byItem[e.v] || 0);
+  const rows = list.map(e => {
+    const have = (e.k === 'p' ? held.byProfile : held.byItem)[e.v] || 0;
     return { ...e, have, done: have >= (e.n || 1) - 1e-9 };
   });
+  // The kit joins the list HERE rather than in storage — see `gearRows`. Which
+  // means it is never `done`: a piece of kit you own isn't a ticked line, it's
+  // an errand you no longer have.
+  return [...rows, ...gearRows(list, held)];
 }
 
 const sameEntry = (a, b) => a.k === b.k && a.v === b.v;
@@ -345,7 +418,17 @@ export async function addShortfall(playerOrId, template, { label = null } = {}) 
   }
 
   await putList(playerId, list);
-  return { added, total: Math.min(list.length, MAX_ENTRIES) };
+
+  // KIT IS REPORTED, NEVER WRITTEN. It's derived on every read (see `gearRows`),
+  // so storing it would be storing the answer to a question the list re-asks
+  // anyway — and would eat entries out of a 24-line budget meant for food. It is
+  // named here because "added to your list" should say everything that just
+  // appeared on it, and the pan did.
+  const gear = gearFor(template)
+    .filter(g => GEAR[g.key]?.shoppable && !((held.byGear[g.key] || 0) >= 1))
+    .map(g => gearEntry(g, label));
+
+  return { added, gear, total: Math.min(list.length, MAX_ENTRIES) };
 }
 
 // Drop everything already in your hands. The one bit of housekeeping worth a
@@ -354,7 +437,11 @@ export async function tidy(playerOrId) {
   const playerId = typeof playerOrId === 'string' ? playerOrId : playerOrId?.id;
   const held = await holdings(playerId);
   const list = await getList(playerId);
-  const kept = answer(list, held).filter(e => !e.done).map(({ have, done, ...e }) => e);
+  // Derived rows are dropped rather than kept: `tidy` writes the list back, and
+  // writing a kit line down is the one thing `gearRows` exists not to do.
+  const kept = answer(list, held)
+    .filter(e => !e.done && !e.derived)
+    .map(({ have, done, ...e }) => e);
   await putList(playerId, kept);
   return { removed: list.length - kept.length, left: kept.length };
 }

@@ -27,6 +27,7 @@ import { fondState } from './fond.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { DISHES, signature, ingredientLine, methodLines, unitsOf, ALSO, UNIT_TOLERANCE_LOW } from './dishes.js';
 import { cookbookState, savedRecipes, UNTRIED } from './knowledge.js';
+import { gearFor, gearKeysOf } from './gear.js';
 
 // The name the PLAYER has been shown — a per-instance `custom_data.name` (a
 // butchered cut, a minced one) is what `inventory` prints, so anything reading
@@ -63,7 +64,18 @@ function component(row, kind, actions = []) {
   if (prep) notes.push(prep);
 
   let state = null;
-  if (cd.cooking) state = checkCooking(row)?.text || null;
+  // The one moving thing on the panel, and the only row that carries a `cook`
+  // block. It is WHICH BEAT the prose above is on — never a clock, never a
+  // percentage: when to plate is the largest quality lever in the kitchen and a
+  // countdown would play that half of the game for the player. `window`/`over`
+  // have no beat count because there is nothing to count towards; they are a
+  // state, and the state is the warning.
+  let cook = null;
+  if (cd.cooking) {
+    const c = checkCooking(row);
+    state = c?.text || null;
+    if (c) cook = { phase: c.phase || null, stage: c.stage || null, stages: c.stages || null };
+  }
   else if (cd.dish) state = 'a finished dish';
   else if (cd.cooked) state = 'cooked';
   else if (kind === 'food') state = 'raw';
@@ -75,6 +87,7 @@ function component(row, kind, actions = []) {
     kind,
     state,
     notes,
+    cook,
     // A cook in progress is the one thing on this panel that is moving, and the
     // client dims everything that isn't. Derived, never stored.
     live: !!cd.cooking,
@@ -238,12 +251,23 @@ function scoreRecipe(key, template, sig, ctx, band) {
     else missing.push(itemInfo(id)?.name || id.replace(/^item_/, '').replace(/_/g, ' '));
   }
 
-  // Equipment. A bowl dish is worked, not cooked, so it wants no heat at all —
-  // which is the whole reason bowl recipes exist.
-  const needsHeat = template.vessel !== 'bowl' && template.vessel !== 'bread';
-  const equipment = [];
-  if (template.vessel && !ctx.vesselKinds.has(template.vessel)) equipment.push(`a ${template.vessel}`);
-  if (needsHeat && !ctx.stoves.length) equipment.push('a stove');
+  // Equipment, from the one derivation the Cookbook card and the shopping list
+  // also read. This used to test the vessel and the stove here, in its own
+  // words, which was right about both and silent about the spoon — and silent in
+  // a way nothing else could correct, because nothing else knew the list existed.
+  //
+  // Only what would BLOCK the dish bucket it as missing equipment: a spoon you
+  // haven't got is a worse sauce, not a refusal, and burying a ready recipe under
+  // "Missing Equipment" over one would be the panel lying about the system.
+  const equipment = [], kitSoft = [], kit = [];
+  for (const g of gearFor(template)) {
+    const held = g.key === 'heat' ? ctx.stoves.length > 0
+      : g.key.startsWith('vessel:') ? ctx.vesselKinds.has(g.kind)
+      : ctx.kitTags.has(g.key);
+    kit.push({ label: g.label, req: g.req, held });
+    if (held) continue;
+    (g.req === 'required' ? equipment : kitSoft).push(g.label);
+  }
 
   // EXACTLY the rows `prepare` would take, from the same picker `prepare` uses.
   // This is what lets the panel highlight the onion in the fridge rather than
@@ -261,6 +285,12 @@ function scoreRecipe(key, template, sig, ctx, band) {
     pct,
     missing,
     equipment,
+    // Kit that isn't a gate. Named separately so the HUD can say "you'll want a
+    // spoon" without the recipe leaving the group it belongs in.
+    kitSoft,
+    // The whole kit, held or not, so the opened card can show what it's made in
+    // beside what it's made of.
+    kit,
     uses,
     // Guidance, never a script: the player may mince what it says to dice, or
     // walk away from the recipe entirely. The whole method, not the first line
@@ -456,6 +486,10 @@ export async function buildKitchen(player) {
     // counts, cabinet included — this half is planning, not execution, and "you
     // own a pot, it's in the cupboard" is the answer somebody wants.
     vesselKinds: new Set(vessels.map(v => tagValue(v, 'vessel_kind', null)).filter(Boolean)),
+    // Kit keys anything in REACH answers. Reach, not the room: the Assistant may
+    // not count a whisk that's locked in the fridge, because `stir` couldn't
+    // reach it either.
+    kitTags: new Set(reachable.flatMap(r => gearKeysOf(r.tags))),
     itemIds: new Set(all.map(r => r.item_id)),
     // The one picker, shared with `prepare`. See pickFor.
     pick: t => pickFor(t, c),
@@ -499,6 +533,30 @@ export async function buildKitchen(player) {
   // A pan on the heat first, then one you are holding, then the crockery — the
   // order the player's attention is actually in.
   area.sort((a, b) => (b.hot - a.hot) || (a.place === 'in hand' ? -1 : 0));
+
+  // ── The burners with nothing on them ──────────────────────────────────────
+  //
+  // "Is there a ring free" is one of the questions this panel exists to answer at
+  // a glance, and until now the only answer was an aggregate count at the very
+  // bottom of Status — which tells you a burner is free and not WHICH, in a
+  // kitchen where they cook at different tiers. A free ring is listed as what it
+  // is: a place to put a pan, with no contents and nothing to do to it, because
+  // every verb that uses one names the FOOD (`cook steak`), never the stove.
+  const nowMs = Date.now();
+  for (const f of appliances) {
+    if (f.flags?.vessel_id && vesselIds.has(f.flags.vessel_id)) continue;
+    if (Number(f.flags?.busy_until) > nowMs) continue;   // bare food straight on the heat
+    area.push({
+      id: `appliance:${f.id}`,
+      name: f.name,
+      place: f.flags?.stove_tier ? `free · ${f.flags.stove_tier}` : 'free',
+      heat: null,
+      hot: false,
+      idle: true,
+      contents: [],
+      actions: [],
+    });
+  }
 
   // ── Components — food on you that isn't in a pan yet ──────────────────────
   // "On you" has to mean on you. A row parented to a room box came back on the

@@ -816,7 +816,7 @@ async function loadChannelRuntimes() {
         lastMsgKey: '',
         wasActive: false,
         currentFallbackMessages: [],
-        graphBlackboard: { currentNode: null, waitUntil: null, npcAnchor: null, npcAnchorId: null, activeBroadcastId: null, hostAbsent: false, absentDetectedAt: null, techDiffMode: false },
+        graphBlackboard: { currentNode: null, waitUntil: null, npcAnchor: null, npcAnchorId: null, activeBroadcastId: null, hostAbsent: false, absentDetectedAt: null, techDiffMode: false, standbyCardUp: false },
         theme: ch.theme_id ? {
           id: ch.theme_id,
           name: ch.theme_name,
@@ -5391,6 +5391,14 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       bb.absentDetectedAt = null;
       bb.techDiffMode = false;
     }
+    // The stand-by delay card is a duration-0 overlay — it hangs on the client until
+    // something takes it down, and nothing downstream in the graph does. So the tick
+    // we stop holding it (the cast walked in), take it down explicitly, or the show
+    // plays on underneath a PLEASE STAND BY card.
+    if (bb.standbyCardUp && !bb.hostAbsent) {
+      bb.standbyCardUp = false;
+      return { overlay: null, key: `absent-delay-clear:${channelId}:${nowMs}`, style: 'overlay' };
+    }
     // No working camera on the studio floor means no picture, whatever the script
     // says. A live show with its cameras dark is a transmission failure, and it
     // recovers by itself the moment a unit comes back up.
@@ -5424,6 +5432,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       // lost") — hold a clean, apologetic delay card naming who we're waiting on, and
       // keep holding it until they arrive. Re-sent on a 5s slot so late-tuners see it.
       bb.waitUntil = nowMs + 5000;
+      bb.standbyCardUp = true;
       const missing = _absentCastNames(graph, state.studioZoneId);
       const who = missing.length ? _joinNames(missing) : (bb.npcAnchor || 'a cast member');
       const verb = missing.length > 1 ? 'have' : 'has';
@@ -6940,6 +6949,23 @@ async function cmdEjectCassette(args, raw, player) {
   if (channelId) await loadChannelRuntimes();
   _evictDeckZone(player.current_zone);
   return { type: 'output', message: `You eject the cassette. The screen dissolves into static.` };
+}
+
+// Silent panel re-push for an already-open deck panel. `load` and `eject` both
+// change what the machine is holding but answered with prose only, so the panel
+// they were pressed from went stale — the ejected tape stayed drawn in the slot
+// and stayed listed in the library until the player closed and re-opened the
+// deck. The client fires this once its transport animation has finished, so the
+// authoritative state lands after the cassette has visibly left the machine.
+// Returns null (never an error line): this is client automation, and a player who
+// walked out of the room mid-animation should get silence, not a complaint.
+async function cmdDeckRefresh(args, raw, player) {
+  if (!player) return null;
+  const deck = await _findDeckInZone(player.current_zone);
+  if (!deck) return null;
+  if (_deckLockError(_deckFlags(deck), player)) return null;
+  await buildMediaDeckPanel(deck.id, player);   // pushes mediadeck_panel; message discarded
+  return null;
 }
 
 // Select a cassette already in the deck's library (no need to carry it again).
@@ -9034,6 +9060,7 @@ schedule('1s', broadcastTick);   // BROADCAST_TICK_MS
 // Register _tvfreq as a silent internal command (not listed in plugin.json, invisible to HELP)
 registerCommand('_tvfreq', cmdTvFreq);
 registerCommand('_restartbroadcast', cmdRestartBroadcast);
+registerCommand('_deckrefresh', cmdDeckRefresh);
 
 // `guess` — the game-show answer verb. gameshow.js owns the parsing and scoring; it needs
 // to know which channels are staging a show in the room the player is standing in, and

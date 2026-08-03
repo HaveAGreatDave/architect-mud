@@ -15,6 +15,7 @@
 // planning rather than spoiling.
 import { query } from '../../server/models/db.js';
 import { DISHES, ingredientLine, methodLines, estimateCookMs, keyNounFor } from '../cooking/dishes.js';
+import { gearFor, gearKeysOf, GEAR_TAGS } from '../cooking/gear.js';
 import { PROFILES } from '../cooking/profiles.js';
 import { cookbookState, UNTRIED } from '../cooking/knowledge.js';
 import { getList, holdings, answer, addShortfall, buyableExamples, catalogTemplate } from '../cooking/shoplist.js';
@@ -51,6 +52,22 @@ async function carriedProfiles(playerId) {
   );
   const have = {};
   for (const r of rows) if (r.profile) have[r.profile] = r.n;
+  return have;
+}
+
+// The kit you own, counted the way the shopping list counts it — the same
+// matcher, so the card and the list can never disagree about whether you have a
+// pot. A second query rather than a wider first one: the profile count is a
+// GROUP BY over food and this is a tag test over everything else, and welding
+// them together would make one statement that reads worse than two.
+async function carriedGear(playerId) {
+  const { rows } = await query(
+    `SELECT i.tags FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id = $1 AND i.tags ?| $2::text[]`,
+    [playerId, GEAR_TAGS]
+  );
+  const have = {};
+  for (const r of rows) for (const key of gearKeysOf(r.tags)) have[key] = (have[key] || 0) + 1;
   return have;
 }
 
@@ -300,7 +317,8 @@ async function buildScreen(player, screenId, params) {
       // their checkboxes underneath. That is the opposite of the alternatives
       // below, and the two must never render alike.
       const sorted = entries.slice().sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0));
-      const loose = sorted.filter(e => !e.part);
+      const loose = sorted.filter(e => !e.part && e.k !== 'g');
+      const kit = sorted.filter(e => e.k === 'g');
       const parts = new Map();
       // Grouped off the ORIGINAL order rather than the done-sorted one: inside a
       // part the order is the order you make it in — tomato, then gin, then
@@ -338,6 +356,30 @@ async function buildScreen(player, screenId, params) {
           const shelf = e.k === 'p' ? itemForNoun(e.v, noun) : null;
           items.push({ id: shelf ? `${ING_PREFIX}i:${shelf.id}` : '', option: true, or: n > 0, label: noun });
         });
+      }
+
+      // THE KIT, in a block of its own. It is not an ingredient: you buy it once
+      // and it stays bought, which is a different sentence from "800g of liquid"
+      // and has to look like one. No `ING_PREFIX` id — an ingredient line opens
+      // what would answer it, and a pot's answer is a pot.
+      // Kit is derived at read time and only ever appears when you HAVEN'T got
+      // it, so there is no ticked state to render here: owning the pot removes
+      // the line rather than crossing it out. Every line in this block is
+      // something you still have to go and buy — once, and then never again.
+      if (kit.length) {
+        items.push({
+          id: '', child: true, label: 'To make it in',
+          sub: `${kit.length} still to buy — and you only ever buy them once`,
+          badge: 'missing',
+        });
+        for (const e of kit.sort((a, b) => (a.req === 'required' ? 0 : 1) - (b.req === 'required' ? 0 : 1))) {
+          items.push({
+            id: '', part: true,
+            label: `☐ ${e.base || e.label}`,
+            sub: e.req === 'better' ? "it'll cook without one, and worse" : (e.ex || []).join(', '),
+            badge: e.req === 'better' ? 'ready' : 'missing',
+          });
+        }
       }
 
       for (const [partLabel, members] of parts) {
@@ -442,7 +484,7 @@ async function buildScreen(player, screenId, params) {
 
 async function recipeDetail(player, key, band) {
   const d = DISHES[key];
-  const have = await carriedProfiles(player.id);
+  const [have, haveGear] = await Promise.all([carriedProfiles(player.id), carriedGear(player.id)]);
 
   // REAL MEASURES, not bare counts. Every number here is derived from the same
   // data the pan runs on — grams from each profile's unitWeight, the estimate
@@ -500,6 +542,24 @@ async function recipeDetail(player, key, band) {
     }
   }
 
+  // THE KIT GETS A HEADING, beside the ingredients rather than buried in the
+  // numbers as a one-word "Cook it in: a pot". A recipe is a shopping trip and
+  // the pan is part of it — and this is the same list, from the same derivation,
+  // that `shoplist add` writes down.
+  const kit = gearFor(d);
+  if (kit.length) {
+    rows.push({ label: 'Kit', heading: true, value: '' });
+    for (const g of kit) {
+      const owned = g.shoppable ? (haveGear[g.key] || 0) : null;
+      rows.push({
+        label: sentence(g.label),
+        value: g.req === 'required'
+          ? (owned == null ? 'required — the room has to have one' : `required · ${owned ? 'have one ✓' : "haven't got one ✗"}`)
+          : `better with one${owned ? ' · have one ✓' : ''}`,
+      });
+    }
+  }
+
   rows.push({ label: 'Method', heading: true, value: '' });
   methodLines(d).forEach(l => rows.push({ label: '', value: l }));
 
@@ -509,7 +569,6 @@ async function recipeDetail(player, key, band) {
     const mins = ms / 60000;
     rows.push({ label: 'Roughly', value: mins < 1 ? `${Math.round(ms / 1000)}s` : `${Math.round(mins * 2) / 2} min on an ordinary stove` });
   }
-  rows.push({ label: 'Cook it in', value: d.vessel ? `a ${d.vessel}` : 'anything, or straight on the heat' });
   rows.push({ label: 'Difficulty', value: `${d.difficulty}/10` });
   rows.push({ label: 'Ceiling', value: d.ceiling });
   rows.push({ label: 'Your best', value: band === UNTRIED ? 'never cooked it' : band });

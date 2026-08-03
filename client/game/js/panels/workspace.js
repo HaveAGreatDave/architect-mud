@@ -30,7 +30,12 @@ let lastData = null;
 // as an exact allocation. Saying that plainly is better than pretending to an
 // accuracy a union can't have.
 let selected = new Set();
-let wanted = new Set();
+// id -> Set of the 1-based ordinals of the open recipes that would use it. A
+// plain "this row is involved" was honest about the union but silent about WHICH
+// recipe, which is the question you actually have when two are open.
+let wanted = new Map();
+// recipe key -> its 1-based ordinal, in the order the player opened them.
+let ordinals = new Map();
 // Set while a cook is in progress somewhere on the panel. See scheduleTick.
 let tickTimer = null;
 
@@ -54,7 +59,7 @@ export function isWorkspaceOpen() { return active; }
 export function closeWorkspacePanel() {
   active = false;
   selected = new Set();
-  wanted = new Set();
+  wanted = new Map();
   if (tickTimer) { clearTimeout(tickTimer); tickTimer = null; }
   el('workspace-panel')?.classList.remove('active');
 }
@@ -97,17 +102,45 @@ function actionStrip(actions) {
   }).join('') + `</span>`;
 }
 
+// The cook meter. PIPS, not a bar and never a countdown: `stage` is which beat
+// of the prose the food is on, and the server deliberately knows nothing finer —
+// deciding when to plate is the largest quality lever in the kitchen, and a
+// percentage would hand that half of the game over. Past the finish there is no
+// beat to count towards, so the window says so in a word instead.
+function cookMeter(cook) {
+  if (!cook) return '';
+  if (cook.phase === 'window') return `<span class="wsp-window">READY — plate it</span>`;
+  if (cook.phase === 'over') return `<span class="wsp-over">PAST IT</span>`;
+  if (cook.phase === 'burnt') return `<span class="wsp-burnt">BURNING</span>`;
+  if (!cook.stages) return '';
+  const pips = Array.from({ length: cook.stages }, (_, i) => (i < cook.stage ? '●' : '○')).join('');
+  return `<span class="wsp-pips${cook.phase === 'thaw' ? ' wsp-thaw' : ''}">${pips}</span>`;
+}
+
 function componentLine(c, indent = 0) {
   const notes = (c.notes || []).length ? `<span class="wsp-note"> · ${esc(c.notes.join(' · '))}</span>` : '';
   const state = c.state ? `<span class="wsp-state"> — ${esc(c.state)}</span>` : '';
   const qty = c.qty ? `<span class="wsp-qty"> ×${c.qty}</span>` : '';
+  const meter = c.cook ? ` ${cookMeter(c.cook)}` : '';
   // Wanted by the recipe you're reading. The marker goes in front so a column of
   // twenty fridge items reads as a list with four things picked out of it,
-  // rather than twenty things of subtly different colours.
-  const want = wanted.has(c.id);
-  const mark = want ? `<span class="wsp-mark">▸</span>` : '';
-  return `<div class="wsp-row${c.live ? ' wsp-live' : ''}${want ? ' wsp-wanted' : ''}" style="padding-left:${indent * 14}px">`
-    + `${mark}<span class="wsp-name">${esc(c.name)}</span>${qty}${state}${notes}`
+  // rather than twenty things of subtly different colours — which is also why the
+  // NAME is left alone: the marker is the signal, and recolouring the row as well
+  // was the second colour that argument warns about.
+  //
+  // With more than one recipe open the marker carries their ordinals, so a row
+  // wanted by both says so rather than leaving the union to be guessed at.
+  //
+  // The ARROW keeps the fixed gutter it was designed with and the digits ride in
+  // the flow after it — widening the gutter itself would hang a two-digit marker
+  // outside the section on an unindented row.
+  const by = wanted.get(c.id);
+  const mark = by
+    ? `<span class="wsp-mark">▸</span>`
+      + (selected.size > 1 ? `<span class="wsp-ord">${[...by].sort().join('')}</span>` : '')
+    : '';
+  return `<div class="wsp-row${c.live ? ' wsp-live' : ''}${by ? ' wsp-wanted' : ''}" style="padding-left:${indent * 14}px">`
+    + `${mark}<span class="wsp-name">${esc(c.name)}</span>${qty}${state}${meter}${notes}`
     + actionStrip(c.actions) + `</div>`;
 }
 
@@ -124,10 +157,13 @@ function renderArea(area) {
     // A vessel on the heat is the only thing on this panel that is moving, so
     // it is the only thing that gets a colour.
     const heat = v.heat ? `<span class="wsp-heat">burner ${esc(v.heat)}</span>` : '';
-    const head = `<div class="wsp-row wsp-vessel${v.hot ? ' wsp-hot' : ''}">`
+    const head = `<div class="wsp-row wsp-vessel${v.hot ? ' wsp-hot' : ''}${v.idle ? ' wsp-idle' : ''}">`
       + `<span class="wsp-name">${esc(v.name)}</span>`
       + `<span class="wsp-state"> — ${esc(v.place)}</span> ${heat}`
       + actionStrip(v.actions) + `</div>`;
+    // A free burner is a place to put a pan, not a container: it has no inside,
+    // so it gets no "empty" line under it. The row IS the whole statement.
+    if (v.idle) return head;
     const inner = (v.contents || []).length
       ? v.contents.map(c => componentLine(c, 1)).join('')
       : `<div class="wsp-row wsp-empty" style="padding-left:14px">empty</div>`;
@@ -174,14 +210,22 @@ function renderAssistant(a) {
   const rows = (a.groups || []).map(g =>
     `<div class="wsp-group">${esc(g.label)}</div>` + g.recipes.map(r => {
       const open = selected.has(r.key);
+      // A missing spoon is the LAST thing said, and only when nothing else is
+      // wrong: it doesn't stop the dish, so it must never displace the line about
+      // what does.
       const need = r.equipment.length ? `needs ${esc(r.equipment.join(', '))}`
         : r.missing.length ? `need ${esc(r.missing.join('; '))}`
+        : (r.kitSoft || []).length ? `ready — no ${esc(r.kitSoft.join(', '))}`
         : esc(r.suggestion || 'ready');
       // Click to read it. The method and the ingredient list are already in the
       // payload — the Cookbook app has always shown them, and the HUD was
       // throwing everything past the first line away.
+      // Its ordinal, shown only when there is more than one open — that is the
+      // key to the ▸1/▸12 markers scattered up the panel, and with one recipe
+      // open there is nothing to key.
+      const ord = (open && selected.size > 1) ? `<span class="wsp-mark wsp-ord">${ordinals.get(r.key)}</span>` : '';
       const head = `<div class="wsp-row wsp-recipe${open ? ' wsp-open' : ''}" data-recipe="${esc(r.key)}">`
-        + `<span class="wsp-name">${esc(r.name)}</span>`
+        + `${ord}<span class="wsp-name">${esc(r.name)}</span>`
         + (r.band ? `<span class="wsp-note"> ${esc(r.band)}</span>` : '')
         + ` ${bar(r.pct)}<span class="wsp-qty"> ${r.pct}%</span>`
         + `<span class="wsp-state"> — ${need}</span>`
@@ -190,6 +234,12 @@ function renderAssistant(a) {
 
       const body = [];
       for (const line of r.ingredients || []) body.push(`<div class="wsp-row wsp-step">· ${esc(line)}</div>`);
+      // What it's made IN, ticked against the room — the same question the
+      // ingredients above answer, asked of the cupboard instead of the fridge.
+      for (const g of r.kit || []) {
+        const mark = g.held ? '✓' : (g.req === 'required' ? '✗' : '·');
+        body.push(`<div class="wsp-row wsp-step${g.held ? '' : ' wsp-short'}">${mark} ${esc(g.label)}</div>`);
+      }
       if ((r.ingredients || []).length && (r.method || []).length) body.push(`<div class="wsp-row wsp-step"> </div>`);
       (r.method || []).forEach((line, i) => {
         // Deliberately NOT escaped: the method comes from the server's own
@@ -197,7 +247,7 @@ function renderAssistant(a) {
         body.push(`<div class="wsp-row wsp-step">${i + 1}. ${line}</div>`);
       });
       if (wanted.size) {
-        body.push(`<div class="wsp-row wsp-step wsp-mark-note">▸ marks what it would use, wherever it is${selected.size > 1 ? ' — across all the ones you have open' : ''}.</div>`);
+        body.push(`<div class="wsp-row wsp-step wsp-mark-note">▸ marks what it would use, wherever it is${selected.size > 1 ? ` — numbered by recipe, so ▸${ordinals.get(r.key)} is this one` : ''}.</div>`);
       }
       return head + body.join('');
     }).join('')
@@ -206,6 +256,10 @@ function renderAssistant(a) {
   return rows + note;
 }
 
+// The room's own state — power, which stove, how hot it is in here. It lives in
+// the HEADER rather than at the foot of the panel because it is the shortest
+// section and the one most likely to change what you can do next: a dead ring or
+// a cut supply belongs where you look first, not below a screenful of recipes.
 function renderStatus(status) {
   if (!status.length) return '';
   return `<div class="wsp-status">` + status.map(s =>
@@ -224,8 +278,18 @@ const allRecipes = (data) => (data?.assistant?.groups || []).flatMap(g => g.reci
 function recomputeWanted(data) {
   const live = new Set(allRecipes(data).map(r => r.key));
   for (const k of [...selected]) if (!live.has(k)) selected.delete(k);
-  wanted = new Set();
-  for (const r of allRecipes(data)) if (selected.has(r.key)) for (const id of r.uses || []) wanted.add(id);
+  // Ordinals follow the order you opened them in, not the order they happen to
+  // be listed in — so opening a third recipe cannot renumber the two you are
+  // already reading. A Set iterates in insertion order, which is exactly that.
+  ordinals = new Map([...selected].map((k, i) => [k, i + 1]));
+  wanted = new Map();
+  for (const r of allRecipes(data)) {
+    if (!selected.has(r.key)) continue;
+    for (const id of r.uses || []) {
+      if (!wanted.has(id)) wanted.set(id, new Set());
+      wanted.get(id).add(ordinals.get(r.key));
+    }
+  }
 }
 
 function selectRecipe(key) {
@@ -265,9 +329,9 @@ function render(data) {
   if (data.assistant) {
     body.push(section('Recipe Assistant', renderAssistant(data.assistant), 'nothing to suggest'));
   }
-  body.push(section('Status', renderStatus(data.status || []), 'nothing to report'));
 
   el('workspace-body').innerHTML = body.join('');
+  el('workspace-status').innerHTML = renderStatus(data.status || []);
 }
 
 // ── wiring ───────────────────────────────────────────────────────────────────

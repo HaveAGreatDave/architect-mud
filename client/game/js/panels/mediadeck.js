@@ -121,6 +121,41 @@ const MEDIADECK_INSERT_DEF = {
   ] },
 };
 
+// ── Consumer top-loader transport ────────────────────────────────────────────
+// A cheap top-loader has no servo: the lid is sprung and everything you hear is
+// plastic, spring steel and the tape hitting the bottom of the well. So these
+// deliberately share no layer with the studio defs above — no capstan spool-up,
+// no motor whirr, shorter and drier throughout.
+
+// LOAD: lid thrown up, tape dropped in, lid shoved shut on it.
+const MEDIADECK_KEYS_INSERT_DEF = {
+  id: 'mediadeck_keys_insert_local', category: 'tv', priority: 4,
+  config: { layers: [
+    // hinge creak as the lid goes up
+    { waveform: 'sawtooth', freq: 320, duration: 0.1, gain: 0.06, pitchBend: { to: 430, time: 0.09 }, adsr: { a: 0.01, d: 0.08, s: 0.1, r: 0.02 }, filter: { type: 'bandpass', freq: 2200, q: 3 } },
+    // the tape bottoming out in the well — hollow plastic, not a servo seat
+    { waveform: 'triangle', freq: 150, duration: 0.11, gain: 0.24, delay: 0.34, pitchBend: { to: 78, time: 0.09 }, adsr: { a: 0.001, d: 0.08, s: 0, r: 0.03 }, filter: { type: 'lowpass', freq: 900, q: 1.1 } },
+    { waveform: 'noise', noiseMix: 1, duration: 0.05, gain: 0.1, delay: 0.34, adsr: { a: 0.001, d: 0.04, s: 0, r: 0.01 }, filter: { type: 'bandpass', freq: 3000, q: 1.4 } },
+    // lid slammed shut, then the hinge rattle a cheap unit always has
+    { waveform: 'square', freq: 240, duration: 0.06, gain: 0.22, delay: 0.72, pitchBend: { to: 110, time: 0.05 }, adsr: { a: 0.001, d: 0.04, s: 0, r: 0.02 }, filter: { type: 'lowpass', freq: 1600, q: 1 } },
+    { waveform: 'square', freq: 300, duration: 0.03, gain: 0.07, delay: 0.82, adsr: { a: 0.001, d: 0.02, s: 0, r: 0.01 }, filter: { type: 'highpass', freq: 900, q: 1 } },
+  ] },
+};
+
+// EJECT: the spring goes off, the lid flies open and the tape is thrown half out.
+const MEDIADECK_KEYS_EJECT_DEF = {
+  id: 'mediadeck_keys_eject_local', category: 'tv', priority: 4,
+  config: { layers: [
+    // the sprung latch letting go — a hard, dry snap
+    { waveform: 'square', freq: 380, duration: 0.035, gain: 0.26, adsr: { a: 0.0005, d: 0.025, s: 0, r: 0.01 }, filter: { type: 'bandpass', freq: 2600, q: 1.6 } },
+    { waveform: 'triangle', freq: 170, duration: 0.09, gain: 0.2, delay: 0.01, pitchBend: { to: 80, time: 0.08 }, adsr: { a: 0.001, d: 0.07, s: 0, r: 0.02 }, filter: { type: 'lowpass', freq: 1100, q: 1 } },
+    // spring ring, the sound of the lid arriving at the top of its travel
+    { waveform: 'sawtooth', freq: 620, duration: 0.16, gain: 0.05, delay: 0.05, pitchBend: { to: 780, time: 0.14 }, adsr: { a: 0.002, d: 0.14, s: 0, r: 0.02 }, filter: { type: 'bandpass', freq: 3200, q: 5 }, tremolo: { rate: 42, depth: 0.5 } },
+    // the tape falling back and resting half out of the well
+    { waveform: 'triangle', freq: 130, duration: 0.09, gain: 0.13, delay: 0.42, pitchBend: { to: 70, time: 0.07 }, adsr: { a: 0.001, d: 0.07, s: 0, r: 0.02 }, filter: { type: 'lowpass', freq: 800, q: 1 } },
+  ] },
+};
+
 // A chunky mechanical click for every transport/list button — snap + low thunk.
 const MEDIADECK_BUTTON_DEF = {
   id: 'mediadeck_button_local', category: 'tv', priority: 5,
@@ -188,6 +223,10 @@ export function closeMediaDeckPanel() {
   // Clear any drag offset so the deck re-centers next time it opens.
   const box = document.getElementById('mediadeck-box');
   if (box) { box.style.position = ''; box.style.left = ''; box.style.top = ''; box.style.margin = ''; }
+  // Leave no half-finished transport behind for the next machine that opens here.
+  const door = document.getElementById('mediadeck-door');
+  if (door) door.classList.remove('drawing', 'ejecting');
+  _setDoorTapeLabel('');
   deckData = null;
   _wasPlaying = false;
   _setDeckWhir(false);
@@ -464,45 +503,120 @@ function escapeHtml(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// ── Transport choreography ───────────────────────────────────────────────────
+// Every duration here is paired with a CSS animation of the same length (see the
+// consumer door block in styles.css). They must move together: a class pulled
+// early truncates the animation mid-travel and the tape vanishes in the middle
+// of the mouth, which is exactly how the cheap deck used to run the slab's
+// four-second draw for 900ms.
+const DECK_TIMING = {
+  // consumer cabinets, keyed by `deckStyle`
+  slab: { insert: 4000, eject: 2200 },
+  keys: { insert: 900,  eject: 1100 },
+  // the unbranded studio transport (glass + reels), which is a different rig
+  studio: { insert: 850, eject: 700 },
+};
+function _deckTiming() {
+  if (!deckData?.brand) return DECK_TIMING.studio;
+  return DECK_TIMING[deckData.deckStyle === 'keys' ? 'keys' : 'slab'];
+}
+
+// Transport foley is the cabinet's, not the deck's: a top-loader is springs and
+// plastic, a slab (and the studio rack) is servos. `_deckSfx` still owns silence.
+function _transportSfx(kind) {
+  const keys = deckData?.brand && deckData.deckStyle === 'keys';
+  if (kind === 'insert') _deckSfx(keys ? MEDIADECK_KEYS_INSERT_DEF : MEDIADECK_INSERT_DEF);
+  else _deckSfx(keys ? MEDIADECK_KEYS_EJECT_DEF : MEDIADECK_EJECT_DEF);
+}
+
+// Put a name on the tape crossing the mouth, so what you watch go in or come
+// back out is the tape you chose rather than an anonymous shell.
+function _setDoorTapeLabel(name) {
+  const el = document.getElementById('mediadeck-door-tape-label');
+  if (el) el.textContent = name || '';
+}
+
 // Glass swings open, a fresh cassette drops in from the top and seats, then the
-// glass closes over it.
-function _insertCassette() {
+// glass closes over it. Returns the animation length in ms so the caller can
+// hold the authoritative refresh until the machine has finished moving.
+function _insertCassette(name) {
+  const ms = _deckTiming().insert;
   // A consumer unit has no glass and no reels to show, so drive its door rather
   // than the transport. How long that takes is the machine's character: the
   // silent slab takes the cassette from you over four unhurried seconds; a cheap
-  // top-loader is shoved shut and gets on with it.
+  // top-loader has its lid thrown up, the tape dropped in and the lid shoved shut.
   if (deckData?.brand) {
     const door = document.getElementById('mediadeck-door');
-    if (!door) return;
-    const ms = deckData.silent ? 4000 : 900;
+    if (!door) return ms;
+    _setDoorTapeLabel(name);
     door.classList.remove('ejecting');
+    // Restart cleanly if a previous run is still on screen — without the reflow
+    // the browser keeps the old animation and the tape never moves.
+    door.classList.remove('drawing');
+    void door.offsetWidth;
     door.classList.add('drawing');
     setTimeout(() => door.classList.remove('drawing'), ms);
-    return;
+    return ms;
   }
   const slot = document.getElementById('mediadeck-slot');
-  if (!slot) return;
+  if (!slot) return ms;
   slot.classList.remove('ejecting');
   slot.classList.add('deck-opening', 'inserting');
-  setTimeout(() => slot.classList.remove('inserting', 'deck-opening'), 850);
+  setTimeout(() => slot.classList.remove('inserting', 'deck-opening'), ms);
+  return ms;
 }
 
 // The reverse: glass opens and the seated cassette rises up and out, then the
 // glass closes on the empty slot.
-function _ejectCassette() {
+function _ejectCassette(name) {
+  const ms = _deckTiming().eject;
   if (deckData?.brand) {
     const door = document.getElementById('mediadeck-door');
-    if (!door) return;
+    if (!door) return ms;
+    _setDoorTapeLabel(name);
     door.classList.remove('drawing');
+    door.classList.remove('ejecting');
+    void door.offsetWidth;
     door.classList.add('ejecting');
-    setTimeout(() => door.classList.remove('ejecting'), 2200);
-    return;
+    setTimeout(() => door.classList.remove('ejecting'), ms);
+    return ms;
   }
   const slot = document.getElementById('mediadeck-slot');
-  if (!slot) return;
+  if (!slot) return ms;
   slot.classList.remove('inserting');
   slot.classList.add('deck-opening', 'ejecting');
-  setTimeout(() => slot.classList.remove('ejecting', 'deck-opening'), 700);
+  setTimeout(() => slot.classList.remove('ejecting', 'deck-opening'), ms);
+  return ms;
+}
+
+// Ask the server to re-push the panel once the transport has finished moving.
+// `load` and `eject` answer in prose, so without this the panel kept showing the
+// tape the machine no longer holds. Timed to land after the animation so the
+// readout changes when the cassette has visibly left, not while it's mid-air.
+// Guarded on the panel still being open — the player may have closed it or
+// walked out while a four-second slab was still swallowing the tape.
+function _refreshAfter(ms) {
+  setTimeout(() => {
+    if (deckData) sendCmdSilent('_deckrefresh');
+  }, ms + 60);
+}
+
+// Blank the "holding a tape" half of the readout the instant the cassette has
+// physically left the machine. Local only, and deliberately partial: it says
+// what the player just watched happen (the deck is empty) and touches nothing it
+// can't know (which slots got pulled, what else is in the library). The refresh
+// that follows is what makes the panel true.
+function _clearLoadedLocally(ms) {
+  const ejectedId = deckData?.activeCassetteId;
+  setTimeout(() => {
+    if (!deckData || deckData.activeCassetteId !== ejectedId) return;  // panel closed, or moved on
+    deckData.activeCassetteId = null;
+    deckData.cassettes = (deckData.cassettes || []).filter(c => c.id !== ejectedId);
+    deckData.playing = deckData.isMini ? false : deckData.playing;
+    deckData.whyNot = 'nothing loaded';
+    if (deckData.lightState === 'orange') deckData.lightState = 'green';
+    renderMediaDeckPanel(deckData);
+  }, ms);
 }
 
 function showLoadPicker() {
@@ -519,9 +633,10 @@ function showLoadPicker() {
       row.textContent = c.name;
       row.addEventListener('click', () => {
         _deckClick();
-        _deckSfx(MEDIADECK_INSERT_DEF);
-        _insertCassette();
+        _transportSfx('insert');
+        const ms = _insertCassette(c.name);
         sendCmdSilent(`load cassette ${c.name}`);
+        _refreshAfter(ms);
         hideLoadPicker();
       });
       list.appendChild(row);
@@ -551,8 +666,15 @@ export function initMediaDeckPanel() {
   document.getElementById('mediadeck-eject-btn').addEventListener('click', () => {
     _deckClick();
     if (deckData?.activeCassetteId) {
-      _deckSfx(MEDIADECK_EJECT_DEF);
-      _ejectCassette();
+      const name = (deckData.cassettes || []).find(c => c.id === deckData.activeCassetteId)?.name || '';
+      _transportSfx('eject');
+      const ms = _ejectCassette(name);
+      // The machine is empty the moment the tape clears it. Clear the readout
+      // locally so the deck never sits there still claiming to hold a cassette
+      // while the server's answer is in flight, then take the authoritative
+      // state (library, inventory, schedule) from the refresh.
+      _clearLoadedLocally(ms);
+      _refreshAfter(ms);
     }
     // Note: the whir keeps running through the press — it only stops on close
     // or when the server reports the deck powered down (handled in render).

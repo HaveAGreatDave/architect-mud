@@ -115,7 +115,13 @@ export default async function regress({ run, check, getPlayer }) {
       r.status?.some(s => s.label === 'Stove' && /cooktop/.test(s.value))
       && r.status?.some(s => s.label === 'Power'), JSON.stringify(r.status));
     check('an empty kitchen reports itself empty rather than pretending otherwise',
-      r.empty === true && !r.area.length && !r.components.length, JSON.stringify({ empty: r.empty, area: r.area.length }));
+      r.empty === true && !r.area.some(v => !v.idle) && !r.components.length,
+      JSON.stringify({ empty: r.empty, area: r.area.length }));
+    // A free ring is listed as a place to put a pan — the panel's own answer to
+    // "is there a burner going spare". It must NOT make the room read as busy,
+    // which is the whole reason `empty` skips idle rows above.
+    check('...while still listing the cold burner as free',
+      r.area.some(v => v.idle && /cooktop/.test(v.name) && /free/.test(v.place)), JSON.stringify(r.area));
 
     // ── Carried food and a carried pan ──────────────────────────────────────
     const panId = randomUUID(), steakId = randomUUID(), looseId = randomUUID();

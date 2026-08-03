@@ -1210,13 +1210,17 @@ async function finishAuth(ws, session, player) {
 		zone = getZone(rescued);
 	}
 	if (zone) {
+		// Through `stampToLog` like every other room description: the login look is
+		// the ONE that doesn't come back through handleCommand, and without this a
+		// `log`-rung player lands in the world with the top pane still on screen and
+		// the room they're standing in absent from their log until they first move.
 		ws.send(
-			JSON.stringify({
+			JSON.stringify(stampToLog(livePlayer, {
 				type: "look",
 				message: (zoneWasDeleted ? describeVoidTeleport() : "") + await describeZone(zone, livePlayer),
 				zone: zone.id,
 				minimap: getMinimapData(zone.id, 8, livePlayer),
-			}),
+			})),
 		);
 		if (zoneWasDeleted) {
 			broadcast(zone.id, { type: "zone_event", message: `${player.handle} flickers into existence out of nowhere.` }, player.id);

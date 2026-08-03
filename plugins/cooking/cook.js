@@ -9,7 +9,7 @@ import { getLivePlayer, updateFurniture, getFurnitureById } from '../../server/e
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { resolveEnvironment } from '../preservation/decay.js';
 import {
-  COOK_SECONDS_PER_KG, THAW_SECONDS_PER_KG, MASS_EXPONENT, MIN_COOK_MS, THAW_STAGES, COOK_STAGES, stageText, BARE_VESSEL,
+  COOK_SECONDS_PER_KG, THAW_SECONDS_PER_KG, MASS_EXPONENT, MIN_COOK_MS, THAW_STAGES, COOK_STAGES, stageText, stageIndex, BARE_VESSEL,
   PEAK_LINES, FADING_LINES, lineFor, stagesFor, MINCE_RATE, MICROWAVE_THAW_SPEED,
 } from './config.js';
 import { PROFILES } from './profiles.js';
@@ -263,17 +263,29 @@ export function checkCooking(invRow) {
   const tl = profile ? timeline(session, profile) : null;
   const finish = finishAt(session, profile);
   if (profile && now >= finish) {
-    return { done: true, burnt: now >= tl.burnAt, text: overStageText(session, profile, now) };
+    const phase = now >= tl.burnAt ? 'burnt' : now >= tl.peakEnd ? 'over' : 'window';
+    return { done: true, burnt: now >= tl.burnAt, phase, text: overStageText(session, profile, now) };
   }
-  if (now >= finish) return { done: true, text: 'cooked through' };
+  if (now >= finish) return { done: true, phase: 'window', text: 'cooked through' };
   const elapsed = now - startedAt;
-  if (elapsed < thawMs) return { done: false, text: stageText(THAW_STAGES, thawMs > 0 ? elapsed / thawMs : 1) };
+  if (elapsed < thawMs) {
+    const f = thawMs > 0 ? elapsed / thawMs : 1;
+    return { done: false, phase: 'thaw', stage: stageIndex(THAW_STAGES, f) + 1, stages: THAW_STAGES.length,
+             text: stageText(THAW_STAGES, f) };
+  }
   const cookElapsed = elapsed - thawMs;
   // The stage prose spans the cook the player actually asked for, so the last
   // stage lands at the moment the window opens rather than at some fixed point
   // before or after it. Per-profile: a broth ticks and rolls, a cut browns.
   const cookSpan = cookMs * (tl?.mult ?? 1);
-  return { done: false, text: stageText(stagesFor(session.profile), cookSpan > 0 ? cookElapsed / cookSpan : 1) };
+  const stages = stagesFor(session.profile);
+  const f = cookSpan > 0 ? cookElapsed / cookSpan : 1;
+  // `phase`/`stage` are WHICH beat the prose is already on, never a clock. A cook
+  // is telegraphed in stages on purpose — knowing when to plate is the single
+  // largest quality lever in the system, and a countdown would hand it over. So
+  // anything reading these can say how far along, and cannot say how long.
+  return { done: false, phase: 'cook', stage: stageIndex(stages, f) + 1, stages: stages.length,
+           text: stageText(stages, f) };
 }
 
 // Every line NAMES the food. With staging a pot can hold three things on three

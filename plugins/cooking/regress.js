@@ -22,7 +22,7 @@ import {
 import { FLAG_PREFIX, PROGRESS_PREFIX, UNTRIED, learnRecipe, knownRecipes, cookbookState, recordAttempt, improveRecipe, beatsRecorded, knownBonus,
          SAVED_PREFIX, savedRecipes } from './knowledge.js';
 import { inferDish, improvisedCeiling, improvisedIp, recipeSignature } from './improvised.js';
-import { SHOPLIST_FLAG, getList, holdings, buyableExamples } from './shoplist.js';
+import { SHOPLIST_FLAG, getList, holdings, answer, buyableExamples } from './shoplist.js';
 import { markShelf, markContainer } from './shoplist-cmd.js';
 import { getItemCache, getItem } from '../../server/engine/items-cache.js';
 import { evaluate, endStateAt, timeline, heatSpans, finishAt } from './quality.js';
@@ -149,6 +149,18 @@ export default async function regress({ run, check, getPlayer }) {
   const doneState = checkCooking(doneCook);
   check('past doneAt, examine reads as done', doneState?.done === true, doneState);
   check('an item with no cooking session returns null', checkCooking({ custom_data: {} }) === null);
+  // The stage the workspace HUD draws its pips from. It must be the SAME beat the
+  // prose beside it names — one table, one index — and it must never grow into a
+  // clock: how long is left is the question the kitchen deliberately refuses.
+  check('mid-cook reports which beat it is on, in range',
+    midState.phase === 'cook' && midState.stage >= 1 && midState.stage <= midState.stages,
+    midState);
+  check('...and the stage agrees with the prose it sits beside',
+    midState.text === stageText(COOK_STAGES, 0.1), midState.text);
+  check('...and carries no clock — nothing that could be read as time remaining',
+    !('remaining' in midState) && !('doneAt' in midState) && !('pct' in midState), Object.keys(midState).join(','));
+  check('a cook past its finish is a state, not a beat count',
+    doneState.phase === 'window' && !doneState.stage, doneState);
 
   // `finishAt` is the ONLY sanctioned way to ask when a cook ends, and it has to
   // keep answering for sessions written before the field was renamed — there are
@@ -1937,6 +1949,15 @@ export default async function regress({ run, check, getPlayer }) {
       const list = await getList(player.id);
       check('...as ingredient CLASSES, which is what a recipe actually asks for',
         list.length > 0 && list.every(e => e.k === 'p' || e.k === 'i'), JSON.stringify(list));
+      // A recipe is not only its food. Soup is a pot on a stove, and a list that
+      // sent you home with the vegetables and no pot was two thirds of an errand.
+      // The kit is DERIVED at read time, never stored — so it is absent above and
+      // present the moment the list is answered.
+      const answered = answer(list, await holdings(player.id));
+      check('...and the KIT it is made in, derived rather than written down',
+        answered.some(e => e.k === 'g' && e.v === 'vessel:pot' && e.derived), JSON.stringify(answered.map(e => [e.k, e.v])));
+      check('...never the stove, which is furniture and not a thing you carry out of a shop',
+        !answered.some(e => e.v === 'heat'), JSON.stringify(answered.map(e => e.v)));
       check('...remembering which recipe it was for', list.every(e => e.for === 'soup'), JSON.stringify(list));
 
       r = await run('shoplist');
@@ -2235,8 +2256,11 @@ export default async function regress({ run, check, getPlayer }) {
         const rows = shop?.items || [];
         check('the tablet list is a tree of headings, lines and alternatives',
           rows.some(i => i.group) && rows.some(i => i.child) && rows.some(i => i.option), JSON.stringify(rows.map(i => i.label)));
-        check('every line you can buy leads somewhere',
-          rows.filter(i => i.child).every(i => String(i.id || '').startsWith('__ing:')), JSON.stringify(rows.filter(i => i.child)));
+        // The kit block's own heading is a heading, not a purchase — it opens
+        // nothing for the same reason a component group's parent doesn't.
+        check('every ingredient line you can buy leads somewhere',
+          rows.filter(i => i.child && i.label !== 'To make it in').every(i => String(i.id || '').startsWith('__ing:')),
+          JSON.stringify(rows.filter(i => i.child)));
         check('...and no heading or summary pretends to',
           rows.filter(i => i.group).every(i => !i.id), JSON.stringify(rows.filter(i => i.group)));
         const line = rows.find(i => i.child && i.id);
@@ -2246,6 +2270,59 @@ export default async function regress({ run, check, getPlayer }) {
         check('...and stays inside the shopping list',
           (det?.breadcrumb || []).includes('Shopping List'), JSON.stringify(det?.breadcrumb));
         check('...telling you how it behaves in a pan', (det?.detail?.rows || []).some(r => r.label === 'Raw'), JSON.stringify(det?.detail?.rows));
+      }
+
+      // ── The kit ────────────────────────────────────────────────────────
+      //
+      // Bought once and bought forever, which is what makes it a different kind
+      // of line from an ingredient: owning one pot answers the pot line on every
+      // recipe you will ever add, and no list should ask you for a second.
+      {
+        await run('shoplist clear');
+        await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, 'item_casserole_pot']);
+        await run('shoplist add soup');
+        let text = (await run('shoplist'))?.message || '';
+        check('the text list gives the kit its own heading', /to make it in/.test(text), text);
+        check('...and never runs it in with the vegetables', /a pot/.test(text), text);
+
+        // The shelf, marked — the same question one aisle over. A hardware shop
+        // highlights the pot exactly as the grocer highlights the onion.
+        const shelf2 = [{ item_id: 'item_casserole_pot', name: 'test pot' }, { item_id: STEAK, name: 'test steak' }];
+        await markShelf({ stock: shelf2, playerId: player.id });
+        check('cookware on your list is marked on a shop shelf',
+          shelf2[0].wanted === true, JSON.stringify(shelf2));
+
+        // Own one, and the line doesn't tick — it GOES. A pot you own is not an
+        // errand you have finished, it is an errand you no longer have, and no
+        // recipe you add next month will ask you for a second one.
+        const potRow = randomUUID();
+        await query(
+          `INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`,
+          [potRow, player.id, 'item_casserole_pot']);
+        text = (await run('shoplist'))?.message || '';
+        check('buying the pot takes it off the list on its own', !/a pot/.test(text), text);
+        check('...while the kit you still lack stays', /to make it in/.test(text), text);
+        check('...and nothing about it was ever written down',
+          !(await getList(player.id)).some(e => e.k === 'g'), JSON.stringify(await getList(player.id)));
+
+        // THE BACKFILL, which this costs nothing: a list written before recipes
+        // knew what they were cooked in holds food and nothing else, and gains
+        // its kit the moment anybody opens it.
+        await query('DELETE FROM player_inventory WHERE id=$1', [potRow]);
+        await query(
+          `INSERT INTO player_flags (player_id, flag_key, flag_value) VALUES ($1,$2,$3)
+             ON CONFLICT (player_id, flag_key) DO UPDATE SET flag_value=EXCLUDED.flag_value`,
+          [player.id, SHOPLIST_FLAG, JSON.stringify([{ k: 'p', v: 'liquid', n: 1, label: 'liquid', for: 'soup' }])]);
+        const healed = answer(await getList(player.id), await holdings(player.id));
+        check('an older list grows the kit it never knew to ask for',
+          healed.some(e => e.k === 'g' && e.v === 'vessel:pot'), JSON.stringify(healed.map(e => [e.k, e.v])));
+        check('...attributed to the recipe that wants it, not floated loose',
+          healed.filter(e => e.k === 'g').every(e => e.for === 'soup'), JSON.stringify(healed.map(e => [e.k, e.for])));
+        // Two recipes on one list want one pot between them.
+        await run('shoplist add stew');
+        const both = answer(await getList(player.id), await holdings(player.id));
+        check('...and two recipes wanting a pot are still one pot',
+          both.filter(e => e.v === 'vessel:pot').length === 1, JSON.stringify(both.filter(e => e.k === 'g').map(e => [e.v, e.for])));
       }
 
       await run('shoplist clear');
