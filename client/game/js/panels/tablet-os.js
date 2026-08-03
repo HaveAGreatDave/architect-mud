@@ -5190,7 +5190,21 @@ function moveIdsToPage(container, ids, targetPage) {
     let slot = -1;
     for (let i = from; i < Math.min(to, out.length); i++) if (isHomeGap(out[i])) { slot = i; break; }
     if (slot >= 0) out[slot] = id;
-    else { out.splice(to, 0, id); to++; }
+    else {
+      // THE TARGET PAGE IS FULL — no hole to drop into. Splicing at the page's END
+      // put the carried tile one cell PAST the boundary, so it paginated onto the
+      // NEXT page: the edge-hold flip then couldn't find its tile on the page it had
+      // just turned to, turned straight back, and carrying an app onto a full page
+      // (page 2 → a full page 1, to swap with a tile there) was impossible. Walk the
+      // insert back until the tile actually lands ON the page it was carried to, and
+      // let the block it displaces overflow onto the next page instead.
+      let at = to;
+      out.splice(at, 0, id);
+      while (at > from && at >= (homePageStarts(out)[targetPage + 1] ?? out.length)) {
+        out.splice(at, 1); at--; out.splice(at, 0, id);
+      }
+      to++;
+    }
   }
   saveAppOrder(out);
 }
