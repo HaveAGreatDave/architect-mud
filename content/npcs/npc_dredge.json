@@ -28,7 +28,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Name's Dredge. Was something else, up top, a long time ago.\" She turns a corroded washer over in her fingers. \"I work the cistern — everything the deep drowned for a hundred years fetches up here, if you've the patience to feel for it. Patience I've got. What I haven't got is the legs to go past the Throat anymore, and the deep's got things worth more than washers.\" She looks at you, flat and reading. \"You've got the legs. Maybe we're useful to each other.\""
+      "text": "\"Name's Dredge. Was something else, up top, a long time ago.\" She turns a corroded washer over in her fingers. \"I work the cistern. Everything the deep drowned for a hundred years fetches up here, if you've the patience to feel for it. Patience I've got. What I haven't got is the legs to go past the Throat anymore, and the deep's got things worth more than washers.\" She looks at you, flat and reading. \"You've got the legs. Maybe we're useful to each other.\""
     },
     "bye": {
       "options": [],
@@ -41,7 +41,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The one who killed the Midden,\" Dredge says, not quite mocking. \"Deep's a shade less lethal because of you. Rest here a minute if you want — this is the safest air in the Under, and I keep it that way.\""
+      "text": "\"The one who killed the Midden,\" Dredge says, not quite mocking. \"Deep's a shade less lethal because of you. Rest here a minute if you want; this is the safest air in the Under, and I keep it that way.\""
     },
     "q1_accept": {
       "actions": [
@@ -56,7 +56,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Good. Green line's on your map — Throat's the crossroads, mutants south, hounds north. Come back with the count and keep that light fed. Nobody wins a fight down here they can't see.\""
+      "text": "\"Good. Green line's on your map. Throat's the crossroads, mutants south, hounds north. Come back with the count and keep that light fed. Nobody wins a fight down here they can't see.\""
     },
     "q1_offer": {
       "options": [
@@ -69,7 +69,7 @@
           "next": "bye"
         }
       ],
-      "text": "She weighs you a moment. \"You came down through the pocket and you're still upright, so you're not nothing. But the deep isn't the pocket. There's mutants shambling the Rust Gallery, south off the Throat — bloated, rad, whatever the water made of them. And hounds working the Groaning Main to the north. Put down three of the mutants and a couple of the hounds. Do that and I'll believe you can hold down here. Then we talk about real work.\""
+      "text": "She weighs you a moment. \"You came down through the pocket and you're still upright, so you're not nothing. But the deep isn't the pocket. There's mutants shambling the Rust Gallery, south off the Throat: bloated, rad, whatever the water made of them. And hounds working the Groaning Main to the north. Put down three of the mutants and a couple of the hounds. Do that and I'll believe you can hold down here. Then we talk about real work.\""
     },
     "q1_report": {
       "actions": [
@@ -99,7 +99,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Map's got the line. Throat, Rust Gallery, Machine Sump, Deep Trunk, then down into the Reach. It gets worse every step — go fed and go armed. And if the light dies down there, you turn around, relay or no relay. A dead scavenger fetches nothing.\""
+      "text": "\"Map's got the line. Throat, Rust Gallery, Machine Sump, Deep Trunk, then down into the Reach. It gets worse every step, so go fed and go armed. And if the light dies down there, you turn around, relay or no relay. A dead scavenger fetches nothing.\""
     },
     "q2_offer": {
       "options": [
@@ -112,7 +112,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"A relay. Signal relay, went down with the old junction when they bored the new lines.\" She sketches the run in the silt with her hook. \"Past the Deep Trunk, all the way to the Deep Reach — the bottom of the works. I've dug this cistern twenty years and never had the legs to go that deep. It'll be silted over, but the core's good crystal, and to the right buyer that relay's worth more than everything I've pulled out of here. Bring it up.\""
+      "text": "\"A relay. Signal relay, went down with the old junction when they bored the new lines.\" She sketches the run in the silt with her hook. \"Past the Deep Trunk, all the way to the Deep Reach, the bottom of the works. I've dug this cistern twenty years and never had the legs to go that deep. It'll be silted over, but the core's good crystal, and to the right buyer that relay's worth more than everything I've pulled out of here. Bring it up.\""
     },
     "q2_report": {
       "actions": [
@@ -155,7 +155,7 @@
           "next": "bye"
         }
       ],
-      "text": "Her smile is gone. \"You saw it, even if you didn't know what you were looking at. Down in the Reach — the big mound that doesn't move right. I call it the Midden. A hundred drowned things grown into one, and it's been feeding down there longer than I've been alive. It's the reason the Reach never got thinned. And it's getting bigger.\" She looks at her cistern, her one safe place. \"Bigger means hungrier. One day it decides up here looks warm. I'd rather it never got the chance. End it.\""
+      "text": "Her smile is gone. \"You saw it, even if you didn't know what you were looking at. Down in the Reach. The big mound that doesn't move right. I call it the Midden. A hundred drowned things grown into one, and it's been feeding down there longer than I've been alive. It's the reason the Reach never got thinned. And it's getting bigger.\" She looks at her cistern, her one safe place. \"Bigger means hungrier. One day it decides up here looks warm. I'd rather it never got the chance. End it.\""
     },
     "q3_report": {
       "actions": [
@@ -170,7 +170,7 @@
           "next": "bye"
         }
       ],
-      "text": "Dredge is very still while you tell it. Then she lets out a breath she might have been holding for years. \"Dead. The Midden's dead, and I lived to hear it.\" She presses everything she can spare into your hands — credits, cells, medicine. \"You cleared the bottom of the world. The deep's yours as much as anyone's now. Come see me — there's always more the water gives up, and now I know who to send.\""
+      "text": "Dredge is very still while you tell it. Then she lets out a breath she might have been holding for years. \"Dead. The Midden's dead, and I lived to hear it.\" She presses everything she can spare into your hands: credits, cells, medicine. \"You cleared the bottom of the world. The deep's yours as much as anyone's now. Come see me. There's always more the water gives up, and now I know who to send.\""
     },
     "root": {
       "options": [
@@ -278,7 +278,7 @@
           "next": "bye"
         }
       ],
-      "text": "Your light finds her folded into the dry niche, and she was watching you before it did. \"Far enough in that you're either lost or looking for something,\" Dredge says. \"Lost, go back the way you came. Looking — say what for.\""
+      "text": "Your light finds her folded into the dry niche, and she was watching you before it did. \"Far enough in that you're either lost or looking for something,\" Dredge says. \"Lost, go back the way you came. Looking, say what for.\""
     }
   },
   "faction": null,

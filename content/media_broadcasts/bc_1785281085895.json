@@ -46,7 +46,7 @@
         },
         "next": "bsm_13",
         "style": "raw",
-        "text": "And on the day it all goes wrong out there — and it does go wrong out there — you open your eyes on our floor, whole, warm, and owed a second go at it.",
+        "text": "And on the day it all goes wrong out there, and it does go wrong out there, you open your eyes on our floor, whole, warm, and owed a second go at it.",
         "type": "say"
       },
       "bsm_13": {
@@ -290,7 +290,7 @@
         },
         "next": "bsm_36",
         "style": "raw",
-        "text": "Freight train. Through the Yards. And before anybody says anything — in my defence, it was a very long way off when I set out.",
+        "text": "Freight train. Through the Yards. And before anybody says anything: in my defence, it was a very long way off when I set out.",
         "type": "say"
       },
       "bsm_36": {
@@ -595,7 +595,7 @@
       "text": "Halcyon Re-You™. We take your impression now, while you're standing there breathing and signing things."
     },
     {
-      "text": "And on the day it all goes wrong out there — and it does go wrong out there — you open your eyes on our floor, whole, warm, and owed a second go at it."
+      "text": "And on the day it all goes wrong out there, and it does go wrong out there, you open your eyes on our floor, whole, warm, and owed a second go at it."
     },
     {
       "text": "Not a copy. Not a keepsake. A second chance, in your own face, with your own bad ideas still intact."
@@ -637,7 +637,7 @@
       "text": "A very large man on a very small cushion, still faintly annoyed about something."
     },
     {
-      "text": "Freight train. Through the Yards. And before anybody says anything — in my defence, it was a very long way off when I set out."
+      "text": "Freight train. Through the Yards. And before anybody says anything: in my defence, it was a very long way off when I set out."
     },
     {
       "text": "I could see it the whole time. It could see me the whole time. We both had ample opportunity to reconsider and neither of us took it."

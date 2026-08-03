@@ -125,7 +125,7 @@
   },
   "chitchat": [
     "\"Anybody can point a plane at the sky. Landing it is the exam.\"",
-    "\"Yoke's inverted — pull back to climb. Learn it now, not at fifty feet.\"",
+    "\"Yoke's inverted. Pull back to climb. Learn it now, not at fifty feet.\"",
     "\"I've signed off worse pilots than you. A few of them even came back.\""
   ],
   "description": "A trim, silver-haired woman in a faded flight instructor's jacket, a clipboard tucked under one arm and a headset slung round her neck. She watches the ramp the way a surgeon watches a heartbeat monitor — patient, unblinking, cataloguing every twitch. The wings stitched over her breast pocket are worn to threads.",
@@ -146,7 +146,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"You're already rated — I signed your ticket myself. Sky's yours. Don't make me regret it.\""
+      "text": "\"You're already rated. I signed your ticket myself. Sky's yours. Don't make me regret it.\""
     },
     "bye": {
       "options": [],
@@ -163,7 +163,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"A checkride. You'll fly a trainer Mayfly off my ramp, thread a course of rings I'll throw up in front of you — climb, turn, come around — and grease her back onto Coldwater Regional, Grade B or better. Bend the aircraft and we start over; the trainers are free and I've a hangar of them. Two things before you strap in: the ENGINE switch lights her up, and the yoke is INVERTED — drag DOWN to pull back and climb. Everybody forgets that one. Once.\""
+      "text": "\"A checkride. You'll fly a trainer Mayfly off my ramp, thread a course of rings I'll throw up in front of you. Climb, turn, come around, and grease her back onto Coldwater Regional, Grade B or better. Bend the aircraft and we start over; the trainers are free and I've a hangar of them. Two things before you strap in: the ENGINE switch lights her up, and the yoke is INVERTED, so drag DOWN to pull back and climb. Everybody forgets that one. Once.\""
     },
     "root": {
       "options": [
@@ -203,7 +203,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Throttle's on A and Z. Steer with the yoke — left and right to bank, and remember she's inverted: down to climb, up to descend. Keep your speed up in the turns, ease it down on final. The rings tell you where; the horizon tells you how.\""
+      "text": "\"Throttle's on A and Z. Steer with the yoke: left and right to bank, and remember she's inverted: down to climb, up to descend. Keep your speed up in the turns, ease it down on final. The rings tell you where; the horizon tells you how.\""
     }
   },
   "faction": null,

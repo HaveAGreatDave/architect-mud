@@ -90,7 +90,7 @@
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "\"Fly carefully. Or don't — either way, we'll be here.\""
+      "text": "\"Fly carefully. Or don't. Either way, we'll be here.\""
     },
     "root": {
       "options": [

@@ -42,7 +42,7 @@
           "next": "tale_1"
         },
         {
-          "label": "That scar — where'd you get it?",
+          "label": "That scar. Where'd you get it?",
           "next": "tale_2"
         },
         {
@@ -83,7 +83,7 @@
           "next": null
         }
       ],
-      "text": "\"Flew a load out of the Redline with three drums of something the buyer wouldn't name and half a wing. Storm took me sideways over the flats — I put her down on her belly a mile short of this very strip and walked in \"<span class=\"text-dim\">— he holds up a finger —</span>\" barefoot. Boots burned off. Marla poured me one before I'd said a word. Never left. Never saw a reason to.\""
+      "text": "\"Flew a load out of the Redline with three drums of something the buyer wouldn't name and half a wing. Storm took me sideways over the flats. I put her down on her belly a mile short of this very strip and walked in \"<span class=\"text-dim\">(he holds up a finger)</span>\" barefoot. Boots burned off. Marla poured me one before I'd said a word. Never left. Never saw a reason to.\""
     },
     "tale_2": {
       "_vine": {
@@ -125,7 +125,7 @@
           "next": null
         }
       ],
-      "text": "\"Worst run.\" He says it like you've asked him to pick a favourite child. \"Three drums, a buyer who wouldn't give a name, and eleven hundred miles of nothing with the gauge sat on the peg the whole way. I came over that ridge out there \"<span class=\"text-dim\">— he gestures at a wall —</span>\" on vapour and prayer, and the strip came up out of the dust like a hand. Set her down. Walked in. No boots on me at all.\" He nods, satisfied. \"Never left.\""
+      "text": "\"Worst run.\" He says it like you've asked him to pick a favourite child. \"Three drums, a buyer who wouldn't give a name, and eleven hundred miles of nothing with the gauge sat on the peg the whole way. I came over that ridge out there \"<span class=\"text-dim\">(he gestures at a wall)</span>\" on vapour and prayer, and the strip came up out of the dust like a hand. Set her down. Walked in. No boots on me at all.\" He nods, satisfied. \"Never left.\""
     },
     "tale_press": {
       "_vine": {

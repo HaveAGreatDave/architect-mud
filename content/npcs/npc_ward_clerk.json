@@ -125,7 +125,7 @@
   },
   "chitchat": [
     "The clerk stamps a form, stamps the desk by accident, and stamps the form again to be sure.",
-    "\"Number's not up yet. The number is never up. Take a tab off the board while you wait — that pays.\""
+    "\"Number's not up yet. The number is never up. Take a tab off the board while you wait. That pays.\""
   ],
   "description": "A grey civil servant fossilised behind the permit glass, sleeve garters and a stamp in each hand, radiating the terrible patience of a man who has outlasted three governments and every applicant. He is the ward's job board, its licensing desk, and its last line of defence against anything getting done quickly.",
   "dialogue_tree": {
@@ -159,7 +159,7 @@
           "text": "\"What else is on the board?\""
         }
       ],
-      "text": "The clerk takes your tab, checks it against the board with insulting thoroughness, and stamps it. \"{quest}. Logged. Credits clear before the ink dries — the one thing this office does promptly.\" Thunk. \"Take another. The board's always hungrier than you are.\""
+      "text": "The clerk takes your tab, checks it against the board with insulting thoroughness, and stamps it. \"{quest}. Logged. Credits clear before the ink dries, the one thing this office does promptly.\" Thunk. \"Take another. The board's always hungrier than you are.\""
     },
     "permit": {
       "actions": [
@@ -179,7 +179,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"A permit. For what?\" He doesn't wait for the answer, already reaching for the stamp. \"Doesn't matter. The what-box stays blank — saves us both a hearing.\" Thunk. He slides the flimsy across. \"There. You are now permitted. Whether anyone honours it is a matter between you and them, and no concern of Ward Nine's.\""
+      "text": "\"A permit. For what?\" He doesn't wait for the answer, already reaching for the stamp. \"Doesn't matter. The what-box stays blank. Saves us both a hearing.\" Thunk. He slides the flimsy across. \"There. You are now permitted. Whether anyone honours it is a matter between you and them, and no concern of Ward Nine's.\""
     },
     "root": {
       "options": [
@@ -201,7 +201,7 @@
           "next": "bye"
         }
       ],
-      "text": "The clerk does not look up from his stamping. \"Ward Nine. Permits, licences, grievances — take a number, though I'll tell you now the machine's the only thing here that works.\" He finally raises his eyes. \"You're after paid work, a stamp, or a complaint. Which.\""
+      "text": "The clerk does not look up from his stamping. \"Ward Nine. Permits, licences, grievances. Take a number, though I'll tell you now the machine's the only thing here that works.\" He finally raises his eyes. \"You're after paid work, a stamp, or a complaint. Which.\""
     }
   },
   "faction": null,

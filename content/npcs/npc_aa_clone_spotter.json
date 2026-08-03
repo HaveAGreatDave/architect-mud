@@ -21,7 +21,7 @@
           "next": "bye"
         }
       ],
-      "text": "He thumbs a bearing through to the gun without being asked, then flicks two fingers east. \"Freight lane past the yards, and the red flats further out — that's where the returns cluster. Two of them is enough to make the pattern go away for a while.\" A pause. \"The flats are hot. Take the pills off me when you're back; you'll want them.\""
+      "text": "He thumbs a bearing through to the gun without being asked, then flicks two fingers east. \"Freight lane past the yards, and the red flats further out. That's where the returns cluster. Two of them is enough to make the pattern go away for a while.\" A pause. \"The flats are hot. Take the pills off me when you're back; you'll want them.\""
     },
     "brief": {
       "options": [
@@ -34,7 +34,7 @@
           "next": "bye"
         }
       ],
-      "text": "For the first time the monotone breaks — barely. \"Ground returns. All week.\" He tilts the slate so you can see the smear of contacts crawling across it. \"Scavengers, working in past the gate and stripping the facility while we're watching the sky. The gun points up. It doesn't point at them, and I can't leave the slate to go do it myself.\" He looks at you properly. \"You're ambulatory and you're standing in my revetment. That's two qualifications.\""
+      "text": "For the first time the monotone breaks, barely. \"Ground returns. All week.\" He tilts the slate so you can see the smear of contacts crawling across it. \"Scavengers, working in past the gate and stripping the facility while we're watching the sky. The gun points up. It doesn't point at them, and I can't leave the slate to go do it myself.\" He looks at you properly. \"You're ambulatory and you're standing in my revetment. That's two qualifications.\""
     },
     "bye": {
       "options": [],
@@ -53,7 +53,7 @@
           "next": "bye"
         }
       ],
-      "text": "He watches the returns thin out on the slate, then thumbs the headset off one ear — the closest thing to ceremony he has. \"Pattern's gone. Good.\" Credits clear, and he presses a strip of foil pills into your hand without looking at you. \"Rad pills. You went out to the flats; you earned them whether you feel it yet or not. It's always later than you think with that stuff.\""
+      "text": "He watches the returns thin out on the slate, then thumbs the headset off one ear, the closest thing to ceremony he has. \"Pattern's gone. Good.\" Credits clear, and he presses a strip of foil pills into your hand without looking at you. \"Rad pills. You went out to the flats; you earned them whether you feel it yet or not. It's always later than you think with that stuff.\""
     },
     "root": {
       "options": [

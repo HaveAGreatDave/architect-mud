@@ -103,7 +103,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"You fly, therefore you fall — statistically. We simply price the interval. Say <b>insure</b> and I'll pull your fleet and quote you.\" He steeples his fingers. \"We keep the wreck, of course.\""
+      "text": "\"You fly, therefore you fall, statistically. We simply price the interval. Say <b>insure</b> and I'll pull your fleet and quote you.\" He steeples his fingers. \"We keep the wreck, of course.\""
     },
     "terms": {
       "options": [
@@ -112,7 +112,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"A covered total loss pays a fraction of agreed value, less the excess — enough to get you flying again, never enough to make you careless. That distinction is the whole business.\""
+      "text": "\"A covered total loss pays a fraction of agreed value, less the excess. Enough to get you flying again, never enough to make you careless. That distinction is the whole business.\""
     }
   },
   "faction": null,

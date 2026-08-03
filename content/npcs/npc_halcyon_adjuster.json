@@ -103,7 +103,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Sit. Breathe. If Halcyon has logged a loss for you, say <b>claim</b> and I'll settle it — the payout, less your excess, which I'm afraid is yours to carry.\" A beat. \"Condolences on the aircraft.\""
+      "text": "\"Sit. Breathe. If Halcyon has logged a loss for you, say <b>claim</b> and I'll settle it: the payout, less your excess, which I'm afraid is yours to carry.\" A beat. \"Condolences on the aircraft.\""
     },
     "why": {
       "options": [

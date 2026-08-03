@@ -143,7 +143,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"They den in the wet ground — the Seep, the Rust Marsh, the Runoff down south. Two at least. And mind your footing; the tar doesn't give anything back.\""
+      "text": "\"They den in the wet ground: the Seep, the Rust Marsh, the Runoff down south. Two at least. And mind your footing; the tar doesn't give anything back.\""
     },
     "bye": {
       "options": [],
@@ -164,7 +164,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Something's coming up out of the seeps — tar-things, big and slow and hungry. Took two of mine this week. Put a couple of them down and there's water, food, and goodwill in it. Goodwill's worth more than it sounds out here.\""
+      "text": "\"Something's coming up out of the seeps: tar-things, big and slow and hungry. Took two of mine this week. Put a couple of them down and there's water, food, and goodwill in it. Goodwill's worth more than it sounds out here.\""
     },
     "reported": {
       "actions": [
@@ -179,7 +179,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"...The seeps are quieter. My people noticed. Here — clean water and a hot meal, and you're welcome at this fire, which is more than most get.\""
+      "text": "\"...The seeps are quieter. My people noticed. Here: clean water and a hot meal, and you're welcome at this fire, which is more than most get.\""
     },
     "root": {
       "options": [

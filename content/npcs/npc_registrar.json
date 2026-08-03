@@ -142,7 +142,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Grime Row, The Bailey — the low, bad end of the wastes. Mind the ash, and mind the wight.\""
+      "text": "\"Grime Row, The Bailey, the low bad end of the wastes. Mind the ash, and mind the wight.\""
     },
     "bye": {
       "options": [],
@@ -163,7 +163,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Something's denning on a spool of lost citizen records out in the deep wastes — a slag wight, by the heat of it. Put it down so my people can recover the file, and I'll see you're paid and, more importantly, registered as helpful.\""
+      "text": "\"Something's denning on a spool of lost citizen records out in the deep wastes. A slag wight, by the heat of it. Put it down so my people can recover the file, and I'll see you're paid and, more importantly, registered as helpful.\""
     },
     "reported": {
       "actions": [
@@ -178,7 +178,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"...Filed. Recovered. You're in the ledger now, for whatever that's worth. Take this for your trouble — and my thanks, off the record.\""
+      "text": "\"...Filed. Recovered. You're in the ledger now, for whatever that's worth. Take this for your trouble, and my thanks, off the record.\""
     },
     "root": {
       "options": [

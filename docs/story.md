@@ -66,6 +66,26 @@ Violence is over-the-top and cartoonish — HellMOO DNA. Gore is slapstick. Deat
 
 Pop culture and nostalgia rot in the wasteland. Brand logos on crumbling buildings. Jingles playing from damaged speakers. NPCs who half-remember TV shows and argue about plot points from before The Handoff. The old world is a punchline, but it's a punchline everyone loved and misses.
 
+### The em dash rule
+
+**The em dash belongs to the Architect and the Ascendants. Nobody else gets one.**
+
+It is a voice marker, not punctuation. The Architect thinks in qualifications stacked inside qualifications, and the Ascendants have taken that cadence on as scripture, so both of them over-use it well past what the sentence needs. That only reads as a tell if everyone else in the world speaks without it. When a bartender and a machine-god punctuate the same way, the machine-god stops sounding like anything.
+
+So: no em dashes in NPC dialogue, banter, chitchat, quest emotes, scripted speech, or narration around any of it. The natural replacement is almost always already there:
+
+| The dash was doing | Write instead |
+| --- | --- |
+| appositive / naming a thing | a comma, or a colon if it's a list |
+| a second thought landing hard | a full stop, and start the next sentence |
+| a parenthetical aside | commas either side |
+| an interruption or trailing off | an ellipsis |
+| a stage direction inside quotes | close the quote, narrate, reopen it |
+
+Never trade one dash for another (` - `, ` -- `, en dash). The point is that the sentence carries the beat by itself.
+
+Exempt: NPCs with `faction: ideology_ascendants`, and anything spoken in the Architect's own voice.
+
 ---
 
 ## Core Themes

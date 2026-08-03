@@ -163,7 +163,7 @@
       },
       "bsm_16": {
         "type": "say",
-        "text": "In the pit stands VESS — sharp, pressed, holding a clipboard like a weapon she is licensed to carry.",
+        "text": "In the pit stands VESS: sharp, pressed, holding a clipboard like a weapon she is licensed to carry.",
         "style": "narration",
         "_vine": {
           "x": 300,
@@ -173,7 +173,7 @@
       },
       "bsm_17": {
         "type": "say",
-        "text": "Vess says, \"Are you Dutch? The Dutch who owns this — establishment?\"",
+        "text": "Vess says, \"Are you Dutch? The Dutch who owns this... establishment?\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -495,7 +495,7 @@
       },
       "bsm_49": {
         "type": "say",
-        "text": "Vess says, \"That’s — genuinely the darkest thing I’ve heard in a boardroom, and I do foreclosures.\"",
+        "text": "Vess says, \"That’s... genuinely the darkest thing I’ve heard in a boardroom, and I do foreclosures.\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -585,7 +585,7 @@
       },
       "bsm_58": {
         "type": "say",
-        "text": "Vess says, \"That’s — I’m going to write \"concerning\" in my notes and move on.\"",
+        "text": "Vess says, \"That’s... I’m going to write \"concerning\" in my notes and move on.\"",
         "style": "verbatim",
         "_vine": {
           "x": 740,
@@ -707,7 +707,7 @@
       },
       "bsm_70": {
         "type": "say",
-        "text": "A regular — GILES — looks up from the bar, heartbroken already, which is his natural resting state.",
+        "text": "A regular, GILES, looks up from the bar, heartbroken already, which is his natural resting state.",
         "style": "narration",
         "_vine": {
           "x": 80,
@@ -757,7 +757,7 @@
       },
       "bsm_75": {
         "type": "say",
-        "text": "Dutch says, \"Vess. Off the record. Is there any way — any way at all — a place like this beats a thing like APEX?\"",
+        "text": "Dutch says, \"Vess. Off the record. Is there any way, any way at all, that a place like this beats a thing like APEX?\"",
         "style": "verbatim",
         "_vine": {
           "x": 80,
@@ -959,7 +959,7 @@
       },
       "bsm_95": {
         "type": "say",
-        "text": "That night, PIP — the anxious kid who buses the tables — is watching a flyer flicker on the wall.",
+        "text": "That night, PIP, the anxious kid who buses the tables, is watching a flyer flicker on the wall.",
         "style": "narration",
         "_vine": {
           "x": 80,
@@ -989,7 +989,7 @@
       },
       "bsm_98": {
         "type": "say",
-        "text": "Pip says, \"The Coldwater Slagball Open. Grand prize is — it’s forty thousand credits. It’s exactly forty thousand credits.\"",
+        "text": "Pip says, \"The Coldwater Slagball Open. Grand prize is... it’s forty thousand credits. It’s exactly forty thousand credits.\"",
         "style": "verbatim",
         "_vine": {
           "x": 740,
@@ -1109,7 +1109,7 @@
       },
       "bsm_110": {
         "type": "say",
-        "text": "Pip says, \"I’ll — I’ll do the thing. The team thing. Please don’t make me talk to the crowd.\"",
+        "text": "Pip says, \"I’ll... I’ll do the thing. The team thing. Please don’t make me talk to the crowd.\"",
         "style": "verbatim",
         "_vine": {
           "x": 80,
@@ -1239,7 +1239,7 @@
       },
       "bsm_123": {
         "type": "say",
-        "text": "Pip says, \"Do we — do we get uniforms? I don’t want a number that draws attention. Can I be a low number? A shy number?\"",
+        "text": "Pip says, \"Do we... do we get uniforms? I don’t want a number that draws attention. Can I be a low number? A shy number?\"",
         "style": "verbatim",
         "_vine": {
           "x": 740,
@@ -1291,7 +1291,7 @@
       },
       "bsm_128": {
         "type": "say",
-        "text": "The sixth arrives on his own. He always does. His name — he insists — is BARNACLE BASH.",
+        "text": "The sixth arrives on his own. He always does. His name, he insists, is BARNACLE BASH.",
         "style": "narration",
         "_vine": {
           "x": 740,
@@ -1361,7 +1361,7 @@
       },
       "bsm_135": {
         "type": "say",
-        "text": "Barnacle Bash says, \"The boy has SEA SENSE! Ye there, cabin boy — stick by ol’ Bash and ye’ll never drown on dry land, which be the most common way to drown in this city!\"",
+        "text": "Barnacle Bash says, \"The boy has SEA SENSE! Ye there, cabin boy, stick by ol’ Bash and ye’ll never drown on dry land, which be the most common way to drown in this city!\"",
         "style": "verbatim",
         "_vine": {
           "x": 80,
@@ -1371,7 +1371,7 @@
       },
       "bsm_136": {
         "type": "say",
-        "text": "Pip says, \"That’s — genuinely reassuring? I don’t know why. I feel safer. Is that wrong?\"",
+        "text": "Pip says, \"That’s... genuinely reassuring? I don’t know why. I feel safer. Is that wrong?\"",
         "style": "verbatim",
         "_vine": {
           "x": 300,
@@ -1391,7 +1391,7 @@
       },
       "bsm_138": {
         "type": "say",
-        "text": "Barnacle Bash says, \"Aye! Fear be a fog, and a good captain simply declines to sail through it! I declined years ago! Look at me now — landlocked, beloved, and TERRIFYING at slagball!\"",
+        "text": "Barnacle Bash says, \"Aye! Fear be a fog, and a good captain simply declines to sail through it! I declined years ago! Look at me now: landlocked, beloved, and TERRIFYING at slagball!\"",
         "style": "verbatim",
         "_vine": {
           "x": 740,
@@ -1551,7 +1551,7 @@
       },
       "bsm_154": {
         "type": "say",
-        "text": "Pip says, \"What about — and this is dumb — what about \"The Sump\"? Because that’s what we are and nobody expects the thing that’s just true.\"",
+        "text": "Pip says, \"What about, and this is dumb, what about \"The Sump\"? Because that’s what we are and nobody expects the thing that’s just true.\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -1945,7 +1945,7 @@
       },
       "bsm_193": {
         "type": "say",
-        "text": "He gestures. A battered repossession drone — UNIT 7, the one that took the stool — hovers in, reprogrammed and furious.",
+        "text": "He gestures. A battered repossession drone, UNIT 7, the one that took the stool, hovers in, reprogrammed and furious.",
         "style": "narration",
         "_vine": {
           "x": 740,
@@ -1975,7 +1975,7 @@
       },
       "bsm_196": {
         "type": "say",
-        "text": "Coach Rusk says, \"If you can dodge a repo-drone, boy, you can dodge a slag. And if you can’t dodge a repo-drone — you were going to lose your couch anyway.\"",
+        "text": "Coach Rusk says, \"If you can dodge a repo-drone, boy, you can dodge a slag. And if you can’t dodge a repo-drone, you were going to lose your couch anyway.\"",
         "style": "verbatim",
         "_vine": {
           "x": 300,
@@ -2284,7 +2284,7 @@
       },
       "bsm_227": {
         "type": "say",
-        "text": "Coach Rusk says, \"The eyes lie. In a real match the crowd, the lights, the money on the board — all of it’s screaming at your eyes. So we learn to play without them tonight.\"",
+        "text": "Coach Rusk says, \"The eyes lie. In a real match the crowd, the lights, the money on the board, all of it’s screaming at your eyes. So we learn to play without them tonight.\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -2486,7 +2486,7 @@
       },
       "bsm_247": {
         "type": "say",
-        "text": "Blurt says, \"That’s the spirit, Cass! First up — the plucky no-names from the Sump versus a team of sentient gym equipment!\"",
+        "text": "Blurt says, \"That’s the spirit, Cass! First up: the plucky no-names from the Sump versus a team of sentient gym equipment!\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -2506,7 +2506,7 @@
       },
       "bsm_249": {
         "type": "say",
-        "text": "The Ref says, \"Both teams to the line. Slags in the middle. On my whistle. And please — please — nobody dies. I have to write the report.\"",
+        "text": "The Ref says, \"Both teams to the line. Slags in the middle. On my whistle. And please, please, nobody dies. I have to write the report.\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -2556,7 +2556,7 @@
       },
       "bsm_254": {
         "type": "say",
-        "text": "Pip says, \"Did I — did I do it? I can’t look. Is it good or is it the worst thing I’ve ever done?\"",
+        "text": "Pip says, \"Did I... did I do it? I can’t look. Is it good or is it the worst thing I’ve ever done?\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -2606,7 +2606,7 @@
       },
       "bsm_259": {
         "type": "say",
-        "text": "Round two. The Sump draws a team of retired debt collectors — men who throw for a living and enjoy it too much.",
+        "text": "Round two. The Sump draws a team of retired debt collectors, men who throw for a living and enjoy it too much.",
         "style": "narration",
         "_vine": {
           "x": 960,
@@ -2696,7 +2696,7 @@
       },
       "bsm_268": {
         "type": "say",
-        "text": "Blurt says, \"And here come the APEX juniors, Cass — six young men bred in a lab to have excellent cores and no interior lives whatsoever!\"",
+        "text": "Blurt says, \"And here come the APEX juniors, Cass: six young men bred in a lab to have excellent cores and no interior lives whatsoever!\"",
         "style": "verbatim",
         "_vine": {
           "x": 740,
@@ -2756,7 +2756,7 @@
       },
       "bsm_274": {
         "type": "say",
-        "text": "Coach Rusk says, \"THAT’S my mountain! Aim him at the final, Dutch, that’s all I ever have to do — point Merv at the problem and get out of the splash zone!\"",
+        "text": "Coach Rusk says, \"THAT’S my mountain! Aim him at the final, Dutch, that’s all I ever have to do. Point Merv at the problem and get out of the splash zone!\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -2885,7 +2885,7 @@
       },
       "bsm_287": {
         "type": "say",
-        "text": "Maxim Vigo says, \"Then buy their coach. Buy their bar. Buy their WATER — the pirate seems to need it.\"",
+        "text": "Maxim Vigo says, \"Then buy their coach. Buy their bar. Buy their WATER; the pirate seems to need it.\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -3047,7 +3047,7 @@
       },
       "bsm_303": {
         "type": "say",
-        "text": "The night before the final, Unit 7 malfunctions in the pit during practice — reprogrammed AGAIN, this time by a very expensive hand.",
+        "text": "The night before the final, Unit 7 malfunctions in the pit during practice, reprogrammed AGAIN, this time by a very expensive hand.",
         "style": "narration",
         "_vine": {
           "x": 740,
@@ -3067,7 +3067,7 @@
       },
       "bsm_305": {
         "type": "say",
-        "text": "Dutch says, \"Coach! Coach — somebody get a medic — Rusk, stay with me —\"",
+        "text": "Dutch says, \"Coach! Coach, somebody get a medic. Rusk, stay with me...\"",
         "style": "verbatim",
         "_vine": {
           "x": 80,
@@ -3117,7 +3117,7 @@
       },
       "bsm_310": {
         "type": "say",
-        "text": "Vess says, \"It was APEX. Vigo reprogrammed the drone. I have the log. I have the fingerprint. I have — I have a CONSCIENCE now, apparently, which was not in my contract.\"",
+        "text": "Vess says, \"It was APEX. Vigo reprogrammed the drone. I have the log. I have the fingerprint. I have... I have a CONSCIENCE now, apparently, which was not in my contract.\"",
         "style": "verbatim",
         "_vine": {
           "x": 80,
@@ -3187,7 +3187,7 @@
       },
       "bsm_317": {
         "type": "say",
-        "text": "Dutch says, \"Okay. Okay. We play. Vess — you’re on the roster now. We just lost our sneeze insurance.\"",
+        "text": "Dutch says, \"Okay. Okay. We play. Vess, you’re on the roster now. We just lost our sneeze insurance.\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -3489,7 +3489,7 @@
       },
       "bsm_347": {
         "type": "say",
-        "text": "Maxim Vigo says, \"That’s — very moving. Truly. I felt a thing. I’ll have it removed later. But I felt it.\"",
+        "text": "Maxim Vigo says, \"That’s... very moving. Truly. I felt a thing. I’ll have it removed later. But I felt it.\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -3598,7 +3598,7 @@
       },
       "bsm_358": {
         "type": "say",
-        "text": "Blurt says, \"It’s falling apart, Cass! It’s five to two! Then five to — oh no — it’s APEX PRIME, all six, versus the Sump’s last two!\"",
+        "text": "Blurt says, \"It’s falling apart, Cass! It’s five to two! Then five to... oh no, it’s APEX PRIME, all six, versus the Sump’s last two!\"",
         "style": "verbatim",
         "_vine": {
           "x": 740,
@@ -3638,7 +3638,7 @@
       },
       "bsm_362": {
         "type": "say",
-        "text": "Vess says, \"And as your — as whatever the other thing is — I’ve never been happier to be in a catastrophically bad position with anyone.\"",
+        "text": "Vess says, \"And as your... as whatever the other thing is, I’ve never been happier to be in a catastrophically bad position with anyone.\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -3728,7 +3728,7 @@
       },
       "bsm_371": {
         "type": "say",
-        "text": "Dutch catches a lazy, arrogant throw one-handed — a throw APEX PRIME made because they assumed the round was over — and the thrower sits down, stunned, optimized right out of the game.",
+        "text": "Dutch catches a lazy, arrogant throw one-handed, a throw APEX PRIME made because they assumed the round was over, and the thrower sits down, stunned, optimized right out of the game.",
         "style": "narration",
         "_vine": {
           "x": 300,
@@ -3738,7 +3738,7 @@
       },
       "bsm_372": {
         "type": "say",
-        "text": "Blurt says, \"CAUGHT! Dutch catches one and it’s five on two — no — it’s FIVE ON TWO but the Sump has the momentum and the crowd and possibly a god!\"",
+        "text": "Blurt says, \"CAUGHT! Dutch catches one and it’s five on two... no, it’s FIVE ON TWO but the Sump has the momentum and the crowd and possibly a god!\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -3788,7 +3788,7 @@
       },
       "bsm_377": {
         "type": "say",
-        "text": "Dutch says, \"That’s — actually good advice, Bash?\"",
+        "text": "Dutch says, \"That’s... actually good advice, Bash?\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -3808,7 +3808,7 @@
       },
       "bsm_379": {
         "type": "say",
-        "text": "Vess, who has never thrown a slag in her life, catches one purely by refusing to move — an accident of stubbornness that eliminates an APEX Prime striker.",
+        "text": "Vess, who has never thrown a slag in her life, catches one purely by refusing to move, an accident of stubbornness that eliminates an APEX Prime striker.",
         "style": "narration",
         "_vine": {
           "x": 960,
@@ -3910,7 +3910,7 @@
       },
       "bsm_389": {
         "type": "say",
-        "text": "Coach Rusk says, \"Dutch! DUTCH! Don’t aim with your eyes, you never had the eyes! Aim with the part of you that’s been ducking this city your whole life! LISTEN for the ones who think they can’t lose — they breathe loud!\"",
+        "text": "Coach Rusk says, \"Dutch! DUTCH! Don’t aim with your eyes, you never had the eyes! Aim with the part of you that’s been ducking this city your whole life! LISTEN for the ones who think they can’t lose. They breathe loud!\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -3920,7 +3920,7 @@
       },
       "bsm_390": {
         "type": "say",
-        "text": "And in the dark, Dutch — who has lost at everything, who has ducked every collector, every landlord, every disappointment — closes his eyes he doesn’t need anyway, and listens.",
+        "text": "And in the dark, Dutch, who has lost at everything, who has ducked every collector, every landlord, every disappointment, closes his eyes he doesn’t need anyway, and listens.",
         "style": "narration",
         "_vine": {
           "x": 80,
@@ -4019,7 +4019,7 @@
       },
       "bsm_400": {
         "type": "say",
-        "text": "A sound. Contact. A body sitting down hard in the dark. Then another. Then — impossibly — a chain of them, as APEX PRIME, unable to see, panics and catches its own friendly fire.",
+        "text": "A sound. Contact. A body sitting down hard in the dark. Then another. Then, impossibly, a chain of them, as APEX PRIME, unable to see, panics and catches its own friendly fire.",
         "style": "narration",
         "_vine": {
           "x": 80,
@@ -4069,7 +4069,7 @@
       },
       "bsm_405": {
         "type": "say",
-        "text": "The Ref says, \"The Sump — the SUMP — wins the Coldwater Open!\"",
+        "text": "The Ref says, \"The Sump, the SUMP, wins the Coldwater Open!\"",
         "style": "verbatim",
         "_vine": {
           "x": 80,
@@ -4089,7 +4089,7 @@
       },
       "bsm_407": {
         "type": "say",
-        "text": "Pip says, \"Did we — WE WON? I was ASLEEP. I won a tournament ASLEEP. This is the best and least earned day of my life!\"",
+        "text": "Pip says, \"Did we... WE WON? I was ASLEEP. I won a tournament ASLEEP. This is the best and least earned day of my life!\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -4271,7 +4271,7 @@
       },
       "bsm_425": {
         "type": "say",
-        "text": "Vess says, \"About that. As Dutch’s lawyer — a title I gave myself this morning and am prepared to defend — I’d point you to clause nine of the Open’s charter.\"",
+        "text": "Vess says, \"About that. As Dutch’s lawyer, a title I gave myself this morning and am prepared to defend, I’d point you to clause nine of the Open’s charter.\"",
         "style": "verbatim",
         "_vine": {
           "x": 80,
@@ -4291,7 +4291,7 @@
       },
       "bsm_427": {
         "type": "say",
-        "text": "Maxim Vigo says, \"I — that’s — nobody reads clause nine.\"",
+        "text": "Maxim Vigo says, \"I... that’s... nobody reads clause nine.\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -4371,7 +4371,7 @@
       },
       "bsm_435": {
         "type": "say",
-        "text": "Vigo looks at his own name on the banner above the pit — the banner he demanded — and understands, for the first time in his optimized life, that he pre-lost.",
+        "text": "Vigo looks at his own name on the banner above the pit, the banner he demanded, and understands, for the first time in his optimized life, that he pre-lost.",
         "style": "narration",
         "_vine": {
           "x": 80,
@@ -4391,7 +4391,7 @@
       },
       "bsm_437": {
         "type": "say",
-        "text": "Maxim Vigo says, \"I don’t — I have never once had a beer in a building I didn’t own.\"",
+        "text": "Maxim Vigo says, \"I don’t... I have never once had a beer in a building I didn’t own.\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -4431,7 +4431,7 @@
       },
       "bsm_441": {
         "type": "say",
-        "text": "Vess says, \"Dutch. Forty at forty to one is — that’s sixteen hundred credits, not forty thousand. That doesn’t save the bar.\"",
+        "text": "Vess says, \"Dutch. Forty at forty to one is... that’s sixteen hundred credits, not forty thousand. That doesn’t save the bar.\"",
         "style": "verbatim",
         "_vine": {
           "x": 300,
@@ -4441,7 +4441,7 @@
       },
       "bsm_442": {
         "type": "say",
-        "text": "Dutch says, \"No. But it buys a round for everyone in this pit tonight, and it means the one person in Coldwater who believed we’d win — was me. First time in my life I put money on myself. Felt terrible. Felt incredible. Felt like the Sump.\"",
+        "text": "Dutch says, \"No. But it buys a round for everyone in this pit tonight, and it means the one person in Coldwater who believed we’d win, was me. First time in my life I put money on myself. Felt terrible. Felt incredible. Felt like the Sump.\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -4461,7 +4461,7 @@
       },
       "bsm_444": {
         "type": "say",
-        "text": "Maxim Vigo says, \"You people bet on YOURSELVES? At forty to one? That’s — that’s financially insane. That’s not a strategy, that’s a feeling with a receipt.\"",
+        "text": "Maxim Vigo says, \"You people bet on YOURSELVES? At forty to one? That’s... that’s financially insane. That’s not a strategy, that’s a feeling with a receipt.\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -4490,7 +4490,7 @@
       },
       "bsm_447": {
         "type": "say",
-        "text": "And so the Sump kept its pit, its beam, its waitress, its pirate, its silent giant, its fainting champion, its heartbroken romantic — and gained a lawyer, a coach, and one deeply confused CEO.",
+        "text": "And so the Sump kept its pit, its beam, its waitress, its pirate, its silent giant, its fainting champion, its heartbroken romantic, and gained a lawyer, a coach, and one deeply confused CEO.",
         "style": "narration",
         "_vine": {
           "x": 520,
@@ -4520,7 +4520,7 @@
       },
       "bsm_450": {
         "type": "say",
-        "text": "Coach Rusk says, \"I believed in the fern more than I believed in you, and the fern never won an Open. So maybe. Wheel me to the bar. And Dutch — good game. Don’t tell anyone I said it. I have a reputation for being in a fern.\"",
+        "text": "Coach Rusk says, \"I believed in the fern more than I believed in you, and the fern never won an Open. So maybe. Wheel me to the bar. And Dutch. Good game. Don’t tell anyone I said it. I have a reputation for being in a fern.\"",
         "style": "verbatim",
         "_vine": {
           "x": 80,
@@ -4560,7 +4560,7 @@
       },
       "bsm_454": {
         "type": "say",
-        "text": "Maxim Vigo says, \"This is — the beer is warm. The stool wobbles. The beam is making a sound I would have condemned this building for.\"",
+        "text": "Maxim Vigo says, \"This is... the beer is warm. The stool wobbles. The beam is making a sound I would have condemned this building for.\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -4580,7 +4580,7 @@
       },
       "bsm_456": {
         "type": "say",
-        "text": "Maxim Vigo says, \"It’s horrible. I — I don’t hate it. That’s the horrible part. Why don’t I hate it?\"",
+        "text": "Maxim Vigo says, \"It’s horrible. I... I don’t hate it. That’s the horrible part. Why don’t I hate it?\"",
         "style": "verbatim",
         "_vine": {
           "x": 300,
@@ -4640,7 +4640,7 @@
       },
       "bsm_462": {
         "type": "say",
-        "text": "The Sump never became famous. It never got optimized. The beam never got fixed — they named it, instead, and bought it a drink on anniversaries.",
+        "text": "The Sump never became famous. It never got optimized. The beam never got fixed. They named it, instead, and bought it a drink on anniversaries.",
         "style": "narration",
         "_vine": {
           "x": 520,
@@ -4650,7 +4650,7 @@
       },
       "bsm_463": {
         "type": "say",
-        "text": "But every year, on the night of the Open, a wrecked old coach and a bar full of terrible, stubborn people crowd around a neon pit — and remember the year the last ones standing were the ones the whole city told to sit down.",
+        "text": "But every year, on the night of the Open, a wrecked old coach and a bar full of terrible, stubborn people crowd around a neon pit, and remember the year the last ones standing were the ones the whole city told to sit down.",
         "style": "narration",
         "_vine": {
           "x": 740,
@@ -4797,7 +4797,7 @@
       },
       "bsm_479": {
         "type": "credits",
-        "text": "SLAGBALL\nA Coldwater Underdog Story\nA Sub-Channel 2½ Presentation\n\n— CAST —\nDUTCH ................ never won a thing until it counted\nVESS ................. read clause nine\nCOACH RUSK ........... got out of the fern\nMAXIM VIGO ........... pre-lost\nPIP .................. won a tournament asleep\nBARNACLE BASH ........ found the water within\nMERV ................. \"Yeah.\"\nLOTTIE .............. minded the beam\nGILES ............... the universe is a slag; he is the pit\nTHE BEAM ............ as itself\n\nNo slags were caught in the making of this picture.\nSeveral were thrown. That part is real.\n\nFilmed in a pit that is technically a fire hazard with a liquor license.\nAny resemblance to a gym you were pressured to join is entirely deserved.\n\nSub-Channel 2½ — the only channel that could afford us.",
+        "text": "SLAGBALL\nA Coldwater Underdog Story\nA Sub-Channel 2½ Presentation\n\n· CAST ·\nDUTCH ................ never won a thing until it counted\nVESS ................. read clause nine\nCOACH RUSK ........... got out of the fern\nMAXIM VIGO ........... pre-lost\nPIP .................. won a tournament asleep\nBARNACLE BASH ........ found the water within\nMERV ................. \"Yeah.\"\nLOTTIE .............. minded the beam\nGILES ............... the universe is a slag; he is the pit\nTHE BEAM ............ as itself\n\nNo slags were caught in the making of this picture.\nSeveral were thrown. That part is real.\n\nFilmed in a pit that is technically a fire hazard with a liquor license.\nAny resemblance to a gym you were pressured to join is entirely deserved.\n\nSub-Channel 2½, the only channel that could afford us.",
         "duration": 45,
         "_vine": {
           "x": 960,
@@ -4819,7 +4819,7 @@
       "bsm_pre_1": {
         "type": "overlay",
         "overlayType": "act_card",
-        "text": "ADULT — LANGUAGE, AND A GREAT DEAL OF IT",
+        "text": "ADULT: LANGUAGE, AND A GREAT DEAL OF IT",
         "subtext": "BASIN BROADCAST STANDARDS BOARD",
         "duration_s": 5,
         "_vine": {
@@ -4845,12 +4845,12 @@
   "category": "movie",
   "channel_id": null,
   "created_by": "author",
-  "description": "SLAGBALL — a Sub-Channel 2½ Saturday comedy. The Sump, a beloved dive with a pit in the back and forty thousand credits of debt, enters the Coldwater Slagball Open against MAXIM VIGO’s corporate juggernaut APEX PRIME. A washed-up coach, a pirate, a fainting boy, a silent giant, a lethal waitress, a doomed romantic, and a lawyer who forgot which side she was on — one bracket, one sudden-dark overtime, one clause nobody read. A true underdog story, thrown in the dark.",
+  "description": "SLAGBALL, a Sub-Channel 2½ Saturday comedy. The Sump, a beloved dive with a pit in the back and forty thousand credits of debt, enters the Coldwater Slagball Open against MAXIM VIGO’s corporate juggernaut APEX PRIME. A washed-up coach, a pirate, a fainting boy, a silent giant, a lethal waitress, a doomed romantic, and a lawyer who forgot which side she was on: one bracket, one sudden-dark overtime, one clause nobody read. A true underdog story, thrown in the dark.",
   "enabled": 1,
   "fallback_messages": [],
   "film_meta": {
     "presents": "Sub-Channel 2½",
-    "rating": "ADULT — LANGUAGE, AND A GREAT DEAL OF IT",
+    "rating": "ADULT: LANGUAGE, AND A GREAT DEAL OF IT",
     "director": "Rikki Doonan",
     "cast": [
       {
@@ -4940,8 +4940,8 @@
     "Lottie says, \"The tap’s out, the drone repossessed a stool while you were asleep, and a man from a bank is standing in your pit.\"",
     "Dutch says, \"We don’t have a man from a bank.\"",
     "Lottie says, \"We do now. He brought a clipboard. Nobody brings a clipboard to say something nice.\"",
-    "In the pit stands VESS — sharp, pressed, holding a clipboard like a weapon she is licensed to carry.",
-    "Vess says, \"Are you Dutch? The Dutch who owns this — establishment?\"",
+    "In the pit stands VESS: sharp, pressed, holding a clipboard like a weapon she is licensed to carry.",
+    "Vess says, \"Are you Dutch? The Dutch who owns this... establishment?\"",
     "Dutch says, \"Depends who’s asking and how much they’re asking for.\"",
     "Vess says, \"I’m asking for forty thousand credits, and I’m asking today, and my name is Vess.\"",
     "Dutch says, \"Well, Vess, I’ve got about forty credits and a lot of what I’d call ambiance.\"",
@@ -4970,7 +4970,7 @@
     "Vess says, \"Sir, the Sump acquisition. The owner can’t pay. Foreclosure clears in thirty days. The whole block is ours.\"",
     "Maxim Vigo says, \"The Sump. That grease-stain with a pit. I want it flattened and turned into an APEX Wellness Annex.\"",
     "Maxim Vigo says, \"Do you know what people need, Vess? People need to be told they are almost good enough, forever, for a monthly fee.\"",
-    "Vess says, \"That’s — genuinely the darkest thing I’ve heard in a boardroom, and I do foreclosures.\"",
+    "Vess says, \"That’s... genuinely the darkest thing I’ve heard in a boardroom, and I do foreclosures.\"",
     "Maxim Vigo says, \"Thank you. Put it on a banner.\"",
     "VIGO admires his own jaw in the window, which is a thing his jaw is very used to.",
     "Maxim Vigo says, \"Nobody has ever beaten me at anything. Do you know why? Because I only enter things I have already bought.\"",
@@ -4979,7 +4979,7 @@
     "Maxim Vigo says, \"You agree. Of course you agree. You’re the only one in this building with taste, and you’re me.\"",
     "Vess says, \"Sir, should I be worried you only take counsel from a projection of yourself?\"",
     "Maxim Vigo says, \"Worried? Vess, it’s the most efficient relationship I’ve ever had. He never asks for a raise and he agrees with me at the speed of light. Literally. He’s light.\"",
-    "Vess says, \"That’s — I’m going to write \"concerning\" in my notes and move on.\"",
+    "Vess says, \"That’s... I’m going to write \"concerning\" in my notes and move on.\"",
     "Maxim Vigo says, \"Write \"visionary.\" Cross out \"concerning.\" Actually, fire whoever taught you the word \"concerning.\" It’s soft. It’s a soft word.\"",
     "Vigo strides to a wall of screens showing every APEX arena in the basin, all identical, all optimized, all empty of anything a person would call joy.",
     "Maxim Vigo says, \"Look at it. A hundred arenas. Not one of them has a pit. Do you know why? Because a pit is where the poor go to feel like they matter, and mattering is not a subscription tier.\"",
@@ -4989,12 +4989,12 @@
     "Vess says, \"Thirty days, Dutch. Raise forty thousand or the block goes to APEX and this pit becomes a place where people feel bad about their cores.\"",
     "Dutch says, \"Forty thousand. I could sell everything I own and get to about nine.\"",
     "Vess says, \"Then I’d stop at nine. Save yourself the everything.\"",
-    "A regular — GILES — looks up from the bar, heartbroken already, which is his natural resting state.",
+    "A regular, GILES, looks up from the bar, heartbroken already, which is his natural resting state.",
     "Giles says, \"They can’t take the Sump. I met the love of my life here.\"",
     "Lottie says, \"Giles, you met the love of your life here eleven times. Three of them left through that window.\"",
     "Giles says, \"And I’d wait for all of them to come back. That’s what the Sump IS, Lottie. It’s a place you come back to.\"",
     "It is, briefly, moving. Then a support beam groans, and everyone flinches on instinct.",
-    "Dutch says, \"Vess. Off the record. Is there any way — any way at all — a place like this beats a thing like APEX?\"",
+    "Dutch says, \"Vess. Off the record. Is there any way, any way at all, that a place like this beats a thing like APEX?\"",
     "Vess says, \"Off the record? No. On the record, also no, but with a stamp.\"",
     "Vess says, \"You’d need a miracle, a lawyer, and forty thousand credits, and you have a beam that’s actively quitting.\"",
     "Dutch says, \"What if I told you I could get you the lawyer for free.\"",
@@ -5011,10 +5011,10 @@
     "Dutch says, \"See that? Even Pemms cares. Pemms hasn’t cared about anything since they took the sun private.\"",
     "Vess says, \"That is the lowest bar for hope I have ever been asked to clear, and yet.\"",
     "Dutch says, \"That’s the Sump’s whole business model, Vess. The lowest bar, cleared by people who had no business jumping.\"",
-    "That night, PIP — the anxious kid who buses the tables — is watching a flyer flicker on the wall.",
+    "That night, PIP, the anxious kid who buses the tables, is watching a flyer flicker on the wall.",
     "Pip says, \"Dutch? Dutch, um. This is probably nothing. It’s definitely nothing. I’ll go.\"",
     "Dutch says, \"Pip. Breathe. What is it.\"",
-    "Pip says, \"The Coldwater Slagball Open. Grand prize is — it’s forty thousand credits. It’s exactly forty thousand credits.\"",
+    "Pip says, \"The Coldwater Slagball Open. Grand prize is... it’s forty thousand credits. It’s exactly forty thousand credits.\"",
     "The whole bar turns and looks at the flyer as if it had personally arrived to save them, which, narratively, it has.",
     "Lottie says, \"That’s not a coincidence. That’s a screenwriter.\"",
     "Dutch says, \"We enter a Slagball tournament. We win exactly what we owe. We keep the Sump.\"",
@@ -5026,7 +5026,7 @@
     "Lottie says, \"Giles, that’s a family. A team’s the one where you win sometimes.\"",
     "Dutch says, \"Then we win sometimes. Starting now. Who’s in.\"",
     "Hands go up. Slowly. Reluctantly. The way hands go up when they know the rest of the body disagrees.",
-    "Pip says, \"I’ll — I’ll do the thing. The team thing. Please don’t make me talk to the crowd.\"",
+    "Pip says, \"I’ll... I’ll do the thing. The team thing. Please don’t make me talk to the crowd.\"",
     "Dutch says, \"Pip, you’re in. Merv?\"",
     "MERV, an enormous man who has said nine words this year, considers the question with great seriousness.",
     "Merv says, \"Fine.\"",
@@ -5039,20 +5039,20 @@
     "Giles says, \"Dutch. People have been throwing things at me my whole life. At least in the pit it’ll finally be regulation.\"",
     "Vess says, \"That is either the saddest or the healthiest thing I’ve heard all week and I genuinely cannot tell which.\"",
     "Dutch says, \"At the Sump those are the same thing. You’ll get used to it. Or you’ll leave through the window, and we’ll name a stool after you.\"",
-    "Pip says, \"Do we — do we get uniforms? I don’t want a number that draws attention. Can I be a low number? A shy number?\"",
+    "Pip says, \"Do we... do we get uniforms? I don’t want a number that draws attention. Can I be a low number? A shy number?\"",
     "Dutch says, \"Pip, you can be whatever number won’t make you faint. We’ll workshop it.\"",
     "A team needs six. The Sump has five and a half, if you count Giles as a whole person, which the Sump generously does.",
-    "The sixth arrives on his own. He always does. His name — he insists — is BARNACLE BASH.",
+    "The sixth arrives on his own. He always does. His name, he insists, is BARNACLE BASH.",
     "Barnacle Bash says, \"Ahoy the pit! I heard there be a crew forming, and a crew be needing a man who fears no water!\"",
     "Lottie says, \"Bash. There’s no water. There’s never been water. It’s a bar.\"",
     "Barnacle Bash says, \"That be exactly what the sea WANTS ye to think, Lottie.\"",
     "Dutch says, \"Bash, are you actually a pirate?\"",
     "Barnacle Bash says, \"I be as much a pirate as this be a ship, captain. Which is to say: completely, and only me.\"",
     "Pip says, \"I think he’s the most confident person I’ve ever met and I find it deeply calming.\"",
-    "Barnacle Bash says, \"The boy has SEA SENSE! Ye there, cabin boy — stick by ol’ Bash and ye’ll never drown on dry land, which be the most common way to drown in this city!\"",
-    "Pip says, \"That’s — genuinely reassuring? I don’t know why. I feel safer. Is that wrong?\"",
+    "Barnacle Bash says, \"The boy has SEA SENSE! Ye there, cabin boy, stick by ol’ Bash and ye’ll never drown on dry land, which be the most common way to drown in this city!\"",
+    "Pip says, \"That’s... genuinely reassuring? I don’t know why. I feel safer. Is that wrong?\"",
     "Lottie says, \"It’s wrong, but it’s the good kind of wrong. Bash has never once been right and never once been scared. There’s a lesson in there if you don’t look at it directly.\"",
-    "Barnacle Bash says, \"Aye! Fear be a fog, and a good captain simply declines to sail through it! I declined years ago! Look at me now — landlocked, beloved, and TERRIFYING at slagball!\"",
+    "Barnacle Bash says, \"Aye! Fear be a fog, and a good captain simply declines to sail through it! I declined years ago! Look at me now: landlocked, beloved, and TERRIFYING at slagball!\"",
     "Dutch says, \"He’s not wrong about the terrifying part. I’ve seen him throw. Grown collectors have crossed the street.\"",
     "Dutch says, \"He throws harder than anyone in the block. I stopped asking questions the day he called the ice machine a kraken and won.\"",
     "Vess reviews the roster with the expression of a woman watching a bridge get built out of chairs.",
@@ -5068,7 +5068,7 @@
     "Dutch says, \"We’re the Sump.\"",
     "Barnacle Bash says, \"That be a berth, not a name! We need somethin’ to strike fear! The Drowned Fists! The Kraken’s Regret!\"",
     "Lottie says, \"The Kraken’s Regret is what I call the men’s room after darts night.\"",
-    "Pip says, \"What about — and this is dumb — what about \"The Sump\"? Because that’s what we are and nobody expects the thing that’s just true.\"",
+    "Pip says, \"What about, and this is dumb, what about \"The Sump\"? Because that’s what we are and nobody expects the thing that’s just true.\"",
     "A silence. It is, everyone realizes, perfect. The most dangerous thing a Coldwater team can be is exactly what it says on the door.",
     "Dutch says, \"The Sump it is. Pip named the team. Pip, you’ve done one confident thing and I’m very proud.\"",
     "Pip says, \"I’m already regretting it. Can we go back to the fear one?\"",
@@ -5101,10 +5101,10 @@
     "Rusk’s methods are unorthodox. By which the survivors mean cruel. By which Rusk means effective.",
     "Coach Rusk says, \"Rule one. In the pit, everything is trying to hit you. The slag. The crowd. Your own doubt. Your own mother, if she’s in the stands, and mine always was.\"",
     "Coach Rusk says, \"So you learn to not be where the throw is going. That’s the whole game. Not being there. I built a career on not being there. Ask my kids.\"",
-    "He gestures. A battered repossession drone — UNIT 7, the one that took the stool — hovers in, reprogrammed and furious.",
+    "He gestures. A battered repossession drone, UNIT 7, the one that took the stool, hovers in, reprogrammed and furious.",
     "Coach Rusk says, \"This is Unit 7. It used to take furniture. Now it takes SLAGS, and it throws them at your soft little heads. Dodge, or learn.\"",
     "Pip says, \"That’s a repossession drone. That is a WEAPON.\"",
-    "Coach Rusk says, \"If you can dodge a repo-drone, boy, you can dodge a slag. And if you can’t dodge a repo-drone — you were going to lose your couch anyway.\"",
+    "Coach Rusk says, \"If you can dodge a repo-drone, boy, you can dodge a slag. And if you can’t dodge a repo-drone, you were going to lose your couch anyway.\"",
     "Unit 7 opens fire. Pip is struck immediately, in the face, with great enthusiasm.",
     "Pip says, \"I felt that in my ancestors.\"",
     "Coach Rusk says, \"Good. Pain’s just the drone teaching. Free lessons. In this economy you take the free ones. Again.\"",
@@ -5134,7 +5134,7 @@
     "Dutch says, \"Oh.\"",
     "Coach Rusk says, \"But I didn’t think I’d get out of that fern either, and here I am, listing at you with hope. Wheel me closer, I’m being sincere and I hate it.\"",
     "One last drill, the night before the Open. Rusk lines all six of them along the pit and turns off the neon, so they train the way champions die: in the dark.",
-    "Coach Rusk says, \"The eyes lie. In a real match the crowd, the lights, the money on the board — all of it’s screaming at your eyes. So we learn to play without them tonight.\"",
+    "Coach Rusk says, \"The eyes lie. In a real match the crowd, the lights, the money on the board, all of it’s screaming at your eyes. So we learn to play without them tonight.\"",
     "Pip says, \"How do we throw at something we can’t see?\"",
     "Coach Rusk says, \"You listen for the thing that’s sure it can’t lose. Certainty’s loud, kid. Rich certainty is the loudest thing in any room. You aim at the smug and you rarely miss.\"",
     "In the dark, Merv catches a slag he could not possibly have seen, out of pure enormous instinct, and hands it back into the black like a gift.",
@@ -5151,19 +5151,19 @@
     "The Open. A neon arena. And, in a broadcast booth built for two and a budget for less, the voice of Sub-Channel 2½.",
     "Blurt says, \"Welcome, welcome, to the Coldwater Slagball Open, live on Sub-Channel Two and a Half, the ONLY channel that could afford us!\"",
     "Cass says, \"Blurt, I want to say, before the violence starts, that my contract is up for renewal and I have made peace with dying in this booth.\"",
-    "Blurt says, \"That’s the spirit, Cass! First up — the plucky no-names from the Sump versus a team of sentient gym equipment!\"",
+    "Blurt says, \"That’s the spirit, Cass! First up: the plucky no-names from the Sump versus a team of sentient gym equipment!\"",
     "Round one. The Sump versus APEX’s warm-up squad: six identical men who have never once been told no.",
-    "The Ref says, \"Both teams to the line. Slags in the middle. On my whistle. And please — please — nobody dies. I have to write the report.\"",
+    "The Ref says, \"Both teams to the line. Slags in the middle. On my whistle. And please, please, nobody dies. I have to write the report.\"",
     "The whistle. Chaos. Bash bellows a sea-shanty and hurls a slag hard enough to change a man’s religion.",
     "Barnacle Bash says, \"DOWN YE GO, LANDLUBBER, AND GIVE ME REGARDS TO THE DEEP!\"",
     "Cass says, \"He knocked one out cold and there’s no water anywhere near here. I’ve stopped asking. It’s healthier.\"",
     "Pip, terrified, closes his eyes and throws blind. It hits the last APEX clone square between his optimized eyes.",
-    "Pip says, \"Did I — did I do it? I can’t look. Is it good or is it the worst thing I’ve ever done?\"",
+    "Pip says, \"Did I... did I do it? I can’t look. Is it good or is it the worst thing I’ve ever done?\"",
     "Coach Rusk says, \"It’s good, kid. For once the two are the same thing. Open your eyes. We won a round.\"",
     "Blurt says, \"UPSET! The Sump takes round one! Somewhere an accountant is confused and a pirate is very, very happy!\"",
     "Cass says, \"Blurt, I have covered eleven sports on this channel and nine of them were illegal. I have never seen a team win by simply refusing to understand they should lose.\"",
     "Blurt says, \"It’s the Coldwater way, Cass! You don’t beat the odds, you just annoy them until they leave!\"",
-    "Round two. The Sump draws a team of retired debt collectors — men who throw for a living and enjoy it too much.",
+    "Round two. The Sump draws a team of retired debt collectors, men who throw for a living and enjoy it too much.",
     "Lottie says, \"Oh, I know these boys. They repossessed my mother’s teeth. This one’s personal and I’m going to enjoy it.\"",
     "Lottie clears three of them before they set their feet. It is less a sporting performance than a settling of accounts.",
     "Blurt says, \"THE WAITRESS IS UNTOUCHABLE! She’s throwing like the rent’s due, Cass, and for her it always is!\"",
@@ -5172,13 +5172,13 @@
     "Giles says, \"It found me. It always finds me. I’ve made my peace. Tell Marisol. Or Deb. Tell the window.\"",
     "The Ref says, \"Kid, in twenty years of officiating I have never seen the game itself hold a grudge against one player. You should see someone. Or an astronomer.\"",
     "The semifinal. The Sump versus a corporate development squad in matching APEX warmups, all named some variety of \"Chad\" for optimization purposes.",
-    "Blurt says, \"And here come the APEX juniors, Cass — six young men bred in a lab to have excellent cores and no interior lives whatsoever!\"",
+    "Blurt says, \"And here come the APEX juniors, Cass: six young men bred in a lab to have excellent cores and no interior lives whatsoever!\"",
     "Cass says, \"They move as one, Blurt. It’s beautiful and it’s deeply upsetting, like a school of fish that files taxes.\"",
     "Merv steps to the line alone against all six. He does not throw. He simply catches everything they send, and sends it back, and the juniors sit down in perfect synchronized disappointment.",
     "Blurt says, \"THE MOUNTAIN CATCHES EVERYTHING! Six optimized Chads, one silent man, and the man is winning, Cass!\"",
     "Merv says, \"Sit.\"",
     "Cass says, \"He said \"sit\" and they SAT. That’s not a throw, that’s a command. I’ve never respected anyone more and I’ve interviewed a warlord.\"",
-    "Coach Rusk says, \"THAT’S my mountain! Aim him at the final, Dutch, that’s all I ever have to do — point Merv at the problem and get out of the splash zone!\"",
+    "Coach Rusk says, \"THAT’S my mountain! Aim him at the final, Dutch, that’s all I ever have to do. Point Merv at the problem and get out of the splash zone!\"",
     "The Sump takes the semifinal. In the tunnel, the six of them stand together, filthy and bruised and one win from the impossible, and none of them say anything for a long moment.",
     "Dutch says, \"One more. One more match and the Sump is ours forever.\"",
     "Pip says, \"I haven’t fainted in two whole rounds, Dutch. That’s a personal record. I’m calling my mom. She won’t believe it. I don’t believe it.\"",
@@ -5190,7 +5190,7 @@
     "High in a private box, MAXIM VIGO watches the scrappy little bar refuse to be flattened on schedule, and his optimized jaw begins, very slightly, to clench.",
     "Maxim Vigo says, \"Who ARE these people. Why won’t they lose. Losing is the natural state of the poor, it’s practically a service we provide.\"",
     "Vess says, \"They’re winning, sir. It happens. Occasionally. To people who aren’t you.\"",
-    "Maxim Vigo says, \"Then buy their coach. Buy their bar. Buy their WATER — the pirate seems to need it.\"",
+    "Maxim Vigo says, \"Then buy their coach. Buy their bar. Buy their WATER; the pirate seems to need it.\"",
     "Vess says, \"There is no water, sir.\"",
     "Maxim Vigo says, \"Then buy that too. I want a monopoly on things that don’t exist. That’s called futures, Vess. That’s called vision.\"",
     "Vigo descends to the arena floor to intimidate the Sump in person, which is a thing winners are never supposed to need to do.",
@@ -5203,21 +5203,21 @@
     "Maxim Vigo says, \"Charming. Old anger in an old chair. When my Prime team flattens your bar of misfits, I’ll have you both mounted in the lobby. Tastefully. With a QR code.\"",
     "Coach Rusk says, \"Wheel me at him, Dutch. Wheel me at him RIGHT now.\"",
     "Dutch says, \"Coach, no. That’s exactly the round he’d win.\"",
-    "The night before the final, Unit 7 malfunctions in the pit during practice — reprogrammed AGAIN, this time by a very expensive hand.",
+    "The night before the final, Unit 7 malfunctions in the pit during practice, reprogrammed AGAIN, this time by a very expensive hand.",
     "It fires a live rivet instead of a slag. Rusk shoves Dutch clear, takes the hit himself, and his listing chair finally lists all the way over.",
-    "Dutch says, \"Coach! Coach — somebody get a medic — Rusk, stay with me —\"",
+    "Dutch says, \"Coach! Coach, somebody get a medic. Rusk, stay with me...\"",
     "Coach Rusk says, \"Relax. I’ve been hit by worse. I once got benched by a slag to the throat in the ’61 final and married the medic. Bad news is I can’t coach you tomorrow.\"",
     "Dutch says, \"Then we don’t play. I’m not doing it without you.\"",
     "Coach Rusk says, \"You ABSOLUTELY are, you enormous coward. You think I dragged myself out of that fern so you could quit the day before?\"",
     "Vess storms in, clipboard shaking, holding a maintenance log with one very expensive fingerprint on it.",
-    "Vess says, \"It was APEX. Vigo reprogrammed the drone. I have the log. I have the fingerprint. I have — I have a CONSCIENCE now, apparently, which was not in my contract.\"",
+    "Vess says, \"It was APEX. Vigo reprogrammed the drone. I have the log. I have the fingerprint. I have... I have a CONSCIENCE now, apparently, which was not in my contract.\"",
     "Dutch says, \"You could lose your job for bringing me this.\"",
     "Vess says, \"I already quit. Loudly. In the elevator, to a hologram of him, which was oddly satisfying and slightly his fault.\"",
     "Rusk, flat on his back and grinning like a wolf, waves them all in close.",
     "Coach Rusk says, \"Listen. All of you. I can’t be in the pit tomorrow. So one of you has to be me. Mean. Certain. Impossible to hit and worse to face.\"",
     "Coach Rusk says, \"It’s not about the slag. It was never about the slag. It’s about being the last one standing in a place that told you to sit down your whole life.\"",
     "Coach Rusk says, \"Now the Sump plays tomorrow. With or without me, with or without the beam, with or without a single reason to believe it. Especially without the reason. That’s the good kind of winning.\"",
-    "Dutch says, \"Okay. Okay. We play. Vess — you’re on the roster now. We just lost our sneeze insurance.\"",
+    "Dutch says, \"Okay. Okay. We play. Vess, you’re on the roster now. We just lost our sneeze insurance.\"",
     "Vess says, \"I don’t play Slagball.\"",
     "Dutch says, \"None of us do. That’s never once stopped us. Welcome to the Sump.\"",
     "That night nobody sleeps. Rusk holds court from a cot in the back of the bar, wired with painkillers and opinions.",
@@ -5244,7 +5244,7 @@
     "Maxim Vigo says, \"Please. I’m optimized. I can afford a feeling if I want one. I’ll have someone feel it for me.\"",
     "Dutch says, \"You could never afford to NEED it. Everyone in this pit needs each other. That’s not for sale. That’s just the bill nobody sends you.\"",
     "It is a good line. Even Vess writes it down. Even Vigo, for one flickering second, looks like a man who owns everything and none of it.",
-    "Maxim Vigo says, \"That’s — very moving. Truly. I felt a thing. I’ll have it removed later. But I felt it.\"",
+    "Maxim Vigo says, \"That’s... very moving. Truly. I felt a thing. I’ll have it removed later. But I felt it.\"",
     "Dutch says, \"That’s all I wanted, Vigo. One real thing before we beat you.\"",
     "Maxim Vigo says, \"You won’t beat me. You’ll lose beautifully and I’ll clip it for the annex opening. \"Even the plucky lose.\" It tests well with subscribers.\"",
     "Coach Rusk says, \"Keep talking, Vigo. My whole team plays better when someone rich is certain. It’s the loudest sound in the pit and my mountain throws at loud.\"",
@@ -5254,11 +5254,11 @@
     "Giles says, \"Even now. Even in the final. The universe is a slag. I have made peace with being the pit.\"",
     "Cass says, \"The romantic is out and honestly he looks relieved. It’s the calmest anyone has been in this arena all night.\"",
     "Pip faints from nerves. Merv is triple-teamed and buried under slags, going down like a demolished tower, slowly and with dignity.",
-    "Blurt says, \"It’s falling apart, Cass! It’s five to two! Then five to — oh no — it’s APEX PRIME, all six, versus the Sump’s last two!\"",
+    "Blurt says, \"It’s falling apart, Cass! It’s five to two! Then five to... oh no, it’s APEX PRIME, all six, versus the Sump’s last two!\"",
     "Two left for the Sump: DUTCH, who has never won anything, and VESS, who has never played anything, standing back to back in a pit at the end of the world.",
     "Vess says, \"Dutch. I want you to know, as your lawyer, that this is a catastrophically bad position.\"",
     "Dutch says, \"I know.\"",
-    "Vess says, \"And as your — as whatever the other thing is — I’ve never been happier to be in a catastrophically bad position with anyone.\"",
+    "Vess says, \"And as your... as whatever the other thing is, I’ve never been happier to be in a catastrophically bad position with anyone.\"",
     "Dutch says, \"Vess. Was that a feeling?\"",
     "Vess says, \"File it. We’ll deal with it if we live. Incoming.\"",
     "APEX PRIME advances in formation, a wall of optimized men who have practiced this exact humiliation in a lab.",
@@ -5267,23 +5267,23 @@
     "Coach Rusk says, \"DUTCH! Two of you left! That’s not a loss, that’s a CORNER! Everybody wins from a corner or they were never going to win at all!\"",
     "Dutch says, \"Coach, there are six of them and two of us!\"",
     "Coach Rusk says, \"Then the math is finally simple enough for you to understand! Every throw you make has to count and every throw they make they’ll take for granted! Make them spend! Make them SPEND, Dutch!\"",
-    "Dutch catches a lazy, arrogant throw one-handed — a throw APEX PRIME made because they assumed the round was over — and the thrower sits down, stunned, optimized right out of the game.",
-    "Blurt says, \"CAUGHT! Dutch catches one and it’s five on two — no — it’s FIVE ON TWO but the Sump has the momentum and the crowd and possibly a god!\"",
+    "Dutch catches a lazy, arrogant throw one-handed, a throw APEX PRIME made because they assumed the round was over, and the thrower sits down, stunned, optimized right out of the game.",
+    "Blurt says, \"CAUGHT! Dutch catches one and it’s five on two... no, it’s FIVE ON TWO but the Sump has the momentum and the crowd and possibly a god!\"",
     "Cass says, \"The rich team just learned that \"taking it for granted\" is a move you can lose to. I’m going to cry again. Renew my contract.\"",
     "Five on two becomes four on two becomes three on two. The Sump spends every throw like it’s the last credit in the till, because it is.",
     "Bash, seated on the sideline and eliminated, coaches the only way he knows how.",
     "Barnacle Bash says, \"STEADY, CAPTAIN! The bigger the ship, the slower she turns! Make ‘em turn! Make the whole fat galleon come about!\"",
-    "Dutch says, \"That’s — actually good advice, Bash?\"",
+    "Dutch says, \"That’s... actually good advice, Bash?\"",
     "Barnacle Bash says, \"I have been giving good advice for YEARS, captain, ye simply keep bein’ on land when I say it!\"",
-    "Vess, who has never thrown a slag in her life, catches one purely by refusing to move — an accident of stubbornness that eliminates an APEX Prime striker.",
+    "Vess, who has never thrown a slag in her life, catches one purely by refusing to move, an accident of stubbornness that eliminates an APEX Prime striker.",
     "Vess says, \"I didn’t mean to do that. I froze. I froze and it worked. Is that a technique? Is \"legally paralyzed\" a technique?\"",
     "Coach Rusk says, \"In this sport, counselor? It’s a Hall of Fame technique. The plank never moves either. Be the plank. BE THE PLANK, VESS.\"",
     "Vess says, \"I went to law school to avoid being the plank and here I am, being the plank, and loving it. My mother was right about everything.\"",
     "The score locks. By ancient Slagball law, a deadlock at the final invokes SUDDEN DARK: the arena lights cut, and the last players throw by sound alone.",
     "The Ref says, \"Sudden Dark! House lights down! One throw each! Last team standing takes the Open! And may whatever’s left of your gods have mercy!\"",
     "Blackout. The arena is a held breath. Somewhere in the dark, six optimized professionals and two amateurs, and only the sound of a city that has always thrown things at people like the Sump.",
-    "Coach Rusk says, \"Dutch! DUTCH! Don’t aim with your eyes, you never had the eyes! Aim with the part of you that’s been ducking this city your whole life! LISTEN for the ones who think they can’t lose — they breathe loud!\"",
-    "And in the dark, Dutch — who has lost at everything, who has ducked every collector, every landlord, every disappointment — closes his eyes he doesn’t need anyway, and listens.",
+    "Coach Rusk says, \"Dutch! DUTCH! Don’t aim with your eyes, you never had the eyes! Aim with the part of you that’s been ducking this city your whole life! LISTEN for the ones who think they can’t lose. They breathe loud!\"",
+    "And in the dark, Dutch, who has lost at everything, who has ducked every collector, every landlord, every disappointment, closes his eyes he doesn’t need anyway, and listens.",
     "He hears six professionals breathing the smug, even breath of men who have never once needed anything. And he throws at the smuggest breath in the room.",
     "Maxim Vigo says, \"This is absurd. Lights! Somebody turn the LIGHTS on! I paid for those lights! I own the photons!\"",
     "The Ref says, \"Sudden Dark is in the charter you signed, Mr. Vigo. Page forty. Nobody reads page forty. I read page forty. It’s the only power I have and tonight it is enormous.\"",
@@ -5292,14 +5292,14 @@
     "In the black, an APEX striker throws at a sound and hits his own captain. A second throws at that sound and hits the first. Certainty, in the dark, eats itself.",
     "Blurt says, \"Cass, I genuinely cannot see the pit, I am describing this game entirely by the noises, and the noises are GLORIOUS.\"",
     "Cass says, \"It sounds like a filing cabinet falling down a stairwell forever, Blurt, and it is the finest thing I have ever called.\"",
-    "A sound. Contact. A body sitting down hard in the dark. Then another. Then — impossibly — a chain of them, as APEX PRIME, unable to see, panics and catches its own friendly fire.",
+    "A sound. Contact. A body sitting down hard in the dark. Then another. Then, impossibly, a chain of them, as APEX PRIME, unable to see, panics and catches its own friendly fire.",
     "Blurt says, \"I CAN’T SEE ANYTHING AND IT’S THE GREATEST MOMENT IN SPORTS HISTORY!\"",
     "Cass says, \"Blurt I’m crying in the dark and I don’t care who hears it, put it in my contract, I’m crying!\"",
     "The lights slam back on.",
     "APEX PRIME: all six, seated, blinking, betrayed by their own certainty. The Sump: Dutch, standing. And Vess, standing beside him, holding a slag she never had to throw.",
-    "The Ref says, \"The Sump — the SUMP — wins the Coldwater Open!\"",
+    "The Ref says, \"The Sump, the SUMP, wins the Coldwater Open!\"",
     "The arena detonates. Pip wakes up from his faint directly into a championship and screams for joy and a little from confusion.",
-    "Pip says, \"Did we — WE WON? I was ASLEEP. I won a tournament ASLEEP. This is the best and least earned day of my life!\"",
+    "Pip says, \"Did we... WE WON? I was ASLEEP. I won a tournament ASLEEP. This is the best and least earned day of my life!\"",
     "Barnacle Bash says, \"THE SEA PROVIDES! I KNEW THERE WAS WATER SOMEWHERE, AND IT WAS INSIDE US ALL ALONG!\"",
     "Merv says, \"Yeah.\"",
     "Coach Rusk says, \"That’s three words from Merv in one day. Somebody write it down. The boy’s a poet now.\"",
@@ -5314,9 +5314,9 @@
     "Forty thousand credits. Exactly the debt. The Sump is saved by the width of a single slag thrown in the dark.",
     "MAXIM VIGO, flattened, approaches the pit to gloat about the one thing he has left: the money doesn’t matter, because he still owns the block.",
     "Maxim Vigo says, \"Enjoy your little trophy. You won the prize, but I still hold the paper on this whole district. I’ll flatten the Sump next quarter and call it synergy.\"",
-    "Vess says, \"About that. As Dutch’s lawyer — a title I gave myself this morning and am prepared to defend — I’d point you to clause nine of the Open’s charter.\"",
+    "Vess says, \"About that. As Dutch’s lawyer, a title I gave myself this morning and am prepared to defend, I’d point you to clause nine of the Open’s charter.\"",
     "Vess says, \"The tournament’s title sponsor forfeits all district claims within the arena’s ward if they lose the final. You sponsored the Open, Vigo. Your name’s on the banner. You made me put it there.\"",
-    "Maxim Vigo says, \"I — that’s — nobody reads clause nine.\"",
+    "Maxim Vigo says, \"I... that’s... nobody reads clause nine.\"",
     "Vess says, \"I read clause nine. I read all the clauses. It’s the one thing I was ever good at, and tonight it’s the one thing that mattered.\"",
     "Maxim Vigo says, \"You worked for ME. I optimized your salary personally. I gave you a corner office with a view of a wall I owned!\"",
     "Vess says, \"You did. And every day I read the fine print for you, and every day I hated that the fine print was always on your side. Tonight it wasn’t. You have no idea how good it feels to be on the side of the small print for once.\"",
@@ -5324,34 +5324,34 @@
     "Vess says, \"This is a CONTRACT, Vigo. You worship them right up until one of them worships back at someone else. Clause nine. Signed, sponsored, and self-inflicted.\"",
     "Coach Rusk says, \"She’s better than any slugger I ever coached and she plays a sport made entirely of paper. Remind me to never owe her money.\"",
     "Vess says, \"You already do, Coach. I’m billing the Sump for the semifinal fingerprint analysis. Family rate. But I’m billing it.\"",
-    "Vigo looks at his own name on the banner above the pit — the banner he demanded — and understands, for the first time in his optimized life, that he pre-lost.",
+    "Vigo looks at his own name on the banner above the pit, the banner he demanded, and understands, for the first time in his optimized life, that he pre-lost.",
     "Dutch says, \"Here’s the thing about the Sump, Vigo. You can’t flatten a place people keep coming back to. You can only join it. First round’s on the house. You look like you need to sit down somewhere that isn’t optimized.\"",
-    "Maxim Vigo says, \"I don’t — I have never once had a beer in a building I didn’t own.\"",
+    "Maxim Vigo says, \"I don’t... I have never once had a beer in a building I didn’t own.\"",
     "Lottie says, \"Then you’re overdue, sweetheart. Sit. Mind the beam. She’s earned her rest and so, God help us, have we.\"",
     "And here is the small twist the Sump never advertised. Weeks ago, when the odds against them were posted at forty to one, Dutch walked to a bookmaker and did the only reckless thing a careful man ever does.",
     "Dutch says, \"I bet on us, Vess. Everything I had left. Forty credits, at forty to one.\"",
-    "Vess says, \"Dutch. Forty at forty to one is — that’s sixteen hundred credits, not forty thousand. That doesn’t save the bar.\"",
-    "Dutch says, \"No. But it buys a round for everyone in this pit tonight, and it means the one person in Coldwater who believed we’d win — was me. First time in my life I put money on myself. Felt terrible. Felt incredible. Felt like the Sump.\"",
+    "Vess says, \"Dutch. Forty at forty to one is... that’s sixteen hundred credits, not forty thousand. That doesn’t save the bar.\"",
+    "Dutch says, \"No. But it buys a round for everyone in this pit tonight, and it means the one person in Coldwater who believed we’d win, was me. First time in my life I put money on myself. Felt terrible. Felt incredible. Felt like the Sump.\"",
     "Vess says, \"You reckless, sentimental, structurally-optimistic man. Give me the betting slip. I’m going to frame it next to clause nine.\"",
-    "Maxim Vigo says, \"You people bet on YOURSELVES? At forty to one? That’s — that’s financially insane. That’s not a strategy, that’s a feeling with a receipt.\"",
+    "Maxim Vigo says, \"You people bet on YOURSELVES? At forty to one? That’s... that’s financially insane. That’s not a strategy, that’s a feeling with a receipt.\"",
     "Dutch says, \"Yeah, Vigo. That’s the Sump. A feeling with a receipt. Sit down. Lottie’s bringing you a beer you didn’t optimize and can’t return.\"",
-    "And so the Sump kept its pit, its beam, its waitress, its pirate, its silent giant, its fainting champion, its heartbroken romantic — and gained a lawyer, a coach, and one deeply confused CEO.",
+    "And so the Sump kept its pit, its beam, its waitress, its pirate, its silent giant, its fainting champion, its heartbroken romantic, and gained a lawyer, a coach, and one deeply confused CEO.",
     "Coach Rusk says, \"Don’t get sentimental. You’re all still terrible. You just won ONCE. That’s not a career. That’s an accident with witnesses.\"",
     "Dutch says, \"Coach. Admit it. You believed in us.\"",
-    "Coach Rusk says, \"I believed in the fern more than I believed in you, and the fern never won an Open. So maybe. Wheel me to the bar. And Dutch — good game. Don’t tell anyone I said it. I have a reputation for being in a fern.\"",
+    "Coach Rusk says, \"I believed in the fern more than I believed in you, and the fern never won an Open. So maybe. Wheel me to the bar. And Dutch. Good game. Don’t tell anyone I said it. I have a reputation for being in a fern.\"",
     "Dutch says, \"Vess. That feeling from the pit. Did we ever file it?\"",
     "Vess says, \"No. I lost the paperwork on purpose. First time in my life. Let’s leave it unfiled and see what it does.\"",
     "Over at the bar, Vigo nurses his first-ever unowned beer with the wary suspicion of a man who has never trusted a thing he didn’t buy.",
-    "Maxim Vigo says, \"This is — the beer is warm. The stool wobbles. The beam is making a sound I would have condemned this building for.\"",
+    "Maxim Vigo says, \"This is... the beer is warm. The stool wobbles. The beam is making a sound I would have condemned this building for.\"",
     "Lottie says, \"That’s the Sump, sweetheart. Nothing works and nobody leaves.\"",
-    "Maxim Vigo says, \"It’s horrible. I — I don’t hate it. That’s the horrible part. Why don’t I hate it?\"",
+    "Maxim Vigo says, \"It’s horrible. I... I don’t hate it. That’s the horrible part. Why don’t I hate it?\"",
     "Coach Rusk says, \"Because for the first time in your life nobody in this room wants anything from you, Vigo. No tier. No fee. Turns out that’s the one thing you couldn’t optimize: being left alone with a warm beer and no leverage. Enjoy it. It’s free. It’s the only thing here that is.\"",
     "Maxim Vigo says, \"I could buy this feeling.\"",
     "Dutch says, \"You could. But you’d own it, and then it’d be work, and then it wouldn’t be this. Just drink the beer, Vigo. Mind the beam.\"",
     "She takes his hand. Giles bursts into tears of joy at a love that is not his, which is, for Giles, the purest kind.",
     "Giles says, \"THIS is why you come back to the Sump. You come back for the day the pit finally throws something good at somebody.\"",
-    "The Sump never became famous. It never got optimized. The beam never got fixed — they named it, instead, and bought it a drink on anniversaries.",
-    "But every year, on the night of the Open, a wrecked old coach and a bar full of terrible, stubborn people crowd around a neon pit — and remember the year the last ones standing were the ones the whole city told to sit down.",
+    "The Sump never became famous. It never got optimized. The beam never got fixed. They named it, instead, and bought it a drink on anniversaries.",
+    "But every year, on the night of the Open, a wrecked old coach and a bar full of terrible, stubborn people crowd around a neon pit, and remember the year the last ones standing were the ones the whole city told to sit down.",
     "That’s Slagball. You throw. You get hit. You catch what you can. And if you’re very lucky, and very stubborn, you get to come back."
   ],
   "morning_pools": null,

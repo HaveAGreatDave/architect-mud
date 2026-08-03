@@ -145,7 +145,7 @@
           "next": "root"
         }
       ],
-      "text": "Corva keeps polishing. The glass doesn't move, and neither does her voice. \"Everyone talks at a rail. It's the mirror — they forget I'm reading it too.\""
+      "text": "Corva keeps polishing. The glass doesn't move, and neither does her voice. \"Everyone talks at a rail. It's the mirror. They forget I'm reading it too.\""
     },
     "guest": {
       "options": [
@@ -171,7 +171,7 @@
           "next": "root"
         }
       ],
-      "text": "\"The printer'll sell you a House Fizz that glows and lies about what's in it — that's most people's night, right there. Or I pour you a rust whiskey and we both keep our dignity.\" A flicker of a smile. \"Beer if you're pacing yourself, which, in here, nobody is.\""
+      "text": "\"The printer'll sell you a House Fizz that glows and lies about what's in it, and that's most people's night, right there. Or I pour you a rust whiskey and we both keep our dignity.\" A flicker of a smile. \"Beer if you're pacing yourself, which, in here, nobody is.\""
     },
     "root": {
       "options": [
@@ -196,7 +196,7 @@
           "next": "gossip"
         }
       ],
-      "text": "\"Press or crew?\" Corva doesn't look up from the glass she's polishing. \"Doesn't matter. Everyone drinks the same in here — like the page is still open and the deadline's still moving.\" She sets the glass down. \"What'll it be?\""
+      "text": "\"Press or crew?\" Corva doesn't look up from the glass she's polishing. \"Doesn't matter. Everyone drinks the same in here, like the page is still open and the deadline's still moving.\" She sets the glass down. \"What'll it be?\""
     }
   },
   "faction": null,

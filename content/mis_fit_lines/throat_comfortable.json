@@ -1,6 +1,6 @@
 {
   "actor_lines": [
-    "You fit {target} [ADVERB] — [DESCRIPTION OF GOOD FIT]."
+    "You fit {target} [ADVERB], [DESCRIPTION OF GOOD FIT]."
   ],
   "band": "comfortable",
   "hole": "throat",

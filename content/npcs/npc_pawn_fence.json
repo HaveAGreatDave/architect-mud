@@ -140,7 +140,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Anything that'll sit in a case and hold its value till the next desperate soul.\" He gestures at the wall of tickets. \"Tools, trinkets, the odd thing best not described on a receipt. I pay what it's worth to me, which is less than it's worth to you — that gap is the whole business. Bring it round, I'll price it, no questions filed.\""
+      "text": "\"Anything that'll sit in a case and hold its value till the next desperate soul.\" He gestures at the wall of tickets. \"Tools, trinkets, the odd thing best not described on a receipt. I pay what it's worth to me, which is less than it's worth to you, and that gap is the whole business. Bring it round, I'll price it, no questions filed.\""
     },
     "bye": {
       "options": [],
@@ -158,7 +158,7 @@
           "next": "root"
         }
       ],
-      "text": "\"I hear a great deal. I retain almost none of it — that's a service I provide.\" The loupe turns over in his fingers. \"But some things stick to a man like lint.\""
+      "text": "\"I hear a great deal. I retain almost none of it. That's a service I provide.\" The loupe turns over in his fingers. \"But some things stick to a man like lint.\""
     },
     "root": {
       "options": [
@@ -183,7 +183,7 @@
           "next": "gossip"
         }
       ],
-      "text": "Hock doesn't look up from the loupe. \"Buying or selling? — no, don't tell me, I can price a man from the door.\" He sets the loupe down. \"I buy what you've stopped needing, I sell what someone else stopped needing, and I never once ask which of those it is. What's it to be.\""
+      "text": "Hock doesn't look up from the loupe. \"Buying or selling? No, don't tell me, I can price a man from the door.\" He sets the loupe down. \"I buy what you've stopped needing, I sell what someone else stopped needing, and I never once ask which of those it is. What's it to be.\""
     },
     "whose": {
       "options": [
@@ -196,7 +196,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Everyone's. No one's.\" He touches the watch in the case, almost gentle. \"Every piece in here walked in on a bad week attached to a promise to come back for it. They mean it, every time. They don't come back, every time. I don't hold it against them — I just hold the goods.\" The loupe goes back in. \"Now. Were you buying, or adding to the collection?\""
+      "text": "\"Everyone's. No one's.\" He touches the watch in the case, almost gentle. \"Every piece in here walked in on a bad week attached to a promise to come back for it. They mean it, every time. They don't come back, every time. I don't hold it against them. I just hold the goods.\" The loupe goes back in. \"Now. Were you buying, or adding to the collection?\""
     }
   },
   "faction": null,

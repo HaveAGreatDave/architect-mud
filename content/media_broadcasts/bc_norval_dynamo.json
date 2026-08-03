@@ -116,7 +116,7 @@
         "next": "bsm_108",
         "overlayType": "lower_third",
         "subtext": "DAY",
-        "text": "THE ASHWAY — CIVIC HALL",
+        "text": "THE ASHWAY, CIVIC HALL",
         "type": "overlay"
       },
       "bsm_108": {
@@ -126,7 +126,7 @@
         },
         "next": "bsm_109",
         "style": "narration",
-        "text": "A noticeboard. A sheet: BLOCK STEWARD — NOMINATIONS. One name on it: SUMMER OSTRAND.",
+        "text": "A noticeboard. A sheet: BLOCK STEWARD: NOMINATIONS. One name on it: SUMMER OSTRAND.",
         "type": "say"
       },
       "bsm_109": {
@@ -229,7 +229,7 @@
         "next": "bsm_118",
         "overlayType": "lower_third",
         "subtext": "NIGHT",
-        "text": "THE ASHWAY — DYNAMO HOUSE, NORVAL'S ROOM",
+        "text": "THE ASHWAY, DYNAMO HOUSE, NORVAL'S ROOM",
         "type": "overlay"
       },
       "bsm_118": {
@@ -272,7 +272,7 @@
         "next": "bsm_121",
         "overlayType": "lower_third",
         "subtext": "DAY",
-        "text": "THE ASHWAY — BLOCK ROAD",
+        "text": "THE ASHWAY, BLOCK ROAD",
         "type": "overlay"
       },
       "bsm_121": {
@@ -339,7 +339,7 @@
         "next": "bsm_127",
         "overlayType": "lower_third",
         "subtext": "DAY",
-        "text": "THE ASHWAY — CIVIC HALL",
+        "text": "THE ASHWAY, CIVIC HALL",
         "type": "overlay"
       },
       "bsm_127": {
@@ -462,7 +462,7 @@
         "next": "bsm_138",
         "overlayType": "lower_third",
         "subtext": "CONTINUOUS",
-        "text": "THE ASHWAY — CIVIC HALL",
+        "text": "THE ASHWAY, CIVIC HALL",
         "type": "overlay"
       },
       "bsm_138": {
@@ -589,7 +589,7 @@
         "next": "bsm_149",
         "overlayType": "lower_third",
         "subtext": "NEXT DAY",
-        "text": "THE ASHWAY — CIVIC HALL, NOTICEBOARD",
+        "text": "THE ASHWAY, CIVIC HALL, NOTICEBOARD",
         "type": "overlay"
       },
       "bsm_149": {
@@ -599,7 +599,7 @@
         },
         "next": "bsm_150",
         "style": "narration",
-        "text": "The result sheet. TEO SANDOVAL — 88. SUMMER OSTRAND — 31.",
+        "text": "The result sheet. TEO SANDOVAL, 88. SUMMER OSTRAND, 31.",
         "type": "say"
       },
       "bsm_15": {
@@ -662,7 +662,7 @@
         "next": "bsm_155",
         "overlayType": "lower_third",
         "subtext": "DAY",
-        "text": "DYNAMO HOUSE — YARD",
+        "text": "DYNAMO HOUSE, YARD",
         "type": "overlay"
       },
       "bsm_155": {
@@ -725,7 +725,7 @@
         "next": "bsm_17",
         "overlayType": "lower_third",
         "subtext": "LATER",
-        "text": "THE ASHWAY — DYNAMO HOUSE",
+        "text": "THE ASHWAY, DYNAMO HOUSE",
         "type": "overlay"
       },
       "bsm_160": {
@@ -788,7 +788,7 @@
         "next": "bsm_166",
         "overlayType": "lower_third",
         "subtext": "LATE AFTERNOON",
-        "text": "THE ASHWAY — POLE-BALL POST",
+        "text": "THE ASHWAY, POLE-BALL POST",
         "type": "overlay"
       },
       "bsm_166": {
@@ -1040,7 +1040,7 @@
         "next": "bsm_28",
         "overlayType": "lower_third",
         "subtext": "AFTERNOON",
-        "text": "THE ASHWAY — CIVIC HALL, CLASSROOM 2",
+        "text": "THE ASHWAY, CIVIC HALL, CLASSROOM 2",
         "type": "overlay"
       },
       "bsm_28": {
@@ -1247,7 +1247,7 @@
         "next": "bsm_46",
         "overlayType": "lower_third",
         "subtext": "DUSK",
-        "text": "THE ASHWAY — TAILINGS ROAD",
+        "text": "THE ASHWAY, TAILINGS ROAD",
         "type": "overlay"
       },
       "bsm_46": {
@@ -1280,7 +1280,7 @@
         "next": "bsm_49",
         "overlayType": "lower_third",
         "subtext": "MORNING",
-        "text": "DYNAMO HOUSE — YARD",
+        "text": "DYNAMO HOUSE, YARD",
         "type": "overlay"
       },
       "bsm_49": {
@@ -1395,7 +1395,7 @@
         "next": "bsm_59",
         "overlayType": "lower_third",
         "subtext": "LATER",
-        "text": "DYNAMO HOUSE — YARD",
+        "text": "DYNAMO HOUSE, YARD",
         "type": "overlay"
       },
       "bsm_59": {
@@ -1530,7 +1530,7 @@
         "next": "bsm_8",
         "overlayType": "lower_third",
         "subtext": "MORNING",
-        "text": "THE ASHWAY — RATION LINE 4",
+        "text": "THE ASHWAY, RATION LINE 4",
         "type": "overlay"
       },
       "bsm_70": {
@@ -1543,7 +1543,7 @@
         "next": "bsm_71",
         "overlayType": "lower_third",
         "subtext": "DAY",
-        "text": "THE ASHWAY — BLOCK ROAD",
+        "text": "THE ASHWAY, BLOCK ROAD",
         "type": "overlay"
       },
       "bsm_71": {
@@ -1700,7 +1700,7 @@
         "next": "bsm_85",
         "overlayType": "lower_third",
         "subtext": "EVENING",
-        "text": "THE ASHWAY — CONTAINER 9",
+        "text": "THE ASHWAY, CONTAINER 9",
         "type": "overlay"
       },
       "bsm_85": {
@@ -1710,7 +1710,7 @@
         },
         "next": "bsm_86",
         "style": "narration",
-        "text": "A shipping container with a hand-painted sign: VANCE COMBAT SYSTEMS — FIRST SESSION FREE. Inside, CLAW VANCE, forty, in a sleeveless vest, addresses six people.",
+        "text": "A shipping container with a hand-painted sign: VANCE COMBAT SYSTEMS: FIRST SESSION FREE. Inside, CLAW VANCE, forty, in a sleeveless vest, addresses six people.",
         "type": "say"
       },
       "bsm_86": {
@@ -1813,7 +1813,7 @@
         "next": "bsm_95",
         "overlayType": "lower_third",
         "subtext": "NIGHT",
-        "text": "DYNAMO HOUSE — KITCHEN",
+        "text": "DYNAMO HOUSE, KITCHEN",
         "type": "overlay"
       },
       "bsm_95": {
@@ -1887,7 +1887,7 @@
         "next": "bsm_pre_2",
         "overlayType": "act_card",
         "subtext": "BASIN BROADCAST STANDARDS BOARD",
-        "text": "GENERAL — CONTAINS DANCING",
+        "text": "GENERAL: CONTAINS DANCING",
         "type": "overlay"
       },
       "bsm_pre_2": {
@@ -1907,7 +1907,7 @@
   "category": "movie",
   "channel_id": "ch_7_1782953079593",
   "created_by": "author",
-  "description": "NORVAL DYNAMO — an Ashway Community Reel picture. A teenager who is not good at anything except the two things nobody scores. Shot on one camera that never moves. Screened once at the Ashway community hall in 2081 and then not again for nine years.",
+  "description": "NORVAL DYNAMO, an Ashway Community Reel picture. A teenager who is not good at anything except the two things nobody scores. Shot on one camera that never moves. Screened once at the Ashway community hall in 2081 and then not again for nine years.",
   "enabled": 1,
   "fallback_messages": [],
   "film_meta": {
@@ -1981,7 +1981,7 @@
     ],
     "director": "Merl Prewitt",
     "presents": "Ashway Community Reel",
-    "rating": "GENERAL — CONTAINS DANCING",
+    "rating": "GENERAL: CONTAINS DANCING",
     "runtime": 2760,
     "theme": "",
     "title": "norval_dynamo_title"
@@ -2059,7 +2059,7 @@
     "They stand there. A hauler goes past. The ash settles again.",
     "Norval Dynamo says, \"You wanna see a drawing of a ligerat.\"",
     "Teo Sandoval says, \"Okay.\"",
-    "A shipping container with a hand-painted sign: VANCE COMBAT SYSTEMS — FIRST SESSION FREE. Inside, CLAW VANCE, forty, in a sleeveless vest, addresses six people.",
+    "A shipping container with a hand-painted sign: VANCE COMBAT SYSTEMS: FIRST SESSION FREE. Inside, CLAW VANCE, forty, in a sleeveless vest, addresses six people.",
     "Claw Vance says, \"Bow to your sensei. Bow to your sensei.\"",
     "Nobody bows. Claw continues anyway.",
     "Claw Vance says, \"Now. A man comes at you with a pipe. What do you do. Kipp.\"",
@@ -2078,7 +2078,7 @@
     "Uncle Dutch says, \"Sixty forty.\"",
     "Kipp Dynamo says, \"Which way.\"",
     "Uncle Dutch says, \"Kipp.\"",
-    "A noticeboard. A sheet: BLOCK STEWARD — NOMINATIONS. One name on it: SUMMER OSTRAND.",
+    "A noticeboard. A sheet: BLOCK STEWARD: NOMINATIONS. One name on it: SUMMER OSTRAND.",
     "Teo reads it. Norval reads it.",
     "Norval Dynamo says, \"Summer Ostrand's been Block Steward two years and all she's done is get the good water rota for her own row.\"",
     "Teo Sandoval says, \"Can anybody nominate.\"",
@@ -2110,7 +2110,7 @@
     "Forty-one seconds. One take. The reel was never cut because there was nothing to cut it with.",
     "The track ends. Norval walks off the stage and out the side door and does not come back in.",
     "The hall does not react for a long moment. Then it does.",
-    "The result sheet. TEO SANDOVAL — 88. SUMMER OSTRAND — 31.",
+    "The result sheet. TEO SANDOVAL, 88. SUMMER OSTRAND, 31.",
     "Teo looks at it. Norval looks at it.",
     "Teo Sandoval says, \"Thank you.\"",
     "Norval Dynamo says, \"It's a democracy, Teo. I didn't do anything.\"",

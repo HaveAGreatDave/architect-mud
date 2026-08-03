@@ -66,7 +66,7 @@
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "\"Don't let the door hit you. Actually, it might — the hinge is shot. I keep meaning to fix that.\""
+      "text": "\"Don't let the door hit you. Actually, it might; the hinge is shot. I keep meaning to fix that.\""
     },
     "gossip": {
       "actions": [
@@ -110,7 +110,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Owner got Custodian debt. You know how that goes. I bought the chair she left behind. Still got it — twelve credits if you want it.\""
+      "text": "\"Owner got Custodian debt. You know how that goes. I bought the chair she left behind. Still got it. Twelve credits if you want it.\""
     },
     "root": {
       "options": [
@@ -203,6 +203,10 @@
       "price": 150
     },
     {
+      "item_id": "item_furn_microwave_pulsebox",
+      "price": 160
+    },
+    {
       "item_id": "item_furn_vidicron_tv",
       "price": 185
     },
@@ -277,7 +281,7 @@
     ]
   },
   "vendor_shop_name": "Formerly Someone's",
-  "vendor_stock_size": 13,
+  "vendor_stock_size": 14,
   "wander_zones": [],
   "wanders": 0,
   "work_zone_id": "zone_velk_shop"

@@ -18,7 +18,7 @@
     {
       "desc": "Follow the trail west (follow the green GPS line)",
       "emotes": [
-        "{who} follows the graded track west until the grass gives way to mirror-polished plaza — and a chrome wall of a place turns its scanners on {who}."
+        "{who} follows the graded track west until the grass gives way to mirror-polished plaza, and a chrome wall of a place turns its scanners on {who}."
       ],
       "id": "o1",
       "requires": [

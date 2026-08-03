@@ -82,7 +82,7 @@
 # ── Cold open — reads the real clock, the real thermometer, the real weekday ──
 ::lines open
 Good MORNING, Coldwater! It is {time}, it is {temp} degrees, and you are ALIVE! >> Statistically.
-Good morning, Coldwater — {day}, {time}, {temp} degrees. >> All four of those are true and only one of them is good news.
+Good morning, Coldwater. {day}, {time}, {temp} degrees. >> All four of those are true and only one of them is good news.
 It is {time} on a {season} {day} and you have made it to another one! >> Made it to. Not through.
 {time}. {temp} degrees. I'm Bijou Pace. >> Hal Dorn.
 Rise and SHINE, Basin! {temp} degrees, feels like {feels}! >> It does not feel like {feels}. It feels like {feels} and a grudge.
@@ -102,7 +102,7 @@ THE WINDOW | WHAT IT IS DOING TO YOU OUT THERE
 
 ::lines weather
 Out the window: {weather}, {temp} degrees, feels like {feels}. >> Feels like {feels}. It always feels like {feels}.
-Conditions right now — {weather}, {temp} degrees, wind {wind}. >> Dress for {feels}, not for {temp}. The thermometer is an optimist.
+Conditions right now: {weather}, {temp} degrees, wind {wind}. >> Dress for {feels}, not for {temp}. The thermometer is an optimist.
 {weather} out there this morning, {temp} degrees, {precip} percent chance of getting wet. >> Round that up.
 ::endlines
 
@@ -113,7 +113,7 @@ Not a cloud, {temp} degrees. It's a beautiful morning. >> It's a visible morning
 
 ::lines weather.rain
 Rain, {temp} degrees, {precip} percent and climbing. >> It is raining on the window that is not a window. There is something in that.
-Wet one out there — rain, feels like {feels}. >> Everything you own will be damp by ten and stay damp until spring.
+Wet one out there. Rain, feels like {feels}. >> Everything you own will be damp by ten and stay damp until spring.
 ::endlines
 
 ::lines weather.snow
@@ -122,13 +122,13 @@ It's snowing, it's {temp}, and it is very pretty from in here. >> From in here.
 ::endlines
 
 ::lines weather.fog
-Fog on the Basin — {temp} degrees, can't see past the Locks. >> The fog is doing us a favour. Let it.
+Fog on the Basin, {temp} degrees, can't see past the Locks. >> The fog is doing us a favour. Let it.
 Thick fog this morning. Take it slow. >> Take it slow, or arrive somewhere unplanned and permanent.
 ::endlines
 
 ::lines weather.ash
 Ashfall, Coldwater. {temp} degrees. Cover your mouth out there. >> Do not look up with your mouth open. I shouldn't have to say it annually.
-Ash coming down again — {temp} degrees, wind {wind}. >> Shake your coat out before you bring it inside. That's it. That's the segment.
+Ash coming down again, {temp} degrees, wind {wind}. >> Shake your coat out before you bring it inside. That's it. That's the segment.
 ::endlines
 
 ::lines weather.thunderstorm
@@ -147,7 +147,7 @@ Severe conditions today, Coldwater. >> Severe means the city stops pretending it
 ::lines weather.acid
 It's an acid day, Hal. >> Then it's a stay-in day. I mean it. It goes through a coat like the coat isn't there.
 The Service has the acid warning up. >> If you own sealed rainwear, today is what you bought it for. If you don't, today is what you should have.
-Caustic rain by this afternoon. >> And to everyone about to tell me they'll "risk it" — the wards fill up every single time.
+Caustic rain by this afternoon. >> And to everyone about to tell me they'll "risk it": the wards fill up every single time.
 ::endlines
 
 ::lines weather.ion
@@ -157,7 +157,7 @@ They're calling for a full ion event. >> If you're chromed, be sitting down when
 ::endlines
 
 ::lines weather.ahead
-Looking ahead — tomorrow it's {tomorrow}, around {tomorrowTemp}. >> Something to build towards.
+Looking ahead: tomorrow it's {tomorrow}, around {tomorrowTemp}. >> Something to build towards.
 Week's running a high of {hi} and a low of {lo}. >> The low is the one that counts.
 Tomorrow: {tomorrow}. >> Same as today, then, but you'll be more tired.
 ::endlines
@@ -168,16 +168,16 @@ THE BASIN BEAT | STORIES FROM YOUR STREET
 ::endlines
 
 ::lines beat.lead
-First up — {headline}! >> And there it is.
+First up, {headline}! >> And there it is.
 Our top story this morning: {headline}. >> Mm.
-Here's one for you, Hal — {headline}. >> I don't want it.
+Here's one for you, Hal. {headline}. >> I don't want it.
 {headline}! Isn't that something? >> It's something.
-Now THIS is a heartwarming one — {headline}! >> That's not what heartwarming means.
+Now THIS is a heartwarming one, {headline}! >> That's not what heartwarming means.
 ::endlines
 
 ::lines beat.detail
 {byline} has it that {body} >> {byline} would.
-The details, and they are details — {body} >> They put that in writing. Someone typed that and let it leave the building.
+The details, and they are details. {body} >> They put that in writing. Someone typed that and let it leave the building.
 Here's what we know: {body} >> Here's what we know. Note the shape of the parts they left out.
 ::endlines
 
@@ -192,11 +192,11 @@ THE HOTPLATE | THE MOST IMPORTANT MEAL YOU CAN AFFORD
 ::endlines
 
 ::lines segment
-Now — breakfast! Take your standard ration paste, squeeze it into a pan, and here's the trick: heat. >> That's the trick.
+Now, breakfast! Take your standard ration paste, squeeze it into a pan, and here's the trick: heat. >> That's the trick.
 Two minutes on the ring and the paste goes from grey to a sort of WARMER grey. >> My father used to do that.
 Got a little sweetener? Stir it through at the end and you have got yourself a TREAT. >> You have got yourself a warmer grey.
 Today's tip: crack the window while you cook. >> Today's tip: know which of your neighbours can smell that you ate.
-Letter from a viewer in Meltwater Row — she wants to know if the sunrise is real. >> Next letter.
+Letter from a viewer in Meltwater Row. She wants to know if the sunrise is real. >> Next letter.
 Cold morning like this, wear your layers LOOSE. Trapped air is warm air. >> Trapped air is warm air. Trapped people are not. Loose layers.
 ::endlines
 
@@ -207,12 +207,12 @@ YOUR MORNING RUN-IN | WHAT THE CITY IS DOING TO YOU TODAY
 
 ::lines runin.clear
 Curfew lifts on schedule, gates are moving, the Locks are open. >> Which means today, if something goes wrong, it'll be your fault.
-Nothing standing on the boards this morning — a clean run-in. >> Enjoy it. Write it down.
+Nothing standing on the boards this morning, a clean run-in. >> Enjoy it. Write it down.
 Roads are roads, gates are gates, and the Basin is BEAUTIFUL this morning. >> If you don't look directly at it.
 ::endlines
 
 ::lines runin.blackout
-Grid crews are out — {outages} blocks dark this morning. >> If your block is one of them, don't open the freezer and don't trust the stairwell.
+Grid crews are out, {outages} blocks dark this morning. >> If your block is one of them, don't open the freezer and don't trust the stairwell.
 We're hearing {outages} blocks off the grid. >> Charge what you can while you can. It comes back when it comes back.
 ::endlines
 
@@ -227,7 +227,7 @@ The counters are up across the Basin. >> Indoors. All day if you can manage it.
 ::endlines
 
 ::lines runin.storm
-The weather's going to make a mess of the run-in — allow extra. >> Allow extra or don't go. Those are the two options and only one of them is free.
+The weather's going to make a mess of the run-in, so allow extra. >> Allow extra or don't go. Those are the two options and only one of them is free.
 Gates will be slow with this coming in. >> They always slow the gate when the sky turns. It's the one thing they're consistent about.
 ::endlines
 

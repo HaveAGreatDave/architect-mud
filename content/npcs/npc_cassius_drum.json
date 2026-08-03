@@ -152,7 +152,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Some of it. The rest I pull off people — gently, don't look at me like that, they were already dead. Point is, everything here has a story. I just charge you for the good parts.\""
+      "text": "\"Some of it. The rest I pull off people. Gently, don't look at me like that, they were already dead. Point is, everything here has a story. I just charge you for the good parts.\""
     },
     "fashion": {
       "options": [
@@ -165,7 +165,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Layering. Always layering. You want at least three textures — keeps the rad-scanner confused and looks incredible. Also, pockets. You can never have enough pockets in a disaster zone.\""
+      "text": "\"Layering. Always layering. You want at least three textures. Keeps the rad-scanner confused and looks incredible. Also, pockets. You can never have enough pockets in a disaster zone.\""
     },
     "gossip": {
       "actions": [
@@ -204,7 +204,7 @@
           "next": "gossip"
         }
       ],
-      "text": "Roscoe Drum looks you up and down with professional interest. \"Okay. Okay. I see what we're working with. Don't worry — I've dressed worse.\""
+      "text": "Roscoe Drum looks you up and down with professional interest. \"Okay. Okay. I see what we're working with. Don't worry, I've dressed worse.\""
     }
   },
   "faction": null,

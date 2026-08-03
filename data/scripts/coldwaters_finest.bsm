@@ -29,7 +29,7 @@
 ::asset finest_booking_card
 
 ┌──────────────────────────────────────────┐
-│  BOOKING — PRECINCT 9 HOLDING            │
+│  BOOKING: PRECINCT 9 HOLDING             │
 │  STARS: ★★★☆☆         HOLD: 3 MINUTES    │
 │  CONTRABAND: SEIZED → EVIDENCE LOCKER    │
 │  EFFECTS: RETURNED ON RELEASE*           │
@@ -44,7 +44,7 @@ ROOM zone_mq_precinct_bullpen
 
 EVENT FADE_IN
 
-♪ A cheap, swaggering guitar riff kicks in — four chords, no budget, enormous confidence. ♪
+♪ A cheap, swaggering guitar riff kicks in: four chords, no budget, enormous confidence. ♪
 
 TITLE coldwaters_finest_logo
 
@@ -86,7 +86,7 @@ ROOM zone_district_918_919
 CAM 3 HANDHELD patrol_stop
 
 LOWER_THIRD
-SGT. VALE — PATROL
+SGT. VALE, PATROL
 SHIFT 11:04 · BASIN SOUTH
 LOWER_THIRD_END
 
@@ -226,7 +226,7 @@ OVERLAY_END
 ♪ The cheap guitar riff returns, fading out over the wet street. ♪
 
 CREDITS 6
-COLDWATER'S FINEST — A PRECINCT 9 CO-PRODUCTION
+COLDWATER'S FINEST: A PRECINCT 9 CO-PRODUCTION
 No officer depicted has been disciplined for anything depicted.
 If you recognise yourself in this programme, you have already consented.
 END_CREDITS

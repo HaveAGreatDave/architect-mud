@@ -316,7 +316,7 @@
         },
         "next": "qh_wait_d",
         "style": "narration",
-        "text": "By the time the morning service begins — {until_four} from now — eleven of those watching will have stopped. We know the number. We do not know your name. So you may relax. Probably.",
+        "text": "By the time the morning service begins, {until_four} from now, eleven of those watching will have stopped. We know the number. We do not know your name. So you may relax. Probably.",
         "type": "say"
       },
       "qh_eleven_check": {

@@ -128,7 +128,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"One of ours. Took your time, but they always do.\" He nods toward the back of the shop. \"Two ways home now — the long crawl from the old drain, or straight down through my back room and you're on the doorstep. The quartermaster'll see you kitted. Cyrelle runs ops — she'll have work.\" A dry look. \"Keep the lights on. Take back the switch.\""
+      "text": "\"One of ours. Took your time, but they always do.\" He nods toward the back of the shop. \"Two ways home now: the long crawl from the old drain, or straight down through my back room and you're on the doorstep. The quartermaster'll see you kitted. Cyrelle runs ops; she'll have work.\" A dry look. \"Keep the lights on. Take back the switch.\""
     },
     "lw_offer_1": {
       "options": [
@@ -154,7 +154,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Now we find out if you'll put your hands on the machine itself.\" He unrolls a scrap of paper: a street corner sketched from memory. \"There's a camera on the Precinct 9 approach the Watch have wanted dark for months. I don't want it smashed — smashed gets noticed. I want its memory core pulled, clean, so it just... stops seeing. Bring me the eye.\""
+      "text": "\"Now we find out if you'll put your hands on the machine itself.\" He unrolls a scrap of paper: a street corner sketched from memory. \"There's a camera on the Precinct 9 approach the Watch have wanted dark for months. I don't want it smashed. Smashed gets noticed. I want its memory core pulled, clean, so it just... stops seeing. Bring me the eye.\""
     },
     "lw_offer_3": {
       "options": [
@@ -167,7 +167,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The Architect runs a maintenance drone through the deep east tunnels. Lately it's been logging things it shouldn't — our marks, our door.\" His voice drops. \"It can't be allowed to carry that back. Go down into the deep — all the way down — and put it in the water for good. Do that, and you're not a stranger who knew the words any more. You're one of ours.\""
+      "text": "\"The Architect runs a maintenance drone through the deep east tunnels. Lately it's been logging things it shouldn't: our marks, our door.\" His voice drops. \"It can't be allowed to carry that back. Go down into the deep, all the way down, and put it in the water for good. Do that, and you're not a stranger who knew the words any more. You're one of ours.\""
     },
     "lw_report_1": {
       "actions": [
@@ -192,7 +192,7 @@
           "next": "bye"
         }
       ],
-      "text": "He takes the package, feels its weight without looking at it, and nods once. \"Clean. No tail, no fuss. That's rarer than you'd think.\" He tucks it away. \"You'll do. There's realer work when you want it — ask me.\""
+      "text": "He takes the package, feels its weight without looking at it, and nods once. \"Clean. No tail, no fuss. That's rarer than you'd think.\" He tucks it away. \"You'll do. There's realer work when you want it. Ask me.\""
     },
     "lw_report_2": {
       "actions": [
@@ -247,7 +247,7 @@
           "next": "lw_member"
         }
       ],
-      "text": "\"It's done, then.\" He says it quietly, like it matters. \"The machine's down an eye and a hand, and the Watch are up a good one.\" He wipes his hands and offers one to shake — the first honest gesture he's made you. \"The blast door in the deep knows you now. Walk in whenever you like. Welcome to the Long Watch.\""
+      "text": "\"It's done, then.\" He says it quietly, like it matters. \"The machine's down an eye and a hand, and the Watch are up a good one.\" He wipes his hands and offers one to shake, the first honest gesture he's made you. \"The blast door in the deep knows you now. Walk in whenever you like. Welcome to the Long Watch.\""
     },
     "lw_reveal": {
       "options": [
@@ -260,7 +260,7 @@
           "next": "bye"
         }
       ],
-      "text": "The easy craftsman's manner goes out of him like a switch thrown. For a long moment he just looks at your hands, then your eyes. \"Somebody sent you. And you're the sort that leans the right way, or you'd never have got the words.\" He sets down the iron. \"All right. This shop's a door, and you've knocked. But the Watch don't open a door on a stranger's say-so. You want in, you earn it — small first, then real. Still listening?\""
+      "text": "The easy craftsman's manner goes out of him like a switch thrown. For a long moment he just looks at your hands, then your eyes. \"Somebody sent you. And you're the sort that leans the right way, or you'd never have got the words.\" He sets down the iron. \"All right. This shop's a door, and you've knocked. But the Watch don't open a door on a stranger's say-so. You want in, you earn it. Small first, then real. Still listening?\""
     },
     "repair_talk": {
       "options": [
@@ -269,7 +269,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Bring it here.\" He clears a space on the bench with his forearm. \"I fix what the city's given up on — radios, motors, pumps, the honest machines that don't need the grid holding their hand. Costs less than a new one and it'll outlive you. That's not nostalgia. That's engineering.\""
+      "text": "\"Bring it here.\" He clears a space on the bench with his forearm. \"I fix what the city's given up on: radios, motors, pumps, the honest machines that don't need the grid holding their hand. Costs less than a new one and it'll outlive you. That's not nostalgia. That's engineering.\""
     },
     "root": {
       "options": [
@@ -408,7 +408,7 @@
           "next": "bye"
         }
       ],
-      "text": "A bell rattles as you come in. The lean man looks up from a gutted motor, and his eyes go to your hands before your face. \"If it's broke, set it on the bench. If it's not\"—he tips his head at the racked tools—\"I'll likely have what you need anyway. Halloran.\""
+      "text": "A bell rattles as you come in. The lean man looks up from a gutted motor, and his eyes go to your hands before your face. \"If it's broke, set it on the bench. If it's not,\" and he tips his head at the racked tools, \"I'll likely have what you need anyway. Halloran.\""
     }
   },
   "faction": null,

@@ -3,11 +3,11 @@
     "_start": "bsm_0",
     "nodes": {
       "bsm_0": {
+        "type": "start",
         "_vine": {
           "x": 80,
           "y": 80
-        },
-        "type": "start"
+        }
       }
     }
   },
@@ -17,23 +17,36 @@
   "description": "CPhL hockey from Coldwater, called by Tug Brennan. A fresh sixty minutes is simulated every airing.",
   "enabled": 1,
   "fallback_messages": [],
-  "film_meta": null,
-  "gameshow_pools": null,
   "id": "bc_cluster_puck",
   "loop": 1,
   "message_interval": 5,
   "messages": [],
   "morning_pools": null,
-  "name": "Cluster Puck — CPhL Coldwater Hockey",
+  "name": "Cluster Puck: CPhL Coldwater Hockey",
   "news_pools": null,
   "override_duration": 300,
   "playback_mode": "sports",
-  "sermon_pools": null,
   "sports_pools": {
-    "airSlots": [
-      6
-    ],
+    "sport": "hockey",
     "announcer": "Tug Brennan",
+    "teams": [
+      "North City Icebreakers",
+      "Government Whips",
+      "Civic Center Wardens",
+      "Marquee Snipers",
+      "Media District Jammers",
+      "Docks Boarders",
+      "Bayside Slush",
+      "Industrial Flats Smelters",
+      "Slaglands Slashers",
+      "Ashway Zambonis",
+      "Sprawl Grinders",
+      "Redline Muckers",
+      "Wastes Drifters",
+      "Sewerline Benders",
+      "Yards Icehaulers",
+      "Longwatch Goons"
+    ],
     "players": [
       "Vasko",
       "Halstrom",
@@ -145,14 +158,257 @@
       "Steve"
     ],
     "pools": {
+      "intro": [
+        "Good evening from Coldwater and welcome to CLUSTER PUCK. I'm Tug Brennan, nobody made me do this, and we are under way.",
+        "CPhL hockey tonight, brought to you by whoever is still paying, and I have been told not to name them on air.",
+        "Evening. Tug Brennan with you. The scheduler says these two are playing, so these two are playing.",
+        "Welcome in. The ice is down, the lights are on, and the insurance has lapsed. Let's go."
+      ],
+      "matchup": [
+        "Tonight the {away} come to town to face the {home}.",
+        "It's the {away} against the {home}, and one of these buildings empties out happy.",
+        "{away} at {home}. Somebody's night gets worse in the next hour.",
+        "The {away} in from out of district to meet the {home}. Sixty minutes, whatever's left of it."
+      ],
+      "rivalry.intro": [
+        "Evening. Tug Brennan, and you know what tonight is. These two do not like each other and they have never needed a reason.",
+        "Welcome in. It's one of THOSE nights. The scheduler put these two together again and the building knew before I did.",
+        "Good evening from Coldwater, where the ice is down and both of these clubs turned up early to stand around looking at each other."
+      ],
+      "rivalry.matchup": [
+        "{away} at {home}, and this one has history nobody wrote down. Bring a bucket.",
+        "The {away} and the {home}. There is no trophy for this and they will both bleed for it anyway.",
+        "It's {away}–{home}. Whatever this is, it started before the records did, and the records don't exist.",
+        "{away} into {home}'s barn. Last time these two met the officials went home early."
+      ],
+      "matchup.records": [
+        "The {away}, {awayRecord} on the season, into the barn against the {home} at {homeRecord}.",
+        "On the marquee: {away} ({awayRecord}) versus {home} ({homeRecord}). Somebody's record gets worse tonight.",
+        "{away} bring {awayRecord} in here. {home} sit at {homeRecord}. The scheduler does not care."
+      ],
+      "injury.report": [
+        "Before we drop it: {count} out of the lineup tonight. {missing}, all still on the shelf from what was done to them, and up from the reserve, {callups}.",
+        "The injury list, and it's long: {missing}. Dressing instead: {callups}. Best of luck to them, sincerely, they'll need it.",
+        "{missing} not in the building tonight, or not in a state to be. {callups} get the sweaters. Nobody has asked them if they want them.",
+        "No {player} tonight, still out, and the club brings up {callup}. This league does not do get-well cards.",
+        "{count} missing between these two. That's the CPhL in the back half of a season: eventually everybody is somebody's replacement."
+      ],
+      "section.start": [
+        "Here we go with the {sectionOrd}. {away} attacking twice, {home} once more after that.",
+        "{sectionOrd} period under way. Two blasts from the official and the puck is down.",
+        "Fresh sheet, {sectionOrd} period. It won't stay fresh."
+      ],
+      "section.end": [
+        "That's the {sectionOrd}. {home} {homeScore}, {away} {awayScore}.",
+        "Horn goes on the {sectionOrd}. {away} {awayScore}, {home} {homeScore}, and the Zamboni comes out to hide the evidence.",
+        "End of the {sectionOrd}. They'll resurface it, which is optimistic."
+      ],
+      "faceoff.center": [
+        "Back to centre ice. {winner} takes the draw from {loser} and the {winTeam} have it.",
+        "Centre-ice draw, and {winner} wins it clean. {winTeam} puck.",
+        "They line it up at centre. {winner} beats {loser} to it and away we go.",
+        "Puck's down at centre. {winTeam} come away with it."
+      ],
+      "faceoff.zone": [
+        "Draw in the {zone}. {winner} wins it back for the {winTeam}.",
+        "Down in the {zone}, and {winner} takes it off {loser}.",
+        "They set up in the {zone}. {winner} gets a stick on it first and it's {winTeam} possession.",
+        "{winner} wins the draw deep. That's {foAway}–{foHome} on the dot tonight, if anybody's counting. Nobody is."
+      ],
+      "faceoff.neutral": [
+        "Neutral-zone draw. {winner} ties up {loser} and the {winTeam} come away with it.",
+        "Dropped outside the line, and {winner} wins it.",
+        "{winner} takes the neutral-zone draw. Nothing much happens here and that's the point."
+      ],
+      "faceoff": [
+        "Puck's down at the dot.",
+        "Clean draw, and away we go.",
+        "Won back cleanly, and the {winTeam} have it."
+      ],
+      "intermission.intro": [
+        "End of the {sectionOrd}, and they'll be fifteen minutes resurfacing what's left of it. Let's go back through it.",
+        "That's the horn. While they scrape it, here's your {sectionOrd} period.",
+        "Intermission. {away} {awayScore}, {home} {homeScore}, and here's how we got there."
+      ],
+      "intermission.summary": [
+        "Scoring summary, {sectionOrd} period:",
+        "Your goals in the {sectionOrd}:",
+        "Here's the scoring:"
+      ],
+      "intermission.goal": [
+        "{clock}: {shooter}, {team}. Assist: {assist}.",
+        "{team}, {shooter} at {clock}, set up by {assist}.",
+        "{shooter} for the {team}, {clock} on the clock. {assist} with the helper."
+      ],
+      "intermission.scoreless": [
+        "No goals in the {sectionOrd}. Forty minutes of hockey between two clubs and nothing to show anyone for it.",
+        "Scoreless period. Both goaltenders held up, which in this league mostly means both of them are still conscious.",
+        "Nobody scored. I'd call it a goaltending duel but I watched it and it wasn't."
+      ],
+      "intermission.stats": [
+        "Shots in the period: {away} {shotsAway}, {home} {shotsHome}. {penalties} minor infractions called, which is fewer than were committed.",
+        "{shots} shots between them in that period: {shotsAway} for the {away}, {shotsHome} for the {home}. The officials found {penalties} penalties in there somewhere.",
+        "By the numbers: {shotsAway}–{shotsHome} on goal, {penalties} to the box, {hits} hits that I'd describe as deliberate.",
+        "Shot clock says {away} {shotsAway}, {home} {shotsHome}. There were {fights} fights, which is under the league average, which is a sentence I hate saying."
+      ],
+      "intermission.casualties": [
+        "Off the ice this period and not coming back: {casualties}. Their side plays the rest of this short. That's the rule and nobody's ever changed it.",
+        "{count} man off in that period. {player} in particular is not going to be right for a while.",
+        "We lost {casualties} in there. No replacements. That's how a game gets away from a club in this league."
+      ],
+      "intermission.outro": [
+        "Back in a moment for the {nextOrd}. Don't go anywhere. Statistically, something's about to happen to somebody.",
+        "That's your intermission. They'll be out shortly, most of them.",
+        "We'll take a break. When we come back there'll be fresh ice and the same problems."
+      ],
+      "shot.save": [
+        "{goalie} takes it in the chest and holds on.",
+        "{shooter} tests him and {goalie} says no.",
+        "Shot away, and {goalie} has it. Nothing doing.",
+        "Straight into the logo. {goalie} barely moved."
+      ],
+      "shot.glove": [
+        "{goalie} SNAPS the glove shut on it. He didn't need to look.",
+        "Glove save, {goalie}, and he holds it up like he's proud of it. He should be.",
+        "{shooter} picks a corner and {goalie} picks it right out of the air."
+      ],
+      "shot.pad": [
+        "Off the pad and into the corner. {goalie} kicks it away.",
+        "{goalie} gets a leg on it. That's all it takes.",
+        "Pad save. {shooter} will want that one again."
+      ],
+      "shot.blocked": [
+        "Blocked. Somebody in a {team} sweater is going to feel that in the morning.",
+        "Down goes a defender in front and it never gets through.",
+        "{shooter} winds up and a shin gets in the way. That's the job."
+      ],
+      "shot.wide": [
+        "Wide, and it rings around the boards.",
+        "{shooter} misses the net entirely. The glass takes it.",
+        "Off the mark. That one's going in the third row."
+      ],
+      "shot.post": [
+        "IRON! {shooter} rings it off the post and the whole building makes a noise I'd describe as grief.",
+        "OFF THE POST. Half an inch. Half an inch, and {goalie} knows it.",
+        "CLANG. That's the sound of a man's night changing and not changing at the same time."
+      ],
+      "shot.breakaway": [
+        "{shooter} is GONE, nothing between him and {goalie}, and {goalie} stones him.",
+        "Breakaway! {shooter} in alone, and he can't finish it.",
+        "Loose in the neutral zone, {shooter} is away, one on one, and {goalie} wins it."
+      ],
+      "goal": [
+        "{shooter} SCORES. {team} lead the noise, {home} {homeScore}, {away} {awayScore}.",
+        "IN. {shooter} beats {goalie}, and the horn does what the horn does.",
+        "{shooter} buries it. {assist} with the pass, and this building has come apart.",
+        "He shoots. HE SCORES. {shooter}, from {assist}, and {goalie} never had it."
+      ],
+      "goal.pp": [
+        "On the power play, {shooter} makes them pay for it. Man advantage, man in the net.",
+        "{team} cash the power play. {shooter} with the finish. That penalty cost exactly what penalties cost.",
+        "Extra man, extra goal. {shooter}, and {goalie} was hung out to dry."
+      ],
+      "goal.sh": [
+        "SHORTHANDED! Down a man and {shooter} goes the other way and scores. Someone is getting shouted at.",
+        "A shorthanded goal. The {team} are a man DOWN and they've just gone ahead on it.",
+        "{shooter} scores while his teammate sits in the box. That's the most embarrassing goal in hockey."
+      ],
+      "goal.en": [
+        "Empty net, and {shooter} buries it from his own blue line. {home} {homeScore}, {away} {awayScore}. Turn the lights off on your way out.",
+        "Into the empty cage. {shooter}. That's the gamble, and it did not pay.",
+        "{shooter} finds the empty net. The goalie is on the bench watching it happen from sixty feet."
+      ],
+      "hattrick": [
+        "That's THREE for {player}. A hat trick in the CPhL, and nobody in this building owns a hat.",
+        "{player} completes the hat trick. Whatever they throw on the ice tonight, do not touch it.",
+        "Three goals, {player}. Remember the name, because at this rate he may not be with us long."
+      ],
+      "score.update": [
+        "{home} {homeScore}, {away} {awayScore}.",
+        "That makes it {away} {awayScore}, {home} {homeScore}.",
+        "Scoreboard: {home} {homeScore}, {away} {awayScore}, {clock} left in the {sectionOrd}.",
+        "Your score, {away} {awayScore} and {home} {homeScore}."
+      ],
+      "penalty": [
+        "{player} goes for {infraction}. {penaltyMin} minutes, and the {team} are down a man.",
+        "Arm's up. {infraction} on {player}. {penaltyMin} in the box.",
+        "That's {penaltyMin} for {infraction}. {player} has a sit down and a think.",
+        "{player} caught for {infraction}. The officials noticed that one, which is not guaranteed."
+      ],
+      "penalty.major": [
+        "{penaltyMin} minutes for {infraction}. That's a major, and {player} is done thinking about it.",
+        "A five for {infraction} on {player}. Even these officials couldn't let that go.",
+        "{player} gets {penaltyMin} for {infraction}. He knew what he was doing and he did it anyway."
+      ],
+      "powerplay.start": [
+        "{team} go to the power play.",
+        "Man advantage {team} for the next two minutes. Let's see if they can do anything with it.",
+        "Power play, {team}. This is where games get decided and hearts get broken."
+      ],
+      "powerplay.kill": [
+        "Killed it off. Back to even strength.",
+        "Penalty killed, and the {team} bench is very pleased with itself.",
+        "They survive it. Back to five a side."
+      ],
+      "penalty.fight": [
+        "Gloves off. {fighters} have decided the scoreboard isn't settling this. Linesmen are giving it a count of five before they pretend to care.",
+        "And they go. {fighters}, right at centre ice, and nobody is in a hurry to stop it.",
+        "Here it is. {fighters}, sweaters up over the heads, and the building is on its feet."
+      ],
+      "fight.result": [
+        "{winner} takes it. {loser} takes five, and the {winnerTeam} go on the power play for winning a fistfight, which is the CPhL rulebook in one sentence.",
+        "It's {winner}. {loser} is helped up and sent away, and his team pays for it with a man.",
+        "{winner} wins the fight and wins his side the man advantage. Whoever wrote these rules was not well."
+      ],
       "boards": [
         "{hitter} finishes {victim} into the boards and the glass takes the rest.",
         "RIDDEN INTO THE BOARDS. {hitter} on {victim}, and that whole pane is still moving.",
         "{victim} gets caught with his head down and {hitter} puts him through the dasher.",
-        "Big hit — {hitter}. {victim} will get up from that one. Probably."
+        "Big hit, {hitter}. {victim} will get up from that one. Probably."
+      ],
+      "scrum": [
+        "Bodies in front now, sticks up, everybody shoving and nobody swinging.",
+        "It's a scrum in the corner. Four men, one puck, no dignity.",
+        "They're all in there kicking at it. This is most of hockey, if we're honest."
+      ],
+      "injury": [
+        "{player} is not getting up. He's helped off, and the {teamName} are down to {remaining} skaters, no replacement, that's the rule, and they wear it for the rest of the night.",
+        "That's {player}'s evening finished. {teamName} play the rest of this short.",
+        "{player} goes down the tunnel under his own power, barely. {remaining} left on the bench and nobody coming over the boards to help."
+      ],
+      "death": [
+        "{player} IS DEAD. That's the game: sudden death, and the CPhL has never pretended it meant anything else. {winnerTeam} win it.",
+        "He's gone. {player}, on the ice, in overtime, and that is how this league ends a tie.",
+        "{player} does not get up, and he is not going to. {winnerTeam} take it. Somebody call his people."
+      ],
+      "pull": [
+        "{teamName} pull the goalie. Down {down}, six on five, and the net is empty behind them.",
+        "Here comes the goalie to the bench. {teamName} going for it with the extra attacker.",
+        "Empty net at the far end. {teamName} are down {down} and out of patience."
+      ],
+      "ot.intro": [
+        "Level after sixty. SUDDEN DEATH, and in this league that is not a figure of speech.",
+        "We go to overtime. First goal wins it. So does the first body.",
+        "Sixty minutes settled nothing, so now we find out the other way."
+      ],
+      "shootout.intro": [
+        "Nobody died and nobody scored, so we're going to the shootout. Frankly it's a let-down.",
+        "To the shootout. One at a time, one on one, and the crowd hates it."
+      ],
+      "shootout.score": [
+        "{shooter} scores. {soAway}–{soHome} in the shootout.",
+        "Buries it. {shooter} makes no mistake."
+      ],
+      "shootout.miss": [
+        "{goalie} turns aside {shooter}. Still {soAway}–{soHome}.",
+        "No good. {shooter} tries to be clever and isn't."
+      ],
+      "shootout.winner": [
+        "{winner} take the shootout {soAway}–{soHome} and the two points.",
+        "It's over. {winner} win it in the skills competition, which counts, apparently."
       ],
       "chatter": [
-        "The ice in here hasn't been resurfaced since the ownership change, and you can tell — {team} are skating through what I'd generously call a puddle with ambition.",
+        "The ice in here hasn't been resurfaced since the ownership change, and you can tell; {team} are skating through what I'd generously call a puddle with ambition.",
         "Goal judge's been in that booth thirty years. Nobody's checked on him in twelve. Light still works.",
         "{goalie} has the thousand-yard stare of a man watching his own future arrive on a two-on-one.",
         "The Zamboni runs on something the league will not disclose and the driver wears a respirator. Draw your own conclusions.",
@@ -185,9 +441,16 @@
         "There's a gun rack in the lobby here. Coats and firearms, same counter, same attendant, one ticket.",
         "The crowd here doesn't cheer, it just gets quieter. That is worse and every visiting club will tell you so."
       ],
-      "cup.final": [
-        "THE {leader} HAVE WON THE COLDWATER CUP. {home} {homeScore}, {away} {awayScore}. They will drink out of it, because that is the tradition, and we will see who's still here next season.",
-        "IT'S OVER. The {leader} are your Coldwater Cup champions. Carve it into whatever's still standing."
+      "final": [
+        "FINAL from Coldwater: {home} {homeScore}, {away} {awayScore}. {leader} take it.",
+        "That's the game. {leader} win it, {homeScore} to {awayScore}, and everyone still standing gets to go home.",
+        "Final score, {away} {awayScore} and {home} {homeScore}. {leader} with the win.",
+        "Horn goes. {leader} take it {homeScore}–{awayScore}, and the cleanup crew earn theirs tonight."
+      ],
+      "outro": [
+        "That's CLUSTER PUCK. I'm Tug Brennan. Mind how you go, and mind what's on the ice.",
+        "For the CPhL, I'm Tug Brennan. There's another one tomorrow, because there is always another one.",
+        "Tug Brennan, saying goodnight from Coldwater. Nobody won anything permanent."
       ],
       "cup.intro": [
         "This is it. The Coldwater Cup. Nobody can produce a record of who commissioned it and nobody has ever asked twice.",
@@ -197,285 +460,19 @@
         "For the Coldwater Cup: the {away} against the {home}.",
         "{away} and {home}, for the Cup. Whatever it originally held, it holds champagne tonight."
       ],
+      "cup.final": [
+        "THE {leader} HAVE WON THE COLDWATER CUP. {home} {homeScore}, {away} {awayScore}. They will drink out of it, because that is the tradition, and we will see who's still here next season.",
+        "IT'S OVER. The {leader} are your Coldwater Cup champions. Carve it into whatever's still standing."
+      ],
       "cup.outro": [
         "Coldwater Cup champions, the {leader}. Enjoy it. Historically, that has been the advice.",
         "The {leader} take the Cup. I'm Tug Brennan, and I'd let it air out before you drink from it."
-      ],
-      "death": [
-        "{player} IS DEAD. That's the game — sudden death, and the CPhL has never pretended it meant anything else. {winnerTeam} win it.",
-        "He's gone. {player}, on the ice, in overtime, and that is how this league ends a tie.",
-        "{player} does not get up, and he is not going to. {winnerTeam} take it. Somebody call his people."
-      ],
-      "faceoff": [
-        "Puck's down at the dot.",
-        "Clean draw, and away we go.",
-        "Won back cleanly, and the {winTeam} have it."
-      ],
-      "faceoff.center": [
-        "Back to centre ice. {winner} takes the draw from {loser} and the {winTeam} have it.",
-        "Centre-ice draw — {winner} wins it clean. {winTeam} puck.",
-        "They line it up at centre. {winner} beats {loser} to it and away we go.",
-        "Puck's down at centre. {winTeam} come away with it."
-      ],
-      "faceoff.neutral": [
-        "Neutral-zone draw. {winner} ties up {loser} and the {winTeam} come away with it.",
-        "Dropped outside the line, and {winner} wins it.",
-        "{winner} takes the neutral-zone draw. Nothing much happens here and that's the point."
-      ],
-      "faceoff.zone": [
-        "Draw in the {zone}. {winner} wins it back for the {winTeam}.",
-        "Down in the {zone}, and {winner} takes it off {loser}.",
-        "They set up in the {zone}. {winner} gets a stick on it first and it's {winTeam} possession.",
-        "{winner} wins the draw deep. That's {foAway}–{foHome} on the dot tonight, if anybody's counting. Nobody is."
-      ],
-      "fight.result": [
-        "{winner} takes it. {loser} takes five, and the {winnerTeam} go on the power play for winning a fistfight, which is the CPhL rulebook in one sentence.",
-        "It's {winner}. {loser} is helped up and sent away, and his team pays for it with a man.",
-        "{winner} wins the fight and wins his side the man advantage. Whoever wrote these rules was not well."
-      ],
-      "final": [
-        "FINAL from Coldwater: {home} {homeScore}, {away} {awayScore}. {leader} take it.",
-        "That's the game. {leader} win it, {homeScore} to {awayScore}, and everyone still standing gets to go home.",
-        "Final score, {away} {awayScore} and {home} {homeScore}. {leader} with the win.",
-        "Horn goes. {leader} take it {homeScore}–{awayScore}, and the cleanup crew earn theirs tonight."
-      ],
-      "goal": [
-        "{shooter} SCORES. {team} lead the noise, {home} {homeScore}, {away} {awayScore}.",
-        "IN. {shooter} beats {goalie}, and the horn does what the horn does.",
-        "{shooter} buries it. {assist} with the pass, and this building has come apart.",
-        "He shoots — HE SCORES. {shooter}, from {assist}, and {goalie} never had it."
-      ],
-      "goal.en": [
-        "Empty net, and {shooter} buries it from his own blue line. {home} {homeScore}, {away} {awayScore}. Turn the lights off on your way out.",
-        "Into the empty cage. {shooter}. That's the gamble, and it did not pay.",
-        "{shooter} finds the empty net. The goalie is on the bench watching it happen from sixty feet."
-      ],
-      "goal.pp": [
-        "On the power play, {shooter} makes them pay for it. Man advantage, man in the net.",
-        "{team} cash the power play. {shooter} with the finish. That penalty cost exactly what penalties cost.",
-        "Extra man, extra goal. {shooter}, and {goalie} was hung out to dry."
-      ],
-      "goal.sh": [
-        "SHORTHANDED! Down a man and {shooter} goes the other way and scores. Someone is getting shouted at.",
-        "A shorthanded goal. The {team} are a man DOWN and they've just gone ahead on it.",
-        "{shooter} scores while his teammate sits in the box. That's the most embarrassing goal in hockey."
-      ],
-      "hattrick": [
-        "That's THREE for {player}. A hat trick in the CPhL, and nobody in this building owns a hat.",
-        "{player} completes the hat trick. Whatever they throw on the ice tonight, do not touch it.",
-        "Three goals, {player}. Remember the name, because at this rate he may not be with us long."
-      ],
-      "injury": [
-        "{player} is not getting up. He's helped off, and the {teamName} are down to {remaining} skaters — no replacement, that's the rule, and they wear it for the rest of the night.",
-        "That's {player}'s evening finished. {teamName} play the rest of this short.",
-        "{player} goes down the tunnel under his own power, barely. {remaining} left on the bench and nobody coming over the boards to help."
-      ],
-      "injury.report": [
-        "Before we drop it: {count} out of the lineup tonight. {missing} — all still on the shelf from what was done to them, and up from the reserve, {callups}.",
-        "The injury list, and it's long: {missing}. Dressing instead — {callups}. Best of luck to them, sincerely, they'll need it.",
-        "{missing} not in the building tonight, or not in a state to be. {callups} get the sweaters. Nobody has asked them if they want them.",
-        "No {player} tonight — still out, and the club brings up {callup}. This league does not do get-well cards.",
-        "{count} missing between these two. That's the CPhL in the back half of a season: eventually everybody is somebody's replacement."
-      ],
-      "intermission.casualties": [
-        "Off the ice this period and not coming back: {casualties}. Their side plays the rest of this short — that's the rule and nobody's ever changed it.",
-        "{count} man off in that period. {player} in particular is not going to be right for a while.",
-        "We lost {casualties} in there. No replacements. That's how a game gets away from a club in this league."
-      ],
-      "intermission.goal": [
-        "{clock} — {shooter}, {team}. Assist: {assist}.",
-        "{team}, {shooter} at {clock}, set up by {assist}.",
-        "{shooter} for the {team}, {clock} on the clock. {assist} with the helper."
-      ],
-      "intermission.intro": [
-        "End of the {sectionOrd}, and they'll be fifteen minutes resurfacing what's left of it. Let's go back through it.",
-        "That's the horn. While they scrape it, here's your {sectionOrd} period.",
-        "Intermission. {away} {awayScore}, {home} {homeScore}, and here's how we got there."
-      ],
-      "intermission.outro": [
-        "Back in a moment for the {nextOrd}. Don't go anywhere — statistically, something's about to happen to somebody.",
-        "That's your intermission. They'll be out shortly, most of them.",
-        "We'll take a break. When we come back there'll be fresh ice and the same problems."
-      ],
-      "intermission.scoreless": [
-        "No goals in the {sectionOrd}. Forty minutes of hockey between two clubs and nothing to show anyone for it.",
-        "Scoreless period. Both goaltenders held up, which in this league mostly means both of them are still conscious.",
-        "Nobody scored. I'd call it a goaltending duel but I watched it and it wasn't."
-      ],
-      "intermission.stats": [
-        "Shots in the period: {away} {shotsAway}, {home} {shotsHome}. {penalties} minor infractions called, which is fewer than were committed.",
-        "{shots} shots between them in that period — {shotsAway} for the {away}, {shotsHome} for the {home}. The officials found {penalties} penalties in there somewhere.",
-        "By the numbers: {shotsAway}–{shotsHome} on goal, {penalties} to the box, {hits} hits that I'd describe as deliberate.",
-        "Shot clock says {away} {shotsAway}, {home} {shotsHome}. There were {fights} fights, which is under the league average, which is a sentence I hate saying."
-      ],
-      "intermission.summary": [
-        "Scoring summary, {sectionOrd} period:",
-        "Your goals in the {sectionOrd}:",
-        "Here's the scoring:"
-      ],
-      "intro": [
-        "Good evening from Coldwater and welcome to CLUSTER PUCK. I'm Tug Brennan, nobody made me do this, and we are under way.",
-        "CPhL hockey tonight, brought to you by whoever is still paying, and I have been told not to name them on air.",
-        "Evening. Tug Brennan with you. The scheduler says these two are playing, so these two are playing.",
-        "Welcome in. The ice is down, the lights are on, and the insurance has lapsed. Let's go."
-      ],
-      "matchup": [
-        "Tonight the {away} come to town to face the {home}.",
-        "It's the {away} against the {home}, and one of these buildings empties out happy.",
-        "{away} at {home}. Somebody's night gets worse in the next hour.",
-        "The {away} in from out of district to meet the {home}. Sixty minutes, whatever's left of it."
-      ],
-      "matchup.records": [
-        "The {away}, {awayRecord} on the season, into the barn against the {home} at {homeRecord}.",
-        "On the marquee: {away} ({awayRecord}) versus {home} ({homeRecord}). Somebody's record gets worse tonight.",
-        "{away} bring {awayRecord} in here. {home} sit at {homeRecord}. The scheduler does not care."
-      ],
-      "ot.intro": [
-        "Level after sixty. SUDDEN DEATH — and in this league that is not a figure of speech.",
-        "We go to overtime. First goal wins it. So does the first body.",
-        "Sixty minutes settled nothing, so now we find out the other way."
-      ],
-      "outro": [
-        "That's CLUSTER PUCK. I'm Tug Brennan. Mind how you go, and mind what's on the ice.",
-        "For the CPhL, I'm Tug Brennan. There's another one tomorrow, because there is always another one.",
-        "Tug Brennan, saying goodnight from Coldwater. Nobody won anything permanent."
-      ],
-      "penalty": [
-        "{player} goes for {infraction}. {penaltyMin} minutes, and the {team} are down a man.",
-        "Arm's up — {infraction} on {player}. {penaltyMin} in the box.",
-        "That's {penaltyMin} for {infraction}. {player} has a sit down and a think.",
-        "{player} caught for {infraction}. The officials noticed that one, which is not guaranteed."
-      ],
-      "penalty.fight": [
-        "Gloves off — {fighters} have decided the scoreboard isn't settling this. Linesmen are giving it a count of five before they pretend to care.",
-        "And they go. {fighters}, right at centre ice, and nobody is in a hurry to stop it.",
-        "Here it is. {fighters}, sweaters up over the heads, and the building is on its feet."
-      ],
-      "penalty.major": [
-        "{penaltyMin} minutes for {infraction}. That's a major, and {player} is done thinking about it.",
-        "A five for {infraction} on {player}. Even these officials couldn't let that go.",
-        "{player} gets {penaltyMin} for {infraction}. He knew what he was doing and he did it anyway."
-      ],
-      "powerplay.kill": [
-        "Killed it off. Back to even strength.",
-        "Penalty killed, and the {team} bench is very pleased with itself.",
-        "They survive it. Back to five a side."
-      ],
-      "powerplay.start": [
-        "{team} go to the power play.",
-        "Man advantage {team} for the next two minutes. Let's see if they can do anything with it.",
-        "Power play, {team}. This is where games get decided and hearts get broken."
-      ],
-      "pull": [
-        "{teamName} pull the goalie. Down {down}, six on five, and the net is empty behind them.",
-        "Here comes the goalie to the bench. {teamName} going for it with the extra attacker.",
-        "Empty net at the far end — {teamName} are down {down} and out of patience."
-      ],
-      "rivalry.intro": [
-        "Evening. Tug Brennan, and you know what tonight is. These two do not like each other and they have never needed a reason.",
-        "Welcome in. It's one of THOSE nights — the scheduler put these two together again and the building knew before I did.",
-        "Good evening from Coldwater, where the ice is down and both of these clubs turned up early to stand around looking at each other."
-      ],
-      "rivalry.matchup": [
-        "{away} at {home}, and this one has history nobody wrote down. Bring a bucket.",
-        "The {away} and the {home}. There is no trophy for this and they will both bleed for it anyway.",
-        "It's {away}–{home}. Whatever this is, it started before the records did, and the records don't exist.",
-        "{away} into {home}'s barn. Last time these two met the officials went home early."
-      ],
-      "score.update": [
-        "{home} {homeScore}, {away} {awayScore}.",
-        "That makes it {away} {awayScore}, {home} {homeScore}.",
-        "Scoreboard: {home} {homeScore}, {away} {awayScore}, {clock} left in the {sectionOrd}.",
-        "Your score, {away} {awayScore} and {home} {homeScore}."
-      ],
-      "scrum": [
-        "Bodies in front now, sticks up, everybody shoving and nobody swinging.",
-        "It's a scrum in the corner. Four men, one puck, no dignity.",
-        "They're all in there kicking at it. This is most of hockey, if we're honest."
-      ],
-      "section.end": [
-        "That's the {sectionOrd}. {home} {homeScore}, {away} {awayScore}.",
-        "Horn goes on the {sectionOrd}. {away} {awayScore}, {home} {homeScore}, and the Zamboni comes out to hide the evidence.",
-        "End of the {sectionOrd}. They'll resurface it, which is optimistic."
-      ],
-      "section.start": [
-        "Here we go with the {sectionOrd}. {away} attacking twice, {home} once more after that.",
-        "{sectionOrd} period under way. Two blasts from the official and the puck is down.",
-        "Fresh sheet, {sectionOrd} period. It won't stay fresh."
-      ],
-      "shootout.intro": [
-        "Nobody died and nobody scored, so we're going to the shootout. Frankly it's a let-down.",
-        "To the shootout. One at a time, one on one, and the crowd hates it."
-      ],
-      "shootout.miss": [
-        "{goalie} turns aside {shooter}. Still {soAway}–{soHome}.",
-        "No good. {shooter} tries to be clever and isn't."
-      ],
-      "shootout.score": [
-        "{shooter} scores. {soAway}–{soHome} in the shootout.",
-        "Buries it. {shooter} makes no mistake."
-      ],
-      "shootout.winner": [
-        "{winner} take the shootout {soAway}–{soHome} and the two points.",
-        "It's over. {winner} win it in the skills competition, which counts, apparently."
-      ],
-      "shot.blocked": [
-        "Blocked. Somebody in a {team} sweater is going to feel that in the morning.",
-        "Down goes a defender in front and it never gets through.",
-        "{shooter} winds up and a shin gets in the way. That's the job."
-      ],
-      "shot.breakaway": [
-        "{shooter} is GONE — nothing between him and {goalie} — and {goalie} stones him.",
-        "Breakaway! {shooter} in alone, and he can't finish it.",
-        "Loose in the neutral zone, {shooter} is away, one on one, and {goalie} wins it."
-      ],
-      "shot.glove": [
-        "{goalie} SNAPS the glove shut on it. He didn't need to look.",
-        "Glove save, {goalie}, and he holds it up like he's proud of it. He should be.",
-        "{shooter} picks a corner and {goalie} picks it right out of the air."
-      ],
-      "shot.pad": [
-        "Off the pad and into the corner. {goalie} kicks it away.",
-        "{goalie} gets a leg on it. That's all it takes.",
-        "Pad save. {shooter} will want that one again."
-      ],
-      "shot.post": [
-        "IRON! {shooter} rings it off the post and the whole building makes a noise I'd describe as grief.",
-        "OFF THE POST. Half an inch. Half an inch, and {goalie} knows it.",
-        "CLANG. That's the sound of a man's night changing and not changing at the same time."
-      ],
-      "shot.save": [
-        "{goalie} takes it in the chest and holds on.",
-        "{shooter} tests him and {goalie} says no.",
-        "Shot away — {goalie} has it. Nothing doing.",
-        "Straight into the logo. {goalie} barely moved."
-      ],
-      "shot.wide": [
-        "Wide, and it rings around the boards.",
-        "{shooter} misses the net entirely. The glass takes it.",
-        "Off the mark. That one's going in the third row."
       ]
     },
-    "sport": "hockey",
-    "teams": [
-      "North City Icebreakers",
-      "Government Whips",
-      "Civic Center Wardens",
-      "Marquee Snipers",
-      "Media District Jammers",
-      "Docks Boarders",
-      "Bayside Slush",
-      "Industrial Flats Smelters",
-      "Slaglands Slashers",
-      "Ashway Zambonis",
-      "Sprawl Grinders",
-      "Redline Muckers",
-      "Wastes Drifters",
-      "Sewerline Benders",
-      "Yards Icehaulers",
-      "Longwatch Goons"
-    ],
-    "title": "cphl_title"
+    "title": "cphl_title",
+    "airSlots": [
+      6
+    ]
   },
   "tags": [],
   "talkshow_pools": null,

@@ -160,7 +160,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Scavengers. Coming up off the sidings and stripping my parked flatcars to the rivets. Clear three of them out of the yards — Skid Row, the bulk heaps, the bonded cage — and there's coin and a no-questions crate in it for you.\""
+      "text": "\"Scavengers. Coming up off the sidings and stripping my parked flatcars to the rivets. Clear three of them out of the yards, Skid Row, the bulk heaps, the bonded cage, and there's coin and a no-questions crate in it for you.\""
     },
     "reported": {
       "actions": [
@@ -175,7 +175,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"...Sidings are quiet. My flatcars still have their fittings. Here — your coin, and a crate that fell off the back of a truck I definitely logged. We're square.\""
+      "text": "\"...Sidings are quiet. My flatcars still have their fittings. Here: your coin, and a crate that fell off the back of a truck I definitely logged. We're square.\""
     },
     "root": {
       "options": [

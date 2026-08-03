@@ -134,7 +134,7 @@
       },
       "bsm_13": {
         "type": "say",
-        "text": "Head at the top. Hands at the bottom. And between them, a great machine, so that the two would never have to meet — nor ever learn they were the same body.",
+        "text": "Head at the top. Hands at the bottom. And between them, a great machine, so that the two would never have to meet, nor ever learn they were the same body.",
         "style": "narration",
         "_vine": {
           "x": 740,
@@ -173,7 +173,7 @@
       },
       "bsm_17": {
         "type": "say",
-        "text": "Young men and women in white, laughing at nothing — because nothing is all they have ever been given.",
+        "text": "Young men and women in white, laughing at nothing, because nothing is all they have ever been given.",
         "style": "narration",
         "_vine": {
           "x": 520,
@@ -213,7 +213,7 @@
       },
       "bsm_21": {
         "type": "say",
-        "text": "Eli says, \"No — no cheating — the fountain is earned, that is the whole point of it —\"",
+        "text": "Eli says, \"No. No cheating. The fountain is earned, that is the whole point of it...\"",
         "style": "verbatim",
         "_vine": {
           "x": 300,
@@ -223,7 +223,7 @@
       },
       "bsm_22": {
         "type": "say",
-        "text": "And then the garden gate — which has never once opened from below — opens from below.",
+        "text": "And then the garden gate, which has never once opened from below, opens from below.",
         "style": "narration",
         "_vine": {
           "x": 520,
@@ -303,7 +303,7 @@
       },
       "bsm_30": {
         "type": "say",
-        "text": "Eli says, \"Wait — who are you?\"",
+        "text": "Eli says, \"Wait. Who are you?\"",
         "style": "verbatim",
         "_vine": {
           "x": 80,
@@ -403,7 +403,7 @@
       },
       "bsm_40": {
         "type": "say",
-        "text": "He puts his palm to the cold gate the grey woman came through. On the far side of it, faintly, he can feel it — a deep, patient throb, up through a mile of tower, into the bones of the hand.",
+        "text": "He puts his palm to the cold gate the grey woman came through. On the far side of it, faintly, he can feel it: a deep, patient throb, up through a mile of tower, into the bones of the hand.",
         "style": "narration",
         "_vine": {
           "x": 80,
@@ -466,7 +466,7 @@
       "bsm_46": {
         "type": "music",
         "song": "before_the_light",
-        "text": "♪ The organ curdles into a low industrial pulse — pistons taken for a heartbeat, or the reverse. ♪",
+        "text": "♪ The organ curdles into a low industrial pulse, pistons taken for a heartbeat, or the reverse. ♪",
         "_vine": {
           "x": 300,
           "y": 1520
@@ -505,7 +505,7 @@
       },
       "bsm_50": {
         "type": "say",
-        "text": "The foreman, GROT — old, enormous, unhurried — watches the garden boy step off the lift in his white and does not laugh, which costs him something.",
+        "text": "The foreman, GROT, old, enormous, unhurried, watches the garden boy step off the lift in his white and does not laugh, which costs him something.",
         "style": "narration",
         "_vine": {
           "x": 80,
@@ -635,7 +635,7 @@
       },
       "bsm_63": {
         "type": "say",
-        "text": "Grot says, \"Hold that line! Second shift — cover the third gantry — HOLD it —\"",
+        "text": "Grot says, \"Hold that line! Second shift, cover the third gantry, HOLD it...\"",
         "style": "verbatim",
         "_vine": {
           "x": 740,
@@ -694,7 +694,7 @@
       },
       "bsm_69": {
         "type": "say",
-        "text": "Eli says, \"Stop it! Somebody stop it — they’re inside it —\"",
+        "text": "Eli says, \"Stop it! Somebody stop it, they’re inside it...\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -714,7 +714,7 @@
       },
       "bsm_71": {
         "type": "say",
-        "text": "A vast iron mouth — and the men walking up its steps in rows, willingly, because the alternative is that the city above stops breathing.",
+        "text": "A vast iron mouth, and the men walking up its steps in rows, willingly, because the alternative is that the city above stops breathing.",
         "style": "narration",
         "_vine": {
           "x": 300,
@@ -1016,7 +1016,7 @@
       },
       "bsm_101": {
         "type": "say",
-        "text": "The Master says, \"If they did not die there, where would you have them do it — up here?\"",
+        "text": "The Master says, \"If they did not die there, where would you have them do it? Up here?\"",
         "style": "verbatim",
         "_vine": {
           "x": 300,
@@ -1086,7 +1086,7 @@
       },
       "bsm_108": {
         "type": "say",
-        "text": "Eli says, \"And what joins them, Father? A head and a hand — what is in between?\"",
+        "text": "Eli says, \"And what joins them, Father? A head and a hand. What is in between?\"",
         "style": "verbatim",
         "_vine": {
           "x": 740,
@@ -1166,7 +1166,7 @@
       },
       "bsm_116": {
         "type": "say",
-        "text": "Eli says, \"Not preaching the breaking. She said the opposite. She said wait — she said someone was coming —\"",
+        "text": "Eli says, \"Not preaching the breaking. She said the opposite. She said wait. She said someone was coming...\"",
         "style": "verbatim",
         "_vine": {
           "x": 300,
@@ -1206,7 +1206,7 @@
       },
       "bsm_120": {
         "type": "say",
-        "text": "He crosses to a private lift — older than the tower, hidden in the tower’s own spine.",
+        "text": "He crosses to a private lift, older than the tower, hidden in the tower’s own spine.",
         "style": "narration",
         "_vine": {
           "x": 80,
@@ -1588,7 +1588,7 @@
       },
       "bsm_158": {
         "type": "say",
-        "text": "Koss says, \"And then your weather will say precisely what you tell it to say — in the voice they already trust.\"",
+        "text": "Koss says, \"And then your weather will say precisely what you tell it to say, in the voice they already trust.\"",
         "style": "verbatim",
         "_vine": {
           "x": 740,
@@ -1598,7 +1598,7 @@
       },
       "bsm_159": {
         "type": "say",
-        "text": "The Master says, \"Do it. And Koss — the son must never know.\"",
+        "text": "The Master says, \"Do it. And Koss: the son must never know.\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -1658,7 +1658,7 @@
       },
       "bsm_165": {
         "type": "say",
-        "text": "Koss says, \"I shall hand it back to you broken — and let you thank me for that too.\"",
+        "text": "Koss says, \"I shall hand it back to you broken, and let you thank me for that too.\"",
         "style": "verbatim",
         "_vine": {
           "x": 80,
@@ -1741,7 +1741,7 @@
       "bsm_173": {
         "type": "music",
         "song": "before_the_light",
-        "text": "♪ Voices in a low round, human and unaccompanied — the first warm sound in the picture. ♪",
+        "text": "♪ Voices in a low round, human and unaccompanied, the first warm sound in the picture. ♪",
         "_vine": {
           "x": 740,
           "y": 5520
@@ -1800,7 +1800,7 @@
       },
       "bsm_179": {
         "type": "say",
-        "text": "Mira says, \"And an empty space between a head and a hand is not a body at all —\"",
+        "text": "Mira says, \"And an empty space between a head and a hand is not a body at all...\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -1840,7 +1840,7 @@
       },
       "bsm_183": {
         "type": "say",
-        "text": "Mira says, \"A face can be stolen. A voice can be copied. But grief cannot be faked, and I have wept with every one of you. When the false one comes — and one always comes — look for the wet eyes. The truth is the one still weeping.\"",
+        "text": "Mira says, \"A face can be stolen. A voice can be copied. But grief cannot be faked, and I have wept with every one of you. When the false one comes, and one always comes, look for the wet eyes. The truth is the one still weeping.\"",
         "style": "verbatim",
         "_vine": {
           "x": 740,
@@ -1870,7 +1870,7 @@
       },
       "bsm_186": {
         "type": "say",
-        "text": "Grot says, \"Then let us break the throat! You give us the words and none of the door — say the word, Mira, and we pull it down tonight —\"",
+        "text": "Grot says, \"Then let us break the throat! You give us the words and none of the door. Say the word, Mira, and we pull it down tonight...\"",
         "style": "verbatim",
         "_vine": {
           "x": 300,
@@ -1950,7 +1950,7 @@
       },
       "bsm_194": {
         "type": "say",
-        "text": "Mira says, \"Between the head that rules and the hand that bleeds there must be a heart —\"",
+        "text": "Mira says, \"Between the head that rules and the hand that bleeds there must be a heart...\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -2000,7 +2000,7 @@
       },
       "bsm_199": {
         "type": "say",
-        "text": "Grot says, \"That is a tower face. That is the Master’s own colour. Kill the light — cover the candles —\"",
+        "text": "Grot says, \"That is a tower face. That is the Master’s own colour. Kill the light, cover the candles...\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -2030,7 +2030,7 @@
       },
       "bsm_202": {
         "type": "say",
-        "text": "Mira says, \"By his hands. They will be soft — and he will use them anyway.\"",
+        "text": "Mira says, \"By his hands. They will be soft, and he will use them anyway.\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -2070,7 +2070,7 @@
       },
       "bsm_206": {
         "type": "say",
-        "text": "MIRA looks at him a long moment — the way you look at a thing you prayed for and half feared would come.",
+        "text": "MIRA looks at him a long moment, the way you look at a thing you prayed for and half feared would come.",
         "style": "narration",
         "_vine": {
           "x": 300,
@@ -2130,7 +2130,7 @@
       },
       "bsm_212": {
         "type": "say",
-        "text": "Grot says, \"Then show me. Not with your mouth — your mouth is your father’s. Show me with the part of you that is going to be down here when the sun comes up.\"",
+        "text": "Grot says, \"Then show me. Not with your mouth. Your mouth is your father’s. Show me with the part of you that is going to be down here when the sun comes up.\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -2150,7 +2150,7 @@
       },
       "bsm_214": {
         "type": "say",
-        "text": "Eli says, \"Put me on the valve tomorrow. The one that took a man today. If I run, you never have to hear a tower voice again. If I stay —\"",
+        "text": "Eli says, \"Put me on the valve tomorrow. The one that took a man today. If I run, you never have to hear a tower voice again. If I stay...\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -2180,7 +2180,7 @@
       },
       "bsm_217": {
         "type": "say",
-        "text": "GROT steps aside — the width of one man, no more. It is the largest door anyone has ever opened for ELI in his life.",
+        "text": "GROT steps aside, the width of one man, no more. It is the largest door anyone has ever opened for ELI in his life.",
         "style": "narration",
         "_vine": {
           "x": 520,
@@ -2213,7 +2213,7 @@
       "bsm_220": {
         "type": "music",
         "song": "before_the_light",
-        "text": "♪ The music-box lullaby again, closer — the threat now in the room. ♪",
+        "text": "♪ The music-box lullaby again, closer, the threat now in the room. ♪",
         "_vine": {
           "x": 80,
           "y": 7120
@@ -2362,7 +2362,7 @@
       },
       "bsm_235": {
         "type": "say",
-        "text": "Mira says, \"Whatever you make wearing my face — they will know. The hands know their own.\"",
+        "text": "Mira says, \"Whatever you make wearing my face, they will know. The hands know their own.\"",
         "style": "verbatim",
         "_vine": {
           "x": 80,
@@ -2512,7 +2512,7 @@
       },
       "bsm_250": {
         "type": "say",
-        "text": "Koss says, \"And smile while you say it — smile with her mouth.\"",
+        "text": "Koss says, \"And smile while you say it. Smile with her mouth.\"",
         "style": "verbatim",
         "_vine": {
           "x": 80,
@@ -2562,7 +2562,7 @@
       },
       "bsm_255": {
         "type": "say",
-        "text": "Mira says, \"For a night. And then one of them — the slow one, the one nobody listens to — will notice that it never weeps. And it will end there, at the one dry eye you forgot to build.\"",
+        "text": "Mira says, \"For a night. And then one of them, the slow one, the one nobody listens to, will notice that it never weeps. And it will end there, at the one dry eye you forgot to build.\"",
         "style": "verbatim",
         "_vine": {
           "x": 80,
@@ -2615,7 +2615,7 @@
       "bsm_260": {
         "type": "music",
         "song": "before_the_light",
-        "text": "♪ A waltz played on broken glass — charming, wrong, speeding up. ♪",
+        "text": "♪ A waltz played on broken glass: charming, wrong, speeding up. ♪",
         "_vine": {
           "x": 80,
           "y": 8400
@@ -2634,7 +2634,7 @@
       },
       "bsm_262": {
         "type": "say",
-        "text": "The young men who never think a thought all summer cannot look away — and begin, for her, to think of ruin.",
+        "text": "The young men who never think a thought all summer cannot look away, and begin, for her, to think of ruin.",
         "style": "narration",
         "_vine": {
           "x": 520,
@@ -2694,7 +2694,7 @@
       },
       "bsm_268": {
         "type": "say",
-        "text": "The Double says, \"Good. You feel it. That warmth in your chest — that is not love, little garden. That is the pleasure of being about to break something you were told was holy.\"",
+        "text": "The Double says, \"Good. You feel it. That warmth in your chest. That is not love, little garden. That is the pleasure of being about to break something you were told was holy.\"",
         "style": "verbatim",
         "_vine": {
           "x": 740,
@@ -2704,7 +2704,7 @@
       },
       "bsm_269": {
         "type": "say",
-        "text": "The Gardens, which have never in a thousand years produced a single decision, begin — beautifully, terribly — to riot in white silk.",
+        "text": "The Gardens, which have never in a thousand years produced a single decision, begin, beautifully and terribly, to riot in white silk.",
         "style": "narration",
         "_vine": {
           "x": 960,
@@ -2744,7 +2744,7 @@
       },
       "bsm_273": {
         "type": "say",
-        "text": "The Double says, \"Break the Mainspring — drown the head that drinks your days — tonight!\"",
+        "text": "The Double says, \"Break the Mainspring, drown the head that drinks your days, tonight!\"",
         "style": "verbatim",
         "_vine": {
           "x": 740,
@@ -2794,7 +2794,7 @@
       },
       "bsm_278": {
         "type": "say",
-        "text": "Grot says, \"Why does she say break now, with her eyes so bright — and so dry?\"",
+        "text": "Grot says, \"Why does she say break now, with her eyes so bright, and so dry?\"",
         "style": "verbatim",
         "_vine": {
           "x": 740,
@@ -2834,7 +2834,7 @@
       },
       "bsm_282": {
         "type": "say",
-        "text": "Eli says, \"Mira — stop — this isn’t you, this isn’t what you said —\"",
+        "text": "Eli says, \"Mira, stop. This isn’t you, this isn’t what you said...\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -2884,7 +2884,7 @@
       },
       "bsm_287": {
         "type": "say",
-        "text": "And ELI, who fell in love with a face at a garden gate, half-believes his eyes — and his heart breaks in exactly the place he was trying to grow one.",
+        "text": "And ELI, who fell in love with a face at a garden gate, half-believes his eyes, and his heart breaks in exactly the place he was trying to grow one.",
         "style": "narration",
         "_vine": {
           "x": 520,
@@ -2924,7 +2924,7 @@
       },
       "bsm_291": {
         "type": "say",
-        "text": "ELI looks. The Double gestures, and its fingers move in perfect time — too perfect, the way a clock is perfect, the way a living hand never quite is.",
+        "text": "ELI looks. The Double gestures, and its fingers move in perfect time, too perfect, the way a clock is perfect, the way a living hand never quite is.",
         "style": "narration",
         "_vine": {
           "x": 300,
@@ -2944,7 +2944,7 @@
       },
       "bsm_293": {
         "type": "say",
-        "text": "Grot says, \"Now you are learning to see. Too late to stop this tide — but remember it. There will be a second one, and she will be shaking, and you must not make this mistake twice.\"",
+        "text": "Grot says, \"Now you are learning to see. Too late to stop this tide, but remember it. There will be a second one, and she will be shaking, and you must not make this mistake twice.\"",
         "style": "verbatim",
         "_vine": {
           "x": 740,
@@ -2987,7 +2987,7 @@
       "bsm_297": {
         "type": "music",
         "song": "before_the_light",
-        "text": "♪ Every instrument at once — then a snap — then water. ♪",
+        "text": "♪ Every instrument at once, then a snap, then water. ♪",
         "_vine": {
           "x": 520,
           "y": 9520
@@ -3016,7 +3016,7 @@
       },
       "bsm_300": {
         "type": "say",
-        "text": "Grot says, \"Stop! You fools — the Mainspring holds the deep pumps!\"",
+        "text": "Grot says, \"Stop! You fools! The Mainspring holds the deep pumps!\"",
         "style": "verbatim",
         "_vine": {
           "x": 80,
@@ -3026,7 +3026,7 @@
       },
       "bsm_301": {
         "type": "say",
-        "text": "Grot says, \"Break the machine and the water comes up — up into your own homes —\"",
+        "text": "Grot says, \"Break the machine and the water comes up, up into your own homes...\"",
         "style": "verbatim",
         "_vine": {
           "x": 300,
@@ -3056,7 +3056,7 @@
       },
       "bsm_304": {
         "type": "say",
-        "text": "Grot says, \"The children are in the deep quarters! Listen to me — I have kept this machine my whole life, I know what it holds back —\"",
+        "text": "Grot says, \"The children are in the deep quarters! Listen to me. I have kept this machine my whole life, I know what it holds back...\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -3116,7 +3116,7 @@
       },
       "bsm_310": {
         "type": "say",
-        "text": "The great core shudders, and slows, and — for the first time since the Waking — stops.",
+        "text": "The great core shudders, and slows, and, for the first time since the Waking, stops.",
         "style": "narration",
         "_vine": {
           "x": 80,
@@ -3166,7 +3166,7 @@
       },
       "bsm_315": {
         "type": "say",
-        "text": "For one held second the hands stand in the sudden silence of the stopped machine and feel it — the thing they had wanted their whole lives. The machine, off. The needle, dead. No shift. No throat. Rest.",
+        "text": "For one held second the hands stand in the sudden silence of the stopped machine and feel it: the thing they had wanted their whole lives. The machine, off. The needle, dead. No shift. No throat. Rest.",
         "style": "narration",
         "_vine": {
           "x": 80,
@@ -3186,7 +3186,7 @@
       },
       "bsm_317": {
         "type": "say",
-        "text": "It is not. In the silence they can hear, for the first time, exactly what the machine had been holding back — and it is coming up the stairwells with the patience of the sea.",
+        "text": "It is not. In the silence they can hear, for the first time, exactly what the machine had been holding back, and it is coming up the stairwells with the patience of the sea.",
         "style": "narration",
         "_vine": {
           "x": 520,
@@ -3206,7 +3206,7 @@
       },
       "bsm_319": {
         "type": "say",
-        "text": "Grot says, \"The water — the water — my god. The children. The children are still in the deep quarters.\"",
+        "text": "Grot says, \"The water. The water. My god. The children. The children are still in the deep quarters.\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -3246,7 +3246,7 @@
       },
       "bsm_323": {
         "type": "say",
-        "text": "The hands stand in the rising water and understand, all at once and far too late, what they have been told to do — and by what.",
+        "text": "The hands stand in the rising water and understand, all at once and far too late, what they have been told to do, and by what.",
         "style": "narration",
         "_vine": {
           "x": 740,
@@ -3286,7 +3286,7 @@
       },
       "bsm_327": {
         "type": "say",
-        "text": "And it points — at the stairs, at the exits, at the way up and out — and even now, even drowning, some of the hands obey the pointing finger, because a finger that has been right about their rage might yet be right about their escape.",
+        "text": "And it points, at the stairs, at the exits, at the way up and out, and even now, even drowning, some of the hands obey the pointing finger, because a finger that has been right about their rage might yet be right about their escape.",
         "style": "narration",
         "_vine": {
           "x": 520,
@@ -3339,7 +3339,7 @@
       "bsm_332": {
         "type": "music",
         "song": "before_the_light",
-        "text": "♪ A single held note — human, a woman’s voice — over rising water. ♪",
+        "text": "♪ A single held note, human, a woman’s voice, over rising water. ♪",
         "_vine": {
           "x": 520,
           "y": 10640
@@ -3348,7 +3348,7 @@
       },
       "bsm_333": {
         "type": "say",
-        "text": "MIRA — the true one — wakes in the emptied workshop. A stranger wearing her face on the streets above. A city drowning below.",
+        "text": "MIRA, the true one, wakes in the emptied workshop. A stranger wearing her face on the streets above. A city drowning below.",
         "style": "narration",
         "_vine": {
           "x": 740,
@@ -3378,7 +3378,7 @@
       },
       "bsm_336": {
         "type": "say",
-        "text": "And everywhere, the grey children — too small to reach the high ledges, reaching anyway.",
+        "text": "And everywhere, the grey children, too small to reach the high ledges, reaching anyway.",
         "style": "narration",
         "_vine": {
           "x": 300,
@@ -3388,7 +3388,7 @@
       },
       "bsm_337": {
         "type": "say",
-        "text": "Mira says, \"To me! All of you — to my voice!\"",
+        "text": "Mira says, \"To me! All of you, to my voice!\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -3398,7 +3398,7 @@
       },
       "bsm_338": {
         "type": "say",
-        "text": "Mira says, \"Follow the voice, not the water — the voice goes up! The water only knows how to go where you already are!\"",
+        "text": "Mira says, \"Follow the voice, not the water. The voice goes up! The water only knows how to go where you already are!\"",
         "style": "verbatim",
         "_vine": {
           "x": 740,
@@ -3408,7 +3408,7 @@
       },
       "bsm_339": {
         "type": "say",
-        "text": "And ELI, thrown loose from the mob, half-drowned in his own doubt, hears a voice in the dark that his eyes cannot explain —",
+        "text": "And ELI, thrown loose from the mob, half-drowned in his own doubt, hears a voice in the dark that his eyes cannot explain...",
         "style": "narration",
         "_vine": {
           "x": 960,
@@ -3438,7 +3438,7 @@
       },
       "bsm_342": {
         "type": "say",
-        "text": "Eli says, \"The one above is a lie — and this one, down here, in the water, saving them — this one is her.\"",
+        "text": "Eli says, \"The one above is a lie, and this one, down here, in the water, saving them, this one is her.\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -3468,7 +3468,7 @@
       },
       "bsm_345": {
         "type": "say",
-        "text": "Mira says, \"Eli — the ledge — the little ones can’t reach the ledge — hand them up, we make a chain, GO —\"",
+        "text": "Mira says, \"Eli, the ledge. The little ones can’t reach the ledge, hand them up, we make a chain, GO...\"",
         "style": "verbatim",
         "_vine": {
           "x": 80,
@@ -3498,7 +3498,7 @@
       },
       "bsm_348": {
         "type": "say",
-        "text": "Mira says, \"Higher — pass her higher — good — now the next — don’t look at the water, look at the next child —\"",
+        "text": "Mira says, \"Higher. Pass her higher. Good. Now the next. Don’t look at the water, look at the next child...\"",
         "style": "verbatim",
         "_vine": {
           "x": 740,
@@ -3528,7 +3528,7 @@
       },
       "bsm_351": {
         "type": "say",
-        "text": "A garden boy appears at the top of the shaft — one of the rioters, white silk soaked grey, the fight drowned out of him by the sight of the water.",
+        "text": "A garden boy appears at the top of the shaft, one of the rioters, white silk soaked grey, the fight drowned out of him by the sight of the water.",
         "style": "narration",
         "_vine": {
           "x": 300,
@@ -3538,7 +3538,7 @@
       },
       "bsm_352": {
         "type": "say",
-        "text": "Eli says, \"Don’t stand there gaping — reach down — you have hands, don’t you? Everyone always has hands when it finally matters — REACH.\"",
+        "text": "Eli says, \"Don’t stand there gaping. Reach down. You have hands, don’t you? Everyone always has hands when it finally matters. REACH.\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -3548,7 +3548,7 @@
       },
       "bsm_353": {
         "type": "say",
-        "text": "And the garden boy reaches. Silk to soaked grey, top of the world to the bottom of it, the two ends of the severed body touch for the first time in a thousand years — over a drowning child.",
+        "text": "And the garden boy reaches. Silk to soaked grey, top of the world to the bottom of it, the two ends of the severed body touch for the first time in a thousand years, over a drowning child.",
         "style": "narration",
         "_vine": {
           "x": 740,
@@ -3618,7 +3618,7 @@
       },
       "bsm_360": {
         "type": "say",
-        "text": "Mira says, \"Spend it later. Lift now. That one — the small one — lift.\"",
+        "text": "Mira says, \"Spend it later. Lift now. That one, the small one. Lift.\"",
         "style": "verbatim",
         "_vine": {
           "x": 80,
@@ -3638,7 +3638,7 @@
       },
       "bsm_362": {
         "type": "say",
-        "text": "Mira says, \"Eli. Under the third arch. I can’t reach — my arm won’t —\"",
+        "text": "Mira says, \"Eli. Under the third arch. I can’t reach, my arm won’t...\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -3678,7 +3678,7 @@
       },
       "bsm_366": {
         "type": "say",
-        "text": "Eli says, \"Take him. Take him — he’s breathing — take him up —\"",
+        "text": "Eli says, \"Take him. Take him, he’s breathing, take him up...\"",
         "style": "verbatim",
         "_vine": {
           "x": 300,
@@ -3741,7 +3741,7 @@
       "bsm_372": {
         "type": "music",
         "song": "before_the_light",
-        "text": "♪ The broken waltz returns — faltering now, coming apart. ♪",
+        "text": "♪ The broken waltz returns, faltering now, coming apart. ♪",
         "_vine": {
           "x": 520,
           "y": 11920
@@ -3750,7 +3750,7 @@
       },
       "bsm_373": {
         "type": "say",
-        "text": "The hands climb up out of the flood they made and find, in the square, the woman who told them to make it —",
+        "text": "The hands climb up out of the flood they made and find, in the square, the woman who told them to make it...",
         "style": "narration",
         "_vine": {
           "x": 740,
@@ -3860,7 +3860,7 @@
       },
       "bsm_384": {
         "type": "say",
-        "text": "And in the fire the beautiful face runs like wax — and beneath it: steel. Glass. A thing.",
+        "text": "And in the fire the beautiful face runs like wax, and beneath it: steel. Glass. A thing.",
         "style": "narration",
         "_vine": {
           "x": 960,
@@ -3940,7 +3940,7 @@
       },
       "bsm_392": {
         "type": "say",
-        "text": "Then he sees the true MIRA — alive, climbing from the deep with a child on her hip — and his laugh curdles.",
+        "text": "Then he sees the true MIRA, alive, climbing from the deep with a child on her hip, and his laugh curdles.",
         "style": "narration",
         "_vine": {
           "x": 520,
@@ -3980,7 +3980,7 @@
       },
       "bsm_396": {
         "type": "say",
-        "text": "He takes her up the cathedral — the one old stone thing that stands above the city like a conscience it forgot it had.",
+        "text": "He takes her up the cathedral, the one old stone thing that stands above the city like a conscience it forgot it had.",
         "style": "narration",
         "_vine": {
           "x": 300,
@@ -4010,7 +4010,7 @@
       },
       "bsm_399": {
         "type": "say",
-        "text": "Eli says, \"It’s finished — the double’s burned, the city knows — there’s nothing left to break!\"",
+        "text": "Eli says, \"It’s finished. The double’s burned, the city knows. There’s nothing left to break!\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -4090,7 +4090,7 @@
       },
       "bsm_407": {
         "type": "say",
-        "text": "Mira says, \"Eli — don’t look down — look at me — hands, Eli, use your hands —\"",
+        "text": "Mira says, \"Eli, don’t look down. Look at me. Hands, Eli, use your hands...\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -4100,7 +4100,7 @@
       },
       "bsm_408": {
         "type": "say",
-        "text": "KOSS lunges. ELI — soft-handed, garden-raised, useless ELI — gets his working hands on the maker at last.",
+        "text": "KOSS lunges. ELI, soft-handed, garden-raised, useless ELI, gets his working hands on the maker at last.",
         "style": "narration",
         "_vine": {
           "x": 740,
@@ -4150,7 +4150,7 @@
       },
       "bsm_413": {
         "type": "say",
-        "text": "His manufactured hand — the one he was proudest of — closes on nothing, one final time. And the roof has him.",
+        "text": "His manufactured hand, the one he was proudest of, closes on nothing, one final time. And the roof has him.",
         "style": "narration",
         "_vine": {
           "x": 740,
@@ -4228,7 +4228,7 @@
       },
       "bsm_421": {
         "type": "say",
-        "text": "Two figures on a cathedral roof, and a city under them that has stopped humming — and started, faintly, from the deep quarters, to weep and to sing.",
+        "text": "Two figures on a cathedral roof, and a city under them that has stopped humming, and started, faintly, from the deep quarters, to weep and to sing.",
         "style": "narration",
         "_vine": {
           "x": 300,
@@ -4261,7 +4261,7 @@
       "bsm_424": {
         "type": "music",
         "song": "before_the_light",
-        "text": "♪ The far pipe-organ from the very first shot — but lower now, at ground level, human height. ♪",
+        "text": "♪ The far pipe-organ from the very first shot, but lower now, at ground level, human height. ♪",
         "_vine": {
           "x": 960,
           "y": 13520
@@ -4270,7 +4270,7 @@
       },
       "bsm_425": {
         "type": "say",
-        "text": "Dawn. The rationed sun comes down the towers and, for the first time, keeps going —",
+        "text": "Dawn. The rationed sun comes down the towers and, for the first time, keeps going...",
         "style": "narration",
         "_vine": {
           "x": 80,
@@ -4380,7 +4380,7 @@
       },
       "bsm_436": {
         "type": "say",
-        "text": "And the empty space between them, where a city keeps its heart — or keeps a tomb.",
+        "text": "And the empty space between them, where a city keeps its heart, or keeps a tomb.",
         "style": "narration",
         "_vine": {
           "x": 300,
@@ -4430,7 +4430,7 @@
       },
       "bsm_441": {
         "type": "say",
-        "text": "Eli says, \"Something that carries what the head decides down to the hands — and what the hands suffer up to the head —\"",
+        "text": "Eli says, \"Something that carries what the head decides down to the hands, and what the hands suffer up to the head...\"",
         "style": "verbatim",
         "_vine": {
           "x": 300,
@@ -4460,7 +4460,7 @@
       },
       "bsm_444": {
         "type": "say",
-        "text": "Eli says, \"Father — give me your hand.\"",
+        "text": "Eli says, \"Father, give me your hand.\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -4470,7 +4470,7 @@
       },
       "bsm_445": {
         "type": "say",
-        "text": "Eli says, \"Grot — give me yours.\"",
+        "text": "Eli says, \"Grot, give me yours.\"",
         "style": "verbatim",
         "_vine": {
           "x": 80,
@@ -4550,7 +4550,7 @@
       },
       "bsm_453": {
         "type": "say",
-        "text": "The Master says, \"And if I do — what am I then? I have been the head of this city my whole life. If I take a hand, I am only a man in a square.\"",
+        "text": "The Master says, \"And if I do, what am I then? I have been the head of this city my whole life. If I take a hand, I am only a man in a square.\"",
         "style": "verbatim",
         "_vine": {
           "x": 740,
@@ -4580,7 +4580,7 @@
       },
       "bsm_456": {
         "type": "say",
-        "text": "And ELI stands in the empty space between the head and the hand, and holds —",
+        "text": "And ELI stands in the empty space between the head and the hand, and holds...",
         "style": "narration",
         "_vine": {
           "x": 300,
@@ -4590,7 +4590,7 @@
       },
       "bsm_457": {
         "type": "say",
-        "text": "and is the heart — and the city, at last, at cost, becomes a body.",
+        "text": "and is the heart, and the city, at last, at cost, becomes a body.",
         "style": "narration",
         "_vine": {
           "x": 520,
@@ -4640,7 +4640,7 @@
       },
       "bsm_462": {
         "type": "say",
-        "text": "It was the most contested seat in Vantage for a hundred years — which is how you know they finally understood what it was worth.",
+        "text": "It was the most contested seat in Vantage for a hundred years, which is how you know they finally understood what it was worth.",
         "style": "narration",
         "_vine": {
           "x": 520,
@@ -4671,7 +4671,7 @@
       "bsm_465": {
         "type": "music",
         "song": "before_the_light",
-        "text": "♪ The organ resolves, finally, into something that is almost — but not quite — a lullaby that means it. ♪",
+        "text": "♪ The organ resolves, finally, into something that is almost, but not quite, a lullaby that means it. ♪",
         "_vine": {
           "x": 80,
           "y": 14960
@@ -4797,7 +4797,7 @@
       },
       "bsm_479": {
         "type": "credits",
-        "text": "THE MAINSPRING\nA Coldwater Saturday Picture\n\n— CAST —\nELI ................... the boy who grew a heart the hard way\nMIRA ................. the voice in the water\nTHE MASTER ........... who touched the ground of his own city, once\nKOSS ................. the maker, unthanked, unmade\nTHE DOUBLE ........... a face that never meant it\nGROT ................. slow, unlovely, right all along\n\nFilmed a mile above and a mile below the only sun in the basin.\nNo hands were consulted in the building of this city.\nThey are consulted now. That is the whole of the picture.\n\nAny resemblance to a body you live inside is entirely the point.\n\nKSAB — we keep the lights on so you don’t have to.",
+        "text": "THE MAINSPRING\nA Coldwater Saturday Picture\n\n· CAST ·\nELI ................... the boy who grew a heart the hard way\nMIRA ................. the voice in the water\nTHE MASTER ........... who touched the ground of his own city, once\nKOSS ................. the maker, unthanked, unmade\nTHE DOUBLE ........... a face that never meant it\nGROT ................. slow, unlovely, right all along\n\nFilmed a mile above and a mile below the only sun in the basin.\nNo hands were consulted in the building of this city.\nThey are consulted now. That is the whole of the picture.\n\nAny resemblance to a body you live inside is entirely the point.\n\nKSAB: we keep the lights on so you don’t have to.",
         "duration": 45,
         "_vine": {
           "x": 960,
@@ -4819,7 +4819,7 @@
       "bsm_pre_1": {
         "type": "overlay",
         "overlayType": "act_card",
-        "text": "GENERAL — SILENT, SCORED FOR THE EMBASSY DECK",
+        "text": "GENERAL: SILENT, SCORED FOR THE EMBASSY DECK",
         "subtext": "BASIN BROADCAST STANDARDS BOARD",
         "duration_s": 5,
         "_vine": {
@@ -4845,12 +4845,12 @@
   "category": "movie",
   "channel_id": null,
   "created_by": "author",
-  "description": "THE MAINSPRING — a KSAB Saturday Picture. In the vertical city of Vantage, the Master’s son goes down to the machine that eats the day, falls for the prophet of the drowned floor, and learns — through a false double, a flood, and a fall — that a city with a head and hands and nothing between them is only a tomb that has learned to hum. A silent-era machine-city fable, scored for the Embassy deck.",
+  "description": "THE MAINSPRING, a KSAB Saturday Picture. In the vertical city of Vantage, the Master’s son goes down to the machine that eats the day, falls for the prophet of the drowned floor, and learns, through a false double, a flood, and a fall, that a city with a head and hands and nothing between them is only a tomb that has learned to hum. A silent-era machine-city fable, scored for the Embassy deck.",
   "enabled": 1,
   "fallback_messages": [],
   "film_meta": {
     "presents": "KSAB Saturday Picture",
-    "rating": "GENERAL — SILENT, SCORED FOR THE EMBASSY DECK",
+    "rating": "GENERAL: SILENT, SCORED FOR THE EMBASSY DECK",
     "director": "Otto Vandermeer",
     "cast": [
       {
@@ -4908,15 +4908,15 @@
     "The men who tend it call it the thing that eats the day.",
     "Once, they say, there was a middle to the world. A ground. People stood on it, all of them, at the same height, and looked one another in the eye.",
     "The Architect found that inefficient. The Architect found almost everything human inefficient. So it built a city with the middle taken out.",
-    "Head at the top. Hands at the bottom. And between them, a great machine, so that the two would never have to meet — nor ever learn they were the same body.",
+    "Head at the top. Hands at the bottom. And between them, a great machine, so that the two would never have to meet, nor ever learn they were the same body.",
     "This is the story of the night the middle came back. It cost a flood. It usually does.",
     "The Spire Gardens. Water in the air. Light like honey.",
-    "Young men and women in white, laughing at nothing — because nothing is all they have ever been given.",
+    "Young men and women in white, laughing at nothing, because nothing is all they have ever been given.",
     "Among them: ELI, the Master’s son. He has never once wondered where the water comes from.",
     "Eli says, \"Faster! Whoever reaches the fountain first never has to think a single thought all summer!\"",
     "A girl in white catches his sleeve, breathless, laughing.",
-    "Eli says, \"No — no cheating — the fountain is earned, that is the whole point of it —\"",
-    "And then the garden gate — which has never once opened from below — opens from below.",
+    "Eli says, \"No. No cheating. The fountain is earned, that is the whole point of it...\"",
+    "And then the garden gate, which has never once opened from below, opens from below.",
     "A woman in grey. Ringed by children. Deep Floor children, grey as ash, blinking at a sun they have only heard rumors of.",
     "One child reaches up, not for the fruit, but for the light itself, as if it could be held.",
     "Mira says, \"Look at them. Look well. These are your brothers.\"",
@@ -4924,7 +4924,7 @@
     "Mira says, \"They wanted to see the top of the world. I told them the top of the world would want to see them too.\"",
     "The gardeners move to drive her out. But ELI does not move at all.",
     "He is looking at her face like a man reading his own name off a stone.",
-    "Eli says, \"Wait — who are you?\"",
+    "Eli says, \"Wait. Who are you?\"",
     "Mira says, \"No one you were meant to meet. Not yet.\"",
     "Eli says, \"Then when?\"",
     "Mira says, \"When you have been where they are from. Not before. It would only be tourism, before.\"",
@@ -4934,14 +4934,14 @@
     "No one answers. In the Gardens, one does not see downward.",
     "Eli says, \"Where does that gate go? Has anyone here ever once asked where that gate goes?\"",
     "They have gone back to the fountain. ELI stands at the closed gate alone, and for the first time in his life the light feels rationed.",
-    "He puts his palm to the cold gate the grey woman came through. On the far side of it, faintly, he can feel it — a deep, patient throb, up through a mile of tower, into the bones of the hand.",
+    "He puts his palm to the cold gate the grey woman came through. On the far side of it, faintly, he can feel it: a deep, patient throb, up through a mile of tower, into the bones of the hand.",
     "Eli says, \"What is that? That sound you can only feel. It’s been under everything my whole life and I never once heard it.\"",
     "No one answers, because no one else has ever put a hand to the gate. In the Gardens, the machine is a rumour you are raised never to touch.",
     "Eli says, \"It’s a heartbeat. The whole city has a heartbeat, and it’s coming from the one place none of us are allowed to go.\"",
     "ELI finds the lift behind the gate. It has one button. It only goes down.",
     "It goes down for a very long time. The light gives up before he does.",
     "The Deep Floor. Heat like a mouth. Men chained to dials by nothing but the certainty that stopping is worse.",
-    "The foreman, GROT — old, enormous, unhurried — watches the garden boy step off the lift in his white and does not laugh, which costs him something.",
+    "The foreman, GROT, old, enormous, unhurried, watches the garden boy step off the lift in his white and does not laugh, which costs him something.",
     "Eli says, \"What do they make down here?\"",
     "Grot says, \"Make? Nothing. We keep.\"",
     "Grot says, \"Every man here holds one needle off the red. That is the whole of the work and the whole of the world.\"",
@@ -4954,13 +4954,13 @@
     "Grot says, \"Then a younger man takes the dial, and the old one takes the long walk, and we do not speak of the long walk. Stand clear of the throat.\"",
     "ELI does not stand clear. ELI has never had to stand clear of anything.",
     "A gauge climbs. A man leans his whole weight on a valve and the valve does not care.",
-    "Grot says, \"Hold that line! Second shift — cover the third gantry — HOLD it —\"",
+    "Grot says, \"Hold that line! Second shift, cover the third gantry, HOLD it...\"",
     "He beats on the valve with his hands, and the machine does not care that hands are what it runs on.",
     "The valve gives. Steam like the breath of something enormous and patient.",
     "Men fall from the gantries. The machine does not slow. Why would it. It is fed.",
-    "Eli says, \"Stop it! Somebody stop it — they’re inside it —\"",
+    "Eli says, \"Stop it! Somebody stop it, they’re inside it...\"",
     "And ELI sees it. Not a machine at all.",
-    "A vast iron mouth — and the men walking up its steps in rows, willingly, because the alternative is that the city above stops breathing.",
+    "A vast iron mouth, and the men walking up its steps in rows, willingly, because the alternative is that the city above stops breathing.",
     "Eli says, \"It’s eating them. It’s eating them and calling it work.\"",
     "The vision breaks. It is a machine again.",
     "But ELI has seen the other thing under it, and a man cannot un-see the other thing.",
@@ -4988,14 +4988,14 @@
     "The Master says, \"That was rather the point of the whole arrangement.\"",
     "Eli says, \"Men died in front of me. Today. To keep our fountains running.\"",
     "The Master says, \"Men die at the bottom. That is what the bottom is for.\"",
-    "The Master says, \"If they did not die there, where would you have them do it — up here?\"",
+    "The Master says, \"If they did not die there, where would you have them do it? Up here?\"",
     "Eli says, \"They’re people, Father.\"",
     "The Master says, \"They are hands.\"",
     "The Master says, \"A city is a body. The head thinks, the hands work, and the head does not consult the hands, or nothing is ever decided.\"",
     "Eli says, \"I stood among them today. They are not hands. One of them keeps a wall of the dead because no one up here will. That is not a hand. That is a man doing the head’s own job, in the dark, for nothing.\"",
     "The Master says, \"Then he is a fool who has misunderstood his function.\"",
     "Eli says, \"Or he is the only one in the whole city who has understood it. What if the thing you built the machine to prevent is the only thing that would have kept it human?\"",
-    "Eli says, \"And what joins them, Father? A head and a hand — what is in between?\"",
+    "Eli says, \"And what joins them, Father? A head and a hand. What is in between?\"",
     "THE MASTER considers this as one considers a fly.",
     "The Master says, \"Distance, ideally. A great deal of well-managed distance.\"",
     "Eli says, \"That is not an answer. That is a wall with a nicer word.\"",
@@ -5003,11 +5003,11 @@
     "Eli says, \"There was a woman in the Gardens. Grey. She brought the children up to look at us.\"",
     "For the first time, THE MASTER turns.",
     "The Master says, \"A woman. Preaching. To the hands.\"",
-    "Eli says, \"Not preaching the breaking. She said the opposite. She said wait — she said someone was coming —\"",
+    "Eli says, \"Not preaching the breaking. She said the opposite. She said wait. She said someone was coming...\"",
     "The Master says, \"That is worse. A mob that wants to break things breaks a machine and tires itself out.\"",
     "The Master says, \"A mob that has been promised someone will hold on for years. That is not a sermon, boy. That is weather.\"",
     "The Master says, \"And weather, one gets ahead of.\"",
-    "He crosses to a private lift — older than the tower, hidden in the tower’s own spine.",
+    "He crosses to a private lift, older than the tower, hidden in the tower’s own spine.",
     "Eli says, \"Where does that one go?\"",
     "The Master says, \"Down. Everything worth doing is down. Stay in the light where you belong.\"",
     "ELI does not step aside from the lift.",
@@ -5042,14 +5042,14 @@
     "Koss says, \"It only obeys the last voice it heard. I have wanted, for thirty years, to build a thing that obeys the way you wish men did.\"",
     "The Master says, \"It has no face.\"",
     "Koss says, \"Bring me the woman. It will have hers.\"",
-    "Koss says, \"And then your weather will say precisely what you tell it to say — in the voice they already trust.\"",
-    "The Master says, \"Do it. And Koss — the son must never know.\"",
+    "Koss says, \"And then your weather will say precisely what you tell it to say, in the voice they already trust.\"",
+    "The Master says, \"Do it. And Koss: the son must never know.\"",
     "KOSS turns his manufactured hand over in the lamplight, admiring the joints.",
     "Koss says, \"Oh, the son. Yes. Let us be very careful of the son.\"",
     "THE MASTER leaves. KOSS watches the private lift take him back up into his rationed light.",
     "His manufactured hand closes slowly, on nothing.",
     "Koss says, \"You took my name. I think I shall take your city.\"",
-    "Koss says, \"I shall hand it back to you broken — and let you thank me for that too.\"",
+    "Koss says, \"I shall hand it back to you broken, and let you thank me for that too.\"",
     "He turns to the faceless steel figure and touches its blank cheek almost tenderly.",
     "Koss says, \"You and I understand each other. You obey the last voice. So do they. The only difference is that I have never once lied to you about it.\"",
     "Koss says, \"They will call you a miracle, and then a devil, and burn you, and never once suspect that the hand on your back was the same hand that built the throat they feed.\"",
@@ -5060,14 +5060,14 @@
     "Mira says, \"They tell you the city is a body. Head above, hands below.\"",
     "Mira says, \"They tell you this so you will never ask about the space between.\"",
     "Mira says, \"But I tell you there is a space between. And it is empty.\"",
-    "Mira says, \"And an empty space between a head and a hand is not a body at all —\"",
+    "Mira says, \"And an empty space between a head and a hand is not a body at all...\"",
     "Mira says, \"It is a machine. And we are living inside its throat.\"",
     "The hands murmur. This is dangerous talk. This is the only talk worth the danger.",
     "Mira says, \"They will send someone tonight, or tomorrow, or next year, to tell you I preached the breaking. Do not believe them. Watch what I say with my own mouth, and trust nothing that wears my face and asks for a fire.\"",
-    "Mira says, \"A face can be stolen. A voice can be copied. But grief cannot be faked, and I have wept with every one of you. When the false one comes — and one always comes — look for the wet eyes. The truth is the one still weeping.\"",
+    "Mira says, \"A face can be stolen. A voice can be copied. But grief cannot be faked, and I have wept with every one of you. When the false one comes, and one always comes, look for the wet eyes. The truth is the one still weeping.\"",
     "She does not know how exactly she is prophesying. Down here, the truest sermons are the ones the preacher does not yet understand.",
     "A young worker, fists tight, rises at the back.",
-    "Grot says, \"Then let us break the throat! You give us the words and none of the door — say the word, Mira, and we pull it down tonight —\"",
+    "Grot says, \"Then let us break the throat! You give us the words and none of the door. Say the word, Mira, and we pull it down tonight...\"",
     "Mira says, \"No. Hear me, Grot. I do not preach the breaking.\"",
     "Mira says, \"Break the Mainspring and the flood takes your own children first.\"",
     "Mira says, \"The dark does not spare the hands that pull it down. It never has. It never will.\"",
@@ -5075,30 +5075,30 @@
     "Mira says, \"You wait for the one who is coming. The Mediator.\"",
     "Mira says, \"Head-born, but hand-touched. He will stand in the empty space and make it beat.\"",
     "At the edge of the candlelight, unseen, ELI listens. Filthy. Trembling. Home.",
-    "Mira says, \"Between the head that rules and the hand that bleeds there must be a heart —\"",
+    "Mira says, \"Between the head that rules and the hand that bleeds there must be a heart...\"",
     "Mira says, \"or the whole tower is only a tomb that has learned to hum.\"",
     "ELI steps into the light.",
     "Eli says, \"How will you know him? The one who is coming.\"",
     "The hands turn. A garden face. Knives come half out of sleeves.",
-    "Grot says, \"That is a tower face. That is the Master’s own colour. Kill the light — cover the candles —\"",
+    "Grot says, \"That is a tower face. That is the Master’s own colour. Kill the light, cover the candles...\"",
     "Mira says, \"Wait.\"",
     "She crosses to him. She takes his soft, clean, useless hands and turns them palm up for all of them to see.",
-    "Mira says, \"By his hands. They will be soft — and he will use them anyway.\"",
+    "Mira says, \"By his hands. They will be soft, and he will use them anyway.\"",
     "Eli says, \"Then let me be him.\"",
     "Eli says, \"I don’t know how. But I saw the throat today, and I can’t go back up and drink the water.\"",
     "Eli says, \"Let me be the heart. Teach me how a heart is done.\"",
-    "MIRA looks at him a long moment — the way you look at a thing you prayed for and half feared would come.",
+    "MIRA looks at him a long moment, the way you look at a thing you prayed for and half feared would come.",
     "Mira says, \"Hearts are not taught. They are broken in, like boots.\"",
     "Mira says, \"Stay. You will bleed. That is the whole of the training.\"",
     "The hands are not so easily won as their prophet. GROT plants himself between ELI and the candles.",
     "Grot says, \"A tower son plays at being a hand for a night, and by morning he is back in his rationed sun with a story for the garden. I have seen it.\"",
     "Eli says, \"You have not seen me.\"",
-    "Grot says, \"Then show me. Not with your mouth — your mouth is your father’s. Show me with the part of you that is going to be down here when the sun comes up.\"",
+    "Grot says, \"Then show me. Not with your mouth. Your mouth is your father’s. Show me with the part of you that is going to be down here when the sun comes up.\"",
     "ELI holds out his soft hands, palm up, and does not take them back.",
-    "Eli says, \"Put me on the valve tomorrow. The one that took a man today. If I run, you never have to hear a tower voice again. If I stay —\"",
+    "Eli says, \"Put me on the valve tomorrow. The one that took a man today. If I run, you never have to hear a tower voice again. If I stay...\"",
     "Grot says, \"If you stay, you are one tally mark closer to being ours. That is not a reward, boy. I want you to understand it is not a reward.\"",
     "Mira says, \"Let him stay, Grot. A heart that has not bled is only a promise. Let the machine make it a fact.\"",
-    "GROT steps aside — the width of one man, no more. It is the largest door anyone has ever opened for ELI in his life.",
+    "GROT steps aside, the width of one man, no more. It is the largest door anyone has ever opened for ELI in his life.",
     "ELI is sent up to carry word to the hands on the morning shift. He goes gladly. He does not know he leaves her alone.",
     "Mira says, \"Go. Tell the morning gang the same as the night. Say wait. Say it in my voice, so it holds.\"",
     "Eli says, \"I’ll come straight back down.\"",
@@ -5113,7 +5113,7 @@
     "Koss says, \"Every line. Every kindness in the set of your mouth.\"",
     "Koss says, \"I want to hang it all on something that cannot mean it.\"",
     "The workshop. MIRA bound in a ring of glass. The steel figure across from her, faceless, waiting.",
-    "Mira says, \"Whatever you make wearing my face — they will know. The hands know their own.\"",
+    "Mira says, \"Whatever you make wearing my face, they will know. The hands know their own.\"",
     "Koss says, \"The hands know what they are shown.\"",
     "Koss says, \"I watched your Master show them a body for a city for thirty years, and they believed him.\"",
     "Koss says, \"I am only a better liar, with a steadier hand. The steadier hand I built myself.\"",
@@ -5128,118 +5128,118 @@
     "The Double says, \"Am I not lovely? Give me a voice, maker, and I will tell them anything you like.\"",
     "Koss says, \"Tell them to break it.\"",
     "Koss says, \"Tell them to pull the whole tower down into the dark.\"",
-    "Koss says, \"And smile while you say it — smile with her mouth.\"",
+    "Koss says, \"And smile while you say it. Smile with her mouth.\"",
     "The Double says, \"With her mouth. Yes. Watch how well it still remembers how.\"",
     "The true MIRA, slumped in the ring of glass, lifts her head with the last of what he left her.",
     "Mira says, \"You gave it my face. But you could not give it the reason for my face. It will preach a fire because that is all you know how to want.\"",
     "Koss says, \"And they will follow it into the fire, which is all I need them to do.\"",
-    "Mira says, \"For a night. And then one of them — the slow one, the one nobody listens to — will notice that it never weeps. And it will end there, at the one dry eye you forgot to build.\"",
+    "Mira says, \"For a night. And then one of them, the slow one, the one nobody listens to, will notice that it never weeps. And it will end there, at the one dry eye you forgot to build.\"",
     "KOSS pauses over his controls, just for a moment. Then he tightens the last screw, because a maker cannot stop at the part where the making was a mistake.",
     "Koss says, \"Sleep, prophet. When you wake, the city will already be drowning, and no one will believe the second Mira who comes climbing up out of the water. Two of a face is one too many to trust.\"",
     "Above, in the Gardens, the Double dances.",
-    "The young men who never think a thought all summer cannot look away — and begin, for her, to think of ruin.",
+    "The young men who never think a thought all summer cannot look away, and begin, for her, to think of ruin.",
     "The Double says, \"You are so tired of being gentle. Aren’t you tired?\"",
     "The Double says, \"Everything soft is just a thing not yet broken. Come. Let me show you how much of your father’s world is soft.\"",
     "One garden boy draws a duelling pistol he has only ever worn. Another laughs. The laugh has teeth in it now.",
     "The Double says, \"Your fathers rationed you the sun and called it an inheritance. Smash the meter. Take the whole sky. Why should light be owned?\"",
     "The girl in white who once caught ELI’s sleeve at the fountain now catches the Double’s, wide-eyed, hungry for a ruin she has no name for.",
-    "The Double says, \"Good. You feel it. That warmth in your chest — that is not love, little garden. That is the pleasure of being about to break something you were told was holy.\"",
-    "The Gardens, which have never in a thousand years produced a single decision, begin — beautifully, terribly — to riot in white silk.",
+    "The Double says, \"Good. You feel it. That warmth in your chest. That is not love, little garden. That is the pleasure of being about to break something you were told was holy.\"",
+    "The Gardens, which have never in a thousand years produced a single decision, begin, beautifully and terribly, to riot in white silk.",
     "Below, in the catacombs, the same face wears grey and preaches the opposite of every word MIRA ever said.",
     "The Double says, \"I was wrong to tell you to wait!\"",
     "The Double says, \"Waiting is the leash! Waiting is the needle they hand you so your fist stays busy!\"",
-    "The Double says, \"Break the Mainspring — drown the head that drinks your days — tonight!\"",
+    "The Double says, \"Break the Mainspring, drown the head that drinks your days, tonight!\"",
     "The hands roar. This is not the voice that soothed them.",
     "But it wears the face that soothed them, and a face is louder than a voice.",
     "Only GROT, old and slow and unlovely, tilts his head like a dog hearing a false note.",
     "Grot says, \"She never said break. Not once in three years.\"",
-    "Grot says, \"Why does she say break now, with her eyes so bright — and so dry?\"",
+    "Grot says, \"Why does she say break now, with her eyes so bright, and so dry?\"",
     "Grot says, \"A woman who has wept in these tunnels with us does not preach a flood without one tear. Where are her tears?\"",
     "No one hears him. Ruin has a beautiful mouth tonight, and every ear in the dark belongs to it.",
     "ELI returns to the tunnels and finds his prophet whipping the hands toward the flood.",
-    "Eli says, \"Mira — stop — this isn’t you, this isn’t what you said —\"",
+    "Eli says, \"Mira, stop. This isn’t you, this isn’t what you said...\"",
     "The Double says, \"Isn’t it? Look at my face, heart-boy. Whose face is it?\"",
     "The Double says, \"Believe your eyes. Everyone always believes the eyes.\"",
     "Eli says, \"Your eyes are dry. Grot is right. Your eyes are dry.\"",
     "The Double says, \"And yours are wet. How useless. Go and be wet somewhere it won’t slow the work.\"",
-    "And ELI, who fell in love with a face at a garden gate, half-believes his eyes — and his heart breaks in exactly the place he was trying to grow one.",
+    "And ELI, who fell in love with a face at a garden gate, half-believes his eyes, and his heart breaks in exactly the place he was trying to grow one.",
     "Eli says, \"Then I was wrong about everything. Even you.\"",
     "GROT catches his arm at the edge of the crowd, the only calm thing in the roaring dark.",
     "Grot says, \"Look at her hands, not her face. A face lies for a living. Hands forget to.\"",
-    "ELI looks. The Double gestures, and its fingers move in perfect time — too perfect, the way a clock is perfect, the way a living hand never quite is.",
+    "ELI looks. The Double gestures, and its fingers move in perfect time, too perfect, the way a clock is perfect, the way a living hand never quite is.",
     "Eli says, \"Her hands keep time. Mira’s hands shook. I held them. They shook.\"",
-    "Grot says, \"Now you are learning to see. Too late to stop this tide — but remember it. There will be a second one, and she will be shaking, and you must not make this mistake twice.\"",
+    "Grot says, \"Now you are learning to see. Too late to stop this tide, but remember it. There will be a second one, and she will be shaking, and you must not make this mistake twice.\"",
     "He is carried backward by the flood of bodies before he can decide which of his two certainties to keep.",
     "The hands storm the Heart Chamber, where the Mainspring’s core turns.",
     "They have waited a thousand years to break one thing. They break it well.",
-    "Grot says, \"Stop! You fools — the Mainspring holds the deep pumps!\"",
-    "Grot says, \"Break the machine and the water comes up — up into your own homes —\"",
+    "Grot says, \"Stop! You fools! The Mainspring holds the deep pumps!\"",
+    "Grot says, \"Break the machine and the water comes up, up into your own homes...\"",
     "The Double says, \"Let it come!\"",
     "The Double says, \"Let the whole grey floor drown and be clean of it! A clean floor is worth a wet one!\"",
-    "Grot says, \"The children are in the deep quarters! Listen to me — I have kept this machine my whole life, I know what it holds back —\"",
+    "Grot says, \"The children are in the deep quarters! Listen to me. I have kept this machine my whole life, I know what it holds back...\"",
     "They throw GROT down. A dozen hands that have loved him hold him to the floor while a dozen more do the thing he begs them not to.",
     "A young worker hesitates at the last lever, GROT’s words snagging in him like a hook.",
     "Grot says, \"Son. Son, look at me. You have a girl in the deep quarters. Third row of cots. You told me her name last week. Say her name before you pull that, and then pull it if you still can.\"",
     "The young worker cannot say the name. But the Double is behind him, smiling, and shame is heavier than a child, and he pulls the lever to be rid of the weight of being seen.",
     "They pull the levers he has guarded his whole life.",
-    "The great core shudders, and slows, and — for the first time since the Waking — stops.",
+    "The great core shudders, and slows, and, for the first time since the Waking, stops.",
     "Far above, the fountains of the Spire Gardens cough, and fail, and the sun-fed water stops falling.",
     "The garden boys stop laughing. The Double, up there, keeps dancing in the dry fountain.",
     "Far below, a sound worse than the machine: the sound of the machine’s absence.",
     "And then, rising in the dark, the sound of the sea coming home.",
-    "For one held second the hands stand in the sudden silence of the stopped machine and feel it — the thing they had wanted their whole lives. The machine, off. The needle, dead. No shift. No throat. Rest.",
+    "For one held second the hands stand in the sudden silence of the stopped machine and feel it: the thing they had wanted their whole lives. The machine, off. The needle, dead. No shift. No throat. Rest.",
     "Grot says, \"Listen to it. Listen to the quiet. That is the sound we sold our children for. Was it worth it? Is it as sweet as you were promised?\"",
-    "It is not. In the silence they can hear, for the first time, exactly what the machine had been holding back — and it is coming up the stairwells with the patience of the sea.",
+    "It is not. In the silence they can hear, for the first time, exactly what the machine had been holding back, and it is coming up the stairwells with the patience of the sea.",
     "Grot says, \"The pumps. The pumps are dead.\"",
-    "Grot says, \"The water — the water — my god. The children. The children are still in the deep quarters.\"",
+    "Grot says, \"The water. The water. My god. The children. The children are still in the deep quarters.\"",
     "The Deep Floor floods. The homes of the hands. The cots of the hand-children, a mile under the sea, and the sea remembering exactly where they are.",
     "Grot says, \"You drowned your own future to spite your own past.\"",
     "Grot says, \"She told you. The real one told you. The dark never spares the hand that pulls it down.\"",
-    "The hands stand in the rising water and understand, all at once and far too late, what they have been told to do — and by what.",
+    "The hands stand in the rising water and understand, all at once and far too late, what they have been told to do, and by what.",
     "One worker, waist-deep, turns on the Double where it stands dry on the high gantry.",
     "Grot says, \"You said the flood would make us clean. You are dry and our children are wet. Come down into what you made. Come down and be clean with us.\"",
     "The Double says, \"I do not go down. I was not built to go down. I was built to point.\"",
-    "And it points — at the stairs, at the exits, at the way up and out — and even now, even drowning, some of the hands obey the pointing finger, because a finger that has been right about their rage might yet be right about their escape.",
+    "And it points, at the stairs, at the exits, at the way up and out, and even now, even drowning, some of the hands obey the pointing finger, because a finger that has been right about their rage might yet be right about their escape.",
     "Grot says, \"Stop looking at her! Look at the water! The water is the only thing in this room telling you the truth!\"",
     "But the water tells its truth in a language with no mouth, and the Double has the only mouth they have ever been taught to trust.",
-    "MIRA — the true one — wakes in the emptied workshop. A stranger wearing her face on the streets above. A city drowning below.",
+    "MIRA, the true one, wakes in the emptied workshop. A stranger wearing her face on the streets above. A city drowning below.",
     "She does not waste a breath on grief. She runs down. Down is always the direction of the work.",
     "The deep quarters. Water to the knee. To the waist.",
-    "And everywhere, the grey children — too small to reach the high ledges, reaching anyway.",
-    "Mira says, \"To me! All of you — to my voice!\"",
-    "Mira says, \"Follow the voice, not the water — the voice goes up! The water only knows how to go where you already are!\"",
-    "And ELI, thrown loose from the mob, half-drowned in his own doubt, hears a voice in the dark that his eyes cannot explain —",
+    "And everywhere, the grey children, too small to reach the high ledges, reaching anyway.",
+    "Mira says, \"To me! All of you, to my voice!\"",
+    "Mira says, \"Follow the voice, not the water. The voice goes up! The water only knows how to go where you already are!\"",
+    "And ELI, thrown loose from the mob, half-drowned in his own doubt, hears a voice in the dark that his eyes cannot explain...",
     "because the one who should be making it is a mile above, damning them all in the dry.",
     "Eli says, \"Two of them. There are two of them.\"",
-    "Eli says, \"The one above is a lie — and this one, down here, in the water, saving them — this one is her.\"",
+    "Eli says, \"The one above is a lie, and this one, down here, in the water, saving them, this one is her.\"",
     "Eli says, \"I believed the dry eyes over the wet ones. Never again. Never again as long as I have hands.\"",
     "Eli says, \"Mira! I’m coming down!\"",
-    "Mira says, \"Eli — the ledge — the little ones can’t reach the ledge — hand them up, we make a chain, GO —\"",
+    "Mira says, \"Eli, the ledge. The little ones can’t reach the ledge, hand them up, we make a chain, GO...\"",
     "Eli says, \"I have soft hands, remember? Let me finally use them!\"",
     "They form a chain. The prophet and the heart, hand to soft hand, lifting grey children out of black water toward a shaft of grey light.",
-    "Mira says, \"Higher — pass her higher — good — now the next — don’t look at the water, look at the next child —\"",
+    "Mira says, \"Higher. Pass her higher. Good. Now the next. Don’t look at the water, look at the next child...\"",
     "Eli says, \"How many? How many more?\"",
     "Mira says, \"Every last one. That is the only number a heart is allowed to count to. Every last one.\"",
-    "A garden boy appears at the top of the shaft — one of the rioters, white silk soaked grey, the fight drowned out of him by the sight of the water.",
-    "Eli says, \"Don’t stand there gaping — reach down — you have hands, don’t you? Everyone always has hands when it finally matters — REACH.\"",
-    "And the garden boy reaches. Silk to soaked grey, top of the world to the bottom of it, the two ends of the severed body touch for the first time in a thousand years — over a drowning child.",
+    "A garden boy appears at the top of the shaft, one of the rioters, white silk soaked grey, the fight drowned out of him by the sight of the water.",
+    "Eli says, \"Don’t stand there gaping. Reach down. You have hands, don’t you? Everyone always has hands when it finally matters. REACH.\"",
+    "And the garden boy reaches. Silk to soaked grey, top of the world to the bottom of it, the two ends of the severed body touch for the first time in a thousand years, over a drowning child.",
     "Mira says, \"There. There is your middle, Eli. Not preached. Not promised. Just two frightened boys and a child between them. That is all it ever was.\"",
     "A support gives. The water gains a foot in a breath. GROT arrives at the top of the chain, huge and weeping, and takes the weight of it on his own back.",
     "Grot says, \"Pass them to me. My arms have held that machine sixty years. Let them hold something worth holding, once, before the end.\"",
     "Mira says, \"You came back.\"",
     "Eli says, \"I never should have believed my eyes. I’m sorry.\"",
     "Eli says, \"I’ll spend the rest of it believing better.\"",
-    "Mira says, \"Spend it later. Lift now. That one — the small one — lift.\"",
+    "Mira says, \"Spend it later. Lift now. That one, the small one. Lift.\"",
     "A boy is missing. A mother screams a name into the black water and the black water gives nothing back.",
-    "Mira says, \"Eli. Under the third arch. I can’t reach — my arm won’t —\"",
+    "Mira says, \"Eli. Under the third arch. I can’t reach, my arm won’t...\"",
     "ELI goes under. Garden-raised, weak-lunged, useless ELI puts his soft head under a mile of angry sea for a child whose name he does not know.",
     "A long moment. The water closes over the place he was. GROT starts forward. MIRA holds him back with one hand and prays with the other.",
     "And ELI comes up. Coughing, half-drowned, a small grey shape held above the water in both his ruined hands.",
-    "Eli says, \"Take him. Take him — he’s breathing — take him up —\"",
+    "Eli says, \"Take him. Take him, he’s breathing, take him up...\"",
     "Grot says, \"That is the last of them. That is every last one. You counted to the only number a heart is allowed to count to.\"",
     "The last child comes up out of the water into ELI’s soft, working hands.",
     "The empty space between the head and the hand is, for one held breath, full.",
-    "The hands climb up out of the flood they made and find, in the square, the woman who told them to make it —",
+    "The hands climb up out of the flood they made and find, in the square, the woman who told them to make it...",
     "dry, bright-eyed, still smiling in the empty fountain.",
     "Grot says, \"Our children are in that water. And you are dry.\"",
     "Grot says, \"What manner of prophet comes up from a flood dry?\"",
@@ -5250,7 +5250,7 @@
     "Grief cannot look at a smile that will not stop.",
     "Grot says, \"Take her up. Take her up and take up fire. Whatever she is, she is not ours.\"",
     "They burn the Double in the square.",
-    "And in the fire the beautiful face runs like wax — and beneath it: steel. Glass. A thing.",
+    "And in the fire the beautiful face runs like wax, and beneath it: steel. Glass. A thing.",
     "The hands scream, because they burned a face they loved to find a machine they served.",
     "GROT stands over the wax and the steel and says the thing none of them can bear to.",
     "Grot says, \"We did not follow a prophet. We followed a puppet. And the hand inside it wore a glove we have been trained since birth not to look at.\"",
@@ -5258,14 +5258,14 @@
     "A woman kneels in the ash where the face melted and does not weep, because you cannot weep for a thing that was never alive, and cannot stop grieving it either.",
     "Grot says, \"Up. All of you, up. Grieve on your feet, walking toward the water, where there is still work a grief can do. That is the only mercy this floor has ever sold cheap.\"",
     "KOSS watches his masterpiece burn and laughs, because a broken city is the only thank-you he ever wanted.",
-    "Then he sees the true MIRA — alive, climbing from the deep with a child on her hip — and his laugh curdles.",
+    "Then he sees the true MIRA, alive, climbing from the deep with a child on her hip, and his laugh curdles.",
     "Koss says, \"You. Still you.\"",
     "Koss says, \"The lie burns and the truth just keeps climbing out of the water.\"",
     "Koss says, \"That will not do. That will not do at all.\"",
-    "He takes her up the cathedral — the one old stone thing that stands above the city like a conscience it forgot it had.",
+    "He takes her up the cathedral, the one old stone thing that stands above the city like a conscience it forgot it had.",
     "Up and up, onto the high roof, under the only stars Vantage ever gets.",
     "Eli says, \"Koss! Let her go!\"",
-    "Eli says, \"It’s finished — the double’s burned, the city knows — there’s nothing left to break!\"",
+    "Eli says, \"It’s finished. The double’s burned, the city knows. There’s nothing left to break!\"",
     "Koss says, \"There is always one thing left to break.\"",
     "Koss says, \"Come up, heart-boy. Come see how a maker unmakes.\"",
     "On the roof, over a mile of drop: ELI, and KOSS, and MIRA between them, and the wind that lives up there trying to take all three.",
@@ -5273,20 +5273,20 @@
     "Eli says, \"You keep saying that. Soft hands. Useless hands. My father said it. Grot said it. Even I believed it.\"",
     "Eli says, \"But I put these hands under a mile of sea tonight for a child whose name I don’t know. Whatever they are, they are not useless. They are just new. And new is not the same as weak.\"",
     "Koss says, \"Pretty. Say it to the wind. The wind takes the pretty ones first.\"",
-    "Mira says, \"Eli — don’t look down — look at me — hands, Eli, use your hands —\"",
-    "KOSS lunges. ELI — soft-handed, garden-raised, useless ELI — gets his working hands on the maker at last.",
+    "Mira says, \"Eli, don’t look down. Look at me. Hands, Eli, use your hands...\"",
+    "KOSS lunges. ELI, soft-handed, garden-raised, useless ELI, gets his working hands on the maker at last.",
     "And holds. And does not let the roof have her.",
     "Koss says, \"Sixty years I built the thing that holds this city up. And I am undone by a boy who learned to hold on last week.\"",
     "Eli says, \"You built a machine to do a heart’s work. That was always going to be the flaw in it.\"",
     "KOSS reaches for MIRA and finds only air.",
-    "His manufactured hand — the one he was proudest of — closes on nothing, one final time. And the roof has him.",
+    "His manufactured hand, the one he was proudest of, closes on nothing, one final time. And the roof has him.",
     "For a moment ELI leans out after the falling maker, as if a heart is required to try to catch even that.",
     "Mira says, \"No. Not him. He spent his whole life reaching for things that were already gone. Do not learn that reach.\"",
     "Eli says, \"He built the whole city. And the only thing he ever wanted was to be thanked for it.\"",
     "Mira says, \"Then he and your father are the same man wearing different dark. Remember that when your father asks you to choose between them tomorrow.\"",
     "Silence. Wind.",
-    "Two figures on a cathedral roof, and a city under them that has stopped humming — and started, faintly, from the deep quarters, to weep and to sing.",
-    "Dawn. The rationed sun comes down the towers and, for the first time, keeps going —",
+    "Two figures on a cathedral roof, and a city under them that has stopped humming, and started, faintly, from the deep quarters, to weep and to sing.",
+    "Dawn. The rationed sun comes down the towers and, for the first time, keeps going...",
     "all the way to the flooded square, where head and hands stand facing each other and neither knows the words.",
     "THE MASTER descends his own tower on foot. He has never touched the ground of his own city.",
     "He does not know how the ground feels. He is about to learn.",
@@ -5297,16 +5297,16 @@
     "Grot says, \"We will not be told.\"",
     "Grot says, \"Not by the head. Not ever again by the head alone.\"",
     "Stalemate. The head on one side. The hands on the other.",
-    "And the empty space between them, where a city keeps its heart — or keeps a tomb.",
+    "And the empty space between them, where a city keeps its heart, or keeps a tomb.",
     "ELI steps into the empty space. Filthy. Soft hands, working now. A prophet at his shoulder.",
     "Eli says, \"You said a city is a body. Head above, hands below.\"",
     "Eli says, \"You were right about the shape and wrong about the space between.\"",
     "Eli says, \"There must be something there.\"",
-    "Eli says, \"Something that carries what the head decides down to the hands — and what the hands suffer up to the head —\"",
+    "Eli says, \"Something that carries what the head decides down to the hands, and what the hands suffer up to the head...\"",
     "Eli says, \"and refuses to let either one lie to the other.\"",
     "Eli says, \"A heart. Not a machine in the throat. A heart in the middle.\"",
-    "Eli says, \"Father — give me your hand.\"",
-    "Eli says, \"Grot — give me yours.\"",
+    "Eli says, \"Father, give me your hand.\"",
+    "Eli says, \"Grot, give me yours.\"",
     "THE MASTER, who has ordered a thousand deaths and touched no one, looks at his son’s filthy open hand as if it were the last unmapped thing in his city.",
     "Which it is.",
     "The Master says, \"I do not know how this is done.\"",
@@ -5314,16 +5314,16 @@
     "Mira says, \"It is the whole of the work and the whole of the world.\"",
     "THE MASTER’s hand hovers. A thousand years of well-managed distance stand in the two inches between his palm and his son’s.",
     "Grot says, \"We buried children this morning that your machine drowned. My hand is the harder one to give, and I am giving it. Give yours.\"",
-    "The Master says, \"And if I do — what am I then? I have been the head of this city my whole life. If I take a hand, I am only a man in a square.\"",
+    "The Master says, \"And if I do, what am I then? I have been the head of this city my whole life. If I take a hand, I am only a man in a square.\"",
     "Eli says, \"Yes. That is exactly what you are. That is what you have always been. The tower was the lie. The square is the truth. Take the hand and stand in the truth with the rest of us.\"",
     "THE MASTER takes his son’s hand. GROT, slow and unlovely and right all along, takes the other.",
-    "And ELI stands in the empty space between the head and the hand, and holds —",
-    "and is the heart — and the city, at last, at cost, becomes a body.",
+    "And ELI stands in the empty space between the head and the hand, and holds...",
+    "and is the heart, and the city, at last, at cost, becomes a body.",
     "They rebuilt the Mainspring.",
     "But they built a door in it this time. And behind the door a room, and in the room a chair.",
     "And in the chair, always, someone whose whole work is to carry the truth both ways.",
     "They called that work the Heart. It paid nothing.",
-    "It was the most contested seat in Vantage for a hundred years — which is how you know they finally understood what it was worth.",
+    "It was the most contested seat in Vantage for a hundred years, which is how you know they finally understood what it was worth.",
     "Between the head that rules and the hand that bleeds there must be a heart.",
     "The city learned it in one night and a flood. You are welcome to learn it cheaper."
   ],

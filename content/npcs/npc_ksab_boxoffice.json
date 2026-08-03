@@ -144,7 +144,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Doors are here, not north — north's the writers now, and they'll thank you not to knock.\" She taps the glass with a knuckle. \"Pass gets you inside and standing where the floor manager puts you. Clap when the sign says clap. Nobody films the monitors.\""
+      "text": "\"Doors are here, not north. North's the writers now, and they'll thank you not to knock.\" She taps the glass with a knuckle. \"Pass gets you inside and standing where the floor manager puts you. Clap when the sign says clap. Nobody films the monitors.\""
     },
     "root": {
       "options": [
@@ -178,7 +178,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Same as always — the couch, a guest sweating under the lamp, and a laugh track we've all agreed to become.\" Something that isn't quite a smile. \"It's the closest thing to civic duty we've got left, and it's twenty-five.\""
+      "text": "\"Same as always: the couch, a guest sweating under the lamp, and a laugh track we've all agreed to become.\" Something that isn't quite a smile. \"It's the closest thing to civic duty we've got left, and it's twenty-five.\""
     }
   },
   "faction": null,

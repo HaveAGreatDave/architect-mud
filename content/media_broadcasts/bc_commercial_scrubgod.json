@@ -48,7 +48,7 @@
         "next": "bsm_13",
         "overlayType": "text_card",
         "subtext": "CALL NOW AND WE'LL DOUBLE YOUR ORDER FOR THE SAME EXPOSURE RISK",
-        "text": "BUT WAIT — THERE'S MORE",
+        "text": "BUT WAIT, THERE'S MORE",
         "type": "overlay"
       },
       "bsm_13": {
@@ -160,7 +160,7 @@
   "category": "advertisement",
   "channel_id": null,
   "created_by": "author",
-  "description": "As-seen-on-TV infomercial parody for a miracle cleaning product that handles blood, rust, and most forms of regret — cosmetically, at least.",
+  "description": "As-seen-on-TV infomercial parody for a miracle cleaning product that handles blood, rust, and most forms of regret, cosmetically at least.",
   "enabled": 1,
   "fallback_messages": [],
   "film_meta": null,
@@ -186,7 +186,7 @@
     }
   ],
   "morning_pools": null,
-  "name": "ScrubGod 9000 — \"But Wait, There's More\"",
+  "name": "ScrubGod 9000: \"But Wait, There's More\"",
   "news_pools": null,
   "override_duration": 30,
   "playback_mode": "scripted",

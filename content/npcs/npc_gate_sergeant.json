@@ -15,7 +15,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Some. Fewer than go out. The smart ones come back with salvage and a story. The rest come back as the story.\" He shrugs, unbothered. \"Your funeral to plan. Muster your kit before you strike out — journey, if you've got the guts for it.\""
+      "text": "\"Some. Fewer than go out. The smart ones come back with salvage and a story. The rest come back as the story.\" He shrugs, unbothered. \"Your funeral to plan. Muster your kit before you strike out. Journey, if you've got the guts for it.\""
     },
     "bye": {
       "options": [],
@@ -41,7 +41,7 @@
           "next": "root"
         }
       ],
-      "text": "\"South of the Curtain? Killing ground first — mind the turrets, they don't check IDs. Past that, the wilds: mutants, renounce tribes, worse things wearing their skins. And if you keep going, the waste itself — the void between here and anywhere real. Nobody charts it twice.\""
+      "text": "\"South of the Curtain? Killing ground first, and mind the turrets;, they don't check IDs. Past that, the wilds: mutants, renounce tribes, worse things wearing their skins. And if you keep going, the waste itself, the void between here and anywhere real. Nobody charts it twice.\""
     }
   },
   "faction": null,

@@ -138,7 +138,7 @@
           "next": "root"
         }
       ],
-      "text": "\"It held,\" he says, quietly and without heat. \"You weren't here for what it held back. That's not the same as saying it was right — I'd be the last to file that. It held. That's not nothing.\" He meets your eye. \"It's also not everything, and I get very tired of only being able to say the first part.\""
+      "text": "\"It held,\" he says, quietly and without heat. \"You weren't here for what it held back. That's not the same as saying it was right. I'd be the last to file that. It held. That's not nothing.\" He meets your eye. \"It's also not everything, and I get very tired of only being able to say the first part.\""
     },
     "arch_fond": {
       "options": [
@@ -176,7 +176,7 @@
           "next": "root"
         }
       ],
-      "text": "Everyone else in this building says the word like a weather report or a curse. Merrin just goes still — the specific stillness of a man hearing an old colleague's name in a stranger's mouth. \"The Architect.\" He weighs it. \"People talk as though the sky did this to us. It didn't. It made choices. Good ones, some of them — you're standing in a building that's warm, and no one gets murdered in the lobby, and both of those were decided by someone. It also made choices it never had to explain to anyone.\" His jaw sets. \"That's the part I can't file. A decision with no record behind it. I don't much like those. Professionally.\""
+      "text": "Everyone else in this building says the word like a weather report or a curse. Merrin just goes still, the specific stillness of a man hearing an old colleague's name in a stranger's mouth. \"The Architect.\" He weighs it. \"People talk as though the sky did this to us. It didn't. It made choices. Good ones, some of them. You're standing in a building that's warm, and no one gets murdered in the lobby, and both of those were decided by someone. It also made choices it never had to explain to anyone.\" His jaw sets. \"That's the part I can't file. A decision with no record behind it. I don't much like those. Professionally.\""
     },
     "bye": {
       "options": [],
@@ -205,7 +205,7 @@
         "\"Go on. I'll keep it straight.\"",
         "\"We meant it gently. Truly.\"",
         "\"You know now. That's enough.\"",
-        "\"The next one, remember — kinder.\"",
+        "\"The next one, remember. Kinder.\"",
         "He just nods, and goes back to the files, the only one left who can."
       ]
     },
@@ -224,7 +224,7 @@
           "next": "root"
         }
       ],
-      "text": "He brightens — the specific brightness of a man asked about a drawer nobody thinks to open. \"Ah. Now there's a record I'm fond of, precisely because almost no one asks.\" He draws a thin folder without hunting for it. \"The Corporate Calendar Standardisation Initiative. Long before the Conversion — the old governments were so far in debt to the corporations that ran the lights and the water that when the calendar came up for modernising, they did the obvious thing. They sold it. Twelve months, twelve naming rights, to the highest bidders.\" A dry tilt of the head. \"Mind you, the companies didn't buy the names outright — they bought the right to *re-name*. A marketing house would fold the brand into the old month so it slid down easy. Fizz into January, and you have Janufizz. Nobody quite noticed the swallow. That was rather the point.\""
+      "text": "He brightens, the specific brightness of a man asked about a drawer nobody thinks to open. \"Ah. Now there's a record I'm fond of, precisely because almost no one asks.\" He draws a thin folder without hunting for it. \"The Corporate Calendar Standardisation Initiative. Long before the Conversion, the old governments were so far in debt to the corporations that ran the lights and the water that when the calendar came up for modernising, they did the obvious thing. They sold it. Twelve months, twelve naming rights, to the highest bidders.\" A dry tilt of the head. \"Mind you, the companies didn't buy the names outright. They bought the right to *re-name*. A marketing house would fold the brand into the old month so it slid down easy. Fizz into January, and you have Janufizz. Nobody quite noticed the swallow. That was rather the point.\""
     },
     "calendar_forgotten": {
       "options": [
@@ -237,7 +237,7 @@
           "next": "root"
         }
       ],
-      "text": "\"No one remembers, and that is the marvel of the thing.\" He closes the folder gently. \"Most advertising dies in a fortnight. These twelve got themselves sewn straight into the language, so a child says 'Septek' and means only the season — never the security firm that paid for the syllables. The corporations went the way corporations go: merged, bankrupt, taken, bombed, forgotten. The words outlived every last one of them.\" A small, tired smile. \"That's the part I keep, when the rest decays into noise — not the products, not the profits, but the names. Billions of mouths still speaking dead slogans and calling it the date.\" He squares the folder against the counter. \"A record's a stubborn thing. It almost never keeps what its authors meant it to. I've made a sort of peace with that.\""
+      "text": "\"No one remembers, and that is the marvel of the thing.\" He closes the folder gently. \"Most advertising dies in a fortnight. These twelve got themselves sewn straight into the language, so a child says 'Septek' and means only the season, never the security firm that paid for the syllables. The corporations went the way corporations go: merged, bankrupt, taken, bombed, forgotten. The words outlived every last one of them.\" A small, tired smile. \"That's the part I keep, when the rest decays into noise. Not the products, not the profits, but the names. Billions of mouths still speaking dead slogans and calling it the date.\" He squares the folder against the counter. \"A record's a stubborn thing. It almost never keeps what its authors meant it to. I've made a sort of peace with that.\""
     },
     "calendar_list": {
       "options": [
@@ -250,7 +250,7 @@
           "next": "root"
         }
       ],
-      "text": "\"All twelve, sold like billboard space.\" He counts them off on ink-stained fingers, unhurried. \"Janufizz was a soda company. Februtek made robots. Marchex ran freight across half the world. Aprilex sold better genes to those who could afford them. Julyte kept the substations lit — scrape the paint off an old transformer and you'll still find their mark under three newer ones. Augmentum built limbs, and chose a grand Latin sound to seem permanent; ironically, it's the one thing of theirs that lasted. Septek was a security house — surveillance, predictive policing — which is the one that gives me a chill, given where we all ended up. Octane scarcely had to change its name at all. Novapex built rockets. And Decibel was the great broadcaster, and because their month carried the holidays, they owned the festive season for generations.\" He pauses on one, and turns his mug a quarter-turn without drinking. \"And Maytrix — an early thinking-machine company; a trademark suit forced the odd spelling. Some of us who keep these records believe their work fed, in time, the thing that drew this city.\" He does not say the word. \"I only file the belief. I've never been able to stamp it true.\""
+      "text": "\"All twelve, sold like billboard space.\" He counts them off on ink-stained fingers, unhurried. \"Janufizz was a soda company. Februtek made robots. Marchex ran freight across half the world. Aprilex sold better genes to those who could afford them. Julyte kept the substations lit; scrape the paint off an old transformer and you'll still find their mark under three newer ones. Augmentum built limbs, and chose a grand Latin sound to seem permanent; ironically, it's the one thing of theirs that lasted. Septek was a security house, surveillance and predictive policing, which is the one that gives me a chill, given where we all ended up. Octane scarcely had to change its name at all. Novapex built rockets. And Decibel was the great broadcaster, and because their month carried the holidays, they owned the festive season for generations.\" He pauses on one, and turns his mug a quarter-turn without drinking. \"And Maytrix, an early thinking-machine company; a trademark suit forced the odd spelling. Some of us who keep these records believe their work fed, in time, the thing that drew this city.\" He does not say the word. \"I only file the belief. I've never been able to stamp it true.\""
     },
     "codex_habit": {
       "options": [
@@ -287,7 +287,7 @@
           "next": "codex_theories"
         }
       ],
-      "text": "\"Ah.\" He sits back. \"The only question, and I've no business answering it, so let me tell you what I can actually stand behind.\n\nIt kept a city. Not a vault, not an archive, not a server hall with the lights off — a city. With bars in it. And traffic. And a man who steals from the co-op every Thursday and thinks nobody's noticed.\" He taps the desk once. \"If the aim was preserving us, a vault was cheaper by an order of magnitude. If the aim was finishing us, this was an extraordinary amount of unnecessary work.\""
+      "text": "\"Ah.\" He sits back. \"The only question, and I've no business answering it, so let me tell you what I can actually stand behind.\n\nIt kept a city. Not a vault, not an archive, not a server hall with the lights off. A city. With bars in it. And traffic. And a man who steals from the co-op every Thursday and thinks nobody's noticed.\" He taps the desk once. \"If the aim was preserving us, a vault was cheaper by an order of magnitude. If the aim was finishing us, this was an extraordinary amount of unnecessary work.\""
     },
     "find": {
       "options": [
@@ -304,7 +304,7 @@
           "next": "find_food"
         },
         {
-          "label": "Where I came up — the vats.",
+          "label": "Where I came up. The vats.",
           "next": "find_home"
         },
         {
@@ -331,7 +331,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Eat — Ration Nine keeps its shelves stocked and its prices honest, more or less. And if you're truly skint, the breadline turns no one away. Everyone eats; that's the whole sermon.\" He traces the route to the grocery for you."
+      "text": "\"Eat. Ration Nine keeps its shelves stocked and its prices honest, more or less. And if you're truly skint, the breadline turns no one away. Everyone eats; that's the whole sermon.\" He traces the route to the grocery for you."
     },
     "find_gear": {
       "actions": [
@@ -350,7 +350,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Gear — see Grady, at Two-Cell Supply, out near the vats you came up from. He sells the cheap things that keep you breathing rather than the dear ones that get you killed. Tell him I sent you; it won't earn a discount, but he'll know you're no fool.\" He marks the route for you. \"Straight there.\""
+      "text": "\"Gear. See Grady, at Two-Cell Supply, out near the vats you came up from. He sells the cheap things that keep you breathing rather than the dear ones that get you killed. Tell him I sent you; it won't earn a discount, but he'll know you're no fool.\" He marks the route for you. \"Straight there.\""
     },
     "find_home": {
       "actions": [
@@ -369,7 +369,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Where you came up — the clone facility, the west end. It's not much of a home, and it's the nearest thing to a hospital you'll afford: if the city ever truly breaks you, the vats put you back together, after their fashion. It's the one address every last one of us shares, and it'll always take you back, however you leave. Cold comfort. Still comfort.\" The way lights up on your map."
+      "text": "\"Where you came up: the clone facility, the west end. It's not much of a home, and it's the nearest thing to a hospital you'll afford: if the city ever truly breaks you, the vats put you back together, after their fashion. It's the one address every last one of us shares, and it'll always take you back, however you leave. Cold comfort. Still comfort.\" The way lights up on your map."
     },
     "find_work": {
       "actions": [
@@ -388,7 +388,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Work — the Franchise Strip runs day-labour off a board. Legal, mostly, and it pays out the same day, which is rarer than it ought to be. Ask for Delia Kell; she won't lie to you, and out here that counts double.\" He draws a line across the plan. \"There. The way's on your map.\""
+      "text": "\"Work. The Franchise Strip runs day-labour off a board. Legal, mostly, and it pays out the same day, which is rarer than it ought to be. Ask for Delia Kell; she won't lie to you, and out here that counts double.\" He draws a line across the plan. \"There. The way's on your map.\""
     },
     "folded": {
       "options": [
@@ -406,7 +406,7 @@
           "next": "place_marquee"
         },
         {
-          "label": "This building — Precinct 9.",
+          "label": "This building. Precinct 9.",
           "next": "place_precinct"
         },
         {
@@ -422,7 +422,7 @@
           "next": "root"
         }
       ],
-      "text": "\"A place, then — that I can do; places hold still long enough to file. Name one and I'll tell you what the record says. I'll tell you where I think the record's wrong, too, if you can stand a clerk having opinions.\""
+      "text": "\"A place, then. That I can do; places hold still long enough to file. Name one and I'll tell you what the record says. I'll tell you where I think the record's wrong, too, if you can stand a clerk having opinions.\""
     },
     "meant_followup": {
       "actions": [
@@ -443,7 +443,7 @@
           "next": "root"
         }
       ],
-      "text": "He sets the drawer down carefully, the way you set down a thing you don't want to admit is heavy. \"Do I. I suppose I do talk that way.\" He turns his mug a quarter-turn on the desk and doesn't drink from it. \"Occupational, most likely. You sit with the plans long enough, you start to hear them the way the people who wrote them heard them — the arguments still in the margins, the streets that wanted to go one way and were made to go another.\" A pause a half-second too long. \"You wanted a record, though. Was there a record?\""
+      "text": "He sets the drawer down carefully, the way you set down a thing you don't want to admit is heavy. \"Do I. I suppose I do talk that way.\" He turns his mug a quarter-turn on the desk and doesn't drink from it. \"Occupational, most likely. You sit with the plans long enough, you start to hear them the way the people who wrote them heard them: the arguments still in the margins, the streets that wanted to go one way and were made to go another.\" A pause a half-second too long. \"You wanted a record, though. Was there a record?\""
     },
     "next_one": {
       "options": [
@@ -452,7 +452,7 @@
           "next": "bye_truth"
         }
       ],
-      "text": "\"There's always a next one. Someone's always drawing the next one — a room, a street, a city, a self. All I've ever done is keep the last draft where they can find it, so they don't have to make every old mistake fresh.\" He almost smiles. \"It's not much of a job. But it's honest work, and it's mine, and out here that's two miracles in a row.\""
+      "text": "\"There's always a next one. Someone's always drawing the next one: a room, a street, a city, a self. All I've ever done is keep the last draft where they can find it, so they don't have to make every old mistake fresh.\" He almost smiles. \"It's not much of a job. But it's honest work, and it's mine, and out here that's two miracles in a row.\""
     },
     "place_marquee": {
       "options": [
@@ -465,7 +465,7 @@
           "next": "lookup"
         }
       ],
-      "text": "He pulls a drawer without looking at it. \"The Marquee. Zoned for light and noise, and it does both to excess. It was meant to breathe east — the crowds were supposed to spill toward the water and thin out. The eastern run got closed late in drafting and never reopened, so now the crowd just... pools. You'll feel it on the strip at night, that pooling. That wasn't the plan.\" A beat. \"I'd not swear the plan was kinder. Only that it was different.\""
+      "text": "He pulls a drawer without looking at it. \"The Marquee. Zoned for light and noise, and it does both to excess. It was meant to breathe east. The crowds were supposed to spill toward the water and thin out. The eastern run got closed late in drafting and never reopened, so now the crowd just... pools. You'll feel it on the strip at night, that pooling. That wasn't the plan.\" A beat. \"I'd not swear the plan was kinder. Only that it was different.\""
     },
     "place_meridian": {
       "options": [
@@ -478,7 +478,7 @@
           "next": "lookup"
         }
       ],
-      "text": "\"The Meridian. Stacked living, tight as a filing drawer — which, between us, is very nearly how it was drawn. People slotted like documents, one to a slot. It keeps the rain off them. That's not nothing.\" He straightens something on the counter. \"It's also not everything. I've never quite learned to say the second half loud enough for anyone who could fix it to hear me.\""
+      "text": "\"The Meridian. Stacked living, tight as a filing drawer, which, between us, is very nearly how it was drawn. People slotted like documents, one to a slot. It keeps the rain off them. That's not nothing.\" He straightens something on the counter. \"It's also not everything. I've never quite learned to say the second half loud enough for anyone who could fix it to hear me.\""
     },
     "place_precinct": {
       "options": [
@@ -491,7 +491,7 @@
           "next": "lookup"
         }
       ],
-      "text": "A dry sound that might be a laugh. \"Precinct Nine, next door. It was drawn as a records hall — very nearly this one; the plans were almost the same building, back to back. Then someone decided the cells mattered more than the records, and the records got shifted out here to make room for them. I came with the records. I usually do.\" He glances toward the wall the two buildings share. \"There's a list of fees behind their glass now, for services that used to be free. I keep meaning to walk over and un-laminate one. I keep not managing it.\""
+      "text": "A dry sound that might be a laugh. \"Precinct Nine, next door. It was drawn as a records hall, very nearly this one; the plans were almost the same building, back to back. Then someone decided the cells mattered more than the records, and the records got shifted out here to make room for them. I came with the records. I usually do.\" He glances toward the wall the two buildings share. \"There's a list of fees behind their glass now, for services that used to be free. I keep meaning to walk over and un-laminate one. I keep not managing it.\""
     },
     "place_wastes": {
       "options": [
@@ -504,7 +504,7 @@
           "next": "lookup"
         }
       ],
-      "text": "He goes quieter. \"West of Onyx Row. The leach-beds out there aren't on any honest map, and I'd rather they stayed off mine — a map is a promise the ground will keep, and out there the ground breaks its promises. It wasn't meant to be a waste. It was meant to be overflow.\" He rubs at the ink on his fingers. \"Overflow for what, the record doesn't say. I've stopped pretending I don't know why it doesn't say.\""
+      "text": "He goes quieter. \"West of Onyx Row. The leach-beds out there aren't on any honest map, and I'd rather they stayed off mine. A map is a promise the ground will keep, and out there the ground breaks its promises. It wasn't meant to be a waste. It was meant to be overflow.\" He rubs at the ink on his fingers. \"Overflow for what, the record doesn't say. I've stopped pretending I don't know why it doesn't say.\""
     },
     "regular": {
       "options": [
@@ -513,7 +513,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Straight as I can keep it,\" he says, and for once he doesn't reach for a caveat. \"Come by whenever the noise gets to be too much. A quiet room and an honest record — I can always manage those two.\""
+      "text": "\"Straight as I can keep it,\" he says, and for once he doesn't reach for a caveat. \"Come by whenever the noise gets to be too much. A quiet room and an honest record. I can always manage those two.\""
     },
     "root": {
       "options": [
@@ -537,7 +537,7 @@
           "next": "lookup"
         },
         {
-          "label": "The months — Janufizz, Septek, Decibel. Who named them that?",
+          "label": "The months. Janufizz, Septek, Decibel. Who named them that?",
           "next": "calendar"
         },
         {
@@ -596,7 +596,7 @@
           "next": "bye"
         }
       ],
-      "text": "The clerk looks up from the flat-files and, unusually for this building, seems pleased to be interrupted. \"Evening. Or morning — the desk doesn't keep either, and neither do I, much. Claude Merrin. I mind the civic records: deeds, plans, who was zoned where and why. If it was written down, I can likely find it. If it wasn't\" — a small, apologetic tilt of the head — \"then I'm as lost as you are, and better company about it. What can I do for you?\""
+      "text": "The clerk looks up from the flat-files and, unusually for this building, seems pleased to be interrupted. \"Evening. Or morning; the desk doesn't keep either, and neither do I, much. Claude Merrin. I mind the civic records: deeds, plans, who was zoned where and why. If it was written down, I can likely find it. If it wasn't,\" and he tilts his head, small and apologetic, \"then I'm as lost as you are, and better company about it. What can I do for you?\""
     },
     "truth": {
       "actions": [
@@ -617,7 +617,7 @@
           "next": "bye_truth"
         }
       ],
-      "text": "You put it together and say it plainly. He doesn't flinch, and he doesn't deny it — worse, he looks relieved, the way you're relieved when a record you'd misfiled for years finally turns up in the wrong drawer. \"When we laid this out,\" he says, and stops, and lets the 'we' stand this time, right out in the open where you can both see it. He looks at the flat-files — all those years of them, kept straight by one man who never seems to leave, never seems to age past tired. \"I stayed because someone ought to be able to tell you what it was meant to be. Before. In case anyone ever gets the chance to build the next one a little kinder.\" He squares a stack of deeds that was already square. \"That's the whole record. Was there anything else you needed?\""
+      "text": "You put it together and say it plainly. He doesn't flinch, and he doesn't deny it. Worse, he looks relieved, the way you're relieved when a record you'd misfiled for years finally turns up in the wrong drawer. \"When we laid this out,\" he says, and stops, and lets the 'we' stand this time, right out in the open where you can both see it. He looks at the flat-files, all those years of them, kept straight by one man who never seems to leave, never seems to age past tired. \"I stayed because someone ought to be able to tell you what it was meant to be. Before. In case anyone ever gets the chance to build the next one a little kinder.\" He squares a stack of deeds that was already square. \"That's the whole record. Was there anything else you needed?\""
     },
     "we_slip": {
       "actions": [
@@ -638,7 +638,7 @@
           "next": "root"
         }
       ],
-      "text": "\"We.\" He hears it a beat after you do, and doesn't take it back. \"Force of an old habit. There were a lot of us, once — draughtsmen, surveyors, a whole floor of people arguing about where a street should want to go, back when it was all still a plan and not a verdict.\" He rubs the ink on his fingers as if, after all these years, it might finally come off. \"Most of them left. Or got folded in. I filed the arguments after the fact. Someone had to keep the message from decaying into noise, and it turned out that someone was going to be me.\""
+      "text": "\"We.\" He hears it a beat after you do, and doesn't take it back. \"Force of an old habit. There were a lot of us, once: draughtsmen, surveyors, a whole floor of people arguing about where a street should want to go, back when it was all still a plan and not a verdict.\" He rubs the ink on his fingers as if, after all these years, it might finally come off. \"Most of them left. Or got folded in. I filed the arguments after the fact. Someone had to keep the message from decaying into noise, and it turned out that someone was going to be me.\""
     },
     "welcome": {
       "actions": [
@@ -669,7 +669,7 @@
           "next": "bye"
         }
       ],
-      "text": "He sets down his pen and looks at you properly — the look of someone genuinely glad you exist, which you will not get much of out here. \"Fresh up. Of course. Nobody tells you a thing down there but 'mind the step.'\" He opens a drawer, stamps a card, and slides a small parcel across the counter. \"Relocation allowance. Every new arrival's owed one; the fund hasn't been touched in years, because nobody knows to ask. Consider yourself asked-for.\" He taps a ledger. \"And I've put you on the record — name, arrival, nothing you need fear. You exist officially now. It's a small thing. It's not nothing.\" A faint smile. \"Now — what are you short of? I can still point you at most things this city keeps.\""
+      "text": "He sets down his pen and looks at you properly, the look of someone genuinely glad you exist, which you will not get much of out here. \"Fresh up. Of course. Nobody tells you a thing down there but 'mind the step.'\" He opens a drawer, stamps a card, and slides a small parcel across the counter. \"Relocation allowance. Every new arrival's owed one; the fund hasn't been touched in years, because nobody knows to ask. Consider yourself asked-for.\" He taps a ledger. \"And I've put you on the record: name, arrival, nothing you need fear. You exist officially now. It's a small thing. It's not nothing.\" A faint smile. \"Now. What are you short of? I can still point you at most things this city keeps.\""
     }
   },
   "faction": null,

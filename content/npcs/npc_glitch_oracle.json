@@ -19,7 +19,7 @@
           "next": "codex_room"
         }
       ],
-      "text": "\"No.\" Flat, immediate, almost bored — the answer of someone who has given it a thousand times. \"I don't do anything. That's the part the Basin can't hold onto. They want a conjurer so they can laugh at a conjurer.\" Her head tilts. \"I notice. That's all. It is a much smaller claim and a much worse one.\""
+      "text": "\"No.\" Flat, immediate, almost bored, the answer of someone who has given it a thousand times. \"I don't do anything. That's the part the Basin can't hold onto. They want a conjurer so they can laugh at a conjurer.\" Her head tilts. \"I notice. That's all. It is a much smaller claim and a much worse one.\""
     },
     "codex_room": {
       "actions": [
@@ -38,7 +38,7 @@
           "next": "codex_worse"
         }
       ],
-      "text": "\"Down here the signal doesn't reach. No feed, no channel, no one deciding what you see next.\" She gestures at the dark, and there are, you realise, others in it. \"And people start agreeing.\n\nNot talking. Agreeing. Two strangers flinch in the same second at nothing. A room of them dream the same dream in the same week — I've logged forty-one. Ask nine unrelated adults for a number and get one number.\" The fibre twitches again. \"Every time, in the quiet. Never up there.\""
+      "text": "\"Down here the signal doesn't reach. No feed, no channel, no one deciding what you see next.\" She gestures at the dark, and there are, you realise, others in it. \"And people start agreeing.\n\nNot talking. Agreeing. Two strangers flinch in the same second at nothing. A room of them dream the same dream in the same week. I've logged forty-one. Ask nine unrelated adults for a number and get one number.\" The fibre twitches again. \"Every time, in the quiet. Never up there.\""
     },
     "codex_worse": {
       "options": [
@@ -47,7 +47,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Here is the reading nobody wants.\" She opens her eyes properly, and they are perfectly lucid, which is somehow the worst part. \"Maybe nothing new is happening. Maybe minds have always synchronised under a shared signal, and the old world proved it for a hundred years and called it something else.\" A small, terrible smile. \"The Exodus want out through the inside. I keep asking them the same question and they keep not answering it.\n\nIf a thought can be predicted perfectly — whose was it?\""
+      "text": "\"Here is the reading nobody wants.\" She opens her eyes properly, and they are perfectly lucid, which is somehow the worst part. \"Maybe nothing new is happening. Maybe minds have always synchronised under a shared signal, and the old world proved it for a hundred years and called it something else.\" A small, terrible smile. \"The Exodus want out through the inside. I keep asking them the same question and they keep not answering it.\n\nIf a thought can be predicted perfectly, whose was it?\""
     },
     "root": {
       "options": [

@@ -141,7 +141,7 @@
           "next": "shop"
         }
       ],
-      "text": "\"Evening. Buy in, buy a drink, or admire the carpet — all three pay the house.\""
+      "text": "\"Evening. Buy in, buy a drink, or admire the carpet. All three pay the house.\""
     },
     "shop": {
       "actions": [

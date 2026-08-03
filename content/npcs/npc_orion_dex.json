@@ -128,14 +128,14 @@
     "cuts the deck without looking, a motion as automatic as breathing",
     "\"No rabbit hunting.\"",
     "sets out the cut card with a flat click",
-    "\"Your read or your math — pick one. You're not fast enough for both.\"",
+    "\"Your read or your math. Pick one. You're not fast enough for both.\"",
     "riffles the deck once, sets it down, waits",
     "\"Minimum raise is the size of the last raise. Always.\"",
     "adjusts the position of the discard tray by exactly one centimeter",
     "\"If you can't afford to call, you shouldn't have raised.\"",
     "watches the room with the patient attention of someone who has seen every tell twice",
     "\"Side pot. Keep your stacks separate.\"",
-    "squares the deck against the felt — a crisp, decisive sound",
+    "squares the deck against the felt, a crisp, decisive sound",
     "glances toward the bar, then back at the table",
     "\"House doesn't take a cut. Don't ask why.\""
   ],
@@ -152,7 +152,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"check, call, bet X, raise X, fold, allin. The system enforces minimum raises. Don't waste my time asking what the minimum is — it'll tell you.\""
+      "text": "\"check, call, bet X, raise X, fold, allin. The system enforces minimum raises. Don't waste my time asking what the minimum is. It'll tell you.\""
     },
     "bye": {
       "options": [],
@@ -165,7 +165,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"join — sit down. leave — cash out and go. check / call / bet X / raise X / fold / allin — in-hand actions. board — see community cards. pot — current pot. players — who's in and their stacks.\""
+      "text": "\"join: sit down. leave: cash out and go. check / call / bet X / raise X / fold / allin: in-hand actions. board: see community cards. pot: current pot. players: who's in and their stacks.\""
     },
     "place": {
       "options": [

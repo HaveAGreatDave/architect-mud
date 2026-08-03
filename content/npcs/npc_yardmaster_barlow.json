@@ -127,7 +127,7 @@
     "\"If it's got a manifest, it's come across my desk. If it hasn't, I don't want to know.\"",
     "\"Everything in the Yards is going somewhere. Question is whose name's on it.\"",
     "\"Trucks north, barges east, planes overhead. I sit in the middle and count.\"",
-    "\"You want a warehouse? Plenty going spare. Holding one — that's the trick.\"",
+    "\"You want a warehouse? Plenty going spare. Holding one. That's the trick.\"",
     "\"Cameras see everything down here. Do your worst somewhere else.\"",
     "\"I've buried three companies that thought the Yards ran themselves.\""
   ],
@@ -148,7 +148,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Half these sheds are sitting empty, and the city stopped caring who runs them years ago.\" He jerks a thumb at the roller doors. \"A crew with a name and a treasury walks in, CLAIMs a warehouse, and it starts earning them — freight rent, storage, a cut of everything that moves through. Stack up a few and you've got yourself a proper operation. That's why the Yards are worth fighting over: it's the one part of town you can still just... take.\""
+      "text": "\"Half these sheds are sitting empty, and the city stopped caring who runs them years ago.\" He jerks a thumb at the roller doors. \"A crew with a name and a treasury walks in, CLAIMs a warehouse, and it starts earning them: freight rent, storage, a cut of everything that moves through. Stack up a few and you've got yourself a proper operation. That's why the Yards are worth fighting over: it's the one part of town you can still just... take.\""
     },
     "corps2": {
       "options": [
@@ -157,7 +157,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Take, sure. Keep's another matter.\" A dry almost-laugh. \"Another crew can CONTEST what's yours — lean on it, bleed your grip till it flips. And the cameras up on the eaves? PD-wired. Draw down on a rival in the open and you'll have stars on you before the body's cold. Smart crews squeeze each other quiet. The loud ones I sweep up after.\""
+      "text": "\"Take, sure. Keep's another matter.\" A dry almost-laugh. \"Another crew can CONTEST what's yours, lean on it, bleed your grip till it flips. And the cameras up on the eaves? PD-wired. Draw down on a rival in the open and you'll have stars on you before the body's cold. Smart crews squeeze each other quiet. The loud ones I sweep up after.\""
     },
     "gossip": {
       "actions": [
@@ -171,7 +171,7 @@
           "next": "root"
         }
       ],
-      "text": "Barlow sets the clipboard down — a rare event — and lowers his voice."
+      "text": "Barlow sets the clipboard down, a rare event, and lowers his voice."
     },
     "root": {
       "options": [
@@ -180,7 +180,7 @@
           "next": "yards"
         },
         {
-          "label": "Those empty warehouses — what's the story?",
+          "label": "Those empty warehouses. What's the story?",
           "next": "corps"
         },
         {

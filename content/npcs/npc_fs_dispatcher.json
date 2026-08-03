@@ -142,7 +142,7 @@
           "text": "\"So what's on it?\""
         }
       ],
-      "text": "She almost smiles. \"The Breakers say that too — right up until winter, when they come slinking back for the heaters they smashed.\" A shrug. \"Serve it or smash it, the board doesn't care. Neither do I. Pay's the same either way.\""
+      "text": "She almost smiles. \"The Breakers say that too, right up until winter, when they come slinking back for the heaters they smashed.\" A shrug. \"Serve it or smash it, the board doesn't care. Neither do I. Pay's the same either way.\""
     },
     "creed": {
       "options": [
@@ -303,7 +303,7 @@
           "text": "\"The one who pulls the plug on all of it, eventually.\""
         }
       ],
-      "text": "She doesn't reach for the clipboard this time. \"You held a shift.\" A drag on the cigarette, and for once she looks at you properly — not pricing you, reading you. \"That's the part most of them never manage. They take a tab, and another tab, and one morning they're not in the queue and nobody asks after them.\" She taps ash into the tin lid. \"So I'll ask you the thing I don't waste on the ones who won't last. What are you going to be?\""
+      "text": "She doesn't reach for the clipboard this time. \"You held a shift.\" A drag on the cigarette, and for once she looks at you properly. Not pricing you, reading you. \"That's the part most of them never manage. They take a tab, and another tab, and one morning they're not in the queue and nobody asks after them.\" She taps ash into the tin lid. \"So I'll ask you the thing I don't waste on the ones who won't last. What are you going to be?\""
     },
     "eat": {
       "options": [
@@ -334,7 +334,7 @@
           "text": "\"Is this all there is?\""
         }
       ],
-      "text": "Delia glances at the tab, then at you. \"{quest}. Done, then.\" She thumbs a worn stamp onto the clipboard and the credits clear before the ink's dry. \"Pay's logged. Take a tab, do the thing, bring it back — that's the whole religion.\" A drag on the cigarette. \"Come back when you're hungry again.\""
+      "text": "Delia glances at the tab, then at you. \"{quest}. Done, then.\" She thumbs a worn stamp onto the clipboard and the credits clear before the ink's dry. \"Pay's logged. Take a tab, do the thing, bring it back. That's the whole religion.\" A drag on the cigarette. \"Come back when you're hungry again.\""
     },
     "remember": {
       "options": [
@@ -410,7 +410,7 @@
           "text": "\"What's on the board?\""
         }
       ],
-      "text": "The window's plexi is scratched to fog. Delia Kell slides a clipboard half an inch toward you without looking up. \"Board's on the wall. Take a tab, do the thing, bring it back, get paid. That's the whole religion.\" She finally lifts her eyes, weighs you for about as long as it takes to read a docket, and goes back to the clipboard. \"New-made. I can always tell — they come out of that facility with the shine still on.\""
+      "text": "The window's plexi is scratched to fog. Delia Kell slides a clipboard half an inch toward you without looking up. \"Board's on the wall. Take a tab, do the thing, bring it back, get paid. That's the whole religion.\" She finally lifts her eyes, weighs you for about as long as it takes to read a docket, and goes back to the clipboard. \"New-made. I can always tell; they come out of that facility with the shine still on.\""
     },
     "steady": {
       "options": [
@@ -427,7 +427,7 @@
           "text": "\"I'll stay on the tabs.\""
         }
       ],
-      "text": "She squares the clipboard she doesn't need to square. \"Let me tell you what my board actually is, since you've now done one. It's tabs. A tab is an errand — ten, fifteen credits, and then it's over and you're standing here again.\" No bitterness in it; she's reading a meter. \"It exists so nobody starves in their first week. It is not a living, and whoever tells you it is, is taking something off the top.\" A drag. \"A shift is a living. Somebody puts you behind a counter for a stretch and pays you for the stretch, and tips on top if you turn out to be any good at it. It's dull work. Dull is the entire point. Dull is how you finish a week holding more than you started it with.\""
+      "text": "She squares the clipboard she doesn't need to square. \"Let me tell you what my board actually is, since you've now done one. It's tabs. A tab is an errand. Ten, fifteen credits, and then it's over and you're standing here again.\" No bitterness in it; she's reading a meter. \"It exists so nobody starves in their first week. It is not a living, and whoever tells you it is, is taking something off the top.\" A drag. \"A shift is a living. Somebody puts you behind a counter for a stretch and pays you for the stretch, and tips on top if you turn out to be any good at it. It's dull work. Dull is the entire point. Dull is how you finish a week holding more than you started it with.\""
     },
     "steady_warn": {
       "options": [
@@ -440,7 +440,7 @@
           "text": "\"Some other time.\""
         }
       ],
-      "text": "\"The catch is it's real time and you can be thrown off it.\" She holds up fingers, flat. \"You turn up and you say clock in. Then you stay — wander off, start a fight, and you've walked out mid-shift and they'll pay you for the part you did and remember the part you didn't. Whatever the floor throws at you, deal with it while it's still in front of you. Keep whoever's watching you happy and there's a tip in it. Let it slide and they'll send you home early and light.\" She almost smiles. \"That's the whole trade. It's the most honest arrangement in this basin, which tells you plenty about the basin.\""
+      "text": "\"The catch is it's real time and you can be thrown off it.\" She holds up fingers, flat. \"You turn up and you say clock in. Then you stay. Wander off, start a fight, and you've walked out mid-shift and they'll pay you for the part you did and remember the part you didn't. Whatever the floor throws at you, deal with it while it's still in front of you. Keep whoever's watching you happy and there's a tip in it. Let it slide and they'll send you home early and light.\" She almost smiles. \"That's the whole trade. It's the most honest arrangement in this basin, which tells you plenty about the basin.\""
     },
     "the_waste": {
       "options": [
@@ -462,7 +462,7 @@
           "text": "\"I'll stick to the board. For now.\""
         }
       ],
-      "text": "\"Somewhere else. That's the whole appeal, isn't it.\" She taps ash and doesn't look at you. \"There's another basin out past it, and people who made it there, and people who write on the rocks so the next one knows which way is which. There's no ticket and no permit and nobody to ask. You want to know how it's done — you walk, and you don't stop when the map does.\" Now she does look at you. \"Not this month, sprat. Not on what you're carrying. But you asked, so now you know it's there, and that's the part nobody tells you.\""
+      "text": "\"Somewhere else. That's the whole appeal, isn't it.\" She taps ash and doesn't look at you. \"There's another basin out past it, and people who made it there, and people who write on the rocks so the next one knows which way is which. There's no ticket and no permit and nobody to ask. You want to know how it's done: you walk, and you don't stop when the map does.\" Now she does look at you. \"Not this month, sprat. Not on what you're carrying. But you asked, so now you know it's there, and that's the part nobody tells you.\""
     },
     "who_hires": {
       "options": [
@@ -479,7 +479,7 @@
           "text": "\"The board's fine by me.\""
         }
       ],
-      "text": "She looks at you properly for the first time. \"No. The board's what the district admits to.\" A drag on the cigarette, held a while. \"Walking a meter route pays ten because any fool can walk. What pays is a job somebody needs doing quietly, and there's three of those drinking coffee in the turbine hall at the power plant right now — east and south, you'll smell it before you see it. Day shift. They'll all three tell you they're too busy. They're not.\""
+      "text": "She looks at you properly for the first time. \"No. The board's what the district admits to.\" A drag on the cigarette, held a while. \"Walking a meter route pays ten because any fool can walk. What pays is a job somebody needs doing quietly, and there's three of those drinking coffee in the turbine hall at the power plant right now, east and south;, you'll smell it before you see it. Day shift. They'll all three tell you they're too busy. They're not.\""
     },
     "who_hires_names": {
       "options": [
@@ -488,7 +488,7 @@
           "text": "\"Noted. Anything on the board meanwhile?\""
         }
       ],
-      "text": "\"Ma Cinder — old, mean, runs the bog crews, pays a hundred thirty to anyone who'll go into the tar for her. The Harbourmaster, if he's sober, has a lurker problem out on the water worth a hundred fifty. And Voss the yardmaster's been losing freight off the sidings on Dray Lane to scavengers — that one's close, and he's past caring how it gets solved.\" She taps ash. \"And if you want something closer and stupider — there's a spotter up on the gun battery north of the vats, Rooke, been moaning about ground returns for a week and getting nowhere with it. Pays like it's beneath him to ask. But it's two minutes' walk and it won't kill you, probably.\" \"All of them sleep at the Embassy or the Meridian if you miss the shift. Don't knock after midnight. Especially not on Cinder.\""
+      "text": "\"Ma Cinder. Old, mean, runs the bog crews, pays a hundred thirty to anyone who'll go into the tar for her. The Harbourmaster, if he's sober, has a lurker problem out on the water worth a hundred fifty. And Voss the yardmaster's been losing freight off the sidings on Dray Lane to scavengers. That one's close, and he's past caring how it gets solved.\" She taps ash. \"And if you want something closer and stupider, there's a spotter up on the gun battery north of the vats, Rooke, been moaning about ground returns for a week and getting nowhere with it. Pays like it's beneath him to ask. But it's two minutes' walk and it won't kill you, probably.\" \"All of them sleep at the Embassy or the Meridian if you miss the shift. Don't knock after midnight. Especially not on Cinder.\""
     }
   },
   "faction": null,

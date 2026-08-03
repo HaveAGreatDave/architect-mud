@@ -4,10 +4,10 @@
   "chitchat": [
     "flips a dead datachip end over end across their knuckles.",
     "\"Everybody's got something they don't want seen. That's my whole business model.\"",
-    "watches a bank of tiny monitors behind the counter — six empty rooms, all slightly wrong.",
+    "watches a bank of tiny monitors behind the counter: six empty rooms, all slightly wrong.",
     "\"Wired cams are cheaper, but cut the power and they're paperweights. You get what you pay for.\"",
     "\"Somebody hijacked my own street cam last week. Respect. Cost me a fortune to get it back.\"",
-    "\"Cameras are eyes. But if you want a *voice* — flash the pirate firmware, walk up to a station's media deck, and take the air. Whole city hears whatever you feed it.\""
+    "\"Cameras are eyes. But if you want a *voice*, flash the pirate firmware, walk up to a station's media deck, and take the air. Whole city hears whatever you feed it.\""
   ],
   "description": "Glitch is a wiry fence draped in a hoodie threaded with dead fibre-optics that catch the monitor glow. Their fingers never stop moving — flipping a chip, coiling cable, tapping a keyboard you can't see. Their eyes flick to every camera in the room before they land on you.",
   "dialogue_tree": {
@@ -26,7 +26,7 @@
           "next": "root"
         }
       ],
-      "text": "'Plant it where nobody looks. Pull the feed on a deck — that's `hub`. Cams see, sensors ping, jammers blind, spoofers lie. Somebody find yours? Smash it or hijack it. It's a whole food chain, kid.'"
+      "text": "'Plant it where nobody looks. Pull the feed on a deck. That's `hub`. Cams see, sensors ping, jammers blind, spoofers lie. Somebody find yours? Smash it or hijack it. It's a whole food chain, kid.'"
     },
     "root": {
       "options": [

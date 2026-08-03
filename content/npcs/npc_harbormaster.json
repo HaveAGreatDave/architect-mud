@@ -163,7 +163,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Something in the bay's been taking my dockhands and gnawing my hulls — lurkers, big ones. Thin them out — three, at least — and I'll pay you in something I definitely never received.\""
+      "text": "\"Something in the bay's been taking my dockhands and gnawing my hulls. Lurkers, big ones. Thin them out, three at least, and I'll pay you in something I definitely never received.\""
     },
     "reported": {
       "actions": [
@@ -178,7 +178,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"...Fewer wakes out there tonight. Good. Here — off the books, like everything else on this wharf. We never spoke.\""
+      "text": "\"...Fewer wakes out there tonight. Good. Here, off the books, like everything else on this wharf. We never spoke.\""
     },
     "root": {
       "options": [

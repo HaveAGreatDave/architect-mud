@@ -64,6 +64,12 @@ are *reusable prompts*; these are the *results* of a sweep):
   ([prompt](doc-correctness-concision-audit.md)), batched by doc. Every verdict carries a
   `file:line`. Batch 1 fixed the dispatch/registry contract docs; batch 2 retired two
   point-in-time docs and found the still-live forgeable admin token.
+- [emdash-sweep.md](emdash-sweep.md) — running status of the em dash rule ([story.md](../story.md),
+  Tone): the dash is a voice marker reserved for the Architect and the Ascendants, so every other
+  line has to lose it. Dialogue and broadcast copy are **done** (~2080 fixes); ~3019 occurrences
+  remain in descriptive prose, over half of them in `zones`. Records the two blocks that must
+  **never** be swept (public-domain book text, compiler-generated `CAM` labels) and the
+  extract → dedupe → patch-table method both passes used.
 
 ## How to use one
 

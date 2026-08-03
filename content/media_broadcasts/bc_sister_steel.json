@@ -55,7 +55,7 @@
         "type": "overlay",
         "overlayType": "lower_third",
         "text": "COLDWATER",
-        "subtext": "2081 — THE DRY MONTH",
+        "subtext": "2081, THE DRY MONTH",
         "graphic_id": "",
         "duration_s": 6,
         "_vine": {
@@ -203,7 +203,7 @@
       },
       "bsm_19": {
         "type": "say",
-        "text": "Sparks. A LOT of sparks — the director has clearly discovered that sparks are free and is going to get his money's worth.",
+        "text": "Sparks. A LOT of sparks; the director has clearly discovered that sparks are free and is going to get his money's worth.",
         "style": "narration",
         "_vine": {
           "x": 960,
@@ -450,7 +450,7 @@
       "bsm_pre_1": {
         "type": "overlay",
         "overlayType": "act_card",
-        "text": "CERTIFIED — UNSUITABLE FOR CORPORATE VIEWING",
+        "text": "CERTIFIED: UNSUITABLE FOR CORPORATE VIEWING",
         "subtext": "BASIN BROADCAST STANDARDS BOARD",
         "duration_s": 5,
         "_vine": {
@@ -481,7 +481,7 @@
   "fallback_messages": [],
   "film_meta": {
     "presents": "Meltwater Drive-In Releasing",
-    "rating": "CERTIFIED — UNSUITABLE FOR CORPORATE VIEWING",
+    "rating": "CERTIFIED: UNSUITABLE FOR CORPORATE VIEWING",
     "director": "Auggie Prine",
     "cast": [
       {
@@ -522,7 +522,7 @@
     "He slides a form across the desk. She does not take it. The scratch on the print goes right through her face, and stays there for the rest of the picture.",
     "They burned out her forge on a Tuesday.",
     "By Friday, Vonnie Sark had learned what a foreclosure notice sounds like going through a windscreen.",
-    "Sparks. A LOT of sparks — the director has clearly discovered that sparks are free and is going to get his money's worth.",
+    "Sparks. A LOT of sparks; the director has clearly discovered that sparks are free and is going to get his money's worth.",
     "The Preacher says, \"I got a van, I got a shotgun, and I got nothing anybody wants back. What are you building in there, sister?\"",
     "Vonnie Sark says, \"Something with teeth.\"",
     "REEL FOUR IS MISSING. It has been missing from this print since before The Handoff, and no surviving copy has it. Whatever happened in the Halcyon car park, you will have to take the picture's word for it.",

@@ -161,7 +161,7 @@
           "next": "__shop__"
         }
       ],
-      "text": "'Prices are what they are. The mag-lev stuff costs what it costs because the components aren't made anymore and the patent holders are suing each other into dust. The surplus cots are cheap because they're surplus. I don't negotiate down — I might negotiate trade.'"
+      "text": "'Prices are what they are. The mag-lev stuff costs what it costs because the components aren't made anymore and the patent holders are suing each other into dust. The surplus cots are cheap because they're surplus. I don't negotiate down. I might negotiate trade.'"
     },
     "root": {
       "options": [
@@ -186,7 +186,7 @@
           "next": "end"
         }
       ],
-      "text": "Juno looks up from a clipboard of handwritten inventory tallies. 'Browse or buy — I don't care which, as long as you don't sit on everything without committing. What can I do for you?'"
+      "text": "Juno looks up from a clipboard of handwritten inventory tallies. 'Browse or buy. I don't care which, as long as you don't sit on everything without committing. What can I do for you?'"
     },
     "what_is_this": {
       "options": [
@@ -199,7 +199,7 @@
           "next": "__shop__"
         }
       ],
-      "text": "'Dead Space Interiors. I took the name from the lease — the building code still says DEAD SPACE on the fire certificate. Seemed honest.' She taps the clipboard. 'I source from estate sales, corporate liquidations, lab clearances. If something's in here it works or it's interesting. Usually both.'"
+      "text": "'Dead Space Interiors. I took the name from the lease; the building code still says DEAD SPACE on the fire certificate. Seemed honest.' She taps the clipboard. 'I source from estate sales, corporate liquidations, lab clearances. If something's in here it works or it's interesting. Usually both.'"
     }
   },
   "faction": null,
@@ -296,6 +296,50 @@
     {
       "item_id": "item_furn_syntron_tv",
       "price": 2100
+    },
+    {
+      "item_id": "item_furn_crt_relic",
+      "price": 280
+    },
+    {
+      "item_id": "item_furn_ruggedized_monitor",
+      "price": 1600
+    },
+    {
+      "item_id": "item_furn_holo_projector",
+      "price": 4100
+    },
+    {
+      "item_id": "item_furn_wallscreen",
+      "price": 5200
+    },
+    {
+      "item_id": "item_furn_microwave_pulsebox",
+      "price": 190
+    },
+    {
+      "item_id": "item_furn_stove_ember300",
+      "price": 1600
+    },
+    {
+      "item_id": "item_furn_stove_meridian_searmaster",
+      "price": 5800
+    },
+    {
+      "item_id": "item_furn_fridge_glacier400",
+      "price": 1800
+    },
+    {
+      "item_id": "item_furn_fridge_polaris",
+      "price": 6500
+    },
+    {
+      "item_id": "item_furn_fridge_ironchill",
+      "price": 5200
+    },
+    {
+      "item_id": "item_furn_freezer_ironchill",
+      "price": 6800
     }
   ],
   "vendor_restock_rate": 1,
@@ -344,7 +388,7 @@
     ]
   },
   "vendor_shop_name": null,
-  "vendor_stock_size": 10,
+  "vendor_stock_size": 14,
   "wander_zones": [],
   "wanders": 0,
   "work_zone_id": "zone_furniture_store"

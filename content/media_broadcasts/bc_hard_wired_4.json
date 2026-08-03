@@ -465,7 +465,7 @@
       },
       "bsm_46": {
         "type": "say",
-        "text": "Delphine Voss says, \"Is that —\"",
+        "text": "Delphine Voss says, \"Is that...\"",
         "style": "verbatim",
         "_vine": {
           "x": 300,
@@ -751,7 +751,7 @@
       },
       "bsm_74": {
         "type": "say",
-        "text": "Delphine Voss says, \"Greta! You're — you were in the elevator —\"",
+        "text": "Delphine Voss says, \"Greta! You're... you were in the elevator...\"",
         "style": "verbatim",
         "_vine": {
           "x": 960,
@@ -771,7 +771,7 @@
       },
       "bsm_76": {
         "type": "say",
-        "text": "Cruz Mandible says, \"That's not how elevators —\"",
+        "text": "Cruz Mandible says, \"That's not how elevators...\"",
         "style": "verbatim",
         "_vine": {
           "x": 300,
@@ -879,7 +879,7 @@
       },
       "bsm_87": {
         "type": "say",
-        "text": "The Building says, \"MUTING. ENJOY YOUR MAINTENANCE EVENT. PLEASE RATE —\"",
+        "text": "The Building says, \"MUTING. ENJOY YOUR MAINTENANCE EVENT. PLEASE RATE...\"",
         "style": "verbatim",
         "_vine": {
           "x": 520,
@@ -980,7 +980,7 @@
       "bsm_pre_0": {
         "type": "overlay",
         "overlayType": "act_card",
-        "text": "BITTERSWEET OPTICS — A DIVISION OF A LARGER CONCERN",
+        "text": "BITTERSWEET OPTICS · A DIVISION OF A LARGER CONCERN",
         "subtext": "presents",
         "duration_s": 5,
         "_vine": {
@@ -992,7 +992,7 @@
       "bsm_pre_1": {
         "type": "overlay",
         "overlayType": "act_card",
-        "text": "CERTIFIED 18+ — CONTAINS ADULT SITUATIONS, MILD PLUMBING, AND ONE (1) UNRESOLVED SUBPLOT",
+        "text": "CERTIFIED 18+: CONTAINS ADULT SITUATIONS, MILD PLUMBING, AND ONE (1) UNRESOLVED SUBPLOT",
         "subtext": "BASIN BROADCAST STANDARDS BOARD",
         "duration_s": 5,
         "_vine": {
@@ -1018,12 +1018,12 @@
   "category": "movie",
   "channel_id": null,
   "created_by": "author",
-  "description": "HARD WIRED 4: THE DUCTWORK — an adult feature of the Basin's cheapest school. A reclamation technician answers a service call at Solenne Residences and is defeated, repeatedly, by continuity. Shot on one location, scored by one saxophone, censored by its own exhibition licence.",
+  "description": "HARD WIRED 4: THE DUCTWORK, an adult feature of the Basin's cheapest school. A reclamation technician answers a service call at Solenne Residences and is defeated, repeatedly, by continuity. Shot on one location, scored by one saxophone, censored by its own exhibition licence.",
   "enabled": 0,
   "fallback_messages": [],
   "film_meta": {
-    "presents": "Bittersweet Optics — A Division Of A Larger Concern",
-    "rating": "CERTIFIED 18+ — CONTAINS ADULT SITUATIONS, MILD PLUMBING, AND ONE (1) UNRESOLVED SUBPLOT",
+    "presents": "Bittersweet Optics: A Division Of A Larger Concern",
+    "rating": "CERTIFIED 18+: CONTAINS ADULT SITUATIONS, MILD PLUMBING, AND ONE (1) UNRESOLVED SUBPLOT",
     "director": "Auggie Prine (as 'A. Prine'), (as 'Alan Smithee'), (as 'The Estate Of Auggie Prine')",
     "cast": [
       {

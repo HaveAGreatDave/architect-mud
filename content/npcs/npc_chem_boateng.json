@@ -154,7 +154,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Cook. Aye.\" He turns the word over like it's been left on his counter without a receipt. \"Whether what I do is cooking is between me and the man upstairs, and he's not returning my calls.\"\n\nHe wipes his hands on the apron. This does not make them cleaner.\n\n\"It's chemistry you're allowed to eat. Same rules — weigh it, don't guess it, and don't open the lid to look at it.\""
+      "text": "\"Cook. Aye.\" He turns the word over like it's been left on his counter without a receipt. \"Whether what I do is cooking is between me and the man upstairs, and he's not returning my calls.\"\n\nHe wipes his hands on the apron. This does not make them cleaner.\n\n\"It's chemistry you're allowed to eat. Same rules: weigh it, don't guess it, and don't open the lid to look at it.\""
     },
     "n_meatballs": {
       "_vine": {
@@ -182,7 +182,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Meatballs. Start there. If you cannot roll a meatball you've no business near a smoker.\"\n\n<span class=\"text-dim\">He holds up a hand, thick fingers spread, and counts nothing on it.</span>\n\n\"Meat, egg, crumb. The crumb is not filler — it's the thing that stops it going to rubber, so don't leave it out to feel virtuous about yourself. Work it with your hands until it's one thing. Then stop. Every man I've watched ruin meatballs ruined them by carrying on.\"\n\n\"They're not dinner, mind. That's rather the point of them. They're a thing you've got, for later.\""
+      "text": "\"Meatballs. Start there. If you cannot roll a meatball you've no business near a smoker.\"\n\n<span class=\"text-dim\">He holds up a hand, thick fingers spread, and counts nothing on it.</span>\n\n\"Meat, egg, crumb. The crumb is not filler. It's the thing that stops it going to rubber, so don't leave it out to feel virtuous about yourself. Work it with your hands until it's one thing. Then stop. Every man I've watched ruin meatballs ruined them by carrying on.\"\n\n\"They're not dinner, mind. That's rather the point of them. They're a thing you've got, for later.\""
     },
     "n_more": {
       "_vine": {
@@ -220,7 +220,7 @@
           "next": "n_thanks"
         }
       ],
-      "text": "\"Right. The shoulder.\" <span class=\"text-dim\">He leans on the counter with both hands, which is the closest thing to enthusiasm the man has in stock.</span>\n\n\"Whole shoulder, bone in. Score the cap, mustard, rub, and be generous — you're seasoning something the size of a wee dog. Then two twenty-five, and then you leave it alone for ten hours. Twelve. Fourteen. It's ready when it's ready and not when you are.\"\n\n\"Somewhere in the middle it'll stop getting hotter and just sit there for hours, sulking at you. That's meant to happen. Every man who's ruined one ruined it right there, by turning the heat up to teach it a lesson.\"\n\n\"It's done when the bone comes out without an argument. Then you pull it apart with your hands and you put the bark back through the middle, so it's not just the one lucky soul getting all the good bit.\""
+      "text": "\"Right. The shoulder.\" <span class=\"text-dim\">He leans on the counter with both hands, which is the closest thing to enthusiasm the man has in stock.</span>\n\n\"Whole shoulder, bone in. Score the cap, mustard, rub, and be generous, you're seasoning something the size of a wee dog. Then two twenty-five, and then you leave it alone for ten hours. Twelve. Fourteen. It's ready when it's ready and not when you are.\"\n\n\"Somewhere in the middle it'll stop getting hotter and just sit there for hours, sulking at you. That's meant to happen. Every man who's ruined one ruined it right there, by turning the heat up to teach it a lesson.\"\n\n\"It's done when the bone comes out without an argument. Then you pull it apart with your hands and you put the bark back through the middle, so it's not just the one lucky soul getting all the good bit.\""
     },
     "n_notyet": {
       "_vine": {
@@ -257,7 +257,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Salt, pepper, garlic, brown sugar, cayenne, paprika.\" <span class=\"text-dim\">He says it the way other men say a phone number they've never had to look up.</span> \"That's it. That's the whole conspiracy. Every man selling you a secret blend is selling you those six and a story.\"\n\n\"The salt is not the flavour, it's what carries the flavour in. The sugar isn't there to sweeten it — it's there to burn, and the burning is the bark. Cayenne for the argument. Paprika because we eat with our eyes, apparently, which I've always thought was a poor use of them.\"\n\n\"Mix it till it's one colour. If you can still see the salt, you're not finished and you're kidding yourself.\""
+      "text": "\"Salt, pepper, garlic, brown sugar, cayenne, paprika.\" <span class=\"text-dim\">He says it the way other men say a phone number they've never had to look up.</span> \"That's it. That's the whole conspiracy. Every man selling you a secret blend is selling you those six and a story.\"\n\n\"The salt is not the flavour, it's what carries the flavour in. The sugar isn't there to sweeten it. It's there to burn, and the burning is the bark. Cayenne for the argument. Paprika because we eat with our eyes, apparently, which I've always thought was a poor use of them.\"\n\n\"Mix it till it's one colour. If you can still see the salt, you're not finished and you're kidding yourself.\""
     },
     "n_rub_barb": {
       "_vine": {
@@ -319,7 +319,7 @@
           "next": "root"
         }
       ],
-      "text": "\"There's ribs — three hours, two hours, one hour, and if you cannot hold three numbers in your head you cannot hold anything. And there's a thing I do with chicken and hot sauce that is, technically, a dip. I'll thank you not to look at me like that.\"\n\n<span class=\"text-dim\">He straightens a jar that was already straight.</span>\n\n\"Another day. I've a delivery coming, and it's gas.\""
+      "text": "\"There's ribs: three hours, two hours, one hour, and if you cannot hold three numbers in your head you cannot hold anything. And there's a thing I do with chicken and hot sauce that is, technically, a dip. I'll thank you not to look at me like that.\"\n\n<span class=\"text-dim\">He straightens a jar that was already straight.</span>\n\n\"Another day. I've a delivery coming, and it's gas.\""
     },
     "n_teach_chop": {
       "_vine": {
@@ -353,7 +353,7 @@
           "next": "n_thanks"
         }
       ],
-      "text": "\"Inch and a half thick. No less. Thinner than that and you're not cooking it, you're frightening it.\"\n\n<span class=\"text-dim\">He counts it off on his fingers, and the fingers are the only part of him that looks pleased.</span>\n\n\"Score the fat cap in a diamond, quarter inch deep and no deeper. Mustard all over — you'll not taste the mustard, so don't stand there tasting for it. Rub on heavy. Heavier. Then an hour and a half in the smoke at two twenty-five, and here's the hard part: you go away. You do something else with your life. Every time you lift that lid you're adding a quarter hour and removing a reason to live.\"\n\n\"Then the coals as hot as they'll go, sauce on, and leave it until the fat cap chars and crisps. Off at a hundred and fifty. Past that you've made a shoe.\"\n\n<span class=\"text-dim\">He pushes a jar across the counter without ceremony and has turned back to the sheet before you can do anything about it.</span>\n\n\"Take that. No — take it. If you go and buy some other sauce after all that, I'll hear about it, and I'll have to have a think about you.\""
+      "text": "\"Inch and a half thick. No less. Thinner than that and you're not cooking it, you're frightening it.\"\n\n<span class=\"text-dim\">He counts it off on his fingers, and the fingers are the only part of him that looks pleased.</span>\n\n\"Score the fat cap in a diamond, quarter inch deep and no deeper. Mustard all over, and you'll not taste the mustard, so don't stand there tasting for it. Rub on heavy. Heavier. Then an hour and a half in the smoke at two twenty-five, and here's the hard part: you go away. You do something else with your life. Every time you lift that lid you're adding a quarter hour and removing a reason to live.\"\n\n\"Then the coals as hot as they'll go, sauce on, and leave it until the fat cap chars and crisps. Off at a hundred and fifty. Past that you've made a shoe.\"\n\n<span class=\"text-dim\">He pushes a jar across the counter without ceremony and has turned back to the sheet before you can do anything about it.</span>\n\n\"Take that. No, take it. If you go and buy some other sauce after all that, I'll hear about it, and I'll have to have a think about you.\""
     },
     "n_teach_chop_again": {
       "_vine": {

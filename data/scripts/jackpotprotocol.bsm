@@ -46,21 +46,21 @@ The Gentleman From Ashway
 
 # ── Cold open ────────────────────────────────────────────────────────────────
 ::lines open
-From the KSAB soundstage, under lights that cost more than the prize — this is JACKPOT PROTOCOL.
+From the KSAB soundstage, under lights that cost more than the prize: this is JACKPOT PROTOCOL.
 Good evening, Coldwater Basin. Tonight we find out how much of your own city you were actually looking at.
 This is the programme where knowing where you live is worth money. Briefly. Once.
 Nine districts, four orders, and a hundred and eighty people who all sleep somewhere. Let's see who's been paying attention.
 ::endlines
 
 ::lines announce_host
-The only woman in the Basin who reads the census for pleasure — {host}!
-She has never once been to Ashway and can describe it to you in full — {host}!
-Ladies, gentlemen, and whatever the Synthesis are calling it this week — {host}!
+The only woman in the Basin who reads the census for pleasure, {host}!
+She has never once been to Ashway and can describe it to you in full, {host}!
+Ladies, gentlemen, and whatever the Synthesis are calling it this week, {host}!
 ::endlines
 
 ::lines audience_call
 If you're standing on my floor, you're playing. Type {verb} and a letter. That's the whole apparatus.
-Anyone in this studio may answer — {verb}, then A, B, C or D. Say it on television and mean it.
+Anyone in this studio may answer: {verb}, then A, B, C or D. Say it on television and mean it.
 You. Yes. {verb} and a letter. You have lived here your whole life. Prove some of it.
 The rules have not changed since the format changed: I ask, you {verb} a letter, the Basin watches you be wrong.
 ::endlines
@@ -103,7 +103,7 @@ This one comes to us from {prize}, and the network has checked it twice.
 ::lines prompt
 {question} Your options: {options}.
 Here it is. {question} {options}.
-{question} And the answers — {options}.
+{question} And the answers: {options}.
 Listen carefully. {question} Options: {options}.
 ::endlines
 
@@ -118,16 +118,16 @@ Still time. Not much of it.
 
 # ── The reveal ───────────────────────────────────────────────────────────────
 ::lines reveal
-Answers in — {guesses}. And the correct answer is {answer}.
+Answers in: {guesses}. And the correct answer is {answer}.
 The floor said {guesses}. The card says {answer}.
 {guesses}. And it was {answer} all along.
-Let's have it. {guesses}. Bertrand — the card. It's {answer}.
+Let's have it. {guesses}. Bertrand, the card. It's {answer}.
 The floor gave me {guesses}. The Basin gives me {answer}.
 ::endlines
 
 ::lines showcase_reveal
 The Jackpot answers: {guesses}. And the card says {answer}.
-{guesses}, for {purse} credits. And the correct answer — {answer}.
+{guesses}, for {purse} credits. And the correct answer: {answer}.
 Sealed card, Bertrand. Thank you. It's {answer}. The floor said {guesses}.
 ::endlines
 
@@ -171,7 +171,7 @@ The network says one purse a day. Bertrand did not write that rule and neither d
 
 ::lines signoff
 That's our programme. Go home. You clearly need the practice.
-From all of us at JACKPOT PROTOCOL — know your city. It certainly knows you.
+From all of us at JACKPOT PROTOCOL: know your city. It certainly knows you.
 Goodnight, Coldwater Basin. Look up on the way home.
 ::endlines
 

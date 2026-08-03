@@ -35,7 +35,7 @@
           "next": "bye"
         }
       ],
-      "text": "The picket studies you a long moment — your gear, your hands, the way you got this deep and lived — and something settles. \"You came all this way, and you lean the right direction. That's rare enough to spend a word on.\" The rifle lowers an inch. \"Don't loiter at this door. Go up top, Kessler Street, a repair shop called Percussive Maintenance. Tell the man there: the lights stay on, somebody should keep the switch. He'll know what to do with you. Now move — before something with more teeth than me finds you here.\""
+      "text": "The picket studies you a long moment: your gear, your hands, the way you got this deep and lived. Something settles. \"You came all this way, and you lean the right direction. That's rare enough to spend a word on.\" The rifle lowers an inch. \"Don't loiter at this door. Go up top, Kessler Street, a repair shop called Percussive Maintenance. Tell the man there: the lights stay on, somebody should keep the switch. He'll know what to do with you. Now move, before something with more teeth than me finds you here.\""
     },
     "root": {
       "options": [
@@ -85,7 +85,7 @@
           "next": "root"
         }
       ],
-      "text": "\"What this is,\" the picket says, \"is as far as you go. There's a door here, and it doesn't open for the curious.\" A pause, measuring you. \"The machine owns most people before they ever think to ask who does. Go and decide what kind of city you actually want — really decide — and maybe there's a place down here for you. Come back the same as you are now, and there isn't.\""
+      "text": "\"What this is,\" the picket says, \"is as far as you go. There's a door here, and it doesn't open for the curious.\" A pause, measuring you. \"The machine owns most people before they ever think to ask who does. Go and decide what kind of city you actually want, really decide, and maybe there's a place down here for you. Come back the same as you are now, and there isn't.\""
     }
   },
   "faction": "ideology_long_watch",

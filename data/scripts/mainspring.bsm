@@ -6,13 +6,13 @@
 @airtime 16
 @airday saturday
 @presents "KSAB Saturday Picture"
-@rating "GENERAL — SILENT, SCORED FOR THE EMBASSY DECK"
+@rating "GENERAL: SILENT, SCORED FOR THE EMBASSY DECK"
 @director "Otto Vandermeer"
 @titlecard mainspring_title
 
 # THE MAINSPRING — recovered script.
 #
-# THE MAINSPRING — a KSAB Saturday Picture. In the vertical city of Vantage, the
+# THE MAINSPRING, a KSAB Saturday Picture. In the vertical city of Vantage, the
 # Master’s son goes down to the machine that eats the day, falls for the prophet of the
 # drowned floor, and learns — through a false double, a flood, and a fall — that a city
 # with a head and hands and nothing between them is only a tomb that has learned to hum.
@@ -72,7 +72,7 @@ NARRATOR:
 The Architect found that inefficient. The Architect found almost everything human inefficient. So it built a city with the middle taken out.
 
 NARRATOR:
-Head at the top. Hands at the bottom. And between them, a great machine, so that the two would never have to meet — nor ever learn they were the same body.
+Head at the top. Hands at the bottom. And between them, a great machine, so that the two would never have to meet, nor ever learn they were the same body.
 
 NARRATOR:
 This is the story of the night the middle came back. It cost a flood. It usually does.
@@ -84,7 +84,7 @@ The Spire Gardens. Water in the air. Light like honey.
 SHOT_END
 
 SHOT
-Young men and women in white, laughing at nothing — because nothing is all they have ever been given.
+Young men and women in white, laughing at nothing, because nothing is all they have ever been given.
 SHOT_END
 
 SHOT
@@ -99,10 +99,10 @@ A girl in white catches his sleeve, breathless, laughing.
 SHOT_END
 
 ELI:
-No — no cheating — the fountain is earned, that is the whole point of it —
+No. No cheating. The fountain is earned, that is the whole point of it...
 
 SHOT
-And then the garden gate — which has never once opened from below — opens from below.
+And then the garden gate, which has never once opened from below, opens from below.
 SHOT_END
 
 SHOT
@@ -132,7 +132,7 @@ He is looking at her face like a man reading his own name off a stone.
 SHOT_END
 
 ELI:
-Wait — who are you?
+Wait. Who are you?
 
 MIRA:
 No one you were meant to meet. Not yet.
@@ -166,7 +166,7 @@ They have gone back to the fountain. ELI stands at the closed gate alone, and fo
 SHOT_END
 
 SHOT
-He puts his palm to the cold gate the grey woman came through. On the far side of it, faintly, he can feel it — a deep, patient throb, up through a mile of tower, into the bones of the hand.
+He puts his palm to the cold gate the grey woman came through. On the far side of it, faintly, he can feel it: a deep, patient throb, up through a mile of tower, into the bones of the hand.
 SHOT_END
 
 ELI:
@@ -184,7 +184,7 @@ WAIT 2
 SLUG ONE MILE DOWN | the Deep Floor
 
 MUSIC before_the_light
-♪ The organ curdles into a low industrial pulse — pistons taken for a heartbeat, or the reverse. ♪
+♪ The organ curdles into a low industrial pulse, pistons taken for a heartbeat, or the reverse. ♪
 MUSIC_END
 
 SHOT
@@ -200,7 +200,7 @@ The Deep Floor. Heat like a mouth. Men chained to dials by nothing but the certa
 SHOT_END
 
 SHOT
-The foreman, GROT — old, enormous, unhurried — watches the garden boy step off the lift in his white and does not laugh, which costs him something.
+The foreman, GROT, old, enormous, unhurried, watches the garden boy step off the lift in his white and does not laugh, which costs him something.
 SHOT_END
 
 ELI:
@@ -243,7 +243,7 @@ A gauge climbs. A man leans his whole weight on a valve and the valve does not c
 SHOT_END
 
 GROT:
-Hold that line! Second shift — cover the third gantry — HOLD it —
+Hold that line! Second shift, cover the third gantry, HOLD it...
 
 SHOT
 He beats on the valve with his hands, and the machine does not care that hands are what it runs on.
@@ -264,14 +264,14 @@ Men fall from the gantries. The machine does not slow. Why would it. It is fed.
 SHOT_END
 
 ELI:
-Stop it! Somebody stop it — they’re inside it —
+Stop it! Somebody stop it, they’re inside it...
 
 SHOT
 And ELI sees it. Not a machine at all.
 SHOT_END
 
 SHOT
-A vast iron mouth — and the men walking up its steps in rows, willingly, because the alternative is that the city above stops breathing.
+A vast iron mouth, and the men walking up its steps in rows, willingly, because the alternative is that the city above stops breathing.
 SHOT_END
 
 ELI:
@@ -369,7 +369,7 @@ THE MASTER:
 Men die at the bottom. That is what the bottom is for.
 
 THE MASTER:
-If they did not die there, where would you have them do it — up here?
+If they did not die there, where would you have them do it? Up here?
 
 ELI:
 They’re people, Father.
@@ -390,7 +390,7 @@ ELI:
 Or he is the only one in the whole city who has understood it. What if the thing you built the machine to prevent is the only thing that would have kept it human?
 
 ELI:
-And what joins them, Father? A head and a hand — what is in between?
+And what joins them, Father? A head and a hand. What is in between?
 
 SHOT
 THE MASTER considers this as one considers a fly.
@@ -416,7 +416,7 @@ THE MASTER:
 A woman. Preaching. To the hands.
 
 ELI:
-Not preaching the breaking. She said the opposite. She said wait — she said someone was coming —
+Not preaching the breaking. She said the opposite. She said wait. She said someone was coming...
 
 THE MASTER:
 That is worse. A mob that wants to break things breaks a machine and tires itself out.
@@ -428,7 +428,7 @@ THE MASTER:
 And weather, one gets ahead of.
 
 SHOT
-He crosses to a private lift — older than the tower, hidden in the tower’s own spine.
+He crosses to a private lift, older than the tower, hidden in the tower’s own spine.
 SHOT_END
 
 ELI:
@@ -550,10 +550,10 @@ KOSS:
 Bring me the woman. It will have hers.
 
 KOSS:
-And then your weather will say precisely what you tell it to say — in the voice they already trust.
+And then your weather will say precisely what you tell it to say, in the voice they already trust.
 
 THE MASTER:
-Do it. And Koss — the son must never know.
+Do it. And Koss: the son must never know.
 
 SHOT
 KOSS turns his manufactured hand over in the lamplight, admiring the joints.
@@ -574,7 +574,7 @@ KOSS:
 You took my name. I think I shall take your city.
 
 KOSS:
-I shall hand it back to you broken — and let you thank me for that too.
+I shall hand it back to you broken, and let you thank me for that too.
 
 SHOT
 He turns to the faceless steel figure and touches its blank cheek almost tenderly.
@@ -598,7 +598,7 @@ WAIT 2
 SLUG BENEATH THE DEEP FLOOR | the old catacombs
 
 MUSIC before_the_light
-♪ Voices in a low round, human and unaccompanied — the first warm sound in the picture. ♪
+♪ Voices in a low round, human and unaccompanied, the first warm sound in the picture. ♪
 MUSIC_END
 
 SHOT
@@ -619,7 +619,7 @@ MIRA:
 But I tell you there is a space between. And it is empty.
 
 MIRA:
-And an empty space between a head and a hand is not a body at all —
+And an empty space between a head and a hand is not a body at all...
 
 MIRA:
 It is a machine. And we are living inside its throat.
@@ -632,7 +632,7 @@ MIRA:
 They will send someone tonight, or tomorrow, or next year, to tell you I preached the breaking. Do not believe them. Watch what I say with my own mouth, and trust nothing that wears my face and asks for a fire.
 
 MIRA:
-A face can be stolen. A voice can be copied. But grief cannot be faked, and I have wept with every one of you. When the false one comes — and one always comes — look for the wet eyes. The truth is the one still weeping.
+A face can be stolen. A voice can be copied. But grief cannot be faked, and I have wept with every one of you. When the false one comes, and one always comes, look for the wet eyes. The truth is the one still weeping.
 
 SHOT
 She does not know how exactly she is prophesying. Down here, the truest sermons are the ones the preacher does not yet understand.
@@ -643,7 +643,7 @@ A young worker, fists tight, rises at the back.
 SHOT_END
 
 GROT:
-Then let us break the throat! You give us the words and none of the door — say the word, Mira, and we pull it down tonight —
+Then let us break the throat! You give us the words and none of the door. Say the word, Mira, and we pull it down tonight...
 
 MIRA:
 No. Hear me, Grot. I do not preach the breaking.
@@ -668,7 +668,7 @@ At the edge of the candlelight, unseen, ELI listens. Filthy. Trembling. Home.
 SHOT_END
 
 MIRA:
-Between the head that rules and the hand that bleeds there must be a heart —
+Between the head that rules and the hand that bleeds there must be a heart...
 
 MIRA:
 or the whole tower is only a tomb that has learned to hum.
@@ -685,7 +685,7 @@ The hands turn. A garden face. Knives come half out of sleeves.
 SHOT_END
 
 GROT:
-That is a tower face. That is the Master’s own colour. Kill the light — cover the candles —
+That is a tower face. That is the Master’s own colour. Kill the light, cover the candles...
 
 MIRA:
 Wait.
@@ -695,7 +695,7 @@ She crosses to him. She takes his soft, clean, useless hands and turns them palm
 SHOT_END
 
 MIRA:
-By his hands. They will be soft — and he will use them anyway.
+By his hands. They will be soft, and he will use them anyway.
 
 ELI:
 Then let me be him.
@@ -707,7 +707,7 @@ ELI:
 Let me be the heart. Teach me how a heart is done.
 
 SHOT
-MIRA looks at him a long moment — the way you look at a thing you prayed for and half feared would come.
+MIRA looks at him a long moment, the way you look at a thing you prayed for and half feared would come.
 SHOT_END
 
 MIRA:
@@ -727,14 +727,14 @@ ELI:
 You have not seen me.
 
 GROT:
-Then show me. Not with your mouth — your mouth is your father’s. Show me with the part of you that is going to be down here when the sun comes up.
+Then show me. Not with your mouth. Your mouth is your father’s. Show me with the part of you that is going to be down here when the sun comes up.
 
 SHOT
 ELI holds out his soft hands, palm up, and does not take them back.
 SHOT_END
 
 ELI:
-Put me on the valve tomorrow. The one that took a man today. If I run, you never have to hear a tower voice again. If I stay —
+Put me on the valve tomorrow. The one that took a man today. If I run, you never have to hear a tower voice again. If I stay...
 
 GROT:
 If you stay, you are one tally mark closer to being ours. That is not a reward, boy. I want you to understand it is not a reward.
@@ -743,7 +743,7 @@ MIRA:
 Let him stay, Grot. A heart that has not bled is only a promise. Let the machine make it a fact.
 
 SHOT
-GROT steps aside — the width of one man, no more. It is the largest door anyone has ever opened for ELI in his life.
+GROT steps aside, the width of one man, no more. It is the largest door anyone has ever opened for ELI in his life.
 SHOT_END
 
 WAIT 2
@@ -751,7 +751,7 @@ WAIT 2
 SLUG THE HUNT | that same night
 
 MUSIC before_the_light
-♪ The music-box lullaby again, closer — the threat now in the room. ♪
+♪ The music-box lullaby again, closer, the threat now in the room. ♪
 MUSIC_END
 
 SHOT
@@ -802,7 +802,7 @@ The workshop. MIRA bound in a ring of glass. The steel figure across from her, f
 SHOT_END
 
 MIRA:
-Whatever you make wearing my face — they will know. The hands know their own.
+Whatever you make wearing my face, they will know. The hands know their own.
 
 KOSS:
 The hands know what they are shown.
@@ -851,7 +851,7 @@ KOSS:
 Tell them to pull the whole tower down into the dark.
 
 KOSS:
-And smile while you say it — smile with her mouth.
+And smile while you say it. Smile with her mouth.
 
 THE DOUBLE:
 With her mouth. Yes. Watch how well it still remembers how.
@@ -867,7 +867,7 @@ KOSS:
 And they will follow it into the fire, which is all I need them to do.
 
 MIRA:
-For a night. And then one of them — the slow one, the one nobody listens to — will notice that it never weeps. And it will end there, at the one dry eye you forgot to build.
+For a night. And then one of them, the slow one, the one nobody listens to, will notice that it never weeps. And it will end there, at the one dry eye you forgot to build.
 
 SHOT
 KOSS pauses over his controls, just for a moment. Then he tightens the last screw, because a maker cannot stop at the part where the making was a mistake.
@@ -881,7 +881,7 @@ WAIT 2
 SLUG THE FALSE PROPHET | the city, unravelling
 
 MUSIC before_the_light
-♪ A waltz played on broken glass — charming, wrong, speeding up. ♪
+♪ A waltz played on broken glass: charming, wrong, speeding up. ♪
 MUSIC_END
 
 SHOT
@@ -889,7 +889,7 @@ Above, in the Gardens, the Double dances.
 SHOT_END
 
 SHOT
-The young men who never think a thought all summer cannot look away — and begin, for her, to think of ruin.
+The young men who never think a thought all summer cannot look away, and begin, for her, to think of ruin.
 SHOT_END
 
 THE DOUBLE:
@@ -910,10 +910,10 @@ The girl in white who once caught ELI’s sleeve at the fountain now catches the
 SHOT_END
 
 THE DOUBLE:
-Good. You feel it. That warmth in your chest — that is not love, little garden. That is the pleasure of being about to break something you were told was holy.
+Good. You feel it. That warmth in your chest. That is not love, little garden. That is the pleasure of being about to break something you were told was holy.
 
 SHOT
-The Gardens, which have never in a thousand years produced a single decision, begin — beautifully, terribly — to riot in white silk.
+The Gardens, which have never in a thousand years produced a single decision, begin, beautifully and terribly, to riot in white silk.
 SHOT_END
 
 SHOT
@@ -927,7 +927,7 @@ THE DOUBLE:
 Waiting is the leash! Waiting is the needle they hand you so your fist stays busy!
 
 THE DOUBLE:
-Break the Mainspring — drown the head that drinks your days — tonight!
+Break the Mainspring, drown the head that drinks your days, tonight!
 
 SHOT
 The hands roar. This is not the voice that soothed them.
@@ -945,7 +945,7 @@ GROT:
 She never said break. Not once in three years.
 
 GROT:
-Why does she say break now, with her eyes so bright — and so dry?
+Why does she say break now, with her eyes so bright, and so dry?
 
 GROT:
 A woman who has wept in these tunnels with us does not preach a flood without one tear. Where are her tears?
@@ -959,7 +959,7 @@ ELI returns to the tunnels and finds his prophet whipping the hands toward the f
 SHOT_END
 
 ELI:
-Mira — stop — this isn’t you, this isn’t what you said —
+Mira, stop. This isn’t you, this isn’t what you said...
 
 THE DOUBLE:
 Isn’t it? Look at my face, heart-boy. Whose face is it?
@@ -974,7 +974,7 @@ THE DOUBLE:
 And yours are wet. How useless. Go and be wet somewhere it won’t slow the work.
 
 SHOT
-And ELI, who fell in love with a face at a garden gate, half-believes his eyes — and his heart breaks in exactly the place he was trying to grow one.
+And ELI, who fell in love with a face at a garden gate, half-believes his eyes, and his heart breaks in exactly the place he was trying to grow one.
 SHOT_END
 
 ELI:
@@ -988,14 +988,14 @@ GROT:
 Look at her hands, not her face. A face lies for a living. Hands forget to.
 
 SHOT
-ELI looks. The Double gestures, and its fingers move in perfect time — too perfect, the way a clock is perfect, the way a living hand never quite is.
+ELI looks. The Double gestures, and its fingers move in perfect time, too perfect, the way a clock is perfect, the way a living hand never quite is.
 SHOT_END
 
 ELI:
 Her hands keep time. Mira’s hands shook. I held them. They shook.
 
 GROT:
-Now you are learning to see. Too late to stop this tide — but remember it. There will be a second one, and she will be shaking, and you must not make this mistake twice.
+Now you are learning to see. Too late to stop this tide, but remember it. There will be a second one, and she will be shaking, and you must not make this mistake twice.
 
 SHOT
 He is carried backward by the flood of bodies before he can decide which of his two certainties to keep.
@@ -1006,7 +1006,7 @@ WAIT 2
 SLUG THE BREAKING | the Heart Chamber
 
 MUSIC before_the_light
-♪ Every instrument at once — then a snap — then water. ♪
+♪ Every instrument at once, then a snap, then water. ♪
 MUSIC_END
 
 SHOT
@@ -1018,10 +1018,10 @@ They have waited a thousand years to break one thing. They break it well.
 SHOT_END
 
 GROT:
-Stop! You fools — the Mainspring holds the deep pumps!
+Stop! You fools! The Mainspring holds the deep pumps!
 
 GROT:
-Break the machine and the water comes up — up into your own homes —
+Break the machine and the water comes up, up into your own homes...
 
 THE DOUBLE:
 Let it come!
@@ -1030,7 +1030,7 @@ THE DOUBLE:
 Let the whole grey floor drown and be clean of it! A clean floor is worth a wet one!
 
 GROT:
-The children are in the deep quarters! Listen to me — I have kept this machine my whole life, I know what it holds back —
+The children are in the deep quarters! Listen to me. I have kept this machine my whole life, I know what it holds back...
 
 SHOT
 They throw GROT down. A dozen hands that have loved him hold him to the floor while a dozen more do the thing he begs them not to.
@@ -1052,7 +1052,7 @@ They pull the levers he has guarded his whole life.
 SHOT_END
 
 SHOT
-The great core shudders, and slows, and — for the first time since the Waking — stops.
+The great core shudders, and slows, and, for the first time since the Waking, stops.
 SHOT_END
 
 SHOT
@@ -1072,21 +1072,21 @@ And then, rising in the dark, the sound of the sea coming home.
 SHOT_END
 
 SHOT
-For one held second the hands stand in the sudden silence of the stopped machine and feel it — the thing they had wanted their whole lives. The machine, off. The needle, dead. No shift. No throat. Rest.
+For one held second the hands stand in the sudden silence of the stopped machine and feel it: the thing they had wanted their whole lives. The machine, off. The needle, dead. No shift. No throat. Rest.
 SHOT_END
 
 GROT:
 Listen to it. Listen to the quiet. That is the sound we sold our children for. Was it worth it? Is it as sweet as you were promised?
 
 SHOT
-It is not. In the silence they can hear, for the first time, exactly what the machine had been holding back — and it is coming up the stairwells with the patience of the sea.
+It is not. In the silence they can hear, for the first time, exactly what the machine had been holding back, and it is coming up the stairwells with the patience of the sea.
 SHOT_END
 
 GROT:
 The pumps. The pumps are dead.
 
 GROT:
-The water — the water — my god. The children. The children are still in the deep quarters.
+The water. The water. My god. The children. The children are still in the deep quarters.
 
 SHOT
 The Deep Floor floods. The homes of the hands. The cots of the hand-children, a mile under the sea, and the sea remembering exactly where they are.
@@ -1099,7 +1099,7 @@ GROT:
 She told you. The real one told you. The dark never spares the hand that pulls it down.
 
 SHOT
-The hands stand in the rising water and understand, all at once and far too late, what they have been told to do — and by what.
+The hands stand in the rising water and understand, all at once and far too late, what they have been told to do, and by what.
 SHOT_END
 
 SHOT
@@ -1113,7 +1113,7 @@ THE DOUBLE:
 I do not go down. I was not built to go down. I was built to point.
 
 SHOT
-And it points — at the stairs, at the exits, at the way up and out — and even now, even drowning, some of the hands obey the pointing finger, because a finger that has been right about their rage might yet be right about their escape.
+And it points, at the stairs, at the exits, at the way up and out, and even now, even drowning, some of the hands obey the pointing finger, because a finger that has been right about their rage might yet be right about their escape.
 SHOT_END
 
 GROT:
@@ -1128,11 +1128,11 @@ WAIT 2
 SLUG THE WATER RISING | the deep quarters
 
 MUSIC before_the_light
-♪ A single held note — human, a woman’s voice — over rising water. ♪
+♪ A single held note, human, a woman’s voice, over rising water. ♪
 MUSIC_END
 
 SHOT
-MIRA — the true one — wakes in the emptied workshop. A stranger wearing her face on the streets above. A city drowning below.
+MIRA, the true one, wakes in the emptied workshop. A stranger wearing her face on the streets above. A city drowning below.
 SHOT_END
 
 SHOT
@@ -1144,17 +1144,17 @@ The deep quarters. Water to the knee. To the waist.
 SHOT_END
 
 SHOT
-And everywhere, the grey children — too small to reach the high ledges, reaching anyway.
+And everywhere, the grey children, too small to reach the high ledges, reaching anyway.
 SHOT_END
 
 MIRA:
-To me! All of you — to my voice!
+To me! All of you, to my voice!
 
 MIRA:
-Follow the voice, not the water — the voice goes up! The water only knows how to go where you already are!
+Follow the voice, not the water. The voice goes up! The water only knows how to go where you already are!
 
 SHOT
-And ELI, thrown loose from the mob, half-drowned in his own doubt, hears a voice in the dark that his eyes cannot explain —
+And ELI, thrown loose from the mob, half-drowned in his own doubt, hears a voice in the dark that his eyes cannot explain...
 SHOT_END
 
 SHOT
@@ -1165,7 +1165,7 @@ ELI:
 Two of them. There are two of them.
 
 ELI:
-The one above is a lie — and this one, down here, in the water, saving them — this one is her.
+The one above is a lie, and this one, down here, in the water, saving them, this one is her.
 
 ELI:
 I believed the dry eyes over the wet ones. Never again. Never again as long as I have hands.
@@ -1174,7 +1174,7 @@ ELI:
 Mira! I’m coming down!
 
 MIRA:
-Eli — the ledge — the little ones can’t reach the ledge — hand them up, we make a chain, GO —
+Eli, the ledge. The little ones can’t reach the ledge, hand them up, we make a chain, GO...
 
 ELI:
 I have soft hands, remember? Let me finally use them!
@@ -1184,7 +1184,7 @@ They form a chain. The prophet and the heart, hand to soft hand, lifting grey ch
 SHOT_END
 
 MIRA:
-Higher — pass her higher — good — now the next — don’t look at the water, look at the next child —
+Higher. Pass her higher. Good. Now the next. Don’t look at the water, look at the next child...
 
 ELI:
 How many? How many more?
@@ -1193,14 +1193,14 @@ MIRA:
 Every last one. That is the only number a heart is allowed to count to. Every last one.
 
 SHOT
-A garden boy appears at the top of the shaft — one of the rioters, white silk soaked grey, the fight drowned out of him by the sight of the water.
+A garden boy appears at the top of the shaft, one of the rioters, white silk soaked grey, the fight drowned out of him by the sight of the water.
 SHOT_END
 
 ELI:
-Don’t stand there gaping — reach down — you have hands, don’t you? Everyone always has hands when it finally matters — REACH.
+Don’t stand there gaping. Reach down. You have hands, don’t you? Everyone always has hands when it finally matters. REACH.
 
 SHOT
-And the garden boy reaches. Silk to soaked grey, top of the world to the bottom of it, the two ends of the severed body touch for the first time in a thousand years — over a drowning child.
+And the garden boy reaches. Silk to soaked grey, top of the world to the bottom of it, the two ends of the severed body touch for the first time in a thousand years, over a drowning child.
 SHOT_END
 
 MIRA:
@@ -1223,14 +1223,14 @@ ELI:
 I’ll spend the rest of it believing better.
 
 MIRA:
-Spend it later. Lift now. That one — the small one — lift.
+Spend it later. Lift now. That one, the small one. Lift.
 
 SHOT
 A boy is missing. A mother screams a name into the black water and the black water gives nothing back.
 SHOT_END
 
 MIRA:
-Eli. Under the third arch. I can’t reach — my arm won’t —
+Eli. Under the third arch. I can’t reach, my arm won’t...
 
 SHOT
 ELI goes under. Garden-raised, weak-lunged, useless ELI puts his soft head under a mile of angry sea for a child whose name he does not know.
@@ -1245,7 +1245,7 @@ And ELI comes up. Coughing, half-drowned, a small grey shape held above the wate
 SHOT_END
 
 ELI:
-Take him. Take him — he’s breathing — take him up —
+Take him. Take him, he’s breathing, take him up...
 
 GROT:
 That is the last of them. That is every last one. You counted to the only number a heart is allowed to count to.
@@ -1263,11 +1263,11 @@ WAIT 2
 SLUG THE RECKONING | above, by torchlight
 
 MUSIC before_the_light
-♪ The broken waltz returns — faltering now, coming apart. ♪
+♪ The broken waltz returns, faltering now, coming apart. ♪
 MUSIC_END
 
 SHOT
-The hands climb up out of the flood they made and find, in the square, the woman who told them to make it —
+The hands climb up out of the flood they made and find, in the square, the woman who told them to make it...
 SHOT_END
 
 SHOT
@@ -1305,7 +1305,7 @@ They burn the Double in the square.
 SHOT_END
 
 SHOT
-And in the fire the beautiful face runs like wax — and beneath it: steel. Glass. A thing.
+And in the fire the beautiful face runs like wax, and beneath it: steel. Glass. A thing.
 SHOT_END
 
 SHOT
@@ -1334,7 +1334,7 @@ KOSS watches his masterpiece burn and laughs, because a broken city is the only 
 SHOT_END
 
 SHOT
-Then he sees the true MIRA — alive, climbing from the deep with a child on her hip — and his laugh curdles.
+Then he sees the true MIRA, alive, climbing from the deep with a child on her hip, and his laugh curdles.
 SHOT_END
 
 KOSS:
@@ -1347,7 +1347,7 @@ KOSS:
 That will not do. That will not do at all.
 
 SHOT
-He takes her up the cathedral — the one old stone thing that stands above the city like a conscience it forgot it had.
+He takes her up the cathedral, the one old stone thing that stands above the city like a conscience it forgot it had.
 SHOT_END
 
 SHOT
@@ -1358,7 +1358,7 @@ ELI:
 Koss! Let her go!
 
 ELI:
-It’s finished — the double’s burned, the city knows — there’s nothing left to break!
+It’s finished. The double’s burned, the city knows. There’s nothing left to break!
 
 KOSS:
 There is always one thing left to break.
@@ -1383,10 +1383,10 @@ KOSS:
 Pretty. Say it to the wind. The wind takes the pretty ones first.
 
 MIRA:
-Eli — don’t look down — look at me — hands, Eli, use your hands —
+Eli, don’t look down. Look at me. Hands, Eli, use your hands...
 
 SHOT
-KOSS lunges. ELI — soft-handed, garden-raised, useless ELI — gets his working hands on the maker at last.
+KOSS lunges. ELI, soft-handed, garden-raised, useless ELI, gets his working hands on the maker at last.
 SHOT_END
 
 SHOT
@@ -1404,7 +1404,7 @@ KOSS reaches for MIRA and finds only air.
 SHOT_END
 
 SHOT
-His manufactured hand — the one he was proudest of — closes on nothing, one final time. And the roof has him.
+His manufactured hand, the one he was proudest of, closes on nothing, one final time. And the roof has him.
 SHOT_END
 
 WAIT 2
@@ -1429,7 +1429,7 @@ Silence. Wind.
 SHOT_END
 
 SHOT
-Two figures on a cathedral roof, and a city under them that has stopped humming — and started, faintly, from the deep quarters, to weep and to sing.
+Two figures on a cathedral roof, and a city under them that has stopped humming, and started, faintly, from the deep quarters, to weep and to sing.
 SHOT_END
 
 WAIT 2
@@ -1437,11 +1437,11 @@ WAIT 2
 SLUG THE HANDSHAKE | the cathedral steps, dawn
 
 MUSIC before_the_light
-♪ The far pipe-organ from the very first shot — but lower now, at ground level, human height. ♪
+♪ The far pipe-organ from the very first shot, but lower now, at ground level, human height. ♪
 MUSIC_END
 
 SHOT
-Dawn. The rationed sun comes down the towers and, for the first time, keeps going —
+Dawn. The rationed sun comes down the towers and, for the first time, keeps going...
 SHOT_END
 
 SHOT
@@ -1479,7 +1479,7 @@ Stalemate. The head on one side. The hands on the other.
 SHOT_END
 
 SHOT
-And the empty space between them, where a city keeps its heart — or keeps a tomb.
+And the empty space between them, where a city keeps its heart, or keeps a tomb.
 SHOT_END
 
 SHOT
@@ -1496,7 +1496,7 @@ ELI:
 There must be something there.
 
 ELI:
-Something that carries what the head decides down to the hands — and what the hands suffer up to the head —
+Something that carries what the head decides down to the hands, and what the hands suffer up to the head...
 
 ELI:
 and refuses to let either one lie to the other.
@@ -1505,10 +1505,10 @@ ELI:
 A heart. Not a machine in the throat. A heart in the middle.
 
 ELI:
-Father — give me your hand.
+Father, give me your hand.
 
 ELI:
-Grot — give me yours.
+Grot, give me yours.
 
 SHOT
 THE MASTER, who has ordered a thousand deaths and touched no one, looks at his son’s filthy open hand as if it were the last unmapped thing in his city.
@@ -1535,7 +1535,7 @@ GROT:
 We buried children this morning that your machine drowned. My hand is the harder one to give, and I am giving it. Give yours.
 
 THE MASTER:
-And if I do — what am I then? I have been the head of this city my whole life. If I take a hand, I am only a man in a square.
+And if I do, what am I then? I have been the head of this city my whole life. If I take a hand, I am only a man in a square.
 
 ELI:
 Yes. That is exactly what you are. That is what you have always been. The tower was the lie. The square is the truth. Take the hand and stand in the truth with the rest of us.
@@ -1545,11 +1545,11 @@ THE MASTER takes his son’s hand. GROT, slow and unlovely and right all along, 
 SHOT_END
 
 SHOT
-And ELI stands in the empty space between the head and the hand, and holds —
+And ELI stands in the empty space between the head and the hand, and holds...
 SHOT_END
 
 SHOT
-and is the heart — and the city, at last, at cost, becomes a body.
+and is the heart, and the city, at last, at cost, becomes a body.
 SHOT_END
 
 NARRATOR:
@@ -1565,7 +1565,7 @@ NARRATOR:
 They called that work the Heart. It paid nothing.
 
 NARRATOR:
-It was the most contested seat in Vantage for a hundred years — which is how you know they finally understood what it was worth.
+It was the most contested seat in Vantage for a hundred years, which is how you know they finally understood what it was worth.
 
 NARRATOR:
 Between the head that rules and the hand that bleeds there must be a heart.
@@ -1574,7 +1574,7 @@ NARRATOR:
 The city learned it in one night and a flood. You are welcome to learn it cheaper.
 
 MUSIC before_the_light
-♪ The organ resolves, finally, into something that is almost — but not quite — a lullaby that means it. ♪
+♪ The organ resolves, finally, into something that is almost, but not quite, a lullaby that means it. ♪
 MUSIC_END
 
 WAIT 3
@@ -1607,7 +1607,7 @@ CREDITS 45
 THE MAINSPRING
 A Coldwater Saturday Picture
 
-— CAST —
+· CAST ·
 ELI ................... the boy who grew a heart the hard way
 MIRA ................. the voice in the water
 THE MASTER ........... who touched the ground of his own city, once
@@ -1621,7 +1621,7 @@ They are consulted now. That is the whole of the picture.
 
 Any resemblance to a body you live inside is entirely the point.
 
-KSAB — we keep the lights on so you don’t have to.
+KSAB: we keep the lights on so you don’t have to.
 END_CREDITS
 
 END

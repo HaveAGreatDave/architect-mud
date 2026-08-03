@@ -95,7 +95,7 @@
         "next": "bsm_18",
         "overlayType": "lower_third",
         "subtext": "SHIFT 11:04 · BASIN SOUTH",
-        "text": "SGT. ORDWAY — PATROL",
+        "text": "SGT. ORDWAY, PATROL",
         "type": "overlay"
       },
       "bsm_18": {
@@ -125,7 +125,7 @@
         },
         "next": "bsm_3",
         "song": "coldwaters_finest_theme",
-        "text": "♪ A cheap, swaggering guitar riff kicks in — four chords, no budget, enormous confidence. ♪",
+        "text": "♪ A cheap, swaggering guitar riff kicks in: four chords, no budget, enormous confidence. ♪",
         "type": "music"
       },
       "bsm_20": {
@@ -619,7 +619,7 @@
         },
         "duration": 6,
         "next": "bsm_67",
-        "text": "COLDWATER'S FINEST — A PRECINCT 9 CO-PRODUCTION\nNo officer depicted has been disciplined for anything depicted.\nIf you recognise yourself in this programme, you have already consented.",
+        "text": "COLDWATER'S FINEST: A PRECINCT 9 CO-PRODUCTION\nNo officer depicted has been disciplined for anything depicted.\nIf you recognise yourself in this programme, you have already consented.",
         "type": "credits"
       },
       "bsm_67": {

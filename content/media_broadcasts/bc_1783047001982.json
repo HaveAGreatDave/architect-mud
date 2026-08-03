@@ -64,7 +64,7 @@
           "y": 3280
         },
         "next": "bsm_104",
-        "text": "1-800-273-8255 ←── NEIL'S HOTLINE — OPERATORS STANDING BY ←── 1-800-273-8255 ←── CENTAUR SHREDS ON ←── DON'T LET HER WIN, BROTHER! — HULK HOGAN ←── CALL NOW ←── 1-800-273-8255 ←── NEIL'S HOTLINE ←──",
+        "text": "1-800-273-8255 ←── NEIL'S HOTLINE · OPERATORS STANDING BY ←── 1-800-273-8255 ←── CENTAUR SHREDS ON ←── DON'T LET HER WIN, BROTHER! · HULK HOGAN ←── CALL NOW ←── 1-800-273-8255 ←── NEIL'S HOTLINE ←──",
         "type": "ticker"
       },
       "bsm_104": {
@@ -302,7 +302,7 @@
         },
         "next": "bsm_127",
         "style": "raw",
-        "text": "Why is Barb gonna go get her big jew lawyer to come after me, you know they love to litigate —",
+        "text": "Why is Barb gonna go get her big jew lawyer to come after me, you know they love to litigate...",
         "type": "say"
       },
       "bsm_127": {
@@ -550,7 +550,7 @@
         },
         "next": "bsm_16",
         "style": "narration",
-        "text": "The scene snaps into a hard spin cut — synchronized to the wet, gurgling crescendo of a bong reaching its full percolation. We slam back to the basement.",
+        "text": "The scene snaps into a hard spin cut, synchronized to the wet, gurgling crescendo of a bong reaching its full percolation. We slam back to the basement.",
         "type": "say"
       },
       "bsm_150": {
@@ -607,7 +607,7 @@
         },
         "next": "bsm_156",
         "style": "raw",
-        "text": "WELL LOOK NO FURTHER THAN Captain Nguyen'S MAGIC ROOT! AVAILABLE VIA PAYPAL —",
+        "text": "WELL LOOK NO FURTHER THAN Captain Nguyen'S MAGIC ROOT! AVAILABLE VIA PAYPAL...",
         "type": "say"
       },
       "bsm_156": {
@@ -663,7 +663,7 @@
         },
         "next": "bsm_161",
         "style": "raw",
-        "text": "THAT'S ENOUGH! I'VE HAD ENOUGH! I'M PULLING THE PLUG —",
+        "text": "THAT'S ENOUGH! I'VE HAD ENOUGH! I'M PULLING THE PLUG...",
         "type": "say"
       },
       "bsm_161": {
@@ -885,7 +885,7 @@
         },
         "next": "bsm_182",
         "style": "raw",
-        "text": "Let's bris this schmuck. Now cheaper — with our ten percent off circumcision discount! Spouses of gentiles now save ten percent!",
+        "text": "Let's bris this schmuck. Now cheaper, with our ten percent off circumcision discount! Spouses of gentiles now save ten percent!",
         "type": "say"
       },
       "bsm_182": {
@@ -923,7 +923,7 @@
         },
         "next": "bsm_186",
         "style": "raw",
-        "text": "He pays good money —",
+        "text": "He pays good money...",
         "type": "say"
       },
       "bsm_186": {
@@ -989,7 +989,7 @@
         },
         "next": "bsm_192",
         "style": "raw",
-        "text": "HE IS NOT A FRIEND OF THE SHOW THIS GUY RUINED MY LIFE —",
+        "text": "HE IS NOT A FRIEND OF THE SHOW THIS GUY RUINED MY LIFE...",
         "type": "say"
       },
       "bsm_192": {
@@ -1028,7 +1028,7 @@
         },
         "next": "bsm_196",
         "style": "narration",
-        "text": "The lawyer returns, now dressed as a Hasid. He squares up to the camera with evident satisfaction. He begins to recite his contact information at a measured pace. Then his eyes go wide. His hands come together — slowly, fingers interlacing.",
+        "text": "The lawyer returns, now dressed as a Hasid. He squares up to the camera with evident satisfaction. He begins to recite his contact information at a measured pace. Then his eyes go wide. His hands come together, slowly, fingers interlacing.",
         "type": "say"
       },
       "bsm_196": {
@@ -1047,7 +1047,7 @@
         },
         "next": "bsm_198",
         "style": "raw",
-        "text": "For all your divorce needs, come to Jerry Rosenberg Family Law — where we will make him pay. And make him pay for me too!",
+        "text": "For all your divorce needs, come to Jerry Rosenberg Family Law, where we will make him pay. And make him pay for me too!",
         "type": "say"
       },
       "bsm_198": {
@@ -1076,7 +1076,7 @@
         },
         "next": "bsm_3",
         "style": "narration",
-        "text": "Cut to Neil's basement. \r\n\r\nThe screen holds black. In the deep background, footsteps approach slowly through darkness. A faint reverb hangs in the air — the acoustic signature of a basement. Above it, muffled but unmistakable, the din of a bustling Vietnamese laundromat drifts down through the ceiling.",
+        "text": "Cut to Neil's basement. \r\n\r\nThe screen holds black. In the deep background, footsteps approach slowly through darkness. A faint reverb hangs in the air: the acoustic signature of a basement. Above it, muffled but unmistakable, the din of a bustling Vietnamese laundromat drifts down through the ceiling.",
         "type": "say"
       },
       "bsm_20": {
@@ -1096,7 +1096,7 @@
         },
         "next": "bsm_201",
         "style": "narration",
-        "text": "The camera — which has been lying on the floor of the basement at a forty-five-degree angle for the duration of the break — is picked up by an unseen hand and levelled. It finds Neil already mid-sentence, microphone apparently reinstated.",
+        "text": "The camera, which has been lying on the floor of the basement at a forty-five-degree angle for the duration of the break, is picked up by an unseen hand and levelled. It finds Neil already mid-sentence, microphone apparently reinstated.",
         "type": "say"
       },
       "bsm_201": {
@@ -1284,7 +1284,7 @@
         },
         "next": "bsm_220",
         "style": "raw",
-        "text": "Join us next week when we are joined by our special guest — my wife's personal trainer — where we will fight a grudge match to the death!",
+        "text": "Join us next week when we are joined by our special guest, my wife's personal trainer, where we will fight a grudge match to the death!",
         "type": "say"
       },
       "bsm_22": {
@@ -1809,7 +1809,7 @@
         },
         "next": "bsm_71",
         "style": "narration",
-        "text": "A dream blooms into colour. The man pushes his child on a playground swing. Nearby, his partner holds a new baby and smiles at him — warm, full, genuine. This is everything. This is his whole life.",
+        "text": "A dream blooms into colour. The man pushes his child on a playground swing. Nearby, his partner holds a new baby and smiles at him: warm, full, genuine. This is everything. This is his whole life.",
         "type": "say"
       },
       "bsm_71": {
@@ -1849,7 +1849,7 @@
         },
         "next": "bsm_75",
         "style": "narration",
-        "text": "A figure approaches from the right: a large man in a foam rubber Salisbury steak costume. He sits beside the crying man and places an arm around him in silence.\r\n\r\nA second figure approaches from the left: a rectangular man in a chicken patty costume, carrying a glass of whiskey. He hands it over.\r\n\r\nA third figure lumbers in from the rear — shaped like a rib patty, boombox on one shoulder. Creed is playing. He reaches a thick slab-like arm forward and passes the crying man a lit joint.",
+        "text": "A figure approaches from the right: a large man in a foam rubber Salisbury steak costume. He sits beside the crying man and places an arm around him in silence.\r\n\r\nA second figure approaches from the left: a rectangular man in a chicken patty costume, carrying a glass of whiskey. He hands it over.\r\n\r\nA third figure lumbers in from the rear, shaped like a rib patty, boombox on one shoulder. Creed is playing. He reaches a thick slab-like arm forward and passes the crying man a lit joint.",
         "type": "say"
       },
       "bsm_75": {
@@ -1868,7 +1868,7 @@
         },
         "next": "bsm_77",
         "style": "narration",
-        "text": "The man is back in his kitchen. He is cleaned up. Shaved. Wearing a pressed shirt. On the table before him sits a Hungry Man dinner tray — wall to wall meat. Not a vegetable in sight. He looks at it the way a man looks at his oldest friend.",
+        "text": "The man is back in his kitchen. He is cleaned up. Shaved. Wearing a pressed shirt. On the table before him sits a Hungry Man dinner tray, wall to wall meat. Not a vegetable in sight. He looks at it the way a man looks at his oldest friend.",
         "type": "say"
       },
       "bsm_77": {
@@ -2126,7 +2126,7 @@
   "message_interval": 5,
   "messages": [
     {
-      "text": "Cut to Neil's basement. \r\n\r\nThe screen holds black. In the deep background, footsteps approach slowly through darkness. A faint reverb hangs in the air — the acoustic signature of a basement. Above it, muffled but unmistakable, the din of a bustling Vietnamese laundromat drifts down through the ceiling."
+      "text": "Cut to Neil's basement. \r\n\r\nThe screen holds black. In the deep background, footsteps approach slowly through darkness. A faint reverb hangs in the air: the acoustic signature of a basement. Above it, muffled but unmistakable, the din of a bustling Vietnamese laundromat drifts down through the ceiling."
     },
     {
       "text": "FUCK!"
@@ -2144,7 +2144,7 @@
       "text": "The basement dissolves to a sprawling conspiracy web: cork board, yarn, thumbtacks. Charlie Kirk is connected to Benito Mussolini by a red string. Both are connected to a laminated photograph of a lizard. Scattered across the map: celebrities, geopolitical figures, and anti-Zionist imagery of considerable ambition. It is the work of a very troubled and extremely productive man."
     },
     {
-      "text": "The scene snaps into a hard spin cut — synchronized to the wet, gurgling crescendo of a bong reaching its full percolation. We slam back to the basement."
+      "text": "The scene snaps into a hard spin cut, synchronized to the wet, gurgling crescendo of a bong reaching its full percolation. We slam back to the basement."
     },
     {
       "text": "They must think that I'm retarded. You'd have to be retarded not to put this together, and as sure as Barb took the kids the Jews will get me for this."
@@ -2216,7 +2216,7 @@
       "text": "The basement drops away. We cut to a commercial. A sad man sits alone at a kitchen table, staring at a wall."
     },
     {
-      "text": "A dream blooms into colour. The man pushes his child on a playground swing. Nearby, his partner holds a new baby and smiles at him — warm, full, genuine. This is everything. This is his whole life."
+      "text": "A dream blooms into colour. The man pushes his child on a playground swing. Nearby, his partner holds a new baby and smiles at him: warm, full, genuine. This is everything. This is his whole life."
     },
     {
       "text": "A thundercrack. A man on a Harley-Davidson roars up onto the grass, dismounts, kicks the baby, and begins making out with the man's wife. The kid on the swing jumps off, turns to face the camera, and speaks."
@@ -2228,10 +2228,10 @@
       "text": "The whole family piles onto the Harley and rides away without a backward glance. The man sinks to his knees. He begins to weep."
     },
     {
-      "text": "A figure approaches from the right: a large man in a foam rubber Salisbury steak costume. He sits beside the crying man and places an arm around him in silence.\r\n\r\nA second figure approaches from the left: a rectangular man in a chicken patty costume, carrying a glass of whiskey. He hands it over.\r\n\r\nA third figure lumbers in from the rear — shaped like a rib patty, boombox on one shoulder. Creed is playing. He reaches a thick slab-like arm forward and passes the crying man a lit joint."
+      "text": "A figure approaches from the right: a large man in a foam rubber Salisbury steak costume. He sits beside the crying man and places an arm around him in silence.\r\n\r\nA second figure approaches from the left: a rectangular man in a chicken patty costume, carrying a glass of whiskey. He hands it over.\r\n\r\nA third figure lumbers in from the rear, shaped like a rib patty, boombox on one shoulder. Creed is playing. He reaches a thick slab-like arm forward and passes the crying man a lit joint."
     },
     {
-      "text": "The man is back in his kitchen. He is cleaned up. Shaved. Wearing a pressed shirt. On the table before him sits a Hungry Man dinner tray — wall to wall meat. Not a vegetable in sight. He looks at it the way a man looks at his oldest friend."
+      "text": "The man is back in his kitchen. He is cleaned up. Shaved. Wearing a pressed shirt. On the table before him sits a Hungry Man dinner tray, wall to wall meat. Not a vegetable in sight. He looks at it the way a man looks at his oldest friend."
     },
     {
       "text": "It's just the meats."
@@ -2276,7 +2276,7 @@
       "text": "Just put the fuckin number up man, put up my number so my fans can call in."
     },
     {
-      "text": "1-800-273-8255 ←── NEIL'S HOTLINE — OPERATORS STANDING BY ←── 1-800-273-8255 ←── CENTAUR SHREDS ON ←── DON'T LET HER WIN, BROTHER! — HULK HOGAN ←── CALL NOW ←── 1-800-273-8255 ←── NEIL'S HOTLINE ←──"
+      "text": "1-800-273-8255 ←── NEIL'S HOTLINE · OPERATORS STANDING BY ←── 1-800-273-8255 ←── CENTAUR SHREDS ON ←── DON'T LET HER WIN, BROTHER! · HULK HOGAN ←── CALL NOW ←── 1-800-273-8255 ←── NEIL'S HOTLINE ←──"
     },
     {
       "text": "The number crawls across the bottom of the screen. It is the suicide hotline. It is being towed by a centaur playing electric guitar. Behind the centaur, a graphic element features Hulk Hogan pointing directly at the audience with one finger. He appears to be saying something encouraging."
@@ -2315,7 +2315,7 @@
       "text": "You can't keep saying jews!"
     },
     {
-      "text": "Why is Barb gonna go get her big jew lawyer to come after me, you know they love to litigate —"
+      "text": "Why is Barb gonna go get her big jew lawyer to come after me, you know they love to litigate..."
     },
     {
       "text": "Jesus!"
@@ -2354,10 +2354,10 @@
       "text": "Give me that!"
     },
     {
-      "text": "WELL LOOK NO FURTHER THAN Captain Nguyen'S MAGIC ROOT! AVAILABLE VIA PAYPAL —"
+      "text": "WELL LOOK NO FURTHER THAN Captain Nguyen'S MAGIC ROOT! AVAILABLE VIA PAYPAL..."
     },
     {
-      "text": "THAT'S ENOUGH! I'VE HAD ENOUGH! I'M PULLING THE PLUG —"
+      "text": "THAT'S ENOUGH! I'VE HAD ENOUGH! I'M PULLING THE PLUG..."
     },
     {
       "text": "She took everything. I'm living off tinned beans here. Let a man eat."
@@ -2393,13 +2393,13 @@
       "text": "The lawyer steps back into frame. He is now dressed as a mohel. He adjusts his equipment."
     },
     {
-      "text": "Let's bris this schmuck. Now cheaper — with our ten percent off circumcision discount! Spouses of gentiles now save ten percent!"
+      "text": "Let's bris this schmuck. Now cheaper, with our ten percent off circumcision discount! Spouses of gentiles now save ten percent!"
     },
     {
       "text": "YOU LET THEM RUN AN AD FOR MY EX WIFE'S JEW LAWYER?!"
     },
     {
-      "text": "He pays good money —"
+      "text": "He pays good money..."
     },
     {
       "text": "THAT'S MY MONEY!"
@@ -2408,7 +2408,7 @@
       "text": "He's a friend of the show."
     },
     {
-      "text": "HE IS NOT A FRIEND OF THE SHOW THIS GUY RUINED MY LIFE —"
+      "text": "HE IS NOT A FRIEND OF THE SHOW THIS GUY RUINED MY LIFE..."
     },
     {
       "text": "I'm muting your microphone."
@@ -2417,16 +2417,16 @@
       "text": "Neil's protests continue at length, reduced by the muted mic to a distant, indistinct hum. The ad presses on without him."
     },
     {
-      "text": "The lawyer returns, now dressed as a Hasid. He squares up to the camera with evident satisfaction. He begins to recite his contact information at a measured pace. Then his eyes go wide. His hands come together — slowly, fingers interlacing."
+      "text": "The lawyer returns, now dressed as a Hasid. He squares up to the camera with evident satisfaction. He begins to recite his contact information at a measured pace. Then his eyes go wide. His hands come together, slowly, fingers interlacing."
     },
     {
-      "text": "For all your divorce needs, come to Jerry Rosenberg Family Law — where we will make him pay. And make him pay for me too!"
+      "text": "For all your divorce needs, come to Jerry Rosenberg Family Law, where we will make him pay. And make him pay for me too!"
     },
     {
       "text": "From somewhere behind the muted microphone, Neil can be observed commenting at some volume. The exact words are inaudible. The feeling is clear."
     },
     {
-      "text": "The camera — which has been lying on the floor of the basement at a forty-five-degree angle for the duration of the break — is picked up by an unseen hand and levelled. It finds Neil already mid-sentence, microphone apparently reinstated."
+      "text": "The camera, which has been lying on the floor of the basement at a forty-five-degree angle for the duration of the break, is picked up by an unseen hand and levelled. It finds Neil already mid-sentence, microphone apparently reinstated."
     },
     {
       "text": "Who makes an ad like that? That's like three antisemitic self-burns in a row. He looks like Jude Süss up there. This is egregious! I'm too riled up to continue. Nguyen, roll the credits!"
@@ -2447,7 +2447,7 @@
       "text": "... fair observation..."
     },
     {
-      "text": "Join us next week when we are joined by our special guest — my wife's personal trainer — where we will fight a grudge match to the death!"
+      "text": "Join us next week when we are joined by our special guest, my wife's personal trainer, where we will fight a grudge match to the death!"
     }
   ],
   "morning_pools": null,

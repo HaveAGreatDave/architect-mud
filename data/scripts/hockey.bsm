@@ -1,4 +1,4 @@
-@broadcast "Cluster Puck — CPhL Coldwater Hockey"
+@broadcast "Cluster Puck: CPhL Coldwater Hockey"
 @channel 7
 @category sport
 @type sports
@@ -324,7 +324,7 @@ The {away} in from out of district to meet the {home}. Sixty minutes, whatever's
 # these lines are reporting a fact, not selling a storyline.
 ::lines rivalry.intro
 Evening. Tug Brennan, and you know what tonight is. These two do not like each other and they have never needed a reason.
-Welcome in. It's one of THOSE nights — the scheduler put these two together again and the building knew before I did.
+Welcome in. It's one of THOSE nights. The scheduler put these two together again and the building knew before I did.
 Good evening from Coldwater, where the ice is down and both of these clubs turned up early to stand around looking at each other.
 ::endlines
 
@@ -347,10 +347,10 @@ On the marquee: {away} ({awayRecord}) versus {home} ({homeRecord}). Somebody's r
 # opening face-off whenever anyone is missing. {missing} are the absent, {callups}
 # the men in their sweaters tonight, {count} how many.
 ::lines injury.report
-Before we drop it: {count} out of the lineup tonight. {missing} — all still on the shelf from what was done to them, and up from the reserve, {callups}.
-The injury list, and it's long: {missing}. Dressing instead — {callups}. Best of luck to them, sincerely, they'll need it.
+Before we drop it: {count} out of the lineup tonight. {missing}, all still on the shelf from what was done to them, and up from the reserve, {callups}.
+The injury list, and it's long: {missing}. Dressing instead: {callups}. Best of luck to them, sincerely, they'll need it.
 {missing} not in the building tonight, or not in a state to be. {callups} get the sweaters. Nobody has asked them if they want them.
-No {player} tonight — still out, and the club brings up {callup}. This league does not do get-well cards.
+No {player} tonight, still out, and the club brings up {callup}. This league does not do get-well cards.
 {count} missing between these two. That's the CPhL in the back half of a season: eventually everybody is somebody's replacement.
 ::endlines
 
@@ -375,7 +375,7 @@ End of the {sectionOrd}. They'll resurface it, which is optimistic.
 # lost it, {winTeam} has the puck, {zone} is where in plain English.
 ::lines faceoff.center
 Back to centre ice. {winner} takes the draw from {loser} and the {winTeam} have it.
-Centre-ice draw — {winner} wins it clean. {winTeam} puck.
+Centre-ice draw, and {winner} wins it clean. {winTeam} puck.
 They line it up at centre. {winner} beats {loser} to it and away we go.
 Puck's down at centre. {winTeam} come away with it.
 ::endlines
@@ -420,7 +420,7 @@ Here's the scoring:
 
 # One line PER GOAL, in the order they went in.
 ::lines intermission.goal
-  {clock} — {shooter}, {team}. Assist: {assist}.
+  {clock}: {shooter}, {team}. Assist: {assist}.
   {team}, {shooter} at {clock}, set up by {assist}.
   {shooter} for the {team}, {clock} on the clock. {assist} with the helper.
 ::endlines
@@ -433,19 +433,19 @@ Nobody scored. I'd call it a goaltending duel but I watched it and it wasn't.
 
 ::lines intermission.stats
 Shots in the period: {away} {shotsAway}, {home} {shotsHome}. {penalties} minor infractions called, which is fewer than were committed.
-{shots} shots between them in that period — {shotsAway} for the {away}, {shotsHome} for the {home}. The officials found {penalties} penalties in there somewhere.
+{shots} shots between them in that period: {shotsAway} for the {away}, {shotsHome} for the {home}. The officials found {penalties} penalties in there somewhere.
 By the numbers: {shotsAway}–{shotsHome} on goal, {penalties} to the box, {hits} hits that I'd describe as deliberate.
 Shot clock says {away} {shotsAway}, {home} {shotsHome}. There were {fights} fights, which is under the league average, which is a sentence I hate saying.
 ::endlines
 
 ::lines intermission.casualties
-Off the ice this period and not coming back: {casualties}. Their side plays the rest of this short — that's the rule and nobody's ever changed it.
+Off the ice this period and not coming back: {casualties}. Their side plays the rest of this short. That's the rule and nobody's ever changed it.
 {count} man off in that period. {player} in particular is not going to be right for a while.
 We lost {casualties} in there. No replacements. That's how a game gets away from a club in this league.
 ::endlines
 
 ::lines intermission.outro
-Back in a moment for the {nextOrd}. Don't go anywhere — statistically, something's about to happen to somebody.
+Back in a moment for the {nextOrd}. Don't go anywhere. Statistically, something's about to happen to somebody.
 That's your intermission. They'll be out shortly, most of them.
 We'll take a break. When we come back there'll be fresh ice and the same problems.
 ::endlines
@@ -454,7 +454,7 @@ We'll take a break. When we come back there'll be fresh ice and the same problem
 ::lines shot.save
 {goalie} takes it in the chest and holds on.
 {shooter} tests him and {goalie} says no.
-Shot away — {goalie} has it. Nothing doing.
+Shot away, and {goalie} has it. Nothing doing.
 Straight into the logo. {goalie} barely moved.
 ::endlines
 
@@ -489,7 +489,7 @@ CLANG. That's the sound of a man's night changing and not changing at the same t
 ::endlines
 
 ::lines shot.breakaway
-{shooter} is GONE — nothing between him and {goalie} — and {goalie} stones him.
+{shooter} is GONE, nothing between him and {goalie}, and {goalie} stones him.
 Breakaway! {shooter} in alone, and he can't finish it.
 Loose in the neutral zone, {shooter} is away, one on one, and {goalie} wins it.
 ::endlines
@@ -499,7 +499,7 @@ Loose in the neutral zone, {shooter} is away, one on one, and {goalie} wins it.
 {shooter} SCORES. {team} lead the noise, {home} {homeScore}, {away} {awayScore}.
 IN. {shooter} beats {goalie}, and the horn does what the horn does.
 {shooter} buries it. {assist} with the pass, and this building has come apart.
-He shoots — HE SCORES. {shooter}, from {assist}, and {goalie} never had it.
+He shoots. HE SCORES. {shooter}, from {assist}, and {goalie} never had it.
 ::endlines
 
 ::lines goal.pp
@@ -536,7 +536,7 @@ Your score, {away} {awayScore} and {home} {homeScore}.
 # ── officials ─────────────────────────────────────────────────────────────────
 ::lines penalty
 {player} goes for {infraction}. {penaltyMin} minutes, and the {team} are down a man.
-Arm's up — {infraction} on {player}. {penaltyMin} in the box.
+Arm's up. {infraction} on {player}. {penaltyMin} in the box.
 That's {penaltyMin} for {infraction}. {player} has a sit down and a think.
 {player} caught for {infraction}. The officials noticed that one, which is not guaranteed.
 ::endlines
@@ -561,7 +561,7 @@ They survive it. Back to five a side.
 
 # ── violence ──────────────────────────────────────────────────────────────────
 ::lines penalty.fight
-Gloves off — {fighters} have decided the scoreboard isn't settling this. Linesmen are giving it a count of five before they pretend to care.
+Gloves off. {fighters} have decided the scoreboard isn't settling this. Linesmen are giving it a count of five before they pretend to care.
 And they go. {fighters}, right at centre ice, and nobody is in a hurry to stop it.
 Here it is. {fighters}, sweaters up over the heads, and the building is on its feet.
 ::endlines
@@ -576,7 +576,7 @@ It's {winner}. {loser} is helped up and sent away, and his team pays for it with
 {hitter} finishes {victim} into the boards and the glass takes the rest.
 RIDDEN INTO THE BOARDS. {hitter} on {victim}, and that whole pane is still moving.
 {victim} gets caught with his head down and {hitter} puts him through the dasher.
-Big hit — {hitter}. {victim} will get up from that one. Probably.
+Big hit, {hitter}. {victim} will get up from that one. Probably.
 ::endlines
 
 ::lines scrum
@@ -586,13 +586,13 @@ They're all in there kicking at it. This is most of hockey, if we're honest.
 ::endlines
 
 ::lines injury
-{player} is not getting up. He's helped off, and the {teamName} are down to {remaining} skaters — no replacement, that's the rule, and they wear it for the rest of the night.
+{player} is not getting up. He's helped off, and the {teamName} are down to {remaining} skaters, no replacement, that's the rule, and they wear it for the rest of the night.
 That's {player}'s evening finished. {teamName} play the rest of this short.
 {player} goes down the tunnel under his own power, barely. {remaining} left on the bench and nobody coming over the boards to help.
 ::endlines
 
 ::lines death
-{player} IS DEAD. That's the game — sudden death, and the CPhL has never pretended it meant anything else. {winnerTeam} win it.
+{player} IS DEAD. That's the game: sudden death, and the CPhL has never pretended it meant anything else. {winnerTeam} win it.
 He's gone. {player}, on the ice, in overtime, and that is how this league ends a tie.
 {player} does not get up, and he is not going to. {winnerTeam} take it. Somebody call his people.
 ::endlines
@@ -601,11 +601,11 @@ He's gone. {player}, on the ice, in overtime, and that is how this league ends a
 ::lines pull
 {teamName} pull the goalie. Down {down}, six on five, and the net is empty behind them.
 Here comes the goalie to the bench. {teamName} going for it with the extra attacker.
-Empty net at the far end — {teamName} are down {down} and out of patience.
+Empty net at the far end. {teamName} are down {down} and out of patience.
 ::endlines
 
 ::lines ot.intro
-Level after sixty. SUDDEN DEATH — and in this league that is not a figure of speech.
+Level after sixty. SUDDEN DEATH, and in this league that is not a figure of speech.
 We go to overtime. First goal wins it. So does the first body.
 Sixty minutes settled nothing, so now we find out the other way.
 ::endlines
@@ -632,7 +632,7 @@ It's over. {winner} win it in the skills competition, which counts, apparently.
 
 # ── colour ────────────────────────────────────────────────────────────────────
 ::lines chatter
-The ice in here hasn't been resurfaced since the ownership change, and you can tell — {team} are skating through what I'd generously call a puddle with ambition.
+The ice in here hasn't been resurfaced since the ownership change, and you can tell; {team} are skating through what I'd generously call a puddle with ambition.
 Goal judge's been in that booth thirty years. Nobody's checked on him in twelve. Light still works.
 {goalie} has the thousand-yard stare of a man watching his own future arrive on a two-on-one.
 The Zamboni runs on something the league will not disclose and the driver wears a respirator. Draw your own conclusions.

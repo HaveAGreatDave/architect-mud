@@ -11,7 +11,7 @@
     "\"Trade you for it. Credits preferred. Bullets accepted.\"",
     "\"Limited supply. Always limited. That's the pitch.\"",
     "\"I don't know where it came from. That's not your business either.\"",
-    "\"Come back tomorrow — stock changes. If I'm still here.\"",
+    "\"Come back tomorrow, stock changes. If I'm still here.\"",
     "\"Quality merchandise at prices that won't kill you. Probably.\""
   ],
   "description": "Runs the bar out of a gutted delivery van. Pours with the bored precision of someone who has heard every sob story twice.",
@@ -42,7 +42,7 @@
           "next": "bm_menu"
         }
       ],
-      "text": "Sully writes nothing down, which is how you know it counted. \"Amos Dune, front desk of the Layover, out at the Reach. He doesn't keep stock sitting in the dirt for anyone — you tell him what you want, he has it run out to one of his holes in the ground, and he tells you which one.\" <span class=\"text-dim\">He picks the glass back up.</span> \"Start with the leaf. It's legal, it's dull, and it's how he learns your face.\""
+      "text": "Sully writes nothing down, which is how you know it counted. \"Amos Dune, front desk of the Layover, out at the Reach. He doesn't keep stock sitting in the dirt for anyone. You tell him what you want, he has it run out to one of his holes in the ground, and he tells you which one.\" <span class=\"text-dim\">He picks the glass back up.</span> \"Start with the leaf. It's legal, it's dull, and it's how he learns your face.\""
     },
     "bm_air_offer": {
       "_vine": {
@@ -65,7 +65,7 @@
           "next": "bm_menu"
         }
       ],
-      "text": "You lean in. \"Word is you know someone who flies heavier than a MULE drone — no checkpoint at all.\" Sully studies you a long moment. \"...Maybe. Guy works out of the Reach, way out past the wire — grows the raw himself and flies it to whoever's got the nerve. Ask for Amos when you're wheels-down at Buzzard Field. You've run clean enough he'll take the meeting.\""
+      "text": "You lean in. \"Word is you know someone who flies heavier than a MULE drone, no checkpoint at all.\" Sully studies you a long moment. \"...Maybe. Guy works out of the Reach, way out past the wire. Grows the raw himself and flies it to whoever's got the nerve. Ask for Amos when you're wheels-down at Buzzard Field. You've run clean enough he'll take the meeting.\""
     },
     "bm_menu": {
       "_vine": {
@@ -95,7 +95,7 @@
           "next": "root"
         }
       ],
-      "text": "Sully sets down the glass he's been not-cleaning and leans in. \"Back-room list. I don't touch the stuff — I just know a drone pilot who owes me. You point, it lands out at the Scald, and getting it home past the checkpoint is *your* lookout.\""
+      "text": "Sully sets down the glass he's been not-cleaning and leans in. \"Back-room list. I don't touch the stuff. I just know a drone pilot who owes me. You point, it lands out at the Scald, and getting it home past the checkpoint is *your* lookout.\""
     },
     "bm_shop": {
       "_vine": {
@@ -143,7 +143,7 @@
           "next": "root"
         }
       ],
-      "text": "Swill's free with a straight face. Whiskey'll put hair on parts of you that don't currently have hair. The Glow Cocktail is mostly safe — emphasis on 'mostly,' don't email me about it."
+      "text": "Swill's free with a straight face. Whiskey'll put hair on parts of you that don't currently have hair. The Glow Cocktail is mostly safe, emphasis on 'mostly,' don't email me about it."
     },
     "root": {
       "_vine": {

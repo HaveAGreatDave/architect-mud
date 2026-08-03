@@ -124,9 +124,9 @@
     }
   },
   "chitchat": [
-    "\"We play the old way at this table, hon — I deal by hand and I call every card aloud. No screens.\"",
+    "\"We play the old way at this table, hon. I deal by hand and I call every card aloud. No screens.\"",
     "riffles a worn deck one-handed and squares it with a soft, unhurried snap",
-    "\"You don't need to see the felt to play at my table. Just listen — I'll call it all out.\"",
+    "\"You don't need to see the felt to play at my table. Just listen. I'll call it all out.\"",
     "\"Back when I started, every card was read to the room. I never saw a reason to stop.\"",
     "taps the brass chip tray with one lacquered nail, keeping time to a tune only she hears",
     "\"Slow poker, called poker, honest as it gets in this dump. Pull up a chair.\"",
@@ -146,7 +146,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"check, call, bet X, raise X, fold, allin — say the word or type it, either does. And if you lose track, just ask: board, showhand, pot. I'll read it right back to you.\""
+      "text": "\"check, call, bet X, raise X, fold, allin. Say the word or type it, either does. And if you lose track, just ask: board, showhand, pot. I'll read it right back to you.\""
     },
     "bye": {
       "options": [],
@@ -163,7 +163,7 @@
           "next": "betting"
         }
       ],
-      "text": "\"No screens, no flashing cabinets. I shuffle by hand and I say every card out loud — your hole cards, the flop, the turn, the river, the winner. A body can play my table with their eyes shut and never miss a beat. That's how it was done, and that's how I still do it.\""
+      "text": "\"No screens, no flashing cabinets. I shuffle by hand and I say every card out loud: your hole cards, the flop, the turn, the river, the winner. A body can play my table with their eyes shut and never miss a beat. That's how it was done, and that's how I still do it.\""
     },
     "people": {
       "options": [
@@ -185,7 +185,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Then park yourself and type join, hon. Buy-in's gentle back here — this room's for the love of the game, not the slaughter. I'll call your cards the moment they hit the felt.\""
+      "text": "\"Then park yourself and type join, hon. Buy-in's gentle back here; this room's for the love of the game, not the slaughter. I'll call your cards the moment they hit the felt.\""
     },
     "root": {
       "options": [
@@ -206,7 +206,7 @@
           "next": "bye"
         }
       ],
-      "text": "Marguerite 'Margo' Duvall looks up over glasses she isn't wearing and gives the deck a lazy riffle. \"Come for the quiet game, hon? I run this table the old way — dealt by hand, every card called aloud. Sit down and I'll read you in.\""
+      "text": "Marguerite 'Margo' Duvall looks up over glasses she isn't wearing and gives the deck a lazy riffle. \"Come for the quiet game, hon? I run this table the old way: dealt by hand, every card called aloud. Sit down and I'll read you in.\""
     },
     "rules": {
       "options": [
@@ -223,7 +223,7 @@
           "next": "play"
         }
       ],
-      "text": "\"Texas Hold'em, same as anywhere — two cards down, five in the middle, best five takes it. Only difference is I call it all aloud and take my time doing it. No rush in this room. The neon out front can wait.\""
+      "text": "\"Texas Hold'em, same as anywhere: two cards down, five in the middle, best five takes it. Only difference is I call it all aloud and take my time doing it. No rush in this room. The neon out front can wait.\""
     }
   },
   "faction": null,

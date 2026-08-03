@@ -3,7 +3,7 @@
   "category": "emergency",
   "channel_id": null,
   "created_by": "echelon",
-  "description": "The Echelon's emergency address — seizes every tuned set in Architect when the special MediaDeck goes to air.",
+  "description": "The Echelon's emergency address; seizes every tuned set in Architect when the special MediaDeck goes to air.",
   "enabled": 1,
   "fallback_messages": [],
   "film_meta": null,
@@ -13,7 +13,7 @@
   "message_interval": 6,
   "messages": [
     {
-      "text": "▓▓▓  EMERGENCY BROADCAST — STAND BY  ▓▓▓"
+      "text": "▓▓▓  EMERGENCY BROADCAST · STAND BY  ▓▓▓"
     },
     {
       "text": "All programming has been suspended. This is a message from the Echelon."

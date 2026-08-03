@@ -31,7 +31,7 @@
         "graphic_id": "",
         "next": "bsm_11",
         "overlayType": "lower_third",
-        "subtext": "2079 — SUMMER",
+        "subtext": "2079, SUMMER",
         "text": "THE MERIDIAN ROADHOUSE, EAST BASIN",
         "type": "overlay"
       },
@@ -52,7 +52,7 @@
         },
         "next": "bsm_102",
         "style": "verbatim",
-        "text": "Joanie Faust says, \"It is nothing! It is a fact about your body! It is not a skill, it is not a trade, it is not a CHARACTER — you are a boy who washes plates and got dealt one card and you are about to sell it to a man in a coat.\"",
+        "text": "Joanie Faust says, \"It is nothing! It is a fact about your body! It is not a skill, it is not a trade, it is not a CHARACTER. You are a boy who washes plates and got dealt one card and you are about to sell it to a man in a coat.\"",
         "type": "say"
       },
       "bsm_102": {
@@ -557,7 +557,7 @@
         },
         "next": "bsm_148",
         "style": "verbatim",
-        "text": "Reed Halloran says, \"Okay. Okay! Right. Okay. So — I’m the other one. I want that on the record. I’ve made my peace with it in the last four seconds.\"",
+        "text": "Reed Halloran says, \"Okay. Okay! Right. Okay. So... I’m the other one. I want that on the record. I’ve made my peace with it in the last four seconds.\"",
         "type": "say"
       },
       "bsm_148": {
@@ -832,7 +832,7 @@
         "next": "bsm_172",
         "overlayType": "lower_third",
         "subtext": "THURSDAY",
-        "text": "THE PRINE HOUSE — THE LOUNGE SET",
+        "text": "THE PRINE HOUSE, THE LOUNGE SET",
         "type": "overlay"
       },
       "bsm_172": {
@@ -1012,7 +1012,7 @@
         },
         "next": "bsm_189",
         "style": "verbatim",
-        "text": "Marguerite Sable says, \"And if it doesn’t happen, it doesn’t happen. It happens to everybody, it happened to Reed twice last month —\"",
+        "text": "Marguerite Sable says, \"And if it doesn’t happen, it doesn’t happen. It happens to everybody, it happened to Reed twice last month...\"",
         "type": "say"
       },
       "bsm_189": {
@@ -1042,7 +1042,7 @@
         },
         "next": "bsm_191",
         "style": "verbatim",
-        "text": "Marguerite Sable says, \"— and we go again after lunch and nobody says a word about it. Nobody in this house has ever said a word about it.\"",
+        "text": "Marguerite Sable says, \"And we go again after lunch and nobody says a word about it. Nobody in this house has ever said a word about it.\"",
         "type": "say"
       },
       "bsm_191": {
@@ -1132,7 +1132,7 @@
         },
         "next": "bsm_200",
         "style": "narration",
-        "text": "We watch Wilby Crane, on the cart, take his headphones off — which Wilby Crane does not do — and look at the monitor like a man checking a number he has already checked.",
+        "text": "We watch Wilby Crane, on the cart, take his headphones off, which Wilby Crane does not do, and look at the monitor like a man checking a number he has already checked.",
         "type": "say"
       },
       "bsm_2": {
@@ -1419,7 +1419,7 @@
         "next": "bsm_224",
         "overlayType": "lower_third",
         "subtext": "LATER",
-        "text": "THE PRINE HOUSE — THE POOL",
+        "text": "THE PRINE HOUSE, THE POOL",
         "type": "overlay"
       },
       "bsm_224": {
@@ -1611,7 +1611,7 @@
         "next": "bsm_241",
         "overlayType": "lower_third",
         "subtext": "THAT NIGHT",
-        "text": "THE PRINE HOUSE — DEACON’S ROOM",
+        "text": "THE PRINE HOUSE, DEACON’S ROOM",
         "type": "overlay"
       },
       "bsm_241": {
@@ -1845,8 +1845,8 @@
         "graphic_id": "",
         "next": "bsm_262",
         "overlayType": "lower_third",
-        "subtext": "2080 — SPRING",
-        "text": "THE PRINE HOUSE — THE KITCHEN",
+        "subtext": "2080, SPRING",
+        "text": "THE PRINE HOUSE, THE KITCHEN",
         "type": "overlay"
       },
       "bsm_262": {
@@ -2018,7 +2018,7 @@
         "next": "bsm_278",
         "overlayType": "lower_third",
         "subtext": "THE NEXT WEEK",
-        "text": "MERIDIAN MUTUAL — LOAN DESK",
+        "text": "MERIDIAN MUTUAL, LOAN DESK",
         "type": "overlay"
       },
       "bsm_278": {
@@ -2213,7 +2213,7 @@
         "next": "bsm_295",
         "overlayType": "lower_third",
         "subtext": "SUMMER",
-        "text": "THE PRINE HOUSE — THE POOL DECK",
+        "text": "THE PRINE HOUSE, THE POOL DECK",
         "type": "overlay"
       },
       "bsm_295": {
@@ -2599,7 +2599,7 @@
         "graphic_id": "",
         "next": "bsm_329",
         "overlayType": "lower_third",
-        "subtext": "2081 — AUTUMN",
+        "subtext": "2081, AUTUMN",
         "text": "THE BASIN BROADCAST AWARDS, COLDWATER CIVIC HALL",
         "type": "overlay"
       },
@@ -2860,7 +2860,7 @@
         },
         "next": "bsm_352",
         "style": "verbatim",
-        "text": "Deacon Vox says, \"I don’t — okay. Two years ago I washed plates at the Meridian and a man came out to the lot and told me I had something.\"",
+        "text": "Deacon Vox says, \"I don’t... okay. Two years ago I washed plates at the Meridian and a man came out to the lot and told me I had something.\"",
         "type": "say"
       },
       "bsm_352": {
@@ -2923,8 +2923,8 @@
         "duration_s": 8,
         "next": "bsm_358",
         "overlayType": "act_card",
-        "subtext": "New Year",
-        "text": "ACT 2",
+        "subtext": "",
+        "text": "ACT 2: New Year",
         "type": "overlay"
       },
       "bsm_358": {
@@ -3179,7 +3179,7 @@
         "next": "bsm_39",
         "overlayType": "lower_third",
         "subtext": "LATER",
-        "text": "THE MERIDIAN — THE LOT OUT BACK",
+        "text": "THE MERIDIAN, THE LOT OUT BACK",
         "type": "overlay"
       },
       "bsm_380": {
@@ -3321,7 +3321,7 @@
         "next": "bsm_393",
         "overlayType": "lower_third",
         "subtext": "11:40",
-        "text": "THE PRINE HOUSE — THE DRIVE",
+        "text": "THE PRINE HOUSE, THE DRIVE",
         "type": "overlay"
       },
       "bsm_393": {
@@ -3461,7 +3461,7 @@
         },
         "next": "bsm_405",
         "style": "verbatim",
-        "text": "Scotty Kell says, \"I got it — I mean, I got it, for me, obviously, but I was thinking the whole time about you seeing it. Is that stupid? That’s stupid.\"",
+        "text": "Scotty Kell says, \"I got it. I mean, I got it, for me, obviously, but I was thinking the whole time about you seeing it. Is that stupid? That’s stupid.\"",
         "type": "say"
       },
       "bsm_405": {
@@ -3491,7 +3491,7 @@
         },
         "next": "bsm_408",
         "style": "verbatim",
-        "text": "Deacon Vox says, \"Scotty —\"",
+        "text": "Deacon Vox says, \"Scotty...\"",
         "type": "say"
       },
       "bsm_408": {
@@ -3541,7 +3541,7 @@
         },
         "next": "bsm_412",
         "style": "verbatim",
-        "text": "Scotty Kell says, \"Can I? Just — can I?\"",
+        "text": "Scotty Kell says, \"Can I? Just... can I?\"",
         "type": "say"
       },
       "bsm_412": {
@@ -3571,7 +3571,7 @@
         },
         "next": "bsm_415",
         "style": "verbatim",
-        "text": "Deacon Vox says, \"It’s not — Scotty, it isn’t —\"",
+        "text": "Deacon Vox says, \"It’s not... Scotty, it isn’t...\"",
         "type": "say"
       },
       "bsm_415": {
@@ -3673,7 +3673,7 @@
         "next": "bsm_424",
         "overlayType": "lower_third",
         "subtext": "11:56",
-        "text": "THE PRINE HOUSE — THE BACK STAIRS",
+        "text": "THE PRINE HOUSE, THE BACK STAIRS",
         "type": "overlay"
       },
       "bsm_424": {
@@ -3865,7 +3865,7 @@
         "next": "bsm_441",
         "overlayType": "lower_third",
         "subtext": "11:58",
-        "text": "THE PRINE HOUSE — THE FRONT ROOM",
+        "text": "THE PRINE HOUSE, THE FRONT ROOM",
         "type": "overlay"
       },
       "bsm_441": {
@@ -4035,7 +4035,7 @@
         },
         "next": "bsm_457",
         "style": "verbatim",
-        "text": "Reed Halloran says, \"Wilby! Hey — Wilby, they’re counting!\"",
+        "text": "Reed Halloran says, \"Wilby! Hey, Wilby, they’re counting!\"",
         "type": "say"
       },
       "bsm_457": {
@@ -4180,7 +4180,7 @@
         "next": "bsm_470",
         "overlayType": "lower_third",
         "subtext": "MIDNIGHT",
-        "text": "THE PRINE HOUSE — THE LANDING",
+        "text": "THE PRINE HOUSE, THE LANDING",
         "type": "overlay"
       },
       "bsm_47": {
@@ -4230,7 +4230,7 @@
         },
         "next": "bsm_474",
         "style": "verbatim",
-        "text": "Marguerite Sable says, \"Auggie —\"",
+        "text": "Marguerite Sable says, \"Auggie...\"",
         "type": "say"
       },
       "bsm_474": {
@@ -4250,7 +4250,7 @@
         },
         "next": "bsm_476",
         "style": "verbatim",
-        "text": "Marguerite Sable says, \"Is she —\"",
+        "text": "Marguerite Sable says, \"Is she...\"",
         "type": "say"
       },
       "bsm_476": {
@@ -4445,7 +4445,7 @@
         },
         "next": "bsm_493",
         "style": "narration",
-        "text": "He opens the case. Inside is a feed rig — small, ugly, cheap, and it does not use tape.",
+        "text": "He opens the case. Inside is a feed rig: small, ugly, cheap, and it does not use tape.",
         "type": "say"
       },
       "bsm_493": {
@@ -4495,7 +4495,7 @@
         },
         "next": "bsm_498",
         "style": "verbatim",
-        "text": "Fisk Gondolli says, \"Because it costs eleven credits a broadcast and yours costs nine hundred, and because nobody out there can tell the difference, and Auggie — this is the part I need you to actually hear — nobody out there WANTS to.\"",
+        "text": "Fisk Gondolli says, \"Because it costs eleven credits a broadcast and yours costs nine hundred, and because nobody out there can tell the difference, and Auggie, this is the part I need you to actually hear, nobody out there WANTS to.\"",
         "type": "say"
       },
       "bsm_498": {
@@ -4710,8 +4710,8 @@
         "duration_s": 8,
         "next": "bsm_516",
         "overlayType": "act_card",
-        "subtext": "The Reclamation",
-        "text": "ACT 3",
+        "subtext": "",
+        "text": "ACT 3: The Reclamation",
         "type": "overlay"
       },
       "bsm_516": {
@@ -4723,8 +4723,8 @@
         "graphic_id": "",
         "next": "bsm_517",
         "overlayType": "lower_third",
-        "subtext": "2082 — SPRING",
-        "text": "COLDWATER — THE LICENSING NOTICE",
+        "subtext": "2082, SPRING",
+        "text": "COLDWATER, THE LICENSING NOTICE",
         "type": "overlay"
       },
       "bsm_517": {
@@ -4787,7 +4787,7 @@
         "next": "bsm_522",
         "overlayType": "lower_third",
         "subtext": "THAT WEEK",
-        "text": "THE PRINE HOUSE — THE LOUNGE",
+        "text": "THE PRINE HOUSE, THE LOUNGE",
         "type": "overlay"
       },
       "bsm_522": {
@@ -5012,7 +5012,7 @@
         "next": "bsm_542",
         "overlayType": "lower_third",
         "subtext": "LATER",
-        "text": "THE PRINE HOUSE — DEACON’S ROOM",
+        "text": "THE PRINE HOUSE, DEACON’S ROOM",
         "type": "overlay"
       },
       "bsm_542": {
@@ -5174,7 +5174,7 @@
         "next": "bsm_557",
         "overlayType": "lower_third",
         "subtext": "SUMMER, 2082",
-        "text": "THE PRINE HOUSE — THE POOL DECK",
+        "text": "THE PRINE HOUSE, THE POOL DECK",
         "type": "overlay"
       },
       "bsm_557": {
@@ -5317,7 +5317,7 @@
         "next": "bsm_570",
         "overlayType": "lower_third",
         "subtext": "THAT AFTERNOON",
-        "text": "THE PRINE HOUSE — THE LOUNGE SET",
+        "text": "THE PRINE HOUSE, THE LOUNGE SET",
         "type": "overlay"
       },
       "bsm_57": {
@@ -5487,7 +5487,7 @@
         },
         "next": "bsm_585",
         "style": "verbatim",
-        "text": "Marguerite Sable says, \"Sweetheart, it happens to everybody, it happened to Reed —\"",
+        "text": "Marguerite Sable says, \"Sweetheart, it happens to everybody, it happened to Reed...\"",
         "type": "say"
       },
       "bsm_585": {
@@ -5652,7 +5652,7 @@
         "next": "bsm_600",
         "overlayType": "lower_third",
         "subtext": "AUTUMN, 2082",
-        "text": "COLDWATER STRIP — A RATION COUNTER",
+        "text": "COLDWATER STRIP, A RATION COUNTER",
         "type": "overlay"
       },
       "bsm_6": {
@@ -5859,7 +5859,7 @@
         "next": "bsm_617",
         "overlayType": "lower_third",
         "subtext": "WINTER, 2082",
-        "text": "THE PRINE HOUSE — THE KITCHEN",
+        "text": "THE PRINE HOUSE, THE KITCHEN",
         "type": "overlay"
       },
       "bsm_617": {
@@ -5899,7 +5899,7 @@
         },
         "next": "bsm_63",
         "style": "verbatim",
-        "text": "Auggie Prine says, \"No. I mean — well. Son, do you have any idea?\"",
+        "text": "Auggie Prine says, \"No. I mean... well. Son, do you have any idea?\"",
         "type": "say"
       },
       "bsm_620": {
@@ -5909,7 +5909,7 @@
         },
         "next": "bsm_621",
         "style": "verbatim",
-        "text": "Deacon Vox says, \"Deacon Vox, Signal Detective. He walks into a town, right, and the town’s got a mast, and there’s something wrong with what’s coming off the mast —\"",
+        "text": "Deacon Vox says, \"Deacon Vox, Signal Detective. He walks into a town, right, and the town’s got a mast, and there’s something wrong with what’s coming off the mast...\"",
         "type": "say"
       },
       "bsm_621": {
@@ -5929,7 +5929,7 @@
         },
         "next": "bsm_623",
         "style": "verbatim",
-        "text": "Deacon Vox says, \"— and he FIXES it, but the fixing is like, it’s a metaphor, because the thing wrong with the signal is the thing wrong with the TOWN —\"",
+        "text": "Deacon Vox says, \"And he FIXES it, but the fixing is like, it’s a metaphor, because the thing wrong with the signal is the thing wrong with the TOWN...\"",
         "type": "say"
       },
       "bsm_623": {
@@ -6099,7 +6099,7 @@
         },
         "next": "bsm_639",
         "style": "verbatim",
-        "text": "Auggie Prine says, \"The Colonel would say a fire was fresh if he thought you’d pay to be near it. Deacon, listen to me —\"",
+        "text": "Auggie Prine says, \"The Colonel would say a fire was fresh if he thought you’d pay to be near it. Deacon, listen to me...\"",
         "type": "say"
       },
       "bsm_639": {
@@ -6189,7 +6189,7 @@
         },
         "next": "bsm_647",
         "style": "verbatim",
-        "text": "Deacon Vox says, \"Auggie —\"",
+        "text": "Deacon Vox says, \"Auggie...\"",
         "type": "say"
       },
       "bsm_647": {
@@ -6364,7 +6364,7 @@
         },
         "next": "bsm_662",
         "style": "verbatim",
-        "text": "Marguerite Sable says, \"For four years we all said, he’s a cold man, he’s a soft man, don’t be alone with him, isn’t he funny about the archives —\"",
+        "text": "Marguerite Sable says, \"For four years we all said, he’s a cold man, he’s a soft man, don’t be alone with him, isn’t he funny about the archives...\"",
         "type": "say"
       },
       "bsm_662": {
@@ -6384,7 +6384,7 @@
         },
         "next": "bsm_664",
         "style": "verbatim",
-        "text": "Marguerite Sable says, \"— and every single one of us knew that sentence was doing work and not one of us finished it.\"",
+        "text": "Marguerite Sable says, \"And every single one of us knew that sentence was doing work and not one of us finished it.\"",
         "type": "say"
       },
       "bsm_664": {
@@ -6955,7 +6955,7 @@
         "graphic_id": "",
         "next": "bsm_714",
         "overlayType": "lower_third",
-        "subtext": "2083 — WINTER",
+        "subtext": "2083, WINTER",
         "text": "A CORP TOWN CAR, COLDWATER RIM",
         "type": "overlay"
       },
@@ -7016,7 +7016,7 @@
         },
         "next": "bsm_720",
         "style": "narration",
-        "text": "It is the first time in this entire picture that Kestrel is not wearing it, and the sound of the film changes — the score drops out and there is nothing under the scene at all.",
+        "text": "It is the first time in this entire picture that Kestrel is not wearing it, and the sound of the film changes: the score drops out and there is nothing under the scene at all.",
         "type": "say"
       },
       "bsm_72": {
@@ -7101,7 +7101,7 @@
         "next": "bsm_727",
         "overlayType": "lower_third",
         "subtext": "LATER",
-        "text": "THE PRINE HOUSE — THE LOUNGE",
+        "text": "THE PRINE HOUSE, THE LOUNGE",
         "type": "overlay"
       },
       "bsm_727": {
@@ -7272,8 +7272,8 @@
         "graphic_id": "",
         "next": "bsm_742",
         "overlayType": "lower_third",
-        "subtext": "2084 — SPRING",
-        "text": "COLDWATER STRIP — A SERVICE ALLEY",
+        "subtext": "2084, SPRING",
+        "text": "COLDWATER STRIP, A SERVICE ALLEY",
         "type": "overlay"
       },
       "bsm_742": {
@@ -7403,7 +7403,7 @@
         },
         "next": "bsm_754",
         "style": "narration",
-        "text": "They do not take his money, because he does not have any. They take his coat and his boots, and they break two of his ribs, and one of them keeps saying the name — the stage name, over and over, delighted, like a man who has found a celebrity in a bin.",
+        "text": "They do not take his money, because he does not have any. They take his coat and his boots, and they break two of his ribs, and one of them keeps saying the name, the stage name, over and over, delighted, like a man who has found a celebrity in a bin.",
         "type": "say"
       },
       "bsm_754": {
@@ -7458,7 +7458,7 @@
         "next": "bsm_759",
         "overlayType": "lower_third",
         "subtext": "SPRING, 2084",
-        "text": "THE PRINE HOUSE — THE POOL DECK",
+        "text": "THE PRINE HOUSE, THE POOL DECK",
         "type": "overlay"
       },
       "bsm_759": {
@@ -7522,7 +7522,7 @@
         "graphic_id": "",
         "next": "bsm_764",
         "overlayType": "lower_third",
-        "subtext": "2084 — SUMMER",
+        "subtext": "2084, SUMMER",
         "text": "THE GHAZI HOUSE, ABOVE THE BASIN",
         "type": "overlay"
       },
@@ -7960,7 +7960,7 @@
         },
         "next": "bsm_802",
         "style": "verbatim",
-        "text": "Deacon Vox says, \"And nobody has to —\"",
+        "text": "Deacon Vox says, \"And nobody has to...\"",
         "type": "say"
       },
       "bsm_802": {
@@ -8033,8 +8033,8 @@
         "duration_s": 8,
         "next": "bsm_809",
         "overlayType": "act_card",
-        "subtext": "Home",
-        "text": "ACT 4",
+        "subtext": "",
+        "text": "ACT 4: Home",
         "type": "overlay"
       },
       "bsm_809": {
@@ -8046,7 +8046,7 @@
         "graphic_id": "",
         "next": "bsm_810",
         "overlayType": "lower_third",
-        "subtext": "2084 — AUTUMN",
+        "subtext": "2084, AUTUMN",
         "text": "THE FAUST HOUSE, DRAY LANE",
         "type": "overlay"
       },
@@ -8157,7 +8157,7 @@
         },
         "next": "bsm_820",
         "style": "verbatim",
-        "text": "Denny Faust says, \"Mum —\"",
+        "text": "Denny Faust says, \"Mum...\"",
         "type": "say"
       },
       "bsm_82": {
@@ -8377,7 +8377,7 @@
         },
         "next": "bsm_840",
         "style": "verbatim",
-        "text": "Denny Faust says, \"That’s the — that’s the whole thing, Mum, that’s the whole answer to everything you’re about to ask me. I don’t know.\"",
+        "text": "Denny Faust says, \"That’s the... that’s the whole thing, Mum, that’s the whole answer to everything you’re about to ask me. I don’t know.\"",
         "type": "say"
       },
       "bsm_84": {
@@ -8743,7 +8743,7 @@
         "graphic_id": "",
         "next": "bsm_872",
         "overlayType": "lower_third",
-        "subtext": "2085 — SPRING",
+        "subtext": "2085, SPRING",
         "text": "THE PRINE HOUSE",
         "type": "overlay"
       },
@@ -8884,7 +8884,7 @@
         },
         "next": "bsm_885",
         "style": "verbatim",
-        "text": "Deacon Vox says, \"That’s —\"",
+        "text": "Deacon Vox says, \"That’s...\"",
         "type": "say"
       },
       "bsm_885": {
@@ -8916,7 +8916,7 @@
         "next": "bsm_888",
         "overlayType": "lower_third",
         "subtext": "CONTINUOUS",
-        "text": "THE PRINE HOUSE — THE DRAINED POOL",
+        "text": "THE PRINE HOUSE, THE DRAINED POOL",
         "type": "overlay"
       },
       "bsm_888": {
@@ -9046,7 +9046,7 @@
         },
         "next": "bsm_900",
         "style": "verbatim",
-        "text": "Deacon Vox says, \"Auggie, I’m not going to —\"",
+        "text": "Deacon Vox says, \"Auggie, I’m not going to...\"",
         "type": "say"
       },
       "bsm_9": {
@@ -9057,8 +9057,8 @@
         "duration_s": 8,
         "next": "bsm_10",
         "overlayType": "act_card",
-        "subtext": "The Open Signal",
-        "text": "ACT 1",
+        "subtext": "",
+        "text": "ACT 1: The Open Signal",
         "type": "overlay"
       },
       "bsm_90": {
@@ -9228,7 +9228,7 @@
         },
         "next": "bsm_915",
         "style": "verbatim",
-        "text": "Auggie Prine says, \"Alright. You said yes. It’s yours. All of it, the whole five years, the good and the rest — it’s yours and you did it.\"",
+        "text": "Auggie Prine says, \"Alright. You said yes. It’s yours. All of it, the whole five years, the good and the rest. It’s yours and you did it.\"",
         "type": "say"
       },
       "bsm_915": {
@@ -9398,7 +9398,7 @@
         },
         "next": "bsm_94",
         "style": "verbatim",
-        "text": "Denny Faust says, \"Mum —\"",
+        "text": "Denny Faust says, \"Mum...\"",
         "type": "say"
       },
       "bsm_930": {
@@ -9443,7 +9443,7 @@
         "next": "bsm_934",
         "overlayType": "lower_third",
         "subtext": "LATER",
-        "text": "THE PRINE HOUSE — THE LOUNGE SET",
+        "text": "THE PRINE HOUSE, THE LOUNGE SET",
         "type": "overlay"
       },
       "bsm_934": {
@@ -9580,7 +9580,7 @@
         "next": "bsm_946",
         "overlayType": "lower_third",
         "subtext": "MOMENTS BEFORE",
-        "text": "THE PRINE HOUSE — DEACON’S ROOM",
+        "text": "THE PRINE HOUSE, DEACON’S ROOM",
         "type": "overlay"
       },
       "bsm_946": {
@@ -9640,7 +9640,7 @@
         },
         "next": "bsm_951",
         "style": "narration",
-        "text": "The film, which has spent two and a half hours pointing the camera at everybody else’s face — at Auggie in the lot, at the crew at the back of the room, at eleven people looking at the ceiling — finally, in its last thirty seconds, looks.",
+        "text": "The film, which has spent two and a half hours pointing the camera at everybody else’s face: at Auggie in the lot, at the crew at the back of the room, at eleven people looking at the ceiling, finally, in its last thirty seconds, looks.",
         "type": "say"
       },
       "bsm_951": {
@@ -9710,7 +9710,7 @@
         },
         "next": "bsm_958",
         "style": "narration",
-        "text": "And then he says the name — the one Kestrel gave him at a kitchen table when he was nineteen and everybody said it out loud until it stuck.",
+        "text": "And then he says the name, the one Kestrel gave him at a kitchen table when he was nineteen and everybody said it out loud until it stuck.",
         "type": "say"
       },
       "bsm_958": {
@@ -9834,7 +9834,7 @@
         "next": "bsm_pre_2",
         "overlayType": "act_card",
         "subtext": "BASIN BROADCAST STANDARDS BOARD",
-        "text": "ADULT — UNLICENSED — UNSUITABLE FOR CORPORATE VIEWING",
+        "text": "ADULT: UNLICENSED, UNSUITABLE FOR CORPORATE VIEWING",
         "type": "overlay"
       },
       "bsm_pre_2": {
@@ -9958,7 +9958,7 @@
     ],
     "director": "Auggie Prine",
     "presents": "Meridian Reclamation Pictures",
-    "rating": "ADULT — UNLICENSED — UNSUITABLE FOR CORPORATE VIEWING",
+    "rating": "ADULT: UNLICENSED, UNSUITABLE FOR CORPORATE VIEWING",
     "runtime": 10476,
     "theme": "",
     "title": "open_signal_logo"

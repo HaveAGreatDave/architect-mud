@@ -200,7 +200,7 @@
   "category": "advertisement",
   "channel_id": null,
   "created_by": "author",
-  "description": "Life-insurance parody: a resurrection assurance plan that guarantees a cheap reprint body and a lifetime — technically posthumous-lifetime — of continued premiums.",
+  "description": "Life-insurance parody: a resurrection assurance plan that guarantees a cheap reprint body and a lifetime, technically a posthumous lifetime, of continued premiums.",
   "enabled": 1,
   "fallback_messages": [],
   "film_meta": null,
@@ -238,7 +238,7 @@
     }
   ],
   "morning_pools": null,
-  "name": "NextLife™ — \"Because Dying Is Not An Excuse\"",
+  "name": "NextLife™: \"Because Dying Is Not An Excuse\"",
   "news_pools": null,
   "override_duration": 30,
   "playback_mode": "scripted",

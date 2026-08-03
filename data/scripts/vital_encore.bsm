@@ -44,7 +44,7 @@ EVENT FADE_IN
 
 TITLE vital_encore_logo
 
-♪ A warm, syrupy jingle swells — the kind that plays in waiting rooms where nobody leaves. ♪
+♪ A warm, syrupy jingle swells, the kind that plays in waiting rooms where nobody leaves. ♪
 
 CAM 1 WIDE showroom_floor
 
@@ -93,7 +93,7 @@ CAM 3 CLOSEUP testimonial_chair
 
 LOWER_THIRD
 DEB OKONKWO
-SATISFIED CUSTOMER — LIKENESS APPROXIMATE
+SATISFIED CUSTOMER · LIKENESS APPROXIMATE
 LOWER_THIRD_END
 
 ENTER npc_deb_okonkwo
@@ -127,7 +127,7 @@ NARRATOR:
 It's dying uninsured.
 
 OVERLAY
-CALL NOW — COLDWATER 7-7-ENCORE
+CALL NOW · COLDWATER 7-7-ENCORE
 
 FIRST BACKUP FREE WITH ANY CORPSE
 
@@ -153,7 +153,7 @@ Come back as YOU. Ish.
 ♪ The jingle returns, warmer and slower, resolving on a chord that doesn't quite land. ♪
 
 CREDITS 6
-VITAL ENCORE™ — A DIVISION OF ENCORE
+VITAL ENCORE™ · A DIVISION OF ENCORE
 Not available in the Wildlands, the Under, or to persons currently deceased.
 By viewing this advertisement you have consented to a preliminary scan.
 END_CREDITS

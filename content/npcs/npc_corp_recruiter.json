@@ -85,13 +85,13 @@
           "text": "\"I've heard enough.\""
         }
       ],
-      "text": "For just a beat the smile hangs on nothing, like a coat on a hook. \"Catch. Sure. Everybody wants the catch.\" He straightens a brochure that was already straight. \"There's no catch you can *see*, and that's the honest answer. The license is real. The city's really up for grabs. It's just...\" He glances up, briefly, at nothing — at everything. \"They only let the good ground go where the work gets *noticed*. Push hard enough, get big enough, and you'll feel something up north start paying attention. Most folks never get far enough to find out what.\" The switch flips back on. \"But you're not most folks, are you. So — where do we start?\""
+      "text": "For just a beat the smile hangs on nothing, like a coat on a hook. \"Catch. Sure. Everybody wants the catch.\" He straightens a brochure that was already straight. \"There's no catch you can *see*, and that's the honest answer. The license is real. The city's really up for grabs. It's just...\" He glances up, briefly, at nothing, at everything. \"They only let the good ground go where the work gets *noticed*. Push hard enough, get big enough, and you'll feel something up north start paying attention. Most folks never get far enough to find out what.\" The switch flips back on. \"But you're not most folks, are you. So. Where do we start?\""
     },
     "found": {
       "options": [
         {
           "next": "menu",
-          "text": "\"Alright — what else do I need to know?\""
+          "text": "\"Alright, what else do I need to know?\""
         },
         {
           "actions": [
@@ -102,13 +102,13 @@
           "text": "\"That's enough for now.\""
         }
       ],
-      "text": "He plants both palms on the table like he's been waiting all week. \"Simplest thing in the world, and the hardest — you just *decide*. Type <b>corp found &lt;name&gt;</b> and pick something they'll spray on a wall someday. It runs you 1000₵ — the license, the paperwork, the *realness* of it — and the second it clears, that's it: you're the Founder. Not a packet. Not a number. A name at the top of an org chart.\" He taps his own badge. \"First one's the whole battle, kid.\""
+      "text": "He plants both palms on the table like he's been waiting all week. \"Simplest thing in the world, and the hardest. You just *decide*. Type <b>corp found &lt;name&gt;</b> and pick something they'll spray on a wall someday. It runs you 1000₵ for the license, the paperwork, the *realness* of it, and the second it clears, that's it: you're the Founder. Not a packet. Not a number. A name at the top of an org chart.\" He taps his own badge. \"First one's the whole battle, kid.\""
     },
     "ground": {
       "options": [
         {
           "next": "menu",
-          "text": "\"Alright — what else?\""
+          "text": "\"Alright, what else?\""
         },
         {
           "actions": [
@@ -119,7 +119,7 @@
           "text": "\"That's enough for now.\""
         }
       ],
-      "text": "His voice drops, conspiratorial, delighted. \"*That's* the good part. A name's just a name until it's stamped on dirt. Stand in a district that matters and type <b>corp claim</b> — now it's tugging your way. Some rival's already sitting on the block you want? <b>corp contest</b> theirs and pull it loose, inch by inch. And when you want to see the whole board — who holds what, where the lines are moving — <b>corp map</b> lays the city out in your colours and everyone else's.\" He spreads his hands like he's showing you a kingdom."
+      "text": "His voice drops, conspiratorial, delighted. \"*That's* the good part. A name's just a name until it's stamped on dirt. Stand in a district that matters and type <b>corp claim</b>, and now it's tugging your way. Some rival's already sitting on the block you want? <b>corp contest</b> theirs and pull it loose, inch by inch. And when you want to see the whole board, who holds what, where the lines are moving, <b>corp map</b> lays the city out in your colours and everyone else's.\" He spreads his hands like he's showing you a kingdom."
     },
     "menu": {
       "options": [
@@ -158,7 +158,7 @@
       "options": [
         {
           "next": "menu",
-          "text": "\"Alright — what else?\""
+          "text": "\"Alright, what else?\""
         },
         {
           "actions": [
@@ -169,7 +169,7 @@
           "text": "\"That's enough for now.\""
         }
       ],
-      "text": "\"An outfit of one is a hobby,\" he says, like it's the saddest thing he's ever heard. \"You want bodies. <b>corp invite &lt;name&gt;</b> puts the word out to somebody standing near you — they say yes, they're yours. Want to see who's already flying your colours? <b>corp roster</b>, any time. Watch it grow. There's no feeling like it.\" He almost means it."
+      "text": "\"An outfit of one is a hobby,\" he says, like it's the saddest thing he's ever heard. \"You want bodies. <b>corp invite &lt;name&gt;</b> puts the word out to somebody standing near you. They say yes, they're yours. Want to see who's already flying your colours? <b>corp roster</b>, any time. Watch it grow. There's no feeling like it.\" He almost means it."
     },
     "root": {
       "options": [
@@ -202,13 +202,13 @@
           "text": "\"Not today.\""
         }
       ],
-      "text": "A folding card table, a stack of laminated brochures nobody's touched, and behind them a man who lights up like a switch the second you slow down. Franchise-green blazer a half-size too eager, a smile focus-grouped to within an inch of its life. \"There she is — fresh off the line, still got the shine on you! Don't walk past, don't walk past. Denny Corliss, Franchise onboarding, and I have got the only good news in this whole grey town.\" He fans a brochure he doesn't hand over. \"You woke up owning nothing. I'm here to fix step one of that. Ask me anything — no charge for talk.\""
+      "text": "A folding card table, a stack of laminated brochures nobody's touched, and behind them a man who lights up like a switch the second you slow down. Franchise-green blazer a half-size too eager, a smile focus-grouped to within an inch of its life. \"There she is, fresh off the line, still got the shine on you! Don't walk past, don't walk past. Denny Corliss, Franchise onboarding, and I have got the only good news in this whole grey town.\" He fans a brochure he doesn't hand over. \"You woke up owning nothing. I'm here to fix step one of that. Ask me anything. No charge for talk.\""
     },
     "treasury": {
       "options": [
         {
           "next": "menu",
-          "text": "\"Alright — what else?\""
+          "text": "\"Alright, what else?\""
         },
         {
           "actions": [
@@ -219,7 +219,7 @@
           "text": "\"That's enough for now.\""
         }
       ],
-      "text": "\"A shared pot — that's what makes it a *corp* and not just friends,\" he says. \"<b>corp contribute &lt;amount&gt;</b> feeds the treasury; <b>corp disburse</b> pays it back out when your people earn it. Territory pays rent into it, upkeep bleeds out of it, and the whole thing runs off a console.\" He jerks a thumb vaguely northward. \"Every headquarters gets its own ops terminal — <b>use</b> it when you've got one. Or, right now, anywhere: just type <b>corp</b> and it opens for you. Go on. Poke it. It won't bite till you've got something to lose.\""
+      "text": "\"A shared pot. That's what makes it a *corp* and not just friends,\" he says. \"<b>corp contribute &lt;amount&gt;</b> feeds the treasury; <b>corp disburse</b> pays it back out when your people earn it. Territory pays rent into it, upkeep bleeds out of it, and the whole thing runs off a console.\" He jerks a thumb vaguely northward. \"Every headquarters gets its own ops terminal, and <b>use</b> it when you've got one. Or, right now, anywhere: just type <b>corp</b> and it opens for you. Go on. Poke it. It won't bite till you've got something to lose.\""
     }
   },
   "faction": null,

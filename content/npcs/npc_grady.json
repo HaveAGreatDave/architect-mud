@@ -130,7 +130,7 @@
     "\"Big scores get you killed. A working flashlight gets you home.\"",
     "\"Prices are honest. Out here that counts as a miracle.\"",
     "\"Buy a bandage now or buy a coffin later. I don’t sell coffins.\"",
-    "\"Got rods in, and worms to go on ’em. Docks are lousy with fish — and fish don’t shoot back.\"",
+    "\"Got rods in, and worms to go on ’em. Docks are lousy with fish, and fish don’t shoot back.\"",
     "\"That rig on the wall's a dead lock and a dartboard scoreboard. Practise on it all you like. Costs you nothing but whatever your deck's got left in it.\"",
     "\"I stock the cheap decks, and I'll tell you straight: they're bad. Two, three bad nights and it's slag. That's the price of learning on something that isn't an ATM.\""
   ],
@@ -162,7 +162,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Good. There’s a green line on your map now — that’s the way. East, into the alley. Try not to die out there; the paperwork on a fresh clone is murder.\""
+      "text": "\"Good. There’s a green line on your map now. That’s the way. East, into the alley. Try not to die out there; the paperwork on a fresh clone is murder.\""
     },
     "aim_lesson": {
       "_vine": {
@@ -184,7 +184,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Where do you hit them.\" He says it flat, like it is not a question worth the breath. \"Same place everyone hits them, is where. The middle. It is the biggest part of a person and it is the part that is always facing you.\"\nHe sets down the crate he was holding.\n\"Now — you *can* pick a spot. Head, knee, the hand holding the thing you do not want held. It works. It works about as well as your hands do, which right now is not very. A man who calls a head shot he cannot make has not made a head shot, he has made a miss, and out here a miss is a whole second of your life you handed to somebody else.\""
+      "text": "\"Where do you hit them.\" He says it flat, like it is not a question worth the breath. \"Same place everyone hits them, is where. The middle. It is the biggest part of a person and it is the part that is always facing you.\"\nHe sets down the crate he was holding.\n\"Now. You *can* pick a spot. Head, knee, the hand holding the thing you do not want held. It works. It works about as well as your hands do, which right now is not very. A man who calls a head shot he cannot make has not made a head shot, he has made a miss, and out here a miss is a whole second of your life you handed to somebody else.\""
     },
     "aim_lesson_trained": {
       "_vine": {
@@ -207,7 +207,7 @@
       },
       "actions": [],
       "options": [],
-      "text": "\"Mind the alley. And the sky. And the water. Actually — mind everything.\" He goes back to watching the doors."
+      "text": "\"Mind the alley. And the sky. And the water. Actually, mind everything.\" He goes back to watching the doors."
     },
     "deep_tip": {
       "_vine": {
@@ -221,7 +221,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"More work? Down there, always.\" He doesn't look thrilled about it. \"You thinned the shallows. But the Under goes down a long way past where you were, and it gets meaner every level. Word is there's an old scavenger who's dug in about as deep as anyone can and lived — works a walled cistern off a crossroads they call the Throat, east and down. Dredge, they call her. She pays real credits for the ugly work she can't do herself anymore.\" He shrugs. \"Push past the pocket, keep that light charged, and go find her. Just don't go dark down there. You go dark, you stay.\""
+      "text": "\"More work? Down there, always.\" He doesn't look thrilled about it. \"You thinned the shallows. But the Under goes down a long way past where you were, and it gets meaner every level. Word is there's an old scavenger who's dug in about as deep as anyone can and lived. Works a walled cistern off a crossroads they call the Throat, east and down. Dredge, they call her. She pays real credits for the ugly work she can't do herself anymore.\" He shrugs. \"Push past the pocket, keep that light charged, and go find her. Just don't go dark down there. You go dark, you stay.\""
     },
     "hiring_tip": {
       "_vine": {
@@ -239,7 +239,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Hiring?\" He snorts. \"Everyone's hiring, nobody's advertising. That's the whole town.\" He leans on the crates. \"Look — Delia's board is fine for bus fare. But there's a class of people round here who've got a problem they can't be seen solving themselves, and a drawer they can pay you out of. Those are the ones worth walking to. They don't post. You knock.\""
+      "text": "\"Hiring?\" He snorts. \"Everyone's hiring, nobody's advertising. That's the whole town.\" He leans on the crates. \"Look. Delia's board is fine for bus fare. But there's a class of people round here who've got a problem they can't be seen solving themselves, and a drawer they can pay you out of. Those are the ones worth walking to. They don't post. You knock.\""
     },
     "hiring_tip_names": {
       "_vine": {
@@ -253,7 +253,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Two worth your time, and both of ’em keep office hours where you can actually reach them.\" He counts on thick fingers. \"Precinct Nine lobby, out east past the Lucky Bastard — there's a records clerk they call the Registrar, and an Assemblyman named Croll who’s usually in there leaning on somebody. Both have got wastes-work they’d rather not sign their name to. Registrar pays a hundred and change; Croll better than that.\" He shrugs. \"And if you get ambitious, Consul Alcaraz holds court in the Halcyon lobby. Pays double what I do and asks twice as much. Don’t go to any of them broke and unarmed — they can smell it, and the price of your help drops accordingly.\""
+      "text": "\"Two worth your time, and both of ’em keep office hours where you can actually reach them.\" He counts on thick fingers. \"Precinct Nine lobby, out east past the Lucky Bastard. There's a records clerk they call the Registrar, and an Assemblyman named Croll who’s usually in there leaning on somebody. Both have got wastes-work they’d rather not sign their name to. Registrar pays a hundred and change; Croll better than that.\" He shrugs. \"And if you get ambitious, Consul Alcaraz holds court in the Halcyon lobby. Pays double what I do and asks twice as much. Don’t go to any of them broke and unarmed; they can smell it, and the price of your help drops accordingly.\""
     },
     "lore": {
       "_vine": {
@@ -331,7 +331,7 @@
           "next": "bye"
         }
       ],
-      "text": "He weighs the recovered cells in one hand and, for the first time, actually smiles. \"Well. Look at you — upright AND useful. Rare combination round here.\" He unclips the scratched flashlight from his belt and folds your fingers around it. \"This one’s mine. Was. Never once left me in the dark. Graduation gift. Consider yourself a regular.\""
+      "text": "He weighs the recovered cells in one hand and, for the first time, actually smiles. \"Well. Look at you. Upright AND useful. Rare combination round here.\" He unclips the scratched flashlight from his belt and folds your fingers around it. \"This one’s mine. Was. Never once left me in the dark. Graduation gift. Consider yourself a regular.\""
     },
     "root": {
       "_vine": {
@@ -477,7 +477,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Good. Green line’s on your map — walks you right to the drain. Keep that light charged; I sell cells if you run dry, and don’t be too proud to buy them. Six of the buggers. Then home.\""
+      "text": "\"Good. Green line’s on your map. Walks you right to the drain. Keep that light charged; I sell cells if you run dry, and don’t be too proud to buy them. Six of the buggers. Then home.\""
     },
     "sewer_offer": {
       "_vine": {
@@ -495,7 +495,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Earn? Same way I do — off what nobody else’ll touch.\" He jerks a thumb at the floor. \"That storm drain out on Ironside, the one with the grate kicked off — it drops into the Under. Old sewers. Something’s breeding down there and it’s working its way up toward my vats. Rats. Roaches. Worse.\" He taps the flashlight he gave you. \"You’ve got the light now. Go down, thin ’em out — call it six of the things — and come tell me it’s done. The dark’s the only thing down there that’ll kill you, and you’re carrying the cure.\""
+      "text": "\"Earn? Same way I do, off what nobody else’ll touch.\" He jerks a thumb at the floor. \"That storm drain out on Ironside, the one with the grate kicked off, it drops into the Under. Old sewers. Something’s breeding down there and it’s working its way up toward my vats. Rats. Roaches. Worse.\" He taps the flashlight he gave you. \"You’ve got the light now. Go down, thin ’em out, call it six of the things, and come tell me it’s done. The dark’s the only thing down there that’ll kill you, and you’re carrying the cure.\""
     },
     "sewer_reported": {
       "_vine": {
@@ -514,7 +514,7 @@
           "next": "bye"
         }
       ],
-      "text": "He hears the count and nods, slow. \"Six. And you walked back up under your own power — that's the part most don't manage.\" He counts the pay out first, deliberately, so you see it land. Then a separate handful of cells goes on top. \"Pay's the pay. The cells are what you burned getting there — I'm not so crooked I'll charge a man for the light I sent him down with.\" He taps the flashlight in your hand. \"A dead one's just a club, and you're better than a club now. Barely. Keep it fed.\""
+      "text": "He hears the count and nods, slow. \"Six. And you walked back up under your own power. That's the part most don't manage.\" He counts the pay out first, deliberately, so you see it land. Then a separate handful of cells goes on top. \"Pay's the pay. The cells are what you burned getting there. I'm not so crooked I'll charge a man for the light I sent him down with.\" He taps the flashlight in your hand. \"A dead one's just a club, and you're better than a club now. Barely. Keep it fed.\""
     },
     "shop": {
       "_vine": {
@@ -533,7 +533,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Have a look. You break it, you bought it — but most of it’s pre-broken, so relax.\""
+      "text": "\"Have a look. You break it, you bought it, but most of it’s pre-broken, so relax.\""
     }
   },
   "faction": null,

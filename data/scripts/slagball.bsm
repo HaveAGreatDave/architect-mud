@@ -6,17 +6,17 @@
 @airtime 4
 @airday wednesday
 @presents "Sub-Channel 2½"
-@rating "ADULT — LANGUAGE, AND A GREAT DEAL OF IT"
+@rating "ADULT: LANGUAGE, AND A GREAT DEAL OF IT"
 @director "Rikki Doonan"
 @titlecard slagball_title
 
 # SLAGBALL — recovered script.
 #
-# SLAGBALL — a Sub-Channel 2½ Saturday comedy. The Sump, a beloved dive with a pit in
+# SLAGBALL, a Sub-Channel 2½ Saturday comedy. The Sump, a beloved dive with a pit in
 # the back and forty thousand credits of debt, enters the Coldwater Slagball Open
 # against MAXIM VIGO’s corporate juggernaut APEX PRIME. A washed-up coach, a pirate, a
 # fainting boy, a silent giant, a lethal waitress, a doomed romantic, and a lawyer who
-# forgot which side she was on — one bracket, one sudden-dark overtime, one clause
+# forgot which side she was on: one bracket, one sudden-dark overtime, one clause
 # nobody read. A true underdog story, thrown in the dark.
 #
 # This film predated the .bsm pipeline: it existed only as a compiled graph in
@@ -89,11 +89,11 @@ LOTTIE:
 We do now. He brought a clipboard. Nobody brings a clipboard to say something nice.
 
 SHOT
-In the pit stands VESS — sharp, pressed, holding a clipboard like a weapon she is licensed to carry.
+In the pit stands VESS: sharp, pressed, holding a clipboard like a weapon she is licensed to carry.
 SHOT_END
 
 VESS:
-Are you Dutch? The Dutch who owns this — establishment?
+Are you Dutch? The Dutch who owns this... establishment?
 
 DUTCH:
 Depends who’s asking and how much they’re asking for.
@@ -193,7 +193,7 @@ MAXIM VIGO:
 Do you know what people need, Vess? People need to be told they are almost good enough, forever, for a monthly fee.
 
 VESS:
-That’s — genuinely the darkest thing I’ve heard in a boardroom, and I do foreclosures.
+That’s... genuinely the darkest thing I’ve heard in a boardroom, and I do foreclosures.
 
 MAXIM VIGO:
 Thank you. Put it on a banner.
@@ -222,7 +222,7 @@ MAXIM VIGO:
 Worried? Vess, it’s the most efficient relationship I’ve ever had. He never asks for a raise and he agrees with me at the speed of light. Literally. He’s light.
 
 VESS:
-That’s — I’m going to write "concerning" in my notes and move on.
+That’s... I’m going to write "concerning" in my notes and move on.
 
 MAXIM VIGO:
 Write "visionary." Cross out "concerning." Actually, fire whoever taught you the word "concerning." It’s soft. It’s a soft word.
@@ -258,7 +258,7 @@ VESS:
 Then I’d stop at nine. Save yourself the everything.
 
 SHOT
-A regular — GILES — looks up from the bar, heartbroken already, which is his natural resting state.
+A regular, GILES, looks up from the bar, heartbroken already, which is his natural resting state.
 SHOT_END
 
 GILES:
@@ -275,7 +275,7 @@ It is, briefly, moving. Then a support beam groans, and everyone flinches on ins
 SHOT_END
 
 DUTCH:
-Vess. Off the record. Is there any way — any way at all — a place like this beats a thing like APEX?
+Vess. Off the record. Is there any way, any way at all, that a place like this beats a thing like APEX?
 
 VESS:
 Off the record? No. On the record, also no, but with a stamp.
@@ -336,7 +336,7 @@ MUSIC before_the_light
 MUSIC_END
 
 SHOT
-That night, PIP — the anxious kid who buses the tables — is watching a flyer flicker on the wall.
+That night, PIP, the anxious kid who buses the tables, is watching a flyer flicker on the wall.
 SHOT_END
 
 PIP:
@@ -346,7 +346,7 @@ DUTCH:
 Pip. Breathe. What is it.
 
 PIP:
-The Coldwater Slagball Open. Grand prize is — it’s forty thousand credits. It’s exactly forty thousand credits.
+The Coldwater Slagball Open. Grand prize is... it’s forty thousand credits. It’s exactly forty thousand credits.
 
 SHOT
 The whole bar turns and looks at the flyer as if it had personally arrived to save them, which, narratively, it has.
@@ -385,7 +385,7 @@ Hands go up. Slowly. Reluctantly. The way hands go up when they know the rest of
 SHOT_END
 
 PIP:
-I’ll — I’ll do the thing. The team thing. Please don’t make me talk to the crowd.
+I’ll... I’ll do the thing. The team thing. Please don’t make me talk to the crowd.
 
 DUTCH:
 Pip, you’re in. Merv?
@@ -425,7 +425,7 @@ DUTCH:
 At the Sump those are the same thing. You’ll get used to it. Or you’ll leave through the window, and we’ll name a stool after you.
 
 PIP:
-Do we — do we get uniforms? I don’t want a number that draws attention. Can I be a low number? A shy number?
+Do we... do we get uniforms? I don’t want a number that draws attention. Can I be a low number? A shy number?
 
 DUTCH:
 Pip, you can be whatever number won’t make you faint. We’ll workshop it.
@@ -439,7 +439,7 @@ A team needs six. The Sump has five and a half, if you count Giles as a whole pe
 SHOT_END
 
 SHOT
-The sixth arrives on his own. He always does. His name — he insists — is BARNACLE BASH.
+The sixth arrives on his own. He always does. His name, he insists, is BARNACLE BASH.
 SHOT_END
 
 BARNACLE BASH:
@@ -461,16 +461,16 @@ PIP:
 I think he’s the most confident person I’ve ever met and I find it deeply calming.
 
 BARNACLE BASH:
-The boy has SEA SENSE! Ye there, cabin boy — stick by ol’ Bash and ye’ll never drown on dry land, which be the most common way to drown in this city!
+The boy has SEA SENSE! Ye there, cabin boy, stick by ol’ Bash and ye’ll never drown on dry land, which be the most common way to drown in this city!
 
 PIP:
-That’s — genuinely reassuring? I don’t know why. I feel safer. Is that wrong?
+That’s... genuinely reassuring? I don’t know why. I feel safer. Is that wrong?
 
 LOTTIE:
 It’s wrong, but it’s the good kind of wrong. Bash has never once been right and never once been scared. There’s a lesson in there if you don’t look at it directly.
 
 BARNACLE BASH:
-Aye! Fear be a fog, and a good captain simply declines to sail through it! I declined years ago! Look at me now — landlocked, beloved, and TERRIFYING at slagball!
+Aye! Fear be a fog, and a good captain simply declines to sail through it! I declined years ago! Look at me now: landlocked, beloved, and TERRIFYING at slagball!
 
 DUTCH:
 He’s not wrong about the terrifying part. I’ve seen him throw. Grown collectors have crossed the street.
@@ -520,7 +520,7 @@ LOTTIE:
 The Kraken’s Regret is what I call the men’s room after darts night.
 
 PIP:
-What about — and this is dumb — what about "The Sump"? Because that’s what we are and nobody expects the thing that’s just true.
+What about, and this is dumb, what about "The Sump"? Because that’s what we are and nobody expects the thing that’s just true.
 
 SHOT
 A silence. It is, everyone realizes, perfect. The most dangerous thing a Coldwater team can be is exactly what it says on the door.
@@ -641,7 +641,7 @@ COACH RUSK:
 So you learn to not be where the throw is going. That’s the whole game. Not being there. I built a career on not being there. Ask my kids.
 
 SHOT
-He gestures. A battered repossession drone — UNIT 7, the one that took the stool — hovers in, reprogrammed and furious.
+He gestures. A battered repossession drone, UNIT 7, the one that took the stool, hovers in, reprogrammed and furious.
 SHOT_END
 
 COACH RUSK:
@@ -651,7 +651,7 @@ PIP:
 That’s a repossession drone. That is a WEAPON.
 
 COACH RUSK:
-If you can dodge a repo-drone, boy, you can dodge a slag. And if you can’t dodge a repo-drone — you were going to lose your couch anyway.
+If you can dodge a repo-drone, boy, you can dodge a slag. And if you can’t dodge a repo-drone, you were going to lose your couch anyway.
 
 SHOT
 Unit 7 opens fire. Pip is struck immediately, in the face, with great enthusiasm.
@@ -751,7 +751,7 @@ One last drill, the night before the Open. Rusk lines all six of them along the 
 SHOT_END
 
 COACH RUSK:
-The eyes lie. In a real match the crowd, the lights, the money on the board — all of it’s screaming at your eyes. So we learn to play without them tonight.
+The eyes lie. In a real match the crowd, the lights, the money on the board, all of it’s screaming at your eyes. So we learn to play without them tonight.
 
 PIP:
 How do we throw at something we can’t see?
@@ -813,14 +813,14 @@ CASS:
 Blurt, I want to say, before the violence starts, that my contract is up for renewal and I have made peace with dying in this booth.
 
 BLURT:
-That’s the spirit, Cass! First up — the plucky no-names from the Sump versus a team of sentient gym equipment!
+That’s the spirit, Cass! First up: the plucky no-names from the Sump versus a team of sentient gym equipment!
 
 SHOT
 Round one. The Sump versus APEX’s warm-up squad: six identical men who have never once been told no.
 SHOT_END
 
 THE REF:
-Both teams to the line. Slags in the middle. On my whistle. And please — please — nobody dies. I have to write the report.
+Both teams to the line. Slags in the middle. On my whistle. And please, please, nobody dies. I have to write the report.
 
 SHOT
 The whistle. Chaos. Bash bellows a sea-shanty and hurls a slag hard enough to change a man’s religion.
@@ -837,7 +837,7 @@ Pip, terrified, closes his eyes and throws blind. It hits the last APEX clone sq
 SHOT_END
 
 PIP:
-Did I — did I do it? I can’t look. Is it good or is it the worst thing I’ve ever done?
+Did I... did I do it? I can’t look. Is it good or is it the worst thing I’ve ever done?
 
 COACH RUSK:
 It’s good, kid. For once the two are the same thing. Open your eyes. We won a round.
@@ -852,7 +852,7 @@ BLURT:
 It’s the Coldwater way, Cass! You don’t beat the odds, you just annoy them until they leave!
 
 SHOT
-Round two. The Sump draws a team of retired debt collectors — men who throw for a living and enjoy it too much.
+Round two. The Sump draws a team of retired debt collectors, men who throw for a living and enjoy it too much.
 SHOT_END
 
 LOTTIE:
@@ -883,7 +883,7 @@ The semifinal. The Sump versus a corporate development squad in matching APEX wa
 SHOT_END
 
 BLURT:
-And here come the APEX juniors, Cass — six young men bred in a lab to have excellent cores and no interior lives whatsoever!
+And here come the APEX juniors, Cass: six young men bred in a lab to have excellent cores and no interior lives whatsoever!
 
 CASS:
 They move as one, Blurt. It’s beautiful and it’s deeply upsetting, like a school of fish that files taxes.
@@ -902,7 +902,7 @@ CASS:
 He said "sit" and they SAT. That’s not a throw, that’s a command. I’ve never respected anyone more and I’ve interviewed a warlord.
 
 COACH RUSK:
-THAT’S my mountain! Aim him at the final, Dutch, that’s all I ever have to do — point Merv at the problem and get out of the splash zone!
+THAT’S my mountain! Aim him at the final, Dutch, that’s all I ever have to do. Point Merv at the problem and get out of the splash zone!
 
 SHOT
 The Sump takes the semifinal. In the tunnel, the six of them stand together, filthy and bruised and one win from the impossible, and none of them say anything for a long moment.
@@ -944,7 +944,7 @@ VESS:
 They’re winning, sir. It happens. Occasionally. To people who aren’t you.
 
 MAXIM VIGO:
-Then buy their coach. Buy their bar. Buy their WATER — the pirate seems to need it.
+Then buy their coach. Buy their bar. Buy their WATER; the pirate seems to need it.
 
 VESS:
 There is no water, sir.
@@ -992,7 +992,7 @@ MUSIC before_the_light
 MUSIC_END
 
 SHOT
-The night before the final, Unit 7 malfunctions in the pit during practice — reprogrammed AGAIN, this time by a very expensive hand.
+The night before the final, Unit 7 malfunctions in the pit during practice, reprogrammed AGAIN, this time by a very expensive hand.
 SHOT_END
 
 SHOT
@@ -1000,7 +1000,7 @@ It fires a live rivet instead of a slag. Rusk shoves Dutch clear, takes the hit 
 SHOT_END
 
 DUTCH:
-Coach! Coach — somebody get a medic — Rusk, stay with me —
+Coach! Coach, somebody get a medic. Rusk, stay with me...
 
 COACH RUSK:
 Relax. I’ve been hit by worse. I once got benched by a slag to the throat in the ’61 final and married the medic. Bad news is I can’t coach you tomorrow.
@@ -1016,7 +1016,7 @@ Vess storms in, clipboard shaking, holding a maintenance log with one very expen
 SHOT_END
 
 VESS:
-It was APEX. Vigo reprogrammed the drone. I have the log. I have the fingerprint. I have — I have a CONSCIENCE now, apparently, which was not in my contract.
+It was APEX. Vigo reprogrammed the drone. I have the log. I have the fingerprint. I have... I have a CONSCIENCE now, apparently, which was not in my contract.
 
 DUTCH:
 You could lose your job for bringing me this.
@@ -1038,7 +1038,7 @@ COACH RUSK:
 Now the Sump plays tomorrow. With or without me, with or without the beam, with or without a single reason to believe it. Especially without the reason. That’s the good kind of winning.
 
 DUTCH:
-Okay. Okay. We play. Vess — you’re on the roster now. We just lost our sneeze insurance.
+Okay. Okay. We play. Vess, you’re on the roster now. We just lost our sneeze insurance.
 
 VESS:
 I don’t play Slagball.
@@ -1132,7 +1132,7 @@ It is a good line. Even Vess writes it down. Even Vigo, for one flickering secon
 SHOT_END
 
 MAXIM VIGO:
-That’s — very moving. Truly. I felt a thing. I’ll have it removed later. But I felt it.
+That’s... very moving. Truly. I felt a thing. I’ll have it removed later. But I felt it.
 
 DUTCH:
 That’s all I wanted, Vigo. One real thing before we beat you.
@@ -1167,7 +1167,7 @@ Pip faints from nerves. Merv is triple-teamed and buried under slags, going down
 SHOT_END
 
 BLURT:
-It’s falling apart, Cass! It’s five to two! Then five to — oh no — it’s APEX PRIME, all six, versus the Sump’s last two!
+It’s falling apart, Cass! It’s five to two! Then five to... oh no, it’s APEX PRIME, all six, versus the Sump’s last two!
 
 SHOT
 Two left for the Sump: DUTCH, who has never won anything, and VESS, who has never played anything, standing back to back in a pit at the end of the world.
@@ -1180,7 +1180,7 @@ DUTCH:
 I know.
 
 VESS:
-And as your — as whatever the other thing is — I’ve never been happier to be in a catastrophically bad position with anyone.
+And as your... as whatever the other thing is, I’ve never been happier to be in a catastrophically bad position with anyone.
 
 DUTCH:
 Vess. Was that a feeling?
@@ -1209,11 +1209,11 @@ COACH RUSK:
 Then the math is finally simple enough for you to understand! Every throw you make has to count and every throw they make they’ll take for granted! Make them spend! Make them SPEND, Dutch!
 
 SHOT
-Dutch catches a lazy, arrogant throw one-handed — a throw APEX PRIME made because they assumed the round was over — and the thrower sits down, stunned, optimized right out of the game.
+Dutch catches a lazy, arrogant throw one-handed, a throw APEX PRIME made because they assumed the round was over, and the thrower sits down, stunned, optimized right out of the game.
 SHOT_END
 
 BLURT:
-CAUGHT! Dutch catches one and it’s five on two — no — it’s FIVE ON TWO but the Sump has the momentum and the crowd and possibly a god!
+CAUGHT! Dutch catches one and it’s five on two... no, it’s FIVE ON TWO but the Sump has the momentum and the crowd and possibly a god!
 
 CASS:
 The rich team just learned that "taking it for granted" is a move you can lose to. I’m going to cry again. Renew my contract.
@@ -1230,13 +1230,13 @@ BARNACLE BASH:
 STEADY, CAPTAIN! The bigger the ship, the slower she turns! Make ‘em turn! Make the whole fat galleon come about!
 
 DUTCH:
-That’s — actually good advice, Bash?
+That’s... actually good advice, Bash?
 
 BARNACLE BASH:
 I have been giving good advice for YEARS, captain, ye simply keep bein’ on land when I say it!
 
 SHOT
-Vess, who has never thrown a slag in her life, catches one purely by refusing to move — an accident of stubbornness that eliminates an APEX Prime striker.
+Vess, who has never thrown a slag in her life, catches one purely by refusing to move, an accident of stubbornness that eliminates an APEX Prime striker.
 SHOT_END
 
 VESS:
@@ -1268,10 +1268,10 @@ Blackout. The arena is a held breath. Somewhere in the dark, six optimized profe
 SHOT_END
 
 COACH RUSK:
-Dutch! DUTCH! Don’t aim with your eyes, you never had the eyes! Aim with the part of you that’s been ducking this city your whole life! LISTEN for the ones who think they can’t lose — they breathe loud!
+Dutch! DUTCH! Don’t aim with your eyes, you never had the eyes! Aim with the part of you that’s been ducking this city your whole life! LISTEN for the ones who think they can’t lose. They breathe loud!
 
 SHOT
-And in the dark, Dutch — who has lost at everything, who has ducked every collector, every landlord, every disappointment — closes his eyes he doesn’t need anyway, and listens.
+And in the dark, Dutch, who has lost at everything, who has ducked every collector, every landlord, every disappointment, closes his eyes he doesn’t need anyway, and listens.
 SHOT_END
 
 SHOT
@@ -1303,7 +1303,7 @@ It sounds like a filing cabinet falling down a stairwell forever, Blurt, and it 
 WAIT 2
 
 SHOT
-A sound. Contact. A body sitting down hard in the dark. Then another. Then — impossibly — a chain of them, as APEX PRIME, unable to see, panics and catches its own friendly fire.
+A sound. Contact. A body sitting down hard in the dark. Then another. Then, impossibly, a chain of them, as APEX PRIME, unable to see, panics and catches its own friendly fire.
 SHOT_END
 
 BLURT:
@@ -1321,14 +1321,14 @@ APEX PRIME: all six, seated, blinking, betrayed by their own certainty. The Sump
 SHOT_END
 
 THE REF:
-The Sump — the SUMP — wins the Coldwater Open!
+The Sump, the SUMP, wins the Coldwater Open!
 
 SHOT
 The arena detonates. Pip wakes up from his faint directly into a championship and screams for joy and a little from confusion.
 SHOT_END
 
 PIP:
-Did we — WE WON? I was ASLEEP. I won a tournament ASLEEP. This is the best and least earned day of my life!
+Did we... WE WON? I was ASLEEP. I won a tournament ASLEEP. This is the best and least earned day of my life!
 
 BARNACLE BASH:
 THE SEA PROVIDES! I KNEW THERE WAS WATER SOMEWHERE, AND IT WAS INSIDE US ALL ALONG!
@@ -1385,13 +1385,13 @@ MAXIM VIGO:
 Enjoy your little trophy. You won the prize, but I still hold the paper on this whole district. I’ll flatten the Sump next quarter and call it synergy.
 
 VESS:
-About that. As Dutch’s lawyer — a title I gave myself this morning and am prepared to defend — I’d point you to clause nine of the Open’s charter.
+About that. As Dutch’s lawyer, a title I gave myself this morning and am prepared to defend, I’d point you to clause nine of the Open’s charter.
 
 VESS:
 The tournament’s title sponsor forfeits all district claims within the arena’s ward if they lose the final. You sponsored the Open, Vigo. Your name’s on the banner. You made me put it there.
 
 MAXIM VIGO:
-I — that’s — nobody reads clause nine.
+I... that’s... nobody reads clause nine.
 
 VESS:
 I read clause nine. I read all the clauses. It’s the one thing I was ever good at, and tonight it’s the one thing that mattered.
@@ -1415,14 +1415,14 @@ VESS:
 You already do, Coach. I’m billing the Sump for the semifinal fingerprint analysis. Family rate. But I’m billing it.
 
 SHOT
-Vigo looks at his own name on the banner above the pit — the banner he demanded — and understands, for the first time in his optimized life, that he pre-lost.
+Vigo looks at his own name on the banner above the pit, the banner he demanded, and understands, for the first time in his optimized life, that he pre-lost.
 SHOT_END
 
 DUTCH:
 Here’s the thing about the Sump, Vigo. You can’t flatten a place people keep coming back to. You can only join it. First round’s on the house. You look like you need to sit down somewhere that isn’t optimized.
 
 MAXIM VIGO:
-I don’t — I have never once had a beer in a building I didn’t own.
+I don’t... I have never once had a beer in a building I didn’t own.
 
 LOTTIE:
 Then you’re overdue, sweetheart. Sit. Mind the beam. She’s earned her rest and so, God help us, have we.
@@ -1435,16 +1435,16 @@ DUTCH:
 I bet on us, Vess. Everything I had left. Forty credits, at forty to one.
 
 VESS:
-Dutch. Forty at forty to one is — that’s sixteen hundred credits, not forty thousand. That doesn’t save the bar.
+Dutch. Forty at forty to one is... that’s sixteen hundred credits, not forty thousand. That doesn’t save the bar.
 
 DUTCH:
-No. But it buys a round for everyone in this pit tonight, and it means the one person in Coldwater who believed we’d win — was me. First time in my life I put money on myself. Felt terrible. Felt incredible. Felt like the Sump.
+No. But it buys a round for everyone in this pit tonight, and it means the one person in Coldwater who believed we’d win, was me. First time in my life I put money on myself. Felt terrible. Felt incredible. Felt like the Sump.
 
 VESS:
 You reckless, sentimental, structurally-optimistic man. Give me the betting slip. I’m going to frame it next to clause nine.
 
 MAXIM VIGO:
-You people bet on YOURSELVES? At forty to one? That’s — that’s financially insane. That’s not a strategy, that’s a feeling with a receipt.
+You people bet on YOURSELVES? At forty to one? That’s... that’s financially insane. That’s not a strategy, that’s a feeling with a receipt.
 
 DUTCH:
 Yeah, Vigo. That’s the Sump. A feeling with a receipt. Sit down. Lottie’s bringing you a beer you didn’t optimize and can’t return.
@@ -1452,7 +1452,7 @@ Yeah, Vigo. That’s the Sump. A feeling with a receipt. Sit down. Lottie’s br
 WAIT 2
 
 SHOT
-And so the Sump kept its pit, its beam, its waitress, its pirate, its silent giant, its fainting champion, its heartbroken romantic — and gained a lawyer, a coach, and one deeply confused CEO.
+And so the Sump kept its pit, its beam, its waitress, its pirate, its silent giant, its fainting champion, its heartbroken romantic, and gained a lawyer, a coach, and one deeply confused CEO.
 SHOT_END
 
 COACH RUSK:
@@ -1462,7 +1462,7 @@ DUTCH:
 Coach. Admit it. You believed in us.
 
 COACH RUSK:
-I believed in the fern more than I believed in you, and the fern never won an Open. So maybe. Wheel me to the bar. And Dutch — good game. Don’t tell anyone I said it. I have a reputation for being in a fern.
+I believed in the fern more than I believed in you, and the fern never won an Open. So maybe. Wheel me to the bar. And Dutch. Good game. Don’t tell anyone I said it. I have a reputation for being in a fern.
 
 DUTCH:
 Vess. That feeling from the pit. Did we ever file it?
@@ -1475,13 +1475,13 @@ Over at the bar, Vigo nurses his first-ever unowned beer with the wary suspicion
 SHOT_END
 
 MAXIM VIGO:
-This is — the beer is warm. The stool wobbles. The beam is making a sound I would have condemned this building for.
+This is... the beer is warm. The stool wobbles. The beam is making a sound I would have condemned this building for.
 
 LOTTIE:
 That’s the Sump, sweetheart. Nothing works and nobody leaves.
 
 MAXIM VIGO:
-It’s horrible. I — I don’t hate it. That’s the horrible part. Why don’t I hate it?
+It’s horrible. I... I don’t hate it. That’s the horrible part. Why don’t I hate it?
 
 COACH RUSK:
 Because for the first time in your life nobody in this room wants anything from you, Vigo. No tier. No fee. Turns out that’s the one thing you couldn’t optimize: being left alone with a warm beer and no leverage. Enjoy it. It’s free. It’s the only thing here that is.
@@ -1500,10 +1500,10 @@ GILES:
 THIS is why you come back to the Sump. You come back for the day the pit finally throws something good at somebody.
 
 NARRATOR:
-The Sump never became famous. It never got optimized. The beam never got fixed — they named it, instead, and bought it a drink on anniversaries.
+The Sump never became famous. It never got optimized. The beam never got fixed. They named it, instead, and bought it a drink on anniversaries.
 
 NARRATOR:
-But every year, on the night of the Open, a wrecked old coach and a bar full of terrible, stubborn people crowd around a neon pit — and remember the year the last ones standing were the ones the whole city told to sit down.
+But every year, on the night of the Open, a wrecked old coach and a bar full of terrible, stubborn people crowd around a neon pit, and remember the year the last ones standing were the ones the whole city told to sit down.
 
 NARRATOR:
 That’s Slagball. You throw. You get hit. You catch what you can. And if you’re very lucky, and very stubborn, you get to come back.
@@ -1543,7 +1543,7 @@ SLAGBALL
 A Coldwater Underdog Story
 A Sub-Channel 2½ Presentation
 
-— CAST —
+· CAST ·
 DUTCH ................ never won a thing until it counted
 VESS ................. read clause nine
 COACH RUSK ........... got out of the fern
@@ -1561,7 +1561,7 @@ Several were thrown. That part is real.
 Filmed in a pit that is technically a fire hazard with a liquor license.
 Any resemblance to a gym you were pressured to join is entirely deserved.
 
-Sub-Channel 2½ — the only channel that could afford us.
+Sub-Channel 2½, the only channel that could afford us.
 END_CREDITS
 
 END

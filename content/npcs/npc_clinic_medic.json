@@ -125,7 +125,7 @@
   },
   "chitchat": [
     "Sister Adler snaps off a glove, snaps on another, and doesn't break eye contact.",
-    "\"Sit. Bleed on the vinyl, not the floor — the floor I just did.\""
+    "\"Sit. Bleed on the vinyl, not the floor. The floor I just did.\""
   ],
   "description": "A brisk, unshockable medic in a plastic apron, hands scrubbed pink and eyes that triage you before you've finished the doorway. She patches what walks in, sells what she can't fix in one visit, and asks exactly none of the questions the wounds are begging for. Kind, in the efficient way of someone who's run out of the other kind.",
   "dialogue_tree": {
@@ -158,7 +158,7 @@
           "next": "root"
         }
       ],
-      "text": "\"I ask where it hurts. I don't ask how.\" She meets your eye, level. \"A knife, a fall, a disagreement that went to the body — it all bleeds the same and it all sits on my table the same. The questions cost me patients and cost them their nerve. So no. Sit down, and let's see it.\""
+      "text": "\"I ask where it hurts. I don't ask how.\" She meets your eye, level. \"A knife, a fall, a disagreement that went to the body. It all bleeds the same and it all sits on my table the same. The questions cost me patients and cost them their nerve. So no. Sit down, and let's see it.\""
     },
     "root": {
       "options": [
@@ -187,7 +187,7 @@
           "next": "gossip"
         }
       ],
-      "text": "Sister Adler looks up, already assessing. \"Walk-in. Good — the ones who get carried in are a worse day for everyone.\" She wipes her hands. \"We patch, we don't ask. You want supplies to take with you, or are you bleeding on my vinyl right now?\"",
+      "text": "Sister Adler looks up, already assessing. \"Walk-in. Good; the ones who get carried in are a worse day for everyone.\" She wipes her hands. \"We patch, we don't ask. You want supplies to take with you, or are you bleeding on my vinyl right now?\"",
       "text_by_relation": {
         "close": [
           "\"There you are.\" She sounds, for half a second, relieved — then it is gone and she is all business. \"Sit down. Let me look at you.\"",

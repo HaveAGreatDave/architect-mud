@@ -53,7 +53,7 @@
           "next": "root"
         }
       ],
-      "text": "\"The Reach? Last honest place left, depending how you mean it.\" A dry almost-smile. \"Nobody here asks where you came from, or what you're running. That's the whole appeal — and the whole business.\""
+      "text": "\"The Reach? Last honest place left, depending how you mean it.\" A dry almost-smile. \"Nobody here asks where you came from, or what you're running. That's the whole appeal, and the whole business.\""
     },
     "bye": {
       "_vine": {
@@ -131,7 +131,7 @@
           "next": "root"
         }
       ],
-      "text": "Amos studies you a long moment. \"The hardpan out past the fence grows a crop the city pays stupid money for. Raw, uncut — no good to anyone till it's cooked down proper. We can't move it through a checkpoint, and we won't.\" He shrugs. \"So it doesn't go through one. It sits out in the waste where it was cut, under a tarp, and it waits for a flyer with a hold and no manifest to come and sit down in the dirt beside it.\""
+      "text": "Amos studies you a long moment. \"The hardpan out past the fence grows a crop the city pays stupid money for. Raw, uncut, no good to anyone till it's cooked down proper. We can't move it through a checkpoint, and we won't.\" He shrugs. \"So it doesn't go through one. It sits out in the waste where it was cut, under a tarp, and it waits for a flyer with a hold and no manifest to come and sit down in the dirt beside it.\""
     },
     "raws_done": {
       "_vine": {
@@ -152,7 +152,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Then I'll say it once and you'll remember it.\" Amos turns the ledger around. Three lines of shorthand, no map. \"<b>The Bonepile</b>, northwest, where the hauler died. <b>The Sump</b>, southeast on the flats, under the slab. <b>The Sisters</b>, southwest, the two rocks leaning together — you'll hear them before you see them.\" <span class=\"text-dim\">He turns it back.</span> \"Nothing sits out there on spec. You tell me what you want, I have it run out to one of the three, and I tell you which. Set down <i>on</i> the drop — a pallet that size doesn't walk to you, so bring something that can put down rough and has the hold for it. Then <b>loadcargo</b>, and fly it home.\""
+      "text": "\"Then I'll say it once and you'll remember it.\" Amos turns the ledger around. Three lines of shorthand, no map. \"<b>The Bonepile</b>, northwest, where the hauler died. <b>The Sump</b>, southeast on the flats, under the slab. <b>The Sisters</b>, southwest, the two rocks leaning together. You'll hear them before you see them.\" <span class=\"text-dim\">He turns it back.</span> \"Nothing sits out there on spec. You tell me what you want, I have it run out to one of the three, and I tell you which. Set down <i>on</i> the drop. A pallet that size doesn't walk to you, so bring something that can put down rough and has the hold for it. Then <b>loadcargo</b>, and fly it home.\""
     },
     "raws_ladder": {
       "_vine": {
@@ -169,7 +169,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Start with what won't get you shot.\" Amos counts it off on the ledger cover. \"Tobacco leaf. Cannabis flower. Baled, legal, dull as ditchwater — a scanner looks straight through it and the money is thin but it is money, and every bale you move is a bale I know you moved.\" <span class=\"text-dim\">He turns his hand over.</span> \"Above that it stops being farming. Precursor. The good stuff is a felony in your hold and the customs man is specifically looking for it, and I don't write that down for a man who's only ever hauled leaf. You'll see the ledger open up as it opens up.\""
+      "text": "\"Start with what won't get you shot.\" Amos counts it off on the ledger cover. \"Tobacco leaf. Cannabis flower. Baled, legal, dull as ditchwater. A scanner looks straight through it and the money is thin but it is money, and every bale you move is a bale I know you moved.\" <span class=\"text-dim\">He turns his hand over.</span> \"Above that it stops being farming. Precursor. The good stuff is a felony in your hold and the customs man is specifically looking for it, and I don't write that down for a man who's only ever hauled leaf. You'll see the ledger open up as it opens up.\""
     },
     "raws_list": {
       "_vine": {
@@ -195,7 +195,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Then I'd turn this ledger around and show you.\" <span class=\"text-dim\">He taps the closed cover once.</span> \"Three places out there hold a load. Never all three at once, and never the same two twice — that's the whole trick of it. Which is why you'd be asking me every single time you came through that door, and why I'd still be here when you did.\""
+      "text": "\"Then I'd turn this ledger around and show you.\" <span class=\"text-dim\">He taps the closed cover once.</span> \"Three places out there hold a load. Never all three at once, and never the same two twice, and that's the whole trick of it. Which is why you'd be asking me every single time you came through that door, and why I'd still be here when you did.\""
     },
     "raws_unvouched": {
       "_vine": {
@@ -311,7 +311,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Getting it off the Reach is the easy half.\" Amos closes the ledger with one finger in it. \"Every field that flies a flag runs a scan on what comes out of your hold. Here we don't — that's what here is for. Anywhere else, you're talking your way past a man with a reader.\" <span class=\"text-dim\">He looks at you levelly.</span> \"If he doesn't like your answer you get one choice and about a minute to make it: pay him, or firewall it and go. Paying costs money. Running costs you the load and puts your name on a manufacturing charge.\""
+      "text": "\"Getting it off the Reach is the easy half.\" Amos closes the ledger with one finger in it. \"Every field that flies a flag runs a scan on what comes out of your hold. Here we don't. That's what here is for. Anywhere else, you're talking your way past a man with a reader.\" <span class=\"text-dim\">He looks at you levelly.</span> \"If he doesn't like your answer you get one choice and about a minute to make it: pay him, or firewall it and go. Paying costs money. Running costs you the load and puts your name on a manufacturing charge.\""
     },
     "scans_hold": {
       "_vine": {
@@ -324,11 +324,11 @@
           "next": "root"
         },
         {
-          "label": "Back up — tell me about the scans again.",
+          "label": "Back up. Tell me about the scans again.",
           "next": "scans"
         }
       ],
-      "text": "\"Two ways. Carry less and cook it lighter — a small clean load talks its way through fine. Or you stop relying on your mouth.\" <span class=\"text-dim\">He taps the desk twice.</span> \"There's a false floor a decent shop can put in a hold. Smuggler's hold. Costs you cargo room and it costs you money, and about half the time the reader just doesn't find anything to ask about. Any hangar that fits kits will fit one — <b>installkit</b>, and don't come crying when it eats your payload.\""
+      "text": "\"Two ways. Carry less and cook it lighter; a small clean load talks its way through fine. Or you stop relying on your mouth.\" <span class=\"text-dim\">He taps the desk twice.</span> \"There's a false floor a decent shop can put in a hold. Smuggler's hold. Costs you cargo room and it costs you money, and about half the time the reader just doesn't find anything to ask about. Any hangar that fits kits will fit one. <b>installkit</b>, and don't come crying when it eats your payload.\""
     }
   },
   "faction": null,

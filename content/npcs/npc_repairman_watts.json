@@ -156,7 +156,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Best trade left in this city, and nobody wants it — everyone'd sooner shoot a thing than mend it.\" He taps the dead panel. \"But the lights, the lifts, the water pumps, the junction boxes that feed a whole block — all of it's held together with wire and prayer, and all of it dies eventually. Learn to bring it back and you'll never go hungry. Get yourself a torch and some heavy tools, find something wrecked — a busted generator, a smashed junction box — and REPAIR it. Do enough of that and folk start knowing your name. That's the whole career, right there: be the one who shows up when it's broken.\""
+      "text": "\"Best trade left in this city, and nobody wants it. Everyone'd sooner shoot a thing than mend it.\" He taps the dead panel. \"But the lights, the lifts, the water pumps, the junction boxes that feed a whole block, all of it's held together with wire and prayer, and all of it dies eventually. Learn to bring it back and you'll never go hungry. Get yourself a torch and some heavy tools, find something wrecked, a busted generator or a smashed junction box, and REPAIR it. Do enough of that and folk start knowing your name. That's the whole career, right there: be the one who shows up when it's broken.\""
     },
     "emp": {
       "options": [
@@ -173,7 +173,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Ha. That's when they finally remember I exist.\" His grin is all pride. \"An EMP storm rolls through and every clever gadget in the city lies down and dies — but a wire's still a wire, and a breaker still throws by hand. When it goes black and stays black, it's men like me they come looking for. Trusted with the keys to the whole grid, because we're the only ones left who can keep it running. Whole districts breathing because one grease-handed nobody knew which junction box to weld.\" He looks you over, nods slow. \"You've got the hands for it. I can tell. Most people flinch from a dead machine. You didn't.\""
+      "text": "\"Ha. That's when they finally remember I exist.\" His grin is all pride. \"An EMP storm rolls through and every clever gadget in the city lies down and dies, but a wire's still a wire, and a breaker still throws by hand. When it goes black and stays black, it's men like me they come looking for. Trusted with the keys to the whole grid, because we're the only ones left who can keep it running. Whole districts breathing because one grease-handed nobody knew which junction box to weld.\" He looks you over, nods slow. \"You've got the hands for it. I can tell. Most people flinch from a dead machine. You didn't.\""
     },
     "gossip": {
       "actions": [
@@ -227,7 +227,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Every tradesman starts with somebody handing him his first kit. Mine was a dead man's. This one's on me.\" He digs through a crate and presses the gear into your hands — a field welding torch, a tin of oil and a rag gone black, a fat roll of duct tape, a snarl of copper wire to practise your splices on. \"Torch REPAIRs the wrecked machinery. Oil and rag REPAIRs what you carry — your coat, your piece, whatever you've been wearing out. Anything you can't bring back yourself, bring to me and I'll do it properly.\" He holds your eye a beat. \"Don't make me regret it. Go keep something running.\""
+      "text": "\"Every tradesman starts with somebody handing him his first kit. Mine was a dead man's. This one's on me.\" He digs through a crate and presses the gear into your hands: a field welding torch, a tin of oil and a rag gone black, a fat roll of duct tape, a snarl of copper wire to practise your splices on. \"Torch REPAIRs the wrecked machinery. Oil and rag REPAIRs what you carry: your coat, your piece, whatever you've been wearing out. Anything you can't bring back yourself, bring to me and I'll do it properly.\" He holds your eye a beat. \"Don't make me regret it. Go keep something running.\""
     },
     "root": {
       "options": [
@@ -269,7 +269,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Two ways, and you'll want both.\" He wipes his hands on a rag. \"Straight swap — you've got a thing, they've got a thing or the credits — you TRADE it out face to face. Both of you lock it in before anything changes hands, so nobody walks off with your torch AND your money. That's the clean way.\n\nThe other's the trade I live on: somebody's got a dead machine and no clue which end's the sharp one. You name a price, they PAY it — agree the number up front, they send the credits, you do the work. Fix their generator, weld their door, get their power back on. Set the money, shake on it, deliver. Do right by 'em and they come back with worse jobs and better pay.\""
+      "text": "\"Two ways, and you'll want both.\" He wipes his hands on a rag. \"Straight swap: you've got a thing, they've got a thing or the credits, and you TRADE it out face to face. Both of you lock it in before anything changes hands, so nobody walks off with your torch AND your money. That's the clean way.\n\nThe other's the trade I live on: somebody's got a dead machine and no clue which end's the sharp one. You name a price, they PAY it. Agree the number up front, they send the credits, you do the work. Fix their generator, weld their door, get their power back on. Set the money, shake on it, deliver. Do right by 'em and they come back with worse jobs and better pay.\""
     }
   },
   "faction": null,
@@ -384,6 +384,10 @@
     {
       "item_id": "item_thermal_lance",
       "price": 8820
+    },
+    {
+      "item_id": "item_cryocell",
+      "price": 9200
     }
   ],
   "vendor_restock_rate": 1,

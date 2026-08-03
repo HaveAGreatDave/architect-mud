@@ -125,7 +125,7 @@
   },
   "chitchat": [
     "\"Highball, sir? On the house.\"",
-    "\"Winner winner — another round?\""
+    "\"Winner winner, another round?\""
   ],
   "description": "A runner threading the tables with a tray of free drinks, keeping the marks watered and seated. Her name tag says ROZ, and the house has never once spelled Vance right on a payslip.",
   "dialogue_tree": {
@@ -140,7 +140,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Drink? They're free. Everything after that isn't.\" She's already moving. \"Roz, if you need me. Wave — don't grab.\""
+      "text": "\"Drink? They're free. Everything after that isn't.\" She's already moving. \"Roz, if you need me. Wave, don't grab.\""
     }
   },
   "faction": null,

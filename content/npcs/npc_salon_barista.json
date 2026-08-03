@@ -142,7 +142,7 @@
           "next": "__shop__"
         }
       ],
-      "text": "\"Sit at one. That's all it takes — nobody's going to ask if you're any good.\" She nods at the window side. \"Mr Ferro comes up most days and Miss Krebs when she's speaking to him. If a board's got somebody at it and an empty chair opposite, that chair is an invitation. That's the whole etiquette of the room.\""
+      "text": "\"Sit at one. That's all it takes. Nobody's going to ask if you're any good.\" She nods at the window side. \"Mr Ferro comes up most days and Miss Krebs when she's speaking to him. If a board's got somebody at it and an empty chair opposite, that chair is an invitation. That's the whole etiquette of the room.\""
     },
     "bye": {
       "options": [],
@@ -214,7 +214,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Best in the building, and I'll fight the Sky Deck about it.\" She tips her head at the glass. \"Forty floors up you're above it. Eighteen, you're still *in* it — you can see which windows are lit and which stairwell somebody's running down. Close enough to be a city. Far enough to be quiet.\" She shrugs. \"Forty floors is a postcard.\""
+      "text": "\"Best in the building, and I'll fight the Sky Deck about it.\" She tips her head at the glass. \"Forty floors up you're above it. Eighteen, you're still *in* it. You can see which windows are lit and which stairwell somebody's running down. Close enough to be a city. Far enough to be quiet.\" She shrugs. \"Forty floors is a postcard.\""
     }
   },
   "faction": null,

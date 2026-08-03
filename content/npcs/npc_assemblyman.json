@@ -142,7 +142,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Splendid! West of Onyx Row — the Scald, the steppe, the sootbanks. Four should quiet them. Do watch the leach-beds; they are not on any map I'd trust.\""
+      "text": "\"Splendid! West of Onyx Row: the Scald, the steppe, the sootbanks. Four should quiet them. Do watch the leach-beds; they are not on any map I'd trust.\""
     },
     "bye": {
       "options": [],
@@ -163,7 +163,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Jackals — wire-jackals, the wretched wire-and-scab kind — are coming up out of the wastes and into the Registry's overflow archives. Nobody official will act; jurisdiction, you understand. Cull four of them for me and I'll see you're paid and papered.\""
+      "text": "\"Jackals, wire-jackals, the wretched wire-and-scab kind, are coming up out of the wastes and into the Registry's overflow archives. Nobody official will act; jurisdiction, you understand. Cull four of them for me and I'll see you're paid and papered.\""
     },
     "reported": {
       "actions": [
@@ -178,7 +178,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"...The archivists report quiet in the overflow stacks. Extraordinary. Here — your fee, and a permit stamped by my own hand, which still means something in three or four offices.\""
+      "text": "\"...The archivists report quiet in the overflow stacks. Extraordinary. Here: your fee, and a permit stamped by my own hand, which still means something in three or four offices.\""
     },
     "root": {
       "options": [
@@ -191,7 +191,7 @@
           "next": "bye"
         }
       ],
-      "text": "Assemblyman Croll brightens at the sight of anyone who might listen. \"You there — you have the look of someone who solves things. This chamber does the opposite. Might I trouble you?\""
+      "text": "Assemblyman Croll brightens at the sight of anyone who might listen. \"You there. You have the look of someone who solves things. This chamber does the opposite. Might I trouble you?\""
     }
   },
   "faction": null,

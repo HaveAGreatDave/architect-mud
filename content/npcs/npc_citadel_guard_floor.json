@@ -154,7 +154,7 @@
           "next": "guns"
         }
       ],
-      "text": "\"They're forty metres that way and they answer the phone.\" He tips his chin a fraction toward the east wall. \"Our cameras run on their network. Their evidence locker banks with us. It's not a friendship, it's plumbing — but it means anything that happens in this hall is already happening at Precinct 9 as well, just slightly later and with worse lighting.\""
+      "text": "\"They're forty metres that way and they answer the phone.\" He tips his chin a fraction toward the east wall. \"Our cameras run on their network. Their evidence locker banks with us. It's not a friendship, it's plumbing, but it means anything that happens in this hall is already happening at Precinct 9 as well, just slightly later and with worse lighting.\""
     },
     "root": {
       "options": [
@@ -214,7 +214,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"It isn't.\" The lenses tip fractionally toward the marble at his feet. \"That's the whole marketing budget, standing here in a coat. The columns and the bronze and me — that's the security. What's downstairs is just what happens if all three of us fail at once, and I would strongly encourage you not to find out how thorough Citadel got about that.\""
+      "text": "\"It isn't.\" The lenses tip fractionally toward the marble at his feet. \"That's the whole marketing budget, standing here in a coat. The columns and the bronze and me. That's the security. What's downstairs is just what happens if all three of us fail at once, and I would strongly encourage you not to find out how thorough Citadel got about that.\""
     }
   },
   "faction": null,
