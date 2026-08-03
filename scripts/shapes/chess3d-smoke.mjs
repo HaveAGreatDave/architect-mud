@@ -151,6 +151,20 @@ async function main() {
 		}
 	}
 
+	// The vanishing-pieces regression. A board square is a metre wide, so under a
+	// single average-depth sort the near half of one square can cover a piece
+	// standing on the square behind it. The fix is structural — board faces and
+	// piece faces are separate sinks, painted in that order — and nothing about
+	// merging them back LOOKS wrong until you orbit, so assert the split itself.
+	try {
+		const { board, pieces } = mod.__smokeFaces();
+		if (pieces.length !== 32) errs.push(`sinks: ${pieces.length} piece groups, expected 32`);
+		if (board.length < 64) errs.push(`sinks: only ${board.length} board faces — squares are missing`);
+		if (pieces.some(p => !p.faces?.length)) errs.push('sinks: a piece group came back with no faces');
+	} catch (e) {
+		errs.push(`sinks: ${e.message}`);
+	}
+
 	try {
 		const hit = mod.__smokePick(450, 300);
 		if (!hit) errs.push('pick: the centre of the pane hit no square');
@@ -171,7 +185,7 @@ async function main() {
 		for (const e of errs) console.error('  ✗ ' + e);
 		process.exit(1);
 	}
-	console.log('chess3d:smoke ok — board drew at 6 camera angles, picking live');
+	console.log('chess3d:smoke ok — board drew at 6 camera angles, sinks split, picking live');
 }
 
 main().catch(e => { console.error('chess3d:smoke crashed:', e); process.exit(1); });

@@ -121,11 +121,21 @@ stays on screen is a working board, which is why the mount runs *after* `setArea
 never instead of it.
 
 The 3D is done **the way the flight sim does it** (`panels/windshield.js`): no WebGL, no
-library, no build step. A camera that projects a world point to the screen, a depth-sorted
-face sink painted back→front (a 2D context has no z-buffer), and per-face lighting off the
+library, no build step. A camera that projects a world point to the screen, depth-sorted
+face sinks painted back→front (a 2D context has no z-buffer), and per-face lighting off the
 face normal. The one divergence is that windshield queues *closures* — a building face can
 paint itself a dozen ways — while every face here is a filled polygon, so the sink holds
 plain geometry and skips ~4000 closure allocations a frame.
+
+**There are TWO sinks — board and pieces — and that split is a bug fix, not tidiness.**
+Faces sort by their *average* depth, and a board square is a metre wide: the near half of a
+square can sit in front of a piece standing on the square behind it while its average says
+otherwise, so the square paints over the piece and **the piece vanishes**. Average-depth
+sorting cannot fix that; the two objects genuinely interleave. What resolves it is that no
+piece is ever *behind* the board — pieces stand ON the plane. So the board is painted first
+and whole, then the pieces on top, ordered **per piece** by the depth of its base (exact for
+anything standing on a plane) and only then per face within a piece. A piece's contact
+shadow and emitter pad are emitted into the *board* sink, because they lie on the plane too.
 
 **Pieces are surfaces of revolution.** A silhouette of `[radius, height]` pairs, spun around
 its axis — which is how real chess pieces are made, and why a dozen numbers is enough to get
@@ -142,6 +152,18 @@ redraws on a camera change or a pane update and otherwise costs nothing — that
 route to the same camera and the way back from a wild orbit. The camera lives in
 `localStorage` and **survives the remount that happens on every single move**, which is the
 thing that would be maddening to lose.
+
+**The set is lit metal, not painted plastic**, and three things do that work. The **ambient
+floor is low** (0.10), so faces turned away from the key light fall into the dark instead of
+sitting at a flat pastel — a high ambient is what made the first pass look like a toy. A
+narrow **specular** and a **rim** term give the polish, with the rim cool-shifted toward the
+team colour rather than white, because an edge turning away from the key should catch the
+room and the room is a neon one. Each piece then carries a **lit core band** let into its
+waist — its own emitter, and the only light on a piece that doesn't come from outside it —
+plus **contour rings** up the body, the tool marks of the lathe that turned it. Every piece
+stands on a hex **emitter pad**, so it reads as docked into the board rather than resting on
+it. Contour rings are stroked **once per ring, not per quad**: the per-quad version drew each
+line twelve times over and cost 3000 stroke calls a frame against 384 now.
 
 **White reads cyan and Black reads magenta** — the two ends of the room's own palette, read
 from the pane's own CSS variables rather than hardcoded, because literal white-on-black loses

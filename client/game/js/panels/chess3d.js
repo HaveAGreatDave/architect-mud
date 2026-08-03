@@ -22,9 +22,10 @@
 // the same reason — no WebGL, no library, no build step. Same three parts:
 //   • a camera that projects a world point to the screen (windshield's makeCam
 //     → proj; here `project`),
-//   • a depth-sorted FACE SINK, because a 2D context has no z-buffer, so faces
+//   • depth-sorted FACE SINKS, because a 2D context has no z-buffer, so faces
 //     are queued with their camera depth and painted back→front (windshield's
-//     emitFace/flushFaces; here `face()` + the sort in draw()),
+//     emitFace/flushFaces; here `face()` + the sorts in draw()). Two of them,
+//     board and pieces — see buildFaces for why one wasn't enough,
 //   • per-face lighting from the face normal, not per-pixel.
 // The one deliberate divergence: windshield queues CLOSURES because a building
 // face can paint itself in a dozen different ways. Every face here is a filled
@@ -57,6 +58,14 @@ const PROFILES = {
 		[0.24, 0.62], [0.16, 0.66], [0.20, 0.78], [0.30, 0.92], [0.31, 0.98]],
 	k: [[0.36, 0], [0.37, 0.05], [0.30, 0.11], [0.20, 0.17], [0.16, 0.52], [0.25, 0.60],
 		[0.25, 0.64], [0.17, 0.68], [0.22, 0.80], [0.30, 0.94], [0.31, 1.00]],
+};
+
+// Where each piece's lit core band sits, as [bottom, top] heights. Placed on the
+// waist — the narrowest run of the body — so the glow reads as something let
+// INTO the piece at its thinnest point rather than a stripe painted round it.
+const CORE_BAND = {
+	p: [0.20, 0.27], r: [0.30, 0.40], b: [0.24, 0.32],
+	n: [0.20, 0.27], q: [0.28, 0.38], k: [0.30, 0.42],
 };
 
 // The knight's head, in (forward, up) — extruded sideways into a slab. It is the
@@ -184,15 +193,30 @@ function project(p) {
 // ── Geometry assembly ────────────────────────────────────────────────────────
 
 // Everything the frame will draw, as flat-shaded polygons with an average depth.
-// One list, one sort, one pass — which is the whole reason a scene this size can
-// be drawn with a 2D context and still look solid.
+//
+// TWO sinks, not one, and that split is a bug fix rather than tidiness. A single
+// depth-sorted list sorts each face by its AVERAGE depth, and a board square is
+// a metre wide: the near half of a square can sit in front of a piece standing
+// on the square behind it while its average says it's further away. The square
+// then paints straight over the piece and the piece VANISHES — which is exactly
+// what happened along the far ranks at a low camera angle.
+//
+// Average-depth sorting can't fix that, because the two objects genuinely
+// interleave in depth. What resolves it is the fact that no piece is ever behind
+// the board: pieces stand ON the plane, so the board is painted first, whole,
+// and the pieces go on top. Within the piece pass the ordering is per PIECE (by
+// the depth of its base, which is exact for objects standing on a plane), and
+// only then per face inside that piece — the same shape as the flight sim's
+// per-building face sink.
 function buildFaces() {
-	const sink = [];
-	const face = (pts, fill, opts = {}) => {
+	const board = [];
+	const pieces = [];
+	const into = list => (pts, fill, opts = {}) => {
 		let d = 0;
 		const proj = pts.map(p => { const q = project(p); d += q[2]; return q; });
-		sink.push({ proj, fill, depth: d / pts.length, ...opts });
+		list.push({ proj, fill, depth: d / pts.length, ...opts });
 	};
+	const face = into(board);
 
 	// The slab: top surface is drawn per-square below, so this is just the sides
 	// and the underside rim that gives the board an edge when you orbit low.
@@ -201,9 +225,17 @@ function buildFaces() {
 	for (let i = 0; i < 4; i++) {
 		const a = corners[i], b = corners[(i + 1) % 4];
 		face([[a[0], a[1], z0], [b[0], b[1], z0], [b[0], b[1], 0], [a[0], a[1], 0]],
-			'#0a121a', { stroke: colors.accent, strokeAlpha: 0.5 });
+			'#080f16', { stroke: colors.accent, strokeAlpha: 0.55 });
+		// A light strip let into the rim, all the way round. The board is a
+		// machine the game runs on, and this is the one detail that says so from
+		// every angle — it's the only thing still visible edge-on at a low camera.
+		const inset = 0.05, lo = z0 * 0.62, hi = z0 * 0.34;
+		const ax = a[0] + (b[0] - a[0]) * inset, ay = a[1] + (b[1] - a[1]) * inset;
+		const bx = b[0] - (b[0] - a[0]) * inset, by = b[1] - (b[1] - a[1]) * inset;
+		face([[ax, ay, lo], [bx, by, lo], [bx, by, hi], [ax, ay, hi]],
+			rgba(toRgb(colors.accent), 0.75), { glow: colors.accent, glowSize: 12 });
 	}
-	face([[0, 0, z0], [BOARD, 0, z0], [BOARD, BOARD, z0], [0, BOARD, z0]], '#05080c');
+	face([[0, 0, z0], [BOARD, 0, z0], [BOARD, BOARD, z0], [0, BOARD, z0]], '#04060a');
 
 	// Squares. The face colour carries every bit of board state — selection, the
 	// last move, check — because a flat lit panel is the only surface here that
@@ -219,8 +251,14 @@ function buildFaces() {
 		}
 	}
 
-	for (const pc of scene.pieces) pieceFaces(pc, face);
-	return sink;
+	// Each piece gets its own face list. The plinth and contact shadow go into the
+	// BOARD list instead — they lie on the plane, so they belong to it.
+	for (const pc of scene.pieces) {
+		const own = [];
+		pieceFaces(pc, into(own), face);
+		pieces.push({ depth: project([pc.x + 0.5, pc.y + 0.5, 0])[2], faces: own });
+	}
+	return { board, pieces };
 }
 
 function discPts(cx, cy, r, z) {
@@ -232,6 +270,9 @@ function discPts(cx, cy, r, z) {
 	return pts;
 }
 
+// The light square is a lit panel set into a dark deck — a floor tile with power
+// behind it, not ivory. The dark square is very nearly black on purpose: the
+// contrast is what lets a dim piece stay readable standing on it.
 function squareFill(sq) {
 	if (sq.check) return 'rgba(210,40,60,0.75)';
 	if (sq.selected) return 'rgba(240,200,60,0.72)';
@@ -239,14 +280,16 @@ function squareFill(sq) {
 	if (sq.target) return 'rgba(60,220,150,0.28)';
 	if (sq.lastTo) return 'rgba(150,90,240,0.34)';
 	if (sq.lastFrom) return 'rgba(120,70,200,0.20)';
-	return sq.light ? '#16242e' : '#070b10';
+	return sq.light ? '#152833' : '#05080c';
 }
+// Every square carries a faint circuit line. Lit squares get a brighter one, so
+// the grid itself reads as etched rather than drawn.
 function squareStroke(sq) {
 	if (sq.check) return '#ff4060';
 	if (sq.selected) return '#ffd23c';
 	if (sq.capture) return '#ff5a68';
 	if (sq.target) return '#5affaa';
-	return 'rgba(120,200,220,0.10)';
+	return sq.light ? 'rgba(120,210,235,0.22)' : 'rgba(120,210,235,0.07)';
 }
 function squareGlow(sq) {
 	if (sq.check) return '#ff4060';
@@ -260,12 +303,16 @@ function squareGlow(sq) {
 // than faked — for a surface of revolution it falls straight out of the profile
 // slope, which is what keeps the highlight running cleanly up the body instead
 // of banding.
-function pieceFaces(pc, face) {
+function pieceFaces(pc, face, boardFace) {
 	const prof = PROFILES[pc.type];
 	const cx = pc.x + 0.5, cy = pc.y + 0.5;
 	const base = pc.lifted ? 0.28 : 0;     // a picked-up piece actually lifts
 	const tint = pc.white ? colors.white : colors.black;
 	const rgb = toRgb(tint);
+	// The seam heights, where the machined body gives way to a lit core. Reading
+	// them off the profile rather than hardcoding a number per piece means the
+	// band lands on the waist of whatever shape the profile describes.
+	const coreLo = CORE_BAND[pc.type][0], coreHi = CORE_BAND[pc.type][1];
 
 	for (let i = 0; i < prof.length - 1; i++) {
 		const [r0, h0] = prof[i], [r1, h1] = prof[i + 1];
@@ -283,6 +330,31 @@ function pieceFaces(pc, face) {
 		}
 	}
 
+	// Contour lines up the body — the tool marks of a lathe, and the single
+	// biggest thing separating "turned wooden chess piece" from "machined out of
+	// something that runs on power".
+	//
+	// One stroke per RING, not per quad. Stroking each quad drew the same lines
+	// twelve times over and cost 3000 stroke calls a frame; a ring is one closed
+	// path of twelve points and looks identical. That's ~250 strokes for the
+	// whole set.
+	for (let i = 1; i < prof.length - 1; i++) {
+		const [r, hh] = prof[i];
+		if (r < 0.02) continue;
+		const ring = [];
+		for (let j = 0; j < RADIAL; j++) {
+			const t = (j / RADIAL) * Math.PI * 2;
+			ring.push([cx + Math.cos(t) * r, cy + Math.sin(t) * r, base + hh]);
+		}
+		face(ring, null, { stroke: seamInk(rgb), strokeAlpha: 0.55 });
+	}
+
+	// The lit core: a band of emissive material let into the waist, drawn as its
+	// own short lathe standing slightly proud of the body so it reads as inlay
+	// rather than as paint. This is the piece's own light source — everything
+	// else on it is lit from outside.
+	coreBand(face, rgb, cx, cy, base, prof, coreLo, coreHi);
+
 	const top = prof[prof.length - 1];
 	if (top[0] > 0.01) {
 		// Cap the open top of anything that doesn't taper to a point.
@@ -295,12 +367,63 @@ function pieceFaces(pc, face) {
 	if (pc.type === 'k') cross3d(pc, face, rgb, base);
 	if (pc.type === 'n') knightHead(pc, face, rgb, base);
 
-	// The contact shadow, on the board plane. A piece with no shadow floats no
-	// matter how good its shading is.
-	face(discPts(cx, cy, prof[0][0] * 1.35, 0.004), 'rgba(0,0,0,0.55)', { soft: true });
+	// The contact shadow and the emitter pad it stands on. Both lie flat on the
+	// plane, so they're emitted into the BOARD list — a shadow that sorted with
+	// its own piece would paint over the piece in front of it.
+	boardFace(discPts(cx, cy, prof[0][0] * 1.45, 0.004), 'rgba(0,0,0,0.6)', { soft: true });
+	// The pad: a hex plate, because a circle would read as a shadow and this is
+	// meant to read as hardware the piece is docked into.
+	boardFace(hexPts(cx, cy, prof[0][0] * 1.28, 0.006),
+		`rgba(${rgb[0] | 0},${rgb[1] | 0},${rgb[2] | 0},0.16)`,
+		{ stroke: `rgba(${rgb[0] | 0},${rgb[1] | 0},${rgb[2] | 0},0.55)`, strokeAlpha: 1, glow: tint });
 	if (pc.checked) {
-		face(discPts(cx, cy, prof[0][0] * 1.7, 0.006), 'rgba(255,60,80,0.30)', { soft: true, glow: '#ff4060' });
+		boardFace(discPts(cx, cy, prof[0][0] * 1.8, 0.008), 'rgba(255,60,80,0.32)', { soft: true, glow: '#ff4060' });
 	}
+}
+
+// The lit core band. Radii are read off the profile at the two seam heights, so
+// the inlay hugs whatever the body is doing there instead of floating off it.
+function coreBand(face, rgb, cx, cy, base, prof, h0, h1) {
+	const r0 = radiusAt(prof, h0) + 0.012, r1 = radiusAt(prof, h1) + 0.012;
+	const lit = `rgb(${Math.min(255, rgb[0] * 1.5 + 60) | 0},${Math.min(255, rgb[1] * 1.5 + 60) | 0},${Math.min(255, rgb[2] * 1.5 + 60) | 0})`;
+	const glow = `rgb(${rgb[0] | 0},${rgb[1] | 0},${rgb[2] | 0})`;
+	for (let j = 0; j < RADIAL; j++) {
+		const t0 = (j / RADIAL) * Math.PI * 2, t1 = ((j + 1) / RADIAL) * Math.PI * 2;
+		face([
+			[cx + Math.cos(t0) * r0, cy + Math.sin(t0) * r0, base + h0],
+			[cx + Math.cos(t1) * r0, cy + Math.sin(t1) * r0, base + h0],
+			[cx + Math.cos(t1) * r1, cy + Math.sin(t1) * r1, base + h1],
+			[cx + Math.cos(t0) * r1, cy + Math.sin(t0) * r1, base + h1],
+		], lit, { glow });
+	}
+}
+
+// Where the profile is at a given height — a walk, not a lookup, because the
+// profiles are authored by shape and nothing guarantees a vertex at the seam.
+function radiusAt(prof, h) {
+	for (let i = 0; i < prof.length - 1; i++) {
+		const [r0, h0] = prof[i], [r1, h1] = prof[i + 1];
+		if (h >= h0 && h <= h1) {
+			const t = h1 === h0 ? 0 : (h - h0) / (h1 - h0);
+			return r0 + (r1 - r0) * t;
+		}
+	}
+	return prof[prof.length - 1][0];
+}
+
+function hexPts(cx, cy, r, z) {
+	const pts = [];
+	for (let i = 0; i < 6; i++) {
+		const t = (i / 6) * Math.PI * 2 + Math.PI / 6;
+		pts.push([cx + Math.cos(t) * r, cy + Math.sin(t) * r, z]);
+	}
+	return pts;
+}
+
+// The tool-line ink: the body colour taken well down, never black. A black seam
+// on a dark piece just eats the silhouette.
+function seamInk(rgb) {
+	return `rgba(${(rgb[0] * 0.35) | 0},${(rgb[1] * 0.35) | 0},${(rgb[2] * 0.35) | 0},1)`;
 }
 
 // Rook battlements — six blocks around the rim.
@@ -375,31 +498,78 @@ function knightHead(pc, face, rgb, base) {
 
 // ── Shading ──────────────────────────────────────────────────────────────────
 
+const rgba = (rgb, a) => `rgba(${rgb[0] | 0},${rgb[1] | 0},${rgb[2] | 0},${a})`;
+
+// Resolving a colour costs a DOM round trip, and this is called per piece per
+// frame — memoised, because there are exactly three colours in the scene and
+// doing 36 layout-triggering appends per frame to re-learn them would be the
+// single most expensive thing in the renderer.
+const RGB_CACHE = new Map();
 function toRgb(css) {
+	let v = RGB_CACHE.get(css);
+	if (v) return v;
 	// The pane's colour vars may be hex or a colour function; let the browser
-	// resolve whatever it is exactly once, at parse time.
+	// resolve whatever it is, once.
 	const d = document.createElement('span');
 	d.style.color = css;
 	document.body.appendChild(d);
 	const m = getComputedStyle(d).color.match(/[\d.]+/g);
 	d.remove();
-	return m ? [+m[0], +m[1], +m[2]] : [80, 220, 210];
+	v = m ? [+m[0], +m[1], +m[2]] : [80, 220, 210];
+	RGB_CACHE.set(css, v);
+	return v;
 }
 
-// Lambert plus a fixed ambient floor and a rim term. The rim is what makes this
-// read as neon-lit rather than as a plastic toy: edges turning away from the
-// light still catch the team colour instead of going black.
+// Lit metal, not painted plastic. Three terms, and the balance between them is
+// the whole look:
+//   • a LOW ambient, so unlit faces fall away into the dark instead of sitting
+//     at a flat pastel — the first version's 0.22 floor is what made the set
+//     look like a toy,
+//   • lambert for the body,
+//   • a hard, narrow SPECULAR and a rim term, which are the two things that read
+//     as "polished under a neon sign". The rim is deliberately cool-shifted
+//     toward the team colour rather than white: an edge turning away from the
+//     key light should catch the room, and the room here is a neon one.
 function shade(rgb, n) {
 	const d = Math.max(0, n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2]);
-	const rim = Math.pow(1 - Math.abs(n[2]), 2) * 0.35;
-	const k = 0.22 + d * 0.85 + rim;
-	const r = Math.min(255, rgb[0] * k + 255 * Math.max(0, d - 0.82) * 0.9);
-	const g = Math.min(255, rgb[1] * k + 255 * Math.max(0, d - 0.82) * 0.9);
-	const b = Math.min(255, rgb[2] * k + 255 * Math.max(0, d - 0.82) * 0.9);
+	const rim = Math.pow(1 - Math.abs(n[2]), 3) * 0.55;
+	const spec = Math.pow(Math.max(0, d), 14) * 220;
+	const k = 0.10 + d * 0.62 + rim;
+	const r = Math.min(255, rgb[0] * k + spec);
+	const g = Math.min(255, rgb[1] * k + spec * 1.02);
+	const b = Math.min(255, rgb[2] * k + spec * 1.05);
 	return `rgb(${r | 0},${g | 0},${b | 0})`;
 }
 
 // ── Draw ─────────────────────────────────────────────────────────────────────
+
+function paintFace(poly) {
+	const p = poly.proj;
+	ctx.beginPath();
+	ctx.moveTo(p[0][0], p[0][1]);
+	for (let i = 1; i < p.length; i++) ctx.lineTo(p[i][0], p[i][1]);
+	ctx.closePath();
+	if (poly.glow) {
+		ctx.shadowColor = poly.glow;
+		ctx.shadowBlur = poly.glowSize ?? 18;
+	}
+	if (poly.soft) ctx.filter = 'blur(3px)';
+	// A null fill is a line-only face — a contour ring. It still sorts and
+	// occludes like any other face; it just has nothing to fill.
+	if (poly.fill) {
+		ctx.fillStyle = poly.fill;
+		ctx.fill();
+	}
+	ctx.filter = 'none';
+	ctx.shadowBlur = 0;
+	if (poly.stroke) {
+		ctx.strokeStyle = poly.stroke;
+		ctx.globalAlpha = poly.strokeAlpha ?? 1;
+		ctx.lineWidth = 1;
+		ctx.stroke();
+		ctx.globalAlpha = 1;
+	}
+}
 
 function draw() {
 	frameQueued = false;
@@ -425,31 +595,20 @@ function draw() {
 	ctx.fillStyle = g;
 	ctx.fillRect(0, 0, w, h);
 
-	const sink = buildFaces();
-	sink.sort((a, b) => b.depth - a.depth);   // far to near, painter's order
+	const { board, pieces } = buildFaces();
 
-	for (const poly of sink) {
-		const p = poly.proj;
-		ctx.beginPath();
-		ctx.moveTo(p[0][0], p[0][1]);
-		for (let i = 1; i < p.length; i++) ctx.lineTo(p[i][0], p[i][1]);
-		ctx.closePath();
-		if (poly.glow) {
-			ctx.shadowColor = poly.glow;
-			ctx.shadowBlur = 18;
-		}
-		if (poly.soft) ctx.filter = 'blur(3px)';
-		ctx.fillStyle = poly.fill;
-		ctx.fill();
-		ctx.filter = 'none';
-		ctx.shadowBlur = 0;
-		if (poly.stroke) {
-			ctx.strokeStyle = poly.stroke;
-			ctx.globalAlpha = poly.strokeAlpha ?? 1;
-			ctx.lineWidth = 1;
-			ctx.stroke();
-			ctx.globalAlpha = 1;
-		}
+	// Pass 1: the board, whole. Nothing standing on it can be behind it, which is
+	// the fact that makes this safe to paint first and the reason pieces stopped
+	// disappearing under the far ranks.
+	board.sort((a, b) => b.depth - a.depth);
+	for (const poly of board) paintFace(poly);
+
+	// Pass 2: the pieces, far to near BY PIECE — exact for objects standing on a
+	// plane — then face by face inside each one.
+	pieces.sort((a, b) => b.depth - a.depth);
+	for (const pc of pieces) {
+		pc.faces.sort((a, b) => b.depth - a.depth);
+		for (const poly of pc.faces) paintFace(poly);
 	}
 
 	drawCoords();
@@ -644,3 +803,7 @@ function fireCmd(cmd, ev) {
 // click event would be testing the event system, not the renderer.
 export const __smokeView = (which) => nudgeCam(which);
 export const __smokePick = (px, py) => pickSquare(px, py);
+// The two-sink split is what stopped pieces vanishing under the far ranks, and
+// nothing about a merged sink LOOKS wrong until you orbit — so the smoke asserts
+// the split directly.
+export const __smokeFaces = () => buildFaces();
