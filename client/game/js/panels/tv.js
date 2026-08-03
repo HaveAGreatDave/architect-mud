@@ -1000,6 +1000,14 @@ export function createTvView(root, opts = {}) {
     const carry = (d.carrying || []).map(c =>
       `<button class="tv-deck-row" data-deck="load" data-name="${_esc(c.name)}">⇥ ${_esc(c.name)}</button>`
     ).join('');
+    // The loaded tape is ALREADY the ▶ row in the shelf list, highlighted — printing
+    // it above the list as well just said the same title twice in a row. Keep the
+    // line only when it carries something the shelf can't: an empty deck, or a tape
+    // that isn't on this shelf (a locked deck draws no list at all).
+    const shelfShowsActive = !!active && !d.locked;
+    const loadedLine = shelfShowsActive
+      ? ''
+      : `<div class="tv-deck-loaded">${active ? `▶ ${_esc(active.name)}` : 'No tape loaded.'}</div>`;
     const controls = d.locked
       ? '<div class="tv-sched-empty">Its controls don’t answer to you.</div>'
       : `<div class="tv-deck-list">${shelf}</div>
@@ -1014,7 +1022,7 @@ export function createTvView(root, opts = {}) {
         <span class="tv-deck-name">${_esc(d.brand || d.deckName || 'TAPE DECK')}</span>
         <span class="tv-deck-status">${status}</span>
       </div>
-      <div class="tv-deck-loaded">${active ? `▶ ${_esc(active.name)}` : 'No tape loaded.'}</div>
+      ${loadedLine}
       ${controls}`;
   }
 

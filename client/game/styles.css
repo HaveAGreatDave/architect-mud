@@ -10195,7 +10195,13 @@ body.ck-fullscreen #mob-hud-env {
    picture so whatever is playing stays visible behind it — the point of most of
    these presses is watching the picture change. Amber throughout, the same
    consumer-appliance accent the deck's own chassis uses. */
+/* The strip is a surface of the SET, so it follows the set: the accent tracks the
+   station's header colour and the chassis' own text colour, and only falls back to
+   the deck amber when a set carries no theme of its own. Every amber literal below
+   used to be hardwired, which left a warm VCR panel glued to a cold flatscreen. */
 #tv-deck {
+	--tv-deck-accent: var(--tv-header-color, #ffb454);
+	--tv-deck-lit: color-mix(in srgb, var(--tv-deck-accent) 72%, #fff);
 	position: absolute;
 	inset: auto 0 72px 0;
 	max-height: 62%;
@@ -10206,7 +10212,7 @@ body.ck-fullscreen #mob-hud-env {
 	background:
 		repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,0.10) 2px 3px),
 		linear-gradient(180deg, rgba(8,10,8,0.86), rgba(8,10,8,0.97));
-	border-top: 1px solid rgba(255, 180, 84, 0.35);
+	border-top: 1px solid color-mix(in srgb, var(--tv-deck-accent) 35%, transparent);
 	color: var(--tv-text, #b8d4c8);
 	font-family: var(--font-mono);
 	padding: 8px 10px;
@@ -10217,10 +10223,10 @@ body.ck-fullscreen #mob-hud-env {
 .tv-deck-head {
 	display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
 	flex: 0 0 auto; padding-bottom: 5px;
-	border-bottom: 1px solid rgba(255, 180, 84, 0.25);
+	border-bottom: 1px solid color-mix(in srgb, var(--tv-deck-accent) 25%, transparent);
 }
-.tv-deck-name { font-weight: bold; letter-spacing: 1px; text-transform: uppercase; font-size: 12.5px; color: #ffb454; }
-.tv-deck-status { font-size: 11px; letter-spacing: 0.6px; color: rgba(255, 180, 84, 0.7); white-space: nowrap; }
+.tv-deck-name { font-weight: bold; letter-spacing: 1px; text-transform: uppercase; font-size: 12.5px; color: var(--tv-deck-accent); }
+.tv-deck-status { font-size: 11px; letter-spacing: 0.6px; color: color-mix(in srgb, var(--tv-deck-accent) 70%, transparent); white-space: nowrap; }
 .tv-deck-loaded { flex: 0 0 auto; font-size: 12.5px; padding: 2px 2px 4px; color: var(--tv-text, #b8d4c8); }
 .tv-deck-sub { flex: 0 0 auto; font-size: 10.5px; letter-spacing: 0.6px; text-transform: uppercase; color: rgba(220, 240, 235, 0.4); padding-top: 3px; }
 .tv-deck-list { flex: 0 1 auto; overflow-y: auto; display: flex; flex-direction: column; }
@@ -10231,16 +10237,18 @@ body.ck-fullscreen #mob-hud-env {
 	padding: 4px 4px; cursor: pointer;
 	overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.tv-deck-row:hover { background: rgba(255, 180, 84, 0.12); color: #ffd79a; }
-.tv-deck-row.on { color: #ffd79a; font-weight: bold; background: rgba(255, 180, 84, 0.08); }
+.tv-deck-row:hover { background: color-mix(in srgb, var(--tv-deck-accent) 12%, transparent); color: var(--tv-deck-lit); }
+.tv-deck-row.on { color: var(--tv-deck-lit); font-weight: bold; background: color-mix(in srgb, var(--tv-deck-accent) 8%, transparent); }
 .tv-deck-btns { flex: 0 0 auto; display: flex; gap: 6px; padding-top: 6px; }
 .tv-deck-btns button {
 	flex: 1 1 auto;
-	background: #140f08; border: 1px solid rgba(255, 180, 84, 0.4); color: #ffb454;
+	background: color-mix(in srgb, var(--tv-deck-accent) 10%, #06080a);
+	border: 1px solid color-mix(in srgb, var(--tv-deck-accent) 40%, transparent);
+	color: var(--tv-deck-accent);
 	font-family: inherit; font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
 	padding: 5px 6px; cursor: pointer; transition: background 0.2s, color 0.2s;
 }
-.tv-deck-btns button:hover:not(:disabled) { background: rgba(255, 180, 84, 0.18); color: #ffd79a; }
+.tv-deck-btns button:hover:not(:disabled) { background: color-mix(in srgb, var(--tv-deck-accent) 18%, transparent); color: var(--tv-deck-lit); }
 .tv-deck-btns button:disabled { opacity: 0.35; cursor: default; }
 
 /* ── Score bug (broadcast strip) ─────────────────────────────────────────────── */
