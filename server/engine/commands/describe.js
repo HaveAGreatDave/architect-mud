@@ -39,6 +39,7 @@ import { getItem } from "../items-cache.js";
 import { getPhantomsInZone, applyTransforms, applyNpcTransforms, getRoomTransform, getRoomTransformName, getWeatherWarp } from "../phantoms.js";
 import { bodyTell } from "../dreamscape.js";
 import { sectionFurniture } from "../classify.js";
+import { loggedPanelsSync } from "../presentation.js";
 import { isVendorClosed } from "../ai-behaviour.js";
 
 // Emits a `data-lock` attribute the client dpad reads to colour the direction:
@@ -1328,7 +1329,14 @@ export async function describeZone(zone, player, out = {}) {
 		// #area-content is `white-space: pre-wrap`, and a newline between two grid
 		// items is a text node that becomes a THIRD grid item and shunts the whole
 		// row a column to the right.
-		const sections = sectionFurniture(standing, { rowOf: (g) => g.f });
+		// At the bottom rung the section grid is the wrong shape twice over: the
+		// `.room-furn-secs` CSS grid never lays out in the log, so every heading
+		// runs straight into the previous section's last piece ("…Convection
+		// UnitStorage:…"), and the whole point of that rung is less to read. A
+		// logged player gets the one flat `Furniture:` line.
+		const sections = loggedPanelsSync(player)
+			? null
+			: sectionFurniture(standing, { rowOf: (g) => g.f });
 		if (sections) {
 			const linkOf = new Map(standing.map((g, i) => [g, furnitureLinks[i]]));
 			const rows = sections.map(({ group, items }) => {
