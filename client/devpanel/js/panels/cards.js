@@ -80,19 +80,7 @@ function renderCardsTable(allCards) {
       <p style="color:var(--text-dim);margin-top:8px">Use <b>Strike series</b> below to cut a card for every eligible NPC and enemy in world content — that's what fills the pack pool on day one. Player cards arrive as players mint themselves.</p>
       ${cardToolbar()}</div>`;
   }
-  const rows = _sortCards(records).map(c => `
-    <tr onclick="editRecord('${c.id}')" style="cursor:pointer">
-      <td style="font-variant-numeric:tabular-nums">${c.series}·${String(c.serial).padStart(4, '0')}</td>
-      <td>${c.subject_name}</td>
-      <td><span class="badge">${c.subject_type}</span></td>
-      <td>${cardRankBadge(c.rarity)}</td>
-      <td style="text-align:right">${c.power}</td>
-      <td style="text-align:right;color:${Number(c.pool_weight) > 0 ? 'var(--text)' : 'var(--red)'}">${Number(c.pool_weight) > 0 ? c.pool_weight : 'never packs'}</td>
-      <td style="text-align:right;color:var(--text-dim)">${c.held || 0}</td>
-    </tr>`).join('');
-
-  const counts = records.reduce((a, c) => { a[c.rarity] = (a[c.rarity] || 0) + 1; return a; }, {});
-  const spread = _cardRanks.filter(r => counts[r]).map(r => `${cardRankBadge(r)} <b>${counts[r]}</b>`).join(' &nbsp;·&nbsp; ');
+  const spread = _raritySpread(records);
 
   // The count/spread line and the strike buttons pin as one block; the column
   // headers are sticky already (core styles) and park directly beneath it, so a
@@ -102,13 +90,83 @@ function renderCardsTable(allCards) {
       <div style="margin-bottom:12px;color:var(--text-dim);font-size:13px">${records.length} cards &nbsp;—&nbsp; ${spread}</div>
       ${cardToolbar()}
     </div>
+    ${_cardGroups(records).map(g => _cardSection(g)).join('')}`;
+}
+
+function _raritySpread(records) {
+  const counts = records.reduce((a, c) => { a[c.rarity] = (a[c.rarity] || 0) + 1; return a; }, {});
+  return _cardRanks.filter(r => counts[r]).map(r => `${cardRankBadge(r)} <b>${counts[r]}</b>`).join(' &nbsp;·&nbsp; ');
+}
+
+// The three subject types are three different jobs, not three values of a field:
+// NPC and enemy cards are STRUCK from world content in bulk, player cards arrive
+// one at a time as players mint themselves. Grouping lets you collapse the two
+// bulk piles and actually see the handful of player cards, which are otherwise
+// four rows lost in four hundred. Authored order, not alphabetical — an unknown
+// subject_type still gets its own section rather than being dropped.
+const CARD_GROUPS = [
+  { type: 'npc', label: 'NPCs' },
+  { type: 'enemy', label: 'Enemies' },
+  { type: 'player', label: 'Players' },
+];
+
+function _cardGroups(records) {
+  const byType = new Map();
+  for (const c of records) {
+    const t = c.subject_type || '(none)';
+    if (!byType.has(t)) byType.set(t, []);
+    byType.get(t).push(c);
+  }
+  const known = CARD_GROUPS
+    .filter(g => byType.has(g.type))
+    .map(g => ({ ...g, cards: byType.get(g.type) }));
+  const rest = [...byType.keys()]
+    .filter(t => !CARD_GROUPS.some(g => g.type === t))
+    .sort((a, b) => a.localeCompare(b))
+    .map(t => ({ type: t, label: t, cards: byType.get(t) }));
+  return [...known, ...rest];
+}
+
+// Collapse state is per subject type and survives a re-render, so sorting or
+// searching doesn't silently re-open the piles you just shut.
+const collapsedCardTypes = new Set();
+function toggleCardTypeCollapse(type) {
+  if (collapsedCardTypes.has(type)) collapsedCardTypes.delete(type);
+  else collapsedCardTypes.add(type);
+  PANELS.cards.render();
+}
+
+function _cardSection({ type, label, cards }) {
+  const collapsed = collapsedCardTypes.has(type);
+  const typeSafe = String(type).replace(/'/g, "\\'");
+  const head = `<div class="item-type-hdr card-group-hdr" onclick="toggleCardTypeCollapse('${typeSafe}')">
+      <span class="item-type-hdr-arrow">${collapsed ? '▶' : '▼'}</span>
+      <span class="item-type-hdr-label">${label}</span>
+      <span style="font-size:11px">${_raritySpread(cards)}</span>
+      <span class="item-type-hdr-count">${cards.length}</span>
+    </div>`;
+  if (collapsed) return `<div class="item-section">${head}</div>`;
+  // Each section carries its own header row — they're separate tables, so a
+  // shared one is impossible — but they all read the same sortState, so clicking
+  // any column sorts every group by it at once.
+  const rows = _sortCards(cards).map(c => `
+    <tr onclick="editRecord('${c.id}')" style="cursor:pointer">
+      <td style="font-variant-numeric:tabular-nums">${c.series}·${String(c.serial).padStart(4, '0')}</td>
+      <td>${c.subject_name}</td>
+      <td><span class="badge">${c.subject_type}</span></td>
+      <td>${cardRankBadge(c.rarity)}</td>
+      <td style="text-align:right">${c.power}</td>
+      <td style="text-align:right;color:${Number(c.pool_weight) > 0 ? 'var(--text)' : 'var(--red)'}">${Number(c.pool_weight) > 0 ? c.pool_weight : 'never packs'}</td>
+      <td style="text-align:right;color:var(--text-dim)">${c.held || 0}</td>
+    </tr>`).join('');
+  return `<div class="item-section">${head}
     <table class="data-table">
       <thead><tr>
         ${_cardTh('serial', '№')}${_cardTh('subject_name', 'Subject')}${_cardTh('subject_type', 'Type')}${_cardTh('rarity', 'Rarity')}
         ${_cardTh('power', 'Power', true)}${_cardTh('pool_weight', 'Pool', true)}${_cardTh('held', 'Held', true)}
       </tr></thead>
       <tbody>${rows}</tbody>
-    </table>`;
+    </table></div>`;
 }
 
 function cardToolbar() {

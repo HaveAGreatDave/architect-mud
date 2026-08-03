@@ -258,6 +258,11 @@
     z-index: 1;
   }
   .item-type-hdr:hover { background: var(--bg3); }
+  /* Cards groups scroll away instead of sticking: the panel already pins a
+     .panel-sticky-head at top:0, and a second sticky block at the same offset
+     would slide under it and vanish. The COLUMN headers are the thing that has
+     to stay legible there, and they sticky-park below the panel head. */
+  .card-group-hdr { position: static; }
   .item-type-hdr-arrow { font-size: 10px; color: var(--text-dim); width: 12px; flex-shrink: 0; }
   .item-type-hdr-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-bright); }
   .item-type-hdr-count { margin-left: auto; font-size: 10px; color: var(--text-dim); background: var(--bg3); border-radius: 10px; padding: 1px 8px; }
