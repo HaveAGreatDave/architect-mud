@@ -1,0 +1,13 @@
+{
+  "curtain_open": 1,
+  "description": "The east wall is one unbroken sheet of glass, black-framed at the floor and the ceiling and nowhere in between. Eighteen floors of Coldwater hang in it — close enough to pick out a lit stairwell, high enough that none of it makes a sound.",
+  "flags": {},
+  "glass_state": "intact",
+  "handle": "glass",
+  "id": "win_solenne_salon",
+  "light_transmission": 0.9,
+  "name": "the east glass",
+  "visibility_transmission": 0.9,
+  "zone_exterior": null,
+  "zone_interior": "zone_solenne_salon"
+}

@@ -123,6 +123,12 @@ REM than forcing tiles from a list, so an NPC who has moved somewhere new and ca
 REM still get to work is never touched. A no-op once the world is consistent.
 call :run "oneshots/reconcile-stranded-npcs.mjs" "return NPCs stranded away from work"
 
+REM Registers the Solenne chess board. `game_tables` is runtime-classified and is
+REM not carried by content:import, so the row only exists where this has run -
+REM without it the chairs answer "No game table here." Converges: it refreshes the
+REM config and never touches a game in progress.
+call :run "seed-solenne-chess.mjs"         "register the Solenne chess table"
+
 REM Deletes the superseded drug_transforms rows BY ID - the old hedged text ("a
 REM large animal pretending to be a bed") the rewritten pool replaces. Additive
 REM deploys cannot remove a row. Converges: a fixed id list, permanent no-op once

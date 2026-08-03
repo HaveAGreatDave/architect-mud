@@ -1,0 +1,14 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_drink_bishops_blend",
+  "name": "Bishop's Blend",
+  "tags": {
+    "description": "A small cup of the house roast, pulled on the lever rig and served without being asked how you take it, because the answer is that you take it like this. Dark, thick, faintly of burnt orange. It costs what a working man's lunch costs and is worth it exactly once.",
+    "drug": true,
+    "stackable": true
+  },
+  "type": "drug",
+  "value": 18,
+  "weight": 150
+}

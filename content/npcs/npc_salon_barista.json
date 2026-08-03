@@ -1,0 +1,302 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "collect_safe",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Thea pulls a shot for nobody, tastes it off the back of a spoon, and tips it away.",
+    "\"Board four has been the same position for two days. They come up, they look at it, they go home.\"",
+    "The lever comes down with a sound like a door closing somewhere expensive.",
+    "\"Rain's coming in over the yards. You get about nine minutes' warning from up here.\""
+  ],
+  "description": "A composed woman in her fifties working a sixty-year-old lever machine with the unhurried economy of somebody who has never once had to rush it. She wears the counter like a uniform and the view like it's nothing. She knows which chair every regular takes and what they drink, and she has never written either down.",
+  "dialogue_tree": {
+    "board": {
+      "options": [
+        {
+          "label": "Maybe I will.",
+          "next": "root"
+        },
+        {
+          "label": "Coffee first.",
+          "next": "__shop__"
+        }
+      ],
+      "text": "\"Sit at one. That's all it takes — nobody's going to ask if you're any good.\" She nods at the window side. \"Mr Ferro comes up most days and Miss Krebs when she's speaking to him. If a board's got somebody at it and an empty chair opposite, that chair is an invitation. That's the whole etiquette of the room.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Mm.\" She's already wiping down the group head. The city goes on doing whatever it does out there."
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "Thea considers you for a moment longer than is comfortable. \"People talk over a board like the person pouring is part of the furniture. Eighteen years of it.\" She sets the cloth down. \"Here's one that's gone cold enough to repeat.\""
+    },
+    "root": {
+      "familiar": "\"Yours is coming.\" The lever is already down. She doesn't look up. \"Board by the glass is free, if you're playing. I kept it free.\"",
+      "first": "The woman behind the counter watches you take in the window first, the way everyone does. \"They all look at the city,\" she says. \"Give it a week and you'll look at the boards instead.\" She sets a cup down on the marble without being asked. \"Thea Wrenn. I've been up here eighteen years. Coffee's eighteen credits and worth it once.\"",
+      "known": "\"Back, then.\" Thea reaches for a cup before you've said anything. \"Same as last time, or are we being adventurous?\"",
+      "options": [
+        {
+          "label": "Coffee.",
+          "next": "__shop__"
+        },
+        {
+          "label": "What's in the blend?",
+          "next": "roast"
+        },
+        {
+          "label": "Can anyone use the boards?",
+          "next": "board"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
+        },
+        {
+          "label": "Just the view.",
+          "next": "view"
+        },
+        {
+          "label": "Nothing for me.",
+          "next": "bye"
+        }
+      ],
+      "text": "Thea has the lever half-down before you've finished crossing the carpet. \"Morning. Blend's the blend, the boards are free, and the glass gets cleaned Thursdays.\" A pause, dry. \"Everything else up here you have to ask for.\""
+    },
+    "roast": {
+      "options": [
+        {
+          "label": "One, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Beans that grew in dirt, on a hillside, under weather.\" She lets that sit. \"There are four places left doing that and I am not going to tell you which one sells to me. Everything downstairs is grown in a tray under a lamp, and it tastes like a tray under a lamp.\" The lever comes down. \"That's the whole secret. It's not a good secret, it's just expensive.\""
+    },
+    "view": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Best in the building, and I'll fight the Sky Deck about it.\" She tips her head at the glass. \"Forty floors up you're above it. Eighteen, you're still *in* it — you can see which windows are lit and which stairwell somebody's running down. Close enough to be a city. Far enough to be quiet.\" She shrugs. \"Forty floors is a postcard.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a long charcoal apron over a pressed white shirt, sleeves turned back twice",
+      "dark wool trousers and flat leather shoes worn soft",
+      "a plain slip and briefs"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_solenne_apt_e",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_salon_barista",
+  "name": "Thea Wrenn",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_drink_bishops_blend",
+      "price": 18
+    },
+    {
+      "item_id": "item_drug_coffee",
+      "price": 9
+    },
+    {
+      "item_id": "item_porcelain_cup",
+      "price": 45
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "mon": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "sat": [
+      {
+        "from": 7,
+        "to": 22
+      }
+    ],
+    "sun": [
+      {
+        "from": 7,
+        "to": 22
+      }
+    ],
+    "thu": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "tue": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "wed": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ]
+  },
+  "vendor_shop_name": "Bishop's Blend",
+  "vendor_stock_size": 24,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_solenne_salon"
+}

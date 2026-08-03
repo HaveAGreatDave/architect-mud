@@ -1,0 +1,16 @@
+{
+  "description": "Thin white porcelain with a single hairline of gold at the rim and a bishop's mitre stamped in the base, visible only when the cup is empty. Warm in the hand out of all proportion to its weight.",
+  "flags": {},
+  "id": "item_porcelain_cup",
+  "name": "porcelain cup",
+  "tags": {
+    "description": "Thin white porcelain with a single hairline of gold at the rim and a bishop's mitre stamped in the base, visible only when the cup is empty. Warm in the hand out of all proportion to its weight.",
+    "drinkware": true,
+    "drinkware_kind": "cup",
+    "fillable": 2,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 45,
+  "weight": 180
+}

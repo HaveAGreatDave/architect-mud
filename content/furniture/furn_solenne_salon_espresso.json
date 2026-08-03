@@ -1,0 +1,20 @@
+{
+  "description": "A lever machine in unlacquered brass and walnut, two groups, the eagle on top rubbed dull where sixty years of hands have steadied themselves against it. It predates the building it stands in. Nothing about it is automatic — the pressure comes off a spring and a forearm, which is the entire argument for it.",
+  "flags": {
+    "brew_tier": "barista",
+    "aliases": "espresso rig,espresso machine,lever machine,rig,machine",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_salon_espresso",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "brass lever espresso rig",
+  "object_type": "fixture",
+  "power_draw_kw": 3.2,
+  "price": 0,
+  "zone_id": "zone_solenne_salon"
+}
