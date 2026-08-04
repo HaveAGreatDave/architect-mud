@@ -213,7 +213,16 @@ function renderAssistant(a) {
       // A missing spoon is the LAST thing said, and only when nothing else is
       // wrong: it doesn't stop the dish, so it must never displace the line about
       // what does.
+      //
+      // NOUNS COLLAPSED, ROWS WHEN OPEN. The whole ingredient sentence — weight,
+      // knife work, and the author's note about cooking it down — used to be
+      // joined with semicolons into one line that ran off the panel, which is a
+      // paragraph where the Components list above it is a column. So the closed
+      // row says only WHAT ("need tomato, cream"), and the shortfall opens into
+      // rows that read the same way Components does.
+      const nouns = (r.shortfall || []).map(s => s.noun);
       const need = r.equipment.length ? `needs ${esc(r.equipment.join(', '))}`
+        : nouns.length ? `need ${esc(nouns.join(', '))}`
         : r.missing.length ? `need ${esc(r.missing.join('; '))}`
         : (r.kitSoft || []).length ? `ready — no ${esc(r.kitSoft.join(', '))}`
         : esc(r.suggestion || 'ready');
@@ -233,6 +242,32 @@ function renderAssistant(a) {
       if (!open) return head;
 
       const body = [];
+      // WHAT YOU HAVEN'T GOT, FIRST AND AS A LIST.
+      //
+      // The same shape as Components — noun in bright, everything after it dim —
+      // because it is the same kind of statement asked the other way round: that
+      // list is what's in your hands, this is what isn't. It goes above the full
+      // ingredient list rather than inside it, so the two lines nobody has are
+      // not four rows down a list of six they mostly do.
+      body.push(...(r.shortfall || []).map(s => {
+        const amount = s.amount ? `<span class="wsp-qty"> ${esc(s.amount)}</span>` : '';
+        const prep = s.prep ? `<span class="wsp-note"> · ${esc(s.prep)}</span>` : '';
+        // Alternatives, never a shopping list: any ONE of these answers the line,
+        // which is exactly why they're an aside and not their own rows.
+        const alt = (s.ex || []).length ? `<span class="wsp-state"> — ${esc(s.ex.join(' or '))}</span>` : '';
+        // A shop you know, or the honest absence of one. `sold: false` is the
+        // most useful answer on this line: nobody stocks it, so no amount of
+        // walking will find it and you're catching, growing or looting it.
+        const where = s.shops?.length ? `<span class="wsp-shop"> · ${esc(s.shops.join(', '))}</span>`
+          : s.sold === false ? `<span class="wsp-shop wsp-nosale"> · no shop sells it</span>`
+          : s.sold ? `<span class="wsp-shop wsp-dimshop"> · a shop you've not met</span>`
+          : '';
+        return `<div class="wsp-row wsp-step wsp-missing">`
+          + `<span class="wsp-name">${esc(s.noun)}</span>${amount}${prep}${alt}${where}</div>`;
+      }));
+      if ((r.shortfall || []).length && (r.ingredients || []).length) {
+        body.push(`<div class="wsp-row wsp-step"> </div>`);
+      }
       for (const line of r.ingredients || []) body.push(`<div class="wsp-row wsp-step">· ${esc(line)}</div>`);
       // What it's made IN, ticked against the room — the same question the
       // ingredients above answer, asked of the cupboard instead of the fridge.

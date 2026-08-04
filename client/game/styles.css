@@ -15903,6 +15903,21 @@ body.intro-cine-open { overflow: hidden; }
 /* Kit the room hasn't got. Dimmer than a step rather than an alarm — a missing
    spoon is a worse sauce, not a refusal, and the mark already says which. */
 .wsp-short { color: var(--text-muted, var(--text-dim)); opacity: .75; }
+/* What you're SHORT of, read as a column rather than a sentence. It borrows the
+   Components list's shape deliberately — bright noun, dim everything else — and
+   gets no colour of its own: the recipe row above already says the dish isn't
+   ready, and saying it twice in red would make a shopping trip look like a
+   failure state. */
+.wsp-missing { padding-left: 16px; }
+.wsp-missing .wsp-name { color: var(--text-bright); }
+/* Where to buy it. Dim, because it is the LAST thing on the line — you read the
+   noun, then the weight, then, if you're going out, the shop. */
+.wsp-shop { color: var(--cyan); opacity: .8; }
+/* A shop exists but you haven't met the keeper: it's a nudge, not an address. */
+.wsp-dimshop { color: var(--text-dim); opacity: .7; }
+/* Nobody sells it. The one line here worth a warning colour, because it changes
+   the plan rather than the route — no shop trip will ever fix this one. */
+.wsp-nosale { color: var(--yellow); opacity: .85; }
 .wsp-mark-note { color: var(--yellow); opacity: .8; }
 .wsp-mark {
 	color: var(--yellow);

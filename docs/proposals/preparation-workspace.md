@@ -445,6 +445,37 @@ Each phase ships and is usable alone.
 | 4 | Prepare Recipe — **built** | The re-validating plan runner above. `prepare <recipe>` in `plugins/workspace/`, `planKitchen` in the provider. Stops at a loaded vessel; never cooks |
 | 5 | Player recipes — **built** | `recipe:<slug>` flags. Shipped as part of the improvised-dish work in `plugins/cooking/` (`improvised.js`, `recipes.js`) rather than in the HUD — a recipe you invented is a cooking fact, not a panel feature. The Assistant scores them alongside the catalog's and `prepare` resolves them by the name you gave them |
 | 6 | Second provider — **built** | `chembench` in [plugins/synthesis/workspace.js](../../plugins/synthesis/workspace.js). **Nothing in `plugins/workspace` or the client panel changed to add it** — which is the whole claim, now tested rather than asserted |
+| 7 | The shortfall as a list — **built** | Missing ingredients travel as ROWS (`shortfall`) beside the prose `missing`, and each carries where to buy it. See below |
+
+### The shortfall is a list, not a sentence
+
+`missing` was a bag of English lines joined with semicolons, so a recipe two
+ingredients short printed a paragraph — "60g–180g of tomato, cut down — cooked
+down hard, before anything else goes in; 90g of cream — in last, off the heat" —
+directly under a Components list that reads as a column. Same information, wrong
+shape: the question at that moment is *what haven't I got*, and the answer was
+buried in the middle of two clauses of cooking advice.
+
+So each shortfall also travels as a row — `{ noun, amount, prep, note, ex, shops,
+sold }` — built from **`ingredientParts`**, which `ingredientLine` now composes
+its sentence from as well. One derivation, two presentations; the regress suite
+sweeps the whole catalog asserting the card's sentence contains the column's
+noun and weight, so the two cannot drift. The closed recipe row says only the
+nouns ("need tomato, cream"); opening it shows the rows.
+
+**Where to buy it** ([stockists.js](../../plugins/cooking/stockists.js)) is
+gated on **`player_npc_relations`, not on a visited-zone record** — there is no
+such record, and inventing a per-player table for a HUD hint would be a table
+earning its keep once. What exists already answers the better question: a shop is
+named at relation tier `known` or above, i.e. one whose keeper you have actually
+met. A grocer you've never met reads "a shop you've not met" — true, useful, and
+not a map to a district you haven't walked. `getRelation` is sync and hydrated at
+login, so the gate costs the panel nothing. The lookup itself is **one cached
+query** over `vendor_inventory` (the catalogue, never the rotating
+`vendor_stock` shelf, which would claim a grocer doesn't sell tomatoes on a
+Tuesday), resolved for the whole panel in a single pass. `sold: false` — nobody
+in town stocks it — is the most actionable line on the row, and a failed lookup
+answers `null` rather than borrowing it.
 
 ## Testing
 

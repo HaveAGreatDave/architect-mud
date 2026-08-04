@@ -1129,20 +1129,47 @@ const MINS = ms => {
   return `${Math.round(m)} min`;
 };
 
-// "500g–1kg of dense meat, cut down" — real weights, from the profile's own
-// unitWeight, which is the exact number the matcher counts against.
-export function ingredientLine(profileName, need, template = null, itemInfo = null) {
+// THE SAME LINE, IN ITS PIECES.
+//
+// `ingredientLine` composes an English sentence, which is right for a recipe
+// card and wrong for a list you read down a column: "60g–180g of tomato, cut
+// down — cooked down hard, before anything else goes in" is one string, and a
+// column wants the noun in one place and the weight in another. So the parts are
+// produced here and the sentence is assembled from them below — one derivation,
+// two presentations, and no way for the list and the card to disagree about what
+// a recipe wants.
+export function ingredientParts(profileName, need, template = null, itemInfo = null) {
   const p = PROFILES[profileName];
   const label = p?.label || profileName;
   const [lo, hi] = range(need);
   if (p?.modifier) {
-    return lo === hi
-      ? `${lo} of ${label} — to season`
-      : `${lo}–${hi} of ${label} — to season`;
+    return {
+      noun: label,
+      amount: lo === hi ? `${lo}` : `${lo}–${hi}`,
+      prep: '',
+      note: 'to season',
+      seasoning: true,
+    };
   }
   const unit = p?.unitWeight || 0;
-  const grams = unit ? (lo === hi ? G(lo * unit) : `${G(lo * unit)}–${G(hi * unit)}`) : (lo === hi ? `${lo}` : `${lo}–${hi}`);
-  const prep = p?.needsPrep ? ', cut down' : '';
+  return {
+    noun: keyNounFor(template, profileName, itemInfo) || label,
+    amount: unit
+      ? (lo === hi ? G(lo * unit) : `${G(lo * unit)}–${G(hi * unit)}`)
+      : (lo === hi ? `${lo}` : `${lo}–${hi}`),
+    prep: p?.needsPrep ? 'cut down' : '',
+    note: template?.notes?.[profileName] || '',
+    seasoning: false,
+  };
+}
+
+// "500g–1kg of dense meat, cut down" — real weights, from the profile's own
+// unitWeight, which is the exact number the matcher counts against.
+export function ingredientLine(profileName, need, template = null, itemInfo = null) {
+  const parts = ingredientParts(profileName, need, template, itemInfo);
+  if (parts.seasoning) return `${parts.amount} of ${parts.noun} — to season`;
+  const { amount: grams, prep: prepWord, note } = parts;
+  const prep = prepWord ? `, ${prepWord}` : '';
   // SAY PENNE, NOT "DRY STARCH".
   //
   // A keyed dish already names the exact ingredient that class stands for —
@@ -1154,15 +1181,12 @@ export function ingredientLine(profileName, need, template = null, itemInfo = nu
   // Class matching is untouched — this is the display layer looking up a noun
   // the template already committed to. Dishes with no key item for that class
   // keep the class label, which is correct: a stew's meat really is any meat.
-  const keyNoun = keyNounFor(template, profileName, itemInfo);
-  const shown = keyNoun || label;
-
+  //
   // A named dish may also say what its classes are FOR. Class matching is what
   // makes the catalog extensible, but "800g–1.2kg of liquid" is not a recipe
   // anyone can follow — that's three ingredients in one number, and the note is
   // where the author says which three.
-  const note = template?.notes?.[profileName];
-  return `${grams} of ${shown}${prep}${note ? ` — ${note}` : ''}`;
+  return `${grams} of ${parts.noun}${prep}${note ? ` — ${note}` : ''}`;
 }
 
 // The noun a template's key item lends to the class it belongs to, if any.

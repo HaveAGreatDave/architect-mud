@@ -2500,6 +2500,42 @@ export default async function regress({ run, check, getPlayer }) {
       check('...at its authored potency', laced.laced_potency === 2);
     }
 
+    // ── The missing-ingredient list, and where to buy it ─────────────────────
+    //
+    // The shortfall travels twice — as the recipe card's sentence and as the
+    // workspace list's rows — and the whole point of `ingredientParts` is that
+    // those are one derivation. If a card can ever say a weight the list doesn't,
+    // the two have drifted and a player is reading a lie on one of them.
+    {
+      const { ingredientParts, ingredientLine } = await import('./dishes.js');
+      const { whereToBuy } = await import('./stockists.js');
+      let drift = null;
+      for (const [key, t] of Object.entries(DISHES)) {
+        for (const [profile, need] of Object.entries(t.needs || {})) {
+          const p = ingredientParts(profile, need, t, null);
+          const line = ingredientLine(profile, need, t, null);
+          // The sentence must contain both pieces the column shows, or the column
+          // is showing something the card never said.
+          if (!line.includes(p.amount) || !line.includes(p.noun)) { drift = `${key}/${profile}: "${line}" vs ${p.amount} / ${p.noun}`; break; }
+        }
+        if (drift) break;
+      }
+      check('every recipe line and its parts agree about weight and noun', !drift, drift);
+
+      // THE DISCOVERY GATE. A shop is named only if you know its keeper, and this
+      // player has met nobody — so however many grocers stock a soft vegetable,
+      // the hint must name none of them. Getting this wrong hands out a directory
+      // of every shop in Coldwater to somebody who has just left the vat.
+      const noOne = { ...player, _relations: new Map() };
+      const hint = await whereToBuy(noOne, { profile: 'soft_vegetable' });
+      check('a stranger is told no shop by name', Array.isArray(hint.shops) && hint.shops.length === 0, JSON.stringify(hint));
+      check('...but is still told whether anyone sells it', typeof hint.sold === 'boolean', JSON.stringify(hint));
+      // A class nothing in the catalogue carries answers cleanly rather than
+      // throwing — "nobody sells this" is a real and useful answer.
+      const never = await whereToBuy(noOne, { profile: 'not_a_real_profile' });
+      check('an unstocked class answers no-shop rather than throwing', never.sold === false && !never.shops.length, JSON.stringify(never));
+    }
+
   } finally {
     const temps = [RAW, OVEN, STEAK, TOM, PAN, TURNER, KNIFE];
     await query('DELETE FROM player_inventory WHERE item_id = ANY($1)', [temps]).catch(() => {});

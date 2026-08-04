@@ -145,11 +145,28 @@ function renderWorkspaceText(view) {
     if (!g.recipes?.length) continue;
     out.push(`<span class="furniture-label">${esc(g.label)}:</span>\n`
       + g.recipes.slice(0, 8).map(r => {
-        const short = r.missing?.length ? ` <span class="text-dim">— short: ${esc(r.missing.join(', '))}</span>` : '';
+        // The shortfall as NOUNS on the headline and as its own indented lines
+        // under it — the same split the panel makes, because a log rung that
+        // printed the whole ingredient sentence inline was the run-on line this
+        // was reworked out of. If a provider hands over no rows (an older one,
+        // or a domain with nothing to say about shops), the prose falls back.
+        const rows = r.shortfall || [];
+        const short = rows.length ? ` <span class="text-dim">— short: ${esc(rows.map(s => s.noun).join(', '))}</span>`
+          : r.missing?.length ? ` <span class="text-dim">— short: ${esc(r.missing.join(', '))}</span>` : '';
         const gear = r.equipment?.length ? ` <span class="text-dim">— needs ${esc(r.equipment.join(', '))}</span>` : '';
         const pct = Number.isFinite(r.pct) ? ` <span class="text-dim">${Math.round(r.pct)}%</span>` : '';
         const acts = (r.actions || []).map(x => link(x.command, x.label || 'prepare')).join(' · ');
-        return `  <b>${esc(r.name)}</b>${pct}${short}${gear}${acts ? `  ${acts}` : ''}`;
+        // Where to get each one. Only on a recipe you could realistically go and
+        // finish — a list of eight recipes each printing three stockists is a
+        // wall, so the lines belong to the ones nearest to ready.
+        const detail = (rows.length && rows.length <= 3)
+          ? '\n' + rows.map(s => {
+            const where = s.shops?.length ? ` <span class="text-dim">· ${esc(s.shops.join(', '))}</span>`
+              : s.sold === false ? ` <span class="text-dim">· no shop sells it</span>` : '';
+            return `      ${esc(s.noun)}${s.amount ? ` <span class="text-dim">${esc(s.amount)}</span>` : ''}${where}`;
+          }).join('\n')
+          : '';
+        return `  <b>${esc(r.name)}</b>${pct}${short}${gear}${acts ? `  ${acts}` : ''}${detail}`;
       }).join('\n'));
   }
   if (a?.note) out.push(`<span class="text-dim">${esc(a.note)}</span>`);

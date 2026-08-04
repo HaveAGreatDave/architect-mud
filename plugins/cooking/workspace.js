@@ -25,7 +25,9 @@ import { portionName, canChop } from './portions.js';
 import { prepText, canMarinate } from './prep.js';
 import { fondState } from './fond.js';
 import { getItem } from '../../server/engine/items-cache.js';
-import { DISHES, signature, ingredientLine, methodLines, unitsOf, ALSO, UNIT_TOLERANCE_LOW } from './dishes.js';
+import { DISHES, signature, ingredientLine, ingredientParts, keyNounFor, methodLines, unitsOf, ALSO, UNIT_TOLERANCE_LOW } from './dishes.js';
+import { buyableExamples } from './shoplist.js';
+import { whereToBuyAll } from './stockists.js';
 import { cookbookState, savedRecipes, UNTRIED } from './knowledge.js';
 import { gearFor, gearKeysOf } from './gear.js';
 
@@ -225,9 +227,36 @@ const range = need => (Array.isArray(need) ? need : [need, need]);
 const titleFor = key => key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 const itemInfo = id => { try { return getItem(id); } catch { return null; } };
 
+// ONE SHORTFALL, IN THE PIECES A LIST NEEDS.
+//
+// The prose line stays — the recipe card reads it, and "cooked down hard, before
+// anything else goes in" is worth saying somewhere. But a MISSING list is read
+// the way the Components list above it is read: down a column, noun first. So
+// each shortfall also travels as a row, and the two are built from the same
+// `ingredientParts` so they can't drift.
+//
+// `ex` is the buyable nouns, from the shopping list's own derivation rather than
+// the recipe's note — the note says "tomato for the body", and a fresh tomato is
+// a soft vegetable that will NOT satisfy the liquid it's describing. Everything
+// named here ticks the line off when you buy it, because the test is the
+// matcher's.
+function shortfallRow(profile, need, template) {
+  const parts = ingredientParts(profile, need, template, itemInfo);
+  // A class the dish already names outright ("125g of penne") is the buyable
+  // thing; listing four more starches after it would make a solved line
+  // ambiguous again. Same rule the shopping list's `classLabel` applies.
+  const ex = keyNounFor(template, profile, itemInfo) ? [] : buyableExamples(profile, template);
+  return {
+    kind: 'profile', v: profile,
+    noun: parts.noun, amount: parts.amount, prep: parts.prep, note: parts.note,
+    ex,
+  };
+}
+
 function scoreRecipe(key, template, sig, ctx, band) {
   const also = sig[ALSO] || {};
   const missing = [];
+  const shortfall = [];
   let met = 0, total = 0;
 
   for (const [profile, need] of Object.entries(template.needs)) {
@@ -240,6 +269,7 @@ function scoreRecipe(key, template, sig, ctx, band) {
     else {
       met += Math.max(0, have / min);
       missing.push(ingredientLine(profile, need, template, itemInfo));
+      shortfall.push(shortfallRow(profile, need, template));
     }
   }
 
@@ -248,7 +278,13 @@ function scoreRecipe(key, template, sig, ctx, band) {
   for (const id of template.keyItems || []) {
     total += 1;
     if (ctx.itemIds.has(id)) met += 1;
-    else missing.push(itemInfo(id)?.name || id.replace(/^item_/, '').replace(/_/g, ' '));
+    else {
+      const name = itemInfo(id)?.name || id.replace(/^item_/, '').replace(/_/g, ' ');
+      missing.push(name);
+      // No amount and no alternatives: a key item is one specific thing and the
+      // recipe refuses without it, which is the whole reason it's keyed.
+      shortfall.push({ kind: 'item', v: id, noun: name, amount: '', prep: '', note: '', ex: [] });
+    }
   }
 
   // Equipment, from the one derivation the Cookbook card and the shopping list
@@ -284,6 +320,9 @@ function scoreRecipe(key, template, sig, ctx, band) {
     band: band === UNTRIED ? null : band,
     pct,
     missing,
+    // The same shortfall as rows rather than sentences — see `shortfallRow`. The
+    // `shops` on each is filled in afterwards, in one pass over the whole panel.
+    shortfall,
     equipment,
     // Kit that isn't a gate. Named separately so the HUD can say "you'll want a
     // spoon" without the recipe leaving the group it belongs in.
@@ -372,6 +411,33 @@ async function buildAssistant(player, reachableFood, ctx) {
     // `prepare` resolves by the name the player gave it, not the slug.
     if (r.actions.length) r.actions = [{ ...r.actions[0], command: `prepare ${blob.name}` }];
     scored.push(r);
+  }
+
+  // WHERE TO BUY IT, ONCE FOR THE WHOLE PANEL.
+  //
+  // Every shortfall on every short recipe in one call, so the vendor index is
+  // loaded once and eight recipes short of the same tomato cost what one does.
+  // A failure here is a missing hint, never a missing panel: the Assistant's job
+  // is to say what you're short of, and it already did that before this existed.
+  try {
+    const wants = [];
+    for (const r of scored) for (const s of r.shortfall || []) {
+      wants.push(s.kind === 'item' ? { itemId: s.v } : { profile: s.v });
+      s._at = wants.length - 1;
+    }
+    const found = await whereToBuyAll(player, wants);
+    for (const r of scored) for (const s of r.shortfall || []) {
+      const hit = found[s._at] || {};
+      s.shops = hit.shops || [];
+      s.sold = !!hit.sold;
+      delete s._at;
+    }
+  } catch (err) {
+    console.warn('[cooking] stockist lookup failed:', err?.message || err);
+    // `sold: null` is "no answer", which the panel says nothing about — distinct
+    // from `false`, which is the real and useful "nobody sells this, go and
+    // catch it". A broken lookup must never print that sentence.
+    for (const r of scored) for (const s of r.shortfall || []) { s.shops = []; s.sold = null; delete s._at; }
   }
 
   const bucket = r => (r.equipment.length && !r.missing.length ? 'gear'
